@@ -2330,7 +2330,7 @@ static bool workspace_controls_test(void *rsdp,struct limine_memmap_response *ma
     else if(desktop_session)console_write("battery-home-monitor: begin continuous=yes log_interval_us=5000000 native=explicit-session\n");
     else if(home)console_write(continuous_home?"battery-home-monitor: begin continuous=yes log_interval_us=5000000 native=disabled\n":"battery-home-session: limit=512 per_session=yes startup=disabled\n");
     if(files)console_printf("battery-control-files: begin pending-application-jobs=yes native=%s\n",home?"explicit":"disabled");
-    bool logging=!desktop_home || (desktop_capture?workspace_log_active():desktop_power_test?workspace_log_start_capture():workspace_log_start());
+    bool logging=!desktop_home || (desktop_capture?workspace_log_active():desktop_power_test?workspace_log_start_checkpoints():workspace_log_start());
     if(desktop_home)console_printf("battery-home-desktop: logging=%s apps=ordinary native=%s\n",logging?"started":"FAILED",desktop_capture?"explicit-capture":desktop_session?"explicit-session":"disabled");
     bool complete=logging && controls_test(rsdp,map,automatic,true,files);
     if(desktop_home) {

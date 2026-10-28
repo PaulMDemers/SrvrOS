@@ -3,14 +3,19 @@
 #include <string.h>
 #define SRVROS_WORKSPACE_LOG_HOST_TEST
 #include "../kernel/src/workspace_log.c"
-static struct item { char path[160];struct vfs_node node;unsigned char bytes[65536]; } files[64];
+static struct item { char path[160];struct vfs_node node;unsigned char bytes[BOOTLOG_EXTENDED_CAPTURE_CAPACITY]; } files[64];
 static unsigned count,depth,writes,flushes,device_reads;
-static bool capacity_ok=true;
+static bool capacity_ok=true,extend_ok=true;
+static uint64_t snapshot_bytes=8;
+static bool lost_prefix;
+bool bootlog_extend_capture(void) { return extend_ok; }
+bool bootlog_extend_capture_to(uint64_t capacity) { assert(capacity==BOOTLOG_CAPTURE_CAPACITY || capacity==BOOTLOG_LARGE_CAPTURE_CAPACITY || capacity==BOOTLOG_FULL_CAPTURE_CAPACITY || capacity==BOOTLOG_EXTENDED_CAPTURE_CAPACITY);return extend_ok; }
 static unsigned expected_capacity=32;
 static bool mounted=true,io_ok=true,sync_ok=true,corrupt,open_file;
 static uint64_t ticks=10,total=100,clock_us;
 static bool tracing,reference=true,power_enabled=true;
 static unsigned cost_reports;
+static bool *finish_on_wait;
 static uint64_t test_policy=20000;
 bool xhci_storage_wait_policy(uint64_t policy,uint64_t *old) { assert(depth && (policy==0||policy==4000||policy==20000));*old=test_policy;test_policy=policy;return true; }
 bool timer_reference_ready(void) { return reference; }
@@ -24,7 +29,7 @@ bool exfat_creation_capacity(const char *p,uint64_t f,uint64_t d) {
 }
 bool exfat_create_directory(const char *p) { assert(depth);if(find(p) || !io_ok) return false;add(p)->node.type=VFS_NODE_DIRECTORY;return true; }
 bool exfat_write_file(const char *p,const uint8_t *data,uint64_t n) {
-    assert(depth && n<=65536);writes++;clock_us+=100;if(!io_ok) return false;
+    assert(depth && n<=snapshot_limit);writes++;clock_us+=100;if(!io_ok) return false;
     struct item *f=find(p);if(!f) f=add(p);f->node.type=VFS_NODE_FILE;f->node.size=n;memcpy(f->bytes,data,n);return true;
 }
 bool vfs_read_all(const struct vfs_node *n,const uint8_t **data,uint64_t *size) {
@@ -37,7 +42,7 @@ bool process_has_open_vfs_prefix(const char *p) { (void)p;return open_file; }
 bool scheduler_io_begin(void) { assert(!depth);depth=1;return true; }
 void scheduler_io_end(void) { assert(depth==1);depth=0; }
 bool scheduler_spawn(const char *name,scheduler_thread_fn fn,void *arg) { (void)name;(void)fn;(void)arg;return true; }
-bool scheduler_wait(struct scheduler_wait_queue *q,scheduler_wait_condition_fn fn,void *arg) { (void)q;return fn(arg); }
+bool scheduler_wait(struct scheduler_wait_queue *q,scheduler_wait_condition_fn fn,void *arg) { (void)q;if(finish_on_wait){*finish_on_wait=false;finish_on_wait=NULL;}return fn(arg); }
 bool scheduler_wait_timeout(struct scheduler_wait_queue *q,scheduler_wait_condition_fn fn,void *arg,uint64_t end) { bool ready=scheduler_wait(q,fn,arg);if(!ready)ticks=end;return ready; }
 void scheduler_wake_all(struct scheduler_wait_queue *q) { (void)q; }
 void scheduler_print_activity(void) { assert(!depth); }
@@ -46,7 +51,11 @@ uint64_t timer_ticks(void) { return ticks; }
 uint64_t timer_monotonic_us(void) { return clock_us; }
 int64_t timer_realtime_us(void) { return 123456789; }
 uint64_t bootlog_total(void) { return total; }
-uint64_t bootlog_snapshot(char *out,uint64_t capacity,uint64_t *seq) { assert(capacity>=8);memcpy(out,"test log",8);*seq=total;return 8; }
+uint64_t bootlog_snapshot(char *out,uint64_t capacity,uint64_t *seq) { assert(capacity==snapshot_limit);
+    uint64_t n=snapshot_bytes<capacity?snapshot_bytes:capacity,skip=snapshot_bytes-n;
+    if(snapshot_bytes==8)memcpy(out,"test log",8);
+    else for(uint64_t i=0;i<n;i++)out[i]=(char)((skip+i)%251);
+    *seq=capacity>BOOTLOG_DEFAULT_CAPACITY?snapshot_bytes+(lost_prefix?1:0):total;return n; }
 void smc_status(struct srv_smc_status *out) { assert(!depth);*out=(struct srv_smc_status){.version=SRV_SMC_VERSION}; }
 void power_status(struct power_snapshot *out) { assert(!depth);*out=(struct power_snapshot){.state=power_enabled?POWER_ACTIVE:POWER_DISABLED,.flags=3,.package_mw=10000,.active_mhz=2200}; }
 void audio_stream_snapshot(struct srv_pcm_status *out,uint64_t *owner) { assert(!depth);*out=(struct srv_pcm_status){.version=SRV_PCM_VERSION};*owner=0; }
@@ -95,9 +104,38 @@ int main(void) {
     assert(!workspace_storage_wait_capture() && writes==old_writes+1 && test_policy==20000 && !tracing);sync_ok=true;
     assert(workspace_log_start());io_ok=false;old_writes=writes;
     assert(!workspace_storage_wait_capture() && writes==old_writes+1 && test_policy==20000 && !tracing);io_ok=true;
+    assert(workspace_log_stop());
+    extend_ok=false;old_writes=writes;assert(!workspace_log_start_capture() && writes==old_writes);
+    extend_ok=true;snapshot_bytes=BOOTLOG_CAPTURE_CAPACITY;
+    assert(workspace_log_start_capture() && snapshot_limit==BOOTLOG_CAPTURE_CAPACITY && !retain_checkpoints);
+    struct item *large=find(path);assert(large && large->node.size==snapshot_bytes);
+    for(uint64_t i=0;i<snapshot_bytes;i++)assert(large->bytes[i]==i%251);
+    assert(!workspace_log_start() && snapshot_limit==BOOTLOG_CAPTURE_CAPACITY);
+    old_writes=writes;lost_prefix=true;assert(!save("session-a.log") && writes==old_writes);
+    lost_prefix=false;corrupt=true;assert(!save("session-a.log"));corrupt=false;
+    assert(workspace_log_stop());snapshot_bytes=8;
+    assert(workspace_log_start() && snapshot_limit==BOOTLOG_DEFAULT_CAPACITY);
+    assert(workspace_log_stop());
+    snapshot_bytes=BOOTLOG_LARGE_CAPTURE_CAPACITY;extend_ok=false;old_writes=writes;
+    assert(!workspace_log_start_large_capture() && writes==old_writes);
+    extend_ok=true;assert(workspace_log_start_large_capture() && snapshot_limit==BOOTLOG_LARGE_CAPTURE_CAPACITY);
+    large=find(path);assert(large && large->node.size==snapshot_bytes);
+    for(uint64_t i=0;i<snapshot_bytes;i++)assert(large->bytes[i]==i%251);
+    old_writes=writes;lost_prefix=true;assert(!save("session-a.log") && writes==old_writes);lost_prefix=false;
+    assert(workspace_log_stop());snapshot_bytes=8;assert(workspace_log_start() && snapshot_limit==BOOTLOG_DEFAULT_CAPACITY);assert(workspace_log_stop());
+    snapshot_bytes=BOOTLOG_FULL_CAPTURE_CAPACITY;extend_ok=false;old_writes=writes;
+    assert(!workspace_log_start_full_capture() && writes==old_writes);extend_ok=true;
+    assert(workspace_log_start_full_capture() && snapshot_limit==BOOTLOG_FULL_CAPTURE_CAPACITY);
+    assert(workspace_log_stop());snapshot_bytes=BOOTLOG_EXTENDED_CAPTURE_CAPACITY;extend_ok=false;old_writes=writes;
+    assert(!workspace_log_start_extended_capture() && writes==old_writes);extend_ok=true;
+    assert(workspace_log_start_extended_capture() && snapshot_limit==BOOTLOG_EXTENDED_CAPTURE_CAPACITY);
+
+    large=find(path);assert(large && large->node.size==snapshot_bytes);for(uint64_t i=0;i<snapshot_bytes;i++)assert(large->bytes[i]==i%251);
+    old_writes=writes;lost_prefix=true;assert(!save("session-a.log") && writes==old_writes);lost_prefix=false;
+    assert(workspace_log_stop());snapshot_bytes=8;assert(workspace_log_start() && snapshot_limit==BOOTLOG_DEFAULT_CAPACITY);assert(workspace_log_stop());
     count=0;enabled=false;busy=false;expected_capacity=64;
-    capacity_ok=false;assert(!workspace_log_start_capture());capacity_ok=true;
-    assert(workspace_log_start_capture() && retain_checkpoints && checkpoint==0);
+    capacity_ok=false;assert(!workspace_log_start_checkpoints());capacity_ok=true;
+    assert(workspace_log_start_checkpoints() && snapshot_limit==BOOTLOG_DEFAULT_CAPACITY && retain_checkpoints && checkpoint==0);
     for(unsigned i=0;i<32;i++) {
         assert(periodic_save());
         char expected[160];snprintf(expected,sizeof(expected),"%s/checkpoint-%02x.log",directory,i);
@@ -109,5 +147,65 @@ int main(void) {
     assert(periodic_save() && strstr(path,"session-a.log"));
     assert(periodic_save() && strstr(path,"session-b.log"));
     assert(workspace_log_stop());
-    puts("workspace-log: PASS gated writes/readback, collision-safe sessions, periodic readiness, open-file refusal, corruption/sync failure, stop before unmount");
+    count=0;snapshot_bytes=BOOTLOG_EXTENDED_CAPTURE_CAPACITY;
+    assert(workspace_log_start_extended_capture());
+    assert(workspace_log_begin_wifi_desktop() && enabled && snapshot_limit==BOOTLOG_DEFAULT_CAPACITY);
+    char proof_path[160];snprintf(proof_path,sizeof proof_path,"%s/wifi-scan.log",directory);
+    struct item *proof=find(proof_path);assert(proof && proof->node.size==BOOTLOG_EXTENDED_CAPTURE_CAPACITY);
+    assert(strstr(path,"wifi-ui-begin.log") && find(path)->node.size==BOOTLOG_DEFAULT_CAPACITY);
+    for(unsigned i=0;i<BOOTLOG_DEFAULT_CAPACITY;i++)assert(find(path)->bytes[i]==(BOOTLOG_EXTENDED_CAPTURE_CAPACITY-BOOTLOG_DEFAULT_CAPACITY+i)%251);
+    old_writes=writes;assert(!workspace_log_begin_wifi_desktop() && writes==old_writes);
+    lost_prefix=true;assert(periodic_save() && periodic_save() && workspace_log_stop());lost_prefix=false;
+    for(uint64_t i=0;i<proof->node.size;i++)assert(proof->bytes[i]==i%251);
+    snapshot_bytes=8;assert(workspace_log_start());old_writes=writes;
+    assert(!workspace_log_begin_wifi_desktop() && writes==old_writes && enabled);assert(workspace_log_stop());
+    for(unsigned fault=0;fault<4;fault++){
+        count=0;assert(workspace_log_start_extended_capture());old_writes=writes;
+        if(fault==0)lost_prefix=true;
+        if(fault==1)corrupt=true;
+        if(fault==2)sync_ok=false;
+        if(fault==3)busy=true;
+        assert(!workspace_log_begin_wifi_desktop() && !enabled && snapshot_limit==BOOTLOG_EXTENDED_CAPTURE_CAPACITY);
+        if(fault==0 || fault==3)assert(writes==old_writes);
+        if(fault==3)assert(busy);
+        lost_prefix=corrupt=busy=false;sync_ok=true;healthy=true;assert(workspace_log_stop());
+    }
+    count=0;snapshot_bytes=BOOTLOG_EXTENDED_CAPTURE_CAPACITY;
+    assert(workspace_log_start_extended_capture());
+    busy=true;finish_on_wait=&busy;
+    assert(workspace_log_begin_wifi_capture() && wifi_capture_parked && !enabled && !busy && !finish_on_wait);
+    assert(strstr(path,"session-a.log"));old_writes=writes;ticks+=10000;
+    assert(!ready(NULL) && !workspace_log_active() && writes==old_writes);
+    assert(!workspace_log_start() && !workspace_log_begin_wifi_capture() && writes==old_writes);
+    assert(workspace_log_begin_wifi_desktop() && enabled && !wifi_capture_parked);
+    assert(snapshot_limit==BOOTLOG_DEFAULT_CAPACITY && ready(NULL)==false);
+    assert(periodic_save() && workspace_log_stop());
+    count=0;assert(workspace_log_start_extended_capture());
+    assert(workspace_log_begin_wifi_capture() && workspace_log_stop() && !wifi_capture_parked);
+    for(unsigned fault=0;fault<3;fault++){
+        count=0;assert(workspace_log_start_extended_capture());assert(workspace_log_begin_wifi_capture());
+        if(fault==0)lost_prefix=true;
+        if(fault==1)corrupt=true;
+        if(fault==2)sync_ok=false;
+        assert(!workspace_log_begin_wifi_desktop() && !enabled && wifi_capture_parked);
+        old_writes=writes;assert(!workspace_log_begin_wifi_desktop() && writes==old_writes);
+        lost_prefix=corrupt=false;sync_ok=healthy=true;assert(workspace_log_stop() && !wifi_capture_parked);
+    }
+    /* A generic pause does not grant the Wi-Fi handoff ownership. */
+    count=0;assert(workspace_log_start_extended_capture());assert(workspace_log_quiesce(0));
+    old_writes=writes;assert(!workspace_log_begin_wifi_desktop() && writes==old_writes);assert(workspace_log_stop());
+    for(unsigned fault=0;fault<4;fault++){
+        count=0;assert(workspace_log_start_extended_capture());old_writes=writes;
+        if(fault==0)lost_prefix=true;
+        if(fault==1)corrupt=true;
+        if(fault==2)sync_ok=false;
+        if(fault==3)busy=true;
+        assert(!workspace_log_begin_wifi_capture() && !enabled && !wifi_capture_parked);
+        if(fault==0 || fault==3)assert(writes==old_writes);
+        if(fault==3)assert(busy);
+        lost_prefix=corrupt=busy=false;sync_ok=true;healthy=true;assert(workspace_log_stop());
+    }
+    snapshot_bytes=8;count=0;assert(workspace_log_start());old_writes=writes;
+    assert(!workspace_log_begin_wifi_capture() && enabled && writes==old_writes);assert(workspace_log_stop());
+    puts("workspace-log: PASS gated writes/readback, collision-safe sessions, periodic readiness, open-file refusal, corruption/sync failure, stop before unmount;immutable full RF proof,rolling desktop tail and phase-boundary fault containment");
 }

@@ -1,8 +1,23 @@
 #include <srvros/device_abi.h>
+#include <srvros/wifi_service.h>
 #include <srvros/heap.h>
 #include <srvros/net_device.h>
 #include <srvros/net.h>
 #include <srvros/usb_ecm.h>
+#include <srvros/mt76_probe.h>
+#include <srvros/mt76_bringup.h>
+#include <srvros/mt76_mcu.h>
+#include <srvros/mt76_mac_cycle.h>
+#include <srvros/mt76_calibration.h>
+#include <srvros/mt76_poweron_calibration.h>
+#include <srvros/mt76_rx.h>
+#include <srvros/mt76_rx_window.h>
+#include <srvros/mt76_discovery.h>
+#include <srvros/mt76_scan.h>
+#include <srvros/mt76_scan_batch.h>
+#include <srvros/mt76_channel_plan.h>
+#include <srvros/mt76_channel_tune.h>
+#include <srvros/mt76_radio.h>
 #include <srvros/latency.h>
 #include <srvros/console.h>
 #include <srvros/keyboard.h>
@@ -224,8 +239,311 @@ struct xhci_trackpad_endpoint {
     struct xhci_trackpad_sample samples[XHCI_TRACKPAD_SAMPLES];
 };
 
+/* One retained main-packet IN endpoint, independent of MCU replies. */
+struct xhci_wifi_passive {
+    bool attempted,waiting,wait_complete,capture_attempted,complete,inspected,beacon;
+    uint64_t waited_us;unsigned polls,actual,view_status,beacon_status,consumed,mpdu;
+    uint16_t frame_control,interval;uint8_t ssid_size,channel;
+    bool privacy,rsn,wpa,probe_response,ds_present;
+};
+struct xhci_wifi_window {
+    struct mt76_rx_window state;
+    struct mt76_rx_window_plan plan;
+    bool prepared, polling, delivered, initial_early;
+};
+struct xhci_wifi_channel {
+    struct mt76_channel_preview state;
+    bool active,pinned,forward_failed,last_failed_write,cleanup_started,cleanup_bad;
+    unsigned forward,callbacks,exchanges,owned_checks,cleanup_phase,guard_index,restore_index;
+    uint16_t published,cleanup_mask;
+    uint64_t identity[18];
+};
+struct xhci_wifi_tune_event { uint32_t value; uint16_t address; uint8_t kind,poll; };
+struct xhci_wifi_tune {
+    struct mt76_channel_tune state;
+    bool active,pinned,forward_failed,last_failed_write,cleanup_gate;
+    unsigned callbacks,exchanges,owned_checks,pos,count,after_vco,observe_at;
+    bool observing;
+    uint16_t published;
+    uint64_t identity[18];
+    struct xhci_wifi_tune_event event[384];
+};
+struct xhci_wifi_rx {
+    struct xhci_bulk_endpoint ep;
+    uint64_t buffer_phys,trb,stop_dequeue,waited_us;
+    uint8_t *buffer;
+    uint32_t requested,remaining,completion,stop_state;
+    unsigned reads,posts,events,late_events;
+    uint32_t guards[2][3];
+    bool active,attempted,configured,pending,done,stopping,stop_attempted,stopped,failed,wait_ok,passive_during_wait;
+};
+
+struct xhci_wifi_retry {
+    uint8_t *buffer;
+    uint64_t physical,identity[2];
+    unsigned events,completion,remaining,late;
+    bool enabled,attempted,posted;
+};
+struct xhci_wifi_burst {
+    uint8_t *buffer[9];
+    uint64_t physical[9],pin_pointer[9],pin_physical[9];
+    struct mt76_rx_window_plan plan;
+    struct mt76_rx_window state;
+    unsigned first,posts,late,early_events,early_completion,early_remaining;
+    bool enabled,prepared,delivered;
+};
+struct xhci_wifi_receive {
+    struct xhci_bulk_endpoint ep;
+    struct mt76_mac_cycle mac;
+    struct mt76_rx_view view;struct mt76_rx_beacon beacon;
+    struct xhci_wifi_retry retry;
+    struct xhci_wifi_burst burst;
+    uint64_t buffer_phys,trb,dequeue,identity[6],elapsed_us;
+    uint8_t *buffer;
+    unsigned reads,writes,waits,polls,stalled,events,late,completion,remaining,actual,view_status,beacon_status;
+    uint32_t guards[4];
+    bool attempted,active,retarget_attempted,retargeted,posted,pending,done;
+    bool stopping,stop_attempted,stopped,mac_active,mac_quiescent,polling,during_window,failed,complete,inspected;
+};
+struct xhci_wifi_scan {
+    bool attempted,active,failed;
+    unsigned index,completed,late;
+    struct { struct xhci_wifi_tune tune; struct xhci_wifi_receive receive; } visit[3];
+    struct mt76_scan_input input[3];
+    struct mt76_scan result;
+    struct mt76_scan_batch_visit batch_visit[3];
+    struct mt76_scan_batch batch;
+};
+struct xhci_wifi_mcu {
+    struct xhci_bulk_endpoint response;
+    uint64_t buffer_phys, trb;
+    uint8_t *buffer;
+    uint32_t remaining, requested, completion;
+    uint8_t dci;
+    bool attempted, configured, pending, done, failed;
+    bool identity_validated, write_attempted, write_validated, pair_attempted, timing_active;
+    struct mt76_mcu_timing timing;
+    int timing_sent;
+    struct mt76_mcu_mac mac;
+    struct mt76_mcu_mac format;
+    unsigned format_submitted;
+    bool format_active;
+    struct mt76_bbp_probe bbp;
+    bool bbp_active;
+    struct mt76_mcu_mac compact[MT76_MCU_COMPACT_PHASES];
+    unsigned compact_next, compact_limit, compact_submitted[MT76_MCU_COMPACT_PHASES];
+    bool compact_mode, compact_active;
+    bool txbe_observe_active, txbe_first_active, txbe_first_submitted, txbe_second_mode;
+    bool clock_mode,clock_active,clock_submitted,clock_pair_mode;
+    struct mt76_clock_probe clock;
+    bool bbp_after_mac_mode,bbp_switch_mode,bbp_switch_active;
+    unsigned bbp_switch_submitted;
+    struct mt76_bbp_switch bbp_switch;
+    bool dcoc_mode,dcoc_active,dcoc_submitted;
+    struct mt76_dcoc dcoc;
+    bool skey_mode,skey_active;
+    unsigned skey_submitted;
+    struct mt76_skey skey;
+    bool wcid_mode,wcid_active;
+    unsigned wcid_submitted;
+    struct mt76_wcid wcid;
+    bool mac_tail_mode,mac_tail_active;
+    unsigned mac_tail_submitted;
+    struct mt76_mac_tail mac_tail;
+    bool mac_fixed_mode,mac_fixed_active;
+    unsigned mac_fixed_submitted;
+    struct mt76_mac_fixed mac_fixed;
+    bool efuse_map_mode,efuse_map_active;
+    struct mt76_efuse_map efuse_map;
+    struct mt76_efuse_map_gate efuse_map_gate;
+    bool rf_probe_mode,rf_probe_active,rf_probe_submitted;
+    unsigned rf_probe_reads;
+    struct mt76_rf_probe rf_probe;
+    bool rf_central_mode,rf_central_active;
+    unsigned rf_central_submitted;
+    struct mt76_rf_central rf_central;
+    bool rf_six_mode,rf_six_active;
+    unsigned rf_six_submitted;
+    enum mt76_mcu_timing_status rf_central_status;
+    struct mt76_rf_six rf_six;
+    bool rf_csr_mode,rf_csr_active;
+    unsigned rf_csr_submitted;
+    struct mt76_rf_csr rf_csr;
+    bool rf_bank5_mode,rf_bank5_active;
+    unsigned rf_bank5_submitted;
+    struct mt76_rf_table rf_bank5;
+    bool rf_bank6_mode,rf_bank6_active;
+    unsigned rf_bank6_submitted;
+    struct mt76_rf_table rf_bank6;
+    bool rf_vga_mode,rf_vga_active;
+    unsigned rf_vga_submitted;
+    struct mt76_rf_table rf_vga;
+    bool rf_g20_mode,rf_g20_active;
+    unsigned rf_g20_submitted;
+    struct mt76_rf_table rf_g20;
+    bool channel_state_mode,channel_state_active,channel_observe_mode,vco_ready_mode,usb_cycle_mode,usb_cycle_active;
+    struct mt76_usb_cycle usb_cycle;
+    unsigned usb_cycle_submitted;
+    bool bw_observe_mode,bw_observe_active;
+    unsigned bw_observe_submitted;
+    struct mt76_bw_observe bw_observe;
+    bool bbp20_mode,bbp20_active;unsigned bbp20_submitted;struct mt76_bbp20 bbp20;
+    bool channel_probe_mode,channel_probe_active;unsigned channel_probe_submitted;struct mt76_channel_probe channel_probe;
+    bool band2g_mode,band2g_active,band_mac_active;unsigned band2g_submitted,band_mac_submitted;struct mt76_rf_table band2g;struct mt76_band_mac band_mac;
+    bool synth1_mode,synth1_active;unsigned synth1_submitted;struct mt76_synth1 synth1;
+    bool post_mode,post_active,post_mac_active;unsigned post_submitted,post_mac_submitted;struct mt76_rf_table post;struct mt76_post_mac post_mac;
+    bool gain_mode,gain_active,gain_inventory_active;struct mt76_rx_fields gain_fields;struct mt76_efuse_map_gate gain_gate;unsigned gain_inventory_submitted;struct mt76_gain_inventory gain_inventory;
+    bool channel_bbp_mode,channel_bbp_active;unsigned channel_bbp_submitted;struct mt76_channel_bbp channel_bbp;
+    bool post_vco_mode,post_vco_active;unsigned post_vco_submitted,post_vco_delays;struct mt76_post_vco post_vco;
+    bool passive_mode;struct xhci_wifi_passive passive;
+    bool window_mode,window_long_mode,discovery_mode;struct xhci_wifi_window window;
+    struct mt76_discovery discovery;unsigned discovery_checks;
+    bool channel_mode;struct xhci_wifi_channel channel;
+    bool tune_mode;struct xhci_wifi_tune tune;
+    bool receive_mode;struct xhci_wifi_receive receive;
+    bool scan_mode,scan_retry_mode,scan_batch_mode;struct xhci_wifi_scan scan;
+    bool poweron_mode,poweron_active;unsigned poweron_ops,poweron_reads,poweron_writes,poweron_waits,poweron_commands,poweron_ack_mask;struct mt76_calibration poweron;
+    bool cal_probe_mode,cal_probe_active;unsigned cal_probe_ops,cal_probe_reads,cal_probe_writes,cal_probe_waits;struct mt76_calibration_probe cal_probe;
+    bool rx_lifecycle_mode,mac_cycle_mode;struct xhci_wifi_rx rx;struct mt76_mac_cycle mac_cycle;
+    bool agc_state_mode,agc_state_active;unsigned agc_state_submitted;struct mt76_agc_state agc_state;
+    unsigned channel_state_submitted;
+    struct mt76_channel_state channel_state;
+    bool path_mode,path_active;
+    unsigned path_submitted;
+    struct mt76_path path;
+    bool rf_wait_mode,rf_wait_active;
+    unsigned rf_wait_submitted,rf_wait_delays;
+    struct mt76_rf_wait rf_wait;
+    bool rf_cal_mode,rf_cal_active;
+    unsigned rf_cal_submitted;
+    struct mt76_rf_cal rf_cal;
+    bool rf_trim_mode,rf_trim_active;
+    unsigned rf_trim_submitted;
+    struct mt76_rf_table rf_trim;
+    bool trim_fields_active;
+    struct mt76_trim_fields trim_fields;
+    struct mt76_efuse_map_gate trim_fields_gate;
+    bool rf_table_mode,rf_table_active;
+    unsigned rf_table_submitted;
+    struct mt76_rf_table rf_table;
+    bool rf_state_mode,rf_state_active;
+    unsigned rf_state_submitted;
+    struct mt76_rf_state rf_state;
+    bool rf_write_mode,rf_write_active;
+    unsigned rf_write_submitted;
+    struct mt76_rf_write rf_write;
+    bool ant_init_mode,ant_fields_active,ant_init_active;
+    struct mt76_ant_fields ant_fields;
+    struct mt76_efuse_map_gate ant_fields_gate;
+    struct mt76_ant_init ant_init;
+    unsigned ant_init_submitted;
+    bool ant_snapshot_mode,ant_snapshot_active;
+    unsigned ant_snapshot_submitted;
+    struct mt76_ant_snapshot ant_snapshot;
+    bool mac_board_mode,mac_board_active;
+    unsigned mac_board_submitted;
+    struct mt76_mac_board mac_board;
+    bool mac_address_mode,mac_address_validate_mode,mac_header_active,mac_address_active;
+    uint8_t mac_header_private[16];
+    struct mt76_mac_header_result mac_header;
+    struct mt76_efuse_map_gate mac_header_gate;
+    struct mt76_mac_address_result mac_address;
+    struct {
+        bool attempted,ok,timeout,quarantined;
+        unsigned operation,cc,residue,stage;
+        int actual;
+    } mac_address_usb;
+    struct mt76_mac_address_gate mac_address_gate;
+    bool table_mode,table_active,mac_snapshot_mode,mac_snapshot_active,mac_raw_mode;
+    struct mt76_mac_snapshot mac_snapshot;
+    bool mac_route_mode,mac_route_active,mac_route_submitted;
+    bool mac_policy_mode,mac_policy_active,mac_policy_submitted;
+    struct mt76_mcu_mac mac_policy;
+    struct mt76_mcu_mac mac_protect;
+    struct mt76_mcu_mac mac_contention;
+    struct mt76_mcu_mac mac_txsw;
+    struct mt76_mcu_mac mac_beacon;
+    struct mt76_mcu_mac mac_vht;
+    struct mt76_mcu_mac mac_buffer;
+    struct mt76_mcu_mac mac_fce;
+    struct mt76_mcu_mac mac_ampdu;
+    bool mac_ampdu_mode,mac_ampdu_active,mac_ampdu_submitted;
+    bool mac_fce_mode,mac_fce_active,mac_fce_submitted,mac_fce_validate;
+    bool mac_buffer_mode,mac_buffer_active,mac_buffer_submitted;
+    bool mac_vht_mode,mac_vht_active,mac_vht_submitted;
+    bool mac_beacon_mode,mac_beacon_active,mac_beacon_submitted;
+    bool mac_txsw_mode,mac_txsw_active,mac_txsw_submitted;
+    bool mac_contention_mode,mac_contention_active,mac_contention_submitted;
+    bool mac_protect_mode,mac_protect_active,mac_protect_submitted;
+    bool mac_policy_observe,mac_policy_validate;
+    uint32_t mac_policy_mismatch;
+    struct mt76_mcu_mac mac_route;
+    unsigned table_submitted;
+    struct mt76_bbp_table table;
+    bool txbe_access_active, txbe_access_submitted, txbe_direct_mode, txbe_direct_submitted;
+    struct mt76_txbe_access txbe_access;
+    uint64_t txbe_access_us[2][MT76_TXBE_SAMPLES];
+    struct mt76_txbe_first txbe_first;
+    uint64_t txbe_first_us[2][MT76_TXBE_SAMPLES];
+    struct mt76_txbe_observation txbe_observation;
+    uint64_t txbe_sample_us[MT76_TXBE_SAMPLES];
+    struct mt76_mcu_mac bbp_batch;
+    unsigned bbp_batch_submitted;
+    bool bbp_batch_active;
+    struct mt76_mcu_mac bbp_agc;
+    unsigned bbp_agc_submitted;
+    bool bbp_agc_active;
+    struct mt76_mcu_mac bbp_front;
+    unsigned bbp_front_submitted;
+    bool bbp_front_active;
+    struct mt76_mcu_mac bbp_setup;
+    unsigned bbp_setup_submitted;
+    bool bbp_setup_active;
+    unsigned mac_submitted;
+    bool mac_active;
+};
+
+struct xhci_wifi_firmware {
+    bool ready, radio_reset_active;
+    unsigned radio_reset_writes;
+    struct mt76_radio_prepare radio_reset;
+    struct xhci_wifi_mcu mcu;
+    struct xhci_bulk_endpoint ep;
+    uint64_t allocation, buffer_phys, scratch_phys, trb;
+    uint8_t *buffer, *scratch;
+    const uint8_t *image;
+    size_t image_size, chunk;
+    uint32_t remaining, cfg, descriptor;
+    uint32_t wlan_before, wlan_after, cmb;
+    bool wlan_valid, wlan_written, mac_startup_written, control_idt;
+    uint32_t last_read_address, last_read_value, read_count;
+    unsigned phase, completion;
+    uint32_t control_count, control_cc, control_residue, control_stage;
+    uint16_t control_value, control_index, control_length;
+    uint8_t control_request, control_type;
+    int control_actual;
+    bool control_ok, control_timeout;
+    uint64_t control_elapsed_us, control_dequeue;
+    uint32_t control_ep_state;
+    uint64_t control_setup, control_data, control_status;
+    uint64_t stop_dequeue, stop_event_pointer;
+    uint32_t stop_state, stop_event_cc, stop_event_residue;
+    bool stop_attempted, stop_ok;
+    uint32_t retry_mask, recovery_attempts, recovery_success;
+    uint64_t retired_ring[2], retired_buffer[2], recovery_ring, recovery_buffer;
+    bool configured, attempted, active, failed, pending, done, cfg_valid, descriptor_valid, reset_seen;
+    struct mt76_prepare_session preparation;
+    struct mt76_firmware_session upload;
+};
+
 struct xhci_device {
     bool present;
+    bool ep0_quarantined;
+    bool wifi_probe_attempted, wifi_probe_ok;
+    struct mt76_identity wifi_identity;
+    bool wifi_calibration_attempted, wifi_calibration_active, wifi_efuse_control_valid;
+    uint32_t wifi_efuse_control;
+    struct xhci_wifi_firmware firmware;
     bool addressed;
     bool configured;
     bool hid_keyboard;
@@ -378,6 +696,18 @@ static struct xhci_state xhci;
 static volatile bool xhci_input_probe_active;
 static bool xhci_poll_worker_started;
 
+static bool wifi_probe_enabled;
+void xhci_set_wifi_probe_enabled(bool enabled) { wifi_probe_enabled = enabled; }
+bool xhci_wifi_identity_ready(void) {
+    unsigned found = 0;
+    for (unsigned i = 0; i < XHCI_MAX_DEVICES; ++i) {
+        const struct xhci_device *d = &xhci.devices[i];
+        if (!d->present || !d->wifi_probe_attempted) continue;
+        if (!d->wifi_probe_ok || d->ep0_quarantined) return false;
+        ++found;
+    }
+    return found != 0;
+}
 static bool network_enabled;
 static uint64_t network_count;
 void xhci_set_network_enabled(bool enabled) { network_enabled=enabled; }
@@ -387,6 +717,16 @@ static bool trackpad_capture,trackpad_pointer_enabled,trackpad_gestures;
 void xhci_set_trackpad_gestures(bool enabled) { trackpad_gestures=enabled; }
 void xhci_set_trackpad_pointer(bool enabled) { trackpad_pointer_enabled=enabled; }
 void xhci_set_trackpad_capture(bool enabled) { trackpad_capture=enabled; }
+static bool wifi_mac_startup;
+void xhci_set_wifi_mac_startup(bool enabled) { wifi_mac_startup=enabled; }
+static bool wifi_firmware_enabled, firmware_command_exact, firmware_command_failed;
+void xhci_set_wifi_firmware_enabled(bool enabled) { wifi_firmware_enabled=enabled; }
+static bool configure_wifi_firmware(struct xhci_device *d);
+static bool wifi_firmware_event(struct xhci_device *d,const struct xhci_trb *event);
+static bool wifi_mcu_event(struct xhci_device *d,const struct xhci_trb *event);
+static bool wifi_rx_event(struct xhci_device *d,const struct xhci_trb *event);
+static bool wifi_receive_event(struct xhci_device *,const struct xhci_trb *);
+static bool wifi_receive_quiesced(struct xhci_device *);
 static void dispatch_transfer_event(const struct xhci_trb *event);
 static uint64_t event_irq_save(void) {
 #ifdef SRVROS_XHCI_TEST_MMIO
@@ -1077,6 +1417,7 @@ static bool wait_command_completion(uint64_t command_phys, uint64_t expected_typ
         xhci.last_command_pointer = pointer;
         xhci.last_expected_command_pointer = command_phys;
         if (pointer != command_phys) {
+            if (firmware_command_exact) continue;
             xhci.command_pointer_mismatches++;
             if (completion_code != 1) {
                 console_printf("xhci: command type=%u pointer mismatch ptr=%x expected=%x cc=%u slot=%u\n",
@@ -1117,6 +1458,7 @@ static bool wait_command_completion(uint64_t command_phys, uint64_t expected_typ
 }
 
 static bool submit_command_trb(const struct xhci_trb *source, uint64_t expected_type, uint64_t *slot_out) {
+    if (firmware_command_failed) return false;
     uint64_t index = xhci.command_enqueue;
     if (index >= XHCI_TRB_COUNT - 1) {
         index = 0;
@@ -1148,11 +1490,11 @@ static bool submit_command(uint32_t type, uint32_t flags, uint64_t *slot_out) {
     return submit_command_trb(&trb, type, slot_out);
 }
 
-static uint64_t ring_push(struct xhci_trb *ring,
+static uint64_t ring_push_owned(struct xhci_trb *ring,
     uint64_t ring_phys,
     uint64_t *enqueue,
     bool *cycle,
-    const struct xhci_trb *source) {
+    const struct xhci_trb *source, bool defer) {
     uint64_t index = *enqueue;
     if (index >= XHCI_TRB_COUNT - 1) {
         index = 0;
@@ -1161,7 +1503,7 @@ static uint64_t ring_push(struct xhci_trb *ring,
 
     uint64_t trb_phys = ring_phys + index * sizeof(struct xhci_trb);
     struct xhci_trb trb = *source;
-    trb.control = (trb.control & ~1u) | (*cycle ? 1u : 0u);
+    trb.control = (trb.control & ~1u) | ((*cycle != defer) ? 1u : 0u);
     copy_trb(&ring[index], &trb);
     *enqueue = index + 1;
     if (*enqueue == XHCI_TRB_COUNT - 1) {
@@ -1170,6 +1512,22 @@ static uint64_t ring_push(struct xhci_trb *ring,
         *cycle = !*cycle;
     }
     return trb_phys;
+}
+
+static uint64_t ring_push(struct xhci_trb *ring, uint64_t ring_phys,
+    uint64_t *enqueue, bool *cycle, const struct xhci_trb *source) {
+    return ring_push_owned(ring, ring_phys, enqueue, cycle, source, false);
+}
+
+static void control_publish(struct xhci_device *device, uint64_t setup_phys, bool cycle) {
+    struct xhci_trb *first = &device->ep0_ring[(setup_phys-device->ep0_ring_phys)/sizeof(struct xhci_trb)];
+#ifdef SRVROS_XHCI_TEST_MMIO
+    xhci_test_control_publish(device, setup_phys, cycle);
+#endif
+    /* Keep setup unavailable until every stage and its completion owner exist.
+     * Preserve the starting cycle even when data/status cross the Link TRB. */
+    __atomic_thread_fence(__ATOMIC_RELEASE);
+    ((volatile struct xhci_trb *)first)->control = (first->control & ~1u) | (cycle ? 1u : 0u);
 }
 
 static bool wait_transfer_completion(uint8_t slot_id,
@@ -1219,11 +1577,103 @@ static bool wait_transfer_completion(uint8_t slot_id,
     return false;
 }
 
-static bool control_transfer(struct xhci_device *device,
+/* One strict EP0 owner per controller. Every event consumer dispatches its
+ * completions here, including the HID worker and storage waiters. Publication,
+ * event consumption and retirement use the same local IRQ exclusion. */
+static struct {
+    struct xhci_device *device;
+    uint64_t setup, data, status;
+    uint32_t length;
+    int actual;
+    bool data_in, short_seen, done;
+} strict_control;
+
+static bool dispatch_strict_control(const struct xhci_trb *event) {
+    if (!strict_control.device || (event->control >> 24) != strict_control.device->slot_id ||
+        ((event->control >> 16) & 31) != 1) return false;
+    uint64_t pointer = event->parameter_low | ((uint64_t)event->parameter_high << 32);
+    if (strict_control.done || (pointer != strict_control.setup && (!strict_control.length || pointer != strict_control.data) &&
+        pointer != strict_control.status)) return true;
+    uint32_t cc = event->status >> 24, residue = event->status & 0xffffff;
+    if (strict_control.device->firmware.active) {
+        struct xhci_wifi_firmware *f=&strict_control.device->firmware;
+        f->control_cc=cc;f->control_residue=residue;
+        f->control_stage=pointer==strict_control.setup?1:pointer==strict_control.status?3:2;
+    }
+    if (!(event->control & 4) && strict_control.data_in && pointer == strict_control.data &&
+        cc == 13 && residue <= strict_control.length && !strict_control.short_seen) {
+        strict_control.actual = strict_control.length - residue;
+        strict_control.short_seen = true;
+        return true;
+    }
+    if ((event->control & 4) || pointer != strict_control.status || cc != 1 || residue) {
+        strict_control.actual = -1;
+        strict_control.device->ep0_quarantined = true;
+    }
+    strict_control.done = true;
+    return true;
+}
+
+static int wait_control_exact(struct xhci_device *device) {
+    bool timed=device->firmware.active;
+    uint64_t start=timed?timer_monotonic_us():0,clock_at=start,stalled=0;
+    for (uint64_t i = 0; timed || i < XHCI_TRANSFER_TIMEOUT; ++i) {
+        uint64_t flags = event_irq_save();
+        struct xhci_trb event;
+        if (!strict_control.done && poll_event(&event)) dispatch_transfer_event(&event);
+        if (strict_control.done) {
+            int actual = strict_control.actual;
+            strict_control.device = 0;
+            event_irq_restore(flags);
+            if(timed)device->firmware.control_elapsed_us=timer_monotonic_us()-start;
+            return actual;
+        }
+        event_irq_restore(flags);
+        if(timed && (i&255)==0) {
+            uint64_t now=timer_monotonic_us();
+            device->firmware.control_elapsed_us=now-start;
+            if(now-start>=300000)break;
+            stalled=now==clock_at?stalled+256:0;clock_at=now;
+            if(stalled>=XHCI_TRANSFER_TIMEOUT)break;
+        }
+        if(timed)__asm__ volatile("pause");
+    }
+    uint64_t flags = event_irq_save();
+    device->ep0_quarantined = true;
+    if (device->firmware.active) device->firmware.control_timeout=true;
+    strict_control.device = 0;
+    event_irq_restore(flags);
+    return -1;
+}
+
+static bool firmware_immediate_data(const struct xhci_device *d,
+    const struct usb_setup_packet *setup, uint64_t buffer_phys,
+    uint32_t length, bool data_in, struct xhci_trb *trb) {
+    if (d->firmware.mcu.mac_header_active || d->firmware.mcu.mac_address_active ||
+        !d->firmware.active || !d->firmware.configured || !d->descriptor_buffer ||
+        !buffer_phys || buffer_phys != d->descriptor_buffer_phys ||
+        d->ep0_max_packet < 8 || data_in || length != 4 || setup->length != 4 ||
+        setup->request_type != 0x40 || setup->request != 6) return false;
+    uint32_t value=0;
+    for(unsigned i=0;i<4;i++) value |= (uint32_t)d->descriptor_buffer[i] << (8*i);
+    trb->parameter_low=value;
+    trb->parameter_high=0;
+    trb->control |= XHCI_TRB_IDT;
+    return true;
+}
+
+static bool control_transfer_internal(struct xhci_device *device,
     const struct usb_setup_packet *setup,
     uint64_t buffer_phys,
     uint32_t length,
-    bool data_in) {
+    bool data_in, int *actual) {
+    if (actual) *actual = -1;
+    if (actual && (((setup->request_type & 0x80) != 0) != data_in || (!length && data_in) || length > PMM_FRAME_SIZE || setup->length != length)) return false;
+    uint64_t submit_flags = event_irq_save();
+    if (device->ep0_quarantined || strict_control.device) {
+        event_irq_restore(submit_flags);
+        return false;
+    }
     uint64_t setup_value =
         (uint64_t)setup->request_type |
         ((uint64_t)setup->request << 8) |
@@ -1239,21 +1689,25 @@ static bool control_transfer(struct xhci_device *device,
             XHCI_TRB_IDT |
             (length == 0 ? XHCI_SETUP_TRT_NONE : (data_in ? XHCI_SETUP_TRT_IN : XHCI_SETUP_TRT_OUT)),
     };
-    (void)ring_push(device->ep0_ring,
+    bool setup_cycle = device->ep0_cycle;
+    uint64_t setup_phys = ring_push_owned(device->ep0_ring,
         device->ep0_ring_phys,
         &device->ep0_enqueue,
         &device->ep0_cycle,
-        &setup_trb);
+        &setup_trb, true);
 
+    bool data_idt = false;
+    uint64_t data_phys = 0;
     if (length != 0) {
         struct xhci_trb data_trb = {
             .parameter_low = (uint32_t)buffer_phys,
             .parameter_high = (uint32_t)(buffer_phys >> 32),
             .status = length,
             .control = (XHCI_TRB_TYPE_DATA_STAGE << 10) |
-                (data_in ? XHCI_DATA_DIR_IN : 0),
+                (data_in ? XHCI_DATA_DIR_IN : 0) | (actual && data_in ? XHCI_TRB_ISP : 0),
         };
-        (void)ring_push(device->ep0_ring,
+        data_idt = firmware_immediate_data(device, setup, buffer_phys, length, data_in, &data_trb);
+        data_phys = ring_push(device->ep0_ring,
             device->ep0_ring_phys,
             &device->ep0_enqueue,
             &device->ep0_cycle,
@@ -1274,7 +1728,29 @@ static bool control_transfer(struct xhci_device *device,
         &device->ep0_cycle,
         &status_trb);
 
+    if (actual) {
+        if(device->firmware.active) {
+            device->firmware.control_idt=data_idt;
+            device->firmware.control_setup=setup_phys;
+            device->firmware.control_data=data_phys;
+            device->firmware.control_status=status_phys;
+        }
+        strict_control.device = device;
+        strict_control.setup = setup_phys; strict_control.data = data_phys;
+        strict_control.status = status_phys; strict_control.length = length;
+        strict_control.actual = length; strict_control.data_in = data_in;
+        strict_control.short_seen = false; strict_control.done = false;
+        control_publish(device, setup_phys, setup_cycle);
+        db_write32(device->slot_id, 1);
+        event_irq_restore(submit_flags);
+        *actual = wait_control_exact(device);
+        if (*actual < 0) return false;
+        device->control_success++;
+        return true;
+    }
+    control_publish(device, setup_phys, setup_cycle);
     db_write32(device->slot_id, 1);
+    event_irq_restore(submit_flags);
     uint64_t completion = 0;
     if (!wait_transfer_completion(device->slot_id, 1, status_phys, &completion)) {
         console_printf("xhci: control request=%u failed cc=%u\n",
@@ -1284,6 +1760,132 @@ static bool control_transfer(struct xhci_device *device,
     }
     device->control_success++;
     return true;
+}
+
+static bool control_transfer(struct xhci_device *device,
+    const struct usb_setup_packet *setup, uint64_t buffer_phys,
+    uint32_t length, bool data_in) {
+    return control_transfer_internal(device, setup, buffer_phys, length, data_in, 0);
+}
+
+static int wifi_read_identity(void *context, const uint8_t wire[8], uint8_t data[4]) {
+    struct xhci_device *device = context;
+    if (device->ep0_quarantined) return -1;
+    struct usb_setup_packet setup = {
+        .request_type = wire[0], .request = wire[1],
+        .value = wire[2] | ((uint16_t)wire[3] << 8),
+        .index = wire[4] | ((uint16_t)wire[5] << 8),
+        .length = wire[6] | ((uint16_t)wire[7] << 8),
+    };
+    /* Keep this transport read-only even if a future caller passes bad setup. */
+    if (setup.request_type != 0xc0 || setup.request != 7 || setup.value ||
+        (setup.index != 0 && setup.index != 0x1000) || setup.length != 4) return -1;
+    zero_bytes(device->descriptor_buffer, 4);
+    int actual;
+    if (!control_transfer_internal(device, &setup, device->descriptor_buffer_phys, 4, true, &actual)) return -1;
+    for (int i = 0; i < actual; ++i) data[i] = device->descriptor_buffer[i];
+    return actual;
+}
+
+static bool probe_wifi(struct xhci_device *device, size_t config_size) {
+    if (!wifi_probe_enabled || device->vendor_id != 0x7392 || device->product_id != 0xa711 ||
+        device->device_bcd != 0x0100 || device->speed != 3 || device->ep0_max_packet != 64 ||
+        device->configuration_count != 1 ||
+        !mt76_probe_config(device->descriptor_buffer, config_size)) return false;
+    device->wifi_probe_attempted = true;
+    device->stage = "wifi-identity";
+    device->wifi_probe_ok = mt76_probe_identity(wifi_read_identity, device, &device->wifi_identity);
+    console_printf("xhci-wifi: identity=%s asic=%x mac=%x quarantined=%u (not a network provider)\n",
+        device->wifi_probe_ok ? "read" : "failed", (uint64_t)device->wifi_identity.asic,
+        (uint64_t)device->wifi_identity.mac, (uint64_t)device->ep0_quarantined);
+    if (wifi_firmware_enabled && device->wifi_probe_ok && !configure_wifi_firmware(device)) {
+        device->firmware.failed=true; device->stage="wifi-firmware-config-failed";
+    }
+    return true; /* Never fall through and reuse the probe's DMA buffer. */
+}
+
+static bool wifi_calibration_owned(const struct xhci_device *d) {
+    return d->wifi_calibration_active && d->wifi_probe_ok && !d->ep0_quarantined &&
+        d->wifi_identity.asic == 0x76100002 && d->wifi_identity.mac == 0x76502000;
+}
+
+static bool wifi_calibration_read(void *context, uint32_t address, uint32_t *value) {
+    struct xhci_device *d = context;
+    *value = 0;
+    if (!wifi_calibration_owned(d) || address < 0x24 || address > 0x34 || (address & 3)) return false;
+    struct usb_setup_packet setup = {.request_type=0xc0,.request=7,.index=(uint16_t)address,.length=4};
+    zero_bytes(d->descriptor_buffer,4);
+    int actual;
+    if (!control_transfer_internal(d,&setup,d->descriptor_buffer_phys,4,true,&actual) || actual != 4) {
+        d->ep0_quarantined = true;
+        d->wifi_efuse_control_valid = false;
+        return false;
+    }
+    for (unsigned i=0;i<4;++i) *value |= (uint32_t)d->descriptor_buffer[i] << (8*i);
+    if (address == 0x24) {
+        d->wifi_efuse_control = *value;
+        d->wifi_efuse_control_valid = !(*value & (1u<<30));
+    }
+    return true;
+}
+
+static bool wifi_calibration_write(void *context, uint32_t address, uint32_t value) {
+    struct xhci_device *d = context;
+    uint32_t offset = (value >> 16) & 0x3ff;
+    uint32_t expected = (d->wifi_efuse_control & ~((0x3ffu<<16)|(3u<<6))) |
+        (offset<<16) | (1u<<30);
+    if (!wifi_calibration_owned(d) || !d->wifi_efuse_control_valid || address != 0x24 ||
+        offset >= MT76_EFUSE_BYTES || (offset & 15) || value != expected) return false;
+    d->wifi_efuse_control_valid = false;
+    for (unsigned i=0;i<4;++i) d->descriptor_buffer[i] = (uint8_t)(value >> (8*i));
+    struct usb_setup_packet setup = {.request_type=0x40,.request=6,.index=0x24,.length=4};
+    int actual;
+    if (!control_transfer_internal(d,&setup,d->descriptor_buffer_phys,4,false,&actual) || actual != 4) {
+        d->ep0_quarantined = true;
+        return false;
+    }
+    return true;
+}
+
+static bool wifi_calibration_delay(void *context, uint32_t microseconds) {
+    return wifi_calibration_owned(context) && microseconds <= 1000 && timer_delay_us(microseconds);
+}
+
+bool xhci_wifi_capture_calibration(void) {
+    unsigned found = 0;
+    bool success = true;
+    for (unsigned i=0;i<XHCI_MAX_DEVICES;++i) {
+        struct xhci_device *d = &xhci.devices[i];
+        if (!d->present || !d->wifi_probe_attempted) continue;
+        ++found;
+        if (!d->wifi_probe_ok || d->ep0_quarantined || d->wifi_calibration_attempted) {
+            success = false;
+            continue;
+        }
+        d->wifi_calibration_attempted = true;
+        d->wifi_calibration_active = true;
+        struct mt76_register_io io = {d,wifi_calibration_read,wifi_calibration_write,wifi_calibration_delay};
+        struct mt76_efuse_capture capture;
+        enum mt76_capture_status result = mt76_capture_efuse(&io,&d->wifi_identity,&capture);
+        d->wifi_calibration_active = false;
+        d->wifi_efuse_control_valid = false;
+        if (result != MT76_CAPTURE_OK) { d->ep0_quarantined = true; success = false; }
+        console_printf("wifi-calibration: slot=%u result=%u unmapped=%x quarantined=%u mac_redacted=yes\n",
+            (uint64_t)d->slot_id,(uint64_t)result,(uint64_t)capture.unmapped_blocks,(uint64_t)d->ep0_quarantined);
+        /* A saved diagnostic may contain board calibration, but never expose
+         * the per-device MAC in a portable fixture or ordinary log. */
+        if (result == MT76_CAPTURE_OK) {
+            for (unsigned n=4;n<10;++n) capture.bytes[n]=0;
+            for (unsigned n=0;n<MT76_EFUSE_BYTES;n+=16) {
+                uint32_t words[4]={0};
+                for (unsigned b=0;b<16;++b) words[b/4] |= (uint32_t)capture.bytes[n+b] << (8*(b%4));
+                console_printf("wifi-calibration-data: slot=%u offset=%u words=%x,%x,%x,%x\n",
+                    (uint64_t)d->slot_id,(uint64_t)n,(uint64_t)words[0],(uint64_t)words[1],(uint64_t)words[2],(uint64_t)words[3]);
+            }
+        }
+        zero_bytes(&capture,sizeof capture);
+    }
+    return found && success;
 }
 
 static bool get_descriptor(struct xhci_device *device,
@@ -1506,6 +2108,15 @@ static bool address_device(struct xhci_device *device) {
     }
     device->addressed = true;
     xhci.addressed_devices++;
+    /* Address Device completes SET_ADDRESS, but the device still needs its
+     * recovery interval before the first descriptor request. Linux hub.c also
+     * allows 10 ms here. Use the controller clock before scheduler startup. */
+    device->stage = "address-recovery";
+    if (!wait_microframes(80)) {
+        device->ep0_quarantined = true;
+        console_printf("xhci: address recovery clock stalled slot=%u\n", (uint64_t)device->slot_id);
+        return false;
+    }
     return true;
 }
 
@@ -1901,8 +2512,13 @@ static void dispatch_transfer_event(const struct xhci_trb *event) {
     xhci.transfer_events++;
     xhci.last_completion_code = completion;
     xhci.last_slot_id = slot;
+    if (dispatch_strict_control(event)) return;
     struct xhci_device *device = device_by_slot(slot);
     if (!device) return;
+    if(wifi_receive_event(device,event)) return;
+    if(wifi_rx_event(device,event)) return;
+    if(wifi_mcu_event(device,event)) return;
+    if(wifi_firmware_event(device,event)) return;
     if(network_event(device,dci,pointer,completion,remaining)) return;
     struct xhci_trackpad_endpoint *t=&device->trackpad;
     if (t->pending && dci==t->dci && pointer==t->trb) {
@@ -2442,6 +3058,7 @@ static bool enumerate_device(struct xhci_device *device) {
         bool hub_like =
             device->device_class == USB_CLASS_HUB ||
             device->first_interface_class == USB_CLASS_HUB;
+        if (!hub_like && probe_wifi(device, total_length)) return true;
         if (!hub_like && network_enabled && enumerate_network(device,total_length)) return true;
         if (hub_like) {
             xhci.hubs_seen++;
@@ -2863,6 +3480,12 @@ void xhci_print_status(void) {
         if (!device->present) {
             continue;
         }
+        if (device->wifi_probe_attempted) {
+            console_printf("xhci-wifi: slot=%u identity=%s asic=%x mac=%x quarantined=%u\n",
+                (uint64_t)device->slot_id, device->wifi_probe_ok ? "read" : "failed",
+                (uint64_t)device->wifi_identity.asic, (uint64_t)device->wifi_identity.mac,
+                (uint64_t)device->ep0_quarantined);
+        }
         if(device->network) {
             const struct xhci_network *n=device->network;
             console_printf("xhci-network: slot=%u ready=%u link=%s tx=%u rx=%u drops=%u errors=%u notifications=%u queued=%u\n",
@@ -2961,7 +3584,7 @@ int64_t xhci_device_snapshot(uint64_t index,struct srv_device_info *out) {
         if(d->storage.block) bound|=SRV_DEVICE_STORAGE;
         if(d->hub_ports) bound|=SRV_DEVICE_HUB;
         if(d->network && d->network->ready) bound|=SRV_DEVICE_NETWORK;
-        if(d->storage.failed || d->bulk_failed || (d->network && d->network->failed)) bound|=SRV_DEVICE_FAILED;
+        if(d->ep0_quarantined || d->storage.failed || d->bulk_failed || (d->network && d->network->failed)) bound|=SRV_DEVICE_FAILED;
         *out=(struct srv_device_info){.version=SRV_DEVICE_VERSION,.size=sizeof(*out),.bus_kind=SRV_DEVICE_USB,
             .index=i,.vendor_id=d->vendor_id,.product_id=d->product_id,.revision=d->device_bcd,
             .class_code=d->device_class?d->device_class:d->first_interface_class,
@@ -2974,3 +3597,6 @@ int64_t xhci_device_snapshot(uint64_t index,struct srv_device_info *out) {
     }
     event_irq_restore(flags);return 0;
 }
+
+#include "xhci_wifi_firmware.inc"
+#include "xhci_wifi_mcu.inc"

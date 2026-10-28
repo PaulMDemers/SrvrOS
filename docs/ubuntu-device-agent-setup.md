@@ -639,6 +639,15 @@ for an explicitly attended diagnostic. Existing installed recipes keep their
 original behavior; restage to obtain automatic failure return. The guided v32
 AC transition trial remains attended and must be announced in advance.
 
+For the captured Edimax USB Wi-Fi identity diagnostic, stage with
+`python3 tools/hardware_boot.py stage --laptop-probe-volume "$SRVROS_USB_UUID" --wifi-capture`.
+The immutable v39 profile enables only the read-only identity probe and automatic
+capture/return. Run `python3 tools/hardware_boot_smoke.py --probe-check --workspace-table gpt`
+against that exact stage. An absent radio in QEMU must report unavailable identity,
+save `completed=NO`, unmount and reset. Require a saved matching native identity
+before accepting the hardware read; neither capture completion nor VM refusal
+accepts Wi-Fi connectivity. See [USB Wi-Fi](usb-wifi.md).
+
 ### Mounted Home battery boundary (Air diagnostic)
 
 After the parked battery/filesystem captures, the explicit v48 `--battery-home`
@@ -751,9 +760,20 @@ use `write /work/srvros-work/console-test.txt test-text` followed by
 filename and verify its contents after returning to Ubuntu.
 
 
-On a halt, photograph the complete diagnostics before manually restarting. After
-Ubuntu returns, mount the same volume and reload its UUID/release from the local
-record. Collect before preparing another run:
+For automatic diagnostics, use the default automatic-return recipe: results are
+logged to the workspace before sync/unmount and return to Ubuntu, including
+handled diagnostic failures. Do not require photographs when matching saved
+logs contain the needed evidence. Reserve an explicitly attended hold for a
+specific evidence gap, such as failure before persistent logging starts. Missing
+or incomplete logs remain incomplete evidence, never a pass. After Ubuntu
+returns, mount the same volume and reload its UUID/release from the local record.
+The explicit full RF bank5/bank6/VGA/G20/trim diagnostic selects a256KiB startup-proof window to
+retain its complete command and guard receipts. Ordinary logging stays64KiB;
+previous firmware captures stay128KiB. The selected profile determines the exact
+`tail_limit`; require the whole prefix and matching byte count, and reject a
+lost/truncated prefix even when a completion marker is present.
+
+Collect and inspect the matching session before preparing another run:
 
 ```sh
 python3 tools/hardware_desktop.py --uuid "$SRVROS_USB_UUID" \

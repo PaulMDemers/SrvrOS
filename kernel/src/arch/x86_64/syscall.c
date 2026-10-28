@@ -1,5 +1,6 @@
 #include <srvros/path_limits.h>
 #include <srvros/devices.h>
+#include <srvros/wifi_service.h>
 #include <srvros/thermal.h>
 #include <srvros/smc.h>
 #include <srvros/battery_snapshot.h>
@@ -2237,6 +2238,20 @@ static int64_t syscall_net_list(uint64_t index, struct srv_net_info *info) {
     return copy_net_struct_to_user(info, &copy, sizeof(copy)) ? next : -1;
 }
 
+/* Cache-only operations: never initiate scans, RF/USB transfers or a join. */
+static int64_t syscall_wifi(uint64_t op,uint64_t owner,void *user) {
+    if(op==SRV_WIFI_SELECT) {
+        struct srv_wifi_select request;
+        if(owner || !copy_from_user(&request,user,sizeof request))return SRV_WIFI_INVALID;
+        uint64_t flags=irq_save();int result=wifi_service_select(&request);irq_restore(flags);return result;
+    }
+    if(op!=SRV_WIFI_SNAPSHOT || !abi_user_struct_size(user,sizeof(struct srv_wifi_snapshot),SRV_WIFI_VERSION))return SRV_WIFI_INVALID;
+    struct srv_wifi_snapshot *copy=kmalloc(sizeof *copy);if(!copy)return SRV_WIFI_UNAVAILABLE;
+    uint64_t flags=irq_save();int result=wifi_service_snapshot(owner,copy);irq_restore(flags);
+    if(!copy_abi_struct_to_user(user,copy,sizeof *copy,SRV_WIFI_VERSION))result=SRV_WIFI_INVALID;
+    kfree(copy);return result;
+}
+
 static int64_t syscall_net_status_info(struct srv_net_status_info *info) {
     struct srv_net_status_info *copy = kmalloc(sizeof(*copy));
     if (copy == NULL) {
@@ -2696,7 +2711,7 @@ bool syscall_io_safe(const struct isr_frame *frame) {
     case SYS_GUI_SURFACE_BLIT: case SYS_GUI_SURFACE_COPY:
     case SYS_GUI_SURFACE_CREATE: case SYS_GUI_SURFACE_DESTROY:
     case SYS_GFX_BLIT_RECT: case SYS_GFX_BLIT_SCALED_RECT: case SYS_PROC_LIST: case SYS_MEMINFO: case SYS_SLEEP_TICKS:
-    case SYS_POINTER_WAIT: case SYS_SCHEDULER_STATUS: case SYS_SCHED_TRACE:
+    case SYS_POINTER_WAIT: case SYS_SCHEDULER_STATUS: case SYS_SCHED_TRACE: case SYS_WIFI:
     case SYS_REALTIME_US:
     case SYS_MONOTONIC_US:
     case SYS_KEY_SCAN: case SYS_YIELD: case SYS_GETPID: case SYS_TICKS:
@@ -2950,6 +2965,9 @@ void syscall_dispatch(struct isr_frame *frame) {
         return;
     case SYS_NET_LIST:
         frame->rax = (uint64_t)syscall_net_list(frame->rdi, (struct srv_net_info *)frame->rsi);
+        return;
+    case SYS_WIFI:
+        frame->rax=(uint64_t)syscall_wifi(frame->rdi,frame->rsi,(void *)frame->rdx);
         return;
     case SYS_NET_STATUS_INFO:
         frame->rax = (uint64_t)syscall_net_status_info((struct srv_net_status_info *)frame->rdi);

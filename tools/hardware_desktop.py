@@ -11,7 +11,10 @@ from pathlib import Path
 import hardware_test as host
 
 SESSION = re.compile(r"session-[0-9a-f]{16}-[0-9a-f]{2}")
-FILES = ("boot.log", "session-a.log", "session-b.log", "exit.log")
+FILES = ("boot.log", "session-a.log", "session-b.log", "exit.log", "wifi-scan.log", "wifi-ui-begin.log")
+# Wi-Fi firmware captures may opt into a 256KiB complete startup snapshot.
+# This transport ceiling does not establish capture completeness or acceptance.
+MAX_LOG_BYTES = 1024 * 1024
 
 
 def session_releases(text):
@@ -641,13 +644,13 @@ def collect(mount, volume, output):
                 raise ValueError(f"Unsafe log path: {folder.name}/{name}")
             if not source.exists():
                 continue
-            if not source.is_file() or source.stat().st_size > 65536:
+            if not source.is_file() or source.stat().st_size > MAX_LOG_BYTES:
                 raise ValueError(f"Invalid log: {folder.name}/{name}")
             total_bytes += source.stat().st_size
             if total_bytes > 64*1024*1024:
                 raise ValueError("Collection exceeds 64 MiB; archive older session folders first")
             payload[name] = source.read_bytes()
-            if len(payload[name]) > 65536:
+            if len(payload[name]) > MAX_LOG_BYTES:
                 raise ValueError("Log changed while reading")
         snapshots.append((folder.name, payload))
     output.mkdir(parents=True, exist_ok=True)

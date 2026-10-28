@@ -16,6 +16,7 @@ from desktop_foundation_smoke import QMP
 
 def main():
     parser=argparse.ArgumentParser()
+    parser.add_argument("--wifi-trial",action="store_true",help="open the Wi-Fi trial checklist automatically before System")
     parser.add_argument("--network",action="store_true",help="Exercise e1000 DHCP and live address/counter display")
     args=parser.parse_args()
     root=Path(__file__).resolve().parents[1]
@@ -26,7 +27,7 @@ def main():
     with tempfile.TemporaryDirectory(prefix="srvros-system-") as directory:
         tmp=Path(directory)
         shutil.copyfile(root/"build/srvros.exfat",tmp/"disk.exfat")
-        iso=build_iso(str(root),str(tmp),1280,800,os.environ.copy())
+        iso=build_iso(str(root),str(tmp),2560 if args.wifi_trial else 1280,1600 if args.wifi_trial else 800,os.environ.copy())
         command=["qemu-system-x86_64","-M","q35","-m","512M","-cdrom",str(iso),"-boot","d",
             "-drive",f"if=none,id=disk,file={tmp/'disk.exfat'},format=raw",
             "-device","ich9-ahci,id=ahci","-device","ide-hd,drive=disk,bus=ahci.0",
@@ -80,9 +81,12 @@ def main():
                     serial.sendall(b"run /fat/bin/sh\n");wait(b" $ ")
                     serial.sendall(b"dhcp\n");wait(b"dhcp: 10.0.2.15");wait(b" $ ")
                     serial.sendall(b"exit\n");wait(b"srv> ")
-                serial.sendall(b"run /fat/bin/deskd --apps-trace\n")
-                wait(b"desktools: starting role=text");wait(b"deskd: commit")
-                click(690,750);wait(b"desktools: starting role=system");wait(b"desktools: system-ready");wait(b"deskd: commit");shot("system-default")
+                serial.sendall(b"run /fat/bin/deskd --wifi-trial\n" if args.wifi_trial else b"run /fat/bin/deskd --apps-trace\n")
+                if args.wifi_trial:
+                    wait_all([b"deskhelp: page=wifi-trial",b"deskhelp: starting"]);wait(b"deskd: commit");shot("wifi-checklist")
+                    if b"display physical=2560x1600 logical=1280x800 scale=2" not in output:raise RuntimeError("Wi-Fi trial did not select automatic2x scale")
+                else:wait(b"desktools: starting role=text");wait(b"deskd: commit")
+                click(640 if args.wifi_trial else 690,750);wait(b"desktools: starting role=system");wait(b"desktools: system-ready");wait(b"deskd: commit");shot("system-default")
                 # Second window content starts at (57,132), 760 by 500.
                 click(720,305);wait(b"system-sort column=4 descending=0")
                 click(720,305);wait(b"system-sort column=4 descending=1")
@@ -103,6 +107,9 @@ def main():
                     raise RuntimeError("Missing PCI and active USB inventory")
                 shortcut("right");wait(b"system-page=sensors");shot("system-sensors")
                 if b"sensors-refresh valid=1 fresh=0" not in output:raise RuntimeError("Missing honest unsupported VM sensor state")
+                shortcut("right");wait(b"system-page=wifi");shot("system-wifi")
+                if b"wifi-refresh valid=1 adapters=0 ready=0 rows=0" not in output:raise RuntimeError("Missing honest empty Wi-Fi cache ABI state")
+                shortcut("left");wait(b"system-page=sensors")
                 shortcut("left");wait(b"system-page=devices");shortcut("left");wait(b"system-page=network");shortcut("left");wait(b"system-page=processes")
                 # Resize while paused; rows remain keyboard/scroll accessible.
                 qmp.mouse(813-pointer[0],628-pointer[1]);pointer[:]=[813,628]
@@ -120,7 +127,7 @@ def main():
                 serial.close();qmp.stream.close();qmp.sock.close()
             finally:
                 stop_process(process);(out/"serial.log").write_bytes(output)
-    print(f"desktop-system: PASS shared table sorting/keyboard/resize, pause/refresh/menu controls, network tabs/address/traffic or no-adapter state, PCI/USB inventory, RAM and process ABI compatibility. Evidence: {out}")
+    print(f"desktop-system: PASS shared table sorting/keyboard/resize, pause/refresh/menu controls, network tabs/address/traffic or no-adapter state, PCI/USB inventory, empty Wi-Fi cache syscall/page, RAM and process ABI compatibility. Evidence: {out}")
 
 
 if __name__=="__main__": main()

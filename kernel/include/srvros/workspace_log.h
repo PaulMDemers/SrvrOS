@@ -3,8 +3,23 @@
 #include <stdbool.h>
 #include <stdint.h>
 bool workspace_log_start(void);
-/* Explicit diagnostic: retain at most 32 periodic snapshots, never wrap. */
+/* Firmware bring-up only: retain a larger startup proof. Refuse lost prefix. */
 bool workspace_log_start_capture(void);
+/* Explicit full RF-table receipt capture, 256KiB; same lost-prefix refusal. */
+bool workspace_log_start_large_capture(void);
+/* Explicit larger RF prerequisite profile only; retain the full startup prefix. */
+bool workspace_log_start_full_capture(void);
+bool workspace_log_start_extended_capture(void);
+/* Wi-Fi attended profile only: quiesce extended capture, persist its complete
+ * prefix in wifi-scan.log, then resume bounded rolling desktop tail in the same
+ * directory. Failed quiescence retains ownership; no GUI may start on failure. */
+bool workspace_log_begin_wifi_desktop(void);
+/* Explicit isolated Wi-Fi capture only: bounded writer drain and boundary save,
+ * retain the complete RAM prefix without periodic I/O until desktop handoff or
+ * final stop. A generic pause does not grant this handoff ownership. */
+bool workspace_log_begin_wifi_capture(void);
+/* Explicit desktop diagnostic: retain at most32 periodic snapshots, never wrap. */
+bool workspace_log_start_checkpoints(void);
 /* Explicit diagnostic only; pauses logging and uses a fresh session file. */
 bool workspace_storage_wait_capture(void);
 bool workspace_log_stop(void);
