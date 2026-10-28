@@ -1613,3 +1613,16 @@ source diff and source/artifact hashes are under `build/review/tcp-retry/`.
 Documentation/link and whitespace checks pass. Earlier storage fault matrices
 remain dated evidence; no physical adapter/native AP acceptance, Actions dispatch
 or PR merge is claimed. PR182 remains draft.
+
+
+## TCP peer-window ordering and persist recovery — active scope (2026-10-28)
+
+Continue PR182 from `1d1e106a`, integrating main `45b8647a` through PR234
+(two device-evidence documents only). Audit stale window advertisements, original
+segment sequence after overlap trimming, probe responses after a lost reopening
+update, and responsive versus silent zero-window peers. Scope: network core,
+packet/timer regressions, Makefile and current guides. PR19 `52e47a10` remains
+separate Wi-Fi work. Air6,1 `c9639988` has opt-in coordinated-C3 diagnostics beyond
+main; no network-core overlap and no native qualification is implied here.
+Next checkpoint: original-source failures, bounded fixes and matched host/VM
+validation. Keep PR182 draft; no Actions, native install or merge is planned.
