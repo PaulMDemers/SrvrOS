@@ -5317,3 +5317,16 @@ PR247 logger barriers, PR182 filesystem and PR19 Wi-Fi remain separate. Next:
 audit RC6 counter scaling, clock tolerance and update semantics against primary
 hardware documentation, then select a bounded read-only comparison if needed.
 Do not change power policy, integrity checks or timing limits to force a pass.
+
+### RC6 scaling/update audit — active scope (2026-10-28)
+
+Base `00338707`, same device branch. Audit Haswell RC6 register scaling and
+update/clock semantics against primary documentation; retain the existing
+strict mismatch predicate. Add bounded read-only counter observations during
+the existing capture if needed to distinguish sustained rate from endpoint
+update behavior. Scope: isolated platform diagnostic, diagnostic-only sampling
+hook/build, receipt parsing/tests and this record. No new worker or timer, no
+forcewake/control access, and no policy, watchdog, workload, log or latency-limit
+changes. PR247 logger barriers, PR182 filesystem and PR19 Wi-Fi do not overlap
+this bounded scope. Next checkpoint: source audit, host/VM checks, self-merged
+candidate and automated native repeat; preserve all prior failed evidence.
