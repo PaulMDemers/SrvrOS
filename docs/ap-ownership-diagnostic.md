@@ -184,3 +184,10 @@ counter uses TSC units. Standard PCI offsets/flags are cross-checked against
 [Linux's PCI register definitions](https://github.com/torvalds/linux/blob/v6.12/include/uapi/linux/pci_regs.h).
 These sources describe possible constraints; the native capture must establish
 this unit's actual values before proposing any policy or device-state change.
+
+Air6,1 release `bae0678ed7e9b38b` physically completes this audit: all 32 short
+rounds observe package C2 (about 99.54% of their wider brackets) alongside positive
+core C3, while package C3 remains zero. Paired IRTL is unchanged at `0x8842`
+(67.584 us), and all 25 PCI snapshots are stable. This narrows the evidence to
+remaining package-entry conditions without identifying a specific blocker.
+See the [unit record](machines/macbookair6-1.md) for scope and recovery evidence.
