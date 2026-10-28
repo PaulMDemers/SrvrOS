@@ -2,7 +2,7 @@
 
 Updated: 2026-10-28. State: **active reference machine; partial device acceptance**.
 
-### Air6,1 parity review — active scope (2026-10-28)
+### Air6,1 parity — local implementation validated; native trial prepared (2026-10-28)
 
 Consumed main `5a94d755` (PR230), then `80b0a8aa` (PR232) during validation.
 Compare shared model support and independently
@@ -44,6 +44,16 @@ are protected outside build. USB preflight is clean (1141 files, 2879 clusters)
 and prior file hashes are saved. No physical acceptance of this candidate is
 claimed. Run/evidence: `build/air-parity-20261028/native-cpu/` and its parent;
 PR231 owns the parity implementation and logging correction.
+
+After PR232 integration, complete core/desktop hosts and normal/native/VM builds
+pass again, including 103 focused profile/collector/AP tests. Documentation
+checks pass (694 links). Fresh CPU candidate `71049508c4a1fbd0`, clean source
+`5bab654b`, passes exact GRUB/native-kernel save/unmount/reset rehearsal. Its
+ordinary ELF has no `ap_probe_request` symbol. No AP or MWAIT profile is installed
+by this trial. Collect its matching native session before another run; the new
+counter mask/audit, desktop power phases and 30-minute workload each need their
+own physical evidence. Local evidence is retained under the parity root, with
+verified copies outside build before the one-shot boot.
 
 ### Shared baseline refresh — local validation complete
 
