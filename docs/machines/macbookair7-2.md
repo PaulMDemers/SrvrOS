@@ -29,7 +29,11 @@ underruns, exact files/screenshot and clean retirement. Four saved complete owne
 snapshots validate 24 distinct long scopes, including copied PID/thread identity,
 interval arithmetic, ordering, bounded retention and consistent repeated records.
 Live UART interleaving is retained as a diagnostic-stream limitation; use saved
-atomic records. This is VM attribution coverage, not native acceptance.
+atomic records. The 100-write-IOPS populated fixture still fails the total
+lifecycle deadline (four completed cycles, UI maximum 111161 us). Its retained
+atomic checkpoint validates three owner snapshots and 16 distinct long scopes;
+a PID7 workload scope lasts 848646 us with 927 READY selection refusals. This
+is VM attribution coverage, not native acceptance or a performance fix.
 
 ### Sixth endurance return — logger invokes global file sync (2026-10-28)
 
