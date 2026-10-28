@@ -191,3 +191,47 @@ core C3, while package C3 remains zero. Paired IRTL is unchanged at `0x8842`
 (67.584 us), and all 25 PCI snapshots are stable. This narrows the evidence to
 remaining package-entry conditions without identifying a specific blocker.
 See the [unit record](machines/macbookair6-1.md) for scope and recovery evidence.
+
+## Optional graphics and device-latency audit
+
+Add `--ap-platform-audit` alongside `--ap-package-audit` to select the separate
+`ram-usb-v1-ap-platform` profile. It inherits exact native CPU/topology admission
+and adds the existing Air6,1 GPU/PCH/DSDT identity gate. No diagnostic access runs
+in ordinary boot, old package profiles, native refusal or VM simulation.
+
+Two snapshots outside the measured rounds read Haswell graphics status
+`0x138060` and RC6 residency `0x138108` only. BAR0 must be an already-enabled,
+4 MiB-aligned 64-bit memory aperture and the GPU must already be D0. One page is
+mapped read-only, uncacheable and non-executable; it stays retained until reset.
+Identity, aperture and decoding are rechecked before the final snapshot.
+The 32-bit RC6 counter uses 1.28 us ticks; the parser handles one wrap but refuses
+an interval long enough to make the wrap count ambiguous. Status is an instant
+observation and the counter interval spans the capture, not only the short C3
+rounds. Zero residency is valid and is not proof that RC6 is disabled.
+
+The [Linux Haswell forcewake table](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/intel_uncore.c)
+limits its render forcewake domain to `0x00000–0x3ffff`; these two uncore reads
+are outside it. The [graphics register definitions](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/gt/intel_gt_regs.h)
+and [RC6 reader](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/gt/intel_rc6.c)
+provide the offsets and counter unit. `RC_CONTROL` needs the forcewake path and
+is explicitly unavailable: no forcewake request, PCODE mailbox command, graphics
+initialization or control-register write is added.
+
+For enumerated PCIe functions, an ECAM-only read interface traverses the extended
+capability chain within 4 KiB. It refuses legacy fallback, alignment/range errors,
+nonzero/ambiguous segment mappings, loops, overlapping LTR data and duplicate or
+unsupported LTR versions. At most 960 aligned headers can be visited. The new
+reader cannot truncate an extended offset into conventional configuration.
+The standard LTR capability records Max Snoop/No-Snoop values and scales using
+[PCI definitions](https://github.com/torvalds/linux/blob/v6.12/include/uapi/linux/pci_regs.h).
+Reserved encodings remain unavailable. Capability absence differs from a valid
+zero; configured maximum latency is neither measured device response latency
+nor proof of a currently asserted request. No capability or decode bit is changed.
+
+`ap-platform` receipts pair the graphics observations, PCI identities/LTR fields
+and unchanged E2 policy evidence. A direct platform grant signal remains
+`permission=unavailable reason=no-validated-grant-register`; the firmware limit,
+PCI D0, ASPM and LTR fields must not be relabeled as that signal. This diagnostic
+narrows the remaining evidence without manufacturing a grant/denial or causal
+blocker. Original round counts, 20 ms deadlines, fallback, ownership checks,
+log limits and automatic idle/load/recovery/save/return remain unchanged.

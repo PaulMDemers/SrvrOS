@@ -26,8 +26,9 @@ static void outb(uint16_t port,uint8_t value) {
     assert(port>=0xcfc&&port<=0xcff);width=1;writes++;put(selected+port-0xcfc,1,value);
 }
 #include "../kernel/src/arch/x86_64/pci.c"
-uint64_t acpi_mcfg_allocation_count(void) { return 0; }
-const struct srv_acpi_mcfg_allocation *acpi_mcfg_allocation_at(uint64_t i) { (void)i;return NULL; }
+static struct srv_acpi_mcfg_allocation mcfg;static unsigned mcfg_count;
+uint64_t acpi_mcfg_allocation_count(void) { return mcfg_count; }
+const struct srv_acpi_mcfg_allocation *acpi_mcfg_allocation_at(uint64_t i) { return i<mcfg_count?&mcfg:NULL; }
 bool timer_delay_us(uint64_t us) { assert(us==10000);delays++;return true; }
 int main(void) {
     struct pci_device d={0};
@@ -45,5 +46,16 @@ int main(void) {
     put(0x40,2,0x2005);assert(!pci_power_d0(&d)); /* Header alias. */
     put(0x40,2,0xfc05);put(0xfc,2,1);assert(!pci_power_d0(&d)); /* Truncated PM. */
     put(0x40,2,0x5005);put(0x52,2,4);assert(!pci_power_d0(&d)); /* Unknown version. */
+    uint32_t value=99;before=writes;
+    assert(!pci_read_extended_config32(&d,0x100,&value) && value==99 && writes==before);
+    static uint32_t ext[1024];ext[0x100/4]=0x12345678;ext[0xffc/4]=0xabcdef01;
+    ecam_available=true;mcfg_count=1;mcfg.present=true;ecam_virtual_base[0]=(uintptr_t)ext;
+    assert(pci_read_extended_config32(&d,0x100,&value) && value==0x12345678);
+    assert(pci_read_extended_config32(&d,0xffc,&value) && value==0xabcdef01);
+    assert(!pci_read_extended_config32(&d,0xfc,&value));assert(!pci_read_extended_config32(&d,0x101,&value));assert(!pci_read_extended_config32(&d,0x1000,&value));
+    mcfg.pci_segment=1;assert(!pci_read_extended_config32(&d,0x100,&value));mcfg.pci_segment=0;
+    d.bus=1;assert(!pci_read_extended_config32(&d,0x100,&value));d.bus=0;
+    ecam_virtual_base[1]=(uintptr_t)ext;mcfg_count=2;assert(!pci_read_extended_config32(&d,0x100,&value));
+    assert(writes==before);
     puts("pci: narrow writes preserve adjacent W1C state; D0 transition, stuck power and malformed capability lists passed");
 }

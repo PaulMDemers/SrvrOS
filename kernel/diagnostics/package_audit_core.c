@@ -42,3 +42,29 @@ void package_pci_read(struct package_pci_snapshot *s,uint32_t (*read)(void *,uns
         visited|=region;ptr=next;
     }
 }
+
+bool package_graphics_bar(uint32_t low,uint32_t high,uint32_t command,uint64_t *base) {
+    /* Haswell graphics BAR0 is a 64-bit, 4 MiB aligned memory aperture. */
+    uint64_t b=((uint64_t)high<<32)|(low&~15u);
+    if((low&7)!=4 || !(command&2) || !b || (b&0x3fffff) || b>0x000fffffff800000ull)return false;
+    *base=b;return true;
+}
+void package_ltr_read(struct package_ltr *s,bool (*read)(void *,unsigned,uint32_t *),void *ctx) {
+    *s=(struct package_ltr){.state=2};uint64_t seen[16]={0};unsigned ptr=0x100;bool found=false;
+    while(ptr) {
+        unsigned slot=ptr/4;
+        if(ptr<0x100 || ptr>0xffc || (ptr&3) || (seen[slot/64]&(1ull<<(slot%64)))){s->state=4;return;}
+        seen[slot/64]|=1ull<<(slot%64);uint32_t h;
+        if(!read(ctx,ptr,&h)){s->state=3;return;}s->headers++;
+        if(!h || h==0xffffffffu){if(ptr!=0x100)s->state=4;return;}
+        unsigned id=h&65535,version=(h>>16)&15,next=h>>20;
+        if(!id || !version){s->state=4;return;}
+        if(id==0x18) {
+            if(found || version!=1 || ptr>0xff8 || (seen[(slot+1)/64]&(1ull<<((slot+1)%64)))){s->state=4;return;}
+            found=true;s->offset=ptr;
+            if(!read(ctx,ptr+4,&s->raw)){s->state=3;return;}
+            seen[(slot+1)/64]|=1ull<<((slot+1)%64);s->state=1;
+        }
+        ptr=next;
+    }
+}

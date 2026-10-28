@@ -5144,3 +5144,43 @@ Wi-Fi retain separate scope. Next: audit documented graphics/platform idle
 permission and device-latency reporting with read-only diagnostics where safe.
 Do not change power policy or declare a specific package-C3 blocker from these
 PCI snapshots alone.
+
+### Graphics/platform latency audit — active scope (2026-10-28)
+
+Base `ac259fcb`, same local device branch. Extend the isolated package diagnostic
+with documented read-only graphics/platform and device-latency observations.
+First audit access semantics: do not force-wake graphics, enable decoding, alter
+ASPM/LTR, acknowledge status or read undocumented power-gated MMIO merely to
+produce a value. Explicitly report unavailable evidence where safe reads cannot
+be established. Keep ordinary startup, 32 attempts, 20 ms bounds, HLT fallback,
+firmware policy and integrity checks unchanged. Scope: diagnostic-only access,
+bounded capability decoding, strict receipt/parser and host/VM regressions.
+PR182 filesystem and PR19 Wi-Fi remain independent; no overlapping edits planned.
+Next checkpoint: reviewed register/access contract and matched automated native
+candidate, with the accepted package audit and console recovery preserved.
+
+The access audit selects only Haswell uncore graphics status/RC6 residency and
+ECAM-backed standard LTR capability values. RC_CONTROL/forcewake and PCODE remain
+untouched; no validated direct platform grant register has been established, so
+that signal is explicitly unavailable. E2 policy evidence stays distinct from a
+grant. Shared PCI changes add a read-only extended API with no legacy fallback;
+no existing write path or device power configuration changes. Host tests cover
+ECAM refusal and full offsets, bounded malformed/overlapping LTR chains, graphics
+BAR gates, counter-wrap/interval decoding and strict native receipt matching.
+
+Candidate `a3ac64f7cd15293c` uses source `8e0f5bf6` (PR242). Matched ordinary and
+diagnostic build, full core suite and focused host/parser tests pass. All nine
+platform-profile VM cases pass, including requested peer failures, CPU-count
+refusals, exact native refusal/save/return and missing workspace. Legacy AP-owner,
+coordinated-C3 and package-only simulations pass without platform reads. Ordinary
+kernel isolation, diagnostic disassembly and a maximum-width 25-device receipt
+replay pass; no log or test limit changed. The physical USB preflight preserves
+546 files / 1,600 clusters with zero allocation errors or leaks.
+
+The next unattended run captures graphics/latency snapshots around the existing
+32 coordinated attempts and 30-second idle/load/recovery phases, saves receipts
+and returns to Ubuntu for automatic collection. No human input is required;
+keep AC and USB connected. Graphics/platform diagnostic acceptance is pending.
+Preserve accepted package-audit `bae0678ed7e9b38b` and console recovery. To make
+EFI space, retire only the older coordinated-only `57274dfaccfdc0b9` installed
+copy after verifying its durable payload; its native evidence remains retained.
