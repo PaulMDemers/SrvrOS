@@ -10424,3 +10424,22 @@ management TX and association/security. Installed accepted v102 `3337af3753372b9
 and all recovery payloads remain unchanged. Raw validation, matched staged payload
 and source survive distclean in `wifi-selection-a31bbe00` outside build. No new
 physical acceptance, hardware test installation or reboot is armed.
+
+
+## 2026-10-28 discovery service and picker scope
+
+Actual main remains `5a94d755`; PR182 `29df1192` owns exFAT/resource lifetime
+work and does not overlap this cache/ABI/System page. Bind the completed opt-in
+v102 batch to a private multi-adapter discovery service with non-reused owner
+identities, monotonic snapshot generations and side-effect-free presence checks.
+Expose bounded copied names/advertisement flags and explicit selection through
+one versioned syscall. Add a System Wi-Fi page with adapter cycling, stale-choice
+refusal and clear selected-versus-connected state. Cache reads/selects cannot
+retune, scan or transmit; disconnect invalidates before serving data. Touch new
+service/ABI, xHCI publication/presence adapter, syscall/lib wrappers, System UI,
+focused host tests and current guides. Preserve RF operations and existing boot
+recipes. Dependencies: accepted v102 cleanup and `a31bbe00` private selection;
+management TX, security and an IP provider remain separate. Checkpoint: cache/
+ABI/adapter/UI lifecycle and fault tests, sanitizers, full merged core/desktop,
+exact staged VM and durable evidence. Native UI acceptance requires a later
+explicit attended scan-to-desktop profile; no reboot is armed by this scope.
