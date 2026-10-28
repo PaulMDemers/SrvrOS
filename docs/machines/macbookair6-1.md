@@ -5167,3 +5167,20 @@ grant. Shared PCI changes add a read-only extended API with no legacy fallback;
 no existing write path or device power configuration changes. Host tests cover
 ECAM refusal and full offsets, bounded malformed/overlapping LTR chains, graphics
 BAR gates, counter-wrap/interval decoding and strict native receipt matching.
+
+Candidate `a3ac64f7cd15293c` uses source `8e0f5bf6` (PR242). Matched ordinary and
+diagnostic build, full core suite and focused host/parser tests pass. All nine
+platform-profile VM cases pass, including requested peer failures, CPU-count
+refusals, exact native refusal/save/return and missing workspace. Legacy AP-owner,
+coordinated-C3 and package-only simulations pass without platform reads. Ordinary
+kernel isolation, diagnostic disassembly and a maximum-width 25-device receipt
+replay pass; no log or test limit changed. The physical USB preflight preserves
+546 files / 1,600 clusters with zero allocation errors or leaks.
+
+The next unattended run captures graphics/latency snapshots around the existing
+32 coordinated attempts and 30-second idle/load/recovery phases, saves receipts
+and returns to Ubuntu for automatic collection. No human input is required;
+keep AC and USB connected. Graphics/platform diagnostic acceptance is pending.
+Preserve accepted package-audit `bae0678ed7e9b38b` and console recovery. To make
+EFI space, retire only the older coordinated-only `57274dfaccfdc0b9` installed
+copy after verifying its durable payload; its native evidence remains retained.
