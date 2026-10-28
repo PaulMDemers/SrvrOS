@@ -887,14 +887,16 @@ void kmain(void) {
             if(return_on_failure)arch_reboot_unattended();
             arch_reboot();
         }
-        if (automatic_wifi_firmware) {
+        if(wifi_desktop_trial) {
+            console_write("wifi-ui-capture: HALTED persistence/return incomplete; keep the workspace connected and return to Ubuntu manually. No photo needed.\n");
+        } else if (automatic_wifi_firmware) {
             console_printf("wifi-held: logging=%u init=%u timer=%u sampled=%u saved=%u unmounted=%u\n",
                 (uint64_t)started,(uint64_t)init_ready,(uint64_t)timer_running,
                 (uint64_t)sampled,(uint64_t)saved,(uint64_t)unmounted);
             console_write("Wi-Fi diagnostic stopped. Photograph this screen, including USB errors above.\n");
             console_write("Hold the power button until off, then power on for Ubuntu. No commands needed.\n");
         }
-        console_write("laptop-capture: HALTED - photograph this screen; restart manually\n");
+        console_write(wifi_desktop_trial?"laptop-capture: HALTED - saved evidence will be checked in Ubuntu; restart manually\n":"laptop-capture: HALTED - photograph this screen; restart manually\n");
         console_sync();__asm__ volatile("cli":::"memory");halt_forever();
     }
     trackpad_test_boot(cmdline);
