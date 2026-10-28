@@ -1441,3 +1441,14 @@ Follow-on tracing reached socket references and creator cleanup. The next bounde
 scope is queued TCP output/FIN completion across final close and creator versus
 inheritor exit. No networking defect is claimed yet; full concurrent fork/exec/kill
 fault injection and hot unregister/rebind remain outside completed coverage.
+
+## TCP close and process exit — active scope (2026-10-28)
+
+Continue PR182 from `98fb56ff` on unchanged main `5a94d755`. Audit outstanding
+TCP transmissions, deferred FIN, creator/inheritor exit and listener backlog
+ownership. Touched areas: `kernel/src/net.c`, focused host/network VM fixtures,
+Makefile and current networking/audit guides. PR19 at `b8d63682` retains Wi-Fi
+bring-up work without `net.c` or process-lifecycle changes; preserve its Makefile
+additions. Air6,1 diagnostic AP ownership and Air7,2 native desktop evidence stay
+separate. Next checkpoint is deterministic original-source reproductions,
+bounded fixes and matched host/VM validation. No native install or PR merge.
