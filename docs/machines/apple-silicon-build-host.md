@@ -1408,3 +1408,36 @@ Air7,2 branches are merged; PR19 at `114dee34` retains separate Wi-Fi scope with
 no process/exFAT/VFS changes. Preserve its Makefile work. Next checkpoint is
 bounded reproducers, fixes for confirmed defects and matched host/VM evidence.
 No native install, hardware acceptance or PR merge is planned.
+
+### Inheritance audit result
+
+The scope above is complete at the production file-helper level. No new runtime
+defect was confirmed. Added actual inheritance regressions cover both exit orders,
+shared offsets, clean/sticky error ownership, explicit exit status, CLOEXEC/reuse,
+partial clone failure, stdio snapshot rollback and reader-only survival after
+parent exit. The supported profile now documents that nonstandard inherited files
+may remain buffered after a process exits successfully. Main `5a94d755` was merged
+cleanly in `647ee564`; the matched build and validation include it.
+
+### Inheritance checkpoint verification
+
+All directed inheritance cases pass without a production-code change. The final
+process-output fixture and real process/exFAT bridge pass normally and under
+ASan/UBSan. Normal storage validation passes all 123 import modes, 323 retirement,
+161 growth, 144 rename/promotion and 29 boot-matrix boundaries/cases, plus storage
+and lease gates. Integrated-main checks pass for process lifetime/service/events,
+lifecycle waits, I/O scheduler, scheduler trace/activity and syscall I/O.
+
+The matched OS build, six generator groups and 372-entry generated-image check
+pass. Seven sequential disposable VM gates pass: aliases 16.80 s, quarantine 16.47 s, imports 16.55 s, corrupt-entry 16.50 s, threads 40.33 s, libuv 10.20 s, lifetime 22.95 s.
+The lifetime gate covers two runs, 256 sequential apps, 32 competing-waiter pairs
+and PTY/job-control regression. Documentation checks resolve 692 local links;
+whitespace checks pass. Evidence, source/artifact hashes and VM receipts are under
+`build/review/inheritance-exit/`. Earlier broader sanitizer evidence remains dated
+under previous checkpoints; full Linux test-core and native hardware acceptance
+are not claimed. No Actions dispatch or PR merge occurred.
+
+Follow-on tracing reached socket references and creator cleanup. The next bounded
+scope is queued TCP output/FIN completion across final close and creator versus
+inheritor exit. No networking defect is claimed yet; full concurrent fork/exec/kill
+fault injection and hot unregister/rebind remain outside completed coverage.

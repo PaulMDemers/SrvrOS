@@ -1170,3 +1170,16 @@ report retry eligibility. `test-process-output` also covers reader/independent
 writer/dup aliases, unchanged data and offsets, readiness, repeated refusal,
 once-per-content global sync, dirty content retained only by readers after a
 writer closes, sticky uncertain failures and exit error reporting.
+
+
+`test-process-output` now exercises actual descriptor-table inheritance with both
+parent/child exit orders, shared offsets, clean refusal versus sticky errors,
+explicit nonzero exit status, nonstandard descriptor last-close ownership,
+close-on-exec and descriptor reuse. An injected `net_hold` refusal verifies partial
+inheritance and three-stream snapshot rollback without flushing the parent's dirty
+content. A child retaining only a reader verifies recovery and hard-error reporting
+after parent exit. These call the production inheritance, stream-configuration,
+cleanup and exit-file helpers with a controlled filesystem backend; they do not
+execute full fork/exec or inject asynchronous termination. The real exFAT retry
+bridge remains the backend integration check. October 28 integrated-main evidence
+is under `build/review/inheritance-exit/`.

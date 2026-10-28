@@ -462,3 +462,22 @@ without another reference the in-memory content is released. Check explicit
 buffer and treats its additional fsync call as best effort, while `sync()` has a
 void interface. A successful stream-buffer flush alone is not a durability
 receipt.
+
+
+Inherited regular-file descriptors share their open description and offset;
+independent opens share content but retain separate offsets. Close-on-exec flags
+belong to descriptors. Closing a child alias or rolling back incomplete descriptor
+inheritance releases its references without flushing a description still held by
+the parent. A failed three-stream setup likewise releases its temporary references.
+
+Process exit flushes redirected standard files even when another process retains
+the description, then closes every descriptor. A failure changes an otherwise
+zero exit status to one; an explicit nonzero status is preserved. Other inherited
+regular files remain buffered until an explicit flush/sync or the last writer
+close. A successful earlier process exit therefore does not certify persistence
+of every inherited file. Clean writeback refusal remains retryable by the surviving
+process, including through a reader-only reference or global sync. Hard failures
+remain attached to shared content and are visible to surviving aliases; they are
+not consumed by the first process to report them. Final reference release reports
+failure and frees the buffered content. These are helper-level host regressions,
+not exhaustive concurrent fork/exec or process-kill fault coverage.

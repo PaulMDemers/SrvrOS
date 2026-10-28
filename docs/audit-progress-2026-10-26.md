@@ -103,8 +103,14 @@ process/exFAT retry fixture. Clean refusal no longer permanently poisons shared
 content, and global sync now includes dirty reader-only survivors after failed
 writer close, once per content object. Partial/uncertain writes remain sticky.
 Follow-on syscall/libc tracing preserves explicit fsync error reporting and
-documents fflush's weaker persistence behavior. Descriptor inheritance and
-delayed-error ownership across process exit remain a separate next scope.
+documents fflush's weaker persistence behavior. The October 28 inheritance
+checkpoint adds both process exit orders, shared offsets, CLOEXEC/reuse, partial
+clone and stdio rollback, and reader-only survivors. All directed cases preserve
+the existing error/lifetime contract; no new runtime defect is confirmed. Exit
+flushes redirected standard files, while other inherited descriptions may remain
+buffered until their last writer closes or an explicit flush. The integrated base
+is main `5a94d755` through PR230. Full concurrent fork/exec/kill fault coverage
+remains open; socket last-close/queued-output lifetime is the next bounded trace.
 Delivery is [draft PR182](https://github.com/PaulMDemers/SrvrOS/pull/182).
 This checkpoint is separate from the completed event-adapter target.
 

@@ -195,3 +195,13 @@ binary under Rosetta. For its sanitizer variant use
 The ordinary 123-mode import suite remains native ARM64 on this host. Process
 writeback retries retain data after proven clean refusal; uncertain mutations
 remain sticky and quarantined.
+
+
+For descriptor inheritance and delayed exit errors, run
+`sh tools/macos/build.sh HOST_CC='python3 build/tooling/darwin-host-cc.py' test-process-output`
+with the x86_64 host-compiler wrapper described above. The production helper
+fixture covers both exit orders, close-on-exec/reuse, partial inheritance and
+stdio setup rollback, plus reader-only dirty-content survival. The October 28
+checkpoint uses main `5a94d755` (through PR230); evidence is retained under
+`build/review/inheritance-exit/`. This is emulated/host coverage, not native Mac
+hardware acceptance or exhaustive concurrent process teardown.
