@@ -287,3 +287,15 @@ Build matched images and run the earlier eight VM gates sequentially. The guest
 netabi check now prints `netabi: udp truncation/empty/zero/address/queue ok`.
 Evidence is under `build/review/datagram/`; local outbound HTTP uses
 `/datagram-check`. See the [datagram audit](datagram-audit-2026-10-28.md).
+
+
+The resolver/connected-UDP checkpoint adds
+`sh tools/macos/build.sh HOST_CC='python3 build/tooling/darwin-host-cc.py' test-net-query test-posix-udp-owner`.
+It has 13 network and 12 libc modes; use the same native ARM64 sanitizer/include
+flags as the datagram fixtures. Main `4ae360ef` through PR243 is integrated in
+`9f427171`. Rerun `test-package-audit`, `test-pci-config`, `test-tool-timing` and
+`build/tests/file-pool-host` (then execute that binary) for the newly integrated
+read-only diagnostic and desktop pool changes. This does not add native package
+or graphics acceptance. Sequential VM gates use matched images; netabi now
+checks connected-peer filtering and unconnected recv. Evidence lives under
+`build/review/query-ownership/`, with `/query-check` for host-local outbound HTTP.

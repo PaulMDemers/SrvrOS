@@ -909,8 +909,11 @@ through PR238 is integrated; storage evidence remains dated separately.
    Terminal identity invalidation and CPU0 backend-operation/teardown admission
    now have directed coverage. They do not certify live device recovery or
    arbitrary retained kernel pointers.
-2. Shared ARP/DNS query ownership, connected-UDP peer filtering and libc
-   close/reuse are the next network boundary. UDP/ICMP validation, queue
+2. DNS question/answer identity and compressed-name validation, same-live-FD
+   flag isolation and TCP connect/accept publication after close/reuse are next.
+   ARP/DNS caller ownership and connected-UDP filtering/continuation identity
+   now have 25 additional directed modes in the datagram audit, on main
+   `4ae360ef` through PR243. UDP/ICMP validation, queue
    pressure/truncation and native endpoint lifetime now have bounded coverage.
    IPv4 fragment refusal and TCP options/MSS
    now have directed parser coverage. Peer-window ordering and zero-window recovery

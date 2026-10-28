@@ -3905,3 +3905,16 @@ test-core: test-package-audit
 build/ap-probe/platform.o: kernel/diagnostics/platform_audit.c $(ZIG) $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -c $< -o $@
+
+.PHONY: test-net-query test-posix-udp-owner
+test-net-query: build/tests/net-query-host$(HOST_EXE)
+	@for mode in arp-overlap arp-timeout arp-cache arp-exit arp-opcode dns-overlap dns-arp-overlap dns-completed-overlap dns-source dns-id dns-exit dns-failure-retry dns-timeout; do $< $$mode || exit $$?; done
+build/tests/net-query-host$(HOST_EXE): tools/test_net_query.c kernel/src/net.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+test-posix-udp-owner: build/tests/posix-udp-owner-host$(HOST_EXE)
+	@for mode in filter-from filter-msg filter-zero filter-recv unconnected reuse-filter reuse-restart reuse-flags close-only retry-control dontwait-control dup-reuse; do $< $$mode || exit $$?; done
+build/tests/posix-udp-owner-host$(HOST_EXE): tools/test_posix_udp_owner.c userspace/lib/src/posix_socket.c userspace/lib/include/sys/socket.h shared/include/srvros/syscall_numbers.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include $< -Wl,--gc-sections -o $@
+test-core: test-net-query test-posix-udp-owner

@@ -133,8 +133,12 @@ integrated. The [UDP/ICMP checkpoint](datagram-audit-2026-10-28.md) adds ten
 kernel and six libc modes: checksum/code admission, immutable bound identity,
 ARP-wait endpoint revalidation, truncation/zero-capacity/address reporting and
 passing queue/ownership controls. Main `2c34a460` through PR238 is integrated.
-Shared ARP/DNS query ownership, connected-UDP peer filtering and libc close/reuse
-are next. Broad network conformance remains unqualified.
+The resolver/connected-UDP checkpoint adds 13 kernel and 12 libc modes: per-target
+ARP completion, one native DNS owner/source check, exit cleanup, common peer
+filtering and generation-checked UDP retries/flag restoration. Main `4ae360ef`
+through PR243 is integrated. DNS question/answer identity and compressed names,
+same-live-FD flag isolation and TCP connect/accept publication are next. Broad
+network conformance remains unqualified.
 Delivery is [draft PR182](https://github.com/PaulMDemers/SrvrOS/pull/182).
 This checkpoint is separate from the completed event-adapter target.
 

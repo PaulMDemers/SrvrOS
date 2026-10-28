@@ -41,7 +41,7 @@ static void reset(void) {
     memset(udp_sockets,0,sizeof(udp_sockets));memset(arp_cache,0,sizeof(arp_cache));
     static const uint8_t mac[6]={2,0,0,0,0,1};local_mac=mac;local_ip=0x0a00020f;
     initialized=worker_started=true;caller=parent();ticks=100;frames=udp_wakes=poll_wakes=0;
-    poll_hook=wait_hook=NULL;arp_resolved=arp_waiting=false;icmp_ping_waiting=icmp_ping_reply=false;
+    poll_hook=wait_hook=NULL;icmp_ping_waiting=icmp_ping_reply=false;
 }
 static uint64_t endpoint(uint16_t port) {
     int64_t h=net_udp_open();assert(h>0 && !net_udp_bind((uint64_t)h,port));return (uint64_t)h;
@@ -127,7 +127,9 @@ static uint64_t old_handle,new_handle;static bool keep_alias;
 static void close_reuse(void) {
     assert(!net_close(old_handle));
     if(!keep_alias) { new_handle=endpoint(9001);assert(new_handle!=old_handle); }
-    arp_resolved=true;memset(arp_resolved_mac,2,6);
+    uint8_t reply[42]={0};write_be16(reply+14,1);write_be16(reply+16,ETH_TYPE_IPV4);
+    reply[18]=6;reply[19]=4;write_be16(reply+20,2);memset(reply+22,2,6);
+    write_be32(reply+28,0x0a000202);handle_arp(reply,sizeof(reply));
 }
 static void udp_send_reuse(void) {
     for(unsigned alias=0;alias<2;alias++) {

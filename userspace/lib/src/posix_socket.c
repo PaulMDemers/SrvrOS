@@ -59,6 +59,8 @@ struct real_socket_options {
 };
 
 static struct posix_socket sockets[POSIX_SOCKET_MAX];
+/* Separate from cleared/copied records so close/reuse and dup cannot ABA. */
+static uint64_t socket_generations[POSIX_SOCKET_MAX];
 static struct real_socket_options real_options[REAL_SOCKET_OPTIONS_MAX];
 const struct in6_addr in6addr_any = {{0}};
 
@@ -332,22 +334,40 @@ static long write_operation(int fd, void *buffer, size_t length) {
     return write(fd, buffer, length);
 }
 
+static int udp_receive_current(int fd, uint64_t generation, int native_fd) {
+    struct posix_socket *socket = socket_at(fd);
+    return socket != 0 && socket_generations[fd - POSIX_SOCKET_BASE] == generation &&
+        socket->type == SOCK_DGRAM && socket->listener_fd == native_fd;
+}
+
 static long udp_recvfrom_sys(int fd,
     void *buffer,
     size_t length,
     uint32_t *remote_ip,
     uint16_t *remote_port,
     int dontwait) {
+    struct posix_socket *socket = socket_at(fd);
+    if (socket == 0 || socket->type != SOCK_DGRAM || socket->listener_fd < 0) {
+        errno = EBADF;
+        return -1;
+    }
+    uint64_t generation = socket_generations[fd - POSIX_SOCKET_BASE];
+    int native_fd = socket->listener_fd;
+    int connected = socket->connected;
+    uint32_t peer_ip = socket->peer_ip;
+    uint16_t peer_port = socket->peer_port;
     uint64_t saved = 0;
     int changed = 0;
     if (dontwait) {
-        long current = srv_fcntl(fd, SRV_F_GETFL, 0);
+        long current = srv_fcntl(native_fd, SRV_F_GETFL, 0);
         if (current < 0) {
+            errno = EBADF;
             return -1;
         }
         saved = (uint64_t)current;
         if ((saved & SRV_FD_NONBLOCK) == 0) {
-            if (srv_fcntl(fd, SRV_F_SETFL, saved | SRV_FD_NONBLOCK) < 0) {
+            if (srv_fcntl(native_fd, SRV_F_SETFL, saved | SRV_FD_NONBLOCK) < 0) {
+                errno = EBADF;
                 return -1;
             }
             changed = 1;
@@ -355,11 +375,34 @@ static long udp_recvfrom_sys(int fd,
     }
 
     long result;
-    do {
-        result = srv_net_udp_recvfrom(fd, buffer, length, remote_ip, remote_port);
-    } while (!dontwait && interrupted_restartable(result));
+    for (;;) {
+        result = srv_net_udp_recvfrom(native_fd, buffer, length, remote_ip, remote_port);
+        if (!udp_receive_current(fd, generation, native_fd)) {
+            errno = EBADF;
+            return -1; /* Never restore flags or retry on a replacement FD. */
+        }
+        if (result == SRV_ERR_INTR && !dontwait) {
+            int restart = interrupted_restartable(result);
+            if (!udp_receive_current(fd, generation, native_fd)) {
+                errno = EBADF;
+                return -1;
+            }
+            if (restart) {
+                continue;
+            }
+        }
+        if (result >= 0 && connected && (*remote_ip != peer_ip || *remote_port != peer_port)) {
+            continue;
+        }
+        break;
+    }
     if (changed) {
-        (void)srv_fcntl(fd, SRV_F_SETFL, saved);
+        (void)srv_fcntl(native_fd, SRV_F_SETFL, saved);
+    }
+    if (result < 0) {
+        int error = errno_from_blocking_result(result, EIO);
+        errno = udp_receive_current(fd, generation, native_fd) ? error : EBADF;
+        return -1;
     }
     return result;
 }
@@ -375,7 +418,7 @@ int __posix_socket_dup(int fd) {
         return -1;
     }
     for (int i = 0; i < POSIX_SOCKET_MAX; i++) {
-        if (sockets[i].used) {
+        if (sockets[i].used || socket_generations[i] == UINT64_MAX) {
             continue;
         }
         int listener_fd = -1;
@@ -389,6 +432,7 @@ int __posix_socket_dup(int fd) {
             __posix_socket_note_dup(source->listener_fd, listener_fd);
         }
         sockets[i] = *source;
+        socket_generations[i]++;
         sockets[i].listener_fd = listener_fd;
         sockets[i].descriptor_flags &= ~SRV_FD_CLOEXEC;
         return POSIX_SOCKET_BASE + i;
@@ -533,7 +577,7 @@ int socket(int domain, int type, int protocol) {
         return -1;
     }
     for (int i = 0; i < POSIX_SOCKET_MAX; i++) {
-        if (!sockets[i].used) {
+        if (!sockets[i].used && socket_generations[i] != UINT64_MAX) {
             long udp_fd = -1;
             if (domain == AF_INET && base_type == SOCK_DGRAM) {
                 udp_fd = srv_net_udp_open();
@@ -542,6 +586,7 @@ int socket(int domain, int type, int protocol) {
                     return -1;
                 }
             }
+            socket_generations[i]++;
             sockets[i].used = 1;
             sockets[i].domain = domain;
             sockets[i].type = base_type;
@@ -1073,27 +1118,10 @@ ssize_t recv(int fd, void *buffer, size_t length, int flags) {
             errno = ENOSYS;
             return -1;
         }
-        if (!socket->connected) {
-            errno = ENOTCONN;
-            return -1;
-        }
         uint32_t remote_ip = 0;
         uint16_t remote_port = 0;
-        for (;;) {
-            long result = udp_recvfrom_sys(socket->listener_fd,
-                buffer,
-                length,
-                &remote_ip,
-                &remote_port,
-                (flags & MSG_DONTWAIT) != 0);
-            if (result < 0) {
-                errno = errno_from_blocking_result(result, EIO);
-                return -1;
-            }
-            if (remote_ip == socket->peer_ip && remote_port == socket->peer_port) {
-                return result;
-            }
-        }
+        return udp_recvfrom_sys(fd, buffer, length, &remote_ip, &remote_port,
+            (flags & MSG_DONTWAIT) != 0);
     }
     int real_fd = socket != 0 ? socket->listener_fd : fd;
     long result = with_optional_nonblock(real_fd,
@@ -1378,14 +1406,13 @@ ssize_t recvfrom(int fd,
 
     uint32_t remote_ip = 0;
     uint16_t remote_port = 0;
-    long result = udp_recvfrom_sys(socket->listener_fd,
+    long result = udp_recvfrom_sys(fd,
         buffer,
         length,
         &remote_ip,
         &remote_port,
         (flags & MSG_DONTWAIT) != 0);
     if (result < 0) {
-        errno = errno_from_blocking_result(result, EIO);
         return -1;
     }
 

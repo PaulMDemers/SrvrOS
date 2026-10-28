@@ -87,7 +87,7 @@ Raw original failures, final host/sanitizer logs and disposable VM logs are unde
 rerun by this network-only checkpoint. No Actions dispatch, native installation,
 physical adapter acceptance or PR merge occurred; PR182 remains draft.
 
-## Continued audit and limits
+## Follow-on scope recorded at the datagram checkpoint
 
 Follow-on tracing reaches shared ARP/DNS request state across blocking waits and
 libc connected-UDP peer filtering and close/reuse. `resolve_ipv4_mac` and DNS
@@ -97,3 +97,91 @@ this checkpoint does not qualify them. UDP identifier exhaustion, arbitrary SMP
 interleavings, ICMP error delivery/PMTU, full socket flag/errno parity and native
 network adapters also remain outside this evidence. Existing fragmentation,
 TCP reassembly and physical-device restrictions remain in the supported profile.
+
+
+## Resolver and connected-UDP ownership checkpoint
+
+Main `4ae360ef` through PR243 is integrated in `9f427171`. The Makefile merge
+retains both independently appended test groups; no network source conflicted.
+This pass uses `c43a1749` as the original network/libc source. Evidence is under
+`build/review/query-ownership/`.
+
+| Trigger | Confirmed behavior before the fix | Correction |
+| --- | --- | --- |
+| Two ARP lookups overlap | A resumed caller could consume the other target's MAC | Each wait checks the cache for its own captured target, with a local deadline |
+| Unknown ARP opcode | Sender mapping entered the cache | Only request/reply opcodes can publish cache entries |
+| Native DNS calls overlap, including after a reply is published | Shared result/ID/wait state could be overwritten before the original caller consumed it | One active owner spans ARP, retries, reply publication and return; overlap returns SRV_ERR_AGAIN without changing caller output |
+| DNS response arrives from another source IP | Matching port/ID could complete the active request | Require the captured configured server address as well as the existing port/ID checks |
+| Process exit during ARP/DNS waits | Calls continued until the normal timeout | Exit checks terminate the wait; DNS releases ownership on the common completion path |
+| Connected recvfrom/recvmsg sees foreign datagrams | Foreign IP/port payload could be returned | All three UDP receive adapters discard nonmatching peers through one helper |
+| recv on an unconnected UDP socket | Failed with ENOTCONN | Receive a datagram without imposing a peer filter |
+| Pseudo-socket closes/reuses during receive or a restart handler | The loop could retry/read or restore flags through a replacement FD | Capture pseudo-slot generation, native FD and peer; reject retirement with EBADF before another retry or flag restoration |
+
+ARP status now reports one cached mapping rather than a global lookup completion;
+its public structure/version is unchanged. The cache remains eight entries with
+existing eviction behavior; eviction can make a waiter time out, never satisfy
+it with another target's MAC. Native DNS remains a single fixed-port transaction,
+not a parallel resolver. Busy refusal, timeout, transmit/name-encoding failure,
+process exit and success leave the output/ownership contract explicit. This is
+not a general DNS authentication implementation: query/question/answer-owner
+validation, compression, entropy and DNSSEC remain separate work. The source/ID
+matching rationale is described in
+[RFC5452](https://www.rfc-editor.org/rfc/rfc5452.html).
+
+UDP peer state is captured for each receive call. Connected `recv`, `recvfrom`
+and `recvmsg` now share filtering, including zero-capacity receives and
+MSG_DONTWAIT exhaustion. This matches the connected datagram peer contract in
+[connect(2)](https://man7.org/linux/man-pages/man2/connect.2.html).
+Pseudo-slot generations live separately from cleared/copied socket records;
+allocation and duplication advance the destination generation, and an exhausted
+counter prevents reuse. A stale continuation fails even when both pseudo and
+native descriptor numbers are reused. This adds no public ABI or syscall change.
+Native UDP status flags currently belong to the descriptor, so skipping restore
+after its close does not leave a surviving duplicate with the temporary flags.
+This does not qualify concurrent flag changes on the same live descriptor,
+arbitrary user-thread/SMP interleavings, or direct native-FD manipulation behind
+the libc adapter.
+
+### Directed verification
+
+`test-net-query` adds 13 modes: ARP different-target overlap, cache/timeout,
+exit and invalid opcode; DNS overlap during ARP/response wait/after reply,
+source and ID admission, exit, send/encoding failure cleanup and timeout retry.
+Eight fail on original source; five are passing controls. Nested DNS responses
+use distinct answer values to expose cross-caller result consumption.
+
+`test-posix-udp-owner` adds 12 modes: filtering through recvfrom/recvmsg/recv,
+zero-capacity filtering, unconnected recv, same-number close/reuse during filter
+and restart, nonblocking flag restoration, close without replacement, duplicate
+reuse, ordinary restart and MSG_DONTWAIT exhaustion. Nine fail on original libc;
+three controls pass. Host stubs were completed before collecting the final
+before/after evidence; missing declarations/symbols are not OS defects. The
+nonblocking control checks final flags rather than counting internal toggles.
+
+All 25 modes pass under x86_64/Rosetta and native ARM64 ASan/UBSan. The prior ten
+kernel/six libc datagram modes and 46 TCP modes also pass normally and under
+sanitizers. The old datagram ARP hook now injects a real ARP reply instead of
+writing removed shared completion fields. TCP accept, network worker/device,
+process output/lifetime, syscall I/O and lifecycle-wait gates pass. Integrated
+package/platform diagnostic, PCI, tool timing and file-pool host gates pass.
+The matched build and six generator groups pass, including recursive validation
+of 372 entry sets in 16 directories.
+
+Eight sequential disposable VMs pass: tcp-ready 11.28 s, tcp-stress 47.76 s, netabi 9.95 s, libuv 10.63 s, threads 40.41 s, lifetime 23.1 s, web-segmented 19.21 s, outbound-local 10.94 s.
+Netabi confirms both the earlier datagram marker and the new
+`netabi: udp connected filtering/unconnected receive ok` marker. Outbound HTTP
+checks `/query-check` and the exact localhost-server body; no public DNS or web
+service is required. Resolver overlap is deterministic host coverage, not a VM
+concurrency claim. Documentation links and whitespace checks pass. Tests used
+the candidate on `9f427171`; retained source hashes are checked against the
+published commit, together with matched image hashes. No native hardware
+acceptance, Actions dispatch, physical install or PR merge occurred.
+
+### Next bounded audit
+
+Continued tracing reaches DNS question/answer identity and compressed-name
+parsing in both native and libc resolvers. The libc resolver's dedicated UDP
+socket and error translation need their own source/response tests. Also queued
+are same-live-FD per-call flag isolation and TCP connect/accept publication after
+libc close/reuse. The current evidence covers deterministic UDP continuation
+boundaries, not every socket operation or complete DNS/network conformance.

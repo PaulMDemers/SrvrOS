@@ -558,7 +558,28 @@ the libc cached port. A send waiting for ARP revalidates its original endpoint
 before emitting a packet, refusing final-close/reuse while allowing a surviving
 native alias. Final close wakes blocked receivers; native held references retain
 queued data through creator cleanup. These checks do not extend pseudo-socket
-fork/dup support or qualify connected-peer filtering, concurrent resolver queries
-or arbitrary SMP teardown. ICMP echo requests and replies require a valid checksum
+fork/dup support or qualify arbitrary SMP teardown. ICMP echo requests and replies require a valid checksum
 and code zero before responding or completing a pending ping. See the
 [datagram audit](datagram-audit-2026-10-28.md) for evidence and remaining scope.
+
+
+ARP waits resolve their captured target from the bounded cache, so overlapping
+lookups cannot consume each other's completion. Only ARP request/reply opcodes
+update that cache. Native DNS permits one active query across ARP and all retries;
+an overlapping raw call returns `SRV_ERR_AGAIN` without changing its output.
+The active request accepts replies only from its configured server IP and the
+existing DNS port/ID. All normal failure/success paths release ownership, and
+process exit stops ARP/DNS waits. This is not DNSSEC, comprehensive response
+validation or a new parallel resolver; libc name-service error translation and
+its separate UDP resolver remain bounded follow-on work.
+
+Connected UDP `recv`, `recvfrom` and `recvmsg` filter by the IP/port captured at
+receive entry. Foreign datagrams are consumed until a match or ordinary
+nonblocking/error result, including zero-capacity calls. Unconnected `recv` is
+supported. A receive continuation validates pseudo-slot generation and native FD
+after each syscall and restart handler; close/reuse returns `EBADF` before retry
+or restoring temporary flags to a replacement. Dup/new allocation gets a new
+slot generation, and exhausted generations are not recycled. No syscall or
+public layout changes. Concurrent flags on the same live FD, native-FD operations
+behind libc, TCP connect/accept continuations and arbitrary SMP races remain
+outside this bounded result; see the [datagram audit](datagram-audit-2026-10-28.md).

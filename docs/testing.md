@@ -1297,3 +1297,19 @@ lifetime fixture. Evidence and limits are in the
 [datagram audit](datagram-audit-2026-10-28.md), with raw logs and original-source
 failures under `build/review/datagram/`. Connected UDP filtering, resolver overlap
 and native adapter acceptance are not inferred from these checks.
+
+
+`make test-net-query test-posix-udp-owner` adds 13 production ARP/DNS modes and
+12 libc UDP ownership modes to `test-core`. Eight query modes and nine libc modes
+fail against original source `c43a1749`; eight controls pass. Cases cover nested
+ARP targets, DNS ownership through ARP/wait/completed reply, wrong server/ID,
+exit/failure/timeout cleanup, peer filtering and zero-capacity receives,
+unconnected recv, same-number replacement during receive/restart, duplicate
+reuse and nonblocking exhaustion/flags. Nested DNS replies carry different
+answers; the original outer caller consumes the inner result. Candidate tests
+pass under x86_64/Rosetta and native ARM64 ASan/UBSan, alongside the prior 62
+TCP/datagram modes. The guest netabi fixture adds
+`netabi: udp connected filtering/unconnected receive ok`, covering all three
+receive forms, discarded foreign packets and nonblocking exhaustion. Evidence
+is under `build/review/query-ownership/`; the [audit](datagram-audit-2026-10-28.md)
+records exact results and limits.

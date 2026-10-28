@@ -178,15 +178,14 @@ static uint8_t dhcp_server_ip_bytes[4];
 static uint8_t dhcp_router_ip_bytes[4];
 static uint8_t dhcp_dns_ip_bytes[4];
 static uint8_t dhcp_offered_ip_bytes[4];
-static uint8_t arp_resolved_mac[6];
-static uint32_t arp_resolved_ip;
-static bool arp_resolved;
-static bool arp_waiting;
 static bool icmp_ping_waiting;
 static bool icmp_ping_reply;
 static uint32_t icmp_ping_ip;
 static uint16_t icmp_ping_sequence;
 static uint64_t icmp_ping_start_tick;
+/* One native DNS transaction owns these fields through ARP and all retries. */
+static bool dns_query_active;
+static uint32_t dns_server_ip;
 static uint32_t dns_answer_ip;
 static uint16_t dns_query_id = 0x7372;
 static bool dns_waiting;
@@ -567,24 +566,23 @@ static bool resolve_ipv4_mac(uint32_t ip, uint8_t *mac_out) {
         return true;
     }
 
-    arp_resolved_ip = ip;
-    arp_resolved = false;
-    arp_waiting = true;
     if (!send_arp_request(ip)) {
-        arp_waiting = false;
         return false;
     }
 
     uint64_t start = timer_ticks();
     while (timer_ticks() - start < 100) {
-        if (arp_resolved) {
-            copy_bytes(mac_out, arp_resolved_mac, 6);
+        /* Another caller may resolve a different target while this one waits.
+         * Only this caller's address can satisfy its lookup. */
+        if (process_should_exit_current()) {
+            return false;
+        }
+        if (arp_cache_lookup(ip, mac_out)) {
             return true;
         }
         (void)net_device_poll(32, false);
         net_wait_tick();
     }
-    arp_waiting = false;
     return false;
 }
 
@@ -864,17 +862,13 @@ static void handle_arp(const uint8_t *frame, uint16_t length) {
         return;
     }
 
-    arp_packets++;
     uint16_t opcode = read_be16(arp + 6);
+    if (opcode != 1 && opcode != 2) {
+        return;
+    }
+    arp_packets++;
     uint32_t sender_ip = read_be32(arp + 14);
     arp_cache_update(sender_ip, arp + 8);
-    if (opcode == 2) {
-        if (arp_waiting && sender_ip == arp_resolved_ip) {
-            copy_bytes(arp_resolved_mac, arp + 8, 6);
-            arp_resolved = true;
-            arp_waiting = false;
-        }
-    }
     if (opcode == 1 && read_be32(arp + 24) == local_ip) {
         send_arp_reply(frame);
     }
@@ -1027,7 +1021,8 @@ static void handle_udp(const uint8_t *ip, uint16_t ip_header_length, uint16_t ip
 
     if (src_port == DHCP_SERVER_PORT && dst_port == DHCP_CLIENT_PORT) {
         handle_dhcp_packet(udp + 8, udp_length - 8);
-    } else if (src_port == DNS_PORT && dst_port == DNS_CLIENT_PORT) {
+    } else if (src_port == DNS_PORT && dst_port == DNS_CLIENT_PORT &&
+        dns_query_active && read_be32(ip + 12) == dns_server_ip) {
         handle_dns_packet(udp + 8, udp_length - 8);
     }
 
@@ -2528,11 +2523,17 @@ int64_t net_dns_resolve(const char *name, uint32_t *ip_out) {
     if (!initialized || name == 0 || name[0] == '\0' || ip_out == 0) {
         return -1;
     }
-
-    uint32_t server_ip = configured_dns_server();
+    /* CPU0 network calls yield only at explicit waits. Reserve before ARP,
+     * and retain ownership after reply publication until the caller returns. */
+    if (dns_query_active) {
+        return SRV_ERR_AGAIN;
+    }
+    dns_query_active = true;
+    int64_t result = -1;
+    dns_server_ip = configured_dns_server();
     uint8_t server_mac[6];
-    if (!resolve_ipv4_mac(server_ip, server_mac)) {
-        return -1;
+    if (!resolve_ipv4_mac(dns_server_ip, server_mac)) {
+        goto done;
     }
 
     for (uint64_t attempt = 0; attempt < DNS_RETRIES; attempt++) {
@@ -2544,17 +2545,19 @@ int64_t net_dns_resolve(const char *name, uint32_t *ip_out) {
         dns_answer_ready = false;
         dns_response_done = false;
         dns_waiting = true;
-        if (!send_dns_query(server_ip, server_mac, name, dns_query_id)) {
-            dns_waiting = false;
-            return -1;
+        if (!send_dns_query(dns_server_ip, server_mac, name, dns_query_id)) {
+            goto done;
         }
 
         uint64_t start = timer_ticks();
         while (timer_ticks() - start < DNS_TIMEOUT_TICKS) {
+            if (process_should_exit_current()) {
+                goto done;
+            }
             if (dns_answer_ready) {
                 *ip_out = dns_answer_ip;
-                dns_waiting = false;
-                return 0;
+                result = 0;
+                goto done;
             }
             if (dns_response_done) {
                 break;
@@ -2564,7 +2567,10 @@ int64_t net_dns_resolve(const char *name, uint32_t *ip_out) {
         }
         dns_waiting = false;
     }
-    return -1;
+done:
+    dns_waiting = false;
+    dns_query_active = false;
+    return result;
 }
 
 void net_print_status(void) {
@@ -2831,18 +2837,13 @@ int64_t net_status_info(struct srv_net_status_info *info) {
     if (local_mac != 0) {
         copy_bytes(info->local_mac, local_mac, sizeof(info->local_mac));
     }
-    if (arp_resolved) {
-        info->arp_valid = 1;
-        info->arp_ip = arp_resolved_ip;
-        copy_bytes(info->arp_mac, arp_resolved_mac, sizeof(info->arp_mac));
-    } else {
-        for (uint64_t i = 0; i < ARP_CACHE_ENTRIES; i++) {
-            if (arp_cache[i].used) {
-                info->arp_valid = 1;
-                info->arp_ip = arp_cache[i].ip;
-                copy_bytes(info->arp_mac, arp_cache[i].mac, sizeof(info->arp_mac));
-                break;
-            }
+    /* Status reports a cached mapping, never a shared caller completion. */
+    for (uint64_t i = 0; i < ARP_CACHE_ENTRIES; i++) {
+        if (arp_cache[i].used) {
+            info->arp_valid = 1;
+            info->arp_ip = arp_cache[i].ip;
+            copy_bytes(info->arp_mac, arp_cache[i].mac, sizeof(info->arp_mac));
+            break;
         }
     }
 

@@ -1753,3 +1753,35 @@ package/platform diagnostics; rerun affected integration checks. PR19 now at
 `88a2408a` remains separate Wi-Fi bring-up, without network-core overlap.
 Next checkpoint: original-source failures, bounded fixes and sequential matched
 validation. PR182 remains draft; no native install, Actions or merge planned.
+
+
+### Resolver and connected-UDP ownership result
+
+Integrated main `4ae360ef` through PR243 in `9f427171`, preserving both appended
+Makefile test groups. ARP waits now consume only their own target's cached
+mapping; unknown opcodes cannot update the cache. Native DNS holds one owner
+through ARP/retries/completion, refuses overlap with `SRV_ERR_AGAIN`, checks the
+configured source server, and releases on exit/failure/success. UDP receives share
+connected-peer filtering and support unconnected recv; pseudo-slot generations
+prevent close/reuse from redirecting retries or flag restoration. See the
+[datagram audit](../datagram-audit-2026-10-28.md) for contracts and limits.
+
+Thirteen query and twelve libc modes pass on x86_64/Rosetta and native ARM64
+ASan/UBSan; eight and nine respectively fail against original source `c43a1749`.
+The prior 46 TCP and sixteen datagram modes pass normally and under sanitizers.
+TCP accept, network worker/device, process output/lifetime, syscall I/O and
+lifecycle-wait pass. Integrated package/platform diagnostic, PCI, tool timing and
+file-pool host checks pass. The matched build, six generator groups and recursive
+372-entry/16-directory image check pass.
+
+Eight sequential disposable VMs pass: tcp-ready 11.28 s, tcp-stress 47.76 s, netabi 9.95 s, libuv 10.63 s, threads 40.41 s, lifetime 23.1 s, web-segmented 19.21 s, outbound-local 10.94 s.
+Netabi confirms connected filtering/unconnected receive as well as the earlier
+truncation/queue group. Local outbound HTTP verifies `/query-check` and the exact
+body. Original failures, final logs, candidate diff and tested source/artifact
+hashes are retained under `build/review/query-ownership/`. Documentation links
+and whitespace checks pass; PR182 stays draft. No Actions dispatch, native
+installation or merge occurred. PR19 `88a2408a` retains independent Wi-Fi scope.
+Continued tracing reaches DNS question/answer identity and compressed names,
+libc resolver source/error handling, same-live-FD flag isolation and TCP
+connect/accept publication after close/reuse. These need directed tests next;
+full DNS/network and arbitrary SMP conformance are not claimed.

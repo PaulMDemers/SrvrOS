@@ -1,5 +1,6 @@
 #include <srvros/sys.h>
 #include <arpa/inet.h>
+#include <errno.h>
 #include <sys/socket.h>
 #include <poll.h>
 #include <stdint.h>
@@ -182,11 +183,77 @@ done:
     return result ? fail("udp-datagrams") : 0;
 }
 
+static int check_udp_peers(void) {
+    struct srv_net_status_info status;
+    if (srv_net_status_info(&status) < 0) {
+        return fail("udp-peer-status");
+    }
+    int server = socket(AF_INET, SOCK_DGRAM, 0);
+    int peer = socket(AF_INET, SOCK_DGRAM, 0);
+    int foreign = socket(AF_INET, SOCK_DGRAM, 0);
+    int result = 1;
+    struct sockaddr_in destination = {.sin_family = AF_INET, .sin_port = htons(7107),
+        .sin_addr.s_addr = htonl(status.local_ip)};
+    struct sockaddr_in source = destination;
+    source.sin_port = htons(7108);
+    if (server < 0 || peer < 0 || foreign < 0 ||
+        bind(server, (struct sockaddr *)&destination, sizeof(destination)) < 0 ||
+        bind(peer, (struct sockaddr *)&source, sizeof(source)) < 0) {
+        goto done;
+    }
+    char byte = 0;
+    if (sendto(peer, "u", 1, 0, (struct sockaddr *)&destination, sizeof(destination)) != 1 ||
+        recv(server, &byte, 1, MSG_DONTWAIT) != 1 || byte != 'u' ||
+        connect(server, (struct sockaddr *)&source, sizeof(source)) < 0) {
+        goto done;
+    }
+    for (unsigned mode = 0; mode < 4; mode++) {
+        if (sendto(foreign, "x", 1, 0, (struct sockaddr *)&destination, sizeof(destination)) != 1 ||
+            sendto(peer, "y", 1, 0, (struct sockaddr *)&destination, sizeof(destination)) != 1) {
+            goto done;
+        }
+        ssize_t count;
+        byte = 0;
+        if (mode == 0) {
+            count = recv(server, &byte, 1, MSG_DONTWAIT);
+        } else if (mode == 1) {
+            struct sockaddr_in received;
+            socklen_t size = sizeof(received);
+            count = recvfrom(server, &byte, 1, MSG_DONTWAIT, (struct sockaddr *)&received, &size);
+            if (size != sizeof(received) || received.sin_port != source.sin_port) {
+                goto done;
+            }
+        } else {
+            struct iovec iov = {&byte, 1};
+            struct msghdr msg = {.msg_iov = &iov, .msg_iovlen = mode == 3 ? 0 : 1};
+            count = recvmsg(server, &msg, MSG_DONTWAIT);
+            if (!!(msg.msg_flags & MSG_TRUNC) != (mode == 3)) {
+                goto done;
+            }
+        }
+        if (count != (mode == 3 ? 0 : 1) || (mode != 3 && byte != 'y')) {
+            goto done;
+        }
+    }
+    if (sendto(foreign, "x", 1, 0, (struct sockaddr *)&destination, sizeof(destination)) != 1 ||
+        recvfrom(server, &byte, 1, MSG_DONTWAIT, NULL, NULL) != -1 || errno != EAGAIN) {
+        goto done;
+    }
+    result = 0;
+    printf("netabi: udp connected filtering/unconnected receive ok\n");
+done:
+    if (server >= 0) close(server);
+    if (peer >= 0) close(peer);
+    if (foreign >= 0) close(foreign);
+    return result ? fail("udp-peers") : 0;
+}
+
 int main(void) {
     if (srv_net_dhcp() < 0) {
         return fail("dhcp");
     }
     if (check_udp_datagrams() != 0 ||
+        check_udp_peers() != 0 ||
         check_status_truncation() != 0 ||
         check_net_list_truncation() != 0 ||
         check_arp_list_truncation() != 0) {
