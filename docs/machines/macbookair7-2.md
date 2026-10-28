@@ -2,6 +2,26 @@
 
 Updated: 2026-10-28. State: **active reference machine; partial device acceptance**.
 
+### Seventh endurance return — scoped logger barrier (2026-10-28)
+
+Release `3b5821fefe34b721`, clean `bb8561f7` (PR #247), returned automatically
+from `session-00065eecca209c8d-00` after seven cycles. Files PID18 misses its close
+deadline during final file-pool retirement: 5151107 us, including 4913448 us
+ready, 1593 gate exclusions and 237401 us blocked. UI maximum 102541 us, zero
+observed PCM underruns, incomplete screenshot and clean battery retirement do
+not accept endurance. Measured logger sync is now 711–802 us; some logger write
+intervals still take seconds. The earlier global-sync coupling is removed, but
+this run does not identify the remaining gate owner. All 1200 prior files are
+preserved except metadata; offline fsck/allocation pass (1206 files, 3239 clusters,
+zero errors), default/recovery/consumed one-shot pass.
+
+Next bounded scope: kernel-only long I/O-owner receipts in scheduler diagnostics
+and workspace log snapshots, with focused scheduler/logger fixtures. Record stable
+thread identity, process ID, sanitized worker name and interval, outside measured
+scopes; no syscall/wire ABI, gate, cadence, workload or deadline changes. Preserve
+PR #182 process/VFS audit and PR #19 Wi-Fi ownership. Consume actual main PR #249
+before matched validation; its RC6 diagnostics do not confer Air7,2 acceptance.
+
 ### Sixth endurance return — logger invokes global file sync (2026-10-28)
 
 Release `c98e4c162b411126`, clean `c23ed928` (PR #245), returned automatically
