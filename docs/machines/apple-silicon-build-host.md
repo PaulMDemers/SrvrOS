@@ -1700,3 +1700,17 @@ Logs, original failures, source diff and source/artifact hashes are retained
 under `build/review/tcp-parser/`. Documentation/link and whitespace checks pass.
 Earlier storage matrices and native-device acceptance remain dated evidence;
 no Actions dispatch, physical install or PR merge occurred. PR182 remains draft.
+
+
+## UDP/ICMP validation and endpoint ownership — active scope (2026-10-28)
+
+Continue PR182 from `950a4ee0`, integrating main `2c34a460` through PR238
+(desktop lifecycle-worker/capture changes). Audit UDP lengths/checksums, bounded
+queue overflow and truncation, zero-length datagrams, ICMP echo validation, bind
+identity, blocked-send/receive close/reuse and inherited endpoint ownership.
+Include libc datagram recvmsg behavior if directed tests confirm a mismatch.
+Scope: net.c, socket adapter/headers as needed, host/guest regressions, Makefile
+and current guides. PR19 `7ac6b0e6` remains separate Wi-Fi work; main contains the
+Air7,2 worker changes and Air6,1 C3 evidence. No network-core overlap was found.
+Next checkpoint: original-source failures, bounded fixes and sequential matched
+validation. Keep PR182 draft; no Actions, native install or merge is planned.
