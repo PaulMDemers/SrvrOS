@@ -187,7 +187,7 @@ bool workspace_mount(const char *uuid) {
 out:
     end(&scope); return ok;
 }
-static bool sync_locked(bool process_files) {
+static bool flush_locked(bool process_files) {
     if (!active || failed) return false;
     struct block_device *parent = block_parent(active);
     if ((process_files && process_file_sync_all() < 0) || !exfat_is_writable("/work") ||
@@ -196,17 +196,18 @@ static bool sync_locked(bool process_files) {
     }
     return true;
 }
+static bool sync_locked(void) { return flush_locked(true); }
 bool workspace_sync(void) {
     struct scope scope;
     if (!begin(&scope)) { end(&scope); return false; }
-    bool ok = sync_locked(true);
+    bool ok = sync_locked();
     if (ok) console_write("workspace: flushed\n");
     end(&scope); return ok;
 }
 bool workspace_flush_committed(void) {
     struct scope scope;
     if (!begin(&scope)) { end(&scope); return false; }
-    bool ok = sync_locked(false);
+    bool ok = flush_locked(false);
     end(&scope); return ok;
 }
 bool workspace_unmount(void) {
@@ -216,7 +217,7 @@ bool workspace_unmount(void) {
     if (!active) { console_write("workspace: not mounted\n"); goto out; }
     if (mount_hold.token) { console_write("workspace: busy; mounted lifetime is held\n"); goto out; }
     if (process_has_open_vfs_prefix("/work")) { console_write("workspace: busy; close files first\n"); goto out; }
-    if (!sync_locked(true)) goto out;
+    if (!sync_locked()) goto out;
     if (!exfat_unmount("/work") || !usb_storage_disable_volume_writes(active)) {
         failed = true; goto out;
     }
@@ -238,7 +239,7 @@ bool workspace_scratch_prepare(void) {
     for(unsigned i=0;i<16;i++)path[sizeof("/work/srvros-work/battery-io-")-1+i]="0123456789abcdef"[(nonce>>(60-i*4))&15];
     if(vfs_lookup(path))goto out; /* Never overwrite an existing file. */
     for(unsigned i=0;i<4096;i++)scratch.buffer[i]=(uint8_t)i;
-    if(!exfat_write_file(path,scratch.buffer,4096)||!sync_locked(true))goto out;
+    if(!exfat_write_file(path,scratch.buffer,4096)||!sync_locked())goto out;
     struct block_device *volume=NULL,*parent=NULL;
     uint64_t offset,raw;
     if(!exfat_scratch_range(path,&volume,&offset)||volume!=active||
