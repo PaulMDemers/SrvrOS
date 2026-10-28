@@ -34,6 +34,12 @@ lifecycle deadline (four completed cycles, UI maximum 111161 us). Its retained
 atomic checkpoint validates three owner snapshots and 16 distinct long scopes;
 a PID7 workload scope lasts 848646 us with 927 READY selection refusals. This
 is VM attribution coverage, not native acceptance or a performance fix.
+PR #250 merged as `a8da6076`. Clean stage `b70f04d3166380e2` passes exact-payload
+Q35 native-ownership refusal/save/unmount/reset rehearsal and is installed for an
+automatic native attribution run. All 1206 pre-existing file hashes and offline
+integrity/headroom checks are saved. Recovery `9aa8dbf6fbda8252` remains independent;
+Ubuntu stays default. No human input is required; collect this release's matching
+session and correlate saved owner intervals after return.
 
 ### Sixth endurance return — logger invokes global file sync (2026-10-28)
 
