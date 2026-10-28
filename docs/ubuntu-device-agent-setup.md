@@ -1,6 +1,6 @@
 # Ubuntu setup for an on-device SrvrOS agent
 
-Current workflow, 2026-10-19. Each Mac runs Ubuntu as its development/recovery
+Current workflow, 2026-10-27. Each Mac runs Ubuntu as its development/recovery
 OS, has its own repository checkout and agent, and uses a plugged-in exFAT USB
 drive for SrvrOS documents and diagnostics. Build and run disposable VMs on
 that Mac; reboot it into SrvrOS for physical acceptance. Ubuntu is the normal

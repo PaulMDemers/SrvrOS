@@ -1,6 +1,6 @@
 # Roadmap
 
-Updated October 25, 2026. The goal is a pleasant native desktop on the MacBook
+Updated October 27, 2026. The goal is a pleasant native desktop on the MacBook
 Air, with a solid shell and server foundation. The [current status](status.md)
 and [machine records](machines/README.md) separate implementation from physical
 acceptance. The [device parity ledger](device-parity.md) compares the Air with
@@ -80,9 +80,16 @@ The renderer now conservatively skips fully covered opaque windows and reuses
 one stack ordering per frame; exact reference pixels and identical-workload host
 benchmarks guard the change.
 
-**Next completion gates:** close the unresolved Air6,1 app startup/retirement
-latency under sustained I/O without relaxing deadlines, and expand measured
-input/resize/pressure coverage. Parented dialogs, cancellable Close/Quit and
+Air6,1 has since passed bounded 30-minute audio/disk/app stress under unchanged
+deadlines; see its independent machine record. Air7,2 has bounded general
+movement/dock/navigation and focused Close/window-list acceptance through
+`060fffa453e26d5e`. Running dock entries, MRU switching, keyboard menu navigation
+and shared Close discovery are implemented.
+
+**Next completion gates:** expand measured input/resize/pressure coverage and
+validate newer shared changes on the target before extending native acceptance.
+
+Parented dialogs, cancellable Close/Quit and
 existing-process document routing are implemented in protocol v15. Text and
 Preview share the asynchronous [chooser controller](desktop-chooser.md) hosted
 in native owned dialogs with an embedded fallback. Broader app services remain
