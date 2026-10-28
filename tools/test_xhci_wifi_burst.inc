@@ -39,6 +39,9 @@ static void test_wifi_burst_case(struct xhci_device *d){
     assert(m->scan_batch_mode && m->scan_mode && !m->scan_retry_mode && m->receive_mode);
     uint8_t input[4096]={0};d->input_context=input;d->input_context_phys=(uintptr_t)input;
     m->tune=(struct xhci_wifi_tune){0};m->receive=(struct xhci_wifi_receive){0};m->scan=(struct xhci_wifi_scan){0};
+    /* Use the captured parent TXOP with its temporary bit20 set; the older
+     * window fixture also covers the cleared-bit form. */
+    m->mac_cycle.txop|=1u<<20;
     mac_model_mac=0;mac_model_filter=0x17f97;mac_model_txop=m->mac_cycle.txop;
     tune_model_init();tune_fault=tune_at=tune_delay_fault=0;
     receive_retry_fault=receive_fault=receive_ticks=receive_commands=receive_mac_at=receive_controls=receive_control_at=receive_control_fault=0;

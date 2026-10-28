@@ -13,7 +13,7 @@ FIELDS = {
  'wifi-burst-page': 'index physical retained reused',
  'wifi-burst-item': 'index td submitted completed cc remaining actual inspected view beacon_status consumed mpdu frame_control beacon interval ssid_size privacy rsn wpa ds probe identifiers_logged',
 }
-HEX = {'ring', 'buffer', 'trb', 'physical', 'frame_control', 'old_ring', 'dequeue'}
+HEX = {'ring', 'buffer', 'trb', 'physical', 'frame_control', 'old_ring', 'dequeue', 'filter', 'txop', 'tx_alc', 'ibi9'}
 
 
 def record(line, tag, fields=None):
