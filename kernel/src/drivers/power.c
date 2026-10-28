@@ -2,6 +2,9 @@
 #include <srvros/console.h>
 #include <srvros/timer.h>
 #include <srvros/scheduler.h>
+#ifdef SRVROS_AP_PROBE
+#include <srvros/package_audit.h>
+#endif
 
 static struct power_snapshot snapshot;
 static struct power_sampler sampler;
@@ -57,7 +60,14 @@ static void sample(void) {
     }
     if(capturing && (raw.us<capture_last || raw.us-capture_last>=5000000)) {
         if(idle_auditing) scheduler_idle_audit_snapshot(&snapshot.idle_entry);
-        if(capture_count<POWER_CAPTURE_CAPACITY) capture[capture_count++]=snapshot;
+        if(capture_count<POWER_CAPTURE_CAPACITY) {
+            capture[capture_count++]=snapshot;
+#ifdef SRVROS_AP_PROBE
+            /* Reuse this retained checkpoint, with no new polling/worker.
+             * The isolated platform backend is inert unless natively bound. */
+            platform_audit_sample(raw.us);
+#endif
+        }
         else capture_overflow=true;
         capture_last=raw.us;
     }

@@ -16,3 +16,6 @@ void package_ltr_read(struct package_ltr *,bool (*read)(void *,unsigned,uint32_t
 bool package_graphics_bar(uint32_t low,uint32_t high,uint32_t command,uint64_t *base);
 void platform_audit_snapshot(unsigned phase);
 bool platform_audit_report(void);
+/* Diagnostic ELF only; called at an already-retained power checkpoint.
+ * No allocation, wait, log I/O, new register or forcewake access. */
+void platform_audit_sample(uint64_t sample_us);
