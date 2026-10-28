@@ -1,3 +1,4 @@
+#include <srvros/ap_probe.h>
 #include <srvros/console.h>
 #include <srvros/latency.h>
 #include <srvros/fpu.h>
@@ -1064,7 +1065,14 @@ static bool mwait_step(void) {
     }
     if(!mwait_test.attempts)mwait_test.tick_begin=timer_ticks();
     bool deep=mwait_test.hint==0x10;
-    uint64_t t0=0,c0=0,p0=0;
+#ifdef SRVROS_AP_PROBE
+    bool coordinated=deep && ap_c3_active();
+    uint64_t coord_start=coordinated?timer_monotonic_us():0;
+    if(coordinated && !ap_c3_prepare(mwait_test.epoch,mwait_test.attempts+1,coord_start)) {
+        mwait_test.fault=4;return false;
+    }
+#endif
+    uint64_t t0=0,c0=0,p0=0,dt=0,dc=0,dp=0;
     if(deep) { t0=mwait_read(0x10);c0=mwait_read(0x3fc);p0=mwait_read(0x3f8); }
     uint64_t before=timer_monotonic_us();mwait_test.attempts++;
 #if defined(SRVROS_MWAIT_HOST_TEST)
@@ -1081,7 +1089,7 @@ static bool mwait_step(void) {
            UINT64_MAX-mwait_test.tsc_ticks<t1-t0 ||
            UINT64_MAX-mwait_test.core_c3_ticks<c1-c0 || UINT64_MAX-mwait_test.package_c3_ticks<p1-p0)
             mwait_test.fault=3;
-        else { mwait_test.tsc_ticks+=t1-t0;mwait_test.core_c3_ticks+=c1-c0;mwait_test.package_c3_ticks+=p1-p0; }
+        else { dt=t1-t0;dc=c1-c0;dp=p1-p0;mwait_test.tsc_ticks+=dt;mwait_test.core_c3_ticks+=dc;mwait_test.package_c3_ticks+=dp; }
     }
     if(after<before) mwait_test.fault=1;
     else {
@@ -1089,6 +1097,10 @@ static bool mwait_step(void) {
         if(elapsed>mwait_test.max_us)mwait_test.max_us=elapsed;
         if(elapsed>SCHEDULER_MWAIT_LIMIT_US)mwait_test.fault=2;
     }
+#ifdef SRVROS_AP_PROBE
+    if(coordinated && !ap_c3_finish(mwait_test.attempts,coord_start,dt,dc,dp,!mwait_test.fault) && !mwait_test.fault)
+        mwait_test.fault=4;
+#endif
     /* Measure before pending IRQ dispatch/preemption; then let that IRQ run.
      * There are no accesses to trial state after this scheduling boundary. */
 #ifndef SRVROS_SCHEDULER_HOST_TEST

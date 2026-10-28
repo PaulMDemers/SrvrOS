@@ -4966,3 +4966,40 @@ Next: design a separately gated coordinated C3 experiment using the now-proven
 AP ownership path, existing 32-attempt/20 ms bounds and BSP HLT fallback. Require
 explicit peer readiness, wake/retirement ownership and per-attempt residency
 proof. Ordinary boot retains no MP request; no C3 support is accepted yet.
+
+
+### Coordinated C3 — active scope (2026-10-28)
+
+Base `7b0cc468`, accepted AP ownership collected. PR182 filesystem (`903030ef`)
+and PR19 Wi-Fi (`52e47a10`) retain independent scope. Add a separate opt-in
+coordinated C3 profile to the diagnostic ELF, retaining ordinary no-MP boot.
+After the accepted C1 ownership handshake, require all APs to arm monitored
+mailboxes for each of at most 32 C3 attempts. BSP retains its calibrated ARAT
+timer, scheduler readiness checks and HLT fallback, then wakes peers by store.
+Bound the whole masked coordination round by the existing 20 ms ceiling; reject
+early wake, missing/future receipts, faults, clock/counter regression or firmware
+drift. Retain memory until reset on every path. Capture per-attempt BSP and peer
+residency and distinguish valid zero from entry. Scope: diagnostic AP protocol,
+diagnostic-only scheduler hooks, staging/parser and directed regressions. Next:
+validate real protocol with VM simulation clearly separated from native C3,
+rebuild matched baseline, self-merge and run the automated native capture.
+
+Coordinated candidate validation uses source `827b01c2`, matched release
+`57274dfaccfdc0b9`, with PR234 documentation baseline `45b8647a` consumed.
+`all usb-image ap-probe-kernel test-core check-docs` passes; ordinary MP-request
+absence and AP disassembly isolation verify. The final stage passes four-CPU
+protocol simulation, targeted missing/early/faulted-peer cases, 1/2/6-CPU refusal,
+exact native-profile VM refusal/save/return and missing-workspace containment.
+The harness now rejects an ownership timeout before the requested injected
+phase; the earlier such VM attempt is retained as incomplete directed coverage.
+The original 65,536-byte log tail retains all phase and coordinated proof in a
+synthetic replay of prior native receipts. VM simulation is not native C3 evidence.
+
+PR235 supplies the implementation and strict proof parser. The next unattended
+run retains AC/USB, shows the original 30-second idle/load/recovery progress,
+attempts 32 coordinated C3 rounds, verifies HLT fallback and AP retirement,
+saves and returns automatically. All power-policy registers, integrity checks
+and limits remain unchanged. Native coordinated entry and latency are pending;
+valid zero residency is not a C3-entry pass. Keep the accepted AP ownership and
+console recovery installed, retain older evidence outside `build`, and collect
+the matching session before another trial.
