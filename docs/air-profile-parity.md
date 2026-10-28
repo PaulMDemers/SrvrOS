@@ -13,11 +13,11 @@ CPU selectors and physical results are not interchangeable.
 | Brightness, audio, CPU/SMC | Exact Haswell, CS4208 and one-fan profiles; bounded native controls and playback | Separate captured Broadwell, codec and one-fan profiles already exist and have native evidence. Retain those gates. |
 | Battery/AC | Separate EC/SMBus ownership, indicator and combined-session acceptance | Existing Air7,2 backend/indicator remains in place; shared worker and supervisor event waits are integrated. Newer polling reductions need matching native measurements. |
 | Combined reopen | v72 automated two-session test and native acceptance | New v79 selects the same mechanism with the Air7,2 kernel; local and native evidence must name this profile. |
-| Audio/disk/app/screenshot stress | v74 bounded 30-minute native run, 703 app cycles; v77 attended variant | New v80 automatic and v81 attended profiles reuse the same workload, deadlines and ownership. Air7,2 has not inherited the 30-minute result. |
-| Desktop power phases | v78 idle/apps/recovery; worker-wakeup receipts and native measurements | New v82 uses the Air7,2 backend with the same phases, read-only power and normal return. No inferred energy saving. |
-| Idle residency and capture prerequisites | Ten counters; HLT entry, E2/APIC/misc and topology audit | Captured Broadwell support adds seven counters and the shared audit. C8/C9/C10 remain unavailable, not valid zeros. Native diagnostic remains a separate gate. |
-| Explicit MWAIT experiments | Bounded shallow and C3-hint execution accepted; zero observed C3 residency | Broadwell MWAIT remains refused until its own prerequisites/selector review and bounded trial. Read-only counter admission does not enable instructions or copy Haswell policy. Ordinary idle remains HLT. |
-| Secondary CPU ownership | PR232 adds a separate bounded AP rendezvous payload; native acceptance remains pending | Shared diagnostic is integrated, with its native Haswell-only admission intact. Broadwell needs independent identity/MONITOR/APIC prerequisites and a separate native trial after CPU0 capture. Ordinary boot has no MP request; general SMP scheduling remains absent. |
+| Audio/disk/app/screenshot stress | v74 bounded 30-minute native run, 703 app cycles; v77 attended variant | New v80 automatic and v81 attended profiles reuse the same workload, deadlines and ownership. Air7,2 has not inherited the 30-minute result; its first v80 native run failed an early lifecycle deadline and remains unaccepted. |
+| Desktop power phases | v78 idle/apps/recovery; worker-wakeup receipts and native measurements | v82 release `775c5051149c0e38` accepts three native phases, 13 app cycles, bounded loop/ready/close and clean retirement. No inferred energy saving. |
+| Idle residency and capture prerequisites | Ten counters; HLT entry, E2/APIC/misc and topology audit | Captured Broadwell support adds seven counters and the shared audit. C8/C9/C10 remain unavailable, not valid zeros. Native CPU0 diagnostic accepted on release `71049508c4a1fbd0`: complete seven-counter capture, unchanged configuration and zero observed deep-idle deltas. |
+| Explicit MWAIT experiments | Bounded shallow/C3-hint execution accepted; PR237 additionally accepts coordinated core C3 with valid-zero package C3 | Broadwell MWAIT/coordinated C3 remain refused until their own prerequisites/selector review and bounded trials. Read-only counter admission does not enable instructions or copy Haswell policy. Ordinary idle remains HLT. |
+| Secondary CPU ownership | PR232 adds a separate bounded AP rendezvous payload; PR233 records native Air6,1 acceptance | Shared diagnostic is integrated, with its native Haswell-only admission intact. Broadwell needs independent identity/MONITOR/APIC prerequisites and a separate native trial after CPU0 capture. Ordinary boot has no MP request; general SMP scheduling remains absent. |
 | Network/other devices | No accepted Ethernet/Wi-Fi on that unit | Air7,2 already has matched USB ECM acceptance. No parity gap justifies broadening adapter or firmware gates. Suspend/resume, internal Wi-Fi, Bluetooth and camera remain separate. |
 
 ## Explicit desktop profiles
@@ -72,8 +72,8 @@ lists the inherited tables for 06_3D. Linux
 [v6.12 cstate profiles](https://github.com/torvalds/linux/blob/v6.12/arch/x86/events/intel/cstate.c)
 separately maps Broadwell to the seven-counter set, while Haswell-ULT includes
 C8–C10. The local Air7,2 signature is `0x306d4`; read-only Ubuntu CPU0 capture
-confirms the seven reads and unchanged E2/APIC/misc snapshots. These are admission
-prerequisites, not native SrvrOS acceptance or an energy comparison.
+confirms the seven reads and unchanged E2/APIC/misc snapshots. The matching native CPU0 diagnostic now confirms bounded accessibility and unchanged
+configuration as recorded below; neither capture establishes energy savings.
 
 The existing vendor/feature/hypervisor/reference-clock gates apply first, then
 invariant TSC and the captured model choose mask 127 (Broadwell) or 1023
@@ -103,3 +103,51 @@ Audio workload diagnostics also record scheduler attribution for lifecycle
 intervals above 100 ms. These trace calls are confined to workload diagnostics;
 ordinary desktop operation does not enable them. `--accel tcg|kvm` explicitly
 selects the audio VM accelerator, with the original TCG default preserved.
+
+## Air7,2 native CPU0 checkpoint
+
+Release `71049508c4a1fbd0`, source `5bab654b`, session
+`session-00065ee8fc3ded29-00` completed the ordered 30-second idle/load/recovery
+phases and returned to Ubuntu automatically. Covered package averages were
+6.782/8.677/6.825 W. All seven supported residency deltas were zero; unsupported
+C8–C10 remain omitted. HLT entry/return pairs and unchanged E2/APIC/misc snapshots
+validate the diagnostic without demonstrating deep idle. CPUID topology describes
+two cores/four addressable logical CPUs; it does not observe their running state.
+No AP startup, MWAIT or policy write occurred. Prior files, offline filesystem and
+allocation checks, consumed one-shot and independent recovery all pass. The later native desktop checkpoint below covers power phases; full 30-minute
+endurance remains pending.
+
+## Air7,2 native desktop power checkpoint
+
+Automatic v82 release `775c5051149c0e38`, source `0cbbb275`, session
+`session-00065ee927f533d1-00` passes all three 60-second phases and native
+battery retirement. Thirteen app cycles complete with 116 ms maximum loop,
+1.471 s ready time and 103 ms close time. Covered package averages are
+6.827/6.722/6.666 W; these do not demonstrate an energy saving. Checkpoints retain
+worker transition/wakeup counts and native temperatures. All prior files and
+both offline integrity checks pass; automatic Ubuntu return, consumed one-shot
+and independent recovery are verified. Full 30-minute audio/disk/app/screenshot
+endurance is the next automatic physical check.
+
+## Endurance failure and I/O admission follow-up
+
+The first v80 native release `0d1ffb15c35f639a` did not complete 30 minutes.
+At cycle 6, Text reached its `main-return` receipt but the compositor did not reap
+it before the unchanged 10-second lifecycle deadline. Screenshot saving overlapped;
+its completion also failed. Maximum loop was 250 ms, PCM underruns were zero,
+and native battery retirement was clean. All prior files and offline integrity
+checks passed. Preserve the failure rather than treating automatic return as a pass.
+
+A separate deterministic scheduler regression exposes starvation in quiescent I/O
+handoff: restarting after the writer lets a recurring nearby waiter win all 32
+turns over another contender. The proposed correction rotates after the last
+admitted waiter, including ordinary scheduling admissions. Both waiters receive
+16 turns in the host fixture; storage ownership, eligibility, workload and deadlines
+remain unchanged. Native causation/acceptance still require a matching retry.
+
+The fairness candidate passes the normal Air7,2 KVM workload (23 app cycles,
+zero underruns). The throttled 100-write-IOPS fixture still fails loop and close
+bounds. Treat fairness as a separate proven correction, not a complete resolution
+of heavy-I/O latency. Failed diagnostic receipts now include a bounded read-only
+process-state snapshot to distinguish an active process from an inactive record with retirement/reaping pending; thresholds
+and early failure behavior remain unchanged.

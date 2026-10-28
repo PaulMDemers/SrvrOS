@@ -117,8 +117,9 @@ def verify_workspace(stick, volume, acceleration):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--ap-c3-sim",action="store_true",help="VM-only coordination rehearsal; no C3 or residency MSRs")
     parser.add_argument("--ap-cpus",type=int,choices=(1,2,4,6),default=4)
-    parser.add_argument("--ap-inject",choices=("missing","fault"))
+    parser.add_argument("--ap-inject",choices=("missing","fault","c3-missing","c3-early","c3-fault"))
     parser.add_argument("--boot-wait", type=float, default=180)
     parser.add_argument("--qemu", default="qemu-system-x86_64")
     parser.add_argument("--desktop-check", action="store_true")
@@ -168,8 +169,11 @@ def main():
     wifi_calibration=bool(probe and "srvros.capture=wifi-calibration" in (source/"limine.conf").read_text())
     wifi_capture=wifi_firmware or wifi_calibration or bool(probe and manifest["config_version"].startswith("ram-usb-v39-"))
     ap_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v1-ap-owner-"))
-    if args.ap_inject and not ap_capture: parser.error("AP injection requires AP diagnostic stage")
-    cpu_load_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v35-","ram-usb-v1-mwait-")))
+    coord_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v1-ap-c3-","ram-usb-v1-ap-package-")))
+    if args.ap_c3_sim and not coord_capture: parser.error("C3 simulation requires coordinated diagnostic stage")
+    if args.ap_inject and not (ap_capture or (coord_capture and args.ap_c3_sim)): parser.error("AP injection requires AP diagnostic/simulation")
+    if args.ap_inject and args.ap_inject.startswith("c3-") and not args.ap_c3_sim: parser.error("C3 injections require simulation")
+    cpu_load_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v35-","ram-usb-v1-mwait-","ram-usb-v1-ap-c3-","ram-usb-v1-ap-package-")))
     idle_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v23-"))
     posix_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v1-posix-"))
     storage_wait_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v1-storage-wait-"))
@@ -217,11 +221,13 @@ def main():
                         "-o", str(loader), f"boot/grub/grub.cfg={cfg}"], check=True)
         disk = temp / "esp.img"
         vm_source=source
-        if args.ap_inject:
+        if args.ap_inject or args.ap_c3_sim:
             vm_source=temp/"injected-payload"
             shutil.copytree(source,vm_source)
             for name in ("limine.conf","loader/limine.conf"):
-                p=vm_source/name;p.write_text(p.read_text().replace("srvros.capture=ap-ownership",f"srvros.capture=ap-ownership srvros.ap-inject={args.ap_inject}"))
+                p=vm_source/name;marker="srvros.ap=c3-test" if coord_capture else "srvros.capture=ap-ownership"
+                extra=(" srvros.ap-protocol=simulate" if args.ap_c3_sim else "")+(f" srvros.ap-inject={args.ap_inject}" if args.ap_inject else "")
+                p.write_text(p.read_text().replace(marker,marker+extra))
         make_disk(disk, loader, vm_source, release)
         qmp_path = temp / "qmp.sock"
         command = [args.qemu, "-M", "q35", "-m", "2G",
@@ -230,7 +236,7 @@ def main():
                    "-device", "qemu-xhci,id=xhci", "-device", "usb-kbd,bus=xhci.0",
                    "-serial", f"file:{serial}", "-qmp", f"unix:{qmp_path},server=on,wait=off",
                    "-monitor", "none", "-display", "none", "-no-reboot"]
-        if ap_capture: command += ["-smp",str(args.ap_cpus)]
+        if ap_capture or coord_capture: command += ["-smp",str(args.ap_cpus)]
         if scaled_desktop:
             command += ["-vga","none","-device","VGA,vgamem_mb=64,xres=2880,yres=1800"]
         network_desktop=bool(desktop and manifest["config_version"].startswith("ram-usb-v37-"))
@@ -475,10 +481,32 @@ def main():
                         assert power["power_state"]==1 and power["samples"]==0 and power["flags"]==0
                         from hardware_cpu_load import load_result
                         assert load_result(exit_log)["completed"] is False
-                        if manifest["config_version"].startswith("ram-usb-v1-mwait-"):
+                        if manifest["config_version"].startswith(("ram-usb-v1-mwait-","ram-usb-v1-ap-c3-","ram-usb-v1-ap-package-")):
                             from hardware_cpu_load import mwait_result
                             assert mwait_result(exit_log)=={'status':'refused','fallback':'hlt'}
-                            assert ('srvros.idle=mwait-c3-test' if manifest['config_version'].startswith('ram-usb-v1-mwait-c3-') else 'srvros.idle=mwait-wakeup-test') in exit_log
+                            assert ('srvros.idle=mwait-c3-test' if manifest['config_version'].startswith(('ram-usb-v1-mwait-c3-','ram-usb-v1-ap-c3-','ram-usb-v1-ap-package-')) else 'srvros.idle=mwait-wakeup-test') in exit_log
+                    if coord_capture:
+                        from hardware_ap_c3 import ap_c3_result
+                        result=ap_c3_result(exit_log)
+                        if args.ap_c3_sim and args.ap_cpus==4 and not args.ap_inject:
+                            assert result and result['mode']=='vm-simulation'
+                            if manifest['config_version'].startswith('ram-usb-v1-ap-package-'):
+                                assert 'ap-package: v=1 unavailable=vm policy_writes=0' in exit_log
+                                assert 'ap-package-round:' not in exit_log and 'ap-package-pci:' not in exit_log
+                        elif args.ap_c3_sim and args.ap_cpus==4:
+                            assert result is None
+                            if args.ap_inject.startswith('c3-'):
+                                # A startup timeout must not pass a later injected fault.
+                                faults={'c3-missing':(3,), 'c3-early':(4,7), 'c3-fault':(4,7)}
+                                summary=re.findall(r'^ap-c3: v=1 mode=vm-simulation epoch=1 rounds=0 fault=(\d+) config=0 limit_us=20000 completed=NO retained=yes$',exit_log,re.M)
+                                assert len(summary)==1 and int(summary[0]) in faults[args.ap_inject]
+                                peers=re.findall(r'^ap-owner-cpu: .* rounds=32 .* state=(\d+) fault=(\d+) waits=\d+$',exit_log,re.M)
+                                assert len(peers)==3
+                                assert sorted(peers)==([('2','0'),('2','0'),('3','1')] if args.ap_inject=='c3-fault' else [('2','0')]*3)
+                            else:
+                                assert 'ap-c3: v=1 mode=vm-simulation' in exit_log and 'completed=NO' in exit_log
+                        else:
+                            assert result is None and ('ap-c3: v=1 admitted=0' in exit_log or 'ap-owner: v=1 admitted=0' in exit_log)
                     if aml_capture:
                         exit_log=stored.read(folder+"/exit.log")
                         assert b"aml-capture: returned=yes clean=yes" in exit_log
@@ -535,7 +563,7 @@ def main():
                     (logs/"hardware-grub-result.json").write_text(json.dumps({
                         "status":"PASS","release":release,"manifest_sha256":boot.digest(source/"manifest.json"),
                         "battery_home_work":battery_home_work,"battery_home_transitions":battery_home_transitions,"battery_home_desktop":battery_home_desktop,"battery_home_session":battery_home_session,"battery_home":battery_home,"battery_smbus_files":battery_smbus_files,"battery_smbus":battery_smbus,"battery_smbus_transitions":battery_smbus_transitions,"battery_query":battery_query,"battery_controls":battery_controls,"battery_app_files":battery_app_files,"battery_load":battery_load,"battery_text":battery_text,"battery_desktop":battery_desktop,"battery_capture":battery_capture,"battery_transitions":battery_transitions,"battery_service":battery_service,"battery_filesystem":battery_filesystem,"return_on_failure":auto_return,"battery_outcome":"expected platform refusal" if battery_capture else "not requested",
-                        "ap_capture":ap_capture,"ap_cpus":args.ap_cpus if ap_capture else None,"ap_inject":args.ap_inject,"probe":True,"posix_capture":posix_capture,"probe_network":args.probe_network,"storage_wait_capture":storage_wait_capture,"wifi_capture":wifi_capture,"wifi_calibration":wifi_calibration,"wifi_firmware":wifi_firmware,"wifi_outcome":"expected absent radio" if wifi_capture else "not requested","battery_preflight":battery_preflight,"preflight_outcome":"expected identity refusal" if battery_preflight else "not requested","cpu_load_capture":cpu_load_capture,"load_result":"refused in VM" if cpu_load_capture else "not requested","power_telemetry":power_telemetry,"power_measurement":"unavailable in VM" if power_telemetry else "not requested","desktop_idle_capture":desktop_idle_capture,"idle_capture":idle_capture,"aml_capture":aml_capture,"saved":True,"unmounted":True,
+                        "ap_c3_sim":args.ap_c3_sim,"coord_capture":coord_capture,"ap_capture":ap_capture,"ap_cpus":args.ap_cpus if (ap_capture or coord_capture) else None,"ap_inject":args.ap_inject,"probe":True,"posix_capture":posix_capture,"probe_network":args.probe_network,"storage_wait_capture":storage_wait_capture,"wifi_capture":wifi_capture,"wifi_calibration":wifi_calibration,"wifi_firmware":wifi_firmware,"wifi_outcome":"expected absent radio" if wifi_capture else "not requested","battery_preflight":battery_preflight,"preflight_outcome":"expected identity refusal" if battery_preflight else "not requested","cpu_load_capture":cpu_load_capture,"load_result":"refused in VM" if cpu_load_capture else "not requested","power_telemetry":power_telemetry,"power_measurement":"unavailable in VM" if power_telemetry else "not requested","desktop_idle_capture":desktop_idle_capture,"idle_capture":idle_capture,"aml_capture":aml_capture,"saved":True,"unmounted":True,
                         "keyboard_capture":keyboard_capture,"keyboard_expected_failure":keyboard_negative,"workspace_table":args.workspace_table,"physical_acceptance":"pending"},indent=2)+"\n")
                     (logs/"laptop-capture.exfat").write_bytes(volume.read_bytes())
                     print(f"laptop-probe-smoke: PASS ({release}); diagnostics saved, offline file bytes verified, clean exFAT; " + (("native battery refused in VM and returned" if auto_return else "native battery refused in VM and halted") if battery_capture else "held Wi-Fi failure" if wifi_firmware and not auto_return else "automatic reset"))

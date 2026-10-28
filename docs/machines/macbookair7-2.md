@@ -2,7 +2,127 @@
 
 Updated: 2026-10-28. State: **active reference machine; partial device acceptance**.
 
-### Air6,1 parity — local implementation validated; native trial prepared (2026-10-28)
+### Endurance retry — exited child reap and capture startup (2026-10-28)
+
+Release `8003479c17f01644` (clean `96a8d307`, merged by PR236) failed early
+in session `session-00065ee9cdb1fcee-00`: cycle 3 close deadline, process 13
+reported `state=exited mapped_bytes=0`, but remained in the compositor child list.
+The loop maximum was 1001940 us, including 995335 us in the post stage where
+screenshot startup currently allocates/spawns synchronously. No PCM underruns
+were recorded. This does not accept endurance or establish that every close
+delay shares one cause. Preserve both failed releases and existing accepted
+CPU0/v82 results. Collect/offline integrity and recovery checks precede new work.
+
+Next bounded scope: `userspace/deskd` lifecycle worker, screenshot job preparation
+and focused host/VM fixtures. Move terminal-child reaping to the existing worker
+with one retained immutable PID/result record and kernel-owned blocking wait;
+process-list `exited` is only admission evidence, never permission to reclaim.
+Move screenshot allocation/spawn off the UI with an owned prepare/publish/copy
+boundary. Keep accepted writes/resources until retirement, original deadlines,
+workload intensity and all kernel I/O eligibility gates. PR182's process/VFS
+cleanup and PR19 Wi-Fi remain independent; this block makes no kernel changes.
+
+The retry's 1171 prior files are preserved except expected metadata; offline
+fsck/allocation pass (1177 files, 3001 clusters, zero errors). Ubuntu default,
+consumed one-shot and recovery are verified. The worker implementation now passes
+full core/desktop hosts and a matched ordinary image build. Directed fixtures
+hold worker reap/preparation calls stalled while the UI polls, verify unique PID
+ownership and one-time result consumption, and reject image transfer before a
+validated canvas copy. Positive and exact-stage VM checks remain pending; no
+hardware acceptance is claimed for these changes.
+
+Candidate `d534cec5` passes normal positive KVM audio/I/O workloads for both
+Air7,2 and Air6,1, with full screenshot/app timing/retirement proofs. Air7,2
+completes 23 app cycles, worst loop 119982 us, maximum ready 975600 us and
+close 1211610 us. The 100-write-IOPS fixture remains failed on an active Files
+close deadline; its worst loop is 110246 us. Preserve that failure; the change
+does not claim arbitrary slow-media latency or native endurance acceptance.
+Main `6cbfedab` / PR237 adds Air6,1 coordinated core-C3 acceptance documentation
+only; it is consumed without changing Broadwell admission or this workload.
+Window-command and exact-stage checks precede the automatic native retry.
+
+Window-command VM checks pass after the worker changes: offscreen recovery,
+window switching, minimized/dock lifetime, modal filtering, exact files, process
+baseline and offline allocation. Exact v80 release `5f4ed45c3634e22a` (clean
+`99e4412d`) passes GRUB/native Q35 ownership refusal/save/unmount/reset. The
+native retry must collect matching completion, file/capture/lifecycle receipts
+and integrity before acceptance. All 1177 existing files are hashed; independent
+recovery remains `9aa8dbf6fbda8252`. No human input is required for this replay.
+
+### Parity endurance — early native failure under investigation (2026-10-28)
+
+Release `0d1ffb15c35f639a`, source `45b8647a`, returned automatically from
+`session-00065ee96cb7cab7-00` after an early failure, not a 30-minute pass.
+The seventh admitted app (Text, cycle 6) reached `main-return` but remained in
+the compositor's child list beyond the 10-second total lifecycle deadline.
+A concurrent 1440x900 screenshot was still in progress. Maximum desktop loop
+was 250232 us, below 500 ms; recorded PCM underruns were zero. Screenshot and
+workload completion failed; clean battery retirement does not accept endurance.
+All 1165 prior files are preserved except metadata. Offline filesystem and
+allocation pass (1171 files, 2953 clusters, zero errors); recovery and consumed
+one-shot pass. Retain the failed logs and new files for diagnosis.
+
+Bounded follow-up owns reproducing the lifetime/screenshot overlap in the
+existing disposable audio-I/O VM and adding diagnostic attribution if necessary.
+Do not relax deadlines, pace the workload or infer the kernel gate is at fault
+from wall time alone. PR182 owns active process/file lifetime changes; inspect
+its scope before any proposed shared kernel edit. PR19 Wi-Fi remains independent.
+A slowed positive VM also fails, but at the loop bound rather than the native
+close deadline; retain it as a different failure. Source review identifies a
+separate testable fairness risk: I/O handoff restarts at the writer's slot, so
+one repeatedly requesting waiter can win every gap ahead of another waiter.
+Extend this scope to `kernel/src/scheduler.c` handoff selection and its host
+fixture only if a deterministic multi-waiter regression reproduces starvation.
+This does not edit PR182's process/file teardown, widen I/O safety gates or
+relax diagnostic limits. The two-contender host fixture fails before the correction and passes afterward
+with 16/16 admissions. Existing owner/eligibility regressions and full core/desktop
+builds pass. The implementation rotates after the last admitted waiter, including
+ordinary scheduling admissions. Normal Air7,2 KVM stress passes 23 cycles with zero underruns. The same slowed
+100-write-IOPS fixture remains failed: a 679 ms loop and cycle 4 close deadline.
+Thus this correction is **not a complete slow-I/O fix**. Retain both failures.
+Add bounded read-only process metadata to diagnostic deadline receipts to separate
+an active process from an inactive record with retirement/reaping pending. It changes neither ordinary
+startup nor failure policy. The follow-up slowed VM records Text still `background` at its cycle 6
+deadline, with 2.808 seconds in window disposal and 6.940 seconds to ready;
+its loop maximum is 119593 us. This reproduces a total lifecycle failure but
+is not identical to the native post-main-return delay. Preserve that distinction.
+Main `7bad3681` / PR235's isolated coordinated AP/C3 mechanism is integrated;
+its Haswell-only gate and separate MP-request kernel remain unchanged. Rebuild
+and rerun merged host/VM checks before the exact staged diagnostic retry.
+
+Merged-tree validation (source `96a8d307`) passes full core/desktop hosts, normal,
+both native/VM Air kernels and isolated AP build. The Air6,1 KVM control passes
+PCM/disk/app/screenshot verification and normal retirement; the ordinary Air7,2
+kernel has no MP request. Exact v80 release `8003479c17f01644` passes GRUB/Q35
+native-ownership refusal, save, unmount and reset. This is rehearsal, not a native
+endurance pass. The matching retry preserves the original failed session and all
+1171 current files, retains independent recovery, and runs automatically with
+unchanged limits. No human input is required; collect before any further trial.
+
+### Air6,1 parity — native desktop power accepted (2026-10-28)
+
+Automatic v82 release `775c5051149c0e38`, compiled `0cbbb275`, completed
+`session-00065ee927f533d1-00` and returned to Ubuntu. All three 60-second
+idle/apps/recovery phases have matching power, thermal and worker checkpoints.
+Thirteen app cycles completed; maximum desktop loop was 116162 us, ready time
+1470959 us and close time 103350 us under unchanged limits. Native battery
+controls passed and runtime retirement reported zero heap/errors/denied accesses.
+Covered package averages were 6827/6722/6666 mW, with package temperatures
+72–74/71–72/70–71 degrees C. These are bounded measurements, not energy savings.
+All 1145 prior files are unchanged except `.srvros/meta`; offline fsck and
+allocation pass (1165 files, 2905 clusters, zero leaks/mismatches/errors).
+Ubuntu default, consumed one-shot and independent recovery are verified.
+Evidence: `build/air-parity-20261028/native-power/`, also copied outside build.
+
+Main `7b0cc468` / PR233 adds Air6,1's independently accepted AP rendezvous
+record; it changes documentation only. That acceptance does not admit Broadwell
+AP/MWAIT. This unit's next bounded scope is v80 automatic **30-minute** PCM,
+verified disk, app lifecycle and screenshot endurance. No human input is needed;
+progress/results must be saved and the machine must return automatically on
+clean completion. Preserve independent recovery and all prior files. Attended
+input/audio-quality acceptance, AP/MWAIT and deeper idle remain separate.
+
+### Air6,1 parity — CPU0 telemetry accepted; desktop phases next (2026-10-28)
 
 Consumed main `5a94d755` (PR230), then `80b0a8aa` (PR232) during validation.
 Compare shared model support and independently
@@ -54,6 +174,25 @@ by this trial. Collect its matching native session before another run; the new
 counter mask/audit, desktop power phases and 30-minute workload each need their
 own physical evidence. Local evidence is retained under the parity root, with
 verified copies outside build before the one-shot boot.
+
+Native CPU release `71049508c4a1fbd0` (compiled `5bab654b`, integrated by
+PR231/main `951135b0`) completed session `session-00065ee8fc3ded29-00` and
+returned automatically. Three ordered 30-second idle/load/recovery phases have
+valid power and seven-counter coverage, paired HLT entry/return receipts and
+unchanged E2/APIC/misc snapshots. Covered package power averages were
+6782/8677/6825 mW; these are package measurements, not whole-machine power.
+All seven residency deltas were zero. This accepts bounded read-only telemetry
+and audit capture, **not deep idle or energy savings**. Other CPU state remains
+unknown; no AP request or MWAIT was executed. Prior 1141 files are preserved
+except expected `.srvros/meta` bookkeeping. Offline fsck and allocation pass
+(1145 files, 2884 clusters, zero leaks/mismatches/errors); Ubuntu default,
+consumed one-shot and independent recovery are verified. Evidence and hashes
+are retained locally and outside build.
+
+Next bounded native objective is automatic v82 desktop power phases: normal
+Air7,2 battery ownership with idle/apps/recovery, worker receipts and saved
+logs, followed by automatic Ubuntu return. No human input is required. Native
+30-minute audio/I/O endurance and separate AP/MWAIT experiments remain pending.
 
 ### Shared baseline refresh — local validation complete
 

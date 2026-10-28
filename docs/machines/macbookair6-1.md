@@ -4920,3 +4920,179 @@ with zero leaks/mismatches/errors. Preserve installed C3 probe
 The superseded shallow-only EFI copy `8030ae20c2611a09` may be retired after its
 durable payload hashes verify, to make staging space. Its evidence and payload
 remain outside `build`. Native ownership acceptance is pending; C3 is not tested.
+
+
+### AP ownership — native acceptance (2026-10-28)
+
+Documentation/evidence closeout on integration base `951135b0` (PR231).
+PR182 filesystem (`903030ef`) and PR19 Wi-Fi (`5a2e0089`) retain independent
+scope. The newer integrated parity/runtime changes have not been physically
+accepted by this run: its compiled source remains `3cc9a389`, merged through
+PR232 at `80b0a8aa`. No new payload or reboot is prepared by this closeout.
+
+Release `53b2c4c90f65e647` completed run `f08a07b619d4456d`, session
+`session-00065ee89de49ed6-00`, and automatically returned to Ubuntu. All three
+APs report the expected signature/APIC identity and complete 32 ordered mailbox
+exchanges each, **96 total**, using native MONITOR/C1 MWAIT and BSP-store wakeup.
+Independent review of the raw saved receipts agrees with automatic collection.
+
+| APIC ID | Startup wait (us) | Maximum exchange (us) | Retirement wait (us) | Wait attempts | Faults |
+| --- | --- | --- | --- | --- | --- |
+| 2 | 5 | 2 | 2 | 33 | 0 |
+| 1 | 5 | 2 | 1 | 33 | 0 |
+| 3 | 4 | 1 | 2 | 34 | 0 |
+
+Every measured interval is below the unchanged 20,000 us bound. All APs report
+terminal retirement (state 2); storage remains retained until reset. These are
+PM-clock-bracketed BSP acknowledgement measurements, not ISR/runnable latency
+or a general latency guarantee. Wait-attempt counters do not measure physical
+C1 residency. Fault and timeout containment remain VM/host-tested, not native
+fault-injected. This accepts bounded explicit AP ownership, mailbox wakeup and
+terminal retirement, not general SMP scheduling, reclaimability, permanent idle
+policy, deeper-state entry or energy savings. The original firmware AP state
+before the diagnostic's MP handoff remains unknown.
+
+All 536 baseline files are preserved except expected `.srvros/meta` bookkeeping.
+Two new logs bring the volume to 538 files / 1,590 clusters; offline fsck and
+allocation report zero leaks, mismatches or errors. Installed/current and all
+protected recovery payload hashes verify. The superseded shallow-only EFI copy
+`8030ae20c2611a09` was retired after durable hash verification; its payload and
+evidence remain outside `build`. The accepted C3 diagnostic, console recovery,
+desktop power, stress and attended reopen payloads remain installed. Evidence
+is hash-verified outside `build`. Ubuntu is default, the one-shot is consumed,
+the collector is disabled and no reboot is armed.
+
+Next: design a separately gated coordinated C3 experiment using the now-proven
+AP ownership path, existing 32-attempt/20 ms bounds and BSP HLT fallback. Require
+explicit peer readiness, wake/retirement ownership and per-attempt residency
+proof. Ordinary boot retains no MP request; no C3 support is accepted yet.
+
+
+### Coordinated C3 — active scope (2026-10-28)
+
+Base `7b0cc468`, accepted AP ownership collected. PR182 filesystem (`903030ef`)
+and PR19 Wi-Fi (`52e47a10`) retain independent scope. Add a separate opt-in
+coordinated C3 profile to the diagnostic ELF, retaining ordinary no-MP boot.
+After the accepted C1 ownership handshake, require all APs to arm monitored
+mailboxes for each of at most 32 C3 attempts. BSP retains its calibrated ARAT
+timer, scheduler readiness checks and HLT fallback, then wakes peers by store.
+Bound the whole masked coordination round by the existing 20 ms ceiling; reject
+early wake, missing/future receipts, faults, clock/counter regression or firmware
+drift. Retain memory until reset on every path. Capture per-attempt BSP and peer
+residency and distinguish valid zero from entry. Scope: diagnostic AP protocol,
+diagnostic-only scheduler hooks, staging/parser and directed regressions. Next:
+validate real protocol with VM simulation clearly separated from native C3,
+rebuild matched baseline, self-merge and run the automated native capture.
+
+Coordinated candidate validation uses source `827b01c2`, matched release
+`57274dfaccfdc0b9`, with PR234 documentation baseline `45b8647a` consumed.
+`all usb-image ap-probe-kernel test-core check-docs` passes; ordinary MP-request
+absence and AP disassembly isolation verify. The final stage passes four-CPU
+protocol simulation, targeted missing/early/faulted-peer cases, 1/2/6-CPU refusal,
+exact native-profile VM refusal/save/return and missing-workspace containment.
+The harness now rejects an ownership timeout before the requested injected
+phase; the earlier such VM attempt is retained as incomplete directed coverage.
+The original 65,536-byte log tail retains all phase and coordinated proof in a
+synthetic replay of prior native receipts. VM simulation is not native C3 evidence.
+
+PR235 supplies the implementation and strict proof parser. The next unattended
+run retains AC/USB, shows the original 30-second idle/load/recovery progress,
+attempts 32 coordinated C3 rounds, verifies HLT fallback and AP retirement,
+saves and returns automatically. All power-policy registers, integrity checks
+and limits remain unchanged. Native coordinated entry and latency are pending;
+valid zero residency is not a C3-entry pass. Keep the accepted AP ownership and
+console recovery installed, retain older evidence outside `build`, and collect
+the matching session before another trial.
+
+### Coordinated C3 — native acceptance (2026-10-28)
+
+Release `57274dfaccfdc0b9`, runtime/harness source `827b01c2` (PR235 merge
+`7bad3681`), completed session `session-00065ee9b6091a84-00` and returned to Ubuntu
+automatically. Independent raw-receipt review confirms all 32 coordinated rounds,
+maximum whole masked round 9,983 us and maximum BSP wait 9,951 us, below the
+unchanged 20,000 us bounds. All 32 HLT fallback receipts are present. Every AP
+reports 32 armed/completed attempts, no early return or fault, unchanged E2
+`0x408`, and terminal retirement. Maximum startup/ownership/retirement intervals
+are 6/2/2 us; all memory remains retained until reset.
+
+Every round records positive core C3 on both physical cores. BSP totals are
+635,343,942 TSC ticks and 633,350,860 core-C3 ticks (99.686% of these short measured
+wait brackets). APIC 1, the BSP's SMT sibling, reports the same core-C3 total;
+APIC 2/3 report 634,388,760 ticks for their shared physical core. These counters
+must not be added as four independent cores. Package C3 is valid zero in all
+32 rounds. This accepts bounded coordinated **core** C3 entry, wakeup, fallback
+and retirement on this unit, not package C3, general SMP scheduling, sustained
+idle policy, energy savings or reclaimability. The original firmware AP state
+before the MP handoff remains unknown.
+
+The original 30-second idle/load/recovery phases completed with 250,520 load
+chunks, valid power/residency/entry coverage and a 58 C peak logged temperature.
+Covered package averages were 4.050/5.130/4.092 W. APs return to C1 between/after
+the short C3 trial; the later phase deltas do not represent sustained C3 policy.
+No power-policy MSR, timing limit or integrity check changed.
+
+All 538 baseline files are preserved except expected `.srvros/meta` bookkeeping;
+four new logs bring the volume to 542 files / 1,595 clusters. Offline fsck and
+allocation checks pass with zero leaks, mismatches or errors. Installed/current
+and protected recovery payload hashes verify. The prior BSP-only C3 EFI copy
+`980f4936c6282637` was removed for space after durable verification; its payload
+and evidence remain outside `build`. Accepted AP ownership, console recovery,
+desktop power, stress and attended reopen payloads remain installed. Return
+collection backed up 463 files with verified hashes before this closeout.
+Ubuntu is default, the one-shot is consumed, collection is disabled and no reboot
+is armed.
+
+Closeout consumes PR236 baseline `732ad5a5` and checks its integrated scheduler
+regressions; that newer runtime was not in this physical release. PR182 filesystem
+(`811c4685`) and PR19 Wi-Fi (`52e47a10`) retain separate scope. Next: a read-only
+audit of package C3 blockers and platform prerequisites, then a separately bounded
+experiment. Keep ordinary startup and all power-policy settings unchanged until
+there is a reviewed next test; core C3 success does not accept deeper package states.
+
+### Package C3 audit — active scope (2026-10-28)
+
+Base `6cbfedab`; coordinated core-C3 acceptance and its return evidence are
+complete. Inspect package-level permission/latency constraints without changing
+power policy, entry hints, 32-round/20 ms bounds or fallback. Add optional
+read-only package C2 brackets, C3 interrupt-response-limit snapshots and bounded
+standard PCI power/link snapshots to the existing isolated coordinated diagnostic.
+Report graphics/platform permission as unknown where no safe documented read is
+available; device state alone must not become a causal blocker verdict. Ordinary
+boot, AML and GPU/MMIO control remain unchanged. Scope: diagnostic-only capture,
+strict staging/parser and host/VM regressions. PR238 (`99e4412d`) desktop reap/
+screenshot work, PR182 (`950a4ee0`) filesystem work and PR19 (`7ac6b0e6`) Wi-Fi
+retain independent scope. Next: audit register semantics, validate read-only
+capture and unchanged recovery, self-merge and run the automatic native trial.
+
+The audit implementation is in PR239 (`48355ccd`). Its first matched build and
+host suite pass, including bounded conventional PCI capability reads, malformed/
+overlapping chain refusal, C2 counter bounds, strict parsing and existing scheduler
+fallback. The initial staged image is `34f300408d696362`. Native audit evidence
+is still pending. PR238 has now merged as `2c34a460`; consume its desktop-worker
+changes and rebuild a matched image before the final native launch. This does
+not change the diagnostic kernel's policy or timing requirements.
+
+The additional PCI rows can move the original CPU-load configuration banner
+out of the 65,536-byte exit tail. Collection requires that unchanged banner in
+this exact session's periodic/final logs; all phase completions, counter/timing
+proofs, retirement and audit records must still validate from the final log.
+A maximum-width 25-device replay (the previously captured enumeration count)
+retains those proofs without increasing any log or test limit. Capability state,
+graphics permission and unsupported encodings remain distinct from zero.
+
+Final candidate `bae0678ed7e9b38b` uses source `c5818be5`, incorporating PR238
+main `2c34a460`. The matched ordinary/diagnostic build, full core suite and docs
+checks pass. All nine package-profile VM cases pass: four-CPU simulation,
+missing/early/faulted peer, 1/2/6-CPU refusal, exact native-profile refusal with
+save/return, and missing workspace. Directed failure-state review, ordinary
+kernel isolation and unchanged-tail coverage pass. Separate legacy AP-ownership
+and coordinated-C3 simulation regressions also pass with no package reads.
+
+The next automated native run captures 32 package-C2 brackets, paired C3 IRTL
+and standard PCI snapshots, then completes the existing 30-second idle/load/
+recovery phases and returns to Ubuntu. Collection requires complete matching
+receipts and offline filesystem preservation. No human input is required; keep
+AC and USB connected. Native audit acceptance remains pending. Preserve console
+recovery and accepted coordinated-C3 payload `57274dfaccfdc0b9`; retire only the
+older standalone AP-ownership EFI copy after verifying its durable backup to
+make space. Its evidence and payload remain available outside `build`.

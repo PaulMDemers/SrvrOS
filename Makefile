@@ -4287,8 +4287,8 @@ build/tests/wifi-syscall-host$(HOST_EXE): tools/test_wifi_syscall.c kernel/src/a
 
 # MP request exists only in this explicit diagnostic ELF. Ordinary objects and
 # boot requests are never overwritten. AP code has no C runtime dependencies.
-AP_PROBE_OBJ := build/ap-probe/main.o build/ap-probe/requests.o build/ap-probe/probe.o build/ap-probe/entry.o
-AP_PROBE_BASE := $(filter-out build/kernel/src/main.c.o build/kernel/src/limine_requests.c.o,$(KERNEL_OBJ))
+AP_PROBE_OBJ := build/ap-probe/package.o build/ap-probe/scheduler.o build/ap-probe/main.o build/ap-probe/requests.o build/ap-probe/probe.o build/ap-probe/entry.o
+AP_PROBE_BASE := $(filter-out build/kernel/src/main.c.o build/kernel/src/limine_requests.c.o build/kernel/src/scheduler.c.o,$(KERNEL_OBJ))
 .PHONY: ap-probe-kernel
 ap-probe-kernel: build/ap-probe/srvros.elf
 build/ap-probe/main.o: kernel/src/main.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
@@ -4310,6 +4310,7 @@ build/ap-probe/srvros.elf: $(AP_PROBE_OBJ) $(AP_PROBE_BASE) kernel/linker.ld
 test-ap-probe: build/tests/ap-probe-host$(HOST_EXE)
 	$<
 	$(PYTHON) -m unittest discover -s tools -p test_hardware_ap_owner.py
+	$(PYTHON) -m unittest discover -s tools -p test_hardware_ap_c3.py
 build/tests/ap-probe-host$(HOST_EXE): tools/test_ap_probe.c kernel/include/srvros/ap_probe.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -Wall -Wextra -Werror -I kernel/include $< -o $@
@@ -4319,3 +4320,19 @@ test-core: test-ap-probe
 test-core: test-wifi-ui-log
 test-wifi-ui-log:
 	$(PYTHON) -m unittest discover -s tools -p test_wifi_ui_log.py
+
+build/ap-probe/scheduler.o: kernel/src/scheduler.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_AP_PROBE -c $< -o $@
+
+build/ap-probe/package.o: kernel/diagnostics/package_audit_core.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -c $< -o $@
+.PHONY: test-package-audit
+test-package-audit: build/tests/package-audit$(HOST_EXE)
+	$<
+	$(PYTHON) -m unittest discover -s tools -p test_hardware_package.py
+build/tests/package-audit$(HOST_EXE): tools/test_package_audit.c kernel/diagnostics/package_audit_core.c kernel/include/srvros/package_audit.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -Wall -Wextra -Werror -I kernel/include tools/test_package_audit.c kernel/diagnostics/package_audit_core.c -o $@
+test-core: test-package-audit

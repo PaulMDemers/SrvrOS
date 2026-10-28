@@ -1188,6 +1188,26 @@ missing residency before claiming a deeper idle policy. See the
 The same unit's read-only Ubuntu reference confirms working deeper residency
 counters with the same package-limit value. The next prerequisite is the separate
 [AP ownership diagnostic](ap-ownership-diagnostic.md): bounded private AP
-rendezvous and retirement before any coordinated C3 experiment. Its VM checks
-pass; native ownership is pending. It changes no ordinary boot request or power
-policy and provides no C3 or energy-saving acceptance.
+rendezvous and retirement before any coordinated C3 experiment. Air6,1 release
+`53b2c4c90f65e647` now accepts 96 native mailbox exchanges across three APs,
+maximum measured acknowledgement 2 us, zero faults and terminal retirement under
+the unchanged 20 ms bound. Ordinary boot requests and power policy remain unchanged.
+This provides no C3, physical C1 residency or energy-saving acceptance; see the
+[unit result](machines/macbookair6-1.md#ap-ownership--native-acceptance-2026-10-28).
+
+The separate [coordinated C3 candidate](ap-ownership-diagnostic.md#coordinated-c3-candidate)
+now pairs that ownership path with the existing bounded BSP trial. Per-round
+peer readiness, wake acknowledgements and individual residency brackets retain
+the 32-attempt/20 ms limits and HLT fallback. Host/VM validation does not accept
+native coordinated entry; ordinary startup and power-policy registers remain
+unchanged. See the Air6,1 record for the exact candidate and subsequent evidence.
+
+
+Air6,1 release `57274dfaccfdc0b9` now accepts that bounded coordinated core-C3
+experiment: all 32 rounds observed entry on both physical cores, maximum whole
+round 9.983 ms, maximum BSP wait 9.951 ms, 32 HLT fallback receipts and clean AP
+retirement. Package C3 remained valid zero. The short measured BSP wait brackets
+were 99.686% core C3; this is not a whole-session idle ratio or energy saving.
+The later 30-second phase coverage retains approximately 4.05/5.13/4.09 W package
+power with C1 parking after the trial. Ordinary startup/policy remain unchanged;
+package blockers and sustained operation remain open. See the [unit acceptance](machines/macbookair6-1.md#coordinated-c3--native-acceptance-2026-10-28).
