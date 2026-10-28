@@ -4652,3 +4652,53 @@ console recovery, desktop power, stress and attended reopen. The older audit-onl
 EFI payload `6b1f017332e0931b` may be retired after durable hash verification;
 its independent backup remains retained. Payload, exact-stage checks and run
 records must be backed up outside `build` before arming the authorized reboot.
+
+
+### Shallow MONITOR/MWAIT wakeup — bounded native acceptance (2026-10-27)
+
+Return closeout from merged PR224/base `052ebc18` is documentation/evidence only.
+PR182 filesystem audit (`2a091597`) and PR19 Wi-Fi (`6e0e25ec`) remain independent.
+No new runtime policy, deeper hint, AP experiment or reboot is being prepared.
+
+Release `8030ae20c2611a09`, compiled source `94c2b9e7`, completed run
+`7dc08174f8034042`, session `session-00065edb20755615-00`, and automatically
+returned to Ubuntu. The explicit shallow hint 0/extension 1 trial records all
+32 attempts and returns, a maximum masked wait of **9,971 us** against the
+unchanged 20,000 us limit, zero faults, timer ticks 62 to 93, and 32 subsequent
+HLT entries. No post-MONITOR readiness bypass occurred in this native run; that
+race remains covered by the host regression. Independent raw-receipt review
+agrees with the collector. The saved 65,536-byte exit tail retains every required
+receipt; early startup text is trimmed, with identity preserved in boot.log.
+This accepts bounded interrupt wakeup and mandatory HLT fallback, not IRQ dispatch/runnable latency or a store-signalling protocol.
+
+All three ordered 30-second phases complete, with 250,554 load chunks and a
+63 C peak logged temperature. Fifteen retained records have full support/valid
+masks, zero rejections and no overflow. Paired residency/entry coverage is about
+24 seconds in every phase; power coverage is 23.999618/23.999620/26.999572 seconds.
+The unchanged ten-second coverage requirement passes. Package averages are
+4.122/5.167/4.127 W for idle/load/recovery. Covered HLT entries/returns are
+2,378/0/2,373; whole-capture HLT totals are 5,908 entries and 5,907 returns.
+All ten deeper-residency raw counters remain zero. The short MWAIT trial ends
+before the retained phase intervals, which mostly measure the HLT fallback;
+these phase averages do not establish MWAIT energy savings. C0/C1 and time
+asleep remain unmeasured.
+
+Native APIC/misc and E2 snapshots remain unchanged, including the permissive
+C10 package limit. Other logical processors' live state remains unknown.
+Ordinary boot/desktop idle policy, tick frequency, thermal/fan stops, watchdogs,
+integrity checks and all limits remain unchanged. No AP startup, IPI, MSR write
+or deeper hint was introduced.
+
+All 528 baseline files are preserved except expected `.srvros/meta` bookkeeping.
+Four new logs bring the USB to 532 files / 1,582 clusters; offline fsck and
+allocation pass with zero leaks, mismatches or errors. Installed/current and
+protected recovery payload hashes verify. Evidence is retained and hash-verified
+outside `build`. Ubuntu remains default, the one-shot is consumed, the collector
+is disabled and no reboot is armed. The older audit-only EFI payload
+`6b1f017332e0931b` was retired after verifying its durable backup; the accepted
+prerequisite, console, desktop power, stress and attended reopen payloads remain.
+
+The next proposed step is a separately gated deeper-hint experiment with the
+same readiness, latency, fallback and integrity protections, plus an explicit
+review of timer behavior and sibling-thread/package prerequisites. This result
+does not accept deeper entry, longer endurance or a permanent power policy.
