@@ -1485,3 +1485,14 @@ Actions dispatch or PR merge occurred.
 
 Next bounded question: established-state ACK bounds, sequence wrap and stale/
 closing socket handles. No complete TCP or broad-system audit is claimed.
+
+## TCP ACK admission and stale handles — active scope (2026-10-28)
+
+Continue PR182 from `29df1192` on unchanged main `5a94d755`. Audit established
+ACK admission, sequence wrap, FIN/data retirement and application references to
+closing/reused TCP slots. Touched areas: `kernel/src/net.c`, focused packet/host
+regressions, Makefile and current networking/audit guides. PR19 remains at
+`b8d63682` with separate Wi-Fi work and no net/process overlap. Other machine
+scopes remain the recorded AP diagnostic and native desktop work. Next checkpoint
+is deterministic before/after evidence, bounded fixes and matched VM checks.
+No native install, hardware qualification or PR merge is planned.
