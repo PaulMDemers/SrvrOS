@@ -1,3 +1,4 @@
+#include <srvros/dns_wire.h>
 #include <arpa/inet.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -289,39 +290,40 @@ void __posix_socket_note_dup(int old_fd, int new_fd) {
     }
 }
 
-static long with_optional_nonblock(int fd,
-    int enable,
-    long (*operation)(int fd, void *buffer, size_t length),
-    void *buffer,
-    size_t length) {
-    uint64_t saved = 0;
-    int changed = 0;
-    if (enable) {
-        long current = srv_fcntl(fd, SRV_F_GETFL, 0);
-        if (current < 0) {
-            return -1;
+static long socket_try_operation(int fd, uint64_t operation, void *buffer,
+    size_t length, struct srv_socket_peer *peer) {
+    long result = srv_socket_try_io(fd, operation, buffer, length, peer);
+    if (result < 0) {
+        int error = result == SRV_ERR_PIPE ? EPIPE : result == SRV_ERR_BADF ? EBADF :
+            result == SRV_ERR_FAULT ? EFAULT : result == SRV_ERR_INVAL ? EINVAL :
+            result == SRV_ERR_NOTSUP ? EOPNOTSUPP : EIO;
+        if (result == SRV_ERR_PIPE) {
+            (void)__posix_signal_dispatch_pending();
+            errno = EPIPE; /* A handled SIGPIPE must not replace EPIPE with EINTR. */
+        } else {
+            errno = errno_from_blocking_result(result, error);
         }
-        saved = (uint64_t)current;
-        if ((saved & SRV_FD_NONBLOCK) == 0) {
-            if (srv_fcntl(fd, SRV_F_SETFL, saved | SRV_FD_NONBLOCK) < 0) {
-                return -1;
-            }
-            changed = 1;
-        }
-    }
-
-    long result = operation(fd, buffer, length);
-    if (changed) {
-        (void)srv_fcntl(fd, SRV_F_SETFL, saved);
+        return -1;
     }
     return result;
 }
 
-static long read_operation(int fd, void *buffer, size_t length) {
-    return read(fd, buffer, length);
-}
-
-static long peek_operation(int fd, void *buffer, size_t length) {
+static long socket_stream_io(int fd, void *buffer, size_t length, int flags, int writing) {
+    if (flags & MSG_DONTWAIT) {
+        long result = socket_try_operation(fd,
+            writing ? SRV_SOCKET_SEND : (flags & MSG_PEEK) ? SRV_SOCKET_PEEK : SRV_SOCKET_RECV,
+            buffer, length, 0);
+        /* Errors dispatch above; retain read/write's success checkpoint too,
+         * without temporary flags to restore after a handler closes the FD. */
+        if (result >= 0 && !(flags & MSG_PEEK)) {
+            int error = errno;
+            (void)__posix_signal_dispatch_pending();
+            errno = error;
+        }
+        return result;
+    }
+    if (writing) return write(fd, buffer, length);
+    if (!(flags & MSG_PEEK)) return read(fd, buffer, length);
     long result = srv_net_peek(fd, buffer, length);
     if (result < 0) {
         errno = errno_from_blocking_result(result, EBADF);
@@ -330,14 +332,32 @@ static long peek_operation(int fd, void *buffer, size_t length) {
     return result;
 }
 
-static long write_operation(int fd, void *buffer, size_t length) {
-    return write(fd, buffer, length);
+static long udp_send_sys(int fd, uint32_t ip, uint16_t port, const void *buffer, size_t length, int flags) {
+    if (flags & MSG_DONTWAIT) {
+        struct srv_socket_peer peer = {.ip = ip, .port = port};
+        return socket_try_operation(fd, SRV_SOCKET_UDP_SEND, (void *)buffer, length, &peer);
+    }
+    long result = srv_net_udp_sendto(fd, ip, port, buffer, length);
+    if (result < 0) {
+        errno = errno_from_blocking_result(result, EIO);
+        return -1;
+    }
+    return result;
 }
 
-static int udp_receive_current(int fd, uint64_t generation, int native_fd) {
+static int socket_current(int fd, uint64_t generation, int native_fd) {
     struct posix_socket *socket = socket_at(fd);
     return socket != 0 && socket_generations[fd - POSIX_SOCKET_BASE] == generation &&
-        socket->type == SOCK_DGRAM && socket->listener_fd == native_fd;
+        socket->listener_fd == native_fd;
+}
+
+/* Retire a newly returned descriptor if its pseudo-socket closed while the
+ * operation waited. Signal handlers must not redirect another retry either. */
+static int socket_completion_current(int fd, uint64_t generation, int native_fd, long result) {
+    if (socket_current(fd, generation, native_fd)) return 1;
+    if (result >= 0) (void)srv_close((int)result);
+    errno = EBADF;
+    return 0;
 }
 
 static long udp_recvfrom_sys(int fd,
@@ -356,34 +376,23 @@ static long udp_recvfrom_sys(int fd,
     int connected = socket->connected;
     uint32_t peer_ip = socket->peer_ip;
     uint16_t peer_port = socket->peer_port;
-    uint64_t saved = 0;
-    int changed = 0;
-    if (dontwait) {
-        long current = srv_fcntl(native_fd, SRV_F_GETFL, 0);
-        if (current < 0) {
-            errno = EBADF;
-            return -1;
-        }
-        saved = (uint64_t)current;
-        if ((saved & SRV_FD_NONBLOCK) == 0) {
-            if (srv_fcntl(native_fd, SRV_F_SETFL, saved | SRV_FD_NONBLOCK) < 0) {
-                errno = EBADF;
-                return -1;
-            }
-            changed = 1;
-        }
-    }
 
     long result;
     for (;;) {
-        result = srv_net_udp_recvfrom(native_fd, buffer, length, remote_ip, remote_port);
-        if (!udp_receive_current(fd, generation, native_fd)) {
+        if (dontwait) {
+            struct srv_socket_peer peer = {0};
+            result = srv_socket_try_io(native_fd, SRV_SOCKET_UDP_RECV, buffer, length, &peer);
+            if (result >= 0) { *remote_ip = peer.ip; *remote_port = peer.port; }
+        } else {
+            result = srv_net_udp_recvfrom(native_fd, buffer, length, remote_ip, remote_port);
+        }
+        if (!socket_current(fd, generation, native_fd)) {
             errno = EBADF;
             return -1; /* Never restore flags or retry on a replacement FD. */
         }
         if (result == SRV_ERR_INTR && !dontwait) {
             int restart = interrupted_restartable(result);
-            if (!udp_receive_current(fd, generation, native_fd)) {
+            if (!socket_current(fd, generation, native_fd)) {
                 errno = EBADF;
                 return -1;
             }
@@ -396,12 +405,9 @@ static long udp_recvfrom_sys(int fd,
         }
         break;
     }
-    if (changed) {
-        (void)srv_fcntl(native_fd, SRV_F_SETFL, saved);
-    }
     if (result < 0) {
         int error = errno_from_blocking_result(result, EIO);
-        errno = udp_receive_current(fd, generation, native_fd) ? error : EBADF;
+        errno = socket_current(fd, generation, native_fd) ? error : EBADF;
         return -1;
     }
     return result;
@@ -743,10 +749,19 @@ static int accept_with_flags(int fd, struct sockaddr *addr, socklen_t *addrlen, 
             errno = EINVAL;
             return -1;
         }
+        struct real_socket_options saved_options = {0};
+        struct real_socket_options *options = real_options_for_fd(fd, 0);
+        if (options) saved_options = *options;
+        long held = srv_fcntl(fd, SRV_F_DUPFD_CLOEXEC, 0);
+        if (held < 0) {
+            errno = held == SRV_ERR_MFILE ? EMFILE : held == SRV_ERR_NOMEM ? ENOMEM : EBADF;
+            return -1;
+        }
         long connection;
         do {
-            connection = srv_net_accept(fd, 0, 0, &length);
+            connection = srv_net_accept((int)held, 0, 0, &length);
         } while (interrupted_restartable(connection));
+        (void)srv_close((int)held);
         if (connection < 0) {
             errno = errno_from_blocking_result(connection, EIO);
             return -1;
@@ -759,11 +774,10 @@ static int accept_with_flags(int fd, struct sockaddr *addr, socklen_t *addrlen, 
             errno = EBADF;
             return -1;
         }
-        struct real_socket_options *options = real_options_for_fd(fd, 0);
-        if (options != 0) {
+        if (saved_options.used) {
             struct real_socket_options *accepted_options = real_options_for_fd((int)connection, 1);
             if (accepted_options != 0) {
-                *accepted_options = *options;
+                *accepted_options = saved_options;
                 accepted_options->fd = (int)connection;
             }
         }
@@ -780,15 +794,22 @@ static int accept_with_flags(int fd, struct sockaddr *addr, socklen_t *addrlen, 
         errno = EBADF;
         return -1;
     }
+    uint64_t generation = socket_generations[fd - POSIX_SOCKET_BASE];
+    int native_fd = socket->listener_fd;
+    struct posix_socket options = *socket;
     if (socket->domain == AF_UNIX) {
         if (addr != 0 && (addrlen == 0 || *addrlen < sizeof(struct sockaddr_un))) {
             errno = EINVAL;
             return -1;
         }
         long connection;
-        do {
-            connection = srv_unix_accept(socket->listener_fd);
-        } while (interrupted_restartable(connection));
+        for (;;) {
+            connection = srv_unix_accept(native_fd);
+            if (!socket_completion_current(fd, generation, native_fd, connection)) return -1;
+            int retry = interrupted_restartable(connection);
+            if (!socket_completion_current(fd, generation, native_fd, connection)) return -1;
+            if (!retry) break;
+        }
         if (connection < 0) {
             errno = errno_from_blocking_result(connection, EIO);
             return -1;
@@ -809,9 +830,13 @@ static int accept_with_flags(int fd, struct sockaddr *addr, socklen_t *addrlen, 
         return -1;
     }
     long connection;
-    do {
-        connection = srv_net_accept(socket->listener_fd, 0, 0, &length);
-    } while (interrupted_restartable(connection));
+    for (;;) {
+        connection = srv_net_accept(native_fd, 0, 0, &length);
+        if (!socket_completion_current(fd, generation, native_fd, connection)) return -1;
+        int retry = interrupted_restartable(connection);
+        if (!socket_completion_current(fd, generation, native_fd, connection)) return -1;
+        if (!retry) break;
+    }
     if (connection < 0) {
         errno = errno_from_blocking_result(connection, EIO);
         return -1;
@@ -820,7 +845,7 @@ static int accept_with_flags(int fd, struct sockaddr *addr, socklen_t *addrlen, 
     uint64_t descriptor_flags = (flags & SOCK_CLOEXEC) != 0 ? SRV_FD_CLOEXEC : 0;
     if ((fd_flags != 0 && srv_fcntl((int)connection, SRV_F_SETFL, fd_flags) < 0) ||
         (descriptor_flags != 0 && srv_fcntl((int)connection, SRV_F_SETFD, descriptor_flags) < 0) ||
-        real_options_set_from_socket((int)connection, socket) < 0) {
+        real_options_set_from_socket((int)connection, &options) < 0) {
         (void)srv_close((int)connection);
         errno = EBADF;
         return -1;
@@ -849,6 +874,8 @@ int connect(int fd, const struct sockaddr *addr, socklen_t addrlen) {
         errno = EINVAL;
         return -1;
     }
+    uint64_t generation = socket_generations[fd - POSIX_SOCKET_BASE];
+    int native_fd = socket->listener_fd;
     if (socket->type == SOCK_STREAM && socket->listening) {
         errno = EISCONN;
         return -1;
@@ -867,7 +894,10 @@ int connect(int fd, const struct sockaddr *addr, socklen_t addrlen) {
         if (sockaddr_un_path(addr, addrlen, path) < 0) {
             return -1;
         }
+        socket->connecting = 1;
         long connection = srv_unix_connect(path);
+        if (!socket_completion_current(fd, generation, native_fd, connection)) return -1;
+        socket->connecting = 0;
         if (connection < 0) {
             errno = connection == SRV_ERR_AGAIN ? EAGAIN : ECONNREFUSED;
             return -1;
@@ -910,9 +940,15 @@ int connect(int fd, const struct sockaddr *addr, socklen_t addrlen) {
 
     uint64_t connect_flags = socket->fd_flags & SRV_FD_NONBLOCK;
     long connection;
-    do {
+    socket->connecting = 1;
+    for (;;) {
         connection = srv_net_connect(remote_ip, port, connect_flags);
-    } while ((connect_flags & SRV_FD_NONBLOCK) == 0 && interrupted_restartable(connection));
+        if (!socket_completion_current(fd, generation, native_fd, connection)) return -1;
+        int retry = (connect_flags & SRV_FD_NONBLOCK) == 0 && interrupted_restartable(connection);
+        if (!socket_completion_current(fd, generation, native_fd, connection)) return -1;
+        if (!retry) break;
+    }
+    socket->connecting = 0;
     if (socket_trace_enabled()) {
         fprintf(stderr,
             "srvros-socket: connect pseudo=%d target=%u.%u.%u.%u:%u flags=0x%llx result=%ld\n",
@@ -925,6 +961,7 @@ int connect(int fd, const struct sockaddr *addr, socklen_t addrlen) {
             (unsigned long long)connect_flags,
             connection);
     }
+    if (!socket_completion_current(fd, generation, native_fd, connection)) return -1;
     if (connection < 0) {
         (void)__posix_signal_dispatch_pending();
         errno = errno_from_net_error(-connection);
@@ -1073,23 +1110,10 @@ ssize_t send(int fd, const void *buffer, size_t length, int flags) {
             errno = ENOTCONN;
             return -1;
         }
-        long result = srv_net_udp_sendto(socket->listener_fd,
-            socket->peer_ip,
-            socket->peer_port,
-            buffer,
-            length);
-        if (result < 0) {
-            errno = errno_from_blocking_result(result, EIO);
-            return -1;
-        }
-        return result;
+        return udp_send_sys(socket->listener_fd, socket->peer_ip, socket->peer_port, buffer, length, flags);
     }
     int real_fd = socket != 0 ? socket->listener_fd : fd;
-    long result = with_optional_nonblock(real_fd,
-        (flags & MSG_DONTWAIT) != 0,
-        write_operation,
-        (void *)buffer,
-        length);
+    long result = socket_stream_io(real_fd, (void *)buffer, length, flags, 1);
     if (result < 0) {
         int error = socket_error_for_fd(real_fd);
         if (errno == EINTR || result == SRV_ERR_INTR) {
@@ -1124,11 +1148,7 @@ ssize_t recv(int fd, void *buffer, size_t length, int flags) {
             (flags & MSG_DONTWAIT) != 0);
     }
     int real_fd = socket != 0 ? socket->listener_fd : fd;
-    long result = with_optional_nonblock(real_fd,
-        (flags & MSG_DONTWAIT) != 0,
-        (flags & MSG_PEEK) != 0 ? peek_operation : read_operation,
-        buffer,
-        length);
+    long result = socket_stream_io(real_fd, buffer, length, flags, 0);
     if (result < 0) {
         int error = socket_error_for_fd(real_fd);
         if (errno == EINTR || result == SRV_ERR_INTR) {
@@ -1309,12 +1329,7 @@ ssize_t sendto(int fd,
         return -1;
     }
 
-    long result = srv_net_udp_sendto(socket->listener_fd, remote_ip, port, buffer, length);
-    if (result < 0) {
-        errno = errno_from_blocking_result(result, EIO);
-        return -1;
-    }
-    return result;
+    return udp_send_sys(socket->listener_fd, remote_ip, port, buffer, length, flags);
 }
 
 ssize_t sendmsg(int fd, const struct msghdr *message, int flags) {
@@ -1844,17 +1859,6 @@ static int parse_service(const char *service, uint16_t *port) {
     return 1;
 }
 
-static uint16_t dns_read_be16(const unsigned char *data) {
-    return (uint16_t)(((uint16_t)data[0] << 8) | data[1]);
-}
-
-static uint32_t dns_read_be32(const unsigned char *data) {
-    return ((uint32_t)data[0] << 24) |
-        ((uint32_t)data[1] << 16) |
-        ((uint32_t)data[2] << 8) |
-        data[3];
-}
-
 static void dns_write_be16(unsigned char *data, uint16_t value) {
     data[0] = (unsigned char)(value >> 8);
     data[1] = (unsigned char)value;
@@ -1884,59 +1888,12 @@ static int dns_encode_name(unsigned char *packet, size_t *offset, size_t capacit
     }
 }
 
-static size_t dns_skip_name(const unsigned char *packet, size_t length, size_t offset) {
-    unsigned jumps = 0;
-    while (offset < length && jumps++ < 64) {
-        unsigned char label = packet[offset++];
-        if (label == 0) {
-            return offset;
-        }
-        if ((label & 0xc0) == 0xc0) {
-            return offset < length ? offset + 1 : 0;
-        }
-        if ((label & 0xc0) != 0 || offset + label > length) {
-            return 0;
-        }
-        offset += label;
-    }
+static int dns_parse_response(const unsigned char *packet, size_t length,
+    uint16_t query_id, const char *question, uint32_t *ip_out) {
+    uint32_t answer;
+    if (srv_dns_parse_a(packet, length, query_id, question, &answer) != 1) return -1;
+    *ip_out = srv_ip_to_sockaddr(answer);
     return 0;
-}
-
-static int dns_parse_response(const unsigned char *packet, size_t length, uint16_t query_id, uint32_t *ip_out) {
-    if (length < 12 || dns_read_be16(packet) != query_id) {
-        return -1;
-    }
-
-    uint16_t qd = dns_read_be16(packet + 4);
-    uint16_t an = dns_read_be16(packet + 6);
-    size_t offset = 12;
-    for (uint16_t i = 0; i < qd; i++) {
-        offset = dns_skip_name(packet, length, offset);
-        if (offset == 0 || offset + 4 > length) {
-            return -1;
-        }
-        offset += 4;
-    }
-
-    for (uint16_t i = 0; i < an; i++) {
-        offset = dns_skip_name(packet, length, offset);
-        if (offset == 0 || offset + 10 > length) {
-            return -1;
-        }
-        uint16_t type = dns_read_be16(packet + offset);
-        uint16_t class = dns_read_be16(packet + offset + 2);
-        uint16_t rdlength = dns_read_be16(packet + offset + 8);
-        offset += 10;
-        if (offset + rdlength > length) {
-            return -1;
-        }
-        if (type == 1 && class == 1 && rdlength == 4) {
-            *ip_out = srv_ip_to_sockaddr(dns_read_be32(packet + offset));
-            return 0;
-        }
-        offset += rdlength;
-    }
-    return -1;
 }
 
 static int parse_nameserver_line(const char *text, uint32_t *ip_out) {
@@ -2053,15 +2010,22 @@ static int resolve_dns_udp(const char *name, uint32_t *ip_out) {
         .fd = fd,
         .events = POLLIN,
     };
-    ssize_t count = -1;
+    if (connect(fd, (const struct sockaddr *)&address, sizeof(address)) < 0) {
+        close(fd);
+        return -1;
+    }
+    unsigned char response[512];
     for (int attempt = 0; attempt < 3; attempt++) {
         if (sendto(fd, packet, offset, 0, (const struct sockaddr *)&address, sizeof(address)) < 0) {
             close(fd);
             return -1;
         }
         if (poll(&pfd, 1, 2000) > 0) {
-            count = recvfrom(fd, packet, sizeof(packet), 0, 0, 0);
-            if (count >= 0 && dns_parse_response(packet, (size_t)count, query_id, ip_out) == 0) {
+            struct iovec iov = {response, sizeof(response)};
+            struct msghdr message = {.msg_iov = &iov, .msg_iovlen = 1};
+            ssize_t count = recvmsg(fd, &message, MSG_DONTWAIT);
+            if (count >= 0 && !(message.msg_flags & MSG_TRUNC) &&
+                dns_parse_response(response, (size_t)count, query_id, name, ip_out) == 0) {
                 close(fd);
                 return 0;
             }
@@ -2088,8 +2052,9 @@ int getaddrinfo(const char *node,
         if (resolve_dns_udp(node, &resolved) == 0) {
             address.s_addr = resolved;
         } else {
-            if (srv_net_dns(node, &resolved) < 0) {
-                return EAI_NONAME;
+            long result = srv_net_dns(node, &resolved);
+            if (result < 0) {
+                return result == SRV_ERR_AGAIN ? EAI_AGAIN : EAI_NONAME;
             }
             address.s_addr = srv_ip_to_sockaddr(resolved);
         }
@@ -2129,6 +2094,8 @@ const char *gai_strerror(int errcode) {
     switch (errcode) {
     case 0:
         return "ok";
+    case EAI_AGAIN:
+        return "temporary resolver failure";
     case EAI_NONAME:
         return "name not found";
     case EAI_MEMORY:

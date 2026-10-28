@@ -2373,6 +2373,45 @@ static int64_t syscall_net_udp_recvfrom(uint64_t fd,
         process_file_nonblocking(process, fd));
 }
 
+/* All operations are intrinsically nonblocking. Ordinary syscall admission
+ * stays in force; this is not a GUI/I/O-owner bypass. */
+static int64_t syscall_socket_try_io(uint64_t fd, uint64_t operation, void *buffer,
+    uint64_t length, struct srv_socket_peer *user_peer) {
+    if (operation < SRV_SOCKET_RECV || operation > SRV_SOCKET_UDP_SEND) return SRV_ERR_INVAL;
+    bool writing = operation == SRV_SOCKET_SEND || operation == SRV_SOCKET_UDP_SEND;
+    if (!user_buffer_ok(buffer, length, !writing)) return SRV_ERR_FAULT;
+    struct srv_socket_peer peer = {0};
+    if (operation == SRV_SOCKET_UDP_SEND) {
+        if (!copy_from_user(&peer, user_peer, sizeof(peer))) return SRV_ERR_FAULT;
+        if (peer.reserved) return SRV_ERR_INVAL;
+    } else if (operation == SRV_SOCKET_UDP_RECV && user_peer &&
+        !user_buffer_ok(user_peer, sizeof(*user_peer), true)) return SRV_ERR_FAULT;
+    struct process *process = process_current();
+    struct process_file *file = process_file_at(process, fd);
+    if (!file) return SRV_ERR_BADF;
+    if (operation == SRV_SOCKET_UDP_SEND || operation == SRV_SOCKET_UDP_RECV) {
+        if (file->type != PROCESS_FILE_NET_UDP) return SRV_ERR_BADF;
+        if (operation == SRV_SOCKET_UDP_SEND)
+            return net_udp_sendto_mode(file->handle, peer.ip, peer.port, buffer, length, true);
+        int64_t result = net_udp_recvfrom(file->handle, buffer, length, &peer.ip, &peer.port, true);
+        if (result >= 0 && user_peer && !copy_to_user(user_peer, &peer, sizeof(peer))) return SRV_ERR_FAULT;
+        return result;
+    }
+    if (file->type == PROCESS_FILE_NET_CONNECTION) {
+        if (operation == SRV_SOCKET_SEND) return net_respond(file->handle, buffer, length, true);
+        if (operation == SRV_SOCKET_PEEK) return net_peek(file->handle, buffer, length, true);
+        return net_read(file->handle, buffer, length, true);
+    }
+    if (operation == SRV_SOCKET_PEEK) return SRV_ERR_NOTSUP;
+    if (operation == SRV_SOCKET_SEND &&
+        (file->type == PROCESS_FILE_PIPE_WRITE || file->type == PROCESS_FILE_PIPE_DUPLEX))
+        return process_file_pipe_write_mode(process, fd, buffer, length, true);
+    if (operation == SRV_SOCKET_RECV &&
+        (file->type == PROCESS_FILE_PIPE_READ || file->type == PROCESS_FILE_PIPE_DUPLEX))
+        return process_file_pipe_read_mode(process, fd, buffer, length, true);
+    return SRV_ERR_BADF;
+}
+
 static int64_t syscall_net_name(uint64_t fd, uint32_t *ip_out, uint16_t *port_out, bool peer) {
     if ((ip_out != NULL && !user_buffer_ok(ip_out, sizeof(*ip_out), true)) ||
         (port_out != NULL && !user_buffer_ok(port_out, sizeof(*port_out), true))) {
@@ -2888,6 +2927,10 @@ void syscall_dispatch(struct isr_frame *frame) {
         return;
     case SYS_NET_DNS:
         frame->rax = (uint64_t)syscall_net_dns((const char *)frame->rdi, (uint32_t *)frame->rsi);
+        return;
+    case SYS_SOCKET_TRY_IO:
+        frame->rax = (uint64_t)syscall_socket_try_io(frame->rdi, frame->rsi, (void *)frame->rdx,
+            frame->rcx, (struct srv_socket_peer *)frame->r8);
         return;
     case SYS_NET_UDP_OPEN:
         frame->rax = (uint64_t)syscall_net_udp_open();

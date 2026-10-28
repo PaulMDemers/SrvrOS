@@ -180,11 +180,16 @@ static void pipe_regression(void) {
     assert(process_file_pipe_write(&subject,4,input,PROCESS_PIPE_CAPACITY-20)==PROCESS_PIPE_CAPACITY-20);
     assert(process_file_pipe_write(&subject,4,input,SRV_PIPE_BUF)==SRV_ERR_AGAIN);
     assert(!process_file_set_flags(&subject,3,0));assert(!process_file_set_flags(&subject,4,0));
+    /* Per-call nonblocking never changes the blocking file description. */
+    assert(process_file_pipe_write_mode(&subject,4,input,SRV_PIPE_BUF,true)==SRV_ERR_AGAIN);
+    assert(!subject.files[3].flags && !subject.files[4].flags);
     pipe_wait_mode=1;
     assert(process_file_pipe_write(&subject,4,input,SRV_PIPE_BUF)==SRV_PIPE_BUF && !pipe_wait_mode);
     assert(process_file_pipe_read(&subject,3,output,PROCESS_PIPE_CAPACITY)==SRV_PIPE_BUF);
     pipe_wait_mode=1;assert(process_file_pipe_write(&subject,4,input,PROCESS_PIPE_CAPACITY+17)==PROCESS_PIPE_CAPACITY+17 && !pipe_wait_mode);
     assert(process_file_pipe_read(&subject,3,output,100)==17);
+    assert(process_file_pipe_read_mode(&subject,3,output,100,true)==SRV_ERR_AGAIN);
+    assert(!subject.files[3].flags && !subject.files[4].flags);
     pipe_wait_mode=2;assert(process_file_pipe_read(&subject,3,output,100)==5 && !memcmp(output,"ready",5));
     pipe_wait_mode=3;assert(process_file_pipe_read(&subject,3,output,100)==0);
     pipes[0].write_refs=1;assert(process_file_pipe_write(&subject,4,input,PROCESS_PIPE_CAPACITY)==PROCESS_PIPE_CAPACITY);

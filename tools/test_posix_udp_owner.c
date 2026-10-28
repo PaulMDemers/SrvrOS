@@ -75,6 +75,10 @@ long srv_net_udp_recvfrom(int fd,void *out,size_t cap,uint32_t *ip,uint16_t *por
     if(cap)((char *)out)[0]=foreign?'x':'y';if(foreign)foreign--;
     return cap?1:0;
 }
+long srv_socket_try_io(int fd,uint64_t operation,void *buffer,size_t length,struct srv_socket_peer *peer) {
+    assert(operation==SRV_SOCKET_UDP_RECV);
+    return srv_net_udp_recvfrom(fd,buffer,length,&peer->ip,&peer->port);
+}
 long srv_pipe_recv_rights(int fd,int *fds,size_t capacity,uint64_t *flags) {
     (void)fd;(void)fds;(void)capacity;*flags=0;return 0;
 }
@@ -115,7 +119,7 @@ int main(int argc,char **argv) {
         }
         errno=0;assert(recv(receive_fd,&byte,1,flags)==-1 && errno==EBADF);
         assert(receives==1 && !replacement_writes);
-        if(flags)assert(flag_writes==1);
+        if(flags)assert(flag_writes==0);
     }
     printf("posix-udp-owner: %s PASS\n",argv[1]);return 0;
 }

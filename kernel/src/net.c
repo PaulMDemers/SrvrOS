@@ -1,3 +1,4 @@
+#include <srvros/dns_wire.h>
 #include <srvros/console.h>
 #include <srvros/net_device.h>
 #include <srvros/heap.h>
@@ -186,6 +187,7 @@ static uint64_t icmp_ping_start_tick;
 /* One native DNS transaction owns these fields through ARP and all retries. */
 static bool dns_query_active;
 static uint32_t dns_server_ip;
+static char dns_question_name[SRV_DNS_NAME_MAX + 1];
 static uint32_t dns_answer_ip;
 static uint16_t dns_query_id = 0x7372;
 static bool dns_waiting;
@@ -659,76 +661,14 @@ static bool send_dns_query(uint32_t server_ip, const uint8_t *server_mac, const 
         (uint16_t)offset);
 }
 
-static uint64_t dns_skip_name(const uint8_t *packet, uint64_t length, uint64_t offset) {
-    uint64_t jumps = 0;
-    while (offset < length && jumps++ < 64) {
-        uint8_t label = packet[offset++];
-        if (label == 0) {
-            return offset;
-        }
-        if ((label & 0xc0) == 0xc0) {
-            return offset + 1 <= length ? offset + 1 : 0;
-        }
-        if ((label & 0xc0) != 0 || offset + label > length) {
-            return 0;
-        }
-        offset += label;
-    }
-    return 0;
-}
-
 static void handle_dns_packet(const uint8_t *payload, uint16_t length) {
-    if (!dns_waiting || length < 12 || read_be16(payload + 0) != dns_query_id) {
-        return;
-    }
-
-    uint16_t flags = read_be16(payload + 2);
-    uint16_t qdcount = read_be16(payload + 4);
-    uint16_t ancount = read_be16(payload + 6);
-    if ((flags & 0x8000) == 0 || qdcount == 0) {
-        return;
-    }
-    if ((flags & 0x000f) != 0) {
-        dns_waiting = false;
-        dns_response_done = true;
-        return;
-    }
-
-    uint64_t offset = 12;
-    for (uint16_t i = 0; i < qdcount; i++) {
-        offset = dns_skip_name(payload, length, offset);
-        if (offset == 0 || offset + 4 > length) {
-            dns_waiting = false;
-            dns_response_done = true;
-            return;
-        }
-        offset += 4;
-    }
-
-    for (uint16_t i = 0; i < ancount; i++) {
-        offset = dns_skip_name(payload, length, offset);
-        if (offset == 0 || offset + 10 > length) {
-            dns_waiting = false;
-            dns_response_done = true;
-            return;
-        }
-        uint16_t type = read_be16(payload + offset);
-        uint16_t klass = read_be16(payload + offset + 2);
-        uint16_t rdlength = read_be16(payload + offset + 8);
-        offset += 10;
-        if (offset + rdlength > length) {
-            dns_waiting = false;
-            dns_response_done = true;
-            return;
-        }
-        if (type == 1 && klass == 1 && rdlength == 4) {
-            dns_answer_ip = read_be32(payload + offset);
-            dns_answer_ready = true;
-            dns_waiting = false;
-            dns_response_done = true;
-            return;
-        }
-        offset += rdlength;
+    if (!dns_waiting) return;
+    uint32_t answer;
+    int result = srv_dns_parse_a(payload, length, dns_query_id, dns_question_name, &answer);
+    if (result < 0) return;
+    if (result > 0) {
+        dns_answer_ip = answer;
+        dns_answer_ready = true;
     }
     dns_waiting = false;
     dns_response_done = true;
@@ -2528,6 +2468,10 @@ int64_t net_dns_resolve(const char *name, uint32_t *ip_out) {
     if (dns_query_active) {
         return SRV_ERR_AGAIN;
     }
+    size_t name_length = 0;
+    while (name_length < sizeof(dns_question_name) - 1 && name[name_length]) name_length++;
+    if (name_length == sizeof(dns_question_name) - 1) return -1;
+    copy_bytes((uint8_t *)dns_question_name, (const uint8_t *)name, name_length + 1);
     dns_query_active = true;
     int64_t result = -1;
     dns_server_ip = configured_dns_server();
@@ -2545,7 +2489,7 @@ int64_t net_dns_resolve(const char *name, uint32_t *ip_out) {
         dns_answer_ready = false;
         dns_response_done = false;
         dns_waiting = true;
-        if (!send_dns_query(dns_server_ip, server_mac, name, dns_query_id)) {
+        if (!send_dns_query(dns_server_ip, server_mac, dns_question_name, dns_query_id)) {
             goto done;
         }
 
@@ -3013,11 +2957,11 @@ int64_t net_udp_bind(uint64_t socket_id, uint16_t port) {
     return 0;
 }
 
-int64_t net_udp_sendto(uint64_t socket_id,
+int64_t net_udp_sendto_mode(uint64_t socket_id,
     uint32_t remote_ip,
     uint16_t remote_port,
     const uint8_t *buffer,
-    uint64_t length) {
+    uint64_t length, bool dontwait) {
     if (!initialized || remote_ip == 0 || remote_port == 0 || length > UDP_PAYLOAD_MAX ||
         (length != 0 && buffer == 0)) {
         return -1;
@@ -3039,7 +2983,11 @@ int64_t net_udp_sendto(uint64_t socket_id,
 
     uint16_t source_port = socket->local_port;
     uint8_t remote_mac[6];
-    if (!resolve_route_mac(remote_ip, remote_mac)) {
+    if (dontwait && !arp_cache_lookup(route_next_hop(remote_ip), remote_mac)) {
+        (void)send_arp_request(route_next_hop(remote_ip));
+        return SRV_ERR_AGAIN;
+    }
+    if (!dontwait && !resolve_route_mac(remote_ip, remote_mac)) {
         return -1;
     }
 
@@ -3056,6 +3004,11 @@ int64_t net_udp_sendto(uint64_t socket_id,
         remote_port,
         buffer,
         (uint16_t)length) ? (int64_t)length : -1;
+}
+
+int64_t net_udp_sendto(uint64_t socket_id, uint32_t remote_ip, uint16_t remote_port,
+    const uint8_t *buffer, uint64_t length) {
+    return net_udp_sendto_mode(socket_id, remote_ip, remote_port, buffer, length, false);
 }
 
 struct udp_wait_arg {

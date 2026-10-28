@@ -5061,7 +5061,7 @@ bool process_file_pipe_io_safe(struct process *process, uint64_t fd, uint64_t le
     return true;
 }
 
-int64_t process_file_pipe_read(struct process *process, uint64_t fd, uint8_t *buffer, uint64_t length) {
+int64_t process_file_pipe_read_mode(struct process *process, uint64_t fd, uint8_t *buffer, uint64_t length, bool dontwait) {
     struct process_file *file = process_file_at(process, fd);
     if (file == NULL ||
         (file->type != PROCESS_FILE_PIPE_READ && file->type != PROCESS_FILE_PIPE_DUPLEX) ||
@@ -5079,7 +5079,7 @@ int64_t process_file_pipe_read(struct process *process, uint64_t fd, uint8_t *bu
         if (process_should_exit_current()) {
             return -1;
         }
-        if (process_file_nonblocking(process,fd)) {
+        if (dontwait || process_file_nonblocking(process,fd)) {
             return SRV_ERR_AGAIN;
         }
         if (!scheduler_wait(&pipe_wait_queue, pipe_read_ready, pipe)) {
@@ -5104,13 +5104,17 @@ int64_t process_file_pipe_read(struct process *process, uint64_t fd, uint8_t *bu
     return (int64_t)count;
 }
 
+int64_t process_file_pipe_read(struct process *process, uint64_t fd, uint8_t *buffer, uint64_t length) {
+    return process_file_pipe_read_mode(process, fd, buffer, length, false);
+}
+
 static int64_t pipe_broken_write(struct process *process,uint64_t done) {
     if(process==process_current()) (void)process_thread_signal(process_thread_self(),SRV_SIGNAL_PIPE);
     else (void)process_queue_signal_locked(process,SRV_SIGNAL_PIPE);
     return done?(int64_t)done:SRV_ERR_PIPE;
 }
 
-int64_t process_file_pipe_write(struct process *process, uint64_t fd, const uint8_t *buffer, uint64_t length) {
+int64_t process_file_pipe_write_mode(struct process *process, uint64_t fd, const uint8_t *buffer, uint64_t length, bool dontwait) {
     struct process_file *file = process_file_at(process, fd);
     if (file == NULL ||
         (file->type != PROCESS_FILE_PIPE_WRITE && file->type != PROCESS_FILE_PIPE_DUPLEX) ||
@@ -5129,7 +5133,7 @@ int64_t process_file_pipe_write(struct process *process, uint64_t fd, const uint
             if (process_should_exit_current()) {
                 return done > 0 ? (int64_t)done : -1;
             }
-            if (process_file_nonblocking(process,fd)) {
+            if (dontwait || process_file_nonblocking(process,fd)) {
                 return done > 0 ? (int64_t)done : SRV_ERR_AGAIN;
             }
             if (!scheduler_wait(&pipe_wait_queue, pipe_write_ready, &wait)) {
@@ -5168,6 +5172,10 @@ struct scheduler_wait_queue *process_file_poll_wait_queue(void) {
 
 void process_file_poll_wake(void) {
     scheduler_wake_all(&fd_poll_wait_queue);
+}
+
+int64_t process_file_pipe_write(struct process *process, uint64_t fd, const uint8_t *buffer, uint64_t length) {
+    return process_file_pipe_write_mode(process, fd, buffer, length, false);
 }
 
 static bool file_lock_wait_ready(void *arg) {

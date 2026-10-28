@@ -49,6 +49,10 @@ long srv_net_udp_recvfrom(int fd,void *out,size_t cap,uint32_t *ip,uint16_t *por
     size_t n=cap<pending_length?cap:pending_length;if(n)memcpy(out,pending,n);
     *ip=0x0a000202;*port=8000;pending=NULL;receives++;return (long)n;
 }
+long srv_socket_try_io(int fd,uint64_t operation,void *buffer,size_t length,struct srv_socket_peer *peer) {
+    assert(operation==SRV_SOCKET_UDP_RECV);
+    return srv_net_udp_recvfrom(fd,buffer,length,&peer->ip,&peer->port);
+}
 long srv_pipe_recv_rights(int fd,int *fds,size_t capacity,uint64_t *flags) {
     (void)fd;(void)fds;(void)capacity;*flags=0;return 0;
 }

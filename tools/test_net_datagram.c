@@ -131,6 +131,18 @@ static void close_reuse(void) {
     reply[18]=6;reply[19]=4;write_be16(reply+20,2);memset(reply+22,2,6);
     write_be32(reply+28,0x0a000202);handle_arp(reply,sizeof(reply));
 }
+static void udp_try_send(void) {
+    reset();uint64_t h=endpoint(9000);uint64_t before=ticks;
+    assert(net_udp_sendto_mode(h,0x0a000202,8000,(const uint8_t *)"abc",3,true)==SRV_ERR_AGAIN);
+    assert(ticks==before && frames==1 && read_be16(last_frame+12)==ETH_TYPE_ARP);
+    const uint8_t mac[6]={2,2,2,2,2,2};arp_cache_update(0x0a000202,mac);
+    assert(net_udp_sendto_mode(h,0x0a000202,8000,(const uint8_t *)"abc",3,true)==3);
+    assert(ticks==before && frames==2 && read_be16(last_frame+12)==ETH_TYPE_IPV4);
+    assert(!memcmp(last_frame,mac,6) && !memcmp(last_frame+42,"abc",3));
+    uint64_t other=endpoint(9001);uint8_t out[3];
+    assert(net_udp_sendto_mode(h,local_ip,9001,(const uint8_t *)"xyz",3,true)==3);
+    assert(net_udp_recvfrom(other,out,3,NULL,NULL,true)==3 && !memcmp(out,"xyz",3));
+}
 static void udp_send_reuse(void) {
     for(unsigned alias=0;alias<2;alias++) {
         reset();old_handle=endpoint(9000);keep_alias=alias!=0;if(alias)assert(!net_hold(old_handle));
@@ -172,6 +184,7 @@ int main(int argc,char **argv) {
     else if(!strcmp(argv[1],"udp-wire"))udp_wire();
     else if(!strcmp(argv[1],"udp-pressure"))udp_pressure();
     else if(!strcmp(argv[1],"udp-truncate"))udp_truncate();
+    else if(!strcmp(argv[1],"udp-try-send"))udp_try_send();
     else if(!strcmp(argv[1],"udp-send-reuse"))udp_send_reuse();
     else if(!strcmp(argv[1],"udp-close-wait"))udp_close_wait();
     else if(!strcmp(argv[1],"udp-inherited"))udp_inherited();
