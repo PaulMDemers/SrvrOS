@@ -10498,3 +10498,23 @@ build. Next is an explicit attended scan-to-desktop profile and saved native cac
 selection/disconnect evidence, followed by management TX and association/security.
 No new physical test is installed or armed; battery/headphones/trackpad follow-ups
 remain deferred.
+
+
+## 2026-10-28 attended discovery desktop scope
+
+Consume actual main `951135b0` through merge `82c4c782`, retaining separate AP
+ownership ELF, Air parity diagnostics and all Pro v1–v102 recipes. PR182
+`903030ef` remains storage/resource lifetime work; no new syscall number is
+claimed there. Add separate v103 scan-to-desktop opt-in profile: unchanged full
+v102 firmware/US1/6/11 scan, successful stop/restoration and ready selectable
+cache before GUI admission. Open the complete Help checklist automatically;
+keep the mounted workspace/logger and retained stopped RX resources through the
+ordinary desktop owner, then save/unmount/return on manual desktop exit with no
+timed close. Record anonymous before/after cache state and selection outcomes;
+no identifiers/credentials in logs. Failure refuses GUI and saves/returns under
+the existing automatic policy. Touch main/staging/smoke, desktoplevel startup,
+Help topic, System trial evidence, focused tests and current guides. Validate
+merged core/desktop, profile compatibility, strict log collection, sanitizers,
+guest checklist/exit/refusal VMs and exact staged image before install/readiness.
+Native UI acceptance remains pending. Existing recovery and v102 evidence stay
+retained. Battery, headphones, latency, transmit/security and IP remain separate.
