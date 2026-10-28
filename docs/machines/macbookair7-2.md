@@ -2,6 +2,26 @@
 
 Updated: 2026-10-28. State: **active reference machine; partial device acceptance**.
 
+### Endurance retry — exited child reap and capture startup (2026-10-28)
+
+Release `8003479c17f01644` (clean `96a8d307`, merged by PR236) failed early
+in session `session-00065ee9cdb1fcee-00`: cycle 3 close deadline, process 13
+reported `state=exited mapped_bytes=0`, but remained in the compositor child list.
+The loop maximum was 1001940 us, including 995335 us in the post stage where
+screenshot startup currently allocates/spawns synchronously. No PCM underruns
+were recorded. This does not accept endurance or establish that every close
+delay shares one cause. Preserve both failed releases and existing accepted
+CPU0/v82 results. Collect/offline integrity and recovery checks precede new work.
+
+Next bounded scope: `userspace/deskd` lifecycle worker, screenshot job preparation
+and focused host/VM fixtures. Move terminal-child reaping to the existing worker
+with one retained immutable PID/result record and kernel-owned blocking wait;
+process-list `exited` is only admission evidence, never permission to reclaim.
+Move screenshot allocation/spawn off the UI with an owned prepare/publish/copy
+boundary. Keep accepted writes/resources until retirement, original deadlines,
+workload intensity and all kernel I/O eligibility gates. PR182's process/VFS
+cleanup and PR19 Wi-Fi remain independent; this block makes no kernel changes.
+
 ### Parity endurance — early native failure under investigation (2026-10-28)
 
 Release `0d1ffb15c35f639a`, source `45b8647a`, returned automatically from
