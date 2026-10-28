@@ -15,7 +15,7 @@ CPU selectors and physical results are not interchangeable.
 | Combined reopen | v72 automated two-session test and native acceptance | New v79 selects the same mechanism with the Air7,2 kernel; local and native evidence must name this profile. |
 | Audio/disk/app/screenshot stress | v74 bounded 30-minute native run, 703 app cycles; v77 attended variant | New v80 automatic and v81 attended profiles reuse the same workload, deadlines and ownership. Air7,2 has not inherited the 30-minute result. |
 | Desktop power phases | v78 idle/apps/recovery; worker-wakeup receipts and native measurements | New v82 uses the Air7,2 backend with the same phases, read-only power and normal return. No inferred energy saving. |
-| Idle residency and capture prerequisites | Ten counters; HLT entry, E2/APIC/misc and topology audit | Captured Broadwell support adds seven counters and the shared audit. C8/C9/C10 remain unavailable, not valid zeros. Native diagnostic remains a separate gate. |
+| Idle residency and capture prerequisites | Ten counters; HLT entry, E2/APIC/misc and topology audit | Captured Broadwell support adds seven counters and the shared audit. C8/C9/C10 remain unavailable, not valid zeros. Native CPU0 diagnostic accepted on release `71049508c4a1fbd0`: complete seven-counter capture, unchanged configuration and zero observed deep-idle deltas. |
 | Explicit MWAIT experiments | Bounded shallow and C3-hint execution accepted; zero observed C3 residency | Broadwell MWAIT remains refused until its own prerequisites/selector review and bounded trial. Read-only counter admission does not enable instructions or copy Haswell policy. Ordinary idle remains HLT. |
 | Secondary CPU ownership | PR232 adds a separate bounded AP rendezvous payload; native acceptance remains pending | Shared diagnostic is integrated, with its native Haswell-only admission intact. Broadwell needs independent identity/MONITOR/APIC prerequisites and a separate native trial after CPU0 capture. Ordinary boot has no MP request; general SMP scheduling remains absent. |
 | Network/other devices | No accepted Ethernet/Wi-Fi on that unit | Air7,2 already has matched USB ECM acceptance. No parity gap justifies broadening adapter or firmware gates. Suspend/resume, internal Wi-Fi, Bluetooth and camera remain separate. |
@@ -72,8 +72,8 @@ lists the inherited tables for 06_3D. Linux
 [v6.12 cstate profiles](https://github.com/torvalds/linux/blob/v6.12/arch/x86/events/intel/cstate.c)
 separately maps Broadwell to the seven-counter set, while Haswell-ULT includes
 C8–C10. The local Air7,2 signature is `0x306d4`; read-only Ubuntu CPU0 capture
-confirms the seven reads and unchanged E2/APIC/misc snapshots. These are admission
-prerequisites, not native SrvrOS acceptance or an energy comparison.
+confirms the seven reads and unchanged E2/APIC/misc snapshots. The matching native CPU0 diagnostic now confirms bounded accessibility and unchanged
+configuration as recorded below; neither capture establishes energy savings.
 
 The existing vendor/feature/hypervisor/reference-clock gates apply first, then
 invariant TSC and the captured model choose mask 127 (Broadwell) or 1023
@@ -103,3 +103,16 @@ Audio workload diagnostics also record scheduler attribution for lifecycle
 intervals above 100 ms. These trace calls are confined to workload diagnostics;
 ordinary desktop operation does not enable them. `--accel tcg|kvm` explicitly
 selects the audio VM accelerator, with the original TCG default preserved.
+
+## Air7,2 native CPU0 checkpoint
+
+Release `71049508c4a1fbd0`, source `5bab654b`, session
+`session-00065ee8fc3ded29-00` completed the ordered 30-second idle/load/recovery
+phases and returned to Ubuntu automatically. Covered package averages were
+6.782/8.677/6.825 W. All seven supported residency deltas were zero; unsupported
+C8–C10 remain omitted. HLT entry/return pairs and unchanged E2/APIC/misc snapshots
+validate the diagnostic without demonstrating deep idle. CPUID topology describes
+two cores/four addressable logical CPUs; it does not observe their running state.
+No AP startup, MWAIT or policy write occurred. Prior files, offline filesystem and
+allocation checks, consumed one-shot and independent recovery all pass. Desktop
+power phases and full 30-minute endurance still require their own native runs.

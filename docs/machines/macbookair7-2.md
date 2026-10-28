@@ -2,7 +2,7 @@
 
 Updated: 2026-10-28. State: **active reference machine; partial device acceptance**.
 
-### Air6,1 parity — local implementation validated; native trial prepared (2026-10-28)
+### Air6,1 parity — CPU0 telemetry accepted; desktop phases next (2026-10-28)
 
 Consumed main `5a94d755` (PR230), then `80b0a8aa` (PR232) during validation.
 Compare shared model support and independently
@@ -54,6 +54,25 @@ by this trial. Collect its matching native session before another run; the new
 counter mask/audit, desktop power phases and 30-minute workload each need their
 own physical evidence. Local evidence is retained under the parity root, with
 verified copies outside build before the one-shot boot.
+
+Native CPU release `71049508c4a1fbd0` (compiled `5bab654b`, integrated by
+PR231/main `951135b0`) completed session `session-00065ee8fc3ded29-00` and
+returned automatically. Three ordered 30-second idle/load/recovery phases have
+valid power and seven-counter coverage, paired HLT entry/return receipts and
+unchanged E2/APIC/misc snapshots. Covered package power averages were
+6782/8677/6825 mW; these are package measurements, not whole-machine power.
+All seven residency deltas were zero. This accepts bounded read-only telemetry
+and audit capture, **not deep idle or energy savings**. Other CPU state remains
+unknown; no AP request or MWAIT was executed. Prior 1141 files are preserved
+except expected `.srvros/meta` bookkeeping. Offline fsck and allocation pass
+(1145 files, 2884 clusters, zero leaks/mismatches/errors); Ubuntu default,
+consumed one-shot and independent recovery are verified. Evidence and hashes
+are retained locally and outside build.
+
+Next bounded native objective is automatic v82 desktop power phases: normal
+Air7,2 battery ownership with idle/apps/recovery, worker receipts and saved
+logs, followed by automatic Ubuntu return. No human input is required. Native
+30-minute audio/I/O endurance and separate AP/MWAIT experiments remain pending.
 
 ### Shared baseline refresh — local validation complete
 
