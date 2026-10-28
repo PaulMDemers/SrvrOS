@@ -1,29 +1,38 @@
 # MacBookAir7,2 / A1466
 
-Updated: 2026-10-26. State: **active reference machine; partial device acceptance**.
+Updated: 2026-10-27. State: **active reference machine; partial device acceptance**.
 
-### Focused Close/window-list trial — installed; attended boot pending
+### Focused Close/window-list trial — bounded hardware smoke accepted
 
-Candidate `060fffa453e26d5e`, clean source `bd94284a`, follows tested main
-`5db81dd5` (PR201) with only the focused Help checklist changed. Matched normal/
-native/VM builds and freshness pass. Exact-stage GRUB/Limine/native-kernel Q35
-rehearsal passes checklist delivery, save, complete retirement, reopen and normal
-monitor reboot with clean offline integrity. Q35 refusal does not accept native
-battery/providers. The complete untimed current-round checklist is at the top of
-Help; older navigation sections are reference material.
+Release `060fffa453e26d5e`, clean source `bd94284a` on PR201 main `5db81dd5`,
+returned in tested `session-00065ed4b3827d6c-00`. The tester reports opening apps,
+using modals/hotkeys and dismissing them normally, with no defects noticed. This
+accepts the bounded attended Close/window-list smoke; it is not an independent
+attestation of every Save/Discard/Cancel subcase, audio or active endurance.
+The automatically opened Help checklist has no timer and remains available.
 
-Local MacBookAir7,2/USB identity, Ubuntu default and independent recovery are
-verified. Physical USB offline checks/headroom pass; 1,133 prior files are hashed
-and the latest prior session is already collected. The unreferenced older a906
-payload was copied and every file verified outside EFI before removal to make
-space; its known-good backup remains. Accepted `1d36da62e183a295` and independent
-`9aa8dbf6fbda8252` recovery are retained. Current run/reboot state and after-return
-collection instructions are in `build/window-commands-native-20261026/run.json`
-and its verified durable copy outside build. No physical acceptance is claimed.
-New remote main `eacb4ec4` (PR200 screenshot work) is inspected, not consumed
-into this isolated candidate. No audio test or cable changes are requested.
+All four matching logs are copied/verified, exit is present and collector
+attention is empty. Desktop lifetime drained to zero members (peak thirteen)
+and released; battery retirement reports zero heap, errors, denied accesses and
+rejected samples. One ten-byte test document was recovered, plus four logs;
+there are no new screenshots. All 1,135 prior non-metadata files retain their
+hashes, only `.srvros/meta` changed, and no files were deleted. Offline fsck,
+allocation and headroom pass: 1,141 files / 2,879 clusters, zero leaks, bitmap
+mismatches or errors. File persistence is observed; a fresh reopen is not
+independently established by the retained logs.
 
-### Window commands and discovery — locally validated; native pending
+The initial `session-00065ec9dc6970fb-00` was explicitly not tested and lacks
+an exit log. It remains incomplete historical evidence, separate from this
+successful retry. Installed payload, consumed one-shot, Ubuntu default and
+independent `9aa8dbf6fbda8252` recovery are verified. The accepted payload and
+bounded acceptance note are backed up outside build, with prior `1d36da62e183a295`
+and archived/known-good a906 retained. Evidence and run state live under
+`build/window-commands-native-20261026/` with a verified durable copy.
+No next boot is armed. Actual main `3bbf80b7` was fetched/inspected after return;
+its newer idle/power/screenshot work was not in this tested release and does not
+inherit its acceptance. Build/test that integration before another native stage.
+
+### Window commands and discovery — implementation and local validation
 
 PR201 consumes actual main `a9d69554` (PR197/199), local merge `31d519f1`.
 Implementation `3467439b` adds standard **Window > Close window / Command-W**
@@ -45,9 +54,9 @@ context-menu VMs also pass. Final Help shortcut prose and stronger UTF-8 fixture
 were rebuilt/rechecked after those VMs; compositor behavior is unchanged.
 
 Evidence: `build/window-commands-20261026/`, with a verified durable copy outside
-build. These new commands remain physically pending; no new stage/install/reboot
-was prepared. Installed bounded-smoke payload `1d36da62e183a295` and independent
-recovery `9aa8dbf6fbda8252` are unchanged. PR182 filesystem/PR19 Wi-Fi remain
+build. The focused bounded native smoke is recorded above; broader subcases remain
+scoped to their evidence. Installed accepted payload is `060fffa453e26d5e`;
+independent recovery remains `9aa8dbf6fbda8252`. PR182 filesystem/PR19 Wi-Fi remain
 separate. No next boot is armed.
 
 ### Combined navigation trial — bounded general smoke accepted
