@@ -4283,3 +4283,34 @@ test-wifi-syscall: build/tests/wifi-syscall-host$(HOST_EXE)
 build/tests/wifi-syscall-host$(HOST_EXE): tools/test_wifi_syscall.c kernel/src/arch/x86_64/syscall.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I kernel/src/arch/x86_64 -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+
+
+# MP request exists only in this explicit diagnostic ELF. Ordinary objects and
+# boot requests are never overwritten. AP code has no C runtime dependencies.
+AP_PROBE_OBJ := build/ap-probe/main.o build/ap-probe/requests.o build/ap-probe/probe.o build/ap-probe/entry.o
+AP_PROBE_BASE := $(filter-out build/kernel/src/main.c.o build/kernel/src/limine_requests.c.o,$(KERNEL_OBJ))
+.PHONY: ap-probe-kernel
+ap-probe-kernel: build/ap-probe/srvros.elf
+build/ap-probe/main.o: kernel/src/main.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_AP_PROBE -c $< -o $@
+build/ap-probe/requests.o: kernel/src/limine_requests.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_AP_PROBE -c $< -o $@
+build/ap-probe/probe.o: kernel/diagnostics/ap_probe.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_AP_PROBE -mno-sse -mno-sse2 -c $< -o $@
+build/ap-probe/entry.o: kernel/diagnostics/ap_probe.S $(ZIG)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -c $< -o $@
+build/ap-probe/srvros.elf: $(AP_PROBE_OBJ) $(AP_PROBE_BASE) kernel/linker.ld
+	$(LD) $(LDFLAGS) $(AP_PROBE_OBJ) $(AP_PROBE_BASE) -o $@
+
+.PHONY: test-ap-probe
+test-ap-probe: build/tests/ap-probe-host$(HOST_EXE)
+	$<
+	$(PYTHON) -m unittest discover -s tools -p test_hardware_ap_owner.py
+build/tests/ap-probe-host$(HOST_EXE): tools/test_ap_probe.c kernel/include/srvros/ap_probe.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -Wall -Wextra -Werror -I kernel/include $< -o $@
+test-core: test-ap-probe

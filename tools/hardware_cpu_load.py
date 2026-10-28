@@ -75,7 +75,7 @@ IDLE_NAMES = ('core_c3','core_c6','core_c7','package_c2','package_c3',
               'package_c6','package_c7','package_c8','package_c9','package_c10')
 
 def phase_idle(text, start, end):
-    """Read-only 06_45 counters, separate scopes and conservative TSC brackets.
+    """Read-only captured 06_45/06_3D counters, separate scopes and conservative TSC brackets.
 
     Exact retained receipt/power pairing is required. Zero is a measurement;
     missing, stale, reset, truncated or malformed telemetry is unavailable.
@@ -95,7 +95,7 @@ def phase_idle(text, start, end):
         if set(row)!=keys or len(fields)!=len(keys) or any(v>=2**64 for v in row.values()): return None
         stamps=re.findall(r' sample_us=(\d+)(?: |$)',power)
         if len(stamps)!=1 or row['sample_us']!=int(stamps[0]): return None
-        if (row['supported']!=1023 or row['valid']!=1023 or row['rejected'] or
+        if (row['supported'] not in (127,1023) or row['valid']!=row['supported'] or row['rejected'] or
             not 100000<=row['interval_us']<=5000000 or not row['interval_tsc'] or
             not 0<row['tsc_begin']<=row['tsc_end'] or
             row['tsc_end']-row['tsc_begin']>row['interval_tsc'] or
@@ -103,7 +103,8 @@ def phase_idle(text, start, end):
             any(row[f'c{i}_raw']>=2**60 for i in range(7,10)) or
             sum(row[f'c{i}_bp'] for i in range(3))>10000 or
             sum(row[f'c{i}_bp'] for i in range(3,10))>10000): return None
-        if samples and (row['sample_us']<=samples[-1]['sample_us'] or row['tsc_begin']<=samples[-1]['tsc_end']): return None
+        if any((row[f'c{i}_raw'] or row[f'c{i}_bp']) for i in range(10) if not row['supported']&(1<<i)): return None
+        if samples and (row['supported']!=samples[-1]['supported'] or row['sample_us']<=samples[-1]['sample_us'] or row['tsc_begin']<=samples[-1]['tsc_end']): return None
         samples.append(row)
     selected=[s for s in samples if start<=s['sample_us']<=end]
     if len(selected)<2 or selected[-1]['sample_us']-selected[0]['sample_us']<10000000: return None
@@ -114,8 +115,8 @@ def phase_idle(text, start, end):
         if any(n<0 or n>dt for n in delta) or sum(delta[:3])>dt or sum(delta[3:])>dt: return None
     a,b=selected[0],selected[-1];dt=b['tsc_end']-a['tsc_begin']
     return dict(covered_us=b['sample_us']-a['sample_us'],checkpoints=len(selected),
-                start_us=a['sample_us'],end_us=b['sample_us'],tsc_ticks=dt,
-                basis_points={name:(b[f'c{i}_raw']-a[f'c{i}_raw'])*10000//dt for i,name in enumerate(IDLE_NAMES)},
+                start_us=a['sample_us'],end_us=b['sample_us'],tsc_ticks=dt,supported=a['supported'],
+                basis_points={name:(b[f'c{i}_raw']-a[f'c{i}_raw'])*10000//dt for i,name in enumerate(IDLE_NAMES) if a['supported']&(1<<i)},
                 scope='CPU0 physical core and whole package; lower-bound TSC-bracket ratios; no inferred C0/C1')
 
 
@@ -197,7 +198,7 @@ def idle_prerequisites(text):
         if any(v for level in raw for v in level): return None
     else:
         a,b,z=raw
-        # Captured Haswell SMT/core/terminator layout only. Counts describe
+        # Captured Air SMT/core/terminator layout only. Counts describe
         # addressable topology, not enabled CPUs or remote execution state.
         if (a[2]==256 and b[2]==513 and z[:3]==[0,0,2] and
             a[3]==b[3]==z[3] and 0<=a[0]<=b[0]<=31 and

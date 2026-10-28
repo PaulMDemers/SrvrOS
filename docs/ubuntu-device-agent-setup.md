@@ -1,6 +1,6 @@
 # Ubuntu setup for an on-device SrvrOS agent
 
-Current workflow, 2026-10-27. Each Mac runs Ubuntu as its development/recovery
+Current workflow, 2026-10-28. Each Mac runs Ubuntu as its development/recovery
 OS, has its own repository checkout and agent, and uses a plugged-in exFAT USB
 drive for SrvrOS documents and diagnostics. Build and run disposable VMs on
 that Mac; reboot it into SrvrOS for physical acceptance. Ubuntu is the normal
@@ -390,6 +390,9 @@ unmounted return. This path is physically accepted on the recorded Air7,2
 release; default startup stays off and siblings do not inherit its ownership. Follow the
 [session contract](battery-home-lifecycle.md#opt-in-ordinary-home-startup) and
 existing recovery/run-record steps before a hardware trial.
+
+The [Air profile parity guide](air-profile-parity.md) documents the separate
+Air7,2 v79–v82 reopen, stress and power recipes and their matching VM gates.
 
 For the Air6,1 startup investigation, the explicit v72 `--desktop-reopen-test`
 recipe automates two combined desktop lifetimes and normal Ubuntu return. It

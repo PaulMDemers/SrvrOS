@@ -1,3 +1,4 @@
+#include <srvros/ap_probe.h>
 #include <srvros/posix_capture.h>
 #include <srvros/acpi.h>
 #include <srvros/autotest.h>
@@ -445,6 +446,12 @@ void kmain(void) {
         }
     }
 
+#ifdef SRVROS_AP_PROBE
+    if(!cmdline_has_token(cmdline,"srvros.capture=ap-ownership")) {
+        console_write("ap-owner: dedicated diagnostic requires capture token; memory retained\n");
+        halt_forever();
+    }
+#endif
     if (cmdline[0] != '\0') {
         console_printf("cmdline: %s\n", cmdline);
     }
@@ -645,6 +652,7 @@ void kmain(void) {
     bool automatic_battery=home_battery||smbus_battery||query_battery||controls_battery||text_battery||desktop_battery||service_battery||guided_battery||cmdline_has_token(cmdline,"srvros.capture=battery");
     bool automatic_posix=cmdline_has_token(cmdline,"srvros.capture=posix");
     bool automatic_storage_wait=cmdline_has_token(cmdline,"srvros.capture=storage-wait");
+    bool automatic_ap=cmdline_has_token(cmdline,"srvros.capture=ap-ownership");
     bool automatic_load=cmdline_has_token(cmdline,"srvros.capture=cpu-load");
     bool automatic_aml=cmdline_has_token(cmdline,"srvros.capture=aml");
     bool automatic_desktop_idle=cmdline_has_token(cmdline,"srvros.capture=desktop-idle");
@@ -668,7 +676,7 @@ void kmain(void) {
         xhci_print_status();
         xhci_print_input_summary();
     }
-    if(automatic_probe || automatic_idle || automatic_aml || automatic_desktop_idle || automatic_battery || automatic_load || automatic_wifi || automatic_storage_wait || automatic_posix) {
+    if(automatic_probe || automatic_idle || automatic_aml || automatic_desktop_idle || automatic_battery || automatic_load || automatic_wifi || automatic_storage_wait || automatic_posix || automatic_ap) {
         console_printf("laptop-capture: boot options=%s\n",cmdline);
         bool started=false;
         if(workspace_active()) {
@@ -679,7 +687,7 @@ void kmain(void) {
             else started=workspace_log_start_capture();
         }
         if(started) console_write("laptop-capture: diagnostics collected; physical input acceptance remains pending\n");
-        bool sampled=!automatic_idle && !automatic_aml && !automatic_desktop_idle && !automatic_battery && !automatic_load && !automatic_storage_wait && !automatic_posix;
+        bool sampled=!automatic_idle && !automatic_aml && !automatic_desktop_idle && !automatic_battery && !automatic_load && !automatic_storage_wait && !automatic_posix && !automatic_ap;
         if(automatic_wifi) {
             xhci_print_status();
             sampled=xhci_wifi_identity_ready();
@@ -780,6 +788,14 @@ void kmain(void) {
         if(automatic_storage_wait && started && init_ready && timer_running) {
             sampled=workspace_storage_wait_capture();
             console_printf("storage-wait-capture: returned=yes clean=%s\n",sampled?"yes":"NO");
+        }
+        if(automatic_ap && started && init_ready && timer_running) {
+#ifdef SRVROS_AP_PROBE
+            sampled=ap_probe_run(cmdline);
+#else
+            console_write("ap-owner: v=1 admitted=0 reason=ordinary-kernel\n");
+            sampled=false;
+#endif
         }
         if(automatic_load && started && init_ready && timer_running) {
             bool deep=cmdline_has_token(cmdline,"srvros.idle=mwait-c3-test");

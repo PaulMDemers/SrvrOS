@@ -1,5 +1,8 @@
 # Air and Pro device parity
 
+For the October 28 Air7,2/Air6,1 source and test-profile comparison, see
+[Air profile parity](air-profile-parity.md). Their native results remain independent.
+
 Reviewed October 23, 2026 against main `249bb97`; Pro Wi-Fi remains separate PR19 work.
 Shared desktop source refreshed October 25 through the dynamic-window/runtime work; this does not extend
 the Pro's physical acceptance or refresh its independent Wi-Fi investigation.

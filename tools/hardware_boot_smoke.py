@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Exercise the staged GRUB -> Limine -> kernel path on a disposable QEMU ESP."""
 import argparse
+import shutil
 import json
 import binascii
 import re
@@ -116,6 +117,8 @@ def verify_workspace(stick, volume, acceleration):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--ap-cpus",type=int,choices=(1,2,4,6),default=4)
+    parser.add_argument("--ap-inject",choices=("missing","fault"))
     parser.add_argument("--boot-wait", type=float, default=180)
     parser.add_argument("--qemu", default="qemu-system-x86_64")
     parser.add_argument("--desktop-check", action="store_true")
@@ -162,6 +165,8 @@ def main():
     wifi_firmware=bool(probe and manifest["config_version"].startswith(("ram-usb-wifi-fw-v1-","ram-usb-wifi-fw-v2-","ram-usb-wifi-fw-v3-","ram-usb-wifi-fw-v4-","ram-usb-wifi-fw-v5-","ram-usb-wifi-fw-v6-","ram-usb-wifi-fw-v7-","ram-usb-wifi-fw-v8-","ram-usb-wifi-fw-v9-","ram-usb-wifi-fw-v10-","ram-usb-wifi-fw-v11-","ram-usb-wifi-fw-v12-","ram-usb-wifi-fw-v13-","ram-usb-wifi-fw-v14-","ram-usb-wifi-fw-v15-","ram-usb-wifi-fw-v16-","ram-usb-wifi-fw-v17-","ram-usb-wifi-fw-v18-","ram-usb-wifi-fw-v19-","ram-usb-wifi-fw-v20-","ram-usb-wifi-fw-v21-","ram-usb-wifi-fw-v22-","ram-usb-wifi-fw-v23-","ram-usb-wifi-fw-v24-","ram-usb-wifi-fw-v25-","ram-usb-wifi-fw-v26-","ram-usb-wifi-fw-v27-","ram-usb-wifi-fw-v28-","ram-usb-wifi-fw-v29-","ram-usb-wifi-fw-v30-","ram-usb-wifi-fw-v31-","ram-usb-wifi-fw-v32-","ram-usb-wifi-fw-v33-","ram-usb-wifi-fw-v34-","ram-usb-wifi-fw-v35-","ram-usb-wifi-fw-v36-","ram-usb-wifi-fw-v37-","ram-usb-wifi-fw-v38-","ram-usb-wifi-fw-v39-","ram-usb-wifi-fw-v40-","ram-usb-wifi-fw-v41-","ram-usb-wifi-fw-v42-","ram-usb-wifi-fw-v43-","ram-usb-wifi-fw-v44-","ram-usb-wifi-fw-v45-","ram-usb-wifi-fw-v46-","ram-usb-wifi-fw-v47-","ram-usb-wifi-fw-v48-","ram-usb-wifi-fw-v49-","ram-usb-wifi-fw-v50-","ram-usb-wifi-fw-v51-","ram-usb-wifi-fw-v52-","ram-usb-wifi-fw-v53-","ram-usb-wifi-fw-v54-","ram-usb-wifi-fw-v55-","ram-usb-wifi-fw-v56-","ram-usb-wifi-fw-v57-","ram-usb-wifi-fw-v58-","ram-usb-wifi-fw-v59-","ram-usb-wifi-fw-v60-","ram-usb-wifi-fw-v61-","ram-usb-wifi-fw-v62-","ram-usb-wifi-fw-v63-","ram-usb-wifi-fw-v64-","ram-usb-wifi-fw-v65-","ram-usb-wifi-fw-v66-","ram-usb-wifi-fw-v67-", "ram-usb-wifi-fw-v68-", "ram-usb-wifi-fw-v69-", "ram-usb-wifi-fw-v70-", "ram-usb-wifi-fw-v71-","ram-usb-wifi-fw-v72-","ram-usb-wifi-fw-v73-","ram-usb-wifi-fw-v74-","ram-usb-wifi-fw-v75-","ram-usb-wifi-fw-v76-","ram-usb-wifi-fw-v77-","ram-usb-wifi-fw-v78-","ram-usb-wifi-fw-v79-","ram-usb-wifi-fw-v80-","ram-usb-wifi-fw-v81-","ram-usb-wifi-fw-v82-","ram-usb-wifi-fw-v83-","ram-usb-wifi-fw-v84-","ram-usb-wifi-fw-v85-","ram-usb-wifi-fw-v86-","ram-usb-wifi-fw-v87-","ram-usb-wifi-fw-v88-","ram-usb-wifi-fw-v89-","ram-usb-wifi-fw-v90-","ram-usb-wifi-fw-v91-","ram-usb-wifi-fw-v92-","ram-usb-wifi-fw-v93-","ram-usb-wifi-fw-v94-","ram-usb-wifi-fw-v95-","ram-usb-wifi-fw-v96-","ram-usb-wifi-fw-v97-","ram-usb-wifi-fw-v98-","ram-usb-wifi-fw-v99-","ram-usb-wifi-fw-v100-","ram-usb-wifi-fw-v101-","ram-usb-wifi-fw-v102-")))
     wifi_calibration=bool(probe and "srvros.capture=wifi-calibration" in (source/"limine.conf").read_text())
     wifi_capture=wifi_firmware or wifi_calibration or bool(probe and manifest["config_version"].startswith("ram-usb-v39-"))
+    ap_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v1-ap-owner-"))
+    if args.ap_inject and not ap_capture: parser.error("AP injection requires AP diagnostic stage")
     cpu_load_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v35-","ram-usb-v1-mwait-")))
     idle_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v23-"))
     posix_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v1-posix-"))
@@ -209,7 +214,13 @@ def main():
                         "--modules=part_gpt fat chain search search_fs_uuid normal serial terminal",
                         "-o", str(loader), f"boot/grub/grub.cfg={cfg}"], check=True)
         disk = temp / "esp.img"
-        make_disk(disk, loader, source, release)
+        vm_source=source
+        if args.ap_inject:
+            vm_source=temp/"injected-payload"
+            shutil.copytree(source,vm_source)
+            for name in ("limine.conf","loader/limine.conf"):
+                p=vm_source/name;p.write_text(p.read_text().replace("srvros.capture=ap-ownership",f"srvros.capture=ap-ownership srvros.ap-inject={args.ap_inject}"))
+        make_disk(disk, loader, vm_source, release)
         qmp_path = temp / "qmp.sock"
         command = [args.qemu, "-M", "q35", "-m", "2G",
                    "-drive", f"if=pflash,format=raw,readonly=on,file={args.ovmf}",
@@ -217,6 +228,7 @@ def main():
                    "-device", "qemu-xhci,id=xhci", "-device", "usb-kbd,bus=xhci.0",
                    "-serial", f"file:{serial}", "-qmp", f"unix:{qmp_path},server=on,wait=off",
                    "-monitor", "none", "-display", "none", "-no-reboot"]
+        if ap_capture: command += ["-smp",str(args.ap_cpus)]
         if scaled_desktop:
             command += ["-vga","none","-device","VGA,vgamem_mb=64,xres=2880,yres=1800"]
         network_desktop=bool(desktop and manifest["config_version"].startswith("ram-usb-v37-"))
@@ -369,7 +381,7 @@ def main():
                         text=wait_for(serial,lambda s:"laptop-capture: returning to Ubuntu" in s,process,args.boot_wait)
                         assert "laptop-capture: saved=yes unmounted=yes" in text
                     if battery_preflight: assert "battery-preflight: REFUSED identity/resources; no register access" in text
-                    elif not (idle_capture or aml_capture or desktop_idle_capture or battery_capture or cpu_load_capture or wifi_capture or posix_capture): assert "laptop-probe: unsupported chipset; no register access" in text
+                    elif not (idle_capture or aml_capture or desktop_idle_capture or battery_capture or cpu_load_capture or wifi_capture or posix_capture or ap_capture): assert "laptop-probe: unsupported chipset; no register access" in text
                     if keyboard_retry and args.keyboard_fail: assert "keyboard-test: retries=10" in text
                     if keyboard_retry and args.keyboard_timeout: assert "keyboard-test: timeout step=1 limit_seconds=90" in text
                     if keyboard_capture:
@@ -396,7 +408,7 @@ def main():
                         assert release.encode() in contents
                         if keyboard_capture and filename=="exit.log":
                             assert (b"keyboard-test: result=FAIL passed=0" if keyboard_negative else b"keyboard-test: result=PASS passed=10") in contents
-                        if not (idle_capture or aml_capture or desktop_idle_capture or battery_capture or cpu_load_capture or wifi_capture or posix_capture):
+                        if not (idle_capture or aml_capture or desktop_idle_capture or battery_capture or cpu_load_capture or wifi_capture or posix_capture or ap_capture):
                             assert (b"battery-preflight: REFUSED identity/resources; no register access" if battery_preflight else b"laptop-probe: unsupported chipset") in contents
                             assert b"USB INPUT DIAGNOSTIC" in contents
                             assert b"xhci: vendor=" in contents
@@ -416,6 +428,16 @@ def main():
                         assert b"laptop-capture: completed=NO" in exit_log
                         assert b"srvros.usb-wifi=probe" in exit_log
                         assert b"srvros.aml=probe" not in exit_log
+                    if ap_capture:
+                        from hardware_ap_owner import ap_owner_result
+                        exit_log=stored.read(folder+"/exit.log").decode()
+                        result=ap_owner_result(exit_log)
+                        if args.ap_cpus in (1,6):
+                            assert result is None and "ap-owner: v=1 admitted=0 reason=identity-topology" in exit_log
+                        elif args.ap_inject:
+                            assert result is None and "ap-owner: completed=NO" in exit_log
+                            assert ("state=3 fault=1" if args.ap_inject=="fault" else "rounds=0") in exit_log
+                        else: assert result and result['mode']=='vm' and result['cpus']==args.ap_cpus
                     if battery_preflight:
                         exit_log=stored.read(folder+"/exit.log").decode()
                         from hardware_desktop import battery_preflight_result
@@ -508,7 +530,7 @@ def main():
                     (logs/"hardware-grub-result.json").write_text(json.dumps({
                         "status":"PASS","release":release,"manifest_sha256":boot.digest(source/"manifest.json"),
                         "battery_home_work":battery_home_work,"battery_home_transitions":battery_home_transitions,"battery_home_desktop":battery_home_desktop,"battery_home_session":battery_home_session,"battery_home":battery_home,"battery_smbus_files":battery_smbus_files,"battery_smbus":battery_smbus,"battery_smbus_transitions":battery_smbus_transitions,"battery_query":battery_query,"battery_controls":battery_controls,"battery_app_files":battery_app_files,"battery_load":battery_load,"battery_text":battery_text,"battery_desktop":battery_desktop,"battery_capture":battery_capture,"battery_transitions":battery_transitions,"battery_service":battery_service,"battery_filesystem":battery_filesystem,"return_on_failure":auto_return,"battery_outcome":"expected platform refusal" if battery_capture else "not requested",
-                        "probe":True,"posix_capture":posix_capture,"probe_network":args.probe_network,"storage_wait_capture":storage_wait_capture,"wifi_capture":wifi_capture,"wifi_calibration":wifi_calibration,"wifi_firmware":wifi_firmware,"wifi_outcome":"expected absent radio" if wifi_capture else "not requested","battery_preflight":battery_preflight,"preflight_outcome":"expected identity refusal" if battery_preflight else "not requested","cpu_load_capture":cpu_load_capture,"load_result":"refused in VM" if cpu_load_capture else "not requested","power_telemetry":power_telemetry,"power_measurement":"unavailable in VM" if power_telemetry else "not requested","desktop_idle_capture":desktop_idle_capture,"idle_capture":idle_capture,"aml_capture":aml_capture,"saved":True,"unmounted":True,
+                        "ap_capture":ap_capture,"ap_cpus":args.ap_cpus if ap_capture else None,"ap_inject":args.ap_inject,"probe":True,"posix_capture":posix_capture,"probe_network":args.probe_network,"storage_wait_capture":storage_wait_capture,"wifi_capture":wifi_capture,"wifi_calibration":wifi_calibration,"wifi_firmware":wifi_firmware,"wifi_outcome":"expected absent radio" if wifi_capture else "not requested","battery_preflight":battery_preflight,"preflight_outcome":"expected identity refusal" if battery_preflight else "not requested","cpu_load_capture":cpu_load_capture,"load_result":"refused in VM" if cpu_load_capture else "not requested","power_telemetry":power_telemetry,"power_measurement":"unavailable in VM" if power_telemetry else "not requested","desktop_idle_capture":desktop_idle_capture,"idle_capture":idle_capture,"aml_capture":aml_capture,"saved":True,"unmounted":True,
                         "keyboard_capture":keyboard_capture,"keyboard_expected_failure":keyboard_negative,"workspace_table":args.workspace_table,"physical_acceptance":"pending"},indent=2)+"\n")
                     (logs/"laptop-capture.exfat").write_bytes(volume.read_bytes())
                     print(f"laptop-probe-smoke: PASS ({release}); diagnostics saved, offline file bytes verified, clean exFAT; " + (("native battery refused in VM and returned" if auto_return else "native battery refused in VM and halted") if battery_capture else "held Wi-Fi failure" if wifi_firmware and not auto_return else "automatic reset"))
