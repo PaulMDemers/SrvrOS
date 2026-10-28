@@ -2,6 +2,32 @@
 
 Updated: 2026-10-28. State: **active reference machine; partial device acceptance**.
 
+### Sixth endurance return — logger invokes global file sync (2026-10-28)
+
+Release `c98e4c162b411126`, clean `c23ed928` (PR245), returned automatically
+from `session-00065eeb62e3edb4-00` after seven cycles. Files pid18 misses the
+startup deadline while awaiting first pixels. UI maximum101097 us, zero observed
+PCM underruns and clean native battery retirement do not accept endurance.
+Logger save59755534–64831507 us takes5075973 us: write173052, verify4232 and
+sync4898644 us. Its USB CSW callbacks total4326717 us. This is workload wall time,
+including concurrent traffic, not CPU or pure device latency. Source review shows
+logger `workspace_sync()` invokes `process_file_sync_all()` before the device
+barrier, so log persistence can force unrelated dirty process buffers to disk.
+All1194 prior files are preserved except metadata; offline fsck/allocation pass
+(1200 files,3191 clusters,zero errors), default/recovery/one-shot pass.
+
+Next bounded PROPOSAL owns a kernel-only committed-data flush API in
+`workspace.c/.h`, logger use/explicit durability receipt, focused workspace/logger
+fixtures and checkpoint VM harness compatibility. Explicit workspace sync and
+unmount must retain global process-file sync; logger may flush only its already
+written/read-back exFAT data plus the physical device barrier. No gate, cadence,
+deadline, dirty-file ownership or failure-poisoning weakening. Main46b60b24 /
+PR246 isolated diagnostic fixes are consumed. PR182 at4cef0949 overlaps
+`workspace.c` and `test_workspace.c`; this proposal is for review/isolated testing,
+not conflicting integration. Per the coordination guide, mark that overlap in a
+draft PR and defer integration until an implementation owner is agreed. PR19
+Wi-Fi remains independent. Ubuntu stays default with no one-shot armed.
+
 ### Fifth endurance return — ready-thread gate exclusion (2026-10-28)
 
 Release `57d0ba0d7e1f2f71`, clean `b6f3dcad` (PR243 runtime), returned
