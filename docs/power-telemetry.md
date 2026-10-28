@@ -1232,6 +1232,8 @@ lasting at least 100 ms. Scope sequence numbers include shorter scopes, so gaps
 are expected. Snapshot headers report total scopes, qualifying scopes, retained
 and overwritten counts, clock regressions and the threshold. A footer brackets
 the copied snapshot. Repeated snapshots may repeat a scope sequence number.
+Validate the saved atomic log records: live UART output may interleave with other
+writers and does not provide equivalent record completeness.
 
 `io-owner` intervals are wall time while serialization is held, including device
 waits and time spent servicing other eligible threads. `exclusions` counts READY

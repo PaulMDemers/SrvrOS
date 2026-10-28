@@ -22,6 +22,15 @@ scopes; no syscall/wire ABI, gate, cadence, workload or deadline changes. Preser
 PR #182 process/VFS audit and PR #19 Wi-Fi ownership. Consume actual main PR #249
 before matched validation; its RC6 diagnostics do not confer Air7,2 acceptance.
 
+Implementation `72454534` passes integrated core/desktop hosts, matched ordinary,
+native and VM builds and PR #249 diagnostics. Normal Air7,2 KVM passes 23 cycles,
+maximum UI loop 117491 us, ready 1120527 us and close 961646 us, zero observed
+underruns, exact files/screenshot and clean retirement. Four saved complete owner
+snapshots validate 24 distinct long scopes, including copied PID/thread identity,
+interval arithmetic, ordering, bounded retention and consistent repeated records.
+Live UART interleaving is retained as a diagnostic-stream limitation; use saved
+atomic records. This is VM attribution coverage, not native acceptance.
+
 ### Sixth endurance return — logger invokes global file sync (2026-10-28)
 
 Release `c98e4c162b411126`, clean `c23ed928` (PR #245), returned automatically
