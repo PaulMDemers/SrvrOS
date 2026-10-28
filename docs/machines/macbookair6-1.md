@@ -5246,3 +5246,11 @@ No power-policy, forcewake, watchdog, workload, 32-attempt, 20 ms, log-tail or
 integrity limit changes. Previous failed platform evidence remains immutable.
 Next checkpoint: reviewed regressions, exact-stage VM checks and self-merged
 candidate, followed by one automated native run with Ubuntu recovery retained.
+
+The existing failed-run power checkpoints span 83.998667 s and give an observed
+TSC/PM ratio of 1,999.999738 ticks/us, consistent across successive intervals.
+This does not identify RC6's timebase error, but does not support a corresponding
+0.108% PM/TSC drift. The new two-sided PM/ordered-TSC brackets measure actual
+MMIO placement. The strict original RC6 mismatch remains a failure, and its raw
+timing diagnostic is saved independently of acceptance. A 90-second host clock
+regression preserves fractional accumulation across repeated 24-bit PM wraps.

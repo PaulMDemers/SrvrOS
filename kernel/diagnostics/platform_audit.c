@@ -7,6 +7,7 @@
 #include <srvros/vmm.h>
 #include <srvros/timer.h>
 #include <srvros/console.h>
+#include <srvros/power.h>
 #include <stddef.h>
 #define GFX_VA 0xffffc001f3200000ull
 static struct package_ltr latency[2][PCI_MAX_DEVICES];
@@ -16,6 +17,13 @@ static const struct pci_device *gpu;
 static uint64_t gpu_base,stamp[2],config[2];
 static uint32_t status[2],rc6[2];
 static bool mapped;
+static uint64_t pm_begin[2],pm_end[2],tsc_begin[2],tsc_end[2];
+static uint32_t nominal_mhz[2];
+static uint64_t ordered_tsc(void) {
+    unsigned lo,hi;
+    __asm__ volatile("lfence; rdtsc; lfence":"=a"(lo),"=d"(hi)::"memory");
+    return lo|((uint64_t)hi<<32);
+}
 static bool extended_read(void *ctx,unsigned off,uint32_t *out) {
     return pci_read_extended_config32(ctx,(uint16_t)off,out);
 }
@@ -49,8 +57,18 @@ void platform_audit_snapshot(unsigned phase) {
     if(!mapped || pci_device_count()!=count){fault=1;return;}
     uint64_t base;
     if(pci_read_config32(gpu,0)!=0x0a268086 || !package_graphics_bar(pci_read_config32(gpu,0x10),pci_read_config32(gpu,0x14),pci_read_config16(gpu,4),&base) || base!=gpu_base){fault=1;return;}
+    if(!timer_reference_ready()){fault=1;return;}
+    struct power_snapshot power;power_status(&power);
+    nominal_mhz[phase]=power.nominal_mhz;
+    /* Outer PM and inner ordered TSC brackets include the actual MMIO reads.
+     * Keep interrupts/policy unchanged; any interruption widens the bracket.
+     * No calibration, ratio clamping or acceptance tolerance is introduced. */
+    pm_begin[phase]=timer_monotonic_us();
+    tsc_begin[phase]=ordered_tsc();
     status[phase]=*(volatile const uint32_t *)(GFX_VA+0x60);
     rc6[phase]=*(volatile const uint32_t *)(GFX_VA+0x108);
+    tsc_end[phase]=ordered_tsc();
+    pm_end[phase]=timer_monotonic_us();
     if(status[phase]==0xffffffffu || rc6[phase]==0xffffffffu)fault=1;
     for(unsigned i=0;i<count;i++) {
         const struct pci_device *p=pci_device_at(i);
@@ -67,8 +85,9 @@ void platform_audit_snapshot(unsigned phase) {
 }
 bool platform_audit_report(void) {
     bool ok=!fault && mapped && stamp[1]>stamp[0] && config[0]==config[1];
-    console_printf("ap-platform: v=1 fault=%u devices=%u policy_writes=0 forcewake_writes=0 permission=unavailable reason=no-validated-grant-register completed=%s\n",(uint64_t)fault,(uint64_t)count,ok?"yes":"NO");
+    console_printf("ap-platform: v=2 fault=%u devices=%u policy_writes=0 forcewake_writes=0 permission=unavailable reason=no-validated-grant-register completed=%s\n",(uint64_t)fault,(uint64_t)count,ok?"yes":"NO");
     console_printf("ap-platform-gfx: bdf=16 id=170295430 base=%u time_us=%u,%u status=%u,%u rc6=%u,%u config=%u,%u rc_control=unavailable\n",gpu_base,stamp[0],stamp[1],(uint64_t)status[0],(uint64_t)status[1],(uint64_t)rc6[0],(uint64_t)rc6[1],config[0],config[1]);
+    for(unsigned i=0;i<2;i++)console_printf("ap-platform-time: phase=%u pm_us=%u,%u tsc=%u,%u nominal_mhz=%u reference=acpi-pm\n",(uint64_t)i,pm_begin[i],pm_end[i],tsc_begin[i],tsc_end[i],(uint64_t)nominal_mhz[i]);
     for(unsigned i=0;i<count;i++)console_printf("ap-platform-ltr: bdf=%u id=%u state=%u,%u offset=%u,%u raw=%u,%u headers=%u,%u\n",(uint64_t)bdfs[i],(uint64_t)ids[i],(uint64_t)latency[0][i].state,(uint64_t)latency[1][i].state,(uint64_t)latency[0][i].offset,(uint64_t)latency[1][i].offset,(uint64_t)latency[0][i].raw,(uint64_t)latency[1][i].raw,(uint64_t)latency[0][i].headers,(uint64_t)latency[1][i].headers);
     return ok;
 }

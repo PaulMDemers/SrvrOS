@@ -244,3 +244,17 @@ defines zero as a header-only Null Extended Capability with an uninterpreted
 version field and permits repeated instances. Correctly following its next
 pointer must retain the original address, visited-header and overlap checks.
 Do not reinterpret a failed complete capture as a pass from its partial readings.
+
+The retry fixes Null traversal (including terminal zero headers and arbitrary
+Null version) while preserving the full-chain, overlap and non-Null version
+checks. Version-2 platform receipts add two PM-timer/ordered-TSC brackets around
+the existing graphics reads, after identity/mapping work. IRQ policy is unchanged;
+interruptions widen the recorded bracket. Cached nominal MHz is context only,
+not a TSC calibration. No additional GPU register is read or written.
+
+`platform_timing_result` extracts those raw intervals even when the overall
+platform result fails. It never returns acceptance: the original nominal
+RC6-versus-snapshot bound and wrap refusal still govern `platform_result`.
+The collector saves that diagnostic before checking acceptance, preserving a
+repeat mismatch rather than clamping a ratio or inventing a clock tolerance.
+Version-1 historical receipts retain their original validation.

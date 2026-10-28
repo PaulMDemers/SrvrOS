@@ -56,9 +56,11 @@ void package_ltr_read(struct package_ltr *s,bool (*read)(void *,unsigned,uint32_
         if(ptr<0x100 || ptr>0xffc || (ptr&3) || (seen[slot/64]&(1ull<<(slot%64)))){s->state=4;return;}
         seen[slot/64]|=1ull<<(slot%64);uint32_t h;
         if(!read(ctx,ptr,&h)){s->state=3;return;}s->headers++;
-        if(!h || h==0xffffffffu){if(ptr!=0x100)s->state=4;return;}
+        if(h==0xffffffffu){if(ptr!=0x100)s->state=4;return;}
         unsigned id=h&65535,version=(h>>16)&15,next=h>>20;
-        if(!id || !version){s->state=4;return;}
+        /* PCI-SIG Null Extended Capability is header-only, may repeat, and
+         * has no defined version. A zero terminal header is therefore valid. */
+        if(id && !version){s->state=4;return;}
         if(id==0x18) {
             if(found || version!=1 || ptr>0xff8 || (seen[(slot+1)/64]&(1ull<<((slot+1)%64)))){s->state=4;return;}
             found=true;s->offset=ptr;
