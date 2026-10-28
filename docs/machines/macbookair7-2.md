@@ -2,6 +2,33 @@
 
 Updated: 2026-10-28. State: **active reference machine; partial device acceptance**.
 
+### Parity endurance — early native failure under investigation (2026-10-28)
+
+Release `0d1ffb15c35f639a`, source `45b8647a`, returned automatically from
+`session-00065ee96cb7cab7-00` after an early failure, not a 30-minute pass.
+The seventh admitted app (Text, cycle 6) reached `main-return` but remained in
+the compositor's child list beyond the 10-second total lifecycle deadline.
+A concurrent 1440x900 screenshot was still in progress. Maximum desktop loop
+was 250232 us, below 500 ms; recorded PCM underruns were zero. Screenshot and
+workload completion failed; clean battery retirement does not accept endurance.
+All 1165 prior files are preserved except metadata. Offline filesystem and
+allocation pass (1171 files, 2953 clusters, zero errors); recovery and consumed
+one-shot pass. Retain the failed logs and new files for diagnosis.
+
+Bounded follow-up owns reproducing the lifetime/screenshot overlap in the
+existing disposable audio-I/O VM and adding diagnostic attribution if necessary.
+Do not relax deadlines, pace the workload or infer the kernel gate is at fault
+from wall time alone. PR182 owns active process/file lifetime changes; inspect
+its scope before any proposed shared kernel edit. PR19 Wi-Fi remains independent.
+A slowed positive VM also fails, but at the loop bound rather than the native
+close deadline; retain it as a different failure. Source review identifies a
+separate testable fairness risk: I/O handoff restarts at the writer's slot, so
+one repeatedly requesting waiter can win every gap ahead of another waiter.
+Extend this scope to `kernel/src/scheduler.c` handoff selection and its host
+fixture only if a deterministic multi-waiter regression reproduces starvation.
+This does not edit PR182's process/file teardown, widen I/O safety gates or
+relax diagnostic limits. No next physical trial is armed until validation.
+
 ### Air6,1 parity — native desktop power accepted (2026-10-28)
 
 Automatic v82 release `775c5051149c0e38`, compiled `0cbbb275`, completed
