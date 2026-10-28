@@ -5063,3 +5063,19 @@ strict staging/parser and host/VM regressions. PR238 (`99e4412d`) desktop reap/
 screenshot work, PR182 (`950a4ee0`) filesystem work and PR19 (`7ac6b0e6`) Wi-Fi
 retain independent scope. Next: audit register semantics, validate read-only
 capture and unchanged recovery, self-merge and run the automatic native trial.
+
+The audit implementation is in PR239 (`48355ccd`). Its first matched build and
+host suite pass, including bounded conventional PCI capability reads, malformed/
+overlapping chain refusal, C2 counter bounds, strict parsing and existing scheduler
+fallback. The initial staged image is `34f300408d696362`. Native audit evidence
+is still pending. PR238 has now merged as `2c34a460`; consume its desktop-worker
+changes and rebuild a matched image before the final native launch. This does
+not change the diagnostic kernel's policy or timing requirements.
+
+The additional PCI rows can move the original CPU-load configuration banner
+out of the 65,536-byte exit tail. Collection requires that unchanged banner in
+this exact session's periodic/final logs; all phase completions, counter/timing
+proofs, retirement and audit records must still validate from the final log.
+A maximum-width 25-device replay (the previously captured enumeration count)
+retains those proofs without increasing any log or test limit. Capability state,
+graphics permission and unsupported encodings remain distinct from zero.
