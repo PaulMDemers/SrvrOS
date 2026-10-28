@@ -4757,3 +4757,50 @@ integration changes no idle/runtime path. The prerequisite-only EFI payload
 `8022333a9240598e` was retired after durable verification; accepted shallow
 `8030ae20c2611a09` and the protected recovery/endurance payloads remain installed.
 Physical C3 wakeup/residency acceptance is still pending the automatic run.
+
+
+### Bounded C3 hint — native result, residency unobserved (2026-10-27)
+
+Closeout from merged PR226/base `f5917467` is documentation/evidence only.
+PR182 filesystem audit (`2a091597`) and PR19 Wi-Fi (`6e0e25ec`) retain independent
+scope. No new boot, deeper selector or power-policy change is being prepared.
+
+Final release `980f4936c6282637`, compiled source `2a8fabd0`, completed run
+`cee8062fef7e4084`, session `session-00065edb80a92930-00`, and automatically
+returned to Ubuntu. All 32 hint-16/extension-1 attempts returned; maximum masked
+wait was **9,968 us** under the unchanged 20,000 us limit, with zero faults,
+timer ticks 65 to 96 and 32 subsequent HLT entries. ARAT and live calibrated
+timer readiness passed. No post-MONITOR readiness bypass occurred; that race
+remains host-tested. Independent raw-receipt review agrees with collection.
+
+The per-attempt residency brackets total **620,687,304 TSC ticks**, with exactly
+**zero core C3 and zero package C3 ticks**. These are valid zero observations,
+not a counter fault or proof that the requested state was entered. This accepts
+bounded execution of the C3 hint, interrupt wakeup and mandatory HLT fallback;
+**physical C3 residency is not accepted**. C0/C1, remote logical processors' live
+state, exact sleep time and IRQ/runnable latency remain unmeasured.
+
+All three ordered 30-second phases complete, with 250,530 load chunks, peak
+logged temperature 62 C, fifteen fully valid retained records and zero
+rejections/overflow. Paired residency/entry coverage is 23.999619 seconds in
+each phase. Power coverage is 23.999619/23.999619/26.999571 seconds, above the
+unchanged ten-second minimum. Package averages are 4.100/5.120/4.101 W for
+idle/load/recovery. Covered HLT entries/returns are 2,378/0/2,373; whole-capture
+counts are 5,907 entries and 5,906 returns. All ten deeper raw counters remain
+zero. The 32-attempt trial precedes retained phase intervals; the phase power
+averages mostly describe HLT fallback and establish no MWAIT energy savings.
+Native APIC/misc and E2 snapshots are unchanged, including E2 `0x408`.
+
+All 532 previous files are preserved except expected `.srvros/meta` bookkeeping.
+Four new logs bring the USB to 536 files / 1,587 clusters. Offline fsck and
+allocation pass with zero leaks, mismatches or errors. The 65,536-byte exit tail
+retains all required proof; boot.log retains release/command-line identity.
+Installed/current and protected recovery payload hashes verify. Collected
+artifacts are hash-verified outside `build`. Ubuntu is default, the one-shot is
+consumed, the collector is disabled and no reboot is armed.
+
+Next investigate the missing residency, especially the still-unknown state of
+the sibling logical processor and firmware constraints. Any AP observation or
+rendezvous requires separate ownership and recovery design. Do not infer that
+the firmware limit, sibling state, or any particular constraint is the cause
+from these CPU0 receipts alone. Ordinary idle policy and all limits remain intact.
