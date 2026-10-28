@@ -404,6 +404,12 @@ The owner handles actions and clipboard requests, then calls `desk_palette_filte
 after external edits. No launching, focus policy or clipboard transport lives in
 the control.
 
+`desk_palette_choose` opens a selection-only palette using the existing item
+storage, with list focus and no query field; the owner supplies ordering and
+actions. `desk_palette_open` restores searchable mode. Call `desk_palette_configure` for layout after
+opening either mode. This adds no allocation or transport policy. The desktop
+uses selection-only mode for its held-key window switcher.
+
 The compositor uses this for Command-Space application/window search. Open windows
 use process identities; application entries explicitly launch a new instance.
 Opening suspends client focus, cancel restores it, and outside clicks are consumed

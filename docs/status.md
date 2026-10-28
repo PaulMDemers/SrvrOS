@@ -1,6 +1,6 @@
 # Current status
 
-Updated 2026-10-26. SrvrOS is an experimental x86_64 desktop OS with a shell and
+Updated 2026-10-27. SrvrOS is an experimental x86_64 desktop OS with a shell and
 server capabilities. This page describes the current source baseline.
 Check the source commit of an image before assuming it contains a change;
 there is no supported stable binary release yet.
@@ -10,8 +10,8 @@ there is no supported stable binary release yet.
 | Target | Evidence | Remaining work |
 | --- | --- | --- |
 | QEMU q35 | Repeatable boot, CLI, filesystem, network and desktop regressions | Emulator coverage cannot validate physical controllers or firmware |
-| MacBookAir7,2 / A1466 | Active reference; combined laptop services, bounded filesystem growth, two automated 24-app rounds with saved-file checks, modal/unsaved-exit retest | Suspend/resume, measured power improvements, USB hot-unplug, broader input/pressure/endurance coverage |
-| MacBookAir6,1 | Desktop/input/preferences, brightness/audio, opt-in battery and combined session/reopen evidence | Sustained disk/audio/app stress still fails its lifecycle deadline; timing investigation continues |
+| MacBookAir7,2 / A1466 | Active reference; combined laptop services, bounded filesystem growth, two automated 24-app rounds with saved-file checks, modal/unsaved-exit retest and bounded window-navigation/Close smoke | Suspend/resume, measured power improvements, USB hot-unplug, broader input/pressure/endurance coverage |
+| MacBookAir6,1 | Desktop/input/preferences, brightness/audio, opt-in battery, combined reopen and bounded 30-minute disk/audio/app stress accepted; event waits and shallow MWAIT trial have separate evidence | Broader interactive/endurance coverage, deeper idle and CPU policy remain open |
 | MacBookAir7,1 / A1465 | Planned | Capture this model and run its own acceptance cycle |
 | MacBookPro11,2 / A1398 | Native desktop/input, scaled display, brightness, speakers, CPU/two-fan telemetry and captured USB Ethernet accepted | USB Wi-Fi diagnostics in progress; battery and headphone checks deferred |
 | MacBookPro11,3 / A1398 | Planned | Separate GPU/firmware inventory; no assumed graphics switching support |
@@ -54,7 +54,8 @@ file-worker pool. Files now supports independent sibling windows in one process;
 both share the [allocating window/model layer](desktop-window-ownership.md) for
 owned dialogs, sequential Quit and drained-work release. Terminal uses shared
 dispatch and PTY readiness while preserving shell control keys. These new
-consumer changes still need their own physical trial. A combined GUI/nonblocking-pipe
+consumer changes have bounded non-audio physical acceptance on Air7,2; exhaustive
+menu/quit edges and native audio overlap remain outside that result. A combined GUI/nonblocking-pipe
 wait preserves a single dispatcher and keeps accepted I/O owned until drained.
 Text and Preview also share an asynchronous file chooser controller; canceled
 folder reads drain before its buffers can be reused.
@@ -83,18 +84,20 @@ save, Preview load, clean retirement and file preservation. It does not accept
 native PCM overlap, latency/energy measurements or every menu/quit edge. See the
 [lifecycle contract](desktop-application-lifecycle.md) and machine record.
 
-Air6,1 release `95f8a9cf59b25ba1` still failed the ten-second app lifecycle bound
-after 34 completed cycles under disk/audio load, despite the merged I/O handoff.
-PR170 adds phase timing, not a proven fix. Its three subsequent native attempts
-at `282c3f6a06afd9eb` are now reconciled in PR173: one interrupted boot, one
-battery fingerprint refusal and one lifecycle timeout after 139 completed cycles.
-That run exceeded ten seconds during Files worker-pool retirement. PR174's
-merged process-admission correction passed its VM workload, but the next native
-release `788873710e559400` failed after 49 completed cycles: Files close crossed
-the unchanged ten-second bound before pool retirement. PR176 preserves that
-failure and identifies worker pipe admission as an unproven next candidate.
-Thirty-minute endurance is not accepted; late exits do not turn failed runs into
-passes. See the [Air6,1 record](machines/macbookair6-1.md) for exact evidence.
+Air7,2 subsequently accepted a general movement/dock/navigation smoke at
+`1d36da62e183a295` and the focused Close/window-list trial at
+`060fffa453e26d5e`, with saved-file preservation, clean retirement and offline
+allocation checks. Running dock entries restore/cycle windows; held Alt-Tab,
+same-app switching, menu navigation and owned Close dialogs share desktop policy.
+These are bounded tester reports, not exhaustive pressure or latency acceptance.
+Newer shared main changes require their own affected local gates before staging.
+
+Earlier Air6,1 lifecycle-deadline failures (PR170–176) remain historical evidence.
+Subsequent fixes passed a bounded 30-minute audio/disk/app run with 703 app cycles,
+three screenshots, preserved prior files and clean retirement under unchanged
+limits. Later event-wait and shallow MWAIT trials have their own measured scope;
+they do not accept deeper idle, CPU policy or Air7,2 power improvements. See the
+[Air6,1 record](machines/macbookair6-1.md) and [power telemetry](power-telemetry.md).
 
 ## Files, services and devices
 
