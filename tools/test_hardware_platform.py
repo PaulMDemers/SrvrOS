@@ -1,6 +1,6 @@
 import unittest
 import hardware_boot as boot
-from hardware_platform import platform_result,latency_decode,platform_timing_result
+from hardware_platform import platform_result,latency_decode,platform_timing_result,platform_series_result
 from test_hardware_package import PackageTests
 class PlatformTests(unittest.TestCase):
     def fixture(self):
@@ -46,6 +46,36 @@ class PlatformTests(unittest.TestCase):
         self.assertIsNone(platform_result(s+s.splitlines()[-1]+'\n'))
         # Legacy receipts retain exactly the old strict cross-clock predicate.
         self.assertIsNone(platform_result(self.fixture().replace('rc6=100,1000','rc6=100,71900000')))
+    def series_fixture(self):
+        s=self.timed_fixture().replace('ap-platform: v=2','ap-platform: v=3')
+        s+='ap-platform-series: v=1 count=5 cap=12 checkpoints=9 stride=2 overflow=0 completed=yes\n'
+        for seq in range(1,6):
+            us=seq*20000000-15000000;ts=us*1400
+            s+=f'ap-platform-point: seq={seq} sample_us={us} pm_us={us+1},{us+2} tsc={ts},{ts+100} rc6={seq*100},{seq*100+1} status=3,3\n'
+        return s
+    def test_series(self):
+        s=self.series_fixture();r=platform_series_result(s)
+        self.assertTrue(r['continuity_ok']);self.assertFalse(r['acceptance'])
+        self.assertEqual(len(r['intervals']),6)
+        self.assertIsNotNone(platform_result(s))
+        # A burst/reset is preserved as evidence, never accepted as continuity.
+        bad=s.replace('rc6=400,401','rc6=50,51')
+        self.assertFalse(platform_series_result(bad)['continuity_ok']);self.assertIsNone(platform_result(bad))
+        # Sustained excess remains observable with the original bound failing.
+        bad=s.replace('rc6=100,1000','rc6=100,72000000')
+        self.assertFalse(platform_series_result(bad)['original_bound_ok']);self.assertIsNone(platform_result(bad))
+        # One counter wrap is handled consistently across endpoint and series.
+        wrapped=s.replace('rc6=100,1000','rc6=4294967200,1000')
+        self.assertTrue(platform_series_result(wrapped)['continuity_ok']);self.assertIsNotNone(platform_result(wrapped))
+        zero=s.replace('rc6=100,1000','rc6=100,100')
+        for seq in range(1,10):zero=zero.replace(f'rc6={seq*100},{seq*100+1}','rc6=100,100')
+        self.assertTrue(platform_series_result(zero)['continuity_ok']);self.assertIsNotNone(platform_result(zero))
+    def test_series_refusals(self):
+        s=self.series_fixture()
+        for old,new in [('count=5 cap=12 checkpoints=9 stride=2','count=13 cap=12 checkpoints=25 stride=2'),('retained=9','retained=8'),('overflow=0 completed','overflow=1 completed'),('seq=2 sample','seq=1 sample'),('sample_us=65000000 pm','sample_us=65000001 pm'),('pm_us=65000001,65000002','pm_us=65000002,65000001'),('rc6=400,401','rc6=400,4294967295'),('status=3,3','status=3,4294967295')]:
+            with self.subTest(old=old):self.assertIsNone(platform_series_result(s.replace(old,new)))
+        self.assertIsNone(platform_result('\n'.join(s.splitlines()[:-1])))
+        self.assertIsNone(platform_result(s+s.splitlines()[-1]+'\n'))
     def test_profile(self):
         c=boot.limine_config('0123456789abcdef','ram-usb-v1-ap-platform-laptop-probe-6ada85bb')
         for t in ['srvros.ap-platform=read-only','srvros.ap-package=read-only','srvros.ap=c3-test','srvros.capture=cpu-load']:self.assertIn(t,c)

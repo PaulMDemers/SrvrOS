@@ -5317,3 +5317,46 @@ PR247 logger barriers, PR182 filesystem and PR19 Wi-Fi remain separate. Next:
 audit RC6 counter scaling, clock tolerance and update semantics against primary
 hardware documentation, then select a bounded read-only comparison if needed.
 Do not change power policy, integrity checks or timing limits to force a pass.
+
+### RC6 scaling/update audit — active scope (2026-10-28)
+
+Base `00338707`, same device branch. Audit Haswell RC6 register scaling and
+update/clock semantics against primary documentation; retain the existing
+strict mismatch predicate. Add bounded read-only counter observations during
+the existing capture if needed to distinguish sustained rate from endpoint
+update behavior. Scope: isolated platform diagnostic, diagnostic-only sampling
+hook/build, receipt parsing/tests and this record. No new worker or timer, no
+forcewake/control access, and no policy, watchdog, workload, log or latency-limit
+changes. PR247 logger barriers, PR182 filesystem and PR19 Wi-Fi do not overlap
+this bounded scope. Next checkpoint: source audit, host/VM checks, self-merged
+candidate and automated native repeat; preserve all prior failed evidence.
+
+The audit confirms Haswell's documented 32-bit/1.28 us accumulator; public
+register documentation supplies no clock tolerance or update cadence, and IGT's
+software test allowance is not adopted. The new series retains every other
+existing power checkpoint (up to 12 pairs), with no added worker/timer/control
+access. It preserves the original mismatch test and saves observations on
+failure. Bounded sampling, host/parser regressions and full-core validation
+passed before integration, as did all nine VM cases on `02911e4b80d22cc3`.
+
+PR247 merged during validation. Consume actual main `bb8561f7`, including the
+logger-only committed-data flush and durable receipt, before staging the native
+retry. This does not change normal sync/unmount integrity; rerun the matched
+build, core suite and exact-stage VM coverage on the integrated candidate.
+Pre-integration receipts remain separate and are not attributed to that image.
+
+Integrated source `05668557`, release `0804f2944e9364d3`, passes the matched
+build, full core/docs suite, isolation/disassembly checks, nine directed/exact
+VM cases and three legacy profiles. The first legacy ownership VM exceeded the
+unchanged 20 ms deadline (21,979 us) and retired safely; its failed receipt is
+retained separately. The identical rerun passed. Maximum-width tail replay,
+including the integrated logger's durability receipts, preserves all proofs
+inside 64 KiB. No timing or integrity requirement was relaxed.
+
+PR249 prepares the fully automated native retry with sparse paired RC6/PM/TSC
+observations, normal idle/load/recovery phases, 32 coordinated rounds, HLT
+fallback and automatic Ubuntu collection. The collector saves timing/series
+diagnostics even if the original RC6 predicate still fails. Native acceptance
+and the counter's hardware clock/update explanation remain pending. The local
+run record binds this source/release to USB `6ADA-85BB`, its 554-file baseline,
+1,610 allocated clusters, protected recovery and durable evidence backup.
