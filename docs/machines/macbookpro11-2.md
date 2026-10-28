@@ -10693,3 +10693,25 @@ with explicit writer quiescence/resume ownership and saved proof, then validate
 the same deadline/cleanup refusals and repeat the attended UI trial. Do not infer
 cache/UI or connection acceptance from this failure. No credential/security/IP
 operation was attempted.
+
+
+## 2026-10-28 isolated receive logging scope
+
+Integrate fetched main `02434766` (desktop file-pool/timing improvements and
+isolated package/platform audit) before new work. Its workspace-log change makes
+save latency measurement independent of optional power telemetry; preserve it.
+PR182 `4cef0949` remains exFAT/resource work and does not modify workspace_log.c.
+Add a distinct v104 automatic attended profile inheriting all v103 flags plus an
+explicit log-isolation token. Quiesce the periodic logger with its existing5s
+bound before firmware/radio work, persist a boundary snapshot, retain extended
+RAM proof through the capture, then permit only that owned parked session to
+save immutable radio proof and resume rolling desktop logging. Failure must
+refuse radio/GUI, retain pending write ownership and save under existing cleanup.
+No log writes inside the bounded radio phase, no raised/reset receive deadline,
+no disabled scheduling/interrupts and no change to v1–v103 recipes or ordinary
+logging. Touch logger API/host tests, main admission, staging/smoke/tests and
+strict run collection. Verify fault/quiescence/resume/prefix boundaries, full
+merged build/core/desktop, sanitizers, compatibility and exact-stage VMs before
+installation/readiness. Preserve both failed v103 runs and accepted v102 proof.
+No credential, security/IP, battery, other-machine acceptance or shared scheduler
+policy changes. Bounded checkpoint is a separately source-bound cold UI trial.
