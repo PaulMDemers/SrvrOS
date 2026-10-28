@@ -108,6 +108,17 @@ static void *io_private_image;
 static struct scheduler_wait_queue io_waiters;
 static uint64_t io_gate_pending;
 static uint64_t io_gate_cursor;
+#define IO_OBSERVE_ROWS 8
+#define IO_OBSERVE_MIN_US 100000
+struct io_owner_sample {
+    uint64_t seq, identity, pid, start, end, exclusions;
+    char name[32];
+};
+static struct {
+    bool enabled;
+    uint64_t scopes, long_scopes, invalid;
+    struct io_owner_sample active, rows[IO_OBSERVE_ROWS];
+} io_observed;
 static void yield_to(uint64_t preferred);
 static void io_gate_request(struct thread *thread) {
     if(!thread->io_gate_waiting) { thread->io_gate_waiting=true;io_gate_pending++; }
@@ -139,6 +150,58 @@ static void irq_restore(uint64_t flags) {
         __asm__ volatile ("sti" : : : "memory");
     }
 #endif
+}
+
+bool scheduler_io_observe_reset(void) {
+    uint64_t flags=irq_save();
+    if(!initialized || switching || io_depth || !timer_reference_ready()) {
+        irq_restore(flags);return false;
+    }
+    io_observed=(__typeof__(io_observed)){.enabled=true};
+    irq_restore(flags);return true;
+}
+static void io_observe_begin(void) {
+    if(!io_observed.enabled)return;
+    const struct thread *t=thread_at(current_thread);
+    struct io_owner_sample *v=&io_observed.active;
+    *v=(struct io_owner_sample){.seq=++io_observed.scopes,
+        .identity=t->identity,.pid=process_pid(t->user_context),.start=io_service_at};
+    const char *name=t->name?t->name:"unknown";
+    unsigned i=0;
+    for(;i<sizeof(v->name)-1 && name[i];i++) {
+        unsigned char c=(unsigned char)name[i];v->name[i]=c>32 && c<127?(char)c:'_';
+    }
+    v->name[i]=0;
+}
+static void io_observe_end(void) {
+    if(!io_observed.enabled || !io_observed.active.seq)return;
+    struct io_owner_sample *v=&io_observed.active;
+    v->end=timer_monotonic_us();
+    if(v->end<v->start)io_observed.invalid++;
+    else if(v->end-v->start>=IO_OBSERVE_MIN_US) {
+        io_observed.rows[io_observed.long_scopes%IO_OBSERVE_ROWS]=*v;
+        io_observed.long_scopes++;
+    }
+    *v=(struct io_owner_sample){0};
+}
+void scheduler_print_io_owners(void) {
+    struct io_owner_sample rows[IO_OBSERVE_ROWS];
+    uint64_t flags=irq_save();
+    if(!io_observed.enabled || io_depth) {irq_restore(flags);return;}
+    uint64_t at=timer_monotonic_us(),scopes=io_observed.scopes,
+        total=io_observed.long_scopes,invalid=io_observed.invalid;
+    unsigned count=total<IO_OBSERVE_ROWS?(unsigned)total:IO_OBSERVE_ROWS;
+    for(unsigned i=0;i<count;i++)rows[i]=io_observed.rows[(total-count+i)%IO_OBSERVE_ROWS];
+    irq_restore(flags);
+    /* No allocation, console output or device operations occur in recording. */
+    console_printf("io-owner-snapshot: version=1 at_us=%u scopes=%u long_scopes=%u retained=%u overwritten=%u invalid=%u min_us=%u\n",
+        at,scopes,total,(uint64_t)count,total-count,invalid,(uint64_t)IO_OBSERVE_MIN_US);
+    for(unsigned i=0;i<count;i++) {
+        const struct io_owner_sample *v=&rows[i];
+        console_printf("io-owner: version=1 snapshot_us=%u seq=%u thread=%u pid=%u name=%s start_us=%u end_us=%u elapsed_us=%u exclusions=%u\n",
+            at,v->seq,v->identity,v->pid,v->name,v->start,v->end,v->end-v->start,v->exclusions);
+    }
+    console_printf("io-owner-snapshot-end: version=1 at_us=%u retained=%u\n",at,(uint64_t)count);
 }
 
 /* Opt-in observations only: never influence eligibility, wakeups or selection. */
@@ -273,6 +336,7 @@ static bool io_thread_allowed(uint64_t index) {
      * writer can reacquire the gate before their first/last kernel turn. */
     if(!allowed && thread->state==THREAD_READY) {
         io_gate_request(thread);
+        if(io_observed.enabled && io_observed.active.seq)io_observed.active.exclusions++;
         if(thread->trace.active) {thread->trace.out.exclusions++;thread->trace.exclusions++;}
     }
     return allowed;
@@ -301,6 +365,7 @@ bool scheduler_io_begin(void) {
     if (io_depth++ == 0) {
         io_owner = current_thread;io_private_image=NULL;
         io_service_at=timer_monotonic_us();latency_owner_begin();
+        io_observe_begin();
     }
     return true;
 }
@@ -320,6 +385,7 @@ bool scheduler_io_begin_process_image(void *image) {
 
 void scheduler_io_end(void) {
     if (io_depth != 0 && io_owner == current_thread && --io_depth == 0) {
+        io_observe_end();
         io_private_image=NULL;latency_owner_end(); scheduler_wake_all(&io_waiters);
     }
 }

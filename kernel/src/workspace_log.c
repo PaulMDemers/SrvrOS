@@ -49,6 +49,7 @@ static bool begin(uint64_t *flags) {
 static void end(uint64_t flags) { scheduler_io_end();unlock(flags); }
 /* Cached queries only: logging must not issue codec commands or sensor I/O. */
 static void device_checkpoint(void) {
+    scheduler_print_io_owners();
     uint64_t sampled=timer_monotonic_us();
     struct scheduler_stats cpu;scheduler_snapshot(&cpu);
     console_printf("workspace-scheduler: sampled_ticks=%u idle_ticks=%u switches=%u preemptions=%u monotonic_us=%u\n",
@@ -176,6 +177,7 @@ static void worker(void *arg) {
 }
 static bool start_log(bool retain) {
     if(enabled || busy || !workspace_active()) return false;
+    (void)scheduler_io_observe_reset();
     uint64_t flags;if(!begin(&flags)) return false;
     static const char parent[]="/work/srvros-work/Logs";
     /* Four log files plus room for reports/screenshots. Check before creating
