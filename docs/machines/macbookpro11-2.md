@@ -20,16 +20,16 @@ is archived outside build. Ubuntu remains default, workspace unmounted and no
 reboot armed. No repeat is needed. Sustained endurance, FCS, physical BSSID
 deduplication, association/security and IP/UI remain unaccepted.
 
-Failed corrected attended candidate: v103 `852438c8b7cd0b7e`, source
-`d627337c`, actual main `ec7bad42`. The previous `fe9dc6295c7318c4` run refused
-GUI admission because the cache required a generic USB configuration flag; its
-raw failure and strict refusal are retained. The repair uses actual diagnostic
-firmware/MCU/RX configuration, with native-state host regression coverage. Full
-merged build/core/desktop, sanitizers and exact-image VM checks pass. Native
-cache/selection/disconnect UI acceptance remains pending. Session
-`session-00065eeb2cd82d26-00` failed channel6 polling before GUI admission.
-Ubuntu remains default, workspace unmounted and no reboot armed.
-Durable run/archive: `~/.local/share/srvros/macbookpro11-2/wifi-ui-retry-d627337c`.
+Installed isolated attended candidate: v104 `a21db67c57d97851`, source
+`330c25b3`, actual main `02434766`. This profile drains and pauses the periodic
+writer before firmware/radio capture, saves a boundary snapshot, retains the full
+RAM proof and resumes rolling logs only after immutable radio proof is saved.
+The10-second receive budget and100ms overrun guard are unchanged. Full merged
+build/core/desktop, sanitizers and exact-image VM checks pass. Native isolated
+receive and cache/selection/disconnect UI remain pending. Both failed v103 runs
+are preserved. Ubuntu remains default, workspace unmounted and candidate unarmed.
+Await cold-cycle readiness. Durable run/archive:
+`~/.local/share/srvros/macbookpro11-2/wifi-ui-isolated-330c25b3`.
 
 Latest accepted trial: v101 `f1015eeb7358f9c7`, source `6b12e4f2`, main
 `e4f8bf84`, session `session-00065edaa5a051a0-00`. The bounded pre-enable retry
@@ -10727,3 +10727,41 @@ Wi-Fi/current Air/AP/C3/package/platform recipes remain byte-identical. Strict
 isolation proof refuses missing/duplicate/failed markers and any snapshot, flush,
 cost or USB-timing record inside the radio phase. No native acceptance or new
 install is claimed before full build/sanitizer/exact-image validation below.
+
+
+## 2026-10-28 isolated v104 installed; native acceptance pending
+
+Release `a21db67c57d97851`, source `330c25b3`, actual main `02434766` passes full
+image/USB-image/core/desktop (297.46s),194 staging tests and223 prior/current
+Wi-Fi/Air/AP/C3/package/platform recipe comparisons. Five sanitizer suites and108
+native scan-batch cases pass. Four UI-log test groups include isolation marker/I/O
+refusals. Two composed prior-radio/synthetic-isolated-UI fixtures,32 damaged proof
+refusals and four collector orchestration cases pass. Synthetic fixtures remove
+complete periodic checkpoint blocks from prior RF data and explicitly insert
+isolation markers; they are checker coverage, never new hardware evidence.
+RF driver code and the full initialization/MAC/tune proof constants are unchanged.
+
+System/e1000 VM passes DHCP, existing pages/controls, actual empty Wi-Fi cache and
+clean desktop exit. The automatic2x Help checklist was visually checked. Exact
+staged GPT boot demonstrates a real boundary save and paused writer before the
+expected absent-radio refusal; no snapshot/flush/cost/USB-timing markers occur
+inside that failed RF phase. Exit save/readback/unmount/return and missing-workspace
+refusal pass. Staged kernel and independently packaged firmware initramfs match;
+ordinary kernel has no isolated AP request. No native populated UI is accepted.
+
+Installed candidate and six retained payloads match durable backups. Previous
+known-good desktop `e47dca3a6b30c6c1`, accepted v102 and both failed v103 payloads
+remain on the ESP. Unreferenced v99 `995dd64ae6135add` was retired only after
+full equality to its durable `wifi-channel-receive-8714416/payload` backup to
+free installation space. That backup survives distclean. Offline workspace
+checks pass:369 files,973 clusters,152 directories, zero leaks/mismatches/errors.
+Ubuntu default, unmounted workspace and empty one-shot are verified. No reboot
+is armed. Run and first-return collector are in `build/bringup/wifi-ui-isolated/`;
+all evidence is archived outside build in `wifi-ui-isolated-330c25b3`.
+
+Coordinate the cold Wi-Fi10-second unplug/reconnect while off, same port, workspace
+left attached. Help opens the complete untimed checklist; Exit desktop saves and
+returns. No passwords, commands or photos are required. The next collection must
+require the actual new release, complete radio/UI byte bindings and isolation
+phase before considering the user's visual report. Association/security/IP and
+5GHz remain pending; credentials have not been read or included in this image.

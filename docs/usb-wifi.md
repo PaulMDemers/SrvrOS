@@ -5996,3 +5996,13 @@ The native checker requires one parked phase before firmware work and rejects
 snapshot, flush or logger-cost/USB-timing records inside it. Host compositions
 use an explicitly synthetic isolated variant of prior accepted RF data; these
 fixtures do not accept the new profile. Native acceptance requires its own run.
+
+
+v104 `a21db67c57d97851` (source `330c25b3`, main `02434766`) is installed on
+Pro11,2 and remains unarmed. Full build/core/desktop,194 staging tests,223 recipe
+comparisons, five sanitizer suites plus108 native batch cases and strict phase/
+collector fixtures pass. System/checklist and exact-stage saved-log/missing-drive
+VMs pass; the latter confirms the owned logger pause and refuses GUI without the
+radio. The ordinary kernel has no isolated AP request. Native receive isolation
+and populated cache/UI remain unaccepted until the source-bound cold trial and
+visual report. Existing receive deadlines and all v1–v103 recipes are unchanged.
