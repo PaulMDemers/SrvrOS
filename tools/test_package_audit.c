@@ -53,5 +53,23 @@ int main(void) {
     ext[64]=0x0fc10001;assert(ltr().state==4); /* conventional alias */
     memset(ext,0,sizeof(ext));for(unsigned i=64;i<1023;i++)ext[i]=((i+1)*4u<<20)|0x10001;ext[1023]=0x10001;
     l=ltr();assert(l.state==2 && l.headers==960 && ext_reads==960);
+    /* Captured Air6,1 root-port header: Null v0 -> 0x200. */
+    memset(ext,0,sizeof(ext));ext[64]=0x20000000;ext[128]=0x10018;ext[129]=0x10031003;
+    l=ltr();assert(l.state==1 && l.offset==0x200 && l.raw==0x10031003 && l.headers==2);
+    for(unsigned v=0;v<16;v++) {
+        ext[64]=0x20000000|(v<<16);ext[128]=0x30000000;ext[192]=0;
+        l=ltr();assert(l.state==2 && l.headers==3); /* repeated/terminal Null, any version */
+    }
+    ext[64]=0x20000000;ext[128]=0x10018;ext[129]=0;ext[128]|=0x30000000;
+    l=ltr();assert(l.state==1 && l.headers==3); /* Null after LTR preserves discovery */
+    ext[192]=0x20000000;assert(ltr().state==4); /* Null loop into LTR header */
+    ext[192]=0x20400000;assert(ltr().state==4); /* Null overlaps LTR payload */
+    ext[64]=0x10000000;assert(ltr().state==4); /* Null self-loop */
+    ext[64]=0x10100000;assert(ltr().state==4); /* misaligned Null next */
+    ext[64]=0x0fc00000;assert(ltr().state==4); /* conventional alias */
+    ext[64]=0x20000001;assert(ltr().state==4); /* non-Null zero version still invalid */
+    ext[64]=0x20000000;ext[128]=0xffffffff;assert(ltr().state==4);
+    memset(ext,0,sizeof(ext));for(unsigned i=64;i<1023;i++)ext[i]=((i+1)*4u<<20);ext[1023]=0;
+    l=ltr();assert(l.state==2 && l.headers==960 && ext_reads==960); /* same full-chain bound */
     puts("package-audit: PASS read-only capability bounds, absence, versions, duplicates, loops, RC endpoint, counter bounds/zero");
 }
