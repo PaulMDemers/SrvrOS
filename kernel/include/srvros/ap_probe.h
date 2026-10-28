@@ -12,4 +12,9 @@ static inline int ap_probe_observe(uint64_t expected, uint64_t ack, uint64_t fau
 }
 #ifdef SRVROS_AP_PROBE
 bool ap_probe_run(const char *cmdline);
+bool ap_c3_active(void);
+bool ap_c3_prepare(uint64_t epoch,uint64_t seq,uint64_t start);
+bool ap_c3_finish(uint64_t seq,uint64_t start,uint64_t tsc,uint64_t core,uint64_t package,bool waited);
+void ap_c3_cancel(void);
+bool ap_c3_stop(void);
 #endif

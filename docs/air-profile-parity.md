@@ -13,7 +13,7 @@ CPU selectors and physical results are not interchangeable.
 | Brightness, audio, CPU/SMC | Exact Haswell, CS4208 and one-fan profiles; bounded native controls and playback | Separate captured Broadwell, codec and one-fan profiles already exist and have native evidence. Retain those gates. |
 | Battery/AC | Separate EC/SMBus ownership, indicator and combined-session acceptance | Existing Air7,2 backend/indicator remains in place; shared worker and supervisor event waits are integrated. Newer polling reductions need matching native measurements. |
 | Combined reopen | v72 automated two-session test and native acceptance | New v79 selects the same mechanism with the Air7,2 kernel; local and native evidence must name this profile. |
-| Audio/disk/app/screenshot stress | v74 bounded 30-minute native run, 703 app cycles; v77 attended variant | New v80 automatic and v81 attended profiles reuse the same workload, deadlines and ownership. Air7,2 has not inherited the 30-minute result. |
+| Audio/disk/app/screenshot stress | v74 bounded 30-minute native run, 703 app cycles; v77 attended variant | New v80 automatic and v81 attended profiles reuse the same workload, deadlines and ownership. Air7,2 has not inherited the 30-minute result; its first v80 native run failed an early lifecycle deadline and remains unaccepted. |
 | Desktop power phases | v78 idle/apps/recovery; worker-wakeup receipts and native measurements | v82 release `775c5051149c0e38` accepts three native phases, 13 app cycles, bounded loop/ready/close and clean retirement. No inferred energy saving. |
 | Idle residency and capture prerequisites | Ten counters; HLT entry, E2/APIC/misc and topology audit | Captured Broadwell support adds seven counters and the shared audit. C8/C9/C10 remain unavailable, not valid zeros. Native CPU0 diagnostic accepted on release `71049508c4a1fbd0`: complete seven-counter capture, unchanged configuration and zero observed deep-idle deltas. |
 | Explicit MWAIT experiments | Bounded shallow and C3-hint execution accepted; zero observed C3 residency | Broadwell MWAIT remains refused until its own prerequisites/selector review and bounded trial. Read-only counter admission does not enable instructions or copy Haswell policy. Ordinary idle remains HLT. |
@@ -128,3 +128,26 @@ worker transition/wakeup counts and native temperatures. All prior files and
 both offline integrity checks pass; automatic Ubuntu return, consumed one-shot
 and independent recovery are verified. Full 30-minute audio/disk/app/screenshot
 endurance is the next automatic physical check.
+
+## Endurance failure and I/O admission follow-up
+
+The first v80 native release `0d1ffb15c35f639a` did not complete 30 minutes.
+At cycle 6, Text reached its `main-return` receipt but the compositor did not reap
+it before the unchanged 10-second lifecycle deadline. Screenshot saving overlapped;
+its completion also failed. Maximum loop was 250 ms, PCM underruns were zero,
+and native battery retirement was clean. All prior files and offline integrity
+checks passed. Preserve the failure rather than treating automatic return as a pass.
+
+A separate deterministic scheduler regression exposes starvation in quiescent I/O
+handoff: restarting after the writer lets a recurring nearby waiter win all 32
+turns over another contender. The proposed correction rotates after the last
+admitted waiter, including ordinary scheduling admissions. Both waiters receive
+16 turns in the host fixture; storage ownership, eligibility, workload and deadlines
+remain unchanged. Native causation/acceptance still require a matching retry.
+
+The fairness candidate passes the normal Air7,2 KVM workload (23 app cycles,
+zero underruns). The throttled 100-write-IOPS fixture still fails loop and close
+bounds. Treat fairness as a separate proven correction, not a complete resolution
+of heavy-I/O latency. Failed diagnostic receipts now include a bounded read-only
+process-state snapshot to distinguish an active process from an inactive record with retirement/reaping pending; thresholds
+and early failure behavior remain unchanged.

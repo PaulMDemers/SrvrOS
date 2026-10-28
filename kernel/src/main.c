@@ -447,7 +447,8 @@ void kmain(void) {
     }
 
 #ifdef SRVROS_AP_PROBE
-    if(!cmdline_has_token(cmdline,"srvros.capture=ap-ownership")) {
+    if(!cmdline_has_token(cmdline,"srvros.capture=ap-ownership") &&
+       !(cmdline_has_token(cmdline,"srvros.capture=cpu-load") && cmdline_has_token(cmdline,"srvros.ap=c3-test"))) {
         console_write("ap-owner: dedicated diagnostic requires capture token; memory retained\n");
         halt_forever();
     }
@@ -713,10 +714,18 @@ void kmain(void) {
         if(automatic_load && started && init_ready && timer_running) {
             bool deep=cmdline_has_token(cmdline,"srvros.idle=mwait-c3-test");
             bool mwait=deep || cmdline_has_token(cmdline,"srvros.idle=mwait-wakeup-test");
-            bool captured=deep?power_capture_deep_start():mwait?power_capture_mwait_start():power_capture_start();
+            bool coord=cmdline_has_token(cmdline,"srvros.ap=c3-test");
+            bool owned=!coord;
+#ifdef SRVROS_AP_PROBE
+            if(coord)owned=deep && ap_probe_run(cmdline);
+#endif
+            bool captured=owned && (deep?power_capture_deep_start():mwait?power_capture_mwait_start():power_capture_start());
             if(mwait && !captured) console_printf("cpu-mwait: v=%u admitted=0 fallback=hlt\n",(uint64_t)(deep?2:1));
             sampled=process_run_elf_args("/fat/bin/threadstress","--cpu-load-capture");
             power_capture_stop();
+#ifdef SRVROS_AP_PROBE
+            if(coord){bool retired=ap_c3_stop();sampled=sampled && retired;}
+#endif
             if(mwait) sampled=sampled && captured && power_capture_mwait_passed();
             console_printf("cpu-load-capture: returned=yes process_ok=%s\n",sampled?"yes":"NO");
             thermal_print_status();smc_print_status();

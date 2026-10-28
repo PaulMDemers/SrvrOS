@@ -1,3 +1,4 @@
+#include <srvros/ap_probe.h>
 #include <srvros/console.h>
 #include <srvros/latency.h>
 #include <srvros/fpu.h>
@@ -106,6 +107,7 @@ static uint64_t io_owner, io_depth, io_service_at;
 static void *io_private_image;
 static struct scheduler_wait_queue io_waiters;
 static uint64_t io_gate_pending;
+static uint64_t io_gate_cursor;
 static void yield_to(uint64_t preferred);
 static void io_gate_request(struct thread *thread) {
     if(!thread->io_gate_waiting) { thread->io_gate_waiting=true;io_gate_pending++; }
@@ -356,8 +358,11 @@ void scheduler_io_handoff(void) {
         /* Includes awakened waiters, READY kernel entries excluded by the gate,
          * and nonblocking reap retries. Prefer them only at this fully unwound
          * boundary, never during ordinary GUI/audio service turns. */
-        for(uint64_t n=1;n<thread_capacity;n++) {
-            uint64_t i=(current_thread+n)%thread_capacity;
+        /* Resume after the last admitted waiter, not after this writer.
+         * A nearby recurring nohang waiter must not win every gap ahead of
+         * a farther startup/exit continuation. Admission remains quiescent. */
+        for(uint64_t n=1;n<=thread_capacity;n++) {
+            uint64_t i=(io_gate_cursor+n)%thread_capacity;
             if(thread_at(i)->io_gate_waiting && thread_at(i)->state==THREAD_READY) {
                 yield_to(i);break;
             }
@@ -445,7 +450,7 @@ void scheduler_init(void) {
         thread_at(i)->state = THREAD_UNUSED;
         thread_at(i)->io_gate_waiting=false;
     }
-    io_gate_pending=0;io_private_image=NULL;
+    io_gate_pending=io_gate_cursor=0;io_private_image=NULL;
 
     current_thread = 0;
     thread_at(0)->state = THREAD_RUNNING;
@@ -606,7 +611,10 @@ static void yield_to(uint64_t preferred) {
     /* A request is satisfied by a turn with no owner, including ordinary
      * scheduling. An allowed service turn during owned I/O does not consume it.
      * If preempted and excluded again, eligibility records a fresh request. */
-    if(!io_depth)io_gate_leave(thread_at(next_index));
+    if(!io_depth && thread_at(next_index)->io_gate_waiting) {
+        io_gate_cursor=next_index;
+        io_gate_leave(thread_at(next_index));
+    }
 
     if (next_index == old_index) {
         if(thread_at(old_index)->trace.active)trace_run(thread_at(old_index),timer_monotonic_us());
@@ -1057,7 +1065,14 @@ static bool mwait_step(void) {
     }
     if(!mwait_test.attempts)mwait_test.tick_begin=timer_ticks();
     bool deep=mwait_test.hint==0x10;
-    uint64_t t0=0,c0=0,p0=0;
+#ifdef SRVROS_AP_PROBE
+    bool coordinated=deep && ap_c3_active();
+    uint64_t coord_start=coordinated?timer_monotonic_us():0;
+    if(coordinated && !ap_c3_prepare(mwait_test.epoch,mwait_test.attempts+1,coord_start)) {
+        mwait_test.fault=4;return false;
+    }
+#endif
+    uint64_t t0=0,c0=0,p0=0,dt=0,dc=0,dp=0;
     if(deep) { t0=mwait_read(0x10);c0=mwait_read(0x3fc);p0=mwait_read(0x3f8); }
     uint64_t before=timer_monotonic_us();mwait_test.attempts++;
 #if defined(SRVROS_MWAIT_HOST_TEST)
@@ -1074,7 +1089,7 @@ static bool mwait_step(void) {
            UINT64_MAX-mwait_test.tsc_ticks<t1-t0 ||
            UINT64_MAX-mwait_test.core_c3_ticks<c1-c0 || UINT64_MAX-mwait_test.package_c3_ticks<p1-p0)
             mwait_test.fault=3;
-        else { mwait_test.tsc_ticks+=t1-t0;mwait_test.core_c3_ticks+=c1-c0;mwait_test.package_c3_ticks+=p1-p0; }
+        else { dt=t1-t0;dc=c1-c0;dp=p1-p0;mwait_test.tsc_ticks+=dt;mwait_test.core_c3_ticks+=dc;mwait_test.package_c3_ticks+=dp; }
     }
     if(after<before) mwait_test.fault=1;
     else {
@@ -1082,6 +1097,10 @@ static bool mwait_step(void) {
         if(elapsed>mwait_test.max_us)mwait_test.max_us=elapsed;
         if(elapsed>SCHEDULER_MWAIT_LIMIT_US)mwait_test.fault=2;
     }
+#ifdef SRVROS_AP_PROBE
+    if(coordinated && !ap_c3_finish(mwait_test.attempts,coord_start,dt,dc,dp,!mwait_test.fault) && !mwait_test.fault)
+        mwait_test.fault=4;
+#endif
     /* Measure before pending IRQ dispatch/preemption; then let that IRQ run.
      * There are no accesses to trial state after this scheduling boundary. */
 #ifndef SRVROS_SCHEDULER_HOST_TEST
