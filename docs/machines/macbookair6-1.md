@@ -5232,3 +5232,17 @@ candidate is failed. Closeout consumes PR243 main `4ae360ef`; that newer runtime
 was not tested in this physical image. Next: fix/test Null capability handling,
 investigate the RC6 timebase discrepancy, and repeat this same bounded audit
 without changing power policy or existing limits.
+
+### Null capability and RC6 timing retry — active scope (2026-10-28)
+
+Base `02434766` (including PR245 clock-only workspace-save timing), same device
+branch. Fix standard Null Extended Capability traversal without relaxing
+alignment, range, cycle, overlap or version checks for non-Null capabilities.
+Investigate the RC6/PM-time discrepancy with tightly bracketed MMIO reads and
+ordered TSC observations; retain the existing nominal-unit mismatch predicate.
+Scope is diagnostic-only PCI traversal, platform receipts/parser, regressions
+and this unit's automated retry. PR182 filesystem and PR19 Wi-Fi are separate.
+No power-policy, forcewake, watchdog, workload, 32-attempt, 20 ms, log-tail or
+integrity limit changes. Previous failed platform evidence remains immutable.
+Next checkpoint: reviewed regressions, exact-stage VM checks and self-merged
+candidate, followed by one automated native run with Ubuntu recovery retained.
