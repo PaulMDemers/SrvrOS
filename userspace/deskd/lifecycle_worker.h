@@ -123,6 +123,9 @@ static void life_work(struct lifecycle_worker *w) {
             .stdin_fd=-1,.stdout_fd=-1,.stderr_fd=-1};
         uint64_t begin=(uint64_t)srv_monotonic_us();j->pid=srv_exec(&r);
         j->elapsed=(uint64_t)srv_monotonic_us()-begin;
+        /* Live UART backpressure must stay off the compositor input loop.
+         * Keep ownership until this immutable launch receipt is written. */
+        life_launch_log(j->application,j->pid,j->elapsed);
         life_publish(&j->state,LIFE_DONE);
     }
 }

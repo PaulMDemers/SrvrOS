@@ -19,6 +19,15 @@ struct srv_exec_request { const char *path;char **argv,**envp;unsigned flags;int
 static atomic_uint waits,wakes,sleeps,allocations,frees,launches,reports,closes,polls,hold_child;
 static unsigned create_calls,fail_create;
 static uint32_t storage[4];
+static pthread_t ui_thread;
+static atomic_uint launch_logs,hold_launch_log;
+static void nap(void);
+static void life_launch_log(int application,int64_t pid,uint64_t elapsed) {
+    (void)elapsed;
+    assert(application==1 && pid==42 && !pthread_equal(pthread_self(),ui_thread));
+    atomic_fetch_add(&launch_logs,1);
+    while(atomic_load(&hold_launch_log))nap();
+}
 static void nap(void) { struct timespec t={0,1000000};nanosleep(&t,NULL); }
 static uint64_t srv_monotonic_us(void) { struct timespec t;clock_gettime(CLOCK_MONOTONIC,&t);return (uint64_t)t.tv_sec*1000000+t.tv_nsec/1000; }
 static void srv_sleep_ticks(unsigned ticks) { assert(ticks==1);atomic_fetch_add(&sleeps,1);nap(); }
@@ -64,14 +73,19 @@ static void launch_record(struct lifecycle_worker *w) { w->launch[0].application
 static atomic_uint joined;
 static void *stop_worker(void *p) {assert(!life_stop(p));atomic_store(&joined,1);return NULL;}
 int main(void) {
+    ui_thread=pthread_self();
     alarm(15);
     struct lifecycle_worker w={0};unsigned before=atomic_load(&waits);
     assert(!life_start(&w,1));await_count(&waits,before+2);
     before=atomic_load(&waits);unsigned slept=atomic_load(&sleeps);
     for(unsigned n=0;n<30;n++)nap();
     assert(atomic_load(&waits)==before && atomic_load(&sleeps)==slept); /* no idle timer */
-    launch_record(&w);assert(!life_reserved(&w,3));life_queue(&w,&w.launch[0].state,LIFE_QUEUED);
-    await_state(&w.launch[0].state,LIFE_DONE);assert(life_reserved(&w,3));assert(w.launch[0].pid==42 && atomic_load(&launches)==1);
+    launch_record(&w);assert(!life_reserved(&w,3));atomic_store(&hold_launch_log,1);
+    life_queue(&w,&w.launch[0].state,LIFE_QUEUED);await_count(&launch_logs,1);
+    /* A stalled diagnostic writer retains its job; the UI side keeps running. */
+    assert(life_reserved(&w,3) && life_state(&w.launch[0].state)==LIFE_QUEUED);
+    atomic_store(&hold_launch_log,0);
+    await_state(&w.launch[0].state,LIFE_DONE);assert(life_reserved(&w,3));assert(w.launch[0].pid==42 && atomic_load(&launches)==1 && atomic_load(&launch_logs)==1);
     w.memory[0].width=280;w.memory[0].height=240;life_queue(&w,&w.memory[0].state,LIFE_QUEUED);
     await_state(&w.memory[0].state,LIFE_DONE);assert(atomic_load(&allocations)==1 && !atomic_load(&frees));
     life_queue(&w,&w.memory[0].discard,1);await_state(&w.memory[0].state,LIFE_RETIRED);assert(atomic_load(&frees)==1);
