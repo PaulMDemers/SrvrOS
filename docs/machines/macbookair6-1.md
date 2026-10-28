@@ -5344,3 +5344,19 @@ logger-only committed-data flush and durable receipt, before staging the native
 retry. This does not change normal sync/unmount integrity; rerun the matched
 build, core suite and exact-stage VM coverage on the integrated candidate.
 Pre-integration receipts remain separate and are not attributed to that image.
+
+Integrated source `05668557`, release `0804f2944e9364d3`, passes the matched
+build, full core/docs suite, isolation/disassembly checks, nine directed/exact
+VM cases and three legacy profiles. The first legacy ownership VM exceeded the
+unchanged 20 ms deadline (21,979 us) and retired safely; its failed receipt is
+retained separately. The identical rerun passed. Maximum-width tail replay,
+including the integrated logger's durability receipts, preserves all proofs
+inside 64 KiB. No timing or integrity requirement was relaxed.
+
+PR249 prepares the fully automated native retry with sparse paired RC6/PM/TSC
+observations, normal idle/load/recovery phases, 32 coordinated rounds, HLT
+fallback and automatic Ubuntu collection. The collector saves timing/series
+diagnostics even if the original RC6 predicate still fails. Native acceptance
+and the counter's hardware clock/update explanation remain pending. The local
+run record binds this source/release to USB `6ADA-85BB`, its 554-file baseline,
+1,610 allocated clusters, protected recovery and durable evidence backup.

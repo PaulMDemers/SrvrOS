@@ -285,6 +285,13 @@ that software test allowance is not a hardware accuracy guarantee and is not
 adopted here. Its wait for RC6 entry is also not proof of the accumulator's
 update cadence. Unsupported clock tolerances and update periods remain unknown.
 
+The local PM reference accumulates modulo-24-bit ticks before converting the
+total at 3,579,545 Hz; it does not round and add each polling interval. Its
+existing 90-second wrap/fraction regression passes. Microsecond truncation of
+that cumulative conversion cannot account for the observed roughly 93 ms
+excess. PM/TSC agreement remains a cross-clock observation, not an independent
+calibration of either oscillator or a guarantee of the RC6 counter clock.
+
 Version-3 receipts add paired counter/status reads at every other existing
 retained power checkpoint (at least ten seconds apart, at most 12 pairs from
 the unchanged 24-checkpoint capture). Only the isolated
