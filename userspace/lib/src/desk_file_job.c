@@ -43,18 +43,37 @@ static void channel_reap(struct desk_file_pool *p,struct desk_file_channel *c) {
         c->pid=0;c->retiring=0;p->reaped++;p->live--;
     }
 }
-static void channel_retire(struct desk_file_pool *p,struct desk_file_channel *c) {
+static void channel_close(struct desk_file_channel *c) {
     if(!c->retiring) {
         if(c->writer>=0)srv_close(c->writer);
         if(c->reader>=0)srv_close(c->reader);
         c->writer=c->reader=-1;c->owner=NULL;c->retiring=c->pid!=0;
     }
-    channel_reap(p,c);
+}
+static void channel_retire(struct desk_file_pool *p,struct desk_file_channel *c) {
+    channel_close(c);channel_reap(p,c);
 }
 int desk_file_pool_shutdown(struct desk_file_pool *p) {
     if(!p || !p->channels || p->bound || p->head)return -1;
     p->closing=1;
     for(unsigned i=0;i<p->count;i++)channel_retire(p,&p->channels[i]);
+    return p->live?0:1;
+}
+int desk_file_pool_finish(struct desk_file_pool *p) {
+    if(!p || !p->channels || p->bound || p->head)return -1;
+    p->closing=1;
+    /* Final owner only: publish EOF on every idle channel before waiting for
+     * any child. No accepted job remains and no GUI dispatch depends on us.
+     * Blocking wait gets normal kernel admission instead of repeated NOHANG
+     * deferrals while a different process owns I/O. */
+    for(unsigned i=0;i<p->count;i++)channel_close(&p->channels[i]);
+    for(unsigned i=0;i<p->count;i++) {
+        struct desk_file_channel *c=&p->channels[i];
+        if(!c->pid)continue;
+        uint64_t status=0;long result=srv_wait(c->pid,&status,0);
+        if(result==(long)c->pid) {c->pid=0;c->retiring=0;p->reaped++;p->live--;}
+        else return result==0 || result==SRV_ERR_INTR?0:-1;
+    }
     return p->live?0:1;
 }
 int desk_file_pool_interests(const struct desk_file_pool *p,struct srv_gui_wait *r) {

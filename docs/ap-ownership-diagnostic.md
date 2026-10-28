@@ -137,3 +137,101 @@ keep AC and USB connected. The guest shows phase progress and saves results
 before automatic return. A missing completion or failed coordination is not a
 pass. Require the original CPU-load/power/residency proof, the new native AP
 proof and independent USB preservation/allocation checks before acceptance.
+
+## Read-only package audit
+
+Add `--ap-package-audit` to `--cpu-load-capture --ap-coordinated-c3` for the
+separate `ram-usb-v1-ap-package` diagnostic. The original C3 hint, 32 attempts,
+20 ms bounds, readiness checks, AP ownership/retirement and HLT fallback remain
+unchanged. Ordinary kernels and existing profiles do not take the new reads.
+
+Each native round adds a BSP TSC-bracketed package-C2 (`0x60d`) delta. Its bracket
+starts after peer readiness and ends after peer release, enclosing the original
+BSP C3 measurement. Counter/clock regression fails coordination; zero is valid
+but unobserved. No PCI access, printing or allocation occurs in the round.
+The extra fixed MSR reads count toward the original whole-round bound.
+
+Two snapshots around the full capture retain `MSR_PKGC3_IRTL` (`0x60a`) and
+standard PCI configuration for already enumerated functions. IRTL drift fails
+the audit; unsupported/reserved encodings remain raw with unavailable decoding.
+The sampler reads only Command, class/header, the conventional capability chain,
+PMCSR, PCIe Link Capabilities/Control/Status and version-2 Device Capabilities/
+Control 2. It walks at most 48 distinct aligned capability headers inside the
+256-byte configuration space, refusing malformed/duplicate/cyclic chains or
+fields past the boundary. RC-integrated endpoints have no Link-register read.
+Absent capabilities are marked absent rather than reported as zero-valued state.
+No BAR sizing, extended-capability traversal, GPU/PCH MMIO, D-state transition,
+ASPM/LTR update or status acknowledgement is performed. Legacy config-address
+selector writes are access mechanics, not configuration-data writes.
+
+`hardware_package.py` requires the existing complete native coordination proof,
+32 ordered C2 brackets, paired PCI identities/capabilities and unchanged IRTL.
+PCI command/power/link changes remain reported observations, not automatic
+failures or causal blocker diagnoses. Graphics RC6, actual device LTR values
+and platform permission remain explicitly unknown. VM simulation reports the
+package audit unavailable and performs no package-register or PCI reads; host
+fixtures exercise the config reader, boundary/failure cases and strict parser.
+The same automatic phase/save/return and independent USB checks apply.
+
+The [Intel U/Y datasheet](https://cdrdv2-public.intel.com/329001/4th-gen-core-family-mobile-u-y-processor-lines-vol-1-datasheet.pdf)
+sections 4.2.5–4.2.6 describes package entry as dependent on core state and
+platform permission, with graphics, display, timer and device latency constraints.
+Consequently, core C3 alone cannot establish package C3 or identify a blocker.
+The [Intel SDM volume 4](https://www.intel.com/content/dam/develop/external/us/en/documents-tps/335592-sdm-vol-41.pdf)
+Haswell/06_45 inherited register tables define `0x60a`: valid bit 15, limit bits
+9:0 and unit bits 12:10 (1, 32, 1024, 32768, 1048576 or 33554432 ns). The package-C2
+counter uses TSC units. Standard PCI offsets/flags are cross-checked against
+[Linux's PCI register definitions](https://github.com/torvalds/linux/blob/v6.12/include/uapi/linux/pci_regs.h).
+These sources describe possible constraints; the native capture must establish
+this unit's actual values before proposing any policy or device-state change.
+
+Air6,1 release `bae0678ed7e9b38b` physically completes this audit: all 32 short
+rounds observe package C2 (about 99.54% of their wider brackets) alongside positive
+core C3, while package C3 remains zero. Paired IRTL is unchanged at `0x8842`
+(67.584 us), and all 25 PCI snapshots are stable. This narrows the evidence to
+remaining package-entry conditions without identifying a specific blocker.
+See the [unit record](machines/macbookair6-1.md) for scope and recovery evidence.
+
+## Optional graphics and device-latency audit
+
+Add `--ap-platform-audit` alongside `--ap-package-audit` to select the separate
+`ram-usb-v1-ap-platform` profile. It inherits exact native CPU/topology admission
+and adds the existing Air6,1 GPU/PCH/DSDT identity gate. No diagnostic access runs
+in ordinary boot, old package profiles, native refusal or VM simulation.
+
+Two snapshots outside the measured rounds read Haswell graphics status
+`0x138060` and RC6 residency `0x138108` only. BAR0 must be an already-enabled,
+4 MiB-aligned 64-bit memory aperture and the GPU must already be D0. One page is
+mapped read-only, uncacheable and non-executable; it stays retained until reset.
+Identity, aperture and decoding are rechecked before the final snapshot.
+The 32-bit RC6 counter uses 1.28 us ticks; the parser handles one wrap but refuses
+an interval long enough to make the wrap count ambiguous. Status is an instant
+observation and the counter interval spans the capture, not only the short C3
+rounds. Zero residency is valid and is not proof that RC6 is disabled.
+
+The [Linux Haswell forcewake table](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/intel_uncore.c)
+limits its render forcewake domain to `0x00000–0x3ffff`; these two uncore reads
+are outside it. The [graphics register definitions](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/gt/intel_gt_regs.h)
+and [RC6 reader](https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/i915/gt/intel_rc6.c)
+provide the offsets and counter unit. `RC_CONTROL` needs the forcewake path and
+is explicitly unavailable: no forcewake request, PCODE mailbox command, graphics
+initialization or control-register write is added.
+
+For enumerated PCIe functions, an ECAM-only read interface traverses the extended
+capability chain within 4 KiB. It refuses legacy fallback, alignment/range errors,
+nonzero/ambiguous segment mappings, loops, overlapping LTR data and duplicate or
+unsupported LTR versions. At most 960 aligned headers can be visited. The new
+reader cannot truncate an extended offset into conventional configuration.
+The standard LTR capability records Max Snoop/No-Snoop values and scales using
+[PCI definitions](https://github.com/torvalds/linux/blob/v6.12/include/uapi/linux/pci_regs.h).
+Reserved encodings remain unavailable. Capability absence differs from a valid
+zero; configured maximum latency is neither measured device response latency
+nor proof of a currently asserted request. No capability or decode bit is changed.
+
+`ap-platform` receipts pair the graphics observations, PCI identities/LTR fields
+and unchanged E2 policy evidence. A direct platform grant signal remains
+`permission=unavailable reason=no-validated-grant-register`; the firmware limit,
+PCI D0, ASPM and LTR fields must not be relabeled as that signal. This diagnostic
+narrows the remaining evidence without manufacturing a grant/denial or causal
+blocker. Original round counts, 20 ms deadlines, fallback, ownership checks,
+log limits and automatic idle/load/recovery/save/return remain unchanged.

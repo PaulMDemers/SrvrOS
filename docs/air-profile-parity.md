@@ -13,7 +13,7 @@ CPU selectors and physical results are not interchangeable.
 | Brightness, audio, CPU/SMC | Exact Haswell, CS4208 and one-fan profiles; bounded native controls and playback | Separate captured Broadwell, codec and one-fan profiles already exist and have native evidence. Retain those gates. |
 | Battery/AC | Separate EC/SMBus ownership, indicator and combined-session acceptance | Existing Air7,2 backend/indicator remains in place; shared worker and supervisor event waits are integrated. Newer polling reductions need matching native measurements. |
 | Combined reopen | v72 automated two-session test and native acceptance | New v79 selects the same mechanism with the Air7,2 kernel; local and native evidence must name this profile. |
-| Audio/disk/app/screenshot stress | v74 bounded 30-minute native run, 703 app cycles; v77 attended variant | New v80 automatic and v81 attended profiles reuse the same workload, deadlines and ownership. Air7,2 has not inherited the 30-minute result; its first v80 native run failed an early lifecycle deadline and remains unaccepted. |
+| Audio/disk/app/screenshot stress | v74 bounded 30-minute native run, 703 app cycles; v77 attended variant | New v80 automatic and v81 attended profiles reuse the same workload, deadlines and ownership. Air7,2 has not inherited the 30-minute result; three v80 native runs failed early lifecycle deadlines and remain unaccepted. |
 | Desktop power phases | v78 idle/apps/recovery; worker-wakeup receipts and native measurements | v82 release `775c5051149c0e38` accepts three native phases, 13 app cycles, bounded loop/ready/close and clean retirement. No inferred energy saving. |
 | Idle residency and capture prerequisites | Ten counters; HLT entry, E2/APIC/misc and topology audit | Captured Broadwell support adds seven counters and the shared audit. C8/C9/C10 remain unavailable, not valid zeros. Native CPU0 diagnostic accepted on release `71049508c4a1fbd0`: complete seven-counter capture, unchanged configuration and zero observed deep-idle deltas. |
 | Explicit MWAIT experiments | Bounded shallow/C3-hint execution accepted; PR237 additionally accepts coordinated core C3 with valid-zero package C3 | Broadwell MWAIT/coordinated C3 remain refused until their own prerequisites/selector review and bounded trials. Read-only counter admission does not enable instructions or copy Haswell policy. Ordinary idle remains HLT. |
@@ -151,3 +151,14 @@ bounds. Treat fairness as a separate proven correction, not a complete resolutio
 of heavy-I/O latency. Failed diagnostic receipts now include a bounded read-only
 process-state snapshot to distinguish an active process from an inactive record with retirement/reaping pending; thresholds
 and early failure behavior remain unchanged.
+
+PR238 moves terminal-child blocking reap and screenshot preparation to the
+existing lifecycle worker, retaining owned PIDs, unpublished jobs and immutable
+canvas snapshots through shutdown. Its third native attempt, release
+`5f4ed45c3634e22a` / session `session-00065eea4580440f-00`, completes nine app
+cycles with a 101753 us maximum UI loop, but fails the unchanged total lifecycle
+deadline during Text document release (6067465 us wall time). Screenshot
+completion fails; no PCM underruns are observed and native retirement is clean.
+All prior files and offline filesystem/allocation checks pass. Endurance remains
+unaccepted. Sparse current-thread scheduler attribution is the next diagnostic;
+wall time does not justify changing kernel memory/I/O gates or pacing the load.

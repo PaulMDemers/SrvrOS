@@ -219,7 +219,10 @@ int tool_window_runtime(int role,const char *path) {
                 timing=tool_timing_begin(role,window,"history-free");free(t->body_history);t->body_history=NULL;
                 tool_timing_end(role,window,"history-free",timing);
                 timing=tool_timing_begin(role,window,"document-unmap");
-                int released=desk_window_owner_release(owner,1);tool_timing_end(role,window,"document-unmap",timing);
+                struct tool_phase_trace phase;tool_phase_begin(&phase);
+                int released=desk_window_owner_release(owner,1);
+                tool_phase_end(&phase,role,window,"document-unmap");
+                tool_timing_end(role,window,"document-unmap",timing);
                 if(released)app.set.failed=1;
                 owner=next;continue;
             }

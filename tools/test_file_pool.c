@@ -16,6 +16,10 @@ struct worker {
 static struct worker workers[WORKERS];
 static int next_fd,spawned,spawn_fail,pipe_fail,fcntl_fail,hold_exit,hold_response,bad_response;
 static unsigned calls,admitted[256],admitted_count;
+static int defer_nohang,require_all_eof;
+static long final_wait_error;
+static uint64_t final_wait_pid;
+static unsigned blocking_waits;
 static int closed[1024];
 long srv_signal_config(uint64_t signal,uint64_t action) { assert(signal==SIGPIPE && action==SRV_SIGNAL_IGNORE);return 0; }
 long srv_pipe(int fds[2]) {
@@ -42,7 +46,13 @@ long srv_close(int fd) {
 }
 int desk_process_alive(uint64_t pid) { assert(pid>1000 && pid<=1000+(unsigned)spawned);return workers[pid-1001].alive; }
 long srv_wait(uint64_t pid,uint64_t *status,uint64_t flags) {
-    assert(flags==SRV_WAIT_NOHANG);struct worker *w=&workers[pid-1001];
+    assert(flags==SRV_WAIT_NOHANG || flags==0);struct worker *w=&workers[pid-1001];
+    if(flags==SRV_WAIT_NOHANG && defer_nohang)return 0;
+    if(!flags) {
+        blocking_waits++;
+        if(require_all_eof)for(int i=0;i<spawned;i++)assert(workers[i].eof);
+        if(final_wait_error && (!final_wait_pid || final_wait_pid==pid)) {long result=final_wait_error;final_wait_error=0;return result;}
+    }
     if(w->alive)return 0;
     if(w->reaped)return -1;
     w->reaped=1;*status=0;return pid;
@@ -80,6 +90,7 @@ long srv_read(int fd,void *data,size_t bytes) {
 static void reset(void) {
     memset(jobs,0,sizeof(jobs));memset(workers,0,sizeof(workers));memset(closed,0,sizeof(closed));
     next_fd=100;spawned=spawn_fail=pipe_fail=fcntl_fail=hold_exit=hold_response=bad_response=0;calls=admitted_count=0;
+    defer_nohang=require_all_eof=0;final_wait_error=0;final_wait_pid=0;blocking_waits=0;
     assert(!desk_file_pool_init(&pool,channels,2));
 }
 static void bind(unsigned index) { assert(!desk_file_job_bind(&jobs[index],&pool)); }
@@ -121,6 +132,7 @@ int main(void) {
     assert(desk_file_job_detach(&jobs[0])<0 && desk_file_job_detach(&jobs[39])<0);
     desk_file_job_close(&jobs[39]);assert(jobs[39].busy && jobs[39].pool==&pool);
     assert(desk_file_pool_shutdown(&pool)<0 && !pool.closing && !workers[0].eof);
+    assert(desk_file_pool_finish(&pool)<0 && !pool.closing && !workers[0].eof);
     hold_response=0;
     for(unsigned i=0;i<JOBS;i++) {
         assert(finish(i)==1 && !jobs[i].busy && !jobs[i].channel && !jobs[i].pid);
@@ -170,5 +182,29 @@ int main(void) {
 
     reset();bind(0);pool.next_id=UINT32_MAX;
     assert(desk_file_job_start(&jobs[0],DESK_FILE_READ,"/fat/wrap",NULL,0,0,0)<0 && !jobs[0].busy && !pool.head);retired();
+
+    /* UI NOHANG calls may be deferred throughout another owner's I/O. Once
+     * all jobs detach, the final owner can use kernel blocking admission.
+     * EOF must reach both channels before the first wait; EINTR/error retain
+     * exact PIDs/live counts, and a partial success is never reaped twice. */
+    reset();bind(0);bind(1);hold_response=1;
+    assert(!desk_file_job_start(&jobs[0],DESK_FILE_READ,"/fat/a",NULL,0,0,0));
+    assert(!desk_file_job_start(&jobs[1],DESK_FILE_READ,"/fat/b",NULL,0,0,0));
+    while(desk_file_job_submit(&jobs[0])!=1) {}
+    while(desk_file_job_submit(&jobs[1])!=1) {}
+    assert(spawned==2);hold_response=0;
+    assert(finish(0)==1 && finish(1)==1);
+    assert(!desk_file_job_detach(&jobs[0]) && !desk_file_job_detach(&jobs[1]));
+    defer_nohang=1;require_all_eof=1;
+    for(unsigned i=0;i<32;i++)assert(desk_file_pool_shutdown(&pool)==0 && pool.live==2 && !pool.reaped);
+    final_wait_error=SRV_ERR_INTR;
+    assert(desk_file_pool_finish(&pool)==0 && pool.live==2 && !pool.reaped && channels[0].pid==1001);
+    final_wait_error=-1;
+    assert(desk_file_pool_finish(&pool)==-1 && pool.live==2 && !pool.reaped && channels[0].pid==1001);
+    final_wait_pid=1002;final_wait_error=SRV_ERR_INTR;
+    assert(desk_file_pool_finish(&pool)==0 && pool.live==1 && pool.reaped==1 && !channels[0].pid && channels[1].pid==1002);
+    assert(desk_file_pool_finish(&pool)==1 && !pool.live && pool.reaped==2 && blocking_waits==5);
+    assert(desk_file_pool_finish(&pool)==1 && blocking_waits==5);
+    for(int fd=100;fd<next_fd;fd++)assert(closed[fd]);
     puts("file-pool: PASS 40 FIFO jobs/two lazy workers, snapshots/replies, reuse, refusal, spawn/pipe failure, poison retention/reap, explicit retry and shutdown");
 }

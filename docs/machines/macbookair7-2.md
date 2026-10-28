@@ -2,6 +2,80 @@
 
 Updated: 2026-10-28. State: **active reference machine; partial device acceptance**.
 
+### Fourth endurance return — final file-pool retirement (2026-10-28)
+
+Release `e7d06c056ba13a58`, clean `eef772a0` (PR240), returned automatically
+from `session-00065eeabc2cba54-00` after seven completed cycles. Maximum UI loop
+is 101621 us, zero observed PCM underruns, clean native battery retirement.
+Files pid18 passes document release in 9290 us but spends 6469495 us retiring
+its idle file-worker pool, exceeding the unchanged total lifecycle deadline.
+Another release records 175219 us blocked and 348823 us ready (197 exclusions,
+zero invalid); the final Files release records 9128 us blocked and 7 us ready.
+The six-second document-release delay did not recur, so it has not been explained
+by this run. Screenshot completion and full endurance remain failed. All 1182
+prior files are preserved except metadata; offline fsck/allocation pass (1188
+files, 3095 clusters, zero errors). Default/recovery/consumed one-shot pass.
+
+Next bounded scope: explicit blocking final drain for an already-detached file
+pool in `userspace/lib/src/desk_file_job.c` and desktools final teardown, with
+host gate-deferral/interruption/ownership coverage. Interactive pool shutdown
+stays nonblocking. Close all idle channels before waiting; retain each PID until
+kernel wait returns that PID; never kill accepted work or discard an interrupted
+wait. This reuses existing syscall admission, changes no kernel gates or limits,
+and makes no claim to fix every lifecycle delay. Add scheduler attribution around
+final pool drain. PR182 process/VFS and PR19 Wi-Fi remain independent; PR242
+Air6,1 graphics/latency audit is isolated. Main `ac259fcb` / PR241 docs consumed.
+
+Final-drain implementation `94c85456` passes full core/desktop hosts and matched
+ordinary build. The focused fixture checks 32 deferred NOHANG attempts, EOF on
+both channels before blocking, error/interruption PID retention and partial reap
+without double collection. The first Air7,2 KVM attempt completes 22 cycles and
+its screenshot but fails a 538224 us final exit loop (trial stage 536190 us).
+Retain that failure; no exit-stage fix is claimed. An identical clean repeat
+passes 23 cycles, maximum loop 119954 us, ready 1058614 us and close 1346273 us,
+zero observed PCM underruns and complete file/screenshot/retirement receipts.
+The throttled100-write-IOPS fixture still fails cycle1 lifecycle, with UI102344us
+and Files final drain961197us (941002us blocked,19536us ready). Air6,1 control
+passes complete file/screenshot/lifecycle/retirement evidence against94c85456
+with only this unit Markdown changed. No universal latency or endurance fix is
+claimed. Exact staging and native integrity checks precede the next candidate.
+
+### Third endurance return and attribution scope (2026-10-28)
+
+Release `5f4ed45c3634e22a`, clean `99e4412d` (PR238 runtime), returned
+automatically from `session-00065eea4580440f-00` after nine completed app cycles.
+The UI loop maximum improved to 101753 us, below the unchanged 500000 us limit.
+Text pid21 exceeded the total lifecycle deadline: document unmap took 6067465 us
+of wall time, after close acknowledgement and window disposal. Wall time alone
+does not identify CPU work or I/O gate delay. Screenshot completion failed during
+shutdown; zero observed PCM underruns and clean native battery retirement do
+not accept the 30-minute endurance workload. All 1177 prior files are preserved
+except expected metadata. Offline fsck/allocation pass (1182 files, 3047 clusters,
+zero errors); Ubuntu default, consumed one-shot and recovery are verified.
+
+Next bounded scope is current-thread scheduler attribution around document
+release in `userspace/desktools/text_runtime.c` and its timing helper, with host
+failure-path checks and positive/slow VM evidence. BEGIN/END surround only the
+release, excluding diagnostic writes; unavailable or invalid traces stay explicit.
+No memory syscall admission, teardown ownership, workload pacing or deadline
+changes are authorized by wall time alone. PR182 retains process/VFS lifetime
+scope and PR19 Wi-Fi. Consumed main `ec7bad42` (PR239 isolated Haswell package
+audit); Broadwell gates and ordinary startup remain unchanged. Native endurance,
+Broadwell AP/MWAIT and package idle parity remain pending.
+
+Current diagnostic implementation `7052e1bc` passes full core/desktop host tests
+and matched ordinary build. The Air7,2 KVM workload passes 23 cycles, 339196 us
+maximum loop, 936454 us ready and 1246771 us close, zero observed PCM underruns.
+Seventeen complete scheduler receipts have zero invalid counts. The slowest
+release interval is 557948 us: 548975 us blocked and 8077 us ready. The separate
+100-write-IOPS populated fixture still fails the lifecycle deadline after one
+completed cycle (UI loop 104429 us); its Files release records 551251 us blocked
+and 4177 us ready. These are VM scheduler-state observations, not native gate
+causation or endurance acceptance. The Air6,1 control also passes with complete
+file/screenshot/lifecycle/retirement evidence. Both VMs ran implementation
+`7052e1bc` with only unit/parity documentation changes in the worktree.
+Exact-stage checks precede another automatic native diagnostic run.
+
 ### Endurance retry — exited child reap and capture startup (2026-10-28)
 
 Release `8003479c17f01644` (clean `96a8d307`, merged by PR236) failed early

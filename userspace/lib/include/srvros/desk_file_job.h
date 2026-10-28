@@ -42,6 +42,12 @@ int desk_file_job_bind(struct desk_file_job *job,struct desk_file_pool *pool);
 int desk_file_job_detach(struct desk_file_job *job);
 /* -1 bound jobs remain; 0 waiting for child exit; 1 fully retired. No kill. */
 int desk_file_pool_shutdown(struct desk_file_pool *pool);
+/* Final owner only, after detaching every job and retiring GUI dispatch. Closes
+ * all channels then blocks for natural child exit via ordinary kernel wait.
+ * 1 fully reaped, 0 interrupted/pending (retry), -1 invalid/wait failure.
+ * No kill; a nonmatching/interrupted wait retains its PID and live accounting.
+ * Interactive callers must keep using nonblocking shutdown instead. */
+int desk_file_pool_finish(struct desk_file_pool *pool);
 /* 1 safe to wait on the returned interests, 0 dispatch/retirement needs a short
  * retry, -1 invalid/capacity. No I/O or worker polling. Sets only count/fds. */
 int desk_file_pool_interests(const struct desk_file_pool *pool,struct srv_gui_wait *request);

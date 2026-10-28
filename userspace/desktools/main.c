@@ -244,8 +244,10 @@ int tool_runtime_file_poll(struct tool *t,uint64_t *logged_job) {
 }
 int tool_file_pool_retire(struct desk_file_pool *pool,int role) {
     uint64_t timing=tool_timing_begin(role,0,"pool-retire");
+    struct tool_phase_trace phase;tool_phase_begin(&phase);
     int result;
-    while(!(result=desk_file_pool_shutdown(pool)))srv_sleep_ticks(1);
+    while(!(result=desk_file_pool_finish(pool)))srv_sleep_ticks(1);
+    tool_phase_end(&phase,role,0,"pool-retire");
     desk_log("file-pool: retired role=%s spawned=%llu reaped=%llu peak=%llu live=%llu bound=%u\n",
         roles[role-1],(unsigned long long)pool->spawned,(unsigned long long)pool->reaped,
         (unsigned long long)pool->peak,(unsigned long long)pool->live,pool->bound);
