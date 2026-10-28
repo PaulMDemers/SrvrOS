@@ -5144,3 +5144,17 @@ Wi-Fi retain separate scope. Next: audit documented graphics/platform idle
 permission and device-latency reporting with read-only diagnostics where safe.
 Do not change power policy or declare a specific package-C3 blocker from these
 PCI snapshots alone.
+
+### Graphics/platform latency audit — active scope (2026-10-28)
+
+Base `ac259fcb`, same local device branch. Extend the isolated package diagnostic
+with documented read-only graphics/platform and device-latency observations.
+First audit access semantics: do not force-wake graphics, enable decoding, alter
+ASPM/LTR, acknowledge status or read undocumented power-gated MMIO merely to
+produce a value. Explicitly report unavailable evidence where safe reads cannot
+be established. Keep ordinary startup, 32 attempts, 20 ms bounds, HLT fallback,
+firmware policy and integrity checks unchanged. Scope: diagnostic-only access,
+bounded capability decoding, strict receipt/parser and host/VM regressions.
+PR182 filesystem and PR19 Wi-Fi remain independent; no overlapping edits planned.
+Next checkpoint: reviewed register/access contract and matched automated native
+candidate, with the accepted package audit and console recovery preserved.
