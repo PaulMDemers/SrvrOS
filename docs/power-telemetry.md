@@ -1190,3 +1190,10 @@ maximum measured acknowledgement 2 us, zero faults and terminal retirement under
 the unchanged 20 ms bound. Ordinary boot requests and power policy remain unchanged.
 This provides no C3, physical C1 residency or energy-saving acceptance; see the
 [unit result](machines/macbookair6-1.md#ap-ownership--native-acceptance-2026-10-28).
+
+The separate [coordinated C3 candidate](ap-ownership-diagnostic.md#coordinated-c3-candidate)
+now pairs that ownership path with the existing bounded BSP trial. Per-round
+peer readiness, wake acknowledgements and individual residency brackets retain
+the 32-attempt/20 ms limits and HLT fallback. Host/VM validation does not accept
+native coordinated entry; ordinary startup and power-policy registers remain
+unchanged. See the Air6,1 record for the exact candidate and subsequent evidence.
