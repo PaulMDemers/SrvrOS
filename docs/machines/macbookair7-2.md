@@ -27,6 +27,16 @@ change is justified yet. Consume main `4ae360ef` including PR242 PCI/isolated
 Haswell diagnostics and run the integrated build/host gates before new staging.
 PR182 retains VFS/process ownership and PR19 Wi-Fi; neither is changed here.
 
+Logger-clock implementation `71b6ae75` passes full integrated core/desktop hosts
+and matched ordinary/native/VM builds, including PR242 PCI/package/platform
+fixtures. Positive Air7,2 KVM passes 23 app cycles, maximum loop124974 us,
+ready1152550 us and close1679743 us, zero observed PCM underruns and complete
+file/screenshot/lifetime/retirement proof. Four completed logger-cost records
+validate interval arithmetic and all matching USB aggregates with power service
+disabled. These are workload wall-time receipts, not idle or CPU measurements.
+Exact staging precedes the next automatic attribution trial; no endurance fix
+or native acceptance is inferred from this instrumentation.
+
 ### Fourth endurance return — final file-pool retirement (2026-10-28)
 
 Release `e7d06c056ba13a58`, clean `eef772a0` (PR240), returned automatically
