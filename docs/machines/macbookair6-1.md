@@ -5048,3 +5048,18 @@ regressions; that newer runtime was not in this physical release. PR182 filesyst
 audit of package C3 blockers and platform prerequisites, then a separately bounded
 experiment. Keep ordinary startup and all power-policy settings unchanged until
 there is a reviewed next test; core C3 success does not accept deeper package states.
+
+### Package C3 audit — active scope (2026-10-28)
+
+Base `6cbfedab`; coordinated core-C3 acceptance and its return evidence are
+complete. Inspect package-level permission/latency constraints without changing
+power policy, entry hints, 32-round/20 ms bounds or fallback. Add optional
+read-only package C2 brackets, C3 interrupt-response-limit snapshots and bounded
+standard PCI power/link snapshots to the existing isolated coordinated diagnostic.
+Report graphics/platform permission as unknown where no safe documented read is
+available; device state alone must not become a causal blocker verdict. Ordinary
+boot, AML and GPU/MMIO control remain unchanged. Scope: diagnostic-only capture,
+strict staging/parser and host/VM regressions. PR238 (`99e4412d`) desktop reap/
+screenshot work, PR182 (`950a4ee0`) filesystem work and PR19 (`7ac6b0e6`) Wi-Fi
+retain independent scope. Next: audit register semantics, validate read-only
+capture and unchanged recovery, self-merge and run the automatic native trial.
