@@ -5079,3 +5079,20 @@ proofs, retirement and audit records must still validate from the final log.
 A maximum-width 25-device replay (the previously captured enumeration count)
 retains those proofs without increasing any log or test limit. Capability state,
 graphics permission and unsupported encodings remain distinct from zero.
+
+Final candidate `bae0678ed7e9b38b` uses source `c5818be5`, incorporating PR238
+main `2c34a460`. The matched ordinary/diagnostic build, full core suite and docs
+checks pass. All nine package-profile VM cases pass: four-CPU simulation,
+missing/early/faulted peer, 1/2/6-CPU refusal, exact native-profile refusal with
+save/return, and missing workspace. Directed failure-state review, ordinary
+kernel isolation and unchanged-tail coverage pass. Separate legacy AP-ownership
+and coordinated-C3 simulation regressions also pass with no package reads.
+
+The next automated native run captures 32 package-C2 brackets, paired C3 IRTL
+and standard PCI snapshots, then completes the existing 30-second idle/load/
+recovery phases and returns to Ubuntu. Collection requires complete matching
+receipts and offline filesystem preservation. No human input is required; keep
+AC and USB connected. Native audit acceptance remains pending. Preserve console
+recovery and accepted coordinated-C3 payload `57274dfaccfdc0b9`; retire only the
+older standalone AP-ownership EFI copy after verifying its durable backup to
+make space. Its evidence and payload remain available outside `build`.
