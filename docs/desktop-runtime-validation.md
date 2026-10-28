@@ -1,4 +1,4 @@
-# Desktop runtime validation and next native round
+# Desktop runtime validation and acceptance
 
 The October 25–26 desktop work removes the small fixed window-count ceiling and
 separates windows, processes and worker ownership. It is a matched kernel/server/

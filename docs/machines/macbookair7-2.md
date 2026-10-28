@@ -2,9 +2,10 @@
 
 Updated: 2026-10-27. State: **active reference machine; partial device acceptance**.
 
-### Shared baseline refresh — validation in progress
+### Shared baseline refresh — local validation complete
 
-Consumed actual main `f5917467` (PR226) on the existing device branch. All prior
+Consumed actual main `f5917467` (PR226), then documentation-only `a2a2c56f`
+(PR228), on the existing device branch. All prior
 Air7,2 implementation and acceptance commits are merged; the checkout was clean
 with no local commits outside main. PR182 filesystem audit and PR19 Pro Wi-Fi
 remain separate ongoing work, not accepted dependencies. This housekeeping block
@@ -14,7 +15,18 @@ remove stale future-trial wording and publish a coherent documentation checkpoin
 Installed accepted `060fffa453e26d5e` and independent `9aa8dbf6fbda8252` recovery
 are untouched. New shared power/idle/screenshot behavior does not inherit the
 older payload's physical acceptance. No stage, install or reboot is planned.
-Evidence: `build/baseline-sync-20261027/`.
+Local gates pass: `make -j2 test-core test-desktop all acpi-battery-kernel
+acpi-battery-vm-kernel check-docs`, the Air6,1 synthetic VM kernel build,
+window-command/navigation/dock VM (exact three files, process baseline and clean
+offline allocation), ten-second console/desktop idle with post-idle titlebar drag,
+and synthetic desktop power/battery app/recovery phases with clean retirement,
+prior-file preservation, allocation and automatic guest return. Normal/native/VM
+artifacts are matched to the unchanged runtime base `f5917467`. The first two VM
+receipts include concurrent Markdown-only edits; no runtime source changed.
+The power VM ran clean source `b21c6c58`. These checks establish local integration,
+not Air7,2 power savings or fresh physical acceptance. PR229 carries this refresh.
+Evidence: `build/baseline-sync-20261027/`, with a hash-verified durable copy outside
+build under `~/.local/share/srvros/reviewed-evidence/baseline-sync-20261027/`.
 
 ### Focused Close/window-list trial — bounded hardware smoke accepted
 
