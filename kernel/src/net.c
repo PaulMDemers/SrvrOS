@@ -39,7 +39,7 @@
 #define TCP_MAX_CONNECTIONS 32
 #define UDP_MAX_SOCKETS 8
 #define UDP_RX_QUEUE 4
-#define UDP_PAYLOAD_MAX 1472
+#define UDP_PAYLOAD_MAX SRV_NET_UDP_PAYLOAD_MAX
 #define NET_LISTENERS 4
 #define NET_PENDING_REQUESTS 8
 #define NET_CONNECTION_RX_INITIAL_SIZE 4096
@@ -891,11 +891,14 @@ static void handle_icmp(const uint8_t *frame,
     }
 
     const uint8_t *icmp = ip + ip_header_length;
+    if (checksum_bytes(icmp, ip_payload_length, 0) != 0 ||
+        ((icmp[0] == 0 || icmp[0] == 8) && icmp[1] != 0)) {
+        return;
+    }
     icmp_packets++;
 
     if (icmp[0] == 0) {
-        if (checksum_bytes(icmp, ip_payload_length, 0) == 0 &&
-            icmp_ping_waiting &&
+        if (icmp_ping_waiting &&
             src_ip == icmp_ping_ip &&
             read_be16(icmp + 4) == ICMP_PING_ID &&
             read_be16(icmp + 6) == icmp_ping_sequence) {
@@ -2991,7 +2994,7 @@ int64_t net_udp_open(void) {
 
 int64_t net_udp_bind(uint64_t socket_id, uint16_t port) {
     struct udp_socket *socket = find_udp_socket(socket_id);
-    if (!initialized || socket == 0) {
+    if (!initialized || socket == 0 || socket->local_port != 0) {
         return -1;
     }
 
@@ -3033,11 +3036,18 @@ int64_t net_udp_sendto(uint64_t socket_id,
         return (int64_t)length;
     }
 
+    uint16_t source_port = socket->local_port;
     uint8_t remote_mac[6];
     if (!resolve_route_mac(remote_ip, remote_mac)) {
         return -1;
     }
 
+    /* ARP resolution can block and run a final close/reuse of this slot.
+     * Revalidate the original identity before publishing a datagram. */
+    socket = find_udp_socket(socket_id);
+    if (socket == 0 || socket->local_port != source_port) {
+        return -1;
+    }
     return send_udp_packet(remote_mac,
         local_ip_bytes,
         remote_ip,

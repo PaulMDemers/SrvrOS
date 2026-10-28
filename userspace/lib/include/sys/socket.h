@@ -41,6 +41,7 @@
 #define MSG_CMSG_CLOEXEC 0x40000000
 #define MSG_NOSIGNAL 0x4000
 #define MSG_CTRUNC 0x08
+#define MSG_TRUNC 0x20
 
 #define SCM_RIGHTS 1
 

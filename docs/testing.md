@@ -1274,3 +1274,26 @@ no peer MSS was negotiated. The IPv4 dispatch fixture also stubs console output.
 All 46 modes pass normally and under ASan/UBSan, and eight matched-image VM
 gates pass, including segmented web traffic. Exact results and limits are in the
 TCP audit and host record.
+
+
+## UDP/ICMP and datagram adapter checkpoint
+
+`make test-net-datagram test-posix-datagram` adds ten production kernel modes and
+six production libc modes to `test-core`. Kernel coverage includes ICMP echo
+checksum/code/identity, exact-size truncated UDP input, length/checksum controls,
+empty packets, queue wrap/pressure, truncation, ARP-wait close/reuse, blocked
+receive final close, held-reference cleanup and immutable binding. Libc coverage
+checks multi-iov `MSG_TRUNC`, zero-capacity consumption, short source-address
+canaries/full size, empty datagrams, allocation-failure retry and failed-bind
+cache preservation. Five kernel modes and four libc modes fail against source
+`950a4ee0`; the remaining modes are passing controls. All sixteen pass under
+x86_64/Rosetta and native ARM64 ASan/UBSan.
+
+The guest `netabi` adds `netabi: udp truncation/empty/zero/address/queue ok` before
+its existing final success marker. It exercises matched guest headers, libc,
+syscalls and kernel using locally delivered datagrams, including queue overflow
+and repeat-bind refusal. These tests supplement the unchanged 46-mode TCP
+lifetime fixture. Evidence and limits are in the
+[datagram audit](datagram-audit-2026-10-28.md), with raw logs and original-source
+failures under `build/review/datagram/`. Connected UDP filtering, resolver overlap
+and native adapter acceptance are not inferred from these checks.

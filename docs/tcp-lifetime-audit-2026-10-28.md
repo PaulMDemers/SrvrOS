@@ -451,3 +451,9 @@ Logs, original failures, source diff and source/artifact hashes are retained
 under `build/review/tcp-parser/`. Documentation/link and whitespace checks pass.
 Earlier storage matrices and native-device acceptance remain dated evidence;
 no Actions dispatch, physical install or PR merge occurred. PR182 remains draft.
+
+
+The subsequent [UDP/ICMP datagram checkpoint](datagram-audit-2026-10-28.md)
+continues packet validation and endpoint ownership with separate kernel/libc
+fixtures. The TCP lifetime suite remains 46 modes; its earlier dated sanitizer
+and VM evidence is not relabeled as new UDP coverage.

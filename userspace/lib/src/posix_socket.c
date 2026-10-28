@@ -623,13 +623,14 @@ int bind(int fd, const struct sockaddr *addr, socklen_t addrlen) {
         errno = EAFNOSUPPORT;
         return -1;
     }
-    socket->port = ntohs(in->sin_port);
+    uint16_t port = ntohs(in->sin_port);
     if (socket->type == SOCK_DGRAM) {
-        if (socket->listener_fd < 0 || srv_net_udp_bind(socket->listener_fd, socket->port) < 0) {
+        if (socket->listener_fd < 0 || srv_net_udp_bind(socket->listener_fd, port) < 0) {
             errno = EADDRINUSE;
             return -1;
         }
     }
+    socket->port = port;
     return 0;
 }
 
@@ -1388,13 +1389,17 @@ ssize_t recvfrom(int fd,
         return -1;
     }
 
-    if (src_addr != 0 && addrlen != 0 && *addrlen >= sizeof(struct sockaddr_in)) {
-        struct sockaddr_in *in = (struct sockaddr_in *)src_addr;
-        memset(in, 0, sizeof(*in));
-        in->sin_family = AF_INET;
-        in->sin_port = htons(remote_port);
-        in->sin_addr.s_addr = srv_ip_to_sockaddr(remote_ip);
-        *addrlen = sizeof(*in);
+    if (src_addr != 0 && addrlen != 0) {
+        struct sockaddr_in address;
+        memset(&address, 0, sizeof(address));
+        address.sin_family = AF_INET;
+        address.sin_port = htons(remote_port);
+        address.sin_addr.s_addr = srv_ip_to_sockaddr(remote_ip);
+        size_t copied = *addrlen < sizeof(address) ? *addrlen : sizeof(address);
+        if (copied != 0) {
+            memcpy(src_addr, &address, copied);
+        }
+        *addrlen = sizeof(address);
     }
     return result;
 }
@@ -1430,22 +1435,46 @@ ssize_t recvmsg(int fd, struct msghdr *message, int flags) {
     if (message_iov_length(message, &capacity) < 0) {
         return -1;
     }
+    struct posix_socket *socket = socket_at(fd);
+    if (socket != 0 && socket->type == SOCK_DGRAM) {
+        /* The kernel receive API consumes one datagram and returns copied
+         * bytes. Read its bounded maximum to retain truncation information,
+         * including a zero-capacity receive that still consumes a datagram. */
+        uint8_t *buffer = malloc(SRV_NET_UDP_PAYLOAD_MAX);
+        if (buffer == 0) {
+            errno = ENOMEM;
+            return -1;
+        }
+        socklen_t addrlen = message->msg_namelen;
+        ssize_t count = recvfrom(fd, buffer, SRV_NET_UDP_PAYLOAD_MAX,
+            flags & ~MSG_CMSG_CLOEXEC, (struct sockaddr *)message->msg_name,
+            message->msg_name != 0 ? &addrlen : 0);
+        if (count >= 0) {
+            if (message->msg_name != 0) {
+                message->msg_namelen = addrlen;
+            }
+            size_t copied = (size_t)count < capacity ? (size_t)count : capacity;
+            scatter_message_iov(message, buffer, copied);
+            if ((size_t)count > capacity) {
+                message->msg_flags |= MSG_TRUNC;
+            }
+            count = (ssize_t)copied;
+        }
+        free(buffer);
+        return count;
+    }
     if (capacity == 0) {
         return 0;
     }
 
-    struct posix_socket *socket = socket_at(fd);
-    if ((socket != 0 && socket->type == SOCK_DGRAM) || message->msg_name != 0 || (flags & MSG_PEEK) != 0) {
+    if (message->msg_name != 0 || (flags & MSG_PEEK) != 0) {
         uint8_t *buffer = malloc(capacity);
         if (buffer == 0) {
             errno = ENOMEM;
             return -1;
         }
-        struct sockaddr *addr = (struct sockaddr *)message->msg_name;
         socklen_t addrlen = message->msg_namelen;
-        ssize_t count = (socket != 0 && socket->type == SOCK_DGRAM) ?
-            recvfrom(fd, buffer, capacity, flags & ~MSG_CMSG_CLOEXEC, addr, message->msg_name != 0 ? &addrlen : 0) :
-            recv(fd, buffer, capacity, flags & ~MSG_CMSG_CLOEXEC);
+        ssize_t count = recv(fd, buffer, capacity, flags & ~MSG_CMSG_CLOEXEC);
         if (count >= 0) {
             if (message->msg_name != 0) {
                 message->msg_namelen = addrlen;

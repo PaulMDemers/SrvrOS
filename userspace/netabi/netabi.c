@@ -1,4 +1,7 @@
 #include <srvros/sys.h>
+#include <arpa/inet.h>
+#include <sys/socket.h>
+#include <poll.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -115,11 +118,76 @@ static int check_arp_list_truncation(void) {
     return 0;
 }
 
+static int check_udp_datagrams(void) {
+    struct srv_net_status_info status;
+    if (srv_net_status_info(&status) < 0) {
+        return fail("udp-status");
+    }
+    int server = socket(AF_INET, SOCK_DGRAM, 0);
+    int client = socket(AF_INET, SOCK_DGRAM, 0);
+    int result = 1;
+    if (server < 0 || client < 0) {
+        goto done;
+    }
+    struct sockaddr_in address = {.sin_family = AF_INET, .sin_port = htons(7106)};
+    if (bind(server, (struct sockaddr *)&address, sizeof(address)) < 0 ||
+        bind(server, (struct sockaddr *)&address, sizeof(address)) >= 0) {
+        goto done;
+    }
+    address.sin_addr.s_addr = htonl(status.local_ip);
+    for (unsigned kind = 0; kind < 3; kind++) {
+        size_t size = kind == 2 ? 0 : 6;
+        if (sendto(client, "abcdef", size, 0, (struct sockaddr *)&address,
+                sizeof(address)) != (ssize_t)size) {
+            goto done;
+        }
+        char data[3] = {0};
+        struct iovec iov = {data, sizeof(data)};
+        unsigned char peer[3] = {0xa5, 0xa5, 0xa5};
+        struct msghdr msg = {.msg_iov = &iov, .msg_iovlen = kind == 1 ? 0 : 1,
+            .msg_name = peer + 1, .msg_namelen = 1};
+        ssize_t n = recvmsg(server, &msg, 0);
+        if (n != (kind == 0 ? 3 : 0) ||
+            !!(msg.msg_flags & MSG_TRUNC) != (kind != 2) ||
+            (kind == 0 && memcmp(data, "abc", 3) != 0) ||
+            msg.msg_namelen != sizeof(struct sockaddr_in) ||
+            peer[0] != 0xa5 || peer[2] != 0xa5) {
+            goto done;
+        }
+        struct pollfd pfd = {.fd = server, .events = POLLIN};
+        if (poll(&pfd, 1, 0) != 0) {
+            goto done;
+        }
+    }
+    for (unsigned char i = 0; i < 6; i++) {
+        if (sendto(client, &i, 1, 0, (struct sockaddr *)&address, sizeof(address)) != 1) {
+            goto done;
+        }
+    }
+    for (unsigned char i = 2; i < 6; i++) {
+        unsigned char byte;
+        if (recvfrom(server, &byte, 1, 0, NULL, NULL) != 1 || byte != i) {
+            goto done;
+        }
+    }
+    result = 0;
+    printf("netabi: udp truncation/empty/zero/address/queue ok\n");
+done:
+    if (server >= 0) {
+        close(server);
+    }
+    if (client >= 0) {
+        close(client);
+    }
+    return result ? fail("udp-datagrams") : 0;
+}
+
 int main(void) {
     if (srv_net_dhcp() < 0) {
         return fail("dhcp");
     }
-    if (check_status_truncation() != 0 ||
+    if (check_udp_datagrams() != 0 ||
+        check_status_truncation() != 0 ||
         check_net_list_truncation() != 0 ||
         check_arp_list_truncation() != 0) {
         return 1;

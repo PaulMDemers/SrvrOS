@@ -540,3 +540,25 @@ are capped at the 1,400-byte transmit limit, and zero/duplicate SYN offers are
 refused. Outgoing SYN/SYN-ACK advertise MSS 1,400, including retransmissions.
 Payload sends and retries honor the retained limit. Window scaling, timestamps,
 SACK and path-MTU discovery remain unsupported; this is not full TCP conformance.
+
+
+Native UDP endpoints have eight slots, four queued datagrams per endpoint and a
+1,472-byte payload cap (`SRV_NET_UDP_PAYLOAD_MAX`). Queue pressure drops the oldest
+entry; an oversized arrival cannot evict data. Receive consumes exactly one
+entry, including an empty datagram or a receive with zero capacity; a short
+receive discards the remainder. `recvmsg` returns the copied byte count and sets
+output `MSG_TRUNC` when capacity was insufficient. Empty datagrams return zero
+without truncation. Short source-address buffers receive a bounded prefix and
+report the full required `sockaddr_in` length. The bounded temporary allocation
+for `recvmsg` may fail with `ENOMEM` before consuming anything. Input `MSG_TRUNC`
+and UDP `MSG_PEEK` are not implemented.
+
+UDP binding is immutable after explicit or automatic bind; failed bind preserves
+the libc cached port. A send waiting for ARP revalidates its original endpoint
+before emitting a packet, refusing final-close/reuse while allowing a surviving
+native alias. Final close wakes blocked receivers; native held references retain
+queued data through creator cleanup. These checks do not extend pseudo-socket
+fork/dup support or qualify connected-peer filtering, concurrent resolver queries
+or arbitrary SMP teardown. ICMP echo requests and replies require a valid checksum
+and code zero before responding or completing a pending ping. See the
+[datagram audit](datagram-audit-2026-10-28.md) for evidence and remaining scope.

@@ -3866,3 +3866,17 @@ test-core: test-ap-probe
 build/ap-probe/scheduler.o: kernel/src/scheduler.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -DSRVROS_AP_PROBE -c $< -o $@
+
+
+.PHONY: test-net-datagram test-posix-datagram
+test-net-datagram: build/tests/net-datagram-host$(HOST_EXE)
+	@for mode in icmp-checksum icmp-code icmp-reply udp-wire udp-pressure udp-truncate udp-send-reuse udp-close-wait udp-inherited udp-bind; do $< $$mode || exit $$?; done
+build/tests/net-datagram-host$(HOST_EXE): tools/test_net_datagram.c kernel/src/net.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+test-posix-datagram: build/tests/posix-datagram-host$(HOST_EXE)
+	@for mode in truncate zero address empty oom bind-cache; do $< $$mode || exit $$?; done
+build/tests/posix-datagram-host$(HOST_EXE): tools/test_posix_datagram.c userspace/lib/src/posix_socket.c userspace/lib/include/sys/socket.h shared/include/srvros/syscall_numbers.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include $< -Wl,--gc-sections -o $@
+test-core: test-net-datagram test-posix-datagram

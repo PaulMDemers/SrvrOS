@@ -129,8 +129,12 @@ closing timeouts. Main `45b8647a` through PR234 is integrated. Follow-on tracing
 moves through IPv4/TCP packet boundaries: the parser checkpoint expands to 46
 modes, refuses fragments before dispatch, validates TCP option lengths and honors
 negotiated/default MSS with SYN advertisement. Main `6cbfedab` through PR237 is
-integrated. UDP/ICMP receive validation, queue pressure/truncation and endpoint
-lifetimes are next. Broad network conformance remains unqualified.
+integrated. The [UDP/ICMP checkpoint](datagram-audit-2026-10-28.md) adds ten
+kernel and six libc modes: checksum/code admission, immutable bound identity,
+ARP-wait endpoint revalidation, truncation/zero-capacity/address reporting and
+passing queue/ownership controls. Main `2c34a460` through PR238 is integrated.
+Shared ARP/DNS query ownership, connected-UDP peer filtering and libc close/reuse
+are next. Broad network conformance remains unqualified.
 Delivery is [draft PR182](https://github.com/PaulMDemers/SrvrOS/pull/182).
 This checkpoint is separate from the completed event-adapter target.
 

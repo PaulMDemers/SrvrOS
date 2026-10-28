@@ -894,14 +894,25 @@ original-source failures and two passing boundary/unknown-option controls. Main
 `6cbfedab` through PR237 is integrated, including fairness and isolated AP C3
 work. Earlier storage and native-device evidence remains dated separately.
 
+## UDP/ICMP and datagram follow-on (2026-10-28)
+
+The [datagram audit](datagram-audit-2026-10-28.md) adds ten kernel and six libc
+modes, with five and four original-source failures respectively. It corrects
+ICMP echo admission, ARP-wait endpoint reuse, rebinding/cached-port publication,
+recvmsg truncation/zero-capacity consumption and short source-address reporting.
+Existing queue-drop and held-reference cleanup controls pass. Main `2c34a460`
+through PR238 is integrated; storage evidence remains dated separately.
+
 ## Remaining audit queue
 
 1. Actual hot removal/replacement and a future unregister/rebind lifecycle.
    Terminal identity invalidation and CPU0 backend-operation/teardown admission
    now have directed coverage. They do not certify live device recovery or
    arbitrary retained kernel pointers.
-2. UDP/ICMP receive validation, queue pressure/truncation and endpoint lifetimes
-   are the next network audit boundary. IPv4 fragment refusal and TCP options/MSS
+2. Shared ARP/DNS query ownership, connected-UDP peer filtering and libc
+   close/reuse are the next network boundary. UDP/ICMP validation, queue
+   pressure/truncation and native endpoint lifetime now have bounded coverage.
+   IPv4 fragment refusal and TCP options/MSS
    now have directed parser coverage. Peer-window ordering and zero-window recovery
    now have directed packet/timer coverage. Receive allocation refusal, partial ACK and in-order overlap now
    have directed recovery coverage. RST/receive admission and terminal-error/EOF retention now have directed

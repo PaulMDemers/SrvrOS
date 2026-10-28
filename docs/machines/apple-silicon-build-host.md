@@ -1714,3 +1714,29 @@ and current guides. PR19 `7ac6b0e6` remains separate Wi-Fi work; main contains t
 Air7,2 worker changes and Air6,1 C3 evidence. No network-core overlap was found.
 Next checkpoint: original-source failures, bounded fixes and sequential matched
 validation. Keep PR182 draft; no Actions, native install or merge is planned.
+
+
+### UDP/ICMP and datagram result
+
+Main is integrated in `300cbcb7`. Corrected ICMP echo checksum/code admission,
+UDP ARP-wait endpoint reuse and rebinding, failed-bind cached-port publication,
+recvmsg truncation/zero-capacity consumption and short source-address reporting.
+Ten kernel and six libc modes include five and four original-source failures
+against `950a4ee0`; all sixteen pass with x86_64/Rosetta and native ARM64
+ASan/UBSan. Queue/drop, ordinary kernel truncation, blocked close/held-reference
+cleanup and empty/OOM controls retain their behavior. The separate 46-mode TCP
+suite plus TCP accept, network worker/device, process output/lifetime and syscall
+I/O gates pass. Integrated lifecycle-wait, capture and desktop-session checks
+pass with the documented Darwin feature/Clang warning accommodations. See the
+[datagram audit](../datagram-audit-2026-10-28.md).
+
+The matched build, six generator groups and recursive 372-entry/16-directory
+image check pass. Eight sequential disposable VMs pass: tcp-ready 10.88 s, tcp-stress 47.35 s, netabi 9.87 s, libuv 10.18 s, threads 30.22 s, lifetime 23.09 s, web-segmented 18.72 s, outbound-local 10.6 s.
+The guest confirms the new UDP netabi marker; outbound HTTP verifies
+`/datagram-check` and the exact localhost-server body. Logs, original failures,
+source diff and source/artifact hashes are retained in `build/review/datagram/`.
+Documentation links and whitespace checks pass. PR182 remains draft; no Actions,
+native install or merge occurred. PR19 `7ac6b0e6` retains independent Wi-Fi scope.
+Earlier storage/native evidence remains dated separately. Continued tracing
+reaches shared ARP/DNS query ownership and connected-UDP peer filtering/libc
+close-reuse; directed overlap/filter tests are the next bounded checkpoint.

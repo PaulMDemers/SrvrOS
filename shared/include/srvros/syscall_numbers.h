@@ -368,6 +368,7 @@ struct srv_winsize {
 #define SRV_NET_FLAG_RESET 0x80
 
 #define SRV_NET_ABI_VERSION 1
+#define SRV_NET_UDP_PAYLOAD_MAX 1472
 
 struct srv_net_abi_header {
     uint64_t abi_version;

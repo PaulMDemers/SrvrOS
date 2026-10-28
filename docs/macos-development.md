@@ -266,3 +266,24 @@ host/VM results do not add native C3 acceptance. Evidence is retained under
 `build/review/tcp-parser/`, with `/parser-check` for local outbound HTTP. Add
 `python3 tools/web_smoke.py --boot-wait 60` sequentially to the earlier VM commands
 to verify the segmented static response after MSS negotiation changes.
+
+
+For the UDP/ICMP checkpoint, run
+`sh tools/macos/build.sh HOST_CC='python3 build/tooling/darwin-host-cc.py' test-net-datagram test-posix-datagram`.
+These are separate ten-mode kernel and six-mode libc fixtures; the TCP lifetime
+suite remains 46 modes. Both new fixtures also build with native ARM64 `cc`,
+`-ffunction-sections -fdata-sections -Wl,-dead_strip` and
+`-fsanitize=address,undefined -fno-sanitize-recover=all`. The kernel fixture uses
+`-I shared/include -I kernel/include`; the libc fixture uses
+`-I shared/include -idirafter userspace/lib/include` to retain host system headers.
+
+Main `2c34a460` through PR238 is integrated in `300cbcb7`. Its lifecycle/capture
+and desktop-session checks pass with the host compiler wrapper. Add
+`-D_DARWIN_C_SOURCE` to HOST_CC for capture-save's `mkdtemp` declaration; for the
+`build/tests/desktop-session-host` target also add `-Wno-array-bounds` for Clang's
+unused inline-array branch diagnostics in dynamic-registry tests, then execute
+that binary. These are host test compiler accommodations, not guest changes.
+Build matched images and run the earlier eight VM gates sequentially. The guest
+netabi check now prints `netabi: udp truncation/empty/zero/address/queue ok`.
+Evidence is under `build/review/datagram/`; local outbound HTTP uses
+`/datagram-check`. See the [datagram audit](datagram-audit-2026-10-28.md).
