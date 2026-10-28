@@ -1092,4 +1092,22 @@ The outer completion result also fails an unsuccessful wakeup trial. Existing
 30-second phases, ten-second coverage, thermal/fan limits, watchdogs, 24-record
 capacity, 64 KiB tail and filesystem checks are unchanged. Exact-stage VM tests
 exercise unsupported refusal/save/return and missing-workspace safe halt; they
-do not accept native instructions or wakeup latency. Native acceptance is pending.
+do not accept native instructions or wakeup latency. Native results follow below.
+
+
+### Native shallow wakeup result (2026-10-27)
+
+Air6,1 release `8030ae20c2611a09`, source `94c2b9e7` (PR224), session
+`session-00065edb20755615-00`, passes the bounded shallow trial: 32 attempts and
+returns, 9,971 us maximum masked wait, zero faults, advancing timer ticks and
+32 subsequent HLT entries. All three 30-second phases and existing coverage,
+thermal/fan, file-preservation and offline-allocation requirements pass, with
+automatic Ubuntu return. Native configuration snapshots are unchanged.
+
+The maximum is wait duration before IRQ dispatch, not scheduling latency. No
+readiness bypass occurred in this native run; host tests cover that race. The
+trial finishes before retained phase intervals, so package averages of
+4.122/5.167/4.127 W predominantly describe HLT fallback. All ten deeper counters
+remain zero. This accepts shallow interrupt wakeup and fallback only; deeper
+entry, other-core live state, energy savings and permanent idle policy remain
+open. See the [unit result](machines/macbookair6-1.md#shallow-monitormwait-wakeup--bounded-native-acceptance-2026-10-27).
