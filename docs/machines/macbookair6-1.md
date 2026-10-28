@@ -5003,3 +5003,48 @@ and limits remain unchanged. Native coordinated entry and latency are pending;
 valid zero residency is not a C3-entry pass. Keep the accepted AP ownership and
 console recovery installed, retain older evidence outside `build`, and collect
 the matching session before another trial.
+
+### Coordinated C3 — native acceptance (2026-10-28)
+
+Release `57274dfaccfdc0b9`, runtime/harness source `827b01c2` (PR235 merge
+`7bad3681`), completed session `session-00065ee9b6091a84-00` and returned to Ubuntu
+automatically. Independent raw-receipt review confirms all 32 coordinated rounds,
+maximum whole masked round 9,983 us and maximum BSP wait 9,951 us, below the
+unchanged 20,000 us bounds. All 32 HLT fallback receipts are present. Every AP
+reports 32 armed/completed attempts, no early return or fault, unchanged E2
+`0x408`, and terminal retirement. Maximum startup/ownership/retirement intervals
+are 6/2/2 us; all memory remains retained until reset.
+
+Every round records positive core C3 on both physical cores. BSP totals are
+635,343,942 TSC ticks and 633,350,860 core-C3 ticks (99.686% of these short measured
+wait brackets). APIC 1, the BSP's SMT sibling, reports the same core-C3 total;
+APIC 2/3 report 634,388,760 ticks for their shared physical core. These counters
+must not be added as four independent cores. Package C3 is valid zero in all
+32 rounds. This accepts bounded coordinated **core** C3 entry, wakeup, fallback
+and retirement on this unit, not package C3, general SMP scheduling, sustained
+idle policy, energy savings or reclaimability. The original firmware AP state
+before the MP handoff remains unknown.
+
+The original 30-second idle/load/recovery phases completed with 250,520 load
+chunks, valid power/residency/entry coverage and a 58 C peak logged temperature.
+Covered package averages were 4.050/5.130/4.092 W. APs return to C1 between/after
+the short C3 trial; the later phase deltas do not represent sustained C3 policy.
+No power-policy MSR, timing limit or integrity check changed.
+
+All 538 baseline files are preserved except expected `.srvros/meta` bookkeeping;
+four new logs bring the volume to 542 files / 1,595 clusters. Offline fsck and
+allocation checks pass with zero leaks, mismatches or errors. Installed/current
+and protected recovery payload hashes verify. The prior BSP-only C3 EFI copy
+`980f4936c6282637` was removed for space after durable verification; its payload
+and evidence remain outside `build`. Accepted AP ownership, console recovery,
+desktop power, stress and attended reopen payloads remain installed. Return
+collection backed up 463 files with verified hashes before this closeout.
+Ubuntu is default, the one-shot is consumed, collection is disabled and no reboot
+is armed.
+
+Closeout consumes PR236 baseline `732ad5a5` and checks its integrated scheduler
+regressions; that newer runtime was not in this physical release. PR182 filesystem
+(`811c4685`) and PR19 Wi-Fi (`52e47a10`) retain separate scope. Next: a read-only
+audit of package C3 blockers and platform prerequisites, then a separately bounded
+experiment. Keep ordinary startup and all power-policy settings unchanged until
+there is a reviewed next test; core C3 success does not accept deeper package states.
