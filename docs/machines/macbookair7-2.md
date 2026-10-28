@@ -31,6 +31,16 @@ ownership and one-time result consumption, and reject image transfer before a
 validated canvas copy. Positive and exact-stage VM checks remain pending; no
 hardware acceptance is claimed for these changes.
 
+Candidate `d534cec5` passes normal positive KVM audio/I/O workloads for both
+Air7,2 and Air6,1, with full screenshot/app timing/retirement proofs. Air7,2
+completes 23 app cycles, worst loop 119982 us, maximum ready 975600 us and
+close 1211610 us. The 100-write-IOPS fixture remains failed on an active Files
+close deadline; its worst loop is 110246 us. Preserve that failure; the change
+does not claim arbitrary slow-media latency or native endurance acceptance.
+Main `6cbfedab` / PR237 adds Air6,1 coordinated core-C3 acceptance documentation
+only; it is consumed without changing Broadwell admission or this workload.
+Window-command and exact-stage checks precede the automatic native retry.
+
 ### Parity endurance — early native failure under investigation (2026-10-28)
 
 Release `0d1ffb15c35f639a`, source `45b8647a`, returned automatically from
