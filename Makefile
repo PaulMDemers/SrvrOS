@@ -4314,3 +4314,8 @@ build/tests/ap-probe-host$(HOST_EXE): tools/test_ap_probe.c kernel/include/srvro
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -Wall -Wextra -Werror -I kernel/include $< -o $@
 test-core: test-ap-probe
+
+.PHONY: test-wifi-ui-log
+test-core: test-wifi-ui-log
+test-wifi-ui-log:
+	$(PYTHON) -m unittest discover -s tools -p test_wifi_ui_log.py
