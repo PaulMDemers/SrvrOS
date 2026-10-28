@@ -1572,3 +1572,15 @@ dated evidence; no native hardware acceptance, Actions dispatch or PR merge.
 Next bounded question: receive-buffer allocation failure and partial-ACK
 retransmission, including overlap recovery. Full TCP conformance, identifier
 exhaustion and concurrent fork/exec/kill remain outside completed coverage.
+
+## TCP receive allocation and partial ACK — active scope (2026-10-28)
+
+Continue PR182 from `903030ef`, integrating fetched main `7b0cc468` through
+PR233 before implementation. Audit receive-allocation refusal, buffered-data/
+descriptor survival, partial-ACK retransmission and overlap recovery. Touched
+areas: `kernel/src/net.c`, packet/allocator host regressions, Makefile and current
+network/audit guides. PR19 at `52e47a10` has no net/process-core overlap; preserve
+its Wi-Fi and Makefile work. Air7,2's `0cbbb275` adds only separate parity/machine
+evidence beyond main; Air6,1's AP diagnostic work is included in main and its
+next coordinated C3 trial remains separately gated. Next checkpoint is bounded
+reproductions, fixes and matched host/VM validation. No native install or merge.
