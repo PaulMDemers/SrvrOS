@@ -17,6 +17,7 @@ static uint32_t idle_monitor, idle_leaf1_b, idle_leaf5[4];
 static uint64_t idle_config_start;
 static bool idle_auditing, mwait_capture, mwait_passed;
 static bool idle_arat, deep_capture;
+static bool idle_mwait_profile;
 /* Capture-only CPU0 prerequisites. CPUID describes addressable topology,
  * never live AP state. Three fixed leaf-B subleaves include the Haswell
  * terminator; unknown layouts remain raw/unavailable to the collector. */
@@ -50,7 +51,8 @@ static void sample(void) {
     if(snapshot.idle.supported) {
         static const unsigned registers[POWER_IDLE_COUNT]={0x3fc,0x3fd,0x3fe,0x60d,0x3f8,0x3f9,0x3fa,0x630,0x631,0x632};
         struct power_idle_raw idle={.us=raw.us,.tsc_begin=read_msr(0x10)};
-        for(unsigned i=0;i<POWER_IDLE_COUNT;i++) idle.ticks[i]=read_msr(registers[i]);
+        for(unsigned i=0;i<POWER_IDLE_COUNT;i++)
+            if(snapshot.idle.supported&(1u<<i)) idle.ticks[i]=read_msr(registers[i]);
         idle.tsc_end=read_msr(0x10);power_idle_sample(&snapshot.idle,idle);
     }
     if(capturing && (raw.us<capture_last || raw.us-capture_last>=5000000)) {
@@ -80,8 +82,11 @@ void power_init(void) {
     cpuid(0x80000000,&ext,&b,&c,&d);
     if(ext>=0x80000007) {
         cpuid(0x80000007,&a,&b,&c,&ed);
-        if(power_idle_supported(sig,ed)) {
-            snapshot.idle.supported=POWER_IDLE_MASK;idle_max_leaf=max;
+        snapshot.idle.supported=power_idle_supported(sig,ed);
+        if(snapshot.idle.supported) {
+            /* Read-only Broadwell admission does not admit Haswell MWAIT trials. */
+            idle_mwait_profile=snapshot.idle.supported==POWER_IDLE_MASK;
+            idle_max_leaf=max;
             idle_monitor=(fc>>3)&1;
             if(idle_monitor) cpuid(5,&idle_leaf5[0],&idle_leaf5[1],&idle_leaf5[2],&idle_leaf5[3]);
         }
@@ -120,7 +125,7 @@ void power_print_status(void) {
 
 static bool capture_start(bool mwait,bool deep) {
     uint64_t f=lock();
-    if(capturing || snapshot.state!=POWER_ACTIVE || (mwait && !snapshot.idle.supported)) { unlock(f);return false; }
+    if(capturing || snapshot.state!=POWER_ACTIVE || (mwait && (!snapshot.idle.supported || !idle_mwait_profile))) { unlock(f);return false; }
     mwait_passed=false;
     if(snapshot.idle.supported) {
         if(!scheduler_idle_audit_start()) { unlock(f);return false; }

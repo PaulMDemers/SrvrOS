@@ -53,7 +53,7 @@ def main():
     if args.workload_audio and (not args.audio or not args.lifecycle_guide):parser.error('workload audio requires --audio --lifecycle-guide')
     if args.air61 and not args.boot_session:parser.error('Air6,1 requires boot session')
     if args.case.startswith('reopen-') and (not args.boot_session or args.stage):parser.error('reopen deadline cases require unstaged boot session')
-    if args.automatic and (not args.boot_session or not args.air61 or not args.services or args.case not in ('normal','cancel','profile-refusal','reopen-completed','reopen-busy')):parser.error('automatic requires combined Air6,1 boot and startup case')
+    if args.automatic and (not args.boot_session or not args.services or args.case not in ('normal','cancel','profile-refusal','reopen-completed','reopen-busy')):parser.error('automatic requires combined Air boot and startup case')
     if args.supervisor_controls and (not args.boot_session or args.case!='normal' or args.automatic or args.capacity_auto or args.mixed_apps or args.stage):parser.error('supervisor controls requires normal unstaged boot session')
     entry_refusal=args.case in ('missing-workspace','runtime-missing','opt-out','clock-missing')
     if args.audio and not args.services:parser.error('audio requires services')
@@ -77,10 +77,10 @@ def main():
             import hardware_boot as boot
             assert boot.RELEASE_RE.fullmatch(args.stage),'invalid staged release'
             stage=boot.STAGE/args.stage;manifest=boot.verify(stage)
-            assert manifest['config_version'].startswith(('ram-usb-v54-desktop-','ram-usb-v55-desktop-','ram-usb-v70-desktop-','ram-usb-v71-desktop-','ram-usb-v72-desktop-','ram-usb-v73-desktop-','ram-usb-v75-desktop-','ram-usb-v76-desktop-'))
-            assert args.services==manifest['config_version'].startswith(('ram-usb-v55-','ram-usb-v71-','ram-usb-v72-','ram-usb-v73-','ram-usb-v75-','ram-usb-v76-')),'services flag must match staged profile'
+            assert manifest['config_version'].startswith(('ram-usb-v54-desktop-','ram-usb-v55-desktop-','ram-usb-v70-desktop-','ram-usb-v71-desktop-','ram-usb-v72-desktop-','ram-usb-v73-desktop-','ram-usb-v75-desktop-','ram-usb-v76-desktop-','ram-usb-v79-desktop-'))
+            assert args.services==manifest['config_version'].startswith(('ram-usb-v55-','ram-usb-v71-','ram-usb-v72-','ram-usb-v73-','ram-usb-v75-','ram-usb-v76-','ram-usb-v79-')),'services flag must match staged profile'
             assert args.air61==manifest['config_version'].startswith(('ram-usb-v70-','ram-usb-v71-','ram-usb-v72-')),'Air6,1 flag must match staged profile'
-            assert args.automatic==manifest['config_version'].startswith('ram-usb-v72-'),'automatic flag must match stage'
+            assert args.automatic==manifest['config_version'].startswith(('ram-usb-v72-','ram-usb-v79-')),'automatic flag must match stage'
             assert args.navigation_guide==manifest['config_version'].startswith('ram-usb-v76-'),'navigation flag must match stage'
             assert args.lifecycle_guide==manifest['config_version'].startswith('ram-usb-v75-'),'guide flag must match stage'
             assert args.capacity_auto==manifest['config_version'].startswith('ram-usb-v73-'),'capacity flag must match stage'
@@ -106,7 +106,7 @@ def main():
         if args.lifecycle_guide:cmdline += ' srvros.desktop-guide=application-lifecycle'
         if args.capacity_auto:cmdline += ' srvros.desktop-capacity-test=on'
         if args.automatic:cmdline += ' srvros.desktop-reopen-test=on'
-        if args.services:cmdline += ' srvros.laptop-services=brightness srvros.audio=hda srvros.sensors=cpu srvros.smc=read-only' + ('' if args.air61 else ' srvros.usb-network=ecm')
+        if args.services:cmdline += ' srvros.laptop-services=brightness srvros.audio=hda srvros.sensors=cpu srvros.smc=read-only' + ('' if args.air61 or args.automatic else ' srvros.usb-network=ecm')
         if args.case=='missing-workspace':cmdline=cmdline.replace(uuid,'61626364')
         if args.case=='opt-out':cmdline=cmdline.replace(' srvros.battery=on','')
         if stage:

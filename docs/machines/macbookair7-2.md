@@ -1,6 +1,59 @@
 # MacBookAir7,2 / A1466
 
-Updated: 2026-10-27. State: **active reference machine; partial device acceptance**.
+Updated: 2026-10-28. State: **active reference machine; partial device acceptance**.
+
+### Air6,1 parity — local implementation validated; native trial prepared (2026-10-28)
+
+Consumed main `5a94d755` (PR230), then `80b0a8aa` (PR232) during validation.
+Compare shared model support and independently
+recorded acceptance against Air6,1; preserve its active secondary-CPU ownership
+investigation and PR182 filesystem/PR19 Wi-Fi scopes. This block owns Air7,2
+parity documentation, explicit Air7,2 automated desktop reopen/audio-I/O/power
+staging profiles, seven-counter Broadwell read-only telemetry and affected host/VM
+fixtures. The [gap matrix](../air-profile-parity.md) records independent scope. Review Broadwell read-only idle
+counter prerequisites from this unit's inventory before any admission; do not
+copy Haswell MWAIT selectors or firmware permissions. Shared worker/event waits
+are already present in main and need no duplicate implementation.
+
+The initial Air7,2 audio/I/O positive fixture exposed repeated desktop-loop failures
+under both TCG and KVM (570/527 ms versus the unchanged 500 ms limit); PCM,
+verified disk work and cleanup passed. The Air6,1 control fixture passed. Preserve
+both failures. Extend this block narrowly to scheduler attribution around the
+reported lifecycle interval before changing policy or claiming stress parity.
+This does not assign a cause or relax any workload/deadline.
+
+Candidate runtime `37744164` passes Air7,2 positive power, automatic reopen,
+attended audio/unsaved-exit and CPU-refusal VMs. Audio stress passes both TCG
+(26 app cycles, 122 ms worst loop) and KVM (23 cycles, 140 ms), after moving
+launch receipt writes to the existing worker; a stalled-writer host fixture
+checks UI-side progress and retained job ownership. Limits remain unchanged.
+Full core/desktop builds and the window-command VM pass. Clean source `a1ff0b3a`
+was rehearsed through exact native v79/v80/v81/v82 and CPU-load stages: all
+unsupported Q35 ownership paths save, unmount and return safely. Earlier failed
+runs remain separate; none is promoted to a pass.
+
+PR232 adds an isolated AP probe after those checks. The merge preserves its
+Haswell-only native gate, separate kernel and absence of ordinary MP requests.
+Merged host/build checks and a fresh exact CPU-load rehearsal precede physical
+use. Broadwell AP/MWAIT admission remains a separate evidence-backed follow-up.
+The [gap matrix](../air-profile-parity.md) distinguishes these prerequisites from
+already shared desktop/device mechanisms. First native test is automatic CPU0
+idle/load/recovery, not a human input trial or the 30-minute desktop workload.
+Accepted desktop `060fffa453e26d5e` and independent `9aa8dbf6fbda8252` recovery
+are protected outside build. USB preflight is clean (1141 files, 2879 clusters)
+and prior file hashes are saved. No physical acceptance of this candidate is
+claimed. Run/evidence: `build/air-parity-20261028/native-cpu/` and its parent;
+PR231 owns the parity implementation and logging correction.
+
+After PR232 integration, complete core/desktop hosts and normal/native/VM builds
+pass again, including 103 focused profile/collector/AP tests. Documentation
+checks pass (694 links). Fresh CPU candidate `71049508c4a1fbd0`, clean source
+`5bab654b`, passes exact GRUB/native-kernel save/unmount/reset rehearsal. Its
+ordinary ELF has no `ap_probe_request` symbol. No AP or MWAIT profile is installed
+by this trial. Collect its matching native session before another run; the new
+counter mask/audit, desktop power phases and 30-minute workload each need their
+own physical evidence. Local evidence is retained under the parity root, with
+verified copies outside build before the one-shot boot.
 
 ### Shared baseline refresh — local validation complete
 

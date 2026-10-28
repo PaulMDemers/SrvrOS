@@ -275,6 +275,32 @@ class InstallTests(unittest.TestCase):
         self.assertEqual(boot.verify(self.stage/release)['config_version'],version)
         self.assertEqual((self.stage/release/'srvros.elf').read_text(),'acpi-air61-battery/srvros.elf')
 
+    def test_air72_shared_diagnostic_profiles(self):
+        profiles={'desktop_reopen_test':(79,'desktop-reopen-test=on'),
+                  'desktop_audio_io_test':(80,'desktop-audio-io=on'),
+                  'desktop_audio_io_attended':(81,'desktop-audio-io=attended'),
+                  'desktop_power_test':(82,'desktop-power=on')}
+        for name in ('limine-binary/BOOTX64.EFI','acpi-battery/srvros.elf','initramfs.tar'):
+            path=self.root/'build'/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text(name)
+        for flag,(version,token) in profiles.items():
+            base=dict(desktop_volume='37d8c5d0',desktop_battery=True,desktop_services=True,**{flag:True})
+            with self.subTest(flag=flag),patch.object(boot,'ROOT',self.root),patch.object(boot.subprocess,'check_output',side_effect=['test-revision\n','']):
+                release=boot.stage(**base)
+            manifest=boot.verify(self.stage/release)
+            self.assertEqual(manifest['config_version'],f'ram-usb-v{version}-desktop-37d8c5d0')
+            self.assertEqual((self.stage/release/'srvros.elf').read_text(),'acpi-battery/srvros.elf')
+            config=(self.stage/release/'limine.conf').read_text()
+            for wanted in ('desktop=session','battery=on','audio=hda','sensors=cpu','smc=read-only',token):
+                self.assertIn('srvros.'+wanted,config)
+            for unwanted in ('aml=','usb-network=','idle=','desktop-guide='):
+                self.assertNotIn('srvros.'+unwanted,config)
+            self.assertEqual('srvros.power=read-only' in config,flag=='desktop_power_test')
+            for extra in ({'desktop_scale':2},{'repeat':5},{'desktop_services':False},
+                          {'desktop_battery':False},{'desktop_capacity_test':True},
+                          {'desktop_device_checks':True},{'hold_on_failure':True},
+                          *({other:True} for other in profiles if other!=flag)):
+                with self.subTest(flag=flag,extra=extra),self.assertRaises(ValueError):boot.stage(**(base|extra))
+
     def test_air61_desktop_power_profile(self):
         version='ram-usb-v78-desktop-6ada85bb'
         config=boot.limine_config('0123456789abcdef',version)
@@ -282,7 +308,7 @@ class InstallTests(unittest.TestCase):
         self.assertIn('srvros.power=read-only',config)
         self.assertIn('srvros.battery=on',config)
         base=dict(desktop_volume='6ada85bb',desktop_battery=True,battery_air61=True,desktop_services=True,desktop_power_test=True)
-        for extra in ({'battery_air61':False},{'desktop_reopen_test':True},{'desktop_audio_io_test':True},{'desktop_services':False},{'desktop_scale':2},{'desktop_lifecycle_trial':True}):
+        for extra in ({'desktop_reopen_test':True},{'desktop_audio_io_test':True},{'desktop_services':False},{'desktop_scale':2},{'desktop_lifecycle_trial':True}):
             with self.assertRaises(ValueError):boot.stage(**(base|extra))
 
         for name in ('limine-binary/BOOTX64.EFI','acpi-air61-battery/srvros.elf','initramfs.tar'):
@@ -300,7 +326,7 @@ class InstallTests(unittest.TestCase):
         for token in ('aml=','usb-network=','desktop-reopen-test=','desktop-capacity-test='):
             self.assertNotIn('srvros.'+token,cfg)
         base=dict(desktop_volume='6ada85bb',desktop_battery=True,battery_air61=True,desktop_services=True,desktop_audio_io_test=True)
-        for extra in ({'battery_air61':False},{'desktop_reopen_test':True},{'desktop_capacity_test':True},{'desktop_services':False}):
+        for extra in ({'desktop_reopen_test':True},{'desktop_capacity_test':True},{'desktop_services':False}):
             with self.assertRaises(ValueError):boot.stage(**(base|extra))
         for name in ('limine-binary/BOOTX64.EFI','acpi-air61-battery/srvros.elf','initramfs.tar'):
             path=self.root/'build'/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text(name)
@@ -317,7 +343,7 @@ class InstallTests(unittest.TestCase):
         for token in ('aml=','usb-network=','desktop-reopen-test=','desktop-capacity-test='):
             self.assertNotIn('srvros.'+token,cfg)
         base=dict(desktop_volume='6ada85bb',desktop_battery=True,battery_air61=True,desktop_services=True,desktop_audio_io_attended=True)
-        for extra in ({'battery_air61':False},{'desktop_reopen_test':True},{'desktop_audio_io_test':True},{'desktop_capacity_test':True},{'desktop_services':False},{'desktop_scale':2},{'desktop_lifecycle_trial':True},{'desktop_navigation_trial':True}):
+        for extra in ({'desktop_reopen_test':True},{'desktop_audio_io_test':True},{'desktop_capacity_test':True},{'desktop_services':False},{'desktop_scale':2},{'desktop_lifecycle_trial':True},{'desktop_navigation_trial':True}):
             with self.assertRaises(ValueError):boot.stage(**(base|extra))
         for name in ('limine-binary/BOOTX64.EFI','acpi-air61-battery/srvros.elf','initramfs.tar'):
             path=self.root/'build'/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text(name)

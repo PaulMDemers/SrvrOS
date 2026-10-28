@@ -1,7 +1,8 @@
 # Per-machine development records
 
 Follow the [coordination guide](../agent-coordination.md) for shared ownership,
-PR integration and handoff checkpoints.
+PR integration and handoff checkpoints. The [Air profile parity review](../air-profile-parity.md)
+compares Air7,2/Air6,1 source support and independent acceptance.
 
 One agent develops locally on each Ubuntu machine. Start with the
 [Ubuntu device-agent guide](../ubuntu-device-agent-setup.md), then update the

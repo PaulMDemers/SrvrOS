@@ -12,7 +12,9 @@ static void idle_tests(void) {
     assert(power_idle_supported(0x40651,256));
     assert(!power_idle_supported(0x40651,0));
     assert(!power_idle_supported(0x40661,256));
-    assert(!power_idle_supported(0x306d4,256));
+    assert(power_idle_supported(0x306d4,256)==POWER_IDLE_BROADWELL_MASK);
+    assert(!power_idle_supported(0x306d4,0));
+    assert(!power_idle_supported(0x1306d4,256));
     struct power_idle_snapshot i={.supported=POWER_IDLE_MASK};
     struct power_idle_raw a={.us=1000000,.tsc_begin=1000000000,.tsc_end=1000000100};
     struct power_idle_raw b={.us=2000000,.tsc_begin=3000000000,.tsc_end=3000000100};
@@ -52,6 +54,13 @@ static void idle_tests(void) {
         .ticks={37970823600,22918507260,5527463343720,1125724361500,3986731600720,0,0,0,0,0}};
     i=(struct power_idle_snapshot){.supported=1023,.raw=a};power_idle_sample(&i,b);
     assert(i.valid==1023 && !i.rejected && i.basis_points[2]==5389 && i.basis_points[4]==1330);
+
+    /* Broadwell omits C8-C10 rather than reporting fabricated valid zeroes. */
+    a=(struct power_idle_raw){.us=1000000,.tsc_begin=1000000000,.tsc_end=1000000001};
+    b=(struct power_idle_raw){.us=2000000,.tsc_begin=3000000000,.tsc_end=3000000001,.ticks={200000000}};
+    i=(struct power_idle_snapshot){.supported=POWER_IDLE_BROADWELL_MASK,.raw=a};
+    power_idle_sample(&i,b);assert(i.valid==127 && i.basis_points[0]==999 && !i.basis_points[7]);
+    i=(struct power_idle_snapshot){.supported=7,.raw=a};power_idle_sample(&i,b);assert(!i.valid);
 
 }
 int main(void) {

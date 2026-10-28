@@ -43,6 +43,10 @@ static struct desk_clipboard_store clipboard;
 #define DESK_INPUT_BATCH 8
 
 static void loop_trace_report(const struct loop_trace *,unsigned);
+static void life_launch_log(int application,int64_t pid,uint64_t elapsed) {
+    desk_log("desktop-launch: app=%d pid=%lld exec_us=%llu async=yes\n",
+        application,(long long)pid,(unsigned long long)elapsed);
+}
 #include "operation_trace.h"
 #include "lifecycle_worker.h"
 struct pixel_cache { uint32_t *pixels,width,height; struct life_memory *job; };
@@ -655,7 +659,6 @@ static void lifecycle_poll(struct session *s) {
             *session_children(s,j->child_slot)=(uint64_t)j->pid;
             *session_child_apps(s,j->child_slot)=j->application;s->last_launch_pid=j->pid;s->scene.notice[0]=0;
         } else launch_failed(s,j->application,j->pid);
-        desk_log("desktop-launch: app=%d pid=%lld exec_us=%llu async=yes\n",j->application,(long long)j->pid,(unsigned long long)j->elapsed);
         life_publish(&j->state,LIFE_IDLE);
     }
 }
@@ -1988,8 +1991,21 @@ int main(int argc,char **argv) {
             if (r==1) incoming(&s,pid,&p);
         }
         loop_trace_stamp(&loop_trace,LOOP_LIFECYCLE);
+        struct srv_sched_trace lifecycle_trace={0};
+        int lifecycle_traced=audio_io && !srv_sched_trace(SRV_SCHED_TRACE_BEGIN,&lifecycle_trace);
         lifecycle_poll(&s);
         lifecycle_deliver(&s);
+        if(lifecycle_traced && !srv_sched_trace(SRV_SCHED_TRACE_END,&lifecycle_trace) &&
+           lifecycle_trace.end_us-lifecycle_trace.start_us>100000) {
+            char trace[768];
+            int n=snprintf(trace,sizeof(trace),"desktop-lifecycle-sched: start_us=%llu end_us=%llu blocked_us=%llu ready_us=%llu blocks=%llu dispatches=%llu exclusions=%llu invalid=%llu max_ready_us=%llu reason=%llu\n",
+                (unsigned long long)lifecycle_trace.start_us,(unsigned long long)lifecycle_trace.end_us,
+                (unsigned long long)lifecycle_trace.blocked_us,(unsigned long long)lifecycle_trace.ready_us,
+                (unsigned long long)lifecycle_trace.blocks,(unsigned long long)lifecycle_trace.dispatches,
+                (unsigned long long)lifecycle_trace.exclusions,(unsigned long long)lifecycle_trace.invalid,
+                (unsigned long long)lifecycle_trace.max_ready_us,(unsigned long long)lifecycle_trace.reason);
+            if(n>0 && (unsigned)n<sizeof(trace))srv_puts(trace);
+        }
         loop_trace_stamp(&loop_trace,LOOP_SERVICE);
         service(&s);
         loop_trace_stamp(&loop_trace,LOOP_TRIAL);

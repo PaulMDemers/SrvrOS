@@ -848,7 +848,9 @@ ownership validation and test limits are unchanged. See the
 Explicit `srvros.power=read-only` now also samples hardware idle counters on
 captured native GenuineIntel family 6 model 45, with invariant TSC indicated by
 CPUID.80000007:EDX[8]. All existing power feature/hypervisor gates apply first.
-Other admitted power profiles keep their original reads and report no residency.
+The later [Air profile parity work](air-profile-parity.md#broadwell-read-only-counter-contract)
+adds a separate seven-counter Broadwell profile; other admitted power profiles
+keep their original reads and report no residency.
 This adds no policy writes, provider activation or sampling wakeups. CPU policy,
 HLT/MWAIT selection, fan control, thermal stops and battery watchdogs are unchanged.
 
