@@ -169,11 +169,11 @@ def main():
     wifi_calibration=bool(probe and "srvros.capture=wifi-calibration" in (source/"limine.conf").read_text())
     wifi_capture=wifi_firmware or wifi_calibration or bool(probe and manifest["config_version"].startswith("ram-usb-v39-"))
     ap_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v1-ap-owner-"))
-    coord_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v1-ap-c3-","ram-usb-v1-ap-package-")))
+    coord_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v1-ap-c3-","ram-usb-v1-ap-package-","ram-usb-v1-ap-platform-")))
     if args.ap_c3_sim and not coord_capture: parser.error("C3 simulation requires coordinated diagnostic stage")
     if args.ap_inject and not (ap_capture or (coord_capture and args.ap_c3_sim)): parser.error("AP injection requires AP diagnostic/simulation")
     if args.ap_inject and args.ap_inject.startswith("c3-") and not args.ap_c3_sim: parser.error("C3 injections require simulation")
-    cpu_load_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v35-","ram-usb-v1-mwait-","ram-usb-v1-ap-c3-","ram-usb-v1-ap-package-")))
+    cpu_load_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v35-","ram-usb-v1-mwait-","ram-usb-v1-ap-c3-","ram-usb-v1-ap-package-","ram-usb-v1-ap-platform-")))
     idle_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v23-"))
     posix_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v1-posix-"))
     storage_wait_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v1-storage-wait-"))
@@ -481,18 +481,21 @@ def main():
                         assert power["power_state"]==1 and power["samples"]==0 and power["flags"]==0
                         from hardware_cpu_load import load_result
                         assert load_result(exit_log)["completed"] is False
-                        if manifest["config_version"].startswith(("ram-usb-v1-mwait-","ram-usb-v1-ap-c3-","ram-usb-v1-ap-package-")):
+                        if manifest["config_version"].startswith(("ram-usb-v1-mwait-","ram-usb-v1-ap-c3-","ram-usb-v1-ap-package-","ram-usb-v1-ap-platform-")):
                             from hardware_cpu_load import mwait_result
                             assert mwait_result(exit_log)=={'status':'refused','fallback':'hlt'}
-                            assert ('srvros.idle=mwait-c3-test' if manifest['config_version'].startswith(('ram-usb-v1-mwait-c3-','ram-usb-v1-ap-c3-','ram-usb-v1-ap-package-')) else 'srvros.idle=mwait-wakeup-test') in exit_log
+                            assert ('srvros.idle=mwait-c3-test' if manifest['config_version'].startswith(('ram-usb-v1-mwait-c3-','ram-usb-v1-ap-c3-','ram-usb-v1-ap-package-','ram-usb-v1-ap-platform-')) else 'srvros.idle=mwait-wakeup-test') in exit_log
                     if coord_capture:
                         from hardware_ap_c3 import ap_c3_result
                         result=ap_c3_result(exit_log)
                         if args.ap_c3_sim and args.ap_cpus==4 and not args.ap_inject:
                             assert result and result['mode']=='vm-simulation'
-                            if manifest['config_version'].startswith('ram-usb-v1-ap-package-'):
+                            if manifest['config_version'].startswith(('ram-usb-v1-ap-package-','ram-usb-v1-ap-platform-')):
                                 assert 'ap-package: v=1 unavailable=vm policy_writes=0' in exit_log
                                 assert 'ap-package-round:' not in exit_log and 'ap-package-pci:' not in exit_log
+                            if manifest['config_version'].startswith('ram-usb-v1-ap-platform-'):
+                                assert 'ap-platform: v=1 unavailable=vm policy_writes=0' in exit_log
+                                assert 'ap-platform-ltr:' not in exit_log and 'ap-platform-gfx:' not in exit_log
                         elif args.ap_c3_sim and args.ap_cpus==4:
                             assert result is None
                             if args.ap_inject.startswith('c3-'):

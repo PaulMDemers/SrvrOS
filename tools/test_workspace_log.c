@@ -83,7 +83,9 @@ int main(void) {
     unsigned before=writes;open_file=true;assert(!save("session-a.log") && writes==before);open_file=false;
     corrupt=true;before=flushes;assert(!save("session-a.log") && flushes==before);assert(!previous_save.ok && previous_save.sync==0 && !tracing);corrupt=false;
     sync_ok=false;assert(!save("session-b.log"));assert(!previous_save.ok && previous_save.sync==50 && !tracing);sync_ok=true;
-    power_enabled=false;assert(save("session-a.log") && !previous_save.pending && !tracing);power_enabled=true;
+    power_enabled=false;assert(save("session-a.log") && previous_save.pending && previous_save.valid && !tracing);
+    assert(previous_save.write==100 && previous_save.verify==30 && previous_save.sync==50);
+    assert(previous_save.end-previous_save.start==180);power_enabled=true;
     reference=false;assert(save("session-b.log") && !previous_save.pending && !tracing);reference=true;
     assert(workspace_log_stop());mounted=false;assert(!workspace_log_stop());
     busy=true;enabled=true;unsigned saved=writes;

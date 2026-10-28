@@ -5096,3 +5096,139 @@ AC and USB connected. Native audit acceptance remains pending. Preserve console
 recovery and accepted coordinated-C3 payload `57274dfaccfdc0b9`; retire only the
 older standalone AP-ownership EFI copy after verifying its durable backup to
 make space. Its evidence and payload remain available outside `build`.
+
+### Package C3 audit — native result (2026-10-28)
+
+Release `bae0678ed7e9b38b`, source `c5818be5` (PR239 merge `ec7bad42`), completed
+`session-00065eea9a060051-00` and returned automatically. Independent raw-receipt
+review confirms 32 successful coordinated rounds, maximum whole round 9,982 us,
+maximum BSP wait 9,951 us and 32 HLT fallbacks under unchanged 20,000 us bounds.
+Both physical cores report positive C3 in every round. All three APs retire to
+terminal state 2 without faults; startup/ownership/retirement maxima are 6/2/1 us.
+
+Package C2 is positive in every round: 632,453,980 counter ticks over 635,361,332
+TSC ticks, about 99.542% of the added short brackets. Package C3 remains valid
+zero. The C2 bracket encloses the narrower BSP core/C3 bracket; its ratio is not
+whole-session residency or an energy-saving claim. This accepts the read-only
+audit and bounded package-C2 observation, while package C3 remains unresolved.
+
+Paired C3 interrupt-response-limit snapshots remain `0x8842`, valid 67,584 ns.
+All 25 conventional PCI snapshots are complete and unchanged between 2,072,215
+and 92,121,507 us. Graphics `8086:0a26` is D0, but PCI D0 does not reveal graphics
+RC6. Root port `00:1c.4` and the `8086:1547` bridge/device path report ASPM disabled
+although their captured Link Capabilities advertise support. Other links have
+L1 or L0s/L1 enabled. These are candidates for further read-only investigation,
+not proof of a causal blocker or authorization to enable ASPM. Actual device
+LTR values, graphics idle requests and platform permission remain unknown.
+The firmware package limit remains permissive and unchanged (`0x408`).
+
+The original 30-second idle/load/recovery phases complete with 250,523 load
+chunks; covered package averages are 3.977/5.096/4.026 W and the logged temperature
+peaks at 56 C. APs return to C1 outside the short coordinated test, so the later
+phase measurements do not represent sustained C3 policy. No policy register,
+integrity check, watchdog, timing bound or ordinary-startup behavior changed.
+
+All 542 baseline files are preserved except expected `.srvros/meta` bookkeeping;
+four new logs bring the volume to 546 files / 1,600 clusters. Offline fsck and
+allocation checks pass with no leaks, mismatches or errors. The unchanged
+65,536-byte exit tail retains all final proofs, with the original configuration
+banner in same-session periodic logs. The 468-file automatic return backup was
+hash-verified outside `build`. Current/console/accepted coordinated-C3 and other
+protected payloads verify; the older standalone AP EFI copy was retired only
+after verifying its durable payload. Ubuntu remains default, the one-shot is
+consumed, collection is disabled and no reboot is armed.
+
+Closeout consumes PR240 main `2e3ba64b` and checks its document-timing regression;
+that newer runtime was not in this physical image. PR182 filesystem and PR19
+Wi-Fi retain separate scope. Next: audit documented graphics/platform idle
+permission and device-latency reporting with read-only diagnostics where safe.
+Do not change power policy or declare a specific package-C3 blocker from these
+PCI snapshots alone.
+
+### Graphics/platform latency audit — active scope (2026-10-28)
+
+Base `ac259fcb`, same local device branch. Extend the isolated package diagnostic
+with documented read-only graphics/platform and device-latency observations.
+First audit access semantics: do not force-wake graphics, enable decoding, alter
+ASPM/LTR, acknowledge status or read undocumented power-gated MMIO merely to
+produce a value. Explicitly report unavailable evidence where safe reads cannot
+be established. Keep ordinary startup, 32 attempts, 20 ms bounds, HLT fallback,
+firmware policy and integrity checks unchanged. Scope: diagnostic-only access,
+bounded capability decoding, strict receipt/parser and host/VM regressions.
+PR182 filesystem and PR19 Wi-Fi remain independent; no overlapping edits planned.
+Next checkpoint: reviewed register/access contract and matched automated native
+candidate, with the accepted package audit and console recovery preserved.
+
+The access audit selects only Haswell uncore graphics status/RC6 residency and
+ECAM-backed standard LTR capability values. RC_CONTROL/forcewake and PCODE remain
+untouched; no validated direct platform grant register has been established, so
+that signal is explicitly unavailable. E2 policy evidence stays distinct from a
+grant. Shared PCI changes add a read-only extended API with no legacy fallback;
+no existing write path or device power configuration changes. Host tests cover
+ECAM refusal and full offsets, bounded malformed/overlapping LTR chains, graphics
+BAR gates, counter-wrap/interval decoding and strict native receipt matching.
+
+Candidate `a3ac64f7cd15293c` uses source `8e0f5bf6` (PR242). Matched ordinary and
+diagnostic build, full core suite and focused host/parser tests pass. All nine
+platform-profile VM cases pass, including requested peer failures, CPU-count
+refusals, exact native refusal/save/return and missing workspace. Legacy AP-owner,
+coordinated-C3 and package-only simulations pass without platform reads. Ordinary
+kernel isolation, diagnostic disassembly and a maximum-width 25-device receipt
+replay pass; no log or test limit changed. The physical USB preflight preserves
+546 files / 1,600 clusters with zero allocation errors or leaks.
+
+The next unattended run captures graphics/latency snapshots around the existing
+32 coordinated attempts and 30-second idle/load/recovery phases, saves receipts
+and returns to Ubuntu for automatic collection. No human input is required;
+keep AC and USB connected. Graphics/platform diagnostic acceptance is pending.
+Preserve accepted package-audit `bae0678ed7e9b38b` and console recovery. To make
+EFI space, retire only the older coordinated-only `57274dfaccfdc0b9` installed
+copy after verifying its durable payload; its native evidence remains retained.
+
+### Graphics/platform audit — failed diagnostic return (2026-10-28)
+
+Release `a3ac64f7cd15293c`, source `8e0f5bf6` (PR242 merge `b101e8eb`), saved
+`session-00065eeb02087de2-00` and returned to Ubuntu. The platform audit explicitly
+reports `fault=1 completed=NO`; the enclosing capture also reports failure.
+Do not promote this image or treat automatic return as platform acceptance.
+
+All 32 coordinated attempts finish within the unchanged 20 ms limit (maximum
+9,982 us), with 32 HLT fallbacks and clean AP retirement. The first short round
+lasts 23 us with zero deeper residency; the other 31 observe core C3 on both
+physical cores and package C2. Package C3 remains zero. The three workload phase
+completion receipts are present, but overall process/capture success is false
+because of the platform audit failure.
+
+Graphics status is `0x11800303` in both snapshots (RC6 state encoding). RC6 raw
+count advances from 13,525,192 to 83,959,518. At the documented nominal 1.28 us
+unit, this is 90.155937280 s versus a 90.058543 s snapshot timestamp interval.
+That 0.108% mismatch independently violates the current parser's cross-clock
+bound; do not clamp it to 100%, declare a calibrated residency ratio, or raise
+the bound without investigating the counter/timebase and sampling semantics.
+The raw counter/state observations do not identify a package-C3 blocker.
+
+Four Intel root ports (`00:1c.1`, `.2`, `.4`, `.5`) are rejected after the first
+extended header in both snapshots. Read-only Ubuntu inspection shows header
+`0x20000000` at offset `0x100`: zero ID/version, next offset `0x200`. The walker
+incorrectly rejects every zero ID/version. PCI-SIG defines ID zero as a valid
+header-only Null Extended Capability, allows repeated instances, and assigns no
+meaning to its version field. This is consistent with the native rejection;
+the original native receipt did not record the rejected raw header. Correct
+Null traversal with retained range/alignment/cycle/overlap bounds and a captured
+fixture, rather than treating all malformed headers as acceptable.
+
+The two Broadcom endpoints report stable LTR capability raw `0x10031003`, which
+decodes to 3.145728 ms maximum snoop and no-snoop values. These are configured
+capability values, not proof of a currently asserted latency request. Direct
+platform permission remains unavailable; firmware E2/IRTL stay unchanged.
+
+All 546 baseline files are preserved except expected `.srvros/meta` bookkeeping;
+four new logs bring the volume to 550 files / 1,605 clusters. Offline fsck and
+allocation checks pass with no leaks, mismatches or errors. The 446-file return
+backup is verified outside `build`, and installed/protected payloads verify.
+Ubuntu remains default, collection is disabled, one-shot consumed and no reboot
+armed. The accepted package audit remains `bae0678ed7e9b38b`; current platform
+candidate is failed. Closeout consumes PR243 main `4ae360ef`; that newer runtime
+was not tested in this physical image. Next: fix/test Null capability handling,
+investigate the RC6 timebase discrepancy, and repeat this same bounded audit
+without changing power policy or existing limits.

@@ -4112,6 +4112,14 @@ build/tests/mt76-calibration-host$(HOST_EXE): tools/test_mt76_calibration.c kern
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_calibration.c -o $@
 
 .PHONY: test-window-set
+test-desktop: test-tool-timing
+.PHONY: test-tool-timing
+test-tool-timing: build/tests/tool-timing-host$(HOST_EXE)
+	$<
+build/tests/tool-timing-host$(HOST_EXE): tools/test_tool_timing.c userspace/desktools/timing.h userspace/lib/include/srvros/desk_log.h shared/include/srvros/scheduler_abi.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include $< -o $@
+
 test-desktop: test-window-set
 test-window-set: build/tests/window-set-host$(HOST_EXE)
 	$<
@@ -4287,7 +4295,7 @@ build/tests/wifi-syscall-host$(HOST_EXE): tools/test_wifi_syscall.c kernel/src/a
 
 # MP request exists only in this explicit diagnostic ELF. Ordinary objects and
 # boot requests are never overwritten. AP code has no C runtime dependencies.
-AP_PROBE_OBJ := build/ap-probe/package.o build/ap-probe/scheduler.o build/ap-probe/main.o build/ap-probe/requests.o build/ap-probe/probe.o build/ap-probe/entry.o
+AP_PROBE_OBJ := build/ap-probe/platform.o build/ap-probe/package.o build/ap-probe/scheduler.o build/ap-probe/main.o build/ap-probe/requests.o build/ap-probe/probe.o build/ap-probe/entry.o
 AP_PROBE_BASE := $(filter-out build/kernel/src/main.c.o build/kernel/src/limine_requests.c.o build/kernel/src/scheduler.c.o,$(KERNEL_OBJ))
 .PHONY: ap-probe-kernel
 ap-probe-kernel: build/ap-probe/srvros.elf
@@ -4332,7 +4340,12 @@ build/ap-probe/package.o: kernel/diagnostics/package_audit_core.c $(ZIG) $(KERNE
 test-package-audit: build/tests/package-audit$(HOST_EXE)
 	$<
 	$(PYTHON) -m unittest discover -s tools -p test_hardware_package.py
+	$(PYTHON) -m unittest discover -s tools -p test_hardware_platform.py
 build/tests/package-audit$(HOST_EXE): tools/test_package_audit.c kernel/diagnostics/package_audit_core.c kernel/include/srvros/package_audit.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -Wall -Wextra -Werror -I kernel/include tools/test_package_audit.c kernel/diagnostics/package_audit_core.c -o $@
 test-core: test-package-audit
+
+build/ap-probe/platform.o: kernel/diagnostics/platform_audit.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -c $< -o $@
