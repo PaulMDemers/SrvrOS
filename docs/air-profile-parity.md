@@ -1,6 +1,7 @@
 # MacBook Air profile parity
 
-Reviewed October 28, 2026 against main `5a94d755` and its merged Air6,1 work.
+Reviewed October 28, 2026 against main `5a94d755`, then integrated PR232
+(`80b0a8aa`) while retaining the distinct AP diagnostic gate.
 The [Air7,2 record](machines/macbookair7-2.md) and
 [Air6,1 record](machines/macbookair6-1.md) own independent native acceptance.
 This compares source support and test coverage; firmware, USB volume identities,
@@ -16,7 +17,7 @@ CPU selectors and physical results are not interchangeable.
 | Desktop power phases | v78 idle/apps/recovery; worker-wakeup receipts and native measurements | New v82 uses the Air7,2 backend with the same phases, read-only power and normal return. No inferred energy saving. |
 | Idle residency and capture prerequisites | Ten counters; HLT entry, E2/APIC/misc and topology audit | Captured Broadwell support adds seven counters and the shared audit. C8/C9/C10 remain unavailable, not valid zeros. Native diagnostic remains a separate gate. |
 | Explicit MWAIT experiments | Bounded shallow and C3-hint execution accepted; zero observed C3 residency | Broadwell MWAIT remains refused until its own prerequisites/selector review and bounded trial. Read-only counter admission does not enable instructions or copy Haswell policy. Ordinary idle remains HLT. |
-| Secondary CPU ownership | Investigation/design only; AP rendezvous is the next proposed milestone | No implemented AP/SMP capability to copy. Preserve the Air6,1 scope; do not add a Limine MP request to ordinary boot. |
+| Secondary CPU ownership | PR232 adds a separate bounded AP rendezvous payload; native acceptance remains pending | Shared diagnostic is integrated, with its native Haswell-only admission intact. Broadwell needs independent identity/MONITOR/APIC prerequisites and a separate native trial after CPU0 capture. Ordinary boot has no MP request; general SMP scheduling remains absent. |
 | Network/other devices | No accepted Ethernet/Wi-Fi on that unit | Air7,2 already has matched USB ECM acceptance. No parity gap justifies broadening adapter or firmware gates. Suspend/resume, internal Wi-Fi, Bluetooth and camera remain separate. |
 
 ## Explicit desktop profiles
