@@ -26,6 +26,20 @@ and makes no claim to fix every lifecycle delay. Add scheduler attribution aroun
 final pool drain. PR182 process/VFS and PR19 Wi-Fi remain independent; PR242
 Air6,1 graphics/latency audit is isolated. Main `ac259fcb` / PR241 docs consumed.
 
+Final-drain implementation `94c85456` passes full core/desktop hosts and matched
+ordinary build. The focused fixture checks 32 deferred NOHANG attempts, EOF on
+both channels before blocking, error/interruption PID retention and partial reap
+without double collection. The first Air7,2 KVM attempt completes 22 cycles and
+its screenshot but fails a 538224 us final exit loop (trial stage 536190 us).
+Retain that failure; no exit-stage fix is claimed. An identical clean repeat
+passes 23 cycles, maximum loop 119954 us, ready 1058614 us and close 1346273 us,
+zero observed PCM underruns and complete file/screenshot/retirement receipts.
+The throttled100-write-IOPS fixture still fails cycle1 lifecycle, with UI102344us
+and Files final drain961197us (941002us blocked,19536us ready). Air6,1 control
+passes complete file/screenshot/lifecycle/retirement evidence against94c85456
+with only this unit Markdown changed. No universal latency or endurance fix is
+claimed. Exact staging and native integrity checks precede the next candidate.
+
 ### Third endurance return and attribution scope (2026-10-28)
 
 Release `5f4ed45c3634e22a`, clean `99e4412d` (PR238 runtime), returned
