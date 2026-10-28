@@ -24,6 +24,7 @@ void scheduler_wake_all(struct scheduler_wait_queue *q) {
     if(q==&write_wait_queue)write_wakes++;
 }
 void process_file_poll_wake(void) {}
+void console_printf(const char *fmt,...) { (void)fmt; }
 void kfree(void *p) { free(p); }
 void *kmalloc(size_t n) { return fail_alloc?NULL:malloc(n); }
 struct process *process_current(void) { return caller; }
@@ -411,7 +412,11 @@ static void partial_fin(void) {
 static void partial_window(void) {
     struct tcp_connection *c=connected();uint32_t seq=c->local_seq;
     char data[TCP_SEGMENT_PAYLOAD_MAX];memset(data,'x',sizeof(data));
-    for(unsigned i=0;i<4;i++) assert(net_respond(handle(c),data,sizeof(data),true)==sizeof(data));
+    unsigned sent=0;
+    while(sent<TCP_TX_WINDOW_BYTES) {
+        unsigned n=TCP_TX_WINDOW_BYTES-sent;if(n>sizeof(data))n=sizeof(data);
+        int64_t wrote=net_respond(handle(c),data,n,true);assert(wrote>0);sent+=(unsigned)wrote;
+    }
     assert(!net_shutdown(handle(c),1) && c->fin_pending);
     incoming(c,c->remote_next,seq+1,TCP_ACK,65535,NULL);
     assert(!c->fin_pending && c->state==TCP_STATE_FIN_WAIT_1);
@@ -568,6 +573,154 @@ static void persist_close(void) {
     assert(c->state==TCP_STATE_CLOSED && net_error(handle(c))==SRV_NETERR_TIMEDOUT);
 }
 
+
+static uint16_t wire_packet(uint8_t *frame,struct tcp_connection *c,uint32_t seq,uint32_t ack,
+    uint8_t flags,uint16_t fragments,const uint8_t *options,unsigned option_size,const char *data,unsigned ip_extra) {
+    assert(option_size<=40 && !(option_size%4) && (ip_extra==0 || ip_extra==4));
+    size_t n=data?strlen(data):0;assert(n<=64);memset(frame,0,256);
+    memcpy(frame,local_mac,6);frame[6]=2;frame[11]=2;write_be16(frame+12,ETH_TYPE_IPV4);
+    uint8_t *ip=frame+14,*tcp=ip+20+ip_extra;unsigned h=20+option_size;
+    ip[0]=(uint8_t)(0x45+ip_extra/4);ip[8]=64;ip[9]=IP_PROTO_TCP;
+    write_be16(ip+2,20+ip_extra+h+n);write_be16(ip+6,fragments);
+    write_be32(ip+12,c->remote_ip);write_be32(ip+16,local_ip);
+    write_be16(tcp,c->remote_port);write_be16(tcp+2,c->local_port);
+    write_be32(tcp+4,seq);write_be32(tcp+8,ack);tcp[12]=(uint8_t)((h/4)<<4);tcp[13]=flags;
+    write_be16(tcp+14,65535);if(option_size)memcpy(tcp+20,options,option_size);
+    if(n)memcpy(tcp+h,data,n);
+    write_be16(tcp+16,tcp_checksum(c->remote_ip,local_ip,tcp,h+n));
+    write_be16(ip+10,checksum_bytes(ip,20+ip_extra,0));return 14+20+ip_extra+h+n;
+}
+static void wire_incoming(struct tcp_connection *c,uint32_t seq,uint32_t ack,uint8_t flags,
+    uint16_t fragments,const uint8_t *options,unsigned option_size,const char *data) {
+    uint8_t frame[256];uint16_t n=wire_packet(frame,c,seq,ack,flags,fragments,options,option_size,data,0);
+    handle_ipv4(frame,n);
+}
+static void ipv4_fragments(void) {
+    const uint16_t bad[]={0x2000,1,0x2001,0x8000,0x6000,0x1fff};
+    for(unsigned i=0;i<sizeof(bad)/sizeof(*bad);i++) {
+        struct tcp_connection *c=connected();uint32_t seq=c->remote_next;
+        assert(net_respond(handle(c),"x",1,true)==1);unsigned before=frames;
+        wire_incoming(c,seq,c->local_seq,TCP_ACK|TCP_FIN,bad[i],NULL,0,"bad");
+        assert(!c->rx_length && !c->peer_closed && c->remote_next==seq && frames==before);
+        assert(tcp_tx_outstanding_bytes(c)==1);
+        wire_incoming(c,seq,c->local_seq,TCP_RST,bad[i],NULL,0,NULL);assert(!c->reset);
+        wire_incoming(c,seq,c->local_seq,TCP_ACK,0x4000,NULL,0,"ok");
+        assert(c->rx_length==2 && !tcp_tx_outstanding_bytes(c));
+    }
+}
+static void fragment_protocols(void) {
+    for(unsigned protocol=1;protocol<=17;protocol+=16) {
+        struct tcp_connection *c=connected();uint8_t frame[256];
+        (void)wire_packet(frame,c,c->remote_next,c->local_seq,TCP_ACK,0x2000,NULL,0,NULL,0);
+        uint8_t *ip=frame+14,*payload=ip+20;ip[9]=(uint8_t)protocol;
+        write_be16(ip+2,32);memset(payload,0,12);
+        if(protocol==17) { write_be16(payload,40000);write_be16(payload+2,5000);write_be16(payload+4,12); }
+        else { payload[0]=8;write_be16(payload+2,checksum_bytes(payload,12,0)); }
+        write_be16(ip+10,0);write_be16(ip+10,checksum_bytes(ip,20,0));
+        uint64_t before=protocol==17?udp_packets:icmp_packets;
+        handle_ipv4(frame,46);assert((protocol==17?udp_packets:icmp_packets)==before && !frames);
+        write_be16(ip+6,0x4000);write_be16(ip+10,0);write_be16(ip+10,checksum_bytes(ip,20,0));
+        handle_ipv4(frame,46);assert((protocol==17?udp_packets:icmp_packets)==before+1);
+    }
+}
+static void packet_bounds(void) {
+    for(unsigned extra=0;extra<=4;extra+=4) {
+        struct tcp_connection *c=connected();uint8_t frame[256];
+        uint16_t n=wire_packet(frame,c,c->remote_next,c->local_seq,TCP_ACK,0,NULL,0,"abc",extra);
+        for(unsigned len=0;len<n;len++) {
+            uint8_t *short_frame=malloc(len?len:1);assert(short_frame);memcpy(short_frame,frame,len);
+            handle_ipv4(short_frame,len);free(short_frame);assert(!c->rx_length && !frames);
+        }
+        frame[24]^=1;handle_ipv4(frame,n);assert(!c->rx_length);frame[24]^=1;
+        frame[n-1]^=1;handle_ipv4(frame,n);assert(!c->rx_length);frame[n-1]^=1;
+        uint8_t *tcp=frame+34+extra;
+        for(unsigned words=0;words<16;words++) if(words<5 || words>5) {
+            tcp[12]=(uint8_t)(words<<4);write_be16(tcp+16,0);
+            write_be16(tcp+16,tcp_checksum(c->remote_ip,local_ip,tcp,23));
+            handle_ipv4(frame,n);assert(!c->rx_length && !frames);
+        }
+        tcp[12]=0x50;write_be16(tcp+16,0);write_be16(tcp+16,tcp_checksum(c->remote_ip,local_ip,tcp,23));
+        memset(frame+n,0xa5,8);handle_ipv4(frame,n+8); /* Ethernet padding is not TCP data. */
+        assert(c->rx_length==3 && !memcmp(c->rx_data,"abc",3));
+    }
+}
+static void option_invalid(void) {
+    static const uint8_t bad[][8]={{30,0,0,0},{30,1,0,0},{30,5,0,0},{1,1,1,30},
+        {2,3,1,0},{2,4,0,0},{2,4,0,64,2,4,0,32}};
+    for(unsigned i=0;i<sizeof(bad)/sizeof(*bad);i++) {
+        struct tcp_connection *c=connected();c->state=TCP_STATE_SYN_SENT;
+        assert(send_tcp_segment(c,c->local_port,TCP_SYN,NULL,0));unsigned before=frames;
+        wire_incoming(c,500,c->local_seq,TCP_SYN|TCP_ACK,0,bad[i],i==6?8:4,NULL);
+        assert(c->state==TCP_STATE_SYN_SENT && frames==before && tcp_tx_outstanding_bytes(c)==1);
+    }
+    for(unsigned i=0;i<5;i++) {
+        struct tcp_connection *c=connected();assert(net_respond(handle(c),"x",1,true)==1);unsigned before=frames;
+        wire_incoming(c,c->remote_next,c->local_seq,TCP_RST,0,bad[i],4,NULL);
+        assert(!c->reset && frames==before);
+        wire_incoming(c,c->remote_next,c->local_seq,TCP_ACK|TCP_FIN,0,bad[i],4,"bad");
+        assert(!c->rx_length && !c->peer_closed && frames==before && tcp_tx_outstanding_bytes(c)==1);
+    }
+    for(unsigned length=0;length<256;length++) if(length<2 || length>4) {
+        const uint8_t options[]={30,(uint8_t)length,0,0};struct tcp_connection *c=connected();
+        wire_incoming(c,c->remote_next,c->local_seq,TCP_ACK,0,options,4,"bad");
+        assert(!c->rx_length && !frames);
+    }
+}
+static void option_valid(void) {
+    const uint8_t options[]={1,30,3,99,0,0,0,0}; /* Unaligned unknown option, NOP, EOL/padding. */
+    struct tcp_connection *c=connected();
+    wire_incoming(c,c->remote_next,c->local_seq,TCP_ACK,0,options,sizeof(options),"ok");
+    assert(c->rx_length==2 && !memcmp(c->rx_data,"ok",2));
+    for(unsigned length=2;length<=40;length++) {
+        uint8_t list[40]={30,(uint8_t)length};c=connected();
+        wire_incoming(c,c->remote_next,c->local_seq,TCP_ACK,0,list,(length+3)&~3u,"ok");
+        assert(c->rx_length==2 && !memcmp(c->rx_data,"ok",2));
+    }
+}
+static void mss_connection(bool active,bool absent) {
+    const uint16_t values[]={64,1,1460,65535};
+    for(unsigned i=0;i<(absent?1:4);i++) {
+        reset();uint8_t mac[6]={0};uint64_t listener=0;
+        struct tcp_connection *c;
+        uint8_t options[]={1,2,4,(uint8_t)(values[i]>>8),(uint8_t)values[i],0,0,0};
+        if(active) {
+            c=alloc_client_connection(0x0a000202,80,mac);assert(c);
+            assert(send_tcp_segment(c,c->local_port,TCP_SYN,NULL,0));
+            wire_incoming(c,500,c->local_seq,TCP_SYN|TCP_ACK,0,absent?NULL:options,absent?0:8,NULL);
+        } else {
+            listener=net_listen(8080);assert((int64_t)listener>0);
+            struct tcp_connection address={.local_port=8080,.remote_port=40000,.remote_ip=0x0a000202};
+            wire_incoming(&address,500,0,TCP_SYN,0,absent?NULL:options,absent?0:8,NULL);
+            c=find_connection(8080,0x0a000202,40000);assert(c);
+            /* Duplicate SYN cannot renegotiate the already retained peer limit. */
+            const uint8_t changed[]={2,4,0,2};
+            wire_incoming(c,500,0,TCP_SYN,0,changed,4,NULL);
+            wire_incoming(c,501,c->local_seq,TCP_ACK,0,NULL,0,NULL);
+            assert(net_accept(listener,NULL,0,NULL,true)==(int64_t)handle(c));
+        }
+        assert(c->state==TCP_STATE_ESTABLISHED);
+        const uint8_t later[]={2,4,0,2};
+        wire_incoming(c,c->remote_next,c->local_seq,TCP_ACK,0,later,4,NULL); /* No late MSS renegotiation. */
+        unsigned limit=absent?536:(values[i]>1400?1400:values[i]);
+        char data[1400];memset(data,'m',sizeof(data));
+        assert(net_respond(handle(c),data,sizeof(data),true)==(int64_t)limit);
+        assert(last_length==54+limit && read_be16(last_frame+16)==40+limit);
+        assert(tcp_checksum(local_ip,c->remote_ip,last_frame+34,20+limit)==0);
+        ticks+=TCP_RETRANSMIT_TICKS;net_timer_tick();assert(last_length==54+limit);
+        incoming(c,c->remote_next,c->local_seq,TCP_ACK,65535,NULL);assert(!tcp_tx_outstanding_bytes(c));
+        if(listener)assert(!net_close(listener));
+    }
+}
+static void mss_syn_wire(void) {
+    reset();uint8_t mac[6]={0};struct tcp_connection *c=alloc_client_connection(0x0a000202,80,mac);assert(c);
+    assert(send_tcp_segment(c,c->local_port,TCP_SYN,NULL,0));
+    uint32_t seq=c->local_seq;
+    assert(last_length==58 && last_frame[46]==0x60 && last_frame[54]==2 && last_frame[55]==4);
+    assert(read_be16(last_frame+56)==1400 && tcp_checksum(local_ip,c->remote_ip,last_frame+34,24)==0);
+    ticks+=TCP_RETRANSMIT_TICKS;net_timer_tick();
+    assert(last_length==58 && c->local_seq==seq && read_be16(last_frame+56)==1400);
+}
+
 int main(int argc,char **argv) {
     assert(argc==2);
     if(!strcmp(argv[1],"close")) final_close(false);
@@ -608,6 +761,14 @@ int main(int argc,char **argv) {
     else if(!strcmp(argv[1],"persist-data")) persist_responsive(true);
     else if(!strcmp(argv[1],"persist-silent")) persist_silent();
     else if(!strcmp(argv[1],"persist-close")) persist_close();
+    else if(!strcmp(argv[1],"ipv4-fragments")) {ipv4_fragments();fragment_protocols();}
+    else if(!strcmp(argv[1],"packet-bounds")) packet_bounds();
+    else if(!strcmp(argv[1],"option-invalid")) option_invalid();
+    else if(!strcmp(argv[1],"option-valid")) option_valid();
+    else if(!strcmp(argv[1],"mss-passive")) mss_connection(false,false);
+    else if(!strcmp(argv[1],"mss-active")) mss_connection(true,false);
+    else if(!strcmp(argv[1],"mss-default")) {mss_connection(false,true);mss_connection(true,true);}
+    else if(!strcmp(argv[1],"mss-syn-wire")) mss_syn_wire();
     else assert(0);
     reset();printf("net-lifetime: %s PASS\n",argv[1]);
 }

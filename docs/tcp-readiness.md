@@ -88,7 +88,7 @@ enters the reset/error path. Peer FIN alone cannot retire an unacknowledged loca
 FIN. See the [TCP lifetime audit](tcp-lifetime-audit-2026-10-28.md) for reproduced
 failures, limits and follow-on questions.
 
-`make test-net-lifetime` (also in `test-core`) runs 38 deterministic real-stack
+`make test-net-lifetime` (also in `test-core`) runs 46 deterministic real-stack
 host modes. It complements `test-tcp-accept` and guest readiness/stress checks;
 its captured Ethernet sink does not certify physical adapter behavior.
 
@@ -134,3 +134,19 @@ closed; twelve consecutive unanswered attempts still lead to TIMEDOUT on the
 next deadline. Local write shutdown/final close retains the bounded close policy.
 The captured two-endpoint test drops reopening updates and refuses a probe send,
 then verifies exact recovery with/without queued data and across sequence wrap.
+
+
+IPv4 admission refuses the reserved flag, MF and nonzero fragment offsets before
+TCP/UDP/ICMP dispatch. DF-only and ordinary unfragmented packets remain valid;
+this profile has no IP reassembly. TCP walks the option list after checksum and
+header-bound checks but before connection mutation. EOL ends parsing, NOP advances
+one byte, and unknown options are skipped only with a bounded length of at least
+two. Malformed lengths are dropped; MSS must have length four. Zero or duplicate
+MSS offers on SYN are refused as unusable/ambiguous. A non-SYN MSS cannot renegotiate.
+
+Active and passive opens retain the peer MSS, defaulting to 536 when absent and
+capped by the existing 1,400-byte transmit limit. New data, readiness capacity and
+retransmissions honor that bound. SYN/SYN-ACK and their retries advertise local
+MSS 1,400 with matching header length/checksum; later packets have no MSS option.
+This does not add window scaling, SACK, timestamps, path-MTU discovery or IP
+reassembly. Unsupported well-formed options remain ignored.

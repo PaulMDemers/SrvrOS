@@ -379,3 +379,75 @@ source diff and tested source/artifact hashes are under `build/review/tcp-window
 Documentation/link and whitespace checks pass. Earlier storage matrices and
 native-device acceptance remain dated evidence; no Actions dispatch, physical
 install or PR merge occurred. PR182 remains draft.
+
+
+## IPv4 admission and TCP options/MSS checkpoint (2026-10-28)
+
+Integrated main `6cbfedab` through PR237 in `57d8f80a`, including quiescent-I/O
+fairness, isolated coordinated-C3 diagnostics and device evidence. PR19 at
+`7ac6b0e6` remains independent Wi-Fi work without net.c overlap. Air7,2
+`4f1ca2a1` records its separately owned desktop-worker follow-up. Original network
+source is `811c4685`, saved in `build/review/tcp-parser/original-net.c`.
+
+Six directed modes reproduce these defects:
+
+- IPv4 fragment offset/MF and reserved bits were ignored. A checksummed fragment
+  could be treated as a complete TCP segment, including ACK, payload, FIN or RST.
+  The IPv4 boundary now refuses those bits before TCP/UDP/ICMP dispatch, while
+  accepting DF-only and ordinary unfragmented packets. This adds no reassembly.
+- TCP trusted the header's option area without validating its entries. Malformed
+  length fields reached connection mutation. The bounded option walker now handles
+  EOL/NOP and skips well-formed unknown options, refusing missing, zero, one-byte
+  or overrun lengths before ACK/window/reset/data/FIN changes. MSS requires length
+  four; zero and duplicate SYN MSS offers are refused as unusable or ambiguous.
+  Non-SYN MSS options cannot change the negotiated limit. Bytes after EOL remain
+  ignored header padding.
+- TCP ignored peer MSS and sent up to 1,400 bytes even when the offer was smaller
+  or absent. Both opens now retain the validated offer, capped at 1,400, with the
+  IPv4 default of 536 when absent. Readiness and transmit segmentation use that
+  cap; the low-level transmitter also enforces it for retries. Every outgoing
+  SYN/SYN-ACK, including retries, advertises local MSS 1,400 in a 24-byte TCP header.
+  Options consume no sequence space. Duplicate SYNs retain the original peer limit.
+
+Option and MSS behavior follows
+[RFC 9293 options](https://www.rfc-editor.org/rfc/rfc9293.html#section-3.1)
+and [maximum segment size](https://www.rfc-editor.org/rfc/rfc9293.html#section-3.7.1).
+No window scaling, SACK, timestamps, path-MTU discovery, congestion-control or
+complete IP/TCP conformance is claimed. Refused fragments/options are silent
+packet drops; no application error or artificial response is synthesized.
+
+Eight additions bring the fixture to 46 modes. Six fail against original source;
+existing boundary/checksum and well-formed-option behavior passes. Exact-size
+truncated allocations, variable IP headers, invalid TCP data offsets and Ethernet
+padding run through the IPv4 parser. Tests span malformed option lengths 0–255,
+valid unknown options 2–40 bytes, unaligned MSS and active/passive/default limits
+including MSS 1. Wire assertions check payload bounds, SYN option/checksum and
+retransmission size. The full-window legacy fixture now handles short writes
+under the 536-byte default. The first fixture link needed a console stub because
+IPv4 dispatch retains the UDP diagnostic path; it is not runtime defect evidence.
+
+Follow-on tracing reaches UDP/ICMP receive validation and endpoint ownership:
+UDP has a four-datagram queue with oldest-entry replacement at capacity, and its
+receive API has separate truncation and close behavior. ICMP echo request/reply
+validation needs directed checksum/length coverage. These are the next bounded
+questions, not completed datagram or ICMP acceptance. Full WAN fragmentation,
+loss/reordering and physical adapter behavior remain outside this qualification.
+
+
+### IPv4/TCP parser verification
+
+All 46 lifetime modes pass on x86_64/Rosetta and under native ARM64 ASan/UBSan.
+Six added modes fail on original network source `811c4685`; packet-boundary and
+well-formed-option controls pass. TCP accept, e1000 receive, network worker/device,
+process output/lifetime and syscall I/O host gates pass. The integrated baseline's
+I/O scheduler/fairness, AP receipt/owner/C3 parser and lifecycle-wait gates pass.
+The matched build, six generator groups and recursive 372-entry/16-directory
+image check pass.
+
+Eight sequential disposable VMs pass: tcp-ready 11.38 s, tcp-stress 47.84 s, netabi 10.43 s, libuv 10.84 s, threads 40.59 s, lifetime 22.72 s, web-segmented 19.34 s, outbound-local 11.1 s.
+Stress uses twelve clients; web smoke includes a segmented static response;
+outbound HTTP verifies `/parser-check` and the exact localhost-server body.
+Logs, original failures, source diff and source/artifact hashes are retained
+under `build/review/tcp-parser/`. Documentation/link and whitespace checks pass.
+Earlier storage matrices and native-device acceptance remain dated evidence;
+no Actions dispatch, physical install or PR merge occurred. PR182 remains draft.

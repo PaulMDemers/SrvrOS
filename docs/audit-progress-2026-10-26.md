@@ -126,8 +126,11 @@ PR233 is integrated. The peer-window/persist checkpoint expands to 38 modes,
 rejects stale advertisements before window publication, recovers lost reopening
 updates, and preserves responsive closed-window peers while retaining silent/
 closing timeouts. Main `45b8647a` through PR234 is integrated. Follow-on tracing
-moves to IPv4/TCP packet boundaries, fragment admission and option/MSS handling;
-those need directed parser tests. Broad network conformance remains unqualified.
+moves through IPv4/TCP packet boundaries: the parser checkpoint expands to 46
+modes, refuses fragments before dispatch, validates TCP option lengths and honors
+negotiated/default MSS with SYN advertisement. Main `6cbfedab` through PR237 is
+integrated. UDP/ICMP receive validation, queue pressure/truncation and endpoint
+lifetimes are next. Broad network conformance remains unqualified.
 Delivery is [draft PR182](https://github.com/PaulMDemers/SrvrOS/pull/182).
 This checkpoint is separate from the completed event-adapter target.
 

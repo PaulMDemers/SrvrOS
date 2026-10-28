@@ -46,6 +46,7 @@
 #define NET_CONNECTION_RX_MAX_SIZE 32768
 #define TCP_RX_WINDOW 4096
 #define TCP_SEGMENT_PAYLOAD_MAX 1400
+#define TCP_DEFAULT_SEND_MSS 536
 #define TCP_TX_HISTORY 16
 #define TCP_TX_WINDOW_BYTES (TCP_SEGMENT_PAYLOAD_MAX * 4)
 #define TCP_RETRANSMIT_TICKS 25
@@ -117,6 +118,7 @@ struct tcp_connection {
     uint16_t local_port;
     uint16_t remote_port;
     uint16_t peer_window;
+    uint16_t peer_mss;
     bool peer_window_valid;
     uint32_t peer_window_seq;
     uint32_t peer_window_ack;
@@ -1170,6 +1172,7 @@ retry:
             tcp_connections[i].local_port = local_port;
             tcp_connections[i].remote_port = remote_port;
             tcp_connections[i].peer_window = TCP_RX_WINDOW;
+            tcp_connections[i].peer_mss = TCP_DEFAULT_SEND_MSS;
             tcp_connections[i].peer_window_valid = false;
             tcp_connections[i].peer_window_seq = tcp_connections[i].peer_window_ack = 0;
             tcp_connections[i].local_seq = 0x73720000u + (uint32_t)remote_port;
@@ -1271,6 +1274,7 @@ retry:
             tcp_connections[i].local_port = local_port;
             tcp_connections[i].remote_port = remote_port;
             tcp_connections[i].peer_window = TCP_RX_WINDOW;
+            tcp_connections[i].peer_mss = TCP_DEFAULT_SEND_MSS;
             tcp_connections[i].peer_window_valid = false;
             tcp_connections[i].peer_window_seq = tcp_connections[i].peer_window_ack = 0;
             tcp_connections[i].local_seq = 0x63720000u + (uint32_t)local_port;
@@ -1424,6 +1428,11 @@ static uint16_t tcp_receive_window(const struct tcp_connection *connection) {
     return (uint16_t)available;
 }
 
+static uint16_t tcp_payload_limit(const struct tcp_connection *connection) {
+    uint16_t mss = connection->peer_mss != 0 ? connection->peer_mss : TCP_DEFAULT_SEND_MSS;
+    return mss < TCP_SEGMENT_PAYLOAD_MAX ? mss : TCP_SEGMENT_PAYLOAD_MAX;
+}
+
 static uint16_t tcp_tx_available_payload(const struct tcp_connection *connection) {
     if (connection == 0 || !tcp_tx_free_slot(connection)) {
         return 0;
@@ -1442,7 +1451,8 @@ static uint16_t tcp_tx_available_payload(const struct tcp_connection *connection
     if (available > peer_available) {
         available = peer_available;
     }
-    return available > TCP_SEGMENT_PAYLOAD_MAX ? TCP_SEGMENT_PAYLOAD_MAX : (uint16_t)available;
+    uint16_t limit = tcp_payload_limit(connection);
+    return available > limit ? limit : (uint16_t)available;
 }
 
 static bool tcp_tx_has_space(const struct tcp_connection *connection, uint8_t flags, uint16_t payload_length) {
@@ -1478,9 +1488,11 @@ static bool send_tcp_segment_at(struct tcp_connection *connection,
     const uint8_t *payload,
     uint16_t payload_length) {
     uint8_t segment[1500];
-    uint16_t tcp_length = 20 + payload_length;
+    uint16_t header_length = (flags & TCP_SYN) != 0 ? 24 : 20;
+    uint16_t tcp_length = header_length + payload_length;
 
-    if (tcp_length > sizeof(segment) || (payload_length != 0 && payload == 0)) {
+    if (payload_length > tcp_payload_limit(connection) ||
+        tcp_length > sizeof(segment) || (payload_length != 0 && payload == 0)) {
         return false;
     }
 
@@ -1488,13 +1500,18 @@ static bool send_tcp_segment_at(struct tcp_connection *connection,
     write_be16(segment + 2, connection->remote_port);
     write_be32(segment + 4, seq);
     write_be32(segment + 8, connection->remote_next);
-    segment[12] = 5 << 4;
+    segment[12] = (uint8_t)((header_length / 4) << 4);
     segment[13] = flags;
     write_be16(segment + 14, tcp_receive_window(connection));
     write_be16(segment + 16, 0);
     write_be16(segment + 18, 0);
+    if ((flags & TCP_SYN) != 0) {
+        segment[20] = 2; /* MSS, also present on retransmitted SYN/SYN-ACK. */
+        segment[21] = 4;
+        write_be16(segment + 22, TCP_SEGMENT_PAYLOAD_MAX);
+    }
     if (payload_length != 0) {
-        copy_bytes(segment + 20, payload, payload_length);
+        copy_bytes(segment + header_length, payload, payload_length);
     }
     write_be16(segment + 16, tcp_checksum(local_ip, connection->remote_ip, segment, tcp_length));
 
@@ -1620,6 +1637,7 @@ static void close_connection(struct tcp_connection *connection) {
     connection->error = SRV_NETERR_NONE;
     connection->refs = 0;
     connection->peer_window = TCP_RX_WINDOW;
+    connection->peer_mss = TCP_DEFAULT_SEND_MSS;
     connection->peer_window_valid = false;
     connection->peer_window_seq = connection->peer_window_ack = 0;
     connection->rx_length = 0;
@@ -2030,6 +2048,45 @@ static bool ensure_pending_connection(struct tcp_connection *connection, uint16_
     return false;
 }
 
+/* Validate the complete option list before any ACK/window/reset mutation.
+ * Unknown length-delimited options are skipped; only SYN negotiates MSS. */
+static bool tcp_parse_options(const uint8_t *tcp, uint8_t header_length,
+    uint8_t flags, uint16_t *mss) {
+    bool have_mss = false;
+    *mss = TCP_DEFAULT_SEND_MSS;
+    for (uint8_t offset = 20; offset < header_length;) {
+        uint8_t kind = tcp[offset++];
+        if (kind == 0) {
+            return true; /* End of list; remaining header bytes are padding. */
+        }
+        if (kind == 1) {
+            continue;
+        }
+        if (offset >= header_length) {
+            return false;
+        }
+        uint8_t length = tcp[offset];
+        if (length < 2 || length > header_length - (offset - 1)) {
+            return false;
+        }
+        if (kind == 2) {
+            if (length != 4) {
+                return false;
+            }
+            if ((flags & TCP_SYN) != 0) {
+                uint16_t value = read_be16(tcp + offset + 1);
+                if (have_mss || value == 0) {
+                    return false; /* Ambiguous or unusable SYN offer. */
+                }
+                have_mss = true;
+                *mss = value < TCP_SEGMENT_PAYLOAD_MAX ? value : TCP_SEGMENT_PAYLOAD_MAX;
+            }
+        }
+        offset += length - 1;
+    }
+    return true;
+}
+
 static void handle_tcp(const uint8_t *frame,
     uint16_t length,
     const uint8_t *ip,
@@ -2056,6 +2113,10 @@ static void handle_tcp(const uint8_t *frame,
         return;
     }
 
+    uint16_t peer_mss;
+    if (!tcp_parse_options(tcp, data_offset, flags, &peer_mss)) {
+        return;
+    }
     tcp_packets++;
     uint16_t data_length = ip_payload_length - data_offset;
 
@@ -2114,6 +2175,7 @@ static void handle_tcp(const uint8_t *frame,
                     return;
                 }
                 copy_bytes(client->remote_mac, frame + 6, 6);
+                client->peer_mss = peer_mss;
                 tcp_update_peer_window(client, seq, ack, advertised_window);
                 client->remote_next = seq + 1;
                 tcp_ack_tx_records(client, ack);
@@ -2131,6 +2193,7 @@ static void handle_tcp(const uint8_t *frame,
             send_tcp_reset(frame + 6, src_ip, dst_port, src_port, seq, ack, flags, data_length);
             return;
         }
+        connection->peer_mss = peer_mss;
         tcp_set_peer_window(connection, advertised_window);
         connection->remote_next = seq + 1;
         send_tcp_segment(connection, connection->local_port, TCP_SYN | TCP_ACK, 0, 0);
@@ -2272,6 +2335,12 @@ static void handle_ipv4(const uint8_t *frame, uint16_t length) {
         return;
     }
     if (checksum_bytes(ip, header_length, 0) != 0) {
+        return;
+    }
+    /* No IP reassembly exists in this profile. Never interpret a fragment as
+     * an independent transport packet. DF alone is valid; reserved/MF/offset
+     * bits must be clear before TCP, UDP or ICMP sees the payload. */
+    if ((read_be16(ip + 6) & 0xbfffu) != 0) {
         return;
     }
 

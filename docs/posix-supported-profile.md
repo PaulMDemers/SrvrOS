@@ -529,3 +529,14 @@ bounded independently of responses, and ordinary data retries resume with a fres
 budget when the window opens. This preserves bounded shutdown/close deadlines
 and the existing idle policy; it does not add a user-configurable persist API,
 congestion control, window scaling or complete RFC conformance.
+
+
+IPv4 fragments (MF or nonzero offset) and the reserved flag are refused before
+transport dispatch; DF-only unfragmented packets remain supported. There is no
+IP reassembly. TCP malformed option lengths are dropped before connection state
+changes. Well-formed unsupported options are skipped. MSS is negotiated only at
+active/passive open: absent offers default to 536 bytes, valid positive offers
+are capped at the 1,400-byte transmit limit, and zero/duplicate SYN offers are
+refused. Outgoing SYN/SYN-ACK advertise MSS 1,400, including retransmissions.
+Payload sends and retries honor the retained limit. Window scaling, timestamps,
+SACK and path-MTU discovery remain unsupported; this is not full TCP conformance.

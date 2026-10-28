@@ -885,14 +885,24 @@ empty probe, separates response tracking from backoff, and suspends ordinary dat
 retry exhaustion until reopening. Main `45b8647a` through PR234 is integrated;
 storage coverage remains dated separately.
 
+## IPv4/TCP parser follow-on (2026-10-28)
+
+The [TCP audit](tcp-lifetime-audit-2026-10-28.md) adds fragment refusal before
+TCP/UDP/ICMP dispatch, TCP option-boundary validation and active/passive/default
+MSS behavior with SYN/retry advertisement. Forty-six modes include six added
+original-source failures and two passing boundary/unknown-option controls. Main
+`6cbfedab` through PR237 is integrated, including fairness and isolated AP C3
+work. Earlier storage and native-device evidence remains dated separately.
+
 ## Remaining audit queue
 
 1. Actual hot removal/replacement and a future unregister/rebind lifecycle.
    Terminal identity invalidation and CPU0 backend-operation/teardown admission
    now have directed coverage. They do not certify live device recovery or
    arbitrary retained kernel pointers.
-2. IPv4/TCP packet boundaries, fragment admission and option/MSS handling are
-   the next network audit boundary. Peer-window ordering and zero-window recovery
+2. UDP/ICMP receive validation, queue pressure/truncation and endpoint lifetimes
+   are the next network audit boundary. IPv4 fragment refusal and TCP options/MSS
+   now have directed parser coverage. Peer-window ordering and zero-window recovery
    now have directed packet/timer coverage. Receive allocation refusal, partial ACK and in-order overlap now
    have directed recovery coverage. RST/receive admission and terminal-error/EOF retention now have directed
    coverage, including timer expiry and TIME-WAIT pressure.

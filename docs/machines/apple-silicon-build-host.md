@@ -1669,3 +1669,34 @@ PR19 `7ac6b0e6` remains separate Wi-Fi work without net.c overlap. Air7,2
 `4f1ca2a1` records a bounded desktop-worker follow-up; preserve its ownership.
 Next checkpoint: directed original-source failures, bounded fixes and sequential
 host/VM checks. PR182 stays draft; no native install, Actions or merge is planned.
+
+
+### IPv4/TCP parser result
+
+Integrated main in `57d8f80a`. Refused fragments/reserved IPv4 flags before
+transport dispatch, validated TCP option lengths before mutation, and added
+negotiated/default MSS transmit caps with SYN/retry advertisement. Forty-six
+modes include six original-source failures and two boundary/unknown-option
+controls. Evidence is under `build/review/tcp-parser/`; see the
+[TCP audit](../tcp-lifetime-audit-2026-10-28.md). The next bounded audit is UDP/ICMP
+receive validation, datagram queue pressure/truncation and endpoint lifetimes.
+Native-device results remain owned by their machine records.
+
+
+### IPv4/TCP parser verification
+
+All 46 lifetime modes pass on x86_64/Rosetta and under native ARM64 ASan/UBSan.
+Six added modes fail on original network source `811c4685`; packet-boundary and
+well-formed-option controls pass. TCP accept, e1000 receive, network worker/device,
+process output/lifetime and syscall I/O host gates pass. The integrated baseline's
+I/O scheduler/fairness, AP receipt/owner/C3 parser and lifecycle-wait gates pass.
+The matched build, six generator groups and recursive 372-entry/16-directory
+image check pass.
+
+Eight sequential disposable VMs pass: tcp-ready 11.38 s, tcp-stress 47.84 s, netabi 10.43 s, libuv 10.84 s, threads 40.59 s, lifetime 22.72 s, web-segmented 19.34 s, outbound-local 11.1 s.
+Stress uses twelve clients; web smoke includes a segmented static response;
+outbound HTTP verifies `/parser-check` and the exact localhost-server body.
+Logs, original failures, source diff and source/artifact hashes are retained
+under `build/review/tcp-parser/`. Documentation/link and whitespace checks pass.
+Earlier storage matrices and native-device acceptance remain dated evidence;
+no Actions dispatch, physical install or PR merge occurred. PR182 remains draft.

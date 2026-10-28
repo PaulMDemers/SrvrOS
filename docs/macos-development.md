@@ -255,3 +255,14 @@ under `build/review/tcp-window/`, with `/window-check` for local outbound HTTP.
 The host fixture supplies deterministic two-endpoint zero-window failure/recovery;
 ordinary VM smoke gates provide integration evidence, not exhaustive WAN loss
 or native adapter coverage.
+
+
+The IPv4/TCP parser checkpoint expands the same lifetime command to 46 modes,
+including exact-size truncated input allocations under native ARM64 sanitizers.
+Main `6cbfedab` through PR237 is integrated in `57d8f80a`; relevant added-baseline
+checks are `test-io-scheduler`, `test-ap-probe` and `test-lifecycle-wait`. The build
+includes ordinary CPU0 scheduling plus separately gated AP diagnostics; these
+host/VM results do not add native C3 acceptance. Evidence is retained under
+`build/review/tcp-parser/`, with `/parser-check` for local outbound HTTP. Add
+`python3 tools/web_smoke.py --boot-wait 60` sequentially to the earlier VM commands
+to verify the segmented static response after MSS negotiation changes.

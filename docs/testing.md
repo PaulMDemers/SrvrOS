@@ -1185,7 +1185,7 @@ bridge remains the backend integration check. October 28 integrated-main evidenc
 is under `build/review/inheritance-exit/`.
 
 
-`make test-net-lifetime` runs 38 deterministic modes against production
+`make test-net-lifetime` runs 46 deterministic modes against production
 `net.c`: final close with outstanding data, deferred FIN, both inherited exit
 orders, inherited listener backlog (completed and half-open), abort controls,
 deferred-FIN deadline, failed deferred send and simultaneous close. The fixture
@@ -1255,3 +1255,22 @@ TIMEDOUT and final descriptor release. Six new modes fail on source `1d1e106a`;
 the two timeout controls pass. Evidence: `build/review/tcp-window/`.
 All 38 modes pass normally and under ASan/UBSan, and seven matched-image VM
 gates pass. The TCP audit and host record retain exact results and limits.
+
+
+The IPv4/TCP parser checkpoint adds eight modes (46 total): fragment refusal,
+packet-boundary controls, invalid/valid TCP options, passive/active/default MSS,
+and MSS on SYN/retry. Fragment checks cover TCP data/ACK/FIN/RST plus UDP/ICMP
+dispatch; DF-only controls pass. Exact-size truncated allocations run through the
+IPv4 parser, with IP/TCP checksum, data-offset, variable IP-header and Ethernet
+padding controls. Option tests cover all 256 length-byte values in a four-byte
+option area (253 invalid), valid unknown lengths 2–40, NOP/EOL, unaligned MSS,
+malformed/zero/duplicate MSS and refusal before ACK/reset/FIN mutation. MSS tests
+cover 1, 64, 1460, 65535 and absent offers, ignored late/duplicate-SYN renegotiation,
+exact payload/checksum and retransmission sizes. Six modes fail on network source
+`811c4685`; boundary and well-formed-option controls pass. Evidence is under
+`build/review/tcp-parser/`. The older full-window fixture now accepts short writes
+while filling the same byte budget, rather than assuming 1,400-byte writes when
+no peer MSS was negotiated. The IPv4 dispatch fixture also stubs console output.
+All 46 modes pass normally and under ASan/UBSan, and eight matched-image VM
+gates pass, including segmented web traffic. Exact results and limits are in the
+TCP audit and host record.
