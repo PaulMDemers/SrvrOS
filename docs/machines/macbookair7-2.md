@@ -14,6 +14,13 @@ counter prerequisites from this unit's inventory before any admission; do not
 copy Haswell MWAIT selectors or firmware permissions. Shared worker/event waits
 are already present in main and need no duplicate implementation.
 
+The new Air7,2 audio/I/O positive fixture exposed repeated desktop-loop failures
+under both TCG and KVM (570/527 ms versus the unchanged 500 ms limit); PCM,
+verified disk work and cleanup passed. The Air6,1 control fixture passed. Preserve
+both failures. Extend this block narrowly to scheduler attribution around the
+reported lifecycle interval before changing policy or claiming stress parity.
+This does not assign a cause or relax any workload/deadline.
+
 Next checkpoint: a documented gap matrix and locally validated candidate, followed
 by matching automatic physical diagnostics where justified. No human interaction
 is required for automatic tests; show progress and persist results before normal
