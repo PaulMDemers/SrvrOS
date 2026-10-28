@@ -1,6 +1,23 @@
 # MacBookAir7,2 / A1466
 
-Updated: 2026-10-27. State: **active reference machine; partial device acceptance**.
+Updated: 2026-10-28. State: **active reference machine; partial device acceptance**.
+
+### Air6,1 parity review — active scope (2026-10-28)
+
+Consumed main `5a94d755` (PR230). Compare shared model support and independently
+recorded acceptance against Air6,1; preserve its active secondary-CPU ownership
+investigation and PR182 filesystem/PR19 Wi-Fi scopes. This block owns Air7,2
+parity documentation, explicit Air7,2 automated desktop reopen/audio-I/O/power
+staging profiles and affected host/VM fixtures. Review Broadwell read-only idle
+counter prerequisites from this unit's inventory before any admission; do not
+copy Haswell MWAIT selectors or firmware permissions. Shared worker/event waits
+are already present in main and need no duplicate implementation.
+
+Next checkpoint: a documented gap matrix and locally validated candidate, followed
+by matching automatic physical diagnostics where justified. No human interaction
+is required for automatic tests; show progress and persist results before normal
+Ubuntu return. Installed `060fffa453e26d5e` and independent `9aa8dbf6fbda8252`
+recovery remain protected. No reboot is armed. Evidence: `build/air-parity-20261028/`.
 
 ### Shared baseline refresh — local validation complete
 
