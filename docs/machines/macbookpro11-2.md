@@ -10394,3 +10394,33 @@ Checkpoint: directed lifecycle/metadata/ownership/alias/overflow tests, sanitize
 merged build/core/desktop, historical staging compatibility and exact VM boot.
 No physical test or ordinary Wi-Fi startup is enabled; v102 acceptance and
 recovery payloads remain intact. No new reboot armed.
+
+
+## 2026-10-28 discovery selection groundwork validated
+
+Source `a31bbe00`, integration main `5a94d755`, adds private copied discovery
+snapshots with monotonic generations, failed-refresh invalidation and explicit
+generation/index selection. Hidden names and SSID/security/channel conflicts
+refuse selection; no open/first-network fallback is provided. Choice metadata
+is copied and old choices cannot select a refreshed row. Generation exhaustion
+refuses rather than wrapping. Binary names render with bounded `\xNN` escapes;
+unused name bytes and failed outputs are cleared. RSN/WPA advertisement presence
+is not a validated security configuration or authorization to join.
+
+2030 directed lifecycle/metadata/ownership/name cases and355 real batch-collector
+cases pass, including publication/choice assertions on every successful batch.
+Both suites pass ASan/UBSan. Full merged image/core/desktop passes;191 staging
+tests and209 prior Wi-Fi/current main desktop/MWAIT/C3 recipe comparisons pass.
+Merged VM-only v102 release `d6d81caedd2618f8` matches the committed-source kernel
+and independently firmware-packaged initramfs. Exact GPT VM saves and verifies
+logs, unmounts cleanly and returns; missing workspace refuses the probe and returns.
+This validates the merged image, not native selection, RF or association.
+
+The helper has no native caller, syscall, network picker or transmit operation.
+A future service must bind each request to its exact owner/adapter lifetime,
+invalidate snapshots on disconnect/refresh and validate fresh complete security
+IEs before association. Next is that explicit discovery service/UI binding, then
+management TX and association/security. Installed accepted v102 `3337af3753372b9d`
+and all recovery payloads remain unchanged. Raw validation, matched staged payload
+and source survive distclean in `wifi-selection-a31bbe00` outside build. No new
+physical acceptance, hardware test installation or reboot is armed.

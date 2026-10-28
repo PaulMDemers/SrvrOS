@@ -5839,3 +5839,11 @@ This transport-neutral groundwork has host tests and no native caller, syscall,
 network picker, transmit or join operation. It does not change v102's hardware
 acceptance or enable ordinary Wi-Fi startup. Next is binding snapshots to an
 explicit discovery service/UI lifetime, then management TX and association/security.
+
+Source `a31bbe00` (main `5a94d755`) passes2030 directed selection cases and355
+batch-collector cases with selection checks on successful real collection, both
+under ASan/UBSan. Full merged image/core/desktop,191 staging tests and209 prior
+Wi-Fi/current Air desktop/MWAIT/C3 recipe comparisons pass. Exact staged v102
+`d6d81caedd2618f8` passes GPT saved-log/return and missing-workspace refusal VMs;
+its kernel and independently packaged initramfs match the committed source.
+This image is not installed; accepted hardware remains `3337af3753372b9d`.
