@@ -1785,3 +1785,17 @@ Continued tracing reaches DNS question/answer identity and compressed names,
 libc resolver source/error handling, same-live-FD flag isolation and TCP
 connect/accept publication after close/reuse. These need directed tests next;
 full DNS/network and arbitrary SMP conformance are not claimed.
+
+
+## DNS parsing and socket call ownership — active scope (2026-10-28)
+
+Continue PR182 from `4cef0949`, integrating main `46b60b24` through PR246.
+Audit native/libc DNS response identity and compressed names, per-call
+nonblocking isolation and TCP connect/accept close/reuse. Scope: shared bounded
+DNS parsing, network/socket adapters, a native nonblocking socket I/O entry if
+needed, pipe nonblocking helpers, host/guest tests and current docs. Existing
+syscall interfaces remain available; rebuild matched kernel/libc if adding the
+new entry. Main adds clock-only logging and opt-in diagnostic corrections;
+rerun their affected host gates. PR19 `5556641f` retains independent Wi-Fi scope.
+Next checkpoint: original-source failures, focused fixes, sequential matched
+verification and draft PR update. No Actions, native install or merge planned.
