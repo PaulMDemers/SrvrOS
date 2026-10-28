@@ -20,14 +20,15 @@ is archived outside build. Ubuntu remains default, workspace unmounted and no
 reboot armed. No repeat is needed. Sustained endurance, FCS, physical BSSID
 deduplication, association/security and IP/UI remain unaccepted.
 
-Installed corrected attended candidate: v103 `852438c8b7cd0b7e`, source
+Failed corrected attended candidate: v103 `852438c8b7cd0b7e`, source
 `d627337c`, actual main `ec7bad42`. The previous `fe9dc6295c7318c4` run refused
 GUI admission because the cache required a generic USB configuration flag; its
 raw failure and strict refusal are retained. The repair uses actual diagnostic
 firmware/MCU/RX configuration, with native-state host regression coverage. Full
 merged build/core/desktop, sanitizers and exact-image VM checks pass. Native
-cache/selection/disconnect UI acceptance is pending. Ubuntu remains default;
-workspace unmounted and candidate unarmed. Await cold-cycle readiness.
+cache/selection/disconnect UI acceptance remains pending. Session
+`session-00065eeb2cd82d26-00` failed channel6 polling before GUI admission.
+Ubuntu remains default, workspace unmounted and no reboot armed.
 Durable run/archive: `~/.local/share/srvros/macbookpro11-2/wifi-ui-retry-d627337c`.
 
 Latest accepted trial: v101 `f1015eeb7358f9c7`, source `6b12e4f2`, main
@@ -10660,3 +10661,35 @@ with durable archive `wifi-ui-retry-d627337c`. Before shutdown coordinate Wi-Fi'
 10-second unplug/reconnect while off in the same port, leaving workspace attached.
 Help opens automatically, has no deadline, and Exit desktop saves/returns. No
 credentials, commands or photos are needed; security/IP and5GHz remain pending.
+
+
+## 2026-10-28 corrected v103 receive-deadline failure
+
+Session `session-00065eeb2cd82d26-00`, release `852438c8b7cd0b7e`, source
+`d627337c`, saved a709350-byte exit snapshot and returned to Ubuntu. Channel1
+visit completed; channel6 poll failed at10150270us with two attempts and one
+completion, after an early pre-enable TD had been skipped. The strict original
+10-second budget permits at most100000us overrun, so this is a failure. A periodic
+`session-a.log` snapshot at33895990us and flush appear immediately before poll
+failure. Source retains the100ms guard; no deadline reset or threshold widening
+has been applied. Logging/scheduling interference is the next path to investigate,
+not yet a proven exclusive cause.
+
+The trace reports channel6 MAC disable/drain, endpoint stop, restored filter/TXOP
+and all13 original channel1 words restored (mask8191). The burst remains failed
+and its buffers uninspected; these cleanup observations do not accept the scan.
+Only one visit completed and no scan batch was published. GUI admission correctly
+refused, with overall completed=NO and no radio/GUI handoff files. The strict
+collector refuses the missing full phase proof. The repaired cache guard was
+not reached and still has no physical acceptance.
+
+Raw failure collection, refusal and timing summary survive distclean in
+`wifi-ui-retry-d627337c`. Installed candidate plus six recovery payloads remain
+byte-identical to durable backups; known-good desktop remains previous. Offline
+workspace checks pass:369 files,973 clusters,152 directories, zero leaks/mismatches/
+errors. Ubuntu default and consumed one-shot passed; workspace is unmounted and
+no retry is armed. Next: isolate periodic log I/O from the bounded receive window,
+with explicit writer quiescence/resume ownership and saved proof, then validate
+the same deadline/cleanup refusals and repeat the attended UI trial. Do not infer
+cache/UI or connection acceptance from this failure. No credential/security/IP
+operation was attempted.

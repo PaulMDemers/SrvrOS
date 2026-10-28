@@ -5965,3 +5965,12 @@ return and missing-workspace refusal pass. The ordinary kernel has no isolated
 AP request. The previous failed v103 remains archived; native populated cache,
 selection and disconnect UI still require the attended cold trial. Passwords
 remain unused. See the unit record for run, recovery and collection details.
+
+
+The corrected v103 run `session-00065eeb2cd82d26-00` failed before cache publication:
+channel6 polling took10150270us, exceeding the unchanged10-second budget plus
+100000us allowance. A periodic log save/flush immediately precedes the failure;
+I/O scheduling interference needs isolation before another trial. Cleanup was
+logged and results saved, but strict collection refuses the incomplete scan and
+missing radio/GUI phase files. The cache fix and populated UI remain physically
+unaccepted. The deadline must not be widened or reset to turn this run into a pass.
