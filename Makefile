@@ -3720,6 +3720,14 @@ test-event-adapters:
 	CC="$(HOST_CC)" $(PYTHON) tools/test_event_adapters.py
 
 .PHONY: test-window-set
+test-desktop: test-tool-timing
+.PHONY: test-tool-timing
+test-tool-timing: build/tests/tool-timing-host$(HOST_EXE)
+	$<
+build/tests/tool-timing-host$(HOST_EXE): tools/test_tool_timing.c userspace/desktools/timing.h userspace/lib/include/srvros/desk_log.h shared/include/srvros/scheduler_abi.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include $< -o $@
+
 test-desktop: test-window-set
 test-window-set: build/tests/window-set-host$(HOST_EXE)
 	$<

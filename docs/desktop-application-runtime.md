@@ -161,3 +161,14 @@ A changed canvas or shutdown closes/retires the owned job; it never discards
 unpublished handles or cancels an accepted file mutation. Existing verified save,
 completion and retirement protections remain in force. No kernel wait ABI or
 I/O eligibility gate changes are part of these boundaries.
+
+### Sparse document-release scheduler attribution
+
+Text/Files document release emits `app-phase-sched` beside the existing
+`app-timing` wall-clock receipt. Current-thread scheduler BEGIN/END surround
+only `desk_window_owner_release`; both diagnostic writes occur outside that
+interval. `blocked_us` and `ready_us` distinguish scheduler states, not CPU
+time or a particular I/O owner's identity. Preserve `invalid` and `exclusions`;
+an unavailable BEGIN/END emits `available=no` instead of fabricated zeros.
+An unsuccessful BEGIN never ends a pre-existing trace. This diagnostic changes
+no syscall admission, release ownership, workload intensity or deadline.

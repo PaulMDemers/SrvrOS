@@ -2,6 +2,42 @@
 
 Updated: 2026-10-28. State: **active reference machine; partial device acceptance**.
 
+### Third endurance return and attribution scope (2026-10-28)
+
+Release `5f4ed45c3634e22a`, clean `99e4412d` (PR238 runtime), returned
+automatically from `session-00065eea4580440f-00` after nine completed app cycles.
+The UI loop maximum improved to 101753 us, below the unchanged 500000 us limit.
+Text pid21 exceeded the total lifecycle deadline: document unmap took 6067465 us
+of wall time, after close acknowledgement and window disposal. Wall time alone
+does not identify CPU work or I/O gate delay. Screenshot completion failed during
+shutdown; zero observed PCM underruns and clean native battery retirement do
+not accept the 30-minute endurance workload. All 1177 prior files are preserved
+except expected metadata. Offline fsck/allocation pass (1182 files, 3047 clusters,
+zero errors); Ubuntu default, consumed one-shot and recovery are verified.
+
+Next bounded scope is current-thread scheduler attribution around document
+release in `userspace/desktools/text_runtime.c` and its timing helper, with host
+failure-path checks and positive/slow VM evidence. BEGIN/END surround only the
+release, excluding diagnostic writes; unavailable or invalid traces stay explicit.
+No memory syscall admission, teardown ownership, workload pacing or deadline
+changes are authorized by wall time alone. PR182 retains process/VFS lifetime
+scope and PR19 Wi-Fi. Consumed main `ec7bad42` (PR239 isolated Haswell package
+audit); Broadwell gates and ordinary startup remain unchanged. Native endurance,
+Broadwell AP/MWAIT and package idle parity remain pending.
+
+Current diagnostic implementation `7052e1bc` passes full core/desktop host tests
+and matched ordinary build. The Air7,2 KVM workload passes 23 cycles, 339196 us
+maximum loop, 936454 us ready and 1246771 us close, zero observed PCM underruns.
+Seventeen complete scheduler receipts have zero invalid counts. The slowest
+release interval is 557948 us: 548975 us blocked and 8077 us ready. The separate
+100-write-IOPS populated fixture still fails the lifecycle deadline after one
+completed cycle (UI loop 104429 us); its Files release records 551251 us blocked
+and 4177 us ready. These are VM scheduler-state observations, not native gate
+causation or endurance acceptance. The Air6,1 control also passes with complete
+file/screenshot/lifecycle/retirement evidence. Both VMs ran implementation
+`7052e1bc` with only unit/parity documentation changes in the worktree.
+Exact-stage checks precede another automatic native diagnostic run.
+
 ### Endurance retry — exited child reap and capture startup (2026-10-28)
 
 Release `8003479c17f01644` (clean `96a8d307`, merged by PR236) failed early
