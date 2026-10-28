@@ -55,6 +55,9 @@ int main(void){
     for(unsigned i=0;i<4;i++)wifi_service_remove(ids[i]);
     wifi_service_remove(again);
     assert(wifi_service_snapshot(0,&out)==0 && !out.owner && !out.adapter_count);
+    struct wifi_service_counts stats;wifi_service_counts(&stats);
+    assert(stats.published==5 && stats.selected==4 && stats.removed==5 && stats.stale>=5 && stats.refused>=5 && stats.reads);
+    counts.selected=UINT64_MAX;increment(&counts.selected);assert(counts.selected==UINT64_MAX);
     serial=UINT64_MAX;assert(!publish(0,&b));
     puts("wifi-service: PASS four adapters,exact owner/generation selection,disconnected identity retirement,refresh proof failures,hidden/conflict/ABI refusals and owner exhaustion");
 }

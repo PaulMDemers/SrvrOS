@@ -1,4 +1,5 @@
 #include <srvros/ap_probe.h>
+#include <srvros/wifi_service.h>
 #include <srvros/posix_capture.h>
 #include <srvros/acpi.h>
 #include <srvros/autotest.h>
@@ -425,6 +426,22 @@ static void persist_bootlog(void) {
 
 static bool idle_capture_due(void *arg) { return timer_ticks()>=*(uint64_t *)arg; }
 
+static bool wifi_ui_cache_report(const char *phase) {
+    static struct srv_wifi_snapshot cache;
+    struct wifi_service_counts counts;
+    uint64_t flags;__asm__ volatile("pushfq; popq %0; cli":"=r"(flags)::"memory");
+    int result=wifi_service_snapshot(0,&cache);wifi_service_counts(&counts);
+    if(flags&(1ull<<9))__asm__ volatile("sti":::"memory");
+    unsigned selectable=0;
+    for(unsigned i=0;i<cache.count && i<SRV_WIFI_ROWS;i++)if(cache.row[i].flags&SRV_WIFI_ROW_SELECTABLE)selectable++;
+    console_printf("wifi-ui-cache: phase=%s status=%u owner=%u generation=%u adapters=%u ready=%u rows=%u selected=%u selectable=%u identifiers_logged=0\n",
+        phase,(uint64_t)result,cache.owner,cache.generation,(uint64_t)cache.adapter_count,
+        (uint64_t)((cache.flags&SRV_WIFI_READY)!=0),(uint64_t)cache.count,(uint64_t)cache.selected,(uint64_t)selectable);
+    console_printf("wifi-ui-counts: phase=%s published=%u reads=%u selected=%u stale=%u refused=%u removed=%u identifiers_logged=0\n",
+        phase,counts.published,counts.reads,counts.selected,counts.stale,counts.refused,counts.removed);
+    return result==SRV_WIFI_OK && cache.owner && (cache.flags&SRV_WIFI_READY) && selectable;
+}
+
 void kmain(void) {
     serial_init();
     console_write("\n\nsrvros: entering kernel\n");
@@ -659,6 +676,7 @@ void kmain(void) {
     bool automatic_idle=cmdline_has_token(cmdline,"srvros.capture=idle");
     bool automatic_wifi_firmware=cmdline_has_token(cmdline,"srvros.capture=wifi-firmware");
     bool automatic_wifi_calibration=cmdline_has_token(cmdline,"srvros.capture=wifi-calibration");
+    bool wifi_desktop_trial=cmdline_has_token(cmdline,"srvros.wifi-desktop-trial=1");
     bool automatic_wifi=automatic_wifi_firmware || automatic_wifi_calibration || cmdline_has_token(cmdline,"srvros.capture=wifi");
     bool automatic_probe=cmdline_has_token(cmdline,"srvros.laptop-services=probe-autoreboot");
     bool return_on_failure=cmdline_has_token(cmdline,"srvros.capture-failure=reboot");
@@ -760,6 +778,24 @@ void kmain(void) {
                 console_printf("wifi-calibration-capture: completed=%s; calibration validity and connectivity NOT_TESTED\n",sampled?"yes":"NO");
             }
             console_printf("wifi-capture: identity=%s; connectivity NOT_TESTED\n",xhci_wifi_identity_ready()?"read":"unavailable");
+        }
+        if(wifi_desktop_trial) {
+            uint64_t wifi_ui_run=timer_monotonic_us();
+            bool admitted=automatic_wifi_firmware && cmdline_has_token(cmdline,"srvros.wifi-scan-batch=1") &&
+                return_on_failure && started && init_ready && timer_running && sampled;
+            if(admitted)admitted=wifi_ui_cache_report("before");
+            if(admitted){
+                console_printf("wifi-ui-run: id=%u stage=scan identifiers_logged=0\n",wifi_ui_run);
+                console_write("wifi-ui-scan: completed=yes; capture cleanup/cache verified; no network data OUT\n");
+                admitted=workspace_log_begin_wifi_desktop();
+            }
+            console_printf("wifi-ui-capture: admitted=%u run=%u checklist=wifi-trial timed_exit=0 credentials=0 identifiers_logged=0\n",(uint64_t)admitted,wifi_ui_run);
+            if(admitted){
+                console_write("wifi-ui-capture: opening Help checklist; exit desktop when finished to save and return\n");
+                sampled=process_run_elf_args("/fat/bin/deskd","--wifi-trial");
+                (void)wifi_ui_cache_report("after");
+                console_printf("wifi-ui-capture: desktop_returned=%s run=%u manual_acceptance=PENDING\n",sampled?"yes":"NO",wifi_ui_run);
+            } else sampled=false;
         }
         bool battery_prepared=true,workspace_parked=false;
         if(automatic_battery && !home_battery && return_on_failure && started) {

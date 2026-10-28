@@ -310,7 +310,9 @@ void tool_system_action(struct tool *t,struct desk_action a) {
     if(a.id==SYSTEM_WIFI_SELECT && wifi_selectable(t)) {
         unsigned index=(unsigned)t->wifi_table.body.selected;
         struct srv_wifi_select request={.version=SRV_WIFI_VERSION,.size=sizeof request,.owner=t->wifi.owner,.generation=t->wifi.generation,.index=t->wifi.row[index].index};
-        long result=srv_wifi_select(&request);wifi_refresh(t);
+        long result=srv_wifi_select(&request);
+        desk_log("wifi-ui-choice: result=%ld owner=%llu generation=%llu index=%u identifiers_logged=0\n",result,(unsigned long long)request.owner,(unsigned long long)request.generation,request.index);
+        wifi_refresh(t);
         snprintf(t->wifi_notice,sizeof t->wifi_notice,"%s",result==SRV_WIFI_OK?"Network selected. Wi-Fi connection is not available yet.":result==SRV_WIFI_STALE?"The network list changed. Select a network again.":"This network is unavailable. Refresh the list and try again.");
     }
     if(a.id==SYSTEM_PROCESSES || a.id==SYSTEM_NETWORK || a.id==SYSTEM_DEVICES || a.id==SYSTEM_SENSORS || a.id==SYSTEM_WIFI) { desk_tabs_select(&t->system_tabs,a.id);a.id=SYSTEM_TABS; }

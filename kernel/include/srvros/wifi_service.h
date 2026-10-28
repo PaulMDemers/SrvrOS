@@ -19,4 +19,7 @@ bool wifi_service_refresh(uint64_t,const struct mt76_scan_batch *,const struct m
 void wifi_service_remove(uint64_t);
 int wifi_service_snapshot(uint64_t,struct srv_wifi_snapshot *);
 int wifi_service_select(const struct srv_wifi_select *);
+struct wifi_service_counts { uint64_t published,reads,selected,stale,refused,removed; };
+/* Anonymous boot-lifetime totals, saturating; same serialized CPU0 contract. */
+void wifi_service_counts(struct wifi_service_counts *);
 #endif

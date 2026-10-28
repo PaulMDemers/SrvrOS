@@ -50,10 +50,11 @@ uint64_t timer_ticks(void) { return ticks; }
 uint64_t timer_monotonic_us(void) { return clock_us; }
 int64_t timer_realtime_us(void) { return 123456789; }
 uint64_t bootlog_total(void) { return total; }
-uint64_t bootlog_snapshot(char *out,uint64_t capacity,uint64_t *seq) { assert(capacity==snapshot_limit && capacity>=snapshot_bytes);
+uint64_t bootlog_snapshot(char *out,uint64_t capacity,uint64_t *seq) { assert(capacity==snapshot_limit);
+    uint64_t n=snapshot_bytes<capacity?snapshot_bytes:capacity,skip=snapshot_bytes-n;
     if(snapshot_bytes==8)memcpy(out,"test log",8);
-    else for(uint64_t i=0;i<snapshot_bytes;i++)out[i]=(char)(i%251);
-    *seq=capacity>BOOTLOG_DEFAULT_CAPACITY?snapshot_bytes+(lost_prefix?1:0):total;return snapshot_bytes; }
+    else for(uint64_t i=0;i<n;i++)out[i]=(char)((skip+i)%251);
+    *seq=capacity>BOOTLOG_DEFAULT_CAPACITY?snapshot_bytes+(lost_prefix?1:0):total;return n; }
 void smc_status(struct srv_smc_status *out) { assert(!depth);*out=(struct srv_smc_status){.version=SRV_SMC_VERSION}; }
 void power_status(struct power_snapshot *out) { assert(!depth);*out=(struct power_snapshot){.state=power_enabled?POWER_ACTIVE:POWER_DISABLED,.flags=3,.package_mw=10000,.active_mhz=2200}; }
 void audio_stream_snapshot(struct srv_pcm_status *out,uint64_t *owner) { assert(!depth);*out=(struct srv_pcm_status){.version=SRV_PCM_VERSION};*owner=0; }
@@ -143,5 +144,28 @@ int main(void) {
     assert(periodic_save() && strstr(path,"session-a.log"));
     assert(periodic_save() && strstr(path,"session-b.log"));
     assert(workspace_log_stop());
-    puts("workspace-log: PASS gated writes/readback, collision-safe sessions, periodic readiness, open-file refusal, corruption/sync failure, stop before unmount");
+    count=0;snapshot_bytes=BOOTLOG_EXTENDED_CAPTURE_CAPACITY;
+    assert(workspace_log_start_extended_capture());
+    assert(workspace_log_begin_wifi_desktop() && enabled && snapshot_limit==BOOTLOG_DEFAULT_CAPACITY);
+    char proof_path[160];snprintf(proof_path,sizeof proof_path,"%s/wifi-scan.log",directory);
+    struct item *proof=find(proof_path);assert(proof && proof->node.size==BOOTLOG_EXTENDED_CAPTURE_CAPACITY);
+    assert(strstr(path,"wifi-ui-begin.log") && find(path)->node.size==BOOTLOG_DEFAULT_CAPACITY);
+    for(unsigned i=0;i<BOOTLOG_DEFAULT_CAPACITY;i++)assert(find(path)->bytes[i]==(BOOTLOG_EXTENDED_CAPTURE_CAPACITY-BOOTLOG_DEFAULT_CAPACITY+i)%251);
+    old_writes=writes;assert(!workspace_log_begin_wifi_desktop() && writes==old_writes);
+    lost_prefix=true;assert(periodic_save() && periodic_save() && workspace_log_stop());lost_prefix=false;
+    for(uint64_t i=0;i<proof->node.size;i++)assert(proof->bytes[i]==i%251);
+    snapshot_bytes=8;assert(workspace_log_start());old_writes=writes;
+    assert(!workspace_log_begin_wifi_desktop() && writes==old_writes && enabled);assert(workspace_log_stop());
+    for(unsigned fault=0;fault<4;fault++){
+        count=0;assert(workspace_log_start_extended_capture());old_writes=writes;
+        if(fault==0)lost_prefix=true;
+        if(fault==1)corrupt=true;
+        if(fault==2)sync_ok=false;
+        if(fault==3)busy=true;
+        assert(!workspace_log_begin_wifi_desktop() && !enabled && snapshot_limit==BOOTLOG_EXTENDED_CAPTURE_CAPACITY);
+        if(fault==0 || fault==3)assert(writes==old_writes);
+        if(fault==3)assert(busy);
+        lost_prefix=corrupt=busy=false;sync_ok=true;healthy=true;assert(workspace_log_stop());
+    }
+    puts("workspace-log: PASS gated writes/readback, collision-safe sessions, periodic readiness, open-file refusal, corruption/sync failure, stop before unmount;immutable full RF proof,rolling desktop tail and phase-boundary fault containment");
 }

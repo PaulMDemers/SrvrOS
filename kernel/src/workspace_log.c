@@ -305,3 +305,15 @@ bool workspace_storage_wait_capture(void) {
 }
 
 bool workspace_log_start_extended_capture(void) { return start(BOOTLOG_EXTENDED_CAPTURE_CAPACITY,false); }
+
+bool workspace_log_begin_wifi_desktop(void) {
+    if(!enabled || !healthy || snapshot_limit!=BOOTLOG_EXTENDED_CAPTURE_CAPACITY ||
+       retain_checkpoints || !directory[0] || !workspace_active())return false;
+    if(!workspace_log_quiesce(5000))return false;
+    if(!save("wifi-scan.log")){healthy=false;return false;}
+    snapshot_limit=BOOTLOG_DEFAULT_CAPACITY;
+    console_write("workspace-log: phase=wifi-desktop startup_saved=1 tail_limit=65536\n");
+    healthy=save("wifi-ui-begin.log") && healthy;
+    if(!healthy)return false;
+    enabled=true;due=timer_ticks()+1000;scheduler_wake_all(&wake);return true;
+}

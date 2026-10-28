@@ -11,7 +11,7 @@ from pathlib import Path
 import hardware_test as host
 
 SESSION = re.compile(r"session-[0-9a-f]{16}-[0-9a-f]{2}")
-FILES = ("boot.log", "session-a.log", "session-b.log", "exit.log")
+FILES = ("boot.log", "session-a.log", "session-b.log", "exit.log", "wifi-scan.log", "wifi-ui-begin.log")
 # Wi-Fi firmware captures may opt into a 256KiB complete startup snapshot.
 # This transport ceiling does not establish capture completeness or acceptance.
 MAX_LOG_BYTES = 1024 * 1024

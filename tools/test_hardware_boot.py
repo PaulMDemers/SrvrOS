@@ -203,6 +203,15 @@ class InstallTests(unittest.TestCase):
         for options in (dict(mwait_deep_test=True),dict(cpu_load_capture=True,mwait_deep_test=True,mwait_wakeup_test=True),dict(cpu_load_capture=True,wifi_scan_batch=True,wifi_scan_retry=True,mwait_deep_test=True)):
             with self.assertRaises(ValueError):boot.stage(**options)
 
+    def test_wifi_desktop_trial_profile(self):
+        parent="ram-usb-wifi-fw-v102-laptop-probe-0e535900-auto-return"
+        version="ram-usb-wifi-fw-v103-laptop-probe-0e535900-auto-return"
+        a=boot.limine_config("0123456789abcdef",version)
+        self.assertEqual(a.replace(" srvros.wifi-desktop-trial=1",""),boot.limine_config("0123456789abcdef",parent))
+        with self.assertRaises(ValueError):boot.limine_config("0123456789abcdef",version.removesuffix("-auto-return"))
+        for opts in ({},dict(wifi_scan_batch=True,hold_on_failure=True)):
+            with self.assertRaises(ValueError):boot.stage(wifi_desktop_trial=True,**opts)
+
     def test_wifi_scan_batch_profile(self):
         v="ram-usb-wifi-fw-v102-laptop-probe-0e535900-auto-return"
         self.assertEqual(boot.limine_config("0123456789abcdef",v).replace(" srvros.wifi-scan-batch=1",""),boot.limine_config("0123456789abcdef",v.replace("v102-","v101-")))

@@ -16,6 +16,7 @@ from desktop_foundation_smoke import QMP
 
 def main():
     parser=argparse.ArgumentParser()
+    parser.add_argument("--wifi-trial",action="store_true",help="open the Wi-Fi trial checklist automatically before System")
     parser.add_argument("--network",action="store_true",help="Exercise e1000 DHCP and live address/counter display")
     args=parser.parse_args()
     root=Path(__file__).resolve().parents[1]
@@ -80,8 +81,10 @@ def main():
                     serial.sendall(b"run /fat/bin/sh\n");wait(b" $ ")
                     serial.sendall(b"dhcp\n");wait(b"dhcp: 10.0.2.15");wait(b" $ ")
                     serial.sendall(b"exit\n");wait(b"srv> ")
-                serial.sendall(b"run /fat/bin/deskd --apps-trace\n")
-                wait(b"desktools: starting role=text");wait(b"deskd: commit")
+                serial.sendall(b"run /fat/bin/deskd --wifi-trial\n" if args.wifi_trial else b"run /fat/bin/deskd --apps-trace\n")
+                if args.wifi_trial:
+                    wait_all([b"deskhelp: page=wifi-trial",b"deskhelp: starting"]);wait(b"deskd: commit");shot("wifi-checklist")
+                else:wait(b"desktools: starting role=text");wait(b"deskd: commit")
                 click(690,750);wait(b"desktools: starting role=system");wait(b"desktools: system-ready");wait(b"deskd: commit");shot("system-default")
                 # Second window content starts at (57,132), 760 by 500.
                 click(720,305);wait(b"system-sort column=4 descending=0")

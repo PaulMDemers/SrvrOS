@@ -7,13 +7,16 @@ static struct provider {
     bool selected;
 } providers[SRV_WIFI_ADAPTERS];
 static uint64_t serial;
+static struct wifi_service_counts counts;
+static void increment(uint64_t *v){if(*v!=UINT64_MAX)(*v)++;}
+void wifi_service_counts(struct wifi_service_counts *out){if(out)*out=counts;}
 static void scrub(void *p,size_t n){volatile uint8_t *v=p;while(n--)*v++=0;}
 static struct provider *find(uint64_t id){
     for(unsigned i=0;i<SRV_WIFI_ADAPTERS;i++)if(id && providers[i].id==id)return &providers[i];
     return NULL;
 }
 static void prune(void){
-    for(unsigned i=0;i<SRV_WIFI_ADAPTERS;i++)if(providers[i].id && !providers[i].ops.present(providers[i].ops.context))scrub(&providers[i],sizeof providers[i]);
+    for(unsigned i=0;i<SRV_WIFI_ADAPTERS;i++)if(providers[i].id && !providers[i].ops.present(providers[i].ops.context)){increment(&counts.removed);scrub(&providers[i],sizeof providers[i]);}
 }
 uint64_t wifi_service_publish(const struct wifi_service_provider *ops,
     const struct mt76_scan_batch *b,const struct mt76_selection_io *io){
@@ -29,7 +32,7 @@ uint64_t wifi_service_publish(const struct wifi_service_provider *ops,
     if(!mt76_selection_publish(&p->snapshot,b,io) || !ops->present(ops->context)){
         scrub(p,sizeof *p);return 0;
     }
-    p->ops=*ops;p->id=id;return id;
+    p->ops=*ops;p->id=id;increment(&counts.published);return id;
 }
 bool wifi_service_refresh(uint64_t id,const struct mt76_scan_batch *b,const struct mt76_selection_io *io){
     prune();struct provider *p=find(id);if(!p)return false;
@@ -39,9 +42,10 @@ bool wifi_service_refresh(uint64_t id,const struct mt76_scan_batch *b,const stru
     if(!p->ops.present(p->ops.context)){scrub(p,sizeof *p);return false;}
     return ok;
 }
-void wifi_service_remove(uint64_t id){struct provider *p=find(id);if(p)scrub(p,sizeof *p);}
+void wifi_service_remove(uint64_t id){struct provider *p=find(id);if(p){increment(&counts.removed);scrub(p,sizeof *p);}}
 int wifi_service_snapshot(uint64_t id,struct srv_wifi_snapshot *out){
     if(!out)return SRV_WIFI_INVALID;
+    increment(&counts.reads);
     *out=(struct srv_wifi_snapshot){.version=SRV_WIFI_VERSION,.size=sizeof *out,.selected=SRV_WIFI_NONE};
     prune();struct provider *p=NULL;
     for(unsigned i=0;i<SRV_WIFI_ADAPTERS;i++)if(providers[i].id){
@@ -75,8 +79,8 @@ int wifi_service_snapshot(uint64_t id,struct srv_wifi_snapshot *out){
     return SRV_WIFI_OK;
 }
 int wifi_service_select(const struct srv_wifi_select *request){
-    if(!request || request->version!=SRV_WIFI_VERSION || request->size!=sizeof *request || request->reserved || !request->owner)return SRV_WIFI_INVALID;
-    prune();struct provider *p=find(request->owner);if(!p)return SRV_WIFI_STALE;
+    if(!request || request->version!=SRV_WIFI_VERSION || request->size!=sizeof *request || request->reserved || !request->owner){increment(&counts.refused);return SRV_WIFI_INVALID;}
+    prune();struct provider *p=find(request->owner);if(!p){increment(&counts.stale);return SRV_WIFI_STALE;}
     struct mt76_selection_choice choice={0};
     enum mt76_selection_status status=mt76_selection_choose(&p->snapshot,request->generation,request->index,&choice);
     int result=SRV_WIFI_INVALID;
@@ -88,5 +92,8 @@ int wifi_service_select(const struct srv_wifi_select *request){
     case MT76_SELECTION_CONFLICT:result=SRV_WIFI_CONFLICT;break;
     default:break;
     }
+    if(result==SRV_WIFI_OK)increment(&counts.selected);
+    else if(result==SRV_WIFI_STALE)increment(&counts.stale);
+    else increment(&counts.refused);
     scrub(&choice,sizeof choice);return result;
 }

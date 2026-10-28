@@ -10518,3 +10518,12 @@ merged core/desktop, profile compatibility, strict log collection, sanitizers,
 guest checklist/exit/refusal VMs and exact staged image before install/readiness.
 Native UI acceptance remains pending. Existing recovery and v102 evidence stay
 retained. Battery, headphones, latency, transmit/security and IP remain separate.
+
+Logging boundary refinement: keep one session directory, persist the complete
+extended RF prefix to a dedicated `wifi-scan.log` after cleanup, then resume the
+existing bounded64KiB rolling logger for the untimed GUI phase. Preserve
+`wifi-ui-begin.log`, before/after anonymous cache state and final cumulative
+selection/removal counters; do not widen bootlog memory or overwrite the RF proof.
+The collector must validate both phases explicitly. This adds one guarded opt-in
+workspace-log transition and its host corruption/quiescence/prefix/long-tail tests;
+PR182 does not modify workspace_log.c. Ordinary logging remains unchanged.

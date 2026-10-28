@@ -5902,3 +5902,30 @@ firmware-packaged initramfs match the committed source. This is VM/host evidence
 native cache/UI acceptance requires a later explicit scan-to-desktop profile.
 The new image is not installed or armed. Native hardware acceptance remains the
 bounded receive trial `3337af3753372b9d`; connection/security/IP remain pending.
+
+## Attended scan-to-desktop profile (v103)
+
+`--wifi-desktop-trial` requires the complete automatic `--wifi-scan-batch` recipe.
+It inherits v102's RF/USB operations byte for byte and adds only the attended
+handoff token. GUI admission requires successful capture, a ready selectable
+cache and a verified immutable `wifi-scan.log` containing the complete extended
+startup proof. The same session then uses ordinary64KiB rolling logs, preserving
+`wifi-ui-begin.log` and the radio file across an untimed desktop session. This
+avoids overwriting radio proof when the user takes longer than the extended
+startup buffer permits. The collector must bind the overlapping phase bytes and
+run ID; a tail log is not a replacement for the complete radio proof.
+
+Help opens the entire `wifi-trial` checklist automatically. The user inspects
+System's Wi-Fi list, selects a visible network, exercises Refresh/Pause/Resume,
+unplugs only Wi-Fi and confirms that its cached list disappears. Reconnecting does
+not restore an old owner or rescan. Exit desktop saves logs, unmounts and returns
+to Ubuntu without commands; closing Help alone does not finish. Anonymous cache
+before/after reports, cumulative selection/removal counts and choice outcomes are
+saved; physical acceptance still requires the user's visual report. No password,
+association, security negotiation or IP operation is part of this profile.
+
+Failure before admission refuses GUI and follows the existing automatic save/
+return policy. Quiescence failure retains the logger's write and mount ownership.
+Ordinary log profiles, v1–v102 Wi-Fi recipes and the separate AP diagnostic kernel
+remain unchanged. This new profile requires its own matched host/VM/install/run
+record and native evidence; it does not inherit v102's acceptance automatically.

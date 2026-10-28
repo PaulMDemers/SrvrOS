@@ -10,6 +10,10 @@ bool workspace_log_start_large_capture(void);
 /* Explicit larger RF prerequisite profile only; retain the full startup prefix. */
 bool workspace_log_start_full_capture(void);
 bool workspace_log_start_extended_capture(void);
+/* Wi-Fi attended profile only: quiesce extended capture, persist its complete
+ * prefix in wifi-scan.log, then resume bounded rolling desktop tail in the same
+ * directory. Failed quiescence retains ownership; no GUI may start on failure. */
+bool workspace_log_begin_wifi_desktop(void);
 /* Explicit desktop diagnostic: retain at most32 periodic snapshots, never wrap. */
 bool workspace_log_start_checkpoints(void);
 /* Explicit diagnostic only; pauses logging and uses a fresh session file. */
