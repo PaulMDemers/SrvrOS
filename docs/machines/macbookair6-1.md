@@ -4716,3 +4716,32 @@ limit. Scope: scheduler diagnostic, power admission/receipt, read-only LAPIC
 readiness helper, explicit staging, collector and host/VM regressions. PR182
 filesystem (`2a091597`) and PR19 Wi-Fi (`6e0e25ec`) remain independent. Next:
 validate, self-merge, exact-stage install and authorized automated native run.
+
+
+### Bounded C3 trial — validated candidate (2026-10-27)
+
+PR226 runtime `5ad0cb6f`, exact staged release `1bac141e5965a9b0`, adds only the
+explicit C3 hint recipe. Full matched build/USB/core/docs pass. Directed host
+checks cover shallow compatibility, timer/capability/unsupported-hint refusal,
+32-attempt cap, readiness race, retired epochs, latency boundary and failure,
+C3 counter regression/overflow and valid zero residency, and mandatory HLT.
+All 98 collector/staging tests and twelve existing load refusal/stop cases pass.
+Disassembly preserves MONITOR, selected-hint MWAIT, pre-dispatch measurement and
+the original contiguous `sti; hlt; cli` fallback.
+
+The exact GPT workspace VM passes explicit C3 refusal, saved logs, unmount and
+automatic return; missing workspace halts safely. Disabled/unsupported power and
+load regressions also pass. These VMs do not accept native C3 entry or latency.
+Prior native log replay with both deeper-test receipts retains all phase proof
+under the unchanged 64 KiB limit. No counter/thermal/watchdog/integrity threshold
+has been widened. Valid zero C3 remains an unobserved result, distinct from a
+successful bounded wakeup test.
+
+Native run `cee8062fef7e4084` will execute the same three 30-second phases with
+visible progress and automatic Ubuntu return/collection; no human input is
+needed. Local model, connected AC, USB identity and all 532 baseline file hashes
+verify. Allocation/headroom are clean at 1,582 clusters. Preserve shallow accepted
+payload `8030ae20c2611a09`, console recovery, desktop power, stress and attended
+reopen. The superseded prerequisite-only EFI copy `8022333a9240598e` may be
+retired after verifying its durable backup. Save/hash the candidate and run
+records outside `build` before arming. Native acceptance remains pending.
