@@ -2,6 +2,20 @@
 
 Updated: 2026-10-27. State: **active reference machine; partial device acceptance**.
 
+### Shared baseline refresh — validation in progress
+
+Consumed actual main `f5917467` (PR226) on the existing device branch. All prior
+Air7,2 implementation and acceptance commits are merged; the checkout was clean
+with no local commits outside main. PR182 filesystem audit and PR19 Pro Wi-Fi
+remain separate ongoing work, not accepted dependencies. This housekeeping block
+owns current documentation and local validation only: rebuild matched normal/
+native/VM artifacts, run core/desktop hosts and affected serial VM consumers,
+remove stale future-trial wording and publish a coherent documentation checkpoint.
+Installed accepted `060fffa453e26d5e` and independent `9aa8dbf6fbda8252` recovery
+are untouched. New shared power/idle/screenshot behavior does not inherit the
+older payload's physical acceptance. No stage, install or reboot is planned.
+Evidence: `build/baseline-sync-20261027/`.
+
 ### Focused Close/window-list trial — bounded hardware smoke accepted
 
 Release `060fffa453e26d5e`, clean source `bd94284a` on PR201 main `5db81dd5`,
