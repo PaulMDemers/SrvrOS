@@ -1395,3 +1395,16 @@ no process/exFAT/VFS overlap. Documentation/link and whitespace checks pass.
 No native install, Actions dispatch or PR merge occurred. Follow-on syscall/libc
 tracing confirmed no further defect; descriptor inheritance and delayed-error
 ownership across process exit are next.
+
+## Descriptor inheritance and exit errors — active scope (2026-10-28)
+
+Continue PR182 from `2a091597`, integrating fetched main `5a94d755` through
+PR230 before implementation. Audit inherited file references, close-on-exec,
+spawn/fork setup rollback and ownership of delayed writeback errors at exit.
+Touched areas: process lifecycle/file descriptions, focused host regressions,
+current storage/process guides and this host record. Main's spawn-image,
+directory and scheduler changes are included rather than duplicated. Air6,1 and
+Air7,2 branches are merged; PR19 at `114dee34` retains separate Wi-Fi scope with
+no process/exFAT/VFS changes. Preserve its Makefile work. Next checkpoint is
+bounded reproducers, fixes for confirmed defects and matched host/VM evidence.
+No native install, hardware acceptance or PR merge is planned.
