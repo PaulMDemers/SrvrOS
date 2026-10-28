@@ -7,14 +7,18 @@ and next scope are recorded at the end; earlier failures are historical.
 
 ## Current handoff
 
-Installed candidate: v102 `3337af3753372b9d`, source `ebbb08cb`, actual main
-`052ebc18`. It adds up to eight enabled-window receives per US1/6/11 visit,
-with nine retained data pages and one ring per visit, observed early completion
-rejection and an unchanged ten-second deadline. Local/sanitizer/whole-log and
-exact-stage VM checks pass; physical acceptance is pending. Ubuntu remains
-default, workspace unmounted and no reboot armed. After cold-cycle readiness,
-unplug Wi-Fi10s while off, reconnect and power on; leave workspace connected.
-Collect this matching v102 session FIRST on return with the automatic collector.
+Latest accepted trial: v102 `3337af3753372b9d`, source `ebbb08cb`, actual
+main `052ebc18`, session `session-00065edbc19533a8-00`. All24 enabled-window
+receives completed across US1/6/11:23 beacon observations and one unrelated
+transfer, yielding six anonymous discovery rows. Each channel completed eight
+receives in less than0.88s. Channel6 rejected an observed early276-byte completion
+uninspected and used eight fresh pages under the original deadline. All30 fresh
+page identities stayed distinct and retained; all three independent MAC/endpoint
+stops and all13 original channel1 word restorations passed. Full799953-byte
+capture, seven complete payload equalities and offline integrity passed. Evidence
+is archived outside build. Ubuntu remains default, workspace unmounted and no
+reboot armed. No repeat is needed. Sustained endurance, FCS, physical BSSID
+deduplication, association/security and IP/UI remain unaccepted.
 
 Latest accepted trial: v101 `f1015eeb7358f9c7`, source `6b12e4f2`, main
 `e4f8bf84`, session `session-00065edaa5a051a0-00`. The bounded pre-enable retry
@@ -62,8 +66,8 @@ Ubuntu default, consumed one-shot, unmounted/unarmed and offline integrity passe
 (349 files,880 clusters,146 directories, zero errors). Full evidence is archived
 outside build. No repeat run is needed.
 
-Next: native integration of the host-tested repeated-window collection, then sustained discovery, selection,
-association/security and IP/UI. Reject or drain pre-enable data without assigning
+Next: bounded discovery publication/selection and transmit/association/security groundwork,
+then IP/UI. Repeated receive is accepted only for the bounded v102 trial. Reject or drain pre-enable data without assigning
 it to the new channel. Keep separate retained RX ownership, explicit
 channel-aware parsing and independent endpoint stop/RF restoration on every
 failure. Original strict calibration helper remains unchanged; RF0:6 semantics
@@ -10342,3 +10346,33 @@ v101 and Ubuntu recovery remain live. Offline workspace:359 files,924 clusters,
 run/recovery records and evidence survive distclean in
 `wifi-scan-native-batch-ebbb08cb` outside build. Installed, unmounted, unarmed.
 Native acceptance stays at v101 until the matching v102 capture is collected.
+
+
+## 2026-10-28 v102 repeated-receive return
+
+The saved matching session confirms the trial ran; no additional reboot was
+needed. Independent re-execution of the original raw-log proof matches the
+collected result. US channels1/6/11 completed eight receives each in875656,
+807677 and822217 us, with8/8/7 beacon observations. One channel11 transfer was
+unrelated and excluded. The private table reports six rows and23 observations;
+identifiers remain omitted, so physical BSSID grouping is not independently
+accepted. Channel6's early276-byte normal completion was retained uninspected;
+its eight selected transfers used fresh pages with no deadline reset. No late
+completion or network data OUT was recorded.
+
+All30 ring/data page addresses remain distinct and retained. Every visit passes
+independent MAC retirement, exact endpoint Stop, four fresh quiescence guards
+and restoration of all13 original channel1 words with bounded VCO clear. The
+full799953-byte startup/exit prefix and completion markers pass; no interleaved
+cached checkpoint occurred. Source hashes match the committed source and durable
+reviewed copies. Current plus six recovery payloads match all durable bytes.
+Ubuntu default, consumed one-shot and unmounted/unarmed state are verified.
+Offline checks pass361 files,933 clusters,150 directories with zero errors,
+leaks or bitmap mismatches. Native collection, original strict result, independent
+audit and recovery evidence survive distclean in `wifi-scan-native-batch-ebbb08cb`.
+
+This accepts bounded repeated receive and channel11 beacon observation alongside
+channels1/6. It does not accept sustained endurance, FCS, physical BSSID grouping,
+association/security or IP/UI. Battery, headphones and trackpad follow-ups stay
+deferred. Next work is bounded discovery publication/selection and transmit/
+association groundwork; no new test is armed.

@@ -5784,7 +5784,7 @@ logs identifiers or joins a network. Native repeated-receive integration and its
 exact saved-log/VM/physical evidence remain the next checkpoint; host fixtures
 do not accept sustained RF reception or Wi-Fi connectivity.
 
-## Native repeated-IN candidate (v102)
+## Native repeated-IN trial (v102)
 
 Source `ebbb08cb` adds an opt-in selector80/v102 adapter for the repeated-window
 contract above. Per US1/6/11 visit it reserves a fresh ring and nine data pages,
@@ -5797,10 +5797,20 @@ is recorded. Independent MAC retirement, exact Stop, four fresh guards and
 original-channel1 restoration remain required on every path. Ordinary startup
 and v1–v101 recipes stay unchanged; no active network data is transmitted.
 
-Release `3337af3753372b9d` is installed on Pro11,2 with main `052ebc18`, but
-physical acceptance is pending. Full build/core/desktop, native fault/sanitizer,
-strict whole-log, saved/refusal exact-stage VM and recovery/offline gates pass.
-The [unit record](machines/macbookpro11-2.md) records counts, source and retained
-failures. Collect the matching session before a new run. Private row/count proof
-does not establish physical BSSID grouping, FCS, sustained scanning, association,
-security or IP/UI. The latest accepted hardware image remains v101.
+Release `3337af3753372b9d`, source `ebbb08cb` with main `052ebc18`, passed
+on Pro11,2 in session `session-00065edbc19533a8-00`. All24 selected receives
+completed:8/8/7 beacon observations on channels1/6/11, one unrelated transfer,
+and six anonymous discovery rows. Each visit completed in less than0.88s.
+Channel6 rejected an early276-byte completion uninspected, then used eight fresh
+pages under the original deadline. All30 distinct ring/data pages stayed retained;
+all three independent MAC/endpoint stops and13-word channel1 restorations passed.
+The full799953-byte capture, seven complete payload equalities and clean offline
+workspace/recovery checks passed. No repeat is needed; Ubuntu is default and no
+reboot is armed.
+
+Full build/core/desktop, native fault/sanitizer, strict whole-log and saved/refusal
+exact-stage VM gates precede this physical result. The
+[unit record](machines/macbookpro11-2.md) records counts, source and retained
+failures. Private row/count proof does not establish physical BSSID grouping,
+FCS, sustained endurance, association, security or IP/UI. Bounded discovery
+publication/selection and transmit/association groundwork remain next.
