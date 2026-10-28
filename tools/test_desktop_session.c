@@ -12,6 +12,9 @@ static void test_registry_free(void *p,size_t bytes);
 #undef main
 
 static unsigned capture_closes,capture_reap_pending;
+int desk_capture_job_prepare(struct desk_capture_job *j,uint32_t width,uint32_t height,const char *path) {
+    (void)j;(void)width;(void)height;(void)path;assert(!"unexpected capture preparation");return -1;
+}
 void desk_capture_job_close(struct desk_capture_job *j) {
     capture_closes++;assert(j->pixels && j->reader==10 && j->writer==11);
     j->pixels=NULL;j->reader=j->writer=-1;j->busy=0;j->retiring_pid=j->pid;j->pid=0;
@@ -67,6 +70,11 @@ void srv_puts(const char *text) {
 }
 static uint64_t now=1;
 static int alive=1,queue_full,copy_failure,allocations,frees,killed,sends,reaped,alloc_fail;
+static int terminal_snapshot,defer_reap;static unsigned worker_reaps;
+long srv_proc_list(uint64_t index,struct srv_process_info *info) {
+    if(!terminal_snapshot || index)return 0;
+    *info=(struct srv_process_info){.pid=42,.parent_pid=4};strcpy(info->state,"exited");return 1;
+}
 static uint32_t sent[128],sent_values[128];
 static uint64_t sent_serials[128],sent_windows[128];
 static int send_allow=-1;
@@ -83,7 +91,22 @@ long srv_realtime_us(void) { return 1792326896000000L; }
 int desk_process_alive(uint64_t pid) { return pid==42 && alive; }
 long srv_kill(int64_t pid) { assert(pid==42); alive=0; killed++; return 0; }
 long srv_wait(uint64_t pid,uint64_t *status,uint64_t flags) {
-    (void)status; (void)flags; return !alive?(reaped?-1:(long)pid):0;
+    if(defer_reap) {
+        if(flags&SRV_WAIT_NOHANG)return 0;
+        assert(terminal_snapshot && pid==42);worker_reaps++;*status=0;return 42;
+    }
+    (void)status;return !alive?(reaped?-1:(long)pid):0;
+}
+static void asynchronous_child_reap(void) {
+    struct lifecycle_worker w={0};struct session s={.worker=&w};s.children[0]=42;
+    terminal_snapshot=defer_reap=1;alive=0;worker_reaps=0;
+    service(&s);assert(s.children[0]==42 && life_reap_pending(&w,42) && !worker_reaps);
+    service(&s);assert(s.children[0]==42 && !s.child_reaped);
+    life_work(&w);assert(worker_reaps==1 && s.children[0]==42);
+    service(&s);assert(!s.children[0] && s.child_reaped==1 && !s.child_errors);
+    service(&s);assert(worker_reaps==1 && !life_reap_pending(&w,42));
+    terminal_snapshot=defer_reap=0;alive=1;
+    puts("desktop-child-reap: PASS deferred NOHANG, retained PID, worker-owned blocking wait and one result consumption");
 }
 uint32_t *desk_pixels_alloc(uint32_t w,uint32_t h) { if(alloc_fail && allocations==alloc_fail) return NULL; allocations++; return malloc((size_t)w*h*4); }
 void desk_pixels_free(uint32_t *p,uint32_t w,uint32_t h) {
@@ -1073,6 +1096,7 @@ int main(void) {
     execute_result=42;spawn_app(&failed,DESK_APP_TEXT,"");
     assert(failed.children[4]==42 && failed.child_apps[4]==DESK_APP_TEXT && !failed.scene.notice[0]);
     capture_cleanup_ownership();
+    asynchronous_child_reap();
     asynchronous_lifecycle();
     clipboard_client_retirement();
     delayed_control_delivery();

@@ -4,7 +4,7 @@
 #include <stddef.h>
 struct desk_capture_job {
     uint64_t pid,retiring_pid;
-    int reader,writer,busy;
+    int reader,writer,busy,snapshotted;
     uint32_t next_id;
     struct desk_capture_request request;
     struct desk_capture_response response;
@@ -17,6 +17,11 @@ struct desk_capture_job {
 void desk_capture_job_init(struct desk_capture_job *job);
 /* Takes an owned snapshot, never retains the caller's canvas. */
 int desk_capture_job_start(struct desk_capture_job *job,const uint32_t *pixels,uint32_t width,uint32_t height,const char *path);
+/* Worker-side allocation/spawn; the caller owns the returned job. Before any
+ * transfer, publish an immutable canvas copy with snapshot(). No canvas pointer
+ * is retained while the worker prepares pipes/mappings. */
+int desk_capture_job_prepare(struct desk_capture_job *job,uint32_t width,uint32_t height,const char *path);
+int desk_capture_job_snapshot(struct desk_capture_job *job,const uint32_t *pixels,uint32_t width,uint32_t height);
 /* 1 validated completion (inspect status), 0 pending/idle, -1 transport failure. */
 int desk_capture_job_poll(struct desk_capture_job *job);
 /* Transfer/validate only. Completion retains busy/resources for an owned cleanup

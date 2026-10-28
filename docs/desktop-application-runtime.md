@@ -140,3 +140,24 @@ buttons and app shortcuts, including Meta aliases for Ctrl-Shift bindings.
 Disabled/repeated app shortcuts never become shell bytes; raw Ctrl-C, Ctrl-D and
 Ctrl-L retain their PTY meaning. A new terminal still launches its own process;
 this migration does not claim multiple terminal sessions in one process.
+
+## Compositor lifetime work under storage load
+
+The compositor retains a child PID until it consumes a successful kernel wait.
+When a read-only process snapshot reports `exited`, it may admit one immutable
+reap request to the existing lifecycle worker. The worker uses a blocking wait
+at the ordinary kernel I/O boundary; the snapshot itself grants no reclamation.
+The UI never waits on a PID owned by that record. Interrupted results retain the
+child for retry. Sixteen in-flight records provide bounded backpressure without
+changing the process/window budget; full queues keep their children registered.
+Shutdown drains admitted requests before the worker/session storage disappears.
+
+Screenshot preparation also runs on that worker: allocate the owned pixel map,
+create pipes and spawn the child, then publish the prepared job. The UI copies its
+current canvas only after preparation returns and dimensions match. A prepared
+job sends no request/pixel bytes before that immutable snapshot is published.
+The legacy `desk_capture_job_start` still performs prepare plus snapshot together.
+A changed canvas or shutdown closes/retires the owned job; it never discards
+unpublished handles or cancels an accepted file mutation. Existing verified save,
+completion and retirement protections remain in force. No kernel wait ABI or
+I/O eligibility gate changes are part of these boundaries.
