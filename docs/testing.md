@@ -1185,7 +1185,7 @@ bridge remains the backend integration check. October 28 integrated-main evidenc
 is under `build/review/inheritance-exit/`.
 
 
-`make test-net-lifetime` runs 30 deterministic modes against production
+`make test-net-lifetime` runs 38 deterministic modes against production
 `net.c`: final close with outstanding data, deferred FIN, both inherited exit
 orders, inherited listener backlog (completed and half-open), abort controls,
 deferred-FIN deadline, failed deferred send and simultaneous close. The fixture
@@ -1239,3 +1239,19 @@ initial backlog fixture incorrectly queried an unaccepted, zero-reference
 handle; its corrected check inspects pending ownership until accept.
 All 30 modes pass normally and under ASan/UBSan. Seven matched-image VM gates
 pass; the TCP audit and host record carry the exact commands/results and limits.
+
+
+The peer-window/persist checkpoint adds eight modes (38 total): ordered window
+updates across wrap, original sequence after receive overlap trimming, passive
+handshake mutation refusal, two-endpoint lost-reopening recovery, responsive
+closed windows with/without retained data, silent peers/transport failure and
+bounded close. The two-endpoint fixture passes captured sequence/ACK/flags/window
+and byte payload through the peer's production TCP parser, drops the reopening
+ACK and refuses the first probe transport send. It verifies recovery and exact
+byte delivery at both ordinary and wrapping sequence positions. Fifty responsive
+probe rounds exceed the old total-probe limit and the idle interval; ordinary
+retry exhaustion must not destroy the connection. Silent/close controls retain
+TIMEDOUT and final descriptor release. Six new modes fail on source `1d1e106a`;
+the two timeout controls pass. Evidence: `build/review/tcp-window/`.
+All 38 modes pass normally and under ASan/UBSan, and seven matched-image VM
+gates pass. The TCP audit and host record retain exact results and limits.

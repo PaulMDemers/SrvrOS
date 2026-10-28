@@ -301,3 +301,81 @@ source diff and source/artifact hashes are under `build/review/tcp-retry/`.
 Documentation/link and whitespace checks pass. Earlier storage fault matrices
 remain dated evidence; no physical adapter/native AP acceptance, Actions dispatch
 or PR merge is claimed. PR182 remains draft.
+
+
+## Peer-window ordering and persist checkpoint (2026-10-28)
+
+Integrated main `45b8647a` through PR234 in `82aecaf5`; its two changes are
+machine/parity evidence documents. PR19 `52e47a10` remains separate Wi-Fi work;
+Air6,1 `c9639988` adds opt-in coordinated-C3 diagnostics beyond main, not included
+in this host's qualification. Original network source remains `1d1e106a`, saved
+under `build/review/tcp-window/original-net.c`.
+
+Six new test modes reproduce defects; two timeout controls pass unchanged:
+
+- Window advertisements were assigned unconditionally for synchronized packets.
+  ACKs older than the unacknowledged send position, reordered segment sequences,
+  and stale overlap packets could change write readiness/persist state. The
+  stack now records the original wire sequence and ACK for the last update and
+  admits new window values only with an in-range ACK and non-stale ordering.
+  Equal sequence/ACK pairs remain admissible for legitimate read-driven window
+  changes. Overlap trimming affects received data only, not update ordering.
+- Invalid passive-open final ACKs changed window state before validation. Window,
+  MAC and activity publication now follow successful handshake validation.
+- Empty persist probes used the next send sequence and could be silently accepted
+  after a lost reopening ACK, leaving a writable peer unreachable. With retained
+  data the probe retransmits just its first unacknowledged byte; without data it
+  uses an empty segment at one sequence before the unacknowledged position. No
+  probe advances the local send sequence or inserts a transmit record. A probe's
+  accepted byte is retired by the ordinary ACK path exactly once.
+- A fixed total probe count aborted responsive zero-window peers; ordinary data
+  retry exhaustion could abort them even earlier. Persist now owns retransmission
+  while the local write side is open and the peer window is zero. Valid ordered
+  advertisements clear unanswered attempts without resetting exponential backoff.
+  Reopening clears persist and renews the ordinary retry budget. The silent-peer
+  cap remains twelve unanswered attempts (expiry at the following deadline), and
+  failed transport sends consume that bounded budget. Initial delay is 25 ticks,
+  subsequent delays are 50/100/200 ticks, capped at 200. Close/shutdown bounds and
+  the ordinary idle policy remain unchanged; responsive traffic refreshes activity.
+
+Ordering and persist behavior are grounded in
+[RFC 9293 segment processing](https://www.rfc-editor.org/rfc/rfc9293.html#section-3.10.7.4)
+and [zero-window probing](https://www.rfc-editor.org/rfc/rfc9293.html#section-3.8.6.1).
+The no-queued-data path is an old-sequence ACK probe; the API retains no new
+application bytes on an AGAIN result. This is a bounded implementation, not
+complete TCP conformance or a new configurable timeout/socket ABI.
+
+The eight additions bring the fixture to 38 modes. Window tests cover stale ACK,
+newer/older segment sequence, sequence wrap, old overlap carrying new data, and
+invalid final-handshake ACK/sequence. A captured two-endpoint exchange drops a
+window-reopening message and refuses a probe send, then checks exact recovery
+with/without queued data and across wrap. Fifty responsive rounds exceed both
+the old probe limit and idle interval, including a previously exhausted ordinary
+retry budget. Silent-peer/transport-refusal and close controls preserve bounded
+TIMEDOUT and final release. The first candidate build placed the persist helper
+before its state predicate declaration; that compile failure is retained, and
+the helper was moved before collecting passing runtime evidence.
+
+Follow-on tracing moves outward from `handle_tcp` to IPv4 packet admission and
+TCP options: the IPv4 handler validates length/checksum before protocol dispatch,
+and TCP validates data offset/checksum before flags, but fragment semantics and
+option/MSS negotiation need directed malformed-packet tests. No complete parser,
+WAN reordering, congestion-control or native-adapter qualification is claimed.
+
+
+### Peer-window/persist verification
+
+All 38 lifetime modes pass on x86_64/Rosetta and under native ARM64 ASan/UBSan.
+Six added modes fail against original network source `1d1e106a`; silent-peer and
+close-deadline controls pass. Existing TCP accept, e1000 receive, network
+worker/device, process output/lifetime and syscall I/O host gates pass. The
+matched build, six generator groups and recursive 372-entry/16-directory image
+check pass. The integrated PR234 baseline changes only device-evidence docs.
+
+Seven sequential disposable VMs pass: tcp-ready 11.36 s, tcp-stress 47.87 s, netabi 10.5 s, libuv 10.77 s, threads 30.99 s, lifetime 22.75 s, outbound-local 10.84 s.
+Stress uses twelve clients; outbound HTTP verifies `/window-check` and the exact
+local-server body. Logs, original failures, the candidate compile correction,
+source diff and tested source/artifact hashes are under `build/review/tcp-window/`.
+Documentation/link and whitespace checks pass. Earlier storage matrices and
+native-device acceptance remain dated evidence; no Actions dispatch, physical
+install or PR merge occurred. PR182 remains draft.

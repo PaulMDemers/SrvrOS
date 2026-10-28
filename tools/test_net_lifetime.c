@@ -437,6 +437,137 @@ static void overlap_wrap(void) {
     assert(c->remote_next==first+1 && c->rx_length==NET_CONNECTION_RX_MAX_SIZE);
 }
 
+
+static void window_order(void) {
+    for(unsigned wrap=0;wrap<2;wrap++) {
+        struct tcp_connection *c=connected();
+        if(wrap) { c->local_seq=UINT32_MAX-2;c->remote_next=UINT32_MAX-2; }
+        uint32_t seq=c->local_seq,remote=c->remote_next;
+        assert(net_respond(handle(c),"abcdef",6,true)==6);
+        incoming(c,remote,seq+3,TCP_ACK,20,NULL);assert(c->peer_window==20);
+        incoming(c,remote,seq+2,TCP_ACK,0,NULL);
+        assert(c->peer_window==20 && !c->zero_window_deadline && tcp_tx_outstanding_bytes(c)==3);
+        incoming(c,remote+2,seq+3,TCP_ACK,0,NULL);assert(!c->peer_window);
+        uint64_t deadline=c->zero_window_deadline;unsigned wakes=write_wakes;
+        c->zero_window_probes=2;
+        incoming(c,remote+1,seq+4,TCP_ACK,60,NULL);
+        assert(!c->peer_window && c->zero_window_deadline==deadline && tcp_tx_outstanding_bytes(c)==2);
+        assert(c->zero_window_probes==2);
+        assert(!(net_poll_events(handle(c),SRV_POLLOUT)&SRV_POLLOUT));
+        /* New sequence cannot legitimize an ACK older than SND.UNA. */
+        incoming(c,remote+3,seq+2,TCP_ACK,60,NULL);assert(!c->peer_window);
+        incoming(c,remote+2,seq+4,TCP_ACK,60,NULL);
+        assert(c->peer_window==60 && !c->zero_window_deadline && write_wakes>wakes);
+        /* Identical sequence/ACK can legitimately reopen a closed window. */
+        incoming(c,remote+2,seq+4,TCP_ACK,0,NULL);assert(!c->peer_window);
+        incoming(c,remote+2,seq+4,TCP_ACK,60,NULL);assert(c->peer_window==60);
+    }
+}
+static void window_overlap(void) {
+    struct tcp_connection *c=connected();uint32_t remote=c->remote_next;
+    incoming(c,remote,c->local_seq,TCP_ACK,60,"abc");
+    incoming(c,remote+3,c->local_seq,TCP_ACK,0,NULL);assert(!c->peer_window);
+    incoming(c,remote+1,c->local_seq,TCP_ACK,60,"bcde");
+    assert(c->rx_length==5 && c->remote_next==remote+5 && !c->peer_window);
+    char data[5];assert(net_read(handle(c),data,5,true)==5 && !memcmp(data,"abcde",5));
+}
+static void window_handshake(void) {
+    reset();uint64_t listener=net_listen(8080);assert((int64_t)listener>0);
+    uint8_t mac[6]={0};struct tcp_connection *c=alloc_connection(8080,0x0a000202,40000,mac);assert(c);
+    c->remote_next=501;assert(send_tcp_segment(c,c->local_port,TCP_SYN|TCP_ACK,NULL,0));
+    uint16_t initial=c->peer_window;uint32_t seq=c->local_seq;
+    incoming(c,501,seq+1,TCP_ACK,0,NULL);
+    assert(c->state==TCP_STATE_SYN_RECEIVED && c->peer_window==initial && !c->zero_window_deadline);
+    incoming(c,502,seq,TCP_ACK,0,NULL);assert(c->peer_window==initial);
+    incoming(c,501,seq,TCP_ACK,0,NULL);assert(c->state==TCP_STATE_ESTABLISHED && !c->peer_window);
+    incoming(c,501,seq,TCP_ACK,20,NULL);assert(c->peer_window==20);
+    assert(!net_close(listener));
+}
+/* Feed captured wire fields through the other endpoint's real packet parser. */
+static void deliver_last(struct tcp_connection *to) {
+    uint8_t packet[1600];uint16_t n=last_length;memcpy(packet,last_frame,n);
+    assert(n==54 || n==55);char data[2]={0};if(n==55)data[0]=(char)packet[54];
+    incoming(to,read_be32(packet+38),read_be32(packet+42),packet[47],read_be16(packet+48),n==55?data:NULL);
+}
+static void persist_reopen(void) {
+    for(unsigned wrap=0;wrap<2;wrap++) for(unsigned queued=0;queued<2;queued++) {
+        struct tcp_connection *c=connected();if(wrap)c->local_seq=0;
+        uint32_t seq=c->local_seq;
+        struct tcp_connection *peer=&tcp_connections[1];*peer=*c;
+        peer->id=43;peer->local_port=80;peer->remote_port=50000;peer->remote_ip=0x0a000203;
+        peer->local_seq=c->remote_next;peer->remote_next=c->local_seq;
+        peer->rx_data=malloc(NET_CONNECTION_RX_MAX_SIZE);assert(peer->rx_data);
+        memset(peer->rx_data,'x',NET_CONNECTION_RX_MAX_SIZE);
+        peer->rx_length=peer->rx_capacity=NET_CONNECTION_RX_MAX_SIZE;
+        if(queued) assert(net_respond(handle(c),"Z",1,true)==1); /* Data not delivered. */
+        incoming(c,c->remote_next,seq,TCP_ACK,0,NULL);
+        assert(net_respond(handle(c),"Z",1,true)==SRV_ERR_AGAIN);
+        char byte;assert(net_read(handle(peer),&byte,1,true)==1); /* Drop window-open ACK. */
+        fail_send=true;ticks=c->zero_window_deadline;net_timer_tick(); /* Refused first probe. */
+        assert(c->local_seq==seq+queued && tcp_tx_outstanding_bytes(c)==queued && !c->reset);
+        fail_send=false;ticks=c->zero_window_deadline;net_timer_tick();
+        unsigned before=frames;deliver_last(peer);
+        assert(frames==before+1); /* A probe must elicit the lost window update. */
+        deliver_last(c);assert(!tcp_tx_outstanding_bytes(c));
+        if(!queued) {
+            assert(c->peer_window==1 && !c->zero_window_deadline && c->local_seq==seq);
+            assert(net_poll_events(handle(c),SRV_POLLOUT)&SRV_POLLOUT);
+            assert(net_respond(handle(c),"Z",1,true)==1);deliver_last(peer);
+        } else {
+            /* A one-byte probe was accepted and ACKed; do not send it twice. */
+            assert(c->local_seq==seq+1 && !c->peer_window);
+            assert(net_read(handle(peer),&byte,1,true)==1);deliver_last(c);
+            assert(c->peer_window==1 && !c->zero_window_deadline);
+        }
+        assert(peer->remote_next==seq+1 && peer->rx_length-peer->rx_offset==NET_CONNECTION_RX_MAX_SIZE-queued);
+        assert(peer->rx_data[peer->rx_length-1]=='Z');
+    }
+}
+static void persist_responsive(bool data) {
+    struct tcp_connection *c=connected();uint32_t seq=c->local_seq;
+    if(data) {
+        assert(net_respond(handle(c),"abcdef",6,true)==6);
+        for(unsigned i=0;i<TCP_TX_HISTORY;i++) if(c->tx_history[i].used)c->tx_history[i].retries=TCP_RETRANSMIT_MAX;
+    }
+    incoming(c,c->remote_next,seq,TCP_ACK,0,NULL);
+    uint32_t end=c->local_seq;uint64_t previous_delay=0;
+    for(unsigned i=0;i<50;i++) {
+        ticks=c->zero_window_deadline;unsigned before=frames;net_timer_tick();
+        assert(!c->reset && c->state==TCP_STATE_ESTABLISHED && frames==before+1);
+        if(data) assert(last_length==55 && last_frame[54]=='a' && read_be32(last_frame+38)==seq);
+        else assert(last_length==54);
+        assert(c->local_seq==end && tcp_tx_outstanding_bytes(c)==(data?6:0));
+        uint64_t delay=c->zero_window_deadline-ticks;
+        assert(delay>=previous_delay && delay<=TCP_CLOSE_TIMEOUT_TICKS);previous_delay=delay;
+        incoming(c,c->remote_next,seq,TCP_ACK,0,NULL);
+    }
+    assert(ticks>TCP_IDLE_TIMEOUT_TICKS && !c->reset && !net_error(handle(c)));
+    incoming(c,c->remote_next,seq,TCP_ACK,64,NULL);assert(!c->zero_window_deadline);
+    if(data) {
+        ticks+=TCP_RETRANSMIT_TICKS;net_timer_tick();
+        assert(last_length==60 && !memcmp(last_frame+54,"abcdef",6));
+        incoming(c,c->remote_next,end,TCP_ACK,64,NULL);assert(!tcp_tx_outstanding_bytes(c));
+    }
+    assert(net_respond(handle(c),"z",1,true)==1);
+}
+static void persist_silent(void) {
+    for(unsigned fail=0;fail<2;fail++) {
+        struct tcp_connection *c=connected();incoming(c,c->remote_next,c->local_seq,TCP_ACK,0,NULL);
+        fail_send=fail!=0;
+        for(unsigned i=0;i<=TCP_ZERO_WINDOW_MAX;i++) { ticks=c->zero_window_deadline;net_timer_tick(); }
+        assert(c->reset && net_error(handle(c))==SRV_NETERR_TIMEDOUT && c->refs==1);
+        ticks=c->close_deadline;net_timer_tick();assert(c->state==TCP_STATE_CLOSED);
+        assert(!net_close(handle(c)) && !c->state);
+    }
+}
+static void persist_close(void) {
+    struct tcp_connection *c=connected();
+    incoming(c,c->remote_next,c->local_seq,TCP_ACK,0,NULL);
+    assert(!net_shutdown(handle(c),1));uint64_t deadline=c->close_deadline;
+    ticks=deadline;net_timer_tick();
+    assert(c->state==TCP_STATE_CLOSED && net_error(handle(c))==SRV_NETERR_TIMEDOUT);
+}
+
 int main(int argc,char **argv) {
     assert(argc==2);
     if(!strcmp(argv[1],"close")) final_close(false);
@@ -469,6 +600,14 @@ int main(int argc,char **argv) {
     else if(!strcmp(argv[1],"partial-fin")) partial_fin();
     else if(!strcmp(argv[1],"partial-window")) partial_window();
     else if(!strcmp(argv[1],"overlap-wrap")) overlap_wrap();
+    else if(!strcmp(argv[1],"window-order")) window_order();
+    else if(!strcmp(argv[1],"window-overlap")) window_overlap();
+    else if(!strcmp(argv[1],"window-handshake")) window_handshake();
+    else if(!strcmp(argv[1],"persist-reopen")) persist_reopen();
+    else if(!strcmp(argv[1],"persist-responsive")) persist_responsive(false);
+    else if(!strcmp(argv[1],"persist-data")) persist_responsive(true);
+    else if(!strcmp(argv[1],"persist-silent")) persist_silent();
+    else if(!strcmp(argv[1],"persist-close")) persist_close();
     else assert(0);
     reset();printf("net-lifetime: %s PASS\n",argv[1]);
 }

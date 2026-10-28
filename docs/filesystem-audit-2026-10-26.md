@@ -875,14 +875,25 @@ source `903030ef` fails all seven added modes plus the updated overlap case;
 close and future-ACK controls pass. Main `7b0cc468` through PR233 is integrated;
 earlier storage matrices remain dated evidence.
 
+## TCP peer-window and persist follow-on (2026-10-28)
+
+The [TCP audit](tcp-lifetime-audit-2026-10-28.md) now covers original-sequence/ACK
+window ordering, handshake mutation refusal, lost reopening updates and responsive
+closed-window ownership. Thirty-eight modes include six original-source failures
+and two passing timeout controls. Persist sends a retained byte or an old-sequence
+empty probe, separates response tracking from backoff, and suspends ordinary data
+retry exhaustion until reopening. Main `45b8647a` through PR234 is integrated;
+storage coverage remains dated separately.
+
 ## Remaining audit queue
 
 1. Actual hot removal/replacement and a future unregister/rebind lifecycle.
    Terminal identity invalidation and CPU0 backend-operation/teardown admission
    now have directed coverage. They do not certify live device recovery or
    arbitrary retained kernel pointers.
-2. Peer-window update ordering and zero-window recovery are the next TCP audit
-   boundary. Receive allocation refusal, partial ACK and in-order overlap now
+2. IPv4/TCP packet boundaries, fragment admission and option/MSS handling are
+   the next network audit boundary. Peer-window ordering and zero-window recovery
+   now have directed packet/timer coverage. Receive allocation refusal, partial ACK and in-order overlap now
    have directed recovery coverage. RST/receive admission and terminal-error/EOF retention now have directed
    coverage, including timer expiry and TIME-WAIT pressure.
    Established ACK bounds, wrap and stale/closing application handles now have

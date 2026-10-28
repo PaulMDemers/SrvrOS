@@ -245,3 +245,13 @@ is main `7b0cc468` through PR233, merged in `b36bb072`. Evidence is under
 ordinary build/VM integration of the new AP diagnostic and lifecycle baseline,
 not native AP/C3 acceptance. Relevant main-branch host gates are `test-power`,
 `test-ap-probe` and `test-lifecycle-wait`.
+
+
+The peer-window/persist checkpoint uses 38 lifetime modes with the same native
+ARM64 sanitizer and x86_64/Rosetta commands. Main `45b8647a` through PR234 adds
+only device-evidence docs and is integrated in `82aecaf5`; Air6,1's separately
+gated coordinated-C3 changes are not part of this qualification. Evidence is
+under `build/review/tcp-window/`, with `/window-check` for local outbound HTTP.
+The host fixture supplies deterministic two-endpoint zero-window failure/recovery;
+ordinary VM smoke gates provide integration evidence, not exhaustive WAN loss
+or native adapter coverage.

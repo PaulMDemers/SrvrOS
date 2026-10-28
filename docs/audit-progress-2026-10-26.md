@@ -122,9 +122,12 @@ terminal errors/EOF through timer expiry and TIME-WAIT pressure. The allocation/
 partial-ACK checkpoint expands it to 30 modes: memory refusal retains descriptors
 and unread data, partial ACKs free byte capacity and trim retransmissions, and
 receive overlaps deliver only their new in-order suffix. Main `7b0cc468` through
-PR233 is integrated. Follow-on tracing reaches peer-window update ordering and
-zero-window recovery; those need directed packet/timer tests. Broad network
-conformance remains unqualified.
+PR233 is integrated. The peer-window/persist checkpoint expands to 38 modes,
+rejects stale advertisements before window publication, recovers lost reopening
+updates, and preserves responsive closed-window peers while retaining silent/
+closing timeouts. Main `45b8647a` through PR234 is integrated. Follow-on tracing
+moves to IPv4/TCP packet boundaries, fragment admission and option/MSS handling;
+those need directed parser tests. Broad network conformance remains unqualified.
 Delivery is [draft PR182](https://github.com/PaulMDemers/SrvrOS/pull/182).
 This checkpoint is separate from the completed event-adapter target.
 

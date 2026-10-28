@@ -1626,3 +1626,33 @@ separate Wi-Fi work. Air6,1 `c9639988` has opt-in coordinated-C3 diagnostics bey
 main; no network-core overlap and no native qualification is implied here.
 Next checkpoint: original-source failures, bounded fixes and matched host/VM
 validation. Keep PR182 draft; no Actions, native install or merge is planned.
+
+
+### Peer-window/persist result
+
+Integrated main in `82aecaf5`. Corrected stale window publication (including
+original sequence after overlap), invalid passive-handshake mutation, ineffective
+probes and premature timeout of responsive zero-window peers. Silent peer and
+local close bounds remain. The 38-mode fixture includes a two-endpoint lost-update
+exchange with refused probe send and sequence wrap. Evidence is under
+`build/review/tcp-window/`; see the [TCP audit](../tcp-lifetime-audit-2026-10-28.md).
+Next bounded question is IPv4/TCP packet-boundary validation, fragment admission
+and option/MSS handling. No native C3/adapter or full TCP qualification is implied.
+
+
+### Peer-window/persist verification
+
+All 38 lifetime modes pass on x86_64/Rosetta and under native ARM64 ASan/UBSan.
+Six added modes fail against original network source `1d1e106a`; silent-peer and
+close-deadline controls pass. Existing TCP accept, e1000 receive, network
+worker/device, process output/lifetime and syscall I/O host gates pass. The
+matched build, six generator groups and recursive 372-entry/16-directory image
+check pass. The integrated PR234 baseline changes only device-evidence docs.
+
+Seven sequential disposable VMs pass: tcp-ready 11.36 s, tcp-stress 47.87 s, netabi 10.5 s, libuv 10.77 s, threads 30.99 s, lifetime 22.75 s, outbound-local 10.84 s.
+Stress uses twelve clients; outbound HTTP verifies `/window-check` and the exact
+local-server body. Logs, original failures, the candidate compile correction,
+source diff and tested source/artifact hashes are under `build/review/tcp-window/`.
+Documentation/link and whitespace checks pass. Earlier storage matrices and
+native-device acceptance remain dated evidence; no Actions dispatch, physical
+install or PR merge occurred. PR182 remains draft.

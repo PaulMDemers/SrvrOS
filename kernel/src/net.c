@@ -117,6 +117,9 @@ struct tcp_connection {
     uint16_t local_port;
     uint16_t remote_port;
     uint16_t peer_window;
+    bool peer_window_valid;
+    uint32_t peer_window_seq;
+    uint32_t peer_window_ack;
     uint32_t local_seq;
     uint32_t remote_next;
     uint64_t id;
@@ -128,7 +131,8 @@ struct tcp_connection {
     uint64_t last_activity_tick;
     uint64_t zero_window_deadline;
     char *rx_data;
-    uint8_t zero_window_probes;
+    uint8_t zero_window_probes; /* Consecutive unanswered probes. */
+    uint8_t zero_window_backoff;
     struct tcp_tx_record tx_history[TCP_TX_HISTORY];
 };
 
@@ -1166,6 +1170,8 @@ retry:
             tcp_connections[i].local_port = local_port;
             tcp_connections[i].remote_port = remote_port;
             tcp_connections[i].peer_window = TCP_RX_WINDOW;
+            tcp_connections[i].peer_window_valid = false;
+            tcp_connections[i].peer_window_seq = tcp_connections[i].peer_window_ack = 0;
             tcp_connections[i].local_seq = 0x73720000u + (uint32_t)remote_port;
             tcp_connections[i].remote_next = 0;
             tcp_connections[i].id = next_connection_id++;
@@ -1174,6 +1180,7 @@ retry:
             tcp_connections[i].last_activity_tick = timer_ticks();
             tcp_connections[i].zero_window_deadline = 0;
             tcp_connections[i].zero_window_probes = 0;
+            tcp_connections[i].zero_window_backoff = 0;
             clear_bytes((uint8_t *)tcp_connections[i].tx_history, sizeof(tcp_connections[i].tx_history));
             if (next_connection_id == 0) {
                 next_connection_id = 1;
@@ -1264,6 +1271,8 @@ retry:
             tcp_connections[i].local_port = local_port;
             tcp_connections[i].remote_port = remote_port;
             tcp_connections[i].peer_window = TCP_RX_WINDOW;
+            tcp_connections[i].peer_window_valid = false;
+            tcp_connections[i].peer_window_seq = tcp_connections[i].peer_window_ack = 0;
             tcp_connections[i].local_seq = 0x63720000u + (uint32_t)local_port;
             tcp_connections[i].remote_next = 0;
             tcp_connections[i].id = next_connection_id++;
@@ -1272,6 +1281,7 @@ retry:
             tcp_connections[i].last_activity_tick = timer_ticks();
             tcp_connections[i].zero_window_deadline = 0;
             tcp_connections[i].zero_window_probes = 0;
+            tcp_connections[i].zero_window_backoff = 0;
             clear_bytes((uint8_t *)tcp_connections[i].tx_history, sizeof(tcp_connections[i].tx_history));
             if (next_connection_id == 0) {
                 next_connection_id = 1;
@@ -1349,11 +1359,45 @@ static void tcp_set_peer_window(struct tcp_connection *connection, uint16_t wind
     } else {
         connection->zero_window_deadline = 0;
         connection->zero_window_probes = 0;
+        connection->zero_window_backoff = 0;
+        if (previous == 0) {
+            /* Persist replies prove the peer is alive. Resume ordinary retries
+             * with a fresh budget after a possibly long closed window. */
+            for (uint8_t i = 0; i < TCP_TX_HISTORY; i++) {
+                if (connection->tx_history[i].used) {
+                    connection->tx_history[i].retries = 0;
+                    connection->tx_history[i].deadline = timer_ticks() + TCP_RETRANSMIT_TICKS;
+                }
+            }
+        }
     }
     if (window > previous) {
         scheduler_wake_all(&write_wait_queue);
         process_file_poll_wake();
     }
+}
+
+/* Use the original wire sequence, not a receive-prefix-adjusted sequence.
+ * ACKs below SND.UNA cannot publish a newer advertised window. */
+static void tcp_update_peer_window(struct tcp_connection *connection,
+    uint32_t seq, uint32_t ack, uint16_t window) {
+    uint32_t una = connection->local_seq - tcp_tx_outstanding_bytes(connection);
+    if (tcp_ack_beyond_sent(connection, ack) || (int32_t)(ack - una) < 0) {
+        return;
+    }
+    if (connection->peer_window_valid &&
+        ((int32_t)(seq - connection->peer_window_seq) < 0 ||
+         (seq == connection->peer_window_seq &&
+          (int32_t)(ack - connection->peer_window_ack) < 0))) {
+        return;
+    }
+    connection->peer_window_valid = true;
+    connection->peer_window_seq = seq;
+    connection->peer_window_ack = ack;
+    tcp_set_peer_window(connection, window);
+    /* A valid advertisement, even unchanged zero, proves responsiveness.
+     * Keep backoff independent so replies do not restart frequent probing. */
+    connection->zero_window_probes = 0;
 }
 
 static void tcp_touch_activity(struct tcp_connection *connection, uint64_t now) {
@@ -1576,6 +1620,8 @@ static void close_connection(struct tcp_connection *connection) {
     connection->error = SRV_NETERR_NONE;
     connection->refs = 0;
     connection->peer_window = TCP_RX_WINDOW;
+    connection->peer_window_valid = false;
+    connection->peer_window_seq = connection->peer_window_ack = 0;
     connection->rx_length = 0;
     connection->rx_offset = 0;
     connection->rx_capacity = 0;
@@ -1584,6 +1630,7 @@ static void close_connection(struct tcp_connection *connection) {
     connection->last_activity_tick = 0;
     connection->zero_window_deadline = 0;
     connection->zero_window_probes = 0;
+    connection->zero_window_backoff = 0;
     clear_bytes((uint8_t *)connection->tx_history, sizeof(connection->tx_history));
     if (connection->rx_data != 0) {
         kfree(connection->rx_data);
@@ -1797,6 +1844,12 @@ static void tcp_handle_ack(struct tcp_connection *connection, uint32_t ack) {
     }
 }
 
+static bool tcp_persist_active(const struct tcp_connection *connection) {
+    return !connection->reset && tcp_state_can_write(connection->state) &&
+        !connection->local_write_closed && connection->peer_window == 0 &&
+        connection->zero_window_deadline != 0;
+}
+
 static void tcp_retransmit_due(uint64_t now) {
     for (uint64_t i = 0; i < TCP_MAX_CONNECTIONS; i++) {
         struct tcp_connection *connection = &tcp_connections[i];
@@ -1804,6 +1857,11 @@ static void tcp_retransmit_due(uint64_t now) {
             continue;
         }
 
+        /* Persist owns data retries while the peer's receive window is closed.
+         * Ordinary retry exhaustion must not kill a responsive closed window. */
+        if (tcp_persist_active(connection)) {
+            continue;
+        }
         for (uint8_t j = 0; j < TCP_TX_HISTORY; j++) {
             struct tcp_tx_record *record = &connection->tx_history[j];
             if (!record->used || now < record->deadline) {
@@ -1832,13 +1890,7 @@ static void tcp_retransmit_due(uint64_t now) {
 static void tcp_zero_window_probe_due(uint64_t now) {
     for (uint64_t i = 0; i < TCP_MAX_CONNECTIONS; i++) {
         struct tcp_connection *connection = &tcp_connections[i];
-        if (connection->state == TCP_STATE_EMPTY ||
-            connection->reset ||
-            !tcp_state_can_write(connection->state) ||
-            connection->local_write_closed ||
-            connection->peer_window != 0 ||
-            connection->zero_window_deadline == 0 ||
-            now < connection->zero_window_deadline) {
+        if (!tcp_persist_active(connection) || now < connection->zero_window_deadline) {
             continue;
         }
 
@@ -1847,14 +1899,30 @@ static void tcp_zero_window_probe_due(uint64_t now) {
             continue;
         }
 
-        (void)send_tcp_segment_at(connection,
-            connection->local_port,
-            connection->local_seq,
-            TCP_ACK,
-            0,
-            0);
+        uint32_t una = connection->local_seq - tcp_tx_outstanding_bytes(connection);
+        const uint8_t *payload = 0;
+        uint16_t payload_length = 0;
+        uint32_t seq = una - 1;
+        for (uint8_t j = 0; j < TCP_TX_HISTORY; j++) {
+            const struct tcp_tx_record *record = &connection->tx_history[j];
+            if (record->used && record->seq == una && record->payload_length != 0) {
+                /* Retry just the first unacknowledged byte, without consuming
+                 * sequence space or altering the retained retransmit record. */
+                payload = record->payload;
+                payload_length = 1;
+                seq = una;
+                break;
+            }
+        }
+        /* With no queued data, an old-sequence empty probe elicits an ACK.
+         * An empty segment at SND.NXT may be silently accepted by the peer. */
+        (void)send_tcp_segment_at(connection, connection->local_port, seq,
+            TCP_ACK, payload, payload_length);
         connection->zero_window_probes++;
-        uint64_t delay = TCP_ZERO_WINDOW_TICKS * (uint64_t)(connection->zero_window_probes + 1);
+        if (connection->zero_window_backoff < 3) {
+            connection->zero_window_backoff++;
+        }
+        uint64_t delay = TCP_ZERO_WINDOW_TICKS << connection->zero_window_backoff;
         if (delay > TCP_CLOSE_TIMEOUT_TICKS) {
             delay = TCP_CLOSE_TIMEOUT_TICKS;
         }
@@ -2046,7 +2114,7 @@ static void handle_tcp(const uint8_t *frame,
                     return;
                 }
                 copy_bytes(client->remote_mac, frame + 6, 6);
-                tcp_set_peer_window(client, advertised_window);
+                tcp_update_peer_window(client, seq, ack, advertised_window);
                 client->remote_next = seq + 1;
                 tcp_ack_tx_records(client, ack);
                 client->state = TCP_STATE_ESTABLISHED;
@@ -2076,6 +2144,7 @@ static void handle_tcp(const uint8_t *frame,
     }
 
     if (connection->state == TCP_STATE_SYN_SENT || (flags & TCP_ACK) == 0) return;
+    uint32_t window_seq = seq;
     const uint8_t *payload = tcp + data_offset;
     uint32_t receive_advance = tcp_receive_advance(flags, data_length);
     if (receive_advance != 0 && (int32_t)(seq - connection->remote_next) < 0) {
@@ -2110,10 +2179,6 @@ static void handle_tcp(const uint8_t *frame,
         send_tcp_segment(connection, connection->local_port, TCP_ACK, 0, 0);
         return;
     }
-    copy_bytes(connection->remote_mac, frame + 6, 6);
-    tcp_touch_activity(connection, timer_ticks());
-    tcp_set_peer_window(connection, advertised_window);
-
     if (connection->state == TCP_STATE_SYN_RECEIVED) {
         if ((flags & TCP_ACK) == 0) {
             return;
@@ -2141,6 +2206,9 @@ static void handle_tcp(const uint8_t *frame,
         }
     }
 
+    copy_bytes(connection->remote_mac, frame + 6, 6);
+    tcp_touch_activity(connection, timer_ticks());
+    tcp_update_peer_window(connection, window_seq, ack, advertised_window);
     if ((flags & TCP_ACK) != 0) {
         tcp_handle_ack(connection, ack);
     }

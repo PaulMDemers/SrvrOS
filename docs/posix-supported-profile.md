@@ -517,3 +517,15 @@ byte capacity and retransmit only the unacknowledged suffix. Duplicate receive
 prefixes are skipped, including across sequence wrap, while the new suffix must
 fit the in-order receive window. Out-of-order reassembly and right-edge clipping
 remain unsupported; see the TCP audit for exact limits.
+
+
+TCP peer-window updates use the original wire sequence and ACK ordering; stale
+updates cannot reopen/close the current window or reset persist responsiveness.
+Passive-handshake validation precedes window publication. Zero-window probes
+elicit a current ACK with either one retained byte or an old-sequence empty
+segment when no data is queued. Responsive closed-window peers retain their
+connection; repeated unanswered probes still report TIMEDOUT. Persist backoff is
+bounded independently of responses, and ordinary data retries resume with a fresh
+budget when the window opens. This preserves bounded shutdown/close deadlines
+and the existing idle policy; it does not add a user-configurable persist API,
+congestion control, window scaling or complete RFC conformance.

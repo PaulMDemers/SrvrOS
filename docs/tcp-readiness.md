@@ -88,7 +88,7 @@ enters the reset/error path. Peer FIN alone cannot retire an unacknowledged loca
 FIN. See the [TCP lifetime audit](tcp-lifetime-audit-2026-10-28.md) for reproduced
 failures, limits and follow-on questions.
 
-`make test-net-lifetime` (also in `test-core`) runs 30 deterministic real-stack
+`make test-net-lifetime` (also in `test-core`) runs 38 deterministic real-stack
 host modes. It complements `test-tcp-accept` and guest readiness/stress checks;
 its captured Ethernet sink does not certify physical adapter behavior.
 
@@ -115,3 +115,22 @@ unacknowledged retransmission suffix, including any outstanding FIN. A duplicate
 receive prefix is skipped when its new in-order suffix fits the receive window.
 Full duplicates, gaps and oversized suffixes are still rejected; there is no
 out-of-order reassembly or right-edge clipping.
+
+
+Peer-window advertisements now require an ACK within the sent/unacknowledged
+range and non-stale original segment sequence/ACK ordering, including wrap.
+Receive overlap trimming cannot promote an older window update. Invalid passive
+handshake ACKs leave window and persist state unchanged. Equal sequence/ACK pairs
+can still change the window, as needed when a peer reads without sending data.
+
+Zero-window persist retries one retained unacknowledged byte when available.
+Without queued data it sends an empty probe one sequence before the oldest
+unacknowledged position, forcing a current-window ACK instead of silent acceptance.
+Probes consume no new send sequence. Accepted advertisements reset the unanswered
+probe count, while exponential backoff remains independent (25 initial ticks,
+then 50/100/200, capped at 200). Ordinary data retry exhaustion is suspended during
+persist and receives a fresh budget on reopening. Responsive peers may stay
+closed; twelve consecutive unanswered attempts still lead to TIMEDOUT on the
+next deadline. Local write shutdown/final close retains the bounded close policy.
+The captured two-endpoint test drops reopening updates and refuses a probe send,
+then verifies exact recovery with/without queued data and across sequence wrap.
