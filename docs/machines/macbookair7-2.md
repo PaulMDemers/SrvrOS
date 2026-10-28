@@ -2,6 +2,39 @@
 
 Updated: 2026-10-28. State: **active reference machine; partial device acceptance**.
 
+### Seventh endurance return — scoped logger barrier (2026-10-28)
+
+Release `3b5821fefe34b721`, clean `bb8561f7` (PR #247), returned automatically
+from `session-00065eecca209c8d-00` after seven cycles. Files PID18 misses its close
+deadline during final file-pool retirement: 5151107 us, including 4913448 us
+ready, 1593 gate exclusions and 237401 us blocked. UI maximum 102541 us, zero
+observed PCM underruns, incomplete screenshot and clean battery retirement do
+not accept endurance. Measured logger sync is now 711–802 us; some logger write
+intervals still take seconds. The earlier global-sync coupling is removed, but
+this run does not identify the remaining gate owner. All 1200 prior files are
+preserved except metadata; offline fsck/allocation pass (1206 files, 3239 clusters,
+zero errors), default/recovery/consumed one-shot pass.
+
+Next bounded scope: kernel-only long I/O-owner receipts in scheduler diagnostics
+and workspace log snapshots, with focused scheduler/logger fixtures. Record stable
+thread identity, process ID, sanitized worker name and interval, outside measured
+scopes; no syscall/wire ABI, gate, cadence, workload or deadline changes. Preserve
+PR #182 process/VFS audit and PR #19 Wi-Fi ownership. Consume actual main PR #249
+before matched validation; its RC6 diagnostics do not confer Air7,2 acceptance.
+
+Implementation `72454534` passes integrated core/desktop hosts, matched ordinary,
+native and VM builds and PR #249 diagnostics. Normal Air7,2 KVM passes 23 cycles,
+maximum UI loop 117491 us, ready 1120527 us and close 961646 us, zero observed
+underruns, exact files/screenshot and clean retirement. Four saved complete owner
+snapshots validate 24 distinct long scopes, including copied PID/thread identity,
+interval arithmetic, ordering, bounded retention and consistent repeated records.
+Live UART interleaving is retained as a diagnostic-stream limitation; use saved
+atomic records. The 100-write-IOPS populated fixture still fails the total
+lifecycle deadline (four completed cycles, UI maximum 111161 us). Its retained
+atomic checkpoint validates three owner snapshots and 16 distinct long scopes;
+a PID7 workload scope lasts 848646 us with 927 READY selection refusals. This
+is VM attribution coverage, not native acceptance or a performance fix.
+
 ### Sixth endurance return — logger invokes global file sync (2026-10-28)
 
 Release `c98e4c162b411126`, clean `c23ed928` (PR #245), returned automatically
@@ -38,9 +71,14 @@ zero observed PCM underruns, exact files/screenshot and clean retirement. Five
 live checkpoints use the new matching durability marker. The 100-write-IOPS
 populated fixture still fails cycle 1 total lifecycle (UI 109720 us); preserve it
 as a remaining performance failure. No native barrier acceptance is claimed.
-PR #247 is proceeding to integration under that explicit user ownership assignment.
-No new boot payload was installed or staged for this proposal and no reboot is armed;
-installed remains `c98e4c162b411126`, independent recovery `9aa8dbf6fbda8252`.
+PR #247 merged as `bb8561f7` under that explicit user ownership assignment.
+Clean stage `3b5821fefe34b721` passes exact-payload Q35 refusal/save/unmount/reset
+rehearsal and is installed for an automatic 1800-second native trial. This VM
+result does not accept native runtime or endurance. Independent recovery
+`9aa8dbf6fbda8252` is retained; Ubuntu remains default. Prior 1200 file hashes and
+offline filesystem/allocation/headroom checks are saved before the trial.
+No human input is needed. Collect the matching session after return; retain the
+known throttled-VM failure and unchanged lifecycle/UI limits.
 
 ### Fifth endurance return — ready-thread gate exclusion (2026-10-28)
 

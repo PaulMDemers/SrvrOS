@@ -40,6 +40,11 @@ bool scheduler_io_active(void);
 bool scheduler_io_busy(void); /* Another thread owns storage state. IRQs masked. */
 void scheduler_io_checkpoint(void);
 void scheduler_io_end(void);
+/* Optional CPU0 diagnostics. Reset refuses active ownership or an unavailable
+ * reference clock. Printing copies bounded history with IRQs masked, then emits
+ * outside ownership; never changes admission or releases an I/O scope. */
+bool scheduler_io_observe_reset(void);
+void scheduler_print_io_owners(void);
 bool scheduler_io_yield(void);
 /* IRQ-masked I/O owner only, recorded address space restored. Retains the I/O
  * gate and DMA ownership while sleeping until condition/wake or next tick.

@@ -585,6 +585,54 @@ static void test_idle_audit(void) {
     puts("idle-audit: PASS opt-in, nested refusal, ready bypass, HLT path, pending return across stop/restart, epoch exhaustion; no policy changes");
 }
 
+/* Observation must retain the outer owner identity across nesting, foreign
+ * attempts and slot reuse, without changing admission or emitting in a scope. */
+static unsigned owner_prints;
+void console_printf(const char *format,...) { assert(!io_depth && !strncmp(format,"io-owner",8));owner_prints++; }
+uint64_t process_pid(const struct process *p) { return (uint64_t)(uintptr_t)p; }
+static void test_io_observation(void) {
+    memset(threads,0,sizeof(threads));initialized=io_services_enabled=true;
+    switching=false;current_thread=0;io_depth=0;clock_us=1000;reference=true;
+    io_observed.enabled=false;
+    threads[0]=(struct thread){.identity=99,.name="owner name\n",.state=THREAD_RUNNING,.user_context=(void *)42};
+    assert(scheduler_io_begin());clock_us+=200000;scheduler_io_end();
+    assert(!io_observed.scopes); /* Ordinary scheduling has no diagnostic history. */
+    initialized=false;assert(!scheduler_io_observe_reset());initialized=true;
+    reference=false;assert(!scheduler_io_observe_reset());reference=true;
+    assert(scheduler_io_observe_reset());
+    assert(scheduler_io_begin());assert(!scheduler_io_observe_reset());
+    assert(scheduler_io_begin());assert(io_observed.scopes==1);
+    threads[1]=(struct thread){.identity=100,.state=THREAD_READY};
+    assert(!io_thread_allowed(1));assert(io_observed.active.exclusions==1);
+    current_thread=1;assert(!scheduler_io_begin());scheduler_io_end();
+    assert(io_depth==2 && io_observed.active.seq==1);current_thread=0;
+    clock_us+=200000;scheduler_io_end();assert(!io_observed.long_scopes);
+    scheduler_io_end();assert(io_observed.long_scopes==1 && !io_observed.active.seq);
+    struct io_owner_sample first=io_observed.rows[0];
+    assert(first.identity==99 && first.pid==42 && first.end-first.start==200000 && first.exclusions==1);
+    assert(!strcmp(first.name,"owner_name_"));
+    threads[0].identity=101;threads[0].name="replacement";
+    assert(!strcmp(first.name,"owner_name_") && first.identity==99);
+    assert(scheduler_io_begin());clock_us+=99999;scheduler_io_end();
+    assert(io_observed.scopes==2 && io_observed.long_scopes==1);
+    assert(scheduler_io_begin());clock_us--;scheduler_io_end();
+    assert(io_observed.invalid==1 && io_observed.long_scopes==1);
+    for(unsigned i=0;i<IO_OBSERVE_ROWS+2;i++) {
+        assert(scheduler_io_begin());clock_us+=IO_OBSERVE_MIN_US;scheduler_io_end();
+    }
+    assert(io_observed.long_scopes==IO_OBSERVE_ROWS+3);
+    uint64_t oldest=io_observed.long_scopes-IO_OBSERVE_ROWS;
+    for(unsigned i=0;i<IO_OBSERVE_ROWS;i++) {
+        const struct io_owner_sample *v=&io_observed.rows[(oldest+i)%IO_OBSERVE_ROWS];
+        assert(v->seq==oldest+i+3 && v->identity==101 && v->end-v->start==IO_OBSERVE_MIN_US);
+    }
+    scheduler_print_io_owners();assert(owner_prints==IO_OBSERVE_ROWS+2);
+    assert(scheduler_io_begin());scheduler_print_io_owners();assert(owner_prints==IO_OBSERVE_ROWS+2);scheduler_io_end();
+    assert(scheduler_io_observe_reset() && !io_observed.scopes && !io_observed.long_scopes);
+    io_observed.enabled=false;io_gate_pending=0;memset(threads,0,sizeof(threads));initialized=io_services_enabled=false;
+    puts("io-owner-observe: PASS opt-in, outer nesting, foreign refusal, copied identity, bounded wrap, clock rollback");
+}
+
 int main(void) {
     test_idle_audit();
     test_mwait();
@@ -770,6 +818,7 @@ int main(void) {
     puts("scheduler-activity: PASS expiry/signal transitions, no double counts, stable snapshots, slot reuse");
     puts("scheduler-irq-quarantine: PASS noncurrent-only, atomic refusal, interrupted storage untouched");
     puts("scheduler-quarantine: PASS stale/user/owner refusal, atomicity, wait unlink, no resurrection or slot/stack reuse");
+    test_io_observation();
     test_wake_policy();
     test_completion_wait();
     test_ready_gate_admission();
