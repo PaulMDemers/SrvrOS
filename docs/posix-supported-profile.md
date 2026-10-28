@@ -510,5 +510,10 @@ TIME-WAIT pressure cannot reclaim a slot still referenced by an application.
 Reset/refusal and timeout errors remain queryable and readable data at orderly
 EOF is preserved. This keeps slots within the existing table bound until close.
 Receive admission now precedes ACK/window mutation; reset validation and repeated
-SYN handling are covered. The receiver still lacks out-of-order reassembly and
-overlap trimming; see the TCP audit for exact limits.
+SYN handling are covered. Receive allocation refusal keeps descriptors and unread
+data available, consumes no new payload/FIN sequence and lets the peer retry;
+no HTTP response is synthesized by the TCP layer. Partial ACKs reclaim transmit
+byte capacity and retransmit only the unacknowledged suffix. Duplicate receive
+prefixes are skipped, including across sequence wrap, while the new suffix must
+fit the in-order receive window. Out-of-order reassembly and right-edge clipping
+remain unsupported; see the TCP audit for exact limits.

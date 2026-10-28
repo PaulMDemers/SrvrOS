@@ -1185,7 +1185,7 @@ bridge remains the backend integration check. October 28 integrated-main evidenc
 is under `build/review/inheritance-exit/`.
 
 
-`make test-net-lifetime` runs 23 deterministic modes against production
+`make test-net-lifetime` runs 30 deterministic modes against production
 `net.c`: final close with outstanding data, deferred FIN, both inherited exit
 orders, inherited listener backlog (completed and half-open), abort controls,
 deferred-FIN deadline, failed deferred send and simultaneous close. The fixture
@@ -1221,3 +1221,21 @@ the duplicate/overlap control passes. Current evidence is under
 `build/review/tcp-receive/`. The earlier deferred-FIN modes now assert retained
 errors followed by final-close release, instead of accepting timer destruction
 of a live descriptor. All 23 modes run normally and under ASan/UBSan.
+
+
+The allocation/partial-ACK checkpoint adds seven modes (30 total): outbound,
+inbound and pending-backlog allocation refusal/retry; partial ACK suffixes;
+partial data-plus-FIN ACK; partial ACK freeing a deferred-FIN byte window; and
+wraparound receive overlap. Allocation modes inject both initial-allocation and
+growth failure after consumed-prefix compaction, retaining aliases/unread bytes
+and refusing to acknowledge the incoming FIN until payload storage succeeds.
+Packet checks verify exact retransmission bytes/sequence, duplicate/old ACK
+idempotence, new FIN after duplicate payload, and suffix window/future-ACK guards.
+The earlier duplicate-receive and wrap-ACK controls now expect prefix trimming.
+All seven new modes plus the updated duplicate-receive case fail against
+`903030ef` network source; close and future-ACK controls pass. Evidence is in
+`build/review/tcp-retry/`; earlier directories retain dated checkpoints. The
+initial backlog fixture incorrectly queried an unaccepted, zero-reference
+handle; its corrected check inspects pending ownership until accept.
+All 30 modes pass normally and under ASan/UBSan. Seven matched-image VM gates
+pass; the TCP audit and host record carry the exact commands/results and limits.

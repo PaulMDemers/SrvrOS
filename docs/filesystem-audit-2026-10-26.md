@@ -866,14 +866,24 @@ Referenced errors and orderly EOF/data survive until final close. The fixture ha
 23 modes; seven of eight new modes fail on the original source, with duplicate/
 overlap refusal as a passing control. Storage coverage remains dated separately.
 
+## TCP allocation and partial-ACK follow-on (2026-10-28)
+
+The [TCP audit](tcp-lifetime-audit-2026-10-28.md) adds allocation-refusal recovery,
+partial-ACK suffix retransmission/byte capacity, and duplicate-prefix receive
+recovery. Thirty modes cover these paths and prior lifetime behavior. Network
+source `903030ef` fails all seven added modes plus the updated overlap case;
+close and future-ACK controls pass. Main `7b0cc468` through PR233 is integrated;
+earlier storage matrices remain dated evidence.
+
 ## Remaining audit queue
 
 1. Actual hot removal/replacement and a future unregister/rebind lifecycle.
    Terminal identity invalidation and CPU0 backend-operation/teardown admission
    now have directed coverage. They do not certify live device recovery or
    arbitrary retained kernel pointers.
-2. TCP receive-buffer allocation failure and partial-ACK retransmission are next.
-   RST/receive admission and terminal-error/EOF retention now have directed
+2. Peer-window update ordering and zero-window recovery are the next TCP audit
+   boundary. Receive allocation refusal, partial ACK and in-order overlap now
+   have directed recovery coverage. RST/receive admission and terminal-error/EOF retention now have directed
    coverage, including timer expiry and TIME-WAIT pressure.
    Established ACK bounds, wrap and stale/closing application handles now have
    directed coverage.

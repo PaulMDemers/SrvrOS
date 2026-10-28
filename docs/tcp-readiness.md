@@ -88,7 +88,7 @@ enters the reset/error path. Peer FIN alone cannot retire an unacknowledged loca
 FIN. See the [TCP lifetime audit](tcp-lifetime-audit-2026-10-28.md) for reproduced
 failures, limits and follow-on questions.
 
-`make test-net-lifetime` (also in `test-core`) runs 23 deterministic real-stack
+`make test-net-lifetime` (also in `test-core`) runs 30 deterministic real-stack
 host modes. It complements `test-tcp-accept` and guest readiness/stress checks;
 its captured Ethernet sink does not certify physical adapter behavior.
 
@@ -106,4 +106,12 @@ control packets cannot reset a tuple indiscriminately. Receive admission precede
 ACK/window side effects, and duplicate SYN reuses its original sequence. Terminal
 expiry preserves referenced errors or orderly EOF data in a non-wire `CLOSED`
 state until final close. TIME-WAIT pressure cannot steal application references.
-The receiver still rejects overlap/gaps instead of reassembling or trimming them.
+Receive-allocation refusal preserves references and unread data, acknowledges
+only the existing receive sequence, and permits retransmission after memory
+recovers. It emits no application response or FIN. Passive opens are already
+queued when their handshake completes; data arrival does not re-enqueue them.
+Partial ACKs release acknowledged byte-window capacity and retain only the
+unacknowledged retransmission suffix, including any outstanding FIN. A duplicate
+receive prefix is skipped when its new in-order suffix fits the receive window.
+Full duplicates, gaps and oversized suffixes are still rejected; there is no
+out-of-order reassembly or right-edge clipping.

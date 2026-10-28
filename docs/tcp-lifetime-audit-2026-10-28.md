@@ -232,3 +232,72 @@ VM set remains separate under `vms-before-syn-retry/`. Current final logs,
 original/candidate failures and tested hashes are under `build/review/tcp-receive/`.
 Documentation/link and whitespace checks pass. Earlier storage matrices remain
 dated evidence; no native hardware acceptance, Actions dispatch or PR merge.
+
+
+## Receive allocation, partial ACK and overlap checkpoint (2026-10-28)
+
+Integrated main `7b0cc468` through PR233 in `b36bb072`; its AP diagnostics,
+power admission and desktop lifecycle changes have no network-core overlap.
+PR19 at `52e47a10` remains separate Wi-Fi work. The original network source is
+unchanged from `903030ef` and saved in `build/review/tcp-retry/original-net.c`.
+
+Three defects are reproduced and corrected:
+
+- Receive-buffer allocation failure destroyed live outbound connections. Inbound
+  failure additionally injected HTTP 503 bytes and FIN into arbitrary TCP streams.
+  Clean refusal now retains descriptors, pending accept ownership and unread data,
+  ACKs only the existing receive sequence, and permits later retransmission.
+  Compaction may move unread bytes internally, but does not consume them. An
+  incoming FIN is admitted only after its payload fits. The redundant data-time
+  accept enqueue and application-specific error response are removed; passive
+  handshakes already enqueue before data processing, with the existing queue-full
+  reset/refusal path retained.
+- Partial ACKs kept the full original transmit record, overstating outstanding
+  bytes and retransmitting acknowledged prefixes. Records now advance to the ACK
+  and shift the remaining payload; SYN sequence is consumed first and FIN remains
+  until actually acknowledged. Byte-capacity progress wakes writers and retries
+  a deferred FIN, even when the record slot itself remains occupied. Retransmit
+  deadlines/retry limits and the transmitted high-water sequence are unchanged.
+- An overlapping retransmission containing a duplicate prefix and new contiguous
+  suffix was rejected forever if the sender kept retransmitting that segment.
+  The receiver now skips the duplicate prefix and applies normal ACK/window
+  admission to the suffix, preserving a new FIN after wholly duplicate payload.
+  Full duplicates, gaps and oversized suffixes remain rejected. No reassembly
+  queue or right-edge clipping is added.
+
+Sequence-space and receive-overlap reasoning follows
+[RFC 9293 section 3.4](https://www.rfc-editor.org/rfc/rfc9293.html#section-3.4).
+This is bounded recovery coverage, not complete TCP conformance. The fixture adds
+seven modes and updates the earlier wrap-ACK and duplicate-receive expectations.
+All seven additions and the updated duplicate case fail against original source;
+close and future-ACK controls pass. The first test build needed a signed handle
+comparison correction; the first candidate run also exposed an invalid fixture
+query of an unaccepted handle. Neither fixture correction is runtime defect
+evidence; the corrected allocation tests cover both initial allocation and growth
+after unread-prefix compaction, for outbound/accepted/pending connections.
+
+Follow-on source tracing reaches peer-window update ordering: synchronized
+segments currently call `tcp_set_peer_window` without a last-window-update
+sequence/ACK guard. Zero-window probes currently send an empty ACK at the next
+transmit sequence and have a bounded timeout policy. Their interaction with
+stale advertisements and a lost reopening update needs directed peer/timer
+coverage next. No new conformance claim is made for those paths. Broader network
+reordering, full identifier exhaustion and concurrent fork/exec/kill remain open.
+
+
+### Allocation/partial-ACK verification
+
+All 30 lifetime modes pass on x86_64/Rosetta and under native ARM64 ASan/UBSan.
+Eight directed new/updated cases fail against original network source `903030ef`;
+close and future-ACK controls pass. Related TCP accept, e1000 receive, network
+worker/device, process output/lifetime and syscall I/O host gates pass. The newly
+integrated power, AP receipt/owner and lifecycle-wait gates also pass. The matched
+build, six generator groups and recursive 372-entry/16-directory image check pass.
+
+Seven sequential disposable VMs pass: tcp-ready 11.21 s, tcp-stress 47.85 s, netabi 10.21 s, libuv 10.75 s, threads 31.07 s, lifetime 22.95 s, outbound-local 10.82 s.
+TCP stress uses twelve clients; outbound HTTP verifies `/retry-check` and the
+exact local-server body. Logs, original failures, candidate fixture correction,
+source diff and source/artifact hashes are under `build/review/tcp-retry/`.
+Documentation/link and whitespace checks pass. Earlier storage fault matrices
+remain dated evidence; no physical adapter/native AP acceptance, Actions dispatch
+or PR merge is claimed. PR182 remains draft.

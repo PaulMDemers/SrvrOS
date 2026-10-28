@@ -236,3 +236,12 @@ same host commands. ARM64 sanitizer and x86_64/Rosetta evidence is retained in
 `build/review/tcp-receive/`, together with original-source failures. Its VMs use
 matched images, sequential disposable copies, and the host-local outbound HTTP
 gate described above. No physical adapter or native Mac acceptance is implied.
+
+
+The allocation/partial-ACK checkpoint uses the same commands for 30 lifetime
+modes, native ARM64 sanitizers and x86_64/Rosetta execution. Its integration base
+is main `7b0cc468` through PR233, merged in `b36bb072`. Evidence is under
+`build/review/tcp-retry/`; the outbound fixture uses `/retry-check`. This includes
+ordinary build/VM integration of the new AP diagnostic and lifecycle baseline,
+not native AP/C3 acceptance. Relevant main-branch host gates are `test-power`,
+`test-ap-probe` and `test-lifecycle-wait`.

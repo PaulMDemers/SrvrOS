@@ -1737,7 +1737,7 @@ static bool tcp_ack_tx_records(struct tcp_connection *connection, uint32_t ack) 
     }
 
     bool acked_fin = false;
-    bool cleared = false;
+    bool progressed = false;
     for (uint8_t i = 0; i < TCP_TX_HISTORY; i++) {
         struct tcp_tx_record *record = &connection->tx_history[i];
         if (!record->used) {
@@ -1749,10 +1749,27 @@ static bool tcp_ack_tx_records(struct tcp_connection *connection, uint32_t ack) 
                 acked_fin = true;
             }
             clear_bytes((uint8_t *)record, sizeof(*record));
-            cleared = true;
+            progressed = true;
+        } else if ((int32_t)(ack - record->seq) > 0) {
+            /* ACK may split a segment. Keep only unacknowledged sequence
+             * space so retries and byte-window accounting use the suffix. */
+            uint32_t consumed = ack - record->seq;
+            record->seq = ack;
+            if ((record->flags & TCP_SYN) != 0) {
+                record->flags &= (uint8_t)~TCP_SYN;
+                consumed--;
+            }
+            uint16_t bytes = consumed < record->payload_length ?
+                (uint16_t)consumed : record->payload_length;
+            for (uint16_t j = bytes; j < record->payload_length; j++) {
+                record->payload[j - bytes] = record->payload[j];
+            }
+            record->payload_length -= bytes;
+            /* A partial ACK cannot consume the trailing FIN. */
+            progressed = true;
         }
     }
-    if (cleared) {
+    if (progressed) {
         if (connection->fin_pending) {
             if (!tcp_send_fin(connection)) {
                 tcp_fail_connection(connection, SRV_NETERR_RESET, timer_ticks());
@@ -1945,21 +1962,6 @@ static bool ensure_pending_connection(struct tcp_connection *connection, uint16_
     return false;
 }
 
-static void send_unavailable_response(struct tcp_connection *connection) {
-    static const char response[] =
-        "HTTP/1.1 503 Service Unavailable\r\n"
-        "Content-Type: text/plain\r\n"
-        "Connection: close\r\n"
-        "Content-Length: 34\r\n"
-        "\r\n"
-        "srvros web request queue is full\n";
-
-    send_tcp_segment(connection, connection->local_port, TCP_ACK | TCP_PSH, (const uint8_t *)response, sizeof(response) - 1);
-    http_requests++;
-    send_tcp_segment(connection, connection->local_port, TCP_ACK | TCP_FIN, 0, 0);
-    close_connection(connection);
-}
-
 static void handle_tcp(const uint8_t *frame,
     uint16_t length,
     const uint8_t *ip,
@@ -2074,14 +2076,28 @@ static void handle_tcp(const uint8_t *frame,
     }
 
     if (connection->state == TCP_STATE_SYN_SENT || (flags & TCP_ACK) == 0) return;
+    const uint8_t *payload = tcp + data_offset;
     uint32_t receive_advance = tcp_receive_advance(flags, data_length);
+    if (receive_advance != 0 && (int32_t)(seq - connection->remote_next) < 0) {
+        uint32_t duplicate = connection->remote_next - seq;
+        if (duplicate >= receive_advance) {
+            send_tcp_segment(connection, connection->local_port, TCP_ACK, 0, 0);
+            return;
+        }
+        /* Only a duplicate prefix is skipped; the new suffix must still be
+         * in order and fit the receive window. FIN retains its sequence. */
+        payload += duplicate;
+        data_length -= (uint16_t)duplicate;
+        receive_advance -= duplicate;
+        seq = connection->remote_next;
+    }
     uint16_t window = tcp_receive_window(connection);
     bool acceptable = receive_advance == 0 ?
         (seq == connection->remote_next || (uint32_t)(seq - connection->remote_next) < window) :
         (seq == connection->remote_next && !connection->peer_closed &&
             (receive_advance <= window || data_length == 0));
-    /* This bounded receiver accepts in-order data only. Reject duplicates,
-     * overlap, gaps and excess data before ACK/window/control side effects. */
+    /* This bounded receiver accepts in-order data (including a trimmed
+     * overlap). Reject gaps and excess data before ACK/window side effects. */
     if (!acceptable) {
         send_tcp_segment(connection, connection->local_port, TCP_ACK, 0, 0);
         return;
@@ -2139,35 +2155,22 @@ static void handle_tcp(const uint8_t *frame,
             }
             return;
         }
-        if (connection->outbound) {
-            if (!append_connection_data(connection, tcp + data_offset, data_length)) {
-                close_connection(connection);
-                return;
-            }
-            connection->remote_next = seq + receive_advance;
-            if ((flags & TCP_FIN) != 0) {
-                tcp_handle_fin(connection, (flags & TCP_ACK) != 0);
-            } else {
-                send_tcp_segment(connection, connection->local_port, TCP_ACK, 0, 0);
-            }
+        if (!append_connection_data(connection, payload, data_length)) {
+            /* A clean memory refusal consumes no peer sequence or FIN.
+             * Retain references and unread data; let the peer retry later. */
+            send_tcp_segment(connection, connection->local_port, TCP_ACK, 0, 0);
+            return;
+        }
+        connection->remote_next = seq + receive_advance;
+        if (!connection->outbound && !connection->request_counted) {
+            /* Passive opens entered the accept queue at handshake completion. */
+            http_requests++;
+            connection->request_counted = true;
+        }
+        if ((flags & TCP_FIN) != 0) {
+            tcp_handle_fin(connection, (flags & TCP_ACK) != 0);
         } else {
-            bool appended = append_connection_data(connection, tcp + data_offset, data_length);
-            if (appended) {
-                connection->remote_next = seq + receive_advance;
-            }
-            if (appended && ensure_pending_connection(connection, dst_port)) {
-                if (!connection->request_counted) {
-                    http_requests++;
-                    connection->request_counted = true;
-                }
-                if ((flags & TCP_FIN) != 0) {
-                    tcp_handle_fin(connection, (flags & TCP_ACK) != 0);
-                } else {
-                    send_tcp_segment(connection, connection->local_port, TCP_ACK, 0, 0);
-                }
-            } else {
-                send_unavailable_response(connection);
-            }
+            send_tcp_segment(connection, connection->local_port, TCP_ACK, 0, 0);
         }
         if ((flags & TCP_FIN) != 0) {
             scheduler_wake_all(&read_wait_queue);

@@ -1584,3 +1584,32 @@ its Wi-Fi and Makefile work. Air7,2's `0cbbb275` adds only separate parity/machi
 evidence beyond main; Air6,1's AP diagnostic work is included in main and its
 next coordinated C3 trial remains separately gated. Next checkpoint is bounded
 reproductions, fixes and matched host/VM validation. No native install or merge.
+
+
+### Allocation/partial-ACK result
+
+Integrated main in `b36bb072`. Corrected receive-allocation lifetime loss and
+inbound HTTP injection, partial-ACK outstanding-byte/retransmission accounting,
+and duplicate-prefix overlap recovery. Thirty host modes retain earlier TCP
+coverage. Original-source failures and candidate fixture corrections are retained
+in `build/review/tcp-retry/`; see the [TCP audit](../tcp-lifetime-audit-2026-10-28.md).
+Next bounded question is peer-window update ordering and zero-window recovery,
+including lost reopening updates. Broader TCP conformance remains unqualified.
+
+
+### Allocation/partial-ACK verification
+
+All 30 lifetime modes pass on x86_64/Rosetta and under native ARM64 ASan/UBSan.
+Eight directed new/updated cases fail against original network source `903030ef`;
+close and future-ACK controls pass. Related TCP accept, e1000 receive, network
+worker/device, process output/lifetime and syscall I/O host gates pass. The newly
+integrated power, AP receipt/owner and lifecycle-wait gates also pass. The matched
+build, six generator groups and recursive 372-entry/16-directory image check pass.
+
+Seven sequential disposable VMs pass: tcp-ready 11.21 s, tcp-stress 47.85 s, netabi 10.21 s, libuv 10.75 s, threads 31.07 s, lifetime 22.95 s, outbound-local 10.82 s.
+TCP stress uses twelve clients; outbound HTTP verifies `/retry-check` and the
+exact local-server body. Logs, original failures, candidate fixture correction,
+source diff and source/artifact hashes are under `build/review/tcp-retry/`.
+Documentation/link and whitespace checks pass. Earlier storage fault matrices
+remain dated evidence; no physical adapter/native AP acceptance, Actions dispatch
+or PR merge is claimed. PR182 remains draft.
