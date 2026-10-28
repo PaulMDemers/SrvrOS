@@ -30,8 +30,13 @@ This does not edit PR182's process/file teardown, widen I/O safety gates or
 relax diagnostic limits. The two-contender host fixture fails before the correction and passes afterward
 with 16/16 admissions. Existing owner/eligibility regressions and full core/desktop
 builds pass. The implementation rotates after the last admitted waiter, including
-ordinary scheduling admissions. Native causation remains unproven; positive and
-exact staged VM validation precede a matching retry.
+ordinary scheduling admissions. Normal Air7,2 KVM stress passes 23 cycles with zero underruns. The same slowed
+100-write-IOPS fixture remains failed: a 679 ms loop and cycle 4 close deadline.
+Thus this correction is **not a complete slow-I/O fix**. Retain both failures.
+Add bounded read-only process metadata to diagnostic deadline receipts to separate
+an active exit from an exited child awaiting reap. It changes neither ordinary
+startup nor failure policy. Native causation remains unproven; exact staged VM
+validation precedes the matching diagnostic retry.
 
 ### Air6,1 parity — native desktop power accepted (2026-10-28)
 

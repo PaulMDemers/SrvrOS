@@ -144,3 +144,10 @@ turns over another contender. The proposed correction rotates after the last
 admitted waiter, including ordinary scheduling admissions. Both waiters receive
 16 turns in the host fixture; storage ownership, eligibility, workload and deadlines
 remain unchanged. Native causation/acceptance still require a matching retry.
+
+The fairness candidate passes the normal Air7,2 KVM workload (23 app cycles,
+zero underruns). The throttled 100-write-IOPS fixture still fails loop and close
+bounds. Treat fairness as a separate proven correction, not a complete resolution
+of heavy-I/O latency. Failed diagnostic receipts now include a bounded read-only
+process-state snapshot to distinguish active exit from deferred reaping; thresholds
+and early failure behavior remain unchanged.

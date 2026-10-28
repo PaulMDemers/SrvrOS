@@ -2068,6 +2068,22 @@ int main(int argc,char **argv) {
             if((life_phase && now-life_begin>10000000) || s.child_errors){
                 desk_log("desktop-life: deadline phase=%u pid=%llu child=%d elapsed_us=%llu pending_opens=%u errors=%u\n",life_phase,
                     (unsigned long long)life_pid,child_index(&s,life_pid),(unsigned long long)(now-life_begin),s.pending_opens,s.child_errors);
+                /* Read-only process metadata distinguishes a still-active exit
+                 * from a finished child awaiting reap. Never retry a blocking
+                 * wait or change the failed trial's deadline to obtain proof. */
+                uint64_t index=0;unsigned found=0;
+                for(unsigned inspected=0;inspected<512;inspected++) {
+                    struct srv_process_info info;
+                    long next=srv_proc_list(index,&info);
+                    if(next<=0 || (uint64_t)next<=index)break;
+                    index=(uint64_t)next;
+                    if(info.pid!=life_pid)continue;
+                    desk_log("desktop-life-process: pid=%llu parent=%llu state=%.*s mapped_bytes=%llu\n",
+                        (unsigned long long)info.pid,(unsigned long long)info.parent_pid,
+                        (int)sizeof(info.state),info.state,(unsigned long long)info.user_mapped_bytes);
+                    found=1;break;
+                }
+                if(!found)desk_log("desktop-life-process: pid=%llu snapshot=unavailable\n",(unsigned long long)life_pid);
                 for(int i=0;i<session_capacity(&s);i++)if(life_pid && session_client(&s,i)->pid==life_pid) {
                     const struct client *c=session_client(&s,i);
                     desk_log("desktop-life: window=%llu configure=%d awaiting=%d closing=%d generation=%llu progress=%llu pixels=%u\n",
