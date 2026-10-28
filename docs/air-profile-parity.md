@@ -81,3 +81,24 @@ package scopes and existing reset/skew/overflow rejection. Collection requires a
 consistent complete model mask and omits unsupported counter names. The explicit
 CPU-load capture also records HLT entry and CPU0 topology/configuration; it does
 not observe remote CPUs or establish time asleep. Broadwell MWAIT remains refused.
+
+## Workload regression found during parity validation
+
+The new Air7,2 fixture initially exceeded the unchanged 500 ms desktop-loop bound
+under TCG (570 ms) and KVM (527 ms), despite successful PCM/disk verification and
+clean retirement. A traced repeat measured 560 ms, including 313 ms READY time,
+no blocked wait and no I/O-gate exclusions. These failures remain retained.
+
+The compositor was synchronously printing each launch receipt. It now leaves that
+receipt to the existing lifecycle worker, retaining the launch record until the
+write finishes. A host test deliberately stalls that writer and verifies that the
+UI side remains runnable and the record remains owned. Follow-up Air7,2 fixtures
+pass with worst loops 122 ms (TCG, 26 cycles) and 140 ms (KVM, 23 cycles), zero
+underruns, exact file checks and clean retirement. The workload, loop and lifecycle
+limits are unchanged. This bounds the observed improvement; native timing and the
+full 30-minute Air7,2 run still require matching hardware evidence.
+
+Audio workload diagnostics also record scheduler attribution for lifecycle
+intervals above 100 ms. These trace calls are confined to workload diagnostics;
+ordinary desktop operation does not enable them. `--accel tcg|kvm` explicitly
+selects the audio VM accelerator, with the original TCG default preserved.
