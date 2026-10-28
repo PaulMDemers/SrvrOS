@@ -2,6 +2,53 @@
 
 Updated: 2026-10-28. State: **active reference machine; partial device acceptance**.
 
+### Endurance retry — exited child reap and capture startup (2026-10-28)
+
+Release `8003479c17f01644` (clean `96a8d307`, merged by PR236) failed early
+in session `session-00065ee9cdb1fcee-00`: cycle 3 close deadline, process 13
+reported `state=exited mapped_bytes=0`, but remained in the compositor child list.
+The loop maximum was 1001940 us, including 995335 us in the post stage where
+screenshot startup currently allocates/spawns synchronously. No PCM underruns
+were recorded. This does not accept endurance or establish that every close
+delay shares one cause. Preserve both failed releases and existing accepted
+CPU0/v82 results. Collect/offline integrity and recovery checks precede new work.
+
+Next bounded scope: `userspace/deskd` lifecycle worker, screenshot job preparation
+and focused host/VM fixtures. Move terminal-child reaping to the existing worker
+with one retained immutable PID/result record and kernel-owned blocking wait;
+process-list `exited` is only admission evidence, never permission to reclaim.
+Move screenshot allocation/spawn off the UI with an owned prepare/publish/copy
+boundary. Keep accepted writes/resources until retirement, original deadlines,
+workload intensity and all kernel I/O eligibility gates. PR182's process/VFS
+cleanup and PR19 Wi-Fi remain independent; this block makes no kernel changes.
+
+The retry's 1171 prior files are preserved except expected metadata; offline
+fsck/allocation pass (1177 files, 3001 clusters, zero errors). Ubuntu default,
+consumed one-shot and recovery are verified. The worker implementation now passes
+full core/desktop hosts and a matched ordinary image build. Directed fixtures
+hold worker reap/preparation calls stalled while the UI polls, verify unique PID
+ownership and one-time result consumption, and reject image transfer before a
+validated canvas copy. Positive and exact-stage VM checks remain pending; no
+hardware acceptance is claimed for these changes.
+
+Candidate `d534cec5` passes normal positive KVM audio/I/O workloads for both
+Air7,2 and Air6,1, with full screenshot/app timing/retirement proofs. Air7,2
+completes 23 app cycles, worst loop 119982 us, maximum ready 975600 us and
+close 1211610 us. The 100-write-IOPS fixture remains failed on an active Files
+close deadline; its worst loop is 110246 us. Preserve that failure; the change
+does not claim arbitrary slow-media latency or native endurance acceptance.
+Main `6cbfedab` / PR237 adds Air6,1 coordinated core-C3 acceptance documentation
+only; it is consumed without changing Broadwell admission or this workload.
+Window-command and exact-stage checks precede the automatic native retry.
+
+Window-command VM checks pass after the worker changes: offscreen recovery,
+window switching, minimized/dock lifetime, modal filtering, exact files, process
+baseline and offline allocation. Exact v80 release `5f4ed45c3634e22a` (clean
+`99e4412d`) passes GRUB/native Q35 ownership refusal/save/unmount/reset. The
+native retry must collect matching completion, file/capture/lifecycle receipts
+and integrity before acceptance. All 1177 existing files are hashed; independent
+recovery remains `9aa8dbf6fbda8252`. No human input is required for this replay.
+
 ### Parity endurance — early native failure under investigation (2026-10-28)
 
 Release `0d1ffb15c35f639a`, source `45b8647a`, returned automatically from

@@ -1195,7 +1195,7 @@ static struct capture_trace capture_snapshot(const struct session *s,uint64_t no
         .started_us=j->started_us,.finished_us=j->finished_us,
         .cleanup_us=j->cleanup_us,.close_us=j->close_us,.unmap_us=j->unmap_us,.reap_us=j->reap_us,
         .cleanup_pending=s->worker && life_state(&s->worker->capture.state)!=LIFE_IDLE,
-        .id=j->request.id,.busy=j->busy,.pending=s->capture_pending,.phase=j->phase,.frames=j->progress_frames,
+        .id=j->request.id,.busy=j->busy,.pending=s->capture_pending || (s->worker && life_state(&s->worker->prepare.state)!=LIFE_IDLE),.phase=j->phase,.frames=j->progress_frames,
         .finished=s->capture_finished,.status=j->response.status};
     memcpy(c.phases,j->phase_us,sizeof(c.phases));return c;
 }
@@ -1223,13 +1223,23 @@ static struct operation_trace operation_snapshot(const struct session *s,uint64_
 }
 static void capture_tick(struct session *s,const uint32_t *pixels) {
     int result=0;
-    if(s->worker) {
+    if(s->worker && life_state(&s->worker->prepare.state)!=LIFE_IDLE) {
+        int prepared;
+        if(!life_prepare_take(s->worker,&s->capture,&prepared))return;
+        if(prepared)result=-1;
+        else if(desk_capture_job_snapshot(&s->capture,pixels,s->damage.width,s->damage.height)) {
+            /* A changed/vanished canvas cannot be copied with stale bounds.
+             * Close and retire through the existing owner; no bytes were sent. */
+            (void)life_capture_submit(s->worker,&s->capture,-1);
+        } else desk_log("deskd: screenshot captured path=%s width=%d height=%d\n",s->capture.request.path,s->damage.width,s->damage.height);
+    }
+    if(!result && s->worker) {
         result=life_capture_take(s->worker,&s->capture);
         if(!result && life_state(&s->worker->capture.state)==LIFE_IDLE) {
             int completed=desk_capture_job_poll_transfer(&s->capture);
             if(completed)(void)life_capture_submit(s->worker,&s->capture,completed);
         }
-    } else result=desk_capture_job_poll(&s->capture);
+    } else if(!result)result=desk_capture_job_poll(&s->capture);
     if(result) {
         int success=result>0 && !s->capture.response.status;
         s->capture_success=success;s->capture_finished++;
@@ -1241,11 +1251,17 @@ static void capture_tick(struct session *s,const uint32_t *pixels) {
         global_menu_rebuild(s);
     }
     if(!s->capture_pending) return;
-    s->capture_pending=0;
     char path[DESK_CAPTURE_PATH],date[32]="undated";long us=srv_realtime_us();
     time_t seconds=us<0?0:us/1000000;struct tm utc;
     if(us>=0 && gmtime_r(&seconds,&utc)) strftime(date,sizeof(date),"%Y%m%d-%H%M%S",&utc);
     snprintf(path,sizeof(path),"%s/Screenshots/Screen-%s-%llu-%u.bmp",s->home?s->home:DESK_RAM_HOME,date,(unsigned long long)srv_getpid(),s->capture.next_id+1);
+    if(s->worker) {
+        if(life_prepare_submit(s->worker,&s->capture,s->damage.width,s->damage.height,path)) {
+            s->capture_pending=0;global_menu_rebuild(s);
+        }
+        return;
+    }
+    s->capture_pending=0;
     if(desk_capture_job_start(&s->capture,pixels,s->damage.width,s->damage.height,path)) {
         s->capture_success=0;s->capture_finished++;capture_notice(s,0,"The capture worker could not start.");
     }
@@ -1608,19 +1624,35 @@ static void service(struct session *s) {
         if(!c->input_count || c->configure || c->closing) c->input_blocked=0;
         if((s->scene.apps || s->ram_text) && !c->closing) desk_clipboard_service(&clipboard,&c->clipboard,srv_ticks());
     }
+    /* A terminal snapshot admits a worker wait; only the wait result permits
+     * dropping the child record. NOHANG on the UI can repeatedly miss every
+     * quiescent storage gap even after an app has finished. */
+    if(s->worker && !life_state(&s->worker->stop)) {
+        uint64_t index=0;
+        for(unsigned inspected=0;inspected<512;inspected++) {
+            struct srv_process_info info;long next=srv_proc_list(index,&info);
+            if(next<=0 || (uint64_t)next<=index)break;
+            index=(uint64_t)next;
+            if(strcmp(info.state,"exited") || child_index(s,info.pid)<0)continue;
+            (void)life_reap_submit(s->worker,info.pid);
+        }
+    }
     for (int i=0;i<children_capacity(s);i++) if ((*session_children(s,i))) {
         uint64_t status=0;
         uint64_t began=(uint64_t)srv_monotonic_us();
-        long waited=srv_wait((*session_children(s,i)),&status,SRV_WAIT_NOHANG);
+        long waited=0;
+        int owned=s->worker && life_reap_pending(s->worker,*session_children(s,i));
+        if(owned)(void)life_reap_take(s->worker,*session_children(s,i),&waited,&status);
+        else waited=srv_wait((*session_children(s,i)),&status,SRV_WAIT_NOHANG);
         uint64_t elapsed=(uint64_t)srv_monotonic_us()-began;
         if(elapsed>50000)desk_log("desktop-reap: elapsed_us=%llu\n",(unsigned long long)elapsed);
         /* An interrupted wait is not proof of death. Init only adopts a
          * child after its parent exits; live clients retain their own results. */
         if (waited==(long)(*session_children(s,i))) { s->child_reaped++;if(status)s->child_errors++; }
-        else if(waited<0 && !desk_process_alive((*session_children(s,i)))) s->child_errors++;
+        else if(waited<0 && waited!=SRV_ERR_INTR && !desk_process_alive((*session_children(s,i)))) s->child_errors++;
         if (waited==(long)(*session_children(s,i)))
             desk_log("deskd: child-exit pid=%llu status=%llu tick=%llu\n",(unsigned long long)(*session_children(s,i)),(unsigned long long)status,(unsigned long long)srv_ticks());
-        if (waited==(long)(*session_children(s,i)) || (waited<0 && !desk_process_alive((*session_children(s,i)))))
+        if (waited==(long)(*session_children(s,i)) || (waited<0 && waited!=SRV_ERR_INTR && !desk_process_alive((*session_children(s,i)))))
             { (*session_children(s,i))=0;(*session_child_mode(s,i))=0;(*session_child_last_window(s,i))=0;(*session_child_reply(s,i))=(struct desk_packet){0}; }
     }
 }
@@ -2735,6 +2767,12 @@ int main(int argc,char **argv) {
         desk_log("desktop-life: result=%s cycles=%u max_loop_us=%llu max_ready_us=%llu max_close_us=%llu errors=%u limit_us=500000 first_us=%llu last_us=%llu\n",failed?"FAIL":"PASS",life_cycles,(unsigned long long)loop_max,(unsigned long long)life_ready_max,(unsigned long long)life_close_max,s.child_errors,(unsigned long long)life_first,(unsigned long long)life_last);
         }
         desk_log("desktop-audio-io: completed=%s\n",audio_io_complete?"yes":"NO");
+    }
+    /* Preparation owns unpublished handles/mappings. Drain that publication
+     * before closing the job; the UI placeholder has none of those resources. */
+    if(life_state(&worker.prepare.state)!=LIFE_IDLE) {
+        while(life_state(&worker.prepare.state)!=LIFE_DONE)srv_sleep_ticks(1);
+        int prepared;(void)life_prepare_take(&worker,&s.capture,&prepared);
     }
     if(s.capture.busy && life_state(&worker.capture.state)==LIFE_IDLE)(void)life_capture_submit(&worker,&s.capture,-1);
     if(life_stop(&worker)){srv_puts("deskd: lifecycle worker join failed\n");return 1;}
