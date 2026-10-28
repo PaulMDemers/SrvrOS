@@ -475,20 +475,22 @@ def install(release=None, keep_previous=False):
         print("Guided keyboard test: on-screen prompts, up to 90 seconds per step, save result and return; halt if saving fails.")
     elif LAPTOP_PROBE_RE.fullmatch(verify(source).get("config_version", "")):
         print("Laptop diagnostics: new unattended stages return on handled failure; guided/held profiles retain the failure screen.")
-    elif verify(source).get("config_version", "").startswith("ram-usb-v77-"):
+    elif verify(source).get("config_version", "").startswith(("ram-usb-v77-","ram-usb-v81-")):
         print("Attended audio/USB load: Help checklist opens automatically; 30-minute load, then save and exit manually. No automatic reboot.")
     elif verify(source).get("config_version", "").startswith("ram-usb-v76-"):
         print("Attended window/dock/navigation checklist opens automatically in Help; no timer. Save, Return to console, then reboot manually.")
     elif verify(source).get("config_version", "").startswith("ram-usb-v75-"):
         print("Attended application lifecycle checklist opens automatically in Help; no timed exit. Save, Return to console, then reboot manually.")
-    elif verify(source).get("config_version", "").startswith("ram-usb-v74-"):
+    elif verify(source).get("config_version", "").startswith(("ram-usb-v74-","ram-usb-v80-")):
         print("Automatic audio/USB stress: 30 minutes of continuous playback and verified filesystem work; listen only, normal retirement/unmount and Ubuntu return.")
     elif verify(source).get("config_version", "").startswith("ram-usb-v73-"):
         print("Automatic capacity test: two rounds of 24 mixed apps, screenshots and normal retirement; returns after save/unmount, no input required.")
-    elif verify(source).get("config_version", "").startswith("ram-usb-v72-"):
+    elif verify(source).get("config_version", "").startswith(("ram-usb-v72-","ram-usb-v79-")):
         print("Automated two-session startup diagnostic; normal return to Ubuntu, fatal mounted ownership halts for photograph/recovery.")
     elif verify(source).get("config_version", "").startswith(("ram-usb-v54-","ram-usb-v55-","ram-usb-v70-","ram-usb-v71-")):
         print("Ordinary Home with opt-in battery monitoring; no timed exit. Ctrl+Alt+Esc returns to monitor; reboot flushes/unmounts.")
+    elif verify(source).get("config_version", "").startswith(("ram-usb-v78-","ram-usb-v82-")):
+        print("Automatic desktop power test: idle/app/recovery phases, saved diagnostics and normal unmount/Ubuntu return; no input required.")
     elif DESKTOP_RE.fullmatch(verify(source).get("config_version", "")):
         print("Native desktop trial: on-screen checklist, prepared USB workspace, no timed exit or automatic reboot.")
     elif WORKSPACE_RE.fullmatch(verify(source).get("config_version", "")):

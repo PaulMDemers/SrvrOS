@@ -106,7 +106,7 @@ def main():
         if args.lifecycle_guide:cmdline += ' srvros.desktop-guide=application-lifecycle'
         if args.capacity_auto:cmdline += ' srvros.desktop-capacity-test=on'
         if args.automatic:cmdline += ' srvros.desktop-reopen-test=on'
-        if args.services:cmdline += ' srvros.laptop-services=brightness srvros.audio=hda srvros.sensors=cpu srvros.smc=read-only' + ('' if args.air61 else ' srvros.usb-network=ecm')
+        if args.services:cmdline += ' srvros.laptop-services=brightness srvros.audio=hda srvros.sensors=cpu srvros.smc=read-only' + ('' if args.air61 or args.automatic else ' srvros.usb-network=ecm')
         if args.case=='missing-workspace':cmdline=cmdline.replace(uuid,'61626364')
         if args.case=='opt-out':cmdline=cmdline.replace(' srvros.battery=on','')
         if stage:

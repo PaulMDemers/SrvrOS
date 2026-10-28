@@ -8,7 +8,8 @@ Consumed main `5a94d755` (PR230). Compare shared model support and independently
 recorded acceptance against Air6,1; preserve its active secondary-CPU ownership
 investigation and PR182 filesystem/PR19 Wi-Fi scopes. This block owns Air7,2
 parity documentation, explicit Air7,2 automated desktop reopen/audio-I/O/power
-staging profiles and affected host/VM fixtures. Review Broadwell read-only idle
+staging profiles, seven-counter Broadwell read-only telemetry and affected host/VM
+fixtures. The [gap matrix](../air-profile-parity.md) records independent scope. Review Broadwell read-only idle
 counter prerequisites from this unit's inventory before any admission; do not
 copy Haswell MWAIT selectors or firmware permissions. Shared worker/event waits
 are already present in main and need no duplicate implementation.
