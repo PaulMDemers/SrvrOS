@@ -4804,3 +4804,74 @@ the sibling logical processor and firmware constraints. Any AP observation or
 rendezvous requires separate ownership and recovery design. Do not infer that
 the firmware limit, sibling state, or any particular constraint is the cause
 from these CPU0 receipts alone. Ordinary idle policy and all limits remain intact.
+
+
+### Missing C3 residency investigation — active scope (2026-10-28)
+
+Base `b9526c88`, after collecting and closing the bounded C3 trial. Investigate
+sibling-thread prerequisites and firmware constraints using the pinned Limine
+source, Intel's Haswell U/Y documentation and read-only Ubuntu residency/topology
+observations. Scope is this unit record and local evidence; no AP startup,
+CPU offlining, MSR/control-register writes, new idle selector or policy/limit
+change. PR182 filesystem and PR19 Wi-Fi retain their independent scope. Next
+checkpoint: distinguish observed hardware capability from unproven native AP
+state and specify the smallest justified follow-up. No new reboot is armed.
+
+
+### Missing C3 residency — investigation result (2026-10-28)
+
+A read-only Ubuntu reference on this same unit confirms that the residency
+registers advance and that deeper core/package idle is physically possible.
+Three ambient ten-second windows under `intel_idle` report CPU0 core C3
+0.799/0.222/0.401%, core C7 70.341/95.710/94.004%, and package C3
+44.933/72.618/69.147% of elapsed TSC. All four logical CPUs show positive
+core C3/C6/C7 and package C2/C3 deltas in every window. Package C6–C10 stay
+zero in this reference. These are ambient Ubuntu observations, not a controlled
+power comparison or SrvrOS acceptance; sequential MSR reads perturb execution
+and do not form simultaneous per-core snapshots.
+
+Linux topology pairs CPUs 0/2 (APIC IDs 0/1) and 1/3 (APIC IDs 2/3). All four
+CPUs remain online. Per-CPU E2 stays `0x408`, matching SrvrOS, and misc stays
+`0x850089`. Linux uses x2APIC while the native trial uses xAPIC; the environments
+are not equivalent. No CPU hotplug, idle-state configuration, power-policy or
+MSR write was performed. Raw delta arithmetic, monotonicity, bounds and unchanged
+control/configuration snapshots were independently checked. Evidence lives in
+`build/power/air61-c3-investigation-20261028`, with a hash-verified durable copy
+outside `build`.
+
+Intel's [Haswell U/Y datasheet, sections 4.2.4–4.2.5](https://cdrdv2-public.intel.com/329001/4th-gen-core-family-mobile-u-y-processor-lines-vol-1-datasheet.pdf)
+explains that the shallower thread request determines the core's idle state;
+package entry additionally depends on the other cores and platform components.
+This makes the unmanaged sibling a concrete prerequisite to investigate.
+The Ubuntu measurements rule out a blanket hardware inability to enter C3 or
+a permanently inactive residency counter. They do not prove the sibling is
+the native blocker, nor rule out other handoff/configuration differences.
+
+Pinned Limine v11.4.1 source (`1276c440`) only invokes `init_smp` when a
+`LIMINE_MP_REQUEST` is present. SrvrOS's `kernel/src/limine_requests.c` contains
+no such request. Therefore the bootloader's AP parking loop is not evidence
+of the AP state in our current native boot. When invoked, that loop uses
+MWAIT hint zero (C1), or PAUSE without MONITOR support. Merely adding the MP
+request would not establish the C3 sibling prerequisite. See the pinned
+[MP-request path](https://github.com/limine-bootloader/limine/blob/v11.4.1/common/protos/limine.c)
+and [AP trampoline](https://github.com/limine-bootloader/limine/blob/v11.4.1/common/sys/smp_trampoline.asm_x86).
+
+**Next milestone: diagnostic secondary-CPU ownership and rendezvous.** Start
+with an explicitly separate diagnostic payload, because a static Limine MP
+request takes effect before SrvrOS can parse an opt-in command line. Keep the
+ordinary kernel's boot requests intact. First prove per-CPU identity, private
+stack/descriptor/fault handling, coherent mailbox wake/acknowledgement and bounded
+return to a known park state. APs must not enter the current single-CPU scheduler,
+allocator, console or shared BSP TSS/interrupt handlers. Define storage lifetime
+and failed-AP containment before release; a timeout cannot reclaim memory that
+a remote CPU may still access. Any bootloader-reclaimable memory still used by
+parked APs must remain reserved. Rehearse missing/duplicate/late acknowledgements,
+unsupported topology and fault containment in multi-CPU VMs before physical use.
+This rendezvous changes AP state and cannot retrospectively observe the original
+firmware park state. Only after ownership is accepted should a separate coordinated
+C3 experiment reuse the existing 32-attempt, 20 ms and HLT-fallback protections.
+No general SMP scheduling or permanent idle-policy change is implied.
+
+This investigation changes documentation only. Installed C3 diagnostic
+`980f4936c6282637` and console recovery `c35475f62f154f1e` still hash-verify;
+Ubuntu remains default, the one-shot is empty and no new reboot is armed.
