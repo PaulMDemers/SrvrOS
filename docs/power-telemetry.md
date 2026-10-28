@@ -1158,4 +1158,22 @@ entry; wakeup PASS and `core_c3_observed`/`package_c3_observed` are separate.
 A failed trial invalidates its residency inference. The same three 30-second
 phases, ten-second coverage, thermal/fan stops, watchdogs, ownership checks,
 24-record capacity and 64 KiB tail remain in force. Exact-stage VM refusal tests
-cannot accept native deeper wakeup or residency. Physical acceptance is pending.
+cannot accept native deeper wakeup or residency. Native results follow below.
+
+
+### Native C3-hint result: bounded wakeup passes, residency unobserved
+
+Air6,1 release `980f4936c6282637`, source `2a8fabd0` (PR226), session
+`session-00065edb80a92930-00`, records 32 hint-16 waits/returns, maximum masked
+wait 9,968 us, zero faults, timer progress and 32 HLT fallback entries. ARAT and
+live timer readiness pass. All three phases, coverage, thermal/fan, file and
+allocation requirements pass with automatic Ubuntu recovery.
+
+The separate per-attempt bracket totals 620,687,304 TSC ticks but **zero core
+C3 and package C3 ticks**. Thus the bounded hint/wakeup/fallback path is accepted;
+actual C3 residency is not. All deeper counters also remain zero in retained
+phase samples. Package averages of 4.100/5.120/4.101 W mostly measure the later
+HLT fallback and do not establish MWAIT power savings. Firmware configuration
+is unchanged and remote logical-processor state remains unknown. Investigate
+missing residency before claiming a deeper idle policy. See the
+[unit result](machines/macbookair6-1.md#bounded-c3-hint--native-result-residency-unobserved-2026-10-27).
