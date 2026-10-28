@@ -22,11 +22,13 @@ fixtures and checkpoint VM harness compatibility. Explicit workspace sync and
 unmount must retain global process-file sync; logger may flush only its already
 written/read-back exFAT data plus the physical device barrier. No gate, cadence,
 deadline, dirty-file ownership or failure-poisoning weakening. Main `46b60b24` /
-PR #246 isolated diagnostic fixes are consumed. PR #182 at `4cef0949` overlaps
-`workspace.c` and `test_workspace.c`; this proposal is for review/isolated testing,
-not conflicting integration. Per the coordination guide, mark that overlap in a
-draft PR and defer integration until an implementation owner is agreed. PR #19
-Wi-Fi remains independent. Ubuntu stays default with no one-shot armed.
+PR #246 isolated diagnostic fixes are consumed, along with documentation-only
+main `00338707` / PR #248. The user assigned the Air7,2 agent ownership of the
+narrow logger barrier in PR #247. PR #182 at `c5e9d2ac` retains its separate
+filesystem audit: preserve its block-claim/online-state checks and raw scratch
+lease handling when integrating. The original no-argument full-sync helper is
+retained for compatibility. This change does not take over process/VFS auditing.
+PR #19 Wi-Fi remains independent. Ubuntu stays default with no one-shot armed.
 
 The committed-data barrier proposal passes integrated core/desktop hosts,
 ordinary/native/VM builds and documentation checks. Final wrapper preservation
@@ -36,7 +38,7 @@ zero observed PCM underruns, exact files/screenshot and clean retirement. Five
 live checkpoints use the new matching durability marker. The 100-write-IOPS
 populated fixture still fails cycle 1 total lifecycle (UI 109720 us); preserve it
 as a remaining performance failure. No native barrier acceptance is claimed.
-Draft PR #247 remains unmerged pending implementation-owner agreement with PR #182.
+PR #247 is proceeding to integration under that explicit user ownership assignment.
 No new boot payload was installed or staged for this proposal and no reboot is armed;
 installed remains `c98e4c162b411126`, independent recovery `9aa8dbf6fbda8252`.
 
