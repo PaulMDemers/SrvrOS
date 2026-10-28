@@ -2,6 +2,30 @@
 
 Updated: 2026-10-28. State: **active reference machine; partial device acceptance**.
 
+### Fourth endurance return — final file-pool retirement (2026-10-28)
+
+Release `e7d06c056ba13a58`, clean `eef772a0` (PR240), returned automatically
+from `session-00065eeabc2cba54-00` after seven completed cycles. Maximum UI loop
+is 101621 us, zero observed PCM underruns, clean native battery retirement.
+Files pid18 passes document release in 9290 us but spends 6469495 us retiring
+its idle file-worker pool, exceeding the unchanged total lifecycle deadline.
+Another release records 175219 us blocked and 348823 us ready (197 exclusions,
+zero invalid); the final Files release records 9128 us blocked and 7 us ready.
+The six-second document-release delay did not recur, so it has not been explained
+by this run. Screenshot completion and full endurance remain failed. All 1182
+prior files are preserved except metadata; offline fsck/allocation pass (1188
+files, 3095 clusters, zero errors). Default/recovery/consumed one-shot pass.
+
+Next bounded scope: explicit blocking final drain for an already-detached file
+pool in `userspace/lib/src/desk_file_job.c` and desktools final teardown, with
+host gate-deferral/interruption/ownership coverage. Interactive pool shutdown
+stays nonblocking. Close all idle channels before waiting; retain each PID until
+kernel wait returns that PID; never kill accepted work or discard an interrupted
+wait. This reuses existing syscall admission, changes no kernel gates or limits,
+and makes no claim to fix every lifecycle delay. Add scheduler attribution around
+final pool drain. PR182 process/VFS and PR19 Wi-Fi remain independent; PR242
+Air6,1 graphics/latency audit is isolated. Main `ac259fcb` / PR241 docs consumed.
+
 ### Third endurance return and attribution scope (2026-10-28)
 
 Release `5f4ed45c3634e22a`, clean `99e4412d` (PR238 runtime), returned
