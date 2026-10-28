@@ -1185,7 +1185,7 @@ bridge remains the backend integration check. October 28 integrated-main evidenc
 is under `build/review/inheritance-exit/`.
 
 
-`make test-net-lifetime` runs eight deterministic modes against production
+`make test-net-lifetime` runs fifteen deterministic modes against production
 `net.c`: final close with outstanding data, deferred FIN, both inherited exit
 orders, inherited listener backlog (completed and half-open), abort controls,
 deferred-FIN deadline, failed deferred send and simultaneous close. The fixture
@@ -1195,3 +1195,20 @@ Original source `98fb56ff` fails seven modes; abort controls pass. Evidence and
 harness-correction notes are in `build/review/tcp-exit/`. See the
 [TCP lifetime audit](tcp-lifetime-audit-2026-10-28.md). This does not execute full
 process exit or broaden libc pseudo-socket inheritance support.
+
+
+The ACK/handle checkpoint adds seven modes: future ACK rejection with payload/FIN,
+sequence-wrap controls, active SYN-ACK validation, stale hold, stale I/O/query,
+slot reuse/reference saturation, and wakeup on final close. Five fail on original
+source `29df1192`; wrap and reuse controls pass. Packet checks use checksummed
+TCP segments through the production parser. All fifteen modes also run under
+ASan/UBSan. Current evidence is `build/review/tcp-ack/`; `tcp-exit/` retains the
+previous eight-mode checkpoint. Full 60-bit handle-ID exhaustion and packet-loss/
+reordering conformance are not covered.
+
+
+`httpget_smoke.py --host 10.0.2.2 --port PORT --path /fixture` can test outbound
+connect against a host-local HTTP server on an unprivileged port. `--port`
+defaults to 80 and rejects values outside 1..65535. The ACK checkpoint uses a
+temporary localhost server, checks the received request path and exact response
+body, and retains its log/receipt as `tcp-ack/vms/outbound-local.*`.

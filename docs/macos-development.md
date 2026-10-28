@@ -215,3 +215,17 @@ running `tcp_ready_smoke.py`, `tcpstress_smoke.py` and `netabi_smoke.py`
 sequentially. These use disposable guest disks and local host forwarding; their
 results do not qualify a physical Ethernet or Wi-Fi adapter. October 28 evidence
 is under `build/review/tcp-exit/`.
+
+
+The ACK/handle follow-on keeps the same `test-net-lifetime` command and expands it
+to fifteen modes, including checksummed packet admission across sequence wrap and
+retired-handle refusal. Evidence is under `build/review/tcp-ack/`; the original
+five failing new modes are separate from the passing wrap/reuse controls. Native
+ARM64 sanitizer and x86_64/Rosetta runs cover the same fixture.
+
+
+For an outbound handshake check without a public web dependency, start a
+localhost HTTP server on an available unprivileged port and run
+`python3 tools/httpget_smoke.py --host 10.0.2.2 --port PORT --path /fixture --boot-wait 60`.
+QEMU user networking routes the guest address to the host. Stop the temporary
+server after validation; the helper uses a disposable disk copy.

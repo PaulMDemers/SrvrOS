@@ -67,7 +67,7 @@ remain dated evidence; they were not rerun for this network-only production fix.
 Documentation/link and whitespace checks pass. No native hardware acceptance,
 Actions dispatch or PR merge occurred.
 
-## Limits and next audit
+## Limits and next audit at the close checkpoint
 
 Close releases the descriptor immediately. Retaining protocol state is bounded
 best effort, not a receipt that the peer application consumed data. In-flight
@@ -80,3 +80,71 @@ validation has its own stricter check. Directed coverage of established-state
 ACKs beyond transmitted data, wraparound and stale/closing handles is next.
 These cases have not been qualified by this checkpoint. Arbitrary packet
 reordering, full TCP conformance and concurrent fork/exec/kill remain open.
+
+
+## ACK admission and stale-handle checkpoint
+
+Continue from `29df1192` on main `5a94d755`; PR19 remains at `b8d63682`
+without network-core/process overlap. Seven added modes bring `test-net-lifetime`
+to fifteen. Original source fails five new modes; sequence-wrap and slot-reuse/
+reference-saturation controls pass without a runtime fix.
+
+Three related contract defects are corrected:
+
+- Established/closing-state ACKs beyond the next transmitted sequence could
+  retire data or FIN records and admit payload/FIN from the same packet. These
+  packets now receive an ACK and are dropped before peer-window, receive-buffer
+  or close-state changes. Internal ACK helpers apply the same upper bound.
+- Outbound SYN-ACK handling previously accepted arbitrary acknowledgment numbers.
+  The stack sends no SYN payload, so completion now requires the exact next
+  local sequence. Invalid SYN-ACKs receive a reset without changing handshake
+  state, peer window or receive sequence. Tests include SYN sequence wrap to zero.
+- A zero-reference TCP slot retained for retransmission remained accessible via
+  its old application handle. It could be revived with `net_hold` or read using
+  `net_read`. Application lookups, I/O (including zero length), metadata/error
+  queries, shutdown and polling now require a live reference. Final close wakes
+  read/write waiters, and their predicates recognize reference retirement.
+  Packet/timer lookups still retain the closing slot until protocol completion.
+
+The ACK admission rules follow the relevant
+[RFC 9293 segment-processing rules](https://www.rfc-editor.org/rfc/rfc9293.html#section-3.10.7):
+a future ACK does not retire unsent data, and an active-open response must
+acknowledge the SYN. This is not full RFC conformance. Sequence ordering retains
+the existing signed modular comparison with a small bounded transmit window;
+old, duplicate and partial ACKs do not prematurely retire whole records. The
+wrap control checks distinct records straddling `UINT32_MAX`, followed by FIN.
+Partial acknowledgment still retains the whole retransmission record.
+
+New packet fixtures check invalid ACK plus payload/FIN, unchanged advertised
+window and close state, subsequent valid completion, and invalid/valid SYN-ACKs.
+Handle fixtures check stale hold/read/peek/write/shutdown/query/poll, waiter wake,
+continued protocol retransmission, slot reuse with a distinct ID and saturation
+of a live reference count. A direct network handle is a kernel backend token;
+these checks do not expand libc pseudo-socket inheritance or claim a syscall
+path that bypasses the process descriptor table.
+
+Follow-on inspection reaches tuple-matched RST handling, receive-sequence
+admission and retained descriptors after terminal timer expiry. Those paths need
+directed invalid-RST, duplicate/overlapping-segment and delayed-error tests next.
+Full identifier-space exhaustion, malicious traffic conformance and concurrent
+fork/exec/kill remain unqualified.
+
+### ACK/handle verification
+
+All fifteen modes pass under x86_64/Rosetta and native ARM64 ASan/UBSan. The
+seven new modes reproduce five failures on original source `29df1192`; wrap and
+slot-reuse/saturation controls pass. Existing TCP accept, e1000 receive, network
+worker/device, process output/lifetime and syscall I/O host checks pass. The
+matched kernel/userspace build, six generator groups and recursive 372-entry
+image check pass.
+
+Seven sequential disposable VMs pass: tcp-ready 11.08 s, tcp-stress 47.38 s, netabi 10.29 s, libuv 10.21 s, threads 40.17 s, lifetime 23.51 s, outbound-local 10.58 s.
+TCP stress uses twelve clients. The outbound gate uses a temporary localhost
+HTTP server, verifying `/ack-check` and the exact response body; no public web
+service is required. The helper's new `--port` default is 80, with invalid bounds
+refused before VM launch. Documentation/link and whitespace checks pass.
+
+Current logs, original failures, sanitizer results and tested source/artifact
+hashes are retained under `build/review/tcp-ack/`. Earlier storage matrices are
+dated evidence and were not rerun for this network-core change. No native
+hardware qualification, Actions dispatch or PR merge occurred.

@@ -10,6 +10,7 @@
 
 static uint64_t ticks=100;
 static unsigned frames,payload_frames;
+static unsigned read_wakes,write_wakes;
 static uint8_t last_frame[1600];
 static uint16_t last_length;
 static bool fail_send;
@@ -18,9 +19,13 @@ static unsigned char creator_token,child_token;
 static struct process *creator(void) { return (struct process *)&creator_token; }
 static struct process *child(void) { return (struct process *)&child_token; }
 uint64_t timer_ticks(void) { return ticks; }
-void scheduler_wake_all(struct scheduler_wait_queue *q) { (void)q; }
+void scheduler_wake_all(struct scheduler_wait_queue *q) {
+    if(q==&read_wait_queue)read_wakes++;
+    if(q==&write_wait_queue)write_wakes++;
+}
 void process_file_poll_wake(void) {}
 void kfree(void *p) { free(p); }
+void *kmalloc(size_t n) { return malloc(n); }
 struct process *process_current(void) { return caller; }
 bool process_should_exit_current(void) { return false; }
 bool process_signal_pending_current(void) { return false; }
@@ -39,7 +44,8 @@ static void reset(void) {
     memset(tcp_connections,0,sizeof(tcp_connections));memset(listeners,0,sizeof(listeners));
     memset(pending_requests,0,sizeof(pending_requests));memset(udp_sockets,0,sizeof(udp_sockets));
     static const uint8_t mac[6]={2,0,0,0,0,1};local_mac=mac;
-    initialized=worker_started=true;caller=creator();ticks=100;frames=payload_frames=0;fail_send=false;
+    initialized=worker_started=true;caller=creator();ticks=100;
+    frames=payload_frames=read_wakes=write_wakes=0;fail_send=false;
 }
 static struct tcp_connection *connected(void) {
     reset();struct tcp_connection *c=&tcp_connections[0];
@@ -142,6 +148,96 @@ static void simultaneous_close(void) {
         ticks=c->close_deadline;net_timer_tick();assert(!c->state);
     }
 }
+static void incoming(struct tcp_connection *c,uint32_t seq,uint32_t ack,uint8_t flags,
+    uint16_t window,const char *data) {
+    uint8_t frame[128]={0},*ip=frame+14,*tcp=ip+20;
+    size_t n=data?strlen(data):0;assert(n<=64);
+    frame[6]=2;frame[11]=2;
+    write_be32(ip+12,c->remote_ip);write_be32(ip+16,0x0a00020f);
+    write_be16(tcp,c->remote_port);write_be16(tcp+2,c->local_port);
+    write_be32(tcp+4,seq);write_be32(tcp+8,ack);
+    tcp[12]=5<<4;tcp[13]=flags;write_be16(tcp+14,window);
+    if(n) memcpy(tcp+20,data,n);
+    write_be16(tcp+16,tcp_checksum(c->remote_ip,0x0a00020f,tcp,20+n));
+    handle_tcp(frame,54+n,ip,20,20+n,c->remote_ip);
+}
+static void future_ack(void) {
+    for(unsigned wrap=0;wrap<2;wrap++) for(unsigned closing=0;closing<2;closing++) {
+        struct tcp_connection *c=connected();if(wrap)c->local_seq=UINT32_MAX-2;
+        assert(net_respond(handle(c),"abcd",4,true)==4);
+        if(closing) assert(!net_shutdown(handle(c),1));
+        struct tcp_tx_record before[TCP_TX_HISTORY];memcpy(before,c->tx_history,sizeof(before));
+        uint8_t state=c->state;uint64_t deadline=c->close_deadline;
+        incoming(c,c->remote_next,c->local_seq+1,TCP_ACK|TCP_FIN,0,"bad");
+        assert(!memcmp(before,c->tx_history,sizeof(before)) && c->state==state);
+        assert(c->peer_window==65535 && !c->peer_closed && !c->rx_length);
+        assert(c->close_deadline==deadline && last_frame[47]==TCP_ACK);
+        tcp_handle_ack(c,c->local_seq+1); /* Defensive helper admission too. */
+        assert(!memcmp(before,c->tx_history,sizeof(before)) && c->state==state);
+        incoming(c,c->remote_next,c->local_seq,TCP_ACK,65535,NULL);
+        assert(!tcp_tx_outstanding_bytes(c));
+    }
+}
+static void wrap_ack(void) {
+    struct tcp_connection *c=connected();c->local_seq=UINT32_MAX-3;
+    assert(net_respond(handle(c),"abc",3,true)==3);
+    assert(net_respond(handle(c),"def",3,true)==3 && c->local_seq==2);
+    incoming(c,c->remote_next,UINT32_MAX-4,TCP_ACK,65535,NULL);
+    assert(tcp_tx_outstanding_bytes(c)==6);
+    incoming(c,c->remote_next,UINT32_MAX,TCP_ACK,65535,NULL);
+    assert(tcp_tx_outstanding_bytes(c)==3);
+    incoming(c,c->remote_next,UINT32_MAX,TCP_ACK,65535,NULL);
+    assert(tcp_tx_outstanding_bytes(c)==3);
+    incoming(c,c->remote_next,1,TCP_ACK,65535,NULL);assert(tcp_tx_outstanding_bytes(c)==3);
+    incoming(c,c->remote_next,2,TCP_ACK,65535,NULL);assert(!tcp_tx_outstanding_bytes(c));
+    assert(!net_shutdown(handle(c),1));
+    incoming(c,c->remote_next,3,TCP_ACK,65535,NULL);assert(c->state==TCP_STATE_FIN_WAIT_2);
+}
+static void syn_ack(void) {
+    for(unsigned wrap=0;wrap<2;wrap++) {
+        reset();uint8_t mac[6]={0};struct tcp_connection *c=alloc_client_connection(0x0a000202,80,mac);assert(c);
+        if(wrap)c->local_seq=UINT32_MAX;
+        assert(send_tcp_segment(c,c->local_port,TCP_SYN,NULL,0));
+        uint32_t next=c->local_seq;
+        incoming(c,123,next+1,TCP_SYN|TCP_ACK,0,NULL);
+        assert(c->state==TCP_STATE_SYN_SENT && !c->remote_next && c->peer_window==TCP_RX_WINDOW);
+        assert(tcp_tx_outstanding_bytes(c)==1 && (last_frame[47]&TCP_RST));
+        incoming(c,123,next-1,TCP_SYN|TCP_ACK,0,NULL);assert(c->state==TCP_STATE_SYN_SENT);
+        incoming(c,123,next,TCP_SYN|TCP_ACK,8192,NULL);
+        assert(c->state==TCP_STATE_ESTABLISHED && c->remote_next==124 && c->peer_window==8192);
+        assert(!tcp_tx_outstanding_bytes(c));
+    }
+}
+static void stale_handle(bool io) {
+    struct tcp_connection *c=connected();uint64_t h=handle(c);
+    assert(append_connection_data(c,(const uint8_t *)"secret",6));
+    assert(!net_close(h) && !c->refs && c->state==TCP_STATE_FIN_WAIT_1);
+    if(!io) { assert(net_hold(h)<0 && !c->refs);return; }
+    uint32_t ip=99;uint16_t port=99;char data[8];
+    assert(net_read(h,data,1,true)<0 && net_peek(h,data,1,true)<0);
+    assert(net_read(h,NULL,0,true)<0 && net_respond(h,NULL,0,true)<0);
+    assert(net_respond(h,"x",1,true)<0 && net_shutdown(h,0)<0);
+    assert(net_error(h)<0 && net_sockname(h,&ip,&port)<0 && net_peername(h,&ip,&port)<0);
+    assert(ip==99 && port==99 && net_poll_events(h,SRV_POLLIN|SRV_POLLOUT)==SRV_POLLNVAL);
+    unsigned before=frames;ticks+=TCP_RETRANSMIT_TICKS;net_timer_tick();assert(frames>before);
+}
+static void reuse_handle(void) {
+    reset();uint8_t mac[6]={0};struct tcp_connection *c=alloc_client_connection(0x0a000202,80,mac);assert(c);
+    uint64_t old=handle(c);assert(!net_close(old) && !c->state);
+    struct tcp_connection *next=alloc_client_connection(0x0a000202,80,mac);assert(next==c && handle(next)!=old);
+    assert(net_hold(old)<0 && net_close(old)<0 && net_poll_events(old,SRV_POLLIN)==SRV_POLLNVAL);
+    uint64_t h=handle(next);next->refs=UINT32_MAX;assert(net_hold(h)<0 && next->refs==UINT32_MAX);
+    next->refs=1;assert(!net_hold(h) && next->refs==2);assert(!net_close(h) && next->refs==1);
+    assert(!net_close(h) && !next->state);
+}
+static void stale_wait(void) {
+    struct tcp_connection *c=connected();c->peer_window=0;
+    struct read_wait_arg r={.connection_id=c->id};
+    struct write_wait_arg w={.connection_id=c->id};
+    assert(!read_ready(&r) && !write_ready(&w));
+    assert(!net_close(handle(c)));
+    assert(read_wakes && write_wakes && read_ready(&r) && write_ready(&w));
+}
 int main(int argc,char **argv) {
     assert(argc==2);
     if(!strcmp(argv[1],"close")) final_close(false);
@@ -152,6 +248,13 @@ int main(int argc,char **argv) {
     else if(!strcmp(argv[1],"deadline")) deferred_fin(false);
     else if(!strcmp(argv[1],"fin-failure")) deferred_fin(true);
     else if(!strcmp(argv[1],"simultaneous")) simultaneous_close();
+    else if(!strcmp(argv[1],"future-ack")) future_ack();
+    else if(!strcmp(argv[1],"wrap-ack")) wrap_ack();
+    else if(!strcmp(argv[1],"syn-ack")) syn_ack();
+    else if(!strcmp(argv[1],"stale-hold")) stale_handle(false);
+    else if(!strcmp(argv[1],"stale-io")) stale_handle(true);
+    else if(!strcmp(argv[1],"reuse")) reuse_handle();
+    else if(!strcmp(argv[1],"stale-wait")) stale_wait();
     else assert(0);
     reset();printf("net-lifetime: %s PASS\n",argv[1]);
 }

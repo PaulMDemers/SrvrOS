@@ -1496,3 +1496,37 @@ regressions, Makefile and current networking/audit guides. PR19 remains at
 scopes remain the recorded AP diagnostic and native desktop work. Next checkpoint
 is deterministic before/after evidence, bounded fixes and matched VM checks.
 No native install, hardware qualification or PR merge is planned.
+
+### ACK/handle audit result
+
+Corrected unsent-data ACK retirement, invalid outbound SYN-ACK completion and
+retired-handle application access. Reference checks cover hold, I/O, endpoint/
+error queries, shutdown and readiness; final close wakes blocked I/O while
+protocol-owned slots retain retransmission. Wrap and slot-reuse controls passed
+without a runtime correction. The HTTP helper accepts an explicit bounded port
+for the local outbound integration gate. See the
+[TCP audit](../tcp-lifetime-audit-2026-10-28.md).
+
+### ACK/handle verification
+
+All fifteen modes pass under x86_64/Rosetta and native ARM64 ASan/UBSan. The
+seven new modes reproduce five failures on original source `29df1192`; wrap and
+slot-reuse/saturation controls pass. Existing TCP accept, e1000 receive, network
+worker/device, process output/lifetime and syscall I/O host checks pass. The
+matched kernel/userspace build, six generator groups and recursive 372-entry
+image check pass.
+
+Seven sequential disposable VMs pass: tcp-ready 11.08 s, tcp-stress 47.38 s, netabi 10.29 s, libuv 10.21 s, threads 40.17 s, lifetime 23.51 s, outbound-local 10.58 s.
+TCP stress uses twelve clients. The outbound gate uses a temporary localhost
+HTTP server, verifying `/ack-check` and the exact response body; no public web
+service is required. The helper's new `--port` default is 80, with invalid bounds
+refused before VM launch. Documentation/link and whitespace checks pass.
+
+Current logs, original failures, sanitizer results and tested source/artifact
+hashes are retained under `build/review/tcp-ack/`. Earlier storage matrices are
+dated evidence and were not rerun for this network-core change. No native
+hardware qualification, Actions dispatch or PR merge occurred.
+
+Next bounded question: RST/receive-sequence admission and retained descriptor
+errors after terminal expiry. Complete TCP conformance, handle-ID-space
+exhaustion and concurrent fork/exec/kill remain outside the completed scope.

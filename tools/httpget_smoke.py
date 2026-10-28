@@ -57,11 +57,14 @@ def main():
     parser.add_argument("--disk", default="build/srvros.exfat")
     parser.add_argument("--host", default="example.com")
     parser.add_argument("--path", default="/")
+    parser.add_argument("--port", type=int, default=80)
     parser.add_argument("--boot-wait", type=float, default=35)
     parser.add_argument("--line-wait", type=float, default=15)
     parser.add_argument("--http-wait", type=float, default=35)
     parser.add_argument("--memory", default="512M")
     args = parser.parse_args()
+    if not 1 <= args.port <= 65535:
+        parser.error("--port must be between 1 and 65535")
 
     root = os.path.abspath(args.root)
     iso = args.iso if os.path.isabs(args.iso) else os.path.join(root, args.iso)
@@ -104,7 +107,7 @@ def main():
             sock.sendall(b"dhcp\n")
             output += read_until(sock, b"dhcp: 10.0.2.15", args.line_wait)
             output += read_until(sock, b" $ ", 3)
-            command_line = f"httpget {args.host} {args.path}\n".encode("ascii")
+            command_line = f"httpget {args.host} {args.path} {args.port}\n".encode("ascii")
             sock.sendall(command_line)
             output += read_until(sock, b" $ ", args.http_wait)
             output += read_for(sock, 1)

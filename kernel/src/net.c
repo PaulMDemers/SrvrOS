@@ -1075,6 +1075,13 @@ static bool port_is_listening(uint16_t port) {
     return find_listener_for_port(port) != 0;
 }
 
+/* Protocol-owned closing slots remain addressable by packets/timers, but their
+ * retired application handles must not expose data or acquire new references. */
+static struct tcp_connection *find_referenced_connection_by_id(uint64_t id) {
+    struct tcp_connection *connection = find_connection_by_id(id);
+    return connection != 0 && connection->refs != 0 ? connection : 0;
+}
+
 static bool tcp_reap_expired_time_wait(uint64_t now) {
     bool reaped = false;
     for (uint64_t i = 0; i < TCP_MAX_CONNECTIONS; i++) {
@@ -1292,6 +1299,10 @@ static uint32_t tcp_sequence_advance(uint8_t flags, uint16_t payload_length) {
 
 static bool tcp_sequence_acked(uint32_t end, uint32_t ack) {
     return (int32_t)(ack - end) >= 0;
+}
+
+static bool tcp_ack_beyond_sent(const struct tcp_connection *connection, uint32_t ack) {
+    return (int32_t)(ack - connection->local_seq) > 0;
 }
 
 static bool tcp_tx_free_slot(const struct tcp_connection *connection) {
@@ -1690,7 +1701,7 @@ static void tcp_handle_fin(struct tcp_connection *connection, bool ack_flag) {
 }
 
 static bool tcp_ack_tx_records(struct tcp_connection *connection, uint32_t ack) {
-    if (connection == 0) {
+    if (connection == 0 || tcp_ack_beyond_sent(connection, ack)) {
         return false;
     }
 
@@ -1723,7 +1734,7 @@ static bool tcp_ack_tx_records(struct tcp_connection *connection, uint32_t ack) 
 }
 
 static void tcp_handle_ack(struct tcp_connection *connection, uint32_t ack) {
-    if (connection == 0) {
+    if (connection == 0 || tcp_ack_beyond_sent(connection, ack)) {
         return;
     }
     bool acked_fin = tcp_ack_tx_records(connection, ack);
@@ -1961,6 +1972,11 @@ static void handle_tcp(const uint8_t *frame,
         if (!port_is_listening(dst_port)) {
             struct tcp_connection *client = find_connection(dst_port, src_ip, src_port);
             if (client != 0 && client->state == TCP_STATE_SYN_SENT && (flags & TCP_ACK) != 0) {
+                /* No SYN payload: exactly our SYN must be acknowledged. */
+                if (ack != client->local_seq) {
+                    send_tcp_reset(frame + 6, src_ip, dst_port, src_port, seq, ack, flags, data_length);
+                    return;
+                }
                 copy_bytes(client->remote_mac, frame + 6, 6);
                 tcp_set_peer_window(client, advertised_window);
                 client->remote_next = seq + 1;
@@ -1991,6 +2007,13 @@ static void handle_tcp(const uint8_t *frame,
         return;
     }
 
+    /* Reject unsent-data ACKs before window, receive-data or FIN mutation.
+     * SYN-RECEIVED retains its stricter final-handshake validation below. */
+    if (connection->state != TCP_STATE_SYN_RECEIVED && (flags & TCP_ACK) != 0 &&
+        tcp_ack_beyond_sent(connection, ack)) {
+        send_tcp_segment(connection, connection->local_port, TCP_ACK, 0, 0);
+        return;
+    }
     copy_bytes(connection->remote_mac, frame + 6, 6);
     tcp_touch_activity(connection, timer_ticks());
     tcp_set_peer_window(connection, advertised_window);
@@ -2900,7 +2923,7 @@ int64_t net_sockname(uint64_t handle, uint32_t *ip_out, uint16_t *port_out) {
     }
 
     if (handle_type(handle) == NET_HANDLE_CONNECTION) {
-        struct tcp_connection *connection = find_connection_by_id(handle_value(handle));
+        struct tcp_connection *connection = find_referenced_connection_by_id(handle_value(handle));
         if (connection == 0) {
             return -1;
         }
@@ -2931,7 +2954,7 @@ int64_t net_peername(uint64_t handle, uint32_t *ip_out, uint16_t *port_out) {
         return -1;
     }
 
-    struct tcp_connection *connection = find_connection_by_id(handle_value(handle));
+    struct tcp_connection *connection = find_referenced_connection_by_id(handle_value(handle));
     if (connection == 0) {
         return -1;
     }
@@ -2945,7 +2968,7 @@ int64_t net_shutdown(uint64_t handle, int how) {
         return -1;
     }
 
-    struct tcp_connection *connection = find_connection_by_id(handle_value(handle));
+    struct tcp_connection *connection = find_referenced_connection_by_id(handle_value(handle));
     if (connection == 0 || !tcp_state_can_read(connection->state)) {
         return -1;
     }
@@ -2970,7 +2993,7 @@ int64_t net_error(uint64_t handle) {
         return -1;
     }
 
-    struct tcp_connection *connection = find_connection_by_id(handle_value(handle));
+    struct tcp_connection *connection = find_referenced_connection_by_id(handle_value(handle));
     if (connection == 0) {
         return -1;
     }
@@ -3154,7 +3177,7 @@ static bool read_ready(void *arg) {
 
     for (uint64_t i = 0; i < TCP_MAX_CONNECTIONS; i++) {
         struct tcp_connection *connection = &tcp_connections[i];
-        if (connection->state != TCP_STATE_EMPTY &&
+        if (connection->state != TCP_STATE_EMPTY && connection->refs != 0 &&
             connection->id == wait->connection_id) {
             return connection->rx_length != connection->rx_offset || connection->peer_closed || connection->reset;
         }
@@ -3163,14 +3186,13 @@ static bool read_ready(void *arg) {
 }
 
 static int64_t net_read_common(uint64_t connection_id, char *buffer, uint64_t length, bool nonblock, bool peek) {
-    if (!initialized || (buffer == 0 && length != 0)) {
+    if (!initialized || (buffer == 0 && length != 0) ||
+        handle_type(connection_id) != NET_HANDLE_CONNECTION ||
+        find_referenced_connection_by_id(handle_value(connection_id)) == 0) {
         return -1;
     }
     if (length == 0) {
         return 0;
-    }
-    if (handle_type(connection_id) != NET_HANDLE_CONNECTION) {
-        return -1;
     }
 
     uint64_t value = handle_value(connection_id);
@@ -3185,7 +3207,7 @@ static int64_t net_read_common(uint64_t connection_id, char *buffer, uint64_t le
         bool found = false;
         for (uint64_t i = 0; i < TCP_MAX_CONNECTIONS; i++) {
             struct tcp_connection *connection = &tcp_connections[i];
-            if (connection->state != TCP_STATE_EMPTY && connection->id == value) {
+            if (connection->state != TCP_STATE_EMPTY && connection->refs != 0 && connection->id == value) {
                 found = true;
                 if (connection->reset) {
                     return -1;
@@ -3252,7 +3274,7 @@ static bool write_ready(void *arg) {
 
     for (uint64_t i = 0; i < TCP_MAX_CONNECTIONS; i++) {
         struct tcp_connection *connection = &tcp_connections[i];
-        if (connection->state != TCP_STATE_EMPTY &&
+        if (connection->state != TCP_STATE_EMPTY && connection->refs != 0 &&
             connection->id == wait->connection_id) {
             return connection->reset ||
                 connection->local_write_closed ||
@@ -3264,14 +3286,13 @@ static bool write_ready(void *arg) {
 }
 
 int64_t net_respond(uint64_t connection_id, const char *buffer, uint64_t length, bool nonblock) {
-    if (!initialized || (buffer == 0 && length != 0)) {
+    if (!initialized || (buffer == 0 && length != 0) ||
+        handle_type(connection_id) != NET_HANDLE_CONNECTION ||
+        find_referenced_connection_by_id(handle_value(connection_id)) == 0) {
         return -1;
     }
     if (length == 0) {
         return 0;
-    }
-    if (handle_type(connection_id) != NET_HANDLE_CONNECTION) {
-        return -1;
     }
 
     uint64_t value = handle_value(connection_id);
@@ -3287,7 +3308,7 @@ int64_t net_respond(uint64_t connection_id, const char *buffer, uint64_t length,
         bool found = false;
         for (uint64_t i = 0; i < TCP_MAX_CONNECTIONS; i++) {
             struct tcp_connection *connection = &tcp_connections[i];
-            if (connection->state != TCP_STATE_EMPTY && connection->id == value) {
+            if (connection->state != TCP_STATE_EMPTY && connection->refs != 0 && connection->id == value) {
                 found = true;
                 if (!tcp_state_can_write(connection->state) ||
                     connection->local_write_closed ||
@@ -3368,7 +3389,7 @@ uint16_t net_poll_events(uint64_t handle, uint16_t events) {
         uint64_t value = handle_value(handle);
         for (uint64_t i = 0; i < TCP_MAX_CONNECTIONS; i++) {
             struct tcp_connection *connection = &tcp_connections[i];
-            if (connection->state == TCP_STATE_EMPTY ||
+            if (connection->state == TCP_STATE_EMPTY || connection->refs == 0 ||
                 connection->id != value) {
                 continue;
             }
@@ -3423,7 +3444,7 @@ int64_t net_hold(uint64_t handle) {
     }
 
     if (handle_type(handle) == NET_HANDLE_CONNECTION) {
-        struct tcp_connection *connection = find_connection_by_id(handle_value(handle));
+        struct tcp_connection *connection = find_referenced_connection_by_id(handle_value(handle));
         if (connection == 0 || connection->refs == UINT32_MAX) {
             return -1;
         }
@@ -3458,7 +3479,7 @@ int64_t net_close(uint64_t handle) {
     }
 
     if (handle_type(handle) == NET_HANDLE_CONNECTION) {
-        struct tcp_connection *connection = find_connection_by_id(handle_value(handle));
+        struct tcp_connection *connection = find_referenced_connection_by_id(handle_value(handle));
         if (connection == 0 || connection->refs == 0) {
             return -1;
         }
@@ -3469,6 +3490,8 @@ int64_t net_close(uint64_t handle) {
         /* The protocol owns retransmits/FIN until completion or timeout. An
          * exiting creator must not discard them after its last descriptor. */
         connection->owner = 0;
+        scheduler_wake_all(&read_wait_queue);
+        scheduler_wake_all(&write_wait_queue);
         if (connection->reset || connection->state == TCP_STATE_SYN_SENT) {
             close_connection(connection);
         } else if (tcp_state_can_write(connection->state) && !connection->local_write_closed) {

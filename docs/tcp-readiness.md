@@ -88,6 +88,14 @@ enters the reset/error path. Peer FIN alone cannot retire an unacknowledged loca
 FIN. See the [TCP lifetime audit](tcp-lifetime-audit-2026-10-28.md) for reproduced
 failures, limits and follow-on questions.
 
-`make test-net-lifetime` (also in `test-core`) runs eight deterministic real-stack
+`make test-net-lifetime` (also in `test-core`) runs fifteen deterministic real-stack
 host modes. It complements `test-tcp-accept` and guest readiness/stress checks;
 its captured Ethernet sink does not certify physical adapter behavior.
+
+
+Established/closing packets acknowledging unsent data are acknowledged and dropped
+before window, payload or FIN changes. Outbound SYN-ACK must acknowledge the
+stack's SYN exactly, including sequence wrap. Closed application handles cannot
+revive or read a protocol-owned closing slot; final close wakes blocked I/O while
+timers and packets retain access for retransmission. The lifetime fixture also
+covers duplicate/partial ACKs across wrap and stale handles after slot reuse.

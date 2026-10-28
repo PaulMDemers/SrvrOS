@@ -850,13 +850,23 @@ This does not reopen the completed file-writeback checkpoint or claim a complete
 network audit. Established ACK bounds, sequence wrap and stale/closing handles
 are the next bounded question.
 
+## TCP ACK and handle follow-on (2026-10-28)
+
+The [TCP audit](tcp-lifetime-audit-2026-10-28.md) now covers unsent-data ACK
+rejection, outbound SYN-ACK validation and application access to protocol-owned
+closing slots. It fixes acknowledgment/handle admission and final-close wakeups;
+wrap and slot-reuse controls pass. Fifteen modes retain the earlier close/exit
+coverage. This is network-core work; earlier storage evidence remains dated.
+
 ## Remaining audit queue
 
 1. Actual hot removal/replacement and a future unregister/rebind lifecycle.
    Terminal identity invalidation and CPU0 backend-operation/teardown admission
    now have directed coverage. They do not certify live device recovery or
    arbitrary retained kernel pointers.
-2. Established TCP ACK bounds, sequence wrap and stale/closing handles are next.
+2. TCP RST/receive-sequence admission and terminal-error retention are next.
+   Established ACK bounds, wrap and stale/closing application handles now have
+   directed coverage.
    TCP final-close, deferred FIN and creator/inheritor ownership have directed
    coverage recorded in the linked lifetime audit.
    Descriptor inheritance/exit-error helpers now have directed coverage; full

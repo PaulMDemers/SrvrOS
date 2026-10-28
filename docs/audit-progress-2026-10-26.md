@@ -114,9 +114,11 @@ remains open; the following
 [TCP lifetime checkpoint](tcp-lifetime-audit-2026-10-28.md) fixes creator-exit loss
 of outstanding transmissions and inherited listener backlog, bounds deferred FIN,
 reports its send failure and waits for local FIN acknowledgment on simultaneous
-close. Eight real-stack host modes cover these paths. Established ACK bounds,
-sequence wrap and stale/closing handles are next; broad network conformance
-remains unqualified.
+close. Eight real-stack host modes cover these paths. The ACK/handle follow-on expands the fixture to fifteen modes, rejects unsent-data
+ACKs and invalid outbound SYN-ACKs, refuses operations on retired application
+handles and wakes blocked I/O on final close. Wrap/reuse controls pass. RST and
+receive-sequence admission plus terminal-error retention are next; broad network
+conformance remains unqualified.
 Delivery is [draft PR182](https://github.com/PaulMDemers/SrvrOS/pull/182).
 This checkpoint is separate from the completed event-adapter target.
 

@@ -491,3 +491,13 @@ send failure through the existing reset/readiness path when a descriptor remains
 A peer FIN alone does not acknowledge our FIN. Close success still does not
 promise delivery to the peer application or provide linger semantics. See the
 [TCP lifetime audit](tcp-lifetime-audit-2026-10-28.md).
+
+
+TCP application operations require a live reference even while a final-close
+slot remains for protocol retransmission. A retired handle cannot acquire a new
+reference, consume buffered bytes, query endpoint/error state or request shutdown;
+zero-length I/O also validates the handle. Poll reports invalid and blocked I/O
+is woken by final close. Remaining descriptor aliases continue to work. Packet
+ACK admission now rejects acknowledgment beyond transmitted data, and outbound
+SYN-ACK must acknowledge the sent SYN; neither change expands the supported
+socket namespaces or inheritance ABI.
