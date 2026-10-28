@@ -34,9 +34,14 @@ ordinary scheduling admissions. Normal Air7,2 KVM stress passes 23 cycles with z
 100-write-IOPS fixture remains failed: a 679 ms loop and cycle 4 close deadline.
 Thus this correction is **not a complete slow-I/O fix**. Retain both failures.
 Add bounded read-only process metadata to diagnostic deadline receipts to separate
-an active exit from an exited child awaiting reap. It changes neither ordinary
-startup nor failure policy. Native causation remains unproven; exact staged VM
-validation precedes the matching diagnostic retry.
+an active process from an inactive record with retirement/reaping pending. It changes neither ordinary
+startup nor failure policy. The follow-up slowed VM records Text still `background` at its cycle 6
+deadline, with 2.808 seconds in window disposal and 6.940 seconds to ready;
+its loop maximum is 119593 us. This reproduces a total lifecycle failure but
+is not identical to the native post-main-return delay. Preserve that distinction.
+Main `7bad3681` / PR235's isolated coordinated AP/C3 mechanism is integrated;
+its Haswell-only gate and separate MP-request kernel remain unchanged. Rebuild
+and rerun merged host/VM checks before the exact staged diagnostic retry.
 
 ### Air6,1 parity — native desktop power accepted (2026-10-28)
 

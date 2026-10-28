@@ -2068,8 +2068,8 @@ int main(int argc,char **argv) {
             if((life_phase && now-life_begin>10000000) || s.child_errors){
                 desk_log("desktop-life: deadline phase=%u pid=%llu child=%d elapsed_us=%llu pending_opens=%u errors=%u\n",life_phase,
                     (unsigned long long)life_pid,child_index(&s,life_pid),(unsigned long long)(now-life_begin),s.pending_opens,s.child_errors);
-                /* Read-only process metadata distinguishes a still-active exit
-                 * from a finished child awaiting reap. Never retry a blocking
+                /* Read-only metadata distinguishes a still-active process
+                 * from an inactive record with retirement/reaping pending. Never retry a blocking
                  * wait or change the failed trial's deadline to obtain proof. */
                 uint64_t index=0;unsigned found=0;
                 for(unsigned inspected=0;inspected<512;inspected++) {

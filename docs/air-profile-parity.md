@@ -149,5 +149,5 @@ The fairness candidate passes the normal Air7,2 KVM workload (23 app cycles,
 zero underruns). The throttled 100-write-IOPS fixture still fails loop and close
 bounds. Treat fairness as a separate proven correction, not a complete resolution
 of heavy-I/O latency. Failed diagnostic receipts now include a bounded read-only
-process-state snapshot to distinguish active exit from deferred reaping; thresholds
+process-state snapshot to distinguish an active process from an inactive record with retirement/reaping pending; thresholds
 and early failure behavior remain unchanged.
