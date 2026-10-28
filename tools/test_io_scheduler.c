@@ -421,15 +421,25 @@ void scheduler_test_monitor(void *address) {
     assert(!((uintptr_t)address&63));monitors++;
     if(ready_after_monitor)threads[0].state=THREAD_READY;
 }
-void scheduler_test_mwait(void) {
+static uint32_t expected_hint;
+static bool bad_residency,zero_residency;
+static uint64_t residency_reads;
+uint64_t scheduler_test_mwait_read(unsigned reg) {
+    assert(expected_hint==0x10);residency_reads++;
+    if(reg==0x10)return clock_us*2000;
+    assert(reg==0x3fc || reg==0x3f8);
+    return zero_residency?0:bad_residency?UINT64_MAX-clock_us:clock_us*(reg==0x3fc?1000:500);
+}
+void scheduler_test_mwait(uint32_t hint) {
+    assert(hint==expected_hint);
     mwaits++;if(regress_mwait)clock_us--;else clock_us+=mwait_delay;
 }
 static void test_mwait(void) {
     struct scheduler_mwait_test mt;struct scheduler_idle_audit ia;
-    assert(!scheduler_mwait_test_start());
+    assert(!scheduler_mwait_test_start(0));
     initialized=true;idle_thread=current_thread=1;threads[1].state=THREAD_RUNNING;
-    assert(scheduler_idle_audit_start());reference=false;assert(!scheduler_mwait_test_start());reference=true;
-    assert(scheduler_mwait_test_start() && !scheduler_mwait_test_start());
+    assert(scheduler_idle_audit_start());reference=false;assert(!scheduler_mwait_test_start(0));reference=true;
+    assert(scheduler_mwait_test_start(0) && !scheduler_mwait_test_start(0));
     ready_after_monitor=true;idle_step();assert(monitors==1 && !mwaits && mwait_test.rechecks==1);
     ready_after_monitor=false;threads[0].state=THREAD_UNUSED;
     for(unsigned i=0;i<32;i++)idle_step();
@@ -438,19 +448,41 @@ static void test_mwait(void) {
     assert(mwaits==32 && mwait_test.hlt==32 && idle_audit.enters==40);
     scheduler_mwait_test_stop(&mt);assert(mt.returns==32 && mt.tick_end>mt.tick_begin);
     scheduler_idle_audit_stop(&ia);
-    assert(scheduler_idle_audit_start() && scheduler_mwait_test_start());
+    assert(scheduler_idle_audit_start() && scheduler_mwait_test_start(0));
     mwait_delay=20000;idle_step();assert(!mwait_test.fault);
     mwait_delay=20001;idle_step();assert(mwait_test.fault==2);
     unsigned prior=mwaits;idle_step();assert(mwaits==prior && mwait_test.hlt==1);
     scheduler_mwait_test_stop(&mt);scheduler_idle_audit_stop(&ia);
-    assert(scheduler_idle_audit_start() && scheduler_mwait_test_start());
+    assert(scheduler_idle_audit_start() && scheduler_mwait_test_start(0));
     regress_mwait=true;idle_step();assert(mwait_test.fault==1);regress_mwait=false;
     scheduler_mwait_test_stop(&mt);scheduler_idle_audit_stop(&ia);
-    assert(scheduler_idle_audit_start() && scheduler_mwait_test_start());
+    assert(scheduler_idle_audit_start() && scheduler_mwait_test_start(0));
     /* Retirement prevents subsequent MWAIT even if the idle audit restarts. */
     scheduler_idle_audit_stop(&ia);assert(scheduler_idle_audit_start());
     prior=mwaits;idle_step();assert(mwaits==prior);
     scheduler_mwait_test_stop(&mt);scheduler_idle_audit_stop(&ia);
+    assert(!residency_reads); /* Ordinary/shallow trial never reads these MSRs. */
+    assert(scheduler_idle_audit_start());assert(!scheduler_mwait_test_start(0x20));
+    expected_hint=0x10;mwait_delay=10000;
+    assert(scheduler_mwait_test_start(0x10));
+    for(unsigned i=0;i<32;i++)idle_step();
+    assert(mwait_test.hint==16 && mwait_test.tsc_ticks==640000000 &&
+        mwait_test.core_c3_ticks==320000000 && mwait_test.package_c3_ticks==160000000 && !mwait_test.fault);
+    prior=mwaits;for(unsigned i=0;i<32;i++)idle_step();assert(mwaits==prior && mwait_test.hlt==32);
+    scheduler_mwait_test_stop(&mt);scheduler_idle_audit_stop(&ia);
+    assert(scheduler_idle_audit_start() && scheduler_mwait_test_start(0x10));
+    bad_residency=true;idle_step();assert(mwait_test.fault==3);bad_residency=false;
+    prior=mwaits;idle_step();assert(mwaits==prior && mwait_test.hlt==1);
+    scheduler_mwait_test_stop(&mt);scheduler_idle_audit_stop(&ia);
+    assert(scheduler_idle_audit_start() && scheduler_mwait_test_start(0x10));
+    mwait_delay=10000;zero_residency=true;idle_step();zero_residency=false;
+    assert(!mwait_test.fault && mwait_test.tsc_ticks && !mwait_test.core_c3_ticks && !mwait_test.package_c3_ticks);
+    mwait_test.tsc_ticks=UINT64_MAX;idle_step();assert(mwait_test.fault==3);
+    scheduler_mwait_test_stop(&mt);scheduler_idle_audit_stop(&ia);
+    assert(scheduler_idle_audit_start() && scheduler_mwait_test_start(0x10));
+    mwait_delay=20001;idle_step();assert(mwait_test.fault==2);
+    prior=mwaits;idle_step();assert(mwaits==prior && mwait_test.hlt==1);
+    scheduler_mwait_test_stop(&mt);scheduler_idle_audit_stop(&ia);expected_hint=0;
     mwait_test=(struct scheduler_mwait_test){0};idle_audit=(struct scheduler_idle_audit){0};
     idle_thread=UINT64_MAX;current_thread=0;initialized=false;clock_us=0;
     memset(threads,0,sizeof(threads));

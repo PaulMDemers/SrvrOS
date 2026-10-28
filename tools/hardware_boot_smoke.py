@@ -425,7 +425,7 @@ def main():
                         if manifest["config_version"].startswith("ram-usb-v1-mwait-"):
                             from hardware_cpu_load import mwait_result
                             assert mwait_result(exit_log)=={'status':'refused','fallback':'hlt'}
-                            assert 'srvros.idle=mwait-wakeup-test' in exit_log
+                            assert ('srvros.idle=mwait-c3-test' if manifest['config_version'].startswith('ram-usb-v1-mwait-c3-') else 'srvros.idle=mwait-wakeup-test') in exit_log
                     if aml_capture:
                         exit_log=stored.read(folder+"/exit.log")
                         assert b"aml-capture: returned=yes clean=yes" in exit_log

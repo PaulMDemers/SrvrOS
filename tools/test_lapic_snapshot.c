@@ -12,7 +12,10 @@ uint32_t lapic_test_read(unsigned offset) {
 bool vmm_map_page(uint64_t v,uint64_t p,uint64_t f){(void)v;(void)p;(void)f;return false;}
 void console_write(const char *s){(void)s;}
 void console_printf(const char *s,...){(void)s;}
-bool timer_reference_ready(void){return false;}
+static bool reference;
+static uint64_t ticks;
+bool timer_reference_ready(void){return reference;}
+uint64_t timer_ticks(void){return ticks;}
 uint64_t timer_monotonic_us(void){return 0;}
 bool timer_delay_us(uint64_t us){(void)us;return false;}
 int main(void) {
@@ -33,5 +36,17 @@ int main(void) {
         assert(count==4 && reads[0]==0x100+bank && reads[1]==0x200+bank && reads[2]==0x180+bank && reads[3]==0x350);
         assert(!memcmp(before,registers,sizeof(before)));
     }
+    count=0;assert(!timer_idle_wakeup_ready() && !count);
+    idle_timer_count=62500;reference=true;ticks=1;
+    registers[0x320/4]=(1u<<17)|32;registers[0x380/4]=62500;
+    registers[0x390/4]=1000;registers[0x3e0/4]=3;
+    uint32_t before[1024];memcpy(before,registers,sizeof(before));count=0;
+    assert(timer_idle_wakeup_ready() && count==4 && !memcmp(before,registers,sizeof(before)));
+    unsigned offsets[]={0x320,0x380,0x390,0x3e0};
+    for(unsigned i=0;i<4;i++) { uint32_t saved=registers[offsets[i]/4];registers[offsets[i]/4]=0;count=0;
+        assert(!timer_idle_wakeup_ready());registers[offsets[i]/4]=saved; }
+    reference=false;count=0;assert(!timer_idle_wakeup_ready() && !count);reference=true;
+    ticks=0;assert(!timer_idle_wakeup_ready() && !count);ticks=1;
+    idle_timer_count=0;assert(!timer_idle_wakeup_ready() && !count);
     puts("lapic-snapshot: PASS all supported vectors, bit combinations, exact four reads, unavailable output clearing and no register changes");
 }

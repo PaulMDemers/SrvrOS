@@ -16,6 +16,7 @@ static struct scheduler_wait_queue wake;
 static uint32_t idle_monitor, idle_leaf1_b, idle_leaf5[4];
 static uint64_t idle_config_start;
 static bool idle_auditing, mwait_capture, mwait_passed;
+static bool idle_arat, deep_capture;
 /* Capture-only CPU0 prerequisites. CPUID describes addressable topology,
  * never live AP state. Three fixed leaf-B subleaves include the Haswell
  * terminator; unknown layouts remain raw/unavailable to the collector. */
@@ -71,7 +72,7 @@ void power_init(void) {
     uint32_t max,b,c,d,vb,vc,vd,sig,fc,fd,a;
     cpuid(0,&max,&vb,&vc,&vd);
     if(max<6 || !timer_reference_ready()) goto done;
-    cpuid(1,&sig,&b,&fc,&fd);idle_leaf1_b=b;cpuid(6,&a,&b,&c,&d);
+    cpuid(1,&sig,&b,&fc,&fd);idle_leaf1_b=b;cpuid(6,&a,&b,&c,&d);idle_arat=(a&4)!=0;
     if(!power_cpu_supported(vb,vd,vc,sig,fc,fd,c)) goto done;
     uint64_t units=read_msr(0x606),platform=read_msr(0xce);
     if(!power_configure(&snapshot,units,platform)) goto done;
@@ -117,7 +118,7 @@ void power_print_status(void) {
     if(s.idle.supported) print_idle("power-idle",&s.idle);
 }
 
-static bool capture_start(bool mwait) {
+static bool capture_start(bool mwait,bool deep) {
     uint64_t f=lock();
     if(capturing || snapshot.state!=POWER_ACTIVE || (mwait && !snapshot.idle.supported)) { unlock(f);return false; }
     mwait_passed=false;
@@ -133,17 +134,20 @@ static bool capture_start(bool mwait) {
         if(mwait && (!idle_monitor || idle_leaf5[0]!=64 || idle_leaf5[1]!=64 ||
             (idle_leaf5[2]&3)!=3 || ((idle_leaf5[3]>>4)&15)==0 ||
             !(idle_misc_start&(1ull<<18)) || (idle_apic_start&0xd00)!=0x900 ||
-            !scheduler_mwait_test_start())) {
+            (deep && (!idle_arat || !timer_idle_wakeup_ready() ||
+                ((idle_leaf5[3]>>8)&15)==0 || (idle_config_start&15)<2 || (idle_config_start&15)>8)) ||
+            !scheduler_mwait_test_start(deep?0x10:0))) {
             struct scheduler_idle_audit ignored;scheduler_idle_audit_stop(&ignored);
             idle_auditing=false;unlock(f);return false;
         }
     }
-    mwait_capture=mwait;
+    mwait_capture=mwait;deep_capture=deep;
     capture_count=0;capture_overflow=false;capture_last=timer_monotonic_us();
     capturing=true;unlock(f);return true;
 }
-bool power_capture_start(void) { return capture_start(false); }
-bool power_capture_mwait_start(void) { return capture_start(true); }
+bool power_capture_start(void) { return capture_start(false,false); }
+bool power_capture_mwait_start(void) { return capture_start(true,false); }
+bool power_capture_deep_start(void) { return capture_start(true,true); }
 bool power_capture_mwait_passed(void) { return mwait_passed; }
 void power_capture_stop(void) {
     uint64_t f=lock();
@@ -156,7 +160,8 @@ void power_capture_stop(void) {
         scheduler_mwait_test_stop(&mt);mwait_capture=false;
         mwait_passed=mt.attempts==SCHEDULER_MWAIT_ATTEMPTS && mt.returns==mt.attempts &&
             mt.hlt==SCHEDULER_MWAIT_ATTEMPTS && !mt.fault && mt.max_us &&
-            mt.max_us<=SCHEDULER_MWAIT_LIMIT_US && mt.tick_end>mt.tick_begin;
+            mt.max_us<=SCHEDULER_MWAIT_LIMIT_US && mt.tick_end>mt.tick_begin &&
+            mt.hint==(deep_capture?0x10u:0u) && (!deep_capture || (mt.tsc_ticks && timer_idle_wakeup_ready()));
     }
     if(audited) {
         scheduler_idle_audit_stop(&final);config_end=read_msr(0xe2);
@@ -167,8 +172,10 @@ void power_capture_stop(void) {
     /* The bootstrap caller owns start/stop; sampling cannot modify these
      * records after stop. Printing happens outside the IRQ-masked scope and
      * outside the measured phases, before workspace_log_stop persists them. */
-    if(tested) console_printf("cpu-mwait: v=1 admitted=1 epoch=%u hint=0 ext=1 cap=32 limit_us=20000 tries=%u returns=%u max_us=%u fault=%u hlt=%u rechecks=%u tick_begin=%u tick_end=%u\n",
-        mt.epoch,mt.attempts,mt.returns,mt.max_us,mt.fault,mt.hlt,mt.rechecks,mt.tick_begin,mt.tick_end);
+    if(tested) console_printf("cpu-mwait: v=%u admitted=1 epoch=%u hint=%u ext=1 cap=32 limit_us=20000 tries=%u returns=%u max_us=%u fault=%u hlt=%u rechecks=%u tick_begin=%u tick_end=%u\n",
+        (uint64_t)(deep_capture?2:1),mt.epoch,mt.hint,mt.attempts,mt.returns,mt.max_us,mt.fault,mt.hlt,mt.rechecks,mt.tick_begin,mt.tick_end);
+    if(tested && deep_capture) console_printf("cpu-mwait-deep: v=1 epoch=%u arat=1 timer=%u tsc=%u core_c3=%u package_c3=%u\n",
+        mt.epoch,(uint64_t)timer_idle_wakeup_ready(),mt.tsc_ticks,mt.core_c3_ticks,mt.package_c3_ticks);
     if(audited) {
         /* One compact record: bounded log tail is unchanged. Raw tuple order
          * is EAX,EBX,ECX,EDX; MSR pair order is start,end. */

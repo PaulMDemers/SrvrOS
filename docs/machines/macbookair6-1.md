@@ -4702,3 +4702,17 @@ The next proposed step is a separately gated deeper-hint experiment with the
 same readiness, latency, fallback and integrity protections, plus an explicit
 review of timer behavior and sibling-thread/package prerequisites. This result
 does not accept deeper entry, longer endurance or a permanent power policy.
+
+### Bounded deeper-idle trial — active scope (2026-10-27)
+
+Base `3bbf80b7`; shallow run collected and accepted. Add a separate explicit
+Haswell 06_45 C3 hint `0x10` trial, at most 32 waits with the unchanged 20 ms
+masked interval limit, readiness recheck, epoch retirement and 32-entry HLT
+fallback. Require CPUID ARAT and the live calibrated 100 Hz LAPIC timer; capture
+TSC-bracketed core/package C3 deltas around each attempt, including valid zero
+observations. Other-core state is unknown and may prevent deeper residency.
+No AP startup, IPI, control-register write, general idle-policy change or relaxed
+limit. Scope: scheduler diagnostic, power admission/receipt, read-only LAPIC
+readiness helper, explicit staging, collector and host/VM regressions. PR182
+filesystem (`2a091597`) and PR19 Wi-Fi (`6e0e25ec`) remain independent. Next:
+validate, self-merge, exact-stage install and authorized automated native run.
