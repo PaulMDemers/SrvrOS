@@ -20,16 +20,17 @@ is archived outside build. Ubuntu remains default, workspace unmounted and no
 reboot armed. No repeat is needed. Sustained endurance, FCS, physical BSSID
 deduplication, association/security and IP/UI remain unaccepted.
 
-Installed isolated attended candidate: v104 `a21db67c57d97851`, source
-`330c25b3`, actual main `02434766`. This profile drains and pauses the periodic
-writer before firmware/radio capture, saves a boundary snapshot, retains the full
-RAM proof and resumes rolling logs only after immutable radio proof is saved.
-The10-second receive budget and100ms overrun guard are unchanged. Full merged
-build/core/desktop, sanitizers and exact-image VM checks pass. Native isolated
-receive and cache/selection/disconnect UI remain pending. Both failed v103 runs
-are preserved. Ubuntu remains default, workspace unmounted and candidate unarmed.
-Await cold-cycle readiness. Durable run/archive:
-`~/.local/share/srvros/macbookpro11-2/wifi-ui-isolated-330c25b3`.
+Installed input-enabled attended candidate: v105 `4bc73cbb97c3166b`, source
+`032dc172`, runtime source `330c25b3` / main `02434766`. The v104 radio phase
+verified all three visits, complete isolation/cleanup and two cached rows, but
+its desktop lifetime is incomplete after manual poweroff. The trackpad was
+unavailable because that profile omitted the already-supported gesture option.
+v105 adds only `srvros.trackpad=gestures`; kernel and packaged apps are byte-for-
+byte identical. New profile/input proof and exact-stage/System/missing-workspace
+VMs pass. Native trackpad/UI selection/removal and clean exit still need testing.
+Fetched main `a8da6076` is deliberately deferred for this one-setting retest.
+Ubuntu remains default, workspace unmounted and no reboot armed. Durable archive:
+`~/.local/share/srvros/macbookpro11-2/wifi-ui-input-032dc172`.
 
 Latest accepted trial: v101 `f1015eeb7358f9c7`, source `6b12e4f2`, main
 `e4f8bf84`, session `session-00065edaa5a051a0-00`. The bounded pre-enable retry
@@ -10795,3 +10796,34 @@ power/scheduler/workspace changes before UI acceptance. Verify runtime source
 and payload bytes identical, reuse matching full core/desktop/sanitizer receipts,
 and run new profile/proof tests plus exact-stage and System/checklist VMs before
 install/readiness. Preserve incomplete v104 and both failed v103 records.
+
+
+## 2026-10-28 v105 trackpad-enabled candidate installed
+
+Release `4bc73cbb97c3166b`, source `032dc172`, inherits v104 and adds exactly the
+accepted `srvros.trackpad=gestures` option. There is no driver, kernel, userspace,
+shared ABI or Makefile change from full-tested runtime `330c25b3`. Exact staged
+kernel and firmware-packaged initramfs bytes equal the v104 payload. Matching
+full build/core/desktop and five sanitizer suites plus108 native-batch receipts
+are reused, not rerun or represented as a new runtime build. Keep main02434766
+for this controlled retest; fetched maina8da6076 integration follows separately.
+
+New195 staging tests,225 previous/current recipe comparisons and five UI/input
+log test groups pass. The new checker requires an explicit gesture option and
+one successful trackpad-ready/pointer-enabled record; malformed/missing/duplicate
+readiness is refused. Two strict prior-RF/synthetic-input/UI compositions and32
+proof mutations, four collector orchestration cases, System/e1000/checklist VM,
+exact-stage GPT save/readback/unmount/return and missing-workspace refusal pass.
+Synthetic input records are checker coverage, never native input acceptance.
+
+Installed candidate and six retained payloads equal durable backups. Known-good
+desktop remains previous; accepted v102/v101, incomplete v104 and both failed
+v103 payloads are retained. Unreferenced v100 `c80f3afe5d496f36` was retired after
+full equality to durable `wifi-scan-timing-57fede2/payload` for installation space.
+Offline workspace is clean:374 files,985 clusters,153 directories, zero leaks/
+mismatches/errors. Ubuntu default, unmounted workspace and empty one-shot pass.
+No reboot is armed. Matching first-return collector/run are under
+`build/bringup/wifi-ui-input/`, durable archive `wifi-ui-input-032dc172`.
+Use the same cold adapter cycle and full untimed guest checklist. Finish through
+Exit desktop to save the end snapshot and return; manual restart remains an
+incomplete lifetime. No credentials, association/security/IP or5GHz were used.

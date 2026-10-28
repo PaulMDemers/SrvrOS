@@ -6006,3 +6006,23 @@ VMs pass; the latter confirms the owned logger pause and refuses GUI without the
 radio. The ordinary kernel has no isolated AP request. Native receive isolation
 and populated cache/UI remain unaccepted until the source-bound cold trial and
 visual report. Existing receive deadlines and all v1–v103 recipes are unchanged.
+
+
+## Input-enabled attended profile (v105)
+
+The first v104 native radio/isolation/cache-before phase passed strict checks and
+published two rows, one selectable. Its UI was not tested: the profile omitted
+the existing trackpad boot option, and the user manually restarted. No end
+snapshot exists, so the desktop lifetime remains incomplete. The immutable radio
+proof survived over two hours of rolling logs; this is not sustained RF acceptance.
+
+`--wifi-desktop-input` inherits the isolated attended profile and adds only
+`srvros.trackpad=gestures`. v105 `4bc73cbb97c3166b` (source032dc172) is installed
+unarmed. Kernel and apps equal the full-tested/native-radio-verified330c25b3
+payload; existing runtime test receipts are explicitly reused. New195 staging,
+225 recipe, five UI/input-proof groups and composed collector fixtures pass,
+along with System/checklist and exact-stage saved-log/missing-workspace VMs.
+Native collection also requires successful trackpad-ready/pointer-enabled logs.
+Pointer behavior, UI selection/removal and clean Exit desktop need this cold
+trial. Keep the current radio runtime baseline for the single-option retest;
+newer main integration remains separate. Credentials are unused.
