@@ -5184,3 +5184,51 @@ keep AC and USB connected. Graphics/platform diagnostic acceptance is pending.
 Preserve accepted package-audit `bae0678ed7e9b38b` and console recovery. To make
 EFI space, retire only the older coordinated-only `57274dfaccfdc0b9` installed
 copy after verifying its durable payload; its native evidence remains retained.
+
+### Graphics/platform audit — failed diagnostic return (2026-10-28)
+
+Release `a3ac64f7cd15293c`, source `8e0f5bf6` (PR242 merge `b101e8eb`), saved
+`session-00065eeb02087de2-00` and returned to Ubuntu. The platform audit explicitly
+reports `fault=1 completed=NO`; the enclosing capture also reports failure.
+Do not promote this image or treat automatic return as platform acceptance.
+
+All 32 coordinated attempts finish within the unchanged 20 ms limit (maximum
+9,982 us), with 32 HLT fallbacks and clean AP retirement. The first short round
+lasts 23 us with zero deeper residency; the other 31 observe core C3 on both
+physical cores and package C2. Package C3 remains zero. The three workload phase
+completion receipts are present, but overall process/capture success is false
+because of the platform audit failure.
+
+Graphics status is `0x11800303` in both snapshots (RC6 state encoding). RC6 raw
+count advances from 13,525,192 to 83,959,518. At the documented nominal 1.28 us
+unit, this is 90.155937280 s versus a 90.058543 s snapshot timestamp interval.
+That 0.108% mismatch independently violates the current parser's cross-clock
+bound; do not clamp it to 100%, declare a calibrated residency ratio, or raise
+the bound without investigating the counter/timebase and sampling semantics.
+The raw counter/state observations do not identify a package-C3 blocker.
+
+Four Intel root ports (`00:1c.1`, `.2`, `.4`, `.5`) are rejected after the first
+extended header in both snapshots. Read-only Ubuntu inspection shows header
+`0x20000000` at offset `0x100`: zero ID/version, next offset `0x200`. The walker
+incorrectly rejects every zero ID/version. PCI-SIG defines ID zero as a valid
+header-only Null Extended Capability, allows repeated instances, and assigns no
+meaning to its version field. This is consistent with the native rejection;
+the original native receipt did not record the rejected raw header. Correct
+Null traversal with retained range/alignment/cycle/overlap bounds and a captured
+fixture, rather than treating all malformed headers as acceptable.
+
+The two Broadcom endpoints report stable LTR capability raw `0x10031003`, which
+decodes to 3.145728 ms maximum snoop and no-snoop values. These are configured
+capability values, not proof of a currently asserted latency request. Direct
+platform permission remains unavailable; firmware E2/IRTL stay unchanged.
+
+All 546 baseline files are preserved except expected `.srvros/meta` bookkeeping;
+four new logs bring the volume to 550 files / 1,605 clusters. Offline fsck and
+allocation checks pass with no leaks, mismatches or errors. The 446-file return
+backup is verified outside `build`, and installed/protected payloads verify.
+Ubuntu remains default, collection is disabled, one-shot consumed and no reboot
+armed. The accepted package audit remains `bae0678ed7e9b38b`; current platform
+candidate is failed. Closeout consumes PR243 main `4ae360ef`; that newer runtime
+was not tested in this physical image. Next: fix/test Null capability handling,
+investigate the RC6 timebase discrepancy, and repeat this same bounded audit
+without changing power policy or existing limits.

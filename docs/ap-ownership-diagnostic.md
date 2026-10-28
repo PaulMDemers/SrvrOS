@@ -235,3 +235,12 @@ PCI D0, ASPM and LTR fields must not be relabeled as that signal. This diagnosti
 narrows the remaining evidence without manufacturing a grant/denial or causal
 blocker. Original round counts, 20 ms deadlines, fallback, ownership checks,
 log limits and automatic idle/load/recovery/save/return remain unchanged.
+
+The first native platform run (`a3ac64f7cd15293c`) is failed, not accepted. It
+exposes a Null Extended Capability traversal bug and a separate RC6 nominal-time
+versus monotonic-time mismatch; see the [unit record](machines/macbookair6-1.md).
+[PCI-SIG's Code and ID Assignment specification, table 3-1](https://pcisig.com/sites/default/files/files/PCI_Code-ID_r_1_12__v9_Jan_2020.pdf)
+defines zero as a header-only Null Extended Capability with an uninterpreted
+version field and permits repeated instances. Correctly following its next
+pointer must retain the original address, visited-header and overlap checks.
+Do not reinterpret a failed complete capture as a pass from its partial readings.
