@@ -20,6 +20,11 @@ is archived outside build. Ubuntu remains default, workspace unmounted and no
 reboot armed. No repeat is needed. Sustained endurance, FCS, physical BSSID
 deduplication, association/security and IP/UI remain unaccepted.
 
+Development source `e4c2b1a6`, main `5a94d755`, adds the adapter discovery cache,
+versioned snapshot/selection syscall and System Wi-Fi page. Host, sanitizer,
+desktop VM and exact staged-image checks pass. VM-only stage `3ed07b1dd8567913`
+is not installed; native cache/UI acceptance is pending. No new reboot is armed.
+
 Latest accepted trial: v101 `f1015eeb7358f9c7`, source `6b12e4f2`, main
 `e4f8bf84`, session `session-00065edaa5a051a0-00`. The bounded pre-enable retry
 was exercised on channel11: its first normal completion carried120 bytes and
@@ -66,8 +71,9 @@ Ubuntu default, consumed one-shot, unmounted/unarmed and offline integrity passe
 (349 files,880 clusters,146 directories, zero errors). Full evidence is archived
 outside build. No repeat run is needed.
 
-Next: bounded discovery publication/selection and transmit/association/security groundwork,
-then IP/UI. Repeated receive is accepted only for the bounded v102 trial. Reject or drain pre-enable data without assigning
+Next: an explicit attended scan-to-desktop profile to accept the new cache,
+selection and disconnect UI, then management TX, association/security and IP.
+Repeated receive is accepted only for the bounded v102 trial. Reject or drain pre-enable data without assigning
 it to the new channel. Keep separate retained RX ownership, explicit
 channel-aware parsing and independent endpoint stop/RF restoration on every
 failure. Original strict calibration helper remains unchanged; RF0:6 semantics
@@ -10443,3 +10449,52 @@ management TX, security and an IP provider remain separate. Checkpoint: cache/
 ABI/adapter/UI lifecycle and fault tests, sanitizers, full merged core/desktop,
 exact staged VM and durable evidence. Native UI acceptance requires a later
 explicit attended scan-to-desktop profile; no reboot is armed by this scope.
+
+
+## 2026-10-28 discovery service and System picker validated
+
+Source `e4c2b1a6`, main `5a94d755`, implements a private four-provider discovery
+cache and versioned `SYS_WIFI` snapshot/selection ABI. Owner IDs are never reused;
+failed refreshes invalidate prior generations and selections. The native root
+Edimax adapter publishes copied results after all stops/restorations and batch
+collection, while the original capture ownership proof is still valid. That
+proof continues to refuse after retirement. Snapshot/selection calls use only
+copied state and one bounded read-only root-presence check per provider. Latched
+connection change retires the owner even after reconnect; hub children and
+quarantine are refused. Reads/selects issue no USB/RF commands and cannot join.
+A future hardware rescan must remove the old owner before acquiring fresh resources.
+
+System adds a Wi-Fi tab/View item with copied escaped names, channel/security
+advertisements, hidden/conflict states, explicit selection and adapter cycling.
+Changing owner/generation clears the highlight. A stale click requests a fresh
+choice. Selected and connected remain visibly distinct, with connection unavailable.
+No BSSID, raw IE, credentials or DMA pointers cross the new ABI or enter logs.
+Ordinary startup still does not initialize Wi-Fi or launch background scans.
+
+The service fault suite covers four providers, ID retirement, failed refresh
+proof, generation/ABI/hidden/conflict refusals and owner exhaustion. Syscall tests
+cover version/size/op, reserved argument, user-copy bounds and allocation failure.
+System uses the real service in host tests for adapter cycling, binary names,
+hidden/conflict refusal, stale-click race, malformed ABI and disconnect handling.
+Populated fixture rendering was inspected. All three suites pass ASan/UBSan,
+along with108 native retained-DMA batch cases; the actual capture publication
+phase and cache-only read/select/CSC retirement are exercised. The first late
+publication attempt correctly failed the active-owner proof; publication moved
+inside that existing phase, with no proof weakening. Failed development evidence
+remains preserved and is not counted as a pass.
+
+Full image/USB-image/core/desktop passes.191 staging tests and209 previous Wi-Fi/
+current-main desktop/MWAIT/C3 recipe comparisons pass. The desktop System/e1000
+VM passes DHCP, sorting, pause/refresh/menu/resize, all existing pages, actual
+empty-cache Wi-Fi syscall/UI and process ABI compatibility. Exact staged v102
+`3ed07b1dd8567913` matches the committed-source kernel and independent packaged
+initramfs; GPT saved-log/unmount/return and missing-workspace refusal pass. New
+cache/selection symbols are linked in the staged kernel. This is host/VM evidence,
+not native cache/UI or connection acceptance.
+
+Installed accepted v102 `3337af3753372b9d` and recovery payloads remain unchanged.
+Source, payload and validation survive distclean in `wifi-picker-e4c2b1a6` outside
+build. Next is an explicit attended scan-to-desktop profile and saved native cache/
+selection/disconnect evidence, followed by management TX and association/security.
+No new physical test is installed or armed; battery/headphones/trackpad follow-ups
+remain deferred.

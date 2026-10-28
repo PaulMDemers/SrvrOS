@@ -5835,10 +5835,10 @@ negotiated security; association must reparse full IEs. Hidden-network credentia
 and explicit SSID entry remain separate work. Binary SSID display escapes control,
 non-ASCII and backslash bytes as `\xNN` with a checked full-output buffer.
 
-This transport-neutral groundwork has host tests and no native caller, syscall,
-network picker, transmit or join operation. It does not change v102's hardware
-acceptance or enable ordinary Wi-Fi startup. Next is binding snapshots to an
-explicit discovery service/UI lifetime, then management TX and association/security.
+The initial `a31bbe00` step provided the transport-neutral host-tested helper.
+The service integration below now binds it to completed opt-in capture and a
+System picker. It does not change v102's hardware acceptance or enable ordinary
+Wi-Fi startup. Native UI acceptance and management TX/association remain pending.
 
 Source `a31bbe00` (main `5a94d755`) passes2030 directed selection cases and355
 batch-collector cases with selection checks on successful real collection, both
@@ -5876,3 +5876,29 @@ from connection. Refresh reads saved results; it does not launch a scan. Ordinar
 startup still does not initialize this diagnostic Wi-Fi path. A later explicit
 scan-to-desktop profile is needed for attended native UI acceptance, followed by
 management TX, association/security and IP integration.
+
+
+Service refresh only republishes an already-completed immutable batch. A future
+hardware rescan must first remove the old service owner, then acquire fresh scan
+resources and publish under a new owner after cleanup. This cache API is not a
+background scan scheduler and must not be used to keep old choices live while
+retuning. Contexts and presence callbacks remain pinned until removal.
+
+Source `e4c2b1a6` (main `5a94d755`) passes the service's four-adapter/owner/refresh
+fault suite, syscall ABI/user-copy/allocation boundaries and System tests using
+the actual cache service. UI tests cover adapter cycling, hidden/conflict refusal,
+a generation change between display and click, malformed snapshots and disconnect
+without identity resurrection. A rendered populated fixture was inspected.
+ASan/UBSan passes those three suites and108 native batch cases, including the
+real capture publication phase, read/selection with no USB control transfers,
+latched root connection-change retirement and hub/quarantine refusal.
+
+Full image/USB-image/core/desktop,191 staging tests and209 old/current recipe
+comparisons pass. Desktop System VM with e1000 DHCP exercises the real new syscall
+and empty Wi-Fi page plus existing pages, sorting, pause/refresh, menus, resize and
+process ABI checks. Exact staged v102 `3ed07b1dd8567913` saves/verifies logs and
+returns on GPT, while missing workspace refuses and returns. Kernel and independent
+firmware-packaged initramfs match the committed source. This is VM/host evidence;
+native cache/UI acceptance requires a later explicit scan-to-desktop profile.
+The new image is not installed or armed. Native hardware acceptance remains the
+bounded receive trial `3337af3753372b9d`; connection/security/IP remain pending.
