@@ -5048,3 +5048,51 @@ regressions; that newer runtime was not in this physical release. PR182 filesyst
 audit of package C3 blockers and platform prerequisites, then a separately bounded
 experiment. Keep ordinary startup and all power-policy settings unchanged until
 there is a reviewed next test; core C3 success does not accept deeper package states.
+
+### Package C3 audit — active scope (2026-10-28)
+
+Base `6cbfedab`; coordinated core-C3 acceptance and its return evidence are
+complete. Inspect package-level permission/latency constraints without changing
+power policy, entry hints, 32-round/20 ms bounds or fallback. Add optional
+read-only package C2 brackets, C3 interrupt-response-limit snapshots and bounded
+standard PCI power/link snapshots to the existing isolated coordinated diagnostic.
+Report graphics/platform permission as unknown where no safe documented read is
+available; device state alone must not become a causal blocker verdict. Ordinary
+boot, AML and GPU/MMIO control remain unchanged. Scope: diagnostic-only capture,
+strict staging/parser and host/VM regressions. PR238 (`99e4412d`) desktop reap/
+screenshot work, PR182 (`950a4ee0`) filesystem work and PR19 (`7ac6b0e6`) Wi-Fi
+retain independent scope. Next: audit register semantics, validate read-only
+capture and unchanged recovery, self-merge and run the automatic native trial.
+
+The audit implementation is in PR239 (`48355ccd`). Its first matched build and
+host suite pass, including bounded conventional PCI capability reads, malformed/
+overlapping chain refusal, C2 counter bounds, strict parsing and existing scheduler
+fallback. The initial staged image is `34f300408d696362`. Native audit evidence
+is still pending. PR238 has now merged as `2c34a460`; consume its desktop-worker
+changes and rebuild a matched image before the final native launch. This does
+not change the diagnostic kernel's policy or timing requirements.
+
+The additional PCI rows can move the original CPU-load configuration banner
+out of the 65,536-byte exit tail. Collection requires that unchanged banner in
+this exact session's periodic/final logs; all phase completions, counter/timing
+proofs, retirement and audit records must still validate from the final log.
+A maximum-width 25-device replay (the previously captured enumeration count)
+retains those proofs without increasing any log or test limit. Capability state,
+graphics permission and unsupported encodings remain distinct from zero.
+
+Final candidate `bae0678ed7e9b38b` uses source `c5818be5`, incorporating PR238
+main `2c34a460`. The matched ordinary/diagnostic build, full core suite and docs
+checks pass. All nine package-profile VM cases pass: four-CPU simulation,
+missing/early/faulted peer, 1/2/6-CPU refusal, exact native-profile refusal with
+save/return, and missing workspace. Directed failure-state review, ordinary
+kernel isolation and unchanged-tail coverage pass. Separate legacy AP-ownership
+and coordinated-C3 simulation regressions also pass with no package reads.
+
+The next automated native run captures 32 package-C2 brackets, paired C3 IRTL
+and standard PCI snapshots, then completes the existing 30-second idle/load/
+recovery phases and returns to Ubuntu. Collection requires complete matching
+receipts and offline filesystem preservation. No human input is required; keep
+AC and USB connected. Native audit acceptance remains pending. Preserve console
+recovery and accepted coordinated-C3 payload `57274dfaccfdc0b9`; retire only the
+older standalone AP-ownership EFI copy after verifying its durable backup to
+make space. Its evidence and payload remain available outside `build`.
