@@ -128,7 +128,11 @@ static bool wifi_scan_capture(struct xhci_device *d){
  * Hub children need an independent live child-port observer before admission. */
 static bool wifi_scan_service_present(void *context){
     const struct xhci_device *d=context;
-    if(!xhci.operational || !d->present || !d->configured || !d->wifi_probe_ok || d->ep0_quarantined ||
+    /* The diagnostic configures its own firmware, MCU and RX endpoints. It
+     * deliberately leaves the generic HID/storage configured flag false. */
+    if(!xhci.operational || !d->present || !d->firmware.configured || !d->firmware.ready ||
+       d->firmware.failed || !d->firmware.mcu.configured || !d->firmware.mcu.rx.configured ||
+       !d->wifi_probe_ok || d->ep0_quarantined ||
        d->parent_slot_id || !d->port_id || d->port_id>xhci.port_count ||
        !d->firmware.mcu.scan_batch_mode || d->firmware.mcu.failed || d->firmware.mcu.scan.failed ||
        !d->firmware.mcu.scan.batch.complete)return false;

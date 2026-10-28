@@ -10598,3 +10598,17 @@ and a complete exact-image trial remain necessary before a replacement install.
 Checkpoint: reproduce old guard failure, repair focused host/sanitizer suites,
 then prepare a separately source-bound replacement. Battery/security/IP stay out
 of this scope. No credentials are used.
+
+
+Configuration-guard repair passes all108 native scan-batch cases both normally
+and under ASan/UBSan, including real capture publication with generic configured
+false, cache read/selection, individual missing firmware/MCU/RX configuration
+refusals and unchanged disconnect retirement. Cache service tests and2030 selection
+lifecycle/metadata/ownership/name cases pass; docs pass700 links. The old guard
+reproduces the observed refusal with the corrected fixture. A development edit
+used a nonexistent member and was rejected by the compiler; that failure and its
+stale-binary assertion are retained separately, not counted as repaired-source
+validation. Native postboot storage is clean:365 files,954 clusters,151 directories,
+zero leaks/mismatches/errors. Seven installed payload equalities and Ubuntu default
+passed; workspace is unmounted and one-shot clear. Only source is repaired; a new
+integration/build/exact-stage VM/install and attended cold trial are still needed.

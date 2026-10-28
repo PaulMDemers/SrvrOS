@@ -38,7 +38,7 @@ static void test_wifi_service_adapter(struct xhci_device *d){
     bool operational=xhci.operational,configured=d->configured,port_active=port_model.active;
     unsigned port_count=xhci.port_count;uint8_t port=d->port_id,parent=d->parent_slot_id;
     uint32_t *sc=(uint32_t *)(registers+xhci.op_base+XHCI_OP_PORTS),saved=*sc;
-    xhci.operational=true;xhci.port_count=1;d->configured=true;d->port_id=1;d->parent_slot_id=0;port_model.active=false;
+    xhci.operational=true;xhci.port_count=1;d->configured=false;d->port_id=1;d->parent_slot_id=0;port_model.active=false;
     *sc=XHCI_PORTSC_CCS|XHCI_PORTSC_PED;
     assert(wifi_scan_service_present(d) && !wifi_scan_service_owned(d,&d->firmware.mcu.scan.batch));
     /* The real capture hook already published before retiring its owner. The
@@ -50,6 +50,17 @@ static void test_wifi_service_adapter(struct xhci_device *d){
         struct srv_wifi_select q={.version=1,.size=sizeof q,.owner=owner,.generation=out.generation,.index=i};
         int result=wifi_service_select(&q);assert(result==SRV_WIFI_OK || result==SRV_WIFI_CONFLICT);
     }
+    /* Each captured diagnostic configuration gate is required independently;
+     * setting the generic flag must not conceal a missing endpoint owner. */
+    bool *required[]={&d->firmware.configured,&d->firmware.ready,
+        &d->firmware.mcu.configured,&d->firmware.mcu.rx.configured};
+    for(unsigned i=0;i<sizeof required/sizeof required[0];i++){
+        assert(*required[i]);*required[i]=false;
+        assert(!wifi_scan_service_present(d));d->configured=true;
+        assert(!wifi_scan_service_present(d));d->configured=false;*required[i]=true;
+    }
+    d->firmware.failed=true;assert(!wifi_scan_service_present(d));d->firmware.failed=false;
+    assert(wifi_scan_service_present(d));
     /* Connected again with latched CSC must retire the old cache identity. */
     *sc|=XHCI_PORTSC_CSC;assert(wifi_service_snapshot(owner,&out)==SRV_WIFI_STALE && !out.count);
     *sc&=~XHCI_PORTSC_CSC;assert(wifi_service_snapshot(owner,&out)==SRV_WIFI_STALE);
@@ -74,11 +85,13 @@ static void test_wifi_burst_case(struct xhci_device *d){
     scan_test_history=0;scan_test_rf_visit=3;scan_test_fault_visit=batch_fault_visit;
     scan_test_fault_kind=batch_case==15?2:batch_case==16?1:batch_case==17?3:0;
     if(batch_case>=26){scan_test_fault_visit=3;fail_after=pool_used+batch_case-26;}
+    /* Diagnostic enumeration owns firmware/MCU/RX endpoint configuration;
+     * it deliberately never sets the generic HID/storage configured flag. */
     bool service_case=batch_case==0 && batch_fault_visit==0;
     bool old_operational=xhci.operational,old_configured=d->configured,old_port_active=port_model.active;
     unsigned old_port_count=xhci.port_count;uint8_t old_port=d->port_id,old_parent=d->parent_slot_id;
     uint32_t *root_sc=(uint32_t *)(registers+xhci.op_base+XHCI_OP_PORTS),old_sc=*root_sc;
-    if(service_case){xhci.operational=true;xhci.port_count=1;d->configured=true;d->port_id=1;d->parent_slot_id=0;port_model.active=false;*root_sc=XHCI_PORTSC_CCS|XHCI_PORTSC_PED;}
+    if(service_case){xhci.operational=true;xhci.port_count=1;d->configured=false;d->port_id=1;d->parent_slot_id=0;port_model.active=false;*root_sc=XHCI_PORTSC_CCS|XHCI_PORTSC_PED;}
     receive_test_device=tune_test_device=d;bool ok=wifi_scan_capture(d);receive_test_device=tune_test_device=NULL;
     bool expected=batch_case<8 || (batch_case>=11 && batch_case<=12) || (batch_case==24 && !batch_fault_visit) || batch_case==25;
     if(ok!=expected)fprintf(stderr,"batch case=%u visit=%u got=%u want=%u completed=%u first=%u posts=%u attempts=%u rxfailed=%u mac=%u stop=%u quiet=%u engine=%u tune=%u alloc=%llu\n",batch_case,batch_fault_visit,ok,expected,m->scan.completed,m->receive.burst.first,m->receive.burst.posts,m->receive.burst.state.attempts,m->receive.failed,m->receive.mac.complete,m->receive.stopped,m->receive.mac_quiescent,m->receive.burst.state.complete,m->tune.state.complete,(unsigned long long)pool_used);

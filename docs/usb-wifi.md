@@ -5942,3 +5942,16 @@ is claimed. The matching run and durable archive are recorded in the unit guide.
 A failed final workspace unmount preserves the mount and refuses automatic reboot
 for this profile. Passwords supplied locally for future security testing are
 excluded from this image, logs, fixtures and archive.
+
+
+The first v103 native run saved its exit log and returned but did not enter the
+desktop: the cache presence predicate mistakenly required the generic USB
+configured flag, which this diagnostic enumeration deliberately leaves false.
+Its completed firmware/MCU/RX endpoint ownership is separate. The host fixture
+had forced the generic flag true. The raw failure and strict collection refusal
+are retained; this run does not accept the cache or UI. The guard repair requires
+actual firmware/MCU/RX configuration and firmware readiness, while preserving
+root-port, connection-change, quarantine and active publication ownership gates.
+The host fixture now publishes with the native generic flag false and refuses
+each missing diagnostic configuration state independently. A new source-bound
+image and physical UI trial are still required before acceptance.
