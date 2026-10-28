@@ -268,3 +268,38 @@ Keep this distinct from runtime access/traversal success and from package-C3
 acceptance. Counter clock/scaling/update semantics remain to be audited; no
 acceptance tolerance or power policy has changed. See the unit record for the
 matching session, retained evidence and recovery state.
+
+## RC6 scaling and update audit
+
+[Intel Haswell PRM volume 12, register page 100](https://kiwitree.net/~lina/intel-gfx-docs/prm/hsw/intel-gfx-prm-osrc-hsw-pcie-config-registers.pdf)
+specifies a 32-bit read-only RC6 accumulator at `0x138108`, cumulative since
+boot, wrapping, in 1.28 us units. It does not supply a counter-clock tolerance
+or publication cadence. The adjacent mailbox includes a counter-clear command;
+this diagnostic never accesses that mailbox. Linux v6.12's reader uses the same
+unit and 32-bit wrap handling for Haswell, not the Valleyview/Cherryview CZ-clock
+or Gen9-LP conversion. There is no evidence here for changing Haswell's scale.
+
+[IGT's pinned RC6 test source](https://chromium.googlesource.com/external/gitlab.freedesktop.org/drm/igt-gpu-tools/+/a8e2cbd2854d7980a9eccecc6e0c801d0824b88f/tests/intel/i915_pm_rc6_residency.c)
+compares sysfs residency over a three-second sleep and permits a broader range;
+that software test allowance is not a hardware accuracy guarantee and is not
+adopted here. Its wait for RC6 entry is also not proof of the accumulator's
+update cadence. Unsupported clock tolerances and update periods remain unknown.
+
+Version-3 receipts add paired counter/status reads at every other existing
+retained power checkpoint (at least ten seconds apart, at most 12 pairs from
+the unchanged 24-checkpoint capture). Only the isolated
+AP diagnostic links the sampling hook; ordinary power sampling is unchanged.
+The hook runs within the existing bounded sampling critical section, performs
+no allocation, waiting or logging, and uses the same read-only mapped page.
+It adds no worker, timer, control access or additional wakeups. Sampling becomes
+inert after capture, and storage remains static until reset. Endpoint brackets
+and all original bounds remain intact.
+
+The series parser matches each point to its retained power timestamp, verifies
+ordering/counts and counter continuity including one wrap, and reports per-gap
+nominal excess plus immediate-pair deltas. Raw observations survive a failed
+whole-interval check. Sparse samples can distinguish distribution of the excess
+but cannot establish a precise update cadence or identify a hardware clock.
+The original RC6-versus-time predicate is unchanged; interval observations are
+not a new acceptance tolerance. Maximum-width receipt replay must retain all
+original completion proofs inside the unchanged log tail.

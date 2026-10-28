@@ -6,6 +6,14 @@
 #include "../kernel/src/drivers/power.c"
 static uint64_t now=1000000,units=0xa0e03,energy=1000000,aperf=100,mperf=100;
 static unsigned reads,spawns,capture_rows,capture_receipts;
+#ifdef SRVROS_AP_PROBE
+static unsigned platform_samples;
+void platform_audit_sample(uint64_t us) {
+    assert(capturing && capture_count && capture_count<=POWER_CAPTURE_CAPACITY);
+    assert(us==now && capture[capture_count-1].raw.us==us);
+    platform_samples++;
+}
+#endif
 static uint64_t platform=22u<<8;
 static bool reference=true,spawn_ok=true;
 static uint32_t max_ext=0x80000007,invariant;
@@ -107,6 +115,9 @@ int main(void) {
     power_capture_stop();assert(!capture_rows && !capture_receipts);
     signature=0x40651;init();unsigned before=reads;
     assert(power_capture_start() && !power_capture_start() && reads==before);
+#ifdef SRVROS_AP_PROBE
+    unsigned platform_before=platform_samples;
+#endif
     uint64_t start=now;
     /* Native sample cadence drifts just below one second. USB checkpoints at
      * ten-second cadence then cover only 9.999841s; retain independent samples. */
@@ -126,6 +137,9 @@ int main(void) {
         }
         assert(first && last-first>=10000000);
     }
+#ifdef SRVROS_AP_PROBE
+    assert(platform_samples-platform_before==15);
+#endif
     before=reads;power_capture_stop();
     assert(reads==before && capture_rows==15 && capture_receipts==1 && !capturing);
     power_capture_stop();assert(capture_receipts==1);
@@ -133,6 +147,9 @@ int main(void) {
     assert(power_capture_start() && capture_count==0 && !capture_overflow);
     for(unsigned i=0;i<25;i++) { now+=5000000;sample(); }
     assert(capture_count==24 && capture_overflow);
+#ifdef SRVROS_AP_PROBE
+    assert(platform_samples-platform_before==39); /* no callbacks after stop or on overflow */
+#endif
     before=reads;power_capture_stop();assert(reads==before && capture_rows==39 && capture_receipts==2);
     assert(power_capture_start() && !capture_count && !capture_overflow);
     power_capture_stop();assert(capture_receipts==3 && capture_rows==39);
