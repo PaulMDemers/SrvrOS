@@ -5158,3 +5158,12 @@ bounded capability decoding, strict receipt/parser and host/VM regressions.
 PR182 filesystem and PR19 Wi-Fi remain independent; no overlapping edits planned.
 Next checkpoint: reviewed register/access contract and matched automated native
 candidate, with the accepted package audit and console recovery preserved.
+
+The access audit selects only Haswell uncore graphics status/RC6 residency and
+ECAM-backed standard LTR capability values. RC_CONTROL/forcewake and PCODE remain
+untouched; no validated direct platform grant register has been established, so
+that signal is explicitly unavailable. E2 policy evidence stays distinct from a
+grant. Shared PCI changes add a read-only extended API with no legacy fallback;
+no existing write path or device power configuration changes. Host tests cover
+ECAM refusal and full offsets, bounded malformed/overlapping LTR chains, graphics
+BAR gates, counter-wrap/interval decoding and strict native receipt matching.

@@ -50,7 +50,7 @@ static uint64_t read64(unsigned reg) {
 }
 /* Optional package audit: PCI snapshots run outside the measured masked rounds.
  * Counter brackets include only fixed MSR reads; no policy writes or new waits. */
-static bool package_requested;
+static bool package_requested,platform_requested;
 static uint64_t package_snap_us[2];
 static uint64_t package_irtl[2],package_t0,package_c0;
 static uint64_t package_dt[AP_PROBE_ROUNDS],package_dc[AP_PROBE_ROUNDS];
@@ -63,6 +63,7 @@ static uint32_t config_read(void *arg,unsigned offset) {
 static void package_snapshot(unsigned phase) {
     if(!package_requested || coord_mode!=1)return;
     package_snap_us[phase]=timer_monotonic_us();
+    if(platform_requested)platform_audit_snapshot(phase);
     package_irtl[phase]=read64(0x60a);
     uint64_t n=pci_device_count();
     if(!phase) {if(!n || n>PCI_MAX_DEVICES){package_fault=1;return;}pci_count=n;}
@@ -150,6 +151,7 @@ bool ap_probe_run(const char *cmdline) {
     used=true;
     bool requested=token(cmdline,"srvros.ap=c3-test");
     package_requested=requested && token(cmdline,"srvros.ap-package=read-only");
+    platform_requested=package_requested && token(cmdline,"srvros.ap-platform=read-only");
     unsigned a,b,c,d;cpuid(0,&a,&b,&c,&d);
     bool intel=b==0x756e6547 && d==0x49656e69 && c==0x6c65746e;
     unsigned maxleaf=a;cpuid(1,&a,&b,&c,&d);
@@ -325,5 +327,9 @@ bool ap_c3_stop(void) {
         }
     }
     bool audited=package_report();
+    if(platform_requested) {
+        if(coord_mode==1)audited=platform_audit_report() && audited;
+        else console_write("ap-platform: v=1 unavailable=vm policy_writes=0\n");
+    }
     owner_pending=false;final_pass=ok && audited;return final_pass;
 }

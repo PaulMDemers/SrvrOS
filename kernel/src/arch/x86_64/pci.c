@@ -48,8 +48,8 @@ static void pci_legacy_write32(uint8_t bus, uint8_t device, uint8_t function, ui
     outl(PCI_CONFIG_DATA,value);config_unlock(flags);
 }
 
-static volatile uint32_t *pci_ecam_config32(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset) {
-    for (uint64_t i = 0; i < acpi_mcfg_allocation_count(); i++) {
+static volatile uint32_t *pci_ecam_config32(uint8_t bus, uint8_t device, uint8_t function, uint16_t offset) {
+    for (uint64_t i = 0; i < acpi_mcfg_allocation_count() && i < 8; i++) {
         const struct srv_acpi_mcfg_allocation *mcfg = acpi_mcfg_allocation_at(i);
         if (mcfg == 0 || !mcfg->present || ecam_virtual_base[i] == 0 ||
             bus < mcfg->start_bus || bus > mcfg->end_bus) {
@@ -441,4 +441,22 @@ void pci_write_config8(const struct pci_device *device,uint8_t offset,uint8_t va
     uint64_t flags=config_lock();
     outl(PCI_CONFIG_ADDRESS,legacy_address(device->bus,device->device,device->function,offset));
     outb(PCI_CONFIG_DATA+(offset&3),value);config_unlock(flags);
+}
+
+/* Diagnostic ECAM-only read: never truncate into conventional config or
+ * fall back to CF8/CFC, and never enable a window/device. */
+bool pci_read_extended_config32(const struct pci_device *dev,uint16_t offset,uint32_t *value) {
+    if(!dev || !value || !ecam_available || offset<0x100 || offset>0xffc || (offset&3) || dev->device>31 || dev->function>7)return false;
+    unsigned matches=0;
+    for(uint64_t i=0;i<acpi_mcfg_allocation_count() && i<8;i++) {
+        const struct srv_acpi_mcfg_allocation *m=acpi_mcfg_allocation_at(i);
+        if(m && m->present && ecam_virtual_base[i] && dev->bus>=m->start_bus && dev->bus<=m->end_bus) {
+            if(m->pci_segment)return false;
+            matches++;
+        }
+    }
+    if(matches!=1)return false;
+    volatile uint32_t *p=pci_ecam_config32(dev->bus,dev->device,dev->function,offset);
+    if(!p)return false;
+    *value=*p;return true;
 }

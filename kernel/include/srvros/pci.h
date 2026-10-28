@@ -38,4 +38,7 @@ void pci_write_config32(const struct pci_device *device, uint8_t offset, uint32_
 uint16_t pci_read_config16(const struct pci_device *device, uint8_t offset);
 void pci_write_config16(const struct pci_device *device, uint8_t offset, uint16_t value);
 
+/* Read-only extended space; unavailable without an existing ECAM mapping. */
+bool pci_read_extended_config32(const struct pci_device *,uint16_t,uint32_t *);
+
 #endif
