@@ -2,6 +2,41 @@
 
 Updated: 2026-10-28. State: **active reference machine; partial device acceptance**.
 
+### Fifth endurance return — ready-thread gate exclusion (2026-10-28)
+
+Release `57d0ba0d7e1f2f71`, clean `b6f3dcad` (PR243 runtime), returned
+automatically from `session-00065eeb1e2a58e8-00` after nine completed cycles.
+The UI maximum is 101671 us; zero observed PCM underruns and clean native
+battery retirement do not accept endurance. Observed Files final-pool spans are
+253716–624531 us. Text pid21 document release takes 5862416 us, with 176216 us
+blocked, 5686057 us ready, 2178 I/O eligibility exclusions and zero invalid
+trace counts. It later reports exited/mapped0 before being collected. The
+remaining large delay is readiness exclusion, not measured execution time.
+All 1188 prior files are preserved except metadata; offline fsck/allocation pass
+(1194 files, 3143 clusters, zero errors); default/recovery/one-shot pass.
+
+The slow release starts immediately after a periodic logger snapshot at
+53286891 us. This is correlation, not owner identification. Logger cost receipts
+are currently suppressed unless CPU power telemetry is enabled, so this normal
+v80 run cannot measure that snapshot's duration. Next bounded scope is
+`kernel/src/workspace_log.c` timing eligibility and its focused host fixture:
+measure existing save/write/verify/sync intervals whenever the monotonic clock
+is ready, independent of optional MSR power service. Retain original writes,
+readback, flush, cadence, deadlines and I/O gate. No process/VFS/driver policy
+change is justified yet. Consume main `4ae360ef` including PR242 PCI/isolated
+Haswell diagnostics and run the integrated build/host gates before new staging.
+PR182 retains VFS/process ownership and PR19 Wi-Fi; neither is changed here.
+
+Logger-clock implementation `71b6ae75` passes full integrated core/desktop hosts
+and matched ordinary/native/VM builds, including PR242 PCI/package/platform
+fixtures. Positive Air7,2 KVM passes 23 app cycles, maximum loop124974 us,
+ready1152550 us and close1679743 us, zero observed PCM underruns and complete
+file/screenshot/lifetime/retirement proof. Four completed logger-cost records
+validate interval arithmetic and all matching USB aggregates with power service
+disabled. These are workload wall-time receipts, not idle or CPU measurements.
+Exact staging precedes the next automatic attribution trial; no endurance fix
+or native acceptance is inferred from this instrumentation.
+
 ### Fourth endurance return — final file-pool retirement (2026-10-28)
 
 Release `e7d06c056ba13a58`, clean `eef772a0` (PR240), returned automatically

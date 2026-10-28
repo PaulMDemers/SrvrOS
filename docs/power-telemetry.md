@@ -352,11 +352,15 @@ polling reduction and persistence; keep those other acceptance questions open.
 
 ### Logger cost records
 
-With power telemetry requested and a reference clock available, the workspace
-logger measures each existing snapshot save. `workspace-cost: version=1` reports
-its start/end, bytes and preparation/write/verification/sync microseconds, plus
-USB BOT callback counts and elapsed time for CBW, data and CSW phases. Timing is
-opt-in; it changes no transfer, timeout, cadence, validation or flush policy.
+With a reference clock available, the workspace logger measures each existing
+snapshot save independently of optional CPU power telemetry. No MSR service is
+enabled by these clock measurements. Earlier payloads required power telemetry
+to be on; absence of their receipts is not evidence of a fast save. The original
+`workspace-cost: version=1` reports start/end, bytes and preparation/write/
+verification/sync microseconds, plus USB BOT callback counts and elapsed time
+for CBW, data and CSW phases. The current version 3 retains these intervals and
+adds the transfer/service-gap detail below. Timing changes no transfer, timeout,
+cadence, validation or flush policy.
 The generic BOT wrapper is measured, so no controller-specific instrumentation
 is required. Failed callbacks are counted; regressing/overflowed clocks invalidate
 the record. A nested measurement scope refuses without resetting its owner.
