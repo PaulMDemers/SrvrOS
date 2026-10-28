@@ -5254,3 +5254,21 @@ This does not identify RC6's timebase error, but does not support a correspondin
 MMIO placement. The strict original RC6 mismatch remains a failure, and its raw
 timing diagnostic is saved independently of acceptance. A 90-second host clock
 regression preserves fractional accumulation across repeated 24-bit PM wraps.
+
+Retry candidate `8c9a5a28464ffd7c`, compiled source `ac343119` (PR246), passes the
+matched build, full core suite/docs, all nine platform VM cases and three legacy
+AP-owner/coordinated/package profiles. Directed failures retain expected fault
+codes and terminal peer states. Disassembly confirms diagnostic isolation and
+no added control writes. Version-2 timing plus 25 maximum-width device receipts
+retain required proofs within the unchanged 64 KiB tail. USB preflight preserves
+550 files / 1,605 clusters, with clean allocation and required headroom.
+
+Read-only Ubuntu follow-up confirms each of the four root-port chains is Null
+`0x20000000` at `0x100`, followed by terminal `0x0001001e` at `0x200`. Native
+traversal and RC6 timing acceptance remain pending. The unattended retry uses
+the same 30-second idle/load/recovery phases and 32 bounded C3 attempts, saves
+results, and returns automatically. Keep AC/USB connected; no input is required.
+Before installation, repoint current through the normal installer to accepted
+package audit `bae0678ed7e9b38b`, then retire only the failed `a3ac64f7cd15293c`
+EFI copy after durable verification to make space. Console recovery, accepted
+payloads and the failed candidate's durable payload/evidence remain retained.
