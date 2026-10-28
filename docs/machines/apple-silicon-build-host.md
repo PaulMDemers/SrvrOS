@@ -1740,3 +1740,16 @@ native install or merge occurred. PR19 `7ac6b0e6` retains independent Wi-Fi scop
 Earlier storage/native evidence remains dated separately. Continued tracing
 reaches shared ARP/DNS query ownership and connected-UDP peer filtering/libc
 close-reuse; directed overlap/filter tests are the next bounded checkpoint.
+
+
+## Resolver and connected-UDP ownership — active scope (2026-10-28)
+
+Continue PR182 from `c43a1749`, integrating main `4ae360ef` through PR243.
+Audit shared ARP/DNS query state across blocking waits, connected UDP peer
+filtering and libc receive/close/reuse and flag restoration. Scope: network
+core, socket adapter, directed host/guest regressions, Makefile and current
+guides. Main adds desktop pool-drain/scheduler attribution and opt-in read-only
+package/platform diagnostics; rerun affected integration checks. PR19 now at
+`88a2408a` remains separate Wi-Fi bring-up, without network-core overlap.
+Next checkpoint: original-source failures, bounded fixes and sequential matched
+validation. PR182 remains draft; no native install, Actions or merge planned.
