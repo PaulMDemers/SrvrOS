@@ -569,17 +569,23 @@ update that cache. Native DNS permits one active query across ARP and all retrie
 an overlapping raw call returns `SRV_ERR_AGAIN` without changing its output.
 The active request accepts replies only from its configured server IP and the
 existing DNS port/ID. All normal failure/success paths release ownership, and
-process exit stops ARP/DNS waits. This is not DNSSEC, comprehensive response
-validation or a new parallel resolver; libc name-service error translation and
-its separate UDP resolver remain bounded follow-on work.
+process exit stops ARP/DNS waits. The subsequent shared parser validates question,
+compression and relevant A/CNAME identity before publication; libc also filters
+the configured source, rejects truncated replies and preserves retry queries.
+Native busy fallback maps to EAI_AGAIN. This is not DNSSEC or a parallel resolver.
 
 Connected UDP `recv`, `recvfrom` and `recvmsg` filter by the IP/port captured at
 receive entry. Foreign datagrams are consumed until a match or ordinary
 nonblocking/error result, including zero-capacity calls. Unconnected `recv` is
 supported. A receive continuation validates pseudo-slot generation and native FD
 after each syscall and restart handler; close/reuse returns `EBADF` before retry
-or restoring temporary flags to a replacement. Dup/new allocation gets a new
-slot generation, and exhausted generations are not recycled. No syscall or
-public layout changes. Concurrent flags on the same live FD, native-FD operations
-behind libc, TCP connect/accept continuations and arbitrary SMP races remain
-outside this bounded result; see the [datagram audit](datagram-audit-2026-10-28.md).
+or publishing into a replacement. Dup/new allocation gets a new slot generation,
+and exhausted generations are not recycled. MSG_DONTWAIT now uses per-call native
+I/O (SYS_SOCKET_TRY_IO, 155), without temporary shared flag changes, including
+UDP sends and pipe-backed socketpairs. New libc needs a matched rebuilt kernel.
+TCP connect/accept revalidate pseudo ownership after waits and restart handlers;
+raw accept pins its listener with a CLOEXEC duplicate and snapshots options. This
+needs one spare FD (EMFILE on exhaustion); closing the original raw FD does not
+cancel the retained accept. Native-FD operations behind libc, alias peer/options
+coherence and arbitrary SMP races remain outside this bounded result; see the
+[DNS/socket audit](dns-socket-audit-2026-10-28.md).

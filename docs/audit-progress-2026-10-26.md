@@ -136,9 +136,13 @@ passing queue/ownership controls. Main `2c34a460` through PR238 is integrated.
 The resolver/connected-UDP checkpoint adds 13 kernel and 12 libc modes: per-target
 ARP completion, one native DNS owner/source check, exit cleanup, common peer
 filtering and generation-checked UDP retries/flag restoration. Main `4ae360ef`
-through PR243 is integrated. DNS question/answer identity and compressed names,
-same-live-FD flag isolation and TCP connect/accept publication are next. Broad
-network conformance remains unqualified.
+through PR243 is integrated. The [DNS/socket checkpoint](dns-socket-audit-2026-10-28.md)
+adds 46 parser cases, 17 libc modes and native nonblocking dispatch/pipe controls.
+It validates question/compression/answer identity, fixes libc retry/source/error
+handling, isolates MSG_DONTWAIT without shared flag mutation and guards TCP
+connect/accept continuations. Main `46b60b24` through PR246 is integrated. Next:
+resolver retry/deadline policy, duplicated peer/options state and remaining
+native-FD I/O continuations. Broad network conformance remains unqualified.
 Delivery is [draft PR182](https://github.com/PaulMDemers/SrvrOS/pull/182).
 This checkpoint is separate from the completed event-adapter target.
 

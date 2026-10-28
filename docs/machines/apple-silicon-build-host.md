@@ -1799,3 +1799,43 @@ new entry. Main adds clock-only logging and opt-in diagnostic corrections;
 rerun their affected host gates. PR19 `5556641f` retains independent Wi-Fi scope.
 Next checkpoint: original-source failures, focused fixes, sequential matched
 verification and draft PR update. No Actions, native install or merge planned.
+
+
+### DNS parsing and socket call ownership result
+
+Main `46b60b24` through PR246 is integrated in `39210341`. Shared DNS parsing now
+validates question/response identity, complete packet extents, bounded compressed
+names and relevant A/CNAME answers. Libc retains immutable retry bytes, filters
+the configured UDP peer, rejects truncation and maps native resolver contention
+to EAI_AGAIN. MSG_DONTWAIT uses new per-call syscall 155 without shared flag
+mutation, including UDP sends and pipe-backed socketpairs. Connect/accept
+revalidate pseudo generations after waits/restarts; native accept retains a
+CLOEXEC listener duplicate and captured options. See the
+[DNS/socket report](../dns-socket-audit-2026-10-28.md) for limits and ABI details.
+
+Forty-six parser cases, seventeen libc modes and the syscall dispatch matrix
+pass on x86_64/Rosetta. The parser/libc and prior UDP/query matrices pass native
+ARM64 ASan/UBSan; syscall dispatch uses x86_64 sanitizers for its inline assembly.
+Original `4cef0949` fails fifteen kernel-parser and seventeen libc-parser modes;
+fifteen of the seventeen initial socket modes differ, including the new
+raw-accept descriptor-pressure contract. Stream modes additionally verify signal
+checkpoints and EPIPE preservation. The prior 46 TCP modes pass normally and
+under sanitizers. Pipe pressure/flags, TCP accept, network worker/device, process
+output/lifetime, syscall I/O and lifecycle-wait pass. Integrated package/platform,
+clock/clock-app, workspace-log and PCI gates pass. Matched build, six generator
+groups and recursive validation of 372 entries in 16 directories pass.
+
+Eight sequential disposable VMs pass: tcp-ready 10.88 s, tcp-stress 47.74 s, netabi 10.32 s, libuv 10.21 s, threads 40.5 s, lifetime 23.54 s, web-segmented 18.84 s, outbound-local 10.51 s.
+Netabi confirms signal delivery, per-call flags/alias/pressure/recovery and both
+earlier UDP groups. Local outbound HTTP verifies `/dns-socket-check` and the
+exact `srvros-local-outbound-dns-socket` body. Resolver malformed-packet and
+close/reuse schedules remain deterministic host evidence, not VM concurrency
+claims.
+
+Final source and image hashes, original failures and logs are retained under
+`build/review/dns-socket/`; intermediate candidate runs are retained separately
+from the final image. PR182 remains draft. No native install,
+Actions dispatch or merge occurred. PR19 `5556641f` remains independent Wi-Fi
+work. Continued tracing reaches resolver retry/deadline policy, duplicated
+pseudo-socket peer/options state and remaining native-FD I/O continuations;
+these need separate directed coverage before claiming a broader socket profile.

@@ -1313,3 +1313,19 @@ TCP/datagram modes. The guest netabi fixture adds
 receive forms, discarded foreign packets and nonblocking exhaustion. Evidence
 is under `build/review/query-ownership/`; the [audit](datagram-audit-2026-10-28.md)
 records exact results and limits.
+
+
+## DNS identity and per-call socket checkpoint
+
+`make test-dns-response test-socket-calls test-socket-try-io` runs 46 shared-parser
+cases, 17 production libc modes and the native operation/file-type/access matrix.
+The datagram fixture adds uncached/cached/local nonblocking-send coverage (eleven
+modes total). Process-output adds per-call empty/full pipe checks without shared
+flag mutation; syscall-I/O keeps the new operation outside GUI-safe admission.
+The netabi guest adds `netabi: per-call flags/alias/pressure/recovery ok`, checking
+actual syscall/libc/pipe behavior on the matched image; a second marker checks
+closed-peer SIGPIPE delivery at the call checkpoint. Original-source results,
+sanitizer architectures, exact VM evidence and bounded contracts are in the
+[DNS/socket audit](dns-socket-audit-2026-10-28.md). Evidence directory:
+`build/review/dns-socket/`. This adds syscall 155 and EAI_AGAIN; rebuild matched
+kernel/libc rather than copying a new socket client into an older image.

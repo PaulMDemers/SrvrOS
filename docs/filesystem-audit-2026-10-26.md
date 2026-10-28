@@ -909,8 +909,10 @@ through PR238 is integrated; storage evidence remains dated separately.
    Terminal identity invalidation and CPU0 backend-operation/teardown admission
    now have directed coverage. They do not certify live device recovery or
    arbitrary retained kernel pointers.
-2. DNS question/answer identity and compressed-name validation, same-live-FD
-   flag isolation and TCP connect/accept publication after close/reuse are next.
+2. Resolver retry/deadline policy, duplicated pseudo-socket peer/options state
+   and remaining native-FD I/O continuations are next. DNS response identity,
+   compression, per-call flags and TCP connect/accept now have directed
+   [coverage](dns-socket-audit-2026-10-28.md) on main `46b60b24` through PR246.
    ARP/DNS caller ownership and connected-UDP filtering/continuation identity
    now have 25 additional directed modes in the datagram audit, on main
    `4ae360ef` through PR243. UDP/ICMP validation, queue

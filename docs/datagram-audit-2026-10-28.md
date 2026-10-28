@@ -185,3 +185,10 @@ socket and error translation need their own source/response tests. Also queued
 are same-live-FD per-call flag isolation and TCP connect/accept publication after
 libc close/reuse. The current evidence covers deterministic UDP continuation
 boundaries, not every socket operation or complete DNS/network conformance.
+
+
+The subsequent [DNS/socket checkpoint](dns-socket-audit-2026-10-28.md) completes
+that bounded queue: shared response identity/compression validation, libc
+source/retry/error handling, per-call flag isolation and connect/accept
+continuation checks. Its own report records the newer syscall, tests and limits;
+results above remain the earlier ownership checkpoint's evidence.

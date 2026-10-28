@@ -299,3 +299,17 @@ read-only diagnostic and desktop pool changes. This does not add native package
 or graphics acceptance. Sequential VM gates use matched images; netabi now
 checks connected-peer filtering and unconnected recv. Evidence lives under
 `build/review/query-ownership/`, with `/query-check` for host-local outbound HTTP.
+
+
+For DNS/socket ownership, run
+`sh tools/macos/build.sh HOST_CC='python3 build/tooling/darwin-host-cc.py' test-dns-response test-socket-calls test-socket-try-io test-net-datagram test-process-output test-syscall-io`.
+There are 23 DNS modes per production caller, 17 libc socket/resolver modes and a
+native syscall dispatch matrix. The parser/socket fixtures use the same native
+ARM64 sanitizer flags above; syscall-try-io includes x86 assembly and requires
+`cc -arch x86_64` for sanitizer builds, plus `-I build/limine-protocol/include`.
+Main `46b60b24` through PR246 is integrated in `39210341`; rerun package, PCI,
+clock/clock-app and workspace-log gates for those integrated changes. Build a
+matched image for syscall 155 before the eight sequential disposable VM checks.
+Netabi now checks per-call flags, duplicate status, pressure and recovery.
+Evidence: `build/review/dns-socket/`, with `/dns-socket-check` for host-local
+outbound HTTP. See the [DNS/socket audit](dns-socket-audit-2026-10-28.md).
