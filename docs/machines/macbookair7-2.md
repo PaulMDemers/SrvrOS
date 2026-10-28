@@ -43,6 +43,15 @@ Main `7bad3681` / PR235's isolated coordinated AP/C3 mechanism is integrated;
 its Haswell-only gate and separate MP-request kernel remain unchanged. Rebuild
 and rerun merged host/VM checks before the exact staged diagnostic retry.
 
+Merged-tree validation (source `96a8d307`) passes full core/desktop hosts, normal,
+both native/VM Air kernels and isolated AP build. The Air6,1 KVM control passes
+PCM/disk/app/screenshot verification and normal retirement; the ordinary Air7,2
+kernel has no MP request. Exact v80 release `8003479c17f01644` passes GRUB/Q35
+native-ownership refusal, save, unmount and reset. This is rehearsal, not a native
+endurance pass. The matching retry preserves the original failed session and all
+1171 current files, retains independent recovery, and runs automatically with
+unchanged limits. No human input is required; collect before any further trial.
+
 ### Air6,1 parity — native desktop power accepted (2026-10-28)
 
 Automatic v82 release `775c5051149c0e38`, compiled `0cbbb275`, completed
