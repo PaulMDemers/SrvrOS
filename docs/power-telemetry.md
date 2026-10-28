@@ -1197,3 +1197,13 @@ peer readiness, wake acknowledgements and individual residency brackets retain
 the 32-attempt/20 ms limits and HLT fallback. Host/VM validation does not accept
 native coordinated entry; ordinary startup and power-policy registers remain
 unchanged. See the Air6,1 record for the exact candidate and subsequent evidence.
+
+
+Air6,1 release `57274dfaccfdc0b9` now accepts that bounded coordinated core-C3
+experiment: all 32 rounds observed entry on both physical cores, maximum whole
+round 9.983 ms, maximum BSP wait 9.951 ms, 32 HLT fallback receipts and clean AP
+retirement. Package C3 remained valid zero. The short measured BSP wait brackets
+were 99.686% core C3; this is not a whole-session idle ratio or energy saving.
+The later 30-second phase coverage retains approximately 4.05/5.13/4.09 W package
+power with C1 parking after the trial. Ordinary startup/policy remain unchanged;
+package blockers and sustained operation remain open. See the [unit acceptance](machines/macbookair6-1.md#coordinated-c3--native-acceptance-2026-10-28).

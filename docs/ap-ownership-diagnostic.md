@@ -82,8 +82,10 @@ may reuse the existing 32-attempt, 20 ms and BSP HLT-fallback protections.
 ## Coordinated C3 candidate
 
 The separate `--cpu-load-capture --ap-coordinated-c3` laptop profile uses the
-same diagnostic ELF and accepted 32-round C1 ownership handshake. It is not yet
-physically accepted. Native admission additionally requires invariant TSC,
+same diagnostic ELF and accepted 32-round C1 ownership handshake. Air6,1 release
+`57274dfaccfdc0b9` accepts bounded coordinated core C3 with clean wake/fallback
+and retirement; package C3 remains valid zero. See the [native result](machines/macbookair6-1.md#coordinated-c3--native-acceptance-2026-10-28).
+Native admission additionally requires invariant TSC,
 MONITOR C3 support, ARAT, the calibrated live BSP timer and a permissive package
 C-state limit. Every peer independently reports C3 support. No power-policy
 register is written. Ordinary boot still has no MP request or coordinator hooks.
