@@ -37,6 +37,14 @@ def cache_valid(c):
     if not c['owner']:assert c['generation']==c['adapters']==c['ready']==c['rows']==c['selectable']==0 and c['selected']==2**32-1
     else:assert c['generation'] and c['adapters'] and c['ready']
 
+def check_desktop_input(radio):
+    r=radio.decode('utf-8')
+    assert 'srvros.trackpad=gestures' in r
+    rows=re.findall(r'^xhci: trackpad slot=([1-9][0-9]*) dci=([1-9][0-9]*) ready=yes request=([1-9][0-9]*) pointer=yes$',r,re.M)
+    assert len(rows)==1
+    slot,dci,size=map(int,rows[0]);assert slot<=255 and dci<=31 and size<=4096
+    return dict(trackpad_ready=True,pointer_enabled=True,slot=slot,dci=dci,request=size)
+
 def check_radio_isolation(radio):
     """v104 only: complete proof must contain one owned, I/O-free RF phase."""
     r=radio.decode('utf-8')

@@ -1,5 +1,5 @@
 import unittest
-from wifi_ui_log import check_ui,check_radio_isolation,SCAN
+from wifi_ui_log import check_ui,check_radio_isolation,check_desktop_input,SCAN
 RELEASE='0123456789abcdef'
 
 def saved(stream,name,stamp,cap):
@@ -21,6 +21,13 @@ def fixture(long=False):
     return radio,begin,end
 
 class Proof(unittest.TestCase):
+    def test_desktop_input(self):
+        raw=b'srvros.trackpad=gestures\nxhci: trackpad slot=6 dci=5 ready=yes request=512 pointer=yes\n'
+        self.assertTrue(check_desktop_input(raw)['pointer_enabled'])
+        for old,new in [(b'gestures',b'capture'),(b'ready=yes',b'ready=no'),(b'pointer=yes',b'pointer=no'),(b'dci=5',b'dci=32'),(b'request=512',b'request=4097')]:
+            with self.assertRaises(AssertionError):check_desktop_input(raw.replace(old,new))
+        with self.assertRaises(AssertionError):check_desktop_input(raw+raw.split(b'\n',1)[1])
+
     def test_radio_isolation(self):
         start='workspace-log: phase=wifi-radio periodic=paused tail_limit=1048576\n'
         parked='wifi-ui-log: isolation_required=1 parked=1\n'

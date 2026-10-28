@@ -203,6 +203,15 @@ class InstallTests(unittest.TestCase):
         for options in (dict(mwait_deep_test=True),dict(cpu_load_capture=True,mwait_deep_test=True,mwait_wakeup_test=True),dict(cpu_load_capture=True,wifi_scan_batch=True,wifi_scan_retry=True,mwait_deep_test=True)):
             with self.assertRaises(ValueError):boot.stage(**options)
 
+    def test_wifi_desktop_input_profile(self):
+        version="ram-usb-wifi-fw-v105-laptop-probe-0e535900-auto-return"
+        config=boot.limine_config("0123456789abcdef",version)
+        self.assertEqual(config.count("srvros.trackpad=gestures"),1)
+        self.assertEqual(config.replace(" srvros.trackpad=gestures",""),boot.limine_config("0123456789abcdef",version.replace("v105-","v104-")))
+        with self.assertRaises(ValueError):boot.limine_config("0123456789abcdef",version.removesuffix("-auto-return"))
+        for opts in ({},dict(wifi_log_isolation=True,hold_on_failure=True)):
+            with self.assertRaises(ValueError):boot.stage(wifi_desktop_input=True,**opts)
+
     def test_wifi_log_isolation_profile(self):
         version="ram-usb-wifi-fw-v104-laptop-probe-0e535900-auto-return"
         config=boot.limine_config("0123456789abcdef",version)
