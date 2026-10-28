@@ -20,13 +20,15 @@ is archived outside build. Ubuntu remains default, workspace unmounted and no
 reboot armed. No repeat is needed. Sustained endurance, FCS, physical BSSID
 deduplication, association/security and IP/UI remain unaccepted.
 
-Installed attended candidate: v103 `fe9dc6295c7318c4`, source `10f15a3b`,
+Failed attended candidate: v103 `fe9dc6295c7318c4`, source `10f15a3b`,
 actual main `951135b0`. Full runtime/core/desktop and sanitizer checks used
 `7050a441`; only the VM dock-coordinate harness changed afterward. Complete
 radio proof is retained in `wifi-scan.log`, with a separate rolling desktop tail
 and automatic Help checklist at the existing automatic display scale. Native
-cache/selection/disconnect UI acceptance is pending. Ubuntu remains default;
-workspace unmounted, candidate unarmed. Await cold-cycle readiness before shutdown.
+cache/selection/disconnect UI acceptance remains pending. Session
+`session-00065eea37183a8d-00` saved and returned but refused GUI admission: no
+cache owner was published. Raw failure is retained. Ubuntu remains default;
+workspace unmounted and no reboot armed.
 Durable run/archive: `~/.local/share/srvros/macbookpro11-2/wifi-ui-10f15a3b`.
 
 Latest accepted trial: v101 `f1015eeb7358f9c7`, source `6b12e4f2`, main
@@ -10569,3 +10571,30 @@ The owned local file is mode0600; contents have not been read, copied or logged.
 This discovery/selection trial does not use credentials. Management TX,
 association/WPA2/key lifecycle, active IP and 5GHz remain future work. Battery,
 headphones and further trackpad latency remain deferred.
+
+
+## 2026-10-28 v103 native refusal and configuration-guard repair scope
+
+Session `session-00065eea37183a8d-00`, release `fe9dc6295c7318c4`, returned
+automatically with793815-byte exit log. Raw scan reports three complete restored/
+stopped visits,11 completed inputs, two pending reads and two anonymous rows.
+Cache before admission reports published=0, adapters=0, so GUI admission correctly
+refused and overall completed=NO. Neither phase-handoff file exists. Strict
+collection refuses this run; no new physical acceptance is claimed. Raw collection,
+refusal and postboot recovery/integrity checks are archived under the existing
+`wifi-ui-10f15a3b` durable directory. No repeat is armed.
+
+Source inspection finds the cache presence predicate requires generic
+`d->configured`, while captured firmware enumeration deliberately leaves that
+flag false and owns separate firmware/MCU/RX configuration. The host native-batch
+fixture forced the generic flag true, hiding this mismatch. Bounded next scope:
+make presence require the actual captured-path configuration state, preserve
+identity/root-port/connection-change/quarantine checks and active-phase publication
+ownership, and test native generic-flag=false plus each required-state refusal.
+Touched: xHCI scan include and its host fixture; no RF recipe or ABI changes.
+Actual fetched main is `2c34a460`; current candidate remains based on `951135b0`.
+New baseline adds lifecycle-worker/fairness and isolated AP C3 work; integration
+and a complete exact-image trial remain necessary before a replacement install.
+Checkpoint: reproduce old guard failure, repair focused host/sanitizer suites,
+then prepare a separately source-bound replacement. Battery/security/IP stay out
+of this scope. No credentials are used.
