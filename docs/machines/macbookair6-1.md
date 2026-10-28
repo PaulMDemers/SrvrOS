@@ -4745,3 +4745,15 @@ payload `8030ae20c2611a09`, console recovery, desktop power, stress and attended
 reopen. The superseded prerequisite-only EFI copy `8022333a9240598e` may be
 retired after verifying its durable backup. Save/hash the candidate and run
 records outside `build` before arming. Native acceptance remains pending.
+
+
+Before final integration, main `671a89ed` / PR227 landed an Air7,2 Help/checklist
+update. Consumed it at `2a8fabd0`, rebuilt matched artifacts and reran the full
+core/docs suite plus exact-stage GPT save/return, missing-workspace and disabled/
+unsupported power/load VMs; all pass. Final candidate is **`980f4936c6282637`**,
+compiled source `2a8fabd0`, with the same run `cee8062fef7e4084`. Earlier candidate
+`1bac141e5965a9b0` was rehearsed but never installed or physically booted. The
+integration changes no idle/runtime path. The prerequisite-only EFI payload
+`8022333a9240598e` was retired after durable verification; accepted shallow
+`8030ae20c2611a09` and the protected recovery/endurance payloads remain installed.
+Physical C3 wakeup/residency acceptance is still pending the automatic run.
