@@ -15,8 +15,10 @@ def _result(text):
     owner_header='ap-owner: v=1 admitted=1 mode='+('native' if native else 'vm')+' cpus=4 bsp=0 mask=15 method='+('monitor-c1' if native else 'pause')+' rounds=32 limit_us=20000 retained=yes'
     tails=[s for s in text.splitlines() if s.startswith('ap-owner: completed=')]
     if len(tails)!=1:return None
-    owner=ap_owner_result('\n'.join([owner_header,*owner_lines,*tails]))
-    if not owner:return None
+    original_heads=[s for s in text.splitlines() if s.startswith('ap-owner: v=')]
+    if len(original_heads)>1:return None
+    owner=ap_owner_result('\n'.join([*(original_heads or [owner_header]),*owner_lines,*tails]))
+    if not owner or owner['mode']!=('native' if native else 'vm') or owner['cpus']!=4:return None
     peer_lines=[s for s in text.splitlines() if s.startswith('ap-c3-peer:')];peers={}
     for line in peer_lines:
         m=re.fullmatch(r'ap-c3-peer: id=([123]) mode=([12]) armed=32 done=32 attempts=32 early=0 config=([0-9]+),([0-9]+)',line)

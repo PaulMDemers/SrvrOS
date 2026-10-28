@@ -460,7 +460,17 @@ def main():
                         if args.ap_c3_sim and args.ap_cpus==4 and not args.ap_inject:
                             assert result and result['mode']=='vm-simulation'
                         elif args.ap_c3_sim and args.ap_cpus==4:
-                            assert result is None and 'ap-c3: v=1 mode=vm-simulation' in exit_log and 'completed=NO' in exit_log
+                            assert result is None
+                            if args.ap_inject.startswith('c3-'):
+                                # A startup timeout must not pass a later injected fault.
+                                faults={'c3-missing':(3,), 'c3-early':(4,7), 'c3-fault':(4,7)}
+                                summary=re.findall(r'^ap-c3: v=1 mode=vm-simulation epoch=1 rounds=0 fault=(\d+) config=0 limit_us=20000 completed=NO retained=yes$',exit_log,re.M)
+                                assert len(summary)==1 and int(summary[0]) in faults[args.ap_inject]
+                                peers=re.findall(r'^ap-owner-cpu: .* rounds=32 .* state=(\d+) fault=(\d+) waits=\d+$',exit_log,re.M)
+                                assert len(peers)==3
+                                assert sorted(peers)==([('2','0'),('2','0'),('3','1')] if args.ap_inject=='c3-fault' else [('2','0')]*3)
+                            else:
+                                assert 'ap-c3: v=1 mode=vm-simulation' in exit_log and 'completed=NO' in exit_log
                         else:
                             assert result is None and ('ap-c3: v=1 admitted=0' in exit_log or 'ap-owner: v=1 admitted=0' in exit_log)
                     if aml_capture:
