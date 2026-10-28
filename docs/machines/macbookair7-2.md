@@ -22,6 +22,15 @@ boundary. Keep accepted writes/resources until retirement, original deadlines,
 workload intensity and all kernel I/O eligibility gates. PR182's process/VFS
 cleanup and PR19 Wi-Fi remain independent; this block makes no kernel changes.
 
+The retry's 1171 prior files are preserved except expected metadata; offline
+fsck/allocation pass (1177 files, 3001 clusters, zero errors). Ubuntu default,
+consumed one-shot and recovery are verified. The worker implementation now passes
+full core/desktop hosts and a matched ordinary image build. Directed fixtures
+hold worker reap/preparation calls stalled while the UI polls, verify unique PID
+ownership and one-time result consumption, and reject image transfer before a
+validated canvas copy. Positive and exact-stage VM checks remain pending; no
+hardware acceptance is claimed for these changes.
+
 ### Parity endurance — early native failure under investigation (2026-10-28)
 
 Release `0d1ffb15c35f639a`, source `45b8647a`, returned automatically from
