@@ -55,8 +55,8 @@ both share the [allocating window/model layer](desktop-window-ownership.md) for
 owned dialogs, sequential Quit and drained-work release. Terminal uses shared
 dispatch and PTY readiness while preserving shell control keys. These new
 consumer changes have bounded non-audio physical acceptance on Air7,2; exhaustive
-menu/quit edges and native audio overlap remain outside that result. A combined GUI/nonblocking-pipe
-wait preserves a single dispatcher and keeps accepted I/O owned until drained.
+menu/quit edges and native audio overlap remain outside that result.
+A combined GUI/nonblocking-pipe wait preserves a single dispatcher and keeps accepted I/O owned until drained.
 Text and Preview also share an asynchronous file chooser controller; canceled
 folder reads drain before its buffers can be reused.
 Local coverage includes 128 small windows, 32 real Text documents/33 exact files,

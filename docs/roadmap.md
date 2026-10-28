@@ -87,7 +87,9 @@ movement/dock/navigation and focused Close/window-list acceptance through
 and shared Close discovery are implemented.
 
 **Next completion gates:** expand measured input/resize/pressure coverage and
-validate newer shared changes on the target before extending native acceptance. Parented dialogs, cancellable Close/Quit and
+validate newer shared changes on the target before extending native acceptance.
+
+Parented dialogs, cancellable Close/Quit and
 existing-process document routing are implemented in protocol v15. Text and
 Preview share the asynchronous [chooser controller](desktop-chooser.md) hosted
 in native owned dialogs with an embedded fallback. Broader app services remain

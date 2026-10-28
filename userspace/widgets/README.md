@@ -411,7 +411,7 @@ opening either mode. This adds no allocation or transport policy. The desktop
 uses selection-only mode for its held-key window switcher.
 
 The compositor uses this for Command-Space application/window search. Open windows
-use process identities; application entries explicitly launch a new instance.
+use stable window identities; application entries explicitly launch a new instance.
 Opening suspends client focus, cancel restores it, and outside clicks are consumed
 through release. The query shares the desktop clipboard with applications.
 
