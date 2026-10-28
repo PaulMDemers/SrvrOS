@@ -38,9 +38,14 @@ zero observed PCM underruns, exact files/screenshot and clean retirement. Five
 live checkpoints use the new matching durability marker. The 100-write-IOPS
 populated fixture still fails cycle 1 total lifecycle (UI 109720 us); preserve it
 as a remaining performance failure. No native barrier acceptance is claimed.
-PR #247 is proceeding to integration under that explicit user ownership assignment.
-No new boot payload was installed or staged for this proposal and no reboot is armed;
-installed remains `c98e4c162b411126`, independent recovery `9aa8dbf6fbda8252`.
+PR #247 merged as `bb8561f7` under that explicit user ownership assignment.
+Clean stage `3b5821fefe34b721` passes exact-payload Q35 refusal/save/unmount/reset
+rehearsal and is installed for an automatic 1800-second native trial. This VM
+result does not accept native runtime or endurance. Independent recovery
+`9aa8dbf6fbda8252` is retained; Ubuntu remains default. Prior 1200 file hashes and
+offline filesystem/allocation/headroom checks are saved before the trial.
+No human input is needed. Collect the matching session after return; retain the
+known throttled-VM failure and unchanged lifecycle/UI limits.
 
 ### Fifth endurance return — ready-thread gate exclusion (2026-10-28)
 
