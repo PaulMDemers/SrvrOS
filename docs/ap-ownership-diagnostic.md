@@ -258,3 +258,13 @@ RC6-versus-snapshot bound and wrap refusal still govern `platform_result`.
 The collector saves that diagnostic before checking acceptance, preserving a
 repeat mismatch rather than clamping a ratio or inventing a clock tolerance.
 Version-1 historical receipts retain their original validation.
+
+Air6,1 retry `8c9a5a28464ffd7c` accepts the Null-chain traversal on the four
+affected root ports. Its workload/capture completes, but the strict platform
+collector still rejects RC6 timing: about 90.151273 s nominal RC6 versus
+90.057877–90.057879 s tightly bracketed PM time. The 1 us read brackets and
+closely agreeing TSC/PM observations do not explain the 0.104% discrepancy.
+Keep this distinct from runtime access/traversal success and from package-C3
+acceptance. Counter clock/scaling/update semantics remain to be audited; no
+acceptance tolerance or power policy has changed. See the unit record for the
+matching session, retained evidence and recovery state.
