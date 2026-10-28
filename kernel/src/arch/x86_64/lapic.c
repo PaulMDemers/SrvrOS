@@ -21,6 +21,7 @@
 #define LAPIC_SPURIOUS_ENABLE (1u << 8)
 
 static volatile uint32_t *lapic;
+static uint32_t idle_timer_count;
 
 static uint64_t rdmsr(uint32_t msr) {
     uint32_t low;
@@ -52,6 +53,7 @@ bool lapic_init(void) {
 }
 
 void lapic_timer_init(uint8_t vector, uint32_t initial_count) {
+    idle_timer_count=0;
     if (lapic == 0) {
         return;
     }
@@ -75,6 +77,7 @@ void lapic_timer_init(uint8_t vector, uint32_t initial_count) {
     }
     lapic[LAPIC_LVT_TIMER_OFFSET / sizeof(uint32_t)] = LAPIC_TIMER_PERIODIC | vector;
     lapic[LAPIC_TIMER_INITIAL_COUNT_OFFSET / sizeof(uint32_t)] = initial_count;
+    if(calibrated && vector==32)idle_timer_count=initial_count;
     console_printf("lapic: timer vector=%u initial_count=%u calibrated=%s target=100Hz\n",
         (uint64_t)vector, (uint64_t)initial_count, calibrated ? "yes" : "no");
 }
@@ -94,6 +97,13 @@ static uint32_t snapshot_read(unsigned offset) {
 #else
     return lapic[offset/sizeof(uint32_t)];
 #endif
+}
+bool timer_idle_wakeup_ready(void) {
+    return lapic && idle_timer_count && timer_reference_ready() && timer_ticks() &&
+        snapshot_read(LAPIC_LVT_TIMER_OFFSET)==(LAPIC_TIMER_PERIODIC|32) &&
+        snapshot_read(LAPIC_TIMER_INITIAL_COUNT_OFFSET)==idle_timer_count &&
+        snapshot_read(LAPIC_TIMER_CURRENT_COUNT_OFFSET)>0 &&
+        snapshot_read(LAPIC_TIMER_DIVIDE_OFFSET)==3;
 }
 bool lapic_vector_snapshot(uint8_t vector,struct lapic_vector_state *out) {
     if(!out)return false;

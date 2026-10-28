@@ -42,12 +42,11 @@ has been agreed, prepare the reproduction and a small proposed change, mark the
 conflict in its PR/record and defer conflicting integration. Do not silently
 merge two competing implementations or force-push another agent's branch.
 
-At this checkpoint the Air7,2 agent is taking the read-only power baseline and
-native battery/AC runtime groundwork. New agents should start with their own
-inventory and basic console/display/input/workspace acceptance. Shared ACPI,
-EC, scheduler, input, storage and widget changes should consult that active work
-before duplicating it. This is an initial allocation, not permanent ownership.
-Refresh it in the machine records as work changes.
+Current scopes come from each unit record and the actual open PRs, not a fixed
+assignment in this guide. Air7,2 desktop work and Air6,1 power/idle work have
+independent evidence. New agents start with their own inventory and basic
+console/display/input/workspace acceptance. Check active subsystem changes before
+duplicating them; dated handoffs below describe history, not permanent ownership.
 
 Git branches, machine records and PRs are the durable coordination surface.
 Reading another task is not authorization to message it or schedule agents.

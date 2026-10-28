@@ -226,16 +226,16 @@ def idle_prerequisites(text):
 def mwait_result(text):
     lines=[s for s in text.splitlines() if s.startswith('cpu-mwait:')]
     if len(lines)!=1: return None
-    if lines[0]=='cpu-mwait: v=1 admitted=0 fallback=hlt':
+    if lines[0] in ('cpu-mwait: v=1 admitted=0 fallback=hlt','cpu-mwait: v=2 admitted=0 fallback=hlt'):
         return dict(status='refused',fallback='hlt')
     parts=lines[0].split()[1:]
     keys=set('v admitted epoch hint ext cap limit_us tries returns max_us fault hlt rechecks tick_begin tick_end'.split())
     if any(not re.fullmatch(r'[a-z_]+=\d+',s) for s in parts): return None
     row={k:int(v) for k,v in (s.split('=') for s in parts)}
     if len(row)!=len(parts) or set(row)!=keys or any(v>=2**64 for v in row.values()): return None
-    if (row['v']!=1 or row['admitted']!=1 or row['hint']!=0 or row['ext']!=1 or
+    if ((row['v'],row['hint']) not in ((1,0),(2,16)) or row['admitted']!=1 or row['ext']!=1 or
         row['cap']!=32 or row['limit_us']!=20000 or row['tries']>32 or row['returns']!=row['tries'] or
-        row['hlt']>32 or row['fault'] not in (0,1,2)): return None
+        row['hlt']>32 or row['fault'] not in ((0,1,2,3) if row['v']==2 else (0,1,2))): return None
     prereq=idle_prerequisites(text)
     if not prereq or prereq['epoch']!=row['epoch'] or prereq['configuration_changed']: return None
     c=prereq['config_start']
@@ -246,12 +246,33 @@ def mwait_result(text):
     audit_line=next(s for s in text.splitlines() if s.startswith('cpu-idle-audit:'))
     counts=dict(s.split('=') for s in audit_line.split()[1:])
     if int(counts['enters'])<row['hlt'] or int(counts['returns'])+1<row['hlt']: return None
+    deep=None
+    deep_lines=[s for s in text.splitlines() if s.startswith('cpu-mwait-deep:')]
+    if row['v']==2:
+        if len(deep_lines)!=1:return None
+        fields=deep_lines[0].split()[1:]
+        if any(not re.fullmatch(r'[a-z_0-9]+=\d+',s) for s in fields):return None
+        deep={k:int(v) for k,v in (s.split('=') for s in fields)}
+        if (len(fields)!=len(deep) or set(deep)!=set('v epoch arat timer tsc core_c3 package_c3'.split()) or
+            any(v>=2**64 for v in deep.values()) or deep['v']!=1 or deep['epoch']!=row['epoch'] or
+            deep['arat']!=1 or deep['timer'] not in (0,1) or
+            deep['core_c3']>deep['tsc'] or deep['package_c3']>deep['tsc'] or
+            not prereq['cpuid5_substate_nibbles'][2] or
+            int(counts['e2_start'])!=int(counts['e2_end']) or not 2<=int(counts['e2_start'])&15<=8):return None
+    elif deep_lines:return None
     # A fallback is a safety outcome, not successful MWAIT acceptance. Require
     # real tick progress during attempts and the mandatory subsequent HLT path.
     passed=(row['tries']==32 and row['hlt']==32 and not row['fault'] and
-            0<row['max_us']<=20000 and row['tick_end']>row['tick_begin'])
-    return dict(status='PASS' if passed else 'FAILED_OR_INCOMPLETE',**row,
-                scope='32 shallow CPU0 waits; masked wait duration, not IRQ dispatch latency or deeper residency')
+            0<row['max_us']<=20000 and row['tick_end']>row['tick_begin'] and
+            (deep is None or (deep['timer']==1 and deep['tsc']>0)))
+    result=dict(status='PASS' if passed else 'FAILED_OR_INCOMPLETE',**row,
+                scope='32 bounded CPU0 waits; masked wait duration, not IRQ dispatch latency')
+    if deep is not None:
+        deep['valid']=passed
+        deep['core_c3_observed']=bool(passed and deep['core_c3'])
+        deep['package_c3_observed']=bool(passed and deep['package_c3'])
+        result['residency']=deep
+    return result
 
 
 def load_result(text):

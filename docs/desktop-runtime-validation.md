@@ -1,4 +1,4 @@
-# Desktop runtime validation and next native round
+# Desktop runtime validation and acceptance
 
 The October 25–26 desktop work removes the small fixed window-count ceiling and
 separates windows, processes and worker ownership. It is a matched kernel/server/
@@ -80,21 +80,28 @@ stack. It isolates painting savings, not sorting, IPC, framebuffer copies, scano
 or physical input latency. Alternating execution order reduces systematic warmup
 bias; timings remain descriptive host results, not universal thresholds.
 
-## Next Air7,2 physical acceptance
+## Current acceptance and reference checklist
 
-The overnight work did not install or reboot a payload. Keep Ubuntu default and
-the existing known-good recovery. Before any later physical trial, follow the
+Air7,2 has completed bounded shared-runtime, movement/dock/navigation and focused
+Close/window-list trials, most recently release `060fffa453e26d5e`. Exact source,
+sessions and limits are in the [unit record](machines/macbookair7-2.md). These
+results supersede the earlier planned runtime round; newer shared main changes
+are not physically accepted by those receipts. The October 27 baseline refresh
+uses local validation only and does not stage or install a new image.
+
+Keep Ubuntu default and independent recovery. Before any later physical trial, follow the
 [Ubuntu device setup sequence](ubuntu-device-agent-setup.md): collect the prior
 session, confirm this host/model and USB UUID, validate the exact staged image,
 retain recovery, and write the on-disk run record. Do not copy another Mac's
 profile, volume identity or acceptance.
 
-This next round requires a person and should be announced as interactive before
-reboot. The on-screen **Runtime trial** Help topic contains the checklist and
-profile-specific exit instructions. Open Help, press Ctrl-L, search `Runtime trial`
-and press Return. The general Laptop trial page points to it; older tap/device
-recipes are optional reference material, not additional requirements for this round.
-The combined Home profile starts Text, so open Help through the launcher.
+The checklist below is a reference for expanded attended runtime trials, not an
+armed next test. Announce any human input requirement before reboot and deliver
+the complete untimed checklist automatically in the guest, or wait for explicit
+confirmation that it was captured. The on-screen **Runtime trial** Help topic
+contains runtime checks and profile-specific exit instructions; focused window
+profiles have their own automatically opened Help topics. Older tap/device recipes
+are optional reference material, not implicit requirements for a runtime round.
 
 The checklist covers:
 
@@ -135,8 +142,8 @@ recovery/USB preflight remain required before installation.
 Report any refusal separately from corruption or a hang: budgets can legitimately
 refuse further windows while retaining existing edits. Later native higher-count
 results appear below. Gesture behavior, input latency and power measurements
-require their own matching physical evidence. Do not automatically start
-this trial when the overnight no-reboot window ends.
+require their own matching physical evidence. Run a future trial only under the
+current host authorization and recorded test plan.
 
 
 ## October 25 mixed-app hardware result

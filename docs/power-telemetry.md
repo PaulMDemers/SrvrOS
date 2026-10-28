@@ -1096,4 +1096,88 @@ The outer completion result also fails an unsuccessful wakeup trial. Existing
 30-second phases, ten-second coverage, thermal/fan limits, watchdogs, 24-record
 capacity, 64 KiB tail and filesystem checks are unchanged. Exact-stage VM tests
 exercise unsupported refusal/save/return and missing-workspace safe halt; they
-do not accept native instructions or wakeup latency. Native acceptance is pending.
+do not accept native instructions or wakeup latency. Native results follow below.
+
+
+### Native shallow wakeup result (2026-10-27)
+
+Air6,1 release `8030ae20c2611a09`, source `94c2b9e7` (PR224), session
+`session-00065edb20755615-00`, passes the bounded shallow trial: 32 attempts and
+returns, 9,971 us maximum masked wait, zero faults, advancing timer ticks and
+32 subsequent HLT entries. All three 30-second phases and existing coverage,
+thermal/fan, file-preservation and offline-allocation requirements pass, with
+automatic Ubuntu return. Native configuration snapshots are unchanged.
+
+The maximum is wait duration before IRQ dispatch, not scheduling latency. No
+readiness bypass occurred in this native run; host tests cover that race. The
+trial finishes before retained phase intervals, so package averages of
+4.122/5.167/4.127 W predominantly describe HLT fallback. All ten deeper counters
+remain zero. This accepts shallow interrupt wakeup and fallback only; deeper
+entry, other-core live state, energy savings and permanent idle policy remain
+open. See the [unit result](machines/macbookair6-1.md#shallow-monitormwait-wakeup--bounded-native-acceptance-2026-10-27).
+
+## Explicit bounded C3 hint trial
+
+`stage --laptop-probe-volume <local-UUID> --cpu-load-capture --mwait-deep-test`
+selects `ram-usb-v1-mwait-c3-laptop-probe-*` and `srvros.idle=mwait-c3-test`.
+It is mutually exclusive with the shallow trial. Normal boot, desktop and prior
+capture profiles are unchanged. The exact native 06_45/invariant-TSC gate is
+retained, with the same MONITOR line/extension/BSP checks. Additional admission
+requires the CPUID.5 slot for hint `0x10`, an E2 package limit permitting C3,
+CPUID.6 EAX.ARAT, and a live calibrated periodic LAPIC timer at the existing
+100 Hz target, vector 32 and divide-by-16 setting. Missing prerequisites refuse
+before MONITOR/MWAIT. No timer mode, register policy or limit is changed.
+
+The [Linux v6.12 Haswell table](https://github.com/torvalds/linux/blob/v6.12/drivers/idle/intel_idle.c)
+identifies hint `0x10` as C3; its CPU-online path requires timer broadcast when
+ARAT is absent. SrvrOS instead refuses this experiment without ARAT and its
+existing calibrated timer. This is an exact-model selector, not a generic ACPI
+C-state encoding. CPUID substate availability alone does not identify a state's
+physical name or prove entry. Firmware and sibling-thread constraints may
+prevent a requested hint from reaching core or package C3.
+
+The existing race-safe private MONITOR line, IRQ-masked readiness recheck,
+32-attempt cap, 20 ms PM-clock interval check, epoch retirement and mandatory
+32-entry HLT fallback are reused. Hint `0x20` and all other new selectors are
+refused. No AP startup, IPI, new AML, MSR write or automatic deeper policy exists.
+Software still cannot enforce a timeout while a CPU is stuck inside MWAIT;
+ARAT/live timer admission and physical results are prerequisites, not a promise
+of an independent hardware watchdog.
+
+Only deep attempts additionally read TSC around core C3 (`0x3fc`) and package
+C3 (`0x3f8`) counter endpoints. Reads bracket each wait before IRQ dispatch;
+the sums exclude later HLT and phase work. Counter regression, impossible
+counter delta above its TSC bracket, or accumulator overflow latches fault 3
+and HLT fallback. No wrap is inferred. The unchanged wait-clock faults remain
+1 (regression) and 2 (over-limit). Ordinary and shallow paths make no new MSR
+reads. Broader brackets imply lower-bound residency ratios, not exact sleep
+time or IRQ/runnable latency. Shared-core/package counters do not identify
+another logical processor's live state.
+
+Version-2 `cpu-mwait` identifies hint 16. One compact `cpu-mwait-deep` receipt
+records ARAT, final timer readiness, aggregate TSC/core-C3/package-C3 ticks.
+Collector acceptance still requires every existing wakeup/phase/integrity check.
+Valid zero residency remains an explicit unobserved state, not proof of deeper
+entry; wakeup PASS and `core_c3_observed`/`package_c3_observed` are separate.
+A failed trial invalidates its residency inference. The same three 30-second
+phases, ten-second coverage, thermal/fan stops, watchdogs, ownership checks,
+24-record capacity and 64 KiB tail remain in force. Exact-stage VM refusal tests
+cannot accept native deeper wakeup or residency. Native results follow below.
+
+
+### Native C3-hint result: bounded wakeup passes, residency unobserved
+
+Air6,1 release `980f4936c6282637`, source `2a8fabd0` (PR226), session
+`session-00065edb80a92930-00`, records 32 hint-16 waits/returns, maximum masked
+wait 9,968 us, zero faults, timer progress and 32 HLT fallback entries. ARAT and
+live timer readiness pass. All three phases, coverage, thermal/fan, file and
+allocation requirements pass with automatic Ubuntu recovery.
+
+The separate per-attempt bracket totals 620,687,304 TSC ticks but **zero core
+C3 and package C3 ticks**. Thus the bounded hint/wakeup/fallback path is accepted;
+actual C3 residency is not. All deeper counters also remain zero in retained
+phase samples. Package averages of 4.100/5.120/4.101 W mostly measure the later
+HLT fallback and do not establish MWAIT power savings. Firmware configuration
+is unchanged and remote logical-processor state remains unknown. Investigate
+missing residency before claiming a deeper idle policy. See the
+[unit result](machines/macbookair6-1.md#bounded-c3-hint--native-result-residency-unobserved-2026-10-27).

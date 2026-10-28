@@ -4652,3 +4652,226 @@ console recovery, desktop power, stress and attended reopen. The older audit-onl
 EFI payload `6b1f017332e0931b` may be retired after durable hash verification;
 its independent backup remains retained. Payload, exact-stage checks and run
 records must be backed up outside `build` before arming the authorized reboot.
+
+
+### Shallow MONITOR/MWAIT wakeup — bounded native acceptance (2026-10-27)
+
+Return closeout from merged PR224/base `052ebc18` is documentation/evidence only.
+PR182 filesystem audit (`2a091597`) and PR19 Wi-Fi (`6e0e25ec`) remain independent.
+No new runtime policy, deeper hint, AP experiment or reboot is being prepared.
+
+Release `8030ae20c2611a09`, compiled source `94c2b9e7`, completed run
+`7dc08174f8034042`, session `session-00065edb20755615-00`, and automatically
+returned to Ubuntu. The explicit shallow hint 0/extension 1 trial records all
+32 attempts and returns, a maximum masked wait of **9,971 us** against the
+unchanged 20,000 us limit, zero faults, timer ticks 62 to 93, and 32 subsequent
+HLT entries. No post-MONITOR readiness bypass occurred in this native run; that
+race remains covered by the host regression. Independent raw-receipt review
+agrees with the collector. The saved 65,536-byte exit tail retains every required
+receipt; early startup text is trimmed, with identity preserved in boot.log.
+This accepts bounded interrupt wakeup and mandatory HLT fallback, not IRQ dispatch/runnable latency or a store-signalling protocol.
+
+All three ordered 30-second phases complete, with 250,554 load chunks and a
+63 C peak logged temperature. Fifteen retained records have full support/valid
+masks, zero rejections and no overflow. Paired residency/entry coverage is about
+24 seconds in every phase; power coverage is 23.999618/23.999620/26.999572 seconds.
+The unchanged ten-second coverage requirement passes. Package averages are
+4.122/5.167/4.127 W for idle/load/recovery. Covered HLT entries/returns are
+2,378/0/2,373; whole-capture HLT totals are 5,908 entries and 5,907 returns.
+All ten deeper-residency raw counters remain zero. The short MWAIT trial ends
+before the retained phase intervals, which mostly measure the HLT fallback;
+these phase averages do not establish MWAIT energy savings. C0/C1 and time
+asleep remain unmeasured.
+
+Native APIC/misc and E2 snapshots remain unchanged, including the permissive
+C10 package limit. Other logical processors' live state remains unknown.
+Ordinary boot/desktop idle policy, tick frequency, thermal/fan stops, watchdogs,
+integrity checks and all limits remain unchanged. No AP startup, IPI, MSR write
+or deeper hint was introduced.
+
+All 528 baseline files are preserved except expected `.srvros/meta` bookkeeping.
+Four new logs bring the USB to 532 files / 1,582 clusters; offline fsck and
+allocation pass with zero leaks, mismatches or errors. Installed/current and
+protected recovery payload hashes verify. Evidence is retained and hash-verified
+outside `build`. Ubuntu remains default, the one-shot is consumed, the collector
+is disabled and no reboot is armed. The older audit-only EFI payload
+`6b1f017332e0931b` was retired after verifying its durable backup; the accepted
+prerequisite, console, desktop power, stress and attended reopen payloads remain.
+
+The next proposed step is a separately gated deeper-hint experiment with the
+same readiness, latency, fallback and integrity protections, plus an explicit
+review of timer behavior and sibling-thread/package prerequisites. This result
+does not accept deeper entry, longer endurance or a permanent power policy.
+
+### Bounded deeper-idle trial — active scope (2026-10-27)
+
+Base `3bbf80b7`; shallow run collected and accepted. Add a separate explicit
+Haswell 06_45 C3 hint `0x10` trial, at most 32 waits with the unchanged 20 ms
+masked interval limit, readiness recheck, epoch retirement and 32-entry HLT
+fallback. Require CPUID ARAT and the live calibrated 100 Hz LAPIC timer; capture
+TSC-bracketed core/package C3 deltas around each attempt, including valid zero
+observations. Other-core state is unknown and may prevent deeper residency.
+No AP startup, IPI, control-register write, general idle-policy change or relaxed
+limit. Scope: scheduler diagnostic, power admission/receipt, read-only LAPIC
+readiness helper, explicit staging, collector and host/VM regressions. PR182
+filesystem (`2a091597`) and PR19 Wi-Fi (`6e0e25ec`) remain independent. Next:
+validate, self-merge, exact-stage install and authorized automated native run.
+
+
+### Bounded C3 trial — validated candidate (2026-10-27)
+
+PR226 runtime `5ad0cb6f`, exact staged release `1bac141e5965a9b0`, adds only the
+explicit C3 hint recipe. Full matched build/USB/core/docs pass. Directed host
+checks cover shallow compatibility, timer/capability/unsupported-hint refusal,
+32-attempt cap, readiness race, retired epochs, latency boundary and failure,
+C3 counter regression/overflow and valid zero residency, and mandatory HLT.
+All 98 collector/staging tests and twelve existing load refusal/stop cases pass.
+Disassembly preserves MONITOR, selected-hint MWAIT, pre-dispatch measurement and
+the original contiguous `sti; hlt; cli` fallback.
+
+The exact GPT workspace VM passes explicit C3 refusal, saved logs, unmount and
+automatic return; missing workspace halts safely. Disabled/unsupported power and
+load regressions also pass. These VMs do not accept native C3 entry or latency.
+Prior native log replay with both deeper-test receipts retains all phase proof
+under the unchanged 64 KiB limit. No counter/thermal/watchdog/integrity threshold
+has been widened. Valid zero C3 remains an unobserved result, distinct from a
+successful bounded wakeup test.
+
+Native run `cee8062fef7e4084` will execute the same three 30-second phases with
+visible progress and automatic Ubuntu return/collection; no human input is
+needed. Local model, connected AC, USB identity and all 532 baseline file hashes
+verify. Allocation/headroom are clean at 1,582 clusters. Preserve shallow accepted
+payload `8030ae20c2611a09`, console recovery, desktop power, stress and attended
+reopen. The superseded prerequisite-only EFI copy `8022333a9240598e` may be
+retired after verifying its durable backup. Save/hash the candidate and run
+records outside `build` before arming. Native acceptance remains pending.
+
+
+Before final integration, main `671a89ed` / PR227 landed an Air7,2 Help/checklist
+update. Consumed it at `2a8fabd0`, rebuilt matched artifacts and reran the full
+core/docs suite plus exact-stage GPT save/return, missing-workspace and disabled/
+unsupported power/load VMs; all pass. Final candidate is **`980f4936c6282637`**,
+compiled source `2a8fabd0`, with the same run `cee8062fef7e4084`. Earlier candidate
+`1bac141e5965a9b0` was rehearsed but never installed or physically booted. The
+integration changes no idle/runtime path. The prerequisite-only EFI payload
+`8022333a9240598e` was retired after durable verification; accepted shallow
+`8030ae20c2611a09` and the protected recovery/endurance payloads remain installed.
+Physical C3 wakeup/residency acceptance is still pending the automatic run.
+
+
+### Bounded C3 hint — native result, residency unobserved (2026-10-27)
+
+Closeout from merged PR226/base `f5917467` is documentation/evidence only.
+PR182 filesystem audit (`2a091597`) and PR19 Wi-Fi (`6e0e25ec`) retain independent
+scope. No new boot, deeper selector or power-policy change is being prepared.
+
+Final release `980f4936c6282637`, compiled source `2a8fabd0`, completed run
+`cee8062fef7e4084`, session `session-00065edb80a92930-00`, and automatically
+returned to Ubuntu. All 32 hint-16/extension-1 attempts returned; maximum masked
+wait was **9,968 us** under the unchanged 20,000 us limit, with zero faults,
+timer ticks 65 to 96 and 32 subsequent HLT entries. ARAT and live calibrated
+timer readiness passed. No post-MONITOR readiness bypass occurred; that race
+remains host-tested. Independent raw-receipt review agrees with collection.
+
+The per-attempt residency brackets total **620,687,304 TSC ticks**, with exactly
+**zero core C3 and zero package C3 ticks**. These are valid zero observations,
+not a counter fault or proof that the requested state was entered. This accepts
+bounded execution of the C3 hint, interrupt wakeup and mandatory HLT fallback;
+**physical C3 residency is not accepted**. C0/C1, remote logical processors' live
+state, exact sleep time and IRQ/runnable latency remain unmeasured.
+
+All three ordered 30-second phases complete, with 250,530 load chunks, peak
+logged temperature 62 C, fifteen fully valid retained records and zero
+rejections/overflow. Paired residency/entry coverage is 23.999619 seconds in
+each phase. Power coverage is 23.999619/23.999619/26.999571 seconds, above the
+unchanged ten-second minimum. Package averages are 4.100/5.120/4.101 W for
+idle/load/recovery. Covered HLT entries/returns are 2,378/0/2,373; whole-capture
+counts are 5,907 entries and 5,906 returns. All ten deeper raw counters remain
+zero. The 32-attempt trial precedes retained phase intervals; the phase power
+averages mostly describe HLT fallback and establish no MWAIT energy savings.
+Native APIC/misc and E2 snapshots are unchanged, including E2 `0x408`.
+
+All 532 previous files are preserved except expected `.srvros/meta` bookkeeping.
+Four new logs bring the USB to 536 files / 1,587 clusters. Offline fsck and
+allocation pass with zero leaks, mismatches or errors. The 65,536-byte exit tail
+retains all required proof; boot.log retains release/command-line identity.
+Installed/current and protected recovery payload hashes verify. Collected
+artifacts are hash-verified outside `build`. Ubuntu is default, the one-shot is
+consumed, the collector is disabled and no reboot is armed.
+
+Next investigate the missing residency, especially the still-unknown state of
+the sibling logical processor and firmware constraints. Any AP observation or
+rendezvous requires separate ownership and recovery design. Do not infer that
+the firmware limit, sibling state, or any particular constraint is the cause
+from these CPU0 receipts alone. Ordinary idle policy and all limits remain intact.
+
+
+### Missing C3 residency investigation — active scope (2026-10-28)
+
+Base `b9526c88`, after collecting and closing the bounded C3 trial. Investigate
+sibling-thread prerequisites and firmware constraints using the pinned Limine
+source, Intel's Haswell U/Y documentation and read-only Ubuntu residency/topology
+observations. Scope is this unit record and local evidence; no AP startup,
+CPU offlining, MSR/control-register writes, new idle selector or policy/limit
+change. PR182 filesystem and PR19 Wi-Fi retain their independent scope. Next
+checkpoint: distinguish observed hardware capability from unproven native AP
+state and specify the smallest justified follow-up. No new reboot is armed.
+
+
+### Missing C3 residency — investigation result (2026-10-28)
+
+A read-only Ubuntu reference on this same unit confirms that the residency
+registers advance and that deeper core/package idle is physically possible.
+Three ambient ten-second windows under `intel_idle` report CPU0 core C3
+0.799/0.222/0.401%, core C7 70.341/95.710/94.004%, and package C3
+44.933/72.618/69.147% of elapsed TSC. All four logical CPUs show positive
+core C3/C6/C7 and package C2/C3 deltas in every window. Package C6–C10 stay
+zero in this reference. These are ambient Ubuntu observations, not a controlled
+power comparison or SrvrOS acceptance; sequential MSR reads perturb execution
+and do not form simultaneous per-core snapshots.
+
+Linux topology pairs CPUs 0/2 (APIC IDs 0/1) and 1/3 (APIC IDs 2/3). All four
+CPUs remain online. Per-CPU E2 stays `0x408`, matching SrvrOS, and misc stays
+`0x850089`. Linux uses x2APIC while the native trial uses xAPIC; the environments
+are not equivalent. No CPU hotplug, idle-state configuration, power-policy or
+MSR write was performed. Raw delta arithmetic, monotonicity, bounds and unchanged
+control/configuration snapshots were independently checked. Evidence lives in
+`build/power/air61-c3-investigation-20261028`, with a hash-verified durable copy
+outside `build`.
+
+Intel's [Haswell U/Y datasheet, sections 4.2.4–4.2.5](https://cdrdv2-public.intel.com/329001/4th-gen-core-family-mobile-u-y-processor-lines-vol-1-datasheet.pdf)
+explains that the shallower thread request determines the core's idle state;
+package entry additionally depends on the other cores and platform components.
+This makes the unmanaged sibling a concrete prerequisite to investigate.
+The Ubuntu measurements rule out a blanket hardware inability to enter C3 or
+a permanently inactive residency counter. They do not prove the sibling is
+the native blocker, nor rule out other handoff/configuration differences.
+
+Pinned Limine v11.4.1 source (`1276c440`) only invokes `init_smp` when a
+`LIMINE_MP_REQUEST` is present. SrvrOS's `kernel/src/limine_requests.c` contains
+no such request. Therefore the bootloader's AP parking loop is not evidence
+of the AP state in our current native boot. When invoked, that loop uses
+MWAIT hint zero (C1), or PAUSE without MONITOR support. Merely adding the MP
+request would not establish the C3 sibling prerequisite. See the pinned
+[MP-request path](https://github.com/limine-bootloader/limine/blob/v11.4.1/common/protos/limine.c)
+and [AP trampoline](https://github.com/limine-bootloader/limine/blob/v11.4.1/common/sys/smp_trampoline.asm_x86).
+
+**Next milestone: diagnostic secondary-CPU ownership and rendezvous.** Start
+with an explicitly separate diagnostic payload, because a static Limine MP
+request takes effect before SrvrOS can parse an opt-in command line. Keep the
+ordinary kernel's boot requests intact. First prove per-CPU identity, private
+stack/descriptor/fault handling, coherent mailbox wake/acknowledgement and bounded
+return to a known park state. APs must not enter the current single-CPU scheduler,
+allocator, console or shared BSP TSS/interrupt handlers. Define storage lifetime
+and failed-AP containment before release; a timeout cannot reclaim memory that
+a remote CPU may still access. Any bootloader-reclaimable memory still used by
+parked APs must remain reserved. Rehearse missing/duplicate/late acknowledgements,
+unsupported topology and fault containment in multi-CPU VMs before physical use.
+This rendezvous changes AP state and cannot retrospectively observe the original
+firmware park state. Only after ownership is accepted should a separate coordinated
+C3 experiment reuse the existing 32-attempt, 20 ms and HLT-fallback protections.
+No general SMP scheduling or permanent idle-policy change is implied.
+
+This investigation changes documentation only. Installed C3 diagnostic
+`980f4936c6282637` and console recovery `c35475f62f154f1e` still hash-verify;
+Ubuntu remains default, the one-shot is empty and no new reboot is armed.

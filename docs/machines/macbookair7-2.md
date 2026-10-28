@@ -1,8 +1,64 @@
 # MacBookAir7,2 / A1466
 
-Updated: 2026-10-26. State: **active reference machine; partial device acceptance**.
+Updated: 2026-10-27. State: **active reference machine; partial device acceptance**.
 
-### Window commands and discovery — locally validated; native pending
+### Shared baseline refresh — local validation complete
+
+Consumed actual main `f5917467` (PR226), then documentation-only `a2a2c56f`
+(PR228), on the existing device branch. All prior
+Air7,2 implementation and acceptance commits are merged; the checkout was clean
+with no local commits outside main. PR182 filesystem audit and PR19 Pro Wi-Fi
+remain separate ongoing work, not accepted dependencies. This housekeeping block
+owns current documentation and local validation only: rebuild matched normal/
+native/VM artifacts, run core/desktop hosts and affected serial VM consumers,
+remove stale future-trial wording and publish a coherent documentation checkpoint.
+Installed accepted `060fffa453e26d5e` and independent `9aa8dbf6fbda8252` recovery
+are untouched. New shared power/idle/screenshot behavior does not inherit the
+older payload's physical acceptance. No stage, install or reboot is planned.
+Local gates pass: `make -j2 test-core test-desktop all acpi-battery-kernel
+acpi-battery-vm-kernel check-docs`, the Air6,1 synthetic VM kernel build,
+window-command/navigation/dock VM (exact three files, process baseline and clean
+offline allocation), ten-second console/desktop idle with post-idle titlebar drag,
+and synthetic desktop power/battery app/recovery phases with clean retirement,
+prior-file preservation, allocation and automatic guest return. Normal/native/VM
+artifacts are matched to the unchanged runtime base `f5917467`. The first two VM
+receipts include concurrent Markdown-only edits; no runtime source changed.
+The power VM ran clean source `b21c6c58`. These checks establish local integration,
+not Air7,2 power savings or fresh physical acceptance. PR229 carries this refresh.
+Evidence: `build/baseline-sync-20261027/`, with a hash-verified durable copy outside
+build under `~/.local/share/srvros/reviewed-evidence/baseline-sync-20261027/`.
+
+### Focused Close/window-list trial — bounded hardware smoke accepted
+
+Release `060fffa453e26d5e`, clean source `bd94284a` on PR201 main `5db81dd5`,
+returned in tested `session-00065ed4b3827d6c-00`. The tester reports opening apps,
+using modals/hotkeys and dismissing them normally, with no defects noticed. This
+accepts the bounded attended Close/window-list smoke; it is not an independent
+attestation of every Save/Discard/Cancel subcase, audio or active endurance.
+The automatically opened Help checklist has no timer and remains available.
+
+All four matching logs are copied/verified, exit is present and collector
+attention is empty. Desktop lifetime drained to zero members (peak thirteen)
+and released; battery retirement reports zero heap, errors, denied accesses and
+rejected samples. One ten-byte test document was recovered, plus four logs;
+there are no new screenshots. All 1,135 prior non-metadata files retain their
+hashes, only `.srvros/meta` changed, and no files were deleted. Offline fsck,
+allocation and headroom pass: 1,141 files / 2,879 clusters, zero leaks, bitmap
+mismatches or errors. File persistence is observed; a fresh reopen is not
+independently established by the retained logs.
+
+The initial `session-00065ec9dc6970fb-00` was explicitly not tested and lacks
+an exit log. It remains incomplete historical evidence, separate from this
+successful retry. Installed payload, consumed one-shot, Ubuntu default and
+independent `9aa8dbf6fbda8252` recovery are verified. The accepted payload and
+bounded acceptance note are backed up outside build, with prior `1d36da62e183a295`
+and archived/known-good a906 retained. Evidence and run state live under
+`build/window-commands-native-20261026/` with a verified durable copy.
+No next boot is armed. Actual main `3bbf80b7` was fetched/inspected after return;
+its newer idle/power/screenshot work was not in this tested release and does not
+inherit its acceptance. Build/test that integration before another native stage.
+
+### Window commands and discovery — implementation and local validation
 
 PR201 consumes actual main `a9d69554` (PR197/199), local merge `31d519f1`.
 Implementation `3467439b` adds standard **Window > Close window / Command-W**
@@ -24,9 +80,9 @@ context-menu VMs also pass. Final Help shortcut prose and stronger UTF-8 fixture
 were rebuilt/rechecked after those VMs; compositor behavior is unchanged.
 
 Evidence: `build/window-commands-20261026/`, with a verified durable copy outside
-build. These new commands remain physically pending; no new stage/install/reboot
-was prepared. Installed bounded-smoke payload `1d36da62e183a295` and independent
-recovery `9aa8dbf6fbda8252` are unchanged. PR182 filesystem/PR19 Wi-Fi remain
+build. The focused bounded native smoke is recorded above; broader subcases remain
+scoped to their evidence. Installed accepted payload is `060fffa453e26d5e`;
+independent recovery remains `9aa8dbf6fbda8252`. PR182 filesystem/PR19 Wi-Fi remain
 separate. No next boot is armed.
 
 ### Combined navigation trial — bounded general smoke accepted
@@ -49,7 +105,7 @@ recovery `9aa8dbf6fbda8252` are retained. The unreferenced `986d6c68fa19ba18`
 payload remains archived and known-good. Evidence/run state is in
 `build/window-navigation-native-20261026/` and its durable copy. No boot is armed.
 
-### Window switching and keyboard navigation — implemented; hardware trial ready
+### Window switching and keyboard navigation — implementation and local gates
 
 PR198 follows main `43aff7d5` (PR194). Source `8847894a` implements a stable
 most-recent-window snapshot while Alt-Tab is held: Tab advances, Shift reverses,
@@ -79,16 +135,14 @@ The first guide fixture expected log messages in the wrong order; corrected
 coverage requires both complete markers in either order. Initial attempts remain
 retained in `build/window-navigation-20261026/` and verified outside build.
 
-Next: the combined attended **Window navigation trial**, delivered automatically
-by explicit `--desktop-navigation-trial`, covers movement/dock/navigation/save.
-It needs human input and has no timer; save, Return to console, then normal
-monitor `reboot` flushes/unmounts Home. No physical test, install or reboot has
-been armed for this candidate. Installed accepted `a90629c8a2060e66` and recovery
-`9aa8dbf6fbda8252` remain unchanged. Audio remains outside this round; PR182's
-filesystem audit and PR19's Wi-Fi scopes stay separate. No new window cap,
-protocol, resource budget, firmware gate or driver behavior is introduced.
+The subsequent combined attended **Window navigation trial** at `1d36da62e183a295`
+is recorded above as a bounded general smoke, followed by the focused Close trial
+at `060fffa453e26d5e`. The staging and VM results here describe the earlier local
+gate, not an outstanding reboot. Installed accepted is now `060fffa453e26d5e`;
+independent recovery remains `9aa8dbf6fbda8252`. No boot is armed. Audio and
+exhaustive edge/pressure coverage remain outside these window trials.
 
-### Desktop movement and dock — implemented; physical acceptance pending
+### Desktop movement and dock — implementation and local gates
 
 PR194 follows main `ab7a7c93`, after closing PR193 with the tester's non-audio
 report. Ordinary windows can move past the sides and bottom of the screen while
@@ -112,13 +166,13 @@ process retirement. Offline exFAT checks pass. Existing pointer/lifecycle,
 context-menu and legacy compositor VMs also pass. Earlier fixture failures remain
 in local evidence; the final consumer requires graceful QMP exit and returns zero.
 
-Help contains an untimed **Window movement and dock trial**. The combined
-**Window navigation trial** above now supplies automatic checklist delivery and
-matched staging/rehearsal for the next attended round. These local results do
-not establish physical acceptance. Installed accepted `a90629c8a2060e66` and
-independent recovery `9aa8dbf6fbda8252` are unchanged. PR182's filesystem audit
-and PR19's Wi-Fi remain separate. Evidence: `build/window-dock-20261026/`, with
-a verified durable copy outside build. No next reboot is armed.
+Help contains an untimed **Window movement and dock trial**; the combined
+**Window navigation trial** supplies automatic checklist delivery. The subsequent
+bounded native general smoke is recorded above, separately from these local
+fixtures. Installed accepted is `060fffa453e26d5e`, with independent recovery
+`9aa8dbf6fbda8252`. PR182's filesystem audit and PR19's Wi-Fi remain separate.
+Evidence: `build/window-dock-20261026/`, with a verified durable copy outside build.
+No reboot is armed.
 
 ### Shared application/window layer — bounded non-audio hardware acceptance
 
@@ -5104,7 +5158,11 @@ The subsequent guided round above completes bounded discharge and AC-change
 acceptance. Next is a cached desktop provider with clearly labeled gauge/health
 data. Keep EC work on the serialized worker and preserve the accepted diagnostics.
 
-## Accepted scope and open items
+## Historical October 19–20 scope and open items
+
+This table records the early checkpoint. Later acceptance above supersedes its
+pending input, PCM/headphone, battery-provider and Ethernet entries; it is not
+the current capability ledger. Consult the current status and latest run first.
 
 | Capability | State | Evidence / limit |
 | --- | --- | --- |
@@ -5124,7 +5182,7 @@ data. Keep EC work on the serialized worker and preserve the accepted diagnostic
 | Optional isolated AML probe | Native completion accepted | `4e5f438c4069752b`; resource queries, zero errors/denials/leaks; v22 still omits this diagnostic |
 | USB Ethernet | Implemented CDC ECM, VM-tested | No actual adapter accepted |
 
-## Latest interactive physical record
+## Historical October 19 interactive physical record
 
 Release `5282cfde546ea2b5`, v22, source `dad7aa8`, contains the Terminal cursor
 correction `c6e5538`. The user reports that the character artifact appears
@@ -5179,7 +5237,7 @@ and the independent held-drag backup is under
 before any action; these are historical identifiers, not values for other Macs.
 The local trial record marks this run returned/reviewed, not armed for reboot.
 
-## Next actions
+## Historical October 19 next actions
 
 Current shared-code work is on `device/macbookair7-2/reliability-input-power`
 from `main` at `3b0b43a`: physical click latching, compositor delivery deadlines,
@@ -5239,7 +5297,7 @@ POLL through C10 as enabled. These are Linux policy observations, not SrvrOS
 energy or deeper-idle acceptance. The [power guide](../power-telemetry.md)
 documents units, non-atomic capture and missing-field semantics.
 
-## Latest automated power record
+## Historical automated power record
 
 Release `ed93e03b2585dcaf`, source `0f2038a`, session
 `session-00065e38449c2146-00` completed its 60-second Text idle capture and returned
