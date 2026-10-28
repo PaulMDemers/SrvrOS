@@ -10612,3 +10612,21 @@ validation. Native postboot storage is clean:365 files,954 clusters,151 director
 zero leaks/mismatches/errors. Seven installed payload equalities and Ubuntu default
 passed; workspace is unmounted and one-shot clear. Only source is repaired; a new
 integration/build/exact-stage VM/install and attended cold trial are still needed.
+
+
+## 2026-10-28 corrected attended trial integration scope
+
+Integrate actual main `ec7bad42` into local repaired cache source `b68db1b5`.
+Main adds scheduler I/O fairness, lifecycle-worker boundaries and isolated AP C3
+and package diagnostics. Preserve these contracts and all existing boot recipes;
+ordinary kernel must retain no isolated AP request. Open PR240 `7052e1bc` is
+Air document-teardown instrumentation; PR182 `c43a1749` is storage/resource
+lifetime work. Neither changes the local xHCI scan presence guard. No new shared
+feature is added in this block: validate the corrected endpoint configuration
+guard with the existing v103 attended profile and separate run/archive. Full
+merged build/core/desktop, sanitizer/native-batch, recipe comparisons, System
+checklist VM, exact-stage GPT and missing-workspace rehearsals precede install.
+Preserve prior failed v103 and accepted v102 evidence, known-good desktop and
+Ubuntu default. Collect only the new source-bound session on return. No radio
+recipe, credentials/security/IP, battery or other model acceptance expansion.
+Candidate will be installed unarmed before coordinating the required cold cycle.
