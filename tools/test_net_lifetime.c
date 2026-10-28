@@ -131,7 +131,9 @@ static void deferred_fin(bool send_failure) {
     } else {
         assert(c->close_deadline==ticks+TCP_CLOSE_TIMEOUT_TICKS);
     }
-    ticks=c->close_deadline;net_timer_tick();assert(!c->state);
+    ticks=c->close_deadline;net_timer_tick();
+    assert(c->refs==1 && net_error(h)==(send_failure?SRV_NETERR_RESET:SRV_NETERR_TIMEDOUT));
+    assert(!net_close(h) && !c->state);
 }
 static void simultaneous_close(void) {
     for(unsigned passive=0;passive<2;passive++) {
@@ -238,6 +240,107 @@ static void stale_wait(void) {
     assert(!net_close(handle(c)));
     assert(read_wakes && write_wakes && read_ready(&r) && write_ready(&w));
 }
+static void reset_window(void) {
+    for(unsigned wrap=0;wrap<2;wrap++) {
+        struct tcp_connection *c=connected();if(wrap)c->remote_next=UINT32_MAX-3;
+        uint32_t seq=c->remote_next;unsigned before=frames;
+        incoming(c,seq-1,c->local_seq,TCP_RST|TCP_ACK,0,NULL);
+        assert(!c->reset && frames==before);
+        incoming(c,seq+NET_CONNECTION_RX_MAX_SIZE,c->local_seq,TCP_RST|TCP_ACK,0,NULL);
+        assert(!c->reset && frames==before);
+        incoming(c,seq+1,c->local_seq,TCP_RST|TCP_ACK,0,NULL);
+        assert(!c->reset && frames==before+1 && last_frame[47]==TCP_ACK);
+        incoming(c,seq,c->local_seq,TCP_RST|TCP_ACK,0,NULL);
+        assert(c->reset && net_error(handle(c))==SRV_NETERR_RESET);
+    }
+}
+static void reset_connect(void) {
+    reset();uint8_t mac[6]={0};struct tcp_connection *c=alloc_client_connection(0x0a000202,80,mac);assert(c);
+    assert(send_tcp_segment(c,c->local_port,TCP_SYN,NULL,0));
+    incoming(c,0,c->local_seq,TCP_RST,0,NULL);assert(!c->reset);
+    incoming(c,0,c->local_seq+1,TCP_RST|TCP_ACK,0,NULL);assert(!c->reset);
+    incoming(c,0,c->local_seq,TCP_RST|TCP_ACK,0,NULL);
+    assert(c->reset && net_error(handle(c))==SRV_NETERR_REFUSED);
+}
+static void receive_window(void) {
+    struct tcp_connection *c=connected();uint64_t h=handle(c);
+    assert(net_respond(h,"keep",4,true)==4);
+    incoming(c,c->remote_next+NET_CONNECTION_RX_MAX_SIZE,c->local_seq,TCP_ACK,0,NULL);
+    assert(tcp_tx_outstanding_bytes(c)==4 && c->peer_window==65535);
+    incoming(c,c->remote_next,c->local_seq,TCP_PSH|TCP_FIN,0,"bad");
+    assert(!c->rx_length && !c->peer_closed && c->peer_window==65535);
+    incoming(c,c->remote_next+1,c->local_seq,TCP_ACK|TCP_PSH,0,"later");
+    assert(!c->rx_length && c->peer_window==65535 && tcp_tx_outstanding_bytes(c)==4);
+    c->rx_data=malloc(NET_CONNECTION_RX_MAX_SIZE);assert(c->rx_data);
+    c->rx_capacity=NET_CONNECTION_RX_MAX_SIZE;c->rx_length=NET_CONNECTION_RX_MAX_SIZE-1;
+    incoming(c,c->remote_next,c->local_seq,TCP_ACK,0,"xx");
+    assert(c->rx_length==NET_CONNECTION_RX_MAX_SIZE-1 && !c->reset && c->peer_window==65535);
+    incoming(c,c->remote_next,c->local_seq,TCP_ACK,1234,"x");
+    assert(c->rx_length==NET_CONNECTION_RX_MAX_SIZE && c->peer_window==1234);
+}
+static void receive_duplicate(void) {
+    struct tcp_connection *c=connected();uint32_t first=c->remote_next;
+    incoming(c,first,c->local_seq,TCP_ACK,65535,"abc");assert(c->rx_length==3);
+    incoming(c,first,c->local_seq,TCP_ACK,65535,"abc");assert(c->rx_length==3);
+    incoming(c,first+2,c->local_seq,TCP_ACK,65535,"cde");assert(c->rx_length==3);
+    incoming(c,first+3,c->local_seq,TCP_ACK|TCP_FIN,65535,"de");
+    assert(c->rx_length==5 && c->peer_closed && c->remote_next==first+6);
+    char data[5];assert(net_read(handle(c),data,5,true)==5 && !memcmp(data,"abcde",5));
+    assert(net_read(handle(c),data,1,true)==0);
+}
+static void terminal_error(void) {
+    for(unsigned failure=0;failure<3;failure++) {
+        struct tcp_connection *c=connected();uint64_t h=handle(c);assert(!net_hold(h));
+        uint16_t error=failure==0?SRV_NETERR_RESET:SRV_NETERR_TIMEDOUT;
+        if(failure<2) tcp_fail_connection(c,error,ticks);
+        else assert(!net_shutdown(h,1));
+        ticks=c->close_deadline;net_timer_tick();
+        assert(c->refs==2 && net_error(h)==error);
+        assert(net_poll_events(h,SRV_POLLIN|SRV_POLLOUT)&SRV_POLLERR);
+        char data;assert(net_read(h,&data,1,true)<0 && net_respond(h,"x",1,true)<0);
+        unsigned before=frames;ticks+=TCP_IDLE_TIMEOUT_TICKS*2;net_timer_tick();
+        assert(frames==before && net_error(h)==error && c->refs==2);
+        assert(!net_close(h) && c->refs==1 && net_error(h)==error);
+        assert(!net_close(h) && !c->state && net_error(h)<0);
+    }
+}
+static void terminal_eof(void) {
+    struct tcp_connection *c=connected();uint64_t h=handle(c);
+    assert(append_connection_data(c,(const uint8_t *)"unread",6));
+    assert(!net_shutdown(h,1));tcp_handle_ack(c,c->local_seq);tcp_handle_fin(c,true);
+    ticks=c->close_deadline;net_timer_tick();
+    assert(c->refs==1 && net_error(h)==SRV_NETERR_NONE && net_shutdown(h,0)<0);
+    char data[6];assert(net_read(h,data,6,true)==6 && !memcmp(data,"unread",6));
+    assert(net_read(h,data,1,true)==0 && (net_poll_events(h,SRV_POLLIN)&SRV_POLLHUP));
+    assert(!net_close(h) && !c->state);
+}
+static void timewait_pressure(void) {
+    struct tcp_connection *c=connected();uint64_t h=handle(c);
+    assert(!net_shutdown(h,1));tcp_handle_ack(c,c->local_seq);tcp_handle_fin(c,true);
+    assert(c->state==TCP_STATE_TIME_WAIT && c->refs==1);
+    assert(!tcp_reclaim_oldest_time_wait(ticks) && c->refs==1);
+    assert(!net_close(h));assert(tcp_reclaim_oldest_time_wait(ticks) && !c->state);
+}
+static void repeat_syn(void) {
+    reset();uint64_t listener=net_listen(8080);assert((int64_t)listener>0);
+    uint8_t mac[6]={0};struct tcp_connection *c=alloc_connection(8080,0x0a000202,40000,mac);assert(c);
+    c->remote_next=501;assert(send_tcp_segment(c,c->local_port,TCP_SYN|TCP_ACK,NULL,0));
+    uint32_t seq=c->local_seq;
+    incoming(c,500,0,TCP_SYN,1000,NULL);
+    assert(c->local_seq==seq && c->remote_next==501 && tcp_tx_outstanding_bytes(c)==1);
+    incoming(c,501,seq,TCP_ACK,1000,NULL);assert(c->state==TCP_STATE_ESTABLISHED);
+    incoming(c,900,0,TCP_SYN,0,NULL);
+    assert(c->state==TCP_STATE_ESTABLISHED && c->remote_next==501 && c->local_seq==seq && c->peer_window==1000);
+    assert(!net_close(listener));
+    reset();listener=net_listen(8080);assert((int64_t)listener>0);
+    c=alloc_connection(8080,0x0a000202,40000,mac);assert(c);c->remote_next=501;
+    seq=c->local_seq;fail_send=true;
+    assert(!send_tcp_segment(c,c->local_port,TCP_SYN|TCP_ACK,NULL,0));fail_send=false;
+    incoming(c,500,0,TCP_SYN,1000,NULL);
+    assert(c->local_seq==seq+1 && tcp_tx_outstanding_bytes(c)==1);
+    incoming(c,501,c->local_seq,TCP_ACK,1000,NULL);assert(c->state==TCP_STATE_ESTABLISHED);
+    assert(!net_close(listener));
+}
 int main(int argc,char **argv) {
     assert(argc==2);
     if(!strcmp(argv[1],"close")) final_close(false);
@@ -255,6 +358,14 @@ int main(int argc,char **argv) {
     else if(!strcmp(argv[1],"stale-io")) stale_handle(true);
     else if(!strcmp(argv[1],"reuse")) reuse_handle();
     else if(!strcmp(argv[1],"stale-wait")) stale_wait();
+    else if(!strcmp(argv[1],"rst-window")) reset_window();
+    else if(!strcmp(argv[1],"rst-connect")) reset_connect();
+    else if(!strcmp(argv[1],"receive-window")) receive_window();
+    else if(!strcmp(argv[1],"receive-duplicate")) receive_duplicate();
+    else if(!strcmp(argv[1],"terminal-error")) terminal_error();
+    else if(!strcmp(argv[1],"terminal-eof")) terminal_eof();
+    else if(!strcmp(argv[1],"timewait-pressure")) timewait_pressure();
+    else if(!strcmp(argv[1],"repeat-syn")) repeat_syn();
     else assert(0);
     reset();printf("net-lifetime: %s PASS\n",argv[1]);
 }

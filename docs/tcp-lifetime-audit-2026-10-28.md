@@ -148,3 +148,87 @@ Current logs, original failures, sanitizer results and tested source/artifact
 hashes are retained under `build/review/tcp-ack/`. Earlier storage matrices are
 dated evidence and were not rerun for this network-core change. No native
 hardware qualification, Actions dispatch or PR merge occurred.
+
+
+## Reset, receive admission and terminal-state checkpoint
+
+Continue from `8aa5999a` on main `5a94d755`; separate Wi-Fi PR19 is `a0f4f951`
+without net/process-core overlap. Eight additional modes bring `test-net-lifetime`
+to 23. Seven fail on the original source; the duplicate/overlap receive control
+passes without a runtime correction.
+
+Confirmed corrections:
+
+- RST no longer resets any connection matching only its endpoint tuple.
+  During active open it must carry the ACK of the sent SYN. In synchronized
+  states an exact next receive sequence resets, an in-window nonexact sequence
+  receives a challenge ACK, and an out-of-window sequence is silently dropped.
+  TIME-WAIT ignores RST. A connect refusal is reported before INPROGRESS.
+- Receive sequence/ACK presence and available capacity are checked before ACK
+  retirement, window changes, payload or FIN processing. Pure ACKs outside the
+  receive window, payload without ACK, gaps and excess data no longer change
+  state. The receiver remains in-order only: duplicates and overlap are ACKed
+  and dropped, not trimmed or queued for reassembly. A FIN without payload at
+  the next expected sequence can still close a zero-window receiver.
+- Retransmitted passive SYN resends the existing SYN-ACK sequence without
+  consuming a new sequence number or transmit-history entry. If the initial
+  transport send failed, it retries the first send and records it normally.
+  Unexpected SYN on
+  an established/closing tuple receives an ACK without resetting receive state.
+- Terminal timers previously erased live descriptor references, errors and
+  buffered EOF data. Expiry now retires protocol ownership while preserving
+  referenced identity and the first error, or successful EOF plus unread bytes.
+  Timeouts report TIMEDOUT; existing reset/refusal errors remain intact. Failed
+  connections release receive storage; orderly completion retains unread data.
+  Final close frees the slot. TIME-WAIT pressure cannot reclaim a referenced
+  connection. Readable EOF data also survives the TIME-WAIT interval itself.
+
+The retained terminal state is `CLOSED` (numeric state 9 in `srv_net_info`), with
+zero close deadline and no wire matching, retransmission or idle expiry. The
+information structure is unchanged; netstat uses the supplied state name.
+Descriptors can still query endpoint/error state and duplicate their remaining
+reference, but cannot resume protocol activity. These retained slots consume the
+existing bounded connection table until close; there is no unbounded graveyard.
+
+Reset and sequence-admission behavior is grounded in
+[RFC 9293 segment processing](https://www.rfc-editor.org/rfc/rfc9293.html#section-3.10.7.4).
+This adds no cryptographic authentication, ACK-throttling policy, receive
+reassembly or complete RFC conformance. Packet tests use checksummed segments
+through the production parser, including sequence wrap. Timer tests retain
+multiple references, advance beyond the original deadline and verify errors,
+EOF/read data, pressure refusal and final-close release.
+
+The two earlier deferred-FIN modes now expect a retained application error after
+expiry and explicitly close the descriptor. Their old expectation of immediate
+slot deletion was the ownership defect corrected here; protocol-only close
+modes still require timed reclamation.
+
+Follow-on tracing reaches receive-buffer allocation failures, partial-ACK
+retransmission and overlapping segments. Those paths need directed failure and
+recovery coverage next. Arbitrary reordering, full identifier exhaustion and
+concurrent fork/exec/kill remain unqualified.
+
+
+A final candidate probe exposed a missing initial-send-refusal case in the SYN
+correction: there is no original retransmission record when the first transport
+send fails. The final implementation distinguishes that case from retransmission.
+`candidate-syn-retry.log` retains the failing candidate; the first passing VM set
+is kept in `vms-before-syn-retry/` and is not the final source qualification.
+
+### Receive/terminal verification
+
+All 23 modes pass on x86_64/Rosetta and under native ARM64 ASan/UBSan. Against
+original source `8aa5999a`, seven of eight added modes fail and the duplicate/
+overlap control passes. The candidate initial-SYN-send-refusal probe fails before
+its correction and passes in the final repeat-SYN mode. Existing TCP accept,
+e1000 receive, network worker/device, process output/lifetime and syscall I/O
+host gates pass. The matched build, six generator groups and recursive
+372-entry image validation pass.
+
+Seven sequential disposable VMs pass against the final source: tcp-ready 10.92 s, tcp-stress 47.35 s, netabi 10.29 s, libuv 10.13 s, threads 39.87 s, lifetime 23.86 s, outbound-local 10.57 s.
+TCP stress uses twelve clients; the outbound gate checks `/receive-check` and
+its exact response from a temporary localhost HTTP server. The first candidate
+VM set remains separate under `vms-before-syn-retry/`. Current final logs,
+original/candidate failures and tested hashes are under `build/review/tcp-receive/`.
+Documentation/link and whitespace checks pass. Earlier storage matrices remain
+dated evidence; no native hardware acceptance, Actions dispatch or PR merge.

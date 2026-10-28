@@ -1541,3 +1541,34 @@ PR19 is `a0f4f951`, with no net/process-core overlap; its Wi-Fi and Makefile wor
 remain separate. Air6,1 AP diagnostics and Air7,2 native evidence are unchanged.
 Next checkpoint is original-source failure evidence, bounded corrections and
 matched host/VM validation. No native install or PR merge is planned.
+
+### Receive/terminal audit result
+
+Corrected reset/receive admission, repeated-SYN sequence handling and loss of
+referenced terminal errors/EOF under expiry or TIME-WAIT pressure. Retained
+`CLOSED` state is application-only and frees on final close; diagnostic state 9
+is named without changing information layout. The first candidate's SYN retry
+assumption was corrected after an explicit initial transport-refusal probe.
+See the [TCP audit](../tcp-lifetime-audit-2026-10-28.md).
+
+### Receive/terminal verification
+
+All 23 modes pass on x86_64/Rosetta and under native ARM64 ASan/UBSan. Against
+original source `8aa5999a`, seven of eight added modes fail and the duplicate/
+overlap control passes. The candidate initial-SYN-send-refusal probe fails before
+its correction and passes in the final repeat-SYN mode. Existing TCP accept,
+e1000 receive, network worker/device, process output/lifetime and syscall I/O
+host gates pass. The matched build, six generator groups and recursive
+372-entry image validation pass.
+
+Seven sequential disposable VMs pass against the final source: tcp-ready 10.92 s, tcp-stress 47.35 s, netabi 10.29 s, libuv 10.13 s, threads 39.87 s, lifetime 23.86 s, outbound-local 10.57 s.
+TCP stress uses twelve clients; the outbound gate checks `/receive-check` and
+its exact response from a temporary localhost HTTP server. The first candidate
+VM set remains separate under `vms-before-syn-retry/`. Current final logs,
+original/candidate failures and tested hashes are under `build/review/tcp-receive/`.
+Documentation/link and whitespace checks pass. Earlier storage matrices remain
+dated evidence; no native hardware acceptance, Actions dispatch or PR merge.
+
+Next bounded question: receive-buffer allocation failure and partial-ACK
+retransmission, including overlap recovery. Full TCP conformance, identifier
+exhaustion and concurrent fork/exec/kill remain outside completed coverage.

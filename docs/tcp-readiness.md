@@ -88,7 +88,7 @@ enters the reset/error path. Peer FIN alone cannot retire an unacknowledged loca
 FIN. See the [TCP lifetime audit](tcp-lifetime-audit-2026-10-28.md) for reproduced
 failures, limits and follow-on questions.
 
-`make test-net-lifetime` (also in `test-core`) runs fifteen deterministic real-stack
+`make test-net-lifetime` (also in `test-core`) runs 23 deterministic real-stack
 host modes. It complements `test-tcp-accept` and guest readiness/stress checks;
 its captured Ethernet sink does not certify physical adapter behavior.
 
@@ -99,3 +99,11 @@ stack's SYN exactly, including sequence wrap. Closed application handles cannot
 revive or read a protocol-owned closing slot; final close wakes blocked I/O while
 timers and packets retain access for retransmission. The lifetime fixture also
 covers duplicate/partial ACKs across wrap and stale handles after slot reuse.
+
+
+RST admission now checks active-open ACK or synchronized receive sequence; stale
+control packets cannot reset a tuple indiscriminately. Receive admission precedes
+ACK/window side effects, and duplicate SYN reuses its original sequence. Terminal
+expiry preserves referenced errors or orderly EOF data in a non-wire `CLOSED`
+state until final close. TIME-WAIT pressure cannot steal application references.
+The receiver still rejects overlap/gaps instead of reassembling or trimming them.

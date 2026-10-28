@@ -34,6 +34,7 @@
 #define TCP_STATE_CLOSE_WAIT 6
 #define TCP_STATE_LAST_ACK 7
 #define TCP_STATE_TIME_WAIT 8
+#define TCP_STATE_CLOSED 9 /* Application references only; no wire ownership. */
 
 #define TCP_MAX_CONNECTIONS 32
 #define UDP_MAX_SOCKETS 8
@@ -232,6 +233,7 @@ static uint64_t rx_worker_packets;
 static uint64_t rx_last_recovery_tick;
 
 static void close_connection(struct tcp_connection *connection);
+static void tcp_expire_connection(struct tcp_connection *connection);
 
 static uint64_t make_handle(uint64_t type, uint64_t value) {
     return type | (value & NET_HANDLE_VALUE_MASK);
@@ -1026,6 +1028,7 @@ static void handle_udp(const uint8_t *ip, uint16_t ip_header_length, uint16_t ip
 static struct tcp_connection *find_connection(uint16_t local_port, uint32_t remote_ip, uint16_t remote_port) {
     for (uint64_t i = 0; i < TCP_MAX_CONNECTIONS; i++) {
         if (tcp_connections[i].state != TCP_STATE_EMPTY &&
+            tcp_connections[i].state != TCP_STATE_CLOSED && !tcp_connections[i].reset &&
             tcp_connections[i].local_port == local_port &&
             tcp_connections[i].remote_ip == remote_ip &&
             tcp_connections[i].remote_port == remote_port) {
@@ -1089,7 +1092,7 @@ static bool tcp_reap_expired_time_wait(uint64_t now) {
         if (connection->state == TCP_STATE_TIME_WAIT &&
             connection->close_deadline != 0 &&
             now >= connection->close_deadline) {
-            close_connection(connection);
+            tcp_expire_connection(connection);
             tcp_time_wait_reaped++;
             reaped = true;
         }
@@ -1102,7 +1105,7 @@ static bool tcp_reclaim_oldest_time_wait(uint64_t now) {
     uint64_t oldest_deadline = UINT64_MAX;
     for (uint64_t i = 0; i < TCP_MAX_CONNECTIONS; i++) {
         struct tcp_connection *connection = &tcp_connections[i];
-        if (connection->state != TCP_STATE_TIME_WAIT) {
+        if (connection->state != TCP_STATE_TIME_WAIT || connection->refs != 0) {
             continue;
         }
         if (connection->close_deadline != 0 && now >= connection->close_deadline) {
@@ -1597,7 +1600,8 @@ static bool tcp_state_can_read(uint8_t state) {
     return state == TCP_STATE_ESTABLISHED ||
         state == TCP_STATE_FIN_WAIT_1 ||
         state == TCP_STATE_FIN_WAIT_2 ||
-        state == TCP_STATE_CLOSE_WAIT;
+        state == TCP_STATE_CLOSE_WAIT || state == TCP_STATE_TIME_WAIT ||
+        state == TCP_STATE_CLOSED;
 }
 
 static bool tcp_state_can_write(uint8_t state) {
@@ -1633,11 +1637,38 @@ static void tcp_enter_time_wait(struct tcp_connection *connection) {
         return;
     }
     connection->state = TCP_STATE_TIME_WAIT;
-    connection->local_read_closed = true;
     connection->local_write_closed = true;
     connection->fin_pending = false;
     connection->peer_closed = true;
     connection->close_deadline = timer_ticks() + TCP_TIME_WAIT_TICKS;
+    scheduler_wake_all(&read_wait_queue);
+    scheduler_wake_all(&write_wait_queue);
+    scheduler_wake_all(&connect_wait_queue);
+    process_file_poll_wake();
+}
+
+static void tcp_expire_connection(struct tcp_connection *connection) {
+    if (connection->refs == 0) {
+        close_connection(connection);
+        return;
+    }
+    if (!connection->reset && connection->state != TCP_STATE_TIME_WAIT) {
+        tcp_fail_connection(connection, SRV_NETERR_TIMEDOUT, timer_ticks());
+    }
+    /* Keep the descriptor identity, first error and orderly unread bytes until
+     * the application closes. Timers and table pressure cannot steal refs. */
+    connection->state = TCP_STATE_CLOSED;
+    connection->peer_closed = true;
+    connection->local_write_closed = true;
+    connection->fin_pending = false;
+    connection->close_deadline = 0;
+    connection->zero_window_deadline = 0;
+    clear_bytes((uint8_t *)connection->tx_history, sizeof(connection->tx_history));
+    if (connection->reset && connection->rx_data != 0) {
+        kfree(connection->rx_data);
+        connection->rx_data = 0;
+        connection->rx_capacity = connection->rx_length = connection->rx_offset = 0;
+    }
     scheduler_wake_all(&read_wait_queue);
     scheduler_wake_all(&write_wait_queue);
     scheduler_wake_all(&connect_wait_queue);
@@ -1752,7 +1783,7 @@ static void tcp_handle_ack(struct tcp_connection *connection, uint32_t ack) {
 static void tcp_retransmit_due(uint64_t now) {
     for (uint64_t i = 0; i < TCP_MAX_CONNECTIONS; i++) {
         struct tcp_connection *connection = &tcp_connections[i];
-        if (connection->state == TCP_STATE_EMPTY || connection->reset) {
+        if (connection->state == TCP_STATE_EMPTY || connection->state == TCP_STATE_CLOSED || connection->reset) {
             continue;
         }
 
@@ -1817,7 +1848,7 @@ static void tcp_zero_window_probe_due(uint64_t now) {
 static void tcp_idle_cleanup_due(uint64_t now) {
     for (uint64_t i = 0; i < TCP_MAX_CONNECTIONS; i++) {
         struct tcp_connection *connection = &tcp_connections[i];
-        if (connection->state == TCP_STATE_EMPTY ||
+        if (connection->state == TCP_STATE_EMPTY || connection->state == TCP_STATE_CLOSED ||
             connection->reset ||
             tcp_state_closing(connection->state) ||
             connection->last_activity_tick == 0 ||
@@ -1961,6 +1992,19 @@ static void handle_tcp(const uint8_t *frame,
     if ((flags & TCP_RST) != 0) {
         struct tcp_connection *old = find_connection(dst_port, src_ip, src_port);
         if (old != 0) {
+            if (old->state == TCP_STATE_TIME_WAIT) return;
+            if (old->state == TCP_STATE_SYN_SENT) {
+                if ((flags & TCP_ACK) == 0 || ack != old->local_seq) return;
+            } else if (seq != old->remote_next) {
+                if ((uint32_t)(seq - old->remote_next) < tcp_receive_window(old)) {
+                    send_tcp_segment(old, old->local_port, TCP_ACK, 0, 0);
+                }
+                return;
+            }
+            if (old->refs == 0) {
+                close_connection(old);
+                return;
+            }
             tcp_fail_connection(old,
                 old->state == TCP_STATE_SYN_SENT ? SRV_NETERR_REFUSED : SRV_NETERR_RESET,
                 timer_ticks());
@@ -1969,6 +2013,28 @@ static void handle_tcp(const uint8_t *frame,
     }
 
     if ((flags & TCP_SYN) != 0) {
+        struct tcp_connection *existing = find_connection(dst_port, src_ip, src_port);
+        if (existing != 0 && existing->state != TCP_STATE_SYN_SENT) {
+            if (existing->state == TCP_STATE_SYN_RECEIVED && seq + 1 == existing->remote_next) {
+                /* Resend the original SYN; a retransmission consumes no new sequence. */
+                struct tcp_tx_record *syn = 0;
+                for (uint8_t i = 0; i < TCP_TX_HISTORY; i++) {
+                    if (existing->tx_history[i].used && (existing->tx_history[i].flags & TCP_SYN) != 0) {
+                        syn = &existing->tx_history[i];
+                        break;
+                    }
+                }
+                if (syn != 0) {
+                    send_tcp_segment_at(existing, syn->local_port, syn->seq, syn->flags, 0, 0);
+                } else {
+                    /* Initial transport refusal recorded no SYN: retry the first send. */
+                    send_tcp_segment(existing, existing->local_port, TCP_SYN | TCP_ACK, 0, 0);
+                }
+            } else {
+                send_tcp_segment(existing, existing->local_port, TCP_ACK, 0, 0);
+            }
+            return;
+        }
         if (!port_is_listening(dst_port)) {
             struct tcp_connection *client = find_connection(dst_port, src_ip, src_port);
             if (client != 0 && client->state == TCP_STATE_SYN_SENT && (flags & TCP_ACK) != 0) {
@@ -2007,6 +2073,20 @@ static void handle_tcp(const uint8_t *frame,
         return;
     }
 
+    if (connection->state == TCP_STATE_SYN_SENT || (flags & TCP_ACK) == 0) return;
+    uint32_t receive_advance = tcp_receive_advance(flags, data_length);
+    uint16_t window = tcp_receive_window(connection);
+    bool acceptable = receive_advance == 0 ?
+        (seq == connection->remote_next || (uint32_t)(seq - connection->remote_next) < window) :
+        (seq == connection->remote_next && !connection->peer_closed &&
+            (receive_advance <= window || data_length == 0));
+    /* This bounded receiver accepts in-order data only. Reject duplicates,
+     * overlap, gaps and excess data before ACK/window/control side effects. */
+    if (!acceptable) {
+        send_tcp_segment(connection, connection->local_port, TCP_ACK, 0, 0);
+        return;
+    }
+
     /* Reject unsent-data ACKs before window, receive-data or FIN mutation.
      * SYN-RECEIVED retains its stricter final-handshake validation below. */
     if (connection->state != TCP_STATE_SYN_RECEIVED && (flags & TCP_ACK) != 0 &&
@@ -2017,11 +2097,6 @@ static void handle_tcp(const uint8_t *frame,
     copy_bytes(connection->remote_mac, frame + 6, 6);
     tcp_touch_activity(connection, timer_ticks());
     tcp_set_peer_window(connection, advertised_window);
-    uint32_t receive_advance = tcp_receive_advance(flags, data_length);
-    if (receive_advance != 0 && seq != connection->remote_next) {
-        send_tcp_segment(connection, connection->local_port, TCP_ACK, 0, 0);
-        return;
-    }
 
     if (connection->state == TCP_STATE_SYN_RECEIVED) {
         if ((flags & TCP_ACK) == 0) {
@@ -2183,7 +2258,7 @@ void net_timer_tick(void) {
             (connection->reset || connection->fin_pending || tcp_state_closing(connection->state)) &&
             connection->close_deadline != 0 &&
             now >= connection->close_deadline) {
-            close_connection(connection);
+            tcp_expire_connection(connection);
         }
     }
 
@@ -2437,6 +2512,8 @@ static const char *tcp_state_name(uint8_t state) {
         return "LAST-ACK";
     case TCP_STATE_TIME_WAIT:
         return "TIME-WAIT";
+    case TCP_STATE_CLOSED:
+        return "CLOSED";
     default:
         return "UNKNOWN";
     }
@@ -2969,7 +3046,7 @@ int64_t net_shutdown(uint64_t handle, int how) {
     }
 
     struct tcp_connection *connection = find_referenced_connection_by_id(handle_value(handle));
-    if (connection == 0 || !tcp_state_can_read(connection->state)) {
+    if (connection == 0 || connection->state == TCP_STATE_CLOSED || !tcp_state_can_read(connection->state)) {
         return -1;
     }
 
@@ -2997,11 +3074,11 @@ int64_t net_error(uint64_t handle) {
     if (connection == 0) {
         return -1;
     }
-    if (connection->state == TCP_STATE_SYN_SENT) {
-        return SRV_NETERR_INPROGRESS;
-    }
     if (connection->reset) {
         return connection->error == SRV_NETERR_NONE ? SRV_NETERR_RESET : connection->error;
+    }
+    if (connection->state == TCP_STATE_SYN_SENT) {
+        return SRV_NETERR_INPROGRESS;
     }
     return SRV_NETERR_NONE;
 }
@@ -3492,7 +3569,7 @@ int64_t net_close(uint64_t handle) {
         connection->owner = 0;
         scheduler_wake_all(&read_wait_queue);
         scheduler_wake_all(&write_wait_queue);
-        if (connection->reset || connection->state == TCP_STATE_SYN_SENT) {
+        if (connection->reset || connection->state == TCP_STATE_SYN_SENT || connection->state == TCP_STATE_CLOSED) {
             close_connection(connection);
         } else if (tcp_state_can_write(connection->state) && !connection->local_write_closed) {
             if (!tcp_send_fin(connection)) {

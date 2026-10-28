@@ -2066,7 +2066,7 @@ test-core: test-net-worker
 
 .PHONY: test-net-lifetime
 test-net-lifetime: build/tests/net-lifetime-host$(HOST_EXE)
-	@for mode in close pending inherited backlog abort deadline fin-failure simultaneous future-ack wrap-ack syn-ack stale-hold stale-io reuse stale-wait; do $< $$mode || exit $$?; done
+	@for mode in close pending inherited backlog abort deadline fin-failure simultaneous future-ack wrap-ack syn-ack stale-hold stale-io reuse stale-wait rst-window rst-connect receive-window receive-duplicate terminal-error terminal-eof timewait-pressure repeat-syn; do $< $$mode || exit $$?; done
 build/tests/net-lifetime-host$(HOST_EXE): tools/test_net_lifetime.c kernel/src/net.c $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@

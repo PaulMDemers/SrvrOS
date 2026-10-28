@@ -229,3 +229,10 @@ localhost HTTP server on an available unprivileged port and run
 `python3 tools/httpget_smoke.py --host 10.0.2.2 --port PORT --path /fixture --boot-wait 60`.
 QEMU user networking routes the guest address to the host. Stop the temporary
 server after validation; the helper uses a disposable disk copy.
+
+
+The receive/terminal follow-on expands `test-net-lifetime` to 23 modes using the
+same host commands. ARM64 sanitizer and x86_64/Rosetta evidence is retained in
+`build/review/tcp-receive/`, together with original-source failures. Its VMs use
+matched images, sequential disposable copies, and the host-local outbound HTTP
+gate described above. No physical adapter or native Mac acceptance is implied.

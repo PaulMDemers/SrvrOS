@@ -858,13 +858,23 @@ closing slots. It fixes acknowledgment/handle admission and final-close wakeups;
 wrap and slot-reuse controls pass. Fifteen modes retain the earlier close/exit
 coverage. This is network-core work; earlier storage evidence remains dated.
 
+## TCP receive and terminal-state follow-on (2026-10-28)
+
+The [TCP audit](tcp-lifetime-audit-2026-10-28.md) now covers reset/receive admission,
+repeated SYN and descriptor ownership after terminal expiry or TIME-WAIT pressure.
+Referenced errors and orderly EOF/data survive until final close. The fixture has
+23 modes; seven of eight new modes fail on the original source, with duplicate/
+overlap refusal as a passing control. Storage coverage remains dated separately.
+
 ## Remaining audit queue
 
 1. Actual hot removal/replacement and a future unregister/rebind lifecycle.
    Terminal identity invalidation and CPU0 backend-operation/teardown admission
    now have directed coverage. They do not certify live device recovery or
    arbitrary retained kernel pointers.
-2. TCP RST/receive-sequence admission and terminal-error retention are next.
+2. TCP receive-buffer allocation failure and partial-ACK retransmission are next.
+   RST/receive admission and terminal-error/EOF retention now have directed
+   coverage, including timer expiry and TIME-WAIT pressure.
    Established ACK bounds, wrap and stale/closing application handles now have
    directed coverage.
    TCP final-close, deferred FIN and creator/inheritor ownership have directed

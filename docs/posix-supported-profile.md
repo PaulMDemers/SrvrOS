@@ -501,3 +501,14 @@ is woken by final close. Remaining descriptor aliases continue to work. Packet
 ACK admission now rejects acknowledgment beyond transmitted data, and outbound
 SYN-ACK must acknowledge the sent SYN; neither change expands the supported
 socket namespaces or inheritance ABI.
+
+
+Terminal TCP expiry preserves descriptor identity, the first error or orderly
+EOF with unread bytes until final close. The diagnostic `srv_net_info` state is
+`CLOSED` (9), with no protocol deadline; the structure layout is unchanged.
+TIME-WAIT pressure cannot reclaim a slot still referenced by an application.
+Reset/refusal and timeout errors remain queryable and readable data at orderly
+EOF is preserved. This keeps slots within the existing table bound until close.
+Receive admission now precedes ACK/window mutation; reset validation and repeated
+SYN handling are covered. The receiver still lacks out-of-order reassembly and
+overlap trimming; see the TCP audit for exact limits.

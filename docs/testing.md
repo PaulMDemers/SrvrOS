@@ -1185,7 +1185,7 @@ bridge remains the backend integration check. October 28 integrated-main evidenc
 is under `build/review/inheritance-exit/`.
 
 
-`make test-net-lifetime` runs fifteen deterministic modes against production
+`make test-net-lifetime` runs 23 deterministic modes against production
 `net.c`: final close with outstanding data, deferred FIN, both inherited exit
 orders, inherited listener backlog (completed and half-open), abort controls,
 deferred-FIN deadline, failed deferred send and simultaneous close. The fixture
@@ -1212,3 +1212,12 @@ connect against a host-local HTTP server on an unprivileged port. `--port`
 defaults to 80 and rejects values outside 1..65535. The ACK checkpoint uses a
 temporary localhost server, checks the received request path and exact response
 body, and retains its log/receipt as `tcp-ack/vms/outbound-local.*`.
+
+
+The receive/terminal checkpoint adds eight modes: reset window, connect reset,
+receive admission, duplicate/overlap control, retained terminal errors, retained
+EOF/data, TIME-WAIT pressure and repeated SYN. Seven fail on source `8aa5999a`;
+the duplicate/overlap control passes. Current evidence is under
+`build/review/tcp-receive/`. The earlier deferred-FIN modes now assert retained
+errors followed by final-close release, instead of accepting timer destruction
+of a live descriptor. All 23 modes run normally and under ASan/UBSan.
