@@ -5974,3 +5974,25 @@ I/O scheduling interference needs isolation before another trial. Cleanup was
 logged and results saved, but strict collection refuses the incomplete scan and
 missing radio/GUI phase files. The cache fix and populated UI remain physically
 unaccepted. The deadline must not be widened or reset to turn this run into a pass.
+
+
+## Isolated radio logging profile (v104)
+
+`--wifi-log-isolation` requires the automatic attended `--wifi-desktop-trial`
+profile and inherits every v103 radio operation unchanged. Before firmware/radio
+capture, main requires the extended logger's bounded writer drain and a verified
+boundary snapshot. Periodic disk writes then remain paused while full proof
+continues into the existing extended RAM buffer. The original receive deadline,
+its100ms overrun guard, interrupt handling and scheduler remain unchanged.
+No receiver buffer is parsed or reused because of a late poll.
+
+A separate parked-session ownership bit permits that session alone to hand off
+to `wifi-scan.log` and resume the ordinary rolling desktop logger. Generic pause
+or failed quiescence does not grant the handoff. Save/readback/sync or full-prefix
+failure refuses radio or GUI as appropriate; pending writes retain ownership.
+Handled capture failure saves the exit log under the existing return policy.
+An interrupted run may have only its boundary snapshot and remains incomplete.
+The native checker requires one parked phase before firmware work and rejects
+snapshot, flush or logger-cost/USB-timing records inside it. Host compositions
+use an explicitly synthetic isolated variant of prior accepted RF data; these
+fixtures do not accept the new profile. Native acceptance requires its own run.

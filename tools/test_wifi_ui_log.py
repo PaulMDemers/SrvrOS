@@ -1,5 +1,5 @@
 import unittest
-from wifi_ui_log import check_ui,SCAN
+from wifi_ui_log import check_ui,check_radio_isolation,SCAN
 RELEASE='0123456789abcdef'
 
 def saved(stream,name,stamp,cap):
@@ -21,6 +21,18 @@ def fixture(long=False):
     return radio,begin,end
 
 class Proof(unittest.TestCase):
+    def test_radio_isolation(self):
+        start='workspace-log: phase=wifi-radio periodic=paused tail_limit=1048576\n'
+        parked='wifi-ui-log: isolation_required=1 parked=1\n'
+        prefix='srvros.wifi-log-isolation=1\n'
+        raw=(prefix+start+parked+'wifi-firmware-control: captured\n'+SCAN+'\n').encode()
+        self.assertTrue(check_radio_isolation(raw)['periodic_paused'])
+        for old,new in [(start,''),(start,start*2),(parked,parked.replace('=1\n','=0\n')),
+                        (prefix,''),('wifi-firmware-control:', 'firmware-control:')]:
+            with self.assertRaises(AssertionError):check_radio_isolation(raw.replace(old.encode(),new.encode(),1))
+        for io in ['workspace-log: snapshot=session-a.log','workspace: flushed','workspace-cost:','usb-timing:']:
+            with self.assertRaises(AssertionError):check_radio_isolation(raw.replace(parked.encode(),(parked+io+'\n').encode()))
+
     def test_complete_and_rolled_tail(self):
         for long in [False,True]:
             r=check_ui(*fixture(long),RELEASE)

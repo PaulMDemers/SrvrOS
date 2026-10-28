@@ -37,6 +37,23 @@ def cache_valid(c):
     if not c['owner']:assert c['generation']==c['adapters']==c['ready']==c['rows']==c['selectable']==0 and c['selected']==2**32-1
     else:assert c['generation'] and c['adapters'] and c['ready']
 
+def check_radio_isolation(radio):
+    """v104 only: complete proof must contain one owned, I/O-free RF phase."""
+    r=radio.decode('utf-8')
+    start='workspace-log: phase=wifi-radio periodic=paused tail_limit=1048576\n'
+    parked='wifi-ui-log: isolation_required=1 parked=1\n'
+    assert 'srvros.wifi-log-isolation=1' in r
+    assert r.count(start)==r.count(parked)==r.count(SCAN+'\n')==1
+    assert r.count('wifi-firmware-control:')==1
+    a=r.index(start);b=r.index(SCAN+'\n')
+    assert a<r.index(parked)<r.index('wifi-firmware-control:')<b
+    phase=r[a:b]
+    for forbidden in ['workspace-log: snapshot=', 'workspace: flushed',
+                      'workspace-cost:', 'usb-timing:']:
+        assert forbidden not in phase,forbidden
+    assert 'wifi-ui-log: isolation_required=1 parked=0' not in r
+    return dict(periodic_paused=True,isolated_radio_phase=True)
+
 def check_ui(radio,begin,exit_log,release):
     assert re.fullmatch('[0-9a-f]{16}',release)
     r=radio.decode('utf-8',errors='replace');b=begin.decode('utf-8',errors='replace');e=exit_log.decode('utf-8',errors='replace')

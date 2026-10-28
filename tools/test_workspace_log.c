@@ -15,6 +15,7 @@ static bool mounted=true,io_ok=true,sync_ok=true,corrupt,open_file;
 static uint64_t ticks=10,total=100,clock_us;
 static bool tracing,reference=true,power_enabled=true;
 static unsigned cost_reports;
+static bool *finish_on_wait;
 static uint64_t test_policy=20000;
 bool xhci_storage_wait_policy(uint64_t policy,uint64_t *old) { assert(depth && (policy==0||policy==4000||policy==20000));*old=test_policy;test_policy=policy;return true; }
 bool timer_reference_ready(void) { return reference; }
@@ -41,7 +42,7 @@ bool process_has_open_vfs_prefix(const char *p) { (void)p;return open_file; }
 bool scheduler_io_begin(void) { assert(!depth);depth=1;return true; }
 void scheduler_io_end(void) { assert(depth==1);depth=0; }
 bool scheduler_spawn(const char *name,scheduler_thread_fn fn,void *arg) { (void)name;(void)fn;(void)arg;return true; }
-bool scheduler_wait(struct scheduler_wait_queue *q,scheduler_wait_condition_fn fn,void *arg) { (void)q;return fn(arg); }
+bool scheduler_wait(struct scheduler_wait_queue *q,scheduler_wait_condition_fn fn,void *arg) { (void)q;if(finish_on_wait){*finish_on_wait=false;finish_on_wait=NULL;}return fn(arg); }
 bool scheduler_wait_timeout(struct scheduler_wait_queue *q,scheduler_wait_condition_fn fn,void *arg,uint64_t end) { bool ready=scheduler_wait(q,fn,arg);if(!ready)ticks=end;return ready; }
 void scheduler_wake_all(struct scheduler_wait_queue *q) { (void)q; }
 void scheduler_print_activity(void) { assert(!depth); }
@@ -169,5 +170,42 @@ int main(void) {
         if(fault==3)assert(busy);
         lost_prefix=corrupt=busy=false;sync_ok=true;healthy=true;assert(workspace_log_stop());
     }
+    count=0;snapshot_bytes=BOOTLOG_EXTENDED_CAPTURE_CAPACITY;
+    assert(workspace_log_start_extended_capture());
+    busy=true;finish_on_wait=&busy;
+    assert(workspace_log_begin_wifi_capture() && wifi_capture_parked && !enabled && !busy && !finish_on_wait);
+    assert(strstr(path,"session-a.log"));old_writes=writes;ticks+=10000;
+    assert(!ready(NULL) && !workspace_log_active() && writes==old_writes);
+    assert(!workspace_log_start() && !workspace_log_begin_wifi_capture() && writes==old_writes);
+    assert(workspace_log_begin_wifi_desktop() && enabled && !wifi_capture_parked);
+    assert(snapshot_limit==BOOTLOG_DEFAULT_CAPACITY && ready(NULL)==false);
+    assert(periodic_save() && workspace_log_stop());
+    count=0;assert(workspace_log_start_extended_capture());
+    assert(workspace_log_begin_wifi_capture() && workspace_log_stop() && !wifi_capture_parked);
+    for(unsigned fault=0;fault<3;fault++){
+        count=0;assert(workspace_log_start_extended_capture());assert(workspace_log_begin_wifi_capture());
+        if(fault==0)lost_prefix=true;
+        if(fault==1)corrupt=true;
+        if(fault==2)sync_ok=false;
+        assert(!workspace_log_begin_wifi_desktop() && !enabled && wifi_capture_parked);
+        old_writes=writes;assert(!workspace_log_begin_wifi_desktop() && writes==old_writes);
+        lost_prefix=corrupt=false;sync_ok=healthy=true;assert(workspace_log_stop() && !wifi_capture_parked);
+    }
+    /* A generic pause does not grant the Wi-Fi handoff ownership. */
+    count=0;assert(workspace_log_start_extended_capture());assert(workspace_log_quiesce(0));
+    old_writes=writes;assert(!workspace_log_begin_wifi_desktop() && writes==old_writes);assert(workspace_log_stop());
+    for(unsigned fault=0;fault<4;fault++){
+        count=0;assert(workspace_log_start_extended_capture());old_writes=writes;
+        if(fault==0)lost_prefix=true;
+        if(fault==1)corrupt=true;
+        if(fault==2)sync_ok=false;
+        if(fault==3)busy=true;
+        assert(!workspace_log_begin_wifi_capture() && !enabled && !wifi_capture_parked);
+        if(fault==0 || fault==3)assert(writes==old_writes);
+        if(fault==3)assert(busy);
+        lost_prefix=corrupt=busy=false;sync_ok=true;healthy=true;assert(workspace_log_stop());
+    }
+    snapshot_bytes=8;count=0;assert(workspace_log_start());old_writes=writes;
+    assert(!workspace_log_begin_wifi_capture() && enabled && writes==old_writes);assert(workspace_log_stop());
     puts("workspace-log: PASS gated writes/readback, collision-safe sessions, periodic readiness, open-file refusal, corruption/sync failure, stop before unmount;immutable full RF proof,rolling desktop tail and phase-boundary fault containment");
 }

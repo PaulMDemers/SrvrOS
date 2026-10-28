@@ -10715,3 +10715,15 @@ merged build/core/desktop, sanitizers, compatibility and exact-stage VMs before
 installation/readiness. Preserve both failed v103 runs and accepted v102 proof.
 No credential, security/IP, battery, other-machine acceptance or shared scheduler
 policy changes. Bounded checkpoint is a separately source-bound cold UI trial.
+
+
+v104 implementation now pauses periodic writes through the explicit owned radio
+phase and resumes only after immutable full proof is saved. Logger tests cover
+an in-flight writer completing, bounded timeout retaining busy ownership,
+10-second-plus virtual idle without periodic writes, failed boundary save,
+failed parked-to-desktop save/readback/sync, repeated/ordinary/generic-pause
+refusals and final-stop retirement. Staging tests pass194 cases;223 previous
+Wi-Fi/current Air/AP/C3/package/platform recipes remain byte-identical. Strict
+isolation proof refuses missing/duplicate/failed markers and any snapshot, flush,
+cost or USB-timing record inside the radio phase. No native acceptance or new
+install is claimed before full build/sanitizer/exact-image validation below.

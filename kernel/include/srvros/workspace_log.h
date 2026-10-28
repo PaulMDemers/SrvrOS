@@ -14,6 +14,10 @@ bool workspace_log_start_extended_capture(void);
  * prefix in wifi-scan.log, then resume bounded rolling desktop tail in the same
  * directory. Failed quiescence retains ownership; no GUI may start on failure. */
 bool workspace_log_begin_wifi_desktop(void);
+/* Explicit isolated Wi-Fi capture only: bounded writer drain and boundary save,
+ * retain the complete RAM prefix without periodic I/O until desktop handoff or
+ * final stop. A generic pause does not grant this handoff ownership. */
+bool workspace_log_begin_wifi_capture(void);
 /* Explicit desktop diagnostic: retain at most32 periodic snapshots, never wrap. */
 bool workspace_log_start_checkpoints(void);
 /* Explicit diagnostic only; pauses logging and uses a fresh session file. */
