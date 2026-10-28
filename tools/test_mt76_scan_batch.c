@@ -1,4 +1,5 @@
 #include <srvros/mt76_scan_batch.h>
+#include <srvros/mt76_selection.h>
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
@@ -47,7 +48,21 @@ static void setup(bool no_events){
         assert(v->window.beacons==(quiet?0u:8u));
     }
 }
-static bool collect(struct mt76_scan_batch *s){cases++;const struct mt76_scan_batch_io io={visits,owned};return mt76_scan_batch_collect(s,visits,3,&io);}
+static bool selection_owned(void *c,const struct mt76_scan_batch *b){assert(c==b);return true;}
+static bool collect(struct mt76_scan_batch *s){
+    cases++;const struct mt76_scan_batch_io io={visits,owned};bool ok=mt76_scan_batch_collect(s,visits,3,&io);
+    if(ok){
+        struct mt76_selection snapshot={0};const struct mt76_selection_io si={s,selection_owned};
+        assert(mt76_selection_publish(&snapshot,s,&si) && snapshot.count==s->count);
+        for(unsigned i=0;i<s->count;i++){
+            struct mt76_selection_choice choice;const struct mt76_scan_row *v=&s->row[i];
+            enum mt76_selection_status expected=(v->channel_conflict || v->advertisement.ssid_conflict || v->advertisement.security_conflict)?MT76_SELECTION_CONFLICT:v->advertisement.hidden?MT76_SELECTION_HIDDEN:MT76_SELECTION_OK;
+            assert(mt76_selection_choose(&snapshot,1,i,&choice)==expected);
+            if(expected==MT76_SELECTION_OK)assert(!memcmp(choice.row.advertisement.bssid,v->advertisement.bssid,6));
+        }
+    }
+    return ok;
+}
 static void refuse(void){struct mt76_scan_batch s={0},expected={.attempted=true,.failed=true};assert(!collect(&s) && !memcmp(&s,&expected,sizeof s));}
 int main(void){
     setup(false);struct mt76_scan_batch s={0};assert(collect(&s) && s.complete && s.inputs==24 && s.parsed==24 && s.count==24 && !s.pending);

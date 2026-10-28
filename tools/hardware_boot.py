@@ -390,7 +390,7 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
         raise ValueError("Desktop scale requires desktop volume and scale 1 or 2")
     if power_telemetry and not desktop_idle_capture:
         raise ValueError("Power telemetry requires the explicit desktop idle capture")
-    if wifi_scan_batch and (not wifi_scan_retry or hold_on_failure or mwait_wakeup_test): raise ValueError("Scan batch requires automatic full scan-retry profile")
+    if wifi_scan_batch and (not wifi_scan_retry or hold_on_failure or mwait_wakeup_test or mwait_deep_test): raise ValueError("Scan batch requires automatic full scan-retry profile")
     if wifi_scan_retry and (not wifi_scan or hold_on_failure): raise ValueError("Scan retry requires automatic full scan profile")
     if wifi_scan and (not wifi_channel_receive or hold_on_failure): raise ValueError("Passive scan requires automatic full channel-receive profile")
     if wifi_channel_receive and (not wifi_channel_tune or hold_on_failure): raise ValueError("Channel receive requires automatic full channel-tune profile")
@@ -896,7 +896,7 @@ def main():
     parser.add_argument("--battery-air61",action="store_true",help="exact Air6,1 battery kernel; use a capture or --desktop-battery --desktop-volume")
     parser.add_argument("--storage-wait-capture",action="store_true",help="counterbalanced fixed-file USB polling/wait comparison; saves and returns automatically")
     args = parser.parse_args()
-    if args.wifi_scan_batch and (args.action!="stage" or not args.wifi_scan_retry or args.hold_on_failure or args.mwait_wakeup_test): parser.error("Scan batch requires automatic stage --wifi-scan-retry")
+    if args.wifi_scan_batch and (args.action!="stage" or not args.wifi_scan_retry or args.hold_on_failure or args.mwait_wakeup_test or args.mwait_deep_test): parser.error("Scan batch requires automatic stage --wifi-scan-retry")
     if args.wifi_scan_retry and (args.action != "stage" or not args.wifi_scan or args.hold_on_failure): parser.error("Scan retry requires automatic stage --wifi-scan")
     if args.wifi_scan and (args.action != "stage" or not args.wifi_channel_receive or args.hold_on_failure): parser.error("Passive scan requires automatic stage --wifi-channel-receive")
     if args.wifi_channel_receive and (args.action != "stage" or not args.wifi_channel_tune or args.hold_on_failure): parser.error("Channel receive requires automatic stage --wifi-channel-tune")

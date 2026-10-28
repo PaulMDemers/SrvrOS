@@ -5814,3 +5814,28 @@ exact-stage VM gates precede this physical result. The
 failures. Private row/count proof does not establish physical BSSID grouping,
 FCS, sustained endurance, association, security or IP/UI. Bounded discovery
 publication/selection and transmit/association groundwork remain next.
+
+## Discovery snapshot and explicit selection groundwork
+
+`mt76_selection` copies a completed, owned three-visit batch into a private
+bounded24-row snapshot. Every refresh attempt advances its generation and erases
+the previous snapshot before validation, including failures. Generation exhaustion
+refuses further publication instead of wrapping. The serialized owner must retain
+its generation across refresh/disconnect/invalidate operations; a future service
+must also scope requests to that owner's lifetime. Publication rechecks ownership
+after copying and exposes no rows on failure. Counts, observation totals, unique
+unicast BSSIDs and US1/6/11 channel masks are validated; unused SSID bytes are
+cleared. The callback remains responsible for exact native ownership and cleanup.
+
+Selection requires an explicit generation and row index. It rejects an old
+snapshot, missing row, hidden name or SSID/security/channel conflict, with no
+first/open-network fallback. Success returns copied advertisement metadata and
+US/20MHz binding. RSN/WPA presence does not validate cipher, AKM, key exchange or
+negotiated security; association must reparse full IEs. Hidden-network credentials
+and explicit SSID entry remain separate work. Binary SSID display escapes control,
+non-ASCII and backslash bytes as `\xNN` with a checked full-output buffer.
+
+This transport-neutral groundwork has host tests and no native caller, syscall,
+network picker, transmit or join operation. It does not change v102's hardware
+acceptance or enable ordinary Wi-Fi startup. Next is binding snapshots to an
+explicit discovery service/UI lifetime, then management TX and association/security.

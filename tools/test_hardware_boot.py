@@ -193,6 +193,16 @@ class InstallTests(unittest.TestCase):
             self.assertEqual(eval(code,{"probe":True,"manifest":{"config_version":f"ram-usb-wifi-fw-v{version}-laptop-probe-0e535900-auto-return"}}),expected)
 
 
+    def test_merged_mwait_recipes(self):
+        for kind,token in (("mwait","mwait-wakeup-test"),("mwait-c3","mwait-c3-test")):
+            version=f"ram-usb-v1-{kind}-laptop-probe-0e535900-auto-return"
+            config=boot.limine_config("0123456789abcdef",version)
+            self.assertIn("srvros.idle="+token,config)
+            self.assertIn("srvros.capture=cpu-load",config)
+            self.assertNotIn("srvros.wifi-",config)
+        for options in (dict(mwait_deep_test=True),dict(cpu_load_capture=True,mwait_deep_test=True,mwait_wakeup_test=True),dict(cpu_load_capture=True,wifi_scan_batch=True,wifi_scan_retry=True,mwait_deep_test=True)):
+            with self.assertRaises(ValueError):boot.stage(**options)
+
     def test_wifi_scan_batch_profile(self):
         v="ram-usb-wifi-fw-v102-laptop-probe-0e535900-auto-return"
         self.assertEqual(boot.limine_config("0123456789abcdef",v).replace(" srvros.wifi-scan-batch=1",""),boot.limine_config("0123456789abcdef",v.replace("v102-","v101-")))

@@ -4254,11 +4254,19 @@ test-wifi-scan-log:
 test-core: test-mt76-scan-batch
 test-mt76-scan-batch: build/tests/mt76-scan-batch-host$(HOST_EXE)
 	$(HOST_RUN) $<
-build/tests/mt76-scan-batch-host$(HOST_EXE): tools/test_mt76_scan_batch.c kernel/src/drivers/mt76_scan_batch.c kernel/src/drivers/mt76_scan.c kernel/src/drivers/mt76_discovery.c kernel/src/drivers/mt76_rx_window.c kernel/src/drivers/mt76_channel_plan.c kernel/src/drivers/mt76_rx.c $(KERNEL_HEADERS)
+build/tests/mt76-scan-batch-host$(HOST_EXE): tools/test_mt76_scan_batch.c kernel/src/drivers/mt76_scan_batch.c kernel/src/drivers/mt76_scan.c kernel/src/drivers/mt76_discovery.c kernel/src/drivers/mt76_rx_window.c kernel/src/drivers/mt76_channel_plan.c kernel/src/drivers/mt76_rx.c kernel/src/drivers/mt76_selection.c $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_scan_batch.c kernel/src/drivers/mt76_scan.c kernel/src/drivers/mt76_discovery.c kernel/src/drivers/mt76_rx_window.c kernel/src/drivers/mt76_channel_plan.c kernel/src/drivers/mt76_rx.c -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_scan_batch.c kernel/src/drivers/mt76_scan.c kernel/src/drivers/mt76_discovery.c kernel/src/drivers/mt76_rx_window.c kernel/src/drivers/mt76_channel_plan.c kernel/src/drivers/mt76_rx.c kernel/src/drivers/mt76_selection.c -o $@
 
 .PHONY: test-wifi-burst-log
 test-core: test-wifi-burst-log
 test-wifi-burst-log:
 	$(PYTHON) -m unittest discover -s tools -p test_wifi_burst_log.py
+
+.PHONY: test-mt76-selection
+test-core: test-mt76-selection
+test-mt76-selection: build/tests/mt76-selection-host$(HOST_EXE)
+	$<
+build/tests/mt76-selection-host$(HOST_EXE): tools/test_mt76_selection.c kernel/src/drivers/mt76_selection.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_selection.c -o $@
