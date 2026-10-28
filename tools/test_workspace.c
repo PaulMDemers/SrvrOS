@@ -11,6 +11,7 @@ static bool image_busy;
 bool workspace_image_busy(void){return image_busy;}
 static bool mounted, busy_files, dirty, bad_marker, missing, flush_ok, file_sync_ok, foreign;
 static unsigned count, enables, disables, flushes, depth, raw_writes, invalidations;
+static unsigned file_syncs;
 static bool scratch_file, extent_ok, raw_write_ok, raw_read_ok, mismatch;
 static uint8_t scratch_data[4096];
 uint64_t timer_monotonic_us(void){return 12345;}
@@ -76,11 +77,11 @@ bool vfs_read_all(const struct vfs_node *n,const uint8_t **data,uint64_t *size) 
 }
 void vfs_release_data(const struct vfs_node *n,const uint8_t *d) { (void)n;(void)d; }
 bool process_has_open_vfs_prefix(const char *p) { assert(!strcmp(p,"/work"));return busy_files; }
-int64_t process_file_sync_all(void) { return file_sync_ok?0:-1; }
+int64_t process_file_sync_all(void) { assert(depth);file_syncs++;return file_sync_ok?0:-1; }
 static void reset(void) {
     active=NULL;parked=NULL;failed=image_busy=false;scratch=(__typeof__(scratch)){0};memset(disks,0,sizeof(disks));
     mount_generation=hold_serial=0;mount_hold=(__typeof__(mount_hold)){0};
-    count=1;enables=disables=flushes=depth=raw_writes=invalidations=0;
+    count=1;enables=disables=flushes=depth=raw_writes=invalidations=file_syncs=0;
     scratch_file=mismatch=false;extent_ok=raw_write_ok=raw_read_ok=true;
     disks[0].block_size=512;disks[0].read=raw_read;
     mounted=busy_files=dirty=bad_marker=missing=foreign=false;
@@ -143,6 +144,25 @@ int main(void) {
     flush_ok=true;assert(!workspace_sync());
     reset();assert(workspace_mount("37d8c5d0"));file_sync_ok=false;
     assert(!workspace_sync() && active && mounted && !flushes);
+    /* A direct logger's committed data needs a device barrier, not submission
+     * of another application's dirty buffers. Public sync/unmount retain it. */
+    reset();assert(!workspace_flush_committed() && !flushes && !file_syncs);
+    assert(workspace_mount("37d8c5d0"));busy_files=true;file_sync_ok=false;
+    assert(workspace_flush_committed() && flushes==1 && !file_syncs && !failed && !depth);
+    assert(!workspace_sync() && file_syncs==1 && flushes==1 && failed);
+    reset();assert(workspace_mount("37d8c5d0"));
+    assert(workspace_flush_committed() && flushes==1 && !file_syncs);
+    assert(workspace_sync() && flushes==2 && file_syncs==1);
+    assert(workspace_unmount() && flushes==3 && file_syncs==2 && !mounted && !depth);
+    reset();assert(workspace_mount("37d8c5d0"));foreign=true;
+    assert(!workspace_flush_committed() && !flushes && !file_syncs && !failed && !depth);foreign=false;
+    dirty=true;assert(!workspace_flush_committed() && failed && !flushes && !file_syncs && !depth);
+    dirty=false;assert(!workspace_flush_committed() && !flushes);
+    reset();assert(workspace_mount("37d8c5d0"));flush_ok=false;
+    assert(!workspace_flush_committed() && failed && flushes==1 && !file_syncs && !depth);
+    flush_ok=true;assert(!workspace_flush_committed() && flushes==1);
+    reset();assert(workspace_mount("37d8c5d0"));disks[0].flush=NULL;
+    assert(!workspace_flush_committed() && failed && !flushes && !file_syncs && !depth);
     reset();assert(workspace_mount("37d8c5d0"));
     assert(!workspace_parked_device());assert(workspace_unmount());
     assert(workspace_parked_device()==disks);

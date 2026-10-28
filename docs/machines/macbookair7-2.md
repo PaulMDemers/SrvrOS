@@ -2,6 +2,46 @@
 
 Updated: 2026-10-28. State: **active reference machine; partial device acceptance**.
 
+### Sixth endurance return — logger invokes global file sync (2026-10-28)
+
+Release `c98e4c162b411126`, clean `c23ed928` (PR #245), returned automatically
+from `session-00065eeb62e3edb4-00` after seven cycles. Files PID 18 misses the
+startup deadline while awaiting first pixels. UI maximum 101097 us, zero observed
+PCM underruns and clean native battery retirement do not accept endurance.
+Logger save 59755534–64831507 us takes 5075973 us: write 173052, verify 4232 and
+sync 4898644 us. Its USB CSW callbacks total 4326717 us. This is workload wall time,
+including concurrent traffic, not CPU or pure device latency. Source review shows
+logger `workspace_sync()` invokes `process_file_sync_all()` before the device
+barrier, so log persistence can force unrelated dirty process buffers to disk.
+All 1194 prior files are preserved except metadata; offline fsck/allocation pass
+(1200 files, 3191 clusters, zero errors), default/recovery/one-shot pass.
+
+The bounded proposal adds a kernel-only committed-data flush API in
+`workspace.c/.h`, logger use/explicit durability receipt, focused workspace/logger
+fixtures and checkpoint VM harness compatibility. Explicit workspace sync and
+unmount must retain global process-file sync; logger may flush only its already
+written/read-back exFAT data plus the physical device barrier. No gate, cadence,
+deadline, dirty-file ownership or failure-poisoning weakening. Main `46b60b24` /
+PR #246 isolated diagnostic fixes are consumed, along with documentation-only
+main `00338707` / PR #248. The user assigned the Air7,2 agent ownership of the
+narrow logger barrier in PR #247. PR #182 at `c5e9d2ac` retains its separate
+filesystem audit: preserve its block-claim/online-state checks and raw scratch
+lease handling when integrating. The original no-argument full-sync helper is
+retained for compatibility. This change does not take over process/VFS auditing.
+PR #19 Wi-Fi remains independent. Ubuntu stays default with no one-shot armed.
+
+The committed-data barrier proposal passes integrated core/desktop hosts,
+ordinary/native/VM builds and documentation checks. Final wrapper preservation
+passes focused workspace/logger tests and matched rebuilds. Source `7e3a325f`
+passes normal Air7,2 KVM: 22 cycles, loop 115699 us, ready 1269412 us, close 940387 us,
+zero observed PCM underruns, exact files/screenshot and clean retirement. Five
+live checkpoints use the new matching durability marker. The 100-write-IOPS
+populated fixture still fails cycle 1 total lifecycle (UI 109720 us); preserve it
+as a remaining performance failure. No native barrier acceptance is claimed.
+PR #247 is proceeding to integration under that explicit user ownership assignment.
+No new boot payload was installed or staged for this proposal and no reboot is armed;
+installed remains `c98e4c162b411126`, independent recovery `9aa8dbf6fbda8252`.
+
 ### Fifth endurance return — ready-thread gate exclusion (2026-10-28)
 
 Release `57d0ba0d7e1f2f71`, clean `b6f3dcad` (PR243 runtime), returned

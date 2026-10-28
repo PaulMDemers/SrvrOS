@@ -14,6 +14,15 @@ from loop_timing import validate_loop_timing
 from operation_timing import operation_snapshots
 
 
+def checkpoint_durable(output, after, name, at):
+    # New writers acknowledge only the exact completed log/device barrier.
+    # Older immutable stages used the global workspace-flushed receipt.
+    if b'workspace-log: durable snapshot=' in output:
+        marker=b'workspace-log: durable snapshot='+name+b' monotonic_us='+at
+        return re.search(re.escape(marker)+rb'\r?\n',output[after:]) is not None
+    return b'workspace: flushed' in output[after:]
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--stage')
@@ -85,7 +94,7 @@ def main():
                     marks=list(re.finditer(rb'workspace-log: snapshot=(session-[ab]\.log) monotonic_us=(\d+)[^\r\n]*[\r\n]',output))
                     if len(directories)!=1 or not marks:return
                     mark=marks[-1];key=mark[1],mark[2]
-                    if key in collected or b'workspace: flushed' not in output[mark.end():]:return
+                    if key in collected or not checkpoint_durable(output,mark.end(),mark[1],mark[2]):return
                     path=directories[0].decode()+'/'+mark[1].decode()
                     def read_snapshot():return ExfatFixture(stick.read_bytes()[2048*512:end]).read(path)
                     raw=read_snapshot()

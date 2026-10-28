@@ -655,4 +655,18 @@ class CollectionTests(unittest.TestCase):
             with self.assertRaises(ValueError): desktop.collect(mount,'37d8c5d0',root/'out')
             with self.assertRaises(ValueError): desktop.collect(mount,'12345678',root/'out')
 
+class CheckpointBarrierTests(unittest.TestCase):
+    def test_matching_committed_generation_and_legacy_stage(self):
+        from audio_io_stress_smoke import checkpoint_durable
+        name,at=b'session-a.log',b'123'
+        receipt=b'workspace-log: durable snapshot=session-a.log monotonic_us=123'
+        self.assertTrue(checkpoint_durable(receipt+b'\r\n',0,name,at))
+        self.assertTrue(checkpoint_durable(receipt+b'\n',0,name,at))
+        self.assertFalse(checkpoint_durable(receipt,0,name,at))
+        self.assertFalse(checkpoint_durable(receipt+b'4\nworkspace: flushed\n',0,name,at))
+        self.assertFalse(checkpoint_durable(receipt+b'\nworkspace: flushed\n',0,b'session-b.log',at))
+        self.assertFalse(checkpoint_durable(receipt+b'\n',len(receipt)+1,name,at))
+        self.assertTrue(checkpoint_durable(b'workspace: flushed\n',0,name,at))
+        self.assertFalse(checkpoint_durable(b'workspace: flushed\n',19,name,at))
+
 if __name__=='__main__': unittest.main()
