@@ -5330,3 +5330,17 @@ forcewake/control access, and no policy, watchdog, workload, log or latency-limi
 changes. PR247 logger barriers, PR182 filesystem and PR19 Wi-Fi do not overlap
 this bounded scope. Next checkpoint: source audit, host/VM checks, self-merged
 candidate and automated native repeat; preserve all prior failed evidence.
+
+The audit confirms Haswell's documented 32-bit/1.28 us accumulator; public
+register documentation supplies no clock tolerance or update cadence, and IGT's
+software test allowance is not adopted. The new series retains every other
+existing power checkpoint (up to 12 pairs), with no added worker/timer/control
+access. It preserves the original mismatch test and saves observations on
+failure. Bounded sampling, host/parser regressions and full-core validation
+passed before integration, as did all nine VM cases on `02911e4b80d22cc3`.
+
+PR247 merged during validation. Consume actual main `bb8561f7`, including the
+logger-only committed-data flush and durable receipt, before staging the native
+retry. This does not change normal sync/unmount integrity; rerun the matched
+build, core suite and exact-stage VM coverage on the integrated candidate.
+Pre-integration receipts remain separate and are not attributed to that image.
