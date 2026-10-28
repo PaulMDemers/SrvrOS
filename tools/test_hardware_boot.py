@@ -189,9 +189,16 @@ class InstallTests(unittest.TestCase):
         tree=ast.parse(Path(__file__).with_name("hardware_boot_smoke.py").read_text())
         node=next(n for n in ast.walk(tree) if isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=="wifi_firmware" for t in n.targets))
         code=compile(ast.Expression(node.value),"<actual smoke profile>","eval")
-        for version,expected in [(89,True),(90,True),(91,True),(92,True),(93,True),(94,True),(95,True),(96,True),(97,True),(98,True),(99,True),(100,True),(101,True),(102,False)]:
+        for version,expected in [(89,True),(90,True),(91,True),(92,True),(93,True),(94,True),(95,True),(96,True),(97,True),(98,True),(99,True),(100,True),(101,True),(102,True),(103,False)]:
             self.assertEqual(eval(code,{"probe":True,"manifest":{"config_version":f"ram-usb-wifi-fw-v{version}-laptop-probe-0e535900-auto-return"}}),expected)
 
+
+    def test_wifi_scan_batch_profile(self):
+        v="ram-usb-wifi-fw-v102-laptop-probe-0e535900-auto-return"
+        self.assertEqual(boot.limine_config("0123456789abcdef",v).replace(" srvros.wifi-scan-batch=1",""),boot.limine_config("0123456789abcdef",v.replace("v102-","v101-")))
+        with self.assertRaises(ValueError):boot.stage(wifi_scan_batch=True)
+        with self.assertRaises(ValueError):boot.stage(wifi_scan_retry=True,wifi_scan_batch=True,hold_on_failure=True)
+        with self.assertRaises(ValueError):boot.limine_config("0123456789abcdef",v.removesuffix("-auto-return"))
 
     def test_wifi_scan_retry_profile(self):
         v="ram-usb-wifi-fw-v101-laptop-probe-0e535900-auto-return"

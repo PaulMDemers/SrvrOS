@@ -1,6 +1,7 @@
 static unsigned scan_cases;
 static bool scan_early_timing,scan_retry_test,scan_retry_layout_test,scan_retry_case_test;
 static void test_wifi_scan(struct xhci_device *d){
+    if(batch_test_enabled){test_wifi_burst(d);return;}
     uint8_t input[4096]={0};void *old_input=d->input_context;uint64_t old_input_phys=d->input_context_phys;
     d->input_context=input;d->input_context_phys=(uintptr_t)input;
     struct xhci_wifi_mcu *m=&d->firmware.mcu;struct xhci_wifi_mcu before=*m;uint8_t context[4096];memcpy(context,d->output_context,sizeof context);

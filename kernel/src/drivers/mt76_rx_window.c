@@ -7,7 +7,8 @@ unsigned mt76_rx_window_channel(const struct mt76_rx_window_plan *p) {
     return p->channel==1 || p->channel==6 || p->channel==11?p->channel:0;
 }
 bool mt76_rx_window_plan_valid(const struct mt76_rx_window_plan *p) {
-    if (!mt76_rx_window_channel(p) || (p->budget_us && p->budget_us!=MT76_RX_WINDOW_US &&
+    if (!mt76_rx_window_channel(p) || p->first_index>1 ||
+        (p->first_index && (!p->channel || !p->country[0] || !p->country[1])) || (p->budget_us && p->budget_us!=MT76_RX_WINDOW_US &&
         p->budget_us!=MT76_RX_WINDOW_LONG_US) || !p->ring || (p->ring & 4095) || p->ring > UINT64_MAX-4095 ||
         !p->slot || p->slot > 255 || p->dci != 9) return false;
     for (unsigned i=0;i<MT76_RX_WINDOW_SLOTS;i++) {
@@ -66,7 +67,7 @@ bool mt76_rx_window_poll(struct mt76_rx_window *s,
             /* A failed submission can still expose a TRB to hardware. Count
              * the attempt before the callback and stop; never retry its page. */
             pending=true;
-            if (!f.post(f.context,i,p.ring+16*i,p.physical[i])) {ok=false;break;}
+            if (!f.post(f.context,i,p.ring+16*(p.first_index+i),p.physical[i])) {ok=false;break;}
             s->item[i].submitted=true;
         }
         if (!f.owned(f.context,false)) {ok=false;break;}
@@ -75,7 +76,7 @@ bool mt76_rx_window_poll(struct mt76_rx_window *s,
         s->polls++;
         if (!present) continue;
         unsigned i=s->attempts-1;
-        if (e.slot!=p.slot || e.dci!=p.dci || e.trb!=p.ring+16*i) {
+        if (e.slot!=p.slot || e.dci!=p.dci || e.trb!=p.ring+16*(p.first_index+i)) {
             s->ignored++;continue;
         }
         /* Stopped/error events cannot supply payload, even residue zero. */
@@ -102,7 +103,7 @@ bool mt76_rx_window_finish(struct mt76_rx_window *s,
         io && io->owned && s->attempts && s->attempts<=MT76_RX_WINDOW_SLOTS;
     if (s->attempts && s->attempts<=MT76_RX_WINDOW_SLOTS) {
         s->stop_attempted=stop!=0;
-        uint64_t current=s->plan.ring+16*(s->attempts-1);
+        uint64_t current=s->plan.ring+16*(s->plan.first_index+s->attempts-1);
         uint64_t dequeue=stop?stop->dequeue&~15ull:0;
         s->stopped=stop && stop->state==3 && stop->slot==s->plan.slot &&
             stop->dci==s->plan.dci && (stop->dequeue&15)==1 &&

@@ -16,7 +16,7 @@ struct fixture {
     unsigned posts,stops,polls,owned,cleanup,fail_index,checks;
     uint64_t clock;
 };
-static unsigned explicit_channel;
+static unsigned explicit_channel,explicit_first;
 static void put16(uint8_t *p,unsigned n) {p[0]=n;p[1]=n>>8;}
 static void put32(uint8_t *p,unsigned n) {put16(p,n);put16(p+2,n>>16);}
 static void packet(uint8_t *p,unsigned index) {
@@ -39,7 +39,7 @@ static bool owned(void *ctx,bool cleanup) {
 static bool post(void *ctx,unsigned index,uint64_t trb,uint64_t physical) {
     struct fixture *f=ctx;
     assert(index==f->posts && f->posts<8 && !f->stops && !f->cleanup);
-    assert(trb==f->p.ring+16*index && physical==f->p.physical[index]);
+    assert(trb==f->p.ring+16*(f->p.first_index+index) && physical==f->p.physical[index]);
     assert(f->s.attempts==index+1);
     if(index)assert(f->s.item[index-1].completed);
     for(unsigned i=0;i<8;i++)assert(!f->s.item[i].inspected);
@@ -50,7 +50,7 @@ static bool poll(void *ctx,struct mt76_rx_window_event *e,bool *present) {
     struct fixture *f=ctx;assert(f->posts && !f->stops && !f->cleanup);f->polls++;
     if(f->fault==POLL_FAIL && f->posts==f->fail_index+1)return false;
     *present=f->fault!=NO_EVENT && f->fault!=FROZEN && f->fault!=SHORT_DEADLINE;
-    *e=(struct mt76_rx_window_event){.trb=f->p.ring+16*(f->posts-1),
+    *e=(struct mt76_rx_window_event){.trb=f->p.ring+16*(f->p.first_index+f->posts-1),
         .slot=f->p.slot,.dci=9,.completion=13,.remaining=4096-84};
     if(f->fault==FOREIGN && f->polls%2) {
         switch(f->polls%6){case 1:e->slot++;break;case 3:e->dci++;break;default:e->trb+=16;break;}
@@ -76,7 +76,7 @@ static bool stop(void *ctx,struct mt76_rx_window_stop *s) {
     for(unsigned i=0;i<8;i++)assert(!f->s.item[i].inspected);
     f->stops++;
     *s=(struct mt76_rx_window_stop){.slot=f->p.slot,.dci=9,.state=3,
-        .dequeue=(f->p.ring+16*f->posts)|1};
+        .dequeue=(f->p.ring+16*(f->p.first_index+f->posts))|1};
     switch(f->fault) {
     case STOP_CURRENT:s->dequeue-=16;break;
     case STOP_FAIL:return false;
@@ -100,7 +100,7 @@ static uint64_t now(void *ctx) {
 static void init(struct fixture *f,enum fault fault,unsigned index) {
     memset(f,0,sizeof *f);f->fault=fault;f->fail_index=index;
     f->p.ring=0x100000;f->p.slot=1;f->p.dci=9;
-    if(explicit_channel){f->p.country[0]='U';f->p.country[1]='S';f->p.channel=(uint8_t)explicit_channel;}
+    if(explicit_channel){f->p.country[0]='U';f->p.country[1]='S';f->p.channel=(uint8_t)explicit_channel;f->p.first_index=explicit_first;}
     for(unsigned i=0;i<8;i++) {
         uint8_t *p=aligned_alloc(4096,4096);assert(p);packet(p,i);
         f->p.buffer[i]=p;f->p.physical[i]=0x200000+4096*i;
@@ -227,8 +227,8 @@ int main(void) {
         destroy(&f);scenarios++;
     }
     const unsigned channels[]={1,6,11};
-    for(unsigned ch=0;ch<3;ch++){
-        explicit_channel=channels[ch];
+    for(unsigned first=0;first<2;first++)for(unsigned ch=0;ch<3;ch++){
+        explicit_first=first;explicit_channel=channels[ch];
         for(unsigned i=0;i<8;i++){
             for(enum fault x=POST_FAIL;x<=CC_ERROR;x++)run(x,i,false);
             for(enum fault x=ZERO;x<=OFF_CHANNEL;x++)run(x,i,true);
@@ -236,6 +236,7 @@ int main(void) {
         for(enum fault x=NONE;x<=STALE;x++)run(x,0,true);
         run(SHORT_DEADLINE,0,true);run(STOP_CURRENT,0,true);run(ZERO_ALL,0,true);run(INITIAL_LOST,0,false);
     }
+    explicit_first=0;
     /* Exhaustively reject implicit/mixed/non-US channel bindings before any
      * device callback. Only legacy all-zero and explicit US1/6/11 survive. */
     for(unsigned region=0;region<5;region++)for(unsigned ch=0;ch<256;ch++){
@@ -246,6 +247,12 @@ int main(void) {
         assert((mt76_rx_window_channel(&f.p)!=0)==valid);
         if(!valid){assert(!mt76_rx_window_run(&f.s,&f.p,&f.io) && !f.posts && !f.stops && !f.checks);scenarios++;}
         destroy(&f);
+    }
+    for(unsigned offset=1;offset<4;offset++){
+        struct fixture f;explicit_channel=0;init(&f,NONE,0);f.p.first_index=offset;
+        assert(!mt76_rx_window_run(&f.s,&f.p,&f.io) && !f.posts);destroy(&f);scenarios++;
+        explicit_channel=6;init(&f,NONE,0);f.p.first_index=offset;
+        assert(mt76_rx_window_run(&f.s,&f.p,&f.io)==(offset==1));destroy(&f);scenarios++;
     }
     assert(!mt76_rx_window_channel(NULL));
     printf("mt76-rx-window: PASS %u ownership/event/deadline/stop/parser scenarios; no native adapter\n",scenarios);

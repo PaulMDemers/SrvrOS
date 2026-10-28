@@ -1,3 +1,8 @@
+static bool batch_test_enabled,batch_test_group;
+static unsigned batch_case,batch_fault_visit,batch_model_ticks,batch_injected;
+static uint64_t batch_last_trb;
+static void test_wifi_burst(struct xhci_device *);
+static void burst_test_tick(void);
 static unsigned receive_retry_fault;
 static bool receive_layout_faulted;
 static uint64_t receive_last_trb;
@@ -43,7 +48,7 @@ static void receive_test_command(void) {
     if((receive_fault==1 && type==16) || (receive_fault==2 && type==15))return;
     uint64_t deq=r->ep.ring_phys|1;
     if(type==16)assert((cmd->parameter_low|((uint64_t)cmd->parameter_high<<32))==deq && wifi_receive_base_stopped(d));
-    if(type==15){assert(!cmd->parameter_low && !cmd->parameter_high);deq+=r->retry.posted?32:16;}
+    if(type==15){assert(!cmd->parameter_low && !cmd->parameter_high);deq+=r->burst.enabled?16*r->burst.posts:r->retry.posted?32:16;}
     if(receive_fault==17 && type==15)deq+=16;
     if(receive_fault==18 && type==16)deq&=~1ull;
     context_write32(d->output_context,9,0,((receive_fault==3 && type==15) || (receive_fault==27 && type==16))?1:3);
@@ -57,6 +62,7 @@ static void receive_test_command(void) {
 static void receive_test_tick(void) {
     struct xhci_device *d=receive_test_device;struct xhci_wifi_receive *r=&d->firmware.mcu.receive;
     if(receive_layout_faulted)return;
+    if(d->firmware.mcu.scan_batch_mode){burst_test_tick();return;}
     if(receive_mac_at && mac_model_calls>=receive_mac_at)d->firmware.mcu.agc_state.complete=false;
     if((!r->polling && !(receive_fault==24 && r->posted)) || !r->pending)return;
     unsigned fault=r->retry.posted?receive_retry_fault:receive_fault;

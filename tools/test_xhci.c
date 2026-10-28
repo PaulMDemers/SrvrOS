@@ -6,6 +6,8 @@
 #include <string.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdarg.h>
+static bool batch_trace;
 #define SRVROS_XHCI_TEST_MMIO
 static uint32_t xhci_test_read32(uint64_t offset);
 static void xhci_test_write32(uint64_t offset, uint32_t value);
@@ -179,8 +181,22 @@ static void xhci_test_write32(uint64_t offset, uint32_t value) {
     *(uint32_t *)(registers + offset) = value;
 }
 
-void console_write(const char *s) { (void)s; }
-void console_printf(const char *fmt, ...) { (void)fmt; }
+void console_write(const char *s) { if(batch_trace)fputs(s,stdout); }
+void console_printf(const char *fmt, ...) {
+    if(!batch_trace)return;
+    va_list a;va_start(a,fmt);
+    for(const char *p=fmt;*p;p++){
+        if(*p!='%'){putchar(*p);continue;}p++;
+        if(*p=='u')printf("%llu",(unsigned long long)va_arg(a,uint64_t));
+        else if(*p=='x')printf("0x%016llx",(unsigned long long)va_arg(a,uint64_t));
+        else if(*p=='d')printf("%lld",(long long)va_arg(a,int64_t));
+        else if(*p=='s')fputs(va_arg(a,const char *),stdout);
+        else if(*p=='c')putchar(va_arg(a,int));
+        else if(*p=='%')putchar('%');
+        else assert(!"unsupported fixture trace format");
+    }
+    va_end(a);
+}
 uint64_t pmm_alloc_frames_tagged(uint64_t count, enum pmm_frame_tag tag) {
     assert(tag == PMM_FRAME_DMA);
     if (pool_used + count > fail_after) return 0;
@@ -6654,9 +6670,12 @@ static void test_wifi_mcu_transport(void) {
 #include "test_xhci_wifi_tune.inc"
 #include "test_xhci_wifi_receive.inc"
 #include "test_xhci_wifi_scan.inc"
+#include "test_xhci_wifi_burst.inc"
 #include "test_xhci_wifi_window.inc"
 
 int main(int argc, char **argv) {
+    if(argc==3 && !strcmp(argv[1],"--wifi-scan-batch-group")){batch_test_enabled=batch_test_group=true;batch_case=(unsigned)strtoul(argv[2],0,10);assert(batch_case<6);receive_test_only=scan_test_only=true;test_wifi_window();return 0;}
+    if(argc==4 && (!strcmp(argv[1],"--wifi-scan-batch-case") || !strcmp(argv[1],"--wifi-scan-batch-trace"))){batch_trace=!strcmp(argv[1],"--wifi-scan-batch-trace");batch_test_enabled=true;batch_case=(unsigned)strtoul(argv[2],0,10);batch_fault_visit=(unsigned)strtoul(argv[3],0,10);assert(batch_case<=35 && batch_fault_visit<3);receive_test_only=scan_test_only=true;test_wifi_window();return 0;}
     if(argc==2 && !strcmp(argv[1],"--wifi-agc-timing")){test_wifi_agc_scan_timing();return 0;}
     if(argc==2 && !strcmp(argv[1],"--wifi-scan-retry-cases")){receive_test_only=true;scan_test_only=true;scan_retry_test=scan_retry_case_test=true;test_wifi_window();return 0;}
     if(argc==2 && !strcmp(argv[1],"--wifi-scan-retry-layout")){receive_test_only=true;scan_test_only=true;scan_retry_test=scan_retry_layout_test=true;test_wifi_window();return 0;}

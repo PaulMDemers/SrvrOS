@@ -13,6 +13,7 @@
 #include <srvros/mt76_rx_window.h>
 #include <srvros/mt76_discovery.h>
 #include <srvros/mt76_scan.h>
+#include <srvros/mt76_scan_batch.h>
 #include <srvros/mt76_channel_plan.h>
 #include <srvros/mt76_channel_tune.h>
 #include <srvros/mt76_radio.h>
@@ -282,11 +283,20 @@ struct xhci_wifi_retry {
     unsigned events,completion,remaining,late;
     bool enabled,attempted,posted;
 };
+struct xhci_wifi_burst {
+    uint8_t *buffer[9];
+    uint64_t physical[9],pin_pointer[9],pin_physical[9];
+    struct mt76_rx_window_plan plan;
+    struct mt76_rx_window state;
+    unsigned first,posts,late,early_events,early_completion,early_remaining;
+    bool enabled,prepared,delivered;
+};
 struct xhci_wifi_receive {
     struct xhci_bulk_endpoint ep;
     struct mt76_mac_cycle mac;
     struct mt76_rx_view view;struct mt76_rx_beacon beacon;
     struct xhci_wifi_retry retry;
+    struct xhci_wifi_burst burst;
     uint64_t buffer_phys,trb,dequeue,identity[6],elapsed_us;
     uint8_t *buffer;
     unsigned reads,writes,waits,polls,stalled,events,late,completion,remaining,actual,view_status,beacon_status;
@@ -300,6 +310,8 @@ struct xhci_wifi_scan {
     struct { struct xhci_wifi_tune tune; struct xhci_wifi_receive receive; } visit[3];
     struct mt76_scan_input input[3];
     struct mt76_scan result;
+    struct mt76_scan_batch_visit batch_visit[3];
+    struct mt76_scan_batch batch;
 };
 struct xhci_wifi_mcu {
     struct xhci_bulk_endpoint response;
@@ -388,7 +400,7 @@ struct xhci_wifi_mcu {
     bool channel_mode;struct xhci_wifi_channel channel;
     bool tune_mode;struct xhci_wifi_tune tune;
     bool receive_mode;struct xhci_wifi_receive receive;
-    bool scan_mode,scan_retry_mode;struct xhci_wifi_scan scan;
+    bool scan_mode,scan_retry_mode,scan_batch_mode;struct xhci_wifi_scan scan;
     bool poweron_mode,poweron_active;unsigned poweron_ops,poweron_reads,poweron_writes,poweron_waits,poweron_commands,poweron_ack_mask;struct mt76_calibration poweron;
     bool cal_probe_mode,cal_probe_active;unsigned cal_probe_ops,cal_probe_reads,cal_probe_writes,cal_probe_waits;struct mt76_calibration_probe cal_probe;
     bool rx_lifecycle_mode,mac_cycle_mode;struct xhci_wifi_rx rx;struct mt76_mac_cycle mac_cycle;

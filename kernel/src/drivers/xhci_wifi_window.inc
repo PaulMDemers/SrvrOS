@@ -9,7 +9,7 @@ static bool wifi_window_owned(void *context,bool cleanup) {
     const struct mt76_rx_window_plan *p=&w->state.plan;
     /* Existing native recipes own only the legacy channel1 window. Explicit
      * channel plans belong to the later repeated-window adapter, never here. */
-    if(p->country[0] || p->country[1] || p->channel ||
+    if(p->first_index || w->plan.first_index || p->country[0] || p->country[1] || p->channel ||
        w->plan.country[0] || w->plan.country[1] || w->plan.channel)return false;
     if(p->budget_us!=w->plan.budget_us || p->ring!=w->plan.ring || p->slot!=w->plan.slot || p->dci!=9)return false;
     for(unsigned i=0;i<8;i++)if(p->buffer[i]!=w->plan.buffer[i] || p->physical[i]!=w->plan.physical[i])return false;

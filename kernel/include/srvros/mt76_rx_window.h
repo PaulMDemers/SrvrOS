@@ -19,6 +19,8 @@ struct mt76_rx_window_plan {
      * receive plans require US and one of the pilot channels1/6/11. This is
      * parser binding only; native tune/enable/cessation proof is still required. */
     uint8_t country[2], channel;
+    /* Explicit plans may skip one retained pre-enable TD; no ring wrapping. */
+    unsigned first_index;
 };
 struct mt76_rx_window_event {
     uint64_t trb;

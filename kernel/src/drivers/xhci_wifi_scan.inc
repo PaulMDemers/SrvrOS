@@ -36,7 +36,43 @@ static bool wifi_scan_collect_owned(void *context,const struct mt76_scan_input *
     }
     return true;
 }
+static bool wifi_burst_window_equal(const struct mt76_rx_window *a,const struct mt76_rx_window *b){
+#define EQ(k) if(a->k!=b->k)return false
+    EQ(attempted);EQ(polled);EQ(poll_ok);EQ(finish_attempted);EQ(complete);EQ(failed);EQ(stop_attempted);EQ(stopped);
+    EQ(attempts);EQ(completions);EQ(ignored);EQ(polls);EQ(beacons);EQ(elapsed_us);
+    EQ(plan.ring);EQ(plan.slot);EQ(plan.dci);EQ(plan.budget_us);EQ(plan.country[0]);EQ(plan.country[1]);EQ(plan.channel);EQ(plan.first_index);
+    for(unsigned i=0;i<8;i++){
+        EQ(plan.physical[i]);EQ(plan.buffer[i]);EQ(item[i].submitted);EQ(item[i].completed);EQ(item[i].inspected);EQ(item[i].beacon);
+        EQ(item[i].completion);EQ(item[i].remaining);EQ(item[i].actual);EQ(item[i].consumed);EQ(item[i].mpdu);
+        EQ(item[i].view_status);EQ(item[i].beacon_status);EQ(item[i].frame_control);EQ(item[i].interval);EQ(item[i].ssid_size);
+        EQ(item[i].privacy);EQ(item[i].rsn);EQ(item[i].wpa);EQ(item[i].ds_present);EQ(item[i].probe_response);
+    }
+#undef EQ
+    return true;
+}
+static bool wifi_scan_batch_owned(void *context,const struct mt76_scan_batch_visit *v,unsigned n){
+    struct xhci_device *d=context;struct xhci_wifi_scan *s=&d->firmware.mcu.scan;
+    if(!d->firmware.mcu.scan_batch_mode || v!=s->batch_visit || n!=3 || s->completed!=3 || !wifi_scan_retained(d))return false;
+    for(unsigned i=0;i<3;i++){
+        const struct xhci_wifi_receive *r=&s->visit[i].receive;
+        if(!r->burst.enabled || !r->burst.state.complete || r->burst.state.failed ||
+           r->burst.plan.channel!=mt76_scan_channel(i) || !mt76_scan_tune_valid(&v[i].tune,mt76_scan_channel(i)) ||
+           !wifi_burst_window_equal(&v[i].window,&r->burst.state))return false;
+        const uint8_t *a=(const uint8_t *)&v[i].tune,*b=(const uint8_t *)&s->visit[i].tune.state;
+        for(unsigned j=0;j<sizeof v[i].tune;j++)if(a[j]!=b[j])return false;
+    }
+    return true;
+}
+static void wifi_scan_batch_log(struct xhci_device *d){
+    struct xhci_wifi_scan *s=&d->firmware.mcu.scan;struct mt76_scan_batch *r=&s->batch;
+    console_printf("wifi-scan-batch: attempted=%u complete=%u failed=%u visits=%u inputs=%u pending=%u empty=%u parsed=%u unrelated=%u rejected=%u rows=%u late=%u retained=1 reused=0 data_out=0 identifiers_logged=0\n",(uint64_t)r->attempted,(uint64_t)r->complete,(uint64_t)r->failed,(uint64_t)s->completed,(uint64_t)r->inputs,(uint64_t)r->pending,(uint64_t)r->empty,(uint64_t)r->parsed,(uint64_t)r->unrelated,(uint64_t)r->rejected,(uint64_t)r->count,(uint64_t)s->late);
+    if(r->complete)for(unsigned i=0;i<r->count && i<24;i++){
+        const struct mt76_scan_row *row=&r->row[i];const struct mt76_discovery_row *v=&row->advertisement;
+        console_printf("wifi-scan-batch-row: index=%u channel=%u channels=%u observations=%u hidden=%u ssid_size=%u privacy=%u rsn=%u wpa=%u ds=%u beacon=%u probe=%u ssid_conflict=%u security_conflict=%u channel_conflict=%u identifiers_logged=0\n",(uint64_t)i,(uint64_t)v->channel,(uint64_t)row->channels,(uint64_t)v->observations,(uint64_t)v->hidden,(uint64_t)v->ssid_size,(uint64_t)v->privacy,(uint64_t)v->rsn,(uint64_t)v->wpa,(uint64_t)v->ds_present,(uint64_t)v->beacon_seen,(uint64_t)v->probe_response_seen,(uint64_t)v->ssid_conflict,(uint64_t)v->security_conflict,(uint64_t)row->channel_conflict);
+    }
+}
 static void wifi_scan_log(struct xhci_device *d){
+    if(d->firmware.mcu.scan_batch_mode){wifi_scan_batch_log(d);return;}
     struct xhci_wifi_scan *s=&d->firmware.mcu.scan;struct mt76_scan *r=&s->result;
     console_printf("wifi-scan: attempted=%u complete=%u failed=%u visits=%u inputs=%u unobserved=%u empty=%u parsed=%u unrelated=%u rejected=%u rows=%u late=%u retained=1 reused=0 data_out=0 identifiers_logged=0\n",(uint64_t)s->attempted,(uint64_t)r->complete,(uint64_t)(s->failed || r->failed),(uint64_t)s->completed,(uint64_t)r->inputs,(uint64_t)r->unobserved,(uint64_t)r->empty,(uint64_t)r->parsed,(uint64_t)r->unrelated,(uint64_t)r->rejected,(uint64_t)r->count,(uint64_t)s->late);
     if(r->complete)for(unsigned i=0;i<r->count && i<3;i++){
@@ -48,7 +84,8 @@ static bool wifi_scan_capture(struct xhci_device *d){
     struct xhci_wifi_mcu *m=&d->firmware.mcu;struct xhci_wifi_scan *s=&m->scan;
     if(!m->scan_mode || !m->receive_mode || !m->tune_mode || s->attempted || m->tune.state.attempted || m->receive.attempted)return false;
     *s=(struct xhci_wifi_scan){.attempted=true,.active=true};bool ok=wifi_scan_retained(d);
-    if(m->scan_retry_mode)console_write("wifi-scan-progress: fixed US1/6/11 20MHz; fresh IN with one pre-enable completion retry per visit; stop and restore channel1 between visits; no network data OUT\n");
+    if(m->scan_batch_mode)console_write("wifi-scan-progress: fixed US1/6/11 20MHz; up to8 fresh enabled-window INs per visit; retained early TD and one original10s deadline; stop and restore channel1 between visits; no network data OUT\n");
+    else if(m->scan_retry_mode)console_write("wifi-scan-progress: fixed US1/6/11 20MHz; fresh IN with one pre-enable completion retry per visit; stop and restore channel1 between visits; no network data OUT\n");
     else console_write("wifi-scan-progress: fixed US1/6/11 20MHz; fresh single-IN per visit; stop and restore channel1 between visits; no network data OUT\n");
     for(unsigned i=0;i<3 && ok;i++){
         if(!wifi_scan_retained(d)){ok=false;break;}
@@ -61,6 +98,7 @@ static bool wifi_scan_capture(struct xhci_device *d){
         if(ok){
             s->completed++;
             struct xhci_wifi_receive *r=&m->receive;
+            if(m->scan_batch_mode)s->batch_visit[i]=(struct mt76_scan_batch_visit){.tune=m->tune.state,.window=r->burst.state};
             s->input[i]=(struct mt76_scan_input){.channel=mt76_scan_channel(i),.tune=m->tune.state,
                 .ring=r->ep.ring_phys,.physical=wifi_receive_data_phys(r),.buffer=wifi_receive_data(r),.elapsed_us=r->elapsed_us,
                 .events=r->events,.completion=r->completion,.remaining=r->remaining,.actual=r->actual,
@@ -70,11 +108,13 @@ static bool wifi_scan_capture(struct xhci_device *d){
         console_printf("wifi-scan-visit: index=%u channel=%u complete=%u restored=%u stopped=%u\n",(uint64_t)i,(uint64_t)mt76_scan_channel(i),(uint64_t)ok,(uint64_t)m->tune.state.cleanup_complete,(uint64_t)m->receive.stopped);
     }
     const uint8_t us[2]={'U','S'};const struct mt76_scan_io io={d,wifi_scan_collect_owned};
-    ok=ok && s->completed==3 && mt76_scan_collect(&s->result,us,s->input,3,&io);
+    if(m->scan_batch_mode){const struct mt76_scan_batch_io batch_io={d,wifi_scan_batch_owned};ok=ok && s->completed==3 && mt76_scan_batch_collect(&s->batch,s->batch_visit,3,&batch_io);}
+    else ok=ok && s->completed==3 && mt76_scan_collect(&s->result,us,s->input,3,&io);
     s->failed=!ok;s->active=false;
     if(!ok){
         /* Raw DMA must remain retained. Erase only the copied advertisements. */
         s->result=(struct mt76_scan){.attempted=true,.failed=true};
+        if(m->scan_batch_mode)s->batch=(struct mt76_scan_batch){.attempted=true,.failed=true};
         m->receive.beacon=(struct mt76_rx_beacon){0};
         for(unsigned i=0;i<3;i++)s->visit[i].receive.beacon=(struct mt76_rx_beacon){0};
     }
