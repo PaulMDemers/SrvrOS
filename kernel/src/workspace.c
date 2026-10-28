@@ -187,20 +187,27 @@ bool workspace_mount(const char *uuid) {
 out:
     end(&scope); return ok;
 }
-static bool sync_locked(void) {
+static bool flush_locked(bool process_files) {
     if (!active || failed) return false;
     struct block_device *parent = block_parent(active);
-    if (process_file_sync_all() < 0 || !exfat_is_writable("/work") ||
+    if ((process_files && process_file_sync_all() < 0) || !exfat_is_writable("/work") ||
         !parent || !parent->flush || !parent->flush(parent)) {
         failed = true; console_write("workspace: flush failed; remains mounted\n"); return false;
     }
     return true;
 }
+static bool sync_locked(void) { return flush_locked(true); }
 bool workspace_sync(void) {
     struct scope scope;
     if (!begin(&scope)) { end(&scope); return false; }
     bool ok = sync_locked();
     if (ok) console_write("workspace: flushed\n");
+    end(&scope); return ok;
+}
+bool workspace_flush_committed(void) {
+    struct scope scope;
+    if (!begin(&scope)) { end(&scope); return false; }
+    bool ok = flush_locked(false);
     end(&scope); return ok;
 }
 bool workspace_unmount(void) {
