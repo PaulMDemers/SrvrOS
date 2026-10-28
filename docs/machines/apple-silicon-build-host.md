@@ -1656,3 +1656,16 @@ source diff and tested source/artifact hashes are under `build/review/tcp-window
 Documentation/link and whitespace checks pass. Earlier storage matrices and
 native-device acceptance remain dated evidence; no Actions dispatch, physical
 install or PR merge occurred. PR182 remains draft.
+
+
+## IPv4 admission and TCP options/MSS — active scope (2026-10-28)
+
+Continue PR182 from `811c4685`, integrating main `6cbfedab` through PR237.
+Audit fragment admission, packet/header boundaries, TCP option lengths and
+negotiated/default MSS. Scope: network core, host packet regressions, Makefile
+and current network/audit docs. Main adds quiescent-I/O fairness, isolated AP C3
+diagnostics and device evidence; rerun affected host checks with matched images.
+PR19 `7ac6b0e6` remains separate Wi-Fi work without net.c overlap. Air7,2
+`4f1ca2a1` records a bounded desktop-worker follow-up; preserve its ownership.
+Next checkpoint: directed original-source failures, bounded fixes and sequential
+host/VM checks. PR182 stays draft; no native install, Actions or merge is planned.
