@@ -1183,3 +1183,15 @@ cleanup and exit-file helpers with a controlled filesystem backend; they do not
 execute full fork/exec or inject asynchronous termination. The real exFAT retry
 bridge remains the backend integration check. October 28 integrated-main evidence
 is under `build/review/inheritance-exit/`.
+
+
+`make test-net-lifetime` runs eight deterministic modes against production
+`net.c`: final close with outstanding data, deferred FIN, both inherited exit
+orders, inherited listener backlog (completed and half-open), abort controls,
+deferred-FIN deadline, failed deferred send and simultaneous close. The fixture
+captures transmitted frames and controls time; it confirms retransmission,
+ACK/FIN completion and expiry without depending on wall-clock packet loss.
+Original source `98fb56ff` fails seven modes; abort controls pass. Evidence and
+harness-correction notes are in `build/review/tcp-exit/`. See the
+[TCP lifetime audit](tcp-lifetime-audit-2026-10-28.md). This does not execute full
+process exit or broaden libc pseudo-socket inheritance support.

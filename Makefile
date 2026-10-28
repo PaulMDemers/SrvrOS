@@ -2064,6 +2064,14 @@ build/tests/net-worker-host$(HOST_EXE): tools/test_net_worker.c kernel/src/net.c
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
 test-core: test-net-worker
 
+.PHONY: test-net-lifetime
+test-net-lifetime: build/tests/net-lifetime-host$(HOST_EXE)
+	@for mode in close pending inherited backlog abort deadline fin-failure simultaneous; do $< $$mode || exit $$?; done
+build/tests/net-lifetime-host$(HOST_EXE): tools/test_net_lifetime.c kernel/src/net.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+test-core: test-net-lifetime
+
 .PHONY: test-syscall-cancel
 test-syscall-cancel: build/tests/syscall-cancel-host$(HOST_EXE)
 	$<

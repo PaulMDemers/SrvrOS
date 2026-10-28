@@ -839,13 +839,26 @@ whitespace checks pass. Evidence, source/artifact hashes and VM receipts are und
 under previous checkpoints; full Linux test-core and native hardware acceptance
 are not claimed. No Actions dispatch or PR merge occurred.
 
+## TCP ownership follow-on (2026-10-28)
+
+The [TCP lifetime audit](tcp-lifetime-audit-2026-10-28.md) continues PR182 beyond
+file writeback. It confirms and corrects creator-exit loss of retransmission/FIN
+state and inherited listener backlog, missing deferred-FIN close deadlines,
+ignored deferred-send failure and premature TIME-WAIT before local FIN ACK.
+Eight deterministic real-stack modes cover these transitions and abort controls.
+This does not reopen the completed file-writeback checkpoint or claim a complete
+network audit. Established ACK bounds, sequence wrap and stale/closing handles
+are the next bounded question.
+
 ## Remaining audit queue
 
 1. Actual hot removal/replacement and a future unregister/rebind lifecycle.
    Terminal identity invalidation and CPU0 backend-operation/teardown admission
    now have directed coverage. They do not certify live device recovery or
    arbitrary retained kernel pointers.
-2. Socket final-close, queued TCP output and creator/inheritor exit ownership are next.
+2. Established TCP ACK bounds, sequence wrap and stale/closing handles are next.
+   TCP final-close, deferred FIN and creator/inheritor ownership have directed
+   coverage recorded in the linked lifetime audit.
    Descriptor inheritance/exit-error helpers now have directed coverage; full
    concurrent fork/exec/kill fault injection remains open.
    Clean writeback retry, deletion/truncation and low-space sidecars have directed

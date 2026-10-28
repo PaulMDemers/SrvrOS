@@ -1452,3 +1452,36 @@ bring-up work without `net.c` or process-lifecycle changes; preserve its Makefil
 additions. Air6,1 diagnostic AP ownership and Air7,2 native desktop evidence stay
 separate. Next checkpoint is deterministic original-source reproductions,
 bounded fixes and matched host/VM validation. No native install or PR merge.
+
+### TCP exit audit result
+
+The scoped audit confirms five related defects: creator cleanup erased outstanding
+TCP data/FIN and inherited listener backlog; deferred FIN lacked the normal close
+deadline and ignored send failure; peer FIN could prematurely retire a local FIN
+that was not acknowledged. Final close now transfers pending work to protocol
+ownership, inherited backlog clears stale creator pointers, and deferred/error/
+simultaneous-close transitions retain bounded lifetime. See the
+[TCP lifetime report](../tcp-lifetime-audit-2026-10-28.md).
+
+## Verification
+
+All eight new host modes pass on x86_64/Rosetta and under native ARM64 ASan/UBSan.
+Original-source verification against `98fb56ff` fails seven modes, with abort
+controls passing. Existing TCP accept, e1000 receive, network worker/device,
+process output/lifetime and syscall I/O host gates pass. The packet accept
+fixture's preexisting `kmalloc(uint64_t)` stub conflicted with the production
+`size_t` declaration on macOS; matching the declaration fixes the harness build.
+The failed build log is retained separately from final results.
+
+The matched kernel/userspace build, six generator groups and 372-entry generated
+image check pass. Six sequential disposable VMs pass: tcp-ready 11.17 s, tcp-stress 47.79 s, netabi 10.05 s, libuv 10.68 s, threads 40.00 s, lifetime 23.59 s.
+TCP stress uses 12 clients. The lifetime gate repeats 256 sequential apps and
+32 competing-waiter pairs over two iterations, followed by PTY checks. Current
+source/artifact hashes, original failures, final host/sanitizer results and guest
+receipts are retained under `build/review/tcp-exit/`. Earlier storage matrices
+remain dated evidence; they were not rerun for this network-only production fix.
+Documentation/link and whitespace checks pass. No native hardware acceptance,
+Actions dispatch or PR merge occurred.
+
+Next bounded question: established-state ACK bounds, sequence wrap and stale/
+closing socket handles. No complete TCP or broad-system audit is claimed.

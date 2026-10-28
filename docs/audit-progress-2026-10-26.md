@@ -110,7 +110,13 @@ the existing error/lifetime contract; no new runtime defect is confirmed. Exit
 flushes redirected standard files, while other inherited descriptions may remain
 buffered until their last writer closes or an explicit flush. The integrated base
 is main `5a94d755` through PR230. Full concurrent fork/exec/kill fault coverage
-remains open; socket last-close/queued-output lifetime is the next bounded trace.
+remains open; the following
+[TCP lifetime checkpoint](tcp-lifetime-audit-2026-10-28.md) fixes creator-exit loss
+of outstanding transmissions and inherited listener backlog, bounds deferred FIN,
+reports its send failure and waits for local FIN acknowledgment on simultaneous
+close. Eight real-stack host modes cover these paths. Established ACK bounds,
+sequence wrap and stale/closing handles are next; broad network conformance
+remains unqualified.
 Delivery is [draft PR182](https://github.com/PaulMDemers/SrvrOS/pull/182).
 This checkpoint is separate from the completed event-adapter target.
 

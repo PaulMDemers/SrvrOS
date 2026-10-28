@@ -481,3 +481,13 @@ remain attached to shared content and are visible to surviving aliases; they are
 not consumed by the first process to report them. Final reference release reports
 failure and frees the buffered content. These are helper-level host regressions,
 not exhaustive concurrent fork/exec or process-kill fault coverage.
+
+
+Native TCP descriptors retain their existing sharing restrictions. On final
+close, remaining retransmission and FIN state survives creator exit under the
+protocol's bounded timers. A surviving inherited listener retains its completed
+and half-open backlog. Deferred FIN uses the normal close deadline and reports
+send failure through the existing reset/readiness path when a descriptor remains.
+A peer FIN alone does not acknowledge our FIN. Close success still does not
+promise delivery to the peer application or provide linger semantics. See the
+[TCP lifetime audit](tcp-lifetime-audit-2026-10-28.md).

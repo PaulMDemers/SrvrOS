@@ -205,3 +205,13 @@ stdio setup rollback, plus reader-only dirty-content survival. The October 28
 checkpoint uses main `5a94d755` (through PR230); evidence is retained under
 `build/review/inheritance-exit/`. This is emulated/host coverage, not native Mac
 hardware acceptance or exhaustive concurrent process teardown.
+
+For native TCP lifetime checks, use
+`sh tools/macos/build.sh HOST_CC='python3 build/tooling/darwin-host-cc.py' test-net-lifetime test-tcp-accept test-net-worker test-net-device`.
+The new lifetime fixture also builds natively on ARM64 with `cc`, the repository
+include paths and `-Wl,-dead_strip`; add `-fsanitize=address,undefined
+-fno-sanitize-recover=all` for sanitizer coverage. Build matched images before
+running `tcp_ready_smoke.py`, `tcpstress_smoke.py` and `netabi_smoke.py`
+sequentially. These use disposable guest disks and local host forwarding; their
+results do not qualify a physical Ethernet or Wi-Fi adapter. October 28 evidence
+is under `build/review/tcp-exit/`.

@@ -1643,6 +1643,9 @@ static bool tcp_send_fin(struct tcp_connection *connection) {
     if (!tcp_tx_has_space(connection, TCP_ACK | TCP_FIN, 0)) {
         connection->fin_pending = true;
         connection->local_write_closed = true;
+        if (connection->close_deadline == 0) {
+            connection->close_deadline = timer_ticks() + TCP_CLOSE_TIMEOUT_TICKS;
+        }
         process_file_poll_wake();
         return true;
     }
@@ -1662,14 +1665,14 @@ static bool tcp_send_fin(struct tcp_connection *connection) {
 }
 
 static void tcp_handle_fin(struct tcp_connection *connection, bool ack_flag) {
+    /* Only tcp_handle_ack can establish that our FIN was acknowledged. */
+    (void)ack_flag;
     if (connection == 0) {
         return;
     }
     connection->peer_closed = true;
     send_tcp_segment(connection, connection->local_port, TCP_ACK, 0, 0);
-    if (connection->state == TCP_STATE_FIN_WAIT_1) {
-        tcp_enter_time_wait(connection);
-    } else if (connection->state == TCP_STATE_FIN_WAIT_2) {
+    if (connection->state == TCP_STATE_FIN_WAIT_2) {
         tcp_enter_time_wait(connection);
     } else if (connection->state == TCP_STATE_ESTABLISHED) {
         connection->state = connection->local_write_closed ? TCP_STATE_LAST_ACK : TCP_STATE_CLOSE_WAIT;
@@ -1677,9 +1680,9 @@ static void tcp_handle_fin(struct tcp_connection *connection, bool ack_flag) {
     } else if (connection->state == TCP_STATE_SYN_RECEIVED) {
         connection->state = TCP_STATE_CLOSE_WAIT;
         connection->close_deadline = timer_ticks() + TCP_CLOSE_TIMEOUT_TICKS;
-    } else if (ack_flag && connection->state == TCP_STATE_LAST_ACK) {
-        tcp_enter_time_wait(connection);
     }
+    /* FIN_WAIT_1 plus peer_closed represents simultaneous close until our
+     * FIN is ACKed. LAST_ACK likewise retains its outstanding FIN record. */
     scheduler_wake_all(&read_wait_queue);
     scheduler_wake_all(&write_wait_queue);
     scheduler_wake_all(&connect_wait_queue);
@@ -1709,7 +1712,9 @@ static bool tcp_ack_tx_records(struct tcp_connection *connection, uint32_t ack) 
     }
     if (cleared) {
         if (connection->fin_pending) {
-            (void)tcp_send_fin(connection);
+            if (!tcp_send_fin(connection)) {
+                tcp_fail_connection(connection, SRV_NETERR_RESET, timer_ticks());
+            }
         }
         scheduler_wake_all(&write_wait_queue);
         process_file_poll_wake();
@@ -2152,7 +2157,7 @@ void net_timer_tick(void) {
     for (uint64_t i = 0; i < TCP_MAX_CONNECTIONS; i++) {
         struct tcp_connection *connection = &tcp_connections[i];
         if (connection->state != TCP_STATE_EMPTY &&
-            (connection->reset || tcp_state_closing(connection->state)) &&
+            (connection->reset || connection->fin_pending || tcp_state_closing(connection->state)) &&
             connection->close_deadline != 0 &&
             now >= connection->close_deadline) {
             close_connection(connection);
@@ -3461,6 +3466,9 @@ int64_t net_close(uint64_t handle) {
         if (connection->refs != 0) {
             return 0;
         }
+        /* The protocol owns retransmits/FIN until completion or timeout. An
+         * exiting creator must not discard them after its last descriptor. */
+        connection->owner = 0;
         if (connection->reset || connection->state == TCP_STATE_SYN_SENT) {
             close_connection(connection);
         } else if (tcp_state_can_write(connection->state) && !connection->local_write_closed) {
@@ -3526,10 +3534,13 @@ void net_process_cleanup(struct process *process) {
     }
 
     for (uint64_t i = 0; i < NET_PENDING_REQUESTS; i++) {
-        if (pending_requests[i].used &&
-            pending_requests[i].owner == process &&
-            find_listener_for_port(pending_requests[i].port) == 0) {
-            pending_requests[i].used = false;
+        if (pending_requests[i].used && pending_requests[i].owner == process) {
+            struct net_listener *listener = find_listener_for_port(pending_requests[i].port);
+            if (listener == 0 || listener->refs == 0) {
+                pending_requests[i].used = false;
+            } else {
+                pending_requests[i].owner = 0;
+            }
         }
     }
 
@@ -3546,7 +3557,11 @@ void net_process_cleanup(struct process *process) {
     for (uint64_t i = 0; i < TCP_MAX_CONNECTIONS; i++) {
         if (tcp_connections[i].state != TCP_STATE_EMPTY &&
             tcp_connections[i].owner == process) {
-            if (tcp_connections[i].refs == 0) {
+            struct tcp_connection *connection = &tcp_connections[i];
+            struct net_listener *listener = find_listener_for_port(connection->local_port);
+            bool inherited_backlog = !connection->accepted && !connection->outbound &&
+                listener != 0 && listener->refs != 0;
+            if (connection->refs == 0 && !inherited_backlog) {
                 close_connection(&tcp_connections[i]);
             } else {
                 tcp_connections[i].owner = 0;

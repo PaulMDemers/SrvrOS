@@ -75,3 +75,19 @@ VFS write buffers are published by flush/close; reading a separate descriptor
 before publication incorrectly produced missing log markers on the accepted
 baseline too. All response, access-log and error assertions remain. This test
 step does not add synchronous per-line writes to production web serving.
+
+## Process exit and close lifetime
+
+Inherited listener references preserve completed and half-open backlog after the
+creating process exits. Final listener close still retires unaccepted entries.
+Accepted connections retain independent references. The final connection close
+releases the descriptor but lets the protocol retain outstanding data and FIN
+until acknowledgment, failure or timeout; creator cleanup does not erase that
+work. Deferred FIN has the ordinary close deadline, and a failed deferred send
+enters the reset/error path. Peer FIN alone cannot retire an unacknowledged local
+FIN. See the [TCP lifetime audit](tcp-lifetime-audit-2026-10-28.md) for reproduced
+failures, limits and follow-on questions.
+
+`make test-net-lifetime` (also in `test-core`) runs eight deterministic real-stack
+host modes. It complements `test-tcp-accept` and guest readiness/stress checks;
+its captured Ethernet sink does not certify physical adapter behavior.
