@@ -172,3 +172,12 @@ time or a particular I/O owner's identity. Preserve `invalid` and `exclusions`;
 an unavailable BEGIN/END emits `available=no` instead of fabricated zeros.
 An unsuccessful BEGIN never ends a pre-existing trace. This diagnostic changes
 no syscall admission, release ownership, workload intensity or deadline.
+
+Final Text/Files teardown uses `desk_file_pool_finish` only after all jobs are
+detached and application dispatch has stopped. It publishes EOF on every idle
+channel before blocking for any child, using normal kernel wait admission.
+Interrupted or nonmatching waits retain the PID and live accounting; completed
+children are consumed exactly once across retries. No kill or timeout releases
+accepted work. Interactive dispatch continues to use nonblocking pool shutdown.
+The same sparse scheduler attribution covers `pool-retire`; it includes natural
+child waiting and scheduling, and does not identify an I/O owner or CPU time.
