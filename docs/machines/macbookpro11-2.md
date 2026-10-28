@@ -10376,3 +10376,21 @@ channels1/6. It does not accept sustained endurance, FCS, physical BSSID groupin
 association/security or IP/UI. Battery, headphones and trackpad follow-ups stay
 deferred. Next work is bounded discovery publication/selection and transmit/
 association groundwork; no new test is armed.
+
+
+## 2026-10-28 discovery selection scope
+
+Consume actual main `5a94d755` through merge `12d25203`, preserving Air6,1's
+separate C3 recipe and Pro v1–v102 profiles. Open PR182 remains filesystem work;
+Air6,1 diagnostic AP ownership and Air7,2 desktop runtime scopes do not overlap
+this MT76 helper. Implement a private copied discovery snapshot with monotonic
+generation, all-or-nothing refresh, invalidation and explicit generation/index
+selection. Reject stale/hidden/conflicting candidates and preserve advertised
+security as untrusted metadata, not negotiated capabilities. Add bounded binary
+SSID presentation for a future picker. Touch a new transport-neutral helper,
+focused host/fault tests, Makefile and current Wi-Fi/unit docs. Dependencies:
+accepted v102 batch collection and later UI/service/TX/association adapters.
+Checkpoint: directed lifecycle/metadata/ownership/alias/overflow tests, sanitizers,
+merged build/core/desktop, historical staging compatibility and exact VM boot.
+No physical test or ordinary Wi-Fi startup is enabled; v102 acceptance and
+recovery payloads remain intact. No new reboot armed.
