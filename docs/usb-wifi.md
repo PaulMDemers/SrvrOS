@@ -5847,3 +5847,32 @@ Wi-Fi/current Air desktop/MWAIT/C3 recipe comparisons pass. Exact staged v102
 `d6d81caedd2618f8` passes GPT saved-log/return and missing-workspace refusal VMs;
 its kernel and independently packaged initramfs match the committed source.
 This image is not installed; accepted hardware remains `3337af3753372b9d`.
+
+## Adapter discovery cache and System Wi-Fi page
+
+The cache service accepts at most four independent providers after their completed
+batch ownership/cleanup proof. Each provider receives an opaque boot-lifetime owner
+ID that is never reused. Refresh attempts invalidate old generations and selections;
+failed proof exposes no rows. Removal scrubs copied identifiers and retires the ID.
+Snapshot/selection operations run serialized on CPU0, with bounded read-only presence
+checks and no USB control, RF command, scan, transmission or join. Root-attached
+Edimax publication occurs inside the completed v102 capture ownership phase, after
+all three stops/restorations and batch collection, before that owner retires. Hub
+children remain excluded until a child-port observer exists. Root disconnect, latched
+connection change, reset, missing controller/device or quarantine invalidates the
+cache; reconnect cannot resurrect the old owner or automatically rescan.
+
+`SYS_WIFI` uses a versioned fixed-size snapshot/selection ABI. The snapshot enumerates
+one adapter at a time with a next-owner link and bounded escaped display names,
+channel/advertisement flags and selected index. It exposes no BSSID, DMA pointer,
+raw IE or credential. Selection binds owner, generation and row index and only copies
+a private candidate. RSN/WPA presence is not negotiated security. Snapshot reads and
+selection cannot turn this diagnostic adapter into an IP provider.
+
+System's Wi-Fi page shows cached results, hidden/conflicting/unavailable states,
+explicit selection and adapter cycling. Changing adapter or generation clears the
+highlight; a stale request asks for a new choice. Selection remains visibly separate
+from connection. Refresh reads saved results; it does not launch a scan. Ordinary
+startup still does not initialize this diagnostic Wi-Fi path. A later explicit
+scan-to-desktop profile is needed for attended native UI acceptance, followed by
+management TX, association/security and IP integration.

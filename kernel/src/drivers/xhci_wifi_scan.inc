@@ -80,6 +80,7 @@ static void wifi_scan_log(struct xhci_device *d){
         console_printf("wifi-scan-row: index=%u channel=%u channels=%u observations=%u hidden=%u ssid_size=%u privacy=%u rsn=%u wpa=%u ds_present=%u beacon_seen=%u probe_response_seen=%u ssid_conflict=%u security_conflict=%u channel_conflict=%u identifiers_logged=0\n",(uint64_t)i,(uint64_t)a->channel,(uint64_t)v->channels,(uint64_t)a->observations,(uint64_t)a->hidden,(uint64_t)a->ssid_size,(uint64_t)a->privacy,(uint64_t)a->rsn,(uint64_t)a->wpa,(uint64_t)a->ds_present,(uint64_t)a->beacon_seen,(uint64_t)a->probe_response_seen,(uint64_t)a->ssid_conflict,(uint64_t)a->security_conflict,(uint64_t)v->channel_conflict);
     }
 }
+static void wifi_scan_service_publish_device(struct xhci_device *);
 static bool wifi_scan_capture(struct xhci_device *d){
     struct xhci_wifi_mcu *m=&d->firmware.mcu;struct xhci_wifi_scan *s=&m->scan;
     if(!m->scan_mode || !m->receive_mode || !m->tune_mode || s->attempted || m->tune.state.attempted || m->receive.attempted)return false;
@@ -110,6 +111,7 @@ static bool wifi_scan_capture(struct xhci_device *d){
     const uint8_t us[2]={'U','S'};const struct mt76_scan_io io={d,wifi_scan_collect_owned};
     if(m->scan_batch_mode){const struct mt76_scan_batch_io batch_io={d,wifi_scan_batch_owned};ok=ok && s->completed==3 && mt76_scan_batch_collect(&s->batch,s->batch_visit,3,&batch_io);}
     else ok=ok && s->completed==3 && mt76_scan_collect(&s->result,us,s->input,3,&io);
+    if(ok && m->scan_batch_mode)wifi_scan_service_publish_device(d);
     s->failed=!ok;s->active=false;
     if(!ok){
         /* Raw DMA must remain retained. Erase only the copied advertisements. */
@@ -119,4 +121,31 @@ static bool wifi_scan_capture(struct xhci_device *d){
         for(unsigned i=0;i<3;i++)s->visit[i].receive.beacon=(struct mt76_rx_beacon){0};
     }
     return ok;
+}
+
+/* Cache validity only: one root PORTSC read, no USB/RF command or poll loop.
+ * Latched connection change retires the owner even if it is connected again.
+ * Hub children need an independent live child-port observer before admission. */
+static bool wifi_scan_service_present(void *context){
+    const struct xhci_device *d=context;
+    if(!xhci.operational || !d->present || !d->configured || !d->wifi_probe_ok || d->ep0_quarantined ||
+       d->parent_slot_id || !d->port_id || d->port_id>xhci.port_count ||
+       !d->firmware.mcu.scan_batch_mode || d->firmware.mcu.failed || d->firmware.mcu.scan.failed ||
+       !d->firmware.mcu.scan.batch.complete)return false;
+    uint32_t state=op_read32(port_offset(d->port_id-1));
+    return state!=UINT32_MAX && (state&(XHCI_PORTSC_CCS|XHCI_PORTSC_PED))==(XHCI_PORTSC_CCS|XHCI_PORTSC_PED) &&
+        !(state&(XHCI_PORTSC_CSC|XHCI_PORTSC_PR));
+}
+static bool wifi_scan_service_owned(void *context,const struct mt76_scan_batch *batch){
+    struct xhci_device *d=context;
+    return batch==&d->firmware.mcu.scan.batch && d->firmware.mcu.scan.active &&
+        wifi_scan_batch_owned(d,d->firmware.mcu.scan.batch_visit,3);
+}
+static void wifi_scan_service_publish_device(struct xhci_device *d){
+    if(!wifi_scan_service_present(d))return;
+    const struct wifi_service_provider ops={d,"Edimax USB Wi-Fi",wifi_scan_service_present};
+    const struct mt76_selection_io io={d,wifi_scan_service_owned};
+    uint64_t flags=event_irq_save();
+    (void)wifi_service_publish(&ops,&d->firmware.mcu.scan.batch,&io);
+    event_irq_restore(flags);
 }

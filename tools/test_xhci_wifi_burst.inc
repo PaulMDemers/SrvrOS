@@ -34,6 +34,31 @@ static void burst_test_tick(void){
     if(fault==25 && visit && !batch_injected){uint64_t prior=d->firmware.mcu.scan.visit[0].receive.ep.ring_phys;e.parameter_low=(uint32_t)prior;e.parameter_high=prior>>32;}
     batch_injected++;dispatch_transfer_event(&e);
 }
+static void test_wifi_service_adapter(struct xhci_device *d){
+    bool operational=xhci.operational,configured=d->configured,port_active=port_model.active;
+    unsigned port_count=xhci.port_count;uint8_t port=d->port_id,parent=d->parent_slot_id;
+    uint32_t *sc=(uint32_t *)(registers+xhci.op_base+XHCI_OP_PORTS),saved=*sc;
+    xhci.operational=true;xhci.port_count=1;d->configured=true;d->port_id=1;d->parent_slot_id=0;port_model.active=false;
+    *sc=XHCI_PORTSC_CCS|XHCI_PORTSC_PED;
+    assert(wifi_scan_service_present(d) && !wifi_scan_service_owned(d,&d->firmware.mcu.scan.batch));
+    /* The real capture hook already published before retiring its owner. The
+     * retired active-phase proof must refuse now; reads/selects use cache only. */
+    struct srv_wifi_snapshot out;assert(wifi_service_snapshot(0,&out)==0 && out.owner && out.count);
+    uint64_t owner=out.owner;
+    unsigned commands=receive_commands,controls=receive_controls;
+    for(unsigned i=0;i<out.count;i++){
+        struct srv_wifi_select q={.version=1,.size=sizeof q,.owner=owner,.generation=out.generation,.index=i};
+        int result=wifi_service_select(&q);assert(result==SRV_WIFI_OK || result==SRV_WIFI_CONFLICT);
+    }
+    /* Connected again with latched CSC must retire the old cache identity. */
+    *sc|=XHCI_PORTSC_CSC;assert(wifi_service_snapshot(owner,&out)==SRV_WIFI_STALE && !out.count);
+    *sc&=~XHCI_PORTSC_CSC;assert(wifi_service_snapshot(owner,&out)==SRV_WIFI_STALE);
+    d->parent_slot_id=1;assert(!wifi_scan_service_present(d));d->parent_slot_id=0;
+    d->ep0_quarantined=true;assert(!wifi_scan_service_present(d));d->ep0_quarantined=false;
+    *sc=0;assert(!wifi_scan_service_present(d));*sc=UINT32_MAX;assert(!wifi_scan_service_present(d));
+    assert(commands==receive_commands && controls==receive_controls);
+    *sc=saved;xhci.operational=operational;xhci.port_count=port_count;d->configured=configured;d->port_id=port;d->parent_slot_id=parent;port_model.active=port_active;
+}
 static void test_wifi_burst_case(struct xhci_device *d){
     struct xhci_wifi_mcu *m=&d->firmware.mcu;wifi_mcu_select_mode(m,80);
     assert(m->scan_batch_mode && m->scan_mode && !m->scan_retry_mode && m->receive_mode);
@@ -49,6 +74,11 @@ static void test_wifi_burst_case(struct xhci_device *d){
     scan_test_history=0;scan_test_rf_visit=3;scan_test_fault_visit=batch_fault_visit;
     scan_test_fault_kind=batch_case==15?2:batch_case==16?1:batch_case==17?3:0;
     if(batch_case>=26){scan_test_fault_visit=3;fail_after=pool_used+batch_case-26;}
+    bool service_case=batch_case==0 && batch_fault_visit==0;
+    bool old_operational=xhci.operational,old_configured=d->configured,old_port_active=port_model.active;
+    unsigned old_port_count=xhci.port_count;uint8_t old_port=d->port_id,old_parent=d->parent_slot_id;
+    uint32_t *root_sc=(uint32_t *)(registers+xhci.op_base+XHCI_OP_PORTS),old_sc=*root_sc;
+    if(service_case){xhci.operational=true;xhci.port_count=1;d->configured=true;d->port_id=1;d->parent_slot_id=0;port_model.active=false;*root_sc=XHCI_PORTSC_CCS|XHCI_PORTSC_PED;}
     receive_test_device=tune_test_device=d;bool ok=wifi_scan_capture(d);receive_test_device=tune_test_device=NULL;
     bool expected=batch_case<8 || (batch_case>=11 && batch_case<=12) || (batch_case==24 && !batch_fault_visit) || batch_case==25;
     if(ok!=expected)fprintf(stderr,"batch case=%u visit=%u got=%u want=%u completed=%u first=%u posts=%u attempts=%u rxfailed=%u mac=%u stop=%u quiet=%u engine=%u tune=%u alloc=%llu\n",batch_case,batch_fault_visit,ok,expected,m->scan.completed,m->receive.burst.first,m->receive.burst.posts,m->receive.burst.state.attempts,m->receive.failed,m->receive.mac.complete,m->receive.stopped,m->receive.mac_quiescent,m->receive.burst.state.complete,m->tune.state.complete,(unsigned long long)pool_used);
@@ -71,6 +101,10 @@ static void test_wifi_burst_case(struct xhci_device *d){
             assert(m->scan.visit[i].tune.state.restored_mask==8191);
             for(unsigned j=0;j<9;j++)assert(b->physical[j]==b->pin_physical[j]);
             if(quiet)assert(b->state.elapsed_us>=10000000 && !b->state.completions);
+        }
+        if(service_case){
+            test_wifi_service_adapter(d);
+            *root_sc=old_sc;xhci.operational=old_operational;xhci.port_count=old_port_count;d->configured=old_configured;d->port_id=old_port;d->parent_slot_id=old_parent;port_model.active=old_port_active;
         }
         if(batch_case==12)assert(m->scan.visit[batch_fault_visit].receive.burst.late==1);
         if(batch_case==25 && batch_fault_visit)assert(m->scan.late==1);

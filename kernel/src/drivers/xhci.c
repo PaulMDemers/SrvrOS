@@ -1,4 +1,5 @@
 #include <srvros/device_abi.h>
+#include <srvros/wifi_service.h>
 #include <srvros/heap.h>
 #include <srvros/net_device.h>
 #include <srvros/net.h>

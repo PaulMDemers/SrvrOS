@@ -1895,9 +1895,9 @@ hardware-smoke: hardware-stage test-core
 test-xhci: build/tests/xhci-host$(HOST_EXE)
 	$< tools/fixtures/apple-05ac-0291-config.bin tools/fixtures/apple-05ac-0262-config.bin tools/fixtures/apple-05ac-0290-config.bin
 
-build/tests/xhci-host$(HOST_EXE): tools/test_xhci.c tools/test_xhci_wifi_rx.inc tools/test_xhci_wifi_mac_cycle.inc tools/test_xhci_wifi_cal_probe.inc tools/test_xhci_wifi_poweron.inc tools/test_xhci_wifi_passive.inc tools/test_xhci_wifi_window.inc tools/test_xhci_wifi_channel.inc kernel/src/drivers/xhci_wifi_channel.inc kernel/src/drivers/xhci_wifi_window.inc kernel/src/drivers/mt76_channel_plan.c kernel/src/drivers/mt76_scan.c kernel/src/drivers/mt76_discovery.c kernel/src/drivers/mt76_rx_window.c kernel/src/drivers/xhci_wifi_mac_cycle.inc kernel/src/drivers/xhci_wifi_cal_probe.inc kernel/src/drivers/xhci_wifi_poweron.inc kernel/src/drivers/xhci_wifi_passive.inc kernel/src/drivers/mt76_mac_cycle.c kernel/src/drivers/mt76_calibration.c kernel/src/drivers/mt76_poweron_calibration.c kernel/src/drivers/mt76_rx.c kernel/src/drivers/xhci.c kernel/src/drivers/xhci_network.inc kernel/src/drivers/xhci_wifi_firmware.inc kernel/src/drivers/xhci_wifi_mcu.inc kernel/src/drivers/xhci_wifi_rx.inc kernel/src/drivers/mt76_mcu.c kernel/src/drivers/mt76_radio.c kernel/src/drivers/usb_ecm.c kernel/src/drivers/mt76_probe.c kernel/src/drivers/mt76_bringup.c kernel/src/drivers/mt76_firmware.c kernel/src/sha256.c kernel/src/drivers/trackpad_pointer.c kernel/src/drivers/apple_trackpad.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready tools/test_xhci_wifi_tune.inc kernel/src/drivers/xhci_wifi_tune.inc kernel/src/drivers/mt76_channel_tune.c kernel/src/drivers/xhci_wifi_receive.inc tools/test_xhci_wifi_receive.inc kernel/src/drivers/xhci_wifi_scan.inc tools/test_xhci_wifi_scan.inc kernel/src/drivers/xhci_wifi_burst.inc tools/test_xhci_wifi_burst.inc kernel/src/drivers/mt76_scan_batch.c
+build/tests/xhci-host$(HOST_EXE): tools/test_xhci.c tools/test_xhci_wifi_rx.inc tools/test_xhci_wifi_mac_cycle.inc tools/test_xhci_wifi_cal_probe.inc tools/test_xhci_wifi_poweron.inc tools/test_xhci_wifi_passive.inc tools/test_xhci_wifi_window.inc tools/test_xhci_wifi_channel.inc kernel/src/drivers/xhci_wifi_channel.inc kernel/src/drivers/xhci_wifi_window.inc kernel/src/drivers/mt76_channel_plan.c kernel/src/drivers/mt76_scan.c kernel/src/drivers/mt76_discovery.c kernel/src/drivers/mt76_rx_window.c kernel/src/drivers/xhci_wifi_mac_cycle.inc kernel/src/drivers/xhci_wifi_cal_probe.inc kernel/src/drivers/xhci_wifi_poweron.inc kernel/src/drivers/xhci_wifi_passive.inc kernel/src/drivers/mt76_mac_cycle.c kernel/src/drivers/mt76_calibration.c kernel/src/drivers/mt76_poweron_calibration.c kernel/src/drivers/mt76_rx.c kernel/src/drivers/xhci.c kernel/src/drivers/xhci_network.inc kernel/src/drivers/xhci_wifi_firmware.inc kernel/src/drivers/xhci_wifi_mcu.inc kernel/src/drivers/xhci_wifi_rx.inc kernel/src/drivers/mt76_mcu.c kernel/src/drivers/mt76_radio.c kernel/src/drivers/usb_ecm.c kernel/src/drivers/mt76_probe.c kernel/src/drivers/mt76_bringup.c kernel/src/drivers/mt76_firmware.c kernel/src/sha256.c kernel/src/drivers/trackpad_pointer.c kernel/src/drivers/apple_trackpad.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready tools/test_xhci_wifi_tune.inc kernel/src/drivers/xhci_wifi_tune.inc kernel/src/drivers/mt76_channel_tune.c kernel/src/drivers/xhci_wifi_receive.inc tools/test_xhci_wifi_receive.inc kernel/src/drivers/xhci_wifi_scan.inc tools/test_xhci_wifi_scan.inc kernel/src/drivers/xhci_wifi_burst.inc tools/test_xhci_wifi_burst.inc kernel/src/drivers/mt76_scan_batch.c kernel/src/drivers/mt76_selection.c kernel/src/wifi_service.c
 	mkdir -p build/tests
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/apple_trackpad.c kernel/src/drivers/trackpad_pointer.c kernel/src/drivers/usb_ecm.c kernel/src/drivers/mt76_probe.c kernel/src/drivers/mt76_bringup.c kernel/src/drivers/mt76_firmware.c kernel/src/sha256.c kernel/src/drivers/mt76_mcu.c kernel/src/drivers/mt76_mac_cycle.c kernel/src/drivers/mt76_calibration.c kernel/src/drivers/mt76_poweron_calibration.c kernel/src/drivers/mt76_rx.c kernel/src/drivers/mt76_channel_plan.c kernel/src/drivers/mt76_channel_tune.c kernel/src/drivers/mt76_scan.c kernel/src/drivers/mt76_scan_batch.c kernel/src/drivers/mt76_discovery.c kernel/src/drivers/mt76_rx_window.c kernel/src/drivers/mt76_radio.c -Wl,--gc-sections -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/apple_trackpad.c kernel/src/drivers/trackpad_pointer.c kernel/src/drivers/usb_ecm.c kernel/src/drivers/mt76_probe.c kernel/src/drivers/mt76_bringup.c kernel/src/drivers/mt76_firmware.c kernel/src/sha256.c kernel/src/drivers/mt76_mcu.c kernel/src/drivers/mt76_mac_cycle.c kernel/src/drivers/mt76_calibration.c kernel/src/drivers/mt76_poweron_calibration.c kernel/src/drivers/mt76_rx.c kernel/src/drivers/mt76_channel_plan.c kernel/src/drivers/mt76_channel_tune.c kernel/src/drivers/mt76_scan.c kernel/src/drivers/mt76_scan_batch.c kernel/src/drivers/mt76_selection.c kernel/src/wifi_service.c kernel/src/drivers/mt76_discovery.c kernel/src/drivers/mt76_rx_window.c kernel/src/drivers/mt76_radio.c -Wl,--gc-sections -o $@
 
 .PHONY: a1466-rehearsal
 a1466-rehearsal: $(USB_IMAGE)
@@ -2594,9 +2594,9 @@ test-widgets: test-table
 .PHONY: test-system
 test-system: build/tests/system-host$(HOST_EXE)
 	$<
-build/tests/system-host$(HOST_EXE): tools/test_system.c userspace/desktools/system.c userspace/desktools/app.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS)
+build/tests/system-host$(HOST_EXE): tools/test_system.c userspace/desktools/system.c userspace/desktools/app.h kernel/src/wifi_service.c kernel/src/drivers/mt76_selection.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS)
 	mkdir -p build/tests
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I userspace/widgets/include tools/test_system.c $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I kernel/include -I userspace/widgets/include tools/test_system.c kernel/src/wifi_service.c kernel/src/drivers/mt76_selection.c $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -o $@
 test-desktop: test-system
 
 .PHONY: test-prompt
@@ -4270,3 +4270,16 @@ test-mt76-selection: build/tests/mt76-selection-host$(HOST_EXE)
 build/tests/mt76-selection-host$(HOST_EXE): tools/test_mt76_selection.c kernel/src/drivers/mt76_selection.c $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_selection.c -o $@
+
+.PHONY: test-wifi-service test-wifi-syscall
+test-core: test-wifi-service test-wifi-syscall
+test-wifi-service: build/tests/wifi-service-host$(HOST_EXE)
+	$<
+build/tests/wifi-service-host$(HOST_EXE): tools/test_wifi_service.c kernel/src/wifi_service.c kernel/src/drivers/mt76_selection.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include $< kernel/src/drivers/mt76_selection.c -o $@
+test-wifi-syscall: build/tests/wifi-syscall-host$(HOST_EXE)
+	$<
+build/tests/wifi-syscall-host$(HOST_EXE): tools/test_wifi_syscall.c kernel/src/arch/x86_64/syscall.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I kernel/src/arch/x86_64 -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@

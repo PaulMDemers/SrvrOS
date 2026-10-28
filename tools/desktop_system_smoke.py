@@ -103,6 +103,9 @@ def main():
                     raise RuntimeError("Missing PCI and active USB inventory")
                 shortcut("right");wait(b"system-page=sensors");shot("system-sensors")
                 if b"sensors-refresh valid=1 fresh=0" not in output:raise RuntimeError("Missing honest unsupported VM sensor state")
+                shortcut("right");wait(b"system-page=wifi");shot("system-wifi")
+                if b"wifi-refresh valid=1 adapters=0 ready=0 rows=0" not in output:raise RuntimeError("Missing honest empty Wi-Fi cache ABI state")
+                shortcut("left");wait(b"system-page=sensors")
                 shortcut("left");wait(b"system-page=devices");shortcut("left");wait(b"system-page=network");shortcut("left");wait(b"system-page=processes")
                 # Resize while paused; rows remain keyboard/scroll accessible.
                 qmp.mouse(813-pointer[0],628-pointer[1]);pointer[:]=[813,628]
@@ -120,7 +123,7 @@ def main():
                 serial.close();qmp.stream.close();qmp.sock.close()
             finally:
                 stop_process(process);(out/"serial.log").write_bytes(output)
-    print(f"desktop-system: PASS shared table sorting/keyboard/resize, pause/refresh/menu controls, network tabs/address/traffic or no-adapter state, PCI/USB inventory, RAM and process ABI compatibility. Evidence: {out}")
+    print(f"desktop-system: PASS shared table sorting/keyboard/resize, pause/refresh/menu controls, network tabs/address/traffic or no-adapter state, PCI/USB inventory, empty Wi-Fi cache syscall/page, RAM and process ABI compatibility. Evidence: {out}")
 
 
 if __name__=="__main__": main()

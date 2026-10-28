@@ -1,7 +1,35 @@
 #include <assert.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <srvros/wifi_service.h>
 #include "../userspace/desktools/system.c"
+static bool wifi_live[2]={true,true};
+static uint64_t wifi_owner[2];
+static unsigned wifi_selects;
+static bool wifi_race;
+static int wifi_bad;
+static struct mt76_scan_batch wifi_batch(void){
+    struct mt76_scan_batch b={.attempted=true,.complete=true,.visits=3,.inputs=3,.parsed=3,.count=3};
+    for(unsigned i=0;i<3;i++)b.row[i]=(struct mt76_scan_row){.channels=1,.advertisement={.bssid={2,0,0,0,0,i+1},.ssid={'A',0,'B'},.ssid_size=3,.channel=1,.interval=100,.observations=1,.privacy=true,.rsn=true,.beacon_seen=true}};
+    b.row[1].advertisement.hidden=true;b.row[1].advertisement.ssid_size=0;
+    b.row[2].advertisement.security_conflict=true;return b;
+}
+static bool wifi_present(void *c){return *(bool *)c;}
+static bool wifi_owned(void *c,const struct mt76_scan_batch *b){assert(c && b);return true;}
+long srv_wifi_snapshot(uint64_t owner,struct srv_wifi_snapshot *out){
+    int result=wifi_service_snapshot(owner,out);
+    if(wifi_bad==1)out->version=99;
+    if(wifi_bad==2)out->count=25;
+    if(wifi_bad==3 && out->count)memset(out->row[0].name,'x',129);
+    if(wifi_bad==4 && out->count)out->row[0].flags|=SRV_WIFI_ROW_CONFLICT|SRV_WIFI_ROW_SELECTABLE;
+    return result;
+}
+long srv_wifi_select(const struct srv_wifi_select *request){
+    wifi_selects++;
+    if(wifi_race){struct mt76_scan_batch b=wifi_batch();const struct mt76_selection_io io={&wifi_live[0],wifi_owned};assert(wifi_service_refresh(wifi_owner[0],&b,&io));wifi_race=false;}
+    return wifi_service_select(request);
+}
 static uint64_t ticks=500;
 static int phase,reads,net_phase,net_reads,device_phase,thermal_phase,smc_phase;
 long srv_monotonic_us(void) { return 5000000; }
@@ -64,6 +92,15 @@ long srv_net_status_info(struct srv_net_status_info *n) {
 }
 void tool_status(struct tool *t,const char *text) { snprintf(t->status,sizeof(t->status),"%s",text);t->window.dirty=1; }
 void tool_launch(struct tool *t,int application,const char *path) { (void)t;assert(application==DESK_APP_NETWORK && !*path); }
+static void wifi_render_fixture(struct tool *t){
+    const char *path=getenv("SRV_SYSTEM_WIFI_PPM");if(!path)return;
+    static uint32_t pixels[760*500];struct desk_canvas c;
+    assert(!desk_canvas_init(&c,pixels,760,500,760));
+    desk_fill(&c,(struct desk_rect){0,0,760,500},desk_theme_quiet.surface);
+    desk_ui_draw(&c,&t->ui,&desk_theme_quiet);tool_system_draw(t,&c);
+    FILE *f=fopen(path,"wb");assert(f);fprintf(f,"P6\n760 500\n255\n");
+    for(unsigned i=0;i<760*500;i++){fputc(pixels[i]>>16&255,f);fputc(pixels[i]>>8&255,f);fputc(pixels[i]&255,f);}assert(!fclose(f));
+}
 static struct tool t;
 int main(void) {
     t.window.width=760;t.window.height=500;desk_ui_init(&t.ui);tool_system_init(&t);tool_system_layout(&t);desk_ui_layout_changed(&t.ui);
@@ -131,7 +168,32 @@ int main(void) {
     struct desk_rect clip={20,50,700,400};desk_clip(&c,clip);desk_ui_draw(&c,&t.ui,&desk_theme_quiet);tool_system_draw(&t,&c);
     assert(!memcmp(&clip,&c.clip,sizeof(clip)));
     for(int y=0;y<500;y++) for(int x=0;x<760;x++) if(x<20 || x>=720 || y<50 || y>=450) assert(!pixels[y*760+x]);
-    puts("system: PASS process sorting, stable selection, refresh cadence, pause/manual refresh, errors, network ABI/state/counters, page selection preservation and clipped rendering");
+    tool_system_action(&t,(struct desk_action){SYSTEM_WIFI,DESK_WIDGET_ACTIVATED});
+    assert(t.wifi_valid && !t.wifi.owner && !t.wifi.count && !t.buttons[5].enabled);
+    struct mt76_scan_batch wb=wifi_batch();
+    for(unsigned i=0;i<2;i++){
+        const struct wifi_service_provider provider={&wifi_live[i],"USB Wi-Fi",wifi_present};
+        const struct mt76_selection_io io={&wifi_live[i],wifi_owned};wifi_owner[i]=wifi_service_publish(&provider,&wb,&io);assert(wifi_owner[i]);
+    }
+    tool_system_refresh(&t,1);
+    assert(t.wifi_table.body.enabled && !t.network_table.body.enabled && t.wifi.count==3 && t.wifi.adapter_count==2);
+    assert(!strcmp(t.wifi_rows[0].cells[0],"A\\x00B") && !strcmp(t.wifi_rows[1].cells[0],"Hidden network"));
+    for(unsigned i=1;i<3;i++){
+        desk_list_select(&t.wifi_table.body,i);tool_system_action(&t,(struct desk_action){SYSTEM_WIFI_TABLE,DESK_WIDGET_CHANGED});assert(!t.buttons[5].enabled);
+        tool_system_action(&t,(struct desk_action){SYSTEM_WIFI_SELECT,DESK_WIDGET_ACTIVATED});assert(!wifi_selects);
+    }
+    desk_list_select(&t.wifi_table.body,0);tool_system_action(&t,(struct desk_action){SYSTEM_WIFI_TABLE,DESK_WIDGET_CHANGED});assert(t.buttons[5].enabled);
+    tool_system_action(&t,(struct desk_action){SYSTEM_WIFI_SELECT,DESK_WIDGET_ACTIVATED});assert(wifi_selects==1 && t.wifi.selected==0 && strstr(t.wifi_notice,"not available"));
+    wifi_render_fixture(&t);
+    tool_system_action(&t,(struct desk_action){SYSTEM_WIFI_ADAPTER,DESK_WIDGET_ACTIVATED});assert(t.wifi.owner==wifi_owner[1] && t.wifi_table.body.selected==-1 && !t.buttons[5].enabled);
+    tool_system_action(&t,(struct desk_action){SYSTEM_WIFI_ADAPTER,DESK_WIDGET_ACTIVATED});assert(t.wifi.owner==wifi_owner[0]);
+    desk_list_select(&t.wifi_table.body,0);wifi_race=true;
+    tool_system_action(&t,(struct desk_action){SYSTEM_WIFI_SELECT,DESK_WIDGET_ACTIVATED});assert(t.wifi_table.body.selected==-1 && strstr(t.wifi_notice,"list changed") && t.wifi.selected==SRV_WIFI_NONE);
+    for(wifi_bad=1;wifi_bad<=4;wifi_bad++){tool_system_refresh(&t,1);assert(!t.wifi_valid && !t.wifi.count && !t.buttons[5].enabled);}
+    wifi_bad=0;tool_system_refresh(&t,1);wifi_live[0]=false;tool_system_refresh(&t,1);assert(t.wifi.owner==wifi_owner[1]);
+    wifi_live[0]=true;tool_system_refresh(&t,1);assert(t.wifi.adapter_count==1);
+    wifi_live[1]=false;tool_system_refresh(&t,1);assert(t.wifi_valid && !t.wifi.owner && !t.wifi.count);
+    puts("system: PASS process sorting, stable selection, refresh cadence, pause/manual refresh, errors, network ABI/state/counters, page selection preservation clipped rendering;real Wi-Fi service,adapter cycling,hidden/conflict/stale refusal,malformed ABI and disconnect invalidation");
 }
 
 long srv_smc_status(struct srv_smc_status *out) {
