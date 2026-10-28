@@ -27,7 +27,7 @@ def main():
     with tempfile.TemporaryDirectory(prefix="srvros-system-") as directory:
         tmp=Path(directory)
         shutil.copyfile(root/"build/srvros.exfat",tmp/"disk.exfat")
-        iso=build_iso(str(root),str(tmp),1280,800,os.environ.copy())
+        iso=build_iso(str(root),str(tmp),2560 if args.wifi_trial else 1280,1600 if args.wifi_trial else 800,os.environ.copy())
         command=["qemu-system-x86_64","-M","q35","-m","512M","-cdrom",str(iso),"-boot","d",
             "-drive",f"if=none,id=disk,file={tmp/'disk.exfat'},format=raw",
             "-device","ich9-ahci,id=ahci","-device","ide-hd,drive=disk,bus=ahci.0",
@@ -84,6 +84,7 @@ def main():
                 serial.sendall(b"run /fat/bin/deskd --wifi-trial\n" if args.wifi_trial else b"run /fat/bin/deskd --apps-trace\n")
                 if args.wifi_trial:
                     wait_all([b"deskhelp: page=wifi-trial",b"deskhelp: starting"]);wait(b"deskd: commit");shot("wifi-checklist")
+                    if b"display physical=2560x1600 logical=1280x800 scale=2" not in output:raise RuntimeError("Wi-Fi trial did not select automatic2x scale")
                 else:wait(b"desktools: starting role=text");wait(b"deskd: commit")
                 click(690,750);wait(b"desktools: starting role=system");wait(b"desktools: system-ready");wait(b"deskd: commit");shot("system-default")
                 # Second window content starts at (57,132), 760 by 500.
