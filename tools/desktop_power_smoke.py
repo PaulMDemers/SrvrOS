@@ -15,16 +15,19 @@ from desktop_power_records import desktop_power_result
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--stage')
+    parser.add_argument('--air72',action='store_true',help='use Air7,2 synthetic ownership fixture; stages infer their own profile')
     parser.add_argument('--accel',choices=('tcg','kvm'),default='tcg')
     args=parser.parse_args()
-    root=Path(__file__).resolve().parents[1];out=root/('build/review/desktop-power-exact' if args.stage else 'build/review/desktop-power-auto');out.mkdir(parents=True,exist_ok=True)
+    root=Path(__file__).resolve().parents[1];out=root/('build/review/desktop-power-exact' if args.stage else 'build/review/desktop-power-auto');out=out.with_name(out.name+'-air72') if args.air72 else out;out.mkdir(parents=True,exist_ok=True)
     for name in ('result.json','phases.json','allocation.log'):
         (out/name).unlink(missing_ok=True)
     for old in out.glob('saved-*.log'):old.unlink()
     stage=boot.STAGE/args.stage if args.stage else None
     manifest=boot.verify(stage) if stage else None
     volume_id=boot.DESKTOP_RE.fullmatch(manifest['config_version'])[1] if stage else '51525354'
-    if stage:assert manifest['config_version'].startswith('ram-usb-v78-')
+    if stage:assert manifest['config_version'].startswith(('ram-usb-v78-','ram-usb-v82-'))
+    air72=manifest['config_version'].startswith('ram-usb-v82-') if stage else args.air72
+    if stage and args.air72 and not air72:parser.error('--air72 conflicts with staged profile')
     output=bytearray();consumed=0
     with tempfile.TemporaryDirectory(prefix='srvros-combined-') as directory:
         tmp=Path(directory);volume=tmp/'volume';stick=tmp/'stick'
@@ -40,9 +43,9 @@ def main():
         with stick.open('wb') as disk:
             disk.write(mbr);disk.write(gpt_header(1,backup,34,last,2,128,crc,guid));disk.write(entries);disk.seek(2048*512);disk.write(f.data);disk.write(entries);disk.write(gpt_header(backup,1,34,last,backup-32,128,crc,guid))
         original=stick.read_bytes();end=2048*512+len(f.data)
-        (tmp/'battery.asl').write_text('#define BATTERY_AIR61 1\n#define BATTERY_FAULT 83\n'+(root/'tools/fixtures/acpi/battery-runtime.asl').read_text())
+        (tmp/'battery.asl').write_text(('' if air72 else '#define BATTERY_AIR61 1\n')+'#define BATTERY_FAULT 83\n'+(root/'tools/fixtures/acpi/battery-runtime.asl').read_text())
         subprocess.run(['iasl','-p',str(tmp/'battery'),str(tmp/'battery.asl')],check=True,stdout=subprocess.DEVNULL)
-        kernel=root/'build/acpi-air61-battery/vm.elf';initramfs=root/'build/initramfs.tar'
+        kernel=root/('build/acpi-battery/vm.elf' if air72 else 'build/acpi-air61-battery/vm.elf');initramfs=root/'build/initramfs.tar'
         cmdline=f'srvros.storage=ram srvros.workspace-volume={volume_id} srvros.desktop=session srvros.battery=on srvros.desktop-power=on srvros.power=read-only srvros.laptop-services=brightness srvros.audio=hda srvros.sensors=cpu srvros.smc=read-only'
         if stage:
             from hardware_boot_smoke import make_disk
@@ -100,7 +103,7 @@ def main():
                 allocation=subprocess.check_output([str(root/'build/tests/exfat-driver'),str(volume),'allocation-check'],text=True)
                 assert 'leaked=0 fat_bitmap_mismatches=0 errors=0' in allocation
                 (out/'allocation.log').write_text(allocation)
-                result=dict(status='PASS',accelerator=args.accel,stage=args.stage,manifest_sha256=boot.digest(stage/'manifest.json') if stage else None,input_injected=False,automatic_return=True,source=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),source_dirty=bool(subprocess.check_output(['git','status','--porcelain'],text=True)),native_acceptance=False,prior_files_preserved=len(prior))
+                result=dict(status='PASS',accelerator=args.accel,stage=args.stage,manifest_sha256=boot.digest(stage/'manifest.json') if stage else None,input_injected=False,automatic_return=True,source=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),source_dirty=bool(subprocess.check_output(['git','status','--porcelain'],text=True)),native_acceptance=False,model='MacBookAir7,2' if air72 else 'MacBookAir6,1',prior_files_preserved=len(prior))
                 (out/'result.json').write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result))
             finally:
                 stop_process(process);(out/'serial.log').write_bytes(output)

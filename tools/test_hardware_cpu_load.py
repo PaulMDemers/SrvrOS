@@ -55,6 +55,19 @@ class LoadCaptureTests(unittest.TestCase):
             text+=fields+'\n'
         return text
 
+    def test_broadwell_partial_residency(self):
+        from hardware_cpu_load import phase_idle
+        text=self.residency_fixture().replace('supported=1023 valid=1023','supported=127 valid=127')
+        result=phase_idle(text,0,30000000)
+        self.assertEqual(result['supported'],127)
+        self.assertEqual(len(result['basis_points']),7)
+        self.assertNotIn('package_c10',result['basis_points'])
+        for broken in (text.replace('c7_raw=0','c7_raw=1',1),
+                       text.replace('c8_bp=0','c8_bp=1',1),
+                       text.replace('supported=127 valid=127','supported=1023 valid=1023',1),
+                       text.replace('valid=127','valid=1023',1)):
+            self.assertIsNone(phase_idle(broken,0,30000000))
+
     def test_residency_coverage_and_zero(self):
         from hardware_cpu_load import phase_idle
         result=load_result(self.residency_fixture())

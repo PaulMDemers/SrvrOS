@@ -62,17 +62,19 @@ void power_expire(struct power_snapshot *s,uint64_t now) {
 }
 
 
-bool power_idle_supported(uint32_t sig,uint32_t invariant_tsc_d) {
+uint32_t power_idle_supported(uint32_t sig,uint32_t invariant_tsc_d) {
     /* Called only after the native vendor/feature/hypervisor power gate. */
-    return ((sig>>8)&15)==6 && !((sig>>20)&255) &&
-        (((sig>>4)&15)|((sig>>12)&0xf0))==0x45 && (invariant_tsc_d&(1u<<8));
+    if(((sig>>8)&15)!=6 || ((sig>>20)&255) || !(invariant_tsc_d&(1u<<8))) return 0;
+    unsigned model=((sig>>4)&15)|((sig>>12)&0xf0);
+    /* Broadwell inherits the seven counters, not Haswell-ULT's C8-C10 table. */
+    return model==0x45?POWER_IDLE_MASK:model==0x3d?POWER_IDLE_BROADWELL_MASK:0;
 }
 
 void power_idle_sample(struct power_idle_snapshot *s,struct power_idle_raw r) {
     struct power_idle_raw old=s->raw;
     s->raw=r;s->valid=0;s->interval_us=0;s->interval_tsc=0;
     for(unsigned i=0;i<POWER_IDLE_COUNT;i++) s->basis_points[i]=0;
-    if(s->supported!=POWER_IDLE_MASK || !old.tsc_end) return;
+    if((s->supported!=POWER_IDLE_MASK && s->supported!=POWER_IDLE_BROADWELL_MASK) || !old.tsc_end) return;
     if(r.us<=old.us || r.us-old.us<100000 || r.us-old.us>5000000 ||
        old.tsc_end<old.tsc_begin || r.tsc_begin<=old.tsc_end || r.tsc_end<r.tsc_begin)
         goto rejected;
@@ -80,6 +82,7 @@ void power_idle_sample(struct power_idle_snapshot *s,struct power_idle_raw r) {
      * are conservative. Reject resets/overflows; never clamp to 100 percent. */
     uint64_t dt=r.tsc_end-old.tsc_begin,core=0,package=0;
     for(unsigned i=0;i<POWER_IDLE_COUNT;i++) {
+        if(!(s->supported&(1u<<i))) continue;
         if((i>=7 && ((r.ticks[i]|old.ticks[i])>>60)) || r.ticks[i]<old.ticks[i]) goto rejected;
         uint64_t delta=r.ticks[i]-old.ticks[i];
         uint64_t *sum=i<3?&core:&package;
@@ -87,8 +90,8 @@ void power_idle_sample(struct power_idle_snapshot *s,struct power_idle_raw r) {
         *sum+=delta;
     }
     for(unsigned i=0;i<POWER_IDLE_COUNT;i++)
-        s->basis_points[i]=(r.ticks[i]-old.ticks[i])*10000/dt;
-    s->interval_us=r.us-old.us;s->interval_tsc=dt;s->valid=POWER_IDLE_MASK;return;
+        if(s->supported&(1u<<i)) s->basis_points[i]=(r.ticks[i]-old.ticks[i])*10000/dt;
+    s->interval_us=r.us-old.us;s->interval_tsc=dt;s->valid=s->supported;return;
 rejected:
     s->rejected++;
 }
