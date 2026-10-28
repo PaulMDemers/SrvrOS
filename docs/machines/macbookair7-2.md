@@ -28,6 +28,18 @@ not conflicting integration. Per the coordination guide, mark that overlap in a
 draft PR and defer integration until an implementation owner is agreed. PR19
 Wi-Fi remains independent. Ubuntu stays default with no one-shot armed.
 
+The committed-data barrier proposal passes integrated core/desktop hosts,
+ordinary/native/VM builds and documentation checks. Final wrapper preservation
+passes focused workspace/logger tests and matched rebuilds. Source `7e3a325f`
+passes normal Air7,2 KVM:22 cycles, loop115699 us, ready1269412 us, close940387 us,
+zero observed PCM underruns, exact files/screenshot and clean retirement. Five
+live checkpoints use the new matching durability marker. The100-write-IOPS
+populated fixture still fails cycle1 total lifecycle (UI109720 us); preserve it
+as a remaining performance failure. No native barrier acceptance is claimed.
+Draft PR247 remains unmerged pending implementation-owner agreement with PR182.
+No new boot payload was installed/staged for this proposal and no reboot is armed;
+installed remains `c98e4c162b411126`, independent recovery `9aa8dbf6fbda8252`.
+
 ### Fifth endurance return — ready-thread gate exclusion (2026-10-28)
 
 Release `57d0ba0d7e1f2f71`, clean `b6f3dcad` (PR243 runtime), returned
