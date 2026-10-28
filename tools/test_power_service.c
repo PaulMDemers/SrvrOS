@@ -29,7 +29,7 @@ static uint32_t signature=0x306d4,feature_c,feature_d=32,thermal_c=1,max_leaf=6;
 void power_test_cpuid(unsigned leaf,unsigned subleaf,uint32_t *a,uint32_t *b,uint32_t *c,uint32_t *d) {
     assert(!subleaf || leaf==11);
     if(leaf==11) {
-        assert(max_leaf>=11 && subleaf<3 && signature==0x40651 && invariant==256);topology_reads++;
+        assert(max_leaf>=11 && subleaf<3 && (signature==0x40651 || signature==0x306d4) && invariant==256);topology_reads++;
         *a=subleaf==0?1:subleaf==1?4:0;*b=subleaf==0?2:subleaf==1?4:0;
         *c=subleaf==0?256:subleaf==1?513:2;*d=0;
     }
@@ -44,11 +44,12 @@ uint64_t power_test_read_msr(unsigned n) {
     reads++;
     switch(n) {
     case 0x1b:case 0x1a0:
-        assert(signature==0x40651 && invariant==256);prereq_reads++;return n==0x1b?apic_config:misc_config;
-    case 0xe2:assert(signature==0x40651 && invariant==256);config_reads++;return config_value;
+        assert((signature==0x40651 || signature==0x306d4) && invariant==256);prereq_reads++;return n==0x1b?apic_config:misc_config;
+    case 0xe2:assert((signature==0x40651 || signature==0x306d4) && invariant==256);config_reads++;return config_value;
     case 0x10: idle_reads++;return now*2000;
     case 0x3fc:case 0x3fd:case 0x3fe:case 0x60d:case 0x3f8:case 0x3f9:case 0x3fa:case 0x630:case 0x631:case 0x632:
-        assert(signature==0x40651 && invariant==256);idle_reads++;return 0;
+        assert((signature==0x40651 || signature==0x306d4) && invariant==256);
+        assert(signature!=0x306d4 || n<0x630);idle_reads++;return 0;
     case 0x606:return units;case 0xce:return platform;case 0x611:return energy;case 0xe8:return aperf;case 0xe7:return mperf;default:assert(0);return 0; }
 }
 bool timer_reference_ready(void) { return reference; }
@@ -138,7 +139,13 @@ int main(void) {
     /* Air residency is extra cached read-only data, not a new worker/cadence.
      * Sibling power profiles and missing invariant-TSC capability get no reads. */
     invariant=256;
-    signature=0x306d4;init();assert(reads==5 && !snapshot.idle.supported);
+    signature=0x306d4;idle_reads=0;init();assert(reads==14 && idle_reads==9 && snapshot.idle.supported==127);
+    now+=1000000;sample();assert(snapshot.idle.valid==127 && reads==26);
+    assert(!power_capture_mwait_start() && !power_capture_deep_start() && !mwait_starts);
+    max_leaf=20;feature_c=8;init();
+    assert(power_capture_start() && audit_active);power_capture_stop();assert(!audit_active);
+    assert(!mwait_starts && !mwait_rows && config_reads==2 && prereq_reads==4 && topology_reads==3);
+    idle_reads=config_reads=prereq_reads=topology_reads=prereq_rows=audit_rows=entry_rows=0;max_leaf=6;feature_c=0;
     signature=0x40661;init();assert(reads==5 && !snapshot.idle.supported);
     signature=0x40651;max_ext=0x80000006;init();assert(reads==5 && !snapshot.idle.supported);
     max_ext=0x80000007;init();assert(reads==17 && idle_reads==12 && snapshot.idle.supported==1023 && !snapshot.idle.valid);

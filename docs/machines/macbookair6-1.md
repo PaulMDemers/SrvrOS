@@ -4875,3 +4875,94 @@ No general SMP scheduling or permanent idle-policy change is implied.
 This investigation changes documentation only. Installed C3 diagnostic
 `980f4936c6282637` and console recovery `c35475f62f154f1e` still hash-verify;
 Ubuntu remains default, the one-shot is empty and no new reboot is armed.
+
+
+### Secondary-CPU ownership diagnostic — active scope (2026-10-28)
+
+Base `5a94d755`; PR182 filesystem (`29df1192`) and PR19 Wi-Fi (`b8d63682`)
+remain independent. Implement a separate MP-request kernel/staging profile,
+private AP stacks/GDT/TSS/fault IDTs and static coherent mailboxes. No AP joins
+scheduler/allocator/console or changes power MSRs. Prove 32 ordered wake/ack
+exchanges per AP under the unchanged 20 ms bound, then terminal retirement;
+retain all AP and bootloader storage until reset, including failure paths.
+Ordinary kernel has no MP request. Scope: diagnostic kernel objects, bounded
+BSP capture hook, staging/parser and directed host/multi-CPU VM tests. Next:
+validate normal/fault/refusal paths, self-merge and exact-stage automated native
+capture with USB saved receipts and Ubuntu recovery. C3 is not requested. See the [ownership diagnostic contract](../ap-ownership-diagnostic.md).
+
+
+### AP ownership diagnostic — validated candidate (2026-10-28)
+
+PR232 source `3cc9a389`, release `53b2c4c90f65e647`, passes the matched ordinary
+and separate diagnostic build, USB/core/docs suite, 84 staging tests and directed
+host receipt/deadline tests. ELF inspection confirms zero MP requests in the
+ordinary kernel and one in the diagnostic. AP disassembly contains no C calls,
+WRMSR or exception return. It retains private descriptor/IST and C1-only wait paths.
+
+Exact-stage GPT Q35 rehearsal completes all 96 exchanges on four CPUs, saves
+logs, unmounts and automatically resets. Two CPUs also pass. One/six CPU cases
+refuse safely. Missing startup acknowledgement exceeds the unchanged deadline
+and reports failure; a real injected UD2 remains on that AP's private fault
+handler while the other APs retire. Both failure receipts are saved and return
+automatically. Missing workspace follows the established failure-return path
+without claiming a saved result. VM APs use PAUSE; native MONITOR/store wakeup
+remains unaccepted until physical evidence. All injected configurations remain
+private temporary VM copies. A precommit staging manifest was archived and the
+identical payload restaged from clean committed source; the final exact-stage
+rehearsal passes with its final manifest hash.
+
+Prepared native run `f08a07b619d4456d` needs no input: verify all three AP
+identities, 32 exchanges each and terminal retirement, save logs and return to
+Ubuntu for automatic collection. All 536 baseline file hashes match the previous
+collected run. Read-only fsck, allocation and headroom pass at 1,587 clusters,
+with zero leaks/mismatches/errors. Preserve installed C3 probe
+`980f4936c6282637`, console recovery, desktop power, stress and attended reopen.
+The superseded shallow-only EFI copy `8030ae20c2611a09` may be retired after its
+durable payload hashes verify, to make staging space. Its evidence and payload
+remain outside `build`. Native ownership acceptance is pending; C3 is not tested.
+
+
+### AP ownership — native acceptance (2026-10-28)
+
+Documentation/evidence closeout on integration base `951135b0` (PR231).
+PR182 filesystem (`903030ef`) and PR19 Wi-Fi (`5a2e0089`) retain independent
+scope. The newer integrated parity/runtime changes have not been physically
+accepted by this run: its compiled source remains `3cc9a389`, merged through
+PR232 at `80b0a8aa`. No new payload or reboot is prepared by this closeout.
+
+Release `53b2c4c90f65e647` completed run `f08a07b619d4456d`, session
+`session-00065ee89de49ed6-00`, and automatically returned to Ubuntu. All three
+APs report the expected signature/APIC identity and complete 32 ordered mailbox
+exchanges each, **96 total**, using native MONITOR/C1 MWAIT and BSP-store wakeup.
+Independent review of the raw saved receipts agrees with automatic collection.
+
+| APIC ID | Startup wait (us) | Maximum exchange (us) | Retirement wait (us) | Wait attempts | Faults |
+| --- | --- | --- | --- | --- | --- |
+| 2 | 5 | 2 | 2 | 33 | 0 |
+| 1 | 5 | 2 | 1 | 33 | 0 |
+| 3 | 4 | 1 | 2 | 34 | 0 |
+
+Every measured interval is below the unchanged 20,000 us bound. All APs report
+terminal retirement (state 2); storage remains retained until reset. These are
+PM-clock-bracketed BSP acknowledgement measurements, not ISR/runnable latency
+or a general latency guarantee. Wait-attempt counters do not measure physical
+C1 residency. Fault and timeout containment remain VM/host-tested, not native
+fault-injected. This accepts bounded explicit AP ownership, mailbox wakeup and
+terminal retirement, not general SMP scheduling, reclaimability, permanent idle
+policy, deeper-state entry or energy savings. The original firmware AP state
+before the diagnostic's MP handoff remains unknown.
+
+All 536 baseline files are preserved except expected `.srvros/meta` bookkeeping.
+Two new logs bring the volume to 538 files / 1,590 clusters; offline fsck and
+allocation report zero leaks, mismatches or errors. Installed/current and all
+protected recovery payload hashes verify. The superseded shallow-only EFI copy
+`8030ae20c2611a09` was retired after durable hash verification; its payload and
+evidence remain outside `build`. The accepted C3 diagnostic, console recovery,
+desktop power, stress and attended reopen payloads remain installed. Evidence
+is hash-verified outside `build`. Ubuntu is default, the one-shot is consumed,
+the collector is disabled and no reboot is armed.
+
+Next: design a separately gated coordinated C3 experiment using the now-proven
+AP ownership path, existing 32-attempt/20 ms bounds and BSP HLT fallback. Require
+explicit peer readiness, wake/retirement ownership and per-attempt residency
+proof. Ordinary boot retains no MP request; no C3 support is accepted yet.

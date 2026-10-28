@@ -848,7 +848,9 @@ ownership validation and test limits are unchanged. See the
 Explicit `srvros.power=read-only` now also samples hardware idle counters on
 captured native GenuineIntel family 6 model 45, with invariant TSC indicated by
 CPUID.80000007:EDX[8]. All existing power feature/hypervisor gates apply first.
-Other admitted power profiles keep their original reads and report no residency.
+The later [Air profile parity work](air-profile-parity.md#broadwell-read-only-counter-contract)
+adds a separate seven-counter Broadwell profile; other admitted power profiles
+keep their original reads and report no residency.
 This adds no policy writes, provider activation or sampling wakeups. CPU policy,
 HLT/MWAIT selection, fan control, thermal stops and battery watchdogs are unchanged.
 
@@ -1177,3 +1179,14 @@ HLT fallback and do not establish MWAIT power savings. Firmware configuration
 is unchanged and remote logical-processor state remains unknown. Investigate
 missing residency before claiming a deeper idle policy. See the
 [unit result](machines/macbookair6-1.md#bounded-c3-hint--native-result-residency-unobserved-2026-10-27).
+
+
+The same unit's read-only Ubuntu reference confirms working deeper residency
+counters with the same package-limit value. The next prerequisite is the separate
+[AP ownership diagnostic](ap-ownership-diagnostic.md): bounded private AP
+rendezvous and retirement before any coordinated C3 experiment. Air6,1 release
+`53b2c4c90f65e647` now accepts 96 native mailbox exchanges across three APs,
+maximum measured acknowledgement 2 us, zero faults and terminal retirement under
+the unchanged 20 ms bound. Ordinary boot requests and power policy remain unchanged.
+This provides no C3, physical C1 residency or energy-saving acceptance; see the
+[unit result](machines/macbookair6-1.md#ap-ownership--native-acceptance-2026-10-28).
