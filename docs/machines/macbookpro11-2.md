@@ -20,16 +20,15 @@ is archived outside build. Ubuntu remains default, workspace unmounted and no
 reboot armed. No repeat is needed. Sustained endurance, FCS, physical BSSID
 deduplication, association/security and IP/UI remain unaccepted.
 
-Failed attended candidate: v103 `fe9dc6295c7318c4`, source `10f15a3b`,
-actual main `951135b0`. Full runtime/core/desktop and sanitizer checks used
-`7050a441`; only the VM dock-coordinate harness changed afterward. Complete
-radio proof is retained in `wifi-scan.log`, with a separate rolling desktop tail
-and automatic Help checklist at the existing automatic display scale. Native
-cache/selection/disconnect UI acceptance remains pending. Session
-`session-00065eea37183a8d-00` saved and returned but refused GUI admission: no
-cache owner was published. Raw failure is retained. Ubuntu remains default;
-workspace unmounted and no reboot armed.
-Durable run/archive: `~/.local/share/srvros/macbookpro11-2/wifi-ui-10f15a3b`.
+Installed corrected attended candidate: v103 `852438c8b7cd0b7e`, source
+`d627337c`, actual main `ec7bad42`. The previous `fe9dc6295c7318c4` run refused
+GUI admission because the cache required a generic USB configuration flag; its
+raw failure and strict refusal are retained. The repair uses actual diagnostic
+firmware/MCU/RX configuration, with native-state host regression coverage. Full
+merged build/core/desktop, sanitizers and exact-image VM checks pass. Native
+cache/selection/disconnect UI acceptance is pending. Ubuntu remains default;
+workspace unmounted and candidate unarmed. Await cold-cycle readiness.
+Durable run/archive: `~/.local/share/srvros/macbookpro11-2/wifi-ui-retry-d627337c`.
 
 Latest accepted trial: v101 `f1015eeb7358f9c7`, source `6b12e4f2`, main
 `e4f8bf84`, session `session-00065edaa5a051a0-00`. The bounded pre-enable retry
@@ -10630,3 +10629,34 @@ Preserve prior failed v103 and accepted v102 evidence, known-good desktop and
 Ubuntu default. Collect only the new source-bound session on return. No radio
 recipe, credentials/security/IP, battery or other model acceptance expansion.
 Candidate will be installed unarmed before coordinating the required cold cycle.
+
+
+## 2026-10-28 corrected v103 installed; native UI trial pending
+
+Release `852438c8b7cd0b7e`, source `d627337c`, integrates actual main `ec7bad42`
+and configuration-guard repair `b68db1b5`. Full image/USB-image/core/desktop
+passes;193 staging tests and219 prior/current Wi-Fi/Air/AP/C3/package recipe
+comparisons pass. Five sanitizer suites plus108 native scan-batch cases pass.
+Strict radio/UI composition fixtures (two valid,32 damaged refusals), four
+collector orchestration cases and committed UI-log tests pass. RF proof constants
+and radio recipes are unchanged. Ordinary kernel contains no isolated AP request.
+
+System/e1000 VM passes actual empty-cache syscall/UI, DHCP, existing pages,
+controls and clean exit; the automatically opened complete Help checklist at2x
+scale was visually checked. Exact-stage GPT save/readback/unmount/return passes;
+absent radio correctly refuses GUI. Missing workspace returns without probing.
+Staged kernel and independently firmware-packaged initramfs match built products.
+These checks do not accept native populated UI. The failed predecessor remains
+archived with its original refusal and source-bound payload.
+
+Installed candidate plus six retained payloads match durable backups. Known-good
+desktop `e47dca3a6b30c6c1` remains previous, and accepted v102 remains available.
+Unused v98 `83aad161d5fa476e` was retired from the ESP only after complete durable
+equality to free installation space; its backup survives distclean. Offline
+workspace checks pass:365 files,954 clusters,151 directories, zero leaks/mismatches/
+errors. Ubuntu remains default, workspace unmounted and one-shot empty. No reboot
+is armed. Matching retry run/collector live under `build/bringup/wifi-ui-retry/`,
+with durable archive `wifi-ui-retry-d627337c`. Before shutdown coordinate Wi-Fi's
+10-second unplug/reconnect while off in the same port, leaving workspace attached.
+Help opens automatically, has no deadline, and Exit desktop saves/returns. No
+credentials, commands or photos are needed; security/IP and5GHz remain pending.

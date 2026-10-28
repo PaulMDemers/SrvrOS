@@ -5955,3 +5955,13 @@ root-port, connection-change, quarantine and active publication ownership gates.
 The host fixture now publishes with the native generic flag false and refuses
 each missing diagnostic configuration state independently. A new source-bound
 image and physical UI trial are still required before acceptance.
+
+
+Corrected v103 `852438c8b7cd0b7e` (source `d627337c`, main `ec7bad42`) is now
+installed unarmed on Pro11,2. Full merged build/core/desktop,193 staging tests,
+219 recipe comparisons, five sanitizer suites and108 native-batch cases pass.
+Strict phase/collector fixtures,2x checklist/System VM, exact-stage GPT save/
+return and missing-workspace refusal pass. The ordinary kernel has no isolated
+AP request. The previous failed v103 remains archived; native populated cache,
+selection and disconnect UI still require the attended cold trial. Passwords
+remain unused. See the unit record for run, recovery and collection details.
