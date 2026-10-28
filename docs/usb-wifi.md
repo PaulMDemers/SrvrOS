@@ -5783,3 +5783,24 @@ This helper neither polls hardware nor starts an endpoint, retunes, transmits,
 logs identifiers or joins a network. Native repeated-receive integration and its
 exact saved-log/VM/physical evidence remain the next checkpoint; host fixtures
 do not accept sustained RF reception or Wi-Fi connectivity.
+
+## Native repeated-IN candidate (v102)
+
+Source `ebbb08cb` adds an opt-in selector80/v102 adapter for the repeated-window
+contract above. Per US1/6/11 visit it reserves a fresh ring and nine data pages,
+retains an observed early TD uninspected and selects eight distinct pages with
+a zero/one TRB offset. It validates both configured/saved plans and all retained
+current/prior identities before each action. Events for earlier TDs cannot
+complete the active request. One measured10s clock covers the entire window;
+no retry restarts it. Every post, completion, final metadata and retained page
+is recorded. Independent MAC retirement, exact Stop, four fresh guards and
+original-channel1 restoration remain required on every path. Ordinary startup
+and v1–v101 recipes stay unchanged; no active network data is transmitted.
+
+Release `3337af3753372b9d` is installed on Pro11,2 with main `052ebc18`, but
+physical acceptance is pending. Full build/core/desktop, native fault/sanitizer,
+strict whole-log, saved/refusal exact-stage VM and recovery/offline gates pass.
+The [unit record](machines/macbookpro11-2.md) records counts, source and retained
+failures. Collect the matching session before a new run. Private row/count proof
+does not establish physical BSSID grouping, FCS, sustained scanning, association,
+security or IP/UI. The latest accepted hardware image remains v101.

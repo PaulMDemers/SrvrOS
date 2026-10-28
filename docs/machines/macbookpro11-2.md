@@ -7,6 +7,15 @@ and next scope are recorded at the end; earlier failures are historical.
 
 ## Current handoff
 
+Installed candidate: v102 `3337af3753372b9d`, source `ebbb08cb`, actual main
+`052ebc18`. It adds up to eight enabled-window receives per US1/6/11 visit,
+with nine retained data pages and one ring per visit, observed early completion
+rejection and an unchanged ten-second deadline. Local/sanitizer/whole-log and
+exact-stage VM checks pass; physical acceptance is pending. Ubuntu remains
+default, workspace unmounted and no reboot armed. After cold-cycle readiness,
+unplug Wi-Fi10s while off, reconnect and power on; leave workspace connected.
+Collect this matching v102 session FIRST on return with the automatic collector.
+
 Latest accepted trial: v101 `f1015eeb7358f9c7`, source `6b12e4f2`, main
 `e4f8bf84`, session `session-00065edaa5a051a0-00`. The bounded pre-enable retry
 was exercised on channel11: its first normal completion carried120 bytes and
@@ -10284,3 +10293,52 @@ contract, main/staging/smoke, fixtures, strict collection and current unit/Wi-Fi
 guides. Publish source and host/sanitizer/saved-log/exact-stage VM proofs before
 installing. Native acceptance stays at v101 until matching evidence is collected;
 Ubuntu recovery and durable backups remain retained. No new reboot is armed.
+
+## 2026-10-27: v102 repeated native receive candidate installed
+
+Source `ebbb08cb` (native implementation `b0471b7c`) consumes actual main
+`052ebc18`, preserving the distinct Air MWAIT trial. Selector80/v102 reserves
+one ring and nine data pages per visit before MAC enable. It retains/rejects an
+observed pre-enable normal completion, then adopts the pending first TD or
+publishes slot1 and up to seven more fresh TDs under one original10s deadline.
+Every completion is logged between its post and the next post; no completed or
+skipped page is reused. Parsing occurs only after parent MAC retirement, exact
+Stop and four fresh guards. Each visit independently restores all13 original
+channel1 words and bounded VCO clear before the next excursion. All30 fresh
+page identities remain pinned, including unused pages. No new RF settings,
+firmware commands, network data OUT or ordinary-startup enablement were added.
+
+The private batch collector validates three completed tune/stop/restore ledgers,
+reparses all enabled-window transfers and publishes bounded copied rows only
+after all visits complete. The strict host collector checks every post/event/
+item/page and deadline, exact existing MAC and fixed-plan RF traces, unchanged
+parent initialization, original cached-checkpoint offsets, anonymous row/count
+bounds and the full exit prefix. Latest a/b snapshot files must match their raw
+prefixes; earlier overwritten checkpoints remain validated in the final raw log.
+No physical BSSID deduplication, sustained reception, FCS, association/security
+or IP/UI acceptance is inferred from these redacted records.
+
+Validation: full merged image/core/desktop passes. ASan/UBSan passes108 native
+batch cases in six independent retained-DMA processes,232 old retry cases,
+115 old scan cases,356 old receive cases and16 AGC timing callbacks. Pure suites
+pass2728 window scenarios,355 batch collections,10168 discovery collections and
+215 old single-IN scan cases. Whole native-derived traces pass15 complete
+outcomes/checkpoint projections and374 malformed complete-log refusals. Four
+portable log-test groups exercise the complete/quiet/parser matrix and record/
+identity/order/deadline refusals. Staging passes190 tests;206 old Wi-Fi/desktop/
+main-MWAIT recipes remain byte-identical. Sixty-four printf arities match.
+Development/fixture refusals and collector-generation errors remain preserved,
+not counted as passes. The final generated collector parses, embeds the tested
+whole-check AST and three frozen proofs exactly, and assembles all result fields.
+
+The committed-source kernel and independently firmware-packaged initramfs match
+stage `3337af3753372b9d`. Exact GPT VM saves/byte-verifies logs, unmounts and
+returns; missing workspace refuses probing and returns. QEMU does not accept
+native RF behavior. Seven complete current/e47/v101/v100/v99/v98/v97 payloads
+match durable backups. The unreferenced v96 ESP payload was retired only after
+full equality to its retained `wifi-discovery-native-8f44718` backup; accepted
+v101 and Ubuntu recovery remain live. Offline workspace:359 files,924 clusters,
+149 directories, zero errors/leaks/bitmap mismatches. Source, payload, helpers,
+run/recovery records and evidence survive distclean in
+`wifi-scan-native-batch-ebbb08cb` outside build. Installed, unmounted, unarmed.
+Native acceptance stays at v101 until the matching v102 capture is collected.
