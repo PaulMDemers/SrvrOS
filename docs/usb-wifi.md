@@ -5929,3 +5929,16 @@ return policy. Quiescence failure retains the logger's write and mount ownership
 Ordinary log profiles, v1–v102 Wi-Fi recipes and the separate AP diagnostic kernel
 remain unchanged. This new profile requires its own matched host/VM/install/run
 record and native evidence; it does not inherit v102's acceptance automatically.
+
+
+v103 candidate `fe9dc6295c7318c4` (source `10f15a3b`, main `951135b0`) is
+installed on Pro11,2, unarmed and awaiting the attended cold trial. Full build/
+core/desktop,193 staging checks,215 recipe comparisons, five sanitizer suites
+and108 native-batch cases pass. The System VM opens the complete checklist at
+2x scale and exits cleanly. Exact-stage saved-log and missing-workspace VMs pass;
+without the captured radio, GUI admission is correctly refused. Strict composed
+radio/UI proof and collector refusal fixtures pass. No new native UI acceptance
+is claimed. The matching run and durable archive are recorded in the unit guide.
+A failed final workspace unmount preserves the mount and refuses automatic reboot
+for this profile. Passwords supplied locally for future security testing are
+excluded from this image, logs, fixtures and archive.

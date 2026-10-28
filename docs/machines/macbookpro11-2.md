@@ -20,10 +20,14 @@ is archived outside build. Ubuntu remains default, workspace unmounted and no
 reboot armed. No repeat is needed. Sustained endurance, FCS, physical BSSID
 deduplication, association/security and IP/UI remain unaccepted.
 
-Development source `e4c2b1a6`, main `5a94d755`, adds the adapter discovery cache,
-versioned snapshot/selection syscall and System Wi-Fi page. Host, sanitizer,
-desktop VM and exact staged-image checks pass. VM-only stage `3ed07b1dd8567913`
-is not installed; native cache/UI acceptance is pending. No new reboot is armed.
+Installed attended candidate: v103 `fe9dc6295c7318c4`, source `10f15a3b`,
+actual main `951135b0`. Full runtime/core/desktop and sanitizer checks used
+`7050a441`; only the VM dock-coordinate harness changed afterward. Complete
+radio proof is retained in `wifi-scan.log`, with a separate rolling desktop tail
+and automatic Help checklist at the existing automatic display scale. Native
+cache/selection/disconnect UI acceptance is pending. Ubuntu remains default;
+workspace unmounted, candidate unarmed. Await cold-cycle readiness before shutdown.
+Durable run/archive: `~/.local/share/srvros/macbookpro11-2/wifi-ui-10f15a3b`.
 
 Latest accepted trial: v101 `f1015eeb7358f9c7`, source `6b12e4f2`, main
 `e4f8bf84`, session `session-00065edaa5a051a0-00`. The bounded pre-enable retry
@@ -10527,3 +10531,41 @@ selection/removal counters; do not widen bootlog memory or overwrite the RF proo
 The collector must validate both phases explicitly. This adds one guarded opt-in
 workspace-log transition and its host corruption/quiescence/prefix/long-tail tests;
 PR182 does not modify workspace_log.c. Ordinary logging remains unchanged.
+
+
+## 2026-10-28 v103 installed; attended acceptance pending
+
+Release `fe9dc6295c7318c4` is installed from clean source `10f15a3b` on main
+`951135b0`. Full image, USB-image, test-core and test-desktop pass;193 staging
+checks and215 prior/current recipe comparisons pass. Workspace, Help, cache,
+syscall and System sanitizer suites plus108 native-batch cases pass. Two composed
+prior-native-radio/synthetic-UI fixtures and32 damaged-proof refusals pass; four
+collector orchestration cases cover complete, missing-radio, no-new-session and
+wrong-release. These are host fixtures, not new native acceptance.
+
+The System/e1000 VM validates DHCP, existing pages and controls, actual empty
+Wi-Fi syscall/page, automatic2x checklist startup and clean desktop exit. The
+first rehearsal clicked Settings after Help changed the running dock layout;
+the corrected harness passes and the initial failure is preserved. Exact-stage
+GPT save/readback/unmount/return and missing-workspace refusal pass. The VM has
+no captured radio and correctly refuses GUI admission; native populated UI still
+needs this attended trial. Kernel and independently packaged initramfs match;
+ordinary kernel has no AP request. Full RF checker binds the immutable scan proof
+to the run ID, beginning snapshot, rolling tails and clean final desktop exit.
+A successful collector result still leaves visual acceptance pending.
+
+Complete installed candidate plus six live recoveries match durable backups.
+Known-good desktop `e47dca3a6b30c6c1` remains previous; accepted v102 is retained.
+Old unreferenced v97 `4acac674194041a5` was retired from the ESP for space only
+after complete durable equality. Its backup survives distclean. Offline workspace
+checks pass:361 files,933 clusters,150 directories, zero leaks or errors.
+Ubuntu default, unmounted workspace and empty one-shot are verified. No shutdown
+has been requested. The full untimed Help checklist opens in the guest; Exit
+desktop saves and returns automatically. Reconnect intentionally does not rescan
+or resurrect the retired owner.
+
+The user supplied local Demers2.4/Demers5 credentials for future security tests.
+The owned local file is mode0600; contents have not been read, copied or logged.
+This discovery/selection trial does not use credentials. Management TX,
+association/WPA2/key lifecycle, active IP and 5GHz remain future work. Battery,
+headphones and further trackpad latency remain deferred.
