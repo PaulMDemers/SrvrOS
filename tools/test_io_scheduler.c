@@ -43,6 +43,8 @@ bool timer_reference_ready(void) { return reference; }
 static struct scheduler_wait_queue completion_queue;
 static bool high_wait_test;
 static bool handoff_test;
+static bool fair_handoff_test;
+static unsigned fair_handoff_turns[2];
 static bool retry_turn_test;
 static unsigned trace_test;
 void fpu_set_current_user_state(struct fpu_state *state) { (void)state; }
@@ -50,6 +52,15 @@ static unsigned handoff_admissions;
 static struct scheduler_wait_queue high_wait;
 static bool completion_condition(void *arg) { assert(arg==&completion_ready);return completion_ready; }
 void scheduler_context_switch(struct scheduler_context *old,struct scheduler_context *next) {
+    if(fair_handoff_test) {
+        assert(old==&threads[3].context && (current_thread==6 || current_thread==7));
+        assert(next==&threads[current_thread].context && !io_depth);
+        assert(!threads[current_thread].io_gate_waiting);
+        fair_handoff_turns[current_thread-6]++;
+        threads[current_thread].state=THREAD_READY;
+        threads[3].state=THREAD_RUNNING;current_thread=3;
+        return;
+    }
     if(trace_test) {
         if(current_thread==1) {
             assert(old==&threads[0].context && threads[0].state==THREAD_BLOCKED);
@@ -217,6 +228,26 @@ static void test_gate_handoff(void) {
     assert(!io_gate_pending && !io_waiters.waiters && !threads[6].io_gate_waiting && threads[6].state==THREAD_DEAD);
     memset(threads,0,sizeof(threads));current_thread=0;idle_thread=UINT64_MAX;initialized=false;
     puts("io-handoff: PASS 64 continuous writer rounds, awakened app admission, nested ownership, unsafe caller refusal and canceled waiter retirement");
+}
+static void test_gate_handoff_fairness(void) {
+    memset(threads,0,sizeof(threads));initialized=io_services_enabled=true;switching=false;
+    current_thread=3;idle_thread=1;io_depth=io_gate_pending=0;actual_space=1;
+    threads[3]=(struct thread){.state=THREAD_RUNNING,.io_user_safe=true};
+    threads[6]=(struct thread){.state=THREAD_READY};
+    threads[7]=(struct thread){.state=THREAD_READY};
+    memset(fair_handoff_turns,0,sizeof(fair_handoff_turns));fair_handoff_test=true;
+    for(unsigned round=0;round<32;round++) {
+        assert(scheduler_io_begin());
+        /* Both contenders request every gap, as repeated nohang reap and
+         * unsafe exit/worker continuations can do under continuous writes. */
+        io_gate_request(&threads[6]);io_gate_request(&threads[7]);
+        scheduler_io_end();scheduler_io_handoff();
+        assert(fair_handoff_turns[0]+fair_handoff_turns[1]==round+1);
+    }
+    fair_handoff_test=false;
+    assert(fair_handoff_turns[0]==16 && fair_handoff_turns[1]==16);
+    io_gate_leave(&threads[6]);io_gate_leave(&threads[7]);assert(!io_gate_pending);
+    puts("io-handoff-fairness: PASS recurring waiter cannot starve a second contender");
 }
 static void test_completion_wait(void) {
     memset(threads,0,sizeof(threads));initialized=io_services_enabled=true;switching=false;
@@ -700,6 +731,7 @@ int main(void) {
     test_completion_wait();
     test_ready_gate_admission();
     test_gate_handoff();
+    test_gate_handoff_fairness();
     test_growth();
     puts("io-scheduler-host: PASS (boot gating, owner/nesting, service eligibility, task isolation)");
 }

@@ -27,7 +27,11 @@ one repeatedly requesting waiter can win every gap ahead of another waiter.
 Extend this scope to `kernel/src/scheduler.c` handoff selection and its host
 fixture only if a deterministic multi-waiter regression reproduces starvation.
 This does not edit PR182's process/file teardown, widen I/O safety gates or
-relax diagnostic limits. No next physical trial is armed until validation.
+relax diagnostic limits. The two-contender host fixture fails before the correction and passes afterward
+with 16/16 admissions. Existing owner/eligibility regressions and full core/desktop
+builds pass. The implementation rotates after the last admitted waiter, including
+ordinary scheduling admissions. Native causation remains unproven; positive and
+exact staged VM validation precede a matching retry.
 
 ### Air6,1 parity — native desktop power accepted (2026-10-28)
 

@@ -106,6 +106,7 @@ static uint64_t io_owner, io_depth, io_service_at;
 static void *io_private_image;
 static struct scheduler_wait_queue io_waiters;
 static uint64_t io_gate_pending;
+static uint64_t io_gate_cursor;
 static void yield_to(uint64_t preferred);
 static void io_gate_request(struct thread *thread) {
     if(!thread->io_gate_waiting) { thread->io_gate_waiting=true;io_gate_pending++; }
@@ -356,8 +357,11 @@ void scheduler_io_handoff(void) {
         /* Includes awakened waiters, READY kernel entries excluded by the gate,
          * and nonblocking reap retries. Prefer them only at this fully unwound
          * boundary, never during ordinary GUI/audio service turns. */
-        for(uint64_t n=1;n<thread_capacity;n++) {
-            uint64_t i=(current_thread+n)%thread_capacity;
+        /* Resume after the last admitted waiter, not after this writer.
+         * A nearby recurring nohang waiter must not win every gap ahead of
+         * a farther startup/exit continuation. Admission remains quiescent. */
+        for(uint64_t n=1;n<=thread_capacity;n++) {
+            uint64_t i=(io_gate_cursor+n)%thread_capacity;
             if(thread_at(i)->io_gate_waiting && thread_at(i)->state==THREAD_READY) {
                 yield_to(i);break;
             }
@@ -445,7 +449,7 @@ void scheduler_init(void) {
         thread_at(i)->state = THREAD_UNUSED;
         thread_at(i)->io_gate_waiting=false;
     }
-    io_gate_pending=0;io_private_image=NULL;
+    io_gate_pending=io_gate_cursor=0;io_private_image=NULL;
 
     current_thread = 0;
     thread_at(0)->state = THREAD_RUNNING;
@@ -606,7 +610,10 @@ static void yield_to(uint64_t preferred) {
     /* A request is satisfied by a turn with no owner, including ordinary
      * scheduling. An allowed service turn during owned I/O does not consume it.
      * If preempted and excluded again, eligibility records a fresh request. */
-    if(!io_depth)io_gate_leave(thread_at(next_index));
+    if(!io_depth && thread_at(next_index)->io_gate_waiting) {
+        io_gate_cursor=next_index;
+        io_gate_leave(thread_at(next_index));
+    }
 
     if (next_index == old_index) {
         if(thread_at(old_index)->trace.active)trace_run(thread_at(old_index),timer_monotonic_us());
