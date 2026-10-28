@@ -33,6 +33,13 @@ static void reset(void) {
 static int finish(void) { for(unsigned i=0;i<20000;i++) { int r=desk_capture_job_poll(&job);if(r) return r; }return 0; }
 int main(void) {
     desk_capture_job_init(&job);uint32_t pixels[191*127];for(unsigned i=0;i<191*127;i++) pixels[i]=i;
+    assert(!desk_capture_job_prepare(&job,191,127,"/fat/home/Screenshots/prepared.bmp"));
+    assert(!desk_capture_job_poll_transfer(&job) && !writes && !reads && !job.sent);
+    assert(desk_capture_job_snapshot(&job,pixels,190,127)<0 && !job.sent);
+    assert(!desk_capture_job_snapshot(&job,pixels,191,127));
+    assert(!memcmp(job.pixels,pixels,sizeof(pixels)));
+    job.sent=1;assert(desk_capture_job_snapshot(&job,pixels,191,127)<0);job.sent=0;
+    reset();
     char path[160]="/fat/home/Screenshots/test.bmp";reset();
     assert(!desk_capture_job_start(&job,pixels,191,127,path));path[5]='X';pixels[0]=0xff;
     total=sizeof(job.request)+sizeof(pixels);reply=(struct desk_capture_response){.magic=DESK_CAPTURE_MAGIC,.id=job.request.id};

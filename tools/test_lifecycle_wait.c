@@ -11,6 +11,7 @@
 #include <time.h>
 #define DESK_CACHE_BYTES (280u*240u*4u)
 #define SRV_EXEC_BACKGROUND 1
+#define DESK_CAPTURE_PATH 160
 struct loop_trace { unsigned samples; };
 struct operation_trace { unsigned value; };
 struct desk_capture_job { int busy,reader,writer;uint64_t pid,retiring_pid,reap_us,cleanup_us;uint32_t *pixels; };
@@ -21,6 +22,8 @@ static unsigned create_calls,fail_create;
 static uint32_t storage[4];
 static pthread_t ui_thread;
 static atomic_uint launch_logs,hold_launch_log;
+static atomic_uint reap_calls,hold_reap;
+static atomic_uint prepare_calls,hold_prepare;
 static void nap(void);
 static void life_launch_log(int application,int64_t pid,uint64_t elapsed) {
     (void)elapsed;
@@ -29,6 +32,18 @@ static void life_launch_log(int application,int64_t pid,uint64_t elapsed) {
     while(atomic_load(&hold_launch_log))nap();
 }
 static void nap(void) { struct timespec t={0,1000000};nanosleep(&t,NULL); }
+static long srv_wait(uint64_t pid,uint64_t *status,unsigned flags) {
+    assert(pid==77 && !flags && !pthread_equal(pthread_self(),ui_thread));
+    atomic_fetch_add(&reap_calls,1);
+    while(atomic_load(&hold_reap))nap();
+    *status=9;return (long)pid;
+}
+static int desk_capture_job_prepare(struct desk_capture_job *j,uint32_t width,uint32_t height,const char *path) {
+    assert(!j->busy && width==280 && height==240 && !strcmp(path,"/test.bmp"));
+    assert(!pthread_equal(pthread_self(),ui_thread));atomic_fetch_add(&prepare_calls,1);
+    while(atomic_load(&hold_prepare))nap();
+    *j=(struct desk_capture_job){.busy=1,.reader=3,.writer=4,.pid=9,.pixels=storage};return 0;
+}
 static uint64_t srv_monotonic_us(void) { struct timespec t;clock_gettime(CLOCK_MONOTONIC,&t);return (uint64_t)t.tv_sec*1000000+t.tv_nsec/1000; }
 static void srv_sleep_ticks(unsigned ticks) { assert(ticks==1);atomic_fetch_add(&sleeps,1);nap(); }
 static uint32_t *desk_pixels_alloc(unsigned w,unsigned h) { assert(w==280 && h==240);atomic_fetch_add(&allocations,1);return storage; }
@@ -91,11 +106,34 @@ int main(void) {
     life_queue(&w,&w.memory[0].discard,1);await_state(&w.memory[0].state,LIFE_RETIRED);assert(atomic_load(&frees)==1);
     struct loop_trace trace={1};struct operation_trace op={7};assert(life_report_submit(&w,&trace,&op));
     await_count(&reports,1);await_state(&w.report_state,LIFE_IDLE);
+    atomic_store(&hold_reap,1);assert(life_reap_submit(&w,77));await_count(&reap_calls,1);
+    long reaped=0;uint64_t status=0;
+    for(unsigned n=0;n<100;n++) {
+        assert(life_reap_pending(&w,77) && !life_reap_submit(&w,77));
+        assert(!life_reap_take(&w,77,&reaped,&status));
+    }
+    atomic_store(&hold_reap,0);await_state(&w.reap[0].state,LIFE_DONE);
+    assert(life_reap_take(&w,77,&reaped,&status) && reaped==77 && status==9);
+    assert(!life_reap_pending(&w,77) && !life_reap_take(&w,77,&reaped,&status));
+    assert(atomic_load(&reap_calls)==1);
     atomic_store(&hold_child,1);struct desk_capture_job j={.busy=1,.reader=3,.writer=4,.pid=9,.pixels=storage};
     assert(life_capture_submit(&w,&j,1) && !j.pixels && j.busy && j.reader==-1);
     await_count(&polls,3);assert(life_state(&w.capture.state)==LIFE_QUEUED && atomic_load(&closes)==1 && !life_capture_take(&w,&j));
     assert(atomic_load(&sleeps)>slept);atomic_store(&hold_child,0);
     await_state(&w.capture.state,LIFE_DONE);assert(life_capture_take(&w,&j)==1 && !j.retiring_pid);
+    atomic_store(&hold_prepare,1);
+    assert(life_prepare_submit(&w,&j,280,240,"/test.bmp"));await_count(&prepare_calls,1);
+    int prepared=1;
+    for(unsigned n=0;n<100;n++) {
+        assert(j.busy && !j.pixels && !j.pid);
+        assert(!life_prepare_submit(&w,&j,280,240,"/test.bmp"));
+        assert(!life_prepare_take(&w,&j,&prepared));
+    }
+    atomic_store(&hold_prepare,0);await_state(&w.prepare.state,LIFE_DONE);
+    assert(life_prepare_take(&w,&j,&prepared) && !prepared && j.pixels==storage && j.pid==9);
+    assert(!life_prepare_take(&w,&j,&prepared));
+    assert(life_capture_submit(&w,&j,-1));await_state(&w.capture.state,LIFE_DONE);
+    assert(life_capture_take(&w,&j)==-1 && !j.pixels && !j.retiring_pid);
     /* Stop cannot release an admitted screenshot child before it retires. */
     atomic_store(&hold_child,1);j=(struct desk_capture_job){.busy=1,.reader=3,.writer=4,.pid=10,.pixels=storage};
     unsigned prior_polls=atomic_load(&polls);assert(life_capture_submit(&w,&j,1));await_count(&polls,prior_polls+2);

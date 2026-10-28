@@ -8,6 +8,7 @@
  * the full existing byte budget, including buffers awaiting release. */
 #define LIFE_MEMORY_SLOTS (DESK_CACHE_BYTES/(280u*240u*4u)+1)
 #define LIFE_LAUNCH_SLOTS 16
+#define LIFE_REAP_SLOTS 16
 #define LIFE_IDLE 0
 #define LIFE_QUEUED 1
 #define LIFE_DONE 2
@@ -25,6 +26,8 @@ struct life_launch {
     uint64_t elapsed,queued_us;
 };
 struct life_capture { unsigned state;int result;struct desk_capture_job job; };
+struct life_prepare { unsigned state,width,height;int result;char path[DESK_CAPTURE_PATH];struct desk_capture_job job; };
+struct life_reap { unsigned state;uint64_t pid,status;long result; };
 struct lifecycle_worker {
     pthread_t thread,report_thread;
     unsigned stop,report_state,report_stop,report_started;
@@ -32,8 +35,10 @@ struct lifecycle_worker {
     struct loop_trace report;
     struct operation_trace operations;
     struct life_capture capture;
+    struct life_prepare prepare;
     struct life_memory memory[LIFE_MEMORY_SLOTS];
     struct life_launch launch[LIFE_LAUNCH_SLOTS];
+    struct life_reap reap[LIFE_REAP_SLOTS];
 };
 static unsigned life_state(const unsigned *state) { return __atomic_load_n(state,__ATOMIC_ACQUIRE); }
 static void life_publish(unsigned *state,unsigned value) { __atomic_store_n(state,value,__ATOMIC_RELEASE); }
@@ -54,6 +59,42 @@ static void life_wait(unsigned *event) {
 }
 static void life_queue(struct lifecycle_worker *w,unsigned *state,unsigned value) {
     life_publish(state,value);life_notify(&w->work_event);
+}
+static int life_reap_pending(struct lifecycle_worker *w,uint64_t pid) {
+    for(unsigned n=0;n<LIFE_REAP_SLOTS;n++)if(life_state(&w->reap[n].state)!=LIFE_IDLE && w->reap[n].pid==pid)return 1;
+    return 0;
+}
+/* Admit only after read-only process metadata reports exit. That is not proof
+ * of final kernel retirement: the worker's blocking wait owns that check/reap.
+ * An occupied slot retains its PID until the UI consumes the result once. */
+static int life_reap_submit(struct lifecycle_worker *w,uint64_t pid) {
+    if(!pid || life_state(&w->stop) || life_reap_pending(w,pid))return 0;
+    for(unsigned n=0;n<LIFE_REAP_SLOTS;n++)if(life_state(&w->reap[n].state)==LIFE_IDLE) {
+        w->reap[n].pid=pid;w->reap[n].status=0;w->reap[n].result=0;
+        life_queue(w,&w->reap[n].state,LIFE_QUEUED);return 1;
+    }
+    return 0;
+}
+static int life_reap_take(struct lifecycle_worker *w,uint64_t pid,long *result,uint64_t *status) {
+    for(unsigned n=0;n<LIFE_REAP_SLOTS;n++)if(life_state(&w->reap[n].state)==LIFE_DONE && w->reap[n].pid==pid) {
+        *result=w->reap[n].result;*status=w->reap[n].status;
+        life_publish(&w->reap[n].state,LIFE_IDLE);return 1;
+    }
+    return 0;
+}
+static int life_prepare_submit(struct lifecycle_worker *w,struct desk_capture_job *j,unsigned width,unsigned height,const char *path) {
+    if(life_state(&w->stop) || life_state(&w->prepare.state)!=LIFE_IDLE ||
+       life_state(&w->capture.state)!=LIFE_IDLE || j->busy || j->retiring_pid || !path || strlen(path)>=sizeof(w->prepare.path))return 0;
+    w->prepare.job=*j;w->prepare.width=width;w->prepare.height=height;
+    strcpy(w->prepare.path,path);w->prepare.result=-1;
+    /* The reserved UI record owns no handles/pixels until take publishes the
+     * worker result. Never poll, clean up or reuse this placeholder. */
+    j->busy=1;life_queue(w,&w->prepare.state,LIFE_QUEUED);return 1;
+}
+static int life_prepare_take(struct lifecycle_worker *w,struct desk_capture_job *j,int *result) {
+    if(life_state(&w->prepare.state)!=LIFE_DONE)return 0;
+    *j=w->prepare.job;*result=w->prepare.result;
+    life_publish(&w->prepare.state,LIFE_IDLE);return 1;
 }
 /* One fixed slot: never overwrite a snapshot while the worker is emitting it.
  * A busy slot causes a retry next loop; only the UI owns the live accumulator. */
@@ -96,6 +137,16 @@ static void life_report_work(struct lifecycle_worker *w) {
     }
 }
 static void life_work(struct lifecycle_worker *w) {
+    for(unsigned n=0;n<LIFE_REAP_SLOTS;n++)if(life_state(&w->reap[n].state)==LIFE_QUEUED) {
+        struct life_reap *r=&w->reap[n];
+        r->result=srv_wait(r->pid,&r->status,0);
+        life_publish(&r->state,LIFE_DONE);
+    }
+    if(life_state(&w->prepare.state)==LIFE_QUEUED) {
+        struct life_prepare *p=&w->prepare;
+        p->result=desk_capture_job_prepare(&p->job,p->width,p->height,p->path);
+        life_publish(&p->state,LIFE_DONE);
+    }
     life_capture_work(w);
     for(unsigned n=0;n<LIFE_MEMORY_SLOTS;n++) {
         struct life_memory *m=&w->memory[n];
