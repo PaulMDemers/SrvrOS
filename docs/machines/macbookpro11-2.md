@@ -10765,3 +10765,33 @@ returns. No passwords, commands or photos are required. The next collection must
 require the actual new release, complete radio/UI byte bindings and isolation
 phase before considering the user's visual report. Association/security/IP and
 5GHz remain pending; credentials have not been read or included in this image.
+
+
+## 2026-10-28 v104 partial radio success; input profile omission
+
+Session `session-00065eebd62e3f4f-00` saved a797243-byte immutable radio proof
+and verified desktop-begin overlap. The complete strict RF/isolation/cache-before
+checks pass: three US1/6/11 visits,13 completed inputs, two pending reads, five
+beacon observations, eight unrelated transfers, two rows and one selectable row.
+All original stop/restoration and deadline checks pass with no periodic disk I/O
+inside the isolated phase. Cache owner1/generation1 was published. The complete
+RF proof survived more than two hours of rolling desktop logs. This verifies
+that phase, not an entire desktop trial or sustained RF endurance.
+
+The user reports responsive keyboard shortcuts and unavailable trackpad, then a
+manual restart/poweroff. There is no exit snapshot; the collector correctly marks
+the desktop lifetime incomplete. UI selection/removal, clean desktop exit and
+SrvrOS unmount remain untested. Offline checks pass374 files/985 clusters with
+zero leaks/mismatches/errors; raw collection and partial proof are durable in
+`wifi-ui-isolated-330c25b3`. The boot profile omitted `srvros.trackpad=gestures`;
+main requires that explicit option for the already-supported pointer path.
+
+Bounded correction scope: v105 inherits v104 and adds only the existing accepted
+trackpad gesture option. Touch staging/smoke/profile tests and input log proof;
+no kernel, userspace, shared ABI or RF changes. Fetched main is `a8da6076`; PR182
+`c5e9d2ac` is storage/network/resource work. Freeze runtime at main02434766/source
+330c25b3 for this single-variable input retest, rather than folding in unrelated
+power/scheduler/workspace changes before UI acceptance. Verify runtime source
+and payload bytes identical, reuse matching full core/desktop/sanitizer receipts,
+and run new profile/proof tests plus exact-stage and System/checklist VMs before
+install/readiness. Preserve incomplete v104 and both failed v103 records.
