@@ -371,6 +371,15 @@ CPU runtime or pure device latency. Sync may also flush other open files. Do not
 subtract these values and call the remainder CPU work. The probes themselves add
 clock-read and log-formatting overhead; compare instrumented runs with each other.
 
+The proposed logger-only committed-data barrier flushes the completed direct
+exFAT log mutation and its device, without submitting unrelated dirty process
+file buffers. Explicit workspace sync, unmount and scratch preparation keep full
+process-file sync. `workspace-log: durable snapshot=... monotonic_us=...` identifies
+the exact successfully persisted snapshot; it does not promise durability for
+another application's pending buffers. New collectors require that matching
+receipt; historical payloads retain their older workspace-flushed receipt.
+This change is under review alongside the overlapping filesystem audit.
+
 A completed record is emitted before the **next** snapshot is copied, with no
 extra write. Thus exit.log contains earlier periodic operations, not its own
 write/flush measurement. The desktop collector exposes `desktop_logger_cost`

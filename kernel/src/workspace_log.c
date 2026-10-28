@@ -114,7 +114,8 @@ static bool save(const char *name) {
     uint64_t start=measured?timer_monotonic_us():0;
     report_save();
     device_checkpoint();
-    console_printf("workspace-log: snapshot=%s monotonic_us=%u total_before=%u tail_limit=65536\n",name,timer_monotonic_us(),bootlog_total());
+    uint64_t snapshot_us=timer_monotonic_us();
+    console_printf("workspace-log: snapshot=%s monotonic_us=%u total_before=%u tail_limit=65536\n",name,snapshot_us,bootlog_total());
     uint64_t total,count=bootlog_snapshot(snapshot,sizeof(snapshot),&total),flags;
     unsigned at=copy(path,directory);path[at++]='/';copy(path+at,name);
     uint64_t prepared=measured?timer_monotonic_us():0;
@@ -133,7 +134,9 @@ static bool save(const char *name) {
         end(flags);
         verified=measured?timer_monotonic_us():0;
     }
-    if(ok) ok=workspace_sync();
+    /* Our direct exFAT mutation/readback is complete. Persist that committed
+     * data without submitting unrelated applications' dirty file buffers. */
+    if(ok) ok=workspace_flush_committed();
     uint64_t finished=measured?timer_monotonic_us():0;
     if(measured) {
         previous_save.pending=true;copy(previous_save.name,name);previous_save.ok=ok;
@@ -145,7 +148,8 @@ static bool save(const char *name) {
         previous_save.prepare=prepared-start;previous_save.write=written-prepared;
         previous_save.verify=verified-written;previous_save.sync=finished-verified;
     }
-    if(!ok) console_printf("workspace-log: SAVE FAILED path=%s; previous checkpoint retained\n",path);
+    if(ok) console_printf("workspace-log: durable snapshot=%s monotonic_us=%u\n",name,snapshot_us);
+    else console_printf("workspace-log: SAVE FAILED path=%s; previous checkpoint retained\n",path);
     return ok;
 }
 static bool ready(void *arg) { (void)arg;return enabled && timer_ticks()>=due; }
