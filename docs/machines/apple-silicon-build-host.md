@@ -1530,3 +1530,14 @@ hardware qualification, Actions dispatch or PR merge occurred.
 Next bounded question: RST/receive-sequence admission and retained descriptor
 errors after terminal expiry. Complete TCP conformance, handle-ID-space
 exhaustion and concurrent fork/exec/kill remain outside the completed scope.
+
+## TCP reset, receive admission and terminal errors — active scope (2026-10-28)
+
+Continue PR182 from `8aa5999a` on unchanged main `5a94d755`. Audit reset/receive
+sequence admission, duplicate/control packets and descriptor ownership after
+terminal timers or TIME-WAIT pressure. Touched areas: `kernel/src/net.c`, focused
+host/packet regressions, Makefile and current audit/network guides. Refreshed
+PR19 is `a0f4f951`, with no net/process-core overlap; its Wi-Fi and Makefile work
+remain separate. Air6,1 AP diagnostics and Air7,2 native evidence are unchanged.
+Next checkpoint is original-source failure evidence, bounded corrections and
+matched host/VM validation. No native install or PR merge is planned.
