@@ -14,10 +14,10 @@ CPU selectors and physical results are not interchangeable.
 | Battery/AC | Separate EC/SMBus ownership, indicator and combined-session acceptance | Existing Air7,2 backend/indicator remains in place; shared worker and supervisor event waits are integrated. Newer polling reductions need matching native measurements. |
 | Combined reopen | v72 automated two-session test and native acceptance | New v79 selects the same mechanism with the Air7,2 kernel; local and native evidence must name this profile. |
 | Audio/disk/app/screenshot stress | v74 bounded 30-minute native run, 703 app cycles; v77 attended variant | New v80 automatic and v81 attended profiles reuse the same workload, deadlines and ownership. Air7,2 has not inherited the 30-minute result. |
-| Desktop power phases | v78 idle/apps/recovery; worker-wakeup receipts and native measurements | New v82 uses the Air7,2 backend with the same phases, read-only power and normal return. No inferred energy saving. |
+| Desktop power phases | v78 idle/apps/recovery; worker-wakeup receipts and native measurements | v82 release `775c5051149c0e38` accepts three native phases, 13 app cycles, bounded loop/ready/close and clean retirement. No inferred energy saving. |
 | Idle residency and capture prerequisites | Ten counters; HLT entry, E2/APIC/misc and topology audit | Captured Broadwell support adds seven counters and the shared audit. C8/C9/C10 remain unavailable, not valid zeros. Native CPU0 diagnostic accepted on release `71049508c4a1fbd0`: complete seven-counter capture, unchanged configuration and zero observed deep-idle deltas. |
 | Explicit MWAIT experiments | Bounded shallow and C3-hint execution accepted; zero observed C3 residency | Broadwell MWAIT remains refused until its own prerequisites/selector review and bounded trial. Read-only counter admission does not enable instructions or copy Haswell policy. Ordinary idle remains HLT. |
-| Secondary CPU ownership | PR232 adds a separate bounded AP rendezvous payload; native acceptance remains pending | Shared diagnostic is integrated, with its native Haswell-only admission intact. Broadwell needs independent identity/MONITOR/APIC prerequisites and a separate native trial after CPU0 capture. Ordinary boot has no MP request; general SMP scheduling remains absent. |
+| Secondary CPU ownership | PR232 adds a separate bounded AP rendezvous payload; PR233 records native Air6,1 acceptance | Shared diagnostic is integrated, with its native Haswell-only admission intact. Broadwell needs independent identity/MONITOR/APIC prerequisites and a separate native trial after CPU0 capture. Ordinary boot has no MP request; general SMP scheduling remains absent. |
 | Network/other devices | No accepted Ethernet/Wi-Fi on that unit | Air7,2 already has matched USB ECM acceptance. No parity gap justifies broadening adapter or firmware gates. Suspend/resume, internal Wi-Fi, Bluetooth and camera remain separate. |
 
 ## Explicit desktop profiles
@@ -114,5 +114,17 @@ C8–C10 remain omitted. HLT entry/return pairs and unchanged E2/APIC/misc snaps
 validate the diagnostic without demonstrating deep idle. CPUID topology describes
 two cores/four addressable logical CPUs; it does not observe their running state.
 No AP startup, MWAIT or policy write occurred. Prior files, offline filesystem and
-allocation checks, consumed one-shot and independent recovery all pass. Desktop
-power phases and full 30-minute endurance still require their own native runs.
+allocation checks, consumed one-shot and independent recovery all pass. The later native desktop checkpoint below covers power phases; full 30-minute
+endurance remains pending.
+
+## Air7,2 native desktop power checkpoint
+
+Automatic v82 release `775c5051149c0e38`, source `0cbbb275`, session
+`session-00065ee927f533d1-00` passes all three 60-second phases and native
+battery retirement. Thirteen app cycles complete with 116 ms maximum loop,
+1.471 s ready time and 103 ms close time. Covered package averages are
+6.827/6.722/6.666 W; these do not demonstrate an energy saving. Checkpoints retain
+worker transition/wakeup counts and native temperatures. All prior files and
+both offline integrity checks pass; automatic Ubuntu return, consumed one-shot
+and independent recovery are verified. Full 30-minute audio/disk/app/screenshot
+endurance is the next automatic physical check.
