@@ -15,6 +15,7 @@ from loop_timing import validate_loop_timing
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--stage')
+    parser.add_argument('--accel',choices=('tcg','kvm'),default='tcg')
     parser.add_argument('--air72',action='store_true',help='use Air7,2 synthetic ownership fixture; stages infer their own profile')
     parser.add_argument('--early-exit',action='store_true')
     parser.add_argument('--populated-home',action='store_true',help='Exercise Files startup with 64 existing Home files')
@@ -63,7 +64,7 @@ def main():
         else:
             iso=build_iso(str(root),str(tmp),1280,800,os.environ.copy(),kernel,initramfs,cmdline)
             boot_args=['-cdrom',iso,'-boot','d']
-        cmd=['qemu-system-x86_64','-M','q35','-m','2G' if stage else '1G',*boot_args,'-nic','none',*([] if stage else ['-acpitable',f'file={tmp}/battery.aml']),'-serial',f'unix:{tmp}/serial,server=on,wait=off','-qmp',f'unix:{tmp}/qmp,server=on,wait=off','-display','none','-monitor','none','-no-reboot','-device','qemu-xhci,id=xhci','-device','usb-kbd,bus=xhci.0','-drive',f'if=none,id=stick,format=raw,file={stick}','-device','usb-storage,drive=stick,bus=xhci.0','-device','ich9-intel-hda','-device','hda-duplex,audiodev=silent,use-timer=off','-audiodev',f'wav,id=silent,path={out}/tone.wav,out.frequency=48000']
+        cmd=['qemu-system-x86_64','-accel',args.accel,'-M','q35','-m','2G' if stage else '1G',*boot_args,'-nic','none',*([] if stage else ['-acpitable',f'file={tmp}/battery.aml']),'-serial',f'unix:{tmp}/serial,server=on,wait=off','-qmp',f'unix:{tmp}/qmp,server=on,wait=off','-display','none','-monitor','none','-no-reboot','-device','qemu-xhci,id=xhci','-device','usb-kbd,bus=xhci.0','-drive',f'if=none,id=stick,format=raw,file={stick}','-device','usb-storage,drive=stick,bus=xhci.0','-device','ich9-intel-hda','-device','hda-duplex,audiodev=silent,use-timer=off','-audiodev',f'wav,id=silent,path={out}/tone.wav,out.frequency=48000']
         with (out/'qemu.txt').open('w') as errors:
             process=subprocess.Popen(cmd,stdout=errors,stderr=errors)
             try:
@@ -159,7 +160,7 @@ def main():
                 allocation=subprocess.check_output([str(root/'build/tests/exfat-driver'),str(volume),'allocation-check'],text=True)
                 assert 'leaked=0 fat_bitmap_mismatches=0 errors=0' in allocation
                 (out/'allocation.log').write_text(allocation);(out/'overlap.json').write_text(json.dumps(overlap,indent=2)+'\n')
-                result=dict(status='PASS',stage=args.stage,manifest_sha256=boot.digest(stage/'manifest.json') if stage else None,observed_overlap_windows=len(overlap),input_injected=True,gui_input_injected=not bool(stage),serial_exit_injected=True,automatic_return=False,source=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),source_dirty=bool(subprocess.check_output(['git','status','--porcelain'],text=True)),native_acceptance=False,model='MacBookAir7,2' if air72 else 'MacBookAir6,1',early_exit=args.early_exit,prior_files_preserved=len(prior))
+                result=dict(status='PASS',accelerator=args.accel,stage=args.stage,manifest_sha256=boot.digest(stage/'manifest.json') if stage else None,observed_overlap_windows=len(overlap),input_injected=True,gui_input_injected=not bool(stage),serial_exit_injected=True,automatic_return=False,source=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),source_dirty=bool(subprocess.check_output(['git','status','--porcelain'],text=True)),native_acceptance=False,model='MacBookAir7,2' if air72 else 'MacBookAir6,1',early_exit=args.early_exit,prior_files_preserved=len(prior))
                 (out/'result.json').write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result))
             finally:
                 stop_process(process);(out/'serial.log').write_bytes(output)
