@@ -11,7 +11,8 @@ struct process *process_current(void) { return (struct process *)1; }
 struct process_file *process_file_at(struct process *p,uint64_t fd) { assert(p==(struct process *)1);return fd==7?&file:NULL; }
 bool vmm_user_range_mapped(uint64_t address,uint64_t length,bool writable) {
     assert(length>0);if(address==bad_address)return false;
-    if(length==3)assert(writable==expected_writable);return true;
+    if(length==3)assert(writable==expected_writable);
+    return true;
 }
 static int64_t invoked(uint64_t h,uint64_t length,bool nonblock) {
     assert(h==42 && length==3 && nonblock && file.flags==SRV_FD_APPEND);calls++;return 3;

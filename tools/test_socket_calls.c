@@ -46,6 +46,7 @@ static void *test_malloc(size_t n) { return fail_alloc?NULL:malloc(n); }
 #ifndef SRVROS_SOCKET_CALL_SOURCE
 #define SRVROS_SOCKET_CALL_SOURCE "../userspace/lib/src/posix_socket.c"
 #endif
+#include "posix_socket_host_names.h"
 #include SRVROS_SOCKET_CALL_SOURCE
 static unsigned connects,accepts,closed_result,flag_writes,tries;
 static uint64_t flags_value;
@@ -53,6 +54,7 @@ static int retire,restart,do_accept,raw_mode,dup_fail;
 static unsigned held_closed,signal_dispatches;
 static long try_result=SRV_ERR_AGAIN;
 static const char *dns_mode;
+static bool unix_control;
 static unsigned dns_sends,dns_receives;
 static unsigned char saved_query[512];static size_t query_length;
 int audit_close(int fd) { return __posix_socket_close(fd); }
@@ -73,7 +75,8 @@ long srv_fcntl(int fd,int cmd,uint64_t arg) { (void)fd;if(cmd==SRV_F_DUPFD_CLOEX
 long srv_net_connect(uint32_t ip,uint16_t port,uint64_t flags) {
     (void)flags;assert(ip==0x0a000202 && port==8000);connects++;
     if(restart)return SRV_ERR_INTR;
-    if(retire)replace();return 8;
+    if(retire)replace();
+    return 8;
 }
 long srv_net_accept(int fd,char *buffer,size_t cap,uint64_t *length) {
     if(raw_mode) {
@@ -83,9 +86,14 @@ long srv_net_accept(int fd,char *buffer,size_t cap,uint64_t *length) {
     }
     assert(fd==7);(void)buffer;(void)cap;*length=0;accepts++;
     if(restart)return SRV_ERR_INTR;
-    if(retire)replace();return 8;
+    if(retire)replace();
+    return 8;
 }
-long srv_unix_connect(const char *p) { (void)p;return -1; }
+long srv_unix_connect(const char *p) {
+    if(!unix_control)return -1;
+    assert(strlen(p)==SRV_UNIX_PATH_MAX-1);return 8;
+}
+int __posix_event_export_allowed(int fd) { assert(fd==3 || fd==4);return 1; }
 long srv_unix_accept(int fd) { (void)fd;return -1; }
 long srv_net_sockname(int fd,uint32_t *ip,uint16_t *port) { (void)fd;*ip=0x0a00020f;*port=9000;return 0; }
 long srv_net_peername(int fd,uint32_t *ip,uint16_t *port) { (void)fd;*ip=0x0a000202;*port=8000;return 0; }
@@ -103,7 +111,8 @@ long srv_net_udp_recvfrom(int fd,void *buf,size_t n,uint32_t *ip,uint16_t *port)
         if(!strcmp(dns_mode,"dns-truncate"))length=513;
         if(!strcmp(dns_mode,"dns-source")) { *ip=0x0a000204;response[query_length+15]=9; }
     }
-    if(n>length)n=length;memcpy(buf,response,n);return (long)n;
+    if(n>length)n=length;
+    memcpy(buf,response,n);return (long)n;
 }
 long srv_net_udp_sendto(int fd,uint32_t ip,uint16_t port,const void *buf,size_t n) {
     (void)fd;if(dns_mode) {
@@ -122,6 +131,31 @@ long srv_socket_try_io(int fd,uint64_t operation,void *buf,size_t n,struct srv_s
 #endif
 int main(int argc,char **argv) {
     assert(argc==2);
+    if(!strcmp(argv[1],"unix-copy")) {
+        unix_control=true;assert(socket(AF_UNIX,SOCK_STREAM,0)==POSIX_SOCKET_BASE);
+        struct sockaddr_un peer={.sun_family=AF_UNIX};
+        memset(peer.sun_path,'p',SRV_UNIX_PATH_MAX-1);peer.sun_path[SRV_UNIX_PATH_MAX-1]=0;
+        assert(connect(POSIX_SOCKET_BASE,(struct sockaddr *)&peer,sizeof(peer))==0);
+        assert(!memcmp(sockets[0].unix_path,peer.sun_path,SRV_UNIX_PATH_MAX));
+        puts("socket-calls: unix-copy PASS");return 0;
+    }
+    if(!strcmp(argv[1],"rights-const")) {
+        union { struct cmsghdr align; unsigned char bytes[2*CMSG_SPACE(sizeof(int))]; } control={0};
+        struct msghdr message={.msg_control=control.bytes,.msg_controllen=sizeof(control.bytes)};
+        struct cmsghdr *c=CMSG_FIRSTHDR(&message);
+        for(int fd=3;fd<=4;fd++) {
+            assert(c);c->cmsg_len=CMSG_LEN(sizeof(int));c->cmsg_level=SOL_SOCKET;c->cmsg_type=SCM_RIGHTS;
+            memcpy(CMSG_DATA(c),&fd,sizeof(fd));c=CMSG_NXTHDR(&message,c);
+        }
+        unsigned char before[sizeof(control.bytes)];memcpy(before,control.bytes,sizeof(before));
+        int rights[SRV_RIGHTS_MAX];size_t count=0;
+        assert(!message_extract_rights(&message,rights,&count) && count==2 && rights[0]==3 && rights[1]==4);
+        assert(message.msg_control==control.bytes && message.msg_controllen==sizeof(control.bytes));
+        assert(!memcmp(before,control.bytes,sizeof(before)));
+        CMSG_FIRSTHDR(&message)->cmsg_len=CMSG_LEN(0)-1;
+        assert(message_extract_rights(&message,rights,&count)<0 && errno==EINVAL && !count);
+        puts("socket-calls: rights-const PASS");return 0;
+    }
     if(!strncmp(argv[1],"dns-",4)) {
         dns_mode=argv[1];struct addrinfo *info=NULL;int result=getaddrinfo("outer.test",NULL,NULL,&info);
         if(!strcmp(dns_mode,"dns-busy"))assert(result==EAI_AGAIN && !info && dns_sends==3);

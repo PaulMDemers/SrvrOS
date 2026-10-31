@@ -3885,7 +3885,7 @@ build/tests/net-datagram-host$(HOST_EXE): tools/test_net_datagram.c kernel/src/n
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
 test-posix-datagram: build/tests/posix-datagram-host$(HOST_EXE)
 	@for mode in truncate zero address empty oom bind-cache; do $< $$mode || exit $$?; done
-build/tests/posix-datagram-host$(HOST_EXE): tools/test_posix_datagram.c userspace/lib/src/posix_socket.c userspace/lib/include/sys/socket.h shared/include/srvros/syscall_numbers.h shared/include/srvros/dns_wire.h userspace/lib/include/netdb.h
+build/tests/posix-datagram-host$(HOST_EXE): tools/test_posix_datagram.c userspace/lib/src/posix_socket.c userspace/lib/include/sys/socket.h shared/include/srvros/syscall_numbers.h shared/include/srvros/dns_wire.h userspace/lib/include/netdb.h tools/posix_socket_host_names.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include $< -Wl,--gc-sections -o $@
 test-core: test-net-datagram test-posix-datagram
@@ -3916,7 +3916,7 @@ build/tests/net-query-host$(HOST_EXE): tools/test_net_query.c kernel/src/net.c $
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
 test-posix-udp-owner: build/tests/posix-udp-owner-host$(HOST_EXE)
 	@for mode in filter-from filter-msg filter-zero filter-recv unconnected reuse-filter reuse-restart reuse-flags close-only retry-control dontwait-control dup-reuse; do $< $$mode || exit $$?; done
-build/tests/posix-udp-owner-host$(HOST_EXE): tools/test_posix_udp_owner.c userspace/lib/src/posix_socket.c userspace/lib/include/sys/socket.h shared/include/srvros/syscall_numbers.h shared/include/srvros/dns_wire.h userspace/lib/include/netdb.h
+build/tests/posix-udp-owner-host$(HOST_EXE): tools/test_posix_udp_owner.c userspace/lib/src/posix_socket.c userspace/lib/include/sys/socket.h shared/include/srvros/syscall_numbers.h shared/include/srvros/dns_wire.h userspace/lib/include/netdb.h tools/posix_socket_host_names.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include $< -Wl,--gc-sections -o $@
 test-core: test-net-query test-posix-udp-owner
@@ -3928,12 +3928,12 @@ test-dns-response: build/tests/dns-kernel-host$(HOST_EXE) build/tests/dns-libc-h
 build/tests/dns-kernel-host$(HOST_EXE): tools/test_dns_response.c kernel/src/net.c shared/include/srvros/dns_wire.h $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
-build/tests/dns-libc-host$(HOST_EXE): tools/test_dns_response.c userspace/lib/src/posix_socket.c shared/include/srvros/dns_wire.h shared/include/srvros/syscall_numbers.h userspace/lib/include/netdb.h
+build/tests/dns-libc-host$(HOST_EXE): tools/test_dns_response.c userspace/lib/src/posix_socket.c shared/include/srvros/dns_wire.h shared/include/srvros/syscall_numbers.h userspace/lib/include/netdb.h tools/posix_socket_host_names.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -DTEST_DNS_LIBC -ffunction-sections -fdata-sections -I shared/include -idirafter userspace/lib/include $< -Wl,--gc-sections -o $@
 test-socket-calls: build/tests/socket-calls-host$(HOST_EXE)
-	@for mode in connect-reuse connect-restart connect-control accept-reuse accept-restart accept-control flags-recv flags-send flags-peek flags-udp-recv flags-udp-send raw-retry raw-full dns-retry dns-truncate dns-source dns-busy; do $< $$mode || exit $$?; done
-build/tests/socket-calls-host$(HOST_EXE): tools/test_socket_calls.c userspace/lib/src/posix_socket.c shared/include/srvros/dns_wire.h shared/include/srvros/syscall_numbers.h userspace/lib/include/netdb.h
+	@for mode in unix-copy rights-const connect-reuse connect-restart connect-control accept-reuse accept-restart accept-control flags-recv flags-send flags-peek flags-udp-recv flags-udp-send raw-retry raw-full dns-retry dns-truncate dns-source dns-busy; do $< $$mode || exit $$?; done
+build/tests/socket-calls-host$(HOST_EXE): tools/test_socket_calls.c userspace/lib/src/posix_socket.c shared/include/srvros/dns_wire.h shared/include/srvros/syscall_numbers.h userspace/lib/include/netdb.h tools/posix_socket_host_names.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -idirafter userspace/lib/include $< -Wl,--gc-sections -o $@
 test-socket-try-io: build/tests/socket-try-io-host$(HOST_EXE)
