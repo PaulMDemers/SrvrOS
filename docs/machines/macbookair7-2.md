@@ -77,6 +77,23 @@ awaiting timeout kills PID10/status143. The atomic final log is retained. Extend
 this bounded Files scope to publish the initial window before advancing queued
 file work; preserve accepted-job ownership and all client/lifecycle limits.
 
+Final source0fe284e2 ordinary KVM passes23cycles/UI109766us/ready1151192us/
+close3057594us. Two populated50IOPS runs pass10/9cycles, UI108375/109408us,
+ready3842286/3258555us and close3718134/5370180us with complete PCM, screenshot,
+prior-file, allocation, follow-up and cache retirement proof. Preserve the earlier
+565 startup failure. Candidatea4f7080c77fda748 has an exact-stage Q35 refusal/
+save/unmount/reset rehearsal; that does not accept native firmware or endurance.
+All1222 prior USB files match the collected-return baseline; offline fsck,
+allocation, write eligibility and headroom pass, flags0. Preparation first stops
+at EFI space; an unreferenced old diagnostic is fully verified in cache/archive
+before its EFI copy is removed. Current and independent recovery are preserved.
+The new payload is installed with Ubuntu default unchanged. A separate automatic
+1800-second native PCM/disk/app trial is prepared, with guest progress and clean
+retirement/unmount/return; no input is required. Collect its matching session
+before any next stage. Native endurance and physical interaction acceptance
+remain pending. Raw run state and evidence are in the local ignored checkpoint
+and reviewed-evidence backup; do not infer a pass from successful installation.
+
 ### Bounded anonymous retirement scope (2026-10-31)
 
 From main `695db843` plus collected-return documentation, the Air agent owns

@@ -248,3 +248,9 @@ The retired model keeps its file-job binding until the response drains; only
 then can it detach and release memory. Accepted mutations and Text save work
 retain their completion-before-Close rule. Visual retirement alone does not
 complete process teardown or satisfy an automatic lifecycle deadline.
+
+Files publishes its initial loading view and receives the first surface RELEASE
+before advancing queued file work. Lazy file-worker creation uses ordinary
+kernel admission and can wait behind I/O; it must not precede the first frame.
+Retired/failed windows still drain accepted work, and this ordering does not
+extend client or whole-process lifecycle deadlines.
