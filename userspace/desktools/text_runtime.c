@@ -198,6 +198,10 @@ int tool_window_runtime(int role,const char *path) {
         while(owner) {
             struct desk_window_owner *next=owner->next;struct tool_document *d=document(owner);struct tool *t=&d->tool;
             if(app.set.failed) {owner->retired=1;t->pending=t->closing=0;}
+            if(role==DESK_APP_FILES && (t->closing || owner->retired) && desk_file_job_cancel_unsubmitted(&t->job)) {
+                file_service_read_cancelled(&app.files);
+                desk_log("file-job: cancelled-unsubmitted role=files window=%llu op=%u id=%u\n",(unsigned long long)t->window.window,t->job.request.operation,t->job.request.id);
+            }
             if(role==DESK_APP_FILES && owner->ready && !owner->retired && !t->quit && !app.set.failed && !t->window.serial)
                 tool_runtime_draw(t);
             if(t->job.busy && (owner->retired || app.set.failed || tool_runtime_file_ready(t))) {

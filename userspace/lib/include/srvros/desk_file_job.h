@@ -10,6 +10,10 @@ struct desk_file_transport { uint64_t pid;int reader,writer; };
 /* Blocking constructor, suitable for a process-owned helper. On failure all
  * acquired descriptors are closed and no child/transport is published. */
 int desk_file_transport_open(struct desk_file_transport *transport);
+#define DESK_FILE_TRANSPORT_CANCELLED 1
+/* Optional atomic cancellation hint between construction steps. 1 means no
+ * child/fds remain; a late successful spawn returns 0 with owned transport. */
+int desk_file_transport_open_cancelable(struct desk_file_transport *,const unsigned *cancel);
 struct desk_file_job {
     uint64_t pid;
     int reader,writer,busy,broken;
@@ -68,6 +72,10 @@ int desk_file_job_start(struct desk_file_job *job,unsigned operation,const char 
 /* Advance request transmission without consuming a reply. 1 fully sent,
  * 0 pending/idle, -1 failure. The job stays busy until poll accepts its reply. */
 int desk_file_job_submit(struct desk_file_job *job);
+/* 1 removed an unsubmitted queued READ/LIST/STAT, 0 unchanged/refused. Never
+ * cancels mutations, leased/partial requests, legacy jobs or accepted work.
+ * No response is fabricated; ID/payload stay owned and are not reused. */
+int desk_file_job_cancel_unsubmitted(struct desk_file_job *job);
 /* 1 completed response, 0 pending/idle, -1 worker or protocol failure. */
 int desk_file_job_poll(struct desk_file_job *job);
 /* Legacy close is best-effort; explicit application lifetimes should retire.

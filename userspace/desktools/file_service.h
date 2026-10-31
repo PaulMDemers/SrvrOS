@@ -11,7 +11,7 @@
 #define FILE_SERVICE_DONE 2u
 #define FILE_SERVICE_FAILED 3u
 struct file_service_start {
-    unsigned state;int result;
+    unsigned state,cancel;int result;
     struct desk_file_transport transport;
     uint64_t elapsed;
 };
@@ -24,7 +24,7 @@ struct file_service {
     struct desk_file_pool *pool;
     struct file_service_start starts[FILE_SERVICE_STARTS];
     struct file_service_retire retires[FILE_SERVICE_RETIRES];
-    uint64_t requested,opened,open_failed,abandoned,retired,retire_failed,max_start_us,max_retire_us;
+    uint64_t requested,opened,open_failed,cancelled,abandoned,jobs_cancelled,retired,retire_failed,max_start_us,max_retire_us;
     int role;
     _Alignas(16) unsigned char stack[64*1024];
 };
@@ -38,7 +38,7 @@ static void file_service_work(struct file_service *s) {
         struct file_service_start *r=&s->starts[i];
         if(file_service_state(&r->state)!=FILE_SERVICE_QUEUED)continue;
         uint64_t at=(uint64_t)srv_monotonic_us();
-        r->result=desk_file_transport_open(&r->transport);
+        r->result=desk_file_transport_open_cancelable(&r->transport,&r->cancel);
         r->elapsed=(uint64_t)srv_monotonic_us()-at;
         file_service_publish(&r->state,FILE_SERVICE_DONE);
     }
@@ -93,16 +93,25 @@ static int file_service_open(void *context,struct desk_file_channel *channel) {
     if(i>=FILE_SERVICE_STARTS || i==s->pool->count)return -1;
     struct file_service_start *r=&s->starts[i];unsigned state=file_service_state(&r->state);
     if(state==FILE_SERVICE_IDLE) {
-        r->transport=(struct desk_file_transport){.reader=-1,.writer=-1};r->result=0;r->elapsed=0;s->requested++;
+        r->transport=(struct desk_file_transport){.reader=-1,.writer=-1};r->result=0;r->elapsed=0;file_service_publish(&r->cancel,0);s->requested++;
         file_service_publish(&r->state,FILE_SERVICE_QUEUED);file_service_notify(s);return 0;
     }
     if(state!=FILE_SERVICE_DONE)return 0;
     int result=r->result;
     if(r->elapsed>s->max_start_us)s->max_start_us=r->elapsed;
-    if(!result) {
+    if(result==DESK_FILE_TRANSPORT_CANCELLED)s->cancelled++;
+    else if(!result) {
         channel->pid=r->transport.pid;channel->reader=r->transport.reader;channel->writer=r->transport.writer;s->opened++;
     } else s->open_failed++;
-    file_service_publish(&r->state,FILE_SERVICE_IDLE);return result?-1:1;
+    file_service_publish(&r->state,FILE_SERVICE_IDLE);return result==DESK_FILE_TRANSPORT_CANCELLED?0:result?-1:1;
+}
+static void file_service_read_cancelled(struct file_service *s) {
+    s->jobs_cancelled++;
+    if(s->pool->head)return;
+    for(unsigned i=0;i<FILE_SERVICE_STARTS;i++) {
+        struct file_service_start *r=&s->starts[i];
+        if(file_service_state(&r->state)!=FILE_SERVICE_IDLE)file_service_publish(&r->cancel,1);
+    }
 }
 static int file_service_poll(struct file_service *s) {
     int pending=0;
@@ -161,14 +170,16 @@ static int file_service_complete(struct file_service *s,unsigned process_owned,i
     for(unsigned i=0;i<FILE_SERVICE_STARTS;i++) {
         struct file_service_start *r=&s->starts[i];
         if(file_service_state(&r->state)==FILE_SERVICE_DONE) {
-            if(r->result) {s->open_failed++;file_service_publish(&r->state,FILE_SERVICE_FAILED);}
+            if(r->elapsed>s->max_start_us)s->max_start_us=r->elapsed;
+            if(r->result==DESK_FILE_TRANSPORT_CANCELLED) {s->cancelled++;file_service_publish(&r->state,FILE_SERVICE_IDLE);}
+            else if(r->result) {s->open_failed++;file_service_publish(&r->state,FILE_SERVICE_FAILED);}
             else file_service_publish(&r->state,FILE_SERVICE_IDLE);
         }
         pending+=file_service_state(&r->state)!=FILE_SERVICE_IDLE;
     }
     for(unsigned i=0;i<FILE_SERVICE_RETIRES;i++)pending+=file_service_state(&s->retires[i].state)==FILE_SERVICE_QUEUED;
-    desk_log("file-service: stopped version=2 pid=%llu role=%d requested=%llu opened=%llu failures=%llu abandoned=%llu retired=%llu retire_failed=%llu pending=%u join_error=%u max_start_us=%llu max_retire_us=%llu async=yes quiesced=yes process_owned=%s joined=%s\n",(unsigned long long)srv_getpid(),s->role,
-        (unsigned long long)s->requested,(unsigned long long)s->opened,(unsigned long long)s->open_failed,(unsigned long long)s->abandoned,(unsigned long long)s->retired,(unsigned long long)s->retire_failed,pending,
+    desk_log("file-service: stopped version=3 pid=%llu role=%d requested=%llu opened=%llu failures=%llu cancelled=%llu abandoned=%llu jobs_cancelled=%llu retired=%llu retire_failed=%llu pending=%u join_error=%u max_start_us=%llu max_retire_us=%llu async=yes quiesced=yes process_owned=%s joined=%s\n",(unsigned long long)srv_getpid(),s->role,
+        (unsigned long long)s->requested,(unsigned long long)s->opened,(unsigned long long)s->open_failed,(unsigned long long)s->cancelled,(unsigned long long)s->abandoned,(unsigned long long)s->jobs_cancelled,(unsigned long long)s->retired,(unsigned long long)s->retire_failed,pending,
         join_error!=0,
         (unsigned long long)s->max_start_us,(unsigned long long)s->max_retire_us,process_owned?"yes":"no",process_owned?"no":"yes");
     return pending || s->retire_failed || join_error?-1:0;

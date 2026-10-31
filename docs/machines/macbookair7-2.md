@@ -137,6 +137,16 @@ new version3 receipts distinguish this from transport errors. Validate FIFO
 head/middle/tail, mutation/leased refusal, held construction cleanup and late
 spawn cleanup. No kernel/firmware changes or deadline relaxation are planned.
 
+Queued-read cancellation host checks pass for FIFO head/middle/tail, monotonic
+IDs, STAT, and mutation/leased/partial refusal. A held real pipe constructor
+cancels and closes its acquired descriptors without spawning; a cancellation
+inside an already executing spawn retains and reaps its late child. A canceled
+read does not stop a constructor still needed by another queued request. New
+version3 receipt tests require exact request accounting and cancellation evidence.
+Full desktop/matched builds pass before the final additional queued-demand fixture;
+rerun that directed fixture before final VMs. Prior failed candidates remain
+preserved. No new kernel admission, timeout change or physical reboot is armed.
+
 ### Native Files lifecycle return — delayed Close delivery (2026-10-31)
 
 Releasea4f7080c77fda748/source0fe284e2 saves matching session and returns to

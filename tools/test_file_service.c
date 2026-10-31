@@ -12,6 +12,7 @@
 #include "../userspace/lib/src/desk_file_job.c"
 static pthread_t ui;
 static atomic_uint hold_spawn,hold_unmap,spawn_calls,unmap_calls,fail_spawn,fail_unmap;
+static atomic_uint hold_pipe,pipe_calls;
 static unsigned fail_create,fail_join;
 static void nap(void);
 static atomic_uint hold_after_body,body_returns;
@@ -24,7 +25,7 @@ static void *expected_stack;
 static int next_fd=10,closed[1024],children,reaped,eof[64],writers[64];
 static void nap(void) {struct timespec t={0,1000000};nanosleep(&t,NULL);}
 long srv_signal_config(uint64_t signal,uint64_t action) {assert(!pthread_equal(pthread_self(),ui) && signal==SIGPIPE && action==SRV_SIGNAL_IGNORE);return 0;}
-long srv_pipe(int fds[2]) {assert(!pthread_equal(pthread_self(),ui));fds[0]=next_fd++;fds[1]=next_fd++;return 0;}
+long srv_pipe(int fds[2]) {assert(!pthread_equal(pthread_self(),ui));fds[0]=next_fd++;fds[1]=next_fd++;atomic_fetch_add(&pipe_calls,1);while(atomic_load(&hold_pipe))nap();return 0;}
 long srv_fcntl(int fd,int command,uint64_t flags) {assert(!pthread_equal(pthread_self(),ui) && fd>=10 && command==SRV_F_SETFL && flags==SRV_FD_NONBLOCK);return 0;}
 long srv_spawn_bg_args_fds(const char *path,const char *args,int input,int output) {
     assert(!pthread_equal(pthread_self(),ui) && !strcmp(path,"/fat/bin/deskfs") && !args[0] && output>input);
@@ -118,6 +119,28 @@ int main(void) {
     release.service=&service;atomic_store(&fail_unmap,1);assert(!file_service_retire(&release,held,4096));drain(&service);
     assert(service.retire_failed==1 && service.retires[0].address==held && *(unsigned *)held==987 && !file_service_capacity(&service));
     fail_join=1;assert(file_service_finish(&service)==-1 && !service.started && !fail_join);assert(!munmap(held,4096));clean_fds();
+    assert(!desk_file_pool_init(&pool,channels,2) && !file_service_start(&service,&pool,1));
+    unsigned pipes=atomic_load(&pipe_calls);int old_children=children;
+    atomic_store(&hold_pipe,1);assert(!file_service_open(&service,&channels[0]));await_count(&pipe_calls,pipes+1);
+    file_service_read_cancelled(&service);atomic_store(&hold_pipe,0);await_state(&service.starts[0].state,FILE_SERVICE_DONE);
+    assert(service.starts[0].result==DESK_FILE_TRANSPORT_CANCELLED && !service.starts[0].transport.pid);
+    assert(!file_service_finish(&service) && service.cancelled==1 && !service.open_failed && children==old_children);clean_fds();
+    assert(!desk_file_pool_init(&pool,channels,2) && !file_service_start(&service,&pool,1));
+    atomic_store(&hold_spawn,1);unsigned spawns=atomic_load(&spawn_calls);
+    assert(!file_service_open(&service,&channels[0]));await_count(&spawn_calls,spawns+1);
+    file_service_read_cancelled(&service);atomic_store(&hold_spawn,0);
+    assert(!file_service_finish(&service) && service.abandoned==1 && service.jobs_cancelled==1 && !service.cancelled);clean_fds();
+    /* A canceled read must not cancel startup still needed by another queued
+     * request (including a mutation). The ready transport is transferred once. */
+    assert(!desk_file_pool_init(&pool,channels,2) && !file_service_start(&service,&pool,1));
+    static struct desk_file_job demand;pool.head=pool.tail=&demand;
+    pipes=atomic_load(&pipe_calls);atomic_store(&hold_pipe,1);
+    assert(!file_service_open(&service,&channels[0]));await_count(&pipe_calls,pipes+1);
+    file_service_read_cancelled(&service);assert(!file_service_state(&service.starts[0].cancel));
+    atomic_store(&hold_pipe,0);await_state(&service.starts[0].state,FILE_SERVICE_DONE);
+    assert(file_service_open(&service,&channels[0])==1 && service.opened==1 && !service.cancelled);
+    pool.head=pool.tail=NULL;pool.spawned=pool.live=1;
+    assert(!file_service_finish(&service) && desk_file_pool_finish(&pool)==1);clean_fds();
     /* Process-owned storage can acknowledge body quiescence while its pthread
      * trampoline is still held. It remains pinned and rejects reinitialization.
      * This host fixture then explicitly joins before ending its own process. */

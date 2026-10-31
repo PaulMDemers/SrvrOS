@@ -261,8 +261,9 @@ transport keeps its FIFO head queued, and a successful result transfers only
 PID and descriptor values into an idle channel. The helper performs blocking
 pipe/fcntl/spawn construction; neither pending nor failed startup falls back to
 construction on the UI turn. Existing synchronous pool users retain their API.
-Accepted file requests, response validation and channel bindings remain owned
-by the dispatcher until the complete reply drains.
+Transmitted requests, response validation and channel bindings remain owned
+by the dispatcher until the complete reply drains. Every queued mutation also
+retains that completion obligation.
 
 A retired model can transfer its complete mapping through
 `desk_window_owner_release_with` after GUI disposal and work drain. A refused
@@ -281,7 +282,7 @@ all service/stack storage pinned, reap idle file workers, and return through
 normal kernel process exit. That path kills user threads before freeing process
 mappings; the parent's verified process wait proves final retirement. Quiescence
 alone is never described as a pthread join or permission to reuse storage.
-Version2 `file-service` receipts distinguish process-owned quiescence from a
+Version3 `file-service` receipts distinguish process-owned quiescence from a
 joined reusable service and expose startup, mapping, failure and pending counts.
 Automatic VM checks pair these receipts with completed process waits and actual
 canvas/model/service-init/service-stop phases. Existing client, UI-loop and total
@@ -298,3 +299,16 @@ The same helper queues canvas and model unmaps and prints their actual separate
 phases. Logical GUI disposal alone does not prove either mapping was released.
 Sparse app timing marks dispatcher/helper lanes and validates clocks within each
 lane, retaining cross-phase lifecycle/elapsed checks and strict whole records.
+
+Files Close can explicitly remove a queued READ/LIST/STAT only before it has a
+channel or any transmitted/received bytes. FIFO links, IDs and payload ownership
+remain valid; no successful response is fabricated. Mutations, partial requests,
+leased channels and legacy jobs refuse cancellation. If no queued demand remains,
+the helper receives an atomic construction cancellation hint and checks it between
+signal/pipe/fcntl/spawn steps. It closes acquired descriptors on early cancellation.
+A late successful spawn remains an owned transport and must naturally exit/reap
+through EOF; it is never killed or silently forgotten. Remaining queued demand
+keeps its constructor alive. Receipts account for successful, canceled and unused
+reaped starts, distinguish them from failures, and justify process-owned canceled/
+unused starts with explicit unsubmitted-read cancellation. Full-process lifecycle
+and accepted-copy/save integrity checks remain mandatory.

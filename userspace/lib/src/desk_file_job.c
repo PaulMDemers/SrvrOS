@@ -5,21 +5,32 @@
 #include <signal.h>
 #include <limits.h>
 
-int desk_file_transport_open(struct desk_file_transport *j) {
-    if(!j)return -1;
-    j->reader=j->writer=-1;j->pid=0;
-    int input[2],output[2];
-    if(srv_signal_config(SIGPIPE,SRV_SIGNAL_IGNORE)!=0 || srv_pipe(input)) return -1;
-    if(srv_pipe(output)) { srv_close(input[0]);srv_close(input[1]);return -1; }
-    j->reader=output[0];j->writer=input[1];
-    if(srv_fcntl(j->reader,SRV_F_SETFL,SRV_FD_NONBLOCK)<0 || srv_fcntl(j->writer,SRV_F_SETFL,SRV_FD_NONBLOCK)<0) {
-        srv_close(input[0]);srv_close(output[1]);srv_close(j->reader);srv_close(j->writer);j->reader=j->writer=-1;return -1;
-    }
+static int transport_cancelled(const unsigned *cancel) {return cancel && __atomic_load_n(cancel,__ATOMIC_ACQUIRE);}
+int desk_file_transport_open_cancelable(struct desk_file_transport *t,const unsigned *cancel) {
+    if(!t)return -1;
+    *t=(struct desk_file_transport){.reader=-1,.writer=-1};
+    int input[2]={-1,-1},output[2]={-1,-1},result=-1;
+    if(transport_cancelled(cancel))return DESK_FILE_TRANSPORT_CANCELLED;
+    if(srv_signal_config(SIGPIPE,SRV_SIGNAL_IGNORE)!=0)goto done;
+    if(transport_cancelled(cancel)){result=DESK_FILE_TRANSPORT_CANCELLED;goto done;}
+    if(srv_pipe(input))goto done;
+    if(transport_cancelled(cancel)){result=DESK_FILE_TRANSPORT_CANCELLED;goto done;}
+    if(srv_pipe(output))goto done;
+    if(transport_cancelled(cancel)){result=DESK_FILE_TRANSPORT_CANCELLED;goto done;}
+    if(srv_fcntl(output[0],SRV_F_SETFL,SRV_FD_NONBLOCK)<0)goto done;
+    if(transport_cancelled(cancel)){result=DESK_FILE_TRANSPORT_CANCELLED;goto done;}
+    if(srv_fcntl(input[1],SRV_F_SETFL,SRV_FD_NONBLOCK)<0)goto done;
+    if(transport_cancelled(cancel)){result=DESK_FILE_TRANSPORT_CANCELLED;goto done;}
     long pid=srv_spawn_bg_args_fds("/fat/bin/deskfs","",input[0],output[1]);
-    srv_close(input[0]);srv_close(output[1]);
-    if(pid<=0) { srv_close(j->reader);srv_close(j->writer);j->reader=j->writer=-1;return -1; }
-    j->pid=pid;return 0;
+    if(pid<=0)goto done;
+    /* Spawn may have completed after cancellation. Publish the owned child;
+     * its receiver must close/reap it rather than pretend it never existed. */
+    t->pid=pid;t->reader=output[0];t->writer=input[1];output[0]=input[1]=-1;result=0;
+done:
+    for(unsigned i=0;i<2;i++){if(input[i]>=0)srv_close(input[i]);if(output[i]>=0)srv_close(output[i]);}
+    return result;
 }
+int desk_file_transport_open(struct desk_file_transport *t) {return desk_file_transport_open_cancelable(t,NULL);}
 int desk_file_job_init(struct desk_file_job *j) {
     struct desk_file_transport t;int result=desk_file_transport_open(&t);
     *j=(struct desk_file_job){.reader=t.reader,.writer=t.writer,.pid=t.pid};return result;
@@ -157,6 +168,15 @@ int desk_file_job_start(struct desk_file_job *j,unsigned operation,const char *p
         j->pool->tail=j;
     }
     return 0;
+}
+int desk_file_job_cancel_unsubmitted(struct desk_file_job *j) {
+    if(!j || !j->busy || !j->pool || j->pool->closing || j->channel || j->sent || j->received ||
+       (j->request.operation!=DESK_FILE_READ && j->request.operation!=DESK_FILE_LIST && j->request.operation!=DESK_FILE_STAT))return 0;
+    struct desk_file_pool *p=j->pool;struct desk_file_job **link=&p->head,*previous=NULL;
+    for(unsigned n=0;n<p->bound && *link && *link!=j;n++){previous=*link;link=&previous->queued_next;}
+    if(*link!=j)return 0;
+    *link=j->queued_next;if(p->tail==j)p->tail=previous;
+    j->queued_next=NULL;j->busy=0;return 1;
 }
 int desk_file_job_submit(struct desk_file_job *j) {
     if(j->broken) return -1;

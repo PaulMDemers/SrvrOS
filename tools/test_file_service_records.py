@@ -3,7 +3,7 @@ from file_service_records import file_service_receipts
 
 class Receipts(unittest.TestCase):
     def setUp(self):
-        self.row=b'file-service: stopped version=2 pid=42 role=1 requested=1 opened=1 failures=0 abandoned=0 retired=1 retire_failed=0 pending=0 join_error=0 max_start_us=5000000 max_retire_us=2500000 async=yes quiesced=yes process_owned=no joined=yes\n'
+        self.row=b'file-service: stopped version=3 pid=42 role=1 requested=1 opened=1 failures=0 cancelled=0 abandoned=0 jobs_cancelled=0 retired=1 retire_failed=0 pending=0 join_error=0 max_start_us=5000000 max_retire_us=2500000 async=yes quiesced=yes process_owned=no joined=yes\n'
     def test_complete_only_and_overlap(self):
         for split in range(len(self.row)):
             with self.assertRaises(AssertionError):file_service_receipts([self.row[:split]],{42:1})
@@ -14,8 +14,14 @@ class Receipts(unittest.TestCase):
             with self.assertRaises(AssertionError):file_service_receipts([bad],{42:1})
         for prefix in (b'bad',b'x\r'):
             with self.assertRaises(AssertionError):file_service_receipts([prefix+self.row],{42:1})
+    def test_cancelled_construction_and_late_child_accounting(self):
+        base=self.row.replace(b'process_owned=no joined=yes',b'process_owned=yes joined=no').replace(b'opened=1',b'opened=0').replace(b'jobs_cancelled=0',b'jobs_cancelled=1')
+        for key in (b'cancelled',b'abandoned'):
+            clean=base.replace(key+b'=0',key+b'=1')
+            self.assertEqual(len(file_service_receipts([clean],{42:1})),1)
+            with self.assertRaises(AssertionError):file_service_receipts([clean.replace(b'jobs_cancelled=1',b'jobs_cancelled=0')],{42:1})
     def test_refuse_failed_unjoined_missing_or_conflicting(self):
-        for key in (b'failures',b'abandoned',b'retire_failed',b'pending',b'join_error'):
+        for key in (b'failures',b'retire_failed',b'pending',b'join_error'):
             with self.assertRaises(AssertionError):file_service_receipts([self.row.replace(key+b'=0',key+b'=1')],{42:1})
         for old,new in ((b'joined=yes',b'joined=no'),(b'opened=1',b'opened=0'),(b'retired=1',b'retired=0')):
             with self.assertRaises(AssertionError):file_service_receipts([self.row.replace(old,new)],{42:1})
