@@ -1023,3 +1023,309 @@ It is included in `all`. The host runner now compiles the real public poll sourc
 alongside the event adapters; native descriptors, clocks and syscalls are modeled.
 `test-posix-poll` retains separate native/select regression coverage. See the
 closeout evidence in the event audit for gate results and negative controls.
+
+## Imported exFAT media contracts
+
+`make test-exfat-import` (included in `test-core`) runs 123 directed modes against
+real kernel exFAT/VFS code. On ARM64 macOS use
+`sh tools/macos/build.sh test-exfat-import`. The Python runner also supports
+`--sanitize` and `--output`; each run saves its command, source hashes and results.
+The fixtures cover invalid and supported boot geometry, dirty-volume refusal,
+stream length/range validation, initialized-data zero fill and preservation
+through rename, replacement, overwrite and remount. Entry-integrity modes cover
+checksums, stream/name ordering, ASCII name identity, empty streams, import cleanup
+and directory-chain cycles/termination. Six generator test groups run with this
+target; `python3 tools/test_exfat_generator.py --image build/srvros.exfat` additionally
+checks every generated file/directory entry set recursively.
+
+After a matched build, `python3 tools/exfat_import_smoke.py` prepares a temporary
+image with deliberately stale backing bytes and runs the explicit
+`threadstress exfat-import` guest mode. It requires the mode's own success marker
+as well as normal thread-harness completion. Ordinary `thread_smoke.py` does not
+include this fixture-dependent mode. See the
+[filesystem audit](filesystem-audit-2026-10-26.md) for evidence and remaining gaps.
+
+`python3 tools/exfat_import_smoke.py --corrupt-entry` requires explicit mount
+refusal after corrupting one entry checksum. It requires clean initramfs fallback and the `exfat-refused` guest mode, which
+checks that rejected fixture paths are absent and the fallback remains readable.
+Fatal exceptions or missing completion are failures. Rebuild older generated disks: unset entry checksums are now refused.
+
+Allocation/namespace cases additionally cover duplicate file/directory identities,
+canonical and non-overlapping mount paths, surviving exact aliases after
+unlink/truncate/overwrite/replacement, and read-only admission on allocation
+inconsistency or checker failure. Fault injection distinguishes pre-publication
+cleanup from uncertain-write quarantine. The `--ownership` and
+`--ownership-corrupt` options to `exfat_import_smoke.py` exercise exact aliases and
+bitmap-corruption quarantine in disposable guests; these are explicit fixture
+modes, not part of an ordinary threadstress `all` run.
+
+`make test-storage-leases` runs the real block claim/partition tests, workspace
+handoff and USB callback guards, then seven portable synthetic image-adapter
+cases via `tools/test_storage_leases.py`. Unlike the separate Linux
+`test-workspace-image` fault sweep, these fixtures do not require exfatprogs and
+do not certify format conformance or power-cut recovery. They verify physical
+overlap refusal, disjoint ranges, delegation, clean release/retry, stale tokens,
+claim exhaustion and persistent raw failure quarantine. Use the
+[Mac host-test recipe](macos-development.md#focused-storage-host-tests) for Darwin.
+
+Lifecycle modes now inject teardown at mount/read/write/check/range callbacks,
+foreign-owner admission, process-busy rechecks and boot-time fallback. All modes
+require balanced operation ownership. `test-storage` and `test-storage-leases`
+include terminal device invalidation: cached aliases must refuse I/O without
+transport calls, USB failed runtime command status cannot resume old media state,
+and AHCI offline state reaches the block layer. These are deterministic host
+contracts; hardware replacement and full hot-unplug remain unaccepted.
+
+
+`make test-exfat-crash` (also in `test-core`) runs 144 deterministic fault/cut
+boundaries across relocated rename, replacement and mount-time sidecar promotion.
+It uses the actual exFAT/VFS file-backed host driver with a disposable synthetic
+4 MiB volume, requiring no exfatprogs. Each write and flush is tested for failure
+and interruption, plus a half-write at every write boundary. The runner requires
+clean allocation checks at clean cuts, refusal or read-only admission at dirty
+cuts, no remount recovery writes, unchanged anchor contents and preservation of
+the committed sidecar name at full-write cuts. Successful rename/replacement
+also remount with the source permissions and contents. Results and the driver
+hash are saved under `build/review/rename-sidecar/crash/`.
+
+The import modes additionally reject whole malformed sidecar documents before
+applying any records: out-of-mount paths, embedded controls/NULs, overflowing
+numbers, truncated records and malformed suffixes. They check clean temporary
+promotion, retry after a temporary read failure, dirty-sidecar suppression, and
+`chmod`/timestamp persistence failure propagation with restored live metadata.
+This models ordered persisted write prefixes, not arbitrary controller reorder,
+sector atomicity, exfatprogs repair or journaled crash-atomic rename.
+
+
+`make test-exfat-boot` (included in `test-core`) runs the file-backed driver
+against 29 portable boot/system-stream cases. The matrix covers 512, 1024, 2048
+and 4096-byte sectors, healthy mutation/remount, backup-only read-only fallback,
+damaged/conflicting backups, both-copy refusal, stale backup flags and ambiguous
+backup candidates. It also checks read-only multi-cluster bitmap admission,
+explicit checker refusal and complete contiguous/fragmented bitmap statistics.
+The default output is `build/review/boot-system/sector-matrix/`.
+
+The import modes additionally test every checksum word, boot signatures and
+mandatory fields, primary/backup read errors, checksum/header snapshot coherence,
+missing/duplicate/misplaced system entries, active bitmap identity, exact FAT
+termination, upcase checksum/ASCII mappings/coverage, fragmented upcase ownership,
+unknown critical entries and statfs teardown admission. The six generator groups
+now validate both boot regions and the complete generated upcase table as well as
+file entry sets. Rebuild old generated images: zero-filled boot checksums and
+upcase tables no longer pass import. These tests do not establish native media
+recovery or certify full exFAT conformance.
+
+
+`make test-exfat-growth` (included in `test-core`) reuses the portable file-backed
+fault driver with nearly full root and contiguous subdirectories. It runs 161
+write/flush failure, interruption and half-write boundaries through allocation,
+zero initialization, end-marker retirement, FAT linkage, stream-length updates
+and sidecar persistence. Successful extensions remount and pass allocation
+checking. Dirty cuts either mount read-only or refuse import without recovery
+writes; anchor bytes are checked independently of a potentially torn root FAT
+chain. Results are saved in `build/review/allocation-growth/crash/`.
+
+Eight additional import modes cover clean out-of-space and allocator refusal,
+oversized payload/entry-set rejection, overflow-safe cluster rounding, stale
+records after an end marker within and across clusters, and successful root and
+contiguous-directory growth. The long-name case also exercises the corrected
+name-hash rotation under UBSan. These checks distinguish refusal before changes
+from quarantine after partial mutation; they do not promise a durable rollback
+for every failure or physical power-loss atomicity.
+
+
+`make test-exfat-retirement` (included in `test-core`) sweeps 323 write/flush
+failure, persisted-prefix cut and half-write boundaries across file deletion,
+empty-directory removal, truncate-to-zero, shrinking replacement, chmod and
+explicit timestamp updates. Successful operations remount writable with expected
+data, permissions/times and a clean allocation graph. Dirty cuts refuse import
+or remain read-only without recovery writes; unrelated anchor bytes and the
+committed sidecar name survive the modeled full-write cuts. Evidence is saved in
+`build/review/retirement-sidecar/crash/`. Use `tools/test_exfat_crash.py --retirement`
+with `--driver` to repeat against a sanitizer build.
+
+Eight directed import modes exercise healthy full/near-full media: truncation
+with existing or first-created sidecars, shrinking replacement, file/directory
+deletion, and unchanged writable refusal for chmod, utime and replacement without
+space for new data. Remounts check contents, allocation ownership, permissions
+and updated mtime. The directory-growth sweep now has 161 rather than 193
+boundaries because length publication no longer causes an extra nested sidecar
+sync; its root/subdirectory coverage is unchanged.
+
+
+`make test-process-writeback` (included in `test-core`) links real process content
+writeback to the exFAT/VFS import fixture. It fills a healthy volume, verifies two
+failed flushes retain the same dirty buffer, deletes a filler file and retries
+successfully, then checks remounted bytes and allocation ownership. It needs the
+prepared Limine headers and an x86_64 host compiler; macOS uses Rosetta for this
+process fixture. `python3 tools/test_exfat_import.py --process --sanitize` adds
+ASan/UBSan; `--limine-include` overrides the header directory. Results and hashes
+are saved under the chosen `--output` path (the Make target uses
+`build/review/writeback-retry/integration/`).
+
+Seven new ordinary import modes cover clean full-volume refusal/retry, scratch
+reservation OOM, entry-publication failure, dirty-marker failure, clean-marker
+write/flush failure and invalid-request refusal. Only proven clean failures
+report retry eligibility. `test-process-output` also covers reader/independent
+writer/dup aliases, unchanged data and offsets, readiness, repeated refusal,
+once-per-content global sync, dirty content retained only by readers after a
+writer closes, sticky uncertain failures and exit error reporting.
+
+
+`test-process-output` now exercises actual descriptor-table inheritance with both
+parent/child exit orders, shared offsets, clean refusal versus sticky errors,
+explicit nonzero exit status, nonstandard descriptor last-close ownership,
+close-on-exec and descriptor reuse. An injected `net_hold` refusal verifies partial
+inheritance and three-stream snapshot rollback without flushing the parent's dirty
+content. A child retaining only a reader verifies recovery and hard-error reporting
+after parent exit. These call the production inheritance, stream-configuration,
+cleanup and exit-file helpers with a controlled filesystem backend; they do not
+execute full fork/exec or inject asynchronous termination. The real exFAT retry
+bridge remains the backend integration check. October 28 integrated-main evidence
+is under `build/review/inheritance-exit/`.
+
+
+`make test-net-lifetime` runs 46 deterministic modes against production
+`net.c`: final close with outstanding data, deferred FIN, both inherited exit
+orders, inherited listener backlog (completed and half-open), abort controls,
+deferred-FIN deadline, failed deferred send and simultaneous close. The fixture
+captures transmitted frames and controls time; it confirms retransmission,
+ACK/FIN completion and expiry without depending on wall-clock packet loss.
+Original source `98fb56ff` fails seven modes; abort controls pass. Evidence and
+harness-correction notes are in `build/review/tcp-exit/`. See the
+[TCP lifetime audit](tcp-lifetime-audit-2026-10-28.md). This does not execute full
+process exit or broaden libc pseudo-socket inheritance support.
+
+
+The ACK/handle checkpoint adds seven modes: future ACK rejection with payload/FIN,
+sequence-wrap controls, active SYN-ACK validation, stale hold, stale I/O/query,
+slot reuse/reference saturation, and wakeup on final close. Five fail on original
+source `29df1192`; wrap and reuse controls pass. Packet checks use checksummed
+TCP segments through the production parser. All fifteen modes also run under
+ASan/UBSan. Current evidence is `build/review/tcp-ack/`; `tcp-exit/` retains the
+previous eight-mode checkpoint. Full 60-bit handle-ID exhaustion and packet-loss/
+reordering conformance are not covered.
+
+
+`httpget_smoke.py --host 10.0.2.2 --port PORT --path /fixture` can test outbound
+connect against a host-local HTTP server on an unprivileged port. `--port`
+defaults to 80 and rejects values outside 1..65535. The ACK checkpoint uses a
+temporary localhost server, checks the received request path and exact response
+body, and retains its log/receipt as `tcp-ack/vms/outbound-local.*`.
+
+
+The receive/terminal checkpoint adds eight modes: reset window, connect reset,
+receive admission, duplicate/overlap control, retained terminal errors, retained
+EOF/data, TIME-WAIT pressure and repeated SYN. Seven fail on source `8aa5999a`;
+the duplicate/overlap control passes. Current evidence is under
+`build/review/tcp-receive/`. The earlier deferred-FIN modes now assert retained
+errors followed by final-close release, instead of accepting timer destruction
+of a live descriptor. All 23 modes run normally and under ASan/UBSan.
+
+
+The allocation/partial-ACK checkpoint adds seven modes (30 total): outbound,
+inbound and pending-backlog allocation refusal/retry; partial ACK suffixes;
+partial data-plus-FIN ACK; partial ACK freeing a deferred-FIN byte window; and
+wraparound receive overlap. Allocation modes inject both initial-allocation and
+growth failure after consumed-prefix compaction, retaining aliases/unread bytes
+and refusing to acknowledge the incoming FIN until payload storage succeeds.
+Packet checks verify exact retransmission bytes/sequence, duplicate/old ACK
+idempotence, new FIN after duplicate payload, and suffix window/future-ACK guards.
+The earlier duplicate-receive and wrap-ACK controls now expect prefix trimming.
+All seven new modes plus the updated duplicate-receive case fail against
+`903030ef` network source; close and future-ACK controls pass. Evidence is in
+`build/review/tcp-retry/`; earlier directories retain dated checkpoints. The
+initial backlog fixture incorrectly queried an unaccepted, zero-reference
+handle; its corrected check inspects pending ownership until accept.
+All 30 modes pass normally and under ASan/UBSan. Seven matched-image VM gates
+pass; the TCP audit and host record carry the exact commands/results and limits.
+
+
+The peer-window/persist checkpoint adds eight modes (38 total): ordered window
+updates across wrap, original sequence after receive overlap trimming, passive
+handshake mutation refusal, two-endpoint lost-reopening recovery, responsive
+closed windows with/without retained data, silent peers/transport failure and
+bounded close. The two-endpoint fixture passes captured sequence/ACK/flags/window
+and byte payload through the peer's production TCP parser, drops the reopening
+ACK and refuses the first probe transport send. It verifies recovery and exact
+byte delivery at both ordinary and wrapping sequence positions. Fifty responsive
+probe rounds exceed the old total-probe limit and the idle interval; ordinary
+retry exhaustion must not destroy the connection. Silent/close controls retain
+TIMEDOUT and final descriptor release. Six new modes fail on source `1d1e106a`;
+the two timeout controls pass. Evidence: `build/review/tcp-window/`.
+All 38 modes pass normally and under ASan/UBSan, and seven matched-image VM
+gates pass. The TCP audit and host record retain exact results and limits.
+
+
+The IPv4/TCP parser checkpoint adds eight modes (46 total): fragment refusal,
+packet-boundary controls, invalid/valid TCP options, passive/active/default MSS,
+and MSS on SYN/retry. Fragment checks cover TCP data/ACK/FIN/RST plus UDP/ICMP
+dispatch; DF-only controls pass. Exact-size truncated allocations run through the
+IPv4 parser, with IP/TCP checksum, data-offset, variable IP-header and Ethernet
+padding controls. Option tests cover all 256 length-byte values in a four-byte
+option area (253 invalid), valid unknown lengths 2–40, NOP/EOL, unaligned MSS,
+malformed/zero/duplicate MSS and refusal before ACK/reset/FIN mutation. MSS tests
+cover 1, 64, 1460, 65535 and absent offers, ignored late/duplicate-SYN renegotiation,
+exact payload/checksum and retransmission sizes. Six modes fail on network source
+`811c4685`; boundary and well-formed-option controls pass. Evidence is under
+`build/review/tcp-parser/`. The older full-window fixture now accepts short writes
+while filling the same byte budget, rather than assuming 1,400-byte writes when
+no peer MSS was negotiated. The IPv4 dispatch fixture also stubs console output.
+All 46 modes pass normally and under ASan/UBSan, and eight matched-image VM
+gates pass, including segmented web traffic. Exact results and limits are in the
+TCP audit and host record.
+
+
+## UDP/ICMP and datagram adapter checkpoint
+
+`make test-net-datagram test-posix-datagram` adds ten production kernel modes and
+six production libc modes to `test-core`. Kernel coverage includes ICMP echo
+checksum/code/identity, exact-size truncated UDP input, length/checksum controls,
+empty packets, queue wrap/pressure, truncation, ARP-wait close/reuse, blocked
+receive final close, held-reference cleanup and immutable binding. Libc coverage
+checks multi-iov `MSG_TRUNC`, zero-capacity consumption, short source-address
+canaries/full size, empty datagrams, allocation-failure retry and failed-bind
+cache preservation. Five kernel modes and four libc modes fail against source
+`950a4ee0`; the remaining modes are passing controls. All sixteen pass under
+x86_64/Rosetta and native ARM64 ASan/UBSan.
+
+The guest `netabi` adds `netabi: udp truncation/empty/zero/address/queue ok` before
+its existing final success marker. It exercises matched guest headers, libc,
+syscalls and kernel using locally delivered datagrams, including queue overflow
+and repeat-bind refusal. These tests supplement the unchanged 46-mode TCP
+lifetime fixture. Evidence and limits are in the
+[datagram audit](datagram-audit-2026-10-28.md), with raw logs and original-source
+failures under `build/review/datagram/`. Connected UDP filtering, resolver overlap
+and native adapter acceptance are not inferred from these checks.
+
+
+`make test-net-query test-posix-udp-owner` adds 13 production ARP/DNS modes and
+12 libc UDP ownership modes to `test-core`. Eight query modes and nine libc modes
+fail against original source `c43a1749`; eight controls pass. Cases cover nested
+ARP targets, DNS ownership through ARP/wait/completed reply, wrong server/ID,
+exit/failure/timeout cleanup, peer filtering and zero-capacity receives,
+unconnected recv, same-number replacement during receive/restart, duplicate
+reuse and nonblocking exhaustion/flags. Nested DNS replies carry different
+answers; the original outer caller consumes the inner result. Candidate tests
+pass under x86_64/Rosetta and native ARM64 ASan/UBSan, alongside the prior 62
+TCP/datagram modes. The guest netabi fixture adds
+`netabi: udp connected filtering/unconnected receive ok`, covering all three
+receive forms, discarded foreign packets and nonblocking exhaustion. Evidence
+is under `build/review/query-ownership/`; the [audit](datagram-audit-2026-10-28.md)
+records exact results and limits.
+
+
+## DNS identity and per-call socket checkpoint
+
+`make test-dns-response test-socket-calls test-socket-try-io` runs 46 shared-parser
+cases, 17 production libc modes and the native operation/file-type/access matrix.
+The datagram fixture adds uncached/cached/local nonblocking-send coverage (eleven
+modes total). Process-output adds per-call empty/full pipe checks without shared
+flag mutation; syscall-I/O keeps the new operation outside GUI-safe admission.
+The netabi guest adds `netabi: per-call flags/alias/pressure/recovery ok`, checking
+actual syscall/libc/pipe behavior on the matched image; a second marker checks
+closed-peer SIGPIPE delivery at the call checkpoint. Original-source results,
+sanitizer architectures, exact VM evidence and bounded contracts are in the
+[DNS/socket audit](dns-socket-audit-2026-10-28.md). Evidence directory:
+`build/review/dns-socket/`. This adds syscall 155 and EAI_AGAIN; rebuild matched
+kernel/libc rather than copying a new socket client into an older image.

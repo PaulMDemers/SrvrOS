@@ -22,6 +22,7 @@ typedef bool (*block_flush_fn)(struct block_device *device);
 
 struct block_device {
     bool used;
+    bool offline; /* Terminal identity loss: no rebind/reuse before reboot. */
     const char *name;
     uint64_t block_size;
     uint64_t block_count;
@@ -32,6 +33,10 @@ struct block_device {
     block_write_fn write;
     block_flush_fn flush; /* NULL on writable media means durability unsupported. */
     void *private_data;
+    /* Physical identity for bounded views; callbacks still implement I/O.
+     * Immutable while mounted/leased. NULL identifies an independent medium. */
+    struct block_device *backing;
+    uint64_t backing_offset;
 };
 
 void block_init(void);
@@ -53,6 +58,18 @@ struct block_device *block_parent(struct block_device *device);
 /* Resolve a bounded partition-relative range to its raw device. No I/O. */
 bool block_raw_range(struct block_device *device, uint64_t offset, uint64_t length,
     struct block_device **parent, uint64_t *raw_offset);
+/* Terminal failure invalidation; descriptors/claims stay pinned until reboot or
+ * ordinary owner teardown. Online checks include every declared backing view. */
+void block_invalidate(struct block_device *device);
+bool block_device_online(struct block_device *device);
+/* Exclusive physical-range admission. A raw transport lease may delegate one
+ * contained view to a filesystem mount. Release the child before the lease.
+ * Tokens never repeat; zero means refusal. No I/O or scheduler yield here. */
+uint64_t block_claim_mount(struct block_device *device);
+uint64_t block_claim_raw(struct block_device *device, struct block_device *allowed_view);
+bool block_claim_release(uint64_t token);
+/* Handoff preflight: ignore only the named existing filesystem mount. */
+bool block_claim_available(struct block_device *device, struct block_device *except_mount);
 /* Discard clean write-through cache entries for all aliases after bypass I/O. */
 void block_forget(struct block_device *device);
 bool block_enable_partition_writes(struct block_device *device);

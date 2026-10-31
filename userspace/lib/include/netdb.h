@@ -5,6 +5,7 @@
 
 #define AI_PASSIVE 0x01
 #define AI_ADDRCONFIG 0x20
+#define EAI_AGAIN -3
 #define EAI_FAIL -4
 #define EAI_MEMORY -10
 #define EAI_NONAME -2

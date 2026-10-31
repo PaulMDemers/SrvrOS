@@ -199,6 +199,8 @@ int64_t process_file_pipe_pair(struct process *process, uint64_t fds_out[2]);
 /* IRQ-disabled bounded nonblocking byte transfer, with no rights cleanup or
  * broken-pipe signal. Scheduler same-process exclusion still applies. */
 bool process_file_pipe_io_safe(struct process *process, uint64_t fd, uint64_t length, bool writing);
+int64_t process_file_pipe_read_mode(struct process *process, uint64_t fd, uint8_t *buffer, uint64_t length, bool dontwait);
+int64_t process_file_pipe_write_mode(struct process *process, uint64_t fd, const uint8_t *buffer, uint64_t length, bool dontwait);
 int64_t process_file_pipe_read(struct process *process, uint64_t fd, uint8_t *buffer, uint64_t length);
 int64_t process_file_pipe_write(struct process *process, uint64_t fd, const uint8_t *buffer, uint64_t length);
 int64_t process_unix_bind(struct process *process, const char *path);

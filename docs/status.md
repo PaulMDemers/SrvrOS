@@ -101,6 +101,16 @@ they do not accept deeper idle, CPU policy or Air7,2 power improvements. See the
 
 ## Files, services and devices
 
+The [October 26 exFAT import audit](filesystem-audit-2026-10-26.md) adds checked
+single-FAT boot geometry and zero-filled reads beyond imported `ValidDataLength`,
+including preservation across rename/replacement. Entry-set/name validation and
+bounded directory-chain traversal now reject malformed imports; the image packer
+emits matching checksums/flags. Older generated images need rebuilding.
+Host/sanitizer and disposable VM coverage establish these bounded contracts;
+exact-alias retention, exclusive mount namespaces and allocation-map quarantine
+are now covered. Overlapping device views, full media integrity, hardware-removal
+lifetime and crash recovery remain under audit.
+
 | Area | Current boundary |
 | --- | --- |
 | exFAT / USB workspace | Repeated physical read/write/flush/remount and shell workflows passed; no journal or power-loss durability guarantee |
@@ -218,3 +228,17 @@ support and full Linux compatibility remain outside this bounded profile. See th
 
 The bounded event-adapter audit is complete with passing host/sanitizer, matched
 thread and libuv VM gates. PR179 carries the implementation and delivery record.
+
+The [filesystem audit](filesystem-audit-2026-10-26.md) now includes declared
+physical block-view overlap and raw-storage lease admission. Mounts claim ranges;
+mutating diagnostics reserve their raw transport, delegate only the inner image
+view and retain failure quarantine until reboot. The import suite has 51 modes,
+with additional block/workspace/USB and seven portable image-adapter cases.
+General hot removal and crash recovery remain outside this checkpoint.
+
+The storage lifetime follow-up raises import/lifecycle coverage to 61 modes.
+Backend operations and teardown now share storage ownership, with a final process
+busy check before unmount. USB runtime command failure and AHCI offline state
+invalidate block/cache/claim admission; published USB objects cannot be reattached
+in place. This keeps uncertain media identity unavailable until reboot and adds
+no live hot-plug recovery. Mutation/crash recovery is the next audit boundary.

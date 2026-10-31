@@ -9,7 +9,7 @@ static struct process owner;
 static unsigned accept_wakes, poll_wakes, sent;
 static uint8_t last_flags;
 uint64_t timer_ticks(void) { return 100; }
-void *kmalloc(uint64_t size) { return malloc(size); }
+void *kmalloc(size_t size) { return malloc(size); }
 void kfree(void *p) { free(p); }
 struct process *process_current(void) { return &owner; }
 bool process_should_exit_current(void) { return false; }

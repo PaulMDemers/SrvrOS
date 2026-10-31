@@ -3691,8 +3691,11 @@ static int64_t content_flush(struct process_file_content *content) {
     if(content->unlinked) { content->dirty=false;return 0; }
     if(content->failed) return SRV_ERR_IO;
     if(!content->dirty) return 0;
-    if(!exfat_write_file(content->path,content->data,content->size)) {
-        content->failed=true;return SRV_ERR_IO;
+    bool retryable=false;
+    if(!exfat_write_file_retryable(content->path,content->data,content->size,&retryable)) {
+        /* A clean refusal retains dirty data for a later explicit flush/close.
+         * Partial writes and failed cleanup keep the sticky error contract. */
+        content->failed=!retryable;return SRV_ERR_IO;
     }
     content->dirty=false;return 0;
 }
@@ -4626,10 +4629,12 @@ int64_t process_file_flush(struct process *process, uint64_t fd) {
 
 int64_t process_file_sync_all(void) {
     int64_t result = 0;
-    for (uint64_t i = 0; i < PROCESS_MAX_WRITE_FILES; i++) {
-        if (write_files[i].used && write_files[i].content->dirty && process_file_flush(NULL, i + 1) < 0) {
-            result = -1;
-        }
+    /* A failed writer close can leave dirty content retained only by readers.
+     * Visit each live content object once, including those survivors, rather
+     * than retrying once per independent write description. */
+    for (uint64_t i = 0; i < PROCESS_MAX_WRITE_FILES + PROCESS_MAX_READ_FILES; i++) {
+        struct process_file_content *content=&file_contents[i];
+        if (content->refs && content->dirty && content_flush(content) < 0) result = -1;
     }
     return result;
 }
@@ -5056,7 +5061,7 @@ bool process_file_pipe_io_safe(struct process *process, uint64_t fd, uint64_t le
     return true;
 }
 
-int64_t process_file_pipe_read(struct process *process, uint64_t fd, uint8_t *buffer, uint64_t length) {
+int64_t process_file_pipe_read_mode(struct process *process, uint64_t fd, uint8_t *buffer, uint64_t length, bool dontwait) {
     struct process_file *file = process_file_at(process, fd);
     if (file == NULL ||
         (file->type != PROCESS_FILE_PIPE_READ && file->type != PROCESS_FILE_PIPE_DUPLEX) ||
@@ -5074,7 +5079,7 @@ int64_t process_file_pipe_read(struct process *process, uint64_t fd, uint8_t *bu
         if (process_should_exit_current()) {
             return -1;
         }
-        if (process_file_nonblocking(process,fd)) {
+        if (dontwait || process_file_nonblocking(process,fd)) {
             return SRV_ERR_AGAIN;
         }
         if (!scheduler_wait(&pipe_wait_queue, pipe_read_ready, pipe)) {
@@ -5099,13 +5104,17 @@ int64_t process_file_pipe_read(struct process *process, uint64_t fd, uint8_t *bu
     return (int64_t)count;
 }
 
+int64_t process_file_pipe_read(struct process *process, uint64_t fd, uint8_t *buffer, uint64_t length) {
+    return process_file_pipe_read_mode(process, fd, buffer, length, false);
+}
+
 static int64_t pipe_broken_write(struct process *process,uint64_t done) {
     if(process==process_current()) (void)process_thread_signal(process_thread_self(),SRV_SIGNAL_PIPE);
     else (void)process_queue_signal_locked(process,SRV_SIGNAL_PIPE);
     return done?(int64_t)done:SRV_ERR_PIPE;
 }
 
-int64_t process_file_pipe_write(struct process *process, uint64_t fd, const uint8_t *buffer, uint64_t length) {
+int64_t process_file_pipe_write_mode(struct process *process, uint64_t fd, const uint8_t *buffer, uint64_t length, bool dontwait) {
     struct process_file *file = process_file_at(process, fd);
     if (file == NULL ||
         (file->type != PROCESS_FILE_PIPE_WRITE && file->type != PROCESS_FILE_PIPE_DUPLEX) ||
@@ -5124,7 +5133,7 @@ int64_t process_file_pipe_write(struct process *process, uint64_t fd, const uint
             if (process_should_exit_current()) {
                 return done > 0 ? (int64_t)done : -1;
             }
-            if (process_file_nonblocking(process,fd)) {
+            if (dontwait || process_file_nonblocking(process,fd)) {
                 return done > 0 ? (int64_t)done : SRV_ERR_AGAIN;
             }
             if (!scheduler_wait(&pipe_wait_queue, pipe_write_ready, &wait)) {
@@ -5163,6 +5172,10 @@ struct scheduler_wait_queue *process_file_poll_wait_queue(void) {
 
 void process_file_poll_wake(void) {
     scheduler_wake_all(&fd_poll_wait_queue);
+}
+
+int64_t process_file_pipe_write(struct process *process, uint64_t fd, const uint8_t *buffer, uint64_t length) {
+    return process_file_pipe_write_mode(process, fd, buffer, length, false);
 }
 
 static bool file_lock_wait_ready(void *arg) {

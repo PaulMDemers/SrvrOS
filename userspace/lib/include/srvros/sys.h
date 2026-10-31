@@ -191,6 +191,7 @@ long srv_net_ping(uint32_t remote_ip, uint16_t sequence, uint64_t timeout_ticks,
 long srv_net_listen(uint16_t port);
 long srv_net_connect(uint32_t remote_ip, uint16_t remote_port, uint64_t flags);
 long srv_net_accept(int listener_fd, char *buffer, size_t capacity, uint64_t *length_out);
+long srv_socket_try_io(int fd, uint64_t operation, void *buffer, size_t length, struct srv_socket_peer *peer);
 long srv_net_udp_open(void);
 long srv_net_udp_bind(int fd, uint16_t port);
 long srv_net_udp_sendto(int fd, uint32_t remote_ip, uint16_t remote_port, const void *buffer, size_t length);

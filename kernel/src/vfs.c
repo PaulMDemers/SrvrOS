@@ -367,10 +367,9 @@ void vfs_set_metadata_changed_callback(vfs_metadata_changed_fn callback) {
     metadata_changed_callback = callback;
 }
 
-static void notify_metadata_changed(const struct vfs_node *node) {
-    if (metadata_changed_callback != NULL && node != NULL) {
+static bool notify_metadata_changed(const struct vfs_node *node) {
+    return metadata_changed_callback == NULL || node == NULL ||
         metadata_changed_callback(node->path, &node->metadata);
-    }
 }
 
 bool vfs_update_file_size(const char *path, uint64_t size) {
@@ -382,8 +381,7 @@ bool vfs_update_file_size(const char *path, uint64_t size) {
     node->size = size;
     node->metadata.mtime = metadata_time();
     node->metadata.ctime = node->metadata.mtime;
-    notify_metadata_changed(node);
-    return true;
+    return notify_metadata_changed(node);
 }
 
 bool vfs_stat(const char *path, struct vfs_metadata *metadata_out, uint64_t *size_out, uint64_t *type_out) {
@@ -417,10 +415,14 @@ bool vfs_chmod(const char *path, uint64_t mode) {
     if (node == NULL) {
         return false;
     }
+    struct vfs_metadata before = node->metadata;
     node->metadata.mode = (node->metadata.mode & VFS_MODE_IFMT) | (mode & 07777);
     node->metadata.ctime = metadata_time();
-    notify_metadata_changed(node);
-    return true;
+    if (notify_metadata_changed(node)) return true;
+    /* Restore live state only: a backend failure may have changed media and
+     * the backend owns quarantine rather than promising a durable rollback. */
+    node->metadata = before;
+    return false;
 }
 
 void vfs_metadata_utime(struct vfs_metadata *metadata,uint64_t atime,uint64_t mtime) {
@@ -436,9 +438,11 @@ bool vfs_utime(const char *path, uint64_t atime, uint64_t mtime) {
         return false;
     }
     if(atime==SRV_TIME_OMIT && mtime==SRV_TIME_OMIT) return true;
+    struct vfs_metadata before = node->metadata;
     vfs_metadata_utime(&node->metadata,atime,mtime);
-    notify_metadata_changed(node);
-    return true;
+    if (notify_metadata_changed(node)) return true;
+    node->metadata = before;
+    return false;
 }
 
 bool vfs_replace_file_path(const char *old_path, const char *new_path,

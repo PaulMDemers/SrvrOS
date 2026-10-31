@@ -33,10 +33,6 @@ bool process_has_open_vfs_prefix(const char *p){(void)p;return busy;}
 uint64_t block_device_size(const struct block_device *d){return d->block_size*d->block_count;}
 struct block_device *block_parent(struct block_device *d){return d;}
 void block_forget(struct block_device *d){(void)d;}
-bool block_raw_range(struct block_device *d,uint64_t o,uint64_t n,struct block_device **p,uint64_t *r){
-    if(d!=&disk||o>block_device_size(d)||n>block_device_size(d)-o)return false;
-    *p=d;*r=o;return true;
-}
 static bool raw_read(struct block_device *d,uint64_t o,void *p,uint64_t n){
     assert(d==&disk&&o<=block_device_size(d)&&n<=block_device_size(d)-o);
     reads++;mock_us+=5;
@@ -100,6 +96,7 @@ int main(int argc,char **argv){
     assert(exfat_mount_block_device("/work",&disk));mounted=true;
     if(!strcmp(argv[2],"refuse")){
         assert(!workspace_image_open()&&!workspace_image_busy()&&!writes);
+        if(parked) {assert(exfat_mount_block_device("/after-refusal",&disk));assert(exfat_unmount("/after-refusal"));}
         close(fd);puts("image: refused without writes");return 0;
     }
     busy=true;assert(!workspace_image_open());busy=false;
@@ -111,6 +108,10 @@ int main(int argc,char **argv){
     foreign=true;assert(!workspace_image_open());foreign=false;
     assert(workspace_image_open()&&workspace_image_ready()&&workspace_image_busy());
     assert(!workspace_image_open()&&!mounted&&!disk.write&&!disk.flush);
+    assert(!exfat_mount_block_device("/intruder",&disk));
+    struct block_device alias=image.view;
+    assert(!exfat_mount_block_device("/alias",&alias));
+    assert(!block_claim_raw(&disk,NULL));
     uint8_t data[512]={0};unsigned before=writes;
     assert(!image_write(&image.view,WORKSPACE_IMAGE_BYTES,data,512));
     assert(!image_write(&image.view,UINT64_MAX-511,data,512));
@@ -180,8 +181,10 @@ int main(int argc,char **argv){
             before=writes;assert(!workspace_image_cycle(1)&&writes==before);
         }
         assert(!workspace_image_close()&&workspace_image_busy()&&!image.open);
+        assert(!exfat_mount_block_device("/after-failure",&disk));
     }else{
         assert(ok&&workspace_image_close()&&!workspace_image_busy());
+        assert(exfat_mount_block_device("/after-close",&disk));assert(exfat_unmount("/after-close"));
         assert(!workspace_image_cycle(1)&&!workspace_image_close());
     }
     before=writes;
@@ -190,3 +193,6 @@ int main(int argc,char **argv){
     assert(fsync(fd)==0);close(fd);
     printf("image: %s writes=%u flushes=%u revoked=yes\n",ok?"PASS":"contained",writes,flushes);
 }
+
+#define SRVROS_BLOCK_CLAIM_HOST_TEST
+#include "../kernel/src/block_claim.c"

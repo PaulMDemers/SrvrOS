@@ -503,6 +503,10 @@ long srv_net_accept(int listener_fd, char *buffer, size_t capacity, uint64_t *le
     return srv_syscall4(SYS_NET_ACCEPT, listener_fd, (long)buffer, (long)capacity, (long)length_out);
 }
 
+long srv_socket_try_io(int fd, uint64_t operation, void *buffer, size_t length, struct srv_socket_peer *peer) {
+    return srv_syscall5(SYS_SOCKET_TRY_IO, fd, operation, (long)buffer, (long)length, (long)peer);
+}
+
 long srv_net_udp_open(void) {
     return srv_syscall0(SYS_NET_UDP_OPEN);
 }

@@ -36,6 +36,8 @@ struct exfat_fsinfo {
 
 bool exfat_mount_image(const char *mountpoint, const uint8_t *image, uint64_t image_size);
 bool exfat_mount_block_device(const char *mountpoint, struct block_device *device);
+/* Refuses active backend operations and linked process files/directories/cwds.
+ * Mount lifecycle is serialized through the CPU0 storage owner. */
 bool exfat_unmount(const char *mountpoint);
 bool exfat_is_writable(const char *mountpoint);
 /* Diagnostic preparation only: verified, exclusive single-cluster 4096-byte
@@ -46,6 +48,12 @@ bool exfat_scratch_range(const char *path, struct block_device **device, uint64_
 bool exfat_exclusive_range(const char *path, uint64_t bytes,
     struct block_device **device, uint64_t *offset);
 bool exfat_write_file(const char *path, const uint8_t *data, uint64_t size);
+/* On failure, optional *retryable is true only for an admitted clean outer
+ * operation: either capacity/heap reservation failed before dirty marking, or
+ * no allocation/data/directory writes occurred and clean state was durably
+ * restored. Captured under storage exclusion. Success, invalid/unsupported or
+ * ownership/device admission refusal, and uncertain mutation leave it false. */
+bool exfat_write_file_retryable(const char *path, const uint8_t *data, uint64_t size, bool *retryable);
 bool exfat_write_file_mode(const char *path, const uint8_t *data, uint64_t size, uint64_t mode);
 bool exfat_create_directory_mode(const char *path, uint64_t mode);
 bool exfat_delete_file(const char *path);

@@ -20,7 +20,7 @@
 #include <srvros/vfs.h>
 #include <srvros/autotest_storage.h>
 static int fd;
-static unsigned writes, flushes, fail_at, crash_at, fail_flush_at;
+static unsigned writes, flushes, fail_at, crash_at, fail_flush_at, crash_flush_at, tear_at;
 static bool failed, foreign;
 static unsigned io_depth;
 bool scheduler_io_begin(void) { if(foreign) return false; io_depth++; return true; }
@@ -51,11 +51,17 @@ bool block_read(struct block_device *d, uint64_t o, void *p, uint64_t n) {
 bool block_write(struct block_device *d, uint64_t o, const void *p, uint64_t n) {
     if (failed || ++writes == fail_at) { failed=true; return false; }
     assert(o+n <= block_device_size(d));
+    if(writes==tear_at) {
+        assert(pwrite(fd,p,(n+1)/2,o)==(ssize_t)((n+1)/2));
+        assert(fsync(fd)==0);_exit(79);
+    }
     if(pwrite(fd,p,n,o)!=(ssize_t)n) return false;
     if(writes==crash_at) { fsync(fd); _exit(77); }
     return true;
 }
-static bool flush(struct block_device *d) { (void)d; flushes++; if(flushes==fail_flush_at) failed=true; return !failed && fsync(fd)==0; }
+static bool flush(struct block_device *d) { (void)d; flushes++; if(flushes==fail_flush_at) failed=true; if(failed || fsync(fd)) return false;
+    if(flushes==crash_flush_at)_exit(78);
+    return true; }
 static void equal(const char *path, const uint8_t *expected, uint64_t n) {
     const struct vfs_node *node=vfs_lookup(path); const uint8_t *data; uint64_t size;
     assert(node && vfs_read_all(node,&data,&size));
@@ -77,7 +83,7 @@ int main(int argc, char **argv) {
         assert(false);
 #endif
     }
-    struct block_device d={.name="fixture",.block_size=512,.block_count=bytes/512,
+    struct block_device d={.used=true,.name="fixture",.block_size=512,.block_count=bytes/512,
         .read=block_read,.write=check_only ? NULL : block_write,.flush=check_only ? NULL : flush};
     if(check_only) {
         if(!exfat_mount_block_device("/vol",&d)) {
@@ -136,6 +142,21 @@ int main(int argc, char **argv) {
     if(argc>3) fail_at=strtoul(argv[3],0,10);
     if(argc>4) crash_at=strtoul(argv[4],0,10);
     if(argc>5) fail_flush_at=strtoul(argv[5],0,10);
+    if(argc>6) crash_flush_at=strtoul(argv[6],0,10);
+    if(argc>7) tear_at=strtoul(argv[7],0,10);
+    if(!strcmp(argv[2],"inspect-cut")) {
+        bool mounted=exfat_mount_block_device("/vol",&d);
+        assert(!writes && !flushes);
+        if(mounted) {
+            equal("/vol/anchor.txt",(const uint8_t *)"unchanged",9);
+            assert(!exfat_is_writable("/vol"));
+            unsigned before=writes;
+            assert(!exfat_write_file("/vol/forbidden",NULL,0) && writes==before);
+            assert(exfat_unmount("/vol"));
+        }
+        printf("interrupted media: %s, no recovery writes\n",mounted?"quarantined":"import refused");
+        close(fd);return 0;
+    }
     if(!strcmp(argv[2],"workload")) {
         assert(exfat_mount_block_device("/testlog",&d));
         assert(exfat_create_directory("/testlog/srvros-tests"));
@@ -149,6 +170,62 @@ int main(int argc, char **argv) {
         return 0;
     }
     assert(exfat_mount_block_device("/vol",&d));
+    if(!strcmp(argv[2],"bitmap-stats")) {
+        struct exfat_fsinfo info;assert(exfat_statfs("/vol",&info));
+        printf("bitmap-used=%llu\n",(unsigned long long)(info.blocks-info.blocks_free));
+        assert(!writes && !flushes);close(fd);return 0;
+    }
+    if(!strcmp(argv[2],"retirement-seed")) {
+        uint8_t data[1500];memset(data,'R',sizeof(data));
+        assert(exfat_write_file("/vol/keep.txt",data,sizeof(data)));
+        assert(exfat_create_directory("/vol/empty"));
+        assert(fsync(fd)==0);close(fd);return 0;
+    }
+    if(!strcmp(argv[2],"growth-seed")) {
+        assert(exfat_create_directory("/vol/grow"));
+        assert(fsync(fd)==0);close(fd);return 0;
+    }
+    if(!strcmp(argv[2],"recover")) {
+        /* The mount performs sidecar promotion. Faults can interrupt it. */
+    } else if(!strncmp(argv[2],"verify-grow-",12)) {
+        const char *path=!strcmp(argv[2],"verify-grow-root")?"/vol/new.txt":"/vol/grow/new.txt";
+        equal(path,(const uint8_t *)"new-file-data",13);
+        equal("/vol/anchor.txt",(const uint8_t *)"unchanged",9);
+        struct exfat_check_result check;assert(exfat_check("/vol",&check));
+    } else if(!strncmp(argv[2],"verify-retire-",14)) {
+        assert(exfat_is_writable("/vol"));
+        const char *operation=argv[2]+14;
+        if(!strcmp(operation,"delete"))assert(!vfs_lookup("/vol/keep.txt"));
+        else if(!strcmp(operation,"directory"))assert(!vfs_lookup("/vol/empty"));
+        else if(!strcmp(operation,"truncate"))equal("/vol/keep.txt",NULL,0);
+        else if(!strcmp(operation,"shrink"))equal("/vol/keep.txt",(const uint8_t *)"new",3);
+        else if(!strcmp(operation,"chmod"))assert((vfs_lookup("/vol/keep.txt")->metadata.mode&07777)==0644);
+        else if(!strcmp(operation,"utime"))assert(vfs_lookup("/vol/keep.txt")->metadata.mtime==12);
+        else assert(false);
+        if(strcmp(operation,"delete") && strcmp(operation,"chmod"))assert((vfs_lookup("/vol/keep.txt")->metadata.mode&07777)==0600);
+        if(!strcmp(operation,"directory") || !strcmp(operation,"chmod") || !strcmp(operation,"utime")) {
+            uint8_t data[1500];memset(data,'R',sizeof(data));equal("/vol/keep.txt",data,sizeof(data));
+        }
+        equal("/vol/anchor.txt",(const uint8_t *)"unchanged",9);
+        struct exfat_check_result check;assert(exfat_check("/vol",&check));
+    } else if(!strncmp(argv[2],"verify-",7)) {
+        const char *path=!strcmp(argv[2],"verify-rename")?"/vol/renamed-with-a-longer-name.txt":"/vol/target.txt";
+        equal(path,(const uint8_t *)"original",8);
+        assert((vfs_lookup(path)->metadata.mode&07777)==0600);
+        assert(!vfs_lookup("/vol/keep.txt"));
+        equal("/vol/anchor.txt",(const uint8_t *)"unchanged",9);
+        struct exfat_check_result check;assert(exfat_check("/vol",&check));
+    } else if(!strcmp(argv[2],"seed-temp")) {
+        const uint8_t *data;uint64_t size;
+        const struct vfs_node *node=vfs_lookup("/vol/.srvros/meta");
+        assert(node && vfs_read_all(node,&data,&size));
+        assert(exfat_write_file("/vol/.srvros/meta.tmp",data,size));
+        vfs_release_data(node,data);
+    }
+    if(!strcmp(argv[2],"recover") || !strcmp(argv[2],"seed-temp") || !strncmp(argv[2],"verify-",7)) {
+        assert(fsync(fd)==0);close(fd);
+        printf("driver: complete writes=%u flushes=%u\n",writes,flushes);return 0;
+    }
     if(!strcmp(argv[2],"memory-refusal")) {
         /* Empty-volume growth needs a file block and metadata scratch. Neither
          * failure may dirty VolumeFlags, publish nodes or quarantine the mount. */
@@ -166,8 +243,7 @@ int main(int argc, char **argv) {
         assert(exfat_unmount("/vol") && exfat_mount_block_device("/vol",&d));
         equal("/vol/resumed",(const uint8_t *)"saved",5);
         puts("allocation refusal before writes and successful retry PASS");close(fd);return 0;
-    }
-    if(!strcmp(argv[2],"scale")) {
+    } else if(!strcmp(argv[2],"scale")) {
         assert(vfs_count()>4096);
         const struct vfs_node *anchor=vfs_lookup("/vol/bulk/anchor.txt");assert(anchor);
         const void *private_data=anchor->private_data;const char *path=anchor->path;
@@ -420,9 +496,23 @@ int main(int argc, char **argv) {
         assert(exfat_write_file("/vol/keep.txt",(const uint8_t *)"original",8));
         assert(exfat_write_file("/vol/anchor.txt",(const uint8_t *)"unchanged",9));
         assert(exfat_write_file("/vol/target.txt",(const uint8_t *)"old-target",10));
-    } else if(!strcmp(argv[2],"overwrite") || !strcmp(argv[2],"create") || !strcmp(argv[2],"delete") || !strcmp(argv[2],"rename") || !strcmp(argv[2],"replace")) {
+        assert(vfs_chmod("/vol/keep.txt",0600) && vfs_chmod("/vol/target.txt",0640));
+    } else if(!strncmp(argv[2],"retire-",7)) {
+        const char *operation=argv[2]+7;bool ok=false;
+        if(!strcmp(operation,"delete"))ok=exfat_delete_file("/vol/keep.txt");
+        else if(!strcmp(operation,"directory"))ok=exfat_delete_directory("/vol/empty");
+        else if(!strcmp(operation,"truncate"))ok=exfat_write_file("/vol/keep.txt",NULL,0);
+        else if(!strcmp(operation,"shrink"))ok=exfat_write_file("/vol/keep.txt",(const uint8_t *)"new",3);
+        else if(!strcmp(operation,"chmod"))ok=vfs_chmod("/vol/keep.txt",0644);
+        else if(!strcmp(operation,"utime"))ok=vfs_utime("/vol/keep.txt",11,12);
+        else assert(false);
+        printf("operation=%s writes=%u flushes=%u\n",ok?"PASS":"FAIL",writes,flushes);
+        if(failed) { unsigned before=writes;assert(!exfat_write_file("/vol/after-failure",(const uint8_t *)"x",1));assert(before==writes); }
+    } else if(!strcmp(argv[2],"grow-root") || !strcmp(argv[2],"grow-dir") || !strcmp(argv[2],"overwrite") || !strcmp(argv[2],"create") || !strcmp(argv[2],"delete") || !strcmp(argv[2],"rename") || !strcmp(argv[2],"replace")) {
         bool ok;
-        if(!strcmp(argv[2],"create")) ok=exfat_write_file("/vol/new.txt",(const uint8_t *)"new-file-data",13);
+        if(!strcmp(argv[2],"grow-root") || !strcmp(argv[2],"grow-dir"))
+            ok=exfat_write_file(!strcmp(argv[2],"grow-root")?"/vol/new.txt":"/vol/grow/new.txt",(const uint8_t *)"new-file-data",13);
+        else if(!strcmp(argv[2],"create")) ok=exfat_write_file("/vol/new.txt",(const uint8_t *)"new-file-data",13);
         else if(!strcmp(argv[2],"delete")) ok=exfat_delete_file("/vol/keep.txt");
         else if(!strcmp(argv[2],"replace")) { bool published=false;ok=exfat_replace_file("/vol/keep.txt","/vol/target.txt",&published);
             assert(published==(!vfs_lookup("/vol/keep.txt")));
@@ -440,3 +530,8 @@ int main(int argc, char **argv) {
     printf("driver: complete writes=%u flushes=%u\n",writes,flushes);
     return 0;
 }
+
+#define SRVROS_BLOCK_CLAIM_HOST_TEST
+#include "../kernel/src/block_claim.c"
+
+bool process_has_open_vfs_prefix(const char *p) { (void)p;return false; }

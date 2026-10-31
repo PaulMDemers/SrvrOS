@@ -898,3 +898,944 @@ source of the final merge state/SHA. The user authorized merge after these gates
 PR19 remains separate Wi-Fi work. No kernel/syscall ABI, native-hardware acceptance
 or Actions setting changed. Broader filesystem/network/process/security reviews
 and optional adapter capabilities remain in the current audit inventory.
+
+## Broader audit: exFAT import contracts — active scope (2026-10-26)
+
+User requests resuming the broader system audit. Main is `dfd63fef`; PR181 owns
+desktop lifecycle work, PR180 owns Air6,1 retest/poll evidence and PR19 Wi-Fi.
+This branch owns kernel exFAT import validation and initialized-data reads, host
+fixtures, current docs and disposable VM validation. Source review identifies
+unchecked boot shift/geometry fields and ignored ValidDataLength. First checkpoint:
+reproduce both, correct confirmed defects with mount/read/rename/remount coverage,
+then publish a draft PR. Preserve mutation ordering/quarantine and existing
+hardware gates. No changes to the other agents' poll/UI/device implementations.
+Acceptance: bounded source-level host tests/sanitizers, matched build and relevant
+thread/libuv VMs, documentation checks and explicit remaining audit queue. Full
+filesystem/security/crash consistency certification and native trials are excluded.
+
+### Import-contract checkpoint results
+
+The [filesystem audit](../filesystem-audit-2026-10-26.md) now records two fixes:
+checked single-FAT boot geometry and zero-filled reads beyond imported
+`ValidDataLength`, including rename/replacement preservation and overwrite cache
+publication. Baseline: one control passed and thirteen directed modes failed.
+Final: sixteen host modes pass normally and under ASan/UBSan; six independently
+compiled negative controls fail their intended runtime assertions. The existing
+entry-layout test passes with ARM host-test/Darwin linker options.
+
+The matched build, dedicated imported-data VM and complete thread suite pass.
+The libuv run with its default ten-second completion budget ended after
+`fs poll ok` (exit 3); the failed log is retained. A fresh 60-second-budget run
+passed all required markers. Evidence, source/output hashes and receipts live in
+`build/review/filesystem-audit/`. No physical trial or Linux exfatprogs crash
+campaign is claimed. GitHub Actions remain disabled.
+
+During closeout PR180 merged into `main` (`afc8bb67`); its header/test/documentation
+changes do not overlap this scope and were fast-forwarded into this branch.
+PR181 and PR19 remain separate. The next checkpoint is entry integrity and
+parser structure: source inspection plus a read-only fixture check confirms that
+the generated disk's 169 root entries have unset checksums, while mount accepts
+them. Allocation ownership, unmount lifetime and crash recovery follow; the
+broader OS audit remains open.
+
+The post-PR180 matched rebuild and all three VMs pass: dedicated import (16.47 s),
+complete threads (39.69 s), libuv with the 60-second completion budget (10.01 s
+including boot). `integrated-vms.json`, the integrated build receipt and runtime
+hash inventory distinguish these runs from the earlier baseline. Documentation
+link/gallery and whitespace checks pass. This checkpoint is ready for draft PR
+review; the listed follow-up defects are not represented as fixed.
+
+Published runtime commit `a8d1617b` in [draft PR182](https://github.com/PaulMDemers/SrvrOS/pull/182).
+The broader audit remains active at the next entry-integrity checkpoint.
+
+### Entry-integrity audit — active scope (2026-10-26)
+
+User authorized the next checkpoint on PR182. Base is `352f9b0d` with main at
+`afc8bb67`; refreshed PR181 remains desktop lifecycle and PR19 Wi-Fi. This pass
+owns exFAT entry-set integrity/structure, bounded ASCII name import, generated
+image entries and directed host/VM fixtures. Reproduce corrupt-checksum acceptance,
+malformed stream/name layouts and unsafe names before correction. Fix the packer
+and parser together; retain explicit unsupported-format refusal and document the
+need to rebuild older generated disks. Acceptance: actual driver regressions and
+sanitizers, independent generated-entry checks, matched build, import/thread/libuv
+VMs and docs. Allocation cross-link ownership, unmount lifetime, full Unicode,
+boot-region recovery and crash consistency remain subsequent checkpoints.
+
+### Entry-integrity checkpoint results
+
+The generator now emits correct file-entry checksums, name hashes and allocation
+flags, and avoids allocating empty streams. The driver checks basic stream/name
+layout, checksum, ASCII name identity/hash and empty-stream flags before
+publication. Additional secondary extensions and unsupported names are refused.
+Directory scans now reject traversed cycles, invalid FAT successors and chains
+shorter than their declared directory data. Older generated disks must be rebuilt
+with the matching kernel; persistent workspace/recovery media were not modified.
+
+Ten new modes failed on the previous implementation. All 29 current host modes
+pass normally and under ASan/UBSan; seven new compiled negative controls are
+caught. Four generator groups and an independent recursive check of all 372 sets
+in 16 directories pass. The existing entry-layout test, matched build and all
+four VMs pass sequentially: import 16.48 s, corrupt-entry/fallback 16.35 s,
+complete threads 40.39 s, libuv 10.22 s (60-second completion budget).
+
+The first corruption harness wrongly assumed refusal prevented all application
+startup. Its retained failure showed the intended clean initramfs fallback. The
+corrected `exfat-refused` guest test verifies rejected paths are absent and the
+fallback remains readable, alongside explicit mount-refusal/fallback diagnostics.
+No timeout is counted as a pass. Evidence and tested source/output hashes are in
+`build/review/exfat-entry-audit/`; documentation and whitespace checks pass.
+
+PR182 remains the delivery branch. Next: allocation/cross-link ownership,
+duplicate paths, bitmap/FAT disagreement and unmount/open-reference lifetime.
+Source review confirms monitor and workspace callers have busy guards; trace
+those against the direct filesystem teardown and other callers before declaring
+a lifetime defect. Boot/upcase recovery, full Unicode and power-loss atomicity
+remain outside this checkpoint. No physical tests or Actions dispatch occurred.
+
+### Allocation/namespace audit — active scope (2026-10-26)
+
+User authorized the next PR182 checkpoint. Base is `0ba50fe9`; refreshed main
+`9f18d7d6` adds the Air6,1 failed stress report only. PR184 owns worker-pipe
+admission, PR181 desktop lifecycle and PR19 Wi-Fi. This pass owns exFAT namespace
+admission, imported allocation checks and exact-alias release, plus focused
+host/VM evidence and docs. Reproduce duplicate-name and overlapping-mount damage,
+shared-allocation release and writable acceptance of inconsistent ownership.
+Preserve generated exact aliases; quarantine unsupported/corrupt allocation
+layouts before mutation. Inspect open-reference teardown callers without assuming
+a defect merely because the low-level unmount API lacks its own process check.
+Acceptance: directed actual-driver tests, sanitizers/negative controls, matched
+build and disposable guest consumers. Cross-device physical aliasing, general
+hot-unplug, power-loss recovery and other agents' process admission code are out
+of scope. No hardware or Actions dispatch is requested.
+
+### Allocation/namespace checkpoint results
+
+All thirteen initial modes reproduced defects at the previous runtime: duplicate
+names were accepted, overlapping/occupied mounts could remove unrelated VFS
+entries, surviving exact aliases lost data/allocation ownership, and inconsistent
+allocation maps remained writable. The driver now admits exclusive canonical
+mount namespaces, rejects duplicate imported names, retains published aliases'
+extents until last-owner retirement, and checks supported allocation maps before
+allowing mutation. Checker failures/inconsistencies latch read-only mode.
+
+All 47 host modes pass normally and under ASan/UBSan; eight new compiled negative
+controls are detected. Fault cases cover mount allocation retry, checker I/O/OOM,
+pre-publication overwrite cleanup and uncertain-write quarantine. The initial
+fault test's clean-map expectation after a metadata-write failure was incorrect:
+existing quarantine deliberately retains the uncertain new allocation. Its failed
+log is preserved; separate read/write failure tests now verify both contracts.
+
+The matched build, independent 372-entry image check and existing entry-layout
+test pass. Six sequential disposable VMs pass: exact aliases 16.52 s, corrupted
+bitmap quarantine 16.43 s, import 16.53 s, corrupt-entry fallback 16.41 s, complete
+threads 40.35 s, and libuv 10.17 s (60-second completion budget). Evidence and
+source/output hashes are in `build/review/exfat-ownership-audit/`. Docs/whitespace
+checks pass. Main's documentation-only PR183 was merged into this branch before
+implementation; no other agent's runtime changes were incorporated.
+
+The normal monitor/workspace/workspace-image busy guards cover retained linked
+file/directory descriptions and current directories. Unlinked/replaced snapshots
+are promoted to process-owned storage and detached from backend nodes. No new
+open-reference defect was confirmed by this trace; no process-admission edits
+were made. Caller serialization, overlapping physical device views, raw leases
+and removal remain next, followed by recovery/crash consistency. This is bounded
+source/host/VM acceptance, not a complete filesystem or hardware audit.
+
+### Allocation checkpoint integration verification
+
+After checkpoint `28bdb374` was pushed, main `0858e8e6` incorporated PR181's
+desktop lifecycle and PR185's UART/startup trace updates. The only merge conflict
+was the appended Makefile test targets; both target groups were preserved.
+No filesystem implementation/test source changed during integration. The matched
+build, 47 exFAT host modes, four generator groups, 40-case shared-window host test
+and 372-entry image check pass against that baseline.
+
+Six integrated VMs pass sequentially: aliases 16.46 s, bitmap quarantine 16.39 s,
+import 16.45 s, corrupt-entry fallback 16.33 s, complete threads 39.89 s and libuv
+10.06 s. Integrated logs, VM receipts and source/output hashes are retained in
+`build/review/exfat-ownership-audit/`. PR184/19 runtime work remains separate.
+No desktop UI, physical hardware or Actions acceptance is claimed by these runs.
+The remaining queue is unchanged: overlapping device views, raw leases,
+serialization/removal and recovery/crash consistency.
+
+### Device-view/raw-lease audit — active scope (2026-10-26)
+
+Continue PR182 from `0654615b`, integrating actual main `5bcd061c` (PR184
+worker-pipe admission) before implementation. Own block range identity/claims,
+exFAT mount admission and workspace scratch/image lease handoff, with directed
+host regressions and matched disposable VMs. PR19 Wi-Fi work stays separate.
+Reproduce overlapping mounts and raw-lease remounts, preserve disjoint partition
+mounts and the authorized inner-image mount, and test release/failure/retry.
+No hardware, Actions dispatch, general hot-unplug or crash-repair work is requested.
+
+### Device-view/raw-lease checkpoint results
+
+Confirmed overlapping block mounts and a parked outer-volume remount during an
+active image lease against the previous runtime. Declared physical view identity
+and range claims now reject overlap before media reads. Raw scratch/image leases
+reserve the entire transport, delegate only the designated image view, reject
+sibling-mount handoff and retain poisoned exclusion until reboot. Clean
+refusal/close releases claims; stale tokens cannot release later owners.
+
+All 51 import modes pass normally and under ASan/UBSan. The real block/partition,
+workspace and USB callback tests pass; seven synthetic real image-adapter runs
+cover successful mutation, two pause points, partial-write/flush quarantine and
+two clean refusals/retries with outer-byte preservation. Block/workspace/image
+adapters pass sanitizers. Six compiled negative controls are detected. Existing
+AHCI host tests pass under x86_64 host execution. The first alias probe had an
+incorrect assertion placement; only the corrected overlap failure is counted.
+Unrelated aggregate Mac linker/assembly/sync-command failures are retained; the
+focused Darwin/x86 wrapper recipe is in the Mac guide. No full Linux host-suite
+or exfatprogs fault-sweep acceptance is claimed.
+
+Matched build and 372-entry image validation pass. Six sequential VMs pass:
+aliases 16.57 s, bitmap quarantine 16.42 s, imports 16.43 s, corrupt-entry fallback
+16.40 s, complete threads 39.75 s and libuv 10.13 s. Evidence is retained in
+`build/review/storage-claims/`, including tested hashes and build/VM receipts.
+The checkout includes main `5bcd061c`/PR184. PR19's workspace-log changes were
+inspected for overlap and remain separate; no logging files were changed here.
+
+Follow-on source tracing found registered USB/AHCI devices are quarantined and
+retained on failure, with no general runtime unregister/reuse path. No additional
+device use-after-free was confirmed. Hot removal/generation changes, caller
+serialization and mutation recovery/crash consistency remain next. No native
+hardware, battery/EC trial or Actions dispatch occurred.
+
+### Identity invalidation/teardown audit — active scope (2026-10-26)
+
+Continue PR182 from `a35e2c33`; integrate main `19a6fe05` (PR186's Air6,1
+documentation) before implementation. Inspect runtime media identity failures,
+cache admission after quarantine, and exFAT operation/teardown serialization.
+Registered-device reuse/hot-plug remains unsupported; add no recovery/rebind API
+without a confirmed need. Own block/USB/AHCI health propagation, filesystem
+lifecycle guards and focused host/VM evidence. PR187 desktop timing and PR19
+Wi-Fi/workspace logging are separate. No hardware or Actions dispatch.
+
+### Identity invalidation/teardown checkpoint results
+
+Five original probes confirmed teardown during foreign ownership, read/write
+callbacks, mount scans and checks. The filesystem now holds CPU0 storage
+ownership for each complete backend operation, rejects same-owner callback
+teardown and rechecks process files/directories/cwds under the teardown owner.
+Boot-time fallback and normal nested metadata operations remain supported.
+
+A published USB failed-command status previously allowed later writes using the
+old geometry. Read/write/flush probes reproduce it. Runtime status/transport
+failures now invalidate the block lineage, as do AHCI uncertain completions.
+Cached aliases, writes/flushes, claims and parked-workspace admission cannot bypass
+terminal invalidation. Published USB storage objects also refuse repeated attach
+before any probe; the old entry point accepted unsupported republication. No
+runtime rebind/generation recovery is added; descriptors/DMA stay pinned.
+
+All 61 import/lifecycle modes pass normally and under ASan/UBSan. Actual block,
+USB, AHCI and workspace tests cover invalidation and balanced admission; seven
+synthetic real image-adapter cases still pass. Block/workspace/image fixtures
+also pass sanitizers. Eight compiled negative controls are detected. The matched
+build, four generator groups and 372-entry image check pass. Six sequential VMs
+pass: aliases 16.55 s, bitmap quarantine 16.40 s, imports 16.55 s, corrupt-entry
+fallback 16.40 s, complete threads 40.08 s and libuv 10.06 s. Evidence, tested
+hashes and build/VM receipts are in `build/review/storage-lifetime/`.
+
+The checkout includes main `19a6fe05`; PR187 desktop timing and PR19 Wi-Fi/logging
+remain separate. Further tracing confirms dirty marking and uncertain-write
+quarantine are not a journal. Next: namespace/sidecar interruption and durable
+rename/replacement recovery. Live media replacement, arbitrary retained kernel
+pointers and hardware hot-unplug remain unaccepted. No physical trial or Actions
+dispatch occurred.
+
+### Lifetime checkpoint integration verification
+
+Checkpoint `801ac9ca` was then integrated with main `4d195e25`/PR187's desktop
+loop diagnostics. The merge was clean; all 19 storage source/test manifest files
+are unchanged. The integrated storage host gate, 61 modes, three loop-timing
+tests, matched build and 372-entry generated-image check pass. Six VMs pass again:
+aliases 16.52 s, bitmap quarantine 16.46 s, imports 16.45 s, corrupt-entry fallback
+16.44 s, complete threads 40.03 s and libuv 10.06 s. Integrated logs, tested hashes
+and build/VM receipts remain under `build/review/storage-lifetime/`. PR19 remains
+separate. These runs do not extend native desktop or hardware acceptance.
+
+### Rename/sidecar audit — active scope (2026-10-26)
+
+Continue PR182 from `3c0c84a7`, including main `4d195e25`. Review namespace
+replacement ordering, sidecar validation/promotion and interrupted mutation
+quarantine. Add portable deterministic write/flush interruption probes and
+focused parser regressions; retain the distinction between quarantine and
+journaled recovery. PR19 Wi-Fi/workspace logging has no storage-file overlap.
+Own exFAT, VFS metadata persistence results, host fixtures and related documentation. No physical trial,
+Actions dispatch, live media rebind or automatic offline repair is in scope.
+
+
+### Rename/sidecar checkpoint results
+
+Nine directed before/after probes reproduce partial or out-of-mount sidecar
+application, numeric overflow, truncated/NUL records, dirty-media replay,
+destructive cleanup after temporary-read failure, and hidden chmod/time sync
+failures. Sidecars now validate wholly from one buffer, stay within the mount,
+and are not replayed on quarantined media. Unreadable temporary files survive
+mount for retry. VFS metadata mutations propagate persistence failure and restore
+live metadata. The original file-backed source also fails the committed-sidecar
+presence assertion; sync/promotion now replace the committed file before retiring
+the temporary record.
+
+All 72 modes pass normally and under ASan/UBSan. The portable synthetic-volume
+sweep passes 144 write/flush/failure/half-write boundaries across rename,
+replacement and promotion. Storage/lease/VFS host tests, the matched build and
+372-entry generator check pass. Six VMs pass: aliases 17.20 s, quarantine
+16.71 s, imports 17.16 s, corrupt entry 16.70 s, complete threads 40.77 s and
+libuv 10.74 s. Logs, source hashes, original failures, harness corrections and
+build/VM receipts are retained in `build/review/rename-sidecar/`.
+
+Main remains `4d195e25`; PR19 was refreshed at `35041be0` and its Wi-Fi/logging
+and separate Make targets do not overlap exFAT/VFS. No native media or Actions
+were used. The fault model covers ordered persisted prefixes; it does not accept
+controller reordering, sector atomicity, journaled rename or physical power-loss
+recovery. Follow-on tracing identifies boot-region/backup and system-stream
+validation as the next bounded audit; full-format conformance remains open.
+
+### Boot/system-stream audit — active scope (2026-10-26)
+
+Continue PR182 from `bc024735`, including main `4d195e25`. Validate boot checksums
+and backup handling before trusting geometry, then root bitmap/upcase descriptors
+and their streams before metadata recovery or mutation. Own exFAT, generated
+images, portable fixtures and related documentation. Refresh PR19 at `f70ee542`:
+its Wi-Fi/logging changes and separate Make targets do not overlap this runtime
+scope. Preserve offline recovery boundaries; no automatic boot repair, native
+media trial, Actions dispatch or new Unicode filename support is planned.
+
+
+### Boot/system-stream checkpoint results
+
+Nineteen initial directed probes reproduce missing boot-region validation and
+system-stream defects; the subsequent unknown-critical-entry probe also fails
+against the previous behavior. Boot checks now cover complete regions and all
+checksum words, required fields/signatures and exact header snapshots. A unique
+valid backup can provide read-only fallback even with a damaged primary sector
+size; ambiguous candidates are refused. A damaged or disagreeing backup also
+prevents writes through a valid primary. No automatic repair is added.
+
+Imports require single root bitmap/upcase descriptors, the correct bitmap
+identity, exact system FAT chains, and valid upcase checksum, coverage and ASCII
+mappings. Fragmented system allocations are followed correctly. Generated images
+now contain both boot regions and a complete compressed upcase table; older
+unchecked images must be rebuilt. Follow-on probes reproduce teardown during
+statfs and truncated multi-cluster bitmap counts. Statistics now hold storage
+ownership and traverse complete chains. Multi-cluster mutation/graph checking
+remain unsupported. A suspected bitmap overread was ruled out and is not counted
+as a confirmed defect; that evidence is retained.
+
+All 100 directed modes and the 29-case sector-size/backup/bitmap matrix pass
+normally and under ASan/UBSan. The 144 interruption boundaries, storage/lease host
+gates, matched build, six generator groups and 372-entry image check pass. Six
+VMs pass: aliases 16.44 s, quarantine 16.51 s, imports 16.67 s, corrupt entry
+16.53 s, complete threads 41.49 s and libuv 10.84 s. Evidence and tested hashes
+are retained under `build/review/boot-system/`.
+
+The final refresh still has main `4d195e25` and PR19 `f70ee542`; no new runtime
+overlap or integration dependency appeared. No Actions, native media test or
+physical recovery was performed. Follow-on tracing reaches allocation exhaustion
+and directory-growth rollback; full Unicode, automatic repair and physical
+power-loss guarantees remain outside the accepted profile.
+
+### Allocation/growth audit — active scope (2026-10-26)
+
+Continue PR182 from `16b81077`, including main `4d195e25`. Inspect allocation
+exhaustion, size bounds, directory extension and failure ordering. Own exFAT,
+focused host fault fixtures and related documentation. PR19 remains `f70ee542`;
+its Wi-Fi/logging and separate Make targets do not overlap this runtime scope.
+Distinguish clean refusal before mutation from uncertain-write quarantine; add
+no journal, native-media trial, Actions dispatch or automatic repair.
+
+
+### Allocation/growth checkpoint results
+
+Out-of-space and allocator-refusal probes reproduced premature directory tail
+writes and quarantine. Oversized payloads/entry sets also reached mutation work.
+The writer now selects space and initializes an extension before retiring end
+markers; impossible requests are refused before dirty marking or scratch
+allocation. Cluster rounding is overflow-safe and allocator counts are bounded.
+
+Stale `ghost` records following an end marker reappeared after insertion and
+remount, both within the same cluster and in later allocated directory clusters.
+The writer now respects the logical end across the chain and clears undefined
+records before publication. UBSan additionally caught signed overflow in the
+long-name hash rotation; its bit-15 rotation is now bounded.
+
+All 108 directed modes pass normally and under ASan/UBSan. The 193 root/subdirectory
+growth fault boundaries pass normally and under sanitizers, alongside the
+existing 144 rename/sidecar boundaries, 29 boot-sector cases, storage/lease gates,
+six generator groups and 372-entry image check. The matched build and six VMs
+pass: aliases 16.96 s, quarantine 16.98 s, imports 17.02 s, corrupt entry 16.63 s,
+complete threads 40.39 s and libuv 10.72 s. Evidence, original failures, corrected
+harness assumptions and tested hashes remain in `build/review/allocation-growth/`.
+
+The publication refresh found main `ee5468f6` (PR188/189), changing only the Air6,1
+machine record. The runtime was tested above on the `4d195e25` integration base;
+the clean documentation merge and refreshed-build check are recorded next.
+PR19 remains separate. Follow-on tracing reaches deletion/truncation retirement
+and low-space sidecar updates. Partial mutations still quarantine; this adds no
+compound space reservation, journal, new errno contract or native acceptance.
+
+
+### Allocation checkpoint integration verification
+
+Runtime checkpoint `497e2e6d` was merged cleanly with main `ee5468f6` (PR188/189).
+The incoming change is confined to the Air6,1 machine record. Every tested source
+and output hash is unchanged; `all` needed no recompilation and refreshed the
+matched-build receipt. A fresh disposable import VM passes in 17.00 s. The full
+six-VM results above remain evidence for the identical runtime artifacts.
+`integrated-build.log`, `integrated-macos-build.json` and `integrated-result.json`
+retain this verification under `build/review/allocation-growth/`.
+
+## Deletion/truncation retirement — active scope
+
+Continue PR182 from `91a4f594` on integration base `ee5468f6`. Audit exFAT
+retirement ordering and low-space sidecar updates using healthy allocation
+fixtures and write/flush interruption sweeps. Touched areas are exFAT, its host
+fixtures, test targets and current storage guides; process unlink reconciliation
+is inspected with its existing regressions. PR190 (`4c0b3fb7`) owns scheduler
+wait attribution; PR19 (`3cb0a338`) owns USB Wi-Fi. Their actual diffs have no
+exFAT implementation overlap; preserve their separate Makefile targets. Next
+checkpoint is reproduced defects, bounded fixes, sanitized host checks and
+matched disposable VM results. No physical install, native acceptance or merge
+is planned.
+
+### Retirement checkpoint verification
+
+All 116 import modes pass normally and under ASan/UBSan; all 323 retirement fault
+boundaries pass normally and under ASan/UBSan. The current 161 growth boundaries,
+144 rename/promotion boundaries, 29 boot matrix cases, storage/lease tests and
+process open-content/orphan tests pass. The matched build, six generator groups
+and recursive 372-entry image check pass. Six sequential disposable VMs pass:
+aliases 17.06 s, quarantine 16.60 s, imports 16.99 s, corrupt-entry 16.68 s, threads 40.18 s, libuv 10.61 s.
+
+Evidence and source/artifact hashes are retained under
+`build/review/retirement-sidecar/`; the two original regression failures match
+`91a4f594` byte-for-byte for the backend source. The compiler-stub failure is
+retained separately and is not a test pass. Main remains `ee5468f6`; refreshed
+PR190 (`f1587a2f`) and PR19 (`9a50f4dc`) remain separate with no exFAT overlap.
+Documentation/link and whitespace checks pass. No native hardware test or
+Actions dispatch was performed.
+
+The confirmed full-volume truncate/shrink defect is corrected and PR182 remains
+a draft. Follow-on snapshot/teardown tracing confirmed no further defect. Next
+bounded question: process writeback retry after a clean backend space refusal,
+which currently shares the failed-content latch used for uncertain I/O. Native
+unregister/rebind, physical power-loss recovery and broader subsystem coverage
+remain open.
+
+
+### Retirement checkpoint integration — active scope
+
+After publishing `d34fcc97`, main advanced to `4ee18f69` with PR190's scheduler
+wait attribution and desktop diagnostic ABI. The only textual conflict is the
+Makefile tail: preserve both `test-storage-leases` and `test-scheduler-trace`.
+No exFAT implementation conflict exists. Rebuild matched artifacts and rerun
+the affected scheduler/syscall/desktop host checks, storage gates and six VMs
+before republishing. The pre-integration evidence above remains tied to its
+original runtime. PR19 remains separate at `9a50f4dc`.
+
+### Retirement checkpoint integrated verification
+
+Integration `9510ce8c` includes main `4ee18f69` (PR190). The Makefile conflict
+was resolved by preserving both test targets; exFAT source was unchanged.
+The scheduler admission/trace/syscall gates, five loop-timing tests, six scheduler
+activity tests and desktop-session fixture pass. The latter uses the documented
+Darwin wrapper with `-Wno-error=array-bounds` for only
+`build/tests/desktop-session-host`: Clang diagnoses the unselected inline-array
+branch at index 31 after asserted dynamic growth to 32/128 slots. Both warnings
+remain visible, and the original strict compile failure is retained; no desktop
+implementation was changed to silence it.
+
+The rebuilt 116-mode import suite, 323 retirement boundaries, storage/lease and
+process tests pass. The matched full build, six generator groups and recursive
+372-entry image check pass. A fresh six-VM pass on the integrated artifacts gives:
+aliases 16.53 s, quarantine 16.44 s, imports 16.51 s, corrupt-entry 16.38 s, threads 40.02 s, libuv 10.11 s.
+
+Commands, failures, passing reruns, build receipt and tested source/artifact
+hashes are under `build/review/retirement-sidecar/integration/`. The earlier
+ASan/UBSan evidence still covers the unchanged exFAT implementation and fixtures;
+it is distinct from the new integrated guest evidence. This final record changes
+documentation only. PR182 remains draft; the next audit question is process
+writeback retry after clean space refusal.
+
+## Process writeback retry — active scope
+
+Continue PR182 from `834fbff0` on main `4ee18f69`. Audit clean writeback refusal
+versus irreversible/uncertain failure, including retained content, shared opens,
+retry, close and process-exit reporting. Touched areas: process writeback, an
+exFAT outcome contract, focused host fixtures and storage guides. Refreshed PR19
+at `e04e2dc0` retains Wi-Fi ownership and has no process/exFAT/VFS overlap; keep
+its Makefile additions separate. Next checkpoint is an original-source retry
+reproducer, atomic backend outcome coverage, process regressions and matched
+VM validation. No native install or PR merge is planned.
+
+### Writeback findings and correction
+
+Two confirmed defects are corrected: clean exFAT refusal no longer permanently
+poisons shared process content, and global sync includes dirty reader-only
+survivors after failed writer close, once per content object. Retry eligibility
+is captured under filesystem ownership after proven clean refusal; partial or
+uncertain mutations remain sticky. Original process source `834fbff0` fails the
+real full-volume bridge, and a separate process regression reproduces the sync
+omission. The new backend tests include reservation OOM and failed clean-marker
+write/flush controls. Final-close and exit failure reporting remain intact.
+
+### Writeback checkpoint verification
+
+All 123 import modes, the real process/exFAT bridge and public process-output
+regressions pass normally and under ASan/UBSan. The 323 retirement, 161 growth,
+144 rename/promotion and 29 boot-matrix boundaries/cases pass normally, along
+with storage/lease gates. The matched build, six generator groups and recursive
+372-entry image check pass. Six sequential disposable VMs pass:
+aliases 16.53 s, quarantine 16.47 s, imports 16.50 s, corrupt-entry 16.41 s, threads 40.53 s, libuv 10.18 s.
+
+Evidence, original failures, harness corrections and tested hashes remain under
+`build/review/writeback-retry/`. Main remains `4ee18f69`; PR19 at `e04e2dc0` has
+no process/exFAT/VFS overlap. Documentation/link and whitespace checks pass.
+No native install, Actions dispatch or PR merge occurred. Follow-on syscall/libc
+tracing confirmed no further defect; descriptor inheritance and delayed-error
+ownership across process exit are next.
+
+## Descriptor inheritance and exit errors — active scope (2026-10-28)
+
+Continue PR182 from `2a091597`, integrating fetched main `5a94d755` through
+PR230 before implementation. Audit inherited file references, close-on-exec,
+spawn/fork setup rollback and ownership of delayed writeback errors at exit.
+Touched areas: process lifecycle/file descriptions, focused host regressions,
+current storage/process guides and this host record. Main's spawn-image,
+directory and scheduler changes are included rather than duplicated. Air6,1 and
+Air7,2 branches are merged; PR19 at `114dee34` retains separate Wi-Fi scope with
+no process/exFAT/VFS changes. Preserve its Makefile work. Next checkpoint is
+bounded reproducers, fixes for confirmed defects and matched host/VM evidence.
+No native install, hardware acceptance or PR merge is planned.
+
+### Inheritance audit result
+
+The scope above is complete at the production file-helper level. No new runtime
+defect was confirmed. Added actual inheritance regressions cover both exit orders,
+shared offsets, clean/sticky error ownership, explicit exit status, CLOEXEC/reuse,
+partial clone failure, stdio snapshot rollback and reader-only survival after
+parent exit. The supported profile now documents that nonstandard inherited files
+may remain buffered after a process exits successfully. Main `5a94d755` was merged
+cleanly in `647ee564`; the matched build and validation include it.
+
+### Inheritance checkpoint verification
+
+All directed inheritance cases pass without a production-code change. The final
+process-output fixture and real process/exFAT bridge pass normally and under
+ASan/UBSan. Normal storage validation passes all 123 import modes, 323 retirement,
+161 growth, 144 rename/promotion and 29 boot-matrix boundaries/cases, plus storage
+and lease gates. Integrated-main checks pass for process lifetime/service/events,
+lifecycle waits, I/O scheduler, scheduler trace/activity and syscall I/O.
+
+The matched OS build, six generator groups and 372-entry generated-image check
+pass. Seven sequential disposable VM gates pass: aliases 16.80 s, quarantine 16.47 s, imports 16.55 s, corrupt-entry 16.50 s, threads 40.33 s, libuv 10.20 s, lifetime 22.95 s.
+The lifetime gate covers two runs, 256 sequential apps, 32 competing-waiter pairs
+and PTY/job-control regression. Documentation checks resolve 692 local links;
+whitespace checks pass. Evidence, source/artifact hashes and VM receipts are under
+`build/review/inheritance-exit/`. Earlier broader sanitizer evidence remains dated
+under previous checkpoints; full Linux test-core and native hardware acceptance
+are not claimed. No Actions dispatch or PR merge occurred.
+
+Follow-on tracing reached socket references and creator cleanup. The next bounded
+scope is queued TCP output/FIN completion across final close and creator versus
+inheritor exit. No networking defect is claimed yet; full concurrent fork/exec/kill
+fault injection and hot unregister/rebind remain outside completed coverage.
+
+## TCP close and process exit — active scope (2026-10-28)
+
+Continue PR182 from `98fb56ff` on unchanged main `5a94d755`. Audit outstanding
+TCP transmissions, deferred FIN, creator/inheritor exit and listener backlog
+ownership. Touched areas: `kernel/src/net.c`, focused host/network VM fixtures,
+Makefile and current networking/audit guides. PR19 at `b8d63682` retains Wi-Fi
+bring-up work without `net.c` or process-lifecycle changes; preserve its Makefile
+additions. Air6,1 diagnostic AP ownership and Air7,2 native desktop evidence stay
+separate. Next checkpoint is deterministic original-source reproductions,
+bounded fixes and matched host/VM validation. No native install or PR merge.
+
+### TCP exit audit result
+
+The scoped audit confirms five related defects: creator cleanup erased outstanding
+TCP data/FIN and inherited listener backlog; deferred FIN lacked the normal close
+deadline and ignored send failure; peer FIN could prematurely retire a local FIN
+that was not acknowledged. Final close now transfers pending work to protocol
+ownership, inherited backlog clears stale creator pointers, and deferred/error/
+simultaneous-close transitions retain bounded lifetime. See the
+[TCP lifetime report](../tcp-lifetime-audit-2026-10-28.md).
+
+## Verification
+
+All eight new host modes pass on x86_64/Rosetta and under native ARM64 ASan/UBSan.
+Original-source verification against `98fb56ff` fails seven modes, with abort
+controls passing. Existing TCP accept, e1000 receive, network worker/device,
+process output/lifetime and syscall I/O host gates pass. The packet accept
+fixture's preexisting `kmalloc(uint64_t)` stub conflicted with the production
+`size_t` declaration on macOS; matching the declaration fixes the harness build.
+The failed build log is retained separately from final results.
+
+The matched kernel/userspace build, six generator groups and 372-entry generated
+image check pass. Six sequential disposable VMs pass: tcp-ready 11.17 s, tcp-stress 47.79 s, netabi 10.05 s, libuv 10.68 s, threads 40.00 s, lifetime 23.59 s.
+TCP stress uses 12 clients. The lifetime gate repeats 256 sequential apps and
+32 competing-waiter pairs over two iterations, followed by PTY checks. Current
+source/artifact hashes, original failures, final host/sanitizer results and guest
+receipts are retained under `build/review/tcp-exit/`. Earlier storage matrices
+remain dated evidence; they were not rerun for this network-only production fix.
+Documentation/link and whitespace checks pass. No native hardware acceptance,
+Actions dispatch or PR merge occurred.
+
+Next bounded question: established-state ACK bounds, sequence wrap and stale/
+closing socket handles. No complete TCP or broad-system audit is claimed.
+
+## TCP ACK admission and stale handles — active scope (2026-10-28)
+
+Continue PR182 from `29df1192` on unchanged main `5a94d755`. Audit established
+ACK admission, sequence wrap, FIN/data retirement and application references to
+closing/reused TCP slots. Touched areas: `kernel/src/net.c`, focused packet/host
+regressions, Makefile and current networking/audit guides. PR19 remains at
+`b8d63682` with separate Wi-Fi work and no net/process overlap. Other machine
+scopes remain the recorded AP diagnostic and native desktop work. Next checkpoint
+is deterministic before/after evidence, bounded fixes and matched VM checks.
+No native install, hardware qualification or PR merge is planned.
+
+### ACK/handle audit result
+
+Corrected unsent-data ACK retirement, invalid outbound SYN-ACK completion and
+retired-handle application access. Reference checks cover hold, I/O, endpoint/
+error queries, shutdown and readiness; final close wakes blocked I/O while
+protocol-owned slots retain retransmission. Wrap and slot-reuse controls passed
+without a runtime correction. The HTTP helper accepts an explicit bounded port
+for the local outbound integration gate. See the
+[TCP audit](../tcp-lifetime-audit-2026-10-28.md).
+
+### ACK/handle verification
+
+All fifteen modes pass under x86_64/Rosetta and native ARM64 ASan/UBSan. The
+seven new modes reproduce five failures on original source `29df1192`; wrap and
+slot-reuse/saturation controls pass. Existing TCP accept, e1000 receive, network
+worker/device, process output/lifetime and syscall I/O host checks pass. The
+matched kernel/userspace build, six generator groups and recursive 372-entry
+image check pass.
+
+Seven sequential disposable VMs pass: tcp-ready 11.08 s, tcp-stress 47.38 s, netabi 10.29 s, libuv 10.21 s, threads 40.17 s, lifetime 23.51 s, outbound-local 10.58 s.
+TCP stress uses twelve clients. The outbound gate uses a temporary localhost
+HTTP server, verifying `/ack-check` and the exact response body; no public web
+service is required. The helper's new `--port` default is 80, with invalid bounds
+refused before VM launch. Documentation/link and whitespace checks pass.
+
+Current logs, original failures, sanitizer results and tested source/artifact
+hashes are retained under `build/review/tcp-ack/`. Earlier storage matrices are
+dated evidence and were not rerun for this network-core change. No native
+hardware qualification, Actions dispatch or PR merge occurred.
+
+Next bounded question: RST/receive-sequence admission and retained descriptor
+errors after terminal expiry. Complete TCP conformance, handle-ID-space
+exhaustion and concurrent fork/exec/kill remain outside the completed scope.
+
+## TCP reset, receive admission and terminal errors — active scope (2026-10-28)
+
+Continue PR182 from `8aa5999a` on unchanged main `5a94d755`. Audit reset/receive
+sequence admission, duplicate/control packets and descriptor ownership after
+terminal timers or TIME-WAIT pressure. Touched areas: `kernel/src/net.c`, focused
+host/packet regressions, Makefile and current audit/network guides. Refreshed
+PR19 is `a0f4f951`, with no net/process-core overlap; its Wi-Fi and Makefile work
+remain separate. Air6,1 AP diagnostics and Air7,2 native evidence are unchanged.
+Next checkpoint is original-source failure evidence, bounded corrections and
+matched host/VM validation. No native install or PR merge is planned.
+
+### Receive/terminal audit result
+
+Corrected reset/receive admission, repeated-SYN sequence handling and loss of
+referenced terminal errors/EOF under expiry or TIME-WAIT pressure. Retained
+`CLOSED` state is application-only and frees on final close; diagnostic state 9
+is named without changing information layout. The first candidate's SYN retry
+assumption was corrected after an explicit initial transport-refusal probe.
+See the [TCP audit](../tcp-lifetime-audit-2026-10-28.md).
+
+### Receive/terminal verification
+
+All 23 modes pass on x86_64/Rosetta and under native ARM64 ASan/UBSan. Against
+original source `8aa5999a`, seven of eight added modes fail and the duplicate/
+overlap control passes. The candidate initial-SYN-send-refusal probe fails before
+its correction and passes in the final repeat-SYN mode. Existing TCP accept,
+e1000 receive, network worker/device, process output/lifetime and syscall I/O
+host gates pass. The matched build, six generator groups and recursive
+372-entry image validation pass.
+
+Seven sequential disposable VMs pass against the final source: tcp-ready 10.92 s, tcp-stress 47.35 s, netabi 10.29 s, libuv 10.13 s, threads 39.87 s, lifetime 23.86 s, outbound-local 10.57 s.
+TCP stress uses twelve clients; the outbound gate checks `/receive-check` and
+its exact response from a temporary localhost HTTP server. The first candidate
+VM set remains separate under `vms-before-syn-retry/`. Current final logs,
+original/candidate failures and tested hashes are under `build/review/tcp-receive/`.
+Documentation/link and whitespace checks pass. Earlier storage matrices remain
+dated evidence; no native hardware acceptance, Actions dispatch or PR merge.
+
+Next bounded question: receive-buffer allocation failure and partial-ACK
+retransmission, including overlap recovery. Full TCP conformance, identifier
+exhaustion and concurrent fork/exec/kill remain outside completed coverage.
+
+## TCP receive allocation and partial ACK — active scope (2026-10-28)
+
+Continue PR182 from `903030ef`, integrating fetched main `7b0cc468` through
+PR233 before implementation. Audit receive-allocation refusal, buffered-data/
+descriptor survival, partial-ACK retransmission and overlap recovery. Touched
+areas: `kernel/src/net.c`, packet/allocator host regressions, Makefile and current
+network/audit guides. PR19 at `52e47a10` has no net/process-core overlap; preserve
+its Wi-Fi and Makefile work. Air7,2's `0cbbb275` adds only separate parity/machine
+evidence beyond main; Air6,1's AP diagnostic work is included in main and its
+next coordinated C3 trial remains separately gated. Next checkpoint is bounded
+reproductions, fixes and matched host/VM validation. No native install or merge.
+
+
+### Allocation/partial-ACK result
+
+Integrated main in `b36bb072`. Corrected receive-allocation lifetime loss and
+inbound HTTP injection, partial-ACK outstanding-byte/retransmission accounting,
+and duplicate-prefix overlap recovery. Thirty host modes retain earlier TCP
+coverage. Original-source failures and candidate fixture corrections are retained
+in `build/review/tcp-retry/`; see the [TCP audit](../tcp-lifetime-audit-2026-10-28.md).
+Next bounded question is peer-window update ordering and zero-window recovery,
+including lost reopening updates. Broader TCP conformance remains unqualified.
+
+
+### Allocation/partial-ACK verification
+
+All 30 lifetime modes pass on x86_64/Rosetta and under native ARM64 ASan/UBSan.
+Eight directed new/updated cases fail against original network source `903030ef`;
+close and future-ACK controls pass. Related TCP accept, e1000 receive, network
+worker/device, process output/lifetime and syscall I/O host gates pass. The newly
+integrated power, AP receipt/owner and lifecycle-wait gates also pass. The matched
+build, six generator groups and recursive 372-entry/16-directory image check pass.
+
+Seven sequential disposable VMs pass: tcp-ready 11.21 s, tcp-stress 47.85 s, netabi 10.21 s, libuv 10.75 s, threads 31.07 s, lifetime 22.95 s, outbound-local 10.82 s.
+TCP stress uses twelve clients; outbound HTTP verifies `/retry-check` and the
+exact local-server body. Logs, original failures, candidate fixture correction,
+source diff and source/artifact hashes are under `build/review/tcp-retry/`.
+Documentation/link and whitespace checks pass. Earlier storage fault matrices
+remain dated evidence; no physical adapter/native AP acceptance, Actions dispatch
+or PR merge is claimed. PR182 remains draft.
+
+
+## TCP peer-window ordering and persist recovery — active scope (2026-10-28)
+
+Continue PR182 from `1d1e106a`, integrating main `45b8647a` through PR234
+(two device-evidence documents only). Audit stale window advertisements, original
+segment sequence after overlap trimming, probe responses after a lost reopening
+update, and responsive versus silent zero-window peers. Scope: network core,
+packet/timer regressions, Makefile and current guides. PR19 `52e47a10` remains
+separate Wi-Fi work. Air6,1 `c9639988` has opt-in coordinated-C3 diagnostics beyond
+main; no network-core overlap and no native qualification is implied here.
+Next checkpoint: original-source failures, bounded fixes and matched host/VM
+validation. Keep PR182 draft; no Actions, native install or merge is planned.
+
+
+### Peer-window/persist result
+
+Integrated main in `82aecaf5`. Corrected stale window publication (including
+original sequence after overlap), invalid passive-handshake mutation, ineffective
+probes and premature timeout of responsive zero-window peers. Silent peer and
+local close bounds remain. The 38-mode fixture includes a two-endpoint lost-update
+exchange with refused probe send and sequence wrap. Evidence is under
+`build/review/tcp-window/`; see the [TCP audit](../tcp-lifetime-audit-2026-10-28.md).
+Next bounded question is IPv4/TCP packet-boundary validation, fragment admission
+and option/MSS handling. No native C3/adapter or full TCP qualification is implied.
+
+
+### Peer-window/persist verification
+
+All 38 lifetime modes pass on x86_64/Rosetta and under native ARM64 ASan/UBSan.
+Six added modes fail against original network source `1d1e106a`; silent-peer and
+close-deadline controls pass. Existing TCP accept, e1000 receive, network
+worker/device, process output/lifetime and syscall I/O host gates pass. The
+matched build, six generator groups and recursive 372-entry/16-directory image
+check pass. The integrated PR234 baseline changes only device-evidence docs.
+
+Seven sequential disposable VMs pass: tcp-ready 11.36 s, tcp-stress 47.87 s, netabi 10.5 s, libuv 10.77 s, threads 30.99 s, lifetime 22.75 s, outbound-local 10.84 s.
+Stress uses twelve clients; outbound HTTP verifies `/window-check` and the exact
+local-server body. Logs, original failures, the candidate compile correction,
+source diff and tested source/artifact hashes are under `build/review/tcp-window/`.
+Documentation/link and whitespace checks pass. Earlier storage matrices and
+native-device acceptance remain dated evidence; no Actions dispatch, physical
+install or PR merge occurred. PR182 remains draft.
+
+
+## IPv4 admission and TCP options/MSS — active scope (2026-10-28)
+
+Continue PR182 from `811c4685`, integrating main `6cbfedab` through PR237.
+Audit fragment admission, packet/header boundaries, TCP option lengths and
+negotiated/default MSS. Scope: network core, host packet regressions, Makefile
+and current network/audit docs. Main adds quiescent-I/O fairness, isolated AP C3
+diagnostics and device evidence; rerun affected host checks with matched images.
+PR19 `7ac6b0e6` remains separate Wi-Fi work without net.c overlap. Air7,2
+`4f1ca2a1` records a bounded desktop-worker follow-up; preserve its ownership.
+Next checkpoint: directed original-source failures, bounded fixes and sequential
+host/VM checks. PR182 stays draft; no native install, Actions or merge is planned.
+
+
+### IPv4/TCP parser result
+
+Integrated main in `57d8f80a`. Refused fragments/reserved IPv4 flags before
+transport dispatch, validated TCP option lengths before mutation, and added
+negotiated/default MSS transmit caps with SYN/retry advertisement. Forty-six
+modes include six original-source failures and two boundary/unknown-option
+controls. Evidence is under `build/review/tcp-parser/`; see the
+[TCP audit](../tcp-lifetime-audit-2026-10-28.md). The next bounded audit is UDP/ICMP
+receive validation, datagram queue pressure/truncation and endpoint lifetimes.
+Native-device results remain owned by their machine records.
+
+
+### IPv4/TCP parser verification
+
+All 46 lifetime modes pass on x86_64/Rosetta and under native ARM64 ASan/UBSan.
+Six added modes fail on original network source `811c4685`; packet-boundary and
+well-formed-option controls pass. TCP accept, e1000 receive, network worker/device,
+process output/lifetime and syscall I/O host gates pass. The integrated baseline's
+I/O scheduler/fairness, AP receipt/owner/C3 parser and lifecycle-wait gates pass.
+The matched build, six generator groups and recursive 372-entry/16-directory
+image check pass.
+
+Eight sequential disposable VMs pass: tcp-ready 11.38 s, tcp-stress 47.84 s, netabi 10.43 s, libuv 10.84 s, threads 40.59 s, lifetime 22.72 s, web-segmented 19.34 s, outbound-local 11.1 s.
+Stress uses twelve clients; web smoke includes a segmented static response;
+outbound HTTP verifies `/parser-check` and the exact localhost-server body.
+Logs, original failures, source diff and source/artifact hashes are retained
+under `build/review/tcp-parser/`. Documentation/link and whitespace checks pass.
+Earlier storage matrices and native-device acceptance remain dated evidence;
+no Actions dispatch, physical install or PR merge occurred. PR182 remains draft.
+
+
+## UDP/ICMP validation and endpoint ownership — active scope (2026-10-28)
+
+Continue PR182 from `950a4ee0`, integrating main `2c34a460` through PR238
+(desktop lifecycle-worker/capture changes). Audit UDP lengths/checksums, bounded
+queue overflow and truncation, zero-length datagrams, ICMP echo validation, bind
+identity, blocked-send/receive close/reuse and inherited endpoint ownership.
+Include libc datagram recvmsg behavior if directed tests confirm a mismatch.
+Scope: net.c, socket adapter/headers as needed, host/guest regressions, Makefile
+and current guides. PR19 `7ac6b0e6` remains separate Wi-Fi work; main contains the
+Air7,2 worker changes and Air6,1 C3 evidence. No network-core overlap was found.
+Next checkpoint: original-source failures, bounded fixes and sequential matched
+validation. Keep PR182 draft; no Actions, native install or merge is planned.
+
+
+### UDP/ICMP and datagram result
+
+Main is integrated in `300cbcb7`. Corrected ICMP echo checksum/code admission,
+UDP ARP-wait endpoint reuse and rebinding, failed-bind cached-port publication,
+recvmsg truncation/zero-capacity consumption and short source-address reporting.
+Ten kernel and six libc modes include five and four original-source failures
+against `950a4ee0`; all sixteen pass with x86_64/Rosetta and native ARM64
+ASan/UBSan. Queue/drop, ordinary kernel truncation, blocked close/held-reference
+cleanup and empty/OOM controls retain their behavior. The separate 46-mode TCP
+suite plus TCP accept, network worker/device, process output/lifetime and syscall
+I/O gates pass. Integrated lifecycle-wait, capture and desktop-session checks
+pass with the documented Darwin feature/Clang warning accommodations. See the
+[datagram audit](../datagram-audit-2026-10-28.md).
+
+The matched build, six generator groups and recursive 372-entry/16-directory
+image check pass. Eight sequential disposable VMs pass: tcp-ready 10.88 s, tcp-stress 47.35 s, netabi 9.87 s, libuv 10.18 s, threads 30.22 s, lifetime 23.09 s, web-segmented 18.72 s, outbound-local 10.6 s.
+The guest confirms the new UDP netabi marker; outbound HTTP verifies
+`/datagram-check` and the exact localhost-server body. Logs, original failures,
+source diff and source/artifact hashes are retained in `build/review/datagram/`.
+Documentation links and whitespace checks pass. PR182 remains draft; no Actions,
+native install or merge occurred. PR19 `7ac6b0e6` retains independent Wi-Fi scope.
+Earlier storage/native evidence remains dated separately. Continued tracing
+reaches shared ARP/DNS query ownership and connected-UDP peer filtering/libc
+close-reuse; directed overlap/filter tests are the next bounded checkpoint.
+
+
+## Resolver and connected-UDP ownership — active scope (2026-10-28)
+
+Continue PR182 from `c43a1749`, integrating main `4ae360ef` through PR243.
+Audit shared ARP/DNS query state across blocking waits, connected UDP peer
+filtering and libc receive/close/reuse and flag restoration. Scope: network
+core, socket adapter, directed host/guest regressions, Makefile and current
+guides. Main adds desktop pool-drain/scheduler attribution and opt-in read-only
+package/platform diagnostics; rerun affected integration checks. PR19 now at
+`88a2408a` remains separate Wi-Fi bring-up, without network-core overlap.
+Next checkpoint: original-source failures, bounded fixes and sequential matched
+validation. PR182 remains draft; no native install, Actions or merge planned.
+
+
+### Resolver and connected-UDP ownership result
+
+Integrated main `4ae360ef` through PR243 in `9f427171`, preserving both appended
+Makefile test groups. ARP waits now consume only their own target's cached
+mapping; unknown opcodes cannot update the cache. Native DNS holds one owner
+through ARP/retries/completion, refuses overlap with `SRV_ERR_AGAIN`, checks the
+configured source server, and releases on exit/failure/success. UDP receives share
+connected-peer filtering and support unconnected recv; pseudo-slot generations
+prevent close/reuse from redirecting retries or flag restoration. See the
+[datagram audit](../datagram-audit-2026-10-28.md) for contracts and limits.
+
+Thirteen query and twelve libc modes pass on x86_64/Rosetta and native ARM64
+ASan/UBSan; eight and nine respectively fail against original source `c43a1749`.
+The prior 46 TCP and sixteen datagram modes pass normally and under sanitizers.
+TCP accept, network worker/device, process output/lifetime, syscall I/O and
+lifecycle-wait pass. Integrated package/platform diagnostic, PCI, tool timing and
+file-pool host checks pass. The matched build, six generator groups and recursive
+372-entry/16-directory image check pass.
+
+Eight sequential disposable VMs pass: tcp-ready 11.28 s, tcp-stress 47.76 s, netabi 9.95 s, libuv 10.63 s, threads 40.41 s, lifetime 23.1 s, web-segmented 19.21 s, outbound-local 10.94 s.
+Netabi confirms connected filtering/unconnected receive as well as the earlier
+truncation/queue group. Local outbound HTTP verifies `/query-check` and the exact
+body. Original failures, final logs, candidate diff and tested source/artifact
+hashes are retained under `build/review/query-ownership/`. Documentation links
+and whitespace checks pass; PR182 stays draft. No Actions dispatch, native
+installation or merge occurred. PR19 `88a2408a` retains independent Wi-Fi scope.
+Continued tracing reaches DNS question/answer identity and compressed names,
+libc resolver source/error handling, same-live-FD flag isolation and TCP
+connect/accept publication after close/reuse. These need directed tests next;
+full DNS/network and arbitrary SMP conformance are not claimed.
+
+
+## DNS parsing and socket call ownership — active scope (2026-10-28)
+
+Continue PR182 from `4cef0949`, integrating main `46b60b24` through PR246.
+Audit native/libc DNS response identity and compressed names, per-call
+nonblocking isolation and TCP connect/accept close/reuse. Scope: shared bounded
+DNS parsing, network/socket adapters, a native nonblocking socket I/O entry if
+needed, pipe nonblocking helpers, host/guest tests and current docs. Existing
+syscall interfaces remain available; rebuild matched kernel/libc if adding the
+new entry. Main adds clock-only logging and opt-in diagnostic corrections;
+rerun their affected host gates. PR19 `5556641f` retains independent Wi-Fi scope.
+Next checkpoint: original-source failures, focused fixes, sequential matched
+verification and draft PR update. No Actions, native install or merge planned.
+
+
+### DNS parsing and socket call ownership result
+
+Main `46b60b24` through PR246 is integrated in `39210341`. Shared DNS parsing now
+validates question/response identity, complete packet extents, bounded compressed
+names and relevant A/CNAME answers. Libc retains immutable retry bytes, filters
+the configured UDP peer, rejects truncation and maps native resolver contention
+to EAI_AGAIN. MSG_DONTWAIT uses new per-call syscall 155 without shared flag
+mutation, including UDP sends and pipe-backed socketpairs. Connect/accept
+revalidate pseudo generations after waits/restarts; native accept retains a
+CLOEXEC listener duplicate and captured options. See the
+[DNS/socket report](../dns-socket-audit-2026-10-28.md) for limits and ABI details.
+
+Forty-six parser cases, seventeen libc modes and the syscall dispatch matrix
+pass on x86_64/Rosetta. The parser/libc and prior UDP/query matrices pass native
+ARM64 ASan/UBSan; syscall dispatch uses x86_64 sanitizers for its inline assembly.
+Original `4cef0949` fails fifteen kernel-parser and seventeen libc-parser modes;
+fifteen of the seventeen initial socket modes differ, including the new
+raw-accept descriptor-pressure contract. Stream modes additionally verify signal
+checkpoints and EPIPE preservation. The prior 46 TCP modes pass normally and
+under sanitizers. Pipe pressure/flags, TCP accept, network worker/device, process
+output/lifetime, syscall I/O and lifecycle-wait pass. Integrated package/platform,
+clock/clock-app, workspace-log and PCI gates pass. Matched build, six generator
+groups and recursive validation of 372 entries in 16 directories pass.
+
+Eight sequential disposable VMs pass: tcp-ready 10.88 s, tcp-stress 47.74 s, netabi 10.32 s, libuv 10.21 s, threads 40.5 s, lifetime 23.54 s, web-segmented 18.84 s, outbound-local 10.51 s.
+Netabi confirms signal delivery, per-call flags/alias/pressure/recovery and both
+earlier UDP groups. Local outbound HTTP verifies `/dns-socket-check` and the
+exact `srvros-local-outbound-dns-socket` body. Resolver malformed-packet and
+close/reuse schedules remain deterministic host evidence, not VM concurrency
+claims.
+
+Final source and image hashes, original failures and logs are retained under
+`build/review/dns-socket/`; intermediate candidate runs are retained separately
+from the final image. PR182 remains draft. No native install,
+Actions dispatch or merge occurred. PR19 `5556641f` remains independent Wi-Fi
+work. Continued tracing reaches resolver retry/deadline policy, duplicated
+pseudo-socket peer/options state and remaining native-FD I/O continuations;
+these need separate directed coverage before claiming a broader socket profile.
