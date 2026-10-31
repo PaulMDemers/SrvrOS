@@ -23,6 +23,12 @@ Validate focused and integrated hosts, then normal and throttled disposable VMs;
 no physical acceptance is inferred. PR #252 resolver/socket and PR #19 Wi-Fi
 remain independent. Previous native evidence/recovery remain unchanged until a
 new matched candidate passes staging/preflight.
+The final VM also exposed a collector race: it acted on a partial final UART
+status line before PASS/unmount text finished arriving. Extend the bounded scope
+to `audio_io_stress_smoke.py` and its host fixture: require a complete LF/CRLF
+completion record, keep failure handling and time/workload limits unchanged.
+Retain the incomplete collection and rerun; clean retirement alone is not proof
+of the full saved-file workload.
 
 ### PR182 integration and local regression scope (2026-10-31)
 
