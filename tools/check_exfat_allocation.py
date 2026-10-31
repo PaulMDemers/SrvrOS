@@ -47,8 +47,11 @@ def main():
     parser.add_argument('--battery-image', action='store_true',
                         help='also require the exclusive contiguous 16 MiB battery-fs.img extent')
     parser.add_argument("--require-headroom",action="store_true",help="Also require 32 file and 8 directory slots plus metadata reserve")
+    parser.add_argument('--require-writable', action='store_true',
+                        help='also require the production importer to authorize writes, without writing')
     args = parser.parse_args()
-    if args.battery_image and args.require_headroom: parser.error("Use separate extent and headroom checks")
+    if sum((args.battery_image, args.require_headroom, args.require_writable)) > 1:
+        parser.error("Use separate extent, headroom and writable checks")
     try:
         volume = volume_id(args.uuid)
         inventory = json.loads(subprocess.check_output([
@@ -62,7 +65,7 @@ def main():
                 raise ValueError('Expected a block device')
             Reader(stream, volume)  # Independently verify on-disk UUID and geometry.
         return subprocess.run([str(driver), str(device),
-                               'image-range' if args.battery_image else 'headroom-check' if args.require_headroom else 'allocation-check']).returncode
+                               'image-range' if args.battery_image else 'headroom-check' if args.require_headroom else 'writable-check' if args.require_writable else 'allocation-check']).returncode
     except (ValueError, OSError, subprocess.CalledProcessError) as error:
         print(f'allocation-check: NOT CHECKED: {error}')
         return 2

@@ -62,6 +62,12 @@ bool block_write(struct block_device *d, uint64_t o, const void *p, uint64_t n) 
 static bool flush(struct block_device *d) { (void)d; flushes++; if(flushes==fail_flush_at) failed=true; if(failed || fsync(fd)) return false;
     if(flushes==crash_flush_at)_exit(78);
     return true; }
+/* Advertise transport capabilities for the eligibility predicate, but never
+ * mutate media. Any attempted mutation is also an assertion failure below. */
+static bool refuse_write(struct block_device *d,uint64_t o,const void *p,uint64_t n) {
+    (void)d;(void)o;(void)p;(void)n;writes++;return false;
+}
+static bool refuse_flush(struct block_device *d) { (void)d;flushes++;return false; }
 static void equal(const char *path, const uint8_t *expected, uint64_t n) {
     const struct vfs_node *node=vfs_lookup(path); const uint8_t *data; uint64_t size;
     assert(node && vfs_read_all(node,&data,&size));
@@ -71,7 +77,8 @@ int main(int argc, char **argv) {
     assert(argc>=3);
     bool image_range=!strcmp(argv[2],"image-range");
     bool headroom_only=!strcmp(argv[2],"headroom-check");
-    bool check_only=headroom_only||image_range||!strcmp(argv[2],"allocation-check");
+    bool writable_only=!strcmp(argv[2],"writable-check");
+    bool check_only=writable_only||headroom_only||image_range||!strcmp(argv[2],"allocation-check");
     fd=open(argv[1],check_only ? O_RDONLY : O_RDWR); assert(fd>=0);
     struct stat st; assert(fstat(fd,&st)==0);
     uint64_t bytes=st.st_size;
@@ -84,7 +91,8 @@ int main(int argc, char **argv) {
 #endif
     }
     struct block_device d={.used=true,.name="fixture",.block_size=512,.block_count=bytes/512,
-        .read=block_read,.write=check_only ? NULL : block_write,.flush=check_only ? NULL : flush};
+        .read=block_read,.write=writable_only ? refuse_write : check_only ? NULL : block_write,
+        .flush=writable_only ? refuse_flush : check_only ? NULL : flush};
     if(check_only) {
         if(!exfat_mount_block_device("/vol",&d)) {
             fputs("allocation-check: unsupported or invalid filesystem; NOT CHECKED\n",stderr);
@@ -93,6 +101,11 @@ int main(int argc, char **argv) {
         struct exfat_check_result result={0};
         bool ok=exfat_check("/vol",&result);
         bool graph_ok=ok;
+        if(writable_only) {
+            bool writable=exfat_is_writable("/vol");
+            printf("writable-check: %s zero_writes=yes\n",writable?"PASS":"REFUSED");
+            ok=ok && writable;
+        }
         if(ok&&image_range) {
             struct block_device *resolved=NULL;uint64_t offset=0;
             ok=exfat_exclusive_range("/vol/srvros-work/battery-fs.img",16u*1024u*1024u,&resolved,&offset)&&resolved==&d;

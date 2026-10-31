@@ -2,6 +2,38 @@
 
 Updated: 2026-10-31. State: **active reference machine; partial device acceptance**.
 
+### Native workspace refusal and preflight follow-up (2026-10-31)
+
+Release `e3370f00781fb60c` halted before the automated workload: the workspace
+mounted read-only and no new session was saved. The supplied photograph records
+write refusal and failed workspace retirement, not an endurance pass. All 1210
+prior files retain their exact hashes; offline fsck, allocation and headroom
+checks pass. The primary volume flags remain `2` (dirty) even when unmounted;
+backup flags are zero and the bitmap has the expected 59149-byte size. The time
+and cause of the dirty flag are not established by this run. Do not clear it to
+make the importer accept writes.
+
+The Air agent owns a bounded preflight follow-up in `exfat_host_driver.c`,
+`check_exfat_allocation.py`, `test_exfat_boot.py` and the Ubuntu guide: expose a
+read-only check of the production importer's write eligibility. Allocation
+consistency and capacity alone did not catch this write refusal. Keep the guest
+filesystem gates unchanged; preserve media and rehearse any proposed recovery
+on a disposable copy before modifying the physical drive. No new reboot is
+armed. PR #252 resolver/socket and PR #19 Wi-Fi remain independent.
+
+The follow-up passes 65 boot/sector/write-eligibility cases and both partition
+selection tests; all 745 documentation links pass locally. The physical drive
+reproduces `writable-check: REFUSED` despite a passing allocation graph. Boot/FAT
+and every allocated cluster are preserved outside `build`. A disposable-copy
+`fsck.exfat -y` changes only primary flag byte106 from2to0; after verifying the
+physical source still matches that backup, the same filesystem-tool recovery
+produces an exact allocated-range match to the rehearsal. All1210 prior files
+remain unchanged; offline fsck/allocation/write-eligibility/headroom pass.
+Installed candidate and independent recovery are verified; Ubuntu default is
+unchanged and the one-shot is consumed. No endurance work ran and no retry is
+armed. The dirty flag's origin remains unknown. A retry needs a separately saved
+run record and clean offline write-eligibility check before reboot.
+
 ### READY admission follow-up scope (2026-10-31)
 
 From main `7e249356`, the Air agent owns a bounded scheduler follow-up in

@@ -31,14 +31,21 @@ def main():
     for shift in range(9,13):
         sector=1<<shift
         seed=empty_image(4*1024*1024,sector_shift=shift).data
+        run(f'{sector}-writable-preflight',seed,'writable-check')
+        for flags in (2,4,6):
+            data=bytearray(seed);struct.pack_into('<H',data,106,flags)
+            run(f'{sector}-flags-{flags}-graph',data,'allocation-check')
+            run(f'{sector}-flags-{flags}-writable-refused',data,'writable-check',1)
         run(f'{sector}-healthy',seed,'creation-mode')
         data=bytearray(seed);data[108]=255
         run(f'{sector}-backup-fallback',data,'readonly')
         data=bytearray(seed);data[12*sector+120]^=1
         run(f'{sector}-backup-damaged',data,'readonly')
+        run(f'{sector}-backup-damaged-preflight',data,'writable-check',1)
         data=bytearray(seed);data[120]^=1;data[12*sector+120]^=1
         run(f'{sector}-both-damaged',data,'allocation-check',2)
         data=bytearray(seed);struct.pack_into('<H',data,12*sector+106,6);data[12*sector+112]=255
+        run(f'{sector}-stale-backup-writable',data,'writable-check')
         run(f'{sector}-stale-backup-flags',data,'creation-mode')
         data=bytearray(seed);backup=bytes(data[12*sector:24*sector]);data[100]^=1;write_boot_regions(data);data[12*sector:24*sector]=backup
         run(f'{sector}-copies-disagree',data,'readonly')
