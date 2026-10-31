@@ -122,6 +122,21 @@ only completed whole-process waits authorize the process-owned interpretation.
 Full desktop host and matched builds pass. Loaded VM checks must still pass
 before another test; no physical trial or kernel admission change is armed.
 
+Source3e66c0cf50IOPS clears the first Text lifetime but FilesPID10 still fails
+phase3 at10.003698s. Close reaches the app promptly (18.606s), but listing
+submission occurs only after startup finishes (~23.25s); no header/channel had
+been leased when Close arrived. Keep this failure. Add desk_file_job queued
+read-only cancellation only for READ/LIST/STAT with no channel and zero sent/
+received bytes. Unlink FIFO membership without fabricating a response or
+reusing IDs; all mutations and accepted/partial requests retain ownership.
+When cancellation leaves no queued demand, signal the helper's startup record;
+the transport constructor checks between operations and closes acquired fds.
+A late successful spawn stays owned and exits/reaps through EOF, never kill.
+Explicit cancellation/unused-transport counters must account for every startup;
+new version3 receipts distinguish this from transport errors. Validate FIFO
+head/middle/tail, mutation/leased refusal, held construction cleanup and late
+spawn cleanup. No kernel/firmware changes or deadline relaxation are planned.
+
 ### Native Files lifecycle return — delayed Close delivery (2026-10-31)
 
 Releasea4f7080c77fda748/source0fe284e2 saves matching session and returns to
