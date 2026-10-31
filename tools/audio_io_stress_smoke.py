@@ -146,6 +146,20 @@ def main():
                     assert time.monotonic()-started<180 and process.poll() is None
                     pump(.2)
                     assert b'battery: HALTED' not in output
+                # Keep atomic failure diagnostics too: a clean automatic return
+                # is not a workload pass. Read only after QEMU exits, before any
+                # PASS assertion can discard the disposable backing image.
+                process.wait(timeout=30)
+                data=stick.read_bytes();assert data[:2048*512]==original[:2048*512] and data[end:]==original[end:]
+                final=ExfatFixture(data[2048*512:end]);snapshots=list(checkpoints)
+                if not stage:
+                    session=re.findall(rb'workspace-log: directory=/work/([^ ]+) periodic_seconds=10',output)
+                    assert len(session)==1
+                    logdir=session[0].decode()
+                    for name,_ in final.entries(final.read(logdir)):
+                        if name.endswith('.log'):
+                            raw=final.read(logdir+'/'+name);snapshots.append(raw)
+                            (out/('saved-'+name)).write_bytes(raw)
                 expected=b'desktop-audio-io: result=FAIL unmounted=yes' if stage else b'desktop-audio-io: result=PASS unmounted=yes'
                 assert expected in completion_line(output),output[-2000:]
                 if stage:
@@ -162,9 +176,6 @@ def main():
                     (out/'lifecycle.json').write_text(json.dumps(dict(cycles=int(lifecycle[1]),max_loop_us=int(lifecycle[2]),max_ready_us=int(lifecycle[3]),max_close_us=int(lifecycle[4]),errors=0,limit_us=500000),indent=2)+'\n')
                     assert re.search(rb'battery-service: retired epoch=1 .*heap=0 errors=0 denied=0',output)
                     assert b'runtime_retired=yes' in output and overlap
-                process.wait(timeout=30)
-                data=stick.read_bytes();assert data[:2048*512]==original[:2048*512] and data[end:]==original[end:]
-                final=ExfatFixture(data[2048*512:end])
                 for name,contents in prior.items():assert final.read('srvros-work/'+name)==contents
                 if not stage:
                     directory=re.search(rb'audio-io: begin seconds=60 directory=/work/([^ ]+) automatic=yes',output)[1].decode()
@@ -172,13 +183,6 @@ def main():
                     assert b' volume=1\n' in receipt
                     (out/'receipt.txt').write_bytes(receipt)
                     # UART writers may interleave; saved bootlog records are atomic.
-                    session=re.findall(rb'workspace-log: directory=/work/([^ ]+) periodic_seconds=10',output)
-                    assert len(session)==1
-                    logdir=session[0].decode();snapshots=list(checkpoints)
-                    for name,_ in final.entries(final.read(logdir)):
-                        if name.endswith('.log'):
-                            raw=final.read(logdir+'/'+name);snapshots.append(raw)
-                            (out/('saved-'+name)).write_bytes(raw)
                     ready,closed=lifecycle_receipts([bytes(output),*snapshots],int(lifecycle[1]))
                     assert max(row[2] for row in ready)==int(lifecycle[3])
                     assert max(row[2] for row in closed)==int(lifecycle[4])

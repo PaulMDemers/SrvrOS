@@ -151,6 +151,12 @@ The UI never waits on a PID owned by that record. Interrupted results retain the
 child for retry. Sixteen in-flight records provide bounded backpressure without
 changing the process/window budget; full queues keep their children registered.
 Shutdown drains admitted requests before the worker/session storage disappears.
+Immutable `desktop-reap-state` records count queued/running/completed requests
+and identify the oldest request's PID/state. Queue age is total time since
+submission; run age starts immediately before the blocking wait, and completed
+time is its measured duration. Only acquire-published fields are read. Automated
+lifecycle failures freeze this snapshot at the deadline and print it after the
+measured UI loop; a later empty queue does not erase that failure-time state.
 
 Whole anonymous mapping retirement has a narrow independent path: the current
 main thread must be alone in its process, with matching active address space and

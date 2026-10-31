@@ -95,6 +95,14 @@ and a failure-time operation snapshot, plus host fixtures. Distinguish worker
 queue delay from gated wait before changing reaping policy; keep old failures,
 all ownership gates and test limits. No new physical trial is armed.
 
+Diagnostic `d3af5211` passes two populated100IOPS VM runs (11/14cycles,
+UI119637/110405us). A heavier50IOPS run fails10cycles/10001410us at Files
+PID22: process still background with6115328 mapped bytes and no pending reap;
+Close was received while operation3 was busy. Preserve this distinct failure.
+Include `audio_io_stress_smoke.py` in the diagnostic scope: retain final atomic
+session logs after clean QEMU exit before asserting the guest PASS receipt.
+Failed workload collection must not emit a passing result or relax validation.
+
 ### Native cache-reuse return — memory cleanup gate identified (2026-10-31)
 
 Release `216844aaab4b2363` / source `695db843` saves matching session
