@@ -14,6 +14,11 @@ void tool_runtime_cancel_modal(struct tool *t) {t->modal=t->prompt_mode=t->info_
 void tool_runtime_close_request(struct tool *t) {t->closing=1;}
 static struct tool t;
 int main(void) {
+    t.role=DESK_APP_FILES;assert(!tool_runtime_file_ready(&t));
+    t.window.serial=t.window.pending=1;assert(!tool_runtime_file_ready(&t));
+    t.window.pending=0;assert(tool_runtime_file_ready(&t));
+    t.window.serial=t.window.pending=2;assert(tool_runtime_file_ready(&t));
+    t.window.serial=t.window.pending=0;t.role=DESK_APP_TEXT;assert(tool_runtime_file_ready(&t));
     for(unsigned role=DESK_APP_FILES;role<=DESK_APP_TEXT;role++) {
         t.role=role;
         for(unsigned op=0;op<=DESK_FILE_COPY+1;op++) {

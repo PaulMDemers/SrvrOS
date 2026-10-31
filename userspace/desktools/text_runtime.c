@@ -187,7 +187,9 @@ int tool_window_runtime(int role,const char *path) {
         while(owner) {
             struct desk_window_owner *next=owner->next;struct tool_document *d=document(owner);struct tool *t=&d->tool;
             if(app.set.failed) {owner->retired=1;t->pending=t->closing=0;}
-            if(t->job.busy) {
+            if(role==DESK_APP_FILES && owner->ready && !owner->retired && !t->quit && !app.set.failed && !t->window.serial)
+                tool_runtime_draw(t);
+            if(t->job.busy && (owner->retired || app.set.failed || tool_runtime_file_ready(t))) {
                 int result=tool_runtime_file_poll(t,&d->logged_job);
                 if(result) {
                     if(owner->retired) {
