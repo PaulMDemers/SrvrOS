@@ -103,6 +103,17 @@ Include `audio_io_stress_smoke.py` in the diagnostic scope: retain final atomic
 session logs after clean QEMU exit before asserting the guest PASS receipt.
 Failed workload collection must not emit a passing result or relax validation.
 
+Collector `2ce59ceb` passes a populated50IOPS KVM run:11cycles,
+UI109335us/ready3450870us/close5128973us with full integrity and retirement.
+Four saved document unmaps wholly overlap foreign ownership, max903us with zero
+blocks. A25IOPS diagnostic run fails at PID10's phase3 deadline10007513us;
+the harness correctly exits nonzero, retains four final atomic session logs
+including the failure-time snapshot, and emits no passing result. This validates
+failure collection, not workload acceptance. Host collector34cases and745local
+documentation links pass. PR #258 remains draft: independent anonymous retirement
+is locally validated, while stable whole-process/native endurance remains open.
+No new physical run is armed; preserve existing recovery and all failed runs.
+
 ### Native cache-reuse return — memory cleanup gate identified (2026-10-31)
 
 Release `216844aaab4b2363` / source `695db843` saves matching session
