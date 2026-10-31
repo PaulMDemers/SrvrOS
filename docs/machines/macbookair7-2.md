@@ -19,6 +19,12 @@ negative scratch mode and its Python fixture: accept import refusal or mounted
 scratch refusal, but require zero writes/flushes and byte-identical media.
 Retain positive scratch-range/remount coverage and production validation gates.
 No filesystem, scheduler or driver policy change is planned for this repair.
+The rerun also reaches GCC/glibc portability failures in libc socket host tests:
+IPv6 aggregate nesting, const ancillary-header traversal and bounded Unix-path
+copy warnings. Add narrow portable C fixes in `posix_socket.c` without changing
+network retry/deadline/ownership policy; retain `-Werror`. PR #252 at `6f202ae5`
+currently changes kernel resolver/query code, not these libc lines; its ongoing
+resolver/socket audit remains independent.
 After local gates, rehearse the combined desktop workload in a disposable VM;
 physical endurance and the identified long I/O-owner fix remain pending.
 
