@@ -85,10 +85,14 @@ def main():
             check_clean_image(image)
             scratch_at = baseline.index(scratch, fs.offset(fs.root))
             anchor_at = baseline.index(entries['anchor.txt'], fs.offset(fs.root))
-            for fault in ('size', 'multi-cluster', 'alias', 'directory-overlap', 'bitmap', 'dirty'):
+            for fault in ('size', 'valid-size', 'multi-cluster', 'alias', 'directory-overlap', 'bitmap', 'dirty'):
                 changed = bytearray(baseline)
-                if fault in ('size', 'multi-cluster'):
-                    struct.pack_into('<Q', changed, scratch_at+56, 1024 if fault == 'size' else 8192)
+                if fault in ('size', 'valid-size', 'multi-cluster'):
+                    struct.pack_into('<Q', changed, scratch_at+56, 8192 if fault == 'multi-cluster' else 1024)
+                    if fault == 'valid-size':
+                        # A valid short stream must reach the extent guard;
+                        # the older size case has VDL > length and may fail import.
+                        struct.pack_into('<Q', changed, scratch_at+40, 1024)
                     checksum(changed, scratch_at)
                 elif fault == 'alias':
                     changed[anchor_at+52:anchor_at+60] = changed[scratch_at+52:scratch_at+60]
@@ -106,10 +110,17 @@ def main():
                     bit = struct.unpack_from('<I', scratch, 52)[0] - 2
                     changed[bitmap_offset+bit//8] &= ~(1 << (bit % 8))
                 image.write_bytes(changed)
-                command(DRIVER, image, 'scratch-refuse')
+                refusal = command(DRIVER, image, 'scratch-refuse')
+                assert refusal in ('scratch refused: import\n', 'scratch refused: extent\n'), (cluster, fault, refusal)
+                if fault in ('valid-size', 'dirty'):
+                    assert refusal == 'scratch refused: extent\n', (cluster, fault, refusal)
                 if fault == 'bitmap':
-                    check = command(DRIVER, image, 'allocation-check', codes=(1,))
-                    assert 'fat_bitmap_mismatches=1' in check
+                    if refusal == 'scratch refused: import\n':
+                        check = command(DRIVER, image, 'allocation-check', codes=(2,))
+                        assert 'invalid filesystem; NOT CHECKED' in check
+                    else:
+                        check = command(DRIVER, image, 'allocation-check', codes=(1,))
+                        assert 'fat_bitmap_mismatches=1' in check
                 assert image.read_bytes() == changed
             print(f'exfat-scratch: {cluster} extent, refusal, read-only admission and torn-data isolation PASS')
 
