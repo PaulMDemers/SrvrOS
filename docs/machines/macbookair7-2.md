@@ -36,16 +36,23 @@ signal/timeout, active/nested-owner, cancellation, safe-user/service and boot
 cases. Full core/desktop hosts and matched builds pass at `38ac7cbb`; final
 owner/preemption coverage and matched rebuilds pass at `7043a20f`. The collector
 fix passes 33 host tests, including every completion-line split point.
-Clean `bb93c5ee` normal KVM passes 22 cycles, UI119829 us, ready1032246 us,
-close1440827 us, zero observed underruns and full file/screenshot/allocation/
+Clean `bb93c5ee` normal KVM passes 22 cycles, UI 119829 us, ready 1032246 us,
+close 1440827 us, zero observed underruns and full file/screenshot/allocation/
 lifetime/retirement proof, with six retained live checkpoints. Five complete
 saved owner snapshots validate 30 distinct long scopes. The 100-write-IOPS
 populated workload still fails the total lifecycle deadline after ten cycles
-(UI110909 us, ready6090692 us). Its final Files pool wait records1471462 us blocked,
+(UI 110909 us, ready 6090692 us). Its final Files pool wait records 1471462 us blocked,
 28672 us ready and zero eligibility exclusions. This is not an endurance pass or
 a general device-latency bound. Retain that failure and the earlier partial-line
 collection. PR #254 carries this bounded scheduler/collector fix; native
 validation is the next separate checkpoint.
+PR #254 merged as `d299c6ac`. Clean stage `e3370f00781fb60c` passes exact-payload
+Q35 refusal/save/unmount/reset rehearsal and is installed for an automatic
+1800-second native trial. The actual model, USB identity, prior current and
+independent recovery are verified; offline fsck/allocation/headroom pass, with
+1210 prior-file hashes saved. Recovery `9aa8dbf6fbda8252` and Ubuntu default remain
+intact. The trial needs no human input. Collect its matching session after
+return; the known throttled failure and physical endurance remain unaccepted.
 
 ### PR182 integration and local regression scope (2026-10-31)
 
