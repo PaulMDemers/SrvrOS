@@ -44,6 +44,27 @@ Ubuntu shutdown. No human input is required. Collect the matching new session
 before another stage; the 1800-second workload and existing deadlines remain
 unchanged, and native endurance acceptance stays pending.
 
+### Asynchronous file transport and model retirement scope (2026-10-31)
+
+On branch device/macbookair7-2/desktop-runtime, baseline695db843 plus PR258,
+the Air agent owns optional file-pool opener hooks and a small transport value
+in desk_file_job.c/h, an explicit mapping-retirement callback in window_set.c/h,
+and a Text/Files process-owned helper adapter. Create one helper before opening
+GUI windows; it alone performs pipe/fcntl/spawn startup and queued model unmaps.
+Release/acquire slots transfer small transport or mapping values, never mutable
+GUI/job ownership. UI keeps FIFO jobs and bindings until validated responses
+drain; pending start/error/full queues retain their owner and retry without
+synchronous fallback. A callback may accept a mapping only after GUI disposal
+and accepted work drain, with bounded pending records and completion/error
+receipts. No allocation/free happens on a queue-full refusal. Join/drain the
+helper before pool/session stack release and final child reaping. Keep legacy
+synchronous pool users unchanged. Stop repeated no-op dispose tracing.
+Touch directed pool/window/runtime tests and add blocked real-pthread adapter
+coverage; run matched builds and loaded VMs under unchanged deadlines. No
+kernel/firmware/driver or I/O-admission changes are planned; PR252 resolver and
+PR19 Wi-Fi remain independent. Native a4 run is collected/integrity-verified;
+no new reboot is armed. Publish test receipts before another physical trial.
+
 ### Native Files lifecycle return — delayed Close delivery (2026-10-31)
 
 Releasea4f7080c77fda748/source0fe284e2 saves matching session and returns to
