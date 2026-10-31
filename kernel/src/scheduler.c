@@ -126,6 +126,14 @@ static void io_gate_request(struct thread *thread) {
 static void io_gate_leave(struct thread *thread) {
     if(thread->io_gate_waiting) { thread->io_gate_waiting=false;io_gate_pending--; }
 }
+/* Register before the next owner can acquire I/O, not only after a selection
+ * has already excluded this continuation. This reserves a quiescent turn; it
+ * never makes an unsafe thread eligible while ownership is active. */
+static void io_ready_request(struct thread *thread) {
+    if(io_services_enabled && thread->state==THREAD_READY &&
+       (thread->user_context ? !thread->io_user_safe : !thread->io_eligible))
+        io_gate_request(thread);
+}
 static uint64_t preempt_tick_accumulator;
 static uint64_t preemption_count;
 static uint64_t sampled_ticks;
@@ -587,6 +595,7 @@ static bool spawn_thread(const char *name, scheduler_thread_fn entry, void *arg,
         thread_capacity+=SCHEDULER_INITIAL_THREADS;
     }
     thread_storage_bytes+=needed;
+    io_ready_request(slot);
     irq_restore(flags);return true;
 }
 
@@ -833,6 +842,7 @@ uint64_t scheduler_wake_count(struct scheduler_wait_queue *queue, uint64_t max_c
         if(t->state!=THREAD_BLOCKED) { detach_wait(t);continue; }
         if(woken<max_count) {
             trace_ready(t,1);detach_wait(t);t->state=THREAD_READY;t->signal_wakes++;woken++;
+            io_ready_request(t);
         } else remaining++;
     }
     queue->waiters=remaining;
@@ -856,6 +866,7 @@ static void wake_expired_waits(void) {
         trace_ready(thread,2);detach_wait(thread);
         thread->state = THREAD_READY;
         thread->timeout_wakes++;
+        io_ready_request(thread);
     }
 }
 
