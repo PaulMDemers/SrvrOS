@@ -44,6 +44,26 @@ Ubuntu shutdown. No human input is required. Collect the matching new session
 before another stage; the 1800-second workload and existing deadlines remain
 unchanged, and native endurance acceptance stays pending.
 
+### Bounded anonymous retirement scope (2026-10-31)
+
+From main `695db843` plus collected-return documentation, the Air agent owns
+`scheduler.c`/`scheduler.h`, `process.c`/`process.h`, x86 syscall dispatch and
+directed scheduler/process-service/syscall-I/O fixtures. Add a read-only scheduler
+independence predicate, then an IRQ-masked whole-anonymous-region retirement
+attempt. Require the current main thread, no live sibling/process thread records,
+matching active address space, distinct foreign owner/private image, at most
+4096 scheduler/mapping records and a complete region no larger than2MiB. Track
+anonymous provenance through mmap, fork copying and region splitting; prevalidate
+tracked physical translations. No service yield, allocation, file cleanup or
+foreign ownership release occurs in the attempt. Any precondition refusal leaves
+state unchanged and takes the normal gated munmap path. Unexpected unmap failure
+must retain remaining frame/region ownership and never free a still-mapped frame.
+No mapping, exit or threaded-cleanup blanket admission is authorized by this
+scope. Existing syscall ABI and500ms/10second limits stay unchanged. Validate
+negative ownership/provenance/bounds and futex/frame ordering before host/VM
+load tests. Air6,1 idle work and open PR #252 resolver/PR #19 Wi-Fi remain
+independent; no AP/idle/device gates change and no physical trial is armed.
+
 ### Native cache-reuse return — memory cleanup gate identified (2026-10-31)
 
 Release `216844aaab4b2363` / source `695db843` saves matching session
