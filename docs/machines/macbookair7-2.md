@@ -44,6 +44,34 @@ Ubuntu shutdown. No human input is required. Collect the matching new session
 before another stage; the 1800-second workload and existing deadlines remain
 unchanged, and native endurance acceptance stays pending.
 
+### Native cache-reuse return — memory cleanup gate identified (2026-10-31)
+
+Release `216844aaab4b2363` / source `695db843` saves matching session
+`session-00065f294af061e4-00`. The trial fails after nine completed app cycles
+at PID21's phase3 deadline (10008796us). Maximum UI loop is102131us; maximum
+ready/close times are8523202/9220618us. The screenshot is incomplete and the
+full1800-second workload does not complete. Cache retirement records zero
+reserved bytes, zero retained buffers and eight reuses. Battery retirement is
+clean and PCM records zero observed underruns; this is not endurance or audible
+quality acceptance.
+
+Five complete owner snapshots validate33 distinct long scopes. Text's document
+unmap spans60011315–67138541us, including7125109us blocked and1982us ready.
+Disk child PID7 owns the I/O gate from60010071–67136426us (7126355us). The
+7125111-us overlap differs from blocked time by2us. This directly attributes
+that wait to unrelated disk-worker serialization, without identifying a
+particular filesystem operation or USB command. A separate9119227-us disk scope
+also remains in the retained evidence. Next investigate independently safe
+anonymous-memory retirement; do not admit arbitrary mapping/exit work during
+filesystem ownership or extend test limits.
+
+All1216 prior files remain unchanged apart from expected metadata. Offline
+fsck is clean (261directories/1222files);3341clusters have no leaks, mismatches
+or errors; write eligibility and headroom pass. Ubuntu default, consumed one-shot
+and independent recovery verify. Partial screenshot/payload and logs are copied
+with hashes and backed up outside build. Current candidate remains installed;
+no next reboot is armed and native endurance remains unaccepted.
+
 ### Retired compositor buffer reuse scope (2026-10-31)
 
 Continue draft PR #257 from `3a551549`. The Air agent owns compositor cache
