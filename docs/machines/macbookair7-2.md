@@ -84,6 +84,18 @@ zero-reservation/reuse receipt and require it from the saved atomic exit log;
 receipts. Repeat the VMs at the final clean source before considering hardware.
 No native trial is armed.
 
+Final clean `75845008` passes34 collector tests and matched desktop/build gates.
+Normal KVM passes22 cycles (UI135885us, ready1621458us, close1385299us), with
+19 reuses and zero final cache reservations. The repeated populated100IOPS VM
+passes12 cycles (UI119918us, ready2260003us, close5309400us),13 reuses, zero
+final reservations, PCM60seconds/zero underruns and full verified file/screenshot/
+allocation/follow-up/retirement evidence. All recorded cache snapshots stay
+within the96MiB budget and two-buffer retention bound. Both throttled passes
+are retained alongside earlier failures; no native result is inferred. The next
+checkpoint is a separate exact-payload rehearsal and automatic1800-second native
+trial, preserving current/recovery, prior files and offline write eligibility.
+No input is required; success returns automatically, uncertain ownership halts.
+
 ### Simple pipe-close contention scope (2026-10-31)
 
 From main `0386d8ed`, the Air agent owns a bounded process/syscall follow-up:
