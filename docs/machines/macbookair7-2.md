@@ -44,6 +44,23 @@ Ubuntu shutdown. No human input is required. Collect the matching new session
 before another stage; the 1800-second workload and existing deadlines remain
 unchanged, and native endurance acceptance stays pending.
 
+### Simple pipe-close contention scope (2026-10-31)
+
+From main `0386d8ed`, the Air agent owns a bounded process/syscall follow-up:
+`process.c`, `process.h`, x86 syscall dispatch and directed process-output/
+syscall-I/O fixtures. The slow VM's final Files app returns from pool retirement
+at52.924s, then misses total lifetime at~53s while still active. Ordinary channel
+EOF publication currently takes gated CLOSE syscalls despite touching only
+fixed pipe/refcount/poll state. Add an atomic close attempt only for simple
+read/write pipe endpoints with valid references and no queued rights. Revalidate
+under IRQ exclusion in the operation; all other descriptors use the existing
+gated close after fresh lookup. Keep rights/socket/PTY/duplex/VFS lifetime gates,
+allocation/flush and failure handling unchanged. No SYS_EXIT gate change,
+workload pacing, deadline extension or native acceptance is planned. First
+validate exclusion/EOF/references and fallback admission, then full hosts and
+normal/throttled disposable VMs. PR #252 resolver and PR #19 Wi-Fi are independent.
+Installed e337/recovery9aa and collected native evidence stay unchanged.
+
 ### Client termination follow-up scope (2026-10-31)
 
 From main `d299c6ac` with PR #255 host-preflight work retained, the Air agent
