@@ -49,7 +49,7 @@ def validate_app_timing(output, completed, *, files_window_runtime=False, async_
         mapped = role == 2 or (role == 1 and files_window_runtime)
         required |= {'document-map', 'window-dispose', 'document-unmap', 'pool-retire'} if mapped else {'job-drain', 'window-close'}
         if mapped and async_file_service:
-            required |= {'file-service-init','file-service-join','canvas-unmap'}
+            required |= {'file-service-init','file-service-stop','canvas-unmap'}
         if role == 1:
             required.add('pool-retire')
         assert required <= spans.keys(), (pid, 'missing phases', required - spans.keys())

@@ -113,6 +113,15 @@ never emit joined=yes for the former. Host tests must hold the thread after its
 body acknowledges quiescence, prove storage stays live/nonreusable, then join.
 No kernel, general pthread or lifecycle deadline change is authorized here.
 
+Process-owned quiescence host checks pass: a real helper is held after its body
+acknowledges stop, static storage/stack stay live, reinitialization is refused,
+and the host fixture then joins before its own teardown. Reusable services
+still require join and report a transient join error even after safe recovery.
+Version2 receipts require quiescence and exactly one explicit lifetime mode;
+only completed whole-process waits authorize the process-owned interpretation.
+Full desktop host and matched builds pass. Loaded VM checks must still pass
+before another test; no physical trial or kernel admission change is armed.
+
 ### Native Files lifecycle return — delayed Close delivery (2026-10-31)
 
 Releasea4f7080c77fda748/source0fe284e2 saves matching session and returns to

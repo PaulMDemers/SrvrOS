@@ -20,7 +20,7 @@ struct file_service_retire {
     void *address;size_t length;
 };
 struct file_service {
-    pthread_t thread;unsigned event,stop,started;
+    pthread_t thread;unsigned event,stop,started,quiesced;
     struct desk_file_pool *pool;
     struct file_service_start starts[FILE_SERVICE_STARTS];
     struct file_service_retire retires[FILE_SERVICE_RETIRES];
@@ -62,7 +62,14 @@ static void *file_service_thread(void *arg) {
         __atomic_exchange_n(&s->event,0,__ATOMIC_ACQUIRE);
         file_service_work(s);
         if(file_service_state(&s->stop))break;
-        if(srv_futex_wait((uint32_t *)&s->event,0,0)<0 && !file_service_state(&s->event))srv_sleep_ticks(1);
+        unsigned completed=0;
+        for(unsigned i=0;i<FILE_SERVICE_STARTS;i++)completed|=file_service_state(&s->starts[i].state)==FILE_SERVICE_DONE;
+        for(unsigned i=0;i<FILE_SERVICE_RETIRES;i++)completed|=file_service_state(&s->retires[i].state)==FILE_SERVICE_DONE;
+        /* While the dispatcher consumes a completion, keep stop responsive
+         * through the audited sleep path instead of entering another gated
+         * futex continuation. Fully idle services retain event-driven waits. */
+        if(completed)srv_sleep_ticks(1);
+        else if(srv_futex_wait((uint32_t *)&s->event,0,0)<0 && !file_service_state(&s->event))srv_sleep_ticks(1);
     }
     /* An unconsumed successful startup still belongs to this service. Publish
      * EOF and reap naturally; never orphan a child or kill accepted work. */
@@ -76,6 +83,7 @@ static void *file_service_thread(void *arg) {
             else {r->transport=(struct desk_file_transport){.reader=-1,.writer=-1};s->abandoned++;}
         }
     }
+    file_service_publish(&s->quiesced,1);
     return NULL;
 }
 static int file_service_open(void *context,struct desk_file_channel *channel) {
@@ -134,7 +142,7 @@ static int file_service_join(struct file_service *s) {
     return failed?-1:0;
 }
 static int file_service_start(struct file_service *s,struct desk_file_pool *pool,int role) {
-    if(!s || !pool || !pool->channels || !pool->count || pool->count>FILE_SERVICE_STARTS || pool->bound || pool->live || pool->head || pool->closing || pool->opener)return -1;
+    if(!s || s->started || !pool || !pool->channels || !pool->count || pool->count>FILE_SERVICE_STARTS || pool->bound || pool->live || pool->head || pool->closing || pool->opener)return -1;
     *s=(struct file_service){.pool=pool,.role=role};
     pthread_attr_t attr;if(pthread_attr_init(&attr))return -1;
     int result=pthread_attr_setstack(&attr,s->stack,sizeof(s->stack));
@@ -147,12 +155,8 @@ static int file_service_start(struct file_service *s,struct desk_file_pool *pool
     }
     return 0;
 }
-static int file_service_finish(struct file_service *s) {
-    if(!s->started)return 0;
-    s->pool->closing=1;
-    file_service_publish(&s->stop,1);file_service_notify(s);
-    int join_error=file_service_join(s);
-    s->started=0;file_service_poll(s);
+static int file_service_complete(struct file_service *s,unsigned process_owned,int join_error) {
+    file_service_poll(s);
     unsigned pending=0;
     for(unsigned i=0;i<FILE_SERVICE_STARTS;i++) {
         struct file_service_start *r=&s->starts[i];
@@ -163,10 +167,27 @@ static int file_service_finish(struct file_service *s) {
         pending+=file_service_state(&r->state)!=FILE_SERVICE_IDLE;
     }
     for(unsigned i=0;i<FILE_SERVICE_RETIRES;i++)pending+=file_service_state(&s->retires[i].state)==FILE_SERVICE_QUEUED;
-    desk_log("file-service: stopped version=1 pid=%llu role=%d requested=%llu opened=%llu failures=%llu abandoned=%llu retired=%llu retire_failed=%llu pending=%u join_error=%u max_start_us=%llu max_retire_us=%llu async=yes joined=yes\n",(unsigned long long)srv_getpid(),s->role,
+    desk_log("file-service: stopped version=2 pid=%llu role=%d requested=%llu opened=%llu failures=%llu abandoned=%llu retired=%llu retire_failed=%llu pending=%u join_error=%u max_start_us=%llu max_retire_us=%llu async=yes quiesced=yes process_owned=%s joined=%s\n",(unsigned long long)srv_getpid(),s->role,
         (unsigned long long)s->requested,(unsigned long long)s->opened,(unsigned long long)s->open_failed,(unsigned long long)s->abandoned,(unsigned long long)s->retired,(unsigned long long)s->retire_failed,pending,
         join_error!=0,
-        (unsigned long long)s->max_start_us,(unsigned long long)s->max_retire_us);
+        (unsigned long long)s->max_start_us,(unsigned long long)s->max_retire_us,process_owned?"yes":"no",process_owned?"no":"yes");
     return pending || s->retire_failed || join_error?-1:0;
+}
+/* Reusable service: no caller-owned storage may disappear before join. */
+static inline int file_service_finish(struct file_service *s) {
+    if(!s->started)return 0;
+    s->pool->closing=1;file_service_publish(&s->stop,1);file_service_notify(s);
+    int join_error=file_service_join(s);s->started=0;
+    return file_service_complete(s,0,join_error);
+}
+/* Only a process-owned static context may use this path. The helper body has
+ * released all work ownership, but its pthread/TLS/stack may still be live.
+ * Keep all service storage pinned/nonreusable until normal kernel process exit
+ * and the parent's verified wait; never call this on temporary/heap storage. */
+static int file_service_quiesce(struct file_service *s) {
+    if(!s->started)return 0;
+    s->pool->closing=1;file_service_publish(&s->stop,1);file_service_notify(s);
+    while(!file_service_state(&s->quiesced))srv_sleep_ticks(1);
+    return file_service_complete(s,1,0);
 }
 #endif

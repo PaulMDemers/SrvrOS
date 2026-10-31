@@ -22,7 +22,7 @@ def fixture(files_window_runtime=False,async_service=False):
         if role == 1 and files_window_runtime:
             emit('close-ack')
         phases = ['history-free'] + (['window-dispose', 'document-unmap', 'pool-retire'] if mapped else ['job-drain', 'window-close'])
-        if mapped and async_service:phases[1:1]=['canvas-unmap','file-service-join']
+        if mapped and async_service:phases[1:1]=['canvas-unmap','file-service-stop']
         if role == 1 and not mapped:
             phases.append('pool-retire')
         for phase in phases:
@@ -99,7 +99,7 @@ class AsyncServiceTiming(unittest.TestCase):
     def test_requires_real_canvas_and_join_phases(self):
         raw=fixture(True,True)
         self.assertEqual(len(validate_app_timing(raw,[(0,8),(1,9),(2,10)],files_window_runtime=True,async_file_service=True)),3)
-        for stage in (b'canvas-unmap',b'file-service-init',b'file-service-join'):
+        for stage in (b'canvas-unmap',b'file-service-init',b'file-service-stop'):
             missing=b'\n'.join(line for line in raw.splitlines() if b'stage='+stage not in line)
             with self.assertRaises(AssertionError):validate_app_timing(missing,[(0,8),(1,9),(2,10)],files_window_runtime=True,async_file_service=True)
 

@@ -273,18 +273,23 @@ full queues retain disposed models for retry, and the helper performs the real
 unmap and sparse timing trace. Failed unmaps retain a nonreusable error record
 and fail final retirement. No GUI/set pointers cross into the helper.
 
-Final shutdown drains admitted startup/unmap records, verifies helper join, and
-then naturally reaps idle file workers before service/pool storage disappears.
-Join errors retain ownership until a verified join and reject the clean result.
-A saved per-process `file-service` receipt exposes startup, retirement, failure,
-pending and join counts; automatic VM validation requires a whole matching
-receipt for every completed Text/Files process. Initial service creation and
-final join have their own measured phases. Existing client, UI-loop and total
-lifecycle deadlines remain unchanged. This architecture still needs native
-endurance acceptance; previous hardware failures remain failures.
+Final shutdown stops admission and drains all startup/unmap records. Reusable
+services verify pthread join before releasing caller-owned storage. Text/Files
+instead have one nonreentrant, static service/runtime context for their entire
+process lifetime: they acquire a helper-body quiescence acknowledgement, keep
+all service/stack storage pinned, reap idle file workers, and return through
+normal kernel process exit. That path kills user threads before freeing process
+mappings; the parent's verified process wait proves final retirement. Quiescence
+alone is never described as a pthread join or permission to reuse storage.
+Version2 `file-service` receipts distinguish process-owned quiescence from a
+joined reusable service and expose startup, mapping, failure and pending counts.
+Automatic VM checks pair these receipts with completed process waits and actual
+canvas/model/service-init/service-stop phases. Existing client, UI-loop and total
+lifecycle deadlines remain unchanged. Native endurance acceptance is pending.
 
 The Text/Files helper uses an explicitly supplied64KiB stack inside its service
-storage; that storage remains live until verified join. This avoids allocating
+storage; it remains pinned through process exit (or verified join for reusable
+callers). This avoids allocating
 and retiring the pthread runtime's default-sized owned stack without changing
 general pthread policy. Optional canvas disposal callbacks transfer pixel-map
 ownership after CLOSE_ACK. Queue refusal retains canvas/connection ownership;

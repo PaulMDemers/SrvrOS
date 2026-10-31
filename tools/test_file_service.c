@@ -13,6 +13,13 @@
 static pthread_t ui;
 static atomic_uint hold_spawn,hold_unmap,spawn_calls,unmap_calls,fail_spawn,fail_unmap;
 static unsigned fail_create,fail_join;
+static void nap(void);
+static atomic_uint hold_after_body,body_returns;
+static struct {void *(*start)(void *);void *arg;} thread_call;
+static void *host_thread_body(void *ignored) {
+    (void)ignored;void *result=thread_call.start(thread_call.arg);
+    atomic_fetch_add(&body_returns,1);while(atomic_load(&hold_after_body))nap();return result;
+}
 static void *expected_stack;
 static int next_fd=10,closed[1024],children,reaped,eof[64],writers[64];
 static void nap(void) {struct timespec t={0,1000000};nanosleep(&t,NULL);}
@@ -48,7 +55,7 @@ long srv_futex_wake(uint32_t *word,uint64_t count) {
 }
 static int create_thread(pthread_t *thread,const pthread_attr_t *attr,void *(*start)(void *),void *arg) {
     void *stack=NULL;size_t size=0;assert(!pthread_attr_getstack(attr,&stack,&size) && stack==expected_stack && size==64*1024);
-    assert(pthread_equal(pthread_self(),ui));if(fail_create){fail_create=0;return EAGAIN;}return pthread_create(thread,attr,start,arg);
+    assert(pthread_equal(pthread_self(),ui));if(fail_create){fail_create=0;return EAGAIN;}thread_call.start=start;thread_call.arg=arg;return pthread_create(thread,attr,host_thread_body,NULL);
 }
 static int join_thread(pthread_t thread,void **value) {if(fail_join){fail_join=0;return EBUSY;}return pthread_join(thread,value);}
 static int retire_mapping(void *address,size_t length) {
@@ -74,7 +81,7 @@ static void await_state(unsigned *value,unsigned state) {for(unsigned n=0;n<5000
 static void drain(struct file_service *s) {for(unsigned n=0;n<5000;n++){if(!file_service_poll(s))return;nap();}assert(0);}
 static void clean_fds(void) {for(int i=10;i<next_fd;i++)assert(closed[i]);assert(reaped==children);}
 int main(void) {
-    ui=pthread_self();struct desk_file_pool pool;struct desk_file_channel channels[2];struct file_service service;
+    ui=pthread_self();struct desk_file_pool pool;struct desk_file_channel channels[2];struct file_service service={0};
     expected_stack=service.stack;
     assert(!desk_file_pool_init(&pool,channels,2));fail_create=1;
     assert(file_service_start(&service,&pool,1)==-1 && !service.started && !pool.opener && !children);
@@ -111,5 +118,17 @@ int main(void) {
     release.service=&service;atomic_store(&fail_unmap,1);assert(!file_service_retire(&release,held,4096));drain(&service);
     assert(service.retire_failed==1 && service.retires[0].address==held && *(unsigned *)held==987 && !file_service_capacity(&service));
     fail_join=1;assert(file_service_finish(&service)==-1 && !service.started && !fail_join);assert(!munmap(held,4096));clean_fds();
+    /* Process-owned storage can acknowledge body quiescence while its pthread
+     * trampoline is still held. It remains pinned and rejects reinitialization.
+     * This host fixture then explicitly joins before ending its own process. */
+    static struct file_service owned;static struct desk_file_pool owned_pool;static struct desk_file_channel owned_channels[2];
+    assert(!desk_file_pool_init(&owned_pool,owned_channels,2));expected_stack=owned.stack;
+    atomic_store(&hold_after_body,1);unsigned bodies=atomic_load(&body_returns);
+    assert(!file_service_start(&owned,&owned_pool,2));assert(!file_service_quiesce(&owned));await_count(&body_returns,bodies+1);
+    assert(owned.started && file_service_state(&owned.quiesced) && file_service_state(&owned.stop));
+    assert(file_service_start(&owned,&owned_pool,2)==-1 && owned.started);
+    atomic_store(&hold_after_body,0);assert(!file_service_finish(&owned) && !owned.started);
+    expected_stack=service.stack;assert(!desk_file_pool_init(&pool,channels,2) && !file_service_start(&service,&pool,1));
+    fail_join=1;assert(file_service_finish(&service)==-1 && !service.started && !service.retire_failed);
     puts("file-service: PASS held startup/unmap keeps UI admission nonblocking, bounded backpressure, error ownership, orphan drain, child reap and verified join");
 }
