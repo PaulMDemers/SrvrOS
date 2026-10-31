@@ -9,6 +9,8 @@
 #include SRVROS_NET_QUERY_SOURCE
 static uint64_t ticks=100;
 static void (*poll_hook)(void);
+static void (*wait_hook)(void);
+static uint64_t reply_tick;
 static bool fail_send,exiting;
 static unsigned sends;
 static uint8_t last_frame[1600];
@@ -22,7 +24,13 @@ void scheduler_yield(void) {}
 void scheduler_wake_all(struct scheduler_wait_queue *q) { (void)q; }
 void process_file_poll_wake(void) {}
 bool scheduler_wait_timeout(struct scheduler_wait_queue *q,scheduler_wait_condition_fn fn,void *arg,uint64_t deadline) {
-    (void)q;(void)fn;(void)arg;ticks=deadline;return false;
+    (void)q;(void)fn;(void)arg;
+    ticks=deadline;
+    if (wait_hook && ticks == reply_tick) {
+        wait_hook();
+        wait_hook=NULL;
+    }
+    return false;
 }
 uint64_t net_device_poll(uint64_t budget,bool verbose) {
     (void)budget;(void)verbose;if(poll_hook) { void (*fn)(void)=poll_hook;poll_hook=NULL;fn(); }return 0;
@@ -60,6 +68,13 @@ static void dns_reply_id(uint32_t server,uint16_t id) { dns_reply_value(server,i
 static void dns_reply_from(uint32_t server) { dns_reply_id(server,dns_query_id); }
 static void dns_inner_reply(void) { dns_reply_value(0x0a000203,dns_query_id,0x05060708); }
 static void dns_reply(void) { dns_reply_from(0x0a000203); }
+static void poll_until_reply_tick(void) {
+    if (ticks == reply_tick) {
+        dns_reply();
+    } else {
+        poll_hook=poll_until_reply_tick;
+    }
+}
 static void dns_nested(void) {
     uint32_t answer=0xdeadbeef;poll_hook=dns_inner_reply;
     int64_t result=net_dns_resolve("other.test",&answer);
@@ -99,6 +114,13 @@ int main(int argc,char **argv) {
         if(strcmp(argv[1],"dns-arp-overlap"))arp_reply(0x0a000203,3);
         if(!strcmp(argv[1],"dns-overlap"))poll_hook=dns_nested;
         else if(!strcmp(argv[1],"dns-arp-overlap"))poll_hook=dns_nested_during_arp;
+        else if(!strcmp(argv[1],"dns-last-poll")) {
+            reply_tick=ticks+DNS_TIMEOUT_TICKS-1;
+            poll_hook=poll_until_reply_tick;
+        } else if(!strcmp(argv[1],"dns-deadline-wake")) {
+            reply_tick=ticks+DNS_TIMEOUT_TICKS;
+            wait_hook=dns_reply;
+        }
         else if(!strcmp(argv[1],"dns-source"))poll_hook=dns_wrong_source;
         else if(!strcmp(argv[1],"dns-id"))poll_hook=dns_wrong_id;
         else if(!strcmp(argv[1],"dns-completed-overlap"))poll_hook=dns_completed_overlap;
@@ -110,9 +132,13 @@ int main(int argc,char **argv) {
             fail_send=true;assert(net_dns_resolve("outer.test",&answer)<0 && answer==0xdeadbeef);fail_send=false;
             assert(net_dns_resolve(".",&answer)<0 && answer==0xdeadbeef);poll_hook=dns_reply;
         } else if(!strcmp(argv[1],"dns-timeout")) {
-            assert(net_dns_resolve("outer.test",&answer)<0 && answer==0xdeadbeef);poll_hook=dns_reply;
+            uint64_t start=ticks;
+            assert(net_dns_resolve("outer.test",&answer)<0 && answer==0xdeadbeef);
+            assert(sends==DNS_RETRIES && ticks-start==DNS_RETRIES*DNS_TIMEOUT_TICKS);
+            poll_hook=dns_reply;
         } else assert(0);
         assert(!net_dns_resolve("outer.test",&answer) && answer==0x01020304);
+        if (reply_tick) assert(sends==1 && !dns_query_active);
     }
     printf("net-query: %s PASS\n",argv[1]);return 0;
 }

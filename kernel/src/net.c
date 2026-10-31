@@ -2494,7 +2494,7 @@ int64_t net_dns_resolve(const char *name, uint32_t *ip_out) {
         }
 
         uint64_t start = timer_ticks();
-        while (timer_ticks() - start < DNS_TIMEOUT_TICKS) {
+        for (;;) {
             if (process_should_exit_current()) {
                 goto done;
             }
@@ -2503,7 +2503,9 @@ int64_t net_dns_resolve(const char *name, uint32_t *ip_out) {
                 result = 0;
                 goto done;
             }
-            if (dns_response_done) {
+            /* A reply can be published during the last poll or wait. Consume
+             * that completion before expiring this transaction ID. */
+            if (dns_response_done || timer_ticks() - start >= DNS_TIMEOUT_TICKS) {
                 break;
             }
             (void)net_device_poll(32, false);

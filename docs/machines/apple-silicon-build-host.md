@@ -1855,3 +1855,12 @@ Check the number of outgoing queries, the answer value, and the ordinary silent
 timeout. The next boundaries are libc resolver retry deadlines, peer and option
 state across duplicated sockets, and native descriptor I/O resumed after reuse.
 PR19 tracks the Wi-Fi device work separately.
+
+The first PR252 checkpoint reproduced both boundary failures against merged
+main `198c6a1c`. A valid answer accepted during the last poll or final wait
+was discarded when the caller observed the deadline. Checking the published
+answer before starting another attempt fixes both schedules. All 15 query
+modes and 46 parser cases passed. The two boundary cases, silent timeout and
+exit also passed under native ARM64 ASan/UBSan. The matched guest built and
+passed the network ABI smoke in QEMU. Logs are in
+`build/review/resolver-deadline/`.

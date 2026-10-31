@@ -143,7 +143,12 @@ handling, isolates MSG_DONTWAIT without shared flag mutation and guards TCP
 connect/accept continuations. Main `46b60b24` through PR246 is integrated. Next:
 resolver retry/deadline policy, duplicated peer/options state and remaining
 native-FD I/O continuations. Broad network conformance remains unqualified.
-Delivery is [draft PR182](https://github.com/PaulMDemers/SrvrOS/pull/182).
+[PR182](https://github.com/PaulMDemers/SrvrOS/pull/182) merged at `198c6a1c`.
+[Draft PR252](https://github.com/PaulMDemers/SrvrOS/pull/252) starts the next
+audit with native resolver deadline tests. They cover an answer published in
+the final poll and one published while the caller waits for the deadline.
+Libc retry budgets, duplicated socket state and native descriptor I/O
+continuations remain queued.
 This checkpoint is separate from the completed event-adapter target.
 
 ## Broader work still outside exhaustive coverage
