@@ -2,6 +2,25 @@
 
 Updated: 2026-10-31. State: **active reference machine; partial device acceptance**.
 
+### READY admission follow-up scope (2026-10-31)
+
+From main `7e249356`, the Air agent owns a bounded scheduler follow-up in
+`scheduler.c` and `test_io_scheduler.c`: request a quiescent turn when an ordinary
+kernel thread is created or an unsafe blocked continuation becomes READY. Current
+registration waits until an I/O selection refusal, leaving a newly ready thread
+unregistered at the writer's preceding syscall boundary. A subsequent long scope
+can therefore start before that continuation receives a kernel turn.
+
+Add deterministic before/after creation and signal/timeout wake regressions.
+Retain the existing rotating handoff cursor, ownership, address-space checks,
+private-image exclusion, service eligibility and cancellation rules. No yielding
+inside a live filesystem mutation, syscall/ABI or workload/deadline change is
+planned. This does not bound device latency or admit unsafe work during I/O.
+Validate focused and integrated hosts, then normal and throttled disposable VMs;
+no physical acceptance is inferred. PR #252 resolver/socket and PR #19 Wi-Fi
+remain independent. Previous native evidence/recovery remain unchanged until a
+new matched candidate passes staging/preflight.
+
 ### PR182 integration and local regression scope (2026-10-31)
 
 The clean device branch fast-forwards to main `198c6a1c`, which merges PR #182
