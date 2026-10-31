@@ -44,6 +44,31 @@ Ubuntu shutdown. No human input is required. Collect the matching new session
 before another stage; the 1800-second workload and existing deadlines remain
 unchanged, and native endurance acceptance stays pending.
 
+### Endurance retry return — client service stall (2026-10-31)
+
+The recovered workspace admits writes and saves session
+`session-00065f286ae7ca1a-00`, matching release `e3370f00781fb60c` / source
+`d299c6ac`. Seven app cycles complete before PID18 is killed for a client timeout.
+Maximum desktop loop is 2431516 us, with 2418029 us attributed to `service()`;
+maximum ready/close times are 2921524/3250206 us. The 1800-second audio/disk
+workload reports `completed=NO`; zero PCM underruns are observed before clean
+battery retirement. The screenshot fails; its partial BMP and disk payload are
+preserved separately. This is an endurance failure, not a pass or physical
+input/audio-quality acceptance.
+
+Five complete saved owner snapshots validate 37 distinct long scopes, including
+a 6734599-us disk-child scope. These wall-time receipts do not establish the
+precise service call or distinguish hardware delay from software contention.
+Next work is client-service subcall/scheduler attribution and bounded UI work;
+retain the 500-ms UI and total 10-second lifecycle limits.
+
+All1210 prior files remain intact apart from the expected metadata update.
+Offline fsck is clean (259 directories,1216 files); allocation checking reports
+3293 clusters with zero leaks/mismatches/errors, and write eligibility/headroom
+pass. Ubuntu default, consumed one-shot and independent recovery verify. Raw
+logs and copied partial artifacts are retained under the separate retry record;
+no further reboot is armed and native endurance remains unaccepted.
+
 ### READY admission follow-up scope (2026-10-31)
 
 From main `7e249356`, the Air agent owns a bounded scheduler follow-up in
