@@ -82,6 +82,19 @@ changing production IRQ masking. That failed attempt is retained separately.
 The candidate is ready for ordinary and populated100IOPS disposable VM checks;
 physical acceptance and the broader exit/lifecycle deadline remain open.
 
+Clean `e42f75c4` normal KVM passes25cycles/UI117595us/ready710004us/
+close900428us and full integrity. The first populated100IOPS VM passes13cycles/
+UI109420us/ready4081548us/close2660620us. Saved atomic records prove seven
+normal and three throttled document-unmap phases fully inside distinct retained
+I/O-owner scopes, with zero blocks (maximum465us/235us respectively).
+A second identical throttled run remains FAIL at PID22's phase3 deadline
+10006898us after10cycles; UI111477us, child metadata `exited`, mapped_bytes=0.
+Document-unmap takes164us with zero blocks. This is not a stable endurance pass.
+Extend this scope only with immutable queued/running/completed reaping timestamps
+and a failure-time operation snapshot, plus host fixtures. Distinguish worker
+queue delay from gated wait before changing reaping policy; keep old failures,
+all ownership gates and test limits. No new physical trial is armed.
+
 ### Native cache-reuse return — memory cleanup gate identified (2026-10-31)
 
 Release `216844aaab4b2363` / source `695db843` saves matching session

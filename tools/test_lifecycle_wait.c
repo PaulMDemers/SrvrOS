@@ -119,12 +119,15 @@ int main(void) {
     struct loop_trace trace={1};struct operation_trace op={7};assert(life_report_submit(&w,&trace,&op));
     await_count(&reports,1);await_state(&w.report_state,LIFE_IDLE);
     atomic_store(&hold_reap,1);assert(life_reap_submit(&w,77));await_count(&reap_calls,1);
+    assert(life_state(&w.reap[0].state)==LIFE_RUNNING);
+    assert(w.reap[0].queued_us && w.reap[0].begin_us>=w.reap[0].queued_us);
     long reaped=0;uint64_t status=0;
     for(unsigned n=0;n<100;n++) {
         assert(life_reap_pending(&w,77) && !life_reap_submit(&w,77));
         assert(!life_reap_take(&w,77,&reaped,&status));
     }
     atomic_store(&hold_reap,0);await_state(&w.reap[0].state,LIFE_DONE);
+    assert(w.reap[0].end_us>=w.reap[0].begin_us);
     assert(life_reap_take(&w,77,&reaped,&status) && reaped==77 && status==9);
     assert(!life_reap_pending(&w,77) && !life_reap_take(&w,77,&reaped,&status));
     assert(atomic_load(&reap_calls)==1);
