@@ -216,8 +216,10 @@ int tool_window_runtime(int role,const char *path) {
             if(owner->retired) {
                 if(!app.set.failed && owner->dialog.window.connection) {busy=1;owner=next;continue;}
                 if(!app.set.failed && !owner->disposed) {
+                    if(!file_service_capacity(&app.files)) {busy=1;drained=0;owner=next;continue;}
                     timing=tool_timing_begin(role,t->window.window,"window-dispose");
-                    int disposed=desk_window_owner_dispose(owner);tool_timing_end(role,t->window.window,"window-dispose",timing);
+                    struct file_service_release canvas={.service=&app.files,.window=t->window.window,.canvas=1};
+                    int disposed=desk_window_owner_dispose_with(owner,file_service_retire,&canvas);tool_timing_end(role,t->window.window,"window-dispose",timing);
                     if(disposed) {app.set.failed=1;owner=next;continue;}
                 }
                 if(!retire_job(owner)) {busy=1;drained=0;owner=next;continue;}

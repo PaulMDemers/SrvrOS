@@ -16,7 +16,7 @@ struct file_service_start {
     uint64_t elapsed;
 };
 struct file_service_retire {
-    unsigned state;int result,role;uint64_t window,elapsed;
+    unsigned state;int result,role,canvas;uint64_t window,elapsed;
     void *address;size_t length;
 };
 struct file_service {
@@ -26,6 +26,7 @@ struct file_service {
     struct file_service_retire retires[FILE_SERVICE_RETIRES];
     uint64_t requested,opened,open_failed,abandoned,retired,retire_failed,max_start_us,max_retire_us;
     int role;
+    _Alignas(16) unsigned char stack[64*1024];
 };
 static unsigned file_service_state(const unsigned *p) {return __atomic_load_n(p,__ATOMIC_ACQUIRE);}
 static void file_service_publish(unsigned *p,unsigned v) {__atomic_store_n(p,v,__ATOMIC_RELEASE);}
@@ -44,17 +45,19 @@ static void file_service_work(struct file_service *s) {
     for(unsigned i=0;i<FILE_SERVICE_RETIRES;i++) {
         struct file_service_retire *r=&s->retires[i];
         if(file_service_state(&r->state)!=FILE_SERVICE_QUEUED)continue;
-        uint64_t at=tool_timing_begin(r->role,r->window,"document-unmap");
+        const char *stage=r->canvas?"canvas-unmap":"document-unmap";
+        uint64_t at=tool_timing_begin(r->role,r->window,stage);
         struct tool_phase_trace phase;tool_phase_begin(&phase);
         r->result=munmap(r->address,r->length);
-        tool_phase_end(&phase,r->role,r->window,"document-unmap");
-        tool_timing_end(r->role,r->window,"document-unmap",at);
+        tool_phase_end(&phase,r->role,r->window,stage);
+        tool_timing_end(r->role,r->window,stage,at);
         r->elapsed=(uint64_t)srv_monotonic_us()-at;
         file_service_publish(&r->state,FILE_SERVICE_DONE);
     }
 }
 static void *file_service_thread(void *arg) {
     struct file_service *s=arg;
+    tool_timing_lane=1;
     for(;;) {
         __atomic_exchange_n(&s->event,0,__ATOMIC_ACQUIRE);
         file_service_work(s);
@@ -105,7 +108,7 @@ static int file_service_poll(struct file_service *s) {
     }
     return pending;
 }
-struct file_service_release {struct file_service *service;uint64_t window;};
+struct file_service_release {struct file_service *service;uint64_t window;int canvas;};
 static int file_service_capacity(const struct file_service *s) {
     if(file_service_state(&s->stop) || s->retire_failed)return 0;
     for(unsigned i=0;i<FILE_SERVICE_RETIRES;i++)if(file_service_state(&s->retires[i].state)==FILE_SERVICE_IDLE)return 1;
@@ -117,7 +120,7 @@ static int file_service_retire(void *context,void *address,size_t length) {
     for(unsigned i=0;i<FILE_SERVICE_RETIRES;i++) {
         struct file_service_retire *r=&s->retires[i];
         if(file_service_state(&r->state)!=FILE_SERVICE_IDLE)continue;
-        r->address=address;r->length=length;r->role=s->role;r->window=release->window;r->result=0;r->elapsed=0;
+        r->address=address;r->length=length;r->role=s->role;r->window=release->window;r->canvas=release->canvas;r->result=0;r->elapsed=0;
         file_service_publish(&r->state,FILE_SERVICE_QUEUED);file_service_notify(s);return 0;
     }
     return -1;
@@ -134,7 +137,7 @@ static int file_service_start(struct file_service *s,struct desk_file_pool *pool
     if(!s || !pool || !pool->channels || !pool->count || pool->count>FILE_SERVICE_STARTS || pool->bound || pool->live || pool->head || pool->closing || pool->opener)return -1;
     *s=(struct file_service){.pool=pool,.role=role};
     pthread_attr_t attr;if(pthread_attr_init(&attr))return -1;
-    int result=pthread_attr_setstacksize(&attr,64*1024);
+    int result=pthread_attr_setstack(&attr,s->stack,sizeof(s->stack));
     if(!result)result=pthread_create(&s->thread,&attr,file_service_thread,s);
     pthread_attr_destroy(&attr);
     if(result)return -1;

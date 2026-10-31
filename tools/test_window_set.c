@@ -37,6 +37,9 @@ int desk_window_dispose(struct desk_app *w) {
     while(*link && *link!=w)link=&(*link)->next;
     assert(*link==w);*link=w->next;w->connection=NULL;return 0;
 }
+int desk_window_dispose_with(struct desk_app *w,int (*retire)(void *,void *,size_t),void *context) {
+    assert(retire);(void)context;return desk_window_dispose(w);
+}
 int desk_connection_poll(struct desk_connection *c,struct desk_app **w,struct desk_packet *p) {
     if(fault)return -1;
     if(!queued)return 0;

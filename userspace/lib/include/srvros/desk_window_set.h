@@ -44,6 +44,7 @@ struct desk_window_owner *desk_window_set_next_close(struct desk_window_set *);
  * Release refuses while dispatching, before GUI disposal, or after set failure.
  * Unopened owners can also be released. Neither operation kills a worker. */
 int desk_window_owner_dispose(struct desk_window_owner *);
+int desk_window_owner_dispose_with(struct desk_window_owner *,int (*)(void *,void *,size_t),void *);
 int desk_window_owner_release(struct desk_window_owner *,int work_drained);
 /* Same GUI/work preconditions; callback accepts full mapping ownership on 0,
  * or returns nonzero without changing it. This transfers logical retirement;

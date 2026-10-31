@@ -282,3 +282,14 @@ receipt for every completed Text/Files process. Initial service creation and
 final join have their own measured phases. Existing client, UI-loop and total
 lifecycle deadlines remain unchanged. This architecture still needs native
 endurance acceptance; previous hardware failures remain failures.
+
+The Text/Files helper uses an explicitly supplied64KiB stack inside its service
+storage; that storage remains live until verified join. This avoids allocating
+and retiring the pthread runtime's default-sized owned stack without changing
+general pthread policy. Optional canvas disposal callbacks transfer pixel-map
+ownership after CLOSE_ACK. Queue refusal retains canvas/connection ownership;
+a successfully destroyed kernel surface is recorded and not destroyed twice.
+The same helper queues canvas and model unmaps and prints their actual separate
+phases. Logical GUI disposal alone does not prove either mapping was released.
+Sparse app timing marks dispatcher/helper lanes and validates clocks within each
+lane, retaining cross-phase lifecycle/elapsed checks and strict whole records.

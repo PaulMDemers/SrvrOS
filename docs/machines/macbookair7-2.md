@@ -89,6 +89,15 @@ refusal, and record actual helper canvas-unmap phases. Keep default disposal,
 pthread/kernel semantics and all deadlines unchanged. Validate callback refusal/
 retry and supplied-stack lifetime through verified join before new VM trials.
 
+Refined host desktop suite and matched builds pass after supplying the64KiB
+stack and moving canvas unmap through the same bounded service. Actual host
+pthread attributes are checked; canvas refusal retains pixels/connection and
+retry does not destroy the surface twice. Main/helper timing lanes preserve
+per-lane clock checks and full phase/lifecycle validation without treating valid
+concurrent log order as a clock fault. New VM checks require actual canvas,
+service-init and verified-join phases. No kernel or general pthread policy
+changed. Loaded VM validation remains pending; no hardware boot armed.
+
 ### Native Files lifecycle return — delayed Close delivery (2026-10-31)
 
 Releasea4f7080c77fda748/source0fe284e2 saves matching session and returns to

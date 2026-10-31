@@ -10,6 +10,12 @@
 
 static uint64_t ticks=1,next_surface=10,source=42;
 static int liveness_checks,alive=1,queued,full,created,destroyed,blits,sends,waits,wait_result,pixel_failure,surface_failure;
+static int refuse_canvas=1;static void *taken_canvas;static size_t taken_bytes;
+static int take_canvas(void *context,void *address,size_t length) {
+    assert(context==&taken_canvas && !taken_canvas);
+    if(refuse_canvas)return -1;
+    taken_canvas=address;taken_bytes=length;return 0;
+}
 int gui_wait(uint64_t server,uint64_t deadline) { assert(server==42 && deadline==10);waits++;return wait_result; }
 static unsigned io_waits;
 int gui_wait_io(struct srv_gui_wait *r) {
@@ -121,7 +127,11 @@ static void connection_windows(void) {
     receive(DESK_RELEASE,1);incoming.surface=a.surface;incoming.serial=a.pending;
     assert(connection_receive(&c,&target,&event)==2 && !a.pending && desk_window_dispose(&a)<0);
     receive(DESK_CLOSE_ACK,0);assert(connection_receive(&c,&target,&event)==1 && target==&a && a.closed);
-    assert(!desk_window_dispose(&a) && b.pixels[0]==0xabcdef && !b.closed && !b.failed);
+    uint32_t *canvas=a.pixels;size_t canvas_bytes=(size_t)a.width*a.height*4;int old_destroyed=destroyed;
+    assert(desk_window_dispose_with(&a,take_canvas,&taken_canvas)==-1 && a.pixels==canvas && a.connection==&c && !a.surface && destroyed==old_destroyed+1);
+    refuse_canvas=0;
+    assert(!desk_window_dispose_with(&a,take_canvas,&taken_canvas) && !a.pixels && !a.connection && taken_canvas==canvas && taken_bytes==canvas_bytes && destroyed==old_destroyed+1);
+    assert(b.pixels[0]==0xabcdef && !b.closed && !b.failed);free(taken_canvas);taken_canvas=NULL;
     assert(!desk_window_open(&c,&a,"Refused",400,300) && a.window==3);
     for(int n=0;n<3;n++)desk_connection_poll(&c,&target,&event);
     receive(DESK_OPEN_REPLY,0);incoming.window=3;incoming.value=DESK_OPEN_CAPACITY;

@@ -7,11 +7,11 @@ scheduling and I/O waits, not CPU or gate-wait attribution.
 import re
 
 RECORD = re.compile(
-    rb'app-timing: pid=(\d+) role=(\d+) window=(\d+) stage=([a-z-]+) '
-    rb'edge=(begin|end|event) at_us=(\d+) elapsed_us=(\d+)')
+    rb'(?m)^app-timing: pid=(\d+) role=(\d+) window=(\d+) stage=([a-z-]+) '
+    rb'edge=(begin|end|event) at_us=(\d+) elapsed_us=(\d+)(?: lane=[01])?(?=\r?\n|$)')
 
 
-def validate_app_timing(output, completed, *, files_window_runtime=False):
+def validate_app_timing(output, completed, *, files_window_runtime=False, async_file_service=False):
     """Validate the caller's known lifecycle, without inferring it from missing phases.
 
     completed contains (cycle, pid) pairs from the existing closed receipts.
@@ -22,17 +22,17 @@ def validate_app_timing(output, completed, *, files_window_runtime=False):
     for match in RECORD.finditer(output):
         pid, role, window, stage, edge, at, elapsed = match.groups()
         records.setdefault(int(pid), []).append(
-            (int(role), int(window), stage.decode(), edge.decode(), int(at), int(elapsed)))
+            (int(role), int(window), stage.decode(), edge.decode(), int(at), int(elapsed),match.group(0).endswith(b' lane=1')))
     summary = []
     for cycle, pid in completed:
         rows = records.get(pid, [])
         assert rows, f'missing app timing for pid {pid}'
         role = (2, 1, 4)[cycle % 3]  # Text, Files, System
         pending, spans, events = {}, {}, {}
-        previous = 0
-        for observed_role, window, stage, edge, at, elapsed in rows:
-            assert observed_role == role and at >= previous and at > 0, (pid, stage, 'identity/clock')
-            previous = at
+        previous = {}
+        for observed_role, window, stage, edge, at, elapsed,lane in rows:
+            assert observed_role == role and at >= previous.get(lane,0) and at > 0, (pid, stage, 'identity/clock')
+            previous[lane] = at
             key = (window, stage)
             if edge == 'begin':
                 assert key not in pending and elapsed == 0, (pid, stage, 'duplicate begin')
@@ -48,6 +48,8 @@ def validate_app_timing(output, completed, *, files_window_runtime=False):
         required = {'runtime-init', 'pool-init', 'window-open', 'role-init', 'history-free'}
         mapped = role == 2 or (role == 1 and files_window_runtime)
         required |= {'document-map', 'window-dispose', 'document-unmap', 'pool-retire'} if mapped else {'job-drain', 'window-close'}
+        if mapped and async_file_service:
+            required |= {'file-service-init','file-service-join','canvas-unmap'}
         if role == 1:
             required.add('pool-retire')
         assert required <= spans.keys(), (pid, 'missing phases', required - spans.keys())
@@ -78,9 +80,10 @@ def saved_app_timing(snapshots):
         for match in RECORD.finditer(snapshot):
             record = match.group(0)
             pid, *_, at, elapsed = match.groups()
+            lane=match.group(0).endswith(b' lane=1');identity=pid,lane
             assert record not in seen, 'duplicate record within saved snapshot'
-            assert int(at) >= previous.get(pid, 0), 'saved snapshot clock/order'
-            previous[pid] = int(at)
+            assert int(at) >= previous.get(identity, 0), 'saved snapshot clock/order'
+            previous[identity] = int(at)
             seen.add(record)
         for match in RECORD.finditer(snapshot):
             records.setdefault(match.group(0), None)

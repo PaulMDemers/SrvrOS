@@ -192,7 +192,7 @@ def main():
                     # interleaved text; the existing complete-phase validator
                     # still rejects every missing/conflicting lifecycle record.
                     console_records=b'\n'.join(line for line in output.splitlines() if RECORD.fullmatch(line))
-                    timing=validate_app_timing(saved_app_timing([console_records,*snapshots]),[(int(cycle),int(pid)) for cycle,pid,_ in closed],files_window_runtime=True)
+                    timing=validate_app_timing(saved_app_timing([console_records,*snapshots]),[(int(cycle),int(pid)) for cycle,pid,_ in closed],files_window_runtime=True,async_file_service=True)
                     (out/'app-timing.json').write_text(json.dumps(timing,indent=2)+'\n')
                     services=file_service_receipts([bytes(output),*snapshots],{row['pid']:row['role'] for row in timing if row['role'] in (1,2)})
                     (out/'file-service.json').write_text(json.dumps(services,indent=2)+'\n')

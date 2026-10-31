@@ -13,6 +13,7 @@
 static pthread_t ui;
 static atomic_uint hold_spawn,hold_unmap,spawn_calls,unmap_calls,fail_spawn,fail_unmap;
 static unsigned fail_create,fail_join;
+static void *expected_stack;
 static int next_fd=10,closed[1024],children,reaped,eof[64],writers[64];
 static void nap(void) {struct timespec t={0,1000000};nanosleep(&t,NULL);}
 long srv_signal_config(uint64_t signal,uint64_t action) {assert(!pthread_equal(pthread_self(),ui) && signal==SIGPIPE && action==SRV_SIGNAL_IGNORE);return 0;}
@@ -46,6 +47,7 @@ long srv_futex_wake(uint32_t *word,uint64_t count) {
     (void)word;assert(count==1);pthread_mutex_lock(&event_lock);pthread_cond_broadcast(&event_cond);pthread_mutex_unlock(&event_lock);return 1;
 }
 static int create_thread(pthread_t *thread,const pthread_attr_t *attr,void *(*start)(void *),void *arg) {
+    void *stack=NULL;size_t size=0;assert(!pthread_attr_getstack(attr,&stack,&size) && stack==expected_stack && size==64*1024);
     assert(pthread_equal(pthread_self(),ui));if(fail_create){fail_create=0;return EAGAIN;}return pthread_create(thread,attr,start,arg);
 }
 static int join_thread(pthread_t thread,void **value) {if(fail_join){fail_join=0;return EBUSY;}return pthread_join(thread,value);}
@@ -55,6 +57,7 @@ static int retire_mapping(void *address,size_t length) {
 }
 static void desk_log(const char *format,...) {(void)format;}
 struct tool_phase_trace {int value;};
+static _Thread_local unsigned tool_timing_lane;
 static uint64_t tool_timing_begin(int role,uint64_t window,const char *stage) {(void)role;(void)window;(void)stage;return srv_monotonic_us();}
 static void tool_timing_end(int role,uint64_t window,const char *stage,uint64_t at) {(void)role;(void)window;(void)stage;(void)at;}
 static void tool_phase_begin(struct tool_phase_trace *phase) {phase->value=1;}
@@ -72,6 +75,7 @@ static void drain(struct file_service *s) {for(unsigned n=0;n<5000;n++){if(!file
 static void clean_fds(void) {for(int i=10;i<next_fd;i++)assert(closed[i]);assert(reaped==children);}
 int main(void) {
     ui=pthread_self();struct desk_file_pool pool;struct desk_file_channel channels[2];struct file_service service;
+    expected_stack=service.stack;
     assert(!desk_file_pool_init(&pool,channels,2));fail_create=1;
     assert(file_service_start(&service,&pool,1)==-1 && !service.started && !pool.opener && !children);
     assert(!file_service_start(&service,&pool,1));
@@ -81,7 +85,7 @@ int main(void) {
     assert(pool.opener(pool.opener_context,&channels[0])==1 && channels[0].pid==1001 && service.opened==1);
     pool.spawned=pool.live=1;
     atomic_store(&hold_unmap,1);void *maps[FILE_SERVICE_RETIRES+1];
-    struct file_service_release release={&service,42};
+    struct file_service_release release={.service=&service,.window=42};
     for(unsigned i=0;i<FILE_SERVICE_RETIRES+1;i++){maps[i]=mmap(NULL,4096,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS,-1,0);assert(maps[i]!=MAP_FAILED);*(unsigned *)maps[i]=123;}
     for(unsigned i=0;i<FILE_SERVICE_RETIRES;i++)assert(!file_service_retire(&release,maps[i],4096));
     await_count(&unmap_calls,1);assert(!file_service_capacity(&service) && file_service_poll(&service));
