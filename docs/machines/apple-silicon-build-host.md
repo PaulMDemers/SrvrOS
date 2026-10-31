@@ -1839,3 +1839,19 @@ Actions dispatch or merge occurred. PR19 `5556641f` remains independent Wi-Fi
 work. Continued tracing reaches resolver retry/deadline policy, duplicated
 pseudo-socket peer/options state and remaining native-FD I/O continuations;
 these need separate directed coverage before claiming a broader socket profile.
+
+## Resolver and socket audit continuation, October 31
+
+PR182 merged into main at `198c6a1c`. Its integration head `d7b2290c`
+includes PR251 and retains both the network audit and platform diagnostic
+Makefile targets. Storage lease, workspace log, scheduler, power, package,
+query and socket host tests passed on the integrated tree. The matched x86_64
+guest build and network ABI smoke also passed.
+
+The Apple Silicon host continues on `device/apple-silicon/resolver-socket-audit`
+from that merge. First, use the deterministic kernel query fixture to check
+whether an answer accepted in the last poll survives the timeout decision.
+Check the number of outgoing queries, the answer value, and the ordinary silent
+timeout. The next boundaries are libc resolver retry deadlines, peer and option
+state across duplicated sockets, and native descriptor I/O resumed after reuse.
+PR19 tracks the Wi-Fi device work separately.
