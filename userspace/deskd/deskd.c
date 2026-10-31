@@ -1974,7 +1974,7 @@ int main(int argc,char **argv) {
     unsigned audio_io_seconds=audio_io_smoke?60:1800;
     int audio_io_complete=0,audio_io_finished=0;
     unsigned stress_shots=0,stress_saved=0,stress_shot_seen=0;
-    uint64_t stress_shot_due=0,followup_begin=0,followup_pid=0,followup_due=0;unsigned followup_phase=0;
+    uint64_t stress_shot_due=0,followup_begin=0,followup_pid=0,followup_due=0,followup_elapsed=0;unsigned followup_phase=0;
     uint64_t life_pid=0,life_due=0,life_begin=0,life_close=0,loop_last=0,loop_max=0,life_ready_max=0,life_close_max=0,life_first=0,life_last=0;
     unsigned life_cycles=0,life_phase=0;
     struct loop_trace loop_trace={0};uint64_t loop_report_at=0;
@@ -2160,8 +2160,10 @@ int main(int argc,char **argv) {
                 for(int i=0;i<session_capacity(&s);i++)if(session_client(&s,i)->pid==followup_pid)request_close(&s,i);
                 followup_phase=3;
             } else if(followup_phase==3 && child_index(&s,followup_pid)<0) {
+                followup_elapsed=now-followup_begin;
                 followup_phase=4;global_menu_action(&s,GLOBAL_EXIT);
-                desk_log("desktop-stress-exit: followup=PASS pid=%llu elapsed_us=%llu shots=%u saved=%u busy=%u\n",(unsigned long long)followup_pid,(unsigned long long)(now-followup_begin),stress_shots,stress_saved,s.capture.busy);
+                /* Retain the receipt, but UART backpressure must not block
+                 * the final live UI turn. Emit after its timing is captured. */
             }
             if(followup_phase && followup_phase!=4 && now-followup_begin>10000000) {
                 desk_log("desktop-stress-exit: followup=FAIL phase=%u pid=%llu elapsed_us=%llu\n",followup_phase,(unsigned long long)followup_pid,(unsigned long long)(now-followup_begin));failed=1;break;
@@ -2754,6 +2756,8 @@ int main(int argc,char **argv) {
         loop_trace_end(&loop_trace,coexist_end,life_cycles,life_pid,life_phase);
         if(gap>500000)desk_log("desktop-loop: gap_us=%llu phase=%u final=1\n",(unsigned long long)gap,life_phase);
     }
+    if(audio_io && followup_phase==4)
+        desk_log("desktop-stress-exit: followup=PASS pid=%llu elapsed_us=%llu shots=%u saved=%u busy=%u\n",(unsigned long long)followup_pid,(unsigned long long)followup_elapsed,stress_shots,stress_saved,s.capture.busy);
     if(battery_work) {
         uint64_t elapsed=coexist_end-work_begin;
         if(work_phase!=3 || elapsed<300000000 || !work_keys || !work_motion || !s.exiting || s.child_errors)failed=1;

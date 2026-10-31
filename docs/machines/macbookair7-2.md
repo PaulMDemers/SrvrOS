@@ -69,6 +69,16 @@ The existing20000-transfer pipe/rights, VFS writeback/failed-close, inheritance,
 PTY, poll generation and stale-handle cases pass. Full hosts/builds and matched
 normal/throttled VM validation follow; no physical result is inferred.
 
+The first candidate normal VM passes21cycles/UI349604us and complete receipts.
+Its populated100IOPS VM completes PCM,12app cycles, screenshot and follow-up
+without a lifecycle deadline, but FAILs the UI bound at526147us (trial stage
+524456us). Keep that failure. The terminal follow-up diagnostic was printed
+synchronously inside the final UI trial turn; extend this scope to retain its
+scalar receipt and emit it only after UI-loop retirement/timing capture. Actual
+app/exit work stays in the measured loop and all limits remain unchanged. Rerun
+both workloads; this is diagnostic output relocation, not acceptance of the
+failed candidate or a native result.
+
 ### Client termination follow-up scope (2026-10-31)
 
 From main `d299c6ac` with PR #255 host-preflight work retained, the Air agent
