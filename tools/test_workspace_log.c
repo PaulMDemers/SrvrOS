@@ -11,6 +11,7 @@ static bool mounted=true,io_ok=true,sync_ok=true,corrupt,open_file;
 static uint64_t ticks=10,total=100,clock_us;
 static bool tracing,reference=true,power_enabled=true;
 static unsigned cost_reports;
+static unsigned global_syncs,durable_reports;
 static uint64_t test_policy=20000;
 bool xhci_storage_wait_policy(uint64_t policy,uint64_t *old) { assert(depth && (policy==0||policy==4000||policy==20000));*old=test_policy;test_policy=policy;return true; }
 bool timer_reference_ready(void) { return reference; }
@@ -32,7 +33,8 @@ bool vfs_read_all(const struct vfs_node *n,const uint8_t **data,uint64_t *size) 
 }
 void vfs_release_data(const struct vfs_node *n,const uint8_t *data) { (void)n;(void)data;assert(depth); }
 bool workspace_active(void) { return mounted; }
-bool workspace_sync(void) { assert(!depth);flushes++;clock_us+=50;return sync_ok; }
+bool workspace_flush_committed(void) { assert(!depth);flushes++;clock_us+=50;return sync_ok; }
+bool workspace_sync(void) { global_syncs++;return workspace_flush_committed(); }
 bool process_has_open_vfs_prefix(const char *p) { (void)p;return open_file; }
 bool scheduler_io_begin(void) { assert(!depth);depth=1;return true; }
 void scheduler_io_end(void) { assert(depth==1);depth=0; }
@@ -40,6 +42,8 @@ bool scheduler_spawn(const char *name,scheduler_thread_fn fn,void *arg) { (void)
 bool scheduler_wait(struct scheduler_wait_queue *q,scheduler_wait_condition_fn fn,void *arg) { (void)q;return fn(arg); }
 bool scheduler_wait_timeout(struct scheduler_wait_queue *q,scheduler_wait_condition_fn fn,void *arg,uint64_t end) { bool ready=scheduler_wait(q,fn,arg);if(!ready)ticks=end;return ready; }
 void scheduler_wake_all(struct scheduler_wait_queue *q) { (void)q; }
+bool scheduler_io_observe_reset(void) { assert(!depth);return true; }
+void scheduler_print_io_owners(void) { assert(!depth); }
 void scheduler_print_activity(void) { assert(!depth); }
 void scheduler_snapshot(struct scheduler_stats *out) { assert(!depth);*out=(struct scheduler_stats){100,90,200,50}; }
 uint64_t timer_ticks(void) { return ticks; }
@@ -52,12 +56,17 @@ void power_status(struct power_snapshot *out) { assert(!depth);*out=(struct powe
 void audio_stream_snapshot(struct srv_pcm_status *out,uint64_t *owner) { assert(!depth);*out=(struct srv_pcm_status){.version=SRV_PCM_VERSION};*owner=0; }
 void audio_status(struct srv_audio_status *out) { assert(!depth);device_reads++;*out=(struct srv_audio_status){.version=SRV_AUDIO_VERSION,.state=SRV_AUDIO_READY,.tests_started=2,.tests_completed=2}; }
 void thermal_status(struct srv_thermal_status *out) { assert(!depth);device_reads++;*out=(struct srv_thermal_status){.version=SRV_THERMAL_VERSION,.state=SRV_THERMAL_UNAVAILABLE}; }
-void console_printf(const char *fmt,...) { if(!strncmp(fmt,"workspace-cost:",15)) { assert(previous_save.pending && !tracing && !depth);cost_reports++; }total++; }
+void console_printf(const char *fmt,...) {
+    if(!strncmp(fmt,"workspace-cost:",15)) { assert(previous_save.pending && !tracing && !depth);cost_reports++; }
+    if(!strncmp(fmt,"workspace-log: durable",22)) {assert(!tracing && !depth);durable_reports++;}
+    total++;
+}
 void console_write(const char *text) { (void)text;total++; }
 int main(void) {
     mounted=false;assert(!workspace_log_start() && !writes);mounted=true;
     capacity_ok=false;assert(!workspace_log_start() && !writes && !count && !directory[0]);capacity_ok=true;
     assert(workspace_log_start() && enabled && healthy && writes==1 && flushes==1);
+    assert(!global_syncs && durable_reports==1);
     assert(device_reads==2);
     assert(previous_save.pending && previous_save.ok && previous_save.valid);
     assert(previous_save.write==100 && previous_save.verify==30 && previous_save.sync==50);
@@ -73,13 +82,15 @@ int main(void) {
     assert(workspace_log_stop() && !enabled && writes==4 && flushes==4);
     assert(workspace_log_start() && strcmp(first,directory)); /* Same RTC still gets a fresh folder. */
     unsigned before=writes;open_file=true;assert(!save("session-a.log") && writes==before);open_file=false;
-    corrupt=true;before=flushes;assert(!save("session-a.log") && flushes==before);assert(!previous_save.ok && previous_save.sync==0 && !tracing);corrupt=false;
-    sync_ok=false;assert(!save("session-b.log"));assert(!previous_save.ok && previous_save.sync==50 && !tracing);sync_ok=true;
+    unsigned durable_before=durable_reports;
+    corrupt=true;before=flushes;assert(!save("session-a.log") && flushes==before);assert(!previous_save.ok && previous_save.sync==0 && !tracing && durable_reports==durable_before);corrupt=false;
+    sync_ok=false;assert(!save("session-b.log"));assert(!previous_save.ok && previous_save.sync==50 && !tracing && durable_reports==durable_before);sync_ok=true;
     power_enabled=false;assert(save("session-a.log") && previous_save.pending && previous_save.valid && !tracing);
     assert(previous_save.write==100 && previous_save.verify==30 && previous_save.sync==50);
     assert(previous_save.end-previous_save.start==180);power_enabled=true;
     reference=false;assert(save("session-b.log") && !previous_save.pending && !tracing);reference=true;
     assert(workspace_log_stop());mounted=false;assert(!workspace_log_stop());
+    assert(!global_syncs); /* Every log save used only the committed-data barrier. */
     busy=true;enabled=true;unsigned saved=writes;
     assert(workspace_log_active() && !workspace_log_quiesce(0));
     assert(!enabled && busy && writes==saved);

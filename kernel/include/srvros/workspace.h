@@ -4,6 +4,12 @@
 #include <stdint.h>
 bool workspace_mount(const char *uuid);
 bool workspace_sync(void);
+/* Kernel direct writer only: flush already-completed exFAT writes to this
+ * workspace's device. Does not submit dirty process-file buffers. Caller must
+ * finish its mutation/readback first and retain the ordinary mounted lifetime.
+ * The same I/O gate, writable/health checks and failure poisoning apply.
+ * Explicit sync and unmount still synchronize all process files. */
+bool workspace_flush_committed(void);
 bool workspace_unmount(void);
 bool workspace_active(void);
 /* CPU0 mounted-lifetime pin, not an I/O lock or permission to access raw blocks.

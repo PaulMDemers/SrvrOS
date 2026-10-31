@@ -2,6 +2,124 @@
 
 Updated: 2026-10-28. State: **active reference machine; partial device acceptance**.
 
+### Eighth endurance return — long owner identified (2026-10-28)
+
+Release `b70f04d3166380e2`, clean `a8da6076` (PR #250), returned automatically
+from `session-00065eeda3a00e66-00`. The first Text app (PID8) misses its startup
+deadline: zero completed cycles, maximum UI loop 100908 us, zero observed PCM
+underruns, incomplete screenshot and clean native battery retirement. Three
+complete saved owner snapshots validate 13 distinct long scopes. PID7, the
+separate disk-stress child, owns serialization from 18942270 to 26078440 us
+(7136170 us, 6784 READY selection refusals). A subsequent logger save runs
+26078942–29531547 us, including 3402316 us writing and 720 us syncing. Text first
+enters main at 29531575 us, after its deadline. This identifies contributing
+owners and intervals, not a particular syscall, command or CPU cost.
+
+All 1206 prior files are preserved except metadata; offline fsck/allocation pass
+(1210 files, 3246 clusters, zero errors). Ubuntu default, independent recovery
+and consumed one-shot are verified. Installed remains this diagnostic candidate;
+no new reboot is armed and endurance remains unaccepted.
+
+Next work is a bounded storage/admission proposal, not another identical reboot.
+A large file mutation currently retains the scheduler gate across device waits;
+audited UI services may run, while new/retiring kernel continuations must wait.
+Source review confirms the disk child uses ordinary 256 KiB write/fsync/rename/
+readback/delete/sync cycles, and exFAT serializes complete mutations, including
+dirty/clean flags and physical durability barriers. Do not shorten the workload,
+weaken those barriers, expose partial metadata, widen unsafe kernel admission or
+raise the existing deadlines. Establish which operation holds the long scope,
+then separate long device work from short shared-state transitions with explicit
+file/mount ownership, error retention and concurrent app regression coverage.
+That implementation overlaps PR #182 (`c5e9d2ac`) in process/syscall/exFAT/block;
+its owner remains independent of the user-assigned logger-only fix. Prepare the
+reproduction/proposal and resolve shared ownership before conflicting integration.
+PR #19 Wi-Fi remains independent. The remaining admission/performance fix is not
+claimed by these diagnostic results.
+
+### Seventh endurance return — scoped logger barrier (2026-10-28)
+
+Release `3b5821fefe34b721`, clean `bb8561f7` (PR #247), returned automatically
+from `session-00065eecca209c8d-00` after seven cycles. Files PID18 misses its close
+deadline during final file-pool retirement: 5151107 us, including 4913448 us
+ready, 1593 gate exclusions and 237401 us blocked. UI maximum 102541 us, zero
+observed PCM underruns, incomplete screenshot and clean battery retirement do
+not accept endurance. Measured logger sync is now 711–802 us; some logger write
+intervals still take seconds. The earlier global-sync coupling is removed, but
+this run does not identify the remaining gate owner. All 1200 prior files are
+preserved except metadata; offline fsck/allocation pass (1206 files, 3239 clusters,
+zero errors), default/recovery/consumed one-shot pass.
+
+Next bounded scope: kernel-only long I/O-owner receipts in scheduler diagnostics
+and workspace log snapshots, with focused scheduler/logger fixtures. Record stable
+thread identity, process ID, sanitized worker name and interval, outside measured
+scopes; no syscall/wire ABI, gate, cadence, workload or deadline changes. Preserve
+PR #182 process/VFS audit and PR #19 Wi-Fi ownership. Consume actual main PR #249
+before matched validation; its RC6 diagnostics do not confer Air7,2 acceptance.
+
+Implementation `72454534` passes integrated core/desktop hosts, matched ordinary,
+native and VM builds and PR #249 diagnostics. Normal Air7,2 KVM passes 23 cycles,
+maximum UI loop 117491 us, ready 1120527 us and close 961646 us, zero observed
+underruns, exact files/screenshot and clean retirement. Four saved complete owner
+snapshots validate 24 distinct long scopes, including copied PID/thread identity,
+interval arithmetic, ordering, bounded retention and consistent repeated records.
+Live UART interleaving is retained as a diagnostic-stream limitation; use saved
+atomic records. The 100-write-IOPS populated fixture still fails the total
+lifecycle deadline (four completed cycles, UI maximum 111161 us). Its retained
+atomic checkpoint validates three owner snapshots and 16 distinct long scopes;
+a PID7 workload scope lasts 848646 us with 927 READY selection refusals. This
+is VM attribution coverage, not native acceptance or a performance fix.
+PR #250 merged as `a8da6076`. Clean stage `b70f04d3166380e2` passes exact-payload
+Q35 native-ownership refusal/save/unmount/reset rehearsal and is installed for an
+automatic native attribution run. All 1206 pre-existing file hashes and offline
+integrity/headroom checks are saved. Recovery `9aa8dbf6fbda8252` remains independent;
+Ubuntu stays default. No human input is required; collect this release's matching
+session and correlate saved owner intervals after return.
+
+### Sixth endurance return — logger invokes global file sync (2026-10-28)
+
+Release `c98e4c162b411126`, clean `c23ed928` (PR #245), returned automatically
+from `session-00065eeb62e3edb4-00` after seven cycles. Files PID 18 misses the
+startup deadline while awaiting first pixels. UI maximum 101097 us, zero observed
+PCM underruns and clean native battery retirement do not accept endurance.
+Logger save 59755534–64831507 us takes 5075973 us: write 173052, verify 4232 and
+sync 4898644 us. Its USB CSW callbacks total 4326717 us. This is workload wall time,
+including concurrent traffic, not CPU or pure device latency. Source review shows
+logger `workspace_sync()` invokes `process_file_sync_all()` before the device
+barrier, so log persistence can force unrelated dirty process buffers to disk.
+All 1194 prior files are preserved except metadata; offline fsck/allocation pass
+(1200 files, 3191 clusters, zero errors), default/recovery/one-shot pass.
+
+The bounded proposal adds a kernel-only committed-data flush API in
+`workspace.c/.h`, logger use/explicit durability receipt, focused workspace/logger
+fixtures and checkpoint VM harness compatibility. Explicit workspace sync and
+unmount must retain global process-file sync; logger may flush only its already
+written/read-back exFAT data plus the physical device barrier. No gate, cadence,
+deadline, dirty-file ownership or failure-poisoning weakening. Main `46b60b24` /
+PR #246 isolated diagnostic fixes are consumed, along with documentation-only
+main `00338707` / PR #248. The user assigned the Air7,2 agent ownership of the
+narrow logger barrier in PR #247. PR #182 at `c5e9d2ac` retains its separate
+filesystem audit: preserve its block-claim/online-state checks and raw scratch
+lease handling when integrating. The original no-argument full-sync helper is
+retained for compatibility. This change does not take over process/VFS auditing.
+PR #19 Wi-Fi remains independent. Ubuntu stays default with no one-shot armed.
+
+The committed-data barrier proposal passes integrated core/desktop hosts,
+ordinary/native/VM builds and documentation checks. Final wrapper preservation
+passes focused workspace/logger tests and matched rebuilds. Source `7e3a325f`
+passes normal Air7,2 KVM: 22 cycles, loop 115699 us, ready 1269412 us, close 940387 us,
+zero observed PCM underruns, exact files/screenshot and clean retirement. Five
+live checkpoints use the new matching durability marker. The 100-write-IOPS
+populated fixture still fails cycle 1 total lifecycle (UI 109720 us); preserve it
+as a remaining performance failure. No native barrier acceptance is claimed.
+PR #247 merged as `bb8561f7` under that explicit user ownership assignment.
+Clean stage `3b5821fefe34b721` passes exact-payload Q35 refusal/save/unmount/reset
+rehearsal and is installed for an automatic 1800-second native trial. This VM
+result does not accept native runtime or endurance. Independent recovery
+`9aa8dbf6fbda8252` is retained; Ubuntu remains default. Prior 1200 file hashes and
+offline filesystem/allocation/headroom checks are saved before the trial.
+No human input is needed. Collect the matching session after return; retain the
+known throttled-VM failure and unchanged lifecycle/UI limits.
+
 ### Fifth endurance return — ready-thread gate exclusion (2026-10-28)
 
 Release `57d0ba0d7e1f2f71`, clean `b6f3dcad` (PR243 runtime), returned

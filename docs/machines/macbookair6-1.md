@@ -5272,3 +5272,91 @@ Before installation, repoint current through the normal installer to accepted
 package audit `bae0678ed7e9b38b`, then retire only the failed `a3ac64f7cd15293c`
 EFI copy after durable verification to make space. Console recovery, accepted
 payloads and the failed candidate's durable payload/evidence remain retained.
+
+### Null traversal accepted; RC6 timing unresolved (2026-10-28)
+
+Release `8c9a5a28464ffd7c`, source `ac343119` / PR246 merge `46b60b24`, saved
+`session-00065eebb0420243-00` and returned automatically. All three workload
+phases and the enclosing process/capture complete successfully. The runtime
+platform receipt is fault-free with 25 devices; the independent strict collector
+still rejects RC6 timing. This is partial acceptance, not an overall platform
+audit pass or a reason to promote this payload over accepted package recovery.
+
+The four affected root ports (`00:1c.1`, `.2`, `.4`, `.5`) now traverse two
+extended headers in both snapshots and correctly report LTR capability absent.
+No device reports a malformed/unavailable chain. This accepts the Null traversal
+fix on this unit. The two Broadcom LTR capabilities remain `0x10031003` at
+`0x1b0` with six headers. Platform grant remains unavailable; these configured
+maximum latency values do not identify a currently asserted latency request.
+
+Both graphics status observations remain `0x11800303` (RC6 encoding). The RC6
+count advances 13,546,258→83,976,940: 90.151272960 s at the nominal 1.28 us unit.
+The original timestamp span is 90.057986 s. Tight PM brackets around the actual
+reads bound elapsed time to 90.057877–90.057879 s; each read bracket is 1 us wide.
+The corresponding ordered TSC interval is 180,115,732,486–180,115,735,386 ticks,
+or 1,999.999717–1,999.999793 ticks per PM microsecond. The nominal RC6 interval
+still exceeds the upper PM bracket by about 93.394 ms (0.104%). Read placement
+and PM/TSC disagreement do not explain this discrepancy. Its hardware clock or
+counter semantics remain unresolved; do not clamp residency, substitute nominal
+MHz as a TSC calibration, or relax the existing acceptance predicate.
+
+All 32 coordinated rounds observe core C3 on both physical cores and package C2,
+with maximum whole-round latency 9,982 us, 32 HLT fallbacks, no faults and clean
+retirement of all three APs. Package C2 covers 99.5384% of its short brackets;
+package C3 remains unobserved. E2 `0x408` and IRTL `0x8842` stay unchanged.
+
+The 550 baseline files are preserved except expected `.srvros/meta` bookkeeping;
+four new logs bring the volume to 554 files / 1,610 clusters. Offline fsck and
+allocation checks pass with zero leaks, mismatches or errors. The automatic
+447-file return backup verifies outside `build`; current and protected recovery
+payloads verify. Ubuntu is default, the one-shot is consumed and the collector
+is disabled. No new reboot is armed.
+
+Closeout scope is this record/current diagnostic guide and evidence review only;
+PR247 logger barriers, PR182 filesystem and PR19 Wi-Fi remain separate. Next:
+audit RC6 counter scaling, clock tolerance and update semantics against primary
+hardware documentation, then select a bounded read-only comparison if needed.
+Do not change power policy, integrity checks or timing limits to force a pass.
+
+### RC6 scaling/update audit — active scope (2026-10-28)
+
+Base `00338707`, same device branch. Audit Haswell RC6 register scaling and
+update/clock semantics against primary documentation; retain the existing
+strict mismatch predicate. Add bounded read-only counter observations during
+the existing capture if needed to distinguish sustained rate from endpoint
+update behavior. Scope: isolated platform diagnostic, diagnostic-only sampling
+hook/build, receipt parsing/tests and this record. No new worker or timer, no
+forcewake/control access, and no policy, watchdog, workload, log or latency-limit
+changes. PR247 logger barriers, PR182 filesystem and PR19 Wi-Fi do not overlap
+this bounded scope. Next checkpoint: source audit, host/VM checks, self-merged
+candidate and automated native repeat; preserve all prior failed evidence.
+
+The audit confirms Haswell's documented 32-bit/1.28 us accumulator; public
+register documentation supplies no clock tolerance or update cadence, and IGT's
+software test allowance is not adopted. The new series retains every other
+existing power checkpoint (up to 12 pairs), with no added worker/timer/control
+access. It preserves the original mismatch test and saves observations on
+failure. Bounded sampling, host/parser regressions and full-core validation
+passed before integration, as did all nine VM cases on `02911e4b80d22cc3`.
+
+PR247 merged during validation. Consume actual main `bb8561f7`, including the
+logger-only committed-data flush and durable receipt, before staging the native
+retry. This does not change normal sync/unmount integrity; rerun the matched
+build, core suite and exact-stage VM coverage on the integrated candidate.
+Pre-integration receipts remain separate and are not attributed to that image.
+
+Integrated source `05668557`, release `0804f2944e9364d3`, passes the matched
+build, full core/docs suite, isolation/disassembly checks, nine directed/exact
+VM cases and three legacy profiles. The first legacy ownership VM exceeded the
+unchanged 20 ms deadline (21,979 us) and retired safely; its failed receipt is
+retained separately. The identical rerun passed. Maximum-width tail replay,
+including the integrated logger's durability receipts, preserves all proofs
+inside 64 KiB. No timing or integrity requirement was relaxed.
+
+PR249 prepares the fully automated native retry with sparse paired RC6/PM/TSC
+observations, normal idle/load/recovery phases, 32 coordinated rounds, HLT
+fallback and automatic Ubuntu collection. The collector saves timing/series
+diagnostics even if the original RC6 predicate still fails. Native acceptance
+and the counter's hardware clock/update explanation remain pending. The local
+run record binds this source/release to USB `6ADA-85BB`, its 554-file baseline,
+1,610 allocated clusters, protected recovery and durable evidence backup.
