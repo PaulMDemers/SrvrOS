@@ -503,9 +503,15 @@ static void test_independent_process_memory(void) {
         assert(scheduler_io_process_independent(process)==(state==THREAD_DEAD));
     }
     threads[4]=(struct thread){.state=THREAD_READY,.user_context=other};
+    assert(scheduler_io_process_retired((void *)0x30));
+    assert(!scheduler_io_process_retired(process) && !scheduler_io_process_retired(other));
+    threads[5]=(struct thread){.state=THREAD_QUARANTINED,.user_context=(void *)0x30};
+    assert(!scheduler_io_process_retired((void *)0x30));threads[5]=(struct thread){0};
     io_depth=2;io_owner=4;io_private_image=NULL;
     assert(scheduler_io_process_independent(process) && io_depth==2 && io_owner==4);
     io_private_image=process;assert(!scheduler_io_process_independent(process));io_private_image=other;
+    assert(!scheduler_io_process_retired(other));
+    io_private_image=(void *)0x30;assert(!scheduler_io_process_retired((void *)0x30));io_private_image=other;
     assert(scheduler_io_process_independent(process));
     threads[4].user_context=process;assert(!scheduler_io_process_independent(process));threads[4].user_context=other;
     io_owner=3;assert(!scheduler_io_process_independent(process));io_owner=4;

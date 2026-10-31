@@ -2152,18 +2152,26 @@ static int64_t syscall_wait(uint64_t pid, uint64_t *status_out, uint64_t flags) 
     /* Validate before consuming the child: a bad output pointer must not lose
      * a waitable result. */
     if(status_out && !user_buffer_ok(status_out,sizeof(*status_out),true)) return SRV_ERR_FAULT;
+    uint64_t status=0;int64_t result=0;
+    if(!(flags&SRV_WAIT_POSIX) && process_try_wait_retired(pid,&status,&result))
+        return !status_out || copy_to_user(status_out,&status,sizeof(status))?result:-1;
     if(io_defer_wait(flags)) return 0;
     /* Reaping may free mappings/descriptors; never run that continuation under
      * another owner's I/O after the function enables interrupts. */
     scheduler_io_set_user_safe(false);
-    uint64_t status = 0;
+    scheduler_io_wait();
+#ifndef SRVROS_SYSCALL_IO_HOST_TEST
     if(!(flags & SRV_WAIT_NOHANG)) __asm__ volatile ("sti" : : : "memory");
-    int64_t result=(flags & SRV_WAIT_POSIX)?
+#endif
+    result=(flags & SRV_WAIT_POSIX)?
         process_wait_posix((int64_t)pid,&status,(flags & SRV_WAIT_NOHANG)!=0):
         process_wait(pid,&status,(flags & SRV_WAIT_NOHANG)!=0);
     if (result > 0 && status_out != NULL && !copy_to_user(status_out, &status, sizeof(status))) {
-        return -1;
+        result=-1;
     }
+    uint64_t irq=irq_save();
+    scheduler_io_set_user_safe(true);scheduler_io_handoff();scheduler_io_set_user_safe(false);
+    irq_restore(irq);
     return result;
 }
 
@@ -2737,7 +2745,7 @@ bool syscall_io_safe(const struct isr_frame *frame) {
     case SYS_POLL: case SYS_CLOSE: case SYS_MUNMAP: return true; /* Validated prelude, gated fallback. */
     case SYS_READ: return process_fd_is_console(process_current(),frame->rdi,true) || io_try_pipe_read(frame->rdi) || io_snapshot_read(frame->rdi,frame->rdx);
     case SYS_WRITE: return process_fd_is_console(process_current(),frame->rdi,false) || io_try_pipe_write(frame->rdi);
-    case SYS_WAIT: return (frame->rdx & SRV_WAIT_NOHANG) && !(frame->rdx & ~(SRV_WAIT_NOHANG|SRV_WAIT_POSIX));
+    case SYS_WAIT: return true; /* Validated retired-child claim; gated fallback. */
     case SYS_CONSOLE_INFO: case SYS_CONSOLE_CLEAR: case SYS_CONSOLE_GOTOXY:
     /* Bounded queues/mouse state use IRQ exclusion. Surface copies use private
      * chunks and IRQ-protected heap/surface state; no VFS or lifetime cleanup.

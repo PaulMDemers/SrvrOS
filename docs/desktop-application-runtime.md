@@ -146,7 +146,14 @@ this migration does not claim multiple terminal sessions in one process.
 The compositor retains a child PID until it consumes a successful kernel wait.
 When a read-only process snapshot reports `exited`, it may admit one immutable
 reap request to the existing lifecycle worker. The worker uses a blocking wait
-at the ordinary kernel I/O boundary; the snapshot itself grants no reclamation.
+with a validated prelude: an exact direct child can be claimed atomically only
+after reapable publication and complete runtime cleanup. The child must have
+no address space, tracked mappings, kernel stack, descriptors, used thread
+records or live scheduler/private-image reference. Status, child accounting and
+lifetime membership transfer once under IRQ exclusion without freeing, yielding
+or filesystem work. Its empty record is cleared by the existing gated allocator
+before slot reuse. Refusals, POSIX/group/orphan selectors and unfinished cleanup
+use the ordinary kernel I/O boundary; the snapshot itself grants no reclamation.
 The UI never waits on a PID owned by that record. Interrupted results retain the
 child for retry. Sixteen in-flight records provide bounded backpressure without
 changing the process/window budget; full queues keep their children registered.
@@ -192,8 +199,8 @@ invalidation and reader/writer/EOF notification, and performs no allocation or
 filesystem cleanup. CLOSE dispatch admits only this validated prelude; all
 other types, invalid references, duplex pipes and rights-bearing pipes take the
 ordinary I/O gate and a fresh descriptor lookup. Rights cleanup may recursively
-flush files and must not bypass that gate. Process exit and verified wait retain
-their previous admission rules.
+flush files and must not bypass that gate. Process exit retains its gate; verified wait has only the empty retired-child
+claim described above.
 
 Worker-backed client/control/reply timeouts also publish immutable termination
 requests. Sixteen slots coalesce duplicate PIDs and retain full/stopped-queue
@@ -235,3 +242,9 @@ children are consumed exactly once across retries. No kill or timeout releases
 accepted work. Interactive dispatch continues to use nonblocking pool shutdown.
 The same sparse scheduler attribution covers `pool-retire`; it includes natural
 child waiting and scheduling, and does not identify an I/O owner or CPU time.
+
+Files may close its GUI window during an accepted read-only READ/LIST/STAT.
+The retired model keeps its file-job binding until the response drains; only
+then can it detach and release memory. Accepted mutations and Text save work
+retain their completion-before-Close rule. Visual retirement alone does not
+complete process teardown or satisfy an automatic lifecycle deadline.

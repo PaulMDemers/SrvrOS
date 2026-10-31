@@ -1,6 +1,13 @@
 #ifndef SRVROS_TOOL_RUNTIME_H
 #define SRVROS_TOOL_RUNTIME_H
 #include "app.h"
+/* Read-only Files work keeps its model/binding after visual Close. Accepted
+ * mutations and every Text save retain their existing completion gate. */
+static inline int tool_runtime_close_ready(const struct tool *tool) {
+    unsigned operation=tool->job.request.operation;
+    return !tool->job.busy || (tool->role==DESK_APP_FILES &&
+        (operation==DESK_FILE_READ || operation==DESK_FILE_LIST || operation==DESK_FILE_STAT));
+}
 void tool_runtime_init(struct tool *tool,int role);
 void tool_runtime_event(struct tool *tool,struct desk_packet event);
 int tool_runtime_file_poll(struct tool *tool,uint64_t *logged_job);

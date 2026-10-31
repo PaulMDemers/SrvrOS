@@ -382,6 +382,16 @@ void scheduler_io_request_turn(void) {
     irq_restore(flags);
 }
 
+bool scheduler_io_process_retired(void *process) {
+    if(!initialized || !io_services_enabled || switching || !process || thread_capacity>4096 ||
+       (io_depth && (io_owner>=thread_capacity || io_private_image==process || thread_at(io_owner)->user_context==process)))return false;
+    for(uint64_t i=0;i<thread_capacity;i++) {
+        struct thread *t=thread_at(i);
+        if(t->state!=THREAD_UNUSED && t->state!=THREAD_DEAD && t->user_context==process)return false;
+    }
+    return true;
+}
+
 bool scheduler_io_begin(void) {
     if (!initialized || !io_services_enabled || switching) return false;
     if (io_depth != 0 && io_owner != current_thread) return false;

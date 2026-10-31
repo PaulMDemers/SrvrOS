@@ -20,12 +20,19 @@ bool scheduler_io_begin_process_image(void *image) {
     private_target=image;depth++;begins++;return true;
 }
 static struct process *observed;
+static struct process *current;
+void *scheduler_current_user_context(void) {return current;}
+void *scheduler_current_user_thread_context(void) {return NULL;}
+uint64_t gdt_default_kernel_stack_top(void) {return 0x10000;}
+void fpu_init_state(struct fpu_state *state) {memset(state,0,sizeof(*state));}
+bool scheduler_io_process_retired(void *p) {assert(p==&processes[1]);return independent;}
 bool scheduler_io_process_independent(void *p) { assert(p==observed);return independent; }
 static bool released[96];
 static unsigned next_frame=1,wakes;
 static unsigned char backing[96*4096];
 void console_printf(const char *format,...) {(void)format;}
 void scheduler_wake_all(struct scheduler_wait_queue *queue) {
+    if(queue==&process_wait_queue){wakes++;return;}
     assert(queue==&futexes[0].wait_queue && futexes[0].invalidated && depth);
     int64_t i=process_mapping_index(observed,futexes[0].address);
     assert(i>=0 && !released[observed->mappings[i].physical_address/4096]);
@@ -157,6 +164,36 @@ static void private_unmap_contract(void) {
     puts("private-unmap: PASS bounded/provenance/owner refusal unchanged, foreign gate retention, futex-before-free, partial failure ownership/retry, split and PROT_NONE");
 }
 int main(void) {
+    current=&processes[0];*current=(struct process){.allocated=true,.active=true,.pid=42,.pending_signals=1ull<<SRV_SIGNAL_CHLD};
+    struct process *child=&processes[1];
+    *child=(struct process){.allocated=true,.detached=true,.reapable=true,.pid=43,.parent_pid=42,.exit_status=7,.user_us=12,.lifetime=9};
+    process_lifetimes[0]=(struct process_lifetime){.token=9,.members=1};
+    uint64_t status=999;int64_t result=999;independent=false;
+    assert(!process_try_wait_retired(43,&status,&result) && child->allocated && status==999 && result==999);
+    independent=true;
+    child->active=true;assert(!process_try_wait_retired(43,&status,&result));child->active=false;
+    child->reapable=false;assert(!process_try_wait_retired(43,&status,&result));child->reapable=true;
+    child->files[3].used=true;assert(!process_try_wait_retired(43,&status,&result));child->files[3].used=false;
+    child->mapping_count=1;assert(!process_try_wait_retired(43,&status,&result));child->mapping_count=0;
+    child->address_space=0x1000;assert(!process_try_wait_retired(43,&status,&result));child->address_space=0;
+    child->kernel_stack_frames=1;assert(!process_try_wait_retired(43,&status,&result));child->kernel_stack_frames=0;
+    child->user_threads[0].used=true;assert(!process_try_wait_retired(43,&status,&result));child->user_threads[0].used=false;
+    child->parent_pid=44;assert(!process_try_wait_retired(43,&status,&result));child->parent_pid=42;
+    process_slots_busy[1]=true;assert(!process_try_wait_retired(43,&status,&result));process_slots_busy[1]=false;
+    process_lifetimes[0].members=0;assert(!process_try_wait_retired(43,&status,&result));process_lifetimes[0].members=1;
+    assert(status==999 && result==999 && child->allocated && child->reapable);
+    assert(!process_try_wait_retired(0,&status,&result) && !process_try_wait_retired(42,&status,&result));
+    depth=1;unsigned old_begins=begins,old_ends=ends,old_checks=checkpoints;
+    assert(process_try_wait_retired(43,&status,&result) && status==7 && result==43);
+    assert(!child->allocated && !child->reapable && !process_lifetimes[0].members && current->child_user_us==12 && !current->pending_signals);
+    assert(depth==1 && begins==old_begins && ends==old_ends && checkpoints==old_checks);
+    assert(!process_try_wait_retired(43,&status,&result) && current->child_user_us==12);
+    depth=0;next_pid=99;child->signal_ignore_mask=123;observed=NULL;
+    struct process *replacement=alloc_process_lifetime("/fat/bin/replacement",true,0);
+    assert(replacement==child && replacement->allocated && replacement->pid==99 && replacement->active && !replacement->reapable);
+    assert(!replacement->signal_ignore_mask && !replacement->exit_status && !replacement->user_us && !replacement->lifetime);
+    current=NULL;memset(processes,0,sizeof(processes));
+    puts("retired-child: PASS empty reapable direct child only, single claim/accounting, unchanged foreign I/O owner");
     private_scope_contract();
     private_unmap_contract();
     struct process *p=malloc(sizeof(*p));assert(p);observed=NULL;reset();

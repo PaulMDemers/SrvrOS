@@ -62,6 +62,14 @@ No deadlines change. Validate ownership/refusal, repeated claim, accounting and
 slot reuse plus loaded VMs before considering native tests. PR #252 resolver
 and PR #19 Wi-Fi remain independent. No reboot is armed.
 
+Candidate host validation passes full core/desktop and matched ordinary/native/
+VM builds. Final focused checks additionally pass bad status pointers, unsupported
+flags/POSIX prelude bypass, empty direct-child ownership and residue refusal,
+single status/accounting/lifetime transfer, unchanged foreign I/O depth and
+ordinary allocator slot clearing/reuse. Files read-only close guards preserve
+busy jobs and keep mutation/Text gates. Final loaded VM validation is pending;
+this is not native or whole-process endurance acceptance.
+
 ### Bounded anonymous retirement scope (2026-10-31)
 
 From main `695db843` plus collected-return documentation, the Air agent owns

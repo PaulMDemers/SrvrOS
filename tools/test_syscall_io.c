@@ -4,6 +4,12 @@
 #include "../kernel/src/arch/x86_64/syscall.c"
 static bool console_fd,busy,user_safe;
 static unsigned turn_requests;
+static bool retired;
+static bool wait_pointer_ok=true;static unsigned wait_attempts;
+bool vmm_user_range_mapped(uint64_t address,uint64_t length,bool write) {(void)address;(void)length;(void)write;return wait_pointer_ok;}
+bool process_try_wait_retired(uint64_t pid,uint64_t *status,int64_t *result) {assert(pid==42);wait_attempts++;if(!retired)return false;*status=9;*result=42;return true;}
+int64_t process_wait(uint64_t pid,uint64_t *status,bool nohang) {assert(pid==42 && !busy && !user_safe && nohang);*status=0;return 0;}
+int64_t process_wait_posix(int64_t pid,uint64_t *status,bool nohang) {(void)pid;(void)status;(void)nohang;assert(0);return -1;}
 static bool byte_safe;
 bool process_file_pipe_io_safe(struct process *p,uint64_t fd,uint64_t length,bool writing) {
     (void)p;(void)writing;return fd==10 && length<=4096 && byte_safe;
@@ -123,13 +129,21 @@ int main(void) {
         SYS_GUI_SURFACE_BLIT,SYS_GUI_SURFACE_COPY,SYS_GUI_SURFACE_CREATE,SYS_GUI_SURFACE_DESTROY,
         SYS_GFX_BLIT_RECT,SYS_GFX_BLIT_SCALED_RECT,SYS_SCHEDULER_STATUS,SYS_PROC_LIST,SYS_MEMINFO,SYS_SLEEP_TICKS,SYS_REALTIME_US,SYS_MONOTONIC_US};
     for(unsigned i=0;i<sizeof(admitted)/sizeof(*admitted);i++) { frame.rax=admitted[i]; assert(syscall_io_safe(&frame)); }
-    frame.rax=SYS_WAIT; frame.rdx=0; assert(!syscall_io_safe(&frame));
+    frame.rax=SYS_WAIT; frame.rdx=0; assert(syscall_io_safe(&frame));
     frame.rdx=SRV_WAIT_NOHANG; assert(syscall_io_safe(&frame));
     busy=true;user_safe=true;
     assert(io_defer_wait(SRV_WAIT_NOHANG) && turn_requests==1 && user_safe);
     assert(io_defer_wait(SRV_WAIT_NOHANG|SRV_WAIT_POSIX) && turn_requests==2 && user_safe);
     assert(!io_defer_wait(0) && turn_requests==2); /* Blocking path retains its gate. */
     busy=false;assert(!io_defer_wait(SRV_WAIT_NOHANG) && turn_requests==2);
+    busy=user_safe=retired=true;uint64_t wait_status=0;wait_pointer_ok=false;
+    assert(syscall_wait(42,&wait_status,0)==SRV_ERR_FAULT && !wait_attempts);
+    wait_pointer_ok=true;assert(syscall_wait(42,&wait_status,0)==42 && wait_status==9 && busy && user_safe);
+    unsigned attempts=wait_attempts;
+    assert(syscall_wait(42,NULL,~(SRV_WAIT_NOHANG|SRV_WAIT_POSIX))==SRV_ERR_INVAL && wait_attempts==attempts);
+    assert(!syscall_wait(42,NULL,SRV_WAIT_NOHANG|SRV_WAIT_POSIX) && wait_attempts==attempts);
+    retired=false;unsigned turns=turn_requests;assert(!syscall_wait(42,NULL,SRV_WAIT_NOHANG) && turn_requests==turns+1 && user_safe);
+    busy=false;assert(!syscall_wait(42,NULL,SRV_WAIT_NOHANG) && !user_safe);
     frame.rax=SYS_READ; frame.rdi=10;
     pipe_file.type=PROCESS_FILE_PIPE_READ; assert(!syscall_io_safe(&frame));
     pipe_file.flags=SRV_FD_NONBLOCK; assert(syscall_io_safe(&frame));

@@ -2508,6 +2508,34 @@ static bool has_wait_target(const struct process_wait_request *request) {
     }
     return false;
 }
+bool process_try_wait_retired(uint64_t pid,uint64_t *status,int64_t *result) {
+    if(!pid || !status || !result)return false;
+    uint64_t flags=process_irq_save();struct process *parent=process_current(),*child=NULL;
+    if(!parent || !parent->allocated || !parent->active)goto refused;
+    for(unsigned i=0;i<PROCESS_MAX_PROCESSES;i++)if(processes[i].allocated && processes[i].pid==pid) {child=&processes[i];break;}
+    if(!child || child==parent || !child->detached || !child->reapable || child->active ||
+       child->parent_pid!=parent->pid || child->address_space || child->mapping_count ||
+       child->kernel_stack || child->kernel_stack_physical || child->kernel_stack_frames ||
+       process_slots_busy[child-processes] || !scheduler_io_process_retired(child))goto refused;
+    for(unsigned i=0;i<PROCESS_MAX_OPEN_FILES;i++)if(child->files[i].used)goto refused;
+    for(unsigned i=0;i<PROCESS_MAX_USER_THREADS;i++)if(child->user_threads[i].used)goto refused;
+    struct process_lifetime *life=child->lifetime?lifetime_find(child->lifetime):NULL;
+    if(child->lifetime && (!life || !life->members))goto refused;
+    *status=child->exit_status;*result=(int64_t)child->pid;
+    process_record_exit_status_locked(child->pid,child->exit_status);
+    process_account_child(parent,child);
+    /* Runtime cleanup and stack release precede reapable publication. Leave
+     * the empty record intact: alloc_process_lifetime clears its reserved slot
+     * at the ordinary gate before reuse. Nothing is freed or yielded here. */
+    child->reapable=false;child->allocated=false;
+    if(life)life->members--;
+    struct process_wait_request any={.owner=parent->pid};
+    if(!find_reapable_process(&any))process_clear_current_signal(SRV_SIGNAL_CHLD);
+    scheduler_wake_all(&process_wait_queue);
+    process_irq_restore(flags);return true;
+refused:
+    process_irq_restore(flags);return false;
+}
 static bool process_wait_ready(void *arg) {
     const struct process_wait_request *request=arg;
     return process_signal_pending_current() || find_reapable_process(request)!=NULL || !has_wait_target(request);

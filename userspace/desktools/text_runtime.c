@@ -231,8 +231,9 @@ int tool_window_runtime(int role,const char *path) {
                 if(role==DESK_APP_TEXT && !app.capacity && !app.set.lifecycle.quitting && !app.service_window && !t->window.closing &&
                    !desk_application_service(&t->window,DESK_SERVICE_OPEN_DOCUMENT))app.service_window=t->window.window;
                 if(app.set.lifecycle.quitting && app.service_window==t->window.window && !desk_application_service(&t->window,0))app.service_window=0;
-                if(t->closing && !t->job.busy && role==DESK_APP_FILES)t->quit=1;
-                if(t->quit && !t->job.busy)desk_window_close(&t->window);
+                int close_ready=tool_runtime_close_ready(t);
+                if(t->closing && close_ready && role==DESK_APP_FILES)t->quit=1;
+                if(t->quit && close_ready)desk_window_close(&t->window);
                 if(!t->quit && !t->window.closing) {
                     if(desk_clipboard_tick(&t->clip,srv_ticks())<0)tool_clipboard_result(t,-1);
                     tool_runtime_draw(t);

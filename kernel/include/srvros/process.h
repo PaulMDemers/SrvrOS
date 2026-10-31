@@ -267,6 +267,9 @@ int64_t process_munmap(struct process *process, uint64_t address, uint64_t lengt
 /* Atomic bounded whole-anonymous-region retirement, otherwise no mutation.
  * A handled failure retains remaining ownership; false requires the I/O gate. */
 bool process_try_munmap_private(struct process *process, uint64_t address, uint64_t length, int64_t *result);
+/* Exact direct child only; consume fully cleaned reapable metadata atomically.
+ * False leaves ownership/status unchanged and requires ordinary wait admission. */
+bool process_try_wait_retired(uint64_t pid, uint64_t *status, int64_t *result);
 int64_t process_mprotect(struct process *process,
     uint64_t address,
     uint64_t length,
