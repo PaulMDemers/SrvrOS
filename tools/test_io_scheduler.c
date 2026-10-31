@@ -58,13 +58,19 @@ static bool high_wait_test;
 static bool handoff_test;
 static bool fair_handoff_test;
 static unsigned fair_handoff_turns[2];
-static bool retry_turn_test;
+static bool retry_turn_test,ready_edge_test;
+static unsigned ready_edge_turns;
 static unsigned trace_test;
 void fpu_set_current_user_state(struct fpu_state *state) { (void)state; }
 static unsigned handoff_admissions;
 static struct scheduler_wait_queue high_wait;
 static bool completion_condition(void *arg) { assert(arg==&completion_ready);return completion_ready; }
 void scheduler_context_switch(struct scheduler_context *old,struct scheduler_context *next) {
+    if(ready_edge_test) {
+        assert(old==&threads[3].context && next==&threads[6].context && current_thread==6 && !io_depth);
+        assert(!threads[6].io_gate_waiting);ready_edge_turns++;
+        threads[6].state=THREAD_READY;threads[3].state=THREAD_RUNNING;current_thread=3;return;
+    }
     if(fair_handoff_test) {
         assert(old==&threads[3].context && (current_thread==6 || current_thread==7));
         assert(next==&threads[current_thread].context && !io_depth);
@@ -174,7 +180,7 @@ static void test_wake_policy(void) {
 static void test_ready_gate_admission(void) {
     memset(threads,0,sizeof(threads));initialized=io_services_enabled=true;switching=false;
     current_thread=3;idle_thread=1;io_depth=io_gate_pending=0;actual_space=1;
-    threads[3]=(struct thread){.state=THREAD_RUNNING,.io_user_safe=true};
+    threads[3]=(struct thread){.state=THREAD_RUNNING,.user_context=(void *)3,.io_user_safe=true};
     threads[4]=(struct thread){.state=THREAD_READY};
     threads[6]=(struct thread){.state=THREAD_READY}; /* Fresh process, not in io_waiters. */
     assert(scheduler_io_begin());
@@ -216,7 +222,7 @@ static void test_ready_gate_admission(void) {
 static void test_gate_handoff(void) {
     memset(threads,0,sizeof(threads));initialized=io_services_enabled=true;switching=false;
     current_thread=3;idle_thread=1;io_depth=io_gate_pending=0;actual_space=1;
-    threads[3]=(struct thread){.state=THREAD_RUNNING,.io_user_safe=true};
+    threads[3]=(struct thread){.state=THREAD_RUNNING,.user_context=(void *)3,.io_user_safe=true};
     threads[4]=(struct thread){.state=THREAD_READY};
     handoff_test=true;
     for(unsigned round=0;round<64;round++) {
@@ -242,10 +248,74 @@ static void test_gate_handoff(void) {
     memset(threads,0,sizeof(threads));current_thread=0;idle_thread=UINT64_MAX;initialized=false;
     puts("io-handoff: PASS 64 continuous writer rounds, awakened app admission, nested ownership, unsafe caller refusal and canceled waiter retirement");
 }
+static void ready_edge_setup(void) {
+    memset(threads,0,sizeof(threads));initialized=io_services_enabled=true;switching=false;
+    current_thread=3;idle_thread=UINT64_MAX;io_depth=io_gate_pending=io_gate_cursor=0;
+    actual_space=1;clock_us=1000;ready_edge_turns=0;
+    threads[3]=(struct thread){.state=THREAD_RUNNING,.user_context=(void *)3,.io_user_safe=true};
+}
+static void ready_edge_handoff(void) {
+    ready_edge_test=true;scheduler_io_handoff();ready_edge_test=false;
+    assert(ready_edge_turns==1 && !io_gate_pending && io_gate_cursor==6);
+}
+static void test_ready_edge_admission(void) {
+    ready_edge_setup();
+    for(unsigned i=0;i<6;i++)if(i!=3)threads[i].state=THREAD_READY;
+    assert(scheduler_spawn("new child",empty_worker,NULL));
+    /* No timer selection, I/O refusal or syscall wait has happened yet. */
+    ready_edge_handoff();
+    /* Preemption/explicit yield of an unsafe continuation is another READY
+     * transition; no owned-I/O selection needs to have refused it first. */
+    ready_edge_setup();threads[3].user_context=NULL;
+    threads[6]=(struct thread){.state=THREAD_READY,.user_context=(void *)1,.io_user_safe=true};
+    ready_edge_test=true;scheduler_yield();ready_edge_test=false;
+    assert(ready_edge_turns==1 && threads[3].io_gate_waiting && io_gate_pending==1);
+    io_gate_leave(&threads[3]);
+    ready_edge_setup();threads[3].user_context=(void *)1;
+    threads[6]=(struct thread){.state=THREAD_READY,.user_context=(void *)2,.io_user_safe=true};
+    ready_edge_test=true;scheduler_yield();ready_edge_test=false;assert(!io_gate_pending);
+    ready_edge_setup();struct scheduler_wait_queue q={.waiters=1};
+    threads[6]=(struct thread){.state=THREAD_BLOCKED,.blocked_queue=&q};
+    assert(scheduler_wake_count(&q,1)==1 && !q.waiters);
+    assert(!scheduler_wake_count(&q,1));ready_edge_handoff();
+    ready_edge_setup();q=(struct scheduler_wait_queue){.waiters=1};
+    threads[6]=(struct thread){.state=THREAD_BLOCKED,.blocked_queue=&q,.blocked_deadline_ticks=2};
+    assert(scheduler_io_begin() && scheduler_io_begin());clock_us=20000;wake_expired_waits();
+    assert(!q.waiters && threads[6].state==THREAD_READY && io_gate_pending==1);
+    scheduler_io_handoff();assert(!ready_edge_turns && io_depth==2);
+    scheduler_io_end();scheduler_io_handoff();assert(!ready_edge_turns && io_depth==1);
+    scheduler_io_end();ready_edge_handoff();
+    /* Safe userspace and explicitly audited service workers do not request a
+     * privileged turn merely because they wake. Existing selection stays intact. */
+    ready_edge_setup();q=(struct scheduler_wait_queue){.waiters=2};
+    threads[6]=(struct thread){.state=THREAD_BLOCKED,.blocked_queue=&q,.user_context=(void *)1,.io_user_safe=true};
+    threads[7]=(struct thread){.state=THREAD_BLOCKED,.blocked_queue=&q,.io_eligible=idle_eligible};
+    scheduler_wake_all(&q);assert(!io_gate_pending);
+    ready_edge_setup();q=(struct scheduler_wait_queue){.waiters=1};
+    threads[6]=(struct thread){.state=THREAD_BLOCKED,.blocked_queue=&q,.user_context=(void *)42,.user_thread_context=(void *)43};
+    scheduler_wake_all(&q);assert(io_gate_pending==1);
+    scheduler_kill_user_threads((void *)42,NULL);
+    assert(!io_gate_pending && threads[6].state==THREAD_DEAD);
+    scheduler_io_handoff();assert(!ready_edge_turns);
+    /* A transport completion can wake the current I/O owner. It is already
+     * eligible and must not reserve an unnecessary later quiescent turn. */
+    ready_edge_setup();q=(struct scheduler_wait_queue){.waiters=1};
+    assert(scheduler_io_begin());
+    threads[3].state=THREAD_BLOCKED;threads[3].blocked_queue=&q;threads[3].io_user_safe=false;
+    scheduler_wake_all(&q);assert(!io_gate_pending && threads[3].state==THREAD_READY);
+    threads[3].state=THREAD_RUNNING;scheduler_io_end();
+    ready_edge_setup();assert(scheduler_spawn_io_service("audited",empty_worker,NULL,idle_eligible));
+    assert(!io_gate_pending);
+    ready_edge_setup();io_services_enabled=false;
+    assert(scheduler_spawn("boot worker",empty_worker,NULL) && !io_gate_pending);
+    initialized=io_services_enabled=false;memset(threads,0,sizeof(threads));current_thread=0;
+    puts("ready-edge-admission: PASS creation and unsafe signal/timeout wake request the first quiescent boundary; no active-owner bypass");
+}
+
 static void test_gate_handoff_fairness(void) {
     memset(threads,0,sizeof(threads));initialized=io_services_enabled=true;switching=false;
     current_thread=3;idle_thread=1;io_depth=io_gate_pending=0;actual_space=1;
-    threads[3]=(struct thread){.state=THREAD_RUNNING,.io_user_safe=true};
+    threads[3]=(struct thread){.state=THREAD_RUNNING,.user_context=(void *)3,.io_user_safe=true};
     threads[6]=(struct thread){.state=THREAD_READY};
     threads[7]=(struct thread){.state=THREAD_READY};
     memset(fair_handoff_turns,0,sizeof(fair_handoff_turns));fair_handoff_test=true;
@@ -824,6 +894,7 @@ int main(void) {
     test_ready_gate_admission();
     test_gate_handoff();
     test_gate_handoff_fairness();
+    test_ready_edge_admission();
     test_growth();
     puts("io-scheduler-host: PASS (boot gating, owner/nesting, service eligibility, task isolation)");
 }

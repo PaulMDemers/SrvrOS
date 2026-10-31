@@ -23,6 +23,12 @@ def checkpoint_durable(output, after, name, at):
     return b'workspace: flushed' in output[after:]
 
 
+def completion_line(output):
+    # UART/socket reads may end anywhere, including in PASS or unmounted=yes.
+    match=re.search(rb'desktop-audio-io: result=[^\r\n]*\r?\n',output)
+    return match.group(0) if match else None
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--stage')
@@ -128,12 +134,12 @@ def main():
                 wait(b'deskd: ready;',120)
                 if args.write_iops:qmp.call('block_set_io_throttle',{'device':'stick','bps':0,'bps_rd':0,'bps_wr':0,'iops':0,'iops_rd':0,'iops_wr':args.write_iops})
                 started=time.monotonic()
-                while b'desktop-audio-io: result=' not in output:
+                while completion_line(output) is None:
                     assert time.monotonic()-started<180 and process.poll() is None
                     pump(.2)
                     assert b'battery: HALTED' not in output
                 expected=b'desktop-audio-io: result=FAIL unmounted=yes' if stage else b'desktop-audio-io: result=PASS unmounted=yes'
-                assert expected in output,output[-2000:]
+                assert expected in completion_line(output),output[-2000:]
                 if stage:
                     assert b'SRVROS_GRUB_CHAINLOAD_TEST' in output
                     assert b'audio-io: begin' not in output # exact native profile refuses Q35
