@@ -96,6 +96,15 @@ checkpoint is a separate exact-payload rehearsal and automatic1800-second native
 trial, preserving current/recovery, prior files and offline write eligibility.
 No input is required; success returns automatically, uncertain ownership halts.
 
+PR #257 merged as `695db843`. Clean native stage `216844aaab4b2363` passes exact
+Q35 refusal/save/unmount/reset rehearsal and is installed for a separate automatic
+1800-second trial. Actual model/USB, independent recovery and Ubuntu default
+verify. Fresh1216-file and75-session baselines are saved; offline fsck/allocation/
+write-eligibility/headroom pass with clean volume flags. USB stays unmounted
+through Ubuntu shutdown. No human input is required. Collect the matching new
+session after return and require full workload, zero cache reservations with
+actual reuse, preserved files and recovery checks. Native acceptance is pending.
+
 ### Simple pipe-close contention scope (2026-10-31)
 
 From main `0386d8ed`, the Air agent owns a bounded process/syscall follow-up:
