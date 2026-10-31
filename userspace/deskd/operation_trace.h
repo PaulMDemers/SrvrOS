@@ -11,6 +11,8 @@ struct capture_trace {
 struct operation_trace {
     uint64_t at_us,launch_age_us,exit_age_us,close_age_us,close_pid,close_window;
     uint64_t requests,started,refused,last_pid,last_exec_us;
+    uint64_t cache_bytes,cache_retained_bytes,cache_reuses;
+    unsigned cache_retained;
     unsigned queued,done,memory,pending_opens,live,awaiting,closing,close_requested,exiting,preferences;
     unsigned oldest_app,oldest_state;
     struct capture_trace capture,slowest;
@@ -25,6 +27,9 @@ static void capture_trace_report(const struct capture_trace *c,const char *kind,
 }
 static void operation_trace_report(const struct operation_trace *t,unsigned final) {
     if(!t->at_us)return;
+    desk_log("desktop-cache: version=1 at_us=%llu bytes=%llu retained=%u retained_bytes=%llu reuses=%llu final=%u\n",
+        (unsigned long long)t->at_us,(unsigned long long)t->cache_bytes,t->cache_retained,
+        (unsigned long long)t->cache_retained_bytes,(unsigned long long)t->cache_reuses,final);
     desk_log("desktop-operations: version=1 at_us=%llu requests=%llu started=%llu refused=%llu last_pid=%llu last_exec_us=%llu queued=%u done=%u oldest_app=%u oldest_state=%u launch_age_us=%llu memory=%u pending_opens=%u live=%u awaiting=%u closing=%u close_requested=%u exiting=%u exit_age_us=%llu close_pid=%llu close_window=%llu close_age_us=%llu preferences=%u final=%u\n",
         (unsigned long long)t->at_us,(unsigned long long)t->requests,(unsigned long long)t->started,(unsigned long long)t->refused,
         (unsigned long long)t->last_pid,(unsigned long long)t->last_exec_us,t->queued,t->done,t->oldest_app,t->oldest_state,

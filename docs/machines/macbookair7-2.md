@@ -44,6 +44,109 @@ Ubuntu shutdown. No human input is required. Collect the matching new session
 before another stage; the 1800-second workload and existing deadlines remain
 unchanged, and native endurance acceptance stays pending.
 
+### Retired compositor buffer reuse scope (2026-10-31)
+
+Continue draft PR #257 from `3a551549`. The Air agent owns compositor cache
+policy, immutable operation diagnostics and host fixtures (`deskd.c`,
+`operation_trace.h`, `test_desktop_session.c`, runtime contract). The saved
+atomic checkpoint002 actually contains the complete prior FAIL summary: one
+cycle, UI188596us, ready7442781us, close3211829us; it must supersede the earlier
+conservative note about interleaved UART aggregates. It also records a pending
+cache memory job between window admission and first publication. Preserve that
+failure; no final recovered integrity or native pass is inferred.
+
+Reuse at most two completed retired compositor buffers, counted within the
+unchanged96MiB budget. Only the UI transfers these job/buffer references;
+queued/discarded/failed allocations are never pooled. Published pixels remain
+immutable until full copy success. Pressure and shutdown release retained
+buffers through the existing worker and reclaim budget only after unmap.
+Expose immutable reuse/retention counters. Validate repeated create/retire,
+partial-copy isolation, pressure and full shutdown before normal/throttled VMs.
+No kernel mapping/exit gate, deadline or workload change is planned. PR #252
+resolver/socket and PR #19 Wi-Fi remain independent. No physical boot is armed.
+
+The focused desktop fixture passes100 retire/reopen transfers with one original
+mapping, no intervening frees, unchanged reservation and exactly one final
+release. Actual COMMIT handling refuses to publish a partially copied reused
+buffer, then publishes only a complete successful copy. The real96MiB pressure
+fixture includes two retained buffers and reclaims their budget only after
+worker unmap. Closing during queued allocation does not pool it. Full desktop,
+matched builds and disposable VM validation follow; no native result is claimed.
+
+Clean `26448c80` passes desktop/lifecycle hosts and matched builds. Normal KVM
+passes23 cycles (UI120341us, ready1115152us, close1751348us), with26 observed
+reuses. Populated100IOPS KVM passes13 cycles (UI380074us, ready2599839us,
+close4860113us), PCM60seconds/zero underruns, verified files/screenshot/
+allocation/follow-up and clean battery retirement, with14 reuses. This first
+heavy pass does not establish stable endurance. Add an explicit post-cleanup
+zero-reservation/reuse receipt and require it from the saved atomic exit log;
+34 collector tests reject partial, duplicate, nonzero or unused retirement
+receipts. Repeat the VMs at the final clean source before considering hardware.
+No native trial is armed.
+
+Final clean `75845008` passes34 collector tests and matched desktop/build gates.
+Normal KVM passes22 cycles (UI135885us, ready1621458us, close1385299us), with
+19 reuses and zero final cache reservations. The repeated populated100IOPS VM
+passes12 cycles (UI119918us, ready2260003us, close5309400us),13 reuses, zero
+final reservations, PCM60seconds/zero underruns and full verified file/screenshot/
+allocation/follow-up/retirement evidence. All recorded cache snapshots stay
+within the96MiB budget and two-buffer retention bound. Both throttled passes
+are retained alongside earlier failures; no native result is inferred. The next
+checkpoint is a separate exact-payload rehearsal and automatic1800-second native
+trial, preserving current/recovery, prior files and offline write eligibility.
+No input is required; success returns automatically, uncertain ownership halts.
+
+### Simple pipe-close contention scope (2026-10-31)
+
+From main `0386d8ed`, the Air agent owns a bounded process/syscall follow-up:
+`process.c`, `process.h`, x86 syscall dispatch and directed process-output/
+syscall-I/O fixtures. The slow VM's final Files app returns from pool retirement
+at52.924s, then misses total lifetime at~53s while still active. Ordinary channel
+EOF publication currently takes gated CLOSE syscalls despite touching only
+fixed pipe/refcount/poll state. Add an atomic close attempt only for simple
+read/write pipe endpoints with valid references and no queued rights. Revalidate
+under IRQ exclusion in the operation; all other descriptors use the existing
+gated close after fresh lookup. Keep rights/socket/PTY/duplex/VFS lifetime gates,
+allocation/flush and failure handling unchanged. No SYS_EXIT gate change,
+workload pacing, deadline extension or native acceptance is planned. First
+validate exclusion/EOF/references and fallback admission, then full hosts and
+normal/throttled disposable VMs. PR #252 resolver and PR #19 Wi-Fi are independent.
+Installed e337/recovery9aa and collected native evidence stay unchanged.
+
+Focused syscall/process-output fixtures pass: atomic pipe close during simulated
+foreign I/O avoids the gate, fallback waits and reads the current binding, all
+eight rights slots and unsupported types refuse without mutation, and aliases,
+generations, buffered drain, EOF and final-reference release remain correct.
+The existing20000-transfer pipe/rights, VFS writeback/failed-close, inheritance,
+PTY, poll generation and stale-handle cases pass. Full hosts/builds and matched
+normal/throttled VM validation follow; no physical result is inferred.
+
+The first candidate normal VM passes21cycles/UI349604us and complete receipts.
+Its populated100IOPS VM completes PCM,12app cycles, screenshot and follow-up
+without a lifecycle deadline, but FAILs the UI bound at526147us (trial stage
+524456us). Keep that failure. The terminal follow-up diagnostic was printed
+synchronously inside the final UI trial turn; extend this scope to retain its
+scalar receipt and emit it only after UI-loop retirement/timing capture. Actual
+app/exit work stays in the measured loop and all limits remain unchanged. Rerun
+both workloads; this is diagnostic output relocation, not acceptance of the
+failed candidate or a native result.
+
+Implementation `416847db` passes full core/desktop and ordinary/native/VM builds.
+Diagnostic follow-up `b67a7ea1` passes desktop and matched builds again; all745
+links pass. Final normal KVM passes22 cycles (UI399244us, ready1278077us,
+close1891561us), PCM60seconds/zero underruns, full file/screenshot/allocation
+and clean retirement. Final populated100IOPS KVM still FAILs: an atomic saved
+checkpoint records cycle1 startup7442781us; PID10 later reaches phase3 deadline.
+Only two checkpoints survive, and the serial aggregate summary is interleaved;
+it is not promoted into a validated final timing/count receipt. Strict final
+FAIL/unmount returns, but the harness stops before final recovered integrity
+checks. Draft PR #257 retains both candidates' failures and the source-proven
+pipe-close improvement without claiming stable endurance or native acceptance.
+No physical stage/install/reboot occurred. Next work is remaining process
+startup/exit admission under owned I/O, retaining500ms UI/10second lifecycle
+limits. Neither a slower worst normal render nor workload variance is called a
+performance improvement.
+
 ### Client termination follow-up scope (2026-10-31)
 
 From main `d299c6ac` with PR #255 host-preflight work retained, the Air agent
