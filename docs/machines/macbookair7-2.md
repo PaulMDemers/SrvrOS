@@ -44,6 +44,24 @@ Ubuntu shutdown. No human input is required. Collect the matching new session
 before another stage; the 1800-second workload and existing deadlines remain
 unchanged, and native endurance acceptance stays pending.
 
+### Files Close and retired-child claim scope (2026-10-31)
+
+Continue on PR #258/sourcea42c1ac9, integration695db843. The Air agent owns
+Files window Close dispatch in `text_runtime.c` and a narrow exact-PID wait
+prelude in process/scheduler/syscall code, with directed host fixtures. Permit
+visual Files Close during read-only LIST/READ/STAT while retaining model/job
+ownership until the accepted response drains; mutations keep their close gate.
+For teardown, attempt only an already published reapable direct child with no
+address space, mappings, kernel stack, descriptors or used thread records and
+no scheduler/private-image reference. Under IRQ exclusion consume status and
+accounting once, release the empty process slot/lifetime metadata, and defer
+record clearing to existing gated allocation. No freeing, allocation, yield or
+filesystem cleanup in this attempt. Other selectors/POSIX, incomplete cleanup,
+foreign ownership/image alias and all exit paths retain ordinary admission.
+No deadlines change. Validate ownership/refusal, repeated claim, accounting and
+slot reuse plus loaded VMs before considering native tests. PR #252 resolver
+and PR #19 Wi-Fi remain independent. No reboot is armed.
+
 ### Bounded anonymous retirement scope (2026-10-31)
 
 From main `695db843` plus collected-return documentation, the Air agent owns
