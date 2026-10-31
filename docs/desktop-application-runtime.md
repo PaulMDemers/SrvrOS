@@ -152,6 +152,17 @@ child for retry. Sixteen in-flight records provide bounded backpressure without
 changing the process/window budget; full queues keep their children registered.
 Shutdown drains admitted requests before the worker/session storage disappears.
 
+Worker-backed client/control/reply timeouts also publish immutable termination
+requests. Sixteen slots coalesce duplicate PIDs and retain full/stopped-queue
+clients for retry without a direct UI signal syscall. The worker issues the
+ordinary gated signal and records its elapsed wall time/result; completion
+permits UI client retirement, including all windows in that process, but is not
+proof of process exit. Child ownership remains governed by the verified wait
+above. Requests accepted before shutdown are drained before join releases the
+worker storage. This does not extend response deadlines or make a signal safe
+during filesystem ownership. A failed signal result is logged; it grants no
+kernel-resource reclamation.
+
 Screenshot preparation also runs on that worker: allocate the owned pixel map,
 create pipes and spawn the child, then publish the prepared job. The UI copies its
 current canvas only after preparation returns and dimensions match. A prepared
