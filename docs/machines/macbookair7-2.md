@@ -65,6 +65,14 @@ partial-copy isolation, pressure and full shutdown before normal/throttled VMs.
 No kernel mapping/exit gate, deadline or workload change is planned. PR #252
 resolver/socket and PR #19 Wi-Fi remain independent. No physical boot is armed.
 
+The focused desktop fixture passes100 retire/reopen transfers with one original
+mapping, no intervening frees, unchanged reservation and exactly one final
+release. Actual COMMIT handling refuses to publish a partially copied reused
+buffer, then publishes only a complete successful copy. The real96MiB pressure
+fixture includes two retained buffers and reclaims their budget only after
+worker unmap. Closing during queued allocation does not pool it. Full desktop,
+matched builds and disposable VM validation follow; no native result is claimed.
+
 ### Simple pipe-close contention scope (2026-10-31)
 
 From main `0386d8ed`, the Air agent owns a bounded process/syscall follow-up:

@@ -152,6 +152,17 @@ child for retry. Sixteen in-flight records provide bounded backpressure without
 changing the process/window budget; full queues keep their children registered.
 Shutdown drains admitted requests before the worker/session storage disappears.
 
+The compositor may retain up to two completed pixel-cache buffers after window
+retirement. They stay reserved inside the existing96MiB cache budget, including
+their worker job slots; reuse transfers ownership without another mapping. No
+queued, discarded or failed allocation enters this pool. A reused buffer remains
+private staging until a full surface copy succeeds, so old or partial content
+is never published as a new window. Byte-budget or worker-slot pressure evicts
+retained buffers through the existing worker; budget credit follows completed
+unmap. Shutdown releases both live and retained buffers. Immutable
+`desktop-cache` records expose reservation bytes, retained count/bytes and reuse
+count without logging on the UI turn.
+
 Simple read/write pipe endpoint closes can complete during unrelated filesystem
 I/O through an IRQ-excluded check-and-detach operation. It requires valid pipe
 references and no queued descriptor rights, preserves descriptor-generation

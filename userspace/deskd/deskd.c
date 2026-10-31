@@ -134,6 +134,8 @@ struct session {
     uint64_t capture_serial;
     struct capture_trace slowest_capture;
     struct pixel_cache cache[DESKD_WINDOWS][2];
+    struct pixel_cache retained_cache[2];
+    uint64_t cache_reuses;
     uint64_t cache_bytes,cache_peak,memory_notice_at,memory_notice_serial;
 };
 
@@ -228,24 +230,38 @@ static void resource_trace(const struct session *s,const char *reason) {
         reason,clients,children,peers,session_capacity(s),(unsigned long long)s->cache_bytes,
         (unsigned long long)DESKD_CACHE_BUDGET,(unsigned long long)DESK_GUI_QUEUE_BYTES,DESK_GUI_QUEUE_DEPTH,(unsigned long long)DESK_GUI_SURFACE_RECORD_BYTES,(unsigned long long)DESK_GUI_PIXEL_BYTES);
 }
-/* Only live windows own caches. A private spare receives each whole frame;
- * published pixels remain untouched until copy succeeds. Budget includes both. */
-static void cache_drop(struct session *s,int i,int j) {
-    struct pixel_cache *c=&session_cache(s,i)[j];
+/* A private spare receives each whole frame; published pixels remain untouched
+ * until copy succeeds. Budget includes live, retained and retiring buffers. */
+static void cache_release(struct session *s,struct pixel_cache *c) {
     if(c->job) { life_queue(s->worker,&c->job->discard,1);*c=(struct pixel_cache){0};return; }
     if(c->pixels) {
         s->cache_bytes-=(uint64_t)c->width*c->height*4;
         desk_pixels_free(c->pixels,c->width,c->height);*c=(struct pixel_cache){0};
     }
 }
+static void cache_drop(struct session *s,int i,int j) { cache_release(s,&session_cache(s,i)[j]); }
 static void cache_retire(struct session *s,int i) {
     for(int j=0;j<2;j++)cache_drop(s,i,j);
 }
+static void cache_forget(struct session *s,int i) {
+    for(int j=0;j<2;j++) {
+        struct pixel_cache *c=&session_cache(s,i)[j];
+        if(s->worker && !s->exiting && c->job && c->pixels &&
+           life_state(&c->job->state)==LIFE_DONE && c->pixels==c->job->pixels && !life_state(&c->job->discard)) {
+            for(unsigned n=0;n<2;n++)if(!s->retained_cache[n].job) {
+                s->retained_cache[n]=*c;*c=(struct pixel_cache){0};break;
+            }
+        }
+        cache_drop(s,i,j);
+    }
+}
 static void cache_free(struct session *s) {
     for(int i=0;i<session_capacity(s);i++)cache_retire(s,i);
+    for(unsigned n=0;n<2;n++)cache_release(s,&s->retained_cache[n]);
 }
 static int cache_init(struct session *s) { (void)s;return 0; }
 static void cache_reclaim(struct session *s,int keep) {
+    for(unsigned n=0;n<2;n++)cache_release(s,&s->retained_cache[n]);
     for(int i=0;i<session_capacity(s);i++)if(i!=keep && !session_client(s,i)->awaiting)for(int j=0;j<2;j++)
         if(session_cache(s,i)[j].pixels!=desktop_window_at(&s->scene,i)->pixels)cache_drop(s,i,j);
 }
@@ -261,6 +277,13 @@ static uint32_t *cache_prepare(struct session *s,int i,unsigned width,unsigned h
         if(!c->pixels){cache_drop(s,i,j);return NULL;}
     }
     if(c->pixels && (uint64_t)c->width*c->height*4>=bytes)return c->pixels;
+    for(unsigned n=0;n<2;n++) {
+        struct pixel_cache *saved=&s->retained_cache[n];
+        if(saved->pixels && (uint64_t)saved->width*saved->height*4>=bytes) {
+            cache_drop(s,i,j);*c=*saved;*saved=(struct pixel_cache){0};
+            s->cache_reuses++;return c->pixels;
+        }
+    }
     if(bytes>DESKD_CACHE_BUDGET-s->cache_bytes)cache_reclaim(s,i);
     if(bytes>DESKD_CACHE_BUDGET-s->cache_bytes) {
         /* Dropping a spare transfers ownership, not free-byte credit. Wait
@@ -281,6 +304,10 @@ static uint32_t *cache_prepare(struct session *s,int i,unsigned width,unsigned h
             *c=(struct pixel_cache){.width=width,.height=height,.job=m};
             s->cache_bytes+=bytes;if(s->cache_bytes>s->cache_peak)s->cache_peak=s->cache_bytes;
             life_queue(s->worker,&m->state,LIFE_QUEUED);s->cache_pending=1;return NULL;
+        }
+        if(s->retained_cache[0].job || s->retained_cache[1].job) {
+            for(unsigned n=0;n<2;n++)cache_release(s,&s->retained_cache[n]);
+            s->cache_pending=1;
         }
         return NULL;
     }
@@ -476,7 +503,7 @@ static void forget(struct session *s,int i) {
     struct desktop_window *w=desktop_window_at(&s->scene,i);
     damage_window(s,i);
     desk_log("deskd: retired pid=%llu\n",(unsigned long long)session_client(s,i)->pid);
-    cache_retire(s,i);
+    cache_forget(s,i);
     memset(w,0,sizeof(*w)); memset(session_client(s,i),0,sizeof((*session_client(s,i))));
     resource_trace(s,"retired");
     if(s->scene.apps) desk_damage_add(&s->damage,(struct desk_rect){0,s->damage.height-96,s->damage.width,96});
@@ -1205,9 +1232,13 @@ static struct capture_trace capture_snapshot(const struct session *s,uint64_t no
 }
 static struct operation_trace operation_snapshot(const struct session *s,uint64_t now) {
     struct operation_trace t={.at_us=now,.requests=s->launch_requests,.started=s->launch_started,.refused=s->launch_refused,
+        .cache_bytes=s->cache_bytes,.cache_reuses=s->cache_reuses,
         .last_pid=s->last_launch_pid,.last_exec_us=s->last_exec_us,.pending_opens=s->pending_opens,.exiting=s->exiting,
         .exit_age_us=s->exiting && s->exit_started_us?now-s->exit_started_us:0,
         .preferences=s->preferences.job.busy || s->preferences.dirty,.capture=capture_snapshot(s,now),.slowest=s->slowest_capture};
+    for(unsigned n=0;n<2;n++)if(s->retained_cache[n].job) {
+        t.cache_retained++;t.cache_retained_bytes+=(uint64_t)s->retained_cache[n].width*s->retained_cache[n].height*4;
+    }
     if(s->worker) {
         for(unsigned n=0;n<LIFE_LAUNCH_SLOTS;n++) {
             const struct life_launch *j=&s->worker->launch[n];unsigned state=life_state(&j->state);

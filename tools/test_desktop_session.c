@@ -198,13 +198,50 @@ static void asynchronous_lifecycle(void) {
         assert(cache_prepare(&s,i,1024,768));
     }
     assert(s.cache_bytes==DESKD_CACHE_BUDGET);
+    cache_forget(&s,15);s.scene.windows[15].pixels=NULL;
+    assert(s.retained_cache[0].job && s.retained_cache[1].job && s.cache_bytes==DESKD_CACHE_BUDGET);
     assert(!cache_prepare(&s,0,1280,768) && s.cache_pending && s.cache_bytes==DESKD_CACHE_BUDGET);
     life_work(&worker);assert(s.cache_bytes==DESKD_CACHE_BUDGET);lifecycle_poll(&s);
-    assert(s.cache_bytes==17ull*1024*768*4);
+    assert(s.cache_bytes==16ull*1024*768*4 && !s.retained_cache[0].job && !s.retained_cache[1].job);
     assert(!cache_prepare(&s,0,1280,768) && s.cache_pending && s.cache_bytes<=DESKD_CACHE_BUDGET);
     life_work(&worker);assert(cache_prepare(&s,0,1280,768));
     cache_free(&s);life_work(&worker);lifecycle_poll(&s);assert(!s.cache_bytes);
     memset(&s,0,sizeof(s));memset(&worker,0,sizeof(worker));execute_result=-1;sends=0;
+}
+static void retired_cache_reuse(void) {
+    static struct session s;static struct lifecycle_worker worker;
+    s=(struct session){.worker=&worker};worker=(struct lifecycle_worker){0};
+    int before=allocations,freed=frees;alive=1;copy_failure=0;
+    assert(!cache_prepare(&s,0,400,280) && s.cache_pending);life_work(&worker);
+    uint32_t *pixels=cache_prepare(&s,0,400,280);assert(pixels && allocations==before+1);
+    for(unsigned n=0;n<100;n++) {
+        s.scene.windows[0].pixels=pixels;
+        cache_forget(&s,0);s.scene.windows[0].pixels=NULL;
+        assert(s.cache_bytes==400u*280u*4u && frees==freed);
+        struct operation_trace t=operation_snapshot(&s,100+n);
+        assert(t.cache_retained==1 && t.cache_retained_bytes==s.cache_bytes && t.cache_reuses==n);
+        assert(cache_prepare(&s,0,400,280)==pixels && !s.cache_pending);
+        assert(!s.scene.windows[0].pixels && allocations==before+1 && frees==freed);
+    }
+    /* A reused staging buffer must not publish old or partially copied pixels. */
+    s.clients[0]=(struct client){.pid=42,.window=1,.generation=1,.awaiting=1};
+    s.scene.windows[0].frame=(struct desk_rect){20,60,402,325};
+    for(unsigned n=0;n<400u*280u;n++)pixels[n]=0xaabbcc;
+    struct desk_packet p=desk_packet_new(DESK_COMMIT);p.generation=1;p.serial=1;p.surface=7;p.width=400;p.height=280;
+    copy_failure=1;incoming(&s,42,&p);assert(!s.scene.windows[0].pixels && s.clients[0].closing);
+    s.clients[0].closing=0;s.clients[0].release.type=0;copy_failure=0;p.serial=2;
+    incoming(&s,42,&p);assert(s.scene.windows[0].pixels==pixels);
+    for(unsigned n=0;n<400u*280u;n++)assert(pixels[n]==0x123456);
+    cache_forget(&s,0);s.scene.windows[0].pixels=NULL;
+    cache_free(&s);assert(s.cache_bytes==400u*280u*4u); /* Still reserved until unmap. */
+    life_work(&worker);assert(s.cache_bytes==400u*280u*4u);lifecycle_poll(&s);
+    assert(!s.cache_bytes && frees==freed+1 && allocations==before+1 && s.cache_reuses==100);
+    /* A queued allocation is discarded, never pooled before publication. */
+    assert(!cache_prepare(&s,0,400,280));cache_forget(&s,0);
+    assert(!s.retained_cache[0].job && !s.retained_cache[1].job);
+    life_work(&worker);lifecycle_poll(&s);assert(!s.cache_bytes);
+    memset(&s,0,sizeof(s));memset(&worker,0,sizeof(worker));
+    puts("desktop-cache-reuse: PASS100 retire/reopen transfers, unchanged reservation, no new mappings, partial-copy isolation and full shutdown");
 }
 static void delayed_control_delivery(void) {
     static struct session s;
@@ -1122,6 +1159,7 @@ int main(void) {
     asynchronous_client_termination();
     asynchronous_child_reap();
     asynchronous_lifecycle();
+    retired_cache_reuse();
     clipboard_client_retirement();
     delayed_control_delivery();
     connection_lifetime();
