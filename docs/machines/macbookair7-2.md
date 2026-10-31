@@ -2,6 +2,73 @@
 
 Updated: 2026-10-31. State: **active reference machine; partial device acceptance**.
 
+### Native workspace refusal and preflight follow-up (2026-10-31)
+
+Release `e3370f00781fb60c` halted before the automated workload: the workspace
+mounted read-only and no new session was saved. The supplied photograph records
+write refusal and failed workspace retirement, not an endurance pass. All 1210
+prior files retain their exact hashes; offline fsck, allocation and headroom
+checks pass. The primary volume flags remain `2` (dirty) even when unmounted;
+backup flags are zero and the bitmap has the expected 59149-byte size. The time
+and cause of the dirty flag are not established by this run. Do not clear it to
+make the importer accept writes.
+
+The Air agent owns a bounded preflight follow-up in `exfat_host_driver.c`,
+`check_exfat_allocation.py`, `test_exfat_boot.py` and the Ubuntu guide: expose a
+read-only check of the production importer's write eligibility. Allocation
+consistency and capacity alone did not catch this write refusal. Keep the guest
+filesystem gates unchanged; preserve media and rehearse any proposed recovery
+on a disposable copy before modifying the physical drive. No new reboot is
+armed. PR #252 resolver/socket and PR #19 Wi-Fi remain independent.
+
+The follow-up passes 65 boot/sector/write-eligibility cases and both partition
+selection tests; all 745 documentation links pass locally. The physical drive
+reproduces `writable-check: REFUSED` despite a passing allocation graph. Boot/FAT
+and every allocated cluster are preserved outside `build`. A disposable-copy
+`fsck.exfat -y` changes only primary flag byte106 from2to0; after verifying the
+physical source still matches that backup, the same filesystem-tool recovery
+produces an exact allocated-range match to the rehearsal. All1210 prior files
+remain unchanged; offline fsck/allocation/write-eligibility/headroom pass.
+Installed candidate and independent recovery are verified; Ubuntu default is
+unchanged and the one-shot is consumed. No endurance work ran and no retry is
+armed. The dirty flag's origin remains unknown. A retry needs a separately saved
+run record and clean offline write-eligibility check before reboot.
+
+The user authorized a separate automatic endurance retry after recovery. It
+uses the unchanged exact-VM-tested `e3370f00781fb60c` payload from `d299c6ac`,
+with host preflight tools at `3d616681` (PR #255). Preserve the failed preparation
+attempt. The retry record is `build/air-io-admission-20261031/native-retry1/run.json`;
+require fresh prior-file/session baselines, verified recovery/default and offline
+fsck/allocation/write-eligibility/headroom, then leave USB unmounted through
+Ubuntu shutdown. No human input is required. Collect the matching new session
+before another stage; the 1800-second workload and existing deadlines remain
+unchanged, and native endurance acceptance stays pending.
+
+### Endurance retry return — client service stall (2026-10-31)
+
+The recovered workspace admits writes and saves session
+`session-00065f286ae7ca1a-00`, matching release `e3370f00781fb60c` / source
+`d299c6ac`. Seven app cycles complete before PID18 is killed for a client timeout.
+Maximum desktop loop is 2431516 us, with 2418029 us attributed to `service()`;
+maximum ready/close times are 2921524/3250206 us. The 1800-second audio/disk
+workload reports `completed=NO`; zero PCM underruns are observed before clean
+battery retirement. The screenshot fails; its partial BMP and disk payload are
+preserved separately. This is an endurance failure, not a pass or physical
+input/audio-quality acceptance.
+
+Five complete saved owner snapshots validate 37 distinct long scopes, including
+a 6734599-us disk-child scope. These wall-time receipts do not establish the
+precise service call or distinguish hardware delay from software contention.
+Next work is client-service subcall/scheduler attribution and bounded UI work;
+retain the 500-ms UI and total 10-second lifecycle limits.
+
+All1210 prior files remain intact apart from the expected metadata update.
+Offline fsck is clean (259 directories,1216 files); allocation checking reports
+3293 clusters with zero leaks/mismatches/errors, and write eligibility/headroom
+pass. Ubuntu default, consumed one-shot and independent recovery verify. Raw
+logs and copied partial artifacts are retained under the separate retry record;
+no further reboot is armed and native endurance remains unaccepted.
+
 ### READY admission follow-up scope (2026-10-31)
 
 From main `7e249356`, the Air agent owns a bounded scheduler follow-up in
@@ -36,16 +103,23 @@ signal/timeout, active/nested-owner, cancellation, safe-user/service and boot
 cases. Full core/desktop hosts and matched builds pass at `38ac7cbb`; final
 owner/preemption coverage and matched rebuilds pass at `7043a20f`. The collector
 fix passes 33 host tests, including every completion-line split point.
-Clean `bb93c5ee` normal KVM passes 22 cycles, UI119829 us, ready1032246 us,
-close1440827 us, zero observed underruns and full file/screenshot/allocation/
+Clean `bb93c5ee` normal KVM passes 22 cycles, UI 119829 us, ready 1032246 us,
+close 1440827 us, zero observed underruns and full file/screenshot/allocation/
 lifetime/retirement proof, with six retained live checkpoints. Five complete
 saved owner snapshots validate 30 distinct long scopes. The 100-write-IOPS
 populated workload still fails the total lifecycle deadline after ten cycles
-(UI110909 us, ready6090692 us). Its final Files pool wait records1471462 us blocked,
+(UI 110909 us, ready 6090692 us). Its final Files pool wait records 1471462 us blocked,
 28672 us ready and zero eligibility exclusions. This is not an endurance pass or
 a general device-latency bound. Retain that failure and the earlier partial-line
 collection. PR #254 carries this bounded scheduler/collector fix; native
 validation is the next separate checkpoint.
+PR #254 merged as `d299c6ac`. Clean stage `e3370f00781fb60c` passes exact-payload
+Q35 refusal/save/unmount/reset rehearsal and is installed for an automatic
+1800-second native trial. The actual model, USB identity, prior current and
+independent recovery are verified; offline fsck/allocation/headroom pass, with
+1210 prior-file hashes saved. Recovery `9aa8dbf6fbda8252` and Ubuntu default remain
+intact. The trial needs no human input. Collect its matching session after
+return; the known throttled failure and physical endurance remain unaccepted.
 
 ### PR182 integration and local regression scope (2026-10-31)
 
