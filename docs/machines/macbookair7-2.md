@@ -1,6 +1,26 @@
 # MacBookAir7,2 / A1466
 
-Updated: 2026-10-28. State: **active reference machine; partial device acceptance**.
+Updated: 2026-10-31. State: **active reference machine; partial device acceptance**.
+
+### PR182 integration and local regression scope (2026-10-31)
+
+The clean device branch fast-forwards to main `198c6a1c`, which merges PR #182
+at `d7b2290c`. This supersedes the earlier integration overlap hold; the logger
+barrier and bounded owner diagnostics are retained. PR #252 owns continued
+resolver/socket audit and PR #19 Wi-Fi; neither is changed here. Native installed
+payload/recovery and prior endurance evidence remain unchanged; no reboot is
+planned for this integration block.
+
+Run integrated core/desktop hosts and matched ordinary/native/VM builds locally
+with Actions disabled. The first full run exposes an older scratch fixture that
+requires corrupt media to mount before checking scratch refusal. The hardened
+importer may refuse it earlier. Bounded repair scope is the host exFAT driver's
+negative scratch mode and its Python fixture: accept import refusal or mounted
+scratch refusal, but require zero writes/flushes and byte-identical media.
+Retain positive scratch-range/remount coverage and production validation gates.
+No filesystem, scheduler or driver policy change is planned for this repair.
+After local gates, rehearse the combined desktop workload in a disposable VM;
+physical endurance and the identified long I/O-owner fix remain pending.
 
 ### Eighth endurance return — long owner identified (2026-10-28)
 
