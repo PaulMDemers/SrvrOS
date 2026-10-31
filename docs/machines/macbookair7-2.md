@@ -98,6 +98,21 @@ concurrent log order as a clock fault. New VM checks require actual canvas,
 service-init and verified-join phases. No kernel or general pthread policy
 changed. Loaded VM validation remains pending; no hardware boot armed.
 
+Source23806300 still fails the first Text50IOPS cycle at10.005767s:
+canvas disposal is now7.7ms but actual helper canvas/model waits are0.894/0.951s
+and explicit join3.449s. All unmaps complete and join ultimately succeeds; keep
+this failure. Extend only the app-owned lifetime contract: Text/Files keep one
+static, nonreentrant runtime/service context until process exit. Stop, drain and
+acquire a helper-body quiescence acknowledgement; no service/stack storage is
+freed or reused. Then finish backend child retirement and return through normal
+kernel process exit, which kills user threads before freeing process mappings.
+The parent's verified wait still measures/accepts full process retirement.
+Reusable/non-process-owned service callers keep verified join. Receipts must
+explicitly distinguish process-owned quiescence from a joined reusable service;
+never emit joined=yes for the former. Host tests must hold the thread after its
+body acknowledges quiescence, prove storage stays live/nonreusable, then join.
+No kernel, general pthread or lifecycle deadline change is authorized here.
+
 ### Native Files lifecycle return — delayed Close delivery (2026-10-31)
 
 Releasea4f7080c77fda748/source0fe284e2 saves matching session and returns to
