@@ -29,6 +29,14 @@ def completion_line(output):
     return match.group(0) if match else None
 
 
+def cache_retirement(output):
+    rows=re.findall(rb'^desktop-cache-retired: version=1 bytes=([0-9]+) retained=([0-9]+) reuses=([0-9]+)\r?\n',output,re.M)
+    if len(rows)!=1:return None
+    used,retained,reuses=map(int,rows[0])
+    if used or retained or not reuses:return None
+    return dict(bytes=used,retained=retained,reuses=reuses)
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--stage')
@@ -39,7 +47,7 @@ def main():
     args=parser.parse_args()
     if args.write_iops<0 or (args.stage and (args.populated_home or args.write_iops)):parser.error('Load options apply only to the synthetic positive VM')
     root=Path(__file__).resolve().parents[1];out=root/('build/review/audio-io-exact' if args.stage else 'build/review/audio-io-populated' if args.populated_home else 'build/review/audio-io-auto');out=out.with_name(out.name+'-air72') if args.air72 else out;out.mkdir(parents=True,exist_ok=True)
-    for name in ('result.json','tone.wav','lifecycle.json','app-timing.json','operations.json','loop-timing.json','automatic-screenshot.png','receipt.txt','allocation.log','overlap.json'):
+    for name in ('result.json','tone.wav','lifecycle.json','app-timing.json','operations.json','loop-timing.json','automatic-screenshot.png','receipt.txt','allocation.log','overlap.json','cache-retirement.json'):
         (out/name).unlink(missing_ok=True)
     for pattern in ('saved-*.log','checkpoint-*.log'):
         for old in out.glob(pattern):old.unlink()
@@ -184,6 +192,11 @@ def main():
                     worst=validate_loop_timing(snapshots,int(lifecycle[2]))
                     assert worst['version']==2, 'Missing wait/scheduler diagnostic companions'
                     (out/'loop-timing.json').write_text(json.dumps(worst,indent=2)+'\n')
+                    # UART writers can interleave. Use the saved atomic exit
+                    # snapshot for the single final ownership receipt.
+                    retired=cache_retirement((out/'saved-exit.log').read_bytes())
+                    assert retired is not None, 'Missing complete zero-reservation cache retirement/reuse receipt'
+                    (out/'cache-retirement.json').write_text(json.dumps(retired,indent=2)+'\n')
                     operations=operation_snapshots(snapshots,require_final=True)
                     assert b'desktop-stress-exit: followup=PASS ' in output
                     assert operations['operations']['exiting']==1 and operations['operations']['queued']==0

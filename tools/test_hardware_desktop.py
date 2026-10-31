@@ -665,6 +665,21 @@ class CollectionTests(unittest.TestCase):
             with self.assertRaises(ValueError): desktop.collect(mount,'37d8c5d0',root/'out')
             with self.assertRaises(ValueError): desktop.collect(mount,'12345678',root/'out')
 
+class CacheRetirementTests(unittest.TestCase):
+    def test_complete_zero_reservation_with_actual_reuse(self):
+        from audio_io_stress_smoke import cache_retirement
+        prefix=b'desktop-cache-retired: version=1 bytes=0 retained=0 reuses=26'
+        for ending in (b'\n',b'\r\n'):
+            line=prefix+ending
+            for split in range(len(line)):
+                self.assertIsNone(cache_retirement(line[:split]))
+            self.assertEqual(cache_retirement(line),dict(bytes=0,retained=0,reuses=26))
+            self.assertIsNone(cache_retirement(line+line))
+        for key,value in ((b'bytes=0',b'bytes=1'),(b'retained=0',b'retained=1'),
+                          (b'reuses=26',b'reuses=0'),(b'version=1',b'version=2')):
+            self.assertIsNone(cache_retirement(prefix.replace(key,value)+b'\n'))
+        self.assertIsNone(cache_retirement(b'interleaved'+prefix+b'\n'))
+
 class CheckpointBarrierTests(unittest.TestCase):
     def test_matching_committed_generation_and_legacy_stage(self):
         from audio_io_stress_smoke import checkpoint_durable

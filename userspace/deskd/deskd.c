@@ -2901,6 +2901,11 @@ int main(int argc,char **argv) {
         desk_capture_job_close(&s.capture);
     }
     cache_free(&s);life_work(&worker);lifecycle_poll(&s);s.worker=NULL;
+    unsigned retained=0;
+    for(unsigned n=0;n<2;n++)retained+=s.retained_cache[n].job!=NULL;
+    if(s.cache_bytes || retained)failed=1;
+    if(audio_io)desk_log("desktop-cache-retired: version=1 bytes=%llu retained=%u reuses=%llu\n",
+        (unsigned long long)s.cache_bytes,retained,(unsigned long long)s.cache_reuses);
     if(s.trace)desk_log("deskd: cache peak_bytes=%llu retired_bytes=%llu budget_bytes=%llu windows=%u\n",(unsigned long long)s.cache_peak,(unsigned long long)s.cache_bytes,(unsigned long long)DESKD_CACHE_BUDGET,session_capacity(&s));
     registry_destroy(&s);
     if(s.trace)desk_log("deskd: registry peak_bytes=%llu retired_bytes=%llu budget_bytes=%llu\n",(unsigned long long)s.registry_peak,(unsigned long long)s.registry_bytes,(unsigned long long)s.registry_budget);

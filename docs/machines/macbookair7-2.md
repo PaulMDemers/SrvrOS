@@ -73,6 +73,17 @@ fixture includes two retained buffers and reclaims their budget only after
 worker unmap. Closing during queued allocation does not pool it. Full desktop,
 matched builds and disposable VM validation follow; no native result is claimed.
 
+Clean `26448c80` passes desktop/lifecycle hosts and matched builds. Normal KVM
+passes23 cycles (UI120341us, ready1115152us, close1751348us), with26 observed
+reuses. Populated100IOPS KVM passes13 cycles (UI380074us, ready2599839us,
+close4860113us), PCM60seconds/zero underruns, verified files/screenshot/
+allocation/follow-up and clean battery retirement, with14 reuses. This first
+heavy pass does not establish stable endurance. Add an explicit post-cleanup
+zero-reservation/reuse receipt and require it from the saved atomic exit log;
+34 collector tests reject partial, duplicate, nonzero or unused retirement
+receipts. Repeat the VMs at the final clean source before considering hardware.
+No native trial is armed.
+
 ### Simple pipe-close contention scope (2026-10-31)
 
 From main `0386d8ed`, the Air agent owns a bounded process/syscall follow-up:

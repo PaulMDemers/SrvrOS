@@ -161,7 +161,10 @@ is never published as a new window. Byte-budget or worker-slot pressure evicts
 retained buffers through the existing worker; budget credit follows completed
 unmap. Shutdown releases both live and retained buffers. Immutable
 `desktop-cache` records expose reservation bytes, retained count/bytes and reuse
-count without logging on the UI turn.
+count without logging on the UI turn. Automatic audio/I/O trials also require
+a saved atomic `desktop-cache-retired` receipt showing zero reserved bytes, zero
+retained buffers and actual reuse after final cleanup; nonzero reservations
+fail retirement.
 
 Simple read/write pipe endpoint closes can complete during unrelated filesystem
 I/O through an IRQ-excluded check-and-detach operation. It requires valid pipe
