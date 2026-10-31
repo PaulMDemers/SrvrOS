@@ -34,6 +34,16 @@ unchanged and the one-shot is consumed. No endurance work ran and no retry is
 armed. The dirty flag's origin remains unknown. A retry needs a separately saved
 run record and clean offline write-eligibility check before reboot.
 
+The user authorized a separate automatic endurance retry after recovery. It
+uses the unchanged exact-VM-tested `e3370f00781fb60c` payload from `d299c6ac`,
+with host preflight tools at `3d616681` (PR #255). Preserve the failed preparation
+attempt. The retry record is `build/air-io-admission-20261031/native-retry1/run.json`;
+require fresh prior-file/session baselines, verified recovery/default and offline
+fsck/allocation/write-eligibility/headroom, then leave USB unmounted through
+Ubuntu shutdown. No human input is required. Collect the matching new session
+before another stage; the 1800-second workload and existing deadlines remain
+unchanged, and native endurance acceptance stays pending.
+
 ### READY admission follow-up scope (2026-10-31)
 
 From main `7e249356`, the Air agent owns a bounded scheduler follow-up in
