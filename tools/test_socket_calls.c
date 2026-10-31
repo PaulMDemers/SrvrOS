@@ -55,6 +55,7 @@ static unsigned held_closed,signal_dispatches;
 static long try_result=SRV_ERR_AGAIN;
 static const char *dns_mode;
 static bool unix_control;
+static size_t unix_path_length;
 static unsigned dns_sends,dns_receives;
 static unsigned char saved_query[512];static size_t query_length;
 int audit_close(int fd) { return __posix_socket_close(fd); }
@@ -91,7 +92,7 @@ long srv_net_accept(int fd,char *buffer,size_t cap,uint64_t *length) {
 }
 long srv_unix_connect(const char *p) {
     if(!unix_control)return -1;
-    assert(strlen(p)==SRV_UNIX_PATH_MAX-1);return 8;
+    assert(strlen(p)==unix_path_length);return 8;
 }
 int __posix_event_export_allowed(int fd) { assert(fd==3 || fd==4);return 1; }
 long srv_unix_accept(int fd) { (void)fd;return -1; }
@@ -134,9 +135,11 @@ int main(int argc,char **argv) {
     if(!strcmp(argv[1],"unix-copy")) {
         unix_control=true;assert(socket(AF_UNIX,SOCK_STREAM,0)==POSIX_SOCKET_BASE);
         struct sockaddr_un peer={.sun_family=AF_UNIX};
-        memset(peer.sun_path,'p',SRV_UNIX_PATH_MAX-1);peer.sun_path[SRV_UNIX_PATH_MAX-1]=0;
+        unix_path_length=sizeof(peer.sun_path)-1;
+        if(unix_path_length>=SRV_UNIX_PATH_MAX)unix_path_length=SRV_UNIX_PATH_MAX-1;
+        memset(peer.sun_path,'p',unix_path_length);peer.sun_path[unix_path_length]=0;
         assert(connect(POSIX_SOCKET_BASE,(struct sockaddr *)&peer,sizeof(peer))==0);
-        assert(!memcmp(sockets[0].unix_path,peer.sun_path,SRV_UNIX_PATH_MAX));
+        assert(!memcmp(sockets[0].unix_path,peer.sun_path,unix_path_length+1));
         puts("socket-calls: unix-copy PASS");return 0;
     }
     if(!strcmp(argv[1],"rights-const")) {
