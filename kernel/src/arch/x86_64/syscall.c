@@ -747,6 +747,9 @@ static int64_t syscall_open_mode(const char *user_path, uint64_t flags) {
 }
 
 static int64_t syscall_close(uint64_t fd) {
+    int64_t result;
+    if(process_file_try_close_pipe(process_current(),fd,&result))return result;
+    scheduler_io_set_user_safe(false);scheduler_io_wait();
     return process_file_close(process_current(), fd);
 }
 
@@ -2714,13 +2717,15 @@ static bool io_snapshot_read(uint64_t fd,uint64_t length) {
     return file && file->type==PROCESS_FILE_VFS;
 }
 
-/* Only paths with no filesystem or process-lifetime mutations may
- * overlap owned I/O. Default-deny also covers future syscalls. Do not admit
+/* Only independently synchronized paths with no filesystem or process-lifetime
+ * teardown may overlap owned I/O. Default-deny also covers future syscalls. Do not admit
  * poll by inspecting a mutable userspace fd array before the actual copy. Poll
- * enters only its copy/validation prelude here, then gates non-console work. */
+ * enters only its copy/validation prelude here, then gates non-console work.
+ * Close likewise admits only an atomic simple-pipe attempt before gating all
+ * other descriptor cleanup; queued rights may recursively flush files. */
 bool syscall_io_safe(const struct isr_frame *frame) {
     switch (frame->rax) {
-    case SYS_POLL: return true;
+    case SYS_POLL: case SYS_CLOSE: return true; /* Validated prelude, gated fallback. */
     case SYS_READ: return process_fd_is_console(process_current(),frame->rdi,true) || io_try_pipe_read(frame->rdi) || io_snapshot_read(frame->rdi,frame->rdx);
     case SYS_WRITE: return process_fd_is_console(process_current(),frame->rdi,false) || io_try_pipe_write(frame->rdi);
     case SYS_WAIT: return (frame->rdx & SRV_WAIT_NOHANG) && !(frame->rdx & ~(SRV_WAIT_NOHANG|SRV_WAIT_POSIX));

@@ -20,6 +20,30 @@ bool process_fd_is_console(struct process *p,uint64_t fd,bool input) {
     assert(input ? fd==0 : fd==1);
     return console_fd;
 }
+static bool close_pipe;
+static unsigned close_attempts,close_waits,slow_closes;
+bool process_file_try_close_pipe(struct process *p,uint64_t fd,int64_t *result) {
+    assert(p==(struct process *)1);close_attempts++;
+    if(fd!=10 || !close_pipe)return false;
+    *result=0;return true;
+}
+void scheduler_io_wait(void) {
+    assert(!user_safe);close_waits++;busy=false;pipe_file.handle=456;
+}
+int64_t process_file_close(struct process *p,uint64_t fd) {
+    assert(p==(struct process *)1 && fd==10 && !user_safe && !busy && pipe_file.handle==456);
+    slow_closes++;return -7;
+}
+static void test_close_admission(void) {
+    struct isr_frame frame={.rax=SYS_CLOSE,.rdi=10};
+    assert(syscall_io_safe(&frame)); /* Prelude only, not general close permission. */
+    busy=user_safe=close_pipe=true;assert(syscall_close(10)==0);
+    assert(busy && user_safe && close_attempts==1 && !close_waits && !slow_closes);
+    close_pipe=false;pipe_file.handle=123;
+    assert(syscall_close(10)==-7);
+    assert(!busy && !user_safe && close_attempts==2 && close_waits==1 && slow_closes==1);
+    puts("pipe-close-admission: PASS atomic attempt or gated fresh-lookup fallback");
+}
 static void test_pipe_retry_admission(void) {
     const struct { enum process_file_type type; bool read,write; } cases[]={
         {PROCESS_FILE_PIPE_READ,true,false},{PROCESS_FILE_PIPE_WRITE,false,true},
@@ -54,6 +78,7 @@ static void test_pipe_retry_admission(void) {
     puts("pipe-retry-admission: PASS read/write/duplex/PTY, repeated requests, blocking/invalid/nonpipe exclusion and cleanup safety");
 }
 int main(void) {
+    test_close_admission();
     struct isr_frame frame={.rax=SYS_READ,.rdi=0};
     assert(!syscall_io_safe(&frame));console_fd=true;assert(syscall_io_safe(&frame));
     frame.rax=SYS_WRITE;frame.rdi=1;assert(syscall_io_safe(&frame));
@@ -67,7 +92,7 @@ int main(void) {
     frame.rax=SYS_GUI_CANCEL_WAIT;assert(syscall_io_safe(&frame));
     frame.rax=SYS_SCHED_TRACE;assert(syscall_io_safe(&frame));
     frame.rax=SYS_GUI_SERVER_WAIT;assert(syscall_io_safe(&frame));
-    const uint64_t blocked[]={SYS_OPEN,SYS_CLOSE,SYS_FS_WRITE,SYS_SYNC,SYS_EXIT,SYS_PREAD,SYS_PWRITE,SYS_VECTOR_IO,SYS_PIPE2,SYS_DUP3,SYS_PIPE_PAIR_FLAGS,SYS_THREAD_SIGNAL,
+    const uint64_t blocked[]={SYS_OPEN,SYS_FS_WRITE,SYS_SYNC,SYS_EXIT,SYS_PREAD,SYS_PWRITE,SYS_VECTOR_IO,SYS_PIPE2,SYS_DUP3,SYS_PIPE_PAIR_FLAGS,SYS_THREAD_SIGNAL,
         SYS_SOCKET_TRY_IO,SYS_KILL,SYS_SPAWN,SYS_MMAP,SYS_MUNMAP,SYS_FILE_CHANGE,UINT64_MAX};
     for(unsigned i=0;i<sizeof(blocked)/sizeof(*blocked);i++) {
         frame.rax=blocked[i];assert(!syscall_io_safe(&frame));

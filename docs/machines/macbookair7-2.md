@@ -61,6 +61,14 @@ validate exclusion/EOF/references and fallback admission, then full hosts and
 normal/throttled disposable VMs. PR #252 resolver and PR #19 Wi-Fi are independent.
 Installed e337/recovery9aa and collected native evidence stay unchanged.
 
+Focused syscall/process-output fixtures pass: atomic pipe close during simulated
+foreign I/O avoids the gate, fallback waits and reads the current binding, all
+eight rights slots and unsupported types refuse without mutation, and aliases,
+generations, buffered drain, EOF and final-reference release remain correct.
+The existing20000-transfer pipe/rights, VFS writeback/failed-close, inheritance,
+PTY, poll generation and stale-handle cases pass. Full hosts/builds and matched
+normal/throttled VM validation follow; no physical result is inferred.
+
 ### Client termination follow-up scope (2026-10-31)
 
 From main `d299c6ac` with PR #255 host-preflight work retained, the Air agent

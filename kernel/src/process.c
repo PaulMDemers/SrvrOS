@@ -5875,6 +5875,26 @@ static int64_t process_file_close_entry(struct process *process, struct process_
     return result;
 }
 
+/* A simple pipe carries no filesystem ownership. Reject rights-bearing pipes:
+ * final reference release can recursively close files and flush their data.
+ * Check and detach in one IRQ-excluded operation, not an admission snapshot. */
+bool process_file_try_close_pipe(struct process *process,uint64_t fd,int64_t *result) {
+    if(!result)return false;
+    uint64_t irq=process_irq_save();
+    struct process_file *file=process_file_at(process,fd);
+    if(!file || (file->type!=PROCESS_FILE_PIPE_READ && file->type!=PROCESS_FILE_PIPE_WRITE))goto refused;
+    bool writer=file->type==PROCESS_FILE_PIPE_WRITE;
+    struct process_pipe *pipe=pipe_at(file->handle);
+    if(!pipe || !pipe->refs || !(writer?pipe->write_refs:pipe->read_refs))goto refused;
+    for(unsigned i=0;i<PROCESS_PIPE_RIGHTS_QUEUE;i++)if(pipe->rights[i].used)goto refused;
+    uint64_t handle=file->handle;
+    *file=(struct process_file){0};file_generation_invalidate(process,fd);
+    pipe_close(handle,writer);*result=0;
+    process_irq_restore(irq);return true;
+refused:
+    process_irq_restore(irq);return false;
+}
+
 int64_t process_file_close(struct process *process, uint64_t fd) {
     uint64_t irq=process_irq_save();
     struct process_file *file=process_file_at(process,fd);

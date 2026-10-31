@@ -225,6 +225,9 @@ int64_t process_handle_alloc(struct process *process,
     enum process_file_type type,
     uint64_t handle);
 int64_t process_file_close(struct process *process, uint64_t fd);
+/* Atomic simple-pipe cleanup only. False leaves descriptor/result unchanged;
+ * callers must obtain ordinary I/O admission before the general close path. */
+bool process_file_try_close_pipe(struct process *process, uint64_t fd, int64_t *result);
 int64_t process_file_dup(struct process *process, uint64_t old_fd);
 int64_t process_file_dup_min(struct process *process, uint64_t old_fd, uint64_t minimum, bool cloexec);
 int64_t process_file_dup2(struct process *process, uint64_t old_fd, uint64_t new_fd);

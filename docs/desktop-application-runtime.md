@@ -152,6 +152,16 @@ child for retry. Sixteen in-flight records provide bounded backpressure without
 changing the process/window budget; full queues keep their children registered.
 Shutdown drains admitted requests before the worker/session storage disappears.
 
+Simple read/write pipe endpoint closes can complete during unrelated filesystem
+I/O through an IRQ-excluded check-and-detach operation. It requires valid pipe
+references and no queued descriptor rights, preserves descriptor-generation
+invalidation and reader/writer/EOF notification, and performs no allocation or
+filesystem cleanup. CLOSE dispatch admits only this validated prelude; all
+other types, invalid references, duplex pipes and rights-bearing pipes take the
+ordinary I/O gate and a fresh descriptor lookup. Rights cleanup may recursively
+flush files and must not bypass that gate. Process exit and verified wait retain
+their previous admission rules.
+
 Worker-backed client/control/reply timeouts also publish immutable termination
 requests. Sixteen slots coalesce duplicate PIDs and retain full/stopped-queue
 clients for retry without a direct UI signal syscall. The worker issues the
