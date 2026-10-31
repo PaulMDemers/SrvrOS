@@ -359,6 +359,20 @@ void scheduler_enable_io_services(void) {
 
 bool scheduler_io_active(void) { return io_depth != 0; }
 bool scheduler_io_busy(void) { return io_depth != 0 && io_owner != current_thread; }
+bool scheduler_io_process_independent(void *process) {
+    if(!initialized || !io_services_enabled || switching || !process || thread_capacity>4096 ||
+       current_thread>=thread_capacity || (io_depth && io_owner>=thread_capacity))return false;
+    struct thread *caller=thread_at(current_thread);
+    if(caller->state!=THREAD_RUNNING || caller->user_context!=process || caller->user_thread_context ||
+       !caller->io_user_safe || vmm_current_address_space()!=thread_address_space(caller))return false;
+    if(io_depth && (io_owner==current_thread || io_private_image==process ||
+                   thread_at(io_owner)->user_context==process))return false;
+    for(uint64_t i=0;i<thread_capacity;i++)if(i!=current_thread) {
+        struct thread *t=thread_at(i);
+        if(t->state!=THREAD_UNUSED && t->state!=THREAD_DEAD && t->user_context==process)return false;
+    }
+    return true;
+}
 
 void scheduler_io_request_turn(void) {
     uint64_t flags=irq_save();

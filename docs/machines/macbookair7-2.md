@@ -64,6 +64,24 @@ negative ownership/provenance/bounds and futex/frame ordering before host/VM
 load tests. Air6,1 idle work and open PR #252 resolver/PR #19 Wi-Fi remain
 independent; no AP/idle/device gates change and no physical trial is armed.
 
+Focused scheduler/process-service/syscall fixtures pass, including foreign
+ownership retention, worker/sibling/image/owner/CR3/record-bound refusal, full
+anonymous versus file/partial/split provenance, PTE translation mismatch, futex
+invalidation before frame release, partial unmap failure with remaining frames
+tracked, retry without double free and PROT_NONE retirement. Full core/desktop
+and ordinary/native/VM builds pass before the final fallback-handoff refinement;
+rerun focused admission and matched builds for that change. The active document
+model's DWARF size is0xa1748 bytes plus owner metadata, fitting the2MiB bound.
+No native result or general exit-latency fix is inferred; exit remains separately
+gated and can still account for a whole-process lifecycle deadline.
+
+Final focused admission and matched builds pass after preserving gated
+fallback handoff. The first new fallback test attempted native CLI in the host
+harness and faulted; a dedicated host IRQ adapter fixes the fixture without
+changing production IRQ masking. That failed attempt is retained separately.
+The candidate is ready for ordinary and populated100IOPS disposable VM checks;
+physical acceptance and the broader exit/lifecycle deadline remain open.
+
 ### Native cache-reuse return — memory cleanup gate identified (2026-10-31)
 
 Release `216844aaab4b2363` / source `695db843` saves matching session

@@ -166,7 +166,7 @@ static bool console_winsize_set;
 static uint64_t random_state;
 
 static uint64_t irq_save(void) {
-#ifdef SRVROS_SYSCALL_POLL_HOST_TEST
+#if defined(SRVROS_SYSCALL_POLL_HOST_TEST) || defined(SRVROS_SYSCALL_IO_HOST_TEST)
     return 0;
 #else
     uint64_t flags;
@@ -176,7 +176,7 @@ static uint64_t irq_save(void) {
 }
 
 static void irq_restore(uint64_t flags) {
-#ifdef SRVROS_SYSCALL_POLL_HOST_TEST
+#if defined(SRVROS_SYSCALL_POLL_HOST_TEST) || defined(SRVROS_SYSCALL_IO_HOST_TEST)
     (void)flags;
 #else
     if ((flags & (1ull << 9)) != 0) {
@@ -1298,7 +1298,15 @@ static int64_t syscall_mmap(uint64_t address,
 }
 
 static int64_t syscall_munmap(uint64_t address, uint64_t length) {
-    return process_munmap(process_current(), address, length);
+    int64_t result;
+    if(process_try_munmap_private(process_current(),address,length,&result))return result;
+    scheduler_io_set_user_safe(false);scheduler_io_wait();
+    result=process_munmap(process_current(), address, length);
+    /* Dispatch classified the validation prelude as safe. After a gated
+     * fallback unwinds, retain the ordinary unsafe syscall's fair handoff. */
+    uint64_t irq=irq_save();
+    scheduler_io_set_user_safe(true);scheduler_io_handoff();scheduler_io_set_user_safe(false);
+    irq_restore(irq);return result;
 }
 
 static int64_t syscall_mprotect(uint64_t address, uint64_t length, uint64_t protection) {
@@ -2722,10 +2730,11 @@ static bool io_snapshot_read(uint64_t fd,uint64_t length) {
  * poll by inspecting a mutable userspace fd array before the actual copy. Poll
  * enters only its copy/validation prelude here, then gates non-console work.
  * Close likewise admits only an atomic simple-pipe attempt before gating all
- * other descriptor cleanup; queued rights may recursively flush files. */
+ * other descriptor cleanup; queued rights may recursively flush files.
+ * Munmap admits only bounded whole-anonymous retirement, then gates fallback. */
 bool syscall_io_safe(const struct isr_frame *frame) {
     switch (frame->rax) {
-    case SYS_POLL: case SYS_CLOSE: return true; /* Validated prelude, gated fallback. */
+    case SYS_POLL: case SYS_CLOSE: case SYS_MUNMAP: return true; /* Validated prelude, gated fallback. */
     case SYS_READ: return process_fd_is_console(process_current(),frame->rdi,true) || io_try_pipe_read(frame->rdi) || io_snapshot_read(frame->rdi,frame->rdx);
     case SYS_WRITE: return process_fd_is_console(process_current(),frame->rdi,false) || io_try_pipe_write(frame->rdi);
     case SYS_WAIT: return (frame->rdx & SRV_WAIT_NOHANG) && !(frame->rdx & ~(SRV_WAIT_NOHANG|SRV_WAIT_POSIX));
@@ -2733,7 +2742,8 @@ bool syscall_io_safe(const struct isr_frame *frame) {
     /* Bounded queues/mouse state use IRQ exclusion. Surface copies use private
      * chunks and IRQ-protected heap/surface state; no VFS or lifetime cleanup.
      * Process listing and memory counters are read-only snapshots.
-     * Mapping/spawn/kill remain gated. */
+     * Mapping/spawn/kill remain gated except the bounded atomic anonymous
+     * retirement attempt above; all its refusals regain ordinary admission. */
     case SYS_GUI_WAIT_IO: case SYS_GUI_CANCEL_WAIT:
     case SYS_GUI_SEND: case SYS_GUI_RECV: case SYS_GUI_WAIT: case SYS_GUI_SERVER_WAIT: case SYS_MOUSE_SCAN:
     case SYS_GUI_KEYBOARD_READ: case SYS_GUI_KEYBOARD_MODE: case SYS_GUI_POINTER_CONFIG: case SYS_GUI_BRIGHTNESS: case SYS_AUDIO: case SYS_DEVICE_LIST: case SYS_THERMAL_STATUS: case SYS_BATTERY_STATUS: case SYS_BATTERY_CONTROL: case SYS_AUDIO_STREAM: case SYS_SMC_STATUS:

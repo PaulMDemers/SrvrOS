@@ -489,6 +489,36 @@ static void test_wait_trace(void) {
     puts("scheduler-wait-trace: PASS blocked versus ready, unchanged exclusion, timeout/signal, reset/refusal and invalid clock");
 }
 
+static void test_independent_process_memory(void) {
+    void *process=(void *)0x10,*other=(void *)0x20;
+    initialized=io_services_enabled=true;current_thread=3;actual_space=1;
+    threads[3]=(struct thread){.state=THREAD_RUNNING,.user_context=process,.io_user_safe=true,.address_space=1};
+    assert(scheduler_io_process_independent(process));
+    assert(!scheduler_io_process_independent(NULL) && !scheduler_io_process_independent(other));
+    threads[3].io_user_safe=false;assert(!scheduler_io_process_independent(process));threads[3].io_user_safe=true;
+    threads[3].user_thread_context=process;assert(!scheduler_io_process_independent(process));threads[3].user_thread_context=NULL;
+    actual_space=2;assert(!scheduler_io_process_independent(process));actual_space=1;
+    for(unsigned state=THREAD_READY;state<=THREAD_QUARANTINED;state++) {
+        threads[4]=(struct thread){.state=state,.user_context=process};
+        assert(scheduler_io_process_independent(process)==(state==THREAD_DEAD));
+    }
+    threads[4]=(struct thread){.state=THREAD_READY,.user_context=other};
+    io_depth=2;io_owner=4;io_private_image=NULL;
+    assert(scheduler_io_process_independent(process) && io_depth==2 && io_owner==4);
+    io_private_image=process;assert(!scheduler_io_process_independent(process));io_private_image=other;
+    assert(scheduler_io_process_independent(process));
+    threads[4].user_context=process;assert(!scheduler_io_process_independent(process));threads[4].user_context=other;
+    io_owner=3;assert(!scheduler_io_process_independent(process));io_owner=4;
+    uint64_t capacity=thread_capacity;thread_capacity=4097;assert(!scheduler_io_process_independent(process));thread_capacity=capacity;
+    io_owner=thread_capacity;assert(!scheduler_io_process_independent(process));io_owner=4;
+    current_thread=thread_capacity;assert(!scheduler_io_process_independent(process));current_thread=3;
+    switching=true;assert(!scheduler_io_process_independent(process));switching=false;
+    io_services_enabled=false;assert(!scheduler_io_process_independent(process));io_services_enabled=true;
+    assert(io_depth==2 && io_owner==4 && io_private_image==other);
+    memset(threads,0,sizeof(threads));initialized=io_services_enabled=false;current_thread=0;io_depth=0;io_private_image=NULL;
+    puts("independent-memory: PASS current main only, siblings/worker/image/owner/CR3/scan bounds, unchanged foreign ownership");
+}
+
 static void test_private_image_scope(void) {
     struct srv_sched_trace trace;
     void *parent=(void *)0x10,*child=(void *)0x20;
@@ -707,6 +737,7 @@ int main(void) {
     test_idle_audit();
     test_mwait();
     test_coordinated_mwait();
+    test_independent_process_memory();
     test_private_image_scope();
     test_wait_trace();
     test_cpu_accounting();

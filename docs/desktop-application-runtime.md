@@ -152,6 +152,19 @@ child for retry. Sixteen in-flight records provide bounded backpressure without
 changing the process/window budget; full queues keep their children registered.
 Shutdown drains admitted requests before the worker/session storage disappears.
 
+Whole anonymous mapping retirement has a narrow independent path: the current
+main thread must be alone in its process, with matching active address space and
+no alias to the foreign I/O owner or private construction image. It accepts one
+complete anonymous region up to2MiB with at most4096 tracked mappings and4096
+scheduler records. It validates physical translations, then retires pages and
+futex bindings with interrupts masked, without yielding, allocating or releasing
+foreign I/O ownership. Unmap failure retains remaining frames/region ownership;
+no still-mapped frame receives free credit. Anonymous provenance follows splits
+and fork's existing copy. Unsupported, partial, file-backed, threaded or oversized
+requests take the original gate and general implementation; that fallback keeps
+the normal quiescent handoff. Exit, mmap and other lifetime operations remain
+gated. These finite work bounds are not a claim of a measured wall-time bound.
+
 The compositor may retain up to two completed pixel-cache buffers after window
 retirement. They stay reserved inside the existing96MiB cache budget, including
 their worker job slots; reuse transfers ownership without another mapping. No
