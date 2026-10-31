@@ -79,6 +79,22 @@ app/exit work stays in the measured loop and all limits remain unchanged. Rerun
 both workloads; this is diagnostic output relocation, not acceptance of the
 failed candidate or a native result.
 
+Implementation `416847db` passes full core/desktop and ordinary/native/VM builds.
+Diagnostic follow-up `b67a7ea1` passes desktop and matched builds again; all745
+links pass. Final normal KVM passes22 cycles (UI399244us, ready1278077us,
+close1891561us), PCM60seconds/zero underruns, full file/screenshot/allocation
+and clean retirement. Final populated100IOPS KVM still FAILs: an atomic saved
+checkpoint records cycle1 startup7442781us; PID10 later reaches phase3 deadline.
+Only two checkpoints survive, and the serial aggregate summary is interleaved;
+it is not promoted into a validated final timing/count receipt. Strict final
+FAIL/unmount returns, but the harness stops before final recovered integrity
+checks. Draft PR #257 retains both candidates' failures and the source-proven
+pipe-close improvement without claiming stable endurance or native acceptance.
+No physical stage/install/reboot occurred. Next work is remaining process
+startup/exit admission under owned I/O, retaining500ms UI/10second lifecycle
+limits. Neither a slower worst normal render nor workload variance is called a
+performance improvement.
+
 ### Client termination follow-up scope (2026-10-31)
 
 From main `d299c6ac` with PR #255 host-preflight work retained, the Air agent
