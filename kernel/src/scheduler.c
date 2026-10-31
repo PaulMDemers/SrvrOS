@@ -711,6 +711,7 @@ static void yield_to(uint64_t preferred) {
     if (old->state == THREAD_RUNNING) {
         trace_ready(old,0);
         old->state = THREAD_READY;
+        io_ready_request(old);
     }
     if(next->trace.active)trace_run(next,timer_monotonic_us());
     next->state = THREAD_RUNNING;

@@ -180,7 +180,7 @@ static void test_wake_policy(void) {
 static void test_ready_gate_admission(void) {
     memset(threads,0,sizeof(threads));initialized=io_services_enabled=true;switching=false;
     current_thread=3;idle_thread=1;io_depth=io_gate_pending=0;actual_space=1;
-    threads[3]=(struct thread){.state=THREAD_RUNNING,.io_user_safe=true};
+    threads[3]=(struct thread){.state=THREAD_RUNNING,.user_context=(void *)3,.io_user_safe=true};
     threads[4]=(struct thread){.state=THREAD_READY};
     threads[6]=(struct thread){.state=THREAD_READY}; /* Fresh process, not in io_waiters. */
     assert(scheduler_io_begin());
@@ -222,7 +222,7 @@ static void test_ready_gate_admission(void) {
 static void test_gate_handoff(void) {
     memset(threads,0,sizeof(threads));initialized=io_services_enabled=true;switching=false;
     current_thread=3;idle_thread=1;io_depth=io_gate_pending=0;actual_space=1;
-    threads[3]=(struct thread){.state=THREAD_RUNNING,.io_user_safe=true};
+    threads[3]=(struct thread){.state=THREAD_RUNNING,.user_context=(void *)3,.io_user_safe=true};
     threads[4]=(struct thread){.state=THREAD_READY};
     handoff_test=true;
     for(unsigned round=0;round<64;round++) {
@@ -252,7 +252,7 @@ static void ready_edge_setup(void) {
     memset(threads,0,sizeof(threads));initialized=io_services_enabled=true;switching=false;
     current_thread=3;idle_thread=UINT64_MAX;io_depth=io_gate_pending=io_gate_cursor=0;
     actual_space=1;clock_us=1000;ready_edge_turns=0;
-    threads[3]=(struct thread){.state=THREAD_RUNNING,.io_user_safe=true};
+    threads[3]=(struct thread){.state=THREAD_RUNNING,.user_context=(void *)3,.io_user_safe=true};
 }
 static void ready_edge_handoff(void) {
     ready_edge_test=true;scheduler_io_handoff();ready_edge_test=false;
@@ -264,6 +264,16 @@ static void test_ready_edge_admission(void) {
     assert(scheduler_spawn("new child",empty_worker,NULL));
     /* No timer selection, I/O refusal or syscall wait has happened yet. */
     ready_edge_handoff();
+    /* Preemption/explicit yield of an unsafe continuation is another READY
+     * transition; no owned-I/O selection needs to have refused it first. */
+    ready_edge_setup();threads[3].user_context=NULL;
+    threads[6]=(struct thread){.state=THREAD_READY,.user_context=(void *)1,.io_user_safe=true};
+    ready_edge_test=true;scheduler_yield();ready_edge_test=false;
+    assert(ready_edge_turns==1 && threads[3].io_gate_waiting && io_gate_pending==1);
+    io_gate_leave(&threads[3]);
+    ready_edge_setup();threads[3].user_context=(void *)1;
+    threads[6]=(struct thread){.state=THREAD_READY,.user_context=(void *)2,.io_user_safe=true};
+    ready_edge_test=true;scheduler_yield();ready_edge_test=false;assert(!io_gate_pending);
     ready_edge_setup();struct scheduler_wait_queue q={.waiters=1};
     threads[6]=(struct thread){.state=THREAD_BLOCKED,.blocked_queue=&q};
     assert(scheduler_wake_count(&q,1)==1 && !q.waiters);
@@ -291,7 +301,7 @@ static void test_ready_edge_admission(void) {
      * eligible and must not reserve an unnecessary later quiescent turn. */
     ready_edge_setup();q=(struct scheduler_wait_queue){.waiters=1};
     assert(scheduler_io_begin());
-    threads[3].state=THREAD_BLOCKED;threads[3].blocked_queue=&q;
+    threads[3].state=THREAD_BLOCKED;threads[3].blocked_queue=&q;threads[3].io_user_safe=false;
     scheduler_wake_all(&q);assert(!io_gate_pending && threads[3].state==THREAD_READY);
     threads[3].state=THREAD_RUNNING;scheduler_io_end();
     ready_edge_setup();assert(scheduler_spawn_io_service("audited",empty_worker,NULL,idle_eligible));
@@ -305,7 +315,7 @@ static void test_ready_edge_admission(void) {
 static void test_gate_handoff_fairness(void) {
     memset(threads,0,sizeof(threads));initialized=io_services_enabled=true;switching=false;
     current_thread=3;idle_thread=1;io_depth=io_gate_pending=0;actual_space=1;
-    threads[3]=(struct thread){.state=THREAD_RUNNING,.io_user_safe=true};
+    threads[3]=(struct thread){.state=THREAD_RUNNING,.user_context=(void *)3,.io_user_safe=true};
     threads[6]=(struct thread){.state=THREAD_READY};
     threads[7]=(struct thread){.state=THREAD_READY};
     memset(fair_handoff_turns,0,sizeof(fair_handoff_turns));fair_handoff_test=true;
