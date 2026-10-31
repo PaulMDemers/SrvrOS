@@ -70,6 +70,13 @@ ordinary allocator slot clearing/reuse. Files read-only close guards preserve
 busy jobs and keep mutation/Text gates. Final loaded VM validation is pending;
 this is not native or whole-process endurance acceptance.
 
+Clean565e2a14 populated100IOPS passes11cycles/UI285221us/ready3232283us/
+close4657827us with full integrity/retirement. Its50IOPS run fails first Files
+startup: queued listing starts a worker before first publication and client
+awaiting timeout kills PID10/status143. The atomic final log is retained. Extend
+this bounded Files scope to publish the initial window before advancing queued
+file work; preserve accepted-job ownership and all client/lifecycle limits.
+
 ### Bounded anonymous retirement scope (2026-10-31)
 
 From main `695db843` plus collected-return documentation, the Air agent owns
