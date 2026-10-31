@@ -44,6 +44,27 @@ Ubuntu shutdown. No human input is required. Collect the matching new session
 before another stage; the 1800-second workload and existing deadlines remain
 unchanged, and native endurance acceptance stays pending.
 
+### Retired compositor buffer reuse scope (2026-10-31)
+
+Continue draft PR #257 from `3a551549`. The Air agent owns compositor cache
+policy, immutable operation diagnostics and host fixtures (`deskd.c`,
+`operation_trace.h`, `test_desktop_session.c`, runtime contract). The saved
+atomic checkpoint002 actually contains the complete prior FAIL summary: one
+cycle, UI188596us, ready7442781us, close3211829us; it must supersede the earlier
+conservative note about interleaved UART aggregates. It also records a pending
+cache memory job between window admission and first publication. Preserve that
+failure; no final recovered integrity or native pass is inferred.
+
+Reuse at most two completed retired compositor buffers, counted within the
+unchanged96MiB budget. Only the UI transfers these job/buffer references;
+queued/discarded/failed allocations are never pooled. Published pixels remain
+immutable until full copy success. Pressure and shutdown release retained
+buffers through the existing worker and reclaim budget only after unmap.
+Expose immutable reuse/retention counters. Validate repeated create/retire,
+partial-copy isolation, pressure and full shutdown before normal/throttled VMs.
+No kernel mapping/exit gate, deadline or workload change is planned. PR #252
+resolver/socket and PR #19 Wi-Fi remain independent. No physical boot is armed.
+
 ### Simple pipe-close contention scope (2026-10-31)
 
 From main `0386d8ed`, the Air agent owns a bounded process/syscall follow-up:
