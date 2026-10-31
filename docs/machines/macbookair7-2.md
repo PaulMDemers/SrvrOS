@@ -28,6 +28,25 @@ resolver/socket audit remains independent.
 After local gates, rehearse the combined desktop workload in a disposable VM;
 physical endurance and the identified long I/O-owner fix remain pending.
 
+Integration validation at clean `b6c4a8d8` passes on Ubuntu GCC15.2: full core and
+desktop hosts, storage leases, matched ordinary/native/VM builds and 745 local
+document links. The host driver/fixture repair preserves both strict import
+refusal and mounted extent refusal. Socket fixtures isolate guest entry points
+from ELF host-libc exports; portable initialization, const traversal and validated
+path copies retain strict warnings. Directed cases cover unchanged ancillary
+inputs, host/guest path capacity and unchanged DNS answer storage on rejection.
+No retry/deadline, durability, public ABI or scheduling policy is relaxed.
+
+The matched ordinary image passes the network ABI VM. The Air7,2 KVM audio/disk/
+app workload passes 21 cycles, maximum UI loop 114912 us, ready 1430050 us and
+close 968706 us, zero observed PCM underruns, exact files/screenshot/allocation,
+four retained live checkpoints and clean retirement. This is disposable VM
+validation, not native endurance acceptance. No native stage, install, workspace
+write or reboot was performed; historical recovery and the failed physical run
+remain unchanged. PR #253 carries the narrow integration repairs. The next
+runtime work remains bounded long-transaction/admission improvement on this
+integrated baseline; PR #252's resolver/socket policy remains independent.
+
 ### Eighth endurance return — long owner identified (2026-10-28)
 
 Release `b70f04d3166380e2`, clean `a8da6076` (PR #250), returned automatically
