@@ -254,3 +254,31 @@ before advancing queued file work. Lazy file-worker creation uses ordinary
 kernel admission and can wait behind I/O; it must not precede the first frame.
 Retired/failed windows still drain accepted work, and this ordering does not
 extend client or whole-process lifecycle deadlines.
+
+Text/Files now create one process-owned file service before opening their GUI
+windows. The shared file pool has an optional nonblocking opener: a pending
+transport keeps its FIFO head queued, and a successful result transfers only
+PID and descriptor values into an idle channel. The helper performs blocking
+pipe/fcntl/spawn construction; neither pending nor failed startup falls back to
+construction on the UI turn. Existing synchronous pool users retain their API.
+Accepted file requests, response validation and channel bindings remain owned
+by the dispatcher until the complete reply drains.
+
+A retired model can transfer its complete mapping through
+`desk_window_owner_release_with` after GUI disposal and work drain. A refused
+callback leaves the model and list position unchanged. Acceptance transfers
+mapping ownership and counts logical window retirement; it does not prove that
+physical unmapping completed. Text/Files use sixteen bounded retirement records:
+full queues retain disposed models for retry, and the helper performs the real
+unmap and sparse timing trace. Failed unmaps retain a nonreusable error record
+and fail final retirement. No GUI/set pointers cross into the helper.
+
+Final shutdown drains admitted startup/unmap records, verifies helper join, and
+then naturally reaps idle file workers before service/pool storage disappears.
+Join errors retain ownership until a verified join and reject the clean result.
+A saved per-process `file-service` receipt exposes startup, retirement, failure,
+pending and join counts; automatic VM validation requires a whole matching
+receipt for every completed Text/Files process. Initial service creation and
+final join have their own measured phases. Existing client, UI-loop and total
+lifecycle deadlines remain unchanged. This architecture still needs native
+endurance acceptance; previous hardware failures remain failures.

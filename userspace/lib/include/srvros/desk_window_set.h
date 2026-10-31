@@ -45,4 +45,11 @@ struct desk_window_owner *desk_window_set_next_close(struct desk_window_set *);
  * Unopened owners can also be released. Neither operation kills a worker. */
 int desk_window_owner_dispose(struct desk_window_owner *);
 int desk_window_owner_release(struct desk_window_owner *,int work_drained);
+/* Same GUI/work preconditions; callback accepts full mapping ownership on 0,
+ * or returns nonzero without changing it. This transfers logical retirement;
+ * an asynchronous receiver must retain the mapping and report/drain completion
+ * before its own storage/process lifetime ends. It must never retain GUI/set
+ * pointers. Queue-full refusal restores the owner's list position. */
+int desk_window_owner_release_with(struct desk_window_owner *,int work_drained,
+    int (*retire)(void *,void *,size_t),void *context);
 #endif

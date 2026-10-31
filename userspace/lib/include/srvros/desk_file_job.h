@@ -6,6 +6,10 @@
 #define DESK_FILE_POOL_MAX_CHANNELS 32u
 struct desk_file_pool;
 struct desk_file_channel;
+struct desk_file_transport { uint64_t pid;int reader,writer; };
+/* Blocking constructor, suitable for a process-owned helper. On failure all
+ * acquired descriptors are closed and no child/transport is published. */
+int desk_file_transport_open(struct desk_file_transport *transport);
 struct desk_file_job {
     uint64_t pid;
     int reader,writer,busy,broken;
@@ -19,8 +23,9 @@ struct desk_file_job {
     struct desk_file_job *queued_next;
 };
 /* Single-dispatcher, caller-owned service. Channels own workers; bound jobs own
- * immutable requests/results. Do not move/free either while bound. No threads,
- * callbacks or allocation; spawn only when a request needs an idle transport. */
+ * immutable requests/results. Do not move/free either while bound. The pool
+ * creates no threads or allocations; an optional nonblocking opener may supply
+ * helper-created transports. Legacy users spawn lazily on the dispatcher. */
 struct desk_file_channel {
     uint64_t pid;
     int reader,writer,retiring;
@@ -33,9 +38,15 @@ struct desk_file_pool {
     int closing;
     struct desk_file_job *head,*tail;
     uint64_t spawned,reaped,live,peak;
+    int (*opener)(void *,struct desk_file_channel *);
+    void *opener_context;
 };
 /* Channel count is an explicit concurrency budget (1..32), independent of jobs. */
 int desk_file_pool_init(struct desk_file_pool *pool,struct desk_file_channel *channels,unsigned count);
+/* Optional before binding: opener returns 0 pending, 1 transfers a complete
+ * idle transport into channel, -1 failed with nothing transferred. It must not
+ * block. The FIFO head remains queued while pending. NULL restores legacy. */
+int desk_file_pool_opener(struct desk_file_pool *,int (*)(void *,struct desk_file_channel *),void *);
 /* Job must be zero-initialized or detached/closed, and idle. */
 int desk_file_job_bind(struct desk_file_job *job,struct desk_file_pool *pool);
 /* Refuse while accepted work is pending. Does not terminate a worker. */

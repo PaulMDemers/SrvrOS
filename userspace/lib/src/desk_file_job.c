@@ -5,7 +5,8 @@
 #include <signal.h>
 #include <limits.h>
 
-static int transport_open(struct desk_file_job *j) {
+int desk_file_transport_open(struct desk_file_transport *j) {
+    if(!j)return -1;
     j->reader=j->writer=-1;j->pid=0;
     int input[2],output[2];
     if(srv_signal_config(SIGPIPE,SRV_SIGNAL_IGNORE)!=0 || srv_pipe(input)) return -1;
@@ -20,13 +21,18 @@ static int transport_open(struct desk_file_job *j) {
     j->pid=pid;return 0;
 }
 int desk_file_job_init(struct desk_file_job *j) {
-    *j=(struct desk_file_job){.reader=-1,.writer=-1};return transport_open(j);
+    struct desk_file_transport t;int result=desk_file_transport_open(&t);
+    *j=(struct desk_file_job){.reader=t.reader,.writer=t.writer,.pid=t.pid};return result;
 }
 int desk_file_pool_init(struct desk_file_pool *p,struct desk_file_channel *channels,unsigned count) {
     if(!p || !channels || !count || count>DESK_FILE_POOL_MAX_CHANNELS)return -1;
     *p=(struct desk_file_pool){.channels=channels,.count=count};
     for(unsigned i=0;i<count;i++)channels[i]=(struct desk_file_channel){.reader=-1,.writer=-1};
     return 0;
+}
+int desk_file_pool_opener(struct desk_file_pool *p,int (*opener)(void *,struct desk_file_channel *),void *context) {
+    if(!p || !p->channels || p->bound || p->live || p->head || p->closing)return -1;
+    p->opener=opener;p->opener_context=context;return 0;
 }
 int desk_file_job_bind(struct desk_file_job *j,struct desk_file_pool *p) {
     if(!j || !p || !p->channels || !p->count || p->closing || p->bound==UINT_MAX || j->pool || j->pid || j->busy)return -1;
@@ -109,10 +115,18 @@ static int acquire(struct desk_file_job *j) {
         if(c->pid && !desk_process_alive(c->pid))channel_retire(p,c);
         if(c->retiring)continue;
         if(!c->pid) {
-            if(transport_open(j)) { dequeue(j);return -1; }
-            c->pid=j->pid;c->reader=j->reader;c->writer=j->writer;
+            if(p->opener) {
+                int result=p->opener(p->opener_context,c);
+                if(result<0)dequeue(j);
+                if(result<=0)return result;
+            } else {
+                struct desk_file_transport t;
+                if(desk_file_transport_open(&t)) {dequeue(j);return -1;}
+                c->pid=t.pid;c->reader=t.reader;c->writer=t.writer;
+            }
             p->spawned++;p->live++;if(p->live>p->peak)p->peak=p->live;
-        } else { j->pid=c->pid;j->reader=c->reader;j->writer=c->writer; }
+        }
+        j->pid=c->pid;j->reader=c->reader;j->writer=c->writer;
         c->owner=j;j->channel=c;dequeue(j);return 1;
     }
     return 0;

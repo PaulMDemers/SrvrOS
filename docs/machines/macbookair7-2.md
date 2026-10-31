@@ -65,6 +65,17 @@ kernel/firmware/driver or I/O-admission changes are planned; PR252 resolver and
 PR19 Wi-Fi remain independent. Native a4 run is collected/integrity-verified;
 no new reboot is armed. Publish test receipts before another physical trial.
 
+The initial implementation passes the complete desktop host suite and matched
+ordinary/native/VM builds. Directed real-pthread tests hold actual transport
+construction and unmapping while UI admission continues, exercise the16-record
+retirement backpressure, preserve failed mappings, close/reap an unconsumed
+startup and retain storage through a transient join error. Pool FIFO pending/
+error publication and window callback refusal/ownership-transfer tests pass.
+Per-process service receipts are required by new synthetic VM checks; truncated,
+interleaved, duplicate/conflicting, failed, pending or unjoined records refuse
+acceptance. Actual unmap timing runs on the helper, not around queue admission.
+Loaded/multiwindow VM validation is next; no new physical trial is armed.
+
 ### Native Files lifecycle return — delayed Close delivery (2026-10-31)
 
 Releasea4f7080c77fda748/source0fe284e2 saves matching session and returns to

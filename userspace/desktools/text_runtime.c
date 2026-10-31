@@ -4,6 +4,7 @@
 #include <srvros/desk_log.h>
 #include <stdlib.h>
 #include <string.h>
+#include "file_service.h"
 
 struct tool_document {
     struct tool tool;
@@ -15,6 +16,7 @@ struct tool_windows {
     struct desk_window_set set;
     struct desk_file_pool pool;
     struct desk_file_channel channels[2];
+    struct file_service files;
     struct desk_open_document open_request;
     uint64_t service_window;
     unsigned capture_checkpoints;
@@ -173,9 +175,14 @@ int tool_window_runtime(int role,const char *path) {
     uint64_t timing=tool_timing_begin(role,0,"pool-init");
     int initialized=desk_file_pool_init(&app.pool,app.channels,2);
     tool_timing_end(role,0,"pool-init",timing);if(initialized)return 1;
+    timing=tool_timing_begin(role,0,"file-service-init");
+    int service_started=file_service_start(&app.files,&app.pool,role);
+    tool_timing_end(role,0,"file-service-init",timing);if(service_started)return 1;
     desk_log("desktools: starting role=%s\n",role_name(role));
-    if(create(&app,0,path))return 1;
-    while(app.set.windows) {
+    if(create(&app,0,path)) {file_service_finish(&app.files);return 1;}
+    while(app.set.windows || file_service_poll(&app.files)) {
+        file_service_poll(&app.files);
+        if(app.files.retire_failed)app.set.failed=1;
         if(!app.set.failed)desk_window_set_dispatch(&app.set,window_event,&app);
         desk_open_document_tick(&app.open_request,app.set.connection.server);
         if(!app.set.failed && app.open_request.ready && !app.set.connection.opening) {
@@ -208,7 +215,7 @@ int tool_window_runtime(int role,const char *path) {
             if(!app.set.failed)dialog_tick(owner);
             if(owner->retired) {
                 if(!app.set.failed && owner->dialog.window.connection) {busy=1;owner=next;continue;}
-                if(!app.set.failed) {
+                if(!app.set.failed && !owner->disposed) {
                     timing=tool_timing_begin(role,t->window.window,"window-dispose");
                     int disposed=desk_window_owner_dispose(owner);tool_timing_end(role,t->window.window,"window-dispose",timing);
                     if(disposed) {app.set.failed=1;owner=next;continue;}
@@ -217,14 +224,12 @@ int tool_window_runtime(int role,const char *path) {
                 /* A dead/failed connection cannot prove GUI resource ownership.
                  * Drain every accepted job, then let process exit reclaim models. */
                 if(app.set.failed) {owner=next;continue;}
+                if(!file_service_capacity(&app.files)) {busy=1;owner=next;continue;}
                 uint64_t window=t->window.window;
                 timing=tool_timing_begin(role,window,"history-free");free(t->body_history);t->body_history=NULL;
                 tool_timing_end(role,window,"history-free",timing);
-                timing=tool_timing_begin(role,window,"document-unmap");
-                struct tool_phase_trace phase;tool_phase_begin(&phase);
-                int released=desk_window_owner_release(owner,1);
-                tool_phase_end(&phase,role,window,"document-unmap");
-                tool_timing_end(role,window,"document-unmap",timing);
+                struct file_service_release release={.service=&app.files,.window=window};
+                int released=desk_window_owner_release_with(owner,1,file_service_retire,&release);
                 if(released)app.set.failed=1;
                 owner=next;continue;
             }
@@ -256,8 +261,12 @@ int tool_window_runtime(int role,const char *path) {
             }
         }
         if(app.set.windows) {desk_runtime_file_pool(&app.set.runtime,&app.pool);desk_runtime_idle(&app.set.runtime,busy);}
+        else if(file_service_poll(&app.files))srv_sleep_ticks(1);
     }
     desk_runtime_timers_clear(&app.set.runtime);
+    timing=tool_timing_begin(role,0,"file-service-join");
+    if(file_service_finish(&app.files))app.set.failed=1;
+    tool_timing_end(role,0,"file-service-join",timing);
     desk_log("%s-runtime: documents admitted=%u retired=%u refused=%u\n",role_name(role),(unsigned)app.set.admitted,(unsigned)app.set.retired,(unsigned)app.set.refused);
     if(tool_file_pool_retire(&app.pool,role))app.set.failed=1;
     if(app.capacity) {

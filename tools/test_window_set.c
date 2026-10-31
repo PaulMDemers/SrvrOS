@@ -68,6 +68,12 @@ static struct desk_window_owner *open_model(struct desk_window_set *set,uint64_t
     assert(!m->sentinel && !m->window.connection);m->sentinel=value;
     assert(!desk_window_owner_open(o,&m->window,0,"Test",720,480));return o;
 }
+static int refuse_retire=1;static void *pending_mapping;static size_t pending_length;
+static int transfer_mapping(void *context,void *address,size_t length) {
+    assert(context==&pending_mapping && !pending_mapping);
+    if(refuse_retire)return -1;
+    pending_mapping=address;pending_length=length;return 0;
+}
 int main(void) {
     struct desk_window_set set;desk_window_set_init(&set);
     assert(!desk_window_owner_new(&set,0) && !desk_window_owner_new(&set,SIZE_MAX));
@@ -108,5 +114,12 @@ int main(void) {
     assert(((struct model *)(void *)o->model)->sentinel==777);
     /* Model process-exit cleanup; the failed application cannot release uncertain GUI state. */
     assert(!munmap(o,o->mapping_bytes));
+    fault=0;desk_window_set_init(&set);o=open_model(&set,1234);deliver(&set,o->window,DESK_OPEN_REPLY,0);
+    assert(desk_window_owner_release_with(o,1,transfer_mapping,&pending_mapping)==-1);
+    deliver(&set,o->window,DESK_CLOSE_ACK,0);assert(!desk_window_owner_dispose(o));
+    assert(desk_window_owner_release_with(o,1,transfer_mapping,&pending_mapping)==-1 && set.windows==o && !set.retired && !pending_mapping);
+    refuse_retire=0;assert(!desk_window_owner_release_with(o,1,transfer_mapping,&pending_mapping));
+    assert(!set.windows && set.retired==1 && pending_mapping==o && ((struct model *)(void *)o->model)->sentinel==1234);
+    assert(!munmap(pending_mapping,pending_length)); /* Receiver owns actual retirement. */
     puts("window-set: PASS 40 stable models, admission/refusal, dialog routing, serialized Quit, explicit work drain, failed-unmap retry and fatal-transport retention");
 }

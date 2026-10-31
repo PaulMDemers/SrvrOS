@@ -12,6 +12,7 @@ from vm_sockets import connect_unix
 from app_timing import RECORD,validate_app_timing,saved_app_timing,lifecycle_receipts
 from loop_timing import validate_loop_timing
 from operation_timing import operation_snapshots
+from file_service_records import file_service_receipts
 
 
 def checkpoint_durable(output, after, name, at):
@@ -47,7 +48,7 @@ def main():
     args=parser.parse_args()
     if args.write_iops<0 or (args.stage and (args.populated_home or args.write_iops)):parser.error('Load options apply only to the synthetic positive VM')
     root=Path(__file__).resolve().parents[1];out=root/('build/review/audio-io-exact' if args.stage else 'build/review/audio-io-populated' if args.populated_home else 'build/review/audio-io-auto');out=out.with_name(out.name+'-air72') if args.air72 else out;out.mkdir(parents=True,exist_ok=True)
-    for name in ('result.json','tone.wav','lifecycle.json','app-timing.json','operations.json','loop-timing.json','automatic-screenshot.png','receipt.txt','allocation.log','overlap.json','cache-retirement.json'):
+    for name in ('result.json','tone.wav','lifecycle.json','app-timing.json','operations.json','loop-timing.json','automatic-screenshot.png','receipt.txt','allocation.log','overlap.json','cache-retirement.json','file-service.json'):
         (out/name).unlink(missing_ok=True)
     for pattern in ('saved-*.log','checkpoint-*.log'):
         for old in out.glob(pattern):old.unlink()
@@ -193,6 +194,8 @@ def main():
                     console_records=b'\n'.join(line for line in output.splitlines() if RECORD.fullmatch(line))
                     timing=validate_app_timing(saved_app_timing([console_records,*snapshots]),[(int(cycle),int(pid)) for cycle,pid,_ in closed],files_window_runtime=True)
                     (out/'app-timing.json').write_text(json.dumps(timing,indent=2)+'\n')
+                    services=file_service_receipts([bytes(output),*snapshots],{row['pid']:row['role'] for row in timing if row['role'] in (1,2)})
+                    (out/'file-service.json').write_text(json.dumps(services,indent=2)+'\n')
                     worst=validate_loop_timing(snapshots,int(lifecycle[2]))
                     assert worst['version']==2, 'Missing wait/scheduler diagnostic companions'
                     (out/'loop-timing.json').write_text(json.dumps(worst,indent=2)+'\n')
