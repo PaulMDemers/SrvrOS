@@ -44,6 +44,36 @@ Ubuntu shutdown. No human input is required. Collect the matching new session
 before another stage; the 1800-second workload and existing deadlines remain
 unchanged, and native endurance acceptance stays pending.
 
+### Native Files lifecycle return — delayed Close delivery (2026-10-31)
+
+Releasea4f7080c77fda748/source0fe284e2 saves matching session and returns to
+Ubuntu. It completes595 app cycles before FilesPID804 fails phase3 at10009854us,
+roughly20minutes into the1800-second workload. UI maximum120070us, ready maximum
+2332012us, completed-close maximum6738763us. This is an endurance FAIL, not a
+30-minute acceptance. The third screenshot is incomplete; cache retirement is
+zero bytes/zero retained/613reuses, with clean battery runtime retirement.
+
+Saved atomic records place Close request at1236385064us and app receipt at
+1242430551us:6045487us delivery delay. A distinct retained PID8 I/O-owner scope
+runs1236382822–1241407892us (5025070us), overlapping5022828us of that interval.
+Worker submission is logged just before Close receipt. This implicates synchronous
+file-worker startup/submission on the app loop; overlap alone does not identify
+its complete blocked syscall or an exact filesystem/USB operation. At the deadline
+Files is still background with4730880mapped bytes and no queued reap. Once Close
+is received, ACK takes20317us; document unmap takes131us with zero blocks and
+final pool retirement115370us. Do not loosen the10-second lifecycle limit or
+claim that metadata alone authorizes cleanup.
+
+All1222 prior files are preserved apart from expected workspace metadata. Offline
+fsck is clean (263directories/1230files);3468clusters show no leaks, bitmap/FAT
+mismatches or errors. Write eligibility, headroom, current/independent recovery,
+Ubuntu default and consumed one-shot verify. Eight new log/image/payload files
+are copied and hash-verified. Native endurance remains unaccepted; no new boot
+is armed. Keep PR #258 draft. Next scope is removing file-worker startup from
+GUI dispatch while preserving accepted-job/descriptor ownership; also avoid
+repeated no-op window-dispose tracing while a retired model drains. Publish the
+chosen asynchronous ownership contract before implementation.
+
 ### Files Close and retired-child claim scope (2026-10-31)
 
 Continue on PR #258/sourcea42c1ac9, integration695db843. The Air agent owns
