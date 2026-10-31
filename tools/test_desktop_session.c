@@ -70,6 +70,7 @@ void srv_puts(const char *text) {
 }
 static uint64_t now=1;
 static int alive=1,queue_full,copy_failure,allocations,frees,killed,sends,reaped,alloc_fail;
+static unsigned kill_delay;
 static int terminal_snapshot,defer_reap;static unsigned worker_reaps;
 long srv_proc_list(uint64_t index,struct srv_process_info *info) {
     if(!terminal_snapshot || index)return 0;
@@ -89,13 +90,35 @@ long srv_ticks(void) { return (long)now; }
 long srv_monotonic_us(void) { return (long)(now*10000); }
 long srv_realtime_us(void) { return 1792326896000000L; }
 int desk_process_alive(uint64_t pid) { return pid==42 && alive; }
-long srv_kill(int64_t pid) { assert(pid==42); alive=0; killed++; return 0; }
+long srv_kill(int64_t pid) { assert(pid==42); alive=0; killed++; now+=kill_delay; return 0; }
 long srv_wait(uint64_t pid,uint64_t *status,uint64_t flags) {
     if(defer_reap) {
         if(flags&SRV_WAIT_NOHANG)return 0;
         assert(terminal_snapshot && pid==42);worker_reaps++;*status=0;return 42;
     }
     (void)status;return !alive?(reaped?-1:(long)pid):0;
+}
+static void asynchronous_client_termination(void) {
+    struct lifecycle_worker w={0};struct session s={.worker=&w};
+    alive=1;now=602;kill_delay=250;int before=killed;
+    s.scene.focus=-1;s.clients[0]=(struct client){.pid=42,.awaiting=1,.progress=1};
+    service(&s);assert(killed==before && alive && now==602 && s.clients[0].pid==42);
+    for(unsigned n=0;n<100;n++)service(&s);
+    assert(now==602 && killed==before && life_terminate_pending(&w,42));
+    life_work(&w);assert(now==852 && killed==before+1 && !alive);
+    assert(s.clients[0].pid==42 && w.terminate[0].elapsed==2500000);
+    service(&s);assert(!s.clients[0].pid && !life_terminate_pending(&w,42));
+    service(&s);assert(killed==before+1);
+    /* Full/stopped queues keep live UI clients for retry; no direct kill. */
+    alive=1;now=1000;s.clients[0]=(struct client){.pid=42,.awaiting=1,.progress=1};
+    for(unsigned n=0;n<LIFE_TERMINATE_SLOTS;n++)assert(life_terminate_submit(&w,500+n));
+    service(&s);assert(killed==before+1 && alive && s.clients[0].pid==42);
+    life_publish(&w.terminate[0].state,LIFE_IDLE);service(&s);
+    assert(life_terminate_pending(&w,42) && killed==before+1);
+    w=(struct lifecycle_worker){.stop=1};service(&s);
+    assert(alive && s.clients[0].pid==42 && killed==before+1);
+    kill_delay=0;
+    puts("desktop-termination: PASS blocked syscall outside UI, duplicate/full/stopped queues, delayed client retirement");
 }
 static void asynchronous_child_reap(void) {
     struct lifecycle_worker w={0};struct session s={.worker=&w};s.children[0]=42;
@@ -1096,6 +1119,7 @@ int main(void) {
     execute_result=42;spawn_app(&failed,DESK_APP_TEXT,"");
     assert(failed.children[4]==42 && failed.child_apps[4]==DESK_APP_TEXT && !failed.scene.notice[0]);
     capture_cleanup_ownership();
+    asynchronous_client_termination();
     asynchronous_child_reap();
     asynchronous_lifecycle();
     clipboard_client_retirement();

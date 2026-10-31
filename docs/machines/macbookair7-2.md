@@ -44,6 +44,29 @@ Ubuntu shutdown. No human input is required. Collect the matching new session
 before another stage; the 1800-second workload and existing deadlines remain
 unchanged, and native endurance acceptance stays pending.
 
+### Client termination follow-up scope (2026-10-31)
+
+From main `d299c6ac` with PR #255 host-preflight work retained, the Air agent
+owns `deskd.c`, `lifecycle_worker.h` and their host fixtures. Client/control/reply
+timeouts currently invoke gated `srv_kill` directly on the compositor. Move
+worker-backed termination to bounded release/acquire requests, retain PID
+ownership until completion, then retire every matching client on the UI. Keep
+queue-full retries, shutdown draining, process checks and deadline policy; no
+kernel syscall eligibility widening. Emit immutable termination timing receipts
+from the worker. Reproduce with a blocked host syscall and validate normal and
+throttled disposable VMs. The native service stall's exact call is not proven;
+other gated retirement/clipboard paths remain possible. No physical trial is
+armed by this implementation scope. PR #252 resolver/socket and PR #19 Wi-Fi
+remain independent; native release/recovery remain unchanged.
+
+Focused host fixtures pass: a simulated 2.5-second termination delay leaves the
+UI service clock unchanged until worker execution; clients retain ownership
+until DONE, and duplicate/full/stopped queues do not issue direct termination.
+A real pthread fixture holds the signal syscall and verifies UI-side publication,
+exactly one execution and shutdown join ownership, including a failed signal
+result. This fixes a source-proven gated UI path, not a claim that the native
+stall has been uniquely attributed. Integrated host/build and VM checks follow.
+
 ### Endurance retry return — client service stall (2026-10-31)
 
 The recovered workspace admits writes and saves session

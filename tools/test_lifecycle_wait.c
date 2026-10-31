@@ -25,6 +25,18 @@ static atomic_uint launch_logs,hold_launch_log;
 static atomic_uint reap_calls,hold_reap;
 static atomic_uint prepare_calls,hold_prepare;
 static void nap(void);
+static atomic_uint kill_calls,hold_kill,kill_logs;
+static long srv_kill(int64_t pid) {
+    assert(pid==55 && !pthread_equal(pthread_self(),ui_thread));
+    atomic_fetch_add(&kill_calls,1);
+    while(atomic_load(&hold_kill))nap();
+    return -7;
+}
+static void life_terminate_log(uint64_t pid,uint64_t elapsed,long result) {
+    (void)elapsed;assert(pid==55 && result==-7 && !pthread_equal(pthread_self(),ui_thread));
+    atomic_fetch_add(&kill_logs,1);
+}
+
 static void life_launch_log(int application,int64_t pid,uint64_t elapsed) {
     (void)elapsed;
     assert(application==1 && pid==42 && !pthread_equal(pthread_self(),ui_thread));
@@ -162,5 +174,21 @@ int main(void) {
     assert(!life_start(&w,0));await_count(&waits,before+2);assert(atomic_load(&sleeps)==slept+1);assert(!life_stop(&w));
     /* A failed second thread creation must wake/join its sleeping reporter. */
     w=(struct lifecycle_worker){0};fail_create=create_calls+2;assert(life_start(&w,1)==EAGAIN && !w.report_started);
+    /* A gated signal cannot block the UI, lose PID ownership, duplicate, or
+     * let shutdown release worker storage while the syscall is in flight. */
+    w=(struct lifecycle_worker){0};race_worker=NULL;atomic_store(&inject,0);
+    atomic_store(&hold_kill,1);atomic_store(&joined,0);
+    assert(!life_start(&w,0));assert(life_terminate_submit(&w,55));await_count(&kill_calls,1);
+    for(unsigned n=0;n<100;n++) {
+        assert(life_terminate_submit(&w,55) && life_terminate_pending(&w,55));
+        assert(life_state(&w.terminate[0].state)==LIFE_QUEUED);
+    }
+    assert(atomic_load(&kill_calls)==1 && !atomic_load(&kill_logs));
+    assert(!pthread_create(&stopper,NULL,stop_worker,&w));
+    for(unsigned n=0;n<10;n++)nap();
+    assert(!atomic_load(&joined) && !life_terminate_submit(&w,56));
+    atomic_store(&hold_kill,0);assert(!pthread_join(stopper,NULL));
+    assert(atomic_load(&joined) && atomic_load(&kill_calls)==1 && atomic_load(&kill_logs)==1);
+    assert(life_state(&w.terminate[0].state)==LIFE_DONE && w.terminate[0].result==-7);
     puts("lifecycle-wait: PASS idle blocking, launch/allocation/discard/report notifications, capture retry/ownership, prewait publication/stop races and creation-failure join");
 }
