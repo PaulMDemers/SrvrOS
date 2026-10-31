@@ -47,6 +47,10 @@ static void life_launch_log(int application,int64_t pid,uint64_t elapsed) {
     desk_log("desktop-launch: app=%d pid=%lld exec_us=%llu async=yes\n",
         application,(long long)pid,(unsigned long long)elapsed);
 }
+static void life_terminate_log(uint64_t pid,uint64_t elapsed,long result) {
+    desk_log("desktop-terminate: version=1 pid=%llu elapsed_us=%llu result=%lld async=yes\n",
+        (unsigned long long)pid,(unsigned long long)elapsed,(long long)result);
+}
 #include "operation_trace.h"
 #include "lifecycle_worker.h"
 struct pixel_cache { uint32_t *pixels,width,height; struct life_memory *job; };
@@ -1504,6 +1508,11 @@ static void lifecycle_deliver(struct session *s) {
 /* Queue age also includes time the compositor could not run. RELEASE and
  * CONFIGURE must get a delivery attempt before timeout attribution, just like
  * input. Start the response deadline only once the client can see the request. */
+static void terminate_client(struct session *s,uint64_t pid) {
+    if(s->worker) { (void)life_terminate_submit(s->worker,pid);return; }
+    srv_kill((int64_t)pid);
+    for(int i=0;i<session_capacity(s);i++)if(session_client(s,i)->pid==pid)forget(s,i);
+}
 static int control_send(struct session *s,int i,const struct desk_packet *p) {
     struct client *c=session_client(s,i);
     c->input_blocked=0; /* Control traffic interrupted input delivery attempts. */
@@ -1515,20 +1524,33 @@ static int control_send(struct session *s,int i,const struct desk_packet *p) {
     else if(tick-c->control_since>500) {
         desk_log("deskd: killing pid=%llu reason=control-timeout type=%u blocked_ticks=%llu\n",
             (unsigned long long)c->pid,p->type,(unsigned long long)(tick-c->control_since));
-        srv_kill((int64_t)c->pid);forget(s,i);
+        terminate_client(s,c->pid);
     }
     return 0;
 }
 static void service(struct session *s) {
+    if(s->worker)for(unsigned n=0;n<LIFE_TERMINATE_SLOTS;n++) {
+        struct life_terminate *t=&s->worker->terminate[n];
+        if(life_state(&t->state)!=LIFE_DONE)continue;
+        uint64_t pid=t->pid;
+        /* Completion is a signal attempt, not proof of exit. Forget UI
+         * clients as before, but leave child ownership for verified wait. */
+        for(int i=0;i<session_capacity(s);i++)if(session_client(s,i)->pid==pid)forget(s,i);
+        int child=child_index(s,pid);
+        if(child>=0)session_child_reply(s,child)->type=0;
+        life_publish(&t->state,LIFE_IDLE);
+    }
     for(int n=0;n<children_capacity(s);n++)if((*session_children(s,n)) && session_child_reply(s,n)->type) {
+        if(s->worker && life_terminate_pending(s->worker,*session_children(s,n)))continue;
         if(!desk_send(*session_children(s,n),session_child_reply(s,n))) { session_child_reply(s,n)->type=0;*session_child_reply_blocked(s,n)=0; }
         else if(!(*session_child_reply_blocked(s,n))) { (*session_child_reply_blocked(s,n))=1;(*session_child_reply_since(s,n))=srv_ticks(); }
-        else if((uint64_t)srv_ticks()-(*session_child_reply_since(s,n))>500)srv_kill((*session_children(s,n)));
+        else if((uint64_t)srv_ticks()-(*session_child_reply_since(s,n))>500)terminate_client(s,*session_children(s,n));
     }
 
     for (int i=0;i<session_capacity(s);i++) {
         struct client *c=session_client(s,i);
         if (!c->pid) continue;
+        if(s->worker && life_terminate_pending(s->worker,c->pid))continue;
         if(c->open_request && (uint64_t)srv_ticks()-c->open_since>1000) {
             desk_log("deskd: document-route unconfirmed pid=%llu request=%llu\n",(unsigned long long)c->pid,(unsigned long long)c->open_request);
             c->open_request=0;c->service_bits=0;
@@ -1586,7 +1608,7 @@ static void service(struct session *s) {
         if ((c->awaiting || c->closing) && (uint64_t)srv_ticks()-c->progress>500) {
             desk_log("deskd: killing pid=%llu reason=client-timeout closing=%d awaiting=%d configure=%d release=%u tick=%llu\n",
                 (unsigned long long)c->pid,c->closing,c->awaiting,c->configure,c->release.type,(unsigned long long)srv_ticks());
-            srv_kill((int64_t)c->pid); forget(s,i); continue;
+            terminate_client(s,c->pid); continue;
         }
         if(c->notice_ack_pending && !c->closing) {
             struct desk_packet p=desk_packet_new(DESK_NOTIFY_ACK);p.serial=c->notice_ack_serial;p.value=c->notice_ack_result;

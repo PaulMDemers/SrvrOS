@@ -44,6 +44,44 @@ Ubuntu shutdown. No human input is required. Collect the matching new session
 before another stage; the 1800-second workload and existing deadlines remain
 unchanged, and native endurance acceptance stays pending.
 
+### Client termination follow-up scope (2026-10-31)
+
+From main `d299c6ac` with PR #255 host-preflight work retained, the Air agent
+owns `deskd.c`, `lifecycle_worker.h` and their host fixtures. Client/control/reply
+timeouts currently invoke gated `srv_kill` directly on the compositor. Move
+worker-backed termination to bounded release/acquire requests, retain PID
+ownership until completion, then retire every matching client on the UI. Keep
+queue-full retries, shutdown draining, process checks and deadline policy; no
+kernel syscall eligibility widening. Emit immutable termination timing receipts
+from the worker. Reproduce with a blocked host syscall and validate normal and
+throttled disposable VMs. The native service stall's exact call is not proven;
+other gated retirement/clipboard paths remain possible. No physical trial is
+armed by this implementation scope. PR #252 resolver/socket and PR #19 Wi-Fi
+remain independent; native release/recovery remain unchanged.
+
+Focused host fixtures pass: a simulated 2.5-second termination delay leaves the
+UI service clock unchanged until worker execution; clients retain ownership
+until DONE, and duplicate/full/stopped queues do not issue direct termination.
+A real pthread fixture holds the signal syscall and verifies UI-side publication,
+exactly one execution and shutdown join ownership, including a failed signal
+result. This fixes a source-proven gated UI path, not a claim that the native
+stall has been uniquely attributed. Integrated host/build and VM checks follow.
+
+Runtime fix `7847c37c` and contract `1d7a89e0` integrate preflight main
+`a1a88ed7` as `0c6220af`. Full core/desktop hosts and ordinary/native/VM builds
+pass using the documented host-tool wrapper; the initial invocation without it
+failed because `xorriso` was absent from the default PATH. All745 links pass.
+The old service with passive new-worker scaffolding fails the same delayed-kill
+UI assertion, while the candidate passes. Normal KVM passes22 cycles with UI
+120085us, ready789572us, close1323791us and complete audio/file/screenshot/
+allocation/retirement evidence. Populated100-write-IOPS KVM remains FAIL after
+10cycles at phase3/10006069us (UI102159us, ready3601643us, close3482020us).
+Five checkpoints and full serial failure evidence are retained. Neither VM
+executes the termination branch; the host reproducer supplies that coverage.
+No matched native result or unique cause of the native spike is claimed. No
+new stage/install/reboot occurred. Remaining storage/lifecycle admission work
+must retain the500ms UI and10-second total lifecycle limits.
+
 ### Endurance retry return — client service stall (2026-10-31)
 
 The recovered workspace admits writes and saves session

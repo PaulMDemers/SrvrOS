@@ -9,6 +9,7 @@
 #define LIFE_MEMORY_SLOTS (DESK_CACHE_BYTES/(280u*240u*4u)+1)
 #define LIFE_LAUNCH_SLOTS 16
 #define LIFE_REAP_SLOTS 16
+#define LIFE_TERMINATE_SLOTS 16
 #define LIFE_IDLE 0
 #define LIFE_QUEUED 1
 #define LIFE_DONE 2
@@ -28,6 +29,7 @@ struct life_launch {
 struct life_capture { unsigned state;int result;struct desk_capture_job job; };
 struct life_prepare { unsigned state,width,height;int result;char path[DESK_CAPTURE_PATH];struct desk_capture_job job; };
 struct life_reap { unsigned state;uint64_t pid,status;long result; };
+struct life_terminate { unsigned state;uint64_t pid,elapsed;long result; };
 struct lifecycle_worker {
     pthread_t thread,report_thread;
     unsigned stop,report_state,report_stop,report_started;
@@ -39,6 +41,7 @@ struct lifecycle_worker {
     struct life_memory memory[LIFE_MEMORY_SLOTS];
     struct life_launch launch[LIFE_LAUNCH_SLOTS];
     struct life_reap reap[LIFE_REAP_SLOTS];
+    struct life_terminate terminate[LIFE_TERMINATE_SLOTS];
 };
 static unsigned life_state(const unsigned *state) { return __atomic_load_n(state,__ATOMIC_ACQUIRE); }
 static void life_publish(unsigned *state,unsigned value) { __atomic_store_n(state,value,__ATOMIC_RELEASE); }
@@ -59,6 +62,20 @@ static void life_wait(unsigned *event) {
 }
 static void life_queue(struct lifecycle_worker *w,unsigned *state,unsigned value) {
     life_publish(state,value);life_notify(&w->work_event);
+}
+static int life_terminate_pending(struct lifecycle_worker *w,uint64_t pid) {
+    for(unsigned n=0;n<LIFE_TERMINATE_SLOTS;n++)
+        if(life_state(&w->terminate[n].state)!=LIFE_IDLE && w->terminate[n].pid==pid)return 1;
+    return 0;
+}
+static int life_terminate_submit(struct lifecycle_worker *w,uint64_t pid) {
+    if(!pid || life_state(&w->stop))return 0;
+    if(life_terminate_pending(w,pid))return 1;
+    for(unsigned n=0;n<LIFE_TERMINATE_SLOTS;n++)if(life_state(&w->terminate[n].state)==LIFE_IDLE) {
+        w->terminate[n].pid=pid;w->terminate[n].result=0;w->terminate[n].elapsed=0;
+        life_queue(w,&w->terminate[n].state,LIFE_QUEUED);return 1;
+    }
+    return 0; /* UI retains the client and retries; never fall back to kill. */
 }
 static int life_reap_pending(struct lifecycle_worker *w,uint64_t pid) {
     for(unsigned n=0;n<LIFE_REAP_SLOTS;n++)if(life_state(&w->reap[n].state)!=LIFE_IDLE && w->reap[n].pid==pid)return 1;
@@ -137,6 +154,13 @@ static void life_report_work(struct lifecycle_worker *w) {
     }
 }
 static void life_work(struct lifecycle_worker *w) {
+    for(unsigned n=0;n<LIFE_TERMINATE_SLOTS;n++)if(life_state(&w->terminate[n].state)==LIFE_QUEUED) {
+        struct life_terminate *t=&w->terminate[n];
+        uint64_t begin=(uint64_t)srv_monotonic_us();t->result=srv_kill(t->pid);
+        t->elapsed=(uint64_t)srv_monotonic_us()-begin;
+        life_terminate_log(t->pid,t->elapsed,t->result);
+        life_publish(&t->state,LIFE_DONE);
+    }
     for(unsigned n=0;n<LIFE_REAP_SLOTS;n++)if(life_state(&w->reap[n].state)==LIFE_QUEUED) {
         struct life_reap *r=&w->reap[n];
         r->result=srv_wait(r->pid,&r->status,0);
