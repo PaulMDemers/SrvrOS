@@ -67,6 +67,21 @@ exactly one execution and shutdown join ownership, including a failed signal
 result. This fixes a source-proven gated UI path, not a claim that the native
 stall has been uniquely attributed. Integrated host/build and VM checks follow.
 
+Runtime fix `7847c37c` and contract `1d7a89e0` integrate preflight main
+`a1a88ed7` as `0c6220af`. Full core/desktop hosts and ordinary/native/VM builds
+pass using the documented host-tool wrapper; the initial invocation without it
+failed because `xorriso` was absent from the default PATH. All745 links pass.
+The old service with passive new-worker scaffolding fails the same delayed-kill
+UI assertion, while the candidate passes. Normal KVM passes22 cycles with UI
+120085us, ready789572us, close1323791us and complete audio/file/screenshot/
+allocation/retirement evidence. Populated100-write-IOPS KVM remains FAIL after
+10cycles at phase3/10006069us (UI102159us, ready3601643us, close3482020us).
+Five checkpoints and full serial failure evidence are retained. Neither VM
+executes the termination branch; the host reproducer supplies that coverage.
+No matched native result or unique cause of the native spike is claimed. No
+new stage/install/reboot occurred. Remaining storage/lifecycle admission work
+must retain the500ms UI and10-second total lifecycle limits.
+
 ### Endurance retry return — client service stall (2026-10-31)
 
 The recovered workspace admits writes and saves session
