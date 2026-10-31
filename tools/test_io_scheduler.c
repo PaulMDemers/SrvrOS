@@ -287,6 +287,13 @@ static void test_ready_edge_admission(void) {
     scheduler_kill_user_threads((void *)42,NULL);
     assert(!io_gate_pending && threads[6].state==THREAD_DEAD);
     scheduler_io_handoff();assert(!ready_edge_turns);
+    /* A transport completion can wake the current I/O owner. It is already
+     * eligible and must not reserve an unnecessary later quiescent turn. */
+    ready_edge_setup();q=(struct scheduler_wait_queue){.waiters=1};
+    assert(scheduler_io_begin());
+    threads[3].state=THREAD_BLOCKED;threads[3].blocked_queue=&q;
+    scheduler_wake_all(&q);assert(!io_gate_pending && threads[3].state==THREAD_READY);
+    threads[3].state=THREAD_RUNNING;scheduler_io_end();
     ready_edge_setup();assert(scheduler_spawn_io_service("audited",empty_worker,NULL,idle_eligible));
     assert(!io_gate_pending);
     ready_edge_setup();io_services_enabled=false;

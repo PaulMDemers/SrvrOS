@@ -131,6 +131,7 @@ static void io_gate_leave(struct thread *thread) {
  * never makes an unsafe thread eligible while ownership is active. */
 static void io_ready_request(struct thread *thread) {
     if(io_services_enabled && thread->state==THREAD_READY &&
+       (!io_depth || thread!=thread_at(io_owner)) &&
        (thread->user_context ? !thread->io_user_safe : !thread->io_eligible))
         io_gate_request(thread);
 }
