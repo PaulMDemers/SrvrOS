@@ -4,6 +4,16 @@ from pathlib import Path
 import hardware_desktop as desktop
 
 class CollectionTests(unittest.TestCase):
+    def test_audio_completion_requires_a_whole_line(self):
+        from audio_io_stress_smoke import completion_line
+        for ending in (b'\n',b'\r\n'):
+            for result in (b'PASS',b'FAIL'):
+                line=b'desktop-audio-io: result='+result+b' unmounted=yes; returning to Ubuntu'+ending
+                for split in range(len(line)):
+                    self.assertIsNone(completion_line(b'earlier output\n'+line[:split]),(result,ending,split))
+                self.assertEqual(completion_line(b'earlier output\n'+line+b'later'),line)
+        self.assertIsNone(completion_line(b'unrelated: result=PASS unmounted=yes\n'))
+
     def test_capacity_accounting_keeps_failures_visible(self):
         row = "deskd: resources reason=opened clients=24 children=24 clipboard_peers=24 window_capacity=32 cache_bytes=33177600 cache_budget=100663296 gui_queue_budget=2097152 gui_queue_depth=64 gui_surface_record_budget=262144 gui_surface_pixel_budget=268435456"
         self.assertFalse(desktop.needs_attention(row))

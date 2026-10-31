@@ -2,6 +2,34 @@
 
 Updated: 2026-10-31. State: **active reference machine; partial device acceptance**.
 
+### READY admission follow-up scope (2026-10-31)
+
+From main `7e249356`, the Air agent owns a bounded scheduler follow-up in
+`scheduler.c` and `test_io_scheduler.c`: request a quiescent turn when an ordinary
+kernel thread is created, an unsafe continuation yields/is preempted, or an
+unsafe blocked continuation becomes READY. Current
+registration waits until an I/O selection refusal, leaving a newly ready thread
+unregistered at the writer's preceding syscall boundary. A subsequent long scope
+can therefore start before that continuation receives a kernel turn.
+
+Add deterministic before/after creation and signal/timeout wake regressions,
+plus preemption/yield coverage. Transport wakes of an active owner do not reserve
+unneeded later turns.
+Retain the existing rotating handoff cursor, ownership, address-space checks,
+private-image exclusion, service eligibility and cancellation rules. No yielding
+inside a live filesystem mutation, syscall/ABI or workload/deadline change is
+planned. This does not bound device latency or admit unsafe work during I/O.
+Validate focused and integrated hosts, then normal and throttled disposable VMs;
+no physical acceptance is inferred. PR #252 resolver/socket and PR #19 Wi-Fi
+remain independent. Previous native evidence/recovery remain unchanged until a
+new matched candidate passes staging/preflight.
+The final VM also exposed a collector race: it acted on a partial final UART
+status line before PASS/unmount text finished arriving. Extend the bounded scope
+to `audio_io_stress_smoke.py` and its host fixture: require a complete LF/CRLF
+completion record, keep failure handling and time/workload limits unchanged.
+Retain the incomplete collection and rerun; clean retirement alone is not proof
+of the full saved-file workload.
+
 ### PR182 integration and local regression scope (2026-10-31)
 
 The clean device branch fast-forwards to main `198c6a1c`, which merges PR #182
