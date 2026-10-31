@@ -169,6 +169,17 @@ int main(int argc, char **argv) {
         puts("hardware file workload/remount and existing-directory refusal PASS");
         return 0;
     }
+    if(!strcmp(argv[2],"scratch-refuse")) {
+        /* Strict import may reject malformed ownership/stream metadata before
+         * a scratch extent is available. Neither refusal may mutate media. */
+        bool mounted=exfat_mount_block_device("/vol",&d);
+        assert(!writes && !flushes);
+        struct block_device *resolved=NULL;uint64_t offset=UINT64_MAX;
+        assert(!exfat_scratch_range("/vol/scratch.bin",&resolved,&offset));
+        assert(!resolved && offset==UINT64_MAX && !writes && !flushes);
+        printf("scratch refused: %s\n",mounted?"extent":"import");
+        close(fd);return 0;
+    }
     assert(exfat_mount_block_device("/vol",&d));
     if(!strcmp(argv[2],"bitmap-stats")) {
         struct exfat_fsinfo info;assert(exfat_statfs("/vol",&info));
@@ -289,12 +300,11 @@ int main(int argc, char **argv) {
         assert(exfat_write_file("/vol/target.txt",(const uint8_t *)"old-target",10));
         assert(exfat_unmount("/vol"));assert(fsync(fd)==0);close(fd);return 0;
     }
-    if(!strcmp(argv[2],"scratch-range")||!strcmp(argv[2],"scratch-refuse")) {
+    if(!strcmp(argv[2],"scratch-range")) {
         struct block_device *resolved=NULL;uint64_t offset=UINT64_MAX;
         bool ok=exfat_scratch_range("/vol/scratch.bin",&resolved,&offset);
         assert(!writes);
-        if(!strcmp(argv[2],"scratch-refuse"))assert(!ok&&resolved==NULL&&offset==UINT64_MAX);
-        else {assert(ok&&resolved==&d);printf("scratch offset=%llu bytes=4096\n",(unsigned long long)offset);}
+        assert(ok&&resolved==&d);printf("scratch offset=%llu bytes=4096\n",(unsigned long long)offset);
         close(fd);return 0;
     }
     if(!strcmp(argv[2],"timestamps")) {

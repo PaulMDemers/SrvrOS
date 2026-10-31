@@ -39,6 +39,7 @@ static void *test_malloc(size_t n) { return fail_alloc?NULL:malloc(n); }
 #ifndef SRVROS_POSIX_UDP_OWNER_SOURCE
 #define SRVROS_POSIX_UDP_OWNER_SOURCE "../userspace/lib/src/posix_socket.c"
 #endif
+#include "posix_socket_host_names.h"
 #include SRVROS_POSIX_UDP_OWNER_SOURCE
 static unsigned receives,flag_writes,replacement_writes;
 static uint64_t flags_value;
@@ -72,7 +73,8 @@ long srv_net_udp_recvfrom(int fd,void *out,size_t cap,uint32_t *ip,uint16_t *por
     if(empty_after_foreign && !foreign)return SRV_ERR_AGAIN;
     if(close_on_receive) { close_on_receive=false;replace_socket(); }
     *ip=foreign==2?0x0a000204:0x0a000202;*port=foreign==1?8001:8000;
-    if(cap)((char *)out)[0]=foreign?'x':'y';if(foreign)foreign--;
+    if(cap)((char *)out)[0]=foreign?'x':'y';
+    if(foreign)foreign--;
     return cap?1:0;
 }
 long srv_socket_try_io(int fd,uint64_t operation,void *buffer,size_t length,struct srv_socket_peer *peer) {

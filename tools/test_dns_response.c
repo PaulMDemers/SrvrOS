@@ -32,6 +32,7 @@ uint32_t ntohl(uint32_t value);
 #ifndef DNS_SOURCE
 #define DNS_SOURCE "../userspace/lib/src/posix_socket.c"
 #endif
+#include "posix_socket_host_names.h"
 #include DNS_SOURCE
 #else
 #include <assert.h>
@@ -65,8 +66,10 @@ static int parse(const unsigned char *p,size_t n,uint32_t *ip) {
 #ifdef SRVROS_DNS_WIRE_H
     memcpy(dns_question_name,"outer.test",11);
 #endif
+    dns_answer_ip=0xa5a5a5a5;
     handle_dns_packet(p,(uint16_t)n);
     if(dns_answer_ready)*ip=dns_answer_ip;
+    else assert(dns_answer_ip==0xa5a5a5a5);
     return dns_answer_ready;
 #endif
 }

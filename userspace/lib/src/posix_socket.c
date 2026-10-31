@@ -63,7 +63,7 @@ static struct posix_socket sockets[POSIX_SOCKET_MAX];
 /* Separate from cleared/copied records so close/reuse and dup cannot ABA. */
 static uint64_t socket_generations[POSIX_SOCKET_MAX];
 static struct real_socket_options real_options[REAL_SOCKET_OPTIONS_MAX];
-const struct in6_addr in6addr_any = {{0}};
+const struct in6_addr in6addr_any = {0};
 
 int __posix_socket_fork_ready(void) {
     for(unsigned i=0;i<POSIX_SOCKET_MAX;i++) if(sockets[i].used) return 0;
@@ -662,7 +662,8 @@ int bind(int fd, const struct sockaddr *addr, socklen_t addrlen) {
             return -1;
         }
         socket->listener_fd = (int)listener;
-        strncpy(socket->unix_path, path, sizeof(socket->unix_path) - 1);
+        /* sockaddr_un_path validated the same capacity and supplied the NUL. */
+        memcpy(socket->unix_path, path, strlen(path) + 1);
         return 0;
     }
     if (addrlen < sizeof(struct sockaddr_in)) {
@@ -909,7 +910,8 @@ int connect(int fd, const struct sockaddr *addr, socklen_t addrlen) {
         socket->listener_fd = (int)connection;
         socket->connected = 1;
         socket->connecting = 0;
-        strncpy(socket->unix_path, path, sizeof(socket->unix_path) - 1);
+        /* sockaddr_un_path validated the same capacity and supplied the NUL. */
+        memcpy(socket->unix_path, path, strlen(path) + 1);
         return 0;
     }
 
@@ -1199,7 +1201,10 @@ static int message_extract_rights(const struct msghdr *message, int rights[SRV_R
     if (message->msg_control == 0 || message->msg_controllen == 0) {
         return 0;
     }
-    for (struct cmsghdr *cmsg = CMSG_FIRSTHDR(message); cmsg != 0; cmsg = CMSG_NXTHDR(message, cmsg)) {
+    /* glibc's traversal takes a mutable header; traverse a local copy without
+     * casting away const or modifying the caller's message. */
+    struct msghdr cursor = *message;
+    for (struct cmsghdr *cmsg = CMSG_FIRSTHDR(&cursor); cmsg != 0; cmsg = CMSG_NXTHDR(&cursor, cmsg)) {
         if (cmsg->cmsg_len < CMSG_LEN(0) ||
             (unsigned char *)cmsg + cmsg->cmsg_len > (unsigned char *)message->msg_control + message->msg_controllen) {
             errno = EINVAL;

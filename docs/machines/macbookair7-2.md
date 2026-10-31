@@ -1,6 +1,52 @@
 # MacBookAir7,2 / A1466
 
-Updated: 2026-10-28. State: **active reference machine; partial device acceptance**.
+Updated: 2026-10-31. State: **active reference machine; partial device acceptance**.
+
+### PR182 integration and local regression scope (2026-10-31)
+
+The clean device branch fast-forwards to main `198c6a1c`, which merges PR #182
+at `d7b2290c`. This supersedes the earlier integration overlap hold; the logger
+barrier and bounded owner diagnostics are retained. PR #252 owns continued
+resolver/socket audit and PR #19 Wi-Fi; neither is changed here. Native installed
+payload/recovery and prior endurance evidence remain unchanged; no reboot is
+planned for this integration block.
+
+Run integrated core/desktop hosts and matched ordinary/native/VM builds locally
+with Actions disabled. The first full run exposes an older scratch fixture that
+requires corrupt media to mount before checking scratch refusal. The hardened
+importer may refuse it earlier. Bounded repair scope is the host exFAT driver's
+negative scratch mode and its Python fixture: accept import refusal or mounted
+scratch refusal, but require zero writes/flushes and byte-identical media.
+Retain positive scratch-range/remount coverage and production validation gates.
+No filesystem, scheduler or driver policy change is planned for this repair.
+The rerun also reaches GCC/glibc portability failures in libc socket host tests:
+IPv6 aggregate nesting, const ancillary-header traversal and bounded Unix-path
+copy warnings. Add narrow portable C fixes in `posix_socket.c` without changing
+network retry/deadline/ownership policy; retain `-Werror`. PR #252 at `6f202ae5`
+currently changes kernel resolver/query code, not these libc lines; its ongoing
+resolver/socket audit remains independent.
+After local gates, rehearse the combined desktop workload in a disposable VM;
+physical endurance and the identified long I/O-owner fix remain pending.
+
+Integration validation at `96215580` passes on Ubuntu GCC15.2: full core and
+desktop hosts, storage leases, matched ordinary/native/VM builds and 745 local
+document links. Clean `b6c4a8d8` adds only the host/guest path-capacity fixture
+bound; its 19 socket modes pass again and runtime sources are identical. The host driver/fixture repair preserves both strict import
+refusal and mounted extent refusal. Socket fixtures isolate guest entry points
+from ELF host-libc exports; portable initialization, const traversal and validated
+path copies retain strict warnings. Directed cases cover unchanged ancillary
+inputs, host/guest path capacity and unchanged DNS answer storage on rejection.
+No retry/deadline, durability, public ABI or scheduling policy is relaxed.
+
+The matched ordinary image passes the network ABI VM. The Air7,2 KVM audio/disk/
+app workload passes 21 cycles, maximum UI loop 114912 us, ready 1430050 us and
+close 968706 us, zero observed PCM underruns, exact files/screenshot/allocation,
+four retained live checkpoints and clean retirement. This is disposable VM
+validation, not native endurance acceptance. No native stage, install, USB workspace
+write or reboot was performed; historical recovery and the failed physical run
+remain unchanged. PR #253 carries the narrow integration repairs. The next
+runtime work remains bounded long-transaction/admission improvement on this
+integrated baseline; PR #252's resolver/socket policy remains independent.
 
 ### Eighth endurance return — long owner identified (2026-10-28)
 
