@@ -76,6 +76,19 @@ interleaved, duplicate/conflicting, failed, pending or unjoined records refuse
 acceptance. Actual unmap timing runs on the helper, not around queue admission.
 Loaded/multiwindow VM validation is next; no new physical trial is armed.
 
+Initial source0b64ded9 normal VM passes20cycles/UI128696us with complete
+service/integrity receipts. Its populated50IOPS run remains FAIL: first Text
+reaches10.006714s total deadline after helper initialization2.066s, canvas
+disposal1.033s and helper join3.674s. Model retirement itself is18ms; the helper
+joins cleanly and the child eventually exits0. Preserve this failed candidate.
+Extend the existing userspace scope to an explicitly supplied64KiB helper stack
+(the current pthread owned-stack policy otherwise allocates at least2MiB), and
+an optional canvas retirement callback in desk_app/desk_connection plus the
+window-owner layer. Queue canvas mappings alongside models, retain them on full
+refusal, and record actual helper canvas-unmap phases. Keep default disposal,
+pthread/kernel semantics and all deadlines unchanged. Validate callback refusal/
+retry and supplied-stack lifetime through verified join before new VM trials.
+
 ### Native Files lifecycle return — delayed Close delivery (2026-10-31)
 
 Releasea4f7080c77fda748/source0fe284e2 saves matching session and returns to
