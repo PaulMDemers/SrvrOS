@@ -2,6 +2,25 @@
 
 Updated: 2026-10-31. State: **active reference machine; partial device acceptance**.
 
+### Measured pthread startup follow-up (2026-11-01 UTC)
+
+Instrumented source `a9dcd73b` passes the populated 100-IOPS combined VM, while
+its atomic phase receipts isolate three independent waits: thread-self lookup
+blocks 636667 us, heap start-record allocation 533083 us and actual kernel
+thread creation 741065 us in the largest retained examples. These are VM
+measurements, not an attribution of the exact native 6.108-second interval.
+
+Extend this bounded scope to embed each worker's startup state in its existing
+16-slot pthread record table. Reserve and initialize under the existing table
+lock before kernel creation; preserve creator/claim/detach/join rules and copy
+owned-stack state before releasing a slot for reuse. Keep main-thread storage
+separate. This removes the startup heap allocation without changing stack policy
+or the thread limit. Also admit only SYS_THREAD_SELF's read-only current-context
+lookup during unrelated I/O; actual thread creation/status/join/detach, heap and
+mapping calls retain their gates. Add foreign-owner identity/default-deny and
+record-reuse/exhaustion regressions. Keep initialization telemetry and unchanged
+VM/native deadlines; no new hardware boot is armed.
+
 ### Helper initialization isolation scope (2026-11-01 UTC)
 
 On device/macbookair7-2/desktop-runtime, integration base `92ec9b09` plus the
