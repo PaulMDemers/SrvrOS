@@ -94,6 +94,36 @@ are isolated. `make clean` removes generated OS products; `make distclean`
 removes **all of build**, including local test evidence and staged releases.
 Archive needed evidence outside it first.
 
+### Keep local artifacts within disk capacity
+
+Check `df -h .` and `du -h -d 1 build` before long validation runs. Historical
+VM volumes and staged initramfs archives can consume much more space than the
+source tree. Keep installed current/recovery payloads and the next candidate
+available, with verified independent copies outside `build`. Preserve run
+records, manifests, logs, screenshots and failure evidence; a merge does not
+make failed trials disposable.
+
+For an inactive historical image or payload, lossless compression can reclaim
+space without discarding evidence. Record the original path, size and archive
+location, compress to a new file, verify the archive, then remove the original
+only after success. For example, with Ubuntu's `zstd` package installed:
+
+```sh
+zstd -1 --check old-volume.img -o old-volume.img.zst
+zstd -t old-volume.img.zst
+# After successful verification, remove only the archived original.
+rm -- old-volume.img
+# Restore before rerunning a tool that expects the original path:
+zstd -d --sparse old-volume.img.zst -o old-volume.img
+```
+
+Do this while no VM/staging process uses those artifacts. An archived stage must
+be restored and pass its manifest verification before install or exact-stage
+rehearsal. Do not compress active current/recovery/candidate files in place,
+delete EFI releases indiscriminately, or run `make distclean` to solve a space
+problem before required evidence has been independently preserved. Keep a local
+cleanup ledger outside `build` alongside the retained checkpoint.
+
 ## 3. Identify this machine and capture Linux evidence
 
 ```sh

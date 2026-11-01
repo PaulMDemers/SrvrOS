@@ -3955,3 +3955,12 @@ build/tests/power-platform-host$(HOST_EXE): tools/test_power_service.c kernel/sr
 build/tests/platform-sample$(HOST_EXE): tools/test_platform_sample.c kernel/diagnostics/platform_audit.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-file-service
+test-desktop: test-file-service
+test-file-service: build/tests/file-service-host$(HOST_EXE)
+	$<
+	$(PYTHON) -m unittest discover -s tools -p test_file_service_records.py
+build/tests/file-service-host$(HOST_EXE): tools/test_file_service.c userspace/desktools/file_service.h userspace/lib/src/desk_file_job.c userspace/lib/include/srvros/desk_file_job.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -pthread -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include $< -Wl,--gc-sections -o $@

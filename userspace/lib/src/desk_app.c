@@ -220,7 +220,7 @@ void desk_window_close(struct desk_app *a) {
         if(w->parent_window==a->window && !w->closed)desk_window_close(w);
     a->closing=1;a->last=srv_ticks();
 }
-int desk_window_dispose(struct desk_app *a) {
+int desk_window_dispose_with(struct desk_app *a,int (*retire)(void *,void *,size_t),void *context) {
     if(!a || !a->connection || !a->closed || a->pending || a->opening) return -1;
     struct desk_connection *c=a->connection;
     for(struct desk_app *w=c->windows;w;w=w->next)if(w->parent_window==a->window)return -1;
@@ -228,11 +228,16 @@ int desk_window_dispose(struct desk_app *a) {
     while(*link && *link!=a)link=&(*link)->next;
     if(!*link)return -1;
     if(a->surface && gui_surface_destroy(a->surface))return -1;
-    desk_pixels_free(a->pixels,a->width,a->height);a->pixels=0;a->surface=0;
+    a->surface=0;
+    if(a->pixels && retire) {
+        if(retire(context,a->pixels,(size_t)a->width*a->height*4))return -1;
+    } else desk_pixels_free(a->pixels,a->width,a->height);
+    a->pixels=0;
     *link=a->next;
     if(c->cursor==a)c->cursor=a->next?a->next:c->windows;
     a->connection=0;a->next=0;return 0;
 }
+int desk_window_dispose(struct desk_app *a) {return desk_window_dispose_with(a,NULL,NULL);}
 static int connection_failure(struct desk_connection *c,int disconnected) {
     c->failed=1;c->disconnected=disconnected;
     if(disconnected) {

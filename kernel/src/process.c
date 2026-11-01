@@ -95,6 +95,7 @@ struct process_mapping {
 
 struct process_mmap_region {
     bool used;
+    bool anonymous;
     uint64_t base;
     uint64_t length;
 };
@@ -2506,6 +2507,34 @@ static bool has_wait_target(const struct process_wait_request *request) {
            process_wait_owned(process,request->owner)) return true;
     }
     return false;
+}
+bool process_try_wait_retired(uint64_t pid,uint64_t *status,int64_t *result) {
+    if(!pid || !status || !result)return false;
+    uint64_t flags=process_irq_save();struct process *parent=process_current(),*child=NULL;
+    if(!parent || !parent->allocated || !parent->active)goto refused;
+    for(unsigned i=0;i<PROCESS_MAX_PROCESSES;i++)if(processes[i].allocated && processes[i].pid==pid) {child=&processes[i];break;}
+    if(!child || child==parent || !child->detached || !child->reapable || child->active ||
+       child->parent_pid!=parent->pid || child->address_space || child->mapping_count ||
+       child->kernel_stack || child->kernel_stack_physical || child->kernel_stack_frames ||
+       process_slots_busy[child-processes] || !scheduler_io_process_retired(child))goto refused;
+    for(unsigned i=0;i<PROCESS_MAX_OPEN_FILES;i++)if(child->files[i].used)goto refused;
+    for(unsigned i=0;i<PROCESS_MAX_USER_THREADS;i++)if(child->user_threads[i].used)goto refused;
+    struct process_lifetime *life=child->lifetime?lifetime_find(child->lifetime):NULL;
+    if(child->lifetime && (!life || !life->members))goto refused;
+    *status=child->exit_status;*result=(int64_t)child->pid;
+    process_record_exit_status_locked(child->pid,child->exit_status);
+    process_account_child(parent,child);
+    /* Runtime cleanup and stack release precede reapable publication. Leave
+     * the empty record intact: alloc_process_lifetime clears its reserved slot
+     * at the ordinary gate before reuse. Nothing is freed or yielded here. */
+    child->reapable=false;child->allocated=false;
+    if(life)life->members--;
+    struct process_wait_request any={.owner=parent->pid};
+    if(!find_reapable_process(&any))process_clear_current_signal(SRV_SIGNAL_CHLD);
+    scheduler_wake_all(&process_wait_queue);
+    process_irq_restore(flags);return true;
+refused:
+    process_irq_restore(flags);return false;
 }
 static bool process_wait_ready(void *arg) {
     const struct process_wait_request *request=arg;
@@ -6214,13 +6243,14 @@ static struct process_mmap_region *mmap_free_region_slot(struct process *process
     return NULL;
 }
 
-static bool mmap_record_region(struct process *process, uint64_t base, uint64_t length) {
+static bool mmap_record_region(struct process *process, uint64_t base, uint64_t length,bool anonymous) {
     struct process_mmap_region *region = mmap_free_region_slot(process);
     if (region == NULL) {
         return false;
     }
     *region = (struct process_mmap_region) {
         .used = true,
+        .anonymous = anonymous,
         .base = base,
         .length = length,
     };
@@ -6298,7 +6328,7 @@ static void mmap_forget_range(struct process *process, uint64_t base, uint64_t l
         uint64_t tail_base = overlap_end;
         uint64_t tail_length = region_end - overlap_end;
         region->length = overlap_start - region_start;
-        (void)mmap_record_region(process, tail_base, tail_length);
+        (void)mmap_record_region(process, tail_base, tail_length,region->anonymous);
     }
 }
 
@@ -6447,7 +6477,7 @@ static int64_t process_mmap_impl(struct process *process,
         }
     }
 
-    if (!mmap_record_region(process, base, mapped_length)) {
+    if (!mmap_record_region(process, base, mapped_length,anonymous)) {
         for (uint64_t rollback = 0; rollback < mapped_length; rollback += PAGE_SIZE) {
             (void)process_unmap_tracked_page(process, base + rollback);
         }
@@ -6457,6 +6487,52 @@ static int64_t process_mmap_impl(struct process *process,
     uint64_t next = base + mapped_length;
     process->mmap_next = next < USER_MMAP_LIMIT ? next : USER_MMAP_BASE;
     return (int64_t)base;
+}
+
+bool process_try_munmap_private(struct process *process,uint64_t address,uint64_t length,int64_t *result) {
+    if(!result || !process || !length || length>2u*1024u*1024u || address%PAGE_SIZE)return false;
+    uint64_t mapped=page_up(length);
+    if(!mmap_range_valid(address,mapped))return false;
+    uint64_t irq=process_irq_save();
+    if(!process->allocated || !process->active || process->exiting || !process->address_space ||
+       process->mapping_count>4096 || !scheduler_io_process_independent(process) ||
+       process->address_space!=vmm_current_address_space())goto refused;
+    for(unsigned i=0;i<PROCESS_MAX_USER_THREADS;i++)if(process->user_threads[i].used)goto refused;
+    struct process_mmap_region *region=NULL;
+    for(unsigned i=0;i<PROCESS_MAX_MMAP_REGIONS;i++) {
+        struct process_mmap_region *r=&process->mmap_regions[i];
+        if(!r->used || r->base>=address+mapped || address>=r->base+r->length)continue;
+        if(region || !r->anonymous || r->base!=address || r->length!=mapped)goto refused;
+        region=r;
+    }
+    if(!region)goto refused;
+    /* No allocation, callbacks or service windows. Verify every owned PTE
+     * before mutation; the other I/O owner and all IRQ handlers stay paused. */
+    for(uint64_t i=0;i<process->mapping_count;i++) {
+        struct process_mapping *m=&process->mappings[i];
+        if(m->virtual_address<address || m->virtual_address>=address+mapped)continue;
+        uint64_t physical=0;
+        if(!m->physical_address || !vmm_virt_to_phys_in_space(process->address_space,m->virtual_address,&physical) ||
+           physical!=m->physical_address)goto refused;
+    }
+    for(uint64_t i=0;i<process->mapping_count;) {
+        struct process_mapping *m=&process->mappings[i];
+        if(m->virtual_address<address || m->virtual_address>=address+mapped) {i++;continue;}
+        process_futex_invalidate_page(process,m->virtual_address);
+        uint64_t physical=0;
+        if(!vmm_unmap_page_in_space(process->address_space,m->virtual_address,&physical) || physical!=m->physical_address) {
+            /* Never free a frame on a refused/unexpected unmap. Keep the
+             * remaining region and tracking entries for retry or final exit. */
+            *result=-1;process_irq_restore(irq);return true;
+        }
+        pmm_free_frame(physical);
+        process->mappings[i]=process->mappings[--process->mapping_count];
+    }
+    region->used=false;
+    if(address<process->mmap_next)process->mmap_next=address;
+    *result=0;process_irq_restore(irq);return true;
+refused:
+    process_irq_restore(irq);return false;
 }
 
 static int64_t process_munmap_impl(struct process *process, uint64_t address, uint64_t length) {

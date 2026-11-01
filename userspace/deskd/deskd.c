@@ -1248,6 +1248,15 @@ static struct operation_trace operation_snapshot(const struct session *s,uint64_
             }
         }
         for(unsigned n=0;n<LIFE_MEMORY_SLOTS;n++)t.memory+=life_state(&s->worker->memory[n].state)!=LIFE_IDLE;
+        for(unsigned n=0;n<LIFE_REAP_SLOTS;n++) {
+            const struct life_reap *r=&s->worker->reap[n];unsigned state=life_state(&r->state);
+            t.reap_queued+=state==LIFE_QUEUED;t.reap_running+=state==LIFE_RUNNING;t.reap_done+=state==LIFE_DONE;
+            if(state==LIFE_IDLE || now<r->queued_us || (t.reap_pid && now-r->queued_us<t.reap_queue_age_us))continue;
+            t.reap_pid=r->pid;t.reap_state=state;t.reap_queue_age_us=now-r->queued_us;
+            t.reap_run_age_us=0;t.reap_completed_us=0;
+            if((state==LIFE_RUNNING || state==LIFE_DONE) && now>=r->begin_us)t.reap_run_age_us=now-r->begin_us;
+            if(state==LIFE_DONE && r->end_us>=r->begin_us)t.reap_completed_us=r->end_us-r->begin_us;
+        }
     }
     for(int i=0;i<session_capacity(s);i++) {
         const struct client *c=session_client(s,i);if(!c->pid)continue;
@@ -2009,6 +2018,7 @@ int main(int argc,char **argv) {
     uint64_t life_pid=0,life_due=0,life_begin=0,life_close=0,loop_last=0,loop_max=0,life_ready_max=0,life_close_max=0,life_first=0,life_last=0;
     unsigned life_cycles=0,life_phase=0;
     struct loop_trace loop_trace={0};uint64_t loop_report_at=0;
+    struct operation_trace failure_operations={0};
     int idle_phase=0;
     unsigned idle_capture_serial=0;
     uint64_t idle_deadline=0,idle_frames=0,idle_bytes=0;
@@ -2151,6 +2161,7 @@ int main(int argc,char **argv) {
                 life_last=now;life_cycles++;life_phase=0;life_pid=0;life_due=now+(power_trial?3000000:500000);
             }
             if((life_phase && now-life_begin>10000000) || s.child_errors){
+                failure_operations=operation_snapshot(&s,now);
                 desk_log("desktop-life: deadline phase=%u pid=%llu child=%d elapsed_us=%llu pending_opens=%u errors=%u\n",life_phase,
                     (unsigned long long)life_pid,child_index(&s,life_pid),(unsigned long long)(now-life_begin),s.pending_opens,s.child_errors);
                 /* Read-only metadata distinguishes a still-active process
@@ -2789,6 +2800,10 @@ int main(int argc,char **argv) {
     }
     if(audio_io && followup_phase==4)
         desk_log("desktop-stress-exit: followup=PASS pid=%llu elapsed_us=%llu shots=%u saved=%u busy=%u\n",(unsigned long long)followup_pid,(unsigned long long)followup_elapsed,stress_shots,stress_saved,s.capture.busy);
+    if(audio_io && failed) {
+        if(!failure_operations.at_us)failure_operations=operation_snapshot(&s,coexist_end);
+        operation_trace_report(&failure_operations,1);
+    }
     if(battery_work) {
         uint64_t elapsed=coexist_end-work_begin;
         if(work_phase!=3 || elapsed<300000000 || !work_keys || !work_motion || !s.exiting || s.child_errors)failed=1;

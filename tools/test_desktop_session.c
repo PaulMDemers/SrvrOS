@@ -737,14 +737,24 @@ static void retained_operations(void) {
     s.capture.request.id=7;s.capture.started_us=100;s.capture.last_progress_us=250;s.capture.busy=1;s.capture.phase=CAPTURE_TEMP_VERIFY;
     s.capture.phase_us[CAPTURE_WRITE]=80;s.capture.sent=400;s.capture.progress_bytes=300;
     w.launch[0]=(struct life_launch){.state=LIFE_QUEUED,.application=DESK_APP_FILES,.queued_us=200};
+    w.reap[0]=(struct life_reap){.state=LIFE_QUEUED,.pid=42,.queued_us=200,.begin_us=999,.end_us=999};
     s.clients[0]=(struct client){.pid=42,.window=2,.close_requested=1};
     struct operation_trace t=operation_snapshot(&s,500);
     assert(t.queued==1 && t.launch_age_us==300 && t.oldest_app==DESK_APP_FILES);
+    assert(t.reap_queued==1 && t.reap_pid==42 && t.reap_queue_age_us==300 && !t.reap_run_age_us && !t.reap_completed_us);
+    w.reap[0].begin_us=300;life_publish(&w.reap[0].state,LIFE_RUNNING);
+    struct operation_trace running=operation_snapshot(&s,500);
+    assert(running.reap_running==1 && !running.reap_queued && running.reap_run_age_us==200 && !running.reap_completed_us);
+    w.reap[0].end_us=450;life_publish(&w.reap[0].state,LIFE_DONE);
+    struct operation_trace done=operation_snapshot(&s,500);
+    assert(done.reap_done==1 && !done.reap_running && done.reap_completed_us==150);
     assert(t.exiting && t.exit_age_us==400 && t.close_pid==42 && t.close_requested==1);
     assert(t.capture.id==7 && t.capture.busy && t.capture.age_us==400 && t.capture.progress_age_us==250 && t.capture.phases[CAPTURE_WRITE]==80);
     struct loop_trace trace={0};loop_trace_begin(&trace,1,0,0,0);loop_trace_end(&trace,2,0,0,0);
     assert(life_report_submit(&w,&trace,&t));s.capture.sent=900;w.launch[0].state=LIFE_IDLE;
+    w.reap[0].state=LIFE_IDLE;w.reap[0].queued_us=499;
     assert(w.operations.capture.sent==400 && w.operations.queued==1); /* Frozen until worker consumes. */
+    assert(w.operations.reap_queued==1 && w.operations.reap_queue_age_us==300 && !w.operations.reap_run_age_us);
     puts("desktop-operations: PASS pending capture/launch/close ages and immutable retained snapshot");
 }
 static struct srv_key_event navigation_event(unsigned usage,unsigned modifiers,unsigned flags) {

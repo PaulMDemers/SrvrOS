@@ -146,11 +146,37 @@ this migration does not claim multiple terminal sessions in one process.
 The compositor retains a child PID until it consumes a successful kernel wait.
 When a read-only process snapshot reports `exited`, it may admit one immutable
 reap request to the existing lifecycle worker. The worker uses a blocking wait
-at the ordinary kernel I/O boundary; the snapshot itself grants no reclamation.
+with a validated prelude: an exact direct child can be claimed atomically only
+after reapable publication and complete runtime cleanup. The child must have
+no address space, tracked mappings, kernel stack, descriptors, used thread
+records or live scheduler/private-image reference. Status, child accounting and
+lifetime membership transfer once under IRQ exclusion without freeing, yielding
+or filesystem work. Its empty record is cleared by the existing gated allocator
+before slot reuse. Refusals, POSIX/group/orphan selectors and unfinished cleanup
+use the ordinary kernel I/O boundary; the snapshot itself grants no reclamation.
 The UI never waits on a PID owned by that record. Interrupted results retain the
 child for retry. Sixteen in-flight records provide bounded backpressure without
 changing the process/window budget; full queues keep their children registered.
 Shutdown drains admitted requests before the worker/session storage disappears.
+Immutable `desktop-reap-state` records count queued/running/completed requests
+and identify the oldest request's PID/state. Queue age is total time since
+submission; run age starts immediately before the blocking wait, and completed
+time is its measured duration. Only acquire-published fields are read. Automated
+lifecycle failures freeze this snapshot at the deadline and print it after the
+measured UI loop; a later empty queue does not erase that failure-time state.
+
+Whole anonymous mapping retirement has a narrow independent path: the current
+main thread must be alone in its process, with matching active address space and
+no alias to the foreign I/O owner or private construction image. It accepts one
+complete anonymous region up to2MiB with at most4096 tracked mappings and4096
+scheduler records. It validates physical translations, then retires pages and
+futex bindings with interrupts masked, without yielding, allocating or releasing
+foreign I/O ownership. Unmap failure retains remaining frames/region ownership;
+no still-mapped frame receives free credit. Anonymous provenance follows splits
+and fork's existing copy. Unsupported, partial, file-backed, threaded or oversized
+requests take the original gate and general implementation; that fallback keeps
+the normal quiescent handoff. Exit, mmap and other lifetime operations remain
+gated. These finite work bounds are not a claim of a measured wall-time bound.
 
 The compositor may retain up to two completed pixel-cache buffers after window
 retirement. They stay reserved inside the existing96MiB cache budget, including
@@ -173,8 +199,8 @@ invalidation and reader/writer/EOF notification, and performs no allocation or
 filesystem cleanup. CLOSE dispatch admits only this validated prelude; all
 other types, invalid references, duplex pipes and rights-bearing pipes take the
 ordinary I/O gate and a fresh descriptor lookup. Rights cleanup may recursively
-flush files and must not bypass that gate. Process exit and verified wait retain
-their previous admission rules.
+flush files and must not bypass that gate. Process exit retains its gate; verified wait has only the empty retired-child
+claim described above.
 
 Worker-backed client/control/reply timeouts also publish immutable termination
 requests. Sixteen slots coalesce duplicate PIDs and retain full/stopped-queue
@@ -216,3 +242,85 @@ children are consumed exactly once across retries. No kill or timeout releases
 accepted work. Interactive dispatch continues to use nonblocking pool shutdown.
 The same sparse scheduler attribution covers `pool-retire`; it includes natural
 child waiting and scheduling, and does not identify an I/O owner or CPU time.
+
+Files may close its GUI window during an accepted read-only READ/LIST/STAT.
+The retired model keeps its file-job binding until the response drains; only
+then can it detach and release memory. Accepted mutations and Text save work
+retain their completion-before-Close rule. Visual retirement alone does not
+complete process teardown or satisfy an automatic lifecycle deadline.
+
+Files publishes its initial loading view and receives the first surface RELEASE
+before advancing queued file work. Lazy file-worker creation uses ordinary
+kernel admission and can wait behind I/O; it must not precede the first frame.
+Retired/failed windows still drain accepted work, and this ordering does not
+extend client or whole-process lifecycle deadlines.
+
+Text/Files now create one process-owned file service before opening their GUI
+windows. The shared file pool has an optional nonblocking opener: a pending
+transport keeps its FIFO head queued, and a successful result transfers only
+PID and descriptor values into an idle channel. The helper performs blocking
+pipe/fcntl/spawn construction; neither pending nor failed startup falls back to
+construction on the UI turn. Existing synchronous pool users retain their API.
+Transmitted requests, response validation and channel bindings remain owned
+by the dispatcher until the complete reply drains. Every queued mutation also
+retains that completion obligation.
+
+A retired model can transfer its complete mapping through
+`desk_window_owner_release_with` after GUI disposal and work drain. A refused
+callback leaves the model and list position unchanged. Acceptance transfers
+mapping ownership and counts logical window retirement; it does not prove that
+physical unmapping completed. Text/Files use sixteen bounded retirement records:
+full queues retain disposed models for retry, and the helper performs the real
+unmap and sparse timing trace. Failed unmaps retain a nonreusable error record
+and fail final retirement. No GUI/set pointers cross into the helper.
+
+Final shutdown stops admission and drains all startup/unmap records. Reusable
+services verify pthread join before releasing caller-owned storage. Text/Files
+instead have one nonreentrant, static service/runtime context for their entire
+process lifetime: they acquire a helper-body quiescence acknowledgement, keep
+all service/stack storage pinned, reap idle file workers, and return through
+normal kernel process exit. That path kills user threads before freeing process
+mappings; the parent's verified process wait proves final retirement. Quiescence
+alone is never described as a pthread join or permission to reuse storage.
+Version3 `file-service` receipts distinguish process-owned quiescence from a
+joined reusable service and expose startup, mapping, failure and pending counts.
+Automatic VM checks pair these receipts with completed process waits and actual
+canvas/model/service-init/service-stop phases. Existing client, UI-loop and total
+lifecycle deadlines remain unchanged. Native endurance acceptance is pending.
+
+The Text/Files helper uses an explicitly supplied64KiB stack inside its service
+storage; it remains pinned through process exit (or verified join for reusable
+callers). This avoids allocating
+and retiring the pthread runtime's default-sized owned stack without changing
+general pthread policy. Optional canvas disposal callbacks transfer pixel-map
+ownership after CLOSE_ACK. Queue refusal retains canvas/connection ownership;
+a successfully destroyed kernel surface is recorded and not destroyed twice.
+The same helper queues canvas and model unmaps and prints their actual separate
+phases. Logical GUI disposal alone does not prove either mapping was released.
+Sparse app timing marks dispatcher/helper lanes and validates clocks within each
+lane, retaining cross-phase lifecycle/elapsed checks and strict whole records.
+
+Files Close can explicitly remove a queued READ/LIST/STAT only before it has a
+channel or any transmitted/received bytes. FIFO links, IDs and payload ownership
+remain valid; no successful response is fabricated. Mutations, partial requests,
+leased channels and legacy jobs refuse cancellation. If no queued demand remains,
+the helper receives an atomic construction cancellation hint and checks it between
+signal/pipe/fcntl/spawn steps. It closes acquired descriptors on early cancellation.
+A late successful spawn remains an owned transport and must naturally exit/reap
+through EOF; it is never killed or silently forgotten. Remaining queued demand
+keeps its constructor alive. Receipts account for successful, canceled and unused
+reaped starts, distinguish them from failures, and justify process-owned canceled/
+unused starts with explicit unsubmitted-read cancellation. Full-process lifecycle
+and accepted-copy/save integrity checks remain mandatory.
+
+
+Validation of the async service at `efcdb24d` includes held real-pthread
+construction/unmap, constructor cancellation and late child reap, reusable join
+and process-owned storage lifetime, plus twenty Files windows retaining an
+accepted 8 MiB copy through Close and concurrent Text saves. A normal combined
+VM passes 21 app lifetimes with full retirement receipts. This establishes the
+userspace ownership path in those tests, not native endurance. Loaded VM failures
+remain open: a final disk burst can outlast PCM playback, and System admission
+can exceed the compositor UI bound. Keep the existing workload and timing limits;
+see the [Air record](machines/macbookair7-2.md) for measured failures and candidate
+status before another physical trial.

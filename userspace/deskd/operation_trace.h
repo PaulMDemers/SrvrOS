@@ -13,6 +13,8 @@ struct operation_trace {
     uint64_t requests,started,refused,last_pid,last_exec_us;
     uint64_t cache_bytes,cache_retained_bytes,cache_reuses;
     unsigned cache_retained;
+    uint64_t reap_pid,reap_queue_age_us,reap_run_age_us,reap_completed_us;
+    unsigned reap_queued,reap_running,reap_done,reap_state;
     unsigned queued,done,memory,pending_opens,live,awaiting,closing,close_requested,exiting,preferences;
     unsigned oldest_app,oldest_state;
     struct capture_trace capture,slowest;
@@ -27,6 +29,9 @@ static void capture_trace_report(const struct capture_trace *c,const char *kind,
 }
 static void operation_trace_report(const struct operation_trace *t,unsigned final) {
     if(!t->at_us)return;
+    desk_log("desktop-reap-state: version=1 at_us=%llu queued=%u running=%u done=%u pid=%llu state=%u queue_age_us=%llu run_age_us=%llu completed_us=%llu final=%u\n",
+        (unsigned long long)t->at_us,t->reap_queued,t->reap_running,t->reap_done,(unsigned long long)t->reap_pid,t->reap_state,
+        (unsigned long long)t->reap_queue_age_us,(unsigned long long)t->reap_run_age_us,(unsigned long long)t->reap_completed_us,final);
     desk_log("desktop-cache: version=1 at_us=%llu bytes=%llu retained=%u retained_bytes=%llu reuses=%llu final=%u\n",
         (unsigned long long)t->at_us,(unsigned long long)t->cache_bytes,t->cache_retained,
         (unsigned long long)t->cache_retained_bytes,(unsigned long long)t->cache_reuses,final);

@@ -38,6 +38,12 @@ bool scheduler_io_begin(void);
 bool scheduler_io_begin_process_image(void *image);
 bool scheduler_io_active(void);
 bool scheduler_io_busy(void); /* Another thread owns storage state. IRQs masked. */
+/* IRQ-masked proof for bounded atomic process-private memory work only. Does
+ * not acquire/release ownership or permit yielding, file or lifecycle work.
+ * Refuse siblings, worker contexts, image/owner aliases and unbounded scans. */
+bool scheduler_io_process_independent(void *process);
+/* IRQ-masked proof only: no live scheduler/private-image reference. */
+bool scheduler_io_process_retired(void *process);
 void scheduler_io_checkpoint(void);
 void scheduler_io_end(void);
 /* Optional CPU0 diagnostics. Reset refuses active ownership or an unavailable

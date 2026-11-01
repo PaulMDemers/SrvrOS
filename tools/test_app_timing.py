@@ -1,8 +1,8 @@
 import unittest
-from app_timing import validate_app_timing, saved_app_timing, lifecycle_receipts
+from app_timing import validate_app_timing, saved_app_timing, lifecycle_receipts, RECORD
 
 
-def fixture(files_window_runtime=False):
+def fixture(files_window_runtime=False,async_service=False):
     lines = []
     for cycle, role in enumerate((2, 1, 4)):
         now = 100
@@ -15,12 +15,14 @@ def fixture(files_window_runtime=False):
         mapped = role == 2 or (role == 1 and files_window_runtime)
         if mapped:
             phases.insert(0, 'document-map')
+            if async_service:phases.insert(0,'file-service-init')
         for phase in phases:
             emit(phase, 'begin');emit(phase, 'end', 10)
         emit('first-publish');emit('close-received')
         if role == 1 and files_window_runtime:
             emit('close-ack')
         phases = ['history-free'] + (['window-dispose', 'document-unmap', 'pool-retire'] if mapped else ['job-drain', 'window-close'])
+        if mapped and async_service:phases[1:1]=['canvas-unmap','file-service-stop']
         if role == 1 and not mapped:
             phases.append('pool-retire')
         for phase in phases:
@@ -84,6 +86,22 @@ class LifecycleReceipts(unittest.TestCase):
     def test_missing_conflicting_duplicate_and_identity_refused(self):
         for logs in ([self.ready], [self.ready+self.closed,self.ready.replace(b'20',b'21')], [self.ready+self.ready+self.closed], [self.ready+self.closed.replace(b'pid=8',b'pid=9')]):
             with self.subTest(logs=logs),self.assertRaises(AssertionError):lifecycle_receipts(logs,1)
+
+
+class AsyncServiceTiming(unittest.TestCase):
+    def test_lanes_and_strict_whole_records(self):
+        main=b'app-timing: pid=42 role=1 window=1 stage=main-entry edge=event at_us=200 elapsed_us=0 lane=0\n'
+        worker=b'app-timing: pid=42 role=1 window=1 stage=canvas-unmap edge=begin at_us=100 elapsed_us=0 lane=1\n'
+        self.assertEqual(len(list(RECORD.finditer(saved_app_timing([main+worker])))),2)
+        with self.assertRaises(AssertionError):saved_app_timing([main+worker.replace(b'lane=1',b'lane=0')])
+        self.assertFalse(RECORD.fullmatch(main.rstrip().replace(b'lane=0',b'lane=2')))
+        self.assertFalse(RECORD.fullmatch(b'corrupt'+main.rstrip()))
+    def test_requires_real_canvas_and_join_phases(self):
+        raw=fixture(True,True)
+        self.assertEqual(len(validate_app_timing(raw,[(0,8),(1,9),(2,10)],files_window_runtime=True,async_file_service=True)),3)
+        for stage in (b'canvas-unmap',b'file-service-init',b'file-service-stop'):
+            missing=b'\n'.join(line for line in raw.splitlines() if b'stage='+stage not in line)
+            with self.assertRaises(AssertionError):validate_app_timing(missing,[(0,8),(1,9),(2,10)],files_window_runtime=True,async_file_service=True)
 
 
 if __name__ == '__main__':

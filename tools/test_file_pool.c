@@ -103,7 +103,37 @@ static void retired(void) {
     assert(desk_file_pool_shutdown(&pool)==1);
     for(int fd=100;fd<next_fd;fd++)assert(closed[fd]);
 }
+static int open_state,open_calls;
+static struct desk_file_transport prepared;
+static int deferred_open(void *context,struct desk_file_channel *channel) {
+    assert(context==&prepared && !channel->pid && !channel->owner);open_calls++;
+    if(open_state>0) {channel->pid=prepared.pid;channel->reader=prepared.reader;channel->writer=prepared.writer;}
+    return open_state;
+}
 int main(void) {
+    reset();for(unsigned i=0;i<4;i++)bind(i);
+    for(unsigned i=0;i<3;i++)assert(!desk_file_job_start(&jobs[i],i==1?DESK_FILE_READ:DESK_FILE_LIST,"/queued",NULL,0,0,0));
+    assert(!desk_file_job_start(&jobs[3],DESK_FILE_WRITE,"/mutation",NULL,0,0,0));
+    uint32_t canceled_id=jobs[1].request.id;
+    assert(desk_file_job_cancel_unsubmitted(&jobs[1])==1 && jobs[0].queued_next==&jobs[2] && pool.tail==&jobs[3] && jobs[1].request.id==canceled_id && !jobs[1].busy);
+    assert(desk_file_job_cancel_unsubmitted(&jobs[0])==1 && pool.head==&jobs[2]);
+    assert(desk_file_job_cancel_unsubmitted(&jobs[2])==1 && pool.head==pool.tail && pool.head==&jobs[3]);
+    assert(!desk_file_job_cancel_unsubmitted(&jobs[3]) && jobs[3].busy && !spawned);assert(finish(3)==1);retired();
+    reset();bind(0);struct desk_file_probe probe={0};
+    assert(!desk_file_job_start(&jobs[0],DESK_FILE_STAT,"/probe",&probe,sizeof(probe),0,0));
+    canceled_id=jobs[0].request.id;assert(desk_file_job_cancel_unsubmitted(&jobs[0])==1 && !pool.head && !pool.tail);
+    assert(!desk_file_job_start(&jobs[0],DESK_FILE_LIST,"/retry",NULL,0,0,0) && jobs[0].request.id==canceled_id+1);
+    jobs[0].sent=1;assert(!desk_file_job_cancel_unsubmitted(&jobs[0]) && jobs[0].busy);jobs[0].sent=0;
+    assert(desk_file_job_submit(&jobs[0])>=0 && jobs[0].channel && !desk_file_job_cancel_unsubmitted(&jobs[0]));
+    assert(finish(0)==1);retired();
+    reset();assert(!desk_file_pool_opener(&pool,deferred_open,&prepared));bind(0);bind(1);
+    assert(desk_file_pool_opener(&pool,NULL,NULL)==-1);
+    assert(!desk_file_job_start(&jobs[0],DESK_FILE_LIST,"/first",NULL,0,0,0));
+    assert(!desk_file_job_start(&jobs[1],DESK_FILE_LIST,"/second",NULL,0,0,0));
+    for(unsigned n=0;n<100;n++) {assert(!desk_file_job_submit(&jobs[0]) && !desk_file_job_submit(&jobs[1]));assert(pool.head==&jobs[0] && jobs[0].busy && !spawned && !calls);}
+    open_state=-1;assert(desk_file_job_submit(&jobs[0])==-1 && !jobs[0].busy && pool.head==&jobs[1] && !spawned);
+    assert(!desk_file_transport_open(&prepared));open_state=1;assert(finish(1)==1 && open_calls>100 && pool.spawned==1 && pool.live==1);
+    retired();open_state=open_calls=0;
     reset();bind(0);
     assert(!desk_file_job_start(&jobs[0],DESK_FILE_READ,"/fat/snapshot-reuse",NULL,0,0,0));
     assert(finish(0)==1);

@@ -2,6 +2,25 @@
 
 Updated: 2026-10-31. State: **active reference machine; partial device acceptance**.
 
+### Integration and workspace retention checkpoint (2026-11-01 UTC)
+
+The user requested workspace pruning and integration of the completed work.
+The device branch incorporates main `5bc858e7` (Air6,1 RC6 documentation
+closeout). This integration introduces no additional feature code beyond the
+async file service candidate. Core/desktop tests and the matched ordinary build pass locally after integration;
+repository Actions stay disabled. PR258 is being integrated at the user's request
+as an implemented baseline, retaining its documented loaded-VM failures and
+pending native endurance acceptance. Merging does not promote those results to
+physical acceptance.
+
+Historical boot initramfs and inactive VM volumes are being losslessly archived
+with verified Zstandard checksums and a local path/size ledger. Logs,
+screenshots, manifests, independent evidence stores and installed current/recovery
+payloads remain retained. Candidate `5c4c800cd105b347` remains unpacked and
+independently backed up. Restore archived stage files before manifest verification
+or reuse; consult the Ubuntu setup guide's artifact-retention procedure.
+No native install or reboot is part of this maintenance block.
+
 ### Native workspace refusal and preflight follow-up (2026-10-31)
 
 Release `e3370f00781fb60c` halted before the automated workload: the workspace
@@ -43,6 +62,321 @@ fsck/allocation/write-eligibility/headroom, then leave USB unmounted through
 Ubuntu shutdown. No human input is required. Collect the matching new session
 before another stage; the 1800-second workload and existing deadlines remain
 unchanged, and native endurance acceptance stays pending.
+
+### Asynchronous file transport and model retirement scope (2026-10-31)
+
+On branch device/macbookair7-2/desktop-runtime, baseline695db843 plus PR258,
+the Air agent owns optional file-pool opener hooks and a small transport value
+in desk_file_job.c/h, an explicit mapping-retirement callback in window_set.c/h,
+and a Text/Files process-owned helper adapter. Create one helper before opening
+GUI windows; it alone performs pipe/fcntl/spawn startup and queued model unmaps.
+Release/acquire slots transfer small transport or mapping values, never mutable
+GUI/job ownership. UI keeps FIFO jobs and bindings until validated responses
+drain; pending start/error/full queues retain their owner and retry without
+synchronous fallback. A callback may accept a mapping only after GUI disposal
+and accepted work drain, with bounded pending records and completion/error
+receipts. No allocation/free happens on a queue-full refusal. Join/drain the
+helper before pool/session stack release and final child reaping. Keep legacy
+synchronous pool users unchanged. Stop repeated no-op dispose tracing.
+Touch directed pool/window/runtime tests and add blocked real-pthread adapter
+coverage; run matched builds and loaded VMs under unchanged deadlines. No
+kernel/firmware/driver or I/O-admission changes are planned; PR252 resolver and
+PR19 Wi-Fi remain independent. Native a4 run is collected/integrity-verified;
+no new reboot is armed. Publish test receipts before another physical trial.
+
+The initial implementation passes the complete desktop host suite and matched
+ordinary/native/VM builds. Directed real-pthread tests hold actual transport
+construction and unmapping while UI admission continues, exercise the16-record
+retirement backpressure, preserve failed mappings, close/reap an unconsumed
+startup and retain storage through a transient join error. Pool FIFO pending/
+error publication and window callback refusal/ownership-transfer tests pass.
+Per-process service receipts are required by new synthetic VM checks; truncated,
+interleaved, duplicate/conflicting, failed, pending or unjoined records refuse
+acceptance. Actual unmap timing runs on the helper, not around queue admission.
+Loaded/multiwindow VM validation is next; no new physical trial is armed.
+
+Initial source0b64ded9 normal VM passes20cycles/UI128696us with complete
+service/integrity receipts. Its populated50IOPS run remains FAIL: first Text
+reaches10.006714s total deadline after helper initialization2.066s, canvas
+disposal1.033s and helper join3.674s. Model retirement itself is18ms; the helper
+joins cleanly and the child eventually exits0. Preserve this failed candidate.
+Extend the existing userspace scope to an explicitly supplied64KiB helper stack
+(the current pthread owned-stack policy otherwise allocates at least2MiB), and
+an optional canvas retirement callback in desk_app/desk_connection plus the
+window-owner layer. Queue canvas mappings alongside models, retain them on full
+refusal, and record actual helper canvas-unmap phases. Keep default disposal,
+pthread/kernel semantics and all deadlines unchanged. Validate callback refusal/
+retry and supplied-stack lifetime through verified join before new VM trials.
+
+Refined host desktop suite and matched builds pass after supplying the64KiB
+stack and moving canvas unmap through the same bounded service. Actual host
+pthread attributes are checked; canvas refusal retains pixels/connection and
+retry does not destroy the surface twice. Main/helper timing lanes preserve
+per-lane clock checks and full phase/lifecycle validation without treating valid
+concurrent log order as a clock fault. New VM checks require actual canvas,
+service-init and verified-join phases. No kernel or general pthread policy
+changed. Loaded VM validation remains pending; no hardware boot armed.
+
+Source23806300 still fails the first Text50IOPS cycle at10.005767s:
+canvas disposal is now7.7ms but actual helper canvas/model waits are0.894/0.951s
+and explicit join3.449s. All unmaps complete and join ultimately succeeds; keep
+this failure. Extend only the app-owned lifetime contract: Text/Files keep one
+static, nonreentrant runtime/service context until process exit. Stop, drain and
+acquire a helper-body quiescence acknowledgement; no service/stack storage is
+freed or reused. Then finish backend child retirement and return through normal
+kernel process exit, which kills user threads before freeing process mappings.
+The parent's verified wait still measures/accepts full process retirement.
+Reusable/non-process-owned service callers keep verified join. Receipts must
+explicitly distinguish process-owned quiescence from a joined reusable service;
+never emit joined=yes for the former. Host tests must hold the thread after its
+body acknowledges quiescence, prove storage stays live/nonreusable, then join.
+No kernel, general pthread or lifecycle deadline change is authorized here.
+
+Process-owned quiescence host checks pass: a real helper is held after its body
+acknowledges stop, static storage/stack stay live, reinitialization is refused,
+and the host fixture then joins before its own teardown. Reusable services
+still require join and report a transient join error even after safe recovery.
+Version2 receipts require quiescence and exactly one explicit lifetime mode;
+only completed whole-process waits authorize the process-owned interpretation.
+Full desktop host and matched builds pass. Loaded VM checks must still pass
+before another test; no physical trial or kernel admission change is armed.
+
+Source3e66c0cf50IOPS clears the first Text lifetime but FilesPID10 still fails
+phase3 at10.003698s. Close reaches the app promptly (18.606s), but listing
+submission occurs only after startup finishes (~23.25s); no header/channel had
+been leased when Close arrived. Keep this failure. Add desk_file_job queued
+read-only cancellation only for READ/LIST/STAT with no channel and zero sent/
+received bytes. Unlink FIFO membership without fabricating a response or
+reusing IDs; all mutations and accepted/partial requests retain ownership.
+When cancellation leaves no queued demand, signal the helper's startup record;
+the transport constructor checks between operations and closes acquired fds.
+A late successful spawn stays owned and exits/reaps through EOF, never kill.
+Explicit cancellation/unused-transport counters must account for every startup;
+new version3 receipts distinguish this from transport errors. Validate FIFO
+head/middle/tail, mutation/leased refusal, held construction cleanup and late
+spawn cleanup. No kernel/firmware changes or deadline relaxation are planned.
+
+Queued-read cancellation host checks pass for FIFO head/middle/tail, monotonic
+IDs, STAT, and mutation/leased/partial refusal. A held real pipe constructor
+cancels and closes its acquired descriptors without spawning; a cancellation
+inside an already executing spawn retains and reaps its late child. A canceled
+read does not stop a constructor still needed by another queued request. New
+version3 receipt tests require exact request accounting and cancellation evidence.
+Full desktop/matched builds and the final queued-demand fixture pass. Prior
+failed candidates remain preserved. No new kernel admission, timeout change or
+physical reboot is armed.
+
+### Async file service candidate ready for diagnostic hardware trial (2026-10-31)
+
+Source `efcdb24d` moves transport construction and canvas/model unmapping off
+Text/Files dispatch. Host tests and matched ordinary/native/VM builds pass.
+The final-source 20-window Files VM passes independent histories, cancellation
+and collision checks, an accepted 8 MiB copy retained through Close, concurrent
+Text save, exact readback and complete process cleanup. The normal combined KVM
+workload passes 21 app lifetimes: maximum UI turn 119159 us, ready 943359 us,
+close 1200455 us, with complete service receipts, zero PCM underruns, screenshot,
+prior-file preservation, allocation and retirement checks. These are VM results.
+
+Two final-source loaded runs remain **FAIL**, with their raw logs retained:
+
+- Populated Home at 50 write IOPS completes seven lifetimes without a lifecycle
+  deadline failure (UI 101309 us, close 3357150 us), but the last disk burst ends
+  2926111 us after playback. The combined receipt fails its existing overlap
+  contract; clean worker exit and zero underruns do not turn this into a pass.
+- At 100 write IOPS, playback and twelve lifetimes complete, but one compositor
+  turn takes 931085 us, exceeding the unchanged 500000 us UI bound. Its lifecycle
+  phase is 906163 us during System window admission. The scheduler trace records
+  605372 us ready time and no blocked waits. This narrows attribution; it does
+  not establish the complete cause or accept loaded responsiveness.
+
+Candidate `5c4c800cd105b347` is staged from this clean source. Exact-stage TCG
+rehearsal passes native-profile refusal, save, unmount and reset; it is not
+native feature acceptance. Current installed `a4f7080c77fda748` and independent
+recovery `9aa8dbf6fbda8252` remain unchanged. No reboot is armed. The next useful
+physical check is diagnostic: retain the unchanged 1800-second workload and
+500 ms UI / 10 s lifecycle limits, show progress and persist receipts, with no
+human input required. Complete fresh media/recovery/install preflight first.
+Do not describe the candidate as endurance accepted or merge away these failures.
+Evidence and the next command are in local `build/air-file-service-20261031`,
+with a hash-verified copy outside `build` in the reviewed-evidence store.
+
+### Native Files lifecycle return — delayed Close delivery (2026-10-31)
+
+Releasea4f7080c77fda748/source0fe284e2 saves matching session and returns to
+Ubuntu. It completes595 app cycles before FilesPID804 fails phase3 at10009854us,
+roughly20minutes into the1800-second workload. UI maximum120070us, ready maximum
+2332012us, completed-close maximum6738763us. This is an endurance FAIL, not a
+30-minute acceptance. The third screenshot is incomplete; cache retirement is
+zero bytes/zero retained/613reuses, with clean battery runtime retirement.
+
+Saved atomic records place Close request at1236385064us and app receipt at
+1242430551us:6045487us delivery delay. A distinct retained PID8 I/O-owner scope
+runs1236382822–1241407892us (5025070us), overlapping5022828us of that interval.
+Worker submission is logged just before Close receipt. This implicates synchronous
+file-worker startup/submission on the app loop; overlap alone does not identify
+its complete blocked syscall or an exact filesystem/USB operation. At the deadline
+Files is still background with4730880mapped bytes and no queued reap. Once Close
+is received, ACK takes20317us; document unmap takes131us with zero blocks and
+final pool retirement115370us. Do not loosen the10-second lifecycle limit or
+claim that metadata alone authorizes cleanup.
+
+All1222 prior files are preserved apart from expected workspace metadata. Offline
+fsck is clean (263directories/1230files);3468clusters show no leaks, bitmap/FAT
+mismatches or errors. Write eligibility, headroom, current/independent recovery,
+Ubuntu default and consumed one-shot verify. Eight new log/image/payload files
+are copied and hash-verified. Native endurance remains unaccepted; no new boot
+is armed. Keep PR #258 draft. Next scope is removing file-worker startup from
+GUI dispatch while preserving accepted-job/descriptor ownership; also avoid
+repeated no-op window-dispose tracing while a retired model drains. Publish the
+chosen asynchronous ownership contract before implementation.
+
+### Files Close and retired-child claim scope (2026-10-31)
+
+Continue on PR #258/sourcea42c1ac9, integration695db843. The Air agent owns
+Files window Close dispatch in `text_runtime.c` and a narrow exact-PID wait
+prelude in process/scheduler/syscall code, with directed host fixtures. Permit
+visual Files Close during read-only LIST/READ/STAT while retaining model/job
+ownership until the accepted response drains; mutations keep their close gate.
+For teardown, attempt only an already published reapable direct child with no
+address space, mappings, kernel stack, descriptors or used thread records and
+no scheduler/private-image reference. Under IRQ exclusion consume status and
+accounting once, release the empty process slot/lifetime metadata, and defer
+record clearing to existing gated allocation. No freeing, allocation, yield or
+filesystem cleanup in this attempt. Other selectors/POSIX, incomplete cleanup,
+foreign ownership/image alias and all exit paths retain ordinary admission.
+No deadlines change. Validate ownership/refusal, repeated claim, accounting and
+slot reuse plus loaded VMs before considering native tests. PR #252 resolver
+and PR #19 Wi-Fi remain independent. No reboot is armed.
+
+Candidate host validation passes full core/desktop and matched ordinary/native/
+VM builds. Final focused checks additionally pass bad status pointers, unsupported
+flags/POSIX prelude bypass, empty direct-child ownership and residue refusal,
+single status/accounting/lifetime transfer, unchanged foreign I/O depth and
+ordinary allocator slot clearing/reuse. Files read-only close guards preserve
+busy jobs and keep mutation/Text gates. Final loaded VM validation is pending;
+this is not native or whole-process endurance acceptance.
+
+Clean565e2a14 populated100IOPS passes11cycles/UI285221us/ready3232283us/
+close4657827us with full integrity/retirement. Its50IOPS run fails first Files
+startup: queued listing starts a worker before first publication and client
+awaiting timeout kills PID10/status143. The atomic final log is retained. Extend
+this bounded Files scope to publish the initial window before advancing queued
+file work; preserve accepted-job ownership and all client/lifecycle limits.
+
+Final source0fe284e2 ordinary KVM passes23cycles/UI109766us/ready1151192us/
+close3057594us. Two populated50IOPS runs pass10/9cycles, UI108375/109408us,
+ready3842286/3258555us and close3718134/5370180us with complete PCM, screenshot,
+prior-file, allocation, follow-up and cache retirement proof. Preserve the earlier
+565 startup failure. Candidatea4f7080c77fda748 has an exact-stage Q35 refusal/
+save/unmount/reset rehearsal; that does not accept native firmware or endurance.
+All1222 prior USB files match the collected-return baseline; offline fsck,
+allocation, write eligibility and headroom pass, flags0. Preparation first stops
+at EFI space; an unreferenced old diagnostic is fully verified in cache/archive
+before its EFI copy is removed. Current and independent recovery are preserved.
+The new payload is installed with Ubuntu default unchanged. A separate automatic
+1800-second native PCM/disk/app trial is prepared, with guest progress and clean
+retirement/unmount/return; no input is required. Collect its matching session
+before any next stage. Native endurance and physical interaction acceptance
+remain pending. Raw run state and evidence are in the local ignored checkpoint
+and reviewed-evidence backup; do not infer a pass from successful installation.
+
+### Bounded anonymous retirement scope (2026-10-31)
+
+From main `695db843` plus collected-return documentation, the Air agent owns
+`scheduler.c`/`scheduler.h`, `process.c`/`process.h`, x86 syscall dispatch and
+directed scheduler/process-service/syscall-I/O fixtures. Add a read-only scheduler
+independence predicate, then an IRQ-masked whole-anonymous-region retirement
+attempt. Require the current main thread, no live sibling/process thread records,
+matching active address space, distinct foreign owner/private image, at most
+4096 scheduler/mapping records and a complete region no larger than2MiB. Track
+anonymous provenance through mmap, fork copying and region splitting; prevalidate
+tracked physical translations. No service yield, allocation, file cleanup or
+foreign ownership release occurs in the attempt. Any precondition refusal leaves
+state unchanged and takes the normal gated munmap path. Unexpected unmap failure
+must retain remaining frame/region ownership and never free a still-mapped frame.
+No mapping, exit or threaded-cleanup blanket admission is authorized by this
+scope. Existing syscall ABI and500ms/10second limits stay unchanged. Validate
+negative ownership/provenance/bounds and futex/frame ordering before host/VM
+load tests. Air6,1 idle work and open PR #252 resolver/PR #19 Wi-Fi remain
+independent; no AP/idle/device gates change and no physical trial is armed.
+
+Focused scheduler/process-service/syscall fixtures pass, including foreign
+ownership retention, worker/sibling/image/owner/CR3/record-bound refusal, full
+anonymous versus file/partial/split provenance, PTE translation mismatch, futex
+invalidation before frame release, partial unmap failure with remaining frames
+tracked, retry without double free and PROT_NONE retirement. Full core/desktop
+and ordinary/native/VM builds pass before the final fallback-handoff refinement;
+rerun focused admission and matched builds for that change. The active document
+model's DWARF size is0xa1748 bytes plus owner metadata, fitting the2MiB bound.
+No native result or general exit-latency fix is inferred; exit remains separately
+gated and can still account for a whole-process lifecycle deadline.
+
+Final focused admission and matched builds pass after preserving gated
+fallback handoff. The first new fallback test attempted native CLI in the host
+harness and faulted; a dedicated host IRQ adapter fixes the fixture without
+changing production IRQ masking. That failed attempt is retained separately.
+The candidate is ready for ordinary and populated100IOPS disposable VM checks;
+physical acceptance and the broader exit/lifecycle deadline remain open.
+
+Clean `e42f75c4` normal KVM passes25cycles/UI117595us/ready710004us/
+close900428us and full integrity. The first populated100IOPS VM passes13cycles/
+UI109420us/ready4081548us/close2660620us. Saved atomic records prove seven
+normal and three throttled document-unmap phases fully inside distinct retained
+I/O-owner scopes, with zero blocks (maximum465us/235us respectively).
+A second identical throttled run remains FAIL at PID22's phase3 deadline
+10006898us after10cycles; UI111477us, child metadata `exited`, mapped_bytes=0.
+Document-unmap takes164us with zero blocks. This is not a stable endurance pass.
+Extend this scope only with immutable queued/running/completed reaping timestamps
+and a failure-time operation snapshot, plus host fixtures. Distinguish worker
+queue delay from gated wait before changing reaping policy; keep old failures,
+all ownership gates and test limits. No new physical trial is armed.
+
+Diagnostic `d3af5211` passes two populated100IOPS VM runs (11/14cycles,
+UI119637/110405us). A heavier50IOPS run fails10cycles/10001410us at Files
+PID22: process still background with6115328 mapped bytes and no pending reap;
+Close was received while operation3 was busy. Preserve this distinct failure.
+Include `audio_io_stress_smoke.py` in the diagnostic scope: retain final atomic
+session logs after clean QEMU exit before asserting the guest PASS receipt.
+Failed workload collection must not emit a passing result or relax validation.
+
+Collector `2ce59ceb` passes a populated50IOPS KVM run:11cycles,
+UI109335us/ready3450870us/close5128973us with full integrity and retirement.
+Four saved document unmaps wholly overlap foreign ownership, max903us with zero
+blocks. A25IOPS diagnostic run fails at PID10's phase3 deadline10007513us;
+the harness correctly exits nonzero, retains four final atomic session logs
+including the failure-time snapshot, and emits no passing result. This validates
+failure collection, not workload acceptance. Host collector34cases and745local
+documentation links pass. PR #258 remains draft: independent anonymous retirement
+is locally validated, while stable whole-process/native endurance remains open.
+No new physical run is armed; preserve existing recovery and all failed runs.
+
+### Native cache-reuse return — memory cleanup gate identified (2026-10-31)
+
+Release `216844aaab4b2363` / source `695db843` saves matching session
+`session-00065f294af061e4-00`. The trial fails after nine completed app cycles
+at PID21's phase3 deadline (10008796us). Maximum UI loop is102131us; maximum
+ready/close times are8523202/9220618us. The screenshot is incomplete and the
+full1800-second workload does not complete. Cache retirement records zero
+reserved bytes, zero retained buffers and eight reuses. Battery retirement is
+clean and PCM records zero observed underruns; this is not endurance or audible
+quality acceptance.
+
+Five complete owner snapshots validate33 distinct long scopes. Text's document
+unmap spans60011315–67138541us, including7125109us blocked and1982us ready.
+Disk child PID7 owns the I/O gate from60010071–67136426us (7126355us). The
+7125111-us overlap differs from blocked time by2us. This directly attributes
+that wait to unrelated disk-worker serialization, without identifying a
+particular filesystem operation or USB command. A separate9119227-us disk scope
+also remains in the retained evidence. Next investigate independently safe
+anonymous-memory retirement; do not admit arbitrary mapping/exit work during
+filesystem ownership or extend test limits.
+
+All1216 prior files remain unchanged apart from expected metadata. Offline
+fsck is clean (261directories/1222files);3341clusters have no leaks, mismatches
+or errors; write eligibility and headroom pass. Ubuntu default, consumed one-shot
+and independent recovery verify. Partial screenshot/payload and logs are copied
+with hashes and backed up outside build. Current candidate remains installed;
+no next reboot is armed and native endurance remains unaccepted.
 
 ### Retired compositor buffer reuse scope (2026-10-31)
 
@@ -95,6 +429,15 @@ are retained alongside earlier failures; no native result is inferred. The next
 checkpoint is a separate exact-payload rehearsal and automatic1800-second native
 trial, preserving current/recovery, prior files and offline write eligibility.
 No input is required; success returns automatically, uncertain ownership halts.
+
+PR #257 merged as `695db843`. Clean native stage `216844aaab4b2363` passes exact
+Q35 refusal/save/unmount/reset rehearsal and is installed for a separate automatic
+1800-second trial. Actual model/USB, independent recovery and Ubuntu default
+verify. Fresh1216-file and75-session baselines are saved; offline fsck/allocation/
+write-eligibility/headroom pass with clean volume flags. USB stays unmounted
+through Ubuntu shutdown. No human input is required. Collect the matching new
+session after return and require full workload, zero cache reservations with
+actual reuse, preserved files and recovery checks. Native acceptance is pending.
 
 ### Simple pipe-close contention scope (2026-10-31)
 
