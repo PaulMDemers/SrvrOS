@@ -2,6 +2,18 @@
 
 Updated: 2026-11-01. State: **active reference machine; partial device acceptance**.
 
+### Automatic cold-start retry prepared
+
+User authorized the automatic 1800-second trial of `73e363a1fee47ba8` at 1%
+volume. It is installed with recovery `9aa8dbf6fbda8252` retained. Fresh preflight
+preserves all 1272 files and 84 sessions; offline fsck/allocation/writable/headroom
+pass. Accepted `7d21b1fb77479259` is independently preserved and its unreferenced
+EFI copy archived with all bytes verified to make space. USB is unmounted,
+Ubuntu remains default, and the on-disk run record is
+`build/air-cold-start-20261101/native-trial/run.json`. Save/return is automatic;
+no input is needed. Collect the matching session before any new trial. No native
+acceptance is claimed; the prior failed session remains a failure.
+
 ### Follow-up ready for automated hardware test
 
 Source `9402ba9e`, staged release `73e363a1fee47ba8`, removes the cold compositor
