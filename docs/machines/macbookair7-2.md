@@ -2,17 +2,38 @@
 
 Updated: 2026-11-01. State: **active reference machine; partial device acceptance**.
 
-### Automatic storage-shortening trial prepared
+### Storage-shortening hardware return: deadline failure
 
-User authorized the1800-second automatic test of `451c977e447a9d0b` at1% volume.
-It is installed with recovery `9aa8dbf6fbda8252` retained. Fresh offline fsck,
-allocation, writable and headroom checks pass; all1277 prior files and85sessions
-are accounted for. Unreferenced failed29d payload is archived with every byte
-verified; current/recovery and independent accepted7d remain preserved. USB is
-unmounted. Ubuntu remains default. The durable run record is
-`build/air-storage-scope-20261101/native-trial/run.json`; no human input is needed.
-Collect the matching session before any new trial. Native acceptance remains
-pending, and prior failed runs remain failures.
+Release `451c977e447a9d0b` / source `0b8f554c` returned automatically after
+13 completed app lifetimes. Session `session-00065f3d02aeda21-00` fails the
+unchanged whole-lifetime deadline on Text PID26 (10,000,894us). Maximum UI loop
+was101,767us, ready7,883,955us and completed Close1,800,341us. The completed
+Close maximum excludes the failed lifetime. Full1800-second endurance did not
+complete; there is no passing audio/disk receipt. Volume remained1%, with zero
+observed underruns before termination. One1440×900 screenshot verifies, but the
+required three captures did not complete. No native performance acceptance is
+added by this run, and the earlier failures remain failures.
+
+Actual ownership records cover the startup SYS_EXEC wait of7,866,910us with
+filesystem owner349 (PID7/thread19,7,977,607us total); launch resumes502us after
+that owner ends. After Close, directory helper PID27 waits7,970,171us in
+SYS_DIRECTORY behind owner367 (7,969,843us total), resuming1,554us after it
+ends. Text main returns later, at75,158,709us. This is evidence of storage
+admission delaying startup and helper retirement, not a measured slow SYS_EXIT
+for the failed Text process. Host read-byte reductions and passing VM rows do
+not establish a native storage latency bound. Next work is to identify the
+operation and internal phases of those long owner scopes before choosing a
+safe shortening or split; retain publication, cleanup and quarantine protection.
+
+All1277 prior files are preserved except expected `.srvros/meta` updates. Six
+new files, including four session logs, a screenshot and partial workload data,
+are copied and hash-verified. Offline exFAT is clean (281directories/1283files);
+allocation, writable and headroom checks pass. Cache retirement is0bytes/
+0retained/14reuses; battery runtime retires. Ubuntu is default, the one-shot is
+consumed, and installed current451/recovery9aa plus independent accepted7d
+payloads verify. Evidence and detailed owner/gate matching are in
+`build/air-storage-scope-20261101/native-trial/`, backed up outside `build`.
+PR261 remains draft. No new trial is armed.
 
 ### Storage shortening candidate ready for hardware
 
@@ -39,10 +60,9 @@ cleanup. Read100/write100 load also passes18 (UI119577us, ready1489292us,
 Close4779730us). Existing timing and live-I/O overlap requirements are unchanged.
 
 Exact staged TCG refusal/save/unmount/return passes native-profile plumbing only.
-Candidate is backed up, not installed or armed. Installed failed73e363a1fee47ba8,
-recovery9aa and independent accepted7d remain preserved. Next automatic1800s
-hardware test at1% volume needs fresh1277-file/85-session integrity, recovery and
-run-record preflight. Native startup/exit acceptance remains pending. Local
+The candidate was subsequently installed and failed the native trial described
+above. Installed451, recovery9aa and independent accepted7d remain preserved;
+no new trial is armed. Native startup/exit acceptance remains pending. Local
 checkpoint: `build/air-storage-scope-20261101/checkpoint.json`.
 
 ### Bounded liveness query dependency
