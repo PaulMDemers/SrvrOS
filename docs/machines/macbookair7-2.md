@@ -2,6 +2,31 @@
 
 Updated: 2026-11-01. State: **active reference machine; partial device acceptance**.
 
+### Cold-start retry — filesystem admission tail isolated, test failed
+
+Release `73e363a1fee47ba8`, session `session-00065f3be8b1570a-00`, returns
+automatically but **fails after 20 completed lifetimes**. UI maximum is 101073 us,
+ready7544251 us and completed Close6651358 us. The next application's unchanged
+whole-lifetime deadline expires at 10000792 us. Full 1800-second audio/disk work
+and screenshot capture do not complete; no native endurance acceptance is added.
+
+The retained gate evidence now identifies the waits directly. Startup SYS_EXEC
+waits 7503457 us. The failed app PID33 reaches main return at 95841081 us and
+enters SYS_EXIT admission at 95841091 us, resuming at 104578530 us: **8737439 us**.
+Recorded filesystem owner PID7/scope498 runs from 95560774 to 104577677 us,
+covering the exit wait until 853 us before admission resumes. This is a measured
+9016903 us ownership scope, not a canvas-unmap or final-reap delay. Next work
+must shorten or safely partition these storage critical sections while retaining
+actual cleanup ownership and existing deadlines.
+
+Cache retirement reaches zero bytes/retained with15reuses and battery runtime
+retires. All1272 prior files survive apart from expected metadata; five new files
+(four logs and the attempted BMP) are copied and hash-verified. Offline fsck is
+clean (279 directories,1277files); allocation/writable/headroom pass. USB is
+remounted, Ubuntu default and consumed one-shot verified, recovery9aa retained
+and accepted7d independently preserved. No reboot is armed. PR261 remains draft;
+this failure and the preceding failed run are preserved.
+
 ### Automatic cold-start retry prepared
 
 User authorized the automatic 1800-second trial of `73e363a1fee47ba8` at 1%
