@@ -1,6 +1,514 @@
 # MacBookAir7,2 / A1466
 
-Updated: 2026-10-31. State: **active reference machine; partial device acceptance**.
+Updated: 2026-11-01. State: **active reference machine; partial device acceptance**.
+
+### Native startup and retirement endurance — bounded milestone accepted
+
+Release `7d21b1fb77479259`, source `87ecd80b`, session
+`session-00065f38c9091701-00` completes the unchanged 1800-second automated
+PCM/disk/app trial with **PASS: 937 app open/close cycles**, three saved screenshots
+and automatic Ubuntu return. UI maximum is 112151 us, readiness 2220834 us and
+completed Close 8042159 us, within the unchanged 500000 us UI and 10000000 us total
+lifecycle limits. This accepts the named bounded workload on this Air7,2.
+
+At 1% volume, playback submits 345600000 PCM bytes with zero underruns and worker
+status zero. The filesystem worker completes 1909 verified write/flush/read/
+rename/delete bursts, 500432896 bytes, spanning 1798185465 us within live PCM.
+The binary disk receipt matches the saved text report. All three 1440×900 BMPs
+are copied, decoded and hash-verified; capture follow-up and clean exit pass.
+Cache retirement reaches zero bytes/retained with 1025 reuses, no final live
+clients remain, and battery runtime retires cleanly.
+
+The retained rotated tail snapshots include five complete pixel-acquisition
+samples (maximum 24 us outer / 4 us body) and seven complete first-publication
+samples (825 us outer / 802 us body), with zero blocked/ready time in those
+brackets. They observe the targeted improvement; they do not contain complete
+phase histories for all 937 cycles. The first-canvas change removes the known
+post-helper allocation path; the older unbracketed gap remains historical
+incomplete attribution. No new physical-input, audible-route, gauge-calibration
+or unrestricted concurrency/SMP acceptance is inferred.
+
+All 1259 prior files are preserved apart from expected metadata; nine new files
+are copied and hash-verified. Offline fsck is clean (275 directories, 1268 files),
+with allocation/writable/headroom passing. Current `7d21b1fb77479259`, independent
+recovery `9aa8dbf6fbda8252`, Ubuntu default and consumed one-shot are verified.
+The accepted payload has its own verified `known-good/7d21b1fb77479259` copy;
+EFI recovery remains `9aa8dbf6fbda8252`. Full evidence under local
+`build/air-first-surface-20261101/native-trial` is independently backed up outside
+build. USB is remounted and no reboot is armed. Earlier failed runs, including
+the separate older 50-IOPS overlap result, remain failures. This bounded startup/
+retirement milestone is complete; next is shared-code review/integration of PR260.
+
+### First-surface candidate — ready for native retest
+
+Final source `87ecd80b` reserves the first Text/Files 720×480 pixel mapping before
+helper startup. The opening window adopts that mapping, reuses it for matching
+CONFIGURE and still creates the required stream surface. Later windows, resize
+and differing geometry retain normal allocation; rejection, early close and
+surface failure preserve explicit ownership through actual disposal. Kernel
+memory gates, device profiles and lifecycle deadlines are unchanged.
+
+Host configure/ownership and private-map refusal tests pass. The full core/
+desktop suite and matched builds pass for the implementation, followed by a
+matched build and final desktop checks for the follow-up. A collector-only change
+prefers independently complete saved atomic phase records over lossy UART;
+incomplete saved coverage keeps the same strict union fallback. No UART bytes
+are repaired. Missing/conflicting saved evidence remains a failure.
+
+Loaded retries exposed 610447 us and 713291 us UI FAILs in compositor message
+processing; those are retained. A 2 ms between-packet wall budget now supplements
+the 32-message cap so handlers cannot accumulate a full batch before input/render
+work. It leaves packets queued, retains FIFO/ownership and does not bound an
+individual handler. Final populated Home at 100 IOPS passes 17 lifetimes (UI
+186865 us, ready 1355693 us, close 1785414 us); normal load passes 24 (UI 129281 us,
+ready 1053352 us, close 1250357 us). Complete first-surface/history/helper phases,
+PCM/file/screenshot and cache/service retirement validate. Twenty Files windows
+pass independent navigation/history, accepted 8 MiB copy through Close,
+concurrent Text save, exact bytes and full process cleanup. The earlier 50-IOPS
+overlap failure remains a separate open result.
+
+Stage `7d21b1fb77479259` has exact TCG native-profile refusal/save/unmount/return
+proof only. No new native first-frame or full endurance acceptance is claimed.
+Candidate and evidence have independently verified backups outside build.
+Installed `a442f72d78af2e57`, recovery `9aa8dbf6fbda8252`, Ubuntu default and empty
+one-shot are verified; no reboot is armed. Next is the unchanged automatic
+1800-second native trial at 1% volume, with fresh workspace/recovery preflight.
+
+### Follow-up message dispatch fairness
+
+Two loaded VM retries retain full FAILs for compositor message intervals
+(599713 us and 688786 us); first-surface startup and PCM/disk overlap complete.
+Keep those failures. The compositor currently drains up to 32 packets regardless
+of elapsed time, allowing several service-yielding frame/message handlers to
+accumulate in one input/render turn. Add a 2 ms between-packet wall budget while
+retaining the 32-packet cap, FIFO queue, all individual handler ownership and
+unchanged 500 ms UI/10 s lifecycle acceptance. A single handler is not preempted
+by this budget and still needs explicit diagnosis if it exceeds the limit.
+Retest loaded/normal/multiwindow before staging; no test pacing/deadline change.
+
+### First-surface scope
+
+Continue PR260 on base `92ec9b09`: trace initial CONFIGURE canvas allocation,
+surface creation, service registration and first rendering/publication. Text's
+first pixel mmap currently occurs after its helper exists, so the sole-main
+private allocation proof refuses it and ordinary foreign-I/O admission applies.
+Reproduce that refusal and pre-reserve the first standard canvas before helper
+creation with explicit handoff/cleanup; retain normal resize and later-window
+fallback and all ownership/timing limits. Add complete sparse substep receipts
+and allocation/surface/adoption failure coverage, then loaded/normal/multiwindow
+VMs and exact staging. The native 8.97-second gap itself remains unbracketed;
+new source needs native evidence. No kernel gate/device/audio policy change.
+PR252 networking and PR19 Wi-Fi remain separate. Last a442 run is fully collected,
+installed a442/recovery9aa remain unchanged and no reboot is armed.
+
+### Text journal native return — first publication still misses lifecycle budget
+
+Release `a442f72d78af2e57` (staged `2f6c769a`, production `6739a6e6`)
+returned with session `session-00065f37c0455ba8-00`. The unchanged full endurance
+**fails after 12 completed app cycles**, before completing 1800 seconds. Text
+PID21 reaches readiness at 9171044 us and then the total lifecycle deadline at
+10020598 us. UI maximum is 102201 us and completed-close maximum 1240262 us.
+The first screenshot remains incomplete; this is not full workload acceptance.
+
+For PID21, document mapping takes 188 us, kernel thread creation 51 us, helper
+initialization 231 us, history reservation 25 us and history initialization 24 us.
+The map/create/history scheduler brackets show zero blocked/ready time. Role
+initialization completes in 56 us. This observes the intended bounded startup
+paths for this retained lifetime, not unrestricted acceptance of all memory work.
+
+An unbracketed 8973958 us lies between role-init END and first-publish. Dispatch,
+GUI service/configuration and first drawing/publication still need separate
+attribution; no exact blocking call is proven. Preserve the unchanged deadlines.
+Volume 1% and zero sampled PCM underruns are confirmed. Final cache retirement
+reaches zero bytes/retained with 11 reuses; battery runtime retires cleanly.
+Full audio/disk duration and screenshot acceptance remain open.
+
+All 1253 prior files are preserved apart from expected metadata; six new files
+are copied and hash-verified. Offline fsck is clean (273 directories, 1259 files),
+with allocation/writable/headroom passing. Current `a442f72d78af2e57`, independent
+recovery `9aa8dbf6fbda8252`, Ubuntu default and consumed one-shot are verified.
+Evidence under local `build/air-text-history-20261101/native-trial` is independently
+backed up; USB is remounted and no reboot is armed.
+
+### Text journal reservation candidate — ready for native retest
+
+Production `6739a6e6` reserves the unchanged 256 KiB undo journal with each
+Text document mapping. The first mapping precedes helper startup; journal
+attachment precedes window-open. Runtime role initialization avoids the separate
+heap allocation, while explicit borrowed/owned cleanup retains standalone
+allocation fallback. Sparse history setup and scheduler brackets now identify
+that part of startup. This removes a plausible old wait; the failed native
+role-init body was not separately measured and remains unproven.
+
+Full core/desktop regressions and matched ordinary/native/synthetic builds pass.
+Host tests prove independent undo/redo, no heap calls for reserved journals,
+owned cleanup, repeated release and allocation/attachment refusals. Clean-source
+combined VMs pass: populated Home at 100 write IOPS completes 16 lifetimes
+(UI maximum 120070 us, ready 1365143 us, close 1540385 us); normal load completes
+24 (UI 138881 us, ready 1196036 us, close 1070114 us). Both require complete
+history/startup/retirement, PCM/disk/screenshot and zero retained-cache receipts.
+
+The first 20-Files harness fails on an interleaved human startup diagnostic even
+though Text publishes. Its raw evidence is retained. Harness-only `2f6c769a`
+synchronizes on actual first publication; the retry passes all 20 windows,
+independent history, accepted 8 MiB copy through Close, concurrent Text save,
+exact bytes and process cleanup. The prior final-source 50-IOPS overlap failure
+remains open; these passes do not replace it.
+
+Candidate `a442f72d78af2e57` stages `2f6c769a`. Exact TCG native-profile refusal,
+save/unmount/return passes boot plumbing only. Independent payload/evidence
+backups are verified outside build. Installed `70696fcbbb72a1aa`, independent
+recovery `9aa8dbf6fbda8252`, Ubuntu default and empty one-shot are verified;
+no reboot is armed. Next is the unchanged automatic 1800-second native workload
+at 1% volume. New native endurance acceptance remains pending.
+
+### Text history reservation scope
+
+Continue PR260 from base `92ec9b09`: audit the first Text role initialization
+(the native role ID is 2, not Files). Its remaining heap allocation creates the
+undo journal after helper startup. Reserve that journal in the document mapping,
+retain explicit borrowed/heap ownership and cleanup, and measure history setup
+separately. This removes a plausible gated allocation without claiming the old
+unbracketed stall is conclusively attributed. Validate journal isolation/undo/
+cleanup and combined loaded app lifecycles locally before another native trial.
+No deadline, scheduler gate, device matching or recovery change is planned.
+PR252 socket/resolver and PR19 Wi-Fi remain separate scopes. Installed candidate
+`70696fcbbb72a1aa` is collected; no reboot is armed.
+
+### Startup admission native return — first-window readiness failure
+
+Release `70696fcbbb72a1aa` (staged `cf1b3385`, production `185c6668`) returned
+with session `session-00065f306d1c0d7c-00`. The unchanged 1800-second endurance
+**fails before its first completed app cycle**: Text PID8 reaches the total
+lifecycle deadline at 10008813 us while awaiting first pixels. The compositor
+remains responsive (maximum loop 101092 us); this does not accept full endurance.
+
+The retained first startup observes initial document allocation at 131 us,
+actual kernel thread creation at 36 us and whole file-service initialization at
+210 us. The map/create scheduler brackets record zero blocked and ready time.
+This observes the targeted bounded path on this run only. The subsequent
+`role-init` begins but has no completion record; its exact blocking operation
+is not yet attributed. Do not label the earlier admission delay resolved for
+all lifetimes or widen the unchanged deadlines.
+
+Volume 1% is confirmed. Screenshot transfer is incomplete, and full-duration
+PCM/disk/screenshot acceptance remains open. Final cache retirement reaches
+zero bytes/retained and battery runtime retires cleanly. Installed is
+`70696fcbbb72a1aa`, independent recovery remains `9aa8dbf6fbda8252`.
+All 1249 prior files are preserved apart from expected metadata; four new files
+are copied and hash-verified. Offline fsck is clean (271 directories, 1253 files),
+with allocation/writable/headroom checks passing. Current/recovery payloads,
+Ubuntu default and consumed one-shot are verified. No reboot is armed; evidence
+under local `build/air-startup-admission-20261101` is independently backed up.
+
+### Startup admission candidate — local validation
+
+PR260 production source `185c6668` addresses the first-thread admission wait and
+measures initial allocation separately. The first-thread constructor has no
+blocking body operation; the older native document-map interval lacks substep
+attribution. A checked sole-main prelude now handles bounded first-thread/TLS construction and
+one-candidate anonymous RW allocation without releasing a foreign owner. Complete
+thread identity/CR3/TLS/FPU is published before READY, and the prepared entry
+avoids the allocating generic context refresh. Initial Text/Files models are
+reserved before helper creation, with unopened-owner cleanup on failure.
+Unsupported cases retain gated fallback, fresh validation, cancellation and gate
+metrics. No filesystem, firmware/profile or timing-limit change is involved.
+
+Final full core/desktop and matched ordinary/native/synthetic builds pass. Host
+coverage includes PMM/PTE failure, retained failed-unmap ownership, silent atomic
+error paths, invalid/late-invalid stack pointers, cancellation during admission,
+complete READY publication and pre-entry cancellation. Original admission and
+console-callback negative controls reproduce the old refusals/hazard. The actual
+Q35 pthread/POSIX suite passes lifecycle, TLS, synchronization, signal, heap,
+descriptor and stdio cases; its 120-second functional harness allowance changes
+no production deadline. All local checks run with Actions disabled.
+
+Final-source combined VM results:
+
+- Populated Home at 100 write IOPS: full PASS, 14 lifetimes, UI maximum 120694 us,
+  ready 2074342 us and close 3549838 us. Validated initial map peaks at 21382 us,
+  kernel create 14627 us; whole helper initialization 692894 us includes diagnostic
+  output. Full PCM/file/screenshot/cache/service and process retirement pass.
+- Normal load: full PASS, 25 lifetimes, UI 198257 us, ready 1279283 us and close
+  763795 us. Validated map peaks at 49069 us and kernel create at 50480 us.
+- Twenty same-process Files windows: PASS independent navigation, accepted 8 MiB
+  copy through Close, concurrent Text save, exact bytes and complete cleanup.
+- Final 50-IOPS run retains the known overlap **FAIL**: last disk completion is
+  2765425 us after PCM, with zero underruns and worker status zero. It has no
+  lifecycle deadline; ten lifetimes independently validate complete startup/
+  retirement phases. Earlier source `249acd30` passed that workload, but that
+  does not promote the final failed run. Keep both raw outcomes.
+
+Source/evidence/checkpoint are in local `build/air-startup-admission-20261101`;
+independent copies survive distclean. Candidate `70696fcbbb72a1aa` stages clean
+source `cf1b3385`; exact TCG native-profile refusal/save/unmount/reset rehearsal
+passes only boot/return plumbing. The payload and current/recovery installation
+are independently verified. Native startup responsiveness and full
+1800-second endurance were pending at staging. The native result above supersedes
+that checkpoint; recovery remains `9aa8dbf6fbda8252`.
+
+### First-helper and initial-model admission scope
+
+On the existing device branch, base `92ec9b09` plus PR260, isolate the native
+kernel-create gate wait and initial anonymous allocation. The dispatcher gates
+both calls before entry; the creation body has no blocking wait. Audit and test
+narrow atomic attempts only for a sole main thread, bounded TLS/anonymous pages,
+matching address space and no same-process I/O/image owner. Keep unsupported,
+threaded, file-backed, fixed, oversized and unproven calls on ordinary admission.
+Publish complete initial user-thread context before READY eligibility; avoid
+routing an uninitialized kernel continuation around I/O. Preallocate the first
+Text/Files model before helper startup, retaining unopened-model cleanup on
+failure. Use no service window inside the atomic operation; retain rollback
+ownership, existing budgets and actual process reaping. Add host refusal/failure/
+context-publication tests, loaded and guest pthread VMs, then exact staging.
+PR19 Wi-Fi and PR252 resolver/socket work remain independent. Installed `ce3f369efb135f20`
+and recovery `9aa8dbf6fbda8252` remain untouched; no reboot is armed.
+
+### Native helper-unmap return — startup still misses lifecycle budget
+
+Release `ce3f369efb135f20`, staged source `93211110` / production `baeabeba`,
+returned with session `session-00065f2ebcacec7e-00`. Full endurance **fails at cycle
+10**, before completing the unchanged 1800-second PCM/disk/screenshot workload.
+Playback volume 1% is confirmed. UI maximum is 109070 us; ready maximum 8750931 us
+and completed-close maximum 4749780 us. The total lifecycle deadline fires at
+10008376 us for Text PID22. No threshold has changed.
+
+The targeted mapping wait is absent in the retained native evidence: PID22
+canvas retirement takes 246 us, document retirement 134 us, each with zero blocked
+or ready time. Across seven complete retained helper samples, canvas unmap peaks
+at 249 us and document unmap at 136 us. Final helper receipts retire both maps,
+with pending zero and no retirement failures. This observes the bounded helper
+unmap improvement, not full endurance or unrestricted concurrent memory safety.
+
+PID22 instead spends 6230534 us in actual kernel thread creation (6221611 us
+blocked, 8870 us ready) and 2466675 us in document mapping. Helper initialization
+is 6239668 us; readiness at 8750931 us consumes most of the unchanged launch-to-reap
+budget. Close ACK takes 18755 us, helper stop 20 us and pool retirement 10925 us;
+main return occurs after the deadline. Document-map time lacks substep scheduler
+attribution. Next isolate creation/allocation admission and its actual owner;
+do not widen those gates merely because the wall interval is long.
+
+Final cache retires to zero bytes/retained with nine reuses and battery runtime
+retires cleanly. All 1243 prior files are preserved apart from expected metadata;
+six new files are copied and hash-verified. Offline fsck is clean (269 directories,
+1249 files), with allocation/writable/headroom checks passing. Installed candidate,
+independent recovery, Ubuntu default and consumed one-shot are verified. Recovery
+remains `9aa8dbf6fbda8252`; installed is `ce3f369efb135f20`; no reboot is armed.
+Evidence and attribution under local `build/air-unmap-helper-20261101/native-trial`
+are independently backed up. PR260 remains draft; earlier failures stay failures.
+
+### Helper unmap candidate — local validation
+
+Production source `baeabeba` extends only bounded whole-anonymous retirement.
+The original main-thread-only proof refuses a file helper, forcing it behind
+foreign I/O. The host regression reproduces that refusal and passes with the
+candidate. Helpers require active process ownership, matching address spaces,
+no same-process I/O/private-image owner, and all live siblings safely parked on
+the audited GUI/sleep queue. A park marker survives wake-to-READY and clears
+before execution, including no-switch return. Arbitrary suspended safe syscalls
+are refused. Existing size/provenance/PTE/frame/futex checks, IRQ exclusion,
+gated fallback and actual completion remain; no deadline or device gate changes.
+
+Local combined VMs pass with complete phase, file, PCM, screenshot and retirement
+receipts: populated Home at 100 write IOPS runs 14 lifetimes (UI maximum 111360 us,
+ready 2349752 us, close 3018778 us). Complete console document-unmap samples peak
+at 21051 us, canvas at 22629 us. Normal-load source `3f312deb` (host collector only
+since the production change) passes 22 lifetimes, UI 112535 us, ready 1319968 us,
+close 1040875 us. Twenty same-process Files windows pass independent navigation,
+accepted 8 MiB copy through Close, concurrent Text save and complete cleanup.
+These are VM observations, not native latency acceptance.
+
+Keep failures: the stricter BLOCKED-only predecessor failed one UI message-dispatch
+loop at 570682 us, while PCM/file work passed. Final 50-IOPS still fails the known
+playback-overlap receipt: the final disk operation ends 350176 us after playback,
+with zero underruns and worker status zero. It has no lifecycle deadline failure;
+complete console document unmaps peak at 49568 us. This remains an open separate
+issue, not a passed endurance run. A first normal VM had workload PASS but incomplete
+timing evidence; its interleaved UART barrier prevented a checkpoint capture.
+The host collector now accepts an exact durable-generation acknowledgement from
+a later verified disk checkpoint, retains both rotation slots, and continues to
+reject incomplete/conflicting records. Its 34 tests pass. No guest workload,
+logger pacing, logging limit or acceptance bound changes.
+
+Evidence lives in local `build/air-unmap-helper-20261101`, independently backed up
+outside build. Full final core/desktop and 746-link documentation checks pass. Candidate
+`ce3f369efb135f20` stages source `93211110`; exact TCG native-profile
+refusal/save/unmount/reset passes, which accepts only boot/return plumbing.
+The payload has an independent copy. Fresh media/install/recovery checks and a
+refreshed 1% volume override remain prerequisites for the unchanged automatic
+1800-second diagnostic trial. This work block does not install or reboot.
+PR260 remains draft pending native validation. Installed release
+`928447acaed4bcfb` and recovery `9aa8dbf6fbda8252` are unchanged; no reboot is armed.
+
+### Helper-owned unmap scope
+
+From `main` at `92ec9b09` and PR260, investigate bounded anonymous unmap
+admission in process/scheduler and directed host/loaded VM tests. The current
+single-thread-only atomic proof refuses the file helper, forcing ordinary gated
+retirement behind foreign I/O. Reproduce that refusal before extending the proof
+to a current helper with safely paused siblings, no same-process I/O/image owner,
+and the existing bounded exact anonymous/PTE checks. Keep IRQ exclusion through
+mutation, no service windows, actual frame retirement and gated fallback. No
+thread creation, mapping allocation, exit, driver or firmware gate changes.
+PR19 Wi-Fi and PR252 resolver/socket scopes remain independent; preserve their
+shared syscall tests when integrating. No new native trial is armed.
+
+### Automated helper candidate return — endurance failure
+
+Release `928447acaed4bcfb`, source `fe8d1a76`, returned automatically with matching
+session `session-00065f2d08e7cfd9-00`. Playback snapshots confirm volume 1% and
+zero underruns in the retained interval. This is **not** full endurance acceptance:
+the lifecycle test failed at cycle 10, before the 1800-second workload completed.
+Maximum UI loop is 101717 us, ready 6181340 us and completed close 5759059 us.
+
+Failing Text PID22 initializes its helper in 2779 us and acknowledges Close in
+22618 us. Its document unmap takes 10089090 us, of which the phase scheduler
+attributes 10086550 us to blocking and 2382 us to ready delay. The unchanged
+launch-to-reap deadline fires at 10008679 us. This isolates the remaining observed
+wait to mapping retirement, without yet identifying the exact blocking owner.
+Retained complete helper initializations range from 1656 to 4473 us; they do not
+bound unretained earlier spans. Final helper receipts drain both mappings, pending
+zero, no retirement failures; cache retires to zero bytes/retained with ten reuses,
+and battery runtime retires cleanly. Full PCM/screenshot endurance remains open.
+
+All 1237 prior files are preserved apart from expected filesystem metadata; six
+new files are copied and hash-verified. Offline fsck is clean (267 directories,
+1243 files), with allocation/writable/headroom checks passing. Ubuntu default,
+consumed one-shot, current payload and independent recovery are verified.
+Local collection and attribution are under `build/air-helper-init-20261101`.
+Next investigate unmap admission and I/O ownership with a directed reproducer;
+keep deadlines, accepted-job drain and actual mapping/process retirement intact.
+Installed candidate remains `928447acaed4bcfb`; recovery remains `9aa8dbf6fbda8252`.
+No subsequent trial is requested or armed by this return review.
+
+### Helper startup candidate ready for native validation (2026-11-01 UTC)
+
+[PR260](https://github.com/PaulMDemers/SrvrOS/pull/260), source `fe8d1a76`, removes
+the start-record heap allocation and unrelated-I/O gate on current-thread ID.
+Actual kernel thread creation remains gated and separately measured. Atomic VM
+records identify the earlier three waits; they do not attribute the exact old
+native interval or accept its physical improvement. In the final 100-IOPS run,
+the largest complete helper initialization is 976360 us. Full initialization
+phase receipts are required, including absence of helper heap/stack allocation.
+
+Final-source checks pass locally with Actions disabled:
+
+- Full desktop/adapter suite and matched ordinary/native/VM builds; core/libc
+  tests pass at `71f40b11`, with that kernel/libc code unchanged in the final tree.
+  Directed cases cover 192 joins/slot reuse, full-table refusal, early exit/detach,
+  join retry, foreign-I/O identity/default-deny and held-map ownership.
+- Populated Home, 100 write IOPS: full combined PASS, 12 lifetimes, maximum UI
+  122268 us, ready 2523809 us and close 2900428 us; complete PCM, screenshot,
+  file preservation, service/cache and process-retirement receipts.
+- Normal combined PASS: 23 lifetimes, UI 129680 us, ready 976282 us and close
+  1181136 us. Twenty-window Files PASS retains an accepted 8 MiB copy through
+  Close, concurrent Text save, exact files and complete cleanup.
+- Actual Q35 guest threadstress/POSIX suite PASS, including pthread contracts,
+  destructors, main-thread lifetime, synchronization, fork and descriptor tests.
+
+Idle backend retirement now overlaps helper mapping drain only after all model
+owners/accepted jobs are detached and no opening/binding/FIFO remains. Completion
+still requires actual maps retired, helper body quiescent and children reaped.
+A deterministic negative control reproduced a stop/publication race in the first
+ordering change: a reused slot behind the scan could be missed. Acquiring stop
+now triggers a final scan before quiescence; the held-last-slot/reused-first-slot
+regression passes. No queued mapping is declared complete merely by requesting
+stop. Keep the negative control and earlier failed VMs as history.
+
+The intermediate 100-IOPS accepted-listing/serial-retirement failure is retained;
+final ordering passes that workload in VM. The earlier 50-IOPS final disk burst
+outlasting playback remains open and was not rerun on this final source. Native
+endurance and native helper latency remain pending; no limits were relaxed.
+
+Candidate `928447acaed4bcfb` is staged and independently backed up. Exact-stage
+TCG native-profile refusal/save/unmount/reset rehearsal passes; that is boot/
+return-path evidence only. Installed `5c4c800cd105b347` and recovery
+`9aa8dbf6fbda8252` remain unchanged, with no new reboot armed. The next physical
+run uses the unchanged automatic 1800-second profile, fresh media/recovery/install
+preflight and a refreshed 1% volume override before playback. Evidence/checkpoint
+are in local `build/air-helper-init-20261101`, with verified copies outside build.
+
+### Final-owner retirement overlap follow-up (2026-11-01 UTC)
+
+Source `71f40b11` normal combined VM passes21 lifetimes/UI140649us, ready1279634us,
+close1880192us. Fixed100IOPS retains a Files total-deadline FAIL after an accepted
+LIST drains: helper initialization is fast, but mapping retirement, helper stop
+and idle file-worker shutdown run serially. Preserve that failure. Fixed50IOPS
+retains the previous PCM-overlap FAIL without a lifecycle deadline failure.
+
+Extend only final-owner shutdown ordering: after all GUI/model owners have been
+released, no opening is pending and pool bindings/FIFO are empty, use existing
+pool shutdown to publish EOF/reap idle workers while queued mapping retirement
+finishes. Request helper stop once, preventing another idle wait after drain.
+Final code still consumes actual mapping completions/body quiescence and verifies
+backend reaping before return. Queue refusal/error retains ownership. This does
+not cancel accepted jobs, abandon children, relax deadlines or change a kernel
+gate. Test a held unmap with concurrent idle-worker EOF/reaping before retesting.
+
+### Measured pthread startup follow-up (2026-11-01 UTC)
+
+Instrumented source `a9dcd73b` passes the populated 100-IOPS combined VM, while
+its atomic phase receipts isolate three independent waits: thread-self lookup
+blocks 636667 us, heap start-record allocation 533083 us and actual kernel
+thread creation 741065 us in the largest retained examples. These are VM
+measurements, not an attribution of the exact native 6.108-second interval.
+
+Extend this bounded scope to embed each worker's startup state in its existing
+16-slot pthread record table. Reserve and initialize under the existing table
+lock before kernel creation; preserve creator/claim/detach/join rules and copy
+owned-stack state before releasing a slot for reuse. Keep main-thread storage
+separate. This removes the startup heap allocation without changing stack policy
+or the thread limit. Also admit only SYS_THREAD_SELF's read-only current-context
+lookup during unrelated I/O; actual thread creation/status/join/detach, heap and
+mapping calls retain their gates. Add foreign-owner identity/default-deny and
+record-reuse/exhaustion regressions. Keep initialization telemetry and unchanged
+VM/native deadlines; no new hardware boot is armed.
+
+### Helper initialization isolation scope (2026-11-01 UTC)
+
+On device/macbookair7-2/desktop-runtime, integration base `92ec9b09` plus the
+recorded failed return, the Air agent owns sparse helper initialization timing
+in file_service/text_runtime and an optional internal pthread-create observation
+hook in libc. Separate attribute setup, detached reaping, stack selection,
+start-record allocation, record reservation, kernel thread creation and final
+publication. Pair wall times with scheduler attribution; do not infer the exact
+6.108-second native wait from source inspection alone. The hook is diagnostic,
+opted into only around Text/Files helper creation, not a new POSIX API.
+
+Reproduce under loaded VMs before choosing a fix. Keep general mapping/thread
+creation/exit admission and all timing limits unchanged unless a measured,
+separately scoped safety argument and directed tests justify a narrow change.
+PR252 socket/resolver and PR19 Wi-Fi remain independent. Native session is
+collected/integrity verified, installed `5c4c800cd105b347`, recovery
+`9aa8dbf6fbda8252`, USB `37D8-C5D0`; no reboot armed. Stop at a tested candidate
+and saved checkpoint for the next diagnostic physical run.
+
+### Async-service native return: startup deadline remains open (2026-11-01 UTC)
+
+Release `5c4c800cd105b347`, source `efcdb24d`, saved matching session and
+returned to Ubuntu. The saved receipt confirms the requested 1% volume.
+The unchanged 1800-second workload **FAILS early** after nine completed app
+lifetimes: UI maximum 101706 us, ready maximum 9003295 us, completed-close
+maximum 3100187 us. Text PID18 exceeds the total lifecycle deadline at
+10001117 us. This is not an endurance acceptance or audible/input acceptance.
+
+Helper initialization before GUI admission takes 6108130 us. Readiness consumes
+9.003 seconds of the existing ten-second launch-to-reap budget. Close reception
+to ACK is 21490 us; helper canvas/model unmaps complete in 368870/118735 us,
+stop in 6043 us and pool retirement in 30 us. Main returns after the deadline;
+body quiescence does not prove timely whole-process retirement. The live
+compositor remains within its UI bound. Measure helper initialization subphases
+next to distinguish attributes, pthread/TLS setup and kernel thread creation;
+the current trace does not identify the blocking step. Keep all limits unchanged.
+
+The screenshot and PCM workload are incomplete. Final cache retirement is zero
+bytes/zero retained with eight reuses; battery runtime retires without residual
+heap/errors/denied operations. All 1231 prior files retain their hashes except
+expected filesystem metadata; six new evidence files are copied and verified.
+Offline fsck, allocation, write eligibility and headroom pass. Current candidate,
+independent recovery and Ubuntu default are verified; one-shot is consumed and
+no new test is armed. Raw evidence/checkpoint remain locally retained and backed
+up outside `build`. PR258's merge does not accept this failed trial.
 
 ### Integration and workspace retention checkpoint (2026-11-01 UTC)
 

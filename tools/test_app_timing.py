@@ -1,8 +1,8 @@
 import unittest
-from app_timing import validate_app_timing, saved_app_timing, lifecycle_receipts, RECORD
+from app_timing import validate_collected_app_timing, validate_app_timing, saved_app_timing, lifecycle_receipts, RECORD, PTHREAD_INIT_STAGES
 
 
-def fixture(files_window_runtime=False,async_service=False):
+def fixture(files_window_runtime=False,async_service=False,helper_initialization=False,initial_reservation=False,first_surface=False):
     lines = []
     for cycle, role in enumerate((2, 1, 4)):
         now = 100
@@ -16,6 +16,13 @@ def fixture(files_window_runtime=False,async_service=False):
         if mapped:
             phases.insert(0, 'document-map')
             if async_service:phases.insert(0,'file-service-init')
+            if helper_initialization:phases[0:0]=sorted(PTHREAD_INIT_STAGES)
+            if initial_reservation:phases.remove('document-map');phases.insert(0,'document-map')
+        if first_surface and mapped:
+            phases.insert(phases.index('document-map')+1,'canvas-reserve')
+            phases.insert(phases.index('window-open')+1,'canvas-adopt')
+            phases+=['canvas-pixels','canvas-surface','first-controls','first-draw','first-present']
+            if role==2:phases.insert(phases.index('first-controls'),'first-service')
         for phase in phases:
             emit(phase, 'begin');emit(phase, 'end', 10)
         emit('first-publish');emit('close-received')
@@ -32,6 +39,65 @@ def fixture(files_window_runtime=False,async_service=False):
 
 
 class TimingTests(unittest.TestCase):
+    def test_complete_atomic_records_do_not_require_uart(self):
+        raw=fixture();completed=[(0,8),(1,9),(2,10)]
+        # A syntactically valid UART line may still be corrupted by a writer.
+        # Do not merge it into a complete independent atomic evidence set.
+        bad=raw.replace(b'edge=begin at_us=120 elapsed_us=0',b'edge=begin at_us=120 elapsed_us=019',1)
+        self.assertNotEqual(bad,raw)
+        with self.assertRaises(AssertionError):validate_app_timing(bad,completed)
+        result,source=validate_collected_app_timing(bad,[raw],completed)
+        self.assertEqual(result,validate_app_timing(raw,completed));self.assertEqual(source,'complete_saved_atomic_records')
+        result,source=validate_collected_app_timing(raw,[b''],completed)
+        self.assertEqual(result,validate_app_timing(raw,completed));self.assertEqual(source,'complete_console_records_and_retained_atomic_checkpoints')
+        with self.assertRaises(AssertionError):validate_collected_app_timing(bad,[b''],completed)
+        with self.assertRaises(AssertionError):validate_collected_app_timing(raw,[raw+raw.splitlines()[0]],completed)
+
+    def test_first_surface_phases_and_order(self):
+        raw=fixture(True,True,True,True,True)
+        kwargs=dict(files_window_runtime=True,async_file_service=True,helper_initialization=True,initial_model_reservation=True,first_surface=True)
+        validate_app_timing(raw,[(0,8),(1,9),(2,10)],**kwargs)
+        for stage in ['canvas-reserve','canvas-adopt','canvas-pixels','canvas-surface','first-controls','first-draw','first-present','first-service']:
+            with self.subTest(stage=stage),self.assertRaises(AssertionError):
+                validate_app_timing(raw.replace(('stage='+stage+' ').encode(),b'stage=missing '),[(0,8),(1,9),(2,10)],**kwargs)
+        with self.assertRaises(AssertionError):
+            validate_app_timing(raw.replace(b'stage=canvas-reserve ',b'stage=canvas-adopt ').replace(b'stage=window-open ',b'stage=canvas-reserve '),[(0,8),(1,9),(2,10)],**kwargs)
+
+    def test_reserved_text_history_order_and_completeness(self):
+        raw=fixture(True,True,True,True)
+        lines=raw.splitlines();out=[]
+        for row in lines:
+            if b'pid=8 ' in row and b'stage=window-open edge=begin' in row:
+                now=int(RECORD.fullmatch(row)[6])
+                for edge,stamp,elapsed in [('begin',now-8,0),('end',now-6,2)]:
+                    out.append(f'app-timing: pid=8 role=2 window=0 stage=text-history-reserve edge={edge} at_us={stamp} elapsed_us={elapsed}'.encode())
+            out.append(row)
+            if b'pid=8 ' in row and b'stage=role-init edge=begin' in row:
+                now=int(RECORD.fullmatch(row)[6])
+                for edge,stamp,elapsed in [('begin',now+2,0),('end',now+4,2)]:
+                    out.append(f'app-timing: pid=8 role=2 window=1 stage=text-history-init edge={edge} at_us={stamp} elapsed_us={elapsed}'.encode())
+        good=b'\n'.join(out)
+        kwargs=dict(files_window_runtime=True,async_file_service=True,helper_initialization=True,initial_model_reservation=True,reserved_text_history=True)
+        validate_app_timing(good,[(0,8),(1,9),(2,10)],**kwargs)
+        with self.assertRaises(AssertionError):validate_app_timing(raw,[(0,8),(1,9),(2,10)],**kwargs)
+        with self.assertRaises(AssertionError):validate_app_timing(good.replace(b'text-history-reserve',b'missing'),[(0,8),(1,9),(2,10)],**kwargs)
+
+    def test_initial_model_reserved_before_helper(self):
+        kwargs=dict(files_window_runtime=True,async_file_service=True,helper_initialization=True,initial_model_reservation=True)
+        validate_app_timing(fixture(True,True,True,True),[(0,8),(1,9),(2,10)],**kwargs)
+        with self.assertRaisesRegex(AssertionError,'initial model must precede helper startup'):
+            validate_app_timing(fixture(True,True,True),[(0,8),(1,9),(2,10)],**kwargs)
+
+    def test_helper_initialization_complete_once(self):
+        raw=fixture(True,True,True)
+        kwargs=dict(files_window_runtime=True,async_file_service=True,helper_initialization=True)
+        validate_app_timing(raw,[(0,8),(1,9),(2,10)],**kwargs)
+        for phase in PTHREAD_INIT_STAGES:
+            with self.subTest(phase=phase),self.assertRaises(AssertionError):
+                validate_app_timing(raw.replace(('stage='+phase+' ').encode(),b'stage=missing '),[(0,8),(1,9),(2,10)],**kwargs)
+        with self.assertRaises(AssertionError):
+            validate_app_timing(raw.replace(b'stage=pthread-publish ',b'stage=pthread-start-alloc '),[(0,8),(1,9),(2,10)],**kwargs)
+
     def test_shared_files_requires_complete_new_lifecycle(self):
         raw = fixture(files_window_runtime=True)
         result = validate_app_timing(raw, [(0, 8), (1, 9), (2, 10)], files_window_runtime=True)

@@ -9,17 +9,20 @@ from displayd_resolution_smoke import build_iso,read_for
 from exfat_test_image import ExfatFixture,check_clean_image
 from mk_usb_image import gpt_entry,gpt_header
 from vm_sockets import connect_unix
-from app_timing import RECORD,validate_app_timing,saved_app_timing,lifecycle_receipts
+from app_timing import RECORD,validate_collected_app_timing,lifecycle_receipts
 from loop_timing import validate_loop_timing
 from operation_timing import operation_snapshots
 from file_service_records import file_service_receipts
 
 
-def checkpoint_durable(output, after, name, at):
+def checkpoint_durable(output, after, name, at, snapshots=()):
     # New writers acknowledge only the exact completed log/device barrier.
     # Older immutable stages used the global workspace-flushed receipt.
+    marker=b'workspace-log: durable snapshot='+name+b' monotonic_us='+at
+    # A later already-verified disk checkpoint can preserve the atomic receipt
+    # lost to UART interleaving. Match the full generation, never repair UART.
+    if any(re.search(rb'^'+re.escape(marker)+rb'\r?\n',raw,re.M) for raw in snapshots):return True
     if b'workspace-log: durable snapshot=' in output:
-        marker=b'workspace-log: durable snapshot='+name+b' monotonic_us='+at
         return re.search(re.escape(marker)+rb'\r?\n',output[after:]) is not None
     return b'workspace: flushed' in output[after:]
 
@@ -58,7 +61,7 @@ def main():
     if stage:assert manifest['config_version'].startswith(('ram-usb-v74-','ram-usb-v80-'))
     air72=manifest['config_version'].startswith('ram-usb-v80-') if stage else args.air72
     if stage and args.air72 and not air72:parser.error('--air72 conflicts with staged profile')
-    output=bytearray();consumed=0
+    output=bytearray();consumed=0;timing_evidence="native_profile_refusal_only"
     with tempfile.TemporaryDirectory(prefix='srvros-combined-') as directory:
         tmp=Path(directory);volume=tmp/'volume';stick=tmp/'stick'
         with volume.open('wb') as f:f.truncate(128*1024*1024)
@@ -108,16 +111,25 @@ def main():
                     directories=re.findall(rb'workspace-log: directory=/work/([^ ]+) periodic_seconds=10',output)
                     marks=list(re.finditer(rb'workspace-log: snapshot=(session-[ab]\.log) monotonic_us=(\d+)[^\r\n]*[\r\n]',output))
                     if len(directories)!=1 or not marks:return
-                    mark=marks[-1];key=mark[1],mark[2]
-                    if key in collected or not checkpoint_durable(output,mark.end(),mark[1],mark[2]):return
-                    path=directories[0].decode()+'/'+mark[1].decode()
-                    def read_snapshot():return ExfatFixture(stick.read_bytes()[2048*512:end]).read(path)
-                    raw=read_snapshot()
-                    assert raw==read_snapshot(),'live checkpoint changed during host collection'
-                    receipt=b'workspace-log: snapshot='+mark[1]+b' monotonic_us='+mark[2]+b' '
-                    assert receipt in raw,'live checkpoint generation mismatch'
-                    checkpoints.append(raw);collected.add(key)
-                    (out/f'checkpoint-{len(checkpoints):03d}.log').write_bytes(raw)
+                    # Consider the newest generation of both rotation slots.
+                    # A verified later slot may acknowledge the other slot when
+                    # its UART barrier line interleaved. Never use overwritten
+                    # bytes as evidence for an earlier generation.
+                    latest={mark[1]:mark for mark in marks}
+                    progress=True
+                    while progress:
+                        progress=False
+                        for mark in reversed(list(latest.values())):
+                            key=mark[1],mark[2]
+                            if key in collected or not checkpoint_durable(output,mark.end(),*key,checkpoints):continue
+                            path=directories[0].decode()+'/'+mark[1].decode()
+                            def read_snapshot():return ExfatFixture(stick.read_bytes()[2048*512:end]).read(path)
+                            raw=read_snapshot()
+                            assert raw==read_snapshot(),'live checkpoint changed during host collection'
+                            receipt=b'workspace-log: snapshot='+mark[1]+b' monotonic_us='+mark[2]+b' '
+                            if receipt not in raw:continue
+                            checkpoints.append(raw);collected.add(key);progress=True
+                            (out/f'checkpoint-{len(checkpoints):03d}.log').write_bytes(raw)
                 def pump(seconds):
                     nonlocal previous,sample_at
                     output.extend(read_for(serial,seconds));(out/'serial.log').write_bytes(output)
@@ -187,12 +199,10 @@ def main():
                     ready,closed=lifecycle_receipts([bytes(output),*snapshots],int(lifecycle[1]))
                     assert max(row[2] for row in ready)==int(lifecycle[3])
                     assert max(row[2] for row in closed)==int(lifecycle[4])
-                    # This VM retains the complete UART capture as well as rotated disk
-                    # snapshots. Accept only whole console records, never repair
-                    # interleaved text; the existing complete-phase validator
-                    # still rejects every missing/conflicting lifecycle record.
-                    console_records=b'\n'.join(line for line in output.splitlines() if RECORD.fullmatch(line))
-                    timing=validate_app_timing(saved_app_timing([console_records,*snapshots]),[(int(cycle),int(pid)) for cycle,pid,_ in closed],files_window_runtime=True,async_file_service=True)
+                    # Complete atomic snapshots are authoritative when they
+                    # independently validate every lifetime. UART remains the
+                    # strict fallback for incomplete saved coverage, never repaired.
+                    timing,timing_evidence=validate_collected_app_timing(bytes(output),snapshots,[(int(cycle),int(pid)) for cycle,pid,_ in closed],files_window_runtime=True,async_file_service=True,helper_initialization=True,initial_model_reservation=True,reserved_text_history=True,first_surface=True)
                     (out/'app-timing.json').write_text(json.dumps(timing,indent=2)+'\n')
                     services=file_service_receipts([bytes(output),*snapshots],{row['pid']:row['role'] for row in timing if row['role'] in (1,2)})
                     (out/'file-service.json').write_text(json.dumps(services,indent=2)+'\n')
@@ -228,7 +238,7 @@ def main():
                 assert 'leaked=0 fat_bitmap_mismatches=0 errors=0' in allocation
                 (out/'allocation.log').write_text(allocation);(out/'overlap.json').write_text(json.dumps(overlap,indent=2)+'\n')
                 result=dict(status='PASS',accelerator=args.accel,stage=args.stage,manifest_sha256=boot.digest(stage/'manifest.json') if stage else None,observed_overlap_windows=len(overlap),input_injected=False,automatic_return=True,source=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),source_dirty=bool(subprocess.check_output(['git','status','--porcelain'],text=True)),native_acceptance=False,model='MacBookAir7,2' if air72 else 'MacBookAir6,1')
-                result.update(app_timing_evidence='complete_console_records_and_retained_atomic_checkpoints',retained_checkpoints=len(checkpoints),populated_home=args.populated_home,write_iops=args.write_iops,prior_files_preserved=len(prior))
+                result.update(app_timing_evidence=timing_evidence,retained_checkpoints=len(checkpoints),populated_home=args.populated_home,write_iops=args.write_iops,prior_files_preserved=len(prior))
                 (out/'result.json').write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result))
             finally:
                 stop_process(process);(out/'serial.log').write_bytes(output)

@@ -3964,3 +3964,11 @@ test-file-service: build/tests/file-service-host$(HOST_EXE)
 build/tests/file-service-host$(HOST_EXE): tools/test_file_service.c userspace/desktools/file_service.h userspace/lib/src/desk_file_job.c userspace/lib/include/srvros/desk_file_job.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -pthread -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-tool-text-history
+test-desktop: test-tool-text-history
+test-tool-text-history: build/tests/tool-text-history-host$(HOST_EXE)
+	$<
+build/tests/tool-text-history-host$(HOST_EXE): tools/test_tool_text_history.c userspace/desktools/text_app.c userspace/desktools/app.h userspace/widgets/src/text.c $(DESK_WIDGETS_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include -I userspace/widgets/include tools/test_tool_text_history.c userspace/widgets/src/text.c -Wl,--gc-sections -o $@

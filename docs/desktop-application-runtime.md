@@ -173,10 +173,71 @@ scheduler records. It validates physical translations, then retires pages and
 futex bindings with interrupts masked, without yielding, allocating or releasing
 foreign I/O ownership. Unmap failure retains remaining frames/region ownership;
 no still-mapped frame receives free credit. Anonymous provenance follows splits
-and fork's existing copy. Unsupported, partial, file-backed, threaded or oversized
-requests take the original gate and general implementation; that fallback keeps
+and fork's existing copy. A current active helper owned by that process may also
+retire a region atomically when every live sibling is safely parked on the audited
+file-poll queue used by GUI/sleep waits. A scheduler park marker survives wake to
+READY but clears before that context executes, including a no-switch return.
+An arbitrary READY safe syscall is insufficient: it might be suspended inside a
+copy. Same-process I/O/private-image owners, unsafe siblings, wrong address spaces,
+quarantined contexts and unbounded scans refuse this proof. The mutation never
+yields or invokes a service window. This is a CPU0 retirement proof, not permission
+for parallel address-space mutation or general threaded mapping operations.
+Unsupported, partial, file-backed, unproven threaded or oversized requests take the original gate and general implementation; that fallback keeps
 the normal quiescent handoff. Exit, mmap and other lifetime operations remain
-gated. These finite work bounds are not a claim of a measured wall-time bound.
+gated except for the separately proven startup attempts below. These finite work
+bounds are not a claim of a measured wall-time bound.
+
+Startup has two additional validation preludes, not general allocation/thread
+admission. With IRQs masked, the caller must be the sole main thread in its
+current active process, with matching CR3, bounded mapping/scheduler scans and
+no same-process I/O/private-image owner. The anonymous-map attempt accepts only
+address zero, private anonymous RW, fd -1/offset zero and at most 2 MiB. It tests
+one candidate and refuses collisions instead of searching indefinitely. A region
+reservation precedes page creation; checked rollback retains still-mapped frames
+and region ownership on failure. The first/reused sole-main thread attempt checks
+tracked executable entry and writable stack PTEs, a contained eight-byte stack
+slot and TLS bounded to two pages. Both paths use audited IRQ-safe PMM/VMM work,
+without service windows or console callbacks, including allocation failures.
+Refusals retain ordinary admission, fresh stack validation, cancellation before
+mutation, gate timing and the final fair handoff. Other threads, heap calls,
+file-backed/fixed/oversized mappings and process teardown keep their gates.
+
+The scheduler publishes a prepared user thread's process identity, address space,
+TLS/FS and FPU pointer before READY eligibility. Its fixed entry goes directly to
+userspace; the general context setter is unsuitable here because refreshing
+kernel mappings can allocate. This constructor is not an alternative for arbitrary
+kernel callbacks or a process-image loader. Normal syscall admission still gates
+its later unsafe operations, and same-process I/O ownership still excludes it.
+Pre-entry cancellation can find the complete thread identity. The existing pthread
+creator pin continues to protect against a child running before parent publication.
+
+Text/Files reserve the initial unopened model before starting that helper. A
+startup failure releases the unborrowed model; no GUI owner or work request has
+been published. Later windows keep the existing allocating/ownership path. The
+combined VM validator requires complete timing records proving initial allocation
+ends before helper initialization. These CPU0 proofs do not authorize parallel
+address-space mutation, change process/thread budgets or establish native latency.
+Text also reserves the undo-journal header and unchanged 256 KiB journal capacity
+in its document mapping. Runtime setup attaches that borrowed storage before
+window-open; role initialization performs no separate journal heap allocation.
+The first reservation is part of the sole-main initial mapping; later windows
+use the ordinary document allocation path. Standalone Text callers retain
+heap-owned history and its existing single-step fallback on allocation failure.
+Explicit ownership prevents freeing a pointer into the mapped model. Journal
+storage retires with that model only after GUI/job owners release it. Sparse
+`text-history-reserve` and `text-history-init` timestamps and scheduler brackets
+separate setup from later role initialization; incomplete brackets are not a
+passing zero-duration measurement.
+
+The first standard Text/Files canvas is now also reserved before helper startup
+and adopted by the opening window. This avoids an initial CONFIGURE pixel mmap
+once a helper makes the process ineligible for sole-main allocation. Geometry
+mismatch and later resizing retain normal allocation/admission. The optional
+client surface trace reports `canvas-pixels` and `canvas-surface`; tools also
+bracket first service registration, controls, draw and present. Combined VM
+validation requires complete ordered reservation/adoption/first-surface records.
+The earlier native role-init-to-publish gap lacked these substeps and remains
+historical unproven attribution until a new physical run.
 
 The compositor may retain up to two completed pixel-cache buffers after window
 retirement. They stay reserved inside the existing96MiB cache budget, including
@@ -324,3 +385,62 @@ remain open: a final disk burst can outlast PCM playback, and System admission
 can exceed the compositor UI bound. Keep the existing workload and timing limits;
 see the [Air record](machines/macbookair7-2.md) for measured failures and candidate
 status before another physical trial.
+
+
+Helper initialization now has opt-in internal pthread phase observations.
+Text/Files enable them only on the creating dispatcher around service startup;
+worker TLS starts with the observer disabled. Attribute setup, detached-reap
+identity/records, record reservation, actual kernel creation and publication have
+separate whole phase receipts and scheduler attribution. Other pthread callers
+have no diagnostic sink unless they explicitly supply the internal hook.
+
+Worker startup state is embedded in the existing bounded pthread record table,
+reserved and initialized before kernel creation. It follows the same creator,
+claim, detach and verified-join lifetime. Cleanup captures stack ownership before
+clearing a record, allowing safe slot reuse while owned-stack unmapping yields.
+Main-thread storage remains separate. This removes the startup-record heap
+allocation; supplied-stack policy and the existing thread limit are unchanged.
+The current-thread ID lookup alone is admitted during unrelated I/O because it
+reads only scheduler-owned context. Actual thread creation, thread status/join/
+detach, heap growth and mapping keep their existing admission rules. Removing a
+helper startup allocation does not prove that later app allocations cannot wait;
+retain end-to-end readiness, UI and full-process deadlines in validation.
+
+
+Final-owner retirement can overlap idle backend EOF/reaping with queued helper
+unmaps once there are no GUI/model owners or pending openings and the file pool
+has no bindings or FIFO jobs. Models reach that point only after their accepted
+work drains. Stop requests remain separate from completion: observing stop
+requires a final acquired scan, since a producer may have queued into a recycled
+slot behind the preceding scan. Then helpers finish actual mapping/unused-child
+ownership and publish body quiescence. Final pool finish and verified process
+waits remain mandatory. A held-last-slot/reused-first-slot regression reproduces
+the missing-scan failure and verifies complete retirement after the fix.
+
+
+### Compositor message fairness
+
+The compositor retains its 32-packet receive cap and checks a 2 ms elapsed wall
+budget between handled packets. Remaining packets stay queued in order; normal
+input, rendering and lifecycle work run before the next batch. An in-flight
+handler still completes with its original ownership and is not abandoned at the
+budget. This prevents accumulated service-yielding handlers from monopolizing a
+turn; it is not a maximum duration guarantee for one copy or handler. Existing
+UI/lifecycle acceptance deadlines and audio/filesystem workloads are unchanged.
+
+Combined validation first checks whether saved atomic snapshots independently
+contain all required process identities, events and ordered complete phases.
+When they do, the separate lossy UART channel is unnecessary. Incomplete saved
+coverage retains strict whole-record UART/snapshot union validation, with no byte
+repair or overwritten conflicts. The receipt identifies which evidence path was
+used; an early return or partial phase set is never promoted to a passing run.
+
+
+The reference Air7,2 accepts the bounded 1800-second automatic workload on
+`87ecd80b` (release `7d21b1fb77479259`): 937 app open/close cycles, all three
+screenshots, verified live PCM/disk overlap, no underruns at 1% volume and clean
+GUI/cache/service/process retirement. UI maximum is 112151 us, readiness 2220834 us
+and Close 8042159 us under unchanged limits. The [machine record](machines/macbookair7-2.md)
+owns scope and integrity proof. Retained phase snapshots are tails, not full
+histories of every cycle; other machines, physical input, audible routing and
+unrestricted concurrency/SMP remain separate evidence.

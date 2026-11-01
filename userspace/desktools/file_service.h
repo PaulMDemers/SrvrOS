@@ -61,7 +61,12 @@ static void *file_service_thread(void *arg) {
     for(;;) {
         __atomic_exchange_n(&s->event,0,__ATOMIC_ACQUIRE);
         file_service_work(s);
-        if(file_service_state(&s->stop))break;
+        if(file_service_state(&s->stop)) {
+            /* The sole dispatcher published all final records before stop.
+             * Acquire stop, then rescan: it may have queued into a slot that
+             * this iteration had already passed. No admission follows stop. */
+            file_service_work(s);break;
+        }
         unsigned completed=0;
         for(unsigned i=0;i<FILE_SERVICE_STARTS;i++)completed|=file_service_state(&s->starts[i].state)==FILE_SERVICE_DONE;
         for(unsigned i=0;i<FILE_SERVICE_RETIRES;i++)completed|=file_service_state(&s->retires[i].state)==FILE_SERVICE_DONE;
@@ -153,8 +158,11 @@ static int file_service_join(struct file_service *s) {
 static int file_service_start(struct file_service *s,struct desk_file_pool *pool,int role) {
     if(!s || s->started || !pool || !pool->channels || !pool->count || pool->count>FILE_SERVICE_STARTS || pool->bound || pool->live || pool->head || pool->closing || pool->opener)return -1;
     *s=(struct file_service){.pool=pool,.role=role};
-    pthread_attr_t attr;if(pthread_attr_init(&attr))return -1;
-    int result=pthread_attr_setstack(&attr,s->stack,sizeof(s->stack));
+    uint64_t at=tool_timing_begin(role,0,"service-attributes");
+    pthread_attr_t attr;int initialized=pthread_attr_init(&attr);int result=initialized;
+    if(!result)result=pthread_attr_setstack(&attr,s->stack,sizeof(s->stack));
+    tool_timing_end(role,0,"service-attributes",at);
+    if(result){if(!initialized)pthread_attr_destroy(&attr);return -1;}
     if(!result)result=pthread_create(&s->thread,&attr,file_service_thread,s);
     pthread_attr_destroy(&attr);
     if(result)return -1;
@@ -184,10 +192,17 @@ static int file_service_complete(struct file_service *s,unsigned process_owned,i
         (unsigned long long)s->max_start_us,(unsigned long long)s->max_retire_us,process_owned?"yes":"no",process_owned?"no":"yes");
     return pending || s->retire_failed || join_error?-1:0;
 }
+/* Admission stop is separate from completion. The final GUI/model owner can
+ * request it while queued unmaps and idle backend retirement overlap. State,
+ * stack and transport ownership remain pinned until finish/quiesce below. */
+static void file_service_request_stop(struct file_service *s) {
+    s->pool->closing=1;
+    if(!__atomic_exchange_n(&s->stop,1,__ATOMIC_RELEASE))file_service_notify(s);
+}
 /* Reusable service: no caller-owned storage may disappear before join. */
 static inline int file_service_finish(struct file_service *s) {
     if(!s->started)return 0;
-    s->pool->closing=1;file_service_publish(&s->stop,1);file_service_notify(s);
+    file_service_request_stop(s);
     int join_error=file_service_join(s);s->started=0;
     return file_service_complete(s,0,join_error);
 }
@@ -197,7 +212,7 @@ static inline int file_service_finish(struct file_service *s) {
  * and the parent's verified wait; never call this on temporary/heap storage. */
 static int file_service_quiesce(struct file_service *s) {
     if(!s->started)return 0;
-    s->pool->closing=1;file_service_publish(&s->stop,1);file_service_notify(s);
+    file_service_request_stop(s);
     while(!file_service_state(&s->quiesced))srv_sleep_ticks(1);
     return file_service_complete(s,1,0);
 }

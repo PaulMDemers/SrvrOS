@@ -17,6 +17,7 @@
 #include <srvros/heap.h>
 #include <srvros/halt.h>
 #include <srvros/keyboard.h>
+#include <srvros/latency.h>
 #include <srvros/intel_gfx.h>
 #include <srvros/mouse.h>
 #include <srvros/net.h>
@@ -1294,7 +1295,13 @@ static int64_t syscall_mmap(uint64_t address,
     uint64_t flags,
     int64_t fd,
     int64_t offset) {
-    return process_mmap(process_current(), address, length, protection, flags, fd, offset);
+    int64_t result;
+    if(process_try_mmap_private(process_current(),address,length,protection,flags,fd,offset,&result))return result;
+    uint64_t wait_at=scheduler_io_active()?latency_clock():0;
+    scheduler_io_set_user_safe(false);scheduler_io_wait();latency_gate(wait_at,SYS_MMAP);
+    result=process_should_exit_current()?-1:process_mmap(process_current(),address,length,protection,flags,fd,offset);
+    uint64_t irq=irq_save();scheduler_io_set_user_safe(true);scheduler_io_handoff();scheduler_io_set_user_safe(false);irq_restore(irq);
+    return result;
 }
 
 static int64_t syscall_munmap(uint64_t address, uint64_t length) {
@@ -2674,13 +2681,18 @@ static int64_t syscall_gui_server_wait(uint64_t ticks) {
 }
 
 static int64_t syscall_thread_create(uint64_t entry, uint64_t arg, uint64_t stack_top, uint64_t flags) {
-    if (entry == 0 ||
+    int64_t result;
+    if(process_try_thread_create_private(entry,arg,stack_top,flags,&result))return result;
+    uint64_t wait_at=scheduler_io_active()?latency_clock():0;
+    scheduler_io_set_user_safe(false);scheduler_io_wait();latency_gate(wait_at,SYS_THREAD_CREATE);
+    if (process_should_exit_current() || entry == 0 ||
         stack_top < 16 ||
         !user_buffer_ok((const void *)entry, 1, false) ||
         !user_buffer_ok((void *)(stack_top - 8), 8, true)) {
-        return -1;
-    }
-    return process_thread_create(entry, arg, stack_top, flags);
+        result=-1;
+    } else result=process_thread_create(entry,arg,stack_top,flags);
+    uint64_t irq=irq_save();scheduler_io_set_user_safe(true);scheduler_io_handoff();scheduler_io_set_user_safe(false);irq_restore(irq);
+    return result;
 }
 
 static int64_t syscall_thread_join(uint64_t tid, uint64_t *value_out) {
@@ -2739,10 +2751,11 @@ static bool io_snapshot_read(uint64_t fd,uint64_t length) {
  * enters only its copy/validation prelude here, then gates non-console work.
  * Close likewise admits only an atomic simple-pipe attempt before gating all
  * other descriptor cleanup; queued rights may recursively flush files.
- * Munmap admits only bounded whole-anonymous retirement, then gates fallback. */
+ * Memory/thread calls admit only a validated bounded atomic attempt. Generic
+ * allocation, thread creation, mapping and retirement retain gated fallback. */
 bool syscall_io_safe(const struct isr_frame *frame) {
     switch (frame->rax) {
-    case SYS_POLL: case SYS_CLOSE: case SYS_MUNMAP: return true; /* Validated prelude, gated fallback. */
+    case SYS_POLL: case SYS_CLOSE: case SYS_MUNMAP: case SYS_MMAP: case SYS_THREAD_CREATE: return true; /* Validated prelude, gated fallback. */
     case SYS_READ: return process_fd_is_console(process_current(),frame->rdi,true) || io_try_pipe_read(frame->rdi) || io_snapshot_read(frame->rdi,frame->rdx);
     case SYS_WRITE: return process_fd_is_console(process_current(),frame->rdi,false) || io_try_pipe_write(frame->rdi);
     case SYS_WAIT: return true; /* Validated retired-child claim; gated fallback. */
@@ -2750,8 +2763,8 @@ bool syscall_io_safe(const struct isr_frame *frame) {
     /* Bounded queues/mouse state use IRQ exclusion. Surface copies use private
      * chunks and IRQ-protected heap/surface state; no VFS or lifetime cleanup.
      * Process listing and memory counters are read-only snapshots.
-     * Mapping/spawn/kill remain gated except the bounded atomic anonymous
-     * retirement attempt above; all its refusals regain ordinary admission. */
+     * Process spawn/kill remain gated. The memory/first-thread preludes above
+     * require ownership/bounds proofs; all refusals regain ordinary admission. */
     case SYS_GUI_WAIT_IO: case SYS_GUI_CANCEL_WAIT:
     case SYS_GUI_SEND: case SYS_GUI_RECV: case SYS_GUI_WAIT: case SYS_GUI_SERVER_WAIT: case SYS_MOUSE_SCAN:
     case SYS_GUI_KEYBOARD_READ: case SYS_GUI_KEYBOARD_MODE: case SYS_GUI_POINTER_CONFIG: case SYS_GUI_BRIGHTNESS: case SYS_AUDIO: case SYS_DEVICE_LIST: case SYS_THERMAL_STATUS: case SYS_BATTERY_STATUS: case SYS_BATTERY_CONTROL: case SYS_AUDIO_STREAM: case SYS_SMC_STATUS:
@@ -2767,6 +2780,9 @@ bool syscall_io_safe(const struct isr_frame *frame) {
      * entries nor releases process/file resources; scheduler eligibility
      * still prevents a woken unsafe continuation from entering owned I/O. */
     case SYS_FUTEX_WAKE:
+    /* Current scheduler context -> immutable thread ID; no allocation,
+     * pointer copy, table mutation, status/reap or lifetime operation. */
+    case SYS_THREAD_SELF:
         return true;
     default: return false;
     }
