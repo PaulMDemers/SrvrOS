@@ -217,6 +217,17 @@ been published. Later windows keep the existing allocating/ownership path. The
 combined VM validator requires complete timing records proving initial allocation
 ends before helper initialization. These CPU0 proofs do not authorize parallel
 address-space mutation, change process/thread budgets or establish native latency.
+Text also reserves the undo-journal header and unchanged 256 KiB journal capacity
+in its document mapping. Runtime setup attaches that borrowed storage before
+window-open; role initialization performs no separate journal heap allocation.
+The first reservation is part of the sole-main initial mapping; later windows
+use the ordinary document allocation path. Standalone Text callers retain
+heap-owned history and its existing single-step fallback on allocation failure.
+Explicit ownership prevents freeing a pointer into the mapped model. Journal
+storage retires with that model only after GUI/job owners release it. Sparse
+`text-history-reserve` and `text-history-init` timestamps and scheduler brackets
+separate setup from later role initialization; incomplete brackets are not a
+passing zero-duration measurement.
 
 The compositor may retain up to two completed pixel-cache buffers after window
 retirement. They stay reserved inside the existing96MiB cache budget, including
