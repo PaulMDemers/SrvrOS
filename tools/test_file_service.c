@@ -39,7 +39,7 @@ long srv_close(int fd) {
     return 0;
 }
 long srv_wait(uint64_t pid,uint64_t *status,uint64_t flags) {
-    assert(pid>1000 && pid<=1000+(unsigned)children && !flags && eof[pid-1001]);*status=0;reaped++;return pid;
+    assert(pid>1000 && pid<=1000+(unsigned)children && !(flags&~SRV_WAIT_NOHANG) && eof[pid-1001]);*status=0;reaped++;return pid;
 }
 long srv_monotonic_us(void) {struct timespec t;clock_gettime(CLOCK_MONOTONIC,&t);return (long)t.tv_sec*1000000+t.tv_nsec/1000;}
 long srv_getpid(void) {return 123;}
@@ -102,6 +102,21 @@ int main(void) {
     assert(!file_service_retire(&release,maps[FILE_SERVICE_RETIRES],4096));drain(&service);
     assert(!file_service_finish(&service) && !service.started && service.retired==FILE_SERVICE_RETIRES+1);
     assert(pool.opener(pool.opener_context,&channels[1])==-1);
+    assert(desk_file_pool_finish(&pool)==1);clean_fds();
+    /* Final-owner shutdown can EOF/reap an idle backend while the helper
+     * still owns a blocked mapping. Admission stops; completion cannot lie. */
+    assert(!desk_file_pool_init(&pool,channels,2) && !file_service_start(&service,&pool,1));
+    unsigned next_spawn=atomic_load(&spawn_calls)+1;
+    assert(!file_service_open(&service,&channels[0]));await_count(&spawn_calls,next_spawn);await_state(&service.starts[0].state,FILE_SERVICE_DONE);
+    assert(file_service_open(&service,&channels[0])==1);pool.spawned=pool.live=1;
+    void *overlap=mmap(NULL,4096,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS,-1,0);assert(overlap!=MAP_FAILED);*(unsigned *)overlap=456;
+    atomic_store(&hold_unmap,1);unsigned next_unmap=atomic_load(&unmap_calls)+1;
+    assert(!file_service_retire(&release,overlap,4096));await_count(&unmap_calls,next_unmap);
+    assert(desk_file_pool_shutdown(&pool)==1 && !pool.live && pool.reaped==1);
+    file_service_request_stop(&service);file_service_request_stop(&service);
+    assert(file_service_state(&service.stop) && !file_service_state(&service.quiesced));
+    assert(file_service_poll(&service) && !file_service_capacity(&service) && *(unsigned *)overlap==456);
+    atomic_store(&hold_unmap,0);assert(!file_service_finish(&service) && service.retired==1 && !service.started);
     assert(desk_file_pool_finish(&pool)==1);clean_fds();
     /* Failed startup publishes an error once, closes all construction fds,
      * and does not create a child or fall back on the UI. */

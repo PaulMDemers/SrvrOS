@@ -286,6 +286,13 @@ int tool_window_runtime(int role,const char *path) {
                 }
             }
         }
+        /* Every model is detached only after its accepted job drained. Start
+         * idle-worker EOF/reaping while the helper still owns queued unmaps.
+         * Final finish below retains the full child/completion obligation. */
+        if(!app.set.windows && !app.set.connection.opening && !app.pool.bound && !app.pool.head) {
+            if(desk_file_pool_shutdown(&app.pool)<0)app.set.failed=1;
+            file_service_request_stop(&app.files);
+        }
         if(app.set.windows) {desk_runtime_file_pool(&app.set.runtime,&app.pool);desk_runtime_idle(&app.set.runtime,busy);}
         else if(file_service_poll(&app.files))srv_sleep_ticks(1);
     }

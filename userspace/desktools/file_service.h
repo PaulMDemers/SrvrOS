@@ -187,10 +187,17 @@ static int file_service_complete(struct file_service *s,unsigned process_owned,i
         (unsigned long long)s->max_start_us,(unsigned long long)s->max_retire_us,process_owned?"yes":"no",process_owned?"no":"yes");
     return pending || s->retire_failed || join_error?-1:0;
 }
+/* Admission stop is separate from completion. The final GUI/model owner can
+ * request it while queued unmaps and idle backend retirement overlap. State,
+ * stack and transport ownership remain pinned until finish/quiesce below. */
+static void file_service_request_stop(struct file_service *s) {
+    s->pool->closing=1;
+    if(!__atomic_exchange_n(&s->stop,1,__ATOMIC_RELEASE))file_service_notify(s);
+}
 /* Reusable service: no caller-owned storage may disappear before join. */
 static inline int file_service_finish(struct file_service *s) {
     if(!s->started)return 0;
-    s->pool->closing=1;file_service_publish(&s->stop,1);file_service_notify(s);
+    file_service_request_stop(s);
     int join_error=file_service_join(s);s->started=0;
     return file_service_complete(s,0,join_error);
 }
@@ -200,7 +207,7 @@ static inline int file_service_finish(struct file_service *s) {
  * and the parent's verified wait; never call this on temporary/heap storage. */
 static int file_service_quiesce(struct file_service *s) {
     if(!s->started)return 0;
-    s->pool->closing=1;file_service_publish(&s->stop,1);file_service_notify(s);
+    file_service_request_stop(s);
     while(!file_service_state(&s->quiesced))srv_sleep_ticks(1);
     return file_service_complete(s,1,0);
 }
