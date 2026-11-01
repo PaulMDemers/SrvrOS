@@ -2,6 +2,43 @@
 
 Updated: 2026-11-01. State: **active reference machine; partial device acceptance**.
 
+### Native startup and retirement endurance — bounded milestone accepted
+
+Release `7d21b1fb77479259`, source `87ecd80b`, session
+`session-00065f38c9091701-00` completes the unchanged 1800-second automated
+PCM/disk/app trial with **PASS: 937 app open/close cycles**, three saved screenshots
+and automatic Ubuntu return. UI maximum is 112151 us, readiness 2220834 us and
+completed Close 8042159 us, within the unchanged 500000 us UI and 10000000 us total
+lifecycle limits. This accepts the named bounded workload on this Air7,2.
+
+At 1% volume, playback submits 345600000 PCM bytes with zero underruns and worker
+status zero. The filesystem worker completes 1909 verified write/flush/read/
+rename/delete bursts, 500432896 bytes, spanning 1798185465 us within live PCM.
+The binary disk receipt matches the saved text report. All three 1440×900 BMPs
+are copied, decoded and hash-verified; capture follow-up and clean exit pass.
+Cache retirement reaches zero bytes/retained with 1025 reuses, no final live
+clients remain, and battery runtime retires cleanly.
+
+The retained rotated tail snapshots include five complete pixel-acquisition
+samples (maximum 24 us outer / 4 us body) and seven complete first-publication
+samples (825 us outer / 802 us body), with zero blocked/ready time in those
+brackets. They observe the targeted improvement; they do not contain complete
+phase histories for all 937 cycles. The first-canvas change removes the known
+post-helper allocation path; the older unbracketed gap remains historical
+incomplete attribution. No new physical-input, audible-route, gauge-calibration
+or unrestricted concurrency/SMP acceptance is inferred.
+
+All 1259 prior files are preserved apart from expected metadata; nine new files
+are copied and hash-verified. Offline fsck is clean (275 directories, 1268 files),
+with allocation/writable/headroom passing. Current `7d21b1fb77479259`, independent
+recovery `9aa8dbf6fbda8252`, Ubuntu default and consumed one-shot are verified.
+The accepted payload has its own verified `known-good/7d21b1fb77479259` copy;
+EFI recovery remains `9aa8dbf6fbda8252`. Full evidence under local
+`build/air-first-surface-20261101/native-trial` is independently backed up outside
+build. USB is remounted and no reboot is armed. Earlier failed runs, including
+the separate older 50-IOPS overlap result, remain failures. This bounded startup/
+retirement milestone is complete; next is shared-code review/integration of PR260.
+
 ### First-surface candidate — ready for native retest
 
 Final source `87ecd80b` reserves the first Text/Files 720×480 pixel mapping before

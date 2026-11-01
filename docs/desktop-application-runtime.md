@@ -434,3 +434,13 @@ When they do, the separate lossy UART channel is unnecessary. Incomplete saved
 coverage retains strict whole-record UART/snapshot union validation, with no byte
 repair or overwritten conflicts. The receipt identifies which evidence path was
 used; an early return or partial phase set is never promoted to a passing run.
+
+
+The reference Air7,2 accepts the bounded 1800-second automatic workload on
+`87ecd80b` (release `7d21b1fb77479259`): 937 app open/close cycles, all three
+screenshots, verified live PCM/disk overlap, no underruns at 1% volume and clean
+GUI/cache/service/process retirement. UI maximum is 112151 us, readiness 2220834 us
+and Close 8042159 us under unchanged limits. The [machine record](machines/macbookair7-2.md)
+owns scope and integrity proof. Retained phase snapshots are tails, not full
+histories of every cycle; other machines, physical input, audible routing and
+unrestricted concurrency/SMP remain separate evidence.
