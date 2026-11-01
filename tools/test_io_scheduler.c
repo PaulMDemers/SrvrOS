@@ -761,7 +761,7 @@ static void test_idle_audit(void) {
 /* Observation must retain the outer owner identity across nesting, foreign
  * attempts and slot reuse, without changing admission or emitting in a scope. */
 static unsigned owner_prints;
-void console_printf(const char *format,...) { assert(!io_depth && !strncmp(format,"io-owner",8));owner_prints++; }
+void console_printf(const char *format,...) { assert(!io_depth && (!strncmp(format,"io-owner",8) || !strncmp(format,"io-gate",7)));owner_prints++; }
 uint64_t process_pid(const struct process *p) { return (uint64_t)(uintptr_t)p; }
 static void test_io_observation(void) {
     memset(threads,0,sizeof(threads));initialized=io_services_enabled=true;
@@ -799,14 +799,38 @@ static void test_io_observation(void) {
         const struct io_owner_sample *v=&io_observed.rows[(oldest+i)%IO_OBSERVE_ROWS];
         assert(v->seq==oldest+i+3 && v->identity==101 && v->end-v->start==IO_OBSERVE_MIN_US);
     }
-    scheduler_print_io_owners();assert(owner_prints==IO_OBSERVE_ROWS+2);
-    assert(scheduler_io_begin());scheduler_print_io_owners();assert(owner_prints==IO_OBSERVE_ROWS+2);scheduler_io_end();
+    scheduler_print_io_owners();assert(owner_prints==IO_OBSERVE_ROWS+3);
+    assert(scheduler_io_begin());scheduler_print_io_owners();assert(owner_prints==IO_OBSERVE_ROWS+3);scheduler_io_end();
     assert(scheduler_io_observe_reset() && !io_observed.scopes && !io_observed.long_scopes);
     io_observed.enabled=false;io_gate_pending=0;memset(threads,0,sizeof(threads));initialized=io_services_enabled=false;
     puts("io-owner-observe: PASS opt-in, outer nesting, foreign refusal, copied identity, bounded wrap, clock rollback");
 }
 
+static void test_gate_retention(void) {
+    initialized=io_services_enabled=true;switching=false;current_thread=0;io_depth=0;
+    threads[0]=(struct thread){.identity=80,.state=THREAD_RUNNING};
+    assert(scheduler_io_observe_reset());scheduler_io_syscall(77);
+    assert(threads[0].io_syscall==77);
+    struct io_gate_sample v={.pid=12,.identity=80,.syscall=77,.owner_pid=15,.owner_identity=91,.owner_seq=42,.start=1000,.end=101000};
+    io_observed.enabled=false;io_gate_record(v);assert(!io_gates.count);
+    io_observed.enabled=true;v.end=100999;io_gate_record(v);assert(!io_gates.count);
+    v.end=999;io_gate_record(v);assert(!io_gates.count);
+    for(unsigned i=0;i<IO_OBSERVE_ROWS+5;i++){v.end=101000+i*1000;io_gate_record(v);}
+    assert(io_gates.count==IO_OBSERVE_ROWS && io_gates.total==IO_OBSERVE_ROWS+5);
+    uint64_t min=UINT64_MAX;
+    for(unsigned i=0;i<io_gates.count;i++) {
+        const struct io_gate_sample *r=&io_gates.rows[i];
+        assert(r->pid==12 && r->identity==80 && r->syscall==77 && r->owner_pid==15 && r->owner_identity==91 && r->owner_seq==42);
+        if(r->end-r->start<min)min=r->end-r->start;
+    }
+    assert(min==105000 && !io_depth);
+    v.end=101000;io_gate_record(v);assert(io_gates.total==IO_OBSERVE_ROWS+6);
+    assert(scheduler_io_observe_reset() && !io_gates.count && !io_gates.total);
+    initialized=io_services_enabled=false;io_observed=(__typeof__(io_observed)){0};memset(threads,0,sizeof(threads));
+    puts("io-gate: PASS disabled/short/backward refusal, bounded longest retention, caller/initial owner identity, reset and no owner mutation");
+}
 int main(void) {
+    test_gate_retention();
     test_idle_audit();
     test_mwait();
     test_coordinated_mwait();

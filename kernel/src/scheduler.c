@@ -47,6 +47,7 @@ struct thread {
     scheduler_wait_condition_fn io_eligible;
     void *arg;
     void *user_context;
+    uint64_t io_syscall;
     bool io_user_safe;
     bool io_gate_waiting;
     void *user_thread_context;
@@ -122,6 +123,29 @@ static struct {
     uint64_t scopes, long_scopes, invalid;
     struct io_owner_sample active, rows[IO_OBSERVE_ROWS];
 } io_observed;
+struct io_gate_sample {
+    uint64_t pid, identity, syscall, owner_pid, owner_identity, owner_seq, start, end;
+};
+static struct {
+    uint64_t total;
+    unsigned count;
+    struct io_gate_sample rows[IO_OBSERVE_ROWS];
+} io_gates;
+/* Retain the longest completed waits, not just the rotating tail. Initial owner
+ * is a correlation anchor: ownership may change while the caller is parked. */
+static void io_gate_record(struct io_gate_sample v) {
+    if(!io_observed.enabled || v.end<v.start || v.end-v.start<IO_OBSERVE_MIN_US)return;
+    io_gates.total++;
+    unsigned slot=io_gates.count;
+    if(slot<IO_OBSERVE_ROWS)io_gates.count++;
+    else {
+        slot=0;
+        for(unsigned i=1;i<IO_OBSERVE_ROWS;i++)
+            if(io_gates.rows[i].end-io_gates.rows[i].start<io_gates.rows[slot].end-io_gates.rows[slot].start)slot=i;
+        if(v.end-v.start<=io_gates.rows[slot].end-io_gates.rows[slot].start)return;
+    }
+    io_gates.rows[slot]=v;
+}
 static void yield_to(uint64_t preferred);
 static void io_gate_request(struct thread *thread) {
     if(!thread->io_gate_waiting) { thread->io_gate_waiting=true;io_gate_pending++; }
@@ -170,6 +194,7 @@ bool scheduler_io_observe_reset(void) {
         irq_restore(flags);return false;
     }
     io_observed=(__typeof__(io_observed)){.enabled=true};
+    io_gates=(__typeof__(io_gates)){0};
     irq_restore(flags);return true;
 }
 static void io_observe_begin(void) {
@@ -198,12 +223,15 @@ static void io_observe_end(void) {
 }
 void scheduler_print_io_owners(void) {
     struct io_owner_sample rows[IO_OBSERVE_ROWS];
+    struct io_gate_sample gates[IO_OBSERVE_ROWS];
     uint64_t flags=irq_save();
     if(!io_observed.enabled || io_depth) {irq_restore(flags);return;}
     uint64_t at=timer_monotonic_us(),scopes=io_observed.scopes,
         total=io_observed.long_scopes,invalid=io_observed.invalid;
     unsigned count=total<IO_OBSERVE_ROWS?(unsigned)total:IO_OBSERVE_ROWS;
     for(unsigned i=0;i<count;i++)rows[i]=io_observed.rows[(total-count+i)%IO_OBSERVE_ROWS];
+    unsigned gate_count=io_gates.count;uint64_t gate_total=io_gates.total;
+    for(unsigned i=0;i<gate_count;i++)gates[i]=io_gates.rows[i];
     irq_restore(flags);
     /* No allocation, console output or device operations occur in recording. */
     console_printf("io-owner-snapshot: version=1 at_us=%u scopes=%u long_scopes=%u retained=%u overwritten=%u invalid=%u min_us=%u\n",
@@ -212,6 +240,12 @@ void scheduler_print_io_owners(void) {
         const struct io_owner_sample *v=&rows[i];
         console_printf("io-owner: version=1 snapshot_us=%u seq=%u thread=%u pid=%u name=%s start_us=%u end_us=%u elapsed_us=%u exclusions=%u\n",
             at,v->seq,v->identity,v->pid,v->name,v->start,v->end,v->end-v->start,v->exclusions);
+    }
+    console_printf("io-gate-snapshot: version=1 at_us=%u total=%u retained=%u min_us=%u\n",at,gate_total,(uint64_t)gate_count,(uint64_t)IO_OBSERVE_MIN_US);
+    for(unsigned i=0;i<gate_count;i++) {
+        const struct io_gate_sample *v=&gates[i];
+        console_printf("io-gate: version=1 snapshot_us=%u pid=%u thread=%u syscall=%u initial_owner_pid=%u initial_owner_thread=%u initial_owner_seq=%u start_us=%u end_us=%u elapsed_us=%u\n",
+            at,v->pid,v->identity,v->syscall,v->owner_pid,v->owner_identity,v->owner_seq,v->start,v->end,v->end-v->start);
     }
     console_printf("io-owner-snapshot-end: version=1 at_us=%u retained=%u\n",at,(uint64_t)count);
 }
@@ -448,6 +482,11 @@ void scheduler_io_end(void) {
     }
 }
 
+void scheduler_io_syscall(uint64_t number) {
+    uint64_t flags=irq_save();
+    if(initialized)thread_at(current_thread)->io_syscall=number;
+    irq_restore(flags);
+}
 void scheduler_io_set_user_safe(bool safe) {
     uint64_t flags=irq_save();
     if (initialized) thread_at(current_thread)->io_user_safe=safe;
@@ -466,12 +505,20 @@ static bool io_available(void *arg) {
  * an I/O error. Nested owner operations retain their existing scope. */
 void scheduler_io_wait(void) {
     uint64_t flags=irq_save();
+    struct io_gate_sample sample={0};bool observe=io_observed.enabled && !io_available(NULL);
+    if(observe) {
+        const struct thread *caller=thread_at(current_thread),*owner=thread_at(io_owner);
+        sample=(struct io_gate_sample){.pid=process_pid(caller->user_context),.identity=caller->identity,
+            .syscall=caller->io_syscall,.owner_pid=process_pid(owner->user_context),
+            .owner_identity=owner->identity,.owner_seq=io_observed.active.seq,.start=timer_monotonic_us()};
+    }
     while (!io_available(NULL)) {
         struct thread *thread=thread_at(current_thread);
         io_gate_request(thread);
         if (!scheduler_wait(&io_waiters,io_available,NULL)) scheduler_yield();
     }
     io_gate_leave(thread_at(current_thread));
+    if(observe){sample.end=timer_monotonic_us();io_gate_record(sample);}
     irq_restore(flags);
 }
 

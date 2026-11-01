@@ -16,6 +16,7 @@ void scheduler_io_handoff(void) {
     assert(user_safe && !in_call); /* Only a fully unwound syscall may hand off. */
     handoffs++;if(kill_during_handoff)killed=true;
 }
+void scheduler_io_syscall(uint64_t number) { (void)number; }
 void scheduler_io_set_user_safe(bool safe) { user_safe=safe; }
 void scheduler_user_enter(void) { user_safe=true; }
 void scheduler_io_wait(void) { assert(!user_safe); waits++; if(kill_while_waiting) killed=true; }
