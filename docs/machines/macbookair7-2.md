@@ -2,6 +2,33 @@
 
 Updated: 2026-11-01. State: **active reference machine; partial device acceptance**.
 
+### Follow-up ready for automated hardware test
+
+Source `9402ba9e`, staged release `73e363a1fee47ba8`, removes the cold compositor
+helper mapping from first-window admission and admits audited signal metadata.
+Full core/desktop checks, matched ordinary/native/synthetic builds, targeted
+cache/gate/signal/cancellation regressions and guest pthread/POSIX pass. The final
+loaded100 VM passes 16 lifetimes: UI119228 us, ready1567385 us, Close4908618 us,
+217 audio/disk overlap windows and 67 prior fixture files preserved. The largest
+retained completed exit-gate wait is 862041 us. These are VM observations, not
+native tail acceptance. The worst Close's final reap takes 69 us; resource drain
+and actual process exit remain part of the completed lifetime.
+
+On admission source `a887adef`, normal load passes 25 lifetimes (UI149885 us,
+ready799615 us, Close1382990 us) and twenty Files windows pass copy/Close and
+complete cleanup. The final source adds only diagnostic exit-row retention to
+that source; its loaded run and guest thread stress pass. The worst exit record
+cannot be evicted by longer storage waits. Partial worst-ready snapshots retain
+observed Close progress without manufacturing completion.
+
+Exact TCG boot/save/unmount/return rehearsal passes native-profile refusal plumbing
+only. The next candidate is staged and backed up, not installed or armed. The
+failed installed `29d2ac5951546a12` and recovery `9aa8dbf6fbda8252` remain unchanged;
+accepted `7d21b1fb77479259` stays independently preserved. The next automatic
+1800-second hardware test needs fresh USB integrity checks, 1% volume override
+and saved run/recovery records. No human input is needed. Native startup and
+process-exit acceptance remain pending; the preceding failure stays a failure.
+
 ### Follow-up implementation and validation in progress
 
 The cold compositor's first mapping is moved to desktop initialization by seeding
