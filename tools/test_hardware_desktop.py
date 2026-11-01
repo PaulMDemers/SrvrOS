@@ -700,5 +700,19 @@ class CheckpointBarrierTests(unittest.TestCase):
         self.assertFalse(checkpoint_durable(broken,0,name,at,[b'interleaved'+receipt+b'\n']))
         self.assertFalse(checkpoint_durable(broken,0,name,at,[receipt]))
 
+    def test_checkpoint_discovery_from_exact_durable_generation(self):
+        from audio_io_stress_smoke import checkpoint_candidates,checkpoint_durable
+        broken=b'workspace-log: snapshot=session-b.log monotdesktop-launch: ignored\n'
+        durable=b'workspace-log: durable snapshot=session-b.log monotonic_us=23633856\n'
+        output=broken+durable
+        rows=checkpoint_candidates(output)
+        self.assertEqual(len(rows),1)
+        name,at,after=rows[0]
+        self.assertEqual((name,at),(b'session-b.log',b'23633856'))
+        self.assertTrue(checkpoint_durable(output,after,name,at))
+        self.assertFalse(checkpoint_candidates(broken+durable[:-1]))
+        self.assertFalse(checkpoint_candidates(broken+durable.replace(b'23633856',b'236oops33856')))
+        self.assertFalse(checkpoint_durable(output,after,name,b'23633857'))
+
 
 if __name__=='__main__': unittest.main()

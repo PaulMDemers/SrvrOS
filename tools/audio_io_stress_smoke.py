@@ -28,6 +28,19 @@ def checkpoint_durable(output, after, name, at, snapshots=()):
     return b'workspace: flushed' in output[after:]
 
 
+def checkpoint_candidates(output):
+    # A complete durable-generation line is independently sufficient to discover
+    # the slot even when the earlier pre-write UART snapshot line interleaved.
+    # Collection still requires its exact atomic snapshot receipt and two equal
+    # disk reads. Never reconstruct a damaged UART line or infer a generation.
+    marks=[]
+    for m in re.finditer(rb'workspace-log: snapshot=(session-[ab]\.log) monotonic_us=(\d+)[^\r\n]*[\r\n]',output):
+        marks.append((m.start(),m[1],m[2],m.end()))
+    for m in re.finditer(rb'workspace-log: durable snapshot=(session-[ab]\.log) monotonic_us=(\d+)\r?\n',output):
+        marks.append((m.start(),m[1],m[2],m.start()))
+    return [(name,at,after) for _,name,at,after in sorted(marks)]
+
+
 def completion_line(output):
     # UART/socket reads may end anywhere, including in PASS or unmounted=yes.
     match=re.search(rb'desktop-audio-io: result=[^\r\n]*\r?\n',output)
@@ -114,24 +127,24 @@ def main():
                     # all records still face the complete-phase validator.
                     if stage:return
                     directories=re.findall(rb'workspace-log: directory=/work/([^ ]+) periodic_seconds=10',output)
-                    marks=list(re.finditer(rb'workspace-log: snapshot=(session-[ab]\.log) monotonic_us=(\d+)[^\r\n]*[\r\n]',output))
+                    marks=checkpoint_candidates(output)
                     if len(directories)!=1 or not marks:return
                     # Consider the newest generation of both rotation slots.
                     # A verified later slot may acknowledge the other slot when
                     # its UART barrier line interleaved. Never use overwritten
                     # bytes as evidence for an earlier generation.
-                    latest={mark[1]:mark for mark in marks}
+                    latest={mark[0]:mark for mark in marks}
                     progress=True
                     while progress:
                         progress=False
                         for mark in reversed(list(latest.values())):
-                            key=mark[1],mark[2]
-                            if key in collected or not checkpoint_durable(output,mark.end(),*key,checkpoints):continue
-                            path=directories[0].decode()+'/'+mark[1].decode()
+                            key=mark[0],mark[1]
+                            if key in collected or not checkpoint_durable(output,mark[2],*key,checkpoints):continue
+                            path=directories[0].decode()+'/'+key[0].decode()
                             def read_snapshot():return ExfatFixture(stick.read_bytes()[2048*512:end]).read(path)
                             raw=read_snapshot()
                             assert raw==read_snapshot(),'live checkpoint changed during host collection'
-                            receipt=b'workspace-log: snapshot='+mark[1]+b' monotonic_us='+mark[2]+b' '
+                            receipt=b'workspace-log: snapshot='+key[0]+b' monotonic_us='+key[1]+b' '
                             if receipt not in raw:continue
                             checkpoints.append(raw);collected.add(key);progress=True
                             (out/f'checkpoint-{len(checkpoints):03d}.log').write_bytes(raw)
