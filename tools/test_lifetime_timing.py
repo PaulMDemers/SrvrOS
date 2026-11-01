@@ -13,7 +13,7 @@ class Lifetime(unittest.TestCase):
             raw=raw.replace(key.encode(),key.split('=')[0].encode()+b'=0')
         self.assertEqual(lifetime_worst_records([raw],100,100)['close']['reap_end_us'],0)
     def test_missing_conflicting_clock_and_maximum(self):
-        for raw in [b'',fixture().replace(b'final=1',b'final=0'),fixture().replace(b'launch_end_us=120',b'launch_end_us=250'),fixture().replace(b'visual_us=310',b'visual_us=250'),fixture().replace(b'reap_end_us=390',b'reap_end_us=410'),fixture().replace(b'reap_begin_us=360',b'reap_begin_us=0')]:
+        for raw in [b'',fixture().rstrip(b'\n'),fixture().replace(b'final=1',b'final=0'),fixture().replace(b'launch_end_us=120',b'launch_end_us=250'),fixture().replace(b'visual_us=310',b'visual_us=250'),fixture().replace(b'reap_end_us=390',b'reap_end_us=410'),fixture().replace(b'reap_begin_us=360',b'reap_begin_us=0')]:
             with self.subTest(raw=raw[:50]),self.assertRaises(AssertionError):lifetime_worst_records([raw],100,100)
         with self.assertRaises(AssertionError):lifetime_worst_records([fixture()],101,100)
         with self.assertRaises(AssertionError):lifetime_worst_records([fixture(),fixture().replace(b'pid=42',b'pid=43')],100,100)

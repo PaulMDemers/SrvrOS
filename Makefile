@@ -3977,3 +3977,11 @@ build/tests/tool-text-history-host$(HOST_EXE): tools/test_tool_text_history.c us
 test-desktop: test-lifetime-timing
 test-lifetime-timing:
 	$(PYTHON) tools/test_lifetime_timing.py
+
+.PHONY: test-lifetime-trace
+test-desktop: test-lifetime-trace
+test-lifetime-trace: build/tests/lifetime-trace-host$(HOST_EXE)
+	$<
+build/tests/lifetime-trace-host$(HOST_EXE): tools/test_lifetime_trace.c userspace/deskd/operation_trace.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include $< -o $@

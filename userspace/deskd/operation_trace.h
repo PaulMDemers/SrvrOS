@@ -16,11 +16,13 @@ struct lifetime_trace {
 };
 static void lifetime_trace_report(const struct lifetime_trace *q,const char *kind,uint64_t snapshot,unsigned final) {
     if(!q->pid)return;
-    desk_log("desktop-life-worst: version=1 snapshot_us=%llu kind=%s pid=%llu cycle=%llu begin_us=%llu launch_begin_us=%llu launch_end_us=%llu ready_us=%llu close_request_us=%llu visual_us=%llu exit_seen_us=%llu reap_queued_us=%llu reap_begin_us=%llu reap_end_us=%llu closed_us=%llu final=%u\n",
+    char text[1024];
+    int length=snprintf(text,sizeof(text),"desktop-life-worst: version=1 snapshot_us=%llu kind=%s pid=%llu cycle=%llu begin_us=%llu launch_begin_us=%llu launch_end_us=%llu ready_us=%llu close_request_us=%llu visual_us=%llu exit_seen_us=%llu reap_queued_us=%llu reap_begin_us=%llu reap_end_us=%llu closed_us=%llu final=%u\n",
         (unsigned long long)snapshot,kind,(unsigned long long)q->pid,(unsigned long long)q->cycle,
         (unsigned long long)q->begin_us,(unsigned long long)q->launch_begin_us,(unsigned long long)q->launch_end_us,(unsigned long long)q->ready_us,
         (unsigned long long)q->close_request_us,(unsigned long long)q->visual_us,(unsigned long long)q->exit_seen_us,
         (unsigned long long)q->reap_queued_us,(unsigned long long)q->reap_begin_us,(unsigned long long)q->reap_end_us,(unsigned long long)q->closed_us,final);
+    if(length>0 && (unsigned)length<sizeof(text))srv_puts(text);
 }
 struct operation_trace {
     struct lifetime_trace ready_worst,close_worst;

@@ -4,7 +4,8 @@ FIELDS=('version','snapshot_us','kind','pid','cycle','begin_us','launch_begin_us
 def lifetime_worst_records(snapshots,ready_max,close_max):
     rows={}
     for raw in snapshots:
-        for line in raw.splitlines():
+        for line in raw.splitlines(keepends=True):
+            if not line.endswith(b'\n'):continue
             if not line.startswith(b'desktop-life-worst: '):continue
             words=line.split()[1:]
             if len(words)!=len(FIELDS):continue
