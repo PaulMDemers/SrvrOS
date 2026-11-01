@@ -2,11 +2,24 @@
 
 Updated: 2026-11-01. State: **active reference machine; partial device acceptance**.
 
+### Text history reservation scope
+
+Continue PR260 from base `92ec9b09`: audit the first Text role initialization
+(the native role ID is 2, not Files). Its remaining heap allocation creates the
+undo journal after helper startup. Reserve that journal in the document mapping,
+retain explicit borrowed/heap ownership and cleanup, and measure history setup
+separately. This removes a plausible gated allocation without claiming the old
+unbracketed stall is conclusively attributed. Validate journal isolation/undo/
+cleanup and combined loaded app lifecycles locally before another native trial.
+No deadline, scheduler gate, device matching or recovery change is planned.
+PR252 socket/resolver and PR19 Wi-Fi remain separate scopes. Installed candidate
+`70696fcbbb72a1aa` is collected; no reboot is armed.
+
 ### Startup admission native return — first-window readiness failure
 
 Release `70696fcbbb72a1aa` (staged `cf1b3385`, production `185c6668`) returned
 with session `session-00065f306d1c0d7c-00`. The unchanged 1800-second endurance
-**fails before its first completed app cycle**: Files PID8 reaches the total
+**fails before its first completed app cycle**: Text PID8 reaches the total
 lifecycle deadline at 10008813 us while awaiting first pixels. The compositor
 remains responsive (maximum loop 101092 us); this does not accept full endurance.
 
