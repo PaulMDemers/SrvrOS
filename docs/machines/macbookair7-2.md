@@ -2,6 +2,23 @@
 
 Updated: 2026-10-31. State: **active reference machine; partial device acceptance**.
 
+### First-helper and initial-model admission scope
+
+On the existing device branch, base `92ec9b09` plus PR260, isolate the native
+kernel-create gate wait and initial anonymous allocation. The dispatcher gates
+both calls before entry; the creation body has no blocking wait. Audit and test
+narrow atomic attempts only for a sole main thread, bounded TLS/anonymous pages,
+matching address space and no same-process I/O/image owner. Keep unsupported,
+threaded, file-backed, fixed, oversized and unproven calls on ordinary admission.
+Publish complete initial user-thread context before READY eligibility; avoid
+routing an uninitialized kernel continuation around I/O. Preallocate the first
+Text/Files model before helper startup, retaining unopened-model cleanup on
+failure. Use no service window inside the atomic operation; retain rollback
+ownership, existing budgets and actual process reaping. Add host refusal/failure/
+context-publication tests, loaded and guest pthread VMs, then exact staging.
+PR19 Wi-Fi and PR252 resolver/socket work remain independent. Installed `ce3f369efb135f20`
+and recovery `9aa8dbf6fbda8252` remain untouched; no reboot is armed.
+
 ### Native helper-unmap return — startup still misses lifecycle budget
 
 Release `ce3f369efb135f20`, staged source `93211110` / production `baeabeba`,
