@@ -34,6 +34,25 @@ def fixture(files_window_runtime=False,async_service=False,helper_initialization
 
 
 class TimingTests(unittest.TestCase):
+    def test_reserved_text_history_order_and_completeness(self):
+        raw=fixture(True,True,True,True)
+        lines=raw.splitlines();out=[]
+        for row in lines:
+            if b'pid=8 ' in row and b'stage=window-open edge=begin' in row:
+                now=int(RECORD.fullmatch(row)[6])
+                for edge,stamp,elapsed in [('begin',now-8,0),('end',now-6,2)]:
+                    out.append(f'app-timing: pid=8 role=2 window=0 stage=text-history-reserve edge={edge} at_us={stamp} elapsed_us={elapsed}'.encode())
+            out.append(row)
+            if b'pid=8 ' in row and b'stage=role-init edge=begin' in row:
+                now=int(RECORD.fullmatch(row)[6])
+                for edge,stamp,elapsed in [('begin',now+2,0),('end',now+4,2)]:
+                    out.append(f'app-timing: pid=8 role=2 window=1 stage=text-history-init edge={edge} at_us={stamp} elapsed_us={elapsed}'.encode())
+        good=b'\n'.join(out)
+        kwargs=dict(files_window_runtime=True,async_file_service=True,helper_initialization=True,initial_model_reservation=True,reserved_text_history=True)
+        validate_app_timing(good,[(0,8),(1,9),(2,10)],**kwargs)
+        with self.assertRaises(AssertionError):validate_app_timing(raw,[(0,8),(1,9),(2,10)],**kwargs)
+        with self.assertRaises(AssertionError):validate_app_timing(good.replace(b'text-history-reserve',b'missing'),[(0,8),(1,9),(2,10)],**kwargs)
+
     def test_initial_model_reserved_before_helper(self):
         kwargs=dict(files_window_runtime=True,async_file_service=True,helper_initialization=True,initial_model_reservation=True)
         validate_app_timing(fixture(True,True,True,True),[(0,8),(1,9),(2,10)],**kwargs)

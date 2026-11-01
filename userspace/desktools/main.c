@@ -365,7 +365,7 @@ int main(int argc,char **argv) {
     }
     tool_timing_event(t->role,t->window.window,"loop-exit");
     timing=tool_timing_begin(t->role,t->window.window,"history-free");
-    free(t->body_history);
+    tool_text_history_release(t);
     tool_timing_end(t->role,t->window.window,"history-free",timing);
     timing=tool_timing_begin(t->role,t->window.window,"job-drain");
     if(t->worker_ready && pooled) {

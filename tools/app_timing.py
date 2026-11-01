@@ -13,7 +13,7 @@ RECORD = re.compile(
 
 PTHREAD_INIT_STAGES = {"service-attributes", "pthread-reap-self", "pthread-reap-records", "pthread-record-claim", "pthread-kernel-create", "pthread-publish"}
 
-def validate_app_timing(output, completed, *, files_window_runtime=False, async_file_service=False, helper_initialization=False, initial_model_reservation=False):
+def validate_app_timing(output, completed, *, files_window_runtime=False, async_file_service=False, helper_initialization=False, initial_model_reservation=False, reserved_text_history=False):
     """Validate the caller's known lifecycle, without inferring it from missing phases.
 
     completed contains (cycle, pid) pairs from the existing closed receipts.
@@ -63,6 +63,14 @@ def validate_app_timing(output, completed, *, files_window_runtime=False, async_
         assert required <= spans.keys(), (pid, 'missing phases', required - spans.keys())
         if mapped and initial_model_reservation:
             assert intervals['document-map'][0][1]<=intervals['file-service-init'][0][0], (pid,'initial model must precede helper startup')
+
+        if role == 2 and reserved_text_history:
+            assert {'text-history-reserve','text-history-init'} <= spans.keys(), (pid,'missing reserved history setup')
+            assert len(intervals['text-history-reserve'])==len(intervals['text-history-init'])==1
+            assert intervals['document-map'][0][1] <= intervals['text-history-reserve'][0][0]
+            assert intervals['text-history-reserve'][0][1] <= intervals['window-open'][0][0]
+            assert intervals['role-init'][0][0] <= intervals['text-history-init'][0][0]
+            assert intervals['text-history-init'][0][1] <= intervals['role-init'][0][1]
 
         order = ('main-entry', 'first-publish', 'close-received', 'main-return')
         assert all(len(events.get(stage, [])) == 1 for stage in order), (pid, 'missing/duplicate event')

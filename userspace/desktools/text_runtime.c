@@ -59,7 +59,8 @@ static void notice(struct tool_windows *app,uint64_t requester,const char *messa
 static struct desk_window_owner *allocate_document(struct tool_windows *app) {
     uint64_t timing=tool_timing_begin(app->role,0,"document-map");
     struct tool_phase_trace phase;tool_phase_begin(&phase);
-    struct desk_window_owner *owner=desk_window_owner_new(&app->set,sizeof(struct tool_document));
+    struct desk_window_owner *owner=desk_window_owner_new(&app->set,sizeof(struct tool_document)+
+        (app->role==DESK_APP_TEXT?sizeof(struct desk_text_history)+TOOL_TEXT_HISTORY_BYTES:0));
     tool_phase_end(&phase,app->role,0,"document-map");
     tool_timing_end(app->role,0,"document-map",timing);
     return owner;
@@ -71,6 +72,19 @@ static int create(struct tool_windows *app,uint64_t requester,const char *path) 
     if(!owner) {notice(app,requester,"There is not enough memory for another window.");return -1;}
     struct tool_document *d=document(owner);struct tool *t=&d->tool;
     tool_runtime_init(t,app->role);
+    if(app->role==DESK_APP_TEXT) {
+        /* Aligned model tail shares the document mapping and its retirement.
+         * No heap call is permitted after helper startup for this journal. */
+        _Static_assert(sizeof(struct tool_document)%_Alignof(struct desk_text_history)==0,"journal alignment");
+        uint64_t history_at=tool_timing_begin(app->role,0,"text-history-reserve");
+        struct tool_phase_trace phase;tool_phase_begin(&phase);
+        int history_ready=tool_text_history_prepare(t,(struct desk_text_history *)(d+1));
+        tool_phase_end(&phase,app->role,0,"text-history-reserve");
+        tool_timing_end(app->role,0,"text-history-reserve",history_at);
+        if(history_ready) {
+            desk_window_owner_release(owner,1);notice(app,requester,"The document history could not be prepared.");return -1;
+        }
+    }
     if(strlen(path)>=sizeof(d->initial_path))d->bad_path=1;else strcpy(d->initial_path,path);
     timing=tool_timing_begin(app->role,0,"window-open");
     int opened=desk_window_owner_open(owner,&t->window,requester,
@@ -267,7 +281,7 @@ int tool_window_runtime(int role,const char *path) {
                 if(app.set.failed) {owner=next;continue;}
                 if(!file_service_capacity(&app.files)) {busy=1;owner=next;continue;}
                 uint64_t window=t->window.window;
-                timing=tool_timing_begin(role,window,"history-free");free(t->body_history);t->body_history=NULL;
+                timing=tool_timing_begin(role,window,"history-free");tool_text_history_release(t);
                 tool_timing_end(role,window,"history-free",timing);
                 struct file_service_release release={.service=&app.files,.window=window};
                 int released=desk_window_owner_release_with(owner,1,file_service_retire,&release);
