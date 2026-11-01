@@ -36,7 +36,13 @@ reject incomplete/conflicting records. Its 34 tests pass. No guest workload,
 logger pacing, logging limit or acceptance bound changes.
 
 Evidence lives in local `build/air-unmap-helper-20261101`, independently backed up
-outside build. PR260 remains draft pending native validation. Installed release
+outside build. Full final core/desktop and 746-link documentation checks pass. Candidate
+`ce3f369efb135f20` stages source `93211110`; exact TCG native-profile
+refusal/save/unmount/reset passes, which accepts only boot/return plumbing.
+The payload has an independent copy. Fresh media/install/recovery checks and a
+refreshed 1% volume override remain prerequisites for the unchanged automatic
+1800-second diagnostic trial. This work block does not install or reboot.
+PR260 remains draft pending native validation. Installed release
 `928447acaed4bcfb` and recovery `9aa8dbf6fbda8252` are unchanged; no reboot is armed.
 
 ### Helper-owned unmap scope
