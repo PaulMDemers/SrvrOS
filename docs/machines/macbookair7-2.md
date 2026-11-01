@@ -4,9 +4,10 @@ Updated: 2026-11-01. State: **active reference machine; partial device acceptanc
 
 ### Startup admission candidate — local validation
 
-PR260 production source `185c6668` isolates the observed native waits to ordinary
-I/O admission: the first-thread constructor has no blocking body operation. A
-checked sole-main prelude now handles bounded first-thread/TLS construction and
+PR260 production source `185c6668` addresses the first-thread admission wait and
+measures initial allocation separately. The first-thread constructor has no
+blocking body operation; the older native document-map interval lacks substep
+attribution. A checked sole-main prelude now handles bounded first-thread/TLS construction and
 one-candidate anonymous RW allocation without releasing a foreign owner. Complete
 thread identity/CR3/TLS/FPU is published before READY, and the prepared entry
 avoids the allocating generic context refresh. Initial Text/Files models are
