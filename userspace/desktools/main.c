@@ -255,6 +255,9 @@ int tool_file_pool_retire(struct desk_file_pool *pool,int role) {
     return result==1?0:-1;
 }
 void tool_runtime_draw(struct tool *t) {
+    int first=!t->window.serial && t->window.surface;
+    uint64_t at=0;struct tool_phase_trace phase;
+    if(first) {at=tool_timing_begin(t->role,t->window.window,"first-controls");tool_phase_begin(&phase);}
     if((t->role==DESK_APP_TEXT || t->role==DESK_APP_FILES) && t->title_dirty && t->window.server) {
         const char *name=t->saved_path[0]?strrchr(t->saved_path,'/')+1:t->role==DESK_APP_TEXT?"Untitled":"Opening";char title[88];
         if(t->role==DESK_APP_TEXT)snprintf(title,sizeof(title),"Text — %s%s",name,tool_modified(t)?" *":"");
@@ -263,9 +266,14 @@ void tool_runtime_draw(struct tool *t) {
         if(!desk_app_title(&t->window,title)) t->title_dirty=0;
     }
     tool_menu_refresh(t);desk_app_menu_tick(&t->window);
+    if(first) {tool_phase_end(&phase,t->role,t->window.window,"first-controls");tool_timing_end(t->role,t->window.window,"first-controls",at);}
     struct desk_canvas c;if(desk_app_canvas(&t->window,&c)==1) {
-        int first=!t->window.serial;
-        draw(t,&c);int published=desk_app_present(&t->window);
+        if(first) {at=tool_timing_begin(t->role,t->window.window,"first-draw");tool_phase_begin(&phase);}
+        draw(t,&c);
+        if(first) {tool_phase_end(&phase,t->role,t->window.window,"first-draw");tool_timing_end(t->role,t->window.window,"first-draw",at);}
+        if(first) {at=tool_timing_begin(t->role,t->window.window,"first-present");tool_phase_begin(&phase);}
+        int published=desk_app_present(&t->window);
+        if(first) {tool_phase_end(&phase,t->role,t->window.window,"first-present");tool_timing_end(t->role,t->window.window,"first-present",at);}
         if(first && published==1)tool_timing_event(t->role,t->window.window,"first-publish");
     }
 }

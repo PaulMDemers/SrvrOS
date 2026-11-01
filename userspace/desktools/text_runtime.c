@@ -18,6 +18,19 @@ void __posix_pthread_create_trace(const char *stage,int begin) {
         tool_timing_end(pthread_trace_role,0,stage,pthread_trace_at);
     }
 }
+static int surface_trace_role;
+static _Thread_local uint64_t surface_trace_at;
+static _Thread_local struct tool_phase_trace surface_trace_phase;
+void __desk_app_surface_trace(struct desk_app *window,const char *stage,int begin) {
+    if(!surface_trace_role)return;
+    if(begin) {
+        surface_trace_at=tool_timing_begin(surface_trace_role,window->window,stage);
+        tool_phase_begin(&surface_trace_phase);
+    } else {
+        tool_phase_end(&surface_trace_phase,surface_trace_role,window->window,stage);
+        tool_timing_end(surface_trace_role,window->window,stage,surface_trace_at);
+    }
+}
 #include "file_service.h"
 
 struct tool_document {
@@ -33,6 +46,7 @@ struct tool_windows {
     struct file_service files;
     struct desk_open_document open_request;
     struct desk_window_owner *initial_owner;
+    uint32_t *initial_pixels;
     uint64_t service_window;
     unsigned capture_checkpoints;
     int role,capacity;
@@ -92,6 +106,13 @@ static int create(struct tool_windows *app,uint64_t requester,const char *path) 
     tool_timing_end(app->role,0,"window-open",timing);
     if(opened) {
         desk_window_owner_release(owner,1);notice(app,requester,"Another window is still opening. Try again shortly.");return -1;
+    }
+    if(app->initial_pixels) {
+        uint64_t adopt_at=tool_timing_begin(app->role,t->window.window,"canvas-adopt");
+        if(desk_app_adopt_pixels(&t->window,app->initial_pixels,720,480))
+            desk_pixels_free(app->initial_pixels,720,480);
+        app->initial_pixels=NULL;
+        tool_timing_end(app->role,t->window.window,"canvas-adopt",adopt_at);
     }
     t->clip.window=t->window.window;
     if(app->role==DESK_APP_FILES)desk_log("desktools: window-request role=files pid=%llu at_us=%llu\n",
@@ -212,6 +233,7 @@ int tool_window_runtime(int role,const char *path) {
     if(used)return 1;
     used=1;app=(struct tool_windows){.role=role,.capacity=role==DESK_APP_TEXT && !strcmp(path,"--capacity-files")};
     if(app.capacity) {if(tool_file_capture_capacity_setup())return 1;path="";}
+    surface_trace_role=role;
     desk_window_set_init(&app.set);
     uint64_t timing=tool_timing_begin(role,0,"pool-init");
     int initialized=desk_file_pool_init(&app.pool,app.channels,2);
@@ -219,16 +241,26 @@ int tool_window_runtime(int role,const char *path) {
     /* Reserve the initial model while still single-threaded. Do not publish
      * a GUI owner or lend it to the helper before startup has succeeded. */
     app.initial_owner=allocate_document(&app);if(!app.initial_owner)return 1;
+    timing=tool_timing_begin(role,0,"canvas-reserve");
+    struct tool_phase_trace canvas_phase;tool_phase_begin(&canvas_phase);
+    app.initial_pixels=desk_pixels_alloc(720,480);
+    tool_phase_end(&canvas_phase,role,0,"canvas-reserve");
+    tool_timing_end(role,0,"canvas-reserve",timing);
+    if(!app.initial_pixels) {desk_window_owner_release(app.initial_owner,1);return 1;}
     timing=tool_timing_begin(role,0,"file-service-init");
     pthread_trace_role=role;
     int service_started=file_service_start(&app.files,&app.pool,role);
     pthread_trace_role=0;
     tool_timing_end(role,0,"file-service-init",timing);
     if(service_started) {
+        desk_pixels_free(app.initial_pixels,720,480);app.initial_pixels=NULL;
         (void)desk_window_owner_release(app.initial_owner,1);app.initial_owner=NULL;return 1;
     }
     desk_log("desktools: starting role=%s\n",role_name(role));
-    if(create(&app,0,path)) {file_service_quiesce(&app.files);return 1;}
+    if(create(&app,0,path)) {
+        desk_pixels_free(app.initial_pixels,720,480);app.initial_pixels=NULL;
+        file_service_quiesce(&app.files);return 1;
+    }
     while(app.set.windows || file_service_poll(&app.files)) {
         file_service_poll(&app.files);
         if(app.files.retire_failed)app.set.failed=1;
@@ -290,8 +322,13 @@ int tool_window_runtime(int role,const char *path) {
             }
             drained=0;
             if(owner->ready && !app.set.failed) {
-                if(role==DESK_APP_TEXT && !app.capacity && !app.set.lifecycle.quitting && !app.service_window && !t->window.closing &&
-                   !desk_application_service(&t->window,DESK_SERVICE_OPEN_DOCUMENT))app.service_window=t->window.window;
+                if(role==DESK_APP_TEXT && !app.capacity && !app.set.lifecycle.quitting && !app.service_window && !t->window.closing) {
+                    int first=!t->window.serial;uint64_t service_at=0;struct tool_phase_trace phase;
+                    if(first) {service_at=tool_timing_begin(role,t->window.window,"first-service");tool_phase_begin(&phase);}
+                    int registered=desk_application_service(&t->window,DESK_SERVICE_OPEN_DOCUMENT);
+                    if(first) {tool_phase_end(&phase,role,t->window.window,"first-service");tool_timing_end(role,t->window.window,"first-service",service_at);}
+                    if(!registered)app.service_window=t->window.window;
+                }
                 if(app.set.lifecycle.quitting && app.service_window==t->window.window && !desk_application_service(&t->window,0))app.service_window=0;
                 int close_ready=tool_runtime_close_ready(t);
                 if(t->closing && close_ready && role==DESK_APP_FILES)t->quit=1;

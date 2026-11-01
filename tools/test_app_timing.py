@@ -2,7 +2,7 @@ import unittest
 from app_timing import validate_app_timing, saved_app_timing, lifecycle_receipts, RECORD, PTHREAD_INIT_STAGES
 
 
-def fixture(files_window_runtime=False,async_service=False,helper_initialization=False,initial_reservation=False):
+def fixture(files_window_runtime=False,async_service=False,helper_initialization=False,initial_reservation=False,first_surface=False):
     lines = []
     for cycle, role in enumerate((2, 1, 4)):
         now = 100
@@ -18,6 +18,11 @@ def fixture(files_window_runtime=False,async_service=False,helper_initialization
             if async_service:phases.insert(0,'file-service-init')
             if helper_initialization:phases[0:0]=sorted(PTHREAD_INIT_STAGES)
             if initial_reservation:phases.remove('document-map');phases.insert(0,'document-map')
+        if first_surface and mapped:
+            phases.insert(phases.index('document-map')+1,'canvas-reserve')
+            phases.insert(phases.index('window-open')+1,'canvas-adopt')
+            phases+=['canvas-pixels','canvas-surface','first-controls','first-draw','first-present']
+            if role==2:phases.insert(phases.index('first-controls'),'first-service')
         for phase in phases:
             emit(phase, 'begin');emit(phase, 'end', 10)
         emit('first-publish');emit('close-received')
@@ -34,6 +39,16 @@ def fixture(files_window_runtime=False,async_service=False,helper_initialization
 
 
 class TimingTests(unittest.TestCase):
+    def test_first_surface_phases_and_order(self):
+        raw=fixture(True,True,True,True,True)
+        kwargs=dict(files_window_runtime=True,async_file_service=True,helper_initialization=True,initial_model_reservation=True,first_surface=True)
+        validate_app_timing(raw,[(0,8),(1,9),(2,10)],**kwargs)
+        for stage in ['canvas-reserve','canvas-adopt','canvas-pixels','canvas-surface','first-controls','first-draw','first-present','first-service']:
+            with self.subTest(stage=stage),self.assertRaises(AssertionError):
+                validate_app_timing(raw.replace(('stage='+stage+' ').encode(),b'stage=missing '),[(0,8),(1,9),(2,10)],**kwargs)
+        with self.assertRaises(AssertionError):
+            validate_app_timing(raw.replace(b'stage=canvas-reserve ',b'stage=canvas-adopt ').replace(b'stage=window-open ',b'stage=canvas-reserve '),[(0,8),(1,9),(2,10)],**kwargs)
+
     def test_reserved_text_history_order_and_completeness(self):
         raw=fixture(True,True,True,True)
         lines=raw.splitlines();out=[]

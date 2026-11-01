@@ -42,6 +42,11 @@ int desk_app_wait_io(struct desk_app *app,struct srv_gui_wait *request);
 /* 1 caller may draw into canvas; 0 waiting/clean, -1 failure. */
 int desk_app_canvas(struct desk_app *app,struct desk_canvas *canvas);
 int desk_app_present(struct desk_app *app);
+/* Transfer an exact desk_pixels_alloc(width,height) mapping to a fresh window
+ * before CONFIGURE. Success owns it through normal resize/disposal; refusal
+ * leaves ownership with the caller. Matching first geometry avoids allocation.
+ * It is not a surface or a published frame. */
+int desk_app_adopt_pixels(struct desk_app *app,uint32_t *pixels,uint32_t width,uint32_t height);
 int desk_app_title(struct desk_app *app,const char *title);
 int desk_app_cancel_close(struct desk_app *app);
 int desk_app_launch(struct desk_app *app,unsigned application,const char *path);

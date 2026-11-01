@@ -13,7 +13,7 @@ RECORD = re.compile(
 
 PTHREAD_INIT_STAGES = {"service-attributes", "pthread-reap-self", "pthread-reap-records", "pthread-record-claim", "pthread-kernel-create", "pthread-publish"}
 
-def validate_app_timing(output, completed, *, files_window_runtime=False, async_file_service=False, helper_initialization=False, initial_model_reservation=False, reserved_text_history=False):
+def validate_app_timing(output, completed, *, files_window_runtime=False, async_file_service=False, helper_initialization=False, initial_model_reservation=False, reserved_text_history=False, first_surface=False):
     """Validate the caller's known lifecycle, without inferring it from missing phases.
 
     completed contains (cycle, pid) pairs from the existing closed receipts.
@@ -71,6 +71,21 @@ def validate_app_timing(output, completed, *, files_window_runtime=False, async_
             assert intervals['text-history-reserve'][0][1] <= intervals['window-open'][0][0]
             assert intervals['role-init'][0][0] <= intervals['text-history-init'][0][0]
             assert intervals['text-history-init'][0][1] <= intervals['role-init'][0][1]
+
+        if mapped and first_surface:
+            required_surface={'canvas-reserve','canvas-adopt','canvas-pixels','canvas-surface','first-controls','first-draw','first-present'}
+            if role==2:required_surface.add('first-service')
+            assert required_surface <= spans.keys(), (pid,'missing first-surface phases',required_surface-spans.keys())
+            for stage in ('canvas-reserve','canvas-adopt'):
+                assert len(intervals[stage])==1, (pid,'duplicate reservation/adoption',stage)
+            assert intervals['document-map'][0][1] <= intervals['canvas-reserve'][0][0]
+            assert intervals['canvas-reserve'][0][1] <= intervals['file-service-init'][0][0]
+            assert intervals['window-open'][0][1] <= intervals['canvas-adopt'][0][0]
+            assert intervals['canvas-adopt'][0][1] <= intervals['canvas-pixels'][0][0]
+            assert intervals['canvas-pixels'][0][1] <= intervals['canvas-surface'][0][0]
+            assert intervals['canvas-surface'][0][1] <= intervals['first-draw'][0][0]
+            assert intervals['first-draw'][0][1] <= intervals['first-present'][0][0]
+            assert intervals['first-present'][-1][1] <= events['first-publish'][0]
 
         order = ('main-entry', 'first-publish', 'close-received', 'main-return')
         assert all(len(events.get(stage, [])) == 1 for stage in order), (pid, 'missing/duplicate event')
