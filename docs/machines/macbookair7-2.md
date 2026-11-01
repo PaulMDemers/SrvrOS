@@ -27,10 +27,13 @@ resolves the previous native 8-second maximum. Those resources must remain owned
 
 Candidate `29d2ac5951546a12` stages `a6328bf2`. Exact TCG native refusal/save/
 unmount/return passes plumbing only; no new native acceptance. Independent payload
-and recovery are verified; installed accepted `7d21b1fb77479259` and recovery
-`9aa8dbf6fbda8252` remain unchanged at this checkpoint. The approved next trial
-is automatic for 1800 seconds at 1% volume, with fresh integrity preflight and
-saved run records; it requires no input and must retain the worst-case split.
+and recovery are verified. Fresh offline fsck/allocation/writable/headroom checks
+pass with all 1268 prior files and 83 sessions accounted for. Candidate is now
+installed with recovery `9aa8dbf6fbda8252` retained and accepted `7d21b1fb77479259`
+independently preserved. The approved trial is automatic for 1800 seconds at 1%
+volume, needs no input and must retain the worst-case split. USB is unmounted;
+the durable run record is saved before arming the one-shot Ubuntu-return boot.
+No new physical acceptance yet.
 
 ### Lifecycle latency scope after PR260
 
