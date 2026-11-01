@@ -48,10 +48,11 @@ def main():
     parser.add_argument('--accel',choices=('tcg','kvm'),default='tcg')
     parser.add_argument('--air72',action='store_true',help='use Air7,2 synthetic ownership fixture; stages infer their own profile')
     parser.add_argument('--populated-home',action='store_true',help='Exercise Files startup with 64 existing Home files')
+    parser.add_argument('--metadata-files',type=int,default=0,help='Add up to4000 preserved empty archive files to exercise a large metadata sidecar')
     parser.add_argument('--write-iops',type=int,default=0,help='Limit disposable VM USB write IOPS without pacing the guest workload')
     parser.add_argument('--read-iops',type=int,default=0,help='Limit disposable VM USB read IOPS without pacing the guest workload')
     args=parser.parse_args()
-    if args.write_iops<0 or args.read_iops<0 or (args.stage and (args.populated_home or args.write_iops or args.read_iops)):parser.error('Load options apply only to the synthetic positive VM')
+    if args.write_iops<0 or args.read_iops<0 or not 0<=args.metadata_files<=4000 or (args.stage and (args.populated_home or args.write_iops or args.read_iops or args.metadata_files)):parser.error('Load options apply only to the synthetic positive VM')
     root=Path(__file__).resolve().parents[1];out=root/('build/review/audio-io-exact' if args.stage else 'build/review/audio-io-populated' if args.populated_home else 'build/review/audio-io-auto');out=out.with_name(out.name+'-air72') if args.air72 else out;out.mkdir(parents=True,exist_ok=True)
     for name in ('result.json','tone.wav','lifecycle.json','app-timing.json','operations.json','loop-timing.json','automatic-screenshot.png','receipt.txt','allocation.log','overlap.json','cache-retirement.json','file-service.json','lifetime-worst.json'):
         (out/name).unlink(missing_ok=True)
@@ -73,6 +74,8 @@ def main():
         prior={'.workspace':marker,'anchor.txt':b'unchanged\n','audio-io-volume.conf':f'1 {int(time.time())+86400}\n'.encode()}
         if args.populated_home:prior.update({f'Existing-{n:03d}.txt':(f'Preserved file {n}\n'*64).encode() for n in range(64)})
         f.add_directory_files('srvros-work',prior)
+        archive={f'Preserved-{n:04d}-metadata-sidecar-regression-record.txt':b'' for n in range(args.metadata_files)}
+        if archive:f.add_directory_files('archive',archive)
         last=2048+len(f.data)//512-1;backup=last+33;entries=bytearray(128*128)
         entries[:128]=gpt_entry(uuid.UUID('EBD0A0A2-B9E5-4433-87C0-68B6B72699C7'),uuid.uuid4(),2048,last,'workspace')
         crc=binascii.crc32(entries)&0xffffffff;guid=uuid.uuid4();mbr=bytearray(512);mbr[450]=0xee;struct.pack_into('<II',mbr,454,1,backup);mbr[510:]=b'\x55\xaa'
@@ -194,6 +197,7 @@ def main():
                     assert re.search(rb'battery-service: retired epoch=1 .*heap=0 errors=0 denied=0',output)
                     assert b'runtime_retired=yes' in output and overlap
                 for name,contents in prior.items():assert final.read('srvros-work/'+name)==contents
+                for name,contents in archive.items():assert final.read('archive/'+name)==contents
                 if not stage:
                     directory=re.search(rb'audio-io: begin seconds=60 directory=/work/([^ ]+) automatic=yes',output)[1].decode()
                     receipt=final.read(directory+'/result.txt');assert b'result=PASS' in receipt
@@ -242,7 +246,7 @@ def main():
                 assert 'leaked=0 fat_bitmap_mismatches=0 errors=0' in allocation
                 (out/'allocation.log').write_text(allocation);(out/'overlap.json').write_text(json.dumps(overlap,indent=2)+'\n')
                 result=dict(status='PASS',accelerator=args.accel,stage=args.stage,manifest_sha256=boot.digest(stage/'manifest.json') if stage else None,observed_overlap_windows=len(overlap),input_injected=False,automatic_return=True,source=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),source_dirty=bool(subprocess.check_output(['git','status','--porcelain'],text=True)),native_acceptance=False,model='MacBookAir7,2' if air72 else 'MacBookAir6,1')
-                result.update(app_timing_evidence=timing_evidence,retained_checkpoints=len(checkpoints),populated_home=args.populated_home,write_iops=args.write_iops,read_iops=args.read_iops,prior_files_preserved=len(prior))
+                result.update(app_timing_evidence=timing_evidence,retained_checkpoints=len(checkpoints),populated_home=args.populated_home,write_iops=args.write_iops,read_iops=args.read_iops,prior_files_preserved=len(prior)+len(archive),metadata_files=args.metadata_files)
                 (out/'result.json').write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result))
             finally:
                 stop_process(process);(out/'serial.log').write_bytes(output)

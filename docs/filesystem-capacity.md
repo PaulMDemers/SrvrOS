@@ -120,3 +120,11 @@ outside mutation ownership. Match intervals against owner/gate records before
 attributing a delay. This is observation, not a permission to release ownership
 mid-publication or an SMP synchronization mechanism. `make test-exfat-cost`
 checks accounting, failure retention and the four-record bound.
+
+The automatic VM workload can add a preserved empty archive with
+`tools/audio_io_stress_smoke.py --air72 --accel kvm --populated-home --metadata-files 1200 --write-iops 100`.
+This enlarges the real serialized sidecar without allocating one128KiB data
+cluster per fixture file. It preserves the original live PCM/disk workload,
+limits and existing Home fixtures, checks every archive file after return, and
+is forbidden with an exact staged native profile. Add `--read-iops 100` for
+combined read/write throttling. This remains disposable VM evidence.
