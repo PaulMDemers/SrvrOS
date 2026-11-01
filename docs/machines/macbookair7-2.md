@@ -2,6 +2,33 @@
 
 Updated: 2026-10-31. State: **active reference machine; partial device acceptance**.
 
+### Async-service native return: startup deadline remains open (2026-11-01 UTC)
+
+Release `5c4c800cd105b347`, source `efcdb24d`, saved matching session and
+returned to Ubuntu. The saved receipt confirms the requested 1% volume.
+The unchanged 1800-second workload **FAILS early** after nine completed app
+lifetimes: UI maximum 101706 us, ready maximum 9003295 us, completed-close
+maximum 3100187 us. Text PID18 exceeds the total lifecycle deadline at
+10001117 us. This is not an endurance acceptance or audible/input acceptance.
+
+Helper initialization before GUI admission takes 6108130 us. Readiness consumes
+9.003 seconds of the existing ten-second launch-to-reap budget. Close reception
+to ACK is 21490 us; helper canvas/model unmaps complete in 368870/118735 us,
+stop in 6043 us and pool retirement in 30 us. Main returns after the deadline;
+body quiescence does not prove timely whole-process retirement. The live
+compositor remains within its UI bound. Measure helper initialization subphases
+next to distinguish attributes, pthread/TLS setup and kernel thread creation;
+the current trace does not identify the blocking step. Keep all limits unchanged.
+
+The screenshot and PCM workload are incomplete. Final cache retirement is zero
+bytes/zero retained with eight reuses; battery runtime retires without residual
+heap/errors/denied operations. All 1231 prior files retain their hashes except
+expected filesystem metadata; six new evidence files are copied and verified.
+Offline fsck, allocation, write eligibility and headroom pass. Current candidate,
+independent recovery and Ubuntu default are verified; one-shot is consumed and
+no new test is armed. Raw evidence/checkpoint remain locally retained and backed
+up outside `build`. PR258's merge does not accept this failed trial.
+
 ### Integration and workspace retention checkpoint (2026-11-01 UTC)
 
 The user requested workspace pruning and integration of the completed work.
