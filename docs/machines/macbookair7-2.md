@@ -2,19 +2,52 @@
 
 Updated: 2026-11-01. State: **active reference machine; partial device acceptance**.
 
-### Active follow-up: bitmap write amplification
+### Bitmap transfer candidate ready for hardware
 
-Continue on PR261/source60ca091b, with main9340c9fb inspected. Trace actual
-allocation/free I/O in `kernel/src/fs/exfat.c` using production host drivers and
-populated128KiB-cluster fixtures. The allocator currently rewrites the entire
-allocation-bitmap cluster when only a few bits change. Bound those transfers to
-the declared bitmap and changed byte span, keeping the same dirty/publication/
-flush/quarantine ordering and exclusive owner. Add direct untouched-byte,
-fragmented/boundary and failure coverage, then rerun crash/growth/retirement and
-loaded/read-throttled VM checks. Measure bytes and owner phases; do not claim
-the remaining native8-second stall resolved without a new physical trial.
-No reboot is armed; current451 is failed, accepted7d/recovery9aa preserved.
-Other open scopes remain PR252 resolver/sockets and PR19 Pro Wi-Fi.
+Source `275330f5`, release `ff1242b59d4eb9a5`, continues draft PR261 on main9340c9fb.
+Allocation and freeing previously rewrote a128KiB bitmap cluster when only a few
+bits changed. They now publish the changed byte interval, preserving neighbours
+through existing block-sector RMW. Whole bitmap reads, FAT-before-bitmap order,
+exclusive ownership, dirty/publication/flush ordering, failed-write quarantine
+and alias retirement remain. On a1200-file128KiB-cluster real-driver fixture,
+create/overwrite/rename/delete/replacement request59.96–74.94% fewer write bytes,
+with identical full disk hashes and write/flush counts. These are block API bytes,
+not physical-sector counts or a native latency bound.
+
+The logger retains four longest completed mutations with operation/start/end,
+block calls/bytes and read/write/flush wall time across metadata, allocation,
+data and freeing. No paths or allocations are added. Data includes sidecar
+contents. Match intervals to ownership records before attributing native delays.
+
+Host core/desktop, crash/growth/retirement, full hardening/5000-file scale,
+read reuse, bitmap/cost/failure contracts and matched ordinary/native/synthetic
+builds pass locally. A pre-existing negative fixture fails on both old and new
+drivers because it expects mounting under foreign ownership to succeed. The
+corrected fixture asserts mount refusal, then mutation refusal after a successful
+clean mount; production ownership checks are unchanged.
+
+At the unchanged500ms UI/10s whole-lifetime bounds, clean-source VM results are:
+loaded100 with1200 extra archive files21 lifetimes (UI121009us, ready1439907us,
+Close981307us); normal25 (UI139983us, ready820331us, Close1161000us);20Files
+windows with8MiB copy through Close, concurrent Text save and complete cleanup;
+read100/write100 with1200 archive files18 (UI109759us, ready1231588us,
+Close2629705us). Enlarged fixtures preserve1267 prior files, complete lifecycle
+receipts, sustained live PCM/disk overlap and cache/service retirement. Complete
+saved cost records validate, with callback sums no greater than mutation duration.
+
+The first enlarged VM reports passing workload timings/audio but fails required
+receipt collection after a prewrite UART marker interleaves. It remains failed
+in local evidence. Checkpoint discovery now also accepts the exact durable
+generation, still requiring two equal disk reads, the exact atomic generation
+and every lifecycle receipt. All35 collector tests and the fresh VM matrix pass;
+no partial UART receipt is repaired or accepted.
+
+Exact staged TCG native-profile refusal/save/unmount/return passes plumbing only.
+Candidate payload/evidence are backed up outside `build`; current failed451,
+recovery9aa and independent accepted7d verify. Candidate is not installed or armed.
+Next is fresh USB/recovery/run-record preflight and the automatic1800-second
+hardware trial at1% volume. No native stall, input, audible or sibling acceptance
+is inferred. Local checkpoint: `build/air-bitmap-span-20261101/checkpoint.json`.
 
 ### Storage-shortening hardware return: deadline failure
 
