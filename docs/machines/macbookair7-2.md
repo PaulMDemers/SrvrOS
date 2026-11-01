@@ -2,6 +2,35 @@
 
 Updated: 2026-11-01. State: **active reference machine; partial device acceptance**.
 
+### Text journal native return — first publication still misses lifecycle budget
+
+Release `a442f72d78af2e57` (staged `2f6c769a`, production `6739a6e6`)
+returned with session `session-00065f37c0455ba8-00`. The unchanged full endurance
+**fails after 12 completed app cycles**, before completing 1800 seconds. Text
+PID21 reaches readiness at 9171044 us and then the total lifecycle deadline at
+10020598 us. UI maximum is 102201 us and completed-close maximum 1240262 us.
+The first screenshot remains incomplete; this is not full workload acceptance.
+
+For PID21, document mapping takes 188 us, kernel thread creation 51 us, helper
+initialization 231 us, history reservation 25 us and history initialization 24 us.
+The map/create/history scheduler brackets show zero blocked/ready time. Role
+initialization completes in 56 us. This observes the intended bounded startup
+paths for this retained lifetime, not unrestricted acceptance of all memory work.
+
+An unbracketed 8973958 us lies between role-init END and first-publish. Dispatch,
+GUI service/configuration and first drawing/publication still need separate
+attribution; no exact blocking call is proven. Preserve the unchanged deadlines.
+Volume 1% and zero sampled PCM underruns are confirmed. Final cache retirement
+reaches zero bytes/retained with 11 reuses; battery runtime retires cleanly.
+Full audio/disk duration and screenshot acceptance remain open.
+
+All 1253 prior files are preserved apart from expected metadata; six new files
+are copied and hash-verified. Offline fsck is clean (273 directories, 1259 files),
+with allocation/writable/headroom passing. Current `a442f72d78af2e57`, independent
+recovery `9aa8dbf6fbda8252`, Ubuntu default and consumed one-shot are verified.
+Evidence under local `build/air-text-history-20261101/native-trial` is independently
+backed up; USB is remounted and no reboot is armed.
+
 ### Text journal reservation candidate — ready for native retest
 
 Production `6739a6e6` reserves the unchanged 256 KiB undo journal with each
