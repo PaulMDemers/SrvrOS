@@ -2,7 +2,12 @@
 #include <stdio.h>
 #define SRVROS_SYSCALL_IO_HOST_TEST
 #include "../kernel/src/arch/x86_64/syscall.c"
-static bool console_fd,busy,user_safe;
+static bool console_fd,busy,user_safe,startup_killed,kill_on_wait;
+bool process_should_exit_current(void) { return startup_killed; }
+bool scheduler_io_active(void) {return busy;}
+uint64_t latency_clock(void) {return 1;}
+static unsigned gate_samples;
+void latency_gate(uint64_t at,uint64_t call) {assert(at==1 && (call==SYS_MMAP || call==SYS_THREAD_CREATE));gate_samples++;}
 static unsigned turn_requests;
 static bool retired;
 static bool wait_pointer_ok=true;static unsigned wait_attempts;
@@ -36,6 +41,7 @@ bool process_file_try_close_pipe(struct process *p,uint64_t fd,int64_t *result) 
 }
 void scheduler_io_wait(void) {
     assert(!user_safe);close_waits++;busy=false;pipe_file.handle=456;
+    if(kill_on_wait)startup_killed=true;
 }
 int64_t process_file_close(struct process *p,uint64_t fd) {
     assert(p==(struct process *)1 && fd==10 && !user_safe && !busy && pipe_file.handle==456);
@@ -70,6 +76,45 @@ static void test_unmap_admission(void) {
     private_unmap=false;assert(syscall_munmap(0x400000,8192)==-8);
     assert(!busy && !user_safe && close_waits==before+1 && unmap_calls==2 && unmap_slow==1 && unmap_handoffs==1);
     puts("private-unmap-admission: PASS atomic attempt or ordinary gated fallback; EXIT remains gated");
+}
+
+static bool startup_fast;static unsigned startup_attempts,startup_slow;
+bool process_try_mmap_private(struct process *p,uint64_t address,uint64_t length,uint64_t prot,uint64_t flags,int64_t fd,int64_t offset,int64_t *result) {
+    (void)p;(void)address;(void)length;(void)prot;(void)flags;(void)fd;(void)offset;startup_attempts++;
+    if(!startup_fast)return false;
+    *result=0x500000;return true;
+}
+int64_t process_mmap(struct process *p,uint64_t address,uint64_t length,uint64_t prot,uint64_t flags,int64_t fd,int64_t offset) {
+    (void)p;(void)address;(void)length;(void)prot;(void)flags;(void)fd;(void)offset;
+    assert(!busy && !user_safe);startup_slow++;return -9;
+}
+bool process_try_thread_create_private(uint64_t e,uint64_t a,uint64_t s,uint64_t f,int64_t *result) {
+    (void)e;(void)a;(void)s;(void)f;startup_attempts++;if(!startup_fast)return false;*result=2;return true;
+}
+int64_t process_thread_create(uint64_t e,uint64_t a,uint64_t s,uint64_t f) {
+    (void)e;(void)a;(void)s;(void)f;assert(!busy && !user_safe);startup_slow++;return -10;
+}
+static void test_startup_admission(void) {
+    struct isr_frame f={.rax=SYS_MMAP};assert(syscall_io_safe(&f));
+    f.rax=SYS_THREAD_CREATE;assert(syscall_io_safe(&f));
+    unsigned waits=close_waits,handoffs=unmap_handoffs;
+    busy=user_safe=startup_fast=true;
+    assert(syscall_mmap(0,4096,3,9,-1,0)==0x500000);
+    assert(syscall_thread_create(0x400000,123,0x500800,0)==2);
+    assert(busy && user_safe && startup_attempts==2 && !startup_slow && close_waits==waits && unmap_handoffs==handoffs);
+    startup_fast=false;
+    assert(syscall_mmap(0,4096,3,9,-1,0)==-9);
+    busy=user_safe=true;assert(syscall_thread_create(0x400000,123,0x500800,0)==-10);
+    assert(!busy && !user_safe && startup_slow==2 && close_waits==waits+2 && unmap_handoffs==handoffs+2);
+    busy=user_safe=true;wait_pointer_ok=false;
+    assert(syscall_thread_create(0x400000,123,0x500800,0)==-1 && !busy && !user_safe && unmap_handoffs==handoffs+3);
+    wait_pointer_ok=true;
+    busy=user_safe=kill_on_wait=true;unsigned slow=startup_slow;
+    assert(syscall_thread_create(0x400000,123,0x500800,0)==-1 && startup_killed && startup_slow==slow);
+    startup_killed=false;busy=user_safe=true;
+    assert(syscall_mmap(0,4096,3,9,-1,0)==-1 && startup_killed && startup_slow==slow);
+    assert(gate_samples==5);startup_killed=kill_on_wait=false;
+    puts("startup-admission: PASS sole-process attempt or ordinary gated fallback, invalid-buffer handoff, no foreign gate mutation");
 }
 static void test_pipe_retry_admission(void) {
     const struct { enum process_file_type type; bool read,write; } cases[]={
@@ -121,7 +166,7 @@ int main(void) {
     frame.rax=SYS_SCHED_TRACE;assert(syscall_io_safe(&frame));
     frame.rax=SYS_GUI_SERVER_WAIT;assert(syscall_io_safe(&frame));
     const uint64_t blocked[]={SYS_OPEN,SYS_FS_WRITE,SYS_SYNC,SYS_EXIT,SYS_PREAD,SYS_PWRITE,SYS_VECTOR_IO,SYS_PIPE2,SYS_DUP3,SYS_PIPE_PAIR_FLAGS,SYS_THREAD_SIGNAL,
-        SYS_SOCKET_TRY_IO,SYS_KILL,SYS_SPAWN,SYS_MMAP,SYS_FILE_CHANGE,UINT64_MAX};
+        SYS_SOCKET_TRY_IO,SYS_KILL,SYS_SPAWN,SYS_FILE_CHANGE,UINT64_MAX};
     for(unsigned i=0;i<sizeof(blocked)/sizeof(*blocked);i++) {
         frame.rax=blocked[i];assert(!syscall_io_safe(&frame));
     }
@@ -173,13 +218,14 @@ int main(void) {
     busy=user_safe=true;unsigned identity_waits=close_waits,identity_turns=turn_requests;
     frame.rax=SYS_THREAD_SELF;assert(syscall_io_safe(&frame));
     assert(busy && user_safe && close_waits==identity_waits && turn_requests==identity_turns);
-    const uint64_t thread_gated[]={SYS_THREAD_CREATE,SYS_THREAD_JOIN,SYS_THREAD_DETACH,SYS_THREAD_STATUS,SYS_SBRK,SYS_MMAP,SYS_EXIT};
+    const uint64_t thread_gated[]={SYS_THREAD_JOIN,SYS_THREAD_DETACH,SYS_THREAD_STATUS,SYS_SBRK,SYS_EXIT};
     for(unsigned n=0;n<sizeof(thread_gated)/sizeof(thread_gated[0]);n++) {
         frame.rax=thread_gated[n];assert(!syscall_io_safe(&frame));
     }
 
     frame.rax=SYS_KEY_SCAN;assert(syscall_io_safe(&frame));
     frame.rax=SYS_TTY_GETATTR;assert(syscall_io_safe(&frame));
+    test_startup_admission();
     test_pipe_retry_admission();
     pipe_file.type=PROCESS_FILE_PIPE_DUPLEX;pipe_file.flags=SRV_FD_NONBLOCK;
     busy=true;user_safe=true;byte_safe=true;unsigned before=turn_requests;

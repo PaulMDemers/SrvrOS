@@ -266,6 +266,11 @@ int64_t process_mmap(struct process *process,
 int64_t process_munmap(struct process *process, uint64_t address, uint64_t length);
 /* Atomic bounded whole-anonymous-region retirement, otherwise no mutation.
  * A handled failure retains remaining ownership; false requires the I/O gate. */
+/* CPU0, validated sole-main atomic attempts; refusals leave result/state intact.
+ * Anonymous RW mapping uses one candidate <=2MiB; first-thread TLS <=2 pages.
+ * No file work, service windows or foreign-gate mutation. Generic calls gate. */
+bool process_try_thread_create_private(uint64_t entry,uint64_t arg,uint64_t stack_top,uint64_t flags,int64_t *result);
+bool process_try_mmap_private(struct process *,uint64_t address,uint64_t length,uint64_t protection,uint64_t flags,int64_t fd,int64_t offset,int64_t *result);
 bool process_try_munmap_private(struct process *process, uint64_t address, uint64_t length, int64_t *result);
 /* Exact direct child only; consume fully cleaned reapable metadata atomically.
  * False leaves ownership/status unchanged and requires ordinary wait admission. */

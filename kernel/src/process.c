@@ -964,8 +964,8 @@ static void copy_bytes(uint8_t *destination, const uint8_t *source, uint64_t len
     }
 }
 
-static bool user_space_write(struct process *process, uint64_t virtual_address,
-    const void *source, uint64_t length) {
+static bool user_space_write_mode(struct process *process, uint64_t virtual_address,
+    const void *source, uint64_t length,bool service) {
     const uint8_t *bytes = source;
     for (uint64_t copied = 0; copied < length;) {
         uint64_t physical_address;
@@ -985,9 +985,13 @@ static bool user_space_write(struct process *process, uint64_t virtual_address,
             bytes + copied,
             chunk);
         copied += chunk;
-        if(!(copied&0x1ffff))process_service_checkpoint();
+        if(service && !(copied&0x1ffff))process_service_checkpoint();
     }
     return true;
+}
+
+static bool user_space_write(struct process *process,uint64_t address,const void *source,uint64_t length) {
+    return user_space_write_mode(process,address,source,length,true);
 }
 
 static uint64_t local_strlen_limit(const char *text, uint64_t capacity) {
@@ -1218,7 +1222,7 @@ static bool validate_elf(const uint8_t *data, uint64_t size, const struct elf64_
     return true;
 }
 
-static bool map_process_page(struct process *process, uint64_t virtual_page, uint64_t flags) {
+static bool map_process_page_mode(struct process *process, uint64_t virtual_page, uint64_t flags,bool service) {
     if (process == NULL || process->mapping_count >= PROCESS_MAX_MAPPINGS) {
         console_printf("run: map page rejected process=%x count=%u limit=%u virt=%x\n",
             (uint64_t)process,
@@ -1255,9 +1259,13 @@ static bool map_process_page(struct process *process, uint64_t virtual_page, uin
     };
     uint64_t bytes=process->mapping_count*PAGE_SIZE;
     if(bytes>process->peak_mapped_bytes) process->peak_mapped_bytes=bytes;
-    if(!(process->mapping_count&31))process_service_checkpoint();
+    if(service && !(process->mapping_count&31))process_service_checkpoint();
 
     return true;
+}
+
+static bool map_process_page(struct process *process,uint64_t page,uint64_t flags) {
+    return map_process_page_mode(process,page,flags,true);
 }
 
 static int64_t process_mapping_index(struct process *process, uint64_t virtual_page) {
@@ -1291,6 +1299,16 @@ static bool process_unmap_tracked_page(struct process *process, uint64_t virtual
     if (index < 0) return false;
     process_unmap_mapping_at(process, (uint64_t)index);
     return true;
+}
+
+static bool process_unmap_tracked_page_checked(struct process *process,uint64_t page) {
+    int64_t i=process_mapping_index(process,page);uint64_t physical=0;
+    if(i<0 || !vmm_virt_to_phys_in_space(process->address_space,page,&physical) ||
+       physical!=process->mappings[i].physical_address)return false;
+    process_futex_invalidate_page(process,page);
+    uint64_t removed=0;
+    if(!vmm_unmap_page_in_space(process->address_space,page,&removed) || removed!=physical)return false;
+    pmm_free_frame(physical);process->mappings[i]=process->mappings[--process->mapping_count];return true;
 }
 
 static void cleanup_process_mappings(struct process *process) {
@@ -1493,8 +1511,8 @@ static bool process_capture_tls_template(struct process *process,
 
 /* Slot zero belongs to the main thread. Worker slots are reused only after
  * their old TLS has been unmapped; addresses never advance for process life. */
-static bool process_setup_tls_block(struct process *process, unsigned slot,
-    uint64_t *base_out, uint64_t *thread_pointer_out) {
+static bool process_setup_tls_block_mode(struct process *process, unsigned slot,
+    uint64_t *base_out, uint64_t *thread_pointer_out,bool service) {
     if (process == NULL || process->tls_memsz == 0) {
         if (base_out != NULL) {
             *base_out = 0;
@@ -1518,23 +1536,26 @@ static bool process_setup_tls_block(struct process *process, unsigned slot,
 
     uint64_t mapped = 0;
     for (; mapped < mapped_length; mapped += PAGE_SIZE) {
-        if (!map_process_page(process, base + mapped, VMM_PAGE_USER | VMM_PAGE_WRITABLE | VMM_PAGE_NO_EXECUTE)) {
+        if (!map_process_page_mode(process, base + mapped, VMM_PAGE_USER | VMM_PAGE_WRITABLE | VMM_PAGE_NO_EXECUTE,service)) {
             for (uint64_t rollback = 0; rollback < mapped; rollback += PAGE_SIZE) {
-                (void)process_unmap_tracked_page(process, base + rollback);
+                if(service)(void)process_unmap_tracked_page(process,base+rollback);
+                else (void)process_unmap_tracked_page_checked(process,base+rollback);
             }
             return false;
         }
     }
     if (process->tls_filesz != 0 &&
-        !user_space_write(process, base, process->tls_template, process->tls_filesz)) {
+        !user_space_write_mode(process, base, process->tls_template, process->tls_filesz,service)) {
         for (uint64_t rollback = 0; rollback < mapped_length; rollback += PAGE_SIZE) {
-            (void)process_unmap_tracked_page(process, base + rollback);
+            if(service)(void)process_unmap_tracked_page(process,base+rollback);
+                else (void)process_unmap_tracked_page_checked(process,base+rollback);
         }
         return false;
     }
-    if (!user_space_write(process, thread_pointer, &thread_pointer, sizeof(thread_pointer))) {
+    if (!user_space_write_mode(process, thread_pointer, &thread_pointer, sizeof(thread_pointer),service)) {
         for (uint64_t rollback = 0; rollback < mapped_length; rollback += PAGE_SIZE) {
-            (void)process_unmap_tracked_page(process, base + rollback);
+            if(service)(void)process_unmap_tracked_page(process,base+rollback);
+                else (void)process_unmap_tracked_page_checked(process,base+rollback);
         }
         return false;
     }
@@ -1546,6 +1567,10 @@ static bool process_setup_tls_block(struct process *process, unsigned slot,
         *thread_pointer_out = thread_pointer;
     }
     return true;
+}
+
+static bool process_setup_tls_block(struct process *process,unsigned slot,uint64_t *base,uint64_t *pointer) {
+    return process_setup_tls_block_mode(process,slot,base,pointer,true);
 }
 
 static void process_release_thread_tls(struct process_user_thread *thread) {
@@ -3141,7 +3166,7 @@ static void process_user_thread_start(void *arg) {
     usermode_enter(thread->entry, thread->stack_top, thread->arg, 0, 0, thread->tls_thread_pointer);
 }
 
-int64_t process_thread_create(uint64_t entry, uint64_t arg, uint64_t stack_top, uint64_t flags) {
+static int64_t process_thread_create_impl(uint64_t entry, uint64_t arg, uint64_t stack_top, uint64_t flags,bool service) {
     struct process *process = process_current();
     if (process == NULL || !process->active || entry == 0 || stack_top < PAGE_SIZE) {
         return -1;
@@ -3174,7 +3199,7 @@ int64_t process_thread_create(uint64_t entry, uint64_t arg, uint64_t stack_top, 
 
     uint64_t tls_base = 0;
     uint64_t tls_thread_pointer = 0;
-    if (!process_setup_tls_block(process, (unsigned)(thread-process->user_threads)+1, &tls_base, &tls_thread_pointer)) {
+    if (!process_setup_tls_block_mode(process, (unsigned)(thread-process->user_threads)+1, &tls_base, &tls_thread_pointer,service)) {
         thread->used = false;
         return -1;
     }
@@ -3196,13 +3221,45 @@ int64_t process_thread_create(uint64_t entry, uint64_t arg, uint64_t stack_top, 
     };
     fpu_init_state(&thread->fpu);
 
-    if (!scheduler_spawn("uthread", process_user_thread_start, thread)) {
-        process_release_thread_tls(thread);
+    if (!scheduler_spawn_user_thread("uthread", process_user_thread_start, thread,&thread->fpu,thread->tls_thread_pointer)) {
+        if(service)process_release_thread_tls(thread);
+        else if(thread->tls_base) {
+            uint64_t size=page_up(align_up_u64(process->tls_memsz,process->tls_align)+USER_TLS_TCB_SIZE);
+            for(uint64_t page=0;page<size;page+=PAGE_SIZE)
+                (void)process_unmap_tracked_page_checked(process,thread->tls_base+page);
+        }
         thread->used = false;
         thread->active = false;
         return -1;
     }
     return (int64_t)tid;
+}
+
+int64_t process_thread_create(uint64_t entry,uint64_t arg,uint64_t stack_top,uint64_t flags) {
+    return process_thread_create_impl(entry,arg,stack_top,flags,true);
+}
+/* First/reused sole-main worker only. All allocation/publication is IRQ-masked;
+ * no filesystem access, service checkpoint or borrowed userspace buffer. */
+bool process_try_thread_create_private(uint64_t entry,uint64_t arg,uint64_t stack_top,uint64_t flags,int64_t *result) {
+    if(!result || !entry || stack_top<16 || (flags&~SRV_THREAD_DETACHED) ||
+       ((stack_top-8)&~(PAGE_SIZE-1))!=((stack_top-1)&~(PAGE_SIZE-1)))return false;
+    uint64_t irq=process_irq_save();struct process *p=process_current();
+    if(!p || !p->allocated || !p->active || p->killed || p->exiting || p->mapping_count>4094 ||
+       !scheduler_io_process_independent(p) || p->address_space!=vmm_current_address_space() ||
+       p->tls_memsz>PROCESS_TLS_TEMPLATE_MAX || p->tls_filesz>p->tls_memsz ||
+       !p->tls_align || p->tls_align>PAGE_SIZE || (p->tls_align&(p->tls_align-1)))goto refused;
+    for(unsigned i=0;i<PROCESS_MAX_USER_THREADS;i++)if(p->user_threads[i].used)goto refused;
+    int64_t code=process_mapping_index(p,entry&~(PAGE_SIZE-1));
+    int64_t stack=process_mapping_index(p,(stack_top-8)&~(PAGE_SIZE-1));
+    if(code<0 || stack<0 || !(p->mappings[code].flags&VMM_PAGE_USER) ||
+       (p->mappings[code].flags&VMM_PAGE_NO_EXECUTE) ||
+       (p->mappings[stack].flags&(VMM_PAGE_USER|VMM_PAGE_WRITABLE))!=(VMM_PAGE_USER|VMM_PAGE_WRITABLE))goto refused;
+    uint64_t physical=0;
+    if(!vmm_virt_to_phys_in_space(p->address_space,entry&~(PAGE_SIZE-1),&physical) || physical!=p->mappings[code].physical_address ||
+       !vmm_virt_to_phys_in_space(p->address_space,(stack_top-8)&~(PAGE_SIZE-1),&physical) || physical!=p->mappings[stack].physical_address)goto refused;
+    *result=process_thread_create_impl(entry,arg,stack_top,flags,false);process_irq_restore(irq);return true;
+refused:
+    process_irq_restore(irq);return false;
 }
 
 static bool process_last_user_thread_done(void *arg) {
@@ -6487,6 +6544,32 @@ static int64_t process_mmap_impl(struct process *process,
     uint64_t next = base + mapped_length;
     process->mmap_next = next < USER_MMAP_LIMIT ? next : USER_MMAP_BASE;
     return (int64_t)base;
+}
+
+bool process_try_mmap_private(struct process *p,uint64_t address,uint64_t length,uint64_t protection,uint64_t flags,int64_t fd,int64_t offset,int64_t *result) {
+    if(!result || !p || address || !length || length>2u*1024u*1024u ||
+       protection!=(SRV_PROT_READ|SRV_PROT_WRITE) || flags!=(SRV_MAP_PRIVATE|SRV_MAP_ANONYMOUS) || fd!=-1 || offset)return false;
+    uint64_t irq=process_irq_save(),mapped=page_up(length);
+    if(!p->allocated || !p->active || p->killed || p->exiting || p->mapping_count>4096-mapped/PAGE_SIZE ||
+       !scheduler_io_process_independent(p) || p->address_space!=vmm_current_address_space())goto refused;
+    for(unsigned i=0;i<PROCESS_MAX_USER_THREADS;i++)if(p->user_threads[i].used)goto refused;
+    uint64_t base=p->mmap_next>=USER_MMAP_BASE && p->mmap_next<USER_MMAP_LIMIT?page_up(p->mmap_next):USER_MMAP_BASE;
+    if(!mmap_range_valid(base,mapped) || !mmap_range_free(p,base,mapped) || !mmap_free_region_slot(p))goto refused;
+    for(uint64_t i=0;i<p->mapping_count;i++)
+        if(p->mappings[i].virtual_address>=base && p->mappings[i].virtual_address<base+mapped)goto refused;
+    (void)mmap_record_region(p,base,mapped,true);
+    for(uint64_t page=0;page<mapped;page+=PAGE_SIZE) {
+        if(!map_process_page_mode(p,base+page,VMM_PAGE_USER|VMM_PAGE_WRITABLE|VMM_PAGE_NO_EXECUTE,false)) {
+            int64_t ignored;
+            /* Region/tracking stay owned if a checked unmap cannot finish. */
+            (void)process_try_munmap_private(p,base,mapped,&ignored);
+            *result=-1;process_irq_restore(irq);return true;
+        }
+    }
+    p->mmap_next=base+mapped<USER_MMAP_LIMIT?base+mapped:USER_MMAP_BASE;
+    *result=(int64_t)base;process_irq_restore(irq);return true;
+refused:
+    process_irq_restore(irq);return false;
 }
 
 bool process_try_munmap_private(struct process *process,uint64_t address,uint64_t length,int64_t *result) {
