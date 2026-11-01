@@ -218,7 +218,7 @@ int main(void) {
     frame.rax=SYS_TTY_SETATTR;assert(!syscall_io_safe(&frame));
     frame.rax=SYS_PTY_CREATE;assert(!syscall_io_safe(&frame));
     frame.rax=SYS_FUTEX_WAKE;assert(syscall_io_safe(&frame));
-    frame.rax=SYS_FUTEX_WAIT;assert(!syscall_io_safe(&frame));
+    frame.rax=SYS_FUTEX_WAIT;assert(syscall_io_safe(&frame));
     busy=user_safe=true;unsigned identity_waits=close_waits,identity_turns=turn_requests;
     frame.rax=SYS_THREAD_SELF;assert(syscall_io_safe(&frame));
     assert(busy && user_safe && close_waits==identity_waits && turn_requests==identity_turns);

@@ -25,7 +25,7 @@ struct life_launch {
     int application,child_slot;
     char path[160],home[160];
     long pid;
-    uint64_t elapsed,queued_us;
+    uint64_t elapsed,queued_us,begin_us,end_us;
 };
 struct life_capture { unsigned state;int result;struct desk_capture_job job; };
 struct life_prepare { unsigned state,width,height;int result;char path[DESK_CAPTURE_PATH];struct desk_capture_job job; };
@@ -200,8 +200,8 @@ static void life_work(struct lifecycle_worker *w) {
         char *env[]={"PATH=/fat/bin:/:/fat",home,desktop_home,NULL};
         struct srv_exec_request r={.path=argv[0],.argv=argv,.envp=env,.flags=SRV_EXEC_BACKGROUND,
             .stdin_fd=-1,.stdout_fd=-1,.stderr_fd=-1};
-        uint64_t begin=(uint64_t)srv_monotonic_us();j->pid=srv_exec(&r);
-        j->elapsed=(uint64_t)srv_monotonic_us()-begin;
+        j->begin_us=(uint64_t)srv_monotonic_us();j->pid=srv_exec(&r);
+        j->end_us=(uint64_t)srv_monotonic_us();j->elapsed=j->end_us-j->begin_us;
         /* Live UART backpressure must stay off the compositor input loop.
          * Keep ownership until this immutable launch receipt is written. */
         life_launch_log(j->application,j->pid,j->elapsed);

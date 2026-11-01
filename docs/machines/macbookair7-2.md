@@ -4,7 +4,7 @@ Updated: 2026-11-01. State: **active reference machine; partial device acceptanc
 
 ### Lifecycle latency scope after PR260
 
-From integration `9340c9fb` on the existing device branch: audit process-local
+From integration `9340c9fb`, branch `device/macbookair7-2/lifecycle-latency`: audit process-local
 futex parking during foreign I/O and retain the actual worst launch/Close
 breakdown through a long trial. The futex implementation uses a fixed table,
 IRQ-protected validation/load, active-wait pins and invalidation wakes; there

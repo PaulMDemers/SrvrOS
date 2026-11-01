@@ -3972,3 +3972,8 @@ test-tool-text-history: build/tests/tool-text-history-host$(HOST_EXE)
 build/tests/tool-text-history-host$(HOST_EXE): tools/test_tool_text_history.c userspace/desktools/text_app.c userspace/desktools/app.h userspace/widgets/src/text.c $(DESK_WIDGETS_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include -I userspace/widgets/include tools/test_tool_text_history.c userspace/widgets/src/text.c -Wl,--gc-sections -o $@
+
+.PHONY: test-lifetime-timing
+test-desktop: test-lifetime-timing
+test-lifetime-timing:
+	$(PYTHON) tools/test_lifetime_timing.py

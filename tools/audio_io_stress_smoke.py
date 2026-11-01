@@ -11,6 +11,7 @@ from mk_usb_image import gpt_entry,gpt_header
 from vm_sockets import connect_unix
 from app_timing import RECORD,validate_collected_app_timing,lifecycle_receipts
 from loop_timing import validate_loop_timing
+from lifetime_timing import lifetime_worst_records
 from operation_timing import operation_snapshots
 from file_service_records import file_service_receipts
 
@@ -51,7 +52,7 @@ def main():
     args=parser.parse_args()
     if args.write_iops<0 or (args.stage and (args.populated_home or args.write_iops)):parser.error('Load options apply only to the synthetic positive VM')
     root=Path(__file__).resolve().parents[1];out=root/('build/review/audio-io-exact' if args.stage else 'build/review/audio-io-populated' if args.populated_home else 'build/review/audio-io-auto');out=out.with_name(out.name+'-air72') if args.air72 else out;out.mkdir(parents=True,exist_ok=True)
-    for name in ('result.json','tone.wav','lifecycle.json','app-timing.json','operations.json','loop-timing.json','automatic-screenshot.png','receipt.txt','allocation.log','overlap.json','cache-retirement.json','file-service.json'):
+    for name in ('result.json','tone.wav','lifecycle.json','app-timing.json','operations.json','loop-timing.json','automatic-screenshot.png','receipt.txt','allocation.log','overlap.json','cache-retirement.json','file-service.json','lifetime-worst.json'):
         (out/name).unlink(missing_ok=True)
     for pattern in ('saved-*.log','checkpoint-*.log'):
         for old in out.glob(pattern):old.unlink()
@@ -187,6 +188,8 @@ def main():
                     assert pcm_window and int(pcm_window[1])<=int(lifecycle[5])<int(lifecycle[6])<=int(pcm_window[2])
                     assert b'async=yes' in output
                     (out/'lifecycle.json').write_text(json.dumps(dict(cycles=int(lifecycle[1]),max_loop_us=int(lifecycle[2]),max_ready_us=int(lifecycle[3]),max_close_us=int(lifecycle[4]),errors=0,limit_us=500000),indent=2)+'\n')
+                    worst_lifetimes=lifetime_worst_records(snapshots,int(lifecycle[3]),int(lifecycle[4]))
+                    (out/'lifetime-worst.json').write_text(json.dumps(worst_lifetimes,indent=2)+'\n')
                     assert re.search(rb'battery-service: retired epoch=1 .*heap=0 errors=0 denied=0',output)
                     assert b'runtime_retired=yes' in output and overlap
                 for name,contents in prior.items():assert final.read('srvros-work/'+name)==contents

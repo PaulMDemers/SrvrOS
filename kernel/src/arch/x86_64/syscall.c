@@ -2776,10 +2776,15 @@ bool syscall_io_safe(const struct isr_frame *frame) {
     case SYS_MONOTONIC_US:
     case SYS_KEY_SCAN: case SYS_YIELD: case SYS_GETPID: case SYS_TICKS:
     case SYS_TTY_GETATTR: case SYS_IOCTL:
-    /* stdio unlock wakes process-local waiters. It neither allocates futex
-     * entries nor releases process/file resources; scheduler eligibility
-     * still prevents a woken unsafe continuation from entering owned I/O. */
-    case SYS_FUTEX_WAKE:
+    /* Process-local synchronization uses IRQ-protected fixed table entries;
+     * no heap/VFS/device work. Scheduler eligibility still excludes unsafe
+     * continuations from a foreign owner's I/O. */
+    case SYS_FUTEX_WAIT: case SYS_FUTEX_WAKE:
+    /* Wait reserves a fixed process-scoped table entry under IRQ exclusion.
+     * Each four-byte read revalidates its mapping; active-wait pins and unmap
+     * invalidation protect the parked continuation. No allocation/VFS/device
+     * callback occurs. Exit on cancellation still regains ordinary admission
+     * in the IDT epilogue; this does not admit process teardown under I/O. */
     /* Current scheduler context -> immutable thread ID; no allocation,
      * pointer copy, table mutation, status/reap or lifetime operation. */
     case SYS_THREAD_SELF:

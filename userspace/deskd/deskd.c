@@ -88,6 +88,7 @@ struct session {
     const char *home;
     struct lifecycle_worker *worker;
     int startup_trace;
+    struct lifetime_trace current_lifetime,ready_worst,close_worst;
     struct {uint64_t pid;struct desk_packet packet;} pending_open[LIFE_LAUNCH_SLOTS];
     unsigned pending_opens;
     int cache_pending;
@@ -647,7 +648,7 @@ static void spawn_app(struct session *s,int application,const char *path) {
                 struct life_launch *j=&s->worker->launch[n];
                 if(life_state(&j->state)!=LIFE_IDLE)continue;
                 if(strlen(path?path:"")>=sizeof(j->path) || strlen(s->home?s->home:DESK_RAM_HOME)>=sizeof(j->home))break;
-                j->application=application;j->child_slot=i;j->queued_us=(uint64_t)srv_monotonic_us();
+                j->application=application;j->child_slot=i;j->queued_us=(uint64_t)srv_monotonic_us();j->begin_us=j->end_us=0;
                 strcpy(j->path,path?path:"");strcpy(j->home,s->home?s->home:DESK_RAM_HOME);
                 s->last_launch_pid=0;life_queue(s->worker,&j->state,LIFE_QUEUED);return;
             }
@@ -685,6 +686,10 @@ static void lifecycle_poll(struct session *s) {
         struct life_launch *j=&s->worker->launch[n];
         if(life_state(&j->state)!=LIFE_DONE)continue;
         s->last_exec_us=j->elapsed;
+        if(j->pid>0 && s->current_lifetime.begin_us && !s->current_lifetime.pid && j->queued_us>=s->current_lifetime.begin_us) {
+            s->current_lifetime.pid=(uint64_t)j->pid;
+            s->current_lifetime.launch_begin_us=j->begin_us;s->current_lifetime.launch_end_us=j->end_us;
+        }
         if(j->pid>0) {
             s->launch_started++;
             *session_children(s,j->child_slot)=(uint64_t)j->pid;
@@ -1231,7 +1236,7 @@ static struct capture_trace capture_snapshot(const struct session *s,uint64_t no
     memcpy(c.phases,j->phase_us,sizeof(c.phases));return c;
 }
 static struct operation_trace operation_snapshot(const struct session *s,uint64_t now) {
-    struct operation_trace t={.at_us=now,.requests=s->launch_requests,.started=s->launch_started,.refused=s->launch_refused,
+    struct operation_trace t={.ready_worst=s->ready_worst,.close_worst=s->close_worst,.at_us=now,.requests=s->launch_requests,.started=s->launch_started,.refused=s->launch_refused,
         .cache_bytes=s->cache_bytes,.cache_reuses=s->cache_reuses,
         .last_pid=s->last_launch_pid,.last_exec_us=s->last_exec_us,.pending_opens=s->pending_opens,.exiting=s->exiting,
         .exit_age_us=s->exiting && s->exit_started_us?now-s->exit_started_us:0,
@@ -1696,6 +1701,8 @@ static void service(struct session *s) {
             if(next<=0 || (uint64_t)next<=index)break;
             index=(uint64_t)next;
             if(strcmp(info.state,"exited") || child_index(s,info.pid)<0)continue;
+            if(s->current_lifetime.pid==info.pid && !s->current_lifetime.exit_seen_us)
+                s->current_lifetime.exit_seen_us=(uint64_t)srv_monotonic_us();
             (void)life_reap_submit(s->worker,info.pid);
         }
     }
@@ -1704,8 +1711,15 @@ static void service(struct session *s) {
         uint64_t began=(uint64_t)srv_monotonic_us();
         long waited=0;
         int owned=s->worker && life_reap_pending(s->worker,*session_children(s,i));
-        if(owned)(void)life_reap_take(s->worker,*session_children(s,i),&waited,&status);
-        else waited=srv_wait((*session_children(s,i)),&status,SRV_WAIT_NOHANG);
+        if(owned) {
+            for(unsigned n=0;n<LIFE_REAP_SLOTS;n++) {
+                const struct life_reap *r=&s->worker->reap[n];
+                if(life_state(&r->state)==LIFE_DONE && r->pid==s->current_lifetime.pid && r->pid==*session_children(s,i)) {
+                    s->current_lifetime.reap_queued_us=r->queued_us;s->current_lifetime.reap_begin_us=r->begin_us;s->current_lifetime.reap_end_us=r->end_us;break;
+                }
+            }
+            (void)life_reap_take(s->worker,*session_children(s,i),&waited,&status);
+        } else waited=srv_wait((*session_children(s,i)),&status,SRV_WAIT_NOHANG);
         uint64_t elapsed=(uint64_t)srv_monotonic_us()-began;
         if(elapsed>50000)desk_log("desktop-reap: elapsed_us=%llu\n",(unsigned long long)elapsed);
         /* An interrupted wait is not proof of death. Init only adopts a
@@ -2147,22 +2161,29 @@ int main(int argc,char **argv) {
         if((audio_io && !audio_io_attended && audio_io_pid) || (power_trial && power_phase.stage==3)) {
             uint64_t now=(uint64_t)srv_monotonic_us();
             if(!life_due)life_due=now+5000000;
+            if(life_phase==3 && !s.current_lifetime.visual_us) {
+                int live=0;for(int i=0;i<session_capacity(&s);i++)live|=session_client(&s,i)->pid==life_pid;
+                if(!live)s.current_lifetime.visual_us=now;
+            }
             if(!life_phase && now>=life_due && (power_trial?now-power_phase.began<48000000:now-audio_io_begin<((uint64_t)audio_io_seconds-12)*1000000)) {
                 static const int roles[]={DESK_APP_TEXT,DESK_APP_FILES,DESK_APP_SYSTEM};
-                life_begin=now;if(!life_first)life_first=now;spawn_app(&s,roles[life_cycles%3],"");life_pid=0;life_phase=1;
+                life_begin=now;s.current_lifetime=(struct lifetime_trace){.begin_us=now,.cycle=life_cycles};if(!life_first)life_first=now;spawn_app(&s,roles[life_cycles%3],"");life_pid=0;life_phase=1;
             } else if(life_phase==1) {
                 if(!life_pid)life_pid=s.last_launch_pid;
                 for(int i=0;i<session_capacity(&s);i++)if(session_client(&s,i)->pid==life_pid && desktop_window_at(&s.scene,i)->pixels && !session_client(&s,i)->awaiting) {
                     desk_log("desktop-life: ready cycle=%u pid=%llu elapsed_us=%llu\n",life_cycles,(unsigned long long)life_pid,(unsigned long long)(now-life_begin));
-                    if(now-life_begin>life_ready_max)life_ready_max=now-life_begin;
+                    s.current_lifetime.pid=life_pid;s.current_lifetime.ready_us=now;
+                    if(now-life_begin>life_ready_max) {life_ready_max=now-life_begin;s.ready_worst=s.current_lifetime;}
                     life_phase=2;life_due=now+500000;break;
                 }
             } else if(life_phase==2 && now>=life_due) {
                 for(int i=0;i<session_capacity(&s);i++)if(session_client(&s,i)->pid==life_pid)request_close(&s,i);
-                life_close=now;life_phase=3;
+                life_close=now;s.current_lifetime.close_request_us=now;life_phase=3;
             } else if(life_phase==3 && child_index(&s,life_pid)<0) {
                 desk_log("desktop-life: closed cycle=%u pid=%llu elapsed_us=%llu errors=%u\n",life_cycles,(unsigned long long)life_pid,(unsigned long long)(now-life_close),s.child_errors);
-                if(now-life_close>life_close_max)life_close_max=now-life_close;
+                s.current_lifetime.closed_us=now;
+                if(now-life_close>life_close_max) {life_close_max=now-life_close;s.close_worst=s.current_lifetime;}
+                if(s.ready_worst.pid==life_pid)s.ready_worst=s.current_lifetime;
                 life_last=now;life_cycles++;life_phase=0;life_pid=0;life_due=now+(power_trial?3000000:500000);
             }
             if((life_phase && now-life_begin>10000000) || s.child_errors){
