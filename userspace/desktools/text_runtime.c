@@ -32,6 +32,7 @@ struct tool_windows {
     struct desk_file_channel channels[2];
     struct file_service files;
     struct desk_open_document open_request;
+    struct desk_window_owner *initial_owner;
     uint64_t service_window;
     unsigned capture_checkpoints;
     int role,capacity;
@@ -55,10 +56,18 @@ static void notice(struct tool_windows *app,uint64_t requester,const char *messa
     }
     if(fallback)tool_status(fallback,message);
 }
-static int create(struct tool_windows *app,uint64_t requester,const char *path) {
+static struct desk_window_owner *allocate_document(struct tool_windows *app) {
     uint64_t timing=tool_timing_begin(app->role,0,"document-map");
+    struct tool_phase_trace phase;tool_phase_begin(&phase);
     struct desk_window_owner *owner=desk_window_owner_new(&app->set,sizeof(struct tool_document));
+    tool_phase_end(&phase,app->role,0,"document-map");
     tool_timing_end(app->role,0,"document-map",timing);
+    return owner;
+}
+static int create(struct tool_windows *app,uint64_t requester,const char *path) {
+    struct desk_window_owner *owner=app->initial_owner;app->initial_owner=NULL;
+    if(!owner)owner=allocate_document(app);
+    uint64_t timing;
     if(!owner) {notice(app,requester,"There is not enough memory for another window.");return -1;}
     struct tool_document *d=document(owner);struct tool *t=&d->tool;
     tool_runtime_init(t,app->role);
@@ -193,11 +202,17 @@ int tool_window_runtime(int role,const char *path) {
     uint64_t timing=tool_timing_begin(role,0,"pool-init");
     int initialized=desk_file_pool_init(&app.pool,app.channels,2);
     tool_timing_end(role,0,"pool-init",timing);if(initialized)return 1;
+    /* Reserve the initial model while still single-threaded. Do not publish
+     * a GUI owner or lend it to the helper before startup has succeeded. */
+    app.initial_owner=allocate_document(&app);if(!app.initial_owner)return 1;
     timing=tool_timing_begin(role,0,"file-service-init");
     pthread_trace_role=role;
     int service_started=file_service_start(&app.files,&app.pool,role);
     pthread_trace_role=0;
-    tool_timing_end(role,0,"file-service-init",timing);if(service_started)return 1;
+    tool_timing_end(role,0,"file-service-init",timing);
+    if(service_started) {
+        (void)desk_window_owner_release(app.initial_owner,1);app.initial_owner=NULL;return 1;
+    }
     desk_log("desktools: starting role=%s\n",role_name(role));
     if(create(&app,0,path)) {file_service_quiesce(&app.files);return 1;}
     while(app.set.windows || file_service_poll(&app.files)) {

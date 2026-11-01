@@ -2,7 +2,7 @@ import unittest
 from app_timing import validate_app_timing, saved_app_timing, lifecycle_receipts, RECORD, PTHREAD_INIT_STAGES
 
 
-def fixture(files_window_runtime=False,async_service=False,helper_initialization=False):
+def fixture(files_window_runtime=False,async_service=False,helper_initialization=False,initial_reservation=False):
     lines = []
     for cycle, role in enumerate((2, 1, 4)):
         now = 100
@@ -17,6 +17,7 @@ def fixture(files_window_runtime=False,async_service=False,helper_initialization
             phases.insert(0, 'document-map')
             if async_service:phases.insert(0,'file-service-init')
             if helper_initialization:phases[0:0]=sorted(PTHREAD_INIT_STAGES)
+            if initial_reservation:phases.remove('document-map');phases.insert(0,'document-map')
         for phase in phases:
             emit(phase, 'begin');emit(phase, 'end', 10)
         emit('first-publish');emit('close-received')
@@ -33,6 +34,12 @@ def fixture(files_window_runtime=False,async_service=False,helper_initialization
 
 
 class TimingTests(unittest.TestCase):
+    def test_initial_model_reserved_before_helper(self):
+        kwargs=dict(files_window_runtime=True,async_file_service=True,helper_initialization=True,initial_model_reservation=True)
+        validate_app_timing(fixture(True,True,True,True),[(0,8),(1,9),(2,10)],**kwargs)
+        with self.assertRaisesRegex(AssertionError,'initial model must precede helper startup'):
+            validate_app_timing(fixture(True,True,True),[(0,8),(1,9),(2,10)],**kwargs)
+
     def test_helper_initialization_complete_once(self):
         raw=fixture(True,True,True)
         kwargs=dict(files_window_runtime=True,async_file_service=True,helper_initialization=True)

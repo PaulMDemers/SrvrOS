@@ -13,7 +13,7 @@ RECORD = re.compile(
 
 PTHREAD_INIT_STAGES = {"service-attributes", "pthread-reap-self", "pthread-reap-records", "pthread-record-claim", "pthread-kernel-create", "pthread-publish"}
 
-def validate_app_timing(output, completed, *, files_window_runtime=False, async_file_service=False, helper_initialization=False):
+def validate_app_timing(output, completed, *, files_window_runtime=False, async_file_service=False, helper_initialization=False, initial_model_reservation=False):
     """Validate the caller's known lifecycle, without inferring it from missing phases.
 
     completed contains (cycle, pid) pairs from the existing closed receipts.
@@ -30,7 +30,7 @@ def validate_app_timing(output, completed, *, files_window_runtime=False, async_
         rows = records.get(pid, [])
         assert rows, f'missing app timing for pid {pid}'
         role = (2, 1, 4)[cycle % 3]  # Text, Files, System
-        pending, spans, events = {}, {}, {}
+        pending, spans, events, intervals = {}, {}, {}, {}
         previous = {}
         for observed_role, window, stage, edge, at, elapsed,lane in rows:
             assert observed_role == role and at >= previous.get(lane,0) and at > 0, (pid, stage, 'identity/clock')
@@ -41,8 +41,10 @@ def validate_app_timing(output, completed, *, files_window_runtime=False, async_
                 pending[key] = at
             elif edge == 'end':
                 assert key in pending, (pid, stage, 'missing begin')
-                assert elapsed == at - pending.pop(key), (pid, stage, 'duration')
+                begin=pending.pop(key)
+                assert elapsed == at - begin, (pid, stage, 'duration')
                 spans.setdefault(stage, []).append(elapsed)
+                intervals.setdefault(stage, []).append((begin,at))
             else:
                 assert elapsed == 0, (pid, stage, 'event duration')
                 events.setdefault(stage, []).append(at)
@@ -59,6 +61,9 @@ def validate_app_timing(output, completed, *, files_window_runtime=False, async_
             assert 'pthread-start-alloc' not in spans and 'pthread-stack-map' not in spans, (pid,'unexpected helper heap/stack allocation')
             assert all(len(spans.get(stage,[]))==1 for stage in PTHREAD_INIT_STAGES), (pid,'missing/duplicate helper creation phase')
         assert required <= spans.keys(), (pid, 'missing phases', required - spans.keys())
+        if mapped and initial_model_reservation:
+            assert intervals['document-map'][0][1]<=intervals['file-service-init'][0][0], (pid,'initial model must precede helper startup')
+
         order = ('main-entry', 'first-publish', 'close-received', 'main-return')
         assert all(len(events.get(stage, [])) == 1 for stage in order), (pid, 'missing/duplicate event')
         times = [events[stage][0] for stage in order]
