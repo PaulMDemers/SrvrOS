@@ -2,6 +2,19 @@
 
 Updated: 2026-10-31. State: **active reference machine; partial device acceptance**.
 
+### Helper-owned unmap scope
+
+From `main` at `92ec9b09` and PR260, investigate bounded anonymous unmap
+admission in process/scheduler and directed host/loaded VM tests. The current
+single-thread-only atomic proof refuses the file helper, forcing ordinary gated
+retirement behind foreign I/O. Reproduce that refusal before extending the proof
+to a current helper with safely paused siblings, no same-process I/O/image owner,
+and the existing bounded exact anonymous/PTE checks. Keep IRQ exclusion through
+mutation, no service windows, actual frame retirement and gated fallback. No
+thread creation, mapping allocation, exit, driver or firmware gate changes.
+PR19 Wi-Fi and PR252 resolver/socket scopes remain independent; preserve their
+shared syscall tests when integrating. No new native trial is armed.
+
 ### Automated helper candidate return — endurance failure
 
 Release `928447acaed4bcfb`, source `fe8d1a76`, returned automatically with matching

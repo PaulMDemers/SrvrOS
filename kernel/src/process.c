@@ -6495,9 +6495,18 @@ bool process_try_munmap_private(struct process *process,uint64_t address,uint64_
     if(!mmap_range_valid(address,mapped))return false;
     uint64_t irq=process_irq_save();
     if(!process->allocated || !process->active || process->exiting || !process->address_space ||
-       process->mapping_count>4096 || !scheduler_io_process_independent(process) ||
+       process->mapping_count>4096 ||
        process->address_space!=vmm_current_address_space())goto refused;
-    for(unsigned i=0;i<PROCESS_MAX_USER_THREADS;i++)if(process->user_threads[i].used)goto refused;
+    struct process_user_thread *helper=process_current_user_thread();
+    if(helper) {
+        bool owned=false;
+        for(unsigned i=0;i<PROCESS_MAX_USER_THREADS;i++)
+            if(helper==&process->user_threads[i] && helper->used && helper->active && helper->owner==process)owned=true;
+        if(!owned || !scheduler_io_process_helper_memory(process))goto refused;
+    } else {
+        if(!scheduler_io_process_independent(process))goto refused;
+        for(unsigned i=0;i<PROCESS_MAX_USER_THREADS;i++)if(process->user_threads[i].used)goto refused;
+    }
     struct process_mmap_region *region=NULL;
     for(unsigned i=0;i<PROCESS_MAX_MMAP_REGIONS;i++) {
         struct process_mmap_region *r=&process->mmap_regions[i];

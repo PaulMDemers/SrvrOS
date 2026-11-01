@@ -525,6 +525,36 @@ static void test_independent_process_memory(void) {
     puts("independent-memory: PASS current main only, siblings/worker/image/owner/CR3/scan bounds, unchanged foreign ownership");
 }
 
+static void test_helper_atomic_memory(void) {
+    void *p=(void *)0x10,*other=(void *)0x20;
+    initialized=io_services_enabled=true;current_thread=3;actual_space=1;
+    threads[3]=(struct thread){.state=THREAD_RUNNING,.user_context=p,.user_thread_context=(void *)0x40,.io_user_safe=true,.address_space=1};
+    threads[4]=(struct thread){.state=THREAD_BLOCKED,.user_context=p,.io_user_safe=true,.address_space=1};
+    threads[5]=(struct thread){.state=THREAD_BLOCKED,.user_context=other};
+    io_depth=2;io_owner=5;
+    assert(!scheduler_io_process_independent(p)); /* Old path reproduces refusal. */
+    assert(scheduler_io_process_helper_memory(p));
+    threads[4].state=THREAD_READY;assert(scheduler_io_process_helper_memory(p));
+    threads[4].io_user_safe=false;assert(!scheduler_io_process_helper_memory(p));threads[4].io_user_safe=true;
+    threads[4].state=THREAD_QUARANTINED;assert(!scheduler_io_process_helper_memory(p));
+    threads[4].state=THREAD_RUNNING;assert(!scheduler_io_process_helper_memory(p));threads[4].state=THREAD_BLOCKED;
+    threads[4].address_space=2;assert(!scheduler_io_process_helper_memory(p));threads[4].address_space=1;
+    io_private_image=p;assert(!scheduler_io_process_helper_memory(p));io_private_image=NULL;
+    threads[5].user_context=p;assert(!scheduler_io_process_helper_memory(p));threads[5].user_context=other;
+    io_owner=3;assert(!scheduler_io_process_helper_memory(p));io_owner=5;
+    threads[3].user_thread_context=NULL;assert(!scheduler_io_process_helper_memory(p));threads[3].user_thread_context=(void *)0x40;
+    threads[3].io_user_safe=false;assert(!scheduler_io_process_helper_memory(p));threads[3].io_user_safe=true;
+    actual_space=2;assert(!scheduler_io_process_helper_memory(p));actual_space=1;
+    uint64_t capacity=thread_capacity;thread_capacity=4097;assert(!scheduler_io_process_helper_memory(p));thread_capacity=capacity;
+    io_owner=thread_capacity;assert(!scheduler_io_process_helper_memory(p));io_owner=5;
+    current_thread=thread_capacity;assert(!scheduler_io_process_helper_memory(p));current_thread=3;
+    switching=true;assert(!scheduler_io_process_helper_memory(p));switching=false;
+    io_services_enabled=false;assert(!scheduler_io_process_helper_memory(p));io_services_enabled=true;
+    assert(io_depth==2 && io_owner==5 && !io_private_image);
+    memset(threads,0,sizeof(threads));initialized=io_services_enabled=false;current_thread=0;io_depth=0;
+    puts("helper-atomic-memory: PASS safe parked sibling, foreign owner unchanged, unsafe/CR3/owner/image/scan refusal");
+}
+
 static void test_private_image_scope(void) {
     struct srv_sched_trace trace;
     void *parent=(void *)0x10,*child=(void *)0x20;
@@ -744,6 +774,7 @@ int main(void) {
     test_mwait();
     test_coordinated_mwait();
     test_independent_process_memory();
+    test_helper_atomic_memory();
     test_private_image_scope();
     test_wait_trace();
     test_cpu_accounting();

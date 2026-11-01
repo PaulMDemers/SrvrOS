@@ -374,6 +374,27 @@ bool scheduler_io_process_independent(void *process) {
     return true;
 }
 
+/* This proof is only for bounded, IRQ-masked, callback-free memory retirement
+ * on CPU0. It grants no service/yield window and never changes a foreign gate.
+ * A helper may run while the main dispatcher is parked in an audited safe
+ * entry; a sibling's unsafe continuation or same-process gate must refuse. */
+bool scheduler_io_process_helper_memory(void *process) {
+    if(!initialized || !io_services_enabled || switching || !process || thread_capacity>4096 ||
+       current_thread>=thread_capacity || (io_depth && io_owner>=thread_capacity))return false;
+    struct thread *caller=thread_at(current_thread);
+    if(caller->state!=THREAD_RUNNING || caller->user_context!=process || !caller->user_thread_context ||
+       !caller->io_user_safe || vmm_current_address_space()!=thread_address_space(caller))return false;
+    if(io_depth && (io_owner==current_thread || io_private_image==process ||
+                   thread_at(io_owner)->user_context==process))return false;
+    for(uint64_t i=0;i<thread_capacity;i++)if(i!=current_thread) {
+        struct thread *t=thread_at(i);
+        if(t->state==THREAD_UNUSED || t->state==THREAD_DEAD || t->user_context!=process)continue;
+        if((t->state!=THREAD_READY && t->state!=THREAD_BLOCKED) || !t->io_user_safe ||
+           thread_address_space(t)!=thread_address_space(caller))return false;
+    }
+    return true;
+}
+
 void scheduler_io_request_turn(void) {
     uint64_t flags=irq_save();
     if(initialized && io_services_enabled && !switching && scheduler_io_busy() &&

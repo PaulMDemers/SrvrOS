@@ -27,6 +27,7 @@ void *scheduler_current_user_thread_context(void) {return current_user_thread;}
 uint64_t gdt_default_kernel_stack_top(void) {return 0x10000;}
 void fpu_init_state(struct fpu_state *state) {memset(state,0,sizeof(*state));}
 bool scheduler_io_process_retired(void *p) {assert(p==&processes[1]);return independent;}
+bool scheduler_io_process_helper_memory(void *p) { assert(p==observed);return independent; }
 bool scheduler_io_process_independent(void *p) { assert(p==observed);return independent; }
 static bool released[96];
 static unsigned next_frame=1,wakes;
@@ -151,6 +152,24 @@ static void private_unmap_contract(void) {
     assert(depth==1 && begins==old_begin && ends==old_end && checkpoints==old_checks);
     assert(!released[p->mappings[0].physical_address/4096]);depth=0;
     cleanup_process_address_space(p);assert(freed==66 && !p->mapping_count);free(p);
+    /* Negative control on the original code refuses this real helper request.
+     * With foreign I/O held, retire exact anonymous pages without any service
+     * checkpoint, allocator callback, gate handoff or premature completion. */
+    reset();p=calloc(1,sizeof(*p));assert(p);observed=p;
+    p->allocated=p->active=true;p->address_space=0x1000;independent=true;
+    for(unsigned i=0;i<65;i++)assert(map_process_page(p,base+i*4096,VMM_PAGE_USER|VMM_PAGE_WRITABLE));
+    assert(mmap_record_region(p,base,length,true));
+    current_user_thread=&p->user_threads[0];
+    private_unmap_refused(p,base,length);
+    p->user_threads[0].used=true;private_unmap_refused(p,base,length);
+    p->user_threads[0].active=true;private_unmap_refused(p,base,length);
+    p->user_threads[0].owner=p;
+    independent=false;private_unmap_refused(p,base,length);independent=true;
+    depth=1;unsigned worker_begins=begins,worker_ends=ends,worker_checks=checkpoints;
+    assert(process_try_munmap_private(p,base,length,&result) && !result);
+    assert(freed==65 && !p->mapping_count && !p->mmap_regions[0].used);
+    assert(depth==1 && begins==worker_begins && ends==worker_ends && checkpoints==worker_checks);
+    current_user_thread=NULL;depth=0;free(p);
     /* Region splitting preserves anonymous provenance; PROT_NONE has no frames. */
     reset();p=calloc(1,sizeof(*p));assert(p);observed=p;p->allocated=p->active=true;p->address_space=0x1000;independent=true;
     assert(mmap_record_region(p,base,3*4096,true));mmap_forget_range(p,base+4096,4096);
