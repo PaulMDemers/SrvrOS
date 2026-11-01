@@ -2,6 +2,36 @@
 
 Updated: 2026-11-01. State: **active reference machine; partial device acceptance**.
 
+### Residual lifecycle candidate — local validation complete
+
+Draft PR261, implementation `40010f52`, keeps audited fixed-table futex parking
+out of foreign I/O admission while retaining mapping validation/pins/invalidation,
+timeouts/signals and normal cancellation/exit admission. It retains the actual
+worst launch/Close split through the existing report worker; unobserved stages
+remain explicit and full-width records cannot truncate. No cleanup gate, deadline,
+resource budget, workload pacing or device profile has changed.
+
+Full core/desktop checks, matched builds and the actual Q35 pthread/POSIX suite
+pass. Directed futex/IRQ/foreign-owner, syscall-policy, scheduler/worker race and
+retained-record tests pass; the old admission classification fails the new policy
+check as expected. Loaded Home at 100 IOPS passes 17 lifetimes (UI 261628 us,
+ready 967518 us, Close 3617793 us); normal load passes 24 (UI 109559 us,
+ready 868802 us, Close 910314 us). Twenty Files windows pass an accepted 8 MiB
+copy through Close, concurrent Text save, exact bytes and process cleanup.
+
+The loaded worst-Close record observes visual removal after 22590 us, exit after
+3606120 us, and a 65 us final reap after 922 us queued. App timing places most
+of the delay before main return, including accepted read/backend drain. This
+helps separate UI removal from resource completion; it neither attributes nor
+resolves the previous native 8-second maximum. Those resources must remain owned.
+
+Candidate `29d2ac5951546a12` stages `a6328bf2`. Exact TCG native refusal/save/
+unmount/return passes plumbing only; no new native acceptance. Independent payload
+and recovery are verified; installed accepted `7d21b1fb77479259` and recovery
+`9aa8dbf6fbda8252` remain unchanged at this checkpoint. The approved next trial
+is automatic for 1800 seconds at 1% volume, with fresh integrity preflight and
+saved run records; it requires no input and must retain the worst-case split.
+
 ### Lifecycle latency scope after PR260
 
 From integration `9340c9fb`, branch `device/macbookair7-2/lifecycle-latency`: audit process-local
