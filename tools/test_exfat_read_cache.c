@@ -53,6 +53,8 @@ int main(void) {
     assert(mutation_reads.rows[0].offset==1024 && mutation_reads.rows[0].length==sizeof(probe));
     mutation_reads_reset(&v);reenter_read=true;before=reads;
     assert(volume_read(&v,2048,out,32) && volume_read(&v,2048,out,32) && reads==before+2);
+    mutation_reads.epoch=UINT64_MAX-2;mutation_reads_reset(&v);
+    assert(volume_read(&v,0,out,32) && mutation_reads.epoch==UINT64_MAX && !mutation_reads.volume);
     mutation_reads.epoch=UINT64_MAX-1;mutation_reads_reset(&v);
     assert(!mutation_reads.volume);before=reads;
     assert(volume_read(&v,0,out,32) && volume_read(&v,0,out,32) && reads==before+2);

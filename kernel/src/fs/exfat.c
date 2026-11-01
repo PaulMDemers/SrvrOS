@@ -334,7 +334,7 @@ static struct {
 } mutation_reads;
 static void mutation_reads_advance(void) {
     if(mutation_reads.epoch!=UINT64_MAX)mutation_reads.epoch++;
-    else mutation_reads.volume=NULL; /* Exhaustion disables caching, never ABA. */
+    if(mutation_reads.epoch==UINT64_MAX)mutation_reads.volume=NULL; /* Never ABA. */
 }
 static void mutation_reads_reset(const struct exfat_volume *volume) {
     mutation_reads_advance();
