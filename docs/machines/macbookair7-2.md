@@ -2,6 +2,18 @@
 
 Updated: 2026-11-01. State: **active reference machine; partial device acceptance**.
 
+### Automatic storage-shortening trial prepared
+
+User authorized the1800-second automatic test of `451c977e447a9d0b` at1% volume.
+It is installed with recovery `9aa8dbf6fbda8252` retained. Fresh offline fsck,
+allocation, writable and headroom checks pass; all1277 prior files and85sessions
+are accounted for. Unreferenced failed29d payload is archived with every byte
+verified; current/recovery and independent accepted7d remain preserved. USB is
+unmounted. Ubuntu remains default. The durable run record is
+`build/air-storage-scope-20261101/native-trial/run.json`; no human input is needed.
+Collect the matching session before any new trial. Native acceptance remains
+pending, and prior failed runs remain failures.
+
 ### Storage shortening candidate ready for hardware
 
 Source `0b8f554c`, staged release `451c977e447a9d0b`, reduces exFAT transaction
