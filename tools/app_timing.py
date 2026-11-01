@@ -11,7 +11,9 @@ RECORD = re.compile(
     rb'edge=(begin|end|event) at_us=(\d+) elapsed_us=(\d+)(?: lane=[01])?(?=\r?\n|$)')
 
 
-def validate_app_timing(output, completed, *, files_window_runtime=False, async_file_service=False):
+PTHREAD_INIT_STAGES = {"service-attributes", "pthread-reap-self", "pthread-reap-records", "pthread-record-claim", "pthread-kernel-create", "pthread-publish"}
+
+def validate_app_timing(output, completed, *, files_window_runtime=False, async_file_service=False, helper_initialization=False):
     """Validate the caller's known lifecycle, without inferring it from missing phases.
 
     completed contains (cycle, pid) pairs from the existing closed receipts.
@@ -52,6 +54,10 @@ def validate_app_timing(output, completed, *, files_window_runtime=False, async_
             required |= {'file-service-init','file-service-stop','canvas-unmap'}
         if role == 1:
             required.add('pool-retire')
+        if mapped and helper_initialization:
+            required |= PTHREAD_INIT_STAGES
+            assert 'pthread-start-alloc' not in spans and 'pthread-stack-map' not in spans, (pid,'unexpected helper heap/stack allocation')
+            assert all(len(spans.get(stage,[]))==1 for stage in PTHREAD_INIT_STAGES), (pid,'missing/duplicate helper creation phase')
         assert required <= spans.keys(), (pid, 'missing phases', required - spans.keys())
         order = ('main-entry', 'first-publish', 'close-received', 'main-return')
         assert all(len(events.get(stage, [])) == 1 for stage in order), (pid, 'missing/duplicate event')

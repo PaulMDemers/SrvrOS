@@ -56,6 +56,9 @@ struct pthread_record {
     pthread_t tid;
     struct pthread_start_record *start;
     char name[PTHREAD_NAME_CAPACITY];
+    /* Same reservation/lifetime as this record; no heap call to start a
+     * supplied-stack thread. Main-thread state remains independently owned. */
+    struct pthread_start_record storage;
 };
 
 struct pthread_key_value { void *value;uint64_t generation; };
@@ -143,12 +146,14 @@ static struct pthread_record *pthread_record_find(pthread_t tid) {
     return NULL;
 }
 
-static struct pthread_record *pthread_record_alloc(struct pthread_start_record *start) {
+static struct pthread_record *pthread_record_alloc(const struct pthread_start_record *start) {
     lock_records();
     for (int i = 0; i < PTHREAD_MAX_RECORDS; i++) {
         if (!pthread_records[i].used) {
             struct pthread_record *record = &pthread_records[i];
-            *record = (struct pthread_record){ .used = 1, .creating = 1, .start = start, .name = "srvros-thread" };
+            *record = (struct pthread_record){ .used = 1, .creating = 1, .name = "srvros-thread", .storage = *start };
+            record->start = &record->storage;
+            record->start->record = record;
             unlock_records();
             return record;
         }
@@ -160,12 +165,14 @@ static struct pthread_record *pthread_record_alloc(struct pthread_start_record *
 /* Caller owns the creation reservation or an exclusive join/reap claim. */
 static void pthread_record_cleanup(struct pthread_record *record) {
     lock_records();
-    struct pthread_start_record *start = record->start;
+    int initial = record->start == &main_start;
+    /* Capture before clearing: another creator may reuse this inline storage
+     * while owned-stack unmapping yields. No pointer into the slot survives. */
+    struct pthread_start_record start = *record->start;
     *record = (struct pthread_record){0};
     unlock_records();
-    if (start == &main_start) return; /* Kernel still owns last-thread cleanup. */
-    if (start->owns_stack) munmap(start->stack, start->stack_size);
-    free(start);
+    if (initial) return; /* Kernel still owns last-thread cleanup. */
+    if (start.owns_stack) munmap(start.stack, start.stack_size);
 }
 
 static void pthread_record_unclaim(struct pthread_record *record) {
@@ -282,16 +289,7 @@ int pthread_create(pthread_t *thread,
         }
     }
 
-    pthread_create_trace("pthread-start-alloc",1);
-    struct pthread_start_record *start = malloc(sizeof(*start));
-    pthread_create_trace("pthread-start-alloc",0);
-    if (start == 0) {
-        if (owns_stack) {
-            munmap(stack, stack_size);
-        }
-        return ENOMEM;
-    }
-    *start = (struct pthread_start_record) {
+    const struct pthread_start_record initial = {
         .start_routine = start_routine,
         .arg = arg,
         .stack = stack,
@@ -301,17 +299,13 @@ int pthread_create(pthread_t *thread,
     };
 
     pthread_create_trace("pthread-record-claim",1);
-    struct pthread_record *record = pthread_record_alloc(start);
+    struct pthread_record *record = pthread_record_alloc(&initial);
     pthread_create_trace("pthread-record-claim",0);
     if (record == 0) {
-        free(start);
-        if (owns_stack) {
-            munmap(stack, stack_size);
-        }
+        if (owns_stack) munmap(stack, stack_size);
         return EAGAIN;
     }
-
-    start->record = record;
+    struct pthread_start_record *start = record->start;
 
     uint64_t stack_top = (((uint64_t)(uintptr_t)stack + stack_size) & ~(uint64_t)0xf) - 8;
     *(uint64_t *)(uintptr_t)stack_top = 0;

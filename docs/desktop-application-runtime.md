@@ -324,3 +324,23 @@ remain open: a final disk burst can outlast PCM playback, and System admission
 can exceed the compositor UI bound. Keep the existing workload and timing limits;
 see the [Air record](machines/macbookair7-2.md) for measured failures and candidate
 status before another physical trial.
+
+
+Helper initialization now has opt-in internal pthread phase observations.
+Text/Files enable them only on the creating dispatcher around service startup;
+worker TLS starts with the observer disabled. Attribute setup, detached-reap
+identity/records, record reservation, actual kernel creation and publication have
+separate whole phase receipts and scheduler attribution. Other pthread callers
+have no diagnostic sink unless they explicitly supply the internal hook.
+
+Worker startup state is embedded in the existing bounded pthread record table,
+reserved and initialized before kernel creation. It follows the same creator,
+claim, detach and verified-join lifetime. Cleanup captures stack ownership before
+clearing a record, allowing safe slot reuse while owned-stack unmapping yields.
+Main-thread storage remains separate. This removes the startup-record heap
+allocation; supplied-stack policy and the existing thread limit are unchanged.
+The current-thread ID lookup alone is admitted during unrelated I/O because it
+reads only scheduler-owned context. Actual thread creation, thread status/join/
+detach, heap growth and mapping keep their existing admission rules. Removing a
+helper startup allocation does not prove that later app allocations cannot wait;
+retain end-to-end readiness, UI and full-process deadlines in validation.

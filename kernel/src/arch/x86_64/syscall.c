@@ -2767,6 +2767,9 @@ bool syscall_io_safe(const struct isr_frame *frame) {
      * entries nor releases process/file resources; scheduler eligibility
      * still prevents a woken unsafe continuation from entering owned I/O. */
     case SYS_FUTEX_WAKE:
+    /* Current scheduler context -> immutable thread ID; no allocation,
+     * pointer copy, table mutation, status/reap or lifetime operation. */
+    case SYS_THREAD_SELF:
         return true;
     default: return false;
     }

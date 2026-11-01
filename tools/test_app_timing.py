@@ -1,8 +1,8 @@
 import unittest
-from app_timing import validate_app_timing, saved_app_timing, lifecycle_receipts, RECORD
+from app_timing import validate_app_timing, saved_app_timing, lifecycle_receipts, RECORD, PTHREAD_INIT_STAGES
 
 
-def fixture(files_window_runtime=False,async_service=False):
+def fixture(files_window_runtime=False,async_service=False,helper_initialization=False):
     lines = []
     for cycle, role in enumerate((2, 1, 4)):
         now = 100
@@ -16,6 +16,7 @@ def fixture(files_window_runtime=False,async_service=False):
         if mapped:
             phases.insert(0, 'document-map')
             if async_service:phases.insert(0,'file-service-init')
+            if helper_initialization:phases[0:0]=sorted(PTHREAD_INIT_STAGES)
         for phase in phases:
             emit(phase, 'begin');emit(phase, 'end', 10)
         emit('first-publish');emit('close-received')
@@ -32,6 +33,16 @@ def fixture(files_window_runtime=False,async_service=False):
 
 
 class TimingTests(unittest.TestCase):
+    def test_helper_initialization_complete_once(self):
+        raw=fixture(True,True,True)
+        kwargs=dict(files_window_runtime=True,async_file_service=True,helper_initialization=True)
+        validate_app_timing(raw,[(0,8),(1,9),(2,10)],**kwargs)
+        for phase in PTHREAD_INIT_STAGES:
+            with self.subTest(phase=phase),self.assertRaises(AssertionError):
+                validate_app_timing(raw.replace(('stage='+phase+' ').encode(),b'stage=missing '),[(0,8),(1,9),(2,10)],**kwargs)
+        with self.assertRaises(AssertionError):
+            validate_app_timing(raw.replace(b'stage=pthread-publish ',b'stage=pthread-start-alloc '),[(0,8),(1,9),(2,10)],**kwargs)
+
     def test_shared_files_requires_complete_new_lifecycle(self):
         raw = fixture(files_window_runtime=True)
         result = validate_app_timing(raw, [(0, 8), (1, 9), (2, 10)], files_window_runtime=True)

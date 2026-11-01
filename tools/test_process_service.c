@@ -22,7 +22,8 @@ bool scheduler_io_begin_process_image(void *image) {
 static struct process *observed;
 static struct process *current;
 void *scheduler_current_user_context(void) {return current;}
-void *scheduler_current_user_thread_context(void) {return NULL;}
+static void *current_user_thread;
+void *scheduler_current_user_thread_context(void) {return current_user_thread;}
 uint64_t gdt_default_kernel_stack_top(void) {return 0x10000;}
 void fpu_init_state(struct fpu_state *state) {memset(state,0,sizeof(*state));}
 bool scheduler_io_process_retired(void *p) {assert(p==&processes[1]);return independent;}
@@ -164,6 +165,15 @@ static void private_unmap_contract(void) {
     puts("private-unmap: PASS bounded/provenance/owner refusal unchanged, foreign gate retention, futex-before-free, partial failure ownership/retry, split and PROT_NONE");
 }
 int main(void) {
+    /* Identity snapshots leave foreign serialization ownership and accounting
+     * untouched, for both initial and worker contexts. */
+    depth=1;unsigned self_begins=begins,self_ends=ends;
+    assert(process_thread_self()==1 && depth==1);
+    struct process_user_thread self_thread={.used=true,.tid=42};
+    current_user_thread=&self_thread;assert(process_thread_self()==42 && depth==1);
+    self_thread.used=false;assert(process_thread_self()==1 && depth==1);
+    assert(begins==self_begins && ends==self_ends);current_user_thread=NULL;depth=0;
+
     current=&processes[0];*current=(struct process){.allocated=true,.active=true,.pid=42,.pending_signals=1ull<<SRV_SIGNAL_CHLD};
     struct process *child=&processes[1];
     *child=(struct process){.allocated=true,.detached=true,.reapable=true,.pid=43,.parent_pid=42,.exit_status=7,.user_us=12,.lifetime=9};

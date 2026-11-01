@@ -170,6 +170,14 @@ int main(void) {
     frame.rax=SYS_PTY_CREATE;assert(!syscall_io_safe(&frame));
     frame.rax=SYS_FUTEX_WAKE;assert(syscall_io_safe(&frame));
     frame.rax=SYS_FUTEX_WAIT;assert(!syscall_io_safe(&frame));
+    busy=user_safe=true;unsigned identity_waits=close_waits,identity_turns=turn_requests;
+    frame.rax=SYS_THREAD_SELF;assert(syscall_io_safe(&frame));
+    assert(busy && user_safe && close_waits==identity_waits && turn_requests==identity_turns);
+    const uint64_t thread_gated[]={SYS_THREAD_CREATE,SYS_THREAD_JOIN,SYS_THREAD_DETACH,SYS_THREAD_STATUS,SYS_SBRK,SYS_MMAP,SYS_EXIT};
+    for(unsigned n=0;n<sizeof(thread_gated)/sizeof(thread_gated[0]);n++) {
+        frame.rax=thread_gated[n];assert(!syscall_io_safe(&frame));
+    }
+
     frame.rax=SYS_KEY_SCAN;assert(syscall_io_safe(&frame));
     frame.rax=SYS_TTY_GETATTR;assert(syscall_io_safe(&frame));
     test_pipe_retry_admission();
