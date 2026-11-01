@@ -467,3 +467,25 @@ an exact client acknowledgement timestamp. Complete final worst records must
 match the existing aggregate maxima. This survives rotated log tails without
 new filesystem writes or per-frame logging. A full-width bounded formatter keeps
 these records intact. Timing/workload limits and cleanup ownership are unchanged.
+
+### Cold compositor buffers and admission attribution
+
+Desktop initialization seeds the existing two retained 720×480 pixel-cache slots
+before launching client and storage work. These reservations count against the
+same cache budget, transfer through ordinary reuse, and remain owned until the
+worker completes their actual unmap. Partial reservation is usable; unsupported
+sizes and allocation failure retain the existing asynchronous fallback.
+
+Opt-in I/O observation retains the eight longest completed admission waits plus
+the worst completed process-exit wait if it is absent from those eight. Records
+identify waiter PID/thread/syscall, initial owner PID/thread/scope sequence, and
+start/end clocks. The initial owner may change while parked; the complete wait
+must not be attributed exclusively to it. Recording uses bounded storage under
+IRQ exclusion and emits no text or I/O until the existing quiescent report.
+
+Current-process signal configuration, pending-mask reads and current-thread mask
+updates use bounded metadata and may execute during foreign I/O on CPU0. They do
+not execute handlers or release files. A mask update exposing fatal cancellation
+still regains ordinary admission in the IDT epilogue before process exit. Signal
+consumption/delivery, kill and complete resource teardown remain gated. This
+policy is independent of SMP acceptance.

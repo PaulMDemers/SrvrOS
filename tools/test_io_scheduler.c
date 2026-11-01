@@ -825,7 +825,11 @@ static void test_gate_retention(void) {
     }
     assert(min==105000 && !io_depth);
     v.end=101000;io_gate_record(v);assert(io_gates.total==IO_OBSERVE_ROWS+6);
-    assert(scheduler_io_observe_reset() && !io_gates.count && !io_gates.total);
+    v.syscall=SYS_EXIT;v.end=101000;io_gate_record(v);
+    assert(io_gates.exit_worst.syscall==SYS_EXIT && io_gates.exit_worst.end==101000);
+    v.syscall=SYS_OPEN;v.end=9000000;io_gate_record(v);
+    assert(io_gates.exit_worst.end==101000); /* Longer file waits cannot evict exit. */
+    assert(scheduler_io_observe_reset() && !io_gates.count && !io_gates.total && !io_gates.exit_worst.end);
     initialized=io_services_enabled=false;io_observed=(__typeof__(io_observed)){0};memset(threads,0,sizeof(threads));
     puts("io-gate: PASS disabled/short/backward refusal, bounded longest retention, caller/initial owner identity, reset and no owner mutation");
 }

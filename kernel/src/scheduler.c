@@ -1,3 +1,4 @@
+#include <srvros/syscall_numbers.h>
 #include <srvros/ap_probe.h>
 #include <srvros/console.h>
 #include <srvros/latency.h>
@@ -129,13 +130,16 @@ struct io_gate_sample {
 static struct {
     uint64_t total;
     unsigned count;
-    struct io_gate_sample rows[IO_OBSERVE_ROWS];
+    struct io_gate_sample rows[IO_OBSERVE_ROWS],exit_worst;
 } io_gates;
 /* Retain the longest completed waits, not just the rotating tail. Initial owner
  * is a correlation anchor: ownership may change while the caller is parked. */
 static void io_gate_record(struct io_gate_sample v) {
     if(!io_observed.enabled || v.end<v.start || v.end-v.start<IO_OBSERVE_MIN_US)return;
     io_gates.total++;
+    /* Long storage waits must not evict the exit attribution we are testing. */
+    if(v.syscall==SYS_EXIT && (!io_gates.exit_worst.end ||
+       v.end-v.start>io_gates.exit_worst.end-io_gates.exit_worst.start))io_gates.exit_worst=v;
     unsigned slot=io_gates.count;
     if(slot<IO_OBSERVE_ROWS)io_gates.count++;
     else {
@@ -223,7 +227,7 @@ static void io_observe_end(void) {
 }
 void scheduler_print_io_owners(void) {
     struct io_owner_sample rows[IO_OBSERVE_ROWS];
-    struct io_gate_sample gates[IO_OBSERVE_ROWS];
+    struct io_gate_sample gates[IO_OBSERVE_ROWS+1];
     uint64_t flags=irq_save();
     if(!io_observed.enabled || io_depth) {irq_restore(flags);return;}
     uint64_t at=timer_monotonic_us(),scopes=io_observed.scopes,
@@ -232,6 +236,10 @@ void scheduler_print_io_owners(void) {
     for(unsigned i=0;i<count;i++)rows[i]=io_observed.rows[(total-count+i)%IO_OBSERVE_ROWS];
     unsigned gate_count=io_gates.count;uint64_t gate_total=io_gates.total;
     for(unsigned i=0;i<gate_count;i++)gates[i]=io_gates.rows[i];
+    bool exit_retained=false;
+    for(unsigned i=0;i<gate_count;i++)if(gates[i].identity==io_gates.exit_worst.identity &&
+        gates[i].start==io_gates.exit_worst.start && gates[i].end==io_gates.exit_worst.end)exit_retained=true;
+    if(io_gates.exit_worst.end && !exit_retained)gates[gate_count++]=io_gates.exit_worst;
     irq_restore(flags);
     /* No allocation, console output or device operations occur in recording. */
     console_printf("io-owner-snapshot: version=1 at_us=%u scopes=%u long_scopes=%u retained=%u overwritten=%u invalid=%u min_us=%u\n",
