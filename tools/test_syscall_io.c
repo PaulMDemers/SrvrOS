@@ -2,7 +2,7 @@
 #include <stdio.h>
 #define SRVROS_SYSCALL_IO_HOST_TEST
 #include "../kernel/src/arch/x86_64/syscall.c"
-static bool console_fd,busy,user_safe,startup_killed,kill_on_wait;
+static bool console_fd,busy,user_safe,startup_killed,kill_on_wait,invalidate_on_wait;
 bool process_should_exit_current(void) { return startup_killed; }
 bool scheduler_io_active(void) {return busy;}
 uint64_t latency_clock(void) {return 1;}
@@ -42,6 +42,7 @@ bool process_file_try_close_pipe(struct process *p,uint64_t fd,int64_t *result) 
 void scheduler_io_wait(void) {
     assert(!user_safe);close_waits++;busy=false;pipe_file.handle=456;
     if(kill_on_wait)startup_killed=true;
+    if(invalidate_on_wait)wait_pointer_ok=false;
 }
 int64_t process_file_close(struct process *p,uint64_t fd) {
     assert(p==(struct process *)1 && fd==10 && !user_safe && !busy && pipe_file.handle==456);
@@ -114,6 +115,9 @@ static void test_startup_admission(void) {
     startup_killed=false;busy=user_safe=true;
     assert(syscall_mmap(0,4096,3,9,-1,0)==-1 && startup_killed && startup_slow==slow);
     assert(gate_samples==5);startup_killed=kill_on_wait=false;
+    busy=user_safe=invalidate_on_wait=true;
+    assert(syscall_thread_create(0x400000,123,0x500800,0)==-1 && startup_slow==slow && !wait_pointer_ok);
+    assert(gate_samples==6);invalidate_on_wait=false;wait_pointer_ok=true;
     puts("startup-admission: PASS sole-process attempt or ordinary gated fallback, invalid-buffer handoff, no foreign gate mutation");
 }
 static void test_pipe_retry_admission(void) {

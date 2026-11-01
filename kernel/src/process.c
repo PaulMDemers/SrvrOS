@@ -1224,7 +1224,7 @@ static bool validate_elf(const uint8_t *data, uint64_t size, const struct elf64_
 
 static bool map_process_page_mode(struct process *process, uint64_t virtual_page, uint64_t flags,bool service) {
     if (process == NULL || process->mapping_count >= PROCESS_MAX_MAPPINGS) {
-        console_printf("run: map page rejected process=%x count=%u limit=%u virt=%x\n",
+        if(service)console_printf("run: map page rejected process=%x count=%u limit=%u virt=%x\n",
             (uint64_t)process,
             process != NULL ? process->mapping_count : 0,
             (uint64_t)PROCESS_MAX_MAPPINGS,
@@ -1232,17 +1232,18 @@ static bool map_process_page_mode(struct process *process, uint64_t virtual_page
         return false;
     }
 
+    /* Atomic callers return failure silently: console rendering may yield. */
     uint64_t physical = pmm_alloc_frames_above_tagged(1,
         PROCESS_USER_PAGE_MIN_PHYSICAL,
         PMM_FRAME_USER);
     if (physical == 0) {
-        console_printf("run: map page pmm exhausted virt=%x\n", virtual_page);
+        if(service)console_printf("run: map page pmm exhausted virt=%x\n", virtual_page);
         return false;
     }
 
     zero_page(pmm_phys_to_virt(physical));
     if (!vmm_map_page_in_space(process->address_space, virtual_page, physical, flags)) {
-        console_printf("run: map page failed as=%x virt=%x phys=%x flags=%x count=%u\n",
+        if(service)console_printf("run: map page failed as=%x virt=%x phys=%x flags=%x count=%u\n",
             process->address_space,
             virtual_page,
             physical,

@@ -11,7 +11,7 @@
 #include "../kernel/src/process.c"
 static unsigned depth,begins,ends,checkpoints,yields,freed,destroyed;
 static bool available=true,fail_unmap,independent,bad_translation;
-static unsigned unmap_calls,fail_at_unmap,alloc_calls,fail_alloc_at,map_calls,fail_map_at,spawn_calls;
+static unsigned unmap_calls,fail_at_unmap,alloc_calls,fail_alloc_at,map_calls,fail_map_at,spawn_calls,console_prints;
 static bool fail_spawn;
 static uint64_t active_space=0x1000;
 uint64_t vmm_current_address_space(void) { return active_space; }
@@ -34,7 +34,7 @@ bool scheduler_io_process_independent(void *p) { assert(p==observed);return inde
 static bool released[1024];
 static unsigned next_frame=1,wakes;
 static unsigned char backing[1024*4096];
-void console_printf(const char *format,...) {(void)format;}
+void console_printf(const char *format,...) {(void)format;console_prints++;}
 void scheduler_wake_all(struct scheduler_wait_queue *queue) {
     if(queue==&process_wait_queue){wakes++;return;}
     assert(queue==&futexes[0].wait_queue && futexes[0].invalidated && depth);
@@ -92,7 +92,7 @@ bool scheduler_spawn_user_thread(const char *name,scheduler_thread_fn entry,void
 static void reset(void) {
     assert(!depth);begins=ends=checkpoints=yields=freed=destroyed=0;next_frame=1;
     memset(released,0,sizeof(released));memset(backing,0xcc,sizeof(backing));
-    memset(futexes,0,sizeof(futexes));wakes=0;unmap_calls=fail_at_unmap=alloc_calls=fail_alloc_at=map_calls=fail_map_at=spawn_calls=0;fail_spawn=false;independent=bad_translation=false;
+    memset(futexes,0,sizeof(futexes));wakes=0;unmap_calls=fail_at_unmap=alloc_calls=fail_alloc_at=map_calls=fail_map_at=spawn_calls=console_prints=0;fail_spawn=false;independent=bad_translation=false;
 }
 void console_write(const char *text) {(void)text;}
 bool vmm_create_address_space(uint64_t *space) {*space=0x1000;return true;}
@@ -239,7 +239,7 @@ static void startup_map_contract(void) {
         if(failure==1)fail_map_at=4;else fail_alloc_at=4;
         if(failure==2)fail_at_unmap=1;
         assert(process_try_mmap_private(p,0,65*4096,prot,flags,-1,0,&result) && result==-1);
-        assert(!checkpoints && !begins && !ends && depth==1);
+        assert(!checkpoints && !begins && !ends && depth==1 && console_prints==0);
         if(failure==2) {
             assert(p->mapping_count==3 && p->mmap_regions[0].used && !freed);
             fail_at_unmap=0;assert(process_try_munmap_private(p,USER_MMAP_BASE,65*4096,&result) && !result && freed==3);
@@ -274,7 +274,7 @@ static void startup_thread_contract(void) {
         if(failure>=2)fail_spawn=true;
         if(failure==3)fail_at_unmap=1;
         assert(process_try_thread_create_private(0x400000,123,0x500800,SRV_THREAD_DETACHED,&result));
-        assert(!checkpoints && !begins && !ends && depth==1);
+        assert(!checkpoints && !begins && !ends && depth==1 && console_prints==0);
         if(!failure) {
             assert(result==2 && spawn_calls==1 && p->mapping_count==4);
             struct process_user_thread *t=&p->user_threads[0];assert(t->used && t->active && t->detached && t->arg==123);
