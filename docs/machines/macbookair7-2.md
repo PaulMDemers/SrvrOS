@@ -2,6 +2,18 @@
 
 Updated: 2026-11-01. State: **active reference machine; partial device acceptance**.
 
+### Storage critical-section shortening scope
+
+From integration9340c9fb and PR261/6f1ff8cb, shorten serialized exFAT mutation
+work without releasing ownership over partial publication. Audit repeated
+metadata/directory/allocation reads and implement a bounded transaction-local
+read cache, invalidated before every overlapping write (including failed/partial
+writes), disabled outside a mutation and cleared at outer completion. Preserve
+all media writes, flush ordering, dirty flags, quarantine and cleanup gates.
+Validate real cache paths, driver I/O counts against the prior source, crash/
+retirement/growth sweeps and loaded VM before staging another native candidate.
+PR252 resolver/socket and PR19 Wi-Fi remain separate. No reboot is armed.
+
 ### Cold-start retry — filesystem admission tail isolated, test failed
 
 Release `73e363a1fee47ba8`, session `session-00065f3be8b1570a-00`, returns
