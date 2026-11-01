@@ -2,6 +2,34 @@
 
 Updated: 2026-10-31. State: **active reference machine; partial device acceptance**.
 
+### Automated helper candidate return — endurance failure
+
+Release `928447acaed4bcfb`, source `fe8d1a76`, returned automatically with matching
+session `session-00065f2d08e7cfd9-00`. Playback snapshots confirm volume 1% and
+zero underruns in the retained interval. This is **not** full endurance acceptance:
+the lifecycle test failed at cycle 10, before the 1800-second workload completed.
+Maximum UI loop is 101717 us, ready 6181340 us and completed close 5759059 us.
+
+Failing Text PID22 initializes its helper in 2779 us and acknowledges Close in
+22618 us. Its document unmap takes 10089090 us, of which the phase scheduler
+attributes 10086550 us to blocking and 2382 us to ready delay. The unchanged
+launch-to-reap deadline fires at 10008679 us. This isolates the remaining observed
+wait to mapping retirement, without yet identifying the exact blocking owner.
+Retained complete helper initializations range from 1656 to 4473 us; they do not
+bound unretained earlier spans. Final helper receipts drain both mappings, pending
+zero, no retirement failures; cache retires to zero bytes/retained with ten reuses,
+and battery runtime retires cleanly. Full PCM/screenshot endurance remains open.
+
+All 1237 prior files are preserved apart from expected filesystem metadata; six
+new files are copied and hash-verified. Offline fsck is clean (267 directories,
+1243 files), with allocation/writable/headroom checks passing. Ubuntu default,
+consumed one-shot, current payload and independent recovery are verified.
+Local collection and attribution are under `build/air-helper-init-20261101`.
+Next investigate unmap admission and I/O ownership with a directed reproducer;
+keep deadlines, accepted-job drain and actual mapping/process retirement intact.
+Installed candidate remains `928447acaed4bcfb`; recovery remains `9aa8dbf6fbda8252`.
+No subsequent trial is requested or armed by this return review.
+
 ### Helper startup candidate ready for native validation (2026-11-01 UTC)
 
 [PR260](https://github.com/PaulMDemers/SrvrOS/pull/260), source `fe8d1a76`, removes
