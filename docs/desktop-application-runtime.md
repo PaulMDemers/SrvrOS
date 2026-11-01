@@ -489,3 +489,15 @@ not execute handlers or release files. A mask update exposing fatal cancellation
 still regains ordinary admission in the IDT epilogue before process exit. Signal
 consumption/delivery, kill and complete resource teardown remain gated. This
 policy is independent of SMP acceptance.
+
+### Bounded process liveness lookup
+
+`SYS_PROC_LIST` retains its existing cursor enumeration. Setting
+`SRV_PROC_LIST_BY_PID` selects one exact PID from the low63 bits of the argument;
+a positive return identifies the snapshot, zero means missing, and negative
+means invalid user output. The process-info layout is unchanged. PID zero is
+not a query target. SDK `desk_process_alive` uses one such read-only metadata
+call, including for exited/stopping states, instead of enumerating every process
+through separate syscalls in the compositor's service loop. This adds no handle
+or lifetime reference; only actual wait/reaping proves resource completion.
+New clients need the matched kernel that implements this selector.

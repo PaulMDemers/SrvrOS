@@ -2,6 +2,17 @@
 
 Updated: 2026-11-01. State: **active reference machine; partial device acceptance**.
 
+### Bounded liveness query dependency
+
+The first cache-enabled loaded VM fails UI508329us (service487594us) and the
+strict playback/I/O overlap check; it remains a failure. Normal and20Files pass.
+Inspection finds client liveness walking process enumeration through repeated
+syscalls in the service loop. Add one PID-filtered metadata query through an
+explicit SYS_PROC_LIST selector, retaining cursor enumeration and snapshot layout.
+Use it for client liveness; no process cleanup, mapping, lifetime or I/O admission
+changes. Test exact/missing/exited PID, last slot, legacy cursor and bounded SDK
+call count. Re-run loaded/normal/Files plus read-throttled VM before native stage.
+
 ### Storage critical-section shortening scope
 
 From integration9340c9fb and PR261/6f1ff8cb, shorten serialized exFAT mutation

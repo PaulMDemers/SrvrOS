@@ -4000,3 +4000,11 @@ test-exfat-read-reuse: build/tests/exfat-driver$(HOST_EXE) build/tests/exfat-unc
 build/tests/exfat-uncached-driver$(HOST_EXE): tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) -DSRVROS_EXFAT_HOST_TEST -DSRVROS_EXFAT_READ_CACHE_OFF -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c -Wl,--gc-sections -o $@
+
+.PHONY: test-desktop-probe
+test-desktop: test-desktop-probe
+test-desktop-probe: build/tests/desktop-probe$(HOST_EXE)
+	$<
+build/tests/desktop-probe$(HOST_EXE): tools/test_desktop_probe.c userspace/lib/src/desktop.c userspace/lib/include/srvros/sys.h shared/include/srvros/syscall_numbers.h
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -idirafter userspace/lib/include $< -Wl,--gc-sections -o $@
