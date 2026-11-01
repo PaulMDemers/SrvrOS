@@ -2,6 +2,25 @@
 
 Updated: 2026-10-31. State: **active reference machine; partial device acceptance**.
 
+### Integration and workspace retention checkpoint (2026-11-01 UTC)
+
+The user requested workspace pruning and integration of the completed work.
+The device branch incorporates main `5bc858e7` (Air6,1 RC6 documentation
+closeout). This integration introduces no additional feature code beyond the
+async file service candidate. Core/desktop tests and the matched ordinary build pass locally after integration;
+repository Actions stay disabled. PR258 is being integrated at the user's request
+as an implemented baseline, retaining its documented loaded-VM failures and
+pending native endurance acceptance. Merging does not promote those results to
+physical acceptance.
+
+Historical boot initramfs and inactive VM volumes are being losslessly archived
+with verified Zstandard checksums and a local path/size ledger. Logs,
+screenshots, manifests, independent evidence stores and installed current/recovery
+payloads remain retained. Candidate `5c4c800cd105b347` remains unpacked and
+independently backed up. Restore archived stage files before manifest verification
+or reuse; consult the Ubuntu setup guide's artifact-retention procedure.
+No native install or reboot is part of this maintenance block.
+
 ### Native workspace refusal and preflight follow-up (2026-10-31)
 
 Release `e3370f00781fb60c` halted before the automated workload: the workspace
