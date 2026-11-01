@@ -84,8 +84,10 @@ void scheduler_context_switch(struct scheduler_context *old,struct scheduler_con
         if(current_thread==1) {
             assert(old==&threads[0].context && threads[0].state==THREAD_BLOCKED);
             assert(threads[0].trace.out.blocks==1);
+            assert(threads[0].memory_park_queue==threads[0].blocked_queue && threads[0].memory_park_queue);
             switching=false;clock_us+=10000;wake_expired_waits();
             assert(threads[0].state==THREAD_READY && threads[0].trace.out.timeouts==1);
+            assert(threads[0].memory_park_queue && !threads[0].blocked_queue);
             io_depth=1;io_owner=1;
             assert(!io_thread_allowed(0)); /* Recording must not admit the unsafe thread. */
             clock_us+=520000;assert(!io_thread_allowed(0));
@@ -93,6 +95,7 @@ void scheduler_context_switch(struct scheduler_context *old,struct scheduler_con
             assert(current_thread==0);return;
         }
         assert(current_thread==0 && old==&threads[1].context && next==&threads[0].context);
+        assert(!threads[0].memory_park_queue);
         return;
     }
     if(retry_turn_test) {
@@ -530,12 +533,14 @@ static void test_helper_atomic_memory(void) {
     struct scheduler_wait_queue parked={0},wrong={0};
     initialized=io_services_enabled=true;current_thread=3;actual_space=1;
     threads[3]=(struct thread){.state=THREAD_RUNNING,.user_context=p,.user_thread_context=(void *)0x40,.io_user_safe=true,.address_space=1};
-    threads[4]=(struct thread){.state=THREAD_BLOCKED,.user_context=p,.io_user_safe=true,.address_space=1,.blocked_queue=&parked};
+    threads[4]=(struct thread){.state=THREAD_BLOCKED,.user_context=p,.io_user_safe=true,.address_space=1,.blocked_queue=&parked,.memory_park_queue=&parked};
     threads[5]=(struct thread){.state=THREAD_BLOCKED,.user_context=other};
     io_depth=2;io_owner=5;
     assert(!scheduler_io_process_independent(p)); /* Old path reproduces refusal. */
     assert(scheduler_io_process_helper_memory(p,&parked));
-    threads[4].state=THREAD_READY;assert(!scheduler_io_process_helper_memory(p,&parked));threads[4].state=THREAD_BLOCKED;
+    threads[4].state=THREAD_READY;assert(scheduler_io_process_helper_memory(p,&parked));
+    threads[4].memory_park_queue=NULL;assert(!scheduler_io_process_helper_memory(p,&parked));
+    threads[4].memory_park_queue=&parked;threads[4].state=THREAD_BLOCKED;
     assert(!scheduler_io_process_helper_memory(p,NULL));
     assert(!scheduler_io_process_helper_memory(p,&wrong));
     threads[4].io_user_safe=false;assert(!scheduler_io_process_helper_memory(p,&parked));threads[4].io_user_safe=true;
@@ -554,6 +559,10 @@ static void test_helper_atomic_memory(void) {
     switching=true;assert(!scheduler_io_process_helper_memory(p,&parked));switching=false;
     io_services_enabled=false;assert(!scheduler_io_process_helper_memory(p,&parked));io_services_enabled=true;
     assert(io_depth==2 && io_owner==5 && !io_private_image);
+    io_depth=0;threads[4]=(struct thread){0};threads[5]=(struct thread){0};
+    threads[3].memory_park_queue=&parked;scheduler_yield();
+    assert(current_thread==3 && !threads[3].memory_park_queue);
+
     memset(threads,0,sizeof(threads));initialized=io_services_enabled=false;current_thread=0;io_depth=0;
     puts("helper-atomic-memory: PASS safe parked sibling, foreign owner unchanged, unsafe/CR3/owner/image/scan refusal");
 }

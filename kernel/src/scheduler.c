@@ -60,6 +60,9 @@ struct thread {
     struct fpu_state kernel_fpu;
     struct scheduler_context context;
     struct scheduler_wait_queue *blocked_queue;
+    /* Retained across wake-to-READY, cleared before this continuation runs.
+     * Distinguishes a parked syscall from arbitrary preempted safe work. */
+    struct scheduler_wait_queue *memory_park_queue;
     uint64_t blocked_deadline_ticks;
     uint64_t switches;
     uint64_t sampled_ticks;
@@ -389,7 +392,8 @@ bool scheduler_io_process_helper_memory(void *process,struct scheduler_wait_queu
     for(uint64_t i=0;i<thread_capacity;i++)if(i!=current_thread) {
         struct thread *t=thread_at(i);
         if(t->state==THREAD_UNUSED || t->state==THREAD_DEAD || t->user_context!=process)continue;
-        if(t->state!=THREAD_BLOCKED || t->blocked_queue!=parked || !t->io_user_safe ||
+        if((t->state!=THREAD_BLOCKED && t->state!=THREAD_READY) ||
+           t->memory_park_queue!=parked || !t->io_user_safe ||
            thread_address_space(t)!=thread_address_space(caller))return false;
     }
     return true;
@@ -738,6 +742,7 @@ static void yield_to(uint64_t preferred) {
     }
 
     if (next_index == old_index) {
+        thread_at(old_index)->memory_park_queue=NULL;
         if(thread_at(old_index)->trace.active)trace_run(thread_at(old_index),timer_monotonic_us());
         irq_restore(flags);
         return;
@@ -759,6 +764,7 @@ static void yield_to(uint64_t preferred) {
         io_ready_request(old);
     }
     if(next->trace.active)trace_run(next,timer_monotonic_us());
+    next->memory_park_queue=NULL;
     next->state = THREAD_RUNNING;
     next->switches++;
     context_switches++;
@@ -859,6 +865,7 @@ bool scheduler_wait_timeout(struct scheduler_wait_queue *queue,
     }
     thread->state = THREAD_BLOCKED;
     thread->blocked_queue = queue;
+    thread->memory_park_queue = queue;
     thread->blocked_deadline_ticks = deadline_ticks;
     queue->waiters++;
     irq_restore(flags);
