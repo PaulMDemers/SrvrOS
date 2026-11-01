@@ -2,6 +2,21 @@
 
 Updated: 2026-11-01. State: **active reference machine; partial device acceptance**.
 
+### First-surface scope
+
+Continue PR260 on base `92ec9b09`: trace initial CONFIGURE canvas allocation,
+surface creation, service registration and first rendering/publication. Text's
+first pixel mmap currently occurs after its helper exists, so the sole-main
+private allocation proof refuses it and ordinary foreign-I/O admission applies.
+Reproduce that refusal and pre-reserve the first standard canvas before helper
+creation with explicit handoff/cleanup; retain normal resize and later-window
+fallback and all ownership/timing limits. Add complete sparse substep receipts
+and allocation/surface/adoption failure coverage, then loaded/normal/multiwindow
+VMs and exact staging. The native 8.97-second gap itself remains unbracketed;
+new source needs native evidence. No kernel gate/device/audio policy change.
+PR252 networking and PR19 Wi-Fi remain separate. Last a442 run is fully collected,
+installed a442/recovery9aa remain unchanged and no reboot is armed.
+
 ### Text journal native return — first publication still misses lifecycle budget
 
 Release `a442f72d78af2e57` (staged `2f6c769a`, production `6739a6e6`)
