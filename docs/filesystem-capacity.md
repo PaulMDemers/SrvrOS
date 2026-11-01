@@ -85,3 +85,38 @@ reads, overlap/partial failures, transaction boundaries, reentrancy and exhausti
 write/flush counts, and fewer read bytes. The disabling define is host-test-only;
 it is not a native runtime setting. Read counts include mounting. Existing
 crash/growth/retirement sweeps still apply to the cached production path.
+
+
+## Allocation-bitmap transfer spans
+
+Allocation and freeing publish only the bitmap byte interval containing changed
+bits. Contiguous allocation uses the allocated run; fragmented allocation uses
+the ascending selected clusters; freeing computes the minimum and maximum bit
+across the entire chain, including descending chains. Bytes between changed
+bits retain their previously read values. The block layer preserves neighbouring
+bytes with its existing partial-sector read/modify/write path. Full bitmap reads,
+FAT-before-bitmap ordering, mutation ownership, dirty markers, flush boundaries,
+failed-write quarantine and alias retirement stay unchanged.
+
+`make test-exfat-bitmap-span` covers crossing bytes, the last valid bit,
+fragmented/descending chains, untouched padding, invalid bounds and partial-write
+quarantine. `make test-exfat-bitmap-io` compares the real driver with a host-only
+full-cluster comparator. The1200-file128KiB-cluster fixture requires identical
+complete disk hashes and write/flush call counts for create, overwrite, rename,
+delete and replacement. Requested write bytes fall59.96–74.94%; these are block
+API bytes, not physical transport-sector counts or a native latency guarantee.
+Existing crash, growth and retirement sweeps also apply to narrow writes.
+
+The logger saves the four longest completed mutations of at least100ms as
+`exfat-cost` records, with start/end times, operation and success. Four
+`exfat-cost-phase` rows per record attribute actual block API calls, requested
+bytes and callback wall time to metadata, allocation, data and freeing (phases
+0–3). Flush callback time is separate. Cache hits cause no block read and add no
+read call; partial-sector work inside block callbacks is included in callback
+wall time, not counted as another filesystem read. The remaining elapsed time
+includes CPU, waits and nested work outside those callbacks. Records contain no
+paths, allocate no memory and are printed after a CPU0 IRQ-protected snapshot,
+outside mutation ownership. Match intervals against owner/gate records before
+attributing a delay. This is observation, not a permission to release ownership
+mid-publication or an SMP synchronization mechanism. `make test-exfat-cost`
+checks accounting, failure retention and the four-record bound.

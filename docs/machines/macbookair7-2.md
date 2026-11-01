@@ -2,6 +2,20 @@
 
 Updated: 2026-11-01. State: **active reference machine; partial device acceptance**.
 
+### Active follow-up: bitmap write amplification
+
+Continue on PR261/source60ca091b, with main9340c9fb inspected. Trace actual
+allocation/free I/O in `kernel/src/fs/exfat.c` using production host drivers and
+populated128KiB-cluster fixtures. The allocator currently rewrites the entire
+allocation-bitmap cluster when only a few bits change. Bound those transfers to
+the declared bitmap and changed byte span, keeping the same dirty/publication/
+flush/quarantine ordering and exclusive owner. Add direct untouched-byte,
+fragmented/boundary and failure coverage, then rerun crash/growth/retirement and
+loaded/read-throttled VM checks. Measure bytes and owner phases; do not claim
+the remaining native8-second stall resolved without a new physical trial.
+No reboot is armed; current451 is failed, accepted7d/recovery9aa preserved.
+Other open scopes remain PR252 resolver/sockets and PR19 Pro Wi-Fi.
+
 ### Storage-shortening hardware return: deadline failure
 
 Release `451c977e447a9d0b` / source `0b8f554c` returned automatically after

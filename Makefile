@@ -4008,3 +4008,24 @@ test-desktop-probe: build/tests/desktop-probe$(HOST_EXE)
 build/tests/desktop-probe$(HOST_EXE): tools/test_desktop_probe.c userspace/lib/src/desktop.c userspace/lib/include/srvros/sys.h shared/include/srvros/syscall_numbers.h
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -idirafter userspace/lib/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-exfat-bitmap-span test-exfat-bitmap-io
+build/tests/exfat-bitmap-span-host$(HOST_EXE): tools/test_exfat_bitmap_span.c kernel/src/fs/exfat.c $(KERNEL_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+test-exfat-bitmap-span: build/tests/exfat-bitmap-span-host$(HOST_EXE)
+	$<
+build/tests/exfat-bitmap-full-driver$(HOST_EXE): tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -DSRVROS_EXFAT_HOST_TEST -DSRVROS_EXFAT_BITMAP_SPAN_OFF -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c -Wl,--gc-sections -o $@
+test-exfat-bitmap-io: build/tests/exfat-driver$(HOST_EXE) build/tests/exfat-bitmap-full-driver$(HOST_EXE)
+	$(PYTHON) tools/test_exfat_bitmap_io.py --driver build/tests/exfat-driver$(HOST_EXE) --baseline build/tests/exfat-bitmap-full-driver$(HOST_EXE)
+test-core: test-exfat-bitmap-span
+
+build/tests/exfat-cost-host$(HOST_EXE): tools/test_exfat_cost.c kernel/src/fs/exfat.c $(KERNEL_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+.PHONY: test-exfat-cost
+test-exfat-cost: build/tests/exfat-cost-host$(HOST_EXE)
+	$<
+test-core: test-exfat-cost

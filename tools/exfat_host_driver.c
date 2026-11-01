@@ -20,7 +20,7 @@
 #include <srvros/vfs.h>
 #include <srvros/autotest_storage.h>
 static int fd;
-static uint64_t read_calls,read_bytes;
+static uint64_t read_calls,read_bytes,write_bytes;
 static unsigned writes, flushes, fail_at, crash_at, fail_flush_at, crash_flush_at, tear_at;
 static bool failed, foreign;
 static unsigned io_depth;
@@ -51,6 +51,7 @@ bool block_read(struct block_device *d, uint64_t o, void *p, uint64_t n) {
     return o+n <= block_device_size(d) && pread(fd,p,n,o)==(ssize_t)n;
 }
 bool block_write(struct block_device *d, uint64_t o, const void *p, uint64_t n) {
+    write_bytes+=n;
     if (failed || ++writes == fail_at) { failed=true; return false; }
     assert(o+n <= block_device_size(d));
     if(writes==tear_at) {
@@ -251,6 +252,7 @@ int main(int argc, char **argv) {
     if(!strcmp(argv[2],"recover") || !strcmp(argv[2],"seed-temp") || !strncmp(argv[2],"verify-",7)) {
         assert(fsync(fd)==0);close(fd);
         printf("driver: reads=%llu read_bytes=%llu\n",(unsigned long long)read_calls,(unsigned long long)read_bytes);
+        printf("driver: write_bytes=%llu\n",(unsigned long long)write_bytes);
         printf("driver: complete writes=%u flushes=%u\n",writes,flushes);return 0;
     }
     if(!strcmp(argv[2],"memory-refusal")) {
@@ -554,6 +556,7 @@ int main(int argc, char **argv) {
     } else { return 2; }
     assert(fsync(fd)==0); close(fd);
     printf("driver: reads=%llu read_bytes=%llu\n",(unsigned long long)read_calls,(unsigned long long)read_bytes);
+    printf("driver: write_bytes=%llu\n",(unsigned long long)write_bytes);
     printf("driver: complete writes=%u flushes=%u\n",writes,flushes);
     return 0;
 }
