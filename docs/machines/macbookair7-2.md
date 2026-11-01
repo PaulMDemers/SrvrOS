@@ -2,6 +2,22 @@
 
 Updated: 2026-11-01. State: **active reference machine; partial device acceptance**.
 
+### Lifecycle latency scope after PR260
+
+From integration `9340c9fb` on the existing device branch: audit process-local
+futex parking during foreign I/O and retain the actual worst launch/Close
+breakdown through a long trial. The futex implementation uses a fixed table,
+IRQ-protected validation/load, active-wait pins and invalidation wakes; there
+is no heap/VFS/device callback. Test safe wait admission without changing foreign
+ownership, invalidation, timeout, signal or cancellation behavior. Preserve CPU0
+scope and ordinary gates on allocation, exit and resource cleanup. Add bounded
+retained diagnostic records separating visual Close, observed exit and actual
+reaping; keep deadlines and workload unchanged. Check directed/kernel pthread
+and loaded/normal/multiwindow VMs before preparing a native trial. This is an
+investigation of residual waits, not a claim that old 8-second Close is explained.
+PR252 resolver/socket and PR19 Wi-Fi remain independent. Installed accepted
+`7d21b1fb77479259` and recovery `9aa8dbf6fbda8252` remain unchanged; no reboot armed.
+
 ### Native startup and retirement endurance — bounded milestone accepted
 
 Release `7d21b1fb77479259`, source `87ecd80b`, session
