@@ -2,6 +2,39 @@
 
 Updated: 2026-10-31. State: **active reference machine; partial device acceptance**.
 
+### Native helper-unmap return — startup still misses lifecycle budget
+
+Release `ce3f369efb135f20`, staged source `93211110` / production `baeabeba`,
+returned with session `session-00065f2ebcacec7e-00`. Full endurance **fails at cycle
+10**, before completing the unchanged 1800-second PCM/disk/screenshot workload.
+Playback volume 1% is confirmed. UI maximum is 109070 us; ready maximum 8750931 us
+and completed-close maximum 4749780 us. The total lifecycle deadline fires at
+10008376 us for Text PID22. No threshold has changed.
+
+The targeted mapping wait is absent in the retained native evidence: PID22
+canvas retirement takes 246 us, document retirement 134 us, each with zero blocked
+or ready time. Across seven complete retained helper samples, canvas unmap peaks
+at 249 us and document unmap at 136 us. Final helper receipts retire both maps,
+with pending zero and no retirement failures. This observes the bounded helper
+unmap improvement, not full endurance or unrestricted concurrent memory safety.
+
+PID22 instead spends 6230534 us in actual kernel thread creation (6221611 us
+blocked, 8870 us ready) and 2466675 us in document mapping. Helper initialization
+is 6239668 us; readiness at 8750931 us consumes most of the unchanged launch-to-reap
+budget. Close ACK takes 18755 us, helper stop 20 us and pool retirement 10925 us;
+main return occurs after the deadline. Document-map time lacks substep scheduler
+attribution. Next isolate creation/allocation admission and its actual owner;
+do not widen those gates merely because the wall interval is long.
+
+Final cache retires to zero bytes/retained with nine reuses and battery runtime
+retires cleanly. All 1243 prior files are preserved apart from expected metadata;
+six new files are copied and hash-verified. Offline fsck is clean (269 directories,
+1249 files), with allocation/writable/headroom checks passing. Installed candidate,
+independent recovery, Ubuntu default and consumed one-shot are verified. Recovery
+remains `9aa8dbf6fbda8252`; installed is `ce3f369efb135f20`; no reboot is armed.
+Evidence and attribution under local `build/air-unmap-helper-20261101/native-trial`
+are independently backed up. PR260 remains draft; earlier failures stay failures.
+
 ### Helper unmap candidate — local validation
 
 Production source `baeabeba` extends only bounded whole-anonymous retirement.
