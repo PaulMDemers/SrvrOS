@@ -153,8 +153,11 @@ static int file_service_join(struct file_service *s) {
 static int file_service_start(struct file_service *s,struct desk_file_pool *pool,int role) {
     if(!s || s->started || !pool || !pool->channels || !pool->count || pool->count>FILE_SERVICE_STARTS || pool->bound || pool->live || pool->head || pool->closing || pool->opener)return -1;
     *s=(struct file_service){.pool=pool,.role=role};
-    pthread_attr_t attr;if(pthread_attr_init(&attr))return -1;
-    int result=pthread_attr_setstack(&attr,s->stack,sizeof(s->stack));
+    uint64_t at=tool_timing_begin(role,0,"service-attributes");
+    pthread_attr_t attr;int initialized=pthread_attr_init(&attr);int result=initialized;
+    if(!result)result=pthread_attr_setstack(&attr,s->stack,sizeof(s->stack));
+    tool_timing_end(role,0,"service-attributes",at);
+    if(result){if(!initialized)pthread_attr_destroy(&attr);return -1;}
     if(!result)result=pthread_create(&s->thread,&attr,file_service_thread,s);
     pthread_attr_destroy(&attr);
     if(result)return -1;

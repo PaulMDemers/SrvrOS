@@ -4,6 +4,20 @@
 #include <srvros/desk_log.h>
 #include <stdlib.h>
 #include <string.h>
+/* Creator-only opt-in; the helper's TLS starts with tracing disabled. */
+static _Thread_local int pthread_trace_role;
+static _Thread_local uint64_t pthread_trace_at;
+static _Thread_local struct tool_phase_trace pthread_trace_phase;
+void __posix_pthread_create_trace(const char *stage,int begin) {
+    if(!pthread_trace_role)return;
+    if(begin) {
+        pthread_trace_at=tool_timing_begin(pthread_trace_role,0,stage);
+        tool_phase_begin(&pthread_trace_phase);
+    } else {
+        tool_phase_end(&pthread_trace_phase,pthread_trace_role,0,stage);
+        tool_timing_end(pthread_trace_role,0,stage,pthread_trace_at);
+    }
+}
 #include "file_service.h"
 
 struct tool_document {
@@ -180,7 +194,9 @@ int tool_window_runtime(int role,const char *path) {
     int initialized=desk_file_pool_init(&app.pool,app.channels,2);
     tool_timing_end(role,0,"pool-init",timing);if(initialized)return 1;
     timing=tool_timing_begin(role,0,"file-service-init");
+    pthread_trace_role=role;
     int service_started=file_service_start(&app.files,&app.pool,role);
+    pthread_trace_role=0;
     tool_timing_end(role,0,"file-service-init",timing);if(service_started)return 1;
     desk_log("desktools: starting role=%s\n",role_name(role));
     if(create(&app,0,path)) {file_service_quiesce(&app.files);return 1;}

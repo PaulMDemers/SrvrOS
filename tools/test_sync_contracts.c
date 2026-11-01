@@ -11,6 +11,13 @@
 #include <srvros/sys.h>
 
 #define CHECK(x) do { if (!(x)) { printf("sync-contracts: line %d failed: %s\n", __LINE__, #x); exit(1); } } while (0)
+static int trace_enabled,trace_edges;
+static const char *trace_sequence[]={"pthread-reap-self","pthread-reap-records","pthread-start-alloc","pthread-record-claim","pthread-kernel-create"};
+void __posix_pthread_create_trace(const char *stage,int begin) {
+    if(!trace_enabled)return;
+    CHECK(trace_edges<10 && !strcmp(stage,trace_sequence[trace_edges/2]));
+    CHECK(begin==!(trace_edges%2));trace_edges++;
+}
 static uint32_t *interrupted_address;
 static uint32_t released_value;
 static int error_value, last_clock, futex_calls, dispatches, wait_mode, clock_error;
@@ -546,6 +553,10 @@ static void futex_interruption_tests(void) {
     puts("sync-contracts: mutex, reader/writer and once interruption/recheck PASS");
 }
 int main(int argc, char **argv) {
+    if(argc>1 && !strcmp(argv[1],"creation-trace")) {
+        trace_enabled=1;supplied_stack(PTHREAD_STACK_MIN);trace_enabled=0;
+        CHECK(trace_edges==10);puts("pthread creation trace: ordered balanced failure spans, caller stack preserved PASS");return 0;
+    }
     if(argc>1 && !strcmp(argv[1],"semaphore-race")) { semaphore_race_tests();return 0; }
     if(argc>1 && !strcmp(argv[1],"recursive-limit")) { recursive_limit_tests();return 0; }
     if(argc>1 && !strcmp(argv[1],"once-exit")) { once_exit_tests();return 0; }
