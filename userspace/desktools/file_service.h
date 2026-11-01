@@ -61,7 +61,12 @@ static void *file_service_thread(void *arg) {
     for(;;) {
         __atomic_exchange_n(&s->event,0,__ATOMIC_ACQUIRE);
         file_service_work(s);
-        if(file_service_state(&s->stop))break;
+        if(file_service_state(&s->stop)) {
+            /* The sole dispatcher published all final records before stop.
+             * Acquire stop, then rescan: it may have queued into a slot that
+             * this iteration had already passed. No admission follows stop. */
+            file_service_work(s);break;
+        }
         unsigned completed=0;
         for(unsigned i=0;i<FILE_SERVICE_STARTS;i++)completed|=file_service_state(&s->starts[i].state)==FILE_SERVICE_DONE;
         for(unsigned i=0;i<FILE_SERVICE_RETIRES;i++)completed|=file_service_state(&s->retires[i].state)==FILE_SERVICE_DONE;

@@ -11,7 +11,7 @@
 #include <errno.h>
 #include "../userspace/lib/src/desk_file_job.c"
 static pthread_t ui;
-static atomic_uint hold_spawn,hold_unmap,spawn_calls,unmap_calls,fail_spawn,fail_unmap;
+static atomic_uint hold_spawn,hold_unmap,hold_unmap_call,spawn_calls,unmap_calls,fail_spawn,fail_unmap;
 static atomic_uint hold_pipe,pipe_calls;
 static unsigned fail_create,fail_join;
 static void nap(void);
@@ -60,7 +60,8 @@ static int create_thread(pthread_t *thread,const pthread_attr_t *attr,void *(*st
 }
 static int join_thread(pthread_t thread,void **value) {if(fail_join){fail_join=0;return EBUSY;}return pthread_join(thread,value);}
 static int retire_mapping(void *address,size_t length) {
-    assert(!pthread_equal(pthread_self(),ui));atomic_fetch_add(&unmap_calls,1);while(atomic_load(&hold_unmap))nap();
+    assert(!pthread_equal(pthread_self(),ui));unsigned call=atomic_fetch_add(&unmap_calls,1)+1;
+    while(atomic_load(&hold_unmap) && (!atomic_load(&hold_unmap_call) || atomic_load(&hold_unmap_call)==call))nap();
     return atomic_exchange(&fail_unmap,0)?-1:munmap(address,length);
 }
 static void desk_log(const char *format,...) {(void)format;}
@@ -118,6 +119,25 @@ int main(void) {
     assert(file_service_poll(&service) && !file_service_capacity(&service) && *(unsigned *)overlap==456);
     atomic_store(&hold_unmap,0);assert(!file_service_finish(&service) && service.retired==1 && !service.started);
     assert(desk_file_pool_finish(&pool)==1);clean_fds();
+    /* Stop must rescan slots passed by the current work scan. Hold the final
+     * slot, recycle completed slot zero, publish a new retire there, then stop. */
+    assert(!desk_file_pool_init(&pool,channels,2) && !file_service_start(&service,&pool,1));
+    atomic_store(&hold_spawn,1);next_spawn=atomic_load(&spawn_calls)+1;
+    assert(!file_service_open(&service,&channels[0]));await_count(&spawn_calls,next_spawn);
+    next_unmap=atomic_load(&unmap_calls)+FILE_SERVICE_RETIRES;
+    atomic_store(&hold_unmap_call,next_unmap);atomic_store(&hold_unmap,1);
+    for(unsigned i=0;i<FILE_SERVICE_RETIRES;i++) {
+        void *map=mmap(NULL,4096,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS,-1,0);assert(map!=MAP_FAILED);
+        assert(!file_service_retire(&release,map,4096));
+    }
+    atomic_store(&hold_spawn,0);await_count(&unmap_calls,next_unmap);
+    assert(file_service_poll(&service) && service.retired==FILE_SERVICE_RETIRES-1);
+    overlap=mmap(NULL,4096,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS,-1,0);assert(overlap!=MAP_FAILED);
+    assert(!file_service_retire(&release,overlap,4096));
+    assert(service.retires[0].address==overlap && file_service_state(&service.retires[0].state)==FILE_SERVICE_QUEUED);
+    file_service_request_stop(&service);atomic_store(&hold_unmap,0);
+    assert(!file_service_finish(&service) && service.retired==FILE_SERVICE_RETIRES+1 && service.abandoned==1);
+    atomic_store(&hold_unmap_call,0);clean_fds();
     /* Failed startup publishes an error once, closes all construction fds,
      * and does not create a child or fall back on the UI. */
     assert(!desk_file_pool_init(&pool,channels,2) && !file_service_start(&service,&pool,1));
