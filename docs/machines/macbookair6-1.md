@@ -1,6 +1,6 @@
 # MacBookAir6,1 — local bring-up
 
-Updated: 2026-10-27. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted. Short battery sampling and the bounded Home desktop session with five Text saves and three battery lifetimes, plus a three-minute continuous Home desktop capture and attended desktop AC unplug/reconnect with indicator updates, are physically accepted.**
+Updated: 2026-10-31. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted. Short battery sampling and the bounded Home desktop session with five Text saves and three battery lifetimes, plus a three-minute continuous Home desktop capture and attended desktop AC unplug/reconnect with indicator updates, are physically accepted.**
 
 ## Initial inventory (2026-10-22)
 
@@ -90,6 +90,24 @@ armed. Release `c35475f62f154f1e` is retained outside `build` as a known-working
 console/basic-keyboard/bounded-USB payload; preserve it as recovery.
 
 ## Current objective and next actions
+
+Repository catch-up and evidence closeout, based on fetched main `695db843`.
+All 65 local Air6,1 branch tips, including PR249's RC6 diagnostic, are already
+ancestors of main. This device checkout has consumed the 94 intervening main
+commits. Scope is this unit record, the machine index and current AP diagnostic
+guide; PR258 desktop retirement, PR252 resolver/socket and PR19 Wi-Fi remain
+independent active work. No runtime implementation or new physical trial belongs
+to this closeout.
+
+Latest native release `0804f2944e9364d3` completed its workload and returned;
+the independent collector still fails the original RC6 timing predicate.
+The final section below records the result. Installed source remains `05668557`,
+separate from the newly synchronized checkout. Next device work is explaining
+the repeat RC6 excess across multiple intervals while retaining existing policy,
+integrity checks and limits. Newer shared runtime changes require matched build
+and device validation before claiming native acceptance. No reboot is armed.
+
+### Historical battery-runtime objective (2026-10-23)
 
 Base `9bbc3b9`, branch `device/macbookair6-1/battery-runtime`. Audit connected
 Air6,1 AML initialization and query effects using private captured regions and
@@ -5360,3 +5378,47 @@ diagnostics even if the original RC6 predicate still fails. Native acceptance
 and the counter's hardware clock/update explanation remain pending. The local
 run record binds this source/release to USB `6ADA-85BB`, its 554-file baseline,
 1,610 allocated clusters, protected recovery and durable evidence backup.
+
+
+### RC6 series return reviewed and repository synchronized (2026-10-31)
+
+PR249 merged as `b1ba4e68`. Its release `0804f2944e9364d3`, compiled source
+`05668557`, returned automatically with `session-00065eed045ce1e7-00`.
+The matching exit SHA-256 is
+`a08d7c9e8f5cc84c6c792d165b0d9c3cc1e7dd521affaec555f900265440529e`.
+All three 30-second idle/load/recovery phases and final capture completed;
+no halt, exception or incomplete runtime marker appears. The platform receipt
+is fault-free with 25 devices, but strict platform acceptance remains failed.
+
+Nine series points match the retained power timestamps, have continuous counter
+arithmetic and unchanged immediate paired values. Six of the eight intervals
+between series points exceed their upper PM bracket at nominal RC6 scaling;
+two are below it. Including both endpoint intervals, eight of ten intervals
+exceed the bracket. Thus this run's excess is distributed across several
+intervals, rather than appearing only in the final endpoint. This does not
+establish a precise update cadence or identify the counter's oscillator.
+Nominal RC6 elapsed time is 90.143014400 s versus a PM bracket of
+90.059109–90.059113 s, approximately 83.901 ms (0.0932%) excess before the
+existing one-tick allowance. The original predicate still fails; no scaling,
+tolerance or power-policy change is justified by this observation alone.
+
+All 32 coordinated attempts completed under the unchanged 20 ms limit;
+maximum whole-round latency was 9,984 us. The short initial attempt recorded
+zero residency; the following 31 observed BSP core C3 and package C2.
+Package C2 occupied about 99.5355% of the aggregate short brackets, while
+package C3 stayed zero. All three APs retired without faults.
+
+The 554 baseline files are preserved except expected `.srvros/meta` bookkeeping;
+four logs bring the volume to 558 files / 1,615 clusters. Offline fsck and
+allocation checks passed with zero leaks, mismatches or errors. Installed
+current `0804f2944e9364d3`, console recovery `c35475f62f154f1e` and accepted
+package payload `bae0678ed7e9b38b` verify against their durable backups.
+The matching return evidence also verifies outside `build`. The one-shot is
+consumed and automatic collection is disabled. Current remains a diagnostic
+with unresolved RC6 acceptance, not a newly accepted replacement for recovery.
+
+Repository catch-up adds this closeout and current-guide/index updates only.
+Documentation and RC6 collector regressions are the applicable local checks;
+no rebuilt image, new hardware test or native acceptance of the 94 newer main
+commits is claimed. The October 31 workspace cleanup reclaimed empty allocation
+from VM images with identical hashes; all native evidence and recovery remain.

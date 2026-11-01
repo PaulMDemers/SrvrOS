@@ -310,3 +310,13 @@ but cannot establish a precise update cadence or identify a hardware clock.
 The original RC6-versus-time predicate is unchanged; interval observations are
 not a new acceptance tolerance. Maximum-width receipt replay must retain all
 original completion proofs inside the unchanged log tail.
+
+
+The Air6,1 PR249 native repeat (`0804f2944e9364d3`) retained nine valid series
+points and completed the workload, but still failed the original RC6 bound.
+Eight of ten intervals including endpoints exceeded their PM brackets; six of
+eight internal intervals did so. Immediate paired reads were equal and counter
+continuity held. This distributes the excess across the run without resolving
+clock accuracy or exact publication semantics. Nominal RC6 time was
+90.143014400 s versus 90.059109–90.059113 s by PM. Keep the mismatch unresolved;
+no new tolerance or policy is accepted. See the unit record's October 31 review.
