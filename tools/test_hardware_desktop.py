@@ -693,5 +693,12 @@ class CheckpointBarrierTests(unittest.TestCase):
         self.assertFalse(checkpoint_durable(receipt+b'\n',len(receipt)+1,name,at))
         self.assertTrue(checkpoint_durable(b'workspace: flushed\n',0,name,at))
         self.assertFalse(checkpoint_durable(b'workspace: flushed\n',19,name,at))
+        broken=receipt+b'worker interleaved\n'
+        self.assertFalse(checkpoint_durable(broken,0,name,at))
+        self.assertTrue(checkpoint_durable(broken,0,name,at,[b'prefix\n'+receipt+b'\n']))
+        self.assertFalse(checkpoint_durable(broken,0,name,at,[receipt+b'4\n']))
+        self.assertFalse(checkpoint_durable(broken,0,name,at,[b'interleaved'+receipt+b'\n']))
+        self.assertFalse(checkpoint_durable(broken,0,name,at,[receipt]))
+
 
 if __name__=='__main__': unittest.main()

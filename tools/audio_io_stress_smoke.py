@@ -15,11 +15,14 @@ from operation_timing import operation_snapshots
 from file_service_records import file_service_receipts
 
 
-def checkpoint_durable(output, after, name, at):
+def checkpoint_durable(output, after, name, at, snapshots=()):
     # New writers acknowledge only the exact completed log/device barrier.
     # Older immutable stages used the global workspace-flushed receipt.
+    marker=b'workspace-log: durable snapshot='+name+b' monotonic_us='+at
+    # A later already-verified disk checkpoint can preserve the atomic receipt
+    # lost to UART interleaving. Match the full generation, never repair UART.
+    if any(re.search(rb'^'+re.escape(marker)+rb'\r?\n',raw,re.M) for raw in snapshots):return True
     if b'workspace-log: durable snapshot=' in output:
-        marker=b'workspace-log: durable snapshot='+name+b' monotonic_us='+at
         return re.search(re.escape(marker)+rb'\r?\n',output[after:]) is not None
     return b'workspace: flushed' in output[after:]
 
@@ -108,16 +111,25 @@ def main():
                     directories=re.findall(rb'workspace-log: directory=/work/([^ ]+) periodic_seconds=10',output)
                     marks=list(re.finditer(rb'workspace-log: snapshot=(session-[ab]\.log) monotonic_us=(\d+)[^\r\n]*[\r\n]',output))
                     if len(directories)!=1 or not marks:return
-                    mark=marks[-1];key=mark[1],mark[2]
-                    if key in collected or not checkpoint_durable(output,mark.end(),mark[1],mark[2]):return
-                    path=directories[0].decode()+'/'+mark[1].decode()
-                    def read_snapshot():return ExfatFixture(stick.read_bytes()[2048*512:end]).read(path)
-                    raw=read_snapshot()
-                    assert raw==read_snapshot(),'live checkpoint changed during host collection'
-                    receipt=b'workspace-log: snapshot='+mark[1]+b' monotonic_us='+mark[2]+b' '
-                    assert receipt in raw,'live checkpoint generation mismatch'
-                    checkpoints.append(raw);collected.add(key)
-                    (out/f'checkpoint-{len(checkpoints):03d}.log').write_bytes(raw)
+                    # Consider the newest generation of both rotation slots.
+                    # A verified later slot may acknowledge the other slot when
+                    # its UART barrier line interleaved. Never use overwritten
+                    # bytes as evidence for an earlier generation.
+                    latest={mark[1]:mark for mark in marks}
+                    progress=True
+                    while progress:
+                        progress=False
+                        for mark in reversed(list(latest.values())):
+                            key=mark[1],mark[2]
+                            if key in collected or not checkpoint_durable(output,mark.end(),*key,checkpoints):continue
+                            path=directories[0].decode()+'/'+mark[1].decode()
+                            def read_snapshot():return ExfatFixture(stick.read_bytes()[2048*512:end]).read(path)
+                            raw=read_snapshot()
+                            assert raw==read_snapshot(),'live checkpoint changed during host collection'
+                            receipt=b'workspace-log: snapshot='+mark[1]+b' monotonic_us='+mark[2]+b' '
+                            if receipt not in raw:continue
+                            checkpoints.append(raw);collected.add(key);progress=True
+                            (out/f'checkpoint-{len(checkpoints):03d}.log').write_bytes(raw)
                 def pump(seconds):
                     nonlocal previous,sample_at
                     output.extend(read_for(serial,seconds));(out/'serial.log').write_bytes(output)
