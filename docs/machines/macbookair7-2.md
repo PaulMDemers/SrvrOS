@@ -2,6 +2,23 @@
 
 Updated: 2026-10-31. State: **active reference machine; partial device acceptance**.
 
+### Final-owner retirement overlap follow-up (2026-11-01 UTC)
+
+Source `71f40b11` normal combined VM passes21 lifetimes/UI140649us, ready1279634us,
+close1880192us. Fixed100IOPS retains a Files total-deadline FAIL after an accepted
+LIST drains: helper initialization is fast, but mapping retirement, helper stop
+and idle file-worker shutdown run serially. Preserve that failure. Fixed50IOPS
+retains the previous PCM-overlap FAIL without a lifecycle deadline failure.
+
+Extend only final-owner shutdown ordering: after all GUI/model owners have been
+released, no opening is pending and pool bindings/FIFO are empty, use existing
+pool shutdown to publish EOF/reap idle workers while queued mapping retirement
+finishes. Request helper stop once, preventing another idle wait after drain.
+Final code still consumes actual mapping completions/body quiescence and verifies
+backend reaping before return. Queue refusal/error retains ownership. This does
+not cancel accepted jobs, abandon children, relax deadlines or change a kernel
+gate. Test a held unmap with concurrent idle-worker EOF/reaping before retesting.
+
 ### Measured pthread startup follow-up (2026-11-01 UTC)
 
 Instrumented source `a9dcd73b` passes the populated 100-IOPS combined VM, while
