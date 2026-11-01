@@ -2,6 +2,25 @@
 
 Updated: 2026-11-01. State: **active reference machine; partial device acceptance**.
 
+### Residual lifecycle trial — failure preserved
+
+Candidate `29d2ac5951546a12` returned automatically from session
+`session-00065f3a30648d18-00` but **fails**, with zero completed lifetimes.
+The first Text readiness is 7031143 us and the unchanged whole-lifetime deadline
+expires at 10009546 us during Close. UI maximum is 101718 us; the screenshot
+attempt fails and no completed 1800-second audio/disk receipt exists. Main return
+precedes the observed process exit by an unisolated interval. A 6.75-second I/O
+ownership interval overlaps the startup gap; correlation does not establish cause.
+No claim of a futex regression or native improvement is made.
+
+Battery/cache retirement completes. All 1268 prior files are preserved apart from
+expected metadata; four new files, including the incomplete workload payload,
+are copied and hash-verified. Offline fsck is clean (277 directories, 1272 files),
+and allocation/writable/headroom pass. USB is remounted; candidate current and
+recovery `9aa8dbf6fbda8252` are verified, Ubuntu remains default and one-shot is
+consumed. Accepted `7d21b1fb77479259` remains independently preserved; this failed
+candidate is not promoted. PR261 remains draft pending admission/exit investigation.
+
 ### Residual lifecycle candidate — local validation complete
 
 Draft PR261, implementation `40010f52`, keeps audited fixed-table futex parking
