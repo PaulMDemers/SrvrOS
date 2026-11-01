@@ -2,6 +2,32 @@
 
 Updated: 2026-11-01. State: **active reference machine; partial device acceptance**.
 
+### Startup admission native return — first-window readiness failure
+
+Release `70696fcbbb72a1aa` (staged `cf1b3385`, production `185c6668`) returned
+with session `session-00065f306d1c0d7c-00`. The unchanged 1800-second endurance
+**fails before its first completed app cycle**: Files PID8 reaches the total
+lifecycle deadline at 10008813 us while awaiting first pixels. The compositor
+remains responsive (maximum loop 101092 us); this does not accept full endurance.
+
+The retained first startup observes initial document allocation at 131 us,
+actual kernel thread creation at 36 us and whole file-service initialization at
+210 us. The map/create scheduler brackets record zero blocked and ready time.
+This observes the targeted bounded path on this run only. The subsequent
+`role-init` begins but has no completion record; its exact blocking operation
+is not yet attributed. Do not label the earlier admission delay resolved for
+all lifetimes or widen the unchanged deadlines.
+
+Volume 1% is confirmed. Screenshot transfer is incomplete, and full-duration
+PCM/disk/screenshot acceptance remains open. Final cache retirement reaches
+zero bytes/retained and battery runtime retires cleanly. Installed is
+`70696fcbbb72a1aa`, independent recovery remains `9aa8dbf6fbda8252`.
+All 1249 prior files are preserved apart from expected metadata; four new files
+are copied and hash-verified. Offline fsck is clean (271 directories, 1253 files),
+with allocation/writable/headroom checks passing. Current/recovery payloads,
+Ubuntu default and consumed one-shot are verified. No reboot is armed; evidence
+under local `build/air-startup-admission-20261101` is independently backed up.
+
 ### Startup admission candidate — local validation
 
 PR260 production source `185c6668` addresses the first-thread admission wait and
@@ -45,8 +71,8 @@ independent copies survive distclean. Candidate `70696fcbbb72a1aa` stages clean
 source `cf1b3385`; exact TCG native-profile refusal/save/unmount/reset rehearsal
 passes only boot/return plumbing. The payload and current/recovery installation
 are independently verified. Native startup responsiveness and full
-1800-second endurance remain pending. Installed `ce3f369efb135f20`, recovery
-`9aa8dbf6fbda8252` and all native recovery settings are unchanged; no reboot is armed.
+1800-second endurance were pending at staging. The native result above supersedes
+that checkpoint; recovery remains `9aa8dbf6fbda8252`.
 
 ### First-helper and initial-model admission scope
 
