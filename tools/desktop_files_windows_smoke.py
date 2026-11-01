@@ -82,7 +82,11 @@ def main():
                     serial.sendall(b'ps\n');wait(b'pid name status');wait(b'srv> ')
                     return set(re.findall(rb'^(\d+) (\S+) (background|exited|foreground)',output.split(b'pid name status')[-1].split(b'srv> ')[0],re.M))
                 wait(b'srv> ',100);before=baseline();assert before
-                serial.sendall(b'run /fat/bin/deskd --apps-trace\n');wait(b'desktools: starting role=text');wait(b'deskd: commit')
+                # Synchronize on the first actual surface, not the earlier human log.
+                # That diagnostic can interleave with compositor preference output
+                # even when Text has published successfully. Exact typed/saved
+                # bytes and full owner/process retirement remain required below.
+                serial.sendall(b'run /fat/bin/deskd --apps-trace\n');wait(b'stage=first-publish edge=event');wait(b'deskd: commit')
                 text('Sibling kept.')
                 launch('Files new app',b'desktools: starting role=files');left=admitted()
                 owner=int(re.findall(rb'app-timing: pid=(\d+) role=1 window=0 stage=main-entry',output)[-1]);retired=f'deskd: retired pid={owner}'.encode()
