@@ -312,3 +312,15 @@ keeps its constructor alive. Receipts account for successful, canceled and unuse
 reaped starts, distinguish them from failures, and justify process-owned canceled/
 unused starts with explicit unsubmitted-read cancellation. Full-process lifecycle
 and accepted-copy/save integrity checks remain mandatory.
+
+
+Validation of the async service at `efcdb24d` includes held real-pthread
+construction/unmap, constructor cancellation and late child reap, reusable join
+and process-owned storage lifetime, plus twenty Files windows retaining an
+accepted 8 MiB copy through Close and concurrent Text saves. A normal combined
+VM passes 21 app lifetimes with full retirement receipts. This establishes the
+userspace ownership path in those tests, not native endurance. Loaded VM failures
+remain open: a final disk burst can outlast PCM playback, and System admission
+can exceed the compositor UI bound. Keep the existing workload and timing limits;
+see the [Air record](machines/macbookair7-2.md) for measured failures and candidate
+status before another physical trial.

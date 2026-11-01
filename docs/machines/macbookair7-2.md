@@ -143,9 +143,43 @@ cancels and closes its acquired descriptors without spawning; a cancellation
 inside an already executing spawn retains and reaps its late child. A canceled
 read does not stop a constructor still needed by another queued request. New
 version3 receipt tests require exact request accounting and cancellation evidence.
-Full desktop/matched builds pass before the final additional queued-demand fixture;
-rerun that directed fixture before final VMs. Prior failed candidates remain
-preserved. No new kernel admission, timeout change or physical reboot is armed.
+Full desktop/matched builds and the final queued-demand fixture pass. Prior
+failed candidates remain preserved. No new kernel admission, timeout change or
+physical reboot is armed.
+
+### Async file service candidate ready for diagnostic hardware trial (2026-10-31)
+
+Source `efcdb24d` moves transport construction and canvas/model unmapping off
+Text/Files dispatch. Host tests and matched ordinary/native/VM builds pass.
+The final-source 20-window Files VM passes independent histories, cancellation
+and collision checks, an accepted 8 MiB copy retained through Close, concurrent
+Text save, exact readback and complete process cleanup. The normal combined KVM
+workload passes 21 app lifetimes: maximum UI turn 119159 us, ready 943359 us,
+close 1200455 us, with complete service receipts, zero PCM underruns, screenshot,
+prior-file preservation, allocation and retirement checks. These are VM results.
+
+Two final-source loaded runs remain **FAIL**, with their raw logs retained:
+
+- Populated Home at 50 write IOPS completes seven lifetimes without a lifecycle
+  deadline failure (UI 101309 us, close 3357150 us), but the last disk burst ends
+  2926111 us after playback. The combined receipt fails its existing overlap
+  contract; clean worker exit and zero underruns do not turn this into a pass.
+- At 100 write IOPS, playback and twelve lifetimes complete, but one compositor
+  turn takes 931085 us, exceeding the unchanged 500000 us UI bound. Its lifecycle
+  phase is 906163 us during System window admission. The scheduler trace records
+  605372 us ready time and no blocked waits. This narrows attribution; it does
+  not establish the complete cause or accept loaded responsiveness.
+
+Candidate `5c4c800cd105b347` is staged from this clean source. Exact-stage TCG
+rehearsal passes native-profile refusal, save, unmount and reset; it is not
+native feature acceptance. Current installed `a4f7080c77fda748` and independent
+recovery `9aa8dbf6fbda8252` remain unchanged. No reboot is armed. The next useful
+physical check is diagnostic: retain the unchanged 1800-second workload and
+500 ms UI / 10 s lifecycle limits, show progress and persist receipts, with no
+human input required. Complete fresh media/recovery/install preflight first.
+Do not describe the candidate as endurance accepted or merge away these failures.
+Evidence and the next command are in local `build/air-file-service-20261031`,
+with a hash-verified copy outside `build` in the reviewed-evidence store.
 
 ### Native Files lifecycle return — delayed Close delivery (2026-10-31)
 
