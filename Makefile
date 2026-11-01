@@ -3985,3 +3985,18 @@ test-lifetime-trace: build/tests/lifetime-trace-host$(HOST_EXE)
 build/tests/lifetime-trace-host$(HOST_EXE): tools/test_lifetime_trace.c userspace/deskd/operation_trace.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include $< -o $@
+
+.PHONY: test-exfat-read-cache
+test-core: test-exfat-read-cache
+test-exfat-read-cache: build/tests/exfat-read-cache$(HOST_EXE)
+	$<
+build/tests/exfat-read-cache$(HOST_EXE): tools/test_exfat_read_cache.c kernel/src/fs/exfat.c $(KERNEL_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-exfat-read-reuse
+test-exfat-read-reuse: build/tests/exfat-driver$(HOST_EXE) build/tests/exfat-uncached-driver$(HOST_EXE)
+	$(PYTHON) tools/test_exfat_read_reuse.py --driver build/tests/exfat-driver$(HOST_EXE) --baseline build/tests/exfat-uncached-driver$(HOST_EXE)
+build/tests/exfat-uncached-driver$(HOST_EXE): tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -DSRVROS_EXFAT_HOST_TEST -DSRVROS_EXFAT_READ_CACHE_OFF -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c -Wl,--gc-sections -o $@

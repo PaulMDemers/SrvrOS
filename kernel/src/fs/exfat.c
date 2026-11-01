@@ -320,6 +320,36 @@ static void copy_memory(void *dst, const void *src, uint64_t length) {
     }
 }
 
+/* Only the serialized outer mutation owns these read-through copies. No
+ * delayed writes: overlap invalidation precedes even a failed media write.
+ * Exact/contained reads avoid repeated directory/bitmap transfers; requests
+ * larger than a target cluster bypass the bounded cache. */
+#define EXFAT_READ_CACHE_ROWS 4
+#define EXFAT_READ_CACHE_BYTES (128u*1024u)
+static struct {
+    const struct exfat_volume *volume;
+    unsigned next;
+    uint64_t epoch;
+    struct {uint64_t offset,length;uint8_t bytes[EXFAT_READ_CACHE_BYTES];} rows[EXFAT_READ_CACHE_ROWS];
+} mutation_reads;
+static void mutation_reads_advance(void) {
+    if(mutation_reads.epoch!=UINT64_MAX)mutation_reads.epoch++;
+    else mutation_reads.volume=NULL; /* Exhaustion disables caching, never ABA. */
+}
+static void mutation_reads_reset(const struct exfat_volume *volume) {
+    mutation_reads_advance();
+    mutation_reads.volume=mutation_reads.epoch==UINT64_MAX?NULL:volume;mutation_reads.next=0;
+    for(unsigned i=0;i<EXFAT_READ_CACHE_ROWS;i++)mutation_reads.rows[i].length=0;
+}
+static void mutation_reads_invalidate(const struct exfat_volume *volume,uint64_t offset,uint64_t length) {
+    if(mutation_reads.volume!=volume || !length)return;
+    mutation_reads_advance();
+    for(unsigned i=0;i<EXFAT_READ_CACHE_ROWS;i++) {
+        uint64_t base=mutation_reads.rows[i].offset,size=mutation_reads.rows[i].length;
+        /* Subtraction comparisons do not overflow on an invalid write range. */
+        if(size && (offset>=base?offset-base<size:base-offset<length))mutation_reads.rows[i].length=0;
+    }
+}
 static bool volume_read(const struct exfat_volume *volume, uint64_t offset, void *buffer, uint64_t length) {
     if (volume == NULL || buffer == NULL || offset > volume->image_size || length > volume->image_size - offset) {
         return false;
@@ -330,7 +360,26 @@ static bool volume_read(const struct exfat_volume *volume, uint64_t offset, void
         return true;
     }
 
-    return block_read(volume->device, offset, buffer, length);
+    bool cached=mutation_reads.volume==volume && volume->mutation_depth &&
+        length && length<=EXFAT_READ_CACHE_BYTES && !volume->write_blocked;
+#if defined(SRVROS_EXFAT_HOST_TEST) && defined(SRVROS_EXFAT_READ_CACHE_OFF)
+    cached=false; /* Disposable comparative host driver only. */
+#endif
+    if(cached)for(unsigned i=0;i<EXFAT_READ_CACHE_ROWS;i++) {
+        uint64_t base=mutation_reads.rows[i].offset,size=mutation_reads.rows[i].length;
+        if(offset>=base && offset-base<=size && length<=size-(offset-base)) {
+            copy_memory(buffer,mutation_reads.rows[i].bytes+(offset-base),length);return true;
+        }
+    }
+    uint64_t epoch=mutation_reads.epoch;
+    bool ok=block_read(volume->device, offset, buffer, length);
+    if(ok && cached && mutation_reads.volume==volume && epoch==mutation_reads.epoch) {
+        mutation_reads_advance();
+        unsigned i=mutation_reads.next++%EXFAT_READ_CACHE_ROWS;
+        mutation_reads.rows[i].offset=offset;mutation_reads.rows[i].length=length;
+        copy_memory(mutation_reads.rows[i].bytes,buffer,length);
+    }
+    return ok;
 }
 
 static bool volume_write(struct exfat_volume *volume, uint64_t offset, const void *buffer, uint64_t length) {
@@ -338,8 +387,24 @@ static bool volume_write(struct exfat_volume *volume, uint64_t offset, const voi
         return false;
     }
     if (volume->image != NULL || volume->write_blocked) return false;
+    uint64_t saved[EXFAT_READ_CACHE_ROWS];
+    bool cached=mutation_reads.volume==volume && volume->mutation_depth;
+    for(unsigned i=0;i<EXFAT_READ_CACHE_ROWS;i++)saved[i]=cached?mutation_reads.rows[i].length:0;
+    mutation_reads_invalidate(volume,offset,length);
+    uint64_t epoch=mutation_reads.epoch;
     volume->mutation_written = true;
     bool ok = block_write(volume->device, offset, buffer, length);
+    /* Restore only after complete success and no intervening cache/transaction
+     * activity. A failed/partial or reentrant transfer leaves overlap invalid.
+     * Successful partial directory writes patch the owned full-cluster copy. */
+    if(ok && cached && mutation_reads.volume==volume && epoch!=UINT64_MAX && epoch==mutation_reads.epoch) {
+        for(unsigned i=0;i<EXFAT_READ_CACHE_ROWS;i++)if(saved[i]) {
+            uint64_t base=mutation_reads.rows[i].offset;
+            uint64_t first=offset>base?offset:base,last=offset+length<base+saved[i]?offset+length:base+saved[i];
+            if(last>first)copy_memory(mutation_reads.rows[i].bytes+(first-base),(const uint8_t *)buffer+(first-offset),last-first);
+            mutation_reads.rows[i].length=saved[i];
+        }
+    }
     if (!ok) volume->write_blocked = true;
     return ok;
 }
@@ -1299,6 +1364,7 @@ static bool serialize_metadata_record(char *out,
 struct mutation_scope { struct fs_scope access; struct exfat_volume *volume; };
 static bool write_volume_flags(struct exfat_volume *volume, uint16_t flags) {
     uint8_t bytes[2]; write_u16(bytes, flags);
+    mutation_reads_invalidate(volume,106,sizeof(bytes));
     if (!block_write(volume->device, 106, bytes, sizeof(bytes))) return false;
     volume->flags = flags;
     return volume_flush(volume);
@@ -1328,7 +1394,7 @@ static bool mutation_begin_result(struct exfat_mount *mount, struct mutation_sco
             goto denied;
         }
     }
-    volume->mutation_depth++;
+    if(volume->mutation_depth++==0)mutation_reads_reset(volume);
     return true;
 denied:
     fs_leave(&scope->access);
@@ -1355,6 +1421,7 @@ static bool mutation_end_result(struct mutation_scope *scope, bool ok, bool *ret
     if (retryable) *retryable = !ok && !volume->mutation_depth &&
         !volume->mutation_written && !volume->write_blocked && !(volume->flags & 2u) &&
         block_device_online(volume->device);
+    if(!volume->mutation_depth)mutation_reads_reset(NULL);
     fs_leave(&scope->access);
     return ok;
 }

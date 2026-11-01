@@ -61,3 +61,27 @@ and checks exact contents with an independent parser and `fsck.exfat`. Allocatio
 faults cover mount rollback/retry and mutation refusal before writes. The hardening
 suite additionally reaches both budgets, serializes a large metadata sidecar,
 reuses directory holes at exhaustion, and injects write/flush/power-cut failures.
+
+## Transaction-local read reuse
+
+exFAT uses four fixed 128 KiB read-copy slots (512 KiB total) only while an outer
+mutation owns storage. Exact or contained reads can reuse these copies; larger
+requests, image mounts, ordinary reads and quarantined volumes bypass them.
+Every overlapping write invalidates before media access. Complete successful
+writes may patch and restore the owned copies only if no intervening cache or
+transaction activity occurred. Failed/partial or reentrant writes leave affected
+copies invalid. An exhausted generation disables caching instead of wrapping.
+Outer completion discards the copies, including on failure.
+
+This shortens transaction work without releasing ownership over intermediate
+filesystem state. It introduces no delayed writes and changes no flush, dirty
+marker, quarantine or teardown rules. It does not bound an individual device
+command's latency or prove a native endurance improvement by itself.
+
+`make test-exfat-read-cache` executes the production volume paths for contained
+reads, overlap/partial failures, transaction boundaries, reentrancy and exhaustion.
+`make test-exfat-read-reuse` compares cached and cache-disabled host drivers on a
+1200-file,128 KiB-cluster fixture. It requires identical whole disk hashes and
+write/flush counts, and fewer read bytes. The disabling define is host-test-only;
+it is not a native runtime setting. Read counts include mounting. Existing
+crash/growth/retirement sweeps still apply to the cached production path.
