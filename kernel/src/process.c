@@ -3157,12 +3157,10 @@ static void process_user_thread_start(void *arg) {
         return;
     }
 
-    struct process *process = thread->owner;
-    scheduler_set_user_thread_context(thread);
-    scheduler_set_user_context_fpu(process,
-        process->address_space,
-        0,
-        &thread->fpu);
+    /* scheduler_spawn_user_thread published the complete process/TLS/FPU/CR3
+     * context before READY. Do not rerun the general context setter here: its
+     * kernel-map refresh can allocate while an unrelated I/O owner is paused. */
+    if(process_current()!=thread->owner || process_current_user_thread()!=thread)return;
     usermode_enter(thread->entry, thread->stack_top, thread->arg, 0, 0, thread->tls_thread_pointer);
 }
 

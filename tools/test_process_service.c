@@ -2,6 +2,7 @@
  * release an inherited serialization owner. No audio policy is involved. */
 #include <assert.h>
 #include <stdarg.h>
+#include <setjmp.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -72,7 +73,17 @@ bool vmm_map_page_in_space(uint64_t space,uint64_t virt,uint64_t physical,uint64
 }
 void scheduler_set_user_thread_context(void *p) {(void)p;assert(0);}
 void scheduler_set_user_context_fpu(void *p,uint64_t as,uint64_t stack,struct fpu_state *fpu) {(void)p;(void)as;(void)stack;(void)fpu;assert(0);}
-void usermode_enter(uint64_t e,uint64_t stack,uint64_t a,uint64_t v,uint64_t env,uint64_t fs) {(void)e;(void)stack;(void)a;(void)v;(void)env;(void)fs;abort();}
+static jmp_buf prepared_entry;static bool entering_prepared;
+void usermode_enter(uint64_t e,uint64_t stack,uint64_t a,uint64_t v,uint64_t env,uint64_t fs) {
+    assert(entering_prepared && current==observed && current_user_thread==&observed->user_threads[0]);
+    assert(e==0x400000 && stack==0x500800 && a==123 && !v && !env && fs==observed->user_threads[0].tls_thread_pointer);
+    longjmp(prepared_entry,1);
+}
+static void enter_prepared_thread(void *thread) {
+    current_user_thread=thread;entering_prepared=true;
+    if(!setjmp(prepared_entry))process_user_thread_start(current_user_thread);
+    entering_prepared=false;current_user_thread=NULL;
+}
 bool scheduler_spawn_user_thread(const char *name,scheduler_thread_fn entry,void *raw,struct fpu_state *fpu,uint64_t fs) {
     struct process_user_thread *t=raw;assert(!strcmp(name,"uthread") && entry==process_user_thread_start);
     assert(t->used && t->active && t->owner==observed && fpu==&t->fpu && fs==t->tls_thread_pointer);
@@ -268,6 +279,8 @@ static void startup_thread_contract(void) {
             assert(result==2 && spawn_calls==1 && p->mapping_count==4);
             struct process_user_thread *t=&p->user_threads[0];assert(t->used && t->active && t->detached && t->arg==123);
             uint64_t phys;assert(vmm_virt_to_phys_in_space(p->address_space,t->tls_base,&phys));assert(!memcmp(backing+phys,"TLS!",4));
+            enter_prepared_thread(t);
+            assert(!checkpoints && depth==1); /* No context refresh/allocation on entry. */
             process_release_thread_tls(t);assert(freed==2 && p->mapping_count==2);
         } else {
             assert(result==-1 && !p->user_threads[0].used && !p->user_threads[0].active);
