@@ -2,6 +2,17 @@
 
 Updated: 2026-11-01. State: **active reference machine; partial device acceptance**.
 
+### Automatic bitmap-span hardware trial prepared
+
+The user authorized the1800-second automatic trial at1% volume. Release
+`ff1242b59d4eb9a5` is installed; recovery `9aa8dbf6fbda8252` and independent
+accepted7d remain verified. Fresh1283-file/86-session preservation, offline
+fsck/allocation/writable/headroom and clean flags pass. An unused failed73 EFI
+copy was archived with every file verified before removal; current/recovery
+were preserved. Ubuntu remains default and USB is unmounted. The durable run
+record is `build/air-bitmap-span-20261101/native-trial/run.json`. No input is
+needed. Collect the matching new session first on return; failures remain failures.
+
 ### Bitmap transfer candidate ready for hardware
 
 Source `275330f5`, release `ff1242b59d4eb9a5`, continues draft PR261 on main9340c9fb.
@@ -44,8 +55,8 @@ no partial UART receipt is repaired or accepted.
 
 Exact staged TCG native-profile refusal/save/unmount/return passes plumbing only.
 Candidate payload/evidence are backed up outside `build`; current failed451,
-recovery9aa and independent accepted7d verify. Candidate is not installed or armed.
-Next is fresh USB/recovery/run-record preflight and the automatic1800-second
+recovery9aa and independent accepted7d verify. The subsequent prepared trial above supersedes the prior installed state.
+Next is the automatic1800-second
 hardware trial at1% volume. No native stall, input, audible or sibling acceptance
 is inferred. Local checkpoint: `build/air-bitmap-span-20261101/checkpoint.json`.
 
