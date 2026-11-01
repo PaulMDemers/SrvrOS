@@ -40,7 +40,10 @@ Final-source combined VM results:
   does not promote the final failed run. Keep both raw outcomes.
 
 Source/evidence/checkpoint are in local `build/air-startup-admission-20261101`;
-independent copies survive distclean. Native startup responsiveness and full
+independent copies survive distclean. Candidate `70696fcbbb72a1aa` stages clean
+source `cf1b3385`; exact TCG native-profile refusal/save/unmount/reset rehearsal
+passes only boot/return plumbing. The payload and current/recovery installation
+are independently verified. Native startup responsiveness and full
 1800-second endurance remain pending. Installed `ce3f369efb135f20`, recovery
 `9aa8dbf6fbda8252` and all native recovery settings are unchanged; no reboot is armed.
 
