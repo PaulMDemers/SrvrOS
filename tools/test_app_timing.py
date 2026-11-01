@@ -1,5 +1,5 @@
 import unittest
-from app_timing import validate_app_timing, saved_app_timing, lifecycle_receipts, RECORD, PTHREAD_INIT_STAGES
+from app_timing import validate_collected_app_timing, validate_app_timing, saved_app_timing, lifecycle_receipts, RECORD, PTHREAD_INIT_STAGES
 
 
 def fixture(files_window_runtime=False,async_service=False,helper_initialization=False,initial_reservation=False,first_surface=False):
@@ -39,6 +39,20 @@ def fixture(files_window_runtime=False,async_service=False,helper_initialization
 
 
 class TimingTests(unittest.TestCase):
+    def test_complete_atomic_records_do_not_require_uart(self):
+        raw=fixture();completed=[(0,8),(1,9),(2,10)]
+        # A syntactically valid UART line may still be corrupted by a writer.
+        # Do not merge it into a complete independent atomic evidence set.
+        bad=raw.replace(b'edge=begin at_us=120 elapsed_us=0',b'edge=begin at_us=120 elapsed_us=019',1)
+        self.assertNotEqual(bad,raw)
+        with self.assertRaises(AssertionError):validate_app_timing(bad,completed)
+        result,source=validate_collected_app_timing(bad,[raw],completed)
+        self.assertEqual(result,validate_app_timing(raw,completed));self.assertEqual(source,'complete_saved_atomic_records')
+        result,source=validate_collected_app_timing(raw,[b''],completed)
+        self.assertEqual(result,validate_app_timing(raw,completed));self.assertEqual(source,'complete_console_records_and_retained_atomic_checkpoints')
+        with self.assertRaises(AssertionError):validate_collected_app_timing(bad,[b''],completed)
+        with self.assertRaises(AssertionError):validate_collected_app_timing(raw,[raw+raw.splitlines()[0]],completed)
+
     def test_first_surface_phases_and_order(self):
         raw=fixture(True,True,True,True,True)
         kwargs=dict(files_window_runtime=True,async_file_service=True,helper_initialization=True,initial_model_reservation=True,first_surface=True)

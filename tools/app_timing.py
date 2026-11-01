@@ -100,6 +100,22 @@ def validate_app_timing(output, completed, *, files_window_runtime=False, async_
     return summary
 
 
+def validate_collected_app_timing(console, snapshots, completed, **options):
+    """Prefer complete atomic saved evidence; UART is a separate lossy channel.
+
+    Both paths require the exact same complete identity/order/phase checks. A
+    successful saved set needs no UART records. Incomplete saved coverage retains
+    the existing strict union fallback: no bytes are repaired or overwritten.
+    """
+    try:
+        result=validate_app_timing(saved_app_timing(snapshots),completed,**options)
+        return result,'complete_saved_atomic_records'
+    except AssertionError:
+        records=b'\n'.join(row for row in console.splitlines() if RECORD.fullmatch(row))
+        result=validate_app_timing(saved_app_timing([records,*snapshots]),completed,**options)
+        return result,'complete_console_records_and_retained_atomic_checkpoints'
+
+
 def saved_app_timing(snapshots):
     """Merge overlapping whole-record bootlog snapshots, never repair UART text.
 
