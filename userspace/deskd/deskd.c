@@ -2079,11 +2079,16 @@ int main(int argc,char **argv) {
         }
         io_trial_loop_begin(&s.io);
         loop_trace_stamp(&loop_trace,LOOP_MESSAGES);
+        uint64_t message_begin=(uint64_t)srv_monotonic_us();
         for (int n=0;n<32;n++) {
             struct desk_packet p; uint64_t pid;
             int r=desk_receive(&pid,&p);
             if (r<=0) break;
             if (r==1) incoming(&s,pid,&p);
+            /* A frame copy may yield to I/O or another runnable client. Do not
+             * accumulate a whole packet-count batch before input/render work.
+             * The next packet stays queued; no in-flight handler is abandoned. */
+            if((uint64_t)srv_monotonic_us()-message_begin>=2000)break;
         }
         loop_trace_stamp(&loop_trace,LOOP_LIFECYCLE);
         struct srv_sched_trace lifecycle_trace={0};

@@ -2,6 +2,18 @@
 
 Updated: 2026-11-01. State: **active reference machine; partial device acceptance**.
 
+### Follow-up message dispatch fairness
+
+Two loaded VM retries retain full FAILs for compositor message intervals
+(599713 us and 688786 us); first-surface startup and PCM/disk overlap complete.
+Keep those failures. The compositor currently drains up to 32 packets regardless
+of elapsed time, allowing several service-yielding frame/message handlers to
+accumulate in one input/render turn. Add a 2 ms between-packet wall budget while
+retaining the 32-packet cap, FIFO queue, all individual handler ownership and
+unchanged 500 ms UI/10 s lifecycle acceptance. A single handler is not preempted
+by this budget and still needs explicit diagnosis if it exceeds the limit.
+Retest loaded/normal/multiwindow before staging; no test pacing/deadline change.
+
 ### First-surface scope
 
 Continue PR260 on base `92ec9b09`: trace initial CONFIGURE canvas allocation,
