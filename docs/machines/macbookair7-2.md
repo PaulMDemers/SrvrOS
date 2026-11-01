@@ -2,6 +2,25 @@
 
 Updated: 2026-10-31. State: **active reference machine; partial device acceptance**.
 
+### Helper initialization isolation scope (2026-11-01 UTC)
+
+On device/macbookair7-2/desktop-runtime, integration base `92ec9b09` plus the
+recorded failed return, the Air agent owns sparse helper initialization timing
+in file_service/text_runtime and an optional internal pthread-create observation
+hook in libc. Separate attribute setup, detached reaping, stack selection,
+start-record allocation, record reservation, kernel thread creation and final
+publication. Pair wall times with scheduler attribution; do not infer the exact
+6.108-second native wait from source inspection alone. The hook is diagnostic,
+opted into only around Text/Files helper creation, not a new POSIX API.
+
+Reproduce under loaded VMs before choosing a fix. Keep general mapping/thread
+creation/exit admission and all timing limits unchanged unless a measured,
+separately scoped safety argument and directed tests justify a narrow change.
+PR252 socket/resolver and PR19 Wi-Fi remain independent. Native session is
+collected/integrity verified, installed `5c4c800cd105b347`, recovery
+`9aa8dbf6fbda8252`, USB `37D8-C5D0`; no reboot armed. Stop at a tested candidate
+and saved checkpoint for the next diagnostic physical run.
+
 ### Async-service native return: startup deadline remains open (2026-11-01 UTC)
 
 Release `5c4c800cd105b347`, source `efcdb24d`, saved matching session and
