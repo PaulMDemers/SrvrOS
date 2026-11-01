@@ -229,6 +229,16 @@ storage retires with that model only after GUI/job owners release it. Sparse
 separate setup from later role initialization; incomplete brackets are not a
 passing zero-duration measurement.
 
+The first standard Text/Files canvas is now also reserved before helper startup
+and adopted by the opening window. This avoids an initial CONFIGURE pixel mmap
+once a helper makes the process ineligible for sole-main allocation. Geometry
+mismatch and later resizing retain normal allocation/admission. The optional
+client surface trace reports `canvas-pixels` and `canvas-surface`; tools also
+bracket first service registration, controls, draw and present. Combined VM
+validation requires complete ordered reservation/adoption/first-surface records.
+The earlier native role-init-to-publish gap lacked these substeps and remains
+historical unproven attribution until a new physical run.
+
 The compositor may retain up to two completed pixel-cache buffers after window
 retirement. They stay reserved inside the existing96MiB cache budget, including
 their worker job slots; reuse transfers ownership without another mapping. No
