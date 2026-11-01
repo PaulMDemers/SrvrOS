@@ -444,3 +444,26 @@ and Close 8042159 us under unchanged limits. The [machine record](machines/macbo
 owns scope and integrity proof. Retained phase snapshots are tails, not full
 histories of every cycle; other machines, physical input, audible routing and
 unrestricted concurrency/SMP remain separate evidence.
+
+
+### Fixed-table wait admission and retained lifecycle latency
+
+Process-local futex WAIT may park during a foreign I/O scope on CPU0. The audited
+body reserves a fixed-table entry under IRQ exclusion, pins active waits, checks
+the mapped four-byte word before every load, and receives mapping-invalidation
+wakes. It allocates nothing and performs no filesystem/device callback. Timeouts,
+signals and invalidation behavior are unchanged. The IDT epilogue reacquires
+ordinary admission before cancellation/exit; this does not permit resource
+teardown or arbitrary wait callbacks under another owner's I/O. This proof must
+be reconsidered if the futex body starts allocating or invoking service callbacks,
+or if userspace starts running concurrently on multiple CPUs.
+
+Automatic lifecycle diagnostics retain the current cycle and the worst readiness
+and Close observations in fixed-size UI-owned records. The existing report worker
+serializes immutable copies, including launch worker begin/end, observed visual
+removal, observed process exit and actual reap queue/begin/end clocks. Zero means
+unobserved, not zero cost; visual removal is sampled at the compositor loop, not
+an exact client acknowledgement timestamp. Complete final worst records must
+match the existing aggregate maxima. This survives rotated log tails without
+new filesystem writes or per-frame logging. A full-width bounded formatter keeps
+these records intact. Timing/workload limits and cleanup ownership are unchanged.
