@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <srvros/desk_log.h>
+#include <srvros/desktop_capture.h>
 #include "../userspace/deskd/operation_trace.h"
 static char text[8192];static size_t used;
 void srv_puts(const char *line) {size_t n=strlen(line);assert(n<sizeof(text)-used);memcpy(text+used,line,n+1);used+=n;}
