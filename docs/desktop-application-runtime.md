@@ -184,7 +184,39 @@ yields or invokes a service window. This is a CPU0 retirement proof, not permiss
 for parallel address-space mutation or general threaded mapping operations.
 Unsupported, partial, file-backed, unproven threaded or oversized requests take the original gate and general implementation; that fallback keeps
 the normal quiescent handoff. Exit, mmap and other lifetime operations remain
-gated. These finite work bounds are not a claim of a measured wall-time bound.
+gated except for the separately proven startup attempts below. These finite work
+bounds are not a claim of a measured wall-time bound.
+
+Startup has two additional validation preludes, not general allocation/thread
+admission. With IRQs masked, the caller must be the sole main thread in its
+current active process, with matching CR3, bounded mapping/scheduler scans and
+no same-process I/O/private-image owner. The anonymous-map attempt accepts only
+address zero, private anonymous RW, fd -1/offset zero and at most 2 MiB. It tests
+one candidate and refuses collisions instead of searching indefinitely. A region
+reservation precedes page creation; checked rollback retains still-mapped frames
+and region ownership on failure. The first/reused sole-main thread attempt checks
+tracked executable entry and writable stack PTEs, a contained eight-byte stack
+slot and TLS bounded to two pages. Both paths use audited IRQ-safe PMM/VMM work,
+without service windows or console callbacks, including allocation failures.
+Refusals retain ordinary admission, fresh stack validation, cancellation before
+mutation, gate timing and the final fair handoff. Other threads, heap calls,
+file-backed/fixed/oversized mappings and process teardown keep their gates.
+
+The scheduler publishes a prepared user thread's process identity, address space,
+TLS/FS and FPU pointer before READY eligibility. Its fixed entry goes directly to
+userspace; the general context setter is unsuitable here because refreshing
+kernel mappings can allocate. This constructor is not an alternative for arbitrary
+kernel callbacks or a process-image loader. Normal syscall admission still gates
+its later unsafe operations, and same-process I/O ownership still excludes it.
+Pre-entry cancellation can find the complete thread identity. The existing pthread
+creator pin continues to protect against a child running before parent publication.
+
+Text/Files reserve the initial unopened model before starting that helper. A
+startup failure releases the unborrowed model; no GUI owner or work request has
+been published. Later windows keep the existing allocating/ownership path. The
+combined VM validator requires complete timing records proving initial allocation
+ends before helper initialization. These CPU0 proofs do not authorize parallel
+address-space mutation, change process/thread budgets or establish native latency.
 
 The compositor may retain up to two completed pixel-cache buffers after window
 retirement. They stay reserved inside the existing96MiB cache budget, including

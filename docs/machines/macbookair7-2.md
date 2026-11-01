@@ -1,6 +1,48 @@
 # MacBookAir7,2 / A1466
 
-Updated: 2026-10-31. State: **active reference machine; partial device acceptance**.
+Updated: 2026-11-01. State: **active reference machine; partial device acceptance**.
+
+### Startup admission candidate — local validation
+
+PR260 production source `185c6668` isolates the observed native waits to ordinary
+I/O admission: the first-thread constructor has no blocking body operation. A
+checked sole-main prelude now handles bounded first-thread/TLS construction and
+one-candidate anonymous RW allocation without releasing a foreign owner. Complete
+thread identity/CR3/TLS/FPU is published before READY, and the prepared entry
+avoids the allocating generic context refresh. Initial Text/Files models are
+reserved before helper creation, with unopened-owner cleanup on failure.
+Unsupported cases retain gated fallback, fresh validation, cancellation and gate
+metrics. No filesystem, firmware/profile or timing-limit change is involved.
+
+Final full core/desktop and matched ordinary/native/synthetic builds pass. Host
+coverage includes PMM/PTE failure, retained failed-unmap ownership, silent atomic
+error paths, invalid/late-invalid stack pointers, cancellation during admission,
+complete READY publication and pre-entry cancellation. Original admission and
+console-callback negative controls reproduce the old refusals/hazard. The actual
+Q35 pthread/POSIX suite passes lifecycle, TLS, synchronization, signal, heap,
+descriptor and stdio cases; its 120-second functional harness allowance changes
+no production deadline. All local checks run with Actions disabled.
+
+Final-source combined VM results:
+
+- Populated Home at 100 write IOPS: full PASS, 14 lifetimes, UI maximum 120694 us,
+  ready 2074342 us and close 3549838 us. Validated initial map peaks at 21382 us,
+  kernel create 14627 us; whole helper initialization 692894 us includes diagnostic
+  output. Full PCM/file/screenshot/cache/service and process retirement pass.
+- Normal load: full PASS, 25 lifetimes, UI 198257 us, ready 1279283 us and close
+  763795 us. Validated map peaks at 49069 us and kernel create at 50480 us.
+- Twenty same-process Files windows: PASS independent navigation, accepted 8 MiB
+  copy through Close, concurrent Text save, exact bytes and complete cleanup.
+- Final 50-IOPS run retains the known overlap **FAIL**: last disk completion is
+  2765425 us after PCM, with zero underruns and worker status zero. It has no
+  lifecycle deadline; ten lifetimes independently validate complete startup/
+  retirement phases. Earlier source `249acd30` passed that workload, but that
+  does not promote the final failed run. Keep both raw outcomes.
+
+Source/evidence/checkpoint are in local `build/air-startup-admission-20261101`;
+independent copies survive distclean. Native startup responsiveness and full
+1800-second endurance remain pending. Installed `ce3f369efb135f20`, recovery
+`9aa8dbf6fbda8252` and all native recovery settings are unchanged; no reboot is armed.
 
 ### First-helper and initial-model admission scope
 
