@@ -2,6 +2,19 @@
 
 Updated: 2026-11-01. State: **active reference machine; partial device acceptance**.
 
+### Admission attribution follow-up scope
+
+Continue PR261 on the existing Air branch from `9340c9fb`. The failed run has a
+pending compositor memory job throughout the startup gap, as well as deferred
+process exit after main return. The compositor's helper allocation intentionally
+fails the sole-process private-mapping proof and uses ordinary admission. Do not
+weaken that proof or admit full process cleanup during foreign filesystem work.
+Add bounded retained gate attribution (waiter, syscall, initial owner and clocks)
+to distinguish helper mmap, process exit and scheduler delay. Existing owner logs
+alone cannot identify the blocked continuation. Keep all workload/deadline and
+resource ownership checks unchanged; host/loaded-VM validation precedes a focused
+native diagnostic if the emulator cannot reproduce the native tail.
+
 ### Residual lifecycle trial — failure preserved
 
 Candidate `29d2ac5951546a12` returned automatically from session

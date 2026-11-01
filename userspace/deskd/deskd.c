@@ -240,6 +240,23 @@ static void cache_release(struct session *s,struct pixel_cache *c) {
         desk_pixels_free(c->pixels,c->width,c->height);*c=(struct pixel_cache){0};
     }
 }
+/* Seed the existing two retained slots before clients/storage are launched.
+ * A cold compositor helper cannot use sole-process mmap admission while its
+ * dispatcher/report peers exist. Reserve common-size buffers once at startup,
+ * keeping the same byte budget, reuse and actual-unmap retirement accounting.
+ * Larger/different frames still use the asynchronous fallback. */
+static void cache_seed(struct session *s,struct lifecycle_worker *worker) {
+    for(unsigned n=0;n<2;n++) {
+        const unsigned width=720,height=480;uint64_t bytes=(uint64_t)width*height*4;
+        if(bytes>DESKD_CACHE_BUDGET-s->cache_bytes)break;
+        uint32_t *pixels=desk_pixels_alloc(width,height);
+        if(!pixels)break;
+        struct life_memory *m=&worker->memory[n];
+        *m=(struct life_memory){.state=LIFE_DONE,.width=width,.height=height,.pixels=pixels};
+        s->retained_cache[n]=(struct pixel_cache){.pixels=pixels,.width=width,.height=height,.job=m};
+        s->cache_bytes+=bytes;if(s->cache_bytes>s->cache_peak)s->cache_peak=s->cache_bytes;
+    }
+}
 static void cache_drop(struct session *s,int i,int j) { cache_release(s,&session_cache(s,i)[j]); }
 static void cache_retire(struct session *s,int i) {
     for(int j=0;j<2;j++)cache_drop(s,i,j);
@@ -1241,6 +1258,10 @@ static struct operation_trace operation_snapshot(const struct session *s,uint64_
         .last_pid=s->last_launch_pid,.last_exec_us=s->last_exec_us,.pending_opens=s->pending_opens,.exiting=s->exiting,
         .exit_age_us=s->exiting && s->exit_started_us?now-s->exit_started_us:0,
         .preferences=s->preferences.job.busy || s->preferences.dirty,.capture=capture_snapshot(s,now),.slowest=s->slowest_capture};
+    /* Preserve observed Close progress even if a deadline aborts this lifetime.
+     * Zero remains unobserved; never manufacture a completed Close record. */
+    if(t.ready_worst.pid && t.ready_worst.pid==s->current_lifetime.pid &&
+       t.ready_worst.begin_us==s->current_lifetime.begin_us)t.ready_worst=s->current_lifetime;
     for(unsigned n=0;n<2;n++)if(s->retained_cache[n].job) {
         t.cache_retained++;t.cache_retained_bytes+=(uint64_t)s->retained_cache[n].width*s->retained_cache[n].height*4;
     }
@@ -1979,6 +2000,7 @@ int main(int argc,char **argv) {
     global_menu_rebuild(&s);
     desk_damage_add(&s.damage,(struct desk_rect){0,0,width,height});
     static struct lifecycle_worker worker;
+    cache_seed(&s,&worker);
     if(life_start(&worker,audio_io)){gfx_console_mute(0);return 1;}s.worker=&worker;s.startup_trace=audio_io;
     if(control_capture)spawn_app(&s,DESK_APP_SYSTEM,control_manual?"--battery-controls":"--battery-control-capture");
     else if(coexist_text) spawn_capture_text(&s,control_files_cancel?4:control_files?3:coexist_workspace?2:coexist_files);

@@ -208,6 +208,23 @@ static void asynchronous_lifecycle(void) {
     cache_free(&s);life_work(&worker);lifecycle_poll(&s);assert(!s.cache_bytes);
     memset(&s,0,sizeof(s));memset(&worker,0,sizeof(worker));execute_result=-1;sends=0;
 }
+static void seeded_cache_reuse(void) {
+    static struct session s;static struct lifecycle_worker worker;
+    for(unsigned partial=0;partial<2;partial++) {
+        s=(struct session){.worker=&worker};worker=(struct lifecycle_worker){0};
+        int before=allocations,freed=frees;
+        alloc_fail=partial?allocations+1:0;cache_seed(&s,&worker);alloc_fail=0;
+        unsigned count=partial?1:2;
+        assert(allocations==before+(int)count && s.cache_bytes==count*720ull*480*4);
+        uint32_t *pixels=cache_prepare(&s,0,720,480);
+        assert(pixels && allocations==before+(int)count && s.cache_reuses==1);
+        cache_free(&s);assert(s.cache_bytes==count*720ull*480*4);
+        life_work(&worker);lifecycle_poll(&s);
+        assert(!s.cache_bytes && frees==freed+(int)count);
+    }
+    memset(&s,0,sizeof(s));memset(&worker,0,sizeof(worker));
+    puts("desktop-cache-seed: PASS initial/partial reserve, reuse without helper mapping, deferred worker release and zero final budget");
+}
 static void retired_cache_reuse(void) {
     static struct session s;static struct lifecycle_worker worker;
     s=(struct session){.worker=&worker};worker=(struct lifecycle_worker){0};
@@ -827,6 +844,7 @@ static void window_navigation(void) {
     puts("desktop-navigation: PASS 80-entry stable MRU/reverse/cancel, stale identity refusal, same-app cycle, grouped minimize, focus fallback and keyboard menu");
 }
 int main(void) {
+    seeded_cache_reuse();
     retained_operations();window_navigation();
     persistent_loop_timing();asynchronous_loop_report();
     /* A timeout breaks before the next loop header. Its final interval still
