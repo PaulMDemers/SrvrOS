@@ -596,12 +596,15 @@ static uint64_t initial_thread_stack(uint64_t top) {
 }
 
 static bool spawn_thread(const char *name, scheduler_thread_fn entry, void *arg,
-    scheduler_wait_condition_fn io_eligible) {
+    scheduler_wait_condition_fn io_eligible,bool user,struct fpu_state *user_fpu,uint64_t user_fs_base) {
     if (!initialized || entry == NULL) {
         return false;
     }
 
     uint64_t flags=irq_save();
+    struct thread *parent=thread_at(current_thread);
+    if(user && (!arg || !user_fpu || !parent->user_context || !parent->address_space ||
+       vmm_current_address_space()!=parent->address_space)) {irq_restore(flags);return false;}
     if(next_identity==UINT64_MAX) { irq_restore(flags);return false; }
     uint64_t i;
     for(i=1;i<thread_capacity;i++)
@@ -640,6 +643,13 @@ static bool spawn_thread(const char *name, scheduler_thread_fn entry, void *arg,
         .context={.rsp=initial_thread_stack((uint64_t)stack+SCHEDULER_STACK_SIZE),
                   .rip=(uint64_t)scheduler_trampoline}};
     fpu_init_state(&slot->kernel_fpu);
+    if(user) {
+        /* Publish complete immutable entry context before making this READY
+         * slot observable. No uninitialized kernel continuation is admitted. */
+        slot->user_context=parent->user_context;slot->address_space=parent->address_space;
+        slot->user_thread_context=arg;slot->user_fpu=user_fpu;
+        slot->user_fs_base=user_fs_base;slot->io_user_safe=true;
+    }
     if(grow) {
         thread_chunks[thread_capacity/SCHEDULER_INITIAL_THREADS]=chunk;
         thread_capacity+=SCHEDULER_INITIAL_THREADS;
@@ -650,13 +660,17 @@ static bool spawn_thread(const char *name, scheduler_thread_fn entry, void *arg,
 }
 
 bool scheduler_spawn(const char *name, scheduler_thread_fn entry, void *arg) {
-    return spawn_thread(name, entry, arg, NULL);
+    return spawn_thread(name, entry, arg, NULL,false,NULL,0);
+}
+
+bool scheduler_spawn_user_thread(const char *name,scheduler_thread_fn entry,void *thread,struct fpu_state *fpu,uint64_t fs_base) {
+    return spawn_thread(name,entry,thread,NULL,true,fpu,fs_base);
 }
 
 bool scheduler_spawn_io_service(const char *name, scheduler_thread_fn entry,
     void *arg, scheduler_wait_condition_fn eligible) {
     if (eligible == NULL) return false;
-    return spawn_thread(name, entry, arg, eligible);
+    return spawn_thread(name, entry, arg, eligible,false,NULL,0);
 }
 
 static uint64_t next_ready_thread(uint64_t old_index) {

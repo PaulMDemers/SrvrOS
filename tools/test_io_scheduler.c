@@ -567,6 +567,31 @@ static void test_helper_atomic_memory(void) {
     puts("helper-atomic-memory: PASS safe parked sibling, foreign owner unchanged, unsafe/CR3/owner/image/scan refusal");
 }
 
+static void test_user_thread_publication(void) {
+    unsigned saved_frees=frees;
+    ready_edge_setup();threads[3].address_space=1;growing_allocations=true;
+    struct fpu_state fpu={0};void *user_thread=(void *)0x123;
+    threads[5]=(struct thread){.state=THREAD_BLOCKED,.user_context=(void *)5};io_depth=2;io_owner=5;
+    uint64_t bytes=thread_storage_bytes,id=next_identity;unsigned live=live_allocations;
+    assert(!scheduler_spawn_user_thread("invalid",empty_worker,NULL,&fpu,42));
+    assert(!scheduler_spawn_user_thread("invalid",empty_worker,user_thread,NULL,42));
+    actual_space=2;assert(!scheduler_spawn_user_thread("invalid",empty_worker,user_thread,&fpu,42));actual_space=1;
+    assert(thread_storage_bytes==bytes && next_identity==id && live_allocations==live);
+    fail_stack=true;assert(!scheduler_spawn_user_thread("allocation",empty_worker,user_thread,&fpu,42));fail_stack=false;
+    assert(thread_storage_bytes==bytes && next_identity==id && live_allocations==live);
+    assert(scheduler_spawn_user_thread("prepared",empty_worker,user_thread,&fpu,42));
+    struct thread *t=&threads[1];
+    assert(t->state==THREAD_READY && t->user_context==(void *)3 && t->address_space==1 &&
+           t->user_thread_context==user_thread && t->user_fpu==&fpu && t->user_fs_base==42 && t->io_user_safe);
+    assert(io_thread_allowed(1) && !t->io_gate_waiting && io_depth==2 && io_owner==5);
+    /* Same-process ownership still excludes even a completely prepared entry. */
+    threads[5].user_context=(void *)3;assert(!io_thread_allowed(1));threads[5].user_context=(void *)5;
+    scheduler_kill_user_threads((void *)3,NULL);assert(t->state==THREAD_DEAD);
+    assert(!t->io_gate_waiting);pmm_free_frame_range(t->stack_physical,SCHEDULER_STACK_SIZE/PMM_FRAME_SIZE);
+    thread_storage_bytes=bytes;frees=saved_frees;growing_allocations=false;memset(threads,0,sizeof(threads));current_thread=0;io_depth=io_gate_pending=0;initialized=io_services_enabled=false;
+    puts("user-thread-publication: PASS complete READY identity/TLS/FPU, foreign eligibility, same-process exclusion, failure atomicity and pre-entry cancellation");
+}
+
 static void test_private_image_scope(void) {
     struct srv_sched_trace trace;
     void *parent=(void *)0x10,*child=(void *)0x20;
@@ -787,6 +812,7 @@ int main(void) {
     test_coordinated_mwait();
     test_independent_process_memory();
     test_helper_atomic_memory();
+    test_user_thread_publication();
     test_private_image_scope();
     test_wait_trace();
     test_cpu_accounting();

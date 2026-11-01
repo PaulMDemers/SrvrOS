@@ -20,6 +20,10 @@ struct scheduler_stats {
 
 void scheduler_init(void);
 bool scheduler_spawn(const char *name, scheduler_thread_fn entry, void *arg);
+/* Prepared user-thread entry only: callback must use the initialized process,
+ * thread/TLS/FPU context and enter userspace without allocation or cleanup.
+ * Publishes that context atomically with READY, preserving normal syscall gates. */
+bool scheduler_spawn_user_thread(const char *name,scheduler_thread_fn entry,void *thread,struct fpu_state *fpu,uint64_t fs_base);
 /* Service callbacks must not access storage, VFS or user mappings, or wait for
  * ordinary application threads. Eligibility is queried with IRQs masked. */
 bool scheduler_spawn_io_service(const char *name, scheduler_thread_fn entry,
@@ -39,7 +43,8 @@ bool scheduler_io_begin_process_image(void *image);
 bool scheduler_io_active(void);
 bool scheduler_io_busy(void); /* Another thread owns storage state. IRQs masked. */
 /* IRQ-masked proof for bounded atomic process-private memory work only. Does
- * not acquire/release ownership or permit yielding, file or lifecycle work.
+ * not acquire/release ownership or permit yielding, file or process teardown.
+ * Allocating callers must separately bound and audit IRQ-safe PMM/VMM work.
  * Refuse siblings, worker contexts, image/owner aliases and unbounded scans. */
 bool scheduler_io_process_independent(void *process);
 /* IRQ-masked bounded atomic retirement by a helper, siblings blocked on the supplied audited wait queue only.
