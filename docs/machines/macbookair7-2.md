@@ -2,6 +2,37 @@
 
 Updated: 2026-11-01. State: **active reference machine; partial device acceptance**.
 
+### Storage shortening candidate ready for hardware
+
+Source `0b8f554c`, staged release `451c977e447a9d0b`, reduces exFAT transaction
+work without releasing ownership over partial filesystem state. Four fixed128KiB
+read copies are valid only within the mutation; overlapping writes invalidate
+before I/O. Complete successful writes may patch copies only without intervening
+activity. Partial/failed/reentrant writes and exhausted generations cannot restore
+stale copies. All writes, flushes, dirty markers and quarantine rules remain.
+
+On a1200-node128KiB-cluster host fixture, create/rename/delete read25.9–31.8%
+fewer bytes with identical complete disk hashes and write/flush counts. Read
+counts include mounting. Full core/desktop, crash/growth/retirement sweeps and
+matched ordinary/native/synthetic builds pass, as do targeted cache/selector/SDK
+contracts and guest pthread/POSIX stress. This is local evidence, not native
+latency acceptance or an upper bound on a device command.
+
+The cache-only loaded VM failure remains recorded. A follow-up bounds desktop
+liveness to one read-only PID query while preserving legacy enumeration/layout.
+On the final source, loaded100 passes19 lifetimes (UI108844us, ready1277270us,
+Close1240785us), normal passes25 (UI140241us, ready760657us, Close1000710us),
+and20Files windows pass8MiB accepted copy through Close, concurrent Text save and
+cleanup. Read100/write100 load also passes18 (UI119577us, ready1489292us,
+Close4779730us). Existing timing and live-I/O overlap requirements are unchanged.
+
+Exact staged TCG refusal/save/unmount/return passes native-profile plumbing only.
+Candidate is backed up, not installed or armed. Installed failed73e363a1fee47ba8,
+recovery9aa and independent accepted7d remain preserved. Next automatic1800s
+hardware test at1% volume needs fresh1277-file/85-session integrity, recovery and
+run-record preflight. Native startup/exit acceptance remains pending. Local
+checkpoint: `build/air-storage-scope-20261101/checkpoint.json`.
+
 ### Bounded liveness query dependency
 
 The first cache-enabled loaded VM fails UI508329us (service487594us) and the
