@@ -2,6 +2,53 @@
 
 Updated: 2026-10-31. State: **active reference machine; partial device acceptance**.
 
+### Helper startup candidate ready for native validation (2026-11-01 UTC)
+
+[PR260](https://github.com/PaulMDemers/SrvrOS/pull/260), source `fe8d1a76`, removes
+the start-record heap allocation and unrelated-I/O gate on current-thread ID.
+Actual kernel thread creation remains gated and separately measured. Atomic VM
+records identify the earlier three waits; they do not attribute the exact old
+native interval or accept its physical improvement. In the final 100-IOPS run,
+the largest complete helper initialization is 976360 us. Full initialization
+phase receipts are required, including absence of helper heap/stack allocation.
+
+Final-source checks pass locally with Actions disabled:
+
+- Full desktop/adapter suite and matched ordinary/native/VM builds; core/libc
+  tests pass at `71f40b11`, with that kernel/libc code unchanged in the final tree.
+  Directed cases cover 192 joins/slot reuse, full-table refusal, early exit/detach,
+  join retry, foreign-I/O identity/default-deny and held-map ownership.
+- Populated Home, 100 write IOPS: full combined PASS, 12 lifetimes, maximum UI
+  122268 us, ready 2523809 us and close 2900428 us; complete PCM, screenshot,
+  file preservation, service/cache and process-retirement receipts.
+- Normal combined PASS: 23 lifetimes, UI 129680 us, ready 976282 us and close
+  1181136 us. Twenty-window Files PASS retains an accepted 8 MiB copy through
+  Close, concurrent Text save, exact files and complete cleanup.
+- Actual Q35 guest threadstress/POSIX suite PASS, including pthread contracts,
+  destructors, main-thread lifetime, synchronization, fork and descriptor tests.
+
+Idle backend retirement now overlaps helper mapping drain only after all model
+owners/accepted jobs are detached and no opening/binding/FIFO remains. Completion
+still requires actual maps retired, helper body quiescent and children reaped.
+A deterministic negative control reproduced a stop/publication race in the first
+ordering change: a reused slot behind the scan could be missed. Acquiring stop
+now triggers a final scan before quiescence; the held-last-slot/reused-first-slot
+regression passes. No queued mapping is declared complete merely by requesting
+stop. Keep the negative control and earlier failed VMs as history.
+
+The intermediate 100-IOPS accepted-listing/serial-retirement failure is retained;
+final ordering passes that workload in VM. The earlier 50-IOPS final disk burst
+outlasting playback remains open and was not rerun on this final source. Native
+endurance and native helper latency remain pending; no limits were relaxed.
+
+Candidate `928447acaed4bcfb` is staged and independently backed up. Exact-stage
+TCG native-profile refusal/save/unmount/reset rehearsal passes; that is boot/
+return-path evidence only. Installed `5c4c800cd105b347` and recovery
+`9aa8dbf6fbda8252` remain unchanged, with no new reboot armed. The next physical
+run uses the unchanged automatic 1800-second profile, fresh media/recovery/install
+preflight and a refreshed 1% volume override before playback. Evidence/checkpoint
+are in local `build/air-helper-init-20261101`, with verified copies outside build.
+
 ### Final-owner retirement overlap follow-up (2026-11-01 UTC)
 
 Source `71f40b11` normal combined VM passes21 lifetimes/UI140649us, ready1279634us,

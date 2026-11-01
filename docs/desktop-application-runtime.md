@@ -344,3 +344,14 @@ reads only scheduler-owned context. Actual thread creation, thread status/join/
 detach, heap growth and mapping keep their existing admission rules. Removing a
 helper startup allocation does not prove that later app allocations cannot wait;
 retain end-to-end readiness, UI and full-process deadlines in validation.
+
+
+Final-owner retirement can overlap idle backend EOF/reaping with queued helper
+unmaps once there are no GUI/model owners or pending openings and the file pool
+has no bindings or FIFO jobs. Models reach that point only after their accepted
+work drains. Stop requests remain separate from completion: observing stop
+requires a final acquired scan, since a producer may have queued into a recycled
+slot behind the preceding scan. Then helpers finish actual mapping/unused-child
+ownership and publish body quiescence. Final pool finish and verified process
+waits remain mandatory. A held-last-slot/reused-first-slot regression reproduces
+the missing-scan failure and verifies complete retirement after the fix.
