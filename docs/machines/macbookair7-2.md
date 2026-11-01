@@ -2,6 +2,38 @@
 
 Updated: 2026-11-01. State: **active reference machine; partial device acceptance**.
 
+### Text journal reservation candidate — ready for native retest
+
+Production `6739a6e6` reserves the unchanged 256 KiB undo journal with each
+Text document mapping. The first mapping precedes helper startup; journal
+attachment precedes window-open. Runtime role initialization avoids the separate
+heap allocation, while explicit borrowed/owned cleanup retains standalone
+allocation fallback. Sparse history setup and scheduler brackets now identify
+that part of startup. This removes a plausible old wait; the failed native
+role-init body was not separately measured and remains unproven.
+
+Full core/desktop regressions and matched ordinary/native/synthetic builds pass.
+Host tests prove independent undo/redo, no heap calls for reserved journals,
+owned cleanup, repeated release and allocation/attachment refusals. Clean-source
+combined VMs pass: populated Home at 100 write IOPS completes 16 lifetimes
+(UI maximum 120070 us, ready 1365143 us, close 1540385 us); normal load completes
+24 (UI 138881 us, ready 1196036 us, close 1070114 us). Both require complete
+history/startup/retirement, PCM/disk/screenshot and zero retained-cache receipts.
+
+The first 20-Files harness fails on an interleaved human startup diagnostic even
+though Text publishes. Its raw evidence is retained. Harness-only `2f6c769a`
+synchronizes on actual first publication; the retry passes all 20 windows,
+independent history, accepted 8 MiB copy through Close, concurrent Text save,
+exact bytes and process cleanup. The prior final-source 50-IOPS overlap failure
+remains open; these passes do not replace it.
+
+Candidate `a442f72d78af2e57` stages `2f6c769a`. Exact TCG native-profile refusal,
+save/unmount/return passes boot plumbing only. Independent payload/evidence
+backups are verified outside build. Installed `70696fcbbb72a1aa`, independent
+recovery `9aa8dbf6fbda8252`, Ubuntu default and empty one-shot are verified;
+no reboot is armed. Next is the unchanged automatic 1800-second native workload
+at 1% volume. New native endurance acceptance remains pending.
+
 ### Text history reservation scope
 
 Continue PR260 from base `92ec9b09`: audit the first Text role initialization
