@@ -6502,7 +6502,7 @@ bool process_try_munmap_private(struct process *process,uint64_t address,uint64_
         bool owned=false;
         for(unsigned i=0;i<PROCESS_MAX_USER_THREADS;i++)
             if(helper==&process->user_threads[i] && helper->used && helper->active && helper->owner==process)owned=true;
-        if(!owned || !scheduler_io_process_helper_memory(process))goto refused;
+        if(!owned || !scheduler_io_process_helper_memory(process,process_file_poll_wait_queue()))goto refused;
     } else {
         if(!scheduler_io_process_independent(process))goto refused;
         for(unsigned i=0;i<PROCESS_MAX_USER_THREADS;i++)if(process->user_threads[i].used)goto refused;

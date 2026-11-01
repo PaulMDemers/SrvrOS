@@ -42,9 +42,9 @@ bool scheduler_io_busy(void); /* Another thread owns storage state. IRQs masked.
  * not acquire/release ownership or permit yielding, file or lifecycle work.
  * Refuse siblings, worker contexts, image/owner aliases and unbounded scans. */
 bool scheduler_io_process_independent(void *process);
-/* IRQ-masked bounded atomic retirement by a helper, safe siblings only.
+/* IRQ-masked bounded atomic retirement by a helper, siblings blocked on the supplied audited wait queue only.
  * No allocation, callbacks, service windows or yield until mutation completes. */
-bool scheduler_io_process_helper_memory(void *process);
+bool scheduler_io_process_helper_memory(void *process,struct scheduler_wait_queue *parked);
 /* IRQ-masked proof only: no live scheduler/private-image reference. */
 bool scheduler_io_process_retired(void *process);
 void scheduler_io_checkpoint(void);

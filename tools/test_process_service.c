@@ -27,7 +27,7 @@ void *scheduler_current_user_thread_context(void) {return current_user_thread;}
 uint64_t gdt_default_kernel_stack_top(void) {return 0x10000;}
 void fpu_init_state(struct fpu_state *state) {memset(state,0,sizeof(*state));}
 bool scheduler_io_process_retired(void *p) {assert(p==&processes[1]);return independent;}
-bool scheduler_io_process_helper_memory(void *p) { assert(p==observed);return independent; }
+bool scheduler_io_process_helper_memory(void *p,struct scheduler_wait_queue *parked) { assert(p==observed && parked==&fd_poll_wait_queue);return independent; }
 bool scheduler_io_process_independent(void *p) { assert(p==observed);return independent; }
 static bool released[96];
 static unsigned next_frame=1,wakes;
