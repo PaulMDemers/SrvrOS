@@ -173,8 +173,16 @@ scheduler records. It validates physical translations, then retires pages and
 futex bindings with interrupts masked, without yielding, allocating or releasing
 foreign I/O ownership. Unmap failure retains remaining frames/region ownership;
 no still-mapped frame receives free credit. Anonymous provenance follows splits
-and fork's existing copy. Unsupported, partial, file-backed, threaded or oversized
-requests take the original gate and general implementation; that fallback keeps
+and fork's existing copy. A current active helper owned by that process may also
+retire a region atomically when every live sibling is safely parked on the audited
+file-poll queue used by GUI/sleep waits. A scheduler park marker survives wake to
+READY but clears before that context executes, including a no-switch return.
+An arbitrary READY safe syscall is insufficient: it might be suspended inside a
+copy. Same-process I/O/private-image owners, unsafe siblings, wrong address spaces,
+quarantined contexts and unbounded scans refuse this proof. The mutation never
+yields or invokes a service window. This is a CPU0 retirement proof, not permission
+for parallel address-space mutation or general threaded mapping operations.
+Unsupported, partial, file-backed, unproven threaded or oversized requests take the original gate and general implementation; that fallback keeps
 the normal quiescent handoff. Exit, mmap and other lifetime operations remain
 gated. These finite work bounds are not a claim of a measured wall-time bound.
 

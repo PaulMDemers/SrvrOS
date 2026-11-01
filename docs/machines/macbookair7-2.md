@@ -2,6 +2,43 @@
 
 Updated: 2026-10-31. State: **active reference machine; partial device acceptance**.
 
+### Helper unmap candidate — local validation
+
+Production source `baeabeba` extends only bounded whole-anonymous retirement.
+The original main-thread-only proof refuses a file helper, forcing it behind
+foreign I/O. The host regression reproduces that refusal and passes with the
+candidate. Helpers require active process ownership, matching address spaces,
+no same-process I/O/private-image owner, and all live siblings safely parked on
+the audited GUI/sleep queue. A park marker survives wake-to-READY and clears
+before execution, including no-switch return. Arbitrary suspended safe syscalls
+are refused. Existing size/provenance/PTE/frame/futex checks, IRQ exclusion,
+gated fallback and actual completion remain; no deadline or device gate changes.
+
+Local combined VMs pass with complete phase, file, PCM, screenshot and retirement
+receipts: populated Home at 100 write IOPS runs 14 lifetimes (UI maximum 111360 us,
+ready 2349752 us, close 3018778 us). Complete console document-unmap samples peak
+at 21051 us, canvas at 22629 us. Normal-load source `3f312deb` (host collector only
+since the production change) passes 22 lifetimes, UI 112535 us, ready 1319968 us,
+close 1040875 us. Twenty same-process Files windows pass independent navigation,
+accepted 8 MiB copy through Close, concurrent Text save and complete cleanup.
+These are VM observations, not native latency acceptance.
+
+Keep failures: the stricter BLOCKED-only predecessor failed one UI message-dispatch
+loop at 570682 us, while PCM/file work passed. Final 50-IOPS still fails the known
+playback-overlap receipt: the final disk operation ends 350176 us after playback,
+with zero underruns and worker status zero. It has no lifecycle deadline failure;
+complete console document unmaps peak at 49568 us. This remains an open separate
+issue, not a passed endurance run. A first normal VM had workload PASS but incomplete
+timing evidence; its interleaved UART barrier prevented a checkpoint capture.
+The host collector now accepts an exact durable-generation acknowledgement from
+a later verified disk checkpoint, retains both rotation slots, and continues to
+reject incomplete/conflicting records. Its 34 tests pass. No guest workload,
+logger pacing, logging limit or acceptance bound changes.
+
+Evidence lives in local `build/air-unmap-helper-20261101`, independently backed up
+outside build. PR260 remains draft pending native validation. Installed release
+`928447acaed4bcfb` and recovery `9aa8dbf6fbda8252` are unchanged; no reboot is armed.
+
 ### Helper-owned unmap scope
 
 From `main` at `92ec9b09` and PR260, investigate bounded anonymous unmap
