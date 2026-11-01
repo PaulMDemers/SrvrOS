@@ -2,6 +2,28 @@
 
 Updated: 2026-11-01. State: **active reference machine; partial device acceptance**.
 
+### Follow-up implementation and validation in progress
+
+The cold compositor's first mapping is moved to desktop initialization by seeding
+its existing two retained 720×480 cache slots before workers/clients/storage start.
+The same byte budget, asynchronous fallback, reuse and worker-owned actual unmap
+accounting apply; partial reservation remains usable and allocation failure falls
+back. Directed tests cover reuse without a new mapping and final zero ownership.
+Longest completed gate waits now retain waiter PID/thread/syscall, initial owner
+identity/sequence and start/end clocks; initial owner is correlation, not proof
+that it owned the complete interval. Failed lifetimes retain observed Close
+progress in their worst-ready snapshot without fabricating a completed Close.
+
+On source `7809ee79`, loaded100 passes 19 lifetimes (ready1247874 us,
+Close1371032 us, UI416113 us); normal passes25 (ready1086811 us,
+Close1260863 us, UI238834 us); 20 Files windows pass copy/Close/cleanup.
+Actual retained gate records identify additional avoidable waits in signal
+configuration/pending/mask calls. Audit finds bounded fixed metadata only, with
+IRQ exclusion for mutations and IDT ordinary admission before cancellation.
+Admit these three calls; keep signal consumption, handlers, kill and process
+teardown gated. Final host/VM reruns are required on this additional change.
+The native process-exit tail remains unaccepted; no new reboot is armed.
+
 ### Admission attribution follow-up scope
 
 Continue PR261 on the existing Air branch from `9340c9fb`. The failed run has a

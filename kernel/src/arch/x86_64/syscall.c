@@ -2788,6 +2788,11 @@ bool syscall_io_safe(const struct isr_frame *frame) {
     /* Current scheduler context -> immutable thread ID; no allocation,
      * pointer copy, table mutation, status/reap or lifetime operation. */
     case SYS_THREAD_SELF:
+    /* Bounded current-process/thread signal metadata. Configuration changes
+     * fixed masks under IRQ exclusion; mask updates may mark cancellation but
+     * never run a handler, release a file or tear down a process. IDT regains
+     * ordinary admission before acting on that cancellation. */
+    case SYS_SIGNAL_CONFIG: case SYS_SIGNAL_PENDING: case SYS_SIGNAL_MASK:
         return true;
     default: return false;
     }
