@@ -139,7 +139,6 @@ int main(int argc, char **argv) {
         close(fd);return 0;
     }
     if(!strcmp(argv[2],"noflush")) d.flush=NULL;
-    if(!strcmp(argv[2],"foreign")) foreign=true;
     if(!strcmp(argv[2],"snapshot-seed")) {
         assert(argc==4 && strlen(argv[3])==16);
         for(unsigned i=0;i<16;i++) assert(strchr("0123456789abcdef",argv[3][i]));
@@ -196,7 +195,13 @@ int main(int argc, char **argv) {
         printf("scratch refused: %s\n",mounted?"extent":"import");
         close(fd);return 0;
     }
+    if(!strcmp(argv[2],"foreign")) {
+        foreign=true;
+        assert(!exfat_mount_block_device("/vol",&d) && !writes && !flushes && !vfs_count());
+        foreign=false;
+    }
     assert(exfat_mount_block_device("/vol",&d));
+    if(!strcmp(argv[2],"foreign")) foreign=true;
     if(!strcmp(argv[2],"bitmap-stats")) {
         struct exfat_fsinfo info;assert(exfat_statfs("/vol",&info));
         printf("bitmap-used=%llu\n",(unsigned long long)(info.blocks-info.blocks_free));
