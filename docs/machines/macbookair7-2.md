@@ -2,6 +2,41 @@
 
 Updated: 2026-11-01. State: **active reference machine; partial device acceptance**.
 
+### First-surface candidate — ready for native retest
+
+Final source `87ecd80b` reserves the first Text/Files 720×480 pixel mapping before
+helper startup. The opening window adopts that mapping, reuses it for matching
+CONFIGURE and still creates the required stream surface. Later windows, resize
+and differing geometry retain normal allocation; rejection, early close and
+surface failure preserve explicit ownership through actual disposal. Kernel
+memory gates, device profiles and lifecycle deadlines are unchanged.
+
+Host configure/ownership and private-map refusal tests pass. The full core/
+desktop suite and matched builds pass for the implementation, followed by a
+matched build and final desktop checks for the follow-up. A collector-only change
+prefers independently complete saved atomic phase records over lossy UART;
+incomplete saved coverage keeps the same strict union fallback. No UART bytes
+are repaired. Missing/conflicting saved evidence remains a failure.
+
+Loaded retries exposed 610447 us and 713291 us UI FAILs in compositor message
+processing; those are retained. A 2 ms between-packet wall budget now supplements
+the 32-message cap so handlers cannot accumulate a full batch before input/render
+work. It leaves packets queued, retains FIFO/ownership and does not bound an
+individual handler. Final populated Home at 100 IOPS passes 17 lifetimes (UI
+186865 us, ready 1355693 us, close 1785414 us); normal load passes 24 (UI 129281 us,
+ready 1053352 us, close 1250357 us). Complete first-surface/history/helper phases,
+PCM/file/screenshot and cache/service retirement validate. Twenty Files windows
+pass independent navigation/history, accepted 8 MiB copy through Close,
+concurrent Text save, exact bytes and full process cleanup. The earlier 50-IOPS
+overlap failure remains a separate open result.
+
+Stage `7d21b1fb77479259` has exact TCG native-profile refusal/save/unmount/return
+proof only. No new native first-frame or full endurance acceptance is claimed.
+Candidate and evidence have independently verified backups outside build.
+Installed `a442f72d78af2e57`, recovery `9aa8dbf6fbda8252`, Ubuntu default and empty
+one-shot are verified; no reboot is armed. Next is the unchanged automatic
+1800-second native trial at 1% volume, with fresh workspace/recovery preflight.
+
 ### Follow-up message dispatch fairness
 
 Two loaded VM retries retain full FAILs for compositor message intervals

@@ -416,3 +416,21 @@ slot behind the preceding scan. Then helpers finish actual mapping/unused-child
 ownership and publish body quiescence. Final pool finish and verified process
 waits remain mandatory. A held-last-slot/reused-first-slot regression reproduces
 the missing-scan failure and verifies complete retirement after the fix.
+
+
+### Compositor message fairness
+
+The compositor retains its 32-packet receive cap and checks a 2 ms elapsed wall
+budget between handled packets. Remaining packets stay queued in order; normal
+input, rendering and lifecycle work run before the next batch. An in-flight
+handler still completes with its original ownership and is not abandoned at the
+budget. This prevents accumulated service-yielding handlers from monopolizing a
+turn; it is not a maximum duration guarantee for one copy or handler. Existing
+UI/lifecycle acceptance deadlines and audio/filesystem workloads are unchanged.
+
+Combined validation first checks whether saved atomic snapshots independently
+contain all required process identities, events and ordered complete phases.
+When they do, the separate lossy UART channel is unnecessary. Incomplete saved
+coverage retains strict whole-record UART/snapshot union validation, with no byte
+repair or overwritten conflicts. The receipt identifies which evidence path was
+used; an early return or partial phase set is never promoted to a passing run.
