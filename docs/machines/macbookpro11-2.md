@@ -27,6 +27,22 @@ restore prerequisites and a source-bound automatic capture, then discovery and
 live reattachment. Association/security/IP remain pending; local credentials
 have not been read or packaged. Other Pro bring-up and deferred work is unchanged.
 
+## Active bounded scope — 2026-11-02, high-band20MHz
+
+Fetched and merged main `c9235491` as `e14c550d`; its checkpoint-audit changes
+are independent of Wi-Fi. Open PR272 owns desktop directory/PCM controls and
+PR252 owns socket/DNS audit; this scope touches neither. Implement the fixed
+24-setting RF bandwidth/high-band table for channel161/20MHz in
+`mt76_mcu.c`/`.h`, with pinned source projection, numeric fixture and host
+regressions. Preserve existing MCU ownership, guard, cancellation, readback
+and no-replay contracts. Fixed whole-register table writes are distinguished
+from the synthesizer's masked fields. No PA policy, attenuation, frequency/VCO,
+baseband/calibration or native caller is implied by table completion. Validate
+all command/guard/failure boundaries, wrong-band readback proofs and unchanged
+legacy2GHz behavior, then build matched artifacts. No installation or reboot
+is planned; native prerequisite inventory and partial-write cleanup remain
+required before integrating these offline helpers.
+
 ## Active bounded scope — 2026-11-02
 
 Fetched main remains `95ddb8d6`; branch starts at `72119659`. PR271 owns Air6,1
