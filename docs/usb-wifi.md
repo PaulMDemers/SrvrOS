@@ -68,7 +68,7 @@ pinned header/table hashes, confirms the channel161 frequency row, reproduces
 the reference selection predicates and compares all72 numeric fixture bytes.
 These are whole-register RF writes, separate from the synthesizer's masked
 fields. Notable high-band values include RF0:39=31, RF6:12=55, RF6:24=21,
-RF6:39=32 and RF6:42=eb (hex); a2GHz table is not interchangeable.
+RF6:39=32 and RF6:42=eb (hex); a2.4GHz table is not interchangeable.
 
 The engine uses fixed writes, a separate readback pass and the existing
 MAC/DMA/ownership guards, cancellation and no-replay proof. Table completion

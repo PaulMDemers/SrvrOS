@@ -19,7 +19,7 @@ Ubuntu remains default, no one-shot is armed, and known-good desktop
 `e47dca3a6b30c6c1` remains previous. Prepared v107 `5806a8aa054d6117` was never
 installed. All receipts and its withdrawn payload remain durable.
 
-Development consumes main `95ddb8d6`. New source refuses installation/runtime
+Development consumes main `c9235491`. New source refuses installation/runtime
 execution of the captured2.4GHz RF recipe and prepares an offline channel161/
 20MHz frequency plan. A fixed5GHz RF band-selection engine is implemented offline; neither it nor the frequency plan has a native caller
 and no reboot is planned or armed. Next: independently implement5GHz band/baseband/calibration/
@@ -42,6 +42,18 @@ all command/guard/failure boundaries, wrong-band readback proofs and unchanged
 legacy2GHz behavior, then build matched artifacts. No installation or reboot
 is planned; native prerequisite inventory and partial-write cleanup remain
 required before integrating these offline helpers.
+
+Source `815e47a1` implements the24-setting engine. The pinned reference audit
+passes and rejects wrong-band channel161 selection, changed fixture bytes
+and mismatched source hashes. New/legacy table tests,5GHz RF/MAC and
+channel161-plan regressions, ASan/UBSan, main's checkpoint-budget tests,
+`all usb-image` and documentation links pass. Tests cover all336 operations,
+337 authorization points, reply-bit/length mutations, complete readback and
+proof accounting, and no replay. The linked kernel omits this unused helper.
+No native acceptance is claimed. Next are PA policy/attenuation, baseband/
+calibration and a native prerequisite/cleanup design. Installed payload and
+recovery remain unchanged, with no reboot armed.
+
 
 ## Active bounded scope — 2026-11-02
 
