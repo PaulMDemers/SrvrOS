@@ -61,3 +61,101 @@ and checks exact contents with an independent parser and `fsck.exfat`. Allocatio
 faults cover mount rollback/retry and mutation refusal before writes. The hardening
 suite additionally reaches both budgets, serializes a large metadata sidecar,
 reuses directory holes at exhaustion, and injects write/flush/power-cut failures.
+
+## Transaction-local read reuse
+
+exFAT uses four fixed 128 KiB read-copy slots (512 KiB total) only while an outer
+mutation owns storage. Exact or contained reads can reuse these copies; larger
+requests, image mounts, ordinary reads and quarantined volumes bypass them.
+Every overlapping write invalidates before media access. Complete successful
+writes may patch and restore the owned copies only if no intervening cache or
+transaction activity occurred. Failed/partial or reentrant writes leave affected
+copies invalid. An exhausted generation disables caching instead of wrapping.
+Outer completion discards the copies, including on failure.
+
+This shortens transaction work without releasing ownership over intermediate
+filesystem state. It introduces no delayed writes and changes no flush, dirty
+marker, quarantine or teardown rules. It does not bound an individual device
+command's latency or prove a native endurance improvement by itself.
+
+`make test-exfat-read-cache` executes the production volume paths for contained
+reads, overlap/partial failures, transaction boundaries, reentrancy and exhaustion.
+`make test-exfat-read-reuse` compares cached and cache-disabled host drivers on a
+1200-file,128 KiB-cluster fixture. It requires identical whole disk hashes and
+write/flush counts, and fewer read bytes. The disabling define is host-test-only;
+it is not a native runtime setting. Read counts include mounting. Existing
+crash/growth/retirement sweeps still apply to the cached production path.
+
+
+## Allocation-bitmap transfer spans
+
+Allocation and freeing publish only the bitmap byte interval containing changed
+bits. Contiguous allocation uses the allocated run; fragmented allocation uses
+the ascending selected clusters; freeing computes the minimum and maximum bit
+across the entire chain, including descending chains. Bytes between changed
+bits retain their previously read values. The block layer preserves neighbouring
+bytes with its existing partial-sector read/modify/write path. Full bitmap reads,
+FAT-before-bitmap ordering, mutation ownership, dirty markers, flush boundaries,
+failed-write quarantine and alias retirement stay unchanged.
+
+`make test-exfat-bitmap-span` covers crossing bytes, the last valid bit,
+fragmented/descending chains, untouched padding, invalid bounds and partial-write
+quarantine. `make test-exfat-bitmap-io` compares the real driver with a host-only
+full-cluster comparator. The1200-file128KiB-cluster fixture requires identical
+complete disk hashes and write/flush call counts for create, overwrite, rename,
+delete and replacement. Requested write bytes fall59.96–74.94%; these are block
+API bytes, not physical transport-sector counts or a native latency guarantee.
+Existing crash, growth and retirement sweeps also apply to narrow writes.
+
+The logger saves the four longest completed mutations of at least100ms as
+`exfat-cost` records, with start/end times, operation and success. Four
+`exfat-cost-phase` rows per record attribute actual block API calls, requested
+bytes and callback wall time to metadata, allocation, data and freeing (phases
+0–3). Flush callback time is separate. Cache hits cause no block read and add no
+read call; partial-sector work inside block callbacks is included in callback
+wall time, not counted as another filesystem read. The remaining elapsed time
+includes CPU, waits and nested work outside those callbacks. Records contain no
+paths, allocate no memory and are printed after a CPU0 IRQ-protected snapshot,
+outside mutation ownership. Match intervals against owner/gate records before
+attributing a delay. This is observation, not a permission to release ownership
+mid-publication or an SMP synchronization mechanism. `make test-exfat-cost`
+checks accounting, failure retention and the four-record bound.
+
+The automatic VM workload can add a preserved empty archive with
+`tools/audio_io_stress_smoke.py --air72 --accel kvm --populated-home --metadata-files 1200 --write-iops 100`.
+This enlarges the real serialized sidecar without allocating one128KiB data
+cluster per fixture file. It preserves the original live PCM/disk workload,
+limits and existing Home fixtures, checks every archive file after return, and
+is forbidden with an exact staged native profile. Add `--read-iops 100` for
+combined read/write throttling. This remains disposable VM evidence.
+
+
+## Verified append writeback
+
+Whole-buffer flushes can reuse the existing extent only for an actual append.
+Under the existing owner, compare every committed prefix byte against media.
+Changed prefixes, shared extents, incomplete ValidDataLength and old EOFs inside
+a device sector retain whole-file copy-on-write. Prefix-read or resource failure
+refuses instead of treating missing evidence as permission for replacement.
+Global sync still visits every live dirty content object; fsync/close still wait
+for durability. No caller dirty hint, new syscall or process admission is used.
+
+Eligible appends write only the tail, starting at a device-sector boundary so
+old payload sectors remain untouched on torn writes. New clusters and FAT links
+are initialized under the dirty marker; a NoFatChain stream ignores its prepared
+links until publication. Payload is flushed, the old tail link is flushed if
+needed, then the checksummed new length/flags and metadata sidecar are durably
+published. Later appends can traverse the resulting fragmented FAT chain. Old
+prefix clusters are retained; uncertain failures keep quarantine and offline
+recovery requirements. An `append` cost label identifies a verified prefix.
+This does not make directory/checksum writes crash-atomic: a torn publication
+can lose a name during repair, as it can with the existing replacement path.
+
+`make test-exfat-append` compares actual drivers with append enabled/disabled,
+checks exact contents/remount/fsck, changed/alignment/alias fallbacks, failed
+prefix reads, original payload sectors and unrelated files across every write,
+flush and half-write interruption. Torn-name loss must reproduce on COW too;
+it is not accepted as an atomic rename guarantee. Test media is disposable.
+The interruption model tests prefixes of requested writes, not physical-sector
+atomicity or controller reordering. Native performance and full endurance
+require their own matching trial.

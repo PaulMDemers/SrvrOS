@@ -50,6 +50,7 @@ static void end(uint64_t flags) { scheduler_io_end();unlock(flags); }
 /* Cached queries only: logging must not issue codec commands or sensor I/O. */
 static void device_checkpoint(void) {
     scheduler_print_io_owners();
+    exfat_print_costs();
     uint64_t sampled=timer_monotonic_us();
     struct scheduler_stats cpu;scheduler_snapshot(&cpu);
     console_printf("workspace-scheduler: sampled_ticks=%u idle_ticks=%u switches=%u preemptions=%u monotonic_us=%u\n",

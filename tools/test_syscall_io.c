@@ -169,12 +169,12 @@ int main(void) {
     frame.rax=SYS_GUI_CANCEL_WAIT;assert(syscall_io_safe(&frame));
     frame.rax=SYS_SCHED_TRACE;assert(syscall_io_safe(&frame));
     frame.rax=SYS_GUI_SERVER_WAIT;assert(syscall_io_safe(&frame));
-    const uint64_t blocked[]={SYS_OPEN,SYS_FS_WRITE,SYS_SYNC,SYS_EXIT,SYS_PREAD,SYS_PWRITE,SYS_VECTOR_IO,SYS_PIPE2,SYS_DUP3,SYS_PIPE_PAIR_FLAGS,SYS_THREAD_SIGNAL,
+    const uint64_t blocked[]={SYS_SIGNAL_POLL,SYS_SIGNAL_CONSUME,SYS_OPEN,SYS_FS_WRITE,SYS_SYNC,SYS_EXIT,SYS_PREAD,SYS_PWRITE,SYS_VECTOR_IO,SYS_PIPE2,SYS_DUP3,SYS_PIPE_PAIR_FLAGS,SYS_THREAD_SIGNAL,
         SYS_SOCKET_TRY_IO,SYS_KILL,SYS_SPAWN,SYS_FILE_CHANGE,UINT64_MAX};
     for(unsigned i=0;i<sizeof(blocked)/sizeof(*blocked);i++) {
         frame.rax=blocked[i];assert(!syscall_io_safe(&frame));
     }
-    const uint64_t admitted[]={SYS_POLL,SYS_CONSOLE_INFO,SYS_CONSOLE_CLEAR,SYS_CONSOLE_GOTOXY,SYS_GUI_SEND,SYS_GUI_RECV,SYS_MOUSE_SCAN,
+    const uint64_t admitted[]={SYS_SIGNAL_CONFIG,SYS_SIGNAL_PENDING,SYS_SIGNAL_MASK,SYS_POLL,SYS_CONSOLE_INFO,SYS_CONSOLE_CLEAR,SYS_CONSOLE_GOTOXY,SYS_GUI_SEND,SYS_GUI_RECV,SYS_MOUSE_SCAN,
         SYS_GUI_SURFACE_BLIT,SYS_GUI_SURFACE_COPY,SYS_GUI_SURFACE_CREATE,SYS_GUI_SURFACE_DESTROY,
         SYS_GFX_BLIT_RECT,SYS_GFX_BLIT_SCALED_RECT,SYS_SCHEDULER_STATUS,SYS_PROC_LIST,SYS_MEMINFO,SYS_SLEEP_TICKS,SYS_REALTIME_US,SYS_MONOTONIC_US};
     for(unsigned i=0;i<sizeof(admitted)/sizeof(*admitted);i++) { frame.rax=admitted[i]; assert(syscall_io_safe(&frame)); }
@@ -218,7 +218,7 @@ int main(void) {
     frame.rax=SYS_TTY_SETATTR;assert(!syscall_io_safe(&frame));
     frame.rax=SYS_PTY_CREATE;assert(!syscall_io_safe(&frame));
     frame.rax=SYS_FUTEX_WAKE;assert(syscall_io_safe(&frame));
-    frame.rax=SYS_FUTEX_WAIT;assert(!syscall_io_safe(&frame));
+    frame.rax=SYS_FUTEX_WAIT;assert(syscall_io_safe(&frame));
     busy=user_safe=true;unsigned identity_waits=close_waits,identity_turns=turn_requests;
     frame.rax=SYS_THREAD_SELF;assert(syscall_io_safe(&frame));
     assert(busy && user_safe && close_waits==identity_waits && turn_requests==identity_turns);

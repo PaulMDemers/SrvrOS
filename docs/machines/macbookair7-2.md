@@ -2,6 +2,512 @@
 
 Updated: 2026-11-01. State: **active reference machine; partial device acceptance**.
 
+### PR261 message-stall closeout: ready for merge review
+
+Integrated main `a6b9e1b7` as clean tested source `721339ea`. The new main changes
+retain isolated Air6,1 CPU/AP diagnostic receipts; hardware gates and ordinary
+desktop policy remain separate. PR261 is ready for review/merge after local
+validation; GitHub Actions remain disabled. No physical test is armed.
+
+The earlier message interval was 653175 us. Instrumented reproduction also found
+a 617316 us interval in client service. Both paths synchronously printed console
+diagnostics. A controlled host test reproduces at least 600 ms of console delay
+inside the actual window-open handler; routing the same handler through the
+report worker returns without consuming that delay. The original saved interval
+does not identify a specific UART byte or syscall, so that exact attribution
+remains an inference. The fix removes the demonstrated blocking console path
+from both implicated UI stages rather than assuming a particular slow device.
+
+UI logs now transfer through 64 fixed 384-byte records to the report worker.
+Queued/emitting records cannot be overwritten; full/oversized submissions count
+as loss, and automated acceptance requires zero dropped/pending records after
+drain/join. Formatting and enqueueing perform no console/file I/O or allocation.
+A real threaded host fixture stalls the consumer and verifies nonblocking
+submission, full refusal, retained ownership, draining and recovery. Retained
+message receive/handler clocks and scheduler observations support future failures.
+
+Two separate test issues were also fixed. A final verified disk burst could end
+after the nominal PCM window. The producer now plays at least the full requested
+duration and continues until a private nonblocking completion pipe reports the
+durable disk receipt, capped at 60 additional seconds. Sustained disk span,
+containment inside live PCM, zero underruns, and matching binary/text receipts
+remain mandatory. An intermediate generic-poll version caused an underrun and
+remains failed. The collector now requires complete saved audio/lifecycle records
+that agree with the separate durable receipt; it never repairs interleaved UART.
+The earlier interleaving collection failure remains preserved and was rerun.
+
+Six final combined read100/write100 plus 1200-metadata-file VM trials pass.
+Their UI maxima are 119955–139995 us; ready maxima at most 1539779 us and
+Close at most 4238240 us, under unchanged 500 ms UI/10 s whole-lifetime limits.
+All preserve 1267 prior files, complete screenshot/capture and cache/service
+retirement, and report zero underruns and zero lost/pending UI logs. The final
+post-integration trial completes 21 lifetimes with UI139995us, ready1236417us,
+Close1109061us, and 161 live overlap windows. Normal load passes 25 lifetimes;
+write100 passes 22; 20 Files windows pass independent histories, cancellation,
+8 MiB copy through Close, concurrent Text save, exact bytes and full cleanup.
+
+Full core/desktop/crash/retirement, 338 append interruption cases, strict receipt
+regressions, ordinary/native/synthetic builds and the AP diagnostic kernel pass
+locally on the integrated source. Earlier hardening/5000-file scale/read/bitmap
+comparisons remain evidence for unchanged filesystem code. Current guides and
+PR261 describe the final contracts; raw outcomes and hashes are retained in
+`build/air-message-stall-20261101/` and backed up outside `build`.
+
+Installed native release62ed and recovery9aa were not changed. The prior
+1800-second physical pass remains tied to its exact source; these new changes
+have host/VM acceptance only. No new physical input, audible routing, power,
+SMP or sibling acceptance is claimed. Earlier failures remain historical failures.
+
+### PR261 integration review (historical): intermittent VM UI failure
+
+Main `bbbdead1` merged as `4c1acb9e`; the only conflict was independent
+Makefile test additions, and both sets are retained. Full local core/desktop,
+crash/growth/retirement, hardening/5000-file scale, read/bitmap comparisons,
+338 append interruption cases and matched ordinary/native/synthetic builds pass.
+Loaded100 passes20 lifetimes (UI117696us, ready1209392us, Close1898886us);
+normal24 (UI140723us, ready840870us, Close1157484us);20 Files windows pass
+8MiB copy through Close, concurrent Text save, cancellation and full cleanup.
+
+The first combined read100/write100 plus1200 metadata-file VM fails the unchanged
+500ms UI limit:653175us after21 lifetimes, with ready1276680us and Close1121138us.
+Its complete saved final timing receipt validates and places643563us in message
+handling, versus7228us in the final wait. Audio/disk/capture and retirement
+complete, but that does not make the full test pass. An unchanged clean-source
+repeat passes21 lifetimes (UI159952us, ready1051572us, Close1356332us),154 live
+overlap windows and1267 preserved files. Both outcomes are retained. The
+intermittent failure remains unresolved; neither host scheduling nor a particular
+message/syscall is established as its cause. PR261 stays draft and unmerged.
+
+Latest main `1a0c9085` adds only Air6,1 PR265 documentation and is included after
+validation. Next scope is bounded message/call scheduling attribution and a
+reproduced fix, retaining existing deadlines/workload. Evidence lives in
+`build/air-pr261-integration-20261101/`, backed up outside `build`. Other device
+and resolver scopes remain separate, Actions remain disabled, and no new native
+test is armed. Installed endurance-accepted62ed and recovery9aa are unchanged;
+merged source does not inherit physical acceptance.
+
+### Verified append endurance: full native pass
+
+Release `62ed0e37a038f48e` / clean source `facd605d`, session
+`session-00065f40aa6ae05f-00`, passes the full1800-second automatic trial at1%
+volume:1021 completed app lifetimes, three decoded1440×900 screenshots,
+345600000PCM bytes and zero underruns. Matching text/binary disk receipts show
+3113 bursts/816054272 verified bytes, spanning1797763821us within live PCM.
+UI maximum112343us, ready5273392us and Close4600631us satisfy unchanged500ms
+UI/10s whole-lifetime limits. Final atomic lifecycle/operation/cleanup receipts
+validate, cache retires0bytes/0retained/887reuses, battery retires, and automatic
+Ubuntu return succeeds.
+
+All1289 prior files are preserved except expected metadata updates; nine new
+files are copied and hash-verified. Offline fsck is clean (285directories,
+1298files), allocation/writable/headroom pass, USB is remounted. Current62ed,
+recovery9aa, prior accepted7d, Ubuntu default and consumed one-shot verify.
+The verified candidate is independently preserved as a known-good payload;
+installed recovery is unchanged. Evidence and hashes are backed up outside
+`build`, under `reviewed-evidence/air-append-writeback-20261101`.
+
+This accepts the named automated workload. Remaining whole-file writes reach
+5.587311s and retained gate waits5.590024s; it does not establish stall-free
+storage. Retained native cost tails contain no append rows, so they cannot
+attribute each improvement to append; host/VM append proofs remain separate.
+No new interactive input, audible route, gauge accuracy, SMP or sibling-model
+acceptance is inferred. Prior failed rounds remain failed. No new run is armed.
+Main advanced to `bbbdead1` through Air6,1 read-only diagnostics; next is PR261
+integration review and relevant local checks before merge.
+
+### Automatic verified-append hardware trial prepared (historical)
+
+The user authorized the1800-second automatic test at1% volume. Release
+`62ed0e37a038f48e` is installed, with recovery `9aa8dbf6fbda8252` retained and
+independent accepted7d verified. Fresh1289-file/87-session preservation,
+offline fsck/allocation/writable/headroom and clean flags pass. An unused failed451
+EFI copy was archived and every file verified before removal. Ubuntu remains
+default, USB is unmounted and the durable run record is
+`build/air-append-writeback-20261101/native-trial/run.json`. No input is needed.
+The completed collection above supersedes this prepared snapshot.
+
+### Verified append candidate ready for hardware
+
+Source `facd605d`, release `62ed0e37a038f48e`, continues draft PR261 on main9340c9fb.
+Global sync/fsync/close still flush every eligible dirty object through the same
+owner. The backend now proves an append by comparing the entire committed prefix
+against media. Only a matching, sector-aligned, unaliased regular file reuses its
+old extent. Changed/unaligned/incomplete-valid-data/alias cases retain whole-file
+COW; a failed prefix read refuses instead of guessing. No process admission,
+new syscall, hardware gate or caller dirty hint is introduced.
+
+Append writes touch only new payload sectors. New allocation and FAT links are
+prepared and flushed before checksummed length/flags and sidecar publication;
+NoFatChain streams ignore prepared links until publication, and later appends
+traverse the resulting FAT chain. Old prefix clusters stay owned. Dirty markers,
+flush/quarantine and offline recovery protections remain. Cost records label a
+verified append. This preserves the existing non-atomic directory-write contract;
+it does not promise a journal or physical-sector atomicity.
+
+The128KiB-cluster comparison requests3,680,518 write bytes versus16,656,954 for
+COW (77.9% fewer), with identical final payload hashes and clean remount/fsck.
+The4KiB comparison requests125,190 versus531,002. Changed-prefix, alias,
+512/4096-byte device alignment and failed-prefix-read fallbacks pass. Expanded
+contiguous and genuinely fragmented FAT fixtures pass338 write/flush/half-write
+interruption cases, preserving original payload sectors and the unrelated file
+before and after offline repair. Name loss is permitted only at a torn stream
+publication and must reproduce on baseline COW. The earlier overstrict name
+assertion and dense512-byte benchmark timeout remain in local evidence; final
+128KiB benchmarking uses the actual capture's16KiB flush increments.
+
+Full local core/desktop, crash/growth/retirement, hardening/5000-file scale,
+read/bitmap comparisons and matched ordinary/native/synthetic builds pass.
+On clean sourcefacd605d, loaded100 plus1200 archive files passes22 lifetimes
+(UI150017us, ready1559041us, Close1614902us); normal25 (UI140140us,
+ready1136869us, Close941302us);20Files windows pass8MiB copy through Close,
+concurrent Text save, independent histories and complete cleanup; read100/write100
+plus1200 archive files passes20 (UI130149us, ready1118066us, Close2655285us).
+All500ms UI/10s whole-lifetime, full workload, atomic receipt, sustained PCM/disk
+overlap and cache/worker retirement checks remain. Enlarged fixtures preserve
+1267 files. Saved complete cost records validate and show append being exercised.
+
+Exact staged TCG native-profile refusal/save/unmount/return passes plumbing only.
+Payload and evidence are backed up outside `build`. Installed failedff, recovery9aa
+and independent accepted7d verify. The prepared trial above supersedes this readiness snapshot. Next is
+the automatic1800-second native trial
+at1% volume. The prior22-cycle failure remains failed; native stall/input/audible
+and sibling acceptance remain separate. Latest local checkpoint:
+`build/air-append-writeback-20261101/checkpoint.json`.
+
+### Bitmap-span hardware return: writeback deadline failure
+
+Release `ff1242b59d4eb9a5` / source `275330f5`, session
+`session-00065f3f942ec956-00`, fails after22 completed lifetimes. The next launch
+exceeds the unchanged whole-lifetime deadline at10,009,841us. UI maximum is
+101,733us, ready6,363,700us and completed Close4,831,192us; that Close maximum
+excludes the failed launch. Full1800-second audio/disk/capture acceptance is
+incomplete. Volume is1%; one1440×900 screenshot decodes after cleanup, but the
+required three captures did not complete. Cache retires0bytes/0retained/17reuses;
+battery retires and automatic Ubuntu return succeeds. This is a failed trial.
+
+The new diagnostic matches owner600 (PID7/thread19,11,107,145us) to a successful
+write mutation of11,106,975us. Its block callbacks consume11,101,657us, including
+10,754,038us writing3,014,656 data bytes in23 calls. Allocation/free writes total
+only185 bytes. SYS_EXEC waits10,930,656us behind this owner and resumes500us
+after it ends. The native bottleneck is now measured in data-write callbacks;
+bitmap byte reductions do not establish a native endurance pass.
+
+Source inspection finds global SYS_SYNC visiting every live dirty content object
+and using whole-file copy-on-write replacement. This includes another process's
+growing screenshot, whose worker writes16KiB chunks. Increasing data-write sizes
+and concurrent capture progress fit repeated prefix rewrites; exact object
+identity remains an inference because cost records omit filenames. Next scope is
+bounded append/incremental writeback with safe whole-file fallback and unchanged
+global sync/fsync, dirty/publication/flush/quarantine and recovery contracts.
+Do not skip dirty files, relax deadlines or remove the screenshot workload.
+
+All1283 prior files are preserved except expected metadata updates; six new files
+are copied and hash-verified. Offline fsck is clean (283directories/1289files),
+and allocation/writable/headroom pass. Currentff, recovery9aa, independent
+accepted7d, Ubuntu default and consumed one-shot verify; USB is remounted.
+Evidence is in `build/air-bitmap-span-20261101/native-trial/`, with backup outside
+`build`. PR261 remains draft, prior failures remain failed and no new trial is
+armed. Read the latest checkpoint before continuing.
+
+### Bitmap transfer candidate ready for hardware
+
+Source `275330f5`, release `ff1242b59d4eb9a5`, continues draft PR261 on main9340c9fb.
+Allocation and freeing previously rewrote a128KiB bitmap cluster when only a few
+bits changed. They now publish the changed byte interval, preserving neighbours
+through existing block-sector RMW. Whole bitmap reads, FAT-before-bitmap order,
+exclusive ownership, dirty/publication/flush ordering, failed-write quarantine
+and alias retirement remain. On a1200-file128KiB-cluster real-driver fixture,
+create/overwrite/rename/delete/replacement request59.96–74.94% fewer write bytes,
+with identical full disk hashes and write/flush counts. These are block API bytes,
+not physical-sector counts or a native latency bound.
+
+The logger retains four longest completed mutations with operation/start/end,
+block calls/bytes and read/write/flush wall time across metadata, allocation,
+data and freeing. No paths or allocations are added. Data includes sidecar
+contents. Match intervals to ownership records before attributing native delays.
+
+Host core/desktop, crash/growth/retirement, full hardening/5000-file scale,
+read reuse, bitmap/cost/failure contracts and matched ordinary/native/synthetic
+builds pass locally. A pre-existing negative fixture fails on both old and new
+drivers because it expects mounting under foreign ownership to succeed. The
+corrected fixture asserts mount refusal, then mutation refusal after a successful
+clean mount; production ownership checks are unchanged.
+
+At the unchanged500ms UI/10s whole-lifetime bounds, clean-source VM results are:
+loaded100 with1200 extra archive files21 lifetimes (UI121009us, ready1439907us,
+Close981307us); normal25 (UI139983us, ready820331us, Close1161000us);20Files
+windows with8MiB copy through Close, concurrent Text save and complete cleanup;
+read100/write100 with1200 archive files18 (UI109759us, ready1231588us,
+Close2629705us). Enlarged fixtures preserve1267 prior files, complete lifecycle
+receipts, sustained live PCM/disk overlap and cache/service retirement. Complete
+saved cost records validate, with callback sums no greater than mutation duration.
+
+The first enlarged VM reports passing workload timings/audio but fails required
+receipt collection after a prewrite UART marker interleaves. It remains failed
+in local evidence. Checkpoint discovery now also accepts the exact durable
+generation, still requiring two equal disk reads, the exact atomic generation
+and every lifecycle receipt. All35 collector tests and the fresh VM matrix pass;
+no partial UART receipt is repaired or accepted.
+
+Exact staged TCG native-profile refusal/save/unmount/return passes plumbing only.
+Candidate payload/evidence are backed up outside `build`; current failed451,
+recovery9aa and independent accepted7d verify. The subsequent failed native trial above supersedes this readiness snapshot.
+No new trial is armed. No native stall, input, audible or sibling acceptance
+is inferred. Local checkpoint: `build/air-bitmap-span-20261101/checkpoint.json`.
+
+### Storage-shortening hardware return: deadline failure
+
+Release `451c977e447a9d0b` / source `0b8f554c` returned automatically after
+13 completed app lifetimes. Session `session-00065f3d02aeda21-00` fails the
+unchanged whole-lifetime deadline on Text PID26 (10,000,894us). Maximum UI loop
+was101,767us, ready7,883,955us and completed Close1,800,341us. The completed
+Close maximum excludes the failed lifetime. Full1800-second endurance did not
+complete; there is no passing audio/disk receipt. Volume remained1%, with zero
+observed underruns before termination. One1440×900 screenshot verifies, but the
+required three captures did not complete. No native performance acceptance is
+added by this run, and the earlier failures remain failures.
+
+Actual ownership records cover the startup SYS_EXEC wait of7,866,910us with
+filesystem owner349 (PID7/thread19,7,977,607us total); launch resumes502us after
+that owner ends. After Close, directory helper PID27 waits7,970,171us in
+SYS_DIRECTORY behind owner367 (7,969,843us total), resuming1,554us after it
+ends. Text main returns later, at75,158,709us. This is evidence of storage
+admission delaying startup and helper retirement, not a measured slow SYS_EXIT
+for the failed Text process. Host read-byte reductions and passing VM rows do
+not establish a native storage latency bound. Next work is to identify the
+operation and internal phases of those long owner scopes before choosing a
+safe shortening or split; retain publication, cleanup and quarantine protection.
+
+All1277 prior files are preserved except expected `.srvros/meta` updates. Six
+new files, including four session logs, a screenshot and partial workload data,
+are copied and hash-verified. Offline exFAT is clean (281directories/1283files);
+allocation, writable and headroom checks pass. Cache retirement is0bytes/
+0retained/14reuses; battery runtime retires. Ubuntu is default, the one-shot is
+consumed, and installed current451/recovery9aa plus independent accepted7d
+payloads verify. Evidence and detailed owner/gate matching are in
+`build/air-storage-scope-20261101/native-trial/`, backed up outside `build`.
+PR261 remains draft. No new trial is armed.
+
+### Storage shortening candidate ready for hardware
+
+Source `0b8f554c`, staged release `451c977e447a9d0b`, reduces exFAT transaction
+work without releasing ownership over partial filesystem state. Four fixed128KiB
+read copies are valid only within the mutation; overlapping writes invalidate
+before I/O. Complete successful writes may patch copies only without intervening
+activity. Partial/failed/reentrant writes and exhausted generations cannot restore
+stale copies. All writes, flushes, dirty markers and quarantine rules remain.
+
+On a1200-node128KiB-cluster host fixture, create/rename/delete read25.9–31.8%
+fewer bytes with identical complete disk hashes and write/flush counts. Read
+counts include mounting. Full core/desktop, crash/growth/retirement sweeps and
+matched ordinary/native/synthetic builds pass, as do targeted cache/selector/SDK
+contracts and guest pthread/POSIX stress. This is local evidence, not native
+latency acceptance or an upper bound on a device command.
+
+The cache-only loaded VM failure remains recorded. A follow-up bounds desktop
+liveness to one read-only PID query while preserving legacy enumeration/layout.
+On the final source, loaded100 passes19 lifetimes (UI108844us, ready1277270us,
+Close1240785us), normal passes25 (UI140241us, ready760657us, Close1000710us),
+and20Files windows pass8MiB accepted copy through Close, concurrent Text save and
+cleanup. Read100/write100 load also passes18 (UI119577us, ready1489292us,
+Close4779730us). Existing timing and live-I/O overlap requirements are unchanged.
+
+Exact staged TCG refusal/save/unmount/return passes native-profile plumbing only.
+The candidate was subsequently installed and failed the native trial described
+above. Installed451, recovery9aa and independent accepted7d remain preserved;
+no new trial is armed. Native startup/exit acceptance remains pending. Local
+checkpoint: `build/air-storage-scope-20261101/checkpoint.json`.
+
+### Bounded liveness query dependency
+
+The first cache-enabled loaded VM fails UI508329us (service487594us) and the
+strict playback/I/O overlap check; it remains a failure. Normal and20Files pass.
+Inspection finds client liveness walking process enumeration through repeated
+syscalls in the service loop. Add one PID-filtered metadata query through an
+explicit SYS_PROC_LIST selector, retaining cursor enumeration and snapshot layout.
+Use it for client liveness; no process cleanup, mapping, lifetime or I/O admission
+changes. Test exact/missing/exited PID, last slot, legacy cursor and bounded SDK
+call count. Re-run loaded/normal/Files plus read-throttled VM before native stage.
+
+### Storage critical-section shortening scope
+
+From integration9340c9fb and PR261/6f1ff8cb, shorten serialized exFAT mutation
+work without releasing ownership over partial publication. Audit repeated
+metadata/directory/allocation reads and implement a bounded transaction-local
+read cache, invalidated before every overlapping write (including failed/partial
+writes), disabled outside a mutation and cleared at outer completion. Preserve
+all media writes, flush ordering, dirty flags, quarantine and cleanup gates.
+Validate real cache paths, driver I/O counts against the prior source, crash/
+retirement/growth sweeps and loaded VM before staging another native candidate.
+PR252 resolver/socket and PR19 Wi-Fi remain separate. No reboot is armed.
+
+### Cold-start retry — filesystem admission tail isolated, test failed
+
+Release `73e363a1fee47ba8`, session `session-00065f3be8b1570a-00`, returns
+automatically but **fails after 20 completed lifetimes**. UI maximum is 101073 us,
+ready7544251 us and completed Close6651358 us. The next application's unchanged
+whole-lifetime deadline expires at 10000792 us. Full 1800-second audio/disk work
+and screenshot capture do not complete; no native endurance acceptance is added.
+
+The retained gate evidence now identifies the waits directly. Startup SYS_EXEC
+waits 7503457 us. The failed app PID33 reaches main return at 95841081 us and
+enters SYS_EXIT admission at 95841091 us, resuming at 104578530 us: **8737439 us**.
+Recorded filesystem owner PID7/scope498 runs from 95560774 to 104577677 us,
+covering the exit wait until 853 us before admission resumes. This is a measured
+9016903 us ownership scope, not a canvas-unmap or final-reap delay. Next work
+must shorten or safely partition these storage critical sections while retaining
+actual cleanup ownership and existing deadlines.
+
+Cache retirement reaches zero bytes/retained with15reuses and battery runtime
+retires. All1272 prior files survive apart from expected metadata; five new files
+(four logs and the attempted BMP) are copied and hash-verified. Offline fsck is
+clean (279 directories,1277files); allocation/writable/headroom pass. USB is
+remounted, Ubuntu default and consumed one-shot verified, recovery9aa retained
+and accepted7d independently preserved. No reboot is armed. PR261 remains draft;
+this failure and the preceding failed run are preserved.
+
+### Automatic cold-start retry prepared
+
+User authorized the automatic 1800-second trial of `73e363a1fee47ba8` at 1%
+volume. It is installed with recovery `9aa8dbf6fbda8252` retained. Fresh preflight
+preserves all 1272 files and 84 sessions; offline fsck/allocation/writable/headroom
+pass. Accepted `7d21b1fb77479259` is independently preserved and its unreferenced
+EFI copy archived with all bytes verified to make space. USB is unmounted,
+Ubuntu remains default, and the on-disk run record is
+`build/air-cold-start-20261101/native-trial/run.json`. Save/return is automatic;
+no input is needed. Collect the matching session before any new trial. No native
+acceptance is claimed; the prior failed session remains a failure.
+
+### Follow-up ready for automated hardware test
+
+Source `9402ba9e`, staged release `73e363a1fee47ba8`, removes the cold compositor
+helper mapping from first-window admission and admits audited signal metadata.
+Full core/desktop checks, matched ordinary/native/synthetic builds, targeted
+cache/gate/signal/cancellation regressions and guest pthread/POSIX pass. The final
+loaded100 VM passes 16 lifetimes: UI119228 us, ready1567385 us, Close4908618 us,
+217 audio/disk overlap windows and 67 prior fixture files preserved. The largest
+retained completed exit-gate wait is 862041 us. These are VM observations, not
+native tail acceptance. The worst Close's final reap takes 69 us; resource drain
+and actual process exit remain part of the completed lifetime.
+
+On admission source `a887adef`, normal load passes 25 lifetimes (UI149885 us,
+ready799615 us, Close1382990 us) and twenty Files windows pass copy/Close and
+complete cleanup. The final source adds only diagnostic exit-row retention to
+that source; its loaded run and guest thread stress pass. The worst exit record
+cannot be evicted by longer storage waits. Partial worst-ready snapshots retain
+observed Close progress without manufacturing completion.
+
+Exact TCG boot/save/unmount/return rehearsal passes native-profile refusal plumbing
+only. The next candidate is staged and backed up, not installed or armed. The
+failed installed `29d2ac5951546a12` and recovery `9aa8dbf6fbda8252` remain unchanged;
+accepted `7d21b1fb77479259` stays independently preserved. The next automatic
+1800-second hardware test needs fresh USB integrity checks, 1% volume override
+and saved run/recovery records. No human input is needed. Native startup and
+process-exit acceptance remain pending; the preceding failure stays a failure.
+
+### Follow-up implementation and validation in progress
+
+The cold compositor's first mapping is moved to desktop initialization by seeding
+its existing two retained 720×480 cache slots before workers/clients/storage start.
+The same byte budget, asynchronous fallback, reuse and worker-owned actual unmap
+accounting apply; partial reservation remains usable and allocation failure falls
+back. Directed tests cover reuse without a new mapping and final zero ownership.
+Longest completed gate waits now retain waiter PID/thread/syscall, initial owner
+identity/sequence and start/end clocks; initial owner is correlation, not proof
+that it owned the complete interval. Failed lifetimes retain observed Close
+progress in their worst-ready snapshot without fabricating a completed Close.
+
+On source `7809ee79`, loaded100 passes 19 lifetimes (ready1247874 us,
+Close1371032 us, UI416113 us); normal passes25 (ready1086811 us,
+Close1260863 us, UI238834 us); 20 Files windows pass copy/Close/cleanup.
+Actual retained gate records identify additional avoidable waits in signal
+configuration/pending/mask calls. Audit finds bounded fixed metadata only, with
+IRQ exclusion for mutations and IDT ordinary admission before cancellation.
+Admit these three calls; keep signal consumption, handlers, kill and process
+teardown gated. Final host/VM reruns are required on this additional change.
+The native process-exit tail remains unaccepted; no new reboot is armed.
+
+### Admission attribution follow-up scope
+
+Continue PR261 on the existing Air branch from `9340c9fb`. The failed run has a
+pending compositor memory job throughout the startup gap, as well as deferred
+process exit after main return. The compositor's helper allocation intentionally
+fails the sole-process private-mapping proof and uses ordinary admission. Do not
+weaken that proof or admit full process cleanup during foreign filesystem work.
+Add bounded retained gate attribution (waiter, syscall, initial owner and clocks)
+to distinguish helper mmap, process exit and scheduler delay. Existing owner logs
+alone cannot identify the blocked continuation. Keep all workload/deadline and
+resource ownership checks unchanged; host/loaded-VM validation precedes a focused
+native diagnostic if the emulator cannot reproduce the native tail.
+
+### Residual lifecycle trial — failure preserved
+
+Candidate `29d2ac5951546a12` returned automatically from session
+`session-00065f3a30648d18-00` but **fails**, with zero completed lifetimes.
+The first Text readiness is 7031143 us and the unchanged whole-lifetime deadline
+expires at 10009546 us during Close. UI maximum is 101718 us; the screenshot
+attempt fails and no completed 1800-second audio/disk receipt exists. Main return
+precedes the observed process exit by an unisolated interval. A 6.75-second I/O
+ownership interval overlaps the startup gap; correlation does not establish cause.
+No claim of a futex regression or native improvement is made.
+
+Battery/cache retirement completes. All 1268 prior files are preserved apart from
+expected metadata; four new files, including the incomplete workload payload,
+are copied and hash-verified. Offline fsck is clean (277 directories, 1272 files),
+and allocation/writable/headroom pass. USB is remounted; candidate current and
+recovery `9aa8dbf6fbda8252` are verified, Ubuntu remains default and one-shot is
+consumed. Accepted `7d21b1fb77479259` remains independently preserved; this failed
+candidate is not promoted. PR261 remains draft pending admission/exit investigation.
+
+### Residual lifecycle candidate — local validation complete
+
+Draft PR261, implementation `40010f52`, keeps audited fixed-table futex parking
+out of foreign I/O admission while retaining mapping validation/pins/invalidation,
+timeouts/signals and normal cancellation/exit admission. It retains the actual
+worst launch/Close split through the existing report worker; unobserved stages
+remain explicit and full-width records cannot truncate. No cleanup gate, deadline,
+resource budget, workload pacing or device profile has changed.
+
+Full core/desktop checks, matched builds and the actual Q35 pthread/POSIX suite
+pass. Directed futex/IRQ/foreign-owner, syscall-policy, scheduler/worker race and
+retained-record tests pass; the old admission classification fails the new policy
+check as expected. Loaded Home at 100 IOPS passes 17 lifetimes (UI 261628 us,
+ready 967518 us, Close 3617793 us); normal load passes 24 (UI 109559 us,
+ready 868802 us, Close 910314 us). Twenty Files windows pass an accepted 8 MiB
+copy through Close, concurrent Text save, exact bytes and process cleanup.
+
+The loaded worst-Close record observes visual removal after 22590 us, exit after
+3606120 us, and a 65 us final reap after 922 us queued. App timing places most
+of the delay before main return, including accepted read/backend drain. This
+helps separate UI removal from resource completion; it neither attributes nor
+resolves the previous native 8-second maximum. Those resources must remain owned.
+
+Candidate `29d2ac5951546a12` stages `a6328bf2`. Exact TCG native refusal/save/
+unmount/return passes plumbing only; no new native acceptance. Independent payload
+and recovery are verified. Fresh offline fsck/allocation/writable/headroom checks
+pass with all 1268 prior files and 83 sessions accounted for. Candidate is now
+installed with recovery `9aa8dbf6fbda8252` retained and accepted `7d21b1fb77479259`
+independently preserved. The approved trial is automatic for 1800 seconds at 1%
+volume, needs no input and must retain the worst-case split. USB is unmounted;
+the durable run record is saved before arming the one-shot Ubuntu-return boot.
+No new physical acceptance yet.
+
+### Lifecycle latency scope after PR260
+
+From integration `9340c9fb`, branch `device/macbookair7-2/lifecycle-latency`: audit process-local
+futex parking during foreign I/O and retain the actual worst launch/Close
+breakdown through a long trial. The futex implementation uses a fixed table,
+IRQ-protected validation/load, active-wait pins and invalidation wakes; there
+is no heap/VFS/device callback. Test safe wait admission without changing foreign
+ownership, invalidation, timeout, signal or cancellation behavior. Preserve CPU0
+scope and ordinary gates on allocation, exit and resource cleanup. Add bounded
+retained diagnostic records separating visual Close, observed exit and actual
+reaping; keep deadlines and workload unchanged. Check directed/kernel pthread
+and loaded/normal/multiwindow VMs before preparing a native trial. This is an
+investigation of residual waits, not a claim that old 8-second Close is explained.
+PR252 resolver/socket and PR19 Wi-Fi remain independent. Installed accepted
+`7d21b1fb77479259` and recovery `9aa8dbf6fbda8252` remain unchanged; no reboot armed.
+
 ### Native startup and retirement endurance — bounded milestone accepted
 
 Release `7d21b1fb77479259`, source `87ecd80b`, session

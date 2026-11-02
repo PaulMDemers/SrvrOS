@@ -72,5 +72,7 @@ bool exfat_statfs(const char *path, struct exfat_fsinfo *info);
 bool exfat_check(const char *mountpoint, struct exfat_check_result *result);
 void exfat_check_print(const char *mountpoint);
 void exfat_print_mounts(void);
+/* Four longest completed mutations, with actual block I/O phase costs. */
+void exfat_print_costs(void);
 
 #endif

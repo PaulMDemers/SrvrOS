@@ -58,9 +58,13 @@ static unsigned brightness_calls;
 int gui_brightness(unsigned percent) { brightness_calls++;return percent?(int)percent:14; }
 static unsigned pointer_options;
 int gui_pointer_config(unsigned speed,unsigned options) { (void)speed;pointer_options=options;return 0; }
+static uint64_t now=1;
+static int slow_console_probe;
+static unsigned slow_console_calls;
 static int capture_loop_log;
 static char captured_loop_log[4096];
 void srv_puts(const char *text) {
+    if(slow_console_probe){slow_console_calls++;now+=60;return;}
     if(capture_loop_log) {
         assert(strlen(text)<1024);
         if(!strncmp(text,"desktop-loop-worst:",19))captured_loop_log[0]=0;
@@ -68,7 +72,6 @@ void srv_puts(const char *text) {
     }
     else fputs(text,stdout);
 }
-static uint64_t now=1;
 static int alive=1,queue_full,copy_failure,allocations,frees,killed,sends,reaped,alloc_fail;
 static unsigned kill_delay;
 static int terminal_snapshot,defer_reap;static unsigned worker_reaps;
@@ -207,6 +210,23 @@ static void asynchronous_lifecycle(void) {
     life_work(&worker);assert(cache_prepare(&s,0,1280,768));
     cache_free(&s);life_work(&worker);lifecycle_poll(&s);assert(!s.cache_bytes);
     memset(&s,0,sizeof(s));memset(&worker,0,sizeof(worker));execute_result=-1;sends=0;
+}
+static void seeded_cache_reuse(void) {
+    static struct session s;static struct lifecycle_worker worker;
+    for(unsigned partial=0;partial<2;partial++) {
+        s=(struct session){.worker=&worker};worker=(struct lifecycle_worker){0};
+        int before=allocations,freed=frees;
+        alloc_fail=partial?allocations+1:0;cache_seed(&s,&worker);alloc_fail=0;
+        unsigned count=partial?1:2;
+        assert(allocations==before+(int)count && s.cache_bytes==count*720ull*480*4);
+        uint32_t *pixels=cache_prepare(&s,0,720,480);
+        assert(pixels && allocations==before+(int)count && s.cache_reuses==1);
+        cache_free(&s);assert(s.cache_bytes==count*720ull*480*4);
+        life_work(&worker);lifecycle_poll(&s);
+        assert(!s.cache_bytes && frees==freed+(int)count);
+    }
+    memset(&s,0,sizeof(s));memset(&worker,0,sizeof(worker));
+    puts("desktop-cache-seed: PASS initial/partial reserve, reuse without helper mapping, deferred worker release and zero final budget");
 }
 static void retired_cache_reuse(void) {
     static struct session s;static struct lifecycle_worker worker;
@@ -739,7 +759,15 @@ static void retained_operations(void) {
     w.launch[0]=(struct life_launch){.state=LIFE_QUEUED,.application=DESK_APP_FILES,.queued_us=200};
     w.reap[0]=(struct life_reap){.state=LIFE_QUEUED,.pid=42,.queued_us=200,.begin_us=999,.end_us=999};
     s.clients[0]=(struct client){.pid=42,.window=2,.close_requested=1};
+    s.message=(struct message_trace){.begin=100,.received=110,.end=450,.pid=42,.type=DESK_COMMIT,.result=1,
+        .scheduler={.ready_us=300,.dispatches=2}};
     struct operation_trace t=operation_snapshot(&s,500);
+    s.message.end=499;
+    assert(t.message.end==450 && t.message.scheduler.ready_us==300);
+    capture_loop_log=1;captured_loop_log[0]=0;operation_trace_report(&t,1);
+    assert(strstr(captured_loop_log,"desktop-message-worst: version=1 snapshot_us=500 begin_us=100 received_us=110 end_us=450 pid=42"));
+    assert(strstr(captured_loop_log,"ready_us=300 dispatches=2 exclusions=0 invalid=0 final=1"));
+    capture_loop_log=0;
     assert(t.queued==1 && t.launch_age_us==300 && t.oldest_app==DESK_APP_FILES);
     assert(t.reap_queued==1 && t.reap_pid==42 && t.reap_queue_age_us==300 && !t.reap_run_age_us && !t.reap_completed_us);
     w.reap[0].begin_us=300;life_publish(&w.reap[0].state,LIFE_RUNNING);
@@ -826,7 +854,32 @@ static void window_navigation(void) {
     registry_destroy(&s);assert(!registry_live);
     puts("desktop-navigation: PASS 80-entry stable MRU/reverse/cancel, stale identity refusal, same-app cycle, grouped minimize, focus fallback and keyboard menu");
 }
+static void deferred_ui_diagnostics(void) {
+    struct lifecycle_worker w={0};struct session s={.worker=&w,.trace=1,.startup_trace=1,.scene={.focus=-1}};
+    s.children[0]=42;desk_damage_init(&s.damage,800,600);
+    struct desk_packet p=desk_packet_new(DESK_OPEN);p.window=1;p.width=720;p.height=480;strcpy(p.text,"Backpressure");
+    slow_console_probe=1;slow_console_calls=0;uint64_t start=now;
+    struct lifecycle_worker baseline_worker={0};
+    struct session baseline={.worker=&baseline_worker,.trace=1,.startup_trace=1,.scene={.focus=-1}};
+    baseline.children[0]=42;desk_damage_init(&baseline.damage,800,600);
+    incoming(&baseline,42,&p);assert(baseline.clients[0].pid==42 && now-start>=60 && slow_console_calls);
+    start=now;slow_console_calls=0;ui_logger=&w;
+    incoming(&s,42,&p);
+    assert(s.clients[0].pid==42 && s.clients[0].configure && now==start && !slow_console_calls);
+    /* Formatting and queueing never call the stalled backend; the worker owns
+     * all console delay and cannot overwrite a record still being emitted. */
+    life_log_work(&w);assert(slow_console_calls && now>start);
+    for(unsigned n=0;n<LIFE_LOG_SLOTS;n++)assert(life_log_submit(&w,"retained\n"));
+    unsigned at=w.log_write;assert(!life_log_submit(&w,"overflow\n") && w.log_dropped==1);
+    assert(!strcmp(w.logs[at].text,"retained\n"));
+    unsigned calls=slow_console_calls;life_report_work(&w);assert(slow_console_calls-calls==LIFE_LOG_SLOTS);
+    assert(life_state(&w.logs[w.log_read].state)==LIFE_IDLE && life_log_submit(&w,"after drain\n"));
+    life_log_work(&w);ui_logger=NULL;slow_console_probe=0;now=1;
+    puts("desktop-ui-log: PASS controlled600ms backend, window-open returns without console delay, FIFO ownership, wrap, full refusal, drain and recovery");
+}
 int main(void) {
+    deferred_ui_diagnostics();
+    seeded_cache_reuse();
     retained_operations();window_navigation();
     persistent_loop_timing();asynchronous_loop_report();
     /* A timeout breaks before the next loop header. Its final interval still

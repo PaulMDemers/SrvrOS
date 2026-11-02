@@ -14,5 +14,12 @@ int main(void) {
     assert(!audio_io_receipt_valid(&r,12,1000000,13000000,2304000,1));
     assert(!audio_io_receipt_valid(&r,12,1000000,13000000,192000,0));
     assert(!audio_io_receipt_valid(&r,12,0,13000000,2304000,0));
+    /* Extra PCM may cover an already admitted slow final burst. Neither the
+     * sustained disk span nor its containment in live playback is relaxed. */
+    v=r;v.last=14000000;
+    assert(audio_io_receipt_valid(&v,12,1000000,15000000,2496000,0));
+    assert(!audio_io_receipt_valid(&v,12,1000000,13000000,2496000,0));
+    assert(!audio_io_receipt_valid(&r,12,1000000,75000000,73ull*192000,0));
+    assert(!audio_io_receipt_valid(&r,12,1000000,15000000,2496001,0));
     puts("audio I/O receipt regression: PASS");
 }

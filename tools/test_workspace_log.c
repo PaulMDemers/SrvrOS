@@ -43,6 +43,7 @@ bool scheduler_wait(struct scheduler_wait_queue *q,scheduler_wait_condition_fn f
 bool scheduler_wait_timeout(struct scheduler_wait_queue *q,scheduler_wait_condition_fn fn,void *arg,uint64_t end) { bool ready=scheduler_wait(q,fn,arg);if(!ready)ticks=end;return ready; }
 void scheduler_wake_all(struct scheduler_wait_queue *q) { (void)q; }
 bool scheduler_io_observe_reset(void) { assert(!depth);return true; }
+void exfat_print_costs(void) { assert(!depth); }
 void scheduler_print_io_owners(void) { assert(!depth); }
 void scheduler_print_activity(void) { assert(!depth); }
 void scheduler_snapshot(struct scheduler_stats *out) { assert(!depth);*out=(struct scheduler_stats){100,90,200,50}; }

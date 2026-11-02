@@ -2656,8 +2656,11 @@ uint64_t process_list(uint64_t start_index,
 
 uint64_t process_list_details(uint64_t start_index, uint64_t *pid_out,
     const char **name_out, const char **state_out, uint64_t *parent_out, uint64_t *mapped_bytes_out) {
-    for (uint64_t i = start_index; i < PROCESS_MAX_PROCESSES; i++) {
-        if (processes[i].allocated) {
+    bool by_pid=(start_index&SRV_PROC_LIST_BY_PID)!=0;
+    uint64_t target=start_index&~SRV_PROC_LIST_BY_PID;
+    if(by_pid && !target)return 0;
+    for (uint64_t i = by_pid?0:start_index; i < PROCESS_MAX_PROCESSES; i++) {
+        if (processes[i].allocated && (!by_pid || processes[i].pid==target)) {
             if (pid_out != NULL) {
                 *pid_out = processes[i].pid;
             }

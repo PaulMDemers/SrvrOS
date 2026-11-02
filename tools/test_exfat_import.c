@@ -5,6 +5,7 @@
 #include <string.h>
 #include "../kernel/src/fs/exfat.c"
 
+uint64_t timer_monotonic_us(void) { return 0; }
 #define BYTES (2u*1024u*1024u)
 #define SECTOR 512u
 #define HEAP 56u

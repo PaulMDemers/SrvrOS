@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "../kernel/src/fs/exfat.c"
+uint64_t timer_monotonic_us(void) { return 0; }
 static uint8_t disk[4096];
 static bool reject_write;
 static unsigned write_calls, reject_at;

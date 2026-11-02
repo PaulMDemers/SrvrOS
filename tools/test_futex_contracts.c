@@ -13,13 +13,17 @@ struct scheduler_wait_queue { uint64_t waiters; };
 typedef bool (*scheduler_wait_condition_fn)(void *);
 static struct process a={.id=1},b={.id=2},*current=&a;
 static bool masked,killed,signaled,mapped=true;
+/* The real futex bodies must not acquire/release a foreign I/O owner. Every
+ * modeled boundary checks this sentinel, including parked/woken continuations. */
+static unsigned foreign_io_owner=77,foreign_io_depth=1;
+static void assert_foreign_owner(void) {assert(foreign_io_owner==77 && foreign_io_depth==1);}
 static uint64_t now;
 static unsigned waits,yields,mode,restore_hook,enable_hook;
 static uint32_t word,other;
 static struct process *process_current(void) { return current; }
 static bool process_should_exit_current(void) { return killed; }
 static bool process_signal_pending_current(void) { return signaled; }
-static uint64_t process_irq_save(void) { uint64_t old=masked;masked=true;return old; }
+static uint64_t process_irq_save(void) { assert_foreign_owner();uint64_t old=masked;masked=true;return old; }
 static void process_irq_restore(uint64_t flags);
 static void host_enable_interrupts(void);
 static uint64_t timer_ticks(void) { return now; }
@@ -55,11 +59,11 @@ static void allocate_other(bool park) {
     process_irq_restore(flags);
 }
 static void host_enable_interrupts(void) {
-    masked=false;
+    assert_foreign_owner();masked=false;
     if(enable_hook) { enable_hook=0;allocate_other(false); }
 }
 static void process_irq_restore(uint64_t flags) {
-    masked=flags;
+    assert_foreign_owner();masked=flags;
     if(!masked && restore_hook) {
         unsigned hook=restore_hook;restore_hook=0;
         allocate_other(hook==2);
