@@ -2,23 +2,34 @@
 
 Updated: 2026-11-01. State: **active reference machine; partial device acceptance**.
 
-### Authorized PR261 merge and automatic hardware trial
+### Merged PR261 native return: Files retirement deadline
 
-The user authorized merging PR261 and rebooting into the full automatic endurance
-trial at 1% volume. Main `7ee6a048` is integrated; full local core/docs, matched
-ordinary/native/synthetic builds and the AP diagnostic kernel pass. The unused
-failed ff payload was archived with every file hash verified to make EFI space;
-current accepted62ed and recovery9aa remain intact. No device gate was widened.
+PR261 merged as `466f4743`; local checkout uses that baseline. Release
+`291536821097eefb`, session `session-00065f436b5cced3-00`, automatically returned
+after failing the unchanged whole-lifetime limit at 10009854 us after 13 completed
+cycles. Files PID24 became ready after 4594202 us and visually closed, but remained
+background at the deadline. Exit/reap completion for that lifetime is unobserved.
+UI maximum 101281 us and completed Close maximum 6590199 us stay within their
+limits; that completed maximum excludes the failed final lifetime.
 
-Next steps are merging the reviewed PR, building/staging its exact new baseline,
-positive loaded VM and exact-stage refusal/save/unmount rehearsal, then fresh
-USB preservation/offline checks, volume override and recovery/install guards.
-The trial needs no input, shows progress, saves results and returns after safe
-cleanup. Unsafe cleanup retains a visible halt. Records live in
-`build/air-pr261-merged-native-20261101/`; collect its matching session before a
-new trial. Physical acceptance of this new candidate remains pending.
+The deferred UI log drains with zero dropped/pending records. Cache retires with
+zero bytes/retained surfaces and 11 reuses; battery runtime retires. Saved storage
+gate waits last 4.19–5.09 seconds, with retained successful write/append mutations
+at 4.63–5.22 seconds. This establishes continuing storage contention, without
+uniquely proving the cause of the final missing process exit. Full 1800-second
+PCM/disk receipts and three captures are absent; one screenshot decodes during
+cleanup. This run is a failure, not new endurance acceptance. Volume remained 1%.
 
-### PR261 message-stall closeout: ready for merge review
+All 1298 prior files are preserved except expected workspace metadata; six new
+files are copied and hash-verified. Offline fsck reports clean, 287 directories /
+1304 files; allocation, writable and headroom checks pass. Candidate/recovery
+payloads, Ubuntu default and consumed one-shot are verified. Accepted62ed and
+recovery9aa remain retained; failed291 is not promoted. USB is remounted.
+Evidence and hashes in `build/air-pr261-merged-native-20261101/` are backed up
+outside `build`. No test is armed. Next bounded scope is Files process retirement
+after visual Close under storage contention, preserving workload and deadlines.
+
+### PR261 message-stall closeout (historical): merge readiness
 
 Integrated main `a6b9e1b7` as clean tested source `721339ea`. The new main changes
 retain isolated Air6,1 CPU/AP diagnostic receipts; hardware gates and ordinary
