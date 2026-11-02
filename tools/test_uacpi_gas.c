@@ -5,6 +5,7 @@
 #define UACPI_NATIVE_MMIO
 #include "../ports/upstream/uacpi/source/io.c"
 
+struct uacpi_runtime_context g_uacpi_rt_ctx;
 static unsigned char memory[16];
 static uacpi_size mapped_size;
 static unsigned reads, writes, last_width;
@@ -33,7 +34,7 @@ MMIO(8, uacpi_u8) MMIO(16, uacpi_u16) MMIO(32, uacpi_u32) MMIO(64, uacpi_u64)
 uacpi_status uacpi_kernel_io_read##bits(uacpi_handle h, uacpi_size off, type *v) { assert(h == memory); *v = (type)read_value(off, sizeof(type)); return UACPI_STATUS_OK; } \
 uacpi_status uacpi_kernel_io_write##bits(uacpi_handle h, uacpi_size off, type v) { assert(h == memory); write_value(off, sizeof(type), v); return UACPI_STATUS_OK; }
 IO(8, uacpi_u8) IO(16, uacpi_u16) IO(32, uacpi_u32)
-void uacpi_log(uacpi_log_level level, const uacpi_char *text, ...) { (void)level; (void)text; }
+void uacpi_kernel_log(uacpi_log_level level, const uacpi_char *text, ...) { (void)level; (void)text; }
 const uacpi_char *uacpi_address_space_to_string(uacpi_address_space space) { (void)space; return "test"; }
 
 static void test_case(unsigned space, unsigned width, unsigned offset, unsigned encoding,

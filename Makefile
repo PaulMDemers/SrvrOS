@@ -3191,7 +3191,7 @@ test-uacpi-gas: build/tests/uacpi-gas-host$(HOST_EXE)
 	$<
 build/tests/uacpi-gas-host$(HOST_EXE): tools/test_uacpi_gas.c $(UACPI_SRC) $(UACPI_HEADERS)
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I ports/upstream/uacpi/include $< ports/upstream/uacpi/source/stdlib.c -Wl,--gc-sections -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -DUACPI_FORMATTED_LOGGING -I ports/upstream/uacpi/include $< ports/upstream/uacpi/source/stdlib.c -Wl,--gc-sections -o $@
 
 .PHONY: test-make-bootstrap
 test-make-bootstrap:
@@ -4226,3 +4226,11 @@ test-gui2-path-bounds: build/tests/gui2-path-bounds-host$(HOST_EXE)
 build/tests/gui2-path-bounds-host$(HOST_EXE): tools/test_gui2_path_bounds.c userspace/lib/src/gui2.c
 	@mkdir -p $(@D)
 	$(HOST_CC) -D_DEFAULT_SOURCE -std=gnu11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -idirafter userspace/lib/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-sh-arithmetic
+test-core: test-sh-arithmetic
+test-sh-arithmetic: build/tests/sh-arithmetic-host$(HOST_EXE)
+	$<
+build/tests/sh-arithmetic-host$(HOST_EXE): tools/test_sh_arithmetic.c userspace/sh/sh.c userspace/lib/include/srvros/cli.h shared/include/srvros/syscall_numbers.h ports/upstream/linenoise/linenoise.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include -I ports/upstream/linenoise $< -Wl,--gc-sections -o $@

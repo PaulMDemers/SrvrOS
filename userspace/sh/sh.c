@@ -353,6 +353,7 @@ struct arithmetic_parser {
     const char *text;
     size_t pos;
     int ok;
+    int evaluate;
 };
 
 static void arithmetic_skip_spaces(struct arithmetic_parser *parser) {
@@ -368,7 +369,11 @@ static int arithmetic_parse_integer_text(const char *text, int64_t *out) {
         return 0;
     }
     char *end = 0;
+    errno = 0;
     long long value = strtoll(text, &end, 0);
+    if (errno == ERANGE) {
+        return -1;
+    }
     if (end == text || *end != '\0') {
         return 0;
     }
@@ -376,15 +381,54 @@ static int arithmetic_parse_integer_text(const char *text, int64_t *out) {
     return 1;
 }
 
-static int64_t arithmetic_variable_value(const char *name) {
+static int64_t arithmetic_variable_value(struct arithmetic_parser *parser, const char *name) {
     char value[ARG_EXPANDED_MAX];
     int is_set = 0;
     int64_t parsed = 0;
+    if (!parser->evaluate) return 0;
     shell_parameter_value(name, value, sizeof(value), &is_set);
-    if (!is_set || !arithmetic_parse_integer_text(value, &parsed)) {
+    if (!is_set) {
         return 0;
     }
+    int result = arithmetic_parse_integer_text(value, &parsed);
+    if (result < 0) parser->ok = 0;
+    if (result != 1) return 0;
     return parsed;
+}
+
+static int64_t arithmetic_parse_literal(struct arithmetic_parser *parser, int negative) {
+    int base = 10;
+    uint64_t magnitude = 0;
+    uint64_t limit = (uint64_t)INT64_MAX + (negative ? 1u : 0u);
+    size_t digits = 0;
+
+    if (parser->text[parser->pos] == '0' &&
+        (parser->text[parser->pos + 1] == 'x' || parser->text[parser->pos + 1] == 'X')) {
+        base = 16;
+        parser->pos += 2;
+    }
+    for (;;) {
+        char digit = parser->text[parser->pos];
+        int n = -1;
+        if (digit >= '0' && digit <= '9') n = digit - '0';
+        else if (digit >= 'a' && digit <= 'f') n = digit - 'a' + 10;
+        else if (digit >= 'A' && digit <= 'F') n = digit - 'A' + 10;
+        if (n < 0 || n >= base) break;
+        if (magnitude > (limit - (uint64_t)n) / (uint64_t)base) {
+            if (parser->evaluate) parser->ok = 0;
+        } else {
+            magnitude = magnitude * (uint64_t)base + (uint64_t)n;
+        }
+        parser->pos++;
+        digits++;
+    }
+    if (!digits || !parser->ok) {
+        parser->ok = 0;
+        return 0;
+    }
+    if (!parser->evaluate) return 0;
+    if (negative && magnitude == (uint64_t)INT64_MAX + 1u) return INT64_MIN;
+    return negative ? -(int64_t)magnitude : (int64_t)magnitude;
 }
 
 static int64_t arithmetic_parse_primary(struct arithmetic_parser *parser) {
@@ -403,8 +447,16 @@ static int64_t arithmetic_parse_primary(struct arithmetic_parser *parser) {
     }
     if (c == '+' || c == '-' || c == '!') {
         parser->pos++;
+        arithmetic_skip_spaces(parser);
+        if (c == '-' && shell_is_digit(parser->text[parser->pos])) {
+            return arithmetic_parse_literal(parser, 1);
+        }
         int64_t value = arithmetic_parse_primary(parser);
         if (c == '-') {
+            if (value == INT64_MIN) {
+                parser->ok = 0;
+                return 0;
+            }
             return -value;
         }
         if (c == '!') {
@@ -412,31 +464,8 @@ static int64_t arithmetic_parse_primary(struct arithmetic_parser *parser) {
         }
         return value;
     }
-    if ((c >= '0' && c <= '9')) {
-        int base = 10;
-        int64_t value = 0;
-        if (parser->text[parser->pos] == '0' &&
-            (parser->text[parser->pos + 1] == 'x' || parser->text[parser->pos + 1] == 'X')) {
-            base = 16;
-            parser->pos += 2;
-        }
-        for (;;) {
-            char digit = parser->text[parser->pos];
-            int digit_value = -1;
-            if (digit >= '0' && digit <= '9') {
-                digit_value = digit - '0';
-            } else if (digit >= 'a' && digit <= 'f') {
-                digit_value = digit - 'a' + 10;
-            } else if (digit >= 'A' && digit <= 'F') {
-                digit_value = digit - 'A' + 10;
-            }
-            if (digit_value < 0 || digit_value >= base) {
-                break;
-            }
-            value = value * base + digit_value;
-            parser->pos++;
-        }
-        return value;
+    if (shell_is_digit(c)) {
+        return arithmetic_parse_literal(parser, 0);
     }
     if (c == '$') {
         parser->pos++;
@@ -456,7 +485,7 @@ static int64_t arithmetic_parse_primary(struct arithmetic_parser *parser) {
             name[length++] = parser->text[parser->pos++];
         }
         name[length] = '\0';
-        return arithmetic_variable_value(name);
+        return arithmetic_variable_value(parser, name);
     }
     parser->ok = 0;
     return 0;
@@ -472,12 +501,20 @@ static int64_t arithmetic_parse_mul(struct arithmetic_parser *parser) {
         }
         parser->pos++;
         int64_t rhs = arithmetic_parse_primary(parser);
-        if ((op == '/' || op == '%') && rhs == 0) {
+        if (!parser->evaluate) {
+            value = 0;
+            continue;
+        }
+        if ((op == '/' || op == '%') &&
+            (rhs == 0 || (value == INT64_MIN && rhs == -1))) {
             parser->ok = 0;
             return 0;
         }
         if (op == '*') {
-            value *= rhs;
+            if (__builtin_mul_overflow(value, rhs, &value)) {
+                parser->ok = 0;
+                return 0;
+            }
         } else if (op == '/') {
             value /= rhs;
         } else {
@@ -496,7 +533,16 @@ static int64_t arithmetic_parse_add(struct arithmetic_parser *parser) {
         }
         parser->pos++;
         int64_t rhs = arithmetic_parse_mul(parser);
-        value = op == '+' ? value + rhs : value - rhs;
+        if (!parser->evaluate) {
+            value = 0;
+            continue;
+        }
+        int overflow = op == '+' ? __builtin_add_overflow(value, rhs, &value)
+                                 : __builtin_sub_overflow(value, rhs, &value);
+        if (overflow) {
+            parser->ok = 0;
+            return 0;
+        }
     }
 }
 
@@ -548,7 +594,11 @@ static int64_t arithmetic_parse_and(struct arithmetic_parser *parser) {
             return value;
         }
         parser->pos += 2;
-        value = (value != 0 && arithmetic_parse_equal(parser) != 0) ? 1 : 0;
+        int evaluate = parser->evaluate;
+        if (!value) parser->evaluate = 0;
+        int64_t rhs = arithmetic_parse_equal(parser);
+        parser->evaluate = evaluate;
+        value = (value != 0 && rhs != 0) ? 1 : 0;
     }
 }
 
@@ -560,7 +610,11 @@ static int64_t arithmetic_parse_or(struct arithmetic_parser *parser) {
             return value;
         }
         parser->pos += 2;
-        value = (value != 0 || arithmetic_parse_and(parser) != 0) ? 1 : 0;
+        int evaluate = parser->evaluate;
+        if (value) parser->evaluate = 0;
+        int64_t rhs = arithmetic_parse_and(parser);
+        parser->evaluate = evaluate;
+        value = (value != 0 || rhs != 0) ? 1 : 0;
     }
 }
 
@@ -569,6 +623,7 @@ static int evaluate_arithmetic(const char *text, int64_t *value_out) {
         .text = text,
         .pos = 0,
         .ok = 1,
+        .evaluate = 1,
     };
     int64_t value = arithmetic_parse_or(&parser);
     arithmetic_skip_spaces(&parser);
