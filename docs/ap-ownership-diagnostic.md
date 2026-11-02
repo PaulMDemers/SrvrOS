@@ -943,3 +943,14 @@ missing/duplicate/out-of-order/invalid version-6 endpoints. Retention regression
 uses the preserved native compact trace plus explicitly synthetic new endpoint
 records and source-derived maximum final checkpoint shapes/widths; it is never
 native acceptance. Require the actual new records directly after the retry.
+
+
+Air6,1 source `4e2ff068`, release `ee85beb85b75fdca`, now supplies both actual
+valid eight-control endpoints directly in its 64 KiB final log, alongside all
+15 compact power/idle/entry samples and earlier proofs. The two endpoint values
+are identical: pin/ELD zero, configs A/B/C `0x0070fa60`, CPU/PCH masks
+`0xffffffff` and enables zero. Live access gates and unchanged well checks pass.
+This accepts the bounded read-only observations and retention only. HDA/DMA
+retirement, IRQ ownership and a safe well transition remain unproven.
+The overall platform trial still fails the original RC6 bound (about 0.0893%
+nominal excess), and package C3 remains zero. No policy or limit changes follow.
