@@ -156,4 +156,6 @@ checks exact contents/remount/fsck, changed/alignment/alias fallbacks, failed
 prefix reads, original payload sectors and unrelated files across every write,
 flush and half-write interruption. Torn-name loss must reproduce on COW too;
 it is not accepted as an atomic rename guarantee. Test media is disposable.
-Native performance and full endurance require their own matching trial.
+The interruption model tests prefixes of requested writes, not physical-sector
+atomicity or controller reordering. Native performance and full endurance
+require their own matching trial.
