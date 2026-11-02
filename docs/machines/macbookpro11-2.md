@@ -1,6 +1,6 @@
 # MacBookPro11,2 / A1398
 
-Updated: 2026-11-01. State: **native desktop, input, brightness, sound, CPU/fan telemetry and captured USB Ethernet DHCP/DNS/HTTP and live cable-status UI accepted**.
+Updated: 2026-11-02. State: **native desktop, input, brightness, sound, CPU/fan telemetry and captured USB Ethernet DHCP/DNS/HTTP and live cable-status UI accepted**.
 
 The sections below retain the dated bring-up sequence. The latest acceptance
 and next scope are recorded at the end; earlier failures are historical.
@@ -40,6 +40,16 @@ all transfer/failure/cancellation boundaries, proof mutations, cross-band
 confusion and unchanged legacy behavior. No native caller, profile, install
 or reboot is added here. Channel161 bandwidth/baseband/calibration and a
 read-only prerequisite capture are the next integration dependencies.
+
+Source `44ccd837` implements the fixed words. New/legacy MAC tests, 5GHz
+RF-table and channel161-plan regressions, ASan/UBSan, `all usb-image`,
+documentation links and matched display-server VM boot/exit pass. Tests
+cover all18 transfer failures,19 authorization boundaries, read/guard bits,
+write payloads, state counters and cross-band refusals. Existing allowed DMA
+upper bits remain allowed; none of the four busy bits is relaxed. The helper
+is absent from the linked kernel because it has no native caller. No hardware
+trial is installed or armed. Evidence is durable outside build.
+
 
 ## Active bounded scope — 2026-11-01
 
