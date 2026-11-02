@@ -63,9 +63,39 @@ static bool wifi_scan_batch_owned(void *context,const struct mt76_scan_batch_vis
     }
     return true;
 }
+static bool wifi_scan_channel_diagnose(struct xhci_device *d){
+    struct xhci_wifi_scan *s=&d->firmware.mcu.scan;
+    if(s->channel_diagnosis_attempted)return false;
+    s->channel_diagnosis_attempted=true;s->channel_diagnosis_complete=false;
+    for(unsigned i=0;i<3;i++)for(unsigned n=0;n<8;n++)s->advertised_channel[i][n]=0;
+    if(!wifi_scan_batch_owned(d,s->batch_visit,3))return false;
+    for(unsigned i=0;i<3;i++){
+        const struct mt76_rx_window *w=&s->batch_visit[i].window;
+        for(unsigned n=0;n<w->completions;n++){
+            if(!wifi_scan_batch_owned(d,s->batch_visit,3))return false;
+            unsigned channel=mt76_rx_advertised_channel(w->plan.buffer[n],w->item[n].actual);
+            if(!wifi_scan_batch_owned(d,s->batch_visit,3))return false;
+            s->advertised_channel[i][n]=(uint8_t)channel;
+        }
+    }
+    s->channel_diagnosis_complete=wifi_scan_batch_owned(d,s->batch_visit,3);
+    return s->channel_diagnosis_complete;
+}
+static void wifi_scan_channel_log(struct xhci_wifi_scan *s){
+    if(!s->channel_diagnosis_attempted)return;
+    unsigned count=0;
+    if(s->channel_diagnosis_complete)for(unsigned i=0;i<3;i++){
+        const struct mt76_rx_window *w=&s->batch_visit[i].window;
+        for(unsigned n=0;n<w->completions;n++){
+            console_printf("wifi-ds-observation: visit=%u index=%u tuned=%u advertised=%u identifiers_logged=0\n",(uint64_t)i,(uint64_t)n,(uint64_t)mt76_scan_channel(i),(uint64_t)s->advertised_channel[i][n]);count++;
+        }
+    }
+    console_printf("wifi-ds-summary: attempted=1 complete=%u entries=%u identifiers_logged=0\n",(uint64_t)s->channel_diagnosis_complete,(uint64_t)count);
+}
 static void wifi_scan_batch_log(struct xhci_device *d){
     struct xhci_wifi_scan *s=&d->firmware.mcu.scan;struct mt76_scan_batch *r=&s->batch;
     console_printf("wifi-scan-batch: attempted=%u complete=%u failed=%u visits=%u inputs=%u pending=%u empty=%u parsed=%u unrelated=%u rejected=%u rows=%u late=%u retained=1 reused=0 data_out=0 identifiers_logged=0\n",(uint64_t)r->attempted,(uint64_t)r->complete,(uint64_t)r->failed,(uint64_t)s->completed,(uint64_t)r->inputs,(uint64_t)r->pending,(uint64_t)r->empty,(uint64_t)r->parsed,(uint64_t)r->unrelated,(uint64_t)r->rejected,(uint64_t)r->count,(uint64_t)s->late);
+    wifi_scan_channel_log(s);
     if(r->complete)for(unsigned i=0;i<r->count && i<24;i++){
         const struct mt76_scan_row *row=&r->row[i];const struct mt76_discovery_row *v=&row->advertisement;
         console_printf("wifi-scan-batch-row: index=%u channel=%u channels=%u observations=%u hidden=%u ssid_size=%u privacy=%u rsn=%u wpa=%u ds=%u beacon=%u probe=%u ssid_conflict=%u security_conflict=%u channel_conflict=%u identifiers_logged=0\n",(uint64_t)i,(uint64_t)v->channel,(uint64_t)row->channels,(uint64_t)v->observations,(uint64_t)v->hidden,(uint64_t)v->ssid_size,(uint64_t)v->privacy,(uint64_t)v->rsn,(uint64_t)v->wpa,(uint64_t)v->ds_present,(uint64_t)v->beacon_seen,(uint64_t)v->probe_response_seen,(uint64_t)v->ssid_conflict,(uint64_t)v->security_conflict,(uint64_t)row->channel_conflict);
@@ -111,6 +141,7 @@ static bool wifi_scan_capture(struct xhci_device *d){
     const uint8_t us[2]={'U','S'};const struct mt76_scan_io io={d,wifi_scan_collect_owned};
     if(m->scan_batch_mode){const struct mt76_scan_batch_io batch_io={d,wifi_scan_batch_owned};ok=ok && s->completed==3 && mt76_scan_batch_collect(&s->batch,s->batch_visit,3,&batch_io);}
     else ok=ok && s->completed==3 && mt76_scan_collect(&s->result,us,s->input,3,&io);
+    if(ok && wifi_scan_diagnosis_requested)ok=m->scan_batch_mode && wifi_scan_channel_diagnose(d);
     if(ok && m->scan_batch_mode)wifi_scan_service_publish_device(d);
     s->failed=!ok;s->active=false;
     if(!ok){

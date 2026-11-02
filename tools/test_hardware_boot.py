@@ -203,6 +203,16 @@ class InstallTests(unittest.TestCase):
         for options in (dict(mwait_deep_test=True),dict(cpu_load_capture=True,mwait_deep_test=True,mwait_wakeup_test=True),dict(cpu_load_capture=True,wifi_scan_batch=True,wifi_scan_retry=True,mwait_deep_test=True)):
             with self.assertRaises(ValueError):boot.stage(**options)
 
+    def test_wifi_channel_diagnosis_profile(self):
+        v="ram-usb-wifi-fw-v107-laptop-probe-0e535900-auto-return"
+        c=boot.limine_config("0123456789abcdef",v)
+        self.assertEqual(c.replace(" srvros.wifi-channel-diagnosis=1",""),boot.limine_config("0123456789abcdef",v.replace("v107-","v106-")))
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(v))
+        for opts in [{},{"wifi_desktop_empty":True,"hold_on_failure":True}]:
+            with self.assertRaises(ValueError):boot.stage(wifi_channel_diagnosis=True,**opts)
+        with self.assertRaises(ValueError):boot.limine_config("0123456789abcdef",v.removesuffix("-auto-return"))
+        with self.assertRaises(ValueError):boot.limine_config("0123456789abcdef",v,legacy_wifi_calibration=True)
+
     def test_wifi_desktop_empty_profile(self):
         version="ram-usb-wifi-fw-v106-laptop-probe-0e535900-auto-return"
         config=boot.limine_config("0123456789abcdef",version)

@@ -313,6 +313,8 @@ struct xhci_wifi_scan {
     struct mt76_scan result;
     struct mt76_scan_batch_visit batch_visit[3];
     struct mt76_scan_batch batch;
+    bool channel_diagnosis_attempted,channel_diagnosis_complete;
+    uint8_t advertised_channel[3][8];
 };
 struct xhci_wifi_mcu {
     struct xhci_bulk_endpoint response;
@@ -3599,4 +3601,5 @@ int64_t xhci_device_snapshot(uint64_t index,struct srv_device_info *out) {
 }
 
 #include "xhci_wifi_firmware.inc"
+static bool wifi_scan_diagnosis_requested;
 #include "xhci_wifi_mcu.inc"

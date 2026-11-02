@@ -4488,3 +4488,8 @@ test-linux-package-compare: build/tests/linux-package-pci-host$(HOST_EXE)
 build/tests/linux-package-pci-host$(HOST_EXE): tools/linux_package_pci.c kernel/diagnostics/package_audit_core.c kernel/include/srvros/package_audit.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include tools/linux_package_pci.c kernel/diagnostics/package_audit_core.c -o $@
+
+.PHONY: test-wifi-channel-log
+test-core: test-wifi-channel-log
+test-wifi-channel-log:
+	$(PYTHON) -m unittest discover -s tools -p test_wifi_channel_log.py

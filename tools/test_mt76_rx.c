@@ -102,6 +102,21 @@ int main(void) {
     assert(mt76_rx_beacon(0,0,1,&b)==MT76_RX_INVALID);zero_output(&b);
     assert(mt76_rx_beacon(wire,size,1,0)==MT76_RX_INVALID);
     assert(mt76_rx_usb_view(wire,size,0)==MT76_RX_INVALID);
+    /* Diagnostics expose only a channel after complete frame validation. */
+    for(unsigned ch=1;ch<=11;ch++){
+        size=make(false,false,ssid,4);wire[84]=(uint8_t)ch;
+        assert(mt76_rx_advertised_channel(wire,size)==ch);
+        assert(parse(size,ch==1?6:1)==MT76_RX_CHANNEL_MISMATCH);
+        uint8_t saved[512];memcpy(saved,wire,sizeof wire);
+        for(size_t n=0;n<size;n++)assert(!mt76_rx_advertised_channel(wire,n));
+        size=append(size,3,(const uint8_t[]){(uint8_t)ch},1);assert(!mt76_rx_advertised_channel(wire,size));
+        memcpy(wire,saved,sizeof wire);size=make(false,false,ssid,4);wire[84]=(uint8_t)ch;
+        size=append(size,99,(const uint8_t[]){7},1);wire[36+24+12+2+4+4+3+1]=255;
+        assert(!mt76_rx_advertised_channel(wire,size));
+    }
+    size=make(false,false,ssid,4);wire[82]=99;assert(!mt76_rx_advertised_channel(wire,size)); /* No DS IE. */
+    for(unsigned ch=12;ch<=14;ch++){size=make(false,false,ssid,4);wire[84]=(uint8_t)ch;assert(!mt76_rx_advertised_channel(wire,size));}
+    assert(!mt76_rx_advertised_channel(NULL,0));
     /* Deterministic hostile transfers: exact allocations catch overreads under
      * ASan. Successful outputs must point wholly within the declared DMA entry. */
     uint32_t seed=13;
@@ -117,6 +132,7 @@ int main(void) {
         }
         memset(&b,0xa5,sizeof b);
         if(mt76_rx_beacon(p,n,1,&b)!=MT76_RX_OK)zero_output(&b);
+        if(i<1000){unsigned ch=mt76_rx_advertised_channel(p,n);assert(ch<=11);if(ch)assert(mt76_rx_beacon(p,n,ch,&b)==MT76_RX_OK && b.ds_present);}
         free(p);
     }
     puts("MT76 receive: PASS padding,unaligned/truncated DMA,management framing,binary/hidden SSIDs,IE boundaries,100000 hostile transfers");

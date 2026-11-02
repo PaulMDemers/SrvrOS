@@ -110,3 +110,17 @@ enum mt76_rx_status mt76_rx_beacon(const uint8_t *p, size_t size,
     *out = b;
     return MT76_RX_OK;
 }
+
+unsigned mt76_rx_advertised_channel(const uint8_t *p,size_t size) {
+    /* The ordinary parser and its tuned-channel rejection remain unchanged.
+     * Revalidate the ENTIRE frame: a DS byte before malformed trailing IEs is
+     * not a valid observation. Bound the diagnostic to eleven US candidates. */
+    for(unsigned channel=1;channel<=11;channel++) {
+        struct mt76_rx_beacon b={0};
+        enum mt76_rx_status status=mt76_rx_beacon(p,size,channel,&b);
+        bool found=status==MT76_RX_OK && b.ds_present;
+        for(unsigned i=0;i<sizeof b;i++)((volatile uint8_t *)&b)[i]=0;
+        if(found)return channel;
+    }
+    return 0;
+}

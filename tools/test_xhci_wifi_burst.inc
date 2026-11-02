@@ -92,7 +92,8 @@ static void test_wifi_burst_case(struct xhci_device *d){
     unsigned old_port_count=xhci.port_count;uint8_t old_port=d->port_id,old_parent=d->parent_slot_id;
     uint32_t *root_sc=(uint32_t *)(registers+xhci.op_base+XHCI_OP_PORTS),old_sc=*root_sc;
     if(service_case){xhci.operational=true;xhci.port_count=1;d->configured=false;d->port_id=1;d->parent_slot_id=0;port_model.active=false;*root_sc=XHCI_PORTSC_CCS|XHCI_PORTSC_PED;}
-    receive_test_device=tune_test_device=d;bool ok=wifi_scan_capture(d);receive_test_device=tune_test_device=NULL;
+    wifi_scan_diagnosis_requested=batch_case<=7;
+    receive_test_device=tune_test_device=d;bool ok=wifi_scan_capture(d);receive_test_device=tune_test_device=NULL;wifi_scan_diagnosis_requested=false;
     bool expected=batch_case<8 || (batch_case>=11 && batch_case<=12) || (batch_case==24 && !batch_fault_visit) || batch_case==25;
     if(ok!=expected)fprintf(stderr,"batch case=%u visit=%u got=%u want=%u completed=%u first=%u posts=%u attempts=%u rxfailed=%u mac=%u stop=%u quiet=%u engine=%u tune=%u alloc=%llu\n",batch_case,batch_fault_visit,ok,expected,m->scan.completed,m->receive.burst.first,m->receive.burst.posts,m->receive.burst.state.attempts,m->receive.failed,m->receive.mac.complete,m->receive.stopped,m->receive.mac_quiescent,m->receive.burst.state.complete,m->tune.state.complete,(unsigned long long)pool_used);
     if(ok!=expected){
@@ -121,6 +122,24 @@ static void test_wifi_burst_case(struct xhci_device *d){
         }
         if(batch_case==12)assert(m->scan.visit[batch_fault_visit].receive.burst.late==1);
         if(batch_case==25 && batch_fault_visit)assert(m->scan.late==1);
+        if(batch_case<=7){
+            assert(m->scan.channel_diagnosis_attempted && m->scan.channel_diagnosis_complete);
+            for(unsigned i=0;i<3;i++)for(unsigned n=0;n<m->scan.batch_visit[i].window.completions;n++){
+                unsigned expected=mt76_scan_channel(i);
+                if(i==batch_fault_visit && n==2){
+                    if(batch_case==4 || batch_case==5 || batch_case==7)expected=0;
+                    if(batch_case==6)expected=expected==1?6:1;
+                }
+                assert(m->scan.advertised_channel[i][n]==expected);
+            }
+            unsigned commands=receive_commands,controls=receive_controls;
+            assert(!wifi_scan_channel_diagnose(d)); /* One shot, no replay. */
+            uint8_t saved_channels[3][8];memcpy(saved_channels,m->scan.advertised_channel,sizeof saved_channels);
+            m->scan.channel_diagnosis_attempted=false;
+            assert(!wifi_scan_channel_diagnose(d) && !m->scan.channel_diagnosis_complete); /* Retired phase. */
+            assert(commands==receive_commands && controls==receive_controls);
+            memcpy(m->scan.advertised_channel,saved_channels,sizeof saved_channels);m->scan.channel_diagnosis_complete=true;
+        }else assert(!m->scan.channel_diagnosis_attempted);
         tune_model_restored();unsigned cmds=receive_commands;assert(!wifi_scan_capture(d) && cmds==receive_commands);
         wifi_scan_log(d);
     }else{

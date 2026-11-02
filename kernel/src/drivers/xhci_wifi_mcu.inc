@@ -3334,3 +3334,12 @@ bool xhci_wifi_capture_scan(void){return wifi_capture_mcu(true,true,true,true,fa
 bool xhci_wifi_capture_scan_retry(void){return wifi_capture_mcu(true,true,true,true,false,false,false,false,false,false,false,true,0,79);}
 
 bool xhci_wifi_capture_scan_batch(void){return wifi_capture_mcu(true,true,true,true,false,false,false,false,false,false,false,true,0,80);}
+
+/* Same serialized mode80 operations; only inspect already stopped/retained DMA. */
+bool xhci_wifi_capture_scan_channel_diagnosis(void){
+    if(wifi_scan_diagnosis_requested)return false;
+    wifi_scan_diagnosis_requested=true;
+    bool ok=xhci_wifi_capture_scan_batch();
+    wifi_scan_diagnosis_requested=false;
+    return ok;
+}

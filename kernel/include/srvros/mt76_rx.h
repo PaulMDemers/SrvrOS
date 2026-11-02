@@ -36,4 +36,7 @@ struct mt76_rx_beacon {
 enum mt76_rx_status mt76_rx_beacon(const uint8_t *, size_t,
                                   unsigned tuned_channel,
                                   struct mt76_rx_beacon *);
+/* Anonymous diagnostic only: fully validate under the advertised US1-11
+ * channel and return that scalar. Never licenses a mismatched receive frame. */
+unsigned mt76_rx_advertised_channel(const uint8_t *,size_t);
 #endif
