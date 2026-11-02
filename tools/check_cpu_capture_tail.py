@@ -13,6 +13,7 @@ from pathlib import Path
 import re
 import subprocess
 from hardware_cpu_load import load_result
+from cpu_capture_format import SCHEMAS
 from hardware_ap_c3 import ap_c3_result
 from hardware_package import package_result
 from hardware_platform import platform_display_result, platform_series_result, platform_timing_result, platform_resources_result
@@ -65,7 +66,7 @@ def critical_records(text):
             if ' completed=yes' in line or line.startswith(('cpu-load: version=', 'cpu-load: completed=')):
                 rows.append(line)
         elif line.startswith(('cpu-load-capture:', 'cpu-load-power:', 'cpu-load-idle:',
-                              'cpu-idle-', 'cpu-mwait', 'ap-owner:', 'ap-owner-cpu:',
+                              'cpu-capture-', 'cpu-p2:', 'cpu-i2:', 'cpu-e2:', 'cpu-idle-', 'cpu-mwait', 'ap-owner:', 'ap-owner-cpu:',
                               'ap-c3:', 'ap-c3-peer:', 'ap-c3-round:', 'ap-package', 'ap-platform')):
             rows.append(line)
         elif line.startswith('laptop-capture: completed='):
@@ -79,14 +80,15 @@ CAPS = {'cpu-load-power: power_state=': 24, 'cpu-load-idle:': 24,
         'cpu-idle-entry:': 24, 'ap-platform-point:': 12,
         'ap-c3-round:': 32, 'ap-package-round:': 32,
         'ap-package-pci:': 50, 'ap-platform-ltr:': 25,
-        'ap-platform-well:': 2, 'ap-platform-resources:': 2, 'ap-platform-resource:': 2}
+        'ap-platform-well:': 2, 'ap-platform-resources:': 2, 'ap-platform-resource:': 2, 'cpu-p2:': 24,
+        'cpu-i2:': 24, 'cpu-e2:': 24}
 WIDTHS = dict(version=1, v=1, phase=1, seq=2, us=5, id=10, seen=1,
               signature=6, ready_us=5, max_us=5, retire_us=5,
               state=1, fault=1, flags=4, energy_shift=2, nominal_mhz=4,
               active_mhz=20, package_mw=20, interval_us=7, rejected=1,
               energy=10, supported=4, valid=4, bdf=5, **{'class': 8},
               command=5, pm=5, link_cap=10, link=10, ltr_cap=10, ltr=5,
-              ctl=10, before=10, after=10, index=2, reads=2, rc6=10, status=10, raw=10, headers=3, offset=4,
+              ctl=10, before=10, after=10, index=2, i=2, reads=2, rc6=10, status=10, raw=10, headers=3, offset=4,
               cpus=1, bsp=1, mask=2, rounds=2, limit_us=5)
 
 
@@ -96,12 +98,16 @@ def width_padding(text):
         if line.startswith('cpu-load: phase=') and ' completed=yes ' not in line:
             continue # Live progress precedes final proof, not retained proof.
         if not line.startswith(('cpu-load:', 'cpu-load-power:', 'cpu-load-idle:',
-                                'cpu-idle-', 'cpu-mwait', 'ap-owner:', 'ap-owner-cpu:',
+                                'cpu-capture-', 'cpu-p2:', 'cpu-i2:', 'cpu-e2:', 'cpu-idle-', 'cpu-mwait', 'ap-owner:', 'ap-owner-cpu:',
                                 'ap-c3:', 'ap-c3-peer:', 'ap-c3-round:', 'ap-package', 'ap-platform')):
             continue
         prefix = next((key for key in CAPS if line.startswith(key)), line.split(':', 1)[0]+':')
         def expand(m):
             key, value = m.groups()
+            if key=='v' and line.startswith(('cpu-p2:','cpu-i2:','cpu-e2:')):
+                kind=line[len('cpu-')];keys=SCHEMAS[kind][1];values=value.split(',')
+                if len(keys)!=len(values):raise ValueError('compact width schema mismatch')
+                return key+'='+','.join('9'*max(len(v),5 if re.fullmatch(r'c\d+_bp',k) else WIDTHS.get(k,20)) for k,v in zip(keys,values))
             width = 5 if re.fullmatch(r'c\d+_bp', key) else WIDTHS.get(key, 20)
             return key+'='+','.join('9'*max(width, len(v)) for v in value.split(','))
         expanded = re.sub(r'([a-zA-Z0-9_]+)=(\d+(?:,\d+)*)', expand, line)
@@ -134,6 +140,13 @@ def assess(text, model=False):
                 input_sha256=hashlib.sha256(text.encode()).hexdigest())
 
 
+LOGGING_SOURCES = ('kernel/src/workspace_log.c', 'kernel/src/scheduler.c',
+                   'kernel/src/fs/exfat.c', 'kernel/include/srvros/exfat.h',
+                   'kernel/src/drivers/power.c', 'userspace/threadstress/load_capture.c',
+                   'kernel/diagnostics/ap_probe.c', 'kernel/diagnostics/platform_audit.c',
+                   'kernel/src/main.c')
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--log', type=Path, required=True)
@@ -142,7 +155,7 @@ def main():
     ap.add_argument('--output', type=Path, required=True)
     args = ap.parse_args()
     fingerprints = {}
-    for name in ('kernel/src/workspace_log.c', 'kernel/src/scheduler.c'):
+    for name in LOGGING_SOURCES:
         old = subprocess.check_output(['git', 'show', f'{args.log_source_ref}:{name}'])
         current = Path(name).read_bytes()
         if old != current:

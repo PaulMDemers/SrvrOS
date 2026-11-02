@@ -5,8 +5,10 @@ import json
 from pathlib import Path
 import re
 from hardware_desktop import device_snapshot
+from cpu_capture_format import expand_capture, capture_input
 
 
+@capture_input
 def phase_power(text, start, end):
     samples = {}
     # Deferred records retain their sampling timestamp, not their later print
@@ -74,6 +76,7 @@ def phase_power(text, start, end):
 IDLE_NAMES = ('core_c3','core_c6','core_c7','package_c2','package_c3',
               'package_c6','package_c7','package_c8','package_c9','package_c10')
 
+@capture_input
 def phase_idle(text, start, end):
     """Read-only captured 06_45/06_3D counters, separate scopes and conservative TSC brackets.
 
@@ -120,6 +123,7 @@ def phase_idle(text, start, end):
                 scope='CPU0 physical core and whole package; lower-bound TSC-bracket ratios; no inferred C0/C1')
 
 
+@capture_input
 def phase_idle_entry(text, start, end):
     """HLT attempts/returns are scheduler observations, not residency durations."""
     headers=[s for s in text.splitlines() if s.startswith('cpu-idle-audit:')]
@@ -168,6 +172,7 @@ def phase_idle_entry(text, start, end):
                 cpuid_logical_capacity=(h['leaf1_b']>>16)&255,initial_apic_id=h['leaf1_b']>>24,
                 other_cpus_state='unknown',scope='CPU0 HLT attempts/returns; no time-asleep or C-state inference')
 
+@capture_input
 def idle_prerequisites(text):
     """CPU0 capability/configuration only; no observation of live remote CPUs.
 
@@ -224,6 +229,7 @@ def idle_prerequisites(text):
                 scope='CPU0 read-only prerequisites; no AP startup/IPI/MWAIT or power-policy changes')
 
 
+@capture_input
 def mwait_result(text):
     lines=[s for s in text.splitlines() if s.startswith('cpu-mwait:')]
     if len(lines)!=1: return None
@@ -277,6 +283,8 @@ def mwait_result(text):
 
 
 def load_result(text):
+    try:text=expand_capture(text)
+    except ValueError:text+="\ncpu-load: completed=NO reason=malformed-capture-format\n"
     failure = re.findall(r'^cpu-load: completed=NO reason=(\S+)$',text,re.M)
     rows = re.findall(r'^cpu-load: phase=(idle|load|recovery) completed=yes elapsed_us=(\d+) start_us=(\d+) end_us=(\d+) chunks=(\d+) checksum=(\d+)$',text,re.M)
     valid = (not failure and text.count('cpu-load: completed=yes\n') == 1 and

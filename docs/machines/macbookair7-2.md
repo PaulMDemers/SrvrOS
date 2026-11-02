@@ -2,6 +2,22 @@
 
 Updated: 2026-11-02. State: **active reference machine; partial device acceptance**.
 
+### PR272 integration review
+
+The user authorized integration review and merge after the completed native
+trial. Main `88c56afa` supplies separate compact power/idle diagnostic receipts
+and capture-budget tools. Merge conflicts are confined to appended Makefile test
+registrations and adjacent machine-table rows; preserve all three test targets
+and each unit's independent evidence. No runtime Files/PCM fix is rewritten.
+
+Bounded checks: review the final PR diff, full local core/docs and matched builds,
+a combined loaded KVM trial and multi-Files regression on the integrated source.
+Keep source-specific native acceptance tied to `ca66d874`/releasec497. Ordinary
+boot/device gates are unchanged; new diagnostic-format integration has host/VM
+acceptance only until a matching physical run. Installed c497/recovery9aa remain
+unchanged. No reboot is armed; Actions remain disabled. Evidence/checkpoint:
+`build/air-pr272-integration-20261102/`.
+
 ### PR272 native endurance: full pass
 
 Release `c497eb0cb48c1b01` / clean source `ca66d874`, session
