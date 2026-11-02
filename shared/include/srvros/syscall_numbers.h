@@ -164,7 +164,9 @@
 #define SRV_DIRECTORY_CHDIR 2
 struct srv_dirent { uint64_t inode,type; char name[SRV_NAME_MAX + 1]; };
 /* Metadata and names from the same quiescent enumeration turn. Capacity is
- * bytes for 1..16 records; return count, zero at EOF, or a negative error. */
+ * bytes for 1..16 records; fills capacity unless EOF, or returns a negative
+ * error. A short count (including zero) reaches EOF for this turn; concurrent
+ * directory mutations retain unspecified enumeration order. */
 #define SRV_DIRECTORY_READ_INFO 3
 #define SRV_DIRECTORY_BATCH_MAX 16
 struct srv_dirent_info { struct srv_dirent entry; uint64_t size,modified; };

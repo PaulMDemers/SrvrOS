@@ -660,6 +660,9 @@ static void path_context_regression(void) {
     assert(process_directory(SRV_DIRECTORY_READ_INFO,alias,batch,sizeof(batch))==2);
     assert(!strcmp(batch[0].entry.name,"a") && batch[0].entry.inode==4 && batch[0].size==77 && batch[0].modified==456);
     assert(!strcmp(batch[1].entry.name,"sub") && batch[1].entry.type==VFS_NODE_DIRECTORY);
+    /* Actual kernel implementation: a short batch reaches shared-cookie EOF. */
+    assert(process_directory(SRV_DIRECTORY_READ_INFO,fd,batch,sizeof(batch))==0);
+
     assert(process_directory(SRV_DIRECTORY_READ,fd,&entry,sizeof(entry))==0);
     assert(!content_release(live));path_nodes[3].size=0;path_nodes[3].metadata.mtime=0;
     assert(process_file_read(&subject,fd,(uint8_t *)out,1)==SRV_ERR_ISDIR);

@@ -79,10 +79,24 @@ int main(void) {
         if(!strcmp(entries[i].name,"folder")) { assert(entries[i].directory);folder++; }
     }
     assert(file==1 && folder==1);
+    assert(batch_calls==1 && !listing_dir); /* short batch already reached EOF */
+    /* A directory syscall may wait a complete storage turn. Never issue an
+     * avoidable EOF-only turn after a short batch; full batches still need the
+     * next call to distinguish EOF from more entries. */
+    const unsigned boundary_sizes[]={1,15,16,17,31,32,33,DESK_FILE_ENTRIES};
+    for(unsigned n=0;n<sizeof(boundary_sizes)/sizeof(*boundary_sizes);n++) {
+        synthetic_entries=boundary_sizes[n];synthetic_at=batch_calls=0;
+        perform(&q,&r);
+        unsigned expected=synthetic_entries/SRV_DIRECTORY_BATCH_MAX+1;
+        assert(!r.status && r.count==synthetic_entries && !r.truncated);
+        assert(batch_calls==expected);
+        for(unsigned i=0;i<r.count;i++)assert(entries[i].inode==i+100);
+    }
+
     /* A populated listing takes bounded metadata batches, not one gate wait
      * for each readdir and another for stat. Preserve all fields and limits. */
     synthetic_entries=130;synthetic_at=batch_calls=0;perform(&q,&r);
-    assert(!r.status && r.count==130 && batch_calls==10 && !r.truncated);
+    assert(!r.status && r.count==130 && batch_calls==9 && !r.truncated);
     for(unsigned i=0;i<r.count;i++)assert(entries[i].inode==i+100 && entries[i].directory==i%2 && entries[i].size==i*5 && entries[i].modified==1234);
     synthetic_entries=DESK_FILE_ENTRIES+1;synthetic_at=batch_calls=0;perform(&q,&r);
     assert(!r.status && r.count==DESK_FILE_ENTRIES && r.truncated && batch_calls==17);

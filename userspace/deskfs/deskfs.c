@@ -117,7 +117,10 @@ static void perform(const struct desk_file_request *q,struct desk_file_response 
             while(!done) {
                 long count=srv_directory(SRV_DIRECTORY_READ_INFO,fd,batch,sizeof(batch));
                 if(count<0 || count>SRV_DIRECTORY_BATCH_MAX){r->status=DESK_FILE_IO;break;}
-                if(!count)break;
+                /* READ_INFO fills the supplied batch or reaches EOF. A short
+                 * terminal batch needs no second gated syscall just to learn
+                 * EOF again; accepted entries still undergo every check below. */
+                done=count<SRV_DIRECTORY_BATCH_MAX;
                 for(long i=0;i<count;i++) {
                     const struct srv_dirent_info *info=&batch[i];const struct srv_dirent *entry=&info->entry;
                     if(!memchr(entry->name,0,sizeof(entry->name)) || entry->type>1){r->status=DESK_FILE_IO;done=1;break;}
