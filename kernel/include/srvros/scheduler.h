@@ -67,6 +67,7 @@ bool scheduler_io_yield(void);
 bool scheduler_io_wait_timeout(struct scheduler_wait_queue *queue,
     scheduler_wait_condition_fn condition,void *arg,uint64_t deadline_ticks);
 void scheduler_io_wait(void);
+void scheduler_io_syscall(uint64_t number);
 /* A nonblocking operation deferred by another I/O owner requests a later
  * quiescent turn without blocking, waking sleepers or widening eligibility. */
 void scheduler_io_request_turn(void);

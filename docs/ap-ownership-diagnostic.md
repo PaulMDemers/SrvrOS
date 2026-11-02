@@ -500,3 +500,236 @@ verified byte overlap and allow full-stream diagnostic review, but reconstructio
 is not a substitute for the existing exit-only acceptance requirement. Do not
 increase the tail, suppress failures or relax strict parsers to accept this run.
 See the unit record's November 1 closeout for the exact session and hashes.
+
+
+### Final-only CPU and AP acceptance receipts
+
+The CPU-load diagnostic now retains three fixed-size records of completed
+phase start/end, work chunks and checksum. Live one-second progress and phase
+completion remain visible under `cpu-load-progress` where applicable. Only after
+all three phases and original safety checks succeed does it emit the existing
+`cpu-load` version/phase receipts once, using retained sampling times rather
+than reporting time. Refusal or stop keeps its original failure marker and
+partial progress and emits no successful phase receipt set.
+
+AP startup similarly freezes the validated VM/native, CPU count, BSP, mask and
+MONITOR method before publishing startup. It emits live `ap-owner-progress`,
+then the original admission header once at retirement before actual per-CPU
+results. Failed retirement remains failed; the header describes admission and
+never implies success. AP assembly, polling, ownership, limits and failure paths
+are unchanged. Strict legacy parsers are unchanged and still reject progress
+without full final receipts, duplicate/malformed data and all prior failures.
+
+This places the original proofs alongside already-deferred power/idle and
+C3/package/platform reports. It leaves the shared logger, worker/I/O-owner
+output, 64 KiB tail, timing, workload, hardware access and RC6 predicate intact.
+`check_cpu_capture_tail.py` verifies exact logger/scheduler source fingerprints
+against a named trace revision before replay. Its optional final-layout model
+moves only existing records and is explicitly synthetic, never physical
+acceptance. The failed November 1 stream is the local integration fixture:
+old exit coverage fails; final placement preserves all critical record bytes,
+with 128 KiB extra pre-final chatter and 29,813 bytes of conservative receipt
+width/capacity padding. Retained samples, rows and all original strict checks
+remain required. Negative fixtures preserve failures. Repeat the regression
+when logging source changes instead of assuming an older trace is representative.
+
+```sh
+make test-cpu-receipt-tail
+python3 tools/check_cpu_capture_tail.py --log PATH_TO_FULL_TRACE   --log-source-ref TRACE_SOURCE --model-final-layout --output REPLAY_RESULT_JSON
+```
+
+Use modeling only for regression evidence. A native retry must pass its original
+exit-file checks directly, without replay or joining periodic files. Keep the
+independent RC6 failure separate from receipt coverage. Progress, samples and
+collector errors must survive a failed retry; no acceptance limit is relaxed.
+
+
+The native Air6,1 retry on release `98bced62ca7be424` accepts final-receipt
+retention: all original workload/AP/power/idle/C3/package/display proofs parse
+directly from its unchanged 64 KiB exit log, without reconstruction or modeling.
+The overall trial remains failed on the unchanged RC6 bound (about 94.279 ms
+nominal excess over 90.048 seconds). Coordinated rounds and AP retirement pass;
+package C3 is still zero. See the unit record for exact source/session/hashes.
+This closes receipt coverage only; it neither resolves RC6 semantics nor
+establishes that the BIOS display-well request causes the C3 block.
+
+
+## Display-resource ownership audit (Air6,1, 2026-11-01)
+
+The native request receipts establish that firmware's BIOS request is set at
+both endpoints. They do not describe the resources it protects. The source
+audit below uses Linux **v7.0** and SrvrOS integration base `a6b9e1b7`; it adds
+no native register reads, driver takeover or power transition.
+
+### Existing SrvrOS ownership
+
+`kernel/src/main.c` passes the first Limine framebuffer to `console_init`.
+`kernel/src/console.c` and the graphics syscalls in
+`kernel/src/arch/x86_64/syscall.c` present pixels through that inherited linear
+buffer. The current tree has no complete Haswell pipe/plane/transcoder/DDI
+state adoption, display-domain reference tracking or safe well-release sequence.
+The existing brightness path and isolated read-only platform pages do not
+supply that ownership model.
+
+Pinned Limine binary `5be26a73` is release v11.4.1; its corresponding
+[source tag](https://github.com/limine-bootloader/limine/tree/v11.4.1), commit
+`1276c440`, publishes the framebuffer and calls `efi_exit_boot_services` before
+kernel entry. That service exit is a boot-environment handoff, not evidence that
+Intel display requests, scanout or DMA have been retired. No firmware call or
+OpRegion/SWSCI/ASLE transaction is proposed here. SrvrOS continues using the
+inherited display.
+
+### What the Linux sequence actually establishes
+
+[Haswell well synchronization](https://github.com/torvalds/linux/blob/v7.0/drivers/gpu/drm/i915/display/intel_display_power_well.c)
+sets the driver request before clearing a set BIOS request. This preserves the
+request while transferring its source; copying only the BIOS-clear write would
+omit that protection. Linux separately tracks users and releases its driver
+request through its power-domain lifecycle.
+
+[Display power initialization and sanitization](https://github.com/torvalds/linux/blob/v7.0/drivers/gpu/drm/i915/display/intel_display_power.c)
+hold an INIT reference while firmware-enabled resources are read out. Unused
+wells are considered for disabling after pipe/encoder state has been sanitized
+and active users have acquired references. SrvrOS does not currently reproduce
+that sequence. This audit therefore does not authorize even a temporary
+request transfer or a firmware-request clear.
+
+The [Haswell global-well domain map](https://github.com/torvalds/linux/blob/v7.0/drivers/gpu/drm/i915/display/intel_display_power_map.c)
+covers pipes B/C, panel fitters A/B/C, transcoders A/B/C, DDI lanes B/C/D,
+CRT/VGA and audio MMIO/playback. Pipe A, transcoder eDP and DDI A are outside
+that switchable list. Thus an active internal panel need not alone explain
+this well request; an enabled panel fitter or other dependent resource would
+matter. This is a dependency distinction, not proof that this unit can release
+the well or enter package C3.
+
+The earlier Ubuntu cached observation shows pipe A, eDP-1, primary/cursor A,
+no other active CRTC and zero cached display-well users. That observation is
+post-i915 state, not SrvrOS firmware routing or a hardware-off receipt. In
+particular, the eDP transcoder can select different input pipes;
+[DDI hardware readout](https://github.com/torvalds/linux/blob/v7.0/drivers/gpu/drm/i915/display/intel_ddi.c)
+uses its eDP input selection and holds references to already-enabled domains
+before reading dependent resources. Do not infer native pipe A from panel size
+or the Ubuntu observation.
+
+### Bounded next capture contract
+
+The next implementation should be a separate explicit, exact-Air6,1 read-only
+endpoint inventory alongside the existing platform diagnostic. Before adding
+MMIO, review an exact Haswell register/page allowlist for these resource groups:
+
+| Group | Required observation |
+| --- | --- |
+| Inherited framebuffer | Geometry/pitch/format; preserve existing presentation ownership |
+| Transcoders A/B/C/eDP | Enable/state, DDI selection/mode and eDP input routing |
+| Planes and cursors A/B/C | Enable/mode controls; no framebuffer-pixel or backing-memory dump |
+| Panel fitters A/B/C | Enable and input-pipe selection |
+| DDI A–E and VGA | Buffer enables, relevant routing, VGA disable state |
+| Display audio and interrupts | Read-only enable/mask context where validated; no status acknowledgement |
+
+These are candidate groups, **not a blanket register access allowlist**. Offsets,
+Haswell-specific masks, read side effects and powered-domain accessibility must
+be checked before implementation. In particular, the
+[Gen6/7 forcewake range](https://github.com/torvalds/linux/blob/v7.0/drivers/gpu/drm/i915/intel_uncore.c)
+ending at `0x3ffff` says nothing by itself about accessibility when a display
+power domain is off. Do not wake a domain just to inspect it. Revalidate GPU
+identity, BAR, D0/memory decode and required well state around bounded dependent
+reads; skipped/inaccessible data must remain explicit unknowns, never decoded
+as disabled. Endpoints remain non-atomic observations.
+
+Use read-only/NX/cache-disabled private mappings and fixed storage, outside
+RC6 brackets, power hooks and measured C3 rounds. Retain firmware requests and
+all original phase, latency, watchdog, integrity and strict RC6 checks. Emit
+versioned raw final receipts and parse the resource observation independently
+of the unresolved RC6 predicate. Require malformed/missing/duplicate/all-ones,
+wrong-profile, mapping-failure and off-domain refusal coverage plus current-source
+64 KiB tail regression and exact-stage VM validation before native use.
+
+Even complete endpoints would inventory possible dependencies, not prove a
+causal package-C3 blocker, safe DMA teardown, physical display continuity between
+reads or permission for a well/D-state/link transition. RC6 clock semantics,
+package C3 and any later control experiment remain separate work.
+
+
+## Version-5 bounded display-control capture
+
+The explicit exact-Air6,1 platform recipe now retains 26 raw controls at each
+of its two endpoints. This first inventory excludes display audio/interrupts,
+OpRegion, pixel/backing-memory dumps and control writes. Existing boot logs
+retain framebuffer geometry; controls cannot alone prove the scanout address
+or safe teardown. Ordinary boot and the sparse power hook remain unchanged.
+
+The fixed read allowlist is in `display_resource_audit.h`. Offsets come from
+Linux v7.0 `intel_display_regs.h`, `i9xx_plane_regs.h`, `intel_sprite_regs.h`,
+`intel_cursor_regs.h`, `intel_pfit_regs.h`, `intel_vga_regs.h`, with Haswell
+pipe/transcoder/cursor offsets from `intel_display_device.c`:
+
+| Controls | BAR0 offsets (hex) |
+| --- | --- |
+| Transcoder config A/B/C/eDP | 70008, 71008, 72008, 7f008 |
+| Transcoder DDI function A/B/C/eDP | 60400, 61400, 62400, 6f400 |
+| Primary planes A/B/C | 70180, 71180, 72180 |
+| Sprite planes A/B/C | 70280, 71280, 72280 |
+| Cursor controls A/B/C | 70080, 71080, 72080 |
+| Panel fitters A/B/C | 68080, 68880, 69080 |
+| DDI buffer controls A–E | 64000, 64100, 64200, 64300, 64400 |
+| CPU VGA control | 41000 |
+
+These are control readbacks, not interrupt status, AUX transactions or data
+ports. Linux hardware-readout uses the same control classes. The Haswell display
+PRM's Display Power Well description (PDF page 189) specifies zero readback for
+powered-down resources. Such zeroes cannot prove disabled hardware. The capture
+therefore requires all four existing well-status views enabled before dependent
+reads, then checks them again and requires exact pre/post values to match.
+GPU identity, BAR, memory decode and D0 are also revalidated before/after the
+bounded reads. These non-atomic observations cannot exclude an intervening SMI
+or firmware transition; no lock or firmware ownership is inferred.
+
+Only unique pages containing the fixed allowlist are mapped at private addresses
+starting `0xffffc001f3210000`, with the existing read-only/NX/cache-disabled flags.
+Every destination is checked before any page is installed. Partial map failures
+are retained unused until reset. The producer has no writable MMIO alias and
+reads only the fixed controls. Off domains are explicit state 2 with zero attempted reads and zero raw
+placeholders which are never decoded; identity/access changes, all-ones or changed well state are state 3. Both
+make the overall capture incomplete rather than producing successful zero data.
+The report preserves partial raw reads and the failed source marker.
+
+`ap-platform-resources` carries phase, validity state, PM bracket, read count and
+pre/post well controls. Fixed-order `ap-platform-resource` records bind all 26 raw values
+to the versioned exact-offset table above. The independent `platform_resources_result`
+requires both endpoints and rejects duplicates, missing/unlisted/out-of-order
+records, bad counts, all-ones, invalid access and brackets. It reports explicit
+unavailable data without decoding it as disabled. Decoding retains raw fields;
+eDP input selection is separate from the port-selection bits ignored by that
+transcoder. Reserved encodings remain numbers, not assumed routes.
+
+Version-5 overall acceptance requires a valid complete resource observation in
+addition to every previous strict check, including the original RC6 bound.
+The independent observation can survive an RC6 failure without accepting the
+platform trial. Current-source tail regression must retain all 52 raw control values in two records, both headers and every original proof in 64 KiB with maximum-width/capacity
+padding and pre-final chatter. No tolerance, phase, attempt, latency, ownership
+or integrity requirement changes. Native acceptance remains pending a matched
+physical return; enabled controls alone cannot identify a causal C3 blocker.
+
+
+### Native version-5 observation
+
+Air6,1 source `78fbea3c`, release `6ac139e77c5d3070`, records both complete
+26-control endpoints with identical raw values, valid access brackets, zero
+source faults and unchanged pre/post BIOS well request. The actual 64 KiB exit
+log directly retains every original proof and the new controls; no reconstruction
+or synthetic data is used for this native observation.
+
+The eDP transcoder selects pipe A, primary A and DDI A are enabled, and the
+other sampled primary/sprite/cursor/fitter/DDI enable fields and VGA are disabled.
+The BIOS request remains set. This inventory narrows the missing routing data;
+it does not prove the switchable well unused. Display audio/interrupts, remaining
+firmware dependencies and safe ownership/teardown are still unmeasured. Do not
+release the request based on these controls alone.
+
+The overall platform trial remains failed on the original RC6 bound: about
+98.739 ms nominal excess over a 90.051-second PM bracket (0.1096%); package C3
+remains zero despite 32 successful bounded core-C3 rounds. See the unit record
+for exact session/hash and USB/recovery checks. Newly merged PR261 changes the
+scheduler/logger baseline after this trial; its integration needs fresh local
+validation and source-matched tail coverage before another candidate. None of
+this promotes an older logging trace or sibling-machine result to new acceptance.

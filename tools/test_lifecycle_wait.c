@@ -25,6 +25,12 @@ static atomic_uint launch_logs,hold_launch_log;
 static atomic_uint reap_calls,hold_reap;
 static atomic_uint prepare_calls,hold_prepare;
 static void nap(void);
+static atomic_uint console_calls,hold_console;
+static void srv_puts(const char *text) {
+    assert(!pthread_equal(pthread_self(),ui_thread) && !strcmp(text,"retained UI log\n"));
+    atomic_fetch_add(&console_calls,1);
+    while(atomic_load(&hold_console))nap();
+}
 static atomic_uint kill_calls,hold_kill,kill_logs;
 static long srv_kill(int64_t pid) {
     assert(pid==55 && !pthread_equal(pthread_self(),ui_thread));
@@ -118,6 +124,18 @@ int main(void) {
     life_queue(&w,&w.memory[0].discard,1);await_state(&w.memory[0].state,LIFE_RETIRED);assert(atomic_load(&frees)==1);
     struct loop_trace trace={1};struct operation_trace op={7};assert(life_report_submit(&w,&trace,&op));
     await_count(&reports,1);await_state(&w.report_state,LIFE_IDLE);
+    /* A real stalled consumer retains its slot. The UI can fill the bounded
+     * ring without waiting, cannot overwrite the emitting record, and recovers
+     * after the sink resumes. Empty-queue/wakeup semantics remain unchanged. */
+    atomic_store(&hold_console,1);assert(life_log_submit(&w,"retained UI log\n"));
+    await_count(&console_calls,1);
+    for(unsigned n=1;n<LIFE_LOG_SLOTS;n++)assert(life_log_submit(&w,"retained UI log\n"));
+    assert(!life_log_submit(&w,"overflow\n") && w.log_dropped==1);
+    assert(life_state(&w.logs[0].state)==LIFE_QUEUED && !strcmp(w.logs[0].text,"retained UI log\n"));
+    atomic_store(&hold_console,0);await_count(&console_calls,LIFE_LOG_SLOTS);
+    await_state(&w.logs[LIFE_LOG_SLOTS-1].state,LIFE_IDLE);
+    assert(life_log_submit(&w,"retained UI log\n"));await_count(&console_calls,LIFE_LOG_SLOTS+1);
+    await_state(&w.logs[0].state,LIFE_IDLE);
     atomic_store(&hold_reap,1);assert(life_reap_submit(&w,77));await_count(&reap_calls,1);
     assert(life_state(&w.reap[0].state)==LIFE_RUNNING);
     assert(w.reap[0].queued_us && w.reap[0].begin_us>=w.reap[0].queued_us);

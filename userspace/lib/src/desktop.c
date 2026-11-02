@@ -27,14 +27,12 @@ int desk_receive(uint64_t *source, struct desk_packet *packet) {
     return 1;
 }
 int desk_process_alive(uint64_t pid) {
-    uint64_t index=0;
+    if(!pid || (pid&SRV_PROC_LIST_BY_PID))return 0;
     struct srv_process_info info;
-    while ((index=(uint64_t)srv_proc_list(index,&info))!=0) {
-        if (index==(uint64_t)-1) break;
-        if (info.pid==pid) return info.state[0] && strcmp(info.state,"exited")!=0;
-    }
-    return 0;
+    long result=srv_proc_list(SRV_PROC_LIST_BY_PID|pid,&info);
+    return result>0 && info.pid==pid && info.state[0] && strcmp(info.state,"exited")!=0;
 }
+
 uint32_t *desk_pixels_alloc(uint32_t width, uint32_t height) {
     if (!width || !height || width>3840 || height>2160) return 0;
     void *p=mmap(0,(size_t)width*height*4,PROT_READ|PROT_WRITE,
