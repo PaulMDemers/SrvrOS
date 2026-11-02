@@ -17,8 +17,14 @@ source tree. Local fixes from the 2026-11-02 audit are:
   the host installation callback, including duplicate DSDT entries. Required
   FACS/DSDT installation errors continue to abort initialization.
 
-Real-source host regressions are `test-uacpi-namespace-root` and
-`test-uacpi-table-install`. These narrow patches do not broaden the adapters'
+- Decode GAS access-size encodings as powers of two and map/unmap the full
+  aligned access span (`source/io.c`). Empty or oversized register descriptions
+  are refused before width arithmetic. This preserves the existing FADT-width
+  preference and SystemIO 32-bit access cap. Encoding follows
+  [ACPI 6.6, Table 5.1](https://uefi.org/specs/ACPI/6.6/05_ACPI_Software_Programming_Model.html).
+
+Real-source host regressions are `test-uacpi-namespace-root`,
+`test-uacpi-table-install` and `test-uacpi-gas`. These narrow patches do not broaden the adapters'
 firmware or hardware permissions.
 
 The first adapter is `tools/acpi_namespace_probe.c`, a single-threaded offline

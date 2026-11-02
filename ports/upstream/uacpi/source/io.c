@@ -829,7 +829,7 @@ static uacpi_u8 gas_get_access_bit_width(const struct acpi_gas *gas)
         UACPI_IS_ALIGNED(gas->register_bit_width, 8, uacpi_u8)) {
         access_bit_width = gas->register_bit_width;
     } else if (gas->access_size) {
-        access_bit_width = gas->access_size * 8;
+        access_bit_width = 8 << (gas->access_size - 1);
     } else {
         uacpi_u8 msb;
 
@@ -885,9 +885,13 @@ static uacpi_status gas_validate(
         return UACPI_STATUS_UNIMPLEMENTED;
     }
 
-    *access_bit_width = gas_get_access_bit_width(gas);
-
     total_width = gas->register_bit_offset + gas->register_bit_width;
+    if (uacpi_unlikely(gas->register_bit_width == 0 || total_width > 64)) {
+        uacpi_warn("invalid GAS register total width: %zu", total_width);
+        return UACPI_STATUS_UNIMPLEMENTED;
+    }
+
+    *access_bit_width = gas_get_access_bit_width(gas);
     aligned_width = UACPI_ALIGN_UP(total_width, *access_bit_width, uacpi_size);
 
     if (uacpi_unlikely(aligned_width > 64)) {
@@ -995,13 +999,16 @@ uacpi_status uacpi_map_gas_noalloc(
 {
     uacpi_status ret;
     uacpi_u8 access_bit_width, total_width;
+    uacpi_size mapping_size;
 
     ret = gas_validate(gas, &access_bit_width, &total_width);
     if (ret != UACPI_STATUS_OK)
         return ret;
 
+    mapping_size = UACPI_ALIGN_UP(total_width, access_bit_width, uacpi_size) / 8;
+
     if (gas->address_space_id == UACPI_ADDRESS_SPACE_SYSTEM_MEMORY) {
-        out_mapped->mapping = uacpi_kernel_map(gas->address, total_width / 8);
+        out_mapped->mapping = uacpi_kernel_map(gas->address, mapping_size);
         if (uacpi_unlikely(out_mapped->mapping == UACPI_MAP_FAILED))
             return UACPI_STATUS_MAPPING_FAILED;
 
@@ -1009,7 +1016,7 @@ uacpi_status uacpi_map_gas_noalloc(
         out_mapped->write = uacpi_system_memory_write;
         out_mapped->unmap = uacpi_kernel_unmap;
     } else { // IO, validated by gas_validate above
-        ret = uacpi_kernel_io_map(gas->address, total_width / 8, &out_mapped->mapping);
+        ret = uacpi_kernel_io_map(gas->address, mapping_size, &out_mapped->mapping);
         if (uacpi_unlikely_error(ret))
             return ret;
 
@@ -1048,7 +1055,9 @@ uacpi_status uacpi_map_gas(
 
 void uacpi_unmap_gas_nofree(uacpi_mapped_gas *gas)
 {
-    gas->unmap(gas->mapping, gas->access_bit_width / 8);
+    gas->unmap(gas->mapping, UACPI_ALIGN_UP(
+        gas->total_bit_width, gas->access_bit_width, uacpi_size
+    ) / 8);
 }
 
 void uacpi_unmap_gas(uacpi_mapped_gas *gas)

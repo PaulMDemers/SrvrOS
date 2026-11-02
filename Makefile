@@ -3185,6 +3185,14 @@ build/tests/uacpi-table-install-host$(HOST_EXE): tools/test_uacpi_table_install.
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I ports/upstream/uacpi/include $< -Wl,--gc-sections -o $@
 
+.PHONY: test-uacpi-gas
+test-core: test-uacpi-gas
+test-uacpi-gas: build/tests/uacpi-gas-host$(HOST_EXE)
+	$<
+build/tests/uacpi-gas-host$(HOST_EXE): tools/test_uacpi_gas.c $(UACPI_SRC) $(UACPI_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I ports/upstream/uacpi/include $< ports/upstream/uacpi/source/stdlib.c -Wl,--gc-sections -o $@
+
 .PHONY: test-make-bootstrap
 test-make-bootstrap:
 	$(PYTHON) -m unittest discover -s tools -p test_make_bootstrap.py
