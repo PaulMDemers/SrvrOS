@@ -37,7 +37,35 @@ compatible hardware. Local credentials remain private and unused until the
 security stage. Do not report connection-ready until authentication, data
 exchange and clean disconnect actually pass.
 
-## Ready native candidate — channel161 frequency fields and restoration
+## v110 cold channel161 frequency-field transaction accepted
+
+Source `ff5b4c65`, release `960af51da95c68fd`, session
+`session-00065f51cc726e7c-00` passes the complete403219-byte prefix proof:
+common initialization, all1667 ordered operations, channel161 masked fields,
+independent13-word selected/original inventories and four band-word restoration.
+All17 touched words return to their original values; zero network frames.
+Matching source/release/session, all payload/recovery bytes, offline fsck and
+allocation and automatic Ubuntu return pass. Durable archive
+`wifi-5ghz-synth-ff5b4c65` retains81 sealed files; no reboot remains armed.
+This accepts programming/readback/restoration, not VCO lock, RF reception,
+authentication or data transfer. The earlier warm refusal remains separate.
+
+## Next bounded scope — complete high-band prerequisite inventory
+
+Before high-band/20MHz writes, capture all24 fixed RF targets from the pinned
+channel161 A20 table after the accepted v110 transaction restores its words.
+Many bank6/7 targets are absent from the common initialization tables, so do
+not invent their reset values or copy a Linux configured-radio snapshot.
+Read every target with exact MCU identity, MAC/core/DMA guards and a static
+one-shot owner; add no new RF writes or network frames. Record complete
+source-bound observations for the subsequent fixed admission/restore contract.
+Touch only Wi-Fi MCU inventory/native dispatch, automatic staging, strict
+saved-log checks and this unit/Wi-Fi guide. PR252/272 remain independent; main
+is still `c9235491`. Validate transport/cancellation/mutation/no-replay paths
+and exact-stage save/return before installation. Cold unplug trials still use
+shutdown under the user's standing authorization.
+
+## v110 candidate validation and handoff history
 
 Installed v110 `960af51da95c68fd`, source `ff5b4c65`, main `c9235491`,
 adds the fixed channel161 frequency-field transaction inside selected5GHz
