@@ -1975,3 +1975,12 @@ competing-waiter checks. A diagnostic kernel passed the first orphan iteration
 and timed out in the second after ten seconds with both the launcher and its
 new child present. The cause of the scheduling delay remains open. The serial
 transcripts for these runs are also in `build/review/rights-cycles/`.
+
+## Orphan launcher progress and pipe buffer mappings
+
+Starting at `de44716f` on PR252, with main at `c9235491`, trace progress
+while the lifetime monitor waits for its orphan launcher. Test scalar and
+vectored pipe I/O across mapping changes during a wait. The checkpoints are
+the standalone lifetime guest, deterministic pipe tests and a matched QEMU
+threadstress run. PR272 also touches I/O admission for directory and PCM
+operations. Keep those paths with their existing owner.
