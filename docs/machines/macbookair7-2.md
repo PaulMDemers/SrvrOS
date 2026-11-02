@@ -2,7 +2,34 @@
 
 Updated: 2026-11-02. State: **active reference machine; partial device acceptance**.
 
-### Files drain and PCM signal fixes: ready for native endurance
+### PR272 native endurance: full pass
+
+Release `c497eb0cb48c1b01` / clean source `ca66d874`, session
+`session-00065f521be13cdd-00`, passes the full1800-second automatic trial at1%
+volume:999 completed app lifetimes, three decoded1440×900 screenshots,
+345829376PCM bytes and zero underruns. Matching whole saved text and separate
+binary disk receipts show2793 bursts/732168192 verified bytes spanning1797452469us
+inside live PCM. The full nominal PCM minimum and bounded completion extension
+remain intact. UI112285us, ready4303178us and Close6759999us meet unchanged500ms
+UI/10s whole-lifetime limits. Final whole lifecycle/operation/cleanup proofs
+validate; UI logs drain with zero dropped/pending, cache retires0bytes/0retained/
+824reuses, battery runtime retires, and automatic Ubuntu return succeeds.
+
+All1304 prior files are preserved except expected metadata; nine new files are
+copied and hash-verified. Offline fsck is clean,289directories/1313files;
+allocation/writable/headroom, recovery/default and consumed one-shot checks pass.
+USB is remounted. The payload is independently preserved as known-good; recovery
+9aa and prior accepted62ed/7d remain retained. All earlier failures remain failed.
+This accepts the named automated workload only, with no new physical input,
+audible routing, gauge calibration, SMP or sibling acceptance. Retained storage
+mutations/gate waits still reach6.658seconds; not all latency is eliminated.
+
+Evidence in `build/air-files-drain-20261102/` is backed up outside `build`.
+PR272 needs review/refresh against newly advanced main `88c56afa` and affected
+local integration checks before merge. No new test is armed. The next section
+preserves pretrial readiness and exact host/VM sources as historical evidence.
+
+### Files drain and PCM signal fixes (historical): pretrial readiness
 
 Clean source `ca66d874`, based on main `95ddb8d6`, is staged as
 `c497eb0cb48c1b01`. Files listing now terminates on a short READ_INFO batch,

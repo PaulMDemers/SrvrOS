@@ -51,6 +51,14 @@ completion, full nominal duration, bounded extension, malformed/EOF failure and
 complete child/descriptor cleanup. This does not relax underrun acceptance or
 change the kernel's rights-bearing/duplex cleanup policy.
 
+Air7,2 release `c497eb0cb48c1b01` / source `ca66d874` subsequently passes the
+full1800-second native automatic workload:999 app lifetimes, three screenshots,
+zero underruns/log loss, clean retirement and independent USB integrity checks.
+UI112285us, ready4303178us and Close6759999us meet the unchanged limits. This
+accepts that named workload; multi-second storage waits and separate physical
+input/audible/SMP acceptance remain outside this result. See the
+[unit record](machines/macbookair7-2.md) for exact evidence and earlier failures.
+
 ## Repeat the local gates
 
 Use one checkout and one build/VM harness at a time. The scripts share output
