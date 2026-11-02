@@ -27,7 +27,7 @@ static uint32_t platform_test_resource_read(unsigned off) {
 static uint32_t platform_test_dependency_read(unsigned off) {
     static const unsigned expected[]={0x650c0,0x65000,0x65100,0x65200,0x44004,0x4400c,0xc4004,0xc400c};
     assert(off==expected[dep_reads%8]);dep_reads++;dependency_after_read();
-    return dep_bad==dep_reads?0xffffffffu:off==0x44004 || off==0xc4004?0xffffffffu:0;
+    return dep_bad==dep_reads?0xffffffffu:off==0x44004 || off==0xc4004?0xffffffffu:off;
 }
 #define SRVROS_PLATFORM_HOST_TEST
 #include "../kernel/diagnostics/platform_audit.c"
@@ -168,6 +168,10 @@ int main(void) {
         if(j==5 || j==6)assert(dep_reads==8 && dependencies[0].state==3);
         well_drop_at=0;pci_config[1]|=2;
     }
+    dep_seen=0;dep_reads=0;dep_bad=0;dep_change_pch=0;dep_mapped=true;fault=0;
+    pch_config[0]=0x9c438086;pch_config[2]=0x06010000;lpc.device=31;well_value=0x40000000;
+    dependency_snapshot(0);dependency_snapshot(1);
+    assert(dependencies[0].state==1 && dependencies[1].state==1 && dep_reads==16);
     (void)platform_audit_report();assert(dependency_reports==2);
     puts("platform-sample: PASS exact read-only mappings/refusals, endpoint well bounds/all-ones, sparse hook isolation, ordered reads and capacity");
 }
