@@ -91,19 +91,18 @@ console/basic-keyboard/bounded-USB payload; preserve it as recovery.
 
 ## Current objective and next actions
 
-Base `e339b9a8`. Complete the host-only Linux/SrvrOS package-C3 prerequisite
-comparison, reusing the existing PCI decoder and known-supported MSR reads.
-The final November 1 section and current AP guide record repeated 25-device
-matches, equal CPU/ASPM/LTR settings, and differing D-state/common-clock fields.
-No runtime, hardware allowlist, policy or boot payload changed. PR261 desktop
-admission, PR252 sockets and PR19 Wi-Fi remain separate work.
+Prepare the validated read-only display power-well trial, based on `71686249`.
+Final source `dff1f18f`, candidate `c6fd6d4c55a57566`, passes matched build/core,
+receipt/isolation and twelve VM checks. Scope is isolated endpoint reads and
+observation parsing; no ordinary runtime policy, per-round work or limits change.
+PR261 desktop admission, PR252 sockets and PR19 Wi-Fi remain independent.
 
-Next bounded native work is a validated read-only display/power-well snapshot
-alongside the existing C3 attempts, since that half of the comparison is missing.
-D-state/link transitions first need driver/DMA/interrupt/teardown ownership
-analysis. Preserve the unresolved RC6 predicate and original bounds. Installed
-release `0804f2944e9364d3` remains distinct from the current checkout. No reboot
-is armed; rebuild and validate matched artifacts before a new physical trial.
+After the unattended boot returns, collect this exact release/session before
+another run. Review independent `display-well.json` even if the original RC6
+predicate still fails; missing markers or reads are failures/incomplete evidence.
+The local run record owns installed/armed/returned state and recovery hashes.
+Native acceptance and the causal package-C3 blocker remain pending. Device/link
+policy experiments still require separate ownership analysis.
 
 ### Historical battery-runtime objective (2026-10-23)
 
@@ -5553,3 +5552,39 @@ PR252 sockets and PR19 Wi-Fi do not overlap these runtime files. Validate
 source semantics, mapping/refusal and receipts, full matched build/core and
 exact-stage VM before install. Prepare the unattended native trial with visible
 progress and automatic save/Ubuntu return, preserving known-good recovery.
+
+
+### Display-well candidate validated (2026-11-01)
+
+Final compiled source `dff1f18f`, release `c6fd6d4c55a57566`, adds the four
+Haswell display-well endpoint reads with exact model admission and D0 rechecks
+before both MMIO endpoints. Version-4 receipts retain BIOS/driver/KVM/debug
+request/status values and separate PM brackets. The independent observation
+parser saves useful display evidence even if the original RC6 timing predicate
+still fails. There is no power-control, forcewake/PCODE or measured-round change.
+
+Matched ordinary/AP build, USB image, full core/docs suite and isolation/
+disassembly checks pass. All nine directed/exact-stage VM cases and three
+legacy profiles pass on this final candidate. Focused tests cover occupied
+addresses, partial-map failures, read-only/NX/cache flags, D0/D3/missing-PM/
+malformed/absent-device refusal, bounded ordered endpoint reads, all-ones data,
+missing/duplicate/misordered receipts and observations retained on RC6 failure.
+Sparse checkpoints never read display wells. Maximum-width replay with 25 PCI
+rows, 12 series pairs, both well endpoints and durability padding preserves all
+original proofs inside the unchanged 64 KiB tail (7,037 added bytes).
+Earlier pre-D0-recheck VM receipts remain separate and are not substituted for
+final-candidate validation. These checks do not physically accept the new reads.
+
+The unattended trial retains 30-second idle/load/recovery phases, 32 coordinated
+attempts, 20 ms limits and HLT fallback. It shows progress, saves observations
+and returns to Ubuntu for automatic collection. No human input is required;
+keep AC and this unit's USB connected. The 558-file / 1,615-cluster baseline,
+exact-stage receipt, manifest and durable payload/evidence are bound in the
+local run record. Console recovery `c35475f62f154f1e` and accepted package
+payload `bae0678ed7e9b38b` remain protected. Retire the failed RC6 candidate's
+EFI copy only after durable verification and normal installer fallback.
+
+PR264 owns this isolated diagnostic. Native results, hardware well state and
+the package-C3 blocker remain pending the matching physical return. An enabled
+well or a firmware request is not permission to clear it. Keep the unresolved
+RC6 predicate, device ownership/teardown requirements and all limits intact.
