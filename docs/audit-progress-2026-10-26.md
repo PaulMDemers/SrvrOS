@@ -204,3 +204,22 @@ This checkpoint is separate from the completed event-adapter target.
 The documented, regression-tested **bounded event adapter profile** is complete.
 Unsupported capabilities are explicitly rejected or identified above. This is
 not complete Linux API parity or certification of the entire OS.
+
+
+## Repository-wide review checkpoint, November 2
+
+The [current coverage ledger](audit-coverage-2026-11-02.md) accounts for every
+one of the 1,618 entries tracked at `dc0a3fef`. It adds whole-tree compiler,
+analyzer, Python, shell, ASL and documentation screening to the earlier focused
+audits. It records the depth and gaps for each cohort. Whole-tree screening is
+complete; exhaustive manual and runtime coverage remains open.
+
+The current fixes cover PTY mapping/descriptor lifetime, guarded syscall copies
+and network transfer commits, user-fault containment and exit admission, ELF and
+initramfs bounds, high-memory frame tags, libc arithmetic, UV ownership,
+selected utility errors, shell arithmetic/short-circuit parsing, tracked uACPI
+namespace/table/register handling and boot/image tooling. See the
+[kernel](audit-kernel-2026-11-02.md),
+[userland](audit-userland-2026-11-02.md),
+[tooling](audit-tooling-2026-11-02.md) and
+[integration](audit-integration-2026-11-02.md) reports for evidence and limits.

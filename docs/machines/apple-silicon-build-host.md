@@ -2022,3 +2022,71 @@ and documentation. Review source by subsystem and record verification depth
 and external dependencies. Start with PTY transfer mappings and descriptor
 reuse on both ends. This checkout owns the emulated guest and host checks.
 PR272 covers directory EOF and PCM admission and PR19 covers USB Wi-Fi.
+
+
+### Whole-tree audit integration result
+
+The combined candidate fixes the remaining reviewed syscall buffer races,
+including network receives and transmits, file/PCM access and console copies.
+Against the pre-change `dc0a3fef` kernel with the new netabi test disk, unmapping
+a blocked UDP destination faults in kernel `copy_bytes` at `net.c:282`.
+The rebuilt guest returns a fault and preserves the datagram. Invalid peer
+metadata leaves all output untouched, and replacing a descriptor while an alias
+remains live preserves both endpoints' queued data. PTY tests cover scalar and
+vectored mappings, partial writes and both ends of descriptor replacement.
+
+User faults now terminate the affected process. Sysabi checks an unmapped
+write, a worker invalid instruction and a delayed fault after the initial thread
+calls pthread_exit. Process teardown reacquires storage admission on every exit
+entry. Additional fixes cover PMM tags above 8 GiB, ELF and initramfs bounds,
+libc allocation/integer parsing, libuv completion/async ownership, utility error
+paths, boot payload verification and FAT image sizing.
+
+A full native ARM64 cross-build passed. Nine sequential disposable x86_64
+guests passed sysabi, netabi, full threadstress, libc, the local UV bridge,
+upstream libuv, process lifetime, CLI and staged ports. Lifetime completed four iterations with
+512 child launches and 64 competing waiter pairs. The final isolated Linux
+GCC 14 `test-core` run passed all 173 direct targets, including 385 reported
+Python unittest cases in 53 groups. The additional 30-case offline namespace
+suite also passed (415 cases across the combined run). The expanded user-copy
+fixture is included and also passed x86_64 Darwin ASan/UBSan under Rosetta. The
+network queue and UV bounds/lifetime fixtures passed native ARM64 ASan/UBSan.
+All six ASL fixtures compiled with iasl. Local documentation checks passed 765 inline links.
+
+The first Linux run exposed missing exfatprogs, test fixtures that needed their
+host IRQ shim after the copy changes, a missing fixture MAC, GNU feature-test
+declarations and a fixture indentation warning. These were corrected before
+the successful strict run. The bitmap fixture records that exfatprogs 1.2.9
+can report an oversized bitmap clean, and independently checks geometry and
+byte-for-byte repair. Current hosted Actions remain disabled. No physical
+hardware, recovery media or firmware settings were changed.
+
+Evidence is under `build/review/whole/` and
+`build/review/process-lifetime/`. The [coverage ledger](../audit-coverage-2026-11-02.md)
+accounts for every tracked baseline path and retains the distinction between
+screening, sampled manual review and runtime coverage. The full manual/native
+hardware and external-dependency review remains open.
+
+Continued review fixed tracked uACPI root-scope resolution, physical-table error
+propagation (distinguishing direct optional denial from required-child failure),
+GAS access encodings and map/unmap spans. The rebuilt ordinary AML resource
+fixture and full Q35 SCI/worker runtime suite passed, followed by sysabi and
+netabi reruns. The local iasl wrapper initially failed before guest launch
+because its container mount resolved the macOS `/var` alias inconsistently;
+correcting the wrapper path made the synthetic ASL compile. No host firmware
+was accessed.
+
+The final shell arithmetic fix covers checked boundaries and parsing of skipped
+logical branches. Native ARM64 and Linux sanitizer fixtures pass, and it is
+included in the final full host run. Final source code is `e8491549`; later
+documentation-only commits do not change these implementations.
+
+The final CLI rerun passed all 491 commands, including exact signed-boundary,
+short-circuit and overflow-status assertions. Its post-run filesystem check
+reported zero leaks/FAT/errors. The full host transcript is
+`build/review/whole/linux-core-173-final.log`; the CLI transcript is
+`build/review/whole/cli-shell-final.log`.
+
+The final staged-port guest also passed after the shell changes, with a clean
+post-run filesystem check. Its transcript is
+`build/review/whole/ports-shell-final.log`.

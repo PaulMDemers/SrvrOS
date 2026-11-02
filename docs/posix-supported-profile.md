@@ -672,3 +672,33 @@ becomes inaccessible, the call returns the number of bytes already published,
 or `EFAULT` if it has published none. Pipe `writev` gathers the bounded input
 prefix before waiting. Access checks use the mapping present at the time of
 the copy, including a valid replacement mapped at the same address.
+
+
+## November 2 I/O and fault-boundary corrections
+
+On the current CPU0-owned execution model, kernel user copies validate and
+access each bounded chunk under the same IRQ exclusion. The checked pipe,
+PTY and network transfer paths revalidate payload/output mappings and descriptor
+identity after blocking, before consuming queued data. Refused reads retain
+queued data (and pipe rights); writes retain their established partial-progress
+semantics. Network sends use owned snapshots while waiting. Console input can
+be consumed before a failed final output copy. This does not promise arbitrary
+concurrent mutation of libc-owned objects or future SMP safety.
+
+Selected synchronous faults from ring 3 terminate the affected process through
+normal exit/retirement: invalid instructions report `SIGILL`, arithmetic faults
+`SIGFPE`, and ordinary protection/page faults `SIGSEGV`. A faulted worker also
+terminates the process when its initial thread has already called
+`pthread_exit`. These are fatal status reports, not synchronous signal-handler
+frames; adding `SIGILL`/`SIGFPE` constants does not add their cooperative libc
+handler support. Kernel-context faults and exceptional machine failures still
+halt. The ELF loader and user-range walker reject noncanonical ranges before
+entry or copying. See the [kernel audit](audit-kernel-2026-11-02.md) for the
+specific regressions and verification limits.
+
+The shell's signed 64-bit arithmetic expansion reports overflow as an expansion
+error (command status 2), including out-of-range numeric variables and division
+or remainder of the minimum value by minus one. Direct minimum-value literals
+and formatting work. Logical `&&`/`||` parse skipped branches without evaluating
+them, so skipped division errors do not fail; malformed syntax still does.
+The shell remains a bounded parser rather than a complete POSIX shell.

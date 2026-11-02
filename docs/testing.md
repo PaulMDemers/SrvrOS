@@ -1410,3 +1410,53 @@ unmapped the destination and supplied two bytes. The callers check `EFAULT`
 and read both bytes on retry. A third test frees one byte in a full pipe and
 starts a large scalar write. Once the pipe fills again, the sibling unmaps
 the source and drains space. The writer must report the one byte it published.
+
+
+## Repository-wide audit regressions
+
+The [November 2 coverage ledger](audit-coverage-2026-11-02.md) records the whole
+tracked-tree inventory and distinguishes source screening, sampled manual
+review and executable coverage. Its companion kernel, userland, tooling and
+integration reports retain the reproductions and remaining gaps.
+
+`test-core` includes the user-copy, VMM, initramfs, fault-exit, checked network
+transfer, UV ownership/bounds and utility error-path fixtures. Linux execution
+requires the documented host compiler and exfatprogs at `/usr/sbin/mkfs.exfat`
+and `/usr/sbin/fsck.exfat`. Run assertion-based Python fixtures without `-O`
+and C fixtures without `-DNDEBUG`. A clean external filesystem check alone
+does not prove the exact allocation-bitmap length on exfatprogs 1.2.9.
+
+For the current guest regressions, rebuild matched images and run the following
+sequentially in one checkout. The macOS wrapper is described in
+[macOS development](macos-development.md).
+
+```sh
+sh tools/macos/build.sh -j4 all
+python3 tools/sysabi_smoke.py --boot-wait 180 --command-wait 90
+python3 tools/netabi_smoke.py --boot-wait 180 --command-wait 120
+python3 tools/thread_smoke.py --boot-wait 180 --run-wait 300
+python3 tools/libc_smoke.py --boot-wait 180 --command-wait 120
+python3 tools/uv_smoke.py --boot-wait 180 --line-wait 30 --tcp-wait 60
+python3 tools/libuv_smoke.py --boot-wait 180 --line-wait 30
+python3 tools/process_lifetime_smoke.py
+python3 tools/cli_smoke.py --boot-wait 180
+python3 tools/ports_smoke.py --boot-wait 180
+```
+
+Sysabi checks refused noncanonical output and process-scoped user faults,
+including a fault after the initial thread retires. Netabi checks blocked UDP
+output invalidation, peer metadata and descriptor replacement while an alias
+remains live. Threadstress checks retained PTY records and partial writes after
+mapping changes, plus descriptor replacement on both PTY ends.
+
+The tracked uACPI patches are covered by `test-uacpi-namespace-root` and
+`test-uacpi-table-install`, plus `test-uacpi-gas` (all in `test-core`). `make test-acpi-namespace`
+additionally exercises the offline interpreter with 30 synthetic/private-data
+cases and requires iasl. The ordinary kernel links the isolated AML probe;
+`python3 tools/aml_probe_smoke.py --boot-wait 180` checks that probe in a disposable
+Q35 guest. These tests do not enable or validate native firmware ownership.
+
+`test-sh-arithmetic` compiles the actual shell parser and checks signed boundaries,
+variable conversion, minimum-value formatting and nested short-circuit parsing.
+The full CLI smoke checks these paths in the rebuilt guest, including error
+status 2 without terminating the shell. The host fixture is also in `test-core`.
