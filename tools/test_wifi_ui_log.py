@@ -1,5 +1,5 @@
 import unittest
-from wifi_ui_log import check_ui,check_radio_isolation,check_desktop_input,SCAN
+from wifi_ui_log import check_ui,check_radio_isolation,check_desktop_input,snapshot,SCAN
 RELEASE='0123456789abcdef'
 
 def saved(stream,name,stamp,cap):
@@ -27,6 +27,24 @@ def fixture(long=False,empty=False,unselectable=False):
     return radio,begin,end
 
 class Proof(unittest.TestCase):
+    def test_repeated_periodic_snapshots(self):
+        stream=b'x'*70000+b'\n'
+        for stamp in range(100,106):
+            raw,stream=saved(stream,'session-a.log',stamp,65536)
+            stream+=b'y'*800+b'\n'
+        start,end,stamp=snapshot(raw,'session-a.log',65536,rolling=True)
+        self.assertEqual((end,stamp),(len(stream)-801,105))
+        self.assertGreater(start,0)
+        with self.assertRaises(AssertionError):snapshot(raw,'session-a.log',65536)
+        for old,new in [(b'monotonic_us=100',b'monotonic_us=105'),
+                        (b'total_before=70001',b'total_before=70002')]:
+            damaged=raw.replace(old,new,1);self.assertNotEqual(damaged,raw)
+            with self.assertRaises(AssertionError):snapshot(damaged,'session-a.log',65536,rolling=True)
+        for damaged in [raw[:-1],raw+b'x',raw[1:]]:
+            with self.assertRaises(AssertionError):snapshot(damaged,'session-a.log',65536,rolling=True)
+        for name in ['wifi-scan.log','wifi-ui-begin.log','exit.log','boot.log']:
+            with self.assertRaises(AssertionError):snapshot(raw.replace(b'session-a.log',name.encode()),name,65536,rolling=True)
+
     def test_empty_and_unselectable_ui(self):
         for long in [False,True]:
             for empty in [False,True]:

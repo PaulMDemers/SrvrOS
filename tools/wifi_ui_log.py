@@ -20,15 +20,22 @@ def phase(text,family,which,keys):
     line=one(text,prefix)
     return record(line.replace(f' phase={which}','',1),family,keys)
 
-def snapshot(raw,name,limit,full=False):
+def snapshot(raw,name,limit,full=False,*,rolling=False):
     assert isinstance(raw,bytes) and 0<len(raw)<=limit
     pattern=rb'^workspace-log: snapshot='+re.escape(name.encode())+rb' monotonic_us=([1-9][0-9]*) total_before=(0|[1-9][0-9]*) tail_limit='+str(limit).encode()+rb'\n'
-    matches=list(re.finditer(pattern,raw,re.M));assert len(matches)==1
-    m=matches[0];assert m.end()==len(raw)
+    matches=list(re.finditer(pattern,raw,re.M));assert matches
+    if rolling:assert name in ['session-a.log','session-b.log'] and limit==TAIL_CAP and not full
+    else:assert len(matches)==1
+    m=matches[-1];assert m.end()==len(raw)
     stamp,total=map(int,m.groups());assert stamp<2**64 and total<2**64
     end=total+len(m.group());assert len(raw)==min(end,limit)
     if full:assert end==len(raw)
-    return end-len(raw),end,stamp
+    start=end-len(raw);previous=0
+    for item in matches:
+        item_stamp,item_total=map(int,item.groups())
+        assert previous<item_stamp<2**64 and item_total==start+item.start()
+        previous=item_stamp
+    return start,end,stamp
 
 def cache_valid(c):
     assert c['status']==0 and c['identifiers_logged']==0 and c['ready'] in (0,1)
