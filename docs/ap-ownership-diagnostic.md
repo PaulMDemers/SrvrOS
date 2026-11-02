@@ -480,3 +480,23 @@ an enabled well nor a firmware request authorizes clearing it. A later policy
 experiment requires separate resource, DMA, interrupt and display ownership
 analysis. All existing attempts, watchdogs, HLT fallback, integrity checks and
 RC6 timing limits remain unchanged.
+
+
+### Native version-4 result and receipt-coverage failure
+
+Air6,1 release `c6fd6d4c55a57566` recorded BIOS `0xc0000000` and
+driver/KVM/debug `0x40000000` at both endpoints, with valid read brackets and
+zero runtime fault. This observes an enabled display well with only the BIOS
+request set. It does not prove the request causes the C3 block or permit clearing
+it without display-resource and firmware ownership analysis.
+
+The trial remains failed. RC6 still exceeds its original PM-clock bound, and
+newer source's repeated I/O-owner output displaced the early workload/AP-owner
+proofs from the 64 KiB exit tail. The preflight replay used an older trace that
+lacked 7,701 bytes of those reports. Use source-matched complete output and
+representative checkpoint verbosity for the next coverage regression; preserving
+only added feature receipts is insufficient. Matching periodic/exit logs have a
+verified byte overlap and allow full-stream diagnostic review, but reconstruction
+is not a substitute for the existing exit-only acceptance requirement. Do not
+increase the tail, suppress failures or relax strict parsers to accept this run.
+See the unit record's November 1 closeout for the exact session and hashes.
