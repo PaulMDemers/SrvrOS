@@ -2243,7 +2243,8 @@ static int wifi_5ghz_prereq_exchange(void *context,const uint8_t *packet,size_t 
     uint32_t words[4]={0};for(unsigned n=0;n<4;n++)if(received>=(int)(4*n+4))for(unsigned b=0;b<4;b++)words[n]|=(uint32_t)m->buffer[4*n+b]<<(8*b);
     console_printf("wifi-5ghz-prereq-command: op=%u sent=%d received=%d cc=%u residue=%u h=%x address=%x value=%x t=%x writes=0\n",(uint64_t)op,(int64_t)sent,(int64_t)received,(uint64_t)m->completion,(uint64_t)m->remaining,(uint64_t)words[0],(uint64_t)words[1],(uint64_t)words[2],(uint64_t)words[3]);
     if(received<0 || (size_t)received>capacity)return -1;
-    for(int i=0;i<received;i++)reply[i]=m->buffer[i];return received;
+    for(int i=0;i<received;i++)reply[i]=m->buffer[i];
+    return received;
 }
 static bool wifi_mcu_5ghz_prereq(struct xhci_device *d){
     struct xhci_wifi_mcu *m=&d->firmware.mcu;struct mt76_5ghz_prereq s={0};struct wifi_5ghz_prereq_context c={d,&s,0,true};
