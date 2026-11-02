@@ -140,6 +140,29 @@ checks pass. This accepts that transaction only; frequency/VCO, reception,
 authentication and data transfer remain pending. The failed warm attempt stays
 failed and separately archived; cold power cycling is still required.
 
+## Reversible channel161 frequency fields (v110)
+
+The explicit `--wifi-5ghz-channel` profile requires the v109 band/prerequisite
+profile and automatic return. Inside the selected5GHz owner, phase8 reads all13
+RF0 synthesizer words and requires the immutable common-init tuple (all0 except
+RF0:24=33 hex) before any frequency write. It applies the pinned channel161
+non-SDM21 masked fields in source order, with read/write/readback for each,
+then independently reads all13 selected words. It restores all13 in reverse
+order and independently reads the original tuple before restoring the four band
+words. Native state remains one static boot owner; exact targets, packets,
+prior-phase proofs and submitted counts are checked on every callback.
+
+The new engine has896 operations,128 MCU exchanges and34 writes; the combined
+transaction has1667 operations and1676 authorization boundaries. Independent
+numeric-fixture, original-tuple refusal, transport/cancellation, response-length/
+bit and proof mutation tests cover the new engine, while legacy synth1 and
+band-only gates remain separate. Full saved evidence requires every phase and
+receipt, selected/original inventories and all restoration completions. A failed
+or incomplete cleanup stays failed with retained transport ownership. No VCO
+pulse, PA/attenuation policy, receive, authentication or network frames are added.
+Writing and reading frequency fields alone is not RF lock or connectivity proof.
+This profile still needs a cold adapter cycle, using shutdown for the unplug.
+
 ## Captured baseline
 
 USB high speed (480 Mb/s), one configuration, interface 0 / alternate 0,

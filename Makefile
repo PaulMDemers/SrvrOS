@@ -4623,3 +4623,16 @@ build/tests/mt76-5ghz-band-host$(HOST_EXE): tools/test_mt76_5ghz_band.c kernel/s
 test-core: test-wifi-5ghz-band-log
 test-wifi-5ghz-band-log:
 	$(PYTHON) -m unittest discover -s tools -p test_wifi_5ghz_band_log.py
+
+.PHONY: test-mt76-synth5
+test-core: test-mt76-synth5
+test-mt76-synth5: build/tests/mt76-synth5-host$(HOST_EXE)
+	$(HOST_RUN) $< tools/fixtures/mt7610-us5-channel161-frequency.bin
+build/tests/mt76-synth5-host$(HOST_EXE): tools/test_mt76_synth5.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-wifi-5ghz-channel-log
+test-core: test-wifi-5ghz-channel-log
+test-wifi-5ghz-channel-log:
+	$(PYTHON) -m unittest discover -s tools -p test_wifi_5ghz_channel_log.py

@@ -1,5 +1,6 @@
 static bool wifi_5ghz_prereq_requested;
 static bool wifi_5ghz_band_requested;
+static bool wifi_5ghz_channel_requested;
 /* One-shot MCU identity diagnostic, optionally preceded by guarded MAC/BBP
  * reset. Opt-in fixed RF initialization follows the full captured chain.
  * Fixed frequency-field preview is a separate explicit stopped-RX mode.
@@ -2263,17 +2264,17 @@ static bool wifi_mcu_5ghz_prereq(struct xhci_device *d){
 static struct {
     struct xhci_device *d;
     struct mt76_5ghz_band state;
-    unsigned submitted[8],last_phase;
+    unsigned submitted[9],last_phase;
     bool active;
 } wifi_5ghz_band;
 static const char *wifi_5ghz_band_prefix(unsigned phase){
-    static const char *prefix[8]={"refused","wifi-5ghz-prereq","wifi-5ghz-select-rf","wifi-5ghz-select-mac","wifi-5ghz-selected","wifi-5ghz-restore-mac","wifi-5ghz-restore-rf","wifi-5ghz-original"};
-    return phase<8?prefix[phase]:"refused";
+    static const char *prefix[9]={"refused","wifi-5ghz-prereq","wifi-5ghz-select-rf","wifi-5ghz-select-mac","wifi-5ghz-selected","wifi-5ghz-restore-mac","wifi-5ghz-restore-rf","wifi-5ghz-original","wifi-5ghz-synth"};
+    return phase<9?prefix[phase]:"refused";
 }
 static bool wifi_5ghz_band_owned(void *context){
     if(context!=&wifi_5ghz_band)return false;
     struct xhci_device *d=wifi_5ghz_band.d;struct mt76_5ghz_band *s=&wifi_5ghz_band.state;
-    if(!d || !wifi_5ghz_band_requested || !wifi_5ghz_prereq_requested || !wifi_5ghz_band.active || !mt76_5ghz_band_owned(s))return false;
+    if(!d || !wifi_5ghz_band_requested || !wifi_5ghz_prereq_requested || !wifi_5ghz_band.active || !mt76_5ghz_band_owned(s) || s->channel161!=wifi_5ghz_channel_requested)return false;
     struct xhci_wifi_mcu *m=&d->firmware.mcu;
     return wifi_rf_vga_owned(d) && m->rf_vga_submitted==MT76_RF_VGA_OPS && mt76_rf_vga_exact_profile_valid(&m->rf_vga) &&
         wifi_5ghz_band.submitted[s->phase]==mt76_5ghz_band_operations(s);
@@ -2288,21 +2289,21 @@ static bool wifi_5ghz_band_authorize(void *context){
     return true;
 }
 static bool wifi_5ghz_band_read(void *context,uint32_t address,uint32_t *value){
-    struct mt76_5ghz_band *s=&wifi_5ghz_band.state;unsigned phase=s->phase,op=phase<8?wifi_5ghz_band.submitted[phase]:UINT32_MAX;
+    struct mt76_5ghz_band *s=&wifi_5ghz_band.state;unsigned phase=s->phase,op=phase<9?wifi_5ghz_band.submitted[phase]:UINT32_MAX;
     if(!value || !wifi_5ghz_band_owned(context) || !mt76_5ghz_band_read_valid(s,op,address))return false;
     wifi_5ghz_band.submitted[phase]++;*value=0;bool ok=wifi_mac_private_usb(wifi_5ghz_band.d,false,address,value);
     console_printf("%s-usb: op=%u address=%x value=%x ok=%u writes=0\n",wifi_5ghz_band_prefix(phase),(uint64_t)op,(uint64_t)address,(uint64_t)*value,(uint64_t)ok);
     return ok?true:wifi_mcu_fail(wifi_5ghz_band.d);
 }
 static int wifi_5ghz_band_exchange(void *context,const uint8_t *packet,size_t length,uint8_t *reply,size_t capacity){
-    struct mt76_5ghz_band *s=&wifi_5ghz_band.state;unsigned phase=s->phase,op=phase<8?wifi_5ghz_band.submitted[phase]:UINT32_MAX;uint8_t allowed[16];
+    struct mt76_5ghz_band *s=&wifi_5ghz_band.state;unsigned phase=s->phase,op=phase<9?wifi_5ghz_band.submitted[phase]:UINT32_MAX;uint8_t allowed[16];
     if(!wifi_5ghz_band_owned(context) || !packet || !reply || length!=16 || capacity<MT76_MCU_RESPONSE_MAX || mt76_5ghz_band_packet(s,op,allowed,16)!=16)return -1;
     for(unsigned i=0;i<16;i++)if(packet[i]!=allowed[i])return -1;
     struct xhci_device *d=wifi_5ghz_band.d;struct xhci_wifi_mcu *m=&d->firmware.mcu;
     wifi_5ghz_band.submitted[phase]++;for(unsigned i=0;i<16;i++)d->firmware.buffer[i]=packet[i];
     int sent=wifi_mcu_bulk(d,false,16),received=-1;if(sent==16)received=wifi_mcu_bulk(d,true,MT76_MCU_RESPONSE_MAX);
     uint32_t words[4]={0};for(unsigned n=0;n<4;n++)if(received>=(int)(4*n+4))for(unsigned b=0;b<4;b++)words[n]|=(uint32_t)m->buffer[4*n+b]<<(8*b);
-    bool write=(phase==2 && op/7<40) || (phase==6 && op/7<2);
+    bool write=(phase==2 && op/7<40) || (phase==6 && op/7<2) || (phase==8 && mt76_synth5_write(op/7));
     console_printf("%s-command: op=%u sent=%d received=%d cc=%u residue=%u h=%x address=%x value=%x t=%x writes=%u\n",wifi_5ghz_band_prefix(phase),(uint64_t)op,(int64_t)sent,(int64_t)received,(uint64_t)m->completion,(uint64_t)m->remaining,(uint64_t)words[0],(uint64_t)words[1],(uint64_t)words[2],(uint64_t)words[3],(uint64_t)write);
     if(received<0 || (size_t)received>capacity)return -1;
     for(int i=0;i<received;i++)reply[i]=m->buffer[i];
@@ -2327,10 +2328,11 @@ static bool wifi_mcu_5ghz_band(struct xhci_device *d){
     if(s->attempted || wifi_5ghz_band.active)return false;
     wifi_5ghz_band.d=d;wifi_5ghz_band.active=true;
     m->table_active=m->dcoc_active=m->skey_active=m->wcid_active=m->mac_tail_active=m->mac_fixed_active=m->efuse_map_active=m->mac_board_active=m->ant_snapshot_active=m->ant_init_active=m->rf_probe_active=m->rf_table_active=m->rf_bank5_active=m->rf_bank6_active=m->rf_vga_active=true;
-    console_write("wifi-5ghz-band-progress: fixed5GHz band selection,verify,four-word restoration;no frequency/VCO/RX/network OUT\n");
+    if(wifi_5ghz_channel_requested)console_write("wifi-5ghz-channel-progress: fixed161 masked fields,13-word verification and reverse restoration;no VCO/RX/network OUT\n");
+    else console_write("wifi-5ghz-band-progress: fixed5GHz band selection,verify,four-word restoration;no frequency/VCO/RX/network OUT\n");
     const struct mt76_mcu_timing_io rf={&wifi_5ghz_band,wifi_5ghz_band_authorize,wifi_5ghz_band_read,wifi_5ghz_band_exchange};
     const struct mt76_band_mac_io mac={&wifi_5ghz_band,wifi_5ghz_band_authorize,wifi_5ghz_band_transfer};
-    enum mt76_mcu_timing_status status=mt76_5ghz_band_capture(s,&rf,&mac);wifi_5ghz_band.active=false;
+    enum mt76_mcu_timing_status status=wifi_5ghz_channel_requested?mt76_5ghz_channel_capture(s,&rf,&mac):mt76_5ghz_band_capture(s,&rf,&mac);wifi_5ghz_band.active=false;
     m->table_active=m->dcoc_active=m->skey_active=m->wcid_active=m->mac_tail_active=m->mac_fixed_active=m->efuse_map_active=m->mac_board_active=m->ant_snapshot_active=m->ant_init_active=m->rf_probe_active=m->rf_table_active=m->rf_bank5_active=m->rf_bank6_active=m->rf_vga_active=false;
     wifi_5ghz_inventory_report("wifi-5ghz-prereq",&s->before,wifi_5ghz_band.submitted[1]);
     wifi_5ghz_inventory_report("wifi-5ghz-selected",&s->selected,wifi_5ghz_band.submitted[4]);
@@ -2341,9 +2343,11 @@ static bool wifi_mcu_5ghz_band(struct xhci_device *d){
         bool valid=phase==2?mt76_rf_band5g_exact_profile_valid(&s->rf):phase==3?mt76_band5g_mac_exact_profile_valid(&s->mac):phase==5?mt76_restore_mac_exact_profile_valid(&s->mac_restore):mt76_rf_restore_exact_profile_valid(&s->rf_restore);
         console_printf("%s: complete=%u valid=%u operations=%u submitted=%u\n",wifi_5ghz_band_prefix(phase),(uint64_t)valid,(uint64_t)valid,(uint64_t)operations,(uint64_t)wifi_5ghz_band.submitted[phase]);
     }
+    if(wifi_5ghz_channel_requested)console_printf("wifi-5ghz-synth: complete=%u valid=%u operations=%u submitted=%u writes=%u\n",(uint64_t)s->synth.complete,(uint64_t)mt76_synth5_valid(&s->synth),(uint64_t)s->synth.operations,(uint64_t)wifi_5ghz_band.submitted[8],(uint64_t)s->synth.writes);
     bool valid=status==MT76_TIMING_OK && mt76_5ghz_band_valid(s);unsigned operations=0;
-    for(unsigned phase=1;phase<=7;phase++)operations+=wifi_5ghz_band.submitted[phase];
+    for(unsigned phase=1;phase<=8;phase++)operations+=wifi_5ghz_band.submitted[phase];
     console_printf("wifi-5ghz-band: status=%u complete=%u restored=%u phase=%u operations=%u network_out=0\n",(uint64_t)status,(uint64_t)valid,(uint64_t)s->restored,(uint64_t)s->phase,(uint64_t)operations);
+    if(wifi_5ghz_channel_requested)console_printf("wifi-5ghz-channel: status=%u complete=%u restored=%u channel=161 operations=%u network_out=0\n",(uint64_t)status,(uint64_t)valid,(uint64_t)(s->restored && mt76_synth5_valid(&s->synth)),(uint64_t)operations);
     return valid?true:wifi_mcu_fail(d);
 }
 static bool wifi_rf_g20_owned(void *context){
@@ -3482,4 +3486,11 @@ bool xhci_wifi_capture_5ghz_band(void){
     wifi_5ghz_band_requested=true;
     bool ok=xhci_wifi_capture_5ghz_prereq();
     wifi_5ghz_band_requested=false;return ok;
+}
+
+bool xhci_wifi_capture_5ghz_channel(void){
+    if(wifi_5ghz_channel_requested || wifi_5ghz_band_requested || wifi_5ghz_prereq_requested)return false;
+    wifi_5ghz_channel_requested=true;
+    bool ok=xhci_wifi_capture_5ghz_band();
+    wifi_5ghz_channel_requested=false;return ok;
 }

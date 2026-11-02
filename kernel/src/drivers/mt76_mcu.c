@@ -2613,26 +2613,28 @@ static bool band_inventory_matches(const struct mt76_5ghz_prereq *s,bool selecte
 }
 static const struct mt76_5ghz_prereq *band_inventory(const struct mt76_5ghz_band *s){return s->phase==1?&s->before:s->phase==4?&s->selected:s->phase==7?&s->original:NULL;}
 bool mt76_5ghz_band_owned(const struct mt76_5ghz_band *s){
-    if(!s || !s->attempted || s->complete || s->phase<1 || s->phase>7)return false;
+    if(!s || !s->attempted || s->complete || s->phase<1 || s->phase>8 || (s->phase==8 && !s->channel161))return false;
     if(s->phase>=2 && !band_inventory_matches(&s->before,false))return false;
     if(s->phase>=3 && !mt76_rf_band5g_exact_profile_valid(&s->rf))return false;
     if(s->phase>=4 && !mt76_band5g_mac_exact_profile_valid(&s->mac))return false;
     if(s->phase>=5 && !band_inventory_matches(&s->selected,true))return false;
-    if(s->phase>=6 && !mt76_restore_mac_exact_profile_valid(&s->mac_restore))return false;
-    if(s->phase>=7 && !mt76_rf_restore_exact_profile_valid(&s->rf_restore))return false;
+    if(s->channel161 && s->phase>=5 && s->phase<=7 && !mt76_synth5_valid(&s->synth))return false;
+    if(s->phase>=6 && s->phase<=7 && !mt76_restore_mac_exact_profile_valid(&s->mac_restore))return false;
+    if(s->phase==7 && !mt76_rf_restore_exact_profile_valid(&s->rf_restore))return false;
     return true;
 }
 unsigned mt76_5ghz_band_operations(const struct mt76_5ghz_band *s){
     if(!s)return UINT32_MAX;
     const struct mt76_5ghz_prereq *inventory=band_inventory(s);
     if(inventory)return inventory->operations;
-    switch(s->phase){case 2:return s->rf.operations;case 3:return s->mac.operations;case 5:return s->mac_restore.operations;case 6:return s->rf_restore.operations;default:return UINT32_MAX;}
+    switch(s->phase){case 2:return s->rf.operations;case 3:return s->mac.operations;case 5:return s->mac_restore.operations;case 6:return s->rf_restore.operations;case 8:return s->synth.operations;default:return UINT32_MAX;}
 }
 bool mt76_5ghz_band_read_valid(const struct mt76_5ghz_band *s,unsigned op,uint32_t address){
     if(!mt76_5ghz_band_owned(s) || address==UINT32_MAX)return false;
     const struct mt76_5ghz_prereq *inventory=band_inventory(s);
     if(inventory)return mt76_5ghz_prereq_admit(inventory,op) && !mt76_5ghz_prereq_rf(op) && address==mt76_5ghz_prereq_address(op);
     if(op%7==3)return false;
+    if(s->phase==8)return mt76_synth5_admit(&s->synth,op) && address==mt76_synth5_guard_address(op);
     if(s->phase==2)return mt76_rf_band5g_admit(&s->rf,op) && address==mt76_rf_band5g_guard_address(op);
     if(s->phase==6)return mt76_rf_restore_admit(&s->rf_restore,op) && address==mt76_rf_restore_guard_address(op);
     return false;
@@ -2641,6 +2643,7 @@ size_t mt76_5ghz_band_packet(const struct mt76_5ghz_band *s,unsigned op,uint8_t 
     if(!mt76_5ghz_band_owned(s))return 0;
     const struct mt76_5ghz_prereq *inventory=band_inventory(s);
     if(inventory)return mt76_5ghz_prereq_admit(inventory,op)?mt76_5ghz_prereq_packet(op,out,capacity):0;
+    if(s->phase==8)return mt76_synth5_packet(&s->synth,op,out,capacity);
     if(s->phase==2)return mt76_rf_band5g_admit(&s->rf,op)?mt76_rf_band5g_packet(op,out,capacity):0;
     if(s->phase==6)return mt76_rf_restore_admit(&s->rf_restore,op)?mt76_rf_restore_packet(op,out,capacity):0;
     return 0;
@@ -2653,13 +2656,13 @@ bool mt76_5ghz_band_transfer_valid(const struct mt76_5ghz_band *s,unsigned op,bo
 }
 bool mt76_5ghz_band_valid(const struct mt76_5ghz_band *s){
     if(!s || !s->attempted || !s->complete || !s->restored || s->phase!=7)return false;
-    return band_inventory_matches(&s->before,false) && mt76_rf_band5g_exact_profile_valid(&s->rf) &&
+    return (!s->channel161 || mt76_synth5_valid(&s->synth)) && band_inventory_matches(&s->before,false) && mt76_rf_band5g_exact_profile_valid(&s->rf) &&
         mt76_band5g_mac_exact_profile_valid(&s->mac) && band_inventory_matches(&s->selected,true) &&
         mt76_restore_mac_exact_profile_valid(&s->mac_restore) && mt76_rf_restore_exact_profile_valid(&s->rf_restore) && band_inventory_matches(&s->original,false);
 }
-enum mt76_mcu_timing_status mt76_5ghz_band_capture(struct mt76_5ghz_band *s,const struct mt76_mcu_timing_io *rf,const struct mt76_band_mac_io *mac){
+static enum mt76_mcu_timing_status band_channel_capture(struct mt76_5ghz_band *s,const struct mt76_mcu_timing_io *rf,const struct mt76_band_mac_io *mac,bool channel){
     if(!s || s->attempted || !rf || !mac || !rf->authorize || !rf->read || !rf->exchange || !mac->transfer || rf->context!=mac->context || rf->authorize!=mac->authorize)return MT76_TIMING_REFUSED;
-    *s=(struct mt76_5ghz_band){.attempted=true,.phase=1};enum mt76_mcu_timing_status status;
+    *s=(struct mt76_5ghz_band){.attempted=true,.phase=1,.channel161=channel};enum mt76_mcu_timing_status status;
     status=mt76_5ghz_prereq_capture(&s->before,rf);if(status!=MT76_TIMING_OK)return status;
     if(!band_inventory_matches(&s->before,false))return MT76_TIMING_STATE;
     s->phase=2;status=mt76_rf_band5g_capture(&s->rf,rf);if(status!=MT76_TIMING_OK)return status;
@@ -2667,6 +2670,7 @@ enum mt76_mcu_timing_status mt76_5ghz_band_capture(struct mt76_5ghz_band *s,cons
     s->phase=3;status=mt76_band5g_mac_apply(&s->mac,mac);if(status!=MT76_TIMING_OK)return status;
     s->phase=4;status=mt76_5ghz_prereq_capture(&s->selected,rf);if(status!=MT76_TIMING_OK)return status;
     if(!band_inventory_matches(&s->selected,true))return MT76_TIMING_STATE;
+    if(channel){s->phase=8;status=mt76_synth5_capture(&s->synth,rf);if(status!=MT76_TIMING_OK)return status;if(!mt76_synth5_valid(&s->synth))return MT76_TIMING_STATE;}
     s->phase=5;status=mt76_restore_mac_apply(&s->mac_restore,mac);if(status!=MT76_TIMING_OK)return status;
     s->phase=6;status=mt76_rf_restore_capture(&s->rf_restore,rf);if(status!=MT76_TIMING_OK)return status;
     if(!mt76_rf_restore_exact_profile_valid(&s->rf_restore))return MT76_TIMING_STATE;
@@ -2676,6 +2680,9 @@ enum mt76_mcu_timing_status mt76_5ghz_band_capture(struct mt76_5ghz_band *s,cons
     s->restored=true;s->complete=true;
     return mt76_5ghz_band_valid(s)?MT76_TIMING_OK:MT76_TIMING_STATE;
 }
+
+enum mt76_mcu_timing_status mt76_5ghz_band_capture(struct mt76_5ghz_band *s,const struct mt76_mcu_timing_io *rf,const struct mt76_band_mac_io *mac){return band_channel_capture(s,rf,mac,false);}
+enum mt76_mcu_timing_status mt76_5ghz_channel_capture(struct mt76_5ghz_band *s,const struct mt76_mcu_timing_io *rf,const struct mt76_band_mac_io *mac){return band_channel_capture(s,rf,mac,true);}
 
 /* Linux v7.0 mt76x0_frequency_plan channel1, mapped through mt76x0_freq_item.
  * Adjacent RMW fields retain source order; no SDM pulse, VCO or caller plan. */
@@ -2734,6 +2741,79 @@ enum mt76_mcu_timing_status mt76_synth1_capture(struct mt76_synth1 *s,const stru
     s->complete=true;return MT76_TIMING_OK;
 }
 bool mt76_synth1_exact_profile_valid(const struct mt76_synth1 *s){return s && s->complete && synth1_state_valid(s,441);}
+
+/* Fixed non-SDM channel161 fields from Linux v7.0. No VCO pulse or RX.
+ * The full common-init original tuple is observed before the first write.
+ * Reverse restoration is mandatory; transport uncertainty retains ownership. */
+static const uint8_t synth5_regs[13]={37,36,35,34,33,32,31,30,29,28,26,27,24};
+static const uint8_t synth5_steps[21]={0,1,2,3,4,5,5,6,6,7,7,7,8,7,9,9,9,10,11,9,12};
+static const uint8_t synth5_bits[21]={2,63,104,221,210,64,16,64,9,0,0,2,48,0,0,48,0,0,0,0,3};
+unsigned mt76_synth5_initial(unsigned i){return i<13?(i==12?0x33u:0u):UINT32_MAX;}
+uint32_t mt76_synth5_address(unsigned i){return i<13?0x80000000u|synth5_regs[i]:UINT32_MAX;}
+unsigned mt76_synth5_step(unsigned i){return i<21?synth5_steps[i]:UINT32_MAX;}
+unsigned mt76_synth5_mask(unsigned i){return i<21?synth1_masks[i]:UINT32_MAX;}
+unsigned mt76_synth5_bits(unsigned i){return i<21?synth5_bits[i]:UINT32_MAX;}
+static unsigned synth5_at(unsigned i,unsigned steps){
+    unsigned value=mt76_synth5_initial(i);
+    for(unsigned k=0;k<steps;k++)if(synth5_steps[k]==i)value=(value&~synth1_masks[k])|synth5_bits[k];
+    return value;
+}
+unsigned mt76_synth5_selected(unsigned i){return i<13?synth5_at(i,21):UINT32_MAX;}
+bool mt76_synth5_write(unsigned q){return (q>=13 && q<76 && (q-13)%3==1) || (q>=89 && q<115 && (q-89)%2==0);}
+unsigned mt76_synth5_target(unsigned q){return q<13?q:q<76?synth5_steps[(q-13)/3]:q<89?q-76:q<115?12-(q-89)/2:q<128?q-115:UINT32_MAX;}
+unsigned mt76_synth5_expected(unsigned q){
+    unsigned i=mt76_synth5_target(q);if(i>=13)return UINT32_MAX;
+    if(q<13 || q>=89)return mt76_synth5_initial(i);
+    if(q<76){unsigned k=(q-13)/3;return synth5_at(i,k+((q-13)%3!=0));}
+    return mt76_synth5_selected(i);
+}
+unsigned mt76_synth5_sequence(unsigned q){return q<128?(q+9)%15+1:0;}
+uint32_t mt76_synth5_guard_address(unsigned op){unsigned n=op%7;return op<896 && n!=3?mt76_rf_probe_read_address(n<3?n:n-4):UINT32_MAX;}
+static bool synth5_state_valid(const struct mt76_synth5 *s,unsigned op){
+    if(!s || !s->attempted || s->operations!=op || op>896)return false;
+    unsigned ex=op/7+(op%7>3),writes=0;
+    for(unsigned q=0;q<ex;q++){
+        const uint32_t *w=s->words[q];uint32_t h=0x4a000008u|(mt76_synth5_sequence(q)<<16);
+        if(w[0]!=h || w[1]!=mt76_synth5_address(mt76_synth5_target(q)) || w[2]!=mt76_synth5_expected(q) || w[3]!=h)return false;
+        writes+=mt76_synth5_write(q);
+    }
+    for(unsigned k=0;k<op;k++)if(k%7!=3){unsigned q=k/7,n=k%7,j=n<3?n:n-4;if(!rf_central_guard_valid(j,s->guards[q*2+(n>=4)][j]))return false;}
+    return s->reads==op-ex && s->exchanges==ex && s->writes==writes && s->observed==ex-writes && s->received==(ex?16:-1);
+}
+bool mt76_synth5_admit(const struct mt76_synth5 *s,unsigned op){return s && !s->complete && op<896 && synth5_state_valid(s,op);}
+size_t mt76_synth5_packet(const struct mt76_synth5 *s,unsigned op,uint8_t *out,size_t cap){
+    if(!mt76_synth5_admit(s,op) || op%7!=3)return 0;
+    unsigned q=op/7;uint32_t a=mt76_synth5_address(mt76_synth5_target(q));uint8_t payload[8]={0};
+    for(unsigned b=0;b<4;b++)payload[b]=(uint8_t)(a>>(8*b));
+    if(mt76_synth5_write(q))payload[4]=(uint8_t)mt76_synth5_expected(q);
+    return mt76_mcu_encode(mt76_synth5_write(q)?12:10,mt76_synth5_sequence(q),payload,8,out,cap);
+}
+enum mt76_mcu_timing_status mt76_synth5_capture(struct mt76_synth5 *s,const struct mt76_mcu_timing_io *io){
+    if(!s || s->attempted || !io || !io->authorize || !io->read || !io->exchange)return MT76_TIMING_REFUSED;
+    *s=(struct mt76_synth5){.attempted=true,.received=-1};
+    for(unsigned op=0;op<896;op++){
+        unsigned q=op/7,n=op%7;
+        if(!mt76_synth5_admit(s,op))return MT76_TIMING_STATE;
+        if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+        if(n!=3){unsigned j=n<3?n:n-4;uint32_t *v=&s->guards[q*2+(n>=4)][j];
+            if(!io->read(io->context,mt76_synth5_guard_address(op),v))return MT76_TIMING_IO;
+            s->reads++;s->operations++;if(!rf_central_guard_valid(j,*v))return MT76_TIMING_STATE;
+        }else{
+            uint8_t packet[16],reply[MT76_MCU_RESPONSE_MAX];if(mt76_synth5_packet(s,op,packet,16)!=16)return MT76_TIMING_STATE;
+            s->received=io->exchange(io->context,packet,16,reply,sizeof reply);s->exchanges++;
+            for(unsigned j=0;j<4;j++)if(s->received>=(int)(4*j+4))for(unsigned b=0;b<4;b++)s->words[q][j]|=(uint32_t)reply[4*j+b]<<(8*b);
+            if(s->received<0)return MT76_TIMING_IO;
+            uint32_t h=0x4a000008u|(mt76_synth5_sequence(q)<<16);
+            if(s->received!=16 || s->words[q][0]!=h || s->words[q][1]!=mt76_synth5_address(mt76_synth5_target(q)) || s->words[q][2]!=mt76_synth5_expected(q) || s->words[q][3]!=h)return MT76_TIMING_REPLY;
+            if(mt76_synth5_write(q))s->writes++;else s->observed++;
+            s->operations++;
+        }
+    }
+    if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+    if(!synth5_state_valid(s,896))return MT76_TIMING_STATE;
+    s->complete=true;return MT76_TIMING_OK;
+}
+bool mt76_synth5_valid(const struct mt76_synth5 *s){return s && s->complete && synth5_state_valid(s,896);}
 
 unsigned mt76_post_sequence(unsigned q){return rf_plan_sequence(&post_plan,q);}
 uint32_t mt76_post_address(unsigned i){return rf_plan_address(&post_plan,i);}
