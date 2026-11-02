@@ -2379,7 +2379,8 @@ static int wifi_a20_inventory_exchange(void *context,const uint8_t *packet,size_
     uint32_t w[4]={0};for(unsigned n=0;n<4;n++)if(received>=(int)(4*n+4))for(unsigned b=0;b<4;b++)w[n]|=(uint32_t)m->buffer[4*n+b]<<(8*b);
     console_printf("wifi-a20-inventory-command: op=%u sent=%d received=%d cc=%u residue=%u h=%x address=%x value=%x t=%x writes=0\n",(uint64_t)op,(int64_t)sent,(int64_t)received,(uint64_t)m->completion,(uint64_t)m->remaining,(uint64_t)w[0],(uint64_t)w[1],(uint64_t)w[2],(uint64_t)w[3]);
     if(received<0 || (size_t)received>capacity)return -1;
-    for(int i=0;i<received;i++)reply[i]=m->buffer[i];return received;
+    for(int i=0;i<received;i++)reply[i]=m->buffer[i];
+    return received;
 }
 static bool wifi_mcu_a20_inventory(struct xhci_device *d){
     struct xhci_wifi_mcu *m=&d->firmware.mcu;struct mt76_rf_table *s=&wifi_a20_inventory.state;
