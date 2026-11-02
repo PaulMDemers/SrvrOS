@@ -4610,3 +4610,16 @@ build/tests/mt76-5ghz-prereq-host$(HOST_EXE): tools/test_mt76_5ghz_prereq.c kern
 test-core: test-wifi-5ghz-prereq-log
 test-wifi-5ghz-prereq-log:
 	$(PYTHON) -m unittest discover -s tools -p test_wifi_5ghz_prereq_log.py
+
+.PHONY: test-mt76-5ghz-band
+test-core: test-mt76-5ghz-band
+test-mt76-5ghz-band: build/tests/mt76-5ghz-band-host$(HOST_EXE)
+	$(HOST_RUN) $<
+build/tests/mt76-5ghz-band-host$(HOST_EXE): tools/test_mt76_5ghz_band.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-wifi-5ghz-band-log
+test-core: test-wifi-5ghz-band-log
+test-wifi-5ghz-band-log:
+	$(PYTHON) -m unittest discover -s tools -p test_wifi_5ghz_band_log.py

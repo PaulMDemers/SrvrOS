@@ -532,6 +532,15 @@ bool mt76_rf_vga_admit(const struct mt76_rf_table *s,unsigned operation);
 enum mt76_mcu_timing_status mt76_rf_vga_capture(struct mt76_rf_table *s,const struct mt76_mcu_timing_io *io);
 /* Exact complete VGA proof and all35 matching observations. */
 bool mt76_rf_vga_exact_profile_valid(const struct mt76_rf_table *s);
+/* Fixed reverse selector restoration to the captured zero starting state. */
+uint32_t mt76_rf_restore_address(unsigned index);
+unsigned mt76_rf_restore_value(unsigned index);
+unsigned mt76_rf_restore_sequence(unsigned command);
+uint32_t mt76_rf_restore_guard_address(unsigned operation);
+size_t mt76_rf_restore_packet(unsigned operation,uint8_t *out,size_t capacity);
+bool mt76_rf_restore_admit(const struct mt76_rf_table *s,unsigned operation);
+enum mt76_mcu_timing_status mt76_rf_restore_capture(struct mt76_rf_table *s,const struct mt76_mcu_timing_io *io);
+bool mt76_rf_restore_exact_profile_valid(const struct mt76_rf_table *s);
 /* Offline fixed channel161 high-band/20MHz RF tables; no native caller. */
 uint32_t mt76_rf_a20_address(unsigned index);
 unsigned mt76_rf_a20_value(unsigned index);
@@ -708,6 +717,27 @@ uint32_t mt76_band5g_mac_value(unsigned index);
 bool mt76_band5g_mac_transfer_valid(const struct mt76_band_mac *s,unsigned operation,bool write,uint32_t address,const uint8_t *data,unsigned length);
 enum mt76_mcu_timing_status mt76_band5g_mac_apply(struct mt76_band_mac *s,const struct mt76_band_mac_io *io);
 bool mt76_band5g_mac_exact_profile_valid(const struct mt76_band_mac *s);
+/* Reverse MAC gain/VGA words, requiring their exact new5GHz values first. */
+bool mt76_restore_mac_request(unsigned operation,bool *write,uint32_t *address);
+bool mt76_restore_mac_transfer_valid(const struct mt76_band_mac *s,unsigned operation,bool write,uint32_t address,const uint8_t *data,unsigned length);
+enum mt76_mcu_timing_status mt76_restore_mac_apply(struct mt76_band_mac *s,const struct mt76_band_mac_io *io);
+bool mt76_restore_mac_exact_profile_valid(const struct mt76_band_mac *s);
+/* Bounded select/verify/restore transaction. Static owner storage is required
+ * natively; both fixed I/O interfaces must share one context and authorizer. */
+struct mt76_5ghz_band {
+    bool attempted,complete,restored;
+    unsigned phase;
+    struct mt76_5ghz_prereq before,selected,original;
+    struct mt76_rf_table rf,rf_restore;
+    struct mt76_band_mac mac,mac_restore;
+};
+bool mt76_5ghz_band_owned(const struct mt76_5ghz_band *s);
+unsigned mt76_5ghz_band_operations(const struct mt76_5ghz_band *s);
+bool mt76_5ghz_band_read_valid(const struct mt76_5ghz_band *s,unsigned operation,uint32_t address);
+size_t mt76_5ghz_band_packet(const struct mt76_5ghz_band *s,unsigned operation,uint8_t *out,size_t capacity);
+bool mt76_5ghz_band_transfer_valid(const struct mt76_5ghz_band *s,unsigned operation,bool write,uint32_t address,const uint8_t *data,unsigned length);
+bool mt76_5ghz_band_valid(const struct mt76_5ghz_band *s);
+enum mt76_mcu_timing_status mt76_5ghz_band_capture(struct mt76_5ghz_band *s,const struct mt76_mcu_timing_io *rf,const struct mt76_band_mac_io *mac);
 /* Fixed channel1 synthesizer fields in reference order, never an RF-ready claim. */
 struct mt76_synth1 {bool attempted,complete;unsigned operations,reads,exchanges,acks,observed;int received;uint32_t guards[126][3],words[63][4];};
 uint32_t mt76_synth1_address(unsigned index);

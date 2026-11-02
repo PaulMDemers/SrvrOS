@@ -14,6 +14,18 @@ import hardware_boot as boot
 
 
 class InstallTests(unittest.TestCase):
+    def test_5ghz_band_restore_profile(self):
+        version='ram-usb-wifi-fw-v109-laptop-probe-0e535900-auto-return'
+        base=boot.limine_config('0123456789abcdef',version.replace('v109-','v108-'))
+        config=boot.limine_config('0123456789abcdef',version)
+        self.assertEqual(config,base.replace('srvros.wifi-5ghz-prereq=1','srvros.wifi-5ghz-prereq=1 srvros.wifi-5ghz-band=1'))
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        for token in ('srvros.wifi-band2g=1','srvros.wifi-rf-g20=1','srvros.wifi-rf-trim=1','srvros.wifi-scan=1'):
+            self.assertNotIn(token,config)
+        with self.assertRaises(ValueError):boot.limine_config('0123456789abcdef',version.removesuffix('-auto-return'))
+        for options in ({},dict(wifi_5ghz_prereq=True,hold_on_failure=True)):
+            with self.assertRaises(ValueError):boot.stage(wifi_5ghz_band=True,**options)
+
     def test_5ghz_prerequisite_profile(self):
         version='ram-usb-wifi-fw-v108-laptop-probe-0e535900-auto-return'
         config=boot.limine_config('0123456789abcdef',version)

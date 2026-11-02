@@ -98,6 +98,32 @@ standing automatic reboot authorization covers these self-contained trials;
 interactive cold unplug or attended UI work still needs in-guest instructions
 or readiness for the physical action.
 
+## Reversible5GHz band-selection trial (v109)
+
+The v108 warm inventory established the exact seven-word starting tuple:
+MAC band words0/0, RF_MISC1, attenuation6c6c6c6c, ALC_CFG_1c9540000,
+RF5:0/RF6:0 both0 (hex). The explicit `--wifi-5ghz-band` profile requires
+that entire tuple and complete common-init proof before any new write.
+
+Its seven fixed phases are inventory,40-setting5GHz RF selection, two MAC
+band words, independent selected-state inventory, reverse MAC restoration,
+reverse selector restoration, and independent original-state inventory.
+The771 I/O points and779 authorization boundaries have bounded failure and
+cancellation behavior. Every native request is checked against its phase's
+fixed target/packet and completed prerequisites. Proof state has one static
+boot owner, no replay, and no stack/DMA reclamation after transport failure.
+Legacy2GHz entry points retain their original zero-before and guard gates.
+
+Success requires all exact readbacks and restoration of the four changed
+MAC/selector words. A failed or partial cleanup remains a failed trial with
+retained/quarantined transport state and saved diagnostics; it is never promoted
+to acceptance. This profile does not program frequency/VCO, PA policy or
+attenuation, start RX, authenticate, or transmit network frames. It uses a1MiB
+complete prefix and returns automatically. Warm reboot is allowed for this
+bounded test; a test requiring an unplug must use shutdown and remain off.
+Credentials are not part of the band trial. Full connection/data acceptance
+remains pending on both supported-band hardware and the security/IP path.
+
 ## Captured baseline
 
 USB high speed (480 Mb/s), one configuration, interface 0 / alternate 0,
