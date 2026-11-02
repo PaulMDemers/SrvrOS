@@ -552,3 +552,99 @@ nominal excess over 90.048 seconds). Coordinated rounds and AP retirement pass;
 package C3 is still zero. See the unit record for exact source/session/hashes.
 This closes receipt coverage only; it neither resolves RC6 semantics nor
 establishes that the BIOS display-well request causes the C3 block.
+
+
+## Display-resource ownership audit (Air6,1, 2026-11-01)
+
+The native request receipts establish that firmware's BIOS request is set at
+both endpoints. They do not describe the resources it protects. The source
+audit below uses Linux **v7.0** and SrvrOS integration base `a6b9e1b7`; it adds
+no native register reads, driver takeover or power transition.
+
+### Existing SrvrOS ownership
+
+`kernel/src/main.c` passes the first Limine framebuffer to `console_init`.
+`kernel/src/console.c` and the graphics syscalls in
+`kernel/src/arch/x86_64/syscall.c` present pixels through that inherited linear
+buffer. The current tree has no complete Haswell pipe/plane/transcoder/DDI
+state adoption, display-domain reference tracking or safe well-release sequence.
+The existing brightness path and isolated read-only platform pages do not
+supply that ownership model.
+
+Pinned Limine binary `5be26a73` is release v11.4.1; its corresponding
+[source tag](https://github.com/limine-bootloader/limine/tree/v11.4.1), commit
+`1276c440`, publishes the framebuffer and calls `efi_exit_boot_services` before
+kernel entry. That service exit is a boot-environment handoff, not evidence that
+Intel display requests, scanout or DMA have been retired. No firmware call or
+OpRegion/SWSCI/ASLE transaction is proposed here. SrvrOS continues using the
+inherited display.
+
+### What the Linux sequence actually establishes
+
+[Haswell well synchronization](https://github.com/torvalds/linux/blob/v7.0/drivers/gpu/drm/i915/display/intel_display_power_well.c)
+sets the driver request before clearing a set BIOS request. This preserves the
+request while transferring its source; copying only the BIOS-clear write would
+omit that protection. Linux separately tracks users and releases its driver
+request through its power-domain lifecycle.
+
+[Display power initialization and sanitization](https://github.com/torvalds/linux/blob/v7.0/drivers/gpu/drm/i915/display/intel_display_power.c)
+hold an INIT reference while firmware-enabled resources are read out. Unused
+wells are considered for disabling after pipe/encoder state has been sanitized
+and active users have acquired references. SrvrOS does not currently reproduce
+that sequence. This audit therefore does not authorize even a temporary
+request transfer or a firmware-request clear.
+
+The [Haswell global-well domain map](https://github.com/torvalds/linux/blob/v7.0/drivers/gpu/drm/i915/display/intel_display_power_map.c)
+covers pipes B/C, panel fitters A/B/C, transcoders A/B/C, DDI lanes B/C/D,
+CRT/VGA and audio MMIO/playback. Pipe A, transcoder eDP and DDI A are outside
+that switchable list. Thus an active internal panel need not alone explain
+this well request; an enabled panel fitter or other dependent resource would
+matter. This is a dependency distinction, not proof that this unit can release
+the well or enter package C3.
+
+The earlier Ubuntu cached observation shows pipe A, eDP-1, primary/cursor A,
+no other active CRTC and zero cached display-well users. That observation is
+post-i915 state, not SrvrOS firmware routing or a hardware-off receipt. In
+particular, the eDP transcoder can select different input pipes;
+[DDI hardware readout](https://github.com/torvalds/linux/blob/v7.0/drivers/gpu/drm/i915/display/intel_ddi.c)
+uses its eDP input selection and holds references to already-enabled domains
+before reading dependent resources. Do not infer native pipe A from panel size
+or the Ubuntu observation.
+
+### Bounded next capture contract
+
+The next implementation should be a separate explicit, exact-Air6,1 read-only
+endpoint inventory alongside the existing platform diagnostic. Before adding
+MMIO, review an exact Haswell register/page allowlist for these resource groups:
+
+| Group | Required observation |
+| --- | --- |
+| Inherited framebuffer | Geometry/pitch/format; preserve existing presentation ownership |
+| Transcoders A/B/C/eDP | Enable/state, DDI selection/mode and eDP input routing |
+| Planes and cursors A/B/C | Enable/mode controls; no framebuffer-pixel or backing-memory dump |
+| Panel fitters A/B/C | Enable and input-pipe selection |
+| DDI A–E and VGA | Buffer enables, relevant routing, VGA disable state |
+| Display audio and interrupts | Read-only enable/mask context where validated; no status acknowledgement |
+
+These are candidate groups, **not a blanket register access allowlist**. Offsets,
+Haswell-specific masks, read side effects and powered-domain accessibility must
+be checked before implementation. In particular, the
+[Gen6/7 forcewake range](https://github.com/torvalds/linux/blob/v7.0/drivers/gpu/drm/i915/intel_uncore.c)
+ending at `0x3ffff` says nothing by itself about accessibility when a display
+power domain is off. Do not wake a domain just to inspect it. Revalidate GPU
+identity, BAR, D0/memory decode and required well state around bounded dependent
+reads; skipped/inaccessible data must remain explicit unknowns, never decoded
+as disabled. Endpoints remain non-atomic observations.
+
+Use read-only/NX/cache-disabled private mappings and fixed storage, outside
+RC6 brackets, power hooks and measured C3 rounds. Retain firmware requests and
+all original phase, latency, watchdog, integrity and strict RC6 checks. Emit
+versioned raw final receipts and parse the resource observation independently
+of the unresolved RC6 predicate. Require malformed/missing/duplicate/all-ones,
+wrong-profile, mapping-failure and off-domain refusal coverage plus current-source
+64 KiB tail regression and exact-stage VM validation before native use.
+
+Even complete endpoints would inventory possible dependencies, not prove a
+causal package-C3 blocker, safe DMA teardown, physical display continuity between
+reads or permission for a well/D-state/link transition. RC6 clock semantics,
+package C3 and any later control experiment remain separate work.
