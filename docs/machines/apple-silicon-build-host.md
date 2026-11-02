@@ -1931,3 +1931,11 @@ After rebuilding with the test correction, the full thread suite, focused
 `dprintf` run and network ABI guest all passed. The next ownership probe is
 to close the last external descriptor while a receiving endpoint is held by
 its own queue, directly or through a second socketpair.
+
+## Queued socket reference cycles
+
+Starting at `f6d182e7` on PR252 with main at `c9235491`, this pass tests
+whether direct and indirect queued rights can exhaust pipe slots after external
+close, and whether live receivers can still redeem those rights. Scope covers
+process pipe ownership, legacy and atomic rights queues, and host and guest
+lifetime regressions. The matched QEMU guest is the integration checkpoint.
