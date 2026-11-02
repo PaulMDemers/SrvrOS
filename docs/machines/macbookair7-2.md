@@ -5,14 +5,23 @@ Updated: 2026-11-02. State: **active reference machine; partial device acceptanc
 ### Active Files drain scope
 
 Integrated main PR270 documentation; runtime remains the merged PR261 baseline.
-The saved final Files trace places 9.308220 seconds between canvas disposal and
-history release while an accepted folder job drains, then 3.090923 seconds in
-pool retirement. Review found a redundant READ_INFO call after a short terminal
+The saved final Files trace places about 9.3 seconds between canvas disposal and
+history release, then 3.090923 seconds in pool retirement. Accepted job draining
+and dispatcher diagnostics precede history release; their exact split is not
+measured. Review found a redundant READ_INFO call after a short terminal
 batch. Bounded scope: remove that EOF round trip in deskfs, document the existing
 fill-or-EOF contract, test boundaries/errors and actual kernel short-batch EOF,
 then run loaded VM app/audio/disk and multi-Files regression. No syscall admission,
 accepted-job cancellation, storage ordering, workload or deadline is widened.
 Physical endurance acceptance remains pending; no reboot is armed.
+
+The first loaded VM on `53f08a82` fails with one PCM underrun after 20 app
+lifetimes; UI119995us, ready1095825us and Close1599275us remain within limits.
+Keep that failure. The producer uses duplex pipes for one-way start/completion
+signals; closing them during live PCM takes the ordinary storage gate. Expanded
+scope is confined to those diagnostic channels in playwav: use simple pipes and
+nonblocking producer endpoints, test the actual producer with a gate-aware host
+fixture, then repeat loaded VMs. No kernel pipe admission is widened.
 
 ### Merged PR261 native return: Files retirement deadline
 
