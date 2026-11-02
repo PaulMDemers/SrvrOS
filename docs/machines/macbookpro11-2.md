@@ -11011,3 +11011,30 @@ existing profiles. The next explicit diagnostic should save results and return
 automatically without opening a desktop or requiring commands/photos. This is
 observation, not live reconnect or security implementation. Verify local/model/
 workspace/recovery, full build and exact-stage save/return before installation.
+
+### Band-capability correction; withdraw the prepared v107 trial
+
+The user confirms the2.4GHz network is visible elsewhere. Exact USB7392:a711
+maps to EW-7711MAC in the pinned Linux USB table; Edimax's
+[product specification](https://edimax.com/edimax/merchandise/merchandise_detail/data/edimax/in/wireless_adapters_ac450/ew-7711mac/)
+and [FAQ](https://www.edimax.us/html/Faq/FAQ-EW7711MAC.pdf) identify it as5GHz-only.
+This overrides the generic Linux PHY channel listing and the captured EEPROM
+board3 hint; neither establishes that this assembled adapter supports2.4GHz.
+The earlier model-band assumption was wrong. Prior packet decode/USB lifetime
+receipts remain historical evidence, not proof of working2.4GHz RF on this model.
+
+Prepared v107 `5806a8aa054d6117`/source `42e8e958` is withdrawn BEFORE install.
+Its full233.62s build/core/desktop,197 staging,229 recipe, six sanitizer suites,
+108 native fixture cases and exact-image save/return/missing-workspace receipts
+remain preserved as offline evidence. There is no reason to cold-boot that
+2.4GHz trial. Existing installed v106 and known-good previous desktop are retained;
+Ubuntu remains default and no reboot is armed.
+
+Revised bounded scope: record exact model band capabilities, refuse installation
+and new runtime execution of the captured2.4GHz RF recipe, and prepare an offline
+channel161/20MHz synthesizer plan from the pinned Linux5GHz row. The observed
+5GHz network is the correct target. The5GHz plan must remain uncalled by native
+RF code until separate5GHz band/BBP/calibration/restore prerequisites and policy
+are implemented and validated. Preserve the anonymous-channel diagnostic helper
+for future valid-band work. Do not rename old2.4GHz acceptance or imply that
+selecting a5GHz frequency alone implements5GHz support, association or security.
