@@ -5646,3 +5646,18 @@ Next: fix source-matched receipt coverage first. Then audit active display
 resources and firmware handoff before any experiment releasing the BIOS request;
 keep controller D-state/common-clock candidates separate. Power policy, integrity
 checks, original limits and the failed RC6 evidence remain unchanged.
+
+
+### Final receipt retention — active scope (2026-11-01)
+
+Base `1a0c9085`. Fix the failed exit-tail coverage by deferring the original CPU
+phase acceptance records and frozen AP admission receipt to their final reports.
+Keep all live progress, sensor checks, I/O-owner/worker diagnostics, phase timing,
+workload and strict parser formats; preserve failure markers and partial progress.
+No tail-size, watchdog, power-policy, ownership or integrity change. Scope:
+`userspace/threadstress/load_capture.c`, isolated `kernel/diagnostics/ap_probe.c`,
+focused fixtures and source-matched replay, unit/current diagnostic docs. PR261
+owns shared logger/scheduler/desktop changes; this fix does not edit those
+subsystems. PR252 sockets and PR19 Wi-Fi remain independent. Publish/test the
+bounded fix, validate a matched image/VM and prepare the automated repeat with
+normal recovery and collection. The earlier RC6 failure remains independent.
