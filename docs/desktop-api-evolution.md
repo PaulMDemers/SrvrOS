@@ -256,7 +256,7 @@ owner or raw pointer. That extraction is a separate reviewed change.
 | Actions/menus | Stable action IDs and enable/check/shortcut state shared by menu, toolbar and keyboard | Dynamic window enumeration, searchable app commands and global menu overflow |
 | Clipboard / drag-drop | Typed offers and bounded asynchronous transfer with completion/refusal, cancellation and ownership lifetime | Multiple MIME types and drag/drop; do not expose arbitrary client pointers |
 | Documents / files | Open/save dialogs, explicit accepted-write lifetime, dirty state and save-on-close | Recent documents, session recovery and file-change notifications; crash recovery is not exFAT journaling |
-| App services | Launch/activate/open-document by app ID; structured errors; notifications and settings | Application manifests and associations replace the hardcoded launcher catalog |
+| App services | Launch/activate/open-document by app ID; structured errors; notifications and settings | Shared built-in descriptors provide keys, handlers and service capabilities; external manifests and persistent associations remain future work |
 | Toolkit | Continue shared controls; add layout constraints, focus/action plumbing and consistent theme metrics | Virtualized collections, accessible roles and text shaping; keep transport and allocation out of pure widget models |
 | Observability | Per-owner allocations, queue depths/drops, input latency, frame time, refusal reason and teardown totals | Workload-based profiling and reproducible regression thresholds |
 
@@ -351,7 +351,9 @@ processes. No protocol revision or resource-budget change is introduced.
 
 Host and actual-consumer VM gates cover these contracts. Native acceptance of
 the new layer remains separate in the machine record. Migrate remaining apps
-incrementally; application manifests, broader services and external toolkit
+incrementally. The [built-in application registry](application-registry.md) now
+shares stable keys, document handlers, service admission and Files Open With.
+External manifests, persistent associations, broader services and external toolkit
 backends remain future work. Preserve the quiet, refined native style.
 
 **Gate:** two apps use the same contracts without copied lifecycle code; cancel

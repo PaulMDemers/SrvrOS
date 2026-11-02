@@ -6,6 +6,8 @@ void tool_files_info_finish(struct tool *t,int result) { (void)t;(void)result;as
 void tool_files_copy_path(struct tool *t) { (void)t;assert(0); }
 static struct tool t;
 static unsigned started,launched,clipboard_id;
+static unsigned expected_app=DESK_APP_TEXT;
+static const char *expected_path="/fat/notes.txt";
 void srv_puts(const char *s) { (void)s; }
 void tool_status(struct tool *p,const char *s) { snprintf(p->status,sizeof(p->status),"%s",s);if(p->prompt_mode) snprintf(p->prompt.dialog.message,sizeof(p->prompt.dialog.message),"%s",s); }
 void tool_layout(struct tool *p) {
@@ -14,7 +16,7 @@ void tool_layout(struct tool *p) {
     if(p->modal) desk_dialog_configure(&p->dialog,(struct desk_rect){0,0,720,480});
     desk_ui_layout_changed(&p->ui);
 }
-void tool_launch(struct tool *p,int application,const char *path) { (void)p;assert(application==DESK_APP_TEXT && !strcmp(path,"/fat/notes.txt"));launched++; }
+void tool_launch(struct tool *p,int application,const char *path) { (void)p;assert((unsigned)application==expected_app && !strcmp(path,expected_path));launched++; }
 void tool_clipboard_action(struct tool *p,struct desk_action a) { (void)p;clipboard_id=a.id; }
 int desk_file_job_start(struct desk_file_job *j,unsigned op,const char *path,const void *data,size_t length,unsigned flags,uint32_t crc) {
     (void)flags;(void)crc;if(j->busy) return -1;
@@ -44,6 +46,22 @@ int main(void) {
     tool_files_init(&t,"/fat");assert(t.job.busy && t.job.request.operation==DESK_FILE_LIST);listing(0);
     assert(t.file_count==3 && t.entries[0].directory && !strcmp(t.entries[1].name,"Alpha"));
     assert(!strcmp(t.file_dates[2],"2026-10-18 12:34"));choose(5);activate(TOOL_OPEN);assert(launched==1);
+    activate(TOOL_OPEN_WITH);assert(t.modal==4 && t.dialog.count==2 && t.dialog.cancel==1003);
+    assert(t.dialog.choices[1].id==TOOL_OPEN_WITH_CHOICE_BASE+DESK_APP_TEXT);
+    tool_files_dialog(&t,TOOL_OPEN_WITH_CHOICE_BASE+DESK_APP_CALCULATOR);assert(t.modal==4 && launched==1);
+    tool_files_dialog(&t,1003);assert(!t.modal && launched==1 && !t.job.busy);
+    activate(TOOL_OPEN_WITH);int saved_selection=t.table.body.selected;t.table.body.selected=0;
+    tool_files_dialog(&t,TOOL_OPEN_WITH_CHOICE_BASE+DESK_APP_TEXT);assert(!t.modal && launched==2);
+    t.table.body.selected=saved_selection;
+    strcpy(t.entries[saved_selection].name,"Photo.PNG");expected_path="/fat/Photo.PNG";
+    activate(TOOL_OPEN_WITH);assert(t.modal==4 && t.dialog.count==3 && !strcmp(t.dialog.choices[1].label,"Preview") && strstr(t.dialog.message,"Preview is the default"));
+    expected_app=DESK_APP_PREVIEW;tool_files_dialog(&t,TOOL_OPEN_WITH_CHOICE_BASE+DESK_APP_PREVIEW);assert(!t.modal && launched==3);
+    activate(TOOL_OPEN_WITH);expected_app=DESK_APP_TEXT;
+    tool_files_dialog(&t,TOOL_OPEN_WITH_CHOICE_BASE+DESK_APP_TEXT);assert(!t.modal && launched==4);
+    expected_path="/fat/notes.txt";strcpy(t.entries[saved_selection].name,"notes.txt");
+    t.job.busy=1;activate(TOOL_OPEN_WITH);assert(!t.modal && launched==4);t.job.busy=0;
+    t.table.body.selected=0;activate(TOOL_OPEN_WITH);assert(!t.modal && launched==4);
+    t.table.body.selected=saved_selection;
     desk_table_sort_indicator(&t.table,2,1);tool_files_action(&t,(struct desk_action){TOOL_LIST,DESK_TABLE_SORT});
     assert(t.entries[0].directory && t.table.navigation[t.table.body.selected].id==5);
     activate(TOOL_RENAME);assert(t.prompt_mode==DESK_FILE_RENAME && t.file_selected.inode==5 && !strcmp(t.prompt.text.data,"notes.txt"));

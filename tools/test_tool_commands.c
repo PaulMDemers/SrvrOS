@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include "../userspace/desktools/runtime.h"
 static unsigned selected,canceled;
+void tool_files_action(struct tool *t,struct desk_action a) {(void)t;assert(a.flags&DESK_WIDGET_ACTIVATED);selected=a.id;}
 void tool_picker_cancel(struct tool *t) {t->picker_mode=0;canceled++;}
 void tool_text_dialog(struct tool *t,unsigned id) {assert(id==1003);t->modal=0;canceled++;}
 void tool_text_request(struct tool *t,int pending) {(void)t;selected=1000+(unsigned)pending;}
@@ -47,5 +48,10 @@ int main(void) {
     t.job.busy=0;key.usage=0x1a;key.modifiers=SRV_KEY_CTRL;assert(tool_command_key(&t,&key) && t.closing);
     t.closing=0;t.prompt_mode=1;t.quit_application=0;key.usage=0x14;
     assert(tool_command_key(&t,&key) && t.quit_application && !t.prompt_mode && canceled==3);
+    t.quit_application=0;t.job.busy=0;t.file_count=1;t.table.body.selected=0;
+    key=(struct srv_key_event){.usage=0x12,.modifiers=SRV_KEY_CTRL|SRV_KEY_SHIFT,.flags=SRV_KEY_DOWN_EVENT};
+    selected=0;assert(tool_command_key(&t,&key) && selected==TOOL_OPEN_WITH);
+    t.entries[0].directory=1;selected=0;assert(!tool_command_key(&t,&key) && !selected);
+    t.entries[0].directory=0;t.modal=4;assert(!tool_command_key(&t,&key) && !selected);
     puts("tool-commands: PASS Text key/button/menu guard parity, busy save refusal, independent new window, modal close protection and common Quit cancellation");
 }

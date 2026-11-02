@@ -2651,7 +2651,7 @@ test-core: test-file-change
 .PHONY: test-files
 test-files: build/tests/files-host$(HOST_EXE)
 	$<
-build/tests/files-host$(HOST_EXE): tools/test_files.c userspace/desktools/files_app.c userspace/desktools/app.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) shared/include/srvros/desktop_file.h
+build/tests/files-host$(HOST_EXE): tools/test_files.c userspace/desktools/files_app.c userspace/desktools/app.h shared/include/srvros/desktop_apps.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) shared/include/srvros/desktop_file.h
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I userspace/widgets/include tools/test_files.c $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -o $@
 test-desktop: test-files
@@ -4072,3 +4072,11 @@ test-cpu-checkpoint-budget:
 test-core: test-cpu-capture-format
 test-cpu-capture-format:
 	$(PYTHON) -m unittest discover -s tools -p test_cpu_capture_format.py
+
+.PHONY: test-app-registry
+test-desktop: test-app-registry
+test-app-registry: build/tests/app-registry-host$(HOST_EXE)
+	$<
+build/tests/app-registry-host$(HOST_EXE): tools/test_app_registry.c shared/include/srvros/desktop_apps.h shared/include/srvros/desktop_protocol.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include $< -o $@
