@@ -5906,3 +5906,41 @@ remaining display audio/interrupt controls and driver ownership. No shared
 scheduler/storage/logger edits, register accesses, power changes or new native
 capture are implied. PR252 sockets and Pro PR19 Wi-Fi remain independent. Keep
 installed release `6ac139e77c5d3070`, its failed RC6 assessment and recovery intact.
+
+
+### Integration validated; maximum checkpoint budget fails (2026-11-02)
+
+Runtime integration base `95ddb8d6` / PR261 passes matched ordinary/AP build,
+USB image and full core tests locally. Additional source-guard/budget tests and
+the original receipt tests pass. Baseline smoke passes syscall ABI, all 482 shell
+commands, shell editing, UEFI USB input and displayd; guest filesystem checks
+report no errors/leaks. Ordinary/AP disassembly/symbol and sparse-hook isolation
+pass. Source `5ea8b3aa` (host tooling/docs changes only after that runtime base)
+stages VM-only release `4853b3e956523a10`: simulation, exact native refusal with
+save/unmount/return and missing-workspace halt all pass on GPT. Missing Home is
+an explicit expected halt, not a normal-completion JSON or a native acceptance.
+
+The old native trace is still rejected against changed logger/scheduler source.
+The strict replay guard now additionally fingerprints `exfat.c` and `exfat.h`,
+covering report formats and capacities changed outside the logger. A separate
+explicitly synthetic source-derived addition model adds nine gate rows, one gate
+summary, four cost rows and sixteen phase rows: 9,056 bytes at conservative
+maximum widths. Against the preserved native exit proofs and unchanged stress
+padding/tail size, required critical records are evicted. This failure is retained;
+it does not mean this source was booted on the Air or that the old native run
+failed resource capture. No model substitutes for a matching new native trace.
+
+The source-only dependency audit identifies display HDA as distinct from PCH
+CS4208 playback, rejects ordinary audio initialization as a read-only probe,
+and records graphics-audio and DE/SDE mask/enable candidates for later access
+review. Display audio, interrupt, DMA and firmware teardown ownership remain
+unmeasured. No register read, control write, policy or limit change is added.
+
+PR271 publishes the audit/regression tooling. Resolve final-proof retention while
+preserving every sample, failure marker and checkpoint before extending the
+inventory or installing another native candidate. VM-only stage is not approved
+for native use; its manifest remains intact and `latest` is restored to installed
+`6ac139e77c5d3070`. Installed candidate, console recovery and accepted package
+verify, with 483 prior native evidence files rechecked. Ubuntu remains default,
+no one-shot/reboot is armed and no install occurred. New audit/test evidence is
+backed up outside `build`; prior RC6/package-C3 failures remain unchanged.
