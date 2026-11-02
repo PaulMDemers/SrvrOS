@@ -552,6 +552,13 @@ enum mt76_mcu_timing_status mt76_rf_a20_capture(struct mt76_rf_table *s,const st
 bool mt76_rf_a20_exact_profile_valid(const struct mt76_rf_table *s);
 uint32_t mt76_rf_g20_address(unsigned index);
 unsigned mt76_rf_g20_value(unsigned index);
+/* Read-only24-word original-state inventory; no RF write callback or replay. */
+unsigned mt76_a20_inventory_sequence(unsigned command);
+uint32_t mt76_a20_inventory_guard_address(unsigned operation);
+bool mt76_a20_inventory_admit(const struct mt76_rf_table *s,unsigned operation);
+size_t mt76_a20_inventory_packet(const struct mt76_rf_table *s,unsigned operation,uint8_t *out,size_t capacity);
+enum mt76_mcu_timing_status mt76_a20_inventory_capture(struct mt76_rf_table *s,const struct mt76_mcu_timing_io *io);
+bool mt76_a20_inventory_valid(const struct mt76_rf_table *s);
 unsigned mt76_rf_g20_sequence(unsigned command);
 uint32_t mt76_rf_g20_guard_address(unsigned operation);
 size_t mt76_rf_g20_packet(unsigned operation,uint8_t *out,size_t capacity);

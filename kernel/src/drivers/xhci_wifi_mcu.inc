@@ -1,6 +1,7 @@
 static bool wifi_5ghz_prereq_requested;
 static bool wifi_5ghz_band_requested;
 static bool wifi_5ghz_channel_requested;
+static bool wifi_a20_inventory_requested;
 /* One-shot MCU identity diagnostic, optionally preceded by guarded MAC/BBP
  * reset. Opt-in fixed RF initialization follows the full captured chain.
  * Fixed frequency-field preview is a separate explicit stopped-RX mode.
@@ -2323,6 +2324,7 @@ static void wifi_5ghz_inventory_report(const char *prefix,const struct mt76_5ghz
     console_printf("%s: status=%u complete=%u valid=%u operations=%u submitted=%u reads=%u exchanges=%u observed=%u writes=0 network_out=0\n",prefix,(uint64_t)(valid?0:MT76_TIMING_STATE),(uint64_t)s->complete,(uint64_t)valid,(uint64_t)s->operations,(uint64_t)submitted,(uint64_t)s->reads,(uint64_t)s->exchanges,(uint64_t)s->observed);
     for(unsigned i=0;i<7;i++)console_printf("%s-value: index=%u address=%x value=%x\n",prefix,(uint64_t)i,(uint64_t)mt76_5ghz_prereq_target(i),(uint64_t)s->values[i]);
 }
+static bool wifi_mcu_a20_inventory(struct xhci_device *d);
 static bool wifi_mcu_5ghz_band(struct xhci_device *d){
     struct xhci_wifi_mcu *m=&d->firmware.mcu;struct mt76_5ghz_band *s=&wifi_5ghz_band.state;
     if(s->attempted || wifi_5ghz_band.active)return false;
@@ -2348,6 +2350,49 @@ static bool wifi_mcu_5ghz_band(struct xhci_device *d){
     for(unsigned phase=1;phase<=8;phase++)operations+=wifi_5ghz_band.submitted[phase];
     console_printf("wifi-5ghz-band: status=%u complete=%u restored=%u phase=%u operations=%u network_out=0\n",(uint64_t)status,(uint64_t)valid,(uint64_t)s->restored,(uint64_t)s->phase,(uint64_t)operations);
     if(wifi_5ghz_channel_requested)console_printf("wifi-5ghz-channel: status=%u complete=%u restored=%u channel=161 operations=%u network_out=0\n",(uint64_t)status,(uint64_t)valid,(uint64_t)(s->restored && mt76_synth5_valid(&s->synth)),(uint64_t)operations);
+    if(valid && wifi_a20_inventory_requested)valid=wifi_mcu_a20_inventory(d);
+    return valid?true:wifi_mcu_fail(d);
+}
+static struct {struct xhci_device *d;struct mt76_rf_table state;unsigned submitted;bool active;} wifi_a20_inventory;
+static bool wifi_a20_inventory_owned(void *context){
+    if(context!=&wifi_a20_inventory || !wifi_a20_inventory_requested || !wifi_a20_inventory.active)return false;
+    struct xhci_device *d=wifi_a20_inventory.d;struct mt76_rf_table *s=&wifi_a20_inventory.state;
+    return d && d==wifi_5ghz_band.d && wifi_5ghz_channel_requested && wifi_5ghz_band_requested && wifi_5ghz_prereq_requested &&
+        wifi_5ghz_band.state.channel161 && mt76_5ghz_band_valid(&wifi_5ghz_band.state) && wifi_rf_vga_owned(d) &&
+        mt76_rf_vga_exact_profile_valid(&d->firmware.mcu.rf_vga) && d->firmware.mcu.rf_vga_submitted==MT76_RF_VGA_OPS &&
+        s->attempted && !s->complete && s->operations<=168 && wifi_a20_inventory.submitted==s->operations;
+}
+static bool wifi_a20_inventory_read(void *context,uint32_t address,uint32_t *value){
+    unsigned op=wifi_a20_inventory.submitted;
+    if(!value || !wifi_a20_inventory_owned(context) || !mt76_a20_inventory_admit(&wifi_a20_inventory.state,op) || address==UINT32_MAX || address!=mt76_a20_inventory_guard_address(op))return false;
+    wifi_a20_inventory.submitted++;*value=0;bool ok=wifi_mac_private_usb(wifi_a20_inventory.d,false,address,value);
+    console_printf("wifi-a20-inventory-usb: op=%u address=%x value=%x ok=%u writes=0\n",(uint64_t)op,(uint64_t)address,(uint64_t)*value,(uint64_t)ok);
+    return ok?true:wifi_mcu_fail(wifi_a20_inventory.d);
+}
+static int wifi_a20_inventory_exchange(void *context,const uint8_t *packet,size_t length,uint8_t *reply,size_t capacity){
+    unsigned op=wifi_a20_inventory.submitted;uint8_t allowed[16];
+    if(!wifi_a20_inventory_owned(context) || !packet || !reply || length!=16 || capacity<MT76_MCU_RESPONSE_MAX || mt76_a20_inventory_packet(&wifi_a20_inventory.state,op,allowed,16)!=16)return -1;
+    for(unsigned i=0;i<16;i++)if(packet[i]!=allowed[i])return -1;
+    struct xhci_device *d=wifi_a20_inventory.d;struct xhci_wifi_mcu *m=&d->firmware.mcu;
+    wifi_a20_inventory.submitted++;for(unsigned i=0;i<16;i++)d->firmware.buffer[i]=packet[i];
+    int sent=wifi_mcu_bulk(d,false,16),received=-1;if(sent==16)received=wifi_mcu_bulk(d,true,MT76_MCU_RESPONSE_MAX);
+    uint32_t w[4]={0};for(unsigned n=0;n<4;n++)if(received>=(int)(4*n+4))for(unsigned b=0;b<4;b++)w[n]|=(uint32_t)m->buffer[4*n+b]<<(8*b);
+    console_printf("wifi-a20-inventory-command: op=%u sent=%d received=%d cc=%u residue=%u h=%x address=%x value=%x t=%x writes=0\n",(uint64_t)op,(int64_t)sent,(int64_t)received,(uint64_t)m->completion,(uint64_t)m->remaining,(uint64_t)w[0],(uint64_t)w[1],(uint64_t)w[2],(uint64_t)w[3]);
+    if(received<0 || (size_t)received>capacity)return -1;
+    for(int i=0;i<received;i++)reply[i]=m->buffer[i];return received;
+}
+static bool wifi_mcu_a20_inventory(struct xhci_device *d){
+    struct xhci_wifi_mcu *m=&d->firmware.mcu;struct mt76_rf_table *s=&wifi_a20_inventory.state;
+    if(s->attempted || wifi_a20_inventory.active || !mt76_5ghz_band_valid(&wifi_5ghz_band.state))return false;
+    wifi_a20_inventory.d=d;wifi_a20_inventory.active=true;
+    m->table_active=m->dcoc_active=m->skey_active=m->wcid_active=m->mac_tail_active=m->mac_fixed_active=m->efuse_map_active=m->mac_board_active=m->ant_snapshot_active=m->ant_init_active=m->rf_probe_active=m->rf_table_active=m->rf_bank5_active=m->rf_bank6_active=m->rf_vga_active=true;
+    console_write("wifi-a20-inventory-progress: read24 fixed RF originals after channel161 restoration;no new RF writes/network OUT\n");
+    const struct mt76_mcu_timing_io io={&wifi_a20_inventory,wifi_a20_inventory_owned,wifi_a20_inventory_read,wifi_a20_inventory_exchange};
+    enum mt76_mcu_timing_status status=mt76_a20_inventory_capture(s,&io);wifi_a20_inventory.active=false;
+    m->table_active=m->dcoc_active=m->skey_active=m->wcid_active=m->mac_tail_active=m->mac_fixed_active=m->efuse_map_active=m->mac_board_active=m->ant_snapshot_active=m->ant_init_active=m->rf_probe_active=m->rf_table_active=m->rf_bank5_active=m->rf_bank6_active=m->rf_vga_active=false;
+    bool valid=status==MT76_TIMING_OK && mt76_a20_inventory_valid(s);
+    for(unsigned i=0;i<24;i++)console_printf("wifi-a20-inventory-value: index=%u address=%x value=%x\n",(uint64_t)i,(uint64_t)mt76_rf_a20_address(i),(uint64_t)s->values[i]);
+    console_printf("wifi-a20-inventory: status=%u complete=%u valid=%u operations=%u submitted=%u reads=%u exchanges=%u writes=0 network_out=0\n",(uint64_t)status,(uint64_t)s->complete,(uint64_t)valid,(uint64_t)s->operations,(uint64_t)wifi_a20_inventory.submitted,(uint64_t)s->reads,(uint64_t)s->exchanges);
     return valid?true:wifi_mcu_fail(d);
 }
 static bool wifi_rf_g20_owned(void *context){
@@ -3493,4 +3538,9 @@ bool xhci_wifi_capture_5ghz_channel(void){
     wifi_5ghz_channel_requested=true;
     bool ok=xhci_wifi_capture_5ghz_band();
     wifi_5ghz_channel_requested=false;return ok;
+}
+
+bool xhci_wifi_capture_a20_inventory(void){
+    if(wifi_a20_inventory_requested || wifi_5ghz_channel_requested || wifi_5ghz_band_requested || wifi_5ghz_prereq_requested)return false;
+    wifi_a20_inventory_requested=true;bool ok=xhci_wifi_capture_5ghz_channel();wifi_a20_inventory_requested=false;return ok;
 }

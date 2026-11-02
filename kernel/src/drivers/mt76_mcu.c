@@ -1961,6 +1961,53 @@ uint32_t mt76_rf_a20_address(unsigned i){return rf_plan_address(&rf_a20_plan,i);
 unsigned mt76_rf_a20_value(unsigned i){return i<MT76_RF_A20_COUNT?rf_a20_values[i]:UINT32_MAX;}
 bool mt76_rf_a20_exact_profile_valid(const struct mt76_rf_table *s){return s && s->complete && rf_plan_state_valid(&rf_a20_plan,s,MT76_RF_A20_OPS) && s->equal==MT76_RF_A20_COUNT && !s->mismatch_mask && !s->mismatch_hi;}
 
+/* Read-only original values for the fixed high-band/20MHz targets. */
+unsigned mt76_a20_inventory_sequence(unsigned q){return q<24?(q+2)%15+1:0;}
+uint32_t mt76_a20_inventory_guard_address(unsigned op){unsigned n=op%7;return op<168 && n!=3?mt76_rf_probe_read_address(n<3?n:n-4):UINT32_MAX;}
+static bool a20_inventory_state(const struct mt76_rf_table *s,unsigned op){
+    if(!s || !s->attempted || s->operations!=op || op>168 || s->acks || s->equal || s->mismatch_mask || s->mismatch_hi)return false;
+    unsigned ex=op/7+(op%7>3);
+    if(s->reads!=op-ex || s->exchanges!=ex || s->observed!=ex || s->received!=(ex?16:-1))return false;
+    for(unsigned q=0;q<ex;q++){
+        uint32_t h=0x4a000008u|(mt76_a20_inventory_sequence(q)<<16);const uint32_t *w=s->words[q];
+        if(w[0]!=h || w[1]!=mt76_rf_a20_address(q) || w[2]!=s->values[q] || w[3]!=h)return false;
+    }
+    for(unsigned k=0;k<op;k++)if(k%7!=3){unsigned n=k%7,j=n<3?n:n-4;if(!rf_central_guard_valid(j,s->guards[(k/7)*2+(n>=4)][j]))return false;}
+    return true;
+}
+bool mt76_a20_inventory_admit(const struct mt76_rf_table *s,unsigned op){return s && !s->complete && op<168 && a20_inventory_state(s,op);}
+size_t mt76_a20_inventory_packet(const struct mt76_rf_table *s,unsigned op,uint8_t *out,size_t cap){
+    if(!mt76_a20_inventory_admit(s,op) || op%7!=3)return 0;
+    uint8_t payload[8]={0};uint32_t a=mt76_rf_a20_address(op/7);
+    for(unsigned b=0;b<4;b++)payload[b]=(uint8_t)(a>>(8*b));
+    return mt76_mcu_encode(10,mt76_a20_inventory_sequence(op/7),payload,8,out,cap);
+}
+enum mt76_mcu_timing_status mt76_a20_inventory_capture(struct mt76_rf_table *s,const struct mt76_mcu_timing_io *io){
+    if(!s || s->attempted || !io || !io->authorize || !io->read || !io->exchange)return MT76_TIMING_REFUSED;
+    *s=(struct mt76_rf_table){.attempted=true,.received=-1};
+    for(unsigned op=0;op<168;op++){
+        unsigned q=op/7,n=op%7;if(!mt76_a20_inventory_admit(s,op))return MT76_TIMING_STATE;
+        if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+        if(n!=3){unsigned j=n<3?n:n-4;uint32_t *v=&s->guards[q*2+(n>=4)][j];
+            if(!io->read(io->context,mt76_a20_inventory_guard_address(op),v))return MT76_TIMING_IO;
+            s->reads++;s->operations++;if(!rf_central_guard_valid(j,*v))return MT76_TIMING_STATE;
+        }else{
+            uint8_t packet[16],reply[MT76_MCU_RESPONSE_MAX]={0};if(mt76_a20_inventory_packet(s,op,packet,16)!=16)return MT76_TIMING_STATE;
+            s->received=io->exchange(io->context,packet,16,reply,sizeof reply);
+            if(s->received<0)return MT76_TIMING_IO;
+            if(s->received!=16)return MT76_TIMING_REPLY;
+            for(unsigned j=0;j<4;j++)for(unsigned b=0;b<4;b++)s->words[q][j]|=(uint32_t)reply[4*j+b]<<(8*b);
+            uint32_t *w=s->words[q],h=0x4a000008u|(mt76_a20_inventory_sequence(q)<<16);
+            if(w[0]!=h || w[1]!=mt76_rf_a20_address(q) || w[2]>255 || w[3]!=h)return MT76_TIMING_REPLY;
+            s->values[q]=(uint8_t)w[2];s->exchanges++;s->observed++;s->operations++;
+        }
+    }
+    if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+    if(!a20_inventory_state(s,168))return MT76_TIMING_STATE;
+    s->complete=true;return MT76_TIMING_OK;
+}
+bool mt76_a20_inventory_valid(const struct mt76_rf_table *s){return s && s->complete && a20_inventory_state(s,168);}
+
 unsigned mt76_rf_g20_sequence(unsigned command){return rf_plan_sequence(&rf_g20_plan,command);}
 uint32_t mt76_rf_g20_guard_address(unsigned op){return rf_plan_guard_address(&rf_g20_plan,op);}
 size_t mt76_rf_g20_packet(unsigned op,uint8_t *out,size_t capacity){return rf_plan_packet(&rf_g20_plan,op,out,capacity);}
