@@ -35,7 +35,7 @@ def check(log):
     markers=[line for line in lines if line.startswith('wifi-5ghz-band-phase:')]
     require(markers==[f'wifi-5ghz-band-phase: index={i} start=1' for i in (1,2,3,4,8,5,6,7)],'invalid channel phase order')
     rows=[l for l in lines if l.startswith(('wifi-5ghz-synth-usb:','wifi-5ghz-synth-command:'))]
-    require(len(rows)==896,'incomplete synthesizer trace');plan=commands()
+    require(len(rows)==896 and sum(l.startswith('wifi-5ghz-synth') for l in lines)==897,'incomplete/unknown synthesizer trace');plan=commands()
     for op,line in enumerate(rows):
         q,n=divmod(op,7)
         if n!=3:guard(line,'wifi-5ghz-synth',op,n if n<3 else n-4);continue

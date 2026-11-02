@@ -32,6 +32,9 @@ class ProofTests(unittest.TestCase):
         good=fixture()
         for old,new in [('operations=1667','operations=1666'),('channel=161','channel=6'),('writes=34','writes=33'),('restored=1','restored=0'),('0x0000000000000068','0x0000000000000028'),('0x0000000040000050','0x0000000040000051'),('ok=1','ok=0'),('writes=1','writes=0')]:
             with self.assertRaises(ValueError):check(good.replace(old,new))
+    def test_unknown_receipt(self):
+        with self.assertRaises(ValueError):check(fixture()+'wifi-5ghz-synth-unknown: ok=1\n')
+
     def test_phase_scope(self):
         good=fixture();marker='wifi-5ghz-band-phase: index=8 start=1\n'
         with self.assertRaises(ValueError):check(good.replace(marker,'').replace('wifi-5ghz-band-phase: index=2 start=1',marker+'wifi-5ghz-band-phase: index=2 start=1'))
