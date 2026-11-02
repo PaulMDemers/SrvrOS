@@ -709,3 +709,27 @@ platform trial. Current-source tail regression must retain all 52 raw control va
 padding and pre-final chatter. No tolerance, phase, attempt, latency, ownership
 or integrity requirement changes. Native acceptance remains pending a matched
 physical return; enabled controls alone cannot identify a causal C3 blocker.
+
+
+### Native version-5 observation
+
+Air6,1 source `78fbea3c`, release `6ac139e77c5d3070`, records both complete
+26-control endpoints with identical raw values, valid access brackets, zero
+source faults and unchanged pre/post BIOS well request. The actual 64 KiB exit
+log directly retains every original proof and the new controls; no reconstruction
+or synthetic data is used for this native observation.
+
+The eDP transcoder selects pipe A, primary A and DDI A are enabled, and the
+other sampled primary/sprite/cursor/fitter/DDI enable fields and VGA are disabled.
+The BIOS request remains set. This inventory narrows the missing routing data;
+it does not prove the switchable well unused. Display audio/interrupts, remaining
+firmware dependencies and safe ownership/teardown are still unmeasured. Do not
+release the request based on these controls alone.
+
+The overall platform trial remains failed on the original RC6 bound: about
+98.739 ms nominal excess over a 90.051-second PM bracket (0.1096%); package C3
+remains zero despite 32 successful bounded core-C3 rounds. See the unit record
+for exact session/hash and USB/recovery checks. Newly merged PR261 changes the
+scheduler/logger baseline after this trial; its integration needs fresh local
+validation and source-matched tail coverage before another candidate. None of
+this promotes an older logging trace or sibling-machine result to new acceptance.
