@@ -859,7 +859,10 @@ static void deferred_ui_diagnostics(void) {
     s.children[0]=42;desk_damage_init(&s.damage,800,600);
     struct desk_packet p=desk_packet_new(DESK_OPEN);p.window=1;p.width=720;p.height=480;strcpy(p.text,"Backpressure");
     slow_console_probe=1;slow_console_calls=0;uint64_t start=now;
-    srv_puts("controlled 600ms console stall\n");assert(now-start==60 && slow_console_calls==1);
+    struct lifecycle_worker baseline_worker={0};
+    struct session baseline={.worker=&baseline_worker,.trace=1,.startup_trace=1,.scene={.focus=-1}};
+    baseline.children[0]=42;desk_damage_init(&baseline.damage,800,600);
+    incoming(&baseline,42,&p);assert(baseline.clients[0].pid==42 && now-start>=60 && slow_console_calls);
     start=now;slow_console_calls=0;ui_logger=&w;
     incoming(&s,42,&p);
     assert(s.clients[0].pid==42 && s.clients[0].configure && now==start && !slow_console_calls);

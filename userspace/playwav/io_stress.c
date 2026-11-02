@@ -66,6 +66,9 @@ static int producer(unsigned seconds) {
         .stdin_fd=gate[0],.stdout_fd=done[1],.stderr_fd=2};
     long child=srv_exec(&request);srv_close(gate[0]);srv_close(done[1]);
     if(child<=0){srv_close(gate[1]);srv_close(done[0]);return 1;}
+    if(srv_fcntl(done[0],SRV_F_SETFL,SRV_FD_NONBLOCK)<0) {
+        uint64_t status;srv_close(done[0]);srv_close(gate[1]);srv_kill(child);srv_wait(child,&status,0);return 1;
+    }
     printf("audio-io: begin seconds=%u directory=%s automatic=yes\n",seconds,directory);fflush(stdout);
     long handle=srv_pcm_open();int failed=handle<=0,started=0;
     uint64_t start=0,end=0,submitted=0,frames=(uint64_t)seconds*48000,phase=0;
@@ -76,13 +79,12 @@ static int producer(unsigned seconds) {
      * audible without depending on disk reads in the producer itself. */
     while(!failed && (submitted<frames*4 || !worker_done)) {
         if(!worker_done) {
-            struct srv_pollfd event={.fd=done[0],.events=SRV_POLLIN};
-            long ready=srv_poll(&event,1,0);
-            if(ready<0)failed=1;
-            else if(event.revents&SRV_POLLIN) {
-                char token;if(srv_read(done[0],&token,1)!=1 || token!='D')failed=1;
-                else {worker_done=1;srv_close(done[0]);done[0]=-1;}
-            } else if(event.revents&(SRV_POLLHUP|SRV_POLLERR|SRV_POLLNVAL))failed=1;
+            /* Explicit nonblocking pipe reads use the existing audited try
+             * path. Generic poll would regain the storage gate and could starve
+             * the otherwise independent PCM producer behind a long USB call. */
+            char token;long ready=srv_read(done[0],&token,1);
+            if(ready==1 && token=='D') {worker_done=1;srv_close(done[0]);done[0]=-1;}
+            else if(ready!=SRV_ERR_AGAIN)failed=1;
         }
         if(failed || (submitted>=frames*4 && worker_done))break;
         if(submitted>=maximum){failed=1;break;}
