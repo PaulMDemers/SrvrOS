@@ -1984,3 +1984,32 @@ vectored pipe I/O across mapping changes during a wait. The checkpoints are
 the standalone lifetime guest, deterministic pipe tests and a matched QEMU
 threadstress run. PR272 also touches I/O admission for directory and PCM
 operations. Keep those paths with their existing owner.
+
+### Launcher and pipe mapping results
+
+The failing lifetime trace showed both the orphan launcher and its child ready
+while the monitor continued to poll. Commit `1a6b52f5` parks the monitor on
+the process exit event and between retirement checks. It keeps the original
+ten-second orphan deadline. Three fresh diagnostic boots completed all four
+iterations each. The matched production image also completed all four, with
+512 sequential child launches, 64 competing waiter pairs, unrelated-process
+survival and the PTY check. The trace establishes the missed progress during
+monitor polling. It does not identify a general scheduler fairness defect.
+
+Against the previous kernel, separate guest probes unmapped a blocked scalar
+reader's destination and a partially completed writer's source. Both panicked
+in kernel mode. The fault addresses resolve to the byte copy in
+`process_file_pipe_read_mode` and `process_file_pipe_write_mode`. A blocked
+`readv` with two one-byte destinations returned one byte when the second
+destination was unmapped, but consumed both pipe bytes.
+
+Commit `e1b8ae7a` checks the active mappings before committing a pipe
+transfer. In the new guest both reads returned `EFAULT` and recovered the
+two original bytes. The scalar writer returned its completed one-byte prefix.
+Focused and full threadstress and netabi passed. The process and syscall
+mapping fixtures passed x86_64 ASan/UBSan under Rosetta. The Linux x86_64
+host fixtures also passed. GCC 16 needed an exception for a pre-existing
+`maybe-uninitialized` warning in the process fixture. The Darwin Make targets
+passed with warnings treated as errors. The baseline ISO, serial logs and
+symbolized fault sites are under `build/review/pipe-mapping/`. The three
+diagnostic launcher boots are under `build/review/rights-cycles/diag-park-*`.

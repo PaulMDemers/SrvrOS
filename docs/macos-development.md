@@ -331,3 +331,9 @@ then `sh tools/macos/build.sh -j4 all`. Run
 `python3 tools/netabi_smoke.py --boot-wait 60 --command-wait 60` and
 `python3 tools/thread_smoke.py --test vector-io --boot-wait 60 --run-wait 80`
 in sequence.
+
+For pipe mapping and launcher regressions, build a matched image with
+`sh tools/macos/build.sh -j4 all`. Run `python3 tools/process_lifetime_smoke.py`
+and `python3 tools/thread_smoke.py --test pipe-mapping --boot-wait 60`
+sequentially. Use the Darwin host compiler wrapper above with
+`test-pipe-user-mapping test-process-output` for the corresponding host tests.

@@ -166,16 +166,22 @@ A blocked pipe-read probe also consumed data from a reused pipe slot on the
 pre-fix kernel. The read and write paths now recheck descriptor identity when
 they wake and preserve a writer's completed prefix.
 
-The next open boundary is the lifetime of user buffers across a blocking
-pipe syscall. In particular, exercise scalar read/write mappings changed by a
-sibling while the caller sleeps, and vectored receive copyout after wake.
-The descriptor-reuse probes keep their user buffers mapped throughout.
+Unmapping a buffer during scalar pipe I/O panicked the pre-fix kernel in
+both its read and write copy paths. Guest tests also reproduced a partial
+scatter and lost input in
+`readv` after a sibling unmapped a destination. The guest now gets `EFAULT`
+and reads both original bytes on retry. Scalar pipe reads and writes check
+the current mappings before committing each transfer. A partial writer keeps
+its completed byte count. The process fixture also redeems queued rights
+after a failed ordinary read.
 
-A separate process-lifetime guest check reproduced an orphan-launcher timeout
-on the preceding image and this candidate. In a diagnostic run the launcher
-created its child but still had not exited at the ten-second deadline. That
-run passed the first iteration and timed out on the second. Follow up on
-scheduling progress while the monitor waits for the launcher.
+The separate lifetime guest previously timed out with both the orphan launcher
+and its child ready. The monitor now parks on child exit and between bounded
+retirement checks. The expanded guest exercises four iterations per boot.
+The next mapping audit is the PTY path. Its master and slave have separate
+input and output queues, with canonical records and backpressure. Exercise
+those queues across blocked transfer, descriptor replacement and mapping
+changes before extending the pipe guarantees to terminals.
 This checkpoint is separate from the completed event-adapter target.
 
 ## Broader work still outside exhaustive coverage

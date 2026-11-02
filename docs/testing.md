@@ -436,10 +436,10 @@ python3 tools/presentation_screens.py --qemu /ucrt64/bin/qemu-system-x86_64
   `wait`, `jobs -l`, `%+` job references, foreground/background pipeline job
   control, `kill -0` probes, `%job` process-group kill, and Ctrl-C interruption
   of CPU-bound processes and pipelines with `status 130`.
-- `process_lifetime_smoke.py`: disposable Q35 boot, two runs of the kernel
-  `lifetimetest` command (256 sequential apps total), failed spawn, synchronous
+- `process_lifetime_smoke.py`: disposable Q35 boot, four runs of the kernel
+  `lifetimetest` command (512 sequential apps total), failed spawn, synchronous
   exec, orphaned descendants across `setsid`/exec/job groups, selected-lifetime
-  drain and unrelated-process survival, 32 competing waiter pairs with exactly
+  drain and unrelated-process survival, 64 competing waiter pairs with exactly
   one successful reap per child, followed by the existing PTY fixture.
   `make test-process-lifetime` covers preparation/release races and stale owner
   tokens against the real kernel allocation paths. This does not accept native
@@ -1395,3 +1395,18 @@ external sockets close. It repeats each topology 80 times against the 64-slot
 pipe pool. A live duplicate control retrieves the descriptors and transfers a
 byte. `tools/thread_smoke.py --test vector-io` includes a blocked `writev`
 whose descriptor is replaced after its first byte fills the original pipe.
+
+## Pipe buffers changed during a wait
+
+Run `make test-pipe-user-mapping test-process-output` and the matched
+`tools/thread_smoke.py --test pipe-mapping` guest. The syscall fixture injects
+a mapping change during scalar and vectored transfers. A separate process
+fixture transfers a real pipe writer alongside a message. After a failed
+ordinary read it retrieves the same message and writes through the received
+descriptor.
+
+In the guest, scheduler traces check that both readers blocked before a sibling
+unmapped the destination and supplied two bytes. The callers check `EFAULT`
+and read both bytes on retry. A third test frees one byte in a full pipe and
+starts a large scalar write. Once the pipe fills again, the sibling unmaps
+the source and drains space. The writer must report the one byte it published.

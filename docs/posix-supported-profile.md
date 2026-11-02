@@ -660,3 +660,15 @@ role and pipe handle across waits. Retirement returns `EBADF` when no bytes
 have transferred. A writer that has already made progress returns that byte
 count. The same rule applies to `readv` and `writev` on pipes. The check covers
 both replacement of the descriptor and reuse of the kernel pipe slot.
+
+If a sibling unmaps a destination while a pipe read is blocked, the kernel
+checks the destinations for the bytes ready to return before copying or
+consuming them. An inaccessible destination returns `EFAULT` and leaves those
+bytes and attached rights queued. A failing `readv` also leaves earlier
+vectors untouched. The kernel snapshots the vector descriptors at entry.
+
+A scalar pipe write checks its source again before each transfer. If a range
+becomes inaccessible, the call returns the number of bytes already published,
+or `EFAULT` if it has published none. Pipe `writev` gathers the bounded input
+prefix before waiting. Access checks use the mapping present at the time of
+the copy, including a valid replacement mapped at the same address.
