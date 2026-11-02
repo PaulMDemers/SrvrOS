@@ -38,7 +38,38 @@ compatible hardware. Local credentials remain private and unused until the
 security stage. Do not report connection-ready until authentication, data
 exchange and clean disconnect actually pass.
 
-## Ready native candidate — integrated high-band table and41-word restoration
+## v112 integrated channel161/high-band restoration accepted
+
+Release `5e26351cef7dc690`, source `e769cec6`, main `e1c05956`, matching
+session `session-00065f530fc8d4ba-00` passes the complete491136-byte prefix,
+all2507 operations, nested high-band selection inside held channel161/band,
+and independent41-target reverse restoration. Source/release/session, complete
+common proof, payload/recovery equality, offline fsck/allocation and automatic
+Ubuntu return pass. The86-file archive `wifi-a20-cycle-e769cec6` remains outside
+build; no reboot remains armed. This accepts command/readback/restoration only,
+not RF lock, VCO/calibration, reception, security or data transfer.
+
+## Active bounded scope —5GHz frontend prerequisite inventory
+
+Consumes actual main `88c56afa` (Air6,1 evidence/docs only since `e1c05956`);
+PR252/272 scopes remain independent. Audit pinned Linux v7.0 external-PA and
+A-band/20MHz BBP projections. Fresh captured NIC0=`fd11` has internal5GHz-PA
+bit9 clear, so the reference selects external5GHz PA; do not reuse the earlier
+2GHz PA policy or infer assembled band capability from EEPROM hints.
+Before new PA/BBP writes, capture the complete fixed frontend target set,
+including external-PA RF originals, A-band BBP originals, MAC attenuation/ALC,
+filter/channel controls and trim/VCO words, after full v112 restoration.
+No new RF/direct-register write, VCO, RX or network frame is added. Share the
+bounded read/guard/response mechanism through private immutable plans while
+preserving the old seven-target inventory and all legacy refusal gates.
+Explicit raw all-ones observations stay confined to documented BBP/sentinel
+slots and never authorize calibration. Require fresh same-unit board fields,
+static ownership, fixed requests/counts, cancellation/no replay and complete
+saved-prefix proof before cold shutdown. Publish numeric source fixtures and
+validate source hashes/projection, old/new parser/transport boundaries, full
+build, sanitizer and exact-stage save/return before installation.
+
+## v112 candidate validation and handoff history
 
 Installed v112 `5e26351cef7dc690`, runtime `e769cec6`, consumes actual main
 `e1c05956` as merge `0954cf5f`; its compact CPU-telemetry format is independent
