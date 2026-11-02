@@ -223,7 +223,7 @@ The full-prefix checker binds the nested phase between synthesizer operations
 attenuation, VCO pulse, receive, authentication or network frames are added.
 Cold trials require shutdown for the Wi-Fi unplug; results/return are automatic.
 
-##5GHz frontend originals (v113)
+## 5GHz frontend originals (v113)
 
 Native v112 `5e26351cef7dc690` / `e769cec6`, matching session
 `session-00065f530fc8d4ba-00`, passes the491136-byte complete common/band/

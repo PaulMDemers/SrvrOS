@@ -12,16 +12,15 @@ The captured EW-7711MAC `7392:a711`/`0100` is **5GHz-only**; see the
 mistaken for assembled-model capability. Historical2.4GHz packet/USB traces do
 not establish2.4GHz RF support. Do not repeat the withdrawn v107 trial.
 
-Latest native v111 `25cfffe9a41b7e9e`, source `9c132e3c`, main `c9235491`,
-accepts all24 high-band RF originals after the complete channel161/17-word
-restoration transaction. Matching session `session-00065f5262c07486-00` has a
-complete423697-byte prefix, full common-init proof and all168 new read/guard
-operations. Several originals are nonzero. Source/release/session, save/return,
-offline allocation/fsck and all installed/recovery bytes pass. The84-file durable
-archive `wifi-a20-inventory-9c132e3c` is separate from prior failures. This accepts
-observations and the earlier frequency-field restoration, not high-band writes,
-VCO/RF lock, reception or connectivity. That run is collected and unarmed;
-new candidate/armed state is described below and in the local run record.
+Latest native v112 `5e26351cef7dc690`, source `e769cec6`, main `e1c05956`,
+accepts integrated channel161/high-band command programming/readback and
+41-target reverse restoration. Matching session `session-00065f530fc8d4ba-00`
+has a complete491136-byte prefix and all2507 operations. Source/release/session,
+full common proof, payload/recovery equality, offline storage and automatic
+return pass. The86-file durable archive `wifi-a20-cycle-e769cec6` is separate
+from prior failures. This does not accept PA/BBP setup, VCO/RF lock, reception,
+security or connectivity. That run is collected and unarmed; the local record
+and candidate section below own the next installed/armed state.
 
 The preceding warm session `session-00065f50a0330abf-00` remains FAILED before
 firmware preparation: first0730 read1, already-running MCU refusal. Cold adapter
@@ -37,6 +36,41 @@ power cycle; do not repeat a warm boot against its already-running MCU. Demers5 
 compatible hardware. Local credentials remain private and unused until the
 security stage. Do not report connection-ready until authentication, data
 exchange and clean disconnect actually pass.
+
+## Ready native candidate —44 frontend original observations
+
+Installed v113 `efbdb378d6bd0974`, runtime `de6cef51`, main `88c56afa`,
+requires full integrated v112/41-target restoration before reading44 fixed
+frontend originals:30 direct MAC/BBP and14 RF targets. Fresh same-unit NIC0fd11/
+NIC11004 is required; pinned Linux v7.0 identifies external5GHz PA. The snapshot
+includes11 external-PA RF originals,21 A-band/20MHz BBP originals, MAC power/
+attenuation, filter/channel/gain and trim/DAC/VCO controls. It adds no new
+register write, calibration, RX, credential use or network frame. AGC51/53/55
+and IBI9 permit raw all-ones observations only; these do not accept calibration.
+Legacy seven-target inventory targets, counts, framing and MAX refusal remain
+unchanged through private immutable reader plans. No caller plan is accepted.
+
+Full corrected build/USB image/core/docs,204 staging groups, old inventory/
+band/frequency/A20 regressions,308 I/O/309 cancellation boundaries, four raw
+slots, reply/proof/mode mutations, no replay and ASan/UBSan pass. The initial
+native name-collision compile refusal is retained; the corrected full rerun
+passes. Independent source/fixture projection/hash audits and four damaged-source
+refusals pass. A525302-byte synthetic whole-prefix proof and exact-image
+refusal/save/readback/clean-unmount/return and missing-workspace VMs pass.
+Kernel and independently firmware-packaged initramfs match exactly; new native
+owner/inventory validators are linked. Native v113 evidence is pending.
+
+Ubuntu remains default; e47d previous and accepted v109-v112 remain installed
+and independently backed up. The unreferenced superseded scan EFI copy3337
+was retired only after full equality to its durable backup; its evidence and
+backup remain outside build. Shutdown for10seconds Wi-Fi unplug while off is
+authorized; reconnect same port and power on with workspace connected. Results
+and return are automatic. Local run record owns exact armed state. Collect
+`build/bringup/wifi-frontend/return_collect.py` FIRST after return; durable
+archive `wifi-frontend-de6cef51` includes pinned primary sources and the frozen
+full-prefix proof. Require complete board/parent/44-original/source/session/
+storage proof before constructing PA/BBP admission and restoration. Connection-
+ready remains unaccepted; the local credentials are still private and unused.
 
 ## v112 integrated channel161/high-band restoration accepted
 
