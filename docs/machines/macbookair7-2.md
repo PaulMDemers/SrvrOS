@@ -1,6 +1,18 @@
 # MacBookAir7,2 / A1466
 
-Updated: 2026-11-01. State: **active reference machine; partial device acceptance**.
+Updated: 2026-11-02. State: **active reference machine; partial device acceptance**.
+
+### Active Files drain scope
+
+Integrated main PR270 documentation; runtime remains the merged PR261 baseline.
+The saved final Files trace places 9.308220 seconds between canvas disposal and
+history release while an accepted folder job drains, then 3.090923 seconds in
+pool retirement. Review found a redundant READ_INFO call after a short terminal
+batch. Bounded scope: remove that EOF round trip in deskfs, document the existing
+fill-or-EOF contract, test boundaries/errors and actual kernel short-batch EOF,
+then run loaded VM app/audio/disk and multi-Files regression. No syscall admission,
+accepted-job cancellation, storage ordering, workload or deadline is widened.
+Physical endurance acceptance remains pending; no reboot is armed.
 
 ### Merged PR261 native return: Files retirement deadline
 
