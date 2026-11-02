@@ -2,19 +2,53 @@
 
 Updated: 2026-11-01. State: **active reference machine; partial device acceptance**.
 
-### Active follow-up: verified aligned append writeback
+### Verified append candidate ready for hardware
 
-From ae98429a/main9340c9fb on the existing device branch, optimize repeated
-whole-buffer flushes in `kernel/src/fs/exfat.c`. Compare the committed prefix
-under ownership; only an identical, block-aligned, unaliased regular file may
-append without rewriting its old data. Preserve old data sectors, link new
-allocation only before durable length publication, and retain whole-file COW
-fallback for overwrites, unaligned prefixes and aliases. Global sync/fsync and
-process admission stay unchanged. Add exact-prefix/fragmented-chain/crash/failure
-and write-amplification checks, then full host and loaded VM validation. Do not
-claim native acceptance before a new trial. Currentff is failed and collected;
-recovery9aa/accepted7d remain preserved. No reboot armed. PR252 owns separate
-resolver/socket work; avoid changing process/sync dispatch in this scope.
+Source `facd605d`, release `62ed0e37a038f48e`, continues draft PR261 on main9340c9fb.
+Global sync/fsync/close still flush every eligible dirty object through the same
+owner. The backend now proves an append by comparing the entire committed prefix
+against media. Only a matching, sector-aligned, unaliased regular file reuses its
+old extent. Changed/unaligned/incomplete-valid-data/alias cases retain whole-file
+COW; a failed prefix read refuses instead of guessing. No process admission,
+new syscall, hardware gate or caller dirty hint is introduced.
+
+Append writes touch only new payload sectors. New allocation and FAT links are
+prepared and flushed before checksummed length/flags and sidecar publication;
+NoFatChain streams ignore prepared links until publication, and later appends
+traverse the resulting FAT chain. Old prefix clusters stay owned. Dirty markers,
+flush/quarantine and offline recovery protections remain. Cost records label a
+verified append. This preserves the existing non-atomic directory-write contract;
+it does not promise a journal or physical-sector atomicity.
+
+The128KiB-cluster comparison requests3,680,518 write bytes versus16,656,954 for
+COW (77.9% fewer), with identical final payload hashes and clean remount/fsck.
+The4KiB comparison requests125,190 versus531,002. Changed-prefix, alias,
+512/4096-byte device alignment and failed-prefix-read fallbacks pass. Expanded
+contiguous and genuinely fragmented FAT fixtures pass338 write/flush/half-write
+interruption cases, preserving original payload sectors and the unrelated file
+before and after offline repair. Name loss is permitted only at a torn stream
+publication and must reproduce on baseline COW. The earlier overstrict name
+assertion and dense512-byte benchmark timeout remain in local evidence; final
+128KiB benchmarking uses the actual capture's16KiB flush increments.
+
+Full local core/desktop, crash/growth/retirement, hardening/5000-file scale,
+read/bitmap comparisons and matched ordinary/native/synthetic builds pass.
+On clean sourcefacd605d, loaded100 plus1200 archive files passes22 lifetimes
+(UI150017us, ready1559041us, Close1614902us); normal25 (UI140140us,
+ready1136869us, Close941302us);20Files windows pass8MiB copy through Close,
+concurrent Text save, independent histories and complete cleanup; read100/write100
+plus1200 archive files passes20 (UI130149us, ready1118066us, Close2655285us).
+All500ms UI/10s whole-lifetime, full workload, atomic receipt, sustained PCM/disk
+overlap and cache/worker retirement checks remain. Enlarged fixtures preserve
+1267 files. Saved complete cost records validate and show append being exercised.
+
+Exact staged TCG native-profile refusal/save/unmount/return passes plumbing only.
+Payload and evidence are backed up outside `build`. Installed failedff, recovery9aa
+and independent accepted7d verify. Candidate is not installed or armed. Next is
+fresh USB/recovery/run-record preflight and the automatic1800-second native trial
+at1% volume. The prior22-cycle failure remains failed; native stall/input/audible
+and sibling acceptance remain separate. Latest local checkpoint:
+`build/air-append-writeback-20261101/checkpoint.json`.
 
 ### Bitmap-span hardware return: writeback deadline failure
 
