@@ -6026,3 +6026,30 @@ Native collection also requires successful trackpad-ready/pointer-enabled logs.
 Pointer behavior, UI selection/removal and clean Exit desktop need this cold
 trial. Keep the current radio runtime baseline for the single-option retest;
 newer main integration remains separate. Credentials are unused.
+
+## Empty-result attended desktop profile (v106)
+
+The input-enabled isolated v105 trial correctly initialized the pointer, but
+both collected attempts returned before the desktop: their safe three-channel
+scans published zero rows. Anonymous per-input records identify probe requests
+in the older attempt and unsupported frames plus four off-channel beacons in
+the latest. Off-channel beacons stay rejected; no packet validity, receive
+budget, DMA lifetime or stop/restoration guard is relaxed. Earlier single-channel
+observations are not silently substituted into a later scan's cache.
+
+`--wifi-desktop-empty` requires the complete `--wifi-desktop-input` ancestry and
+automatic return. Its v106 recipe adds only `srvros.wifi-desktop-empty=1`.
+Successful capture, current ready owner/generation, bounded cache, isolated
+logger and verified immutable radio save remain mandatory. A completed empty
+or entirely unselectable list can then open the untimed desktop. A missing,
+expired or invalid cache, failed capture or failed handoff still refuses it.
+Legacy v103–v105 admission remains populated/selectable-only.
+
+Help explains that an empty scan skips selection while still allowing pointer,
+Refresh/Pause/Resume, adapter retirement and clean Exit desktop checks. The proof
+reports discovery, selectable rows and selection separately; an empty UI lifetime
+never accepts populated discovery or selection. Full RF proof remains mandatory.
+The new baseline consumes main `e339b9a8`; socket try-I/O retains syscall155 and
+Wi-Fi moves to156 in the matched kernel/userspace build. Logging preserves main's
+I/O-owner/durable diagnostics and the isolated radio/extended-prefix safeguards.
+Native acceptance requires a new source-bound trial and the user's report.

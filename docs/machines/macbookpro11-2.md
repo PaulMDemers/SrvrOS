@@ -10868,3 +10868,23 @@ loosening frame validity, channel, DMA lifetime, stop/restoration or deadline
 rules, and without reusing the earlier single-channel cache. New RF evidence
 must remain anonymous. Preserve v105 failures and known-good recovery, validate
 full merged runtime and exact staged image locally before another cold trial.
+
+### v106 implementation and merged baseline
+
+Merged actual main `e339b9a8` in `e3393715`, resolving logger/Makefile/test
+additions by retaining both behaviors. Socket try-I/O keeps155; Wi-Fi moves to156
+with a matched kernel/userspace and an explicit collision regression. No syscall
+number or userspace binary from an older installed release is mixed into it.
+
+Source `89b1de83` adds the opt-in v106 empty-result UI admission policy. It
+requires a successful isolated scan and ready owned cache, including valid
+version/size/count/generation. Legacy populated-only recipes remain unchanged.
+Help explains empty-result skips. Service tests cover actual empty publication,
+selection refusal, disconnect retirement and malformed/missing/expired cache
+refusals; UI byte proofs report discovery/selection independently. Anonymous
+v105 per-input receipts explain the empty scans: two probe requests in the older
+attempt; four unsupported frames and four channel-mismatch beacons in the later.
+Do not relax those parser classifications. No RF driver changes are required by
+this admission correction. Full merged-runtime and exact-image validation is
+required before installation; this section is implementation scope, not native
+acceptance or a claim that the pending trial is installed.
