@@ -10888,3 +10888,40 @@ Do not relax those parser classifications. No RF driver changes are required by
 this admission correction. Full merged-runtime and exact-image validation is
 required before installation; this section is implementation scope, not native
 acceptance or a claim that the pending trial is installed.
+
+### v106 validated and installed; physical trial pending
+
+Installed release `b1349e827d0497c3`, source `05506e01`, main `e339b9a8`.
+Full merged image/USB-image/core/desktop passed in332.47s at runtime source
+`89b1de83`; later checker/harness/docs commits do not change kernel/userspace/
+shared/Makefile inputs. This is a new merged runtime build, not reused v104
+runtime receipts. All196 staging tests,227 prior/current recipe comparisons,
+six UI proof groups, three prior-RF/synthetic-UI compositions (including an
+actual prior empty RF phase plus synthetic desktop),32 damaged-proof refusals,
+and five collector cases pass. Five sanitizer suites and108 native retained-DMA
+fixture cases pass. Fixtures do not supply new native acceptance.
+
+The first System VM opened System but its startup line was split by asynchronous
+launch output. Preserve that failure; the harness now requires the real window
+request and ready markers. The rerun passes System/e1000 DHCP, existing pages,
+Refresh/Pause/menu controls, empty Wi-Fi syscall/page and exit. The automatic2x
+Help checklist was visually inspected. The uninstalled stage was recreated after
+that harness-only commit; original provenance is preserved and all payload hashes
+are identical. Exact staged GPT boot/log save/readback/unmount/automatic return
+and missing-workspace refusal pass. Independent packaged initramfs and kernel
+match the stage; the ordinary kernel has no isolated AP request symbol.
+
+Candidate and six retained recoveries equal durable backups. Previous remains
+known-good desktop `e47dca3a6b30c6c1`; accepted v102, incomplete v104/v105 and
+both failed v103 payloads remain on the ESP. Older v101 `f1015eeb7358f9c7` was
+retired only after complete equality to durable `wifi-scan-retry-6b12e4f/payload`
+to make installation space. Offline filesystem/allocation checks pass380 files,
+1005 clusters,155 directories, zero leaks/mismatches/errors. Ubuntu default,
+unmounted workspace and empty one-shot are verified; no reboot is armed.
+
+Run, frozen proof and first-return collector are in `build/bringup/wifi-ui-empty/`,
+durable archive `wifi-ui-empty-05506e01`. Coordinate the same cold adapter cycle,
+then follow Help's untimed checklist and Exit desktop. On an empty list, selection
+is skipped; populated discovery/selection stay unaccepted. Why only off-channel
+beacons arrived is not established by their safe rejection. RF tuning/selectivity,
+association/security/IP,5GHz and endurance remain open. Credentials are unused.
