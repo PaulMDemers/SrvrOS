@@ -2013,3 +2013,12 @@ host fixtures also passed. GCC 16 needed an exception for a pre-existing
 passed with warnings treated as errors. The baseline ISO, serial logs and
 symbolized fault sites are under `build/review/pipe-mapping/`. The three
 diagnostic launcher boots are under `build/review/rights-cycles/diag-park-*`.
+
+## Repository-wide audit and PTY transfer lifetime
+
+Baseline `dc0a3fef` on PR252 includes main through `c9235491`. Inventory
+all tracked paths, including test and build tooling, ports, shared interfaces
+and documentation. Review source by subsystem and record verification depth
+and external dependencies. Start with PTY transfer mappings and descriptor
+reuse on both ends. This checkout owns the emulated guest and host checks.
+PR272 covers directory EOF and PCM admission and PR19 covers USB Wi-Fi.
