@@ -37,6 +37,7 @@ class Proof(unittest.TestCase):
         self.assertGreater(start,0)
         with self.assertRaises(AssertionError):snapshot(raw,'session-a.log',65536)
         for old,new in [(b'monotonic_us=100',b'monotonic_us=105'),
+                        (b'monotonic_us=100',b'monotonic_us=000'),
                         (b'total_before=70001',b'total_before=70002')]:
             damaged=raw.replace(old,new,1);self.assertNotEqual(damaged,raw)
             with self.assertRaises(AssertionError):snapshot(damaged,'session-a.log',65536,rolling=True)

@@ -24,6 +24,9 @@ def snapshot(raw,name,limit,full=False,*,rolling=False):
     assert isinstance(raw,bytes) and 0<len(raw)<=limit
     pattern=rb'^workspace-log: snapshot='+re.escape(name.encode())+rb' monotonic_us=([1-9][0-9]*) total_before=(0|[1-9][0-9]*) tail_limit='+str(limit).encode()+rb'\n'
     matches=list(re.finditer(pattern,raw,re.M));assert matches
+    # A malformed retained receipt must not disappear from the validation set.
+    prefix=rb'^workspace-log: snapshot='+re.escape(name.encode())+rb' '
+    assert len(re.findall(prefix,raw,re.M))==len(matches)
     if rolling:assert name in ['session-a.log','session-b.log'] and limit==TAIL_CAP and not full
     else:assert len(matches)==1
     m=matches[-1];assert m.end()==len(raw)
