@@ -1864,3 +1864,11 @@ modes and 46 parser cases passed. The two boundary cases, silent timeout and
 exit also passed under native ARM64 ASan/UBSan. The matched guest built and
 passed the network ABI smoke in QEMU. Logs are in
 `build/review/resolver-deadline/`.
+
+## November 2 resolver and socket continuation
+
+PR252 resumes from `6f202ae5` with main through PR271 (`c9235491`).
+Scope covers libc resolver polling and retry deadlines, socket state shared by
+duplicate descriptors, and read/write continuations across signal dispatch and
+descriptor reuse. Directed host fixtures and a matched QEMU guest will exercise
+confirmed fixes. The desktop lifecycle and Wi-Fi branches retain their own work.
