@@ -112,17 +112,23 @@ stress. No legacy model or joined files participates in native acceptance.
 The overall platform test still fails the original RC6 bound (about 0.0966%
 nominal excess), and package C3 remains zero. No power transition is authorized.
 
-The read-only audio/IRQ endpoint implementation is now validated locally on
-integrated source `4e2ff068`, release `ee85beb85b75fdca` (PR275 plus PR272). It adds eight exact controls
-with separate live PCH identity/class/location checks and unchanged GPU/well gates.
-Full core/build, focused mapping/failure/formatter/parser/retention tests and
-twelve VM cases pass. No HDA initializer, acknowledgement or control write is added.
+The read-only audio/IRQ endpoints are now physically observed on integrated
+source `4e2ff068`, release `ee85beb85b75fdca` (PR275 plus PR272). Both eight-control
+records and all prior compact proofs survive directly in the matching final log.
+Sampled graphics-audio outputs/ELD bits are clear; CPU/PCH interrupt enables are
+zero with all mask bits set. This accepts bounded read-only capture, not HDA/DMA
+retirement, ownership or an unused display well. The BIOS well request stays set.
 
-Next: collect the matching automated native retry first. Require both actual
-version-6 dependency endpoints and all prior compact proof records directly;
-synthetic model rows cannot grant native acceptance. Preserve RC6 and package-C3
-failures independently. PR272 lifecycle, PR252 lifetimes and PR19 Wi-Fi remain
-separate. The local record owns installed/recovery and ready/armed/returned state.
+The overall platform trial remains failed: nominal RC6 exceeds its PM-clock
+bracket by about 80.425 ms after one tick (0.0893%). Package C3 remains zero.
+Original limits, integrity checks and policy are unchanged. USB preservation,
+offline filesystem/allocation, payload backups and Ubuntu recovery pass; no
+reboot is armed.
+
+Next: audit the remaining display-well dependencies and their ownership/readout
+requirements before proposing any transition. Keep the RC6 clock discrepancy as
+a separate unresolved issue; the all-masked IRQ snapshots do not establish that
+hardware is idle. PR252 lifetimes and PR19 Wi-Fi retain separate scope.
 
 ### Historical battery-runtime objective (2026-10-23)
 
@@ -6133,3 +6139,39 @@ version-6 dependency records and all original compact proofs; no modeled rows
 or older VM receipt substitutes for its matching evidence. Native display-audio/
 IRQ ownership and overall platform acceptance remain pending. RC6's original
 bound, package-C3 uncertainty and all policies/limits stay unchanged.
+
+
+### Native display-audio/IRQ capture collected (2026-11-02)
+
+Integrated source `4e2ff068`, release `ee85beb85b75fdca`, returned automatically
+with matching session `session-00065f53a4c841b9-00`. Its actual 65,536-byte exit
+SHA-256 is `d8f7320405ba731e9db34522949bbfaacfaac625c5a7e661a64bc562454ea3c7`.
+One version-2 header, all 15 power/15 idle/15 entry records, both version-6
+dependency endpoints and every original proof parse directly. No synthetic
+retention rows or joined log supplies missing acceptance data.
+
+Both dependency endpoints pass live exact PCH and unchanged well checks, reading
+eight controls in 15 and 13 us. Raw values are identical: pin/ELD `0`, audio
+configs A/B/C `0x0070fa60`, DEIMR/SDEIMR `0xffffffff`, DEIER/SDEIER `0`. Decoded
+ELD-valid, CP-ready and output-enable bits are clear for A/B/C; mathematical
+enable-and-unmasked intersections are zero. BIOS well request remains set and
+all 26 resource controls remain unchanged. These non-atomic observations do not
+prove HDA/stream/DMA retirement, IRQ ownership, platform permission, well disuse
+or the cause of zero package C3.
+
+All 32 coordinated core-C3 rounds pass (9,983 us maximum), with positive core
+residency and terminal AP retirement. Original idle/load/recovery phases complete
+with mean package power 4.024/5.113/4.033 W over covered intervals. Package C3
+remains zero. RC6's nominal 90.131319040 seconds exceeds the PM bracket
+90.050888–90.050891 seconds by about 80.425 ms after one tick (0.0893%); the
+original strict predicate remains failed, so overall platform acceptance is
+**failed**, independently of successful read-only capture and retention.
+
+All 574 prior files survive except expected workspace metadata; four new session
+logs yield 578 files / 1,640 clusters. Read-only fsck and allocation checks are
+clean, with no leaks/mismatches/errors. The one-shot was consumed; Ubuntu default,
+current/console recovery and protected durable payload hashes are verified.
+All 461 collected evidence files were independently rehashed outside `build`.
+The local run is returned/collected, its collector disabled and no reboot armed.
+Next is a source audit of remaining display-well dependencies and safe ownership
+requirements; this result grants no power transition or policy change.
