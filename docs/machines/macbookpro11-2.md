@@ -10853,3 +10853,18 @@ Collector verified candidate/recovery payloads and Ubuntu default, cleared local
 armed bookkeeping and left the workspace unmounted after successful read-only
 filesystem/allocation checks. No retry is armed. User visual report is pending;
 association/security/IP and5GHz remain untested.
+
+## 2026-11-01 bounded empty-scan desktop follow-up scope
+
+The user confirms the console-only trial returned automatically; no attended
+pointer/UI checks were possible. Current work will consume fetched main
+`e339b9a8` before changing runtime, retaining this unit's profiles/log isolation.
+Open PR261 owns desktop/filesystem admission and PR252 owns DNS/socket work;
+this follow-up is limited to Wi-Fi trial admission, anonymous scan diagnostics,
+matching proof/profile tests and the guest checklist. It will allow a safely
+completed, owned empty cache into the desktop while keeping populated discovery
+and selection acceptance separate. Investigate parser classifications without
+loosening frame validity, channel, DMA lifetime, stop/restoration or deadline
+rules, and without reusing the earlier single-channel cache. New RF evidence
+must remain anonymous. Preserve v105 failures and known-good recovery, validate
+full merged runtime and exact staged image locally before another cold trial.
