@@ -30,6 +30,7 @@ static struct vfs_node path_nodes[]={
 const struct vfs_node *vfs_node_at(uint64_t i) { assert(path_fixture);return i<7?&path_nodes[i]:NULL; }
 static struct vfs_node fixture_node={.path="/test/output",.type=VFS_NODE_FILE};
 static unsigned saves;
+static struct process_pipe *legacy_retirement_watch;
 static bool fail_save,clean_refusal;
 static bool fail_alloc;
 static uint8_t saved[4096];
@@ -37,6 +38,7 @@ static size_t saved_size;
 static struct process *current_subject;
 static struct process_user_thread *current_worker;
 static unsigned pipe_wait_mode;
+static int message_replacement_fd;
 void *scheduler_current_user_context(void) { return current_subject; }
 void *scheduler_current_user_thread_context(void) { return current_worker; }
 void net_process_wake(struct process *process) { (void)process; }
@@ -44,7 +46,23 @@ void keyboard_wake_waiters(void) {}
 void scheduler_yield(void) { assert(0); }
 void scheduler_wake_all(struct scheduler_wait_queue *queue) { (void)queue; }
 __attribute__((noinline)) bool scheduler_wait(struct scheduler_wait_queue *queue, bool (*ready)(void *), void *arg) {
-    (void)queue;struct process_pipe *pipe=ready==pipe_write_ready?((struct pipe_write_wait *)arg)->pipe:arg;
+    (void)queue;
+    if (ready == pipe_message_ready) {
+        struct pipe_message_wait *wait = arg;
+        if (pipe_wait_mode == 5) {
+            assert(process_file_close(wait->process, wait->fd) == 0);
+            assert(process_file_dup2(wait->process, (uint64_t)message_replacement_fd, wait->fd) == (int64_t)wait->fd);
+        } else {
+            assert(pipe_wait_mode == 6);
+            assert(process_file_dup2(wait->process, 0, 1) == 1);
+            struct process_pipe *pipe = pipe_message_current(wait);
+            pipe->size = 0;
+            pipe->read_pos = pipe->write_pos;
+        }
+        pipe_wait_mode = 0;
+        return ready(arg);
+    }
+    struct process_pipe *pipe=ready==pipe_write_ready?((struct pipe_write_wait *)arg)->pipe:arg;
     if(ready==pipe_write_ready) assert(!ready(arg));
     if(pipe_wait_mode==1) { pipe->size=0;pipe->read_pos=pipe->write_pos; }
     else if(pipe_wait_mode==2) { memcpy(pipe->buffer,"ready",5);pipe->read_pos=0;pipe->write_pos=pipe->size=5; }
@@ -69,6 +87,7 @@ void *kmalloc(size_t size) { return fail_alloc ? NULL : malloc(size); }
 void kfree(void *ptr) { free(ptr); }
 bool exfat_write_file(const char *path, const uint8_t *data, uint64_t size) {
     assert(!strcmp(path,"/test/output")); saves++;
+    if (legacy_retirement_watch) assert(!legacy_retirement_watch->rights[0].used);
     if (fail_save) return false;
     assert(size<=sizeof(saved));if(size) memcpy(saved,data,size);saved_size=size;
     if(opening) fixture_exists=true;
@@ -754,6 +773,226 @@ static void watch_regression(void) {
     subject.files[3]=(struct process_file){0};
     puts("process-watch: PASS pipe/PTY readiness, ownership deferral, close/dup2 ABA and generation exhaustion");
 }
+static int64_t process_file_recv_message(struct process *process, uint64_t fd,
+    uint8_t *buffer, uint64_t length, struct srv_pipe_message *message) {
+    return process_file_recv_message_checked(process, fd, buffer, length, message, NULL, NULL);
+}
+
+struct test_rights_output { int32_t *fds; uint64_t *flags; bool reject; };
+static bool test_rights_copyout(void *context, const int32_t *fds, uint64_t count, uint64_t flags) {
+    struct test_rights_output *out = context;
+    if (out->reject) return false;
+    if (count) memcpy(out->fds, fds, count * sizeof(*fds));
+    if (out->flags) *out->flags = flags;
+    return true;
+}
+
+static int64_t process_file_recv_rights(struct process *process, uint64_t fd,
+    int32_t *fds, uint64_t capacity, uint64_t *flags) {
+    struct test_rights_output out = {fds, flags, false};
+    return process_file_recv_rights_checked(process, fd, capacity, test_rights_copyout, &out);
+}
+
+static bool reject_message_copyout(void *context, const void *data, uint64_t length,
+    const struct srv_pipe_message *message) {
+    (void)context; (void)data; (void)length; (void)message;
+    return false;
+}
+
+static void message_rights_regression(void) {
+    clear_process(&subject);
+    memset(pipes, 0, sizeof(pipes));
+    uint64_t pair[2];
+    assert(process_file_pipe_pair(&subject, pair) == 0);
+    uint64_t send_fd = pair[0], recv_fd = pair[1];
+    struct process_pipe *pipe = pipe_at(subject.files[send_fd].aux_handle);
+    assert(pipe);
+    struct srv_pipe_message plain = {0};
+    struct srv_pipe_message send_rights = {.fds = {1}, .count = 1};
+    struct srv_pipe_message recv = {.count = SRV_RIGHTS_MAX};
+    uint8_t out[32] = {0};
+    assert(process_file_send_message(&subject, send_fd, (const uint8_t *)"abc", 3, &plain) == 3);
+    assert(process_file_send_message(&subject, send_fd, (const uint8_t *)"def", 3, &send_rights) == 3);
+    assert(process_file_send_message(&subject, send_fd, (const uint8_t *)"ghi", 3, &send_rights) == 3);
+    assert(process_file_recv_message(&subject, recv_fd, out, sizeof(out), &recv) == 3);
+    assert(!memcmp(out, "abc", 3) && recv.count == 0);
+    recv = (struct srv_pipe_message){.count = SRV_RIGHTS_MAX, .flags = SRV_PIPE_MSG_PEEK | SRV_PIPE_MSG_CLOEXEC};
+    assert(process_file_recv_message(&subject, recv_fd, out, sizeof(out), &recv) == 3);
+    assert(!memcmp(out, "def", 3) && recv.count == 1 && process_file_get_fd_flags(&subject, recv.fds[0]) == SRV_FD_CLOEXEC);
+    assert(process_file_close(&subject, recv.fds[0]) == 0);
+    recv = (struct srv_pipe_message){.count = SRV_RIGHTS_MAX};
+    fail_alloc = true;
+    assert(process_file_recv_message(&subject, recv_fd, out, sizeof(out), &recv) == SRV_ERR_NOMEM);
+    assert(pipe->size == 6 && pipe->rights[0].used);
+    fail_alloc = false;
+    recv = (struct srv_pipe_message){.count = SRV_RIGHTS_MAX};
+    assert(process_file_recv_message_checked(&subject, recv_fd, out, sizeof(out), &recv, reject_message_copyout, NULL) == SRV_ERR_FAULT);
+    assert(pipe->size == 6 && pipe->rights[0].used && !pipe->rights[0].offset);
+    recv = (struct srv_pipe_message){.count = 0};
+    assert(process_file_recv_message(&subject, recv_fd, out, sizeof(out), &recv) == 3);
+    assert(!memcmp(out, "def", 3) && recv.count == 0 && (recv.flags & SRV_PIPE_MSG_CTRUNC));
+    recv = (struct srv_pipe_message){.count = SRV_RIGHTS_MAX};
+    assert(process_file_recv_message(&subject, recv_fd, out, sizeof(out), &recv) == 3);
+    assert(!memcmp(out, "ghi", 3) && recv.count == 1);
+    assert(process_file_close(&subject, recv.fds[0]) == 0);
+    recv = (struct srv_pipe_message){.count = SRV_RIGHTS_MAX, .flags = SRV_PIPE_MSG_DONTWAIT};
+    assert(process_file_recv_message(&subject, recv_fd, out, sizeof(out), &recv) == SRV_ERR_AGAIN);
+    /* Old senders can queue multiple records before producing one byte. */
+    int32_t old_fd = 1;
+    assert(process_file_send_rights(&subject, send_fd, &old_fd, 1) == 0);
+    assert(process_file_send_rights(&subject, send_fd, &old_fd, 1) == 0);
+    assert(process_file_pipe_write(&subject, send_fd, (const uint8_t *)"L", 1) == 1);
+    recv = (struct srv_pipe_message){.count = SRV_RIGHTS_MAX, .flags = SRV_PIPE_MSG_PEEK};
+    assert(process_file_recv_message(&subject, recv_fd, out, sizeof(out), &recv) == 1);
+    assert(out[0] == 'L' && recv.count == 2 && pipe->rights[0].used && pipe->rights[1].used);
+    assert(process_file_close(&subject, recv.fds[0]) == 0);
+    assert(process_file_close(&subject, recv.fds[1]) == 0);
+    recv = (struct srv_pipe_message){.count = 1};
+    assert(process_file_recv_message(&subject, recv_fd, out, sizeof(out), &recv) == 1);
+    assert(out[0] == 'L' && recv.count == 1 && (recv.flags & SRV_PIPE_MSG_CTRUNC));
+    assert(process_file_close(&subject, recv.fds[0]) == 0 && !pipe->rights[0].used);
+
+    /* Predicate observes the waiting thread, even from another context. */
+    struct process_user_thread *waiting_thread = &subject.user_threads[0];
+    waiting_thread->used = true; waiting_thread->owner = &subject;
+    struct pipe_message_wait wait = {&subject, recv_fd, subject.file_generations[recv_fd],
+        subject.files[recv_fd].handle, false, false, waiting_thread};
+    waiting_thread->pending_signals = 1ull << SRV_SIGNAL_WINCH;
+    waiting_thread->signal_mask = 0;
+    assert(pipe_message_ready(&wait));
+    waiting_thread->signal_mask = 1ull << SRV_SIGNAL_WINCH;
+    assert(!pipe_message_ready(&wait));
+    waiting_thread->used = false; waiting_thread->pending_signals = 0;
+
+    /* Discarding the last queued reference retires its pipe after commit. */
+    uint64_t carried[2];
+    assert(process_file_pipe(&subject, carried) == 0);
+    struct process_pipe *carried_pipe = pipe_at(subject.files[carried[1]].handle);
+    struct srv_pipe_message carry = {.count = 1};
+    carry.fds[0] = (int32_t)carried[1];
+    assert(process_file_send_message(&subject, send_fd, (const uint8_t *)"r", 1, &carry) == 1);
+    assert(process_file_close(&subject, carried[0]) == 0);
+    assert(process_file_close(&subject, carried[1]) == 0 && carried_pipe->used);
+    recv = (struct srv_pipe_message){.count = 0};
+    assert(process_file_recv_message(&subject, recv_fd, out, sizeof(out), &recv) == 1);
+    assert((recv.flags & SRV_PIPE_MSG_CTRUNC) && !carried_pipe->used && !pipe->rights[0].used);
+
+    assert(process_file_pipe(&subject, carried) == 0);
+    carried_pipe = pipe_at(subject.files[carried[1]].handle);
+    carry.fds[0] = (int32_t)carried[1];
+    assert(process_file_send_message(&subject, send_fd, (const uint8_t *)"s", 1, &carry) == 1);
+    assert(process_file_close(&subject, carried[0]) == 0);
+    assert(process_file_close(&subject, carried[1]) == 0 && carried_pipe->used);
+    struct test_rights_output discard = {NULL, NULL, false};
+    assert(process_file_recv_rights_checked(&subject, recv_fd, 0, test_rights_copyout, &discard) == 0);
+    assert(!carried_pipe->used && !pipe->rights[0].used && pipe->size == 1);
+    recv = (struct srv_pipe_message){.count = SRV_RIGHTS_MAX};
+    assert(process_file_recv_message(&subject, recv_fd, out, sizeof(out), &recv) == 1 && out[0] == 's');
+
+    /* A bounded partial write commits rights with the first available byte. */
+    pipe->size = PROCESS_PIPE_CAPACITY - 1;
+    send_rights.flags = SRV_PIPE_MSG_DONTWAIT;
+    assert(process_file_send_message(&subject, send_fd, (const uint8_t *)"xy", 2, &send_rights) == 1);
+    assert(pipe->rights[0].used && pipe->rights[0].offset == PROCESS_PIPE_CAPACITY - 1);
+    pipe_rights_shift(pipe, 0);
+    pipe->size = 0;
+    pipe->read_pos = pipe->write_pos;
+    send_rights.flags = 0;
+
+    /* Exhaustion must not consume bytes or install a subset of rights. */
+    assert(process_file_send_message(&subject, send_fd, (const uint8_t *)"z", 1, &send_rights) == 1);
+    int fillers[PROCESS_MAX_OPEN_FILES]; unsigned filler_count = 0;
+    int64_t filler;
+    while ((filler = process_file_dup_min(&subject, 1, 0, false)) >= 0) fillers[filler_count++] = (int)filler;
+    assert(filler == SRV_ERR_MFILE);
+    recv = (struct srv_pipe_message){.count = SRV_RIGHTS_MAX};
+    assert(process_file_recv_message(&subject, recv_fd, out, sizeof(out), &recv) == SRV_ERR_MFILE);
+    assert(pipe->size == 1 && pipe->rights[0].used);
+    assert(process_file_close(&subject, fillers[--filler_count]) == 0);
+    recv = (struct srv_pipe_message){.count = SRV_RIGHTS_MAX};
+    assert(process_file_recv_message(&subject, recv_fd, out, sizeof(out), &recv) == 1 && recv.count == 1);
+    assert(process_file_close(&subject, recv.fds[0]) == 0);
+    while (filler_count) assert(process_file_close(&subject, fillers[--filler_count]) == 0);
+
+    send_rights.flags = SRV_PIPE_MSG_DONTWAIT;
+    for (unsigned i = 0; i < PROCESS_PIPE_RIGHTS_QUEUE; i++)
+        assert(process_file_send_message(&subject, send_fd, (const uint8_t *)"q", 1, &send_rights) == 1);
+    assert(process_file_send_message(&subject, send_fd, (const uint8_t *)"x", 1, &send_rights) == SRV_ERR_AGAIN);
+    assert(pipe->size == PROCESS_PIPE_RIGHTS_QUEUE);
+    int32_t legacy_fd; uint64_t legacy_flags;
+    struct test_rights_output rejected = {&legacy_fd, &legacy_flags, true};
+    fail_alloc = true;
+    assert(process_file_recv_rights_checked(&subject, recv_fd, 1, test_rights_copyout, &rejected) == SRV_ERR_NOMEM);
+    fail_alloc = false;
+    assert(process_file_recv_rights_checked(&subject, recv_fd, 1, test_rights_copyout, &rejected) == SRV_ERR_FAULT);
+    assert(pipe->rights[0].used && pipe->size == PROCESS_PIPE_RIGHTS_QUEUE);
+    assert(process_file_recv_rights(&subject, recv_fd, &legacy_fd, 1, &legacy_flags) == 1);
+    assert(process_file_close(&subject, (uint64_t)legacy_fd) == 0);
+    assert(process_file_send_message(&subject, send_fd, (const uint8_t *)"q", 1, &send_rights) == 1);
+    /* The raw receiver consumed rights only; its associated byte is a prefix. */
+    recv = (struct srv_pipe_message){.count = SRV_RIGHTS_MAX};
+    assert(process_file_recv_message(&subject, recv_fd, out, sizeof(out), &recv) == 1 && recv.count == 0);
+    for (unsigned i = 0; i < PROCESS_PIPE_RIGHTS_QUEUE; i++) {
+        recv = (struct srv_pipe_message){.count = SRV_RIGHTS_MAX};
+        assert(process_file_recv_message(&subject, recv_fd, out, sizeof(out), &recv) == 1 && recv.count == 1);
+        assert(process_file_close(&subject, recv.fds[0]) == 0);
+    }
+
+    pipe->size = PROCESS_PIPE_CAPACITY;
+    send_rights.flags = SRV_PIPE_MSG_DONTWAIT;
+    assert(process_file_send_message(&subject, send_fd, (const uint8_t *)"x", 1, &send_rights) == SRV_ERR_AGAIN);
+    assert(!pipe->rights[0].used);
+    pipe->size = 0;
+    int64_t alias = process_file_dup_min(&subject, send_fd, 0, false);
+    assert(alias >= 0);
+    pipe->size = PROCESS_PIPE_CAPACITY;
+    send_rights.flags = 0;
+    message_replacement_fd = (int)alias; pipe_wait_mode = 5;
+    assert(process_file_send_message(&subject, send_fd, (const uint8_t *)"x", 1, &send_rights) == SRV_ERR_BADF);
+    assert(!pipe_wait_mode && !pipe->rights[0].used && pipe->size == PROCESS_PIPE_CAPACITY);
+    pipe_wait_mode = 6;
+    assert(process_file_send_message(&subject, send_fd, (const uint8_t *)"x", 1, &send_rights) == SRV_ERR_BADF);
+    assert(!pipe_wait_mode && !pipe->rights[0].used && pipe->size == 0);
+    pipe->size = 0;
+    assert(process_file_close(&subject, (uint64_t)alias) == 0);
+    alias = process_file_dup_min(&subject, recv_fd, 0, false);
+    assert(alias >= 0);
+    message_replacement_fd = (int)alias; pipe_wait_mode = 5;
+    recv = (struct srv_pipe_message){.count = SRV_RIGHTS_MAX};
+    assert(process_file_recv_message(&subject, recv_fd, out, sizeof(out), &recv) == SRV_ERR_BADF);
+    assert(!pipe_wait_mode && pipe->size == 0);
+    assert(process_file_close(&subject, (uint64_t)alias) == 0);
+    assert(process_file_close(&subject, send_fd) == 0);
+    recv = (struct srv_pipe_message){.count = SRV_RIGHTS_MAX};
+    assert(process_file_recv_message(&subject, recv_fd, out, sizeof(out), &recv) == 0 && recv.count == 0);
+    subject.active = true;
+    subject.signal_catch_mask = 1ull << SRV_SIGNAL_PIPE;
+    struct srv_pipe_message nosignal = {.flags = SRV_PIPE_MSG_NOSIGNAL};
+    assert(process_file_send_message(&subject, recv_fd, (const uint8_t *)"x", 1, &nosignal) == SRV_ERR_PIPE);
+    assert(!(subject.pending_signals & (1ull << SRV_SIGNAL_PIPE)));
+    nosignal.flags = 0;
+    assert(process_file_send_message(&subject, recv_fd, (const uint8_t *)"x", 1, &nosignal) == SRV_ERR_PIPE);
+    assert(subject.pending_signals & (1ull << SRV_SIGNAL_PIPE));
+    assert(process_file_close(&subject, recv_fd) == 0);
+}
+
+static void legacy_retirement_writeback_regression(void) {
+    setup(1);
+    uint64_t pair[2];
+    assert(process_file_pipe_pair(&subject, pair) == 0);
+    legacy_retirement_watch = pipe_at(subject.files[pair[0]].aux_handle);
+    struct srv_pipe_message sent = {.fds = {3}, .count = 1};
+    assert(process_file_send_message(&subject, pair[0], (const uint8_t *)"w", 1, &sent) == 1);
+    write_files[0].content->dirty = true;
+    assert(process_file_close(&subject, 3) == 0 && process_file_close(&subject, 1) == 0);
+    assert(saves == 0 && legacy_retirement_watch->rights[0].used);
+    struct test_rights_output discard = {NULL, NULL, false};
+    assert(process_file_recv_rights_checked(&subject, pair[1], 0, test_rights_copyout, &discard) == 0);
+    assert(saves == 1 && !legacy_retirement_watch->rights[0].used);
+    legacy_retirement_watch = NULL;
+    assert(process_file_close(&subject, pair[0]) == 0 && process_file_close(&subject, pair[1]) == 0);
+}
+
 int main(void) {
     watch_regression();
     rename_failure_regression();
@@ -890,6 +1129,8 @@ int main(void) {
         assert(process_file_dup_min(&subject,1,i,true)==i);
     assert(process_file_dup_min(&subject,1,0,false)==SRV_ERR_MFILE);
     assert(cleanup_process_files(&subject));
+    message_rights_regression();
+    legacy_retirement_writeback_regression();
     targeted_signal_regression();
     cpu_usage_regression();
     open_flags_regression();

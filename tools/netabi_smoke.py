@@ -117,6 +117,10 @@ def main():
         missing.append("netabi: ok")
     if "netabi: UDP duplicate shares peer and options across close" not in text:
         missing.append("UDP duplicate peer/options check")
+    for check in ("rejected send across alias close", "zero-capacity receive",
+                  "unrelated prefix", "peek and discard", "invalid output preserves queue"):
+        if f"netabi: rights {check} ok" not in text:
+            missing.append(f"rights {check}")
     if "netabi: fail" in text:
         missing.append("netabi failure")
     if has_fatal_exception(text):

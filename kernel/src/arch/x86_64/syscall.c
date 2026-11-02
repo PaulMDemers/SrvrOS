@@ -1379,25 +1379,115 @@ static int64_t syscall_pipe_send_rights(uint64_t fd, const int32_t *user_fds, ui
     return process_file_send_rights(process_current(), fd, fds, count);
 }
 
+struct pipe_rights_copyout {
+    int32_t *fds;
+    uint64_t *flags;
+    uint64_t capacity;
+};
+
+static bool pipe_rights_copyout(void *context, const int32_t *fds, uint64_t count, uint64_t flags) {
+    struct pipe_rights_copyout *out = context;
+    if (count > out->capacity ||
+        (out->capacity && !user_buffer_ok(out->fds, out->capacity * sizeof(*fds), true)) ||
+        (out->flags && !user_buffer_ok(out->flags, sizeof(flags), true))) return false;
+    return (!count || copy_to_user(out->fds, fds, count * sizeof(*fds))) &&
+        (!out->flags || copy_to_user(out->flags, &flags, sizeof(flags)));
+}
+
 static int64_t syscall_pipe_recv_rights(uint64_t fd, int32_t *user_fds, uint64_t capacity, uint64_t *user_flags) {
-    int32_t fds[SRV_RIGHTS_MAX];
-    uint64_t flags = 0;
     if (capacity > SRV_RIGHTS_MAX ||
-        (capacity != 0 && (user_fds == NULL || !user_buffer_ok(user_fds, capacity * sizeof(int32_t), true))) ||
-        (user_flags != NULL && !user_buffer_ok(user_flags, sizeof(uint64_t), true))) {
-        return -1;
+        (capacity && !user_buffer_ok(user_fds, capacity * sizeof(*user_fds), true)) ||
+        (user_flags && !user_buffer_ok(user_flags, sizeof(*user_flags), true))) return -1;
+    struct pipe_rights_copyout out = {user_fds, user_flags, capacity};
+    int64_t count = process_file_recv_rights_checked(process_current(), fd, capacity,
+        pipe_rights_copyout, &out);
+    return count < 0 ? -1 : count; /* Preserve the legacy raw syscall ABI. */
+}
+
+/* Snapshot each userspace input while mappings cannot change on this CPU. */
+static bool pipe_message_copy_from_user(void *destination, const void *source, uint64_t length) {
+    uint64_t irq = irq_save();
+    bool copied = copy_from_user(destination, source, length);
+    irq_restore(irq);
+    return copied;
+}
+
+struct pipe_message_copyout {
+    struct srv_pipe_message *message;
+    struct srv_pipe_message_layout layout;
+    struct srv_iovec iov[SRV_IOV_MAX];
+    uint64_t capacity;
+};
+
+/* Check the same snapshotted destinations before waiting and again under IRQ
+ * exclusion before committing data and rights. */
+static bool pipe_message_output_valid(const struct pipe_message_copyout *out) {
+    if (!user_buffer_ok(out->message, sizeof(*out->message), true)) return false;
+    if (!user_buffer_ok(out->layout.control, out->layout.control_length, true) ||
+        !user_buffer_ok(out->layout.header, out->layout.header_length, true)) return false;
+    uint64_t remaining = out->capacity;
+    for (uint64_t i = 0; i < out->layout.iov_count && remaining; i++) {
+        uint64_t count = out->iov[i].length < remaining ? out->iov[i].length : remaining;
+        if (!user_buffer_ok(out->iov[i].base, count, true)) return false;
+        remaining -= count;
     }
-    int64_t count = process_file_recv_rights(process_current(), fd, fds, capacity, &flags);
-    if (count < 0) {
-        return -1;
+    return remaining == 0;
+}
+
+/* Called with interrupts excluded, before consuming any data or rights. */
+static bool pipe_message_copyout(void *context, const void *data, uint64_t length,
+    const struct srv_pipe_message *message) {
+    struct pipe_message_copyout *out = context;
+    if (length > out->capacity || !pipe_message_output_valid(out)) return false;
+    uint64_t copied = 0;
+    for (uint64_t i = 0; i < out->layout.iov_count && copied < length; i++) {
+        uint64_t count = out->iov[i].length < length - copied ? out->iov[i].length : length - copied;
+        if (!copy_to_user(out->iov[i].base, (const uint8_t *)data + copied, count)) return false;
+        copied += count;
     }
-    if (count > 0 && !copy_to_user(user_fds, fds, (uint64_t)count * sizeof(int32_t))) {
-        return -1;
+    if (copied != length) return false;
+    return copy_to_user(out->message, message, sizeof(*message));
+}
+
+static int64_t syscall_pipe_message(uint64_t fd, const struct srv_pipe_message_layout *layout,
+    struct srv_pipe_message *user_message, uint64_t operation) {
+    struct srv_pipe_message message;
+    uint8_t buffer[SRV_PIPE_MESSAGE_MAX];
+    struct pipe_message_copyout out = {0};
+    if (operation != SRV_PIPE_MESSAGE_SEND && operation != SRV_PIPE_MESSAGE_RECV) return SRV_ERR_INVAL;
+    bool receiving = operation == SRV_PIPE_MESSAGE_RECV;
+    if (!pipe_message_copy_from_user(&message, user_message, sizeof(message))) return SRV_ERR_FAULT;
+    if (message.count > SRV_RIGHTS_MAX) return SRV_ERR_INVAL;
+    uint32_t valid_flags = receiving ? (SRV_PIPE_MSG_DONTWAIT | SRV_PIPE_MSG_CLOEXEC | SRV_PIPE_MSG_PEEK) :
+        (SRV_PIPE_MSG_DONTWAIT | SRV_PIPE_MSG_NOSIGNAL);
+    if (message.flags & ~valid_flags) return SRV_ERR_INVAL;
+    if (!pipe_message_copy_from_user(&out.layout, layout, sizeof(out.layout))) return SRV_ERR_FAULT;
+    if (out.layout.iov_count > SRV_IOV_MAX ||
+        (receiving && out.layout.header_length > SRV_PIPE_MESSAGE_AUX_MAX)) return SRV_ERR_INVAL;
+    if (out.layout.control_length > SRV_PIPE_MESSAGE_AUX_MAX)
+        out.layout.control_length = SRV_PIPE_MESSAGE_AUX_MAX;
+    if (!pipe_message_copy_from_user(out.iov, out.layout.iov, out.layout.iov_count * sizeof(out.iov[0])))
+        return SRV_ERR_FAULT;
+    uint64_t length = 0;
+    for (uint64_t i = 0; i < out.layout.iov_count; i++) {
+        uint64_t room = SRV_PIPE_MESSAGE_MAX - length;
+        length += out.iov[i].length < room ? out.iov[i].length : room;
     }
-    if (user_flags != NULL && !copy_to_user(user_flags, &flags, sizeof(flags))) {
-        return -1;
+    if (!receiving) {
+        uint64_t copied = 0;
+        for (uint64_t i = 0; i < out.layout.iov_count && copied < length; i++) {
+            uint64_t count = out.iov[i].length < length - copied ? out.iov[i].length : length - copied;
+            if (!pipe_message_copy_from_user(buffer + copied, out.iov[i].base, count)) return SRV_ERR_FAULT;
+            copied += count;
+        }
+        return process_file_send_message(process_current(), fd, buffer, length, &message);
     }
-    return count;
+    out.message = user_message;
+    out.capacity = length;
+    /* Repeat these checks after waiting, before committing rights or data. */
+    if (!pipe_message_output_valid(&out)) return SRV_ERR_FAULT;
+    return process_file_recv_message_checked(process_current(), fd, buffer, length,
+        &message, pipe_message_copyout, &out);
 }
 
 static int64_t syscall_unix_bind(const char *user_path) {
@@ -3015,6 +3105,11 @@ void syscall_dispatch(struct isr_frame *frame) {
         return;
     case SYS_NET_PEEK:
         frame->rax = (uint64_t)syscall_net_peek(frame->rdi, (uint8_t *)frame->rsi, frame->rdx);
+        return;
+    case SYS_PIPE_MESSAGE:
+        frame->rax = (uint64_t)syscall_pipe_message(frame->rdi,
+            (const struct srv_pipe_message_layout *)frame->rsi,
+            (struct srv_pipe_message *)frame->rdx, frame->rcx);
         return;
     case SYS_PIPE_SEND_RIGHTS:
         frame->rax = (uint64_t)syscall_pipe_send_rights(frame->rdi, (const int32_t *)frame->rsi, frame->rdx);

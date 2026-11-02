@@ -3949,8 +3949,13 @@ build/tests/dns-kernel-host$(HOST_EXE): tools/test_dns_response.c kernel/src/net
 build/tests/dns-libc-host$(HOST_EXE): tools/test_dns_response.c userspace/lib/src/posix_socket.c shared/include/srvros/dns_wire.h shared/include/srvros/syscall_numbers.h userspace/lib/include/netdb.h tools/posix_socket_host_names.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -DTEST_DNS_LIBC -ffunction-sections -fdata-sections -I shared/include -idirafter userspace/lib/include $< -Wl,--gc-sections -o $@
+PIPE_MESSAGE_MODES := send-raw send-pseudo recv-raw recv-pseudo recv-discard recv-overlap \
+	send-interrupt send-interrupt-reuse recv-interrupt recv-interrupt-reuse \
+	send-large send-short send-error recv-error send-empty send-empty-discard \
+	recv-empty send-right-pseudo send-nosignal send-interrupt-right-reuse \
+	send-pseudo-interrupt-backing-reuse
 test-socket-calls: build/tests/socket-calls-host$(HOST_EXE)
-	@for mode in unix-copy rights-const connect-reuse connect-restart connect-control accept-reuse accept-restart accept-control flags-recv flags-send flags-peek flags-udp-recv flags-udp-send raw-retry raw-full dns-retry dns-truncate dns-source dns-flood dns-source-flood dns-near-deadline dns-error dns-interrupt dns-recv-error dns-recv-intr dns-recv-again dns-readable-error dns-pollerr dns-busy stream-error-send stream-error-recv stream-error-send-callback stream-error-recv-callback; do $< $$mode || exit $$?; done
+	@for mode in unix-copy rights-const connect-reuse connect-restart connect-control accept-reuse accept-restart accept-control flags-recv flags-send flags-peek flags-udp-recv flags-udp-send raw-retry raw-full dns-retry dns-truncate dns-source dns-flood dns-source-flood dns-near-deadline dns-error dns-interrupt dns-recv-error dns-recv-intr dns-recv-again dns-readable-error dns-pollerr dns-busy stream-error-send stream-error-recv stream-error-send-callback stream-error-recv-callback $(addprefix pipe-message-,$(PIPE_MESSAGE_MODES)); do $< $$mode || exit $$?; done
 build/tests/socket-calls-host$(HOST_EXE): tools/test_socket_calls.c userspace/lib/src/posix_socket.c shared/include/srvros/dns_wire.h shared/include/srvros/syscall_numbers.h userspace/lib/include/netdb.h tools/posix_socket_host_names.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -idirafter userspace/lib/include $< -Wl,--gc-sections -o $@
@@ -3960,6 +3965,14 @@ build/tests/socket-try-io-host$(HOST_EXE): tools/test_socket_try_io.c kernel/src
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
 test-core: test-dns-response test-socket-calls test-socket-try-io
+
+.PHONY: test-pipe-message
+test-core: test-pipe-message
+test-pipe-message: build/tests/pipe-message-host$(HOST_EXE)
+	$<
+build/tests/pipe-message-host$(HOST_EXE): tools/test_pipe_message_syscall.c kernel/src/arch/x86_64/syscall.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
 
 # Capture hook is absent from the ordinary power object and ordinary kernel.
 build/ap-probe/power.o: kernel/src/drivers/power.c $(ZIG) $(KERNEL_HEADERS)

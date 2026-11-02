@@ -2,6 +2,7 @@
 #define _DARWIN_C_SOURCE
 #include <assert.h>
 #include <time.h>
+#include <srvros/vector_io.h>
 int audit_clock_gettime(clockid_t id, struct timespec *ts);
 #define clock_gettime audit_clock_gettime
 #include <stdbool.h>
@@ -62,6 +63,60 @@ static size_t unix_path_length;
 static unsigned dns_sends, dns_receives, dns_polls;
 static long fake_ms;
 static int stream_error_mode, stream_callback, error_queries, native_error;
+static int pipe_message_mode, pipe_message_calls, pipe_interrupt, pipe_reuse, pipe_right_reuse, pipe_backing_reuse;
+static int pipe_fail, pipe_short;
+static int pipe_expected_fd;
+static struct srv_pipe_message pipe_sent;
+static unsigned char pipe_bytes[SRV_PIPE_MESSAGE_MAX];
+static size_t pipe_length;
+uint64_t __posix_event_capture_identity(int fd) { return (uint64_t)fd + 1; }
+int __posix_event_identity_current(int fd, uint64_t identity) {
+    return !pipe_reuse && !(pipe_right_reuse && fd == 3) &&
+        !(pipe_backing_reuse && fd == 7) && identity == (uint64_t)fd + 1;
+}
+long srv_pipe_sendmsg_message(int fd, const struct srv_pipe_message_layout *layout,
+    const struct srv_pipe_message *message) {
+    pipe_message_calls++;
+    if (!pipe_message_mode) return SRV_ERR_NOTSUP;
+    assert(fd == pipe_expected_fd);
+    if (pipe_interrupt) { pipe_interrupt = 0; return SRV_ERR_INTR; }
+    if (pipe_fail) return SRV_ERR_BADF;
+    pipe_length = 0;
+    for (size_t i = 0; i < layout->iov_count && pipe_length < sizeof(pipe_bytes); i++) {
+        size_t n = layout->iov[i].length;
+        if (n > sizeof(pipe_bytes) - pipe_length) n = sizeof(pipe_bytes) - pipe_length;
+        memcpy(pipe_bytes + pipe_length, layout->iov[i].base, n);
+        pipe_length += n;
+    }
+    pipe_sent = *message;
+    return pipe_short ? 2 : (long)pipe_length;
+}
+long srv_pipe_recvmsg_message(int fd, const struct srv_pipe_message_layout *layout,
+    struct srv_pipe_message *message) {
+    pipe_message_calls++;
+    if (!pipe_message_mode) return SRV_ERR_NOTSUP;
+    assert(fd == pipe_expected_fd && layout->header && layout->header_length == sizeof(struct msghdr));
+    if (pipe_interrupt) { pipe_interrupt = 0; return SRV_ERR_INTR; }
+    if (pipe_fail) return SRV_ERR_FAULT;
+    pipe_sent = *message;
+    size_t copied = 0;
+    for (size_t i = 0; i < layout->iov_count && copied < 3; i++) {
+        size_t n = layout->iov[i].length;
+        if (n > 3 - copied) n = 3 - copied;
+        memcpy(layout->iov[i].base, &"abc"[copied], n);
+        copied += n;
+    }
+    if (!copied) {
+        message->count = 0;
+        message->flags = 0;
+    } else if (message->count) {
+        message->count = 1;
+        message->fds[0] = 4;
+    } else {
+        message->flags = SRV_PIPE_MSG_CTRUNC;
+    }
+    return (long)copied;
+}
 int audit_clock_gettime(clockid_t id, struct timespec *ts) {
     assert(id == CLOCK_MONOTONIC);
     ts->tv_sec = fake_ms / 1000;
@@ -136,7 +191,7 @@ long srv_unix_connect(const char *p) {
     if(!unix_control)return -1;
     assert(strlen(p)==unix_path_length);return 8;
 }
-int __posix_event_export_allowed(int fd) { assert(fd==3 || fd==4);return 1; }
+int __posix_event_export_allowed(int fd) { assert(fd==3 || fd==4 || fd==POSIX_SOCKET_BASE);return 1; }
 long srv_unix_accept(int fd) { (void)fd;return -1; }
 long srv_net_sockname(int fd,uint32_t *ip,uint16_t *port) { (void)fd;*ip=0x0a00020f;*port=9000;return 0; }
 long srv_net_peername(int fd,uint32_t *ip,uint16_t *port) { (void)fd;*ip=0x0a000202;*port=8000;return 0; }
@@ -226,6 +281,107 @@ long srv_socket_try_io(int fd,uint64_t operation,void *buf,size_t n,struct srv_s
 #endif
 int main(int argc,char **argv) {
     assert(argc==2);
+    if (!strncmp(argv[1], "pipe-message-", 13)) {
+        bool receiving = strstr(argv[1], "recv") != NULL;
+        bool pseudo = strstr(argv[1], "-send-pseudo") != NULL ||
+            strstr(argv[1], "-recv-pseudo") != NULL;
+        bool no_control = strstr(argv[1], "discard") != NULL;
+        bool interrupted = strstr(argv[1], "interrupt") != NULL;
+        bool large = strstr(argv[1], "large") != NULL;
+        bool empty = strstr(argv[1], "empty") != NULL;
+        int fd = 7;
+        pipe_message_mode = 1;
+        pipe_expected_fd = 7;
+        if (pseudo) {
+            fd = socket(AF_UNIX, SOCK_STREAM, 0);
+            assert(fd == POSIX_SOCKET_BASE);
+            sockets[0].listener_fd = 7;
+            sockets[0].connected = 1;
+        }
+        char a[2] = {'x', 'y'}, b[2] = {'z', 0};
+        struct iovec iov[] = {{a, 2}, {b, 1}};
+        char big[SRV_PIPE_MESSAGE_MAX + 17];
+        if (large) { memset(big, 'q', sizeof(big)); iov[0].iov_base = big; iov[0].iov_len = sizeof(big); iov[1].iov_len = 0; }
+        if (empty) { iov[0].iov_len = 0; iov[1].iov_len = 0; }
+        union { struct cmsghdr align; unsigned char data[CMSG_SPACE(sizeof(int))]; } control = {0};
+        struct msghdr msg = {.msg_iov = iov, .msg_iovlen = 2};
+        if (!no_control) {
+            msg.msg_control = control.data;
+            msg.msg_controllen = sizeof(control.data);
+        }
+        bool overlap = receiving && strstr(argv[1], "overlap") != NULL;
+        if (overlap) {
+            iov[0].iov_base = &msg.msg_control;
+            iov[0].iov_len = sizeof(msg.msg_control);
+            iov[1].iov_len = 0;
+        }
+        if (!receiving && !no_control) {
+            struct cmsghdr *cmsg = CMSG_FIRSTHDR(&msg);
+            cmsg->cmsg_level = SOL_SOCKET;
+            cmsg->cmsg_type = SCM_RIGHTS;
+            cmsg->cmsg_len = CMSG_LEN(sizeof(int));
+            int right = 3;
+            if (strstr(argv[1], "right-pseudo")) {
+                assert(!pseudo && socket(AF_UNIX, SOCK_STREAM, 0) == POSIX_SOCKET_BASE);
+                sockets[0].listener_fd = 8;
+                sockets[0].connected = 1;
+                right = POSIX_SOCKET_BASE;
+            }
+            memcpy(CMSG_DATA(cmsg), &right, sizeof(right));
+        }
+        pipe_interrupt = interrupted;
+        pipe_right_reuse = interrupted && strstr(argv[1], "right-reuse") != NULL;
+        pipe_backing_reuse = interrupted && strstr(argv[1], "backing-reuse") != NULL;
+        pipe_reuse = interrupted && !pipe_right_reuse && !pipe_backing_reuse && strstr(argv[1], "reuse") != NULL;
+        pipe_fail = strstr(argv[1], "error") != NULL;
+        pipe_short = strstr(argv[1], "short") != NULL;
+        int send_flags = MSG_DONTWAIT;
+        if (strstr(argv[1], "nosignal")) send_flags |= MSG_NOSIGNAL;
+        ssize_t result = receiving ? recvmsg(fd, &msg, MSG_DONTWAIT | MSG_CMSG_CLOEXEC | MSG_PEEK) :
+            sendmsg(fd, &msg, send_flags);
+        if (empty) {
+            if (receiving) assert(result == 0 && pipe_message_calls == 1 && msg.msg_controllen == 0);
+            else if (no_control) assert(result == 0 && pipe_message_calls == 0);
+            else assert(result == -1 && errno == EINVAL && pipe_message_calls == 0);
+        } else if (strstr(argv[1], "right-pseudo")) {
+            assert(result == -1 && errno == EOPNOTSUPP && pipe_message_calls == 0);
+        } else if (pipe_fail) {
+            assert(result == -1 && errno == (receiving ? EFAULT : EBADF) && pipe_message_calls == 1);
+        } else if (pipe_short) {
+            assert(!receiving && result == 2 && pipe_message_calls == 1);
+        } else if (large) {
+            assert(!receiving && result == SRV_PIPE_MESSAGE_MAX && pipe_length == SRV_PIPE_MESSAGE_MAX);
+        } else if (pipe_reuse || pipe_right_reuse || pipe_backing_reuse) {
+            assert(result == -1 && errno == EBADF && pipe_message_calls == 1);
+        } else {
+            assert(result == 3 && pipe_message_calls == (interrupted ? 2 : 1));
+            assert(pipe_sent.flags & SRV_PIPE_MSG_DONTWAIT);
+            if (send_flags & MSG_NOSIGNAL) assert(pipe_sent.flags & SRV_PIPE_MSG_NOSIGNAL);
+            if (receiving) {
+                if (overlap) assert(!memcmp(&msg.msg_control, "abc", 3));
+                else assert(!memcmp(a, "ab", 2) && b[0] == 'c');
+                assert((pipe_sent.flags & (SRV_PIPE_MSG_CLOEXEC | SRV_PIPE_MSG_PEEK)) ==
+                    (SRV_PIPE_MSG_CLOEXEC | SRV_PIPE_MSG_PEEK));
+                if (no_control) assert(msg.msg_flags & MSG_CTRUNC);
+                else {
+                    int right;
+                    assert(msg.msg_controllen == CMSG_LEN(sizeof(int)));
+                    struct cmsghdr *cmsg = (struct cmsghdr *)control.data;
+                    assert(cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_RIGHTS);
+                    memcpy(&right, CMSG_DATA(cmsg), sizeof(right));
+                    assert(right == 4);
+                }
+            } else {
+                assert(pipe_length == 3 && !memcmp(pipe_bytes, "xyz", 3));
+                assert(pipe_sent.count == (no_control ? 0u : 1u));
+                if (!no_control) {
+                    assert(pipe_sent.fds[0] == 3);
+                }
+            }
+        }
+        printf("socket-calls: %s PASS\n", argv[1]);
+        return 0;
+    }
     if(!strcmp(argv[1],"unix-copy")) {
         unix_control=true;assert(socket(AF_UNIX,SOCK_STREAM,0)==POSIX_SOCKET_BASE);
         struct sockaddr_un peer={.sun_family=AF_UNIX};
@@ -251,6 +407,11 @@ int main(int argc,char **argv) {
         assert(!memcmp(before,control.bytes,sizeof(before)));
         CMSG_FIRSTHDR(&message)->cmsg_len=CMSG_LEN(0)-1;
         assert(message_extract_rights(&message,rights,&count)<0 && errno==EINVAL && !count);
+        CMSG_FIRSTHDR(&message)->cmsg_len = (socklen_t)-1;
+        assert(message_extract_rights(&message, rights, &count) < 0 && errno == EINVAL && !count);
+        message.msg_control = (void *)(UINTPTR_MAX - 1);
+        message.msg_controllen = sizeof(control.bytes);
+        assert(message_extract_rights(&message, rights, &count) < 0 && errno == EINVAL && !count);
         puts("socket-calls: rights-const PASS");return 0;
     }
     if (!strncmp(argv[1], "dns-", 4)) {

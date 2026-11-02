@@ -325,11 +325,13 @@ static int check_call_flags(void) {
     if(alias>=0)close(alias);close(pair[0]);close(pair[1]);return result?fail("call-flags"):0;
 }
 
+int netabi_rights_test(void);
+
 int main(void) {
     if (srv_net_dhcp() < 0) {
         return fail("dhcp");
     }
-    if (check_udp_alias() != 0 ||
+    if (netabi_rights_test() != 0 || check_udp_alias() != 0 ||
         check_call_signal() != 0 ||
         check_call_flags() != 0 ||
         check_udp_datagrams() != 0 ||

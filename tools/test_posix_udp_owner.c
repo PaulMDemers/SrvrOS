@@ -88,6 +88,11 @@ long srv_socket_try_io(int fd,uint64_t operation,void *buffer,size_t length,stru
     assert(operation==SRV_SOCKET_UDP_RECV);
     return srv_net_udp_recvfrom(fd,buffer,length,&peer->ip,&peer->port);
 }
+uint64_t __posix_event_capture_identity(int fd) { return (uint64_t)fd + 1; }
+int __posix_event_identity_current(int fd, uint64_t identity) { return identity == (uint64_t)fd + 1; }
+long srv_pipe_recvmsg_message(int fd, const struct srv_pipe_message_layout *layout, struct srv_pipe_message *message) {
+    (void)fd; (void)layout; (void)message; return SRV_ERR_NOTSUP;
+}
 long srv_pipe_recv_rights(int fd,int *fds,size_t capacity,uint64_t *flags) {
     (void)fd;(void)fds;(void)capacity;*flags=0;return 0;
 }

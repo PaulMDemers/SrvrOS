@@ -208,12 +208,19 @@ int64_t process_unix_listen(struct process *process, uint64_t fd, uint64_t backl
 int64_t process_unix_connect(struct process *process, const char *path);
 int64_t process_unix_accept(struct process *process, uint64_t fd);
 int64_t process_unix_unlink(const char *path);
+/* The checked receive copies to userspace before committing queue consumption. */
+typedef bool (*process_message_copyout)(void *context, const void *data,
+    uint64_t length, const struct srv_pipe_message *message);
+int64_t process_file_send_message(struct process *process, uint64_t fd,
+    const uint8_t *buffer, uint64_t length, const struct srv_pipe_message *message);
+int64_t process_file_recv_message_checked(struct process *process, uint64_t fd,
+    uint8_t *buffer, uint64_t length, struct srv_pipe_message *message,
+    process_message_copyout copyout, void *context);
 int64_t process_file_send_rights(struct process *process, uint64_t fd, const int32_t *fds, uint64_t count);
-int64_t process_file_recv_rights(struct process *process,
-    uint64_t fd,
-    int32_t *fds_out,
-    uint64_t capacity,
-    uint64_t *flags_out);
+typedef bool (*process_rights_copyout)(void *context, const int32_t *fds,
+    uint64_t count, uint64_t flags);
+int64_t process_file_recv_rights_checked(struct process *process, uint64_t fd,
+    uint64_t capacity, process_rights_copyout copyout, void *context);
 uint16_t process_file_poll(struct process *process, int64_t fd, uint16_t events);
 /* GUI wait snapshots only explicit nonblocking pipe/PTY endpoints. Replaced
  * descriptor numbers report NVAL; readiness is suppressed during owned I/O. */

@@ -5663,7 +5663,7 @@ static const struct process_file *process_file_source_for_fd(struct process *pro
     (void)unused;return process_file_at(process,fd);
 }
 
-int64_t process_file_send_rights(struct process *process, uint64_t fd, const int32_t *fds, uint64_t count) {
+static int64_t process_file_send_rights_locked(struct process *process, uint64_t fd, const int32_t *fds, uint64_t count) {
     if (process == NULL || fds == NULL || count == 0 || count > SRV_RIGHTS_MAX) {
         return -1;
     }
@@ -5714,67 +5714,322 @@ int64_t process_file_send_rights(struct process *process, uint64_t fd, const int
     return 0;
 }
 
-int64_t process_file_recv_rights(struct process *process,
-    uint64_t fd,
-    int32_t *fds_out,
-    uint64_t capacity,
-    uint64_t *flags_out) {
-    if (flags_out != NULL) {
-        *flags_out = 0;
-    }
-    if (process == NULL || capacity > SRV_RIGHTS_MAX || (capacity != 0 && fds_out == NULL)) {
-        return -1;
-    }
+int64_t process_file_send_rights(struct process *process, uint64_t fd, const int32_t *fds, uint64_t count) {
+    uint64_t irq = process_irq_save();
+    int64_t result = process_file_send_rights_locked(process, fd, fds, count);
+    process_irq_restore(irq);
+    return result;
+}
 
-    struct process_file *endpoint = process_file_at(process, fd);
-    if (endpoint == NULL ||
-        (endpoint->type != PROCESS_FILE_PIPE_READ && endpoint->type != PROCESS_FILE_PIPE_DUPLEX)) {
-        return -1;
-    }
-    struct process_pipe *pipe = pipe_at(endpoint->handle);
-    if (pipe == NULL) {
-        return -1;
-    }
-
-    if (!pipe->rights[0].used || pipe->rights[0].offset != 0) {
-        return 0;
-    }
-
-    struct process_pipe_rights *rights = &pipe->rights[0];
-    uint64_t deliver = rights->count < capacity ? rights->count : capacity;
-    int32_t delivered[SRV_RIGHTS_MAX];
-    for (uint64_t i = 0; i < SRV_RIGHTS_MAX; i++) {
-        delivered[i] = -1;
-    }
-
-    for (uint64_t i = 0; i < deliver; i++) {
-        uint64_t target_index = PROCESS_MAX_OPEN_FILES;
-        for (uint64_t j = 0; j < PROCESS_MAX_OPEN_FILES; j++) {
-            if (!process->files[j].used) {
-                target_index = j;
-                break;
-            }
+/* Queued references keep the source alive while failed installations are
+ * rolled back under IRQ exclusion. A negative cloexec preserves legacy flags. */
+static int64_t pipe_rights_install(struct process *process,
+    const struct process_file *source, int cloexec) {
+    for (uint64_t fd = 0; fd < PROCESS_MAX_OPEN_FILES; fd++) {
+        if (process->files[fd].used) continue;
+        if (process_file_dup_into(process, source, fd) < 0) return SRV_ERR_MFILE;
+        if (cloexec >= 0) {
+            process->files[fd].flags &= ~SRV_FD_CLOEXEC;
+            if (cloexec) process->files[fd].flags |= SRV_FD_CLOEXEC;
         }
-        if (target_index == PROCESS_MAX_OPEN_FILES ||
-            process_file_dup_into(process, &rights->files[i], target_index) < 0) {
-            for (uint64_t j = 0; j < i; j++) {
-                if (delivered[j] >= 0) {
-                    (void)process_file_close(process, (uint64_t)delivered[j]);
+        return (int64_t)fd;
+    }
+    return SRV_ERR_MFILE;
+}
+
+static void pipe_rights_rollback(struct process *process, const int32_t *fds, uint64_t count) {
+    for (uint64_t i = 0; i < count; i++) (void)process_file_close(process, (uint64_t)fds[i]);
+}
+
+int64_t process_file_recv_rights_checked(struct process *process, uint64_t fd,
+    uint64_t capacity, process_rights_copyout copyout, void *context) {
+    if (!process || capacity > SRV_RIGHTS_MAX || !copyout) return SRV_ERR_INVAL;
+    struct process_pipe_rights *retired = NULL;
+    uint64_t irq = process_irq_save();
+    struct process_file *endpoint = process_file_at(process, fd);
+    if (!endpoint || (endpoint->type != PROCESS_FILE_PIPE_READ &&
+        endpoint->type != PROCESS_FILE_PIPE_DUPLEX)) {
+        process_irq_restore(irq);
+        return SRV_ERR_BADF;
+    }
+    uint64_t generation = process->file_generations[fd], handle = endpoint->handle;
+    if (generation == UINT64_MAX) { process_irq_restore(irq); return SRV_ERR_BADF; }
+    for (;;) {
+        endpoint = process_file_at(process, fd);
+        struct process_pipe *pipe = endpoint && endpoint->handle == handle &&
+            process->file_generations[fd] == generation &&
+            (endpoint->type == PROCESS_FILE_PIPE_READ || endpoint->type == PROCESS_FILE_PIPE_DUPLEX)
+            ? pipe_at(handle) : NULL;
+        if (!pipe) {
+            process_irq_restore(irq);
+            if (retired) kfree(retired);
+            return SRV_ERR_BADF;
+        }
+        if (!pipe->rights[0].used || pipe->rights[0].offset != 0) {
+            bool copied = copyout(context, NULL, 0, 0);
+            process_irq_restore(irq);
+            if (retired) kfree(retired);
+            return copied ? 0 : SRV_ERR_FAULT;
+        }
+        if (!retired) {
+            process_irq_restore(irq);
+            retired = kmalloc(sizeof(*retired));
+            if (!retired) return SRV_ERR_NOMEM;
+            irq = process_irq_save();
+            continue;
+        }
+        struct process_pipe_rights *rights = &pipe->rights[0];
+        uint64_t deliver = rights->count < capacity ? rights->count : capacity;
+        uint64_t flags = deliver < rights->count ? SRV_MSG_CTRUNC : 0;
+        int32_t delivered[SRV_RIGHTS_MAX];
+        for (uint64_t i = 0; i < deliver; i++) {
+            int64_t installed = pipe_rights_install(process, &rights->files[i], -1);
+            if (installed < 0) {
+                pipe_rights_rollback(process, delivered, i);
+                process_irq_restore(irq);
+                kfree(retired);
+                return SRV_ERR_MFILE;
+            }
+            delivered[i] = (int32_t)installed;
+        }
+        if (!copyout(context, delivered, deliver, flags)) {
+            pipe_rights_rollback(process, delivered, deliver);
+            process_irq_restore(irq);
+            kfree(retired);
+            return SRV_ERR_FAULT;
+        }
+        *retired = pipe->rights[0];
+        for (unsigned i = 1; i < PROCESS_PIPE_RIGHTS_QUEUE; i++)
+            pipe->rights[i - 1] = pipe->rights[i];
+        pipe->rights[PROCESS_PIPE_RIGHTS_QUEUE - 1] = (struct process_pipe_rights){0};
+        scheduler_wake_all(&pipe_wait_queue);
+        process_file_poll_wake();
+        process_irq_restore(irq);
+        pipe_rights_release(retired);
+        kfree(retired);
+        return (int64_t)deliver;
+    }
+}
+
+/* A message wait watches the descriptor generation as well as the pipe. A
+ * close/reuse wakes the waiter and cannot redirect it to the replacement. */
+struct pipe_message_wait {
+    struct process *process;
+    uint64_t fd, generation, handle;
+    bool writing, needs_rights;
+    struct process_user_thread *thread;
+};
+
+static struct process_pipe *pipe_message_current(struct pipe_message_wait *wait) {
+    struct process_file *file = process_file_at(wait->process, wait->fd);
+    if (!file || file->type != PROCESS_FILE_PIPE_DUPLEX ||
+        wait->process->file_generations[wait->fd] != wait->generation ||
+        (wait->writing ? file->aux_handle : file->handle) != wait->handle) return NULL;
+    return pipe_at(wait->handle);
+}
+
+static bool pipe_message_ready(void *arg) {
+    struct pipe_message_wait *wait = arg;
+    struct process_pipe *pipe = pipe_message_current(wait);
+    struct process *process = wait->process;
+    struct process_user_thread *thread = wait->thread;
+    uint64_t pending = process->pending_signals;
+    uint64_t mask = process->main_signal_mask;
+    if (thread && thread->used && thread->owner == process) {
+        pending |= thread->pending_signals;
+        mask = thread->signal_mask;
+    } else {
+        pending |= process->main_pending_signals;
+    }
+    if (!pipe || process->killed || process->exiting || (pending & ~mask)) return true;
+    if (!wait->writing) return pipe->size != 0 || pipe->write_refs == 0;
+    if (!pipe->read_refs) return true;
+    if (pipe->size == PROCESS_PIPE_CAPACITY) return false;
+    return !wait->needs_rights || !pipe->rights[PROCESS_PIPE_RIGHTS_QUEUE - 1].used;
+}
+
+int64_t process_file_send_message(struct process *process, uint64_t fd,
+    const uint8_t *buffer, uint64_t length, const struct srv_pipe_message *message) {
+    if (!message || (!buffer && length) || length > SRV_PIPE_MESSAGE_MAX || message->count > SRV_RIGHTS_MAX ||
+        (message->flags & ~(SRV_PIPE_MSG_DONTWAIT | SRV_PIPE_MSG_NOSIGNAL)) || (message->count && !length)) return SRV_ERR_INVAL;
+    uint64_t irq = process_irq_save();
+    struct process_file *file = process_file_at(process, fd);
+    if (!file) { process_irq_restore(irq); return SRV_ERR_BADF; }
+    if (file->type != PROCESS_FILE_PIPE_DUPLEX) { process_irq_restore(irq); return SRV_ERR_NOTSUP; }
+    if (!length) { process_irq_restore(irq); return 0; }
+    /* Do not retain rights across a wait. Revalidate each source when the
+     * pipe becomes writable; a source-only close need not wake this waiter. */
+    uint64_t source_generations[SRV_RIGHTS_MAX];
+    for (uint64_t i = 0; i < message->count; i++) {
+        if (message->fds[i] < 0 || !process_file_at(process, (uint64_t)message->fds[i])) {
+            process_irq_restore(irq);
+            return SRV_ERR_BADF;
+        }
+        source_generations[i] = process->file_generations[message->fds[i]];
+        if (source_generations[i] == UINT64_MAX) {
+            process_irq_restore(irq);
+            return SRV_ERR_BADF;
+        }
+    }
+    struct pipe_message_wait wait = {process, fd, process->file_generations[fd], file->aux_handle,
+        true, message->count != 0, process_current_user_thread()};
+    if (wait.generation == UINT64_MAX) { process_irq_restore(irq); return SRV_ERR_BADF; }
+    for (;;) {
+        struct process_pipe *pipe = pipe_message_current(&wait);
+        if (!pipe) { process_irq_restore(irq); return SRV_ERR_BADF; }
+        if (!pipe->read_refs) {
+            process_irq_restore(irq);
+            return (message->flags & SRV_PIPE_MSG_NOSIGNAL) ? SRV_ERR_PIPE : pipe_broken_write(process, 0);
+        }
+        if (pipe->size < PROCESS_PIPE_CAPACITY &&
+            (!wait.needs_rights || !pipe->rights[PROCESS_PIPE_RIGHTS_QUEUE - 1].used)) {
+            struct process_pipe_rights *rights = NULL;
+            if (message->count) {
+                for (unsigned i = 0; i < PROCESS_PIPE_RIGHTS_QUEUE; i++)
+                    if (!pipe->rights[i].used) { rights = &pipe->rights[i]; break; }
+                if (!rights) { process_irq_restore(irq); return SRV_ERR_AGAIN; }
+                *rights = (struct process_pipe_rights){.used = true, .offset = pipe->size};
+                for (uint64_t i = 0; i < message->count; i++) {
+                    struct process_file *source = message->fds[i] < 0 ? NULL :
+                        process_file_at(process, (uint64_t)message->fds[i]);
+                    if (!source || process->file_generations[message->fds[i]] != source_generations[i] ||
+                        !process_file_clone_entry(&rights->files[i], source)) {
+                        pipe_rights_release(rights);
+                        process_irq_restore(irq);
+                        return SRV_ERR_BADF;
+                    }
+                    rights->count++;
                 }
             }
-            return -1;
+            uint64_t count = PROCESS_PIPE_CAPACITY - pipe->size;
+            if (count > length) count = length;
+            uint64_t first = PROCESS_PIPE_CAPACITY - pipe->write_pos;
+            if (first > count) first = count;
+            copy_bytes(pipe->buffer + pipe->write_pos, buffer, first);
+            copy_bytes(pipe->buffer, buffer + first, count - first);
+            pipe->write_pos = (pipe->write_pos + count) % PROCESS_PIPE_CAPACITY;
+            pipe->size += count;
+            scheduler_wake_all(&pipe_wait_queue);
+            process_file_poll_wake();
+            process_irq_restore(irq);
+            return (int64_t)count;
         }
-        delivered[i] = (int32_t)(target_index);
+        if ((message->flags & SRV_PIPE_MSG_DONTWAIT) || process_file_nonblocking(process, fd)) {
+            process_irq_restore(irq); return SRV_ERR_AGAIN;
+        }
+        process_irq_restore(irq);
+        bool woke = scheduler_wait(&pipe_wait_queue, pipe_message_ready, &wait);
+        irq = process_irq_save();
+        if (!pipe_message_current(&wait)) { process_irq_restore(irq); return SRV_ERR_BADF; }
+        if (process_signal_pending_current()) { process_irq_restore(irq); return SRV_ERR_INTR; }
+        if (!woke || process_should_exit_current()) { process_irq_restore(irq); return SRV_ERR_INTR; }
     }
+}
 
-    for (uint64_t i = 0; i < deliver; i++) {
-        fds_out[i] = delivered[i];
+int64_t process_file_recv_message_checked(struct process *process, uint64_t fd,
+    uint8_t *buffer, uint64_t length, struct srv_pipe_message *message,
+    process_message_copyout copyout, void *context) {
+    if (!message || (!buffer && length) || length > SRV_PIPE_MESSAGE_MAX || message->count > SRV_RIGHTS_MAX ||
+        (message->flags & ~(SRV_PIPE_MSG_DONTWAIT | SRV_PIPE_MSG_CLOEXEC | SRV_PIPE_MSG_PEEK))) return SRV_ERR_INVAL;
+    uint32_t capacity = message->count, request = message->flags;
+    struct process_pipe_rights *retired = NULL;
+    int64_t failure;
+    uint64_t irq = process_irq_save();
+    struct process_file *file = process_file_at(process, fd);
+    if (!file) { failure = SRV_ERR_BADF; goto fail; }
+    if (file->type != PROCESS_FILE_PIPE_DUPLEX) { failure = SRV_ERR_NOTSUP; goto fail; }
+    struct pipe_message_wait wait = {process, fd, process->file_generations[fd], file->handle,
+        false, false, process_current_user_thread()};
+    if (wait.generation == UINT64_MAX) { failure = SRV_ERR_BADF; goto fail; }
+    for (;;) {
+        struct process_pipe *pipe = pipe_message_current(&wait);
+        if (!pipe) { failure = SRV_ERR_BADF; goto fail; }
+        if (!length || pipe->size || !pipe->write_refs) {
+            uint64_t count = length < pipe->size ? length : pipe->size;
+            unsigned records = 0;
+            if (count && pipe->rights[0].used) {
+                if (pipe->rights[0].offset) {
+                    if (count > pipe->rights[0].offset) count = pipe->rights[0].offset;
+                } else {
+                    while (records < PROCESS_PIPE_RIGHTS_QUEUE && pipe->rights[records].used &&
+                        pipe->rights[records].offset == 0) records++;
+                    if (records < PROCESS_PIPE_RIGHTS_QUEUE && pipe->rights[records].used &&
+                        count > pipe->rights[records].offset) count = pipe->rights[records].offset;
+                }
+            }
+            /* Detach up to the bounded queue size into heap storage. Never
+             * release arbitrary final file references inside the transaction. */
+            if (records && !(request & SRV_PIPE_MSG_PEEK) && !retired) {
+                process_irq_restore(irq);
+                retired = kmalloc(sizeof(*retired) * PROCESS_PIPE_RIGHTS_QUEUE);
+                if (!retired) return SRV_ERR_NOMEM;
+                irq = process_irq_save();
+                continue;
+            }
+            struct srv_pipe_message result = {0};
+            for (unsigned r = 0; r < records; r++) {
+                struct process_pipe_rights *rights = &pipe->rights[r];
+                for (uint64_t i = 0; i < rights->count; i++) {
+                    if (result.count == capacity) {
+                        result.flags |= SRV_PIPE_MSG_CTRUNC;
+                        continue;
+                    }
+                    int64_t installed = pipe_rights_install(process, &rights->files[i],
+                        (request & SRV_PIPE_MSG_CLOEXEC) != 0);
+                    if (installed < 0) {
+                        pipe_rights_rollback(process, result.fds, result.count);
+                        failure = SRV_ERR_MFILE;
+                        goto fail;
+                    }
+                    result.fds[result.count++] = (int32_t)installed;
+                }
+            }
+            uint64_t first = PROCESS_PIPE_CAPACITY - pipe->read_pos;
+            if (first > count) first = count;
+            if (count) {
+                copy_bytes(buffer, pipe->buffer + pipe->read_pos, first);
+                copy_bytes(buffer + first, pipe->buffer, count - first);
+            }
+            if (copyout && !copyout(context, buffer, count, &result)) {
+                pipe_rights_rollback(process, result.fds, result.count);
+                failure = SRV_ERR_FAULT;
+                goto fail;
+            }
+            *message = result;
+            if (!(request & SRV_PIPE_MSG_PEEK) && count) {
+                pipe->read_pos = (pipe->read_pos + count) % PROCESS_PIPE_CAPACITY;
+                pipe->size -= count;
+                for (unsigned i = 0; i < records; i++) retired[i] = pipe->rights[i];
+                for (unsigned i = 0; i + records < PROCESS_PIPE_RIGHTS_QUEUE; i++)
+                    pipe->rights[i] = pipe->rights[i + records];
+                for (unsigned i = PROCESS_PIPE_RIGHTS_QUEUE - records; i < PROCESS_PIPE_RIGHTS_QUEUE; i++)
+                    pipe->rights[i] = (struct process_pipe_rights){0};
+                for (unsigned i = 0; i < PROCESS_PIPE_RIGHTS_QUEUE && pipe->rights[i].used; i++)
+                    pipe->rights[i].offset -= count;
+                scheduler_wake_all(&pipe_wait_queue);
+                process_file_poll_wake();
+            }
+            process_irq_restore(irq);
+            if (!(request & SRV_PIPE_MSG_PEEK))
+                for (unsigned i = 0; i < records; i++) pipe_rights_release(&retired[i]);
+            if (retired) kfree(retired);
+            return (int64_t)count;
+        }
+        if ((request & SRV_PIPE_MSG_DONTWAIT) || process_file_nonblocking(process, fd)) {
+            failure = SRV_ERR_AGAIN;
+            goto fail;
+        }
+        process_irq_restore(irq);
+        bool woke = scheduler_wait(&pipe_wait_queue, pipe_message_ready, &wait);
+        irq = process_irq_save();
+        if (!pipe_message_current(&wait)) { failure = SRV_ERR_BADF; goto fail; }
+        if (process_signal_pending_current()) { failure = SRV_ERR_INTR; goto fail; }
+        if (!woke || process_should_exit_current()) { failure = SRV_ERR_INTR; goto fail; }
     }
-    if (flags_out != NULL && deliver < rights->count) {
-        *flags_out |= SRV_MSG_CTRUNC;
-    }
-    pipe_rights_shift(pipe, 0);
-    return (int64_t)deliver;
+fail:
+    process_irq_restore(irq);
+    if (retired) kfree(retired);
+    return failure;
 }
 
 /* Status belongs to an endpoint's open description; CLOEXEC belongs to an FD. */

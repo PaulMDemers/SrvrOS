@@ -159,6 +159,7 @@
 #define SYS_GUI_CANCEL_WAIT 153
 #define SYS_SCHED_TRACE 154
 #define SYS_SOCKET_TRY_IO 155
+#define SYS_PIPE_MESSAGE 156
 #define SRV_DIRECTORY_READ 0
 #define SRV_DIRECTORY_PATH 1
 #define SRV_DIRECTORY_CHDIR 2
@@ -347,6 +348,33 @@ struct srv_winsize {
 #define SRV_ERR_OVERFLOW -75
 
 #define SRV_RIGHTS_MAX 4
+#define SRV_PIPE_MESSAGE_SEND 0u
+#define SRV_PIPE_MESSAGE_RECV 1u
+#define SRV_PIPE_MESSAGE_MAX SRV_PIPE_BUF
+#define SRV_PIPE_MESSAGE_AUX_MAX 256
+#define SRV_PIPE_MSG_DONTWAIT 0x01u
+#define SRV_PIPE_MSG_CLOEXEC 0x02u
+#define SRV_PIPE_MSG_CTRUNC 0x04u
+#define SRV_PIPE_MSG_PEEK 0x08u
+#define SRV_PIPE_MSG_NOSIGNAL 0x10u
+
+struct srv_pipe_message {
+    int32_t fds[SRV_RIGHTS_MAX];
+    uint32_t count;
+    uint32_t flags;
+};
+
+struct srv_iovec;
+/* Vectored transfer layout, never retained in a pipe queue. Control and
+ * header ranges are validated on receive and ignored on send. */
+struct srv_pipe_message_layout {
+    const struct srv_iovec *iov;
+    uint64_t iov_count;
+    void *control;
+    uint64_t control_length;
+    void *header;
+    uint64_t header_length;
+};
 #define SRV_MSG_CTRUNC 0x08
 
 #define SRV_UNIX_PATH_MAX 108

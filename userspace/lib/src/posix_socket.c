@@ -1,5 +1,6 @@
 #include <srvros/dns_wire.h>
 #include <srvros/path_limits.h>
+#include <srvros/io_limits.h>
 #include <arpa/inet.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -22,6 +23,8 @@
 
 int __posix_signal_dispatch_pending(void);
 int __posix_signal_dispatch_pending_restartable(void);
+uint64_t __posix_event_capture_identity(int fd);
+int __posix_event_identity_current(int fd, uint64_t identity);
 ssize_t __posix_read_with_socket_error(int fd, void *buffer, size_t length, int *socket_error);
 ssize_t __posix_write_with_socket_error(int fd, const void *buffer, size_t length, int *socket_error);
 
@@ -1224,12 +1227,19 @@ static int message_extract_rights(const struct msghdr *message, int rights[SRV_R
     if (message->msg_control == 0 || message->msg_controllen == 0) {
         return 0;
     }
+    uintptr_t control = (uintptr_t)message->msg_control;
+    if (message->msg_controllen > UINTPTR_MAX - control) {
+        errno = EINVAL;
+        return -1;
+    }
+    uintptr_t end = control + message->msg_controllen;
     /* glibc's traversal takes a mutable header; traverse a local copy without
      * casting away const or modifying the caller's message. */
     struct msghdr cursor = *message;
     for (struct cmsghdr *cmsg = CMSG_FIRSTHDR(&cursor); cmsg != 0; cmsg = CMSG_NXTHDR(&cursor, cmsg)) {
-        if (cmsg->cmsg_len < CMSG_LEN(0) ||
-            (unsigned char *)cmsg + cmsg->cmsg_len > (unsigned char *)message->msg_control + message->msg_controllen) {
+        uintptr_t position = (uintptr_t)cmsg;
+        if (position < control || position > end || cmsg->cmsg_len < CMSG_LEN(0) ||
+            cmsg->cmsg_len > end - position) {
             errno = EINVAL;
             return -1;
         }
@@ -1322,6 +1332,39 @@ static void scatter_message_iov(const struct msghdr *message, const uint8_t *buf
     }
 }
 
+/* A pipe message syscall may block.  Never retry it after a signal handler
+ * closes or replaces either the public descriptor or its backing descriptor. */
+static long unix_message_call(int fd, int native_fd, const struct srv_pipe_message_layout *layout,
+    struct srv_pipe_message *ancillary, int receiving, const int *rights, size_t rights_count) {
+    uint64_t identity = __posix_event_capture_identity(fd);
+    uint64_t native_identity = fd == native_fd ? identity : __posix_event_capture_identity(native_fd);
+    if (!identity || !native_identity) return SRV_ERR_BADF;
+    uint64_t right_identities[SRV_RIGHTS_MAX];
+    for (size_t i = 0; i < rights_count; i++) {
+        right_identities[i] = __posix_event_capture_identity(rights[i]);
+        if (!right_identities[i]) return SRV_ERR_BADF;
+    }
+    for (;;) {
+        long result = receiving ? srv_pipe_recvmsg_message(native_fd, layout, ancillary) :
+            srv_pipe_sendmsg_message(native_fd, layout, ancillary);
+        if (result != SRV_ERR_INTR) return result;
+        int restart = __posix_signal_dispatch_pending_restartable();
+        if (!__posix_event_identity_current(fd, identity) ||
+            (fd != native_fd && !__posix_event_identity_current(native_fd, native_identity)))
+            return SRV_ERR_BADF;
+        for (size_t i = 0; i < rights_count; i++) {
+            if (!__posix_event_identity_current(rights[i], right_identities[i]))
+                return SRV_ERR_BADF;
+        }
+        if (!restart) return SRV_ERR_INTR;
+    }
+}
+
+static int message_error(long result) {
+    errno = result == -1 ? EIO : (int)-result;
+    return -1;
+}
+
 ssize_t sendto(int fd,
     const void *buffer,
     size_t length,
@@ -1373,22 +1416,40 @@ ssize_t sendmsg(int fd, const struct msghdr *message, int flags) {
     if (message_extract_rights(message, rights, &rights_count) < 0) {
         return -1;
     }
-    if (rights_count != 0) {
-        size_t payload_length = 0;
-        if (message_iov_length(message, &payload_length) < 0) {
-            return -1;
-        }
-        if (payload_length == 0) {
-            errno = EINVAL;
-            return -1;
-        }
-        long rights_result = srv_pipe_send_rights(fd, rights, rights_count);
-        if (rights_result < 0) {
-            errno = rights_result == SRV_ERR_AGAIN ? EAGAIN : EBADF;
-            return -1;
-        }
+    for (size_t i = 0; i < rights_count; i++) {
+        if (socket_at(rights[i])) { errno = EOPNOTSUPP; return -1; }
     }
     struct posix_socket *socket = socket_at(fd);
+    size_t payload_length = 0;
+    if (message_iov_length(message, &payload_length) < 0) return -1;
+    if (rights_count && !payload_length) { errno = EINVAL; return -1; }
+    if ((!socket || (socket->domain == AF_UNIX && socket->type == SOCK_STREAM)) &&
+        message->msg_name == 0 && payload_length) {
+        int native_fd = socket ? socket->listener_fd : fd;
+        if (socket && (socket->shutdown_write || native_fd < 0)) {
+            errno = socket->shutdown_write ? EPIPE : ENOTCONN;
+            return -1;
+        }
+        struct srv_pipe_message_layout layout = {
+            .iov = (const struct srv_iovec *)message->msg_iov,
+            .iov_count = message->msg_iovlen,
+        };
+        struct srv_pipe_message ancillary = {0};
+        ancillary.count = (uint32_t)rights_count;
+        ancillary.flags = (flags & MSG_DONTWAIT) ? SRV_PIPE_MSG_DONTWAIT : 0;
+        if (flags & MSG_NOSIGNAL) ancillary.flags |= SRV_PIPE_MSG_NOSIGNAL;
+        for (size_t i = 0; i < rights_count; i++) ancillary.fds[i] = rights[i];
+        long result = unix_message_call(fd, native_fd, &layout, &ancillary, 0, rights, rights_count);
+        if (result != SRV_ERR_NOTSUP) {
+            if (result == SRV_ERR_PIPE || result >= 0) {
+                int saved_errno = errno;
+                (void)__posix_signal_dispatch_pending();
+                errno = saved_errno;
+            }
+            return result < 0 ? message_error(result) : result;
+        }
+    }
+    if (rights_count) { errno = EOPNOTSUPP; return -1; }
     if (message->msg_name != 0 || (socket != 0 && socket->type == SOCK_DGRAM)) {
         uint8_t *buffer = 0;
         size_t length = 0;
@@ -1482,30 +1543,47 @@ ssize_t recvmsg(int fd, struct msghdr *message, int flags) {
         errno = EINVAL;
         return -1;
     }
-    message->msg_flags = 0;
-    int rights[SRV_RIGHTS_MAX];
-    size_t rights_count = 0;
-    if (message->msg_control != 0) {
-        uint64_t rights_flags = 0;
-        long rights_result = srv_pipe_recv_rights(fd, rights, message_rights_capacity(message), &rights_flags);
-        if (rights_result > 0) {
-            rights_count = (size_t)rights_result;
-            if ((flags & MSG_CMSG_CLOEXEC) != 0) {
-                for (size_t i = 0; i < rights_count; i++) {
-                    (void)fcntl(rights[i], F_SETFD, FD_CLOEXEC);
-                }
-            }
-        }
-        if ((rights_flags & SRV_MSG_CTRUNC) != 0) {
-            message->msg_flags |= MSG_CTRUNC;
-        }
-        message_store_rights(message, rights, rights_count);
-    }
     size_t capacity = 0;
     if (message_iov_length(message, &capacity) < 0) {
         return -1;
     }
     struct posix_socket *socket = socket_at(fd);
+    if (!socket || (socket->domain == AF_UNIX && socket->type == SOCK_STREAM)) {
+        int native_fd = socket ? socket->listener_fd : fd;
+        if (native_fd < 0) { errno = ENOTCONN; return -1; }
+        /* The received bytes may overlap message itself.  Keep the original
+         * control destination and capacity before the kernel scatters data. */
+        struct msghdr output = *message;
+        struct srv_pipe_message_layout layout = {
+            .iov = (const struct srv_iovec *)message->msg_iov,
+            .iov_count = message->msg_iovlen,
+            .control = message->msg_control,
+            .control_length = message->msg_controllen,
+            .header = message,
+            .header_length = sizeof(*message),
+        };
+        struct srv_pipe_message ancillary = {0};
+        if (socket && socket->shutdown_read) layout.iov_count = 0;
+        ancillary.count = (uint32_t)message_rights_capacity(message);
+        if (flags & MSG_DONTWAIT) ancillary.flags |= SRV_PIPE_MSG_DONTWAIT;
+        if (flags & MSG_CMSG_CLOEXEC) ancillary.flags |= SRV_PIPE_MSG_CLOEXEC;
+        if (flags & MSG_PEEK) ancillary.flags |= SRV_PIPE_MSG_PEEK;
+        long result = unix_message_call(fd, native_fd, &layout, &ancillary, 1, 0, 0);
+        if (result != SRV_ERR_NOTSUP) {
+            if (result < 0) return message_error(result);
+            int rights[SRV_RIGHTS_MAX];
+            for (size_t i = 0; i < ancillary.count; i++) rights[i] = ancillary.fds[i];
+            message_store_rights(&output, rights, ancillary.count);
+            message->msg_controllen = output.msg_controllen;
+            message->msg_flags = (ancillary.flags & SRV_PIPE_MSG_CTRUNC) ? MSG_CTRUNC : 0;
+            int saved_errno = errno;
+            (void)__posix_signal_dispatch_pending();
+            errno = saved_errno;
+            return result;
+        }
+    }
+    message->msg_flags = 0;
+    message->msg_controllen = 0;
     if (socket != 0 && socket->type == SOCK_DGRAM) {
         /* The kernel receive API consumes one datagram and returns copied
          * bytes. Read its bounded maximum to retain truncation information,
