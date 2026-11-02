@@ -673,6 +673,12 @@ bool mt76_band_mac_transfer_valid(const struct mt76_band_mac *s,unsigned operati
 enum mt76_mcu_timing_status mt76_band_mac_apply(struct mt76_band_mac *s,const struct mt76_band_mac_io *io);
 bool mt76_band_mac_exact_profile_valid(const struct mt76_band_mac *s);
 uint32_t mt76_band_mac_initial(unsigned index);
+/* Fixed5GHz words at the same addresses/order as mt76_band_mac_request.
+ * Same zero-before/guard gates; offline only, no native reset-value acceptance. */
+uint32_t mt76_band5g_mac_value(unsigned index);
+bool mt76_band5g_mac_transfer_valid(const struct mt76_band_mac *s,unsigned operation,bool write,uint32_t address,const uint8_t *data,unsigned length);
+enum mt76_mcu_timing_status mt76_band5g_mac_apply(struct mt76_band_mac *s,const struct mt76_band_mac_io *io);
+bool mt76_band5g_mac_exact_profile_valid(const struct mt76_band_mac *s);
 /* Fixed channel1 synthesizer fields in reference order, never an RF-ready claim. */
 struct mt76_synth1 {bool attempted,complete;unsigned operations,reads,exchanges,acks,observed;int received;uint32_t guards[126][3],words[63][4];};
 uint32_t mt76_synth1_address(unsigned index);

@@ -38,6 +38,27 @@ one-shot owner, prerequisite inventory, source-bound capture and cleanup;
 ordinary startup remains unchanged. Run `make test-mt76-rf-band5g` for fixture,
 transport mutation, cancellation and proof checks.
 
+## 5GHz MAC band-word foundation
+
+The separate `mt76_band5g_mac_*` entry points use the same bounded transfer
+mechanism as the legacy band helper. The fixed Linux v7.0 5GHz values are
+TX_ALC_VGA3 (`0x13c8`)=`0x00000005`, then TX0_RF_GAIN_CORR
+(`0x13a0`)=`0x01010102`. The numeric fixture records both source hashes and
+little-endian address/value order; `make test-mt76-band5g-mac` verifies it.
+There are18 operations: guards, before-read, write, readback and guards for
+each word. Cancellation and failure stop the one-shot sequence without replay.
+A completed record must contain both exact readbacks and the matching guard
+and operation counts; legacy2GHz write data/records cannot substitute.
+
+The original zero-before requirement is preserved for both words. It has not
+been accepted as a cold5GHz reset state; a native prerequisite capture must
+establish that before using this helper. Existing MAC-disabled and DMA-idle
+checks remain unchanged, including the DMA guard's allowed upper bits. This
+helper has no native caller and adds no RF enable, receiver, automatic restore
+or transaction rollback. Native integration must own partial-write cleanup and
+source-bound evidence. Bandwidth, channel161 baseband/calibration and native
+receive/discovery remain pending.
+
 ## Captured baseline
 
 USB high speed (480 Mb/s), one configuration, interface 0 / alternate 0,
