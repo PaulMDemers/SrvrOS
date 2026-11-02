@@ -2,7 +2,45 @@
 
 Updated: 2026-11-02. State: **active reference machine; partial device acceptance**.
 
-### Active Files drain scope
+### Files drain and PCM signal fixes: ready for native endurance
+
+Clean source `ca66d874`, based on main `95ddb8d6`, is staged as
+`c497eb0cb48c1b01`. Files listing now terminates on a short READ_INFO batch,
+removing an unnecessary EOF-only storage-gate turn while preserving full-batch
+continuation, all returned records and failure/truncation checks. The actual
+old backend fails the new short-batch regression; boundaries and the actual
+kernel shared-directory-cookie EOF behavior pass.
+
+The initial loaded trial on `53f08a82` failed with one underrun. Its evidence is
+retained. A separate actual-producer host reproducer catches a live duplex-close
+route even after making its start endpoint nonblocking. The corrected producer
+uses one-way pipes and explicitly nonblocking start/completion endpoints; the
+existing simple-pipe close prelude needs no new kernel admission. Actual-producer
+tests pass early/late completion, full nominal PCM, the bounded tail, malformed
+or EOF refusal, setup failure, and child/descriptor retirement. The exact
+scheduling cause of the earlier underrun is not independently bracketed.
+
+Two combined read100/write100 plus1200-metadata VM trials pass on `ca66d874`,
+each with 20 app lifetimes and 1267 prior files preserved. UI maxima are120063 /
+153300us; ready1629212 /1329768us; Close1299125 /1423373us. Both have zero
+underruns and lost/pending UI logs, complete capture and worker/cache/service
+retirement, cache0bytes/0retained/16reuses, and valid whole saved receipts. The
+20-window Files VM passes independent histories, owned cancel/collision, an
+accepted8MiB copy through Close, concurrent Text saving, exact bytes and cleanup.
+Full core passes on the preceding folder fix; actual-producer, process-output,
+PCM/receipt tests and ordinary builds pass after the producer correction. Docs
+checks pass. Exact-stage TCG passes native refusal/save/unmount/return plumbing
+only; it is not positive native device evidence.
+
+No workload, 500ms UI/10s lifetime limit, accepted-job drain, storage ordering or
+hardware gate changes. The candidate and evidence are independently backed up
+outside `build`. Installed291, accepted62ed and recovery9aa remain unchanged.
+No reboot is armed. Next checkpoint is the same full1800-second automatic native
+trial at1% with fresh volume override, USB preservation/offline guards, full
+receipts/three screenshots and automatic safe return. Physical acceptance of
+both fixes remains pending. Evidence: `build/air-files-drain-20261102/`.
+
+### Files drain scope (historical)
 
 Integrated main PR270 documentation; runtime remains the merged PR261 baseline.
 The saved final Files trace places about 9.3 seconds between canvas disposal and
