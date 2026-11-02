@@ -3977,3 +3977,11 @@ build/tests/tool-text-history-host$(HOST_EXE): tools/test_tool_text_history.c us
 test-core: test-linux-rc6-baseline
 test-linux-rc6-baseline:
 	$(PYTHON) -m unittest discover -s tools -p test_linux_rc6_baseline.py
+
+.PHONY: test-linux-package-compare
+test-core: test-linux-package-compare
+test-linux-package-compare: build/tests/linux-package-pci-host$(HOST_EXE)
+	SRVROS_LINUX_PCI_READER=$< $(PYTHON) -m unittest discover -s tools -p test_linux_package_compare.py
+build/tests/linux-package-pci-host$(HOST_EXE): tools/linux_package_pci.c kernel/diagnostics/package_audit_core.c kernel/include/srvros/package_audit.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include tools/linux_package_pci.c kernel/diagnostics/package_audit_core.c -o $@
