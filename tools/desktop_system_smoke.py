@@ -86,7 +86,7 @@ def main():
                     wait_all([b"deskhelp: page=wifi-trial",b"deskhelp: starting"]);wait(b"deskd: commit");shot("wifi-checklist")
                     if b"display physical=2560x1600 logical=1280x800 scale=2" not in output:raise RuntimeError("Wi-Fi trial did not select automatic2x scale")
                 else:wait(b"desktools: starting role=text");wait(b"deskd: commit")
-                click(640 if args.wifi_trial else 690,750);wait(b"desktools: starting role=system");wait(b"desktools: system-ready");wait(b"deskd: commit");shot("system-default")
+                click(640 if args.wifi_trial else 690,750);wait_all([b"desktools: window-request role=system",b"desktools: system-ready"]);wait(b"deskd: commit");shot("system-default")
                 # Second window content starts at (57,132), 760 by 500.
                 click(720,305);wait(b"system-sort column=4 descending=0")
                 click(720,305);wait(b"system-sort column=4 descending=1")
