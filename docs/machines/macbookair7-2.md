@@ -2,6 +2,22 @@
 
 Updated: 2026-11-01. State: **active reference machine; partial device acceptance**.
 
+### Authorized PR261 merge and automatic hardware trial
+
+The user authorized merging PR261 and rebooting into the full automatic endurance
+trial at 1% volume. Main `7ee6a048` is integrated; full local core/docs, matched
+ordinary/native/synthetic builds and the AP diagnostic kernel pass. The unused
+failed ff payload was archived with every file hash verified to make EFI space;
+current accepted62ed and recovery9aa remain intact. No device gate was widened.
+
+Next steps are merging the reviewed PR, building/staging its exact new baseline,
+positive loaded VM and exact-stage refusal/save/unmount rehearsal, then fresh
+USB preservation/offline checks, volume override and recovery/install guards.
+The trial needs no input, shows progress, saves results and returns after safe
+cleanup. Unsafe cleanup retains a visible halt. Records live in
+`build/air-pr261-merged-native-20261101/`; collect its matching session before a
+new trial. Physical acceptance of this new candidate remains pending.
+
 ### PR261 message-stall closeout: ready for merge review
 
 Integrated main `a6b9e1b7` as clean tested source `721339ea`. The new main changes
