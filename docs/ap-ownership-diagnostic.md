@@ -733,3 +733,87 @@ for exact session/hash and USB/recovery checks. Newly merged PR261 changes the
 scheduler/logger baseline after this trial; its integration needs fresh local
 validation and source-matched tail coverage before another candidate. None of
 this promotes an older logging trace or sibling-machine result to new acceptance.
+
+
+## Post-PR261 integration gate and remaining ownership audit (2026-11-02)
+
+Main `95ddb8d6` includes PR261. Its logger adds `exfat_print_costs()` to every
+device checkpoint, and the scheduler adds retained I/O-gate wait attribution.
+The old native source `78fbea3c` does not contain those reports. The original
+`check_cpu_capture_tail.py --log-source-ref` guard correctly rejects that trace
+against this integration; changing the declared trace revision is not validation.
+The guard now also fingerprints `exfat.c` and `exfat.h`, since cost-report
+formatting/capacity changes can occur without another logger/scheduler edit.
+
+`check_cpu_checkpoint_budget.py` separately sizes the reviewed **additional**
+checkpoint output. It reads current C format strings/capacities and compares the
+logger/scheduler changes with the declared historical source, refusing unknown
+format/capacity changes. It adds nine gate rows (eight longest waits plus a
+separately retained exit), one gate summary, four filesystem cost rows and
+sixteen cost-phase rows. Numeric fields use maximum u64 width; operation labels
+use the longest actual static mutation label. The historical native proofs and
+original RC6 failure are unchanged. Results are explicitly synthetic, not a
+source-matched new trace and never physical acceptance.
+
+On the latest Air6,1 exit file, these additional reports require 9,056 bytes.
+With the unchanged width/capacity stress and 64 KiB tail, required proofs are
+lost. This is a failed conservative retention budget, not a newly observed
+hardware failure. Do not stage this profile for a native retry or extend its
+records until the retention gate is resolved. Preserve both the failing model
+and raw native trace. Do not grow the tail, discard checkpoint diagnostics,
+shorten workloads, reduce coverage or relax strict parsers to bypass it.
+A later fix should keep all sample values and failure evidence while arranging
+or encoding final proofs to fit. A real current-source native return remains
+required after host/VM validation.
+
+```sh
+python3 tools/check_cpu_checkpoint_budget.py --log HISTORICAL_EXIT_LOG --trace-source-ref TRACE_SOURCE --output SYNTHETIC_BUDGET_JSON
+make test-cpu-checkpoint-budget
+```
+
+### Display audio and interrupts are distinct owners
+
+SrvrOS `audio_init` selects this unit's PCH `8086:9c20` controller and CS4208
+profile. It does not select display HDA `8086:0a0c` at 00:03.0. The platform
+recipe omits `srvros.audio=hda`, so even PCH playback setup is not invoked by
+this trial. No cached inactive audio state establishes that firmware's display
+controller, streams or graphics audio are disabled.
+
+The ordinary audio initializer is unsuitable for read-only inspection: it
+requests D0, enables MMIO/DMA, creates writable mappings and resets controller/
+CORB/RIRB state. The existing Intel graphics stub also enables PCI memory decode
+and bus mastering and maps its first four MMIO pages; it supplies no complete
+display interrupt, audio, scanout or DMA teardown lifecycle. Neither initializer
+should be called as a dependency probe or copied into the read-only allowlist.
+This audit adds no such calls and changes no existing boot policy.
+
+Linux v7.0 [display audio](https://github.com/torvalds/linux/blob/v7.0/drivers/gpu/drm/i915/display/intel_audio.c)
+coordinates graphics codec sequences with the HDA controller. Its Haswell codec
+disable path changes timestamp/ELD/presence state and waits for vblanks; playback
+power references protect the display domain. The native 26-control inventory
+does not measure that ownership or permit executing the shutdown sequence.
+
+The [Haswell audio definitions](https://github.com/torvalds/linux/blob/v7.0/drivers/gpu/drm/i915/display/intel_audio_regs.h)
+identify candidate readback `HSW_AUD_PIN_ELD_CP_VLD` at `0x650c0` and config
+controls at `0x65000/0x65100/0x65200`. Output-enable/ELD/inactive fields are
+per-transcoder observations, not proof that controller DMA is retired. These
+are **candidate controls only**; any implementation still requires exact
+access/side-effect/powered-domain review, fixed read-only pages and explicit
+invalid/off-domain evidence. Exclude ELD data windows, codec verbs, CORB/RIRB
+transactions and status acknowledgements from this first read-only inventory.
+
+Linux's [display interrupt implementation](https://github.com/torvalds/linux/blob/v7.0/drivers/gpu/drm/i915/display/intel_display_irq.c)
+and [register definitions](https://github.com/torvalds/linux/blob/v7.0/drivers/gpu/drm/i915/i915_reg.h)
+separate mask/enable controls from identity/status acknowledgement. Candidate
+context is DEIMR/DEIER (`0x44004/0x4400c`) and PCH SDEIMR/SDEIER
+(`0xc4004/0xc400c`); the PCH block needs its own access prerequisites, not merely
+the existing GPU well check. Do not read/write IIRs as a substitute for owning
+and draining the interrupt source. A masked source is not proof of an unused
+power domain or stopped DMA. SrvrOS's generic IRQ dispatcher/EOI infrastructure
+does not by itself provide a Haswell display interrupt owner.
+
+These findings define the remaining read-only audit; no new registers are read
+and no audio/interrupt state is changed. Resolve final-log retention first, then
+add separately validated compact observations. The BIOS well request, unresolved
+RC6 semantics and zero package C3 remain independent; no causal or safe power-
+transition conclusion follows from the current samples.
