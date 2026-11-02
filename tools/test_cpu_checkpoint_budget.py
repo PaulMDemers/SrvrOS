@@ -1,7 +1,7 @@
 import unittest
 from pathlib import Path
 from check_cpu_checkpoint_budget import SOURCES, checkpoint_addition, render
-from check_cpu_capture_tail import assess, final_layout
+from check_cpu_capture_tail import assess, final_layout, LOGGING_SOURCES
 import test_cpu_receipt_tail as tail_tests
 
 
@@ -18,6 +18,7 @@ class CheckpointBudgetTests(unittest.TestCase):
         return current,old
 
     def test_full_capacity_and_explicit_width(self):
+        self.assertEqual(set(LOGGING_SOURCES),set(SOURCES))
         current,old=self.sources();extra,caps=checkpoint_addition(current,old)
         self.assertEqual(caps,dict(gate_rows=9,cost_rows=4,cost_phase_rows=16))
         self.assertEqual(extra.count('io-gate: '),9)

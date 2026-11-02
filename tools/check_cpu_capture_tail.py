@@ -134,6 +134,10 @@ def assess(text, model=False):
                 input_sha256=hashlib.sha256(text.encode()).hexdigest())
 
 
+LOGGING_SOURCES = ('kernel/src/workspace_log.c', 'kernel/src/scheduler.c',
+                   'kernel/src/fs/exfat.c', 'kernel/include/srvros/exfat.h')
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--log', type=Path, required=True)
@@ -142,7 +146,7 @@ def main():
     ap.add_argument('--output', type=Path, required=True)
     args = ap.parse_args()
     fingerprints = {}
-    for name in ('kernel/src/workspace_log.c', 'kernel/src/scheduler.c'):
+    for name in LOGGING_SOURCES:
         old = subprocess.check_output(['git', 'show', f'{args.log_source_ref}:{name}'])
         current = Path(name).read_bytes()
         if old != current:

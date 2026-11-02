@@ -742,6 +742,8 @@ device checkpoint, and the scheduler adds retained I/O-gate wait attribution.
 The old native source `78fbea3c` does not contain those reports. The original
 `check_cpu_capture_tail.py --log-source-ref` guard correctly rejects that trace
 against this integration; changing the declared trace revision is not validation.
+The guard now also fingerprints `exfat.c` and `exfat.h`, since cost-report
+formatting/capacity changes can occur without another logger/scheduler edit.
 
 `check_cpu_checkpoint_budget.py` separately sizes the reviewed **additional**
 checkpoint output. It reads current C format strings/capacities and compares the
