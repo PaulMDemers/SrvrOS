@@ -10925,3 +10925,24 @@ then follow Help's untimed checklist and Exit desktop. On an empty list, selecti
 is skipped; populated discovery/selection stay unaccepted. Why only off-channel
 beacons arrived is not established by their safe rejection. RF tuning/selectivity,
 association/security/IP,5GHz and endurance remain open. Credentials are unused.
+
+### v106 return collection: repeated periodic marker checker scope
+
+The user reports an empty Wi-Fi list, successful unplug detection, working
+trackpad and automatic return after leaving the desktop. Reconnect did not
+reattach; this profile intentionally retires the old owner without a new scan.
+Source-bound session `session-00065f41127d745c-00` contains radio, desktop-begin
+and exit files. The original collector passed the full RF/isolation/input/UI
+phase checks, then refused a periodic file containing multiple snapshots of its
+own filename. A long-lived64KiB rolling tail can legitimately retain several
+such periodic markers. Preserve this strict refusal and the original frozen
+helpers; do not relabel it without a separate verified correction.
+
+Bounded follow-up touches only the saved-log snapshot parser and its tests.
+Allow repeated periodic markers explicitly, requiring the final terminal marker,
+every retained matching marker's absolute byte position and monotonic timestamps,
+plus the existing phase overlap checks. Radio/begin/exit retain their unique
+marker policy. No runtime, radio parser, DMA/deadline or reconnect changes are
+part of this correction. Validate synthetic repeated tails and damaged markers,
+then run the corrected proof against the unchanged archived native bytes and
+retain both the original refusal and the new verification receipt. No reboot.
