@@ -1,6 +1,6 @@
 import unittest
 import hardware_boot as boot
-from hardware_platform import platform_result,latency_decode,platform_timing_result,platform_series_result,platform_display_result
+from hardware_platform import platform_result,latency_decode,platform_timing_result,platform_series_result,platform_display_result,platform_resources_result,RESOURCE_OFFSETS
 from test_hardware_package import PackageTests
 class PlatformTests(unittest.TestCase):
     def fixture(self):
@@ -101,4 +101,43 @@ class PlatformTests(unittest.TestCase):
             with self.subTest(old=old):self.assertIsNone(platform_display_result(s.replace(old,new)))
         self.assertIsNone(platform_display_result('\n'.join(s.splitlines()[:-1])))
         self.assertIsNone(platform_result(s+s.splitlines()[-1]+'\n'))
+    def resource_fixture(self):
+        s=self.display_fixture().replace('ap-platform: v=4','ap-platform: v=5')
+        raw=[0]*26
+        raw[0]=0xc0000000;raw[7]=0x82004000;raw[8]=1<<31;raw[14]=0x27;raw[20]=1<<31;raw[25]=1<<31
+        for phase,us in [(0,7),(1,92000007)]:
+            s+=f'ap-platform-resources: v=1 phase={phase} state=1 pm_us={us},{us+1} reads=26 count=26 before=3221225472,1073741824,1073741824,1073741824 after=3221225472,1073741824,1073741824,1073741824\n'
+            s+=f'ap-platform-resource: phase={phase} count=26 raw='+','.join(map(str,raw))+'\n'
+        return s
+    def test_resource_controls(self):
+        s=self.resource_fixture();r=platform_resources_result(s)
+        self.assertEqual(r['status'],'OBSERVED');self.assertFalse(r['acceptance'])
+        v=r['samples'][0]['decoded'];self.assertEqual(v['edp_input_select'],4)
+        self.assertTrue(v['transcoders'][0]['state']);self.assertTrue(v['primary_enabled'][0]);self.assertTrue(v['vga_disabled'])
+        self.assertIsNotNone(platform_result(s));self.assertTrue(platform_result(s)['resources'])
+        # Unchanged original timing failure is visible independently, never accepted.
+        bad=s.replace('rc6=100,1000','rc6=100,72000000')
+        self.assertEqual(platform_resources_result(bad)['status'],'OBSERVED');self.assertIsNone(platform_result(bad))
+        # Source failure stays source failure even if the raw inventory is complete.
+        bad=s.replace('fault=0 devices','fault=1 devices').replace('completed=yes','completed=NO')
+        self.assertFalse(platform_resources_result(bad)['source_completed']);self.assertIsNone(platform_result(bad))
+        # Off-domain must be unknown with no dependent reads, not disabled controls.
+        off=s.replace('phase=0 state=1 pm_us=7,8 reads=26','phase=0 state=2 pm_us=7,8 reads=0')
+        off=off.replace('before=3221225472,1073741824,1073741824,1073741824 after=3221225472,1073741824,1073741824,1073741824','before=0,0,0,0 after=0,0,0,0',1)
+        import re
+        off=re.sub(r'ap-platform-resource: phase=0 count=26 raw=[0-9,]+','ap-platform-resource: phase=0 count=26 raw='+','.join(['0']*26),off)
+        self.assertEqual(platform_resources_result(off)['status'],'UNAVAILABLE')
+        self.assertIsNone(platform_resources_result(off)['samples'][0]['decoded']);self.assertIsNone(platform_result(off))
+    def test_resource_refusals(self):
+        s=self.resource_fixture()
+        for old,new in [('phase=1 state=1','phase=0 state=1'),('pm_us=7,8','pm_us=8,7'),('pm_us=7,8','pm_us=4,8'),('pm_us=7,8','pm_us=7,92000007'),('phase=1 count=26 raw=','phase=0 count=26 raw='),('count=26 raw=','count=25 raw='),('raw=3221225472','raw=4294967295'),('reads=26','reads=25'),('state=1 pm_us=7','state=3 pm_us=7'),('after=3221225472','after=1073741824'),('before=3221225472','before=0'),('v=5 fault','v=4 fault')]:
+            with self.subTest(old=old):self.assertIsNone(platform_resources_result(s.replace(old,new)))
+        self.assertIsNone(platform_resources_result('\n'.join(s.splitlines()[:-1])))
+        self.assertIsNone(platform_resources_result(s+s.splitlines()[-1]+'\n'))
+        # Compare the whole independently defined allowlist against the C producer.
+        import re
+        from pathlib import Path
+        h=Path('kernel/include/srvros/display_resource_audit.h').read_text()
+        values=re.search(r'display_resource_offsets\[DISPLAY_RESOURCE_COUNT\]=\{([^}]+)',h)[1]
+        self.assertEqual(tuple(int(x,16) for x in re.findall(r'0x[0-9a-f]+',values)),RESOURCE_OFFSETS)
 if __name__=='__main__':unittest.main()

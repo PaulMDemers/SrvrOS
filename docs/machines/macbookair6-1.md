@@ -96,12 +96,23 @@ Final-receipt retention is physically accepted on source `eda7541e`, release
 unchanged 64 KiB exit file. The overall platform trial remains failed on the
 original RC6 timing predicate; package C3 remains zero. No reboot is armed.
 
-Next: read-only audit of active display resources and firmware handoff before
-considering any BIOS display-well request experiment. Keep device D-state and
-common-clock candidates separate. An enabled well is not a proven C3 blocker
-or authority to clear a firmware request. PR261 desktop/I/O, PR252 sockets and
-PR19 Wi-Fi remain independent; no shared-code scope is claimed by this closeout.
-The local run record owns installed/recovery hashes and returned state.
+The read-only source audit is complete: Linux transfers the BIOS well request
+to a driver request, retains initialization references through hardware readout,
+and releases only unused domains after resource adoption. SrvrOS currently
+inherits the framebuffer without that display-resource lifecycle. Native pipe/
+transcoder/DDI routing and dependent resources remain unmeasured.
+
+The first bounded inventory is implemented on source `78fbea3c`, release
+`6ac139e77c5d3070` (PR269): 26 read-only controls at each endpoint, with access
+checks and compact final records. Matched build/core/docs, host/refusal and
+source-matched retention checks plus twelve VM cases pass. Native resource
+acceptance remains pending the matching automatic return.
+
+Next: collect the new session first, require direct exit-only original proofs
+and complete resource records, and review raw routing/dependent controls. Keep
+the original RC6 bound, package-C3 question and any later ownership/control work
+separate. PR261 desktop/I/O, PR252 sockets and PR19 Wi-Fi remain independent.
+The local run record owns installed/recovery hashes and armed/returned state.
 
 ### Historical battery-runtime objective (2026-10-23)
 
@@ -5733,3 +5744,93 @@ retained locally and backed up outside `build`.
 Next: audit active display resources and firmware handoff read-only, preserving
 all policies, limits and ownership checks. Receipt coverage is resolved; RC6
 clock semantics and the package-C3 blocker remain separate open questions.
+
+
+### Display-resource and firmware-handoff audit — active scope (2026-11-01)
+
+Base `a6b9e1b7` / PR267. Audit the inherited framebuffer path and validated
+Haswell display-domain dependencies against pinned Linux v7.0 sources and this
+unit's cached evidence. Scope is source/evidence review and current diagnostic/
+unit documentation; no MMIO probing, firmware call, register write or power-policy
+change. Define a bounded native read-only resource capture only after identifying
+its register access prerequisites. PR261 desktop/I/O, PR252 sockets and PR19
+Wi-Fi remain independent. Keep the accepted receipt fix, failed RC6 bound and
+zero package C3 separate. No reboot or new payload is armed by this audit.
+
+
+### Display-handoff source audit complete (2026-11-01)
+
+Source/evidence review on base `a6b9e1b7` confirms the inherited framebuffer
+continues scanout use, while SrvrOS has no complete Haswell display-resource
+adoption/release model. Limine v11.4.1 source `1276c440` matches the pinned binary
+release; ExitBootServices is not a display-resource retirement receipt.
+Pinned Linux v7.0 holds initialization references during state readout, transfers
+a BIOS request to a driver request without a request gap, and sanitizes unused
+wells after pipe/encoder ownership is established. No part of that control
+sequence was executed on this machine during the audit.
+
+The Haswell switchable global well excludes pipe A, transcoder eDP and DDI A,
+but includes all three panel fitters, B/C pipes, A/B/C transcoders, other listed
+ports and display audio/VGA. An internal panel is therefore insufficient to
+explain the BIOS request. Cached Ubuntu routing cannot stand in for inherited
+native routing; native eDP input selection and enabled dependent resources are
+still unknown. Lack of GT forcewake does not establish off-domain MMIO safety.
+
+The current guide records the next explicit endpoint capture contract: fixed
+read-only allowlist, validated access prerequisites, independent observations,
+no extra power-hook/round reads, strict malformed/refusal fixtures, current-source
+tail coverage and exact-stage rehearsal. This audit changes documentation only.
+No new image, register access, power policy or reboot is introduced. Keep the
+physically accepted receipt fix and failed RC6/package-C3 evidence unchanged.
+Local source hashes/review live under the ignored display-handoff evidence root
+and are backed up outside `build`.
+
+
+### Read-only native display controls — implementation scope (2026-11-01)
+
+Base `9c23bf4d`. Add an exact-Air6,1 26-control endpoint inventory to the existing
+explicit platform diagnostic: A/B/C/eDP transcoder controls, primary/sprite/cursor
+A/B/C, panel fitters A/B/C, DDI A–E and VGA. Preserve firmware requests; audio
+and interrupt registers remain outside this initial allowlist. Scope is isolated
+platform producer, strict independent parser, host/refusal/tail fixtures and
+unit/current guide. No shared scheduler/logger or PR261/252/19 scope changes.
+Validate exact read-only maps, D0/BAR/decode and powered-well gates, non-atomic
+pre/post observations, final receipts and all unchanged limits before staging.
+
+
+### Display-control candidate validated (2026-11-01)
+
+Compiled source `78fbea3c`, release `6ac139e77c5d3070`, adds the 26-control
+endpoint inventory specified by the current guide. Twelve exact private pages
+are read-only/NX/cache-disabled. GPU identity, BAR, decode, D0 and all four well
+views are revalidated; off domains and invalid/changed data are explicit failure
+or unknown evidence. The raw fixed-order records preserve every value while
+avoiding the per-control verbosity that failed the maximum tail check. No
+firmware request, power policy, timing limit, ownership or integrity check changes.
+Audio/interrupt inventory remains outside this first allowlist.
+
+Full matched ordinary/AP build, USB image, core suite and docs pass. Producer
+fixtures exercise every occupied destination and map failure, off-domain skips,
+wrong identity/BAR/decode/D0, all-ones and changing well state. Fourteen platform
+parser tests and the three retention tests pass. Source-matched latest native
+output with explicitly synthetic new resource records preserves every critical
+record byte-for-byte under 128 KiB additional pre-final chatter and 30,405 bytes
+of width/capacity padding in the unchanged 64 KiB tail. Synthetic records are
+never native acceptance. The strict original RC6 failure remains a failure.
+
+All nine main VM cases and the three legacy owner/C3/package profiles pass.
+Actual final-admission ordering and equality plus failure receipt behavior are
+checked across all twelve. Ordinary-kernel symbol isolation, diagnostic AP and
+platform disassembly, no direct control-write operations and sparse power-hook
+isolation also pass. The exact native-stage GPT rehearsal saves/unmounts/returns
+on its expected Q35 native refusal; missing Home halts without unsafe reset.
+These VM results do not accept the new native MMIO observations.
+
+The automated trial retains 30/30/30-second phases, 32 coordinated rounds,
+20 ms whole-round bounds and HLT fallback. The return collector saves independent
+resource and RC6 observations, requires complete direct exit-file evidence and
+preserves the unchanged overall platform predicate. Keep AC and this unit's USB
+connected; no input is required. The USB baseline is 566 files / 1,625 clusters,
+with all prior hashes, headroom, fsck and allocation verified. Console recovery
+and accepted package/stress/reopen payloads remain protected. Native resource
+routing and dependency observations remain pending the matching return.

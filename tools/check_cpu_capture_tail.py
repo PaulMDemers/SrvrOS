@@ -15,7 +15,7 @@ import subprocess
 from hardware_cpu_load import load_result
 from hardware_ap_c3 import ap_c3_result
 from hardware_package import package_result
-from hardware_platform import platform_display_result, platform_series_result, platform_timing_result
+from hardware_platform import platform_display_result, platform_series_result, platform_timing_result, platform_resources_result
 
 
 def final_layout(text):
@@ -53,7 +53,9 @@ def covered(text):
                 and p['mwait']['hint']==16 and p['mwait']['residency']['valid']
                 and ap_c3_result(text) and package_result(text)
                 and display and not display['source_fault'] and display['source_completed']
-                and series and series['continuity_ok'])
+                and series and series['continuity_ok']
+                and ('ap-platform: v=5 ' not in text or
+                     (platform_resources_result(text) and platform_resources_result(text)['status']=='OBSERVED')))
 
 
 def critical_records(text):
@@ -77,14 +79,14 @@ CAPS = {'cpu-load-power: power_state=': 24, 'cpu-load-idle:': 24,
         'cpu-idle-entry:': 24, 'ap-platform-point:': 12,
         'ap-c3-round:': 32, 'ap-package-round:': 32,
         'ap-package-pci:': 50, 'ap-platform-ltr:': 25,
-        'ap-platform-well:': 2}
+        'ap-platform-well:': 2, 'ap-platform-resources:': 2, 'ap-platform-resource:': 2}
 WIDTHS = dict(version=1, v=1, phase=1, seq=2, us=5, id=10, seen=1,
               signature=6, ready_us=5, max_us=5, retire_us=5,
               state=1, fault=1, flags=4, energy_shift=2, nominal_mhz=4,
               active_mhz=20, package_mw=20, interval_us=7, rejected=1,
               energy=10, supported=4, valid=4, bdf=5, **{'class': 8},
               command=5, pm=5, link_cap=10, link=10, ltr_cap=10, ltr=5,
-              ctl=10, rc6=10, status=10, raw=10, headers=3, offset=4,
+              ctl=10, before=10, after=10, index=2, reads=2, rc6=10, status=10, raw=10, headers=3, offset=4,
               cpus=1, bsp=1, mask=2, rounds=2, limit_us=5)
 
 

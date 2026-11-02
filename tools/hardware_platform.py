@@ -107,7 +107,7 @@ def _display(text):
     if not base or base&0x3fffff or base>0xfffffff800000:return None
     headers=[x for x in text.splitlines() if x.startswith('ap-platform:')]
     if len(headers)!=1:return None
-    h=re.fullmatch(r'ap-platform: v=4 fault=(\d+) devices=(\d+) policy_writes=0 forcewake_writes=0 permission=unavailable reason=no-validated-grant-register completed=(yes|NO)',headers[0])
+    h=re.fullmatch(r'ap-platform: v=(?:4|5) fault=(\d+) devices=(\d+) policy_writes=0 forcewake_writes=0 permission=unavailable reason=no-validated-grant-register completed=(yes|NO)',headers[0])
     if not h or int(h[1])>=2**32 or not 1<=int(h[2])<=128:return None
     rows={}
     for line in (x for x in text.splitlines() if x.startswith('ap-platform-well:')):
@@ -129,14 +129,17 @@ def _parse(text):
     if not package:return None
     h=[x for x in text.splitlines() if x.startswith('ap-platform:')]
     if len(h)!=1:return None
-    m=re.fullmatch(r'ap-platform: v=(1|2|3|4) fault=0 devices=(\d+) policy_writes=0 forcewake_writes=0 permission=unavailable reason=no-validated-grant-register completed=yes',h[0])
+    m=re.fullmatch(r'ap-platform: v=(1|2|3|4|5) fault=0 devices=(\d+) policy_writes=0 forcewake_writes=0 permission=unavailable reason=no-validated-grant-register completed=yes',h[0])
     if not m or int(m[2])!=len(package['devices']):return None
     version=int(m[1]);timing=platform_timing_result(text)
     if version>=2 and not timing:return None
     series=platform_series_result(text) if version>=3 else None
     if version>=3 and (not series or not series['continuity_ok']):return None
-    display=platform_display_result(text) if version==4 else None
-    if version==4 and not display:return None
+    display=platform_display_result(text) if version>=4 else None
+    if version>=4 and not display:return None
+    resources=platform_resources_result(text) if version>=5 else None
+    if version>=5 and (not resources or resources['status']!='OBSERVED' or
+                      resources['source_fault'] or not resources['source_completed']):return None
     gfx=[x for x in text.splitlines() if x.startswith('ap-platform-gfx:')]
     if len(gfx)!=1:return None
     m=re.fullmatch(r'ap-platform-gfx: bdf=16 id=170295430 base=(\d+) time_us=(\d+),(\d+) status=(\d+),(\d+) rc6=(\d+),(\d+) config=(\d+),(\d+) rc_control=unavailable',gfx[0])
@@ -169,4 +172,54 @@ def _parse(text):
                 decoded.append(None)
         rows[bdf]=dict(state=a,offset=o0,raw=[v0,v1],decoded=decoded,headers=[n0,n1])
     if rows.keys()!=devices.keys():return None
-    return dict(status='PASS',timing=timing,series=series,display_well=display,graphics=dict(base=base,time_us=[t0,t1],status_raw=[s0,s1],rc_state=[{0:'RC0',2:'RC3',3:'RC6',4:'RC7'}.get(v&7,'unknown') for v in (s0,s1)],rc6_raw=[r0,r1],rc6_delta_ticks=delta,rc6_delta_ns=delta*1280,rc6_observed=bool(delta),rc_control='unavailable'),firmware_config=c0,permission='unavailable',permission_reason='no-validated-grant-register',latency=rows,scope='Paired read-only context, no causal blocker or policy inference; max LTR capability is not measured response latency or proof of a current request')
+    return dict(status='PASS',timing=timing,series=series,display_well=display,resources=resources,graphics=dict(base=base,time_us=[t0,t1],status_raw=[s0,s1],rc_state=[{0:'RC0',2:'RC3',3:'RC6',4:'RC7'}.get(v&7,'unknown') for v in (s0,s1)],rc6_raw=[r0,r1],rc6_delta_ticks=delta,rc6_delta_ns=delta*1280,rc6_observed=bool(delta),rc_control='unavailable'),firmware_config=c0,permission='unavailable',permission_reason='no-validated-grant-register',latency=rows,scope='Paired read-only context, no causal blocker or policy inference; max LTR capability is not measured response latency or proof of a current request')
+
+
+RESOURCE_OFFSETS = (0x70008,0x71008,0x72008,0x7f008,0x60400,0x61400,0x62400,0x6f400,
+                    0x70180,0x71180,0x72180,0x70280,0x71280,0x72280,0x70080,0x71080,0x72080,
+                    0x68080,0x68880,0x69080,0x64000,0x64100,0x64200,0x64300,0x64400,0x41000)
+
+def platform_resources_result(text):
+    """Non-atomic raw control inventory; no ownership/power-policy acceptance."""
+    try:return _resources(text)
+    except (ValueError,KeyError,OverflowError,IndexError,StopIteration):return None
+
+def _resources(text):
+    display=platform_display_result(text)
+    if not display or not re.search(r'^ap-platform: v=5 ',text,re.M):return None
+    rows={}
+    for line in (x for x in text.splitlines() if x.startswith('ap-platform-resources:')):
+        m=re.fullmatch(r'ap-platform-resources: v=1 phase=([01]) state=([123]) pm_us=(\d+),(\d+) reads=(\d+) count=26 before=(\d+),(\d+),(\d+),(\d+) after=(\d+),(\d+),(\d+),(\d+)',line)
+        if not m:return None
+        phase,state,a,b,n,*ctl=map(int,m.groups())
+        if phase!=len(rows) or not 0<a<=b<2**64 or not 0<=n<=26 or any(v>=0xffffffff for v in ctl):return None
+        if a<display['samples'][phase]['pm_us'][1]:return None
+        if state==1 and (n!=26 or ctl[:4]!=ctl[4:] or not all(v&(1<<30) for v in ctl)):return None
+        if state==2 and (n or any(ctl[4:]) or all(v&(1<<30) for v in ctl[:4])):return None
+        if state==3:return None # Invalid capture remains raw failure evidence.
+        rows[phase]=dict(state=state,pm_us=[a,b],before=ctl[:4],after=ctl[4:],raw=[],read_count=n)
+    if rows.keys()!={0,1} or rows[0]['pm_us'][1]>=display['samples'][1]['pm_us'][0]:return None
+    raw_seen=set()
+    for line in (x for x in text.splitlines() if x.startswith('ap-platform-resource:')):
+        m=re.fullmatch(r'ap-platform-resource: phase=([01]) count=26 raw=(\d+(?:,\d+){25})',line)
+        if not m:return None
+        phase=int(m[1]);values=list(map(int,m[2].split(',')))
+        if phase!=len(raw_seen) or any(v>=0xffffffff for v in values):return None
+        raw_seen.add(phase);rows[phase]['raw']=values
+    if raw_seen!={0,1}:return None
+    for r in rows.values():
+        if r['state']==2 and any(r['raw']):return None
+        if r['state']==1:
+            v=r['raw']
+            r['decoded']=dict(transcoders=[dict(enable=bool(x&(1<<31)),state=bool(x&(1<<30))) for x in v[:4]],
+                ddi_function=[dict(enable=bool(x&(1<<31)),port_select=((x>>28)&7) if i<3 else None,mode=(x>>24)&7) for i,x in enumerate(v[4:8])],
+                edp_input_select=(v[7]>>12)&7,
+                primary_enabled=[bool(x&(1<<31)) for x in v[8:11]],
+                sprite_enabled=[bool(x&(1<<31)) for x in v[11:14]],
+                cursor_modes=[x&0x27 for x in v[14:17]],
+                fitters=[dict(enable=bool(x&(1<<31)),pipe_select=(x>>29)&3) for x in v[17:20]],
+                ddi_buffer_enabled=[bool(x&(1<<31)) for x in v[20:25]],vga_disabled=bool(v[25]&(1<<31)))
+        else:r['decoded']=None
+    return dict(status='OBSERVED' if all(r['state']==1 for r in rows.values()) else 'UNAVAILABLE',acceptance=False,
+        samples=[rows[0],rows[1]],source_fault=display['source_fault'],source_completed=display['source_completed'],
+        scope='Fixed read-only non-atomic endpoint controls; off-domain unknowns retained; no audio/interrupt inventory, ownership transfer or causal blocker inference')
