@@ -27,6 +27,24 @@ restore prerequisites and a source-bound automatic capture, then discovery and
 live reattachment. Association/security/IP remain pending; local credentials
 have not been read or packaged. Other Pro bring-up and deferred work is unchanged.
 
+## Active bounded scope — 2026-11-01
+
+Consumes actual main `95ddb8d6` (including desktop lifecycle/deferred I/O
+and Air6,1 process-admission work), merged as `4abc1469`. Open PR252 owns
+DNS/socket audit; this step does not change that contract. Merge resolution
+keeps Wi-Fi trace/Help startup and the upstream deferred UI logger together.
+
+Next shared implementation is a fixed, offline-testable 5GHz RF band-selection
+engine in `mt76_mcu.c`/`.h`, with independent numeric fixture and host tests.
+It replays the pinned Linux v7.0 bank6 table, then RF5:0=44/RF6:0=45;
+no configurable register targets, 2GHz fallback, frequency/VCO pulse, receive,
+network transmission or runtime caller is added. It depends on the existing
+bounded MCU/guard machinery and captured-model band restriction. The next
+checkpoint is exact command/readback, cancellation, malformed response and
+no-replay validation plus a matched merged-tree build. MAC band words,
+5GHz bandwidth/channel/baseband/calibration and native integration remain
+separate work. Installed payload and recovery remain unchanged and unarmed.
+
 ## Historical handoff (superseded 2026-11-01)
 
 Latest accepted trial: v102 `3337af3753372b9d`, source `ebbb08cb`, actual
