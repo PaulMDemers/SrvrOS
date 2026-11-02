@@ -2,16 +2,33 @@
 
 Updated: 2026-11-01. State: **active reference machine; partial device acceptance**.
 
-### PR261 integration closeout in progress
+### PR261 integration review: intermittent VM UI failure
 
-Bounded scope: merge current main `bbbdead1` into the device branch, review
-PR261's filesystem/cache/append, syscall admission, desktop lifecycle and timing
-collector contracts, and validate the combined tree locally before merge.
-Main's Air6,1 read-only Linux RC6/package/display-well diagnostics remain intact;
-only independent Makefile test additions conflict and both sets are retained.
-Pro PR19 and resolver PR252 remain separate scopes. Actions remain disabled.
-Installed/native accepted release62ed and recovery9aa are unchanged; combined
-source must earn its own host/VM evidence and does not inherit physical acceptance.
+Main `bbbdead1` merged as `4c1acb9e`; the only conflict was independent
+Makefile test additions, and both sets are retained. Full local core/desktop,
+crash/growth/retirement, hardening/5000-file scale, read/bitmap comparisons,
+338 append interruption cases and matched ordinary/native/synthetic builds pass.
+Loaded100 passes20 lifetimes (UI117696us, ready1209392us, Close1898886us);
+normal24 (UI140723us, ready840870us, Close1157484us);20 Files windows pass
+8MiB copy through Close, concurrent Text save, cancellation and full cleanup.
+
+The first combined read100/write100 plus1200 metadata-file VM fails the unchanged
+500ms UI limit:653175us after21 lifetimes, with ready1276680us and Close1121138us.
+Its complete saved final timing receipt validates and places643563us in message
+handling, versus7228us in the final wait. Audio/disk/capture and retirement
+complete, but that does not make the full test pass. An unchanged clean-source
+repeat passes21 lifetimes (UI159952us, ready1051572us, Close1356332us),154 live
+overlap windows and1267 preserved files. Both outcomes are retained. The
+intermittent failure remains unresolved; neither host scheduling nor a particular
+message/syscall is established as its cause. PR261 stays draft and unmerged.
+
+Latest main `1a0c9085` adds only Air6,1 PR265 documentation and is included after
+validation. Next scope is bounded message/call scheduling attribution and a
+reproduced fix, retaining existing deadlines/workload. Evidence lives in
+`build/air-pr261-integration-20261101/`, backed up outside `build`. Other device
+and resolver scopes remain separate, Actions remain disabled, and no new native
+test is armed. Installed endurance-accepted62ed and recovery9aa are unchanged;
+merged source does not inherit physical acceptance.
 
 ### Verified append endurance: full native pass
 
