@@ -113,7 +113,7 @@ The overall platform test still fails the original RC6 bound (about 0.0966%
 nominal excess), and package C3 remains zero. No power transition is authorized.
 
 The read-only audio/IRQ endpoint implementation is now validated locally on
-source `eceb07fc`, release `1848dd7c663eb738` (PR275). It adds eight exact controls
+integrated source `4e2ff068`, release `ee85beb85b75fdca` (PR275 plus PR272). It adds eight exact controls
 with separate live PCH identity/class/location checks and unchanged GPU/well gates.
 Full core/build, focused mapping/failure/formatter/parser/retention tests and
 twelve VM cases pass. No HDA initializer, acknowledgement or control write is added.
@@ -6105,3 +6105,31 @@ and this unit's USB connected; no input is required. The baseline is 574 files /
 payload/evidence and protected console/accepted recoveries remain durable; exact
 ready/armed/returned state belongs to the local run record. Native acceptance
 and every ownership/control-policy inference remain pending the actual return.
+
+
+### Audio/IRQ trial rebuilt after PR272 integration (2026-11-02)
+
+PR275 merged as `4e2ff068` while main also gained PR272's Files EOF and audio-
+stress signal changes. The final source guard correctly refused to arm the
+previous `eceb07fc` / `1848dd7c663eb738` image against that changed checkout.
+No native boot occurred. Its twelve-case evidence and payload remain durably
+preserved as a superseded unarmed candidate; its collector was disabled.
+
+Rebuilt the integrated `4e2ff068` tree: matched ordinary/AP build, USB image,
+full core/docs, hardware producer/parser/retention and isolation/disassembly
+checks pass. The exact eight-control implementation and strict observation
+semantics are unchanged. The explicit maximum-checkpoint retention model passes
+again with current fingerprints and unchanged limits. Fresh stage
+`ee85beb85b75fdca` passes all nine main VM cases and three legacy owner/C3/package
+profiles plus twelve-case failure/final-receipt review. Exact GPT refusal/save/
+unmount/return and missing-workspace halt remain verified on this image.
+
+The actual USB remains the expected 574 files / 1,635 clusters, with all prior
+hashes preserved and fsck/allocation/headroom clean. The local integration run
+record binds the matched stage, payload/recovery verification and ready/armed/
+returned state. The earlier image is not a native result. Next is the same
+unattended read-only endpoint trial on this rebuilt image, requiring real
+version-6 dependency records and all original compact proofs; no modeled rows
+or older VM receipt substitutes for its matching evidence. Native display-audio/
+IRQ ownership and overall platform acceptance remain pending. RC6's original
+bound, package-C3 uncertainty and all policies/limits stay unchanged.
