@@ -865,3 +865,21 @@ as well as logger/scheduler/filesystem formatting. Synthetic budget reports
 also record current source and codec fingerprints. A real matching native
 return must retain and decode the new header/rows directly; the lossless model
 is regression evidence only, never physical acceptance.
+
+
+### Native format-2 retention result
+
+Air6,1 release `0bc5f7e0298ca886` on source `8f0c5aa6` physically accepts the
+compact retention fix. Its actual 64 KiB exit file contains one format header,
+15 power, 15 idle-residency and 15 idle-entry records plus every original proof.
+All parse directly under the unchanged semantic requirements. No legacy model,
+joined log or invented value is used. A fresh nine-source-matched replay of
+that exit also preserves every critical byte under the unchanged width/capacity
+stress and extra chatter, covering the PR261 reporting integration.
+
+The overall platform test still fails the original RC6 bound (about 0.0966%
+nominal excess), and package C3 remains zero. Thirty-two coordinated core-C3
+rounds and terminal AP retirement pass; display controls and firmware request
+remain unchanged. The encoding fix grants no display/audio/IRQ ownership or
+power-policy acceptance. Continue with the audited read-only dependency
+inventory; retain the new trace/source identity when checking future additions.
