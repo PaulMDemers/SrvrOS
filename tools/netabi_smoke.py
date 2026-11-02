@@ -122,6 +122,8 @@ def main():
                   "live cycle alias", "self cycle reclaimed", "indirect cycle reclaimed"):
         if f"netabi: rights {check} ok" not in text:
             missing.append(f"rights {check}")
+    if "netabi: UDP mapping faults preserve datagrams and replacement descriptors" not in text:
+        missing.append("UDP mapping and descriptor lifetime checks")
     if "netabi: fail" in text:
         missing.append("netabi failure")
     if has_fatal_exception(text):

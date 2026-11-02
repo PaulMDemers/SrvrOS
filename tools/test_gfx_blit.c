@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #define SRVROS_SERVICE_WINDOW_HOST_TEST
+#define SRVROS_SYSCALL_IO_HOST_TEST
 #include "../kernel/src/arch/x86_64/syscall.c"
 static struct srv_gfx_blit_scaled_rect request;
 static uint32_t pixels[4096*20];

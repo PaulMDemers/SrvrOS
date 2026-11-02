@@ -173,14 +173,29 @@ serial: yes
 """
 
 
-def verify(directory):
+def verify(directory, expected_release=None):
+    loader = directory / "loader"
+    if directory.is_symlink() or loader.is_symlink() or not loader.is_dir():
+        raise ValueError("Boot payload must have a real loader directory")
+    # The installer sizes and retires complete releases. An unlisted entry
+    # must never be copied to, or pruned from, the EFI partition.
+    expected = {*FILES, "loader", "manifest.json"}
+    entries = [*directory.iterdir(), *loader.iterdir()]
+    if {p.relative_to(directory).as_posix() for p in entries} != expected:
+        raise ValueError("Unexpected boot payload contents")
+    if any(p.is_symlink() or not p.is_file() for p in entries if p != loader):
+        raise ValueError("Boot artifacts must be regular files")
     manifest = json.loads((directory / "manifest.json").read_text())
+    if expected_release is None and RELEASE_RE.fullmatch(directory.name):
+        expected_release = directory.name
+    if expected_release is not None and manifest["release"] != expected_release:
+        raise ValueError("Boot manifest does not match selected release")
     hashes = manifest["sha256"]
     if set(hashes) != set(FILES):
         raise ValueError("Unexpected files in boot manifest")
     for name in FILES:
         path = directory / name
-        if path.is_symlink() or not path.is_file() or digest(path) != hashes[name]:
+        if digest(path) != hashes[name]:
             raise ValueError(f"Boot artifact failed verification: {path}")
     payload = {name: hashes[name] for name in FILES if not name.endswith("limine.conf")}
     # Older installs have no config_version field. Verify against their original
@@ -349,13 +364,13 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
                     "git_head": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip(),
                     "git_dirty": bool(subprocess.check_output(["git", "status", "--porcelain"], cwd=ROOT))}
         (target / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
-        verify(target)
+        verify(target, release)
         destination = STAGE / release
         if destination.exists():
             verify(destination)
         else:
-            shutil.copytree(target, destination)
-    (STAGE / "latest").write_text(release + "\n")
+            target.rename(destination)
+    atomic_write(STAGE / "latest", (release + "\n").encode(), 0o644)
     print(f"Staged {release}: {destination}")
     print("Install with: sudo python3 tools/hardware_boot.py install")
     return release
@@ -418,7 +433,7 @@ def install(release=None, keep_previous=False):
     if not RELEASE_RE.fullmatch(release):
         raise ValueError("Invalid staged release")
     source = STAGE / release
-    verify(source)
+    manifest = verify(source, release)
     uuid = host_uuid()
     for program in ("update-grub", "grub-script-check"):
         if shutil.which(program) is None:
@@ -443,7 +458,13 @@ def install(release=None, keep_previous=False):
         previous = old.get("previous")
         if not previous or previous == release:
             raise ValueError("No distinct previous release to preserve")
+    if previous:
         verify(BASE / previous)
+    # Refuse before any installation mutations if the recorded release that
+    # would be retired is no longer a verified payload. Recheck before deletion.
+    obsolete = old.get("previous")
+    if obsolete and obsolete not in (release, previous):
+        verify(BASE / obsolete)
     config = grub_config(uuid, release, previous)
     subprocess.run(["grub-script-check"], input=config, text=True, check=True)
     destination = BASE / release
@@ -459,8 +480,10 @@ def install(release=None, keep_previous=False):
     else:
         with tempfile.TemporaryDirectory(prefix="upload-", dir=BASE) as tmp:
             payload = Path(tmp) / "payload"
-            shutil.copytree(source, payload)
-            verify(payload)
+            (payload / "loader").mkdir(parents=True)
+            for name in (*FILES, "manifest.json"):
+                shutil.copyfile(source / name, payload / name)
+            verify(payload, release)
             os.sync()
             payload.rename(destination)
     # Keep Ubuntu's existing GRUB_DEFAULT and firmware boot order. Only add entries.
@@ -482,40 +505,39 @@ def install(release=None, keep_previous=False):
         raise
     os.sync()
     # Remove only the obsolete release previously recorded by this installer.
-    obsolete = old.get("previous")
     if obsolete and obsolete not in (release, previous):
         verify(BASE / obsolete)
         shutil.rmtree(BASE / obsolete)
     print(f"Installed {release}. Ubuntu's default and EFI boot order are unchanged.")
     print("Select SrvrOS in the five-second GRUB menu, or: sudo grub-reboot srvros-current")
     print("No reboot has been requested.")
-    if AUTOTEST_RE.fullmatch(verify(source).get("config_version", "")):
+    if AUTOTEST_RE.fullmatch(manifest.get("config_version", "")):
         print("Automated test profile: matching USB request enables log writes and guest reboot.")
-    elif TRACKPAD_RE.fullmatch(verify(source).get("config_version", "")):
+    elif TRACKPAD_RE.fullmatch(manifest.get("config_version", "")):
         print("Trackpad capture: interactive gestures/keyboard, UUID-selected workspace report, then halt.")
-    elif verify(source).get("config_version", "").startswith(("ram-usb-v27-","ram-usb-v28-")):
+    elif manifest.get("config_version", "").startswith(("ram-usb-v27-","ram-usb-v28-")):
         print("Guided keyboard test: on-screen prompts, up to 90 seconds per step, save result and return; halt if saving fails.")
-    elif LAPTOP_PROBE_RE.fullmatch(verify(source).get("config_version", "")):
+    elif LAPTOP_PROBE_RE.fullmatch(manifest.get("config_version", "")):
         print("Laptop diagnostics: new unattended stages return on handled failure; guided/held profiles retain the failure screen.")
-    elif verify(source).get("config_version", "").startswith(("ram-usb-v77-","ram-usb-v81-")):
+    elif manifest.get("config_version", "").startswith(("ram-usb-v77-","ram-usb-v81-")):
         print("Attended audio/USB load: Help checklist opens automatically; 30-minute load, then save and exit manually. No automatic reboot.")
-    elif verify(source).get("config_version", "").startswith("ram-usb-v76-"):
+    elif manifest.get("config_version", "").startswith("ram-usb-v76-"):
         print("Attended window/dock/navigation checklist opens automatically in Help; no timer. Save, Return to console, then reboot manually.")
-    elif verify(source).get("config_version", "").startswith("ram-usb-v75-"):
+    elif manifest.get("config_version", "").startswith("ram-usb-v75-"):
         print("Attended application lifecycle checklist opens automatically in Help; no timed exit. Save, Return to console, then reboot manually.")
-    elif verify(source).get("config_version", "").startswith(("ram-usb-v74-","ram-usb-v80-")):
+    elif manifest.get("config_version", "").startswith(("ram-usb-v74-","ram-usb-v80-")):
         print("Automatic audio/USB stress: 30 minutes of continuous playback and verified filesystem work; listen only, normal retirement/unmount and Ubuntu return.")
-    elif verify(source).get("config_version", "").startswith("ram-usb-v73-"):
+    elif manifest.get("config_version", "").startswith("ram-usb-v73-"):
         print("Automatic capacity test: two rounds of 24 mixed apps, screenshots and normal retirement; returns after save/unmount, no input required.")
-    elif verify(source).get("config_version", "").startswith(("ram-usb-v72-","ram-usb-v79-")):
+    elif manifest.get("config_version", "").startswith(("ram-usb-v72-","ram-usb-v79-")):
         print("Automated two-session startup diagnostic; normal return to Ubuntu, fatal mounted ownership halts for photograph/recovery.")
-    elif verify(source).get("config_version", "").startswith(("ram-usb-v54-","ram-usb-v55-","ram-usb-v70-","ram-usb-v71-")):
+    elif manifest.get("config_version", "").startswith(("ram-usb-v54-","ram-usb-v55-","ram-usb-v70-","ram-usb-v71-")):
         print("Ordinary Home with opt-in battery monitoring; no timed exit. Ctrl+Alt+Esc returns to monitor; reboot flushes/unmounts.")
-    elif verify(source).get("config_version", "").startswith(("ram-usb-v78-","ram-usb-v82-")):
+    elif manifest.get("config_version", "").startswith(("ram-usb-v78-","ram-usb-v82-")):
         print("Automatic desktop power test: idle/app/recovery phases, saved diagnostics and normal unmount/Ubuntu return; no input required.")
-    elif DESKTOP_RE.fullmatch(verify(source).get("config_version", "")):
+    elif DESKTOP_RE.fullmatch(manifest.get("config_version", "")):
         print("Native desktop trial: on-screen checklist, prepared USB workspace, no timed exit or automatic reboot.")
-    elif WORKSPACE_RE.fullmatch(verify(source).get("config_version", "")):
+    elif WORKSPACE_RE.fullmatch(manifest.get("config_version", "")):
         print("Workspace profile: prepared UUID-selected USB volume mounted at /work; boot filesystem stays in RAM.")
     else:
         print("Guest root filesystem/log changes are held in RAM.")

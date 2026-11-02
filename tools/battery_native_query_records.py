@@ -1,4 +1,8 @@
 """Proof of a parked, naturally refused query; not gauge or Home acceptance."""
+
+if not __debug__:
+    raise RuntimeError('evidence validation requires Python assertions; disable optimization')
+
 import re
 from serial_records import complete_lines
 

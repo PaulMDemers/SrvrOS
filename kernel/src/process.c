@@ -645,6 +645,26 @@ static void process_wake_for_signal(struct process *process) {
     process_futex_wake_process(process);
 }
 
+bool process_record_user_fault(uint64_t signal) {
+    uint64_t irq = process_irq_save();
+    struct process *process = process_current();
+    if (process == NULL || !process->active ||
+        (signal != SRV_SIGNAL_ILL && signal != SRV_SIGNAL_FPE && signal != SRV_SIGNAL_SEGV)) {
+        process_irq_restore(irq);
+        return false;
+    }
+    /* Synchronous faults cannot be resumed through the asynchronous signal
+     * API. Preserve an already selected fatal cause, and wake every class of
+     * waiter so the initial thread can complete process-wide teardown. */
+    if (!process->killed) {
+        process->killed = true;
+        process->kill_signal = signal;
+    }
+    process_wake_for_signal(process);
+    process_irq_restore(irq);
+    return true;
+}
+
 static bool process_queue_signal_locked(struct process *process, uint64_t signal) {
     if (process == NULL || !process->active || signal == 0 || signal >= 64) {
         return false;
@@ -1219,6 +1239,33 @@ static bool validate_elf(const uint8_t *data, uint64_t size, const struct elf64_
         return false;
     }
 
+    const struct elf64_program_header *programs =
+        (const struct elf64_program_header *)(data + candidate->phoff);
+    bool entry_executable = false;
+    for (uint64_t i = 0; i < candidate->phnum; i++) {
+        const struct elf64_program_header *program = &programs[i];
+        if (program->type != PT_LOAD && program->type != PT_TLS) continue;
+        if (program->filesz > program->memsz || program->offset > size ||
+            program->filesz > size - program->offset ||
+            (program->align > 1 && (program->align & (program->align - 1)) != 0)) return false;
+        if (program->type == PT_TLS) {
+            /* TLS slots are page-aligned and cannot honor larger alignment. */
+            if (program->align > PAGE_SIZE) return false;
+            continue;
+        }
+        if (program->align > 1 &&
+            (program->vaddr & (program->align - 1)) != (program->offset & (program->align - 1)))
+            return false;
+        /* Leave room for page rounding and never publish a mapping outside
+         * canonical user space or alias a shared kernel page-table entry. */
+        if (program->vaddr >= (1ull << 47) ||
+            program->memsz > (1ull << 47) - program->vaddr ||
+            program->vaddr + program->memsz > (1ull << 47) - (PAGE_SIZE - 1))
+            return false;
+        if ((program->flags & PF_X) && candidate->entry >= program->vaddr &&
+            candidate->entry - program->vaddr < program->memsz) entry_executable = true;
+    }
+    if (!entry_executable) return false;
     *header = candidate;
     return true;
 }
@@ -5518,6 +5565,9 @@ uint16_t process_file_watch_poll(struct process *process,int64_t fd,uint16_t eve
         result=deferred?0:process_file_poll(process,fd,events);
     process_irq_restore(irq);return result;
 }
+uint64_t process_fd_generation(struct process *process,uint64_t fd) {
+    return process_file_at(process,fd)?process->file_generations[fd]:UINT64_MAX;
+}
 static void file_generation_invalidate(struct process *process,uint64_t fd) {
     if(process->file_generations[fd]!=UINT64_MAX)process->file_generations[fd]++;
     process_file_poll_wake();
@@ -6011,7 +6061,7 @@ int64_t process_file_recv_rights_checked(struct process *process, uint64_t fd,
         struct process_pipe_rights *rights = &pipe->rights[0];
         uint64_t deliver = rights->count < capacity ? rights->count : capacity;
         uint64_t flags = deliver < rights->count ? SRV_MSG_CTRUNC : 0;
-        int32_t delivered[SRV_RIGHTS_MAX];
+        int32_t delivered[SRV_RIGHTS_MAX] = {0};
         for (uint64_t i = 0; i < deliver; i++) {
             int64_t installed = pipe_rights_install(process, &rights->files[i], -1);
             if (installed < 0) {
@@ -7211,7 +7261,16 @@ int64_t process_msync(struct process *process,
     return 0;
 }
 
+static void process_exit_gate(void) {
+    /* A parked initial thread can resume here after a worker fault. Keep the
+     * gate and teardown indivisible even when that continuation enabled IRQs. */
+    (void)process_irq_save();
+    scheduler_io_set_user_safe(false);
+    scheduler_io_wait();
+}
+
 void process_exit(uint64_t status) {
+    process_exit_gate();
     struct process *process = process_current();
     if (process == NULL || !process->active) {
         for (;;) {

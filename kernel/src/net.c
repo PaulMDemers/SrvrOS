@@ -283,6 +283,26 @@ static void copy_bytes(uint8_t *dst, const uint8_t *src, uint64_t length) {
     }
 }
 
+static bool transfer_current(const struct net_transfer *transfer) {
+    return !transfer || !transfer->current || transfer->current(transfer->context);
+}
+struct net_output {
+    uint8_t *buffer;
+    uint64_t *remaining;
+    uint32_t *ip;
+    uint16_t *port;
+};
+static int64_t net_output_copy(void *context, const uint8_t *data, uint64_t length,
+    uint64_t remaining, uint32_t ip, uint16_t port) {
+    struct net_output *out = context;
+    if (length && !out->buffer) return SRV_ERR_FAULT;
+    copy_bytes(out->buffer, data, length);
+    if (out->remaining) *out->remaining = remaining;
+    if (out->ip) *out->ip = ip;
+    if (out->port) *out->port = port;
+    return 0;
+}
+
 static void clear_bytes(uint8_t *dst, uint64_t length) {
     for (uint64_t i = 0; i < length; i++) {
         dst[i] = 0;
@@ -2958,16 +2978,17 @@ int64_t net_udp_bind(uint64_t socket_id, uint16_t port) {
     return 0;
 }
 
-int64_t net_udp_sendto_mode(uint64_t socket_id,
+int64_t net_udp_send_checked(uint64_t socket_id,
     uint32_t remote_ip,
     uint16_t remote_port,
     const uint8_t *buffer,
-    uint64_t length, bool dontwait) {
+    uint64_t length, bool dontwait, const struct net_transfer *transfer) {
     if (!initialized || remote_ip == 0 || remote_port == 0 || length > UDP_PAYLOAD_MAX ||
         (length != 0 && buffer == 0)) {
         return -1;
     }
 
+    if (!transfer_current(transfer)) return SRV_ERR_BADF;
     struct udp_socket *socket = find_udp_socket(socket_id);
     if (socket == 0) {
         return -1;
@@ -2994,6 +3015,7 @@ int64_t net_udp_sendto_mode(uint64_t socket_id,
 
     /* ARP resolution can block and run a final close/reuse of this slot.
      * Revalidate the original identity before publishing a datagram. */
+    if (!transfer_current(transfer)) return SRV_ERR_BADF;
     socket = find_udp_socket(socket_id);
     if (socket == 0 || socket->local_port != source_port) {
         return -1;
@@ -3007,6 +3029,11 @@ int64_t net_udp_sendto_mode(uint64_t socket_id,
         (uint16_t)length) ? (int64_t)length : -1;
 }
 
+int64_t net_udp_sendto_mode(uint64_t handle, uint32_t ip, uint16_t port,
+    const uint8_t *data, uint64_t length, bool nonblock) {
+    return net_udp_send_checked(handle, ip, port, data, length, nonblock, NULL);
+}
+
 int64_t net_udp_sendto(uint64_t socket_id, uint32_t remote_ip, uint16_t remote_port,
     const uint8_t *buffer, uint64_t length) {
     return net_udp_sendto_mode(socket_id, remote_ip, remote_port, buffer, length, false);
@@ -3014,11 +3041,12 @@ int64_t net_udp_sendto(uint64_t socket_id, uint32_t remote_ip, uint16_t remote_p
 
 struct udp_wait_arg {
     uint64_t socket_id;
+    const struct net_transfer *transfer;
 };
 
 static bool udp_recv_ready(void *arg) {
     struct udp_wait_arg *wait = arg;
-    if (wait == 0 || process_should_exit_current() || process_signal_pending_current()) {
+    if (wait == 0 || !transfer_current(wait->transfer) || process_should_exit_current() || process_signal_pending_current()) {
         return true;
     }
 
@@ -3031,16 +3059,9 @@ static bool udp_recv_ready(void *arg) {
     return true;
 }
 
-int64_t net_udp_recvfrom(uint64_t socket_id,
-    uint8_t *buffer,
-    uint64_t capacity,
-    uint32_t *remote_ip_out,
-    uint16_t *remote_port_out,
-    bool nonblock) {
-    if (!initialized || (capacity != 0 && buffer == 0)) {
-        return -1;
-    }
-
+int64_t net_udp_recv_checked(uint64_t socket_id, uint64_t capacity, bool nonblock,
+    const struct net_transfer *transfer) {
+    if (!initialized || !transfer || !transfer->copyout) return -1;
     struct udp_socket *socket = find_udp_socket(socket_id);
     if (socket == 0) {
         return -1;
@@ -3051,8 +3072,10 @@ int64_t net_udp_recvfrom(uint64_t socket_id,
 
     struct udp_wait_arg wait = {
         .socket_id = handle_value(socket_id),
+        .transfer = transfer,
     };
     for (;;) {
+        if (!transfer_current(transfer)) return SRV_ERR_BADF;
         if (process_should_exit_current()) {
             return -1;
         }
@@ -3064,13 +3087,9 @@ int64_t net_udp_recvfrom(uint64_t socket_id,
         if (socket->count != 0) {
             struct udp_datagram *datagram = &socket->queue[socket->head];
             uint64_t copied = capacity < datagram->length ? capacity : datagram->length;
-            copy_bytes(buffer, datagram->data, copied);
-            if (remote_ip_out != 0) {
-                *remote_ip_out = datagram->remote_ip;
-            }
-            if (remote_port_out != 0) {
-                *remote_port_out = datagram->remote_port;
-            }
+            int64_t result = transfer->copyout(transfer->context, datagram->data,
+                copied, 0, datagram->remote_ip, datagram->remote_port);
+            if (result < 0) return result;
             socket->head = (uint8_t)((socket->head + 1) % UDP_RX_QUEUE);
             socket->count--;
             return (int64_t)copied;
@@ -3087,6 +3106,14 @@ int64_t net_udp_recvfrom(uint64_t socket_id,
             return SRV_ERR_INTR;
         }
     }
+}
+
+int64_t net_udp_recvfrom(uint64_t handle, uint8_t *buffer, uint64_t capacity,
+    uint32_t *ip, uint16_t *port, bool nonblock) {
+    if (capacity && !buffer) return -1;
+    struct net_output out = {.buffer=buffer, .ip=ip, .port=port};
+    const struct net_transfer transfer = {.context=&out, .copyout=net_output_copy};
+    return net_udp_recv_checked(handle, capacity, nonblock, &transfer);
 }
 
 int64_t net_sockname(uint64_t handle, uint32_t *ip_out, uint16_t *port_out) {
@@ -3272,8 +3299,11 @@ int64_t net_connect(uint32_t remote_ip, uint16_t remote_port, bool nonblock) {
     }
 }
 
+struct accept_wait_arg { uint64_t handle; const struct net_transfer *transfer; };
 static bool accept_ready(void *arg) {
-    struct net_listener *listener = arg;
+    struct accept_wait_arg *wait = arg;
+    if (!wait || !transfer_current(wait->transfer)) return true;
+    struct net_listener *listener = find_listener(wait->handle);
     if (listener == 0 || !listener->used || process_should_exit_current() || process_signal_pending_current()) {
         return true;
     }
@@ -3287,11 +3317,9 @@ static bool accept_ready(void *arg) {
     return false;
 }
 
-int64_t net_accept(uint64_t listener_id,
-    char *buffer,
-    uint64_t capacity,
-    uint64_t *length_out,
-    bool nonblock) {
+int64_t net_accept_checked(uint64_t listener_id, uint64_t capacity, bool nonblock,
+    const struct net_transfer *transfer) {
+    if (!transfer || !transfer->copyout) return -1;
     if (!initialized) {
         return -1;
     }
@@ -3301,7 +3329,11 @@ int64_t net_accept(uint64_t listener_id,
         return -1;
     }
 
+    struct accept_wait_arg wait = {listener_id, transfer};
     for (;;) {
+        if (!transfer_current(transfer)) return SRV_ERR_BADF;
+        listener = find_listener(listener_id);
+        if (!listener) return SRV_ERR_BADF;
         if (process_should_exit_current()) {
             return -1;
         }
@@ -3310,26 +3342,19 @@ int64_t net_accept(uint64_t listener_id,
             struct pending_request *request = &pending_requests[i];
             if (request->used && request->port == listener->port) {
                 struct tcp_connection *connection = &tcp_connections[request->connection_index];
-                uint64_t copied = 0;
-                if (buffer != 0 && capacity != 0) {
-                    uint64_t remaining = connection->rx_length - connection->rx_offset;
-                    copied = remaining < capacity ? remaining : capacity;
-                    for (uint64_t j = 0; j < copied; j++) {
-                        buffer[j] = connection->rx_data[connection->rx_offset + j];
-                    }
-                    connection->rx_offset = copied;
-                    if (copied != 0) {
-                        (void)send_tcp_segment(connection, connection->local_port, TCP_ACK, 0, 0);
-                    }
-                }
-                if (length_out != 0) {
-                    *length_out = connection->rx_length - connection->rx_offset;
-                }
+                uint64_t remaining = connection->rx_length - connection->rx_offset;
+                uint64_t copied = remaining < capacity ? remaining : capacity;
+                int64_t result = transfer->copyout(transfer->context,
+                    connection->rx_data ? (const uint8_t *)connection->rx_data + connection->rx_offset : NULL,
+                    copied, remaining - copied, connection->remote_ip, connection->remote_port);
+                if (result < 0) return result;
+                connection->rx_offset += copied;
                 request->used = false;
                 connection->pending = false;
                 connection->accepted = true;
                 connection->refs = 1;
                 accepted_requests++;
+                if (copied) (void)send_tcp_segment(connection, connection->local_port, TCP_ACK, 0, 0);
                 return (int64_t)make_handle(NET_HANDLE_CONNECTION, request->connection_id);
             }
         }
@@ -3338,7 +3363,7 @@ int64_t net_accept(uint64_t listener_id,
         if (nonblock) {
             return SRV_ERR_AGAIN;
         }
-        if (!scheduler_wait(&accept_wait_queue, accept_ready, listener)) {
+        if (!scheduler_wait(&accept_wait_queue, accept_ready, &wait)) {
             scheduler_yield();
         }
         if (process_signal_pending_current()) {
@@ -3347,13 +3372,21 @@ int64_t net_accept(uint64_t listener_id,
     }
 }
 
+int64_t net_accept(uint64_t handle, char *buffer, uint64_t capacity,
+    uint64_t *remaining, bool nonblock) {
+    struct net_output out = {.buffer=(uint8_t *)buffer, .remaining=remaining};
+    const struct net_transfer transfer = {.context=&out, .copyout=net_output_copy};
+    return net_accept_checked(handle, buffer ? capacity : 0, nonblock, &transfer);
+}
+
 struct read_wait_arg {
     uint64_t connection_id;
+    const struct net_transfer *transfer;
 };
 
 static bool read_ready(void *arg) {
     struct read_wait_arg *wait = arg;
-    if (wait == 0 || process_should_exit_current() || process_signal_pending_current()) {
+    if (wait == 0 || !transfer_current(wait->transfer) || process_should_exit_current() || process_signal_pending_current()) {
         return true;
     }
 
@@ -3367,8 +3400,8 @@ static bool read_ready(void *arg) {
     return true;
 }
 
-static int64_t net_read_common(uint64_t connection_id, char *buffer, uint64_t length, bool nonblock, bool peek) {
-    if (!initialized || (buffer == 0 && length != 0) ||
+int64_t net_read_checked(uint64_t connection_id, uint64_t length, bool nonblock, bool peek, const struct net_transfer *transfer) {
+    if (!initialized || (!transfer || !transfer->copyout) ||
         handle_type(connection_id) != NET_HANDLE_CONNECTION ||
         find_referenced_connection_by_id(handle_value(connection_id)) == 0) {
         return -1;
@@ -3380,8 +3413,10 @@ static int64_t net_read_common(uint64_t connection_id, char *buffer, uint64_t le
     uint64_t value = handle_value(connection_id);
     struct read_wait_arg wait = {
         .connection_id = value,
+        .transfer = transfer,
     };
     for (;;) {
+        if (!transfer_current(transfer)) return SRV_ERR_BADF;
         if (process_should_exit_current()) {
             return -1;
         }
@@ -3403,9 +3438,10 @@ static int64_t net_read_common(uint64_t connection_id, char *buffer, uint64_t le
                 uint64_t remaining = connection->rx_length - connection->rx_offset;
                 if (remaining != 0) {
                     uint64_t copied = length < remaining ? length : remaining;
-                    for (uint64_t j = 0; j < copied; j++) {
-                        buffer[j] = connection->rx_data[connection->rx_offset + j];
-                    }
+                    int64_t result = transfer->copyout(transfer->context,
+                        (const uint8_t *)connection->rx_data + connection->rx_offset, copied,
+                        remaining - copied, connection->remote_ip, connection->remote_port);
+                    if (result < 0) return result;
                     if (!peek) {
                         connection->rx_offset += copied;
                         (void)send_tcp_segment(connection, connection->local_port, TCP_ACK, 0, 0);
@@ -3436,21 +3472,27 @@ static int64_t net_read_common(uint64_t connection_id, char *buffer, uint64_t le
     }
 }
 
-int64_t net_read(uint64_t connection_id, char *buffer, uint64_t length, bool nonblock) {
-    return net_read_common(connection_id, buffer, length, nonblock, false);
+int64_t net_read(uint64_t handle, char *buffer, uint64_t length, bool nonblock) {
+    if (length && !buffer) return -1;
+    struct net_output out = {.buffer=(uint8_t *)buffer};
+    const struct net_transfer transfer = {.context=&out, .copyout=net_output_copy};
+    return net_read_checked(handle, length, nonblock, false, &transfer);
 }
-
-int64_t net_peek(uint64_t connection_id, char *buffer, uint64_t length, bool nonblock) {
-    return net_read_common(connection_id, buffer, length, nonblock, true);
+int64_t net_peek(uint64_t handle, char *buffer, uint64_t length, bool nonblock) {
+    if (length && !buffer) return -1;
+    struct net_output out = {.buffer=(uint8_t *)buffer};
+    const struct net_transfer transfer = {.context=&out, .copyout=net_output_copy};
+    return net_read_checked(handle, length, nonblock, true, &transfer);
 }
 
 struct write_wait_arg {
     uint64_t connection_id;
+    const struct net_transfer *transfer;
 };
 
 static bool write_ready(void *arg) {
     struct write_wait_arg *wait = arg;
-    if (wait == 0 || process_should_exit_current() || process_signal_pending_current()) {
+    if (wait == 0 || !transfer_current(wait->transfer) || process_should_exit_current() || process_signal_pending_current()) {
         return true;
     }
 
@@ -3467,7 +3509,7 @@ static bool write_ready(void *arg) {
     return true;
 }
 
-int64_t net_respond(uint64_t connection_id, const char *buffer, uint64_t length, bool nonblock) {
+int64_t net_respond_checked(uint64_t connection_id, const char *buffer, uint64_t length, bool nonblock, const struct net_transfer *transfer) {
     if (!initialized || (buffer == 0 && length != 0) ||
         handle_type(connection_id) != NET_HANDLE_CONNECTION ||
         find_referenced_connection_by_id(handle_value(connection_id)) == 0) {
@@ -3481,8 +3523,10 @@ int64_t net_respond(uint64_t connection_id, const char *buffer, uint64_t length,
     uint64_t sent = 0;
     struct write_wait_arg wait = {
         .connection_id = value,
+        .transfer = transfer,
     };
     for (;;) {
+        if (!transfer_current(transfer)) return sent ? (int64_t)sent : SRV_ERR_BADF;
         if (process_should_exit_current()) {
             return sent == 0 ? -1 : (int64_t)sent;
         }
@@ -3539,6 +3583,10 @@ int64_t net_respond(uint64_t connection_id, const char *buffer, uint64_t length,
             return SRV_ERR_INTR;
         }
     }
+}
+
+int64_t net_respond(uint64_t handle, const char *data, uint64_t length, bool nonblock) {
+    return net_respond_checked(handle, data, length, nonblock, NULL);
 }
 
 uint16_t net_poll_events(uint64_t handle, uint16_t events) {
@@ -3666,6 +3714,8 @@ int64_t net_close(uint64_t handle) {
             return -1;
         }
         connection->refs--;
+        scheduler_wake_all(&read_wait_queue);
+        scheduler_wake_all(&write_wait_queue);
         if (connection->refs != 0) {
             return 0;
         }
@@ -3693,6 +3743,7 @@ int64_t net_close(uint64_t handle) {
             return -1;
         }
         listener->refs--;
+        scheduler_wake_all(&accept_wait_queue);
         if (listener->refs != 0) {
             return 0;
         }
@@ -3721,6 +3772,7 @@ int64_t net_close(uint64_t handle) {
             return -1;
         }
         socket->refs--;
+        scheduler_wake_all(&udp_wait_queue);
         if (socket->refs != 0) {
             return 0;
         }

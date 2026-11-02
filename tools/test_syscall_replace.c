@@ -2,7 +2,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#define SRVROS_SYSCALL_IO_HOST_TEST
 #include "../kernel/src/arch/x86_64/syscall.c"
+struct process_file *process_file_at(struct process *p,uint64_t fd) { (void)p;(void)fd;assert(0);return NULL; }
+uint64_t process_fd_generation(struct process *p,uint64_t fd) { (void)p;(void)fd;assert(0);return UINT64_MAX; }
 static int allocation_failure,write_failure,calls,allocations,frees;
 static const void *invalid;
 static bool open_path;

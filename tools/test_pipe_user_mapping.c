@@ -46,6 +46,20 @@ int64_t process_file_pipe_write_checked(struct process *p,uint64_t fd,uint64_t n
     if (!copy(ctx,0,(uint8_t *)captured,2,(uint8_t *)captured+2,2)) return SRV_ERR_FAULT;
     return 4;
 }
+int64_t process_file_pty_read_checked(struct process *p,uint64_t fd,uint64_t n,process_pipe_copyout copy,void *ctx) {
+    return process_file_pipe_read_checked(p,fd,n,false,copy,ctx);
+}
+int64_t process_file_pty_write_checked(struct process *p,uint64_t fd,uint64_t n,process_pipe_copyin copy,void *ctx) {
+    return process_file_pipe_write_checked(p,fd,n,false,copy,ctx);
+}
+uint64_t process_fd_generation(struct process *p,uint64_t fd) { (void)p;(void)fd;assert(0);return 0; }
+int64_t process_handle_alloc(struct process *p,enum process_file_type type,uint64_t h) { (void)p;(void)type;(void)h;assert(0);return -1; }
+int64_t net_close(uint64_t h) { (void)h;assert(0);return -1; }
+int64_t net_accept_checked(uint64_t h,uint64_t n,bool b,const struct net_transfer *t) { (void)h;(void)n;(void)b;(void)t;assert(0);return -1; }
+int64_t net_read_checked(uint64_t h,uint64_t n,bool b,bool peek,const struct net_transfer *t) { (void)h;(void)n;(void)b;(void)peek;(void)t;assert(0);return -1; }
+int64_t net_udp_recv_checked(uint64_t h,uint64_t n,bool b,const struct net_transfer *t) { (void)h;(void)n;(void)b;(void)t;assert(0);return -1; }
+int64_t net_respond_checked(uint64_t h,const char *d,uint64_t n,bool b,const struct net_transfer *t) { (void)h;(void)d;(void)n;(void)b;(void)t;assert(0);return -1; }
+int64_t net_udp_send_checked(uint64_t h,uint32_t ip,uint16_t port,const uint8_t *d,uint64_t n,bool b,const struct net_transfer *t) { (void)h;(void)ip;(void)port;(void)d;(void)n;(void)b;(void)t;assert(0);return -1; }
 /* Other descriptor branches are unreachable in this fixture. */
 int64_t process_file_pipe_read(struct process *p,uint64_t f,uint8_t *b,uint64_t n) {
     assert(p==(struct process *)1 && f==7 && n>=4);
@@ -103,5 +117,15 @@ int main(int argc, char **argv) {
     bad=mutate=NULL; assert(syscall_write(7,input,4)==4 && !memcmp(captured,"abcd",4));
     struct srv_iovec source[1]={{input,4}}; mutate=input; write_result=2;
     assert(syscall_vector_io(7,source,1,SRV_VECTOR_WRITE,0)==2 && !memcmp(captured,"abcd",4));
+    file.type=PROCESS_FILE_PTY_SLAVE;memset(a,0,4);mutate=a;bad=NULL;mutate_iov=NULL;
+    assert(syscall_read(7,a,4)==SRV_ERR_FAULT && !a[0]);
+    bad=mutate=NULL;assert(syscall_read(7,a,4)==4 && !memcmp(a,"abcd",4));
+    memset(a,0,4);memset(b,0,4);iov[1].base=b;mutate=b;
+    assert(syscall_vector_io(7,iov,2,SRV_VECTOR_READ,0)==SRV_ERR_FAULT && !a[0] && !b[0]);
+    bad=mutate=NULL;assert(syscall_vector_io(7,iov,2,SRV_VECTOR_READ,0)==4 && !memcmp(a,"ab",2) && !memcmp(b,"cd",2));
+    file.type=PROCESS_FILE_PTY_MASTER;memcpy(input,"abcd",4);mutate=input;
+    assert(syscall_write(7,input,4)==SRV_ERR_FAULT);
+    bad=mutate=NULL;assert(syscall_write(7,input,4)==4 && !memcmp(captured,"abcd",4));
+    mutate=input;assert(syscall_vector_io(7,source,1,SRV_VECTOR_WRITE,0)==4 && !memcmp(captured,"abcd",4));
     puts("pipe-user-mapping: PASS scalar fault, scatter fault/commit, iovec snapshot, write fault, vector write snapshot/partial progress");
 }

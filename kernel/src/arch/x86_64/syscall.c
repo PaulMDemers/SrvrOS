@@ -167,7 +167,9 @@ static bool console_winsize_set;
 static uint64_t random_state;
 
 static uint64_t irq_save(void) {
-#if defined(SRVROS_SYSCALL_POLL_HOST_TEST) || defined(SRVROS_SYSCALL_IO_HOST_TEST)
+#if defined(SRVROS_SYSCALL_COPY_HOST_TEST)
+    return syscall_copy_test_irq_save();
+#elif defined(SRVROS_SYSCALL_POLL_HOST_TEST) || defined(SRVROS_SYSCALL_IO_HOST_TEST)
     return 0;
 #else
     uint64_t flags;
@@ -177,7 +179,9 @@ static uint64_t irq_save(void) {
 }
 
 static void irq_restore(uint64_t flags) {
-#if defined(SRVROS_SYSCALL_POLL_HOST_TEST) || defined(SRVROS_SYSCALL_IO_HOST_TEST)
+#if defined(SRVROS_SYSCALL_COPY_HOST_TEST)
+    syscall_copy_test_irq_restore(flags);
+#elif defined(SRVROS_SYSCALL_POLL_HOST_TEST) || defined(SRVROS_SYSCALL_IO_HOST_TEST)
     (void)flags;
 #else
     if ((flags & (1ull << 9)) != 0) {
@@ -197,30 +201,43 @@ static bool user_buffer_ok(const void *buffer, uint64_t length, bool writable) {
     return vmm_user_range_mapped((uint64_t)buffer, length, writable);
 }
 
-static bool copy_from_user(void *destination, const void *source, uint64_t length) {
-    if (!user_buffer_ok(source, length, false) || (destination == NULL && length != 0)) {
-        return false;
-    }
-
-    uint8_t *out = destination;
-    const uint8_t *in = source;
-    for (uint64_t i = 0; i < length; i++) {
-        out[i] = in[i];
+/* Keep each validation and its access indivisible with CPU0 mapping changes.
+ * Release interrupts between pages unless the caller already masked them. A
+ * later invalidation can leave a copied prefix, just as an interrupted user
+ * transfer can; callers requiring transactional publication hold their own
+ * exclusion around validation and the complete callback. */
+static bool copy_user_bytes(void *kernel, void *user, uint64_t length, bool to_user) {
+    if (!length) return true;
+    uint64_t address = (uint64_t)(uintptr_t)user;
+    if (!kernel || !user || length > UINT64_MAX - address) return false;
+    uint8_t *bytes = kernel;
+    uint64_t copied = 0;
+    while (copied < length) {
+        uint64_t current = address + copied;
+        uint64_t count = 4096 - (current & 4095);
+        if (count > length - copied) count = length - copied;
+        uint64_t flags = irq_save();
+        if (!user_buffer_ok((void *)(uintptr_t)current, count, to_user)) {
+            irq_restore(flags);
+            return false;
+        }
+        uint8_t *user_bytes = (uint8_t *)(uintptr_t)current;
+        for (uint64_t i = 0; i < count; i++) {
+            if (to_user) user_bytes[i] = bytes[copied + i];
+            else bytes[copied + i] = user_bytes[i];
+        }
+        irq_restore(flags);
+        copied += count;
     }
     return true;
 }
 
-static bool copy_to_user(void *destination, const void *source, uint64_t length) {
-    if (!user_buffer_ok(destination, length, true) || (source == NULL && length != 0)) {
-        return false;
-    }
+static bool copy_from_user(void *destination, const void *source, uint64_t length) {
+    return copy_user_bytes(destination, (void *)source, length, false);
+}
 
-    uint8_t *out = destination;
-    const uint8_t *in = source;
-    for (uint64_t i = 0; i < length; i++) {
-        out[i] = in[i];
-    }
-    return true;
+static bool copy_to_user(void *destination, const void *source, uint64_t length) {
+    return copy_user_bytes((void *)source, destination, length, true);
 }
 
 static uint64_t min_u64(uint64_t a, uint64_t b) {
@@ -386,6 +403,107 @@ static bool io_defer_pipe_write(uint64_t fd,uint64_t length) {
     }
     return false;
 }
+struct network_user_io {
+    struct process *process;
+    uint64_t fd, generation, handle;
+    enum process_file_type type;
+    const struct srv_iovec *iov;
+    uint64_t count;
+    uint64_t *remaining;
+    uint32_t *ip;
+    uint16_t *port;
+    struct srv_socket_peer *peer;
+};
+static bool network_current(void *context) {
+    struct network_user_io *io = context;
+    struct process_file *file = process_file_at(io->process, io->fd);
+    return file && io->generation != UINT64_MAX &&
+        process_fd_generation(io->process, io->fd) == io->generation &&
+        file->type == io->type && file->handle == io->handle;
+}
+static bool network_init(struct network_user_io *io, uint64_t fd) {
+    io->process = process_current(); io->fd = fd;
+    struct process_file *file = process_file_at(io->process, fd);
+    if (!file) return false;
+    io->generation = process_fd_generation(io->process, fd);
+    io->handle = file->handle; io->type = file->type;
+    return network_current(io);
+}
+/* All output ranges are checked before publishing any part of a record.
+ * The checked network call retains IRQ exclusion through its queue commit. */
+static int64_t network_copyout(void *context, const uint8_t *data, uint64_t length,
+    uint64_t remaining, uint32_t ip, uint16_t port) {
+    struct network_user_io *io = context;
+    if (!network_current(io)) return SRV_ERR_BADF;
+    uint64_t capacity = 0;
+    for (uint64_t i = 0; i < io->count; i++) {
+        if (!user_buffer_ok(io->iov[i].base, io->iov[i].length, true)) return SRV_ERR_FAULT;
+        capacity += io->iov[i].length;
+    }
+    if (length > capacity ||
+        (io->remaining && !user_buffer_ok(io->remaining, sizeof(*io->remaining), true)) ||
+        (io->ip && !user_buffer_ok(io->ip, sizeof(*io->ip), true)) ||
+        (io->port && !user_buffer_ok(io->port, sizeof(*io->port), true)) ||
+        (io->peer && !user_buffer_ok(io->peer, sizeof(*io->peer), true))) return SRV_ERR_FAULT;
+    uint64_t copied = 0;
+    for (uint64_t i = 0; i < io->count && copied < length; i++) {
+        uint64_t n = io->iov[i].length;
+        if (n > length - copied) n = length - copied;
+        if (!copy_to_user(io->iov[i].base, data + copied, n)) return SRV_ERR_FAULT;
+        copied += n;
+    }
+    struct srv_socket_peer peer = {.ip=ip, .port=port};
+    if ((io->remaining && !copy_to_user(io->remaining, &remaining, sizeof(remaining))) ||
+        (io->ip && !copy_to_user(io->ip, &ip, sizeof(ip))) ||
+        (io->port && !copy_to_user(io->port, &port, sizeof(port))) ||
+        (io->peer && !copy_to_user(io->peer, &peer, sizeof(peer)))) return SRV_ERR_FAULT;
+    return 0;
+}
+static int64_t network_receive(uint64_t fd, struct network_user_io *io,
+    uint64_t length, bool nonblock, bool peek, bool accept) {
+    uint64_t flags = irq_save();
+    int64_t result = SRV_ERR_BADF;
+    if (!network_init(io, fd)) goto done;
+    const struct net_transfer transfer = {io, network_current, network_copyout};
+    if (accept && io->type == PROCESS_FILE_NET_LISTENER) {
+        result = net_accept_checked(io->handle, length, nonblock, &transfer);
+        if (result >= 0) {
+            uint64_t handle = (uint64_t)result;
+            result = process_handle_alloc(io->process, PROCESS_FILE_NET_CONNECTION, handle);
+            if (result < 0) net_close(handle);
+        }
+    } else if (!accept && io->type == PROCESS_FILE_NET_UDP)
+        result = net_udp_recv_checked(io->handle, length, nonblock, &transfer);
+    else if (!accept && io->type == PROCESS_FILE_NET_CONNECTION)
+        result = net_read_checked(io->handle, length, nonblock, peek, &transfer);
+ done:
+    irq_restore(flags);
+    return result;
+}
+static int64_t network_send(uint64_t fd, const void *buffer, uint64_t length,
+    bool nonblock, bool owned, bool udp, uint32_t ip, uint16_t port) {
+    uint64_t flags = irq_save();
+    struct network_user_io io = {0};
+    int64_t result = SRV_ERR_BADF;
+    uint8_t small[1536], *snapshot = small;
+    if (!network_init(&io, fd) || io.type != (udp ? PROCESS_FILE_NET_UDP : PROCESS_FILE_NET_CONNECTION)) goto done;
+    if (udp && length > SRV_NET_UDP_PAYLOAD_MAX) { result = SRV_ERR_INVAL; goto done; }
+    if (!udp && length > MAX_SYSCALL_COPY) length = MAX_SYSCALL_COPY;
+    if (!owned) {
+        if (length > sizeof(small)) snapshot = kmalloc(length);
+        if (!snapshot) { result = SRV_ERR_NOMEM; goto done; }
+        if (!copy_from_user(snapshot, buffer, length)) { result = SRV_ERR_FAULT; goto done; }
+        buffer = snapshot;
+    }
+    const struct net_transfer transfer = {.context=&io, .current=network_current};
+    result = udp ? net_udp_send_checked(io.handle, ip, port, buffer, length, nonblock, &transfer) :
+        net_respond_checked(io.handle, buffer, length, nonblock, &transfer);
+ done:
+    if (snapshot != small) kfree(snapshot);
+    irq_restore(flags);
+    return result;
+}
+
 static int64_t write_buffer(uint64_t fd, const char *buffer, uint64_t length, bool owned) {
     struct process_file *file=process_file_at(process_current(),fd);
     if(!file) return SRV_ERR_BADF;
@@ -409,7 +527,7 @@ static int64_t write_buffer(uint64_t fd, const char *buffer, uint64_t length, bo
     if(file->type==PROCESS_FILE_PIPE_WRITE || file->type==PROCESS_FILE_PIPE_DUPLEX)
         return process_file_pipe_write(process_current(),fd,(const uint8_t *)buffer,length);
     if(file->type==PROCESS_FILE_NET_CONNECTION)
-        return net_respond(file->handle,buffer,length,process_file_nonblocking(process_current(),fd));
+        return network_send(fd,buffer,length,process_file_nonblocking(process_current(),fd),owned,false,0,0);
     return SRV_ERR_BADF;
 }
 
@@ -422,6 +540,32 @@ static bool pipe_user_copyin(void *context, uint64_t offset, uint8_t *first,
     return true;
 }
 
+static bool pty_kernel_copyin(void *context,uint64_t offset,uint8_t *first,uint64_t first_length,uint8_t *second,uint64_t second_length) {
+    const uint8_t *source=(const uint8_t *)context+offset;
+    for(uint64_t i=0;i<first_length;i++) first[i]=source[i];
+    for(uint64_t i=0;i<second_length;i++) second[i]=source[first_length+i];
+    return true;
+}
+/* Process file data operations are nonblocking and already execute with IRQs
+ * masked internally. Include the mapping check in the same CPU0 exclusion so
+ * the descriptor and mapping cannot change before their commit. */
+static int64_t regular_user_io(uint64_t fd, void *buffer, uint64_t length,
+    bool writing, bool positional, int64_t offset) {
+    uint64_t flags = irq_save();
+    int64_t result;
+    struct process_file *file = process_file_at(process_current(), fd);
+    if (!user_buffer_ok(buffer, length, !writing)) result = SRV_ERR_FAULT;
+    else if (!positional && (!file || (file->type != PROCESS_FILE_VFS &&
+             file->type != PROCESS_FILE_VFS_WRITE))) result = SRV_ERR_BADF;
+    else if (positional) result = writing ?
+        process_file_pwrite(process_current(), fd, buffer, length, offset) :
+        process_file_pread(process_current(), fd, buffer, length, offset);
+    else result = writing ? process_file_write(process_current(), fd, buffer, length) :
+        process_file_read(process_current(), fd, buffer, length);
+    irq_restore(flags);
+    return result;
+}
+
 static int64_t syscall_write(uint64_t fd, const char *buffer, uint64_t length) {
     if(io_defer_pipe_write(fd,length)) return length?SRV_ERR_AGAIN:0;
     if(!user_buffer_ok(buffer,length,false)) return SRV_ERR_FAULT;
@@ -430,6 +574,10 @@ static int64_t syscall_write(uint64_t fd, const char *buffer, uint64_t length) {
         return process_file_pipe_write_checked(process_current(), fd, length, false,
             pipe_user_copyin, (void *)buffer);
     }
+    if(file && (file->type==PROCESS_FILE_PTY_MASTER || file->type==PROCESS_FILE_PTY_SLAVE))
+        return process_file_pty_write_checked(process_current(),fd,length,pipe_user_copyin,(void *)buffer);
+    if (file && file->type == PROCESS_FILE_VFS_WRITE)
+        return regular_user_io(fd, (void *)buffer, length, true, false, 0);
     return write_buffer(fd,buffer,length,false);
 }
 
@@ -440,7 +588,7 @@ static char tty_filter_input(char c) {
     return c;
 }
 
-static int64_t tty_read_console(char *buffer, uint64_t length) {
+static int64_t tty_read_console(char *buffer, uint64_t length, bool owned) {
     if (length == 0) {
         return 0;
     }
@@ -467,7 +615,8 @@ static int64_t tty_read_console(char *buffer, uint64_t length) {
             return -1;
         }
         c = tty_filter_input(c);
-        buffer[0] = c;
+        if (owned) buffer[0] = c;
+        else if (!copy_to_user(buffer, &c, 1)) return SRV_ERR_FAULT;
         if ((console_termios.lflag & SRV_TTY_LFLAG_ECHO) != 0) {
             console_putc(c);
         }
@@ -512,7 +661,9 @@ static int64_t tty_read_console(char *buffer, uint64_t length) {
             continue;
         }
 
-        buffer[count++] = c;
+        if (owned) buffer[count] = c;
+        else if (!copy_to_user(buffer + count, &c, 1)) return count ? (int64_t)count : SRV_ERR_FAULT;
+        count++;
         if ((console_termios.lflag & SRV_TTY_LFLAG_ECHO) != 0) {
             console_putc(c);
         }
@@ -543,16 +694,19 @@ static bool io_defer_pipe_read(uint64_t fd,uint64_t length) {
     }
     return false;
 }
-static int64_t read_buffer(uint64_t fd, char *buffer, uint64_t length) {
+static int64_t read_buffer(uint64_t fd, char *buffer, uint64_t length, bool owned) {
     struct process_file *file = process_file_at(process_current(), fd);
     if (file == NULL) {
         return SRV_ERR_BADF;
     }
     if (file->type == PROCESS_FILE_STDIO && file->handle == 0) {
-        return tty_read_console(buffer, length);
+        return tty_read_console(buffer, length, owned);
     }
     if (file->type == PROCESS_FILE_NET_CONNECTION) {
-        return net_read(file->handle, buffer, length, process_file_nonblocking(process_current(), fd));
+        if (owned) return net_read(file->handle, buffer, length, process_file_nonblocking(process_current(), fd));
+        struct srv_iovec iov = {.base=buffer, .length=length};
+        struct network_user_io io = {.iov=&iov, .count=1};
+        return network_receive(fd, &io, length, process_file_nonblocking(process_current(), fd), false, false);
     }
     if (file->type == PROCESS_FILE_PIPE_READ || file->type == PROCESS_FILE_PIPE_DUPLEX) {
         return process_file_pipe_read(process_current(), fd, (uint8_t *)buffer, length);
@@ -605,7 +759,14 @@ static int64_t syscall_read(uint64_t fd, char *buffer, uint64_t length) {
         struct pipe_user_iov out = { &iov, 1 };
         return process_file_pipe_read_checked(process_current(), fd, length, false, pipe_user_copyout, &out);
     }
-    return read_buffer(fd,buffer,length);
+    if(file && (file->type==PROCESS_FILE_PTY_MASTER || file->type==PROCESS_FILE_PTY_SLAVE)) {
+        struct srv_iovec iov={.base=buffer,.length=length};
+        struct pipe_user_iov out={&iov,1};
+        return process_file_pty_read_checked(process_current(),fd,length,pipe_user_copyout,&out);
+    }
+    if (file && (file->type == PROCESS_FILE_VFS || file->type == PROCESS_FILE_VFS_WRITE))
+        return regular_user_io(fd, buffer, length, false, false, 0);
+    return read_buffer(fd,buffer,length,false);
 }
 
 /* A vector is one transfer, not one potentially blocking transfer per element.
@@ -633,6 +794,14 @@ static int64_t syscall_vector_io(uint64_t fd, const struct srv_iovec *user_iov,
         struct pipe_user_iov out = { iov, count };
         return process_file_pipe_read_checked(process_current(), fd, length, false, pipe_user_copyout, &out);
     }
+    if(operation==SRV_VECTOR_READ && file && (file->type==PROCESS_FILE_PTY_MASTER || file->type==PROCESS_FILE_PTY_SLAVE)) {
+        struct pipe_user_iov out={iov,count};
+        return process_file_pty_read_checked(process_current(),fd,length,pipe_user_copyout,&out);
+    }
+    if (operation == SRV_VECTOR_READ && file && file->type == PROCESS_FILE_NET_CONNECTION) {
+        struct network_user_io io = {.iov=iov, .count=count};
+        return network_receive(fd, &io, length, process_file_nonblocking(process_current(), fd), false, false);
+    }
     uint8_t small[4096];
     uint8_t *buffer=length>sizeof(small)?kmalloc(length):small;
     if(!buffer) return SRV_ERR_NOMEM;
@@ -651,8 +820,10 @@ static int64_t syscall_vector_io(uint64_t fd, const struct srv_iovec *user_iov,
         result=process_file_pread(process_current(),fd,buffer,length,offset);
     else if(operation==SRV_VECTOR_PWRITE)
         result=process_file_pwrite(process_current(),fd,buffer,length,offset);
+    else if(writing && file && (file->type==PROCESS_FILE_PTY_MASTER || file->type==PROCESS_FILE_PTY_SLAVE))
+        result=process_file_pty_write_checked(process_current(),fd,length,pty_kernel_copyin,buffer);
     else if(writing) result=write_buffer(fd,(char *)buffer,length,true);
-    else result=read_buffer(fd,(char *)buffer,length);
+    else result=read_buffer(fd,(char *)buffer,length,true);
     /* Console/network waits may return with interrupts enabled. Revalidation
      * and copying must exclude a sibling unmapping the destination. */
     uint64_t irq=irq_save();
@@ -694,7 +865,7 @@ static int64_t syscall_tty_setattr(uint64_t fd, uint64_t actions, const struct s
     if(actions>SRV_TCSAFLUSH) return SRV_ERR_INVAL;
     if(!copy_from_user(&copy,termios,sizeof(copy))) return SRV_ERR_FAULT;
     uint64_t terminal=process_tty_handle(process_current(),fd);
-    if(terminal) return pty_setattr(terminal,&copy,(unsigned)actions);
+    if(terminal) return process_file_pty_setattr(process_current(),fd,&copy,(unsigned)actions);
     console_termios = copy;
     return 0;
 }
@@ -768,11 +939,12 @@ static bool copy_user_string(const char *source, char *destination, uint64_t cap
         return false;
     }
 
+    uint64_t address = (uint64_t)(uintptr_t)source;
     for (uint64_t i = 0; i < capacity; i++) {
-        if (!user_buffer_ok(source + i, 1, false)) {
+        if (i > UINT64_MAX - address ||
+            !copy_from_user(&destination[i], (const void *)(uintptr_t)(address + i), 1)) {
             return false;
         }
-        destination[i] = source[i];
         if (destination[i] == '\0') {
             return true;
         }
@@ -2460,20 +2632,10 @@ static int64_t syscall_net_accept(uint64_t listener_fd, char *buffer, uint64_t c
         return -1;
     }
 
-    int64_t handle = net_accept(listener->handle,
-        buffer,
-        capacity,
-        length_out,
-        process_file_nonblocking(process, listener_fd));
-    if (handle < 0) {
-        return handle;
-    }
-
-    int64_t fd = process_handle_alloc(process, PROCESS_FILE_NET_CONNECTION, (uint64_t)handle);
-    if (fd < 0) {
-        net_close((uint64_t)handle);
-    }
-    return fd;
+    struct srv_iovec iov = {.base=buffer, .length=capacity};
+    struct network_user_io io = {.iov=&iov, .count=1, .remaining=length_out};
+    return network_receive(listener_fd, &io, capacity,
+        process_file_nonblocking(process, listener_fd), false, true);
 }
 
 static int64_t syscall_net_udp_open(void) {
@@ -2518,7 +2680,7 @@ static int64_t syscall_net_udp_sendto(uint64_t fd,
         return -1;
     }
 
-    return net_udp_sendto(file->handle, remote_ip, remote_port, buffer, length);
+    return network_send(fd, buffer, length, false, false, true, remote_ip, remote_port);
 }
 
 static int64_t syscall_net_udp_recvfrom(uint64_t fd,
@@ -2538,12 +2700,9 @@ static int64_t syscall_net_udp_recvfrom(uint64_t fd,
         return -1;
     }
 
-    return net_udp_recvfrom(file->handle,
-        buffer,
-        capacity,
-        remote_ip_out,
-        remote_port_out,
-        process_file_nonblocking(process, fd));
+    struct srv_iovec iov = {.base=buffer, .length=capacity};
+    struct network_user_io io = {.iov=&iov, .count=1, .ip=remote_ip_out, .port=remote_port_out};
+    return network_receive(fd, &io, capacity, process_file_nonblocking(process, fd), false, false);
 }
 
 /* All operations are intrinsically nonblocking. Ordinary syscall admission
@@ -2565,15 +2724,16 @@ static int64_t syscall_socket_try_io(uint64_t fd, uint64_t operation, void *buff
     if (operation == SRV_SOCKET_UDP_SEND || operation == SRV_SOCKET_UDP_RECV) {
         if (file->type != PROCESS_FILE_NET_UDP) return SRV_ERR_BADF;
         if (operation == SRV_SOCKET_UDP_SEND)
-            return net_udp_sendto_mode(file->handle, peer.ip, peer.port, buffer, length, true);
-        int64_t result = net_udp_recvfrom(file->handle, buffer, length, &peer.ip, &peer.port, true);
-        if (result >= 0 && user_peer && !copy_to_user(user_peer, &peer, sizeof(peer))) return SRV_ERR_FAULT;
-        return result;
+            return network_send(fd, buffer, length, true, false, true, peer.ip, peer.port);
+        struct srv_iovec iov = {.base=buffer, .length=length};
+        struct network_user_io io = {.iov=&iov, .count=1, .peer=user_peer};
+        return network_receive(fd, &io, length, true, false, false);
     }
     if (file->type == PROCESS_FILE_NET_CONNECTION) {
-        if (operation == SRV_SOCKET_SEND) return net_respond(file->handle, buffer, length, true);
-        if (operation == SRV_SOCKET_PEEK) return net_peek(file->handle, buffer, length, true);
-        return net_read(file->handle, buffer, length, true);
+        if (operation == SRV_SOCKET_SEND) return network_send(fd, buffer, length, true, false, false, 0, 0);
+        struct srv_iovec iov = {.base=buffer, .length=length};
+        struct network_user_io io = {.iov=&iov, .count=1};
+        return network_receive(fd, &io, length, true, operation == SRV_SOCKET_PEEK, false);
     }
     if (operation == SRV_SOCKET_PEEK) return SRV_ERR_NOTSUP;
     if (operation == SRV_SOCKET_SEND &&
@@ -2649,7 +2809,9 @@ static int64_t syscall_net_peek(uint64_t fd, uint8_t *buffer, uint64_t capacity)
     if (file == NULL || file->type != PROCESS_FILE_NET_CONNECTION) {
         return -1;
     }
-    return net_peek(file->handle, (char *)buffer, capacity, process_file_nonblocking(process, fd));
+    struct srv_iovec iov = {.base=buffer, .length=capacity};
+    struct network_user_io io = {.iov=&iov, .count=1};
+    return network_receive(fd, &io, capacity, process_file_nonblocking(process, fd), true, false);
 }
 
 static int64_t syscall_getpid(void) {
@@ -3054,7 +3216,12 @@ static int64_t syscall_device_list(uint64_t kind,uint64_t index,struct srv_devic
 static int64_t syscall_audio_stream(uint64_t op,uint64_t handle,void *data,uint64_t length) {
     if(op<SRV_PCM_OPEN || op>SRV_PCM_CLOSE)return -1;
     if(op==SRV_PCM_WRITE) {
-        if(!length || length>SRV_PCM_MAX_WRITE || (length&3) || !user_buffer_ok(data,length,false))return -1;
+        if(!length || length>SRV_PCM_MAX_WRITE || (length&3))return -1;
+        uint64_t flags=irq_save();
+        int64_t result=user_buffer_ok(data,length,false) ?
+            audio_stream_request(process_pid(process_current()),(unsigned)op,handle,data,length) : -1;
+        irq_restore(flags);
+        return result;
     } else if(op==SRV_PCM_QUERY) {
         if(length!=sizeof(struct srv_pcm_status) || !user_buffer_ok(data,length,true))return -1;
         struct srv_pcm_status value;
@@ -3088,18 +3255,16 @@ void syscall_dispatch(struct isr_frame *frame) {
         frame->rax = (uint64_t)syscall_read(frame->rdi, (char *)frame->rsi, frame->rdx);
         return;
     case SYS_PREAD:
-        frame->rax = (uint64_t)(user_buffer_ok((void *)frame->rsi,frame->rdx,true)
-            ? process_file_pread(process_current(),frame->rdi,(uint8_t *)frame->rsi,frame->rdx,(int64_t)frame->rcx)
-            : SRV_ERR_FAULT);
+        frame->rax = (uint64_t)regular_user_io(frame->rdi,(void *)frame->rsi,
+            frame->rdx,false,true,(int64_t)frame->rcx);
         return;
     case SYS_VECTOR_IO:
         frame->rax=(uint64_t)syscall_vector_io(frame->rdi,(const struct srv_iovec *)frame->rsi,
             frame->rdx,frame->rcx,(int64_t)frame->r8);
         return;
     case SYS_PWRITE:
-        frame->rax = (uint64_t)(user_buffer_ok((void *)frame->rsi,frame->rdx,false)
-            ? process_file_pwrite(process_current(),frame->rdi,(const uint8_t *)frame->rsi,frame->rdx,(int64_t)frame->rcx)
-            : SRV_ERR_FAULT);
+        frame->rax = (uint64_t)regular_user_io(frame->rdi,(void *)frame->rsi,
+            frame->rdx,true,true,(int64_t)frame->rcx);
         return;
     case SYS_CLOSE:
         frame->rax = (uint64_t)syscall_close(frame->rdi);

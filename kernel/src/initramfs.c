@@ -98,11 +98,13 @@ static void build_path(char *dst, uint64_t dst_size, const struct tar_header *he
     }
 
     const char *name = header->name;
+    uint64_t name_size = sizeof(header->name);
     if (name[0] == '.' && name[1] == '/') {
         name += 2;
+        name_size -= 2;
     }
 
-    copy_component(dst, &offset, dst_size, name, sizeof(header->name));
+    copy_component(dst, &offset, dst_size, name, name_size);
     dst[offset] = '\0';
 }
 
@@ -118,13 +120,19 @@ void initramfs_init(const void *address, uint64_t size) {
         return;
     }
 
-    while (offset + TAR_BLOCK_SIZE <= size) {
+    while (offset <= size && size - offset >= TAR_BLOCK_SIZE) {
         const struct tar_header *header = (const struct tar_header *)(archive + offset);
         if (memory_is_zero((const uint8_t *)header, TAR_BLOCK_SIZE)) {
             break;
         }
 
         uint64_t file_size = parse_octal(header->size, sizeof(header->size));
+        uint64_t remaining = size - offset - TAR_BLOCK_SIZE;
+        if (file_size > remaining || file_size > UINT64_MAX - (TAR_BLOCK_SIZE - 1) ||
+            align_up(file_size, TAR_BLOCK_SIZE) > remaining) {
+            console_write("initramfs: truncated entry\n");
+            break;
+        }
         const uint8_t *file_data = archive + offset + TAR_BLOCK_SIZE;
 
         if (header->typeflag == '0' || header->typeflag == '\0') {

@@ -519,6 +519,8 @@ struct srv_meminfo {
 #define SRV_SIGNAL_WINCH 28
 #define SRV_SIGNAL_INT 2
 #define SRV_SIGNAL_QUIT 3
+#define SRV_SIGNAL_ILL 4
+#define SRV_SIGNAL_FPE 8
 #define SRV_SIGNAL_ABRT 6
 #define SRV_SIGNAL_KILL 9
 #define SRV_SIGNAL_USR1 10

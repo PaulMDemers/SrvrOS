@@ -104,6 +104,84 @@ int64_t pty_write(uint64_t handle,bool master,const uint8_t *data,uint64_t lengt
     }
     unlock(flags);return done?(int64_t)done:!length?0:error;
 }
+/* Capture the descriptor, not just the shared PTY handle: close/dup2 may
+ * replace it while a sibling is asleep, even with another reference alive. */
+struct checked_wait {
+    struct process *process;uint64_t fd,generation,handle,length;
+    enum process_file_type type;bool master,write;uint8_t byte;
+};
+static bool checked_current(struct checked_wait *w) {
+    struct process_file *f=process_file_at(w->process,w->fd);
+    return f && w->generation!=UINT64_MAX && process_fd_generation(w->process,w->fd)==w->generation &&
+        f->type==w->type && f->handle==w->handle && pty_state(w->handle);
+}
+static bool checked_ready(void *argument) {
+    struct checked_wait *w=argument;
+    if(!checked_current(w)) return true;
+    struct wait_request r={.handle=w->handle,.length=w->length,.master=w->master,.write=w->write,.byte=w->byte};
+    return ready(&r);
+}
+static bool checked_init(struct checked_wait *w,struct process *process,uint64_t fd) {
+    struct process_file *f=process_file_at(process,fd);
+    if(!f || (f->type!=PROCESS_FILE_PTY_MASTER && f->type!=PROCESS_FILE_PTY_SLAVE)) return false;
+    *w=(struct checked_wait){.process=process,.fd=fd,.generation=process_fd_generation(process,fd),
+        .handle=f->handle,.type=f->type,.master=f->type==PROCESS_FILE_PTY_MASTER};
+    return checked_current(w);
+}
+int64_t process_file_pty_read_checked(struct process *process,uint64_t fd,uint64_t length,process_pipe_copyout copyout,void *context) {
+    uint64_t flags=lock();struct checked_wait w;int64_t result=SRV_ERR_BADF;
+    if(!copyout || !checked_init(&w,process,fd)) goto out;
+    w.length=length;
+    for(;;) {
+        if(!checked_current(&w)) { result=SRV_ERR_BADF;break; }
+        if(process_should_exit_current()) { result=-1;break; }
+        bool nonblocking=process_file_nonblocking(process,fd);
+        result=pty_model_read_checked(pty_state(w.handle),w.master,length,nonblocking,copyout,context);
+        if(result!=SRV_ERR_AGAIN || nonblocking) break;
+        if(process_signal_pending_current()) { result=SRV_ERR_INTR;break; }
+        bool woke=scheduler_wait(&waiters,checked_ready,&w);
+        if(!checked_current(&w)) { result=SRV_ERR_BADF;break; }
+        if(!woke || process_signal_pending_current()) { result=SRV_ERR_INTR;break; }
+    }
+    if(result>=0) pty_wake();
+out: unlock(flags);return result;
+}
+int64_t process_file_pty_write_checked(struct process *process,uint64_t fd,uint64_t length,process_pipe_copyin copyin,void *context) {
+    uint64_t flags=lock(),done=0;struct checked_wait w;int64_t error=SRV_ERR_BADF;
+    if(!copyin || !checked_init(&w,process,fd)) goto out;
+    w.write=true;
+    while(done<length) {
+        if(!checked_current(&w)) { error=SRV_ERR_BADF;break; }
+        if(process_should_exit_current()) { error=-1;break; }
+        /* Copy at most one small bounded batch while mappings are stable.
+         * If a batch crosses an inaccessible mapping, retain the accessible
+         * prefix so the caller sees the same short-write behavior as before. */
+        uint8_t bytes[256];
+        uint64_t count=length-done;
+        if(count>sizeof(bytes)) count=sizeof(bytes);
+        if(!copyin(context,done,bytes,count,NULL,0)) {
+            uint64_t prefix=0;
+            while(prefix<count && copyin(context,done+prefix,bytes+prefix,1,NULL,0)) prefix++;
+            if(!prefix) { error=SRV_ERR_FAULT;break; }
+            count=prefix;
+        }
+        struct pty_model *p=pty_state(w.handle);
+        int64_t result=pty_model_write(p,w.master,bytes,count);
+        if(result>0) {
+            done+=(uint64_t)result;uint64_t signals=p->signals;p->signals=0;
+            for(unsigned signal=1;signal<64;signal++) if(signals&(1ull<<signal)) process_tty_signal(w.handle,signal);
+            pty_wake();continue;
+        }
+        error=result;if(result!=SRV_ERR_AGAIN || process_file_nonblocking(process,fd)) break;
+        w.byte=bytes[0];
+        if(process_signal_pending_current()) { error=SRV_ERR_INTR;break; }
+        bool woke=scheduler_wait(&waiters,checked_ready,&w);
+        if(!checked_current(&w)) { error=SRV_ERR_BADF;break; }
+        if(!woke || process_signal_pending_current()) { error=SRV_ERR_INTR;break; }
+    }
+    if(!length) error=0;
+out: unlock(flags);return done?(int64_t)done:error;
+}
 uint16_t pty_poll(uint64_t handle,bool master,uint16_t events) {
     struct pty_model *p=pty_state(handle);return p?pty_model_poll(p,master,events):SRV_POLLNVAL;
 }
@@ -113,6 +191,28 @@ static bool attr_ready(void *arg) {
     struct pty_model *p=pty_state(w->handle);
     return !p || p->master_closed || process_signal_pending_current() || process_should_exit_current() ||
         ((w->action==SRV_TCSANOW || !p->output.size) && PTY_BYTES-p->input.size>=p->line_size);
+}
+struct checked_attr_wait { struct checked_wait *descriptor;struct attr_wait attr; };
+static bool checked_attr_ready(void *arg) {
+    struct checked_attr_wait *w=arg;
+    return !checked_current(w->descriptor) || attr_ready(&w->attr);
+}
+int64_t process_file_pty_setattr(struct process *process,uint64_t fd,const struct srv_termios *attributes,unsigned action) {
+    uint64_t flags=lock();struct checked_wait descriptor;int64_t result=SRV_ERR_BADF;
+    if(!checked_init(&descriptor,process,fd)) goto out;
+    struct checked_attr_wait w={&descriptor,{descriptor.handle,action}};
+    for(;;) {
+        if(!checked_current(&descriptor)) { result=SRV_ERR_BADF;break; }
+        struct pty_model *p=pty_state(descriptor.handle);
+        if(p->master_closed || process_should_exit_current()) { result=-1;break; }
+        result=pty_model_attributes(p,attributes,action);if(result!=SRV_ERR_AGAIN) break;
+        if(process_signal_pending_current()) { result=SRV_ERR_INTR;break; }
+        bool woke=scheduler_wait(&waiters,checked_attr_ready,&w);
+        if(!checked_current(&descriptor)) { result=SRV_ERR_BADF;break; }
+        if(!woke || process_signal_pending_current()) { result=SRV_ERR_INTR;break; }
+    }
+    if(!result) pty_wake();
+out: unlock(flags);return result;
 }
 int64_t pty_setattr(uint64_t handle,const struct srv_termios *attributes,unsigned action) {
     uint64_t flags=lock();int64_t result=-1;

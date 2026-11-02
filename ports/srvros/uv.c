@@ -73,6 +73,7 @@ static pthread_once_t worker_pool_once = PTHREAD_ONCE_INIT;
 static pthread_mutex_t worker_pool_mutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t worker_pool_cond = PTHREAD_COND_INITIALIZER;
 static pthread_t worker_pool_threads[UV_WORKER_POOL_SIZE];
+static unsigned worker_pool_count;
 static struct uv_worker_job *worker_pool_head;
 static struct uv_worker_job *worker_pool_tail;
 static uv_tty_vtermstate_t tty_vterm_state = UV_TTY_UNSUPPORTED;
@@ -122,13 +123,11 @@ static int loop_ensure_wakeup(uv_loop_t *loop) {
         return 0;
     }
     int wake_fds[2];
-    if (pipe2(wake_fds, O_CLOEXEC) < 0) {
+    if (pipe2(wake_fds, O_CLOEXEC | O_NONBLOCK) < 0) {
         return uv_error_from_errno();
     }
     loop->wake_read_fd = wake_fds[0];
     loop->wake_write_fd = wake_fds[1];
-    set_nonblocking(loop->wake_read_fd);
-    set_nonblocking(loop->wake_write_fd);
     return 0;
 }
 
@@ -155,6 +154,7 @@ static void *worker_pool_thread(void *arg) {
 static void worker_pool_init(void) {
     for (size_t i = 0; i < UV_WORKER_POOL_SIZE; i++) {
         if (pthread_create(&worker_pool_threads[i], 0, worker_pool_thread, 0) == 0) {
+            worker_pool_count++;
             (void)pthread_detach(worker_pool_threads[i]);
         }
     }
@@ -165,6 +165,7 @@ static int worker_pool_submit(void (*run)(void *arg), void *arg) {
         return UV_EINVAL;
     }
     pthread_once(&worker_pool_once, worker_pool_init);
+    if (worker_pool_count == 0) return UV_ENOMEM;
     struct uv_worker_job *job = malloc(sizeof(*job));
     if (job == 0) {
         return UV_ENOMEM;
@@ -273,6 +274,13 @@ int uv_loop_init(uv_loop_t *loop) {
     loop->wake_write_fd = -1;
     if (pthread_mutex_init(&loop->queue_mutex, 0) != 0) {
         return UV_ENOMEM;
+    }
+    /* Workers may complete immediately. Publish a wakeup pipe before any
+     * request can be submitted, so completion cannot race lazy pipe setup. */
+    int status = loop_ensure_wakeup(loop);
+    if (status < 0) {
+        pthread_mutex_destroy(&loop->queue_mutex);
+        return status;
     }
     loop->now_ms = monotonic_ms();
     return 0;
@@ -658,12 +666,14 @@ int uv_cancel(uv_req_t *request) {
     }
     if (request->type == UV_WORK) {
         uv_work_t *work = (uv_work_t *)request;
-        if (work->done || work->loop == 0 || !worker_pool_cancel(work)) {
+        if (work->loop == 0 || !worker_pool_cancel(work)) {
             return UV_EBUSY;
         }
+        pthread_mutex_lock(&work->loop->queue_mutex);
         work->status = UV_ECANCELED;
         work->done = 1;
         loop_wakeup(work->loop);
+        pthread_mutex_unlock(&work->loop->queue_mutex);
         return 0;
     }
     if (request->type == UV_FS) {
@@ -1448,11 +1458,13 @@ static int has_active_phase(const uv_loop_t *loop) {
 static void run_pending_async(uv_loop_t *loop) {
     for (uv_handle_t *base = loop->handles; base != 0; base = base->next) {
         uv_async_t *async = (uv_async_t *)base;
-        if (base->type != UV_HANDLE_ASYNC || !base->active || base->closing || async->async_cb == 0 ||
-            !async->pending) {
+        if (base->type != UV_HANDLE_ASYNC || !base->active || base->closing || async->async_cb == 0) {
             continue;
         }
-        async->pending = 0;
+        pthread_mutex_lock(&loop->queue_mutex);
+        int pending = __atomic_exchange_n(&async->pending, 0, __ATOMIC_ACQ_REL);
+        pthread_mutex_unlock(&loop->queue_mutex);
+        if (!pending) continue;
         async->async_cb(async);
     }
 }
@@ -1460,13 +1472,16 @@ static void run_pending_async(uv_loop_t *loop) {
 static void run_done_work(uv_loop_t *loop) {
     uv_work_t **link = &loop->work_queue;
     while (*link != 0) {
+        pthread_mutex_lock(&loop->queue_mutex);
         uv_work_t *work = *link;
         if (!work->done) {
             link = &work->next;
+            pthread_mutex_unlock(&loop->queue_mutex);
             continue;
         }
         *link = work->next;
         work->next = 0;
+        pthread_mutex_unlock(&loop->queue_mutex);
         if (work->after_work_cb != 0) {
             work->after_work_cb(work, work->status);
         }
@@ -2530,8 +2545,14 @@ int uv_write2(uv_write_t *request,
         return UV_EBADF;
     }
     for (unsigned int i = 0; i < buffer_count; i++) {
+        if ((buffers[i].len && !buffers[i].base) || buffers[i].len > SIZE_MAX - total) {
+            return UV_EINVAL;
+        }
         total += buffers[i].len;
     }
+    size_t queued = tcp != 0 ? tcp->write_queue_size :
+        pipe_handle != 0 ? pipe_handle->write_queue_size : tty->write_queue_size;
+    if (total > SIZE_MAX - queued) return UV_EINVAL;
     if (send_fd >= 0 && total == 0) {
         return UV_EINVAL;
     }
@@ -2708,7 +2729,7 @@ int uv_pipe_bind(uv_pipe_t *handle, const char *name) {
 void uv_pipe_connect(uv_connect_t *request, uv_pipe_t *handle, const char *name, uv_connect_cb cb) {
     int status = 0;
     if (request == 0 || handle == 0 || name == 0 || name[0] == '\0' || handle->handle.type != UV_HANDLE_PIPE) {
-        if (cb != 0) {
+        if (cb != 0 && request != 0) {
             request->type = UV_CONNECT;
             request->handle = (uv_tcp_t *)handle;
             cb(request, UV_EINVAL);
@@ -2953,6 +2974,7 @@ int uv_async_init(uv_loop_t *loop, uv_async_t *handle, uv_async_cb async_cb) {
     memset(handle, 0, sizeof(*handle));
     init_handle(loop, &handle->handle, -1, UV_HANDLE_ASYNC);
     handle->async_cb = async_cb;
+    handle->handle.active = 1;
     return 0;
 }
 
@@ -2960,9 +2982,11 @@ int uv_async_send(uv_async_t *handle) {
     if (handle == 0 || handle->async_cb == 0) {
         return -EINVAL;
     }
-    handle->pending = 1;
-    handle->handle.active = 1;
-    loop_wakeup(handle->handle.loop);
+    uv_loop_t *loop = handle->handle.loop;
+    pthread_mutex_lock(&loop->queue_mutex);
+    __atomic_store_n(&handle->pending, 1, __ATOMIC_RELEASE);
+    loop_wakeup(loop);
+    pthread_mutex_unlock(&loop->queue_mutex);
     return 0;
 }
 
@@ -3345,12 +3369,15 @@ int uv_barrier_wait(uv_barrier_t *barrier) {
 
 static void work_thread_main(void *arg) {
     uv_work_t *request = arg;
+    uv_loop_t *loop = request->loop;
     if (request->work_cb != 0) {
         request->work_cb(request);
     }
+    pthread_mutex_lock(&loop->queue_mutex);
     request->status = 0;
     request->done = 1;
-    loop_wakeup(request->loop);
+    loop_wakeup(loop);
+    pthread_mutex_unlock(&loop->queue_mutex);
 }
 
 int uv_queue_work(uv_loop_t *loop, uv_work_t *request, uv_work_cb work_cb, uv_after_work_cb after_work_cb) {
@@ -3999,8 +4026,8 @@ static void fs_queue_done(uv_loop_t *loop, uv_fs_t *request) {
     pthread_mutex_lock(&loop->queue_mutex);
     if (loop->fs_queue == 0) {
         loop->fs_queue = request;
-        pthread_mutex_unlock(&loop->queue_mutex);
         loop_wakeup(loop);
+        pthread_mutex_unlock(&loop->queue_mutex);
         return;
     }
     uv_fs_t *tail = loop->fs_queue;
@@ -4008,8 +4035,8 @@ static void fs_queue_done(uv_loop_t *loop, uv_fs_t *request) {
         tail = tail->next;
     }
     tail->next = request;
-    pthread_mutex_unlock(&loop->queue_mutex);
     loop_wakeup(loop);
+    pthread_mutex_unlock(&loop->queue_mutex);
 }
 
 static char *uv_strdup_text(const char *text) {

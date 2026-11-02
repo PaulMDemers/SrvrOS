@@ -2107,6 +2107,40 @@ build/tests/pmm-host$(HOST_EXE): tools/test_pmm.c kernel/src/memory/pmm.c $(KERN
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
 test-core: test-pmm
+
+.PHONY: test-initramfs test-vmm-user-range
+test-initramfs: build/tests/initramfs-host$(HOST_EXE)
+	$<
+build/tests/initramfs-host$(HOST_EXE): tools/test_initramfs.c kernel/src/initramfs.c $(KERNEL_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/initramfs.c -o $@
+test-vmm-user-range: build/tests/vmm-user-range-host$(HOST_EXE)
+	$<
+build/tests/vmm-user-range-host$(HOST_EXE): tools/test_vmm_user_range.c kernel/src/memory/vmm.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+test-core: test-initramfs test-vmm-user-range
+
+.PHONY: test-user-fault test-process-fault
+test-user-fault: build/tests/user-fault-host$(HOST_EXE)
+	$<
+build/tests/user-fault-host$(HOST_EXE): tools/test_user_fault.c kernel/src/arch/x86_64/idt.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+test-process-fault: build/tests/process-fault-host$(HOST_EXE)
+	$<
+build/tests/process-fault-host$(HOST_EXE): tools/test_process_fault.c kernel/src/process.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+test-core: test-user-fault test-process-fault
+
+.PHONY: test-syscall-user-copy
+test-syscall-user-copy: build/tests/syscall-user-copy-host$(HOST_EXE)
+	$<
+build/tests/syscall-user-copy-host$(HOST_EXE): tools/test_syscall_user_copy.c kernel/src/arch/x86_64/syscall.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+test-core: test-syscall-user-copy
 interrupt-smoke: $(IMAGE) $(EXFAT_IMAGE) test-core
 	$(PYTHON) tools/interrupt_smoke.py --qemu $(QEMU) --boot-wait $(SMOKE_BOOT_WAIT)
 
@@ -3077,7 +3111,16 @@ build/tests/laptop-resources-host$(HOST_EXE): tools/test_laptop_resources.c kern
 .PHONY: test-desktop-host-tools
 test-core: test-desktop-host-tools
 test-desktop-host-tools:
+	$(PYTHON) tools/test_optimized_records.py
+	$(PYTHON) tools/test_libc_symbol_audit.py
+	$(PYTHON) tools/test_mk_usb_image.py
 	$(PYTHON) tools/test_desktop_wait_records.py
+	$(PYTHON) tools/test_app_timing.py
+	$(PYTHON) tools/test_desktop_combined_workload.py
+	$(PYTHON) tools/test_desktop_io_result.py
+	$(PYTHON) tools/test_desktop_session_workload.py
+	$(PYTHON) tools/test_hardware_cpu_load.py
+	CC="$(HOST_CC)" $(PYTHON) tools/test_cpu_load_capture.py
 	$(PYTHON) tools/test_hardware_boot.py
 	$(PYTHON) tools/test_device_checks.py
 	$(PYTHON) tools/test_hardware_desktop.py
@@ -3427,6 +3470,7 @@ build/tests/battery-cache$(HOST_EXE): tools/test_battery_cache.c kernel/src/driv
 
 .PHONY: test-exfat-scratch
 test-exfat-scratch: build/tests/exfat-driver$(HOST_EXE)
+	$(PYTHON) tools/test_exfat_bitmap.py
 	$(PYTHON) tools/test_exfat_allocation_check.py
 	$(PYTHON) tools/exfat_scratch_test.py
 test-core: test-exfat-scratch
@@ -3964,7 +4008,13 @@ test-socket-try-io: build/tests/socket-try-io-host$(HOST_EXE)
 build/tests/socket-try-io-host$(HOST_EXE): tools/test_socket_try_io.c kernel/src/arch/x86_64/syscall.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
-test-core: test-dns-response test-socket-calls test-socket-try-io
+test-net-transfer: build/tests/net-transfer-host$(HOST_EXE)
+	$<
+build/tests/net-transfer-host$(HOST_EXE): tools/test_net_transfer.c kernel/src/net.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+.PHONY: test-net-transfer
+test-core: test-dns-response test-socket-calls test-socket-try-io test-net-transfer
 
 .PHONY: test-pipe-message
 test-core: test-pipe-message
@@ -4098,3 +4148,57 @@ test-cpu-receipt-tail:
 test-core: test-cpu-checkpoint-budget
 test-cpu-checkpoint-budget:
 	$(PYTHON) -m unittest discover -s tools -p test_cpu_checkpoint_budget.py
+
+.PHONY: test-expr-bounds
+test-core: test-expr-bounds
+test-expr-bounds: build/tests/expr-bounds-host$(HOST_EXE)
+	$<
+
+build/tests/expr-bounds-host$(HOST_EXE): tools/test_expr_bounds.c userspace/expr/expr.c userspace/lib/include/srvros/cli.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -idirafter userspace/lib/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-uv-bounds test-uv-lifetime
+test-core: test-uv-bounds test-uv-lifetime
+test-uv-bounds: build/tests/uv-bounds-host$(HOST_EXE)
+	$<
+test-uv-lifetime: build/tests/uv-lifetime-host$(HOST_EXE)
+	$<
+
+build/tests/uv-bounds-host$(HOST_EXE): tools/test_uv_bounds.c tools/uv_host_compat.h ports/srvros/uv.c ports/srvros/uv.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -D_GNU_SOURCE -std=gnu11 -O2 -Wall -Wextra -Werror -pthread -ffunction-sections -fdata-sections -I shared/include -idirafter userspace/lib/include -I ports/srvros -include tools/uv_host_compat.h tools/test_uv_bounds.c ports/srvros/uv.c -Wl,--gc-sections -o $@
+
+build/tests/uv-lifetime-host$(HOST_EXE): tools/test_uv_lifetime.c tools/uv_host_compat.h ports/srvros/uv.c ports/srvros/uv.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -D_GNU_SOURCE -std=gnu11 -O2 -Wall -Wextra -Werror -pthread -ffunction-sections -fdata-sections -I shared/include -idirafter userspace/lib/include -I ports/srvros -include tools/uv_host_compat.h tools/test_uv_lifetime.c -Wl,--gc-sections -o $@
+
+.PHONY: test-diff-errors test-patch-alloc test-tap-create
+test-core: test-diff-errors test-patch-alloc test-tap-create
+test-diff-errors: build/tests/diff-errors-host$(HOST_EXE)
+	$<
+test-patch-alloc: build/tests/patch-alloc-host$(HOST_EXE)
+	$<
+test-tap-create: build/tests/tap-create-host$(HOST_EXE)
+	$<
+
+build/tests/diff-errors-host$(HOST_EXE): tools/test_diff_errors.c userspace/diff/diff.c
+	@mkdir -p $(@D)
+	$(HOST_CC) -D_DEFAULT_SOURCE -std=gnu11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -idirafter userspace/lib/include $< -Wl,--gc-sections -o $@
+
+build/tests/patch-alloc-host$(HOST_EXE): tools/test_patch_alloc.c userspace/patch/patch.c
+	@mkdir -p $(@D)
+	$(HOST_CC) -D_DEFAULT_SOURCE -std=gnu11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -idirafter userspace/lib/include $< -Wl,--gc-sections -o $@
+
+build/tests/tap-create-host$(HOST_EXE): tools/test_tap_create.c userspace/tap/tap.c
+	@mkdir -p $(@D)
+	$(HOST_CC) -D_DEFAULT_SOURCE -std=gnu11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -idirafter userspace/lib/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-gui2-path-bounds
+test-core: test-gui2-path-bounds
+test-gui2-path-bounds: build/tests/gui2-path-bounds-host$(HOST_EXE)
+	$<
+
+build/tests/gui2-path-bounds-host$(HOST_EXE): tools/test_gui2_path_bounds.c userspace/lib/src/gui2.c
+	@mkdir -p $(@D)
+	$(HOST_CC) -D_DEFAULT_SOURCE -std=gnu11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -idirafter userspace/lib/include $< -Wl,--gc-sections -o $@

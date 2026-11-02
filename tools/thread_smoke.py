@@ -164,6 +164,7 @@ def main():
             "threadstress: exec-vectors ok",
             "threadstress: pipe-atomic ok",
             "threadstress: pipe-mapping ok",
+            "threadstress: pty-mapping ok",
             "threadstress: replaced reader preserved new pipe data",
             "threadstress: vector-io ok",
             "threadstress: file-errors ok",

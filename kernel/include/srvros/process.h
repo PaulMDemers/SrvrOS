@@ -133,6 +133,8 @@ uint64_t process_list(uint64_t start_index,
 uint64_t process_list_details(uint64_t start_index, uint64_t *pid_out,
     const char **name_out, const char **state_out, uint64_t *parent_out, uint64_t *mapped_bytes_out);
 bool process_kill_pid(uint64_t pid);
+/* Record an uncatchable synchronous fault after acquiring the I/O exit gate. */
+bool process_record_user_fault(uint64_t signal);
 bool process_signal_is_supported(uint64_t signal);
 bool process_signal_pid(uint64_t pid, uint64_t signal);
 bool process_signal_target(int64_t pid, uint64_t signal);
@@ -211,6 +213,10 @@ typedef bool (*process_pipe_copyin)(void *context, uint64_t offset, uint8_t *fir
     uint64_t first_length, uint8_t *second, uint64_t second_length);
 int64_t process_file_pipe_write_checked(struct process *process, uint64_t fd,
     uint64_t length, bool dontwait, process_pipe_copyin copyin, void *context);
+int64_t process_file_pty_read_checked(struct process *,uint64_t,uint64_t,process_pipe_copyout,void *);
+int64_t process_file_pty_write_checked(struct process *,uint64_t,uint64_t,process_pipe_copyin,void *);
+int64_t process_file_pty_setattr(struct process *,uint64_t,const struct srv_termios *,unsigned);
+uint64_t process_fd_generation(struct process *,uint64_t);
 int64_t process_file_pipe_write_mode(struct process *process, uint64_t fd, const uint8_t *buffer, uint64_t length, bool dontwait);
 int64_t process_file_pipe_read(struct process *process, uint64_t fd, uint8_t *buffer, uint64_t length);
 int64_t process_file_pipe_write(struct process *process, uint64_t fd, const uint8_t *buffer, uint64_t length);

@@ -3,6 +3,9 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <signal.h>
+#include <pthread.h>
+#include <sched.h>
+#include <sys/mman.h>
 #include <sys/socket.h>
 #include <poll.h>
 #include <stdint.h>
@@ -325,12 +328,72 @@ static int check_call_flags(void) {
     if(alias>=0)close(alias);close(pair[0]);close(pair[1]);return result?fail("call-flags"):0;
 }
 
+struct udp_mapping_receive {
+    int fd;
+    char *data;
+    uint32_t *ip;
+    uint16_t port;
+    unsigned entered;
+    long result;
+    struct srv_sched_trace trace;
+};
+static void *udp_mapping_reader(void *raw) {
+    struct udp_mapping_receive *receive = raw;
+    if (srv_sched_trace(SRV_SCHED_TRACE_BEGIN, &receive->trace)) return (void *)1;
+    __atomic_store_n(&receive->entered, 1, __ATOMIC_RELEASE);
+    receive->result = srv_net_udp_recvfrom(receive->fd, receive->data, 2, receive->ip, &receive->port);
+    return srv_sched_trace(SRV_SCHED_TRACE_END, &receive->trace) ? (void *)1 : NULL;
+}
+static int check_udp_mapping(unsigned kind) {
+#define UDP_CHECK(x) do { if (!(x)) { printf("netabi: UDP mapping kind=%u line=%d\n", kind, __LINE__); return fail("udp-mapping"); } } while (0)
+    struct srv_net_status_info status;
+    UDP_CHECK(srv_net_status_info(&status) == 0);
+    int fd = srv_net_udp_open(), sender = srv_net_udp_open();
+    UDP_CHECK(fd >= 0 && sender >= 0 && srv_net_udp_bind(fd, 7140 + kind) == 0);
+    char *mapping = mmap(NULL, 4096, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    UDP_CHECK(mapping != MAP_FAILED);
+    char bytes[2] = {'?', '?'};
+    uint32_t ip = 0;
+    struct udp_mapping_receive receive = {.fd=fd, .data=kind == 0 ? mapping : bytes,
+        .ip=kind == 1 ? (uint32_t *)mapping : &ip, .port=0};
+    int alias = -1, replacement = -1;
+    if (kind == 2) {
+        alias = srv_dup(fd); replacement = srv_net_udp_open();
+        UDP_CHECK(alias >= 0 && replacement >= 0 && srv_net_udp_bind(replacement, 7145) == 0);
+    }
+    pthread_t thread;
+    UDP_CHECK(!pthread_create(&thread, NULL, udp_mapping_reader, &receive));
+    while (!__atomic_load_n(&receive.entered, __ATOMIC_ACQUIRE)) sched_yield();
+    usleep(30000);
+    if (kind == 2) UDP_CHECK(srv_dup2(replacement, fd) == fd);
+    UDP_CHECK(!munmap(mapping, 4096));
+    UDP_CHECK(srv_net_udp_sendto(sender, status.local_ip, 7140 + kind, "AB", 2) == 2);
+    if (kind == 2) UDP_CHECK(srv_net_udp_sendto(sender, status.local_ip, 7145, "CD", 2) == 2);
+    void *result;
+    UDP_CHECK(!pthread_join(thread, &result) && !result && receive.trace.blocks > 0);
+    UDP_CHECK(receive.result == (kind == 2 ? SRV_ERR_BADF : SRV_ERR_FAULT));
+    UDP_CHECK(bytes[0] == '?' && bytes[1] == '?' && receive.port == 0);
+    int original = kind == 2 ? alias : fd;
+    UDP_CHECK(srv_fcntl(original, SRV_F_SETFL, SRV_FD_NONBLOCK) == 0);
+    UDP_CHECK(srv_net_udp_recvfrom(original, bytes, 2, &ip, NULL) == 2 && !memcmp(bytes, "AB", 2));
+    if (kind == 2) {
+        UDP_CHECK(srv_fcntl(fd, SRV_F_SETFL, SRV_FD_NONBLOCK) == 0);
+        UDP_CHECK(srv_net_udp_recvfrom(fd, bytes, 2, &ip, NULL) == 2 && !memcmp(bytes, "CD", 2));
+        UDP_CHECK(!srv_close(alias) && !srv_close(replacement));
+    }
+    UDP_CHECK(!srv_close(fd) && !srv_close(sender));
+    return 0;
+#undef UDP_CHECK
+}
+
 int netabi_rights_test(void);
 
 int main(void) {
     if (srv_net_dhcp() < 0) {
         return fail("dhcp");
     }
+    if (check_udp_mapping(0) || check_udp_mapping(1) || check_udp_mapping(2)) return 1;
+    puts("netabi: UDP mapping faults preserve datagrams and replacement descriptors");
     if (netabi_rights_test() != 0 || check_udp_alias() != 0 ||
         check_call_signal() != 0 ||
         check_call_flags() != 0 ||
