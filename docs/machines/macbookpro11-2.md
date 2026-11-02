@@ -27,6 +27,27 @@ restore prerequisites and a source-bound automatic capture, then discovery and
 live reattachment. Association/security/IP remain pending; local credentials
 have not been read or packaged. Other Pro bring-up and deferred work is unchanged.
 
+## Active bounded scope — 2026-11-02, native5GHz prerequisite capture
+
+User now authorizes continuing through authenticated connection/disconnection
+and data transfer, and automatic restart for self-contained ready tests.
+Local credentials remain private; do not package or log them before an actual
+security test requires them. EW-7711MAC is5GHz-only; Demers2.4 needs compatible
+hardware, while Demers5 is the current target. Main remains `c9235491`.
+
+Implement a fixed read-only MAC/PA and RF-selector inventory after common
+RF/VGA initialization, stopping before legacy2GHz G20, trim, DAC/VCO, RX or
+network OUT. Touch MCU inventory/transport, kernel dispatch and v108 automatic
+capture/staging/validation only. PR252 socket/DNS and PR272 desktop/PCM work
+remain independent. Require exact descriptor/firmware/common-init proof,
+fixed targets and packets, bounded cancellation, per-operation ownership and
+no replay. Trial shows progress, saves results and returns to Ubuntu, including
+failure. A warm reboot is permitted for this inventory; it does not establish
+cold reset or RF acceptance. Keep Ubuntu default and known-good recovery.
+Collect matching source/release/session and storage evidence on return before
+another run. No connection-ready notification until association, security,
+data exchange and teardown actually pass.
+
 ## Active bounded scope — 2026-11-02, high-band20MHz
 
 Fetched and merged main `c9235491` as `e14c550d`; its checkpoint-audit changes
