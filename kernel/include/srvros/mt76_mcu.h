@@ -678,6 +678,23 @@ struct mt76_band_mac {
     uint32_t before[2],after[2],guards[4][3];
 };
 struct mt76_band_mac_io {void *context;bool (*authorize)(void *);bool (*transfer)(void *,unsigned,bool,uint32_t,uint8_t *,unsigned);};
+/* Read-only inventory after common RF/VGA initialization, before band/tune.
+ * Five fixed MAC words and two RF selectors; no write callback or replay. */
+#define MT76_5GHZ_PREREQ_TARGETS 7u
+#define MT76_5GHZ_PREREQ_OPS 49u
+struct mt76_5ghz_prereq {
+    bool attempted,complete;
+    unsigned operations,reads,exchanges,observed;
+    int received;
+    uint32_t values[7],guards[14][3],words[2][4];
+};
+uint32_t mt76_5ghz_prereq_target(unsigned index);
+uint32_t mt76_5ghz_prereq_address(unsigned operation);
+bool mt76_5ghz_prereq_rf(unsigned operation);
+size_t mt76_5ghz_prereq_packet(unsigned operation,uint8_t *out,size_t capacity);
+bool mt76_5ghz_prereq_admit(const struct mt76_5ghz_prereq *s,unsigned operation);
+bool mt76_5ghz_prereq_valid(const struct mt76_5ghz_prereq *s);
+enum mt76_mcu_timing_status mt76_5ghz_prereq_capture(struct mt76_5ghz_prereq *s,const struct mt76_mcu_timing_io *io);
 uint32_t mt76_band_mac_address(unsigned index);
 uint32_t mt76_band_mac_value(unsigned index,uint32_t before);
 bool mt76_band_mac_request(unsigned operation,bool *write,uint32_t *address);

@@ -4597,3 +4597,16 @@ test-mt76-rf-a20: build/tests/mt76-rf-a20-host$(HOST_EXE)
 build/tests/mt76-rf-a20-host$(HOST_EXE): tools/test_mt76_rf_a20.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h tools/fixtures/mt7610-5ghz-a20-hb.bin
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-mt76-5ghz-prereq
+test-core: test-mt76-5ghz-prereq
+test-mt76-5ghz-prereq: build/tests/mt76-5ghz-prereq-host$(HOST_EXE)
+	$(HOST_RUN) $<
+build/tests/mt76-5ghz-prereq-host$(HOST_EXE): tools/test_mt76_5ghz_prereq.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-wifi-5ghz-prereq-log
+test-core: test-wifi-5ghz-prereq-log
+test-wifi-5ghz-prereq-log:
+	$(PYTHON) -m unittest discover -s tools -p test_wifi_5ghz_prereq_log.py

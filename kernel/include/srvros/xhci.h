@@ -105,6 +105,7 @@ bool xhci_wifi_capture_rf_table(void);
 bool xhci_wifi_capture_rf_bank5(void);
 bool xhci_wifi_capture_rf_bank6(void);
 bool xhci_wifi_capture_rf_vga(void);
+bool xhci_wifi_capture_5ghz_prereq(void);
 bool xhci_wifi_capture_rf_g20(void);
 bool xhci_wifi_capture_rf_trim(void);
 bool xhci_wifi_capture_rf_cal(void);

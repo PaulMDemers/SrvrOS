@@ -1,3 +1,4 @@
+static bool wifi_5ghz_prereq_requested;
 /* One-shot MCU identity diagnostic, optionally preceded by guarded MAC/BBP
  * reset. Opt-in fixed RF initialization follows the full captured chain.
  * Fixed frequency-field preview is a separate explicit stopped-RX mode.
@@ -2220,6 +2221,41 @@ static bool wifi_mcu_rf_vga(struct xhci_device *d){
     for(unsigned i=0;i<MT76_RF_VGA_COUNT;i++)console_printf("wifi-rf-vga-value: index=%u address=%x expected=%u observed=%u\n",(uint64_t)i,(uint64_t)mt76_rf_vga_address(i),(uint64_t)mt76_rf_vga_value(i),(uint64_t)s->values[i]);
     return status==MT76_TIMING_OK?true:wifi_mcu_fail(d);
 }
+struct wifi_5ghz_prereq_context {struct xhci_device *d;struct mt76_5ghz_prereq *s;unsigned submitted;bool active;};
+static bool wifi_5ghz_prereq_owned(void *context){
+    struct wifi_5ghz_prereq_context *c=context;struct xhci_wifi_mcu *m=&c->d->firmware.mcu;
+    return wifi_5ghz_prereq_requested && c->active && c->submitted==c->s->operations &&
+        wifi_rf_vga_owned(c->d) && m->rf_vga_submitted==MT76_RF_VGA_OPS && mt76_rf_vga_exact_profile_valid(&m->rf_vga);
+}
+static bool wifi_5ghz_prereq_read(void *context,uint32_t address,uint32_t *value){
+    struct wifi_5ghz_prereq_context *c=context;unsigned op=c->submitted;
+    if(!value || !wifi_5ghz_prereq_owned(c) || !mt76_5ghz_prereq_admit(c->s,op) || mt76_5ghz_prereq_rf(op) || address!=mt76_5ghz_prereq_address(op))return false;
+    c->submitted++;*value=0;bool ok=wifi_mac_private_usb(c->d,false,address,value);
+    console_printf("wifi-5ghz-prereq-usb: op=%u address=%x value=%x ok=%u writes=0\n",(uint64_t)op,(uint64_t)address,(uint64_t)*value,(uint64_t)ok);
+    return ok?true:wifi_mcu_fail(c->d);
+}
+static int wifi_5ghz_prereq_exchange(void *context,const uint8_t *packet,size_t length,uint8_t *reply,size_t capacity){
+    struct wifi_5ghz_prereq_context *c=context;struct xhci_device *d=c->d;struct xhci_wifi_mcu *m=&d->firmware.mcu;unsigned op=c->submitted;uint8_t allowed[16];
+    if(!wifi_5ghz_prereq_owned(c) || !mt76_5ghz_prereq_admit(c->s,op) || !packet || !reply || length!=16 || capacity<MT76_MCU_RESPONSE_MAX || mt76_5ghz_prereq_packet(op,allowed,16)!=16)return -1;
+    for(unsigned i=0;i<16;i++)if(packet[i]!=allowed[i])return -1;
+    c->submitted++;for(unsigned i=0;i<16;i++)d->firmware.buffer[i]=packet[i];
+    int sent=wifi_mcu_bulk(d,false,16),received=-1;if(sent==16)received=wifi_mcu_bulk(d,true,MT76_MCU_RESPONSE_MAX);
+    uint32_t words[4]={0};for(unsigned n=0;n<4;n++)if(received>=(int)(4*n+4))for(unsigned b=0;b<4;b++)words[n]|=(uint32_t)m->buffer[4*n+b]<<(8*b);
+    console_printf("wifi-5ghz-prereq-command: op=%u sent=%d received=%d cc=%u residue=%u h=%x address=%x value=%x t=%x writes=0\n",(uint64_t)op,(int64_t)sent,(int64_t)received,(uint64_t)m->completion,(uint64_t)m->remaining,(uint64_t)words[0],(uint64_t)words[1],(uint64_t)words[2],(uint64_t)words[3]);
+    if(received<0 || (size_t)received>capacity)return -1;
+    for(int i=0;i<received;i++)reply[i]=m->buffer[i];return received;
+}
+static bool wifi_mcu_5ghz_prereq(struct xhci_device *d){
+    struct xhci_wifi_mcu *m=&d->firmware.mcu;struct mt76_5ghz_prereq s={0};struct wifi_5ghz_prereq_context c={d,&s,0,true};
+    m->table_active=m->dcoc_active=m->skey_active=m->wcid_active=m->mac_tail_active=m->mac_fixed_active=m->efuse_map_active=m->mac_board_active=m->ant_snapshot_active=m->ant_init_active=m->rf_probe_active=m->rf_table_active=m->rf_bank5_active=m->rf_bank6_active=m->rf_vga_active=true;
+    const struct mt76_mcu_timing_io io={&c,wifi_5ghz_prereq_owned,wifi_5ghz_prereq_read,wifi_5ghz_prereq_exchange};
+    enum mt76_mcu_timing_status status=mt76_5ghz_prereq_capture(&s,&io);c.active=false;
+    m->table_active=m->dcoc_active=m->skey_active=m->wcid_active=m->mac_tail_active=m->mac_fixed_active=m->efuse_map_active=m->mac_board_active=m->ant_snapshot_active=m->ant_init_active=m->rf_probe_active=m->rf_table_active=m->rf_bank5_active=m->rf_bank6_active=m->rf_vga_active=false;
+    bool valid=status==MT76_TIMING_OK && c.submitted==49 && mt76_5ghz_prereq_valid(&s);
+    console_printf("wifi-5ghz-prereq: status=%u complete=%u valid=%u operations=%u submitted=%u reads=%u exchanges=%u observed=%u writes=0 network_out=0\n",(uint64_t)status,(uint64_t)s.complete,(uint64_t)valid,(uint64_t)s.operations,(uint64_t)c.submitted,(uint64_t)s.reads,(uint64_t)s.exchanges,(uint64_t)s.observed);
+    for(unsigned i=0;i<7;i++)console_printf("wifi-5ghz-prereq-value: index=%u address=%x value=%x\n",(uint64_t)i,(uint64_t)mt76_5ghz_prereq_target(i),(uint64_t)s.values[i]);
+    return valid?true:wifi_mcu_fail(d);
+}
 static bool wifi_rf_g20_owned(void *context){
     struct xhci_device *d=context;struct xhci_wifi_mcu *m=&d->firmware.mcu;
     return m->rf_g20_mode && m->rf_g20_active && wifi_rf_vga_owned(d) &&
@@ -3139,7 +3175,7 @@ static bool wifi_capture_mcu(bool reset,bool write_probe,bool pair_probe,bool ti
             else if(compact) {
                 wifi_mcu_select_mode(m,observe);
                 if(!wifi_mcu_initialize_compact(d,m->table_mode?2:5+agc_steps,(observe==6 || observe==7 || observe==8 || m->table_mode)))saved=false;
-                else if(m->table_mode){if(!wifi_mcu_clock_enable(d) || !wifi_mcu_probe_bbp(d) || m->bbp.pbf!=0x80c00 || (m->mac_snapshot_mode && !wifi_mcu_mac_snapshot(d)) || (m->mac_route_mode && !wifi_mcu_mac_route(d)) || (m->mac_policy_mode && !wifi_mcu_mac_policy(d)) || (m->mac_protect_mode && !wifi_mcu_mac_protect(d)) || (m->mac_contention_mode && !wifi_mcu_mac_contention(d)) || (m->mac_txsw_mode && !wifi_mcu_mac_txsw(d)) || (m->mac_beacon_mode && !wifi_mcu_mac_beacon(d)) || (m->mac_vht_mode && !wifi_mcu_mac_vht(d)) || (m->mac_buffer_mode && !wifi_mcu_mac_buffer(d)) || (m->mac_fce_mode && !wifi_mcu_mac_fce(d)) || (m->mac_ampdu_mode && !wifi_mcu_mac_ampdu(d)) || ((m->bbp_after_mac_mode || (!m->mac_route_mode && !m->mac_raw_mode)) && !wifi_mcu_table_capture(d)) || (m->bbp_switch_mode && !wifi_mcu_bbp_switch(d)) || (m->dcoc_mode && !wifi_mcu_dcoc(d)) || (m->skey_mode && !wifi_mcu_skey(d)) || (m->wcid_mode && !wifi_mcu_wcid(d)) || (m->mac_tail_mode && !wifi_mcu_mac_tail(d)) || (m->mac_fixed_mode && !wifi_mcu_mac_fixed(d)) || (m->efuse_map_mode && !wifi_mcu_efuse_map(d)) || (m->mac_address_mode && !wifi_mcu_mac_address(d)) || (m->mac_board_mode && !wifi_mcu_mac_board(d)) || (m->ant_snapshot_mode && !wifi_mcu_ant_snapshot(d)) || (m->ant_init_mode && !wifi_mcu_ant_init(d)) || (m->rf_probe_mode && !wifi_mcu_rf_probe(d)) || (m->rf_central_mode && !wifi_mcu_rf_central(d)) || (m->rf_table_mode && !wifi_mcu_rf_table(d)) || (m->rf_bank5_mode && !wifi_mcu_rf_bank5(d)) || (m->rf_bank6_mode && !wifi_mcu_rf_bank6(d)) || (m->rf_vga_mode && !wifi_mcu_rf_vga(d)) || (m->rf_g20_mode && !wifi_mcu_rf_g20(d)) || (m->rf_trim_mode && !wifi_mcu_rf_trim(d)) || (m->rf_cal_mode && !wifi_mcu_rf_cal(d)) || (m->rf_wait_mode && !wifi_mcu_rf_wait(d)) || (m->path_mode && !wifi_mcu_path(d)) || (m->channel_state_mode && !wifi_mcu_channel_state(d)) || (m->usb_cycle_mode && !wifi_mcu_usb_cycle(d)) || (m->bw_observe_mode && !wifi_mcu_bw_observe(d)) || (m->bbp20_mode && !wifi_mcu_bbp20(d)) || (m->channel_probe_mode && !wifi_mcu_channel_probe(d)) || (m->band2g_mode && (!wifi_mcu_band2g(d) || !wifi_mcu_band_mac(d))) || (m->synth1_mode && !wifi_mcu_synth1(d)) || (m->post_mode && (!wifi_mcu_post(d) || !wifi_mcu_post_mac(d))) || (m->gain_mode && !wifi_mcu_gain(d)) || (m->channel_bbp_mode && !wifi_mcu_channel_bbp(d)) || (m->post_vco_mode && !wifi_mcu_post_vco(d)) || (m->agc_state_mode && !wifi_mcu_agc_state(d)) || (m->rx_lifecycle_mode && !wifi_mcu_rx_lifecycle(d)))saved=false;}
+                else if(m->table_mode){if(!wifi_mcu_clock_enable(d) || !wifi_mcu_probe_bbp(d) || m->bbp.pbf!=0x80c00 || (m->mac_snapshot_mode && !wifi_mcu_mac_snapshot(d)) || (m->mac_route_mode && !wifi_mcu_mac_route(d)) || (m->mac_policy_mode && !wifi_mcu_mac_policy(d)) || (m->mac_protect_mode && !wifi_mcu_mac_protect(d)) || (m->mac_contention_mode && !wifi_mcu_mac_contention(d)) || (m->mac_txsw_mode && !wifi_mcu_mac_txsw(d)) || (m->mac_beacon_mode && !wifi_mcu_mac_beacon(d)) || (m->mac_vht_mode && !wifi_mcu_mac_vht(d)) || (m->mac_buffer_mode && !wifi_mcu_mac_buffer(d)) || (m->mac_fce_mode && !wifi_mcu_mac_fce(d)) || (m->mac_ampdu_mode && !wifi_mcu_mac_ampdu(d)) || ((m->bbp_after_mac_mode || (!m->mac_route_mode && !m->mac_raw_mode)) && !wifi_mcu_table_capture(d)) || (m->bbp_switch_mode && !wifi_mcu_bbp_switch(d)) || (m->dcoc_mode && !wifi_mcu_dcoc(d)) || (m->skey_mode && !wifi_mcu_skey(d)) || (m->wcid_mode && !wifi_mcu_wcid(d)) || (m->mac_tail_mode && !wifi_mcu_mac_tail(d)) || (m->mac_fixed_mode && !wifi_mcu_mac_fixed(d)) || (m->efuse_map_mode && !wifi_mcu_efuse_map(d)) || (m->mac_address_mode && !wifi_mcu_mac_address(d)) || (m->mac_board_mode && !wifi_mcu_mac_board(d)) || (m->ant_snapshot_mode && !wifi_mcu_ant_snapshot(d)) || (m->ant_init_mode && !wifi_mcu_ant_init(d)) || (m->rf_probe_mode && !wifi_mcu_rf_probe(d)) || (m->rf_central_mode && !wifi_mcu_rf_central(d)) || (m->rf_table_mode && !wifi_mcu_rf_table(d)) || (m->rf_bank5_mode && !wifi_mcu_rf_bank5(d)) || (m->rf_bank6_mode && !wifi_mcu_rf_bank6(d)) || (m->rf_vga_mode && !wifi_mcu_rf_vga(d)) || (wifi_5ghz_prereq_requested && !wifi_mcu_5ghz_prereq(d)) || (m->rf_g20_mode && !wifi_mcu_rf_g20(d)) || (m->rf_trim_mode && !wifi_mcu_rf_trim(d)) || (m->rf_cal_mode && !wifi_mcu_rf_cal(d)) || (m->rf_wait_mode && !wifi_mcu_rf_wait(d)) || (m->path_mode && !wifi_mcu_path(d)) || (m->channel_state_mode && !wifi_mcu_channel_state(d)) || (m->usb_cycle_mode && !wifi_mcu_usb_cycle(d)) || (m->bw_observe_mode && !wifi_mcu_bw_observe(d)) || (m->bbp20_mode && !wifi_mcu_bbp20(d)) || (m->channel_probe_mode && !wifi_mcu_channel_probe(d)) || (m->band2g_mode && (!wifi_mcu_band2g(d) || !wifi_mcu_band_mac(d))) || (m->synth1_mode && !wifi_mcu_synth1(d)) || (m->post_mode && (!wifi_mcu_post(d) || !wifi_mcu_post_mac(d))) || (m->gain_mode && !wifi_mcu_gain(d)) || (m->channel_bbp_mode && !wifi_mcu_channel_bbp(d)) || (m->post_vco_mode && !wifi_mcu_post_vco(d)) || (m->agc_state_mode && !wifi_mcu_agc_state(d)) || (m->rx_lifecycle_mode && !wifi_mcu_rx_lifecycle(d)))saved=false;}
                 else if(observe==4 || observe==5 || observe==6 || observe==7) { if(!wifi_mcu_txbe_access(d,observe==5 || observe==7))saved=false; }
                 else if(observe==2 || observe==3) { if(!wifi_mcu_txbe_first(d,observe==3))saved=false; }
                 else if(observe==1 && !wifi_mcu_observe_txbe(d))saved=false;
@@ -3342,4 +3378,11 @@ bool xhci_wifi_capture_scan_channel_diagnosis(void){
     bool ok=xhci_wifi_capture_scan_batch();
     wifi_scan_diagnosis_requested=false;
     return ok;
+}
+
+bool xhci_wifi_capture_5ghz_prereq(void){
+    if(wifi_5ghz_prereq_requested)return false;
+    wifi_5ghz_prereq_requested=true;
+    bool ok=wifi_capture_mcu(true,true,true,true,false,false,false,false,false,false,false,true,0,47);
+    wifi_5ghz_prereq_requested=false;return ok;
 }

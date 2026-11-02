@@ -14,6 +14,20 @@ import hardware_boot as boot
 
 
 class InstallTests(unittest.TestCase):
+    def test_5ghz_prerequisite_profile(self):
+        version='ram-usb-wifi-fw-v108-laptop-probe-0e535900-auto-return'
+        config=boot.limine_config('0123456789abcdef',version)
+        base=boot.limine_config('0123456789abcdef',version.replace('v108-','v69-'))
+        self.assertEqual(config,base.replace('srvros.wifi-rf-vga=1','srvros.wifi-rf-vga=1 srvros.wifi-5ghz-prereq=1'))
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        for forbidden in ('srvros.wifi-band2g=1','srvros.wifi-rf-g20=1','srvros.wifi-rf-trim=1','srvros.wifi-rf-cal=1','srvros.wifi-desktop-trial=1','srvros.wifi-scan=1'):
+            self.assertNotIn(forbidden,config)
+        for v in (version.removesuffix('-auto-return'),):
+            with self.assertRaises(ValueError):boot.limine_config('0123456789abcdef',v)
+        with self.assertRaises(ValueError):boot.limine_config('0123456789abcdef',version,legacy_wifi_calibration=True)
+        for options in ({},dict(wifi_rf_vga=True),dict(wifi_rf_vga=True,wifi_firmware_package=Path('unused'),wifi_rf_g20=True),dict(wifi_rf_vga=True,wifi_firmware_package=Path('unused'),hold_on_failure=True)):
+            with self.assertRaises(ValueError):boot.stage(wifi_5ghz_prereq=True,**options)
+
     def test_navigation_attended_profile(self):
         config=boot.limine_config('0123456789abcdef','ram-usb-v76-desktop-37d8c5d0')
         for token in ('srvros.desktop=session','srvros.battery=on','srvros.desktop-guide=window-navigation','srvros.usb-network=ecm'):

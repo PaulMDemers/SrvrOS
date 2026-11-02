@@ -2443,6 +2443,72 @@ bool mt76_channel_probe_exact_profile_valid(const struct mt76_channel_probe *s){
 }
 
 uint32_t mt76_band_mac_address(unsigned i){static const uint32_t a[2]={0x13c8,0x13a0};return i<2?a[i]:UINT32_MAX;}
+uint32_t mt76_5ghz_prereq_target(unsigned i){
+    static const uint32_t targets[7]={0x13c8,0x13a0,0x0518,0x13a8,0x13b4,0x80050000,0x80060000};
+    return i<7?targets[i]:UINT32_MAX;
+}
+bool mt76_5ghz_prereq_rf(unsigned op){return op<49 && op%7==3 && op/7>=5;}
+uint32_t mt76_5ghz_prereq_address(unsigned op){
+    if(op>=49)return UINT32_MAX;
+    unsigned n=op%7;
+    return n==3?mt76_5ghz_prereq_target(op/7):mt76_rf_probe_read_address(n<3?n:n-4);
+}
+size_t mt76_5ghz_prereq_packet(unsigned op,uint8_t *out,size_t capacity){
+    if(!mt76_5ghz_prereq_rf(op))return 0;
+    uint8_t payload[8]={0};uint32_t a=mt76_5ghz_prereq_address(op);
+    for(unsigned b=0;b<4;b++)payload[b]=(uint8_t)(a>>(8*b));
+    return mt76_mcu_encode(10,op/7-4,payload,8,out,capacity);
+}
+static bool prereq_state_valid(const struct mt76_5ghz_prereq *s,unsigned op){
+    if(!s || !s->attempted || op>49 || s->operations!=op)return false;
+    unsigned targets=op/7+(op%7>3),rf=targets>5?targets-5:0;
+    if(s->reads!=op-rf || s->exchanges!=rf || s->observed!=targets || s->received!=(rf?16:-1))return false;
+    for(unsigned i=0;i<7;i++){
+        unsigned done=op>=7*(i+1)?7:op>7*i?op-7*i:0;
+        for(unsigned j=0;j<3;j++){
+            if(done>j && !rf_central_guard_valid(j,s->guards[i*2][j]))return false;
+            if(done>4+j && !rf_central_guard_valid(j,s->guards[i*2+1][j]))return false;
+        }
+        if(done<=3)continue;
+        if(s->values[i]==UINT32_MAX || (i>=5 && s->values[i]>255))return false;
+        if(i>=5){
+            uint32_t h=0x4a000008u|((i-4)<<16);const uint32_t *w=s->words[i-5];
+            if(w[0]!=h || w[1]!=mt76_5ghz_prereq_target(i) || w[2]!=s->values[i] || w[3]!=h)return false;
+        }
+    }
+    return true;
+}
+bool mt76_5ghz_prereq_admit(const struct mt76_5ghz_prereq *s,unsigned op){return s && !s->complete && op<49 && prereq_state_valid(s,op);}
+bool mt76_5ghz_prereq_valid(const struct mt76_5ghz_prereq *s){return s && s->complete && prereq_state_valid(s,49);}
+enum mt76_mcu_timing_status mt76_5ghz_prereq_capture(struct mt76_5ghz_prereq *s,const struct mt76_mcu_timing_io *io){
+    if(!s || s->attempted || !io || !io->authorize || !io->read || !io->exchange)return MT76_TIMING_REFUSED;
+    *s=(struct mt76_5ghz_prereq){.attempted=true,.received=-1};
+    for(unsigned op=0;op<49;op++){
+        if(!mt76_5ghz_prereq_admit(s,op))return MT76_TIMING_STATE;
+        if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+        unsigned i=op/7,n=op%7;uint32_t v=0;
+        if(mt76_5ghz_prereq_rf(op)){
+            uint8_t packet[16],reply[MT76_MCU_RESPONSE_MAX]={0};
+            if(mt76_5ghz_prereq_packet(op,packet,sizeof packet)!=16)return MT76_TIMING_STATE;
+            s->received=io->exchange(io->context,packet,16,reply,sizeof reply);
+            if(s->received<0)return MT76_TIMING_IO;
+            if(s->received!=16)return MT76_TIMING_REPLY;
+            for(unsigned w=0;w<4;w++)for(unsigned b=0;b<4;b++)s->words[i-5][w]|=(uint32_t)reply[4*w+b]<<(8*b);
+            uint32_t h=0x4a000008u|((i-4)<<16),*w=s->words[i-5];
+            if(w[0]!=h || w[1]!=mt76_5ghz_prereq_target(i) || w[2]>255 || w[3]!=h)return MT76_TIMING_REPLY;
+            v=w[2];s->exchanges++;
+        }else{
+            if(!io->read(io->context,mt76_5ghz_prereq_address(op),&v))return MT76_TIMING_IO;
+            s->reads++;
+        }
+        s->operations++;
+        if(n==3){if(v==UINT32_MAX)return MT76_TIMING_STATE;s->values[i]=v;s->observed++;}
+        else {unsigned j=n<3?n:n-4;s->guards[i*2+(n>=4)][j]=v;if(!rf_central_guard_valid(j,v))return MT76_TIMING_STATE;}
+    }
+    if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+    if(!prereq_state_valid(s,49))return MT76_TIMING_STATE;
+    s->complete=true;return MT76_TIMING_OK;
+}
 /* Separate fixed plans; callers cannot choose words or relax admission gates. */
 static const uint32_t band2g_mac_values[2]={0x00050007,0x003e0002};
 static const uint32_t band5g_mac_values[2]={0x00000005,0x01010102};
