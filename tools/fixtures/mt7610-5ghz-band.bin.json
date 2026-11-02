@@ -1,0 +1,15 @@
+{
+  "scope": "Offline fixed RF band selection only; no native acceptance or channel authorization",
+  "sources": [
+    {
+      "url": "https://raw.githubusercontent.com/torvalds/linux/v7.0/drivers/net/wireless/mediatek/mt76/mt76x0/initvals_phy.h",
+      "sha256": "5a1f239a47c22f2d5ac58c806fbf93d36a4f0467dea9d4faee6e9bab4be5d0f6"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/torvalds/linux/v7.0/drivers/net/wireless/mediatek/mt76/mt76x0/phy.c",
+      "sha256": "bd3d8a5425e4d0738d077728d8ea62687a7914ae26b36e69199bc34a4effc745"
+    }
+  ],
+  "layout": "40 triples: RF bank, register, value; table followed by 5GHz selector writes",
+  "sha256": "8681b73c95181f7923b370a7b34a207eae0f4217f253ca9637d53efdbcd0de87"
+}

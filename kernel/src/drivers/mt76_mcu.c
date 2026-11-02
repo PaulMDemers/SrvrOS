@@ -1793,6 +1793,12 @@ static const struct rf_table_plan rf_trim_plan={1,416,0,NULL,rf_trim_values,rf_t
 static const uint32_t rf_band2g_addresses[70]={0x80050002u,0x80050003u,0x80050004u,0x80050005u,0x80050006u,0x80050007u,0x80050008u,0x80050009u,0x8005000au,0x8005000bu,0x8005000cu,0x8005000du,0x8005000eu,0x8005000fu,0x80050010u,0x80050011u,0x80050012u,0x80050013u,0x80050014u,0x80050015u,0x80050016u,0x80050017u,0x80050018u,0x8005001au,0x8005001bu,0x8005001cu,0x8005001du,0x8005001eu,0x8005001fu,0x80050020u,0x80050021u,0x80050022u,0x80050023u,0x80050024u,0x80050025u,0x80050026u,0x80050027u,0x80050028u,0x80050029u,0x8005002au,0x8005002bu,0x8005002cu,0x8005002du,0x8005002eu,0x8005002fu,0x80050030u,0x80050031u,0x80050032u,0x80050033u,0x80050034u,0x80050035u,0x80050036u,0x80050037u,0x80050038u,0x80050039u,0x8005003au,0x8005003bu,0x8005003cu,0x8005003du,0x8005003eu,0x8005003fu,0x80050040u,0x80050041u,0x80050042u,0x80050043u,0x80050044u,0x80050045u,0x8005007fu,0x80050000u,0x80060000u};
 static const uint8_t rf_band2g_values[70]={0xc,0x0,0x0,0x84,0x2,0x0,0x0,0x0,0x51,0x22,0x22,0xf,0x47,0x25,0xc7,0x0,0x0,0x30,0x33,0x2,0x32,0x0,0x25,0x0,0x12,0xf,0x0,0x51,0x35,0x31,0x31,0x34,0x3,0x0,0xdd,0xb3,0x33,0xb1,0x71,0xf2,0x47,0x77,0xe,0x10,0x0,0x53,0x3,0xef,0xc7,0x62,0x62,0x0,0x0,0xf,0xf,0x16,0x16,0x10,0x10,0xd0,0x6c,0x58,0x58,0xf2,0xe8,0xf0,0xf0,0x4,0x45,0x44};
 static const struct rf_table_plan rf_band2g_plan={70,0,0,NULL,rf_band2g_values,rf_band2g_addresses};
+/* Linux v7.0 mt76x0_phy_set_band(5GHz): fixed bank6 table, then selectors.
+ * Kept separate from the legacy 2GHz plan; no caller-selected targets/values.
+ * Offline foundation only: MAC band words and channel/calibration are pending. */
+static const uint32_t rf_band5g_addresses[MT76_RF_BAND5G_COUNT]={0x80060002u,0x80060003u,0x80060004u,0x80060005u,0x80060006u,0x80060007u,0x80060008u,0x80060009u,0x8006000au,0x8006000bu,0x8006000du,0x8006000eu,0x8006000fu,0x80060010u,0x80060012u,0x80060013u,0x80060014u,0x80060015u,0x80060016u,0x80060019u,0x8006001au,0x8006001bu,0x8006001cu,0x8006001du,0x80060025u,0x80060026u,0x80060028u,0x80060029u,0x8006002bu,0x8006002cu,0x8006002eu,0x8006002fu,0x80060030u,0x80060031u,0x8006003eu,0x8006003fu,0x80060040u,0x80060041u,0x80050000u,0x80060000u};
+static const uint8_t rf_band5g_values[MT76_RF_BAND5G_COUNT]={0xc,0x0,0x0,0x84,0x2,0x0,0x0,0x0,0x0,0x1,0x23,0x0,0x4,0x22,0x8,0x0,0x0,0x0,0xfb,0x76,0x24,0x4,0x0,0x0,0xbb,0xb3,0x33,0x33,0x3,0xb3,0x17,0xe,0x10,0x7,0x0,0x0,0xf1,0xf,0x44,0x45};
+static const struct rf_table_plan rf_band5g_plan={MT76_RF_BAND5G_COUNT,0,0,NULL,rf_band5g_values,rf_band5g_addresses};
 static uint32_t rf_plan_address(const struct rf_table_plan *p,unsigned i){return i<p->count?(p->addresses?p->addresses[i]:p->base|p->regs[i]):UINT32_MAX;}
 static unsigned rf_plan_sequence(const struct rf_table_plan *p,unsigned command){return command<(p->count*2)?(p->sequence_base+command)%15+1:0;}
 static uint32_t rf_plan_guard_address(const struct rf_table_plan *p,unsigned op){
@@ -1900,6 +1906,19 @@ bool mt76_rf_bank5_exact_profile_valid(const struct mt76_rf_table *s){
     return s && s->complete && s->operations==MT76_RF_BANK5_OPS &&
         rf_plan_state_valid(&rf_bank5_plan,s,MT76_RF_BANK5_OPS) &&
         s->equal==MT76_RF_BANK5_COUNT && !s->mismatch_mask && !s->mismatch_hi;
+}
+
+unsigned mt76_rf_band5g_sequence(unsigned command){return rf_plan_sequence(&rf_band5g_plan,command);}
+uint32_t mt76_rf_band5g_guard_address(unsigned op){return rf_plan_guard_address(&rf_band5g_plan,op);}
+size_t mt76_rf_band5g_packet(unsigned op,uint8_t *out,size_t capacity){return rf_plan_packet(&rf_band5g_plan,op,out,capacity);}
+bool mt76_rf_band5g_admit(const struct mt76_rf_table *state,unsigned op){return rf_plan_admit(&rf_band5g_plan,state,op);}
+enum mt76_mcu_timing_status mt76_rf_band5g_capture(struct mt76_rf_table *state,const struct mt76_mcu_timing_io *io){return rf_plan_capture(&rf_band5g_plan,state,io);}
+uint32_t mt76_rf_band5g_address(unsigned i){return rf_plan_address(&rf_band5g_plan,i);}
+unsigned mt76_rf_band5g_value(unsigned i){return i<MT76_RF_BAND5G_COUNT?rf_band5g_values[i]:UINT32_MAX;}
+bool mt76_rf_band5g_exact_profile_valid(const struct mt76_rf_table *s){
+    return s && s->complete && s->operations==MT76_RF_BAND5G_OPS &&
+        rf_plan_state_valid(&rf_band5g_plan,s,MT76_RF_BAND5G_OPS) &&
+        s->equal==MT76_RF_BAND5G_COUNT && !s->mismatch_mask && !s->mismatch_hi;
 }
 
 unsigned mt76_rf_vga_sequence(unsigned command){return rf_plan_sequence(&rf_vga_plan,command);}

@@ -4569,3 +4569,11 @@ build/tests/mt76-5ghz-plan-host$(HOST_EXE): tools/test_mt76_5ghz_plan.c kernel/s
 test-core: test-cpu-receipt-tail
 test-cpu-receipt-tail:
 	$(PYTHON) -m unittest discover -s tools -p test_cpu_receipt_tail.py
+
+.PHONY: test-mt76-rf-band5g
+test-core: test-mt76-rf-band5g
+test-mt76-rf-band5g: build/tests/mt76-rf-band5g-host$(HOST_EXE)
+	$(HOST_RUN) $< tools/fixtures/mt7610-5ghz-band.bin
+build/tests/mt76-rf-band5g-host$(HOST_EXE): tools/test_mt76_rf_band5g.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h tools/fixtures/mt7610-5ghz-band.bin
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
