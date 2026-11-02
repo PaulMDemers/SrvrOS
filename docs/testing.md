@@ -1329,3 +1329,11 @@ sanitizer architectures, exact VM evidence and bounded contracts are in the
 [DNS/socket audit](dns-socket-audit-2026-10-28.md). Evidence directory:
 `build/review/dns-socket/`. This adds syscall 155 and EAI_AGAIN; rebuild matched
 kernel/libc rather than copying a new socket client into an older image.
+
+
+The October 31 resolver follow-up expands `make test-net-query` to 15 modes.
+`dns-last-poll` and `dns-deadline-wake` inject a valid response into the
+production packet handler in the last poll and at the final wake respectively.
+Both require the captured answer from a single query and release of resolver
+ownership. The silent-server control checks exactly three full timeout intervals,
+unchanged output on failure, and a successful subsequent lookup.
