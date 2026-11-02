@@ -364,3 +364,72 @@ counter mismatch. Separate Ubuntu package counters observed C3 at 13.23–14.41%
 confirming this unit can enter package C3 under Linux's policies/device state.
 Neither observation changes the SrvrOS acceptance predicate or identifies a
 causal blocker; the unit record preserves the full comparison limits.
+
+## Cross-OS package-C3 prerequisite comparison
+
+The Air6,1 November 1 comparison uses the saved native release
+`0804f2944e9364d3` and two Linux snapshots on the same unit. All 25 PCI functions
+match by BDF, vendor/device and class. These observations narrow candidates;
+they do not establish the platform's instantaneous package-entry grant.
+
+| Field | SrvrOS | Ubuntu Linux | Interpretation |
+| --- | --- | --- | --- |
+| Package configuration `0xe2` | `0x408` | `0x408` on all four CPUs | Same sampled limit/configuration |
+| Package-C3 IRTL `0x60a` | `0x8842` | `0x8842` | Same 67.584 us allowance |
+| Misc enable `0x1a0` | `0x850089` | `0x850089` on all four CPUs | Same sampled control value |
+| Core C3 request | Fixed MWAIT `0x10` trial | Enabled C3 entry described as MWAIT `0x10` | Same hint, different idle scheduling/workloads |
+| PCIe ASPM, LTR enable/support, clock-PM enable/support | Captured per function | Same decoded fields | No difference in these sampled fields |
+| Extended LTR | Two Broadcom values `0x10031003`; absent on others | Same state/offset/value/header counts | Configured maximum latency, not a live request measurement |
+| Audio `00:03.0`, `00:1b.0` | D0 | D3hot, runtime suspended | Ownership/idle-state candidate |
+| Root port `00:1c.0`, Thunderbolt `06:03.0`–`06:06.0` | D0 | D3hot, runtime suspended | Other device-state candidates |
+| Common Clock Configuration | Clear at `00:1c.4`, `05:00.0`, `06:00.0`, `07:00.0` | Set at those four functions | Distinct from ASPM and clock-PM enables |
+| Display well | No matching native field | Linux cached `display` use count zero | Software reference count, not hardware-off proof |
+
+Linux also enables deeper core idle entries, while the native trial uses its
+fixed C3 hint. The [U/Y datasheet](https://cdrdv2-public.intel.com/329001/4th-gen-core-family-mobile-u-y-processor-lines-vol-1-datasheet.pdf)
+sections 4.2.5–4.2.6 describes core C3-or-deeper resolution and platform
+permission, with memory, timer and device constraints on package entry. Positive
+Linux core C7 does not by itself show that the SrvrOS C3 hint is wrong. The
+[upstream idle table](https://github.com/torvalds/linux/blob/v7.0/drivers/idle/intel_idle.c)
+and captured sysfs descriptors both identify the Haswell C3 request as `0x10`.
+
+`tools/linux_package_pci.c` adapts O_RDONLY/pread configuration-file access to
+the existing bounded `package_pci_read`/`package_ltr_read` implementation. The
+host-only collector gates known-supported MSRs to this Air6,1/CPU/GPU/PCH profile,
+records all four CPUs before/after, preserves per-device sysfs power state and
+refuses output replacement. Its comparison keeps native start/end separately;
+missing, unreadable or identity-mismatched devices remain unknown. No shared
+runtime, native hardware allowlist or boot profile changes.
+
+```sh
+make test-linux-package-compare
+sudo python3 tools/linux_package_compare.py \
+  --pci-reader build/tests/linux-package-pci-host \
+  --native-log PATH_TO_MATCHING_EXIT_LOG \
+  --output build/power/package-comparison-new-run
+```
+
+The [Linux PCI sysfs implementation](https://github.com/torvalds/linux/blob/v7.0/drivers/pci/pci-sysfs.c)
+acquires runtime PM for configuration reads. The helper issues no configuration
+or power-control writes, but reads can resume a device through Linux; surrounding
+states are evidence, not a guarantee of an unperturbed sample. Both captures
+retained the same seven D3hot differences. Raw link/status/interrupt fields also
+differ; matching selected fields does not mean all PCI configuration is equal.
+The [PCI definitions](https://github.com/torvalds/linux/blob/v7.0/include/uapi/linux/pci_regs.h)
+distinguish Common Clock bit 6 from clock-PM bit 8 and ASPM bits 1:0.
+
+Only cached DRM state, connector modes, runtime/frontbuffer state and
+[display power-domain reference counts](https://github.com/torvalds/linux/blob/v7.0/drivers/gpu/drm/i915/display/intel_display_power.c)
+are used for the display comparison. An exploratory Linux `drpc` read is
+excluded from passive evidence: its
+[implementation](https://github.com/torvalds/linux/blob/v7.0/drivers/gpu/drm/i915/gt/intel_gt_pm_debugfs.c)
+uses runtime PM, forcewake-requiring reads and a PCODE read request on Haswell.
+A debugfs file opened read-only is not necessarily a passive hardware operation.
+No such path or PCODE/forcewake access is added to SrvrOS.
+
+The bounded next native diagnostic should capture validated display/power-well
+status alongside the existing C3 attempts. The current record lacks that side
+of the comparison. Audit driver/DMA/interrupt/teardown ownership before proposing
+any D-state or PCI link transition. Neither Linux D3hot snapshots nor common-
+clock differences authorize copying control values. RC6 timing, dynamic device
+latency requests and the actual package-C3 blocker remain unresolved.

@@ -91,20 +91,19 @@ console/basic-keyboard/bounded-USB payload; preserve it as recovery.
 
 ## Current objective and next actions
 
-Fetched main `9340c9fb` and completed the read-only Ubuntu RC6 baseline on this
-unit. Scope: host-only capture/parser/tests and evidence documentation. No
-SrvrOS runtime or policy change. The final November 1 section records all three
-windows and their limits. The lower Linux RC6 fraction leaves the original
-SrvrOS mismatch unresolved. Separate Linux counters positively observe package
-C3, which remains zero in the bounded SrvrOS trial.
+Base `e339b9a8`. Complete the host-only Linux/SrvrOS package-C3 prerequisite
+comparison, reusing the existing PCI decoder and known-supported MSR reads.
+The final November 1 section and current AP guide record repeated 25-device
+matches, equal CPU/ASPM/LTR settings, and differing D-state/common-clock fields.
+No runtime, hardware allowlist, policy or boot payload changed. PR261 desktop
+admission, PR252 sockets and PR19 Wi-Fi remain separate work.
 
-Next bounded power work is comparing package-C3 prerequisites and display/device
-state across the two OSes while retaining the original RC6 predicate. PR261
-owns desktop lifecycle latency, PR252 resolver/socket and PR19 Wi-Fi; this work
-does not edit those runtime subsystems. Installed release `0804f2944e9364d3`
-(source `05668557`) remains distinct from the current checkout. Rebuild and
-validate matched newer artifacts before claiming native acceptance of fetched
-main. No boot payload changed and no reboot is armed.
+Next bounded native work is a validated read-only display/power-well snapshot
+alongside the existing C3 attempts, since that half of the comparison is missing.
+D-state/link transitions first need driver/DMA/interrupt/teardown ownership
+analysis. Preserve the unresolved RC6 predicate and original bounds. Installed
+release `0804f2944e9364d3` remains distinct from the current checkout. No reboot
+is armed; rebuild and validate matched artifacts before a new physical trial.
 
 ### Historical battery-runtime objective (2026-10-23)
 
@@ -5488,3 +5487,53 @@ independent. No shared runtime or native register allowlist changes, forced
 wakeups, control writes, power-policy changes or new boot in this audit.
 Preserve unknowns and choose a bounded follow-up from captured differences;
 Linux package C3 alone does not identify a SrvrOS blocker.
+
+
+### Package-C3 prerequisite comparison captured (2026-11-01)
+
+Based on `e339b9a8`, two host-only comparisons against native source `05668557`,
+release `0804f2944e9364d3`, preserve the exact exit hash recorded in the October
+31 closeout. All 25 BDF/identity/class matches and comparison results repeat.
+No missing/unreadable devices or MSR drift occurred. Linux's four CPUs all have
+package configuration `0x408`, C3 IRTL `0x8842` and misc-enable `0x850089`,
+matching the native capture. Linux C3 descriptors use the same MWAIT `0x10`.
+This removes those sampled configuration differences from the current shortlist,
+without proving identical scheduling or every platform prerequisite.
+
+ASPM, LTR enable/support and clock-PM enable/support match across all 25
+functions. Independent extended-capability review also matches all paired
+native LTR states, offsets, values and header counts, including the two
+Broadcom `0x10031003` values. These are configured maxima, not observed latency
+requests. Common Clock Configuration differs at SSD root port `00:1c.4` and
+Thunderbolt functions `05:00.0`, `06:00.0`, `07:00.0` (Linux set, native clear).
+Other raw interrupt/link/status fields differ and are retained; no link change
+is proposed from these snapshots.
+
+Seven Linux functions are D3hot/runtime suspended where native PMCSR was D0:
+both audio controllers `00:03.0` and `00:1b.0`, root port `00:1c.0`, and
+Thunderbolt downstream ports `06:03.0`–`06:06.0`. Their surrounding Linux
+sysfs states were retained because configuration reads can invoke kernel
+runtime PM. Driver ownership, active DMA/interrupts and teardown requirements
+must be audited before any proposed transition; this is candidate evidence,
+not a causal result or permission to copy Linux control values.
+
+Cached Linux display state has only the 1366×768 eDP connector enabled,
+pipe A/eDP domain references, and zero software references to the `display`
+power well/audio domains. There is no matching native display-power-well
+snapshot; reference counts alone do not establish hardware-off state. An early
+exploratory `drpc` read is excluded from passive evidence after source review
+showed its kernel forcewake/PCODE read path. The retained display comparison
+uses cached reports instead. No native register allowlist is expanded here.
+
+The host helper reuses the existing bounded PCI decoder and performs only
+kernel-mediated read access. Five new comparison/adapter regressions, existing
+package/latency/collector tests and the Linux RC6 helper tests are the applicable
+validation. Raw snapshots, source references and reviewed comparison remain in
+ignored local storage with a verified durable copy. See the current AP audit
+guide for the field table and caveats.
+
+Next: validate and add a narrowly gated read-only native display/power-well
+snapshot to the existing bounded C3 trial. Keep device ownership analysis
+separate from any future D-state/link policy experiment. Package C3 remains
+unobserved in SrvrOS, and its RC6 timing failure remains open. No boot image,
+power policy, integrity check or limit changed, and no reboot is armed.
