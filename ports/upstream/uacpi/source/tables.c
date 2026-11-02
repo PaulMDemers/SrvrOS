@@ -156,8 +156,11 @@ static uacpi_status initialize_from_rxsdt(uacpi_phys_addr rxsdt_addr,
         ret = uacpi_table_install_physical_with_origin(
             entry_addr, UACPI_TABLE_ORIGIN_FIRMWARE_PHYSICAL, UACPI_NULL
         );
+        /* A host may intentionally suppress an optional firmware table.
+         * Other installation errors must abort enumeration. */
         if (uacpi_unlikely(ret != UACPI_STATUS_OK &&
-                           ret != UACPI_STATUS_OVERRIDDEN))
+                           ret != UACPI_STATUS_OVERRIDDEN &&
+                           ret != UACPI_STATUS_DENIED))
             goto error_out;
     }
 
@@ -859,7 +862,7 @@ out:
 
     if (virt != UACPI_NULL)
         uacpi_kernel_unmap(virt, hdr.length);
-    return UACPI_STATUS_OK;
+    return ret;
 }
 
 uacpi_status uacpi_table_install_physical_with_origin(

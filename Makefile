@@ -3169,6 +3169,22 @@ build/tools/acpi-namespace$(HOST_EXE): tools/acpi_namespace_probe.c kernel/src/d
 test-acpi-namespace: acpi-namespace
 	$(PYTHON) tools/test_acpi_namespace.py
 
+.PHONY: test-uacpi-namespace-root
+test-core: test-uacpi-namespace-root
+test-uacpi-namespace-root: build/tests/uacpi-namespace-root-host$(HOST_EXE)
+	$<
+build/tests/uacpi-namespace-root-host$(HOST_EXE): tools/test_uacpi_namespace_root.c $(UACPI_SRC) $(UACPI_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I ports/upstream/uacpi/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-uacpi-table-install
+test-core: test-uacpi-table-install
+test-uacpi-table-install: build/tests/uacpi-table-install-host$(HOST_EXE)
+	$<
+build/tests/uacpi-table-install-host$(HOST_EXE): tools/test_uacpi_table_install.c $(UACPI_SRC) $(UACPI_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I ports/upstream/uacpi/include $< -Wl,--gc-sections -o $@
+
 .PHONY: test-make-bootstrap
 test-make-bootstrap:
 	$(PYTHON) -m unittest discover -s tools -p test_make_bootstrap.py

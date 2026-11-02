@@ -511,7 +511,7 @@ uacpi_status uacpi_namespace_node_resolve(
     uacpi_bool single_nameseg = UACPI_TRUE;
 
     if (cur_node == UACPI_NULL)
-        cur_node = uacpi_namespace_root();
+        cur_node = parent = uacpi_namespace_root();
 
     bytes_left = uacpi_strlen(path);
 

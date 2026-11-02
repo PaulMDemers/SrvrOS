@@ -5,7 +5,21 @@ Version: 7.0.0, commit `686a9a52d9ad72690406d7cada82801377d5e2fa`
 License: MIT (retained in `ports/upstream/uacpi/LICENSE`).
 Tarball: https://api.github.com/repos/uACPI/uACPI/tarball/686a9a52d9ad72690406d7cada82801377d5e2fa
 Downloaded archive SHA-256: `26fc8f2fd7fedac1356732d9aa3f58620142d3aa9b1da69c6817293040e732fd`.
-Only unmodified `include/`, `source/`, LICENSE and README.md are vendored.
+The `include/`, `source/`, LICENSE and README.md snapshot is vendored. The
+archive hash above identifies the upstream download, not the locally patched
+source tree. Local fixes from the 2026-11-02 audit are:
+
+- Normalize a null namespace scope to the root for both initial lookup and
+  relative-name fallback (`source/namespace.c`).
+- Preserve physical table installation errors after unmapping temporary table
+  data (`source/tables.c`); failure must not publish a successful FACS lookup.
+  Firmware root-table enumeration still skips entries intentionally denied by
+  the host installation callback, including duplicate DSDT entries. Required
+  FACS/DSDT installation errors continue to abort initialization.
+
+Real-source host regressions are `test-uacpi-namespace-root` and
+`test-uacpi-table-install`. These narrow patches do not broaden the adapters'
+firmware or hardware permissions.
 
 The first adapter is `tools/acpi_namespace_probe.c`, a single-threaded offline
 host tool. It builds synthetic RSDP/XSDT/FADT pointers around explicitly supplied
