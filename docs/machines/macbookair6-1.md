@@ -6043,3 +6043,15 @@ verify before review additions. Ubuntu remains default, one-shot is consumed,
 collection is disabled and no reboot is armed. Review/raw evidence is backed
 up outside `build`. Next: the audited read-only display-audio/interrupt inventory,
 with exact access gates and current-source compact retention checks retained.
+
+
+### Display-audio/IRQ endpoints — active scope (2026-11-02)
+
+Base `88c56afa`. Add eight fixed readbacks to the explicit exact-Air6,1 platform
+diagnostic: HSW audio pin/ELD plus A/B/C config and DE/SDE mask/enable controls.
+Require captured LPC identity/class/BDF before/after alongside the existing GPU
+identity/BAR/D0/decode/well gates. No HDA initializer, verbs, data-window or IIR
+access, acknowledgement, power request or IRQ-mask write. Scope: isolated
+platform producer, independent strict parser, mapping/failure/retention fixtures
+and current docs. PR272 lifecycle, PR252 lifetimes and PR19 Wi-Fi remain separate.
+Keep all policies, limits, samples and compact proof requirements unchanged.

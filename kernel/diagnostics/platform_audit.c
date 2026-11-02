@@ -15,7 +15,7 @@
 static struct package_ltr latency[2][PCI_MAX_DEVICES];
 static uint32_t bdfs[PCI_MAX_DEVICES],ids[PCI_MAX_DEVICES];
 static unsigned count,fault;
-static const struct pci_device *gpu;
+static const struct pci_device *gpu,*pch_device;
 static uint64_t gpu_base,stamp[2],config[2];
 static uint32_t status[2],rc6[2];
 static bool mapped;
@@ -33,11 +33,23 @@ static unsigned well_seen;
 static struct display_resource_snapshot resources[2];
 static bool resource_mapped;
 static unsigned resource_seen;
+#define DEP_VA 0xffffc001f3220000ull
+#define DEP_COUNT 8u
+#define DEP_PAGES 3u
+/* pin/ELD, audio config A/B/C, CPU mask/enable, PCH mask/enable.
+ * Never read IIRs, ELD data or codec/controller transaction windows. */
+static const unsigned dep_offsets[DEP_COUNT]={0x650c0,0x65000,0x65100,0x65200,0x44004,0x4400c,0xc4004,0xc400c};
+static const unsigned dep_pages[DEP_PAGES]={0x65000,0x44000,0xc4000};
+static struct display_resource_snapshot dependencies[2];
+static uint32_t dep_pch[2][2];
+static unsigned dep_seen;
+static bool dep_mapped;
 #ifdef SRVROS_PLATFORM_HOST_TEST
 static uint64_t ordered_tsc(void) {return platform_test_tsc();}
 static uint32_t graphics_read(unsigned off) {return platform_test_read(off);}
 static uint32_t well_read(unsigned off) {return platform_test_well_read(off);}
 static uint32_t resource_read(unsigned off) {return platform_test_resource_read(off);}
+static uint32_t dependency_read(unsigned off) {return platform_test_dependency_read(off);}
 #else
 static uint32_t graphics_read(unsigned off) {return *(volatile const uint32_t *)(GFX_VA+off);}
 static uint32_t well_read(unsigned off) {return *(volatile const uint32_t *)(WELL_VA+off);}
@@ -46,6 +58,12 @@ static uint32_t resource_read(unsigned off) {
         if((off&~4095u)==display_resource_pages[i])
             return *(volatile const uint32_t *)(RESOURCE_VA+4096ull*i+(off&4095));
     return 0xffffffffu; /* No unlisted page can be addressed. */
+}
+static uint32_t dependency_read(unsigned off) {
+    for(unsigned i=0;i<DEP_PAGES;i++)
+        if((off&~4095u)==dep_pages[i])
+            return *(volatile const uint32_t *)(DEP_VA+4096ull*i+(off&4095));
+    return 0xffffffffu;
 }
 static uint64_t ordered_tsc(void) {
     unsigned lo,hi;
@@ -85,12 +103,25 @@ static bool graphics_access_valid(void) {
         package_graphics_bar(pci_read_config32(gpu,0x10),pci_read_config32(gpu,0x14),
                              pci_read_config16(gpu,4),&base) && base==gpu_base;
 }
+static bool dependency_map_pages(void) {
+    uint64_t existing;
+    for(unsigned i=0;i<DEP_PAGES;i++)if(vmm_virt_to_phys(DEP_VA+4096ull*i,&existing))return false;
+    for(unsigned i=0;i<DEP_PAGES;i++)
+        if(!vmm_map_page(DEP_VA+4096ull*i,gpu_base+dep_pages[i],VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE))return false;
+    return true;
+}
+static bool dependency_pch_valid(uint32_t *id) {
+    if(!pch_device || pch_device->bus || pch_device->device!=31 || pch_device->function ||
+       pch_device->class_code!=6 || pch_device->subclass!=1)return false;
+    *id=pci_read_config32(pch_device,0);
+    return *id==0x9c438086 && (pci_read_config32(pch_device,8)>>8)==0x060100;
+}
 static bool graphics_bind(void) {
     uint16_t pch=0;const uint8_t *dsdt=NULL;size_t size=0;
     for(uint64_t i=0;i<pci_device_count();i++) {
         const struct pci_device *p=pci_device_at(i);
         if(p->vendor_id==0x8086 && p->device_id==0x0a26 && p->bus==0 && p->device==2 && !p->function && p->class_code==3)gpu=p;
-        if(p->vendor_id==0x8086 && p->device_id==0x9c43 && p->class_code==6 && p->subclass==1)pch=p->device_id;
+        if(p->vendor_id==0x8086 && p->device_id==0x9c43 && p->class_code==6 && p->subclass==1) {pch=p->device_id;pch_device=p;}
     }
     for(uint64_t i=0;i<acpi_table_count();i++) {
         const struct acpi_table_info *t=acpi_table_at(i);
@@ -101,7 +132,7 @@ static bool graphics_bind(void) {
     if(!package_graphics_bar(pci_read_config32(gpu,0x10),pci_read_config32(gpu,0x14),pci_read_config16(gpu,4),&gpu_base))return false;
     /* Uncore status/counter plus the four always-accessible Haswell display
      * well request/status registers. RC_CONTROL/forcewake/mailbox stay out. */
-    return graphics_map_pages() && (resource_mapped=resource_map_pages());
+    return graphics_map_pages() && (resource_mapped=resource_map_pages()) && (dep_mapped=dependency_map_pages());
 }
 static void well_snapshot(unsigned phase) {
     if(phase>1 || !mapped || (well_seen&(1u<<phase))){fault=1;return;}
@@ -134,6 +165,28 @@ static void resource_snapshot(unsigned phase) {
 done:
     r->end=timer_monotonic_us();
     if(r->state!=1)fault=1;
+}
+static void dependency_snapshot(unsigned phase) {
+    if(phase>1 || !mapped || !dep_mapped || (dep_seen&(1u<<phase))) {fault=1;return;}
+    struct display_resource_snapshot *r=&dependencies[phase];
+    *r=(struct display_resource_snapshot){0};dep_seen|=1u<<phase;
+    r->begin=timer_monotonic_us();r->state=3;
+    if(!graphics_access_valid() || !dependency_pch_valid(&dep_pch[phase][0]))goto done;
+    for(unsigned i=0;i<4;i++)r->before[i]=well_read(0x400+4*i);
+    for(unsigned i=0;i<4;i++)if(r->before[i]==0xffffffffu)goto done;
+    if(!display_resource_well_on(r->before)) {r->state=2;goto done;}
+    for(unsigned i=0;i<DEP_COUNT;i++) {
+        r->raw[i]=dependency_read(dep_offsets[i]);r->read_count++;
+        /* All-ones IMR is a valid all-masked value; preserve IRQ raw bits. */
+        if(i<4 && r->raw[i]==0xffffffffu)goto done;
+    }
+    for(unsigned i=0;i<4;i++)r->after[i]=well_read(0x400+4*i);
+    if(!graphics_access_valid() || !dependency_pch_valid(&dep_pch[phase][1]) ||
+       !display_resource_well_on(r->after))goto done;
+    for(unsigned i=0;i<4;i++)if(r->before[i]!=r->after[i])goto done;
+    r->state=1;
+done:
+    r->end=timer_monotonic_us();if(r->state!=1)fault=1;
 }
 void platform_audit_sample(uint64_t sample_us) {
     /* Caller is the existing IRQ-masked power checkpoint. Binding and teardown
@@ -178,6 +231,7 @@ void platform_audit_snapshot(unsigned phase) {
     /* Outside the original RC6 brackets and all measured C3 rounds. */
     well_snapshot(phase);
     resource_snapshot(phase);
+    dependency_snapshot(phase);
     if(!phase)series_active=true;
     for(unsigned i=0;i<count;i++) {
         const struct pci_device *p=pci_device_at(i);
@@ -194,8 +248,8 @@ void platform_audit_snapshot(unsigned phase) {
 }
 bool platform_audit_report(void) {
     bool ok=!fault && mapped && stamp[1]>stamp[0] && config[0]==config[1] &&
-        series_count && !series_active && !series_overflow && well_seen==3 && resource_seen==3;
-    console_printf("ap-platform: v=5 fault=%u devices=%u policy_writes=0 forcewake_writes=0 permission=unavailable reason=no-validated-grant-register completed=%s\n",(uint64_t)fault,(uint64_t)count,ok?"yes":"NO");
+        series_count && !series_active && !series_overflow && well_seen==3 && resource_seen==3 && dep_seen==3;
+    console_printf("ap-platform: v=6 fault=%u devices=%u policy_writes=0 forcewake_writes=0 permission=unavailable reason=no-validated-grant-register completed=%s\n",(uint64_t)fault,(uint64_t)count,ok?"yes":"NO");
     console_printf("ap-platform-gfx: bdf=16 id=170295430 base=%u time_us=%u,%u status=%u,%u rc6=%u,%u config=%u,%u rc_control=unavailable\n",gpu_base,stamp[0],stamp[1],(uint64_t)status[0],(uint64_t)status[1],(uint64_t)rc6[0],(uint64_t)rc6[1],config[0],config[1]);
     for(unsigned i=0;i<2;i++)console_printf("ap-platform-time: phase=%u pm_us=%u,%u tsc=%u,%u nominal_mhz=%u reference=acpi-pm\n",(uint64_t)i,pm_begin[i],pm_end[i],tsc_begin[i],tsc_end[i],(uint64_t)nominal_mhz[i]);
     for(unsigned i=0;i<2;i++)console_printf("ap-platform-well: phase=%u pm_us=%u,%u ctl=%u,%u,%u,%u\n",(uint64_t)i,well_begin[i],well_end[i],(uint64_t)well_ctl[i][0],(uint64_t)well_ctl[i][1],(uint64_t)well_ctl[i][2],(uint64_t)well_ctl[i][3]);
@@ -207,6 +261,16 @@ bool platform_audit_report(void) {
             (uint64_t)r->after[0],(uint64_t)r->after[1],(uint64_t)r->after[2],(uint64_t)r->after[3]);
         console_printf("ap-platform-resource: phase=%u count=26 raw=%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u\n",
             (uint64_t)phase,(uint64_t)r->raw[0],(uint64_t)r->raw[1],(uint64_t)r->raw[2],(uint64_t)r->raw[3],(uint64_t)r->raw[4],(uint64_t)r->raw[5],(uint64_t)r->raw[6],(uint64_t)r->raw[7],(uint64_t)r->raw[8],(uint64_t)r->raw[9],(uint64_t)r->raw[10],(uint64_t)r->raw[11],(uint64_t)r->raw[12],(uint64_t)r->raw[13],(uint64_t)r->raw[14],(uint64_t)r->raw[15],(uint64_t)r->raw[16],(uint64_t)r->raw[17],(uint64_t)r->raw[18],(uint64_t)r->raw[19],(uint64_t)r->raw[20],(uint64_t)r->raw[21],(uint64_t)r->raw[22],(uint64_t)r->raw[23],(uint64_t)r->raw[24],(uint64_t)r->raw[25]);
+    }
+    for(unsigned phase=0;phase<2;phase++) {
+        const struct display_resource_snapshot *r=&dependencies[phase];
+        console_printf("ap-platform-deps: v=1 phase=%u state=%u pm_us=%u,%u reads=%u count=8 pch=%u,%u before=%u,%u,%u,%u after=%u,%u,%u,%u raw=%u,%u,%u,%u,%u,%u,%u,%u\n",
+            (uint64_t)phase,(uint64_t)r->state,r->begin,r->end,(uint64_t)r->read_count,
+            (uint64_t)dep_pch[phase][0],(uint64_t)dep_pch[phase][1],
+            (uint64_t)r->before[0],(uint64_t)r->before[1],(uint64_t)r->before[2],(uint64_t)r->before[3],
+            (uint64_t)r->after[0],(uint64_t)r->after[1],(uint64_t)r->after[2],(uint64_t)r->after[3],
+            (uint64_t)r->raw[0],(uint64_t)r->raw[1],(uint64_t)r->raw[2],(uint64_t)r->raw[3],
+            (uint64_t)r->raw[4],(uint64_t)r->raw[5],(uint64_t)r->raw[6],(uint64_t)r->raw[7]);
     }
     console_printf("ap-platform-series: v=1 count=%u cap=12 checkpoints=%u stride=2 overflow=%u completed=%s\n",(uint64_t)series_count,(uint64_t)series_checkpoints,(uint64_t)series_overflow,(!series_active && !series_overflow && series_count)?"yes":"NO");
     for(unsigned i=0;i<series_count;i++) {

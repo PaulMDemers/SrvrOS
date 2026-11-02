@@ -109,7 +109,7 @@ def _display(text):
     if not base or base&0x3fffff or base>0xfffffff800000:return None
     headers=[x for x in text.splitlines() if x.startswith('ap-platform:')]
     if len(headers)!=1:return None
-    h=re.fullmatch(r'ap-platform: v=(?:4|5) fault=(\d+) devices=(\d+) policy_writes=0 forcewake_writes=0 permission=unavailable reason=no-validated-grant-register completed=(yes|NO)',headers[0])
+    h=re.fullmatch(r'ap-platform: v=(?:4|5|6) fault=(\d+) devices=(\d+) policy_writes=0 forcewake_writes=0 permission=unavailable reason=no-validated-grant-register completed=(yes|NO)',headers[0])
     if not h or int(h[1])>=2**32 or not 1<=int(h[2])<=128:return None
     rows={}
     for line in (x for x in text.splitlines() if x.startswith('ap-platform-well:')):
@@ -131,7 +131,7 @@ def _parse(text):
     if not package:return None
     h=[x for x in text.splitlines() if x.startswith('ap-platform:')]
     if len(h)!=1:return None
-    m=re.fullmatch(r'ap-platform: v=(1|2|3|4|5) fault=0 devices=(\d+) policy_writes=0 forcewake_writes=0 permission=unavailable reason=no-validated-grant-register completed=yes',h[0])
+    m=re.fullmatch(r'ap-platform: v=(1|2|3|4|5|6) fault=0 devices=(\d+) policy_writes=0 forcewake_writes=0 permission=unavailable reason=no-validated-grant-register completed=yes',h[0])
     if not m or int(m[2])!=len(package['devices']):return None
     version=int(m[1]);timing=platform_timing_result(text)
     if version>=2 and not timing:return None
@@ -142,6 +142,8 @@ def _parse(text):
     resources=platform_resources_result(text) if version>=5 else None
     if version>=5 and (not resources or resources['status']!='OBSERVED' or
                       resources['source_fault'] or not resources['source_completed']):return None
+    dependencies=platform_dependencies_result(text) if version>=6 else None
+    if version>=6 and (not dependencies or dependencies['status']!='OBSERVED' or dependencies['source_fault'] or not dependencies['source_completed']):return None
     gfx=[x for x in text.splitlines() if x.startswith('ap-platform-gfx:')]
     if len(gfx)!=1:return None
     m=re.fullmatch(r'ap-platform-gfx: bdf=16 id=170295430 base=(\d+) time_us=(\d+),(\d+) status=(\d+),(\d+) rc6=(\d+),(\d+) config=(\d+),(\d+) rc_control=unavailable',gfx[0])
@@ -174,7 +176,7 @@ def _parse(text):
                 decoded.append(None)
         rows[bdf]=dict(state=a,offset=o0,raw=[v0,v1],decoded=decoded,headers=[n0,n1])
     if rows.keys()!=devices.keys():return None
-    return dict(status='PASS',timing=timing,series=series,display_well=display,resources=resources,graphics=dict(base=base,time_us=[t0,t1],status_raw=[s0,s1],rc_state=[{0:'RC0',2:'RC3',3:'RC6',4:'RC7'}.get(v&7,'unknown') for v in (s0,s1)],rc6_raw=[r0,r1],rc6_delta_ticks=delta,rc6_delta_ns=delta*1280,rc6_observed=bool(delta),rc_control='unavailable'),firmware_config=c0,permission='unavailable',permission_reason='no-validated-grant-register',latency=rows,scope='Paired read-only context, no causal blocker or policy inference; max LTR capability is not measured response latency or proof of a current request')
+    return dict(status='PASS',timing=timing,series=series,display_well=display,resources=resources,dependencies=dependencies,graphics=dict(base=base,time_us=[t0,t1],status_raw=[s0,s1],rc_state=[{0:'RC0',2:'RC3',3:'RC6',4:'RC7'}.get(v&7,'unknown') for v in (s0,s1)],rc6_raw=[r0,r1],rc6_delta_ticks=delta,rc6_delta_ns=delta*1280,rc6_observed=bool(delta),rc_control='unavailable'),firmware_config=c0,permission='unavailable',permission_reason='no-validated-grant-register',latency=rows,scope='Paired read-only context, no causal blocker or policy inference; max LTR capability is not measured response latency or proof of a current request')
 
 
 RESOURCE_OFFSETS = (0x70008,0x71008,0x72008,0x7f008,0x60400,0x61400,0x62400,0x6f400,
@@ -188,7 +190,7 @@ def platform_resources_result(text):
 
 def _resources(text):
     display=platform_display_result(text)
-    if not display or not re.search(r'^ap-platform: v=5 ',text,re.M):return None
+    if not display or not re.search(r'^ap-platform: v=(?:5|6) ',text,re.M):return None
     rows={}
     for line in (x for x in text.splitlines() if x.startswith('ap-platform-resources:')):
         m=re.fullmatch(r'ap-platform-resources: v=1 phase=([01]) state=([123]) pm_us=(\d+),(\d+) reads=(\d+) count=26 before=(\d+),(\d+),(\d+),(\d+) after=(\d+),(\d+),(\d+),(\d+)',line)
@@ -225,3 +227,35 @@ def _resources(text):
     return dict(status='OBSERVED' if all(r['state']==1 for r in rows.values()) else 'UNAVAILABLE',acceptance=False,
         samples=[rows[0],rows[1]],source_fault=display['source_fault'],source_completed=display['source_completed'],
         scope='Fixed read-only non-atomic endpoint controls; off-domain unknowns retained; no audio/interrupt inventory, ownership transfer or causal blocker inference')
+
+
+def platform_dependencies_result(text):
+    """Read-only graphics-audio/IRQ context, not ownership or DMA retirement."""
+    try:return _dependencies(text)
+    except (ValueError,KeyError,IndexError,OverflowError,StopIteration):return None
+
+def _dependencies(text):
+    resource=platform_resources_result(text)
+    if not resource or not re.search(r'^ap-platform: v=6 ',text,re.M):return None
+    rows=[]
+    for line in (x for x in text.splitlines() if x.startswith('ap-platform-deps:')):
+        m=re.fullmatch(r'ap-platform-deps: v=1 phase=([01]) state=([123]) pm_us=(\d+),(\d+) reads=(\d+) count=8 pch=(\d+),(\d+) before=(\d+),(\d+),(\d+),(\d+) after=(\d+),(\d+),(\d+),(\d+) raw=(\d+(?:,\d+){7})',line)
+        if not m:return None
+        phase,state,a,b,n,p0,p1,*ctl=map(int,m.groups()[:-1]);raw=list(map(int,m.groups()[-1].split(',')))
+        if phase!=len(rows) or not 0<a<=b<2**64 or n>8 or any(v>=0xffffffff for v in ctl) or any(v>=2**32 for v in raw):return None
+        if a<resource['samples'][phase]['pm_us'][1]:return None
+        if state==3:return None
+        if p0!=0x9c438086:return None
+        if state==1 and (n!=8 or p1!=p0 or ctl[:4]!=ctl[4:] or not all(v&(1<<30) for v in ctl) or any(v==0xffffffff for v in raw[:4])):return None
+        if state==2 and (n or p1 or any(ctl[4:]) or any(raw) or all(v&(1<<30) for v in ctl[:4])):return None
+        decoded=None
+        if state==1:
+            pin=raw[0]
+            decoded=dict(audio=[dict(eld_valid=bool(pin&(1<<(4*i))),cp_ready=bool(pin&(2<<(4*i))),output_enable=bool(pin&(4<<(4*i))),inactive=bool(pin&(8<<(4*i)))) for i in range(3)],audio_config=raw[1:4],
+                         cpu_irq=dict(mask=raw[4],enable=raw[5],enable_and_not_mask=raw[5]&(~raw[4]&0xffffffff)),
+                         pch_irq=dict(mask=raw[6],enable=raw[7],enable_and_not_mask=raw[7]&(~raw[6]&0xffffffff)))
+        rows.append(dict(state=state,pm_us=[a,b],pch=[p0,p1],before=ctl[:4],after=ctl[4:],raw=raw,read_count=n,decoded=decoded))
+    if len(rows)!=2 or rows[0]['pm_us'][1]>=resource['samples'][1]['pm_us'][0]:return None
+    return dict(status='OBSERVED' if all(r['state']==1 for r in rows) else 'UNAVAILABLE',acceptance=False,samples=rows,
+                source_fault=resource['source_fault'],source_completed=resource['source_completed'],
+                scope='Non-atomic control readbacks only; no HDA/IRQ owner, DMA retirement, platform permission or causal power inference')
