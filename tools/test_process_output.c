@@ -123,6 +123,46 @@ static void setup(unsigned refs) {
     subject.files[3]=(struct process_file){.used=true,.type=PROCESS_FILE_VFS_WRITE,.handle=1};
     assert(process_file_dup2(&subject,3,1)==1);
 }
+static void pipe_close_admission(void) {
+    clear_process(&subject);memset(pipes,0,sizeof(pipes));uint64_t fds[2];
+    assert(!process_file_pipe(&subject,fds));int64_t result=123;
+    assert(!process_file_try_close_pipe(NULL,3,&result) && result==123);
+    assert(!process_file_try_close_pipe(&subject,99,&result) && result==123);
+    assert(!process_file_try_close_pipe(&subject,3,NULL));
+    struct process_file original=subject.files[3];
+    const enum process_file_type rejected[]={PROCESS_FILE_STDIO,PROCESS_FILE_VFS,PROCESS_FILE_VFS_WRITE,
+        PROCESS_FILE_PIPE_DUPLEX,PROCESS_FILE_PTY_MASTER,PROCESS_FILE_PTY_SLAVE,
+        PROCESS_FILE_UNIX_LISTENER,PROCESS_FILE_NET_CONNECTION};
+    for(unsigned n=0;n<sizeof(rejected)/sizeof(*rejected);n++) {
+        subject.files[3].type=rejected[n];struct process_file before=subject.files[3];
+        assert(!process_file_try_close_pipe(&subject,3,&result) && result==123);
+        assert(!memcmp(&before,&subject.files[3],sizeof(before)));
+    }
+    subject.files[3]=original;subject.files[3].handle=PROCESS_MAX_PIPES+1;
+    assert(!process_file_try_close_pipe(&subject,3,&result));subject.files[3]=original;
+    pipes[0].read_refs=0;assert(!process_file_try_close_pipe(&subject,3,&result));pipes[0].read_refs=1;
+    pipes[0].refs=0;assert(!process_file_try_close_pipe(&subject,3,&result));pipes[0].refs=2;
+    for(unsigned n=0;n<PROCESS_PIPE_RIGHTS_QUEUE;n++) {
+        pipes[0].rights[n].used=true;static struct process_pipe before;before=pipes[0];
+        uint64_t generation=subject.file_generations[3];
+        assert(!process_file_try_close_pipe(&subject,3,&result));
+        assert(!process_file_try_close_pipe(&subject,4,&result));
+        assert(result==123 && !memcmp(&before,&pipes[0],sizeof(before)) &&
+            !memcmp(&original,&subject.files[3],sizeof(original)) && subject.file_generations[3]==generation);
+        pipes[0].rights[n].used=false;
+    }
+    assert(process_file_dup(&subject,4)==5 && pipes[0].refs==3 && pipes[0].write_refs==2);
+    uint64_t generation=subject.file_generations[4];
+    assert(process_file_try_close_pipe(&subject,4,&result) && result==0);
+    assert(!subject.files[4].used && subject.file_generations[4]==generation+1 && pipes[0].write_refs==1);
+    assert(process_file_pipe_write(&subject,5,(const uint8_t *)"abc",3)==3);
+    assert(process_file_try_close_pipe(&subject,5,&result) && pipes[0].write_refs==0);
+    uint8_t bytes[3];assert(process_file_pipe_read(&subject,3,bytes,3)==3 && !memcmp(bytes,"abc",3));
+    assert(process_file_pipe_read(&subject,3,bytes,3)==0); /* EOF after final writer. */
+    assert(process_file_try_close_pipe(&subject,3,&result) && !pipes[0].used);
+    assert(!process_file_try_close_pipe(&subject,3,&result));
+    puts("pipe-close: PASS types/rights/reference refusal without mutation, aliases, generation, buffered EOF and final release");
+}
 static void pipe_regression(void) {
     clear_process(&subject);memset(pipes,0,sizeof(pipes));uint64_t fds[2];
     assert(!process_file_pipe(&subject,fds) && fds[0]==3 && fds[1]==4);
@@ -722,6 +762,7 @@ int main(void) {
     descriptor_regression();
     positional_regression();
     snapshot_read_regression();
+    pipe_close_admission();
     pipe_regression();
     setup(2); /* Parent retains a duplicate until wait returns. */
     for(unsigned i=0;i<1000;i++) assert(process_output_write(&subject,1,(const uint8_t *)"x",1)==1);

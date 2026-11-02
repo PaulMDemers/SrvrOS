@@ -10,6 +10,13 @@
 
 static uint64_t ticks=1,next_surface=10,source=42;
 static int liveness_checks,alive=1,queued,full,created,destroyed,blits,sends,waits,wait_result,pixel_failure,surface_failure;
+static unsigned pixel_allocs,pixel_frees;
+static int refuse_canvas=1;static void *taken_canvas;static size_t taken_bytes;
+static int take_canvas(void *context,void *address,size_t length) {
+    assert(context==&taken_canvas && !taken_canvas);
+    if(refuse_canvas)return -1;
+    taken_canvas=address;taken_bytes=length;return 0;
+}
 int gui_wait(uint64_t server,uint64_t deadline) { assert(server==42 && deadline==10);waits++;return wait_result; }
 static unsigned io_waits;
 int gui_wait_io(struct srv_gui_wait *r) {
@@ -20,8 +27,8 @@ int gui_wait_io(struct srv_gui_wait *r) {
 static struct desk_packet incoming,last_sent;
 long srv_ticks(void) { return ticks; }
 int desk_process_alive(uint64_t pid) { assert(pid==42);liveness_checks++;return alive; }
-uint32_t *desk_pixels_alloc(uint32_t w,uint32_t h) { return pixel_failure?NULL:calloc((size_t)w*h,4); }
-void desk_pixels_free(uint32_t *p,uint32_t w,uint32_t h) { (void)w;(void)h;free(p); }
+uint32_t *desk_pixels_alloc(uint32_t w,uint32_t h) { pixel_allocs++;return pixel_failure?NULL:calloc((size_t)w*h,4); }
+void desk_pixels_free(uint32_t *p,uint32_t w,uint32_t h) { (void)w;(void)h;if(p)pixel_frees++;free(p); }
 struct desk_packet desk_packet_new(uint32_t type) {
     return (struct desk_packet){.window=DESK_DEFAULT_WINDOW,.type=type,.version=DESK_PROTOCOL_VERSION,.size=sizeof(struct desk_packet)};
 }
@@ -121,7 +128,11 @@ static void connection_windows(void) {
     receive(DESK_RELEASE,1);incoming.surface=a.surface;incoming.serial=a.pending;
     assert(connection_receive(&c,&target,&event)==2 && !a.pending && desk_window_dispose(&a)<0);
     receive(DESK_CLOSE_ACK,0);assert(connection_receive(&c,&target,&event)==1 && target==&a && a.closed);
-    assert(!desk_window_dispose(&a) && b.pixels[0]==0xabcdef && !b.closed && !b.failed);
+    uint32_t *canvas=a.pixels;size_t canvas_bytes=(size_t)a.width*a.height*4;int old_destroyed=destroyed;
+    assert(desk_window_dispose_with(&a,take_canvas,&taken_canvas)==-1 && a.pixels==canvas && a.connection==&c && !a.surface && destroyed==old_destroyed+1);
+    refuse_canvas=0;
+    assert(!desk_window_dispose_with(&a,take_canvas,&taken_canvas) && !a.pixels && !a.connection && taken_canvas==canvas && taken_bytes==canvas_bytes && destroyed==old_destroyed+1);
+    assert(b.pixels[0]==0xabcdef && !b.closed && !b.failed);free(taken_canvas);taken_canvas=NULL;
     assert(!desk_window_open(&c,&a,"Refused",400,300) && a.window==3);
     for(int n=0;n<3;n++)desk_connection_poll(&c,&target,&event);
     receive(DESK_OPEN_REPLY,0);incoming.window=3;incoming.value=DESK_OPEN_CAPACITY;
@@ -225,6 +236,52 @@ static void application_lifecycle(void) {
     desk_open_document_tick(&r,42);
     puts("desk-application: PASS sequential quit/cancel, owned path chunks, stale rejection, refusal and acknowledgement retry");
 }
+static void reserved_first_canvas(void) {
+    /* A post-helper allocation cannot enter the sole-main private map path.
+     * Refuse that allocation in the real configure handler, then show the
+     * adopted path needs no allocator while surface creation stays required. */
+    struct desk_connection c;struct desk_app a,*target;struct desk_packet event;
+    desk_connection_init(&c);full=0;source=42;queued=0;alive=1;
+    assert(!desk_window_open(&c,&a,"No reservation",400,300));
+    receive(DESK_OPEN_REPLY,0);incoming.window=a.window;connection_receive(&c,&target,&event);
+    pixel_failure=1;receive(DESK_CONFIGURE,1);incoming.window=a.window;incoming.width=400;incoming.height=300;
+    connection_receive(&c,&target,&event);
+    for(unsigned i=0;i<8 && !a.failed;i++)desk_connection_poll(&c,&target,&event);
+    assert(a.failed && !a.pixels && !a.surface);pixel_failure=0;
+    for(unsigned mismatch=0;mismatch<2;mismatch++) {
+        desk_connection_init(&c);assert(!desk_window_open(&c,&a,"Reserved",400,300));
+        uint32_t *pixels=desk_pixels_alloc(400,300);assert(pixels);pixels[0]=123;
+        assert(desk_app_adopt_pixels(&a,pixels,0,300)<0 && !a.pixels);
+        assert(!desk_app_adopt_pixels(&a,pixels,400,300));
+        assert(desk_app_adopt_pixels(&a,pixels,400,300)<0);
+        unsigned allocs=pixel_allocs,frees=pixel_frees;
+        receive(DESK_OPEN_REPLY,0);incoming.window=a.window;connection_receive(&c,&target,&event);
+        if(!mismatch)pixel_failure=1;
+        receive(DESK_CONFIGURE,1);incoming.window=a.window;incoming.width=mismatch?500:400;incoming.height=300;
+        connection_receive(&c,&target,&event);
+        for(unsigned i=0;i<8 && !a.surface;i++)desk_connection_poll(&c,&target,&event);
+        assert(a.surface && !a.failed);
+        assert(pixel_allocs==allocs+mismatch && pixel_frees==frees+mismatch);
+        if(!mismatch)assert(a.pixels==pixels && pixels[0]==123);
+        pixel_failure=0;
+        assert(desk_app_adopt_pixels(&a,a.pixels,a.width,a.height)<0);
+        a.closed=1;assert(!desk_window_dispose(&a));assert(pixel_frees==frees+mismatch+1);
+    }
+    /* Closing before CONFIGURE still owns and frees the adopted mapping once. */
+    desk_connection_init(&c);assert(!desk_window_open(&c,&a,"Early close",400,300));
+    uint32_t *early=desk_pixels_alloc(400,300);assert(!desk_app_adopt_pixels(&a,early,400,300));
+    unsigned early_frees=pixel_frees;a.opening=0;a.closed=1;
+    assert(!desk_window_dispose(&a) && pixel_frees==early_frees+1);
+    desk_connection_init(&c);assert(!desk_window_open(&c,&a,"Surface failure",400,300));
+    uint32_t *pixels=desk_pixels_alloc(400,300);assert(!desk_app_adopt_pixels(&a,pixels,400,300));
+    unsigned frees=pixel_frees;surface_failure=1;
+    receive(DESK_OPEN_REPLY,0);incoming.window=a.window;connection_receive(&c,&target,&event);
+    receive(DESK_CONFIGURE,1);incoming.window=a.window;incoming.width=400;incoming.height=300;
+    connection_receive(&c,&target,&event);
+    for(unsigned i=0;i<8 && !a.failed;i++)desk_connection_poll(&c,&target,&event);
+    assert(a.failed && a.pixels==pixels && pixel_frees==frees);
+    surface_failure=0;a.closed=1;assert(!desk_window_dispose(&a));assert(pixel_frees==frees+1);
+}
 int main(void) {
     struct desk_app stable={.server=42,.surface=1,.generation=7,.configure={.generation=7}};
     assert(desk_app_wait(&stable,10)==0 && waits==1);
@@ -295,6 +352,8 @@ int main(void) {
     desk_app_close(&a);assert(destroyed==2 && !a.pixels);
     alive=1;assert(!desk_app_open(&a,"Timeout",400,300));ticks+=501;
     assert(desk_app_poll(&a,&event)<0 && a.failed);desk_app_close(&a);
+    reserved_first_canvas();
+    puts("first-canvas: PASS refused late allocation, adopted no-allocation configure, geometry fallback, duplicate/admission refusal, early close and surface-failure ownership");
     refused_resize();
     connection_windows();
     parent_dialogs();

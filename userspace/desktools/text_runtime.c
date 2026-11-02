@@ -4,6 +4,34 @@
 #include <srvros/desk_log.h>
 #include <stdlib.h>
 #include <string.h>
+/* Creator-only opt-in; the helper's TLS starts with tracing disabled. */
+static _Thread_local int pthread_trace_role;
+static _Thread_local uint64_t pthread_trace_at;
+static _Thread_local struct tool_phase_trace pthread_trace_phase;
+void __posix_pthread_create_trace(const char *stage,int begin) {
+    if(!pthread_trace_role)return;
+    if(begin) {
+        pthread_trace_at=tool_timing_begin(pthread_trace_role,0,stage);
+        tool_phase_begin(&pthread_trace_phase);
+    } else {
+        tool_phase_end(&pthread_trace_phase,pthread_trace_role,0,stage);
+        tool_timing_end(pthread_trace_role,0,stage,pthread_trace_at);
+    }
+}
+static int surface_trace_role;
+static _Thread_local uint64_t surface_trace_at;
+static _Thread_local struct tool_phase_trace surface_trace_phase;
+void __desk_app_surface_trace(struct desk_app *window,const char *stage,int begin) {
+    if(!surface_trace_role)return;
+    if(begin) {
+        surface_trace_at=tool_timing_begin(surface_trace_role,window->window,stage);
+        tool_phase_begin(&surface_trace_phase);
+    } else {
+        tool_phase_end(&surface_trace_phase,surface_trace_role,window->window,stage);
+        tool_timing_end(surface_trace_role,window->window,stage,surface_trace_at);
+    }
+}
+#include "file_service.h"
 
 struct tool_document {
     struct tool tool;
@@ -15,7 +43,10 @@ struct tool_windows {
     struct desk_window_set set;
     struct desk_file_pool pool;
     struct desk_file_channel channels[2];
+    struct file_service files;
     struct desk_open_document open_request;
+    struct desk_window_owner *initial_owner;
+    uint32_t *initial_pixels;
     uint64_t service_window;
     unsigned capture_checkpoints;
     int role,capacity;
@@ -39,13 +70,35 @@ static void notice(struct tool_windows *app,uint64_t requester,const char *messa
     }
     if(fallback)tool_status(fallback,message);
 }
-static int create(struct tool_windows *app,uint64_t requester,const char *path) {
+static struct desk_window_owner *allocate_document(struct tool_windows *app) {
     uint64_t timing=tool_timing_begin(app->role,0,"document-map");
-    struct desk_window_owner *owner=desk_window_owner_new(&app->set,sizeof(struct tool_document));
+    struct tool_phase_trace phase;tool_phase_begin(&phase);
+    struct desk_window_owner *owner=desk_window_owner_new(&app->set,sizeof(struct tool_document)+
+        (app->role==DESK_APP_TEXT?sizeof(struct desk_text_history)+TOOL_TEXT_HISTORY_BYTES:0));
+    tool_phase_end(&phase,app->role,0,"document-map");
     tool_timing_end(app->role,0,"document-map",timing);
+    return owner;
+}
+static int create(struct tool_windows *app,uint64_t requester,const char *path) {
+    struct desk_window_owner *owner=app->initial_owner;app->initial_owner=NULL;
+    if(!owner)owner=allocate_document(app);
+    uint64_t timing;
     if(!owner) {notice(app,requester,"There is not enough memory for another window.");return -1;}
     struct tool_document *d=document(owner);struct tool *t=&d->tool;
     tool_runtime_init(t,app->role);
+    if(app->role==DESK_APP_TEXT) {
+        /* Aligned model tail shares the document mapping and its retirement.
+         * No heap call is permitted after helper startup for this journal. */
+        _Static_assert(sizeof(struct tool_document)%_Alignof(struct desk_text_history)==0,"journal alignment");
+        uint64_t history_at=tool_timing_begin(app->role,0,"text-history-reserve");
+        struct tool_phase_trace phase;tool_phase_begin(&phase);
+        int history_ready=tool_text_history_prepare(t,(struct desk_text_history *)(d+1));
+        tool_phase_end(&phase,app->role,0,"text-history-reserve");
+        tool_timing_end(app->role,0,"text-history-reserve",history_at);
+        if(history_ready) {
+            desk_window_owner_release(owner,1);notice(app,requester,"The document history could not be prepared.");return -1;
+        }
+    }
     if(strlen(path)>=sizeof(d->initial_path))d->bad_path=1;else strcpy(d->initial_path,path);
     timing=tool_timing_begin(app->role,0,"window-open");
     int opened=desk_window_owner_open(owner,&t->window,requester,
@@ -53,6 +106,13 @@ static int create(struct tool_windows *app,uint64_t requester,const char *path) 
     tool_timing_end(app->role,0,"window-open",timing);
     if(opened) {
         desk_window_owner_release(owner,1);notice(app,requester,"Another window is still opening. Try again shortly.");return -1;
+    }
+    if(app->initial_pixels) {
+        uint64_t adopt_at=tool_timing_begin(app->role,t->window.window,"canvas-adopt");
+        if(desk_app_adopt_pixels(&t->window,app->initial_pixels,720,480))
+            desk_pixels_free(app->initial_pixels,720,480);
+        app->initial_pixels=NULL;
+        tool_timing_end(app->role,t->window.window,"canvas-adopt",adopt_at);
     }
     t->clip.window=t->window.window;
     if(app->role==DESK_APP_FILES)desk_log("desktools: window-request role=files pid=%llu at_us=%llu\n",
@@ -167,15 +227,43 @@ static int window_event(void *context,struct desk_window_owner *owner,struct des
     return 0;
 }
 int tool_window_runtime(int role,const char *path) {
-    struct tool_windows app={.role=role,.capacity=role==DESK_APP_TEXT && !strcmp(path,"--capacity-files")};
+    /* One runtime per process. Its helper stack/state stay mapped through
+     * normal kernel process exit even after the body acknowledges stop. */
+    static struct tool_windows app;static int used;
+    if(used)return 1;
+    used=1;app=(struct tool_windows){.role=role,.capacity=role==DESK_APP_TEXT && !strcmp(path,"--capacity-files")};
     if(app.capacity) {if(tool_file_capture_capacity_setup())return 1;path="";}
+    surface_trace_role=role;
     desk_window_set_init(&app.set);
     uint64_t timing=tool_timing_begin(role,0,"pool-init");
     int initialized=desk_file_pool_init(&app.pool,app.channels,2);
     tool_timing_end(role,0,"pool-init",timing);if(initialized)return 1;
+    /* Reserve the initial model while still single-threaded. Do not publish
+     * a GUI owner or lend it to the helper before startup has succeeded. */
+    app.initial_owner=allocate_document(&app);if(!app.initial_owner)return 1;
+    timing=tool_timing_begin(role,0,"canvas-reserve");
+    struct tool_phase_trace canvas_phase;tool_phase_begin(&canvas_phase);
+    app.initial_pixels=desk_pixels_alloc(720,480);
+    tool_phase_end(&canvas_phase,role,0,"canvas-reserve");
+    tool_timing_end(role,0,"canvas-reserve",timing);
+    if(!app.initial_pixels) {desk_window_owner_release(app.initial_owner,1);return 1;}
+    timing=tool_timing_begin(role,0,"file-service-init");
+    pthread_trace_role=role;
+    int service_started=file_service_start(&app.files,&app.pool,role);
+    pthread_trace_role=0;
+    tool_timing_end(role,0,"file-service-init",timing);
+    if(service_started) {
+        desk_pixels_free(app.initial_pixels,720,480);app.initial_pixels=NULL;
+        (void)desk_window_owner_release(app.initial_owner,1);app.initial_owner=NULL;return 1;
+    }
     desk_log("desktools: starting role=%s\n",role_name(role));
-    if(create(&app,0,path))return 1;
-    while(app.set.windows) {
+    if(create(&app,0,path)) {
+        desk_pixels_free(app.initial_pixels,720,480);app.initial_pixels=NULL;
+        file_service_quiesce(&app.files);return 1;
+    }
+    while(app.set.windows || file_service_poll(&app.files)) {
+        file_service_poll(&app.files);
+        if(app.files.retire_failed)app.set.failed=1;
         if(!app.set.failed)desk_window_set_dispatch(&app.set,window_event,&app);
         desk_open_document_tick(&app.open_request,app.set.connection.server);
         if(!app.set.failed && app.open_request.ready && !app.set.connection.opening) {
@@ -187,7 +275,13 @@ int tool_window_runtime(int role,const char *path) {
         while(owner) {
             struct desk_window_owner *next=owner->next;struct tool_document *d=document(owner);struct tool *t=&d->tool;
             if(app.set.failed) {owner->retired=1;t->pending=t->closing=0;}
-            if(t->job.busy) {
+            if(role==DESK_APP_FILES && (t->closing || owner->retired) && desk_file_job_cancel_unsubmitted(&t->job)) {
+                file_service_read_cancelled(&app.files);
+                desk_log("file-job: cancelled-unsubmitted role=files window=%llu op=%u id=%u\n",(unsigned long long)t->window.window,t->job.request.operation,t->job.request.id);
+            }
+            if(role==DESK_APP_FILES && owner->ready && !owner->retired && !t->quit && !app.set.failed && !t->window.serial)
+                tool_runtime_draw(t);
+            if(t->job.busy && (owner->retired || app.set.failed || tool_runtime_file_ready(t))) {
                 int result=tool_runtime_file_poll(t,&d->logged_job);
                 if(result) {
                     if(owner->retired) {
@@ -206,33 +300,39 @@ int tool_window_runtime(int role,const char *path) {
             if(!app.set.failed)dialog_tick(owner);
             if(owner->retired) {
                 if(!app.set.failed && owner->dialog.window.connection) {busy=1;owner=next;continue;}
-                if(!app.set.failed) {
+                if(!app.set.failed && !owner->disposed) {
+                    if(!file_service_capacity(&app.files)) {busy=1;drained=0;owner=next;continue;}
                     timing=tool_timing_begin(role,t->window.window,"window-dispose");
-                    int disposed=desk_window_owner_dispose(owner);tool_timing_end(role,t->window.window,"window-dispose",timing);
+                    struct file_service_release canvas={.service=&app.files,.window=t->window.window,.canvas=1};
+                    int disposed=desk_window_owner_dispose_with(owner,file_service_retire,&canvas);tool_timing_end(role,t->window.window,"window-dispose",timing);
                     if(disposed) {app.set.failed=1;owner=next;continue;}
                 }
                 if(!retire_job(owner)) {busy=1;drained=0;owner=next;continue;}
                 /* A dead/failed connection cannot prove GUI resource ownership.
                  * Drain every accepted job, then let process exit reclaim models. */
                 if(app.set.failed) {owner=next;continue;}
+                if(!file_service_capacity(&app.files)) {busy=1;owner=next;continue;}
                 uint64_t window=t->window.window;
-                timing=tool_timing_begin(role,window,"history-free");free(t->body_history);t->body_history=NULL;
+                timing=tool_timing_begin(role,window,"history-free");tool_text_history_release(t);
                 tool_timing_end(role,window,"history-free",timing);
-                timing=tool_timing_begin(role,window,"document-unmap");
-                struct tool_phase_trace phase;tool_phase_begin(&phase);
-                int released=desk_window_owner_release(owner,1);
-                tool_phase_end(&phase,role,window,"document-unmap");
-                tool_timing_end(role,window,"document-unmap",timing);
+                struct file_service_release release={.service=&app.files,.window=window};
+                int released=desk_window_owner_release_with(owner,1,file_service_retire,&release);
                 if(released)app.set.failed=1;
                 owner=next;continue;
             }
             drained=0;
             if(owner->ready && !app.set.failed) {
-                if(role==DESK_APP_TEXT && !app.capacity && !app.set.lifecycle.quitting && !app.service_window && !t->window.closing &&
-                   !desk_application_service(&t->window,DESK_SERVICE_OPEN_DOCUMENT))app.service_window=t->window.window;
+                if(role==DESK_APP_TEXT && !app.capacity && !app.set.lifecycle.quitting && !app.service_window && !t->window.closing) {
+                    int first=!t->window.serial;uint64_t service_at=0;struct tool_phase_trace phase;
+                    if(first) {service_at=tool_timing_begin(role,t->window.window,"first-service");tool_phase_begin(&phase);}
+                    int registered=desk_application_service(&t->window,DESK_SERVICE_OPEN_DOCUMENT);
+                    if(first) {tool_phase_end(&phase,role,t->window.window,"first-service");tool_timing_end(role,t->window.window,"first-service",service_at);}
+                    if(!registered)app.service_window=t->window.window;
+                }
                 if(app.set.lifecycle.quitting && app.service_window==t->window.window && !desk_application_service(&t->window,0))app.service_window=0;
-                if(t->closing && !t->job.busy && role==DESK_APP_FILES)t->quit=1;
-                if(t->quit && !t->job.busy)desk_window_close(&t->window);
+                int close_ready=tool_runtime_close_ready(t);
+                if(t->closing && close_ready && role==DESK_APP_FILES)t->quit=1;
+                if(t->quit && close_ready)desk_window_close(&t->window);
                 if(!t->quit && !t->window.closing) {
                     if(desk_clipboard_tick(&t->clip,srv_ticks())<0)tool_clipboard_result(t,-1);
                     tool_runtime_draw(t);
@@ -252,9 +352,20 @@ int tool_window_runtime(int role,const char *path) {
                 }
             }
         }
+        /* Every model is detached only after its accepted job drained. Start
+         * idle-worker EOF/reaping while the helper still owns queued unmaps.
+         * Final finish below retains the full child/completion obligation. */
+        if(!app.set.windows && !app.set.connection.opening && !app.pool.bound && !app.pool.head) {
+            if(desk_file_pool_shutdown(&app.pool)<0)app.set.failed=1;
+            file_service_request_stop(&app.files);
+        }
         if(app.set.windows) {desk_runtime_file_pool(&app.set.runtime,&app.pool);desk_runtime_idle(&app.set.runtime,busy);}
+        else if(file_service_poll(&app.files))srv_sleep_ticks(1);
     }
     desk_runtime_timers_clear(&app.set.runtime);
+    timing=tool_timing_begin(role,0,"file-service-stop");
+    if(file_service_quiesce(&app.files))app.set.failed=1;
+    tool_timing_end(role,0,"file-service-stop",timing);
     desk_log("%s-runtime: documents admitted=%u retired=%u refused=%u\n",role_name(role),(unsigned)app.set.admitted,(unsigned)app.set.retired,(unsigned)app.set.refused);
     if(tool_file_pool_retire(&app.pool,role))app.set.failed=1;
     if(app.capacity) {

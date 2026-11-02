@@ -37,7 +37,24 @@ void pty_wake(void) {}
 void scheduler_wake_all(struct scheduler_wait_queue *q) {
     if(q==&process_wait_queue)release_wakes++;
 }
+static void process_query_snapshot(void) {
+    const unsigned slot=PROCESS_MAX_PROCESSES-1;
+    assert(!processes[slot].allocated);
+    processes[slot]=(struct process){.allocated=true,.active=true,.pid=987654,.parent_pid=42,.mapping_count=3};
+    strcpy(processes[slot].name,"snapshot");
+    uint64_t pid=0,parent=0,bytes=0;const char *name=NULL,*state=NULL;
+    assert(process_list_details(SRV_PROC_LIST_BY_PID|987654,&pid,&name,&state,&parent,&bytes)==slot+1);
+    assert(pid==987654 && parent==42 && bytes==3*PMM_FRAME_SIZE && !strcmp(name,"snapshot") && !strcmp(state,"foreground"));
+    processes[slot].active=false;processes[slot].reapable=true;
+    assert(process_list_details(SRV_PROC_LIST_BY_PID|987654,NULL,NULL,&state,NULL,NULL)==slot+1 && !strcmp(state,"exited"));
+    assert(!process_list_details(SRV_PROC_LIST_BY_PID|987655,NULL,NULL,NULL,NULL,NULL));
+    assert(!process_list_details(SRV_PROC_LIST_BY_PID,NULL,NULL,NULL,NULL,NULL));
+    assert(process_list_details(slot,&pid,NULL,NULL,NULL,NULL)==slot+1 && pid==987654);
+    processes[slot]=(struct process){0};
+    puts("process-query: PASS last slot, exact PID, stable metadata, exited/missing, zero refusal and legacy cursor");
+}
 int main(void) {
+    process_query_snapshot();
     tested=process_lifetime_create();assert(tested);
     assert(!process_lifetime_release(tested) && !process_lifetime_drain(tested));
     struct process *root=alloc_process_lifetime("root",true,tested);assert(root);

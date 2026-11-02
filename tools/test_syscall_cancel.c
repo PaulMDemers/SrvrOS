@@ -16,6 +16,7 @@ void scheduler_io_handoff(void) {
     assert(user_safe && !in_call); /* Only a fully unwound syscall may hand off. */
     handoffs++;if(kill_during_handoff)killed=true;
 }
+void scheduler_io_syscall(uint64_t number) { (void)number; }
 void scheduler_io_set_user_safe(bool safe) { user_safe=safe; }
 void scheduler_user_enter(void) { user_safe=true; }
 void scheduler_io_wait(void) { assert(!user_safe); waits++; if(kill_while_waiting) killed=true; }
@@ -60,6 +61,12 @@ int main(void) {
     killed=kill_while_waiting=false;kill_during_handoff=true;
     if(setjmp(exited)==0) { dispatch_syscall_with_cancellation(&frame); assert(0); }
     assert(calls==5 && handoffs==2 && exit_status==130 && !user_safe);
+    /* An admitted signal-mask update can expose fatal pending cancellation.
+     * It finishes metadata work first, then regains the ordinary exit gate. */
+    killed=kill_while_waiting=kill_during_handoff=false;safe_call=kill_during_call=true;
+    unsigned before_waits=waits,before_calls=calls,before_handoffs=handoffs;
+    if(setjmp(exited)==0){dispatch_syscall_with_cancellation(&frame);assert(0);}
+    assert(calls==before_calls+1 && waits==before_waits+1 && handoffs==before_handoffs && !user_safe && exit_status==130);
     puts("syscall-cancel-host: PASS (pending kill, deferred I/O kill, normal return, kernel entry)");
 }
 

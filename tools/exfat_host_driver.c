@@ -20,6 +20,7 @@
 #include <srvros/vfs.h>
 #include <srvros/autotest_storage.h>
 static int fd;
+static uint64_t read_calls,read_bytes,write_bytes;
 static unsigned writes, flushes, fail_at, crash_at, fail_flush_at, crash_flush_at, tear_at;
 static bool failed, foreign;
 static unsigned io_depth;
@@ -46,11 +47,15 @@ void console_printf(const char *fmt, ...) { (void)fmt; }
 uint64_t block_device_size(const struct block_device *d) { return d->block_size*d->block_count; }
 struct block_device *block_parent(struct block_device *d) { return d; }
 bool block_read(struct block_device *d, uint64_t o, void *p, uint64_t n) {
+    read_calls++;read_bytes+=n;
+    if(getenv("SRVROS_FAIL_READ_OFFSET") && o==strtoull(getenv("SRVROS_FAIL_READ_OFFSET"),NULL,10))return false;
     return o+n <= block_device_size(d) && pread(fd,p,n,o)==(ssize_t)n;
 }
 bool block_write(struct block_device *d, uint64_t o, const void *p, uint64_t n) {
+    write_bytes+=n;
     if (failed || ++writes == fail_at) { failed=true; return false; }
     assert(o+n <= block_device_size(d));
+    if(getenv("SRVROS_TRACE_WRITES"))printf("write-trace: call=%u offset=%llu bytes=%llu\n",writes,(unsigned long long)o,(unsigned long long)n);
     if(writes==tear_at) {
         assert(pwrite(fd,p,(n+1)/2,o)==(ssize_t)((n+1)/2));
         assert(fsync(fd)==0);_exit(79);
@@ -62,6 +67,12 @@ bool block_write(struct block_device *d, uint64_t o, const void *p, uint64_t n) 
 static bool flush(struct block_device *d) { (void)d; flushes++; if(flushes==fail_flush_at) failed=true; if(failed || fsync(fd)) return false;
     if(flushes==crash_flush_at)_exit(78);
     return true; }
+/* Advertise transport capabilities for the eligibility predicate, but never
+ * mutate media. Any attempted mutation is also an assertion failure below. */
+static bool refuse_write(struct block_device *d,uint64_t o,const void *p,uint64_t n) {
+    (void)d;(void)o;(void)p;(void)n;writes++;return false;
+}
+static bool refuse_flush(struct block_device *d) { (void)d;flushes++;return false; }
 static void equal(const char *path, const uint8_t *expected, uint64_t n) {
     const struct vfs_node *node=vfs_lookup(path); const uint8_t *data; uint64_t size;
     assert(node && vfs_read_all(node,&data,&size));
@@ -71,7 +82,8 @@ int main(int argc, char **argv) {
     assert(argc>=3);
     bool image_range=!strcmp(argv[2],"image-range");
     bool headroom_only=!strcmp(argv[2],"headroom-check");
-    bool check_only=headroom_only||image_range||!strcmp(argv[2],"allocation-check");
+    bool writable_only=!strcmp(argv[2],"writable-check");
+    bool check_only=writable_only||headroom_only||image_range||!strcmp(argv[2],"allocation-check");
     fd=open(argv[1],check_only ? O_RDONLY : O_RDWR); assert(fd>=0);
     struct stat st; assert(fstat(fd,&st)==0);
     uint64_t bytes=st.st_size;
@@ -84,7 +96,12 @@ int main(int argc, char **argv) {
 #endif
     }
     struct block_device d={.used=true,.name="fixture",.block_size=512,.block_count=bytes/512,
-        .read=block_read,.write=check_only ? NULL : block_write,.flush=check_only ? NULL : flush};
+        .read=block_read,.write=writable_only ? refuse_write : check_only ? NULL : block_write,
+        .flush=writable_only ? refuse_flush : check_only ? NULL : flush};
+    if(getenv("SRVROS_TEST_BLOCK_BYTES")) {
+        uint64_t block=strtoull(getenv("SRVROS_TEST_BLOCK_BYTES"),NULL,10);
+        assert((block==512 || block==4096) && !(bytes%block));d.block_size=block;d.block_count=bytes/block;
+    }
     if(check_only) {
         if(!exfat_mount_block_device("/vol",&d)) {
             fputs("allocation-check: unsupported or invalid filesystem; NOT CHECKED\n",stderr);
@@ -93,6 +110,11 @@ int main(int argc, char **argv) {
         struct exfat_check_result result={0};
         bool ok=exfat_check("/vol",&result);
         bool graph_ok=ok;
+        if(writable_only) {
+            bool writable=exfat_is_writable("/vol");
+            printf("writable-check: %s zero_writes=yes\n",writable?"PASS":"REFUSED");
+            ok=ok && writable;
+        }
         if(ok&&image_range) {
             struct block_device *resolved=NULL;uint64_t offset=0;
             ok=exfat_exclusive_range("/vol/srvros-work/battery-fs.img",16u*1024u*1024u,&resolved,&offset)&&resolved==&d;
@@ -123,7 +145,6 @@ int main(int argc, char **argv) {
         close(fd);return 0;
     }
     if(!strcmp(argv[2],"noflush")) d.flush=NULL;
-    if(!strcmp(argv[2],"foreign")) foreign=true;
     if(!strcmp(argv[2],"snapshot-seed")) {
         assert(argc==4 && strlen(argv[3])==16);
         for(unsigned i=0;i<16;i++) assert(strchr("0123456789abcdef",argv[3][i]));
@@ -169,7 +190,50 @@ int main(int argc, char **argv) {
         puts("hardware file workload/remount and existing-directory refusal PASS");
         return 0;
     }
+    if(!strcmp(argv[2],"scratch-refuse")) {
+        /* Strict import may reject malformed ownership/stream metadata before
+         * a scratch extent is available. Neither refusal may mutate media. */
+        bool mounted=exfat_mount_block_device("/vol",&d);
+        assert(!writes && !flushes);
+        struct block_device *resolved=NULL;uint64_t offset=UINT64_MAX;
+        assert(!exfat_scratch_range("/vol/scratch.bin",&resolved,&offset));
+        assert(!resolved && offset==UINT64_MAX && !writes && !flushes);
+        printf("scratch refused: %s\n",mounted?"extent":"import");
+        close(fd);return 0;
+    }
+    if(!strcmp(argv[2],"foreign")) {
+        foreign=true;
+        assert(!exfat_mount_block_device("/vol",&d) && !writes && !flushes && !vfs_count());
+        foreign=false;
+    }
     assert(exfat_mount_block_device("/vol",&d));
+    if(!strcmp(argv[2],"foreign")) foreign=true;
+    if(!strcmp(argv[2],"append-seed") || !strcmp(argv[2],"append-step") || !strcmp(argv[2],"append-repeat") || !strcmp(argv[2],"append-changed")) {
+        struct exfat_fsinfo info;assert(exfat_statfs("/vol",&info));
+        uint64_t initial=info.block_size*2,maximum=initial+info.block_size*3+512;
+        uint8_t *data=malloc(maximum);assert(data);
+        for(uint64_t i=0;i<maximum;i++)data[i]=(uint8_t)(i*17+37);
+        if(!strcmp(argv[2],"append-seed")) {
+            assert(exfat_write_file("/vol/keep.txt",data,initial));
+            assert(exfat_write_file("/vol/anchor.txt",(const uint8_t *)"unchanged",9));
+        } else if(!strcmp(argv[2],"append-step") || !strcmp(argv[2],"append-changed")) {
+            if(!strcmp(argv[2],"append-changed"))data[0]^=1;
+            bool ok=exfat_write_file("/vol/keep.txt",data,maximum);
+            printf("operation=%s writes=%u flushes=%u\n",ok?"PASS":"FAIL",writes,flushes);
+            if(failed) {unsigned before=writes;assert(!exfat_write_file("/vol/forbidden",data,1)&&before==writes);}
+        } else {
+            uint64_t step=info.block_size<16384?512:16384;
+            for(uint64_t n=initial;n<maximum;) {
+                n+=maximum-n<step?maximum-n:step;
+                assert(exfat_write_file("/vol/keep.txt",data,n));equal("/vol/keep.txt",data,n);
+            }
+            assert(exfat_unmount("/vol") && exfat_mount_block_device("/vol",&d));
+            equal("/vol/keep.txt",data,maximum);
+        }
+        free(data);assert(fsync(fd)==0);close(fd);
+        printf("driver: write_bytes=%llu\n",(unsigned long long)write_bytes);
+        printf("driver: complete writes=%u flushes=%u\n",writes,flushes);return 0;
+    }
     if(!strcmp(argv[2],"bitmap-stats")) {
         struct exfat_fsinfo info;assert(exfat_statfs("/vol",&info));
         printf("bitmap-used=%llu\n",(unsigned long long)(info.blocks-info.blocks_free));
@@ -224,6 +288,8 @@ int main(int argc, char **argv) {
     }
     if(!strcmp(argv[2],"recover") || !strcmp(argv[2],"seed-temp") || !strncmp(argv[2],"verify-",7)) {
         assert(fsync(fd)==0);close(fd);
+        printf("driver: reads=%llu read_bytes=%llu\n",(unsigned long long)read_calls,(unsigned long long)read_bytes);
+        printf("driver: write_bytes=%llu\n",(unsigned long long)write_bytes);
         printf("driver: complete writes=%u flushes=%u\n",writes,flushes);return 0;
     }
     if(!strcmp(argv[2],"memory-refusal")) {
@@ -289,12 +355,11 @@ int main(int argc, char **argv) {
         assert(exfat_write_file("/vol/target.txt",(const uint8_t *)"old-target",10));
         assert(exfat_unmount("/vol"));assert(fsync(fd)==0);close(fd);return 0;
     }
-    if(!strcmp(argv[2],"scratch-range")||!strcmp(argv[2],"scratch-refuse")) {
+    if(!strcmp(argv[2],"scratch-range")) {
         struct block_device *resolved=NULL;uint64_t offset=UINT64_MAX;
         bool ok=exfat_scratch_range("/vol/scratch.bin",&resolved,&offset);
         assert(!writes);
-        if(!strcmp(argv[2],"scratch-refuse"))assert(!ok&&resolved==NULL&&offset==UINT64_MAX);
-        else {assert(ok&&resolved==&d);printf("scratch offset=%llu bytes=4096\n",(unsigned long long)offset);}
+        assert(ok&&resolved==&d);printf("scratch offset=%llu bytes=4096\n",(unsigned long long)offset);
         close(fd);return 0;
     }
     if(!strcmp(argv[2],"timestamps")) {
@@ -527,6 +592,8 @@ int main(int argc, char **argv) {
         assert(before==writes);
     } else { return 2; }
     assert(fsync(fd)==0); close(fd);
+    printf("driver: reads=%llu read_bytes=%llu\n",(unsigned long long)read_calls,(unsigned long long)read_bytes);
+    printf("driver: write_bytes=%llu\n",(unsigned long long)write_bytes);
     printf("driver: complete writes=%u flushes=%u\n",writes,flushes);
     return 0;
 }

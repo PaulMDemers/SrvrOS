@@ -7,11 +7,13 @@ scheduling and I/O waits, not CPU or gate-wait attribution.
 import re
 
 RECORD = re.compile(
-    rb'app-timing: pid=(\d+) role=(\d+) window=(\d+) stage=([a-z-]+) '
-    rb'edge=(begin|end|event) at_us=(\d+) elapsed_us=(\d+)')
+    rb'(?m)^app-timing: pid=(\d+) role=(\d+) window=(\d+) stage=([a-z-]+) '
+    rb'edge=(begin|end|event) at_us=(\d+) elapsed_us=(\d+)(?: lane=[01])?(?=\r?\n|$)')
 
 
-def validate_app_timing(output, completed, *, files_window_runtime=False):
+PTHREAD_INIT_STAGES = {"service-attributes", "pthread-reap-self", "pthread-reap-records", "pthread-record-claim", "pthread-kernel-create", "pthread-publish"}
+
+def validate_app_timing(output, completed, *, files_window_runtime=False, async_file_service=False, helper_initialization=False, initial_model_reservation=False, reserved_text_history=False, first_surface=False):
     """Validate the caller's known lifecycle, without inferring it from missing phases.
 
     completed contains (cycle, pid) pairs from the existing closed receipts.
@@ -22,25 +24,27 @@ def validate_app_timing(output, completed, *, files_window_runtime=False):
     for match in RECORD.finditer(output):
         pid, role, window, stage, edge, at, elapsed = match.groups()
         records.setdefault(int(pid), []).append(
-            (int(role), int(window), stage.decode(), edge.decode(), int(at), int(elapsed)))
+            (int(role), int(window), stage.decode(), edge.decode(), int(at), int(elapsed),match.group(0).endswith(b' lane=1')))
     summary = []
     for cycle, pid in completed:
         rows = records.get(pid, [])
         assert rows, f'missing app timing for pid {pid}'
         role = (2, 1, 4)[cycle % 3]  # Text, Files, System
-        pending, spans, events = {}, {}, {}
-        previous = 0
-        for observed_role, window, stage, edge, at, elapsed in rows:
-            assert observed_role == role and at >= previous and at > 0, (pid, stage, 'identity/clock')
-            previous = at
+        pending, spans, events, intervals = {}, {}, {}, {}
+        previous = {}
+        for observed_role, window, stage, edge, at, elapsed,lane in rows:
+            assert observed_role == role and at >= previous.get(lane,0) and at > 0, (pid, stage, 'identity/clock')
+            previous[lane] = at
             key = (window, stage)
             if edge == 'begin':
                 assert key not in pending and elapsed == 0, (pid, stage, 'duplicate begin')
                 pending[key] = at
             elif edge == 'end':
                 assert key in pending, (pid, stage, 'missing begin')
-                assert elapsed == at - pending.pop(key), (pid, stage, 'duration')
+                begin=pending.pop(key)
+                assert elapsed == at - begin, (pid, stage, 'duration')
                 spans.setdefault(stage, []).append(elapsed)
+                intervals.setdefault(stage, []).append((begin,at))
             else:
                 assert elapsed == 0, (pid, stage, 'event duration')
                 events.setdefault(stage, []).append(at)
@@ -48,9 +52,41 @@ def validate_app_timing(output, completed, *, files_window_runtime=False):
         required = {'runtime-init', 'pool-init', 'window-open', 'role-init', 'history-free'}
         mapped = role == 2 or (role == 1 and files_window_runtime)
         required |= {'document-map', 'window-dispose', 'document-unmap', 'pool-retire'} if mapped else {'job-drain', 'window-close'}
+        if mapped and async_file_service:
+            required |= {'file-service-init','file-service-stop','canvas-unmap'}
         if role == 1:
             required.add('pool-retire')
+        if mapped and helper_initialization:
+            required |= PTHREAD_INIT_STAGES
+            assert 'pthread-start-alloc' not in spans and 'pthread-stack-map' not in spans, (pid,'unexpected helper heap/stack allocation')
+            assert all(len(spans.get(stage,[]))==1 for stage in PTHREAD_INIT_STAGES), (pid,'missing/duplicate helper creation phase')
         assert required <= spans.keys(), (pid, 'missing phases', required - spans.keys())
+        if mapped and initial_model_reservation:
+            assert intervals['document-map'][0][1]<=intervals['file-service-init'][0][0], (pid,'initial model must precede helper startup')
+
+        if role == 2 and reserved_text_history:
+            assert {'text-history-reserve','text-history-init'} <= spans.keys(), (pid,'missing reserved history setup')
+            assert len(intervals['text-history-reserve'])==len(intervals['text-history-init'])==1
+            assert intervals['document-map'][0][1] <= intervals['text-history-reserve'][0][0]
+            assert intervals['text-history-reserve'][0][1] <= intervals['window-open'][0][0]
+            assert intervals['role-init'][0][0] <= intervals['text-history-init'][0][0]
+            assert intervals['text-history-init'][0][1] <= intervals['role-init'][0][1]
+
+        if mapped and first_surface:
+            required_surface={'canvas-reserve','canvas-adopt','canvas-pixels','canvas-surface','first-controls','first-draw','first-present'}
+            if role==2:required_surface.add('first-service')
+            assert required_surface <= spans.keys(), (pid,'missing first-surface phases',required_surface-spans.keys())
+            for stage in ('canvas-reserve','canvas-adopt'):
+                assert len(intervals[stage])==1, (pid,'duplicate reservation/adoption',stage)
+            assert intervals['document-map'][0][1] <= intervals['canvas-reserve'][0][0]
+            assert intervals['canvas-reserve'][0][1] <= intervals['file-service-init'][0][0]
+            assert intervals['window-open'][0][1] <= intervals['canvas-adopt'][0][0]
+            assert intervals['canvas-adopt'][0][1] <= intervals['canvas-pixels'][0][0]
+            assert intervals['canvas-pixels'][0][1] <= intervals['canvas-surface'][0][0]
+            assert intervals['canvas-surface'][0][1] <= intervals['first-draw'][0][0]
+            assert intervals['first-draw'][0][1] <= intervals['first-present'][0][0]
+            assert intervals['first-present'][-1][1] <= events['first-publish'][0]
+
         order = ('main-entry', 'first-publish', 'close-received', 'main-return')
         assert all(len(events.get(stage, [])) == 1 for stage in order), (pid, 'missing/duplicate event')
         times = [events[stage][0] for stage in order]
@@ -62,6 +98,22 @@ def validate_app_timing(output, completed, *, files_window_runtime=False):
                             entry_to_publish_us=times[1]-times[0],
                             close_to_return_us=times[3]-times[2], phases_us=spans))
     return summary
+
+
+def validate_collected_app_timing(console, snapshots, completed, **options):
+    """Prefer complete atomic saved evidence; UART is a separate lossy channel.
+
+    Both paths require the exact same complete identity/order/phase checks. A
+    successful saved set needs no UART records. Incomplete saved coverage retains
+    the existing strict union fallback: no bytes are repaired or overwritten.
+    """
+    try:
+        result=validate_app_timing(saved_app_timing(snapshots),completed,**options)
+        return result,'complete_saved_atomic_records'
+    except AssertionError:
+        records=b'\n'.join(row for row in console.splitlines() if RECORD.fullmatch(row))
+        result=validate_app_timing(saved_app_timing([records,*snapshots]),completed,**options)
+        return result,'complete_console_records_and_retained_atomic_checkpoints'
 
 
 def saved_app_timing(snapshots):
@@ -78,9 +130,10 @@ def saved_app_timing(snapshots):
         for match in RECORD.finditer(snapshot):
             record = match.group(0)
             pid, *_, at, elapsed = match.groups()
+            lane=match.group(0).endswith(b' lane=1');identity=pid,lane
             assert record not in seen, 'duplicate record within saved snapshot'
-            assert int(at) >= previous.get(pid, 0), 'saved snapshot clock/order'
-            previous[pid] = int(at)
+            assert int(at) >= previous.get(identity, 0), 'saved snapshot clock/order'
+            previous[identity] = int(at)
             seen.add(record)
         for match in RECORD.finditer(snapshot):
             records.setdefault(match.group(0), None)

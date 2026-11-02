@@ -663,11 +663,10 @@ static bool send_dns_query(uint32_t server_ip, const uint8_t *server_mac, const 
 
 static void handle_dns_packet(const uint8_t *payload, uint16_t length) {
     if (!dns_waiting) return;
-    uint32_t answer;
-    int result = srv_dns_parse_a(payload, length, dns_query_id, dns_question_name, &answer);
+    /* Parser output is unchanged unless a complete validated answer exists. */
+    int result = srv_dns_parse_a(payload, length, dns_query_id, dns_question_name, &dns_answer_ip);
     if (result < 0) return;
     if (result > 0) {
-        dns_answer_ip = answer;
         dns_answer_ready = true;
     }
     dns_waiting = false;

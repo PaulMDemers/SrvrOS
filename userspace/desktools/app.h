@@ -58,6 +58,7 @@ struct tool {
     struct desk_edit path,body,name;
     struct desk_text_buffer path_text,body_text,name_text;
     struct desk_text_history *body_history;
+    int body_history_owned;
     char path_store[2][DESK_FILE_PATH],body_store[2][DESK_FILE_BYTES+1],name_store[2][128];
     struct desk_table table,calc_history;
     struct desk_table_row calc_rows[CALC_HISTORY_LIMIT];
@@ -159,6 +160,9 @@ void tool_text_replace(struct tool *tool,int all);
 void tool_text_search_close(struct tool *tool);
 void tool_text_search_step(struct tool *tool,int backwards,int restart);
 void tool_text_search_action(struct tool *tool,struct desk_action action);
+#define TOOL_TEXT_HISTORY_BYTES (4u*DESK_FILE_BYTES)
+int tool_text_history_prepare(struct tool *tool,struct desk_text_history *reserved);
+void tool_text_history_release(struct tool *tool);
 void tool_text_init(struct tool *tool,const char *path);
 void tool_text_action(struct tool *tool,struct desk_action action);
 void tool_text_finish(struct tool *tool,int result);

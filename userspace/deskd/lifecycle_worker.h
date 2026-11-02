@@ -9,10 +9,14 @@
 #define LIFE_MEMORY_SLOTS (DESK_CACHE_BYTES/(280u*240u*4u)+1)
 #define LIFE_LAUNCH_SLOTS 16
 #define LIFE_REAP_SLOTS 16
+#define LIFE_TERMINATE_SLOTS 16
+#define LIFE_LOG_SLOTS 64
+#define LIFE_LOG_BYTES 384
 #define LIFE_IDLE 0
 #define LIFE_QUEUED 1
 #define LIFE_DONE 2
 #define LIFE_RETIRED 3
+#define LIFE_RUNNING 4
 struct life_memory {
     unsigned state,discard,width,height;
     uint32_t *pixels;
@@ -23,12 +27,18 @@ struct life_launch {
     int application,child_slot;
     char path[160],home[160];
     long pid;
-    uint64_t elapsed,queued_us;
+    uint64_t elapsed,queued_us,begin_us,end_us;
 };
 struct life_capture { unsigned state;int result;struct desk_capture_job job; };
 struct life_prepare { unsigned state,width,height;int result;char path[DESK_CAPTURE_PATH];struct desk_capture_job job; };
-struct life_reap { unsigned state;uint64_t pid,status;long result; };
+struct life_reap { unsigned state;uint64_t pid,status,queued_us,begin_us,end_us;long result; };
+struct life_terminate { unsigned state;uint64_t pid,elapsed;long result; };
 struct lifecycle_worker {
+    /* Single UI producer, single report-thread consumer. Never overwrite a
+     * queued or emitting record, and never wait for console/serial pressure. */
+    unsigned log_write,log_read;
+    uint64_t log_dropped;
+    struct {unsigned state;char text[LIFE_LOG_BYTES];} logs[LIFE_LOG_SLOTS];
     pthread_t thread,report_thread;
     unsigned stop,report_state,report_stop,report_started;
     unsigned work_event,report_event;
@@ -39,6 +49,7 @@ struct lifecycle_worker {
     struct life_memory memory[LIFE_MEMORY_SLOTS];
     struct life_launch launch[LIFE_LAUNCH_SLOTS];
     struct life_reap reap[LIFE_REAP_SLOTS];
+    struct life_terminate terminate[LIFE_TERMINATE_SLOTS];
 };
 static unsigned life_state(const unsigned *state) { return __atomic_load_n(state,__ATOMIC_ACQUIRE); }
 static void life_publish(unsigned *state,unsigned value) { __atomic_store_n(state,value,__ATOMIC_RELEASE); }
@@ -60,6 +71,20 @@ static void life_wait(unsigned *event) {
 static void life_queue(struct lifecycle_worker *w,unsigned *state,unsigned value) {
     life_publish(state,value);life_notify(&w->work_event);
 }
+static int life_terminate_pending(struct lifecycle_worker *w,uint64_t pid) {
+    for(unsigned n=0;n<LIFE_TERMINATE_SLOTS;n++)
+        if(life_state(&w->terminate[n].state)!=LIFE_IDLE && w->terminate[n].pid==pid)return 1;
+    return 0;
+}
+static int life_terminate_submit(struct lifecycle_worker *w,uint64_t pid) {
+    if(!pid || life_state(&w->stop))return 0;
+    if(life_terminate_pending(w,pid))return 1;
+    for(unsigned n=0;n<LIFE_TERMINATE_SLOTS;n++)if(life_state(&w->terminate[n].state)==LIFE_IDLE) {
+        w->terminate[n].pid=pid;w->terminate[n].result=0;w->terminate[n].elapsed=0;
+        life_queue(w,&w->terminate[n].state,LIFE_QUEUED);return 1;
+    }
+    return 0; /* UI retains the client and retries; never fall back to kill. */
+}
 static int life_reap_pending(struct lifecycle_worker *w,uint64_t pid) {
     for(unsigned n=0;n<LIFE_REAP_SLOTS;n++)if(life_state(&w->reap[n].state)!=LIFE_IDLE && w->reap[n].pid==pid)return 1;
     return 0;
@@ -71,6 +96,7 @@ static int life_reap_submit(struct lifecycle_worker *w,uint64_t pid) {
     if(!pid || life_state(&w->stop) || life_reap_pending(w,pid))return 0;
     for(unsigned n=0;n<LIFE_REAP_SLOTS;n++)if(life_state(&w->reap[n].state)==LIFE_IDLE) {
         w->reap[n].pid=pid;w->reap[n].status=0;w->reap[n].result=0;
+        w->reap[n].queued_us=(uint64_t)srv_monotonic_us();w->reap[n].begin_us=w->reap[n].end_us=0;
         life_queue(w,&w->reap[n].state,LIFE_QUEUED);return 1;
     }
     return 0;
@@ -131,15 +157,41 @@ static int life_reserved(const struct lifecycle_worker *w,int slot) {
     if(w)for(unsigned n=0;n<LIFE_LAUNCH_SLOTS;n++)if(life_state(&w->launch[n].state) && w->launch[n].child_slot==slot)return 1;
     return 0;
 }
+static int life_log_submit(struct lifecycle_worker *w,const char *text) {
+    unsigned at=w->log_write;
+    if(life_state(&w->logs[at].state)!=LIFE_IDLE || strlen(text)>=LIFE_LOG_BYTES) {
+        w->log_dropped++;return 0;
+    }
+    strcpy(w->logs[at].text,text);life_publish(&w->logs[at].state,LIFE_QUEUED);
+    w->log_write=(at+1)%LIFE_LOG_SLOTS;life_notify(&w->report_event);return 1;
+}
+static void life_log_work(struct lifecycle_worker *w) {
+    for(unsigned n=0;n<LIFE_LOG_SLOTS;n++) {
+        unsigned at=w->log_read;
+        if(life_state(&w->logs[at].state)!=LIFE_QUEUED)break;
+        srv_puts(w->logs[at].text);
+        life_publish(&w->logs[at].state,LIFE_IDLE);w->log_read=(at+1)%LIFE_LOG_SLOTS;
+    }
+}
 static void life_report_work(struct lifecycle_worker *w) {
+    life_log_work(w);
     if(life_state(&w->report_state)==LIFE_QUEUED) {
         loop_trace_report(&w->report,0);operation_trace_report(&w->operations,0);life_publish(&w->report_state,LIFE_IDLE);
     }
 }
 static void life_work(struct lifecycle_worker *w) {
+    for(unsigned n=0;n<LIFE_TERMINATE_SLOTS;n++)if(life_state(&w->terminate[n].state)==LIFE_QUEUED) {
+        struct life_terminate *t=&w->terminate[n];
+        uint64_t begin=(uint64_t)srv_monotonic_us();t->result=srv_kill(t->pid);
+        t->elapsed=(uint64_t)srv_monotonic_us()-begin;
+        life_terminate_log(t->pid,t->elapsed,t->result);
+        life_publish(&t->state,LIFE_DONE);
+    }
     for(unsigned n=0;n<LIFE_REAP_SLOTS;n++)if(life_state(&w->reap[n].state)==LIFE_QUEUED) {
         struct life_reap *r=&w->reap[n];
+        r->begin_us=(uint64_t)srv_monotonic_us();life_publish(&r->state,LIFE_RUNNING);
         r->result=srv_wait(r->pid,&r->status,0);
+        r->end_us=(uint64_t)srv_monotonic_us();
         life_publish(&r->state,LIFE_DONE);
     }
     if(life_state(&w->prepare.state)==LIFE_QUEUED) {
@@ -172,8 +224,8 @@ static void life_work(struct lifecycle_worker *w) {
         char *env[]={"PATH=/fat/bin:/:/fat",home,desktop_home,NULL};
         struct srv_exec_request r={.path=argv[0],.argv=argv,.envp=env,.flags=SRV_EXEC_BACKGROUND,
             .stdin_fd=-1,.stdout_fd=-1,.stderr_fd=-1};
-        uint64_t begin=(uint64_t)srv_monotonic_us();j->pid=srv_exec(&r);
-        j->elapsed=(uint64_t)srv_monotonic_us()-begin;
+        j->begin_us=(uint64_t)srv_monotonic_us();j->pid=srv_exec(&r);
+        j->end_us=(uint64_t)srv_monotonic_us();j->elapsed=j->end_us-j->begin_us;
         /* Live UART backpressure must stay off the compositor input loop.
          * Keep ownership until this immutable launch receipt is written. */
         life_launch_log(j->application,j->pid,j->elapsed);

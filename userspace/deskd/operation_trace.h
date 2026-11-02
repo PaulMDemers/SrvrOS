@@ -8,9 +8,36 @@ struct capture_trace {
     uint64_t cleanup_us,close_us,unmap_us,reap_us;unsigned cleanup_pending;
     unsigned id,busy,pending,phase,frames,finished,status;
 };
+/* Absolute observation clocks; zero means not observed, never zero cost.
+ * UI retains only the current cycle and two immutable worst-case copies. */
+struct lifetime_trace {
+    uint64_t pid,cycle,begin_us,launch_begin_us,launch_end_us,ready_us;
+    uint64_t close_request_us,visual_us,exit_seen_us,reap_queued_us,reap_begin_us,reap_end_us,closed_us;
+};
+static void lifetime_trace_report(const struct lifetime_trace *q,const char *kind,uint64_t snapshot,unsigned final) {
+    if(!q->pid)return;
+    char text[1024];
+    int length=snprintf(text,sizeof(text),"desktop-life-worst: version=1 snapshot_us=%llu kind=%s pid=%llu cycle=%llu begin_us=%llu launch_begin_us=%llu launch_end_us=%llu ready_us=%llu close_request_us=%llu visual_us=%llu exit_seen_us=%llu reap_queued_us=%llu reap_begin_us=%llu reap_end_us=%llu closed_us=%llu final=%u\n",
+        (unsigned long long)snapshot,kind,(unsigned long long)q->pid,(unsigned long long)q->cycle,
+        (unsigned long long)q->begin_us,(unsigned long long)q->launch_begin_us,(unsigned long long)q->launch_end_us,(unsigned long long)q->ready_us,
+        (unsigned long long)q->close_request_us,(unsigned long long)q->visual_us,(unsigned long long)q->exit_seen_us,
+        (unsigned long long)q->reap_queued_us,(unsigned long long)q->reap_begin_us,(unsigned long long)q->reap_end_us,(unsigned long long)q->closed_us,final);
+    if(length>0 && (unsigned)length<sizeof(text))srv_puts(text);
+}
+struct message_trace {
+    uint64_t begin,received,end,pid,type;
+    int result;
+    struct srv_sched_trace scheduler;
+};
 struct operation_trace {
+    struct message_trace message;
+    struct lifetime_trace ready_worst,close_worst;
     uint64_t at_us,launch_age_us,exit_age_us,close_age_us,close_pid,close_window;
     uint64_t requests,started,refused,last_pid,last_exec_us;
+    uint64_t cache_bytes,cache_retained_bytes,cache_reuses;
+    unsigned cache_retained;
+    uint64_t reap_pid,reap_queue_age_us,reap_run_age_us,reap_completed_us;
+    unsigned reap_queued,reap_running,reap_done,reap_state;
     unsigned queued,done,memory,pending_opens,live,awaiting,closing,close_requested,exiting,preferences;
     unsigned oldest_app,oldest_state;
     struct capture_trace capture,slowest;
@@ -25,6 +52,23 @@ static void capture_trace_report(const struct capture_trace *c,const char *kind,
 }
 static void operation_trace_report(const struct operation_trace *t,unsigned final) {
     if(!t->at_us)return;
+    if(t->message.begin) {
+        const struct message_trace *m=&t->message;const struct srv_sched_trace *q=&m->scheduler;
+        char text[1024];
+        int length=snprintf(text,sizeof(text),"desktop-message-worst: version=1 snapshot_us=%llu begin_us=%llu received_us=%llu end_us=%llu pid=%llu type=%llu result=%d blocked_us=%llu ready_us=%llu dispatches=%llu exclusions=%llu invalid=%llu final=%u\n",
+            (unsigned long long)t->at_us,(unsigned long long)m->begin,(unsigned long long)m->received,(unsigned long long)m->end,
+            (unsigned long long)m->pid,(unsigned long long)m->type,m->result,(unsigned long long)q->blocked_us,
+            (unsigned long long)q->ready_us,(unsigned long long)q->dispatches,(unsigned long long)q->exclusions,(unsigned long long)q->invalid,final);
+        if(length>0 && (unsigned)length<sizeof(text))srv_puts(text);
+    }
+    lifetime_trace_report(&t->ready_worst,"ready",t->at_us,final);
+    lifetime_trace_report(&t->close_worst,"close",t->at_us,final);
+    desk_log("desktop-reap-state: version=1 at_us=%llu queued=%u running=%u done=%u pid=%llu state=%u queue_age_us=%llu run_age_us=%llu completed_us=%llu final=%u\n",
+        (unsigned long long)t->at_us,t->reap_queued,t->reap_running,t->reap_done,(unsigned long long)t->reap_pid,t->reap_state,
+        (unsigned long long)t->reap_queue_age_us,(unsigned long long)t->reap_run_age_us,(unsigned long long)t->reap_completed_us,final);
+    desk_log("desktop-cache: version=1 at_us=%llu bytes=%llu retained=%u retained_bytes=%llu reuses=%llu final=%u\n",
+        (unsigned long long)t->at_us,(unsigned long long)t->cache_bytes,t->cache_retained,
+        (unsigned long long)t->cache_retained_bytes,(unsigned long long)t->cache_reuses,final);
     desk_log("desktop-operations: version=1 at_us=%llu requests=%llu started=%llu refused=%llu last_pid=%llu last_exec_us=%llu queued=%u done=%u oldest_app=%u oldest_state=%u launch_age_us=%llu memory=%u pending_opens=%u live=%u awaiting=%u closing=%u close_requested=%u exiting=%u exit_age_us=%llu close_pid=%llu close_window=%llu close_age_us=%llu preferences=%u final=%u\n",
         (unsigned long long)t->at_us,(unsigned long long)t->requests,(unsigned long long)t->started,(unsigned long long)t->refused,
         (unsigned long long)t->last_pid,(unsigned long long)t->last_exec_us,t->queued,t->done,t->oldest_app,t->oldest_state,

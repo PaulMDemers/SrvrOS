@@ -36,6 +36,7 @@ static void *test_malloc(size_t n) { return fail_alloc?NULL:malloc(n); }
 #ifndef SRVROS_POSIX_DATAGRAM_SOURCE
 #define SRVROS_POSIX_DATAGRAM_SOURCE "../userspace/lib/src/posix_socket.c"
 #endif
+#include "posix_socket_host_names.h"
 #include SRVROS_POSIX_DATAGRAM_SOURCE
 static const char *pending;static size_t pending_length;static unsigned receives;
 int __posix_signal_dispatch_pending(void) { return 0; }

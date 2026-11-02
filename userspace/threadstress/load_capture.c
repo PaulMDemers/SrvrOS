@@ -2,6 +2,10 @@
 #include <srvros/sys.h>
 #include <stdio.h>
 #include <stdint.h>
+#ifdef SRVROS_CPU_LOAD_HOST_TEST
+int cpu_load_test_printf(const char *,...);
+#define printf cpu_load_test_printf
+#endif
 
 static int reject(const char *reason) {
     printf("cpu-load: completed=NO reason=%s\n",reason);
@@ -30,10 +34,11 @@ static const char *check_sensors(long now, struct srv_thermal_status *t,
 
 int cpu_load_capture(void) {
     const char *names[]={"idle","load","recovery"};
+    struct {long start,end;uint64_t chunks,checksum;} completed[3]={0};
     volatile uint64_t work=1;
     long previous=srv_monotonic_us();
     if(previous<0) return reject("clock");
-    printf("cpu-load: version=1 phases_seconds=30,30,30 workers=1 control_writes=none\n");
+    printf("cpu-load-progress: version=1 phases_seconds=30,30,30 workers=1 control_writes=none\n");
     for(unsigned phase=0;phase<3;phase++) {
         long start=previous,checked=-1,logged=-1;
         unsigned stalled=0;
@@ -65,9 +70,20 @@ int cpu_load_capture(void) {
             } else if(srv_sleep_ticks(1)<0) return reject("sleep");
         }
         if(phase==1 && !chunks) return reject("no-load-work");
-        printf("cpu-load: phase=%s completed=yes elapsed_us=%ld start_us=%ld end_us=%ld chunks=%llu checksum=%llu\n",
+        completed[phase].start=start;completed[phase].end=previous;
+        completed[phase].chunks=chunks;completed[phase].checksum=work;
+        printf("cpu-load-progress: phase=%s completed=yes elapsed_us=%ld start_us=%ld end_us=%ld chunks=%llu checksum=%llu\n",
             names[phase],previous-start,start,previous,(unsigned long long)chunks,(unsigned long long)work);
     }
+    /* Emit acceptance records exactly once, only after all original checks.
+     * Keep the sampled times/work, not the later reporting time. Live progress
+     * above is preserved, including on failure; it is never a final receipt. */
+    printf("cpu-load: version=1 phases_seconds=30,30,30 workers=1 control_writes=none\n");
+    for(unsigned phase=0;phase<3;phase++)
+        printf("cpu-load: phase=%s completed=yes elapsed_us=%ld start_us=%ld end_us=%ld chunks=%llu checksum=%llu\n",
+            names[phase],completed[phase].end-completed[phase].start,
+            completed[phase].start,completed[phase].end,
+            (unsigned long long)completed[phase].chunks,(unsigned long long)completed[phase].checksum);
     printf("cpu-load: completed=yes\n");
     return 0;
 }

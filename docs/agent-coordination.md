@@ -714,3 +714,50 @@ No native PCM stream ran in this return, and explicit command parity and other
 unreported checklist steps remain physical follow-ups. Do not infer native
 latency, energy savings, sibling acceptance or full audio endurance. PR19 retains
 Wi-Fi ownership; no new shared implementation is claimed by this closeout.
+
+
+## Prepared user-thread and sole-main memory admission (PR #260 candidate)
+
+Air7,2's candidate keeps generic file, mapping and lifetime gates. Reuse only the
+bounded validation preludes and their ordinary fallback; see the
+[application runtime contract](desktop-application-runtime.md). A prepared user
+thread publishes process/CR3/TLS/FPU context before READY and must enter userspace
+without the generic allocating context refresh. Do not use that constructor for
+an unprepared kernel worker or image loader. Atomic allocation failure must not
+call console rendering; retained PTE/frame/region ownership and creator publication
+pins remain mandatory. These are CPU0 proofs, not SMP address-space locking.
+Source `185c6668` has host/guest/load validation; native first-thread/allocation
+latency remains pending. Air7,2's latest native release `ce3f369efb135f20` observes
+fast helper unmaps but still fails full endurance on startup admission. Other
+machines retain independent acceptance. Actions remain disabled; local receipts
+and preserved failures, including the final 50-IOPS PCM-overlap failure, are in
+the Air record. No native trial is armed by this handoff.
+
+
+## PR261 desktop/storage review handoff
+
+Air7,2's PR261 is ready for merge review on main `a6b9e1b7`, integrated and locally
+tested as `721339ea`. Reuse its verified aligned append fallback, transaction-local
+read copies, bitmap spans and bounded metadata admission; retain global sync,
+publication/flush/quarantine and ordinary cancellation/teardown ownership.
+[Filesystem capacity](filesystem-capacity.md) and the
+[application runtime contract](desktop-application-runtime.md) describe these
+mechanisms and the matched kernel/SDK PID selector.
+
+Keep compositor diagnostics on the bounded report-worker handoff. Full queues
+must not block the UI or overwrite emitting records; loss must stay visible in
+automated receipts. The stress producer now keeps PCM live through a bounded
+final disk-completion handshake, using an explicitly nonblocking pipe read.
+Preserve minimum duration, full workload, live overlap, zero underruns, 500ms UI,
+10s whole-lifetime and complete saved/binary receipt validation. Never repair
+interleaved UART into evidence. Use the retained message/scheduler clocks rather
+than attributing an entire stall to its initial I/O owner.
+
+Six loaded VM trials, normal/write-throttled load, 20 Files windows, full local
+core/builds and controlled/threaded sink-backpressure tests pass. The exact
+original UART/call attribution remains an inference; the blocking logging route
+is reproduced independently. Prior failed trials remain failed. The installed
+native62ed endurance acceptance belongs to its earlier exact source; the new
+logging/PCM/collector changes are host/VM-tested only. Other machines retain their
+own physical ledgers and device gates. PR19 Wi-Fi and PR252 resolver work remain
+independent. Actions stay disabled and no physical boot is armed by this handoff.

@@ -16,6 +16,23 @@ open queues admission; only OPEN_REPLY marks it ready or refused. The existing
 memory and GUI budgets remain authoritative. No new fixed window-count limit
 is introduced.
 
+A client may reserve an exact `desk_pixels_alloc(width,height)` mapping before
+starting a helper, then transfer it to a freshly opened window with
+`desk_app_adopt_pixels`. The window must still be opening with no configuration,
+pixels, surface, frame or pending publication. Refusal retains caller ownership;
+success transfers ownership to normal window disposal. The matching first
+CONFIGURE reuses those pixels but still creates its stream surface. Different
+geometry follows normal replacement and releases the old mapping only after a
+new canvas/surface succeeds. An early close or surface failure retains the
+adopted mapping until actual disposal/process exit. This reserves memory, not a
+GUI identity or a published frame; GUI/model work still follows normal admission.
+
+Text/Files reserve their first 720×480 canvas before helper creation, alongside
+the initial model. Startup failure releases both unborrowed mappings. Once open,
+the window owns its adopted canvas; acknowledged Close, accepted jobs and actual
+retirement remain required. Later windows and resizing keep their allocation
+path. Reserving a first canvas does not authorize changing memory gates or limits.
+
 Each owner also carries one reusable `desk_dialog_window`. Route all events
 through `desk_window_set_dispatch`, which identifies the owner for main and
 child events and updates main admission/retirement before the app callback.

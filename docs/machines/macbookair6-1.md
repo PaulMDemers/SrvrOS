@@ -1,6 +1,6 @@
 # MacBookAir6,1 — local bring-up
 
-Updated: 2026-10-27. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted. Short battery sampling and the bounded Home desktop session with five Text saves and three battery lifetimes, plus a three-minute continuous Home desktop capture and attended desktop AC unplug/reconnect with indicator updates, are physically accepted.**
+Updated: 2026-11-01. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted. Short battery sampling and the bounded Home desktop session with five Text saves and three battery lifetimes, plus a three-minute continuous Home desktop capture and attended desktop AC unplug/reconnect with indicator updates, are physically accepted.**
 
 ## Initial inventory (2026-10-22)
 
@@ -90,6 +90,36 @@ armed. Release `c35475f62f154f1e` is retained outside `build` as a known-working
 console/basic-keyboard/bounded-USB payload; preserve it as recovery.
 
 ## Current objective and next actions
+
+Final-receipt retention is physically accepted on source `eda7541e`, release
+`98bced62ca7be424` (PR266). All required proofs now parse directly from the
+unchanged 64 KiB exit file. The overall platform trial remains failed on the
+original RC6 timing predicate; package C3 remains zero. No reboot is armed.
+
+The read-only source audit and first native display-control inventory are
+complete. Source `78fbea3c`, release `6ac139e77c5d3070` (PR269), directly retains
+all 26 controls at both endpoints and all original proofs in the 64 KiB exit
+log. Raw controls are identical: primary A, eDP transcoder with pipe-A input and
+DDI A enabled; the other sampled planes/cursors/fitters/DDI buffers and VGA
+are disabled. The BIOS well request remains set. Audio/interrupt ownership and
+other unmeasured dependencies remain open; the well is not proven unused.
+
+The overall platform test still fails the original RC6 bound (about 0.1096%
+nominal excess), and package C3 remains zero. No power transition is authorized.
+The PR261 baseline is consumed at `95ddb8d6`. Its new checkpoint output adds a
+conservative 9,056-byte budget after the historical CPU proofs; the unchanged
+64 KiB maximum-width retention model fails. Old trace source fingerprints remain
+rejected. This is a regression-model failure, not a new native observation.
+
+Next: resolve final-proof retention on the new logging baseline before extending
+or running a native capture. Keep every sample, failure marker, checkpoint and
+strict limit. The source-only audio/interrupt audit is complete; candidate
+registers and ownership gaps are recorded in the current guide, but no hardware
+reads or control changes have been added. PR252 sockets and PR19 Wi-Fi remain
+independent. Installed native release remains `6ac139e77c5d3070`; no reboot is
+armed. The local checkpoint owns integration test results and recovery hashes.
+
+### Historical battery-runtime objective (2026-10-23)
 
 Base `9bbc3b9`, branch `device/macbookair6-1/battery-runtime`. Audit connected
 Air6,1 AML initialization and query effects using private captured regions and
@@ -5360,3 +5390,557 @@ diagnostics even if the original RC6 predicate still fails. Native acceptance
 and the counter's hardware clock/update explanation remain pending. The local
 run record binds this source/release to USB `6ADA-85BB`, its 554-file baseline,
 1,610 allocated clusters, protected recovery and durable evidence backup.
+
+
+### RC6 series return reviewed and repository synchronized (2026-10-31)
+
+PR249 merged as `b1ba4e68`. Its release `0804f2944e9364d3`, compiled source
+`05668557`, returned automatically with `session-00065eed045ce1e7-00`.
+The matching exit SHA-256 is
+`a08d7c9e8f5cc84c6c792d165b0d9c3cc1e7dd521affaec555f900265440529e`.
+All three 30-second idle/load/recovery phases and final capture completed;
+no halt, exception or incomplete runtime marker appears. The platform receipt
+is fault-free with 25 devices, but strict platform acceptance remains failed.
+
+Nine series points match the retained power timestamps, have continuous counter
+arithmetic and unchanged immediate paired values. Six of the eight intervals
+between series points exceed their upper PM bracket at nominal RC6 scaling;
+two are below it. Including both endpoint intervals, eight of ten intervals
+exceed the bracket. Thus this run's excess is distributed across several
+intervals, rather than appearing only in the final endpoint. This does not
+establish a precise update cadence or identify the counter's oscillator.
+Nominal RC6 elapsed time is 90.143014400 s versus a PM bracket of
+90.059109–90.059113 s, approximately 83.901 ms (0.0932%) excess before the
+existing one-tick allowance. The original predicate still fails; no scaling,
+tolerance or power-policy change is justified by this observation alone.
+
+All 32 coordinated attempts completed under the unchanged 20 ms limit;
+maximum whole-round latency was 9,984 us. The short initial attempt recorded
+zero residency; the following 31 observed BSP core C3 and package C2.
+Package C2 occupied about 99.5355% of the aggregate short brackets, while
+package C3 stayed zero. All three APs retired without faults.
+
+The 554 baseline files are preserved except expected `.srvros/meta` bookkeeping;
+four logs bring the volume to 558 files / 1,615 clusters. Offline fsck and
+allocation checks passed with zero leaks, mismatches or errors. Installed
+current `0804f2944e9364d3`, console recovery `c35475f62f154f1e` and accepted
+package payload `bae0678ed7e9b38b` verify against their durable backups.
+The matching return evidence also verifies outside `build`. The one-shot is
+consumed and automatic collection is disabled. Current remains a diagnostic
+with unresolved RC6 acceptance, not a newly accepted replacement for recovery.
+
+Repository catch-up adds this closeout and current-guide/index updates only.
+Documentation and RC6 collector regressions are the applicable local checks;
+no rebuilt image, new hardware test or native acceptance of the 94 newer main
+commits is claimed. The October 31 workspace cleanup reclaimed empty allocation
+from VM images with identical hashes; all native evidence and recovery remain.
+
+
+### Ubuntu RC6 comparison — active scope (2026-11-01)
+
+Updated the device checkout and local main to fetched `9340c9fb` (PR260),
+consuming 66 commits since the October 31 closeout. PR261 owns ongoing desktop
+lifecycle latency, PR252 resolver/socket and PR19 Wi-Fi; this scope touches none
+of their runtime files. Capture three passive 90-second Ubuntu i915 RC6 windows,
+with sparse sysfs reads bracketed by raw/adjusted monotonic clocks.
+Scope: a read-only host capture tool, its evidence/parser checks and Makefile target, this record
+and the diagnostic guide. No SrvrOS power policy, counter conversion, timing
+predicate, boot payload or reboot state changes. The millisecond sysfs interface
+and Linux-managed graphics workload differ from raw SrvrOS MMIO/PM brackets;
+record those limits before drawing cross-OS conclusions. Publish the baseline
+and a bounded next diagnostic after review, without accepting newer source on
+this hardware merely because it was fetched. No new physical boot is armed.
+
+
+### Ubuntu RC6 baseline captured (2026-11-01)
+
+Host-only helper source `9aecef5e`, Ubuntu kernel `7.0.0-38-generic`, i915
+`8086:0a26`, TSC clocksource. Three passive 90-second windows retained all
+28 bracketed samples, with RC6 enable state 1 before/after and runtime state
+active. Raw-clock spans were approximately 89.9964/89.9961/89.9961 seconds;
+RC6 advances were 39.356/31.473/36.602 seconds (43.73/34.97/40.67%). All
+27 ten-second intervals stayed below elapsed time, including the rounded
+endpoint annotation. Total RC6 time was 107.431 seconds over about 269.9886
+raw seconds. Maximum sysfs read bracket was 606,052 ns. Adjusted versus raw
+monotonic elapsed time differed by about 42.27 ppm; these are Linux clock
+observations, not an independent calibration of SrvrOS's PM timer.
+
+This capture does not reproduce SrvrOS's small overcount, but its much lower
+RC6 fraction can hide such a discrepancy. It cannot accept the native timing
+predicate or distinguish hardware scaling from publication/OS behavior. Linux
+continues managing graphics/runtime power; the helper itself writes no policy
+or MMIO controls. All original SrvrOS limits and failed evidence remain intact.
+
+A separate read-only turbostat context capture, three ten-second intervals,
+reported package C3 at 14.04/13.23/14.41%, core C7 at roughly 49–51%, and
+package C6/C7 at zero. CPU busy was 25.18/27.15/27.50%; this was the normal
+Ubuntu desktop, not controlled idle. Graphics RC6 was 42.71/43.79/44.57%.
+These are separate observations, not simultaneous evidence for the earlier
+windows. Positive package C3 establishes that this physical Mac can reach C3
+under Linux's own policies/device state; it does not identify the missing
+SrvrOS prerequisite or authorize copying Linux control writes.
+
+`make test-linux-rc6-baseline`, ten existing RC6 parser regressions, docs and
+whitespace checks pass. Raw observations, upstream source references, tool hash
+and review are backed up with hashes outside `build`. No boot payload changed
+and no reboot is armed. Next power work should compare package-C3 prerequisites
+and display/device state with this Linux reference while preserving the
+unresolved RC6 mismatch. A matched current-main build and native desktop
+regression remain separate work, without inherited physical acceptance.
+
+
+### Cross-OS package-C3 prerequisites — active scope (2026-11-01)
+
+Base `e339b9a8`, same clean device checkout. Compare Linux CPU idle configuration,
+read-only known-supported package MSRs, kernel-owned graphics/display reports and
+PCI PM/link/LTR snapshots with the saved SrvrOS release `0804f2944e9364d3`.
+Reuse the existing bounded PCI decoder for matching fields. Scope: host-only
+capture/comparison helpers, fixtures, Makefile checks and this unit/current
+power guide. PR261 desktop admission, PR252 sockets and PR19 Wi-Fi remain
+independent. No shared runtime or native register allowlist changes, forced
+wakeups, control writes, power-policy changes or new boot in this audit.
+Preserve unknowns and choose a bounded follow-up from captured differences;
+Linux package C3 alone does not identify a SrvrOS blocker.
+
+
+### Package-C3 prerequisite comparison captured (2026-11-01)
+
+Based on `e339b9a8`, two host-only comparisons against native source `05668557`,
+release `0804f2944e9364d3`, preserve the exact exit hash recorded in the October
+31 closeout. All 25 BDF/identity/class matches and comparison results repeat.
+No missing/unreadable devices or MSR drift occurred. Linux's four CPUs all have
+package configuration `0x408`, C3 IRTL `0x8842` and misc-enable `0x850089`,
+matching the native capture. Linux C3 descriptors use the same MWAIT `0x10`.
+This removes those sampled configuration differences from the current shortlist,
+without proving identical scheduling or every platform prerequisite.
+
+ASPM, LTR enable/support and clock-PM enable/support match across all 25
+functions. Independent extended-capability review also matches all paired
+native LTR states, offsets, values and header counts, including the two
+Broadcom `0x10031003` values. These are configured maxima, not observed latency
+requests. Common Clock Configuration differs at SSD root port `00:1c.4` and
+Thunderbolt functions `05:00.0`, `06:00.0`, `07:00.0` (Linux set, native clear).
+Other raw interrupt/link/status fields differ and are retained; no link change
+is proposed from these snapshots.
+
+Seven Linux functions are D3hot/runtime suspended where native PMCSR was D0:
+both audio controllers `00:03.0` and `00:1b.0`, root port `00:1c.0`, and
+Thunderbolt downstream ports `06:03.0`–`06:06.0`. Their surrounding Linux
+sysfs states were retained because configuration reads can invoke kernel
+runtime PM. Driver ownership, active DMA/interrupts and teardown requirements
+must be audited before any proposed transition; this is candidate evidence,
+not a causal result or permission to copy Linux control values.
+
+Cached Linux display state has only the 1366×768 eDP connector enabled,
+pipe A/eDP domain references, and zero software references to the `display`
+power well/audio domains. There is no matching native display-power-well
+snapshot; reference counts alone do not establish hardware-off state. An early
+exploratory `drpc` read is excluded from passive evidence after source review
+showed its kernel forcewake/PCODE read path. The retained display comparison
+uses cached reports instead. No native register allowlist is expanded here.
+
+The host helper reuses the existing bounded PCI decoder and performs only
+kernel-mediated read access. Five new comparison/adapter regressions, existing
+package/latency/collector tests and the Linux RC6 helper tests are the applicable
+validation. Raw snapshots, source references and reviewed comparison remain in
+ignored local storage with a verified durable copy. See the current AP audit
+guide for the field table and caveats.
+
+Next: validate and add a narrowly gated read-only native display/power-well
+snapshot to the existing bounded C3 trial. Keep device ownership analysis
+separate from any future D-state/link policy experiment. Package C3 remains
+unobserved in SrvrOS, and its RC6 timing failure remains open. No boot image,
+power policy, integrity check or limit changed, and no reboot is armed.
+
+
+### Read-only native display-well snapshot — active scope (2026-11-01)
+
+Base `71686249`. Add four read-only Haswell power-well observations at
+`0x45400`–`0x4540c` to the existing isolated platform capture endpoints. Retain
+exact Air6,1 CPU/GPU/PCH/DSDT admission and map only one additional uncacheable,
+read-only/non-executable page. No forcewake, PCODE, control writes, new workers,
+waits, polling or per-round work. Keep the existing 32 attempts, 20 ms limit,
+HLT fallback, RC6 scale/predicate, USB integrity and log limits unchanged.
+Scope: isolated platform diagnostic, independent observation parser/tests,
+current guide and this unit's automated trial/evidence. PR261 desktop admission,
+PR252 sockets and PR19 Wi-Fi do not overlap these runtime files. Validate
+source semantics, mapping/refusal and receipts, full matched build/core and
+exact-stage VM before install. Prepare the unattended native trial with visible
+progress and automatic save/Ubuntu return, preserving known-good recovery.
+
+
+### Display-well candidate validated (2026-11-01)
+
+Final compiled source `dff1f18f`, release `c6fd6d4c55a57566`, adds the four
+Haswell display-well endpoint reads with exact model admission and D0 rechecks
+before both MMIO endpoints. Version-4 receipts retain BIOS/driver/KVM/debug
+request/status values and separate PM brackets. The independent observation
+parser saves useful display evidence even if the original RC6 timing predicate
+still fails. There is no power-control, forcewake/PCODE or measured-round change.
+
+Matched ordinary/AP build, USB image, full core/docs suite and isolation/
+disassembly checks pass. All nine directed/exact-stage VM cases and three
+legacy profiles pass on this final candidate. Focused tests cover occupied
+addresses, partial-map failures, read-only/NX/cache flags, D0/D3/missing-PM/
+malformed/absent-device refusal, bounded ordered endpoint reads, all-ones data,
+missing/duplicate/misordered receipts and observations retained on RC6 failure.
+Sparse checkpoints never read display wells. Maximum-width replay with 25 PCI
+rows, 12 series pairs, both well endpoints and durability padding preserves all
+original proofs inside the unchanged 64 KiB tail (7,037 added bytes).
+Earlier pre-D0-recheck VM receipts remain separate and are not substituted for
+final-candidate validation. These checks do not physically accept the new reads.
+
+The unattended trial retains 30-second idle/load/recovery phases, 32 coordinated
+attempts, 20 ms limits and HLT fallback. It shows progress, saves observations
+and returns to Ubuntu for automatic collection. No human input is required;
+keep AC and this unit's USB connected. The 558-file / 1,615-cluster baseline,
+exact-stage receipt, manifest and durable payload/evidence are bound in the
+local run record. Console recovery `c35475f62f154f1e` and accepted package
+payload `bae0678ed7e9b38b` remain protected. Retire the failed RC6 candidate's
+EFI copy only after durable verification and normal installer fallback.
+
+PR264 owns this isolated diagnostic. Native results, hardware well state and
+the package-C3 blocker remain pending the matching physical return. An enabled
+well or a firmware request is not permission to clear it. Keep the unresolved
+RC6 predicate, device ownership/teardown requirements and all limits intact.
+
+
+### Native display-well observation; exit proof incomplete (2026-11-01)
+
+Closeout scope is evidence review and this record/current guide/index only,
+based on `bbbdead1` / merged PR264. Release `c6fd6d4c55a57566`, source
+`dff1f18f`, returned with `session-00065f4155a6df61-00`. Exact exit SHA-256:
+`9395307a5dca53fc403d3343752b3e4fb98b33a5a07874afa3eed31c3a876fcb`.
+The overall trial remains failed: the original RC6 timing bound still fails,
+and the required exit-only workload/AP-owner evidence is incomplete.
+
+Both valid display endpoints report `0xc0000000` for BIOS and `0x40000000`
+for driver/KVM/debug. The BIOS request bit is set; the other request bits are
+clear, and every view reports the well enabled. The PM read brackets are
+2,204,793–2,204,795 us and 92,251,505–92,251,507 us. Source fault is zero and
+the runtime capture completes. This records bounded native request/status
+observations; it does not establish uninterrupted state between endpoints,
+identify the package-C3 blocker or authorize releasing firmware ownership.
+
+`exit.log` is exactly 65,536 bytes and begins during the load phase. It lost the
+idle-phase proof and the initial AP-owner header. Consequently `load_result`
+and `ap_c3_result` fail on that file; the trial must not be promoted to a pass.
+The saved periodic logs retain the beginning. For diagnostic review only,
+`session-b.log` and `exit.log` have a unique, byte-identical 30,688-byte overlap.
+Joining that proven overlap yields a 93,633-byte continuous stream. The original
+raw logs and their hashes remain unchanged; this reconstruction does not replace
+the failed exit-only requirement or relax its parser.
+
+The full stream confirms all three workload phases and 32 C3 attempts completed,
+maximum whole-round time 9,983 us, no faults and terminal AP retirement.
+The first short attempt has zero residency; the next 31 observe BSP core C3
+and package C2. Aggregate C2 is about 99.5349%; package C3 remains zero. Eight
+RC6 series pairs have continuous arithmetic. Nominal RC6 is 90.117999360 s
+versus a PM bracket of 90.046711–90.046714 s, approximately 71.285 ms (0.0792%)
+excess before the existing one-tick allowance. The strict bound remains failed.
+
+The earlier tail replay used the older accepted package trace. It omitted
+newer main's `io-owner` checkpoint output (`72454534`), which adds 7,701 bytes
+in this native stream. Existing worker reports contribute another 9,533 bytes;
+they were already present in the older trace. Thus the old replay's passing
+7,037-byte addition was not representative of the current complete output.
+The next diagnostic fix must preserve required receipts inside the unchanged
+64 KiB tail using current-source logging, without dropping checks or accepting
+reconstructed evidence as an exit-log pass. PR261 owns active desktop/I/O work;
+this closeout does not alter its shared logger/scheduler implementation.
+
+All 558 baseline files are preserved except expected `.srvros/meta` bookkeeping;
+four new logs bring the volume to 562 files / 1,620 clusters. Offline fsck and
+allocation pass with zero leaks/mismatches/errors. Current, console recovery and
+accepted package payloads verify against durable backups; 484 automatic return
+backup files verify before this review is added. Ubuntu is default, one-shot is
+consumed and collection is disabled. No new boot is armed.
+
+Next: fix source-matched receipt coverage first. Then audit active display
+resources and firmware handoff before any experiment releasing the BIOS request;
+keep controller D-state/common-clock candidates separate. Power policy, integrity
+checks, original limits and the failed RC6 evidence remain unchanged.
+
+
+### Final receipt retention — active scope (2026-11-01)
+
+Base `1a0c9085`. Fix the failed exit-tail coverage by deferring the original CPU
+phase acceptance records and frozen AP admission receipt to their final reports.
+Keep all live progress, sensor checks, I/O-owner/worker diagnostics, phase timing,
+workload and strict parser formats; preserve failure markers and partial progress.
+No tail-size, watchdog, power-policy, ownership or integrity change. Scope:
+`userspace/threadstress/load_capture.c`, isolated `kernel/diagnostics/ap_probe.c`,
+focused fixtures and source-matched replay, unit/current diagnostic docs. PR261
+owns shared logger/scheduler/desktop changes; this fix does not edit those
+subsystems. PR252 sockets and PR19 Wi-Fi remain independent. Publish/test the
+bounded fix, validate a matched image/VM and prepare the automated repeat with
+normal recovery and collection. The earlier RC6 failure remains independent.
+
+
+### Final receipt candidate validated (2026-11-01)
+
+Compiled source `eda7541e`, release `98bced62ca7be424`, retains the original
+three completed CPU phase records and validated AP admission fields for their
+final reports. Live progress, partial failure progress, all sensor/clock checks,
+worker/I/O diagnostics and strict receipt grammars remain. Successful CPU phase
+receipts appear only after all three phases succeed; AP admission is frozen
+before startup and reported before actual retirement results. No scheduler/
+logger edit, hardware access, policy, ownership or limit change belongs here.
+
+Matched ordinary/AP build, USB image, full core/docs and isolation/disassembly
+checks pass. Twelve main/legacy VM cases pass, with actual receipt ordering,
+startup/final admission equality and no successful CPU receipts on sensor refusal
+verified. Both positive Air/Pro CPU fixtures and twelve refusal/stop paths pass
+final-only emission assertions. The strict AP parser rejects progress-only
+admission. The source-matched failed-stream regression preserves every critical
+record byte-for-byte in the original 64 KiB tail with 128 KiB extra pre-final
+chatter and 29,813 bytes of conservative receipt width/capacity padding. Old
+layout coverage fails. Replay/model output is explicitly synthetic and cannot
+accept this or the failed native run. Original strict parsers are unchanged.
+
+The automated retry uses the same 30/30/30-second phases, 32 coordinated
+attempts, 20 ms limit and HLT fallback. The return collector now writes a direct
+`exit-receipt-coverage.json` before the separate unchanged RC6/platform assertion;
+no reconstruction or modeled record can satisfy native exit checks. Independent
+display observations and original RC6 failure evidence remain available.
+
+The run record binds this unit's 562-file / 1,620-cluster USB baseline, exact-stage
+receipt, manifest and protected recovery. No input is needed; keep AC/USB
+connected for progress/save/automatic Ubuntu return. PR266 owns this bounded
+fix; PR261's shared logger/desktop work remains separate. After return, verify
+the actual exit file first. Native retention acceptance and the package-C3/RC6
+issues remain pending; no power transition is authorized by this receipt fix.
+
+
+### Native final-receipt retention accepted; RC6 still fails (2026-11-01)
+
+Merged PR266 (`25a0f342`), compiled source `eda7541e`, release
+`98bced62ca7be424`, returned automatically with
+`session-00065f427a21a2ac-00`. The 65,536-byte exit file has SHA-256
+`cb238c7227d91d85b2a032fa1b284c50a5079b0ed3108e2505aa14ff3c15d50d`.
+All required phase/admission/power/idle/C3/package/display proofs now validate
+**directly from this file**, using the unchanged strict parsers. No joining,
+modeling or synthetic padding participates in native acceptance. This accepts
+the receipt-retention fix only; the overall platform assessment remains failed.
+
+The three 30-second idle/load/recovery phases complete, with covered package
+power of 4.102 / 5.134 / 4.107 W. All 32 coordinated rounds complete within the
+unchanged 20 ms bound; maximum whole round is 9,983 us. After the initial zero
+round, 31 observe BSP core C3; package C2 is about 99.5359% over the short
+round brackets. Package C3 remains zero. All three APs retire terminally with
+zero faults. These observations do not accept ordinary SMP or a new power policy.
+
+The original RC6 predicate still fails: nominal RC6 is 90.142353920 s versus
+PM elapsed 90.048071–90.048074 s, about 94.279 ms (0.1047%) excess before the
+existing one-tick allowance. Eight sparse series samples remain continuous;
+no tolerance or scaling change is made. Both display endpoints again report
+BIOS `0xc0000000`, driver/KVM/debug `0x40000000`, source fault zero and completed
+capture. Firmware ownership and causality remain unproven.
+
+All 562 prior files are preserved except expected `.srvros/meta` bookkeeping;
+four new session logs bring the USB to 566 files / 1,625 allocated clusters.
+Read-only fsck and allocation pass with zero leaks/mismatches/errors. Installed
+candidate, console recovery and accepted package payloads match durable copies;
+462 automatic return evidence files verify before review additions. Ubuntu is
+default, the one-shot is consumed and automatic collection is disabled. No new
+boot is armed. Raw logs, direct parser results and failed overall assessment are
+retained locally and backed up outside `build`.
+
+Next: audit active display resources and firmware handoff read-only, preserving
+all policies, limits and ownership checks. Receipt coverage is resolved; RC6
+clock semantics and the package-C3 blocker remain separate open questions.
+
+
+### Display-resource and firmware-handoff audit — active scope (2026-11-01)
+
+Base `a6b9e1b7` / PR267. Audit the inherited framebuffer path and validated
+Haswell display-domain dependencies against pinned Linux v7.0 sources and this
+unit's cached evidence. Scope is source/evidence review and current diagnostic/
+unit documentation; no MMIO probing, firmware call, register write or power-policy
+change. Define a bounded native read-only resource capture only after identifying
+its register access prerequisites. PR261 desktop/I/O, PR252 sockets and PR19
+Wi-Fi remain independent. Keep the accepted receipt fix, failed RC6 bound and
+zero package C3 separate. No reboot or new payload is armed by this audit.
+
+
+### Display-handoff source audit complete (2026-11-01)
+
+Source/evidence review on base `a6b9e1b7` confirms the inherited framebuffer
+continues scanout use, while SrvrOS has no complete Haswell display-resource
+adoption/release model. Limine v11.4.1 source `1276c440` matches the pinned binary
+release; ExitBootServices is not a display-resource retirement receipt.
+Pinned Linux v7.0 holds initialization references during state readout, transfers
+a BIOS request to a driver request without a request gap, and sanitizes unused
+wells after pipe/encoder ownership is established. No part of that control
+sequence was executed on this machine during the audit.
+
+The Haswell switchable global well excludes pipe A, transcoder eDP and DDI A,
+but includes all three panel fitters, B/C pipes, A/B/C transcoders, other listed
+ports and display audio/VGA. An internal panel is therefore insufficient to
+explain the BIOS request. Cached Ubuntu routing cannot stand in for inherited
+native routing; native eDP input selection and enabled dependent resources are
+still unknown. Lack of GT forcewake does not establish off-domain MMIO safety.
+
+The current guide records the next explicit endpoint capture contract: fixed
+read-only allowlist, validated access prerequisites, independent observations,
+no extra power-hook/round reads, strict malformed/refusal fixtures, current-source
+tail coverage and exact-stage rehearsal. This audit changes documentation only.
+No new image, register access, power policy or reboot is introduced. Keep the
+physically accepted receipt fix and failed RC6/package-C3 evidence unchanged.
+Local source hashes/review live under the ignored display-handoff evidence root
+and are backed up outside `build`.
+
+
+### Read-only native display controls — implementation scope (2026-11-01)
+
+Base `9c23bf4d`. Add an exact-Air6,1 26-control endpoint inventory to the existing
+explicit platform diagnostic: A/B/C/eDP transcoder controls, primary/sprite/cursor
+A/B/C, panel fitters A/B/C, DDI A–E and VGA. Preserve firmware requests; audio
+and interrupt registers remain outside this initial allowlist. Scope is isolated
+platform producer, strict independent parser, host/refusal/tail fixtures and
+unit/current guide. No shared scheduler/logger or PR261/252/19 scope changes.
+Validate exact read-only maps, D0/BAR/decode and powered-well gates, non-atomic
+pre/post observations, final receipts and all unchanged limits before staging.
+
+
+### Display-control candidate validated (2026-11-01)
+
+Compiled source `78fbea3c`, release `6ac139e77c5d3070`, adds the 26-control
+endpoint inventory specified by the current guide. Twelve exact private pages
+are read-only/NX/cache-disabled. GPU identity, BAR, decode, D0 and all four well
+views are revalidated; off domains and invalid/changed data are explicit failure
+or unknown evidence. The raw fixed-order records preserve every value while
+avoiding the per-control verbosity that failed the maximum tail check. No
+firmware request, power policy, timing limit, ownership or integrity check changes.
+Audio/interrupt inventory remains outside this first allowlist.
+
+Full matched ordinary/AP build, USB image, core suite and docs pass. Producer
+fixtures exercise every occupied destination and map failure, off-domain skips,
+wrong identity/BAR/decode/D0, all-ones and changing well state. Fourteen platform
+parser tests and the three retention tests pass. Source-matched latest native
+output with explicitly synthetic new resource records preserves every critical
+record byte-for-byte under 128 KiB additional pre-final chatter and 30,405 bytes
+of width/capacity padding in the unchanged 64 KiB tail. Synthetic records are
+never native acceptance. The strict original RC6 failure remains a failure.
+
+All nine main VM cases and the three legacy owner/C3/package profiles pass.
+Actual final-admission ordering and equality plus failure receipt behavior are
+checked across all twelve. Ordinary-kernel symbol isolation, diagnostic AP and
+platform disassembly, no direct control-write operations and sparse power-hook
+isolation also pass. The exact native-stage GPT rehearsal saves/unmounts/returns
+on its expected Q35 native refusal; missing Home halts without unsafe reset.
+These VM results do not accept the new native MMIO observations.
+
+The automated trial retains 30/30/30-second phases, 32 coordinated rounds,
+20 ms whole-round bounds and HLT fallback. The return collector saves independent
+resource and RC6 observations, requires complete direct exit-file evidence and
+preserves the unchanged overall platform predicate. Keep AC and this unit's USB
+connected; no input is required. The USB baseline is 566 files / 1,625 clusters,
+with all prior hashes, headroom, fsck and allocation verified. Console recovery
+and accepted package/stress/reopen payloads remain protected. Native resource
+routing and dependency observations remain pending the matching return.
+
+
+### Native display-control inventory accepted; platform still fails (2026-11-01)
+
+Closeout scope is direct native evidence and unit/current guide/index updates,
+on tested integration `7ee6a048` / PR269. Compiled source `78fbea3c`, release
+`6ac139e77c5d3070`, returned automatically with
+`session-00065f432ef9068c-00`. Its 65,536-byte exit log SHA-256 is
+`2a15db620223b35c077fa4e84d7c773f0fda1d780d21f2f6cc8bf61cf98548ac`.
+All original phase/admission/power/idle/C3/package/display proofs and the new
+resource records validate directly from this file, without reconstruction or
+modeling. This accepts the bounded read-only resource capture, not the overall
+platform test or any display-power policy.
+
+Both endpoints have 26 valid identical raw values, source fault zero and complete
+capture. Resource PM brackets are 2,234,663–2,234,678 us and
+92,285,753–92,285,764 us. Both pre/post well sets retain BIOS `0xc0000000` and
+driver/KVM/debug `0x40000000`. eDP config `0xc0000018`, eDP DDI function
+`0x82200000` and DDI A `0x80000011` show the eDP transcoder enabled with pipe-A
+input and DP-SST mode through DDI A. Primary A (`0x98004400`) is enabled.
+Transcoders A/B/C, primary B/C, all sampled sprites/cursors/fitters, DDI B–E
+and VGA are disabled according to their enable/mode fields. Nonzero reserved
+or unrelated fields remain raw evidence, not inferred resource activity.
+
+The sampled routing does not expose an enabled resource from the listed
+switchable-well dependencies. This narrows that inventory; it does not prove
+the well unused, establish DMA/interrupt/firmware ownership or identify a causal
+package-C3 blocker. Audio and interrupt control inventory remains outside this
+first allowlist. No request bit, power policy or timing limit was changed.
+
+All three 30-second phases complete, with covered package power
+4.020 / 5.133 / 4.045 W. All 32 coordinated rounds observe BSP core C3 and remain
+within the unchanged 20 ms bound; maximum is 9,983 us. Package C2 is about
+99.5376% over the short brackets; package C3 is zero. All three APs retire
+terminally without faults. The original strict RC6 bound still fails: nominal
+90.149831680 s versus PM elapsed 90.051091–90.051093 s, about 98.739 ms
+(0.1096%) excess before the existing one-tick allowance. Nine series samples
+remain arithmetically continuous. Failed overall assessment is preserved.
+
+All 566 prior files are preserved except expected `.srvros/meta`; four new logs
+bring USB to 570 files / 1,630 clusters. Offline fsck/allocation pass with zero
+leaks/mismatches/errors. Installed candidate, console recovery and accepted
+package match durable payloads; 479 automatic return evidence files verify
+before these review additions. Ubuntu is default, the one-shot is consumed and
+collection is disabled. No new boot is armed; raw logs and review are backed up
+outside `build`.
+
+Fetched main `466f4743` now includes PR261's shared scheduler/logger/storage/
+lifecycle changes. This physical trial predates those changes and does not
+accept them. Consume and locally validate that integration before another stage;
+repeat source-matched tail coverage using the changed logging source. Next
+hardware scope remains the missing display-audio/interrupt dependencies, with
+firmware ownership and the RC6 discrepancy kept separate. PR252 and PR19 retain
+their independent scopes.
+
+
+### PR261 integration and remaining dependency audit — active scope (2026-11-02)
+
+Base `95ddb8d6` includes merged PR261. Rebuild and validate this unit's matched
+ordinary/AP tree, core/VM refusal/lifecycle paths and retention budget before any
+new native stage. New I/O-gate and filesystem-cost checkpoint reports require
+explicit current-source sizing; the older native trace is not source-matched.
+Scope: bounded regression tooling and evidence/docs, plus source-only audit of
+remaining display audio/interrupt controls and driver ownership. No shared
+scheduler/storage/logger edits, register accesses, power changes or new native
+capture are implied. PR252 sockets and Pro PR19 Wi-Fi remain independent. Keep
+installed release `6ac139e77c5d3070`, its failed RC6 assessment and recovery intact.
+
+
+### Integration validated; maximum checkpoint budget fails (2026-11-02)
+
+Runtime integration base `95ddb8d6` / PR261 passes matched ordinary/AP build,
+USB image and full core tests locally. Additional source-guard/budget tests and
+the original receipt tests pass. Baseline smoke passes syscall ABI, all 482 shell
+commands, shell editing, UEFI USB input and displayd; guest filesystem checks
+report no errors/leaks. Ordinary/AP disassembly/symbol and sparse-hook isolation
+pass. Source `5ea8b3aa` (host tooling/docs changes only after that runtime base)
+stages VM-only release `4853b3e956523a10`: simulation, exact native refusal with
+save/unmount/return and missing-workspace halt all pass on GPT. Missing Home is
+an explicit expected halt, not a normal-completion JSON or a native acceptance.
+
+The old native trace is still rejected against changed logger/scheduler source.
+The strict replay guard now additionally fingerprints `exfat.c` and `exfat.h`,
+covering report formats and capacities changed outside the logger. A separate
+explicitly synthetic source-derived addition model adds nine gate rows, one gate
+summary, four cost rows and sixteen phase rows: 9,056 bytes at conservative
+maximum widths. Against the preserved native exit proofs and unchanged stress
+padding/tail size, required critical records are evicted. This failure is retained;
+it does not mean this source was booted on the Air or that the old native run
+failed resource capture. No model substitutes for a matching new native trace.
+
+The source-only dependency audit identifies display HDA as distinct from PCH
+CS4208 playback, rejects ordinary audio initialization as a read-only probe,
+and records graphics-audio and DE/SDE mask/enable candidates for later access
+review. Display audio, interrupt, DMA and firmware teardown ownership remain
+unmeasured. No register read, control write, policy or limit change is added.
+
+PR271 publishes the audit/regression tooling. Resolve final-proof retention while
+preserving every sample, failure marker and checkpoint before extending the
+inventory or installing another native candidate. VM-only stage is not approved
+for native use; its manifest remains intact and `latest` is restored to installed
+`6ac139e77c5d3070`. Installed candidate, console recovery and accepted package
+verify, with 483 prior native evidence files rechecked. Ubuntu remains default,
+no one-shot/reboot is armed and no install occurred. New audit/test evidence is
+backed up outside `build`; prior RC6/package-C3 failures remain unchanged.

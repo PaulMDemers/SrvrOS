@@ -11,12 +11,20 @@
 #include <srvros/sys.h>
 
 #define CHECK(x) do { if (!(x)) { printf("sync-contracts: line %d failed: %s\n", __LINE__, #x); exit(1); } } while (0)
+static int trace_enabled,trace_edges;
+static const char *trace_sequence[]={"pthread-reap-self","pthread-reap-records","pthread-record-claim","pthread-kernel-create"};
+void __posix_pthread_create_trace(const char *stage,int begin) {
+    if(!trace_enabled)return;
+    CHECK(trace_edges<8 && !strcmp(stage,trace_sequence[trace_edges/2]));
+    CHECK(begin==!(trace_edges%2));trace_edges++;
+}
 static uint32_t *interrupted_address;
 static uint32_t released_value;
 static int error_value, last_clock, futex_calls, dispatches, wait_mode, clock_error;
 static pthread_mutex_t *clock_mutex_probe;
 static int clock_probes, clock_calls, wake_calls;
 static int creates, mappings, unmappings, fail_mapping;
+static int slot_model,slot_next=100,slot_live[1024];
 static uint64_t submitted_stack, largest_ticks;
 static int inspect_early, expected_detach, lifecycle, model_detach = 1;
 static long model_tid = 1;
@@ -45,6 +53,7 @@ long srv_thread_status(uint64_t tid) {
     return model_exited ? 0 : 1;
 }
 long srv_thread_join(uint64_t tid, uint64_t *value) {
+    if(slot_model) {CHECK(tid<1024 && slot_live[tid]);slot_live[tid]=0;*value=tid;return 0;}
     if (main_lifecycle && tid == 1) {
         void *unchanged = (void *)77;
         main_join_calls++;
@@ -62,6 +71,7 @@ long srv_thread_join(uint64_t tid, uint64_t *value) {
 long srv_thread_create(uint64_t entry, uint64_t arg, uint64_t stack, uint64_t flags) {
     (void)flags;
     creates++; submitted_stack = stack;
+    if(slot_model) {CHECK(slot_next<1024);slot_live[slot_next]=1;return slot_next++;}
     if (lifecycle) {
         model_tid++; model_exited = model_joined = 0;
         int before = unmappings, joined = joins;
@@ -546,6 +556,29 @@ static void futex_interruption_tests(void) {
     puts("sync-contracts: mutex, reader/writer and once interruption/recheck PASS");
 }
 int main(int argc, char **argv) {
+    if(argc>1 && !strcmp(argv[1],"record-slots")) {
+        static _Alignas(16) unsigned char stacks[17][PTHREAD_STACK_MIN];
+        pthread_t tids[17];pthread_attr_t attr,readback;slot_model=1;
+        for(unsigned round=0;round<12;round++) {
+            CHECK(!pthread_attr_init(&attr));
+            for(unsigned i=0;i<16;i++) {
+                CHECK(!pthread_attr_setstack(&attr,stacks[i],sizeof(stacks[i])));
+                CHECK(!pthread_create(&tids[i],&attr,never_started,(void *)(uintptr_t)i));
+                CHECK(!pthread_getattr_np(tids[i],&readback) && readback.stackaddr==stacks[i]);
+            }
+            int before=creates;tids[16]=(pthread_t)77;
+            CHECK(pthread_create(&tids[16],&attr,never_started,NULL)==EAGAIN && tids[16]==(pthread_t)77 && creates==before);
+            for(unsigned i=0;i<16;i++) {
+                void *value=NULL;CHECK(!pthread_join(tids[i],&value) && (uintptr_t)value==(uintptr_t)tids[i]);
+                CHECK(pthread_getattr_np(tids[i],&readback)==ESRCH);
+            }
+        }
+        CHECK(!mappings && !unmappings);puts("pthread inline slots: capacity refusal,192 verified joins and supplied-stack slot reuse PASS");return 0;
+    }
+    if(argc>1 && !strcmp(argv[1],"creation-trace")) {
+        trace_enabled=1;supplied_stack(PTHREAD_STACK_MIN);trace_enabled=0;
+        CHECK(trace_edges==8);puts("pthread creation trace: ordered balanced failure spans, caller stack preserved PASS");return 0;
+    }
     if(argc>1 && !strcmp(argv[1],"semaphore-race")) { semaphore_race_tests();return 0; }
     if(argc>1 && !strcmp(argv[1],"recursive-limit")) { recursive_limit_tests();return 0; }
     if(argc>1 && !strcmp(argv[1],"once-exit")) { once_exit_tests();return 0; }

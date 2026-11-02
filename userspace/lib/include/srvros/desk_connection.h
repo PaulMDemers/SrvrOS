@@ -38,8 +38,14 @@ int desk_dialog_window_sync(struct desk_dialog_window *dialog,struct desk_app *p
 int desk_connection_poll(struct desk_connection *connection,struct desk_app **window,struct desk_packet *event);
 /* Stop new frames, retry retirement, continue polling until CLOSE_ACK. */
 void desk_window_close(struct desk_app *window);
-/* 0 retired/unlinked; -1 ownership still in flight. Does not block. */
+/* 0 retired/unlinked; -1 ownership still in flight. Does not wait for ACK;
+ * default canvas release uses ordinary kernel mapping admission. */
 int desk_window_dispose(struct desk_app *window);
+/* Same GUI preconditions. Callback 0 takes complete canvas mapping ownership;
+ * nonzero retains the canvas/connection for retry. Surface destruction may
+ * already have completed and is not repeated. Receiver must drain retirement
+ * before releasing its storage. NULL selects the legacy synchronous release. */
+int desk_window_dispose_with(struct desk_app *,int (*)(void *,void *,size_t),void *);
 /* Caller must also exclude its jobs/timers. All windows must be quiescent. */
 int desk_connection_wait(struct desk_connection *connection,uint64_t ticks);
 /* Quiescent windows plus explicit nonblocking pipe/PTY interests. No second

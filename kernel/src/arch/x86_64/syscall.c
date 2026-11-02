@@ -17,6 +17,7 @@
 #include <srvros/heap.h>
 #include <srvros/halt.h>
 #include <srvros/keyboard.h>
+#include <srvros/latency.h>
 #include <srvros/intel_gfx.h>
 #include <srvros/mouse.h>
 #include <srvros/net.h>
@@ -166,7 +167,7 @@ static bool console_winsize_set;
 static uint64_t random_state;
 
 static uint64_t irq_save(void) {
-#ifdef SRVROS_SYSCALL_POLL_HOST_TEST
+#if defined(SRVROS_SYSCALL_POLL_HOST_TEST) || defined(SRVROS_SYSCALL_IO_HOST_TEST)
     return 0;
 #else
     uint64_t flags;
@@ -176,7 +177,7 @@ static uint64_t irq_save(void) {
 }
 
 static void irq_restore(uint64_t flags) {
-#ifdef SRVROS_SYSCALL_POLL_HOST_TEST
+#if defined(SRVROS_SYSCALL_POLL_HOST_TEST) || defined(SRVROS_SYSCALL_IO_HOST_TEST)
     (void)flags;
 #else
     if ((flags & (1ull << 9)) != 0) {
@@ -747,6 +748,9 @@ static int64_t syscall_open_mode(const char *user_path, uint64_t flags) {
 }
 
 static int64_t syscall_close(uint64_t fd) {
+    int64_t result;
+    if(process_file_try_close_pipe(process_current(),fd,&result))return result;
+    scheduler_io_set_user_safe(false);scheduler_io_wait();
     return process_file_close(process_current(), fd);
 }
 
@@ -1291,11 +1295,25 @@ static int64_t syscall_mmap(uint64_t address,
     uint64_t flags,
     int64_t fd,
     int64_t offset) {
-    return process_mmap(process_current(), address, length, protection, flags, fd, offset);
+    int64_t result;
+    if(process_try_mmap_private(process_current(),address,length,protection,flags,fd,offset,&result))return result;
+    uint64_t wait_at=scheduler_io_active()?latency_clock():0;
+    scheduler_io_set_user_safe(false);scheduler_io_wait();latency_gate(wait_at,SYS_MMAP);
+    result=process_should_exit_current()?-1:process_mmap(process_current(),address,length,protection,flags,fd,offset);
+    uint64_t irq=irq_save();scheduler_io_set_user_safe(true);scheduler_io_handoff();scheduler_io_set_user_safe(false);irq_restore(irq);
+    return result;
 }
 
 static int64_t syscall_munmap(uint64_t address, uint64_t length) {
-    return process_munmap(process_current(), address, length);
+    int64_t result;
+    if(process_try_munmap_private(process_current(),address,length,&result))return result;
+    scheduler_io_set_user_safe(false);scheduler_io_wait();
+    result=process_munmap(process_current(), address, length);
+    /* Dispatch classified the validation prelude as safe. After a gated
+     * fallback unwinds, retain the ordinary unsafe syscall's fair handoff. */
+    uint64_t irq=irq_save();
+    scheduler_io_set_user_safe(true);scheduler_io_handoff();scheduler_io_set_user_safe(false);
+    irq_restore(irq);return result;
 }
 
 static int64_t syscall_mprotect(uint64_t address, uint64_t length, uint64_t protection) {
@@ -2141,18 +2159,26 @@ static int64_t syscall_wait(uint64_t pid, uint64_t *status_out, uint64_t flags) 
     /* Validate before consuming the child: a bad output pointer must not lose
      * a waitable result. */
     if(status_out && !user_buffer_ok(status_out,sizeof(*status_out),true)) return SRV_ERR_FAULT;
+    uint64_t status=0;int64_t result=0;
+    if(!(flags&SRV_WAIT_POSIX) && process_try_wait_retired(pid,&status,&result))
+        return !status_out || copy_to_user(status_out,&status,sizeof(status))?result:-1;
     if(io_defer_wait(flags)) return 0;
     /* Reaping may free mappings/descriptors; never run that continuation under
      * another owner's I/O after the function enables interrupts. */
     scheduler_io_set_user_safe(false);
-    uint64_t status = 0;
+    scheduler_io_wait();
+#ifndef SRVROS_SYSCALL_IO_HOST_TEST
     if(!(flags & SRV_WAIT_NOHANG)) __asm__ volatile ("sti" : : : "memory");
-    int64_t result=(flags & SRV_WAIT_POSIX)?
+#endif
+    result=(flags & SRV_WAIT_POSIX)?
         process_wait_posix((int64_t)pid,&status,(flags & SRV_WAIT_NOHANG)!=0):
         process_wait(pid,&status,(flags & SRV_WAIT_NOHANG)!=0);
     if (result > 0 && status_out != NULL && !copy_to_user(status_out, &status, sizeof(status))) {
-        return -1;
+        result=-1;
     }
+    uint64_t irq=irq_save();
+    scheduler_io_set_user_safe(true);scheduler_io_handoff();scheduler_io_set_user_safe(false);
+    irq_restore(irq);
     return result;
 }
 
@@ -2655,13 +2681,18 @@ static int64_t syscall_gui_server_wait(uint64_t ticks) {
 }
 
 static int64_t syscall_thread_create(uint64_t entry, uint64_t arg, uint64_t stack_top, uint64_t flags) {
-    if (entry == 0 ||
+    int64_t result;
+    if(process_try_thread_create_private(entry,arg,stack_top,flags,&result))return result;
+    uint64_t wait_at=scheduler_io_active()?latency_clock():0;
+    scheduler_io_set_user_safe(false);scheduler_io_wait();latency_gate(wait_at,SYS_THREAD_CREATE);
+    if (process_should_exit_current() || entry == 0 ||
         stack_top < 16 ||
         !user_buffer_ok((const void *)entry, 1, false) ||
         !user_buffer_ok((void *)(stack_top - 8), 8, true)) {
-        return -1;
-    }
-    return process_thread_create(entry, arg, stack_top, flags);
+        result=-1;
+    } else result=process_thread_create(entry,arg,stack_top,flags);
+    uint64_t irq=irq_save();scheduler_io_set_user_safe(true);scheduler_io_handoff();scheduler_io_set_user_safe(false);irq_restore(irq);
+    return result;
 }
 
 static int64_t syscall_thread_join(uint64_t tid, uint64_t *value_out) {
@@ -2714,21 +2745,26 @@ static bool io_snapshot_read(uint64_t fd,uint64_t length) {
     return file && file->type==PROCESS_FILE_VFS;
 }
 
-/* Only paths with no filesystem or process-lifetime mutations may
- * overlap owned I/O. Default-deny also covers future syscalls. Do not admit
+/* Only independently synchronized paths with no filesystem or process-lifetime
+ * teardown may overlap owned I/O. Default-deny also covers future syscalls. Do not admit
  * poll by inspecting a mutable userspace fd array before the actual copy. Poll
- * enters only its copy/validation prelude here, then gates non-console work. */
+ * enters only its copy/validation prelude here, then gates non-console work.
+ * Close likewise admits only an atomic simple-pipe attempt before gating all
+ * other descriptor cleanup; queued rights may recursively flush files.
+ * Memory/thread calls admit only a validated bounded atomic attempt. Generic
+ * allocation, thread creation, mapping and retirement retain gated fallback. */
 bool syscall_io_safe(const struct isr_frame *frame) {
     switch (frame->rax) {
-    case SYS_POLL: return true;
+    case SYS_POLL: case SYS_CLOSE: case SYS_MUNMAP: case SYS_MMAP: case SYS_THREAD_CREATE: return true; /* Validated prelude, gated fallback. */
     case SYS_READ: return process_fd_is_console(process_current(),frame->rdi,true) || io_try_pipe_read(frame->rdi) || io_snapshot_read(frame->rdi,frame->rdx);
     case SYS_WRITE: return process_fd_is_console(process_current(),frame->rdi,false) || io_try_pipe_write(frame->rdi);
-    case SYS_WAIT: return (frame->rdx & SRV_WAIT_NOHANG) && !(frame->rdx & ~(SRV_WAIT_NOHANG|SRV_WAIT_POSIX));
+    case SYS_WAIT: return true; /* Validated retired-child claim; gated fallback. */
     case SYS_CONSOLE_INFO: case SYS_CONSOLE_CLEAR: case SYS_CONSOLE_GOTOXY:
     /* Bounded queues/mouse state use IRQ exclusion. Surface copies use private
      * chunks and IRQ-protected heap/surface state; no VFS or lifetime cleanup.
      * Process listing and memory counters are read-only snapshots.
-     * Mapping/spawn/kill remain gated. */
+     * Process spawn/kill remain gated. The memory/first-thread preludes above
+     * require ownership/bounds proofs; all refusals regain ordinary admission. */
     case SYS_GUI_WAIT_IO: case SYS_GUI_CANCEL_WAIT:
     case SYS_GUI_SEND: case SYS_GUI_RECV: case SYS_GUI_WAIT: case SYS_GUI_SERVER_WAIT: case SYS_MOUSE_SCAN:
     case SYS_GUI_KEYBOARD_READ: case SYS_GUI_KEYBOARD_MODE: case SYS_GUI_POINTER_CONFIG: case SYS_GUI_BRIGHTNESS: case SYS_AUDIO: case SYS_DEVICE_LIST: case SYS_THERMAL_STATUS: case SYS_BATTERY_STATUS: case SYS_BATTERY_CONTROL: case SYS_AUDIO_STREAM: case SYS_SMC_STATUS:
@@ -2740,10 +2776,23 @@ bool syscall_io_safe(const struct isr_frame *frame) {
     case SYS_MONOTONIC_US:
     case SYS_KEY_SCAN: case SYS_YIELD: case SYS_GETPID: case SYS_TICKS:
     case SYS_TTY_GETATTR: case SYS_IOCTL:
-    /* stdio unlock wakes process-local waiters. It neither allocates futex
-     * entries nor releases process/file resources; scheduler eligibility
-     * still prevents a woken unsafe continuation from entering owned I/O. */
-    case SYS_FUTEX_WAKE:
+    /* Process-local synchronization uses IRQ-protected fixed table entries;
+     * no heap/VFS/device work. Scheduler eligibility still excludes unsafe
+     * continuations from a foreign owner's I/O. */
+    case SYS_FUTEX_WAIT: case SYS_FUTEX_WAKE:
+    /* Wait reserves a fixed process-scoped table entry under IRQ exclusion.
+     * Each four-byte read revalidates its mapping; active-wait pins and unmap
+     * invalidation protect the parked continuation. No allocation/VFS/device
+     * callback occurs. Exit on cancellation still regains ordinary admission
+     * in the IDT epilogue; this does not admit process teardown under I/O. */
+    /* Current scheduler context -> immutable thread ID; no allocation,
+     * pointer copy, table mutation, status/reap or lifetime operation. */
+    case SYS_THREAD_SELF:
+    /* Bounded current-process/thread signal metadata. Configuration changes
+     * fixed masks under IRQ exclusion; mask updates may mark cancellation but
+     * never run a handler, release a file or tear down a process. IDT regains
+     * ordinary admission before acting on that cancellation. */
+    case SYS_SIGNAL_CONFIG: case SYS_SIGNAL_PENDING: case SYS_SIGNAL_MASK:
         return true;
     default: return false;
     }

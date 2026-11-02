@@ -3885,7 +3885,7 @@ build/tests/net-datagram-host$(HOST_EXE): tools/test_net_datagram.c kernel/src/n
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
 test-posix-datagram: build/tests/posix-datagram-host$(HOST_EXE)
 	@for mode in truncate zero address empty oom bind-cache; do $< $$mode || exit $$?; done
-build/tests/posix-datagram-host$(HOST_EXE): tools/test_posix_datagram.c userspace/lib/src/posix_socket.c userspace/lib/include/sys/socket.h shared/include/srvros/syscall_numbers.h shared/include/srvros/dns_wire.h userspace/lib/include/netdb.h
+build/tests/posix-datagram-host$(HOST_EXE): tools/test_posix_datagram.c userspace/lib/src/posix_socket.c userspace/lib/include/sys/socket.h shared/include/srvros/syscall_numbers.h shared/include/srvros/dns_wire.h userspace/lib/include/netdb.h tools/posix_socket_host_names.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include $< -Wl,--gc-sections -o $@
 test-core: test-net-datagram test-posix-datagram
@@ -3916,7 +3916,7 @@ build/tests/net-query-host$(HOST_EXE): tools/test_net_query.c kernel/src/net.c $
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
 test-posix-udp-owner: build/tests/posix-udp-owner-host$(HOST_EXE)
 	@for mode in filter-from filter-msg filter-zero filter-recv unconnected reuse-filter reuse-restart reuse-flags close-only retry-control dontwait-control dup-reuse; do $< $$mode || exit $$?; done
-build/tests/posix-udp-owner-host$(HOST_EXE): tools/test_posix_udp_owner.c userspace/lib/src/posix_socket.c userspace/lib/include/sys/socket.h shared/include/srvros/syscall_numbers.h shared/include/srvros/dns_wire.h userspace/lib/include/netdb.h
+build/tests/posix-udp-owner-host$(HOST_EXE): tools/test_posix_udp_owner.c userspace/lib/src/posix_socket.c userspace/lib/include/sys/socket.h shared/include/srvros/syscall_numbers.h shared/include/srvros/dns_wire.h userspace/lib/include/netdb.h tools/posix_socket_host_names.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include $< -Wl,--gc-sections -o $@
 test-core: test-net-query test-posix-udp-owner
@@ -3928,12 +3928,12 @@ test-dns-response: build/tests/dns-kernel-host$(HOST_EXE) build/tests/dns-libc-h
 build/tests/dns-kernel-host$(HOST_EXE): tools/test_dns_response.c kernel/src/net.c shared/include/srvros/dns_wire.h $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
-build/tests/dns-libc-host$(HOST_EXE): tools/test_dns_response.c userspace/lib/src/posix_socket.c shared/include/srvros/dns_wire.h shared/include/srvros/syscall_numbers.h userspace/lib/include/netdb.h
+build/tests/dns-libc-host$(HOST_EXE): tools/test_dns_response.c userspace/lib/src/posix_socket.c shared/include/srvros/dns_wire.h shared/include/srvros/syscall_numbers.h userspace/lib/include/netdb.h tools/posix_socket_host_names.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -DTEST_DNS_LIBC -ffunction-sections -fdata-sections -I shared/include -idirafter userspace/lib/include $< -Wl,--gc-sections -o $@
 test-socket-calls: build/tests/socket-calls-host$(HOST_EXE)
-	@for mode in connect-reuse connect-restart connect-control accept-reuse accept-restart accept-control flags-recv flags-send flags-peek flags-udp-recv flags-udp-send raw-retry raw-full dns-retry dns-truncate dns-source dns-busy; do $< $$mode || exit $$?; done
-build/tests/socket-calls-host$(HOST_EXE): tools/test_socket_calls.c userspace/lib/src/posix_socket.c shared/include/srvros/dns_wire.h shared/include/srvros/syscall_numbers.h userspace/lib/include/netdb.h
+	@for mode in unix-copy rights-const connect-reuse connect-restart connect-control accept-reuse accept-restart accept-control flags-recv flags-send flags-peek flags-udp-recv flags-udp-send raw-retry raw-full dns-retry dns-truncate dns-source dns-busy; do $< $$mode || exit $$?; done
+build/tests/socket-calls-host$(HOST_EXE): tools/test_socket_calls.c userspace/lib/src/posix_socket.c shared/include/srvros/dns_wire.h shared/include/srvros/syscall_numbers.h userspace/lib/include/netdb.h tools/posix_socket_host_names.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -idirafter userspace/lib/include $< -Wl,--gc-sections -o $@
 test-socket-try-io: build/tests/socket-try-io-host$(HOST_EXE)
@@ -3952,6 +3952,110 @@ build/tests/power-platform-host$(HOST_EXE): tools/test_power_service.c kernel/sr
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -DSRVROS_AP_PROBE -I kernel/include -I shared/include tools/test_power_service.c kernel/src/drivers/power_core.c -o $@
 
-build/tests/platform-sample$(HOST_EXE): tools/test_platform_sample.c kernel/diagnostics/platform_audit.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+build/tests/platform-sample$(HOST_EXE): tools/test_platform_sample.c kernel/diagnostics/platform_audit.c kernel/diagnostics/package_audit_core.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-file-service
+test-desktop: test-file-service
+test-file-service: build/tests/file-service-host$(HOST_EXE)
+	$<
+	$(PYTHON) -m unittest discover -s tools -p test_file_service_records.py
+build/tests/file-service-host$(HOST_EXE): tools/test_file_service.c userspace/desktools/file_service.h userspace/lib/src/desk_file_job.c userspace/lib/include/srvros/desk_file_job.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -pthread -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-tool-text-history
+test-desktop: test-tool-text-history
+test-tool-text-history: build/tests/tool-text-history-host$(HOST_EXE)
+	$<
+build/tests/tool-text-history-host$(HOST_EXE): tools/test_tool_text_history.c userspace/desktools/text_app.c userspace/desktools/app.h userspace/widgets/src/text.c $(DESK_WIDGETS_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include -I userspace/widgets/include tools/test_tool_text_history.c userspace/widgets/src/text.c -Wl,--gc-sections -o $@
+
+.PHONY: test-lifetime-timing
+test-desktop: test-lifetime-timing
+test-lifetime-timing:
+	$(PYTHON) tools/test_lifetime_timing.py
+
+.PHONY: test-lifetime-trace
+test-desktop: test-lifetime-trace
+test-lifetime-trace: build/tests/lifetime-trace-host$(HOST_EXE)
+	$<
+build/tests/lifetime-trace-host$(HOST_EXE): tools/test_lifetime_trace.c userspace/deskd/operation_trace.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include $< -o $@
+
+.PHONY: test-exfat-read-cache
+test-core: test-exfat-read-cache
+test-exfat-read-cache: build/tests/exfat-read-cache$(HOST_EXE)
+	$<
+build/tests/exfat-read-cache$(HOST_EXE): tools/test_exfat_read_cache.c kernel/src/fs/exfat.c $(KERNEL_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-exfat-read-reuse
+test-exfat-read-reuse: build/tests/exfat-driver$(HOST_EXE) build/tests/exfat-uncached-driver$(HOST_EXE)
+	$(PYTHON) tools/test_exfat_read_reuse.py --driver build/tests/exfat-driver$(HOST_EXE) --baseline build/tests/exfat-uncached-driver$(HOST_EXE)
+build/tests/exfat-uncached-driver$(HOST_EXE): tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -DSRVROS_EXFAT_HOST_TEST -DSRVROS_EXFAT_READ_CACHE_OFF -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c -Wl,--gc-sections -o $@
+
+.PHONY: test-desktop-probe
+test-desktop: test-desktop-probe
+test-desktop-probe: build/tests/desktop-probe$(HOST_EXE)
+	$<
+build/tests/desktop-probe$(HOST_EXE): tools/test_desktop_probe.c userspace/lib/src/desktop.c userspace/lib/include/srvros/sys.h shared/include/srvros/syscall_numbers.h
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -idirafter userspace/lib/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-exfat-bitmap-span test-exfat-bitmap-io
+build/tests/exfat-bitmap-span-host$(HOST_EXE): tools/test_exfat_bitmap_span.c kernel/src/fs/exfat.c $(KERNEL_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+test-exfat-bitmap-span: build/tests/exfat-bitmap-span-host$(HOST_EXE)
+	$<
+build/tests/exfat-bitmap-full-driver$(HOST_EXE): tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -DSRVROS_EXFAT_HOST_TEST -DSRVROS_EXFAT_BITMAP_SPAN_OFF -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c -Wl,--gc-sections -o $@
+test-exfat-bitmap-io: build/tests/exfat-driver$(HOST_EXE) build/tests/exfat-bitmap-full-driver$(HOST_EXE)
+	$(PYTHON) tools/test_exfat_bitmap_io.py --driver build/tests/exfat-driver$(HOST_EXE) --baseline build/tests/exfat-bitmap-full-driver$(HOST_EXE)
+test-core: test-exfat-bitmap-span
+
+build/tests/exfat-cost-host$(HOST_EXE): tools/test_exfat_cost.c kernel/src/fs/exfat.c $(KERNEL_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+.PHONY: test-exfat-cost
+test-exfat-cost: build/tests/exfat-cost-host$(HOST_EXE)
+	$<
+test-core: test-exfat-cost
+
+.PHONY: test-exfat-append
+build/tests/exfat-noappend-driver$(HOST_EXE): tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -DSRVROS_EXFAT_HOST_TEST -DSRVROS_EXFAT_APPEND_OFF -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c -Wl,--gc-sections -o $@
+test-exfat-append: build/tests/exfat-driver$(HOST_EXE) build/tests/exfat-noappend-driver$(HOST_EXE)
+	$(PYTHON) tools/test_exfat_append.py --driver build/tests/exfat-driver$(HOST_EXE) --baseline build/tests/exfat-noappend-driver$(HOST_EXE)
+test-core: test-exfat-append
+.PHONY: test-linux-rc6-baseline
+test-core: test-linux-rc6-baseline
+test-linux-rc6-baseline:
+	$(PYTHON) -m unittest discover -s tools -p test_linux_rc6_baseline.py
+
+.PHONY: test-linux-package-compare
+test-core: test-linux-package-compare
+test-linux-package-compare: build/tests/linux-package-pci-host$(HOST_EXE)
+	SRVROS_LINUX_PCI_READER=$< $(PYTHON) -m unittest discover -s tools -p test_linux_package_compare.py
+build/tests/linux-package-pci-host$(HOST_EXE): tools/linux_package_pci.c kernel/diagnostics/package_audit_core.c kernel/include/srvros/package_audit.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include tools/linux_package_pci.c kernel/diagnostics/package_audit_core.c -o $@
+
+.PHONY: test-cpu-receipt-tail
+test-core: test-cpu-receipt-tail
+test-cpu-receipt-tail:
+	$(PYTHON) -m unittest discover -s tools -p test_cpu_receipt_tail.py
+
+.PHONY: test-cpu-checkpoint-budget
+test-core: test-cpu-checkpoint-budget
+test-cpu-checkpoint-budget:
+	$(PYTHON) -m unittest discover -s tools -p test_cpu_checkpoint_budget.py

@@ -43,6 +43,14 @@ static struct limine_mp_info *info[AP_MAX];
 static uint64_t startup[AP_MAX],max[AP_MAX],retire[AP_MAX];
 static unsigned rounds[AP_MAX];
 static uint64_t coord_epoch,coord_config;
+/* Freeze validated admission before publishing AP startup. Final receipt must
+ * describe that admission, not reconstruct it from successful retirement. */
+static struct {bool vm,monitor;uint64_t cpus,bsp,mask;} admission;
+static void report_admission(bool progress) {
+    console_printf("%s: v=1 admitted=1 mode=%s cpus=%u bsp=%u mask=%u method=%s rounds=32 limit_us=20000 retained=yes\n",
+        progress?"ap-owner-progress":"ap-owner",admission.vm?"vm":"native",
+        admission.cpus,admission.bsp,admission.mask,admission.monitor?"monitor-c1":"pause");
+}
 struct coord_row { uint64_t us,tsc,core,package,peer_tsc[3],peer_core[3]; };
 static struct coord_row coord_rows[AP_PROBE_ROUNDS];
 static uint64_t read64(unsigned reg) {
@@ -188,8 +196,9 @@ bool ap_probe_run(const char *cmdline) {
         package_snapshot(0);
     }
     unsigned inject=vm && token(cmdline,"srvros.ap-inject=missing")?1:vm && token(cmdline,"srvros.ap-inject=fault")?2:0;
-    console_printf("ap-owner: v=1 admitted=1 mode=%s cpus=%u bsp=%u mask=%u method=%s rounds=32 limit_us=20000 retained=yes\n",
-        vm?"vm":"native",r->cpu_count,(uint64_t)bsp,mask,monitor?"monitor-c1":"pause");
+    admission.vm=vm;admission.monitor=monitor;
+    admission.cpus=r->cpu_count;admission.bsp=bsp;admission.mask=mask;
+    report_admission(true);
     if(simulation) {
         if(token(cmdline,"srvros.ap-inject=c3-missing"))inject=3;
         if(token(cmdline,"srvros.ap-inject=c3-early"))inject=4;
@@ -303,6 +312,7 @@ bool ap_c3_finish(uint64_t seq,uint64_t start,uint64_t tsc,uint64_t core,uint64_
 }
 bool ap_c3_stop(void) {
     if(!owner_pending)return final_pass;
+    report_admission(false);
     bool ok=true;
     for(unsigned i=0;i<count;i++) {
         bool stopped=wait_value(&slots[i],true,2,&retire[i],NULL,true);

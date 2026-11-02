@@ -63,16 +63,18 @@ struct desk_window_owner *desk_window_set_next_close(struct desk_window_set *set
            desk_application_close_next(&set->lifecycle,owner->window->window))return owner;
     return NULL;
 }
-int desk_window_owner_dispose(struct desk_window_owner *owner) {
+int desk_window_owner_dispose_with(struct desk_window_owner *owner,int (*retire)(void *,void *,size_t),void *context) {
     if(!owner || !owner->set || owner->set->failed || owner->set->runtime.dispatching ||
        !owner->attached || !owner->retired || owner->dialog.window.connection)return -1;
     if(owner->disposed)return 0;
-    if(desk_window_dispose(owner->window))return -1;
+    if(retire?desk_window_dispose_with(owner->window,retire,context):desk_window_dispose(owner->window))return -1;
     owner->disposed=1;return 0;
 }
-int desk_window_owner_release(struct desk_window_owner *owner,int work_drained) {
+int desk_window_owner_dispose(struct desk_window_owner *owner) {return desk_window_owner_dispose_with(owner,NULL,NULL);}
+int desk_window_owner_release_with(struct desk_window_owner *owner,int work_drained,
+    int (*retire)(void *,void *,size_t),void *context) {
     if(!owner || !owner->set || owner->set->failed || owner->set->runtime.dispatching ||
-       !work_drained || owner->dialog.window.connection || (owner->attached && !owner->disposed))return -1;
+       !retire || !work_drained || owner->dialog.window.connection || (owner->attached && !owner->disposed))return -1;
     struct desk_window_set *set=owner->set;
     struct desk_window_owner **link=NULL,*next=owner->next;
     int counted=owner->attached && owner->ready;
@@ -82,10 +84,16 @@ int desk_window_owner_release(struct desk_window_owner *owner,int work_drained) 
         if(!*link)return -1;
         *link=next;
     }
-    if(munmap(owner,owner->mapping_bytes)) {
+    if(retire(context,owner,owner->mapping_bytes)) {
         if(link)*link=owner;
         return -1;
     }
     if(counted)set->retired++;
     return 0;
+}
+static int release_mapping(void *context,void *address,size_t length) {
+    (void)context;return munmap(address,length);
+}
+int desk_window_owner_release(struct desk_window_owner *owner,int work_drained) {
+    return desk_window_owner_release_with(owner,work_drained,release_mapping,NULL);
 }

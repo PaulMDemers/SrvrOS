@@ -1,5 +1,6 @@
 #include <srvros/desk_paths.h>
 #include "app.h"
+#include "timing.h"
 #include <srvros/desk_log.h>
 #include <string.h>
 #include <stdio.h>
@@ -49,12 +50,32 @@ static void continue_action(struct tool *t) {
         tool_status(t,"New document. Choose a path and save when ready.");desk_ui_focus(&t->ui,TOOL_BODY);
     }
 }
+/* Reserved storage belongs to the enclosing mapped document, never the heap.
+ * Standalone callers retain the existing allocation/fallback behavior. */
+int tool_text_history_prepare(struct tool *t,struct desk_text_history *reserved) {
+    if(t->body_history)return -1;
+    t->body_history=reserved?reserved:malloc(sizeof(*t->body_history)+TOOL_TEXT_HISTORY_BYTES);
+    t->body_history_owned=!reserved && t->body_history!=NULL;
+    if(!t->body_history)return -1;
+    if(desk_text_buffer_history(&t->body_text,t->body_history,
+        (char *)(t->body_history+1),TOOL_TEXT_HISTORY_BYTES)) {
+        tool_text_history_release(t);return -1;
+    }
+    return 0;
+}
+void tool_text_history_release(struct tool *t) {
+    if(t->body_history_owned)free(t->body_history);
+    t->body_history=NULL;t->body_history_owned=0;t->body_text.journal=NULL;
+    t->body_text.history=0;
+}
 void tool_text_init(struct tool *t,const char *path) {
     desk_searchbar_init(&t->search);desk_edit_scrollbars(&t->body,1);
-    const size_t history_bytes=4*DESK_FILE_BYTES;
-    t->body_history=malloc(sizeof(*t->body_history)+history_bytes);
-    if(t->body_history && desk_text_buffer_history(&t->body_text,t->body_history,
-       (char *)(t->body_history+1),history_bytes)) { free(t->body_history);t->body_history=NULL; }
+    uint64_t timing=tool_timing_begin(t->role,t->window.window,"text-history-init");
+    struct tool_phase_trace phase;tool_phase_begin(&phase);
+    /* A runtime document attaches its reserved journal before opening. */
+    if(!t->body_history)(void)tool_text_history_prepare(t,NULL);
+    tool_phase_end(&phase,t->role,t->window.window,"text-history-init");
+    tool_timing_end(t->role,t->window.window,"text-history-init",timing);
     desk_log("desktools: text history=%s\n",t->body_history?"multi-step":"single-step");
     char initial[DESK_FILE_PATH];snprintf(initial,sizeof(initial),"%s/Untitled.txt",desk_home());
     desk_text_buffer_set(&t->path_text,initial,strlen(initial));
