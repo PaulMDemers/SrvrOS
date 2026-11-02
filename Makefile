@@ -3952,7 +3952,7 @@ build/tests/power-platform-host$(HOST_EXE): tools/test_power_service.c kernel/sr
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -DSRVROS_AP_PROBE -I kernel/include -I shared/include tools/test_power_service.c kernel/src/drivers/power_core.c -o $@
 
-build/tests/platform-sample$(HOST_EXE): tools/test_platform_sample.c kernel/diagnostics/platform_audit.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+build/tests/platform-sample$(HOST_EXE): tools/test_platform_sample.c kernel/diagnostics/platform_audit.c kernel/diagnostics/package_audit_core.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
 
@@ -4037,3 +4037,15 @@ build/tests/exfat-noappend-driver$(HOST_EXE): tools/exfat_host_driver.c kernel/s
 test-exfat-append: build/tests/exfat-driver$(HOST_EXE) build/tests/exfat-noappend-driver$(HOST_EXE)
 	$(PYTHON) tools/test_exfat_append.py --driver build/tests/exfat-driver$(HOST_EXE) --baseline build/tests/exfat-noappend-driver$(HOST_EXE)
 test-core: test-exfat-append
+.PHONY: test-linux-rc6-baseline
+test-core: test-linux-rc6-baseline
+test-linux-rc6-baseline:
+	$(PYTHON) -m unittest discover -s tools -p test_linux_rc6_baseline.py
+
+.PHONY: test-linux-package-compare
+test-core: test-linux-package-compare
+test-linux-package-compare: build/tests/linux-package-pci-host$(HOST_EXE)
+	SRVROS_LINUX_PCI_READER=$< $(PYTHON) -m unittest discover -s tools -p test_linux_package_compare.py
+build/tests/linux-package-pci-host$(HOST_EXE): tools/linux_package_pci.c kernel/diagnostics/package_audit_core.c kernel/include/srvros/package_audit.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include tools/linux_package_pci.c kernel/diagnostics/package_audit_core.c -o $@

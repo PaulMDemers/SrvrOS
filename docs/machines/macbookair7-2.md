@@ -2,6 +2,17 @@
 
 Updated: 2026-11-01. State: **active reference machine; partial device acceptance**.
 
+### PR261 integration closeout in progress
+
+Bounded scope: merge current main `bbbdead1` into the device branch, review
+PR261's filesystem/cache/append, syscall admission, desktop lifecycle and timing
+collector contracts, and validate the combined tree locally before merge.
+Main's Air6,1 read-only Linux RC6/package/display-well diagnostics remain intact;
+only independent Makefile test additions conflict and both sets are retained.
+Pro PR19 and resolver PR252 remain separate scopes. Actions remain disabled.
+Installed/native accepted release62ed and recovery9aa are unchanged; combined
+source must earn its own host/VM evidence and does not inherit physical acceptance.
+
 ### Verified append endurance: full native pass
 
 Release `62ed0e37a038f48e` / clean source `facd605d`, session
