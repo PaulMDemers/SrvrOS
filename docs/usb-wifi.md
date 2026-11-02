@@ -124,6 +124,14 @@ bounded test; a test requiring an unplug must use shutdown and remain off.
 Credentials are not part of the band trial. Full connection/data acceptance
 remains pending on both supported-band hardware and the security/IP path.
 
+The first native v109 warm run saved a complete failure and returned: register
+0730 was1 on the first read, so the existing already-running-MCU refusal stopped
+before firmware preparation, startup writes or any band phase. This is not a
+band-test pass. The earlier warm v108 inventory does not establish repeatable
+warm firmware admission. Retry the same checked payload after a physical adapter
+power cycle, using shutdown rather than reboot when unplugging is required;
+preserve the failed session and collect the separate retry before further work.
+
 ## Captured baseline
 
 USB high speed (480 Mb/s), one configuration, interface 0 / alternate 0,

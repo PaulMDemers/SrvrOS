@@ -12,29 +12,38 @@ The captured EW-7711MAC `7392:a711`/`0100` is **5GHz-only**; see the
 mistaken for assembled-model capability. Historical2.4GHz packet/USB traces do
 not establish2.4GHz RF support. Do not repeat the withdrawn v107 trial.
 
-Latest native trial v108 `f5b4f13eb2dc4598`, runtime `1562dd58`, main
-`c9235491`, completed a warm boot and automatic return. The complete228894-byte
-prefix proves common RF/VGA initialization and all49 read-only inventory
-operations. Both MAC band words and RF5:0/RF6:0 were zero; RF_MISC=1,
-TX0_RF_GAIN_ATTEN=6c6c6c6c and TX_ALC_CFG_1=c9540000 (hex). This accepts the
-warm starting-state inventory only, not RF or connectivity. Matching session,
-source, recovery and offline storage checks passed and are archived outside
-build. Installed remains v108, known-good e47d remains previous, Ubuntu is
-default, workspace is unmounted and the one-shot was consumed. No reboot armed.
+Latest native trial v109 `4b58af1abfdc0fb5`, runtime `ecae82b5`, main
+`c9235491`, saved matching session `session-00065f50a0330abf-00` and returned
+automatically, but FAILED before firmware preparation: its first read of0730
+returned1, indicating an already-running MCU. The existing takeover refusal
+held; zero firmware chunks, no MAC-startup write, no band-selection phase.
+The complete30180-byte exit prefix and original strict refusal are retained.
+Storage/allocation and all candidate/recovery byte checks passed. No band or
+connectivity acceptance is added. Installed remains v109, known-good e47d
+remains previous, Ubuntu default and one-shot consumed.
+
+The earlier v108 warm inventory remains accepted only for its own starting
+state and session. It did not establish repeatable warm firmware admission.
+Retry the identical checked v109 payload after an adapter power cycle, with a
+separate sealed run/evidence record; no source change or relaxed takeover gate.
+Use shutdown and leave off. Unplug only Wi-Fi for10seconds while off, reconnect
+to the same port, then power on, leaving the workspace drive connected.
+Results save and return automatically. Collect the cold retry first on return.
 
 The user authorizes continuing through authenticated connection/disconnection
 and data transfer, with automatic ready-test reboots. If physical unplug is
 required, use shutdown and leave the machine off; do not issue a reboot for
-that case. The next bounded band-selection/restoration test can use a warm
-reboot without an unplug. Demers5 is the current5GHz target; Demers2.4 needs
+that case. The failed warm run shows that this retry needs a physical adapter
+power cycle; do not repeat a warm boot against its already-running MCU. Demers5 is the current5GHz target; Demers2.4 needs
 compatible hardware. Local credentials remain private and unused until the
 security stage. Do not report connection-ready until authentication, data
 exchange and clean disconnect actually pass.
 
-## Ready native candidate — reversible5GHz band selection
+## v109 checked candidate and failed warm trial — reversible5GHz band selection
 
 Installed v109 `4b58af1abfdc0fb5`, runtime `ecae82b5`, main `c9235491`,
-awaits native evidence. It admits only the v108 starting tuple, selects the
+has a saved pre-entry refusal described above; its band transaction remains
+unexercised. It admits only the v108 starting tuple, selects the
 fixed5GHz RF and MAC words, independently checks selection, restores the
 four changed words in reverse order and independently checks the original
 state. All771 I/O and779 authorization failure/cancellation boundaries,
@@ -47,7 +56,7 @@ included in the full rerun. No credentials are packaged or used.
 Ubuntu remains default and known-good e47d remains previous; v108 is still
 retained and backed up. The failed unreferenced v103 retry8524 EFI copy was
 retired only after full equality to its durable backup. The user's standing
-authority covers this ready warm test; no unplug is required. Collect matching
+authority covers the cold retry; shutdown is required for the unplug. Collect matching
 source/release/session/storage proof first after automatic return. Successful
 band selection/restoration is not frequency/RX, authentication or IP/data
 acceptance. The local run record owns the exact armed/returned state.
