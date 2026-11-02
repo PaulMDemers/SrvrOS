@@ -1939,3 +1939,9 @@ whether direct and indirect queued rights can exhaust pipe slots after external
 close, and whether live receivers can still redeem those rights. Scope covers
 process pipe ownership, legacy and atomic rights queues, and host and guest
 lifetime regressions. The matched QEMU guest is the integration checkpoint.
+
+While checking pipe-slot reuse, an isolated probe against `f6d182e7` found
+that a blocked ordinary read could consume a byte from a newly allocated pipe.
+This pass therefore also covers descriptor and slot identity across ordinary
+pipe waits, including partial writes. It uses the existing process pipe and
+threadstress fixtures alongside the rights-cycle checks.
