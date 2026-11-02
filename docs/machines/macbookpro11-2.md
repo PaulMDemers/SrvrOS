@@ -12,23 +12,21 @@ The captured EW-7711MAC `7392:a711`/`0100` is **5GHz-only**; see the
 mistaken for assembled-model capability. Historical2.4GHz packet/USB traces do
 not establish2.4GHz RF support. Do not repeat the withdrawn v107 trial.
 
-Latest native trial v109 `4b58af1abfdc0fb5`, runtime `ecae82b5`, main
-`c9235491`, saved matching session `session-00065f50a0330abf-00` and returned
-automatically, but FAILED before firmware preparation: its first read of0730
-returned1, indicating an already-running MCU. The existing takeover refusal
-held; zero firmware chunks, no MAC-startup write, no band-selection phase.
-The complete30180-byte exit prefix and original strict refusal are retained.
-Storage/allocation and all candidate/recovery byte checks passed. No band or
-connectivity acceptance is added. Installed remains v109, known-good e47d
-remains previous, Ubuntu default and one-shot consumed.
+Latest native v109 cold retry `4b58af1abfdc0fb5`, runtime `ecae82b5`,
+main `c9235491`, accepts fixed5GHz band selection/readback and four-word
+restoration only. Session `session-00065f515e665434-00` has a complete309453-byte
+prefix, full common-init proof, all771 ordered I/O receipts and final original
+seven-word tuple. Both MAC band words and RF selectors are independently
+restored. Matching release/source, clean save/return, offline allocation/fsck
+and all installed/recovery bytes pass. Durable retry archive is separate from
+the failed warm run; no frequency, reception or connectivity acceptance.
+Ubuntu is default, workspace unmounted and no reboot is armed.
 
-The earlier v108 warm inventory remains accepted only for its own starting
-state and session. It did not establish repeatable warm firmware admission.
-Retry the identical checked v109 payload after an adapter power cycle, with a
-separate sealed run/evidence record; no source change or relaxed takeover gate.
-Use shutdown and leave off. Unplug only Wi-Fi for10seconds while off, reconnect
-to the same port, then power on, leaving the workspace drive connected.
-Results save and return automatically. Collect the cold retry first on return.
+The preceding warm session `session-00065f50a0330abf-00` remains FAILED before
+firmware preparation: first0730 read1, already-running MCU refusal. Cold adapter
+power cycling resolved admission for this run; repeatable warm takeover is not
+implemented or accepted. Future trials still require shutdown and10seconds
+Wi-Fi unplug while off, reconnect same port, power on, workspace retained.
 
 The user authorizes continuing through authenticated connection/disconnection
 and data transfer, with automatic ready-test reboots. If physical unplug is
@@ -39,11 +37,11 @@ compatible hardware. Local credentials remain private and unused until the
 security stage. Do not report connection-ready until authentication, data
 exchange and clean disconnect actually pass.
 
-## v109 checked candidate and failed warm trial — reversible5GHz band selection
+## v109 checked candidate, preserved warm refusal and accepted cold retry
 
 Installed v109 `4b58af1abfdc0fb5`, runtime `ecae82b5`, main `c9235491`,
-has a saved pre-entry refusal described above; its band transaction remains
-unexercised. It admits only the v108 starting tuple, selects the
+now has the accepted cold transaction described above, alongside the preserved
+warm pre-entry refusal. It admits only the v108 starting tuple, selects the
 fixed5GHz RF and MAC words, independently checks selection, restores the
 four changed words in reverse order and independently checks the original
 state. All771 I/O and779 authorization failure/cancellation boundaries,
@@ -60,6 +58,20 @@ authority covers the cold retry; shutdown is required for the unplug. Collect ma
 source/release/session/storage proof first after automatic return. Successful
 band selection/restoration is not frequency/RX, authentication or IP/data
 acceptance. The local run record owns the exact armed/returned state.
+
+## Active bounded scope — reversible channel161 synthesizer
+
+On actual main `c9235491`, PR272 desktop/PCM and PR252 resolver/socket scopes
+remain separate. Next add one fixed channel161/20MHz synthesizer transaction:
+read all13 RF0 words before writes, require the common-init reset tuple, apply
+21 reference masked fields in order, independently verify the final13 words,
+restore all13 in reverse order and independently verify the initial tuple.
+No VCO, PA policy, receive, arbitrary channel/target/value or network OUT.
+Use the existing immutable5GHz frequency projection and pinned numeric fixture;
+keep legacy synth1 behavior unchanged. Test I/O/cancellation/reply/ownership
+boundaries and full restoration before a native caller. Native integration must
+retain5GHz selection across the new phase and restore the four band words after
+it, with one static owner, saved receipts and cold shutdown/automatic return.
 
 ## Active bounded scope — 2026-11-02, reversible5GHz band selection
 

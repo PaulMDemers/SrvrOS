@@ -132,6 +132,14 @@ warm firmware admission. Retry the same checked payload after a physical adapter
 power cycle, using shutdown rather than reboot when unplugging is required;
 preserve the failed session and collect the separate retry before further work.
 
+The cold retry of the identical v109 payload passes the complete band/restore
+proof on Pro11,2: source `ecae82b5`, release `4b58af1abfdc0fb5`, matching session
+`session-00065f515e665434-00`,309453-byte complete prefix,771 ordered operations
+and the original seven-word tuple independently restored. Storage and recovery
+checks pass. This accepts that transaction only; frequency/VCO, reception,
+authentication and data transfer remain pending. The failed warm attempt stays
+failed and separately archived; cold power cycling is still required.
+
 ## Captured baseline
 
 USB high speed (480 Mb/s), one configuration, interface 0 / alternate 0,
