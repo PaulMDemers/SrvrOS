@@ -45,7 +45,10 @@ static int disk_worker(const char *directory,unsigned seconds) {
         r.last=finish;r.bursts++;r.bytes+=BURST_BYTES;
         if(finish-start>r.max_us)r.max_us=finish-start;
     }
-    return save("disk.receipt",&r,sizeof(r))?1:0;
+    if(save("disk.receipt",&r,sizeof(r)))return 1;
+    /* Completion is published only after the final verified burst and durable
+     * binary receipt. stdout is a private producer-owned completion pipe. */
+    return srv_write(1,"D",1)==1?0:1;
 }
 static int producer(unsigned seconds) {
     struct srv_audio_status audio={0};
@@ -55,21 +58,36 @@ static int producer(unsigned seconds) {
     char directory[160],duration[24];
     snprintf(directory,sizeof(directory),"/work/srvros-work/audio-io-%llu",(unsigned long long)now());
     if(mkdir(directory,0700))return 1;
-    int gate[2];if(srv_pipe_pair(gate)<0)return 1;
+    int gate[2],done[2];if(srv_pipe_pair(gate)<0)return 1;
+    if(srv_pipe_pair(done)<0){srv_close(gate[0]);srv_close(gate[1]);return 1;}
     snprintf(duration,sizeof(duration),"%u",seconds);
     char *args[]={"/fat/bin/playwav","--io-worker",directory,duration,NULL};
     struct srv_exec_request request={.path=args[0],.argv=args,.flags=SRV_EXEC_BACKGROUND,
-        .stdin_fd=gate[0],.stdout_fd=1,.stderr_fd=2};
-    long child=srv_exec(&request);srv_close(gate[0]);
-    if(child<=0){srv_close(gate[1]);return 1;}
+        .stdin_fd=gate[0],.stdout_fd=done[1],.stderr_fd=2};
+    long child=srv_exec(&request);srv_close(gate[0]);srv_close(done[1]);
+    if(child<=0){srv_close(gate[1]);srv_close(done[0]);return 1;}
     printf("audio-io: begin seconds=%u directory=%s automatic=yes\n",seconds,directory);fflush(stdout);
     long handle=srv_pcm_open();int failed=handle<=0,started=0;
     uint64_t start=0,end=0,submitted=0,frames=(uint64_t)seconds*48000,phase=0;
+    uint64_t maximum=(uint64_t)(seconds+AUDIO_IO_TAIL_SECONDS)*192000;
+    int worker_done=0;
     struct srv_pcm_status status={0};
     /* A quiet triangle wave with alternating pitch each second makes glitches
      * audible without depending on disk reads in the producer itself. */
-    while(!failed && submitted<frames*4) {
-        unsigned count=(unsigned)((frames*4-submitted)<sizeof(pcm)?(frames*4-submitted):sizeof(pcm));
+    while(!failed && (submitted<frames*4 || !worker_done)) {
+        if(!worker_done) {
+            struct srv_pollfd event={.fd=done[0],.events=SRV_POLLIN};
+            long ready=srv_poll(&event,1,0);
+            if(ready<0)failed=1;
+            else if(event.revents&SRV_POLLIN) {
+                char token;if(srv_read(done[0],&token,1)!=1 || token!='D')failed=1;
+                else {worker_done=1;srv_close(done[0]);done[0]=-1;}
+            } else if(event.revents&(SRV_POLLHUP|SRV_POLLERR|SRV_POLLNVAL))failed=1;
+        }
+        if(failed || (submitted>=frames*4 && worker_done))break;
+        if(submitted>=maximum){failed=1;break;}
+        uint64_t target=submitted<frames*4?frames*4:maximum;
+        unsigned count=(unsigned)((target-submitted)<sizeof(pcm)?(target-submitted):sizeof(pcm));
         for(unsigned i=0;i<count/4;i++) {
             unsigned hz=((submitted/4+i)/48000)&1?440:330;
             phase=(phase+hz)%48000;
@@ -101,6 +119,7 @@ static int producer(unsigned seconds) {
     }
     if(handle>0)srv_pcm_close(handle);
     if(gate[1]>=0)srv_close(gate[1]);
+    if(done[0]>=0)srv_close(done[0]);
     uint64_t exit_status=1,deadline=now()+60000000;long waited=0;
     do {waited=srv_wait(child,&exit_status,SRV_WAIT_NOHANG);if(waited)break;srv_sleep_ticks(1);}while(now()<deadline);
     if(waited!=child){srv_kill(child);srv_wait(child,&exit_status,0);failed=1;}

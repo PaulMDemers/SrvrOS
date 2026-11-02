@@ -215,6 +215,17 @@ def main():
                     directory=re.search(rb'audio-io: begin seconds=60 directory=/work/([^ ]+) automatic=yes',output)[1].decode()
                     receipt=final.read(directory+'/result.txt');assert b'result=PASS' in receipt
                     assert b' volume=1\n' in receipt
+                    evidence=b'\n'.join(snapshots)
+                    assert b'desktop-ui-log: version=1 dropped=0 pending=0' in evidence
+                    # Independent text/binary agreement; extension can add PCM,
+                    # never shorten the requested load or move disk outside it.
+                    m=re.fullmatch(rb'audio-io: result=PASS seconds=60 start_us=(\d+) end_us=(\d+) first_io_us=(\d+) last_io_us=(\d+) bursts=(\d+) bytes=(\d+) max_burst_us=(\d+) pcm_bytes=(\d+) underruns=0 worker_status=0 volume=1\n',receipt)
+                    assert m,'incomplete audio/disk receipt'
+                    start,end,first,last,bursts,written,maximum,pcm=map(int,m.groups())
+                    assert start<=first<last<=end and last-first>=56000000
+                    assert bursts>0 and written==bursts*262144
+                    assert 60*192000<=pcm<=120*192000 and pcm%4==0
+                    assert struct.unpack('<5Q',final.read(directory+'/disk.receipt'))==(first,last,bursts,written,maximum)
                     (out/'receipt.txt').write_bytes(receipt)
                     # UART writers may interleave; saved bootlog records are atomic.
                     ready,closed=lifecycle_receipts([bytes(output),*snapshots],int(lifecycle[1]))

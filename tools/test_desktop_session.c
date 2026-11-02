@@ -58,9 +58,13 @@ static unsigned brightness_calls;
 int gui_brightness(unsigned percent) { brightness_calls++;return percent?(int)percent:14; }
 static unsigned pointer_options;
 int gui_pointer_config(unsigned speed,unsigned options) { (void)speed;pointer_options=options;return 0; }
+static uint64_t now=1;
+static int slow_console_probe;
+static unsigned slow_console_calls;
 static int capture_loop_log;
 static char captured_loop_log[4096];
 void srv_puts(const char *text) {
+    if(slow_console_probe){slow_console_calls++;now+=60;return;}
     if(capture_loop_log) {
         assert(strlen(text)<1024);
         if(!strncmp(text,"desktop-loop-worst:",19))captured_loop_log[0]=0;
@@ -68,7 +72,6 @@ void srv_puts(const char *text) {
     }
     else fputs(text,stdout);
 }
-static uint64_t now=1;
 static int alive=1,queue_full,copy_failure,allocations,frees,killed,sends,reaped,alloc_fail;
 static unsigned kill_delay;
 static int terminal_snapshot,defer_reap;static unsigned worker_reaps;
@@ -851,7 +854,28 @@ static void window_navigation(void) {
     registry_destroy(&s);assert(!registry_live);
     puts("desktop-navigation: PASS 80-entry stable MRU/reverse/cancel, stale identity refusal, same-app cycle, grouped minimize, focus fallback and keyboard menu");
 }
+static void deferred_ui_diagnostics(void) {
+    struct lifecycle_worker w={0};struct session s={.worker=&w,.trace=1,.startup_trace=1,.scene={.focus=-1}};
+    s.children[0]=42;desk_damage_init(&s.damage,800,600);
+    struct desk_packet p=desk_packet_new(DESK_OPEN);p.window=1;p.width=720;p.height=480;strcpy(p.text,"Backpressure");
+    slow_console_probe=1;slow_console_calls=0;uint64_t start=now;
+    srv_puts("controlled 600ms console stall\n");assert(now-start==60 && slow_console_calls==1);
+    start=now;slow_console_calls=0;ui_logger=&w;
+    incoming(&s,42,&p);
+    assert(s.clients[0].pid==42 && s.clients[0].configure && now==start && !slow_console_calls);
+    /* Formatting and queueing never call the stalled backend; the worker owns
+     * all console delay and cannot overwrite a record still being emitted. */
+    life_log_work(&w);assert(slow_console_calls && now>start);
+    for(unsigned n=0;n<LIFE_LOG_SLOTS;n++)assert(life_log_submit(&w,"retained\n"));
+    unsigned at=w.log_write;assert(!life_log_submit(&w,"overflow\n") && w.log_dropped==1);
+    assert(!strcmp(w.logs[at].text,"retained\n"));
+    unsigned calls=slow_console_calls;life_report_work(&w);assert(slow_console_calls-calls==LIFE_LOG_SLOTS);
+    assert(life_state(&w.logs[w.log_read].state)==LIFE_IDLE && life_log_submit(&w,"after drain\n"));
+    life_log_work(&w);ui_logger=NULL;slow_console_probe=0;now=1;
+    puts("desktop-ui-log: PASS controlled600ms backend, window-open returns without console delay, FIFO ownership, wrap, full refusal, drain and recovery");
+}
 int main(void) {
+    deferred_ui_diagnostics();
     seeded_cache_reuse();
     retained_operations();window_navigation();
     persistent_loop_timing();asynchronous_loop_report();
