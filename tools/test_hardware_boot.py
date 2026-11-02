@@ -210,9 +210,13 @@ class InstallTests(unittest.TestCase):
             v=f'ram-usb-wifi-fw-v{version}-laptop-probe-0e535900-auto-return'
             release=self.payload(f'offline-{version}',v)
             path=self.stage/release/'manifest.json';manifest=json.loads(path.read_text());manifest['config_version']=v;path.write_text(json.dumps(manifest))
-            self.assertEqual(boot.verify(self.stage/release)['config_version'],v)
-            with patch.object(boot,'host_uuid',side_effect=AssertionError('Must refuse before host interaction')):
-                with self.assertRaisesRegex(ValueError,'5GHz-only'):boot.install(release)
+            # The payload helper supplies placeholder tar bytes; firmware
+            # archive validation has its own suite. Keep real hash/config and
+            # band-policy validation, and forbid reaching host interaction.
+            with patch('wifi_firmware_package.verify_initramfs',return_value={}):
+                self.assertEqual(boot.verify(self.stage/release)['config_version'],v)
+                with patch.object(boot,'host_uuid',side_effect=AssertionError('Must refuse before host interaction')):
+                    with self.assertRaisesRegex(ValueError,'5GHz-only'):boot.install(release)
             self.assertFalse((self.base/release).exists())
             self.assertEqual({p:p.read_bytes() for p in before},before)
 
