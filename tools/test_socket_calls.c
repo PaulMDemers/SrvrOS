@@ -1,6 +1,9 @@
 #define _DEFAULT_SOURCE
 #define _DARWIN_C_SOURCE
 #include <assert.h>
+#include <time.h>
+int audit_clock_gettime(clockid_t id, struct timespec *ts);
+#define clock_gettime audit_clock_gettime
 #include <stdbool.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
@@ -56,12 +59,51 @@ static long try_result=SRV_ERR_AGAIN;
 static const char *dns_mode;
 static bool unix_control;
 static size_t unix_path_length;
-static unsigned dns_sends,dns_receives;
-static unsigned char saved_query[512];static size_t query_length;
+static unsigned dns_sends, dns_receives, dns_polls;
+static long fake_ms;
+static int stream_error_mode, stream_callback, error_queries, native_error;
+int audit_clock_gettime(clockid_t id, struct timespec *ts) {
+    assert(id == CLOCK_MONOTONIC);
+    ts->tv_sec = fake_ms / 1000;
+    ts->tv_nsec = (fake_ms % 1000) * 1000000;
+    return 0;
+}
+static unsigned char saved_query[512];
+static size_t query_length;
 int audit_close(int fd) { return __posix_socket_close(fd); }
-int audit_poll(struct pollfd *fds,nfds_t count,int timeout) { (void)fds;assert(count==1 && timeout==2000);return strcmp(dns_mode,"dns-busy")!=0; }
+int audit_poll(struct pollfd *fds, nfds_t count, int timeout) {
+    assert(count == 1 && timeout == 2000 - (fake_ms % 2000));
+    dns_polls++;
+    if (!strcmp(dns_mode, "dns-error")) {
+        errno = EIO;
+        return -1;
+    }
+    if (!strcmp(dns_mode, "dns-interrupt")) {
+        errno = EINTR;
+        return -1;
+    }
+    if (!strcmp(dns_mode, "dns-busy")) {
+        fake_ms += timeout;
+        return 0;
+    }
+    if (!strcmp(dns_mode, "dns-readable-error")) {
+        fds->revents = POLLIN | POLLERR;
+        return 1;
+    }
+    if (!strcmp(dns_mode, "dns-pollerr")) {
+        fds->revents = POLLERR;
+        return 1;
+    }
+    if (!strcmp(dns_mode, "dns-near-deadline")) {
+        fake_ms += dns_polls == 1 ? 1997 : 1;
+    } else {
+        fake_ms += 100;
+    }
+    fds->revents = POLLIN;
+    return 1;
+}
 long srv_net_status_info(struct srv_net_status_info *info) { memset(info,0,sizeof(*info));info->dns_ip=0x0a000203;return 0; }
-long srv_net_dns(const char *name,uint32_t *out) { (void)out;assert(!strcmp(name,"outer.test") && !strcmp(dns_mode,"dns-busy"));return SRV_ERR_AGAIN; }
+long srv_net_dns(const char *name,uint32_t *out) { (void)out;assert(!strcmp(name,"outer.test"));return SRV_ERR_AGAIN; }
 long srv_pipe_recv_rights(int fd,int *fds,size_t capacity,uint64_t *flags) { (void)fd;(void)fds;(void)capacity;*flags=0;return 0; }
 
 static void replace(void) {
@@ -98,30 +140,82 @@ int __posix_event_export_allowed(int fd) { assert(fd==3 || fd==4);return 1; }
 long srv_unix_accept(int fd) { (void)fd;return -1; }
 long srv_net_sockname(int fd,uint32_t *ip,uint16_t *port) { (void)fd;*ip=0x0a00020f;*port=9000;return 0; }
 long srv_net_peername(int fd,uint32_t *ip,uint16_t *port) { (void)fd;*ip=0x0a000202;*port=8000;return 0; }
-long srv_net_error(int fd) { (void)fd;return 0; }
+long srv_net_error(int fd) {
+    (void)fd;
+    error_queries++;
+    return native_error;
+}
 ssize_t audit_read(int fd,void *buf,size_t n) { (void)fd;(void)buf;(void)n;assert(flags_value==0);errno=EAGAIN;return -1; }
 ssize_t audit_write(int fd,const void *buf,size_t n) { (void)fd;(void)buf;(void)n;assert(flags_value==0);errno=EAGAIN;return -1; }
-long srv_net_peek(int fd,void *buf,size_t n) { (void)fd;(void)buf;(void)n;assert(flags_value==0);return SRV_ERR_AGAIN; }
-long srv_net_udp_recvfrom(int fd,void *buf,size_t n,uint32_t *ip,uint16_t *port) {
-    (void)fd;assert(flags_value==0);if(!dns_mode)return SRV_ERR_AGAIN;
-    unsigned char response[513]={0};memcpy(response,saved_query,query_length);response[2]=0x81;response[3]=0x80;response[7]=1;
-    const unsigned char answer[]={0xc0,12,0,1,0,1,0,0,0,0,0,4,1,2,3,4};memcpy(response+query_length,answer,sizeof(answer));
-    size_t length=query_length+sizeof(answer);*ip=0x0a000203;*port=53;dns_receives++;
-    if(dns_receives==1) {
-        if(!strcmp(dns_mode,"dns-retry"))response[0]^=1;
-        if(!strcmp(dns_mode,"dns-truncate"))length=513;
-        if(!strcmp(dns_mode,"dns-source")) { *ip=0x0a000204;response[query_length+15]=9; }
-    }
-    if(n>length)n=length;
-    memcpy(buf,response,n);return (long)n;
+ssize_t __posix_read_with_socket_error(int fd, void *buf, size_t n, int *error) {
+    if (!stream_error_mode) return audit_read(fd, buf, n);
+    assert(fd == POSIX_SOCKET_BASE);
+    *error = __posix_socket_pending_error(7);
+    if (stream_callback) native_error = SRV_NETERR_REFUSED;
+    errno = EBADF;
+    return -1;
 }
-long srv_net_udp_sendto(int fd,uint32_t ip,uint16_t port,const void *buf,size_t n) {
-    (void)fd;if(dns_mode) {
-        assert(ip==0x0a000203 && port==53 && n<=sizeof(saved_query));
-        if(!dns_sends) { memcpy(saved_query,buf,n);query_length=n; }
-        else assert(n==query_length && !memcmp(saved_query,buf,n));
+ssize_t __posix_write_with_socket_error(int fd, const void *buf, size_t n, int *error) {
+    if (!stream_error_mode) return audit_write(fd, buf, n);
+    assert(fd == POSIX_SOCKET_BASE);
+    *error = __posix_socket_pending_error(7);
+    if (stream_callback) native_error = SRV_NETERR_REFUSED;
+    errno = EIO;
+    return -1;
+}
+long srv_net_peek(int fd,void *buf,size_t n) { (void)fd;(void)buf;(void)n;assert(flags_value==0);return SRV_ERR_AGAIN; }
+long srv_net_udp_recvfrom(int fd, void *buf, size_t n, uint32_t *ip, uint16_t *port) {
+    (void)fd;
+    assert(flags_value == 0);
+    if (!dns_mode) return SRV_ERR_AGAIN;
+    if (!strcmp(dns_mode, "dns-recv-error")) {
+        dns_receives++;
+        return SRV_ERR_IO;
+    }
+    if (!strcmp(dns_mode, "dns-recv-intr")) {
+        dns_receives++;
+        return SRV_ERR_INTR;
+    }
+    if (!strcmp(dns_mode, "dns-recv-again") && !dns_receives++) return SRV_ERR_AGAIN;
+
+    unsigned char response[513] = {0};
+    memcpy(response, saved_query, query_length);
+    response[2] = 0x81;
+    response[3] = 0x80;
+    response[7] = 1;
+    const unsigned char answer[] = {0xc0,12,0,1,0,1,0,0,0,0,0,4,1,2,3,4};
+    memcpy(response + query_length, answer, sizeof(answer));
+    size_t length = query_length + sizeof(answer);
+    *ip = 0x0a000203;
+    *port = 53;
+    dns_receives++;
+    if (dns_receives == 1 || !strcmp(dns_mode, "dns-flood") ||
+        !strcmp(dns_mode, "dns-source-flood")) {
+        if (!strcmp(dns_mode, "dns-retry") || !strcmp(dns_mode, "dns-flood") ||
+            !strcmp(dns_mode, "dns-near-deadline")) response[0] ^= 1;
+        if (!strcmp(dns_mode, "dns-truncate")) length = 513;
+        if (!strcmp(dns_mode, "dns-source") || !strcmp(dns_mode, "dns-source-flood")) {
+            *ip = 0x0a000204;
+            response[query_length + 15] = 9;
+        }
+    }
+    if (n > length) n = length;
+    memcpy(buf, response, n);
+    return (long)n;
+}
+long srv_net_udp_sendto(int fd, uint32_t ip, uint16_t port, const void *buf, size_t n) {
+    (void)fd;
+    if (dns_mode) {
+        assert(ip == 0x0a000203 && port == 53 && n <= sizeof(saved_query));
+        if (!dns_sends) {
+            memcpy(saved_query, buf, n);
+            query_length = n;
+        } else {
+            assert(n == query_length && !memcmp(saved_query, buf, n));
+        }
         dns_sends++;
-    }return (long)n;
+    }
+    return (long)n;
 }
 #ifdef SRV_SOCKET_RECV
 long srv_socket_try_io(int fd,uint64_t operation,void *buf,size_t n,struct srv_socket_peer *peer) {
@@ -159,16 +253,44 @@ int main(int argc,char **argv) {
         assert(message_extract_rights(&message,rights,&count)<0 && errno==EINVAL && !count);
         puts("socket-calls: rights-const PASS");return 0;
     }
-    if(!strncmp(argv[1],"dns-",4)) {
-        dns_mode=argv[1];struct addrinfo *info=NULL;int result=getaddrinfo("outer.test",NULL,NULL,&info);
-        if(!strcmp(dns_mode,"dns-busy"))assert(result==EAI_AGAIN && !info && dns_sends==3);
-        else { assert(result==0 && info && ntohl(((struct sockaddr_in *)info->ai_addr)->sin_addr.s_addr)==0x01020304);assert(dns_receives==2);assert(dns_sends==(!strcmp(dns_mode,"dns-source")?1u:2u));freeaddrinfo(info); }
-        printf("socket-calls: %s PASS\n",argv[1]);return 0;
+    if (!strncmp(argv[1], "dns-", 4)) {
+        dns_mode = argv[1];
+        struct addrinfo *info = NULL;
+        int result = getaddrinfo("outer.test", NULL, NULL, &info);
+        if (!strcmp(dns_mode, "dns-busy") || !strcmp(dns_mode, "dns-flood") ||
+            !strcmp(dns_mode, "dns-source-flood")) {
+            assert(result == EAI_AGAIN && !info && dns_sends == 3 && fake_ms == 6000);
+        } else if (!strcmp(dns_mode, "dns-error") || !strcmp(dns_mode, "dns-interrupt") ||
+            !strcmp(dns_mode, "dns-pollerr") || !strcmp(dns_mode, "dns-recv-error") ||
+            !strcmp(dns_mode, "dns-recv-intr")) {
+            assert(result == EAI_AGAIN && !info && dns_sends == 1 && dns_polls == 1);
+        } else {
+            unsigned expected_receives = 2;
+            if (!strcmp(dns_mode, "dns-readable-error")) expected_receives = 1;
+            if (!strcmp(dns_mode, "dns-recv-again")) expected_receives = 3;
+            assert(result == 0 && info);
+            assert(ntohl(((struct sockaddr_in *)info->ai_addr)->sin_addr.s_addr) == 0x01020304);
+            assert(dns_receives == expected_receives && dns_sends == 1);
+            freeaddrinfo(info);
+        }
+        printf("socket-calls: %s PASS\n", argv[1]);
+        return 0;
     }
     int datagram=strstr(argv[1],"udp")!=NULL;
     assert(socket(AF_INET,datagram?SOCK_DGRAM:SOCK_STREAM,0)==POSIX_SOCKET_BASE);
     struct sockaddr_in peer={.sin_family=AF_INET,.sin_port=htons(8000),.sin_addr.s_addr=htonl(0x0a000202)};
-    if(!strncmp(argv[1],"raw-",4)) {
+    if (!strncmp(argv[1], "stream-error-", 13)) {
+        sockets[0].listener_fd = 7;
+        sockets[0].connected = 1;
+        stream_error_mode = 1;
+        stream_callback = strstr(argv[1], "callback") != NULL;
+        native_error = SRV_NETERR_RESET;
+        char byte = 0;
+        ssize_t result;
+        if (strstr(argv[1], "send")) result = send(POSIX_SOCKET_BASE, &byte, 1, 0);
+        else result = recv(POSIX_SOCKET_BASE, &byte, 1, 0);
+        assert(result == -1 && errno == ECONNRESET && error_queries == 1);
+    } else if(!strncmp(argv[1],"raw-",4)) {
         raw_mode=1;dup_fail=strstr(argv[1],"full")?SRV_ERR_MFILE:0;
         real_options_for_fd(7,1)->so_keepalive=1;
         int result=accept(7,NULL,NULL);

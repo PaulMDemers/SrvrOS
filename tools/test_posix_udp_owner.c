@@ -42,7 +42,8 @@ static void *test_malloc(size_t n) { return fail_alloc?NULL:malloc(n); }
 #include "posix_socket_host_names.h"
 #include SRVROS_POSIX_UDP_OWNER_SOURCE
 static unsigned receives,flag_writes,replacement_writes;
-static uint64_t flags_value;
+static uint64_t flags_value, descriptor_value;
+static bool fail_descriptor_write, fail_status_write;
 static bool replaced,close_only,restart_close,close_on_receive,interrupt_once,empty_after_foreign;
 static int receive_fd=POSIX_SOCKET_BASE;
 static unsigned foreign=2;
@@ -52,6 +53,11 @@ static void replace_socket(void) {
         assert(socket(AF_INET,SOCK_DGRAM,0)==receive_fd);
         struct posix_socket *s=socket_at(receive_fd);s->connected=1;s->peer_ip=0x0a000202;s->peer_port=8000;
     }
+}
+ssize_t __posix_read_with_socket_error(int fd, void *buffer, size_t length, int *socket_error) {
+    (void)fd; (void)buffer; (void)length; (void)socket_error;
+    assert(0);
+    return -1;
 }
 int __posix_signal_dispatch_pending(void) { return 0; }
 int __posix_signal_dispatch_pending_restartable(void) {
@@ -63,7 +69,8 @@ long srv_dup(int fd) { assert(fd==7 || fd==8);return 8; }
 long srv_close(int fd) { assert(fd==7 || fd==8);return 0; }
 long srv_fcntl(int fd,int command,uint64_t arg) {
     assert(fd==7 || fd==8);(void)arg;
-    if(command==SRV_F_SETFL) { flags_value=arg;flag_writes++;if(replaced)replacement_writes++; }
+    if(command==SRV_F_SETFD) { if(fail_descriptor_write)return -1; descriptor_value=arg; }
+    if(command==SRV_F_SETFL) { if(fail_status_write)return -1; flags_value=arg;flag_writes++;if(replaced)replacement_writes++; }
     return command==SRV_F_GETFL?(long)flags_value:0;
 }
 long srv_net_udp_recvfrom(int fd,void *out,size_t cap,uint32_t *ip,uint16_t *port) {

@@ -35,7 +35,46 @@ static void *interrupt_reader(void *data) {
     return NULL;
 }
 
+static int interrupted_reader_fd, replacement_reader_fd;
+static volatile sig_atomic_t replaced_reader;
+
+static void replace_reader(int signal) {
+    if (signal == SIGUSR1) {
+        replaced_reader = dup2(replacement_reader_fd, interrupted_reader_fd) == interrupted_reader_fd;
+    }
+}
+
+static int check_reader_reuse(void) {
+    int original[2], replacement[2];
+    CHECK(pipe(original) == 0 && pipe(replacement) == 0);
+    CHECK(write(replacement[1], "N", 1) == 1);
+    interrupted_reader_fd = original[0];
+    replacement_reader_fd = replacement[0];
+    replaced_reader = 0;
+    struct sigaction action = {.sa_handler = replace_reader, .sa_flags = SA_RESTART}, saved;
+    CHECK(sigaction(SIGUSR1, &action, &saved) == 0);
+    pthread_t worker;
+    struct vector_interrupt interrupt = {.reader = pthread_self()};
+    CHECK(pthread_create(&worker, NULL, interrupt_reader, &interrupt) == 0);
+    char byte = '?';
+    struct iovec iov = {&byte, 1};
+    ssize_t n = readv(original[0], &iov, 1);
+    int read_error = errno;
+    void *result;
+    CHECK(pthread_join(worker, &result) == 0 && !result);
+    CHECK(sigaction(SIGUSR1, &saved, NULL) == 0);
+    CHECK(replaced_reader && n == -1 && read_error == EBADF && byte == '?');
+    CHECK(read(original[0], &byte, 1) == 1 && byte == 'N');
+    close(original[0]);
+    close(original[1]);
+    close(replacement[0]);
+    close(replacement[1]);
+    puts("threadstress: replaced reader preserved new pipe data");
+    return 0;
+}
+
 int posix_vector_io_test(void) {
+    CHECK(check_reader_reuse() == 0);
     int p[2];char first[2],second[2];
     struct iovec input[]={{first,2},{NULL,0},{second,2}};
     CHECK(!pipe(p) && write(p[1],"ab",2)==2);

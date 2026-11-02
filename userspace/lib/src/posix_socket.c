@@ -1,4 +1,5 @@
 #include <srvros/dns_wire.h>
+#include <srvros/path_limits.h>
 #include <arpa/inet.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -17,10 +18,12 @@
 
 #define POSIX_SOCKET_MAX 8
 #define POSIX_SOCKET_BASE 1000
-#define REAL_SOCKET_OPTIONS_MAX 32
+#define REAL_SOCKET_OPTIONS_MAX SRV_OPEN_MAX
 
 int __posix_signal_dispatch_pending(void);
 int __posix_signal_dispatch_pending_restartable(void);
+ssize_t __posix_read_with_socket_error(int fd, void *buffer, size_t length, int *socket_error);
+ssize_t __posix_write_with_socket_error(int fd, const void *buffer, size_t length, int *socket_error);
 
 struct posix_socket {
     int used;
@@ -43,13 +46,11 @@ struct posix_socket {
     int tcp_nodelay;
     struct linger so_linger;
     uint64_t fd_flags;
-    uint64_t descriptor_flags;
     char unix_path[SRV_UNIX_PATH_MAX];
 };
 
 struct real_socket_options {
     int used;
-    int fd;
     int type;
     int so_reuseaddr;
     int so_rcvbuf;
@@ -60,13 +61,17 @@ struct real_socket_options {
 };
 
 static struct posix_socket sockets[POSIX_SOCKET_MAX];
+static uint64_t socket_object_generations[POSIX_SOCKET_MAX];
+static struct posix_socket *socket_slots[POSIX_SOCKET_MAX];
+static uint64_t socket_descriptor_flags[POSIX_SOCKET_MAX];
 /* Separate from cleared/copied records so close/reuse and dup cannot ABA. */
 static uint64_t socket_generations[POSIX_SOCKET_MAX];
 static struct real_socket_options real_options[REAL_SOCKET_OPTIONS_MAX];
+static struct real_socket_options *real_option_slots[SRV_OPEN_MAX];
 const struct in6_addr in6addr_any = {0};
 
 int __posix_socket_fork_ready(void) {
-    for(unsigned i=0;i<POSIX_SOCKET_MAX;i++) if(sockets[i].used) return 0;
+    for(unsigned i=0;i<POSIX_SOCKET_MAX;i++) if(socket_slots[i]) return 0;
     return 1;
 }
 
@@ -74,8 +79,24 @@ static struct posix_socket *socket_at(int fd) {
     if (fd < POSIX_SOCKET_BASE || fd >= POSIX_SOCKET_BASE + POSIX_SOCKET_MAX) {
         return 0;
     }
-    struct posix_socket *socket = &sockets[fd - POSIX_SOCKET_BASE];
-    return socket->used ? socket : 0;
+    return socket_slots[fd - POSIX_SOCKET_BASE];
+}
+
+/* The backing descriptor is inherited only when at least one alias is.
+ * Individual descriptor flags remain in the pseudo-descriptor table. */
+static uint64_t socket_backing_flags(const struct posix_socket *socket) {
+    for (int i = 0; i < POSIX_SOCKET_MAX; i++)
+        if (socket_slots[i] == socket && !(socket_descriptor_flags[i] & SRV_FD_CLOEXEC)) return 0;
+    return SRV_FD_CLOEXEC;
+}
+
+static int socket_sync_backing_flags(struct posix_socket *socket) {
+    if (socket->listener_fd >= 0 &&
+        srv_fcntl(socket->listener_fd, SRV_F_SETFD, socket_backing_flags(socket)) < 0) {
+        errno = EBADF;
+        return -1;
+    }
+    return 0;
 }
 
 static uint32_t sockaddr_ip_to_srv(uint32_t address) {
@@ -201,6 +222,8 @@ static int socket_error_for_fd(int fd) {
     return errno_from_net_error(result);
 }
 
+int __posix_socket_pending_error(int fd) { return socket_error_for_fd(fd); }
+
 static int real_net_fd(int fd) {
     uint32_t ip = 0;
     uint16_t port = 0;
@@ -217,39 +240,35 @@ static void init_socket_options(struct posix_socket *socket) {
     socket->so_linger.l_linger = 0;
 }
 
-static void init_real_options(struct real_socket_options *options, int fd) {
+static void init_real_options(struct real_socket_options *options) {
     memset(options, 0, sizeof(*options));
     options->used = 1;
-    options->fd = fd;
     options->type = SOCK_STREAM;
     options->so_rcvbuf = 32768;
     options->so_sndbuf = 1400;
 }
 
 static struct real_socket_options *real_options_for_fd(int fd, int create) {
-    struct real_socket_options *free_slot = 0;
+    if (fd < 0 || fd >= SRV_OPEN_MAX) return 0;
+    if (real_option_slots[fd]) return real_option_slots[fd];
+    if (!create) return 0;
     for (int i = 0; i < REAL_SOCKET_OPTIONS_MAX; i++) {
-        if (real_options[i].used && real_options[i].fd == fd) {
+        if (!real_options[i].used) {
+            init_real_options(&real_options[i]);
+            real_option_slots[fd] = &real_options[i];
             return &real_options[i];
         }
-        if (!real_options[i].used && free_slot == 0) {
-            free_slot = &real_options[i];
-        }
     }
-    if (!create || free_slot == 0) {
-        return 0;
-    }
-    init_real_options(free_slot, fd);
-    return free_slot;
+    return 0;
 }
 
 static void real_options_clear(int fd) {
-    for (int i = 0; i < REAL_SOCKET_OPTIONS_MAX; i++) {
-        if (real_options[i].used && real_options[i].fd == fd) {
-            memset(&real_options[i], 0, sizeof(real_options[i]));
-            return;
-        }
-    }
+    if (fd < 0 || fd >= SRV_OPEN_MAX || !real_option_slots[fd]) return;
+    struct real_socket_options *options = real_option_slots[fd];
+    real_option_slots[fd] = 0;
+    for (int i = 0; i < SRV_OPEN_MAX; i++)
+        if (real_option_slots[i] == options) return;
+    memset(options, 0, sizeof(*options));
 }
 
 static int real_options_set_from_socket(int fd, const struct posix_socket *socket) {
@@ -279,21 +298,18 @@ void __posix_socket_note_dup(int old_fd, int new_fd) {
     if (!real_net_fd(old_fd) || !real_net_fd(new_fd)) {
         return;
     }
-    struct real_socket_options *target = real_options_for_fd(new_fd, 1);
-    if (target == 0) {
-        return;
-    }
-    struct real_socket_options *source = real_options_for_fd(old_fd, 0);
-    if (source != 0) {
-        *target = *source;
-        target->fd = new_fd;
-    }
+    if (new_fd < 0 || new_fd >= SRV_OPEN_MAX) return;
+    struct real_socket_options *source = real_options_for_fd(old_fd, 1);
+    if (!source) return;
+    real_option_slots[new_fd] = source;
 }
 
 static long socket_try_operation(int fd, uint64_t operation, void *buffer,
-    size_t length, struct srv_socket_peer *peer) {
+    size_t length, struct srv_socket_peer *peer, int *socket_error) {
     long result = srv_socket_try_io(fd, operation, buffer, length, peer);
     if (result < 0) {
+        if (socket_error && (result == -1 || result == SRV_ERR_BADF))
+            *socket_error = socket_error_for_fd(fd);
         int error = result == SRV_ERR_PIPE ? EPIPE : result == SRV_ERR_BADF ? EBADF :
             result == SRV_ERR_FAULT ? EFAULT : result == SRV_ERR_INVAL ? EINVAL :
             result == SRV_ERR_NOTSUP ? EOPNOTSUPP : EIO;
@@ -308,11 +324,11 @@ static long socket_try_operation(int fd, uint64_t operation, void *buffer,
     return result;
 }
 
-static long socket_stream_io(int fd, void *buffer, size_t length, int flags, int writing) {
+static long socket_stream_io(int fd, int native_fd, void *buffer, size_t length, int flags, int writing, int *socket_error) {
     if (flags & MSG_DONTWAIT) {
-        long result = socket_try_operation(fd,
+        long result = socket_try_operation(native_fd,
             writing ? SRV_SOCKET_SEND : (flags & MSG_PEEK) ? SRV_SOCKET_PEEK : SRV_SOCKET_RECV,
-            buffer, length, 0);
+            buffer, length, 0, socket_error);
         /* Errors dispatch above; retain read/write's success checkpoint too,
          * without temporary flags to restore after a handler closes the FD. */
         if (result >= 0 && !(flags & MSG_PEEK)) {
@@ -322,10 +338,11 @@ static long socket_stream_io(int fd, void *buffer, size_t length, int flags, int
         }
         return result;
     }
-    if (writing) return write(fd, buffer, length);
-    if (!(flags & MSG_PEEK)) return read(fd, buffer, length);
-    long result = srv_net_peek(fd, buffer, length);
+    if (writing) return __posix_write_with_socket_error(fd, buffer, length, socket_error);
+    if (!(flags & MSG_PEEK)) return __posix_read_with_socket_error(fd, buffer, length, socket_error);
+    long result = srv_net_peek(native_fd, buffer, length);
     if (result < 0) {
+        if (result == -1 || result == SRV_ERR_BADF) *socket_error = socket_error_for_fd(native_fd);
         errno = errno_from_blocking_result(result, EBADF);
         return -1;
     }
@@ -335,7 +352,7 @@ static long socket_stream_io(int fd, void *buffer, size_t length, int flags, int
 static long udp_send_sys(int fd, uint32_t ip, uint16_t port, const void *buffer, size_t length, int flags) {
     if (flags & MSG_DONTWAIT) {
         struct srv_socket_peer peer = {.ip = ip, .port = port};
-        return socket_try_operation(fd, SRV_SOCKET_UDP_SEND, (void *)buffer, length, &peer);
+        return socket_try_operation(fd, SRV_SOCKET_UDP_SEND, (void *)buffer, length, &peer, 0);
     }
     long result = srv_net_udp_sendto(fd, ip, port, buffer, length);
     if (result < 0) {
@@ -357,6 +374,18 @@ static int socket_completion_current(int fd, uint64_t generation, int native_fd,
     if (socket_current(fd, generation, native_fd)) return 1;
     if (result >= 0) (void)srv_close((int)result);
     errno = EBADF;
+    return 0;
+}
+
+/* A retired caller must release the shared in-flight state, but only if
+ * the same description still exists after a signal handler ran. */
+static int socket_connect_completion_current(int fd, uint64_t generation,
+    int native_fd, long result, struct posix_socket *socket, uint64_t object_generation) {
+    if (socket_completion_current(fd, generation, native_fd, result)) return 1;
+    if (socket->used && socket_object_generations[socket - sockets] == object_generation &&
+        socket->listener_fd == native_fd) {
+        socket->connecting = 0;
+    }
     return 0;
 }
 
@@ -424,23 +453,11 @@ int __posix_socket_dup(int fd) {
         return -1;
     }
     for (int i = 0; i < POSIX_SOCKET_MAX; i++) {
-        if (sockets[i].used || socket_generations[i] == UINT64_MAX) {
-            continue;
-        }
-        int listener_fd = -1;
-        if (source->listener_fd >= 0) {
-            long duplicated = srv_dup(source->listener_fd);
-            if (duplicated < 0) {
-                errno = EBADF;
-                return -1;
-            }
-            listener_fd = (int)duplicated;
-            __posix_socket_note_dup(source->listener_fd, listener_fd);
-        }
-        sockets[i] = *source;
+        if (socket_slots[i] || socket_generations[i] == UINT64_MAX) continue;
+        socket_slots[i] = source;
         socket_generations[i]++;
-        sockets[i].listener_fd = listener_fd;
-        sockets[i].descriptor_flags &= ~SRV_FD_CLOEXEC;
+        socket_descriptor_flags[i] = 0;
+        if (socket_sync_backing_flags(source) < 0) { socket_slots[i] = 0; return -1; }
         return POSIX_SOCKET_BASE + i;
     }
     errno = EMFILE;
@@ -506,19 +523,16 @@ int __posix_socket_fcntl(int fd, int command, uint64_t flags) {
         return -1;
     }
     if (command == SRV_F_GETFD) {
-        return (int)socket->descriptor_flags;
+        return (int)socket_descriptor_flags[fd - POSIX_SOCKET_BASE];
     }
     if (command == SRV_F_SETFD) {
-        socket->descriptor_flags = flags & SRV_FD_CLOEXEC;
-        if (socket->listener_fd < 0) {
-            return 0;
-        }
-        long result = srv_fcntl(socket->listener_fd, command, socket->descriptor_flags);
-        if (result < 0) {
-            errno = EBADF;
+        uint64_t old = socket_descriptor_flags[fd - POSIX_SOCKET_BASE];
+        socket_descriptor_flags[fd - POSIX_SOCKET_BASE] = flags & SRV_FD_CLOEXEC;
+        if (socket_sync_backing_flags(socket) < 0) {
+            socket_descriptor_flags[fd - POSIX_SOCKET_BASE] = old;
             return -1;
         }
-        return (int)result;
+        return 0;
     }
     if (command == SRV_F_GETFL) {
         if (socket->listener_fd >= 0) {
@@ -530,8 +544,8 @@ int __posix_socket_fcntl(int fd, int command, uint64_t flags) {
         return (int)socket->fd_flags;
     }
     if (command == SRV_F_SETFL) {
-        socket->fd_flags = flags;
         if (socket->listener_fd < 0) {
+            socket->fd_flags = flags;
             return 0;
         }
     } else if (socket->listener_fd < 0) {
@@ -543,6 +557,7 @@ int __posix_socket_fcntl(int fd, int command, uint64_t flags) {
         errno = EBADF;
         return -1;
     }
+    if (command == SRV_F_SETFL) socket->fd_flags = flags;
     return (int)result;
 }
 
@@ -551,6 +566,20 @@ int __posix_socket_close(int fd) {
     if (socket == 0) {
         errno = EBADF;
         return -1;
+    }
+    int slot = fd - POSIX_SOCKET_BASE;
+    uint64_t descriptor_flags = socket_descriptor_flags[slot];
+    socket_slots[slot] = 0;
+    socket_descriptor_flags[slot] = 0;
+    for (int i = 0; i < POSIX_SOCKET_MAX; i++) {
+        if (socket_slots[i] == socket) {
+            if (socket_sync_backing_flags(socket) < 0) {
+                socket_slots[slot] = socket;
+                socket_descriptor_flags[slot] = descriptor_flags;
+                return -1;
+            }
+            return 0;
+        }
     }
     if (socket->listener_fd >= 0) {
         real_options_clear(socket->listener_fd);
@@ -583,7 +612,11 @@ int socket(int domain, int type, int protocol) {
         return -1;
     }
     for (int i = 0; i < POSIX_SOCKET_MAX; i++) {
-        if (!sockets[i].used && socket_generations[i] != UINT64_MAX) {
+        if (!socket_slots[i] && socket_generations[i] != UINT64_MAX) {
+            int object = -1;
+            for (int j = 0; j < POSIX_SOCKET_MAX; j++)
+                if (!sockets[j].used && socket_object_generations[j] != UINT64_MAX) { object = j; break; }
+            if (object < 0) { errno = EMFILE; return -1; }
             long udp_fd = -1;
             if (domain == AF_INET && base_type == SOCK_DGRAM) {
                 udp_fd = srv_net_udp_open();
@@ -593,22 +626,27 @@ int socket(int domain, int type, int protocol) {
                 }
             }
             socket_generations[i]++;
-            sockets[i].used = 1;
-            sockets[i].domain = domain;
-            sockets[i].type = base_type;
-            sockets[i].protocol = protocol;
-            sockets[i].port = 0;
-            sockets[i].listener_fd = (int)udp_fd;
-            sockets[i].peer_ip = 0;
-            sockets[i].peer_port = 0;
-            sockets[i].connected = 0;
-            sockets[i].connecting = 0;
-            sockets[i].listening = 0;
-            sockets[i].shutdown_read = 0;
-            sockets[i].shutdown_write = 0;
-            init_socket_options(&sockets[i]);
-            sockets[i].fd_flags = (flags & SOCK_NONBLOCK) != 0 ? SRV_FD_NONBLOCK : 0;
-            sockets[i].descriptor_flags = (flags & SOCK_CLOEXEC) != 0 ? SRV_FD_CLOEXEC : 0;
+            socket_object_generations[object]++;
+            socket_slots[i] = &sockets[object];
+            sockets[object].used = 1;
+            sockets[object].domain = domain;
+            sockets[object].type = base_type;
+            sockets[object].protocol = protocol;
+            sockets[object].port = 0;
+            sockets[object].listener_fd = (int)udp_fd;
+            sockets[object].peer_ip = 0;
+            sockets[object].peer_port = 0;
+            sockets[object].connected = 0;
+            sockets[object].connecting = 0;
+            sockets[object].listening = 0;
+            sockets[object].shutdown_read = 0;
+            sockets[object].shutdown_write = 0;
+            init_socket_options(&sockets[object]);
+            sockets[object].fd_flags = (flags & SOCK_NONBLOCK) != 0 ? SRV_FD_NONBLOCK : 0;
+            socket_descriptor_flags[i] = (flags & SOCK_CLOEXEC) != 0 ? SRV_FD_CLOEXEC : 0;
+            if (udp_fd >= 0 && apply_fd_socket_flags((int)udp_fd, sockets[object].fd_flags, socket_descriptor_flags[i]) < 0) {
+                (void)srv_close((int)udp_fd); socket_slots[i] = 0; memset(&sockets[object], 0, sizeof(sockets[object])); return -1;
+            }
             return POSIX_SOCKET_BASE + i;
         }
     }
@@ -657,7 +695,7 @@ int bind(int fd, const struct sockaddr *addr, socklen_t addrlen) {
             errno = EADDRINUSE;
             return -1;
         }
-        if (apply_fd_socket_flags((int)listener, socket->fd_flags, socket->descriptor_flags) < 0) {
+        if (apply_fd_socket_flags((int)listener, socket->fd_flags, socket_backing_flags(socket)) < 0) {
             (void)srv_close((int)listener);
             return -1;
         }
@@ -727,12 +765,8 @@ int listen(int fd, int backlog) {
         errno = EBADF;
         return -1;
     }
-    if (socket->descriptor_flags != 0 &&
-        srv_fcntl(socket->listener_fd, SRV_F_SETFD, socket->descriptor_flags) < 0) {
-        (void)srv_close(socket->listener_fd);
-        socket->listener_fd = -1;
-        errno = EBADF;
-        return -1;
+    if (socket_sync_backing_flags(socket) < 0) {
+        (void)srv_close(socket->listener_fd); socket->listener_fd = -1; return -1;
     }
     socket->listening = 1;
     return 0;
@@ -779,7 +813,6 @@ static int accept_with_flags(int fd, struct sockaddr *addr, socklen_t *addrlen, 
             struct real_socket_options *accepted_options = real_options_for_fd((int)connection, 1);
             if (accepted_options != 0) {
                 *accepted_options = saved_options;
-                accepted_options->fd = (int)connection;
             }
         }
         if (addr != 0 && addrlen != 0) {
@@ -876,6 +909,7 @@ int connect(int fd, const struct sockaddr *addr, socklen_t addrlen) {
         return -1;
     }
     uint64_t generation = socket_generations[fd - POSIX_SOCKET_BASE];
+    uint64_t object_generation = socket_object_generations[socket - sockets];
     int native_fd = socket->listener_fd;
     if (socket->type == SOCK_STREAM && socket->listening) {
         errno = EISCONN;
@@ -897,19 +931,19 @@ int connect(int fd, const struct sockaddr *addr, socklen_t addrlen) {
         }
         socket->connecting = 1;
         long connection = srv_unix_connect(path);
-        if (!socket_completion_current(fd, generation, native_fd, connection)) return -1;
+        if (!socket_connect_completion_current(fd, generation, native_fd, connection,
+                socket, object_generation)) return -1;
         socket->connecting = 0;
         if (connection < 0) {
             errno = connection == SRV_ERR_AGAIN ? EAGAIN : ECONNREFUSED;
             return -1;
         }
-        if (apply_fd_socket_flags((int)connection, socket->fd_flags, socket->descriptor_flags) < 0) {
+        if (apply_fd_socket_flags((int)connection, socket->fd_flags, socket_backing_flags(socket)) < 0) {
             (void)srv_close((int)connection);
             return -1;
         }
         socket->listener_fd = (int)connection;
         socket->connected = 1;
-        socket->connecting = 0;
         /* sockaddr_un_path validated the same capacity and supplied the NUL. */
         memcpy(socket->unix_path, path, strlen(path) + 1);
         return 0;
@@ -945,9 +979,11 @@ int connect(int fd, const struct sockaddr *addr, socklen_t addrlen) {
     socket->connecting = 1;
     for (;;) {
         connection = srv_net_connect(remote_ip, port, connect_flags);
-        if (!socket_completion_current(fd, generation, native_fd, connection)) return -1;
+        if (!socket_connect_completion_current(fd, generation, native_fd, connection,
+                socket, object_generation)) return -1;
         int retry = (connect_flags & SRV_FD_NONBLOCK) == 0 && interrupted_restartable(connection);
-        if (!socket_completion_current(fd, generation, native_fd, connection)) return -1;
+        if (!socket_connect_completion_current(fd, generation, native_fd, connection,
+                socket, object_generation)) return -1;
         if (!retry) break;
     }
     socket->connecting = 0;
@@ -977,12 +1013,9 @@ int connect(int fd, const struct sockaddr *addr, socklen_t addrlen) {
         errno = EBADF;
         return -1;
     }
-    if (socket->descriptor_flags != 0 &&
-        srv_fcntl(socket->listener_fd, SRV_F_SETFD, socket->descriptor_flags) < 0) {
-        (void)srv_close(socket->listener_fd);
-        socket->listener_fd = -1;
-        errno = EBADF;
-        return -1;
+
+    if (socket_sync_backing_flags(socket) < 0) {
+        (void)srv_close(socket->listener_fd); socket->listener_fd = -1; return -1;
     }
 
     if ((socket->fd_flags & SRV_FD_NONBLOCK) != 0) {
@@ -1115,17 +1148,12 @@ ssize_t send(int fd, const void *buffer, size_t length, int flags) {
         return udp_send_sys(socket->listener_fd, socket->peer_ip, socket->peer_port, buffer, length, flags);
     }
     int real_fd = socket != 0 ? socket->listener_fd : fd;
-    long result = socket_stream_io(real_fd, (void *)buffer, length, flags, 1);
-    if (result < 0) {
-        int error = socket_error_for_fd(real_fd);
-        if (errno == EINTR || result == SRV_ERR_INTR) {
-            errno = EINTR;
-        } else if (error == EINPROGRESS) {
-            errno = EALREADY;
-        } else if (error != 0 && error != ENOTCONN) {
-            errno = error;
-        }
-        return -1;
+    int error = 0;
+    long result = socket_stream_io(fd, real_fd, (void *)buffer, length, flags, 1, &error);
+    /* The native error was captured before any signal handler could reuse fd. */
+    if (result < 0 && (errno == EBADF || errno == EIO)) {
+        if (error == EINPROGRESS) errno = EALREADY;
+        else if (error != 0 && error != ENOTCONN) errno = error;
     }
     return result;
 }
@@ -1150,17 +1178,12 @@ ssize_t recv(int fd, void *buffer, size_t length, int flags) {
             (flags & MSG_DONTWAIT) != 0);
     }
     int real_fd = socket != 0 ? socket->listener_fd : fd;
-    long result = socket_stream_io(real_fd, buffer, length, flags, 0);
-    if (result < 0) {
-        int error = socket_error_for_fd(real_fd);
-        if (errno == EINTR || result == SRV_ERR_INTR) {
-            errno = EINTR;
-        } else if (error == EINPROGRESS) {
-            errno = EALREADY;
-        } else if (error != 0 && error != ENOTCONN) {
-            errno = error;
-        }
-        return -1;
+    int error = 0;
+    long result = socket_stream_io(fd, real_fd, buffer, length, flags, 0, &error);
+    /* The native error was captured before any signal handler could reuse fd. */
+    if (result < 0 && (errno == EBADF || errno == EIO)) {
+        if (error == EINPROGRESS) errno = EALREADY;
+        else if (error != 0 && error != ENOTCONN) errno = error;
     }
     return result;
 }
@@ -1864,6 +1887,8 @@ static int parse_service(const char *service, uint16_t *port) {
     return 1;
 }
 
+#include <time.h>
+
 static void dns_write_be16(unsigned char *data, uint16_t value) {
     data[0] = (unsigned char)(value >> 8);
     data[1] = (unsigned char)value;
@@ -2015,21 +2040,51 @@ static int resolve_dns_udp(const char *name, uint32_t *ip_out) {
         .fd = fd,
         .events = POLLIN,
     };
-    if (connect(fd, (const struct sockaddr *)&address, sizeof(address)) < 0) {
-        close(fd);
-        return -1;
-    }
     unsigned char response[512];
     for (int attempt = 0; attempt < 3; attempt++) {
-        if (sendto(fd, packet, offset, 0, (const struct sockaddr *)&address, sizeof(address)) < 0) {
+        if (sendto(fd, packet, offset, 0, (const struct sockaddr *)&address, sizeof(address)) != (ssize_t)offset) {
             close(fd);
             return -1;
         }
-        if (poll(&pfd, 1, 2000) > 0) {
+        struct timespec start;
+        if (clock_gettime(CLOCK_MONOTONIC, &start) < 0) {
+            close(fd);
+            return -1;
+        }
+        for (;;) {
+            struct timespec now;
+            if (clock_gettime(CLOCK_MONOTONIC, &now) < 0) {
+                close(fd);
+                return -1;
+            }
+            int64_t seconds = now.tv_sec - start.tv_sec;
+            long nanos = now.tv_nsec - start.tv_nsec;
+            if (nanos < 0) { seconds--; nanos += 1000000000; }
+            if (seconds >= 2) break;
+            int elapsed = seconds < 0 ? 0 : (int)(seconds * 1000 + nanos / 1000000);
+            pfd.revents = 0;
+            int ready = poll(&pfd, 1, 2000 - elapsed);
+            if (ready == 0) break;
+            if (ready < 0 || (pfd.revents & POLLNVAL) ||
+                (!(pfd.revents & POLLIN) && (pfd.revents & (POLLERR | POLLHUP)))) {
+                close(fd);
+                return -1;
+            }
+            if (!(pfd.revents & POLLIN)) continue;
+            struct sockaddr_in source;
+            memset(&source, 0, sizeof(source));
             struct iovec iov = {response, sizeof(response)};
-            struct msghdr message = {.msg_iov = &iov, .msg_iovlen = 1};
+            struct msghdr message = {.msg_name = &source, .msg_namelen = sizeof(source),
+                .msg_iov = &iov, .msg_iovlen = 1};
             ssize_t count = recvmsg(fd, &message, MSG_DONTWAIT);
-            if (count >= 0 && !(message.msg_flags & MSG_TRUNC) &&
+            if (count < 0) {
+                if (errno == EAGAIN || errno == EWOULDBLOCK) continue;
+                close(fd);
+                return -1;
+            }
+            if (message.msg_namelen >= sizeof(source) && source.sin_family == AF_INET &&
+                source.sin_port == address.sin_port && source.sin_addr.s_addr == address.sin_addr.s_addr &&
+                !(message.msg_flags & MSG_TRUNC) &&
                 dns_parse_response(response, (size_t)count, query_id, name, ip_out) == 0) {
                 close(fd);
                 return 0;

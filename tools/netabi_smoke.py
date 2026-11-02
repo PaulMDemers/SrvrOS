@@ -115,6 +115,8 @@ def main():
     missing = []
     if "netabi: ok" not in text:
         missing.append("netabi: ok")
+    if "netabi: UDP duplicate shares peer and options across close" not in text:
+        missing.append("UDP duplicate peer/options check")
     if "netabi: fail" in text:
         missing.append("netabi failure")
     if has_fatal_exception(text):

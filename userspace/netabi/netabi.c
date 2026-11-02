@@ -250,6 +250,48 @@ done:
     return result ? fail("udp-peers") : 0;
 }
 
+/* Exercise alias state through public libc descriptors and the native UDP queue. */
+static int check_udp_alias(void) {
+    struct srv_net_status_info status;
+    if (srv_net_status_info(&status) < 0) return fail("alias-net-status");
+    int server = socket(AF_INET, SOCK_DGRAM, 0);
+    int sender = socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0);
+    int alias = -1;
+    const char *failure = "alias-open";
+    if (server < 0 || sender < 0 || (alias = dup(sender)) < 0) goto done;
+
+    struct sockaddr_in peer = {.sin_family = AF_INET, .sin_port = htons(7109),
+        .sin_addr.s_addr = htonl(status.local_ip)};
+    failure = "alias-peer";
+    if (bind(server, (struct sockaddr *)&peer, sizeof(peer)) < 0 ||
+        connect(alias, (struct sockaddr *)&peer, sizeof(peer)) < 0) goto done;
+
+    int option = 512;
+    int observed = 0;
+    socklen_t size = sizeof(observed);
+    failure = "alias-options";
+    if (setsockopt(sender, SOL_SOCKET, SO_RCVBUF, &option, sizeof(option)) < 0 ||
+        getsockopt(alias, SOL_SOCKET, SO_RCVBUF, &observed, &size) < 0 ||
+        observed != option || fcntl(alias, F_GETFD) != 0 ||
+        fcntl(sender, F_GETFD) != FD_CLOEXEC) goto done;
+
+    char byte;
+    failure = "alias-delivery";
+    if (send(sender, "a", 1, 0) != 1 || recv(server, &byte, 1, MSG_DONTWAIT) != 1 ||
+        byte != 'a' || close(alias) != 0) goto done;
+    alias = -1;
+    if (send(sender, "b", 1, 0) != 1 || recv(server, &byte, 1, MSG_DONTWAIT) != 1 ||
+        byte != 'b') goto done;
+    failure = NULL;
+done:
+    if (alias >= 0) close(alias);
+    if (sender >= 0) close(sender);
+    if (server >= 0) close(server);
+    if (failure) return fail(failure);
+    puts("netabi: UDP duplicate shares peer and options across close");
+    return 0;
+}
+
 static volatile sig_atomic_t pipe_signals;
 static void pipe_handler(int signal) { if(signal==SIGPIPE)pipe_signals++; }
 static int check_call_signal(void) {
@@ -287,7 +329,8 @@ int main(void) {
     if (srv_net_dhcp() < 0) {
         return fail("dhcp");
     }
-    if (check_call_signal() != 0 ||
+    if (check_udp_alias() != 0 ||
+        check_call_signal() != 0 ||
         check_call_flags() != 0 ||
         check_udp_datagrams() != 0 ||
         check_udp_peers() != 0 ||

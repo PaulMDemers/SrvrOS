@@ -39,8 +39,14 @@ static void *test_malloc(size_t n) { return fail_alloc?NULL:malloc(n); }
 #include "posix_socket_host_names.h"
 #include SRVROS_POSIX_DATAGRAM_SOURCE
 static const char *pending;static size_t pending_length;static unsigned receives;
+ssize_t __posix_read_with_socket_error(int fd, void *buffer, size_t length, int *socket_error) {
+    (void)fd; (void)buffer; (void)length; (void)socket_error;
+    assert(0);
+    return -1;
+}
 int __posix_signal_dispatch_pending(void) { return 0; }
 int __posix_signal_dispatch_pending_restartable(void) { return 0; }
+long srv_net_udp_open(void) { return 7; }
 long srv_fcntl(int fd,int command,uint64_t arg) { (void)fd;(void)command;(void)arg;return 0; }
 long srv_unix_bind(const char *path) { (void)path;assert(0);return -1; }
 long srv_close(int fd) { (void)fd;assert(0);return -1; }
@@ -60,7 +66,8 @@ long srv_pipe_recv_rights(int fd,int *fds,size_t capacity,uint64_t *flags) {
 long srv_net_error(int fd) { (void)fd;assert(0);return -1; }
 long srv_net_peek(int fd,void *buffer,size_t length) { (void)fd;(void)buffer;(void)length;assert(0);return -1; }
 int main(int argc,char **argv) {
-    assert(argc==2);sockets[0]=(struct posix_socket){.used=1,.type=SOCK_DGRAM,.listener_fd=7};
+    assert(argc == 2);
+    assert(socket(AF_INET, SOCK_DGRAM, 0) == POSIX_SOCKET_BASE);
     char a[2]={0},b[3]={0};struct iovec iov[]={{a,2},{b,3}};
     struct msghdr msg={.msg_iov=iov,.msg_iovlen=2};pending="abcdefg";pending_length=7;
     if(!strcmp(argv[1],"bind-cache")) {
