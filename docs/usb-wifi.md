@@ -59,6 +59,24 @@ or transaction rollback. Native integration must own partial-write cleanup and
 source-bound evidence. Bandwidth, channel161 baseband/calibration and native
 receive/discovery remain pending.
 
+## Channel161 high-band/20MHz RF table foundation
+
+The fixed `mt76_rf_a20_*` helper projects the pinned Linux v7.0 bandwidth and
+band tables for channel161 (`RF_A_BAND | RF_A_BAND_HB`) at20MHz:9 bandwidth
+settings followed by15 band settings. The source audit tool verifies the
+pinned header/table hashes, confirms the channel161 frequency row, reproduces
+the reference selection predicates and compares all72 numeric fixture bytes.
+These are whole-register RF writes, separate from the synthesizer's masked
+fields. Notable high-band values include RF0:39=31, RF6:12=55, RF6:24=21,
+RF6:39=32 and RF6:42=eb (hex); a2GHz table is not interchangeable.
+
+The engine uses fixed writes, a separate readback pass and the existing
+MAC/DMA/ownership guards, cancellation and no-replay proof. Table completion
+is not a channel-ready result: PA policy, attenuation, synthesizer/VCO,
+baseband/filter/gain, calibration, native prerequisite capture and partial-write
+cleanup remain separate. No native caller or startup behavior is added.
+Run `make test-mt76-rf-a20` for command and proof regression coverage.
+
 ## Captured baseline
 
 USB high speed (480 Mb/s), one configuration, interface 0 / alternate 0,

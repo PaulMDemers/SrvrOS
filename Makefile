@@ -4589,3 +4589,11 @@ build/tests/mt76-band5g-mac-host$(HOST_EXE): tools/test_mt76_band5g_mac.c kernel
 test-core: test-cpu-checkpoint-budget
 test-cpu-checkpoint-budget:
 	$(PYTHON) -m unittest discover -s tools -p test_cpu_checkpoint_budget.py
+
+.PHONY: test-mt76-rf-a20
+test-core: test-mt76-rf-a20
+test-mt76-rf-a20: build/tests/mt76-rf-a20-host$(HOST_EXE)
+	$(HOST_RUN) $< tools/fixtures/mt7610-5ghz-a20-hb.bin
+build/tests/mt76-rf-a20-host$(HOST_EXE): tools/test_mt76_rf_a20.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h tools/fixtures/mt7610-5ghz-a20-hb.bin
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@

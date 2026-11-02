@@ -1799,6 +1799,11 @@ static const struct rf_table_plan rf_band2g_plan={70,0,0,NULL,rf_band2g_values,r
 static const uint32_t rf_band5g_addresses[MT76_RF_BAND5G_COUNT]={0x80060002u,0x80060003u,0x80060004u,0x80060005u,0x80060006u,0x80060007u,0x80060008u,0x80060009u,0x8006000au,0x8006000bu,0x8006000du,0x8006000eu,0x8006000fu,0x80060010u,0x80060012u,0x80060013u,0x80060014u,0x80060015u,0x80060016u,0x80060019u,0x8006001au,0x8006001bu,0x8006001cu,0x8006001du,0x80060025u,0x80060026u,0x80060028u,0x80060029u,0x8006002bu,0x8006002cu,0x8006002eu,0x8006002fu,0x80060030u,0x80060031u,0x8006003eu,0x8006003fu,0x80060040u,0x80060041u,0x80050000u,0x80060000u};
 static const uint8_t rf_band5g_values[MT76_RF_BAND5G_COUNT]={0xc,0x0,0x0,0x84,0x2,0x0,0x0,0x0,0x0,0x1,0x23,0x0,0x4,0x22,0x8,0x0,0x0,0x0,0xfb,0x76,0x24,0x4,0x0,0x0,0xbb,0xb3,0x33,0x33,0x3,0xb3,0x17,0xe,0x10,0x7,0x0,0x0,0xf1,0xf,0x44,0x45};
 static const struct rf_table_plan rf_band5g_plan={MT76_RF_BAND5G_COUNT,0,0,NULL,rf_band5g_values,rf_band5g_addresses};
+/* Fixed Linux v7.0 channel161 high-band/20MHz tables,9 BW then15 band
+ * writes. PA policy, attenuation, frequency/VCO and receiver remain separate. */
+static const uint32_t rf_a20_addresses[MT76_RF_A20_COUNT]={0x80000011u,0x80070006u,0x80070007u,0x80070008u,0x8007003au,0x8007003bu,0x8007003cu,0x8007004cu,0x8007004du,0x80000010u,0x80000012u,0x80000027u,0x8006000cu,0x80060011u,0x80060018u,0x80060027u,0x8006002au,0x8006007fu,0x80070005u,0x80070009u,0x80070046u,0x80070047u,0x8007004eu,0x8007004fu};
+static const uint8_t rf_a20_values[MT76_RF_A20_COUNT]={0x0,0x40,0x40,0x3,0x40,0x40,0xaa,0x40,0x40,0x20,0x0,0x31,0x55,0x0,0x21,0x32,0xeb,0x4,0x0,0x0,0x6d,0xb0,0x55,0x55};
+static const struct rf_table_plan rf_a20_plan={MT76_RF_A20_COUNT,0,0,NULL,rf_a20_values,rf_a20_addresses};
 static uint32_t rf_plan_address(const struct rf_table_plan *p,unsigned i){return i<p->count?(p->addresses?p->addresses[i]:p->base|p->regs[i]):UINT32_MAX;}
 static unsigned rf_plan_sequence(const struct rf_table_plan *p,unsigned command){return command<(p->count*2)?(p->sequence_base+command)%15+1:0;}
 static uint32_t rf_plan_guard_address(const struct rf_table_plan *p,unsigned op){
@@ -1933,6 +1938,15 @@ bool mt76_rf_bank6_exact_profile_valid(const struct mt76_rf_table *s){
         rf_plan_state_valid(&rf_bank6_plan,s,MT76_RF_BANK6_OPS) &&
         s->equal==MT76_RF_BANK6_COUNT && !s->mismatch_mask && !s->mismatch_hi;
 }
+
+unsigned mt76_rf_a20_sequence(unsigned command){return rf_plan_sequence(&rf_a20_plan,command);}
+uint32_t mt76_rf_a20_guard_address(unsigned op){return rf_plan_guard_address(&rf_a20_plan,op);}
+size_t mt76_rf_a20_packet(unsigned op,uint8_t *out,size_t capacity){return rf_plan_packet(&rf_a20_plan,op,out,capacity);}
+bool mt76_rf_a20_admit(const struct mt76_rf_table *state,unsigned op){return rf_plan_admit(&rf_a20_plan,state,op);}
+enum mt76_mcu_timing_status mt76_rf_a20_capture(struct mt76_rf_table *state,const struct mt76_mcu_timing_io *io){return rf_plan_capture(&rf_a20_plan,state,io);}
+uint32_t mt76_rf_a20_address(unsigned i){return rf_plan_address(&rf_a20_plan,i);}
+unsigned mt76_rf_a20_value(unsigned i){return i<MT76_RF_A20_COUNT?rf_a20_values[i]:UINT32_MAX;}
+bool mt76_rf_a20_exact_profile_valid(const struct mt76_rf_table *s){return s && s->complete && rf_plan_state_valid(&rf_a20_plan,s,MT76_RF_A20_OPS) && s->equal==MT76_RF_A20_COUNT && !s->mismatch_mask && !s->mismatch_hi;}
 
 unsigned mt76_rf_g20_sequence(unsigned command){return rf_plan_sequence(&rf_g20_plan,command);}
 uint32_t mt76_rf_g20_guard_address(unsigned op){return rf_plan_guard_address(&rf_g20_plan,op);}

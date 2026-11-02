@@ -461,6 +461,9 @@ enum mt76_mcu_timing_status mt76_rf_state_capture(struct mt76_rf_state *s,const 
 #define MT76_RF_TRIM_COUNT 1u
 #define MT76_RF_TRIM_COMMANDS 2u
 #define MT76_RF_TRIM_OPS 14u
+#define MT76_RF_A20_COUNT 24u
+#define MT76_RF_A20_COMMANDS (MT76_RF_A20_COUNT*2u)
+#define MT76_RF_A20_OPS (MT76_RF_A20_COMMANDS*7u)
 #define MT76_RF_G20_COUNT 19u
 #define MT76_RF_G20_COMMANDS (MT76_RF_G20_COUNT*2u)
 #define MT76_RF_G20_OPS (MT76_RF_G20_COMMANDS*7u)
@@ -529,6 +532,15 @@ bool mt76_rf_vga_admit(const struct mt76_rf_table *s,unsigned operation);
 enum mt76_mcu_timing_status mt76_rf_vga_capture(struct mt76_rf_table *s,const struct mt76_mcu_timing_io *io);
 /* Exact complete VGA proof and all35 matching observations. */
 bool mt76_rf_vga_exact_profile_valid(const struct mt76_rf_table *s);
+/* Offline fixed channel161 high-band/20MHz RF tables; no native caller. */
+uint32_t mt76_rf_a20_address(unsigned index);
+unsigned mt76_rf_a20_value(unsigned index);
+unsigned mt76_rf_a20_sequence(unsigned command);
+uint32_t mt76_rf_a20_guard_address(unsigned operation);
+size_t mt76_rf_a20_packet(unsigned operation,uint8_t *out,size_t capacity);
+bool mt76_rf_a20_admit(const struct mt76_rf_table *s,unsigned operation);
+enum mt76_mcu_timing_status mt76_rf_a20_capture(struct mt76_rf_table *s,const struct mt76_mcu_timing_io *io);
+bool mt76_rf_a20_exact_profile_valid(const struct mt76_rf_table *s);
 uint32_t mt76_rf_g20_address(unsigned index);
 unsigned mt76_rf_g20_value(unsigned index);
 unsigned mt76_rf_g20_sequence(unsigned command);
