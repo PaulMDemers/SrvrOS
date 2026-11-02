@@ -93,6 +93,7 @@ def check_ui(radio,begin,exit_log,release):
     last=phase(e,'wifi-ui-counts','after',COUNTS)
     assert last['identifiers_logged']==0 and all(last[k]>=first[k] for k in COUNTS.split())
     assert last['published']==first['published'] and last['reads']>first['reads']
+    if not before['selectable']:assert last['selected']==first['selected']
     assert last['removed']<=last['published']
     if before['adapters']==1:
         assert after['owner'] in [0,before['owner']]

@@ -35,6 +35,15 @@ class Proof(unittest.TestCase):
                 self.assertFalse(r['selectable_observed'] or r['selection_observed'])
                 self.assertEqual(r['discovery_observed'],not empty)
                 self.assertTrue(r['removal_observed'])
+        # A rolled tail cannot claim successful selection from an empty or
+        # entirely unselectable initial cache, even after adapter removal.
+        radio,begin,end=fixture(True,empty=True)
+        changed=end.replace(b'published=1 reads=9 selected=0',b'published=1 reads=9 selected=1')
+        prefix=changed[:changed.rindex(b'workspace-log: snapshot=exit.log ')]
+        # Preserve the original absolute start when recomputing the marker.
+        marker=end[end.rindex(b'workspace-log: snapshot=exit.log '):]
+        changed=prefix+marker
+        with self.assertRaises(AssertionError):check_ui(radio,begin,changed,RELEASE)
         # Keep byte bindings valid while removing the opt-in: legacy profiles
         # must still refuse an empty/unselectable cache.
         for empty in [False,True]:
