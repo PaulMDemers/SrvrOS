@@ -4649,3 +4649,8 @@ build/tests/mt76-a20-inventory-host$(HOST_EXE): tools/test_mt76_a20_inventory.c 
 test-core: test-wifi-a20-inventory-log
 test-wifi-a20-inventory-log:
 	$(PYTHON) -m unittest discover -s tools -p test_wifi_a20_inventory_log.py
+
+.PHONY: test-cpu-capture-format
+test-core: test-cpu-capture-format
+test-cpu-capture-format:
+	$(PYTHON) -m unittest discover -s tools -p test_cpu_capture_format.py

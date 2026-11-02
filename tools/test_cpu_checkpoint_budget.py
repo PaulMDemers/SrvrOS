@@ -18,7 +18,9 @@ class CheckpointBudgetTests(unittest.TestCase):
         return current,old
 
     def test_full_capacity_and_explicit_width(self):
-        self.assertEqual(set(LOGGING_SOURCES),set(SOURCES))
+        self.assertTrue(set(SOURCES)<=set(LOGGING_SOURCES))
+        self.assertIn('kernel/src/drivers/power.c',LOGGING_SOURCES)
+        self.assertIn('kernel/src/main.c',LOGGING_SOURCES)
         current,old=self.sources();extra,caps=checkpoint_addition(current,old)
         self.assertEqual(caps,dict(gate_rows=9,cost_rows=4,cost_phase_rows=16))
         self.assertEqual(extra.count('io-gate: '),9)

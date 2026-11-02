@@ -38,7 +38,34 @@ compatible hardware. Local credentials remain private and unused until the
 security stage. Do not report connection-ready until authentication, data
 exchange and clean disconnect actually pass.
 
-## Ready native candidate — complete read-only A20 originals
+## v111 read-only high-band originals accepted
+
+Release `25cfffe9a41b7e9e`, source `9c132e3c`, session
+`session-00065f5262c07486-00` passes the complete423697-byte prefix, full
+common-init/channel161/17-word restoration and all168 inventory operations.
+The24 original bytes in pinned A20 fixture order are
+`00 10 10 00 10 10 8a 00 00 00 00 00 00 00 00 00 00 00 00 00 12 00 00 00`.
+These are observed after the matched cold initialization, not generic reset
+promises. Source/release/session, all payload/recovery bytes, offline fsck/
+allocation and automatic Ubuntu return pass;84 sealed archive files remain
+outside build in `wifi-a20-inventory-9c132e3c`. No reboot remains armed.
+
+## Active bounded scope — integrated high-band/20MHz table restoration
+
+Fetched main `e1c05956` adds compact Air6,1 CPU telemetry, independently of
+Wi-Fi; merge its actual changes and retain PR252/272 ownership boundaries.
+Add one fixed24-target write/readback/reverse-restore engine, gated by the
+complete v111 original tuple before any new write. Invoke it inside the
+channel161 synthesizer's independently verified selected state, before the
+13 frequency words and four band words are restored. Preserve existing
+band-only, frequency-only and inventory profiles. All41 touched targets must
+return to their originals. No PA/attenuation, VCO, RX, authentication or network
+frames are added. Use only immutable targets/values, one static native owner,
+per-phase packet/guard/count proof, retained transport on partial failure and
+strict full-prefix collection. Validate I/O/cancellation/mutation boundaries,
+matched build, sanitizer and exact-stage save/return before cold shutdown.
+
+## v111 candidate validation and handoff history
 
 Installed v111 `25cfffe9a41b7e9e`, source `9c132e3c`, main `c9235491`,
 appends168 guarded read-only operations for all24 pinned high-band/20MHz RF
