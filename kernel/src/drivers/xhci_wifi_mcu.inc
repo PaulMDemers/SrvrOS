@@ -2271,7 +2271,8 @@ static const char *wifi_5ghz_band_prefix(unsigned phase){
     return phase<8?prefix[phase]:"refused";
 }
 static bool wifi_5ghz_band_owned(void *context){
-    (void)context;struct xhci_device *d=wifi_5ghz_band.d;struct mt76_5ghz_band *s=&wifi_5ghz_band.state;
+    if(context!=&wifi_5ghz_band)return false;
+    struct xhci_device *d=wifi_5ghz_band.d;struct mt76_5ghz_band *s=&wifi_5ghz_band.state;
     if(!d || !wifi_5ghz_band_requested || !wifi_5ghz_prereq_requested || !wifi_5ghz_band.active || !mt76_5ghz_band_owned(s))return false;
     struct xhci_wifi_mcu *m=&d->firmware.mcu;
     return wifi_rf_vga_owned(d) && m->rf_vga_submitted==MT76_RF_VGA_OPS && mt76_rf_vga_exact_profile_valid(&m->rf_vga) &&

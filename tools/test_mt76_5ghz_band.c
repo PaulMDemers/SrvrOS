@@ -60,6 +60,7 @@ int main(void){
   state=good;state.original.values[i]^=1;assert(!mt76_5ghz_band_valid(&state));
  }
  state=good;state.rf_restore.values[0]=1;assert(!mt76_5ghz_band_valid(&state));state=good;state.mac_restore.before[0]^=1;assert(!mt76_5ghz_band_valid(&state));state=good;state.restored=false;assert(!mt76_5ghz_band_valid(&state));
+ state=good;state.attempted=false;assert(!mt76_5ghz_band_valid(&state));
  assert(!mt76_5ghz_band_valid(NULL));
  puts("5GHz select/restore: PASS captured gate,771 I/O failures,779 cancellation boundaries, exact forward/readback/reverse order, final four-word restoration, proof mutations and no replay");
 }

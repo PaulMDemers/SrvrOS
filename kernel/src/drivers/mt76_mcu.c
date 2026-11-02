@@ -2652,7 +2652,7 @@ bool mt76_5ghz_band_transfer_valid(const struct mt76_5ghz_band *s,unsigned op,bo
     return false;
 }
 bool mt76_5ghz_band_valid(const struct mt76_5ghz_band *s){
-    if(!s || !s->complete || !s->restored || s->phase!=7)return false;
+    if(!s || !s->attempted || !s->complete || !s->restored || s->phase!=7)return false;
     return band_inventory_matches(&s->before,false) && mt76_rf_band5g_exact_profile_valid(&s->rf) &&
         mt76_band5g_mac_exact_profile_valid(&s->mac) && band_inventory_matches(&s->selected,true) &&
         mt76_restore_mac_exact_profile_valid(&s->mac_restore) && mt76_rf_restore_exact_profile_valid(&s->rf_restore) && band_inventory_matches(&s->original,false);
