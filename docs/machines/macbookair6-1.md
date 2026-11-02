@@ -91,18 +91,19 @@ console/basic-keyboard/bounded-USB payload; preserve it as recovery.
 
 ## Current objective and next actions
 
-Prepare the validated read-only display power-well trial, based on `71686249`.
-Final source `dff1f18f`, candidate `c6fd6d4c55a57566`, passes matched build/core,
-receipt/isolation and twelve VM checks. Scope is isolated endpoint reads and
-observation parsing; no ordinary runtime policy, per-round work or limits change.
-PR261 desktop admission, PR252 sockets and PR19 Wi-Fi remain independent.
+Review closeout based on `bbbdead1`. Native release `c6fd6d4c55a57566` records
+BIOS requesting the display well on at both endpoints. Its overall trial still
+fails RC6 timing and now also lacks required early proofs in the 64 KiB exit
+tail. Matching periodic logs support diagnostic review of completed runtime;
+they do not replace the failed exit-only requirement. The final section records
+exact hashes, reconstruction limits and the stale replay's missed I/O output.
 
-After the unattended boot returns, collect this exact release/session before
-another run. Review independent `display-well.json` even if the original RC6
-predicate still fails; missing markers or reads are failures/incomplete evidence.
-The local run record owns installed/armed/returned state and recovery hashes.
-Native acceptance and the causal package-C3 blocker remain pending. Device/link
-policy experiments still require separate ownership analysis.
+Next fix current-source receipt coverage without changing limits or weakening
+checks. Then audit display resource/firmware ownership before any BIOS-request
+transition. PR261 desktop/I/O, PR252 sockets and PR19 Wi-Fi remain independent.
+The original RC6 bound and package-C3 blocker stay unresolved. Current/recovery
+payloads and USB integrity verify; automatic collection is disabled and no reboot
+is armed. This closeout changes documentation/evidence only.
 
 ### Historical battery-runtime objective (2026-10-23)
 
@@ -5588,3 +5589,60 @@ PR264 owns this isolated diagnostic. Native results, hardware well state and
 the package-C3 blocker remain pending the matching physical return. An enabled
 well or a firmware request is not permission to clear it. Keep the unresolved
 RC6 predicate, device ownership/teardown requirements and all limits intact.
+
+
+### Native display-well observation; exit proof incomplete (2026-11-01)
+
+Closeout scope is evidence review and this record/current guide/index only,
+based on `bbbdead1` / merged PR264. Release `c6fd6d4c55a57566`, source
+`dff1f18f`, returned with `session-00065f4155a6df61-00`. Exact exit SHA-256:
+`9395307a5dca53fc403d3343752b3e4fb98b33a5a07874afa3eed31c3a876fcb`.
+The overall trial remains failed: the original RC6 timing bound still fails,
+and the required exit-only workload/AP-owner evidence is incomplete.
+
+Both valid display endpoints report `0xc0000000` for BIOS and `0x40000000`
+for driver/KVM/debug. The BIOS request bit is set; the other request bits are
+clear, and every view reports the well enabled. The PM read brackets are
+2,204,793–2,204,795 us and 92,251,505–92,251,507 us. Source fault is zero and
+the runtime capture completes. This records bounded native request/status
+observations; it does not establish uninterrupted state between endpoints,
+identify the package-C3 blocker or authorize releasing firmware ownership.
+
+`exit.log` is exactly 65,536 bytes and begins during the load phase. It lost the
+idle-phase proof and the initial AP-owner header. Consequently `load_result`
+and `ap_c3_result` fail on that file; the trial must not be promoted to a pass.
+The saved periodic logs retain the beginning. For diagnostic review only,
+`session-b.log` and `exit.log` have a unique, byte-identical 30,688-byte overlap.
+Joining that proven overlap yields a 93,633-byte continuous stream. The original
+raw logs and their hashes remain unchanged; this reconstruction does not replace
+the failed exit-only requirement or relax its parser.
+
+The full stream confirms all three workload phases and 32 C3 attempts completed,
+maximum whole-round time 9,983 us, no faults and terminal AP retirement.
+The first short attempt has zero residency; the next 31 observe BSP core C3
+and package C2. Aggregate C2 is about 99.5349%; package C3 remains zero. Eight
+RC6 series pairs have continuous arithmetic. Nominal RC6 is 90.117999360 s
+versus a PM bracket of 90.046711–90.046714 s, approximately 71.285 ms (0.0792%)
+excess before the existing one-tick allowance. The strict bound remains failed.
+
+The earlier tail replay used the older accepted package trace. It omitted
+newer main's `io-owner` checkpoint output (`72454534`), which adds 7,701 bytes
+in this native stream. Existing worker reports contribute another 9,533 bytes;
+they were already present in the older trace. Thus the old replay's passing
+7,037-byte addition was not representative of the current complete output.
+The next diagnostic fix must preserve required receipts inside the unchanged
+64 KiB tail using current-source logging, without dropping checks or accepting
+reconstructed evidence as an exit-log pass. PR261 owns active desktop/I/O work;
+this closeout does not alter its shared logger/scheduler implementation.
+
+All 558 baseline files are preserved except expected `.srvros/meta` bookkeeping;
+four new logs bring the volume to 562 files / 1,620 clusters. Offline fsck and
+allocation pass with zero leaks/mismatches/errors. Current, console recovery and
+accepted package payloads verify against durable backups; 484 automatic return
+backup files verify before this review is added. Ubuntu is default, one-shot is
+consumed and collection is disabled. No new boot is armed.
+
+Next: fix source-matched receipt coverage first. Then audit active display
+resources and firmware handoff before any experiment releasing the BIOS request;
+keep controller D-state/common-clock candidates separate. Power policy, integrity
+checks, original limits and the failed RC6 evidence remain unchanged.
