@@ -91,17 +91,17 @@ console/basic-keyboard/bounded-USB payload; preserve it as recovery.
 
 ## Current objective and next actions
 
-Prepare the validated final-receipt retry, based on `1a0c9085`. Source `eda7541e`,
-release `98bced62ca7be424`, passes matched build/core and twelve VM cases.
-The CPU and isolated AP producers defer acceptance records; shared logger,
-scheduler, live progress, strict parsers and all limits remain unchanged.
-PR261 desktop/I/O, PR252 sockets and PR19 Wi-Fi remain independent.
+Final-receipt retention is physically accepted on source `eda7541e`, release
+`98bced62ca7be424` (PR266). All required proofs now parse directly from the
+unchanged 64 KiB exit file. The overall platform trial remains failed on the
+original RC6 timing predicate; package C3 remains zero. No reboot is armed.
 
-After automatic return, collect the matching session and require the direct
-exit-file phase/admission/power/idle/C3/package/display proofs. Source-matched
-replay is regression evidence only. The local run record owns installed/armed/
-returned state and recovery hashes. Keep RC6 timing failure and BIOS display-well
-ownership analysis separate; neither is fixed or relaxed by receipt placement.
+Next: read-only audit of active display resources and firmware handoff before
+considering any BIOS display-well request experiment. Keep device D-state and
+common-clock candidates separate. An enabled well is not a proven C3 blocker
+or authority to clear a firmware request. PR261 desktop/I/O, PR252 sockets and
+PR19 Wi-Fi remain independent; no shared-code scope is claimed by this closeout.
+The local run record owns installed/recovery hashes and returned state.
 
 ### Historical battery-runtime objective (2026-10-23)
 
@@ -5694,3 +5694,42 @@ connected for progress/save/automatic Ubuntu return. PR266 owns this bounded
 fix; PR261's shared logger/desktop work remains separate. After return, verify
 the actual exit file first. Native retention acceptance and the package-C3/RC6
 issues remain pending; no power transition is authorized by this receipt fix.
+
+
+### Native final-receipt retention accepted; RC6 still fails (2026-11-01)
+
+Merged PR266 (`25a0f342`), compiled source `eda7541e`, release
+`98bced62ca7be424`, returned automatically with
+`session-00065f427a21a2ac-00`. The 65,536-byte exit file has SHA-256
+`cb238c7227d91d85b2a032fa1b284c50a5079b0ed3108e2505aa14ff3c15d50d`.
+All required phase/admission/power/idle/C3/package/display proofs now validate
+**directly from this file**, using the unchanged strict parsers. No joining,
+modeling or synthetic padding participates in native acceptance. This accepts
+the receipt-retention fix only; the overall platform assessment remains failed.
+
+The three 30-second idle/load/recovery phases complete, with covered package
+power of 4.102 / 5.134 / 4.107 W. All 32 coordinated rounds complete within the
+unchanged 20 ms bound; maximum whole round is 9,983 us. After the initial zero
+round, 31 observe BSP core C3; package C2 is about 99.5359% over the short
+round brackets. Package C3 remains zero. All three APs retire terminally with
+zero faults. These observations do not accept ordinary SMP or a new power policy.
+
+The original RC6 predicate still fails: nominal RC6 is 90.142353920 s versus
+PM elapsed 90.048071–90.048074 s, about 94.279 ms (0.1047%) excess before the
+existing one-tick allowance. Eight sparse series samples remain continuous;
+no tolerance or scaling change is made. Both display endpoints again report
+BIOS `0xc0000000`, driver/KVM/debug `0x40000000`, source fault zero and completed
+capture. Firmware ownership and causality remain unproven.
+
+All 562 prior files are preserved except expected `.srvros/meta` bookkeeping;
+four new session logs bring the USB to 566 files / 1,625 allocated clusters.
+Read-only fsck and allocation pass with zero leaks/mismatches/errors. Installed
+candidate, console recovery and accepted package payloads match durable copies;
+462 automatic return evidence files verify before review additions. Ubuntu is
+default, the one-shot is consumed and automatic collection is disabled. No new
+boot is armed. Raw logs, direct parser results and failed overall assessment are
+retained locally and backed up outside `build`.
+
+Next: audit active display resources and firmware handoff read-only, preserving
+all policies, limits and ownership checks. Receipt coverage is resolved; RC6
+clock semantics and the package-C3 blocker remain separate open questions.
