@@ -6,21 +6,42 @@ def saved(stream,name,stamp,cap):
     marker=f'workspace-log: snapshot={name} monotonic_us={stamp} total_before={len(stream)} tail_limit={cap}\n'.encode()
     return (stream+marker)[-cap:],stream+marker
 
-def fixture(long=False):
+def fixture(long=False,empty=False,unselectable=False):
     before='wifi-ui-cache: phase=before status=0 owner=1 generation=1 adapters=1 ready=1 rows=1 selected=4294967295 selectable=1 identifiers_logged=0\n'
+    if empty:before=before.replace('rows=1','rows=0').replace('selectable=1','selectable=0')
+    elif unselectable:before=before.replace('selectable=1','selectable=0')
     counts='wifi-ui-counts: phase=before published=1 reads=1 selected=0 stale=0 refused=0 removed=0 identifiers_logged=0\n'
     stream=(f'srvros.desktop-release={RELEASE} srvros.wifi-desktop-trial=1\n'+'x'*9000+'\n'+before+counts+'wifi-ui-run: id=123 stage=scan identifiers_logged=0\n'+SCAN+'\n').encode()
+    if empty or unselectable:
+        prefix=b'srvros.wifi-desktop-empty=1 srvros.trackpad=gestures srvros.wifi-log-isolation=1\nxhci: trackpad slot=6 dci=3 ready=yes request=486 pointer=yes\nworkspace-log: phase=wifi-radio periodic=paused tail_limit=1048576\nwifi-ui-log: isolation_required=1 parked=1\nwifi-firmware-control: captured\n'
+        stream=prefix+stream
     radio,stream=saved(stream,'wifi-scan.log',100,1048576)
     stream+=b'workspace-log: phase=wifi-desktop startup_saved=1 tail_limit=65536\n'
     begin,stream=saved(stream,'wifi-ui-begin.log',200,65536)
     stream+=b'wifi-ui-capture: admitted=1 run=123 checklist=wifi-trial timed_exit=0 credentials=0 identifiers_logged=0\n'
-    stream+=b'wifi-ui-choice: result=0 owner=1 generation=1 index=0 identifiers_logged=0\n'
+    if not (empty or unselectable):stream+=b'wifi-ui-choice: result=0 owner=1 generation=1 index=0 identifiers_logged=0\n'
     if long:stream+=b'y'*80000+b'\n'
     stream+=b'deskd: exited\nwifi-ui-cache: phase=after status=0 owner=0 generation=0 adapters=0 ready=0 rows=0 selected=4294967295 selectable=0 identifiers_logged=0\nwifi-ui-counts: phase=after published=1 reads=9 selected=1 stale=0 refused=0 removed=1 identifiers_logged=0\nwifi-ui-capture: desktop_returned=yes run=123 manual_acceptance=PENDING\nlaptop-capture: completed=yes\n'
+    if empty or unselectable:stream=stream.replace(b'published=1 reads=9 selected=1',b'published=1 reads=9 selected=0')
     end,stream=saved(stream,'exit.log',300,65536)
     return radio,begin,end
 
 class Proof(unittest.TestCase):
+    def test_empty_and_unselectable_ui(self):
+        for long in [False,True]:
+            for empty in [False,True]:
+                raw=fixture(long,empty=empty,unselectable=not empty)
+                r=check_ui(*raw,RELEASE)
+                self.assertFalse(r['selectable_observed'] or r['selection_observed'])
+                self.assertEqual(r['discovery_observed'],not empty)
+                self.assertTrue(r['removal_observed'])
+        # Keep byte bindings valid while removing the opt-in: legacy profiles
+        # must still refuse an empty/unselectable cache.
+        for empty in [False,True]:
+            radio,begin,end=fixture(empty=empty,unselectable=not empty)
+            old=b'srvros.wifi-desktop-empty=1';new=b'srvros.wifi-desktop-empty=0'
+            with self.assertRaises(AssertionError):check_ui(radio.replace(old,new),begin.replace(old,new),end.replace(old,new),RELEASE)
+
     def test_desktop_input(self):
         raw=b'srvros.trackpad=gestures\nxhci: trackpad slot=6 dci=5 ready=yes request=512 pointer=yes\n'
         self.assertTrue(check_desktop_input(raw)['pointer_enabled'])

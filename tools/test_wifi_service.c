@@ -20,6 +20,22 @@ int main(void){
     _Static_assert(sizeof out==3640,"stable Wi-Fi snapshot ABI");
     _Static_assert(sizeof(struct srv_wifi_select)==40,"stable choice ABI");
     assert(wifi_service_snapshot(0,&out)==0 && !out.owner && !out.count && out.selected==SRV_WIFI_NONE);
+    assert(!wifi_service_trial_ready(0,&out,true)); /* No provider isn't an empty scan. */
+    struct srv_wifi_snapshot gate={.version=1,.size=sizeof gate,.owner=1,.generation=1,
+        .adapter_count=1,.flags=SRV_WIFI_READY,.selected=SRV_WIFI_NONE};
+    assert(wifi_service_trial_ready(0,&gate,true) && !wifi_service_trial_ready(0,&gate,false));
+    assert(!wifi_service_trial_ready(1,&gate,true) && !wifi_service_trial_ready(0,NULL,true));
+    for(unsigned k=0;k<9;k++){
+        struct srv_wifi_snapshot bad=gate;
+        switch(k){case 0:bad.owner=0;break;case 1:bad.generation=0;break;case 2:bad.adapter_count=0;break;
+        case 3:bad.adapter_count=5;break;case 4:bad.flags=0;break;case 5:bad.count=25;break;
+        case 6:bad.selected=0;break;case 7:bad.version=2;break;case 8:bad.size--;break;}
+        assert(!wifi_service_trial_ready(0,&bad,true));
+    }
+    gate.count=1;gate.row[0].flags=SRV_WIFI_ROW_HIDDEN;
+    assert(wifi_service_trial_ready(0,&gate,true) && !wifi_service_trial_ready(0,&gate,false));
+    gate.row[0].flags=SRV_WIFI_ROW_SELECTABLE;
+    assert(wifi_service_trial_ready(0,&gate,true) && wifi_service_trial_ready(0,&gate,false));
     uint64_t ids[5];for(unsigned i=0;i<4;i++){ids[i]=publish(i,&b);assert(ids[i]);}
     assert(!publish(4,&b) && !publish(0,&b));
     for(unsigned i=0;i<4;i++){
@@ -57,6 +73,14 @@ int main(void){
     assert(wifi_service_snapshot(0,&out)==0 && !out.owner && !out.adapter_count);
     struct wifi_service_counts stats;wifi_service_counts(&stats);
     assert(stats.published==5 && stats.selected==4 && stats.removed==5 && stats.stale>=5 && stats.refused>=5 && stats.reads);
+    struct mt76_scan_batch empty={.attempted=true,.complete=true,.visits=3,.pending=3};
+    uint64_t empty_owner=publish(0,&empty);assert(empty_owner);
+    assert(wifi_service_snapshot(empty_owner,&out)==SRV_WIFI_OK && !out.count);
+    assert(wifi_service_trial_ready(0,&out,true) && !wifi_service_trial_ready(0,&out,false));
+    q=request(empty_owner,out.generation);assert(wifi_service_select(&q)==SRV_WIFI_INVALID);
+    live[0]=false;assert(wifi_service_snapshot(empty_owner,&out)==SRV_WIFI_STALE);
+    assert(!wifi_service_trial_ready(SRV_WIFI_STALE,&out,true));live[0]=true;
+    assert(wifi_service_snapshot(empty_owner,&out)==SRV_WIFI_STALE);
     counts.selected=UINT64_MAX;increment(&counts.selected);assert(counts.selected==UINT64_MAX);
     serial=UINT64_MAX;assert(!publish(0,&b));
     puts("wifi-service: PASS four adapters,exact owner/generation selection,disconnected identity retirement,refresh proof failures,hidden/conflict/ABI refusals and owner exhaustion");

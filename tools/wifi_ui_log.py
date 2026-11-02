@@ -75,7 +75,11 @@ def check_ui(radio,begin,exit_log,release):
     overlap=radio_end-begin_start
     assert 4096<=overlap<=len(begin) and begin[:overlap]==radio[begin_start:]
     before=phase(r,'wifi-ui-cache','before',CACHE);cache_valid(before)
-    assert before['owner'] and before['ready'] and before['selectable'] and before['selected']==2**32-1
+    assert before['owner'] and before['ready'] and before['selected']==2**32-1
+    empty_profile='srvros.wifi-desktop-empty=1' in r
+    if empty_profile:
+        check_desktop_input(radio);check_radio_isolation(radio)
+    else:assert before['selectable']
     first=phase(r,'wifi-ui-counts','before',COUNTS)
     assert not first['identifiers_logged'] and first['published']>=before['adapters'] and first['reads']
     assert first['selected']==first['stale']==first['refused']==first['removed']==0
@@ -118,5 +122,6 @@ def check_ui(radio,begin,exit_log,release):
         assert sum(delta[k] for k in ['selected','stale','refused'])==len(choices)
     return dict(run=ident,before=before,after=after,first_counts=first,last_counts=last,delta=delta,visible_choices=choices,
         radio_bytes=len(radio),begin_bytes=len(begin),exit_bytes=len(exit_log),overlap_bytes=overlap,
+        discovery_observed=before['rows']>0,selectable_observed=before['selectable']>0,
         selection_observed=delta['selected']>0,removal_observed=delta['removed']>0,
         manual_acceptance='PENDING',association_acceptance='NOT_TESTED',connectivity_acceptance='NOT_TESTED')

@@ -97,3 +97,15 @@ int wifi_service_select(const struct srv_wifi_select *request){
     else increment(&counts.refused);
     scrub(&choice,sizeof choice);return result;
 }
+
+/* A completed empty or unselectable list is valid UI data. Keep the older
+ * populated-only trial policy unless the explicit new profile opts in. */
+bool wifi_service_trial_ready(int status,const struct srv_wifi_snapshot *s,bool allow_empty){
+    if(status!=SRV_WIFI_OK || !s || s->version!=SRV_WIFI_VERSION || s->size!=sizeof *s ||
+       !s->owner || !s->generation || !s->adapter_count || s->adapter_count>SRV_WIFI_ADAPTERS ||
+       s->flags!=SRV_WIFI_READY || s->count>SRV_WIFI_ROWS ||
+       (s->selected!=SRV_WIFI_NONE && s->selected>=s->count))return false;
+    bool selectable=false;
+    for(unsigned i=0;i<s->count;i++)if(s->row[i].flags&SRV_WIFI_ROW_SELECTABLE)selectable=true;
+    return allow_empty || selectable;
+}

@@ -14,6 +14,7 @@ void kfree(void *p){free(p);}
 int wifi_service_snapshot(uint64_t owner,struct srv_wifi_snapshot *out){get_calls++;*out=(struct srv_wifi_snapshot){.version=1,.size=sizeof *out,.owner=owner,.selected=SRV_WIFI_NONE};return SRV_WIFI_OK;}
 int wifi_service_select(const struct srv_wifi_select *r){select_calls++;return r->version==1 && r->size==sizeof *r && !r->reserved?SRV_WIFI_OK:SRV_WIFI_INVALID;}
 int main(void){
+    _Static_assert(SYS_WIFI!=SYS_SOCKET_TRY_IO,"Wi-Fi and socket try-I/O syscalls must be distinct");
     struct {struct srv_wifi_snapshot s;unsigned char guard[16];} b;memset(&b,0xa5,sizeof b);allowed=&b;capacity=sizeof b.s;
     b.s.version=1;b.s.size=sizeof b.s;assert(syscall_wifi(0,123,&b.s)==0 && b.s.owner==123 && get_calls==1);
     for(unsigned i=0;i<16;i++)assert(b.guard[i]==0xa5);

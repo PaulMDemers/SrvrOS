@@ -18,6 +18,8 @@ uint64_t wifi_service_publish(const struct wifi_service_provider *,
 bool wifi_service_refresh(uint64_t,const struct mt76_scan_batch *,const struct mt76_selection_io *);
 void wifi_service_remove(uint64_t);
 int wifi_service_snapshot(uint64_t,struct srv_wifi_snapshot *);
+/* Trial UI admission only; does not accept discovery or authorize RF work. */
+bool wifi_service_trial_ready(int,const struct srv_wifi_snapshot *,bool allow_empty);
 int wifi_service_select(const struct srv_wifi_select *);
 struct wifi_service_counts { uint64_t published,reads,selected,stale,refused,removed; };
 /* Anonymous boot-lifetime totals, saturating; same serialized CPU0 contract. */

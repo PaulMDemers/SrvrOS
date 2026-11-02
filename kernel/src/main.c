@@ -426,7 +426,7 @@ static void persist_bootlog(void) {
 
 static bool idle_capture_due(void *arg) { return timer_ticks()>=*(uint64_t *)arg; }
 
-static bool wifi_ui_cache_report(const char *phase) {
+static bool wifi_ui_cache_report(const char *phase,bool allow_empty) {
     static struct srv_wifi_snapshot cache;
     struct wifi_service_counts counts;
     uint64_t flags;__asm__ volatile("pushfq; popq %0; cli":"=r"(flags)::"memory");
@@ -439,7 +439,7 @@ static bool wifi_ui_cache_report(const char *phase) {
         (uint64_t)((cache.flags&SRV_WIFI_READY)!=0),(uint64_t)cache.count,(uint64_t)cache.selected,(uint64_t)selectable);
     console_printf("wifi-ui-counts: phase=%s published=%u reads=%u selected=%u stale=%u refused=%u removed=%u identifiers_logged=0\n",
         phase,counts.published,counts.reads,counts.selected,counts.stale,counts.refused,counts.removed);
-    return result==SRV_WIFI_OK && cache.owner && (cache.flags&SRV_WIFI_READY) && selectable;
+    return wifi_service_trial_ready(result,&cache,allow_empty);
 }
 
 void kmain(void) {
@@ -793,7 +793,8 @@ void kmain(void) {
             bool admitted=automatic_wifi_firmware && cmdline_has_token(cmdline,"srvros.wifi-scan-batch=1") &&
                 return_on_failure && started && init_ready && timer_running && sampled &&
                 (!wifi_log_isolation || wifi_log_parked);
-            if(admitted)admitted=wifi_ui_cache_report("before");
+            if(admitted)admitted=wifi_ui_cache_report("before",wifi_log_isolation &&
+                cmdline_has_token(cmdline,"srvros.trackpad=gestures") && cmdline_has_token(cmdline,"srvros.wifi-desktop-empty=1"));
             if(admitted){
                 console_printf("wifi-ui-run: id=%u stage=scan identifiers_logged=0\n",wifi_ui_run);
                 console_write("wifi-ui-scan: completed=yes; capture cleanup/cache verified; no network data OUT\n");
@@ -803,7 +804,7 @@ void kmain(void) {
             if(admitted){
                 console_write("wifi-ui-capture: opening Help checklist; exit desktop when finished to save and return\n");
                 sampled=process_run_elf_args("/fat/bin/deskd","--wifi-trial");
-                (void)wifi_ui_cache_report("after");
+                (void)wifi_ui_cache_report("after",false);
                 console_printf("wifi-ui-capture: desktop_returned=%s run=%u manual_acceptance=PENDING\n",sampled?"yes":"NO",wifi_ui_run);
             } else sampled=false;
         }
