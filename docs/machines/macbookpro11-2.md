@@ -27,6 +27,20 @@ restore prerequisites and a source-bound automatic capture, then discovery and
 live reattachment. Association/security/IP remain pending; local credentials
 have not been read or packaged. Other Pro bring-up and deferred work is unchanged.
 
+## Active bounded scope — 2026-11-02
+
+Fetched main remains `95ddb8d6`; branch starts at `72119659`. PR271 owns Air6,1
+integration/display audit and PR252 owns DNS/socket work; neither overlaps this
+step. Implement the two fixed5GHz MAC band words in `mt76_mcu.c`/`.h`, sharing
+only the existing guarded transfer mechanism with the legacy2GHz helper.
+Preserve the original zero-before, MAC-disabled, DMA-idle, cancellation and
+no-replay gates. The zero-before condition is an offline prerequisite, not a
+newly accepted5GHz reset value. Validate pinned numeric addresses/values,
+all transfer/failure/cancellation boundaries, proof mutations, cross-band
+confusion and unchanged legacy behavior. No native caller, profile, install
+or reboot is added here. Channel161 bandwidth/baseband/calibration and a
+read-only prerequisite capture are the next integration dependencies.
+
 ## Active bounded scope — 2026-11-01
 
 Consumes actual main `95ddb8d6` (including desktop lifecycle/deferred I/O
