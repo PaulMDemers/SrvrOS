@@ -5779,3 +5779,15 @@ No new image, register access, power policy or reboot is introduced. Keep the
 physically accepted receipt fix and failed RC6/package-C3 evidence unchanged.
 Local source hashes/review live under the ignored display-handoff evidence root
 and are backed up outside `build`.
+
+
+### Read-only native display controls — implementation scope (2026-11-01)
+
+Base `9c23bf4d`. Add an exact-Air6,1 26-control endpoint inventory to the existing
+explicit platform diagnostic: A/B/C/eDP transcoder controls, primary/sprite/cursor
+A/B/C, panel fitters A/B/C, DDI A–E and VGA. Preserve firmware requests; audio
+and interrupt registers remain outside this initial allowlist. Scope is isolated
+platform producer, strict independent parser, host/refusal/tail fixtures and
+unit/current guide. No shared scheduler/logger or PR261/252/19 scope changes.
+Validate exact read-only maps, D0/BAR/decode and powered-well gates, non-atomic
+pre/post observations, final receipts and all unchanged limits before staging.
