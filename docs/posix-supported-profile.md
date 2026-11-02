@@ -612,3 +612,33 @@ native connection error before dispatch can replace its socket. These
 guarantees cover lifecycle changes made through libc during that callback.
 Direct native descriptor mutations and independent concurrent replacement
 remain outside this profile.
+
+### Unix-stream descriptor passing
+
+On a matched kernel and libc, `sendmsg` attaches up to four native descriptors
+to the first byte accepted on a local duplex stream. Socketpairs and connected
+pathname Unix sockets use this path. A failed send leaves no rights for another
+writer or surviving duplicate. A positive short send has already transferred
+the rights. Send the remaining payload without repeating the control message.
+The kernel accepts up to 4 KiB of payload per message call.
+
+A `recvmsg` can return a short prefix before the first rights-bearing byte.
+A positive receive starting at that byte delivers its rights with the data.
+A zero-capacity receive preserves both. `MSG_PEEK` leaves the queue in place
+and gives the caller its own descriptors to close. Short or absent control
+space sets `MSG_CTRUNC` when rights are discarded. `MSG_CMSG_CLOEXEC` sets
+the flag when installing the descriptors. `EMFILE` or a failed payload or
+control output check leaves the record available for another receive.
+
+Pseudo sockets can carry these messages as connected transports. Passing a
+libc pseudo socket or event adapter as a payload descriptor returns
+`EOPNOTSUPP`. Libc requires readable message, vector and input control metadata.
+Callers must keep output memory valid until the call returns. The kernel
+revalidates the receive destinations after any wait and before consuming the
+record. Independently changing mappings during libc's final header publication
+is outside this contract.
+
+The public calls use `SYS_PIPE_MESSAGE` (156). The older raw rights-only
+syscalls (98 and 99) remain available to existing binaries. An old sender that
+explicitly queues descriptors before writing payload still has two separate
+operations.

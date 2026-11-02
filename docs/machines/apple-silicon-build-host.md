@@ -1901,3 +1901,33 @@ the boundary between pipe payload and descriptor ownership in sendmsg/recvmsg,
 including failed writes, receive copyout, alias survival and control truncation.
 It touches the process pipe queue, syscall access validation and libc socket
 messages. The checkpoint is a matched x86_64 QEMU run with public API regressions.
+
+### Ancillary transfer result
+
+Before `1ff71432`, a guest probe linked to the `4353eee4` libc and run with
+its kernel reproduced three failures. A nonblocking send on a full socketpair
+left rights for a later write from a surviving duplicate. A zero-byte receive
+took the descriptor. Reading a plain prefix discarded the following rights.
+The same three public operations passed on the matched candidate. Two more
+guest probes passed for peek followed by discard and for invalid output followed
+by successful delivery of the original record.
+
+The host process, syscall and libc fixtures passed queue pressure, descriptor
+exhaustion, legacy send/receive, interrupted restart, alias replacement, and
+copyout rollback cases. Libc passed 54 socket-call modes under ARM64 ASan/UBSan.
+The process and syscall fixtures passed x86_64 ASan/UBSan under Rosetta. All
+three fixtures cross-linked for x86_64 Linux. Logs, sanitizer output and the
+pre-fix guest probe are in `build/review/ancillary/`.
+
+The first full candidate thread suite failed its `dprintf` pipe readback check.
+The original test passed both in isolation and on a full repeat. Its single
+64 KiB nonblocking read could legally return short or be deferred during storage
+I/O. The recorded assertion did not distinguish a read failure from a content
+mismatch. Commit `3cad4dc1` handles short transfers in bounded chunks and
+reports transfer and content failures separately. Ports, including posixdemo's
+socketpair and pathname Unix socket cases, libuv and TCP readiness also passed.
+
+After rebuilding with the test correction, the full thread suite, focused
+`dprintf` run and network ABI guest all passed. The next ownership probe is
+to close the last external descriptor while a receiving endpoint is held by
+its own queue, directly or through a second socketpair.

@@ -149,10 +149,16 @@ audit with native resolver deadline tests. They cover an answer published in
 the final poll and one published while the caller waits for the deadline.
 The November 2 pass also covers libc's per-send DNS receive budget, connection
 and option state across socket duplicates, and I/O restarted after a signal
-handler replaces a descriptor. The next socket audit concerns descriptor passing
-on Unix stream sockets. In particular, exercise a failed first payload write
-after rights are queued and a receive error after descriptors are installed.
-Those split operations were identified by inspection and await fault injection.
+handler replaces a descriptor.
+
+The Unix-stream pass reproduced stale rights after a refused send, early descriptor
+delivery on a zero-byte receive, and lost rights behind an unrelated prefix.
+The matched libc and kernel now transfer bytes and rights together. Host and
+guest coverage includes copyout failure, duplicate survival, truncation and
+peek. Remaining socket lifetime work includes queued descriptors that hold a
+reference to their own receiving socket, directly or through another queue.
+The current evidence covers ordinary ownership and rollback, and leaves
+unreachable reference cycles open.
 This checkpoint is separate from the completed event-adapter target.
 
 ## Broader work still outside exhaustive coverage

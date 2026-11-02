@@ -1357,3 +1357,25 @@ UDP descriptor both before and after closing its connected duplicate.
 `tools/thread_smoke.py` requires the interrupted `readv` to leave a byte in a
 replacement pipe for the next reader. Both smoke harnesses check the new guest
 markers in the serial output.
+
+## Unix-stream rights and payload
+
+Run `make test-process-output test-pipe-message test-socket-calls test-syscall-io`.
+The process fixture exercises the real queue and descriptor table. It forces
+queue pressure, partial delivery, interrupted waits, descriptor replacement,
+truncation, peek, table exhaustion and copyout rollback. It also mixes legacy
+records at the same byte offset with a new receiver. The syscall fixture changes
+output mappings across a simulated wait and checks that failure precedes
+consumption. The libc cases exercise raw and pseudo endpoints, exported-FD
+reuse across a handler, signal flags and overlapping payload/header output.
+
+Build a matched image and run `python3 tools/netabi_smoke.py --boot-wait 60`.
+The guest fills a socketpair, refuses a rights-bearing send, closes the writer
+and sends an unrelated byte from its duplicate. It also checks a zero-byte
+receive, an ordinary prefix before a rights record, peek followed by discard,
+and inaccessible payload/control output followed by a successful retry.
+
+The full thread suite also exercises `dprintf` on a nonblocking pipe. Its
+setup and readback account for short transfers in chunks of at most `PIPE_BUF`,
+then check the formatted output byte by byte. The full-pipe `EAGAIN` and
+broken-peer `EPIPE` checks remain part of that test.
