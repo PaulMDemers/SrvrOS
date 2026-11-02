@@ -2,6 +2,23 @@
 
 Updated: 2026-11-02. State: **active reference machine; partial device acceptance**.
 
+### Active application registry and document opening scope
+
+Baseline is merged main `ce5bb7bd`; installed native acceptedc497/recovery9aa
+remain preserved. Shared desktop already has a launch catalog and bounded
+Text/Preview document routing. Extend that catalog with stable application keys,
+document matching and service capabilities; add an owned Files Open With chooser
+using the shared modal/widget runtime. Preserve unsaved documents, service
+refusal/fallback, accepted file jobs and existing window/dock discovery.
+
+Touched areas: shared desktop application descriptors, compositor service
+validation, Files actions/menus/modal routing, focused host/VM tests and current
+guides. No executable installation, user association persistence, protocol/window
+budget change, kernel syscall/device work or new POSIX claim. Other active
+resolver and Pro Wi-Fi PRs remain separate. Begin with host and actual-consumer
+VM gates; physical acceptance needs a later explicit trial with guest checklist.
+No reboot is armed. Evidence/checkpoint: `build/air-app-registry-20261102/`.
+
 ### PR272 integration closeout
 
 Integrated main `88c56afa` as clean tested source `131ac835`. Conflicts were
