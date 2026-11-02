@@ -96,12 +96,18 @@ Final-receipt retention is physically accepted on source `eda7541e`, release
 unchanged 64 KiB exit file. The overall platform trial remains failed on the
 original RC6 timing predicate; package C3 remains zero. No reboot is armed.
 
-Next: read-only audit of active display resources and firmware handoff before
-considering any BIOS display-well request experiment. Keep device D-state and
-common-clock candidates separate. An enabled well is not a proven C3 blocker
-or authority to clear a firmware request. PR261 desktop/I/O, PR252 sockets and
-PR19 Wi-Fi remain independent; no shared-code scope is claimed by this closeout.
-The local run record owns installed/recovery hashes and returned state.
+The read-only source audit is complete: Linux transfers the BIOS well request
+to a driver request, retains initialization references through hardware readout,
+and releases only unused domains after resource adoption. SrvrOS currently
+inherits the framebuffer without that display-resource lifecycle. Native pipe/
+transcoder/DDI routing and dependent resources remain unmeasured.
+
+Next: implement the bounded read-only endpoint resource inventory specified in
+[the ownership audit](../ap-ownership-diagnostic.md#bounded-next-capture-contract),
+after validating its exact register/access allowlist. No BIOS request, D-state
+or link transition is authorized by this audit. PR261 desktop/I/O, PR252 sockets
+and PR19 Wi-Fi remain independent. No reboot is armed; the local run record owns
+installed/recovery hashes and returned state.
 
 ### Historical battery-runtime objective (2026-10-23)
 
@@ -5733,3 +5739,43 @@ retained locally and backed up outside `build`.
 Next: audit active display resources and firmware handoff read-only, preserving
 all policies, limits and ownership checks. Receipt coverage is resolved; RC6
 clock semantics and the package-C3 blocker remain separate open questions.
+
+
+### Display-resource and firmware-handoff audit — active scope (2026-11-01)
+
+Base `a6b9e1b7` / PR267. Audit the inherited framebuffer path and validated
+Haswell display-domain dependencies against pinned Linux v7.0 sources and this
+unit's cached evidence. Scope is source/evidence review and current diagnostic/
+unit documentation; no MMIO probing, firmware call, register write or power-policy
+change. Define a bounded native read-only resource capture only after identifying
+its register access prerequisites. PR261 desktop/I/O, PR252 sockets and PR19
+Wi-Fi remain independent. Keep the accepted receipt fix, failed RC6 bound and
+zero package C3 separate. No reboot or new payload is armed by this audit.
+
+
+### Display-handoff source audit complete (2026-11-01)
+
+Source/evidence review on base `a6b9e1b7` confirms the inherited framebuffer
+continues scanout use, while SrvrOS has no complete Haswell display-resource
+adoption/release model. Limine v11.4.1 source `1276c440` matches the pinned binary
+release; ExitBootServices is not a display-resource retirement receipt.
+Pinned Linux v7.0 holds initialization references during state readout, transfers
+a BIOS request to a driver request without a request gap, and sanitizes unused
+wells after pipe/encoder ownership is established. No part of that control
+sequence was executed on this machine during the audit.
+
+The Haswell switchable global well excludes pipe A, transcoder eDP and DDI A,
+but includes all three panel fitters, B/C pipes, A/B/C transcoders, other listed
+ports and display audio/VGA. An internal panel is therefore insufficient to
+explain the BIOS request. Cached Ubuntu routing cannot stand in for inherited
+native routing; native eDP input selection and enabled dependent resources are
+still unknown. Lack of GT forcewake does not establish off-domain MMIO safety.
+
+The current guide records the next explicit endpoint capture contract: fixed
+read-only allowlist, validated access prerequisites, independent observations,
+no extra power-hook/round reads, strict malformed/refusal fixtures, current-source
+tail coverage and exact-stage rehearsal. This audit changes documentation only.
+No new image, register access, power policy or reboot is introduced. Keep the
+physically accepted receipt fix and failed RC6/package-C3 evidence unchanged.
+Local source hashes/review live under the ignored display-handoff evidence root
+and are backed up outside `build`.
