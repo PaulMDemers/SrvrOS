@@ -2431,7 +2431,7 @@ static int wifi_frontend_exchange(void *context,const uint8_t *packet,size_t len
     for(int i=0;i<received;i++)reply[i]=m->buffer[i];
     return received;
 }
-static bool wifi_mcu_a20_inventory(struct xhci_device *d){
+static bool wifi_mcu_frontend(struct xhci_device *d){
     struct xhci_wifi_mcu *m=&d->firmware.mcu;struct mt76_5ghz_prereq *s=&wifi_frontend.state;
     if(s->attempted || wifi_frontend.active || !mt76_5ghz_band_valid(&wifi_5ghz_band.state))return false;
     console_printf("wifi-frontend-board: nic0=%x nic1=%x external5g=%u\n",(uint64_t)m->ant_fields.nic0,(uint64_t)m->ant_fields.nic1,(uint64_t)((m->ant_fields.nic0&0x200)==0));
