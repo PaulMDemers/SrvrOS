@@ -621,7 +621,9 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
             shutil.copytree(target, destination)
     (STAGE / "latest").write_text(release + "\n")
     print(f"Staged {release}: {destination}")
-    print("Install with: sudo python3 tools/hardware_boot.py install")
+    if "srvros.wifi-band2g=1" in (destination/"limine.conf").read_text().split():
+        print("Offline regression only: captured EW-7711MAC is 5GHz-only; this 2.4GHz profile cannot be installed")
+    else:print("Install with: sudo python3 tools/hardware_boot.py install")
     return release
 
 
