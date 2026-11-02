@@ -94,17 +94,49 @@ def platform_result(text):
     try:return _parse(text)
     except (ValueError,KeyError,OverflowError):return None
 
+def platform_display_result(text):
+    """Endpoint request/status observations, independent of RC6 acceptance."""
+    try:return _display(text)
+    except (ValueError,KeyError,OverflowError):return None
+
+def _display(text):
+    timing=platform_timing_result(text)
+    if not timing:return None
+    gfx=next(x for x in text.splitlines() if x.startswith('ap-platform-gfx:'))
+    base=int(re.search(r' base=(\d+) ',gfx)[1])
+    if not base or base&0x3fffff or base>0xfffffff800000:return None
+    headers=[x for x in text.splitlines() if x.startswith('ap-platform:')]
+    if len(headers)!=1:return None
+    h=re.fullmatch(r'ap-platform: v=4 fault=(\d+) devices=(\d+) policy_writes=0 forcewake_writes=0 permission=unavailable reason=no-validated-grant-register completed=(yes|NO)',headers[0])
+    if not h or int(h[1])>=2**32 or not 1<=int(h[2])<=128:return None
+    rows={}
+    for line in (x for x in text.splitlines() if x.startswith('ap-platform-well:')):
+        m=re.fullmatch(r'ap-platform-well: phase=([01]) pm_us=(\d+),(\d+) ctl=(\d+),(\d+),(\d+),(\d+)',line)
+        if not m:return None
+        phase,low,high,*values=map(int,m.groups())
+        if phase in rows or not 0<low<=high<2**64 or any(v>=0xffffffff for v in values):return None
+        if low<timing['samples'][phase]['pm_us'][1]:return None
+        rows[phase]=dict(pm_us=[low,high],raw=values,
+            controls={name:dict(request=bool(v&(1<<31)),state=bool(v&(1<<30)))
+                      for name,v in zip(('bios','driver','kvm','debug'),values)})
+    if rows.keys()!={0,1} or rows[0]['pm_us'][1]>=timing['samples'][1]['pm_us'][0]:return None
+    return dict(status='OBSERVED',acceptance=False,samples=[rows[0],rows[1]],
+        source_fault=int(h[1]),source_completed=h[3]=='yes',
+        scope='Non-atomic endpoint request/status reads only; no forced wake, power transition, platform grant or causal C3 blocker inference')
+
 def _parse(text):
     package=package_result(text)
     if not package:return None
     h=[x for x in text.splitlines() if x.startswith('ap-platform:')]
     if len(h)!=1:return None
-    m=re.fullmatch(r'ap-platform: v=(1|2|3) fault=0 devices=(\d+) policy_writes=0 forcewake_writes=0 permission=unavailable reason=no-validated-grant-register completed=yes',h[0])
+    m=re.fullmatch(r'ap-platform: v=(1|2|3|4) fault=0 devices=(\d+) policy_writes=0 forcewake_writes=0 permission=unavailable reason=no-validated-grant-register completed=yes',h[0])
     if not m or int(m[2])!=len(package['devices']):return None
     version=int(m[1]);timing=platform_timing_result(text)
     if version>=2 and not timing:return None
-    series=platform_series_result(text) if version==3 else None
-    if version==3 and (not series or not series['continuity_ok']):return None
+    series=platform_series_result(text) if version>=3 else None
+    if version>=3 and (not series or not series['continuity_ok']):return None
+    display=platform_display_result(text) if version==4 else None
+    if version==4 and not display:return None
     gfx=[x for x in text.splitlines() if x.startswith('ap-platform-gfx:')]
     if len(gfx)!=1:return None
     m=re.fullmatch(r'ap-platform-gfx: bdf=16 id=170295430 base=(\d+) time_us=(\d+),(\d+) status=(\d+),(\d+) rc6=(\d+),(\d+) config=(\d+),(\d+) rc_control=unavailable',gfx[0])
@@ -137,4 +169,4 @@ def _parse(text):
                 decoded.append(None)
         rows[bdf]=dict(state=a,offset=o0,raw=[v0,v1],decoded=decoded,headers=[n0,n1])
     if rows.keys()!=devices.keys():return None
-    return dict(status='PASS',timing=timing,series=series,graphics=dict(base=base,time_us=[t0,t1],status_raw=[s0,s1],rc_state=[{0:'RC0',2:'RC3',3:'RC6',4:'RC7'}.get(v&7,'unknown') for v in (s0,s1)],rc6_raw=[r0,r1],rc6_delta_ticks=delta,rc6_delta_ns=delta*1280,rc6_observed=bool(delta),rc_control='unavailable'),firmware_config=c0,permission='unavailable',permission_reason='no-validated-grant-register',latency=rows,scope='Paired read-only context, no causal blocker or policy inference; max LTR capability is not measured response latency or proof of a current request')
+    return dict(status='PASS',timing=timing,series=series,display_well=display,graphics=dict(base=base,time_us=[t0,t1],status_raw=[s0,s1],rc_state=[{0:'RC0',2:'RC3',3:'RC6',4:'RC7'}.get(v&7,'unknown') for v in (s0,s1)],rc6_raw=[r0,r1],rc6_delta_ticks=delta,rc6_delta_ns=delta*1280,rc6_observed=bool(delta),rc_control='unavailable'),firmware_config=c0,permission='unavailable',permission_reason='no-validated-grant-register',latency=rows,scope='Paired read-only context, no causal blocker or policy inference; max LTR capability is not measured response latency or proof of a current request')

@@ -1,6 +1,6 @@
 import unittest
 import hardware_boot as boot
-from hardware_platform import platform_result,latency_decode,platform_timing_result,platform_series_result
+from hardware_platform import platform_result,latency_decode,platform_timing_result,platform_series_result,platform_display_result
 from test_hardware_package import PackageTests
 class PlatformTests(unittest.TestCase):
     def fixture(self):
@@ -81,4 +81,24 @@ class PlatformTests(unittest.TestCase):
         for t in ['srvros.ap-platform=read-only','srvros.ap-package=read-only','srvros.ap=c3-test','srvros.capture=cpu-load']:self.assertIn(t,c)
         self.assertNotIn('ap-platform',boot.limine_config('0123456789abcdef','ram-usb-v1-ap-package-laptop-probe-6ada85bb'))
         with self.assertRaises(ValueError):boot.stage(ap_platform_audit=True)
+    def display_fixture(self):
+        return self.series_fixture().replace('ap-platform: v=3','ap-platform: v=4') + (
+            'ap-platform-well: phase=0 pm_us=5,6 ctl=3221225472,1073741824,0,0\n'
+            'ap-platform-well: phase=1 pm_us=92000005,92000006 ctl=0,0,0,0\n')
+    def test_display_observation_and_rc6_failure(self):
+        s=self.display_fixture();r=platform_display_result(s)
+        self.assertFalse(r['acceptance']);self.assertTrue(r['samples'][0]['controls']['bios']['request'])
+        self.assertTrue(r['samples'][0]['controls']['driver']['state'])
+        self.assertFalse(r['samples'][0]['controls']['driver']['request'])
+        self.assertFalse(r['samples'][1]['controls']['bios']['state'])
+        self.assertIsNotNone(platform_result(s))
+        bad=s.replace('rc6=100,1000','rc6=100,72000000')
+        self.assertIsNotNone(platform_display_result(bad));self.assertIsNone(platform_result(bad))
+        self.assertIsNotNone(platform_display_result(s.replace('fault=0 devices','fault=1 devices').replace('completed=yes','completed=NO')))
+    def test_display_refusal(self):
+        s=self.display_fixture()
+        for old,new in [('phase=1 pm_us=92000005','phase=0 pm_us=92000005'),('pm_us=5,6','pm_us=6,5'),('pm_us=5,6','pm_us=3,6'),('pm_us=5,6','pm_us=5,92000003'),('ctl=0,0,0,0','ctl=0,0,0,4294967295'),('v=4 fault','v=3 fault'),('base=3221225472','base=0')]:
+            with self.subTest(old=old):self.assertIsNone(platform_display_result(s.replace(old,new)))
+        self.assertIsNone(platform_display_result('\n'.join(s.splitlines()[:-1])))
+        self.assertIsNone(platform_result(s+s.splitlines()[-1]+'\n'))
 if __name__=='__main__':unittest.main()
