@@ -41,6 +41,33 @@ def checkpoint_candidates(output):
     return [(name,at,after) for _,name,at,after in sorted(marks)]
 
 
+def saved_load_receipts(snapshots,receipt):
+    """Whole saved records only; verify the separately durable audio receipt.
+
+    UART is not repaired or joined into records. Duplicate whole saved rows must
+    agree. Failure, missing, truncated and conflicting records remain failures.
+    """
+    assert receipt.endswith(b'\n')
+    audio_pattern=rb'audio-io: result=PASS seconds=60 start_us=(\d+) end_us=(\d+) first_io_us=\d+ last_io_us=\d+ bursts=\d+ bytes=\d+ max_burst_us=\d+ pcm_bytes=\d+ underruns=0 worker_status=0 volume=1'
+    life_pattern=rb'desktop-life: result=PASS cycles=(\d+) max_loop_us=(\d+) max_ready_us=(\d+) max_close_us=(\d+) errors=0 limit_us=500000 first_us=(\d+) last_us=(\d+)'
+    expected=receipt.rstrip(b'\r\n');pcm=re.fullmatch(audio_pattern,expected);assert pcm,'invalid durable audio receipt'
+    audio={};lifetimes={}
+    for raw in snapshots:
+        for line in raw.splitlines(keepends=True):
+            if not line.endswith(b'\n'):continue
+            line=line.rstrip(b'\r\n')
+            assert not line.startswith((b'audio-io: result=FAIL',b'desktop-life: result=FAIL')),'saved runtime failure'
+            if m:=re.fullmatch(audio_pattern,line):audio[line]=m
+            if m:=re.fullmatch(life_pattern,line):lifetimes[line]=m
+    assert set(audio)=={expected},'missing or conflicting saved audio receipt'
+    assert len(lifetimes)==1,'missing or conflicting saved lifecycle receipt'
+    life=next(iter(lifetimes.values()))
+    assert int(life[1])>=6 and 0<int(life[2])<=500000
+    assert int(life[6])-int(life[5])>=40000000
+    assert int(pcm[1])<=int(life[5])<int(life[6])<=int(pcm[2])
+    return life,pcm
+
+
 def completion_line(output):
     # UART/socket reads may end anywhere, including in PASS or unmounted=yes.
     match=re.search(rb'desktop-audio-io: result=[^\r\n]*\r?\n',output)
@@ -197,12 +224,9 @@ def main():
                     assert b'SRVROS_GRUB_CHAINLOAD_TEST' in output
                     assert b'audio-io: begin' not in output # exact native profile refuses Q35
                 else:
-                    assert re.search(rb'audio-io: result=PASS seconds=60 .*underruns=0 worker_status=0',output)
-                    lifecycle=re.search(rb'desktop-life: result=PASS cycles=(\d+) max_loop_us=(\d+) max_ready_us=(\d+) max_close_us=(\d+) errors=0 limit_us=500000 first_us=(\d+) last_us=(\d+)',output)
-                    assert lifecycle and int(lifecycle[1])>=6 and 0<int(lifecycle[2])<=500000
-                    assert int(lifecycle[6])-int(lifecycle[5])>=40000000
-                    pcm_window=re.search(rb'audio-io: result=PASS seconds=60 start_us=(\d+) end_us=(\d+)',output)
-                    assert pcm_window and int(pcm_window[1])<=int(lifecycle[5])<int(lifecycle[6])<=int(pcm_window[2])
+                    directory=re.search(rb'audio-io: begin seconds=60 directory=/work/([^ ]+) automatic=yes',output)[1].decode()
+                    receipt=final.read(directory+'/result.txt')
+                    lifecycle,pcm_window=saved_load_receipts(snapshots,receipt)
                     assert b'async=yes' in output
                     (out/'lifecycle.json').write_text(json.dumps(dict(cycles=int(lifecycle[1]),max_loop_us=int(lifecycle[2]),max_ready_us=int(lifecycle[3]),max_close_us=int(lifecycle[4]),errors=0,limit_us=500000),indent=2)+'\n')
                     worst_lifetimes=lifetime_worst_records(snapshots,int(lifecycle[3]),int(lifecycle[4]))
