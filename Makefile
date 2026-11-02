@@ -4054,3 +4054,8 @@ build/tests/linux-package-pci-host$(HOST_EXE): tools/linux_package_pci.c kernel/
 test-core: test-cpu-receipt-tail
 test-cpu-receipt-tail:
 	$(PYTHON) -m unittest discover -s tools -p test_cpu_receipt_tail.py
+
+.PHONY: test-cpu-checkpoint-budget
+test-core: test-cpu-checkpoint-budget
+test-cpu-checkpoint-budget:
+	$(PYTHON) -m unittest discover -s tools -p test_cpu_checkpoint_budget.py
