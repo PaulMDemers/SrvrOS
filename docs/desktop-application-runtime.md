@@ -444,3 +444,101 @@ and Close 8042159 us under unchanged limits. The [machine record](machines/macbo
 owns scope and integrity proof. Retained phase snapshots are tails, not full
 histories of every cycle; other machines, physical input, audible routing and
 unrestricted concurrency/SMP remain separate evidence.
+
+
+### Fixed-table wait admission and retained lifecycle latency
+
+Process-local futex WAIT may park during a foreign I/O scope on CPU0. The audited
+body reserves a fixed-table entry under IRQ exclusion, pins active waits, checks
+the mapped four-byte word before every load, and receives mapping-invalidation
+wakes. It allocates nothing and performs no filesystem/device callback. Timeouts,
+signals and invalidation behavior are unchanged. The IDT epilogue reacquires
+ordinary admission before cancellation/exit; this does not permit resource
+teardown or arbitrary wait callbacks under another owner's I/O. This proof must
+be reconsidered if the futex body starts allocating or invoking service callbacks,
+or if userspace starts running concurrently on multiple CPUs.
+
+Automatic lifecycle diagnostics retain the current cycle and the worst readiness
+and Close observations in fixed-size UI-owned records. The existing report worker
+serializes immutable copies, including launch worker begin/end, observed visual
+removal, observed process exit and actual reap queue/begin/end clocks. Zero means
+unobserved, not zero cost; visual removal is sampled at the compositor loop, not
+an exact client acknowledgement timestamp. Complete final worst records must
+match the existing aggregate maxima. This survives rotated log tails without
+new filesystem writes or per-frame logging. A full-width bounded formatter keeps
+these records intact. Timing/workload limits and cleanup ownership are unchanged.
+
+### Cold compositor buffers and admission attribution
+
+Desktop initialization seeds the existing two retained 720×480 pixel-cache slots
+before launching client and storage work. These reservations count against the
+same cache budget, transfer through ordinary reuse, and remain owned until the
+worker completes their actual unmap. Partial reservation is usable; unsupported
+sizes and allocation failure retain the existing asynchronous fallback.
+
+Opt-in I/O observation retains the eight longest completed admission waits plus
+the worst completed process-exit wait if it is absent from those eight. Records
+identify waiter PID/thread/syscall, initial owner PID/thread/scope sequence, and
+start/end clocks. The initial owner may change while parked; the complete wait
+must not be attributed exclusively to it. Recording uses bounded storage under
+IRQ exclusion and emits no text or I/O until the existing quiescent report.
+
+Current-process signal configuration, pending-mask reads and current-thread mask
+updates use bounded metadata and may execute during foreign I/O on CPU0. They do
+not execute handlers or release files. A mask update exposing fatal cancellation
+still regains ordinary admission in the IDT epilogue before process exit. Signal
+consumption/delivery, kill and complete resource teardown remain gated. This
+policy is independent of SMP acceptance.
+
+### Bounded process liveness lookup
+
+`SYS_PROC_LIST` retains its existing cursor enumeration. Setting
+`SRV_PROC_LIST_BY_PID` selects one exact PID from the low63 bits of the argument;
+a positive return identifies the snapshot, zero means missing, and negative
+means invalid user output. The process-info layout is unchanged. PID zero is
+not a query target. SDK `desk_process_alive` uses one such read-only metadata
+call, including for exited/stopping states, instead of enumerating every process
+through separate syscalls in the compositor's service loop. This adds no handle
+or lifetime reference; only actual wait/reaping proves resource completion.
+New clients need the matched kernel that implements this selector.
+
+
+### Deferred UI diagnostics and retained message clocks
+
+The compositor's measured event loop must not print to console/UART. It formats
+bounded records into a single-producer ring owned by the UI and the existing
+report thread. There are 64 slots of 384 bytes. Release/acquire publication
+protects each queued/emitting slot until output completes; the UI never waits
+for the sink and never overwrites an owned record. Oversized/full submissions
+increment the loss counter. Shutdown stops UI submissions, drains and joins the
+reporter, then emits `desktop-ui-log: version=1 dropped=0 pending=0`. Nonzero
+loss or pending records invalidate automated acceptance. Startup/final reporting
+outside the measured loop and other workers retain direct output. The reporter
+uses the existing coalesced event/futex wait, without adding idle timer polling.
+
+The operation snapshot also retains one slowest message receive/handler interval,
+with PID/type/result and scheduler blocked/ready observations. Immutable snapshots
+are formatted by the reporter as `desktop-message-worst`; these are wall clocks,
+not exact device latency. A slow interval in message or service stages is not
+proof of a particular syscall. Controlled sink-backpressure and threaded ownership
+regressions exercise the actual handlers and ring; ordinary lifecycle/deadline
+checks remain unchanged.
+
+### Keep PCM live through the final stress burst
+
+The boot-only audio/file stress producer submits at least the nominal requested
+PCM byte count. The unchanged disk worker signals a private completion pipe only
+after its final verified burst and durable binary receipt. If necessary, the
+producer continues PCM until that signal, with a fixed 60-second extension cap.
+The completion read is explicitly nonblocking; generic poll would regain storage
+admission and could starve this independent producer. EOF, malformed completion,
+resource errors, exceeded cap and underruns still fail the test.
+
+Collectors must check the nominal minimum PCM bytes, the bounded extension and
+frame alignment, the sustained disk span and every burst's containment in live
+PCM. They must also compare the binary disk receipt with the text result. Do not
+assume the PCM byte count is always exactly the nominal minimum. The synthetic
+VM collector requires whole saved audio/lifecycle records agreeing with the
+separate durable result; it rejects missing, truncated, conflicting and failed
+records instead of reconstructing damaged UART output. The UI500ms and whole
+lifetime10s bounds, screenshot workload, global sync and retirement remain intact.

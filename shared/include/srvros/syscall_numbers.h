@@ -29,6 +29,8 @@
 #define SYS_GUI_RECV 22
 #define SYS_YIELD 23
 #define SYS_SPAWN_ARGS 24
+/* SYS_PROC_LIST selector: low63 bits are a PID; result>0 means one snapshot. */
+#define SRV_PROC_LIST_BY_PID (1ull<<63)
 #define SYS_PROC_LIST 25
 #define SYS_KILL 26
 #define SYS_SPAWN_BG_ARGS 27

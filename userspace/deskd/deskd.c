@@ -53,6 +53,23 @@ static void life_terminate_log(uint64_t pid,uint64_t elapsed,long result) {
 }
 #include "operation_trace.h"
 #include "lifecycle_worker.h"
+/* Worker implementations above use direct console output. Only the UI thread
+ * calls these wrappers; stop routing before joining/draining the report worker. */
+static struct lifecycle_worker *ui_logger;
+static void ui_puts(const char *text) {
+    if(ui_logger) { (void)life_log_submit(ui_logger,text);return; }
+    srv_puts(text);
+}
+static void ui_log(const char *format,...) {
+    char text[LIFE_LOG_BYTES];va_list args;va_start(args,format);
+    int length=vsnprintf(text,sizeof(text),format,args);va_end(args);
+    if(length<0 || (unsigned)length>=sizeof(text)) {
+        if(ui_logger)ui_logger->log_dropped++;
+        return;
+    }
+    ui_puts(text);
+}
+#define desk_log(...) ui_log(__VA_ARGS__)
 struct pixel_cache { uint32_t *pixels,width,height; struct life_memory *job; };
 #define DESKD_CACHE_BUDGET DESK_CACHE_BYTES
 struct client {
@@ -88,6 +105,8 @@ struct session {
     const char *home;
     struct lifecycle_worker *worker;
     int startup_trace;
+    struct lifetime_trace current_lifetime,ready_worst,close_worst;
+    struct message_trace message;
     struct {uint64_t pid;struct desk_packet packet;} pending_open[LIFE_LAUNCH_SLOTS];
     unsigned pending_opens;
     int cache_pending;
@@ -237,6 +256,23 @@ static void cache_release(struct session *s,struct pixel_cache *c) {
     if(c->pixels) {
         s->cache_bytes-=(uint64_t)c->width*c->height*4;
         desk_pixels_free(c->pixels,c->width,c->height);*c=(struct pixel_cache){0};
+    }
+}
+/* Seed the existing two retained slots before clients/storage are launched.
+ * A cold compositor helper cannot use sole-process mmap admission while its
+ * dispatcher/report peers exist. Reserve common-size buffers once at startup,
+ * keeping the same byte budget, reuse and actual-unmap retirement accounting.
+ * Larger/different frames still use the asynchronous fallback. */
+static void cache_seed(struct session *s,struct lifecycle_worker *worker) {
+    for(unsigned n=0;n<2;n++) {
+        const unsigned width=720,height=480;uint64_t bytes=(uint64_t)width*height*4;
+        if(bytes>DESKD_CACHE_BUDGET-s->cache_bytes)break;
+        uint32_t *pixels=desk_pixels_alloc(width,height);
+        if(!pixels)break;
+        struct life_memory *m=&worker->memory[n];
+        *m=(struct life_memory){.state=LIFE_DONE,.width=width,.height=height,.pixels=pixels};
+        s->retained_cache[n]=(struct pixel_cache){.pixels=pixels,.width=width,.height=height,.job=m};
+        s->cache_bytes+=bytes;if(s->cache_bytes>s->cache_peak)s->cache_peak=s->cache_bytes;
     }
 }
 static void cache_drop(struct session *s,int i,int j) { cache_release(s,&session_cache(s,i)[j]); }
@@ -591,7 +627,7 @@ static void spawn_client(struct session *s) {
     int i=child_slot(s);if(i>=0) {
         long pid=spawn_bg("/fat/bin/deskclient");
         if (pid>0) (*session_children(s,i))=(uint64_t)pid;
-        else srv_puts("deskd: launch failed\n");
+        else ui_puts("deskd: launch failed\n");
         return;
     }
 }
@@ -647,7 +683,7 @@ static void spawn_app(struct session *s,int application,const char *path) {
                 struct life_launch *j=&s->worker->launch[n];
                 if(life_state(&j->state)!=LIFE_IDLE)continue;
                 if(strlen(path?path:"")>=sizeof(j->path) || strlen(s->home?s->home:DESK_RAM_HOME)>=sizeof(j->home))break;
-                j->application=application;j->child_slot=i;j->queued_us=(uint64_t)srv_monotonic_us();
+                j->application=application;j->child_slot=i;j->queued_us=(uint64_t)srv_monotonic_us();j->begin_us=j->end_us=0;
                 strcpy(j->path,path?path:"");strcpy(j->home,s->home?s->home:DESK_RAM_HOME);
                 s->last_launch_pid=0;life_queue(s->worker,&j->state,LIFE_QUEUED);return;
             }
@@ -685,6 +721,10 @@ static void lifecycle_poll(struct session *s) {
         struct life_launch *j=&s->worker->launch[n];
         if(life_state(&j->state)!=LIFE_DONE)continue;
         s->last_exec_us=j->elapsed;
+        if(j->pid>0 && s->current_lifetime.begin_us && !s->current_lifetime.pid && j->queued_us>=s->current_lifetime.begin_us) {
+            s->current_lifetime.pid=(uint64_t)j->pid;
+            s->current_lifetime.launch_begin_us=j->begin_us;s->current_lifetime.launch_end_us=j->end_us;
+        }
         if(j->pid>0) {
             s->launch_started++;
             *session_children(s,j->child_slot)=(uint64_t)j->pid;
@@ -973,7 +1013,7 @@ static void launcher_close(struct session *s) {
     launcher_damage(s);desk_palette_focus(&s->scene.launcher,0);s->scene.launcher_open=0;s->switching=0;
     if(s->overlay_down) s->pointer_blocked=1;
     int i=s->overlay_return;if(!window_lifetime_valid(s,i,s->overlay_identity))i=-1;
-    if(i>=0)focus(s,i);else focus_best(s);if(s->trace) srv_puts("deskd: launcher closed\n");
+    if(i>=0)focus(s,i);else focus_best(s);if(s->trace) ui_puts("deskd: launcher closed\n");
 }
 static void launcher_result(struct session *s,struct desk_palette_result result) {
     struct desk_palette *p=&s->scene.launcher;
@@ -1123,14 +1163,14 @@ static void calendar_open(struct session *s) {
     desk_button_configure(&s->scene.calendar_close,(struct desk_rect){r.x+r.w-100,r.y+r.h-44,84,28},1);
     desk_ui_layout_changed(&s->scene.calendar_ui);desk_ui_window_focus(&s->scene.calendar_ui,1);desk_ui_focus(&s->scene.calendar_ui,CALENDAR_GRID);
     s->scene.calendar_open=1;calendar_caption(s);calendar_damage(s);
-    if(s->trace) srv_puts("deskd: calendar opened\n");
+    if(s->trace) ui_puts("deskd: calendar opened\n");
 }
 static void calendar_close(struct session *s) {
     if(!s->scene.calendar_open) return;
     calendar_damage(s);desk_ui_window_focus(&s->scene.calendar_ui,0);s->scene.calendar_open=0;
     if(s->overlay_down) s->pointer_blocked=1;
     int i=s->overlay_return;if(!window_lifetime_valid(s,i,s->overlay_identity))i=-1;
-    if(i>=0)focus(s,i);else focus_best(s);if(s->trace) srv_puts("deskd: calendar closed\n");
+    if(i>=0)focus(s,i);else focus_best(s);if(s->trace) ui_puts("deskd: calendar closed\n");
 }
 static void calendar_action(struct session *s,struct desk_action a) {
     if(a.id==CALENDAR_TODAY && (a.flags&DESK_WIDGET_ACTIVATED)) {
@@ -1169,7 +1209,7 @@ static void notifications_close(struct session *s) {
     notifications_damage(s);desktop_notice_view_close(&s->scene.notifications);
     if(s->overlay_down) s->pointer_blocked=1;
     int i=s->overlay_return;if(!window_lifetime_valid(s,i,s->overlay_identity))i=-1;
-    if(i>=0)focus(s,i);else focus_best(s);if(s->trace) srv_puts("deskd: notifications closed\n");
+    if(i>=0)focus(s,i);else focus_best(s);if(s->trace) ui_puts("deskd: notifications closed\n");
 }
 static void notifications_apply(struct session *s,struct desktop_notice_action result) {
     if(result.close) notifications_close(s);
@@ -1231,11 +1271,15 @@ static struct capture_trace capture_snapshot(const struct session *s,uint64_t no
     memcpy(c.phases,j->phase_us,sizeof(c.phases));return c;
 }
 static struct operation_trace operation_snapshot(const struct session *s,uint64_t now) {
-    struct operation_trace t={.at_us=now,.requests=s->launch_requests,.started=s->launch_started,.refused=s->launch_refused,
+    struct operation_trace t={.message=s->message,.ready_worst=s->ready_worst,.close_worst=s->close_worst,.at_us=now,.requests=s->launch_requests,.started=s->launch_started,.refused=s->launch_refused,
         .cache_bytes=s->cache_bytes,.cache_reuses=s->cache_reuses,
         .last_pid=s->last_launch_pid,.last_exec_us=s->last_exec_us,.pending_opens=s->pending_opens,.exiting=s->exiting,
         .exit_age_us=s->exiting && s->exit_started_us?now-s->exit_started_us:0,
         .preferences=s->preferences.job.busy || s->preferences.dirty,.capture=capture_snapshot(s,now),.slowest=s->slowest_capture};
+    /* Preserve observed Close progress even if a deadline aborts this lifetime.
+     * Zero remains unobserved; never manufacture a completed Close record. */
+    if(t.ready_worst.pid && t.ready_worst.pid==s->current_lifetime.pid &&
+       t.ready_worst.begin_us==s->current_lifetime.begin_us)t.ready_worst=s->current_lifetime;
     for(unsigned n=0;n<2;n++)if(s->retained_cache[n].job) {
         t.cache_retained++;t.cache_retained_bytes+=(uint64_t)s->retained_cache[n].width*s->retained_cache[n].height*4;
     }
@@ -1696,6 +1740,8 @@ static void service(struct session *s) {
             if(next<=0 || (uint64_t)next<=index)break;
             index=(uint64_t)next;
             if(strcmp(info.state,"exited") || child_index(s,info.pid)<0)continue;
+            if(s->current_lifetime.pid==info.pid && !s->current_lifetime.exit_seen_us)
+                s->current_lifetime.exit_seen_us=(uint64_t)srv_monotonic_us();
             (void)life_reap_submit(s->worker,info.pid);
         }
     }
@@ -1704,8 +1750,15 @@ static void service(struct session *s) {
         uint64_t began=(uint64_t)srv_monotonic_us();
         long waited=0;
         int owned=s->worker && life_reap_pending(s->worker,*session_children(s,i));
-        if(owned)(void)life_reap_take(s->worker,*session_children(s,i),&waited,&status);
-        else waited=srv_wait((*session_children(s,i)),&status,SRV_WAIT_NOHANG);
+        if(owned) {
+            for(unsigned n=0;n<LIFE_REAP_SLOTS;n++) {
+                const struct life_reap *r=&s->worker->reap[n];
+                if(life_state(&r->state)==LIFE_DONE && r->pid==s->current_lifetime.pid && r->pid==*session_children(s,i)) {
+                    s->current_lifetime.reap_queued_us=r->queued_us;s->current_lifetime.reap_begin_us=r->begin_us;s->current_lifetime.reap_end_us=r->end_us;break;
+                }
+            }
+            (void)life_reap_take(s->worker,*session_children(s,i),&waited,&status);
+        } else waited=srv_wait((*session_children(s,i)),&status,SRV_WAIT_NOHANG);
         uint64_t elapsed=(uint64_t)srv_monotonic_us()-began;
         if(elapsed>50000)desk_log("desktop-reap: elapsed_us=%llu\n",(unsigned long long)elapsed);
         /* An interrupted wait is not proof of death. Init only adopts a
@@ -1811,7 +1864,7 @@ static void desktop_context_open(struct session *s,int x,int y,int keyboard) {
     };
     context_close(s);pointer_cancel(s);desk_menu_cancel(&s->scene.menu);global_menu_damage(s);
     if(!desk_popup_open(&s->scene.context,items,sizeof(items)/sizeof(*items),x,y,(struct desk_rect){0,44,s->damage.width,s->damage.height-124},&desk_font_16,keyboard)) {
-        context_damage(s);if(s->trace) srv_puts("deskd: desktop context opened\n");
+        context_damage(s);if(s->trace) ui_puts("deskd: desktop context opened\n");
     }
 }
 static int context_key(const struct srv_key_event *key) {
@@ -1882,11 +1935,11 @@ int main(int argc,char **argv) {
         explicit_scale=1;
         if (!strcmp(argv[i],"--scale=1")) scale=1;
         else if (!strcmp(argv[i],"--scale=2")) scale=2;
-        else { srv_puts("deskd: scale must be 1 or 2\n"); return 1; }
+        else { ui_puts("deskd: scale must be 1 or 2\n"); return 1; }
         for (int j=i;j<argc;j++) argv[j]=argv[j+1];
         argc--; i--;
     }
-    if (argc==2 && strcmp(argv[1],"--license")==0) { srv_puts(desk_font_license); return 0; }
+    if (argc==2 && strcmp(argv[1],"--license")==0) { ui_puts(desk_font_license); return 0; }
     int control_monitor=argc==2 && !strcmp(argv[1],"--battery-monitor");
     int control_manual=control_monitor || (argc==2 && !strcmp(argv[1],"--battery-controls-manual"));
     int control_capture=control_manual || (argc==2 && !strcmp(argv[1],"--battery-controls"));
@@ -1924,22 +1977,22 @@ int main(int argc,char **argv) {
     if (gfx_info(&info)!=0 || info.width<640 || info.height<480 || info.width>3840 || info.height>2160) return 1;
     if((battery_work || battery_guided || idle_capture || coexist || control_capture) && !explicit_scale) {
         scale=desk_capture_scale(info.width,info.height);
-        if(!scale) { srv_puts("deskd: framebuffer exceeds idle capture limits\n");return 1; }
+        if(!scale) { ui_puts("deskd: framebuffer exceeds idle capture limits\n");return 1; }
     }
     uint32_t width=(info.width+scale-1)/scale,height=(info.height+scale-1)/scale;
-    if (width<640 || height<480) { srv_puts("deskd: scaled desktop requires at least 640x480 logical pixels\n"); return 1; }
+    if (width<640 || height<480) { ui_puts("deskd: scaled desktop requires at least 640x480 logical pixels\n"); return 1; }
     desk_log("deskd: display physical=%llux%llu logical=%ux%u scale=%u screenshots=logical\n",
         (unsigned long long)info.width,(unsigned long long)info.height,width,height,scale);
     uint32_t *pixels=desk_pixels_alloc(width,height);
     struct desk_canvas canvas;
     if (!pixels || desk_canvas_init(&canvas,pixels,width,height,width)!=0) return 1;
-    if (gui_register_server()!=0) { srv_puts("deskd: another display server is active\n"); return 1; }
+    if (gui_register_server()!=0) { ui_puts("deskd: another display server is active\n"); return 1; }
     int stress_volume=audio_io?stress_volume_request():0;
-    if(stress_volume<0){srv_puts("audio-io: result=FAIL reason=volume-override\n");return 1;}
+    if(stress_volume<0){ui_puts("audio-io: result=FAIL reason=volume-override\n");return 1;}
     if (gfx_console_mute(1)!=0) return 1;
     struct session s={.dynamic=1,.refuse_dialogs=dialog_refusal,.registry_budget=argc==2 && !strcmp(argv[1],"--registry-pressure-test")?1:DESK_REGISTRY_BYTES,.ram_text=coexist_text || control_capture,.home=(battery_guided || hardware_trial || idle_capture || home_apps)?DESK_WORKSPACE_HOME:DESK_RAM_HOME,.scene={.focus=-1,.cursor_x=24,.cursor_y=56,.automatic_test=capacity_capture},
         .trace=audio_io_attended || dialog_refusal || capacity_capture || pool_wait || multiwindow || battery_guided || coexist || idle_capture || lifecycle || (argc==2 && (!strcmp(argv[1],"--trace") || !strcmp(argv[1],"--apps-trace") || !strcmp(argv[1],"--registry-pressure-test")))};
-    if(s.registry_budget==1)srv_puts("deskd: diagnostic registry growth budget=1 byte\n");
+    if(s.registry_budget==1)ui_puts("deskd: diagnostic registry growth budget=1 byte\n");
     desk_capture_job_init(&s.capture);
     desktop_notice_view_init(&s.scene.notifications);desktop_notice_view_configure(&s.scene.notifications,width,height);
     s.scene.apps=apps;desk_popup_init(&s.scene.context);desk_menu_init(&s.scene.menu);desk_palette_init(&s.scene.launcher);
@@ -1965,7 +2018,8 @@ int main(int argc,char **argv) {
     global_menu_rebuild(&s);
     desk_damage_add(&s.damage,(struct desk_rect){0,0,width,height});
     static struct lifecycle_worker worker;
-    if(life_start(&worker,audio_io)){gfx_console_mute(0);return 1;}s.worker=&worker;s.startup_trace=audio_io;
+    cache_seed(&s,&worker);
+    if(life_start(&worker,1)){gfx_console_mute(0);return 1;}s.worker=&worker;s.startup_trace=audio_io;ui_logger=&worker;
     if(control_capture)spawn_app(&s,DESK_APP_SYSTEM,control_manual?"--battery-controls":"--battery-control-capture");
     else if(coexist_text) spawn_capture_text(&s,control_files_cancel?4:control_files?3:coexist_workspace?2:coexist_files);
     else if(network_trial) spawn_app(&s,DESK_APP_TERMINAL,"network-trial");
@@ -2030,7 +2084,7 @@ int main(int argc,char **argv) {
     struct desktop_input_timing timing={0};
     uint64_t key_pid=0,key_since=0,key_serial=0;
     uint8_t buttons=0;
-    srv_puts("deskd: ready; independent clients, sealed surfaces\n");
+    ui_puts("deskd: ready; independent clients, sealed surfaces\n");
     while (!quit) {
         uint64_t loop_now=(uint64_t)srv_monotonic_us();
         if(audio_io && (audio_io_pid || audio_io_finished)) {
@@ -2081,10 +2135,18 @@ int main(int argc,char **argv) {
         loop_trace_stamp(&loop_trace,LOOP_MESSAGES);
         uint64_t message_begin=(uint64_t)srv_monotonic_us();
         for (int n=0;n<32;n++) {
-            struct desk_packet p; uint64_t pid;
+            struct desk_packet p; uint64_t pid=0;
+            struct message_trace m={0};int tracing=audio_io && !srv_sched_trace(SRV_SCHED_TRACE_BEGIN,&m.scheduler);
+            if(tracing)m.begin=(uint64_t)srv_monotonic_us();
             int r=desk_receive(&pid,&p);
-            if (r<=0) break;
+            if(tracing)m.received=(uint64_t)srv_monotonic_us();
             if (r==1) incoming(&s,pid,&p);
+            if(tracing) {
+                m.end=(uint64_t)srv_monotonic_us();m.pid=pid;m.type=r==1?p.type:0;m.result=r;
+                if(!srv_sched_trace(SRV_SCHED_TRACE_END,&m.scheduler) &&
+                   m.end-m.begin>s.message.end-s.message.begin)s.message=m;
+            }
+            if (r<=0) break;
             /* A frame copy may yield to I/O or another runnable client. Do not
              * accumulate a whole packet-count batch before input/render work.
              * The next packet stays queued; no in-flight handler is abandoned. */
@@ -2104,7 +2166,7 @@ int main(int argc,char **argv) {
                 (unsigned long long)lifecycle_trace.blocks,(unsigned long long)lifecycle_trace.dispatches,
                 (unsigned long long)lifecycle_trace.exclusions,(unsigned long long)lifecycle_trace.invalid,
                 (unsigned long long)lifecycle_trace.max_ready_us,(unsigned long long)lifecycle_trace.reason);
-            if(n>0 && (unsigned)n<sizeof(trace))srv_puts(trace);
+            if(n>0 && (unsigned)n<sizeof(trace))ui_puts(trace);
         }
         loop_trace_stamp(&loop_trace,LOOP_SERVICE);
         service(&s);
@@ -2147,22 +2209,29 @@ int main(int argc,char **argv) {
         if((audio_io && !audio_io_attended && audio_io_pid) || (power_trial && power_phase.stage==3)) {
             uint64_t now=(uint64_t)srv_monotonic_us();
             if(!life_due)life_due=now+5000000;
+            if(life_phase==3 && !s.current_lifetime.visual_us) {
+                int live=0;for(int i=0;i<session_capacity(&s);i++)live|=session_client(&s,i)->pid==life_pid;
+                if(!live)s.current_lifetime.visual_us=now;
+            }
             if(!life_phase && now>=life_due && (power_trial?now-power_phase.began<48000000:now-audio_io_begin<((uint64_t)audio_io_seconds-12)*1000000)) {
                 static const int roles[]={DESK_APP_TEXT,DESK_APP_FILES,DESK_APP_SYSTEM};
-                life_begin=now;if(!life_first)life_first=now;spawn_app(&s,roles[life_cycles%3],"");life_pid=0;life_phase=1;
+                life_begin=now;s.current_lifetime=(struct lifetime_trace){.begin_us=now,.cycle=life_cycles};if(!life_first)life_first=now;spawn_app(&s,roles[life_cycles%3],"");life_pid=0;life_phase=1;
             } else if(life_phase==1) {
                 if(!life_pid)life_pid=s.last_launch_pid;
                 for(int i=0;i<session_capacity(&s);i++)if(session_client(&s,i)->pid==life_pid && desktop_window_at(&s.scene,i)->pixels && !session_client(&s,i)->awaiting) {
                     desk_log("desktop-life: ready cycle=%u pid=%llu elapsed_us=%llu\n",life_cycles,(unsigned long long)life_pid,(unsigned long long)(now-life_begin));
-                    if(now-life_begin>life_ready_max)life_ready_max=now-life_begin;
+                    s.current_lifetime.pid=life_pid;s.current_lifetime.ready_us=now;
+                    if(now-life_begin>life_ready_max) {life_ready_max=now-life_begin;s.ready_worst=s.current_lifetime;}
                     life_phase=2;life_due=now+500000;break;
                 }
             } else if(life_phase==2 && now>=life_due) {
                 for(int i=0;i<session_capacity(&s);i++)if(session_client(&s,i)->pid==life_pid)request_close(&s,i);
-                life_close=now;life_phase=3;
+                life_close=now;s.current_lifetime.close_request_us=now;life_phase=3;
             } else if(life_phase==3 && child_index(&s,life_pid)<0) {
                 desk_log("desktop-life: closed cycle=%u pid=%llu elapsed_us=%llu errors=%u\n",life_cycles,(unsigned long long)life_pid,(unsigned long long)(now-life_close),s.child_errors);
-                if(now-life_close>life_close_max)life_close_max=now-life_close;
+                s.current_lifetime.closed_us=now;
+                if(now-life_close>life_close_max) {life_close_max=now-life_close;s.close_worst=s.current_lifetime;}
+                if(s.ready_worst.pid==life_pid)s.ready_worst=s.current_lifetime;
                 life_last=now;life_cycles++;life_phase=0;life_pid=0;life_due=now+(power_trial?3000000:500000);
             }
             if((life_phase && now-life_begin>10000000) || s.child_errors){
@@ -2247,7 +2316,7 @@ int main(int argc,char **argv) {
         if(apps || coexist || control_capture)battery_update(&s,0);
         if(apps) { if(desktop_preferences_poll(&s.preferences,srv_ticks())) preferences_changed(&s);clock_update(&s,0);notifications_tick(&s); }
         if (io_mode && !io_ready && desktop_window_at(&s.scene,0)->pixels && desktop_window_at(&s.scene,1)->pixels) {
-            io_ready=1; srv_puts("deskd: trial ready; Space starts USB work\n");
+            io_ready=1; ui_puts("deskd: trial ready; Space starts USB work\n");
         }
         if (io_mode && !io_ready && (uint64_t)srv_ticks()-start>500) { failed=1; break; }
         io_trial_poll(&s.io);
@@ -2261,12 +2330,12 @@ int main(int argc,char **argv) {
         }
         if (lifecycle) {
             if (phase==0 && desktop_window_at(&s.scene,0)->pixels && (uint64_t)srv_ticks()-start>=100) {
-                srv_puts("deskd: lifecycle killing client\n");
+                ui_puts("deskd: lifecycle killing client\n");
                 srv_kill(session_client(&s,0)->pid); phase=1;
             } else if (phase==1 && !(*session_children(&s,0)) && !session_client(&s,0)->pid) {
-                srv_puts("deskd: lifecycle replacing client\n"); spawn_client(&s); phase=2;
+                ui_puts("deskd: lifecycle replacing client\n"); spawn_client(&s); phase=2;
             } else if (phase==2 && desktop_window_at(&s.scene,0)->pixels && (uint64_t)srv_ticks()-start>=200) {
-                srv_puts("deskd: lifecycle abrupt server exit\n");
+                ui_puts("deskd: lifecycle abrupt server exit\n");
                 srv_exit(0); /* Deliberately exercise kernel cleanup, not the normal exit path. */
             }
             if ((uint64_t)srv_ticks()-start>600) { failed=1; break; }
@@ -2285,7 +2354,7 @@ int main(int argc,char **argv) {
                         if (!stop_warning && !s.io.finished && !s.io.stopping &&
                             s.io.progress.state!=DESK_IO_FAILED && io_trial_next_check(&s.io)) {
                             stop_warning=1;
-                            srv_puts("deskd: coverage incomplete; Escape again saves an incomplete run\n");
+                            ui_puts("deskd: coverage incomplete; Escape again saves an incomplete run\n");
                             continue;
                         }
                         io_trial_stop(&s.io); io_leaving=1; continue;
@@ -2600,7 +2669,7 @@ int main(int argc,char **argv) {
         if(coexist_text && !failed && s.damage.count && coexist_keys && session_client(&s,0)->present_input==1000+coexist_keys)
             coexist_key_ack=coexist_keys;
         if(coexist_text && !coexist_script_done && coexist_ack==60) {
-            coexist_script_done=1;srv_puts("desktop-text: script presented; keyboard ready\n");
+            coexist_script_done=1;ui_puts("desktop-text: script presented; keyboard ready\n");
         }
         s.damage.count=0;
         loop_trace_stamp(&loop_trace,LOOP_POST);
@@ -2852,7 +2921,11 @@ int main(int argc,char **argv) {
         int prepared;(void)life_prepare_take(&worker,&s.capture,&prepared);
     }
     if(s.capture.busy && life_state(&worker.capture.state)==LIFE_IDLE)(void)life_capture_submit(&worker,&s.capture,-1);
+    ui_logger=NULL;
     if(life_stop(&worker)){srv_puts("deskd: lifecycle worker join failed\n");return 1;}
+    desk_log("desktop-ui-log: version=1 dropped=%llu pending=%u\n",(unsigned long long)worker.log_dropped,
+        life_state(&worker.logs[worker.log_read].state)!=LIFE_IDLE);
+    if(worker.log_dropped || life_state(&worker.logs[worker.log_read].state)!=LIFE_IDLE)failed=1;
     if(life_state(&worker.capture.state)==LIFE_DONE){s.capture_pending=0;capture_tick(&s,NULL);}
     if(audio_io) {loop_trace_report(&loop_trace,1);struct operation_trace operations=operation_snapshot(&s,(uint64_t)srv_monotonic_us());operation_trace_report(&operations,1);}
     lifecycle_poll(&s);
