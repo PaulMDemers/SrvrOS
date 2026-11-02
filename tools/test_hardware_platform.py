@@ -1,6 +1,6 @@
 import unittest
 import hardware_boot as boot
-from hardware_platform import platform_result,latency_decode,platform_timing_result,platform_series_result,platform_display_result,platform_resources_result,RESOURCE_OFFSETS
+from hardware_platform import platform_result,latency_decode,platform_timing_result,platform_series_result,platform_display_result,platform_resources_result,RESOURCE_OFFSETS,platform_dependencies_result
 from test_hardware_package import PackageTests
 class PlatformTests(unittest.TestCase):
     def fixture(self):
@@ -140,4 +140,31 @@ class PlatformTests(unittest.TestCase):
         h=Path('kernel/include/srvros/display_resource_audit.h').read_text()
         values=re.search(r'display_resource_offsets\[DISPLAY_RESOURCE_COUNT\]=\{([^}]+)',h)[1]
         self.assertEqual(tuple(int(x,16) for x in re.findall(r'0x[0-9a-f]+',values)),RESOURCE_OFFSETS)
+    def dependency_fixture(self):
+        s=self.resource_fixture().replace('ap-platform: v=5','ap-platform: v=6')
+        for phase,us in [(0,9),(1,92000009)]:
+            s+=f'ap-platform-deps: v=1 phase={phase} state=1 pm_us={us},{us+1} reads=8 count=8 pch={0x9c438086},{0x9c438086} before=3221225472,1073741824,1073741824,1073741824 after=3221225472,1073741824,1073741824,1073741824 raw=341,0,0,0,4294967295,2147483648,4294967295,0\n'
+        return s
+    def test_dependency_observation_with_valid_all_masked_irq(self):
+        s=self.dependency_fixture();r=platform_dependencies_result(s)
+        self.assertEqual(r['status'],'OBSERVED');self.assertFalse(r['acceptance'])
+        self.assertTrue(r['samples'][0]['decoded']['audio'][0]['output_enable'])
+        self.assertEqual(r['samples'][0]['decoded']['cpu_irq']['enable_and_not_mask'],0)
+        self.assertIsNotNone(platform_result(s))
+        bad=s.replace('rc6=100,1000','rc6=100,72000000')
+        self.assertEqual(platform_dependencies_result(bad)['status'],'OBSERVED');self.assertIsNone(platform_result(bad))
+        self.assertIsNone(platform_resources_result(s.replace('ap-platform: v=6','ap-platform: v=7')))
+    def test_dependency_refusal(self):
+        s=self.dependency_fixture()
+        for old,new in [('phase=1 state=1 pm_us=92000009','phase=0 state=1 pm_us=92000009'),('pm_us=9,10','pm_us=8,7'),('pm_us=9,10','pm_us=6,10'),('pm_us=9,10','pm_us=9,92000009'),('reads=8 count=8','reads=7 count=8'),('raw=341,0,0,0','raw=4294967295,0,0,0'),('raw=341,0,0,0','raw=341,0,0,0,0'),('raw=341,0,0,0','raw=341,0,0,4294967296'),('after=3221225472','after=1073741824'),('state=1 pm_us=9','state=3 pm_us=9'),('ap-platform: v=6','ap-platform: v=5'),(f'pch={0x9c438086},{0x9c438086}',f'pch={0x9c438086},0')]:
+            with self.subTest(old=old):self.assertIsNone(platform_dependencies_result(s.replace(old,new)))
+        self.assertIsNone(platform_dependencies_result(s+s.splitlines()[-1]+'\n'))
+        self.assertIsNone(platform_dependencies_result('\n'.join(s.splitlines()[:-1])))
+        # Powered-off capture is explicit unavailable, never decoded as disabled.
+        off=s.replace('phase=0 state=1 pm_us=9,10 reads=8','phase=0 state=2 pm_us=9,10 reads=0')
+        start=off.index('ap-platform-deps: v=1 phase=0');end=off.index('\n',start)
+        row=off[start:end].replace(f'pch={0x9c438086},{0x9c438086}',f'pch={0x9c438086},0').replace('before=3221225472,1073741824,1073741824,1073741824 after=3221225472,1073741824,1073741824,1073741824','before=0,0,0,0 after=0,0,0,0').replace('raw=341,0,0,0,4294967295,2147483648,4294967295,0','raw=0,0,0,0,0,0,0,0')
+        off=off[:start]+row+off[end:]
+        self.assertEqual(platform_dependencies_result(off)['status'],'UNAVAILABLE')
+        self.assertIsNone(platform_dependencies_result(off)['samples'][0]['decoded']);self.assertIsNone(platform_result(off))
 if __name__=='__main__':unittest.main()

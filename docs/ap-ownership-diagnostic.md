@@ -883,3 +883,63 @@ rounds and terminal AP retirement pass; display controls and firmware request
 remain unchanged. The encoding fix grants no display/audio/IRQ ownership or
 power-policy acceptance. Continue with the audited read-only dependency
 inventory; retain the new trace/source identity when checking future additions.
+
+
+## Version-6 read-only display audio and IRQ controls
+
+The exact-Air6,1 opt-in platform diagnostic adds eight fixed control readbacks
+at its existing two endpoints, after the version-5 resource brackets:
+
+| Order | Control | GPU BAR0 offset |
+| --- | --- | --- |
+| 0 | HSW_AUD_PIN_ELD_CP_VLD | 0x650c0 |
+| 1–3 | HSW audio config A/B/C | 0x65000, 0x65100, 0x65200 |
+| 4–5 | CPU DEIMR / DEIER | 0x44004, 0x4400c |
+| 6–7 | PCH SDEIMR / SDEIER | 0xc4004, 0xc400c |
+
+Linux v7.0 `intel_audio_regs.h` and `i915_reg.h` define these control offsets.
+The [PCH detection](https://github.com/torvalds/linux/blob/v7.0/drivers/gpu/drm/i915/display/intel_pch.c)
+identifies the `0x9c00` family as LynxPoint LP, and its display IRQ implementation
+uses the SDE mask/enable block for LPT. SrvrOS admits only captured `8086:9c43`
+at 00:1f.0 with live class `060100`, not the whole family. The captured DSDT,
+CPU/GPU profile and existing BAR/D0/memory-decode gates remain mandatory.
+
+The PCH block is reached through the validated GPU aperture. Its separate gate
+rechecks the exact LPC identity/class/location before and after the reads; it
+does not invent an LPC PM capability or request D0. GPU identity/BAR/decode/D0
+and all four well status views must also validate on both sides, with unchanged
+pre/post well raw values. These are non-atomic checks; an intervening firmware
+change which reverts between reads remains outside the observation.
+
+Three new private pages at `0xffffc001f3220000` map only BAR0 offsets `0x65000`,
+`0x44000` and `0xc4000` with read-only/NX/cache-disabled flags. Occupied virtual
+pages or a partial mapping fail closed; partial maps remain unused until reset.
+Only the eight fixed offsets are read, outside RC6 brackets, sparse power hooks
+and measured C3 rounds. No HDA initialization, verbs, ELD data windows, CORB/RIRB,
+IIR/status acknowledgement, mask write, forcewake, power request or firmware
+transaction is added. Existing sampling, policies, ownership and limits remain.
+
+`ap-platform-deps: v=1` records each phase's state, read count, PM bracket,
+pre/post PCH identity, all pre/post well values and eight raw controls. An
+all-ones audio control is invalid; all-ones IRQ masks are legitimate all-masked
+values and are retained. The parser accepts uint32 IRQ raw values without
+claiming reserved bits or master enables imply dispatch. Its mathematical
+`enable_and_not_mask` value is context only, not pending interrupt status.
+Off-domain captures report explicit unavailable state, with no decoded zero
+values; other access changes or partial/invalid reads fail the capture.
+
+The independent `platform_dependencies_result` decodes A/B/C ELD-valid,
+CP-ready, output-enable and inactive bits plus raw audio config and CPU/PCH
+mask/enable intersections. Version-6 overall acceptance requires both complete
+valid dependency endpoints in addition to all prior proofs and the unchanged
+RC6 predicate. Independent observations remain available on an RC6 failure.
+No mask or graphics-audio readback establishes HDA controller/stream retirement,
+IRQ ownership, unused display well or a causal package-C3 blocker.
+
+Host fixtures verify exact maps/offset order, all pre-access gates, powered-off
+skips, all-ones handling, changed PCH/well state, and every reported scalar against
+retained C data. Parser fixtures preserve versions 1–5 and refuse malformed,
+missing/duplicate/out-of-order/invalid version-6 endpoints. Retention regression
+uses the preserved native compact trace plus explicitly synthetic new endpoint
+records and source-derived maximum final checkpoint shapes/widths; it is never
+native acceptance. Require the actual new records directly after the retry.

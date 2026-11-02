@@ -1,13 +1,17 @@
 #include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdarg.h>
+#include <string.h>
 static uint64_t test_ticks=100;
 static unsigned reads;
 static uint32_t rc=50;
 static unsigned well_reads,map_calls,map_failure;
 static uint64_t occupied;
 static uint32_t well_value;
-static unsigned resource_reads,resource_bad,well_drop_at;
+static unsigned resource_reads,resource_bad,well_drop_at,dep_reads,dep_bad;
+static unsigned dep_change_pch;
+static void dependency_after_read(void);
 static uint64_t platform_test_tsc(void) {return ++test_ticks;}
 static uint32_t platform_test_read(unsigned off) {
     assert(off==0x60 || off==0x108);reads++;
@@ -20,12 +24,18 @@ static uint32_t platform_test_resource_read(unsigned off) {
     resource_reads++;assert(off>=0x41000 && off<=0x7f008);
     return resource_bad==resource_reads?0xffffffffu:off;
 }
+static uint32_t platform_test_dependency_read(unsigned off) {
+    static const unsigned expected[]={0x650c0,0x65000,0x65100,0x65200,0x44004,0x4400c,0xc4004,0xc400c};
+    assert(off==expected[dep_reads%8]);dep_reads++;dependency_after_read();
+    return dep_bad==dep_reads?0xffffffffu:off==0x44004 || off==0xc4004?0xffffffffu:off;
+}
 #define SRVROS_PLATFORM_HOST_TEST
 #include "../kernel/diagnostics/platform_audit.c"
 #include "../kernel/diagnostics/package_audit_core.c"
-static uint32_t pci_config[64];
+static uint32_t pci_config[64],pch_config[64];
+static void dependency_after_read(void) {if(dep_change_pch && dep_reads==8)pch_config[0]=0xffffffffu;}
 uint32_t pci_read_config32(const struct pci_device *p,uint8_t offset) {
-    assert(p==gpu && !(offset&3));return pci_config[offset/4];
+    assert((p==gpu || p==pch_device) && !(offset&3));return p==gpu?pci_config[offset/4]:pch_config[offset/4];
 }
 uint64_t timer_monotonic_us(void) {return ++test_ticks;}
 bool vmm_virt_to_phys(uint64_t va,uint64_t *pa) {(void)pa;return va==occupied;}
@@ -34,11 +44,25 @@ bool vmm_map_page(uint64_t va,uint64_t pa,uint64_t flags) {
     bool match=(va==GFX_VA && pa==gpu_base+0x138000) || (va==WELL_VA && pa==gpu_base+0x45000);
     for(unsigned i=0;i<DISPLAY_RESOURCE_PAGES;i++)
         if(va==RESOURCE_VA+4096ull*i && pa==gpu_base+display_resource_pages[i])match=true;
+    for(unsigned i=0;i<DEP_PAGES;i++)if(va==DEP_VA+4096ull*i && pa==gpu_base+dep_pages[i])match=true;
     assert(match);
     return map_calls!=map_failure;
 }
 uint16_t pci_read_config16(const struct pci_device *p,uint8_t off) {
     return (uint16_t)(pci_read_config32(p,off&~3u)>>((off&2)*8));
+}
+static unsigned dependency_reports;
+void console_printf(const char *fmt,...) {
+    if(strncmp(fmt,"ap-platform-deps:",17))return;
+    va_list ap;va_start(ap,fmt);uint64_t phase=va_arg(ap,uint64_t);assert(phase<2);
+    const struct display_resource_snapshot *r=&dependencies[phase];
+    uint64_t expected[]={r->state,r->begin,r->end,r->read_count,dep_pch[phase][0],dep_pch[phase][1],
+        r->before[0],r->before[1],r->before[2],r->before[3],r->after[0],r->after[1],r->after[2],r->after[3],
+        r->raw[0],r->raw[1],r->raw[2],r->raw[3],r->raw[4],r->raw[5],r->raw[6],r->raw[7]};
+    unsigned fields=0;for(const char *p=fmt;*p;p++)if(p[0]=='%' && p[1]=='u')fields++;
+    assert(fields==23);
+    for(unsigned i=0;i<22;i++)assert(va_arg(ap,uint64_t)==expected[i]);
+    va_end(ap);dependency_reports++;
 }
 int main(void) {
     struct pci_device device={0};gpu=&device;
@@ -113,5 +137,41 @@ int main(void) {
         if(j==3)pci_config[4]=saved;
         resource_bad=well_drop_at=0;resource_mapped=true;
     }
+    /* Separate exact PCH and private-page gates for the eight dependency reads. */
+    struct pci_device lpc={.device=31,.class_code=6,.subclass=1};pch_device=&lpc;
+    pch_config[0]=0x9c438086;pch_config[2]=0x06010000;well_value=0x40000000;
+    for(unsigned i=0;i<DEP_PAGES;i++) {
+        occupied=DEP_VA+4096ull*i;map_calls=0;assert(!dependency_map_pages() && !map_calls);
+    }
+    occupied=0;
+    for(unsigned i=1;i<=DEP_PAGES;i++){map_calls=0;map_failure=i;assert(!dependency_map_pages() && map_calls==i);}
+    map_calls=0;map_failure=0;assert(dependency_map_pages() && map_calls==DEP_PAGES);
+    dep_mapped=true;dep_seen=0;fault=0;dep_reads=0;dependency_snapshot(0);
+    assert(dependencies[0].state==1 && dep_reads==8 && !fault);
+    assert(dependencies[0].raw[4]==0xffffffffu && dependencies[0].raw[6]==0xffffffffu);
+    dependency_snapshot(0);assert(fault && dep_reads==8);
+    for(unsigned j=0;j<9;j++) {
+        dep_seen=0;fault=0;dep_reads=0;pch_config[0]=0x9c438086;pch_config[2]=0x06010000;
+        lpc.device=31;well_value=0x40000000;dep_mapped=true;dep_bad=0;dep_change_pch=0;
+        if(j==0)pch_config[0]=0xffffffffu;
+        if(j==1)pch_config[2]=0x06000000;
+        if(j==2)lpc.device=30;
+        if(j==3)well_value=0;
+        if(j==4)dep_bad=3;
+        if(j==5)dep_change_pch=1;
+        if(j==6)well_drop_at=well_reads+5;
+        if(j==7)dep_mapped=false;
+        if(j==8)pci_config[1]&=~2u;
+        dependency_snapshot(0);assert(fault);
+        if(j<4 || j>=7)assert(!dep_reads);
+        if(j==4)assert(dep_reads==3 && dependencies[0].raw[2]==0xffffffffu);
+        if(j==5 || j==6)assert(dep_reads==8 && dependencies[0].state==3);
+        well_drop_at=0;pci_config[1]|=2;
+    }
+    dep_seen=0;dep_reads=0;dep_bad=0;dep_change_pch=0;dep_mapped=true;fault=0;
+    pch_config[0]=0x9c438086;pch_config[2]=0x06010000;lpc.device=31;well_value=0x40000000;
+    dependency_snapshot(0);dependency_snapshot(1);
+    assert(dependencies[0].state==1 && dependencies[1].state==1 && dep_reads==16);
+    (void)platform_audit_report();assert(dependency_reports==2);
     puts("platform-sample: PASS exact read-only mappings/refusals, endpoint well bounds/all-ones, sparse hook isolation, ordered reads and capacity");
 }
