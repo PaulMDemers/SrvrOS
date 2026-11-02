@@ -10946,3 +10946,46 @@ marker policy. No runtime, radio parser, DMA/deadline or reconnect changes are
 part of this correction. Validate synthetic repeated tails and damaged markers,
 then run the corrected proof against the unchanged archived native bytes and
 retain both the original refusal and the new verification receipt. No reboot.
+
+### v106 native empty-cache desktop/input/removal accepted
+
+Release `b1349e827d0497c3`, source `05506e01`, session
+`session-00065f41127d745c-00` passes the separately corrected full proof. The
+796886-byte immutable radio file,65536-byte begin/exit tails and both rolling
+periodic files bind to the same byte stream. The initial657-file rejection and
+original frozen helpers remain preserved. Checker `577c8d2e` explicitly permits
+repeated periodic markers only, verifies the final terminal marker and every
+retained matching receipt's absolute position/monotonic timestamp, and refuses
+malformed retained receipts. Radio/begin/exit keep unique-marker requirements.
+Seven parser test groups, three composed prior-RF/synthetic-UI cases and32 damaged
+proof refusals pass. Both corrected verification receipts and unchanged native
+file hashes are durable; no guest/runtime change or new reboot was needed.
+
+All three US1/6/11 visits complete their original deadlines and independent
+MAC/endpoint stops and13-word restorations. There are eight completed inputs,
+two pending reads, no late/reused/data-OUT inputs, and zero usable rows. All eight
+completed inputs in the channel11 visit are beacons rejected for DS-channel
+mismatch; visits1/6 receive no completed inputs. These observations do not prove
+RF frequency/selectivity or identify the networks. Do not weaken the channel
+check or substitute earlier discovery rows. Positive on-channel discovery and
+selection remain unexercised in this release.
+
+Ready cache owner1/generation1 with zero rows entered the desktop. It was read94
+times and retired once; the exit cache has no owner/adapters, with zero selections
+or stale/refused requests. The user confirms the trackpad worked, no networks
+were shown, unplug was detected, and leaving the desktop returned automatically
+to Ubuntu. This accepts that empty-cache desktop/input/removal/return scope.
+Refresh/Pause/Resume were not separately reported, and populated selection remains
+untested. Reconnect intentionally does not resurrect the old owner: live
+reattach/rescan is still missing functionality, not accepted behavior.
+
+Offline fsck/allocation pass386 files,1018 clusters,156 directories with zero
+leaks/mismatches/errors. Candidate and six retained recoveries verify; Ubuntu is
+default, workspace unmounted and no reboot armed. Durable archive remains
+`wifi-ui-empty-05506e01`; `corrected-return-v2` owns the final verification and
+user report, alongside the original refusal. A cached Linux query requested no
+rescan and supplied no fresh2.4GHz channel baseline. Next: investigate on-channel
+discovery and actual AP channel coverage, then design bounded reattach/rescan.
+Association/security/IP,5GHz and endurance remain pending. Fetched main is now
+`bbbdead1`; this Python-only return-proof correction does not change the installed
+runtime's `e339b9a8` integration baseline.

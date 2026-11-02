@@ -6053,3 +6053,15 @@ The new baseline consumes main `e339b9a8`; socket try-I/O retains syscall155 and
 Wi-Fi moves to156 in the matched kernel/userspace build. Logging preserves main's
 I/O-owner/durable diagnostics and the isolated radio/extended-prefix safeguards.
 Native acceptance requires a new source-bound trial and the user's report.
+
+The v106 native return on Pro11,2 accepts the bounded empty-cache desktop,
+trackpad, unplug retirement and automatic return; populated discovery/selection
+remain unexercised. Its eight completed scan inputs were off-channel beacons and
+remain rejected. Reconnect does not reattach in this one-scan profile. See the
+[unit evidence](machines/macbookpro11-2.md) for the exact release/session and limits.
+The return checker now supports explicitly repeated periodic snapshots, requiring
+all retained matching receipts to have valid absolute byte positions and strictly
+increasing timestamps, with the terminal receipt at EOF. Malformed receipts are
+refused. Immutable radio and begin/exit snapshots retain unique-marker rules.
+The original collection refusal and corrected source-bound verification are both
+preserved; this is a host parser correction, not a different native runtime.
