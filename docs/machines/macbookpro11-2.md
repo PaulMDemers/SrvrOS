@@ -31,6 +31,27 @@ compatible hardware. Local credentials remain private and unused until the
 security stage. Do not report connection-ready until authentication, data
 exchange and clean disconnect actually pass.
 
+## Ready native candidate — reversible5GHz band selection
+
+Installed v109 `4b58af1abfdc0fb5`, runtime `ecae82b5`, main `c9235491`,
+awaits native evidence. It admits only the v108 starting tuple, selects the
+fixed5GHz RF and MAC words, independently checks selection, restores the
+four changed words in reverse order and independently checks the original
+state. All771 I/O and779 authorization failure/cancellation boundaries,
+proof/receipt mutations, ASan/UBSan,200 staging groups, full build/core/docs,
+composed complete-prefix proof and exact-image refusal/save/unmount/return
+and missing-workspace VMs pass locally. Independent firmware packaging and
+kernel bytes match the stage. The final owner/attempted-proof tightening was
+included in the full rerun. No credentials are packaged or used.
+
+Ubuntu remains default and known-good e47d remains previous; v108 is still
+retained and backed up. The failed unreferenced v103 retry8524 EFI copy was
+retired only after full equality to its durable backup. The user's standing
+authority covers this ready warm test; no unplug is required. Collect matching
+source/release/session/storage proof first after automatic return. Successful
+band selection/restoration is not frequency/RX, authentication or IP/data
+acceptance. The local run record owns the exact armed/returned state.
+
 ## Active bounded scope — 2026-11-02, reversible5GHz band selection
 
 Use the native v108 starting-state tuple as an exact admission gate. Reuse the
