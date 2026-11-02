@@ -17,6 +17,96 @@ union one_right {
     unsigned char bytes[CMSG_SPACE(sizeof(int))];
 };
 
+union two_rights {
+    struct cmsghdr alignment;
+    unsigned char bytes[CMSG_SPACE(2 * sizeof(int))];
+};
+
+static int send_fds(int fd, const int *fds, size_t count) {
+    union two_rights control = {0};
+    char byte = 'C';
+    struct iovec iov = {&byte, 1};
+    struct msghdr msg = {.msg_iov = &iov, .msg_iovlen = 1,
+        .msg_control = control.bytes, .msg_controllen = CMSG_SPACE(count * sizeof(int))};
+    struct cmsghdr *header = CMSG_FIRSTHDR(&msg);
+    header->cmsg_level = SOL_SOCKET;
+    header->cmsg_type = SCM_RIGHTS;
+    header->cmsg_len = CMSG_LEN(count * sizeof(int));
+    memcpy(CMSG_DATA(header), fds, count * sizeof(int));
+    return sendmsg(fd, &msg, MSG_DONTWAIT) == 1;
+}
+
+static int pipe_eof(int fd) {
+    char byte;
+    return fcntl(fd, F_SETFL, O_NONBLOCK) == 0 && read(fd, &byte, 1) == 0;
+}
+
+static int cycle_once(int indirect) {
+    int a[2] = {-1, -1}, b[2] = {-1, -1}, witness[2] = {-1, -1};
+    int ok = socketpair(AF_UNIX, SOCK_STREAM, 0, a) == 0 &&
+        (!indirect || socketpair(AF_UNIX, SOCK_STREAM, 0, b) == 0) && pipe(witness) == 0;
+    if (ok) {
+        int rights[] = {indirect ? b[1] : a[1], witness[1]};
+        ok = send_fds(a[0], rights, 2);
+        if (ok && indirect) ok = send_fds(b[0], &a[1], 1);
+    }
+    for (int i = 0; i < 2; i++) {
+        if (a[i] >= 0) close(a[i]);
+        if (b[i] >= 0) close(b[i]);
+    }
+    if (witness[1] >= 0) close(witness[1]);
+    if (ok) ok = pipe_eof(witness[0]);
+    if (witness[0] >= 0) close(witness[0]);
+    return ok;
+}
+
+static int cycle_live_alias(void) {
+    int pair[2] = {-1, -1}, witness[2] = {-1, -1}, alias = -1;
+    int received[2] = {-1, -1};
+    int ok = socketpair(AF_UNIX, SOCK_STREAM, 0, pair) == 0 && pipe(witness) == 0 &&
+        (alias = dup(pair[1])) >= 0;
+    if (ok) {
+        int rights[] = {pair[1], witness[1]};
+        ok = send_fds(pair[0], rights, 2);
+    }
+    if (pair[0] >= 0) close(pair[0]);
+    if (pair[1] >= 0) close(pair[1]);
+    if (witness[1] >= 0) close(witness[1]);
+    if (ok) {
+        char byte = 0;
+        ok = fcntl(witness[0], F_SETFL, O_NONBLOCK) == 0 &&
+            read(witness[0], &byte, 1) == -1 && errno == EAGAIN;
+    }
+    if (ok) {
+        char byte = 0;
+        union two_rights control = {0};
+        struct iovec iov = {&byte, 1};
+        struct msghdr msg = {.msg_iov = &iov, .msg_iovlen = 1,
+            .msg_control = control.bytes, .msg_controllen = sizeof(control.bytes)};
+        ssize_t count = recvmsg(alias, &msg, MSG_DONTWAIT);
+        struct cmsghdr *header = CMSG_FIRSTHDR(&msg);
+        ok = count == 1 && byte == 'C' && header && header->cmsg_level == SOL_SOCKET &&
+            header->cmsg_type == SCM_RIGHTS && header->cmsg_len == CMSG_LEN(sizeof(received));
+        if (ok) {
+            memcpy(received, CMSG_DATA(header), sizeof(received));
+            ok = write(received[1], "L", 1) == 1 && read(witness[0], &byte, 1) == 1 && byte == 'L';
+        }
+    }
+    for (int i = 0; i < 2; i++) if (received[i] >= 0) close(received[i]);
+    if (alias >= 0) close(alias);
+    if (ok) ok = pipe_eof(witness[0]);
+    if (witness[0] >= 0) close(witness[0]);
+    return ok;
+}
+
+static int check_cycles(const char *name, int indirect) {
+    int ok = 1;
+    /* More iterations than the kernel pipe pool expose retained cycle entries. */
+    for (int i = 0; i < 80 && ok; i++) ok = cycle_once(indirect);
+    printf("netabi: rights %s %s\n", name, ok ? "ok" : "failed");
+    return ok;
+}
+
 static ssize_t send_right(struct rights_fixture *f, char byte) {
     union one_right control = {0};
     struct iovec iov = {&byte, 1};
@@ -155,5 +245,12 @@ int netabi_rights_test(void) {
     ok &= check_rights("unrelated prefix", prefix_receive);
     ok &= check_rights("peek and discard", peek_and_discard);
     if (ok) ok = check_rights("invalid output preserves queue", receive_fault);
+    if (ok) {
+        int live = cycle_live_alias();
+        printf("netabi: rights live cycle alias %s\n", live ? "ok" : "failed");
+        ok &= live;
+    }
+    ok &= check_cycles("self cycle reclaimed", 0);
+    ok &= check_cycles("indirect cycle reclaimed", 1);
     return ok ? 0 : -1;
 }

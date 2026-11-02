@@ -203,6 +203,8 @@ def main():
         ])
     else:
         expected.append(f"threadstress: {args.test} ok")
+    if args.test in ("all", "vector-io"):
+        expected.append("threadstress: blocked writev kept its original prefix")
     missing = [marker for marker in expected if marker not in text]
     if has_fatal_exception(text):
         print("thread-smoke: fatal exception detected", file=sys.stderr)
