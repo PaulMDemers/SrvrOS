@@ -3952,7 +3952,7 @@ build/tests/power-platform-host$(HOST_EXE): tools/test_power_service.c kernel/sr
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -DSRVROS_AP_PROBE -I kernel/include -I shared/include tools/test_power_service.c kernel/src/drivers/power_core.c -o $@
 
-build/tests/platform-sample$(HOST_EXE): tools/test_platform_sample.c kernel/diagnostics/platform_audit.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+build/tests/platform-sample$(HOST_EXE): tools/test_platform_sample.c kernel/diagnostics/platform_audit.c kernel/diagnostics/package_audit_core.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
 

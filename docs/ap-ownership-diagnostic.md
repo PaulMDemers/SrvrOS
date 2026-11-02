@@ -199,7 +199,7 @@ Add `--ap-platform-audit` alongside `--ap-package-audit` to select the separate
 and adds the existing Air6,1 GPU/PCH/DSDT identity gate. No diagnostic access runs
 in ordinary boot, old package profiles, native refusal or VM simulation.
 
-Two snapshots outside the measured rounds read Haswell graphics status
+Version-1–3 snapshots outside the measured rounds read Haswell graphics status
 `0x138060` and RC6 residency `0x138108` only. BAR0 must be an already-enabled,
 4 MiB-aligned 64-bit memory aperture and the GPU must already be D0. One page is
 mapped read-only, uncacheable and non-executable; it stays retained until reset.
@@ -433,3 +433,50 @@ of the comparison. Audit driver/DMA/interrupt/teardown ownership before proposin
 any D-state or PCI link transition. Neither Linux D3hot snapshots nor common-
 clock differences authorize copying control values. RC6 timing, dynamic device
 latency requests and the actual package-C3 blocker remain unresolved.
+
+
+## Version-4 display power-well endpoints
+
+The exact Air6,1 platform diagnostic additionally reads `PWR_WELL_CTL1` through
+`PWR_WELL_CTL4` (`0x45400`, `0x45404`, `0x45408`, `0x4540c`) at its two existing
+full-capture endpoints. These are the BIOS, driver, KVM and debug request/status
+views of Haswell's global display well. Bit 31 is the request and bit 30 is the
+state; raw values retain reserved/unknown fields without interpreting them.
+The sources are ORed to request the well. Different status observations can
+reflect a transition between reads; this is not an atomic snapshot or a live
+platform-grant register.
+
+[Linux's Haswell definitions](https://github.com/torvalds/linux/blob/v7.0/drivers/gpu/drm/i915/display/intel_display_regs.h)
+and [well reader](https://github.com/torvalds/linux/blob/v7.0/drivers/gpu/drm/i915/display/intel_display_power_well.c)
+identify the offsets, requester roles and global bits. The
+[Intel Haswell display PRM, page 189](https://kiwitree.net/~lina/intel-gfx-docs/prm/hsw/intel-gfx-prm-osrc-hsw-display.pdf)
+describes the request OR and power-well access behavior; it does not authorize
+releasing firmware requests or shutting off resources. The existing Haswell
+forcewake range ends at `0x3ffff`, below these registers. No forcewake or PCODE
+operation is required or added for the four fixed reads.
+
+After the unchanged CPU/GPU/PCH/DSDT, BAR, D0 and memory-decode gates, the code
+maps the `BAR0+0x45000` page beside the existing `BAR0+0x138000` page. Both maps
+are read-only, uncacheable and non-executable. Occupied addresses or either map
+failure refuse use; partial mappings remain retained until reset. No additional
+registers in that page are read. The original RC6 brackets remain unchanged;
+the display reads have their own PM brackets after them. D0 is explicitly
+revalidated at both endpoints before MMIO. No read is added to
+the sparse power hook or a measured C3 round, and no worker, timer, wait,
+request write, D-state transition or status acknowledgement is added.
+
+Version-4 strict parsing requires two well receipts, validates BAR/time/bracket
+ordering and rejects missing, duplicate or all-ones data. The independent
+`platform_display_result` returns observations even when the original RC6
+predicate fails, without granting acceptance to that failure. Versions 1–3
+retain their existing rules. Save the independent display observation before
+an overall platform-failure assertion so an expected RC6 discrepancy cannot
+hide the new evidence. Maximum-width endpoint/series/device/durability replay
+must preserve the original proofs inside the unchanged 64 KiB tail.
+
+This narrows the missing native side of the Linux comparison; it does not read
+pipe/plane/port ownership or prove the well causes the package-C3 block. Neither
+an enabled well nor a firmware request authorizes clearing it. A later policy
+experiment requires separate resource, DMA, interrupt and display ownership
+analysis. All existing attempts, watchdogs, HLT fallback, integrity checks and
+RC6 timing limits remain unchanged.
