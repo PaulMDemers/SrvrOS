@@ -5537,3 +5537,19 @@ snapshot to the existing bounded C3 trial. Keep device ownership analysis
 separate from any future D-state/link policy experiment. Package C3 remains
 unobserved in SrvrOS, and its RC6 timing failure remains open. No boot image,
 power policy, integrity check or limit changed, and no reboot is armed.
+
+
+### Read-only native display-well snapshot — active scope (2026-11-01)
+
+Base `71686249`. Add four read-only Haswell power-well observations at
+`0x45400`–`0x4540c` to the existing isolated platform capture endpoints. Retain
+exact Air6,1 CPU/GPU/PCH/DSDT admission and map only one additional uncacheable,
+read-only/non-executable page. No forcewake, PCODE, control writes, new workers,
+waits, polling or per-round work. Keep the existing 32 attempts, 20 ms limit,
+HLT fallback, RC6 scale/predicate, USB integrity and log limits unchanged.
+Scope: isolated platform diagnostic, independent observation parser/tests,
+current guide and this unit's automated trial/evidence. PR261 desktop admission,
+PR252 sockets and PR19 Wi-Fi do not overlap these runtime files. Validate
+source semantics, mapping/refusal and receipts, full matched build/core and
+exact-stage VM before install. Prepare the unattended native trial with visible
+progress and automatic save/Ubuntu return, preserving known-good recovery.
