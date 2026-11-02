@@ -542,3 +542,13 @@ Use modeling only for regression evidence. A native retry must pass its original
 exit-file checks directly, without replay or joining periodic files. Keep the
 independent RC6 failure separate from receipt coverage. Progress, samples and
 collector errors must survive a failed retry; no acceptance limit is relaxed.
+
+
+The native Air6,1 retry on release `98bced62ca7be424` accepts final-receipt
+retention: all original workload/AP/power/idle/C3/package/display proofs parse
+directly from its unchanged 64 KiB exit log, without reconstruction or modeling.
+The overall trial remains failed on the unchanged RC6 bound (about 94.279 ms
+nominal excess over 90.048 seconds). Coordinated rounds and AP retirement pass;
+package C3 is still zero. See the unit record for exact source/session/hashes.
+This closes receipt coverage only; it neither resolves RC6 semantics nor
+establishes that the BIOS display-well request causes the C3 block.
