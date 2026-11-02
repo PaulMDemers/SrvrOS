@@ -2,20 +2,28 @@
 
 Updated: 2026-11-02. State: **active reference machine; partial device acceptance**.
 
-### PR272 integration review
+### PR272 integration closeout
 
-The user authorized integration review and merge after the completed native
-trial. Main `88c56afa` supplies separate compact power/idle diagnostic receipts
-and capture-budget tools. Merge conflicts are confined to appended Makefile test
-registrations and adjacent machine-table rows; preserve all three test targets
-and each unit's independent evidence. No runtime Files/PCM fix is rewritten.
+Integrated main `88c56afa` as clean tested source `131ac835`. Conflicts were
+confined to appended Makefile targets and adjacent machine-table rows; all three
+tests and each unit's independent evidence are retained. Reviewed Files/PCM
+runtime and regression files match native-tested `ca66d874` byte-for-byte.
+Main's compact optional power/idle capture output and validation tools remain
+separate; no device gate or ordinary desktop policy was widened.
 
-Bounded checks: review the final PR diff, full local core/docs and matched builds,
-a combined loaded KVM trial and multi-Files regression on the integrated source.
-Keep source-specific native acceptance tied to `ca66d874`/releasec497. Ordinary
-boot/device gates are unchanged; new diagnostic-format integration has host/VM
-acceptance only until a matching physical run. Installed c497/recovery9aa remain
-unchanged. No reboot is armed; Actions remain disabled. Evidence/checkpoint:
+Full local core/docs, ordinary/native/synthetic builds and the AP diagnostic
+kernel pass. Combined read100/write100 plus1200-metadata KVM passes21 lifetimes,
+UI119521us, ready1118608us and Close1020678us at unchanged500ms/10s limits;
+161 live overlap windows,1267 preserved files, zero underruns/lost/pending logs,
+full capture and cache/service retirement. Twenty Files windows pass independent
+histories, owned cancel/collision, accepted8MiB copy through Close, concurrent
+Text save, exact files and cleanup. No actionable review findings remain.
+
+PR272 carries this integration and the source-specific native pass below.
+Physical acceptance stays tied to `ca66d874`/releasec497; integrated diagnostic
+format changes have host/VM evidence only. Installed c497, independent known-good
+payloads and recovery9aa are unchanged. No reboot is armed; Actions remain
+disabled. Evidence is backed up outside `build` from
 `build/air-pr272-integration-20261102/`.
 
 ### PR272 native endurance: full pass
@@ -41,8 +49,8 @@ audible routing, gauge calibration, SMP or sibling acceptance. Retained storage
 mutations/gate waits still reach6.658seconds; not all latency is eliminated.
 
 Evidence in `build/air-files-drain-20261102/` is backed up outside `build`.
-PR272 needs review/refresh against newly advanced main `88c56afa` and affected
-local integration checks before merge. No new test is armed. The next section
+The integration closeout above records main `88c56afa` and its local checks.
+No new test is armed. The next section
 preserves pretrial readiness and exact host/VM sources as historical evidence.
 
 ### Files drain and PCM signal fixes (historical): pretrial readiness
