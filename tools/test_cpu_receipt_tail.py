@@ -4,8 +4,9 @@ import test_hardware_platform as platform_tests
 
 
 class FinalReceiptTests(unittest.TestCase):
-    def fixture(self):
-        s=platform_tests.PlatformTests().display_fixture()
+    def fixture(self, resources=False):
+        t=platform_tests.PlatformTests()
+        s=t.resource_fixture() if resources else t.display_fixture()
         lines=s.splitlines(keepends=True)
         header=next(x for x in lines if x.startswith('ap-owner: v=1 admitted=1'))
         lines.remove(header)
@@ -29,6 +30,13 @@ class FinalReceiptTests(unittest.TestCase):
         for line in s.splitlines():
             if line.startswith(('cpu-load: phase=','ap-owner: v=1 admitted=1','cpu-load: version=')):
                 self.assertIn(line,new)
+
+    def test_resource_layout_retains_full_allowlist(self):
+        r=assess(self.fixture(resources=True),True)
+        self.assertEqual(r['status'],'COVERAGE_PASS')
+        self.assertTrue(r['critical_records_preserved_byte_for_byte'])
+        s=self.fixture(resources=True).replace('count=26 before=','count=25 before=')
+        with self.assertRaises(ValueError):assess(s,True)
 
     def test_failed_or_missing_data_never_becomes_coverage(self):
         s=self.fixture()

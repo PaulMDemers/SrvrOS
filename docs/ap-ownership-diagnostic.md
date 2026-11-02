@@ -648,3 +648,64 @@ Even complete endpoints would inventory possible dependencies, not prove a
 causal package-C3 blocker, safe DMA teardown, physical display continuity between
 reads or permission for a well/D-state/link transition. RC6 clock semantics,
 package C3 and any later control experiment remain separate work.
+
+
+## Version-5 bounded display-control capture
+
+The explicit exact-Air6,1 platform recipe now retains 26 raw controls at each
+of its two endpoints. This first inventory excludes display audio/interrupts,
+OpRegion, pixel/backing-memory dumps and control writes. Existing boot logs
+retain framebuffer geometry; controls cannot alone prove the scanout address
+or safe teardown. Ordinary boot and the sparse power hook remain unchanged.
+
+The fixed read allowlist is in `display_resource_audit.h`. Offsets come from
+Linux v7.0 `intel_display_regs.h`, `i9xx_plane_regs.h`, `intel_sprite_regs.h`,
+`intel_cursor_regs.h`, `intel_pfit_regs.h`, `intel_vga_regs.h`, with Haswell
+pipe/transcoder/cursor offsets from `intel_display_device.c`:
+
+| Controls | BAR0 offsets (hex) |
+| --- | --- |
+| Transcoder config A/B/C/eDP | 70008, 71008, 72008, 7f008 |
+| Transcoder DDI function A/B/C/eDP | 60400, 61400, 62400, 6f400 |
+| Primary planes A/B/C | 70180, 71180, 72180 |
+| Sprite planes A/B/C | 70280, 71280, 72280 |
+| Cursor controls A/B/C | 70080, 71080, 72080 |
+| Panel fitters A/B/C | 68080, 68880, 69080 |
+| DDI buffer controls A–E | 64000, 64100, 64200, 64300, 64400 |
+| CPU VGA control | 41000 |
+
+These are control readbacks, not interrupt status, AUX transactions or data
+ports. Linux hardware-readout uses the same control classes. The Haswell display
+PRM's Display Power Well description (PDF page 189) specifies zero readback for
+powered-down resources. Such zeroes cannot prove disabled hardware. The capture
+therefore requires all four existing well-status views enabled before dependent
+reads, then checks them again and requires exact pre/post values to match.
+GPU identity, BAR, memory decode and D0 are also revalidated before/after the
+bounded reads. These non-atomic observations cannot exclude an intervening SMI
+or firmware transition; no lock or firmware ownership is inferred.
+
+Only unique pages containing the fixed allowlist are mapped at private addresses
+starting `0xffffc001f3210000`, with the existing read-only/NX/cache-disabled flags.
+Every destination is checked before any page is installed. Partial map failures
+are retained unused until reset. The producer has no writable MMIO alias and
+reads only the fixed controls. Off domains are explicit state 2 with zero attempted reads and zero raw
+placeholders which are never decoded; identity/access changes, all-ones or changed well state are state 3. Both
+make the overall capture incomplete rather than producing successful zero data.
+The report preserves partial raw reads and the failed source marker.
+
+`ap-platform-resources` carries phase, validity state, PM bracket, read count and
+pre/post well controls. Fixed-order `ap-platform-resource` records bind all 26 raw values
+to the versioned exact-offset table above. The independent `platform_resources_result`
+requires both endpoints and rejects duplicates, missing/unlisted/out-of-order
+records, bad counts, all-ones, invalid access and brackets. It reports explicit
+unavailable data without decoding it as disabled. Decoding retains raw fields;
+eDP input selection is separate from the port-selection bits ignored by that
+transcoder. Reserved encodings remain numbers, not assumed routes.
+
+Version-5 overall acceptance requires a valid complete resource observation in
+addition to every previous strict check, including the original RC6 bound.
+The independent observation can survive an RC6 failure without accepting the
+platform trial. Current-source tail regression must retain all 52 raw control values in two records, both headers and every original proof in 64 KiB with maximum-width/capacity
+padding and pre-final chatter. No tolerance, phase, attempt, latency, ownership
+or integrity requirement changes. Native acceptance remains pending a matched
+physical return; enabled controls alone cannot identify a causal C3 blocker.

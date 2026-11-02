@@ -102,12 +102,17 @@ and releases only unused domains after resource adoption. SrvrOS currently
 inherits the framebuffer without that display-resource lifecycle. Native pipe/
 transcoder/DDI routing and dependent resources remain unmeasured.
 
-Next: implement the bounded read-only endpoint resource inventory specified in
-[the ownership audit](../ap-ownership-diagnostic.md#bounded-next-capture-contract),
-after validating its exact register/access allowlist. No BIOS request, D-state
-or link transition is authorized by this audit. PR261 desktop/I/O, PR252 sockets
-and PR19 Wi-Fi remain independent. No reboot is armed; the local run record owns
-installed/recovery hashes and returned state.
+The first bounded inventory is implemented on source `78fbea3c`, release
+`6ac139e77c5d3070` (PR269): 26 read-only controls at each endpoint, with access
+checks and compact final records. Matched build/core/docs, host/refusal and
+source-matched retention checks plus twelve VM cases pass. Native resource
+acceptance remains pending the matching automatic return.
+
+Next: collect the new session first, require direct exit-only original proofs
+and complete resource records, and review raw routing/dependent controls. Keep
+the original RC6 bound, package-C3 question and any later ownership/control work
+separate. PR261 desktop/I/O, PR252 sockets and PR19 Wi-Fi remain independent.
+The local run record owns installed/recovery hashes and armed/returned state.
 
 ### Historical battery-runtime objective (2026-10-23)
 
@@ -5779,3 +5784,53 @@ No new image, register access, power policy or reboot is introduced. Keep the
 physically accepted receipt fix and failed RC6/package-C3 evidence unchanged.
 Local source hashes/review live under the ignored display-handoff evidence root
 and are backed up outside `build`.
+
+
+### Read-only native display controls — implementation scope (2026-11-01)
+
+Base `9c23bf4d`. Add an exact-Air6,1 26-control endpoint inventory to the existing
+explicit platform diagnostic: A/B/C/eDP transcoder controls, primary/sprite/cursor
+A/B/C, panel fitters A/B/C, DDI A–E and VGA. Preserve firmware requests; audio
+and interrupt registers remain outside this initial allowlist. Scope is isolated
+platform producer, strict independent parser, host/refusal/tail fixtures and
+unit/current guide. No shared scheduler/logger or PR261/252/19 scope changes.
+Validate exact read-only maps, D0/BAR/decode and powered-well gates, non-atomic
+pre/post observations, final receipts and all unchanged limits before staging.
+
+
+### Display-control candidate validated (2026-11-01)
+
+Compiled source `78fbea3c`, release `6ac139e77c5d3070`, adds the 26-control
+endpoint inventory specified by the current guide. Twelve exact private pages
+are read-only/NX/cache-disabled. GPU identity, BAR, decode, D0 and all four well
+views are revalidated; off domains and invalid/changed data are explicit failure
+or unknown evidence. The raw fixed-order records preserve every value while
+avoiding the per-control verbosity that failed the maximum tail check. No
+firmware request, power policy, timing limit, ownership or integrity check changes.
+Audio/interrupt inventory remains outside this first allowlist.
+
+Full matched ordinary/AP build, USB image, core suite and docs pass. Producer
+fixtures exercise every occupied destination and map failure, off-domain skips,
+wrong identity/BAR/decode/D0, all-ones and changing well state. Fourteen platform
+parser tests and the three retention tests pass. Source-matched latest native
+output with explicitly synthetic new resource records preserves every critical
+record byte-for-byte under 128 KiB additional pre-final chatter and 30,405 bytes
+of width/capacity padding in the unchanged 64 KiB tail. Synthetic records are
+never native acceptance. The strict original RC6 failure remains a failure.
+
+All nine main VM cases and the three legacy owner/C3/package profiles pass.
+Actual final-admission ordering and equality plus failure receipt behavior are
+checked across all twelve. Ordinary-kernel symbol isolation, diagnostic AP and
+platform disassembly, no direct control-write operations and sparse power-hook
+isolation also pass. The exact native-stage GPT rehearsal saves/unmounts/returns
+on its expected Q35 native refusal; missing Home halts without unsafe reset.
+These VM results do not accept the new native MMIO observations.
+
+The automated trial retains 30/30/30-second phases, 32 coordinated rounds,
+20 ms whole-round bounds and HLT fallback. The return collector saves independent
+resource and RC6 observations, requires complete direct exit-file evidence and
+preserves the unchanged overall platform predicate. Keep AC and this unit's USB
+connected; no input is required. The USB baseline is 566 files / 1,625 clusters,
+with all prior hashes, headroom, fsck and allocation verified. Console recovery
+and accepted package/stress/reopen payloads remain protected. Native resource
+routing and dependency observations remain pending the matching return.
