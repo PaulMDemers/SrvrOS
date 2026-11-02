@@ -2,6 +2,17 @@
 
 Updated: 2026-11-01. State: **active reference machine; partial device acceptance**.
 
+### Automatic verified-append hardware trial prepared
+
+The user authorized the1800-second automatic test at1% volume. Release
+`62ed0e37a038f48e` is installed, with recovery `9aa8dbf6fbda8252` retained and
+independent accepted7d verified. Fresh1289-file/87-session preservation,
+offline fsck/allocation/writable/headroom and clean flags pass. An unused failed451
+EFI copy was archived and every file verified before removal. Ubuntu remains
+default, USB is unmounted and the durable run record is
+`build/air-append-writeback-20261101/native-trial/run.json`. No input is needed.
+Collect the matching new session first on return; acceptance remains pending.
+
 ### Verified append candidate ready for hardware
 
 Source `facd605d`, release `62ed0e37a038f48e`, continues draft PR261 on main9340c9fb.
@@ -44,8 +55,8 @@ overlap and cache/worker retirement checks remain. Enlarged fixtures preserve
 
 Exact staged TCG native-profile refusal/save/unmount/return passes plumbing only.
 Payload and evidence are backed up outside `build`. Installed failedff, recovery9aa
-and independent accepted7d verify. Candidate is not installed or armed. Next is
-fresh USB/recovery/run-record preflight and the automatic1800-second native trial
+and independent accepted7d verify. The prepared trial above supersedes this readiness snapshot. Next is
+the automatic1800-second native trial
 at1% volume. The prior22-cycle failure remains failed; native stall/input/audible
 and sibling acceptance remain separate. Latest local checkpoint:
 `build/air-append-writeback-20261101/checkpoint.json`.
