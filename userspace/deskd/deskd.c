@@ -89,6 +89,7 @@ struct session {
     struct lifecycle_worker *worker;
     int startup_trace;
     struct lifetime_trace current_lifetime,ready_worst,close_worst;
+    struct message_trace message;
     struct {uint64_t pid;struct desk_packet packet;} pending_open[LIFE_LAUNCH_SLOTS];
     unsigned pending_opens;
     int cache_pending;
@@ -1253,7 +1254,7 @@ static struct capture_trace capture_snapshot(const struct session *s,uint64_t no
     memcpy(c.phases,j->phase_us,sizeof(c.phases));return c;
 }
 static struct operation_trace operation_snapshot(const struct session *s,uint64_t now) {
-    struct operation_trace t={.ready_worst=s->ready_worst,.close_worst=s->close_worst,.at_us=now,.requests=s->launch_requests,.started=s->launch_started,.refused=s->launch_refused,
+    struct operation_trace t={.message=s->message,.ready_worst=s->ready_worst,.close_worst=s->close_worst,.at_us=now,.requests=s->launch_requests,.started=s->launch_started,.refused=s->launch_refused,
         .cache_bytes=s->cache_bytes,.cache_reuses=s->cache_reuses,
         .last_pid=s->last_launch_pid,.last_exec_us=s->last_exec_us,.pending_opens=s->pending_opens,.exiting=s->exiting,
         .exit_age_us=s->exiting && s->exit_started_us?now-s->exit_started_us:0,
@@ -2117,10 +2118,18 @@ int main(int argc,char **argv) {
         loop_trace_stamp(&loop_trace,LOOP_MESSAGES);
         uint64_t message_begin=(uint64_t)srv_monotonic_us();
         for (int n=0;n<32;n++) {
-            struct desk_packet p; uint64_t pid;
+            struct desk_packet p; uint64_t pid=0;
+            struct message_trace m={0};int tracing=audio_io && !srv_sched_trace(SRV_SCHED_TRACE_BEGIN,&m.scheduler);
+            if(tracing)m.begin=(uint64_t)srv_monotonic_us();
             int r=desk_receive(&pid,&p);
-            if (r<=0) break;
+            if(tracing)m.received=(uint64_t)srv_monotonic_us();
             if (r==1) incoming(&s,pid,&p);
+            if(tracing) {
+                m.end=(uint64_t)srv_monotonic_us();m.pid=pid;m.type=r==1?p.type:0;m.result=r;
+                if(!srv_sched_trace(SRV_SCHED_TRACE_END,&m.scheduler) &&
+                   m.end-m.begin>s.message.end-s.message.begin)s.message=m;
+            }
+            if (r<=0) break;
             /* A frame copy may yield to I/O or another runnable client. Do not
              * accumulate a whole packet-count batch before input/render work.
              * The next packet stays queued; no in-flight handler is abandoned. */

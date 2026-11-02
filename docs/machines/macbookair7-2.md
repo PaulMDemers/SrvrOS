@@ -2,6 +2,15 @@
 
 Updated: 2026-11-01. State: **active reference machine; partial device acceptance**.
 
+### Active message-stall closeout scope
+
+User authorizes continuing until PR261 is ready to merge. Instrument retained
+message receive/handler and scheduling intervals without UI logging or allocation;
+reproduce the unchanged500ms failure, then fix its established cause and rerun
+host/VM validation. Touch only compositor diagnostics and the measured shared
+path as needed. Main1a0c9085 and other devices' independent gates remain intact.
+No physical trial is needed or armed; installed62ed/recovery9aa remain untouched.
+
 ### PR261 integration review: intermittent VM UI failure
 
 Main `bbbdead1` merged as `4c1acb9e`; the only conflict was independent

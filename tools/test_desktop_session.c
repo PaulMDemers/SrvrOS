@@ -756,7 +756,15 @@ static void retained_operations(void) {
     w.launch[0]=(struct life_launch){.state=LIFE_QUEUED,.application=DESK_APP_FILES,.queued_us=200};
     w.reap[0]=(struct life_reap){.state=LIFE_QUEUED,.pid=42,.queued_us=200,.begin_us=999,.end_us=999};
     s.clients[0]=(struct client){.pid=42,.window=2,.close_requested=1};
+    s.message=(struct message_trace){.begin=100,.received=110,.end=450,.pid=42,.type=DESK_COMMIT,.result=1,
+        .scheduler={.ready_us=300,.dispatches=2}};
     struct operation_trace t=operation_snapshot(&s,500);
+    s.message.end=499;
+    assert(t.message.end==450 && t.message.scheduler.ready_us==300);
+    capture_loop_log=1;captured_loop_log[0]=0;operation_trace_report(&t,1);
+    assert(strstr(captured_loop_log,"desktop-message-worst: version=1 snapshot_us=500 begin_us=100 received_us=110 end_us=450 pid=42"));
+    assert(strstr(captured_loop_log,"ready_us=300 dispatches=2 exclusions=0 invalid=0 final=1"));
+    capture_loop_log=0;
     assert(t.queued==1 && t.launch_age_us==300 && t.oldest_app==DESK_APP_FILES);
     assert(t.reap_queued==1 && t.reap_pid==42 && t.reap_queue_age_us==300 && !t.reap_run_age_us && !t.reap_completed_us);
     w.reap[0].begin_us=300;life_publish(&w.reap[0].state,LIFE_RUNNING);
