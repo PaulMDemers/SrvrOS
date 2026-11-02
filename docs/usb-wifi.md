@@ -77,6 +77,27 @@ baseband/filter/gain, calibration, native prerequisite capture and partial-write
 cleanup remain separate. No native caller or startup behavior is added.
 Run `make test-mt76-rf-a20` for command and proof regression coverage.
 
+## Native5GHz starting-state capture (v108)
+
+The `--wifi-5ghz-prereq` automatic profile requires the complete common RF/VGA
+firmware chain and refuses later radio/desktop flags or a held failure screen.
+After exact common-init proof it reads five MAC/PA words (13c8,13a0,0518,13a8,
+13b4 hex) and RF5:0/RF6:0 selectors, with guards around every target. The new
+engine exposes no write callback, arbitrary target or replay. It admits49
+fixed operations with bounded cancellation, strict RF reply identity/length
+and complete readback/operation accounting. The native transport rechecks
+ownership and the exact fixed requests at each transfer.
+
+The guest retains a1MiB complete prefix, displays progress, saves diagnostics
+and returns to Ubuntu on handled success/failure. This is a warm starting-state
+inventory, not cold reset, band/tuning, RX or connectivity acceptance. The
+strict host receipt checker must be combined with the complete common-init
+proof and source/release/session/storage checks; no truncated prefix or missing
+completion is a pass. Credentials are not used by this profile. The user's
+standing automatic reboot authorization covers these self-contained trials;
+interactive cold unplug or attended UI work still needs in-guest instructions
+or readiness for the physical action.
+
 ## Captured baseline
 
 USB high speed (480 Mb/s), one configuration, interface 0 / alternate 0,

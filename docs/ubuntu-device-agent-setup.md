@@ -797,6 +797,10 @@ logs contain the needed evidence. Reserve an explicitly attended hold for a
 specific evidence gap, such as failure before persistent logging starts. Missing
 or incomplete logs remain incomplete evidence, never a pass. After Ubuntu
 returns, mount the same volume and reload its UUID/release from the local record.
+The v1085GHz prerequisite inventory retains a1MiB complete common-init and
+read-only MAC/PA/RF-selector prefix, shows progress and returns automatically.
+It stops before band programming, frequency/VCO, RX and network traffic; warm
+inventory completion does not accept cold reset or connectivity.
 The explicit full RF bank5/bank6/VGA/G20/trim diagnostic selects a256KiB startup-proof window to
 retain its complete command and guard receipts. Ordinary logging stays64KiB;
 previous firmware captures stay128KiB. The selected profile determines the exact

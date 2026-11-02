@@ -12,20 +12,31 @@ The captured EW-7711MAC `7392:a711`/`0100` is **5GHz-only**; see the
 mistaken for assembled-model capability. Historical2.4GHz packet/USB traces do
 not establish2.4GHz RF support. Do not repeat the withdrawn v107 trial.
 
-Installed remains v106 `b1349e827d0497c3`, source `05506e01`, main `e339b9a8`;
-its native empty-cache desktop/trackpad/unplug/automatic return is accepted.
-Its legacy2.4GHz radio recipe is superseded by the capability correction.
-Ubuntu remains default, no one-shot is armed, and known-good desktop
-`e47dca3a6b30c6c1` remains previous. Prepared v107 `5806a8aa054d6117` was never
-installed. All receipts and its withdrawn payload remain durable.
+Installed candidate is v108 `f5b4f13eb2dc4598`, runtime source `1562dd58`,
+main `c9235491`. It performs common initialization through RF/VGA, then49
+fixed read-only operations: five MAC/PA words and RF5:0/RF6:0 selectors.
+No5GHz band programming, frequency/VCO, receive or network traffic is enabled.
+This warm-state inventory is awaiting native evidence, not accepted radio or
+connectivity support. Known-good desktop `e47dca3a6b30c6c1` remains previous;
+old v106 remains backed up and installed. One unreferenced failed v103 payload
+was retired only after complete equality to its durable backup; the receipt
+is in the new candidate archive. Ubuntu remains default. The ready test is
+scheduled for a one-shot automatic reboot under the user's standing authority;
+the local run record owns the exact armed/returned state.
 
-Development consumes main `c9235491`. New source refuses installation/runtime
-execution of the captured2.4GHz RF recipe and prepares an offline channel161/
-20MHz frequency plan. A fixed5GHz RF band-selection engine is implemented offline; neither it nor the frequency plan has a native caller
-and no reboot is planned or armed. Next: independently implement5GHz band/baseband/calibration/
-restore prerequisites and a source-bound automatic capture, then discovery and
-live reattachment. Association/security/IP remain pending; local credentials
-have not been read or packaged. Other Pro bring-up and deferred work is unchanged.
+The full local `all usb-image test-core check-docs`,199 staging tests,49-op
+inventory and receipt mutation tests, ASan/UBSan, composed complete common-init
+proof, exact-image save/unmount/return VM and missing-workspace refusal pass.
+Kernel and independently packaged firmware initramfs match the staged bytes.
+The first host compile warning is retained; the corrected source passed.
+No credentials have been read or packaged. The guest shows progress, saves
+results and returns automatically; no commands or photos are required. On
+return, collect the matching release/session FIRST with the sealed native
+prerequisite collector, then continue5GHz initialization/cleanup, discovery,
+authentication and data transfer under the standing automatic-test authority.
+Demers2.4 requires compatible hardware because this adapter is5GHz-only.
+Do not call the connection ready until authentication, data exchange and
+clean disconnect actually pass. Battery/headphone/deferred Pro work is unchanged.
 
 ## Active bounded scope — 2026-11-02, native5GHz prerequisite capture
 
