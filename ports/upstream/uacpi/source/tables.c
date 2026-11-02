@@ -65,7 +65,12 @@ static inline uacpi_status dummy_mutex_acquire_release(uacpi_handle mtx)
 
 static uacpi_status table_install_physical_with_origin_unlocked(
     uacpi_phys_addr phys, enum uacpi_table_origin origin,
-    const uacpi_char *expected_signature, uacpi_table *out_table
+    const uacpi_char *expected_signature, uacpi_table *out_table,
+    uacpi_bool *directly_denied
+);
+static uacpi_status table_install_physical_with_origin_tagged(
+    uacpi_phys_addr phys, enum uacpi_table_origin origin, uacpi_table *out_table,
+    uacpi_bool *directly_denied
 );
 static uacpi_status table_install_with_origin_unlocked(
     void *virt, enum uacpi_table_origin origin, uacpi_table *out_table
@@ -153,14 +158,16 @@ static uacpi_status initialize_from_rxsdt(uacpi_phys_addr rxsdt_addr,
             continue;
 
         entry_addr = uacpi_truncate_phys_addr_with_warn(entry_phys_addr_large);
-        ret = uacpi_table_install_physical_with_origin(
-            entry_addr, UACPI_TABLE_ORIGIN_FIRMWARE_PHYSICAL, UACPI_NULL
+        uacpi_bool directly_denied = UACPI_FALSE;
+        ret = table_install_physical_with_origin_tagged(
+            entry_addr, UACPI_TABLE_ORIGIN_FIRMWARE_PHYSICAL, UACPI_NULL,
+            &directly_denied
         );
-        /* A host may intentionally suppress an optional firmware table.
-         * Other installation errors must abort enumeration. */
+        /* Skip only a direct denial of this optional table. A required child
+         * such as a FADT's DSDT can fail with the same status. */
         if (uacpi_unlikely(ret != UACPI_STATUS_OK &&
                            ret != UACPI_STATUS_OVERRIDDEN &&
-                           ret != UACPI_STATUS_DENIED))
+                           !(ret == UACPI_STATUS_DENIED && directly_denied)))
             goto error_out;
     }
 
@@ -333,7 +340,7 @@ uacpi_status uacpi_initialize_tables(void)
 
             ret = table_install_physical_with_origin_unlocked(
                 fadt->x_firmware_ctrl, UACPI_TABLE_ORIGIN_FIRMWARE_PHYSICAL,
-                ACPI_FACS_SIGNATURE, &tbl
+                ACPI_FACS_SIGNATURE, &tbl, UACPI_NULL
             );
             if (uacpi_unlikely(ret != UACPI_STATUS_OK &&
                                ret != UACPI_STATUS_OVERRIDDEN))
@@ -782,7 +789,7 @@ static uacpi_status handle_table_override(
             (uacpi_phys_addr)address,
             UACPI_TABLE_ORIGIN_HOST_PHYSICAL,
             UACPI_NULL,
-            out_table
+            out_table, UACPI_NULL
         );
     default:
         uacpi_error("invalid table installation disposition %u", disposition);
@@ -792,12 +799,16 @@ static uacpi_status handle_table_override(
 
 static uacpi_status table_install_physical_with_origin_unlocked(
     uacpi_phys_addr phys, enum uacpi_table_origin origin,
-    const uacpi_char *expected_signature, uacpi_table *out_table
+    const uacpi_char *expected_signature, uacpi_table *out_table,
+    uacpi_bool *directly_denied
 )
 {
     struct acpi_sdt_hdr hdr;
     void *virt = UACPI_NULL;
     uacpi_status ret;
+
+    if (directly_denied != UACPI_NULL)
+        *directly_denied = UACPI_FALSE;
 
     ret = get_external_table_header(phys, &hdr);
     if (uacpi_unlikely_error(ret))
@@ -837,6 +848,8 @@ static uacpi_status table_install_physical_with_origin_unlocked(
                 "table '%.4s' (0x%016"UACPI_PRIX64") installation denied "
                 "by host", hdr.signature, UACPI_FMT64(phys)
             );
+            if (directly_denied != UACPI_NULL)
+                *directly_denied = UACPI_TRUE;
             ret = UACPI_STATUS_DENIED;
             goto out;
 
@@ -865,8 +878,9 @@ out:
     return ret;
 }
 
-uacpi_status uacpi_table_install_physical_with_origin(
-    uacpi_phys_addr phys, enum uacpi_table_origin origin, uacpi_table *out_table
+static uacpi_status table_install_physical_with_origin_tagged(
+    uacpi_phys_addr phys, enum uacpi_table_origin origin, uacpi_table *out_table,
+    uacpi_bool *directly_denied
 )
 {
     uacpi_status ret;
@@ -876,11 +890,18 @@ uacpi_status uacpi_table_install_physical_with_origin(
         return ret;
 
     ret = table_install_physical_with_origin_unlocked(
-        phys, origin, UACPI_NULL, out_table
+        phys, origin, UACPI_NULL, out_table, directly_denied
     );
     uacpi_release_native_mutex_may_be_null(table_mutex);
 
     return ret;
+}
+
+uacpi_status uacpi_table_install_physical_with_origin(
+    uacpi_phys_addr phys, enum uacpi_table_origin origin, uacpi_table *out_table
+)
+{
+    return table_install_physical_with_origin_tagged(phys, origin, out_table, UACPI_NULL);
 }
 
 static uacpi_status table_install_with_origin_unlocked(
@@ -1559,7 +1580,7 @@ static uacpi_status initialize_fadt(const void *virt)
     if (fadt->x_dsdt) {
         ret = table_install_physical_with_origin_unlocked(
             fadt->x_dsdt, UACPI_TABLE_ORIGIN_FIRMWARE_PHYSICAL,
-            ACPI_DSDT_SIGNATURE, UACPI_NULL
+            ACPI_DSDT_SIGNATURE, UACPI_NULL, UACPI_NULL
         );
         if (uacpi_unlikely(ret != UACPI_STATUS_OK &&
                            ret != UACPI_STATUS_OVERRIDDEN))

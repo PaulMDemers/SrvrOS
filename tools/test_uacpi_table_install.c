@@ -6,7 +6,9 @@
 #include "../ports/upstream/uacpi/source/tables.c"
 
 struct uacpi_runtime_context g_uacpi_rt_ctx;
-static struct acpi_sdt_hdr facs, replacement_facs;
+static struct acpi_sdt_hdr facs, replacement_facs, required_dsdt;
+static struct acpi_fadt outer_fadt;
+static bool deny_required_dsdt;
 static uacpi_u64 override_address = 1;
 static union {
     struct acpi_sdt_hdr header;
@@ -21,6 +23,8 @@ void *uacpi_kernel_alloc(uacpi_size size) {
 void uacpi_kernel_free(void *p) { free(p); }
 void *uacpi_kernel_map(uacpi_phys_addr address, uacpi_size size) {
     if (address == (uacpi_phys_addr)(uintptr_t)&xsdt && size <= sizeof(xsdt)) return &xsdt;
+    if (address == (uacpi_phys_addr)(uintptr_t)&outer_fadt && size <= sizeof(outer_fadt)) return &outer_fadt;
+    if (address == (uacpi_phys_addr)(uintptr_t)&required_dsdt && size <= sizeof(required_dsdt)) return &required_dsdt;
     if (size > sizeof(facs)) return UACPI_MAP_FAILED;
     if (address == (uacpi_phys_addr)(uintptr_t)&facs) return &facs;
     if (address == (uacpi_phys_addr)(uintptr_t)&replacement_facs) return &replacement_facs;
@@ -41,6 +45,11 @@ void uacpi_kernel_log(uacpi_log_level level, const uacpi_char *text) { (void)lev
 void uacpi_log(uacpi_log_level level, const uacpi_char *text, ...) { (void)level; (void)text; }
 
 static uacpi_table_installation_disposition handler(struct acpi_sdt_hdr *table, uacpi_u64 *override) {
+    if (deny_required_dsdt) {
+        if (table == (struct acpi_sdt_hdr *)&outer_fadt) return UACPI_TABLE_INSTALLATION_DISPOSITION_ALLOW;
+        assert(table == &required_dsdt);
+        return UACPI_TABLE_INSTALLATION_DISPOSITION_DENY;
+    }
     assert(table == &facs);
     *override = override_address;
     return disposition;
@@ -48,7 +57,7 @@ static uacpi_table_installation_disposition handler(struct acpi_sdt_hdr *table, 
 
 static uacpi_status install_facs(uacpi_table *out) {
     return table_install_physical_with_origin_unlocked((uintptr_t)&facs,
-        UACPI_TABLE_ORIGIN_FIRMWARE_PHYSICAL, ACPI_FACS_SIGNATURE, out);
+        UACPI_TABLE_ORIGIN_FIRMWARE_PHYSICAL, ACPI_FACS_SIGNATURE, out, NULL);
 }
 
 int main(void) {
@@ -100,6 +109,35 @@ int main(void) {
     disposition = UACPI_TABLE_INSTALLATION_DISPOSITION_PHYSICAL_OVERRIDE;
     assert(initialize_from_rxsdt((uintptr_t)&xsdt, 8) == UACPI_STATUS_OK);
     assert(tables.size_including_inline == 1 && tables.inline_storage[0].ptr == &replacement_facs);
+    /* Denying a FADT's required DSDT must not be mistaken for a direct
+     * denial of the optional XSDT entry itself. */
+    memcpy(outer_fadt.hdr.signature, "FACP", 4);
+    outer_fadt.hdr.length = sizeof(outer_fadt);
+    outer_fadt.hdr.revision = 6;
+    outer_fadt.x_dsdt = (uintptr_t)&required_dsdt;
+    memcpy(required_dsdt.signature, "DSDT", 4);
+    required_dsdt.length = sizeof(required_dsdt);
+    unsigned char *fadt_bytes = (unsigned char *)&outer_fadt;
+    sum = 0;
+    for (unsigned i = 0; i < sizeof(outer_fadt); i++) sum += fadt_bytes[i];
+    outer_fadt.hdr.checksum = (uacpi_u8)(0 - sum);
+    address = (uintptr_t)&outer_fadt;
+    memcpy(xsdt.bytes + sizeof(xsdt.header), &address, sizeof(address));
+    xsdt.header.checksum = 0;
+    sum = 0;
+    for (unsigned i = 0; i < sizeof(xsdt.bytes); i++) sum += xsdt.bytes[i];
+    xsdt.header.checksum = (uacpi_u8)(0 - sum);
+    deny_required_dsdt = true;
+    tables.size_including_inline = 0;
+    assert(initialize_from_rxsdt((uintptr_t)&xsdt, 8) == UACPI_STATUS_DENIED);
+    assert(tables.size_including_inline == 0);
+    deny_required_dsdt = false;
+    address = (uintptr_t)&facs;
+    memcpy(xsdt.bytes + sizeof(xsdt.header), &address, sizeof(address));
+    xsdt.header.checksum = 0;
+    sum = 0;
+    for (unsigned i = 0; i < sizeof(xsdt.bytes); i++) sum += xsdt.bytes[i];
+    xsdt.header.checksum = (uacpi_u8)(0 - sum);
     installation_handler = NULL;
     tables.size_including_inline = UACPI_STATIC_TABLE_ARRAY_LEN;
     fail_alloc = true;
@@ -109,5 +147,5 @@ int main(void) {
     tables.size_including_inline = 0;
     assert(install_facs(&out) == UACPI_STATUS_OK);
     assert(out.ptr == &facs && out.index == 0);
-    puts("uacpi-table-install: PASS FACS OOM/denial, optional denial, override and success");
+    puts("uacpi-table-install: PASS FACS OOM/denial, optional and required-child denial, override and success");
 }
