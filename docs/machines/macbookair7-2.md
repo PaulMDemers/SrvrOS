@@ -2,16 +2,63 @@
 
 Updated: 2026-11-01. State: **active reference machine; partial device acceptance**.
 
-### Active message-stall closeout scope
+### PR261 message-stall closeout: ready for merge review
 
-User authorizes continuing until PR261 is ready to merge. Instrument retained
-message receive/handler and scheduling intervals without UI logging or allocation;
-reproduce the unchanged500ms failure, then fix its established cause and rerun
-host/VM validation. Touch only compositor diagnostics and the measured shared
-path as needed. Main1a0c9085 and other devices' independent gates remain intact.
-No physical trial is needed or armed; installed62ed/recovery9aa remain untouched.
+Integrated main `a6b9e1b7` as clean tested source `721339ea`. The new main changes
+retain isolated Air6,1 CPU/AP diagnostic receipts; hardware gates and ordinary
+desktop policy remain separate. PR261 is ready for review/merge after local
+validation; GitHub Actions remain disabled. No physical test is armed.
 
-### PR261 integration review: intermittent VM UI failure
+The earlier message interval was 653175 us. Instrumented reproduction also found
+a 617316 us interval in client service. Both paths synchronously printed console
+diagnostics. A controlled host test reproduces at least 600 ms of console delay
+inside the actual window-open handler; routing the same handler through the
+report worker returns without consuming that delay. The original saved interval
+does not identify a specific UART byte or syscall, so that exact attribution
+remains an inference. The fix removes the demonstrated blocking console path
+from both implicated UI stages rather than assuming a particular slow device.
+
+UI logs now transfer through 64 fixed 384-byte records to the report worker.
+Queued/emitting records cannot be overwritten; full/oversized submissions count
+as loss, and automated acceptance requires zero dropped/pending records after
+drain/join. Formatting and enqueueing perform no console/file I/O or allocation.
+A real threaded host fixture stalls the consumer and verifies nonblocking
+submission, full refusal, retained ownership, draining and recovery. Retained
+message receive/handler clocks and scheduler observations support future failures.
+
+Two separate test issues were also fixed. A final verified disk burst could end
+after the nominal PCM window. The producer now plays at least the full requested
+duration and continues until a private nonblocking completion pipe reports the
+durable disk receipt, capped at 60 additional seconds. Sustained disk span,
+containment inside live PCM, zero underruns, and matching binary/text receipts
+remain mandatory. An intermediate generic-poll version caused an underrun and
+remains failed. The collector now requires complete saved audio/lifecycle records
+that agree with the separate durable receipt; it never repairs interleaved UART.
+The earlier interleaving collection failure remains preserved and was rerun.
+
+Six final combined read100/write100 plus 1200-metadata-file VM trials pass.
+Their UI maxima are 119955–139995 us; ready maxima at most 1539779 us and
+Close at most 4238240 us, under unchanged 500 ms UI/10 s whole-lifetime limits.
+All preserve 1267 prior files, complete screenshot/capture and cache/service
+retirement, and report zero underruns and zero lost/pending UI logs. The final
+post-integration trial completes 21 lifetimes with UI139995us, ready1236417us,
+Close1109061us, and 161 live overlap windows. Normal load passes 25 lifetimes;
+write100 passes 22; 20 Files windows pass independent histories, cancellation,
+8 MiB copy through Close, concurrent Text save, exact bytes and full cleanup.
+
+Full core/desktop/crash/retirement, 338 append interruption cases, strict receipt
+regressions, ordinary/native/synthetic builds and the AP diagnostic kernel pass
+locally on the integrated source. Earlier hardening/5000-file scale/read/bitmap
+comparisons remain evidence for unchanged filesystem code. Current guides and
+PR261 describe the final contracts; raw outcomes and hashes are retained in
+`build/air-message-stall-20261101/` and backed up outside `build`.
+
+Installed native release62ed and recovery9aa were not changed. The prior
+1800-second physical pass remains tied to its exact source; these new changes
+have host/VM acceptance only. No new physical input, audible routing, power,
+SMP or sibling acceptance is claimed. Earlier failures remain historical failures.
+
+### PR261 integration review (historical): intermittent VM UI failure
 
 Main `bbbdead1` merged as `4c1acb9e`; the only conflict was independent
 Makefile test additions, and both sets are retained. Full local core/desktop,

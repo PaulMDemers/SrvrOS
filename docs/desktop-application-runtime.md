@@ -501,3 +501,44 @@ call, including for exited/stopping states, instead of enumerating every process
 through separate syscalls in the compositor's service loop. This adds no handle
 or lifetime reference; only actual wait/reaping proves resource completion.
 New clients need the matched kernel that implements this selector.
+
+
+### Deferred UI diagnostics and retained message clocks
+
+The compositor's measured event loop must not print to console/UART. It formats
+bounded records into a single-producer ring owned by the UI and the existing
+report thread. There are 64 slots of 384 bytes. Release/acquire publication
+protects each queued/emitting slot until output completes; the UI never waits
+for the sink and never overwrites an owned record. Oversized/full submissions
+increment the loss counter. Shutdown stops UI submissions, drains and joins the
+reporter, then emits `desktop-ui-log: version=1 dropped=0 pending=0`. Nonzero
+loss or pending records invalidate automated acceptance. Startup/final reporting
+outside the measured loop and other workers retain direct output. The reporter
+uses the existing coalesced event/futex wait, without adding idle timer polling.
+
+The operation snapshot also retains one slowest message receive/handler interval,
+with PID/type/result and scheduler blocked/ready observations. Immutable snapshots
+are formatted by the reporter as `desktop-message-worst`; these are wall clocks,
+not exact device latency. A slow interval in message or service stages is not
+proof of a particular syscall. Controlled sink-backpressure and threaded ownership
+regressions exercise the actual handlers and ring; ordinary lifecycle/deadline
+checks remain unchanged.
+
+### Keep PCM live through the final stress burst
+
+The boot-only audio/file stress producer submits at least the nominal requested
+PCM byte count. The unchanged disk worker signals a private completion pipe only
+after its final verified burst and durable binary receipt. If necessary, the
+producer continues PCM until that signal, with a fixed 60-second extension cap.
+The completion read is explicitly nonblocking; generic poll would regain storage
+admission and could starve this independent producer. EOF, malformed completion,
+resource errors, exceeded cap and underruns still fail the test.
+
+Collectors must check the nominal minimum PCM bytes, the bounded extension and
+frame alignment, the sustained disk span and every burst's containment in live
+PCM. They must also compare the binary disk receipt with the text result. Do not
+assume the PCM byte count is always exactly the nominal minimum. The synthetic
+VM collector requires whole saved audio/lifecycle records agreeing with the
+separate durable result; it rejects missing, truncated, conflicting and failed
+records instead of reconstructing damaged UART output. The UI500ms and whole
+lifetime10s bounds, screenshot workload, global sync and retirement remain intact.
