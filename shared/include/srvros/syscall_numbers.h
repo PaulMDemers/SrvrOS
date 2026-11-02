@@ -156,7 +156,8 @@
 #define SYS_GUI_WAIT_IO 152
 #define SYS_GUI_CANCEL_WAIT 153
 #define SYS_SCHED_TRACE 154
-#define SYS_WIFI 155
+#define SYS_SOCKET_TRY_IO 155
+#define SYS_WIFI 156
 #define SRV_DIRECTORY_READ 0
 #define SRV_DIRECTORY_PATH 1
 #define SRV_DIRECTORY_CHDIR 2
@@ -369,6 +370,7 @@ struct srv_winsize {
 #define SRV_NET_FLAG_RESET 0x80
 
 #define SRV_NET_ABI_VERSION 1
+#define SRV_NET_UDP_PAYLOAD_MAX 1472
 
 struct srv_net_abi_header {
     uint64_t abi_version;
@@ -578,5 +580,15 @@ struct srv_gui_surface_rect {
 #define SRV_POLLERR 0x0008
 #define SRV_POLLHUP 0x0010
 #define SRV_POLLNVAL 0x0020
+
+
+
+/* Per-call nonblocking socket/pipe I/O; never changes descriptor status flags. */
+#define SRV_SOCKET_RECV 1
+#define SRV_SOCKET_SEND 2
+#define SRV_SOCKET_PEEK 3
+#define SRV_SOCKET_UDP_RECV 4
+#define SRV_SOCKET_UDP_SEND 5
+struct srv_socket_peer { uint32_t ip; uint16_t port; uint16_t reserved; };
 
 #endif

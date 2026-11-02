@@ -60,6 +60,9 @@ struct thread {
     struct fpu_state kernel_fpu;
     struct scheduler_context context;
     struct scheduler_wait_queue *blocked_queue;
+    /* Retained across wake-to-READY, cleared before this continuation runs.
+     * Distinguishes a parked syscall from arbitrary preempted safe work. */
+    struct scheduler_wait_queue *memory_park_queue;
     uint64_t blocked_deadline_ticks;
     uint64_t switches;
     uint64_t sampled_ticks;
@@ -108,12 +111,32 @@ static void *io_private_image;
 static struct scheduler_wait_queue io_waiters;
 static uint64_t io_gate_pending;
 static uint64_t io_gate_cursor;
+#define IO_OBSERVE_ROWS 8
+#define IO_OBSERVE_MIN_US 100000
+struct io_owner_sample {
+    uint64_t seq, identity, pid, start, end, exclusions;
+    char name[32];
+};
+static struct {
+    bool enabled;
+    uint64_t scopes, long_scopes, invalid;
+    struct io_owner_sample active, rows[IO_OBSERVE_ROWS];
+} io_observed;
 static void yield_to(uint64_t preferred);
 static void io_gate_request(struct thread *thread) {
     if(!thread->io_gate_waiting) { thread->io_gate_waiting=true;io_gate_pending++; }
 }
 static void io_gate_leave(struct thread *thread) {
     if(thread->io_gate_waiting) { thread->io_gate_waiting=false;io_gate_pending--; }
+}
+/* Register before the next owner can acquire I/O, not only after a selection
+ * has already excluded this continuation. This reserves a quiescent turn; it
+ * never makes an unsafe thread eligible while ownership is active. */
+static void io_ready_request(struct thread *thread) {
+    if(io_services_enabled && thread->state==THREAD_READY &&
+       (!io_depth || thread!=thread_at(io_owner)) &&
+       (thread->user_context ? !thread->io_user_safe : !thread->io_eligible))
+        io_gate_request(thread);
 }
 static uint64_t preempt_tick_accumulator;
 static uint64_t preemption_count;
@@ -139,6 +162,58 @@ static void irq_restore(uint64_t flags) {
         __asm__ volatile ("sti" : : : "memory");
     }
 #endif
+}
+
+bool scheduler_io_observe_reset(void) {
+    uint64_t flags=irq_save();
+    if(!initialized || switching || io_depth || !timer_reference_ready()) {
+        irq_restore(flags);return false;
+    }
+    io_observed=(__typeof__(io_observed)){.enabled=true};
+    irq_restore(flags);return true;
+}
+static void io_observe_begin(void) {
+    if(!io_observed.enabled)return;
+    const struct thread *t=thread_at(current_thread);
+    struct io_owner_sample *v=&io_observed.active;
+    *v=(struct io_owner_sample){.seq=++io_observed.scopes,
+        .identity=t->identity,.pid=process_pid(t->user_context),.start=io_service_at};
+    const char *name=t->name?t->name:"unknown";
+    unsigned i=0;
+    for(;i<sizeof(v->name)-1 && name[i];i++) {
+        unsigned char c=(unsigned char)name[i];v->name[i]=c>32 && c<127?(char)c:'_';
+    }
+    v->name[i]=0;
+}
+static void io_observe_end(void) {
+    if(!io_observed.enabled || !io_observed.active.seq)return;
+    struct io_owner_sample *v=&io_observed.active;
+    v->end=timer_monotonic_us();
+    if(v->end<v->start)io_observed.invalid++;
+    else if(v->end-v->start>=IO_OBSERVE_MIN_US) {
+        io_observed.rows[io_observed.long_scopes%IO_OBSERVE_ROWS]=*v;
+        io_observed.long_scopes++;
+    }
+    *v=(struct io_owner_sample){0};
+}
+void scheduler_print_io_owners(void) {
+    struct io_owner_sample rows[IO_OBSERVE_ROWS];
+    uint64_t flags=irq_save();
+    if(!io_observed.enabled || io_depth) {irq_restore(flags);return;}
+    uint64_t at=timer_monotonic_us(),scopes=io_observed.scopes,
+        total=io_observed.long_scopes,invalid=io_observed.invalid;
+    unsigned count=total<IO_OBSERVE_ROWS?(unsigned)total:IO_OBSERVE_ROWS;
+    for(unsigned i=0;i<count;i++)rows[i]=io_observed.rows[(total-count+i)%IO_OBSERVE_ROWS];
+    irq_restore(flags);
+    /* No allocation, console output or device operations occur in recording. */
+    console_printf("io-owner-snapshot: version=1 at_us=%u scopes=%u long_scopes=%u retained=%u overwritten=%u invalid=%u min_us=%u\n",
+        at,scopes,total,(uint64_t)count,total-count,invalid,(uint64_t)IO_OBSERVE_MIN_US);
+    for(unsigned i=0;i<count;i++) {
+        const struct io_owner_sample *v=&rows[i];
+        console_printf("io-owner: version=1 snapshot_us=%u seq=%u thread=%u pid=%u name=%s start_us=%u end_us=%u elapsed_us=%u exclusions=%u\n",
+            at,v->seq,v->identity,v->pid,v->name,v->start,v->end,v->end-v->start,v->exclusions);
+    }
+    console_printf("io-owner-snapshot-end: version=1 at_us=%u retained=%u\n",at,(uint64_t)count);
 }
 
 /* Opt-in observations only: never influence eligibility, wakeups or selection. */
@@ -273,6 +348,7 @@ static bool io_thread_allowed(uint64_t index) {
      * writer can reacquire the gate before their first/last kernel turn. */
     if(!allowed && thread->state==THREAD_READY) {
         io_gate_request(thread);
+        if(io_observed.enabled && io_observed.active.seq)io_observed.active.exclusions++;
         if(thread->trace.active) {thread->trace.out.exclusions++;thread->trace.exclusions++;}
     }
     return allowed;
@@ -286,6 +362,42 @@ void scheduler_enable_io_services(void) {
 
 bool scheduler_io_active(void) { return io_depth != 0; }
 bool scheduler_io_busy(void) { return io_depth != 0 && io_owner != current_thread; }
+bool scheduler_io_process_independent(void *process) {
+    if(!initialized || !io_services_enabled || switching || !process || thread_capacity>4096 ||
+       current_thread>=thread_capacity || (io_depth && io_owner>=thread_capacity))return false;
+    struct thread *caller=thread_at(current_thread);
+    if(caller->state!=THREAD_RUNNING || caller->user_context!=process || caller->user_thread_context ||
+       !caller->io_user_safe || vmm_current_address_space()!=thread_address_space(caller))return false;
+    if(io_depth && (io_owner==current_thread || io_private_image==process ||
+                   thread_at(io_owner)->user_context==process))return false;
+    for(uint64_t i=0;i<thread_capacity;i++)if(i!=current_thread) {
+        struct thread *t=thread_at(i);
+        if(t->state!=THREAD_UNUSED && t->state!=THREAD_DEAD && t->user_context==process)return false;
+    }
+    return true;
+}
+
+/* This proof is only for bounded, IRQ-masked, callback-free memory retirement
+ * on CPU0. It grants no service/yield window and never changes a foreign gate.
+ * A helper may run while the main dispatcher is parked in an audited safe
+ * entry; a sibling's unsafe continuation or same-process gate must refuse. */
+bool scheduler_io_process_helper_memory(void *process,struct scheduler_wait_queue *parked) {
+    if(!initialized || !io_services_enabled || switching || !process || !parked || thread_capacity>4096 ||
+       current_thread>=thread_capacity || (io_depth && io_owner>=thread_capacity))return false;
+    struct thread *caller=thread_at(current_thread);
+    if(caller->state!=THREAD_RUNNING || caller->user_context!=process || !caller->user_thread_context ||
+       !caller->io_user_safe || vmm_current_address_space()!=thread_address_space(caller))return false;
+    if(io_depth && (io_owner==current_thread || io_private_image==process ||
+                   thread_at(io_owner)->user_context==process))return false;
+    for(uint64_t i=0;i<thread_capacity;i++)if(i!=current_thread) {
+        struct thread *t=thread_at(i);
+        if(t->state==THREAD_UNUSED || t->state==THREAD_DEAD || t->user_context!=process)continue;
+        if((t->state!=THREAD_BLOCKED && t->state!=THREAD_READY) ||
+           t->memory_park_queue!=parked || !t->io_user_safe ||
+           thread_address_space(t)!=thread_address_space(caller))return false;
+    }
+    return true;
+}
 
 void scheduler_io_request_turn(void) {
     uint64_t flags=irq_save();
@@ -295,12 +407,23 @@ void scheduler_io_request_turn(void) {
     irq_restore(flags);
 }
 
+bool scheduler_io_process_retired(void *process) {
+    if(!initialized || !io_services_enabled || switching || !process || thread_capacity>4096 ||
+       (io_depth && (io_owner>=thread_capacity || io_private_image==process || thread_at(io_owner)->user_context==process)))return false;
+    for(uint64_t i=0;i<thread_capacity;i++) {
+        struct thread *t=thread_at(i);
+        if(t->state!=THREAD_UNUSED && t->state!=THREAD_DEAD && t->user_context==process)return false;
+    }
+    return true;
+}
+
 bool scheduler_io_begin(void) {
     if (!initialized || !io_services_enabled || switching) return false;
     if (io_depth != 0 && io_owner != current_thread) return false;
     if (io_depth++ == 0) {
         io_owner = current_thread;io_private_image=NULL;
         io_service_at=timer_monotonic_us();latency_owner_begin();
+        io_observe_begin();
     }
     return true;
 }
@@ -320,6 +443,7 @@ bool scheduler_io_begin_process_image(void *image) {
 
 void scheduler_io_end(void) {
     if (io_depth != 0 && io_owner == current_thread && --io_depth == 0) {
+        io_observe_end();
         io_private_image=NULL;latency_owner_end(); scheduler_wake_all(&io_waiters);
     }
 }
@@ -472,12 +596,15 @@ static uint64_t initial_thread_stack(uint64_t top) {
 }
 
 static bool spawn_thread(const char *name, scheduler_thread_fn entry, void *arg,
-    scheduler_wait_condition_fn io_eligible) {
+    scheduler_wait_condition_fn io_eligible,bool user,struct fpu_state *user_fpu,uint64_t user_fs_base) {
     if (!initialized || entry == NULL) {
         return false;
     }
 
     uint64_t flags=irq_save();
+    struct thread *parent=thread_at(current_thread);
+    if(user && (!arg || !user_fpu || !parent->user_context || !parent->address_space ||
+       vmm_current_address_space()!=parent->address_space)) {irq_restore(flags);return false;}
     if(next_identity==UINT64_MAX) { irq_restore(flags);return false; }
     uint64_t i;
     for(i=1;i<thread_capacity;i++)
@@ -516,22 +643,34 @@ static bool spawn_thread(const char *name, scheduler_thread_fn entry, void *arg,
         .context={.rsp=initial_thread_stack((uint64_t)stack+SCHEDULER_STACK_SIZE),
                   .rip=(uint64_t)scheduler_trampoline}};
     fpu_init_state(&slot->kernel_fpu);
+    if(user) {
+        /* Publish complete immutable entry context before making this READY
+         * slot observable. No uninitialized kernel continuation is admitted. */
+        slot->user_context=parent->user_context;slot->address_space=parent->address_space;
+        slot->user_thread_context=arg;slot->user_fpu=user_fpu;
+        slot->user_fs_base=user_fs_base;slot->io_user_safe=true;
+    }
     if(grow) {
         thread_chunks[thread_capacity/SCHEDULER_INITIAL_THREADS]=chunk;
         thread_capacity+=SCHEDULER_INITIAL_THREADS;
     }
     thread_storage_bytes+=needed;
+    io_ready_request(slot);
     irq_restore(flags);return true;
 }
 
 bool scheduler_spawn(const char *name, scheduler_thread_fn entry, void *arg) {
-    return spawn_thread(name, entry, arg, NULL);
+    return spawn_thread(name, entry, arg, NULL,false,NULL,0);
+}
+
+bool scheduler_spawn_user_thread(const char *name,scheduler_thread_fn entry,void *thread,struct fpu_state *fpu,uint64_t fs_base) {
+    return spawn_thread(name,entry,thread,NULL,true,fpu,fs_base);
 }
 
 bool scheduler_spawn_io_service(const char *name, scheduler_thread_fn entry,
     void *arg, scheduler_wait_condition_fn eligible) {
     if (eligible == NULL) return false;
-    return spawn_thread(name, entry, arg, eligible);
+    return spawn_thread(name, entry, arg, eligible,false,NULL,0);
 }
 
 static uint64_t next_ready_thread(uint64_t old_index) {
@@ -617,6 +756,7 @@ static void yield_to(uint64_t preferred) {
     }
 
     if (next_index == old_index) {
+        thread_at(old_index)->memory_park_queue=NULL;
         if(thread_at(old_index)->trace.active)trace_run(thread_at(old_index),timer_monotonic_us());
         irq_restore(flags);
         return;
@@ -635,8 +775,10 @@ static void yield_to(uint64_t preferred) {
     if (old->state == THREAD_RUNNING) {
         trace_ready(old,0);
         old->state = THREAD_READY;
+        io_ready_request(old);
     }
     if(next->trace.active)trace_run(next,timer_monotonic_us());
+    next->memory_park_queue=NULL;
     next->state = THREAD_RUNNING;
     next->switches++;
     context_switches++;
@@ -737,6 +879,7 @@ bool scheduler_wait_timeout(struct scheduler_wait_queue *queue,
     }
     thread->state = THREAD_BLOCKED;
     thread->blocked_queue = queue;
+    thread->memory_park_queue = queue;
     thread->blocked_deadline_ticks = deadline_ticks;
     queue->waiters++;
     irq_restore(flags);
@@ -767,6 +910,7 @@ uint64_t scheduler_wake_count(struct scheduler_wait_queue *queue, uint64_t max_c
         if(t->state!=THREAD_BLOCKED) { detach_wait(t);continue; }
         if(woken<max_count) {
             trace_ready(t,1);detach_wait(t);t->state=THREAD_READY;t->signal_wakes++;woken++;
+            io_ready_request(t);
         } else remaining++;
     }
     queue->waiters=remaining;
@@ -790,6 +934,7 @@ static void wake_expired_waits(void) {
         trace_ready(thread,2);detach_wait(thread);
         thread->state = THREAD_READY;
         thread->timeout_wakes++;
+        io_ready_request(thread);
     }
 }
 

@@ -70,6 +70,7 @@ void srv_puts(const char *text) {
 }
 static uint64_t now=1;
 static int alive=1,queue_full,copy_failure,allocations,frees,killed,sends,reaped,alloc_fail;
+static unsigned kill_delay;
 static int terminal_snapshot,defer_reap;static unsigned worker_reaps;
 long srv_proc_list(uint64_t index,struct srv_process_info *info) {
     if(!terminal_snapshot || index)return 0;
@@ -89,13 +90,35 @@ long srv_ticks(void) { return (long)now; }
 long srv_monotonic_us(void) { return (long)(now*10000); }
 long srv_realtime_us(void) { return 1792326896000000L; }
 int desk_process_alive(uint64_t pid) { return pid==42 && alive; }
-long srv_kill(int64_t pid) { assert(pid==42); alive=0; killed++; return 0; }
+long srv_kill(int64_t pid) { assert(pid==42); alive=0; killed++; now+=kill_delay; return 0; }
 long srv_wait(uint64_t pid,uint64_t *status,uint64_t flags) {
     if(defer_reap) {
         if(flags&SRV_WAIT_NOHANG)return 0;
         assert(terminal_snapshot && pid==42);worker_reaps++;*status=0;return 42;
     }
     (void)status;return !alive?(reaped?-1:(long)pid):0;
+}
+static void asynchronous_client_termination(void) {
+    struct lifecycle_worker w={0};struct session s={.worker=&w};
+    alive=1;now=602;kill_delay=250;int before=killed;
+    s.scene.focus=-1;s.clients[0]=(struct client){.pid=42,.awaiting=1,.progress=1};
+    service(&s);assert(killed==before && alive && now==602 && s.clients[0].pid==42);
+    for(unsigned n=0;n<100;n++)service(&s);
+    assert(now==602 && killed==before && life_terminate_pending(&w,42));
+    life_work(&w);assert(now==852 && killed==before+1 && !alive);
+    assert(s.clients[0].pid==42 && w.terminate[0].elapsed==2500000);
+    service(&s);assert(!s.clients[0].pid && !life_terminate_pending(&w,42));
+    service(&s);assert(killed==before+1);
+    /* Full/stopped queues keep live UI clients for retry; no direct kill. */
+    alive=1;now=1000;s.clients[0]=(struct client){.pid=42,.awaiting=1,.progress=1};
+    for(unsigned n=0;n<LIFE_TERMINATE_SLOTS;n++)assert(life_terminate_submit(&w,500+n));
+    service(&s);assert(killed==before+1 && alive && s.clients[0].pid==42);
+    life_publish(&w.terminate[0].state,LIFE_IDLE);service(&s);
+    assert(life_terminate_pending(&w,42) && killed==before+1);
+    w=(struct lifecycle_worker){.stop=1};service(&s);
+    assert(alive && s.clients[0].pid==42 && killed==before+1);
+    kill_delay=0;
+    puts("desktop-termination: PASS blocked syscall outside UI, duplicate/full/stopped queues, delayed client retirement");
 }
 static void asynchronous_child_reap(void) {
     struct lifecycle_worker w={0};struct session s={.worker=&w};s.children[0]=42;
@@ -175,13 +198,50 @@ static void asynchronous_lifecycle(void) {
         assert(cache_prepare(&s,i,1024,768));
     }
     assert(s.cache_bytes==DESKD_CACHE_BUDGET);
+    cache_forget(&s,15);s.scene.windows[15].pixels=NULL;
+    assert(s.retained_cache[0].job && s.retained_cache[1].job && s.cache_bytes==DESKD_CACHE_BUDGET);
     assert(!cache_prepare(&s,0,1280,768) && s.cache_pending && s.cache_bytes==DESKD_CACHE_BUDGET);
     life_work(&worker);assert(s.cache_bytes==DESKD_CACHE_BUDGET);lifecycle_poll(&s);
-    assert(s.cache_bytes==17ull*1024*768*4);
+    assert(s.cache_bytes==16ull*1024*768*4 && !s.retained_cache[0].job && !s.retained_cache[1].job);
     assert(!cache_prepare(&s,0,1280,768) && s.cache_pending && s.cache_bytes<=DESKD_CACHE_BUDGET);
     life_work(&worker);assert(cache_prepare(&s,0,1280,768));
     cache_free(&s);life_work(&worker);lifecycle_poll(&s);assert(!s.cache_bytes);
     memset(&s,0,sizeof(s));memset(&worker,0,sizeof(worker));execute_result=-1;sends=0;
+}
+static void retired_cache_reuse(void) {
+    static struct session s;static struct lifecycle_worker worker;
+    s=(struct session){.worker=&worker};worker=(struct lifecycle_worker){0};
+    int before=allocations,freed=frees;alive=1;copy_failure=0;
+    assert(!cache_prepare(&s,0,400,280) && s.cache_pending);life_work(&worker);
+    uint32_t *pixels=cache_prepare(&s,0,400,280);assert(pixels && allocations==before+1);
+    for(unsigned n=0;n<100;n++) {
+        s.scene.windows[0].pixels=pixels;
+        cache_forget(&s,0);s.scene.windows[0].pixels=NULL;
+        assert(s.cache_bytes==400u*280u*4u && frees==freed);
+        struct operation_trace t=operation_snapshot(&s,100+n);
+        assert(t.cache_retained==1 && t.cache_retained_bytes==s.cache_bytes && t.cache_reuses==n);
+        assert(cache_prepare(&s,0,400,280)==pixels && !s.cache_pending);
+        assert(!s.scene.windows[0].pixels && allocations==before+1 && frees==freed);
+    }
+    /* A reused staging buffer must not publish old or partially copied pixels. */
+    s.clients[0]=(struct client){.pid=42,.window=1,.generation=1,.awaiting=1};
+    s.scene.windows[0].frame=(struct desk_rect){20,60,402,325};
+    for(unsigned n=0;n<400u*280u;n++)pixels[n]=0xaabbcc;
+    struct desk_packet p=desk_packet_new(DESK_COMMIT);p.generation=1;p.serial=1;p.surface=7;p.width=400;p.height=280;
+    copy_failure=1;incoming(&s,42,&p);assert(!s.scene.windows[0].pixels && s.clients[0].closing);
+    s.clients[0].closing=0;s.clients[0].release.type=0;copy_failure=0;p.serial=2;
+    incoming(&s,42,&p);assert(s.scene.windows[0].pixels==pixels);
+    for(unsigned n=0;n<400u*280u;n++)assert(pixels[n]==0x123456);
+    cache_forget(&s,0);s.scene.windows[0].pixels=NULL;
+    cache_free(&s);assert(s.cache_bytes==400u*280u*4u); /* Still reserved until unmap. */
+    life_work(&worker);assert(s.cache_bytes==400u*280u*4u);lifecycle_poll(&s);
+    assert(!s.cache_bytes && frees==freed+1 && allocations==before+1 && s.cache_reuses==100);
+    /* A queued allocation is discarded, never pooled before publication. */
+    assert(!cache_prepare(&s,0,400,280));cache_forget(&s,0);
+    assert(!s.retained_cache[0].job && !s.retained_cache[1].job);
+    life_work(&worker);lifecycle_poll(&s);assert(!s.cache_bytes);
+    memset(&s,0,sizeof(s));memset(&worker,0,sizeof(worker));
+    puts("desktop-cache-reuse: PASS100 retire/reopen transfers, unchanged reservation, no new mappings, partial-copy isolation and full shutdown");
 }
 static void delayed_control_delivery(void) {
     static struct session s;
@@ -677,14 +737,24 @@ static void retained_operations(void) {
     s.capture.request.id=7;s.capture.started_us=100;s.capture.last_progress_us=250;s.capture.busy=1;s.capture.phase=CAPTURE_TEMP_VERIFY;
     s.capture.phase_us[CAPTURE_WRITE]=80;s.capture.sent=400;s.capture.progress_bytes=300;
     w.launch[0]=(struct life_launch){.state=LIFE_QUEUED,.application=DESK_APP_FILES,.queued_us=200};
+    w.reap[0]=(struct life_reap){.state=LIFE_QUEUED,.pid=42,.queued_us=200,.begin_us=999,.end_us=999};
     s.clients[0]=(struct client){.pid=42,.window=2,.close_requested=1};
     struct operation_trace t=operation_snapshot(&s,500);
     assert(t.queued==1 && t.launch_age_us==300 && t.oldest_app==DESK_APP_FILES);
+    assert(t.reap_queued==1 && t.reap_pid==42 && t.reap_queue_age_us==300 && !t.reap_run_age_us && !t.reap_completed_us);
+    w.reap[0].begin_us=300;life_publish(&w.reap[0].state,LIFE_RUNNING);
+    struct operation_trace running=operation_snapshot(&s,500);
+    assert(running.reap_running==1 && !running.reap_queued && running.reap_run_age_us==200 && !running.reap_completed_us);
+    w.reap[0].end_us=450;life_publish(&w.reap[0].state,LIFE_DONE);
+    struct operation_trace done=operation_snapshot(&s,500);
+    assert(done.reap_done==1 && !done.reap_running && done.reap_completed_us==150);
     assert(t.exiting && t.exit_age_us==400 && t.close_pid==42 && t.close_requested==1);
     assert(t.capture.id==7 && t.capture.busy && t.capture.age_us==400 && t.capture.progress_age_us==250 && t.capture.phases[CAPTURE_WRITE]==80);
     struct loop_trace trace={0};loop_trace_begin(&trace,1,0,0,0);loop_trace_end(&trace,2,0,0,0);
     assert(life_report_submit(&w,&trace,&t));s.capture.sent=900;w.launch[0].state=LIFE_IDLE;
+    w.reap[0].state=LIFE_IDLE;w.reap[0].queued_us=499;
     assert(w.operations.capture.sent==400 && w.operations.queued==1); /* Frozen until worker consumes. */
+    assert(w.operations.reap_queued==1 && w.operations.reap_queue_age_us==300 && !w.operations.reap_run_age_us);
     puts("desktop-operations: PASS pending capture/launch/close ages and immutable retained snapshot");
 }
 static struct srv_key_event navigation_event(unsigned usage,unsigned modifiers,unsigned flags) {
@@ -1096,8 +1166,10 @@ int main(void) {
     execute_result=42;spawn_app(&failed,DESK_APP_TEXT,"");
     assert(failed.children[4]==42 && failed.child_apps[4]==DESK_APP_TEXT && !failed.scene.notice[0]);
     capture_cleanup_ownership();
+    asynchronous_client_termination();
     asynchronous_child_reap();
     asynchronous_lifecycle();
+    retired_cache_reuse();
     clipboard_client_retirement();
     delayed_control_delivery();
     connection_lifetime();

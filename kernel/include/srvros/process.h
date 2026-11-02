@@ -199,6 +199,8 @@ int64_t process_file_pipe_pair(struct process *process, uint64_t fds_out[2]);
 /* IRQ-disabled bounded nonblocking byte transfer, with no rights cleanup or
  * broken-pipe signal. Scheduler same-process exclusion still applies. */
 bool process_file_pipe_io_safe(struct process *process, uint64_t fd, uint64_t length, bool writing);
+int64_t process_file_pipe_read_mode(struct process *process, uint64_t fd, uint8_t *buffer, uint64_t length, bool dontwait);
+int64_t process_file_pipe_write_mode(struct process *process, uint64_t fd, const uint8_t *buffer, uint64_t length, bool dontwait);
 int64_t process_file_pipe_read(struct process *process, uint64_t fd, uint8_t *buffer, uint64_t length);
 int64_t process_file_pipe_write(struct process *process, uint64_t fd, const uint8_t *buffer, uint64_t length);
 int64_t process_unix_bind(struct process *process, const char *path);
@@ -223,6 +225,9 @@ int64_t process_handle_alloc(struct process *process,
     enum process_file_type type,
     uint64_t handle);
 int64_t process_file_close(struct process *process, uint64_t fd);
+/* Atomic simple-pipe cleanup only. False leaves descriptor/result unchanged;
+ * callers must obtain ordinary I/O admission before the general close path. */
+bool process_file_try_close_pipe(struct process *process, uint64_t fd, int64_t *result);
 int64_t process_file_dup(struct process *process, uint64_t old_fd);
 int64_t process_file_dup_min(struct process *process, uint64_t old_fd, uint64_t minimum, bool cloexec);
 int64_t process_file_dup2(struct process *process, uint64_t old_fd, uint64_t new_fd);
@@ -259,6 +264,17 @@ int64_t process_mmap(struct process *process,
     int64_t fd,
     int64_t offset);
 int64_t process_munmap(struct process *process, uint64_t address, uint64_t length);
+/* Atomic bounded whole-anonymous-region retirement, otherwise no mutation.
+ * A handled failure retains remaining ownership; false requires the I/O gate. */
+/* CPU0, validated sole-main atomic attempts; refusals leave result/state intact.
+ * Anonymous RW mapping uses one candidate <=2MiB; first-thread TLS <=2 pages.
+ * No file work, service windows or foreign-gate mutation. Generic calls gate. */
+bool process_try_thread_create_private(uint64_t entry,uint64_t arg,uint64_t stack_top,uint64_t flags,int64_t *result);
+bool process_try_mmap_private(struct process *,uint64_t address,uint64_t length,uint64_t protection,uint64_t flags,int64_t fd,int64_t offset,int64_t *result);
+bool process_try_munmap_private(struct process *process, uint64_t address, uint64_t length, int64_t *result);
+/* Exact direct child only; consume fully cleaned reapable metadata atomically.
+ * False leaves ownership/status unchanged and requires ordinary wait admission. */
+bool process_try_wait_retired(uint64_t pid, uint64_t *status, int64_t *result);
 int64_t process_mprotect(struct process *process,
     uint64_t address,
     uint64_t length,

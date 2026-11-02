@@ -27,6 +27,14 @@ int main(void) {
     last_counter=PM_MASK-3; counter=6; accumulated=0;
     assert(timer_monotonic_us()==10*1000000/PM_FREQUENCY);
     assert(timer_monotonic_us()==10*1000000/PM_FREQUENCY);
+    /* 90-second capture with fractional ticks and repeated 24-bit wraps.
+     * Conversion must retain accumulated fractions, not truncate each sample. */
+    accumulated=0;last_counter=0;counter=0;
+    uint64_t ticks=0;
+    for(unsigned i=0;i<9001;i++) {
+        ticks+=35795;counter=(uint32_t)ticks&PM_MASK;
+        assert(timer_monotonic_us()==ticks*1000000/PM_FREQUENCY);
+    }
     step=100; assert(timer_delay_us(50));
     step=0; assert(!timer_reference_init());
     assert(!timer_reference_ready() && !timer_delay_us(50));

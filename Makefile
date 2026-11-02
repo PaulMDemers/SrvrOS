@@ -1996,7 +1996,7 @@ build/tests/clock-host$(HOST_EXE): tools/test_clock.c kernel/src/arch/x86_64/clo
 test-storage: build/tests/block-host$(HOST_EXE) build/tests/ahci-host$(HOST_EXE)
 	build/tests/block-host$(HOST_EXE)
 	build/tests/ahci-host$(HOST_EXE)
-build/tests/block-host$(HOST_EXE): tools/test_block.c kernel/src/block.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+build/tests/block-host$(HOST_EXE): tools/test_block.c kernel/src/block.c kernel/src/block_claim.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
 build/tests/ahci-host$(HOST_EXE): tools/test_ahci.c kernel/src/drivers/ahci.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
@@ -2063,6 +2063,14 @@ build/tests/net-worker-host$(HOST_EXE): tools/test_net_worker.c kernel/src/net.c
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
 test-core: test-net-worker
+
+.PHONY: test-net-lifetime
+test-net-lifetime: build/tests/net-lifetime-host$(HOST_EXE)
+	@for mode in close pending inherited backlog abort deadline fin-failure simultaneous future-ack wrap-ack syn-ack stale-hold stale-io reuse stale-wait rst-window rst-connect receive-window receive-duplicate terminal-error terminal-eof timewait-pressure repeat-syn allocation-outbound allocation-inbound allocation-backlog partial-ack partial-fin partial-window overlap-wrap window-order window-overlap window-handshake persist-reopen persist-responsive persist-data persist-silent persist-close ipv4-fragments packet-bounds option-invalid option-valid mss-passive mss-active mss-default mss-syn-wire; do $< $$mode || exit $$?; done
+build/tests/net-lifetime-host$(HOST_EXE): tools/test_net_lifetime.c kernel/src/net.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+test-core: test-net-lifetime
 
 .PHONY: test-syscall-cancel
 test-syscall-cancel: build/tests/syscall-cancel-host$(HOST_EXE)
@@ -2142,17 +2150,42 @@ test-core: test-exfat-entries
 
 .PHONY: test-exfat-hardening
 .PHONY: test-workspace-image
-build/tests/workspace-image-host$(HOST_EXE): tools/workspace_image_host.c kernel/src/workspace_image.c kernel/src/fs/exfat.c kernel/src/vfs.c $(KERNEL_HEADERS)
+build/tests/workspace-image-host$(HOST_EXE): tools/workspace_image_host.c kernel/src/workspace_image.c kernel/src/block_claim.c kernel/src/fs/exfat.c kernel/src/vfs.c $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) -DSRVROS_EXFAT_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include tools/workspace_image_host.c kernel/src/fs/exfat.c kernel/src/vfs.c -Wl,--gc-sections -o $@
 test-workspace-image: build/tests/workspace-image-host$(HOST_EXE) build/tests/exfat-driver$(HOST_EXE)
 	$(PYTHON) tools/test_workspace_image.py
 
-build/tests/exfat-driver$(HOST_EXE): tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
+build/tests/exfat-driver$(HOST_EXE): tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/block_claim.c kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) -DSRVROS_EXFAT_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c -Wl,--gc-sections -o $@
 test-exfat-hardening: build/tests/exfat-driver$(HOST_EXE)
 	$(PYTHON) tools/exfat_hardening_test.py
+
+.PHONY: test-exfat-crash
+test-exfat-crash: build/tests/exfat-driver$(HOST_EXE)
+	$(PYTHON) tools/test_exfat_crash.py --driver $<
+test-core: test-exfat-crash
+
+.PHONY: test-exfat-growth
+test-exfat-growth: build/tests/exfat-driver$(HOST_EXE)
+	$(PYTHON) tools/test_exfat_crash.py --driver $< --growth --output build/review/allocation-growth/crash
+test-core: test-exfat-growth
+
+.PHONY: test-process-writeback
+test-process-writeback: $(LIMINE_PROTOCOL_DIR)/.ready
+	$(PYTHON) tools/test_exfat_import.py --process --limine-include $(LIMINE_PROTOCOL_DIR)/include --output build/review/writeback-retry/integration
+test-core: test-process-writeback
+
+.PHONY: test-exfat-retirement
+test-exfat-retirement: build/tests/exfat-driver$(HOST_EXE)
+	$(PYTHON) tools/test_exfat_crash.py --driver $< --retirement --output build/review/retirement-sidecar/crash
+test-core: test-exfat-retirement
+
+.PHONY: test-exfat-boot
+test-exfat-boot: build/tests/exfat-driver$(HOST_EXE)
+	$(PYTHON) tools/test_exfat_boot.py --driver $<
+test-core: test-exfat-boot
 
 .PHONY: test-exfat-scale
 test-exfat-scale: build/tests/exfat-driver$(HOST_EXE)
@@ -2162,7 +2195,7 @@ test-exfat-scale: build/tests/exfat-driver$(HOST_EXE)
 test-workspace: build/tests/workspace-host$(HOST_EXE) build/tests/sync-command-host$(HOST_EXE)
 	build/tests/workspace-host$(HOST_EXE)
 	build/tests/sync-command-host$(HOST_EXE)
-build/tests/workspace-host$(HOST_EXE): tools/test_workspace.c kernel/src/workspace.c $(KERNEL_HEADERS)
+build/tests/workspace-host$(HOST_EXE): tools/test_workspace.c kernel/src/workspace.c kernel/src/block_claim.c $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include $< -o $@
 build/tests/sync-command-host$(HOST_EXE): tools/test_sync_command.c userspace/posixutils/posixutils.c $(USER_SYSROOT_HEADERS)
@@ -3327,9 +3360,10 @@ test-core: test-serial-records
 
 .PHONY: test-power
 test-core: test-power
-test-power: build/tests/power-host$(HOST_EXE) build/tests/power-service-host$(HOST_EXE)
+test-power: build/tests/power-host$(HOST_EXE) build/tests/power-service-host$(HOST_EXE) build/tests/power-platform-host$(HOST_EXE)
 	build/tests/power-host$(HOST_EXE)
 	build/tests/power-service-host$(HOST_EXE)
+	build/tests/power-platform-host$(HOST_EXE)
 build/tests/power-host$(HOST_EXE): tools/test_power.c kernel/src/drivers/power_core.c kernel/include/srvros/power.h kernel/include/srvros/idle_audit.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_power.c kernel/src/drivers/power_core.c -o $@
@@ -4110,6 +4144,11 @@ test-mt76-calibration: build/tests/mt76-calibration-host$(HOST_EXE)
 build/tests/mt76-calibration-host$(HOST_EXE): tools/test_mt76_calibration.c kernel/src/drivers/mt76_calibration.c kernel/include/srvros/mt76_calibration.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_calibration.c -o $@
+.PHONY: test-exfat-import
+test-core: test-exfat-import
+test-exfat-import:
+	$(PYTHON) tools/test_exfat_generator.py
+	CC="$(HOST_CC)" $(PYTHON) tools/test_exfat_import.py
 
 .PHONY: test-window-set
 test-desktop: test-tool-timing
@@ -4134,6 +4173,13 @@ test-terminal-commands: build/tests/terminal-commands-host$(HOST_EXE)
 build/tests/terminal-commands-host$(HOST_EXE): tools/test_terminal_commands.c userspace/deskterm/deskterm.c userspace/desktop_runtime/commands.c userspace/lib/include/srvros/desk_commands.h $(DESK_WIDGETS_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include -I $(DESK_WIDGETS_INCLUDE) tools/test_terminal_commands.c userspace/desktop_runtime/commands.c -Wl,--gc-sections -o $@
+
+.PHONY: test-storage-leases
+test-storage-leases: build/tests/block-host$(HOST_EXE) build/tests/workspace-host$(HOST_EXE) build/tests/usb-storage-host$(HOST_EXE) build/tests/workspace-image-host$(HOST_EXE)
+	build/tests/block-host$(HOST_EXE)
+	build/tests/workspace-host$(HOST_EXE)
+	build/tests/usb-storage-host$(HOST_EXE)
+	$(PYTHON) tools/test_storage_leases.py
 
 .PHONY: test-scheduler-trace
 test-scheduler-trace: build/tests/scheduler-trace-host$(HOST_EXE)
@@ -4295,8 +4341,8 @@ build/tests/wifi-syscall-host$(HOST_EXE): tools/test_wifi_syscall.c kernel/src/a
 
 # MP request exists only in this explicit diagnostic ELF. Ordinary objects and
 # boot requests are never overwritten. AP code has no C runtime dependencies.
-AP_PROBE_OBJ := build/ap-probe/platform.o build/ap-probe/package.o build/ap-probe/scheduler.o build/ap-probe/main.o build/ap-probe/requests.o build/ap-probe/probe.o build/ap-probe/entry.o
-AP_PROBE_BASE := $(filter-out build/kernel/src/main.c.o build/kernel/src/limine_requests.c.o build/kernel/src/scheduler.c.o,$(KERNEL_OBJ))
+AP_PROBE_OBJ := build/ap-probe/power.o build/ap-probe/platform.o build/ap-probe/package.o build/ap-probe/scheduler.o build/ap-probe/main.o build/ap-probe/requests.o build/ap-probe/probe.o build/ap-probe/entry.o
+AP_PROBE_BASE := $(filter-out build/kernel/src/main.c.o build/kernel/src/limine_requests.c.o build/kernel/src/scheduler.c.o build/kernel/src/drivers/power.c.o,$(KERNEL_OBJ))
 .PHONY: ap-probe-kernel
 ap-probe-kernel: build/ap-probe/srvros.elf
 build/ap-probe/main.o: kernel/src/main.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
@@ -4333,13 +4379,28 @@ build/ap-probe/scheduler.o: kernel/src/scheduler.c $(ZIG) $(LIMINE_PROTOCOL_DIR)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -DSRVROS_AP_PROBE -c $< -o $@
 
+
+.PHONY: test-net-datagram test-posix-datagram
+test-net-datagram: build/tests/net-datagram-host$(HOST_EXE)
+	@for mode in icmp-checksum icmp-code icmp-reply udp-wire udp-pressure udp-truncate udp-send-reuse udp-close-wait udp-inherited udp-bind udp-try-send; do $< $$mode || exit $$?; done
+build/tests/net-datagram-host$(HOST_EXE): tools/test_net_datagram.c kernel/src/net.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+test-posix-datagram: build/tests/posix-datagram-host$(HOST_EXE)
+	@for mode in truncate zero address empty oom bind-cache; do $< $$mode || exit $$?; done
+build/tests/posix-datagram-host$(HOST_EXE): tools/test_posix_datagram.c userspace/lib/src/posix_socket.c userspace/lib/include/sys/socket.h shared/include/srvros/syscall_numbers.h shared/include/srvros/dns_wire.h userspace/lib/include/netdb.h tools/posix_socket_host_names.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include $< -Wl,--gc-sections -o $@
+test-core: test-net-datagram test-posix-datagram
+
 build/ap-probe/package.o: kernel/diagnostics/package_audit_core.c $(ZIG) $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -c $< -o $@
 .PHONY: test-package-audit
-test-package-audit: build/tests/package-audit$(HOST_EXE)
+test-package-audit: build/tests/package-audit$(HOST_EXE) build/tests/platform-sample$(HOST_EXE)
 	$<
 	$(PYTHON) -m unittest discover -s tools -p test_hardware_package.py
+	build/tests/platform-sample$(HOST_EXE)
 	$(PYTHON) -m unittest discover -s tools -p test_hardware_platform.py
 build/tests/package-audit$(HOST_EXE): tools/test_package_audit.c kernel/diagnostics/package_audit_core.c kernel/include/srvros/package_audit.h
 	@mkdir -p $(@D)
@@ -4349,3 +4410,73 @@ test-core: test-package-audit
 build/ap-probe/platform.o: kernel/diagnostics/platform_audit.c $(ZIG) $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -c $< -o $@
+
+.PHONY: test-net-query test-posix-udp-owner
+test-net-query: build/tests/net-query-host$(HOST_EXE)
+	@for mode in arp-overlap arp-timeout arp-cache arp-exit arp-opcode dns-overlap dns-arp-overlap dns-completed-overlap dns-source dns-id dns-exit dns-failure-retry dns-timeout; do $< $$mode || exit $$?; done
+build/tests/net-query-host$(HOST_EXE): tools/test_net_query.c kernel/src/net.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+test-posix-udp-owner: build/tests/posix-udp-owner-host$(HOST_EXE)
+	@for mode in filter-from filter-msg filter-zero filter-recv unconnected reuse-filter reuse-restart reuse-flags close-only retry-control dontwait-control dup-reuse; do $< $$mode || exit $$?; done
+build/tests/posix-udp-owner-host$(HOST_EXE): tools/test_posix_udp_owner.c userspace/lib/src/posix_socket.c userspace/lib/include/sys/socket.h shared/include/srvros/syscall_numbers.h shared/include/srvros/dns_wire.h userspace/lib/include/netdb.h tools/posix_socket_host_names.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include $< -Wl,--gc-sections -o $@
+test-core: test-net-query test-posix-udp-owner
+
+.PHONY: test-dns-response test-socket-calls test-socket-try-io
+DNS_RESPONSE_MODES := valid case question qtype qclass qr opcode tc rcode self-pointer forward-pointer bad-pointer unrelated trailing-answer trailing-additional bounds cname interior-pointer header-pointer cname-cycle cname-length cname-conflict unrelated-first
+test-dns-response: build/tests/dns-kernel-host$(HOST_EXE) build/tests/dns-libc-host$(HOST_EXE)
+	@for binary in $^; do for mode in $(DNS_RESPONSE_MODES); do $$binary $$mode || exit $$?; done; done
+build/tests/dns-kernel-host$(HOST_EXE): tools/test_dns_response.c kernel/src/net.c shared/include/srvros/dns_wire.h $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+build/tests/dns-libc-host$(HOST_EXE): tools/test_dns_response.c userspace/lib/src/posix_socket.c shared/include/srvros/dns_wire.h shared/include/srvros/syscall_numbers.h userspace/lib/include/netdb.h tools/posix_socket_host_names.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -DTEST_DNS_LIBC -ffunction-sections -fdata-sections -I shared/include -idirafter userspace/lib/include $< -Wl,--gc-sections -o $@
+test-socket-calls: build/tests/socket-calls-host$(HOST_EXE)
+	@for mode in unix-copy rights-const connect-reuse connect-restart connect-control accept-reuse accept-restart accept-control flags-recv flags-send flags-peek flags-udp-recv flags-udp-send raw-retry raw-full dns-retry dns-truncate dns-source dns-busy; do $< $$mode || exit $$?; done
+build/tests/socket-calls-host$(HOST_EXE): tools/test_socket_calls.c userspace/lib/src/posix_socket.c shared/include/srvros/dns_wire.h shared/include/srvros/syscall_numbers.h userspace/lib/include/netdb.h tools/posix_socket_host_names.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -idirafter userspace/lib/include $< -Wl,--gc-sections -o $@
+test-socket-try-io: build/tests/socket-try-io-host$(HOST_EXE)
+	$<
+build/tests/socket-try-io-host$(HOST_EXE): tools/test_socket_try_io.c kernel/src/arch/x86_64/syscall.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+test-core: test-dns-response test-socket-calls test-socket-try-io
+
+# Capture hook is absent from the ordinary power object and ordinary kernel.
+build/ap-probe/power.o: kernel/src/drivers/power.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DSRVROS_AP_PROBE -c $< -o $@
+
+build/tests/power-platform-host$(HOST_EXE): tools/test_power_service.c kernel/src/drivers/power.c kernel/src/drivers/power_core.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -DSRVROS_AP_PROBE -I kernel/include -I shared/include tools/test_power_service.c kernel/src/drivers/power_core.c -o $@
+
+build/tests/platform-sample$(HOST_EXE): tools/test_platform_sample.c kernel/diagnostics/platform_audit.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-file-service
+test-desktop: test-file-service
+test-file-service: build/tests/file-service-host$(HOST_EXE)
+	$<
+	$(PYTHON) -m unittest discover -s tools -p test_file_service_records.py
+build/tests/file-service-host$(HOST_EXE): tools/test_file_service.c userspace/desktools/file_service.h userspace/lib/src/desk_file_job.c userspace/lib/include/srvros/desk_file_job.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -pthread -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-tool-text-history
+test-desktop: test-tool-text-history
+test-tool-text-history: build/tests/tool-text-history-host$(HOST_EXE)
+	$<
+build/tests/tool-text-history-host$(HOST_EXE): tools/test_tool_text_history.c userspace/desktools/text_app.c userspace/desktools/app.h userspace/widgets/src/text.c $(DESK_WIDGETS_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include -I userspace/widgets/include tools/test_tool_text_history.c userspace/widgets/src/text.c -Wl,--gc-sections -o $@
+
+.PHONY: test-linux-rc6-baseline
+test-core: test-linux-rc6-baseline
+test-linux-rc6-baseline:
+	$(PYTHON) -m unittest discover -s tools -p test_linux_rc6_baseline.py

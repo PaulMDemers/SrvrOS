@@ -75,3 +75,78 @@ VFS write buffers are published by flush/close; reading a separate descriptor
 before publication incorrectly produced missing log markers on the accepted
 baseline too. All response, access-log and error assertions remain. This test
 step does not add synchronous per-line writes to production web serving.
+
+## Process exit and close lifetime
+
+Inherited listener references preserve completed and half-open backlog after the
+creating process exits. Final listener close still retires unaccepted entries.
+Accepted connections retain independent references. The final connection close
+releases the descriptor but lets the protocol retain outstanding data and FIN
+until acknowledgment, failure or timeout; creator cleanup does not erase that
+work. Deferred FIN has the ordinary close deadline, and a failed deferred send
+enters the reset/error path. Peer FIN alone cannot retire an unacknowledged local
+FIN. See the [TCP lifetime audit](tcp-lifetime-audit-2026-10-28.md) for reproduced
+failures, limits and follow-on questions.
+
+`make test-net-lifetime` (also in `test-core`) runs 46 deterministic real-stack
+host modes. It complements `test-tcp-accept` and guest readiness/stress checks;
+its captured Ethernet sink does not certify physical adapter behavior.
+
+
+Established/closing packets acknowledging unsent data are acknowledged and dropped
+before window, payload or FIN changes. Outbound SYN-ACK must acknowledge the
+stack's SYN exactly, including sequence wrap. Closed application handles cannot
+revive or read a protocol-owned closing slot; final close wakes blocked I/O while
+timers and packets retain access for retransmission. The lifetime fixture also
+covers duplicate/partial ACKs across wrap and stale handles after slot reuse.
+
+
+RST admission now checks active-open ACK or synchronized receive sequence; stale
+control packets cannot reset a tuple indiscriminately. Receive admission precedes
+ACK/window side effects, and duplicate SYN reuses its original sequence. Terminal
+expiry preserves referenced errors or orderly EOF data in a non-wire `CLOSED`
+state until final close. TIME-WAIT pressure cannot steal application references.
+Receive-allocation refusal preserves references and unread data, acknowledges
+only the existing receive sequence, and permits retransmission after memory
+recovers. It emits no application response or FIN. Passive opens are already
+queued when their handshake completes; data arrival does not re-enqueue them.
+Partial ACKs release acknowledged byte-window capacity and retain only the
+unacknowledged retransmission suffix, including any outstanding FIN. A duplicate
+receive prefix is skipped when its new in-order suffix fits the receive window.
+Full duplicates, gaps and oversized suffixes are still rejected; there is no
+out-of-order reassembly or right-edge clipping.
+
+
+Peer-window advertisements now require an ACK within the sent/unacknowledged
+range and non-stale original segment sequence/ACK ordering, including wrap.
+Receive overlap trimming cannot promote an older window update. Invalid passive
+handshake ACKs leave window and persist state unchanged. Equal sequence/ACK pairs
+can still change the window, as needed when a peer reads without sending data.
+
+Zero-window persist retries one retained unacknowledged byte when available.
+Without queued data it sends an empty probe one sequence before the oldest
+unacknowledged position, forcing a current-window ACK instead of silent acceptance.
+Probes consume no new send sequence. Accepted advertisements reset the unanswered
+probe count, while exponential backoff remains independent (25 initial ticks,
+then 50/100/200, capped at 200). Ordinary data retry exhaustion is suspended during
+persist and receives a fresh budget on reopening. Responsive peers may stay
+closed; twelve consecutive unanswered attempts still lead to TIMEDOUT on the
+next deadline. Local write shutdown/final close retains the bounded close policy.
+The captured two-endpoint test drops reopening updates and refuses a probe send,
+then verifies exact recovery with/without queued data and across sequence wrap.
+
+
+IPv4 admission refuses the reserved flag, MF and nonzero fragment offsets before
+TCP/UDP/ICMP dispatch. DF-only and ordinary unfragmented packets remain valid;
+this profile has no IP reassembly. TCP walks the option list after checksum and
+header-bound checks but before connection mutation. EOL ends parsing, NOP advances
+one byte, and unknown options are skipped only with a bounded length of at least
+two. Malformed lengths are dropped; MSS must have length four. Zero or duplicate
+MSS offers on SYN are refused as unusable/ambiguous. A non-SYN MSS cannot renegotiate.
+
+Active and passive opens retain the peer MSS, defaulting to 536 when absent and
+capped by the existing 1,400-byte transmit limit. New data, readiness capacity and
+retransmissions honor that bound. SYN/SYN-ACK and their retries advertise local
+MSS 1,400 with matching header length/checksum; later packets have no MSS option.
+This does not add window scaling, SACK, timestamps, path-MTU discovery or IP
+reassembly. Unsupported well-formed options remain ignored.

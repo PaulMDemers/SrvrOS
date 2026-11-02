@@ -1,6 +1,9 @@
 #ifndef SRVROS_TOOL_TIMING_H
 #define SRVROS_TOOL_TIMING_H
 #include <srvros/desk_log.h>
+/* One dispatcher lane and one file-service lane. Timestamps from independent
+ * threads can be captured before their log writes reach the common sink. */
+static _Thread_local unsigned tool_timing_lane;
 
 /* Sparse lifecycle checkpoints, never per-frame/poll logging. Times are wall
  * clock (including scheduling/I/O waits), not CPU time. Begin survives a stall;
@@ -8,9 +11,9 @@
 static inline uint64_t tool_timing(int role,uint64_t window,const char *stage,
                                   const char *edge,uint64_t start) {
     uint64_t now=(uint64_t)srv_monotonic_us();
-    desk_log("app-timing: pid=%llu role=%d window=%llu stage=%s edge=%s at_us=%llu elapsed_us=%llu\n",
+    desk_log("app-timing: pid=%llu role=%d window=%llu stage=%s edge=%s at_us=%llu elapsed_us=%llu lane=%u\n",
         (unsigned long long)srv_getpid(),role,(unsigned long long)window,stage,edge,
-        (unsigned long long)now,(unsigned long long)(start && now>=start?now-start:0));
+        (unsigned long long)now,(unsigned long long)(start && now>=start?now-start:0),tool_timing_lane);
     return now;
 }
 static inline uint64_t tool_timing_begin(int role,uint64_t window,const char *stage) {

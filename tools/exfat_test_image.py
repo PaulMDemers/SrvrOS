@@ -68,7 +68,7 @@ class ExfatFixture:
     @staticmethod
     def checked_entry(name, first, data, attributes=0x20, data_length=None, contiguous=True):
         entry = bytearray(file_entry(name, first, data, attributes, data_length))
-        entry[33] = 3 if contiguous else 1  # AllocationPossible; optional NoFatChain.
+        entry[33] = 3 if contiguous and struct.unpack_from('<Q', entry, 56)[0] else 1  # AllocationPossible; optional NoFatChain.
         value = 0
         for byte in name.upper().encode('utf-16le'):
             value = (((value & 1) << 15) | (value >> 1)) + byte

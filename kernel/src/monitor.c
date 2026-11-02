@@ -866,7 +866,7 @@ static void command_unmount(const char *mountpoint) {
     }
 
     if (!exfat_unmount(mountpoint)) {
-        console_printf("unmount: not mounted: %s\n", mountpoint);
+        console_printf("unmount: busy or not mounted: %s\n", mountpoint);
         return;
     }
 }

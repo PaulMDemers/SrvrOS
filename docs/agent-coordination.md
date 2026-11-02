@@ -714,3 +714,21 @@ No native PCM stream ran in this return, and explicit command parity and other
 unreported checklist steps remain physical follow-ups. Do not infer native
 latency, energy savings, sibling acceptance or full audio endurance. PR19 retains
 Wi-Fi ownership; no new shared implementation is claimed by this closeout.
+
+
+## Prepared user-thread and sole-main memory admission (PR #260 candidate)
+
+Air7,2's candidate keeps generic file, mapping and lifetime gates. Reuse only the
+bounded validation preludes and their ordinary fallback; see the
+[application runtime contract](desktop-application-runtime.md). A prepared user
+thread publishes process/CR3/TLS/FPU context before READY and must enter userspace
+without the generic allocating context refresh. Do not use that constructor for
+an unprepared kernel worker or image loader. Atomic allocation failure must not
+call console rendering; retained PTE/frame/region ownership and creator publication
+pins remain mandatory. These are CPU0 proofs, not SMP address-space locking.
+Source `185c6668` has host/guest/load validation; native first-thread/allocation
+latency remains pending. Air7,2's latest native release `ce3f369efb135f20` observes
+fast helper unmaps but still fails full endurance on startup admission. Other
+machines retain independent acceptance. Actions remain disabled; local receipts
+and preserved failures, including the final 50-IOPS PCM-overlap failure, are in
+the Air record. No native trial is armed by this handoff.

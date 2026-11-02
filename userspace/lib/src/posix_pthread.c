@@ -25,6 +25,13 @@ static int pthread_stack_valid(void *stack, size_t size) {
 }
 
 int __posix_signal_dispatch_pending(void);
+/* Optional internal observer; not a pthread API. No hook means no diagnostics.
+ * Call outside table locks so an opted-in sink cannot hold publication locks. */
+extern void __posix_pthread_create_trace(const char *, int) __attribute__((weak));
+static void pthread_create_trace(const char *stage,int begin) {
+    if(__posix_pthread_create_trace)__posix_pthread_create_trace(stage,begin);
+}
+
 
 struct pthread_key_slot {
     int used;
@@ -49,6 +56,9 @@ struct pthread_record {
     pthread_t tid;
     struct pthread_start_record *start;
     char name[PTHREAD_NAME_CAPACITY];
+    /* Same reservation/lifetime as this record; no heap call to start a
+     * supplied-stack thread. Main-thread state remains independently owned. */
+    struct pthread_start_record storage;
 };
 
 struct pthread_key_value { void *value;uint64_t generation; };
@@ -136,12 +146,14 @@ static struct pthread_record *pthread_record_find(pthread_t tid) {
     return NULL;
 }
 
-static struct pthread_record *pthread_record_alloc(struct pthread_start_record *start) {
+static struct pthread_record *pthread_record_alloc(const struct pthread_start_record *start) {
     lock_records();
     for (int i = 0; i < PTHREAD_MAX_RECORDS; i++) {
         if (!pthread_records[i].used) {
             struct pthread_record *record = &pthread_records[i];
-            *record = (struct pthread_record){ .used = 1, .creating = 1, .start = start, .name = "srvros-thread" };
+            *record = (struct pthread_record){ .used = 1, .creating = 1, .name = "srvros-thread", .storage = *start };
+            record->start = &record->storage;
+            record->start->record = record;
             unlock_records();
             return record;
         }
@@ -153,12 +165,14 @@ static struct pthread_record *pthread_record_alloc(struct pthread_start_record *
 /* Caller owns the creation reservation or an exclusive join/reap claim. */
 static void pthread_record_cleanup(struct pthread_record *record) {
     lock_records();
-    struct pthread_start_record *start = record->start;
+    int initial = record->start == &main_start;
+    /* Capture before clearing: another creator may reuse this inline storage
+     * while owned-stack unmapping yields. No pointer into the slot survives. */
+    struct pthread_start_record start = *record->start;
     *record = (struct pthread_record){0};
     unlock_records();
-    if (start == &main_start) return; /* Kernel still owns last-thread cleanup. */
-    if (start->owns_stack) munmap(start->stack, start->stack_size);
-    free(start);
+    if (initial) return; /* Kernel still owns last-thread cleanup. */
+    if (start.owns_stack) munmap(start.stack, start.stack_size);
 }
 
 static void pthread_record_unclaim(struct pthread_record *record) {
@@ -168,7 +182,10 @@ static void pthread_record_unclaim(struct pthread_record *record) {
 }
 
 static void pthread_reap_detached(void) {
+    pthread_create_trace("pthread-reap-self",1);
     pthread_t self = pthread_self();
+    pthread_create_trace("pthread-reap-self",0);
+    pthread_create_trace("pthread-reap-records",1);
     for (int i = -1; i < PTHREAD_MAX_RECORDS; i++) {
         lock_records();
         struct pthread_record *record = i < 0 ? &main_record : &pthread_records[i];
@@ -189,6 +206,7 @@ static void pthread_reap_detached(void) {
             pthread_record_unclaim(record);
         }
     }
+    pthread_create_trace("pthread-reap-records",0);
 }
 
 static void pthread_run_destructors(void) {
@@ -254,12 +272,14 @@ int pthread_create(pthread_t *thread,
     if (stack == 0) {
         if (stack_size > SIZE_MAX - 4095) return EINVAL;
         stack_size = (stack_size + 4095) & ~(size_t)4095;
+        pthread_create_trace("pthread-stack-map",1);
         stack = mmap(0,
             stack_size,
             PROT_READ | PROT_WRITE,
             MAP_PRIVATE | MAP_ANONYMOUS,
             -1,
             0);
+        pthread_create_trace("pthread-stack-map",0);
         if (stack == MAP_FAILED) {
             return ENOMEM;
         }
@@ -269,14 +289,7 @@ int pthread_create(pthread_t *thread,
         }
     }
 
-    struct pthread_start_record *start = malloc(sizeof(*start));
-    if (start == 0) {
-        if (owns_stack) {
-            munmap(stack, stack_size);
-        }
-        return ENOMEM;
-    }
-    *start = (struct pthread_start_record) {
+    const struct pthread_start_record initial = {
         .start_routine = start_routine,
         .arg = arg,
         .stack = stack,
@@ -285,29 +298,30 @@ int pthread_create(pthread_t *thread,
         .detachstate = detachstate,
     };
 
-    struct pthread_record *record = pthread_record_alloc(start);
+    pthread_create_trace("pthread-record-claim",1);
+    struct pthread_record *record = pthread_record_alloc(&initial);
+    pthread_create_trace("pthread-record-claim",0);
     if (record == 0) {
-        free(start);
-        if (owns_stack) {
-            munmap(stack, stack_size);
-        }
+        if (owns_stack) munmap(stack, stack_size);
         return EAGAIN;
     }
-
-    start->record = record;
+    struct pthread_start_record *start = record->start;
 
     uint64_t stack_top = (((uint64_t)(uintptr_t)stack + stack_size) & ~(uint64_t)0xf) - 8;
     *(uint64_t *)(uintptr_t)stack_top = 0;
     uint64_t flags = 0;
+    pthread_create_trace("pthread-kernel-create",1);
     long tid = srv_thread_create((uint64_t)(uintptr_t)pthread_start_trampoline,
         (uint64_t)(uintptr_t)start,
         stack_top,
         flags);
+    pthread_create_trace("pthread-kernel-create",0);
     if (tid < 0) {
         pthread_record_cleanup(record);
         return EAGAIN;
     }
 
+    pthread_create_trace("pthread-publish",1);
     lock_records();
     *thread = (pthread_t)(uintptr_t)tid;
     record->tid = (pthread_t)(uintptr_t)tid;
@@ -315,6 +329,7 @@ int pthread_create(pthread_t *thread,
     /* Do not overwrite detachstate: the child may already have detached/exited.
      * After unlocking a reaper may free the record, so do not touch it again. */
     unlock_records();
+    pthread_create_trace("pthread-publish",0);
     return 0;
 }
 

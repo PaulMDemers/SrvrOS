@@ -94,6 +94,36 @@ are isolated. `make clean` removes generated OS products; `make distclean`
 removes **all of build**, including local test evidence and staged releases.
 Archive needed evidence outside it first.
 
+### Keep local artifacts within disk capacity
+
+Check `df -h .` and `du -h -d 1 build` before long validation runs. Historical
+VM volumes and staged initramfs archives can consume much more space than the
+source tree. Keep installed current/recovery payloads and the next candidate
+available, with verified independent copies outside `build`. Preserve run
+records, manifests, logs, screenshots and failure evidence; a merge does not
+make failed trials disposable.
+
+For an inactive historical image or payload, lossless compression can reclaim
+space without discarding evidence. Record the original path, size and archive
+location, compress to a new file, verify the archive, then remove the original
+only after success. For example, with Ubuntu's `zstd` package installed:
+
+```sh
+zstd -1 --check old-volume.img -o old-volume.img.zst
+zstd -t old-volume.img.zst
+# After successful verification, remove only the archived original.
+rm -- old-volume.img
+# Restore before rerunning a tool that expects the original path:
+zstd -d --sparse old-volume.img.zst -o old-volume.img
+```
+
+Do this while no VM/staging process uses those artifacts. An archived stage must
+be restored and pass its manifest verification before install or exact-stage
+rehearsal. Do not compress active current/recovery/candidate files in place,
+delete EFI releases indiscriminately, or run `make distclean` to solve a space
+problem before required evidence has been independently preserved. Keep a local
+cleanup ledger outside `build` alongside the retained checkpoint.
+
 ## 3. Identify this machine and capture Linux evidence
 
 ```sh
@@ -799,6 +829,7 @@ make build/tests/exfat-driver
 udisksctl unmount -b "$SRVROS_USB_PART"
 sudo fsck.exfat -n "$SRVROS_USB_PART"
 sudo python3 tools/check_exfat_allocation.py --uuid "$SRVROS_USB_UUID"
+sudo python3 tools/check_exfat_allocation.py --uuid "$SRVROS_USB_UUID" --require-writable
 udisksctl mount -b "$SRVROS_USB_PART"
 ```
 
@@ -807,7 +838,13 @@ unmounted. After remounting, resolve the current mountpoint again; scripts that
 mount explicitly must recreate and verify their empty mount directory first.
 Do not assume a path saved before unmount still exists.
 
-Require successful results from both checks. `fsck.exfat -n` alone can report
+Before a write trial, also require `--require-writable` to pass. This uses the
+production importer to check write eligibility using mutation-refusing transport
+callbacks and an `O_RDONLY` descriptor. A consistent allocation graph or sufficient headroom can still coexist with dirty
+volume flags or conflicting boot records; those conditions must block staging a
+write trial. This check does not clear flags or repair the volume.
+
+Require successful results from all applicable checks. `fsck.exfat -n` alone can report
 clean while the allocation bitmap contains orphaned clusters: this occurred on
 the Air with exfatprogs 1.3.2. The additional helper runs the real SrvrOS
 allocation checker with an `O_RDONLY` descriptor and no write/flush callbacks.

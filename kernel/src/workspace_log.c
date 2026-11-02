@@ -50,6 +50,7 @@ static bool begin(uint64_t *flags) {
 static void end(uint64_t flags) { scheduler_io_end();unlock(flags); }
 /* Cached queries only: logging must not issue codec commands or sensor I/O. */
 static void device_checkpoint(void) {
+    scheduler_print_io_owners();
     uint64_t sampled=timer_monotonic_us();
     struct scheduler_stats cpu;scheduler_snapshot(&cpu);
     console_printf("workspace-scheduler: sampled_ticks=%u idle_ticks=%u switches=%u preemptions=%u monotonic_us=%u\n",
@@ -115,7 +116,8 @@ static bool save(const char *name) {
     uint64_t start=measured?timer_monotonic_us():0;
     report_save();
     device_checkpoint();
-    console_printf("workspace-log: snapshot=%s monotonic_us=%u total_before=%u tail_limit=%u\n",name,timer_monotonic_us(),bootlog_total(),snapshot_limit);
+    uint64_t snapshot_us=timer_monotonic_us();
+    console_printf("workspace-log: snapshot=%s monotonic_us=%u total_before=%u tail_limit=%u\n",name,snapshot_us,bootlog_total(),snapshot_limit);
     uint64_t total,count=bootlog_snapshot(snapshot,snapshot_limit,&total),flags;
     if(snapshot_limit>BOOTLOG_DEFAULT_CAPACITY && total!=count) {
         console_write("workspace-log: SAVE FAILED extended capture prefix lost\n");
@@ -138,7 +140,9 @@ static bool save(const char *name) {
         end(flags);
         verified=measured?timer_monotonic_us():0;
     }
-    if(ok) ok=workspace_sync();
+    /* Our direct exFAT mutation/readback is complete. Persist that committed
+     * data without submitting unrelated applications' dirty file buffers. */
+    if(ok) ok=workspace_flush_committed();
     uint64_t finished=measured?timer_monotonic_us():0;
     if(measured) {
         previous_save.pending=true;copy(previous_save.name,name);previous_save.ok=ok;
@@ -150,7 +154,8 @@ static bool save(const char *name) {
         previous_save.prepare=prepared-start;previous_save.write=written-prepared;
         previous_save.verify=verified-written;previous_save.sync=finished-verified;
     }
-    if(!ok) console_printf("workspace-log: SAVE FAILED path=%s; previous checkpoint retained\n",path);
+    if(ok) console_printf("workspace-log: durable snapshot=%s monotonic_us=%u\n",name,snapshot_us);
+    else console_printf("workspace-log: SAVE FAILED path=%s; previous checkpoint retained\n",path);
     return ok;
 }
 static bool ready(void *arg) { (void)arg;return enabled && timer_ticks()>=due; }
@@ -182,6 +187,7 @@ static bool start(uint64_t limit,bool retain) {
         return false;
     }
     snapshot_limit=limit;
+    (void)scheduler_io_observe_reset();
     uint64_t flags;if(!begin(&flags)) return false;
     static const char parent[]="/work/srvros-work/Logs";
     /* Four log files plus room for reports/screenshots. Check before creating

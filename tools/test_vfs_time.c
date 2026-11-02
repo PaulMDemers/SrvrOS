@@ -20,8 +20,8 @@ void console_printf(const char *fmt,...) { (void)fmt; }
 static bool read_test(const struct vfs_node *n,const uint8_t **data,uint64_t *size) {
     (void)n;*data=(const uint8_t *)"abc";*size=3;return true;
 }
-static void changed(const char *path,const struct vfs_metadata *m) {
-    assert(!strcmp(path,"/test") && m->mtime<=1792326900);notifications++;
+static bool changed(const char *path,const struct vfs_metadata *m) {
+    assert(!strcmp(path,"/test") && m->mtime<=1792326900);notifications++;return true;
 }
 int main(void) {
     vfs_init();assert(vfs_count()==7);

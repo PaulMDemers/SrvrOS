@@ -30,7 +30,7 @@ static struct vfs_node path_nodes[]={
 const struct vfs_node *vfs_node_at(uint64_t i) { assert(path_fixture);return i<7?&path_nodes[i]:NULL; }
 static struct vfs_node fixture_node={.path="/test/output",.type=VFS_NODE_FILE};
 static unsigned saves;
-static bool fail_save;
+static bool fail_save,clean_refusal;
 static bool fail_alloc;
 static uint8_t saved[4096];
 static size_t saved_size;
@@ -57,9 +57,15 @@ void vfs_release_data(const struct vfs_node *node, const uint8_t *data) {
     if(rename_fixture) { assert((node==&rename_source || node==&rename_target) && data);return; }
     assert(opening && node==&fixture_node && data==saved);
 }
-int64_t net_hold(uint64_t handle) { (void)handle; assert(0);return -1; }
-int64_t net_close(uint64_t handle) { (void)handle; assert(0); return -1; }
-void *kmalloc(uint64_t size) { return fail_alloc ? NULL : malloc(size); }
+static bool refuse_net_hold;
+static unsigned net_holds,net_closes;
+int64_t net_hold(uint64_t handle) {
+    assert(refuse_net_hold && handle==123);net_holds++;return -1;
+}
+int64_t net_close(uint64_t handle) {
+    assert(refuse_net_hold && handle==123);net_closes++;return 0;
+}
+void *kmalloc(size_t size) { return fail_alloc ? NULL : malloc(size); }
 void kfree(void *ptr) { free(ptr); }
 bool exfat_write_file(const char *path, const uint8_t *data, uint64_t size) {
     assert(!strcmp(path,"/test/output")); saves++;
@@ -67,6 +73,9 @@ bool exfat_write_file(const char *path, const uint8_t *data, uint64_t size) {
     assert(size<=sizeof(saved));if(size) memcpy(saved,data,size);saved_size=size;
     if(opening) fixture_exists=true;
     return true;
+}
+bool exfat_write_file_retryable(const char *path,const uint8_t *data,uint64_t size,bool *retryable) {
+    bool ok=exfat_write_file(path,data,size);*retryable=!ok && clean_refusal;return ok;
 }
 bool exfat_write_file_mode(const char *path,const uint8_t *data,uint64_t size,uint64_t mode) {
     bool created=!fixture_exists;bool ok=exfat_write_file(path,data,size);
@@ -113,6 +122,46 @@ static void setup(unsigned refs) {
     write_files[0].refs=refs;strcpy(write_files[0].path,"/test/output");
     subject.files[3]=(struct process_file){.used=true,.type=PROCESS_FILE_VFS_WRITE,.handle=1};
     assert(process_file_dup2(&subject,3,1)==1);
+}
+static void pipe_close_admission(void) {
+    clear_process(&subject);memset(pipes,0,sizeof(pipes));uint64_t fds[2];
+    assert(!process_file_pipe(&subject,fds));int64_t result=123;
+    assert(!process_file_try_close_pipe(NULL,3,&result) && result==123);
+    assert(!process_file_try_close_pipe(&subject,99,&result) && result==123);
+    assert(!process_file_try_close_pipe(&subject,3,NULL));
+    struct process_file original=subject.files[3];
+    const enum process_file_type rejected[]={PROCESS_FILE_STDIO,PROCESS_FILE_VFS,PROCESS_FILE_VFS_WRITE,
+        PROCESS_FILE_PIPE_DUPLEX,PROCESS_FILE_PTY_MASTER,PROCESS_FILE_PTY_SLAVE,
+        PROCESS_FILE_UNIX_LISTENER,PROCESS_FILE_NET_CONNECTION};
+    for(unsigned n=0;n<sizeof(rejected)/sizeof(*rejected);n++) {
+        subject.files[3].type=rejected[n];struct process_file before=subject.files[3];
+        assert(!process_file_try_close_pipe(&subject,3,&result) && result==123);
+        assert(!memcmp(&before,&subject.files[3],sizeof(before)));
+    }
+    subject.files[3]=original;subject.files[3].handle=PROCESS_MAX_PIPES+1;
+    assert(!process_file_try_close_pipe(&subject,3,&result));subject.files[3]=original;
+    pipes[0].read_refs=0;assert(!process_file_try_close_pipe(&subject,3,&result));pipes[0].read_refs=1;
+    pipes[0].refs=0;assert(!process_file_try_close_pipe(&subject,3,&result));pipes[0].refs=2;
+    for(unsigned n=0;n<PROCESS_PIPE_RIGHTS_QUEUE;n++) {
+        pipes[0].rights[n].used=true;static struct process_pipe before;before=pipes[0];
+        uint64_t generation=subject.file_generations[3];
+        assert(!process_file_try_close_pipe(&subject,3,&result));
+        assert(!process_file_try_close_pipe(&subject,4,&result));
+        assert(result==123 && !memcmp(&before,&pipes[0],sizeof(before)) &&
+            !memcmp(&original,&subject.files[3],sizeof(original)) && subject.file_generations[3]==generation);
+        pipes[0].rights[n].used=false;
+    }
+    assert(process_file_dup(&subject,4)==5 && pipes[0].refs==3 && pipes[0].write_refs==2);
+    uint64_t generation=subject.file_generations[4];
+    assert(process_file_try_close_pipe(&subject,4,&result) && result==0);
+    assert(!subject.files[4].used && subject.file_generations[4]==generation+1 && pipes[0].write_refs==1);
+    assert(process_file_pipe_write(&subject,5,(const uint8_t *)"abc",3)==3);
+    assert(process_file_try_close_pipe(&subject,5,&result) && pipes[0].write_refs==0);
+    uint8_t bytes[3];assert(process_file_pipe_read(&subject,3,bytes,3)==3 && !memcmp(bytes,"abc",3));
+    assert(process_file_pipe_read(&subject,3,bytes,3)==0); /* EOF after final writer. */
+    assert(process_file_try_close_pipe(&subject,3,&result) && !pipes[0].used);
+    assert(!process_file_try_close_pipe(&subject,3,&result));
+    puts("pipe-close: PASS types/rights/reference refusal without mutation, aliases, generation, buffered EOF and final release");
 }
 static void pipe_regression(void) {
     clear_process(&subject);memset(pipes,0,sizeof(pipes));uint64_t fds[2];
@@ -171,11 +220,16 @@ static void pipe_regression(void) {
     assert(process_file_pipe_write(&subject,4,input,PROCESS_PIPE_CAPACITY-20)==PROCESS_PIPE_CAPACITY-20);
     assert(process_file_pipe_write(&subject,4,input,SRV_PIPE_BUF)==SRV_ERR_AGAIN);
     assert(!process_file_set_flags(&subject,3,0));assert(!process_file_set_flags(&subject,4,0));
+    /* Per-call nonblocking never changes the blocking file description. */
+    assert(process_file_pipe_write_mode(&subject,4,input,SRV_PIPE_BUF,true)==SRV_ERR_AGAIN);
+    assert(!subject.files[3].flags && !subject.files[4].flags);
     pipe_wait_mode=1;
     assert(process_file_pipe_write(&subject,4,input,SRV_PIPE_BUF)==SRV_PIPE_BUF && !pipe_wait_mode);
     assert(process_file_pipe_read(&subject,3,output,PROCESS_PIPE_CAPACITY)==SRV_PIPE_BUF);
     pipe_wait_mode=1;assert(process_file_pipe_write(&subject,4,input,PROCESS_PIPE_CAPACITY+17)==PROCESS_PIPE_CAPACITY+17 && !pipe_wait_mode);
     assert(process_file_pipe_read(&subject,3,output,100)==17);
+    assert(process_file_pipe_read_mode(&subject,3,output,100,true)==SRV_ERR_AGAIN);
+    assert(!subject.files[3].flags && !subject.files[4].flags);
     pipe_wait_mode=2;assert(process_file_pipe_read(&subject,3,output,100)==5 && !memcmp(output,"ready",5));
     pipe_wait_mode=3;assert(process_file_pipe_read(&subject,3,output,100)==0);
     pipes[0].write_refs=1;assert(process_file_pipe_write(&subject,4,input,PROCESS_PIPE_CAPACITY)==PROCESS_PIPE_CAPACITY);
@@ -373,6 +427,142 @@ static void coherence_regression(void) {
     assert(process_file_close(&subject,reader)==0 && !content_find("/test/output"));
     opening=false;
     puts("process-content: PASS independent opens, reader promotion, OOM preservation, truncate/offset/flush/close lifetime");
+}
+static void writeback_retry_regression(void) {
+    clear_process(&subject);opening=fixture_exists=true;
+    memcpy(saved,"seed",4);saved_size=4;saves=0;
+    int reader=process_file_alloc(&subject,&fixture_node,saved,saved_size);
+    int first=process_file_open_write(&subject,"/test/output",SRV_OPEN_READ|SRV_OPEN_WRITE);
+    int second=process_file_open_write(&subject,"/test/output",SRV_OPEN_READ|SRV_OPEN_WRITE);
+    int alias=process_file_dup_min(&subject,first,10,false);assert(alias==10);
+    assert(process_file_write(&subject,first,(const uint8_t *)"NEW",3)==3);
+    fail_save=clean_refusal=true;
+    assert(process_file_flush(&subject,reader)==SRV_ERR_IO && saves==1);
+    struct process_file_content *content=content_find("/test/output");
+    assert(content && content->dirty && !content->failed);
+    assert(process_file_poll(&subject,alias,SRV_POLLOUT)==SRV_POLLOUT);
+    assert(process_file_flush(&subject,alias)==SRV_ERR_IO && saves==2);
+    uint8_t data[4];assert(process_file_pread(&subject,second,data,4,0)==4 && !memcmp(data,"NEWd",4));
+    assert(saved_size==4 && !memcmp(saved,"seed",4));
+    assert(process_file_seek(&subject,alias,0,1)==3 && process_file_seek(&subject,second,0,1)==0);
+    assert(process_file_sync_all()==-1 && saves==3); /* Once per content, not open. */
+    fail_save=clean_refusal=false;
+    assert(process_file_sync_all()==0 && saves==4 && !content->dirty);
+    assert(saved_size==4 && !memcmp(saved,"NEWd",4));
+    assert(!process_file_close(&subject,alias) && !process_file_close(&subject,first));
+    assert(!process_file_close(&subject,second) && !process_file_close(&subject,reader));
+    assert(!content_find("/test/output") && saves==4);opening=false;
+
+    clear_process(&subject);opening=fixture_exists=true;
+    memcpy(saved,"seed",4);saved_size=4;saves=0;
+    reader=process_file_alloc(&subject,&fixture_node,saved,saved_size);
+    first=process_file_open_write(&subject,"/test/output",SRV_OPEN_WRITE);
+    assert(process_file_write(&subject,first,(const uint8_t *)"only",4)==4);
+    fail_save=clean_refusal=true;
+    assert(process_file_close(&subject,first)==SRV_ERR_IO);
+    unsigned before=saves;
+    assert(process_file_sync_all()==-1 && saves==before+1);
+    fail_save=clean_refusal=false;
+    assert(process_file_sync_all()==0 && saved_size==4 && !memcmp(saved,"only",4));
+    assert(!process_file_close(&subject,reader));opening=false;
+
+    setup(1);assert(process_file_write(&subject,3,(const uint8_t *)"bad",3)==3);
+    fail_save=true;
+    assert(process_file_flush(&subject,3)==SRV_ERR_IO && saves==1);
+    assert(process_file_poll(&subject,3,SRV_POLLOUT)==SRV_POLLERR);
+    fail_save=false;assert(process_file_flush(&subject,3)==SRV_ERR_IO && saves==1);
+    assert(finish_process_files(&subject,0)==1 && saves==1);
+    setup(1);assert(process_file_write(&subject,3,(const uint8_t *)"full",4)==4);
+    fail_save=clean_refusal=true;
+    assert(finish_process_files(&subject,0)==1 && !content_find("/test/output"));
+    fail_save=clean_refusal=false;
+    puts("process-writeback: PASS clean refusal preserves shared data/offsets and permits retry; uncertain failure sticks; exit still reports errors");
+}
+static void inheritance_exit_regression(void) {
+    static struct process child;
+    /* Actual table inheritance, both exit orders, clean and sticky failures. */
+    for(unsigned parent_first=0;parent_first<2;parent_first++) {
+        for(unsigned hard=0;hard<2;hard++) {
+            setup(1);clear_process(&child);
+            assert(!process_inherit_files(&child,&subject) && write_files[0].refs==4);
+            assert(process_file_write(&child,1,(const uint8_t *)"child",5)==5);
+            assert(process_file_seek(&subject,3,0,1)==5);
+            struct process *first=parent_first?&subject:&child;
+            struct process *survivor=parent_first?&child:&subject;
+            fail_save=true;clean_refusal=!hard;
+            assert(finish_process_files(first,0)==1 && saves==1 && write_files[0].refs==2);
+            struct process_file_content *content=content_find("/test/output");
+            assert(content && content->dirty && content->failed==(bool)hard);
+            uint8_t data[5];
+            assert(process_file_pread(survivor,3,data,5,0)==5 && !memcmp(data,"child",5));
+            assert(process_file_poll(survivor,3,SRV_POLLOUT)==(hard?SRV_POLLERR:SRV_POLLOUT));
+            fail_save=false;
+            assert(process_file_flush(survivor,3)==(hard?SRV_ERR_IO:0));
+            assert(saves==(hard?1U:2U));
+            if(!hard) assert(saved_size==5 && !memcmp(saved,"child",5));
+            assert(finish_process_files(survivor,7)==7); /* Explicit status wins. */
+            assert(!content_find("/test/output") && !write_files[0].used);
+            clean_refusal=false;
+        }
+        /* A nonstandard inherited descriptor remains buffered until last close. */
+        setup(1);assert(!process_file_close(&subject,1));clear_process(&child);
+        assert(!process_inherit_files(&child,&subject));
+        assert(process_file_write(&child,3,(const uint8_t *)"last",4)==4);
+        struct process *first=parent_first?&subject:&child;
+        struct process *last=parent_first?&child:&subject;
+        fail_save=true;
+        assert(finish_process_files(first,0)==0 && saves==0 && write_files[0].refs==1);
+        assert(finish_process_files(last,0)==1 && saves==1 && !content_find("/test/output"));
+        fail_save=false;
+    }
+
+    /* CLOEXEC is per descriptor; closing a child alias must not flush a parent. */
+    setup(1);clear_process(&child);
+    assert(!process_file_set_fd_flags(&subject,3,SRV_FD_CLOEXEC));
+    assert(!process_inherit_files(&child,&subject));
+    assert(process_file_write(&child,3,(const uint8_t *)"keep",4)==4);
+    close_cloexec_files(&child);
+    assert(!child.files[3].used && subject.files[3].used && saves==0);
+    assert(process_file_get_fd_flags(&subject,3)==SRV_FD_CLOEXEC);
+    assert(process_file_dup2(&child,1,3)==3 && !process_file_get_fd_flags(&child,3));
+    assert(process_file_seek(&child,3,0,1)==4);
+    assert(cleanup_process_files(&child) && saves==0 && write_files[0].refs==2);
+    assert(!finish_process_files(&subject,0) && saves==1);
+
+    /* A later clone failure rolls back acquired refs without publishing dirty data. */
+    setup(1);clear_process(&child);
+    assert(process_file_write(&subject,3,(const uint8_t *)"stay",4)==4);
+    subject.files[20]=(struct process_file){.used=true,.type=PROCESS_FILE_NET_CONNECTION,.handle=123};
+    refuse_net_hold=true;net_holds=net_closes=0;
+    assert(!process_configure_stdio_fds(&child,&subject,1,3,20));
+    assert(net_holds==1 && !net_closes && write_files[0].refs==2 && !saves);
+    for(unsigned i=0;i<3;i++) assert(child.files[i].type==PROCESS_FILE_STDIO);
+    net_holds=0;
+    assert(process_inherit_files(&child,&subject)==SRV_ERR_NOMEM);
+    assert(net_holds==1 && !child.files[20].used && write_files[0].refs==4);
+    assert(cleanup_process_files(&child) && write_files[0].refs==2 && !saves && !net_closes);
+    assert(!process_file_close(&subject,20) && net_closes==1);refuse_net_hold=false;
+    assert(!finish_process_files(&subject,0) && saves==1 && saved_size==4 && !memcmp(saved,"stay",4));
+
+    /* A child retaining only a reader owns the pending content after parent exit. */
+    for(unsigned hard=0;hard<2;hard++) {
+        clear_process(&subject);clear_process(&child);opening=fixture_exists=true;
+        memcpy(saved,"seed",4);saved_size=4;saves=0;
+        int reader=process_file_alloc(&subject,&fixture_node,saved,saved_size);
+        int writer=process_file_open_write(&subject,"/test/output",SRV_OPEN_WRITE);
+        assert(!process_inherit_files(&child,&subject));
+        assert(!process_file_close(&child,writer));
+        assert(process_file_write(&subject,writer,(const uint8_t *)"live",4)==4);
+        fail_save=true;clean_refusal=!hard;
+        assert(finish_process_files(&subject,0)==1 && saves==1);
+        assert(!write_files[0].used && content_find("/test/output"));
+        uint8_t data[4];assert(process_file_read(&child,reader,data,4)==4 && !memcmp(data,"live",4));
+        fail_save=false;
+        assert(process_file_sync_all()==(hard?-1:0) && saves==(hard?1U:2U));
+        assert(finish_process_files(&child,0)==(hard?1U:0U));
+        assert(!content_find("/test/output"));opening=clean_refusal=false;
+    }
+    puts("process-inheritance: PASS shared offsets, both exit orders, clean/sticky errors, CLOEXEC/reuse, partial clone rollback and reader-only survivors");
 }
 static void orphan_io_failure_regression(void) {
     clear_process(&subject);opening=fixture_exists=true;
@@ -572,6 +762,7 @@ int main(void) {
     descriptor_regression();
     positional_regression();
     snapshot_read_regression();
+    pipe_close_admission();
     pipe_regression();
     setup(2); /* Parent retains a duplicate until wait returns. */
     for(unsigned i=0;i<1000;i++) assert(process_output_write(&subject,1,(const uint8_t *)"x",1)==1);
@@ -703,6 +894,8 @@ int main(void) {
     cpu_usage_regression();
     open_flags_regression();
     coherence_regression();
+    writeback_retry_regression();
+    inheritance_exit_regression();
     orphan_lock_regression();
     puts("process-output-host: PASS (20,000 pipe reference transfers, wrap/backpressure/EOF/rights, 1000 small writes batched, parent duplicate, explicit flush, stderr alias, exit errors, PTY inheritance/refcounts/session signals and stale handles)");
 }

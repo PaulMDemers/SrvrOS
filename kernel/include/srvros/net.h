@@ -25,6 +25,8 @@ int64_t net_listen(uint16_t port);
 int64_t net_connect(uint32_t remote_ip, uint16_t remote_port, bool nonblock);
 int64_t net_udp_open(void);
 int64_t net_udp_bind(uint64_t socket_id, uint16_t port);
+int64_t net_udp_sendto_mode(uint64_t socket_id, uint32_t remote_ip, uint16_t remote_port,
+    const uint8_t *buffer, uint64_t length, bool dontwait);
 int64_t net_udp_sendto(uint64_t socket_id,
     uint32_t remote_ip,
     uint16_t remote_port,

@@ -345,3 +345,247 @@ The completed bounded synchronization audit also corrects `sem_trywait` under
 contention: it retries compare-exchange conflicts while tokens remain and returns
 `EAGAIN` only after observing zero. See the [closeout](synchronization-audit-2026-10-25.md#final-synchronization-pass--2026-10-26)
 for scope, validation and remaining broader work.
+
+## Imported exFAT files
+
+Imported file contents preserve the distinction between logical and initialized
+length: reads return zeros beyond `ValidDataLength`. Rename/replacement preserve
+that boundary, while a successful full overwrite initializes its new contents.
+Both memory and block mounts validate geometry and stream extents; unsupported
+revision/multiple-FAT images are refused. Dirty/media-error single-FAT media stay
+read-only. See the [filesystem audit](filesystem-audit-2026-10-26.md) for host/VM
+coverage and the remaining parser, ownership and crash-recovery work.
+
+File entry imports now require checked entry/name hashes, one stream followed by
+its exact consecutive ASCII name records, valid allocation flags and empty-file
+fields. Unsupported non-ASCII names and secondary extensions are refused rather
+than renamed or dropped. Directory scans reject traversed FAT cycles, invalid
+successors and premature termination. This remains a bounded import profile;
+automatic boot/upcase repair, full Unicode, complete allocation-format conformance
+and crash safety remain separate work. Rebuild older generated images whose entry checksums were unset.
+
+Imported duplicate/case-colliding paths and overlapping mount subtrees are
+refused. Exact allocation aliases used by generated images retain their storage
+until the last published owner retires; overwrite still uses a new allocation.
+Block mounts quarantine inconsistent allocation maps or failed ownership checks
+as read-only before sidecar recovery/mutation. This is not a hard-link API,
+a media-repair facility or certification of corrupt-file contents. Mounts now
+claim declared physical block-view ranges; overlapping views and active raw
+transport leases refuse competing mounts. Raw diagnostics delegate only their
+explicit inner image view and retain exclusion after I/O failure until reboot.
+Unmount now holds storage ownership while rechecking linked process references
+and refuses active backend operations. Runtime USB command failure and AHCI
+uncertain completion invalidate the device and declared aliases; cached block
+reads cannot bypass that state. No online rebind or media-generation recovery
+is supported. Hot removal/replacement and power-loss recovery remain open.
+
+
+exFAT sidecars are validated completely from one read buffer before applying
+permissions, identities or times. Records must belong to that mount, contain
+printable paths and bounded decimal fields, and end in newlines. Malformed
+sidecars do not partially apply. Unreadable/invalid temporary files are retained
+on mount; a later explicit sync may replace them. On quarantined media, no
+sidecar is replayed: imported default identities/permissions and unknown times
+are used because path-keyed metadata cannot identify the survivor of an
+interrupted replacement. Inspect/repair such media offline before normal use.
+
+Sidecar promotion replaces the committed record before retiring the temporary
+record; it does not delete the committed file first. `chmod` and explicit time
+updates propagate sidecar persistence failure as I/O failure and restore live
+metadata. A failed write may have changed media, so this is not a durable rollback.
+Sidecar v1 has no transaction generation or document checksum, and rename and
+replacement are not journaled or crash-atomic. Prefix-write/flush fault tests
+establish bounded quarantine behavior, not physical-drive power-loss guarantees.
+
+
+Both mount paths validate full boot-region checksums (all repeated words),
+mandatory boot fields and extended-sector signatures. The checked header is the
+same snapshot used for geometry. A uniquely valid backup can provide read-only
+access when the primary is invalid/unreadable, including when its sector-size
+byte is damaged. Ambiguous or wholly invalid candidates are refused. A valid
+primary with a damaged or disagreeing backup also stays read-only. Backup flags
+and usage estimates do not override the primary; no automatic repair occurs.
+
+Exactly one root allocation bitmap and one root upcase table are required.
+Wrong bitmap identity, missing/duplicate/misplaced system descriptors, unknown
+active critical entries and invalid system FAT chains are refused. The upcase
+stream must be even-sized and at most 128 KiB, with a valid checksum, complete
+compressed/uncompressed mapping coverage and the mandatory ASCII mappings.
+Supported filenames remain ASCII. System allocation checking follows FAT chains
+rather than assuming contiguous storage. Multi-cluster bitmaps remain read-only
+and the allocation checker explicitly refuses their unsupported graph checks;
+statfs counts their complete FAT chain under storage ownership. Rebuild old
+repository-generated images with missing boot checksums or zero upcase tables.
+
+
+Directory extension now selects space and initializes a new cluster before
+retiring preceding end markers. Out-of-space or allocator refusal before that
+point leaves directory bytes unchanged and the volume usable. When an end marker
+is consumed, undefined trailing records are cleared, including unused later
+clusters, so old names cannot reappear after remount. Payloads beyond the volume's
+heap and entry sets too wide for one cluster are refused before dirty marking or
+scratch allocation. On 512-byte clusters, a 211-character basename exceeds that
+entry-set limit even though it is within the format's overall name-length limit.
+Failures after allocation or metadata writes begin can still leave the volume
+quarantined; compound file/sidecar operations do not reserve all future disk space
+up front or offer a journaled rollback. Error reporting remains the existing
+boolean/I/O-failure contract, not a new ENOSPC-specific syscall interface.
+
+
+Truncation and replacement publish and flush the new stream before retiring the
+old allocation, then persist sidecar metadata using the released space. Exact
+allocation aliases still retain their clusters until the last owner retires.
+Directory growth similarly defers sidecar persistence until its enclosing
+operation finishes. Full-volume truncate-to-zero can therefore reclaim space;
+nonzero replacement still needs free space for its new data first. A healthy
+full-volume chmod/utime refusal before payload writes preserves live metadata
+and disk bytes. If a later failure follows publication or retirement, the
+existing dirty/quarantine contract applies. There is no compound reservation or
+promise that every delete/truncate can finish on a full volume.
+
+
+Process writeback keeps dirty shared content retryable after an exFAT failure
+proven clean under filesystem exclusion: capacity/heap reservation failed before
+dirty marking, or no allocation/data/directory write occurred and the clean
+marker was successfully flushed. The failing flush still reports I/O failure;
+a later explicit flush/sync or close may try again after space is reclaimed.
+Read data, shared identity and descriptor offsets survive the refusal. Partial
+mutation, failed marker cleanup, unsupported requests and ownership/device
+admission failures retain the sticky error behavior. This is not a new errno ABI
+or an automatic retry loop, and it does not guarantee that a later attempt fits.
+
+Global sync visits each live content object once, including dirty content held
+only by readers after a failed writer close. Unlinked content needs no pathname
+writeback. Final close still retires the descriptor and reports a flush error;
+without another reference the in-memory content is released. Check explicit
+`fsync`/`fdatasync` for persistence errors: this libc's `fflush` drains its stream
+buffer and treats its additional fsync call as best effort, while `sync()` has a
+void interface. A successful stream-buffer flush alone is not a durability
+receipt.
+
+
+Inherited regular-file descriptors share their open description and offset;
+independent opens share content but retain separate offsets. Close-on-exec flags
+belong to descriptors. Closing a child alias or rolling back incomplete descriptor
+inheritance releases its references without flushing a description still held by
+the parent. A failed three-stream setup likewise releases its temporary references.
+
+Process exit flushes redirected standard files even when another process retains
+the description, then closes every descriptor. A failure changes an otherwise
+zero exit status to one; an explicit nonzero status is preserved. Other inherited
+regular files remain buffered until an explicit flush/sync or the last writer
+close. A successful earlier process exit therefore does not certify persistence
+of every inherited file. Clean writeback refusal remains retryable by the surviving
+process, including through a reader-only reference or global sync. Hard failures
+remain attached to shared content and are visible to surviving aliases; they are
+not consumed by the first process to report them. Final reference release reports
+failure and frees the buffered content. These are helper-level host regressions,
+not exhaustive concurrent fork/exec or process-kill fault coverage.
+
+
+Native TCP descriptors retain their existing sharing restrictions. On final
+close, remaining retransmission and FIN state survives creator exit under the
+protocol's bounded timers. A surviving inherited listener retains its completed
+and half-open backlog. Deferred FIN uses the normal close deadline and reports
+send failure through the existing reset/readiness path when a descriptor remains.
+A peer FIN alone does not acknowledge our FIN. Close success still does not
+promise delivery to the peer application or provide linger semantics. See the
+[TCP lifetime audit](tcp-lifetime-audit-2026-10-28.md).
+
+
+TCP application operations require a live reference even while a final-close
+slot remains for protocol retransmission. A retired handle cannot acquire a new
+reference, consume buffered bytes, query endpoint/error state or request shutdown;
+zero-length I/O also validates the handle. Poll reports invalid and blocked I/O
+is woken by final close. Remaining descriptor aliases continue to work. Packet
+ACK admission now rejects acknowledgment beyond transmitted data, and outbound
+SYN-ACK must acknowledge the sent SYN; neither change expands the supported
+socket namespaces or inheritance ABI.
+
+
+Terminal TCP expiry preserves descriptor identity, the first error or orderly
+EOF with unread bytes until final close. The diagnostic `srv_net_info` state is
+`CLOSED` (9), with no protocol deadline; the structure layout is unchanged.
+TIME-WAIT pressure cannot reclaim a slot still referenced by an application.
+Reset/refusal and timeout errors remain queryable and readable data at orderly
+EOF is preserved. This keeps slots within the existing table bound until close.
+Receive admission now precedes ACK/window mutation; reset validation and repeated
+SYN handling are covered. Receive allocation refusal keeps descriptors and unread
+data available, consumes no new payload/FIN sequence and lets the peer retry;
+no HTTP response is synthesized by the TCP layer. Partial ACKs reclaim transmit
+byte capacity and retransmit only the unacknowledged suffix. Duplicate receive
+prefixes are skipped, including across sequence wrap, while the new suffix must
+fit the in-order receive window. Out-of-order reassembly and right-edge clipping
+remain unsupported; see the TCP audit for exact limits.
+
+
+TCP peer-window updates use the original wire sequence and ACK ordering; stale
+updates cannot reopen/close the current window or reset persist responsiveness.
+Passive-handshake validation precedes window publication. Zero-window probes
+elicit a current ACK with either one retained byte or an old-sequence empty
+segment when no data is queued. Responsive closed-window peers retain their
+connection; repeated unanswered probes still report TIMEDOUT. Persist backoff is
+bounded independently of responses, and ordinary data retries resume with a fresh
+budget when the window opens. This preserves bounded shutdown/close deadlines
+and the existing idle policy; it does not add a user-configurable persist API,
+congestion control, window scaling or complete RFC conformance.
+
+
+IPv4 fragments (MF or nonzero offset) and the reserved flag are refused before
+transport dispatch; DF-only unfragmented packets remain supported. There is no
+IP reassembly. TCP malformed option lengths are dropped before connection state
+changes. Well-formed unsupported options are skipped. MSS is negotiated only at
+active/passive open: absent offers default to 536 bytes, valid positive offers
+are capped at the 1,400-byte transmit limit, and zero/duplicate SYN offers are
+refused. Outgoing SYN/SYN-ACK advertise MSS 1,400, including retransmissions.
+Payload sends and retries honor the retained limit. Window scaling, timestamps,
+SACK and path-MTU discovery remain unsupported; this is not full TCP conformance.
+
+
+Native UDP endpoints have eight slots, four queued datagrams per endpoint and a
+1,472-byte payload cap (`SRV_NET_UDP_PAYLOAD_MAX`). Queue pressure drops the oldest
+entry; an oversized arrival cannot evict data. Receive consumes exactly one
+entry, including an empty datagram or a receive with zero capacity; a short
+receive discards the remainder. `recvmsg` returns the copied byte count and sets
+output `MSG_TRUNC` when capacity was insufficient. Empty datagrams return zero
+without truncation. Short source-address buffers receive a bounded prefix and
+report the full required `sockaddr_in` length. The bounded temporary allocation
+for `recvmsg` may fail with `ENOMEM` before consuming anything. Input `MSG_TRUNC`
+and UDP `MSG_PEEK` are not implemented.
+
+UDP binding is immutable after explicit or automatic bind; failed bind preserves
+the libc cached port. A send waiting for ARP revalidates its original endpoint
+before emitting a packet, refusing final-close/reuse while allowing a surviving
+native alias. Final close wakes blocked receivers; native held references retain
+queued data through creator cleanup. These checks do not extend pseudo-socket
+fork/dup support or qualify arbitrary SMP teardown. ICMP echo requests and replies require a valid checksum
+and code zero before responding or completing a pending ping. See the
+[datagram audit](datagram-audit-2026-10-28.md) for evidence and remaining scope.
+
+
+ARP waits resolve their captured target from the bounded cache, so overlapping
+lookups cannot consume each other's completion. Only ARP request/reply opcodes
+update that cache. Native DNS permits one active query across ARP and all retries;
+an overlapping raw call returns `SRV_ERR_AGAIN` without changing its output.
+The active request accepts replies only from its configured server IP and the
+existing DNS port/ID. All normal failure/success paths release ownership, and
+process exit stops ARP/DNS waits. The subsequent shared parser validates question,
+compression and relevant A/CNAME identity before publication; libc also filters
+the configured source, rejects truncated replies and preserves retry queries.
+Native busy fallback maps to EAI_AGAIN. This is not DNSSEC or a parallel resolver.
+
+Connected UDP `recv`, `recvfrom` and `recvmsg` filter by the IP/port captured at
+receive entry. Foreign datagrams are consumed until a match or ordinary
+nonblocking/error result, including zero-capacity calls. Unconnected `recv` is
+supported. A receive continuation validates pseudo-slot generation and native FD
+after each syscall and restart handler; close/reuse returns `EBADF` before retry
+or publishing into a replacement. Dup/new allocation gets a new slot generation,
+and exhausted generations are not recycled. MSG_DONTWAIT now uses per-call native
+I/O (SYS_SOCKET_TRY_IO, 155), without temporary shared flag changes, including
+UDP sends and pipe-backed socketpairs. New libc needs a matched rebuilt kernel.
+TCP connect/accept revalidate pseudo ownership after waits and restart handlers;
+raw accept pins its listener with a CLOEXEC duplicate and snapshots options. This
+needs one spare FD (EMFILE on exhaustion); closing the original raw FD does not
+cancel the retained accept. Native-FD operations behind libc, alias peer/options
+coherence and arbitrary SMP races remain outside this bounded result; see the
+[DNS/socket audit](dns-socket-audit-2026-10-28.md).

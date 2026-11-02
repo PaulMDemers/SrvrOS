@@ -4,6 +4,16 @@ from pathlib import Path
 import hardware_desktop as desktop
 
 class CollectionTests(unittest.TestCase):
+    def test_audio_completion_requires_a_whole_line(self):
+        from audio_io_stress_smoke import completion_line
+        for ending in (b'\n',b'\r\n'):
+            for result in (b'PASS',b'FAIL'):
+                line=b'desktop-audio-io: result='+result+b' unmounted=yes; returning to Ubuntu'+ending
+                for split in range(len(line)):
+                    self.assertIsNone(completion_line(b'earlier output\n'+line[:split]),(result,ending,split))
+                self.assertEqual(completion_line(b'earlier output\n'+line+b'later'),line)
+        self.assertIsNone(completion_line(b'unrelated: result=PASS unmounted=yes\n'))
+
     def test_capacity_accounting_keeps_failures_visible(self):
         row = "deskd: resources reason=opened clients=24 children=24 clipboard_peers=24 window_capacity=32 cache_bytes=33177600 cache_budget=100663296 gui_queue_budget=2097152 gui_queue_depth=64 gui_surface_record_budget=262144 gui_surface_pixel_budget=268435456"
         self.assertFalse(desktop.needs_attention(row))
@@ -669,5 +679,41 @@ class CollectionTests(unittest.TestCase):
             (folder/'exit.log').unlink();(folder/'exit.log').write_bytes(b'x'*(desktop.MAX_LOG_BYTES+1))
             with self.assertRaises(ValueError): desktop.collect(mount,'37d8c5d0',root/'out')
             with self.assertRaises(ValueError): desktop.collect(mount,'12345678',root/'out')
+
+class CacheRetirementTests(unittest.TestCase):
+    def test_complete_zero_reservation_with_actual_reuse(self):
+        from audio_io_stress_smoke import cache_retirement
+        prefix=b'desktop-cache-retired: version=1 bytes=0 retained=0 reuses=26'
+        for ending in (b'\n',b'\r\n'):
+            line=prefix+ending
+            for split in range(len(line)):
+                self.assertIsNone(cache_retirement(line[:split]))
+            self.assertEqual(cache_retirement(line),dict(bytes=0,retained=0,reuses=26))
+            self.assertIsNone(cache_retirement(line+line))
+        for key,value in ((b'bytes=0',b'bytes=1'),(b'retained=0',b'retained=1'),
+                          (b'reuses=26',b'reuses=0'),(b'version=1',b'version=2')):
+            self.assertIsNone(cache_retirement(prefix.replace(key,value)+b'\n'))
+        self.assertIsNone(cache_retirement(b'interleaved'+prefix+b'\n'))
+
+class CheckpointBarrierTests(unittest.TestCase):
+    def test_matching_committed_generation_and_legacy_stage(self):
+        from audio_io_stress_smoke import checkpoint_durable
+        name,at=b'session-a.log',b'123'
+        receipt=b'workspace-log: durable snapshot=session-a.log monotonic_us=123'
+        self.assertTrue(checkpoint_durable(receipt+b'\r\n',0,name,at))
+        self.assertTrue(checkpoint_durable(receipt+b'\n',0,name,at))
+        self.assertFalse(checkpoint_durable(receipt,0,name,at))
+        self.assertFalse(checkpoint_durable(receipt+b'4\nworkspace: flushed\n',0,name,at))
+        self.assertFalse(checkpoint_durable(receipt+b'\nworkspace: flushed\n',0,b'session-b.log',at))
+        self.assertFalse(checkpoint_durable(receipt+b'\n',len(receipt)+1,name,at))
+        self.assertTrue(checkpoint_durable(b'workspace: flushed\n',0,name,at))
+        self.assertFalse(checkpoint_durable(b'workspace: flushed\n',19,name,at))
+        broken=receipt+b'worker interleaved\n'
+        self.assertFalse(checkpoint_durable(broken,0,name,at))
+        self.assertTrue(checkpoint_durable(broken,0,name,at,[b'prefix\n'+receipt+b'\n']))
+        self.assertFalse(checkpoint_durable(broken,0,name,at,[receipt+b'4\n']))
+        self.assertFalse(checkpoint_durable(broken,0,name,at,[b'interleaved'+receipt+b'\n']))
+        self.assertFalse(checkpoint_durable(broken,0,name,at,[receipt]))
+
 
 if __name__=='__main__': unittest.main()

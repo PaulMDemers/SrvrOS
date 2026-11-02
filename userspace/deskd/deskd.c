@@ -47,6 +47,10 @@ static void life_launch_log(int application,int64_t pid,uint64_t elapsed) {
     desk_log("desktop-launch: app=%d pid=%lld exec_us=%llu async=yes\n",
         application,(long long)pid,(unsigned long long)elapsed);
 }
+static void life_terminate_log(uint64_t pid,uint64_t elapsed,long result) {
+    desk_log("desktop-terminate: version=1 pid=%llu elapsed_us=%llu result=%lld async=yes\n",
+        (unsigned long long)pid,(unsigned long long)elapsed,(long long)result);
+}
 #include "operation_trace.h"
 #include "lifecycle_worker.h"
 struct pixel_cache { uint32_t *pixels,width,height; struct life_memory *job; };
@@ -130,6 +134,8 @@ struct session {
     uint64_t capture_serial;
     struct capture_trace slowest_capture;
     struct pixel_cache cache[DESKD_WINDOWS][2];
+    struct pixel_cache retained_cache[2];
+    uint64_t cache_reuses;
     uint64_t cache_bytes,cache_peak,memory_notice_at,memory_notice_serial;
 };
 
@@ -224,24 +230,38 @@ static void resource_trace(const struct session *s,const char *reason) {
         reason,clients,children,peers,session_capacity(s),(unsigned long long)s->cache_bytes,
         (unsigned long long)DESKD_CACHE_BUDGET,(unsigned long long)DESK_GUI_QUEUE_BYTES,DESK_GUI_QUEUE_DEPTH,(unsigned long long)DESK_GUI_SURFACE_RECORD_BYTES,(unsigned long long)DESK_GUI_PIXEL_BYTES);
 }
-/* Only live windows own caches. A private spare receives each whole frame;
- * published pixels remain untouched until copy succeeds. Budget includes both. */
-static void cache_drop(struct session *s,int i,int j) {
-    struct pixel_cache *c=&session_cache(s,i)[j];
+/* A private spare receives each whole frame; published pixels remain untouched
+ * until copy succeeds. Budget includes live, retained and retiring buffers. */
+static void cache_release(struct session *s,struct pixel_cache *c) {
     if(c->job) { life_queue(s->worker,&c->job->discard,1);*c=(struct pixel_cache){0};return; }
     if(c->pixels) {
         s->cache_bytes-=(uint64_t)c->width*c->height*4;
         desk_pixels_free(c->pixels,c->width,c->height);*c=(struct pixel_cache){0};
     }
 }
+static void cache_drop(struct session *s,int i,int j) { cache_release(s,&session_cache(s,i)[j]); }
 static void cache_retire(struct session *s,int i) {
     for(int j=0;j<2;j++)cache_drop(s,i,j);
 }
+static void cache_forget(struct session *s,int i) {
+    for(int j=0;j<2;j++) {
+        struct pixel_cache *c=&session_cache(s,i)[j];
+        if(s->worker && !s->exiting && c->job && c->pixels &&
+           life_state(&c->job->state)==LIFE_DONE && c->pixels==c->job->pixels && !life_state(&c->job->discard)) {
+            for(unsigned n=0;n<2;n++)if(!s->retained_cache[n].job) {
+                s->retained_cache[n]=*c;*c=(struct pixel_cache){0};break;
+            }
+        }
+        cache_drop(s,i,j);
+    }
+}
 static void cache_free(struct session *s) {
     for(int i=0;i<session_capacity(s);i++)cache_retire(s,i);
+    for(unsigned n=0;n<2;n++)cache_release(s,&s->retained_cache[n]);
 }
 static int cache_init(struct session *s) { (void)s;return 0; }
 static void cache_reclaim(struct session *s,int keep) {
+    for(unsigned n=0;n<2;n++)cache_release(s,&s->retained_cache[n]);
     for(int i=0;i<session_capacity(s);i++)if(i!=keep && !session_client(s,i)->awaiting)for(int j=0;j<2;j++)
         if(session_cache(s,i)[j].pixels!=desktop_window_at(&s->scene,i)->pixels)cache_drop(s,i,j);
 }
@@ -257,6 +277,13 @@ static uint32_t *cache_prepare(struct session *s,int i,unsigned width,unsigned h
         if(!c->pixels){cache_drop(s,i,j);return NULL;}
     }
     if(c->pixels && (uint64_t)c->width*c->height*4>=bytes)return c->pixels;
+    for(unsigned n=0;n<2;n++) {
+        struct pixel_cache *saved=&s->retained_cache[n];
+        if(saved->pixels && (uint64_t)saved->width*saved->height*4>=bytes) {
+            cache_drop(s,i,j);*c=*saved;*saved=(struct pixel_cache){0};
+            s->cache_reuses++;return c->pixels;
+        }
+    }
     if(bytes>DESKD_CACHE_BUDGET-s->cache_bytes)cache_reclaim(s,i);
     if(bytes>DESKD_CACHE_BUDGET-s->cache_bytes) {
         /* Dropping a spare transfers ownership, not free-byte credit. Wait
@@ -277,6 +304,10 @@ static uint32_t *cache_prepare(struct session *s,int i,unsigned width,unsigned h
             *c=(struct pixel_cache){.width=width,.height=height,.job=m};
             s->cache_bytes+=bytes;if(s->cache_bytes>s->cache_peak)s->cache_peak=s->cache_bytes;
             life_queue(s->worker,&m->state,LIFE_QUEUED);s->cache_pending=1;return NULL;
+        }
+        if(s->retained_cache[0].job || s->retained_cache[1].job) {
+            for(unsigned n=0;n<2;n++)cache_release(s,&s->retained_cache[n]);
+            s->cache_pending=1;
         }
         return NULL;
     }
@@ -472,7 +503,7 @@ static void forget(struct session *s,int i) {
     struct desktop_window *w=desktop_window_at(&s->scene,i);
     damage_window(s,i);
     desk_log("deskd: retired pid=%llu\n",(unsigned long long)session_client(s,i)->pid);
-    cache_retire(s,i);
+    cache_forget(s,i);
     memset(w,0,sizeof(*w)); memset(session_client(s,i),0,sizeof((*session_client(s,i))));
     resource_trace(s,"retired");
     if(s->scene.apps) desk_damage_add(&s->damage,(struct desk_rect){0,s->damage.height-96,s->damage.width,96});
@@ -1201,9 +1232,13 @@ static struct capture_trace capture_snapshot(const struct session *s,uint64_t no
 }
 static struct operation_trace operation_snapshot(const struct session *s,uint64_t now) {
     struct operation_trace t={.at_us=now,.requests=s->launch_requests,.started=s->launch_started,.refused=s->launch_refused,
+        .cache_bytes=s->cache_bytes,.cache_reuses=s->cache_reuses,
         .last_pid=s->last_launch_pid,.last_exec_us=s->last_exec_us,.pending_opens=s->pending_opens,.exiting=s->exiting,
         .exit_age_us=s->exiting && s->exit_started_us?now-s->exit_started_us:0,
         .preferences=s->preferences.job.busy || s->preferences.dirty,.capture=capture_snapshot(s,now),.slowest=s->slowest_capture};
+    for(unsigned n=0;n<2;n++)if(s->retained_cache[n].job) {
+        t.cache_retained++;t.cache_retained_bytes+=(uint64_t)s->retained_cache[n].width*s->retained_cache[n].height*4;
+    }
     if(s->worker) {
         for(unsigned n=0;n<LIFE_LAUNCH_SLOTS;n++) {
             const struct life_launch *j=&s->worker->launch[n];unsigned state=life_state(&j->state);
@@ -1213,6 +1248,15 @@ static struct operation_trace operation_snapshot(const struct session *s,uint64_
             }
         }
         for(unsigned n=0;n<LIFE_MEMORY_SLOTS;n++)t.memory+=life_state(&s->worker->memory[n].state)!=LIFE_IDLE;
+        for(unsigned n=0;n<LIFE_REAP_SLOTS;n++) {
+            const struct life_reap *r=&s->worker->reap[n];unsigned state=life_state(&r->state);
+            t.reap_queued+=state==LIFE_QUEUED;t.reap_running+=state==LIFE_RUNNING;t.reap_done+=state==LIFE_DONE;
+            if(state==LIFE_IDLE || now<r->queued_us || (t.reap_pid && now-r->queued_us<t.reap_queue_age_us))continue;
+            t.reap_pid=r->pid;t.reap_state=state;t.reap_queue_age_us=now-r->queued_us;
+            t.reap_run_age_us=0;t.reap_completed_us=0;
+            if((state==LIFE_RUNNING || state==LIFE_DONE) && now>=r->begin_us)t.reap_run_age_us=now-r->begin_us;
+            if(state==LIFE_DONE && r->end_us>=r->begin_us)t.reap_completed_us=r->end_us-r->begin_us;
+        }
     }
     for(int i=0;i<session_capacity(s);i++) {
         const struct client *c=session_client(s,i);if(!c->pid)continue;
@@ -1504,6 +1548,11 @@ static void lifecycle_deliver(struct session *s) {
 /* Queue age also includes time the compositor could not run. RELEASE and
  * CONFIGURE must get a delivery attempt before timeout attribution, just like
  * input. Start the response deadline only once the client can see the request. */
+static void terminate_client(struct session *s,uint64_t pid) {
+    if(s->worker) { (void)life_terminate_submit(s->worker,pid);return; }
+    srv_kill((int64_t)pid);
+    for(int i=0;i<session_capacity(s);i++)if(session_client(s,i)->pid==pid)forget(s,i);
+}
 static int control_send(struct session *s,int i,const struct desk_packet *p) {
     struct client *c=session_client(s,i);
     c->input_blocked=0; /* Control traffic interrupted input delivery attempts. */
@@ -1515,20 +1564,33 @@ static int control_send(struct session *s,int i,const struct desk_packet *p) {
     else if(tick-c->control_since>500) {
         desk_log("deskd: killing pid=%llu reason=control-timeout type=%u blocked_ticks=%llu\n",
             (unsigned long long)c->pid,p->type,(unsigned long long)(tick-c->control_since));
-        srv_kill((int64_t)c->pid);forget(s,i);
+        terminate_client(s,c->pid);
     }
     return 0;
 }
 static void service(struct session *s) {
+    if(s->worker)for(unsigned n=0;n<LIFE_TERMINATE_SLOTS;n++) {
+        struct life_terminate *t=&s->worker->terminate[n];
+        if(life_state(&t->state)!=LIFE_DONE)continue;
+        uint64_t pid=t->pid;
+        /* Completion is a signal attempt, not proof of exit. Forget UI
+         * clients as before, but leave child ownership for verified wait. */
+        for(int i=0;i<session_capacity(s);i++)if(session_client(s,i)->pid==pid)forget(s,i);
+        int child=child_index(s,pid);
+        if(child>=0)session_child_reply(s,child)->type=0;
+        life_publish(&t->state,LIFE_IDLE);
+    }
     for(int n=0;n<children_capacity(s);n++)if((*session_children(s,n)) && session_child_reply(s,n)->type) {
+        if(s->worker && life_terminate_pending(s->worker,*session_children(s,n)))continue;
         if(!desk_send(*session_children(s,n),session_child_reply(s,n))) { session_child_reply(s,n)->type=0;*session_child_reply_blocked(s,n)=0; }
         else if(!(*session_child_reply_blocked(s,n))) { (*session_child_reply_blocked(s,n))=1;(*session_child_reply_since(s,n))=srv_ticks(); }
-        else if((uint64_t)srv_ticks()-(*session_child_reply_since(s,n))>500)srv_kill((*session_children(s,n)));
+        else if((uint64_t)srv_ticks()-(*session_child_reply_since(s,n))>500)terminate_client(s,*session_children(s,n));
     }
 
     for (int i=0;i<session_capacity(s);i++) {
         struct client *c=session_client(s,i);
         if (!c->pid) continue;
+        if(s->worker && life_terminate_pending(s->worker,c->pid))continue;
         if(c->open_request && (uint64_t)srv_ticks()-c->open_since>1000) {
             desk_log("deskd: document-route unconfirmed pid=%llu request=%llu\n",(unsigned long long)c->pid,(unsigned long long)c->open_request);
             c->open_request=0;c->service_bits=0;
@@ -1586,7 +1648,7 @@ static void service(struct session *s) {
         if ((c->awaiting || c->closing) && (uint64_t)srv_ticks()-c->progress>500) {
             desk_log("deskd: killing pid=%llu reason=client-timeout closing=%d awaiting=%d configure=%d release=%u tick=%llu\n",
                 (unsigned long long)c->pid,c->closing,c->awaiting,c->configure,c->release.type,(unsigned long long)srv_ticks());
-            srv_kill((int64_t)c->pid); forget(s,i); continue;
+            terminate_client(s,c->pid); continue;
         }
         if(c->notice_ack_pending && !c->closing) {
             struct desk_packet p=desk_packet_new(DESK_NOTIFY_ACK);p.serial=c->notice_ack_serial;p.value=c->notice_ack_result;
@@ -1954,10 +2016,11 @@ int main(int argc,char **argv) {
     unsigned audio_io_seconds=audio_io_smoke?60:1800;
     int audio_io_complete=0,audio_io_finished=0;
     unsigned stress_shots=0,stress_saved=0,stress_shot_seen=0;
-    uint64_t stress_shot_due=0,followup_begin=0,followup_pid=0,followup_due=0;unsigned followup_phase=0;
+    uint64_t stress_shot_due=0,followup_begin=0,followup_pid=0,followup_due=0,followup_elapsed=0;unsigned followup_phase=0;
     uint64_t life_pid=0,life_due=0,life_begin=0,life_close=0,loop_last=0,loop_max=0,life_ready_max=0,life_close_max=0,life_first=0,life_last=0;
     unsigned life_cycles=0,life_phase=0;
     struct loop_trace loop_trace={0};uint64_t loop_report_at=0;
+    struct operation_trace failure_operations={0};
     int idle_phase=0;
     unsigned idle_capture_serial=0;
     uint64_t idle_deadline=0,idle_frames=0,idle_bytes=0;
@@ -2018,11 +2081,16 @@ int main(int argc,char **argv) {
         }
         io_trial_loop_begin(&s.io);
         loop_trace_stamp(&loop_trace,LOOP_MESSAGES);
+        uint64_t message_begin=(uint64_t)srv_monotonic_us();
         for (int n=0;n<32;n++) {
             struct desk_packet p; uint64_t pid;
             int r=desk_receive(&pid,&p);
             if (r<=0) break;
             if (r==1) incoming(&s,pid,&p);
+            /* A frame copy may yield to I/O or another runnable client. Do not
+             * accumulate a whole packet-count batch before input/render work.
+             * The next packet stays queued; no in-flight handler is abandoned. */
+            if((uint64_t)srv_monotonic_us()-message_begin>=2000)break;
         }
         loop_trace_stamp(&loop_trace,LOOP_LIFECYCLE);
         struct srv_sched_trace lifecycle_trace={0};
@@ -2100,6 +2168,7 @@ int main(int argc,char **argv) {
                 life_last=now;life_cycles++;life_phase=0;life_pid=0;life_due=now+(power_trial?3000000:500000);
             }
             if((life_phase && now-life_begin>10000000) || s.child_errors){
+                failure_operations=operation_snapshot(&s,now);
                 desk_log("desktop-life: deadline phase=%u pid=%llu child=%d elapsed_us=%llu pending_opens=%u errors=%u\n",life_phase,
                     (unsigned long long)life_pid,child_index(&s,life_pid),(unsigned long long)(now-life_begin),s.pending_opens,s.child_errors);
                 /* Read-only metadata distinguishes a still-active process
@@ -2140,8 +2209,10 @@ int main(int argc,char **argv) {
                 for(int i=0;i<session_capacity(&s);i++)if(session_client(&s,i)->pid==followup_pid)request_close(&s,i);
                 followup_phase=3;
             } else if(followup_phase==3 && child_index(&s,followup_pid)<0) {
+                followup_elapsed=now-followup_begin;
                 followup_phase=4;global_menu_action(&s,GLOBAL_EXIT);
-                desk_log("desktop-stress-exit: followup=PASS pid=%llu elapsed_us=%llu shots=%u saved=%u busy=%u\n",(unsigned long long)followup_pid,(unsigned long long)(now-followup_begin),stress_shots,stress_saved,s.capture.busy);
+                /* Retain the receipt, but UART backpressure must not block
+                 * the final live UI turn. Emit after its timing is captured. */
             }
             if(followup_phase && followup_phase!=4 && now-followup_begin>10000000) {
                 desk_log("desktop-stress-exit: followup=FAIL phase=%u pid=%llu elapsed_us=%llu\n",followup_phase,(unsigned long long)followup_pid,(unsigned long long)(now-followup_begin));failed=1;break;
@@ -2734,6 +2805,12 @@ int main(int argc,char **argv) {
         loop_trace_end(&loop_trace,coexist_end,life_cycles,life_pid,life_phase);
         if(gap>500000)desk_log("desktop-loop: gap_us=%llu phase=%u final=1\n",(unsigned long long)gap,life_phase);
     }
+    if(audio_io && followup_phase==4)
+        desk_log("desktop-stress-exit: followup=PASS pid=%llu elapsed_us=%llu shots=%u saved=%u busy=%u\n",(unsigned long long)followup_pid,(unsigned long long)followup_elapsed,stress_shots,stress_saved,s.capture.busy);
+    if(audio_io && failed) {
+        if(!failure_operations.at_us)failure_operations=operation_snapshot(&s,coexist_end);
+        operation_trace_report(&failure_operations,1);
+    }
     if(battery_work) {
         uint64_t elapsed=coexist_end-work_begin;
         if(work_phase!=3 || elapsed<300000000 || !work_keys || !work_motion || !s.exiting || s.child_errors)failed=1;
@@ -2846,6 +2923,11 @@ int main(int argc,char **argv) {
         desk_capture_job_close(&s.capture);
     }
     cache_free(&s);life_work(&worker);lifecycle_poll(&s);s.worker=NULL;
+    unsigned retained=0;
+    for(unsigned n=0;n<2;n++)retained+=s.retained_cache[n].job!=NULL;
+    if(s.cache_bytes || retained)failed=1;
+    if(audio_io)desk_log("desktop-cache-retired: version=1 bytes=%llu retained=%u reuses=%llu\n",
+        (unsigned long long)s.cache_bytes,retained,(unsigned long long)s.cache_reuses);
     if(s.trace)desk_log("deskd: cache peak_bytes=%llu retired_bytes=%llu budget_bytes=%llu windows=%u\n",(unsigned long long)s.cache_peak,(unsigned long long)s.cache_bytes,(unsigned long long)DESKD_CACHE_BUDGET,session_capacity(&s));
     registry_destroy(&s);
     if(s.trace)desk_log("deskd: registry peak_bytes=%llu retired_bytes=%llu budget_bytes=%llu\n",(unsigned long long)s.registry_peak,(unsigned long long)s.registry_bytes,(unsigned long long)s.registry_budget);

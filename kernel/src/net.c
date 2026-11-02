@@ -1,3 +1,4 @@
+#include <srvros/dns_wire.h>
 #include <srvros/console.h>
 #include <srvros/net_device.h>
 #include <srvros/heap.h>
@@ -34,17 +35,19 @@
 #define TCP_STATE_CLOSE_WAIT 6
 #define TCP_STATE_LAST_ACK 7
 #define TCP_STATE_TIME_WAIT 8
+#define TCP_STATE_CLOSED 9 /* Application references only; no wire ownership. */
 
 #define TCP_MAX_CONNECTIONS 32
 #define UDP_MAX_SOCKETS 8
 #define UDP_RX_QUEUE 4
-#define UDP_PAYLOAD_MAX 1472
+#define UDP_PAYLOAD_MAX SRV_NET_UDP_PAYLOAD_MAX
 #define NET_LISTENERS 4
 #define NET_PENDING_REQUESTS 8
 #define NET_CONNECTION_RX_INITIAL_SIZE 4096
 #define NET_CONNECTION_RX_MAX_SIZE 32768
 #define TCP_RX_WINDOW 4096
 #define TCP_SEGMENT_PAYLOAD_MAX 1400
+#define TCP_DEFAULT_SEND_MSS 536
 #define TCP_TX_HISTORY 16
 #define TCP_TX_WINDOW_BYTES (TCP_SEGMENT_PAYLOAD_MAX * 4)
 #define TCP_RETRANSMIT_TICKS 25
@@ -116,6 +119,10 @@ struct tcp_connection {
     uint16_t local_port;
     uint16_t remote_port;
     uint16_t peer_window;
+    uint16_t peer_mss;
+    bool peer_window_valid;
+    uint32_t peer_window_seq;
+    uint32_t peer_window_ack;
     uint32_t local_seq;
     uint32_t remote_next;
     uint64_t id;
@@ -127,7 +134,8 @@ struct tcp_connection {
     uint64_t last_activity_tick;
     uint64_t zero_window_deadline;
     char *rx_data;
-    uint8_t zero_window_probes;
+    uint8_t zero_window_probes; /* Consecutive unanswered probes. */
+    uint8_t zero_window_backoff;
     struct tcp_tx_record tx_history[TCP_TX_HISTORY];
 };
 
@@ -171,15 +179,15 @@ static uint8_t dhcp_server_ip_bytes[4];
 static uint8_t dhcp_router_ip_bytes[4];
 static uint8_t dhcp_dns_ip_bytes[4];
 static uint8_t dhcp_offered_ip_bytes[4];
-static uint8_t arp_resolved_mac[6];
-static uint32_t arp_resolved_ip;
-static bool arp_resolved;
-static bool arp_waiting;
 static bool icmp_ping_waiting;
 static bool icmp_ping_reply;
 static uint32_t icmp_ping_ip;
 static uint16_t icmp_ping_sequence;
 static uint64_t icmp_ping_start_tick;
+/* One native DNS transaction owns these fields through ARP and all retries. */
+static bool dns_query_active;
+static uint32_t dns_server_ip;
+static char dns_question_name[SRV_DNS_NAME_MAX + 1];
 static uint32_t dns_answer_ip;
 static uint16_t dns_query_id = 0x7372;
 static bool dns_waiting;
@@ -232,6 +240,7 @@ static uint64_t rx_worker_packets;
 static uint64_t rx_last_recovery_tick;
 
 static void close_connection(struct tcp_connection *connection);
+static void tcp_expire_connection(struct tcp_connection *connection);
 
 static uint64_t make_handle(uint64_t type, uint64_t value) {
     return type | (value & NET_HANDLE_VALUE_MASK);
@@ -559,24 +568,23 @@ static bool resolve_ipv4_mac(uint32_t ip, uint8_t *mac_out) {
         return true;
     }
 
-    arp_resolved_ip = ip;
-    arp_resolved = false;
-    arp_waiting = true;
     if (!send_arp_request(ip)) {
-        arp_waiting = false;
         return false;
     }
 
     uint64_t start = timer_ticks();
     while (timer_ticks() - start < 100) {
-        if (arp_resolved) {
-            copy_bytes(mac_out, arp_resolved_mac, 6);
+        /* Another caller may resolve a different target while this one waits.
+         * Only this caller's address can satisfy its lookup. */
+        if (process_should_exit_current()) {
+            return false;
+        }
+        if (arp_cache_lookup(ip, mac_out)) {
             return true;
         }
         (void)net_device_poll(32, false);
         net_wait_tick();
     }
-    arp_waiting = false;
     return false;
 }
 
@@ -653,76 +661,13 @@ static bool send_dns_query(uint32_t server_ip, const uint8_t *server_mac, const 
         (uint16_t)offset);
 }
 
-static uint64_t dns_skip_name(const uint8_t *packet, uint64_t length, uint64_t offset) {
-    uint64_t jumps = 0;
-    while (offset < length && jumps++ < 64) {
-        uint8_t label = packet[offset++];
-        if (label == 0) {
-            return offset;
-        }
-        if ((label & 0xc0) == 0xc0) {
-            return offset + 1 <= length ? offset + 1 : 0;
-        }
-        if ((label & 0xc0) != 0 || offset + label > length) {
-            return 0;
-        }
-        offset += label;
-    }
-    return 0;
-}
-
 static void handle_dns_packet(const uint8_t *payload, uint16_t length) {
-    if (!dns_waiting || length < 12 || read_be16(payload + 0) != dns_query_id) {
-        return;
-    }
-
-    uint16_t flags = read_be16(payload + 2);
-    uint16_t qdcount = read_be16(payload + 4);
-    uint16_t ancount = read_be16(payload + 6);
-    if ((flags & 0x8000) == 0 || qdcount == 0) {
-        return;
-    }
-    if ((flags & 0x000f) != 0) {
-        dns_waiting = false;
-        dns_response_done = true;
-        return;
-    }
-
-    uint64_t offset = 12;
-    for (uint16_t i = 0; i < qdcount; i++) {
-        offset = dns_skip_name(payload, length, offset);
-        if (offset == 0 || offset + 4 > length) {
-            dns_waiting = false;
-            dns_response_done = true;
-            return;
-        }
-        offset += 4;
-    }
-
-    for (uint16_t i = 0; i < ancount; i++) {
-        offset = dns_skip_name(payload, length, offset);
-        if (offset == 0 || offset + 10 > length) {
-            dns_waiting = false;
-            dns_response_done = true;
-            return;
-        }
-        uint16_t type = read_be16(payload + offset);
-        uint16_t klass = read_be16(payload + offset + 2);
-        uint16_t rdlength = read_be16(payload + offset + 8);
-        offset += 10;
-        if (offset + rdlength > length) {
-            dns_waiting = false;
-            dns_response_done = true;
-            return;
-        }
-        if (type == 1 && klass == 1 && rdlength == 4) {
-            dns_answer_ip = read_be32(payload + offset);
-            dns_answer_ready = true;
-            dns_waiting = false;
-            dns_response_done = true;
-            return;
-        }
-        offset += rdlength;
+    if (!dns_waiting) return;
+    /* Parser output is unchanged unless a complete validated answer exists. */
+    int result = srv_dns_parse_a(payload, length, dns_query_id, dns_question_name, &dns_answer_ip);
+    if (result < 0) return;
+    if (result > 0) {
+        dns_answer_ready = true;
     }
     dns_waiting = false;
     dns_response_done = true;
@@ -856,17 +801,13 @@ static void handle_arp(const uint8_t *frame, uint16_t length) {
         return;
     }
 
-    arp_packets++;
     uint16_t opcode = read_be16(arp + 6);
+    if (opcode != 1 && opcode != 2) {
+        return;
+    }
+    arp_packets++;
     uint32_t sender_ip = read_be32(arp + 14);
     arp_cache_update(sender_ip, arp + 8);
-    if (opcode == 2) {
-        if (arp_waiting && sender_ip == arp_resolved_ip) {
-            copy_bytes(arp_resolved_mac, arp + 8, 6);
-            arp_resolved = true;
-            arp_waiting = false;
-        }
-    }
     if (opcode == 1 && read_be32(arp + 24) == local_ip) {
         send_arp_reply(frame);
     }
@@ -883,11 +824,14 @@ static void handle_icmp(const uint8_t *frame,
     }
 
     const uint8_t *icmp = ip + ip_header_length;
+    if (checksum_bytes(icmp, ip_payload_length, 0) != 0 ||
+        ((icmp[0] == 0 || icmp[0] == 8) && icmp[1] != 0)) {
+        return;
+    }
     icmp_packets++;
 
     if (icmp[0] == 0) {
-        if (checksum_bytes(icmp, ip_payload_length, 0) == 0 &&
-            icmp_ping_waiting &&
+        if (icmp_ping_waiting &&
             src_ip == icmp_ping_ip &&
             read_be16(icmp + 4) == ICMP_PING_ID &&
             read_be16(icmp + 6) == icmp_ping_sequence) {
@@ -1016,7 +960,8 @@ static void handle_udp(const uint8_t *ip, uint16_t ip_header_length, uint16_t ip
 
     if (src_port == DHCP_SERVER_PORT && dst_port == DHCP_CLIENT_PORT) {
         handle_dhcp_packet(udp + 8, udp_length - 8);
-    } else if (src_port == DNS_PORT && dst_port == DNS_CLIENT_PORT) {
+    } else if (src_port == DNS_PORT && dst_port == DNS_CLIENT_PORT &&
+        dns_query_active && read_be32(ip + 12) == dns_server_ip) {
         handle_dns_packet(udp + 8, udp_length - 8);
     }
 
@@ -1026,6 +971,7 @@ static void handle_udp(const uint8_t *ip, uint16_t ip_header_length, uint16_t ip
 static struct tcp_connection *find_connection(uint16_t local_port, uint32_t remote_ip, uint16_t remote_port) {
     for (uint64_t i = 0; i < TCP_MAX_CONNECTIONS; i++) {
         if (tcp_connections[i].state != TCP_STATE_EMPTY &&
+            tcp_connections[i].state != TCP_STATE_CLOSED && !tcp_connections[i].reset &&
             tcp_connections[i].local_port == local_port &&
             tcp_connections[i].remote_ip == remote_ip &&
             tcp_connections[i].remote_port == remote_port) {
@@ -1075,6 +1021,13 @@ static bool port_is_listening(uint16_t port) {
     return find_listener_for_port(port) != 0;
 }
 
+/* Protocol-owned closing slots remain addressable by packets/timers, but their
+ * retired application handles must not expose data or acquire new references. */
+static struct tcp_connection *find_referenced_connection_by_id(uint64_t id) {
+    struct tcp_connection *connection = find_connection_by_id(id);
+    return connection != 0 && connection->refs != 0 ? connection : 0;
+}
+
 static bool tcp_reap_expired_time_wait(uint64_t now) {
     bool reaped = false;
     for (uint64_t i = 0; i < TCP_MAX_CONNECTIONS; i++) {
@@ -1082,7 +1035,7 @@ static bool tcp_reap_expired_time_wait(uint64_t now) {
         if (connection->state == TCP_STATE_TIME_WAIT &&
             connection->close_deadline != 0 &&
             now >= connection->close_deadline) {
-            close_connection(connection);
+            tcp_expire_connection(connection);
             tcp_time_wait_reaped++;
             reaped = true;
         }
@@ -1095,7 +1048,7 @@ static bool tcp_reclaim_oldest_time_wait(uint64_t now) {
     uint64_t oldest_deadline = UINT64_MAX;
     for (uint64_t i = 0; i < TCP_MAX_CONNECTIONS; i++) {
         struct tcp_connection *connection = &tcp_connections[i];
-        if (connection->state != TCP_STATE_TIME_WAIT) {
+        if (connection->state != TCP_STATE_TIME_WAIT || connection->refs != 0) {
             continue;
         }
         if (connection->close_deadline != 0 && now >= connection->close_deadline) {
@@ -1156,6 +1109,9 @@ retry:
             tcp_connections[i].local_port = local_port;
             tcp_connections[i].remote_port = remote_port;
             tcp_connections[i].peer_window = TCP_RX_WINDOW;
+            tcp_connections[i].peer_mss = TCP_DEFAULT_SEND_MSS;
+            tcp_connections[i].peer_window_valid = false;
+            tcp_connections[i].peer_window_seq = tcp_connections[i].peer_window_ack = 0;
             tcp_connections[i].local_seq = 0x73720000u + (uint32_t)remote_port;
             tcp_connections[i].remote_next = 0;
             tcp_connections[i].id = next_connection_id++;
@@ -1164,6 +1120,7 @@ retry:
             tcp_connections[i].last_activity_tick = timer_ticks();
             tcp_connections[i].zero_window_deadline = 0;
             tcp_connections[i].zero_window_probes = 0;
+            tcp_connections[i].zero_window_backoff = 0;
             clear_bytes((uint8_t *)tcp_connections[i].tx_history, sizeof(tcp_connections[i].tx_history));
             if (next_connection_id == 0) {
                 next_connection_id = 1;
@@ -1254,6 +1211,9 @@ retry:
             tcp_connections[i].local_port = local_port;
             tcp_connections[i].remote_port = remote_port;
             tcp_connections[i].peer_window = TCP_RX_WINDOW;
+            tcp_connections[i].peer_mss = TCP_DEFAULT_SEND_MSS;
+            tcp_connections[i].peer_window_valid = false;
+            tcp_connections[i].peer_window_seq = tcp_connections[i].peer_window_ack = 0;
             tcp_connections[i].local_seq = 0x63720000u + (uint32_t)local_port;
             tcp_connections[i].remote_next = 0;
             tcp_connections[i].id = next_connection_id++;
@@ -1262,6 +1222,7 @@ retry:
             tcp_connections[i].last_activity_tick = timer_ticks();
             tcp_connections[i].zero_window_deadline = 0;
             tcp_connections[i].zero_window_probes = 0;
+            tcp_connections[i].zero_window_backoff = 0;
             clear_bytes((uint8_t *)tcp_connections[i].tx_history, sizeof(tcp_connections[i].tx_history));
             if (next_connection_id == 0) {
                 next_connection_id = 1;
@@ -1292,6 +1253,10 @@ static uint32_t tcp_sequence_advance(uint8_t flags, uint16_t payload_length) {
 
 static bool tcp_sequence_acked(uint32_t end, uint32_t ack) {
     return (int32_t)(ack - end) >= 0;
+}
+
+static bool tcp_ack_beyond_sent(const struct tcp_connection *connection, uint32_t ack) {
+    return (int32_t)(ack - connection->local_seq) > 0;
 }
 
 static bool tcp_tx_free_slot(const struct tcp_connection *connection) {
@@ -1335,11 +1300,45 @@ static void tcp_set_peer_window(struct tcp_connection *connection, uint16_t wind
     } else {
         connection->zero_window_deadline = 0;
         connection->zero_window_probes = 0;
+        connection->zero_window_backoff = 0;
+        if (previous == 0) {
+            /* Persist replies prove the peer is alive. Resume ordinary retries
+             * with a fresh budget after a possibly long closed window. */
+            for (uint8_t i = 0; i < TCP_TX_HISTORY; i++) {
+                if (connection->tx_history[i].used) {
+                    connection->tx_history[i].retries = 0;
+                    connection->tx_history[i].deadline = timer_ticks() + TCP_RETRANSMIT_TICKS;
+                }
+            }
+        }
     }
     if (window > previous) {
         scheduler_wake_all(&write_wait_queue);
         process_file_poll_wake();
     }
+}
+
+/* Use the original wire sequence, not a receive-prefix-adjusted sequence.
+ * ACKs below SND.UNA cannot publish a newer advertised window. */
+static void tcp_update_peer_window(struct tcp_connection *connection,
+    uint32_t seq, uint32_t ack, uint16_t window) {
+    uint32_t una = connection->local_seq - tcp_tx_outstanding_bytes(connection);
+    if (tcp_ack_beyond_sent(connection, ack) || (int32_t)(ack - una) < 0) {
+        return;
+    }
+    if (connection->peer_window_valid &&
+        ((int32_t)(seq - connection->peer_window_seq) < 0 ||
+         (seq == connection->peer_window_seq &&
+          (int32_t)(ack - connection->peer_window_ack) < 0))) {
+        return;
+    }
+    connection->peer_window_valid = true;
+    connection->peer_window_seq = seq;
+    connection->peer_window_ack = ack;
+    tcp_set_peer_window(connection, window);
+    /* A valid advertisement, even unchanged zero, proves responsiveness.
+     * Keep backoff independent so replies do not restart frequent probing. */
+    connection->zero_window_probes = 0;
 }
 
 static void tcp_touch_activity(struct tcp_connection *connection, uint64_t now) {
@@ -1366,6 +1365,11 @@ static uint16_t tcp_receive_window(const struct tcp_connection *connection) {
     return (uint16_t)available;
 }
 
+static uint16_t tcp_payload_limit(const struct tcp_connection *connection) {
+    uint16_t mss = connection->peer_mss != 0 ? connection->peer_mss : TCP_DEFAULT_SEND_MSS;
+    return mss < TCP_SEGMENT_PAYLOAD_MAX ? mss : TCP_SEGMENT_PAYLOAD_MAX;
+}
+
 static uint16_t tcp_tx_available_payload(const struct tcp_connection *connection) {
     if (connection == 0 || !tcp_tx_free_slot(connection)) {
         return 0;
@@ -1384,7 +1388,8 @@ static uint16_t tcp_tx_available_payload(const struct tcp_connection *connection
     if (available > peer_available) {
         available = peer_available;
     }
-    return available > TCP_SEGMENT_PAYLOAD_MAX ? TCP_SEGMENT_PAYLOAD_MAX : (uint16_t)available;
+    uint16_t limit = tcp_payload_limit(connection);
+    return available > limit ? limit : (uint16_t)available;
 }
 
 static bool tcp_tx_has_space(const struct tcp_connection *connection, uint8_t flags, uint16_t payload_length) {
@@ -1420,9 +1425,11 @@ static bool send_tcp_segment_at(struct tcp_connection *connection,
     const uint8_t *payload,
     uint16_t payload_length) {
     uint8_t segment[1500];
-    uint16_t tcp_length = 20 + payload_length;
+    uint16_t header_length = (flags & TCP_SYN) != 0 ? 24 : 20;
+    uint16_t tcp_length = header_length + payload_length;
 
-    if (tcp_length > sizeof(segment) || (payload_length != 0 && payload == 0)) {
+    if (payload_length > tcp_payload_limit(connection) ||
+        tcp_length > sizeof(segment) || (payload_length != 0 && payload == 0)) {
         return false;
     }
 
@@ -1430,13 +1437,18 @@ static bool send_tcp_segment_at(struct tcp_connection *connection,
     write_be16(segment + 2, connection->remote_port);
     write_be32(segment + 4, seq);
     write_be32(segment + 8, connection->remote_next);
-    segment[12] = 5 << 4;
+    segment[12] = (uint8_t)((header_length / 4) << 4);
     segment[13] = flags;
     write_be16(segment + 14, tcp_receive_window(connection));
     write_be16(segment + 16, 0);
     write_be16(segment + 18, 0);
+    if ((flags & TCP_SYN) != 0) {
+        segment[20] = 2; /* MSS, also present on retransmitted SYN/SYN-ACK. */
+        segment[21] = 4;
+        write_be16(segment + 22, TCP_SEGMENT_PAYLOAD_MAX);
+    }
     if (payload_length != 0) {
-        copy_bytes(segment + 20, payload, payload_length);
+        copy_bytes(segment + header_length, payload, payload_length);
     }
     write_be16(segment + 16, tcp_checksum(local_ip, connection->remote_ip, segment, tcp_length));
 
@@ -1562,6 +1574,9 @@ static void close_connection(struct tcp_connection *connection) {
     connection->error = SRV_NETERR_NONE;
     connection->refs = 0;
     connection->peer_window = TCP_RX_WINDOW;
+    connection->peer_mss = TCP_DEFAULT_SEND_MSS;
+    connection->peer_window_valid = false;
+    connection->peer_window_seq = connection->peer_window_ack = 0;
     connection->rx_length = 0;
     connection->rx_offset = 0;
     connection->rx_capacity = 0;
@@ -1570,6 +1585,7 @@ static void close_connection(struct tcp_connection *connection) {
     connection->last_activity_tick = 0;
     connection->zero_window_deadline = 0;
     connection->zero_window_probes = 0;
+    connection->zero_window_backoff = 0;
     clear_bytes((uint8_t *)connection->tx_history, sizeof(connection->tx_history));
     if (connection->rx_data != 0) {
         kfree(connection->rx_data);
@@ -1586,7 +1602,8 @@ static bool tcp_state_can_read(uint8_t state) {
     return state == TCP_STATE_ESTABLISHED ||
         state == TCP_STATE_FIN_WAIT_1 ||
         state == TCP_STATE_FIN_WAIT_2 ||
-        state == TCP_STATE_CLOSE_WAIT;
+        state == TCP_STATE_CLOSE_WAIT || state == TCP_STATE_TIME_WAIT ||
+        state == TCP_STATE_CLOSED;
 }
 
 static bool tcp_state_can_write(uint8_t state) {
@@ -1622,11 +1639,38 @@ static void tcp_enter_time_wait(struct tcp_connection *connection) {
         return;
     }
     connection->state = TCP_STATE_TIME_WAIT;
-    connection->local_read_closed = true;
     connection->local_write_closed = true;
     connection->fin_pending = false;
     connection->peer_closed = true;
     connection->close_deadline = timer_ticks() + TCP_TIME_WAIT_TICKS;
+    scheduler_wake_all(&read_wait_queue);
+    scheduler_wake_all(&write_wait_queue);
+    scheduler_wake_all(&connect_wait_queue);
+    process_file_poll_wake();
+}
+
+static void tcp_expire_connection(struct tcp_connection *connection) {
+    if (connection->refs == 0) {
+        close_connection(connection);
+        return;
+    }
+    if (!connection->reset && connection->state != TCP_STATE_TIME_WAIT) {
+        tcp_fail_connection(connection, SRV_NETERR_TIMEDOUT, timer_ticks());
+    }
+    /* Keep the descriptor identity, first error and orderly unread bytes until
+     * the application closes. Timers and table pressure cannot steal refs. */
+    connection->state = TCP_STATE_CLOSED;
+    connection->peer_closed = true;
+    connection->local_write_closed = true;
+    connection->fin_pending = false;
+    connection->close_deadline = 0;
+    connection->zero_window_deadline = 0;
+    clear_bytes((uint8_t *)connection->tx_history, sizeof(connection->tx_history));
+    if (connection->reset && connection->rx_data != 0) {
+        kfree(connection->rx_data);
+        connection->rx_data = 0;
+        connection->rx_capacity = connection->rx_length = connection->rx_offset = 0;
+    }
     scheduler_wake_all(&read_wait_queue);
     scheduler_wake_all(&write_wait_queue);
     scheduler_wake_all(&connect_wait_queue);
@@ -1643,6 +1687,9 @@ static bool tcp_send_fin(struct tcp_connection *connection) {
     if (!tcp_tx_has_space(connection, TCP_ACK | TCP_FIN, 0)) {
         connection->fin_pending = true;
         connection->local_write_closed = true;
+        if (connection->close_deadline == 0) {
+            connection->close_deadline = timer_ticks() + TCP_CLOSE_TIMEOUT_TICKS;
+        }
         process_file_poll_wake();
         return true;
     }
@@ -1662,14 +1709,14 @@ static bool tcp_send_fin(struct tcp_connection *connection) {
 }
 
 static void tcp_handle_fin(struct tcp_connection *connection, bool ack_flag) {
+    /* Only tcp_handle_ack can establish that our FIN was acknowledged. */
+    (void)ack_flag;
     if (connection == 0) {
         return;
     }
     connection->peer_closed = true;
     send_tcp_segment(connection, connection->local_port, TCP_ACK, 0, 0);
-    if (connection->state == TCP_STATE_FIN_WAIT_1) {
-        tcp_enter_time_wait(connection);
-    } else if (connection->state == TCP_STATE_FIN_WAIT_2) {
+    if (connection->state == TCP_STATE_FIN_WAIT_2) {
         tcp_enter_time_wait(connection);
     } else if (connection->state == TCP_STATE_ESTABLISHED) {
         connection->state = connection->local_write_closed ? TCP_STATE_LAST_ACK : TCP_STATE_CLOSE_WAIT;
@@ -1677,9 +1724,9 @@ static void tcp_handle_fin(struct tcp_connection *connection, bool ack_flag) {
     } else if (connection->state == TCP_STATE_SYN_RECEIVED) {
         connection->state = TCP_STATE_CLOSE_WAIT;
         connection->close_deadline = timer_ticks() + TCP_CLOSE_TIMEOUT_TICKS;
-    } else if (ack_flag && connection->state == TCP_STATE_LAST_ACK) {
-        tcp_enter_time_wait(connection);
     }
+    /* FIN_WAIT_1 plus peer_closed represents simultaneous close until our
+     * FIN is ACKed. LAST_ACK likewise retains its outstanding FIN record. */
     scheduler_wake_all(&read_wait_queue);
     scheduler_wake_all(&write_wait_queue);
     scheduler_wake_all(&connect_wait_queue);
@@ -1687,12 +1734,12 @@ static void tcp_handle_fin(struct tcp_connection *connection, bool ack_flag) {
 }
 
 static bool tcp_ack_tx_records(struct tcp_connection *connection, uint32_t ack) {
-    if (connection == 0) {
+    if (connection == 0 || tcp_ack_beyond_sent(connection, ack)) {
         return false;
     }
 
     bool acked_fin = false;
-    bool cleared = false;
+    bool progressed = false;
     for (uint8_t i = 0; i < TCP_TX_HISTORY; i++) {
         struct tcp_tx_record *record = &connection->tx_history[i];
         if (!record->used) {
@@ -1704,12 +1751,31 @@ static bool tcp_ack_tx_records(struct tcp_connection *connection, uint32_t ack) 
                 acked_fin = true;
             }
             clear_bytes((uint8_t *)record, sizeof(*record));
-            cleared = true;
+            progressed = true;
+        } else if ((int32_t)(ack - record->seq) > 0) {
+            /* ACK may split a segment. Keep only unacknowledged sequence
+             * space so retries and byte-window accounting use the suffix. */
+            uint32_t consumed = ack - record->seq;
+            record->seq = ack;
+            if ((record->flags & TCP_SYN) != 0) {
+                record->flags &= (uint8_t)~TCP_SYN;
+                consumed--;
+            }
+            uint16_t bytes = consumed < record->payload_length ?
+                (uint16_t)consumed : record->payload_length;
+            for (uint16_t j = bytes; j < record->payload_length; j++) {
+                record->payload[j - bytes] = record->payload[j];
+            }
+            record->payload_length -= bytes;
+            /* A partial ACK cannot consume the trailing FIN. */
+            progressed = true;
         }
     }
-    if (cleared) {
+    if (progressed) {
         if (connection->fin_pending) {
-            (void)tcp_send_fin(connection);
+            if (!tcp_send_fin(connection)) {
+                tcp_fail_connection(connection, SRV_NETERR_RESET, timer_ticks());
+            }
         }
         scheduler_wake_all(&write_wait_queue);
         process_file_poll_wake();
@@ -1718,7 +1784,7 @@ static bool tcp_ack_tx_records(struct tcp_connection *connection, uint32_t ack) 
 }
 
 static void tcp_handle_ack(struct tcp_connection *connection, uint32_t ack) {
-    if (connection == 0) {
+    if (connection == 0 || tcp_ack_beyond_sent(connection, ack)) {
         return;
     }
     bool acked_fin = tcp_ack_tx_records(connection, ack);
@@ -1733,13 +1799,24 @@ static void tcp_handle_ack(struct tcp_connection *connection, uint32_t ack) {
     }
 }
 
+static bool tcp_persist_active(const struct tcp_connection *connection) {
+    return !connection->reset && tcp_state_can_write(connection->state) &&
+        !connection->local_write_closed && connection->peer_window == 0 &&
+        connection->zero_window_deadline != 0;
+}
+
 static void tcp_retransmit_due(uint64_t now) {
     for (uint64_t i = 0; i < TCP_MAX_CONNECTIONS; i++) {
         struct tcp_connection *connection = &tcp_connections[i];
-        if (connection->state == TCP_STATE_EMPTY || connection->reset) {
+        if (connection->state == TCP_STATE_EMPTY || connection->state == TCP_STATE_CLOSED || connection->reset) {
             continue;
         }
 
+        /* Persist owns data retries while the peer's receive window is closed.
+         * Ordinary retry exhaustion must not kill a responsive closed window. */
+        if (tcp_persist_active(connection)) {
+            continue;
+        }
         for (uint8_t j = 0; j < TCP_TX_HISTORY; j++) {
             struct tcp_tx_record *record = &connection->tx_history[j];
             if (!record->used || now < record->deadline) {
@@ -1768,13 +1845,7 @@ static void tcp_retransmit_due(uint64_t now) {
 static void tcp_zero_window_probe_due(uint64_t now) {
     for (uint64_t i = 0; i < TCP_MAX_CONNECTIONS; i++) {
         struct tcp_connection *connection = &tcp_connections[i];
-        if (connection->state == TCP_STATE_EMPTY ||
-            connection->reset ||
-            !tcp_state_can_write(connection->state) ||
-            connection->local_write_closed ||
-            connection->peer_window != 0 ||
-            connection->zero_window_deadline == 0 ||
-            now < connection->zero_window_deadline) {
+        if (!tcp_persist_active(connection) || now < connection->zero_window_deadline) {
             continue;
         }
 
@@ -1783,14 +1854,30 @@ static void tcp_zero_window_probe_due(uint64_t now) {
             continue;
         }
 
-        (void)send_tcp_segment_at(connection,
-            connection->local_port,
-            connection->local_seq,
-            TCP_ACK,
-            0,
-            0);
+        uint32_t una = connection->local_seq - tcp_tx_outstanding_bytes(connection);
+        const uint8_t *payload = 0;
+        uint16_t payload_length = 0;
+        uint32_t seq = una - 1;
+        for (uint8_t j = 0; j < TCP_TX_HISTORY; j++) {
+            const struct tcp_tx_record *record = &connection->tx_history[j];
+            if (record->used && record->seq == una && record->payload_length != 0) {
+                /* Retry just the first unacknowledged byte, without consuming
+                 * sequence space or altering the retained retransmit record. */
+                payload = record->payload;
+                payload_length = 1;
+                seq = una;
+                break;
+            }
+        }
+        /* With no queued data, an old-sequence empty probe elicits an ACK.
+         * An empty segment at SND.NXT may be silently accepted by the peer. */
+        (void)send_tcp_segment_at(connection, connection->local_port, seq,
+            TCP_ACK, payload, payload_length);
         connection->zero_window_probes++;
-        uint64_t delay = TCP_ZERO_WINDOW_TICKS * (uint64_t)(connection->zero_window_probes + 1);
+        if (connection->zero_window_backoff < 3) {
+            connection->zero_window_backoff++;
+        }
+        uint64_t delay = TCP_ZERO_WINDOW_TICKS << connection->zero_window_backoff;
         if (delay > TCP_CLOSE_TIMEOUT_TICKS) {
             delay = TCP_CLOSE_TIMEOUT_TICKS;
         }
@@ -1801,7 +1888,7 @@ static void tcp_zero_window_probe_due(uint64_t now) {
 static void tcp_idle_cleanup_due(uint64_t now) {
     for (uint64_t i = 0; i < TCP_MAX_CONNECTIONS; i++) {
         struct tcp_connection *connection = &tcp_connections[i];
-        if (connection->state == TCP_STATE_EMPTY ||
+        if (connection->state == TCP_STATE_EMPTY || connection->state == TCP_STATE_CLOSED ||
             connection->reset ||
             tcp_state_closing(connection->state) ||
             connection->last_activity_tick == 0 ||
@@ -1898,19 +1985,43 @@ static bool ensure_pending_connection(struct tcp_connection *connection, uint16_
     return false;
 }
 
-static void send_unavailable_response(struct tcp_connection *connection) {
-    static const char response[] =
-        "HTTP/1.1 503 Service Unavailable\r\n"
-        "Content-Type: text/plain\r\n"
-        "Connection: close\r\n"
-        "Content-Length: 34\r\n"
-        "\r\n"
-        "srvros web request queue is full\n";
-
-    send_tcp_segment(connection, connection->local_port, TCP_ACK | TCP_PSH, (const uint8_t *)response, sizeof(response) - 1);
-    http_requests++;
-    send_tcp_segment(connection, connection->local_port, TCP_ACK | TCP_FIN, 0, 0);
-    close_connection(connection);
+/* Validate the complete option list before any ACK/window/reset mutation.
+ * Unknown length-delimited options are skipped; only SYN negotiates MSS. */
+static bool tcp_parse_options(const uint8_t *tcp, uint8_t header_length,
+    uint8_t flags, uint16_t *mss) {
+    bool have_mss = false;
+    *mss = TCP_DEFAULT_SEND_MSS;
+    for (uint8_t offset = 20; offset < header_length;) {
+        uint8_t kind = tcp[offset++];
+        if (kind == 0) {
+            return true; /* End of list; remaining header bytes are padding. */
+        }
+        if (kind == 1) {
+            continue;
+        }
+        if (offset >= header_length) {
+            return false;
+        }
+        uint8_t length = tcp[offset];
+        if (length < 2 || length > header_length - (offset - 1)) {
+            return false;
+        }
+        if (kind == 2) {
+            if (length != 4) {
+                return false;
+            }
+            if ((flags & TCP_SYN) != 0) {
+                uint16_t value = read_be16(tcp + offset + 1);
+                if (have_mss || value == 0) {
+                    return false; /* Ambiguous or unusable SYN offer. */
+                }
+                have_mss = true;
+                *mss = value < TCP_SEGMENT_PAYLOAD_MAX ? value : TCP_SEGMENT_PAYLOAD_MAX;
+            }
+        }
+        offset += length - 1;
+    }
+    return true;
 }
 
 static void handle_tcp(const uint8_t *frame,
@@ -1939,12 +2050,29 @@ static void handle_tcp(const uint8_t *frame,
         return;
     }
 
+    uint16_t peer_mss;
+    if (!tcp_parse_options(tcp, data_offset, flags, &peer_mss)) {
+        return;
+    }
     tcp_packets++;
     uint16_t data_length = ip_payload_length - data_offset;
 
     if ((flags & TCP_RST) != 0) {
         struct tcp_connection *old = find_connection(dst_port, src_ip, src_port);
         if (old != 0) {
+            if (old->state == TCP_STATE_TIME_WAIT) return;
+            if (old->state == TCP_STATE_SYN_SENT) {
+                if ((flags & TCP_ACK) == 0 || ack != old->local_seq) return;
+            } else if (seq != old->remote_next) {
+                if ((uint32_t)(seq - old->remote_next) < tcp_receive_window(old)) {
+                    send_tcp_segment(old, old->local_port, TCP_ACK, 0, 0);
+                }
+                return;
+            }
+            if (old->refs == 0) {
+                close_connection(old);
+                return;
+            }
             tcp_fail_connection(old,
                 old->state == TCP_STATE_SYN_SENT ? SRV_NETERR_REFUSED : SRV_NETERR_RESET,
                 timer_ticks());
@@ -1953,11 +2081,39 @@ static void handle_tcp(const uint8_t *frame,
     }
 
     if ((flags & TCP_SYN) != 0) {
+        struct tcp_connection *existing = find_connection(dst_port, src_ip, src_port);
+        if (existing != 0 && existing->state != TCP_STATE_SYN_SENT) {
+            if (existing->state == TCP_STATE_SYN_RECEIVED && seq + 1 == existing->remote_next) {
+                /* Resend the original SYN; a retransmission consumes no new sequence. */
+                struct tcp_tx_record *syn = 0;
+                for (uint8_t i = 0; i < TCP_TX_HISTORY; i++) {
+                    if (existing->tx_history[i].used && (existing->tx_history[i].flags & TCP_SYN) != 0) {
+                        syn = &existing->tx_history[i];
+                        break;
+                    }
+                }
+                if (syn != 0) {
+                    send_tcp_segment_at(existing, syn->local_port, syn->seq, syn->flags, 0, 0);
+                } else {
+                    /* Initial transport refusal recorded no SYN: retry the first send. */
+                    send_tcp_segment(existing, existing->local_port, TCP_SYN | TCP_ACK, 0, 0);
+                }
+            } else {
+                send_tcp_segment(existing, existing->local_port, TCP_ACK, 0, 0);
+            }
+            return;
+        }
         if (!port_is_listening(dst_port)) {
             struct tcp_connection *client = find_connection(dst_port, src_ip, src_port);
             if (client != 0 && client->state == TCP_STATE_SYN_SENT && (flags & TCP_ACK) != 0) {
+                /* No SYN payload: exactly our SYN must be acknowledged. */
+                if (ack != client->local_seq) {
+                    send_tcp_reset(frame + 6, src_ip, dst_port, src_port, seq, ack, flags, data_length);
+                    return;
+                }
                 copy_bytes(client->remote_mac, frame + 6, 6);
-                tcp_set_peer_window(client, advertised_window);
+                client->peer_mss = peer_mss;
+                tcp_update_peer_window(client, seq, ack, advertised_window);
                 client->remote_next = seq + 1;
                 tcp_ack_tx_records(client, ack);
                 client->state = TCP_STATE_ESTABLISHED;
@@ -1974,6 +2130,7 @@ static void handle_tcp(const uint8_t *frame,
             send_tcp_reset(frame + 6, src_ip, dst_port, src_port, seq, ack, flags, data_length);
             return;
         }
+        connection->peer_mss = peer_mss;
         tcp_set_peer_window(connection, advertised_window);
         connection->remote_next = seq + 1;
         send_tcp_segment(connection, connection->local_port, TCP_SYN | TCP_ACK, 0, 0);
@@ -1986,15 +2143,42 @@ static void handle_tcp(const uint8_t *frame,
         return;
     }
 
-    copy_bytes(connection->remote_mac, frame + 6, 6);
-    tcp_touch_activity(connection, timer_ticks());
-    tcp_set_peer_window(connection, advertised_window);
+    if (connection->state == TCP_STATE_SYN_SENT || (flags & TCP_ACK) == 0) return;
+    uint32_t window_seq = seq;
+    const uint8_t *payload = tcp + data_offset;
     uint32_t receive_advance = tcp_receive_advance(flags, data_length);
-    if (receive_advance != 0 && seq != connection->remote_next) {
+    if (receive_advance != 0 && (int32_t)(seq - connection->remote_next) < 0) {
+        uint32_t duplicate = connection->remote_next - seq;
+        if (duplicate >= receive_advance) {
+            send_tcp_segment(connection, connection->local_port, TCP_ACK, 0, 0);
+            return;
+        }
+        /* Only a duplicate prefix is skipped; the new suffix must still be
+         * in order and fit the receive window. FIN retains its sequence. */
+        payload += duplicate;
+        data_length -= (uint16_t)duplicate;
+        receive_advance -= duplicate;
+        seq = connection->remote_next;
+    }
+    uint16_t window = tcp_receive_window(connection);
+    bool acceptable = receive_advance == 0 ?
+        (seq == connection->remote_next || (uint32_t)(seq - connection->remote_next) < window) :
+        (seq == connection->remote_next && !connection->peer_closed &&
+            (receive_advance <= window || data_length == 0));
+    /* This bounded receiver accepts in-order data (including a trimmed
+     * overlap). Reject gaps and excess data before ACK/window side effects. */
+    if (!acceptable) {
         send_tcp_segment(connection, connection->local_port, TCP_ACK, 0, 0);
         return;
     }
 
+    /* Reject unsent-data ACKs before window, receive-data or FIN mutation.
+     * SYN-RECEIVED retains its stricter final-handshake validation below. */
+    if (connection->state != TCP_STATE_SYN_RECEIVED && (flags & TCP_ACK) != 0 &&
+        tcp_ack_beyond_sent(connection, ack)) {
+        send_tcp_segment(connection, connection->local_port, TCP_ACK, 0, 0);
+        return;
+    }
     if (connection->state == TCP_STATE_SYN_RECEIVED) {
         if ((flags & TCP_ACK) == 0) {
             return;
@@ -2022,6 +2206,9 @@ static void handle_tcp(const uint8_t *frame,
         }
     }
 
+    copy_bytes(connection->remote_mac, frame + 6, 6);
+    tcp_touch_activity(connection, timer_ticks());
+    tcp_update_peer_window(connection, window_seq, ack, advertised_window);
     if ((flags & TCP_ACK) != 0) {
         tcp_handle_ack(connection, ack);
     }
@@ -2036,35 +2223,22 @@ static void handle_tcp(const uint8_t *frame,
             }
             return;
         }
-        if (connection->outbound) {
-            if (!append_connection_data(connection, tcp + data_offset, data_length)) {
-                close_connection(connection);
-                return;
-            }
-            connection->remote_next = seq + receive_advance;
-            if ((flags & TCP_FIN) != 0) {
-                tcp_handle_fin(connection, (flags & TCP_ACK) != 0);
-            } else {
-                send_tcp_segment(connection, connection->local_port, TCP_ACK, 0, 0);
-            }
+        if (!append_connection_data(connection, payload, data_length)) {
+            /* A clean memory refusal consumes no peer sequence or FIN.
+             * Retain references and unread data; let the peer retry later. */
+            send_tcp_segment(connection, connection->local_port, TCP_ACK, 0, 0);
+            return;
+        }
+        connection->remote_next = seq + receive_advance;
+        if (!connection->outbound && !connection->request_counted) {
+            /* Passive opens entered the accept queue at handshake completion. */
+            http_requests++;
+            connection->request_counted = true;
+        }
+        if ((flags & TCP_FIN) != 0) {
+            tcp_handle_fin(connection, (flags & TCP_ACK) != 0);
         } else {
-            bool appended = append_connection_data(connection, tcp + data_offset, data_length);
-            if (appended) {
-                connection->remote_next = seq + receive_advance;
-            }
-            if (appended && ensure_pending_connection(connection, dst_port)) {
-                if (!connection->request_counted) {
-                    http_requests++;
-                    connection->request_counted = true;
-                }
-                if ((flags & TCP_FIN) != 0) {
-                    tcp_handle_fin(connection, (flags & TCP_ACK) != 0);
-                } else {
-                    send_tcp_segment(connection, connection->local_port, TCP_ACK, 0, 0);
-                }
-            } else {
-                send_unavailable_response(connection);
-            }
+            send_tcp_segment(connection, connection->local_port, TCP_ACK, 0, 0);
         }
         if ((flags & TCP_FIN) != 0) {
             scheduler_wake_all(&read_wait_queue);
@@ -2098,6 +2272,12 @@ static void handle_ipv4(const uint8_t *frame, uint16_t length) {
         return;
     }
     if (checksum_bytes(ip, header_length, 0) != 0) {
+        return;
+    }
+    /* No IP reassembly exists in this profile. Never interpret a fragment as
+     * an independent transport packet. DF alone is valid; reserved/MF/offset
+     * bits must be clear before TCP, UDP or ICMP sees the payload. */
+    if ((read_be16(ip + 6) & 0xbfffu) != 0) {
         return;
     }
 
@@ -2152,10 +2332,10 @@ void net_timer_tick(void) {
     for (uint64_t i = 0; i < TCP_MAX_CONNECTIONS; i++) {
         struct tcp_connection *connection = &tcp_connections[i];
         if (connection->state != TCP_STATE_EMPTY &&
-            (connection->reset || tcp_state_closing(connection->state)) &&
+            (connection->reset || connection->fin_pending || tcp_state_closing(connection->state)) &&
             connection->close_deadline != 0 &&
             now >= connection->close_deadline) {
-            close_connection(connection);
+            tcp_expire_connection(connection);
         }
     }
 
@@ -2282,11 +2462,21 @@ int64_t net_dns_resolve(const char *name, uint32_t *ip_out) {
     if (!initialized || name == 0 || name[0] == '\0' || ip_out == 0) {
         return -1;
     }
-
-    uint32_t server_ip = configured_dns_server();
+    /* CPU0 network calls yield only at explicit waits. Reserve before ARP,
+     * and retain ownership after reply publication until the caller returns. */
+    if (dns_query_active) {
+        return SRV_ERR_AGAIN;
+    }
+    size_t name_length = 0;
+    while (name_length < sizeof(dns_question_name) - 1 && name[name_length]) name_length++;
+    if (name_length == sizeof(dns_question_name) - 1) return -1;
+    copy_bytes((uint8_t *)dns_question_name, (const uint8_t *)name, name_length + 1);
+    dns_query_active = true;
+    int64_t result = -1;
+    dns_server_ip = configured_dns_server();
     uint8_t server_mac[6];
-    if (!resolve_ipv4_mac(server_ip, server_mac)) {
-        return -1;
+    if (!resolve_ipv4_mac(dns_server_ip, server_mac)) {
+        goto done;
     }
 
     for (uint64_t attempt = 0; attempt < DNS_RETRIES; attempt++) {
@@ -2298,17 +2488,19 @@ int64_t net_dns_resolve(const char *name, uint32_t *ip_out) {
         dns_answer_ready = false;
         dns_response_done = false;
         dns_waiting = true;
-        if (!send_dns_query(server_ip, server_mac, name, dns_query_id)) {
-            dns_waiting = false;
-            return -1;
+        if (!send_dns_query(dns_server_ip, server_mac, dns_question_name, dns_query_id)) {
+            goto done;
         }
 
         uint64_t start = timer_ticks();
         while (timer_ticks() - start < DNS_TIMEOUT_TICKS) {
+            if (process_should_exit_current()) {
+                goto done;
+            }
             if (dns_answer_ready) {
                 *ip_out = dns_answer_ip;
-                dns_waiting = false;
-                return 0;
+                result = 0;
+                goto done;
             }
             if (dns_response_done) {
                 break;
@@ -2318,7 +2510,10 @@ int64_t net_dns_resolve(const char *name, uint32_t *ip_out) {
         }
         dns_waiting = false;
     }
-    return -1;
+done:
+    dns_waiting = false;
+    dns_query_active = false;
+    return result;
 }
 
 void net_print_status(void) {
@@ -2409,6 +2604,8 @@ static const char *tcp_state_name(uint8_t state) {
         return "LAST-ACK";
     case TCP_STATE_TIME_WAIT:
         return "TIME-WAIT";
+    case TCP_STATE_CLOSED:
+        return "CLOSED";
     default:
         return "UNKNOWN";
     }
@@ -2583,18 +2780,13 @@ int64_t net_status_info(struct srv_net_status_info *info) {
     if (local_mac != 0) {
         copy_bytes(info->local_mac, local_mac, sizeof(info->local_mac));
     }
-    if (arp_resolved) {
-        info->arp_valid = 1;
-        info->arp_ip = arp_resolved_ip;
-        copy_bytes(info->arp_mac, arp_resolved_mac, sizeof(info->arp_mac));
-    } else {
-        for (uint64_t i = 0; i < ARP_CACHE_ENTRIES; i++) {
-            if (arp_cache[i].used) {
-                info->arp_valid = 1;
-                info->arp_ip = arp_cache[i].ip;
-                copy_bytes(info->arp_mac, arp_cache[i].mac, sizeof(info->arp_mac));
-                break;
-            }
+    /* Status reports a cached mapping, never a shared caller completion. */
+    for (uint64_t i = 0; i < ARP_CACHE_ENTRIES; i++) {
+        if (arp_cache[i].used) {
+            info->arp_valid = 1;
+            info->arp_ip = arp_cache[i].ip;
+            copy_bytes(info->arp_mac, arp_cache[i].mac, sizeof(info->arp_mac));
+            break;
         }
     }
 
@@ -2746,7 +2938,7 @@ int64_t net_udp_open(void) {
 
 int64_t net_udp_bind(uint64_t socket_id, uint16_t port) {
     struct udp_socket *socket = find_udp_socket(socket_id);
-    if (!initialized || socket == 0) {
+    if (!initialized || socket == 0 || socket->local_port != 0) {
         return -1;
     }
 
@@ -2764,11 +2956,11 @@ int64_t net_udp_bind(uint64_t socket_id, uint16_t port) {
     return 0;
 }
 
-int64_t net_udp_sendto(uint64_t socket_id,
+int64_t net_udp_sendto_mode(uint64_t socket_id,
     uint32_t remote_ip,
     uint16_t remote_port,
     const uint8_t *buffer,
-    uint64_t length) {
+    uint64_t length, bool dontwait) {
     if (!initialized || remote_ip == 0 || remote_port == 0 || length > UDP_PAYLOAD_MAX ||
         (length != 0 && buffer == 0)) {
         return -1;
@@ -2788,11 +2980,22 @@ int64_t net_udp_sendto(uint64_t socket_id,
         return (int64_t)length;
     }
 
+    uint16_t source_port = socket->local_port;
     uint8_t remote_mac[6];
-    if (!resolve_route_mac(remote_ip, remote_mac)) {
+    if (dontwait && !arp_cache_lookup(route_next_hop(remote_ip), remote_mac)) {
+        (void)send_arp_request(route_next_hop(remote_ip));
+        return SRV_ERR_AGAIN;
+    }
+    if (!dontwait && !resolve_route_mac(remote_ip, remote_mac)) {
         return -1;
     }
 
+    /* ARP resolution can block and run a final close/reuse of this slot.
+     * Revalidate the original identity before publishing a datagram. */
+    socket = find_udp_socket(socket_id);
+    if (socket == 0 || socket->local_port != source_port) {
+        return -1;
+    }
     return send_udp_packet(remote_mac,
         local_ip_bytes,
         remote_ip,
@@ -2800,6 +3003,11 @@ int64_t net_udp_sendto(uint64_t socket_id,
         remote_port,
         buffer,
         (uint16_t)length) ? (int64_t)length : -1;
+}
+
+int64_t net_udp_sendto(uint64_t socket_id, uint32_t remote_ip, uint16_t remote_port,
+    const uint8_t *buffer, uint64_t length) {
+    return net_udp_sendto_mode(socket_id, remote_ip, remote_port, buffer, length, false);
 }
 
 struct udp_wait_arg {
@@ -2895,7 +3103,7 @@ int64_t net_sockname(uint64_t handle, uint32_t *ip_out, uint16_t *port_out) {
     }
 
     if (handle_type(handle) == NET_HANDLE_CONNECTION) {
-        struct tcp_connection *connection = find_connection_by_id(handle_value(handle));
+        struct tcp_connection *connection = find_referenced_connection_by_id(handle_value(handle));
         if (connection == 0) {
             return -1;
         }
@@ -2926,7 +3134,7 @@ int64_t net_peername(uint64_t handle, uint32_t *ip_out, uint16_t *port_out) {
         return -1;
     }
 
-    struct tcp_connection *connection = find_connection_by_id(handle_value(handle));
+    struct tcp_connection *connection = find_referenced_connection_by_id(handle_value(handle));
     if (connection == 0) {
         return -1;
     }
@@ -2940,8 +3148,8 @@ int64_t net_shutdown(uint64_t handle, int how) {
         return -1;
     }
 
-    struct tcp_connection *connection = find_connection_by_id(handle_value(handle));
-    if (connection == 0 || !tcp_state_can_read(connection->state)) {
+    struct tcp_connection *connection = find_referenced_connection_by_id(handle_value(handle));
+    if (connection == 0 || connection->state == TCP_STATE_CLOSED || !tcp_state_can_read(connection->state)) {
         return -1;
     }
 
@@ -2965,15 +3173,15 @@ int64_t net_error(uint64_t handle) {
         return -1;
     }
 
-    struct tcp_connection *connection = find_connection_by_id(handle_value(handle));
+    struct tcp_connection *connection = find_referenced_connection_by_id(handle_value(handle));
     if (connection == 0) {
         return -1;
     }
-    if (connection->state == TCP_STATE_SYN_SENT) {
-        return SRV_NETERR_INPROGRESS;
-    }
     if (connection->reset) {
         return connection->error == SRV_NETERR_NONE ? SRV_NETERR_RESET : connection->error;
+    }
+    if (connection->state == TCP_STATE_SYN_SENT) {
+        return SRV_NETERR_INPROGRESS;
     }
     return SRV_NETERR_NONE;
 }
@@ -3149,7 +3357,7 @@ static bool read_ready(void *arg) {
 
     for (uint64_t i = 0; i < TCP_MAX_CONNECTIONS; i++) {
         struct tcp_connection *connection = &tcp_connections[i];
-        if (connection->state != TCP_STATE_EMPTY &&
+        if (connection->state != TCP_STATE_EMPTY && connection->refs != 0 &&
             connection->id == wait->connection_id) {
             return connection->rx_length != connection->rx_offset || connection->peer_closed || connection->reset;
         }
@@ -3158,14 +3366,13 @@ static bool read_ready(void *arg) {
 }
 
 static int64_t net_read_common(uint64_t connection_id, char *buffer, uint64_t length, bool nonblock, bool peek) {
-    if (!initialized || (buffer == 0 && length != 0)) {
+    if (!initialized || (buffer == 0 && length != 0) ||
+        handle_type(connection_id) != NET_HANDLE_CONNECTION ||
+        find_referenced_connection_by_id(handle_value(connection_id)) == 0) {
         return -1;
     }
     if (length == 0) {
         return 0;
-    }
-    if (handle_type(connection_id) != NET_HANDLE_CONNECTION) {
-        return -1;
     }
 
     uint64_t value = handle_value(connection_id);
@@ -3180,7 +3387,7 @@ static int64_t net_read_common(uint64_t connection_id, char *buffer, uint64_t le
         bool found = false;
         for (uint64_t i = 0; i < TCP_MAX_CONNECTIONS; i++) {
             struct tcp_connection *connection = &tcp_connections[i];
-            if (connection->state != TCP_STATE_EMPTY && connection->id == value) {
+            if (connection->state != TCP_STATE_EMPTY && connection->refs != 0 && connection->id == value) {
                 found = true;
                 if (connection->reset) {
                     return -1;
@@ -3247,7 +3454,7 @@ static bool write_ready(void *arg) {
 
     for (uint64_t i = 0; i < TCP_MAX_CONNECTIONS; i++) {
         struct tcp_connection *connection = &tcp_connections[i];
-        if (connection->state != TCP_STATE_EMPTY &&
+        if (connection->state != TCP_STATE_EMPTY && connection->refs != 0 &&
             connection->id == wait->connection_id) {
             return connection->reset ||
                 connection->local_write_closed ||
@@ -3259,14 +3466,13 @@ static bool write_ready(void *arg) {
 }
 
 int64_t net_respond(uint64_t connection_id, const char *buffer, uint64_t length, bool nonblock) {
-    if (!initialized || (buffer == 0 && length != 0)) {
+    if (!initialized || (buffer == 0 && length != 0) ||
+        handle_type(connection_id) != NET_HANDLE_CONNECTION ||
+        find_referenced_connection_by_id(handle_value(connection_id)) == 0) {
         return -1;
     }
     if (length == 0) {
         return 0;
-    }
-    if (handle_type(connection_id) != NET_HANDLE_CONNECTION) {
-        return -1;
     }
 
     uint64_t value = handle_value(connection_id);
@@ -3282,7 +3488,7 @@ int64_t net_respond(uint64_t connection_id, const char *buffer, uint64_t length,
         bool found = false;
         for (uint64_t i = 0; i < TCP_MAX_CONNECTIONS; i++) {
             struct tcp_connection *connection = &tcp_connections[i];
-            if (connection->state != TCP_STATE_EMPTY && connection->id == value) {
+            if (connection->state != TCP_STATE_EMPTY && connection->refs != 0 && connection->id == value) {
                 found = true;
                 if (!tcp_state_can_write(connection->state) ||
                     connection->local_write_closed ||
@@ -3363,7 +3569,7 @@ uint16_t net_poll_events(uint64_t handle, uint16_t events) {
         uint64_t value = handle_value(handle);
         for (uint64_t i = 0; i < TCP_MAX_CONNECTIONS; i++) {
             struct tcp_connection *connection = &tcp_connections[i];
-            if (connection->state == TCP_STATE_EMPTY ||
+            if (connection->state == TCP_STATE_EMPTY || connection->refs == 0 ||
                 connection->id != value) {
                 continue;
             }
@@ -3418,7 +3624,7 @@ int64_t net_hold(uint64_t handle) {
     }
 
     if (handle_type(handle) == NET_HANDLE_CONNECTION) {
-        struct tcp_connection *connection = find_connection_by_id(handle_value(handle));
+        struct tcp_connection *connection = find_referenced_connection_by_id(handle_value(handle));
         if (connection == 0 || connection->refs == UINT32_MAX) {
             return -1;
         }
@@ -3453,7 +3659,7 @@ int64_t net_close(uint64_t handle) {
     }
 
     if (handle_type(handle) == NET_HANDLE_CONNECTION) {
-        struct tcp_connection *connection = find_connection_by_id(handle_value(handle));
+        struct tcp_connection *connection = find_referenced_connection_by_id(handle_value(handle));
         if (connection == 0 || connection->refs == 0) {
             return -1;
         }
@@ -3461,7 +3667,12 @@ int64_t net_close(uint64_t handle) {
         if (connection->refs != 0) {
             return 0;
         }
-        if (connection->reset || connection->state == TCP_STATE_SYN_SENT) {
+        /* The protocol owns retransmits/FIN until completion or timeout. An
+         * exiting creator must not discard them after its last descriptor. */
+        connection->owner = 0;
+        scheduler_wake_all(&read_wait_queue);
+        scheduler_wake_all(&write_wait_queue);
+        if (connection->reset || connection->state == TCP_STATE_SYN_SENT || connection->state == TCP_STATE_CLOSED) {
             close_connection(connection);
         } else if (tcp_state_can_write(connection->state) && !connection->local_write_closed) {
             if (!tcp_send_fin(connection)) {
@@ -3526,10 +3737,13 @@ void net_process_cleanup(struct process *process) {
     }
 
     for (uint64_t i = 0; i < NET_PENDING_REQUESTS; i++) {
-        if (pending_requests[i].used &&
-            pending_requests[i].owner == process &&
-            find_listener_for_port(pending_requests[i].port) == 0) {
-            pending_requests[i].used = false;
+        if (pending_requests[i].used && pending_requests[i].owner == process) {
+            struct net_listener *listener = find_listener_for_port(pending_requests[i].port);
+            if (listener == 0 || listener->refs == 0) {
+                pending_requests[i].used = false;
+            } else {
+                pending_requests[i].owner = 0;
+            }
         }
     }
 
@@ -3546,7 +3760,11 @@ void net_process_cleanup(struct process *process) {
     for (uint64_t i = 0; i < TCP_MAX_CONNECTIONS; i++) {
         if (tcp_connections[i].state != TCP_STATE_EMPTY &&
             tcp_connections[i].owner == process) {
-            if (tcp_connections[i].refs == 0) {
+            struct tcp_connection *connection = &tcp_connections[i];
+            struct net_listener *listener = find_listener_for_port(connection->local_port);
+            bool inherited_backlog = !connection->accepted && !connection->outbound &&
+                listener != 0 && listener->refs != 0;
+            if (connection->refs == 0 && !inherited_backlog) {
                 close_connection(&tcp_connections[i]);
             } else {
                 tcp_connections[i].owner = 0;

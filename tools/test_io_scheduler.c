@@ -58,13 +58,19 @@ static bool high_wait_test;
 static bool handoff_test;
 static bool fair_handoff_test;
 static unsigned fair_handoff_turns[2];
-static bool retry_turn_test;
+static bool retry_turn_test,ready_edge_test;
+static unsigned ready_edge_turns;
 static unsigned trace_test;
 void fpu_set_current_user_state(struct fpu_state *state) { (void)state; }
 static unsigned handoff_admissions;
 static struct scheduler_wait_queue high_wait;
 static bool completion_condition(void *arg) { assert(arg==&completion_ready);return completion_ready; }
 void scheduler_context_switch(struct scheduler_context *old,struct scheduler_context *next) {
+    if(ready_edge_test) {
+        assert(old==&threads[3].context && next==&threads[6].context && current_thread==6 && !io_depth);
+        assert(!threads[6].io_gate_waiting);ready_edge_turns++;
+        threads[6].state=THREAD_READY;threads[3].state=THREAD_RUNNING;current_thread=3;return;
+    }
     if(fair_handoff_test) {
         assert(old==&threads[3].context && (current_thread==6 || current_thread==7));
         assert(next==&threads[current_thread].context && !io_depth);
@@ -78,8 +84,10 @@ void scheduler_context_switch(struct scheduler_context *old,struct scheduler_con
         if(current_thread==1) {
             assert(old==&threads[0].context && threads[0].state==THREAD_BLOCKED);
             assert(threads[0].trace.out.blocks==1);
+            assert(threads[0].memory_park_queue==threads[0].blocked_queue && threads[0].memory_park_queue);
             switching=false;clock_us+=10000;wake_expired_waits();
             assert(threads[0].state==THREAD_READY && threads[0].trace.out.timeouts==1);
+            assert(threads[0].memory_park_queue && !threads[0].blocked_queue);
             io_depth=1;io_owner=1;
             assert(!io_thread_allowed(0)); /* Recording must not admit the unsafe thread. */
             clock_us+=520000;assert(!io_thread_allowed(0));
@@ -87,6 +95,7 @@ void scheduler_context_switch(struct scheduler_context *old,struct scheduler_con
             assert(current_thread==0);return;
         }
         assert(current_thread==0 && old==&threads[1].context && next==&threads[0].context);
+        assert(!threads[0].memory_park_queue);
         return;
     }
     if(retry_turn_test) {
@@ -174,7 +183,7 @@ static void test_wake_policy(void) {
 static void test_ready_gate_admission(void) {
     memset(threads,0,sizeof(threads));initialized=io_services_enabled=true;switching=false;
     current_thread=3;idle_thread=1;io_depth=io_gate_pending=0;actual_space=1;
-    threads[3]=(struct thread){.state=THREAD_RUNNING,.io_user_safe=true};
+    threads[3]=(struct thread){.state=THREAD_RUNNING,.user_context=(void *)3,.io_user_safe=true};
     threads[4]=(struct thread){.state=THREAD_READY};
     threads[6]=(struct thread){.state=THREAD_READY}; /* Fresh process, not in io_waiters. */
     assert(scheduler_io_begin());
@@ -216,7 +225,7 @@ static void test_ready_gate_admission(void) {
 static void test_gate_handoff(void) {
     memset(threads,0,sizeof(threads));initialized=io_services_enabled=true;switching=false;
     current_thread=3;idle_thread=1;io_depth=io_gate_pending=0;actual_space=1;
-    threads[3]=(struct thread){.state=THREAD_RUNNING,.io_user_safe=true};
+    threads[3]=(struct thread){.state=THREAD_RUNNING,.user_context=(void *)3,.io_user_safe=true};
     threads[4]=(struct thread){.state=THREAD_READY};
     handoff_test=true;
     for(unsigned round=0;round<64;round++) {
@@ -242,10 +251,74 @@ static void test_gate_handoff(void) {
     memset(threads,0,sizeof(threads));current_thread=0;idle_thread=UINT64_MAX;initialized=false;
     puts("io-handoff: PASS 64 continuous writer rounds, awakened app admission, nested ownership, unsafe caller refusal and canceled waiter retirement");
 }
+static void ready_edge_setup(void) {
+    memset(threads,0,sizeof(threads));initialized=io_services_enabled=true;switching=false;
+    current_thread=3;idle_thread=UINT64_MAX;io_depth=io_gate_pending=io_gate_cursor=0;
+    actual_space=1;clock_us=1000;ready_edge_turns=0;
+    threads[3]=(struct thread){.state=THREAD_RUNNING,.user_context=(void *)3,.io_user_safe=true};
+}
+static void ready_edge_handoff(void) {
+    ready_edge_test=true;scheduler_io_handoff();ready_edge_test=false;
+    assert(ready_edge_turns==1 && !io_gate_pending && io_gate_cursor==6);
+}
+static void test_ready_edge_admission(void) {
+    ready_edge_setup();
+    for(unsigned i=0;i<6;i++)if(i!=3)threads[i].state=THREAD_READY;
+    assert(scheduler_spawn("new child",empty_worker,NULL));
+    /* No timer selection, I/O refusal or syscall wait has happened yet. */
+    ready_edge_handoff();
+    /* Preemption/explicit yield of an unsafe continuation is another READY
+     * transition; no owned-I/O selection needs to have refused it first. */
+    ready_edge_setup();threads[3].user_context=NULL;
+    threads[6]=(struct thread){.state=THREAD_READY,.user_context=(void *)1,.io_user_safe=true};
+    ready_edge_test=true;scheduler_yield();ready_edge_test=false;
+    assert(ready_edge_turns==1 && threads[3].io_gate_waiting && io_gate_pending==1);
+    io_gate_leave(&threads[3]);
+    ready_edge_setup();threads[3].user_context=(void *)1;
+    threads[6]=(struct thread){.state=THREAD_READY,.user_context=(void *)2,.io_user_safe=true};
+    ready_edge_test=true;scheduler_yield();ready_edge_test=false;assert(!io_gate_pending);
+    ready_edge_setup();struct scheduler_wait_queue q={.waiters=1};
+    threads[6]=(struct thread){.state=THREAD_BLOCKED,.blocked_queue=&q};
+    assert(scheduler_wake_count(&q,1)==1 && !q.waiters);
+    assert(!scheduler_wake_count(&q,1));ready_edge_handoff();
+    ready_edge_setup();q=(struct scheduler_wait_queue){.waiters=1};
+    threads[6]=(struct thread){.state=THREAD_BLOCKED,.blocked_queue=&q,.blocked_deadline_ticks=2};
+    assert(scheduler_io_begin() && scheduler_io_begin());clock_us=20000;wake_expired_waits();
+    assert(!q.waiters && threads[6].state==THREAD_READY && io_gate_pending==1);
+    scheduler_io_handoff();assert(!ready_edge_turns && io_depth==2);
+    scheduler_io_end();scheduler_io_handoff();assert(!ready_edge_turns && io_depth==1);
+    scheduler_io_end();ready_edge_handoff();
+    /* Safe userspace and explicitly audited service workers do not request a
+     * privileged turn merely because they wake. Existing selection stays intact. */
+    ready_edge_setup();q=(struct scheduler_wait_queue){.waiters=2};
+    threads[6]=(struct thread){.state=THREAD_BLOCKED,.blocked_queue=&q,.user_context=(void *)1,.io_user_safe=true};
+    threads[7]=(struct thread){.state=THREAD_BLOCKED,.blocked_queue=&q,.io_eligible=idle_eligible};
+    scheduler_wake_all(&q);assert(!io_gate_pending);
+    ready_edge_setup();q=(struct scheduler_wait_queue){.waiters=1};
+    threads[6]=(struct thread){.state=THREAD_BLOCKED,.blocked_queue=&q,.user_context=(void *)42,.user_thread_context=(void *)43};
+    scheduler_wake_all(&q);assert(io_gate_pending==1);
+    scheduler_kill_user_threads((void *)42,NULL);
+    assert(!io_gate_pending && threads[6].state==THREAD_DEAD);
+    scheduler_io_handoff();assert(!ready_edge_turns);
+    /* A transport completion can wake the current I/O owner. It is already
+     * eligible and must not reserve an unnecessary later quiescent turn. */
+    ready_edge_setup();q=(struct scheduler_wait_queue){.waiters=1};
+    assert(scheduler_io_begin());
+    threads[3].state=THREAD_BLOCKED;threads[3].blocked_queue=&q;threads[3].io_user_safe=false;
+    scheduler_wake_all(&q);assert(!io_gate_pending && threads[3].state==THREAD_READY);
+    threads[3].state=THREAD_RUNNING;scheduler_io_end();
+    ready_edge_setup();assert(scheduler_spawn_io_service("audited",empty_worker,NULL,idle_eligible));
+    assert(!io_gate_pending);
+    ready_edge_setup();io_services_enabled=false;
+    assert(scheduler_spawn("boot worker",empty_worker,NULL) && !io_gate_pending);
+    initialized=io_services_enabled=false;memset(threads,0,sizeof(threads));current_thread=0;
+    puts("ready-edge-admission: PASS creation and unsafe signal/timeout wake request the first quiescent boundary; no active-owner bypass");
+}
+
 static void test_gate_handoff_fairness(void) {
     memset(threads,0,sizeof(threads));initialized=io_services_enabled=true;switching=false;
     current_thread=3;idle_thread=1;io_depth=io_gate_pending=0;actual_space=1;
-    threads[3]=(struct thread){.state=THREAD_RUNNING,.io_user_safe=true};
+    threads[3]=(struct thread){.state=THREAD_RUNNING,.user_context=(void *)3,.io_user_safe=true};
     threads[6]=(struct thread){.state=THREAD_READY};
     threads[7]=(struct thread){.state=THREAD_READY};
     memset(fair_handoff_turns,0,sizeof(fair_handoff_turns));fair_handoff_test=true;
@@ -419,6 +492,106 @@ static void test_wait_trace(void) {
     puts("scheduler-wait-trace: PASS blocked versus ready, unchanged exclusion, timeout/signal, reset/refusal and invalid clock");
 }
 
+static void test_independent_process_memory(void) {
+    void *process=(void *)0x10,*other=(void *)0x20;
+    initialized=io_services_enabled=true;current_thread=3;actual_space=1;
+    threads[3]=(struct thread){.state=THREAD_RUNNING,.user_context=process,.io_user_safe=true,.address_space=1};
+    assert(scheduler_io_process_independent(process));
+    assert(!scheduler_io_process_independent(NULL) && !scheduler_io_process_independent(other));
+    threads[3].io_user_safe=false;assert(!scheduler_io_process_independent(process));threads[3].io_user_safe=true;
+    threads[3].user_thread_context=process;assert(!scheduler_io_process_independent(process));threads[3].user_thread_context=NULL;
+    actual_space=2;assert(!scheduler_io_process_independent(process));actual_space=1;
+    for(unsigned state=THREAD_READY;state<=THREAD_QUARANTINED;state++) {
+        threads[4]=(struct thread){.state=state,.user_context=process};
+        assert(scheduler_io_process_independent(process)==(state==THREAD_DEAD));
+    }
+    threads[4]=(struct thread){.state=THREAD_READY,.user_context=other};
+    assert(scheduler_io_process_retired((void *)0x30));
+    assert(!scheduler_io_process_retired(process) && !scheduler_io_process_retired(other));
+    threads[5]=(struct thread){.state=THREAD_QUARANTINED,.user_context=(void *)0x30};
+    assert(!scheduler_io_process_retired((void *)0x30));threads[5]=(struct thread){0};
+    io_depth=2;io_owner=4;io_private_image=NULL;
+    assert(scheduler_io_process_independent(process) && io_depth==2 && io_owner==4);
+    io_private_image=process;assert(!scheduler_io_process_independent(process));io_private_image=other;
+    assert(!scheduler_io_process_retired(other));
+    io_private_image=(void *)0x30;assert(!scheduler_io_process_retired((void *)0x30));io_private_image=other;
+    assert(scheduler_io_process_independent(process));
+    threads[4].user_context=process;assert(!scheduler_io_process_independent(process));threads[4].user_context=other;
+    io_owner=3;assert(!scheduler_io_process_independent(process));io_owner=4;
+    uint64_t capacity=thread_capacity;thread_capacity=4097;assert(!scheduler_io_process_independent(process));thread_capacity=capacity;
+    io_owner=thread_capacity;assert(!scheduler_io_process_independent(process));io_owner=4;
+    current_thread=thread_capacity;assert(!scheduler_io_process_independent(process));current_thread=3;
+    switching=true;assert(!scheduler_io_process_independent(process));switching=false;
+    io_services_enabled=false;assert(!scheduler_io_process_independent(process));io_services_enabled=true;
+    assert(io_depth==2 && io_owner==4 && io_private_image==other);
+    memset(threads,0,sizeof(threads));initialized=io_services_enabled=false;current_thread=0;io_depth=0;io_private_image=NULL;
+    puts("independent-memory: PASS current main only, siblings/worker/image/owner/CR3/scan bounds, unchanged foreign ownership");
+}
+
+static void test_helper_atomic_memory(void) {
+    void *p=(void *)0x10,*other=(void *)0x20;
+    struct scheduler_wait_queue parked={0},wrong={0};
+    initialized=io_services_enabled=true;current_thread=3;actual_space=1;
+    threads[3]=(struct thread){.state=THREAD_RUNNING,.user_context=p,.user_thread_context=(void *)0x40,.io_user_safe=true,.address_space=1};
+    threads[4]=(struct thread){.state=THREAD_BLOCKED,.user_context=p,.io_user_safe=true,.address_space=1,.blocked_queue=&parked,.memory_park_queue=&parked};
+    threads[5]=(struct thread){.state=THREAD_BLOCKED,.user_context=other};
+    io_depth=2;io_owner=5;
+    assert(!scheduler_io_process_independent(p)); /* Old path reproduces refusal. */
+    assert(scheduler_io_process_helper_memory(p,&parked));
+    threads[4].state=THREAD_READY;assert(scheduler_io_process_helper_memory(p,&parked));
+    threads[4].memory_park_queue=NULL;assert(!scheduler_io_process_helper_memory(p,&parked));
+    threads[4].memory_park_queue=&parked;threads[4].state=THREAD_BLOCKED;
+    assert(!scheduler_io_process_helper_memory(p,NULL));
+    assert(!scheduler_io_process_helper_memory(p,&wrong));
+    threads[4].io_user_safe=false;assert(!scheduler_io_process_helper_memory(p,&parked));threads[4].io_user_safe=true;
+    threads[4].state=THREAD_QUARANTINED;assert(!scheduler_io_process_helper_memory(p,&parked));
+    threads[4].state=THREAD_RUNNING;assert(!scheduler_io_process_helper_memory(p,&parked));threads[4].state=THREAD_BLOCKED;
+    threads[4].address_space=2;assert(!scheduler_io_process_helper_memory(p,&parked));threads[4].address_space=1;
+    io_private_image=p;assert(!scheduler_io_process_helper_memory(p,&parked));io_private_image=NULL;
+    threads[5].user_context=p;assert(!scheduler_io_process_helper_memory(p,&parked));threads[5].user_context=other;
+    io_owner=3;assert(!scheduler_io_process_helper_memory(p,&parked));io_owner=5;
+    threads[3].user_thread_context=NULL;assert(!scheduler_io_process_helper_memory(p,&parked));threads[3].user_thread_context=(void *)0x40;
+    threads[3].io_user_safe=false;assert(!scheduler_io_process_helper_memory(p,&parked));threads[3].io_user_safe=true;
+    actual_space=2;assert(!scheduler_io_process_helper_memory(p,&parked));actual_space=1;
+    uint64_t capacity=thread_capacity;thread_capacity=4097;assert(!scheduler_io_process_helper_memory(p,&parked));thread_capacity=capacity;
+    io_owner=thread_capacity;assert(!scheduler_io_process_helper_memory(p,&parked));io_owner=5;
+    current_thread=thread_capacity;assert(!scheduler_io_process_helper_memory(p,&parked));current_thread=3;
+    switching=true;assert(!scheduler_io_process_helper_memory(p,&parked));switching=false;
+    io_services_enabled=false;assert(!scheduler_io_process_helper_memory(p,&parked));io_services_enabled=true;
+    assert(io_depth==2 && io_owner==5 && !io_private_image);
+    io_depth=0;threads[4]=(struct thread){0};threads[5]=(struct thread){0};
+    threads[3].memory_park_queue=&parked;scheduler_yield();
+    assert(current_thread==3 && !threads[3].memory_park_queue);
+
+    memset(threads,0,sizeof(threads));initialized=io_services_enabled=false;current_thread=0;io_depth=0;
+    puts("helper-atomic-memory: PASS safe parked sibling, foreign owner unchanged, unsafe/CR3/owner/image/scan refusal");
+}
+
+static void test_user_thread_publication(void) {
+    unsigned saved_frees=frees;
+    ready_edge_setup();threads[3].address_space=1;growing_allocations=true;
+    struct fpu_state fpu={0};void *user_thread=(void *)0x123;
+    threads[5]=(struct thread){.state=THREAD_BLOCKED,.user_context=(void *)5};io_depth=2;io_owner=5;
+    uint64_t bytes=thread_storage_bytes,id=next_identity;unsigned live=live_allocations;
+    assert(!scheduler_spawn_user_thread("invalid",empty_worker,NULL,&fpu,42));
+    assert(!scheduler_spawn_user_thread("invalid",empty_worker,user_thread,NULL,42));
+    actual_space=2;assert(!scheduler_spawn_user_thread("invalid",empty_worker,user_thread,&fpu,42));actual_space=1;
+    assert(thread_storage_bytes==bytes && next_identity==id && live_allocations==live);
+    fail_stack=true;assert(!scheduler_spawn_user_thread("allocation",empty_worker,user_thread,&fpu,42));fail_stack=false;
+    assert(thread_storage_bytes==bytes && next_identity==id && live_allocations==live);
+    assert(scheduler_spawn_user_thread("prepared",empty_worker,user_thread,&fpu,42));
+    struct thread *t=&threads[1];
+    assert(t->state==THREAD_READY && t->user_context==(void *)3 && t->address_space==1 &&
+           t->user_thread_context==user_thread && t->user_fpu==&fpu && t->user_fs_base==42 && t->io_user_safe);
+    assert(io_thread_allowed(1) && !t->io_gate_waiting && io_depth==2 && io_owner==5);
+    /* Same-process ownership still excludes even a completely prepared entry. */
+    threads[5].user_context=(void *)3;assert(!io_thread_allowed(1));threads[5].user_context=(void *)5;
+    scheduler_kill_user_threads((void *)3,NULL);assert(t->state==THREAD_DEAD);
+    assert(!t->io_gate_waiting);pmm_free_frame_range(t->stack_physical,SCHEDULER_STACK_SIZE/PMM_FRAME_SIZE);
+    thread_storage_bytes=bytes;frees=saved_frees;growing_allocations=false;memset(threads,0,sizeof(threads));current_thread=0;io_depth=io_gate_pending=0;initialized=io_services_enabled=false;
+    puts("user-thread-publication: PASS complete READY identity/TLS/FPU, foreign eligibility, same-process exclusion, failure atomicity and pre-entry cancellation");
+}
+
 static void test_private_image_scope(void) {
     struct srv_sched_trace trace;
     void *parent=(void *)0x10,*child=(void *)0x20;
@@ -585,10 +758,61 @@ static void test_idle_audit(void) {
     puts("idle-audit: PASS opt-in, nested refusal, ready bypass, HLT path, pending return across stop/restart, epoch exhaustion; no policy changes");
 }
 
+/* Observation must retain the outer owner identity across nesting, foreign
+ * attempts and slot reuse, without changing admission or emitting in a scope. */
+static unsigned owner_prints;
+void console_printf(const char *format,...) { assert(!io_depth && !strncmp(format,"io-owner",8));owner_prints++; }
+uint64_t process_pid(const struct process *p) { return (uint64_t)(uintptr_t)p; }
+static void test_io_observation(void) {
+    memset(threads,0,sizeof(threads));initialized=io_services_enabled=true;
+    switching=false;current_thread=0;io_depth=0;clock_us=1000;reference=true;
+    io_observed.enabled=false;
+    threads[0]=(struct thread){.identity=99,.name="owner name\n",.state=THREAD_RUNNING,.user_context=(void *)42};
+    assert(scheduler_io_begin());clock_us+=200000;scheduler_io_end();
+    assert(!io_observed.scopes); /* Ordinary scheduling has no diagnostic history. */
+    initialized=false;assert(!scheduler_io_observe_reset());initialized=true;
+    reference=false;assert(!scheduler_io_observe_reset());reference=true;
+    assert(scheduler_io_observe_reset());
+    assert(scheduler_io_begin());assert(!scheduler_io_observe_reset());
+    assert(scheduler_io_begin());assert(io_observed.scopes==1);
+    threads[1]=(struct thread){.identity=100,.state=THREAD_READY};
+    assert(!io_thread_allowed(1));assert(io_observed.active.exclusions==1);
+    current_thread=1;assert(!scheduler_io_begin());scheduler_io_end();
+    assert(io_depth==2 && io_observed.active.seq==1);current_thread=0;
+    clock_us+=200000;scheduler_io_end();assert(!io_observed.long_scopes);
+    scheduler_io_end();assert(io_observed.long_scopes==1 && !io_observed.active.seq);
+    struct io_owner_sample first=io_observed.rows[0];
+    assert(first.identity==99 && first.pid==42 && first.end-first.start==200000 && first.exclusions==1);
+    assert(!strcmp(first.name,"owner_name_"));
+    threads[0].identity=101;threads[0].name="replacement";
+    assert(!strcmp(first.name,"owner_name_") && first.identity==99);
+    assert(scheduler_io_begin());clock_us+=99999;scheduler_io_end();
+    assert(io_observed.scopes==2 && io_observed.long_scopes==1);
+    assert(scheduler_io_begin());clock_us--;scheduler_io_end();
+    assert(io_observed.invalid==1 && io_observed.long_scopes==1);
+    for(unsigned i=0;i<IO_OBSERVE_ROWS+2;i++) {
+        assert(scheduler_io_begin());clock_us+=IO_OBSERVE_MIN_US;scheduler_io_end();
+    }
+    assert(io_observed.long_scopes==IO_OBSERVE_ROWS+3);
+    uint64_t oldest=io_observed.long_scopes-IO_OBSERVE_ROWS;
+    for(unsigned i=0;i<IO_OBSERVE_ROWS;i++) {
+        const struct io_owner_sample *v=&io_observed.rows[(oldest+i)%IO_OBSERVE_ROWS];
+        assert(v->seq==oldest+i+3 && v->identity==101 && v->end-v->start==IO_OBSERVE_MIN_US);
+    }
+    scheduler_print_io_owners();assert(owner_prints==IO_OBSERVE_ROWS+2);
+    assert(scheduler_io_begin());scheduler_print_io_owners();assert(owner_prints==IO_OBSERVE_ROWS+2);scheduler_io_end();
+    assert(scheduler_io_observe_reset() && !io_observed.scopes && !io_observed.long_scopes);
+    io_observed.enabled=false;io_gate_pending=0;memset(threads,0,sizeof(threads));initialized=io_services_enabled=false;
+    puts("io-owner-observe: PASS opt-in, outer nesting, foreign refusal, copied identity, bounded wrap, clock rollback");
+}
+
 int main(void) {
     test_idle_audit();
     test_mwait();
     test_coordinated_mwait();
+    test_independent_process_memory();
+    test_helper_atomic_memory();
+    test_user_thread_publication();
     test_private_image_scope();
     test_wait_trace();
     test_cpu_accounting();
@@ -770,11 +994,13 @@ int main(void) {
     puts("scheduler-activity: PASS expiry/signal transitions, no double counts, stable snapshots, slot reuse");
     puts("scheduler-irq-quarantine: PASS noncurrent-only, atomic refusal, interrupted storage untouched");
     puts("scheduler-quarantine: PASS stale/user/owner refusal, atomicity, wait unlink, no resurrection or slot/stack reuse");
+    test_io_observation();
     test_wake_policy();
     test_completion_wait();
     test_ready_gate_admission();
     test_gate_handoff();
     test_gate_handoff_fairness();
+    test_ready_edge_admission();
     test_growth();
     puts("io-scheduler-host: PASS (boot gating, owner/nesting, service eligibility, task isolation)");
 }

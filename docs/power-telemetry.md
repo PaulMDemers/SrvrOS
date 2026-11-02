@@ -371,6 +371,15 @@ CPU runtime or pure device latency. Sync may also flush other open files. Do not
 subtract these values and call the remainder CPU work. The probes themselves add
 clock-read and log-formatting overhead; compare instrumented runs with each other.
 
+The proposed logger-only committed-data barrier flushes the completed direct
+exFAT log mutation and its device, without submitting unrelated dirty process
+file buffers. Explicit workspace sync, unmount and scratch preparation keep full
+process-file sync. `workspace-log: durable snapshot=... monotonic_us=...` identifies
+the exact successfully persisted snapshot; it does not promise durability for
+another application's pending buffers. New collectors require that matching
+receipt; historical payloads retain their older workspace-flushed receipt.
+This change is under review alongside the overlapping filesystem audit.
+
 A completed record is emitted before the **next** snapshot is copied, with no
 extra write. Thus exit.log contains earlier periodic operations, not its own
 write/flush measurement. The desktop collector exposes `desktop_logger_cost`
@@ -1215,3 +1224,33 @@ were 99.686% core C3; this is not a whole-session idle ratio or energy saving.
 The later 30-second phase coverage retains approximately 4.05/5.13/4.09 W package
 power with C1 parking after the trial. Ordinary startup/policy remain unchanged;
 package blockers and sustained operation remain open. See the [unit acceptance](machines/macbookair6-1.md#coordinated-c3--native-acceptance-2026-10-28).
+
+### Identifying long serialized I/O owners
+
+Workspace logging enables a kernel-only bounded I/O-owner observation history.
+Each outer scope captures a stable scheduler thread identity, process ID (zero
+for kernel workers), sanitized copied worker name and monotonic start time.
+Nested scopes belong to that same owner; foreign begin/end attempts do not
+create or finish a record. The history retains the last eight completed scopes
+lasting at least 100 ms. Scope sequence numbers include shorter scopes, so gaps
+are expected. Snapshot headers report total scopes, qualifying scopes, retained
+and overwritten counts, clock regressions and the threshold. A footer brackets
+the copied snapshot. Repeated snapshots may repeat a scope sequence number.
+Validate the saved atomic log records: live UART output may interleave with other
+writers and does not provide equivalent record completeness.
+
+`io-owner` intervals are wall time while serialization is held, including device
+waits and time spent servicing other eligible threads. `exclusions` counts READY
+thread selection refusals during that scope, not unique threads, milliseconds or
+CPU work. Correlate intervals with app phase and USB receipts; a long overlapping
+scope alone does not identify every device command or prove CPU starvation.
+Missing/overwritten history cannot prove that no other owner contributed.
+
+Reset refuses an active gate or unavailable reference clock. Recording neither
+allocates nor prints, and does not change admission, fairness, wakeups or gates.
+Workspace checkpoints copy and print the bounded history outside I/O ownership;
+there is no new user syscall or wire ABI. Ordinary boots without workspace
+logging do not enable it. Host fixtures cover nesting, foreign refusal, copied
+identities, clock rollback, bounded overwrite and output outside ownership.
+Native attribution and full endurance remain pending until matching evidence is
+collected.

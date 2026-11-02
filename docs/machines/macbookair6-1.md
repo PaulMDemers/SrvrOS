@@ -1,6 +1,6 @@
 # MacBookAir6,1 — local bring-up
 
-Updated: 2026-10-27. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted. Short battery sampling and the bounded Home desktop session with five Text saves and three battery lifetimes, plus a three-minute continuous Home desktop capture and attended desktop AC unplug/reconnect with indicator updates, are physically accepted.**
+Updated: 2026-11-01. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted. Short battery sampling and the bounded Home desktop session with five Text saves and three battery lifetimes, plus a three-minute continuous Home desktop capture and attended desktop AC unplug/reconnect with indicator updates, are physically accepted.**
 
 ## Initial inventory (2026-10-22)
 
@@ -90,6 +90,23 @@ armed. Release `c35475f62f154f1e` is retained outside `build` as a known-working
 console/basic-keyboard/bounded-USB payload; preserve it as recovery.
 
 ## Current objective and next actions
+
+Fetched main `9340c9fb` and completed the read-only Ubuntu RC6 baseline on this
+unit. Scope: host-only capture/parser/tests and evidence documentation. No
+SrvrOS runtime or policy change. The final November 1 section records all three
+windows and their limits. The lower Linux RC6 fraction leaves the original
+SrvrOS mismatch unresolved. Separate Linux counters positively observe package
+C3, which remains zero in the bounded SrvrOS trial.
+
+Next bounded power work is comparing package-C3 prerequisites and display/device
+state across the two OSes while retaining the original RC6 predicate. PR261
+owns desktop lifecycle latency, PR252 resolver/socket and PR19 Wi-Fi; this work
+does not edit those runtime subsystems. Installed release `0804f2944e9364d3`
+(source `05668557`) remains distinct from the current checkout. Rebuild and
+validate matched newer artifacts before claiming native acceptance of fetched
+main. No boot payload changed and no reboot is armed.
+
+### Historical battery-runtime objective (2026-10-23)
 
 Base `9bbc3b9`, branch `device/macbookair6-1/battery-runtime`. Audit connected
 Air6,1 AML initialization and query effects using private captured regions and
@@ -5232,3 +5249,228 @@ candidate is failed. Closeout consumes PR243 main `4ae360ef`; that newer runtime
 was not tested in this physical image. Next: fix/test Null capability handling,
 investigate the RC6 timebase discrepancy, and repeat this same bounded audit
 without changing power policy or existing limits.
+
+### Null capability and RC6 timing retry — active scope (2026-10-28)
+
+Base `02434766` (including PR245 clock-only workspace-save timing), same device
+branch. Fix standard Null Extended Capability traversal without relaxing
+alignment, range, cycle, overlap or version checks for non-Null capabilities.
+Investigate the RC6/PM-time discrepancy with tightly bracketed MMIO reads and
+ordered TSC observations; retain the existing nominal-unit mismatch predicate.
+Scope is diagnostic-only PCI traversal, platform receipts/parser, regressions
+and this unit's automated retry. PR182 filesystem and PR19 Wi-Fi are separate.
+No power-policy, forcewake, watchdog, workload, 32-attempt, 20 ms, log-tail or
+integrity limit changes. Previous failed platform evidence remains immutable.
+Next checkpoint: reviewed regressions, exact-stage VM checks and self-merged
+candidate, followed by one automated native run with Ubuntu recovery retained.
+
+The existing failed-run power checkpoints span 83.998667 s and give an observed
+TSC/PM ratio of 1,999.999738 ticks/us, consistent across successive intervals.
+This does not identify RC6's timebase error, but does not support a corresponding
+0.108% PM/TSC drift. The new two-sided PM/ordered-TSC brackets measure actual
+MMIO placement. The strict original RC6 mismatch remains a failure, and its raw
+timing diagnostic is saved independently of acceptance. A 90-second host clock
+regression preserves fractional accumulation across repeated 24-bit PM wraps.
+
+Retry candidate `8c9a5a28464ffd7c`, compiled source `ac343119` (PR246), passes the
+matched build, full core suite/docs, all nine platform VM cases and three legacy
+AP-owner/coordinated/package profiles. Directed failures retain expected fault
+codes and terminal peer states. Disassembly confirms diagnostic isolation and
+no added control writes. Version-2 timing plus 25 maximum-width device receipts
+retain required proofs within the unchanged 64 KiB tail. USB preflight preserves
+550 files / 1,605 clusters, with clean allocation and required headroom.
+
+Read-only Ubuntu follow-up confirms each of the four root-port chains is Null
+`0x20000000` at `0x100`, followed by terminal `0x0001001e` at `0x200`. Native
+traversal and RC6 timing acceptance remain pending. The unattended retry uses
+the same 30-second idle/load/recovery phases and 32 bounded C3 attempts, saves
+results, and returns automatically. Keep AC/USB connected; no input is required.
+Before installation, repoint current through the normal installer to accepted
+package audit `bae0678ed7e9b38b`, then retire only the failed `a3ac64f7cd15293c`
+EFI copy after durable verification to make space. Console recovery, accepted
+payloads and the failed candidate's durable payload/evidence remain retained.
+
+### Null traversal accepted; RC6 timing unresolved (2026-10-28)
+
+Release `8c9a5a28464ffd7c`, source `ac343119` / PR246 merge `46b60b24`, saved
+`session-00065eebb0420243-00` and returned automatically. All three workload
+phases and the enclosing process/capture complete successfully. The runtime
+platform receipt is fault-free with 25 devices; the independent strict collector
+still rejects RC6 timing. This is partial acceptance, not an overall platform
+audit pass or a reason to promote this payload over accepted package recovery.
+
+The four affected root ports (`00:1c.1`, `.2`, `.4`, `.5`) now traverse two
+extended headers in both snapshots and correctly report LTR capability absent.
+No device reports a malformed/unavailable chain. This accepts the Null traversal
+fix on this unit. The two Broadcom LTR capabilities remain `0x10031003` at
+`0x1b0` with six headers. Platform grant remains unavailable; these configured
+maximum latency values do not identify a currently asserted latency request.
+
+Both graphics status observations remain `0x11800303` (RC6 encoding). The RC6
+count advances 13,546,258→83,976,940: 90.151272960 s at the nominal 1.28 us unit.
+The original timestamp span is 90.057986 s. Tight PM brackets around the actual
+reads bound elapsed time to 90.057877–90.057879 s; each read bracket is 1 us wide.
+The corresponding ordered TSC interval is 180,115,732,486–180,115,735,386 ticks,
+or 1,999.999717–1,999.999793 ticks per PM microsecond. The nominal RC6 interval
+still exceeds the upper PM bracket by about 93.394 ms (0.104%). Read placement
+and PM/TSC disagreement do not explain this discrepancy. Its hardware clock or
+counter semantics remain unresolved; do not clamp residency, substitute nominal
+MHz as a TSC calibration, or relax the existing acceptance predicate.
+
+All 32 coordinated rounds observe core C3 on both physical cores and package C2,
+with maximum whole-round latency 9,982 us, 32 HLT fallbacks, no faults and clean
+retirement of all three APs. Package C2 covers 99.5384% of its short brackets;
+package C3 remains unobserved. E2 `0x408` and IRTL `0x8842` stay unchanged.
+
+The 550 baseline files are preserved except expected `.srvros/meta` bookkeeping;
+four new logs bring the volume to 554 files / 1,610 clusters. Offline fsck and
+allocation checks pass with zero leaks, mismatches or errors. The automatic
+447-file return backup verifies outside `build`; current and protected recovery
+payloads verify. Ubuntu is default, the one-shot is consumed and the collector
+is disabled. No new reboot is armed.
+
+Closeout scope is this record/current diagnostic guide and evidence review only;
+PR247 logger barriers, PR182 filesystem and PR19 Wi-Fi remain separate. Next:
+audit RC6 counter scaling, clock tolerance and update semantics against primary
+hardware documentation, then select a bounded read-only comparison if needed.
+Do not change power policy, integrity checks or timing limits to force a pass.
+
+### RC6 scaling/update audit — active scope (2026-10-28)
+
+Base `00338707`, same device branch. Audit Haswell RC6 register scaling and
+update/clock semantics against primary documentation; retain the existing
+strict mismatch predicate. Add bounded read-only counter observations during
+the existing capture if needed to distinguish sustained rate from endpoint
+update behavior. Scope: isolated platform diagnostic, diagnostic-only sampling
+hook/build, receipt parsing/tests and this record. No new worker or timer, no
+forcewake/control access, and no policy, watchdog, workload, log or latency-limit
+changes. PR247 logger barriers, PR182 filesystem and PR19 Wi-Fi do not overlap
+this bounded scope. Next checkpoint: source audit, host/VM checks, self-merged
+candidate and automated native repeat; preserve all prior failed evidence.
+
+The audit confirms Haswell's documented 32-bit/1.28 us accumulator; public
+register documentation supplies no clock tolerance or update cadence, and IGT's
+software test allowance is not adopted. The new series retains every other
+existing power checkpoint (up to 12 pairs), with no added worker/timer/control
+access. It preserves the original mismatch test and saves observations on
+failure. Bounded sampling, host/parser regressions and full-core validation
+passed before integration, as did all nine VM cases on `02911e4b80d22cc3`.
+
+PR247 merged during validation. Consume actual main `bb8561f7`, including the
+logger-only committed-data flush and durable receipt, before staging the native
+retry. This does not change normal sync/unmount integrity; rerun the matched
+build, core suite and exact-stage VM coverage on the integrated candidate.
+Pre-integration receipts remain separate and are not attributed to that image.
+
+Integrated source `05668557`, release `0804f2944e9364d3`, passes the matched
+build, full core/docs suite, isolation/disassembly checks, nine directed/exact
+VM cases and three legacy profiles. The first legacy ownership VM exceeded the
+unchanged 20 ms deadline (21,979 us) and retired safely; its failed receipt is
+retained separately. The identical rerun passed. Maximum-width tail replay,
+including the integrated logger's durability receipts, preserves all proofs
+inside 64 KiB. No timing or integrity requirement was relaxed.
+
+PR249 prepares the fully automated native retry with sparse paired RC6/PM/TSC
+observations, normal idle/load/recovery phases, 32 coordinated rounds, HLT
+fallback and automatic Ubuntu collection. The collector saves timing/series
+diagnostics even if the original RC6 predicate still fails. Native acceptance
+and the counter's hardware clock/update explanation remain pending. The local
+run record binds this source/release to USB `6ADA-85BB`, its 554-file baseline,
+1,610 allocated clusters, protected recovery and durable evidence backup.
+
+
+### RC6 series return reviewed and repository synchronized (2026-10-31)
+
+PR249 merged as `b1ba4e68`. Its release `0804f2944e9364d3`, compiled source
+`05668557`, returned automatically with `session-00065eed045ce1e7-00`.
+The matching exit SHA-256 is
+`a08d7c9e8f5cc84c6c792d165b0d9c3cc1e7dd521affaec555f900265440529e`.
+All three 30-second idle/load/recovery phases and final capture completed;
+no halt, exception or incomplete runtime marker appears. The platform receipt
+is fault-free with 25 devices, but strict platform acceptance remains failed.
+
+Nine series points match the retained power timestamps, have continuous counter
+arithmetic and unchanged immediate paired values. Six of the eight intervals
+between series points exceed their upper PM bracket at nominal RC6 scaling;
+two are below it. Including both endpoint intervals, eight of ten intervals
+exceed the bracket. Thus this run's excess is distributed across several
+intervals, rather than appearing only in the final endpoint. This does not
+establish a precise update cadence or identify the counter's oscillator.
+Nominal RC6 elapsed time is 90.143014400 s versus a PM bracket of
+90.059109–90.059113 s, approximately 83.901 ms (0.0932%) excess before the
+existing one-tick allowance. The original predicate still fails; no scaling,
+tolerance or power-policy change is justified by this observation alone.
+
+All 32 coordinated attempts completed under the unchanged 20 ms limit;
+maximum whole-round latency was 9,984 us. The short initial attempt recorded
+zero residency; the following 31 observed BSP core C3 and package C2.
+Package C2 occupied about 99.5355% of the aggregate short brackets, while
+package C3 stayed zero. All three APs retired without faults.
+
+The 554 baseline files are preserved except expected `.srvros/meta` bookkeeping;
+four logs bring the volume to 558 files / 1,615 clusters. Offline fsck and
+allocation checks passed with zero leaks, mismatches or errors. Installed
+current `0804f2944e9364d3`, console recovery `c35475f62f154f1e` and accepted
+package payload `bae0678ed7e9b38b` verify against their durable backups.
+The matching return evidence also verifies outside `build`. The one-shot is
+consumed and automatic collection is disabled. Current remains a diagnostic
+with unresolved RC6 acceptance, not a newly accepted replacement for recovery.
+
+Repository catch-up adds this closeout and current-guide/index updates only.
+Documentation and RC6 collector regressions are the applicable local checks;
+no rebuilt image, new hardware test or native acceptance of the 94 newer main
+commits is claimed. The October 31 workspace cleanup reclaimed empty allocation
+from VM images with identical hashes; all native evidence and recovery remain.
+
+
+### Ubuntu RC6 comparison — active scope (2026-11-01)
+
+Updated the device checkout and local main to fetched `9340c9fb` (PR260),
+consuming 66 commits since the October 31 closeout. PR261 owns ongoing desktop
+lifecycle latency, PR252 resolver/socket and PR19 Wi-Fi; this scope touches none
+of their runtime files. Capture three passive 90-second Ubuntu i915 RC6 windows,
+with sparse sysfs reads bracketed by raw/adjusted monotonic clocks.
+Scope: a read-only host capture tool, its evidence/parser checks and Makefile target, this record
+and the diagnostic guide. No SrvrOS power policy, counter conversion, timing
+predicate, boot payload or reboot state changes. The millisecond sysfs interface
+and Linux-managed graphics workload differ from raw SrvrOS MMIO/PM brackets;
+record those limits before drawing cross-OS conclusions. Publish the baseline
+and a bounded next diagnostic after review, without accepting newer source on
+this hardware merely because it was fetched. No new physical boot is armed.
+
+
+### Ubuntu RC6 baseline captured (2026-11-01)
+
+Host-only helper source `9aecef5e`, Ubuntu kernel `7.0.0-38-generic`, i915
+`8086:0a26`, TSC clocksource. Three passive 90-second windows retained all
+28 bracketed samples, with RC6 enable state 1 before/after and runtime state
+active. Raw-clock spans were approximately 89.9964/89.9961/89.9961 seconds;
+RC6 advances were 39.356/31.473/36.602 seconds (43.73/34.97/40.67%). All
+27 ten-second intervals stayed below elapsed time, including the rounded
+endpoint annotation. Total RC6 time was 107.431 seconds over about 269.9886
+raw seconds. Maximum sysfs read bracket was 606,052 ns. Adjusted versus raw
+monotonic elapsed time differed by about 42.27 ppm; these are Linux clock
+observations, not an independent calibration of SrvrOS's PM timer.
+
+This capture does not reproduce SrvrOS's small overcount, but its much lower
+RC6 fraction can hide such a discrepancy. It cannot accept the native timing
+predicate or distinguish hardware scaling from publication/OS behavior. Linux
+continues managing graphics/runtime power; the helper itself writes no policy
+or MMIO controls. All original SrvrOS limits and failed evidence remain intact.
+
+A separate read-only turbostat context capture, three ten-second intervals,
+reported package C3 at 14.04/13.23/14.41%, core C7 at roughly 49–51%, and
+package C6/C7 at zero. CPU busy was 25.18/27.15/27.50%; this was the normal
+Ubuntu desktop, not controlled idle. Graphics RC6 was 42.71/43.79/44.57%.
+These are separate observations, not simultaneous evidence for the earlier
+windows. Positive package C3 establishes that this physical Mac can reach C3
+under Linux's own policies/device state; it does not identify the missing
+SrvrOS prerequisite or authorize copying Linux control writes.
+
+`make test-linux-rc6-baseline`, ten existing RC6 parser regressions, docs and
+whitespace checks pass. Raw observations, upstream source references, tool hash
+and review are backed up with hashes outside `build`. No boot payload changed
+and no reboot is armed. Next power work should compare package-C3 prerequisites
+and display/device state with this Linux reference while preserving the
+unresolved RC6 mismatch. A matched current-main build and native desktop
+regression remain separate work, without inherited physical acceptance.

@@ -52,6 +52,100 @@ These limits do not reopen the completed target once the specified gates pass.
 They require a separately scoped implementation and acceptance pass if broader
 compatibility is wanted.
 
+## Broader audit: filesystem checkpoints
+
+The [exFAT import audit](filesystem-audit-2026-10-26.md) corrects unchecked boot
+geometry and stale-byte exposure beyond imported `ValidDataLength`. The first
+checkpoint's sixteen host modes cover mount validation, initialized
+reads and preservation through rename/replacement/overwrite/remount. The next
+checkpoint expands to 29 modes and corrects entry checksums/layouts, ASCII name
+identity and directory-chain termination/cycles. Generator and parser changes
+land together; seven new negative controls and a recursive generated-image check
+cover this pass. Dedicated disposable VMs exercise valid imports and corruption
+refusal. A third checkpoint expands to 47 modes and protects exact allocation
+aliases, rejects duplicate/overlapping namespaces and quarantines inconsistent
+allocation maps before mutation. Normal teardown busy guards and process snapshot
+ownership were traced without confirming an additional open-reference defect.
+A fourth checkpoint expands import coverage to 51 modes and adds physical-range
+mount claims, exclusive raw-transport leases, delegated inner-image admission
+and persistent failure quarantine. Block/workspace/USB and seven synthetic
+image-adapter runs cover handoff and retirement. The next checkpoint expands to 61 modes, serializes backend operations against
+teardown, rechecks process busy state under storage ownership, and propagates
+terminal USB/AHCI identity loss through block/cache/claim admission. Live
+unregister/rebind and crash recovery remain open. The rename/sidecar checkpoint
+expands to 72 modes and adds 144 write/flush/half-write fault boundaries. It fixes
+partial or cross-volume sidecar application, malformed fields, stale replay on
+dirty media, destructive temporary cleanup, delete-first promotion and hidden
+metadata persistence failures. Interrupted states remain quarantined; journaled
+rename, controller reordering and physical power-loss recovery are not accepted.
+The boot/system-stream checkpoint expands the suite to 100 modes plus a 29-case
+sector-size matrix. It validates complete boot regions, selects only a unique
+read-only backup fallback, enforces system-entry/stream integrity and corrects
+fragmented-system ownership. The image generator now emits both checked boot
+regions and a complete upcase table. Follow-on statfs fixes serialize reads and
+count complete bitmap chains. Automatic repair, multi-cluster bitmap mutation,
+full Unicode and journaled power-loss recovery remain outside the profile.
+The allocation/growth checkpoint adds eight directed modes (108 total) and 193
+extension-fault boundaries. It preserves clean refusal before extension, rejects
+impossible sizes/entry widths, prevents stale-name resurrection past end markers,
+and fixes signed overflow in long-name hash validation. Compound space reservation
+and durable rollback after partial writes remain unimplemented.
+The retirement checkpoint adds eight modes (116 total) and 323 deletion,
+truncation and metadata fault boundaries. It defers sidecar allocation until
+old extents are retired, allowing full-volume truncation and near-full shrinking
+replacement to finish. Deletion and process orphan-identity controls pass.
+Directory growth now uses 161 boundaries because its redundant nested sidecar
+sync is removed. Read-side snapshot cleanup and serialized teardown were traced
+without confirming another defect; process writeback retry policy after a clean
+space refusal remains a follow-on question, separate from backend quarantine.
+The writeback checkpoint expands import coverage to 123 modes and adds a real
+process/exFAT retry fixture. Clean refusal no longer permanently poisons shared
+content, and global sync now includes dirty reader-only survivors after failed
+writer close, once per content object. Partial/uncertain writes remain sticky.
+Follow-on syscall/libc tracing preserves explicit fsync error reporting and
+documents fflush's weaker persistence behavior. The October 28 inheritance
+checkpoint adds both process exit orders, shared offsets, CLOEXEC/reuse, partial
+clone and stdio rollback, and reader-only survivors. All directed cases preserve
+the existing error/lifetime contract; no new runtime defect is confirmed. Exit
+flushes redirected standard files, while other inherited descriptions may remain
+buffered until their last writer closes or an explicit flush. The integrated base
+is main `5a94d755` through PR230. Full concurrent fork/exec/kill fault coverage
+remains open; the following
+[TCP lifetime checkpoint](tcp-lifetime-audit-2026-10-28.md) fixes creator-exit loss
+of outstanding transmissions and inherited listener backlog, bounds deferred FIN,
+reports its send failure and waits for local FIN acknowledgment on simultaneous
+close. Eight real-stack host modes cover these paths. The ACK/handle follow-on expands the fixture to fifteen modes, rejects unsent-data
+ACKs and invalid outbound SYN-ACKs, refuses operations on retired application
+handles and wakes blocked I/O on final close. Wrap/reuse controls pass. The receive/terminal follow-on expands the suite to 23 modes, validates RST and
+receive admission, preserves repeated-SYN sequence, and retains referenced
+terminal errors/EOF through timer expiry and TIME-WAIT pressure. The allocation/
+partial-ACK checkpoint expands it to 30 modes: memory refusal retains descriptors
+and unread data, partial ACKs free byte capacity and trim retransmissions, and
+receive overlaps deliver only their new in-order suffix. Main `7b0cc468` through
+PR233 is integrated. The peer-window/persist checkpoint expands to 38 modes,
+rejects stale advertisements before window publication, recovers lost reopening
+updates, and preserves responsive closed-window peers while retaining silent/
+closing timeouts. Main `45b8647a` through PR234 is integrated. Follow-on tracing
+moves through IPv4/TCP packet boundaries: the parser checkpoint expands to 46
+modes, refuses fragments before dispatch, validates TCP option lengths and honors
+negotiated/default MSS with SYN advertisement. Main `6cbfedab` through PR237 is
+integrated. The [UDP/ICMP checkpoint](datagram-audit-2026-10-28.md) adds ten
+kernel and six libc modes: checksum/code admission, immutable bound identity,
+ARP-wait endpoint revalidation, truncation/zero-capacity/address reporting and
+passing queue/ownership controls. Main `2c34a460` through PR238 is integrated.
+The resolver/connected-UDP checkpoint adds 13 kernel and 12 libc modes: per-target
+ARP completion, one native DNS owner/source check, exit cleanup, common peer
+filtering and generation-checked UDP retries/flag restoration. Main `4ae360ef`
+through PR243 is integrated. The [DNS/socket checkpoint](dns-socket-audit-2026-10-28.md)
+adds 46 parser cases, 17 libc modes and native nonblocking dispatch/pipe controls.
+It validates question/compression/answer identity, fixes libc retry/source/error
+handling, isolates MSG_DONTWAIT without shared flag mutation and guards TCP
+connect/accept continuations. Main `46b60b24` through PR246 is integrated. Next:
+resolver retry/deadline policy, duplicated peer/options state and remaining
+native-FD I/O continuations. Broad network conformance remains unqualified.
+Delivery is [draft PR182](https://github.com/PaulMDemers/SrvrOS/pull/182).
+This checkpoint is separate from the completed event-adapter target.
+
 ## Broader work still outside exhaustive coverage
 
 - Filesystem failure/ownership paths and crash consistency. Existing exFAT tests

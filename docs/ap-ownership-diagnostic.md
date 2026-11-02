@@ -244,3 +244,123 @@ defines zero as a header-only Null Extended Capability with an uninterpreted
 version field and permits repeated instances. Correctly following its next
 pointer must retain the original address, visited-header and overlap checks.
 Do not reinterpret a failed complete capture as a pass from its partial readings.
+
+The retry fixes Null traversal (including terminal zero headers and arbitrary
+Null version) while preserving the full-chain, overlap and non-Null version
+checks. Version-2 platform receipts add two PM-timer/ordered-TSC brackets around
+the existing graphics reads, after identity/mapping work. IRQ policy is unchanged;
+interruptions widen the recorded bracket. Cached nominal MHz is context only,
+not a TSC calibration. No additional GPU register is read or written.
+
+`platform_timing_result` extracts those raw intervals even when the overall
+platform result fails. It never returns acceptance: the original nominal
+RC6-versus-snapshot bound and wrap refusal still govern `platform_result`.
+The collector saves that diagnostic before checking acceptance, preserving a
+repeat mismatch rather than clamping a ratio or inventing a clock tolerance.
+Version-1 historical receipts retain their original validation.
+
+Air6,1 retry `8c9a5a28464ffd7c` accepts the Null-chain traversal on the four
+affected root ports. Its workload/capture completes, but the strict platform
+collector still rejects RC6 timing: about 90.151273 s nominal RC6 versus
+90.057877–90.057879 s tightly bracketed PM time. The 1 us read brackets and
+closely agreeing TSC/PM observations do not explain the 0.104% discrepancy.
+Keep this distinct from runtime access/traversal success and from package-C3
+acceptance. Counter clock/scaling/update semantics remain to be audited; no
+acceptance tolerance or power policy has changed. See the unit record for the
+matching session, retained evidence and recovery state.
+
+## RC6 scaling and update audit
+
+[Intel Haswell PRM volume 12, register page 100](https://kiwitree.net/~lina/intel-gfx-docs/prm/hsw/intel-gfx-prm-osrc-hsw-pcie-config-registers.pdf)
+specifies a 32-bit read-only RC6 accumulator at `0x138108`, cumulative since
+boot, wrapping, in 1.28 us units. It does not supply a counter-clock tolerance
+or publication cadence. The adjacent mailbox includes a counter-clear command;
+this diagnostic never accesses that mailbox. Linux v6.12's reader uses the same
+unit and 32-bit wrap handling for Haswell, not the Valleyview/Cherryview CZ-clock
+or Gen9-LP conversion. There is no evidence here for changing Haswell's scale.
+
+[IGT's pinned RC6 test source](https://chromium.googlesource.com/external/gitlab.freedesktop.org/drm/igt-gpu-tools/+/a8e2cbd2854d7980a9eccecc6e0c801d0824b88f/tests/intel/i915_pm_rc6_residency.c)
+compares sysfs residency over a three-second sleep and permits a broader range;
+that software test allowance is not a hardware accuracy guarantee and is not
+adopted here. Its wait for RC6 entry is also not proof of the accumulator's
+update cadence. Unsupported clock tolerances and update periods remain unknown.
+
+The local PM reference accumulates modulo-24-bit ticks before converting the
+total at 3,579,545 Hz; it does not round and add each polling interval. Its
+existing 90-second wrap/fraction regression passes. Microsecond truncation of
+that cumulative conversion cannot account for the observed roughly 93 ms
+excess. PM/TSC agreement remains a cross-clock observation, not an independent
+calibration of either oscillator or a guarantee of the RC6 counter clock.
+
+Version-3 receipts add paired counter/status reads at every other existing
+retained power checkpoint (at least ten seconds apart, at most 12 pairs from
+the unchanged 24-checkpoint capture). Only the isolated
+AP diagnostic links the sampling hook; ordinary power sampling is unchanged.
+The hook runs within the existing bounded sampling critical section, performs
+no allocation, waiting or logging, and uses the same read-only mapped page.
+It adds no worker, timer, control access or additional wakeups. Sampling becomes
+inert after capture, and storage remains static until reset. Endpoint brackets
+and all original bounds remain intact.
+
+The series parser matches each point to its retained power timestamp, verifies
+ordering/counts and counter continuity including one wrap, and reports per-gap
+nominal excess plus immediate-pair deltas. Raw observations survive a failed
+whole-interval check. Sparse samples can distinguish distribution of the excess
+but cannot establish a precise update cadence or identify a hardware clock.
+The original RC6-versus-time predicate is unchanged; interval observations are
+not a new acceptance tolerance. Maximum-width receipt replay must retain all
+original completion proofs inside the unchanged log tail.
+
+
+The Air6,1 PR249 native repeat (`0804f2944e9364d3`) retained nine valid series
+points and completed the workload, but still failed the original RC6 bound.
+Eight of ten intervals including endpoints exceeded their PM brackets; six of
+eight internal intervals did so. Immediate paired reads were equal and counter
+continuity held. This distributes the excess across the run without resolving
+clock accuracy or exact publication semantics. Nominal RC6 time was
+90.143014400 s versus 90.059109–90.059113 s by PM. Keep the mismatch unresolved;
+no new tolerance or policy is accepted. See the unit record's October 31 review.
+
+## Read-only Linux RC6 comparison
+
+`tools/linux_rc6_baseline.py` observes the existing i915
+`gt/gt0/rc6_residency_ms` interface on a selected DRM card. Its default three
+90-second passive windows retain ten-second checkpoints with both
+`CLOCK_MONOTONIC_RAW` and adjusted monotonic brackets around each sysfs read.
+Output includes model/kernel/PCI/clocksource, RC6 enable/runtime state, flushed
+raw rows and an observation-only summary. Existing output directories refuse
+replacement. Counter regression, clock overlap, invalid brackets and incomplete
+windows fail parsing; partial raw evidence remains available.
+
+For example, after identifying the correct i915 card on the local machine:
+
+```sh
+python3 tools/linux_rc6_baseline.py --card /sys/class/drm/card1 \
+  --output build/power/linux-rc6-new-run
+make test-linux-rc6-baseline
+```
+
+The upstream Linux v7.0
+[sysfs reader](https://github.com/torvalds/linux/blob/v7.0/drivers/gpu/drm/i915/gt/intel_gt_sysfs_pm.c)
+acquires runtime PM and rounds cumulative residency to milliseconds. Its
+[RC6 implementation](https://github.com/torvalds/linux/blob/v7.0/drivers/gpu/drm/i915/gt/intel_rc6.c)
+still uses 32-bit counter extension and 1280 ns units for Haswell. These upstream
+references do not independently verify every Ubuntu distribution patch.
+The helper issues no graphics/power-control writes, direct MMIO access or GPU
+workload, but Linux continues managing its own device/runtime power state and
+the normal desktop workload. A two-millisecond quantization annotation covers
+both rounded endpoints conservatively; it is never a SrvrOS tolerance or pass
+criterion. Linux raw monotonic time on a TSC clocksource is not an independent
+PM timer measurement. Residency below elapsed time cannot exclude a small
+counter-scale discrepancy when GPU activity or other counter semantics could
+hide it. Compare named captures without promoting this host observation to
+native SrvrOS acceptance.
+
+
+Air6,1's November 1 Linux comparison retained 28 samples across three 90-second
+passive windows: RC6 residency was 43.73/34.97/40.67%, with no elapsed-time
+excess. That lower residency cannot resolve the earlier SrvrOS near-100%
+counter mismatch. Separate Ubuntu package counters observed C3 at 13.23–14.41%,
+confirming this unit can enter package C3 under Linux's policies/device state.
+Neither observation changes the SrvrOS acceptance predicate or identifies a
+causal blocker; the unit record preserves the full comparison limits.
