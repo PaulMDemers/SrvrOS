@@ -112,12 +112,17 @@ stress. No legacy model or joined files participates in native acceptance.
 The overall platform test still fails the original RC6 bound (about 0.0966%
 nominal excess), and package C3 remains zero. No power transition is authorized.
 
-Next: implement the bounded read-only display-audio/interrupt inventory after
-validating its exact access allowlist, using the completed source audit and the
-new current-source retention baseline. Preserve every policy, limit and ownership
-check. PR272 lifecycle, PR252 lifetimes and PR19 Wi-Fi remain independent.
-Installed native release is `0bc5f7e0298ca886`; no reboot is armed. The local run
-record owns installed/recovery hashes and returned state.
+The read-only audio/IRQ endpoint implementation is now validated locally on
+source `eceb07fc`, release `1848dd7c663eb738` (PR275). It adds eight exact controls
+with separate live PCH identity/class/location checks and unchanged GPU/well gates.
+Full core/build, focused mapping/failure/formatter/parser/retention tests and
+twelve VM cases pass. No HDA initializer, acknowledgement or control write is added.
+
+Next: collect the matching automated native retry first. Require both actual
+version-6 dependency endpoints and all prior compact proof records directly;
+synthetic model rows cannot grant native acceptance. Preserve RC6 and package-C3
+failures independently. PR272 lifecycle, PR252 lifetimes and PR19 Wi-Fi remain
+separate. The local record owns installed/recovery and ready/armed/returned state.
 
 ### Historical battery-runtime objective (2026-10-23)
 
@@ -6055,3 +6060,48 @@ access, acknowledgement, power request or IRQ-mask write. Scope: isolated
 platform producer, independent strict parser, mapping/failure/retention fixtures
 and current docs. PR272 lifecycle, PR252 lifetimes and PR19 Wi-Fi remain separate.
 Keep all policies, limits, samples and compact proof requirements unchanged.
+
+
+### Read-only audio/IRQ candidate validated (2026-11-02)
+
+Compiled source `eceb07fc`, release `1848dd7c663eb738`, adds two eight-control
+endpoint observations to the existing exact profile: graphics pin/ELD and A/B/C
+audio config, CPU DE mask/enable and PCH SDE mask/enable. Three fixed private
+read-only/NX/cache-disabled pages are used. Captured LPC `8086:9c43`, 00:1f.0,
+class `060100` is checked before/after alongside GPU BAR/decode/D0 and unchanged
+well values. IRQ all-ones masks remain valid raw values; unavailable or changed
+access never decodes as disabled hardware. No HDA/codec transaction, IIR read,
+status acknowledgement, mask write, ownership transfer or power request occurs.
+
+Matched ordinary/AP build, USB image, full core and docs pass. Focused producer
+fixtures exercise occupied pages, each partial map failure, wrong PCH identity/
+class/location, off-domain skips, GPU decode refusal, all-ones audio failure,
+PCH/well change and valid all-masked IRQs. Actual formatter fields are compared
+against complete distinct retained endpoint data. Sixteen platform-module parser
+tests and four receipt-tail tests pass, preserving old versions and rejecting
+malformed, missing, duplicate, wrong-version and invalid new endpoints.
+
+The explicit synthetic retention model preserves the previous native compact
+proofs, adds the new endpoint records and replaces final checkpoint report
+shapes with source-derived maximum-width/capacity reports (9,056 bytes replacing
+3,443 native checkpoint bytes). All critical records survive byte-for-byte in
+64 KiB with 128 KiB pre-final chatter and 26,936 bytes of additional receipt
+width/capacity padding. No raw native file is changed. This is regression
+coverage only, not a source-matched native trace or acceptance of new registers.
+Original RC6 acceptance remains unchanged and failed on the input trace.
+
+All nine main VM cases and three legacy owner/C3/package profiles pass, with
+failure/final-admission review across twelve. Ordinary/AP symbol/disassembly,
+no direct control-write operations and sparse-hook isolation pass. Exact-stage
+GPT native refusal saves/unmounts/returns, while missing Home halts without reset.
+Host/VM success does not establish native dependency observations.
+
+The automated trial keeps the existing 30/30/30-second phases, 32 rounds, 20 ms
+bounds, HLT fallback, 26-control resource inventory and format-2 telemetry. The
+collector additionally requires both actual valid dependency records; independent
+JSON observations are saved before the separate strict RC6 assertion. Keep AC
+and this unit's USB connected; no input is required. The baseline is 574 files /
+1,635 clusters, with prior hashes, allocation/fsck and headroom verified. Previous
+payload/evidence and protected console/accepted recoveries remain durable; exact
+ready/armed/returned state belongs to the local run record. Native acceptance
+and every ownership/control-policy inference remain pending the actual return.
