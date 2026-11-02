@@ -460,7 +460,8 @@ maps the `BAR0+0x45000` page beside the existing `BAR0+0x138000` page. Both maps
 are read-only, uncacheable and non-executable. Occupied addresses or either map
 failure refuse use; partial mappings remain retained until reset. No additional
 registers in that page are read. The original RC6 brackets remain unchanged;
-the display reads have their own PM brackets after them. No read is added to
+the display reads have their own PM brackets after them. D0 is explicitly
+revalidated at both endpoints before MMIO. No read is added to
 the sparse power hook or a measured C3 round, and no worker, timer, wait,
 request write, D-state transition or status acknowledgement is added.
 

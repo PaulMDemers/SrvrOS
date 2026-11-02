@@ -45,6 +45,10 @@ static bool extended_read(void *ctx,unsigned off,uint32_t *out) {
     return pci_read_extended_config32(ctx,(uint16_t)off,out);
 }
 static uint32_t conventional_read(void *ctx,unsigned off) {return pci_read_config32(ctx,(uint8_t)off);}
+static bool graphics_d0(void) {
+    struct package_pci_snapshot power;package_pci_read(&power,conventional_read,(void *)gpu);
+    return power.state==1 && (power.flags&1) && !(power.pm&3);
+}
 static bool graphics_map_pages(void) {
     uint64_t existing;
     if(vmm_virt_to_phys(GFX_VA,&existing) || vmm_virt_to_phys(WELL_VA,&existing))return false;
@@ -66,8 +70,7 @@ static bool graphics_bind(void) {
         if(t && t->signature[0]=='D' && t->signature[1]=='S' && t->signature[2]=='D' && t->signature[3]=='T') {dsdt=pmm_phys_to_virt(t->physical_address);size=t->length;break;}
     }
     if(!gpu || !laptop_air61_display_match(gpu->device_id,pch,dsdt,size))return false;
-    struct package_pci_snapshot power;package_pci_read(&power,conventional_read,(void *)gpu);
-    if(power.state!=1 || !(power.flags&1) || (power.pm&3))return false;
+    if(!graphics_d0())return false;
     if(!package_graphics_bar(pci_read_config32(gpu,0x10),pci_read_config32(gpu,0x14),pci_read_config16(gpu,4),&gpu_base))return false;
     /* Uncore status/counter plus the four always-accessible Haswell display
      * well request/status registers. RC_CONTROL/forcewake/mailbox stay out. */
@@ -108,6 +111,7 @@ void platform_audit_snapshot(unsigned phase) {
     if(!mapped || pci_device_count()!=count){fault=1;return;}
     uint64_t base;
     if(pci_read_config32(gpu,0)!=0x0a268086 || !package_graphics_bar(pci_read_config32(gpu,0x10),pci_read_config32(gpu,0x14),pci_read_config16(gpu,4),&base) || base!=gpu_base){fault=1;return;}
+    if(!graphics_d0()){fault=1;return;}
     if(!timer_reference_ready()){fault=1;return;}
     struct power_snapshot power;power_status(&power);
     nominal_mhz[phase]=power.nominal_mhz;
