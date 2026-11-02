@@ -2,7 +2,36 @@
 
 Updated: 2026-11-01. State: **active reference machine; partial device acceptance**.
 
-### Automatic verified-append hardware trial prepared
+### Verified append endurance: full native pass
+
+Release `62ed0e37a038f48e` / clean source `facd605d`, session
+`session-00065f40aa6ae05f-00`, passes the full1800-second automatic trial at1%
+volume:1021 completed app lifetimes, three decoded1440×900 screenshots,
+345600000PCM bytes and zero underruns. Matching text/binary disk receipts show
+3113 bursts/816054272 verified bytes, spanning1797763821us within live PCM.
+UI maximum112343us, ready5273392us and Close4600631us satisfy unchanged500ms
+UI/10s whole-lifetime limits. Final atomic lifecycle/operation/cleanup receipts
+validate, cache retires0bytes/0retained/887reuses, battery retires, and automatic
+Ubuntu return succeeds.
+
+All1289 prior files are preserved except expected metadata updates; nine new
+files are copied and hash-verified. Offline fsck is clean (285directories,
+1298files), allocation/writable/headroom pass, USB is remounted. Current62ed,
+recovery9aa, prior accepted7d, Ubuntu default and consumed one-shot verify.
+The verified candidate is independently preserved as a known-good payload;
+installed recovery is unchanged. Evidence and hashes are backed up outside
+`build`, under `reviewed-evidence/air-append-writeback-20261101`.
+
+This accepts the named automated workload. Remaining whole-file writes reach
+5.587311s and retained gate waits5.590024s; it does not establish stall-free
+storage. Retained native cost tails contain no append rows, so they cannot
+attribute each improvement to append; host/VM append proofs remain separate.
+No new interactive input, audible route, gauge accuracy, SMP or sibling-model
+acceptance is inferred. Prior failed rounds remain failed. No new run is armed.
+Main advanced to `bbbdead1` through Air6,1 read-only diagnostics; next is PR261
+integration review and relevant local checks before merge.
+
+### Automatic verified-append hardware trial prepared (historical)
 
 The user authorized the1800-second automatic test at1% volume. Release
 `62ed0e37a038f48e` is installed, with recovery `9aa8dbf6fbda8252` retained and
@@ -11,7 +40,7 @@ offline fsck/allocation/writable/headroom and clean flags pass. An unused failed
 EFI copy was archived and every file verified before removal. Ubuntu remains
 default, USB is unmounted and the durable run record is
 `build/air-append-writeback-20261101/native-trial/run.json`. No input is needed.
-Collect the matching new session first on return; acceptance remains pending.
+The completed collection above supersedes this prepared snapshot.
 
 ### Verified append candidate ready for hardware
 
