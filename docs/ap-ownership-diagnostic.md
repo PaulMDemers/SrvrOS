@@ -320,3 +320,38 @@ continuity held. This distributes the excess across the run without resolving
 clock accuracy or exact publication semantics. Nominal RC6 time was
 90.143014400 s versus 90.059109–90.059113 s by PM. Keep the mismatch unresolved;
 no new tolerance or policy is accepted. See the unit record's October 31 review.
+
+## Read-only Linux RC6 comparison
+
+`tools/linux_rc6_baseline.py` observes the existing i915
+`gt/gt0/rc6_residency_ms` interface on a selected DRM card. Its default three
+90-second passive windows retain ten-second checkpoints with both
+`CLOCK_MONOTONIC_RAW` and adjusted monotonic brackets around each sysfs read.
+Output includes model/kernel/PCI/clocksource, RC6 enable/runtime state, flushed
+raw rows and an observation-only summary. Existing output directories refuse
+replacement. Counter regression, clock overlap, invalid brackets and incomplete
+windows fail parsing; partial raw evidence remains available.
+
+For example, after identifying the correct i915 card on the local machine:
+
+```sh
+python3 tools/linux_rc6_baseline.py --card /sys/class/drm/card1 \
+  --output build/power/linux-rc6-new-run
+make test-linux-rc6-baseline
+```
+
+The upstream Linux v7.0
+[sysfs reader](https://github.com/torvalds/linux/blob/v7.0/drivers/gpu/drm/i915/gt/intel_gt_sysfs_pm.c)
+acquires runtime PM and rounds cumulative residency to milliseconds. Its
+[RC6 implementation](https://github.com/torvalds/linux/blob/v7.0/drivers/gpu/drm/i915/gt/intel_rc6.c)
+still uses 32-bit counter extension and 1280 ns units for Haswell. These upstream
+references do not independently verify every Ubuntu distribution patch.
+The helper issues no graphics/power-control writes, direct MMIO access or GPU
+workload, but Linux continues managing its own device/runtime power state and
+the normal desktop workload. A two-millisecond quantization annotation covers
+both rounded endpoints conservatively; it is never a SrvrOS tolerance or pass
+criterion. Linux raw monotonic time on a TSC clocksource is not an independent
+PM timer measurement. Residency below elapsed time cannot exclude a small
+counter-scale discrepancy when GPU activity or other counter semantics could
+hide it. Compare named captures without promoting this host observation to
+native SrvrOS acceptance.

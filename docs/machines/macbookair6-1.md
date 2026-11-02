@@ -5430,8 +5430,8 @@ Updated the device checkout and local main to fetched `9340c9fb` (PR260),
 consuming 66 commits since the October 31 closeout. PR261 owns ongoing desktop
 lifecycle latency, PR252 resolver/socket and PR19 Wi-Fi; this scope touches none
 of their runtime files. Capture three passive 90-second Ubuntu i915 RC6 windows,
-with sparse paired sysfs reads bracketed by raw/adjusted monotonic clocks.
-Scope: a read-only host capture tool, its evidence/parser checks, this record
+with sparse sysfs reads bracketed by raw/adjusted monotonic clocks.
+Scope: a read-only host capture tool, its evidence/parser checks and Makefile target, this record
 and the diagnostic guide. No SrvrOS power policy, counter conversion, timing
 predicate, boot payload or reboot state changes. The millisecond sysfs interface
 and Linux-managed graphics workload differ from raw SrvrOS MMIO/PM brackets;
