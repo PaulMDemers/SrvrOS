@@ -21,8 +21,8 @@ installed. All receipts and its withdrawn payload remain durable.
 
 Development consumes main `1a0c9085`. New source refuses installation/runtime
 execution of the captured2.4GHz RF recipe and prepares an offline channel161/
-20MHz frequency plan. No native5GHz initialization or new reboot is authorized
-by that plan alone. Next: independently implement5GHz band/baseband/calibration/
+20MHz frequency plan. The5GHz initialization is unimplemented; this offline plan has no native caller
+and no reboot is planned or armed. Next: independently implement5GHz band/baseband/calibration/
 restore prerequisites and a source-bound automatic capture, then discovery and
 live reattachment. Association/security/IP remain pending; local credentials
 have not been read or packaged. Other Pro bring-up and deferred work is unchanged.
@@ -11060,3 +11060,39 @@ RF code until separate5GHz band/BBP/calibration/restore prerequisites and policy
 are implemented and validated. Preserve the anonymous-channel diagnostic helper
 for future valid-band work. Do not rename old2.4GHz acceptance or imply that
 selecting a5GHz frequency alone implements5GHz support, association or security.
+
+### 5GHz capability guard and offline channel161 foundation validated
+
+Source `e51e3811` records only5GHz capability for captured7392:a711/0100;
+unknown identities/revisions remain unknown. The installer refuses valid legacy
+2.4GHz payloads before host UUID/boot configuration interaction, while keeping
+historical payload verification/rendering available. The automatic kernel path
+also refuses the captured2.4GHz RF recipe before firmware control is attempted.
+This is a source/tool correction, not a replacement installed payload.
+
+Full matched image/USB-image/core/desktop passes290.38s at runtime source
+`889d736b`; the later staging-message change does not alter runtime inputs.
+All198 staging/installer tests pass, including unchanged installed-state bytes
+and an unreachable host-interaction sentinel for rejected profiles. Band-capability
+and offline frequency-plan ASan/UBSan suites pass. The channel161/5805MHz pure
+21-operation projection matches the independent63-byte pinned Linux v7.0 fixture;
+all other requested channels are refused with zeroed output. Its function is
+uncalled by native code and absent from the linked kernel. Existing US1–11
+planner behavior stays separate and is not permission to use this adapter there.
+
+Exact offline refusal artifact `b89952893e2b9f24`/source `e51e3811` has identical
+kernel and independently packaged firmware initramfs bytes. Its VM records the
+model band refusal, no firmware-control operation or desktop entry, failed radio
+capture, saved/read-back logs and clean automatic return; missing-workspace
+refusal also returns. Neither that artifact nor withdrawn v107 `5806a8aa054d6117`
+is installed or a successful radio trial. Both real staged artifacts are refused
+by the installer with EFI/GRUB state bytes unchanged.
+
+Keep the installed v106/previous known-good desktop and their native receipts
+unchanged. The withdrawn diagnostic and new offline foundation are preserved
+outside build with model/vendor references, capability correction, Linux scan
+observations, source/fixture hashes and validation receipts. No USB workspace
+write, ESP payload retirement, new physical acceptance or reboot is part of this
+correction. Next: a separate5GHz band/BBP/calibration/restore contract and
+band-aware receive parser for161 before native reception, then real discovery,
+reattach, association/security and IP. Do not run another2.4GHz hardware trial.

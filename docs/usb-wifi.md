@@ -2,7 +2,7 @@
 
 Captured scope: `7392:a711` revision `0100`, Edimax EW-7711MAC, attached to
 MacBookPro11,2. Linux binds `mt76x0u`. **Band correction, 2026-11-01: this assembled
-adapter is5GHz-only**, according to the [Edimax specification](https://edimax.com/edimax/merchandise/merchandise_detail/data/edimax/in/wireless_adapters_ac450/ew-7711mac/)
+adapter is 5GHz-only**, according to the [Edimax specification](https://edimax.com/edimax/merchandise/merchandise_detail/data/edimax/in/wireless_adapters_ac450/ew-7711mac/)
 and [manufacturer FAQ](https://www.edimax.us/html/Faq/FAQ-EW7711MAC.pdf).
 The generic Linux PHY channel list and EEPROM hint do not override that model
 restriction. Earlier US1/6/11 traces establish packet-decoder/USB lifecycle
@@ -6074,3 +6074,25 @@ increasing timestamps, with the terminal receipt at EOF. Malformed receipts are
 refused. Immutable radio and begin/exit snapshots retain unique-marker rules.
 The original collection refusal and corrected source-bound verification are both
 preserved; this is a host parser correction, not a different native runtime.
+
+## EW-7711MAC band correction and5GHz-only foundation
+
+The captured7392:a711/0100 assembly is5GHz-only per Edimax. Generic chipset
+capabilities, Linux's registered channel list and EEPROM board hints must not
+re-enable its2.4GHz recipe. `mt76_probe_bands` returns only the5GHz capability
+for this exact identity and no capability for unknown identities/revisions.
+This metadata is not permission to transmit or proof of5GHz initialization.
+The installer rejects captured2.4GHz recipes before boot-configuration changes;
+the new automatic kernel path refuses them before firmware control. Older
+experimental records remain packet/transport history with no accepted2.4GHz RF.
+
+The pure `mt76_channel_5ghz_plan` currently projects only161/20MHz (5805MHz)
+from pinned Linux v7.0's non-SDM high-band row. A63-byte independent fixture and
+masked-field/refusal tests cover it. It has no native caller. Separate5GHz RF
+band/BW/BBP tables, high-band calibration, VCO/restore ownership, band-aware
+beacon parsing and current policy are prerequisites before any new native trial.
+The old channel1 snapshot cannot be reused as a5GHz restoration contract.
+The prepared2.4GHz diagnostic was withdrawn before install; its framework remains
+offline evidence. See the [unit handoff](machines/macbookpro11-2.md) for source,
+validation, retained recoveries and remaining limits. No working Wi-Fi connection
+or live reattachment is claimed by this correction.
