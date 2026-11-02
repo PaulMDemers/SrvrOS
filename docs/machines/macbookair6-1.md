@@ -1,6 +1,6 @@
 # MacBookAir6,1 — local bring-up
 
-Updated: 2026-10-31. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted. Short battery sampling and the bounded Home desktop session with five Text saves and three battery lifetimes, plus a three-minute continuous Home desktop capture and attended desktop AC unplug/reconnect with indicator updates, are physically accepted.**
+Updated: 2026-11-01. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted. Short battery sampling and the bounded Home desktop session with five Text saves and three battery lifetimes, plus a three-minute continuous Home desktop capture and attended desktop AC unplug/reconnect with indicator updates, are physically accepted.**
 
 ## Initial inventory (2026-10-22)
 
@@ -91,21 +91,20 @@ console/basic-keyboard/bounded-USB payload; preserve it as recovery.
 
 ## Current objective and next actions
 
-Repository catch-up and evidence closeout, based on fetched main `695db843`.
-All 65 local Air6,1 branch tips, including PR249's RC6 diagnostic, are already
-ancestors of main. This device checkout has consumed the 94 intervening main
-commits. Scope is this unit record, the machine index and current AP diagnostic
-guide; PR258 desktop retirement, PR252 resolver/socket and PR19 Wi-Fi remain
-independent active work. No runtime implementation or new physical trial belongs
-to this closeout.
+Fetched main `9340c9fb` and completed the read-only Ubuntu RC6 baseline on this
+unit. Scope: host-only capture/parser/tests and evidence documentation. No
+SrvrOS runtime or policy change. The final November 1 section records all three
+windows and their limits. The lower Linux RC6 fraction leaves the original
+SrvrOS mismatch unresolved. Separate Linux counters positively observe package
+C3, which remains zero in the bounded SrvrOS trial.
 
-Latest native release `0804f2944e9364d3` completed its workload and returned;
-the independent collector still fails the original RC6 timing predicate.
-The final section below records the result. Installed source remains `05668557`,
-separate from the newly synchronized checkout. Next device work is explaining
-the repeat RC6 excess across multiple intervals while retaining existing policy,
-integrity checks and limits. Newer shared runtime changes require matched build
-and device validation before claiming native acceptance. No reboot is armed.
+Next bounded power work is comparing package-C3 prerequisites and display/device
+state across the two OSes while retaining the original RC6 predicate. PR261
+owns desktop lifecycle latency, PR252 resolver/socket and PR19 Wi-Fi; this work
+does not edit those runtime subsystems. Installed release `0804f2944e9364d3`
+(source `05668557`) remains distinct from the current checkout. Rebuild and
+validate matched newer artifacts before claiming native acceptance of fetched
+main. No boot payload changed and no reboot is armed.
 
 ### Historical battery-runtime objective (2026-10-23)
 
@@ -5422,3 +5421,56 @@ Documentation and RC6 collector regressions are the applicable local checks;
 no rebuilt image, new hardware test or native acceptance of the 94 newer main
 commits is claimed. The October 31 workspace cleanup reclaimed empty allocation
 from VM images with identical hashes; all native evidence and recovery remain.
+
+
+### Ubuntu RC6 comparison — active scope (2026-11-01)
+
+Updated the device checkout and local main to fetched `9340c9fb` (PR260),
+consuming 66 commits since the October 31 closeout. PR261 owns ongoing desktop
+lifecycle latency, PR252 resolver/socket and PR19 Wi-Fi; this scope touches none
+of their runtime files. Capture three passive 90-second Ubuntu i915 RC6 windows,
+with sparse sysfs reads bracketed by raw/adjusted monotonic clocks.
+Scope: a read-only host capture tool, its evidence/parser checks and Makefile target, this record
+and the diagnostic guide. No SrvrOS power policy, counter conversion, timing
+predicate, boot payload or reboot state changes. The millisecond sysfs interface
+and Linux-managed graphics workload differ from raw SrvrOS MMIO/PM brackets;
+record those limits before drawing cross-OS conclusions. Publish the baseline
+and a bounded next diagnostic after review, without accepting newer source on
+this hardware merely because it was fetched. No new physical boot is armed.
+
+
+### Ubuntu RC6 baseline captured (2026-11-01)
+
+Host-only helper source `9aecef5e`, Ubuntu kernel `7.0.0-38-generic`, i915
+`8086:0a26`, TSC clocksource. Three passive 90-second windows retained all
+28 bracketed samples, with RC6 enable state 1 before/after and runtime state
+active. Raw-clock spans were approximately 89.9964/89.9961/89.9961 seconds;
+RC6 advances were 39.356/31.473/36.602 seconds (43.73/34.97/40.67%). All
+27 ten-second intervals stayed below elapsed time, including the rounded
+endpoint annotation. Total RC6 time was 107.431 seconds over about 269.9886
+raw seconds. Maximum sysfs read bracket was 606,052 ns. Adjusted versus raw
+monotonic elapsed time differed by about 42.27 ppm; these are Linux clock
+observations, not an independent calibration of SrvrOS's PM timer.
+
+This capture does not reproduce SrvrOS's small overcount, but its much lower
+RC6 fraction can hide such a discrepancy. It cannot accept the native timing
+predicate or distinguish hardware scaling from publication/OS behavior. Linux
+continues managing graphics/runtime power; the helper itself writes no policy
+or MMIO controls. All original SrvrOS limits and failed evidence remain intact.
+
+A separate read-only turbostat context capture, three ten-second intervals,
+reported package C3 at 14.04/13.23/14.41%, core C7 at roughly 49–51%, and
+package C6/C7 at zero. CPU busy was 25.18/27.15/27.50%; this was the normal
+Ubuntu desktop, not controlled idle. Graphics RC6 was 42.71/43.79/44.57%.
+These are separate observations, not simultaneous evidence for the earlier
+windows. Positive package C3 establishes that this physical Mac can reach C3
+under Linux's own policies/device state; it does not identify the missing
+SrvrOS prerequisite or authorize copying Linux control writes.
+
+`make test-linux-rc6-baseline`, ten existing RC6 parser regressions, docs and
+whitespace checks pass. Raw observations, upstream source references, tool hash
+and review are backed up with hashes outside `build`. No boot payload changed
+and no reboot is armed. Next power work should compare package-C3 prerequisites
+and display/device state with this Linux reference while preserving the
+unresolved RC6 mismatch. A matched current-main build and native desktop
+regression remain separate work, without inherited physical acceptance.
