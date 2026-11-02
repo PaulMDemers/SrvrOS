@@ -19,6 +19,25 @@ restoration and receiver startup still need implementation. Ordinary startup
 leaves diagnostic radio operations disabled. Dated milestones below are history
 and must not be used to reinstate the withdrawn band assumption.
 
+## 5GHz RF band-selection foundation
+
+The fixed `mt76_rf_band5g_*` engine replays 38 bank6 settings, then selects
+RF5:0=0x44 and RF6:0=0x45. Values and order follow Linux v7.0
+[`mt76x0_phy_set_band`](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/mediatek/mt76/mt76x0/phy.c)
+and its [`mt76x0_rf_5g_channel_0_tab`](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/mediatek/mt76/mt76x0/initvals_phy.h).
+The committed 120-byte numeric fixture records source hashes. The engine uses
+fixed MCU commands with guards around each exchange, a separate readback pass,
+exact proof validation, bounded cancellation and no replay. It exposes no
+caller-selected register/value or automatic 2GHz fallback.
+
+This is an offline foundation with no native caller. It does not apply the two
+MAC band words, tune channel161, perform calibration, start RX/TX or restore a
+previous hardware state. A complete readback proof establishes only this RF
+command sequence, not a usable radio. Native wiring must add a model-bound
+one-shot owner, prerequisite inventory, source-bound capture and cleanup;
+ordinary startup remains unchanged. Run `make test-mt76-rf-band5g` for fixture,
+transport mutation, cancellation and proof checks.
+
 ## Captured baseline
 
 USB high speed (480 Mb/s), one configuration, interface 0 / alternate 0,

@@ -19,9 +19,9 @@ Ubuntu remains default, no one-shot is armed, and known-good desktop
 `e47dca3a6b30c6c1` remains previous. Prepared v107 `5806a8aa054d6117` was never
 installed. All receipts and its withdrawn payload remain durable.
 
-Development consumes main `1a0c9085`. New source refuses installation/runtime
+Development consumes main `95ddb8d6`. New source refuses installation/runtime
 execution of the captured2.4GHz RF recipe and prepares an offline channel161/
-20MHz frequency plan. The5GHz initialization is unimplemented; this offline plan has no native caller
+20MHz frequency plan. A fixed5GHz RF band-selection engine is implemented offline; neither it nor the frequency plan has a native caller
 and no reboot is planned or armed. Next: independently implement5GHz band/baseband/calibration/
 restore prerequisites and a source-bound automatic capture, then discovery and
 live reattachment. Association/security/IP remain pending; local credentials
@@ -39,9 +39,15 @@ engine in `mt76_mcu.c`/`.h`, with independent numeric fixture and host tests.
 It replays the pinned Linux v7.0 bank6 table, then RF5:0=44/RF6:0=45;
 no configurable register targets, 2GHz fallback, frequency/VCO pulse, receive,
 network transmission or runtime caller is added. It depends on the existing
-bounded MCU/guard machinery and captured-model band restriction. The next
-checkpoint is exact command/readback, cancellation, malformed response and
-no-replay validation plus a matched merged-tree build. MAC band words,
+bounded MCU/guard machinery and captured-model band restriction. Source `be1987e3` implements the40-setting engine. Exact command/readback,
+cancellation at all561 authorization points, all560 I/O/guard boundaries,
+malformed response/length, proof mutation and no-replay host checks pass,
+including ASan/UBSan. The merged `all usb-image test-core` build passes.
+The native caller remains absent; this is not physical radio acceptance.
+Display-server and Wi-Fi Help/System/clean-exit VM checks pass, including
+post-exit libcprobe with emulated Ethernet. The no-NIC run completed desktop
+checks but its later UDP readiness probe refused an uninitialized network;
+that full run remains incomplete and its original failure is retained. MAC band words,
 5GHz bandwidth/channel/baseband/calibration and native integration remain
 separate work. Installed payload and recovery remain unchanged and unarmed.
 

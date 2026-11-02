@@ -518,7 +518,7 @@ uint32_t mt76_rf_band5g_guard_address(unsigned operation);
 size_t mt76_rf_band5g_packet(unsigned operation,uint8_t *out,size_t capacity);
 bool mt76_rf_band5g_admit(const struct mt76_rf_table *s,unsigned operation);
 enum mt76_mcu_timing_status mt76_rf_band5g_capture(struct mt76_rf_table *s,const struct mt76_mcu_timing_io *io);
-/* Exact completed band5g proof and all38 matching readbacks. */
+/* Exact completed 5GHz RF selection proof and all40 matching readbacks. */
 bool mt76_rf_band5g_exact_profile_valid(const struct mt76_rf_table *s);
 uint32_t mt76_rf_vga_address(unsigned index);
 unsigned mt76_rf_vga_value(unsigned index);
