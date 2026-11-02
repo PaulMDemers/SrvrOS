@@ -91,19 +91,17 @@ console/basic-keyboard/bounded-USB payload; preserve it as recovery.
 
 ## Current objective and next actions
 
-Review closeout based on `bbbdead1`. Native release `c6fd6d4c55a57566` records
-BIOS requesting the display well on at both endpoints. Its overall trial still
-fails RC6 timing and now also lacks required early proofs in the 64 KiB exit
-tail. Matching periodic logs support diagnostic review of completed runtime;
-they do not replace the failed exit-only requirement. The final section records
-exact hashes, reconstruction limits and the stale replay's missed I/O output.
+Prepare the validated final-receipt retry, based on `1a0c9085`. Source `eda7541e`,
+release `98bced62ca7be424`, passes matched build/core and twelve VM cases.
+The CPU and isolated AP producers defer acceptance records; shared logger,
+scheduler, live progress, strict parsers and all limits remain unchanged.
+PR261 desktop/I/O, PR252 sockets and PR19 Wi-Fi remain independent.
 
-Next fix current-source receipt coverage without changing limits or weakening
-checks. Then audit display resource/firmware ownership before any BIOS-request
-transition. PR261 desktop/I/O, PR252 sockets and PR19 Wi-Fi remain independent.
-The original RC6 bound and package-C3 blocker stay unresolved. Current/recovery
-payloads and USB integrity verify; automatic collection is disabled and no reboot
-is armed. This closeout changes documentation/evidence only.
+After automatic return, collect the matching session and require the direct
+exit-file phase/admission/power/idle/C3/package/display proofs. Source-matched
+replay is regression evidence only. The local run record owns installed/armed/
+returned state and recovery hashes. Keep RC6 timing failure and BIOS display-well
+ownership analysis separate; neither is fixed or relaxed by receipt placement.
 
 ### Historical battery-runtime objective (2026-10-23)
 
@@ -5661,3 +5659,38 @@ owns shared logger/scheduler/desktop changes; this fix does not edit those
 subsystems. PR252 sockets and PR19 Wi-Fi remain independent. Publish/test the
 bounded fix, validate a matched image/VM and prepare the automated repeat with
 normal recovery and collection. The earlier RC6 failure remains independent.
+
+
+### Final receipt candidate validated (2026-11-01)
+
+Compiled source `eda7541e`, release `98bced62ca7be424`, retains the original
+three completed CPU phase records and validated AP admission fields for their
+final reports. Live progress, partial failure progress, all sensor/clock checks,
+worker/I/O diagnostics and strict receipt grammars remain. Successful CPU phase
+receipts appear only after all three phases succeed; AP admission is frozen
+before startup and reported before actual retirement results. No scheduler/
+logger edit, hardware access, policy, ownership or limit change belongs here.
+
+Matched ordinary/AP build, USB image, full core/docs and isolation/disassembly
+checks pass. Twelve main/legacy VM cases pass, with actual receipt ordering,
+startup/final admission equality and no successful CPU receipts on sensor refusal
+verified. Both positive Air/Pro CPU fixtures and twelve refusal/stop paths pass
+final-only emission assertions. The strict AP parser rejects progress-only
+admission. The source-matched failed-stream regression preserves every critical
+record byte-for-byte in the original 64 KiB tail with 128 KiB extra pre-final
+chatter and 29,813 bytes of conservative receipt width/capacity padding. Old
+layout coverage fails. Replay/model output is explicitly synthetic and cannot
+accept this or the failed native run. Original strict parsers are unchanged.
+
+The automated retry uses the same 30/30/30-second phases, 32 coordinated
+attempts, 20 ms limit and HLT fallback. The return collector now writes a direct
+`exit-receipt-coverage.json` before the separate unchanged RC6/platform assertion;
+no reconstruction or modeled record can satisfy native exit checks. Independent
+display observations and original RC6 failure evidence remain available.
+
+The run record binds this unit's 562-file / 1,620-cluster USB baseline, exact-stage
+receipt, manifest and protected recovery. No input is needed; keep AC/USB
+connected for progress/save/automatic Ubuntu return. PR266 owns this bounded
+fix; PR261's shared logger/desktop work remains separate. After return, verify
+the actual exit file first. Native retention acceptance and the package-C3/RC6
+issues remain pending; no power transition is authorized by this receipt fix.
