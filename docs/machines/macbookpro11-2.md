@@ -12,31 +12,39 @@ The captured EW-7711MAC `7392:a711`/`0100` is **5GHz-only**; see the
 mistaken for assembled-model capability. Historical2.4GHz packet/USB traces do
 not establish2.4GHz RF support. Do not repeat the withdrawn v107 trial.
 
-Installed candidate is v108 `f5b4f13eb2dc4598`, runtime source `1562dd58`,
-main `c9235491`. It performs common initialization through RF/VGA, then49
-fixed read-only operations: five MAC/PA words and RF5:0/RF6:0 selectors.
-No5GHz band programming, frequency/VCO, receive or network traffic is enabled.
-This warm-state inventory is awaiting native evidence, not accepted radio or
-connectivity support. Known-good desktop `e47dca3a6b30c6c1` remains previous;
-old v106 remains backed up and installed. One unreferenced failed v103 payload
-was retired only after complete equality to its durable backup; the receipt
-is in the new candidate archive. Ubuntu remains default. The ready test is
-scheduled for a one-shot automatic reboot under the user's standing authority;
-the local run record owns the exact armed/returned state.
+Latest native trial v108 `f5b4f13eb2dc4598`, runtime `1562dd58`, main
+`c9235491`, completed a warm boot and automatic return. The complete228894-byte
+prefix proves common RF/VGA initialization and all49 read-only inventory
+operations. Both MAC band words and RF5:0/RF6:0 were zero; RF_MISC=1,
+TX0_RF_GAIN_ATTEN=6c6c6c6c and TX_ALC_CFG_1=c9540000 (hex). This accepts the
+warm starting-state inventory only, not RF or connectivity. Matching session,
+source, recovery and offline storage checks passed and are archived outside
+build. Installed remains v108, known-good e47d remains previous, Ubuntu is
+default, workspace is unmounted and the one-shot was consumed. No reboot armed.
 
-The full local `all usb-image test-core check-docs`,199 staging tests,49-op
-inventory and receipt mutation tests, ASan/UBSan, composed complete common-init
-proof, exact-image save/unmount/return VM and missing-workspace refusal pass.
-Kernel and independently packaged firmware initramfs match the staged bytes.
-The first host compile warning is retained; the corrected source passed.
-No credentials have been read or packaged. The guest shows progress, saves
-results and returns automatically; no commands or photos are required. On
-return, collect the matching release/session FIRST with the sealed native
-prerequisite collector, then continue5GHz initialization/cleanup, discovery,
-authentication and data transfer under the standing automatic-test authority.
-Demers2.4 requires compatible hardware because this adapter is5GHz-only.
-Do not call the connection ready until authentication, data exchange and
-clean disconnect actually pass. Battery/headphone/deferred Pro work is unchanged.
+The user authorizes continuing through authenticated connection/disconnection
+and data transfer, with automatic ready-test reboots. If physical unplug is
+required, use shutdown and leave the machine off; do not issue a reboot for
+that case. The next bounded band-selection/restoration test can use a warm
+reboot without an unplug. Demers5 is the current5GHz target; Demers2.4 needs
+compatible hardware. Local credentials remain private and unused until the
+security stage. Do not report connection-ready until authentication, data
+exchange and clean disconnect actually pass.
+
+## Active bounded scope — 2026-11-02, reversible5GHz band selection
+
+Use the native v108 starting-state tuple as an exact admission gate. Reuse the
+fixed40-setting5GHz RF engine and two MAC band words, then independently read
+back the result and restore the two MAC words and two RF selectors in reverse
+order, with a final original-state inventory. Add bounded fixed restore helpers,
+per-phase ownership/proof, a v109 automatic profile and strict host collectors.
+Touch only MCU/USB Wi-Fi capture, staging and current machine/Wi-Fi guides.
+No frequency/VCO, PA/attenuation, receive, authentication or network OUT is
+added here. Preserve legacy2GHz gates and refuse unknown starting state;
+partial/failed cleanup is a failure, not physical acceptance. Keep retained DMA
+quarantined on transport failure and preserve Ubuntu/recovery. Test source,
+fixed packets, failure/cancellation boundaries, restoration and complete-prefix
+proof before installing or automatically rebooting.
 
 ## Active bounded scope — 2026-11-02, native5GHz prerequisite capture
 
