@@ -4054,3 +4054,11 @@ build/tests/linux-package-pci-host$(HOST_EXE): tools/linux_package_pci.c kernel/
 test-core: test-cpu-receipt-tail
 test-cpu-receipt-tail:
 	$(PYTHON) -m unittest discover -s tools -p test_cpu_receipt_tail.py
+
+.PHONY: test-audio-io-producer
+test-core: test-audio-io-producer
+test-audio-io-producer: build/tests/audio-io-producer-host$(HOST_EXE)
+	$<
+build/tests/audio-io-producer-host$(HOST_EXE): tools/test_audio_io_producer.c userspace/playwav/io_stress.c userspace/playwav/io_stress_receipt.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include $< -Wl,--gc-sections -o $@

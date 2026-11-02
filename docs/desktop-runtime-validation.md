@@ -42,6 +42,15 @@ not cancel accepted work, admit directory operations during foreign I/O, or
 change the 500 ms UI / 10 s whole-lifetime limits. Actual native improvement
 requires a new source-matched physical result.
 
+The automatic PCM/disk diagnostic uses separate one-way start/completion pipes.
+Both producer endpoints are nonblocking before streaming. These plain endpoints
+use the existing atomic simple-pipe close path; duplex channels would regain
+storage admission on close. A host fixture executes the actual producer and
+rejects any duplex close or blocking signal during live PCM, checks early/late
+completion, full nominal duration, bounded extension, malformed/EOF failure and
+complete child/descriptor cleanup. This does not relax underrun acceptance or
+change the kernel's rights-bearing/duplex cleanup policy.
+
 ## Repeat the local gates
 
 Use one checkout and one build/VM harness at a time. The scripts share output
