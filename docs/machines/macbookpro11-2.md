@@ -12,16 +12,16 @@ The captured EW-7711MAC `7392:a711`/`0100` is **5GHz-only**; see the
 mistaken for assembled-model capability. Historical2.4GHz packet/USB traces do
 not establish2.4GHz RF support. Do not repeat the withdrawn v107 trial.
 
-Latest native v110 `960af51da95c68fd`, runtime `ff5b4c65`, main `c9235491`,
-accepts fixed channel161 frequency-field programming/readback and17-word
-restoration, in addition to v109 band selection. Matching session
-`session-00065f51cc726e7c-00` has a complete403219-byte prefix, full common-init
-proof, all1667 ordered operations and independently restored original RF/MAC
-words. Source/release/session, clean save/return, offline allocation/fsck and
-all installed/recovery bytes pass. Durable archive `wifi-5ghz-synth-ff5b4c65`
-is separate from the failed warm run. No VCO/RF lock, reception, authentication
-or connectivity acceptance is added. Ubuntu remains default; the matching run
-is collected and unarmed. The next bounded inventory is described below.
+Latest native v111 `25cfffe9a41b7e9e`, source `9c132e3c`, main `c9235491`,
+accepts all24 high-band RF originals after the complete channel161/17-word
+restoration transaction. Matching session `session-00065f5262c07486-00` has a
+complete423697-byte prefix, full common-init proof and all168 new read/guard
+operations. Several originals are nonzero. Source/release/session, save/return,
+offline allocation/fsck and all installed/recovery bytes pass. The84-file durable
+archive `wifi-a20-inventory-9c132e3c` is separate from prior failures. This accepts
+observations and the earlier frequency-field restoration, not high-band writes,
+VCO/RF lock, reception or connectivity. That run is collected and unarmed;
+new candidate/armed state is described below and in the local run record.
 
 The preceding warm session `session-00065f50a0330abf-00` remains FAILED before
 firmware preparation: first0730 read1, already-running MCU refusal. Cold adapter
@@ -37,6 +37,41 @@ power cycle; do not repeat a warm boot against its already-running MCU. Demers5 
 compatible hardware. Local credentials remain private and unused until the
 security stage. Do not report connection-ready until authentication, data
 exchange and clean disconnect actually pass.
+
+## Ready native candidate — integrated high-band table and41-word restoration
+
+Installed v112 `5e26351cef7dc690`, runtime `e769cec6`, consumes actual main
+`e1c05956` as merge `0954cf5f`; its compact CPU-telemetry format is independent
+of Wi-Fi and both appended Makefile test groups were preserved. Full matched
+build/USB image/core/docs,203 staging groups, all2507 integrated I/O and2517
+authorization failure points,840/841 standalone A20 boundaries, original-tuple
+refusal, pinned fixture, reply/proof/mode mutations, no replay and ASan/UBSan
+pass. The physical model verifies selected band/frequency throughout table
+work and complete41-target reverse restoration. A491990-byte synthetic whole
+prefix and strict nested phase checker pass. Exact-image refusal/save/readback/
+clean-unmount/return and missing-workspace VMs pass; committed kernel and
+independently firmware-packaged initramfs bytes match. Native v112 evidence
+is pending; these checks do not accept RF lock, RX or connectivity.
+
+The child table transaction runs between synthesizer operations622/623, holding
+selected channel161/band. It requires all24 v111 originals before its first
+new write, applies the fixed A20 table, independently reads selection, reverses
+the24 originals and independently verifies them before frequency/band reversal
+resumes. Wire phases8/9/8 keep separate submitted counters under one static
+owner. No PA/attenuation, VCO pulse, receive, credentials or network frames are
+added. Failed/partial restoration stays failed with retained transport ownership.
+
+Ubuntu remains default; e47d previous and accepted v109/v110/v111 remain
+installed and independently backed up. The unreferenced superseded v105 EFI
+trial copy was retired only after complete equality to its durable backup;
+its evidence/backup remain outside build. The local run record owns exact
+armed state. Shutdown for10seconds Wi-Fi unplug while off is authorized;
+reconnect same port and power on with the workspace drive connected. Results/
+return are automatic. Collect `build/bringup/wifi-a20-cycle/return_collect.py`
+FIRST after return; durable archive `wifi-a20-cycle-e769cec6` also binds the
+v111 admission source/session/seal and original tuple. Require full common,
+band/frequency, nested table/restoration, source/release/session and storage
+proof before continuing PA/baseband/calibration/receive/security/data work.
 
 ## v111 read-only high-band originals accepted
 

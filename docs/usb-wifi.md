@@ -15,8 +15,9 @@ retirement and automatic return, plus fixed5GHz band selection and four-word
 restoration. It does not accept populated discovery, live reattach/rescan,
 association/security or an active Wi-Fi IP provider. Current work targets
 channel161/20MHz: native v110 accepts fixed frequency fields with independent
-13-word selection/restoration checks. The next profile reads all24 high-band
-RF originals before a separate table-write/restore contract is added.
+13-word selection/restoration checks. Native v111 captures all24 high-band RF
+originals; the v112 candidate adds a fixed admission/write/read/reverse contract
+inside selected channel161 and awaits native evidence.
 5GHz bandwidth/baseband/calibration and receiver startup remain pending. Ordinary startup
 leaves diagnostic radio operations disabled. Dated milestones below are history
 and must not be used to reinstate the withdrawn band assumption.
@@ -77,7 +78,9 @@ The engine uses fixed writes, a separate readback pass and the existing
 MAC/DMA/ownership guards, cancellation and no-replay proof. Table completion
 is not a channel-ready result: PA policy, attenuation, synthesizer/VCO,
 baseband/filter/gain, calibration, native prerequisite capture and partial-write
-cleanup remain separate. No native caller or startup behavior is added.
+cleanup remain separate. This standalone write helper remains uncalled; v111
+reads its fixed targets and v112 uses them in the separately gated integrated
+restoration cycle below. Ordinary startup is unchanged.
 Run `make test-mt76-rf-a20` for command and proof regression coverage.
 
 ## Native5GHz starting-state capture (v108)
