@@ -96,23 +96,22 @@ Final-receipt retention is physically accepted on source `eda7541e`, release
 unchanged 64 KiB exit file. The overall platform trial remains failed on the
 original RC6 timing predicate; package C3 remains zero. No reboot is armed.
 
-The read-only source audit is complete: Linux transfers the BIOS well request
-to a driver request, retains initialization references through hardware readout,
-and releases only unused domains after resource adoption. SrvrOS currently
-inherits the framebuffer without that display-resource lifecycle. Native pipe/
-transcoder/DDI routing and dependent resources remain unmeasured.
+The read-only source audit and first native display-control inventory are
+complete. Source `78fbea3c`, release `6ac139e77c5d3070` (PR269), directly retains
+all 26 controls at both endpoints and all original proofs in the 64 KiB exit
+log. Raw controls are identical: primary A, eDP transcoder with pipe-A input and
+DDI A enabled; the other sampled planes/cursors/fitters/DDI buffers and VGA
+are disabled. The BIOS well request remains set. Audio/interrupt ownership and
+other unmeasured dependencies remain open; the well is not proven unused.
 
-The first bounded inventory is implemented on source `78fbea3c`, release
-`6ac139e77c5d3070` (PR269): 26 read-only controls at each endpoint, with access
-checks and compact final records. Matched build/core/docs, host/refusal and
-source-matched retention checks plus twelve VM cases pass. Native resource
-acceptance remains pending the matching automatic return.
-
-Next: collect the new session first, require direct exit-only original proofs
-and complete resource records, and review raw routing/dependent controls. Keep
-the original RC6 bound, package-C3 question and any later ownership/control work
-separate. PR261 desktop/I/O, PR252 sockets and PR19 Wi-Fi remain independent.
-The local run record owns installed/recovery hashes and armed/returned state.
+The overall platform test still fails the original RC6 bound (about 0.1096%
+nominal excess), and package C3 remains zero. No power transition is authorized.
+Next: integrate/validate newly merged PR261 before building another candidate,
+then audit the remaining display-audio/interrupt and firmware dependencies
+read-only. Its scheduler/logger changes require fresh source-matched retention
+coverage; old trace fingerprints cannot validate the new baseline. PR252 sockets
+and PR19 Wi-Fi remain independent. No reboot is armed. The local run record owns
+installed/recovery hashes and returned state.
 
 ### Historical battery-runtime objective (2026-10-23)
 
@@ -5834,3 +5833,57 @@ connected; no input is required. The USB baseline is 566 files / 1,625 clusters,
 with all prior hashes, headroom, fsck and allocation verified. Console recovery
 and accepted package/stress/reopen payloads remain protected. Native resource
 routing and dependency observations remain pending the matching return.
+
+
+### Native display-control inventory accepted; platform still fails (2026-11-01)
+
+Closeout scope is direct native evidence and unit/current guide/index updates,
+on tested integration `7ee6a048` / PR269. Compiled source `78fbea3c`, release
+`6ac139e77c5d3070`, returned automatically with
+`session-00065f432ef9068c-00`. Its 65,536-byte exit log SHA-256 is
+`2a15db620223b35c077fa4e84d7c773f0fda1d780d21f2f6cc8bf61cf98548ac`.
+All original phase/admission/power/idle/C3/package/display proofs and the new
+resource records validate directly from this file, without reconstruction or
+modeling. This accepts the bounded read-only resource capture, not the overall
+platform test or any display-power policy.
+
+Both endpoints have 26 valid identical raw values, source fault zero and complete
+capture. Resource PM brackets are 2,234,663–2,234,678 us and
+92,285,753–92,285,764 us. Both pre/post well sets retain BIOS `0xc0000000` and
+driver/KVM/debug `0x40000000`. eDP config `0xc0000018`, eDP DDI function
+`0x82200000` and DDI A `0x80000011` show the eDP transcoder enabled with pipe-A
+input and DP-SST mode through DDI A. Primary A (`0x98004400`) is enabled.
+Transcoders A/B/C, primary B/C, all sampled sprites/cursors/fitters, DDI B–E
+and VGA are disabled according to their enable/mode fields. Nonzero reserved
+or unrelated fields remain raw evidence, not inferred resource activity.
+
+The sampled routing does not expose an enabled resource from the listed
+switchable-well dependencies. This narrows that inventory; it does not prove
+the well unused, establish DMA/interrupt/firmware ownership or identify a causal
+package-C3 blocker. Audio and interrupt control inventory remains outside this
+first allowlist. No request bit, power policy or timing limit was changed.
+
+All three 30-second phases complete, with covered package power
+4.020 / 5.133 / 4.045 W. All 32 coordinated rounds observe BSP core C3 and remain
+within the unchanged 20 ms bound; maximum is 9,983 us. Package C2 is about
+99.5376% over the short brackets; package C3 is zero. All three APs retire
+terminally without faults. The original strict RC6 bound still fails: nominal
+90.149831680 s versus PM elapsed 90.051091–90.051093 s, about 98.739 ms
+(0.1096%) excess before the existing one-tick allowance. Nine series samples
+remain arithmetically continuous. Failed overall assessment is preserved.
+
+All 566 prior files are preserved except expected `.srvros/meta`; four new logs
+bring USB to 570 files / 1,630 clusters. Offline fsck/allocation pass with zero
+leaks/mismatches/errors. Installed candidate, console recovery and accepted
+package match durable payloads; 479 automatic return evidence files verify
+before these review additions. Ubuntu is default, the one-shot is consumed and
+collection is disabled. No new boot is armed; raw logs and review are backed up
+outside `build`.
+
+Fetched main `466f4743` now includes PR261's shared scheduler/logger/storage/
+lifecycle changes. This physical trial predates those changes and does not
+accept them. Consume and locally validate that integration before another stage;
+repeat source-matched tail coverage using the changed logging source. Next
+hardware scope remains the missing display-audio/interrupt dependencies, with
+firmware ownership and the RC6 discrepancy kept separate. PR252 and PR19 retain
+their independent scopes.
