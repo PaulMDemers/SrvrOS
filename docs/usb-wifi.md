@@ -223,6 +223,46 @@ The full-prefix checker binds the nested phase between synthesizer operations
 attenuation, VCO pulse, receive, authentication or network frames are added.
 Cold trials require shutdown for the Wi-Fi unplug; results/return are automatic.
 
+##5GHz frontend originals (v113)
+
+Native v112 `5e26351cef7dc690` / `e769cec6`, matching session
+`session-00065f530fc8d4ba-00`, passes the491136-byte complete common/band/
+frequency/high-band/41-word restoration proof, source/recovery/storage checks
+and automatic return. It establishes those command/readback/restoration scopes
+only. VCO/RF lock, calibrated reception and connectivity remain unaccepted.
+
+The captured fresh NIC0=`fd11` has bit9 clear. Linux v7.0's
+[EEPROM PA selector](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/mediatek/mt76/mt76x02_eeprom.c)
+and [bit definitions](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/mediatek/mt76/mt76x02_eeprom.h)
+therefore select external5GHz PA. This does not establish assembled2GHz
+capability. Pinned independent projections record11 high-band external-PA RF
+words and21 A-band/20MHz BBP rows, including the extra RXO28 row. The BBP
+selector uses plain A-band/20MHz while the RF selector uses A-band/high-band;
+do not pass the high-band flag into the BBP subset predicate. AGC8's raw table
+value still requires fresh validated high-band LNA adjustment before writing.
+`mt76_frontend_reference.py` checks source/fixture hashes, both selection
+predicates, board interpretation and the44 read-only targets. No projected
+PA/BBP values are written by this profile.
+
+The explicit automatic `--wifi-frontend` profile requires integrated A20 and
+complete41-target restoration first, then reads30 MAC/BBP controls and14 RF
+words (external-PA originals plus trim/DAC/VCO controls). It requires fresh
+same-unit NIC0fd11/NIC11004, exact live parent proofs, one static owner,308
+fixed read/guard operations and309 authorization boundaries. A private-plan
+reader shares transport/guard mechanics with the legacy seven-target inventory;
+its targets, order, counts, MAX refusals and RF framing are unchanged. Only the
+new profile permits raw all-ones in explicit AGC51/53/55 and IBI9 observation
+slots. Those values never accept calibration or relax MAC/core/DMA guards.
+Every other32-bit all-ones observation refuses; RF results remain byte-valued.
+Cancellation, malformed or incomplete evidence stays failed and cannot replay.
+
+The immutable target fixture contains PA attenuation/ALC, A-band BBP, filter/
+channel/gain controls and external-PA/trim/VCO originals. Strict saved proof
+requires the board identity, complete earlier prefix, every request/reply/
+value/count and final capture/storage/return markers. No new direct or RF
+register write, DAC/VCO pulse, receive, authentication, credential or network
+frame is added. Cold-cycle setup uses shutdown; results and return are automatic.
+
 ## Captured baseline
 
 USB high speed (480 Mb/s), one configuration, interface 0 / alternate 0,

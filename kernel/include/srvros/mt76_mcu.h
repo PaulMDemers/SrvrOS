@@ -713,7 +713,7 @@ struct mt76_5ghz_prereq {
     bool attempted,complete;
     unsigned operations,reads,exchanges,observed;
     int received;
-    uint32_t values[7],guards[14][3],words[2][4];
+    uint32_t values[44],guards[88][3],words[14][4];
 };
 uint32_t mt76_5ghz_prereq_target(unsigned index);
 uint32_t mt76_5ghz_prereq_address(unsigned operation);
@@ -722,6 +722,16 @@ size_t mt76_5ghz_prereq_packet(unsigned operation,uint8_t *out,size_t capacity);
 bool mt76_5ghz_prereq_admit(const struct mt76_5ghz_prereq *s,unsigned operation);
 bool mt76_5ghz_prereq_valid(const struct mt76_5ghz_prereq *s);
 enum mt76_mcu_timing_status mt76_5ghz_prereq_capture(struct mt76_5ghz_prereq *s,const struct mt76_mcu_timing_io *io);
+/*44 fixed read-only frontend originals; raw sentinels only in explicit slots. */
+#define MT76_FRONTEND_TARGETS 44u
+#define MT76_FRONTEND_OPS 308u
+uint32_t mt76_frontend_target(unsigned index);
+bool mt76_frontend_rf(unsigned operation);
+uint32_t mt76_frontend_address(unsigned operation);
+size_t mt76_frontend_packet(unsigned operation,uint8_t *out,size_t capacity);
+bool mt76_frontend_admit(const struct mt76_5ghz_prereq *s,unsigned operation);
+bool mt76_frontend_valid(const struct mt76_5ghz_prereq *s);
+enum mt76_mcu_timing_status mt76_frontend_capture(struct mt76_5ghz_prereq *s,const struct mt76_mcu_timing_io *io);
 uint32_t mt76_band_mac_address(unsigned index);
 uint32_t mt76_band_mac_value(unsigned index,uint32_t before);
 bool mt76_band_mac_request(unsigned operation,bool *write,uint32_t *address);

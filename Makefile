@@ -4667,3 +4667,16 @@ build/tests/mt76-a20-cycle-host$(HOST_EXE): tools/test_mt76_a20_cycle.c kernel/s
 test-core: test-wifi-a20-cycle-log
 test-wifi-a20-cycle-log:
 	$(PYTHON) -m unittest discover -s tools -p test_wifi_a20_cycle_log.py
+
+.PHONY: test-mt76-frontend
+test-core: test-mt76-frontend
+test-mt76-frontend: build/tests/mt76-frontend-host$(HOST_EXE)
+	$(HOST_RUN) $< tools/fixtures/mt7610-5ghz-frontend-targets.bin
+build/tests/mt76-frontend-host$(HOST_EXE): tools/test_mt76_frontend.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-wifi-frontend-log
+test-core: test-wifi-frontend-log
+test-wifi-frontend-log:
+	$(PYTHON) -m unittest discover -s tools -p test_wifi_frontend_log.py

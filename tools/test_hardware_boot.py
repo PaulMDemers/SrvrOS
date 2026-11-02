@@ -14,6 +14,16 @@ import hardware_boot as boot
 
 
 class InstallTests(unittest.TestCase):
+    def test_frontend_profile(self):
+        version='ram-usb-wifi-fw-v113-laptop-probe-0e535900-auto-return'
+        base=boot.limine_config('0123456789abcdef',version.replace('v113-','v112-'))
+        config=boot.limine_config('0123456789abcdef',version)
+        self.assertEqual(config,base.replace('srvros.wifi-a20-cycle=1','srvros.wifi-a20-cycle=1 srvros.wifi-frontend=1'))
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        with self.assertRaises(ValueError):boot.limine_config('0123456789abcdef',version.removesuffix('-auto-return'))
+        for options in ({},dict(wifi_a20_cycle=True),dict(wifi_a20_cycle=True,wifi_5ghz_channel=True,wifi_5ghz_band=True,wifi_5ghz_prereq=True,hold_on_failure=True)):
+            with self.assertRaises(ValueError):boot.stage(wifi_frontend=True,**options)
+
     def test_a20_cycle_profile(self):
         version='ram-usb-wifi-fw-v112-laptop-probe-0e535900-auto-return'
         base=boot.limine_config('0123456789abcdef',version.replace('v112-','v110-'))
