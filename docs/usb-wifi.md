@@ -10,12 +10,13 @@ observations, not accepted2.4GHz RF support. The pending v1072.4GHz diagnostic w
 withdrawn before installation. New installation and runtime gates refuse that
 captured2.4GHz RF recipe. Historical rendering remains for offline regression.
 
-The latest native scope accepts the bounded empty-cache desktop, trackpad,
-unplug retirement and automatic return. It does not accept populated discovery,
-live reattach/rescan, association/security or an active Wi-Fi IP provider.
-Current radio work targets5GHz channel161/20MHz. Its frequency projection is
-strictly offline and has no native caller;5GHz band/baseband/calibration,
-restoration and receiver startup still need implementation. Ordinary startup
+Native evidence accepts the bounded empty-cache desktop, trackpad, unplug
+retirement and automatic return, plus fixed5GHz band selection and four-word
+restoration. It does not accept populated discovery, live reattach/rescan,
+association/security or an active Wi-Fi IP provider. Current work targets
+channel161/20MHz: the explicit v110 candidate adds fixed frequency fields with
+independent13-word selection/restoration checks and awaits native evidence.
+5GHz bandwidth/baseband/calibration and receiver startup remain pending. Ordinary startup
 leaves diagnostic radio operations disabled. Dated milestones below are history
 and must not be used to reinstate the withdrawn band assumption.
 

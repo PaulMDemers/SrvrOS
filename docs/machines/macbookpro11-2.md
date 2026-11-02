@@ -37,9 +37,41 @@ compatible hardware. Local credentials remain private and unused until the
 security stage. Do not report connection-ready until authentication, data
 exchange and clean disconnect actually pass.
 
+## Ready native candidate — channel161 frequency fields and restoration
+
+Installed v110 `960af51da95c68fd`, source `ff5b4c65`, main `c9235491`,
+adds the fixed channel161 frequency-field transaction inside selected5GHz
+phase8. It observes all13 original RF0 words before any frequency write,
+requires the common-init tuple, applies21 masked fields in source order,
+independently verifies selection, reverses all13 words and independently verifies
+the original tuple before the four band words are restored. This is not a VCO,
+RF-lock, receiver, security or data trial. No credentials are read or packaged.
+
+The full runtime build/USB image/core/docs suite passes at `d82fc450`; final
+`ff5b4c65` only tightens the saved-log checker to reject unknown synthesizer
+receipts, with all five directed parser groups and final products/docs passing.
+All1667 integrated I/O and1676 authorization failures,896/897 standalone synth
+boundaries, original-state admission, reply/proof mutations, unchanged legacy
+synth1/band behavior, ASan/UBSan and201 staging groups pass. A synthetic404074-byte
+whole common-init/transaction prefix passes strict proof. Exact-stage VM
+refusal/save/readback/clean-unmount/return and missing-workspace tests pass;
+the staged kernel and independently firmware-packaged initramfs match exactly.
+These host/VM checks do not accept the new native frequency operation.
+
+Accepted v109 and known-good e47d remain installed and independently backed up.
+The failed, unreferenced isolated-logging v104 a21d EFI copy was retired only
+after complete byte/hash equality to its durable backup. Ubuntu remains default.
+The local run record owns exact armed state; shutdown is authorized for the
+required10second Wi-Fi unplug while off. Reconnect same port and power on with
+the workspace drive attached. Progress/results/return are automatic. On return,
+collect the matching v110 session FIRST using the frozen collector in
+`build/bringup/wifi-5ghz-synth/`; durable evidence is outside build in
+`wifi-5ghz-synth-ff5b4c65`. Do not repeat the warm takeover refusal or claim
+connection-ready before actual authenticated data exchange and disconnect.
+
 ## v109 checked candidate, preserved warm refusal and accepted cold retry
 
-Installed v109 `4b58af1abfdc0fb5`, runtime `ecae82b5`, main `c9235491`,
+Retained v109 `4b58af1abfdc0fb5`, runtime `ecae82b5`, main `c9235491`,
 now has the accepted cold transaction described above, alongside the preserved
 warm pre-entry refusal. It admits only the v108 starting tuple, selects the
 fixed5GHz RF and MAC words, independently checks selection, restores the
@@ -62,7 +94,7 @@ acceptance. The local run record owns the exact armed/returned state.
 ## Active bounded scope — reversible channel161 synthesizer
 
 On actual main `c9235491`, PR272 desktop/PCM and PR252 resolver/socket scopes
-remain separate. Next add one fixed channel161/20MHz synthesizer transaction:
+remain separate. Implemented one fixed channel161/20MHz synthesizer transaction:
 read all13 RF0 words before writes, require the common-init reset tuple, apply
 21 reference masked fields in order, independently verify the final13 words,
 restore all13 in reverse order and independently verify the initial tuple.
