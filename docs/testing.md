@@ -1337,3 +1337,23 @@ production packet handler in the last poll and at the final wake respectively.
 Both require the captured answer from a single query and release of resolver
 ownership. The silent-server control checks exactly three full timeout intervals,
 unchanged output on failure, and a successful subsequent lookup.
+
+## Socket duplicates, DNS budgets and restarted I/O
+
+Run `make test-socket-calls test-socket-aliases test-fd-io-restart`. The
+socket-call fixture drives the production libc resolver with a fake monotonic
+clock and checks every poll timeout. It injects malformed, truncated and foreign
+datagrams, a readiness race, an answer with 3 ms remaining, a stream of rejected
+packets, and terminal errors. Stream I/O cases check which socket supplied the
+reported error when a callback changes the pending error.
+
+The alias fixture exercises UDP and stream connect through a duplicate,
+per-descriptor close-on-exec flags, failure rollback, shared options and slot
+reuse. The restart fixture compiles the guest file implementation with its own
+headers and checks scalar and vector I/O, partial progress and blocking locks.
+
+On a matched guest, `tools/netabi_smoke.py` requires delivery from the original
+UDP descriptor both before and after closing its connected duplicate.
+`tools/thread_smoke.py` requires the interrupted `readv` to leave a byte in a
+replacement pipe for the next reader. Both smoke harnesses check the new guest
+markers in the serial output.

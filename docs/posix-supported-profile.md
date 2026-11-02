@@ -557,8 +557,8 @@ UDP binding is immutable after explicit or automatic bind; failed bind preserves
 the libc cached port. A send waiting for ARP revalidates its original endpoint
 before emitting a packet, refusing final-close/reuse while allowing a surviving
 native alias. Final close wakes blocked receivers; native held references retain
-queued data through creator cleanup. These checks do not extend pseudo-socket
-fork/dup support or qualify arbitrary SMP teardown. ICMP echo requests and replies require a valid checksum
+queued data through creator cleanup. Pseudo-socket duplication is described below.
+ICMP echo requests and replies require a valid checksum
 and code zero before responding or completing a pending ping. See the
 [datagram audit](datagram-audit-2026-10-28.md) for evidence and remaining scope.
 
@@ -586,6 +586,29 @@ UDP sends and pipe-backed socketpairs. New libc needs a matched rebuilt kernel.
 TCP connect/accept revalidate pseudo ownership after waits and restart handlers;
 raw accept pins its listener with a CLOEXEC duplicate and snapshots options. This
 needs one spare FD (EMFILE on exhaustion); closing the original raw FD does not
-cancel the retained accept. Native-FD operations behind libc, alias peer/options
-coherence and arbitrary SMP races remain outside this bounded result; see the
-[DNS/socket audit](dns-socket-audit-2026-10-28.md).
+cancel the retained accept. The [DNS/socket audit](dns-socket-audit-2026-10-28.md)
+records the original parser and per-call I/O evidence.
+
+Each libc IPv4 DNS query gets up to three UDP sends. After each send, libc
+gives replies two seconds on the monotonic clock. A malformed, truncated or
+foreign datagram and a readiness race returning `EAGAIN` use the remaining
+time in that attempt. A terminal poll or receive error ends the UDP stage.
+The native resolver fallback runs separately, so these receive budgets do
+not bound the total duration of `getaddrinfo()`.
+
+Duplicating a libc socket shares its peer, binding, connection state, shutdown
+state, status flags and socket options. Each pseudo descriptor keeps its own
+`FD_CLOEXEC` bit. Closing one alias leaves the backing descriptor available to
+surviving aliases. Raw stream descriptors duplicated through libc also share
+their cached socket options. The existing limits on pseudo-descriptor
+inheritance and explicit-target duplication still apply.
+
+When a native scalar or vector I/O operation or a blocking file lock is
+interrupted, libc checks descriptor identity across cooperative signal
+dispatch before restarting. If a handler replaces the descriptor with a
+different open file description, the restart fails with `EBADF`. Partial
+I/O still reports its completed count. Stream send and receive sample a
+native connection error before dispatch can replace its socket. These
+guarantees cover lifecycle changes made through libc during that callback.
+Direct native descriptor mutations and independent concurrent replacement
+remain outside this profile.

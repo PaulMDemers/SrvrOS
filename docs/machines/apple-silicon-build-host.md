@@ -1872,3 +1872,24 @@ Scope covers libc resolver polling and retry deadlines, socket state shared by
 duplicate descriptors, and read/write continuations across signal dispatch and
 descriptor reuse. Directed host fixtures and a matched QEMU guest will exercise
 confirmed fixes. The desktop lifecycle and Wi-Fi branches retain their own work.
+
+Implementation and regressions are in `34cb8ca5`. Against main `c9235491`,
+six DNS injections failed their poll-budget or retry-count checks. The silent
+server control passed. After a UDP connect through a duplicate, the original
+descriptor reported `ENOTCONN`. A restarted read issued a second native read
+against the replacement descriptor and returned three bytes in the host model.
+
+The candidate passed all 33 socket-call modes, the alias and I/O restart
+fixtures, 15 native query modes, 46 DNS parser cases, 12 UDP ownership modes
+and 46 event-adapter cases. The new fixtures also passed native ARM64 ASan/UBSan.
+The socket-call, alias and restart fixtures cross-linked for x86_64 Linux;
+runtime host results came from macOS. Five disposable x86_64 QEMU guests
+passed in sequence: netabi, full threadstress, libuv, TCP readiness and TCP
+stress with 12 clients. The guest serial logs confirm both UDP deliveries
+across duplicate close and that the replacement pipe retained its original byte.
+Local logs and original-source probes are under `build/review/libc-socket-audit/`.
+
+The next audit will exercise `SCM_RIGHTS` with a failing first payload transfer
+and a surviving duplicate endpoint, including descriptor cleanup on receive
+failure. This queue comes from inspection of the separate rights and payload
+operations. It has no guest or fault-injection result yet.

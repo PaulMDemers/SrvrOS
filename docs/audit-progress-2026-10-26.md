@@ -147,8 +147,12 @@ native-FD I/O continuations. Broad network conformance remains unqualified.
 [Draft PR252](https://github.com/PaulMDemers/SrvrOS/pull/252) starts the next
 audit with native resolver deadline tests. They cover an answer published in
 the final poll and one published while the caller waits for the deadline.
-Libc retry budgets, duplicated socket state and native descriptor I/O
-continuations remain queued.
+The November 2 pass also covers libc's per-send DNS receive budget, connection
+and option state across socket duplicates, and I/O restarted after a signal
+handler replaces a descriptor. The next socket audit concerns descriptor passing
+on Unix stream sockets. In particular, exercise a failed first payload write
+after rights are queued and a receive error after descriptors are installed.
+Those split operations were identified by inspection and await fault injection.
 This checkpoint is separate from the completed event-adapter target.
 
 ## Broader work still outside exhaustive coverage

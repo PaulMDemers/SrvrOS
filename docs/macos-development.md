@@ -313,3 +313,9 @@ matched image for syscall 155 before the eight sequential disposable VM checks.
 Netabi now checks per-call flags, duplicate status, pressure and recovery.
 Evidence: `build/review/dns-socket/`, with `/dns-socket-check` for host-local
 outbound HTTP. See the [DNS/socket audit](dns-socket-audit-2026-10-28.md).
+
+For the libc socket continuation, use the host compiler wrapper above and run
+`sh tools/macos/build.sh HOST_CC='python3 build/tooling/darwin-host-cc.py' test-socket-calls test-socket-aliases test-fd-io-restart test-event-adapters`.
+Build the guest with `sh tools/macos/build.sh -j2 all`, then run
+`python3 tools/netabi_smoke.py --boot-wait 60` and
+`python3 tools/thread_smoke.py --boot-wait 60 --run-wait 300` sequentially.
