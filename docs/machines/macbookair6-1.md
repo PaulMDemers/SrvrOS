@@ -5474,3 +5474,17 @@ and no reboot is armed. Next power work should compare package-C3 prerequisites
 and display/device state with this Linux reference while preserving the
 unresolved RC6 mismatch. A matched current-main build and native desktop
 regression remain separate work, without inherited physical acceptance.
+
+
+### Cross-OS package-C3 prerequisites — active scope (2026-11-01)
+
+Base `e339b9a8`, same clean device checkout. Compare Linux CPU idle configuration,
+read-only known-supported package MSRs, kernel-owned graphics/display reports and
+PCI PM/link/LTR snapshots with the saved SrvrOS release `0804f2944e9364d3`.
+Reuse the existing bounded PCI decoder for matching fields. Scope: host-only
+capture/comparison helpers, fixtures, Makefile checks and this unit/current
+power guide. PR261 desktop admission, PR252 sockets and PR19 Wi-Fi remain
+independent. No shared runtime or native register allowlist changes, forced
+wakeups, control writes, power-policy changes or new boot in this audit.
+Preserve unknowns and choose a bounded follow-up from captured differences;
+Linux package C3 alone does not identify a SrvrOS blocker.
