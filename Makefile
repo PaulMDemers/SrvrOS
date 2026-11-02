@@ -4029,3 +4029,11 @@ build/tests/exfat-cost-host$(HOST_EXE): tools/test_exfat_cost.c kernel/src/fs/ex
 test-exfat-cost: build/tests/exfat-cost-host$(HOST_EXE)
 	$<
 test-core: test-exfat-cost
+
+.PHONY: test-exfat-append
+build/tests/exfat-noappend-driver$(HOST_EXE): tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -DSRVROS_EXFAT_HOST_TEST -DSRVROS_EXFAT_APPEND_OFF -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c -Wl,--gc-sections -o $@
+test-exfat-append: build/tests/exfat-driver$(HOST_EXE) build/tests/exfat-noappend-driver$(HOST_EXE)
+	$(PYTHON) tools/test_exfat_append.py --driver build/tests/exfat-driver$(HOST_EXE) --baseline build/tests/exfat-noappend-driver$(HOST_EXE)
+test-core: test-exfat-append

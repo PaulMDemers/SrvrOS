@@ -2,6 +2,20 @@
 
 Updated: 2026-11-01. State: **active reference machine; partial device acceptance**.
 
+### Active follow-up: verified aligned append writeback
+
+From ae98429a/main9340c9fb on the existing device branch, optimize repeated
+whole-buffer flushes in `kernel/src/fs/exfat.c`. Compare the committed prefix
+under ownership; only an identical, block-aligned, unaliased regular file may
+append without rewriting its old data. Preserve old data sectors, link new
+allocation only before durable length publication, and retain whole-file COW
+fallback for overwrites, unaligned prefixes and aliases. Global sync/fsync and
+process admission stay unchanged. Add exact-prefix/fragmented-chain/crash/failure
+and write-amplification checks, then full host and loaded VM validation. Do not
+claim native acceptance before a new trial. Currentff is failed and collected;
+recovery9aa/accepted7d remain preserved. No reboot armed. PR252 owns separate
+resolver/socket work; avoid changing process/sync dispatch in this scope.
+
 ### Bitmap-span hardware return: writeback deadline failure
 
 Release `ff1242b59d4eb9a5` / source `275330f5`, session

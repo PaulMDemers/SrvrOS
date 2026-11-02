@@ -128,3 +128,32 @@ cluster per fixture file. It preserves the original live PCM/disk workload,
 limits and existing Home fixtures, checks every archive file after return, and
 is forbidden with an exact staged native profile. Add `--read-iops 100` for
 combined read/write throttling. This remains disposable VM evidence.
+
+
+## Verified append writeback
+
+Whole-buffer flushes can reuse the existing extent only for an actual append.
+Under the existing owner, compare every committed prefix byte against media.
+Changed prefixes, shared extents, incomplete ValidDataLength and old EOFs inside
+a device sector retain whole-file copy-on-write. Prefix-read or resource failure
+refuses instead of treating missing evidence as permission for replacement.
+Global sync still visits every live dirty content object; fsync/close still wait
+for durability. No caller dirty hint, new syscall or process admission is used.
+
+Eligible appends write only the tail, starting at a device-sector boundary so
+old payload sectors remain untouched on torn writes. New clusters and FAT links
+are initialized under the dirty marker; a NoFatChain stream ignores its prepared
+links until publication. Payload is flushed, the old tail link is flushed if
+needed, then the checksummed new length/flags and metadata sidecar are durably
+published. Later appends can traverse the resulting fragmented FAT chain. Old
+prefix clusters are retained; uncertain failures keep quarantine and offline
+recovery requirements. An `append` cost label identifies a verified prefix.
+This does not make directory/checksum writes crash-atomic: a torn publication
+can lose a name during repair, as it can with the existing replacement path.
+
+`make test-exfat-append` compares actual drivers with append enabled/disabled,
+checks exact contents/remount/fsck, changed/alignment/alias fallbacks, failed
+prefix reads, original payload sectors and unrelated files across every write,
+flush and half-write interruption. Torn-name loss must reproduce on COW too;
+it is not accepted as an atomic rename guarantee. Test media is disposable.
+Native performance and full endurance require their own matching trial.

@@ -1839,6 +1839,82 @@ static bool update_file_length(struct exfat_file *file, const char *path, uint64
     return true;
 }
 
+/* A full-buffer write may be a pure append (including global sync of another
+ * writer). Prove the old prefix from media; never trust caller dirty hints.
+ * Old payload sectors must remain untouched even on a torn new-data write. */
+enum append_result { APPEND_FALLBACK, APPEND_OK, APPEND_FAILED };
+static enum append_result append_file(struct exfat_file *file,const char *path,
+    const uint8_t *data,uint64_t size) {
+#if defined(SRVROS_EXFAT_HOST_TEST) && defined(SRVROS_EXFAT_APPEND_OFF)
+    (void)file;(void)path;(void)data;(void)size;return APPEND_FALLBACK;
+#else
+    struct exfat_volume *v=file->volume;
+    uint64_t block=v->device?v->device->block_size:0;
+    if(!file->size || size<=file->size || file->valid_size!=file->size ||
+       !block || v->cluster_size%block || v->cluster_heap_offset_bytes%block ||
+       file->size%block || file->allocated_clusters!=clusters_for_size(v,file->size))return APPEND_FALLBACK;
+    /* Imported exact aliases must keep private replacement semantics. */
+    for(unsigned m=0;m<EXFAT_MAX_VOLUMES;m++)if(mounts[m].used && &mounts[m].volume==v)
+        for(uint64_t i=0;i<mounts[m].file_count;i++) {
+            struct exfat_file *other=file_slot(&mounts[m],i);
+            if(other!=file && path_slot(&mounts[m],i)[0] && other->first_cluster==file->first_cluster)return APPEND_FALLBACK;
+        }
+    uint8_t *buffer=kmalloc(16384);if(!buffer)return APPEND_FAILED;
+    uint64_t checked=0;uint32_t last=file->first_cluster;
+    while(checked<file->size) {
+        uint64_t base;if(!cluster_offset(v,last,&base)){kfree(buffer);return APPEND_FAILED;}
+        uint64_t bytes=file->size-checked;if(bytes>v->cluster_size)bytes=v->cluster_size;
+        for(uint64_t n=0;n<bytes;) {
+            uint64_t count=bytes-n;if(count>16384)count=16384;
+            if(!volume_read(v,base+n,buffer,count)){kfree(buffer);return APPEND_FAILED;}
+            for(uint64_t j=0;j<count;j++)if(buffer[j]!=data[checked+n+j]){kfree(buffer);return APPEND_FALLBACK;}
+            n+=count;
+        }
+        checked+=bytes;
+        if(checked<file->size) {
+            if(file->no_fat_chain)last++;
+            else if(!next_cluster(v,last,&last) || last>=EXFAT_FAT_CHAIN_END){kfree(buffer);return APPEND_FAILED;}
+        }
+    }
+    kfree(buffer);
+    if(v->cost.active && !metadata_syncing)v->cost.operation="append";
+    uint64_t clusters=clusters_for_size(v,size),added=clusters-file->allocated_clusters;
+    uint32_t first=0;bool contiguous=true;
+    if(added && !allocate_clusters(v,added,&first,&contiguous))return APPEND_FAILED;
+    /* Convert only the allocation links; a NoFatChain old stream still ignores
+     * them until its final stream record publishes the new FAT-backed extent. */
+    if(added && contiguous)for(uint64_t i=0;i+1<added;i++)
+        if(!write_fat_entry(v,first+(uint32_t)i,first+(uint32_t)i+1))return APPEND_FAILED;
+    if(added && file->no_fat_chain)for(uint64_t i=0;i+1<file->allocated_clusters;i++)
+        if(!write_fat_entry(v,file->first_cluster+(uint32_t)i,file->first_cluster+(uint32_t)i+1))return APPEND_FAILED;
+    uint64_t done=file->size,within=done%v->cluster_size;
+    uint32_t cluster=within?last:first;bool old_tail=within!=0;
+    enum exfat_io_phase phase=v->io_phase;v->io_phase=EXFAT_IO_DATA;
+    while(done<size) {
+        uint64_t offset,bytes=v->cluster_size-within;if(bytes>size-done)bytes=size-done;
+        if(!cluster_offset(v,cluster,&offset) || !volume_write(v,offset+within,data+done,bytes)) {
+            v->io_phase=phase;return APPEND_FAILED;
+        }
+        done+=bytes;within=0;
+        if(done<size) {
+            if(old_tail){cluster=first;old_tail=false;}
+            else if(contiguous)cluster++;
+            else if(!next_cluster(v,cluster,&cluster) || cluster>=EXFAT_FAT_CHAIN_END){v->io_phase=phase;return APPEND_FAILED;}
+        }
+    }
+    v->io_phase=phase;
+    if(!volume_flush(v))return APPEND_FAILED;
+    if(added && (!write_fat_entry(v,last,first) || !volume_flush(v)))return APPEND_FAILED;
+    uint64_t old_clusters=file->allocated_clusters;bool old_contiguous=file->no_fat_chain;
+    file->allocated_clusters=clusters;if(added)file->no_fat_chain=false;
+    if(!update_file_length(file,path,size)) {
+        file->allocated_clusters=old_clusters;file->no_fat_chain=old_contiguous;return APPEND_FAILED;
+    }
+    if(!volume_flush(v) || !exfat_metadata_changed(path,NULL))return APPEND_FAILED;
+    return APPEND_OK;
+#endif
+}
+
 static bool overwrite_file(const char *path, const uint8_t *data, uint64_t size) {
     struct exfat_file *file = find_file(path);
     if (file == NULL || file->volume->image != NULL) {
@@ -1868,6 +1944,9 @@ static bool overwrite_file(const char *path, const uint8_t *data, uint64_t size)
         if (!volume_flush(file->volume)) return false;
         return free_file_clusters(&old) && exfat_metadata_changed(path, NULL);
     }
+
+    enum append_result appended=append_file(file,path,data,size);
+    if(appended!=APPEND_FALLBACK)return appended==APPEND_OK;
 
     /* Always write replacement data into new clusters. In-place overwrite
      * destroys the old contents before the directory update can be published. */
