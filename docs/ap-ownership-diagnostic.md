@@ -500,3 +500,45 @@ verified byte overlap and allow full-stream diagnostic review, but reconstructio
 is not a substitute for the existing exit-only acceptance requirement. Do not
 increase the tail, suppress failures or relax strict parsers to accept this run.
 See the unit record's November 1 closeout for the exact session and hashes.
+
+
+### Final-only CPU and AP acceptance receipts
+
+The CPU-load diagnostic now retains three fixed-size records of completed
+phase start/end, work chunks and checksum. Live one-second progress and phase
+completion remain visible under `cpu-load-progress` where applicable. Only after
+all three phases and original safety checks succeed does it emit the existing
+`cpu-load` version/phase receipts once, using retained sampling times rather
+than reporting time. Refusal or stop keeps its original failure marker and
+partial progress and emits no successful phase receipt set.
+
+AP startup similarly freezes the validated VM/native, CPU count, BSP, mask and
+MONITOR method before publishing startup. It emits live `ap-owner-progress`,
+then the original admission header once at retirement before actual per-CPU
+results. Failed retirement remains failed; the header describes admission and
+never implies success. AP assembly, polling, ownership, limits and failure paths
+are unchanged. Strict legacy parsers are unchanged and still reject progress
+without full final receipts, duplicate/malformed data and all prior failures.
+
+This places the original proofs alongside already-deferred power/idle and
+C3/package/platform reports. It leaves the shared logger, worker/I/O-owner
+output, 64 KiB tail, timing, workload, hardware access and RC6 predicate intact.
+`check_cpu_capture_tail.py` verifies exact logger/scheduler source fingerprints
+against a named trace revision before replay. Its optional final-layout model
+moves only existing records and is explicitly synthetic, never physical
+acceptance. The failed November 1 stream is the local integration fixture:
+old exit coverage fails; final placement preserves all critical record bytes,
+with 128 KiB extra pre-final chatter and 29,813 bytes of conservative receipt
+width/capacity padding. Retained samples, rows and all original strict checks
+remain required. Negative fixtures preserve failures. Repeat the regression
+when logging source changes instead of assuming an older trace is representative.
+
+```sh
+make test-cpu-receipt-tail
+python3 tools/check_cpu_capture_tail.py --log PATH_TO_FULL_TRACE   --log-source-ref TRACE_SOURCE --model-final-layout --output REPLAY_RESULT_JSON
+```
+
+Use modeling only for regression evidence. A native retry must pass its original
+exit-file checks directly, without replay or joining periodic files. Keep the
+independent RC6 failure separate from receipt coverage. Progress, samples and
+collector errors must survive a failed retry; no acceptance limit is relaxed.

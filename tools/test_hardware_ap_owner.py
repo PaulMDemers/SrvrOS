@@ -8,6 +8,11 @@ class APTests(unittest.TestCase):
         return s+'ap-owner: completed=yes retired=yes memory=retained policy_writes=0\n'
     def test_good(self):
         self.assertEqual(ap_owner_result(self.fixture())['cpus'],4)
+    def test_progress_cannot_replace_admission(self):
+        full=self.fixture();head=full.splitlines(keepends=True)[0]
+        progress=head.replace('ap-owner:','ap-owner-progress:',1)
+        self.assertIsNone(ap_owner_result(full.replace(head,progress)))
+        self.assertIsNotNone(ap_owner_result(progress+full))
     def test_bad(self):
         for a,b in [('cpus=4','cpus=5'),('mask=15','mask=7'),('seen=1','seen=2'),('signature=263761','signature=263760'),('rounds=32 max','rounds=31 max'),('ready_us=100','ready_us=20001'),('max_us=2 ','max_us=20001 '),('retire_us=3','retire_us=20001'),('state=2','state=1'),('fault=0','fault=1'),('waits=32','waits=0'),('completed=yes','completed=NO'),('policy_writes=0','policy_writes=1'),('method=monitor-c1','method=pause')]:
             with self.subTest(a=a):self.assertIsNone(ap_owner_result(self.fixture().replace(a,b)))

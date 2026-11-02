@@ -1,10 +1,18 @@
 #include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdarg.h>
+#include <string.h>
 #include <srvros/sys.h>
 int cpu_load_capture(void);
 static long now;
 static int scenario,reads;
+static unsigned phase_receipts,headers;
+int cpu_load_test_printf(const char *fmt,...) {
+    if(!strncmp(fmt,"cpu-load: phase=",15) && strstr(fmt," completed=yes")) {assert(now>=90000000);phase_receipts++;}
+    if(!strncmp(fmt,"cpu-load: version=",18)) {assert(now>=90000000);headers++;}
+    va_list ap;va_start(ap,fmt);int n=vprintf(fmt,ap);va_end(ap);return n;
+}
 long srv_monotonic_us(void) {
     if(scenario==8) return 0;
     if(scenario==9 && now>1000000) return -1;
@@ -35,11 +43,11 @@ long srv_smc_status(struct srv_smc_status *s) {
 }
 int main(void) {
     for(scenario=0;scenario<=13;scenario++) {
-        now=0;reads=0;
+        now=0;reads=0;phase_receipts=0;headers=0;
         int rc=cpu_load_capture();
         assert(rc==((scenario==0 || scenario==13)?0:1));
-        if(!rc) assert(now>=90000000 && reads>=900);
-        else assert(now<90000000);
+        if(!rc) assert(now>=90000000 && reads>=900 && phase_receipts==3 && headers==1);
+        else assert(now<90000000 && !phase_receipts && !headers);
     }
     puts("cpu-load fixtures: PASS normal Air/Pro completion and 12 refusal/stop paths");
 }
