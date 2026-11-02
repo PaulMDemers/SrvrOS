@@ -14,8 +14,9 @@ Native evidence accepts the bounded empty-cache desktop, trackpad, unplug
 retirement and automatic return, plus fixed5GHz band selection and four-word
 restoration. It does not accept populated discovery, live reattach/rescan,
 association/security or an active Wi-Fi IP provider. Current work targets
-channel161/20MHz: the explicit v110 candidate adds fixed frequency fields with
-independent13-word selection/restoration checks and awaits native evidence.
+channel161/20MHz: native v110 accepts fixed frequency fields with independent
+13-word selection/restoration checks. The next profile reads all24 high-band
+RF originals before a separate table-write/restore contract is added.
 5GHz bandwidth/baseband/calibration and receiver startup remain pending. Ordinary startup
 leaves diagnostic radio operations disabled. Dated milestones below are history
 and must not be used to reinstate the withdrawn band assumption.
@@ -31,13 +32,14 @@ fixed MCU commands with guards around each exchange, a separate readback pass,
 exact proof validation, bounded cancellation and no replay. It exposes no
 caller-selected register/value or automatic 2GHz fallback.
 
-This is an offline foundation with no native caller. It does not apply the two
-MAC band words, tune channel161, perform calibration, start RX/TX or restore a
-previous hardware state. A complete readback proof establishes only this RF
-command sequence, not a usable radio. Native wiring must add a model-bound
-one-shot owner, prerequisite inventory, source-bound capture and cleanup;
-ordinary startup remains unchanged. Run `make test-mt76-rf-band5g` for fixture,
-transport mutation, cancellation and proof checks.
+The standalone engine performs only fixed RF-table/selector operations. The
+explicit v109 transaction supplies the captured-model native owner, prerequisite
+inventory, MAC band words, independent readback and reverse restoration;
+that bounded cold transaction is accepted on Pro11,2. Frequency programming
+and its restoration are separately accepted in v110. Neither result establishes
+RF lock, calibration or a usable receiver. Ordinary startup remains unchanged.
+Run `make test-mt76-rf-band5g` for fixture, transport mutation, cancellation
+and proof checks.
 
 ## 5GHz MAC band-word foundation
 
@@ -51,11 +53,11 @@ each word. Cancellation and failure stop the one-shot sequence without replay.
 A completed record must contain both exact readbacks and the matching guard
 and operation counts; legacy2GHz write data/records cannot substitute.
 
-The original zero-before requirement is preserved for both words. It has not
-been accepted as a cold5GHz reset state; a native prerequisite capture must
-establish that before using this helper. Existing MAC-disabled and DMA-idle
+The original zero-before requirement is preserved for both words. Matched
+v108 inventory and the v109 cold transaction establish that tuple after the
+same common initialization on this unit; this is not a generic reset promise. Existing MAC-disabled and DMA-idle
 checks remain unchanged, including the DMA guard's allowed upper bits. This
-helper has no native caller and adds no RF enable, receiver, automatic restore
+helper is used only by the explicit captured-owner transaction; it adds no RF enable, receiver, automatic restore
 or transaction rollback. Native integration must own partial-write cleanup and
 source-bound evidence. Bandwidth, channel161 baseband/calibration and native
 receive/discovery remain pending.
@@ -163,6 +165,28 @@ or incomplete cleanup stays failed with retained transport ownership. No VCO
 pulse, PA/attenuation policy, receive, authentication or network frames are added.
 Writing and reading frequency fields alone is not RF lock or connectivity proof.
 This profile still needs a cold adapter cycle, using shutdown for the unplug.
+
+## Read-only high-band originals (v111)
+
+The explicit `--wifi-a20-inventory` automatic profile requires the complete
+v110 channel161 transaction and17-word restoration. It then reads all24 fixed
+RF targets from the pinned A20 high-band/20MHz table, each with MAC/core/DMA
+guards and exact MCU command/response identity. No new RF write or network frame
+is admitted. A static one-shot owner ties each callback to the same device,
+completed channel/restoration proof and submitted count. Byte values are
+observations, not assumed reset values or channel readiness. Some targets are
+absent from the common initialization tables; capture them before selecting a
+fixed admission/restore policy. Cancellation or incomplete evidence stays failed.
+All168 read/guard operations,169 authorization points, response/proof mutations
+and no-replay paths are host-tested; the strict saved-log proof also requires
+the entire earlier initialization and channel161 restoration prefix. Cold-cycle
+setup uses shutdown; results and return are automatic. No credentials are used.
+
+The preceding v110 native session `session-00065f51cc726e7c-00`, release
+`960af51da95c68fd` / source `ff5b4c65`, passes the complete403219-byte
+channel161/17-word-restoration proof, source/session/recovery and clean storage
+checks. It accepts those frequency-field operations only. RF lock,5GHz
+bandwidth/baseband/calibration, reception and connectivity remain unaccepted.
 
 ## Captured baseline
 

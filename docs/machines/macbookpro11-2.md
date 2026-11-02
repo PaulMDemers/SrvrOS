@@ -12,15 +12,16 @@ The captured EW-7711MAC `7392:a711`/`0100` is **5GHz-only**; see the
 mistaken for assembled-model capability. Historical2.4GHz packet/USB traces do
 not establish2.4GHz RF support. Do not repeat the withdrawn v107 trial.
 
-Latest native v109 cold retry `4b58af1abfdc0fb5`, runtime `ecae82b5`,
-main `c9235491`, accepts fixed5GHz band selection/readback and four-word
-restoration only. Session `session-00065f515e665434-00` has a complete309453-byte
-prefix, full common-init proof, all771 ordered I/O receipts and final original
-seven-word tuple. Both MAC band words and RF selectors are independently
-restored. Matching release/source, clean save/return, offline allocation/fsck
-and all installed/recovery bytes pass. Durable retry archive is separate from
-the failed warm run; no frequency, reception or connectivity acceptance.
-Ubuntu is default, workspace unmounted and no reboot is armed.
+Latest native v110 `960af51da95c68fd`, runtime `ff5b4c65`, main `c9235491`,
+accepts fixed channel161 frequency-field programming/readback and17-word
+restoration, in addition to v109 band selection. Matching session
+`session-00065f51cc726e7c-00` has a complete403219-byte prefix, full common-init
+proof, all1667 ordered operations and independently restored original RF/MAC
+words. Source/release/session, clean save/return, offline allocation/fsck and
+all installed/recovery bytes pass. Durable archive `wifi-5ghz-synth-ff5b4c65`
+is separate from the failed warm run. No VCO/RF lock, reception, authentication
+or connectivity acceptance is added. Ubuntu remains default; the matching run
+is collected and unarmed. The next bounded inventory is described below.
 
 The preceding warm session `session-00065f50a0330abf-00` remains FAILED before
 firmware preparation: first0730 read1, already-running MCU refusal. Cold adapter
@@ -36,6 +37,39 @@ power cycle; do not repeat a warm boot against its already-running MCU. Demers5 
 compatible hardware. Local credentials remain private and unused until the
 security stage. Do not report connection-ready until authentication, data
 exchange and clean disconnect actually pass.
+
+## Ready native candidate — complete read-only A20 originals
+
+Installed v111 `25cfffe9a41b7e9e`, source `9c132e3c`, main `c9235491`,
+appends168 guarded read-only operations for all24 pinned high-band/20MHz RF
+targets after the complete v110 channel161/17-word restoration transaction.
+All24 originals are absent from the four pinned common RF initialization
+tables; do not invent their reset values. The inventory permits byte-valued
+observations, exact read requests/replies and no replay, not new RF writes,
+VCO, RX, security or network frames. Each callback requires the same static
+owner/device, completed channel/restoration proof and matching submitted count.
+
+Full matched build/USB image/core/docs passes at `9c132e3c`, with202 staging
+groups,168 I/O/169 cancellation boundaries, all byte values, response lengths/
+header/address/trailer/upper-bit and proof mutations, and ASan/UBSan. The
+first compile's formatting refusal is preserved; the corrected source passes
+the full rerun. A424550-byte synthetic whole-prefix proof and exact-stage
+refusal/save/readback/clean-unmount/return and missing-workspace VMs pass.
+The staged kernel and independently firmware-packaged initramfs match exactly;
+new inventory/owner validators are linked and the unused A20 write engine is
+still absent. These are host/VM checks; native v111 evidence is pending.
+
+Ubuntu stays default; e47d remains previous, and accepted v109/v110 payloads
+remain installed and independently backed up. The unreferenced, superseded
+v108 inventory EFI copy was retired only after full equality to its durable
+backup; its accepted evidence and backup survive outside build. The local
+run record owns exact armed state. Shutdown for the required10second Wi-Fi
+unplug while off is authorized; reconnect same port and power on with the
+workspace drive connected. Results/return are automatic. On return collect
+`build/bringup/wifi-a20-inventory/return_collect.py` FIRST; the durable archive
+is `wifi-a20-inventory-9c132e3c`. Require the complete earlier proof and all24
+original observations before constructing a fixed table admission/restore
+contract. Credentials remain unused. Connection-ready is still not accepted.
 
 ## v110 cold channel161 frequency-field transaction accepted
 
