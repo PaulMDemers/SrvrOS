@@ -355,3 +355,12 @@ PM timer measurement. Residency below elapsed time cannot exclude a small
 counter-scale discrepancy when GPU activity or other counter semantics could
 hide it. Compare named captures without promoting this host observation to
 native SrvrOS acceptance.
+
+
+Air6,1's November 1 Linux comparison retained 28 samples across three 90-second
+passive windows: RC6 residency was 43.73/34.97/40.67%, with no elapsed-time
+excess. That lower residency cannot resolve the earlier SrvrOS near-100%
+counter mismatch. Separate Ubuntu package counters observed C3 at 13.23–14.41%,
+confirming this unit can enter package C3 under Linux's policies/device state.
+Neither observation changes the SrvrOS acceptance predicate or identifies a
+causal blocker; the unit record preserves the full comparison limits.
