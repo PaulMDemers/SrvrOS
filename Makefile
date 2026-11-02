@@ -4654,3 +4654,16 @@ test-wifi-a20-inventory-log:
 test-core: test-cpu-capture-format
 test-cpu-capture-format:
 	$(PYTHON) -m unittest discover -s tools -p test_cpu_capture_format.py
+
+.PHONY: test-mt76-a20-cycle
+test-core: test-mt76-a20-cycle
+test-mt76-a20-cycle: build/tests/mt76-a20-cycle-host$(HOST_EXE)
+	$(HOST_RUN) $< tools/fixtures/mt7610-5ghz-a20-hb.bin
+build/tests/mt76-a20-cycle-host$(HOST_EXE): tools/test_mt76_a20_cycle.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-wifi-a20-cycle-log
+test-core: test-wifi-a20-cycle-log
+test-wifi-a20-cycle-log:
+	$(PYTHON) -m unittest discover -s tools -p test_wifi_a20_cycle_log.py

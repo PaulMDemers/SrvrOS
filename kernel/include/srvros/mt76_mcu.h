@@ -559,6 +559,17 @@ bool mt76_a20_inventory_admit(const struct mt76_rf_table *s,unsigned operation);
 size_t mt76_a20_inventory_packet(const struct mt76_rf_table *s,unsigned operation,uint8_t *out,size_t capacity);
 enum mt76_mcu_timing_status mt76_a20_inventory_capture(struct mt76_rf_table *s,const struct mt76_mcu_timing_io *io);
 bool mt76_a20_inventory_valid(const struct mt76_rf_table *s);
+/* Exact v111 original gate, fixed A20 table, independent read/reverse/verify. */
+unsigned mt76_a20_cycle_initial(unsigned index);
+unsigned mt76_a20_cycle_target(unsigned command);
+bool mt76_a20_cycle_write(unsigned command);
+unsigned mt76_a20_cycle_expected(unsigned command);
+unsigned mt76_a20_cycle_sequence(unsigned command);
+uint32_t mt76_a20_cycle_guard_address(unsigned operation);
+bool mt76_a20_cycle_admit(const struct mt76_rf_table *s,unsigned operation);
+size_t mt76_a20_cycle_packet(const struct mt76_rf_table *s,unsigned operation,uint8_t *out,size_t capacity);
+enum mt76_mcu_timing_status mt76_a20_cycle_capture(struct mt76_rf_table *s,const struct mt76_mcu_timing_io *io);
+bool mt76_a20_cycle_valid(const struct mt76_rf_table *s);
 unsigned mt76_rf_g20_sequence(unsigned command);
 uint32_t mt76_rf_g20_guard_address(unsigned operation);
 size_t mt76_rf_g20_packet(unsigned operation,uint8_t *out,size_t capacity);
@@ -732,7 +743,7 @@ bool mt76_restore_mac_exact_profile_valid(const struct mt76_band_mac *s);
 /* Fixed channel161 masked fields,13-word snapshots and reverse restoration.
  * Offline engine until an explicit native owner/profile opts in; no VCO/RX. */
 #define MT76_SYNTH5_OPS 896u
-struct mt76_synth5 {bool attempted,complete;unsigned operations,reads,exchanges,writes,observed;int received;uint32_t guards[256][3],words[128][4];};
+struct mt76_synth5 {bool attempted,complete,paused;unsigned operations,reads,exchanges,writes,observed;int received;uint32_t guards[256][3],words[128][4];};
 unsigned mt76_synth5_initial(unsigned index);
 uint32_t mt76_synth5_address(unsigned index);
 unsigned mt76_synth5_step(unsigned index);
@@ -748,16 +759,19 @@ bool mt76_synth5_admit(const struct mt76_synth5 *s,unsigned operation);
 size_t mt76_synth5_packet(const struct mt76_synth5 *s,unsigned operation,uint8_t *out,size_t capacity);
 enum mt76_mcu_timing_status mt76_synth5_capture(struct mt76_synth5 *s,const struct mt76_mcu_timing_io *io);
 bool mt76_synth5_valid(const struct mt76_synth5 *s);
+enum mt76_mcu_timing_status mt76_synth5_with_a20_capture(struct mt76_synth5 *s,struct mt76_rf_table *a20,const struct mt76_mcu_timing_io *io);
 /* Bounded select/verify/restore transaction. Static owner storage is required
  * natively; both fixed I/O interfaces must share one context and authorizer. */
 struct mt76_5ghz_band {
-    bool attempted,complete,restored,channel161;
+    bool attempted,complete,restored,channel161,a20_cycle;
     unsigned phase;
     struct mt76_5ghz_prereq before,selected,original;
     struct mt76_rf_table rf,rf_restore;
     struct mt76_band_mac mac,mac_restore;
     struct mt76_synth5 synth;
+    struct mt76_rf_table a20;
 };
+unsigned mt76_5ghz_band_wire_phase(const struct mt76_5ghz_band *s);
 bool mt76_5ghz_band_owned(const struct mt76_5ghz_band *s);
 unsigned mt76_5ghz_band_operations(const struct mt76_5ghz_band *s);
 bool mt76_5ghz_band_read_valid(const struct mt76_5ghz_band *s,unsigned operation,uint32_t address);
@@ -766,6 +780,7 @@ bool mt76_5ghz_band_transfer_valid(const struct mt76_5ghz_band *s,unsigned opera
 bool mt76_5ghz_band_valid(const struct mt76_5ghz_band *s);
 enum mt76_mcu_timing_status mt76_5ghz_band_capture(struct mt76_5ghz_band *s,const struct mt76_mcu_timing_io *rf,const struct mt76_band_mac_io *mac);
 enum mt76_mcu_timing_status mt76_5ghz_channel_capture(struct mt76_5ghz_band *s,const struct mt76_mcu_timing_io *rf,const struct mt76_band_mac_io *mac);
+enum mt76_mcu_timing_status mt76_5ghz_a20_capture(struct mt76_5ghz_band *s,const struct mt76_mcu_timing_io *rf,const struct mt76_band_mac_io *mac);
 /* Fixed channel1 synthesizer fields in reference order, never an RF-ready claim. */
 struct mt76_synth1 {bool attempted,complete;unsigned operations,reads,exchanges,acks,observed;int received;uint32_t guards[126][3],words[63][4];};
 uint32_t mt76_synth1_address(unsigned index);

@@ -188,6 +188,38 @@ channel161/17-word-restoration proof, source/session/recovery and clean storage
 checks. It accepts those frequency-field operations only. RF lock,5GHz
 bandwidth/baseband/calibration, reception and connectivity remain unaccepted.
 
+## Integrated high-band/20MHz restoration (v112)
+
+Native v111 `25cfffe9a41b7e9e` / `9c132e3c`, matching session
+`session-00065f5262c07486-00`, passes the complete423697-byte common-init,
+channel161/17-word restoration and24-original inventory proof, with clean
+storage/recovery/Ubuntu return. Original A20 bytes in fixture order are
+`00 10 10 00 10 10 8a 00 00 00 00 00 00 00 00 00 00 00 00 00 12 00 00 00`.
+They are exact admission values for this matched cold path, not generic reset
+promises. All24 targets are absent from the four pinned common RF tables.
+
+The new explicit `--wifi-a20-cycle` profile excludes inventory-only mode and
+requires automatic5GHz channel/band/prerequisite capture. The synthesizer
+pauses after its independent13-word selected-state read, retaining selected
+frequency and band. A fixed840-operation subtransaction reads all24 originals
+and requires the entire v111 tuple before writing. It applies the immutable
+24-setting A20 table, independently reads all24 selected words, restores the
+original24 words in reverse order and independently reads all originals.
+Then frequency restoration resumes, followed by band restoration. No caller
+plan or configurable target/value is accepted. Native wire phases8/9/8 keep
+separate submitted counters under one static owner; every request checks the
+matching complete parent or child prefix. Partial failures retain ownership
+and are not acceptance, even if some original values have been restored.
+
+The combined transaction has2507 I/O operations,2517 authorization boundaries
+and41 touched words. Host tests cover every I/O/cancellation point, the original
+gate, fixed fixture, reply/proof mutations, no replay, physical-model selected
+state throughout the table subtransaction and complete reverse restoration.
+The full-prefix checker binds the nested phase between synthesizer operations
+622/623 and requires all earlier common/band/frequency proofs. No PA policy,
+attenuation, VCO pulse, receive, authentication or network frames are added.
+Cold trials require shutdown for the Wi-Fi unplug; results/return are automatic.
+
 ## Captured baseline
 
 USB high speed (480 Mb/s), one configuration, interface 0 / alternate 0,
