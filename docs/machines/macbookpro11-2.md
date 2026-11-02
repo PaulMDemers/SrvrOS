@@ -10989,3 +10989,25 @@ discovery and actual AP channel coverage, then design bounded reattach/rescan.
 Association/security/IP,5GHz and endurance remain pending. Fetched main is now
 `bbbdead1`; this Python-only return-proof correction does not change the installed
 runtime's `e339b9a8` integration baseline.
+
+## 2026-11-01 advertised-channel diagnosis scope
+
+Fresh Linux NetworkManager and a bounded passive US1–11 request did not supply
+an observed2.4GHz baseline; the live Linux USB interface sees the authorized5GHz
+network. Ask whether the2.4GHz network is currently visible elsewhere. These
+Linux observations do not accept native5GHz or prove a native retuning defect.
+The original passive-request report parser rejected a decimal frequency; the
+subsequent sanitized scan dump is retained, without unrelated identifiers.
+
+Consume fetched main `1a0c9085` (optional platform-diagnostic/tool changes since
+`e339b9a8`, no Wi-Fi overlap). PR261 owns desktop/filesystem admission and PR252
+owns DNS/socket work. This bounded scope adds anonymous advertised-channel
+metadata after complete stopped/retained scan ownership, strict full-frame
+validation and copied scalar output only. Touch the RX parser diagnostic helper,
+scan capture/logging, opt-in automatic profile/main dispatch, host tests and
+source-bound saved-log checker. Keep radio frequency operations, channel plan,
+receive budgets, buffer lifetimes and rejection rules unchanged. Preserve all
+existing profiles. The next explicit diagnostic should save results and return
+automatically without opening a desktop or requiring commands/photos. This is
+observation, not live reconnect or security implementation. Verify local/model/
+workspace/recovery, full build and exact-stage save/return before installation.
