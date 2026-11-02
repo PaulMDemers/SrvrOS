@@ -18,10 +18,11 @@
 #include <srvros/smc.h>
 #include <stddef.h>
 #include <stdint.h>
-static char directory[128],path[160],snapshot[65536];
+static char directory[128],path[160],snapshot[BOOTLOG_EXTENDED_CAPTURE_CAPACITY];
+static uint64_t snapshot_limit=BOOTLOG_DEFAULT_CAPACITY;
 static bool enabled,started,busy,healthy;
 static unsigned checkpoint;
-static bool retain_checkpoints;
+static bool retain_checkpoints,wifi_capture_parked;
 static uint64_t due;
 static struct scheduler_wait_queue wake;
 static uint64_t lock(void) {
@@ -116,8 +117,12 @@ static bool save(const char *name) {
     report_save();
     device_checkpoint();
     uint64_t snapshot_us=timer_monotonic_us();
-    console_printf("workspace-log: snapshot=%s monotonic_us=%u total_before=%u tail_limit=65536\n",name,snapshot_us,bootlog_total());
-    uint64_t total,count=bootlog_snapshot(snapshot,sizeof(snapshot),&total),flags;
+    console_printf("workspace-log: snapshot=%s monotonic_us=%u total_before=%u tail_limit=%u\n",name,snapshot_us,bootlog_total(),snapshot_limit);
+    uint64_t total,count=bootlog_snapshot(snapshot,snapshot_limit,&total),flags;
+    if(snapshot_limit>BOOTLOG_DEFAULT_CAPACITY && total!=count) {
+        console_write("workspace-log: SAVE FAILED extended capture prefix lost\n");
+        return false;
+    }
     unsigned at=copy(path,directory);path[at++]='/';copy(path+at,name);
     uint64_t prepared=measured?timer_monotonic_us():0;
     bool tracing=measured && usb_storage_timing_begin();
@@ -175,8 +180,13 @@ static void worker(void *arg) {
         due=timer_ticks()+1000;busy=false;scheduler_wake_all(&wake);
     }
 }
-static bool start_log(bool retain) {
-    if(enabled || busy || !workspace_active()) return false;
+static bool start(uint64_t limit,bool retain) {
+    if(enabled || busy || wifi_capture_parked || !workspace_active()) return false;
+    if(limit>BOOTLOG_DEFAULT_CAPACITY && !bootlog_extend_capture_to(limit)) {
+        console_write("workspace-log: REFUSED extended capture prefix lost\n");
+        return false;
+    }
+    snapshot_limit=limit;
     (void)scheduler_io_observe_reset();
     uint64_t flags;if(!begin(&flags)) return false;
     static const char parent[]="/work/srvros-work/Logs";
@@ -207,8 +217,11 @@ static bool start_log(bool retain) {
     if(!started) console_write("workspace-log: worker unavailable; boot/exit snapshots only\n");
     return started;
 }
-bool workspace_log_start(void) { return start_log(false); }
-bool workspace_log_start_capture(void) { return start_log(true); }
+bool workspace_log_start(void) { return start(BOOTLOG_DEFAULT_CAPACITY,false); }
+bool workspace_log_start_capture(void) { return start(BOOTLOG_CAPTURE_CAPACITY,false); }
+bool workspace_log_start_large_capture(void) { return start(BOOTLOG_LARGE_CAPTURE_CAPACITY,false); }
+bool workspace_log_start_full_capture(void) { return start(BOOTLOG_FULL_CAPTURE_CAPACITY,false); }
+bool workspace_log_start_checkpoints(void) { return start(BOOTLOG_DEFAULT_CAPACITY,true); }
 bool workspace_log_active(void) { return enabled || busy; }
 bool workspace_log_quiesce(uint64_t timeout_ms) {
     enabled=false;scheduler_wake_all(&wake);
@@ -227,6 +240,7 @@ bool workspace_log_stop(void) {
     if(!directory[0] || !workspace_active()) return false;
     bool ok=save("exit.log");
     console_printf("workspace-log: final=%s directory=%s\n",ok?"saved":"FAILED",directory);
+    wifi_capture_parked=false;
     return ok && healthy;
 }
 bool workspace_log_pause(void) {
@@ -296,4 +310,30 @@ bool workspace_storage_wait_capture(void) {
     console_printf("storage-wait: complete=%s samples=%u restored=%s elapsed_us=%u\n",
         ok&&completed==18&&restored?"yes":"NO",(uint64_t)completed,restored?"yes":"NO",timer_monotonic_us()-start);
     return ok && completed==18 && restored;
+}
+
+bool workspace_log_start_extended_capture(void) { return start(BOOTLOG_EXTENDED_CAPTURE_CAPACITY,false); }
+
+bool workspace_log_begin_wifi_capture(void) {
+    if(!enabled || wifi_capture_parked || !healthy ||
+       snapshot_limit!=BOOTLOG_EXTENDED_CAPTURE_CAPACITY || retain_checkpoints ||
+       !directory[0] || !workspace_active())return false;
+    if(!workspace_log_quiesce(5000))return false;
+    healthy=save("session-a.log") && healthy;
+    if(!healthy)return false;
+    wifi_capture_parked=true;
+    console_write("workspace-log: phase=wifi-radio periodic=paused tail_limit=1048576\n");
+    return true;
+}
+
+bool workspace_log_begin_wifi_desktop(void) {
+    if((!enabled && !wifi_capture_parked) || !healthy || snapshot_limit!=BOOTLOG_EXTENDED_CAPTURE_CAPACITY ||
+       retain_checkpoints || !directory[0] || !workspace_active())return false;
+    if(!workspace_log_quiesce(5000))return false;
+    if(!save("wifi-scan.log")){healthy=false;return false;}
+    snapshot_limit=BOOTLOG_DEFAULT_CAPACITY;
+    console_write("workspace-log: phase=wifi-desktop startup_saved=1 tail_limit=65536\n");
+    healthy=save("wifi-ui-begin.log") && healthy;
+    if(!healthy)return false;
+    wifi_capture_parked=false;enabled=true;due=timer_ticks()+1000;scheduler_wake_all(&wake);return true;
 }

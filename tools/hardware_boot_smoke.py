@@ -163,6 +163,11 @@ def main():
     keyboard_retry=bool(probe and manifest["config_version"].startswith("ram-usb-v28-"))
     keyboard_negative=args.keyboard_timeout or (args.keyboard_fail and not keyboard_retry)
     if keyboard_negative and not keyboard_capture: parser.error("--keyboard-fail requires keyboard capture")
+    wifi_firmware=bool(probe and manifest["config_version"].startswith(("ram-usb-wifi-fw-v1-","ram-usb-wifi-fw-v2-","ram-usb-wifi-fw-v3-","ram-usb-wifi-fw-v4-","ram-usb-wifi-fw-v5-","ram-usb-wifi-fw-v6-","ram-usb-wifi-fw-v7-","ram-usb-wifi-fw-v8-","ram-usb-wifi-fw-v9-","ram-usb-wifi-fw-v10-","ram-usb-wifi-fw-v11-","ram-usb-wifi-fw-v12-","ram-usb-wifi-fw-v13-","ram-usb-wifi-fw-v14-","ram-usb-wifi-fw-v15-","ram-usb-wifi-fw-v16-","ram-usb-wifi-fw-v17-","ram-usb-wifi-fw-v18-","ram-usb-wifi-fw-v19-","ram-usb-wifi-fw-v20-","ram-usb-wifi-fw-v21-","ram-usb-wifi-fw-v22-","ram-usb-wifi-fw-v23-","ram-usb-wifi-fw-v24-","ram-usb-wifi-fw-v25-","ram-usb-wifi-fw-v26-","ram-usb-wifi-fw-v27-","ram-usb-wifi-fw-v28-","ram-usb-wifi-fw-v29-","ram-usb-wifi-fw-v30-","ram-usb-wifi-fw-v31-","ram-usb-wifi-fw-v32-","ram-usb-wifi-fw-v33-","ram-usb-wifi-fw-v34-","ram-usb-wifi-fw-v35-","ram-usb-wifi-fw-v36-","ram-usb-wifi-fw-v37-","ram-usb-wifi-fw-v38-","ram-usb-wifi-fw-v39-","ram-usb-wifi-fw-v40-","ram-usb-wifi-fw-v41-","ram-usb-wifi-fw-v42-","ram-usb-wifi-fw-v43-","ram-usb-wifi-fw-v44-","ram-usb-wifi-fw-v45-","ram-usb-wifi-fw-v46-","ram-usb-wifi-fw-v47-","ram-usb-wifi-fw-v48-","ram-usb-wifi-fw-v49-","ram-usb-wifi-fw-v50-","ram-usb-wifi-fw-v51-","ram-usb-wifi-fw-v52-","ram-usb-wifi-fw-v53-","ram-usb-wifi-fw-v54-","ram-usb-wifi-fw-v55-","ram-usb-wifi-fw-v56-","ram-usb-wifi-fw-v57-","ram-usb-wifi-fw-v58-","ram-usb-wifi-fw-v59-","ram-usb-wifi-fw-v60-","ram-usb-wifi-fw-v61-","ram-usb-wifi-fw-v62-","ram-usb-wifi-fw-v63-","ram-usb-wifi-fw-v64-","ram-usb-wifi-fw-v65-","ram-usb-wifi-fw-v66-","ram-usb-wifi-fw-v67-", "ram-usb-wifi-fw-v68-", "ram-usb-wifi-fw-v69-", "ram-usb-wifi-fw-v70-", "ram-usb-wifi-fw-v71-","ram-usb-wifi-fw-v72-","ram-usb-wifi-fw-v73-","ram-usb-wifi-fw-v74-","ram-usb-wifi-fw-v75-","ram-usb-wifi-fw-v76-","ram-usb-wifi-fw-v77-","ram-usb-wifi-fw-v78-","ram-usb-wifi-fw-v79-","ram-usb-wifi-fw-v80-","ram-usb-wifi-fw-v81-","ram-usb-wifi-fw-v82-","ram-usb-wifi-fw-v83-","ram-usb-wifi-fw-v84-","ram-usb-wifi-fw-v85-","ram-usb-wifi-fw-v86-","ram-usb-wifi-fw-v87-","ram-usb-wifi-fw-v88-","ram-usb-wifi-fw-v89-","ram-usb-wifi-fw-v90-","ram-usb-wifi-fw-v91-","ram-usb-wifi-fw-v92-","ram-usb-wifi-fw-v93-","ram-usb-wifi-fw-v94-","ram-usb-wifi-fw-v95-","ram-usb-wifi-fw-v96-","ram-usb-wifi-fw-v97-","ram-usb-wifi-fw-v98-","ram-usb-wifi-fw-v99-","ram-usb-wifi-fw-v100-","ram-usb-wifi-fw-v101-","ram-usb-wifi-fw-v102-")))
+    wifi_ui_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-wifi-fw-v103-","ram-usb-wifi-fw-v104-","ram-usb-wifi-fw-v105-","ram-usb-wifi-fw-v106-")))
+    wifi_firmware=wifi_firmware or wifi_ui_capture
+    wifi_calibration=bool(probe and "srvros.capture=wifi-calibration" in (source/"limine.conf").read_text())
+    wifi_capture=wifi_firmware or wifi_calibration or bool(probe and manifest["config_version"].startswith("ram-usb-v39-"))
     ap_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v1-ap-owner-"))
     coord_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v1-ap-c3-","ram-usb-v1-ap-package-","ram-usb-v1-ap-platform-")))
     if args.ap_c3_sim and not coord_capture: parser.error("C3 simulation requires coordinated diagnostic stage")
@@ -187,14 +192,14 @@ def main():
     battery_smbus_files=bool(probe and manifest["config_version"].startswith(("ram-usb-v47-","ram-usb-v64-")))
     battery_smbus=bool(probe and manifest["config_version"].startswith(("ram-usb-v46-","ram-usb-v62-")))
     battery_query=bool(probe and manifest["config_version"].startswith("ram-usb-v45-"))
-    battery_controls=bool(probe and manifest["config_version"].startswith("ram-usb-v44-"))
-    battery_app_files=bool(probe and manifest["config_version"].startswith("ram-usb-v43-"))
+    battery_controls=bool(probe and not wifi_calibration and manifest["config_version"].startswith("ram-usb-v44-"))
+    battery_app_files=bool(probe and "srvros.capture=battery-app-files" in (source/"limine.conf").read_text())
     battery_load=bool(probe and manifest["config_version"].startswith("ram-usb-v42-"))
     battery_text=bool(probe and manifest["config_version"].startswith("ram-usb-v41-"))
     battery_desktop=bool(probe and manifest["config_version"].startswith("ram-usb-v40-"))
     battery_service=bool(probe and manifest["config_version"].startswith(("ram-usb-v33-","ram-usb-v34-","ram-usb-v36-","ram-usb-v38-")))
     battery_transitions=bool(probe and manifest["config_version"].startswith("ram-usb-v32-"))
-    battery_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v31-","ram-usb-v32-","ram-usb-v33-","ram-usb-v34-","ram-usb-v36-","ram-usb-v38-","ram-usb-v40-","ram-usb-v41-","ram-usb-v42-","ram-usb-v43-","ram-usb-v44-","ram-usb-v45-","ram-usb-v46-","ram-usb-v47-","ram-usb-v48-","ram-usb-v49-","ram-usb-v51-","ram-usb-v52-","ram-usb-v61-","ram-usb-v62-","ram-usb-v63-","ram-usb-v64-","ram-usb-v65-","ram-usb-v66-","ram-usb-v67-","ram-usb-v68-","ram-usb-v69-")))
+    battery_capture=bool(probe and not wifi_calibration and manifest["config_version"].startswith(("ram-usb-v31-","ram-usb-v32-","ram-usb-v33-","ram-usb-v34-","ram-usb-v36-","ram-usb-v38-","ram-usb-v40-","ram-usb-v41-","ram-usb-v42-","ram-usb-v43-","ram-usb-v44-","ram-usb-v45-","ram-usb-v46-","ram-usb-v47-","ram-usb-v48-","ram-usb-v49-","ram-usb-v51-","ram-usb-v52-","ram-usb-v61-","ram-usb-v62-","ram-usb-v63-","ram-usb-v64-","ram-usb-v65-","ram-usb-v66-","ram-usb-v67-","ram-usb-v68-","ram-usb-v69-")))
     battery_filesystem=battery_smbus_files or battery_app_files or battery_load or bool(probe and manifest["config_version"].startswith("ram-usb-v38-"))
     battery_usb_write=bool(probe and manifest["config_version"].startswith("ram-usb-v36-"))
     battery_marker="battery-smbus-transitions-capture" if battery_smbus_transitions else "battery-home-work-capture" if battery_home_work else "battery-home-transitions-capture" if battery_home_transitions else "battery-home-desktop-capture" if battery_home_desktop else "battery-home-session-capture" if battery_home_session else "battery-home-capture" if battery_home else "battery-smbus-files-capture" if battery_smbus_files else "battery-smbus-capture" if battery_smbus else "battery-query-capture" if battery_query else "battery-controls-capture" if battery_controls else "battery-app-files-capture" if battery_app_files else "battery-load-capture" if battery_load else "battery-text-capture" if battery_text else "battery-desktop-capture" if battery_desktop else "battery-service-capture" if battery_service else "battery-transition-capture" if battery_transitions else "battery-capture"
@@ -322,6 +327,9 @@ def main():
                             time.sleep(2)
                             assert process.poll() is None and "laptop-capture: returning" not in text
                         assert "laptop-capture: saved=NO unmounted=NO" in text
+                        if wifi_firmware and not auto_return:
+                            assert "wifi-held: logging=0" in text
+                            assert "Hold the power button until off" in text
                         print(f"laptop-probe-smoke: PASS ({release}); missing workspace " + ("returns without starting probe" if auto_return else "halts without reboot"))
                         return
                     if keyboard_capture:
@@ -369,11 +377,19 @@ def main():
                             assert "laptop-capture: returning" not in text
                             from desktop_foundation_smoke import QMP
                             ui=QMP(qmp_path);ui.call("quit");process.wait(timeout=10)
+                    elif wifi_firmware and not auto_return:
+                        text=wait_for(serial,lambda s:"laptop-capture: HALTED" in s,process,args.boot_wait)
+                        assert "laptop-capture: saved=yes unmounted=yes" in text
+                        assert "wifi-held: logging=1" in text
+                        assert "Hold the power button until off" in text
+                        assert "laptop-capture: returning" not in text and process.poll() is None
+                        from desktop_foundation_smoke import QMP
+                        ui=QMP(qmp_path);ui.call("quit");process.wait(timeout=10)
                     else:
                         text=wait_for(serial,lambda s:"laptop-capture: returning to Ubuntu" in s,process,args.boot_wait)
                         assert "laptop-capture: saved=yes unmounted=yes" in text
                     if battery_preflight: assert "battery-preflight: REFUSED identity/resources; no register access" in text
-                    elif not (idle_capture or aml_capture or desktop_idle_capture or battery_capture or cpu_load_capture or posix_capture or ap_capture): assert "laptop-probe: unsupported chipset; no register access" in text
+                    elif not (idle_capture or aml_capture or desktop_idle_capture or battery_capture or cpu_load_capture or wifi_capture or posix_capture or ap_capture): assert "laptop-probe: unsupported chipset; no register access" in text
                     if keyboard_retry and args.keyboard_fail: assert "keyboard-test: retries=10" in text
                     if keyboard_retry and args.keyboard_timeout: assert "keyboard-test: timeout step=1 limit_seconds=90" in text
                     if keyboard_capture:
@@ -400,7 +416,7 @@ def main():
                         assert release.encode() in contents
                         if keyboard_capture and filename=="exit.log":
                             assert (b"keyboard-test: result=FAIL passed=0" if keyboard_negative else b"keyboard-test: result=PASS passed=10") in contents
-                        if not (idle_capture or aml_capture or desktop_idle_capture or battery_capture or cpu_load_capture or posix_capture or ap_capture):
+                        if not (idle_capture or aml_capture or desktop_idle_capture or battery_capture or cpu_load_capture or wifi_capture or posix_capture or ap_capture):
                             assert (b"battery-preflight: REFUSED identity/resources; no register access" if battery_preflight else b"laptop-probe: unsupported chipset") in contents
                             assert b"USB INPUT DIAGNOSTIC" in contents
                             assert b"xhci: vendor=" in contents
@@ -408,6 +424,21 @@ def main():
                             assert b"Expected internal keyboard: 05ac:0291" not in contents
                         (logs/("laptop-capture-"+filename)).write_bytes(contents)
                     assert b"laptop-capture: diagnostics collected" in stored.read(folder+"/exit.log")
+                    if wifi_capture:
+                        exit_log=stored.read(folder+"/exit.log")
+                        if wifi_ui_capture:
+                            assert b"wifi-ui-capture: admitted=0" in exit_log
+                            assert b"wifi-ui-capture: opening Help" not in exit_log
+                        if wifi_firmware:
+                            assert b"wifi-firmware-capture: completed=NO" in exit_log
+                            assert b"wifi-firmware: slot=" not in exit_log
+                        if wifi_calibration:
+                            assert b"wifi-calibration-capture: completed=NO" in exit_log
+                            assert b"wifi-calibration-data:" not in exit_log
+                        assert b"wifi-capture: identity=unavailable; connectivity NOT_TESTED" in exit_log
+                        assert b"laptop-capture: completed=NO" in exit_log
+                        assert b"srvros.usb-wifi=probe" in exit_log
+                        assert b"srvros.aml=probe" not in exit_log
                     if ap_capture:
                         from hardware_ap_owner import ap_owner_result
                         exit_log=stored.read(folder+"/exit.log").decode()
@@ -535,10 +566,10 @@ def main():
                     (logs/"hardware-grub-result.json").write_text(json.dumps({
                         "status":"PASS","release":release,"manifest_sha256":boot.digest(source/"manifest.json"),
                         "battery_home_work":battery_home_work,"battery_home_transitions":battery_home_transitions,"battery_home_desktop":battery_home_desktop,"battery_home_session":battery_home_session,"battery_home":battery_home,"battery_smbus_files":battery_smbus_files,"battery_smbus":battery_smbus,"battery_smbus_transitions":battery_smbus_transitions,"battery_query":battery_query,"battery_controls":battery_controls,"battery_app_files":battery_app_files,"battery_load":battery_load,"battery_text":battery_text,"battery_desktop":battery_desktop,"battery_capture":battery_capture,"battery_transitions":battery_transitions,"battery_service":battery_service,"battery_filesystem":battery_filesystem,"return_on_failure":auto_return,"battery_outcome":"expected platform refusal" if battery_capture else "not requested",
-                        "ap_c3_sim":args.ap_c3_sim,"coord_capture":coord_capture,"ap_capture":ap_capture,"ap_cpus":args.ap_cpus if (ap_capture or coord_capture) else None,"ap_inject":args.ap_inject,"probe":True,"posix_capture":posix_capture,"probe_network":args.probe_network,"storage_wait_capture":storage_wait_capture,"battery_preflight":battery_preflight,"preflight_outcome":"expected identity refusal" if battery_preflight else "not requested","cpu_load_capture":cpu_load_capture,"load_result":"refused in VM" if cpu_load_capture else "not requested","power_telemetry":power_telemetry,"power_measurement":"unavailable in VM" if power_telemetry else "not requested","desktop_idle_capture":desktop_idle_capture,"idle_capture":idle_capture,"aml_capture":aml_capture,"saved":True,"unmounted":True,
+                        "ap_c3_sim":args.ap_c3_sim,"coord_capture":coord_capture,"ap_capture":ap_capture,"ap_cpus":args.ap_cpus if (ap_capture or coord_capture) else None,"ap_inject":args.ap_inject,"probe":True,"posix_capture":posix_capture,"probe_network":args.probe_network,"storage_wait_capture":storage_wait_capture,"wifi_capture":wifi_capture,"wifi_calibration":wifi_calibration,"wifi_firmware":wifi_firmware,"wifi_outcome":"expected absent radio" if wifi_capture else "not requested","battery_preflight":battery_preflight,"preflight_outcome":"expected identity refusal" if battery_preflight else "not requested","cpu_load_capture":cpu_load_capture,"load_result":"refused in VM" if cpu_load_capture else "not requested","power_telemetry":power_telemetry,"power_measurement":"unavailable in VM" if power_telemetry else "not requested","desktop_idle_capture":desktop_idle_capture,"idle_capture":idle_capture,"aml_capture":aml_capture,"saved":True,"unmounted":True,
                         "keyboard_capture":keyboard_capture,"keyboard_expected_failure":keyboard_negative,"workspace_table":args.workspace_table,"physical_acceptance":"pending"},indent=2)+"\n")
                     (logs/"laptop-capture.exfat").write_bytes(volume.read_bytes())
-                    print(f"laptop-probe-smoke: PASS ({release}); diagnostics saved, offline file bytes verified, clean exFAT; " + (("native battery refused in VM and returned" if auto_return else "native battery refused in VM and halted") if battery_capture else "automatic reset"))
+                    print(f"laptop-probe-smoke: PASS ({release}); diagnostics saved, offline file bytes verified, clean exFAT; " + (("native battery refused in VM and returned" if auto_return else "native battery refused in VM and halted") if battery_capture else "held Wi-Fi failure" if wifi_firmware and not auto_return else "automatic reset"))
                     return
                 if args.desktop_check:
                     from desktop_foundation_smoke import QMP

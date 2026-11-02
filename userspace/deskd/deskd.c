@@ -1901,8 +1901,9 @@ int main(int argc,char **argv) {
     int battery_guided=argc==2 && !strcmp(argv[1],"--battery-transition-capture");
     int battery_idle=argc==2 && !strcmp(argv[1],"--battery-idle-capture");
     int idle_capture=battery_idle || (argc==2 && !strcmp(argv[1],"--idle-capture"));
+    int wifi_trial=argc==2 && !strcmp(argv[1],"--wifi-trial");
     int network_trial=argc==2 && !strcmp(argv[1],"--network-trial");
-    int hardware_trial=network_trial || (argc==2 && !strcmp(argv[1],"--hardware-trial"));
+    int hardware_trial=wifi_trial || network_trial || (argc==2 && !strcmp(argv[1],"--hardware-trial"));
     int capacity_capture=argc==2 && !strcmp(argv[1],"--capacity-capture");
     int navigation_trial=argc==2 && !strcmp(argv[1],"--navigation-trial");
     int lifecycle_trial=argc==2 && !strcmp(argv[1],"--lifecycle-trial");
@@ -1922,7 +1923,7 @@ int main(int argc,char **argv) {
     int io_mode=argc==3 && strcmp(argv[1],"--io-test")==0 && desk_trial_run_valid(argv[2]);
     struct gfx_info info={0};
     if (gfx_info(&info)!=0 || info.width<640 || info.height<480 || info.width>3840 || info.height>2160) return 1;
-    if((battery_work || battery_guided || idle_capture || coexist || control_capture) && !explicit_scale) {
+    if((wifi_trial || battery_work || battery_guided || idle_capture || coexist || control_capture) && !explicit_scale) {
         scale=desk_capture_scale(info.width,info.height);
         if(!scale) { srv_puts("deskd: framebuffer exceeds idle capture limits\n");return 1; }
     }
@@ -1938,7 +1939,7 @@ int main(int argc,char **argv) {
     if(stress_volume<0){srv_puts("audio-io: result=FAIL reason=volume-override\n");return 1;}
     if (gfx_console_mute(1)!=0) return 1;
     struct session s={.dynamic=1,.refuse_dialogs=dialog_refusal,.registry_budget=argc==2 && !strcmp(argv[1],"--registry-pressure-test")?1:DESK_REGISTRY_BYTES,.ram_text=coexist_text || control_capture,.home=(battery_guided || hardware_trial || idle_capture || home_apps)?DESK_WORKSPACE_HOME:DESK_RAM_HOME,.scene={.focus=-1,.cursor_x=24,.cursor_y=56,.automatic_test=capacity_capture},
-        .trace=audio_io_attended || dialog_refusal || capacity_capture || pool_wait || multiwindow || battery_guided || coexist || idle_capture || lifecycle || (argc==2 && (!strcmp(argv[1],"--trace") || !strcmp(argv[1],"--apps-trace") || !strcmp(argv[1],"--registry-pressure-test")))};
+        .trace=wifi_trial || audio_io_attended || dialog_refusal || capacity_capture || pool_wait || multiwindow || battery_guided || coexist || idle_capture || lifecycle || (argc==2 && (!strcmp(argv[1],"--trace") || !strcmp(argv[1],"--apps-trace") || !strcmp(argv[1],"--registry-pressure-test")))};
     if(s.registry_budget==1)srv_puts("deskd: diagnostic registry growth budget=1 byte\n");
     desk_capture_job_init(&s.capture);
     desktop_notice_view_init(&s.scene.notifications);desktop_notice_view_configure(&s.scene.notifications,width,height);
@@ -1968,6 +1969,7 @@ int main(int argc,char **argv) {
     if(life_start(&worker,audio_io)){gfx_console_mute(0);return 1;}s.worker=&worker;s.startup_trace=audio_io;
     if(control_capture)spawn_app(&s,DESK_APP_SYSTEM,control_manual?"--battery-controls":"--battery-control-capture");
     else if(coexist_text) spawn_capture_text(&s,control_files_cancel?4:control_files?3:coexist_workspace?2:coexist_files);
+    else if(wifi_trial) spawn_app(&s,DESK_APP_HELP,"wifi-trial");
     else if(network_trial) spawn_app(&s,DESK_APP_TERMINAL,"network-trial");
     else if(pool_wait) spawn_app(&s,DESK_APP_TEXT,"--file-pool-wait-capture");
     else if(multiwindow) spawn_app(&s,DESK_APP_TEXT,growth?"--window-growth-capture":"--multi-window-capture");

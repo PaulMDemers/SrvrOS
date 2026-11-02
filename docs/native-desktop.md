@@ -399,6 +399,12 @@ logs are checkpointed about every ten seconds into alternating `session-a.log`
 and `session-b.log`; `exit.log` is saved before the final flush/unmount. Each file
 contains at most the latest 64 KiB, with a timestamp and byte counter in its
 snapshot marker. This is bounded diagnostic history, not a complete transcript.
+The explicit Wi-Fi firmware capture alone opts into a 128KiB startup snapshot.
+It refuses activation if the original 64KiB ring already discarded bytes, and
+refuses a save if the extended ring overflowed. Ordinary desktop and battery
+snapshot limits remain 64KiB. Host collection accepts files up to 128KiB, with
+the existing aggregate 64MiB collection ceiling; collection size is not proof
+of successful hardware completion.
 Writes are read back and flushed through the existing storage service gate.
 A failed save is visible and stops periodic retries; the previous checkpoint
 remains available. A sudden reset can lose recent messages and these writes do
@@ -612,6 +618,16 @@ idle capture uses the new path. Clock, cached battery, notification and child
 housekeeping are bounded by the 100 ms idle maintenance cap. New timed features
 must update idle admission or supply an earlier deadline rather than assuming a
 10 ms loop. VM functional input checks are not physical latency acceptance.
+
+
+Explicit USB Wi-Fi firmware prerequisite profile v81 uses512KiB complete-prefix
+capture; ordinary desktop logging stays64KiB and older firmware profiles keep
+their128/256KiB selection. The larger capture still refuses an already-lost
+prefix and checks byte-preserving save/collection. This opt-in diagnostic does
+not enable Wi-Fi traffic or ordinary desktop startup probing; see
+[USB Wi-Fi bring-up](usb-wifi.md). The explicit v86/v87 channel/VCO
+diagnostics select1MiB to preserve the full earlier proof; v81-v85 remain512KiB,
+and ordinary desktop capacity remains unchanged. Captures refuse lost prefixes.
 
 
 ### Compositor lifecycle worker

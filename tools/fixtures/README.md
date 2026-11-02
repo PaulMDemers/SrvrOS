@@ -43,6 +43,12 @@ selection, both endpoint context sizes and poll length against this fixture as
 well as the Air fixture. This passes on the existing driver; it does not explain
 the reported native keyboard failure or accept physical transport/reports.
 
+`edimax-7392-a711-usb.bin` contains the 18-byte device and 74-byte configuration
+descriptors captured from the Pro's Edimax adapter, revision 0100, at high speed.
+It contains no string descriptor values, serial number, MAC address or SSID.
+`test_wifi_usb_inventory.py` checks identity/topology refusal and truncation.
+This fixture establishes USB transport shape, not radio support.
+
 `apple-05ac-0290-config.bin` is the 84-byte configuration from MacBookAir6,1's
 privileged Linux inventory on 2026-10-22 (root port 5, revision 0171). Device
 descriptor and strings are excluded. It is byte-identical to the 0291 fixture:
@@ -58,3 +64,10 @@ from MacBookAir6,1 run `77ab86681e27132d`, release `19eb394b28cbeef5` (October
 22, 2026). No device strings, serials or USB files are included. Native capture
 passed; these isolated frames verify Type 3 decoding, not pointer feel, motion
 direction, scrolling or drag trajectories.
+
+`mt7610-us-channel-plan.bin` contains11 US1–11,20MHz,non-SDM synthesizer
+plans,21 `(register,mask,bits)` byte triples each (693bytes). Independently
+projected from the pinned Linux v7.0 `mt76x0_frequency_plan` and PHY operation
+order; channel1 equals the existing accepted synthesizer helper. It contains
+no firmware or device identifiers. This is a host fixture, not native tuning
+acceptance. See [the channel planner](../../kernel/include/srvros/mt76_channel_plan.h).

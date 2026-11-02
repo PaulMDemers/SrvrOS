@@ -168,6 +168,7 @@ int main(void) {
     frame.rax=SYS_GUI_WAIT_IO;assert(syscall_io_safe(&frame));
     frame.rax=SYS_GUI_CANCEL_WAIT;assert(syscall_io_safe(&frame));
     frame.rax=SYS_SCHED_TRACE;assert(syscall_io_safe(&frame));
+    frame.rax=SYS_WIFI;assert(syscall_io_safe(&frame));
     frame.rax=SYS_GUI_SERVER_WAIT;assert(syscall_io_safe(&frame));
     const uint64_t blocked[]={SYS_OPEN,SYS_FS_WRITE,SYS_SYNC,SYS_EXIT,SYS_PREAD,SYS_PWRITE,SYS_VECTOR_IO,SYS_PIPE2,SYS_DUP3,SYS_PIPE_PAIR_FLAGS,SYS_THREAD_SIGNAL,
         SYS_SOCKET_TRY_IO,SYS_KILL,SYS_SPAWN,SYS_FILE_CHANGE,UINT64_MAX};
