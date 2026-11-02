@@ -30,6 +30,18 @@ separate work.
 The selected [portable C/POSIX profile](posix-supported-profile.md) has its own
 acceptance; this desktop work is not full POSIX or Linux compatibility.
 
+## Folder-list completion under storage load
+
+The native Files deadline in the Air7,2 record includes an accepted folder job
+still draining after visual Close. The deskfs backend now consumes the existing
+READ_INFO fill-or-EOF contract: a short metadata batch terminates enumeration
+without an extra EOF-only syscall. Exact full batches still require a following
+call, and every returned record retains validation, truncation and CRC handling.
+This removes one potential storage-gate wait from a short final batch; it does
+not cancel accepted work, admit directory operations during foreign I/O, or
+change the 500 ms UI / 10 s whole-lifetime limits. Actual native improvement
+requires a new source-matched physical result.
+
 ## Repeat the local gates
 
 Use one checkout and one build/VM harness at a time. The scripts share output
