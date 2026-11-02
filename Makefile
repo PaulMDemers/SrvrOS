@@ -4493,3 +4493,11 @@ build/tests/linux-package-pci-host$(HOST_EXE): tools/linux_package_pci.c kernel/
 test-core: test-wifi-channel-log
 test-wifi-channel-log:
 	$(PYTHON) -m unittest discover -s tools -p test_wifi_channel_log.py
+
+.PHONY: test-mt76-5ghz-plan
+test-core: test-mt76-5ghz-plan
+test-mt76-5ghz-plan: build/tests/mt76-5ghz-plan-host$(HOST_EXE)
+	$(HOST_RUN) $< tools/fixtures/mt7610-us5-channel161-frequency.bin
+build/tests/mt76-5ghz-plan-host$(HOST_EXE): tools/test_mt76_5ghz_plan.c kernel/src/drivers/mt76_channel_plan.c kernel/include/srvros/mt76_channel_plan.h tools/fixtures/mt7610-us5-channel161-frequency.bin
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_channel_plan.c -o $@

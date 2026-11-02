@@ -203,6 +203,19 @@ class InstallTests(unittest.TestCase):
         for options in (dict(mwait_deep_test=True),dict(cpu_load_capture=True,mwait_deep_test=True,mwait_wakeup_test=True),dict(cpu_load_capture=True,wifi_scan_batch=True,wifi_scan_retry=True,mwait_deep_test=True)):
             with self.assertRaises(ValueError):boot.stage(**options)
 
+    def test_captured_5ghz_adapter_refuses_2ghz_install(self):
+        good=self.payload('accepted');boot.install(good)
+        before={p:p.read_bytes() for p in [self.snippet,self.cfg,self.base/'state.json']}
+        for version in [82,93,106,107]:
+            v=f'ram-usb-wifi-fw-v{version}-laptop-probe-0e535900-auto-return'
+            release=self.payload(f'offline-{version}',v)
+            path=self.stage/release/'manifest.json';manifest=json.loads(path.read_text());manifest['config_version']=v;path.write_text(json.dumps(manifest))
+            self.assertEqual(boot.verify(self.stage/release)['config_version'],v)
+            with patch.object(boot,'host_uuid',side_effect=AssertionError('Must refuse before host interaction')):
+                with self.assertRaisesRegex(ValueError,'5GHz-only'):boot.install(release)
+            self.assertFalse((self.base/release).exists())
+            self.assertEqual({p:p.read_bytes() for p in before},before)
+
     def test_wifi_channel_diagnosis_profile(self):
         v="ram-usb-wifi-fw-v107-laptop-probe-0e535900-auto-return"
         c=boot.limine_config("0123456789abcdef",v)

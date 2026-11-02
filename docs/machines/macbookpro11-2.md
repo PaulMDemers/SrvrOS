@@ -1,11 +1,33 @@
 # MacBookPro11,2 / A1398
 
-Updated: 2026-10-28. State: **native desktop, input, brightness, sound, CPU/fan telemetry and captured USB Ethernet DHCP/DNS/HTTP and live cable-status UI accepted**.
+Updated: 2026-11-01. State: **native desktop, input, brightness, sound, CPU/fan telemetry and captured USB Ethernet DHCP/DNS/HTTP and live cable-status UI accepted**.
 
 The sections below retain the dated bring-up sequence. The latest acceptance
 and next scope are recorded at the end; earlier failures are historical.
 
 ## Current handoff
+
+The captured EW-7711MAC `7392:a711`/`0100` is **5GHz-only**; see the
+[corrected Wi-Fi scope](../usb-wifi.md). Generic Linux/EEPROM band hints were
+mistaken for assembled-model capability. Historical2.4GHz packet/USB traces do
+not establish2.4GHz RF support. Do not repeat the withdrawn v107 trial.
+
+Installed remains v106 `b1349e827d0497c3`, source `05506e01`, main `e339b9a8`;
+its native empty-cache desktop/trackpad/unplug/automatic return is accepted.
+Its legacy2.4GHz radio recipe is superseded by the capability correction.
+Ubuntu remains default, no one-shot is armed, and known-good desktop
+`e47dca3a6b30c6c1` remains previous. Prepared v107 `5806a8aa054d6117` was never
+installed. All receipts and its withdrawn payload remain durable.
+
+Development consumes main `1a0c9085`. New source refuses installation/runtime
+execution of the captured2.4GHz RF recipe and prepares an offline channel161/
+20MHz frequency plan. No native5GHz initialization or new reboot is authorized
+by that plan alone. Next: independently implement5GHz band/baseband/calibration/
+restore prerequisites and a source-bound automatic capture, then discovery and
+live reattachment. Association/security/IP remain pending; local credentials
+have not been read or packaged. Other Pro bring-up and deferred work is unchanged.
+
+## Historical handoff (superseded 2026-11-01)
 
 Latest accepted trial: v102 `3337af3753372b9d`, source `ebbb08cb`, actual
 main `052ebc18`, session `session-00065edbc19533a8-00`. All24 enabled-window

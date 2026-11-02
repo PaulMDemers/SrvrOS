@@ -23,6 +23,16 @@ bool mt76_channel_plan(unsigned channel,struct mt76_channel_step out[21]) {
     for(unsigned i=0;i<21;i++)out[i]=(struct mt76_channel_step){regs[i],masks[i],bits[i]};
     return true;
 }
+bool mt76_channel_5ghz_plan(unsigned channel,struct mt76_channel_step out[21]) {
+    if(!out)return false;
+    for(unsigned i=0;i<21;i++)out[i]=(struct mt76_channel_step){0};
+    if(channel!=161)return false;
+    /* Pinned Linux v7.0 non-SDM RF_A_BAND|RF_A_BAND_HB row, 5805MHz.
+     * Pure frequency data; no native caller or 2GHz saved-state reuse. */
+    static const uint8_t bits[21]={2,63,104,221,210,64,16,64,9,0,0,2,48,0,0,48,0,0,0,0,3};
+    for(unsigned i=0;i<21;i++)out[i]=(struct mt76_channel_step){regs[i],masks[i],bits[i]};
+    return true;
+}
 unsigned mt76_channel_snapshot_reg(unsigned i){return i<13?unique[i]:UINT32_MAX;}
 unsigned mt76_channel_snapshot_initial(unsigned i){return i<13?initial[i]:UINT32_MAX;}
 static void fail(struct mt76_channel_preview *s,enum mt76_channel_status status) {

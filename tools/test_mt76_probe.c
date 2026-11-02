@@ -61,6 +61,12 @@ static void firmware(void) {
     assert(!mt76_firmware_layout(data, sizeof data, NULL));
 }
 int main(void) {
+    assert(mt76_probe_bands(0x7392,0xa711,0x0100)==MT76_BAND_5GHZ);
+    assert(!(mt76_probe_bands(0x7392,0xa711,0x0100)&MT76_BAND_2GHZ));
+    assert(!mt76_probe_bands(0x7392,0xa711,0x0101));
+    assert(!mt76_probe_bands(0x7392,0xa811,0x0100));
+    assert(!mt76_probe_bands(0x148f,0x7610,0x0100));
+    assert(!mt76_probe_bands(0,0,0));
     identity(); firmware();
     puts("MT76 probe contract: PASS (exact reads, early failure, firmware boundaries)");
 }

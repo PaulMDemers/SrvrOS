@@ -1,14 +1,23 @@
 # USB Wi-Fi bring-up: captured Edimax adapter
 
 Captured scope: `7392:a711` revision `0100`, Edimax EW-7711MAC, attached to
-MacBookPro11,2. Linux binds `mt76x0u`. SrvrOS has bounded opt-in native transport,
-initialization and management-frame reception diagnostics; channel1/channel6
-beacons and bounded cleanup are observed. The fixed US1/6/11 passive lifecycle
-and one pre-enable completion retry are accepted with a channel6 beacon;
-sustained scanning and channel11 reception
-remain unaccepted. Association/authentication, an active Wi-Fi IP provider and
-configuration UI remain unimplemented. Ordinary startup leaves these diagnostic
-radio operations disabled. See the latest milestone at the end of this guide.
+MacBookPro11,2. Linux binds `mt76x0u`. **Band correction, 2026-11-01: this assembled
+adapter is5GHz-only**, according to the [Edimax specification](https://edimax.com/edimax/merchandise/merchandise_detail/data/edimax/in/wireless_adapters_ac450/ew-7711mac/)
+and [manufacturer FAQ](https://www.edimax.us/html/Faq/FAQ-EW7711MAC.pdf).
+The generic Linux PHY channel list and EEPROM hint do not override that model
+restriction. Earlier US1/6/11 traces establish packet-decoder/USB lifecycle
+observations, not accepted2.4GHz RF support. The pending v1072.4GHz diagnostic was
+withdrawn before installation. New installation and runtime gates refuse that
+captured2.4GHz RF recipe. Historical rendering remains for offline regression.
+
+The latest native scope accepts the bounded empty-cache desktop, trackpad,
+unplug retirement and automatic return. It does not accept populated discovery,
+live reattach/rescan, association/security or an active Wi-Fi IP provider.
+Current radio work targets5GHz channel161/20MHz. Its frequency projection is
+strictly offline and has no native caller;5GHz band/baseband/calibration,
+restoration and receiver startup still need implementation. Ordinary startup
+leaves diagnostic radio operations disabled. Dated milestones below are history
+and must not be used to reinstate the withdrawn band assumption.
 
 ## Captured baseline
 

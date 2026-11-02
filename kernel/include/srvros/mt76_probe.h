@@ -4,6 +4,11 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#define MT76_BAND_2GHZ 1u
+#define MT76_BAND_5GHZ 2u
+/* Assembled-model capability, not generic chipset/EEPROM hints or RF permission. */
+unsigned mt76_probe_bands(uint16_t vendor,uint16_t product,uint16_t revision);
+
 bool mt76_probe_config(const uint8_t *data, size_t size);
 
 struct mt76_identity { uint32_t asic, mac; };

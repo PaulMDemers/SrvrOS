@@ -683,6 +683,8 @@ def install(release=None, keep_previous=False):
         raise ValueError("Invalid staged release")
     source = STAGE / release
     verify(source)
+    if "srvros.wifi-band2g=1" in (source/"limine.conf").read_text().split():
+        raise ValueError("Captured EW-7711MAC 7392:a711 is 5GHz-only; 2.4GHz RF profiles are offline regression artifacts, not installable hardware trials")
     uuid = host_uuid()
     for program in ("update-grub", "grub-script-check"):
         if shutil.which(program) is None:

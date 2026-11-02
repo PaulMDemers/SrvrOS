@@ -54,3 +54,10 @@ bool mt76_probe_config(const uint8_t *data, size_t size) {
     }
     return true;
 }
+
+/* Edimax EW-7711MAC specification: 5.150-5.825GHz only. The generic Linux
+ * PHY exposes chip capabilities, not this assembled board's RF front end.
+ * Unknown identities/revisions need independent evidence. No RF authorization. */
+unsigned mt76_probe_bands(uint16_t vendor,uint16_t product,uint16_t revision){
+    return vendor==0x7392 && product==0xa711 && revision==0x0100?MT76_BAND_5GHZ:0;
+}

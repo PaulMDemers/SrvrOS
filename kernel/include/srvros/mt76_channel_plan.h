@@ -10,6 +10,9 @@ struct mt76_channel_step { uint8_t reg, mask, bits; };
  * Does not perform band/baseband setup, VCO, calibration or receiver startup.
  * Channel1 exactly matches the separate accepted synthesizer helper. */
 bool mt76_channel_plan(unsigned channel,struct mt76_channel_step out[MT76_CHANNEL_STEPS]);
+/* Offline channel161/20MHz frequency projection only. Never called by native
+ * RF code: 5GHz band/BBP/calibration/policy/restore work remains mandatory. */
+bool mt76_channel_5ghz_plan(unsigned channel,struct mt76_channel_step out[MT76_CHANNEL_STEPS]);
 struct mt76_channel_preview_plan {
     uint8_t country[2], bandwidth, count, channel[MT76_CHANNEL_MAX];
 };
