@@ -1893,3 +1893,11 @@ The next audit will exercise `SCM_RIGHTS` with a failing first payload transfer
 and a surviving duplicate endpoint, including descriptor cleanup on receive
 failure. This queue comes from inspection of the separate rights and payload
 operations. It has no guest or fault-injection result yet.
+
+## Unix-stream ancillary transfer scope
+
+Starting from PR252 at `4353eee4` with main at `c9235491`, this pass covers
+the boundary between pipe payload and descriptor ownership in sendmsg/recvmsg,
+including failed writes, receive copyout, alias survival and control truncation.
+It touches the process pipe queue, syscall access validation and libc socket
+messages. The checkpoint is a matched x86_64 QEMU run with public API regressions.
