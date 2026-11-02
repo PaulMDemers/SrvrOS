@@ -1,6 +1,7 @@
 """Strict optional platform receipts; no inferred platform grant or RC6 policy."""
 import re
 from hardware_package import package_result
+from cpu_capture_format import capture_input
 
 def latency_decode(raw):
     # PCIe LTR capability fields have value[9:0], scale[12:10], reserved[15:13].
@@ -41,6 +42,7 @@ def platform_timing_result(text):
         bracket_excess_ns=max(0,nominal_ns-pm_max*1000-1280),
         scope='Raw cross-clock diagnostics only; nominal MHz is not a TSC calibration; no new tolerance')
 
+@capture_input
 def platform_series_result(text):
     """Retained counter-update evidence, including mismatches; never a pass."""
     try:return _series(text)

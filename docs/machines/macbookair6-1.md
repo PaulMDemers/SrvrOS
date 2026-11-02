@@ -1,6 +1,6 @@
 # MacBookAir6,1 — local bring-up
 
-Updated: 2026-11-01. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted. Short battery sampling and the bounded Home desktop session with five Text saves and three battery lifetimes, plus a three-minute continuous Home desktop capture and attended desktop AC unplug/reconnect with indicator updates, are physically accepted.**
+Updated: 2026-11-02. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted. Short battery sampling and the bounded Home desktop session with five Text saves and three battery lifetimes, plus a three-minute continuous Home desktop capture and attended desktop AC unplug/reconnect with indicator updates, are physically accepted.**
 
 ## Initial inventory (2026-10-22)
 
@@ -106,18 +106,20 @@ other unmeasured dependencies remain open; the well is not proven unused.
 
 The overall platform test still fails the original RC6 bound (about 0.1096%
 nominal excess), and package C3 remains zero. No power transition is authorized.
-The PR261 baseline is consumed at `95ddb8d6`. Its new checkpoint output adds a
-conservative 9,056-byte budget after the historical CPU proofs; the unchanged
-64 KiB maximum-width retention model fails. Old trace source fingerprints remain
-rejected. This is a regression-model failure, not a new native observation.
+The PR261 baseline is consumed and locally validated. Source `8f0c5aa6`,
+release `0bc5f7e0298ca886` (PR273), fixes the failed retention model using a
+lossless versioned encoding for final power/idle/entry samples. Legacy layout
+still fails the source-derived added-checkpoint budget; compact layout preserves
+all critical records under unchanged width/capacity stress and a 64 KiB tail.
+All values, failure markers, samples, checkpoint output and limits remain.
+Matched build/core, focused producer/codec/semantic tests and twelve VM cases pass.
 
-Next: resolve final-proof retention on the new logging baseline before extending
-or running a native capture. Keep every sample, failure marker, checkpoint and
-strict limit. The source-only audio/interrupt audit is complete; candidate
-registers and ownership gaps are recorded in the current guide, but no hardware
-reads or control changes have been added. PR252 sockets and PR19 Wi-Fi remain
-independent. Installed native release remains `6ac139e77c5d3070`; no reboot is
-armed. The local checkpoint owns integration test results and recovery hashes.
+Next: collect the compact native retry directly, requiring its new schema header,
+complete decoded samples and every original proof. No synthetic conversion or
+joined logs may satisfy native acceptance. Keep RC6/package-C3 failures separate.
+The source-only audio/interrupt audit remains complete but unimplemented; PR272
+lifecycle, PR252 lifetimes and PR19 Wi-Fi stay independent. The local run record
+owns installed/recovery hashes and ready/armed/returned state.
 
 ### Historical battery-runtime objective (2026-10-23)
 
@@ -5944,3 +5946,59 @@ for native use; its manifest remains intact and `latest` is restored to installe
 verify, with 483 prior native evidence files rechecked. Ubuntu remains default,
 no one-shot/reboot is armed and no install occurred. New audit/test evidence is
 backed up outside `build`; prior RC6/package-C3 failures remain unchanged.
+
+
+### Compact final telemetry — active scope (2026-11-02)
+
+Base `c9235491`. Preserve all retained CPU power, idle-residency and idle-entry
+fields in a versioned fixed-order encoding, replacing repeated field names only.
+Legacy logs remain readable through the same strict semantic checks; malformed,
+mixed, duplicate, missing and overflowed records refuse coverage. Scope is the
+capture-only power reporter, host decoding/retention tools and fixtures/docs.
+No logger/scheduler/storage edits, sampling/phase/attempt changes, discarded
+checkpoint output or power/control writes. PR272 lifecycle, PR252 lifetimes and
+PR19 Wi-Fi remain independent. Require the current-source added-checkpoint
+maximum budget to pass before staging a native retry.
+
+
+### Compact final telemetry candidate validated (2026-11-02)
+
+Compiled source `8f0c5aa6`, release `0bc5f7e0298ca886`, emits indexed format-2
+power/idle/entry records only at final reporting. Every original numeric field,
+including duplicate timestamps, remains. Live progress, ordinary status output,
+24-sample capacity, cadence, phase timing and 32-round / 20 ms bounds do not
+change. No new logger/scheduler/storage code, ownership change, hardware access
+or power/control write is introduced.
+
+The strict host decoder rejects missing/duplicate/unknown headers and rows,
+wrong indices/field counts, overflow, unsigned-width errors and mixed encodings,
+then applies the original semantic power/idle/entry/prerequisite/MWAIT/RC6-series
+checks. Producer tests validate every actual formatter vararg against retained
+C snapshots. Four codec tests cover exact canonical roundtrips, identical parsed
+results, power-only unavailable audits, malformed records and preserved failures.
+Existing legacy parser/receipt/budget tests pass. No native collector invokes
+the regression-only legacy conversion model.
+
+The preserved prior native exit round-trips byte-for-byte and produces identical
+strict parsed results after modeled conversion. Including all 9,056 bytes of
+current maximum added checkpoint output, legacy layout fails while compact
+layout preserves every critical record byte-for-byte in 64 KiB with 128 KiB
+pre-final chatter and 25,995 bytes of width/capacity padding. Schema-aware padding
+uses the original field bounds and the new 0–23 index bound. Models remain
+synthetic, never physical acceptance; original RC6 timing still fails.
+
+Matched ordinary/AP build, USB image, full core/docs and final focused tests
+pass. Isolation/disassembly and sparse power-hook checks pass. All nine main
+VM cases, three legacy owner/C3/package profiles and twelve-case final receipt
+ordering/failure review pass. Exact staged GPT native refusal saves/unmounts/
+returns; missing workspace halts without unsafe reboot. These VM/host results
+validate the implementation and recipe, not the new native format's acceptance.
+
+The retry retains the same automated 30/30/30-second phases and read-only
+26-control platform inventory. Its collector additionally requires one actual
+format-2 audited/idle header and complete direct decoding, while every original
+platform/RC6 predicate remains. USB baseline is 570 files / 1,630 clusters.
+Preserve all prior hashes and console/accepted payloads; no input is required,
+and automatic progress/save/Ubuntu collection remain. The run record binds exact
+stage, source, install/recovery, checks and ready/armed state. Native acceptance
+is pending the matching return; do not accept synthetic model records as evidence.
