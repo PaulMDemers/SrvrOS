@@ -5944,3 +5944,16 @@ for native use; its manifest remains intact and `latest` is restored to installe
 verify, with 483 prior native evidence files rechecked. Ubuntu remains default,
 no one-shot/reboot is armed and no install occurred. New audit/test evidence is
 backed up outside `build`; prior RC6/package-C3 failures remain unchanged.
+
+
+### Compact final telemetry — active scope (2026-11-02)
+
+Base `c9235491`. Preserve all retained CPU power, idle-residency and idle-entry
+fields in a versioned fixed-order encoding, replacing repeated field names only.
+Legacy logs remain readable through the same strict semantic checks; malformed,
+mixed, duplicate, missing and overflowed records refuse coverage. Scope is the
+capture-only power reporter, host decoding/retention tools and fixtures/docs.
+No logger/scheduler/storage edits, sampling/phase/attempt changes, discarded
+checkpoint output or power/control writes. PR272 lifecycle, PR252 lifetimes and
+PR19 Wi-Fi remain independent. Require the current-source added-checkpoint
+maximum budget to pass before staging a native retry.

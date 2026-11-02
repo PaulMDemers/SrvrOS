@@ -204,12 +204,19 @@ void power_capture_stop(void) {
             (uint64_t)idle_monitor,(uint64_t)idle_leaf1_b,(uint64_t)idle_leaf5[0],(uint64_t)idle_leaf5[1],(uint64_t)idle_leaf5[2],(uint64_t)idle_leaf5[3],idle_config_start,config_end,final.epoch,final.enters,final.returns,final.ready);
     }
     console_printf("cpu-load-power: retained=%u overflow=%u\n",(uint64_t)count,(uint64_t)overflow);
+    console_printf("cpu-capture-format: v=2 idle=%u entry=%u\n",
+        (uint64_t)(count && capture[0].idle.supported!=0),(uint64_t)audited);
     for(unsigned i=0;i<count;i++) {
         const struct power_snapshot *s=&capture[i];
-        console_printf("cpu-load-power: power_state=%u flags=%u energy_shift=%u package_mw=%u active_mhz=%u nominal_mhz=%u package_uj=%u sample_us=%u interval_us=%u samples=%u rejected=%u energy=%u aperf=%u mperf=%u monotonic_us=%u\n",
+        console_printf("cpu-p2: i=%u v=%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u\n",(uint64_t)i,
             (uint64_t)s->state,(uint64_t)s->flags,(uint64_t)s->energy_shift,s->package_mw,s->active_mhz,(uint64_t)s->nominal_mhz,
             s->package_uj,s->sampled_us,s->interval_us,s->samples,s->rejected,s->raw.energy,s->raw.aperf,s->raw.mperf,s->sampled_us);
-        if(s->idle.supported) print_idle("cpu-load-idle",&s->idle);
-        if(audited) console_printf("cpu-idle-entry: sample_us=%u epoch=%u enters=%u returns=%u ready=%u\n",s->sampled_us,s->idle_entry.epoch,s->idle_entry.enters,s->idle_entry.returns,s->idle_entry.ready);
+        if(s->idle.supported) {
+            const struct power_idle_snapshot *d=&s->idle;
+            console_printf("cpu-i2: i=%u v=%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u\n",(uint64_t)i,
+                (uint64_t)d->supported,(uint64_t)d->valid,d->rejected,d->raw.us,d->interval_us,d->interval_tsc,d->raw.tsc_begin,d->raw.tsc_end,
+                d->raw.ticks[0],d->basis_points[0],d->raw.ticks[1],d->basis_points[1],d->raw.ticks[2],d->basis_points[2],d->raw.ticks[3],d->basis_points[3],d->raw.ticks[4],d->basis_points[4],d->raw.ticks[5],d->basis_points[5],d->raw.ticks[6],d->basis_points[6],d->raw.ticks[7],d->basis_points[7],d->raw.ticks[8],d->basis_points[8],d->raw.ticks[9],d->basis_points[9]);
+        }
+        if(audited) console_printf("cpu-e2: i=%u v=%u,%u,%u,%u,%u\n",(uint64_t)i,s->sampled_us,s->idle_entry.epoch,s->idle_entry.enters,s->idle_entry.returns,s->idle_entry.ready);
     }
 }

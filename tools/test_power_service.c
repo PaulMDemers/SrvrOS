@@ -69,18 +69,44 @@ bool scheduler_spawn_io_service(const char *n,scheduler_thread_fn fn,void *arg,s
 bool scheduler_wait_timeout(struct scheduler_wait_queue *q,scheduler_wait_condition_fn fn,void *arg,uint64_t deadline) {
     (void)q;(void)fn;(void)arg;(void)deadline;assert(0);return false;
 }
+static void capture_values(const char *fmt,va_list ap) {
+    uint64_t index=va_arg(ap,uint64_t);assert(index<capture_count);
+    const struct power_snapshot *s=&capture[index];
+    uint64_t want[28];unsigned n=0;
+    if(!strncmp(fmt,"cpu-p2:",7)) {
+        uint64_t p[]={s->state,s->flags,s->energy_shift,s->package_mw,s->active_mhz,s->nominal_mhz,
+            s->package_uj,s->sampled_us,s->interval_us,s->samples,s->rejected,s->raw.energy,s->raw.aperf,s->raw.mperf,s->sampled_us};
+        n=15;memcpy(want,p,sizeof(p));
+    } else if(!strncmp(fmt,"cpu-i2:",7)) {
+        const struct power_idle_snapshot *d=&s->idle;
+        uint64_t p[]={d->supported,d->valid,d->rejected,d->raw.us,d->interval_us,d->interval_tsc,d->raw.tsc_begin,d->raw.tsc_end};
+        memcpy(want,p,sizeof(p));n=8;
+        for(unsigned i=0;i<10;i++){want[n++]=d->raw.ticks[i];want[n++]=d->basis_points[i];}
+    } else {
+        uint64_t p[]={s->sampled_us,s->idle_entry.epoch,s->idle_entry.enters,s->idle_entry.returns,s->idle_entry.ready};
+        n=5;memcpy(want,p,sizeof(p));
+    }
+    unsigned fields=0;
+    for(const char *p=fmt;*p;p++)if(p[0]=='%' && p[1]=='u')fields++;
+    assert(fields==n+1);
+    for(unsigned i=0;i<n;i++)assert(va_arg(ap,uint64_t)==want[i]);
+}
 void console_printf(const char *fmt,...) {
+    if(!strncmp(fmt,"cpu-p2:",7)||!strncmp(fmt,"cpu-i2:",7)||!strncmp(fmt,"cpu-e2:",7)) {
+        va_list ap;va_start(ap,fmt);capture_values(fmt,ap);va_end(ap);
+    }
     if(!strncmp(fmt,"cpu-mwait:",10)) { assert(!capturing && !mwait_started);mwait_rows++; }
     if(!strncmp(fmt,"cpu-idle-prereq:",16)) { assert(!capturing && !audit_active);prereq_rows++; }
     if(!strncmp(fmt,"cpu-idle-audit:",15)) { assert(!capturing && !audit_active);audit_rows++; }
-    if(!strncmp(fmt,"cpu-idle-entry:",15)) { assert(!capturing && !audit_active);entry_rows++; }
+    if(!strncmp(fmt,"cpu-e2:",7)) { assert(!capturing && !audit_active);entry_rows++; }
     if(!strncmp(fmt,"%s: supported=",14)) {
         va_list ap;va_start(ap,fmt);const char *prefix=va_arg(ap,const char *);
         if(!strcmp(prefix,"cpu-load-idle")) { assert(!capturing);idle_rows++; }
         va_end(ap);
     }
     if(!strncmp(fmt,"cpu-load-power:",15)) assert(!capturing);
-    if(!strncmp(fmt,"cpu-load-power: power_state=",27)) capture_rows++;
+    if(!strncmp(fmt,"cpu-p2:",7)) {assert(!capturing);capture_rows++;}
+    if(!strncmp(fmt,"cpu-i2:",7)) {assert(!capturing);idle_rows++;}
     if(!strncmp(fmt,"cpu-load-power: retained=",24)) capture_receipts++;
 }
 static void init(void) { initialized=false;snapshot=(struct power_snapshot){0};sampler=(struct power_sampler){0};reads=spawns=0;power_init(); }

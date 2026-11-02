@@ -12,7 +12,8 @@ import json
 from pathlib import Path
 import re
 import subprocess
-from check_cpu_capture_tail import assess
+from check_cpu_capture_tail import assess, LOGGING_SOURCES
+from cpu_capture_format import compact_legacy
 
 SOURCES=('kernel/src/scheduler.c','kernel/src/workspace_log.c','kernel/src/fs/exfat.c','kernel/include/srvros/exfat.h')
 
@@ -67,6 +68,7 @@ def main():
     ap.add_argument('--log',type=Path,required=True)
     ap.add_argument('--trace-source-ref',required=True)
     ap.add_argument('--output',type=Path,required=True)
+    ap.add_argument('--model-compact-v2',action='store_true',help='Lossless synthetic encoding model; never native acceptance')
     args=ap.parse_args()
     current={x:Path(x).read_text() for x in SOURCES}
     old={x:subprocess.check_output(['git','show',args.trace_source_ref+':'+x],text=True) for x in SOURCES}
@@ -74,13 +76,15 @@ def main():
     text=args.log.read_text()
     if 'io-gate-snapshot:' in text or 'exfat-cost:' in text:raise ValueError('input already contains new reports')
     if text.count('laptop-capture: completed=yes\n')!=1:raise ValueError('need unique completed trace')
-    modeled=text+extra
+    modeled=(compact_legacy(text) if args.model_compact_v2 else text)+extra
     result=assess(modeled)
     result.update(status='SYNTHETIC_BUDGET_PASS' if result['status']=='COVERAGE_PASS' else 'SYNTHETIC_BUDGET_FAIL',
                   scope='Historical proofs plus reviewed current-source maximum added final checkpoint output; not source-matched native replay',
+                  model_compact_v2=args.model_compact_v2,
                   trace_source_ref=args.trace_source_ref,
                   trace_sha256=hashlib.sha256(args.log.read_bytes()).hexdigest(),
-                  current_source_sha256={x:hashlib.sha256(v.encode()).hexdigest() for x,v in current.items()},
+                  current_source_sha256={x:hashlib.sha256(Path(x).read_bytes()).hexdigest() for x in LOGGING_SOURCES},
+                  compact_codec_sha256=hashlib.sha256(Path("tools/cpu_capture_format.py").read_bytes()).hexdigest(),
                   old_source_sha256={x:hashlib.sha256(v.encode()).hexdigest() for x,v in old.items()},
                   additional_checkpoint_bytes=len(extra.encode()),capacities=capacity)
     args.output.write_text(json.dumps(result,indent=2)+'\n')

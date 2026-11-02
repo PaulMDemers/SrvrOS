@@ -4059,3 +4059,8 @@ test-cpu-receipt-tail:
 test-core: test-cpu-checkpoint-budget
 test-cpu-checkpoint-budget:
 	$(PYTHON) -m unittest discover -s tools -p test_cpu_checkpoint_budget.py
+
+.PHONY: test-cpu-capture-format
+test-core: test-cpu-capture-format
+test-cpu-capture-format:
+	$(PYTHON) -m unittest discover -s tools -p test_cpu_capture_format.py

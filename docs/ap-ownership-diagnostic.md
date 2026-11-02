@@ -817,3 +817,51 @@ and no audio/interrupt state is changed. Resolve final-log retention first, then
 add separately validated compact observations. The BIOS well request, unresolved
 RC6 semantics and zero package C3 remain independent; no causal or safe power-
 transition conclusion follows from the current samples.
+
+
+## Lossless compact final telemetry (format 2)
+
+Only the deferred CPU capture reporter changes encoding. Live progress, ordinary
+power/status output, checkpoint data, capture capacity (24), sampling cadence,
+phase lengths, AP rounds, watchdogs and semantic acceptance checks stay intact.
+The retained-count/overflow receipt remains `cpu-load-power: retained=N overflow=F`.
+One `cpu-capture-format: v=2 idle=I entry=E` header declares whether retained
+idle and idle-entry records are present. Indexed records use `cpu-p2: i=N v=...`,
+`cpu-i2: i=N v=...` and `cpu-e2: i=N v=...`. All numeric fields remain decimal
+u64 values; no value, duplicate sampling timestamp or counter is omitted.
+
+| Record | Fixed value order |
+| --- | --- |
+| p2 (15) | power_state, flags, energy_shift, package_mw, active_mhz, nominal_mhz, package_uj, sample_us, interval_us, samples, rejected, energy, aperf, mperf, monotonic_us |
+| i2 (28) | supported, valid, rejected, sample_us, interval_us, interval_tsc, tsc_begin, tsc_end; then c0_raw,c0_bp through c9_raw,c9_bp |
+| e2 (5) | sample_us, epoch, enters, returns, ready |
+
+`cpu_capture_format.py` requires the unique known header, unchanged bounded
+retained-count receipt, matching per-kind sample counts and consecutive indices.
+It rejects overflow, malformed/unknown records, duplicates, missing rows, wrong
+field counts, out-of-range u64 values and mixed legacy/compact encodings. Only
+then does it expand to the original named records for the existing strict power,
+residency, idle-entry, prerequisite, MWAIT and platform-series semantic checks.
+It does not repair invalid measurements or convert a failed workload to success.
+Legacy captures retain their existing rules.
+
+Producer host tests check the actual formatter's field counts and every vararg
+against the retained C snapshots. Codec fixtures compare exact canonical byte
+roundtrips and identical parsed results, including malformed, unavailable and
+failed measurements. The regression-only `compact_legacy` function and optional
+`--model-compact-v2` budget flag never run in the physical return collector.
+They preserve every field in old evidence while modeling only its encoding.
+
+The previous native exit plus the current maximum added checkpoint fails in
+legacy layout and passes with format 2 under the same 64 KiB tail, 128 KiB
+pre-final chatter and maximum-width/capacity rules. The compact model includes
+all 9,056 bytes of added gate/cost reports. Width padding is schema-aware and
+uses the original per-field bounds; the new row index is bounded to 0–23.
+Every critical compact record must remain byte-identical in the stressed tail.
+No original strict RC6 limit changes; its existing failure remains a failure.
+
+The trace-source guard now covers capture producers and main's report ordering
+as well as logger/scheduler/filesystem formatting. Synthetic budget reports
+also record current source and codec fingerprints. A real matching native
+return must retain and decode the new header/rows directly; the lossless model
+is regression evidence only, never physical acceptance.
