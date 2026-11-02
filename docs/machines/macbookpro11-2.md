@@ -10827,3 +10827,29 @@ No reboot is armed. Matching first-return collector/run are under
 Use the same cold adapter cycle and full untimed guest checklist. Finish through
 Exit desktop to save the end snapshot and return; manual restart remains an
 incomplete lifetime. No credentials, association/security/IP or5GHz were used.
+
+## 2026-11-01 v105 return: trackpad configured, empty scan blocks desktop
+
+Collected two previously uncollected sessions for release `4bc73cbb97c3166b`:
+`session-00065eee099fef21-00` and `session-00065f4086e80b0a-00`. Both contain
+an exit snapshot and `completed=NO`; neither entered the desktop. The strict
+collector correctly refused the ambiguous two-session set and retained both raw
+captures. Each explicitly enabled gestures and reported one successful
+trackpad-ready/pointer-enabled record. That proves configuration, not attended
+pointer movement.
+
+Both isolated scans finished three visits with `failed=0`, restored mask8191
+and zero late/reused/data-OUT inputs, but published zero rows. The older attempt
+had two unrelated inputs; the latest had eight inputs, four unrelated and four
+rejected. The earlier single-channel discovery observed beacons, but those are
+not substituted for the subsequent scan's results. UI admission was zero in
+both attempts. This is an empty-result admission refusal, not a new desktop or
+radio acceptance. Inspect receive parsing and the populated-cache admission
+requirement before another trial; do not loosen RF ownership/deadline checks or
+silently reuse stale discovery rows.
+
+Raw captures and refusal are preserved in durable `wifi-ui-input-032dc172`.
+Collector verified candidate/recovery payloads and Ubuntu default, cleared local
+armed bookkeeping and left the workspace unmounted after successful read-only
+filesystem/allocation checks. No retry is armed. User visual report is pending;
+association/security/IP and5GHz remain untested.
