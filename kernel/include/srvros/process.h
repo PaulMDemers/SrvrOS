@@ -199,7 +199,18 @@ int64_t process_file_pipe_pair(struct process *process, uint64_t fds_out[2]);
 /* IRQ-disabled bounded nonblocking byte transfer, with no rights cleanup or
  * broken-pipe signal. Scheduler same-process exclusion still applies. */
 bool process_file_pipe_io_safe(struct process *process, uint64_t fd, uint64_t length, bool writing);
+/* Copy both ring segments while mappings and pipe state are stable. A false
+ * return leaves bytes and attached rights queued. */
+typedef bool (*process_pipe_copyout)(void *context, const uint8_t *first,
+    uint64_t first_length, const uint8_t *second, uint64_t second_length);
+int64_t process_file_pipe_read_checked(struct process *process, uint64_t fd,
+    uint64_t length, bool dontwait, process_pipe_copyout copyout, void *context);
 int64_t process_file_pipe_read_mode(struct process *process, uint64_t fd, uint8_t *buffer, uint64_t length, bool dontwait);
+/* Copy a single writable prefix while its user mapping is stable. */
+typedef bool (*process_pipe_copyin)(void *context, uint64_t offset, uint8_t *first,
+    uint64_t first_length, uint8_t *second, uint64_t second_length);
+int64_t process_file_pipe_write_checked(struct process *process, uint64_t fd,
+    uint64_t length, bool dontwait, process_pipe_copyin copyin, void *context);
 int64_t process_file_pipe_write_mode(struct process *process, uint64_t fd, const uint8_t *buffer, uint64_t length, bool dontwait);
 int64_t process_file_pipe_read(struct process *process, uint64_t fd, uint8_t *buffer, uint64_t length);
 int64_t process_file_pipe_write(struct process *process, uint64_t fd, const uint8_t *buffer, uint64_t length);

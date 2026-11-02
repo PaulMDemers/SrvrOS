@@ -67,6 +67,14 @@ __attribute__((noinline)) bool scheduler_wait(struct scheduler_wait_queue *queue
         pipe_wait_mode = 0;
         return ready(arg);
     }
+    if (pipe_wait_mode == 11) {
+        assert(!ready(arg));
+        struct srv_pipe_message message = {.fds = {(int32_t)wait_replacement_fd}, .count = 1};
+        pipe_wait_mode = 0;
+        assert(process_file_send_message(current_subject, wait_peer_fd,
+            (const uint8_t *)"ready", 5, &message) == 5);
+        return ready(arg);
+    }
     if (pipe_wait_mode >= 7) {
         assert(!ready(arg));
         unsigned action = pipe_wait_mode;
@@ -291,6 +299,44 @@ static void pipe_regression(void) {
     subject.signal_ignore_mask=1ull<<SRV_SIGNAL_PIPE;
     pipe_wait_mode=4;assert(process_file_pipe_write(&subject,4,input,10)==SRV_ERR_PIPE);
     assert(process_file_close(&subject,3)==0 && process_file_close(&subject,4)==0 && !pipes[0].used);
+}
+static bool mapping_copyout_fail(void *context, const uint8_t *first, uint64_t first_len,
+    const uint8_t *second, uint64_t second_len) {
+    (void)context; (void)first; (void)first_len; (void)second; (void)second_len;
+    return false;
+}
+static bool mapping_copyin_prefix(void *context, uint64_t offset, uint8_t *first,
+    uint64_t first_len, uint8_t *second, uint64_t second_len) {
+    (void)context;
+    if (offset) return false;
+    memset(first, 'x', first_len); memset(second, 'x', second_len); return true;
+}
+static void pipe_mapping_commit_regression(void) {
+    clear_process(&subject); memset(pipes, 0, sizeof(pipes));
+    uint64_t carrier[2], payload[2];
+    assert(process_file_pipe_pair(&subject, carrier) == 0);
+    assert(process_file_pipe(&subject, payload) == 0);
+    current_subject = &subject;
+    wait_peer_fd = carrier[0]; wait_replacement_fd = payload[1]; pipe_wait_mode = 11;
+    assert(process_file_pipe_read_checked(&subject, carrier[1], 5, false,
+        mapping_copyout_fail, NULL) == SRV_ERR_FAULT);
+    struct process_pipe *pipe = pipe_at(subject.files[carrier[1]].handle);
+    assert(!pipe_wait_mode && pipe && pipe->size == 5 && pipe->rights[0].used);
+    struct srv_pipe_message received = {.count = 1};
+    uint8_t output[5];
+    assert(process_file_recv_message_checked(&subject, carrier[1], output, sizeof(output),
+        &received, NULL, NULL) == 5);
+    assert(!memcmp(output, "ready", 5) && received.count == 1);
+    assert(process_file_pipe_write(&subject, received.fds[0], (const uint8_t *)"x", 1) == 1);
+    uint8_t byte;
+    assert(process_file_pipe_read(&subject, payload[0], &byte, 1) == 1 && byte == 'x');
+    assert(process_file_close(&subject, received.fds[0]) == 0);
+    assert(process_file_close(&subject, carrier[0]) == 0 && process_file_close(&subject, carrier[1]) == 0);
+    pipe_wait_mode = 1;
+    assert(process_file_pipe_write_checked(&subject, payload[1], PROCESS_PIPE_CAPACITY + 1, false,
+        mapping_copyin_prefix, NULL) == PROCESS_PIPE_CAPACITY);
+    assert(!pipe_wait_mode && pipe_at(subject.files[payload[1]].handle)->size == 0);
+    assert(process_file_close(&subject, payload[0]) == 0 && process_file_close(&subject, payload[1]) == 0);
 }
 static void snapshot_read_regression(void) {
     static uint8_t data[32777],out[16386];
@@ -1460,6 +1506,7 @@ static bool cycle_regression(const char *name) {
 }
 
 int main(int argc, char **argv) {
+    pipe_mapping_commit_regression();
     if (argc > 1) {
         if (argc == 2 && cycle_regression(argv[1])) return 0;
         fprintf(stderr, "unknown process-output cycle case\n");

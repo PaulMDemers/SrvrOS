@@ -163,6 +163,7 @@ def main():
             "threadstress: fork ok",
             "threadstress: exec-vectors ok",
             "threadstress: pipe-atomic ok",
+            "threadstress: pipe-mapping ok",
             "threadstress: replaced reader preserved new pipe data",
             "threadstress: vector-io ok",
             "threadstress: file-errors ok",

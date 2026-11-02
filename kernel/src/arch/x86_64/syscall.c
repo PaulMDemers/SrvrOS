@@ -413,9 +413,23 @@ static int64_t write_buffer(uint64_t fd, const char *buffer, uint64_t length, bo
     return SRV_ERR_BADF;
 }
 
+static bool pipe_user_copyin(void *context, uint64_t offset, uint8_t *first,
+    uint64_t first_length, uint8_t *second, uint64_t second_length) {
+    const uint8_t *source = (const uint8_t *)context + offset;
+    if (!user_buffer_ok(source, first_length + second_length, false)) return false;
+    for (uint64_t i = 0; i < first_length; i++) first[i] = source[i];
+    for (uint64_t i = 0; i < second_length; i++) second[i] = source[first_length + i];
+    return true;
+}
+
 static int64_t syscall_write(uint64_t fd, const char *buffer, uint64_t length) {
     if(io_defer_pipe_write(fd,length)) return length?SRV_ERR_AGAIN:0;
     if(!user_buffer_ok(buffer,length,false)) return SRV_ERR_FAULT;
+    struct process_file *file = process_file_at(process_current(), fd);
+    if (file && (file->type == PROCESS_FILE_PIPE_WRITE || file->type == PROCESS_FILE_PIPE_DUPLEX)) {
+        return process_file_pipe_write_checked(process_current(), fd, length, false,
+            pipe_user_copyin, (void *)buffer);
+    }
     return write_buffer(fd,buffer,length,false);
 }
 
@@ -551,15 +565,52 @@ static int64_t read_buffer(uint64_t fd, char *buffer, uint64_t length) {
     return process_file_read(process_current(), fd, (uint8_t *)buffer, length);
 }
 
+struct pipe_user_iov {
+    const struct srv_iovec *iov;
+    uint64_t count;
+};
+
+/* Called with interrupts disabled, before pipe bytes or rights are consumed. */
+static bool pipe_user_copyout(void *context, const uint8_t *first, uint64_t first_length,
+    const uint8_t *second, uint64_t second_length) {
+    struct pipe_user_iov *out = context;
+    uint64_t total = first_length + second_length, offset = 0;
+    for (uint64_t i = 0; i < out->count && offset < total; i++) {
+        uint64_t n = out->iov[i].length;
+        if (n > total - offset) n = total - offset;
+        if (!user_buffer_ok(out->iov[i].base, n, true)) return false;
+        offset += n;
+    }
+    if (offset != total) return false;
+    offset = 0;
+    for (uint64_t i = 0; i < out->count && offset < total; i++) {
+        uint64_t n = out->iov[i].length;
+        if (n > total - offset) n = total - offset;
+        uint64_t a = offset < first_length ? first_length - offset : 0;
+        if (a > n) a = n;
+        if (a && !copy_to_user(out->iov[i].base, first + offset, a)) return false;
+        if (n > a && !copy_to_user((uint8_t *)out->iov[i].base + a,
+            second + (offset + a - first_length), n - a)) return false;
+        offset += n;
+    }
+    return true;
+}
+
 static int64_t syscall_read(uint64_t fd, char *buffer, uint64_t length) {
     if(io_defer_pipe_read(fd,length)) return length?SRV_ERR_AGAIN:0;
     if(!user_buffer_ok(buffer,length,true)) return SRV_ERR_FAULT;
+    struct process_file *file = process_file_at(process_current(), fd);
+    if (file && (file->type == PROCESS_FILE_PIPE_READ || file->type == PROCESS_FILE_PIPE_DUPLEX)) {
+        struct srv_iovec iov = { .base = buffer, .length = length };
+        struct pipe_user_iov out = { &iov, 1 };
+        return process_file_pipe_read_checked(process_current(), fd, length, false, pipe_user_copyout, &out);
+    }
     return read_buffer(fd,buffer,length);
 }
 
 /* A vector is one transfer, not one potentially blocking transfer per element.
- * Snapshot descriptors and gather into owned memory before any wait; no user
- * mapping or vector pointer is retained across the operation. Large requests
+ * Snapshot vector metadata and gather write data before any wait. Pipe reads
+ * retain destination addresses and revalidate them at commit. Large requests
  * may return a bounded prefix, which the caller must handle like any short I/O. */
 static int64_t syscall_vector_io(uint64_t fd, const struct srv_iovec *user_iov,
     uint64_t count, uint64_t operation, int64_t offset) {
@@ -576,6 +627,12 @@ static int64_t syscall_vector_io(uint64_t fd, const struct srv_iovec *user_iov,
     for(uint64_t i=0;i<count;i++)
         if(!user_buffer_ok(iov[i].base,iov[i].length,!writing)) return SRV_ERR_FAULT;
     uint64_t length=total>MAX_SYSCALL_COPY?MAX_SYSCALL_COPY:total;
+    struct process_file *file = process_file_at(process_current(), fd);
+    if (operation == SRV_VECTOR_READ && file &&
+        (file->type == PROCESS_FILE_PIPE_READ || file->type == PROCESS_FILE_PIPE_DUPLEX)) {
+        struct pipe_user_iov out = { iov, count };
+        return process_file_pipe_read_checked(process_current(), fd, length, false, pipe_user_copyout, &out);
+    }
     uint8_t small[4096];
     uint8_t *buffer=length>sizeof(small)?kmalloc(length):small;
     if(!buffer) return SRV_ERR_NOMEM;
@@ -2521,10 +2578,14 @@ static int64_t syscall_socket_try_io(uint64_t fd, uint64_t operation, void *buff
     if (operation == SRV_SOCKET_PEEK) return SRV_ERR_NOTSUP;
     if (operation == SRV_SOCKET_SEND &&
         (file->type == PROCESS_FILE_PIPE_WRITE || file->type == PROCESS_FILE_PIPE_DUPLEX))
-        return process_file_pipe_write_mode(process, fd, buffer, length, true);
+        return process_file_pipe_write_checked(process, fd, length, true, pipe_user_copyin, buffer);
     if (operation == SRV_SOCKET_RECV &&
         (file->type == PROCESS_FILE_PIPE_READ || file->type == PROCESS_FILE_PIPE_DUPLEX))
-        return process_file_pipe_read_mode(process, fd, buffer, length, true);
+    {
+        struct srv_iovec iov = { .base = buffer, .length = length };
+        struct pipe_user_iov out = { &iov, 1 };
+        return process_file_pipe_read_checked(process, fd, length, true, pipe_user_copyout, &out);
+    }
     return SRV_ERR_BADF;
 }
 

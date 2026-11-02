@@ -3974,6 +3974,14 @@ build/tests/pipe-message-host$(HOST_EXE): tools/test_pipe_message_syscall.c kern
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
 
+.PHONY: test-pipe-user-mapping
+test-core: test-pipe-user-mapping
+test-pipe-user-mapping: build/tests/pipe-user-mapping-host$(HOST_EXE)
+	$<
+build/tests/pipe-user-mapping-host$(HOST_EXE): tools/test_pipe_user_mapping.c kernel/src/arch/x86_64/syscall.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+
 # Capture hook is absent from the ordinary power object and ordinary kernel.
 build/ap-probe/power.o: kernel/src/drivers/power.c $(ZIG) $(KERNEL_HEADERS)
 	@mkdir -p $(@D)

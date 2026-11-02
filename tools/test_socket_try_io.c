@@ -26,11 +26,13 @@ int64_t net_udp_sendto_mode(uint64_t h,uint32_t ip,uint16_t port,const uint8_t *
 int64_t net_udp_recvfrom(uint64_t h,uint8_t *b,uint64_t n,uint32_t *ip,uint16_t *port,bool nonblock) {
     (void)b;*ip=0x01020304;*port=53;return invoked(h,n,nonblock);
 }
-int64_t process_file_pipe_read_mode(struct process *p,uint64_t fd,uint8_t *b,uint64_t n,bool nonblock) {
-    (void)b;assert(p==(struct process *)1 && fd==7);return invoked(42,n,nonblock);
+int64_t process_file_pipe_read_checked(struct process *p,uint64_t fd,uint64_t n,bool nonblock,
+    process_pipe_copyout copyout,void *context) {
+    assert(copyout && context && p==(struct process *)1 && fd==7);return invoked(42,n,nonblock);
 }
-int64_t process_file_pipe_write_mode(struct process *p,uint64_t fd,const uint8_t *b,uint64_t n,bool nonblock) {
-    (void)b;assert(p==(struct process *)1 && fd==7);return invoked(42,n,nonblock);
+int64_t process_file_pipe_write_checked(struct process *p,uint64_t fd,uint64_t n,bool nonblock,
+    process_pipe_copyin copyin,void *context) {
+    assert(copyin && context && p==(struct process *)1 && fd==7);return invoked(42,n,nonblock);
 }
 int main(void) {
     uint8_t buffer[3];struct srv_socket_peer peer={.ip=0x01020304,.port=53};

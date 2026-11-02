@@ -5268,12 +5268,13 @@ static void pipe_commit_read(struct process_pipe *pipe, uint64_t count,
         pipe->rights[i].offset -= count;
 }
 
-int64_t process_file_pipe_read_mode(struct process *process, uint64_t fd, uint8_t *buffer, uint64_t length, bool dontwait) {
+static int64_t pipe_read_common(struct process *process, uint64_t fd, uint8_t *buffer,
+    uint64_t length, bool dontwait, process_pipe_copyout copyout, void *context) {
     uint64_t irq = process_irq_save();
     struct process_file *file = process_file_at(process, fd);
     if (file == NULL ||
         (file->type != PROCESS_FILE_PIPE_READ && file->type != PROCESS_FILE_PIPE_DUPLEX) ||
-        (buffer == NULL && length != 0)) {
+        (buffer == NULL && copyout == NULL && length != 0)) {
         process_irq_restore(irq);
         return -1;
     }
@@ -5304,8 +5305,17 @@ int64_t process_file_pipe_read_mode(struct process *process, uint64_t fd, uint8_
             uint64_t first = PROCESS_PIPE_CAPACITY - pipe->read_pos;
             if (first > count) first = count;
             if (count) {
-                copy_bytes(buffer, pipe->buffer + pipe->read_pos, first);
-                copy_bytes(buffer + first, pipe->buffer, count - first);
+                if (copyout) {
+                    if (!copyout(context, pipe->buffer + pipe->read_pos, first,
+                        pipe->buffer, count - first)) {
+                        process_irq_restore(irq);
+                        if (retired) kfree(retired);
+                        return SRV_ERR_FAULT;
+                    }
+                } else {
+                    copy_bytes(buffer, pipe->buffer + pipe->read_pos, first);
+                    copy_bytes(buffer + first, pipe->buffer, count - first);
+                }
                 pipe_commit_read(pipe, count, retired, records);
                 scheduler_wake_all(&pipe_wait_queue);
                 process_file_poll_wake();
@@ -5352,6 +5362,17 @@ int64_t process_file_pipe_read_mode(struct process *process, uint64_t fd, uint8_
     }
 }
 
+int64_t process_file_pipe_read_checked(struct process *process, uint64_t fd,
+    uint64_t length, bool dontwait, process_pipe_copyout copyout, void *context) {
+    if (!copyout) return SRV_ERR_INVAL;
+    return pipe_read_common(process, fd, NULL, length, dontwait, copyout, context);
+}
+
+int64_t process_file_pipe_read_mode(struct process *process, uint64_t fd, uint8_t *buffer,
+    uint64_t length, bool dontwait) {
+    return pipe_read_common(process, fd, buffer, length, dontwait, NULL, NULL);
+}
+
 int64_t process_file_pipe_read(struct process *process, uint64_t fd, uint8_t *buffer, uint64_t length) {
     return process_file_pipe_read_mode(process, fd, buffer, length, false);
 }
@@ -5362,13 +5383,14 @@ static int64_t pipe_broken_write(struct process *process,uint64_t done) {
     return done?(int64_t)done:SRV_ERR_PIPE;
 }
 
-int64_t process_file_pipe_write_mode(struct process *process, uint64_t fd, const uint8_t *buffer, uint64_t length, bool dontwait) {
+static int64_t pipe_write_common(struct process *process, uint64_t fd, const uint8_t *buffer,
+    uint64_t length, bool dontwait, process_pipe_copyin copyin, void *context) {
     uint64_t irq = process_irq_save();
     int64_t result;
     struct process_file *file = process_file_at(process, fd);
     if (file == NULL ||
         (file->type != PROCESS_FILE_PIPE_WRITE && file->type != PROCESS_FILE_PIPE_DUPLEX) ||
-        (buffer == NULL && length != 0)) {
+        (buffer == NULL && copyin == NULL && length != 0)) {
         result = -1;
         goto out;
     }
@@ -5423,8 +5445,16 @@ int64_t process_file_pipe_write_mode(struct process *process, uint64_t fd, const
         uint64_t count = remaining < space ? remaining : space;
         uint64_t first = PROCESS_PIPE_CAPACITY - pipe->write_pos;
         if (first > count) first = count;
-        copy_bytes(pipe->buffer + pipe->write_pos, buffer + done, first);
-        copy_bytes(pipe->buffer, buffer + done + first, count - first);
+        if (copyin) {
+            if (!copyin(context, done, pipe->buffer + pipe->write_pos, first,
+                pipe->buffer, count - first)) {
+                result = done ? (int64_t)done : SRV_ERR_FAULT;
+                goto out;
+            }
+        } else {
+            copy_bytes(pipe->buffer + pipe->write_pos, buffer + done, first);
+            copy_bytes(pipe->buffer, buffer + done + first, count - first);
+        }
         pipe->write_pos = (pipe->write_pos + count) % PROCESS_PIPE_CAPACITY;
         pipe->size += count;
         done += count;
@@ -5435,6 +5465,17 @@ int64_t process_file_pipe_write_mode(struct process *process, uint64_t fd, const
 out:
     process_irq_restore(irq);
     return result;
+}
+
+int64_t process_file_pipe_write_checked(struct process *process, uint64_t fd,
+    uint64_t length, bool dontwait, process_pipe_copyin copyin, void *context) {
+    if (!copyin) return SRV_ERR_INVAL;
+    return pipe_write_common(process, fd, NULL, length, dontwait, copyin, context);
+}
+
+int64_t process_file_pipe_write_mode(struct process *process, uint64_t fd, const uint8_t *buffer,
+    uint64_t length, bool dontwait) {
+    return pipe_write_common(process, fd, buffer, length, dontwait, NULL, NULL);
 }
 
 struct scheduler_wait_queue *process_file_poll_wait_queue(void) {
