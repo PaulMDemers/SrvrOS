@@ -642,3 +642,21 @@ The public calls use `SYS_PIPE_MESSAGE` (156). The older raw rights-only
 syscalls (98 and 99) remain available to existing binaries. An old sender that
 explicitly queues descriptors before writing payload still has two separate
 operations.
+
+### Lifetime of queued descriptors and blocked pipe I/O
+
+A rights record stays available while a process can reach its receiver. A
+duplicate or inherited read descriptor keeps it live, as does a reachable
+queued descriptor or a pending connection on a reachable Unix listener.
+A write-only descriptor cannot redeem queued rights. When the last path to
+a receiver disappears, the kernel releases its queued files even if the
+queue holds its own receiver or another socket leads back to it. Closing
+the final queued writer lets a separate reader observe EOF. The kernel
+removes records from the queue before releasing file references that might
+run writeback.
+
+Ordinary pipe reads and writes check the descriptor generation, endpoint
+role and pipe handle across waits. Retirement returns `EBADF` when no bytes
+have transferred. A writer that has already made progress returns that byte
+count. The same rule applies to `readv` and `writev` on pipes. The check covers
+both replacement of the descriptor and reuse of the kernel pipe slot.

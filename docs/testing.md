@@ -1379,3 +1379,19 @@ The full thread suite also exercises `dprintf` on a nonblocking pipe. Its
 setup and readback account for short transfers in chunks of at most `PIPE_BUF`,
 then check the formatted output byte by byte. The full-pipe `EAGAIN` and
 broken-peer `EPIPE` checks remain part of that test.
+
+## Queued descriptor cycles and pipe-slot reuse
+
+Run `make test-process-output`. The process fixture includes an exhaustive
+three-receiver queue graph, alias and inheritance controls, pending accepts,
+mixed legacy and atomic rights transfers, and reentrant writeback during queue
+retirement. It also forces a blocked reader or writer to resume after close,
+`dup2`, or reuse of both the descriptor number and pipe slot. The tests check
+the replacement pipe's contents and the byte count from a partial write.
+
+On the matched guest, `tools/netabi_smoke.py` requires two cycle probes. Each
+queues a pipe writer beside a socket descriptor and checks for EOF after the
+external sockets close. It repeats each topology 80 times against the 64-slot
+pipe pool. A live duplicate control retrieves the descriptors and transfers a
+byte. `tools/thread_smoke.py --test vector-io` includes a blocked `writev`
+whose descriptor is replaced after its first byte fills the original pipe.

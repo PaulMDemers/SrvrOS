@@ -324,3 +324,10 @@ For Unix-stream descriptor passing, add the host targets
 `test-process-output`, `test-pipe-message` and `test-syscall-io` to that command. Rebuild both kernel and libc for
 syscall 156 before running the network ABI smoke. The pre-fix probe used the
 same public socketpair operations against the previous matched image.
+
+To reproduce the queue lifetime checks on an ARM64 Mac, run
+`sh tools/macos/build.sh HOST_CC='python3 build/tooling/darwin-host-cc.py' test-process-output`,
+then `sh tools/macos/build.sh -j4 all`. Run
+`python3 tools/netabi_smoke.py --boot-wait 60 --command-wait 60` and
+`python3 tools/thread_smoke.py --test vector-io --boot-wait 60 --run-wait 80`
+in sequence.

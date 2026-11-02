@@ -1945,3 +1945,33 @@ that a blocked ordinary read could consume a byte from a newly allocated pipe.
 This pass therefore also covers descriptor and slot identity across ordinary
 pipe waits, including partial writes. It uses the existing process pipe and
 threadstress fixtures alongside the rights-cycle checks.
+
+### Queue lifetime and blocked pipe I/O result
+
+Commit `1c07163e` covers both failures. On the previous guest image, closing
+the last external receiver left an unrelated queued pipe writer open in both
+the direct and two-queue cases. A duplicate kept the receiver redeemable as
+expected. The matched guest passed 80 iterations of each cycle and the
+duplicate-delivery check. A deterministic host probe also read byte `B` from
+a replacement pipe on the previous kernel. With the fix it returned `EBADF`
+and a fresh read got `B`. The public blocked `writev` probe failed against
+the old kernel and passed on the matched image, returning its original one
+byte of progress and leaving the replacement pipe empty.
+
+The process host fixture exercised all 4,096 directed graphs and external
+reader sets for three queues. Separate tests covered inherited descriptors,
+pending accepts, interleaved final-file writeback and close, and blocked pipe
+I/O across slot reuse. The complete fixture passed x86_64 ASan/UBSan under
+Rosetta and cross-linked for Linux x86_64. Process lifetime, syscall I/O,
+scheduler I/O, pipe message, socket call, restart, event-adapter, thread
+harness and POSIX poll host targets passed. The x86_64 QEMU network ABI,
+full threadstress, focused vector I/O, staged ports and libuv suites passed.
+Evidence is in `build/review/rights-cycles/`.
+
+The standalone process-lifetime guest failed its orphan-launcher exit check
+on both the previous and candidate images at 512 MiB. The candidate also
+failed at 1 GiB. Both images passed the preceding 128-child churn and 16
+competing-waiter checks. A diagnostic kernel passed the first orphan iteration
+and timed out in the second after ten seconds with both the launcher and its
+new child present. The cause of the scheduling delay remains open. The serial
+transcripts for these runs are also in `build/review/rights-cycles/`.

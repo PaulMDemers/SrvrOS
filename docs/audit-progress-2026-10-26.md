@@ -155,10 +155,27 @@ The Unix-stream pass reproduced stale rights after a refused send, early descrip
 delivery on a zero-byte receive, and lost rights behind an unrelated prefix.
 The matched libc and kernel now transfer bytes and rights together. Host and
 guest coverage includes copyout failure, duplicate survival, truncation and
-peek. Remaining socket lifetime work includes queued descriptors that hold a
-reference to their own receiving socket, directly or through another queue.
-The current evidence covers ordinary ownership and rollback, and leaves
-unreachable reference cycles open.
+peek.
+
+The queue-lifetime follow-up reproduced direct and indirect socket reference
+cycles and verified their reclamation after external close. Its host oracle
+checks all 4,096 combinations of directed edges and retained readers among
+three queues. Additional cases cover pending accepts, inheritance, ordinary
+reads that discard rights, and final-file writeback that reenters close.
+A blocked pipe-read probe also consumed data from a reused pipe slot on the
+pre-fix kernel. The read and write paths now recheck descriptor identity when
+they wake and preserve a writer's completed prefix.
+
+The next open boundary is the lifetime of user buffers across a blocking
+pipe syscall. In particular, exercise scalar read/write mappings changed by a
+sibling while the caller sleeps, and vectored receive copyout after wake.
+The descriptor-reuse probes keep their user buffers mapped throughout.
+
+A separate process-lifetime guest check reproduced an orphan-launcher timeout
+on the preceding image and this candidate. In a diagnostic run the launcher
+created its child but still had not exited at the ten-second deadline. That
+run passed the first iteration and timed out on the second. Follow up on
+scheduling progress while the monitor waits for the launcher.
 This checkpoint is separate from the completed event-adapter target.
 
 ## Broader work still outside exhaustive coverage
