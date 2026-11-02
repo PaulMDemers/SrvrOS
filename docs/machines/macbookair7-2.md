@@ -2,16 +2,40 @@
 
 Updated: 2026-11-01. State: **active reference machine; partial device acceptance**.
 
-### Automatic bitmap-span hardware trial prepared
+### Bitmap-span hardware return: writeback deadline failure
 
-The user authorized the1800-second automatic trial at1% volume. Release
-`ff1242b59d4eb9a5` is installed; recovery `9aa8dbf6fbda8252` and independent
-accepted7d remain verified. Fresh1283-file/86-session preservation, offline
-fsck/allocation/writable/headroom and clean flags pass. An unused failed73 EFI
-copy was archived with every file verified before removal; current/recovery
-were preserved. Ubuntu remains default and USB is unmounted. The durable run
-record is `build/air-bitmap-span-20261101/native-trial/run.json`. No input is
-needed. Collect the matching new session first on return; failures remain failures.
+Release `ff1242b59d4eb9a5` / source `275330f5`, session
+`session-00065f3f942ec956-00`, fails after22 completed lifetimes. The next launch
+exceeds the unchanged whole-lifetime deadline at10,009,841us. UI maximum is
+101,733us, ready6,363,700us and completed Close4,831,192us; that Close maximum
+excludes the failed launch. Full1800-second audio/disk/capture acceptance is
+incomplete. Volume is1%; one1440×900 screenshot decodes after cleanup, but the
+required three captures did not complete. Cache retires0bytes/0retained/17reuses;
+battery retires and automatic Ubuntu return succeeds. This is a failed trial.
+
+The new diagnostic matches owner600 (PID7/thread19,11,107,145us) to a successful
+write mutation of11,106,975us. Its block callbacks consume11,101,657us, including
+10,754,038us writing3,014,656 data bytes in23 calls. Allocation/free writes total
+only185 bytes. SYS_EXEC waits10,930,656us behind this owner and resumes500us
+after it ends. The native bottleneck is now measured in data-write callbacks;
+bitmap byte reductions do not establish a native endurance pass.
+
+Source inspection finds global SYS_SYNC visiting every live dirty content object
+and using whole-file copy-on-write replacement. This includes another process's
+growing screenshot, whose worker writes16KiB chunks. Increasing data-write sizes
+and concurrent capture progress fit repeated prefix rewrites; exact object
+identity remains an inference because cost records omit filenames. Next scope is
+bounded append/incremental writeback with safe whole-file fallback and unchanged
+global sync/fsync, dirty/publication/flush/quarantine and recovery contracts.
+Do not skip dirty files, relax deadlines or remove the screenshot workload.
+
+All1283 prior files are preserved except expected metadata updates; six new files
+are copied and hash-verified. Offline fsck is clean (283directories/1289files),
+and allocation/writable/headroom pass. Currentff, recovery9aa, independent
+accepted7d, Ubuntu default and consumed one-shot verify; USB is remounted.
+Evidence is in `build/air-bitmap-span-20261101/native-trial/`, with backup outside
+`build`. PR261 remains draft, prior failures remain failed and no new trial is
+armed. Read the latest checkpoint before continuing.
 
 ### Bitmap transfer candidate ready for hardware
 
@@ -55,9 +79,8 @@ no partial UART receipt is repaired or accepted.
 
 Exact staged TCG native-profile refusal/save/unmount/return passes plumbing only.
 Candidate payload/evidence are backed up outside `build`; current failed451,
-recovery9aa and independent accepted7d verify. The subsequent prepared trial above supersedes the prior installed state.
-Next is the automatic1800-second
-hardware trial at1% volume. No native stall, input, audible or sibling acceptance
+recovery9aa and independent accepted7d verify. The subsequent failed native trial above supersedes this readiness snapshot.
+No new trial is armed. No native stall, input, audible or sibling acceptance
 is inferred. Local checkpoint: `build/air-bitmap-span-20261101/checkpoint.json`.
 
 ### Storage-shortening hardware return: deadline failure
