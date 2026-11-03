@@ -1,5 +1,6 @@
 #include <srvros/desk_command_job.h>
 #include <srvros/sys.h>
+#include <srvros/profile_session.h>
 #include <string.h>
 static void reap(struct desk_command_job *j) {
     if(j->retiring_pid) {
@@ -25,13 +26,15 @@ int desk_command_job_start(struct desk_command_job *j,const char *path,char *con
     unsigned count=0;
     for(;count<16 && argv[count];count++) if(strlen(argv[count])>=256) return -1;
     if(count==16) return -1;
+    struct srv_profile_session session;struct srv_profile_environment environment;
+    if(!srv_profile_session_from_env(&session) ||
+       !srv_profile_environment_init(&environment,&session,"/fat/bin")) return -1;
     int input[2],output[2];if(srv_pipe(input)) return -1;
     if(srv_pipe(output)) { srv_close(input[0]);srv_close(input[1]);return -1; }
     if(srv_fcntl(output[0],SRV_F_SETFL,SRV_FD_NONBLOCK)<0) {
         srv_close(input[0]);srv_close(input[1]);srv_close(output[0]);srv_close(output[1]);return -1;
     }
-    char *environment[]={"PATH=/fat/bin","HOME=/fat/home",NULL};
-    struct srv_exec_request request={.path=path,.argv=argv,.envp=environment,.flags=SRV_EXEC_BACKGROUND,
+    struct srv_exec_request request={.path=path,.argv=argv,.envp=environment.envp,.flags=SRV_EXEC_BACKGROUND,
         .stdin_fd=input[0],.stdout_fd=output[1],.stderr_fd=output[1],.process_group=UINT64_MAX};
     long pid=srv_exec(&request);srv_close(input[0]);srv_close(input[1]);srv_close(output[1]);
     if(pid<=0) { srv_close(output[0]);return -1; }

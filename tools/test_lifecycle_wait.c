@@ -102,7 +102,7 @@ static long srv_futex_wait(uint32_t *p,uint32_t expected,uint64_t ticks) {
 }
 static void await_state(unsigned *p,unsigned value) { for(unsigned n=0;n<5000;n++){if(life_state(p)==value)return;nap();}assert(!"state deadline"); }
 static void await_count(atomic_uint *p,unsigned value) { for(unsigned n=0;n<5000;n++){if(atomic_load(p)>=value)return;nap();}assert(!"counter deadline"); }
-static void launch_record(struct lifecycle_worker *w) { w->launch[0].application=1;w->launch[0].child_slot=3;strcpy(w->launch[0].path,"test");strcpy(w->launch[0].home,"/home"); }
+static void launch_record(struct lifecycle_worker *w) { w->launch[0].application=1;w->launch[0].child_slot=3;strcpy(w->launch[0].path,"test");strcpy(w->launch[0].home,"/fat/home");assert(srv_profile_session_init(&w->launch[0].profile,"/fat/home",NULL)); }
 static atomic_uint joined;
 static void *stop_worker(void *p) {assert(!life_stop(p));atomic_store(&joined,1);return NULL;}
 int main(void) {

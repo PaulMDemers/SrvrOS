@@ -301,3 +301,33 @@ of these path and portable-settings contracts after filesystem/installer binding
 are agreed. Credential and permission enforcement remain separate prerequisites
 before real user isolation. The integration checkout and all three named review
 VMs remain untouched and running at closeout; this task launched no VM.
+
+## Desktop adoption milestone — in progress
+
+Authorized follow-on: activate one explicitly imported profile in the compositor
+and current Files/Text/picker/Terminal/command routes; read and save portable
+preferences independently of local device settings; verify actual app interaction,
+clean reboot and migration on two independently provisioned disposable installed
+VMs. Authentication, kernel credentials and access enforcement remain unchanged.
+Branch `device/apple-silicon/profile-desktop` consumes PR309 and fetched main
+`3db1a1d3` (merged installed-disk PR311). PR309 is still a review dependency.
+The existing three review VMs remain running and untouched. One harness/build at
+a time in this isolated checkout; no physical disk or integration checkout writes.
+
+The proof retains `/fat` backing. Explicit profile selection must validate its
+home, UUID marker, required directories and portable settings before rendering;
+missing/malformed selections refuse to console with a corrective message, never
+substitute a shared legacy home. No selection retains existing desktop behavior.
+Enforce the actual 159-byte backing path limit when provisioning/using paths;
+versioned offline imports remain separate from unsupported guest directory-rename
+publication. Two stores/images use different local slots and numeric metadata;
+guest credentials remain root and metadata is not authorization.
+
+Scope ownership: this branch owns the new session/provider and preference
+integration; SrvrApps change is restricted to Terminal environment propagation.
+PR19's compositor diagnostic additions and PR252 process/libc lifetime scope are
+preserved. Existing installation tooling is consumed without editing its contract.
+Completion requires fresh matched artifacts, focused host tests, legacy desktop
+regression, both installed VM lifetimes/reboots, app and raw-byte readback,
+no profile/device setting contamination, missing-profile refusal, and draft PRs
+with source/evidence identities. Current step: implementation and harness design.
