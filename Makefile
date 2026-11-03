@@ -4828,3 +4828,11 @@ build/tests/mt76-channel5-host$(HOST_EXE): tools/test_mt76_channel5.c kernel/src
 test-core: test-wifi-held-log
 test-wifi-held-log:
 	$(PYTHON) -m unittest discover -s tools -p test_wifi_held_log.py
+
+.PHONY: test-mt76-trim5
+test-core: test-mt76-trim5
+test-mt76-trim5: build/tests/mt76-trim5-host$(HOST_EXE)
+	$<
+build/tests/mt76-trim5-host$(HOST_EXE): tools/test_mt76_trim5.c tools/test_mt76_channel5.c kernel/src/drivers/mt76_trim5.c kernel/include/srvros/mt76_trim5.h kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_mt76_trim5.c kernel/src/drivers/mt76_trim5.c kernel/src/drivers/mt76_mcu.c -o $@

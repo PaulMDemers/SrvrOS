@@ -151,4 +151,5 @@ int main(int argc,char **argv){
     f=(struct fake){0};init(&f);assert(run(&f,256)==MT76_TIMING_REFUSED && !state.attempted && !f.calls);
     state=good;state.selected=false;assert(!mt76_channel5_valid(&state));state=good;state.band.a20.complete=false;assert(!mt76_channel5_valid(&state));state=good;state.pa.restored=false;assert(!mt76_channel5_valid(&state));state=good;state.bbp.restored=false;assert(!mt76_channel5_valid(&state));state=good;state.lna++;assert(!mt76_channel5_valid(&state));
     puts(quick?"channel161 held engine: PASS quick shared-bank/proof/preflight/256-gain checks;fault sweep not requested":"channel161 held engine: PASS3732 I/O/3746 cancellation boundaries,256 gains,shared bank selected PA/BBP under band/frequency/A20,reverse originals,no replay;native owner separately gated;no VCO/RX");
+    return 0;
 }

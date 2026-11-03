@@ -396,6 +396,30 @@ This accepts the MAC-disabled simultaneous command/state/restoration contract,
 not VCO/RF lock, calibrated reception, authentication or IP data. Next is audited
 fresh trim/DAC/VCO/calibration and receive work. Credentials remain unused.
 
+## Reversible frequency-trim foundation
+
+The pinned `mt76x0_phy_rf_init` sequence writes/reads EEPROM-derived RF0:22
+before DAC0:73 set/clear/set and a common0:4 VCO trigger. Channel setup has a
+separate0:4 trigger after tuning, gain and BBP selection. Generic common-init
+G-band bootstrap code does not accept G-band operation on this assembled adapter.
+Neither pulse nor calibration is accepted by the v116 result above.
+
+The host-only fixed trim engine requires the exact board tuple, numeric44 and
+original0. It writes44, independently reads44, optionally runs the fixed channel161
+engine while trim stays selected, writes original0 and independently rereads0.
+Five guarded commands use35 operations/two writes; the combined lifetime uses
+3767 operations and3782 authorization boundaries. The fixed target is disjoint
+from the channel/PA/BBP plans. Unknown board/scalar/owner/callback or partial
+proof refuses before later I/O; uncertain transfers stop without replay or
+speculative cleanup. A numeric44 is not fresh calibration evidence: separate
+native admission must capture private logical30/d0 fields afresh and bind them.
+There is no native caller/profile, DAC/VCO pulse, RX or credential use here.
+
+Pinned-source auditing separates common and per-channel lifetimes, validates
+field normalization/clamping and hashes all eight sources and five nested plan
+dependencies. The unit record owns host/fault/sanitizer/build evidence. The
+installed accepted v116 payload and frozen native capsule remain unchanged.
+
 ## Current merged development baseline
 
 Runtime `d9c28128` consumes main `1dad02c2`, Apps `1f5f894`, Ports `5aacedd`

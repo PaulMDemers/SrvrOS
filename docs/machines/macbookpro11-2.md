@@ -138,6 +138,18 @@ Preserve legacy APIs and the accepted payload. Test all I/O/cancel/proof/owner
 boundaries and shared-bank simultaneous trim/channel state before native wiring.
 This host foundation adds no DAC/VCO/RX, credentials, native profile or reboot.
 
+The implemented isolated35-operation lifetime and3767-operation nested lifetime
+pass all35/3767 transfer-failure and36/3782 cancellation boundaries,256 nested
+gains, immutable requests, board/owner/callback refusals, bad originals before
+write, short/invalid replies, stored reply/MAC/core proof bits and reserved DMA
+faults. A shared physical-register model keeps0:22=44 at every inner authorization,
+including the all-selected BBP boundary, then requires full original restoration.
+Pinned audit checks eight sources/five dependency hashes and rejects three altered
+source files and two damaged fixtures. Sanitizer/build/link checks are recorded
+in the local foundation evidence before this work is published; no physical
+acceptance is added to v116 by these host-only results.
+
+
 ## Completed v116 native implementation scope
 
 Reviewed remote main `d5822348` and open PRs301/299/252: current work is display
