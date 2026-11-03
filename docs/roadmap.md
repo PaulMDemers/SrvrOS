@@ -1,6 +1,6 @@
 # Roadmap
 
-Updated October 27, 2026. The goal is a pleasant native desktop on the MacBook
+Updated November 3, 2026. The goal is a pleasant native desktop on the MacBook
 Air, with a solid shell and server foundation. The [current status](status.md)
 and [machine records](machines/README.md) separate implementation from physical
 acceptance. The [device parity ledger](device-parity.md) compares the Air with
@@ -15,8 +15,12 @@ SrvrUI retains logical layout/input and adds physical-density backing; SrvrOS
 owns client surfaces, compositor, display transactions and persistence.
 Unsupported native/standard VGA backends expose current mode only. Required
 checks cover density/clipping, budgets, migration, runtime recovery, retained
-app state, persistence and presentation cost. Implementation is in progress;
-previous snapping/resize/theme milestones remain complete.
+app state, persistence and presentation cost. The matched implementation passes
+these checks, including held-switcher rollback and native 2× snap/resize/theme
+regressions. SrvrUI PR3 and SrvrApps PR4 are merged; SrvrOS PR303 records delivery.
+See [the acceptance receipt](assets/screenshots/hidpi-display-manifest.json).
+This target is complete; fractional scale and native modesetting remain separate
+future work. Previous snapping/resize/theme milestones remain complete.
 
 ## Current window snapping — November 3, 2026
 

@@ -135,6 +135,8 @@ BMP remains within Preview's current 8 MiB file limit. QEMU screendumps preserve
 physical pixels for inspecting font detail. Serial diagnostics record physical
 and logical dimensions, scale and confirmed/restored changes. VM evidence does
 not accept modesetting or panel timing on a physical Mac.
+[Acceptance and native-resolution captures](assets/screenshots/hidpi-display-manifest.json)
+record the exact build, child revisions, recovery checks and measured drawing cost.
 
 The unattended `--idle-capture` mode is reserved for the v25/v26 hardware diagnostic
 profiles. It uses the prepared USB workspace, samples 60 seconds after startup,

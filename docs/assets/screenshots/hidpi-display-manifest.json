@@ -1,0 +1,295 @@
+{
+  "schema": 1,
+  "date": "2026-11-03",
+  "status": "PASS",
+  "runtime_source": "e613f8f0a3191d5584a26796adadecd690953de6",
+  "integration_base": "0fd0c5fc",
+  "repositories": {
+    ".": {
+      "head": "e613f8f0a3191d5584a26796adadecd690953de6",
+      "dirty": false
+    },
+    "ports": {
+      "head": "5e30ecd3f500f7ccbb4f4ce9a3354adddade735f",
+      "dirty": false
+    },
+    "ports/upstream/awk": {
+      "head": "5739fd79bcfc75ba7526773d0cf634521f8aca3c",
+      "dirty": false
+    },
+    "ports/upstream/cjson": {
+      "head": "c859b25da02955fef659d658b8f324b5cde87be3",
+      "dirty": false
+    },
+    "ports/upstream/inih": {
+      "head": "26254ee9de7681f8825433415443e7116ff24b98",
+      "dirty": false
+    },
+    "ports/upstream/libuv": {
+      "head": "1cfa32ff59c076ffb6ed735bbc8c18361558661f",
+      "dirty": false
+    },
+    "ports/upstream/linenoise": {
+      "head": "dc83cc373ac2058030eb3cf5e404959a26fef112",
+      "dirty": false
+    },
+    "ports/upstream/lua": {
+      "head": "6e22fedb74cf0c9b6656e9fce8b7331db847c605",
+      "dirty": false
+    },
+    "ports/upstream/node": {
+      "head": "c7d10158bc31036de6783d66beaaaf551e3167aa",
+      "dirty": false
+    },
+    "ports/upstream/zlib": {
+      "head": "da607da739fa6047df13e66a2af6b8bec7c2a498",
+      "dirty": false
+    },
+    "userspace/apps": {
+      "head": "edb51dc16214d58bcd1768b3a52fdb3b9793c8b8",
+      "dirty": false
+    },
+    "userspace/widgets": {
+      "head": "9eaaa74e1423c15c99f8ce388b08ed5e514de3d6",
+      "dirty": false
+    }
+  },
+  "image_hashes": {
+    "build/kernel/srvros.elf": "ef52958679d22a92e927e0e4dab03c7585c53c2ed6929034400777e421e8be65",
+    "build/initramfs.tar": "1e63b24a873032222d5f8cd767797109345d68f6d8b8f58417347fb3aa2daddc",
+    "build/srvros.exfat": "271b54e92d127145b48b56811057702ed1bda4ed5899042a8fd39d217aa0d223"
+  },
+  "checks": {
+    "display": {
+      "result_sha256": "3e6eb362c0b59e5214033325d76766b6b698b5a036960542034b8ed4ebf6fac8",
+      "result": {
+        "status": "PASS",
+        "metadata": {
+          "source_manifest_sha256": "b0e123c6b8e42f7ee5adcbb315588b44aaf51245b7665b0b126022b2ea19fdc1",
+          "kernel_sha256": "ef52958679d22a92e927e0e4dab03c7585c53c2ed6929034400777e421e8be65",
+          "base_disk_sha256": "271b54e92d127145b48b56811057702ed1bda4ed5899042a8fd39d217aa0d223",
+          "qemu_version": "QEMU emulator version 11.1.2",
+          "boot_iso_sha256": "a1773cddb87b25146982eed2b0740cdd8264c4deba10540171c9262a6cb8e0e5",
+          "active_pointer": {
+            "index": 2,
+            "name": "QEMU Virtio Tablet",
+            "current": true,
+            "absolute": true
+          }
+        },
+        "checks": [
+          "Settings apply and keep",
+          "Text selection, snap, resize and saved document",
+          "timed rollback with held switcher; explicit and owner-close rollback",
+          "saved preference and fresh desktop restore"
+        ],
+        "limitations": "Requires current preset ordering and Settings layout. Screenshots prove dimensions, not native glyph detail."
+      }
+    },
+    "snap": {
+      "result_sha256": "3b9c695e3d7d82cb1512e21beeda1a623352a671df44201022451a1747bcc101",
+      "result": {
+        "status": "PASS",
+        "metadata": {
+          "source_manifest_sha256": "15b3f0470dca8efd1b47dfc7ff72e4075397f745ab3cbc51d364cd0a4475932a",
+          "kernel_sha256": "ef52958679d22a92e927e0e4dab03c7585c53c2ed6929034400777e421e8be65",
+          "base_disk_sha256": "bbe8df77e3c89cee24b495a1d4d9ed74215ab8fc5813460433100fb3c4e5ec8a",
+          "qemu_version": "QEMU emulator version 11.1.2"
+        },
+        "modes": [
+          {
+            "mode": "1280x800-scale1",
+            "logical": [
+              1280,
+              800
+            ],
+            "text_pid": 6,
+            "text_window": 1,
+            "identity": 1,
+            "original": [
+              32,
+              64,
+              722,
+              525
+            ],
+            "boot_iso_sha256": "4bdeb4f75a898d794bd88018fa2adffb72277b2ca17d77960d8d09501801e440",
+            "active_pointer": {
+              "index": 2,
+              "name": "QEMU Virtio Tablet",
+              "current": true,
+              "absolute": true
+            }
+          },
+          {
+            "mode": "1920x1080-scale2",
+            "logical": [
+              960,
+              540
+            ],
+            "text_pid": 6,
+            "text_window": 1,
+            "identity": 1,
+            "original": [
+              32,
+              64,
+              722,
+              396
+            ],
+            "boot_iso_sha256": "6a0023f2cba8dec46ab7592926cc7063a7e339e2c9dd353fd9025248ab9bbe2a",
+            "active_pointer": {
+              "index": 2,
+              "name": "QEMU Virtio Tablet",
+              "current": true,
+              "absolute": true
+            }
+          }
+        ],
+        "checks": [
+          "held preview and release placement for left, right and maximize",
+          "stationary placed click and drag restoration",
+          "preview leave and Escape cancellation",
+          "modal capture cancellation",
+          "selection and saved content",
+          "GPU presenter reset"
+        ],
+        "limitations": "Screenshots provide visual evidence; host pointer capture and smoothness are not tested."
+      }
+    },
+    "resize": {
+      "result_sha256": "88de0f96e89e24de45bd7711ca44833cf4b52f6a23adf4474d6a4587a4bf5dc7",
+      "result": {
+        "status": "PASS",
+        "metadata": {
+          "source_manifest_sha256": "853d6aa0f6a02e67740cd1d1da4080bbe1fc79933b8952e4f4fec5e0721f5b03",
+          "kernel_sha256": "ef52958679d22a92e927e0e4dab03c7585c53c2ed6929034400777e421e8be65",
+          "base_disk_sha256": "bbe8df77e3c89cee24b495a1d4d9ed74215ab8fc5813460433100fb3c4e5ec8a",
+          "qemu_version": "QEMU emulator version 11.1.2"
+        },
+        "modes": [
+          {
+            "mode": "1280x800-scale1",
+            "logical": [
+              1280,
+              800
+            ],
+            "text_pid": 6,
+            "text_window": 1,
+            "identity": 1,
+            "boot_iso_sha256": "0090baea28167bf23aa165de15c25512584fc31de5df11ca3e898b4b006b5926",
+            "active_pointer": {
+              "index": 2,
+              "name": "QEMU Virtio Tablet",
+              "current": true,
+              "absolute": true
+            }
+          },
+          {
+            "mode": "1920x1080-scale2",
+            "logical": [
+              960,
+              540
+            ],
+            "text_pid": 6,
+            "text_window": 1,
+            "identity": 1,
+            "boot_iso_sha256": "096b40772d04654beb6689868800d82ebcfec2b1efbb5efa61cd50ad5c4aa104",
+            "active_pointer": {
+              "index": 2,
+              "name": "QEMU Virtio Tablet",
+              "current": true,
+              "absolute": true
+            }
+          }
+        ],
+        "checks": [
+          "eight resize directions and anchored opposite edges",
+          "minimum frame bounds",
+          "directional cursor traces and arrow after leave",
+          "selection and saved content",
+          "stationary press and Escape cancellation",
+          "modal parent capture and capture cancellation",
+          "edge release and reentry",
+          "GPU presenter reset"
+        ],
+        "limitations": "Cursor screenshots provide visual evidence; host pointer capture and smoothness are not tested."
+      }
+    },
+    "themes": {
+      "result_sha256": "36a7d6a0ad8099c9a332af6121753f7edcbbda6c7d82345e8b99e71e4f084963",
+      "result": {
+        "status": "PASS",
+        "metadata": {
+          "submodules": " 5e30ecd3f500f7ccbb4f4ce9a3354adddade735f ports (remotes/origin/port/awk)\n 5739fd79bcfc75ba7526773d0cf634521f8aca3c ports/upstream/awk (20260426)\n c859b25da02955fef659d658b8f324b5cde87be3 ports/upstream/cjson (v1.7.15-48-gc859b25)\n 26254ee9de7681f8825433415443e7116ff24b98 ports/upstream/inih (r62)\n 1cfa32ff59c076ffb6ed735bbc8c18361558661f ports/upstream/libuv (v1.52.1)\n dc83cc373ac2058030eb3cf5e404959a26fef112 ports/upstream/linenoise (1.0-47-gdc83cc3)\n 6e22fedb74cf0c9b6656e9fce8b7331db847c605 ports/upstream/lua (v5.4-beta-336-g6e22fedb)\n c7d10158bc31036de6783d66beaaaf551e3167aa ports/upstream/node (v24.16.0)\n da607da739fa6047df13e66a2af6b8bec7c2a498 ports/upstream/zlib (v1.3.2)\n 0ed26ad39523ca4e2d107f5d92f70d629c058924 userspace/apps (heads/device/apple-silicon/display-settings)\n 9eaaa74e1423c15c99f8ce388b08ed5e514de3d6 userspace/widgets (remotes/origin/HEAD)\n",
+          "source_manifest_sha256": "17fab0a1959c855693de5c16904fbde81bfa73808f1e97fcae4fe272ab5605a1",
+          "kernel_sha256": "ef52958679d22a92e927e0e4dab03c7585c53c2ed6929034400777e421e8be65",
+          "base_disk_sha256": "bbe8df77e3c89cee24b495a1d4d9ed74215ab8fc5813460433100fb3c4e5ec8a",
+          "qemu_version": "QEMU emulator version 11.1.2",
+          "boot_iso_sha256": "8f51bab4d0be2d8b10bb6652e8951ceeb0fb7753acd5ddf6cd8cbecf421c1223",
+          "final_disk_sha256": "c29f419890dd7a2aa42f320f928bbbc8a3f96d1da123976a938d99d6535e9391"
+        },
+        "active_pointer": {
+          "index": 2,
+          "name": "QEMU Virtio Tablet",
+          "current": true,
+          "absolute": true
+        },
+        "checks": [
+          "live Aero and Aqua",
+          "existing and new Text selection",
+          "content and selection retained",
+          "Files selection across profiles and normal/compact resize",
+          "Files sibling history and close",
+          "popup and dialog captures",
+          "drag and Help wheel",
+          "saved Aqua and desktop restart"
+        ],
+        "limitations": "QMP guest evidence does not test host-window smoothness or cursor release."
+      }
+    }
+  },
+  "regression_runtime_note": "Snap, resize and theme runs use b5eb540f built artifacts (recorded in build/review/hidpi-display/accepted-initial/macos-build.json). Later e613f8f0 adds display-only menu bounds, clock/focus recovery, merged identical child trees and main diagnostics; full host suites and extended display VM rerun on its clean matched image. Harness source snapshots may include the later source work; artifact hashes identify the runtime.",
+  "host_log_sha256": "6c0d99c06fba71dddc8311324806401c2786ac97498831b780f61090b889236a",
+  "host_checks": [
+    "test-desktop",
+    "test-desktop-io",
+    "test-console",
+    "test-display-present",
+    "test-virtio-gpu-probe",
+    "test-package-audit",
+    "test-cpu-receipt-tail"
+  ],
+  "captures": {
+    "hidpi-display-rollback.png": "a969bdf1aef8cd08a4a2418bb3992fa9bc1e0d97ac687c14051a1cc11da6e20b",
+    "hidpi-display-trial.png": "26e13269b7f4ed085176ea461ba1984f2f792b5c6478dd33e0fb8e108f0715ba",
+    "hidpi-display-restored.png": "dc65f925dc9093c69ee61d7253e0088e65c869552b382bdf7ab430832eae0230"
+  },
+  "render_cost": {
+    "logical_desktop": [
+      960,
+      540
+    ],
+    "logical_client": [
+      720,
+      335
+    ],
+    "full_draw_samples": 100,
+    "warmups": 5,
+    "density1": {
+      "backing_bytes": 2073600,
+      "client_bytes": 964800,
+      "mean_us": 555
+    },
+    "density2": {
+      "backing_bytes": 8294400,
+      "client_bytes": 3859200,
+      "mean_us": 2231
+    },
+    "scope": "Host software full-scene drawing, not guest pacing or monitor vblank."
+  },
+  "limitations": [
+    "Integer scale1/2 only; custom fonts without density2 fall back to enlargement.",
+    "Resolution presets are supported QEMU guest modes, not EDID; native/stdVGA are current-mode-only.",
+    "Native hardware, host vblank and physical timing are not accepted by these VM results.",
+    "Independent exfatprogs fsck is unavailable; document readback and preference restart checks passed."
+  ]
+}

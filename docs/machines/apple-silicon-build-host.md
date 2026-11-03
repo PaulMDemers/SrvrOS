@@ -2567,4 +2567,32 @@ surface bounds and cache accounting, preference migration, apply/revert/timeout/
 unsupported/failure host checks, full desktop suites and matched build, QEMU
 resolution/scale switching with retained Text content, restart persistence,
 resize/snap/theme regressions and measured memory/presentation cost. Coordinate
-published child revisions before OS pins. Next: implement and verify this target.
+published child revisions before OS pins. The implementation and required
+verification are now complete; delivery is recorded below.
+
+
+Implementation `e613f8f0` consumes merged SrvrUI PR3 (`9eaaa74e`) and SrvrApps
+PR4 (`edb51dc1`) on integration main `0fd0c5fc`. Its clean matched build and full
+desktop/I/O, console/presentation/VirtIO, package/platform and CPU receipt suites
+pass. QEMU applies and keeps 1920×1080 at 2×, trials 2560×1440, reverts on timeout
+with Alt-Tab held, explicit Revert and Settings close, preserves selected/saved
+Text bytes, and restores confirmed settings on a fresh desktop launch. Menus
+and clock layout update immediately; overlay closure restores input focus.
+
+Snapping and edge resizing pass at 1280×800/1× and 1920×1080/2×; live theme
+changes, persistence and restart pass. Those regressions used the preceding
+`b5eb540f` image; the final display-only fixes and integrated diagnostic changes
+received the complete host suite and extended display VM. All exact build,
+result and capture identities are in the
+[acceptance receipt](../assets/screenshots/hidpi-display-manifest.json). The UI
+portability chat owns the separately merged logical-canvas/physical-backing API
+and native font atlas. At fixed logical size, 2× uses four times the pixel bytes;
+the host full-scene sample measured 555/2231 µs at 1×/2×. This is drawing cost, not
+a vblank or native latency claim.
+
+The Settings form's control-capacity and trial-visibility defects found in live
+verification are fixed and covered by actual host pointer routing. Older review
+VMs/disks remain untouched. No physical boot/install, native modesetting or
+hosted Actions change. [PR303](https://github.com/PaulMDemers/SrvrOS/pull/303)
+records the requested integration; no further implementation is required for
+this target.

@@ -1,6 +1,6 @@
 # Current status
 
-Updated 2026-10-27. SrvrOS is an experimental x86_64 desktop OS with a shell and
+Updated 2026-11-03. SrvrOS is an experimental x86_64 desktop OS with a shell and
 server capabilities. This page describes the current source baseline.
 Check the source commit of an image before assuming it contains a change;
 there is no supported stable binary release yet.
