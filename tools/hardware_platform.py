@@ -184,16 +184,45 @@ def _parse(text):
                 decoded.append(None)
         rows[bdf]=dict(state=a,offset=o0,raw=[v0,v1],decoded=decoded,headers=[n0,n1])
     if rows.keys()!=devices.keys():return None
-    return dict(status='PASS',timing=timing,series=series,display_well=display,resources=resources,dependencies=dependencies,hda=hda,dry=dry,graphics=dict(base=base,time_us=[t0,t1],status_raw=[s0,s1],rc_state=[{0:'RC0',2:'RC3',3:'RC6',4:'RC7'}.get(v&7,'unknown') for v in (s0,s1)],rc6_raw=[r0,r1],rc6_delta_ticks=delta,rc6_delta_ns=delta*1280,rc6_observed=bool(delta),rc_control='unavailable'),firmware_config=c0,permission='unavailable',permission_reason='no-validated-grant-register',latency=rows,scope='Paired read-only context, no causal blocker or policy inference; max LTR capability is not measured response latency or proof of a current request')
+    return dict(status='PASS',timing=timing,series=series,display_well=display,resources=resources,dependencies=dependencies,hda=hda,dry=dry,backing=backing,graphics=dict(base=base,time_us=[t0,t1],status_raw=[s0,s1],rc_state=[{0:'RC0',2:'RC3',3:'RC6',4:'RC7'}.get(v&7,'unknown') for v in (s0,s1)],rc6_raw=[r0,r1],rc6_delta_ticks=delta,rc6_delta_ns=delta*1280,rc6_observed=bool(delta),rc_control='unavailable'),firmware_config=c0,permission='unavailable',permission_reason='no-validated-grant-register',latency=rows,scope='Paired read-only context, no causal blocker or policy inference; max LTR capability is not measured response latency or proof of a current request')
 
 
 RESOURCE_OFFSETS = (0x70008,0x71008,0x72008,0x7f008,0x60400,0x61400,0x62400,0x6f400,
                     0x70180,0x71180,0x72180,0x70280,0x71280,0x72280,0x70080,0x71080,0x72080,
                     0x68080,0x68880,0x69080,0x64000,0x64100,0x64200,0x64300,0x64400,0x41000)
 
+def _endpoint_expand(text,dependency):
+    """Strict lossless v9 wire decoding into the existing field validator.
+
+    Each generated field comes from this exact record. No omitted proof is
+    synthesized, and mixing legacy/raw rows with v9 packed records refuses.
+    """
+    if not re.search(r'^ap-platform: v=9 ',text,re.M):return text
+    prefix='ap-platform-deps:' if dependency else 'ap-platform-resources:'
+    schema='<BBQQ2I8I8I' if dependency else '<BBQQ8I26I'
+    rows=[x for x in text.splitlines() if x.startswith(prefix)]
+    if len(rows)!=2 or (not dependency and any(x.startswith('ap-platform-resource:') for x in text.splitlines())):raise ValueError('endpoint coverage')
+    out=text;seen=set()
+    for line in rows:
+        m=re.fullmatch(re.escape(prefix)+r' v=2 phase=([01]) data=([A-Za-z0-9+/]+={0,2})',line)
+        if not m or int(m[1]) in seen:raise ValueError('endpoint format')
+        phase=int(m[1]);seen.add(phase);b=base64.b64decode(m[2],validate=True)
+        if len(b)!=struct.calcsize(schema) or base64.b64encode(b).decode()!=m[2]:raise ValueError('endpoint canonical bytes')
+        state,reads,begin,end,*words=struct.unpack(schema,b)
+        pch=words[:2] if dependency else None
+        if dependency:words=words[2:]
+        comma=lambda v:','.join(map(str,v))
+        generated=f'{prefix} v=1 phase={phase} state={state} pm_us={begin},{end} reads={reads} count={8 if dependency else 26}'
+        if dependency:generated+=' pch='+comma(pch)
+        generated+=' before='+comma(words[:4])+' after='+comma(words[4:8])
+        if dependency:generated+=' raw='+comma(words[8:])
+        else:generated+=f'\nap-platform-resource: phase={phase} count=26 raw='+comma(words[8:])
+        out=out.replace(line,generated)
+    return out
+
 def platform_resources_result(text):
     """Non-atomic raw control inventory; no ownership/power-policy acceptance."""
-    try:return _resources(text)
+    try:return _resources(_endpoint_expand(text,False))
     except (ValueError,KeyError,OverflowError,IndexError,StopIteration):return None
 
 def _resources(text):
@@ -239,7 +268,7 @@ def _resources(text):
 
 def platform_dependencies_result(text):
     """Read-only graphics-audio/IRQ context, not ownership or DMA retirement."""
-    try:return _dependencies(text)
+    try:return _dependencies(_endpoint_expand(text,True))
     except (ValueError,KeyError,IndexError,OverflowError,StopIteration):return None
 
 def _dependencies(text):

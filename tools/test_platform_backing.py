@@ -4,7 +4,25 @@ import struct
 import unittest
 import test_hardware_platform as previous
 from hardware_platform import (BACKING_FORMAT,backing_decode,platform_backing_result,
-                               platform_result,dry_profile_words,dry_profile_digest)
+                               platform_result,dry_profile_words,dry_profile_digest,platform_resources_result,platform_dependencies_result)
+
+def pack_fixture_endpoints(text):
+    """Lossless synthetic producer model for fixtures/retention, never native acceptance."""
+    rows=[platform_resources_result(text),platform_dependencies_result(text)]
+    if not all(rows):raise ValueError('fixture endpoint prerequisites')
+    out=text
+    for dep,result in enumerate(rows):
+        prefix='ap-platform-deps:' if dep else 'ap-platform-resources:'
+        for phase,r in enumerate(result['samples']):
+            values=[r['state'],r['read_count'],*r['pm_us']]
+            if dep:values+=r['pch']
+            values+=r['before']+r['after']+r['raw']
+            fmt='<BBQQ2I8I8I' if dep else '<BBQQ8I26I'
+            data=base64.b64encode(struct.pack(fmt,*values)).decode()
+            old=next(x for x in out.splitlines() if x.startswith(prefix) and f'phase={phase} ' in x)
+            out=out.replace(old,f'{prefix} v=2 phase={phase} data={data}')
+    out='\n'.join(x for x in out.splitlines() if not x.startswith('ap-platform-resource:'))+'\n'
+    return out.replace('ap-platform: v=8','ap-platform: v=9')
 
 class BackingTests(unittest.TestCase):
     def values(self,phase=0):
@@ -15,7 +33,7 @@ class BackingTests(unittest.TestCase):
                 32,1,8,16,8,8,8,0,1,1056,1,0xa0000000,0x10000000,7,1,0,0]
     def encode(self,v):return base64.b64encode(struct.pack(BACKING_FORMAT,*v)).decode()
     def fixture(self):
-        s=previous.PlatformTests().dry_fixture().replace('ap-platform: v=8','ap-platform: v=9')
+        s=previous.PlatformTests().dry_fixture()
         def change(m):
             v=list(map(int,m[2].split(',')));v[8]=0x98000000
             return m[1]+','.join(map(str,v))
@@ -24,7 +42,7 @@ class BackingTests(unittest.TestCase):
         data=base64.b64encode(struct.pack('<QQH10B',1,digest,127,1,4,1,0,0,0,0,0,0,0)).decode()
         s=re.sub(r'ap-platform-dry: v=1 data=\S+',f'ap-platform-dry: v=1 data={data}',s)
         for phase in (0,1):s+=f'ap-platform-backing: v=1 phase={phase} data={self.encode(self.values(phase))}\n'
-        return s
+        return pack_fixture_endpoints(s)
     def test_complete_raw_binding_and_legacy(self):
         r=platform_backing_result(self.fixture());self.assertEqual(r['status'],'OBSERVED');self.assertTrue(r['stable'])
         self.assertEqual(r['samples'][0]['relation'],'compatible-linear-aperture')
@@ -62,6 +80,17 @@ class BackingTests(unittest.TestCase):
         self.assertFalse(r['stable']);self.assertEqual(r['samples'][1]['relation'],'unbound-or-unsupported')
         v=self.values(1);v[18]=v[25]=0x90000000
         self.assertIsNone(platform_backing_result(s.replace(self.encode(self.values(1)),self.encode(v))))
+    def test_endpoint_wire_is_mandatory_canonical_and_lossless(self):
+        s=self.fixture()
+        for prefix in ('ap-platform-resources:','ap-platform-deps:'):
+            line=next(x for x in s.splitlines() if x.startswith(prefix))
+            for bad in (s+line+'\n',s.replace(line,''),s.replace(line,line[:-1]),s.replace(line,line.replace('v=2','v=1')),s+'ap-platform-resource: phase=0 count=26 raw=0\n'):
+                self.assertIsNone(platform_result(bad))
+        original=previous.PlatformTests().dry_fixture()
+        packed=pack_fixture_endpoints(original)
+        self.assertEqual(platform_resources_result(original),platform_resources_result(packed))
+        self.assertEqual(platform_dependencies_result(original),platform_dependencies_result(packed))
+
     def test_fixed_schema_size(self):
         self.assertEqual(struct.calcsize(BACKING_FORMAT),203);self.assertEqual(len(self.encode(self.values())),272)
         from pathlib import Path

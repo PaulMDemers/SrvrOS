@@ -121,3 +121,26 @@ static void backing_report(void) {
         data[j]=0;console_printf("ap-platform-backing: v=1 phase=%u data=%s\n",(uint64_t)phase,data);
     }
 }
+/* Version-9 lossless resource/dependency packing preserves all existing fields
+ * within the original retention budget. This changes no read path or capacity. */
+static void endpoint_report(unsigned phase,bool dependency) {
+    const struct display_resource_snapshot *r=dependency?&dependencies[phase]:&resources[phase];
+    static const char abc[]="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    uint8_t bytes[154];char data[209];unsigned n=0,j=0;
+    hda_put(bytes,&n,r->state,1);hda_put(bytes,&n,r->read_count,1);
+    hda_put(bytes,&n,r->begin,8);hda_put(bytes,&n,r->end,8);
+    if(dependency)for(unsigned i=0;i<2;i++)hda_put(bytes,&n,dep_pch[phase][i],4);
+    for(unsigned i=0;i<4;i++)hda_put(bytes,&n,r->before[i],4);
+    for(unsigned i=0;i<4;i++)hda_put(bytes,&n,r->after[i],4);
+    for(unsigned i=0;i<(dependency?8u:26u);i++)hda_put(bytes,&n,r->raw[i],4);
+    for(unsigned i=0;i<n;i+=3) {
+        unsigned left=n-i;uint32_t v=(uint32_t)bytes[i]<<16;
+        if(left>1)v|=(uint32_t)bytes[i+1]<<8;
+        if(left>2)v|=bytes[i+2];
+        data[j++]=abc[v>>18];data[j++]=abc[(v>>12)&63];
+        data[j++]=left>1?abc[(v>>6)&63]:'=';data[j++]=left>2?abc[v&63]:'=';
+    }
+    data[j]=0;
+    if(dependency)console_printf("ap-platform-deps: v=2 phase=%u data=%s\n",(uint64_t)phase,data);
+    else console_printf("ap-platform-resources: v=2 phase=%u data=%s\n",(uint64_t)phase,data);
+}

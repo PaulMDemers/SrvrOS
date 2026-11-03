@@ -1184,3 +1184,14 @@ Version 9 requires both complete raw records alongside all version-8 proofs,
 without relaxing RC6 acceptance or any existing round/retention/ownership bound.
 These reads run outside the original RC6 brackets, masked C3 rounds and sparse
 power hook; no ordinary boot path gains this optional capture.
+
+To fit every proof in the unchanged 64 KiB tail, version 9 losslessly packs the
+existing resource and dependency records too. `ap-platform-resources: v=2` stores
+154 bytes (`<BBQQ8I26I`): state/read count, begin/end, before/after wells and all
+26 raw controls. `ap-platform-deps: v=2` stores 90 bytes (`<BBQQ2I8I8I`), adding
+before/after PCH identity before the wells and all eight raw controls. Each carries
+its phase and canonical base64 data. No raw field or failure state is dropped.
+The strict decoder expands only those exact bytes into the existing field
+validator; missing/duplicate/mixed legacy rows, noncanonical data and wrong sizes
+refuse. Versions 1–8 keep their previous formats. Native evidence is always the
+matching saved file; expansion is format decoding, never filling in missing data.

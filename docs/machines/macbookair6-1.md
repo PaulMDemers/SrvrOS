@@ -173,8 +173,10 @@ matched validation and automated native capture. No ordinary driver, PMM policy,
 well/HDA write or assurance-bit changes. GGTT PTE/stolen-memory ownership and
 firmware exclusion remain unknown; this readout cannot complete backing adoption.
 PR301 owns separate Air7,2 capture; PR252 lifetimes, PR299 Terminal and PR19 Wi-Fi
-remain separate. Next checkpoint is positive/refusal fixtures and source-matched
-retention, then exact-stage rehearsal and native comparison under existing limits.
+remain separate. The first maximum-retention model exposed a 619-byte proof displacement.
+Lossless version-9 resource/dependency packing preserves every field within the
+original 64 KiB tail. Positive/refusal/schema and native-comparison fixtures and
+source-matched retention are required before exact-stage rehearsal/native capture.
 
 ### Historical battery-runtime objective (2026-10-23)
 
