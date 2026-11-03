@@ -382,14 +382,14 @@ def build_image(args):
 
     entries_count = 128
     entries = bytearray(entries_count * 128)
-    entries[0:128] = gpt_entry(ESP_TYPE, uuid.uuid4(), esp_first, esp_last, "srvros-esp")
+    entries[0:128] = gpt_entry(ESP_TYPE, uuid.UUID(str(getattr(args, "esp_guid", None) or uuid.uuid4())), esp_first, esp_last, "srvros-esp")
     if exfat_data:
-        entries[128:256] = gpt_entry(BASIC_DATA_TYPE, uuid.uuid4(), data_first, data_last, "srvros-fat")
+        entries[128:256] = gpt_entry(BASIC_DATA_TYPE, uuid.UUID(str(getattr(args, "data_guid", None) or uuid.uuid4())), data_first, data_last, getattr(args, "data_name", None) or "srvros-fat")
     entries_crc = binascii.crc32(entries) & 0xffffffff
 
     first_usable = 34
     last_usable = backup_lba - 33
-    disk_guid = uuid.uuid4()
+    disk_guid = uuid.UUID(str(getattr(args, "disk_guid", None) or uuid.uuid4()))
     image = bytearray(total_sectors * SECTOR)
 
     image[0:SECTOR] = b"\x00" * SECTOR

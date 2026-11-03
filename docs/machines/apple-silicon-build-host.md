@@ -1,5 +1,40 @@
 # Apple Silicon macOS build host
 
+## Installation identity milestone — November 3, 2026
+
+The isolated `SrvrOS-installation` clone, branch
+`device/apple-silicon/installed-root-identity`, builds on merged PR311
+`3db1a1d3`. Scope: opt-in GPT identity/format/role selection, halted no-write
+recovery, image manifests and a disposable two-disk proof. Shared block/exFAT
+admission changes require filesystem-owner review; PR308 `88ea5524` owns
+generic namespace attachment and PR309 `fa9717ad` owns portable profiles.
+Neither profile activation nor physical installation is included. Main's boot
+selection is independent of PR301's display hooks and PR252's lifetime work.
+
+Primary review QEMU PIDs 61610, 6233 and 85869 remain running and untouched.
+Only this clone's own short-lived test VMs may be stopped. One build/harness
+runs at a time here. Acceptance and exact evidence are recorded in
+[disk installation](../disk-installation.md); this is emulated x86_64 evidence,
+not native ARM64 or physical boot acceptance.
+
+Completed at clean source `9989878c`: matched full build, selector sanitizer,
+21 image/provenance tests, real clean-mount zero-write checks, storage and exFAT
+regressions, and all 11 two-disk VM cases. Same GUID selects `ahci0p2` then
+`ahci1p2`, with Text/preferences restored and the decoy unchanged. Nine halted
+recovery cases preserve both whole-disk hashes. Evidence and exact artifacts are
+byte-verified under `.local/installation-evidence/proof-p0_hk8ic`. OVMF can repair
+a bad primary GPT from a valid backup before kernel entry; the invalid-map case
+damages both copies, and the earlier repair observation is retained separately.
+All task-owned test VMs are stopped; the three original review VMs remain live.
+The initial scoped PR was draft pending review. User subsequently authorized
+review/merge of PR312: current PR308/PR313/PR309 contracts are compatible with the
+bounded selector; retained evidence hashes and fresh focused host checks pass.
+No implementation change or new VM run was needed. See the integration review
+and next canonical-path installed-boot checkpoint in the installation document;
+PR313's PR252/SrvrPorts dependencies remain separate integration work.
+
+## Earlier host-tool milestone
+
 Updated: 2026-10-25. This is a development host running an emulated x86_64
 guest, not a native SrvrOS hardware target. Observed host model: MacBookPro18,2.
 
