@@ -2130,3 +2130,75 @@ cleanly, retaining its disk. The new default Cocoa VM is open in
 and shows Appearance with Aero selected. Integration is PR286 with SrvrUI PR1
 and SrvrApps PR1; subsequent acceptance commits change documentation only.
 No further feature is required for the approved profiles milestone.
+
+
+### Files recovery — active isolated scope, November 3, 2026
+
+User authorized reproducing and fixing Files mutation/refresh recovery in
+`SrvrOS-app-quality`, an independent recursive checkout on `app/files-recovery`
+from fetched main `e376669c`. The shared integration checkout and attended review
+VM are untouched. This block owns SrvrApps `desktools/files_app.c` and focused OS
+host/VM regressions; no widget, ABI, filesystem or worker-lifetime redesign.
+PR278 and SrvrApps PR2 retain Open With ownership; their Files/test overlap must
+be reconciled before integration. PR252 retains process/I/O, PR19 USB Wi-Fi.
+
+Acceptance: reproduce stale selection and success-notice carryover; keep failed
+mutation state from later refresh/navigation; accurately report successful
+mutation plus failed refresh; preserve selection/history, keyboard/pointer,
+independent windows, Text save/readback and live Silver/Aero/Aqua themes. Run
+focused and desktop/widget/IO host checks, matched build and sequential disposable
+VM checks in this checkout only. No hosted Actions or native acceptance.
+Next checkpoint: failing focused regressions before runtime edits.
+
+
+### Files recovery verified — November 3, 2026
+
+SrvrApps `3aea2a95` fixes stale selection and success notices after failed Files
+operations, tested against OS base `e376669c`, SrvrUI `89fb6d9` and SrvrPorts
+`0494ae2`. All seven upstream pins remain unchanged. Failure cleanup is local to
+Files: it retires the pending destination/notice, retains the current folder and
+history, and distinguishes a completed mutation from its failed refresh. No shared
+control, transport, filesystem, ABI or process-lifetime behavior changed.
+
+Both defects reproduced against original SrvrApps `d245fe2`: the focused
+`files-host selection` invocation aborted on a wrong selected inode after a
+rename collision/refresh; `files-host notice` aborted when Copy verified leaked
+into another folder after refresh start refusal. These negative controls are
+retained in `build/review/files-recovery/baseline-failures.json`. The fixed tests
+cover rename/copy collisions followed by refresh/navigation, refresh start
+refusal, I/O failure, invalid listing, worker loss, original selection/history
+retention and compound success/refresh-failure feedback.
+
+Verification in the independent `SrvrOS-app-quality` checkout:
+
+- Focused Files regression and ASan/UBSan app fixture: pass.
+- Documented macOS `test-desktop test-desktop-io widget-theme-preview`: pass,
+  110 PASS records. Added worker-loss cases also pass the focused rerun.
+- Full matched image build: pass; recursive revisions/diff hashes are in
+  `build/macos-build.json`.
+- `TMPDIR=/tmp python3 tools/desktop_files_smoke.py`: pass, including actual
+  Rename and Duplicate collision/refresh followed by a Rename prompt proving
+  the original source remains selected, cancellation, history and saved bytes.
+- `TMPDIR=/tmp python3 tools/desktop_apps_smoke.py`: pass, including Open/Save/
+  Save As, replacement cancel/verified overwrite, unsaved cancel, clipboard/cut/
+  undo, empty save, document routing, text-size/theme broadcasts and window menus.
+- `TMPDIR=/tmp python3 tools/desktop_theme_profiles_smoke.py`: pass with VirtIO
+  tablet input, one Files process with independent sibling history/close,
+  selected filename retained across live Silver/Aero/Aqua and exact 722/600-pixel
+  outer-width resizes, plus existing Text/theme/restart/readback checks. All six
+  Files captures and the shared control specimen were visually inspected.
+
+The first theme run also passed; its root-directory selection was offscreen in
+the captures. That receipt remains under `build/review/files-recovery/themes-first-pass/`.
+The final fixture saves in Home so the selected row is visible at both sizes.
+Rare refresh/worker failures use deterministic host injection; they are not
+claimed as device-fault VM trials. The Linux-only multi-Files exfatprogs harness
+was not run on macOS; the focused sibling/history check above covers this scoped
+workflow. No native acceptance or hosted Actions run is implied.
+
+Evidence is under `build/review/files-recovery/`, `build/review/desktop-files/`,
+`build/review/desktop-apps/` and `build/review/desktop-theme-profiles/`. All disposable
+VMs exited; the shared integration checkout and its attended review VM were not
+modified. Implementation and acceptance are complete for this milestone. Next:
+integration review, reconciling the Files/test overlap with PR278/SrvrApps PR2;
+no merge or broader app-suite work is included.

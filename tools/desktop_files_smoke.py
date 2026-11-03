@@ -97,6 +97,16 @@ def main():
                 type_text("renamed-actions");shortcut("f2");modal_ready(b"files-prompt operation=5");type_text("home");qmp.key("ret")
                 wait_all([b"file-result role=files op=5 status=2",retired]);shot("collision-kept")
                 shortcut("ctrl-r");wait(b"file-result role=files op=3 status=0")
+                # A collision must not make the destination the selection on
+                # refresh: a following action must still target the source.
+                shortcut("f2");modal_ready(b"files-prompt operation=5 name=renamed-actions.txt")
+                qmp.key("esc");wait(retired)
+                click(605,162);modal_ready(b"files-prompt operation=7 name=renamed-actions.txt")
+                type_text("home");qmp.key("ret")
+                wait_all([b"file-result role=files op=7 status=2",retired])
+                shortcut("ctrl-r");wait(b"file-result role=files op=3 status=0")
+                shortcut("f2");modal_ready(b"files-prompt operation=5 name=renamed-actions.txt")
+                qmp.key("esc");wait(retired)
                 # Exercise directory creation and guarded empty-directory rename.
                 click(300,550);shortcut("ctrl-a");type_text("Action folder");click(700,553)
                 wait(b"file-result role=files op=4 status=0");wait(b"file-result role=files op=3 status=0")
@@ -125,7 +135,7 @@ def main():
                 serial.close();qmp.stream.close();qmp.sock.close()
             finally:
                 stop_process(process);(out/"serial.log").write_bytes(output)
-    print(f"desktop-files: PASS Places, successful-only history, back/forward/branching, path normalization, refresh, sorted metadata, shared rename/duplicate prompts, verified copy, safe delete cancel/confirm, collision preservation and empty-directory rename. Evidence: {out}")
+    print(f"desktop-files: PASS Places, successful-only history, back/forward/branching, path normalization, refresh, sorted metadata, shared rename/duplicate prompts, verified copy, safe delete cancel/confirm, collision selection preservation and empty-directory rename. Evidence: {out}")
 
 
 if __name__=="__main__": main()
