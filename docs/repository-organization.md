@@ -96,3 +96,53 @@ evidence is retained under `build/review/modular-desktop/` and
 `build/review/theme/`; build manifests include recursive source identities and
 tracked/untracked dirty-source fingerprints. Image hashes remain authoritative
 for the built payload. No native-device result is implied by host/QEMU checks.
+
+## Verified Silver milestone — November 2, 2026
+
+Runtime source `e65e5938` pins SrvrUI `4fdf91a`, SrvrApps `d386386` and
+SrvrPorts `0494ae2`. All seven upstream pins and vendored port source hashes
+match the original OS. All 35 app source files match apart from Settings'
+Sage-to-Blue label; new repository docs and metadata are intentional.
+
+Verification completed locally on Apple Silicon:
+
+- Fresh recursive GitHub clone and clean full system build, followed by an
+  incremental build of the final diagnostic-only correction: pass.
+- Full `test-desktop test-desktop-io widget-theme-preview` with the documented
+  Darwin compiler wrapper: pass (109 PASS records).
+- New gradient/state/custom-theme/tiled clipping tests under native ARM64
+  AddressSanitizer and UndefinedBehaviorSanitizer: pass.
+- Six macOS/provenance tests, four ELF/Mach-O boundary tests, dependency checks,
+  documentation links and whitespace checks: pass.
+- Live application workflow at 1280×800: open/save, exact readback, replacement
+  confirmation/cancel, unsaved cancel, clipboard/cut/undo, larger text, window
+  controls, owned document routing and menu exit all pass.
+- Compositor VM at 1280×800: input, scrolling, drag/resize, focus, close, idle,
+  client death/replacement, abrupt server cleanup and console relaunch pass.
+- Matching 1440×900 baseline and final desktop, 280/470 px control specimen,
+  Settings, and unsaved dialog visually inspected. All test VMs stopped.
+
+Fixed two visual regressions found during verification: the menu's content
+interior must remain flat during scrolling, and image transparency checker colors
+must retain their independent reference. Updated stale flat-button and
+new-process test assumptions. Darwin fixture adaptations preserve date-grid,
+syscall-signature and worker-lifecycle contracts; its file-service fixture checks
+the requested stack but runs on a host-allocated stack. The final abrupt-exit
+marker is synchronous only in the opt-in crash fixture, because queued worker
+logging is destroyed by that intentional exit.
+
+The complete Linux/core suite, native hardware and accessibility conformance
+are not claimed. This is ready for OS integration review, not a new native-device
+release. Source/image manifests and failed-attempt logs remain in local evidence.
+
+Baseline and updated desktop (same 1440×900 empty-document state):
+
+![Desktop before Silver](assets/screenshots/silver-before.png)
+
+![Silver desktop](assets/screenshots/silver-desktop.png)
+
+Real shared widget states at compact and wide sizes:
+
+![Silver widget specimen](assets/screenshots/silver-widgets.png)
+
+[Image provenance and hashes](assets/screenshots/silver-manifest.json).

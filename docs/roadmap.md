@@ -26,8 +26,15 @@ Required outcomes and evidence:
   and real rendered evidence; retain readable content and existing interactions.
 - Documented repository ownership and instructions for independent app/port work.
 
-Readiness: incomplete. Next: verify the source split, then implement and inspect
-representative controls and the desktop. Native device acceptance is unchanged.
+Readiness: implemented and locally verified on `overhaul/modular-desktop`.
+SrvrUI `4fdf91a`, SrvrApps `d386386` and SrvrPorts `0494ae2` are published and
+pinned. Fresh recursive clone/full image build, the complete desktop/widget/I/O
+host targets, native theme sanitizers, application workflow and compositor VMs
+pass. Final runtime source is `e65e5938`; subsequent evidence/docs commits do
+not change it. See [organization and visual evidence](repository-organization.md).
+Next: review and merge the OS integration change. Native device acceptance is
+unchanged. New application and port work can use the documented submodule
+boundaries; no additional feature milestone is required for this review target.
 
 ## 1. Integrate the everyday laptop session
 

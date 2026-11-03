@@ -1850,3 +1850,20 @@ USB Wi-Fi work; no other open PR was found at inspection. This host runs local
 builds and sequential disposable QEMU checks only. No physical boot, Actions
 dispatch or device-acceptance expansion is planned. Next checkpoint is a matched
 submodule build and recursive clone before theme implementation.
+
+### Modular desktop verification result
+
+Runtime source `e65e5938`; SrvrUI `4fdf91a`, SrvrApps `d386386`, SrvrPorts
+`0494ae2`. Public repository creation, recursive clone and clean full build pass.
+All upstream pins and port source hashes are retained. Full desktop/widget/I/O
+host targets pass with the Darwin wrapper, plus theme ASan/UBSan, Python host
+and boundary checks. The application workflow and compositor VMs pass, including
+file readback and abrupt-owner console recovery. Final 1440×900 desktop and
+widget-state images were inspected; disposable VMs stopped.
+
+Evidence and limitations: [repository milestone](../repository-organization.md),
+`build/review/modular-desktop/`, `build/review/desktop-apps/` and
+`build/review/desktop-1280x800/`. This supersedes no physical acceptance. OS branch
+awaits integration review; no main merge or Actions dispatch occurred. Next:
+review the published submodule integration; application/port work can branch
+from these documented boundaries.
