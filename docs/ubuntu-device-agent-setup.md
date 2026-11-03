@@ -267,7 +267,18 @@ tools/host-env.sh python3 tools/battery_home_desktop_smoke.py \
 ```
 
 `VOLUME_SERIAL` is the local eight-hex-digit exFAT serial, without a dash; do not
-copy another machine's value. The exact-stage Q35 rehearsal validates guide
+copy another machine's value.
+
+Exact-stage desktop keyboard injection uses QEMU's `hid_kbd_queue_empty` and
+`hid_kbd_queue_full` trace events. Each native-desktop key edge waits up to ten
+seconds for emulator consumption and refuses overflow; firmware-menu selection
+still uses the original boot helper. `keyboard-trace.log` and the result's
+`keyboard_delivery` receipt preserve the delivery evidence. This avoids filling
+the emulator's sixteen-scancode queue during TCG guest service gaps. It does not
+measure native typing latency; saved-file, lifetime and offline-integrity checks
+remain mandatory. Missing trace support or acknowledgement is a test failure.
+
+The exact-stage Q35 rehearsal validates guide
 startup, persistence and retirement while refusing native firmware ownership.
 It is not physical input, battery, sensor or audio acceptance. Follow the
 installation/recovery/run-record sequence below before an attended native boot.

@@ -4155,3 +4155,8 @@ test-virtio-block: build/tests/virtio-block-host$(HOST_EXE)
 build/tests/virtio-%-host$(HOST_EXE): tools/test_virtio_%.c kernel/src/drivers/virtio_%.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -o $@
+
+.PHONY: test-qmp-hid-input
+test-core: test-qmp-hid-input
+test-qmp-hid-input:
+	$(PYTHON) tools/test_qmp_hid_input.py

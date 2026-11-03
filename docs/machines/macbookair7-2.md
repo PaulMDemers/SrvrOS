@@ -2,16 +2,28 @@
 
 Updated: 2026-11-03. State: **active reference machine; partial device acceptance**.
 
-### Exact-stage keyboard receipt diagnosis
+### Exact-stage keyboard injection fix
 
-Scope: reproduce the two failed terminal redirect receipts on preserved stage
-`f586e4a2d58cb3ab`, distinguish QMP/USB report delivery from terminal/PTY loss,
-and rerun the unchanged whole exact-stage assertions. Inspect host-only injection
-and input-service paths first; do not relax saved-file or lifetime checks.
-Current source `0bf619d6`, module tuple below; fetched main `adc25965` adds
-independent Air6,1 read-only display-HDA diagnostics. PR288 owns Files recovery,
-PR289 owns host UI integration, and PR19 retains Wi-Fi scope; no overlap claimed.
-No physical test/install or reboot is armed. Failed attempts remain preserved.
+The unchanged staged payload `f586e4a2d58cb3ab` now passes its whole exact-stage
+Q35 test with acknowledged USB input. Kernel event-ring snapshots localized loss
+before the terminal; QEMU 10.2.1's `hid_kbd_queue_full` trace confirms its sixteen
+scancode slots overflowed during guest service gaps. A missing Shift release
+also left subsequent events shifted. Fixed host-wall sleeps, including a paced
+retry, were insufficient. These failures and the raw overflow proof remain
+preserved; no terminal/PTY or native driver change is justified by this evidence.
+
+The exact-stage harness now waits up to ten seconds for QEMU HID consumption of
+each individual press/release, including modifier edges and shortcuts, and fails
+on overflow or absent acknowledgement. Firmware menu selection stays unchanged.
+Unit coverage refuses stale/partial/overflowed acknowledgements and checks modifier
+ordering; full saved-file, lifetime/reopen and offline allocation assertions are
+unchanged. This proves delivered-input correctness, not native input latency.
+
+The first corrected full gate passes on the original clean staged payload;
+host integration/final matched staging follow. Fetched main `adc25965` adds
+independent Air6,1 read-only HDA diagnostics; PR288 owns Files recovery, PR289
+host UI integration, and PR19 Wi-Fi. No overlapping implementation is claimed.
+Evidence: `build/air-modular-catchup-20261103/`. No hardware reboot is armed.
 
 ### Modular repository catch-up
 
