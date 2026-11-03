@@ -1,5 +1,47 @@
 # Disk installation and recovery
 
+## PR312 integration review and next checkpoint — November 3, 2026
+
+User requested review and merge if ready. Integration review found no blocking
+defect in [PR312](https://github.com/PaulMDemers/SrvrOS/pull/312) against main
+`3db1a1d3`, filesystem proof PR308 `88ea5524`, newer global activation PR313
+`29a0ad23`, and profiles PR309 `fa9717ad`. The two filesystem PRs and the profile
+PR are still drafts; this review does not merge them or claim combined runtime
+acceptance. PR313 attaches its aliases after `/fat` and bootlog setup, so PR312's
+identity admission and recovery halt remain earlier in the boot sequence.
+Neither filesystem branch supplies a competing installed-volume selector.
+
+Rechecked the clean tested source `9989878c` against the PR: all later changes
+are documentation/evidence only. Retained build artifacts, logs, screenshots and
+all final disk hashes match the 11-case receipt; the nine recovery logs contain
+no normal startup. Fresh storage, selector, 21 image/provenance, clean-mount,
+ASan/UBSan and documentation checks pass. The existing full-build and VM evidence
+remains applicable; no new VM was needed for unchanged implementation. No review
+threads or failing commit statuses were present; hosted Actions remain disabled.
+The three original review VMs remain live and untouched. Readiness: ready for
+the user-authorized merge; the linked PR records the final merge state.
+
+Next bounded installation milestone: **canonical-path installed boot in QEMU**.
+Combine identity-selected boot with the filesystem owner's canonical namespace,
+then prove `/bin`, `/usr`, `/var` and `/home` resolve to that selected system while
+legacy `/fat` and an independent data provider stay distinct. Use disposable
+disks, reverse enumeration, execute/read/write through canonical and legacy
+names, reboot and reopen the same document/preferences. Missing or ambiguous
+system identity must still halt before namespace activation or disk writes.
+This closes the gap between the separately tested installed-root and global-path
+proofs; it does not add physical installation, upgrade slots or profile import.
+
+Dependencies: integrate/review PR313 with its PR308 foundation, full PR252
+process/I/O lifetime handoff and SrvrPorts PR3 pin `0f51ba9`; preserve one canonical
+backing identity for handles, cache, mutations and unmount checks. Consume the
+actual merged revisions rather than copying the namespace implementation into
+installation tooling. Profiles PR309 supplies the HOME/config/data/cache contract
+and keeps portable UUID separate from disk GUID and local UID/GID. For this slice
+retain the explicit `/fat/home` provider behind `/home`; guest login, profile
+import and the portable-settings adapter are not prerequisites. A later import
+milestone needs destination-local binding, guest-qualified publication/recovery
+and application adoption; the host fixture's rename guarantee is insufficient.
+
 ## Identity-bound boot milestone — November 3, 2026
 
 User authorized implementation and a scoped PR with the two-disk proof. Base is
@@ -41,8 +83,8 @@ init, workspace startup or the writable monitor. It is a diagnostic recovery
 halt, not a repair shell or automatic upgrade rollback. This flow applies
 optimize-ux's explicit failure/correction states, checked in real VMs.
 
-Status: implementation and disposable VM proof complete; shared-code integration
-remains a draft for filesystem-owner review. Physical install, in-place upgrade,
+Status: implementation and disposable VM proof complete; initially published as
+a draft, then reviewed for the authorized integration above. Physical install, in-place upgrade,
 profile import and guest account activation remain out of scope.
 
 ### Accepted two-disk evidence

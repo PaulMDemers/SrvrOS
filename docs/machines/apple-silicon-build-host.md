@@ -26,7 +26,12 @@ byte-verified under `.local/installation-evidence/proof-p0_hk8ic`. OVMF can repa
 a bad primary GPT from a valid backup before kernel entry; the invalid-map case
 damages both copies, and the earlier repair observation is retained separately.
 All task-owned test VMs are stopped; the three original review VMs remain live.
-The scoped PR is draft pending filesystem-owner review, with no merge requested.
+The initial scoped PR was draft pending review. User subsequently authorized
+review/merge of PR312: current PR308/PR313/PR309 contracts are compatible with the
+bounded selector; retained evidence hashes and fresh focused host checks pass.
+No implementation change or new VM run was needed. See the integration review
+and next canonical-path installed-boot checkpoint in the installation document;
+PR313's PR252/SrvrPorts dependencies remain separate integration work.
 
 ## Earlier host-tool milestone
 
