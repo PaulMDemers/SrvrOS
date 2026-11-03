@@ -193,6 +193,7 @@ done:
 }
 #include "platform_hda.inc"
 #include "platform_owner.inc"
+#include "platform_backing.inc"
 void platform_audit_sample(uint64_t sample_us) {
     /* Caller is the existing IRQ-masked power checkpoint. Binding and teardown
      * run before/after capture, so no worker or owner is added here. */
@@ -239,6 +240,7 @@ void platform_audit_snapshot(unsigned phase) {
     dependency_snapshot(phase);
     hda_snapshot(phase);
     dry_snapshot(phase);
+    backing_snapshot(phase);
     if(!phase)series_active=true;
     for(unsigned i=0;i<count;i++) {
         const struct pci_device *p=pci_device_at(i);
@@ -255,32 +257,16 @@ void platform_audit_snapshot(unsigned phase) {
 }
 bool platform_audit_report(void) {
     bool ok=!fault && mapped && stamp[1]>stamp[0] && config[0]==config[1] &&
-        series_count && !series_active && !series_overflow && well_seen==3 && resource_seen==3 && dep_seen==3 && hda_seen==3 && dry_complete;
-    console_printf("ap-platform: v=8 fault=%u devices=%u policy_writes=0 forcewake_writes=0 permission=unavailable reason=no-validated-grant-register completed=%s\n",(uint64_t)fault,(uint64_t)count,ok?"yes":"NO");
+        series_count && !series_active && !series_overflow && well_seen==3 && resource_seen==3 && dep_seen==3 && hda_seen==3 && dry_complete && backing_seen==3 && backing_rows[0].state==1 && backing_rows[1].state==1;
+    console_printf("ap-platform: v=9 fault=%u devices=%u policy_writes=0 forcewake_writes=0 permission=unavailable reason=no-validated-grant-register completed=%s\n",(uint64_t)fault,(uint64_t)count,ok?"yes":"NO");
     console_printf("ap-platform-gfx: bdf=16 id=170295430 base=%u time_us=%u,%u status=%u,%u rc6=%u,%u config=%u,%u rc_control=unavailable\n",gpu_base,stamp[0],stamp[1],(uint64_t)status[0],(uint64_t)status[1],(uint64_t)rc6[0],(uint64_t)rc6[1],config[0],config[1]);
     for(unsigned i=0;i<2;i++)console_printf("ap-platform-time: phase=%u pm_us=%u,%u tsc=%u,%u nominal_mhz=%u reference=acpi-pm\n",(uint64_t)i,pm_begin[i],pm_end[i],tsc_begin[i],tsc_end[i],(uint64_t)nominal_mhz[i]);
     for(unsigned i=0;i<2;i++)console_printf("ap-platform-well: phase=%u pm_us=%u,%u ctl=%u,%u,%u,%u\n",(uint64_t)i,well_begin[i],well_end[i],(uint64_t)well_ctl[i][0],(uint64_t)well_ctl[i][1],(uint64_t)well_ctl[i][2],(uint64_t)well_ctl[i][3]);
-    for(unsigned phase=0;phase<2;phase++) {
-        const struct display_resource_snapshot *r=&resources[phase];
-        console_printf("ap-platform-resources: v=1 phase=%u state=%u pm_us=%u,%u reads=%u count=26 before=%u,%u,%u,%u after=%u,%u,%u,%u\n",
-            (uint64_t)phase,(uint64_t)r->state,r->begin,r->end,(uint64_t)r->read_count,
-            (uint64_t)r->before[0],(uint64_t)r->before[1],(uint64_t)r->before[2],(uint64_t)r->before[3],
-            (uint64_t)r->after[0],(uint64_t)r->after[1],(uint64_t)r->after[2],(uint64_t)r->after[3]);
-        console_printf("ap-platform-resource: phase=%u count=26 raw=%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u\n",
-            (uint64_t)phase,(uint64_t)r->raw[0],(uint64_t)r->raw[1],(uint64_t)r->raw[2],(uint64_t)r->raw[3],(uint64_t)r->raw[4],(uint64_t)r->raw[5],(uint64_t)r->raw[6],(uint64_t)r->raw[7],(uint64_t)r->raw[8],(uint64_t)r->raw[9],(uint64_t)r->raw[10],(uint64_t)r->raw[11],(uint64_t)r->raw[12],(uint64_t)r->raw[13],(uint64_t)r->raw[14],(uint64_t)r->raw[15],(uint64_t)r->raw[16],(uint64_t)r->raw[17],(uint64_t)r->raw[18],(uint64_t)r->raw[19],(uint64_t)r->raw[20],(uint64_t)r->raw[21],(uint64_t)r->raw[22],(uint64_t)r->raw[23],(uint64_t)r->raw[24],(uint64_t)r->raw[25]);
-    }
-    for(unsigned phase=0;phase<2;phase++) {
-        const struct display_resource_snapshot *r=&dependencies[phase];
-        console_printf("ap-platform-deps: v=1 phase=%u state=%u pm_us=%u,%u reads=%u count=8 pch=%u,%u before=%u,%u,%u,%u after=%u,%u,%u,%u raw=%u,%u,%u,%u,%u,%u,%u,%u\n",
-            (uint64_t)phase,(uint64_t)r->state,r->begin,r->end,(uint64_t)r->read_count,
-            (uint64_t)dep_pch[phase][0],(uint64_t)dep_pch[phase][1],
-            (uint64_t)r->before[0],(uint64_t)r->before[1],(uint64_t)r->before[2],(uint64_t)r->before[3],
-            (uint64_t)r->after[0],(uint64_t)r->after[1],(uint64_t)r->after[2],(uint64_t)r->after[3],
-            (uint64_t)r->raw[0],(uint64_t)r->raw[1],(uint64_t)r->raw[2],(uint64_t)r->raw[3],
-            (uint64_t)r->raw[4],(uint64_t)r->raw[5],(uint64_t)r->raw[6],(uint64_t)r->raw[7]);
-    }
+    for(unsigned phase=0;phase<2;phase++)endpoint_report(phase,false);
+    for(unsigned phase=0;phase<2;phase++)endpoint_report(phase,true);
     hda_report();
     dry_report();
+    backing_report();
     console_printf("ap-platform-series: v=1 count=%u cap=12 checkpoints=%u stride=2 overflow=%u completed=%s\n",(uint64_t)series_count,(uint64_t)series_checkpoints,(uint64_t)series_overflow,(!series_active && !series_overflow && series_count)?"yes":"NO");
     for(unsigned i=0;i<series_count;i++) {
         const struct series_row *r=&series[i];
