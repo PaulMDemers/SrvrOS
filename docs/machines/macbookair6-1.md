@@ -6388,3 +6388,16 @@ and well-off milestones have separate write-allowlist and recovery gates. This
 work changes documentation only, leaves the installed payload and boot state
 unchanged, and adds no physical acceptance. Docs/source review checks pass; no
 new boot is armed.
+
+
+### No-write adoption owner — active scope (2026-11-03)
+
+Base `c609207b`, with exact UI/apps/ports pins. Implement milestone A's pure
+software epoch/reference/in-flight owner, immutable observed profile and
+eligibility/refusal evaluator. Connect it only to the isolated read-only
+platform diagnostic, retaining all raw evidence and unknown adoption/ownership
+prerequisites. No writer interface, new MMIO, policy/limit changes or general
+kernel ownership claims. Scope: diagnostic helper/adapter, strict compact report,
+producer/parser/lifetime/refusal/retention tests and unit/current design docs.
+PR288/278 apps, PR252 lifetimes and PR19 Wi-Fi remain independent. Next checkpoint:
+matched build/host/VM validation and source-bound no-write native evidence.
