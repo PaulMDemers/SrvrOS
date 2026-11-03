@@ -225,6 +225,12 @@ close those gaps. Twelve image/preflight tests and six build-provenance tests
 cover the corrected behavior; the original eleven-test acceptance above remains
 historical evidence for its named revision. The refreshed VM receipt and merge
 state are recorded with PR311, rather than relabeling that original run.
+Clean corrected source `1ae348fd` passes the matched build, all 18 focused tests,
+both installed-disk persistence boots and the damaged-volume control, with clean
+guest/host allocation and unchanged protected disk regions. The
+[review receipt](assets/screenshots/installed-disk-review-manifest.json) records
+its hashes and retained evidence at `.local/installation-evidence/proof-5oeg8t32`.
+No remaining blocking review finding applies to this disposable-image scope.
 
 Next proposed milestone: **identity-bound installed-volume boot and recovery in
 QEMU**. Attach an installed target and a decoy/source disk; select the installed
