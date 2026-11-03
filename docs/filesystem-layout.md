@@ -15,6 +15,15 @@ ABI reconciliation, then exact combined host/build/guest verification. Land the
 ports dependency before the OS history-preserving combined merge. Keep the
 primary checkout, existing review VMs and physical devices untouched.
 
+The first full combined threadstress run caught the proof helper's stale
+160-byte bound: long-path mkdir failed despite the existing 1024-byte path ABI.
+The integration correction uses `SRV_PATH_MAX` throughout namespace translation
+and projected listing, and preserves `ENAMETOOLONG` when alias expansion exceeds
+the backing bound. Host tests cover exact capacity and failed outputs; the guest
+now creates a deep alias path with a 1023-byte backing name, checks listing and
+identity, and verifies overflow errors for open/stat/mkdir/chdir. The failed run
+is retained; full affected verification must pass before merge.
+
 ## Global activation milestone
 
 Review: [draft PR313](https://github.com/PaulMDemers/SrvrOS/pull/313).
@@ -59,7 +68,7 @@ I/O-admission and checked-usercopy regressions. The guest test is
 boots for `/fat`/`/work` compatibility and persistence. Matched build and guest
 results are recorded below.
 
-Known bounds remain: 159-byte mutable paths, no symlinks or nonempty directory
+Known bounds remain: 1023-byte canonical backing paths (1024-byte buffers), no symlinks or nonempty directory
 rename, and the existing exFAT sidecar/recovery limitations. Indexed flat projected
 listing rescans the raw node table and is quadratic for a complete scan; directory
 root enumeration uses a direct four-binding accessor. No cache or second lock was
@@ -137,8 +146,8 @@ ordinary disposable VM boot. Evidence and limitations are recorded below.
   OS root or replace another user's HOME.
 - VFS is a flat table of stable node addresses, with initramfs directories
   synthesized at boot. It has 32,768 total slots. exFAT supports four mounts,
-  8,192 files and 2,048 directories per mount, and paths of at most 159 bytes
-  including the mount prefix (160-byte buffer). Capacity includes internal
+  8,192 files and 2,048 directories per mount, and paths of at most 1023 bytes
+  including the mount prefix (1024-byte buffer; components are at most 255 bytes). Capacity includes internal
   metadata and temporary replacement files; free bytes alone do not admit a write.
 - exFAT imports a constrained ASCII entry subset, rejects unsupported layouts
   and case collisions, and does not implement general Unicode or arbitrary
@@ -245,7 +254,8 @@ Direct retrieval of the Open Group Issue 8 pathname/rename pages returned HTTP
 403 during research; no new POSIX conformance claim relies on those unread pages.
 
 `vfs_namespace` is an explicit caller-owned view with at most eight copied
-source/target mappings and 160-byte path buffers. Bind to an existing directory;
+source/target mappings and, initially, 160-byte proof buffers. Integration review
+corrected those buffers to the shared 1024-byte ABI limit. Bind to an existing directory;
 refuse root replacement, occupied public names, overlapping public prefixes and
 recursive/chained aliases. No duplicate VFS node, inode, mount or storage claim is
 created. Resolve a canonical absolute path once, then pass the returned storage

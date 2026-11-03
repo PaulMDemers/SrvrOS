@@ -52,8 +52,8 @@ static void namespace_case(const char *mode) {
         path[VFS_NAMESPACE_PATH_MAX]=0;namespace_refuses(&ns,path);
         path[VFS_NAMESPACE_PATH_MAX-1]=0;namespace_refuses(&ns,path); /* expansion */
         path[VFS_NAMESPACE_PATH_MAX-1-4]=0; /* '/fat' expansion: exact bound */
-        assert(vfs_namespace_resolve(&ns,path,out,sizeof(out)) && strlen(out)==159);
-        out[0]='x';assert(!vfs_namespace_resolve(&ns,path,out,159) && !out[0]);
+        assert(vfs_namespace_resolve(&ns,path,out,sizeof(out)) && strlen(out)==VFS_NAMESPACE_PATH_MAX-1);
+        out[0]='x';assert(!vfs_namespace_resolve(&ns,path,out,VFS_NAMESPACE_PATH_MAX-1) && !out[0]);
         out[0]='x';assert(!vfs_namespace_resolve(&ns,"/",out,1) && !out[0]);
         assert(!vfs_namespace_resolve(&ns,"/",NULL,1));
         assert(!vfs_namespace_resolve(NULL,"/",out,sizeof(out)) && !out[0]);
@@ -138,12 +138,22 @@ static void namespace_case(const char *mode) {
         namespace_data(&ns,"/home/note","before");namespace_data(&ns,"/fat/home/note","before");
         assert(!exfat_write_file(path,(const uint8_t *)"retry",5));
     } else if(!strcmp(mode,"namespace-system")) {
-        char out[160];const struct vfs_node *node;
+        char out[VFS_NAMESPACE_PATH_MAX];const struct vfs_node *node;
         assert(vfs_register_directory("/bin"));
         assert(!vfs_namespace_system_activate());
         assert(!vfs_namespace_system_lookup("/usr/bin/tool"));
         assert(vfs_unregister_path("/bin"));
         assert(vfs_namespace_system_activate());
+        char long_path[VFS_NAMESPACE_PATH_MAX+1];
+        memset(long_path,'x',sizeof(long_path));memcpy(long_path,"/home/",6);
+        long_path[VFS_NAMESPACE_PATH_MAX]=0;
+        assert(vfs_namespace_system_path(long_path,out,sizeof(out))==SRV_ERR_NAMETOOLONG && !out[0]);
+        long_path[VFS_NAMESPACE_PATH_MAX-1]=0;
+        assert(vfs_namespace_system_path(long_path,out,sizeof(out))==SRV_ERR_NAMETOOLONG && !out[0]);
+        long_path[VFS_NAMESPACE_PATH_MAX-5]=0;
+        assert(!vfs_namespace_system_path(long_path,out,sizeof(out)) && strlen(out)==VFS_NAMESPACE_PATH_MAX-1);
+        assert(vfs_namespace_system_path(long_path,out,VFS_NAMESPACE_PATH_MAX-1)==SRV_ERR_NAMETOOLONG && !out[0]);
+        assert(vfs_namespace_system_path("/missing/leaf",out,sizeof(out))==SRV_ERR_NOENT && !out[0]);
         assert(vfs_namespace_system_protects("/fat") && vfs_namespace_system_protects("/fat/bin"));
         assert(!vfs_namespace_system_protects("/fat/bin/tool") && !vfs_namespace_system_protects("/work"));
         node=vfs_lookup("/fat/bin/tool");

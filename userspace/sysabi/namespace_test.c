@@ -2,6 +2,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <spawn.h>
 #include <stdio.h>
 #include <string.h>
@@ -21,8 +22,47 @@ static int same_inode(const char *a, const char *b) {
     return !stat(a, &x) && !stat(b, &y) && x.st_ino && x.st_ino == y.st_ino;
 }
 
+static void namespace_path_limits(void) {
+    char base[PATH_MAX],path[PATH_MAX],raw[PATH_MAX],listed[PATH_MAX];
+    snprintf(base,sizeof(base),"/home/.namespace-long-%ld",(long)getpid());
+    if(mkdir(base,0700)) { CHECK(0,"long-base");return; }
+    for(unsigned i=0;i<4;i++) {
+        size_t n=strlen(base);base[n++]='/';memset(base+n,'a'+i,200);base[n+200]=0;
+        if(mkdir(base,0700)) { CHECK(0,"long-parent");return; }
+    }
+    size_t prefix=strlen(base);memcpy(path,base,prefix);path[prefix++]='/';
+    /* /home adds four bytes when translated to /fat/home. */
+    memset(path+prefix,'z',PATH_MAX-5-prefix);path[PATH_MAX-5]=0;
+    snprintf(raw,sizeof(raw),"/fat%s",path);
+    CHECK(strlen(raw)==PATH_MAX-1,"long-backing-limit");
+    int fd=open(path,O_CREAT|O_EXCL|O_RDWR,0600);
+    CHECK(fd>=0,"long-create");
+    if(fd>=0) {
+        CHECK(write(fd,"long",4)==4 && !fsync(fd),"long-write");
+        CHECK(!close(fd),"long-close");
+        CHECK(same_inode(path,raw),"long-alias-identity");
+        int found=0;
+        for(uint64_t i=0;i<200000;i++) {
+            uint64_t size;long result=srv_list(i,listed,sizeof(listed),&size);
+            if(result<=0) break;
+            if(!strcmp(listed,path)) { found=1;break; }
+        }
+        CHECK(found,"long-list");
+        CHECK(!unlink(raw),"long-unlink");
+    }
+    memset(path+PATH_MAX-5,'z',4);path[PATH_MAX-1]=0;
+    struct stat st;
+    errno=0;CHECK(open(path,O_RDONLY)<0 && errno==ENAMETOOLONG,"expanded-open-limit");
+    errno=0;CHECK(stat(path,&st)<0 && errno==ENAMETOOLONG,"expanded-stat-limit");
+    errno=0;CHECK(mkdir(path,0700)<0 && errno==ENAMETOOLONG,"expanded-mkdir-limit");
+    errno=0;CHECK(chdir(path)<0 && errno==ENAMETOOLONG,"expanded-chdir-limit");
+    for(unsigned i=0;i<4;i++) { CHECK(!rmdir(base),"long-rmdir");*strrchr(base,'/')=0; }
+    CHECK(!rmdir(base),"long-base-remove");
+}
+
 int namespace_test(void) {
     failures = 0;
+    namespace_path_limits();
     struct srv_stat raw = {.abi_version=SRV_ABI_VERSION, .struct_size=sizeof(raw)};
     struct stat st;
     CHECK(same_inode("/bin/true", "/usr/bin/true"), "bin-usr-identity");

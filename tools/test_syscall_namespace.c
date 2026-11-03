@@ -7,8 +7,8 @@
 #define SRVROS_SYSCALL_IO_HOST_TEST
 #include "../kernel/src/arch/x86_64/syscall.c"
 
-static char long_path[220];
-static char user_path[512];
+static char long_path[SRV_PATH_MAX];
+static char user_path[SRV_PATH_MAX];
 static uint64_t user_size;
 static unsigned iterator_calls;
 static struct vfs_node raw_node={.path=long_path,.size=27,.used=true,.type=VFS_NODE_FILE};
@@ -44,7 +44,7 @@ int main(void) {
     long_path[0]='/';memset(long_path+1,'x',sizeof(long_path)-2);long_path[sizeof(long_path)-1]=0;
     memset(user_path,0,sizeof(user_path));user_size=0;
     assert(syscall_list(0,user_path,sizeof(user_path),&user_size)==1);
-    assert(!strcmp(user_path,long_path) && user_size==27 && strlen(user_path)>159);
+    assert(!strcmp(user_path,long_path) && user_size==27 && strlen(user_path)==SRV_PATH_MAX-1);
     memset(user_path,'z',sizeof(user_path));user_size=0;
     assert(syscall_list(0,user_path,1,&user_size)==1 && !user_path[0] && user_path[1]=='z' && user_size==27);
     memset(user_path,'z',sizeof(user_path));

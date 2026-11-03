@@ -1752,8 +1752,8 @@ static int64_t load_elf_image_checked(const char *path,struct process *process,u
 #endif
     if(result>=0) result=current?process_path_context_for(current,SRV_PATH_RESOLVE,path,logical,sizeof(logical)):
         (copy_process_path(logical,sizeof(logical),path)?0:SRV_ERR_NAMETOOLONG);
-    if(result>=0) result=vfs_namespace_system_resolve(logical,storage,sizeof(storage))?
-        load_elf_image_checked_impl(storage,process,stack_top,entry_out):SRV_ERR_NOENT;
+    if(result>=0) result=vfs_namespace_system_path(logical,storage,sizeof(storage));
+    if(result>=0) result=load_elf_image_checked_impl(storage,process,stack_top,entry_out);
     process_service_end(scope);
     process_latency_end(LATENCY_PROCESS_IMAGE,span);return result;
 }
@@ -1794,7 +1794,7 @@ static int64_t load_spawn_image_checked(struct process *parent,struct process *c
 #endif
     if(result>=0) result=parent?process_path_context_for(parent,SRV_PATH_RESOLVE,path,logical,sizeof(logical)):
         (copy_process_path(logical,sizeof(logical),path)?0:SRV_ERR_NAMETOOLONG);
-    if(result>=0 && !vfs_namespace_system_resolve(logical,storage,sizeof(storage))) result=SRV_ERR_NOENT;
+    if(result>=0) result=vfs_namespace_system_path(logical,storage,sizeof(storage));
     process_service_end(preparation);
     if(result>=0) {
         struct process_service_scope scope=process_spawn_image_scope(parent,child,storage,snapshot,sizeof(snapshot));
@@ -3177,7 +3177,10 @@ static int64_t process_path_context_for(struct process *process,uint64_t operati
             for(uint64_t i=0;i<count;i++) resolved[length++]=path[start+i];
             resolved[length]=0;
             if(path[at]=='/') {
-                const struct vfs_node *node=vfs_namespace_system_lookup(resolved);
+                char storage[PROCESS_PATH_MAX];
+                int64_t error=vfs_namespace_system_path(resolved,storage,sizeof(storage));
+                if(error<0) return error;
+                const struct vfs_node *node=vfs_lookup(storage);
                 uint64_t next=at;while(path[next]=='/') next++;
                 if(!node && operation==SRV_PATH_RESOLVE_DIRECTORY && !path[next]) continue;
                 if(!node) return SRV_ERR_NOENT;
@@ -3185,11 +3188,12 @@ static int64_t process_path_context_for(struct process *process,uint64_t operati
             }
         }
         if(operation==SRV_PATH_CHDIR) {
-            const struct vfs_node *node=vfs_namespace_system_lookup(resolved);
+            char storage[PROCESS_PATH_MAX];
+            int64_t error=vfs_namespace_system_path(resolved,storage,sizeof(storage));
+            if(error<0) return error;
+            const struct vfs_node *node=vfs_lookup(storage);
             if(!node) return SRV_ERR_NOENT;
             if(node->type!=VFS_NODE_DIRECTORY) return SRV_ERR_NOTDIR;
-            char storage[PROCESS_PATH_MAX];
-            if(!vfs_namespace_system_resolve(resolved,storage,sizeof(storage))) return SRV_ERR_NOENT;
             copy_process_path(process->cwd,sizeof(process->cwd),resolved);
             copy_process_path(process->cwd_storage,sizeof(process->cwd_storage),storage);
             return 0;
@@ -3210,7 +3214,7 @@ int64_t process_resolve_storage_path(const char *input,char *out,uint64_t capaci
     char logical[PROCESS_PATH_MAX];
     int64_t result=process_path_context_for(process_current(),SRV_PATH_RESOLVE,input,logical,sizeof(logical));
     if(result<0) return result;
-    return vfs_namespace_system_resolve(logical,out,capacity)?0:SRV_ERR_NOENT;
+    return vfs_namespace_system_path(logical,out,capacity);
 }
 
 bool process_has_open_vfs_prefix(const char *prefix) {
@@ -4415,7 +4419,8 @@ int64_t process_file_open_flags(struct process *process,const char *path,uint64_
     char logical[PROCESS_PATH_MAX],storage[PROCESS_PATH_MAX];
     int64_t result=process_path_context_for(process,SRV_PATH_RESOLVE,path,logical,sizeof(logical));
     if(result<0) { process_service_end(scope);return result; }
-    if(!vfs_namespace_system_resolve(logical,storage,sizeof(storage))) { process_service_end(scope);return SRV_ERR_NOENT; }
+    result=vfs_namespace_system_path(logical,storage,sizeof(storage));
+    if(result<0) { process_service_end(scope);return result; }
     if(flags&(SRV_OPEN_WRITE|SRV_OPEN_CREATE)) result=process_file_open_write_raw(process,storage,flags);
     else {
         const struct vfs_node *node=vfs_lookup(storage);const uint8_t *data;uint64_t size;
@@ -4451,8 +4456,8 @@ int64_t process_file_open_write(struct process *process, const char *path, uint6
 #endif
     char logical[PROCESS_PATH_MAX],storage[PROCESS_PATH_MAX];
     int64_t result=process_path_context_for(process,SRV_PATH_RESOLVE,path,logical,sizeof(logical));
-    if(result>=0) result=vfs_namespace_system_resolve(logical,storage,sizeof(storage)) ?
-        process_file_open_write_raw(process,storage,flags) : SRV_ERR_NOENT;
+    if(result>=0) result=vfs_namespace_system_path(logical,storage,sizeof(storage));
+    if(result>=0) result=process_file_open_write_raw(process,storage,flags);
     process_service_end(scope);return result;
 }
 

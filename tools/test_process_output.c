@@ -801,7 +801,9 @@ static void path_context_regression(void) {
 static void namespace_process_regression(void) {
     namespace_fixture=true;clear_process(&subject);current_subject=&subject;
     assert(vfs_namespace_system_activate());
+    char oversized[SRV_NAME_MAX+2];memset(oversized,'x',sizeof(oversized));oversized[sizeof(oversized)-1]=0;
     char path[160];
+    assert(process_file_open_flags(&subject,oversized,SRV_OPEN_READ)==SRV_ERR_NAMETOOLONG);
     assert(!process_path_context(SRV_PATH_CHDIR,"/home",NULL,0));
     assert(!strcmp(subject.cwd,"/home") && !strcmp(subject.cwd_storage,"/fat/home"));
     assert(!process_resolve_storage_path("note",path,sizeof(path)) && !strcmp(path,"/fat/home/note"));

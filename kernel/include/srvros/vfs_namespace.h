@@ -5,10 +5,11 @@
 #include <stddef.h>
 
 #include <srvros/vfs.h>
+#include <srvros/path_limits.h>
 
 /* Path capacity includes the terminating NUL. The table owns its strings. */
 #define VFS_NAMESPACE_MAX_MAPPINGS 8
-#define VFS_NAMESPACE_PATH_MAX 160
+#define VFS_NAMESPACE_PATH_MAX SRV_PATH_MAX
 
 struct vfs_namespace_mapping {
     char source[VFS_NAMESPACE_PATH_MAX];
@@ -51,6 +52,10 @@ const struct vfs_node *vfs_namespace_lookup(const struct vfs_namespace *ns, cons
 bool vfs_namespace_system_activate(void);
 void vfs_namespace_system_reset(void);
 bool vfs_namespace_system_resolve(const char *path, char *out, size_t capacity);
+/* Syscall-facing result: zero on success, SRV_ERR_NAMETOOLONG for input or
+ * backing-path overflow, SRV_ERR_FAULT for invalid buffers, otherwise NOENT.
+ * Logical traversal/type checks remain the caller's responsibility. */
+int64_t vfs_namespace_system_path(const char *path, char *out, size_t capacity);
 const struct vfs_node *vfs_namespace_system_lookup(const char *path);
 /* True for a raw target or its ancestor while a binding is live. */
 bool vfs_namespace_system_protects(const char *canonical_path);
