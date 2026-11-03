@@ -22,6 +22,46 @@ static destructor registration stubs, guard variables for function-local
 statics, stack-check failure handling, and a few compiler helper symbols used by
 large C++ runtimes such as V8.
 
+## One True Awk
+
+The pinned upstream interpreter is installed as `/fat/bin/awk` (also `/awk` in
+initramfs). Run it from Terminal or the shell to process text and CSV files:
+
+```sh
+awk --version
+awk --csv 'NR>1 {total += $3} END {print total}' /fat/home/input.csv > /fat/home/report.txt
+cat /fat/home/report.txt
+```
+
+The example assumes a header row and numeric third column. `-f program.awk`,
+stdin/pipelines, arrays, regexes, substitution and formatted output are supported
+by the selected port profile. Prefer `-f` for programs containing backslashes:
+the existing SrvrOS shell can consume backslashes inside quoted command tokens.
+This shell behavior is tracked separately; the port does not change it.
+
+The initial contract uses C-locale ASCII case conversion, a deterministic local
+random sequence, and no floating-point signal handler. This is not full POSIX or
+Unicode locale acceptance. Source preparation, exact pin, adaptations and host
+requirements are in [the port contract](../ports/srvros/awk/PORT.md).
+
+Build on Apple Silicon with `sh tools/macos/build.sh -j2 all test-awk-port`.
+Host Bison and a native C compiler generate parser tables; target compilation
+uses the matched SrvrOS toolchain and libc. All generation stays outside upstream.
+The guest gate is `TMPDIR=/tmp python3 tools/awk_smoke.py`; build the host
+allocation checker first using the Darwin wrapper in [the macOS guide](macos-development.md).
+It exercises a real Terminal CSV report, selected unchanged upstream regressions,
+error statuses, pipeline/subprocess behavior, process retirement, exact offline
+files and a second boot of the same disposable disk. It preserves evidence under
+`build/review/awk/`. Missing external `fsck.exfat` is reported separately from
+the mandatory guest and host allocation checks. No native-device acceptance is
+implied by these checks.
+
+[Acceptance provenance](assets/screenshots/awk-manifest.json) records the two clean
+builds and final Terminal/disk-reopen result on runtime `6d1ae527`. The awk ELF
+and generated sources match; complete-image bit reproducibility is not claimed.
+
+![Pinned awk CSV report in Terminal](assets/screenshots/awk-terminal.png)
+
 ## Foundation Added
 
 The first compatibility slice now lives under `userspace/lib/include` and
