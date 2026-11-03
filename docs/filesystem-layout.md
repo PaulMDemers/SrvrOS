@@ -43,13 +43,50 @@ roots, raw listing compatibility, loader/private-image admission and PR252 lifet
 I/O-admission and checked-usercopy regressions. The guest test is
 `sysabi --namespace`; `tools/namespace_smoke.py` uses two disposable disks and two
 boots for `/fat`/`/work` compatibility and persistence. Matched build and guest
-results are recorded below when complete.
+results are recorded below.
 
 Known bounds remain: 159-byte mutable paths, no symlinks or nonempty directory
 rename, and the existing exFAT sidecar/recovery limitations. Indexed flat projected
 listing rescans the raw node table and is quadratic for a complete scan; directory
 root enumeration uses a direct four-binding accessor. No cache or second lock was
 introduced. This milestone does not provide physical-device acceptance.
+
+## Global activation verification
+
+Implementation `b5e6d153` (preceded by `ecec98e3`) was built with a clean tracked
+checkout and pinned submodules, including SrvrPorts `0f51ba9`. Documentation-only
+follow-ups do not change the tested binaries.
+
+| Check | Result |
+| --- | --- |
+| Real exFAT/VFS import and namespace suite | 133/133 pass on x86_64; 133/133 pass with ASan/UBSan |
+| Real process/backend writeback | Pass, including refusal/retry integration |
+| Process and syscall regressions | Output/content/locks, cwd/dirfd, service/private-image preparation, foreign-owner refusal, loader, lifetime, fault cleanup, I/O eligibility, replacement, guarded file changes, checked usercopy, VFS time and native list compatibility pass |
+| PR252 transferred ports and pipe-message tests | uv bounds/lifetime, uACPI namespace-root/table-install/GAS, pipe-message pass |
+| Workspace host contract | UUID/marker/duplicate/dirty checks, mount holds, stale tokens, ownership, busy/flush/unmount/revoke and sync-failure propagation pass |
+| Matched build | `sh tools/macos/build.sh -j2 all` passes at `b5e6d153`; source and image hashes recorded in `build/macos-build.json` |
+| Global guest namespace | Monitor listings/read/write/ELF/run, raw syscall and libc aliases, dirty shared reads, exclusive-create/native-write guards, cwd/fchdir/openat, protected roots, metadata, rename/unlink, exec/spawn and separate `/work` data pass |
+| Two-boot persistence | Independent system/work copies, fsync/close, global sync, `/work` unmount and checked guest reboot; reopen through `/home`, `/fat/home`, `/usr/home` and `/work` passes, followed by verified cleanup and a second checked reboot |
+| Ordinary desktop | Q35/TCG with VirtIO, matched images: desktop and first application frame at 4.31 seconds; QMP running state and screenshot retained |
+| Documentation | 840 local inline links checked, zero errors before the final evidence additions |
+
+Evidence is local and ignored: `build/review/filesystem-layout/global-*.log`,
+`global-exfat/result.json`, `global-exfat-sanitize/result.json`, and
+`global-process-writeback/result.json` under that directory; two-boot guest logs,
+manifest and disposable disks under
+`build/review/namespace-smoke/20261103T231056.210739Z/`; desktop manifest, serial
+log and PNG under
+`.local/macos-vm/filesystem-global/session-20261103T231118.231509Z/`.
+The initial harness startup-prompt race and its attempted `/fat` unmount are
+retained as failed runs. The latter correctly refused init's live log reference;
+the final harness uses the ordinary checked reboot flush, without overriding it.
+
+Host tests use the task's x86_64 Darwin compiler wrapper; workspace/sync fixtures
+also need `-D_DARWIN_C_SOURCE` for the host `cfmakeraw` declaration. This is not a
+claim that every `test-core` target is qualified on macOS. The guest `/work` disk
+is an explicit second AHCI volume, not physical USB workspace acceptance.
+Task VMs are stopped; the three existing review VMs were preserved. Actions
+remain disabled. No installation, physical reboot or merge was performed.
 
 ## First checkpoint history
 
