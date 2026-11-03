@@ -105,7 +105,10 @@ was found at this integration checkpoint. Preserve v115 and independent backups.
 
 Reviewed remote main `d5822348` and open PRs301/299/252: current work is display
 ownership, Terminal quoting and resolver/socket auditing, with no MT76 overlap.
-This bounded trial keeps consumed main `1dad02c2` and host foundation `1267acfa`
+PR252 also hardens installer payload/path verification; the v116 change only
+adds profile/firmware-check admission and preserves current verification policy.
+Retain that hardening when consuming PR252; no competing installer rewrite is
+part of this trial. This bounded trial keeps consumed main `1dad02c2` and host foundation `1267acfa`
 to avoid conflating new desktop changes with radio results. Next implementation
 owns `xhci_wifi_mcu.inc`, fixed coordinator admission helpers, main/header opt-in
 dispatch, immutable boot/staging gates and complete phase-tagged saved-log proof.
