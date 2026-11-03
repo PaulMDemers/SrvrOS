@@ -118,6 +118,15 @@ int main(void) {
     t.checks[10].checked=0;tool_settings_action(&t,(struct desk_action){SETTINGS_TWO_FINGER_TAP,DESK_WIDGET_ACTIVATED});
     assert(!requested.two_finger_tap && mask==DESK_PREF_TWO_FINGER_TAP);
     t.window.width=560;t.window.height=480;tool_layout(&t);
+    tool_settings_scroll(&t,10000);
+    assert(t.settings_scroll.offset==desk_scrollbar_limit(&t.settings_scroll));
+    int previous_limit=t.settings_scroll.offset;
+    t.window.height=360;tool_layout(&t);
+    assert(t.settings_scroll.offset==desk_scrollbar_limit(&t.settings_scroll) && t.settings_scroll.offset>previous_limit);
+    tool_settings_scroll(&t,-250);
+    int partial_offset=t.settings_scroll.offset;
+    t.window.height=480;tool_layout(&t);
+    assert(t.settings_scroll.offset==partial_offset);
     t.window.server=42;t.display_serial=1;t.display_pending=1;t.display_operation=DESK_DISPLAY_QUERY;
     struct desk_display_state ds={.width=1920,.height=1080,.scale=1,.capabilities=DESK_DISPLAY_CAP_SCALE};
     struct desk_packet dp={.serial=1,.value=DESK_DISPLAY_OK};memcpy(dp.text,&ds,sizeof(ds));
@@ -138,8 +147,16 @@ int main(void) {
     assert(display_action.id==SETTINGS_DISPLAY_APPLY && (display_action.flags&DESK_WIDGET_ACTIVATED));
     tool_settings_action(&t,display_action);
     assert(brightness_sent.type==DESK_DISPLAY && brightness_sent.value==DESK_DISPLAY_APPLY && brightness_sent.x==2);
+    /* A trial reply reveals confirmation even if the user scrolled away. */
+    tool_settings_scroll(&t,-500);
+    assert(t.settings_scroll.offset<desk_scrollbar_limit(&t.settings_scroll));
     dp.serial=brightness_sent.serial;dp.generation=7;ds.scale=2;ds.phase=DESK_DISPLAY_TRIAL;ds.remaining_seconds=15;memcpy(dp.text,&ds,sizeof(ds));
     tool_settings_display(&t,&dp);assert(t.display_token==7 && t.buttons[21].enabled);
+    assert(t.settings_scroll.offset==desk_scrollbar_limit(&t.settings_scroll));
+    tool_settings_scroll(&t,-100);int trial_offset=t.settings_scroll.offset;
+    dp.serial=0;ds.remaining_seconds=14;memcpy(dp.text,&ds,sizeof(ds));tool_settings_display(&t,&dp);
+    assert(t.settings_scroll.offset==trial_offset);
+    tool_settings_scroll(&t,10000);
     assert(!t.buttons[20].frame.w && t.buttons[21].frame.w && t.buttons[22].frame.w);
     struct desk_rect display_keep=t.buttons[21].frame;
     display_press=(struct desk_widget_event){.type=DESK_WIDGET_POINTER,.x=display_keep.x+10,.y=display_keep.y+10,.down=1,.pressed=1};

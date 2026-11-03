@@ -132,8 +132,8 @@ python3 tools/macos/run.py --display-device virtio
 
 The launcher defaults to standard VGA. The new backend guarantees the implemented
 VirtIO command ordering, not host compositor vblank or physical tear-free output.
-The current supported mode is the inherited 32-bit BGRX resolution; live resizing,
-native acceleration and adaptive refresh are outside this milestone.
+At this checkpoint, the supported mode was the inherited 32-bit BGRX resolution;
+live resizing, native acceleration and adaptive refresh were outside its scope.
 
 
 ### Verified checkpoint
@@ -252,3 +252,46 @@ failures, pending damage, restart and quarantine tests pass. The primary desktop
 VM also passes drag, scroll, normal exit, process death and restart. See the
 [compact measurement manifest](assets/screenshots/virtio-damage-manifest.json);
 raw evidence is in `build/review/virtio-baseline/smoothness/`.
+
+
+## Runtime resolution switching
+
+The QEMU VirtIO presentation backend exposes guest-chosen resolution presets.
+`gfx_mode_count`, `gfx_mode_get` and `gfx_mode_set` use syscalls 159, 160 and
+161. Mode records carry ABI version and size, width and height. Index 0 is the
+inherited framebuffer size; the remaining entries are the following presets,
+with any duplicate of the inherited size omitted:
+
+- 1024 × 768 and 1280 × 800
+- 1440 × 900 and 1920 × 1080
+- 2560 × 1440 and 2880 × 1800
+
+These are bounded QEMU guest presets, not EDID-reported monitor modes. Native
+and standard VGA paths enumerate only the inherited current size and reject a
+mode change. `GFX_FLAG_MODE_SET` (`0x20`) in `gfx_info` advertises the admitted
+VirtIO mode-setting path; `GFX_FLAG_PRESENT_ACTIVE` (`0x40`) indicates an owned,
+active VirtIO presenter. Mode setting requires the GUI server to own the
+presentation lease and console mute. Queries fail while a presentation operation
+is busy or display state is quarantined.
+
+The caller prepares its new userspace canvas before requesting a switch. For a
+non-inherited target, the kernel allocates and clears a separate software
+staging framebuffer while retaining the old image. It then resets the device,
+releases old DMA backing only after a confirmed reset, creates two resources for
+the target, and fences an initial transfer, scanout selection and flush before
+publishing the new geometry. The inherited console framebuffer descriptor stays
+separate for recovery. The software staging image is a CPU copy source, not a
+VirtIO DMA backing. Resource allocation is bounded but requires contiguous
+frames, so a mode can be listed yet fail to allocate.
+
+A staging allocation failure leaves the old mode and presenter intact. After a
+confirmed reset, a later setup or presentation failure returns an error and
+restores inherited VGA geometry; it does not silently claim the old VirtIO mode
+survived. The lease remains owned, but presentation may be inactive. The caller
+must query `gfx_info`, check `GFX_FLAG_PRESENT_ACTIVE`, and can retry a mode or
+release the lease; while safely inactive it can use the inherited framebuffer.
+If reset or retirement is uncertain, the backend quarantines affected DMA
+allocations, blocks further ownership and graphics writes, and makes graphics
+and mode queries fail rather than reporting uncertain geometry. Release and
+owner death use the same reset-before-free rule. Fenced command completion does
+not guarantee host compositor or monitor vblank.

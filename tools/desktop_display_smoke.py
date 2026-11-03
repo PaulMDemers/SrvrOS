@@ -210,10 +210,17 @@ def main():
                 scroll_bottom(); display_button('revert')
                 applied(1920, 1080, 2, 1); wait(b'deskd: display-reverted')
                 shot('explicit-revert', (1920, 1080))
+                scroll_bottom(); display_button('mode'); display_button('apply')
+                applied(2560, 1440, 2, 0)
+                # Closing the owner must revert even before its deadline.
+                click(logical[0]-28, 72)
+                applied(1920, 1080, 2, 1); wait(b'deskd: display-reverted')
+                shot('owner-close-reverted', (1920, 1080))
                 desktop_exit()
                 document_start = len(output)
                 serial.sendall(b'cat /fat/display-proof.txt\n')
-                wait(b'srv> ', start=document_start)
+                wait(phrase.encode(), start=document_start)
+                wait(b'srv> ')
                 readback = bytes(output[document_start:consumed])
                 # The shell may echo its command; the document itself has no
                 # trailing newline and the next bytes are the shell prompt.
@@ -245,7 +252,7 @@ def main():
                 if process: stop_process(process)
     (out / 'result.json').write_text(json.dumps({'status': 'PASS', 'metadata': metadata,
         'checks': ['Settings apply and keep', 'Text selection, snap, resize and saved document',
-                   'timed and explicit rollback', 'saved preference and fresh desktop restore'],
+                   'timed, explicit and owner-close rollback', 'saved preference and fresh desktop restore'],
         'limitations': 'Requires current preset ordering and Settings layout. Screenshots prove dimensions, not native glyph detail.'}, indent=2) + '\n')
     print(f'desktop-display: PASS; evidence: {out}')
 

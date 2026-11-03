@@ -64,7 +64,7 @@ application refusal restores the last accepted geometry through the existing
 configure transaction.
 
 These compositor controls apply across all theme profiles and both integer
-display scales. Native-density typography remains a separate feature.
+display scales, including native-density typography at 2×.
 The directional cursor is software rendered, with old/new damage covered even
 when its shape changes without pointer movement.
 
@@ -98,28 +98,43 @@ not accumulate tint. The side gesture is informed by Microsoft's
 [Snapping acceptance and captures](assets/screenshots/window-snap-manifest.json)
 cover both integer scales, cancellation and retained document content.
 
-## Display scale
+## Display scale and resolution
 
-The default remains 1× on every machine. An explicit integer scale can be selected
-when starting the desktop:
+Settings → Display selects 1× or 2× scale and, on QEMU's VirtIO GPU, a supported
+resolution. Apply starts a 15-second trial. Keep saves the choice; Revert, timeout,
+closing Settings or a failed client resize restores the previous display and
+window placement. Settings reports persistence separately, so a session-only
+change is not presented as saved. Confirmed preferences are restored on the next
+desktop launch after the asynchronous preference load completes.
+
+The default is 1× with the inherited boot resolution. An explicit startup override
+remains available:
 
 ```text
 run /fat/bin/deskd --scale=2
 ```
 
-At a 2880×1800 boot framebuffer this gives a 1440×900 logical desktop. Windows,
-controls, pointer movement, hit testing and damage use logical pixels; the final
-copy expands each pixel to a 2×2 block. Client surfaces and window-cache budgets use logical dimensions. This is integer enlargement of the existing
-raster toolkit, not new higher-resolution font rendering or GPU acceleration.
-The mode requires at least 640×480 logical pixels; other scales are rejected.
-`--scale=1` selects the existing behavior. It can accompany `--apps-trace` or a
-trial mode. There is no automatic DPI inference or persistent scale setting yet.
+At 2880×1800 this gives a 1440×900 logical desktop. Window geometry, controls,
+pointer input, clips and damage remain logical; canvases, client surfaces and
+compositor caches store native physical pixels. Built-in fonts use separately
+rasterized 2× atlases with unchanged logical metrics. Custom fonts without a
+higher-density raster use integer enlargement. Cache and surface quotas count
+physical bytes, so the same logical window consumes four times the pixel memory
+at 2×. Fenced VirtIO presentation remains active after a successful switch.
 
-Saved screenshots contain the logical canvas (1440×900 at the example mode),
-including its cursor. Expanding that BMP by 2× reproduces the displayed pixels.
-This keeps captures within Preview's current 8 MiB file limit. Serial diagnostics
-record physical dimensions, logical dimensions and scale. VM evidence does not
-accept the firmware-selected display or GPU on an additional physical Mac.
+A display requires at least 640×480 logical pixels, making 1280×960 the minimum
+physical size for 2×. Fractional scale and automatic DPI inference are not
+implemented. QEMU offers the inherited mode plus bounded presets through
+2880×1800; these are guest-supported modes, not an EDID monitor catalog. Other
+display drivers expose their current resolution and disable resolution changes.
+Scale can still change when the current framebuffer is large enough. See
+[display presentation](display-presentation.md) for the driver recovery contract.
+
+Saved screenshots retain logical dimensions, averaging native 2× pixels so the
+BMP remains within Preview's current 8 MiB file limit. QEMU screendumps preserve
+physical pixels for inspecting font detail. Serial diagnostics record physical
+and logical dimensions, scale and confirmed/restored changes. VM evidence does
+not accept modesetting or panel timing on a physical Mac.
 
 The unattended `--idle-capture` mode is reserved for the v25/v26 hardware diagnostic
 profiles. It uses the prepared USB workspace, samples 60 seconds after startup,
@@ -522,8 +537,9 @@ typing and moving the pointer, then confirm clean USB flush/unmount on exit.
 Maximize fills the usable 1440x900 laptop desktop, leaving the menu bar, dock and
 eight-pixel side margins visible. Clicking again restores the original window
 position and size. Preview's Fit/1:1 controls affect the image inside that window
-independently. Shared client surfaces are capped at 1440x900; the kernel pixel
-budget derives from the same constants. Larger screens still respect that cap.
+independently. Client geometry is capped at 1440×900 logical pixels, with surfaces up to
+2880×1800 physical pixels at 2×. The aggregate kernel surface budget remains
+256 MiB; larger screens still respect the per-client logical cap.
 Compositor caches grow on demand within their existing budget; allocation
 refusal preserves the last usable window.
 
