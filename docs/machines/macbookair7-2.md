@@ -2,6 +2,32 @@
 
 Updated: 2026-11-03. State: **active reference machine; partial device acceptance**.
 
+### Read-only Intel snapshot ready for native collection
+
+Draft PR301 implements the first display milestone on base `fa8e503f`.
+Compiled source `5c8c0569`, release `c60576b371caaab4`, passes local directed
+host tests and matched kernel builds. The preceding full gate at `72f2b934`
+also passes core, Open With and default-off VirtIO regressions; the final delta
+adds only clock-rollback refusal and its tests. Exact-stage Q35 refuses the
+hardware identity before mapping, saves its receipt, unmounts and resets. A
+missing workspace halts visibly. Actions remain disabled.
+
+The automated native snapshot is installed with USB `37D8-C5D0` unmounted and
+offline fsck/allocation/writable/headroom checks passing. Baseline: 1317 files,
+91 sessions. It needs no tester input and returns to Ubuntu after saved results
+and clean unmount, including handled observation refusal. Persistence failure
+halts visibly. Current one-shot state lives in the run record, not this prose.
+Recovery `9aa8dbf6fbda8252`, accepted `c497eb0cb48c1b01` and prior `6ee815bb354a4100`
+are retained and independently verified. Only obsolete EFI payload `f586e4a2d58cb3ab`
+was archived, fully hash-verified and removed from EFI to make space.
+
+Collect the matching boot/exit logs before another trial and validate the raw
+versioned report, stable endpoints, timing and mapping retirement, followed by
+file preservation and offline integrity/recovery. Native observation remains
+pending; no scanout ownership, page flips or tear-free acceptance is claimed.
+Run: `build/air-intel-observe-native-20261103/run.json`; local validation:
+`build/air-tearfree-20261103/observe-final-validation.json`.
+
 ### Native display observation implementation scope
 
 Implementation base `fa8e503f` consumes Air6,1 PR296's independent no-write
