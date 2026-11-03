@@ -114,6 +114,30 @@ relax radio predicates or enlarge ordinary collection limits. Archive verified
 large sessions, or explicitly identify them, before a future ordinary collection;
 unknown large sessions remain refused rather than silently admitted.
 
+## Current bounded trim/calibration scope
+
+Fetched/reviewed main `8f47f196` and active PRs314/313/310/309/308/306/301/252.
+New shared changes concern display/density, installation/namespace and portable
+profiles; MT76 engines and native Wi-Fi owner are unchanged. Keep accepted
+runtime `c3088243`/consumed main `1dad02c2` for this bounded radio foundation;
+review/reconcile the newer baseline separately before another physical stage.
+
+Pinned Linux v7.0 `mt76x0_phy_rf_init` applies EEPROM-derived RF0:22 before
+DAC0:73 set/clear/set and the common0:4 VCO pulse. Channel setup separately
+selects band/frequency/A20/PA/fresh-gain BBP before another0:4 trigger. These
+are different lifetimes; v116 does not accept either pulse or calibration.
+Do not reinstate withdrawn G-band radio recipes from generic common-init code.
+
+Current files are fixed MT76 trim/coordinator helpers, isolated host tests,
+pinned-source audit/fixture metadata and this unit/USB guide. Add a reversible
+exact-board0:22 transaction: require original0, write fresh validated44, read
+selected44, optionally run the fixed v116 engine while trim remains selected,
+restore0 and independently reread0. Native admission must later capture private
+logical30/d0 trim fields afresh; a numeric44 argument alone is not freshness.
+Preserve legacy APIs and the accepted payload. Test all I/O/cancel/proof/owner
+boundaries and shared-bank simultaneous trim/channel state before native wiring.
+This host foundation adds no DAC/VCO/RX, credentials, native profile or reboot.
+
 ## Completed v116 native implementation scope
 
 Reviewed remote main `d5822348` and open PRs301/299/252: current work is display
