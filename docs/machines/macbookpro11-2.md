@@ -25,6 +25,26 @@ This accepts the MAC-disabled fresh-gain/command/restoration transaction after
 parent restore, not simultaneous held-channel operation, VCO/RF lock,
 calibrated reception, authentication or connectivity.
 
+Current installed candidate v116 `466528fc7669566e`, runtime `c3088243`, keeps
+main `1dad02c2` and awaits a cold native run. Full build/core/docs,207 staging
+groups,3732 transfer failures/3746 cancellation boundaries,256 gains, native
+request/owner refusals and focused ASan/UBSan pass. Exact-image save/readback/
+clean-unmount/automatic-reset and missing-workspace refusal VMs pass. The exact
+kernel and independently packaged initramfs match; all required native helpers
+are linked. The1063627-byte synthetic complete-prefix rehearsal retains all7785
+operations; it is not native acceptance. Real filesystem/VFS2MiB write/read,
+unmount/remount/readback and external fsck pass on a disposable image.
+
+The durable capsule `wifi-held-native-c3088243` preserves payload, source,
+frozen collector and accepted-v115 parent binding. Ubuntu default/EFI order and
+known-good previous `e47dca3a6b30c6c1` are unchanged. EFI headroom required retiring
+only the unreferenced standalone v110 copy `960af51da95c68fd`, after complete
+byte equality to its accepted independent backup; v110 evidence/backup survives,
+and v111–v115 remain installed/backed up. Current local run/checkpoint records
+own one-shot/shutdown state. This is the MAC-disabled combined select/readback/
+reverse-restoration trial only: no VCO, RX, credentials or connectivity claim.
+After return collect `build/bringup/wifi-held-native/return_collect.py` first.
+
 The preceding warm session `session-00065f50a0330abf-00` remains FAILED before
 firmware preparation: first0730 read1, already-running MCU refusal. Cold adapter
 power cycling resolved admission for this run; repeatable warm takeover is not

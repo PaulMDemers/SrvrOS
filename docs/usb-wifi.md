@@ -377,6 +377,14 @@ checker verifies the nested plan independently from pinned fixtures. A dedicated
 Implementation and host trace checks do not grant native acceptance or enable
 VCO/RX. See the unit record for current validation and stack/storage scope.
 
+Candidate v116 `466528fc7669566e`/`c3088243` is installed awaiting its cold
+native run. Full host/core/staging/fault and focused sanitizer checks, a complete
+1063627-byte synthetic-prefix rehearsal, real disposable2MiB filesystem write/
+read/remount/fsck, and exact-stage save/return/missing-workspace VMs pass. Kernel
+and independently packaged firmware archive match. All7785 operations at one
+EFUSE poll are covered by the strict combined proof. Physical acceptance remains
+v115 above until matching saved native evidence is collected.
+
 ## Current merged development baseline
 
 Runtime `d9c28128` consumes main `1dad02c2`, Apps `1f5f894`, Ports `5aacedd`
