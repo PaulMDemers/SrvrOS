@@ -518,6 +518,55 @@ void keyboard_repeat_hid(struct keyboard_hid_state *state, uint64_t now_us) {
         (void)emit_hid_usage(state->repeat_usage, state->previous_report[0], state->caps_lock,true);
 }
 
+void keyboard_inject_usage(uint8_t usage, bool down, struct keyboard_usage_state *state) {
+    if (!state || usage < 4) return;
+    uint64_t flags = keyboard_irq_save();
+    uint8_t mask = (uint8_t)(1u << (usage & 7));
+    bool previous = (state->pressed[usage / 8] & mask) != 0;
+    if (previous == down) { keyboard_irq_restore(flags); return; }
+    if (down) state->pressed[usage / 8] |= mask;
+    else state->pressed[usage / 8] &= (uint8_t)~mask;
+    if (usage >= 0xe0 && usage <= 0xe7) {
+        uint8_t modifier = (uint8_t)(1u << (usage - 0xe0));
+        if (down) state->modifiers |= modifier;
+        else state->modifiers &= (uint8_t)~modifier;
+        if (event_mode) push_event(usage, state->modifiers, state->caps_lock, down, false);
+    } else if (down) {
+        if (usage == 0x39) state->caps_lock = !state->caps_lock;
+        if ((event_mode || usage != 0x39) && emit_hid_usage(usage, state->modifiers, state->caps_lock, false)) {
+            state->repeat_usage = usage;
+            state->repeat_generation = event_generation;
+            state->repeat_due_us = timer_monotonic_us() + 500000;
+        }
+    } else {
+        if (event_mode) push_event(usage, state->modifiers, state->caps_lock, false, false);
+        if (state->repeat_usage == usage) state->repeat_usage = 0;
+    }
+    keyboard_irq_restore(flags);
+}
+void keyboard_repeat_usage(struct keyboard_usage_state *state, uint64_t now_us) {
+    if (!state) return;
+    uint64_t flags = keyboard_irq_save();
+    if (state->repeat_usage && state->repeat_generation == event_generation && now_us >= state->repeat_due_us) {
+        state->repeat_due_us = now_us + 33333;
+        if (!(state->modifiers & SRV_KEY_CTRL))
+            (void)emit_hid_usage(state->repeat_usage, state->modifiers, state->caps_lock, true);
+    }
+    keyboard_irq_restore(flags);
+}
+void keyboard_release_usage(struct keyboard_usage_state *state) {
+    if (!state) return;
+    uint64_t flags = keyboard_irq_save();
+    /* Actual releases retain other sources' state; a global CANCEL would erase
+     * unrelated keyboards. Clear repeat first so an interrupted release cannot
+     * generate another character. Caps toggle remains local to this source. */
+    state->repeat_usage = 0;
+    for (unsigned usage = 4; usage < 256; ++usage)
+        if (state->pressed[usage / 8] & (1u << (usage & 7)))
+            keyboard_inject_usage((uint8_t)usage, false, state);
+    keyboard_irq_restore(flags);
+}
+
 bool keyboard_try_read_char(char *out) {
     if (read_index == write_index) {
         return false;

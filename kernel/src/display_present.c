@@ -69,5 +69,21 @@ done:
 }
 bool display_present_begin(uint64_t pid) { return operation(pid, 0); }
 bool display_present_frame(uint64_t pid) { return operation(pid, 1); }
-bool display_present_end(uint64_t pid) { return operation(pid, 2); }
-void display_present_release(uint64_t pid) { if (pid && owner == pid) (void)operation(pid, 2); }
+bool display_present_end(uint64_t pid) {
+    if (!pid || owner != pid || busy) return false;
+    struct virtio_gpu_present_stats stats;
+    virtio_gpu_present_get_stats(&stats);
+    bool ok = operation(pid, 2);
+    console_printf("virtio-gpu-present: frames=%u skipped=%u copied_bytes=%u transferred_bytes=%u reset=%s\n",
+        stats.presented_frames, stats.skipped_frames, stats.copied_bytes, stats.transferred_bytes, ok ? "ok" : "failed");
+    return ok;
+}
+void display_present_release(uint64_t pid) { if (pid && owner == pid) (void)display_present_end(pid); }
+
+void display_present_damage(uint64_t x, uint64_t y, uint64_t width, uint64_t height) {
+    if (!owner || busy || poisoned || !staging || !width || !height ||
+        x >= staging->width || y >= staging->height) return;
+    if (width > staging->width - x) width = staging->width - x;
+    if (height > staging->height - y) height = staging->height - y;
+    virtio_gpu_present_damage((uint32_t)x, (uint32_t)y, (uint32_t)width, (uint32_t)height);
+}

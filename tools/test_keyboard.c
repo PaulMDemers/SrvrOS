@@ -74,6 +74,39 @@ static void structured(void) {
     keyboard_decode_scancode(0x1e); e=take(); assert(e.flags&SRV_KEY_REPEAT);
     keyboard_set_event_mode(false); expect(""); foreground=false;
 }
+static void normalized(void) {
+    struct keyboard_usage_state state={0},other={0};
+    keyboard_set_event_mode(true);
+    keyboard_inject_usage(0xe1,true,&state);
+    struct srv_key_event e=take(); assert(e.usage==0xe1 && (e.modifiers&SRV_KEY_SHIFT));
+    for(unsigned usage=4;usage<14;usage++) {
+        keyboard_inject_usage((uint8_t)usage,true,&state);
+        e=take(); assert(e.usage==usage && e.codepoint=='A'+usage-4);
+    }
+    keyboard_inject_usage(4,true,&state); assert(!keyboard_events_pending());
+    keyboard_inject_usage(0xe5,true,&state);take();
+    keyboard_inject_usage(0xe1,false,&state);e=take();assert(e.modifiers&SRV_KEY_SHIFT);
+    keyboard_repeat_usage(&state,now+500001);e=take();assert(e.usage==13 && e.codepoint=='J' && (e.flags&SRV_KEY_REPEAT));
+    keyboard_inject_usage(0x39,true,&state);e=take();assert(e.modifiers&SRV_KEY_CAPS);
+    keyboard_inject_usage(0x39,true,&state);assert(!keyboard_events_pending());
+    keyboard_inject_usage(0x39,false,&state);take();
+    keyboard_inject_usage(0xe5,false,&state);take();
+    keyboard_inject_usage(14,true,&state);e=take();assert(e.codepoint=='K');
+    keyboard_inject_usage(4,true,&other);e=take();assert(e.codepoint=='a');
+    keyboard_release_usage(&state);
+    unsigned releases=0;
+    while(keyboard_read_event(&e)) { assert(!(e.flags&SRV_KEY_DOWN_EVENT));releases++; }
+    assert(releases==11 && !state.repeat_usage && (other.pressed[0]&(1u<<4)));
+    keyboard_repeat_usage(&state,now+900000);assert(!keyboard_events_pending());
+    keyboard_release_usage(&other);take();
+    keyboard_set_event_mode(false);
+    keyboard_inject_usage(0xe0,true,&other);keyboard_inject_usage(6,true,&other);expect("\3");
+    unsigned before=signals;keyboard_repeat_usage(&other,now+900000);assert(signals==before);expect("");
+    keyboard_release_usage(&other);
+    keyboard_inject_usage(4,true,&other);expect("a");
+    keyboard_set_event_mode(true);keyboard_repeat_usage(&other,now+900000);assert(!keyboard_events_pending());
+    keyboard_release_usage(&other);take();keyboard_set_event_mode(false);
+}
 int main(void) {
     struct keyboard_hid_state a = {0}, b = {0};
     tap(&a,0,4); tap(&a,2,4); tap(&a,0x20,0x1d); expect("aAZ");
@@ -97,5 +130,6 @@ int main(void) {
     keyboard_repeat_hid(&a,5000000); assert(signals==1); expect("");
     report(&a,0,0); foreground=false; tap(&a,0x10,6); expect("\3");
     structured();
+    normalized();
     puts("keyboard-host: PASS console and structured HID/PS2 events, modifiers, release/repeat, Ctrl-C isolation, overflow/cancel, mode cleanup");
 }

@@ -29,6 +29,16 @@ static unsigned backing_allocated, backing_freed, fail_backing;
 static unsigned commands, command_types[128], fail_command, host_scanout;
 static bool created[2], attached[2];
 static unsigned checkpoint_count;
+static uint32_t *host_pixels[2], *host_front_snapshot;
+static const uint32_t *oracle_staging;
+static uint64_t oracle_pitch;
+static unsigned oracle_frames, transfers;
+static struct gpu_rect last_transfer;
+
+static void host_images_reset(void) {
+    for (unsigned i = 0; i < 2; ++i) { free(host_pixels[i]); host_pixels[i] = NULL; }
+    free(host_front_snapshot); host_front_snapshot = NULL;
+}
 
 static uint32_t get(const uint8_t *p, unsigned offset, unsigned width) {
     uint32_t value = 0; memcpy(&value, p + offset, width); return value;
@@ -183,6 +193,9 @@ static void resource_command(struct gpu_header *request) {
         struct create_2d_command *r = (void *)request;
         assert(r->resource >= 1 && r->resource <= 2 && !created[r->resource - 1]);
         assert(r->format == 2 && r->width == presentation.width && r->height == presentation.height);
+        host_pixels[r->resource - 1] = malloc((size_t)r->width * r->height * 4);
+        assert(host_pixels[r->resource - 1]);
+        memset(host_pixels[r->resource - 1], 0xcd, (size_t)r->width * r->height * 4);
         created[r->resource - 1] = true;
         break;
     }
@@ -197,20 +210,42 @@ static void resource_command(struct gpu_header *request) {
     case 0x105: {
         struct transfer_command *r = (void *)request;
         assert(r->resource >= 1 && r->resource <= 2 && attached[r->resource - 1]);
-        assert(r->resource != host_scanout && !r->offset && !r->rect.x && !r->rect.y);
-        assert(r->rect.width == presentation.width && r->rect.height == presentation.height);
+        assert(r->resource != host_scanout && r->rect.width && r->rect.height);
+        assert(r->rect.x < presentation.width && r->rect.width <= presentation.width - r->rect.x);
+        assert(r->rect.y < presentation.height && r->rect.height <= presentation.height - r->rect.y);
+        assert(r->offset == ((uint64_t)r->rect.y * presentation.width + r->rect.x) * 4);
+        if (host_scanout && host_front_snapshot)
+            assert(!memcmp(backing_memory[host_scanout - 1], host_front_snapshot, presentation.bytes));
+        for (unsigned y = 0; y < r->rect.height; ++y) {
+            uint64_t destination = (uint64_t)(r->rect.y + y) * presentation.width + r->rect.x;
+            const uint8_t *source = backing_memory[r->resource - 1] + r->offset + (uint64_t)y * presentation.width * 4;
+            memcpy(host_pixels[r->resource - 1] + destination, source, r->rect.width * 4);
+        }
+        last_transfer = r->rect;
+        ++transfers;
         break;
     }
     case 0x103: {
         struct scanout_command *r = (void *)request;
         assert(r->resource >= 1 && r->resource <= 2 && attached[r->resource - 1]);
         assert(r->resource != host_scanout && r->scanout == 0);
+        assert(!r->rect.x && !r->rect.y && r->rect.width == presentation.width && r->rect.height == presentation.height);
         host_scanout = r->resource;
         break;
     }
     case 0x104: {
         struct flush_command *r = (void *)request;
         assert(r->resource == host_scanout);
+        assert(!r->rect.x && !r->rect.y && r->rect.width == presentation.width && r->rect.height == presentation.height);
+        if (oracle_staging) {
+            for (unsigned y = 0; y < presentation.height; ++y)
+                assert(!memcmp(host_pixels[host_scanout - 1] + (uint64_t)y * presentation.width,
+                    (const uint8_t *)oracle_staging + y * oracle_pitch, presentation.width * 4));
+            ++oracle_frames;
+        }
+        if (!host_front_snapshot) host_front_snapshot = malloc(presentation.bytes);
+        assert(host_front_snapshot);
+        memcpy(host_front_snapshot, backing_memory[host_scanout - 1], presentation.bytes);
         break;
     }
     default: assert(!"unexpected GPU command");
@@ -278,6 +313,7 @@ void vgpu_test_mmio_write(uint64_t physical, unsigned width, uint32_t value) {
             put(mmio, common + 24, 2, 256);
             put(mmio, common + 28, 2, 0);
             memset(created, 0, sizeof(created)); memset(attached, 0, sizeof(attached));
+            host_images_reset();
             host_scanout = 0; last_fence = 0;
         }
         if (reject_features && value == 11) value = 3;
@@ -298,6 +334,9 @@ static void cap(unsigned at, unsigned next, unsigned length, unsigned type,
     put(config[1], at + 12, 4, region_length);
 }
 static void setup(void) {
+    host_images_reset();
+    oracle_staging = NULL; oracle_pitch = 0; oracle_frames = transfers = 0;
+    last_transfer = (struct gpu_rect){0};
     for (unsigned i = 0; i < 2; ++i) {
         free(backing_memory[i]); backing_memory[i] = NULL;
     }
@@ -345,6 +384,7 @@ static struct virtio_gpu_probe_result run(enum virtio_gpu_probe_status expected)
 }
 static void unchanged(void) { assert(!bar_writes && !command_writes && !allocated && !map_count); }
 static void presentation_tests(void);
+static void damage_tests(void);
 int main(void) {
     setup(); struct virtio_gpu_probe_result out = run(VGPU_PROBE_OK);
     assert(out.width == 1280 && out.height == 800 && out.fence_ok && out.reset_ok && !out.quarantined);
@@ -414,6 +454,7 @@ int main(void) {
     assert(strcmp(virtio_gpu_probe_status_name((enum virtio_gpu_probe_status)99), "unknown") == 0);
     puts("virtio-gpu probe: PCI ownership/capability/BAR, explicit kernel mappings, queue/fence, bounded timeout and reset-before-free tests passed");
     presentation_tests();
+    damage_tests();
     return 0;
 }
 
@@ -468,15 +509,20 @@ static void presentation_tests(void) {
     for (unsigned y = 0; y < 3; ++y)
         for (unsigned x = 0; x < 4; ++x) assert(original[y * 4 + x] == image[y * 5 + x]);
     for (unsigned i = 0; i < 15; ++i) image[i] += 0x2000;
+    virtio_gpu_present_damage(0, 0, 4, 3);
     assert(virtio_gpu_present_frame(image, 20) && host_scanout == 2);
     assert(!memcmp(original, backing_memory[0], sizeof(original))); /* Current resource was never overwritten. */
     unsigned maps = map_count, allocations = allocated, backings = backing_allocated;
     struct dma_layout *q = (void *)frames[0];
     presentation.cursor.used = presentation.cursor.available = 65534;
     q->used_index = q->available_index = 65534;
+    virtio_gpu_present_damage(0, 0, 4, 3);
     assert(virtio_gpu_present_frame(image, 20) && host_scanout == 1);
     assert(presentation.cursor.used == 1 && presentation.cursor.available == 1); /* 16-bit ring wrap. */
-    for (unsigned i = 0; i < 12; ++i) assert(virtio_gpu_present_frame(image, 20));
+    for (unsigned i = 0; i < 12; ++i) {
+        virtio_gpu_present_damage(0, 0, 4, 3);
+        assert(virtio_gpu_present_frame(image, 20));
+    }
     assert(map_count == maps && allocated == allocations && backing_allocated == backings);
     assert(virtio_gpu_present_end()); retired_cleanly();
     assert(virtio_gpu_present_begin() && !host_scanout); /* Full clean restart. */
@@ -542,10 +588,124 @@ static void presentation_tests(void) {
     assert(virtio_gpu_present_frame(large, 256 * 4));
     assert(checkpoint_count >= checkpoints_before + 5 && current_cr3 == 0x1000);
     timeout_mode = true; checkpoints_before = checkpoint_count;
+    virtio_gpu_present_damage(0, 0, 256, 128);
     assert(!virtio_gpu_present_frame(large, 256 * 4));
     assert(checkpoint_count > checkpoints_before + 100 && current_cr3 == 0x1000);
     retired_cleanly(); free(large);
     virtio_gpu_present_set_checkpoint(NULL, NULL);
     setup();
     puts("virtio-gpu present: read-only admission, resource ordering, inactive backing, reusable/wrapping fenced queue, restart, callback slices and failure quarantine passed");
+}
+
+static void paint_damage(uint32_t *image, unsigned stride, unsigned rows, unsigned columns,
+    uint32_t x, uint32_t y, uint32_t width, uint32_t height, uint32_t color) {
+    /* Independent whole-surface oracle: membership arithmetic is 64-bit, with
+     * no reuse of the driver's rectangle union or clipping implementation. */
+    for (unsigned row = 0; row < rows; ++row)
+        for (unsigned column = 0; column < columns; ++column)
+            if (column >= x && (uint64_t)column < (uint64_t)x + width &&
+                row >= y && (uint64_t)row < (uint64_t)y + height)
+                image[row * stride + column] = color;
+    virtio_gpu_present_damage(x, y, width, height);
+}
+static struct virtio_gpu_present_stats statistics(void) {
+    struct virtio_gpu_present_stats stats;
+    virtio_gpu_present_get_stats(&stats);
+    return stats;
+}
+static void damage_tests(void) {
+    enum { WIDTH = 32, HEIGHT = 24, STRIDE = 36 };
+    uint32_t image[HEIGHT * STRIDE];
+    for (unsigned i = 0; i < HEIGHT * STRIDE; ++i) image[i] = 0x01000000u + i;
+    setup_primary();
+    assert(virtio_gpu_present_prepare(FB, WIDTH, HEIGHT) && virtio_gpu_present_begin());
+    oracle_staging = image; oracle_pitch = STRIDE * 4;
+    assert(virtio_gpu_present_frame(image, oracle_pitch));
+    struct virtio_gpu_present_stats stats = statistics();
+    assert(stats.presented_frames == 1 && !stats.skipped_frames);
+    assert(stats.copied_bytes == WIDTH * HEIGHT * 4 && stats.transferred_bytes == stats.copied_bytes);
+    unsigned commands_before = commands;
+    assert(virtio_gpu_present_frame(image, oracle_pitch));
+    assert(commands == commands_before && host_scanout == 1 && statistics().skipped_frames == 1);
+    /* Resource 2 is still unknown; no-op did not expose its poison image. */
+    assert(host_pixels[1][0] == 0xcdcdcdcdu);
+    paint_damage(image, STRIDE, HEIGHT, WIDTH, 2, 3, 2, 2, 0x10203040);
+    assert(virtio_gpu_present_frame(image, oracle_pitch) && host_scanout == 2);
+    assert(last_transfer.x == 0 && last_transfer.y == 0 && last_transfer.width == WIDTH && last_transfer.height == HEIGHT);
+    paint_damage(image, STRIDE, HEIGHT, WIDTH, 20, 12, 3, 2, 0x50607080);
+    assert(virtio_gpu_present_frame(image, oracle_pitch) && host_scanout == 1);
+    /* Buffer 1 must catch up with both disjoint writes since its last use. */
+    assert(last_transfer.x == 2 && last_transfer.y == 3 && last_transfer.width == 21 && last_transfer.height == 11);
+    paint_damage(image, STRIDE, HEIGHT, WIDTH, 7, 6, 2, 3, 0x90a0b0c0);
+    assert(virtio_gpu_present_frame(image, oracle_pitch));
+    /* Moving an object dirties the old footprint as well as the new one. */
+    paint_damage(image, STRIDE, HEIGHT, WIDTH, 7, 6, 2, 3, 0x01010101);
+    paint_damage(image, STRIDE, HEIGHT, WIDTH, 10, 8, 2, 3, 0x90a0b0c0);
+    assert(virtio_gpu_present_frame(image, oracle_pitch));
+    paint_damage(image, STRIDE, HEIGHT, WIDTH, WIDTH - 1, HEIGHT - 1, UINT32_MAX, UINT32_MAX, 0xeeff0011);
+    assert(virtio_gpu_present_frame(image, oracle_pitch));
+    commands_before = commands;
+    virtio_gpu_present_damage(UINT32_MAX, 0, UINT32_MAX, UINT32_MAX);
+    virtio_gpu_present_damage(0, UINT32_MAX, UINT32_MAX, UINT32_MAX);
+    virtio_gpu_present_damage(WIDTH, HEIGHT, 1, 1);
+    virtio_gpu_present_damage(0, 0, 0, UINT32_MAX);
+    virtio_gpu_present_damage(0, 0, UINT32_MAX, 0);
+    assert(virtio_gpu_present_frame(image, oracle_pitch) && commands == commands_before);
+    /* The public full-damage fallback is required for unknown or bulk writers. */
+    paint_damage(image, STRIDE, HEIGHT, WIDTH, 0, 0, UINT32_MAX, UINT32_MAX, 0xa1b2c3d4);
+    assert(virtio_gpu_present_frame(image, oracle_pitch));
+    assert(last_transfer.width == WIDTH && last_transfer.height == HEIGHT);
+    uint32_t random = 0x78abcdef;
+    for (unsigned i = 0; i < 100; ++i) {
+        random = random * 1664525u + 1013904223u;
+        uint32_t x = 3 + random % 12;
+        uint32_t y = 2 + ((random >> 8) % 8);
+        uint32_t width = 1 + ((random >> 16) % 4);
+        uint32_t height = 1 + ((random >> 24) % 4);
+        paint_damage(image, STRIDE, HEIGHT, WIDTH, x, y, width, height, random);
+        if ((i % 7) == 0)
+            paint_damage(image, STRIDE, HEIGHT, WIDTH, 4, 3, 2, 2, random ^ 0xdeadbeef);
+        assert(virtio_gpu_present_frame(image, oracle_pitch));
+    }
+    stats = statistics();
+    assert(stats.presented_frames == oracle_frames && stats.presented_frames == 107);
+    assert(stats.skipped_frames == 2 && stats.copied_bytes == stats.transferred_bytes);
+    assert(stats.copied_bytes < stats.presented_frames * WIDTH * HEIGHT * 4 / 2);
+    assert(transfers == stats.presented_frames && allocated == 3 && backing_allocated == 2 && map_count == 2);
+    virtio_gpu_present_get_stats(NULL);
+    assert(virtio_gpu_present_end()); retired_cleanly();
+    assert(virtio_gpu_present_begin());
+    stats = statistics();
+    assert(!stats.presented_frames && !stats.skipped_frames && !stats.copied_bytes && !stats.transferred_bytes);
+    assert(virtio_gpu_present_frame(image, oracle_pitch));
+    assert(statistics().copied_bytes == WIDTH * HEIGHT * 4);
+    assert(virtio_gpu_present_end()); retired_cleanly();
+
+    for (unsigned failed_step = 1; failed_step <= 3; ++failed_step) {
+        uint32_t small[8 * 8];
+        for (unsigned i = 0; i < 64; ++i) small[i] = 0x10000000 + i;
+        setup_primary();
+        assert(virtio_gpu_present_prepare(FB, 8, 8) && virtio_gpu_present_begin());
+        oracle_staging = small; oracle_pitch = 8 * 4;
+        assert(virtio_gpu_present_frame(small, oracle_pitch));
+        paint_damage(small, 8, 8, 8, 1, 1, 1, 1, 0x12345678);
+        assert(virtio_gpu_present_frame(small, oracle_pitch));
+        paint_damage(small, 8, 8, 8, 2, 2, 1, 1, 0x87654321);
+        stats = statistics();
+        fail_command = commands + failed_step;
+        assert(!virtio_gpu_present_frame(small, oracle_pitch));
+        assert(presentation.pending[0].width && presentation.pending[1].width);
+        assert(statistics().presented_frames == stats.presented_frames);
+        assert(statistics().copied_bytes == stats.copied_bytes + 16);
+        assert(statistics().transferred_bytes == stats.transferred_bytes + (failed_step == 1 ? 0 : 16));
+        retired_cleanly();
+        fail_command = 0;
+        assert(virtio_gpu_present_begin());
+        assert(!statistics().copied_bytes && !statistics().presented_frames);
+        assert(virtio_gpu_present_frame(small, oracle_pitch));
+        assert(statistics().copied_bytes == 8 * 8 * 4);
+        assert(virtio_gpu_present_end()); retired_cleanly();
+    }
+    setup();
+    puts("virtio-gpu damage: full-staging host-image oracle passed alternating/disjoint/moved/edge/no-op updates, clipped overflow, failure/restart, and reduced copy/transfer bytes");
 }

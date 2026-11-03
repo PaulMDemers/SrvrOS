@@ -10,7 +10,8 @@ void service_window_test_irq_restore(uint64_t flags) { interrupts = !!(flags & 5
 #include "../kernel/src/display_present.c"
 static uint64_t cr3 = 11;
 static bool active, available, begin_ok = true, frame_ok = true, end_ok = true;
-static unsigned begins, frames, ends, checkpoints;
+static unsigned begins, frames, ends, checkpoints, damages;
+static uint32_t damage_x,damage_y,damage_w,damage_h;
 static bool service_held;
 static void (*service_callback)(void *);
 static void *service_argument;
@@ -46,6 +47,9 @@ int main(void) {
     begin_ok = true; assert(display_present_begin(7) && cr3 == 23 && interrupts);
     assert(!display_present_begin(8) && !display_present_frame(8) && !display_present_end(8));
     assert(!display_present_can_write(0) && !display_present_can_write(8) && display_present_can_write(7));
+    cr3=11;display_present_damage(30,15,UINT64_MAX,UINT64_MAX);
+    assert(damages==1 && damage_x==30 && damage_y==15 && damage_w==2 && damage_h==1);
+    display_present_damage(UINT64_MAX,0,1,1);display_present_damage(0,0,0,1);assert(damages==1);cr3=23;
     assert(display_present_frame(7) && cr3 == 23 && interrupts && frames == 1);
     display_present_release(8); assert(active && ends == 0);
     display_present_release(7); assert(!active && ends == 1 && cr3 == 23 && interrupts);
@@ -60,3 +64,7 @@ int main(void) {
     assert(!display_present_end(9) && owner==9 && ends==2 && cr3==23 && interrupts);
     puts("display-present: PASS lease isolation, format gate, CR3/IRQ restoration, failure and owner retirement");
 }
+
+void console_printf(const char *fmt, ...) { (void)fmt; }
+void virtio_gpu_present_get_stats(struct virtio_gpu_present_stats *out) { *out=(struct virtio_gpu_present_stats){0}; }
+void virtio_gpu_present_damage(uint32_t x,uint32_t y,uint32_t w,uint32_t h) { assert(cr3==11);damages++;damage_x=x;damage_y=y;damage_w=w;damage_h=h; }

@@ -540,6 +540,8 @@ static struct {
     struct transport transport;
     struct queue_cursor cursor;
     struct virtio_gpu_probe_result result;
+    struct gpu_rect pending[2];
+    struct virtio_gpu_present_stats stats;
     void (*checkpoint_fn)(void *);
     void *checkpoint_arg;
 } presentation;
@@ -673,6 +675,9 @@ bool virtio_gpu_present_begin(void) {
     }
     presentation.result = (struct virtio_gpu_probe_result){.status = VGPU_PROBE_REFUSED,
         .width = presentation.width, .height = presentation.height};
+    presentation.stats = (struct virtio_gpu_present_stats){0};
+    presentation.pending[0] = presentation.pending[1] =
+        (struct gpu_rect){0, 0, presentation.width, presentation.height};
     presentation.transport = (struct transport){.pci = presentation.pci,
         .cr3 = vmm_kernel_address_space(), .cooperative = true};
     presentation.cursor = (struct queue_cursor){.fence = VGPU_FENCE - 1};
@@ -734,6 +739,25 @@ failed:
     return false;
 }
 
+void virtio_gpu_present_damage(uint32_t x, uint32_t y, uint32_t width, uint32_t height) {
+    if (!kernel_context() || !presentation_enter()) return;
+    if (!presentation.active || presentation.blocked || !width || !height ||
+        x >= presentation.width || y >= presentation.height) goto done;
+    if (width > presentation.width - x) width = presentation.width - x;
+    if (height > presentation.height - y) height = presentation.height - y;
+    for (unsigned i = 0; i < 2; ++i) {
+        struct gpu_rect *r = &presentation.pending[i];
+        if (!r->width) { *r = (struct gpu_rect){x, y, width, height}; continue; }
+        uint32_t left = x < r->x ? x : r->x;
+        uint32_t top = y < r->y ? y : r->y;
+        uint32_t right = x + width > r->x + r->width ? x + width : r->x + r->width;
+        uint32_t bottom = y + height > r->y + r->height ? y + height : r->y + r->height;
+        *r = (struct gpu_rect){left, top, right - left, bottom - top};
+    }
+done:
+    presentation_leave();
+}
+
 bool virtio_gpu_present_frame(const void *framebuffer, uint64_t pitch) {
     if (!presentation_enter()) return false;
     if (!presentation.active || presentation.blocked || !kernel_context()) {
@@ -749,13 +773,23 @@ bool virtio_gpu_present_frame(const void *framebuffer, uint64_t pitch) {
         presentation.result.status = VGPU_PROBE_REFUSED;
         goto failed;
     }
+    /* The front resource already represents staging if it has no pending
+     * writes. The other resource may still be stale (or never initialized), so
+     * a no-op must not flip to it merely because it has outstanding damage. */
+    if (presentation.shown && !presentation.pending[presentation.front].width) {
+        ++presentation.stats.skipped_frames;
+        presentation_leave();
+        return true;
+    }
     unsigned next = presentation.shown ? 1u - presentation.front : 0;
+    struct gpu_rect damage = presentation.pending[next];
+    if (!damage.width || !damage.height) { presentation.result.status = VGPU_PROBE_REFUSED; goto failed; }
     uint32_t *destination = pmm_phys_to_virt(presentation.backing[next]);
     unsigned budget = 65536 / sizeof(uint32_t);
-    for (uint32_t y = 0; y < presentation.height; ++y) {
+    for (uint32_t y = damage.y; y < damage.y + damage.height; ++y) {
         const volatile uint32_t *source = (const volatile uint32_t *)((const uint8_t *)framebuffer + y * pitch);
-        for (uint32_t x = 0; x < presentation.width;) {
-            unsigned chunk = presentation.width - x;
+        for (uint32_t x = damage.x; x < damage.x + damage.width;) {
+            unsigned chunk = damage.x + damage.width - x;
             if (chunk > budget) chunk = budget;
             for (unsigned i = 0; i < chunk; ++i) destination[(uint64_t)y * presentation.width + x + i] = source[x + i];
             x += chunk;
@@ -764,14 +798,18 @@ bool virtio_gpu_present_frame(const void *framebuffer, uint64_t pitch) {
         }
     }
     if (budget != 65536 / sizeof(uint32_t)) checkpoint(&presentation.transport);
+    uint64_t copied_bytes = (uint64_t)damage.width * damage.height * 4;
+    presentation.stats.copied_bytes += copied_bytes;
     barrier();
     struct gpu_rect rect = {0, 0, presentation.width, presentation.height};
     struct transfer_command *transfer = pmm_phys_to_virt(presentation.dma[1]);
     zero(transfer, sizeof(*transfer));
     transfer->header.type = 0x105;
-    transfer->rect = rect;
+    transfer->rect = damage;
+    transfer->offset = ((uint64_t)damage.y * presentation.width + damage.x) * 4;
     transfer->resource = next + 1;
     if (!presentation_command(sizeof(*transfer))) goto failed;
+    presentation.stats.transferred_bytes += copied_bytes;
     struct scanout_command *scanout = pmm_phys_to_virt(presentation.dma[1]);
     zero(scanout, sizeof(*scanout));
     scanout->header.type = 0x103;
@@ -784,8 +822,10 @@ bool virtio_gpu_present_frame(const void *framebuffer, uint64_t pitch) {
     flush->rect = rect;
     flush->resource = next + 1;
     if (!presentation_command(sizeof(*flush))) goto failed;
+    presentation.pending[next] = (struct gpu_rect){0};
     presentation.front = next;
     presentation.shown = true;
+    ++presentation.stats.presented_frames;
     presentation_leave();
     return true;
 failed:
@@ -804,6 +844,9 @@ bool virtio_gpu_present_end(void) {
 bool virtio_gpu_present_available(void) { return presentation.prepared && !presentation.blocked; }
 bool virtio_gpu_present_active(void) { return presentation.active; }
 const struct virtio_gpu_probe_result *virtio_gpu_present_result(void) { return &presentation.result; }
+void virtio_gpu_present_get_stats(struct virtio_gpu_present_stats *out) {
+    if (out) *out = presentation.stats;
+}
 void virtio_gpu_present_set_checkpoint(void (*fn)(void *), void *arg) {
     if (!presentation_enter()) return;
     presentation.checkpoint_fn = fn;
