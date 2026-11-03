@@ -44,10 +44,15 @@ static struct desk_rect display_fit(struct desk_rect r,int width,int height) {
 }
 static void display_layout(struct session *s,unsigned old_scale,int old_width,int old_height,int restore) {
     struct display_runtime *d=&s->display;struct desk_canvas *canvas=d->canvas;
+    /* Close through the normal paths so focus and held-key switcher state are
+     * restored even when a trial expires while an overlay is open. */
+    if(s->scene.launcher_open)launcher_close(s);
+    if(s->scene.calendar_open)calendar_close(s);
+    if(s->scene.notifications.opened)notifications_close(s);
     cancel_input(s,s->pointer_buttons);s->scene.snap_preview=0;
-    s->scene.launcher_open=0;s->scene.calendar_open=0;s->scene.notifications.opened=0;
-    desk_popup_cancel(&s->scene.context);s->scene.menu.open=-1;
+    desk_popup_cancel(&s->scene.context);desk_menu_cancel(&s->scene.menu);
     desk_damage_init(&s->damage,canvas->width,canvas->height);
+    clock_update(s,1);
     for(int i=0;i<session_capacity(s);i++) {
         struct client *c=session_client(s,i);struct desktop_window *w=desktop_window_at(&s->scene,i);if(!c->pid)continue;
         struct desk_rect previous=w->frame,target=display_fit(w->frame,canvas->width,canvas->height);

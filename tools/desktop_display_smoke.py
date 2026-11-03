@@ -203,7 +203,17 @@ def main():
                 click(logical[0]//2 + 150, logical[1]-50); scroll_bottom()
                 display_button('mode'); display_button('apply')
                 applied(2560, 1440, 2, 0); shot('timeout-trial', (2560, 1440))
+                trial_start = len(output)
+                qmp.call('input-send-event', {'events': [{'type': 'key', 'data': {
+                    'down': True, 'key': {'type': 'qcode', 'data': 'alt'}}}]})
+                qmp.key('tab'); wait(b'deskd: switcher selected=')
+                shot('switcher-during-trial', (2560, 1440))
                 applied(1920, 1080, 2, 1); wait(b'deskd: display-reverted', 30)
+                qmp.call('input-send-event', {'events': [{'type': 'key', 'data': {
+                    'down': False, 'key': {'type': 'qcode', 'data': 'alt'}}}]})
+                drain()
+                if b'deskd: focused pid=' + settings_pid not in output[trial_start:] or b'deskd: switcher activated' in output[trial_start:]:
+                    raise AssertionError('rollback did not cancel switcher and restore Settings focus')
                 shot('timeout-reverted', (1920, 1080))
                 scroll_bottom(); display_button('mode'); display_button('apply')
                 applied(2560, 1440, 2, 0)
@@ -252,7 +262,7 @@ def main():
                 if process: stop_process(process)
     (out / 'result.json').write_text(json.dumps({'status': 'PASS', 'metadata': metadata,
         'checks': ['Settings apply and keep', 'Text selection, snap, resize and saved document',
-                   'timed, explicit and owner-close rollback', 'saved preference and fresh desktop restore'],
+                   'timed rollback with held switcher; explicit and owner-close rollback', 'saved preference and fresh desktop restore'],
         'limitations': 'Requires current preset ordering and Settings layout. Screenshots prove dimensions, not native glyph detail.'}, indent=2) + '\n')
     print(f'desktop-display: PASS; evidence: {out}')
 

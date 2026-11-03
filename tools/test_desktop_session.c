@@ -951,6 +951,14 @@ static void display_transaction_tests(void) {
     c->pid=42;c->window=1;c->identity=99;c->generation=5;
     w->application=DESK_APP_SETTINGS;w->frame=(struct desk_rect){800,300,500,345};w->restore=(struct desk_rect){50,80,400,300};
     struct desk_rect original=w->frame,original_restore=w->restore;
+    s.preferences.value.clock_flags|=DESK_CLOCK_DATE;clock_update(&s,1);
+    char dated_clock[64],short_clock[64];strcpy(dated_clock,s.scene.clock);
+    struct desk_preferences short_preferences=s.preferences.value;short_preferences.clock_flags&=~DESK_CLOCK_DATE;
+    desk_clock_format(short_clock,sizeof(short_clock),srv_realtime_us()/1000000,&short_preferences);
+    assert(strcmp(dated_clock,short_clock));
+    global_menu_rebuild(&s);
+    assert(s.scene.menu.bar.w==1022 && s.scene.menu.bounds.w==1600 && s.scene.menu.bounds.h==1200);
+    s.scene.menu.open=0;global_menu_rebuild(&s);assert(s.scene.menu.open==0); /* Same bounds preserve interaction. */
     struct desk_packet p=desk_packet_new(DESK_DISPLAY);p.serial=1;p.value=DESK_DISPLAY_APPLY;p.width=1280;p.height=960;p.x=2;
     info.flags=0;fake_display_info.flags=0;display_received(&s,0,&p);
     assert(c->display_reply.value==DESK_DISPLAY_UNSUPPORTED && !s.display.trial && !fake_mode_calls && canvas.pixels==pixels);
@@ -959,6 +967,10 @@ static void display_transaction_tests(void) {
     c->input[1]=desk_packet_new(DESK_KEY);s.pointer_buttons=MOUSE_LEFT;
     display_received(&s,0,&p);
     assert(c->display_reply.value==DESK_DISPLAY_OK && s.display.trial && canvas.width==640 && canvas.height==480 && s.scale==2);
+    assert(s.scene.focus==0 && s.scene.menu.bar.w==212 && s.scene.menu.bounds.w==640 && s.scene.menu.bounds.h==480);
+    assert(!strcmp(s.scene.clock,short_clock));
+    s.scene.menu.open=0;struct desk_rect popup=desk_menu_popup(&s.scene.menu);
+    assert(popup.w>0 && popup.h>0 && popup.x>=0 && popup.y>=0 && popup.x+popup.w<=640 && popup.y+popup.h<=480);
     assert(c->generation==6 && c->configure && c->awaiting && c->pointer_cancel_pending && s.pointer_blocked);
     assert(c->input_count==1 && c->input[c->input_head].type==DESK_KEY);
     assert(s.display.previous_canvas.pixels==pixels && w->frame.x!=original.x);
@@ -970,6 +982,10 @@ static void display_transaction_tests(void) {
     display_received(&s,0,&p);assert(c->display_reply.value==DESK_DISPLAY_BUSY && s.display.trial && !s.preferences.dirty);
     p.value=DESK_DISPLAY_REVERT;display_received(&s,0,&p);
     assert(c->display_reply.value==DESK_DISPLAY_OK && !s.display.trial && canvas.pixels==pixels && s.scale==1);
+    assert(s.scene.focus==0 && s.scene.menu.bar.w==1022 && s.scene.menu.bounds.w==1600 && s.scene.menu.bounds.h==1200);
+    assert(!strcmp(s.scene.clock,dated_clock));
+    s.scene.menu.open=0;popup=desk_menu_popup(&s.scene.menu);
+    assert(popup.w>0 && popup.h>0 && popup.x>=0 && popup.y>=0 && popup.x+popup.w<=1600 && popup.y+popup.h<=1200);
     assert(!memcmp(&w->frame,&original,sizeof(original)) && !memcmp(&w->restore,&original_restore,sizeof(original_restore)));
     c->configure=c->awaiting=0;s.pointer_buttons=0;s.pointer_blocked=0;
     p.value=DESK_DISPLAY_APPLY;p.generation=0;p.serial++;display_received(&s,0,&p);assert(s.display.trial);
@@ -979,7 +995,10 @@ static void display_transaction_tests(void) {
     /* Timeout and owner disappearance both restore the previous exact frame. */
     c->configure=c->awaiting=0;p.value=DESK_DISPLAY_APPLY;p.width=1600;p.height=1200;p.x=1;p.serial++;
     struct desk_rect before=w->frame;display_received(&s,0,&p);assert(s.display.trial);
+    desk_palette_init(&s.scene.launcher);launcher_open(&s);assert(s.scene.launcher_open && s.scene.focus==-1);
+    s.switching=1; /* Held Alt-Tab owns the open launcher until released. */
     now+=1501;display_tick(&s);assert(!s.display.trial && s.scale==2 && !memcmp(&w->frame,&before,sizeof(before)));
+    assert(!s.scene.launcher_open && !s.switching && s.scene.focus==0);
     c->configure=c->awaiting=0;display_received(&s,0,&p);assert(s.display.trial);
     c->closing=1;display_tick(&s);assert(!s.display.trial && s.scale==2 && !memcmp(&w->frame,&before,sizeof(before)));
     c->closing=0;c->configure=c->awaiting=0;

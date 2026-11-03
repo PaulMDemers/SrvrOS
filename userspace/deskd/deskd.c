@@ -957,9 +957,14 @@ static void global_menu_rebuild(struct session *s) {
     }
     uint64_t owner=s->scene.focus>=0?session_client(s,s->scene.focus)->pid:0;
     uint64_t window=s->scene.focus>=0?session_client(s,s->scene.focus)->window:0;
-    if(s->scene.menu.font && owner==s->menu_owner && window==s->menu_window) desk_menu_replace(&s->scene.menu,items,count);
-    else desk_menu_configure(&s->scene.menu,items,count,(struct desk_rect){10,0,s->damage.width-(s->damage.width<1000?428:578),44},
-        (struct desk_rect){0,0,s->damage.width,s->damage.height},&desk_font_16);
+    struct desk_rect bar={10,0,s->damage.width-(s->damage.width<1000?428:578),44};
+    struct desk_rect bounds={0,0,s->damage.width,s->damage.height};
+    struct desk_menu *menu=&s->scene.menu;
+    if(menu->font && owner==s->menu_owner && window==s->menu_window &&
+       menu->bar.x==bar.x && menu->bar.y==bar.y && menu->bar.w==bar.w && menu->bar.h==bar.h &&
+       menu->bounds.x==bounds.x && menu->bounds.y==bounds.y && menu->bounds.w==bounds.w && menu->bounds.h==bounds.h)
+        desk_menu_replace(menu,items,count);
+    else desk_menu_configure(menu,items,count,bar,bounds,&desk_font_16);
     s->menu_owner=owner;s->menu_window=window;
     global_menu_damage(s);
     if(s->scene.launcher_open) launcher_catalog(s);
