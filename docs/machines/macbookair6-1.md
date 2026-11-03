@@ -6346,3 +6346,16 @@ Next is a bounded ownership/adoption/shutdown/restore design using the observed
 active firmware eDP route and display-HDA controller out of reset. No well clear,
 controller reset or power-policy change follows from this read-only run. RC6's
 clock mismatch and the package-C3 blocker remain unresolved.
+
+
+### Display/HDA ownership and restoration design — active scope (2026-11-03)
+
+Base `5b2bf3c7` (PR289's SrvrUI host extraction consumed with exact pins).
+Design only: define firmware display adoption, exclusive HDA/domain ownership,
+quiesce/release/restore state transitions, refusal/failure behavior and staged
+verification using native `f921afc2` / `2bcb21ae64ee1920` evidence. Scope: current
+ownership guide and this unit record; no new MMIO, reset, well request, policy,
+limit, executable or installed-payload change. PR291 ports, PR288/278 apps,
+PR252 lifetimes and PR19 Wi-Fi remain independent. Next checkpoint: reviewable
+state machine and explicit prerequisites for a future diagnostic implementation.
+No physical test or reboot is armed by this design.
