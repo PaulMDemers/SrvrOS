@@ -12,15 +12,14 @@ The captured EW-7711MAC `7392:a711`/`0100` is **5GHz-only**; see the
 mistaken for assembled-model capability. Historical2.4GHz packet/USB traces do
 not establish2.4GHz RF support. Do not repeat the withdrawn v107 trial.
 
-Latest native v112 `5e26351cef7dc690`, source `e769cec6`, main `e1c05956`,
-accepts integrated channel161/high-band command programming/readback and
-41-target reverse restoration. Matching session `session-00065f530fc8d4ba-00`
-has a complete491136-byte prefix and all2507 operations. Source/release/session,
-full common proof, payload/recovery equality, offline storage and automatic
-return pass. The86-file durable archive `wifi-a20-cycle-e769cec6` is separate
-from prior failures. This does not accept PA/BBP setup, VCO/RF lock, reception,
-security or connectivity. That run is collected and unarmed; the local record
-and candidate section below own the next installed/armed state.
+Latest native v113 `efbdb378d6bd0974`, source `de6cef51`, main `88c56afa`,
+accepts the integrated channel161/high-band transaction,41-target reverse
+restoration and44 read-only frontend observations. Matching session
+`session-00065f54ca5964fa-00` has a complete524449-byte prefix and2815 operations.
+Source/release/session, common proof, recovery equality, offline storage and
+automatic return pass. The107-file durable archive `wifi-frontend-de6cef51`
+is separate from prior failures. This does not accept PA/BBP writes, VCO/RF
+lock, reception, security or connectivity. The run is collected and unarmed.
 
 The preceding warm session `session-00065f50a0330abf-00` remains FAILED before
 firmware preparation: first0730 read1, already-running MCU refusal. Cold adapter
@@ -60,9 +59,40 @@ external5GHz PA/baseband admission/restoration, calibration and reception toward
 Demers5 authenticated data. Cold shutdown/unplug remains required; no new boot
 is armed as part of source migration.
 
-## Ready native candidate —44 frontend original observations
+## Modular integration verified locally
 
-Installed v113 `efbdb378d6bd0974`, runtime `de6cef51`, main `88c56afa`,
+Merged main `e376669c` in runtime source `dbe45945`. Matched dependencies are
+SrvrApps `b92f637` (Wi-Fi checklist and System cache/selection controls), SrvrUI
+`89fb6d9` (unchanged upstream pin), and SrvrPorts `588c79b` (checkpoint-only
+desktop power logging). All seven nested upstream pins are unchanged. The old
+port directories were retained locally before recursive checkout, and Node's
+existing local object store avoided a redundant network download. Module work
+is published before the OS pointers; no dependency uses floating `--remote`.
+
+Resolved shared main/build/compositor changes by preserving both behaviors.
+Main uses syscall156–158 for explicit presentation; Wi-Fi now uses159, with
+an explicit non-alias regression. Rebuild matched kernel/userspace together;
+do not mix old Wi-Fi userspace with the merged kernel. Full image/USB-image,
+core/desktop/docs, desktop I/O and seven source-manifest tests pass locally.
+Merged staged v113 `5b0146621aa2884e` passes exact-image diagnostic refusal,
+save/readback/preserved files/clean unmount/automatic return and missing-workspace
+VM checks. The1440x900 compositor workflow passes input, shared controls,
+scrolling, windows, focus, drag/resize/Close, process death/replacement, deliberate
+server exit and console return/relaunch. These VM results do not accept this
+new source on physical hardware. Only documentation changed after this tested
+runtime; source/recursive pins and all receipts are retained in local migration
+evidence, independently archived outside build.
+
+Installed v113 `efbdb378d6bd0974` and known-good recoveries remain unchanged.
+The merged stage is VM-tested only, not installed or armed. Ubuntu remains
+default and no reboot is pending. Next: use the accepted44-original tuple to
+implement a fixed external5GHz PA/baseband admission/readback/restoration
+contract with fresh high-band gain validation, then calibration and5GHz RX.
+Connection-ready remains unaccepted; credentials remain unread/private.
+
+## Historical v113 candidate validation —44 frontend observations
+
+The installed v113 `efbdb378d6bd0974`, runtime `de6cef51`, main `88c56afa`,
 requires full integrated v112/41-target restoration before reading44 fixed
 frontend originals:30 direct MAC/BBP and14 RF targets. Fresh same-unit NIC0fd11/
 NIC11004 is required; pinned Linux v7.0 identifies external5GHz PA. The snapshot
@@ -88,9 +118,8 @@ and independently backed up. The unreferenced superseded scan EFI copy3337
 was retired only after full equality to its durable backup; its evidence and
 backup remain outside build. Shutdown for10seconds Wi-Fi unplug while off is
 authorized; reconnect same port and power on with workspace connected. Results
-and return are automatic. Local run record owns exact armed state. Collect
-`build/bringup/wifi-frontend/return_collect.py` FIRST after return; durable
-archive `wifi-frontend-de6cef51` includes pinned primary sources and the frozen
+and return are automatic. Local run record owns exact armed state. The frozen collector completed
+after return; durable archive `wifi-frontend-de6cef51` includes pinned primary sources and the frozen
 full-prefix proof. Require complete board/parent/44-original/source/session/
 storage proof before constructing PA/BBP admission and restoration. Connection-
 ready remains unaccepted; the local credentials are still private and unused.

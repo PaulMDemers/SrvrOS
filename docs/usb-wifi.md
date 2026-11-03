@@ -265,6 +265,14 @@ value/count and final capture/storage/return markers. No new direct or RF
 register write, DAC/VCO pulse, receive, authentication, credential or network
 frame is added. Cold-cycle setup uses shutdown; results and return are automatic.
 
+Native v113 `efbdb378d6bd0974` / `de6cef51`, session
+`session-00065f54ca5964fa-00`, passed this44-original capture and all2815
+operations with a complete524449-byte prefix,41-target restoration and clean
+save/unmount/Ubuntu return. The source-bound107-file durable archive preserves
+the actual tuple. IBI9 observed raw all-ones; AGC51/53/55 did not. These are
+same-unit observations after this exact common/restored sequence, not reset
+constants or calibration readiness. PA/BBP programming remains the next scope.
+
 ## Captured baseline
 
 USB high speed (480 Mb/s), one configuration, interface 0 / alternate 0,
