@@ -28,6 +28,14 @@ not establish the next SrvrOS boot's state or ownership. Native capture and all
 mutating scanout work remain future checkpoints. No new reboot is armed.
 Evidence: `build/air-tearfree-20261103/`.
 
+Merged-tree clean source `e52cfeaa` passes local host/core/docs/build, the actual
+Open With consumer regression and VirtIO presentation on QEMU10.2.1:16 drag,
+4 scroll and2 reacquisition frames, normal console recovery and abrupt owner
+termination. The initial build stopped on missing Bison for the newly merged
+awk port; installing it resolves the prerequisite and both Ubuntu setup guides
+now include it. Later edits are documentation only. This validates the combined
+software baseline; it supplies no native Intel scanout acceptance.
+
 ### Attended Open With hardware trial prepared
 
 The user authorized the next trial. Installed v75 `6ee815bb354a4100` / source

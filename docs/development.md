@@ -17,7 +17,7 @@ commits in the Makefile. The Linux build compiles Limine's host utility with
 
 ```sh
 sudo apt-get update
-sudo apt-get install -y --no-install-recommends build-essential git python3 python3-pil xorriso qemu-system-x86 qemu-system-gui ovmf acpica-tools
+sudo apt-get install -y --no-install-recommends build-essential bison git python3 python3-pil xorriso qemu-system-x86 qemu-system-gui ovmf acpica-tools
 # From the repository root:
 git submodule update --init --recursive
 make check-host
