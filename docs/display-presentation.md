@@ -163,3 +163,59 @@ source, kernel/image hashes and screenshot hash. Raw receipts remain in ignored
 VMs were stopped; no native boot or Actions run occurred.
 
 ![Glass desktop presented through VirtIO after dragging Text](assets/screenshots/virtio-desktop.png)
+
+
+## Visible smoothness comparison — November 3, 2026
+
+The attended Cocoa comparison favors VirtIO for window dragging. The user
+reported “Smooth, with no obvious tearing” with VirtIO, then “VGA is visibly
+worse” with standard VGA at the same 1440×900 resolution. This is the user's
+bounded visual observation, not an instrumented physical-vblank guarantee.
+
+Six sequential automated runs (three per backend, alternating order) then used
+identical Q35, QEMU 11.1.2, single-thread TCG with 256 MiB translation cache,
+qemu64/one CPU, 1024 MiB RAM, Cocoa and 1440×900/scale 1 settings. Each fresh
+Help session receives 450 relative movements at 60 Hz: five 300-pixel horizontal
+window-drag legs or five 120-pixel vertical scrollbar-thumb legs. Every run proves
+a 300-pixel window displacement, positive/reversing document offsets, successful
+frames and normal exit. VirtIO acquisition/release is required for its runs.
+All six pass. The final scroll images match byte-for-byte below the menu bar.
+
+Median of the three per-run means, in milliseconds:
+
+| Software interval | VGA drag | VirtIO drag | VGA scroll | VirtIO scroll |
+| --- | ---: | ---: | ---: | ---: |
+| Compose, upload and final presentation | 7.953 | 14.354 | 6.995 | 16.619 |
+| Consumed pointer event to final presentation | 7.959 | 14.192 | 6.704 | 16.500 |
+| Consecutive motion-bearing poll gap | 11.181 | 20.049 | 14.446 | 23.184 |
+
+Per-run frame-work means were tightly grouped: VGA drag 7.938–7.970 ms,
+VirtIO drag 14.173–14.358 ms, VGA scroll 6.964–7.082 ms, and VirtIO scroll
+16.588–16.621 ms. Maximum host injection lateness ranged from 3.829 to
+5.021 ms across sessions. These are descriptive repeats, not statistical proof.
+
+The existing `--hardware-trial` software timers use a fixed-one-tick wait policy.
+Statistics cover the entire session, including initial settling, cursor positioning,
+post-workload wait and menu exit; poll gaps include idle. Counts are successful
+frame/event batches, not one sample per injected event. The VirtIO interval
+includes fenced presentation. None measures pre-poll input queue residence or
+Cocoa/monitor scanout; histogram percentile values are upper bounds, not exact
+quantiles. The scrollbar workload is intentional: the current QEMU PS/2 and USB
+mouse paths do not deliver wheel deltas to the desktop. No input-driver changes
+were made for this comparison.
+
+Conclusion: the observed visual improvement is accompanied by higher guest-side
+cost and slower motion-bearing poll cadence. The full-frame copy/transfer is a
+candidate for later optimization while preserving complete-frame publication and
+buffer lifetime. It is not a blocker to using the opt-in VirtIO backend now.
+Standard VGA remains the launcher default; this comparison does not change native
+hardware acceptance or assert end-to-end tear-free output.
+
+Reproduce with `TMPDIR=/tmp python3 tools/display_smoothness_compare.py --display cocoa --repeats 3`.
+The [compact result manifest](assets/screenshots/smoothness-manifest.json) contains
+per-run means, bounds/counts, input lateness, attended observations and hashes.
+The runtime matches merged `bfb6d2a7`; its kernel/exFAT hashes match the accepted
+merged image. The working tree was dirty only for measurement tooling and the
+scope record, not kernel/userspace changes; the executed harness and initramfs
+are separately hashed. Raw inputs, screenshots and serial logs are local under
+`build/review/display-smoothness/cocoa/`. All automated VMs were stopped.
