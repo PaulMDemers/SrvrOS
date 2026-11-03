@@ -4165,6 +4165,14 @@ test-core: test-qmp-hid-input
 test-qmp-hid-input:
 	$(PYTHON) tools/test_qmp_hid_input.py
 
+.PHONY: test-shell-quoting
+test-core: test-shell-quoting
+test-shell-quoting: build/tests/shell-quoting-host$(HOST_EXE)
+	$<
+build/tests/shell-quoting-host$(HOST_EXE): tools/test_shell_quoting.c userspace/sh/sh.c $(USER_SYSROOT_HEADERS) ports/upstream/linenoise/linenoise.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include -I ports/upstream/linenoise $< -Wl,--gc-sections -o $@
+
 
 
 # Third-party source preparation and target compilation belong to SrvrPorts.
