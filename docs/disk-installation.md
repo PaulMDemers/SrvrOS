@@ -1,6 +1,181 @@
 # Disk installation and recovery
 
-## Current target and ownership
+## PR312 integration review and next checkpoint — November 3, 2026
+
+User requested review and merge if ready. Integration review found no blocking
+defect in [PR312](https://github.com/PaulMDemers/SrvrOS/pull/312) against main
+`3db1a1d3`, filesystem proof PR308 `88ea5524`, newer global activation PR313
+`29a0ad23`, and profiles PR309 `fa9717ad`. The two filesystem PRs and the profile
+PR are still drafts; this review does not merge them or claim combined runtime
+acceptance. PR313 attaches its aliases after `/fat` and bootlog setup, so PR312's
+identity admission and recovery halt remain earlier in the boot sequence.
+Neither filesystem branch supplies a competing installed-volume selector.
+
+Rechecked the clean tested source `9989878c` against the PR: all later changes
+are documentation/evidence only. Retained build artifacts, logs, screenshots and
+all final disk hashes match the 11-case receipt; the nine recovery logs contain
+no normal startup. Fresh storage, selector, 21 image/provenance, clean-mount,
+ASan/UBSan and documentation checks pass. The existing full-build and VM evidence
+remains applicable; no new VM was needed for unchanged implementation. No review
+threads or failing commit statuses were present; hosted Actions remain disabled.
+The three original review VMs remain live and untouched. Readiness: ready for
+the user-authorized merge; the linked PR records the final merge state.
+
+Next bounded installation milestone: **canonical-path installed boot in QEMU**.
+Combine identity-selected boot with the filesystem owner's canonical namespace,
+then prove `/bin`, `/usr`, `/var` and `/home` resolve to that selected system while
+legacy `/fat` and an independent data provider stay distinct. Use disposable
+disks, reverse enumeration, execute/read/write through canonical and legacy
+names, reboot and reopen the same document/preferences. Missing or ambiguous
+system identity must still halt before namespace activation or disk writes.
+This closes the gap between the separately tested installed-root and global-path
+proofs; it does not add physical installation, upgrade slots or profile import.
+PR313's present harness boots an ISO with raw exFAT disks. The combined fixture
+must instead boot the target's EFI payload and use valid GPT maps on every raw
+disk, mounting any independent provider by its selected partition. Do not weaken
+PR312's refusal policy to reuse the raw-disk fixture unchanged.
+
+Dependencies: integrate/review PR313 with its PR308 foundation, full PR252
+process/I/O lifetime handoff and SrvrPorts PR3 pin `0f51ba9`; preserve one canonical
+backing identity for handles, cache, mutations and unmount checks. Consume the
+actual merged revisions rather than copying the namespace implementation into
+installation tooling. Profiles PR309 supplies the HOME/config/data/cache contract
+and keeps portable UUID separate from disk GUID and local UID/GID. For this slice
+retain the explicit `/fat/home` provider behind `/home`; guest login, profile
+import and the portable-settings adapter are not prerequisites. A later import
+milestone needs destination-local binding, guest-qualified publication/recovery
+and application adoption; the host fixture's rename guarantee is insufficient.
+
+## Identity-bound boot milestone — November 3, 2026
+
+User authorized implementation and a scoped PR with the two-disk proof. Base is
+merged PR311, fetched main `3db1a1d3`; branch
+`device/apple-silicon/installed-root-identity` uses the existing isolated
+installation clone. Original review VMs 61610, 6233 and 85869 remain live and
+untouched. One build/harness runs at a time here; no physical media is a target.
+
+Latest contracts remain filesystem PR308 `88ea5524` and profiles PR309
+`fa9717ad`, both open. No selector implementation exists in either diff. This
+branch proposes the missing opt-in installation selector using the existing GPT
+validator and exFAT mount. Shared selector/mount integration needs filesystem-owner
+review before merge; generic namespace attachment remains PR308's ownership.
+No change to portable identity, HOME policy, credentials or process/I/O lifetime
+is included. PR252's block/main diff is empty; its independent FAT sizing fix
+is preserved by adding only optional GUID/name inputs to the image builder.
+PR301's native display hooks in main remain separate from this boot decision.
+
+Proposed opt-in contract: `srvros.root=<canonical GPT partition UUID>`,
+`srvros.root-format=exfat-v1`, `srvros.root-role=system`. The selected partition
+must have the basic-data GPT type and exact role name `srvros-system-v1`, with
+exFAT validated before normal use. The provisioner chooses disk/partition GUIDs
+before writing boot configuration and binds all values into the reviewed plan.
+The opt-in clean mount performs no writes or flushes during admission. It refuses
+filesystem recovery flags, invalid boot copies, pending metadata temporaries and
+malformed committed metadata; it never replays a sidecar while selecting a root.
+Ordinary mounts keep their existing behavior.
+No selector fields means the ordinary legacy boot path. Partial, duplicate or
+malformed selector fields refuse; any unknown/invalid participating raw map
+refuses rather than assuming it cannot contain a duplicate. GUIDs establish
+selection, not authentication or resistance to a deliberately cloned identity.
+
+Acceptance: target plus decoy, reversed device ordering, exact saved document
+and preferences after reboot, and full decoy hash preservation; missing, wrong,
+duplicate and corrupt candidate refusal with full hashes of both disks unchanged.
+The target alone supplies its boot payload throughout. Recovery uses the existing
+framebuffer/UART to show a reason and correction path, then halts before bootlog,
+init, workspace startup or the writable monitor. It is a diagnostic recovery
+halt, not a repair shell or automatic upgrade rollback. This flow applies
+optimize-ux's explicit failure/correction states, checked in real VMs.
+
+Status: implementation and disposable VM proof complete; initially published as
+a draft, then reviewed for the authorized integration above. Physical install, in-place upgrade,
+profile import and guest account activation remain out of scope.
+
+### Accepted two-disk evidence
+
+Clean tested source `9989878c` (full SHA in the
+[portable receipt](assets/screenshots/installed-root-manifest.json)), based on
+merged PR311 `3db1a1d3`, passes all 11 VM cases on Q35/AHCI, x86_64 TCG and OVMF.
+The full matched build includes the exact source/submodule states and artifact
+hashes; bootstrap `/init` and installed desktop binaries were checked against it.
+
+| Case | Observed result |
+| --- | --- |
+| Target first, decoy second | Selected `ahci0p2`; Text saved a document and Settings saved the theme |
+| Order reversed, fresh VM | Selected the same GUID as `ahci1p2`; Text reopened exact bytes and preferences matched |
+| Missing system entry or wrong partition GUID | `missing` recovery halt |
+| Duplicate partition GUID | `ambiguous` recovery halt |
+| Wrong GPT role name or type | `role` recovery halt |
+| Wrong exFAT signature | `format` recovery halt |
+| Invalid decoy GPT copies | `invalid-map` recovery halt |
+| Invalid exFAT backup boot region | `filesystem-recovery` halt |
+| Valid pending `.srvros/meta.tmp` | `filesystem-recovery` halt without replay |
+
+Every recovery case hashes **both complete disks** before and after QEMU exits;
+all pairs match. Each positive boot leaves the decoy unchanged and preserves all
+target bytes outside exFAT. Guest and offline allocation checks report no leaks,
+FAT/bitmap mismatches or errors. Recovery is observed before stopping only the
+test-owned VM, with no init, monitor, fallback or persisted bootlog. The only
+boot payload is on the target ESP; no host kernel/initrd, ISO or RAM app image is
+attached. The missing-volume case retains that ESP, because removing the sole
+boot disk exercises firmware failure, not kernel recovery.
+
+[Reopened Text](assets/screenshots/installed-root-reopened.png) and
+[duplicate-identity recovery](assets/screenshots/installed-root-recovery.png)
+were visually inspected, along with pending-metadata recovery. The recovery
+message states the reason, that applications have not started and writes are
+stopped, and tells the operator to check the manifest/disks and restart the VM.
+This is a developer recovery walkthrough, not a representative-user study or
+an interactive repair utility.
+
+Raw disks, QEMU commands/logs/screenshots, receipt and exact build artifacts are
+retained under `.local/installation-evidence/proof-p0_hk8ic`, outside `build`.
+The backup was compared byte-for-byte by SHA-256; final disk hashes were checked
+against the receipt. Original review VMs 61610, 6233 and 85869 remain live and
+untouched; all milestone-owned test VMs are stopped.
+
+### Reproduce and review boundaries
+
+```sh
+sh tools/macos/build.sh HOST_CC='python3 build/tooling/darwin-host-cc.py' test-storage test-installed-root
+python3 tools/test_installed_root.py --sanitize
+sh tools/macos/build.sh HOST_CC='python3 build/tooling/darwin-host-cc.py' test-exfat-import test-exfat-boot test-exfat-crash
+sh tools/macos/build.sh -j2 all
+OVMF_CODE=/opt/homebrew/share/qemu/edk2-x86_64-code.fd python3 tools/installed_root_smoke.py --ovmf-vars /opt/homebrew/share/qemu/edk2-i386-vars.fd
+sh tools/macos/build.sh check-docs
+```
+
+The Darwin host-compiler wrapper is described in [macOS development](macos-development.md).
+Use one build/harness at a time; `test-installed-root` includes 21 Python image
+and provenance tests, the selector test and real exFAT clean-admission checks.
+The latter prove clean acceptance, pending/malformed metadata and damaged-backup
+refusal with zero write/flush calls. Existing GPT/block/AHCI, exFAT import,
+boot-copy and legacy rename/replace/replay interruption regressions pass.
+ASan/UBSan selector checks pass. No hosted Actions were run.
+
+An earlier trial at `b8a3fc87`, retained in
+`.local/installation-evidence/proof-2_fhjfpx`, deliberately corrupted only the
+decoy's primary GPT CRC. OVMF repaired it from the valid backup before kernel
+entry; SrvrOS then saw a valid map and booted. That trial is **not** a recovery
+pass. The accepted invalid-map fixture damages both copies to prevent firmware
+repair. Kernel no-write admission cannot promise firmware will never write a
+disk before handing off control. The selector currently validates primary GPT
+only; it does not validate/repair backup GPT or authenticate GUIDs. Unknown raw
+media conservatively refuses the installation. This is neither physical
+power-loss qualification nor arbitrary mount-I/O-failure qualification; external
+`fsck.exfat` was not run.
+
+Filesystem PR308 `88ea5524` must review the shared identity discovery and clean
+mount API before integration; its generic namespace aliases are not activated
+here. Profiles PR309 `fa9717ad` remains a contract dependency for future import:
+portable UUID is distinct from disk GUID/local UID/GID, and destination
+HOME/config/data/cache must be supplied independently. Existing `/fat/home`
+persists unchanged in this milestone; no guest profile consumer is required.
+
+The remaining sections retain the PR311 single-disk checkpoint and merge review
+as history. Their proposed next milestone is the completed proof above.
+
+## PR311 target and ownership (historical)
 
 The first checkpoint is an independently bootable, disposable QEMU disk: its
 own EFI bootloader, kernel and bootstrap, applications loaded from its exFAT

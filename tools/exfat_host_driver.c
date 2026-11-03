@@ -83,7 +83,8 @@ int main(int argc, char **argv) {
     bool image_range=!strcmp(argv[2],"image-range");
     bool headroom_only=!strcmp(argv[2],"headroom-check");
     bool writable_only=!strcmp(argv[2],"writable-check");
-    bool check_only=writable_only||headroom_only||image_range||!strcmp(argv[2],"allocation-check");
+    bool clean_only=!strcmp(argv[2],"clean-check");
+    bool check_only=clean_only||writable_only||headroom_only||image_range||!strcmp(argv[2],"allocation-check");
     fd=open(argv[1],check_only ? O_RDONLY : O_RDWR); assert(fd>=0);
     struct stat st; assert(fstat(fd,&st)==0);
     uint64_t bytes=st.st_size;
@@ -96,11 +97,24 @@ int main(int argc, char **argv) {
 #endif
     }
     struct block_device d={.used=true,.name="fixture",.block_size=512,.block_count=bytes/512,
-        .read=block_read,.write=writable_only ? refuse_write : check_only ? NULL : block_write,
-        .flush=writable_only ? refuse_flush : check_only ? NULL : flush};
+        .read=block_read,.write=(writable_only || clean_only) ? refuse_write : check_only ? NULL : block_write,
+        .flush=(writable_only || clean_only) ? refuse_flush : check_only ? NULL : flush};
     if(getenv("SRVROS_TEST_BLOCK_BYTES")) {
         uint64_t block=strtoull(getenv("SRVROS_TEST_BLOCK_BYTES"),NULL,10);
         assert((block==512 || block==4096) && !(bytes%block));d.block_size=block;d.block_count=bytes/block;
+    }
+    if(clean_only) {
+        assert(argc==4 && (!strcmp(argv[3],"accept") || !strcmp(argv[3],"refuse")));
+        bool mounted=exfat_mount_block_device_clean("/vol",&d);
+        assert(!writes && !flushes);
+        if (mounted) {
+            assert(exfat_is_writable("/vol"));
+            assert(exfat_unmount("/vol"));
+        }
+        assert(!vfs_count() && !writes && !flushes);
+        printf("clean-check: %s writes=%u flushes=%u\n",mounted?"accepted":"refused",writes,flushes);
+        close(fd);
+        return mounted == !strcmp(argv[3],"accept") ? 0 : 1;
     }
     if(check_only) {
         if(!exfat_mount_block_device("/vol",&d)) {
