@@ -2,6 +2,23 @@
 
 Updated: 2026-11-03. State: **active reference machine; partial device acceptance**.
 
+### Active scanout lifetime milestone
+
+Integration base `4c4c37a5`, merged at `396cc9c7`, consumes HiDPI/profile/install
+and independent Air6,1 audit work with exact recursive submodule pins. Preserve
+Air6,1's no-write owner and unknown assurances. Air7,2 now owns an isolated
+scanout lifetime core and opt-in native shadow-publication trial: private PMM
+buffers, epoch/serial identity, inactive-only CPU writes, queued publication,
+matching completion, cancellation/drain/restore and retained-fault behavior.
+No native GTT/plane writer or GUI capability is enabled by this milestone.
+Unknown GGTT/DMA/takeover authority remains a refusal for real publication.
+Shared touchpoints are the existing Intel capture adapter, boot/staging/collector
+and new pure lifetime code/tests; ordinary VirtIO and application APIs retain
+their behavior. PR301 is the review surface; PR252 audit, PR19 Wi-Fi and other
+agents' installed/profile/browser work remain separate. Validate host failure
+fixtures and integrated QEMU behavior, then stage a no-input hardware trial and
+stop ready for testing without arming a reboot.
+
 ### Native backing readout accepted
 
 Release `3a3b2f00b9ff7eca` / source `10966846` returned automatically and is
