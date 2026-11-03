@@ -6,6 +6,10 @@ compositor service admission. Existing numeric application IDs and protocol v15
 are unchanged. Stable keys such as `srvros.text` identify apps independently of
 display titles; program/role pairs remain an executable whitelist.
 
+![Open With in the QEMU fixture](assets/screenshots/desktop-open-with-vm.png)
+
+The screenshot uses disposable VM documents, not physical acceptance evidence.
+
 ## Descriptor and matching contract
 
 Each built-in entry names its title, role, program, dock position, stable key,
@@ -69,3 +73,9 @@ routing, explicit Text selection for a text document with an image suffix, exact
 saved bytes, unsaved sibling retention, failed-save recovery and process baseline.
 The refusal variant checks embedded modal fallback. Results must name the exact
 source and remain distinct from physical acceptance in the machine record.
+
+For native acceptance, use the existing Air7,2 attended lifecycle profile. Its
+automatically opened Help topic starts with a focused three-part Open With
+checklist, including preparation, cancellation, explicit Text selection and
+Preview reuse. There is no timer or automatic reboot; this needs human input.
+Installed accepted payloads and recovery stay separate until that run is prepared.

@@ -140,7 +140,10 @@ preserved even when compositor/client writes interleave.
 The explicit Air7,2 `--desktop-lifecycle-trial` stage profile (v75) uses the
 ordinary combined battery/services session and opens Help's **Application
 lifecycle trial** topic automatically. It has no deadline or automatic reboot.
-The full checklist covers parent/dialog focus, independent sibling input,
+The guide starts with a focused Open With checklist: default/explicit handler,
+click/keyboard cancellation, unsaved sibling retention and Preview reopening.
+Its older full checklist remains optional for that focused round and covers
+parent/dialog focus, independent sibling input,
 Close versus Quit, cancellation, saving, independent Files windows/history and
 owned mutation prompts, Terminal shell/control/close cancellation, Files routing,
 Preview retention,
