@@ -23,8 +23,14 @@ New themes and QEMU/VirtIO changes have no new native acceptance.
 
 Installed accepted `c497eb0cb48c1b01`, recovery `9aa8dbf6fbda8252`, and the
 pre-extraction staged `b9d0f6bd7897979d` remain preserved independently. The
-attended candidate is being refreshed for this matched modular tree; no reboot
-is armed. Evidence: `build/air-modular-catchup-20261103/`, backed up outside
+matched candidate `f586e4a2d58cb3ab` / source `8a6c4f2a` is preserved but not
+installed or armed. Exact-stage Q35 testing failed twice: terminal redirect
+paths lost characters, so required saved-file receipts were absent. A paced
+retry saved terminal-proof but still lost a character in orphan-proof's path.
+Guide delivery, Home text save and clean return/reopen ran; the whole gate is
+still FAIL. Both attempts and screenshots remain preserved. Keep OS PR278 and
+Apps PR2 in draft until this input/receipt issue is resolved; no failed assertion
+was relaxed. No hardware reboot was attempted. Evidence: `build/air-modular-catchup-20261103/`, backed up outside
 `build`. Historical source-specific results below remain historical.
 
 ### Application registry and Open With: ready for attended trial
