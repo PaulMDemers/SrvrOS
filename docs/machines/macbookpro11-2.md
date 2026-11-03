@@ -145,9 +145,17 @@ write, short/invalid replies, stored reply/MAC/core proof bits and reserved DMA
 faults. A shared physical-register model keeps0:22=44 at every inner authorization,
 including the all-selected BBP boundary, then requires full original restoration.
 Pinned audit checks eight sources/five dependency hashes and rejects three altered
-source files and two damaged fixtures. Sanitizer/build/link checks are recorded
-in the local foundation evidence before this work is published; no physical
-acceptance is added to v116 by these host-only results.
+source files and two damaged fixtures. At source `fbde2afe`, matched build/USB image/docs and the unchanged legacy
+channel trace pass. Focused ASan/UBSan passes isolated faults/proof checks and
+combined requests/all256 gains; the exhaustive combined fault sweep is separate
+normal-build evidence. New trim entry points are absent from the linked kernel,
+and every loaded ELF segment matches accepted v116 exactly. The installed
+payload and native140-file capsule are untouched. The source, executable,
+pinned reference and receipts are sealed outside build as
+`wifi-trim5-foundation-fbde2afe`. No physical trim acceptance, pulse or reboot is
+added by these host-only results. Next: integrate current main separately, bind
+fresh private trim fields to a native owner/recipe, and complete exact-image/
+collection/recovery checks before staging that combined trial.
 
 
 ## Completed v116 native implementation scope
