@@ -9,6 +9,7 @@
 #include "clipboard.h"
 #include "menus.h"
 #include "preferences.h"
+#include "profile_startup.h"
 #include <srvros/desk_text.h>
 #include "io_trial.h"
 #include "input_timing.h"
@@ -131,6 +132,7 @@ struct display_runtime {
 };
 struct session {
     const char *home;
+    struct srv_profile_session profile;
     struct lifecycle_worker *worker;
     int startup_trace;
     struct lifetime_trace current_lifetime,ready_worst,close_worst;
@@ -723,17 +725,17 @@ static void spawn_app(struct session *s,int application,const char *path) {
                 if(life_state(&j->state)!=LIFE_IDLE)continue;
                 if(strlen(path?path:"")>=sizeof(j->path) || strlen(s->home?s->home:DESK_RAM_HOME)>=sizeof(j->home))break;
                 j->application=application;j->child_slot=i;j->queued_us=(uint64_t)srv_monotonic_us();j->begin_us=j->end_us=0;
-                strcpy(j->path,path?path:"");strcpy(j->home,s->home?s->home:DESK_RAM_HOME);
+                strcpy(j->path,path?path:"");strcpy(j->home,s->home?s->home:DESK_RAM_HOME);j->profile=s->profile;
                 s->last_launch_pid=0;life_queue(s->worker,&j->state,LIFE_QUEUED);return;
             }
             launch_failed(s,application,SRV_ERR_AGAIN);return;
         }
         char *argv[]={(char *)info->program,(char *)info->role,(char *)(path?path:""),NULL};
-        char home[192],desktop_home[192];
-        snprintf(home,sizeof(home),"HOME=%s",s->home?s->home:DESK_RAM_HOME);
-        snprintf(desktop_home,sizeof(desktop_home),"SRVROS_DESKTOP_HOME=%s",s->home?s->home:DESK_RAM_HOME);
-        char *env[]={"PATH=/fat/bin:/:/fat",home,desktop_home,NULL};
-        struct srv_exec_request request={.path=argv[0],.argv=argv,.envp=env,.flags=SRV_EXEC_BACKGROUND,
+        struct srv_profile_environment environment;
+        if(!srv_profile_environment_init(&environment,&s->profile,"/fat/bin:/:/fat")) {
+            launch_failed(s,application,SRV_ERR_INVAL);return;
+        }
+        struct srv_exec_request request={.path=argv[0],.argv=argv,.envp=environment.envp,.flags=SRV_EXEC_BACKGROUND,
             .stdin_fd=-1,.stdout_fd=-1,.stderr_fd=-1};
         uint64_t began=(uint64_t)srv_monotonic_us();
         long pid=srv_exec(&request);
@@ -1395,7 +1397,10 @@ static void capture_tick(struct session *s,const uint32_t *pixels) {
     char path[DESK_CAPTURE_PATH],date[32]="undated";long us=srv_realtime_us();
     time_t seconds=us<0?0:us/1000000;struct tm utc;
     if(us>=0 && gmtime_r(&seconds,&utc)) strftime(date,sizeof(date),"%Y%m%d-%H%M%S",&utc);
-    snprintf(path,sizeof(path),"%s/Screenshots/Screen-%s-%llu-%u.bmp",s->home?s->home:DESK_RAM_HOME,date,(unsigned long long)srv_getpid(),s->capture.next_id+1);
+    int path_length=snprintf(path,sizeof(path),"%s/Screenshots/Screen-%s-%llu-%u.bmp",s->home?s->home:DESK_RAM_HOME,date,(unsigned long long)srv_getpid(),s->capture.next_id+1);
+    if(path_length<0 || (size_t)path_length>=sizeof(path)) {
+        s->capture_pending=0;capture_notice(s,0,"The profile path is too long for this screenshot name.");return;
+    }
     if(s->worker) {
         if(life_prepare_submit(s->worker,&s->capture,s->damage.width,s->damage.height,path)) {
             s->capture_pending=0;global_menu_rebuild(s);
@@ -2040,6 +2045,16 @@ static void timing_print(const char *name,const struct perf_sample *p) {
         (unsigned long long)p->max,(unsigned long long)perf_percentile(p,95),(unsigned long long)perf_percentile(p,99));
 }
 int main(int argc,char **argv) {
+    struct srv_profile_session selected_profile={0};char portable_path[160];const char *profile_home=NULL;
+    for(int i=1;i<argc;i++) if(!strncmp(argv[i],"--profile=",10)) {
+        if(profile_home){ui_puts("deskd: select exactly one profile\n");return 1;}
+        profile_home=argv[i]+10;
+        for(int j=i;j<argc;j++)argv[j]=argv[j+1];
+        argc--;i--;
+    }
+    if(profile_home && desktop_profile_load(&selected_profile,portable_path,sizeof(portable_path),profile_home)) {
+        ui_puts("deskd: profile unavailable or invalid; restore it or start without --profile.\n");return 1;
+    }
     unsigned scale=1;int explicit_scale=0;
     for (int i=1;i<argc;i++) if (!strncmp(argv[i],"--scale=",8)) {
         explicit_scale=1;
@@ -2050,6 +2065,11 @@ int main(int argc,char **argv) {
         argc--; i--;
     }
     int pointer_trace=0, apps_trace=0;
+    if(profile_home) for(int i=1;i<argc;i++) {
+        if(strcmp(argv[i],"--apps") && strcmp(argv[i],"--apps-trace") && strcmp(argv[i],"--trace")) {
+            ui_puts("deskd: profile selection requires an ordinary desktop session\n");return 1;
+        }
+    }
     for (int i=1;i<argc;i++) {
         if (!strcmp(argv[i],"--trace")) pointer_trace=1;
         if (!strcmp(argv[i],"--apps-trace")) apps_trace=1;
@@ -2082,7 +2102,7 @@ int main(int argc,char **argv) {
     int growth=argc==2 && !strcmp(argv[1],"--window-growth-smoke");
     int multiwindow=growth || (argc==2 && !strcmp(argv[1],"--multiwindow-smoke"));
     int dialog_refusal=argc==2 && !strcmp(argv[1],"--dialog-refusal-test");
-    int apps=apps_trace || dialog_refusal || pool_wait || multiwindow || battery_guided || home_apps || idle_capture || hardware_trial || argc==1 || (argc==2 && (!strcmp(argv[1],"--apps") || !strcmp(argv[1],"--registry-pressure-test")));
+    int apps=profile_home || apps_trace || dialog_refusal || pool_wait || multiwindow || battery_guided || home_apps || idle_capture || hardware_trial || argc==1 || (argc==2 && (!strcmp(argv[1],"--apps") || !strcmp(argv[1],"--registry-pressure-test")));
     int scroll_smoke=argc==2 && strcmp(argv[1],"--scroll-smoke")==0,scroll_phase=0;
     int smoke=scroll_smoke || (argc==2 && strcmp(argv[1],"--smoke")==0);
     int lifecycle=argc==2 && strcmp(argv[1],"--lifecycle-smoke")==0,phase=0;
@@ -2107,6 +2127,10 @@ int main(int argc,char **argv) {
     if (gfx_console_mute(1)!=0) return 1;
     struct session s={.dynamic=1,.refuse_dialogs=dialog_refusal,.registry_budget=argc==2 && !strcmp(argv[1],"--registry-pressure-test")?1:DESK_REGISTRY_BYTES,.ram_text=coexist_text || control_capture,.home=(battery_guided || hardware_trial || idle_capture || home_apps)?DESK_WORKSPACE_HOME:DESK_RAM_HOME,.scene={.focus=-1,.cursor_x=24,.cursor_y=56,.automatic_test=capacity_capture},
         .trace=pointer_trace || apps_trace || audio_io_attended || dialog_refusal || capacity_capture || pool_wait || multiwindow || battery_guided || coexist || idle_capture || lifecycle || (argc==2 && !strcmp(argv[1],"--registry-pressure-test"))};
+    if(profile_home) {
+        s.profile=selected_profile;s.home=s.profile.home;
+        desk_log("deskd: profile id=%s home=%s credentials=unchanged\n",s.profile.id,s.home);
+    } else if(!srv_profile_session_init(&s.profile,s.home,NULL))return 1;
     s.scale=scale;s.display.canvas=&canvas;s.display.info=&info;s.display.explicit_scale=explicit_scale;
     if(s.registry_budget==1)ui_puts("deskd: diagnostic registry growth budget=1 byte\n");
     desk_capture_job_init(&s.capture);
@@ -2128,8 +2152,12 @@ int main(int argc,char **argv) {
         desk_log("deskd: tap/typing options=14\n");
     }
     desk_damage_init(&s.damage,width,height);
-    if(apps) { desktop_preferences_init_path(&s.preferences,(battery_guided || hardware_trial || idle_capture || home_apps)?DESKTOP_WORKSPACE_PREFERENCES_PATH:DESKTOP_PREFERENCES_PATH);
-        preferences_changed(&s); }
+    if(apps) {
+        const char *machine_path=(battery_guided || hardware_trial || idle_capture || home_apps)?DESKTOP_WORKSPACE_PREFERENCES_PATH:DESKTOP_PREFERENCES_PATH;
+        if(profile_home)desktop_preferences_init_profile(&s.preferences,machine_path,portable_path);
+        else desktop_preferences_init_path(&s.preferences,machine_path);
+        preferences_changed(&s);
+    }
     battery_update(&s,1);
     global_menu_rebuild(&s);
     desk_damage_add(&s.damage,(struct desk_rect){0,0,width,height});

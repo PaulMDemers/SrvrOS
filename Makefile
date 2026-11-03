@@ -2662,7 +2662,7 @@ test-widgets: test-check
 .PHONY: test-preferences
 test-preferences: build/tests/preferences-host$(HOST_EXE)
 	$<
-build/tests/preferences-host$(HOST_EXE): tools/test_preferences.c userspace/deskd/preferences.c userspace/deskd/preferences.h userspace/lib/src/desk_preferences.c userspace/lib/include/srvros/desk_preferences.h shared/include/srvros/desktop_preferences.h
+build/tests/preferences-host$(HOST_EXE): userspace/lib/include/srvros/profile_preferences.h tools/test_preferences.c userspace/deskd/preferences.c userspace/deskd/preferences.h userspace/lib/src/desk_preferences.c userspace/lib/include/srvros/desk_preferences.h shared/include/srvros/desktop_preferences.h
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include tools/test_preferences.c userspace/deskd/preferences.c userspace/lib/src/desk_preferences.c -o $@
 test-desktop: test-preferences
@@ -3934,9 +3934,9 @@ build/tests/desktop-power$(HOST_EXE): tools/test_desktop_power.c userspace/deskd
 test-core: test-lifecycle-wait
 test-lifecycle-wait: build/tests/lifecycle-wait$(HOST_EXE)
 	$<
-build/tests/lifecycle-wait$(HOST_EXE): tools/test_lifecycle_wait.c userspace/deskd/lifecycle_worker.h
+build/tests/lifecycle-wait$(HOST_EXE): tools/test_lifecycle_wait.c userspace/deskd/lifecycle_worker.h userspace/lib/include/srvros/profile_session.h userspace/lib/include/srvros/profile_paths.h
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -pthread $< -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -pthread -idirafter userspace/lib/include -I shared/include $< -o $@
 
 .PHONY: test-process-event
 test-core: test-process-event
@@ -4392,3 +4392,14 @@ test-syscall-namespace: build/tests/syscall-namespace-host$(HOST_EXE)
 build/tests/syscall-namespace-host$(HOST_EXE): tools/test_syscall_namespace.c kernel/src/arch/x86_64/syscall.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+.PHONY: test-profile-desktop
+# Profile integration runs on the same matched host compiler as desktop tests.
+test-profile-desktop: test-portable-profiles test-preferences build/tests/profile-image-driver$(HOST_EXE)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include tools/test_profile_session.c -o build/tests/profile-session-host$(HOST_EXE)
+	build/tests/profile-session-host$(HOST_EXE)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include tools/test_profile_startup.c userspace/lib/src/desk_preferences.c -o build/tests/profile-startup-host$(HOST_EXE)
+	build/tests/profile-startup-host$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_profile_image.py -v
+build/tests/profile-image-driver$(HOST_EXE): tools/profile_image_driver.c tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
+	@mkdir -p build/tests
+	$(HOST_CC) -DSRVROS_EXFAT_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include tools/profile_image_driver.c kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c -Wl,--gc-sections -o $@

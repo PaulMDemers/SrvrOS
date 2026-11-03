@@ -173,7 +173,7 @@ int gui_surface_copy(uint64_t id,uint64_t x,uint64_t y,uint64_t w,uint64_t h,uin
 static void asynchronous_lifecycle(void) {
     static struct session s;
     static struct lifecycle_worker worker;
-    s.worker=&worker;s.home=DESK_RAM_HOME;s.scene.apps=1;s.scene.focus=-1;
+    s.worker=&worker;s.home=DESK_RAM_HOME;assert(srv_profile_session_init(&s.profile,s.home,NULL));s.scene.apps=1;s.scene.focus=-1;
     desk_damage_init(&s.damage,1280,800);alive=1;send_allow=-1;queue_full=0;
     char argument[32]="copied-path";strcpy(executed_path,"unchanged");execute_result=42;
     spawn_app(&s,DESK_APP_TEXT,argument);strcpy(argument,"mutated");
@@ -207,7 +207,7 @@ static void asynchronous_lifecycle(void) {
     assert(!s.children[0] && strstr(s.scene.notice,"could not open"));
     s.exiting=1;strcpy(executed_path,"unchanged");spawn_app(&s,DESK_APP_TEXT,"");life_work(&worker);
     assert(!strcmp(executed_path,"unchanged"));
-    memset(&s,0,sizeof(s));memset(&worker,0,sizeof(worker));s.worker=&worker;
+    memset(&s,0,sizeof(s));assert(srv_profile_session_init(&s.profile,DESK_RAM_HOME,NULL));memset(&worker,0,sizeof(worker));s.worker=&worker;
     /* Fill the 96 MiB budget with sixteen front/spare pairs. Reclaiming
      * spares must defer admission without granting credit before unmap. */
     for(int i=0;i<16;i++) {
@@ -225,7 +225,7 @@ static void asynchronous_lifecycle(void) {
     assert(!cache_prepare(&s,0,1280,768) && s.cache_pending && s.cache_bytes<=DESKD_CACHE_BUDGET);
     life_work(&worker);assert(cache_prepare(&s,0,1280,768));
     cache_free(&s);life_work(&worker);lifecycle_poll(&s);assert(!s.cache_bytes);
-    memset(&s,0,sizeof(s));memset(&worker,0,sizeof(worker));execute_result=-1;sends=0;
+    memset(&s,0,sizeof(s));assert(srv_profile_session_init(&s.profile,DESK_RAM_HOME,NULL));memset(&worker,0,sizeof(worker));execute_result=-1;sends=0;
 }
 static void seeded_cache_reuse(void) {
     static struct session s;static struct lifecycle_worker worker;
@@ -241,7 +241,7 @@ static void seeded_cache_reuse(void) {
         life_work(&worker);lifecycle_poll(&s);
         assert(!s.cache_bytes && frees==freed+(int)count);
     }
-    memset(&s,0,sizeof(s));memset(&worker,0,sizeof(worker));
+    memset(&s,0,sizeof(s));assert(srv_profile_session_init(&s.profile,DESK_RAM_HOME,NULL));memset(&worker,0,sizeof(worker));
     puts("desktop-cache-seed: PASS initial/partial reserve, reuse without helper mapping, deferred worker release and zero final budget");
 }
 static void retired_cache_reuse(void) {
@@ -276,12 +276,12 @@ static void retired_cache_reuse(void) {
     assert(!cache_prepare(&s,0,400,280));cache_forget(&s,0);
     assert(!s.retained_cache[0].job && !s.retained_cache[1].job);
     life_work(&worker);lifecycle_poll(&s);assert(!s.cache_bytes);
-    memset(&s,0,sizeof(s));memset(&worker,0,sizeof(worker));
+    memset(&s,0,sizeof(s));assert(srv_profile_session_init(&s.profile,DESK_RAM_HOME,NULL));memset(&worker,0,sizeof(worker));
     puts("desktop-cache-reuse: PASS100 retire/reopen transfers, unchanged reservation, no new mappings, partial-copy isolation and full shutdown");
 }
 static void delayed_control_delivery(void) {
     static struct session s;
-    cache_free(&s);memset(&s,0,sizeof(s));alive=1;queue_full=0;sends=0;send_allow=-1;
+    cache_free(&s);memset(&s,0,sizeof(s));assert(srv_profile_session_init(&s.profile,DESK_RAM_HOME,NULL));alive=1;queue_full=0;sends=0;send_allow=-1;
     s.clients[0].pid=42;s.clients[0].window=DESK_DEFAULT_WINDOW;s.clients[0].progress=now;
     s.clients[0].release=desk_packet_new(DESK_RELEASE);
     now+=601;service(&s);
@@ -300,7 +300,7 @@ static void delayed_control_delivery(void) {
     now+=400;service(&s);assert(alive);
     now+=101;service(&s);assert(!alive && !s.clients[0].pid);
 
-    cache_free(&s);memset(&s,0,sizeof(s));alive=1;queue_full=1;
+    cache_free(&s);memset(&s,0,sizeof(s));assert(srv_profile_session_init(&s.profile,DESK_RAM_HOME,NULL));alive=1;queue_full=1;
     s.clients[0].pid=42;s.clients[0].window=DESK_DEFAULT_WINDOW;s.clients[0].progress=now;
     s.clients[0].release=desk_packet_new(DESK_RELEASE);
     now+=601;service(&s);assert(alive && s.clients[0].release.type);
@@ -310,7 +310,7 @@ static void delayed_control_delivery(void) {
     s.clients[0].configure=s.clients[0].awaiting=1;s.clients[0].progress=now;
     queue_full=1;service(&s);now+=501;service(&s);assert(!alive && !s.clients[0].pid);
 
-    cache_free(&s);memset(&s,0,sizeof(s));alive=1;queue_full=0;
+    cache_free(&s);memset(&s,0,sizeof(s));assert(srv_profile_session_init(&s.profile,DESK_RAM_HOME,NULL));alive=1;queue_full=0;
     s.clients[0].pid=42;s.clients[0].window=DESK_DEFAULT_WINDOW;close_client(&s,0);now+=601;
     int before=sends;service(&s);assert(alive && sends==before+1 && sent[sends-1]==DESK_CLOSE);
     now+=400;service(&s);assert(alive && sends==before+1); /* No close-message flood. */
@@ -318,7 +318,7 @@ static void delayed_control_delivery(void) {
 }
 static void pointer_cancel_keeps_keyboard(void) {
     static struct session s;
-    cache_free(&s);memset(&s,0,sizeof(s));alive=1;queue_full=0;sends=0;send_allow=-1;
+    cache_free(&s);memset(&s,0,sizeof(s));assert(srv_profile_session_init(&s.profile,DESK_RAM_HOME,NULL));alive=1;queue_full=0;sends=0;send_allow=-1;
     s.clients[0].pid=42;s.clients[0].window=DESK_DEFAULT_WINDOW;s.clients[0].generation=1;
     for(unsigned i=0;i<DESK_INPUT_QUEUE;i++) {
         struct desk_packet p=desk_packet_new(i&1?DESK_TEXT:DESK_KEY);
@@ -346,7 +346,7 @@ static void pointer_cancel_keeps_keyboard(void) {
 }
 static void battery_ui_notifications(void) {
     static struct session s;
-    cache_free(&s);memset(&s,0,sizeof(s));s.scene.apps=1;s.scene.focus=-1;
+    cache_free(&s);memset(&s,0,sizeof(s));assert(srv_profile_session_init(&s.profile,DESK_RAM_HOME,NULL));s.scene.apps=1;s.scene.focus=-1;
     desk_damage_init(&s.damage,1280,800);desktop_notice_view_init(&s.scene.notifications);
     strcpy(s.scene.clock,"12:00");
     battery_mock=(struct srv_battery_status){.size=sizeof(battery_mock),.version=SRV_BATTERY_VERSION,
@@ -639,10 +639,10 @@ static void dynamic_registry(void) {
  * client receiver tests and the successful real-app VM route. */
 static struct session *route_fixture(void) {
     static struct session s;
-    memset(&s,0,sizeof(s));memset(&clipboard,0,sizeof(clipboard));
+    memset(&s,0,sizeof(s));assert(srv_profile_session_init(&s.profile,DESK_RAM_HOME,NULL));memset(&clipboard,0,sizeof(clipboard));
     alive=1;queue_full=0;send_allow=-1;sends=0;execute_result=-1;
     strcpy(executed_path,"untouched");executed_argument[0]=0;
-    s.scene.apps=1;s.scene.focus=0;s.home=DESK_RAM_HOME;
+    s.scene.apps=1;s.scene.focus=0;s.home=DESK_RAM_HOME;assert(srv_profile_session_init(&s.profile,s.home,NULL));
     desk_damage_init(&s.damage,1280,800);
     for(int i=0;i<2;i++) {
         s.clients[i].pid=42;s.clients[i].window=i+1;s.clients[i].identity=i+1;
@@ -1031,7 +1031,7 @@ int main(void) {
     idle_admission();
     battery_ui_notifications();
     pointer_cancel_keeps_keyboard();
-    struct session s={.scene={.focus=-1},.children={42}};
+    struct session s={.scene={.focus=-1},.children={42}};assert(srv_profile_session_init(&s.profile,DESK_RAM_HOME,NULL));
     assert(cache_init(&s)==0 && !s.cache_bytes);
     desk_damage_init(&s.damage,800,600);
     struct desk_packet p=desk_packet_new(DESK_OPEN); p.width=400; p.height=280;
@@ -1072,7 +1072,7 @@ int main(void) {
     cache_free(&s); assert(allocations==frees);
     /* Scroll targets content under the cursor, keeps focus, and retries the
      * same recipient when the transport queue is full. */
-    cache_free(&s);memset(&s,0,sizeof(s)); s.scene.focus=1;
+    cache_free(&s);memset(&s,0,sizeof(s));assert(srv_profile_session_init(&s.profile,DESK_RAM_HOME,NULL)); s.scene.focus=1;
     s.clients[0].pid=42;s.clients[0].window=DESK_DEFAULT_WINDOW; s.scene.windows[0].visible=1;
     s.scene.windows[0].frame=(struct desk_rect){20,60,400,300};
     alive=1; queue_full=1;
@@ -1104,7 +1104,7 @@ int main(void) {
     scroll_at(&s,70,150,0,1);assert(s.clients[0].input_count==2);
     s.scene.apps=0;
     scroll_at(&s,60,150,0,80); forget(&s,0); assert(!s.clients[0].input_count);
-    cache_free(&s);memset(&s,0,sizeof(s)); s.scene.focus=0;
+    cache_free(&s);memset(&s,0,sizeof(s));assert(srv_profile_session_init(&s.profile,DESK_RAM_HOME,NULL)); s.scene.focus=0;
     s.clients[0].pid=42;s.clients[0].window=DESK_DEFAULT_WINDOW; s.clients[0].generation=1; s.scene.windows[0].visible=1;
     s.scene.windows[0].frame=(struct desk_rect){20,60,400,300};
     pointer_at(&s,400,200,MOUSE_LEFT,1);
@@ -1132,7 +1132,7 @@ int main(void) {
     pointer_at(&s,400,200,0,0); s.clients[0].awaiting=0;
     pointer_at(&s,400,200,MOUSE_LEFT,1); forget(&s,0);
     assert(!s.pointer_pid && s.pointer_blocked && !s.clients[0].input_count);
-    cache_free(&s);memset(&s,0,sizeof(s)); s.clients[0].pid=42;s.clients[0].window=DESK_DEFAULT_WINDOW; s.pointer_pid=42;s.pointer_window=DESK_DEFAULT_WINDOW;
+    cache_free(&s);memset(&s,0,sizeof(s));assert(srv_profile_session_init(&s.profile,DESK_RAM_HOME,NULL)); s.clients[0].pid=42;s.clients[0].window=DESK_DEFAULT_WINDOW; s.pointer_pid=42;s.pointer_window=DESK_DEFAULT_WINDOW;
     p=desk_packet_new(DESK_POINTER); p.value=DESK_POINTER_PRESS|DESK_POINTER_LEFT;
     for (int i=0;i<DESK_INPUT_QUEUE;i++) queue_input(&s,0,p);
     assert(s.clients[0].input_count==DESK_INPUT_QUEUE && !s.clients[0].closing);
@@ -1140,7 +1140,7 @@ int main(void) {
     assert(s.clients[0].closing && !s.pointer_pid && s.pointer_blocked);
     /* Slow rendering still drains an ordered batch. Partial IPC capacity keeps
      * the first unsent edge at the head, without duplication or reordering. */
-    cache_free(&s);memset(&s,0,sizeof(s));s.clients[0].pid=42;s.clients[0].window=DESK_DEFAULT_WINDOW;sends=0;
+    cache_free(&s);memset(&s,0,sizeof(s));assert(srv_profile_session_init(&s.profile,DESK_RAM_HOME,NULL));s.clients[0].pid=42;s.clients[0].window=DESK_DEFAULT_WINDOW;sends=0;
     for(unsigned i=0;i<24;i++) { p=desk_packet_new(DESK_KEY);p.serial=i+1;queue_input(&s,0,p); }
     service(&s);assert(sends==DESK_INPUT_BATCH&&s.clients[0].input_count==24-DESK_INPUT_BATCH);
     send_allow=3;service(&s);assert(sends==DESK_INPUT_BATCH+3);
@@ -1150,7 +1150,7 @@ int main(void) {
     for(unsigned i=0;i<24;i++) assert(sent[i]==DESK_KEY&&sent_serials[i]==i+1);
     /* Reproduce a compositor pause longer than the old queue-age timeout.
      * A healthy client can accept this ordered key and must not be closed. */
-    cache_free(&s);memset(&s,0,sizeof(s));s.clients[0].pid=42;s.clients[0].window=DESK_DEFAULT_WINDOW;sends=0;
+    cache_free(&s);memset(&s,0,sizeof(s));assert(srv_profile_session_init(&s.profile,DESK_RAM_HOME,NULL));s.clients[0].pid=42;s.clients[0].window=DESK_DEFAULT_WINDOW;sends=0;
     p=desk_packet_new(DESK_KEY);p.serial=101;queue_input(&s,0,p);
     now+=601;service(&s);
     assert(sends==1 && sent[0]==DESK_KEY && sent_serials[0]==101 && !s.clients[0].closing);
@@ -1165,7 +1165,7 @@ int main(void) {
      * still reaches the bounded close path; the change is not an infinite wait. */
     queue_full=1;queue_input(&s,0,p);service(&s);now+=501;service(&s);
     assert(s.clients[0].closing);queue_full=0;
-    cache_free(&s);memset(&s,0,sizeof(s));s.scene.apps=1;s.scene.focus=0;desk_damage_init(&s.damage,1280,800);
+    cache_free(&s);memset(&s,0,sizeof(s));assert(srv_profile_session_init(&s.profile,DESK_RAM_HOME,NULL));s.scene.apps=1;s.scene.focus=0;desk_damage_init(&s.damage,1280,800);
     s.clients[0].pid=42;s.clients[0].window=DESK_DEFAULT_WINDOW;s.scene.windows[0].visible=1;s.scene.windows[0].application=DESK_APP_TEXT;
     s.scene.windows[0].frame=(struct desk_rect){32,64,602,365};
     struct desk_rect original=s.scene.windows[0].frame;
@@ -1365,7 +1365,7 @@ int main(void) {
     notifications_open(&s);assert(!desk_popup_active(&s.scene.context));notifications_close(&s);
     forget(&s,0);assert(s.scene.menu.groups==3 && s.scene.focus==-1);
     global_menu_action(&s,GLOBAL_HELP);assert(!strcmp(executed_argument,"welcome"));
-    struct session failed={0}; alloc_fail=allocations+1;
+    struct session failed={0};assert(srv_profile_session_init(&failed.profile,DESK_RAM_HOME,NULL)); alloc_fail=allocations+1;
     assert(cache_init(&failed)==0 && !failed.cache_bytes);
     uint32_t *kept=cache_prepare(&failed,0,100,100);assert(kept);
     failed.scene.windows[0].pixels=kept;
@@ -1374,7 +1374,7 @@ int main(void) {
     assert(!configure(&failed,0,200,200));
     assert(failed.scene.windows[0].pixels==kept && failed.scene.windows[0].frame.w==102 && !failed.clients[0].generation);
     cache_free(&failed);assert(!failed.cache_bytes);alloc_fail=0;
-    memset(&failed,0,sizeof(failed));
+    memset(&failed,0,sizeof(failed));assert(srv_profile_session_init(&failed.profile,DESK_RAM_HOME,NULL));
     /* Refusal must not spawn or replace a child, and successful slot reuse
      * clears the now-obsolete capacity/error message. */
     for(int i=0;i<DESKD_WINDOWS;i++) failed.children[i]=100+i;

@@ -4,10 +4,13 @@
 #include <srvros/desk_application.h>
 #include <srvros/gui.h>
 #include <srvros/sys.h>
+#include <srvros/profile_session.h>
 #include <string.h>
 _Static_assert(sizeof(struct desk_preferences)<=sizeof(((struct desk_packet *)0)->text),"preferences fit packet");
 
 int desk_app_open(struct desk_app *a,const char *title,uint32_t width,uint32_t height) {
+    struct srv_profile_session profile;
+    if(!srv_profile_session_from_env(&profile)) return -1;
     *a=(struct desk_app){.last=srv_ticks(),.dirty=1,.focused=1,.window=DESK_DEFAULT_WINDOW};
     struct desk_packet p=desk_packet_new(DESK_OPEN);p.window=a->window;p.width=width;p.height=height;
     size_t n=strlen(title);if(n>=sizeof(p.text)) n=sizeof(p.text)-1;
@@ -221,6 +224,8 @@ void desk_connection_init(struct desk_connection *c) {
     *c=(struct desk_connection){.next_window=DESK_DEFAULT_WINDOW};
 }
 int desk_window_open(struct desk_connection *c,struct desk_app *a,const char *title,uint32_t width,uint32_t height) {
+    struct srv_profile_session profile;
+    if(!srv_profile_session_from_env(&profile)) return -1;
     if(!c || !a || !title || c->failed || c->opening || !c->next_window ||
        width<280 || height<240 || width>DESK_MAX_WIDTH || height>DESK_MAX_HEIGHT) return -1;
     for(struct desk_app *w=c->windows;w;w=w->next) if(w==a) return -1;

@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "../userspace/deskd/preferences.h"
+#include <srvros/profile_preferences.h>
 static const char *expected_path=DESKTOP_PREFERENCES_PATH;
 static unsigned starts;static int result,init_fail,start_fail;static struct desk_file_job *active;
 int desk_file_job_init(struct desk_file_job *j) { *j=(struct desk_file_job){.pid=42};active=j;return init_fail?-1:0; }
@@ -91,8 +92,60 @@ static void model(void) {
         "srvros-desktop-v1\ntext_size=16\nutc_offset_minutes=0\nclock_flags=3\nwallpaper=3\n"};
     for(unsigned i=0;i<sizeof(bad)/sizeof(*bad);i++) assert(desk_preferences_decode(&q,bad[i],strlen(bad[i]))<0);
 }
+static void profile_tests(void) {
+    const char *machine="/machine",*portable="/portable";
+    const char json[]="{\"text_size\":20,\"wallpaper\":2}";
+    struct desktop_preferences_store s;struct desk_preferences disk=desk_preferences_default(),v;
+    char encoded[512];
+    const char *invalid[]={"{", "{\"text_size\":true}", "{\"text_size\":16,\"text_size\":20}",
+        "{\"pointer_speed\":3}", "{\"wallpaper\":3}", "{\"text_size\":16,}", "{\"text_size\":016}"};
+    for(unsigned i=0;i<sizeof(invalid)/sizeof(*invalid);i++) {
+        v=desk_preferences_default();struct desk_preferences before=v;
+        assert(srv_profile_preferences_decode(&v,invalid[i],strlen(invalid[i]))<0 && !memcmp(&v,&before,sizeof(v)));
+    }
+    assert(!srv_profile_preferences_decode(&v,json,strlen(json)) && v.text_size==20 && v.wallpaper==2);
+    assert(srv_profile_preferences_encode(&v,encoded,sizeof(encoded))>0 && !strstr(encoded,"pointer"));
+    expected_path=machine;desktop_preferences_init_profile(&s,machine,portable);
+    v=desk_preferences_default();v.text_size=16;v.pointer_speed=5;
+    assert(desktop_preferences_set(&s,&v,DESK_PREF_POINTER_SPEED,1)==1);
+    disk.text_size=20;disk.wallpaper=1;disk.pointer_speed=2;
+    assert(desk_preferences_encode(&disk,encoded,sizeof(encoded))>0);
+    expected_path=portable;response(DESK_FILE_OK,encoded);assert(desktop_preferences_poll(&s,2)==1 && s.loading && s.job.busy);
+    response(DESK_FILE_OK,json);assert(desktop_preferences_poll(&s,3)==1 && !s.loading);
+    assert(s.value.pointer_speed==5 && s.value.text_size==20 && s.value.wallpaper==2);
+    expected_path=machine;desktop_preferences_poll(&s,31);assert(s.job.busy);
+    assert(!desk_preferences_decode(&v,s.job.outgoing,s.job.request.length));
+    assert(v.pointer_speed==5 && v.text_size==20 && v.wallpaper==1);
+    response(DESK_FILE_OK,NULL);desktop_preferences_poll(&s,32);assert(!s.dirty);
+    v=s.value;v.wallpaper=0;v.pointer_speed=4;
+    assert(desktop_preferences_set(&s,&v,DESK_PREF_WALLPAPER|DESK_PREF_POINTER_SPEED,40)==1);
+    desktop_preferences_poll(&s,70);assert(s.job.busy);
+    v=s.value;v.pointer_speed=3;desktop_preferences_set(&s,&v,DESK_PREF_POINTER_SPEED,71);
+    response(DESK_FILE_OK,NULL);desktop_preferences_poll(&s,72);assert(s.dirty);
+    desktop_preferences_poll(&s,101);assert(s.job.busy);
+    expected_path=portable;response(DESK_FILE_OK,NULL);desktop_preferences_poll(&s,102);assert(s.job.busy);
+    assert(!srv_profile_preferences_decode(&v,s.job.outgoing,s.job.request.length) && v.wallpaper==0);
+    response(DESK_FILE_OK,NULL);desktop_preferences_poll(&s,103);assert(!s.dirty && s.status==DESK_PREF_SAVED);
+    v=s.value;v.theme_style=2;desktop_preferences_set(&s,&v,DESK_PREF_STYLE,110);
+    desktop_preferences_poll(&s,140);assert(s.job.busy);
+    response(DESK_FILE_CHANGED,NULL);desktop_preferences_poll(&s,141);assert(!s.writable && s.status==DESK_PREF_CONFLICT);
+    desktop_preferences_close(&s);
+    expected_path=machine;desktop_preferences_init_profile(&s,machine,portable);
+    expected_path=portable;response(DESK_FILE_NOT_FOUND,NULL);desktop_preferences_poll(&s,1);
+    response(DESK_FILE_NOT_FOUND,NULL);desktop_preferences_poll(&s,2);assert(!s.writable && s.status==DESK_PREF_SESSION_ONLY);
+    desktop_preferences_close(&s);
+    /* A complete mask can be dirtied before either asynchronous read finishes. */
+    expected_path=machine;desktop_preferences_init_profile(&s,machine,portable);
+    v=desk_preferences_default();v.pointer_speed=5;v.text_size=20;
+    assert(desktop_preferences_set(&s,&v,DESK_PREF_ALL,1)==1);
+    expected_path=portable;response(DESK_FILE_NOT_FOUND,NULL);
+    desktop_preferences_poll(&s,2);assert(s.loading && s.job.busy);
+    response(DESK_FILE_OK,"{}");desktop_preferences_poll(&s,3);
+    assert(!s.loading && s.writable && s.value.pointer_speed==5 && s.value.text_size==20);
+    desktop_preferences_close(&s);expected_path=DESKTOP_PREFERENCES_PATH;
+}
 int main(void) {
-    model();static struct desktop_preferences_store s;
+    model();profile_tests();starts=0;static struct desktop_preferences_store s;
     desktop_preferences_init(&s);assert(s.loading && s.job.busy && starts==1);
     struct desk_preferences p=desk_preferences_default();p.text_size=20;
     assert(desktop_preferences_set(&s,&p,DESK_PREF_TEXT,10)==1);
