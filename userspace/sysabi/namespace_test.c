@@ -282,9 +282,9 @@ int namespace_workspace_launch(const char *mode) {
         .flags=SRV_EXEC_BACKGROUND,.stdin_fd=-1,.stdout_fd=-1,.stderr_fd=-1};
     return srv_exec(&request)>0?0:1;
 }
-int namespace_workspace_verify(void) {
+int namespace_workspace_verify(int system_only) {
     failures=0;
-    CHECK(persistence_verify_one("/work/.namespace-lifecycle","workspace-lifecycle-v1"),"lifecycle-persist");
+    if(!system_only) CHECK(persistence_verify_one("/work/.namespace-lifecycle","workspace-lifecycle-v1"),"lifecycle-persist");
     CHECK(same_inode("/home","/fat/home") && same_inode("/usr/home","/home") &&
           same_inode("/bin/true","/fat/bin/true"),"lifecycle-system-aliases");
     struct stat st;

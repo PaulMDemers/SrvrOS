@@ -343,13 +343,14 @@ static int check_fault_exit(const char *mode, int expected_signal) {
 int namespace_test(void);
 int namespace_workspace_hold(const char *mode);
 int namespace_workspace_launch(const char *mode);
-int namespace_workspace_verify(void);
+int namespace_workspace_verify(int system_only);
 int namespace_test_persistence(int verify);
 
 int main(int argc, char **argv) {
     if (argc == 2 && !strncmp(argv[1], "--workspace-hold-",17)) return namespace_workspace_hold(argv[1]+17);
     if (argc == 2 && !strncmp(argv[1], "--workspace-launch-",19)) return namespace_workspace_launch(argv[1]+19);
-    if (argc == 2 && !strcmp(argv[1], "--workspace-verify")) return namespace_workspace_verify();
+    if (argc == 2 && !strcmp(argv[1], "--workspace-system")) return namespace_workspace_verify(1);
+    if (argc == 2 && !strcmp(argv[1], "--workspace-verify")) return namespace_workspace_verify(0);
     if (argc == 2 && !strcmp(argv[1], "--namespace")) return namespace_test();
     if (argc == 2 && !strcmp(argv[1], "--namespace-save")) return namespace_test_persistence(0);
     if (argc == 2 && !strcmp(argv[1], "--namespace-reopen")) return namespace_test_persistence(1);

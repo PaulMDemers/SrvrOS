@@ -219,6 +219,7 @@ def boot(disk, out, number, args, negative=False, *, other_disk=None,
                         if any(fail in response for fail in (b'namespace: FAIL', b'namespace-persistence: FAIL',
                                                              b'sysabi: fail', b'exception:', b'workspace-lifecycle: FAIL')):
                             raise RuntimeError(f'Canonical command failed: {line}')
+                        return response
                     work_device = 'ahci0p2' if reverse else 'ahci1p2'
                     command(f'mount {work_device} /work', f'{work_device} on /work type=exfat'.encode())
                     if workspace_lifecycle:
@@ -227,11 +228,14 @@ def boot(disk, out, number, args, negative=False, *, other_disk=None,
                             command(f'run /bin/sysabi --workspace-launch-{hold}',
                                     f'workspace-lifecycle: {hold} READY'.encode(), prompt=b'')
                             command('unmount /work', b'unmount: busy: /work')
-                            command('write /home/.namespace-lifecycle-release release',
-                                    b'write: /home/.namespace-lifecycle-release')
-                            wait(f'workspace-lifecycle: {hold} RELEASED'.encode())
+                            response = command('write /home/.namespace-lifecycle-release release',
+                                               b'write: /home/.namespace-lifecycle-release')
+                            released = f'workspace-lifecycle: {hold} RELEASED'.encode()
+                            if released not in response:
+                                wait(released)
                             command('run /bin/sh -c sync', b'exited status=0')
                             command('unmount /work', b'exfat: unmounted /work')
+                            command('run /bin/sysabi --workspace-system', b'workspace-lifecycle: verify PASS')
                             command(f'mount {work_device} /work', f'{work_device} on /work type=exfat'.encode())
                             command('run /bin/sysabi --workspace-verify', b'workspace-lifecycle: verify PASS')
                         command('run /bin/sh -c "rm /work/.namespace-lifecycle"', b'exited status=0')
