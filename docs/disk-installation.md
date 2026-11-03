@@ -1,5 +1,35 @@
 # Disk installation and recovery
 
+## Canonical-path installed boot — active milestone
+
+User authorized the canonical-path installed-boot proof and a scoped PR. Work
+uses `device/apple-silicon/installed-canonical-paths` in the same isolated clone,
+from merged PR312 main `8f47f196`, consuming exact PR313 `77dbd1f9` by a local
+history-preserving dependency merge. PR313 still awaits its separate integration
+review; this branch does not authorize merging that PR or its dependencies.
+It includes PR308, full PR252 `badfeb37`, and SrvrPorts pin `0f51ba9`.
+
+Latest profile contracts checked: PR309 `fa9717ad` and newer desktop-adoption
+PR314 `814aee20` (SrvrApps5). Profile sessions are explicitly selected and remain
+distinct from root credentials, disk identity and namespace activation. This
+slice retains the existing home provider and desktop settings; it does not
+import the profile branch or create a competing session implementation.
+
+Own the installed GPT fixture/harness and this acceptance record. Consume the
+filesystem owner's `/bin` → `/fat/bin`, `/usr` → `/fat`, `/var` → `/fat/var`,
+`/home` → `/fat/home` implementation unchanged. Required evidence: target-only
+EFI boot, identity selection before aliases, reversed GPT disks, canonical and
+legacy path identity/execution, Text/preferences persistence, an independent
+GPT-backed `/work`, and no-write recovery before namespace activation. Positive
+boots intentionally write the independent provider; protected disk regions must
+stay unchanged. Refusal cases must preserve both complete disk hashes.
+
+Existing review VMs 61610, 6233 and 85869 remain live and untouched. One build or
+harness runs at a time in this clone. No physical install, host reboot, Actions,
+profile activation or upgrade/rollback is included. Status: implementation and
+combined verification in progress; publish exact source, dependencies, evidence
+and any integration limitations before delivery.
+
 ## PR312 integration review and next checkpoint — November 3, 2026
 
 User requested review and merge if ready. Integration review found no blocking
