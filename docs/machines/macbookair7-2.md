@@ -19,6 +19,15 @@ one-shot state before reboot. Collection precedes any next run. Fetched main
 VM-validated payload. Local run: `build/air-open-with-native-20261103/`.
 No physical acceptance is claimed before return and collection.
 
+Preparation passed: all 1313 prior files and 90 sessions are baselined; the last
+native run is already collected. Offline fsck/allocation/writable/headroom and
+clean volume flags pass. Candidate f586 is installed and hash-verified, current
+accepted c497 stays available independently and on EFI, and recovery9aa plus
+Ubuntu's default are unchanged. The unused failed 291 payload was copied and
+verified outside EFI before its obsolete EFI copy was removed to make space.
+The run record is prepared, not yet armed; it records any subsequent one-shot
+reboot request. Native acceptance remains pending.
+
 ### Exact-stage keyboard injection fix
 
 The unchanged staged payload `f586e4a2d58cb3ab` now passes its whole exact-stage
@@ -50,8 +59,8 @@ manifest instead of rewriting history. The final harness source is `4685c6bb`;
 module pins remain Apps `ff6c8de`, UI `89fb6d9`, Ports `0494ae2`. The candidate
 and prior known-good/recovery payloads verify independently outside `build`.
 OS PR278 and Apps PR2 are ready for review together; native Open With acceptance
-still needs the focused in-guest attended checklist. No install or reboot is
-armed, and installed c497/recovery9aa remain unchanged.
+still needs the focused in-guest attended checklist. At that VM checkpoint no install or reboot was armed; the later native
+preparation above records the installed candidate separately.
 
 Fetched main `adc25965` adds
 independent Air6,1 read-only HDA diagnostics; PR288 owns Files recovery, PR289
