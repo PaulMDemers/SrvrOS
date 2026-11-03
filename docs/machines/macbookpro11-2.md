@@ -81,6 +81,22 @@ pulse or RX; separate VCO/calibrated reception and authenticated IP milestones
 remain pending. PR252 retains resolver/socket scope; no other open Wi-Fi owner
 was found at this integration checkpoint. Preserve v115 and independent backups.
 
+## Active native held-channel scope
+
+Reviewed remote main `d5822348` and open PRs301/299/252: current work is display
+ownership, Terminal quoting and resolver/socket auditing, with no MT76 overlap.
+This bounded trial keeps consumed main `1dad02c2` and host foundation `1267acfa`
+to avoid conflating new desktop changes with radio results. Next implementation
+owns `xhci_wifi_mcu.inc`, fixed coordinator admission helpers, main/header opt-in
+dispatch, immutable boot/staging gates and complete phase-tagged saved-log proof.
+Add a new explicit automatic-return profile after the restored v115 parent.
+Fresh private board/gain and same-device proof must remain live before each I/O;
+revoke on uncertainty, with no retry. Validate all fixed requests, nested stack
+budget, invalid ownership, complete-prefix mutation and staging refusal cases,
+then matched build/sanitizers/exact-image VM/storage/recovery before installation.
+No trim/DAC/VCO/RX or credential use is in this trial. Installed v115/previous
+recovery remain untouched until every prerequisite passes; currently unarmed.
+
 ## Held-channel host foundation
 
 A fixed coordinator now nests PA at A20 operation504 while synth operation623
