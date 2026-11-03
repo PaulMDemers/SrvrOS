@@ -164,6 +164,18 @@ def main():
                     text(phrase); shortcut('ctrl-a'); shortcut('ctrl-c')
                     wait(f'clipboard role=2 action=8 bytes={len(phrase)}'.encode())
                     identities = set()
+                    # Leave enough room for the outward drag and its return
+                    # halo above the dock, which has priority over windows.
+                    if frame[1] + frame[3] + 14 >= logical_h - 74:
+                        x, y = point(frame, 8); move(x, y); start = len(output)
+                        button(True); move(x, y-32); button(False)
+                        identity, normalized = latest_resize(start, 8)
+                        expected = (frame[0], frame[1], frame[2], frame[3]-32)
+                        if normalized != expected:
+                            raise AssertionError(f'could not clear dock: {normalized} != {expected}')
+                        wait(f'size={normalized[2]-2}x{normalized[3]-45}'.encode(), start=start)
+                        drain(); identities.add(identity); frame = normalized
+                        initial = list(frame)
                     if not (frame[0] >= 14 and frame[1] >= 58 and
                             frame[0]+frame[2]+14 < logical_w and frame[1]+frame[3]+14 < logical_h):
                         raise AssertionError(f'Text frame lacks resize halo and travel: {frame}')
