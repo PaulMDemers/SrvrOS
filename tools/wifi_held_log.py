@@ -55,7 +55,7 @@ def plan(lna):
 def receipt(op,row,dma=0x40000050):
     phase,local,w,a,v,h=row;v=dma if v is None else v
     if h is None:return f'wifi-held-usb: op={op} phase={phase} local={local} write={int(w)} address=0x{a:016x} value=0x{v:016x} ok=1'
-    return f'wifi-held-command: op={op} phase={phase} local={local} sent=16 received=16 cc=13 residue=1008 h=0x{h:016x} address=0x{a:016x} value=0x{v:016x} t=0x{h:016x}'
+    return f'wifi-held-command: op={op} phase={phase} local={local} write={int(w)} sent=16 received=16 cc=13 residue=1008 h=0x{h:016x} address=0x{a:016x} value=0x{v:016x} t=0x{h:016x}'
 
 
 def check(log):

@@ -910,7 +910,7 @@ bool mt76_bbp5_transfer_valid(const struct mt76_bbp5 *s,unsigned operation,bool 
 bool mt76_bbp5_valid(const struct mt76_bbp5 *s);
 enum mt76_mcu_timing_status mt76_bbp5_capture(struct mt76_bbp5 *s,unsigned lna,const struct mt76_bbp5_io *io);
 
-/* Host-only foundation until a separate native owner/profile is reviewed.
+/* Fixed coordinator; native admission belongs to its separate private owner.
  * All I/O interfaces share context/authorizer. Native admission must supply
  * fresh gain/board/parent proof; the scalar here is not that proof. No VCO/RX.
  * Phases:1 band/synth/A20,2 PA,3 BBP,4 verified full restoration. */

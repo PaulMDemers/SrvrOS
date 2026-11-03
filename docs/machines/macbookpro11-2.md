@@ -118,7 +118,7 @@ cover exact capacity, persistence/readback, wrap ordering and refusal after pref
 loss, and a subsequent ordinary capture.207 staging tests pass. Exact native
 compiler stack reporting gives3776bytes for the nested coordinator/band/synth/A20/
 PA/BBP engine frames, with static state; existing transport/IRQ frames remain
-separate within the128KiB task stack. No native acceptance is claimed. Full
+separate; scheduled task stacks are128KiB. No native acceptance is claimed. Full
 regression/sanitizer/exact-stage VM/source/recovery checks precede installation;
 source remains based on main `1dad02c2` with newer main reviewed separately.
 

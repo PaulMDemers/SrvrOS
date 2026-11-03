@@ -2594,7 +2594,7 @@ static int wifi_held_exchange(void *context,const uint8_t *packet,size_t length,
     for(unsigned i=0;i<16;i++)d->firmware.buffer[i]=packet[i];
     int sent=wifi_mcu_bulk(d,false,16),received=-1;if(sent==16)received=wifi_mcu_bulk(d,true,MT76_MCU_RESPONSE_MAX);
     uint32_t w[4]={0};for(unsigned n=0;n<4;n++)if(received>=(int)(4*n+4))for(unsigned b=0;b<4;b++)w[n]|=(uint32_t)m->buffer[4*n+b]<<(8*b);
-    console_printf("wifi-held-command: op=%u phase=%u local=%u sent=%d received=%d cc=%u residue=%u h=%x address=%x value=%x t=%x\n",(uint64_t)op,(uint64_t)phase,(uint64_t)local,(int64_t)sent,(int64_t)received,(uint64_t)m->completion,(uint64_t)m->remaining,(uint64_t)w[0],(uint64_t)w[1],(uint64_t)w[2],(uint64_t)w[3]);
+    console_printf("wifi-held-command: op=%u phase=%u local=%u write=%u sent=%d received=%d cc=%u residue=%u h=%x address=%x value=%x t=%x\n",(uint64_t)op,(uint64_t)phase,(uint64_t)local,(uint64_t)((packet[2]>>4)==12),(int64_t)sent,(int64_t)received,(uint64_t)m->completion,(uint64_t)m->remaining,(uint64_t)w[0],(uint64_t)w[1],(uint64_t)w[2],(uint64_t)w[3]);
     if(received<0 || (size_t)received>capacity)return -1;
     for(int i=0;i<received;i++)reply[i]=m->buffer[i];
     return received;

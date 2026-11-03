@@ -55,7 +55,7 @@ static int exchange(void *p,const uint8_t *packet,size_t length,uint8_t *reply,s
     w[0]=w[3]=0x4a000008u|(seq<<16);w[2]=f->rf[bank][reg];memset(reply,0,capacity);
     for(unsigned j=0;j<4;j++)for(unsigned b=0;b<4;b++)reply[4*j+b]=(uint8_t)(w[j]>>(8*b));
     if(f->calls==f->bad)reply[0]^=1;
-    if(trace)printf("wifi-held-command: op=%u phase=%u local=%u sent=16 received=16 cc=13 residue=1008 h=0x%016llx address=0x%016llx value=0x%016llx t=0x%016llx\n",f->calls-1,mt76_channel5_phase(f->s),mt76_channel5_local(f->s),(unsigned long long)w[0],(unsigned long long)w[1],(unsigned long long)w[2],(unsigned long long)w[3]);
+    if(trace)printf("wifi-held-command: op=%u phase=%u local=%u write=%u sent=16 received=16 cc=13 residue=1008 h=0x%016llx address=0x%016llx value=0x%016llx t=0x%016llx\n",f->calls-1,mt76_channel5_phase(f->s),mt76_channel5_local(f->s),(unsigned)(command==12),(unsigned long long)w[0],(unsigned long long)w[1],(unsigned long long)w[2],(unsigned long long)w[3]);
     return 16;
 }
 static bool mac_transfer(void *p,unsigned op,bool wr,uint32_t a,uint8_t *data,unsigned length){

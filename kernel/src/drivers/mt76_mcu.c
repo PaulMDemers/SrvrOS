@@ -3359,7 +3359,7 @@ static enum mt76_mcu_timing_status bbp5_capture(struct mt76_bbp5 *s,unsigned lna
 
 enum mt76_mcu_timing_status mt76_bbp5_capture(struct mt76_bbp5 *s,unsigned lna,const struct mt76_bbp5_io *io){return bbp5_capture(s,lna,io,NULL);}
 
-/* A fixed nested transaction, deliberately not wired into native startup yet.
+/* A fixed nested transaction; native I/O requires a separate private owner.
  * A20, PA and BBP each finish their selected readbacks before entering a child.
  * Their restorations then run in the exact inverse order. An uncertain transfer
  * or revoked authorization stops immediately; no speculative cleanup/replay. */
