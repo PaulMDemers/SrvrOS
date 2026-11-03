@@ -21,6 +21,7 @@ from desktop_foundation_smoke import QMP
 from displayd_frame_smoke import choose_port, connect_serial, stop_process
 from displayd_resolution_smoke import build_iso, has_fatal_exception
 from virtio_gpu_present_smoke import ppm
+from serial_records import desktop_progress_end
 
 ABS_MAX = 32767
 WIDTH, HEIGHT = 1280, 800
@@ -72,7 +73,8 @@ def main():
     (out / 'result.json').unlink(missing_ok=True)
     manifest = source_manifest(root)
     (out / 'source-manifest.json').write_text(json.dumps(manifest, indent=2, sort_keys=True) + '\n')
-    metadata = {'source_manifest_sha256': sha256(out / 'source-manifest.json'),
+    metadata = {'submodules': subprocess.check_output(['git', 'submodule', 'status', '--recursive'], cwd=root, text=True),
+                'source_manifest_sha256': sha256(out / 'source-manifest.json'),
                 'kernel_sha256': sha256(root / 'build/iso_root/boot/srvros.elf'),
                 'base_disk_sha256': sha256(root / 'build/srvros.exfat'),
                 'qemu_version': subprocess.check_output([args.qemu, '--version'], text=True).splitlines()[0]}
@@ -110,7 +112,7 @@ def main():
                     nonlocal consumed
                     end = time.monotonic() + timeout
                     search_from = consumed if start is None else start
-                    while marker not in output[search_from:]:
+                    while (matched_end := desktop_progress_end(output, marker, search_from)) is None:
                         if process.poll() is not None or time.monotonic() >= end:
                             raise RuntimeError(f'missing {marker!r}; see serial.log')
                         if boot:
@@ -122,7 +124,7 @@ def main():
                             output.extend(chunk)
                         except socket.timeout:
                             pass
-                    consumed = max(consumed, output.index(marker, search_from) + len(marker))
+                    consumed = max(consumed, matched_end)
                     markers.append(marker.decode(errors='replace'))
 
                 def shortcut(keys):
@@ -183,13 +185,61 @@ def main():
                 text_pid, text_window = original[0]
                 phrase = 'profile selection proof'
                 text(phrase)
-                shortcut('ctrl-l'); shortcut('ctrl-a'); text('/fat/profile-proof.txt')
+                shortcut('ctrl-l'); shortcut('ctrl-a'); text('/fat/home/profile-proof.txt')
                 shortcut('ctrl-s'); wait(b'picker ready mode=2'); qmp.key('ret')
                 wait(b'file-result role=text op=2 status=0')
                 click(90, 225); shortcut('ctrl-a'); shortcut('ctrl-c')
                 wait(b'clipboard role=2 action=8 bytes=23')
                 shot('silver-existing')
                 silver = selection_color(out / 'silver-existing.ppm', 49, 64+44+102)
+                # Keep Files alive while Settings broadcasts each profile.
+                files_start = len(output)
+                click(390, 750); wait(b'desktools: starting role=files', start=files_start)
+                wait(b'deskd: geometry pid=', start=files_start); wait(b'\n')
+                files_geometry = re.findall(rb'deskd: geometry pid=(\d+) window=\d+ frame=(\d+),(\d+),(\d+),(\d+)', output[files_start:])[-1]
+                files_pid = files_geometry[0]
+                fx, fy, fw, fh = map(int, files_geometry[1:])
+                wait(b'files-location path=/fat/home ', start=files_start)
+                wait(b'deskd: commit pid=' + files_pid, start=files_start)
+                if fw - 2 < 708 or fx + fw >= WIDTH or fy + fh >= HEIGHT:
+                    raise AssertionError(f'Files normal frame unsuitable for resize: {(fx, fy, fw, fh)}')
+                text('profile-proof')
+
+                def files_selection():
+                    shortcut('f2')
+                    wait(b'files-prompt operation=5 name=profile-proof.txt')
+                    qmp.key('esc'); wait(b'deskd: retired pid=' + files_pid)
+
+                def files_resize(current_width, target_width):
+                    # Drag the outer right-edge halo by the exact width delta.
+                    # Edge resizing anchors the original frame and pointer;
+                    # zoom/restore logs still prove the resulting exact size.
+                    move(fx + current_width + 2, fy + fh // 2)
+                    button('left', True); move(fx + target_width + 2, fy + fh // 2); button('left', False)
+                    time.sleep(.5)
+                    click(fx + target_width - 56, fy + 20)
+                    wait(b'deskd: zoom pid=' + files_pid + b' maximized=1 ')
+                    click(WIDTH - 64, 72)
+                    wait(f'deskd: zoom pid={files_pid.decode()} maximized=0 frame={fx},{fy},{target_width},{fh}'.encode())
+
+                def files_profile(name):
+                    click(390, 750); files_selection(); shot(name + '-files-normal')
+                    files_resize(fw, 600); files_selection(); shot(name + '-files-compact')
+                    files_resize(600, fw); files_selection()
+
+                files_profile('silver')
+                # A second Files window shares the owner but has its own history.
+                sibling_start = len(output)
+                shortcut('ctrl-shift-n')
+                wait(b'files-runtime: admitted window=', start=sibling_start); wait(b'\n')
+                sibling = re.findall(rb'files-runtime: admitted window=(\d+)', output[sibling_start:])[-1]
+                wait(b'files-location path=/fat/home ', start=sibling_start)
+                wait(b'deskd: commit pid=' + files_pid, start=sibling_start)
+                shortcut('ctrl-l'); shortcut('ctrl-a'); text('/fat'); qmp.key('ret')
+                wait(b'files-location path=/fat history=2/2')
+                shortcut('alt-left'); wait(b'files-location path=/fat/home history=1/2')
+                shortcut('ctrl-w'); wait(b'files-runtime: closed window=' + sibling + b' ')
+                files_selection()
                 click(790, 750); wait(b'desktools: starting role=settings')
                 wait(b'deskd: geometry pid='); wait(b'\n')
                 geometry = re.findall(rb'deskd: geometry pid=(\d+) window=\d+ frame=(\d+),(\d+),(\d+),(\d+)', output)
@@ -204,6 +254,7 @@ def main():
                     wait(f'theme_accent=0 glass_level=1 theme_style={style}'.encode())
                     wait(b'status=1 ')
                     shot(name + '-settings')
+                    files_profile(name)
                     click(490, 750); shortcut('ctrl-c')
                     wait(b'clipboard role=2 action=8 bytes=23')
                     shot(name + '-existing')
@@ -236,7 +287,7 @@ def main():
                     raise AssertionError('Help wheel did not scroll')
                 shot('aqua-help-wheel'); finish()
                 serial.sendall(b'cat /fat/home/desktop.conf\n'); wait(b'theme_style=2'); wait(b'srv> ')
-                serial.sendall(b'cat /fat/profile-proof.txt\n'); wait(phrase.encode()); wait(b'srv> ')
+                serial.sendall(b'cat /fat/home/profile-proof.txt\n'); wait(phrase.encode()); wait(b'srv> ')
                 restart_start = len(output)
                 serial.sendall(b'run /fat/bin/deskd --apps-trace --scale=1\n')
                 wait(b'status=1 text=16', start=restart_start)
@@ -265,6 +316,7 @@ def main():
     (out / 'result.json').write_text(json.dumps({
         'status': 'PASS', 'metadata': metadata, 'active_pointer': active[0],
         'checks': ['live Aero and Aqua', 'existing and new Text selection', 'content and selection retained',
+                   'Files selection across profiles and normal/compact resize', 'Files sibling history and close',
                    'popup and dialog captures', 'drag and Help wheel', 'saved Aqua and desktop restart'],
         'limitations': 'QMP guest evidence does not test host-window smoothness or cursor release.'
     }, indent=2) + '\n')

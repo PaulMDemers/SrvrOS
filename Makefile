@@ -4164,6 +4164,8 @@ test-core: test-qmp-hid-input
 test-qmp-hid-input:
 	$(PYTHON) tools/test_qmp_hid_input.py
 
+
+
 # Third-party source preparation and target compilation belong to SrvrPorts.
 include ports/srvros/awk/build.mk
 # Compatibility forwarding sources include the canonical SrvrUI implementation.

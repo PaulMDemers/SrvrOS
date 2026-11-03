@@ -2132,6 +2132,155 @@ and SrvrApps PR1; subsequent acceptance commits change documentation only.
 No further feature is required for the approved profiles milestone.
 
 
+### Files recovery — active isolated scope, November 3, 2026
+
+User authorized reproducing and fixing Files mutation/refresh recovery in
+`SrvrOS-app-quality`, an independent recursive checkout on `app/files-recovery`
+from fetched main `e376669c`. The shared integration checkout and attended review
+VM are untouched. This block owns SrvrApps `desktools/files_app.c` and focused OS
+host/VM regressions; no widget, ABI, filesystem or worker-lifetime redesign.
+PR278 and SrvrApps PR2 retain Open With ownership; their Files/test overlap must
+be reconciled before integration. PR252 retains process/I/O, PR19 USB Wi-Fi.
+
+Acceptance: reproduce stale selection and success-notice carryover; keep failed
+mutation state from later refresh/navigation; accurately report successful
+mutation plus failed refresh; preserve selection/history, keyboard/pointer,
+independent windows, Text save/readback and live Silver/Aero/Aqua themes. Run
+focused and desktop/widget/IO host checks, matched build and sequential disposable
+VM checks in this checkout only. No hosted Actions or native acceptance.
+Next checkpoint: failing focused regressions before runtime edits.
+
+
+### Files recovery verified — November 3, 2026
+
+SrvrApps `3aea2a95` fixes stale selection and success notices after failed Files
+operations, tested against OS base `e376669c`, SrvrUI `89fb6d9` and SrvrPorts
+`0494ae2`. All seven upstream pins remain unchanged. Failure cleanup is local to
+Files: it retires the pending destination/notice, retains the current folder and
+history, and distinguishes a completed mutation from its failed refresh. No shared
+control, transport, filesystem, ABI or process-lifetime behavior changed.
+
+Both defects reproduced against original SrvrApps `d245fe2`: the focused
+`files-host selection` invocation aborted on a wrong selected inode after a
+rename collision/refresh; `files-host notice` aborted when Copy verified leaked
+into another folder after refresh start refusal. These negative controls are
+retained in `build/review/files-recovery/baseline-failures.json`. The fixed tests
+cover rename/copy collisions followed by refresh/navigation, refresh start
+refusal, I/O failure, invalid listing, worker loss, original selection/history
+retention and compound success/refresh-failure feedback.
+
+Verification in the independent `SrvrOS-app-quality` checkout:
+
+- Focused Files regression and ASan/UBSan app fixture: pass.
+- Documented macOS `test-desktop test-desktop-io widget-theme-preview`: pass,
+  110 PASS records. Added worker-loss cases also pass the focused rerun.
+- Full matched image build: pass; recursive revisions/diff hashes are in
+  `build/macos-build.json`.
+- `TMPDIR=/tmp python3 tools/desktop_files_smoke.py`: pass, including actual
+  Rename and Duplicate collision/refresh followed by a Rename prompt proving
+  the original source remains selected, cancellation, history and saved bytes.
+- `TMPDIR=/tmp python3 tools/desktop_apps_smoke.py`: pass, including Open/Save/
+  Save As, replacement cancel/verified overwrite, unsaved cancel, clipboard/cut/
+  undo, empty save, document routing, text-size/theme broadcasts and window menus.
+- `TMPDIR=/tmp python3 tools/desktop_theme_profiles_smoke.py`: pass with VirtIO
+  tablet input, one Files process with independent sibling history/close,
+  selected filename retained across live Silver/Aero/Aqua and exact 722/600-pixel
+  outer-width resizes, plus existing Text/theme/restart/readback checks. All six
+  Files captures and the shared control specimen were visually inspected.
+
+The first theme run also passed; its root-directory selection was offscreen in
+the captures. That receipt remains under `build/review/files-recovery/themes-first-pass/`.
+The final fixture saves in Home so the selected row is visible at both sizes.
+Rare refresh/worker failures use deterministic host injection; they are not
+claimed as device-fault VM trials. The Linux-only multi-Files exfatprogs harness
+was not run on macOS; the focused sibling/history check above covers this scoped
+workflow. No native acceptance or hosted Actions run is implied.
+
+Evidence is under `build/review/files-recovery/`, `build/review/desktop-files/`,
+`build/review/desktop-apps/` and `build/review/desktop-theme-profiles/`. All disposable
+VMs exited; the shared integration checkout and its attended review VM were not
+modified. Implementation and acceptance are complete for this milestone. Next:
+integration review, reconciling the Files/test overlap with PR278/SrvrApps PR2;
+no merge or broader app-suite work is included.
+
+
+### Files recovery / Open With integration — active November 3, 2026
+
+The user authorized reviewing and reconciling Apps PR3 / OS PR288 with Open With
+without accessing the shared checkout or attended VM. All work remains in the
+independent `SrvrOS-app-quality` checkout. Fetched main is OS `adc25965`, Apps
+`d54b6cf`; inspected Open With is Apps `ff6c8dec` / OS `7bfa0e47`. Merge those
+branches into the owned recovery branches without rewriting published history;
+stack the recovery reviews on their Open With dependencies so the final review
+diff stays bounded. Preserve PR278's SDK, runtime consumers and original tests.
+
+App hunks merge cleanly; resolve the OS app gitlink to the combined app commit
+and retain both Files fixture controls (failure injection and expected launch
+app/path). Add explicit collision/refresh/navigation-to-Open-With checks. Verify
+the combined host suites, build and owned/refused Open With consumer workflows,
+including unsaved Text retention and file readback. A clearly labeled generated
+disk fixture mode will permit the existing consumer harness on macOS without
+claiming Linux exfatprogs validation. No main merge, hosted Actions, hardware
+trial, or PR252 process/I/O / PR19 Wi-Fi work is included.
+
+### Files recovery / Open With integration verified — November 3, 2026
+
+Reconciled the recovery branches with Apps PR2 `efd9dba3`, OS PR278 `1454f9e5`
+and main's merged SrvrUI renderer extraction (`5b2bf3c7`). The combined published
+app is `4f2f3425`, UI is `76deeb30`, and Ports remains `0494ae2`; all seven upstream
+pins are unchanged. Relative to the Open With app branch, only the 18-addition /
+6-deletion Files recovery fix remains. Preserve both the failure-injection and
+expected app/path fixture controls, the combined app gitlink, and both Makefile
+rules: QMP input validation and canonical renderer dependencies. No Open With
+SDK, runtime consumer, or existing assertion was removed.
+
+The combined checks prove collision/refresh/navigation recovery followed by
+Open With cancellation and captured-source routing, plus successful-copy
+selection. The Files VM opens the recovered source in Text, saves it, and checks
+both files byte for byte. Owned and refused-dialog lifecycle VMs retain unsaved
+siblings, reuse existing Text/Preview processes, exercise default and explicit
+handlers with keyboard/pointer input, verify exact file contents and restore the
+process baseline. An explicit `--generated-fixture` mode preserves the complete
+matched disk and checks generator metadata and offline allocation before/after;
+the default Linux exfatprogs fixture remains unchanged. Independent exfatprogs
+fsck was not run on this macOS host.
+
+Validation in `SrvrOS-app-quality`:
+
+- Original negative controls remain in `build/review/files-recovery/`.
+- Desktop/widget/I/O plus QMP input checks: 112 PASS records; focused Files
+  ASan/UBSan, matched full build, Python syntax and documentation checks pass.
+- Clean `ebbe54e8` passes the owned Open With, refused-dialog Open With and
+  Files action/recovery VMs sequentially with the above app/UI/Ports tuple.
+- The first theme run exposed interleaved serial logging: the sibling closed,
+  but compositor trace lines split its closure message. The failure log and
+  screenshot remain in `build/review/files-open-with/theme-interleaved-failure/`.
+  Reuse the existing `desktop_progress_end` matcher, preserving exact application
+  bytes and raw offsets. Its four tests and replay of the captured failure pass.
+- Clean `2fad3a65` passes the theme VM after that harness-only correction. All
+  three kernel/initramfs/disk hashes are identical to the other three VM runs.
+  Sibling Files history/close, selected filename, live Silver/Aero/Aqua, exact
+  722/600-pixel outer widths, Text, restart and readback remain covered. Both
+  chooser forms and all six Files profile/size captures were inspected.
+
+The latest PR278 merge only updated its physical-trial record because its Help
+app pin was already an ancestor of the combined app. Main `a89632eb` subsequently
+adds Air6,1 design documentation only. Final clean-build identity and matching
+runtime hashes are recorded in `build/review/files-open-with/receipt.json`;
+the earlier integration round remains under `pre-main-refresh/`. All disposable
+VMs stopped. The shared checkout and attended review VM were untouched. No hosted
+Actions, native acceptance or main merge is claimed.
+
+Integration preparation is complete for [Apps PR3](https://github.com/PaulMDemers/SrvrApps/pull/3)
+and [OS PR288](https://github.com/PaulMDemers/SrvrOS/pull/288). This supersedes the
+initial plan to stack both reviews: Apps PR3 targets the Apps PR2 branch for a
+recovery-only diff; OS PR288 stays on main because main already contains the
+renderer extraction. Merge the Open With pair (Apps PR2 then OS PR278) first;
+retarget Apps PR3 to main and merge it before OS PR288. Do not merge recovery into
+the Open With feature branch. The child dependency was published before the OS
+pin. The reviews are ready for integration review, not merged by this task.
+
+
 ### Edge and corner resizing — active scope November 3, 2026
 
 User authorized implementation, verification and merge. Branch
@@ -2282,3 +2431,19 @@ left open at `.local/macos-vm/edge-resize-review/current.json`; the prior review
 VM had already stopped and its persistent disk is retained. Required verification
 is complete for [PR292](https://github.com/PaulMDemers/SrvrOS/pull/292). Native
 acceptance and Actions are unchanged.
+
+
+### Files integration sequence — November 3, 2026
+
+Apps PR2 merged as `45cbd585`; OS PR278 merged as `c0fa8d90` after preserving
+main's renderer/awk rules and edge-resize integration. Both intermediate matched
+host/build candidates passed. Apps PR3 was then retargeted to main and merged as
+`ae56bf71`; its tree exactly matches reviewed `4f2f3425`. OS PR288 now pins that
+merged app and incorporates current main, preserving the Files regressions and
+all host journal entries. The theme fixture uses the new outer right-edge halo
+and anchored pointer delta, retaining exact 722/600-pixel width assertions.
+
+Next: merge OS PR288 after host/build checks, then verify the actual merged main
+with host/sanitizer checks and sequential owned/refused Open With, Files, theme
+and awk VMs. Evidence belongs in `build/review/files-merged/`. Shared checkout
+and review VM remain untouched; native acceptance and hosted Actions unchanged.
