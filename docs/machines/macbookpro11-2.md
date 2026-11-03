@@ -12,16 +12,18 @@ The captured EW-7711MAC `7392:a711`/`0100` is **5GHz-only**; see the
 mistaken for assembled-model capability. Historical2.4GHz packet/USB traces do
 not establish2.4GHz RF support. Do not repeat the withdrawn v107 trial.
 
-Latest native v114 `bf9e136ebf72e6fe`, runtime `9e370a25`, main `e376669c`,
-passes the complete571183-byte prefix in matching session
-`session-00065f644da09d20-00`:3305 operations, full parent41-target restoration,
-44 frontend originals, external5GHz PA selection/readback,14-target reverse
-restoration and independent original readback. Source/release/session, recovery
-bytes, offline fsck/allocation and automatic Ubuntu return pass. The105-file
-sealed archive `wifi-pa5-cycle-9e370a25` is outside build. This accepts PA
-command/readback/restoration with MAC disabled after the parent has restored;
-it does not accept operational PA inside held channel161, BBP gain/baseband,
-VCO/RF lock, reception, authentication or connectivity. Collected and unarmed.
+Latest native v115 `e405f17dd9a5449b`, runtime `ec117c9e`, main `105077d7`,
+passes the complete637002-byte prefix in matching session
+`session-00065f64e70cadfc-00`:4053 operations, full parent/PA restoration,
+fresh logical40 channel161 gain and21-row A-band/20MHz BBP selection,
+independent selected readback, reverse restoration and original readback.
+Fresh effective LNA is12 and derived AGC8 is122c3cf2;13 EFUSE I/Os include
+one bounded poll. Source/release/session, recovery bytes, offline fsck/allocation
+and automatic Ubuntu return pass. The115-file sealed native archive
+`wifi-bbp5-cycle-ec117c9e` survives outside build. Collected and unarmed.
+This accepts the MAC-disabled fresh-gain/command/restoration transaction after
+parent restore, not simultaneous held-channel operation, VCO/RF lock,
+calibrated reception, authentication or connectivity.
 
 The preceding warm session `session-00065f50a0330abf-00` remains FAILED before
 firmware preparation: first0730 read1, already-running MCU refusal. Cold adapter
@@ -38,9 +40,9 @@ compatible hardware. Local credentials remain private and unused until the
 security stage. Do not report connection-ready until authentication, data
 exchange and clean disconnect actually pass.
 
-## Ready v115 fresh5GHz gain/baseband restoration trial
+## v115 fresh5GHz gain/baseband restoration accepted
 
-Installed release `e405f17dd9a5449b`, runtime `ec117c9e`, main `105077d7`,
+Release `e405f17dd9a5449b`, runtime `ec117c9e`, main `105077d7`,
 requires full accepted parent/PA restoration and the exact21 v113 BBP originals.
 It reads logical40 afresh, privately selects the channel161 LNA/RSSI fields,
 then selects/independently reads/reverses/independently reads the21-row
@@ -73,18 +75,39 @@ accepted v110–v114 remain installed/backed up. The unreferenced standalone v10
 band-only EFI copy was retired only after complete byte equality to its accepted
 independent backup; its native evidence and full backup remain preserved.
 
-Native fresh-gain/BBP acceptance is pending. This MAC-disabled transaction runs
-after parent restoration; it does not accept held-channel operation, VCO,
-calibrated reception, association/security or connectivity. Credentials remain
-unread/private. The authorized cold trial uses shutdown: Wi-Fi unplug10seconds
-while off, reconnect same port, power on, workspace retained. Guest progress,
-save and Ubuntu return are automatic; no commands/photos. Local run record owns
-exact armed state. On return run
-`build/bringup/wifi-bbp5-cycle/return_collect.py` FIRST and require matching
-source/release/session, complete parent/fresh fields/BBP reverse proof and
-storage/recovery checks. Then integrate channel161 prerequisites for calibration
-and5GHz RX, followed by Demers5 authenticated connect/disconnect/data.
-Demers2.4 requires compatible hardware; connection-ready remains unaccepted.
+Matching session `session-00065f64e70cadfc-00` passes all4053 operations,
+fresh effective LNA12/AGC8=122c3cf2,13 EFUSE I/Os with one poll,735 BBP operations,
+42 BBP writes, independent selected readback and21-target reverse/original
+readback. All three fixed all-ones forward entries match. Complete637002-byte
+prefix, source/release/session and full parent/PA proof pass; candidate/recovery
+byte equality, offline fsck/allocation and automatic saved Ubuntu return pass.
+The115-file native archive is sealed and the run is collected/unarmed. This
+accepts only the explicit MAC-disabled fresh-gain/command/restoration scope;
+it does not accept held-channel operation, VCO/calibrated RX or connectivity.
+The earlier warm refusal stays failed; no warm takeover is inferred.
+
+Next: integrate fixed band/frequency/A20, external PA and gain-adjusted BBP
+selected states under one bounded channel161 owner, with reverse cleanup and
+independent final originals. Existing successful transactions restore before
+the next begins; their individual completion does not establish simultaneous
+radio readiness. Audit pinned PHY trim/DAC/VCO/calibration ordering before any
+new pulse or receive window. Keep legacy APIs, exact board/transport guards,
+private fields, saved proof and failure/quarantine behavior intact. Only after
+that integrated state/calibration can5GHz passive RX/discovery, reattach and
+Demers5 association/security/connect-disconnect/IP data be accepted.
+
+Fetched main is now `eaf11488`: standalone SrvrUI rendering/fonts, pinned awk,
+Files/Open With/recovery and edge resizing landed, plus separate Air ownership
+design notes. No Wi-Fi driver file overlap was found; app, ports and widget pins
+and shared compositor/build paths need deliberate reconciliation. The next
+source block must consume the actual new baseline and preserve local Wi-Fi UI
+and checkpoint-only power logging inside their submodules, then rerun matched
+host/VM checks. This physical result remains bound to `ec117c9e`/`105077d7`;
+no new source or hardware capability is accepted from those remote changes.
+PR252 retains resolver/socket scope. Installed e405/e47d and accepted backups
+remain unchanged; no new stage or reboot is armed. Cold trials still require
+shutdown and10second Wi-Fi unplug while off. Credentials remain unread/private;
+Demers2.4 requires compatible hardware and connection-ready is unaccepted.
 
 ## Fresh5GHz gain and baseband restoration implementation scope
 

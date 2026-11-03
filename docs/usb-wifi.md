@@ -315,7 +315,7 @@ the explicit MAC-disabled command/restoration transaction after parent restore;
 it does not accept PA operation in held channel161, baseband, VCO, calibrated
 reception or connectivity. Fresh high-band gain/baseband remains the next scope.
 
-## Fresh channel161 gain/baseband restoration candidate (v115)
+## Fresh channel161 gain/baseband restoration (v115)
 
 The logical40 reader shares the legacy guarded transport and preserves the
 G-band decoder/validation API. A distinct5GHz result selects high-band LNA4d,
@@ -344,6 +344,18 @@ parent restoration, not in an active channel; no VCO, RX, transmission, credenti
 or connectivity is enabled. Complete saved source/session and storage/recovery
 proof are required for native acceptance. Host decoder/engine/source projection,
 legacy regressions, saved-log and exact-stage VM checks precede installation.
+
+Native v115 `e405f17dd9a5449b` / `ec117c9e`, matching session
+`session-00065f64e70cadfc-00`, passes the complete637002-byte prefix and4053
+operations. Fresh logical40 capture completes in13 I/Os/one poll, with effective
+LNA12 and derived AGC8=122c3cf2. All21 selected values (including the three fixed
+all-ones rows),42 BBP writes and reverse/original readbacks pass, alongside full
+parent/PA proof, source/release/session matching, payload/recovery equality,
+offline fsck/allocation and automatic saved Ubuntu return. The115-file sealed
+durable archive preserves full evidence. This accepts the MAC-disabled fresh
+fields and command/restoration transaction after parent restore. Simultaneous
+held-channel PA/BBP state, VCO, calibrated reception and connectivity remain
+unaccepted; those are separate integration/calibration/receive milestones.
 
 ## Captured baseline
 
