@@ -1,4 +1,4 @@
-# Portable profiles: first migration proof
+# Portable profiles: migration and desktop integration
 
 Target: a versioned, machine-independent identity and selected-document/preference
 bundle, validated through two fresh installation fixtures, plus a shared bounded
@@ -302,7 +302,7 @@ are agreed. Credential and permission enforcement remain separate prerequisites
 before real user isolation. The integration checkout and all three named review
 VMs remain untouched and running at closeout; this task launched no VM.
 
-## Desktop adoption milestone — in progress
+## Desktop adoption milestone — verified for draft review
 
 Authorized follow-on: activate one explicitly imported profile in the compositor
 and current Files/Text/picker/Terminal/command routes; read and save portable
@@ -330,4 +330,133 @@ preserved. Existing installation tooling is consumed without editing its contrac
 Completion requires fresh matched artifacts, focused host tests, legacy desktop
 regression, both installed VM lifetimes/reboots, app and raw-byte readback,
 no profile/device setting contamination, missing-profile refusal, and draft PRs
-with source/evidence identities. Current step: implementation and harness design.
+with source/evidence identities. These checks are now complete; acceptance and
+review handoff follow below.
+
+
+### Activated profile contract
+
+An offline imported image can launch its profile explicitly:
+
+```text
+run /fat/bin/deskd --profile=/fat/home/local-a --apps
+```
+
+This is profile selection, not login. It does not change the root credentials,
+libc identity functions, kernel checks, mount permissions or filesystem access
+policy. The portable UUID identifies the content; `profile-local.json` records
+installation-local alias/UID/GID metadata only. It grants no authority. A profile
+can be selected only for an ordinary desktop session, not diagnostic modes.
+
+Before graphics startup, `profile_startup.h` validates a canonical home (at most
+95 bytes) under `/fat/home/` or `/work/srvros-work/`, its exFAT mount, required
+folders, exact UUID marker and strict portable settings. Missing or malformed
+selection returns to the console with a recovery instruction. Apps and command
+jobs reject conflicting explicit context instead of substituting a shared home.
+No `--profile` retains the previous desktop home and preferences behavior.
+
+The copied session context supplies `HOME`, `SRVROS_DESKTOP_HOME`,
+`SRVROS_PROFILE_ID`, `XDG_CONFIG_HOME`, `XDG_DATA_HOME` and `XDG_CACHE_HOME` to
+queued/direct app launches, command jobs and Terminal shells. Files/Home,
+Text/pickers and screenshot destinations resolve from this context. Terminal's
+working directory is the selected home; shell history stays per-window/in-memory.
+The home-length bound leaves room for the actual guest path buffers; screenshot
+name overflow is refused rather than truncated.
+
+Settings combines the six portable values in
+`HOME/.config/srvros/portable.json` with device settings in the existing machine
+`desktop.conf`. Reads and writes remain asynchronous with independent existence
+and CRC guards. Portable changes write only the profile file; local changes
+preserve the machine file's other fields. Conflicts/failures stop automatic
+writes and retain the existing session-only/conflict indication. Host tests cover
+edits during loading or a pending save, and independent local/portable writes.
+
+`tools/profile_image.py` is an offline Python provisioning API for disposable
+images, not a mounted-disk installer or guest import command. It validates the
+bundle and expanded paths before copying a regular single-link source image,
+then uses `profile-image-driver` (the real kernel exFAT/VFS backend) on a private
+staging copy. Exclusive publication cannot overwrite an existing destination;
+failed stages are removed. Its supported slot is `/fat/home/<ASCII-name>`.
+The source must be offline. Import/export remains a host-mediated operation;
+a graphical account chooser, in-guest import UI and authentication are outside
+this milestone.
+
+### Acceptance on November 3, 2026
+
+Tested OS source: `73c5f2db3fbfce50365602c67cf1e07b42c08705`; implementation
+`2e5d2ea2`, plus a harness-only correction to use external `env`/`pwd` commands
+because this shell's builtins do not apply redirection. Matched SrvrApps:
+`3cf32af2294eebe9d8b9aeb8bc1dcbe46feb2967`, with the pinned SrvrUI. Subsequent
+acceptance-note commits do not claim a new guest build.
+
+- Matched `sh tools/macos/build.sh -j2 all` and `check-host` passed.
+- `test-desktop test-desktop-io test-lifecycle-wait test-profile-desktop` passed
+  with the Darwin x86_64 host compiler adapter (GNU GC-section flag translated to
+  Darwin dead stripping). The profile target includes 13 bundle test groups,
+  six offline-image groups, session/startup fixtures and dual-store preferences.
+- AddressSanitizer/UndefinedBehaviorSanitizer passed for profile session,
+  startup and preferences fixtures; the earlier shared-path sanitizer remains
+  accepted. No sanitizer finding was suppressed.
+- `profile_desktop_smoke.py` passed four independent VM lifetimes: A save, A
+  reboot, import into B, B reboot. Each installation is independently prepared
+  and applied with a distinct GPT disk GUID, its sole boot disk and fresh EFI
+  variable store. The synthetic UUID is unchanged across both local bindings.
+- In all four lifetimes Text opens the imported document through its picker,
+  Files opens the selected home, and Terminal launches external commands whose
+  environment/cwd are read back from disk. A edits the document and changes the
+  theme through Settings. Export after A's second boot uses the actual saved
+  bytes; B imports that export. The selected binary document is preserved too.
+- All six portable values are independently compared after every boot, and
+  installed `deskd`, `desktools` and `deskterm` match their built runtime binaries.
+  Both complete machine preference files remain byte-for-byte equal to their
+  own seeds. Guest and offline allocation checks report zero errors/leaks;
+  bytes outside the data partition are unchanged.
+- Each profile boot refuses missing-home, malformed-marker and traversal
+  selections before the valid launch. Legacy `installed_disk_smoke.py` also
+  passes two desktop lifetimes/save/reopen and damaged-system-volume refusal.
+- Screenshots were inspected for Text's opened document/path, Files/Home and
+  Terminal. This is an automated functional walkthrough, not participant research.
+
+| Installation | Home | Local alias | UID/GID metadata | Clock offset | Pointer speed |
+| --- | --- | --- | --- | --- | --- |
+| A | `/fat/home/local-a` | `local_a` | 1001/1001 | -300 minutes | 4 |
+| B | `/fat/home/local-b` | `local_b` | 2050/2051 | +60 minutes | 2 |
+
+For macOS reproduction, create the ignored host adapter used by the tests:
+
+```python
+# build/tooling/darwin-host-cc.py
+import os, sys
+os.execvp('cc', ['cc', '-arch', 'x86_64'] +
+    [arg.replace('-Wl,--gc-sections', '-Wl,-dead_strip') for arg in sys.argv[1:]])
+```
+
+Run the proof after the matched build and host-driver targets:
+
+```sh
+# Use the Darwin host adapter described above for the GNU-linker test targets.
+sh tools/macos/build.sh \
+  HOST_CC='python3 build/tooling/darwin-host-cc.py -D_DARWIN_C_SOURCE -Wno-array-bounds' \
+  test-profile-desktop build/tests/profile-image-driver build/tests/exfat-driver
+OVMF_CODE=/opt/homebrew/share/qemu/edk2-x86_64-code.fd \
+  python3 tools/profile_desktop_smoke.py \
+  --ovmf-vars /opt/homebrew/share/qemu/edk2-i386-vars.fd
+```
+
+Retained local evidence is under `build/review/profile-desktop/proof-gf_at45k/`
+(receipt, separate installation images, all four data readbacks, export, screenshots,
+serial logs and `independent-readback.json`). Receipt SHA256:
+`0c6d13dcecc93b24e1557a7a9d721fcde57abb8538506a7c48124988a3609036`.
+Legacy evidence: `build/review/installed-disk/proof-x36gz7yw/`.
+Host logs: `build/profile-desktop-host-r4.log` and matched-build logs. The first
+harness failure is retained separately; it is not acceptance evidence.
+
+All task-owned VMs stopped normally. The three pre-existing review VMs and primary
+checkout were left untouched. No physical disk, power-cut durability, external
+`fsck.exfat`, authentication or permission-isolation acceptance is claimed.
+The milestone is complete for draft PR review; merge/integration remains the
+review owner's action. No further implementation is required for this target.
+
+Apps companion: [SrvrApps PR #5](https://github.com/PaulMDemers/SrvrApps/pull/5).
+The OS branch pins its reviewed commit; land the shared header and app change
+together after the PR309 dependency. Neither PR is merged by this task.
