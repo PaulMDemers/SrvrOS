@@ -2,6 +2,26 @@
 
 Updated: 2026-11-03. State: **active reference machine; partial device acceptance**.
 
+### Native display observation implementation scope
+
+Implementation base `fa8e503f` consumes Air6,1 PR296's independent no-write
+ownership model. Air7,2's bounded objective is an opt-in read-only inherited
+Broadwell capture: exact firmware/GPU/subsystem/PCH admission, existing D0/decode,
+fixed BAR and framebuffer validation, read-only page allowlist, stable access/well
+endpoints, and raw plane/timing/counter records. No native scanout mutation or
+power/HDA ownership is included. Reuse the existing pure PCI snapshot helper;
+keep the Haswell diagnostic/profile gates unchanged. Shared touchpoints are
+main boot dispatch, kernel build lists, capture staging/collection and new
+isolated Intel capture code/tests. PR297 owns window snapping, PR19 Wi-Fi and
+PR252 audit remain separate.
+
+Publish/validate host positive and refusal fixtures, default-off and absent-device
+VM behavior, complete captured receipts and ordinary desktop/VirtIO regressions.
+The physical snapshot is a later source-bound automated trial, with normal
+Ubuntu return after saved results and no human input required. Unknown display
+state is not ownership or flip acceptance. No physical test is armed yet.
+Evidence/checkpoint: `build/air-tearfree-20261103/`.
+
 ### Merged baseline and next native display scope
 
 OS PR278 and Apps PR2 are merged; main `eaf11488` also includes renderer/host UI,
