@@ -69,6 +69,9 @@ def main():
                 wait(b"srv> ",100)
                 serial.sendall(b"run /fat/bin/deskd --apps-trace\n")
                 wait(b"desktools: starting role=text");wait(b"deskd: commit")
+                original=re.findall(rb"deskd: opened pid=(\d+) window=\d+ id=(\d+) parent=0",output)
+                assert len(original)==1, "Expected the original Text window"
+                text_pid,text_window=original[0]
                 type_text("Hello, SrvrOS!\nNative desktop text.")
                 qmp.key("left");qmp.key("right")
                 shortcut("ctrl-l");shortcut("ctrl-a");type_text("/fat/desktop-smoke.txt")
@@ -98,13 +101,16 @@ def main():
                 wait(b"file-result role=files op=3 status=0");shot("new-folder")
                 shortcut("alt-up");wait(b"file-result role=files op=3 status=0")
                 type_text("desktop-smoke");qmp.key("ret")
-                wait(b"desktools: starting role=text");wait(b"file-result role=text op=1 status=0")
+                wait(b"deskd: document-route reply pid="+text_pid+b" accepted=1")
+                wait(b"text-runtime: admitted window=");wait(b"\n")
+                routed=re.findall(rb"text-runtime: admitted window=(\d+)",output)[-1]
+                assert routed!=text_window, "Routed document must have its own window"
+                assert re.search(rb"deskd: opened pid="+text_pid+rb" window=\d+ id="+routed+rb" parent=0(?:\r?\n)",output), "Routed window must belong to the existing Text process"
+                wait(b"file-result role=text op=1 status=0")
                 shot("opened-from-files");output+=read_for(serial,.1)
-                # Child/parent console writes may interleave at exit. The parent
-                # owns the process status; pair it with this newly opened PID.
-                opened=re.findall(rb"deskd: opened pid=(\d+) window=2\r?\n",output)
-                assert len(opened)==1, "Expected the newly opened Text process"
-                shortcut("ctrl-w");wait(b"deskd: child-exit pid="+opened[0]+b" status=0")
+                shortcut("ctrl-w");wait(b"text-runtime: closed window="+routed+b" ")
+                assert b"deskd: child-exit pid="+text_pid+b" " not in output, "Closing the routed window must preserve the original Text process"
+                assert b"text-runtime: closed window="+text_window+b" " not in output, "The original Text window must remain open"
                 # Calculator is a separate process and receives raw editing/navigation keys.
                 click(590,750);wait(b"desktools: starting role=calculator");wait(b"deskd: commit")
                 type_text("2 + 3 * (4 - 1)");qmp.key("ret");shot("calculator")
