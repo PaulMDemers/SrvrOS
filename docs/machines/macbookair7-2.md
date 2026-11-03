@@ -2,6 +2,17 @@
 
 Updated: 2026-11-03. State: **active reference machine; partial device acceptance**.
 
+### Exact-stage keyboard receipt diagnosis
+
+Scope: reproduce the two failed terminal redirect receipts on preserved stage
+`f586e4a2d58cb3ab`, distinguish QMP/USB report delivery from terminal/PTY loss,
+and rerun the unchanged whole exact-stage assertions. Inspect host-only injection
+and input-service paths first; do not relax saved-file or lifetime checks.
+Current source `0bf619d6`, module tuple below; fetched main `adc25965` adds
+independent Air6,1 read-only display-HDA diagnostics. PR288 owns Files recovery,
+PR289 owns host UI integration, and PR19 retains Wi-Fi scope; no overlap claimed.
+No physical test/install or reboot is armed. Failed attempts remain preserved.
+
 ### Modular repository catch-up
 
 Merged actual main `e376669c` into the existing device branch as `6880b1f6`.
