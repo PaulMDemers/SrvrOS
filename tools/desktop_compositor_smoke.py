@@ -125,9 +125,13 @@ def main():
                 move(76,24); move(0,0,1); move(60,48); move(0,0,0)
                 w,h=min(600,width-40)+2,min(320,height-149)+45
                 x,y=min(92,width-w-6),min(112,height-h-36)
-                move(x+w-10-pointer_x,y+h-10-pointer_y)
+                # Resize from the outside six-pixel halo; the entire client
+                # remains interactive. East/south resizing preserves the anchor.
+                move(x+w+1-pointer_x,y+h+1-pointer_y)
                 move(0,0,1); move(-70,-40); move(0,0,0)
-                resized=(w-81,h-94)
+                frame=(w-70,h-40)
+                wait(f"deskd: resized identity=1 edges=10 frame={x},{y},{frame[0]},{frame[1]}".encode())
+                resized=(frame[0]-2,frame[1]-45)
                 marker=f"size={resized[0]}x{resized[1]}".encode()
                 if marker not in output:
                     wait(marker)
