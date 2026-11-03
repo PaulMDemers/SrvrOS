@@ -525,3 +525,19 @@ files, with restoration paths and original hashes in each run's
 `compressed-images.json`; current final proof images remain directly readable.
 OS hosted Actions are still disabled; Apps has no workflow files. No hosted CI
 pass is claimed. Local acceptance above is the authorized merge gate.
+
+
+## Guest transfer milestone — in progress
+
+Authorized target: guest export, import and activation using the v1 bundle,
+with real migration between two disposable installed VMs and interrupted-import
+recovery. Source main is `4c4c37a5`; branch `device/apple-silicon/profile-guest`.
+The profile tool owns selected-document transfer and local binding metadata;
+the desktop refuses pending imports. Filesystem publication is qualified through
+guest operations rather than assuming host directory rename. Authentication and
+permission enforcement remain independent. This task owns guest profile command,
+its tests/build registration, this document and its disposable VM harness.
+No physical disks or existing review VMs are part of this trial. One build or
+VM harness runs at a time in this checkout. Completion requires full guest proof,
+malformed-input refusal, interrupted import refusal/recovery, reboot persistence,
+unchanged machine settings and a reviewable PR.
