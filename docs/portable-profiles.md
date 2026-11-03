@@ -18,9 +18,10 @@ Their fetched diffs were inspected. Filesystem/root and installer owners consume
 the profile contracts; no competing mount, credential or kernel changes here.
 SrvrApps owns future account UI and preference adapters; SrvrUI owns widgets.
 
-Current checkpoint: implement strict bundle validation, explicit portable settings,
-identity collision refusal, staged import/recovery and fresh fixture round trips.
-Evidence and final contracts follow below as verification completes.
+Current checkpoint: first migration proof complete for draft review. Strict bundle
+validation, explicit portable settings, collision refusal, staged import/recovery
+and two independent fixture round trips are implemented and host-verified. No
+guest account activation or security enforcement is claimed.
 
 ## Contract v1
 
@@ -278,9 +279,25 @@ exclusive store ownership; interrupted stages, injected write failure and recove
 before/after publication; existing-output refusal and CLI error reporting. The
 original excessive-nesting failure was fixed with an explicit parser bound.
 
-Current delivery checkpoint: implementation and focused verification complete;
-perform the clean-source CLI proof, final documentation check and draft PR
-publication. No kernel, guest launch or device permission changes are part of this
+Clean implementation `38c5b8cb34216f027688169ce2c5ecccc442df17` passes the focused
+target and a separate 12-invocation CLI proof: initialize/create source, project
+real v7-format settings, export/inspect, initialize/import destination with UID
+2050/GID 2051 instead of source 1001/1001, compare provider paths, re-export an
+identical bundle, refuse duplicate identity/truncation, and reconcile recovery.
+The source and destination documents and six portable preferences match; source
+desktop settings remain unchanged, destination cache is empty, and credentials
+and device settings are absent. Local synthetic fixtures, command receipt and
+hashes are retained in `build/review/profiles/cli-qt6a_5yx/receipt.json`; focused
+test output is in `build/review/profiles/focused-tests.log`. No skipped tests in
+the matched target. Documentation verification checks 832 local links with zero
+errors after initializing pinned upstream link targets. Final review found no
+actionable defects within the stated offline-fixture assumptions.
+
+First milestone is complete for draft PR review; no merge was requested or
+performed. Final documentation-only follow-up leaves the tested implementation
+unchanged. No kernel, guest launch or device permission changes are part of this
 milestone. Next product checkpoint is a coordinated SrvrApps/compositor consumer
-of the path and portable-settings contracts after filesystem/installer bindings
-are agreed; security enforcement remains a separately verified prerequisite.
+of these path and portable-settings contracts after filesystem/installer bindings
+are agreed. Credential and permission enforcement remain separate prerequisites
+before real user isolation. The integration checkout and all three named review
+VMs remain untouched and running at closeout; this task launched no VM.
