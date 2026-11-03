@@ -24,6 +24,7 @@
 #include <srvros/heap.h>
 #include <srvros/halt.h>
 #include <srvros/initramfs.h>
+#include <srvros/installed_root.h>
 #include <srvros/intel_gfx.h>
 #include <srvros/virtio_gpu_probe.h>
 #include <srvros/virtio_input.h>
@@ -607,8 +608,37 @@ void kmain(void) {
             virtio_block_print_status();
         }
     }
-    mount_exfat_volume(cmdline_has_token(cmdline,"srvros.capture=posix") &&
-        cmdline_has_token(cmdline,"srvros.storage=ram"));
+    struct block_device *installed_volume = NULL;
+    const char *installed_reason = NULL;
+    enum installed_root_result installed = installed_root_select(cmdline,
+        &installed_volume, &installed_reason);
+    if (installed == INSTALLED_ROOT_SELECTED) {
+        if (!exfat_mount_block_device_clean("/fat", installed_volume)) {
+            installed = INSTALLED_ROOT_INVALID;
+            installed_reason = "filesystem-recovery";
+        } else if (!exfat_is_writable("/fat")) {
+            installed = INSTALLED_ROOT_INVALID;
+            installed_reason = "filesystem-recovery";
+        } else {
+            console_printf("installed-root: selected device=%s format=exfat-v1 role=system\n",
+                installed_volume->name);
+        }
+    }
+    if (installed == INSTALLED_ROOT_INVALID) {
+        /* Recovery is deliberately before boot logs, init, workspace services
+         * or the general monitor (whose commands can mount and write disks). */
+        boot_set_framebuffer_quiet(false);
+        console_clear();
+        console_printf("installed-root: recovery reason=%s\n", installed_reason);
+        console_write("SrvrOS could not select the installed system.\n"
+            "No applications were started. Automatic disk writes are stopped.\n"
+            "Check the boot manifest and attached disks, then restart this VM.\n"
+            "No fallback volume or repair was selected.\n");
+        halt_forever();
+    }
+    if (installed == INSTALLED_ROOT_LEGACY)
+        mount_exfat_volume(cmdline_has_token(cmdline,"srvros.capture=posix") &&
+            cmdline_has_token(cmdline,"srvros.storage=ram"));
     persist_bootlog();
     console_write(vfs_namespace_system_activate()?
         "namespace: /bin /usr /var /home active; /fat /work retained\n":

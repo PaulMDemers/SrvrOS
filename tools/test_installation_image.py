@@ -113,11 +113,11 @@ class InstallationImageTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             image.apply(self.target)
 
-    def test_verify_gpt_and_fat_readback_and_detect_corruption(self):
+    def verify_fixture(self, identity_bound):
         import binascii
         import hashlib
         import uuid
-        plan = self.prepare()
+        plan = image.prepare(self.target, self.kernel, self.boot, self.exfat, self.init, identity_bound=identity_bound)
         spec = plan['layout']
         usb = image.usb
         fat = usb.Fat32Builder(spec['esp']['size_bytes'], spec['esp']['offset_bytes'] // 512)
@@ -132,16 +132,18 @@ class InstallationImageTests(unittest.TestCase):
         fat.add_file(boot, 'SRVROS.ELF', self.kernel.read_bytes())
         fat.add_file(boot, 'initramfs.tar', bootstrap)
         for parent in (loader, fat.root_cluster, boot, nested, root_limine):
-            fat.add_file(parent, 'limine.conf', image.CONFIG)
+            fat.add_file(parent, 'limine.conf', plan.get('config', image.CONFIG.decode('ascii')).encode('ascii'))
         disk = self.root / 'fixture.img'
         total = spec['size_bytes'] // 512
         entries = bytearray(128 * 128)
         for n, (kind, name) in enumerate(((usb.ESP_TYPE, 'esp'), (usb.BASIC_DATA_TYPE, 'exfat'))):
             first = spec[name]['offset_bytes'] // 512
             last = first + spec[name]['size_bytes'] // 512 - 1
-            entries[n*128:(n+1)*128] = usb.gpt_entry(kind, uuid.uuid4(), first, last, name)
+            part_guid = uuid.UUID(plan['gpt'][name + '_partition_guid']) if identity_bound else uuid.uuid4()
+            part_name = 'srvros-esp' if name == 'esp' else ('srvros-system-v1' if identity_bound else 'srvros-fat')
+            entries[n*128:(n+1)*128] = usb.gpt_entry(kind, part_guid, first, last, part_name)
         crc = binascii.crc32(entries) & 0xffffffff
-        disk_guid = uuid.uuid4()
+        disk_guid = uuid.UUID(plan['gpt']['disk_guid']) if identity_bound else uuid.uuid4()
         with open(disk, 'wb') as f:
             f.truncate(spec['size_bytes'])
             def put(offset, data):
@@ -174,11 +176,63 @@ class InstallationImageTests(unittest.TestCase):
                 put(base + fat.cluster_offset(cluster), contents)
         gpt = image.verify_image(disk, plan, bootstrap)
         self.assertEqual(gpt['disk_guid'], str(disk_guid))
+        if identity_bound:
+            self.assertEqual(gpt['exfat_partition_guid'], plan['gpt']['exfat_partition_guid'])
+            bad_plan = json.loads(json.dumps(plan))
+            bad_plan['gpt']['exfat_partition_guid'] = str(uuid.uuid4())
+            with self.assertRaises(ValueError):
+                image.verify_image(disk, bad_plan, bootstrap)
+            bad_plan = json.loads(json.dumps(plan))
+            bad_plan['gpt']['exfat_partition_name'] = 'other'
+            with self.assertRaises(ValueError):
+                image.verify_image(disk, bad_plan, bootstrap)
+            bad_plan = json.loads(json.dumps(plan))
+            bad_plan['config'] += '# altered\n'
+            with self.assertRaises(RuntimeError):
+                image.verify_image(disk, bad_plan, bootstrap)
         with open(disk, 'r+b') as f:
             f.seek(512 + 16)
             f.write(b'\0' * 4)
         with self.assertRaises(ValueError):
             image.verify_image(disk, plan, bootstrap)
+
+    def test_verify_generic_fixture(self):
+        self.verify_fixture(False)
+
+    def test_verify_identity_bound_fixture(self):
+        self.verify_fixture(True)
+
+    def test_identity_plan_and_apply_forwarding(self):
+        plan = image.prepare(self.target, self.kernel, self.boot, self.exfat, self.init, identity_bound=True)
+        guid = plan['gpt']['exfat_partition_guid']
+        self.assertIn('srvros.root=' + guid, plan['config'])
+        self.assertIn('srvros.root-format=exfat-v1 srvros.root-role=system', plan['config'])
+        def build(args):
+            self.assertEqual(args.data_guid, guid)
+            self.assertEqual(args.disk_guid, plan['gpt']['disk_guid'])
+            self.assertEqual(args.esp_guid, plan['gpt']['esp_partition_guid'])
+            self.assertEqual(args.data_name, 'srvros-system-v1')
+            self.assertEqual(Path(args.config).read_text(), plan['config'])
+            with open(args.output, 'wb') as f:
+                f.truncate(plan['layout']['size_bytes'])
+                f.seek(plan['layout']['exfat']['offset_bytes'])
+                f.write(self.exfat.read_bytes())
+        gpt = {k: plan['gpt'][k] for k in ('disk_guid', 'esp_partition_guid', 'exfat_partition_guid')}
+        with mock.patch.object(image.usb, 'build_image', side_effect=build), \
+             mock.patch.object(image, 'verify_image', return_value=gpt):
+            ready = image.apply(self.target)
+        self.assertEqual(ready['selection']['partition_guid'], guid)
+        self.assertEqual(ready['selection']['partition_name'], 'srvros-system-v1')
+
+    def test_identity_inconsistent_plan_refused_even_with_updated_checksum(self):
+        plan = image.prepare(self.target, self.kernel, self.boot, self.exfat, self.init, identity_bound=True)
+        plan['config'] = plan['config'].replace('srvros.root-role=system', 'srvros.root-role=other')
+        path = self.target / 'plan.json'
+        path.write_text(json.dumps(plan))
+        (self.target / 'plan.sha256').write_text(image.digest(path) + '\n')
+        with self.assertRaises(ValueError):
+            image.apply(self.target)
+        self.assertFalse((self.target / 'in-progress.json').exists())
 
     def test_sparse_image_is_rejected(self):
         plan = self.prepare()

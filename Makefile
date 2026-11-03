@@ -1,7 +1,7 @@
 .SUFFIXES:
 
 # Avoid empty wildcard archives when first-party submodules are absent.
-ifneq ($(filter-out clean distclean check-host check-docs,$(or $(MAKECMDGOALS),all)),)
+ifneq ($(filter-out clean distclean check-host check-docs test-portable-profiles,$(or $(MAKECMDGOALS),all)),)
 MODULE_MARKERS := userspace/widgets/include/srvros/desk_widgets.h userspace/apps/desktools/main.c ports/README.md
 ifneq ($(words $(wildcard $(MODULE_MARKERS))),$(words $(MODULE_MARKERS)))
 $(error Missing SrvrOS modules; run git submodule update --init --recursive)
@@ -2014,6 +2014,13 @@ build/tests/clock-host$(HOST_EXE): tools/test_clock.c kernel/src/arch/x86_64/clo
 test-storage: build/tests/block-host$(HOST_EXE) build/tests/ahci-host$(HOST_EXE)
 	build/tests/block-host$(HOST_EXE)
 	build/tests/ahci-host$(HOST_EXE)
+
+.PHONY: test-installed-root
+test-installed-root: build/tests/exfat-driver$(HOST_EXE)
+	CC='$(HOST_CC)' $(PYTHON) tools/test_installed_root.py
+	$(PYTHON) -m unittest discover -s tools -p 'test_install*.py'
+	$(PYTHON) tools/test_installed_root_exfat.py --driver build/tests/exfat-driver$(HOST_EXE) --output build/review/installed-root-host
+test-core: test-installed-root
 build/tests/block-host$(HOST_EXE): tools/test_block.c kernel/src/block.c kernel/src/block_claim.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
@@ -2191,6 +2198,13 @@ test-core: test-linux-inventory
 .PHONY: check-docs
 check-docs:
 	$(PYTHON) tools/check_docs.py
+
+.PHONY: test-portable-profiles
+test-portable-profiles:
+	@mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include tools/test_profile_paths.c -o build/tests/profile-paths-host$(HOST_EXE)
+	build/tests/profile-paths-host$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_profile_bundle.py -v
 
 .PHONY: test-exfat-entries
 test-exfat-entries: build/tests/exfat-entries-host$(HOST_EXE)

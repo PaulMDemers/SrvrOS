@@ -1,0 +1,317 @@
+{
+  "auxiliary_sha256": {
+    "build/limine-binary/BOOTX64.EFI": "333f7a69379b1f47e019be215885cdc078b9edd6e9255cbe2f706d6c5ec0ef06",
+    "build/tests/exfat-driver": "0b7a094c3a896558f500aa9218349671dbcb6464dae4b08ecdd1545a17880cae",
+    "build/userspace/init.elf": "16951b8d5572bb1fed915575fdd985c0db069e902f69bb282685bac80cc28fc6"
+  },
+  "base": "3db1a1d37a0bc9059ef650bc7c13a6f8ebba20cc",
+  "bootstrap_members": [
+    "init"
+  ],
+  "build_hashes": {
+    "build/initramfs.tar": "a1a1393302ce66f750c0e80de78eff2bfb2a403ff5557a9e056ee2a39e2a354b",
+    "build/kernel/srvros.elf": "69170d1846e716d5eb31447b3a51a227121576e7b16ce84ab246e6a0080366fa",
+    "build/srvros.exfat": "c972e6c49ba978df9476b0e9cfc54108a8f263fdf5b07eea1e891318c68cee7d"
+  },
+  "build_worktree_dirty": false,
+  "cases": [
+    {
+      "decoy_sha256": "5dcdc15f5ae9b766b5dee80524c4d9e7b05c1f0613123eeb2111def5f4d341ef",
+      "name": "boot-1",
+      "reversed": false,
+      "selected": "ahci0p2",
+      "status": "PASS"
+    },
+    {
+      "decoy_sha256": "5dcdc15f5ae9b766b5dee80524c4d9e7b05c1f0613123eeb2111def5f4d341ef",
+      "name": "boot-2",
+      "reversed": true,
+      "selected": "ahci1p2",
+      "status": "PASS"
+    },
+    {
+      "after": {
+        "decoy": "5dcdc15f5ae9b766b5dee80524c4d9e7b05c1f0613123eeb2111def5f4d341ef",
+        "target": "3b8dd9039aa0211c4313cfcbbd55476205a4f15f7918b24f9e741ff0e62cb42a"
+      },
+      "before": {
+        "decoy": "5dcdc15f5ae9b766b5dee80524c4d9e7b05c1f0613123eeb2111def5f4d341ef",
+        "target": "3b8dd9039aa0211c4313cfcbbd55476205a4f15f7918b24f9e741ff0e62cb42a"
+      },
+      "name": "missing-volume",
+      "reason": "missing",
+      "status": "PASS"
+    },
+    {
+      "after": {
+        "decoy": "5dcdc15f5ae9b766b5dee80524c4d9e7b05c1f0613123eeb2111def5f4d341ef",
+        "target": "ff62329562c2a1b4fff48bc54eb0d781d9f67e31947c271cf9307925af320234"
+      },
+      "before": {
+        "decoy": "5dcdc15f5ae9b766b5dee80524c4d9e7b05c1f0613123eeb2111def5f4d341ef",
+        "target": "ff62329562c2a1b4fff48bc54eb0d781d9f67e31947c271cf9307925af320234"
+      },
+      "name": "wrong-id",
+      "reason": "missing",
+      "status": "PASS"
+    },
+    {
+      "after": {
+        "decoy": "406de965a8f7fd8bdc21ceccd0d5c03c17a88b5e5389692f0cdcca86b72cd7ff",
+        "target": "6b94071481cd0db5904369ece2ff60f433431798926d65039cfd51646e5f4ea5"
+      },
+      "before": {
+        "decoy": "406de965a8f7fd8bdc21ceccd0d5c03c17a88b5e5389692f0cdcca86b72cd7ff",
+        "target": "6b94071481cd0db5904369ece2ff60f433431798926d65039cfd51646e5f4ea5"
+      },
+      "name": "duplicate-id",
+      "reason": "ambiguous",
+      "status": "PASS"
+    },
+    {
+      "after": {
+        "decoy": "5dcdc15f5ae9b766b5dee80524c4d9e7b05c1f0613123eeb2111def5f4d341ef",
+        "target": "38ba82c5ef6ad25bcfabbf39b7d6013c757acc44a9a70e55f37aef08ec822e6a"
+      },
+      "before": {
+        "decoy": "5dcdc15f5ae9b766b5dee80524c4d9e7b05c1f0613123eeb2111def5f4d341ef",
+        "target": "38ba82c5ef6ad25bcfabbf39b7d6013c757acc44a9a70e55f37aef08ec822e6a"
+      },
+      "name": "wrong-role",
+      "reason": "role",
+      "status": "PASS"
+    },
+    {
+      "after": {
+        "decoy": "5dcdc15f5ae9b766b5dee80524c4d9e7b05c1f0613123eeb2111def5f4d341ef",
+        "target": "6a1e47953f3d7fd4cab1c4e71b376b6e883274787f4c2fa1dd60f56980acb7d3"
+      },
+      "before": {
+        "decoy": "5dcdc15f5ae9b766b5dee80524c4d9e7b05c1f0613123eeb2111def5f4d341ef",
+        "target": "6a1e47953f3d7fd4cab1c4e71b376b6e883274787f4c2fa1dd60f56980acb7d3"
+      },
+      "name": "wrong-type",
+      "reason": "role",
+      "status": "PASS"
+    },
+    {
+      "after": {
+        "decoy": "5dcdc15f5ae9b766b5dee80524c4d9e7b05c1f0613123eeb2111def5f4d341ef",
+        "target": "ffad9d79a9cd9ec6354aa5d733c5bc44aebae31a6ccc7960dae726f7cbe03173"
+      },
+      "before": {
+        "decoy": "5dcdc15f5ae9b766b5dee80524c4d9e7b05c1f0613123eeb2111def5f4d341ef",
+        "target": "ffad9d79a9cd9ec6354aa5d733c5bc44aebae31a6ccc7960dae726f7cbe03173"
+      },
+      "name": "wrong-format",
+      "reason": "format",
+      "status": "PASS"
+    },
+    {
+      "after": {
+        "decoy": "aef729c9ae8cf8f492934f411a53039dcbb26981294d43155377ee734d72a0c3",
+        "target": "6b94071481cd0db5904369ece2ff60f433431798926d65039cfd51646e5f4ea5"
+      },
+      "before": {
+        "decoy": "aef729c9ae8cf8f492934f411a53039dcbb26981294d43155377ee734d72a0c3",
+        "target": "6b94071481cd0db5904369ece2ff60f433431798926d65039cfd51646e5f4ea5"
+      },
+      "name": "invalid-decoy-map",
+      "reason": "invalid-map",
+      "status": "PASS"
+    },
+    {
+      "after": {
+        "decoy": "5dcdc15f5ae9b766b5dee80524c4d9e7b05c1f0613123eeb2111def5f4d341ef",
+        "target": "a9f963ecf33e1a7de67844f80968deaf344567bcc33032de542cbfae6abe72cc"
+      },
+      "before": {
+        "decoy": "5dcdc15f5ae9b766b5dee80524c4d9e7b05c1f0613123eeb2111def5f4d341ef",
+        "target": "a9f963ecf33e1a7de67844f80968deaf344567bcc33032de542cbfae6abe72cc"
+      },
+      "name": "filesystem-recovery",
+      "reason": "filesystem-recovery",
+      "status": "PASS"
+    },
+    {
+      "after": {
+        "decoy": "5dcdc15f5ae9b766b5dee80524c4d9e7b05c1f0613123eeb2111def5f4d341ef",
+        "target": "8a81e8465f66335d4a423dbdc10747e65d57a5f52ce36d30664243ec00e32d1e"
+      },
+      "before": {
+        "decoy": "5dcdc15f5ae9b766b5dee80524c4d9e7b05c1f0613123eeb2111def5f4d341ef",
+        "target": "8a81e8465f66335d4a423dbdc10747e65d57a5f52ce36d30664243ec00e32d1e"
+      },
+      "name": "pending-metadata",
+      "reason": "filesystem-recovery",
+      "status": "PASS"
+    }
+  ],
+  "checks": [
+    "selector host with ASan/UBSan",
+    "21 image and provenance tests",
+    "block/AHCI regressions",
+    "clean-mount zero-write checks",
+    "exFAT import, boot-copy and legacy crash/replay regressions",
+    "matched full build",
+    "two guest and offline allocation checks",
+    "reordered Text reopen and theme restoration",
+    "nine recovery halts with both whole-disk hashes unchanged"
+  ],
+  "date": "2026-11-03",
+  "decoy_gpt": {
+    "disk_guid": "fd310333-ea4a-4667-a1c0-b67ec79aa3d0",
+    "esp_partition_guid": "dac54267-683a-4545-ab07-c6164d16ced0",
+    "exfat_partition_guid": "a609acfa-023b-41e7-93e2-ab2d7944554f"
+  },
+  "decoy_sha256": "5dcdc15f5ae9b766b5dee80524c4d9e7b05c1f0613123eeb2111def5f4d341ef",
+  "document_sha256": "0cd9c190ef2aeb5bbf088a5080a940c86e1e01c718d43dda589f08eaa9f9ea8f",
+  "evidence": ".local/installation-evidence/proof-p0_hk8ic",
+  "final_target_sha256": "6b94071481cd0db5904369ece2ff60f433431798926d65039cfd51646e5f4ea5",
+  "firmware_sha256": "33090cc07675baa5190d9f1e84bf5176b33bcbfa9bacac522961150cdb6dbb2a",
+  "firmware_vars_template_sha256": "5d2ac383371b408398accee7ec27c8c09ea5b74a0de0ceea6513388b15be5d1e",
+  "limits": [
+    "missing system volume retains a bootable ESP; removal of sole boot disk is firmware failure",
+    "all attached raw maps must validate; unrelated unknown media conservatively refuses",
+    "GUIDs are identifiers, not authentication",
+    "primary GPT validation only; no disk repair or profile activation",
+    "invalid-map VM fixture damages both GPT copies to prevent OVMF primary-map repair",
+    "not physical power-loss or arbitrary mount-I/O-failure qualification"
+  ],
+  "logs_sha256": {
+    "allocation-1.log": "4e9e9d0f4eff46edf6125adb43b62c0b1cf7bd07b4b22df2d5f57f8c09ebcacc",
+    "allocation-2.log": "4e9e9d0f4eff46edf6125adb43b62c0b1cf7bd07b4b22df2d5f57f8c09ebcacc",
+    "duplicate-id/qemu-duplicate-id.log": "ae39ebe3520279486e23aa53de3e996dacff3825cba46b75ba250c3bc08e0258",
+    "duplicate-id/serial-duplicate-id.log": "25ecf4bc20179b6c640b81bb2f9c422efe4c448e0cbf3da8a8eb8b0b898ce2e8",
+    "filesystem-recovery/qemu-filesystem-recovery.log": "ae39ebe3520279486e23aa53de3e996dacff3825cba46b75ba250c3bc08e0258",
+    "filesystem-recovery/serial-filesystem-recovery.log": "95f756ee23096afc8a390727631a7c5b5ff073ae7c511c1c279586530be1f82a",
+    "installed-root-build.log": "6c9c190b997f40b49fc925d107731f7f2cda4bdd49ad8944ccf7291aac3ae307",
+    "installed-root-clean-checks.log": "1abbd0046529a560651016a18cf5280ac287d3782a370a52b86441756c22681b",
+    "installed-root-exfat-regressions.log": "b78843e63d31159d2f585c0fcd7f60126f784ac599301bedf56befc19ed5f45c",
+    "installed-root-host-checks.log": "a520180eb17bd4f86d4501e7af1cf9123a55d3c020fa51a4f468eb69632ff12d",
+    "installed-root-proof-revised.log": "036c5cefd927fa19ff8727849b89a05798f1247113233a2c0ef76ec2a709bff1",
+    "invalid-decoy-map/qemu-invalid-decoy-map.log": "ae39ebe3520279486e23aa53de3e996dacff3825cba46b75ba250c3bc08e0258",
+    "invalid-decoy-map/serial-invalid-decoy-map.log": "7d20c7b888383ad49eb9ad9e7ad971437833f968b2e34289a07d608f4a686c2d",
+    "missing-volume/qemu-missing-volume.log": "ae39ebe3520279486e23aa53de3e996dacff3825cba46b75ba250c3bc08e0258",
+    "missing-volume/serial-missing-volume.log": "7b1370ff2d1489dd500dbfc7d88675835d052c66a62b9e601996ea7fac6b1448",
+    "pending-metadata/qemu-pending-metadata.log": "ae39ebe3520279486e23aa53de3e996dacff3825cba46b75ba250c3bc08e0258",
+    "pending-metadata/seed.log": "3e7f0a7bc566b8c0862ed0dccb8a11fe6437d44c50450379060633548a50496d",
+    "pending-metadata/serial-pending-metadata.log": "93a557d07dfd496d3de60bfd4c71c95b39a990bb5c1f5f35c8106d37e789d96f",
+    "qemu-1.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "qemu-2.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "serial-1.log": "173d304df05130263023bd726076311994a83d5e40239d4593c9c3273995f337",
+    "serial-2.log": "90bc2f29673ca0926883ae880140dc3741462135df9885c857b51264e46d3558",
+    "wrong-format/qemu-wrong-format.log": "ae39ebe3520279486e23aa53de3e996dacff3825cba46b75ba250c3bc08e0258",
+    "wrong-format/serial-wrong-format.log": "682c78e81904704ece3a4c2364b080b021f091fcf331b1fb25f562f8443bec8f",
+    "wrong-id/qemu-wrong-id.log": "ae39ebe3520279486e23aa53de3e996dacff3825cba46b75ba250c3bc08e0258",
+    "wrong-id/serial-wrong-id.log": "76d78a9012ade65e488aa55480cfbc6dd197de641aeee125bfa1e9bfc1facda1",
+    "wrong-role/qemu-wrong-role.log": "ae39ebe3520279486e23aa53de3e996dacff3825cba46b75ba250c3bc08e0258",
+    "wrong-role/serial-wrong-role.log": "adf2f91ad2302d86c60a74d307e73f01eae865b68a972358d0b826d72070c0e0",
+    "wrong-type/qemu-wrong-type.log": "ae39ebe3520279486e23aa53de3e996dacff3825cba46b75ba250c3bc08e0258",
+    "wrong-type/serial-wrong-type.log": "d5bdba8b879c0b1b4ef0c79fdd1689ad9e907efe5f0fa23a41cadfd4219896bc"
+  },
+  "preferences_sha256": "75e445c776e1aa1441f10e14d86ff2a62b00ca1976e5fca6caf78e3f2b4f7580",
+  "protected_regions": {
+    "after_data_sha256": "3063becda9d21a54698254be98ff341ca6ab8251ff7642e7bce04b8fed7df280",
+    "before_data_sha256": "206e2db919a2d45e4225a448674c81c4d41511dca5f4aba7775518d1c9e93e20"
+  },
+  "qemu_version": "QEMU emulator version 11.1.2",
+  "repositories": {
+    ".": {
+      "dirty": false,
+      "head": "9989878c7b854673fbcb005d86cdf4f938e2f271",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports": {
+      "dirty": false,
+      "head": "5e30ecd3f500f7ccbb4f4ce9a3354adddade735f",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/awk": {
+      "dirty": false,
+      "head": "5739fd79bcfc75ba7526773d0cf634521f8aca3c",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/cjson": {
+      "dirty": false,
+      "head": "c859b25da02955fef659d658b8f324b5cde87be3",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/inih": {
+      "dirty": false,
+      "head": "26254ee9de7681f8825433415443e7116ff24b98",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/libuv": {
+      "dirty": false,
+      "head": "1cfa32ff59c076ffb6ed735bbc8c18361558661f",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/linenoise": {
+      "dirty": false,
+      "head": "dc83cc373ac2058030eb3cf5e404959a26fef112",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/lua": {
+      "dirty": false,
+      "head": "6e22fedb74cf0c9b6656e9fce8b7331db847c605",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/node": {
+      "dirty": false,
+      "head": "c7d10158bc31036de6783d66beaaaf551e3167aa",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/zlib": {
+      "dirty": false,
+      "head": "da607da739fa6047df13e66a2af6b8bec7c2a498",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "userspace/apps": {
+      "dirty": false,
+      "head": "edb51dc16214d58bcd1768b3a52fdb3b9793c8b8",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "userspace/widgets": {
+      "dirty": false,
+      "head": "9eaaa74e1423c15c99f8ce388b08ed5e514de3d6",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    }
+  },
+  "scope": "two disposable AHCI GPT disks; recovery halt, no physical installation",
+  "screenshots_sha256": {
+    "installed-root-recovery.png": "e4ae4ec4be40a4dbf48f8b5aec9e3dfae4cfdcfa0722e812e06d4b640ee697ca",
+    "installed-root-reopened.png": "0c7720711d411b0388890fe014bca711b8bea7d529187f8472ed14c654b73966"
+  },
+  "source": "9989878c7b854673fbcb005d86cdf4f938e2f271",
+  "status": "PASS",
+  "target_gpt": {
+    "disk_guid": "ced319b7-8869-4d28-bd32-7da3a641bb09",
+    "esp_partition_guid": "f6937ae6-8a0b-4fb0-9c5d-1b0e411fa99e",
+    "exfat_partition_guid": "6ca1224f-7b74-41d9-aa7c-8437c577d214"
+  }
+}

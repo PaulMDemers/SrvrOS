@@ -87,7 +87,9 @@ def data_image(disk, offset, size):
         return stream.read(size)
 
 
-def boot(disk, out, number, args, negative=False):
+def boot(disk, out, number, args, negative=False, *, other_disk=None,
+         reverse=False, expected_device='ahci0p2', require_identity=False,
+         recovery_reason=None):
     output = bytearray()
     consumed = 0
     serial = qmp = None
@@ -96,23 +98,26 @@ def boot(disk, out, number, args, negative=False):
         port = choose_port(30001, 38000)
         variables = out / f'firmware-vars-{number}.fd'
         shutil.copyfile(args.ovmf_vars, variables)
+        storage = [disk] if other_disk is None else ([other_disk, disk] if reverse else [disk, other_disk])
+        drives = ['-device', 'ich9-ahci,id=ahci']
+        for index, path in enumerate(storage):
+            drives += ['-drive', f'if=none,id=disk{index},format=raw,file={path}',
+                       '-device', f'ide-hd,drive=disk{index},bus=ahci.{index},bootindex={1 if path == disk else 2}']
         command = [args.qemu, '-machine', 'q35,i8042=off', '-accel', 'tcg',
                    '-m', '1024M', '-smp', '1', '-nic', 'none',
                    '-drive', f'if=pflash,format=raw,readonly=on,file={args.ovmf}',
                    '-drive', f'if=pflash,format=raw,file={variables}',
-                   '-drive', f'if=none,id=installed,format=raw,file={disk}',
-                   '-device', 'ich9-ahci,id=ahci',
-                   '-device', 'ide-hd,drive=installed,bus=ahci.0,bootindex=1',
+                   *drives,
                    '-vga', 'none', '-device', 'VGA,vgamem_mb=64,xres=1280,yres=800',
                    '-device', 'virtio-keyboard-pci,disable-legacy=on',
                    '-device', 'virtio-tablet-pci,disable-legacy=on',
                    '-serial', f'tcp:127.0.0.1:{port},server=on,wait=off',
                    '-qmp', f'unix:{qmp_path},server=on,wait=off',
                    '-display', 'none', '-monitor', 'none', '-no-reboot']
-        # Firmware is the only host-supplied boot component. The sole disk must
+        # Firmware is the only host-supplied boot component. The target disk must
         # supply the OS loader, kernel, bootstrap, apps and persisted state.
         assert not {'-cdrom', '-kernel', '-initrd', '-bios'} & set(command)
-        assert command.count('-drive') == 3  # code flash, variable flash, one disk
+        assert command.count('-drive') == 2 + len(storage)  # firmware plus explicit disks
         save_json(out / f'command-{number}.json', command)
         with (out / f'qemu-{number}.log').open('wb') as log:
             vm = subprocess.Popen(command, stdout=log, stderr=log)
@@ -155,6 +160,29 @@ def boot(disk, out, number, args, negative=False):
                             {'type': 'btn', 'data': {'button': 'left', 'down': down}}]})
                         time.sleep(.2)
 
+                if recovery_reason is not None:
+                    wait(f'installed-root: recovery reason={recovery_reason}'.encode(), args.boot_wait)
+                    wait(b'No fallback volume or repair was selected.')
+                    # Continue reading during observation so delayed startup
+                    # cannot hide behind the final recovery line.
+                    until = time.monotonic() + .5
+                    while time.monotonic() < until:
+                        if vm.poll() is not None:
+                            raise RuntimeError('Recovery VM exited instead of halting')
+                        try:
+                            chunk = serial.recv(16384)
+                            if not chunk:
+                                raise RuntimeError('Recovery serial disconnected')
+                            output.extend(chunk)
+                        except socket.timeout:
+                            pass
+                    if any(marker in output for marker in (b'srvros monitor ready', b'init: started',
+                            b'init: readiness=', b'srv> ', b'bootlog: persisted',
+                            b'installed-root: selected', b'trying initramfs fallback')):
+                        raise RuntimeError('Recovery reached normal startup or fallback')
+                    # Observe the halted state, then stop only this test VM.
+                    qmp.call('screendump', {'filename': str(out / f'recovery-{number}.ppm')})
+                    return
                 wait(b'srv> ', args.boot_wait)
                 if b'init: readiness=ready' not in output:
                     raise RuntimeError('Installed bootstrap init did not become ready')
@@ -167,8 +195,10 @@ def boot(disk, out, number, args, negative=False):
                     wait(b'elf: not found: /fat/bin/deskd')
                     wait(b'\r\nsrv> ')
                     return
-                if b'exfat: mounted /fat from ahci0p2 ' not in output or b'trying initramfs fallback' in output:
+                if f'exfat: mounted /fat from {expected_device} '.encode() not in output or b'trying initramfs fallback' in output:
                     raise RuntimeError('Installed GPT partition is not the sole /fat backing')
+                if require_identity and f'installed-root: selected device={expected_device} format=exfat-v1 role=system'.encode() not in output:
+                    raise RuntimeError('Missing explicit installed-root selection proof')
                 if number == 2:
                     serial.sendall(b'cat /fat/home/installed-proof.txt\n')
                     wait(PHRASE); wait(b'srv> ')
