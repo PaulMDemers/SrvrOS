@@ -87,59 +87,59 @@ unsigned desktop_dock_hit(const struct desktop_scene *s,int width,int height,int
 }
 static void icon(struct desk_canvas *c,int app,int x,int y) {
     if(app==DESK_APP_FILES) {
-        desk_fill(c,(struct desk_rect){x,y+2,12,6},0x748b79);
-        desk_fill(c,(struct desk_rect){x,y+7,30,19},0x748b79);
-        desk_fill(c,(struct desk_rect){x+1,y+10,28,15},0xa7b69e);
+        desk_fill(c,(struct desk_rect){x,y+2,12,6},0x8d99a5);
+        desk_fill(c,(struct desk_rect){x,y+7,30,19},0x8d99a5);
+        desk_fill(c,(struct desk_rect){x+1,y+10,28,15},0x97bce0);
     } else if(app==DESK_APP_TEXT) {
-        desk_fill(c,(struct desk_rect){x+4,y,23,29},0x748b79);
-        desk_fill(c,(struct desk_rect){x+5,y+1,21,27},0xfaf9f6);
-        for(int i=0;i<4;i++) desk_fill(c,(struct desk_rect){x+9,y+7+i*5,i==3?8:13,1},0x748b79);
+        desk_fill(c,(struct desk_rect){x+4,y,23,29},0x8d99a5);
+        desk_fill(c,(struct desk_rect){x+5,y+1,21,27},0xf0f1f3);
+        for(int i=0;i<4;i++) desk_fill(c,(struct desk_rect){x+9,y+7+i*5,i==3?8:13,1},0x8d99a5);
     } else if(app==DESK_APP_CALCULATOR) {
-        desk_fill(c,(struct desk_rect){x+3,y,25,29},0x748b79);
-        desk_fill(c,(struct desk_rect){x+6,y+3,19,7},0xe0eade);
-        for(int i=0;i<6;i++) desk_fill(c,(struct desk_rect){x+6+(i%3)*7,y+14+(i/3)*7,5,5},0xfaf9f6);
+        desk_fill(c,(struct desk_rect){x+3,y,25,29},0x8d99a5);
+        desk_fill(c,(struct desk_rect){x+6,y+3,19,7},0xc9e1f6);
+        for(int i=0;i<6;i++) desk_fill(c,(struct desk_rect){x+6+(i%3)*7,y+14+(i/3)*7,5,5},0xf0f1f3);
     } else if(app==DESK_APP_SYSTEM) {
-        desk_fill(c,(struct desk_rect){x,y+1,31,23},0x748b79);
-        desk_fill(c,(struct desk_rect){x+2,y+3,27,19},0xfaf9f6);
-        for(int i=0;i<4;i++) desk_fill(c,(struct desk_rect){x+5+i*6,y+18-i*3,3,3+i*3},0x748b79);
-        desk_fill(c,(struct desk_rect){x+11,y+24,9,4},0x748b79);
+        desk_fill(c,(struct desk_rect){x,y+1,31,23},0x8d99a5);
+        desk_fill(c,(struct desk_rect){x+2,y+3,27,19},0xf0f1f3);
+        for(int i=0;i<4;i++) desk_fill(c,(struct desk_rect){x+5+i*6,y+18-i*3,3,3+i*3},0x8d99a5);
+        desk_fill(c,(struct desk_rect){x+11,y+24,9,4},0x8d99a5);
     } else if(app==DESK_APP_TERMINAL) {
-        desk_fill(c,(struct desk_rect){x,y+1,31,26},0x748b79);
-        desk_fill(c,(struct desk_rect){x+2,y+3,27,22},0xfaf9f6);
-        desk_text(c,&desk_font_16,x+5,y+3,">_",0x38644f);
+        desk_fill(c,(struct desk_rect){x,y+1,31,26},0x8d99a5);
+        desk_fill(c,(struct desk_rect){x+2,y+3,27,22},0xf0f1f3);
+        desk_text(c,&desk_font_16,x+5,y+3,">_",0x2674b8);
     } else if(app==DESK_APP_SETTINGS) {
         for(int i=0;i<3;i++) {
-            desk_fill(c,(struct desk_rect){x+2,y+5+i*9,27,2},0x748b79);
-            desk_fill(c,(struct desk_rect){x+7+(i%2)*12,y+2+i*9,5,8},0x38644f);
+            desk_fill(c,(struct desk_rect){x+2,y+5+i*9,27,2},0x8d99a5);
+            desk_fill(c,(struct desk_rect){x+7+(i%2)*12,y+2+i*9,5,8},0x2674b8);
         }
     } else {
         char label[]={desk_application_info(app)->title[0],0};if(app==DESK_APP_HELP)label[0]='?';
-        desk_fill(c,(struct desk_rect){x+1,y+1,29,27},0x748b79);
-        desk_fill(c,(struct desk_rect){x+2,y+2,27,25},0xfaf9f6);
-        desk_text(c,&desk_font_20,x+9,y+1,label,0x38644f);
+        desk_fill(c,(struct desk_rect){x+1,y+1,29,27},0x8d99a5);
+        desk_fill(c,(struct desk_rect){x+2,y+2,27,25},0xf0f1f3);
+        desk_text(c,&desk_font_20,x+9,y+1,label,0x2674b8);
     }
 }
 static void dock(struct desk_canvas *c,const struct desktop_scene *s) {
     struct desktop_dock_entry entries[DESK_APP_COUNT];unsigned count=desktop_dock_entries(s,c->width,c->height,entries);
-    desk_fill(c,desktop_dock_frame(s,c->width,c->height),0xf1f0eb);
+    desk_theme_panel(c,desktop_dock_frame(s,c->width,c->height),&desk_theme_silver,0,0);
     for(unsigned i=0;i<count;i++) {
         struct desktop_dock_entry entry=entries[i];unsigned app=entry.application;struct desk_rect r=entry.frame;
         const char *name=desk_application_info(app)->title;
-        if(entry.active) desk_fill(c,(struct desk_rect){r.x+2,r.y+1,r.w-4,r.h-3},0xe0eade);
+        if(entry.active) desk_fill(c,(struct desk_rect){r.x+2,r.y+1,r.w-4,r.h-3},0xc9e1f6);
         struct desk_rect clip=c->clip;desk_clip(c,desk_intersect(clip,r));
         int x=r.x+(r.w-32)/2;icon(c,app,x,r.y+2);
         int text=desk_text_width(&desk_font_16,name);
-        desk_label_ellipsis(c,(struct desk_rect){text<=r.w-8?r.x+(r.w-text)/2:r.x+4,r.y+34,r.w-8,22},&desk_font_16,name,0x292e2b);
+        desk_label_ellipsis(c,(struct desk_rect){text<=r.w-8?r.x+(r.w-text)/2:r.x+4,r.y+34,r.w-8,22},&desk_font_16,name,0x252a30);
         if(entry.windows) {
-            struct desk_rect mark={r.x+(r.w-24)/2,r.y+55,24,4};desk_fill(c,mark,0x38644f);
-            if(entry.minimized==entry.windows)desk_fill(c,desk_widget_inset(mark,1),0xf1f0eb);
+            struct desk_rect mark={r.x+(r.w-24)/2,r.y+55,24,4};desk_fill(c,mark,0x2674b8);
+            if(entry.minimized==entry.windows)desk_fill(c,desk_widget_inset(mark,1),0xe8ebef);
         }
         if(entry.windows>1 && r.w>=40) {
             char text[16];if(entry.windows>99)strcpy(text,"99+");else snprintf(text,sizeof(text),"%u",entry.windows);
             int width=desk_text_width(&desk_font_16,text)+6;
             int badge=x+20;if(badge+width>r.x+r.w-2)badge=r.x+r.w-width-2;
-            desk_fill(c,(struct desk_rect){badge,r.y,width,20},0x38644f);
-            desk_text(c,&desk_font_16,badge+3,r.y,text,0xfaf9f6);
+            desk_fill(c,(struct desk_rect){badge,r.y,width,20},0x2674b8);
+            desk_text(c,&desk_font_16,badge+3,r.y,text,0xf0f1f3);
         }
         c->clip=clip;
     }
@@ -159,9 +159,12 @@ unsigned desktop_titlebar_hit(struct desk_rect frame,int standard,int x,int y) {
 static void window_control(struct desk_canvas *c,struct desk_rect frame,unsigned control,int restored,int focused) {
     struct desk_rect hit=desktop_window_control_rect(frame,control);
     struct desk_rect box={hit.x+2,hit.y+5,28,30};
-    uint32_t ink=focused?0x46574b:0x646b65,bg=focused?0xfaf9f6:0xf1f0eb;
-    desk_fill(c,box,focused?0x9ca99b:0xb2baaf);
-    desk_fill(c,desk_widget_inset(box,1),bg);
+    uint32_t ink=focused?0x354352:0x596572,bg=focused?0xf0f1f3:0xe8ebef;
+    desk_theme_panel(c,box,&desk_theme_silver,0,0);
+    if(control==DESKTOP_CLOSE && focused) {
+        desk_theme_gradient(c,desk_widget_inset(box,1),0xe59085,0xb94e43);
+        ink=0xffffff;
+    }
     int x=hit.x+9,y=hit.y+14;
     if(control==DESKTOP_MINIMIZE) desk_fill(c,(struct desk_rect){x,y+10,14,2},ink);
     else if(control==DESKTOP_MAXIMIZE) {
@@ -179,17 +182,18 @@ static void window_control(struct desk_canvas *c,struct desk_rect frame,unsigned
 static void draw_window(struct desk_canvas *c,const struct desktop_window *w,int focused,int standard) {
     if (!w->visible || w->minimized) return;
     struct desk_rect r=w->frame;
-    desk_fill(c,(struct desk_rect){r.x+5,r.y+7,r.w,r.h},0xb9c2b4);
-    desk_fill(c,r,focused?0x748b79:0xb2baaf);
-    desk_fill(c,(struct desk_rect){r.x+1,r.y+1,r.w-2,r.h-2},0xfaf9f6);
-    desk_fill(c,(struct desk_rect){r.x+1,r.y+1,r.w-2,42},focused?0xe7ebe2:0xf1f0eb);
+    desk_fill(c,(struct desk_rect){r.x+5,r.y+7,r.w,r.h},0x697b90);
+    desk_fill(c,r,focused?0x8d99a5:0xa7b0ba);
+    desk_fill(c,(struct desk_rect){r.x+1,r.y+1,r.w-2,r.h-2},0xf0f1f3);
+    desk_theme_gradient(c,(struct desk_rect){r.x+1,r.y+1,r.w-2,42},focused?0xf8fafc:0xf0f1f3,focused?0xc9d2dc:0xdce0e5);
+    desk_fill(c,(struct desk_rect){r.x+2,r.y+2,r.w-4,1},0xffffff);
     struct desk_rect clip=c->clip;
     desk_clip(c,desk_intersect(clip,(struct desk_rect){r.x+16,r.y+1,r.w-(standard?126:62),41}));
-    desk_label_ellipsis(c,(struct desk_rect){r.x+18,r.y+12,r.w-(standard?128:64),24},&desk_font_16,w->title,0x292e2b);
+    desk_label_ellipsis(c,(struct desk_rect){r.x+18,r.y+12,r.w-(standard?128:64),24},&desk_font_16,w->title,0x252a30);
     c->clip=clip;
     for(unsigned control=DESKTOP_CLOSE;control<=(standard?DESKTOP_MINIMIZE:DESKTOP_CLOSE);control++)
         window_control(c,r,control,w->maximized,focused);
-    desk_fill(c,(struct desk_rect){r.x+1,r.y+43,r.w-2,1},0xd9ddd5);
+    desk_fill(c,(struct desk_rect){r.x+1,r.y+43,r.w-2,1},0xb9c1ca);
     if (w->pixels) {
         struct desk_rect content={r.x+1,r.y+44,w->width,w->height};
         struct desk_rect visible=desk_intersect(c->clip,
@@ -200,7 +204,7 @@ static void draw_window(struct desk_canvas *c,const struct desktop_window *w,int
         c->pixel_writes+=(uint64_t)visible.w*visible.h;
     }
     for (int n=0;n<3;n++)
-        desk_fill(c,(struct desk_rect){r.x+r.w-5-4*n,r.y+r.h-5,2,2},0x748b79);
+        desk_fill(c,(struct desk_rect){r.x+r.w-5-4*n,r.y+r.h-5,2,2},0x8d99a5);
 }
 struct desk_rect desktop_clock_rect(int width,const char *clock) {
     int text=desk_text_width(&desk_font_16,clock);return (struct desk_rect){width-text-24,0,text+24,44};
@@ -213,7 +217,7 @@ struct desk_rect desktop_alert_rect(int width,const char *clock) {
 }
 static void calendar_panel(struct desk_canvas *c,const struct desktop_scene *s) {
     struct desk_rect r=s->calendar_frame,clip=c->clip;
-    desk_fill(c,(struct desk_rect){r.x+4,r.y+5,r.w,r.h},0xb9c2b4);
+    desk_fill(c,(struct desk_rect){r.x+4,r.y+5,r.w,r.h},0x697b90);
     desk_fill(c,r,desk_theme_quiet.border);desk_fill(c,desk_widget_inset(r,1),desk_theme_quiet.surface);
     desk_clip(c,desk_intersect(clip,r));
     desk_label_draw(c,(struct desk_rect){r.x+16,r.y+12,140,28},&desk_font_20,"Calendar",desk_theme_quiet.text);
@@ -261,9 +265,11 @@ void desktop_draw(struct desk_canvas *c,const struct desktop_scene *s) {
 }
 void desktop_draw_ordered(struct desk_canvas *c,const struct desktop_scene *s,
     const int *order,int occlusion) {
-    static const uint32_t backgrounds[]={0xd6dcd2,0xe2dace,0xcbd5da};
-    desk_fill(c,(struct desk_rect){0,0,c->width,c->height},backgrounds[s->wallpaper>=0 && s->wallpaper<3?s->wallpaper:0]);
-    desk_fill(c,(struct desk_rect){0,0,c->width,44},0xf1f0eb);
+    static const uint32_t tops[]={0x587fa4,0xc8baa6,0x697887};
+    static const uint32_t bottoms[]={0xa4bfd3,0xeee7db,0xb5c1cc};
+    unsigned wallpaper=s->wallpaper>=0 && s->wallpaper<3?(unsigned)s->wallpaper:0;
+    desk_theme_gradient(c,(struct desk_rect){0,0,c->width,c->height},tops[wallpaper],bottoms[wallpaper]);
+    desk_theme_gradient(c,(struct desk_rect){0,0,c->width,44},0xfafcfe,0xd9dfe6);
     if(s->apps) {
         desk_menu_bar_draw(c,&s->menu,&desk_theme_quiet);
         if(s->calendar_open) desk_fill(c,desktop_clock_rect(c->width,s->clock),desk_theme_quiet.selected);
@@ -273,16 +279,16 @@ void desktop_draw_ordered(struct desk_canvas *c,const struct desktop_scene *s,
         desk_label_draw(c,(struct desk_rect){alerts.x+6,12,alerts.w-12,24},&desk_font_16,label,desk_theme_quiet.text);
         if(s->battery[0]) desk_label_draw(c,(struct desk_rect){alerts.x-144,12,140,24},&desk_font_16,s->battery,desk_theme_quiet.muted);
         int clock_width=desk_text_width(&desk_font_16,s->clock);
-        desk_label_draw(c,(struct desk_rect){c->width-clock_width-16,12,clock_width,24},&desk_font_16,s->clock,0x646b65);
-    } else desk_text(c,&desk_font_16,24,12,s->trackpad_trial?"SrvrOS   /   Trackpad trial":"SrvrOS   /   Desktop",0x292e2b);
+        desk_label_draw(c,(struct desk_rect){c->width-clock_width-16,12,clock_width,24},&desk_font_16,s->clock,0x596572);
+    } else desk_text(c,&desk_font_16,24,12,s->trackpad_trial?"SrvrOS   /   Trackpad trial":"SrvrOS   /   Desktop",0x252a30);
     if(!s->apps && s->battery[0])desk_label_draw(c,(struct desk_rect){c->width-180,12,164,24},&desk_font_16,s->battery,desk_theme_quiet.muted);
     if(!s->apps) desk_text(c,&desk_font_16,24,c->height-30,s->notice[0]?s->notice:s->trackpad_trial==3?s->io_status:
         s->trackpad_trial>=2?"Two fingers: scroll   Move / press-drag   Type to test   Esc: save checks":
         s->trackpad_trial?"One finger: move / press-drag   Type to test   Esc: save checks":
-        "Tab: switch window   Ctrl-N: open study   Esc: console",0x465348);
+        "Tab: switch window   Ctrl-N: open study   Esc: console",0x354352);
     if (s->trackpad_trial>=2 && c->height>=700) {
         int y=c->height-269;
-        desk_fill(c,(struct desk_rect){24,y,c->width-48,218},0xf1f0eb);
+        desk_fill(c,(struct desk_rect){24,y,c->width-48,218},0xe8ebef);
         const char *steps[]={
             "Trackpad checks - take your time",
             "1. Drag the scrollbar thumb; move outside the window while held, then release.",
@@ -314,7 +320,7 @@ void desktop_draw_ordered(struct desk_canvas *c,const struct desktop_scene *s,
             s->io_check[0]?s->io_check:"   Complete all coverage counters below before Escape."
         };
         for (unsigned i=0;i<sizeof(steps)/sizeof(*steps);i++)
-            desk_text(c,&desk_font_16,40,y+12+24*i,s->trackpad_trial==4?tap_steps[i]:s->trackpad_trial==3?io_steps[i]:steps[i],i?0x465348:0x292e2b);
+            desk_text(c,&desk_font_16,40,y+12+24*i,s->trackpad_trial==4?tap_steps[i]:s->trackpad_trial==3?io_steps[i]:steps[i],i?0x354352:0x252a30);
     }
     for(int n=0;n<desktop_capacity(s);n++) {
         if(occlusion && window_covered(s,order,n,c->clip)) continue;
@@ -328,7 +334,7 @@ void desktop_draw_ordered(struct desk_canvas *c,const struct desktop_scene *s,
                 desk_fill(c,banner,desk_theme_quiet.border);
                 desk_fill(c,desk_widget_inset(banner,1),desk_theme_quiet.surface);
             }
-            desk_text(c,&desk_font_16,24,c->height-98,s->notice,0x38644f);
+            desk_text(c,&desk_font_16,24,c->height-98,s->notice,0x2674b8);
         }
         desk_menu_popup_draw(c,&s->menu,&desk_theme_quiet);
         if(s->calendar_open) calendar_panel(c,s);
@@ -337,7 +343,7 @@ void desktop_draw_ordered(struct desk_canvas *c,const struct desktop_scene *s,
     }
     if(s->apps) desk_popup_draw(c,&s->context,&desk_theme_quiet);
     for (int y=0;y<16;y++) {
-        desk_fill(c,(struct desk_rect){s->cursor_x,s->cursor_y+y,1+y/2,1},0x292e2b);
-        if (y>1 && y<13) desk_fill(c,(struct desk_rect){s->cursor_x+1,s->cursor_y+y,y/2,1},0xfaf9f6);
+        desk_fill(c,(struct desk_rect){s->cursor_x,s->cursor_y+y,1+y/2,1},0x252a30);
+        if (y>1 && y<13) desk_fill(c,(struct desk_rect){s->cursor_x+1,s->cursor_y+y,y/2,1},0xf0f1f3);
     }
 }

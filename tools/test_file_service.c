@@ -54,9 +54,23 @@ long srv_futex_wait(uint32_t *word,uint32_t expected,uint64_t ticks) {
 long srv_futex_wake(uint32_t *word,uint64_t count) {
     (void)word;assert(count==1);pthread_mutex_lock(&event_lock);pthread_cond_broadcast(&event_cond);pthread_mutex_unlock(&event_lock);return 1;
 }
+#ifdef __APPLE__
+/* SrvrOS accepts 16-byte stacks; Darwin requires page-aligned stacks. Verify
+ * the requested contract and let the host allocate its own worker stack. */
+static int host_setstack(pthread_attr_t *attr,void *stack,size_t size) {
+    (void)attr;assert(stack==expected_stack && size==64*1024);return 0;
+}
+#endif
 static int create_thread(pthread_t *thread,const pthread_attr_t *attr,void *(*start)(void *),void *arg) {
+#ifndef __APPLE__
     void *stack=NULL;size_t size=0;assert(!pthread_attr_getstack(attr,&stack,&size) && stack==expected_stack && size==64*1024);
-    assert(pthread_equal(pthread_self(),ui));if(fail_create){fail_create=0;return EAGAIN;}thread_call.start=start;thread_call.arg=arg;return pthread_create(thread,attr,host_thread_body,NULL);
+#endif
+    assert(pthread_equal(pthread_self(),ui));if(fail_create){fail_create=0;return EAGAIN;}thread_call.start=start;thread_call.arg=arg;
+#ifdef __APPLE__
+    (void)attr;return pthread_create(thread,NULL,host_thread_body,NULL);
+#else
+    return pthread_create(thread,attr,host_thread_body,NULL);
+#endif
 }
 static int join_thread(pthread_t thread,void **value) {if(fail_join){fail_join=0;return EBUSY;}return pthread_join(thread,value);}
 static int retire_mapping(void *address,size_t length) {
@@ -71,10 +85,16 @@ static uint64_t tool_timing_begin(int role,uint64_t window,const char *stage) {(
 static void tool_timing_end(int role,uint64_t window,const char *stage,uint64_t at) {(void)role;(void)window;(void)stage;(void)at;}
 static void tool_phase_begin(struct tool_phase_trace *phase) {phase->value=1;}
 static void tool_phase_end(struct tool_phase_trace *phase,int role,uint64_t window,const char *stage) {(void)role;(void)window;(void)stage;assert(phase->value);}
+#ifdef __APPLE__
+#define pthread_attr_setstack host_setstack
+#endif
 #define pthread_create create_thread
 #define pthread_join join_thread
 #define munmap retire_mapping
 #include "../userspace/apps/desktools/file_service.h"
+#ifdef __APPLE__
+#undef pthread_attr_setstack
+#endif
 #undef pthread_create
 #undef pthread_join
 #undef munmap

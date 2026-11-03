@@ -8,6 +8,8 @@
 #include <srvros/gui.h>
 #include <srvros/sys.h>
 
+void __desk_app_surface_trace(struct desk_app *app,const char *stage,int begin) { (void)app;(void)stage;(void)begin; }
+
 static uint64_t ticks=1,next_surface=10,source=42;
 static int liveness_checks,alive=1,queued,full,created,destroyed,blits,sends,waits,wait_result,pixel_failure,surface_failure;
 static unsigned pixel_allocs,pixel_frees;

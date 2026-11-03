@@ -1,5 +1,13 @@
 .SUFFIXES:
 
+# Avoid empty wildcard archives when first-party submodules are absent.
+ifneq ($(filter-out clean distclean check-host check-docs,$(or $(MAKECMDGOALS),all)),)
+MODULE_MARKERS := userspace/widgets/include/srvros/desk_widgets.h userspace/apps/desktools/main.c ports/README.md
+ifneq ($(words $(wildcard $(MODULE_MARKERS))),$(words $(MODULE_MARKERS)))
+$(error Missing SrvrOS modules; run git submodule update --init --recursive)
+endif
+endif
+
 ARCH := x86_64
 KERNEL := build/kernel/srvros.elf
 IMAGE := build/srvros-$(ARCH).iso
@@ -3020,6 +3028,7 @@ test-desktop: test-path
 .PHONY: test-widget-boundary
 test-widgets: test-widget-boundary
 test-widget-boundary: $(HOST_DESK_WIDGETS_A)
+	$(PYTHON) -m unittest discover -s tools -p test_widget_boundary.py
 	$(PYTHON) tools/check_widget_boundary.py --nm $(HOST_NM) $(HOST_DESK_WIDGETS_A)
 
 test-core: test-acpi-io-rule
@@ -4072,3 +4081,17 @@ test-cpu-checkpoint-budget:
 test-core: test-cpu-capture-format
 test-cpu-capture-format:
 	$(PYTHON) -m unittest discover -s tools -p test_cpu_capture_format.py
+
+.PHONY: test-widget-theme widget-theme-preview
+test-widgets: test-widget-theme
+test-widget-theme: build/tests/widget-theme-host$(HOST_EXE)
+	$<
+build/tests/widget-theme-host$(HOST_EXE): tools/test_widget_theme.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I $(DESK_WIDGETS_INCLUDE) -idirafter userspace/lib/include -I shared/include $< $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -o $@
+widget-theme-preview: build/tests/render-widget-theme$(HOST_EXE)
+	@mkdir -p build/review/theme
+	$< build/review/theme/silver.ppm
+build/tests/render-widget-theme$(HOST_EXE): tools/render_widget_theme.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I $(DESK_WIDGETS_INCLUDE) -idirafter userspace/lib/include -I shared/include $< $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -o $@
