@@ -5,7 +5,7 @@
 User authorized a scoped installed-boot PR with reordered-disk persistence and
 recovery evidence. Branch `device/apple-silicon/installed-canonical-paths` in
 `SrvrOS-installation` combines merged main `8f47f196` with exact filesystem PR313
-`77dbd1f9` by local merge, retaining PR252 and SrvrPorts `0f51ba9`. The dependency
+`06d5a416` by local merge, retaining PR252 and SrvrPorts `0f51ba9`. The dependency
 PR remains separately under review. Installation owns the fixture/harness and
 `docs/disk-installation.md`; no competing namespace or profile implementation.
 Latest profile contracts: PR309 `fa9717ad`, desktop PR314 `814aee20`; preserve
