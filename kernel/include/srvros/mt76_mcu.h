@@ -910,4 +910,19 @@ bool mt76_bbp5_transfer_valid(const struct mt76_bbp5 *s,unsigned operation,bool 
 bool mt76_bbp5_valid(const struct mt76_bbp5 *s);
 enum mt76_mcu_timing_status mt76_bbp5_capture(struct mt76_bbp5 *s,unsigned lna,const struct mt76_bbp5_io *io);
 
+/* Host-only foundation until a separate native owner/profile is reviewed.
+ * All I/O interfaces share context/authorizer. Native admission must supply
+ * fresh gain/board/parent proof; the scalar here is not that proof. No VCO/RX.
+ * Phases:1 band/synth/A20,2 PA,3 BBP,4 verified full restoration. */
+struct mt76_channel5 {
+    bool attempted,complete,selected;
+    unsigned phase,lna;
+    struct mt76_5ghz_band band;
+    struct mt76_pa5 pa;
+    struct mt76_bbp5 bbp;
+};
+bool mt76_channel5_owned(const struct mt76_channel5 *s);
+bool mt76_channel5_valid(const struct mt76_channel5 *s);
+enum mt76_mcu_timing_status mt76_channel5_capture(struct mt76_channel5 *s,uint16_t nic0,uint16_t nic1,unsigned lna,const struct mt76_mcu_timing_io *rf,const struct mt76_band_mac_io *mac,const struct mt76_pa5_io *pa,const struct mt76_bbp5_io *bbp);
+
 #endif

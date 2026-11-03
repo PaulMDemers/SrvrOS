@@ -357,6 +357,17 @@ fields and command/restoration transaction after parent restore. Simultaneous
 held-channel PA/BBP state, VCO, calibrated reception and connectivity remain
 unaccepted; those are separate integration/calibration/receive milestones.
 
+## Held channel161 coordinator foundation
+
+`mt76_channel5_capture` keeps band/frequency/A20 selected around PA and BBP,
+using private fixed nesting points after independent selected readbacks. The
+inverse path restores BBP, PA, A20, frequency and band. Its authorizer validates
+the nested parent proofs and phase; a transport failure or cancellation stops
+without speculative writes or replay. Legacy restored-transaction APIs remain
+unchanged. This foundation has no native caller, VCO/RX or credential use.
+Numeric gain admission is not fresh EFUSE proof: a separate native owner and
+strict saved-log recipe must bind that proof before physical validation.
+
 ## Current merged development baseline
 
 Runtime `d9c28128` consumes main `1dad02c2`, Apps `1f5f894`, Ports `5aacedd`

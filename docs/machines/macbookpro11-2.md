@@ -81,6 +81,27 @@ pulse or RX; separate VCO/calibrated reception and authenticated IP milestones
 remain pending. PR252 retains resolver/socket scope; no other open Wi-Fi owner
 was found at this integration checkpoint. Preserve v115 and independent backups.
 
+## Held-channel host foundation
+
+A fixed coordinator now nests PA at A20 operation504 while synth operation623
+and the band remain selected. It nests BBP at PA operation294 and records the
+joint selected boundary at BBP operation441. BBP, PA, A20, synth and band then
+restore in inverse order, each retaining its independent original readbacks.
+Legacy public capture APIs pass no private nesting context and keep their old
+transaction contracts. The coordinator accepts only the fixed board tuple and
+bounded gain scalar, one shared I/O context/authorizer, and no caller-selected
+register plan or selected-state callback. An uncertain transfer or cancellation
+stops immediately without speculative cleanup or replay.
+
+This is an uncalled host foundation, not a native profile or fresh-gain proof.
+The future private native owner must bind fresh board/gain and same-device parent
+proof before I/O. A shared simulated register bank checks simultaneous selected
+states and original restoration; transfer/cancellation and owner/refusal tests
+are being finalized. No VCO, calibration, RX, credentials, installed payload or
+reboot state changes belong to this implementation. Next: complete host fault/
+sanitizer/full regression validation, then native admission and strict saved-log
+coverage before any staged hardware trial.
+
 ## v115 fresh5GHz gain/baseband restoration accepted
 
 Release `e405f17dd9a5449b`, runtime `ec117c9e`, main `105077d7`,

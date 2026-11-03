@@ -2036,10 +2036,21 @@ size_t mt76_a20_cycle_packet(const struct mt76_rf_table *s,unsigned op,uint8_t *
     if(mt76_a20_cycle_write(q))payload[4]=(uint8_t)mt76_a20_cycle_expected(q);
     return mt76_mcu_encode(mt76_a20_cycle_write(q)?12:10,mt76_a20_cycle_sequence(q),payload,8,out,cap);
 }
-enum mt76_mcu_timing_status mt76_a20_cycle_capture(struct mt76_rf_table *s,const struct mt76_mcu_timing_io *io){
+/* Private nesting only: no public caller-supplied selected-state callback. */
+struct channel5_link {
+    struct mt76_channel5 *s;
+    const struct mt76_pa5_io *pa;
+    const struct mt76_bbp5_io *bbp;
+};
+static enum mt76_mcu_timing_status channel5_pa(struct channel5_link *link);
+static enum mt76_mcu_timing_status channel5_bbp(struct channel5_link *link);
+static enum mt76_mcu_timing_status channel5_selected(struct channel5_link *link);
+static enum mt76_mcu_timing_status synth5_capture(struct mt76_synth5 *,struct mt76_rf_table *,const struct mt76_mcu_timing_io *,struct channel5_link *);
+static enum mt76_mcu_timing_status a20_cycle_capture(struct mt76_rf_table *s,const struct mt76_mcu_timing_io *io,struct channel5_link *link){
     if(!s || s->attempted || !io || !io->authorize || !io->read || !io->exchange)return MT76_TIMING_REFUSED;
     *s=(struct mt76_rf_table){.attempted=true,.received=-1};
     for(unsigned op=0;op<840;op++){
+        if(op==504 && link){enum mt76_mcu_timing_status status=channel5_pa(link);if(status!=MT76_TIMING_OK)return status;}
         unsigned q=op/7,n=op%7;if(!mt76_a20_cycle_admit(s,op))return MT76_TIMING_STATE;
         if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
         if(n!=3){unsigned j=n<3?n:n-4;uint32_t *v=&s->guards[q*2+(n>=4)][j];
@@ -2060,6 +2071,7 @@ enum mt76_mcu_timing_status mt76_a20_cycle_capture(struct mt76_rf_table *s,const
     if(!a20_cycle_state(s,840))return MT76_TIMING_STATE;
     s->complete=true;return MT76_TIMING_OK;
 }
+enum mt76_mcu_timing_status mt76_a20_cycle_capture(struct mt76_rf_table *s,const struct mt76_mcu_timing_io *io){return a20_cycle_capture(s,io,NULL);}
 bool mt76_a20_cycle_valid(const struct mt76_rf_table *s){return s && s->complete && a20_cycle_state(s,840);}
 
 unsigned mt76_rf_g20_sequence(unsigned command){return rf_plan_sequence(&rf_g20_plan,command);}
@@ -2773,7 +2785,7 @@ bool mt76_5ghz_band_valid(const struct mt76_5ghz_band *s){
         mt76_band5g_mac_exact_profile_valid(&s->mac) && band_inventory_matches(&s->selected,true) &&
         mt76_restore_mac_exact_profile_valid(&s->mac_restore) && mt76_rf_restore_exact_profile_valid(&s->rf_restore) && band_inventory_matches(&s->original,false);
 }
-static enum mt76_mcu_timing_status band_channel_capture(struct mt76_5ghz_band *s,const struct mt76_mcu_timing_io *rf,const struct mt76_band_mac_io *mac,bool channel,bool a20){
+static enum mt76_mcu_timing_status band_channel_capture(struct mt76_5ghz_band *s,const struct mt76_mcu_timing_io *rf,const struct mt76_band_mac_io *mac,bool channel,bool a20,struct channel5_link *link){
     if(!s || s->attempted || !rf || !mac || !rf->authorize || !rf->read || !rf->exchange || !mac->transfer || rf->context!=mac->context || rf->authorize!=mac->authorize)return MT76_TIMING_REFUSED;
     *s=(struct mt76_5ghz_band){.attempted=true,.phase=1,.channel161=channel,.a20_cycle=a20};enum mt76_mcu_timing_status status;
     status=mt76_5ghz_prereq_capture(&s->before,rf);if(status!=MT76_TIMING_OK)return status;
@@ -2783,7 +2795,7 @@ static enum mt76_mcu_timing_status band_channel_capture(struct mt76_5ghz_band *s
     s->phase=3;status=mt76_band5g_mac_apply(&s->mac,mac);if(status!=MT76_TIMING_OK)return status;
     s->phase=4;status=mt76_5ghz_prereq_capture(&s->selected,rf);if(status!=MT76_TIMING_OK)return status;
     if(!band_inventory_matches(&s->selected,true))return MT76_TIMING_STATE;
-    if(channel){s->phase=8;status=a20?mt76_synth5_with_a20_capture(&s->synth,&s->a20,rf):mt76_synth5_capture(&s->synth,rf);if(status!=MT76_TIMING_OK)return status;if(!mt76_synth5_valid(&s->synth))return MT76_TIMING_STATE;}
+    if(channel){s->phase=8;status=synth5_capture(&s->synth,a20?&s->a20:NULL,rf,link);if(status!=MT76_TIMING_OK)return status;if(!mt76_synth5_valid(&s->synth))return MT76_TIMING_STATE;}
     s->phase=5;status=mt76_restore_mac_apply(&s->mac_restore,mac);if(status!=MT76_TIMING_OK)return status;
     s->phase=6;status=mt76_rf_restore_capture(&s->rf_restore,rf);if(status!=MT76_TIMING_OK)return status;
     if(!mt76_rf_restore_exact_profile_valid(&s->rf_restore))return MT76_TIMING_STATE;
@@ -2794,10 +2806,10 @@ static enum mt76_mcu_timing_status band_channel_capture(struct mt76_5ghz_band *s
     return mt76_5ghz_band_valid(s)?MT76_TIMING_OK:MT76_TIMING_STATE;
 }
 
-enum mt76_mcu_timing_status mt76_5ghz_band_capture(struct mt76_5ghz_band *s,const struct mt76_mcu_timing_io *rf,const struct mt76_band_mac_io *mac){return band_channel_capture(s,rf,mac,false,false);}
-enum mt76_mcu_timing_status mt76_5ghz_channel_capture(struct mt76_5ghz_band *s,const struct mt76_mcu_timing_io *rf,const struct mt76_band_mac_io *mac){return band_channel_capture(s,rf,mac,true,false);}
+enum mt76_mcu_timing_status mt76_5ghz_band_capture(struct mt76_5ghz_band *s,const struct mt76_mcu_timing_io *rf,const struct mt76_band_mac_io *mac){return band_channel_capture(s,rf,mac,false,false,NULL);}
+enum mt76_mcu_timing_status mt76_5ghz_channel_capture(struct mt76_5ghz_band *s,const struct mt76_mcu_timing_io *rf,const struct mt76_band_mac_io *mac){return band_channel_capture(s,rf,mac,true,false,NULL);}
 
-enum mt76_mcu_timing_status mt76_5ghz_a20_capture(struct mt76_5ghz_band *s,const struct mt76_mcu_timing_io *rf,const struct mt76_band_mac_io *mac){return band_channel_capture(s,rf,mac,true,true);}
+enum mt76_mcu_timing_status mt76_5ghz_a20_capture(struct mt76_5ghz_band *s,const struct mt76_mcu_timing_io *rf,const struct mt76_band_mac_io *mac){return band_channel_capture(s,rf,mac,true,true,NULL);}
 
 /* Linux v7.0 mt76x0_frequency_plan channel1, mapped through mt76x0_freq_item.
  * Adjacent RMW fields retain source order; no SDM pulse, VCO or caller plan. */
@@ -2903,11 +2915,11 @@ size_t mt76_synth5_packet(const struct mt76_synth5 *s,unsigned op,uint8_t *out,s
     if(mt76_synth5_write(q))payload[4]=(uint8_t)mt76_synth5_expected(q);
     return mt76_mcu_encode(mt76_synth5_write(q)?12:10,mt76_synth5_sequence(q),payload,8,out,cap);
 }
-static enum mt76_mcu_timing_status synth5_capture(struct mt76_synth5 *s,struct mt76_rf_table *a20,const struct mt76_mcu_timing_io *io){
+static enum mt76_mcu_timing_status synth5_capture(struct mt76_synth5 *s,struct mt76_rf_table *a20,const struct mt76_mcu_timing_io *io,struct channel5_link *link){
     if(!s || s->attempted || !io || !io->authorize || !io->read || !io->exchange)return MT76_TIMING_REFUSED;
     *s=(struct mt76_synth5){.attempted=true,.received=-1};
     for(unsigned op=0;op<896;op++){
-        if(op==623 && a20){s->paused=true;enum mt76_mcu_timing_status status=mt76_a20_cycle_capture(a20,io);if(status!=MT76_TIMING_OK)return status;if(!mt76_a20_cycle_valid(a20))return MT76_TIMING_STATE;s->paused=false;}
+        if(op==623 && a20){s->paused=true;enum mt76_mcu_timing_status status=a20_cycle_capture(a20,io,link);if(status!=MT76_TIMING_OK)return status;if(!mt76_a20_cycle_valid(a20))return MT76_TIMING_STATE;s->paused=false;}
         unsigned q=op/7,n=op%7;
         if(!mt76_synth5_admit(s,op))return MT76_TIMING_STATE;
         if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
@@ -2929,8 +2941,8 @@ static enum mt76_mcu_timing_status synth5_capture(struct mt76_synth5 *s,struct m
     if(!synth5_state_valid(s,896))return MT76_TIMING_STATE;
     s->complete=true;return MT76_TIMING_OK;
 }
-enum mt76_mcu_timing_status mt76_synth5_capture(struct mt76_synth5 *s,const struct mt76_mcu_timing_io *io){return synth5_capture(s,NULL,io);}
-enum mt76_mcu_timing_status mt76_synth5_with_a20_capture(struct mt76_synth5 *s,struct mt76_rf_table *a20,const struct mt76_mcu_timing_io *io){if(!a20 || a20->attempted)return MT76_TIMING_REFUSED;return synth5_capture(s,a20,io);}
+enum mt76_mcu_timing_status mt76_synth5_capture(struct mt76_synth5 *s,const struct mt76_mcu_timing_io *io){return synth5_capture(s,NULL,io,NULL);}
+enum mt76_mcu_timing_status mt76_synth5_with_a20_capture(struct mt76_synth5 *s,struct mt76_rf_table *a20,const struct mt76_mcu_timing_io *io){if(!a20 || a20->attempted)return MT76_TIMING_REFUSED;return synth5_capture(s,a20,io,NULL);}
 bool mt76_synth5_valid(const struct mt76_synth5 *s){return s && s->complete && !s->paused && synth5_state_valid(s,896);}
 
 unsigned mt76_post_sequence(unsigned q){return rf_plan_sequence(&post_plan,q);}
@@ -3247,10 +3259,11 @@ size_t mt76_pa5_packet(const struct mt76_pa5 *s,unsigned op,uint8_t *out,size_t 
     return mt76_mcu_encode(mt76_pa5_write(q)?12:10,q%15+1,p,8,out,cap);
 }
 bool mt76_pa5_valid(const struct mt76_pa5 *s){return s && s->complete && s->restored && pa5_state(s,490);}
-enum mt76_mcu_timing_status mt76_pa5_capture(struct mt76_pa5 *s,uint16_t nic0,uint16_t nic1,const struct mt76_pa5_io *io){
+static enum mt76_mcu_timing_status pa5_capture(struct mt76_pa5 *s,uint16_t nic0,uint16_t nic1,const struct mt76_pa5_io *io,struct channel5_link *link){
     if(!s || s->attempted || nic0!=0xfd11 || nic1!=0x1004 || !io || !io->authorize || !io->transfer || !io->exchange)return MT76_TIMING_REFUSED;
     *s=(struct mt76_pa5){.attempted=true,.received=-1};
     for(unsigned op=0;op<490;op++){
+        if(op==294 && link){enum mt76_mcu_timing_status status=channel5_bbp(link);if(status!=MT76_TIMING_OK)return status;}
         if(!mt76_pa5_admit(s,op))return MT76_TIMING_STATE;
         if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
         unsigned q=op/7,n=op%7;uint32_t value=0;
@@ -3276,6 +3289,8 @@ enum mt76_mcu_timing_status mt76_pa5_capture(struct mt76_pa5 *s,uint16_t nic0,ui
     if(!pa5_state(s,490))return MT76_TIMING_STATE;
     s->complete=s->restored=true;return MT76_TIMING_OK;
 }
+
+enum mt76_mcu_timing_status mt76_pa5_capture(struct mt76_pa5 *s,uint16_t nic0,uint16_t nic1,const struct mt76_pa5_io *io){return pa5_capture(s,nic0,nic1,io,NULL);}
 
 bool mt76_pa5_parent_valid(const struct mt76_5ghz_prereq *s){
     if(!mt76_frontend_valid(s))return false;
@@ -3323,10 +3338,11 @@ bool mt76_bbp5_parent_valid(const struct mt76_5ghz_prereq *s){
     for(unsigned i=0;i<21;i++)if(mt76_frontend_target(i+4)!=bbp5_targets[i] || s->values[i+4]!=bbp5_originals[i])return false;
     return true;
 }
-enum mt76_mcu_timing_status mt76_bbp5_capture(struct mt76_bbp5 *s,unsigned lna,const struct mt76_bbp5_io *io){
+static enum mt76_mcu_timing_status bbp5_capture(struct mt76_bbp5 *s,unsigned lna,const struct mt76_bbp5_io *io,struct channel5_link *link){
     if(!s || s->attempted || lna>255 || !io || !io->authorize || !io->transfer)return MT76_TIMING_REFUSED;
     *s=(struct mt76_bbp5){.attempted=true,.lna=lna};
     for(unsigned op=0;op<735;op++){
+        if(op==441 && link){enum mt76_mcu_timing_status status=channel5_selected(link);if(status!=MT76_TIMING_OK)return status;}
         if(!mt76_bbp5_admit(s,op))return MT76_TIMING_STATE;
         if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
         unsigned q=op/7,n=op%7;bool write=n==3 && mt76_bbp5_write(q);uint32_t v=write?mt76_bbp5_expected(q,lna):0;
@@ -3339,4 +3355,68 @@ enum mt76_mcu_timing_status mt76_bbp5_capture(struct mt76_bbp5 *s,unsigned lna,c
     if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
     if(!bbp5_state(s,735))return MT76_TIMING_STATE;
     s->complete=s->restored=true;return MT76_TIMING_OK;
+}
+
+enum mt76_mcu_timing_status mt76_bbp5_capture(struct mt76_bbp5 *s,unsigned lna,const struct mt76_bbp5_io *io){return bbp5_capture(s,lna,io,NULL);}
+
+/* A fixed nested transaction, deliberately not wired into native startup yet.
+ * A20, PA and BBP each finish their selected readbacks before entering a child.
+ * Their restorations then run in the exact inverse order. An uncertain transfer
+ * or revoked authorization stops immediately; no speculative cleanup/replay. */
+static bool channel5_parent_selected(const struct mt76_channel5 *s){
+    const struct mt76_5ghz_band *b=&s->band;
+    return b->channel161 && b->a20_cycle && b->phase==8 && b->synth.paused &&
+        mt76_5ghz_band_owned(b) && band_inventory_matches(&b->selected,true) &&
+        mt76_synth5_admit(&b->synth,623) && mt76_a20_cycle_admit(&b->a20,504);
+}
+bool mt76_channel5_valid(const struct mt76_channel5 *s){
+    return s && s->attempted && s->complete && s->selected && s->phase==4 && s->lna<=255 &&
+        s->bbp.lna==s->lna && mt76_5ghz_band_valid(&s->band) && s->band.channel161 &&
+        s->band.a20_cycle && mt76_pa5_valid(&s->pa) && mt76_bbp5_valid(&s->bbp);
+}
+bool mt76_channel5_owned(const struct mt76_channel5 *s){
+    if(!s || !s->attempted || s->complete || s->lna>255 || s->phase<1 || s->phase>4)return false;
+    if(s->bbp.attempted && s->bbp.lna!=s->lna)return false;
+    if(s->phase==4)return s->selected && mt76_5ghz_band_valid(&s->band) && s->band.channel161 && s->band.a20_cycle && mt76_pa5_valid(&s->pa) && mt76_bbp5_valid(&s->bbp);
+    if(s->phase==1)return mt76_5ghz_band_owned(&s->band) &&
+        (s->pa.attempted?(s->selected && mt76_pa5_valid(&s->pa) && mt76_bbp5_valid(&s->bbp)):(!s->bbp.attempted && !s->selected));
+    if(!channel5_parent_selected(s))return false;
+    if(s->phase==2)return !s->pa.complete && !s->pa.restored && pa5_state(&s->pa,s->pa.operations) &&
+        (s->bbp.attempted?(s->selected && mt76_bbp5_valid(&s->bbp)):!s->selected);
+    return mt76_pa5_admit(&s->pa,294) && !s->bbp.complete && !s->bbp.restored && bbp5_state(&s->bbp,s->bbp.operations) && (!s->selected || s->bbp.operations>=441);
+}
+static enum mt76_mcu_timing_status channel5_selected(struct channel5_link *link){
+    struct mt76_channel5 *s=link->s;
+    if(s->phase!=3 || s->selected || !channel5_parent_selected(s) || !mt76_pa5_admit(&s->pa,294) || !mt76_bbp5_admit(&s->bbp,441))return MT76_TIMING_STATE;
+    if(!link->bbp->authorize(link->bbp->context))return MT76_TIMING_CANCELLED;
+    s->selected=true;return MT76_TIMING_OK;
+}
+static enum mt76_mcu_timing_status channel5_bbp(struct channel5_link *link){
+    struct mt76_channel5 *s=link->s;
+    if(s->phase!=2 || !channel5_parent_selected(s) || !mt76_pa5_admit(&s->pa,294) || s->bbp.attempted)return MT76_TIMING_STATE;
+    s->phase=3;enum mt76_mcu_timing_status status=bbp5_capture(&s->bbp,s->lna,link->bbp,link);
+    if(status!=MT76_TIMING_OK)return status;
+    if(!s->selected || !mt76_bbp5_valid(&s->bbp))return MT76_TIMING_STATE;
+    s->phase=2;return MT76_TIMING_OK;
+}
+static enum mt76_mcu_timing_status channel5_pa(struct channel5_link *link){
+    struct mt76_channel5 *s=link->s;
+    if(s->phase!=1 || !channel5_parent_selected(s) || s->pa.attempted)return MT76_TIMING_STATE;
+    s->phase=2;enum mt76_mcu_timing_status status=pa5_capture(&s->pa,0xfd11,0x1004,link->pa,link);
+    if(status!=MT76_TIMING_OK)return status;
+    if(!s->selected || !mt76_pa5_valid(&s->pa) || !mt76_bbp5_valid(&s->bbp))return MT76_TIMING_STATE;
+    s->phase=1;return MT76_TIMING_OK;
+}
+enum mt76_mcu_timing_status mt76_channel5_capture(struct mt76_channel5 *s,uint16_t nic0,uint16_t nic1,unsigned lna,const struct mt76_mcu_timing_io *rf,const struct mt76_band_mac_io *mac,const struct mt76_pa5_io *pa,const struct mt76_bbp5_io *bbp){
+    if(!s || s->attempted || nic0!=0xfd11 || nic1!=0x1004 || lna>255 || !rf || !mac || !pa || !bbp ||
+        !rf->authorize || !rf->read || !rf->exchange || !mac->transfer || !pa->transfer || !pa->exchange || !bbp->transfer ||
+        rf->context!=mac->context || rf->context!=pa->context || rf->context!=bbp->context ||
+        rf->authorize!=mac->authorize || rf->authorize!=pa->authorize || rf->authorize!=bbp->authorize)return MT76_TIMING_REFUSED;
+    *s=(struct mt76_channel5){.attempted=true,.phase=1,.lna=lna};struct channel5_link link={s,pa,bbp};
+    enum mt76_mcu_timing_status status=band_channel_capture(&s->band,rf,mac,true,true,&link);
+    if(status!=MT76_TIMING_OK)return status;
+    s->phase=4;
+    if(!mt76_channel5_owned(s))return MT76_TIMING_STATE;
+    if(!rf->authorize(rf->context))return MT76_TIMING_CANCELLED;
+    s->complete=true;return mt76_channel5_valid(s)?MT76_TIMING_OK:MT76_TIMING_STATE;
 }
