@@ -2222,3 +2222,60 @@ including unsaved Text retention and file readback. A clearly labeled generated
 disk fixture mode will permit the existing consumer harness on macOS without
 claiming Linux exfatprogs validation. No main merge, hosted Actions, hardware
 trial, or PR252 process/I/O / PR19 Wi-Fi work is included.
+
+### Files recovery / Open With integration verified — November 3, 2026
+
+Reconciled the recovery branches with Apps PR2 `efd9dba3`, OS PR278 `1454f9e5`
+and main's merged SrvrUI renderer extraction (`5b2bf3c7`). The combined published
+app is `4f2f3425`, UI is `76deeb30`, and Ports remains `0494ae2`; all seven upstream
+pins are unchanged. Relative to the Open With app branch, only the 18-addition /
+6-deletion Files recovery fix remains. Preserve both the failure-injection and
+expected app/path fixture controls, the combined app gitlink, and both Makefile
+rules: QMP input validation and canonical renderer dependencies. No Open With
+SDK, runtime consumer, or existing assertion was removed.
+
+The combined checks prove collision/refresh/navigation recovery followed by
+Open With cancellation and captured-source routing, plus successful-copy
+selection. The Files VM opens the recovered source in Text, saves it, and checks
+both files byte for byte. Owned and refused-dialog lifecycle VMs retain unsaved
+siblings, reuse existing Text/Preview processes, exercise default and explicit
+handlers with keyboard/pointer input, verify exact file contents and restore the
+process baseline. An explicit `--generated-fixture` mode preserves the complete
+matched disk and checks generator metadata and offline allocation before/after;
+the default Linux exfatprogs fixture remains unchanged. Independent exfatprogs
+fsck was not run on this macOS host.
+
+Validation in `SrvrOS-app-quality`:
+
+- Original negative controls remain in `build/review/files-recovery/`.
+- Desktop/widget/I/O plus QMP input checks: 112 PASS records; focused Files
+  ASan/UBSan, matched full build, Python syntax and documentation checks pass.
+- Clean `ebbe54e8` passes the owned Open With, refused-dialog Open With and
+  Files action/recovery VMs sequentially with the above app/UI/Ports tuple.
+- The first theme run exposed interleaved serial logging: the sibling closed,
+  but compositor trace lines split its closure message. The failure log and
+  screenshot remain in `build/review/files-open-with/theme-interleaved-failure/`.
+  Reuse the existing `desktop_progress_end` matcher, preserving exact application
+  bytes and raw offsets. Its four tests and replay of the captured failure pass.
+- Clean `2fad3a65` passes the theme VM after that harness-only correction. All
+  three kernel/initramfs/disk hashes are identical to the other three VM runs.
+  Sibling Files history/close, selected filename, live Silver/Aero/Aqua, exact
+  722/600-pixel outer widths, Text, restart and readback remain covered. Both
+  chooser forms and all six Files profile/size captures were inspected.
+
+The latest PR278 merge only updated its physical-trial record because its Help
+app pin was already an ancestor of the combined app. Main `a89632eb` subsequently
+adds Air6,1 design documentation only. Final clean-build identity and matching
+runtime hashes are recorded in `build/review/files-open-with/receipt.json`;
+the earlier integration round remains under `pre-main-refresh/`. All disposable
+VMs stopped. The shared checkout and attended review VM were untouched. No hosted
+Actions, native acceptance or main merge is claimed.
+
+Integration preparation is complete for [Apps PR3](https://github.com/PaulMDemers/SrvrApps/pull/3)
+and [OS PR288](https://github.com/PaulMDemers/SrvrOS/pull/288). This supersedes the
+initial plan to stack both reviews: Apps PR3 targets the Apps PR2 branch for a
+recovery-only diff; OS PR288 stays on main because main already contains the
+renderer extraction. Merge the Open With pair (Apps PR2 then OS PR278) first;
+retarget Apps PR3 to main and merge it before OS PR288. Do not merge recovery into
+the Open With feature branch. The child dependency was published before the OS
+pin. The reviews are ready for integration review, not merged by this task.
