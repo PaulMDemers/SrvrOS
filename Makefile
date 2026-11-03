@@ -1,7 +1,7 @@
 .SUFFIXES:
 
 # Avoid empty wildcard archives when first-party submodules are absent.
-ifneq ($(filter-out clean distclean check-host check-docs,$(or $(MAKECMDGOALS),all)),)
+ifneq ($(filter-out clean distclean check-host check-docs test-portable-profiles,$(or $(MAKECMDGOALS),all)),)
 MODULE_MARKERS := userspace/widgets/include/srvros/desk_widgets.h userspace/apps/desktools/main.c ports/README.md
 ifneq ($(words $(wildcard $(MODULE_MARKERS))),$(words $(MODULE_MARKERS)))
 $(error Missing SrvrOS modules; run git submodule update --init --recursive)
@@ -2164,6 +2164,13 @@ test-core: test-linux-inventory
 .PHONY: check-docs
 check-docs:
 	$(PYTHON) tools/check_docs.py
+
+.PHONY: test-portable-profiles
+test-portable-profiles:
+	@mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include tools/test_profile_paths.c -o build/tests/profile-paths-host$(HOST_EXE)
+	build/tests/profile-paths-host$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_profile_bundle.py -v
 
 .PHONY: test-exfat-entries
 test-exfat-entries: build/tests/exfat-entries-host$(HOST_EXE)
