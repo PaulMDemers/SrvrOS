@@ -51,6 +51,7 @@ Verification on macOS 26.6.2 ARM64, Xcode Clang 21, CMake 4.4.0:
 | macOS bundle | System-framework-only linkage; bundled SDL/font notices |
 | Showcase synthetic events | Native Cocoa and dummy smoke pass; three profiles and compact capture inspected |
 | Native host interaction | Keyboard/dead-key é, Command copy/paste, undo/redo, checkbox, slider click/keys, Tab/Shift-Tab, themes and scrolling observed |
+| Attended pointer interaction | User confirmed held slider drag and button release outside the window both work correctly on November 3 |
 | Retina | 900×650 logical canvas presented to 1800×1300 window backing; coordinate scale 1, density/display scale 2 |
 | Matched OS | Full image build, desktop/widget suite (110 PASS records), desktop I/O, theme preview and docs pass |
 | Installed OS sysroot | Canonical renderer header compiles through staged include tree |
@@ -64,15 +65,20 @@ Evidence: `build/review/ui-host/`, `build/review/desktop-theme-profiles/` and
 `userspace/widgets/build/review/`. The pinned deliverable is
 `userspace/widgets/build-pinned/SrvrUIShowcase.app`; `build/package/` under the
 widget checkout contains the installed library and application. The initial
-shared-SDL diagnostic app remains open for the requested attended pointer check.
+shared-SDL diagnostic app was used for the attended pointer check.
 
-One attended check remains pending: held slider drag and release outside the
-window. The native automation's trace shows DOWN, UP, then unheld motion, so it
-cannot establish that acceptance. Actual adapter held-motion, outside-release,
-missed-release and focus-cancellation fixtures pass. Do not turn those injected
-checks into a human or native-device claim. The user has been asked to check the
-open showcase. No physical boot is armed and the original review VM is untouched.
+The user confirmed “Both work correctly” for held slider drag and pressing
+“Try action” then releasing outside the window, with no stuck pressed state.
+This completes the remaining attended host acceptance. The native automation's
+trace showed DOWN, UP, then unheld motion; the human confirmation is separate
+from that tool limitation and from the passing injected capture/cancellation
+fixtures. No physical SrvrOS boot is armed and the original review VM is untouched.
 
 Linux/Windows, full IME preedit, shaping/grapheme layout, native accessibility and
-notarized distribution remain outside this milestone. The UI and OS changes are
-ready for draft review, with attended pointer acceptance still open.
+notarized distribution remain outside this milestone. The macOS showcase milestone
+is complete and accepted. Published implementation revisions remain SrvrUI
+`d65c93f` and SrvrOS `7fa07c9a`; this closeout changes documentation only.
+[SrvrUI PR2](https://github.com/PaulMDemers/SrvrUI/pull/2) and
+[SrvrOS PR289](https://github.com/PaulMDemers/SrvrOS/pull/289) are ready for
+integration review, with the child dependency landing first. No additional
+implementation or acceptance work is required for this milestone.
