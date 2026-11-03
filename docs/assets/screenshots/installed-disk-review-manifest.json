@@ -1,0 +1,74 @@
+{
+  "base": "a936baeb4a20ff28304a13252bf20345dee13bf1",
+  "bootstrap_members": [
+    "init"
+  ],
+  "build_hashes": {
+    "build/initramfs.tar": "a1a1393302ce66f750c0e80de78eff2bfb2a403ff5557a9e056ee2a39e2a354b",
+    "build/kernel/srvros.elf": "c65155021db68ec7f3964f021166cefefc6d55b22ce25fb46eb02be0970a5298",
+    "build/srvros.exfat": "c972e6c49ba978df9476b0e9cfc54108a8f263fdf5b07eea1e891318c68cee7d"
+  },
+  "build_source": "1ae348fd2ea006d4df88272a2bda6f8a158527b8",
+  "checks": [
+    "single disk EFI boot",
+    "minimal init bootstrap without RAM disk/apps",
+    "disk-loaded Text save and Settings preference",
+    "guest reboot with flush",
+    "fresh VM exact file readback and Text reopen",
+    "preference restoration",
+    "two guest/offline allocation checks",
+    "unchanged bytes outside data",
+    "damaged system volume refuses app with no RAM fallback"
+  ],
+  "data_bounds": {
+    "bytes": 134217728,
+    "offset": 403701760
+  },
+  "date": "2026-11-03",
+  "document_sha256": "0cd9c190ef2aeb5bbf088a5080a940c86e1e01c718d43dda589f08eaa9f9ea8f",
+  "evidence": ".local/installation-evidence/proof-5oeg8t32",
+  "final_disk_sha256": "ee76a12dc727ac25858f3988516b311d241c574006d2684028171e1f1fd5d708",
+  "firmware_sha256": "33090cc07675baa5190d9f1e84bf5176b33bcbfa9bacac522961150cdb6dbb2a",
+  "firmware_vars_template_sha256": "5d2ac383371b408398accee7ec27c8c09ea5b74a0de0ceea6513388b15be5d1e",
+  "installed_sha256": "a919cf521bc75da6286b06ed27d07db06516b99b3f7c397b76e43ce7f25e2061",
+  "limits": [
+    "VM image provisioning only",
+    "no physical disk or power-cut acceptance",
+    "external fsck.exfat not run",
+    "no multi-disk root selection or in-place upgrade"
+  ],
+  "logs_sha256": {
+    "allocation-1.log": "4e9e9d0f4eff46edf6125adb43b62c0b1cf7bd07b4b22df2d5f57f8c09ebcacc",
+    "allocation-2.log": "4e9e9d0f4eff46edf6125adb43b62c0b1cf7bd07b4b22df2d5f57f8c09ebcacc",
+    "qemu-1.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "qemu-2.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "qemu-negative.log": "158d06d515a8ea821d6e164cb788e441a9b96cd185ca00f6726e45d2f721c495",
+    "serial-1.log": "e222ad898095b015a5456b604ed13492d37a5898a889f454d12fb3a34645b555",
+    "serial-2.log": "4b4425d8598a54a73c80591f2c8c1028074d79bdf00a7355e3b96a94fd7818c8",
+    "serial-negative.log": "975e948d797a48deed108b3a2064e479767b20d2f1a1482cd0898ca6011a16dc"
+  },
+  "pr": 311,
+  "preferences_sha256": "75e445c776e1aa1441f10e14d86ff2a62b00ca1976e5fca6caf78e3f2b4f7580",
+  "protected_regions": {
+    "after_data_sha256": "a2ec055701ad42d273acafc438f3ff0deecd729fdd0134497d1bf1d5e340259b",
+    "before_data_sha256": "34ab06238949947fb1ae500adf8fe3a8377bfeb984fefaa039528eca03e520d5"
+  },
+  "qemu_version": "QEMU emulator version 11.1.2",
+  "review_fixes": [
+    "Detect accidental reviewed-plan edits using separate checksum before writes",
+    "Require recorded artifacts and exact current HEAD/worktree/recursive-submodule state"
+  ],
+  "source": "1ae348fd2ea006d4df88272a2bda6f8a158527b8",
+  "source_status": "",
+  "status": "PASS",
+  "submodules": " 5e30ecd3f500f7ccbb4f4ce9a3354adddade735f ports (remotes/origin/port/awk)\n 5739fd79bcfc75ba7526773d0cf634521f8aca3c ports/upstream/awk (20260426)\n c859b25da02955fef659d658b8f324b5cde87be3 ports/upstream/cjson (v1.7.15-48-gc859b25)\n 26254ee9de7681f8825433415443e7116ff24b98 ports/upstream/inih (r62)\n 1cfa32ff59c076ffb6ed735bbc8c18361558661f ports/upstream/libuv (v1.52.1)\n dc83cc373ac2058030eb3cf5e404959a26fef112 ports/upstream/linenoise (1.0-47-gdc83cc3)\n 6e22fedb74cf0c9b6656e9fce8b7331db847c605 ports/upstream/lua (v5.4-beta-336-g6e22fedb)\n c7d10158bc31036de6783d66beaaaf551e3167aa ports/upstream/node (v24.16.0)\n da607da739fa6047df13e66a2af6b8bec7c2a498 ports/upstream/zlib (v1.3.2)\n edb51dc16214d58bcd1768b3a52fdb3b9793c8b8 userspace/apps (heads/main)\n 9eaaa74e1423c15c99f8ce388b08ed5e514de3d6 userspace/widgets (heads/main)\n",
+  "tests": {
+    "build_provenance": 6,
+    "installation_image": 12
+  },
+  "tool_sha256": {
+    "installation_image.py": "eca7980dd3df9f427099518d188eaf0e3e20a0e43051eac035a1e95cad813449",
+    "installed_disk_smoke.py": "d4e2af9906245e8df30ec46d83ffb035228fab6ff0d9bd50266f8a5a0c63e4d4",
+    "mk_usb_image.py": "b20b0134bd2f5159249e1d4b3294ea6b5396ac32cd063223debda19a23949c58"
+  }
+}
