@@ -18,7 +18,7 @@ PURE_RUNTIME = {
     "strcpy", "strlen", "strncmp", "strrchr", "snprintf", "vsnprintf",
     "__memcpy_chk", "__memmove_chk", "__memset_chk", "__snprintf_chk",
     "__vsnprintf_chk", "__strcpy_chk", "__stack_chk_fail", "__stack_chk_guard",
-    "__chkstk_ms", "___chkstk_ms", "___chkstk_darwin", "__bzero", "__mingw_snprintf", "__mingw_vsnprintf",
+    "__chkstk_ms", "___chkstk_ms", "___chkstk_darwin", "__chkstk_darwin", "__bzero", "bzero", "__mingw_snprintf", "__mingw_vsnprintf",
 }
 
 
