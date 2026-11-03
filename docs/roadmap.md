@@ -28,7 +28,11 @@ Start it with `python3 tools/macos/run.py --display-device virtio`; standard VGA
 remains the default. Both PRs are merged into `main`; post-merge runtime
 `1c0896e7` has the exact tested tree and passes a matched build plus the primary
 presentation/recovery VM. The scoped target is delivered and verified.
-Next: compare visible VGA/VirtIO dragging and scrolling for smoothness. Host compositor/physical vblank, native drivers, live mode changes
+The visible comparison is complete: the user reports smoother VirtIO dragging,
+while six paired-session runs quantify its higher software frame cost. See the
+[measurements and limits](display-presentation.md#visible-smoothness-comparison--november-3-2026).
+Reducing full-frame copy/transfer cost is an optional follow-up; the current
+opt-in backend is usable and the launcher default is unchanged. Host compositor/physical vblank, native drivers, live mode changes
 and partial-transfer optimization remain separate work. All verification VMs are
 stopped. See [the contract and screenshot](display-presentation.md).
 

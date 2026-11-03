@@ -1982,3 +1982,32 @@ Actions and native acceptance remain unchanged. The repository/theme and opt-in
 presentation milestones are delivered. Next is an attended visible comparison
 of VGA and VirtIO dragging/scrolling, with responsiveness measurements and no
 assumption that command fences establish host-monitor vblank.
+
+
+### VGA / VirtIO smoothness comparison — active scope 2026-11-03
+
+The user authorized the next comparison after both milestones merged. Base is
+`bfb6d2a7`; inspected PR278/252/19 retain their separate application/lifetime/Wi-Fi
+scopes. This block owns a disposable sequential QEMU comparison harness and
+measurement/reporting only. Hold resolution, scale, CPU, memory, source image and
+input workload constant while changing the display backend. Reuse the existing
+software cursor/frame timers, require actual VirtIO acquisition, and distinguish
+software/fenced-completion timing from Cocoa/physical presentation. Inspect the
+visible window separately. No native driver change or default-backend change is
+accepted without evidence; no physical boot or Actions run is planned.
+
+
+### Smoothness comparison completed
+
+The user observed smooth dragging with no obvious tearing under VirtIO, followed
+by visibly worse dragging under VGA in the 1440×900 Cocoa desktop. Six automated
+runs (three per backend, alternating order; two fresh sessions per run) pass
+verified 300-pixel drags, reversing scrollbar movement and normal teardown.
+Median per-run frame-work means: VGA/VirtIO drag 7.953/14.354 ms; scroll
+6.995/16.619 ms. Final scroll pixels match below the menu bar. These whole-session
+software samples include startup/menu work and do not measure physical scanout.
+See the [report](../display-presentation.md#visible-smoothness-comparison--november-3-2026)
+and [manifest](../assets/screenshots/smoothness-manifest.json). No runtime/default
+backend changes were made. The full-frame copy cost is an optional optimization
+candidate. Automated VMs are stopped; the attended VirtIO desktop is restored for
+continued user review using `.local/smoothness-visible-virtio/`.
