@@ -4209,7 +4209,7 @@ build/tests/desktop-session-host$(HOST_EXE): userspace/deskd/display_settings.h
 
 .PHONY: test-profile-desktop
 # Profile integration runs on the same matched host compiler as desktop tests.
-test-profile-desktop: test-portable-profiles test-preferences
+test-profile-desktop: test-portable-profiles test-preferences build/tests/profile-image-driver$(HOST_EXE)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include tools/test_profile_session.c -o build/tests/profile-session-host$(HOST_EXE)
 	build/tests/profile-session-host$(HOST_EXE)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include tools/test_profile_startup.c userspace/lib/src/desk_preferences.c -o build/tests/profile-startup-host$(HOST_EXE)

@@ -24,11 +24,11 @@ int main(int argc, char **argv) {
         strlen(argv[3])>=160 || strstr(argv[3],"//") || strstr(argv[3],"/../") ||
         strstr(argv[3],"/./") || !strcmp(argv[3]+strlen(argv[3])-3,"/..") ||
         argv[3][strlen(argv[3])-1]=='/') goto done;
-    if (strcmp(argv[2],"mkdir") && strcmp(argv[2],"ensure-home") && strcmp(argv[2],"write") && strcmp(argv[2],"write-desktop")) goto done;
+    if (strcmp(argv[2],"mkdir") && strcmp(argv[2],"ensure-home") && strcmp(argv[2],"write") && strcmp(argv[2],"write-desktop") && strcmp(argv[2],"check-clean")) goto done;
     if ((!strcmp(argv[2],"write") || !strcmp(argv[2],"write-desktop")) != (argc==5)) goto done;
-    if (!strcmp(argv[2],"ensure-home") && strcmp(argv[3],"/fat/home")) goto done;
+    if ((!strcmp(argv[2],"ensure-home") || !strcmp(argv[2],"check-clean")) && strcmp(argv[3],"/fat/home")) goto done;
     if (!strcmp(argv[2],"write-desktop") && strcmp(argv[3],"/fat/home/desktop.conf")) goto done;
-    snprintf(path,sizeof(path),"/vol%s",argv[3]+4);
+    snprintf(path,sizeof(path),"%s",argv[3]);
     fd=open(argv[1],O_RDWR|O_NOFOLLOW|O_NONBLOCK);
     if(fd<0 || fstat(fd,&st) || !S_ISREG(st.st_mode) || st.st_nlink!=1 || st.st_size<=0 || st.st_size%512) goto done;
     if(argc==5) {
@@ -42,19 +42,22 @@ int main(int argc, char **argv) {
     }
     struct block_device device={.used=true,.name="profile-stage",.block_size=512,.block_count=(uint64_t)st.st_size/512,
         .read=block_read,.write=block_write,.flush=flush};
-    if(!exfat_mount_block_device("/vol",&device)) goto done;
+    /* Sidecar records contain absolute paths: use the guest mount, and refuse
+     * pending/malformed metadata without repair before any mutation. */
+    if(!exfat_mount_block_device_clean("/fat",&device)) goto done;
     mounted=true;
-    if(!exfat_is_writable("/vol")) goto done;
+    if(!exfat_is_writable("/fat")) goto done;
     const struct vfs_node *existing=vfs_lookup(path);
-    if(!strcmp(argv[2],"ensure-home")) ok=existing ? existing->type==VFS_NODE_DIRECTORY : exfat_create_directory(path);
+    if(!strcmp(argv[2],"check-clean")) ok=existing && existing->type==VFS_NODE_DIRECTORY;
+    else if(!strcmp(argv[2],"ensure-home")) ok=existing ? existing->type==VFS_NODE_DIRECTORY : exfat_create_directory(path);
     else if(!existing && !strcmp(argv[2],"mkdir")) ok=exfat_create_directory(path);
     else if(!existing && !strcmp(argv[2],"write")) ok=exfat_write_file(path,data,(uint64_t)data_st.st_size);
     else if(!strcmp(argv[2],"write-desktop") && (!existing || existing->type==VFS_NODE_FILE)) ok=exfat_write_file(path,data,(uint64_t)data_st.st_size);
-    if(!exfat_unmount("/vol")) ok=false;
+    if(!exfat_unmount("/fat")) ok=false;
     mounted=false;
     if(fsync(fd)) ok=false;
 done:
-    if(mounted && !exfat_unmount("/vol")) ok=false;
+    if(mounted && !exfat_unmount("/fat")) ok=false;
     if(input>=0 && close(input)) ok=false;
     if(fd>=0 && close(fd)) ok=false;
     free(data);

@@ -79,6 +79,7 @@ def provision(source_exfat, target_exfat, bundle, home, alias, uid, gid, driver,
                 run('write', name, data)
             if machine_preferences is not None:
                 run('write-desktop', '/fat/home/desktop.conf', machine_preferences)
+            run('check-clean', '/fat/home')
             os.link(stage, target)  # Atomic, exclusive publication on the same filesystem.
     finally:
         os.close(source_fd)

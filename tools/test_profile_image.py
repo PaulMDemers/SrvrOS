@@ -4,6 +4,8 @@ import hashlib
 import base64
 from pathlib import Path
 import tempfile
+import struct
+import subprocess
 import unittest
 from unittest.mock import patch
 
@@ -50,6 +52,7 @@ class ImageTests(unittest.TestCase):
         self.assertIn(('write','/fat/home/alice/profile.id'),self.calls)
         self.assertIn(('write','/fat/home/alice/Documents/notes.txt'),self.calls)
         self.assertEqual(list(self.root.glob('.profile-image-*')),[])
+        self.assertEqual(self.calls[-1], ('check-clean', '/fat/home'))
     def test_invalid_before_copy(self):
         for changes in ({'home':'/fat/home/../bad'}, {'home':'/fat/home/'+'a'*86},
                         {'alias':'bad alias'}, {'uid':True}, {'machine_preferences':b'bad'}):
@@ -78,5 +81,33 @@ class ImageTests(unittest.TestCase):
     def test_nonregular_source_refused(self):
         with self.assertRaises((p.ProfileError,OSError)): self.provision(source_exfat=self.root)
         self.assertFalse(self.target.exists())
+
+class DriverTests(unittest.TestCase):
+    setUp=ImageTests.setUp
+    tearDown=ImageTests.tearDown
+    provision=ImageTests.provision
+    def test_guest_namespace_metadata(self):
+        from test_storage_leases import empty_image
+        from exfat_test_image import ExfatFixture
+        self.source.write_bytes(empty_image(4 * 1024 * 1024).data)
+        driver=Path(__file__).resolve().parents[1]/'build/tests/profile-image-driver'
+        self.provision(driver=driver)
+        fs=ExfatFixture(self.target.read_bytes())
+        metadata=fs.read('.srvros/meta').splitlines()
+        self.assertEqual(metadata[0], b'SRVROSMETA1')
+        self.assertTrue(all(line.split(b'\t')[0] == b'/fat' or line.startswith(b'/fat/') for line in metadata[1:]))
+        self.assertEqual(fs.read('home/alice/Documents/notes.txt'), b'portable data')
+        # A malformed stored mount prefix must fail before publication, without
+        # changing the source or silently repairing its sidecar.
+        entry=dict(fs.entries(fs.read('.srvros')))['meta']
+        offset=fs.offset(struct.unpack_from('<I', entry, 52)[0])+len(b'SRVROSMETA1\n')
+        damaged=bytearray(self.target.read_bytes());damaged[offset:offset+4]=b'/bad'
+        self.source.write_bytes(damaged)
+        refused=self.root/'refused.img'
+        with self.assertRaises(subprocess.CalledProcessError):
+            self.provision(driver=driver, target_exfat=refused, home='/fat/home/bob')
+        self.assertEqual(self.source.read_bytes(), damaged)
+        self.assertFalse(refused.exists())
+        self.assertEqual(list(self.root.glob('.profile-image-*')),[])
 
 if __name__=='__main__': unittest.main()

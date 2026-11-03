@@ -482,3 +482,14 @@ NULL terminator, cwd restoration and failure cleanup were reviewed against the
 matched shared header; no additional Apps code change is required. Current gate:
 matched rebuild, host regressions, four profile boots, legacy reboot regression
 and final head/base checks before Apps #5 then OS #314 merge.
+
+
+The identity-bound rerun found a second integration defect: the offline adapter
+mounted at `/vol`, so the filesystem's absolute-path metadata sidecar named
+`/vol/...`. Strict guest admission at `/fat` correctly refused that image.
+The adapter now uses `/fat`, requires clean admission before every operation,
+and reopens the completed stage through the same gate before publication. No
+kernel admission or permission check was weakened. A real-driver host regression
+checks canonical sidecar paths and injects a bad prefix, proving refusal preserves
+the source and publishes no target. All seven image groups pass. The failed
+identity-bound attempt is retained at `build/review/profile-desktop/proof-s3kg0g7c/`.
