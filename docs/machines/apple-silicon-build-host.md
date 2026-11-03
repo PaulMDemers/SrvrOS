@@ -2151,3 +2151,40 @@ image provenance and existing ports regression. C-locale/ASCII is the initial
 case-conversion contract; no full Unicode locale, POSIX certification or native
 hardware claim. Keep upstream clean and adaptations under `ports/srvros/awk`.
 No hosted Actions or physical boot is authorized by this scope.
+
+
+### Awk milestone verified — November 3, 2026
+
+Implementation `f563020a` pins published SrvrPorts `5e30ecd`. Two clean full builds
+(after removing generated port objects/sources as well as `make clean`) pass.
+Both produce awk ELF SHA-256
+`4823d7df393bb56797db40f4b2d4f01d7d37ea2201bb26766cb6fda7e0be5963`
+and identical preparation manifests/generated text. Kernel and exFAT hashes also
+match; initramfs archives do not. This is executable/source reproducibility,
+not a deterministic-whole-image claim. Bison 2.3 and the native host compiler
+only produce build-time parser tables; target code uses pinned Zig 0.15.2.
+
+The final matched guest run passes real Terminal quoted/multiline CSV reporting,
+fields/arrays/regex/substitution/math/random, stdin pipes, subprocess/status,
+three unchanged upstream regression programs, error/nonzero status and recovery,
+process-baseline restoration, exact offline contents, and second-boot readback.
+Guest fsck and offline allocation checks pass on both boots; external fsck.exfat
+is unavailable on this host. Existing staged-ports smoke also passes. Host tests
+compare two fresh preparations and reject modified source. Docs and whitespace
+checks pass. No full upstream-suite or native acceptance is claimed.
+
+The initial fixture run failed because shell quoted-token parsing consumed
+backslashes in printf input; all other files/statuses matched. Its disk/logs are
+preserved. The corrected fixture pipes a staged file and passes. This shell issue
+was reported separately to integration/PR252 ownership and is not changed here.
+The first host allocation-check build used a Linux linker flag; rerunning with
+the documented Darwin wrapper passes. Failures were not relabeled as passes.
+
+Raw evidence: `build/review/awk/`, final guest `20261103-145438-ov9g6a_o`.
+[Portable hashes and screenshot](../assets/screenshots/awk-manifest.json) retain
+source identities and limits. All task-owned VMs stopped; integration checkout
+and attended review VM untouched. Main advanced to `105077d7` with Air6,1 HDA
+work; read-only merge-tree validation reports no conflict, but the tested runtime
+remains based on `e376669c`. Delivery is linked draft PRs, beginning with
+[SrvrPorts PR1](https://github.com/PaulMDemers/SrvrPorts/pull/1); merge acceptance
+remains with integration. No merge or Actions run.

@@ -56,6 +56,12 @@ files and a second boot of the same disposable disk. It preserves evidence under
 the mandatory guest and host allocation checks. No native-device acceptance is
 implied by these checks.
 
+[Acceptance provenance](assets/screenshots/awk-manifest.json) records the two clean
+builds and final Terminal/disk-reopen result on runtime `f563020a`. The awk ELF
+and generated sources match; complete-image bit reproducibility is not claimed.
+
+![Pinned awk CSV report in Terminal](assets/screenshots/awk-terminal.png)
+
 ## Foundation Added
 
 The first compatibility slice now lives under `userspace/lib/include` and
