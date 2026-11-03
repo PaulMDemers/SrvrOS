@@ -97,6 +97,29 @@ def main():
                 type_text("renamed-actions");shortcut("f2");modal_ready(b"files-prompt operation=5");type_text("home");qmp.key("ret")
                 wait_all([b"file-result role=files op=5 status=2",retired]);shot("collision-kept")
                 shortcut("ctrl-r");wait(b"file-result role=files op=3 status=0")
+                # A collision must not make the destination the selection on
+                # refresh: a following action must still target the source.
+                shortcut("f2");modal_ready(b"files-prompt operation=5 name=renamed-actions.txt")
+                qmp.key("esc");wait(retired)
+                click(605,162);modal_ready(b"files-prompt operation=7 name=renamed-actions.txt")
+                type_text("home");qmp.key("ret")
+                wait_all([b"file-result role=files op=7 status=2",retired])
+                shortcut("ctrl-r");wait(b"file-result role=files op=3 status=0")
+                shortcut("f2");modal_ready(b"files-prompt operation=5 name=renamed-actions.txt")
+                qmp.key("esc");wait(retired)
+                # Recovery and Open With share the same selected item. Cancel
+                # must preserve it; accepting must route that source into Text.
+                shortcut("ctrl-shift-o");modal_ready(b"open-with shown path=/fat/renamed-actions.txt")
+                qmp.key("esc");wait_all([b"open-with canceled path=/fat/renamed-actions.txt",retired])
+                shortcut("ctrl-shift-o");modal_ready(b"open-with shown path=/fat/renamed-actions.txt")
+                qmp.key("ret")
+                wait_all([b"open-with selected app=2 key=srvros.text path=/fat/renamed-actions.txt",
+                          b"text-runtime: open-document accepted=1",b"file-result role=text op=1 status=0",retired])
+                routed=re.findall(rb"text-runtime: admitted window=(\d+)",output)[-1]
+                shortcut("ctrl-l");shortcut("ctrl-a");type_text("/fat/recovered-open.txt");shortcut("ctrl-shift-s")
+                wait_all([b"picker ready mode=2",b"deskd: commit"]);qmp.key("ret");wait(b"file-result role=text op=2 status=0")
+                shortcut("ctrl-w");wait(b"text-runtime: closed window="+routed+b" ")
+                click(390,750)
                 # Exercise directory creation and guarded empty-directory rename.
                 click(300,550);shortcut("ctrl-a");type_text("Action folder");click(700,553)
                 wait(b"file-result role=files op=4 status=0");wait(b"file-result role=files op=3 status=0")
@@ -119,13 +142,18 @@ def main():
                 shortcut("f5");wait(b"files-location path=/fat history=4/4");shot("files-navigation")
                 shortcut("f10");shortcut("end");shortcut("ret");wait(b"deskd: exited",60);wait(b"srv> ")
                 serial.sendall(b"cat /fat/renamed-actions.txt\n");wait(b"Files action sample.");wait(b"srv> ")
+                serial.sendall(b"cat /fat/recovered-open.txt\n");wait(b"Files action sample.");wait(b"srv> ")
                 serial.sendall(b"ls /fat\n");wait(b"Renamed folder");wait(b"srv> ")
                 if b"failure=1" in output or b"deskd: FAIL" in output or b"exception:" in output:
                     raise RuntimeError("Guest failure; see serial.log")
                 serial.close();qmp.stream.close();qmp.sock.close()
             finally:
                 stop_process(process);(out/"serial.log").write_bytes(output)
-    print(f"desktop-files: PASS Places, successful-only history, back/forward/branching, path normalization, refresh, sorted metadata, shared rename/duplicate prompts, verified copy, safe delete cancel/confirm, collision preservation and empty-directory rename. Evidence: {out}")
+        from exfat_test_image import ExfatFixture
+        saved=ExfatFixture((tmp/"disk.exfat").read_bytes())
+        for name in ("renamed-actions.txt","recovered-open.txt"):
+            assert saved.read(name)==b"Files action sample.",name
+    print(f"desktop-files: PASS Places, successful-only history, back/forward/branching, path normalization, refresh, sorted metadata, shared rename/duplicate prompts, verified copy, safe delete cancel/confirm, collision selection preservation, Open With cancel/routing/readback and empty-directory rename. Evidence: {out}")
 
 
 if __name__=="__main__": main()

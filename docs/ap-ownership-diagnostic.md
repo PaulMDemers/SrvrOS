@@ -1117,3 +1117,13 @@ reset controller with clear DMA/RUN bits does not establish link readiness,
 retirement, ownership or safe well release. Overall acceptance still fails the
 unchanged RC6 bound (about 0.0730% excess), with package C3 zero. Next is ownership,
 shutdown and restoration design before any write experiment; policy is unchanged.
+
+
+The [Air6,1 ownership and restoration design](macbookair6-1-display-ownership.md)
+now separates read-only adoption, real well/HDA authority, quiescence and a
+future bounded release/restore. It defines reference/epoch refusal and retained-
+fault behavior and explicitly rejects controller-word replay as codec recovery.
+The next implementation is an adoption/eligibility dry run with zero control
+writes; well-off execution remains dependent on owned HDA recovery, complete
+readout and independent evidence/reset prerequisites. This is design, not a new
+native acceptance or a power-policy change.

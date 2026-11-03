@@ -3,24 +3,28 @@
 ## Ownership
 
 SrvrOS is the integration repository. It owns the kernel, drivers, shared ABI,
-libc, renderer/fonts, compositor, desktop client runtime, services, shell tools,
+libc, compositor, desktop client runtime, services, shell tools,
 image assembly and system-level tests. It pins complete known revision sets.
 
-- **SrvrUI**, mounted at `userspace/widgets`: pure controls, models and themes.
+- **SrvrUI**, mounted at `userspace/widgets`: pure controls, models, themes,
+  software renderer and bundled font atlases. Its optional SDL3 host adapter
+  is separate from the allocation-free core.
   No allocation, filesystem work, OS calls or hidden event loops inside widgets.
 - **SrvrApps**, mounted at `userspace/apps`: Clock, Find Files, Help, Network
   Utility, Sketch, Terminal, Preview and the standard tools (Files, Text,
   Settings, System and Calculator). Compositor/services and diagnostic clients
   stay with the OS. Executable names and image paths are unchanged.
 - **SrvrPorts**, mounted at `ports`: third-party sources, adapters, staging
-  recipes and port contracts. Its seven upstream gitlinks keep their exact
-  previous pins; vendored byacc, SQLite, stb and uACPI stay vendored.
+  recipes and port contracts. Existing upstream gitlinks keep their exact
+  pins; the awk port adds one pinned upstream repository; vendored byacc, SQLite, stb and uACPI stay vendored.
 
 The UI and ports retain extracted path history. SrvrApps begins at the grouping
 commit; its earlier history remains under `userspace/desk*` in SrvrOS at
 `74d38d59869f9e6201c6cad6547461cd9fa8dac6`. No OS history was rewritten.
-These repositories currently build against the matched OS SDK; they are not
-standalone portable SDKs or independently bootable products.
+The OS integration builds against matched revisions. SrvrUI also has a standalone
+portable core and macOS SDL3 showcase; see its
+[host guide](../userspace/widgets/docs/host-showcase.md). SrvrApps and SrvrPorts
+remain tied to the OS SDK; none is independently bootable.
 
 ## Clone, update and develop
 

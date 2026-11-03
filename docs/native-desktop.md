@@ -45,6 +45,29 @@ New machine agents should follow the [Ubuntu setup guide](ubuntu-device-agent-se
 captures measured idle behavior and diagnostics; they do not replace interactive
 acceptance of new input changes.
 
+## Resizing windows
+
+Move the pointer just outside any window edge or corner. A horizontal, vertical
+or diagonal two-headed arrow shows the resize direction. The six-logical-pixel
+outside target preserves clicks on application controls and titlebar buttons.
+Press and drag to resize; the opposite edge stays anchored and pressing without
+moving leaves the window unchanged. Release completes the interaction, including
+the final pointer position. Escape stops resizing at the current size; another
+resize requires releasing and pressing again.
+
+Client sizes stay within 280×240 and the existing surface maximum. Partially
+offscreen windows retain a reachable titlebar. Maximized windows and parents
+blocked by a modal dialog cannot be resized. Menus, the dock and other desktop
+overlays retain input priority. Switching focus or losing the target ends the
+resize capture. Allocation refusal retains the previous frame and content;
+application refusal restores the last accepted geometry through the existing
+configure transaction.
+
+These compositor controls apply across all theme profiles and both integer
+display scales. Snapping and native-density typography remain separate features.
+The directional cursor is software rendered, with old/new damage covered even
+when its shape changes without pointer movement.
+
 ## Display scale
 
 The default remains 1× on every machine. An explicit integer scale can be selected

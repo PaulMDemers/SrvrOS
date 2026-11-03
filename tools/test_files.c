@@ -6,6 +6,9 @@ void tool_files_info_finish(struct tool *t,int result) { (void)t;(void)result;as
 void tool_files_copy_path(struct tool *t) { (void)t;assert(0); }
 static struct tool t;
 static unsigned started,launched,clipboard_id;
+static int refuse_start;
+static unsigned expected_app=DESK_APP_TEXT;
+static const char *expected_path="/fat/notes.txt";
 void srv_puts(const char *s) { (void)s; }
 void tool_status(struct tool *p,const char *s) { snprintf(p->status,sizeof(p->status),"%s",s);if(p->prompt_mode) snprintf(p->prompt.dialog.message,sizeof(p->prompt.dialog.message),"%s",s); }
 void tool_layout(struct tool *p) {
@@ -14,10 +17,10 @@ void tool_layout(struct tool *p) {
     if(p->modal) desk_dialog_configure(&p->dialog,(struct desk_rect){0,0,720,480});
     desk_ui_layout_changed(&p->ui);
 }
-void tool_launch(struct tool *p,int application,const char *path) { (void)p;assert(application==DESK_APP_TEXT && !strcmp(path,"/fat/notes.txt"));launched++; }
+void tool_launch(struct tool *p,int application,const char *path) { (void)p;assert((unsigned)application==expected_app && !strcmp(path,expected_path));launched++; }
 void tool_clipboard_action(struct tool *p,struct desk_action a) { (void)p;clipboard_id=a.id; }
 int desk_file_job_start(struct desk_file_job *j,unsigned op,const char *path,const void *data,size_t length,unsigned flags,uint32_t crc) {
-    (void)flags;(void)crc;if(j->busy) return -1;
+    (void)flags;(void)crc;if(j->busy || refuse_start) return -1;
     j->request=(struct desk_file_request){.operation=op,.length=length};strcpy(j->request.path,path);if(length) memcpy(j->outgoing,data,length);
     j->busy=1;started++;return 0;
 }
@@ -36,14 +39,97 @@ static void choose(uint64_t inode) {
 }
 static void activate(unsigned id) { tool_files_action(&t,(struct desk_action){id,DESK_WIDGET_ACTIVATED}); }
 static void accept(void) { tool_files_prompt(&t,(struct desk_action){DESK_PROMPT_ACCEPT,DESK_WIDGET_ACTIVATED}); }
-int main(void) {
+static void init(void) {
+    memset(&t,0,sizeof(t));refuse_start=0;started=launched=clipboard_id=0;
+    expected_app=DESK_APP_TEXT;expected_path="/fat/notes.txt";
     desk_ui_init(&t.ui);desk_dialog_init(&t.dialog);desk_prompt_init(&t.prompt);
     desk_text_buffer_init(&t.path_text,t.path_store[0],t.path_store[1],DESK_FILE_PATH);
     desk_text_buffer_init(&t.name_text,t.name_store[0],t.name_store[1],128);desk_edit_init(&t.path,&t.path_text,0);desk_edit_init(&t.name,&t.name_text,0);
     t.window.width=720;t.window.height=480;t.window.focused=1;t.worker_ready=1;
     tool_files_init(&t,"/fat");assert(t.job.busy && t.job.request.operation==DESK_FILE_LIST);listing(0);
+}
+static void finish_status(unsigned status) {
+    t.job.busy=0;t.job.response.status=status;tool_files_finish(&t,1);
+}
+static void open_recovered(const char *path) {
+    unsigned before=launched;int selected=t.table.body.selected;
+    expected_app=DESK_APP_TEXT;expected_path=path;
+    activate(TOOL_OPEN_WITH);assert(t.modal==4 && !strcmp(t.file_source,path));
+    tool_files_dialog(&t,1003);assert(!t.modal && launched==before && t.table.body.selected==selected);
+    activate(TOOL_OPEN_WITH);assert(t.modal==4 && !strcmp(t.file_source,path));
+    /* Even after recovery, the chooser owns the captured path, not a later row. */
+    t.table.body.selected=0;
+    tool_files_dialog(&t,TOOL_OPEN_WITH_CHOICE_BASE+DESK_APP_TEXT);
+    assert(!t.modal && launched==before+1);t.table.body.selected=selected;
+}
+static void recovery_selection(int navigate,unsigned operation) {
+    init();choose(5);activate(operation==DESK_FILE_COPY?TOOL_DUPLICATE:TOOL_RENAME);
+    desk_text_buffer_set(&t.prompt.text,"Alpha",5);accept();finish_status(DESK_FILE_EXISTS);
+    assert(strstr(t.status,"already exists") && t.table_rows[t.table.body.selected].id==5);
+    activate(navigate?TOOL_HOME:TOOL_REFRESH);listing(0);
+    if(navigate) assert(t.table.body.selected<0 || t.table_rows[t.table.body.selected].id!=8);
+    else assert(t.table_rows[t.table.body.selected].id==5);
+    assert(!strstr(t.status,"renamed") && !strstr(t.status,"Copy verified"));
+    if(navigate) {activate(TOOL_BACK);listing(0);assert(t.table_rows[t.table.body.selected].id==5);}
+    open_recovered("/fat/notes.txt");
+}
+static void recovery_notice(int failure) {
+    init();choose(5);activate(TOOL_DUPLICATE);accept();
+    if(failure==0)refuse_start=1;
+    finish_status(0);
+    if(failure==1)finish_status(DESK_FILE_IO);
+    if(failure==3) {t.job.busy=0;tool_files_finish(&t,-1);}
+    if(failure==2) {
+        t.job.busy=0;t.job.response=(struct desk_file_response){.count=1,.length=1};tool_files_finish(&t,1);
+    }
+    char failure_message[sizeof(t.status)];strcpy(failure_message,t.status);
+    assert(!strcmp(t.saved_path,"/fat") && t.location_count==1);
+    refuse_start=0;activate(TOOL_HOME);listing(1);
+    assert(!strstr(t.status,"Copy verified"));
+    assert(strstr(failure_message,"Copy verified") && strstr(failure_message,"refresh"));
+    if(failure==3)assert(strstr(failure_message,"worker stopped"));
+    assert(t.table.body.selected<0 || t.table_rows[t.table.body.selected].id!=19);
+    activate(TOOL_BACK);listing(1);assert(t.table_rows[t.table.body.selected].id==5);
+    open_recovered("/fat/notes.txt");
+}
+static void recovery_worker(void) {
+    init();choose(5);activate(TOOL_RENAME);desk_text_buffer_set(&t.prompt.text,"Alpha",5);accept();
+    t.job.busy=0;tool_files_finish(&t,-1);assert(strstr(t.status,"worker stopped"));
+    activate(TOOL_REFRESH);listing(0);assert(t.table_rows[t.table.body.selected].id==5);
+}
+int main(int argc,char **argv) {
+    if(argc==2) {
+        if(!strcmp(argv[1],"selection")) {
+            recovery_selection(0,DESK_FILE_RENAME);recovery_selection(1,DESK_FILE_RENAME);
+            recovery_selection(0,DESK_FILE_COPY);recovery_selection(1,DESK_FILE_COPY);
+        } else if(!strcmp(argv[1],"notice")) {
+            for(int i=0;i<4;i++)recovery_notice(i);
+        } else assert(0);
+        puts("files recovery: PASS");return 0;
+    }
+    recovery_selection(0,DESK_FILE_RENAME);recovery_selection(1,DESK_FILE_RENAME);
+    recovery_selection(0,DESK_FILE_COPY);recovery_selection(1,DESK_FILE_COPY);
+    for(int i=0;i<4;i++)recovery_notice(i);
+    recovery_worker();
+    init();
     assert(t.file_count==3 && t.entries[0].directory && !strcmp(t.entries[1].name,"Alpha"));
     assert(!strcmp(t.file_dates[2],"2026-10-18 12:34"));choose(5);activate(TOOL_OPEN);assert(launched==1);
+    activate(TOOL_OPEN_WITH);assert(t.modal==4 && t.dialog.count==2 && t.dialog.cancel==1003);
+    assert(t.dialog.choices[1].id==TOOL_OPEN_WITH_CHOICE_BASE+DESK_APP_TEXT);
+    tool_files_dialog(&t,TOOL_OPEN_WITH_CHOICE_BASE+DESK_APP_CALCULATOR);assert(t.modal==4 && launched==1);
+    tool_files_dialog(&t,1003);assert(!t.modal && launched==1 && !t.job.busy);
+    activate(TOOL_OPEN_WITH);int saved_selection=t.table.body.selected;t.table.body.selected=0;
+    tool_files_dialog(&t,TOOL_OPEN_WITH_CHOICE_BASE+DESK_APP_TEXT);assert(!t.modal && launched==2);
+    t.table.body.selected=saved_selection;
+    strcpy(t.entries[saved_selection].name,"Photo.PNG");expected_path="/fat/Photo.PNG";
+    activate(TOOL_OPEN_WITH);assert(t.modal==4 && t.dialog.count==3 && !strcmp(t.dialog.choices[1].label,"Preview") && strstr(t.dialog.message,"Preview is the default"));
+    expected_app=DESK_APP_PREVIEW;tool_files_dialog(&t,TOOL_OPEN_WITH_CHOICE_BASE+DESK_APP_PREVIEW);assert(!t.modal && launched==3);
+    activate(TOOL_OPEN_WITH);expected_app=DESK_APP_TEXT;
+    tool_files_dialog(&t,TOOL_OPEN_WITH_CHOICE_BASE+DESK_APP_TEXT);assert(!t.modal && launched==4);
+    expected_path="/fat/notes.txt";strcpy(t.entries[saved_selection].name,"notes.txt");
+    t.job.busy=1;activate(TOOL_OPEN_WITH);assert(!t.modal && launched==4);t.job.busy=0;
+    t.table.body.selected=0;activate(TOOL_OPEN_WITH);assert(!t.modal && launched==4);
+    t.table.body.selected=saved_selection;
     desk_table_sort_indicator(&t.table,2,1);tool_files_action(&t,(struct desk_action){TOOL_LIST,DESK_TABLE_SORT});
     assert(t.entries[0].directory && t.table.navigation[t.table.body.selected].id==5);
     activate(TOOL_RENAME);assert(t.prompt_mode==DESK_FILE_RENAME && t.file_selected.inode==5 && !strcmp(t.prompt.text.data,"notes.txt"));
@@ -57,6 +143,7 @@ int main(void) {
     activate(TOOL_DUPLICATE);assert(!strcmp(t.prompt.text.data,"notes copy.txt"));accept();assert(t.job.request.operation==DESK_FILE_COPY);
     t.job.busy=0;t.job.response.status=0;tool_files_finish(&t,1);assert(t.job.busy && t.job.request.operation==DESK_FILE_LIST);listing(1);
     assert(t.table.navigation[t.table.body.selected].id==19 && strstr(t.status,"Copy verified"));
+    open_recovered("/fat/notes copy.txt");
     activate(TOOL_DELETE);assert(t.modal==3 && t.dialog.buttons[0].focused && t.dialog.cancel==1003);
     tool_files_dialog(&t,1003);assert(!t.modal && !t.job.busy);
     activate(TOOL_DELETE);tool_files_dialog(&t,1004);assert(t.job.request.operation==DESK_FILE_DELETE && !t.modal);

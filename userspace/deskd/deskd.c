@@ -602,6 +602,12 @@ static int configure(struct session *s,int i,int width,int height) {
     c->generation++; c->configure=1; c->awaiting=1; c->progress=srv_ticks();
     damage_window(s,i);return 1;
 }
+static int resize_apply(struct session *s,int i,struct desk_rect target) {
+    struct desktop_window *w=desktop_window_at(&s->scene,i);
+    if(w->frame.x==target.x && w->frame.y==target.y && w->frame.w==target.w && w->frame.h==target.h)return 1;
+    if(!configure(s,i,target.w-2,target.h-45))return 0;
+    damage_window(s,i);w->frame.x=target.x;w->frame.y=target.y;damage_window(s,i);return 1;
+}
 static void minimize(struct session *s,int i) {
     i=window_root(s,i);if(i<0 || !focus_candidate(s,i,1))return;
     int child=modal_child(s,i);
@@ -1504,8 +1510,7 @@ static void incoming(struct session *s,uint64_t pid,struct desk_packet *p) {
         return;
     }
     if(p->type==DESK_APP_SERVICE) {
-        if(!c->parent_window && !(p->value&~DESK_SERVICE_OPEN_DOCUMENT) &&
-           (w->application==DESK_APP_TEXT || w->application==DESK_APP_PREVIEW))c->service_bits=p->value;
+        if(!c->parent_window && desk_application_services_valid(w->application,p->value))c->service_bits=p->value;
         return;
     }
     if(p->type==DESK_OPEN_DOCUMENT_REPLY) {
@@ -1833,6 +1838,35 @@ static int hit(struct session *s,int x,int y) {
     }
     return -1;
 }
+/* Walk top to bottom: a window's body occludes every lower resize halo. */
+static int resize_hit(struct session *s,int x,int y,unsigned *edges) {
+    int inline_order[DESKD_WINDOWS];int *order=s->scene.order?s->scene.order:inline_order;
+    desktop_stack(&s->scene,order);*edges=0;
+    for(int n=session_capacity(s)-1;n>=0;n--) {
+        int i=order[n];struct desktop_window *w=desktop_window_at(&s->scene,i);
+        if(!w->visible || w->minimized)continue;
+        struct desk_rect r=w->frame;
+        if(x>=r.x && y>=r.y && x<(int64_t)r.x+r.w && y<(int64_t)r.y+r.h)return -1;
+        unsigned e=desktop_resize_hit(r,x,y);
+        if(e) { if(!w->maximized && !session_client(s,i)->closing && modal_child(s,i)<0) {*edges=e;return i;} return -1; }
+    }
+    return -1;
+}
+/* A capture can become invalid while IPC is serviced between pointer batches. */
+static int resize_capture_valid(const struct session *s,int i,uint64_t identity,struct desk_rect expected) {
+    if(!window_lifetime_valid(s,i,identity))return 0;
+    const struct desktop_window *w=desktop_window_at(&s->scene,i);
+    return !session_client(s,i)->closing && s->scene.focus==i && w->visible && !w->minimized && !w->maximized &&
+        modal_child(s,i)<0 && !s->scene.launcher_open && !s->scene.calendar_open && !s->scene.notifications.opened &&
+        !desk_popup_active(&s->scene.context) && s->scene.menu.open<0 &&
+        w->frame.x==expected.x && w->frame.y==expected.y && w->frame.w==expected.w && w->frame.h==expected.h;
+}
+static void cursor_shape(struct session *s,unsigned shape) {
+    if(s->scene.cursor_shape==(int)shape)return;
+    desk_damage_add(&s->damage,(struct desk_rect){s->scene.cursor_x-8,s->scene.cursor_y-8,25,25});
+    s->scene.cursor_shape=(int)shape;
+    if(s->trace)desk_log("deskd: cursor shape=%u\n",shape);
+}
 static int dock_activate(struct session *s,unsigned app) {
     int active=s->scene.focus>=0 && desktop_window_at(&s->scene,s->scene.focus)->application==(int)app;
     int found=-1,present=0;
@@ -2117,6 +2151,7 @@ int main(int argc,char **argv) {
     uint64_t start=srv_ticks(),frames=0,bytes=0;
     uint64_t drag_identity=0,resize_identity=0;
     int quit=0,failed=0,drag=-1,resize=-1,grabx=0,graby=0,pending_key=0,io_leaving=0;
+    unsigned resize_edges=0;struct desk_rect resize_start={0},resize_last={0};int resize_x=0,resize_y=0;
     int fenced_present=0;
     if(info.flags&GFX_FLAG_FENCED_PRESENT) {
         if(gfx_present_begin()!=0) { ui_puts("deskd: gfx-present begin failed\n");quit=failed=1; }
@@ -2442,6 +2477,10 @@ int main(int argc,char **argv) {
                 }
                 continue;
             }
+            if(resize>=0 && ((key.flags&SRV_KEY_CANCEL) ||
+                ((key.flags&SRV_KEY_DOWN_EVENT) && key.usage==SRV_KEY_ESCAPE))) {
+                resize=-1;s.pointer_blocked=(buttons&MOUSE_LEFT)!=0;continue;
+            }
             if(navigation_key(&s,&key)) {drag=resize=-1;continue;}
             if((key.flags&SRV_KEY_DOWN_EVENT) && !(key.flags&SRV_KEY_REPEAT) &&
                 (key.modifiers&SRV_KEY_META) && (key.modifiers&SRV_KEY_SHIFT) && !(key.modifiers&(SRV_KEY_CTRL|SRV_KEY_ALT)) && key.usage==9) {
@@ -2537,19 +2576,19 @@ int main(int argc,char **argv) {
                 if (motion) s.io.motions++;
                 if (e.wheel_x || e.wheel_y) s.io.wheels++;
             }
-            desk_damage_add(&s.damage,(struct desk_rect){s.scene.cursor_x,s.scene.cursor_y,10,17});
+            desk_damage_add(&s.damage,(struct desk_rect){s.scene.cursor_x-8,s.scene.cursor_y-8,25,25});
             s.scene.cursor_x=x;
             s.scene.cursor_y=y;
             if (s.trace && !apps) desk_log("deskd: pointer x=%d y=%d buttons=%u\n",x,y,(unsigned)e.buttons);
             if(s.context_down) {
                 if(!e.buttons || (e.flags&MOUSE_CANCEL)) { s.context_down=0;s.pointer_blocked=0; }
-                buttons=e.buttons;desk_damage_add(&s.damage,(struct desk_rect){x,y,10,17});continue;
+                buttons=e.buttons;desk_damage_add(&s.damage,(struct desk_rect){x-8,y-8,25,25});continue;
             }
             if(apps && desk_popup_active(&s.scene.context)) {
                 drag=resize=-1;
                 if(e.wheel_y && !e.buttons) desktop_context_result(&s,desk_popup_scroll(&s.scene.context,e.wheel_y));
                 else desktop_context_result(&s,desk_popup_pointer(&s.scene.context,(struct desk_widget_event){.type=e.flags&MOUSE_CANCEL?DESK_WIDGET_CANCEL:DESK_WIDGET_POINTER,.x=x,.y=y,.down=(e.buttons&MOUSE_LEFT)!=0,.pressed=(e.buttons&MOUSE_LEFT) && !(buttons&MOUSE_LEFT)}));
-                buttons=e.buttons;desk_damage_add(&s.damage,(struct desk_rect){x,y,10,17});continue;
+                buttons=e.buttons;desk_damage_add(&s.damage,(struct desk_rect){x-8,y-8,25,25});continue;
             }
             if(apps && s.scene.notifications.opened) {
                 drag=resize=-1;s.overlay_down=(e.buttons&MOUSE_LEFT)!=0;
@@ -2559,14 +2598,14 @@ int main(int argc,char **argv) {
                     if(e.wheel_y && !e.buttons) notifications_action(&s,desk_ui_scroll(&s.scene.notifications.ui,x,y,0,e.wheel_y));
                     notifications_action(&s,desk_ui_pointer(&s.scene.notifications.ui,event,srv_monotonic_us()));
                 }
-                buttons=e.buttons;desk_damage_add(&s.damage,(struct desk_rect){x,y,10,17});continue;
+                buttons=e.buttons;desk_damage_add(&s.damage,(struct desk_rect){x-8,y-8,25,25});continue;
             }
             if(apps && notifications_toast_visible(&s) && drag<0 && resize<0 && !s.pointer_pid && !s.pointer_blocked &&
                 (s.scene.notifications.toast_ui.capture>=0 || desk_widget_contains(s.scene.notifications.toast_frame,x,y))) {
                 struct desk_widget_event event={.type=e.flags&MOUSE_CANCEL?DESK_WIDGET_CANCEL:DESK_WIDGET_POINTER,.x=x,.y=y,.down=(e.buttons&MOUSE_LEFT)!=0,.pressed=(e.buttons&MOUSE_LEFT) && !(buttons&MOUSE_LEFT)};
                 struct desk_action action=desk_ui_pointer(&s.scene.notifications.toast_ui,event,srv_monotonic_us());
                 if(action.flags) notifications_apply(&s,desktop_notice_toast_action(&s.scene.notifications,action));
-                buttons=e.buttons;desk_damage_add(&s.damage,(struct desk_rect){x,y,10,17});continue;
+                buttons=e.buttons;desk_damage_add(&s.damage,(struct desk_rect){x-8,y-8,25,25});continue;
             }
             if(apps && s.scene.calendar_open) {
                 drag=resize=-1;s.overlay_down=(e.buttons&MOUSE_LEFT)!=0;
@@ -2574,7 +2613,7 @@ int main(int argc,char **argv) {
                     .x=x,.y=y,.down=s.overlay_down,.pressed=s.overlay_down && !(buttons&MOUSE_LEFT)};
                 if(event.type==DESK_WIDGET_POINTER && event.pressed && !desk_widget_contains(s.scene.calendar_frame,x,y)) calendar_close(&s);
                 else calendar_action(&s,desk_ui_pointer(&s.scene.calendar_ui,event,srv_monotonic_us()));
-                buttons=e.buttons;desk_damage_add(&s.damage,(struct desk_rect){x,y,10,17});continue;
+                buttons=e.buttons;desk_damage_add(&s.damage,(struct desk_rect){x-8,y-8,25,25});continue;
             }
             if(apps && s.scene.launcher_open) {
                 drag=resize=-1;s.overlay_down=(e.buttons&MOUSE_LEFT)!=0;
@@ -2585,7 +2624,7 @@ int main(int argc,char **argv) {
                 /* The overlay owns this release. Do not leave the opener's
                  * right-click block latched onto the next application click. */
                 if(!e.buttons) {s.pointer_blocked=0;s.context_down=0;}
-                buttons=e.buttons;desk_damage_add(&s.damage,(struct desk_rect){x,y,10,17});continue;
+                buttons=e.buttons;desk_damage_add(&s.damage,(struct desk_rect){x-8,y-8,25,25});continue;
             }
             if (e.flags&MOUSE_CANCEL) {
                 drag=resize=-1; buttons=e.buttons;
@@ -2600,22 +2639,23 @@ int main(int argc,char **argv) {
                 global_menu_result(&s,result);
                 if(result.consumed) {
                     s.pointer_blocked=(e.buttons&MOUSE_LEFT)!=0;buttons=e.buttons;
-                    desk_damage_add(&s.damage,(struct desk_rect){x,y,10,17});continue;
+                    desk_damage_add(&s.damage,(struct desk_rect){x-8,y-8,25,25});continue;
                 }
             }
             if(apps && !buttons && !(e.flags&MOUSE_CANCEL) && drag<0 && resize<0 && !s.pointer_pid &&
                 ((e.buttons&MOUSE_RIGHT) || ((e.buttons&MOUSE_LEFT) && (s.modifiers&SRV_KEY_CTRL)))) {
                 context_at(&s,x,y,0);s.context_down=1;s.pointer_blocked=1;
-                buttons=e.buttons;desk_damage_add(&s.damage,(struct desk_rect){x,y,10,17});continue;
+                buttons=e.buttons;desk_damage_add(&s.damage,(struct desk_rect){x-8,y-8,25,25});continue;
             }
             if ((e.wheel_x || e.wheel_y) && drag<0 && resize<0 && !e.buttons && !s.pointer_pid)
                 scroll_at(&s,x,y,e.wheel_x,e.wheel_y);
             if ((e.buttons&MOUSE_LEFT) && !(buttons&MOUSE_LEFT)) {
                 if(global_click(&s,x,y)) {
                     pointer_cancel(&s);s.pointer_blocked=1;buttons=e.buttons;
-                    desk_damage_add(&s.damage,(struct desk_rect){x,y,10,17});continue;
+                    desk_damage_add(&s.damage,(struct desk_rect){x-8,y-8,25,25});continue;
                 }
-                int i=hit(&s,x,y);
+                unsigned edge=0;int i=resize_hit(&s,x,y,&edge);
+                if(i<0)i=hit(&s,x,y);
                 if (i>=0) {
                     if (s.scene.focus!=i && io_trial_active(&s.io)) s.io.focus_changes++;
                     if(modal_child(&s,i)>=0) {focus(&s,i);buttons=e.buttons;continue;}
@@ -2624,19 +2664,13 @@ int main(int argc,char **argv) {
                     if (control==DESKTOP_CLOSE) request_close(&s,i);
                     else if (control==DESKTOP_MAXIMIZE) { maximize(&s,i);s.pointer_blocked=1; }
                     else if (control==DESKTOP_MINIMIZE) { minimize(&s,i);s.pointer_blocked=1; }
-                    else if (!desktop_window_at(&s.scene,i)->maximized && x>=w.x+w.w-24 && y>=w.y+w.h-24) { resize=i;resize_identity=session_client(&s,i)->identity; }
+                    else if (edge) { resize=i;resize_identity=session_client(&s,i)->identity;
+                        resize_edges=edge;resize_start=resize_last=w;resize_x=x;resize_y=y; }
                     else if (!desktop_window_at(&s.scene,i)->maximized && y<w.y+43) { drag=i;drag_identity=session_client(&s,i)->identity; grabx=x-w.x; graby=y-w.y; }
                 }
             }
-            if (!(e.buttons&MOUSE_LEFT)) {
-                if(drag>=0 && s.trace && window_lifetime_valid(&s,drag,drag_identity)) {
-                    struct desk_rect r=desktop_window_at(&s.scene,drag)->frame;
-                    desk_log("deskd: moved identity=%llu frame=%d,%d,%d,%d\n",(unsigned long long)drag_identity,r.x,r.y,r.w,r.h);
-                }
-                drag=resize=-1;
-            }
             if(drag>=0 && !window_lifetime_valid(&s,drag,drag_identity)) { drag=-1;s.pointer_blocked=1; }
-            if(resize>=0 && !window_lifetime_valid(&s,resize,resize_identity)) { resize=-1;s.pointer_blocked=1; }
+            if(resize>=0 && !resize_capture_valid(&s,resize,resize_identity,resize_last)) { resize=-1;s.pointer_blocked=1; }
             if (drag>=0 && session_client(&s,drag)->pid) {
                 struct desktop_window *w=desktop_window_at(&s.scene,drag); damage_window(&s,drag);
                 if(s.scene.apps)desktop_window_drag(canvas.width,canvas.height,w->frame,(int64_t)x-grabx,(int64_t)y-graby,&w->frame);
@@ -2647,10 +2681,23 @@ int main(int argc,char **argv) {
                 damage_window(&s,drag);
             }
             if (resize>=0 && session_client(&s,resize)->pid) {
-                struct desk_rect w=desktop_window_at(&s.scene,resize)->frame;
-                int width=clamp(x-w.x-1,280,s.scene.apps?DESK_MAX_WIDTH:clamp(canvas.width-w.x-8,280,DESK_MAX_WIDTH));
-                int height=clamp(y-w.y-44,240,s.scene.apps?DESK_MAX_HEIGHT:clamp(canvas.height-w.y-85,240,DESK_MAX_HEIGHT));
-                if (w.w!=width+2 || w.h!=height+45) configure(&s,resize,width,height);
+                struct desk_rect target;
+                if(desktop_window_resize(canvas.width,canvas.height,resize_start,resize_edges,
+                   (int64_t)x-resize_x,(int64_t)y-resize_y,&target)) {
+                    if(resize_apply(&s,resize,target))resize_last=target;
+                    else {resize=-1;s.pointer_blocked=1;}
+                }
+            }
+            if (!(e.buttons&MOUSE_LEFT)) {
+                if(drag>=0 && s.trace && window_lifetime_valid(&s,drag,drag_identity)) {
+                    struct desk_rect r=desktop_window_at(&s.scene,drag)->frame;
+                    desk_log("deskd: moved identity=%llu frame=%d,%d,%d,%d\n",(unsigned long long)drag_identity,r.x,r.y,r.w,r.h);
+                }
+                if(resize>=0 && s.trace && window_lifetime_valid(&s,resize,resize_identity)) {
+                    struct desk_rect r=desktop_window_at(&s.scene,resize)->frame;
+                    desk_log("deskd: resized identity=%llu edges=%u frame=%d,%d,%d,%d\n",(unsigned long long)resize_identity,resize_edges,r.x,r.y,r.w,r.h);
+                }
+                drag=resize=-1;
             }
             /* A stationary two-finger scroll must not insert HOVER between
              * every scroll packet: that defeats coalescing and floods clients. */
@@ -2658,7 +2705,22 @@ int main(int argc,char **argv) {
                 (motion || e.buttons!=buttons))
                 pointer_at(&s,x,y,e.buttons,(e.buttons&MOUSE_LEFT) && !(buttons&MOUSE_LEFT));
             buttons=e.buttons;
-            desk_damage_add(&s.damage,(struct desk_rect){x,y,10,17});
+            desk_damage_add(&s.damage,(struct desk_rect){x-8,y-8,25,25});
+        }
+        {
+            if(resize>=0 && !resize_capture_valid(&s,resize,resize_identity,resize_last)) {
+                resize=-1;s.pointer_blocked=(buttons&MOUSE_LEFT)!=0;
+            }
+            unsigned shape=0;
+            if(resize>=0 && window_lifetime_valid(&s,resize,resize_identity))shape=resize_edges;
+            else if(drag<0 && !s.pointer_pid && !s.pointer_blocked && !s.context_down &&
+                !desk_popup_active(&s.scene.context) && !s.scene.launcher_open && !s.scene.calendar_open &&
+                !s.scene.notifications.opened && s.scene.menu.open<0 &&
+                !(apps && notifications_toast_visible(&s) && desk_widget_contains(s.scene.notifications.toast_frame,s.scene.cursor_x,s.scene.cursor_y)) &&
+                !(apps && desk_widget_contains(desktop_dock_frame(&s.scene,canvas.width,canvas.height),s.scene.cursor_x,s.scene.cursor_y)) &&
+                s.scene.cursor_y>=44)
+                (void)resize_hit(&s,s.scene.cursor_x,s.scene.cursor_y,&shape);
+            cursor_shape(&s,shape);
         }
         if (io_mode) {
             const char *next=!io_started? (io_ready?"READY - press Space when you are ready to start the USB test.":"Loading both studies..."):stop_warning?

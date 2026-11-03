@@ -5,6 +5,7 @@ import uuid as uuidlib
 from mk_usb_image import gpt_entry, gpt_header
 from pathlib import Path
 from desktop_foundation_smoke import QMP
+from qmp_hid_input import HIDKeyboardQMP
 from displayd_frame_smoke import stop_process
 from displayd_resolution_smoke import build_iso, read_for
 from vm_sockets import connect_unix
@@ -140,11 +141,12 @@ def main():
              '-qmp',f'unix:{tmp}/qmp,server=on,wait=off','-display','none','-monitor','none','-no-reboot',
              '-device','qemu-xhci,id=xhci','-device','usb-kbd,bus=xhci.0',
              '-drive',f'if=none,id=stick,format=raw,file={stick}','-device','usb-storage,drive=stick,bus=xhci.0']
+        if stage:cmd += ['-trace',f'enable=hid_kbd_queue_*,file={out}/keyboard-trace.log']
         if args.audio:cmd += ['-device','ich9-intel-hda','-device','hda-duplex,audiodev=silent,use-timer=off','-audiodev','none,id=silent']
         with (out/'qemu.txt').open('w') as errors:
             process=subprocess.Popen(cmd,stdout=errors,stderr=errors);qmp=None
             try:
-                serial=connect_unix(tmp/'serial',20);serial.settimeout(.05);qmp=QMP(tmp/'qmp')
+                serial=connect_unix(tmp/'serial',20);serial.settimeout(.05);qmp=HIDKeyboardQMP(tmp/'qmp',out/'keyboard-trace.log') if stage else QMP(tmp/'qmp')
                 def wait(marker,timeout=60):
                     nonlocal consumed
                     start=time.monotonic()
@@ -156,7 +158,9 @@ def main():
                         output.extend(read_for(serial,.1));(out/'serial.log').write_bytes(output)
                         if not consumed:qmp.boot_if_menu_stalled(output,time.monotonic()-start)
                 def shortcut(keys):
-                    qmp.call('human-monitor-command',{'command-line':'sendkey '+keys});time.sleep(.3)
+                    if stage and qmp.hid_receipt is not None:qmp.shortcut(keys)
+                    else:qmp.call('human-monitor-command',{'command-line':'sendkey '+keys})
+                    time.sleep(.3)
                 def type_text(text):
                     mapping={' ':('spc',False),'/':('slash',False),'.':('dot',False),'-':('minus',False),'\n':('ret',False),'>':('dot',True)}
                     for c in text:
@@ -283,6 +287,7 @@ def main():
                     assert b'battery-workspace-hold: released' not in output and b'logger_retired=yes' not in output
                     result['retained_ownership']=True
                 else:
+                    if stage:qmp.enable_hid_receipts()
                     if args.lifecycle_guide or args.navigation_guide:
                         guide_start=consumed
                         wait(b'deskhelp: page=window-navigation-trial' if args.navigation_guide else b'deskhelp: page=lifecycle-trial')
@@ -493,6 +498,7 @@ def main():
                     allocation=subprocess.run([str(root/'build/tests/exfat-driver'),str(volume),'allocation-check'],capture_output=True,text=True)
                     (out/'allocation.txt').write_text(allocation.stdout+allocation.stderr);assert allocation.returncode==0
                     result['offline_allocation']='PASS'
+                if stage and qmp.hid_receipt is not None:result['keyboard_delivery']=qmp.hid_receipt.result()
                 result.update(stage_source=manifest['git_head'] if stage else None,status='PASS',source=subprocess.check_output(['git','rev-parse','HEAD'],cwd=root,text=True).strip(),
                               source_dirty=bool(subprocess.check_output(['git','status','--porcelain'],cwd=root)),
                               payload_sha256={str(p.relative_to(root)):hashlib.sha256(p.read_bytes()).hexdigest() for p in (kernel,initramfs)})
