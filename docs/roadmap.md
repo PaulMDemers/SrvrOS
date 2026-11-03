@@ -6,6 +6,28 @@ and [machine records](machines/README.md) separate implementation from physical
 acceptance. The [device parity ledger](device-parity.md) compares the Air with
 ongoing Pro work.
 
+## QEMU fenced presentation — November 3, 2026
+
+Target: an opt-in QEMU VirtIO desktop presentation path, explicitly selected by
+the user. Finish the complete composed frame before publishing scanout, retain
+buffer ownership until command completion, and recover the VGA console on normal
+exit or desktop process death. The glass/theme milestone remains complete.
+
+Current work: `device/apple-silicon/virtio-display-probe`, stacked on UI source
+`0b6b5e53`, with fetched main `74d38d59`. The isolated secondary-device probe now
+passes positive, absent-device and disabled QEMU boots, including fenced display
+information, reset and a surviving visible console. Host capability/BAR/queue,
+timeout and reset-before-free fixtures pass. Next is primary virtio-vga resource
+ownership, explicit desktop frame submission, teardown and matched runtime tests.
+
+Required evidence: validated PCI/device ownership; two-resource command ordering
+and fence checks; no current scanout resource writes; whole-frame desktop submit;
+normal exit, abrupt owner death and restart restore usable console; standard VGA
+fallback; matched build, focused host regressions and actual desktop screenshots.
+VirtIO fences prove command completion, not Cocoa presentation timing or physical
+vblank. Native Intel ownership and acceptance remain unchanged. See the
+[presentation investigation](display-presentation.md).
+
 ## Glass and live theme refinement — November 2, 2026
 
 Target: more polished glass chrome, application-wide appearance controls in

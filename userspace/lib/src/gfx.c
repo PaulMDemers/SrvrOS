@@ -50,3 +50,7 @@ int blitrect_scaled(uint64_t x, uint64_t y, uint64_t width, uint64_t height,
     };
     return (int)srv_syscall1(SYS_GFX_BLIT_SCALED_RECT,(long)&request);
 }
+
+int gfx_present_begin(void) { return (int)srv_syscall0(SYS_GFX_PRESENT_BEGIN); }
+int gfx_present(void) { return (int)srv_syscall0(SYS_GFX_PRESENT); }
+int gfx_present_end(void) { return (int)srv_syscall0(SYS_GFX_PRESENT_END); }

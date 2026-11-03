@@ -1,5 +1,6 @@
 #include <srvros/latency.h>
 #include <srvros/console.h>
+#include <srvros/display_present.h>
 #include <srvros/bootlog.h>
 #include <srvros/serial.h>
 #include <srvros/font5x7.h>
@@ -487,11 +488,14 @@ void console_clear(void) {
 }
 
 void console_set_framebuffer_muted(bool muted) {
+    display_present_release(framebuffer_console_mute_owner);
+    if (!display_present_can_write(0)) return;
     framebuffer_console_muted = muted;
     framebuffer_console_mute_owner = 0;
 }
 
 void console_set_framebuffer_muted_owner(uint64_t owner_pid, bool muted) {
+    if (!display_present_can_write(owner_pid)) return;
     if (muted) {
         framebuffer_console_muted = true;
         framebuffer_console_mute_owner = owner_pid;
@@ -499,6 +503,8 @@ void console_set_framebuffer_muted_owner(uint64_t owner_pid, bool muted) {
     }
     if (framebuffer_console_mute_owner == 0 ||
         framebuffer_console_mute_owner == owner_pid) {
+        display_present_release(framebuffer_console_mute_owner);
+        if (!display_present_can_write(0)) return;
         framebuffer_console_muted = false;
         framebuffer_console_mute_owner = 0;
     }
@@ -506,9 +512,15 @@ void console_set_framebuffer_muted_owner(uint64_t owner_pid, bool muted) {
 
 void console_release_framebuffer_mute_owner(uint64_t owner_pid) {
     if (owner_pid != 0 && framebuffer_console_mute_owner == owner_pid) {
+        display_present_release(framebuffer_console_mute_owner);
+        if (!display_present_can_write(0)) return;
         framebuffer_console_muted = false;
         framebuffer_console_mute_owner = 0;
     }
+}
+
+bool console_framebuffer_muted_by(uint64_t pid) {
+    return pid && framebuffer_console_muted && framebuffer_console_mute_owner == pid;
 }
 
 bool console_framebuffer_muted(void) {

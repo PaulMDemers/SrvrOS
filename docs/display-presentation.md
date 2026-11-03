@@ -48,3 +48,89 @@ related model has the same firmware routes or safe registers.
    The [Linux DRM KMS documentation](https://docs.kernel.org/gpu/drm-kms.html)
    describes modesetting, framebuffer, plane, vblank and atomic-state concepts;
    it is a reference for the contract, not proof of SrvrOS hardware support.
+
+
+## QEMU transport foundation — November 3, 2026
+
+The first checkpoint is an opt-in boot-time transport probe on a separate
+modern `virtio-gpu-pci` device. Standard VGA remains the inherited display owner.
+This diagnostic does not change scanout or physical Intel ownership. Its
+acceptance sequence is device/capability validation,
+inactive-state proof, split-queue feature negotiation, fenced `GET_DISPLAY_INFO`,
+validated completion, reset confirmation, DMA retirement and console recovery.
+
+A plain Bochs/VBE Y offset switch is not the selected foundation. QEMU's
+[pinned VGA source](https://github.com/qemu/qemu/blob/v11.1.0/hw/display/vga.c#L1628)
+can share native-format surfaces directly from video memory; its shadow-copy path
+is conditional. Reading the offset back proves register state, not retirement of
+an old display surface. A fixed delay is not a completion fence. This is a source
+finding, not a measured explanation of the user's visible artifact.
+
+The [VirtIO 1.2 GPU contract](https://docs.oasis-open.org/virtio/virtio/v1.2/virtio-v1.2.html)
+provides fenced command-processing completion and a sequence for separate resources,
+transfers, scanout selection and flush. This is a stronger resource-management
+foundation, but its fence still does not mean Cocoa finished drawing or a physical
+monitor reached vblank. Do not advertise it as end-to-end tear-free output.
+
+The probe requires an exact inherited standard VGA framebuffer base and a unique
+modern non-VGA VirtIO GPU. PCI configuration access must establish status zero
+before target BAR sizing or ownership. It runs once, immediately after PCI
+initialization, with kernel CR3 active; temporary mappings belong only to that
+address space. This deliberately avoids the existing kernel mapping registry's
+capacity/retirement limitation. DMA allocations are freed only after a confirmed
+device reset; a failed reset retains them and reports failure. Foreign-owned,
+unsupported and malformed devices are refused. Normal boot never runs the probe.
+
+Reproduction, once the matched image is built:
+
+```sh
+TMPDIR=/tmp python3 tools/virtio_gpu_probe_smoke.py
+```
+
+The harness explicitly selects standard VGA plus the secondary device and tests
+opt-in success, absent-device refusal and opt-out behavior in sequential disposable
+VMs. Each case verifies a post-probe shell command and captures the surviving
+framebuffer. Native-device results remain outside this milestone.
+
+
+## Opt-in primary VirtIO presentation
+
+The QEMU-first choice extends that transport to primary `virtio-vga`. Boot token
+`srvros.virtio-gpu=present` enables read-only admission; ordinary boot and native
+Intel displays retain the inherited path. The desktop claims presentation only
+when it owns both GUI server registration and console mute. Graphics capability
+bit `0x10` advertises the backend. Additive syscalls 156/157/158 acquire, present
+and release; matched userspace wrappers are `gfx_present_begin`, `gfx_present`
+and `gfx_present_end`.
+
+Existing bounded graphics uploads still build the inherited VGA framebuffer as
+a staging image. Once every dirty region has been composed and uploaded, the
+desktop submits one frame. The driver copies into the inactive resource's backing,
+fences its transfer, selects that completed resource for scanout and fences its
+flush. It alternates two resources, never updating the current scanout resource.
+There are no per-frame allocations or mapping-registry entries. This first path
+copies the complete frame, so it favors a clear ownership contract over partial
+transfer optimization.
+
+Copy/zero work checkpoints at most every 64 KiB; command waits periodically
+checkpoint with finite clock/count limits. The existing scheduler I/O gate keeps
+DMA lifetime protected, restoring the caller's address space at every checkpoint.
+Reentrant presentation and staging writes are rejected while submission is busy.
+Reset must finish before backing memory is freed. A verified reset restores
+QEMU's VGA mode; uncertain retirement quarantines allocations and refuses further
+presentation or framebuffer ownership. Normal exit and process death share the
+same release hook. QEMU's [VirtIO base reset](https://github.com/qemu/qemu/blob/v11.1.0/hw/display/virtio-gpu-base.c)
+and [VGA wrapper](https://github.com/qemu/qemu/blob/v11.1.0/hw/display/virtio-vga.c)
+provide the emulator-specific recovery behavior; this is not a portable native
+GPU recovery claim.
+
+```sh
+sh tools/macos/build.sh -j2 all
+TMPDIR=/tmp python3 tools/virtio_gpu_present_smoke.py
+python3 tools/macos/run.py --display-device virtio
+```
+
+The launcher defaults to standard VGA. The new backend guarantees the implemented
+VirtIO command ordering, not host compositor vblank or physical tear-free output.
+The current supported mode is the inherited 32-bit BGRX resolution; live resizing,
+native acceleration and adaptive refresh are outside this milestone.

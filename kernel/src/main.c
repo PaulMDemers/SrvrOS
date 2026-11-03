@@ -25,6 +25,8 @@
 #include <srvros/halt.h>
 #include <srvros/initramfs.h>
 #include <srvros/intel_gfx.h>
+#include <srvros/virtio_gpu_probe.h>
+#include <srvros/display_present.h>
 #include <srvros/keyboard.h>
 #include <srvros/lpss_spi.h>
 #include <srvros/monitor.h>
@@ -425,6 +427,23 @@ static void persist_bootlog(void) {
 
 static bool idle_capture_due(void *arg) { return timer_ticks()>=*(uint64_t *)arg; }
 
+/* Explicit boot-only diagnostic, before runtime drivers or user processes.
+ * The secondary VirtIO device never becomes the inherited display owner. */
+static void boot_virtio_gpu_probe(void) {
+    uint64_t physical=0;
+    if(!framebuffer_request.response || !framebuffer_request.response->framebuffer_count ||
+       !vmm_virt_to_phys((uint64_t)framebuffer_request.response->framebuffers[0]->address,&physical)) {
+        console_write("virtio-gpu-probe: SKIP status=no-inherited-framebuffer\n");
+        return;
+    }
+    struct virtio_gpu_probe_result result={0};
+    bool ok=virtio_gpu_probe_run(physical,&result);
+    console_printf("virtio-gpu-probe: %s status=%s width=%u height=%u fence=%u reset=%u quarantined=%u\n",
+        ok?"PASS":result.status==VGPU_PROBE_UNAVAILABLE?"SKIP":"FAIL",
+        virtio_gpu_probe_status_name(result.status),(uint64_t)result.width,(uint64_t)result.height,
+        (uint64_t)result.fence_ok,(uint64_t)result.reset_ok,(uint64_t)result.quarantined);
+}
+
 void kmain(void) {
     serial_init();
     console_write("\n\nsrvros: entering kernel\n");
@@ -502,6 +521,12 @@ void kmain(void) {
         ioapic_route_isa_irq(12, 44);
     }
     pci_init();
+    if (cmdline_has_token(cmdline, "srvros.virtio-gpu=present")) {
+        struct limine_framebuffer_response *r = framebuffer_request.response;
+        bool ready = r && r->framebuffer_count && display_present_prepare(r->framebuffers[0]);
+        console_printf("virtio-gpu-present: %s\n", ready ? "ready" : "unavailable");
+    }
+    if(cmdline_has_token(cmdline,"srvros.virtio-gpu=probe")) boot_virtio_gpu_probe();
     /* SPI transport is experimental; this laptop's active input is USB. */
     bool lpss_spi_ready = false;
     if (cmdline_has_token(cmdline, "srvros.spi=experimental")) {

@@ -1907,3 +1907,40 @@ stopped. Theme CPU stress cost and lack of physical tear-free evidence are expli
 in [the theme contract](../desktop-theme.md) and [driver plan](../display-presentation.md).
 No native install, Actions dispatch or main merge. Next: PR280 integration review;
 no further work is required for this scoped theme/presentation investigation.
+
+
+## QEMU display transport probe — active scope 2026-11-03
+
+Branch `device/apple-silicon/virtio-display-probe`, stacked on completed UI
+`0b6b5e53`; fetched main remains `74d38d59`. The user requested proceeding toward
+the remaining display work. QEMU is the initial target in this workspace.
+Scope: boot-only opt-in VirtIO GPU probe on a separate modern PCI device, bounded
+capability/queue/fence validation and safe reset/DMA retirement. The inherited
+standard VGA display remains the boot/desktop owner; there is no scanout handoff.
+
+Inspecting PR278 `f11cbf8`, PR252 `badfeb3`, and PR19 `71e7d4c` found separate
+app-dispatch, kernel/process/I/O, and Wi-Fi work. This implementation uses new
+probe files and a small explicit main boot-token hook; it does not alter syscall,
+process lifetime, native Intel or firmware ownership policy. Main integration
+must preserve other opt-in captures. No physical trial, Actions or main merge.
+
+Implementation prerequisites: require a unique modern non-VGA VirtIO GPU and
+exact inherited framebuffer base match to standard VGA; use validated PCI_CFG
+access to confirm inactive device status before BAR sizing/ownership. The probe
+runs once immediately after PCI initialization in kernel CR3, maps/unmaps only
+that address space, and never consumes the kernel mapping registry (which lacks
+a capacity/retirement API). Require reset completion before freeing DMA; uncertain
+retirement retains allocations and reports failure. Next checkpoint: host fake
+hardware tests, matched build and sequential positive/absent/disabled VM boots.
+
+
+### Confirmed presentation scope
+
+The user explicitly selected QEMU-first VirtIO presentation. Continue through an
+opt-in primary `virtio-vga` backend with two resources, fenced transfer/scanout,
+a desktop-owned presentation lease and console recovery. Additive graphics
+syscalls and console retirement hooks are now included; preserve PR252's existing
+copy bounds/checkpoint and process cleanup behavior. No process lifetime rewrite
+or native modeset is included. The probe is an intermediate checkpoint, not the
+completed user target. All three probe VM cases passed with a live shell and
+nonblank inherited display; local evidence is `build/review/virtio-gpu-probe/`.

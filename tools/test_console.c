@@ -13,6 +13,12 @@ static void test_irq_restore(uint64_t f) { if (f & 512) test_irqs=true; }
 #define SRVROS_CONSOLE_HOST_TEST
 #include "../kernel/src/console.c"
 
+static uint64_t test_present_owner;
+static bool test_present_poisoned;
+static unsigned test_present_releases;
+void display_present_release(uint64_t pid) { if(pid && pid==test_present_owner) { test_present_releases++; if(!test_present_poisoned) test_present_owner=0; } }
+bool display_present_can_write(uint64_t pid) { return !test_present_poisoned && (!test_present_owner || pid==test_present_owner); }
+
 static char serial_log[65536];
 static size_t serial_count, saved_count;
 static char saved_log[65536];
@@ -115,6 +121,19 @@ static void test_formats_and_invalid(void) {
     frame.pitch=1; console_init(&frame); assert(!framebuffer_console_ready);
     console_write("still serial");
 }
+static void test_present_owner_retirement(void) {
+    setup(false);
+    console_set_framebuffer_muted_owner(7,true); test_present_owner=7;
+    console_set_framebuffer_muted_owner(8,true); assert(console_framebuffer_muted_by(7));
+    console_release_framebuffer_mute_owner(8); assert(console_framebuffer_muted_by(7));
+    console_release_framebuffer_mute_owner(7);
+    assert(!console_framebuffer_muted() && test_present_releases==1 && !test_present_owner);
+    console_set_framebuffer_muted_owner(9,true);test_present_owner=9;test_present_poisoned=true;
+    console_release_framebuffer_mute_owner(9);
+    assert(console_framebuffer_muted_by(9) && test_present_releases==2);
+    test_present_poisoned=false;console_release_framebuffer_mute_owner(9);
+    assert(!console_framebuffer_muted());
+}
 static void test_muted_output(void) {
     setup(true);
     uint32_t before[STRIDE * H + 2];
@@ -194,6 +213,6 @@ int main(void) {
     test_saved_record_interleaving();
     test_scaled_blit();
     test_serial_irq_state();
-    test_font_and_bytes(); test_chunking_and_scroll(); test_batch_counters(); test_formats_and_invalid(); test_emergency(); test_muted_output();
+    test_font_and_bytes(); test_chunking_and_scroll(); test_batch_counters(); test_formats_and_invalid(); test_emergency(); test_muted_output(); test_present_owner_retirement();
     puts("console-host-test: PASS (95 glyphs, mixed case, ANSI, chunking, scroll, coalescing, guards, formats)");
 }

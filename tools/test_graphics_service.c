@@ -53,3 +53,5 @@ int main(void) {
     reset();foreign=true;assert(!syscall_gui_surface_copy(&surface));assert(calls==4 && !checkpoints && !depth && !allocations);
     free(pixels);puts("graphics-service: PASS bounded chunks, restored CR3, revalidation/failure cleanup, private-buffer lifetime and foreign-owner fallback");
 }
+
+bool display_present_can_write(uint64_t pid) { (void)pid; return true; }

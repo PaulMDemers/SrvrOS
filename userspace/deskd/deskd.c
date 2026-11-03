@@ -2109,10 +2109,15 @@ int main(int argc,char **argv) {
     uint64_t start=srv_ticks(),frames=0,bytes=0;
     uint64_t drag_identity=0,resize_identity=0;
     int quit=0,failed=0,drag=-1,resize=-1,grabx=0,graby=0,pending_key=0,io_leaving=0;
+    int fenced_present=0;
+    if(info.flags&GFX_FLAG_FENCED_PRESENT) {
+        if(gfx_present_begin()!=0) { ui_puts("deskd: gfx-present begin failed\n");quit=failed=1; }
+        else { fenced_present=1;desk_log("deskd: gfx-present begin\n"); }
+    }
     struct desktop_input_timing timing={0};
     uint64_t key_pid=0,key_since=0,key_serial=0;
     uint8_t buttons=0;
-    ui_puts("deskd: ready; independent clients, sealed surfaces\n");
+    if(!failed) ui_puts("deskd: ready; independent clients, sealed surfaces\n");
     while (!quit) {
         uint64_t loop_now=(uint64_t)srv_monotonic_us();
         if(audio_io && (audio_io_pid || audio_io_finished)) {
@@ -2676,6 +2681,9 @@ int main(int argc,char **argv) {
         struct present_frame frame={&canvas,&s.scene,frame_order,scale};
         const struct desktop_present_ops present_ops={compose_frame_rect,upload_frame_rect};
         if(desktop_present(&s.damage,scale,info.width,info.height,&present_ops,&frame,&bytes)) failed=1;
+        if(!failed && s.damage.count && fenced_present && gfx_present()!=0) {
+            ui_puts("deskd: gfx-present frame failed\n");failed=1;
+        }
         if(hardware_trial) {
             long end=s.damage.count?srv_monotonic_us():0;
             desktop_timing_end(&timing,poll_time,render_start>0?(uint64_t)render_start:0,end>0?(uint64_t)end:0,!failed && s.damage.count);
@@ -2890,6 +2898,10 @@ int main(int argc,char **argv) {
             wait->end=(uint64_t)srv_monotonic_us();
             if(wait->scheduler.invalid)loop_trace.invalid++;
         }
+    }
+    if(fenced_present) {
+        if(gfx_present_end()!=0) { ui_puts("deskd: gfx-present end failed\n");failed=1; }
+        else desk_log("deskd: gfx-present end\n");
     }
     uint64_t coexist_end=(uint64_t)srv_monotonic_us();
     if(audio_io && loop_last) {

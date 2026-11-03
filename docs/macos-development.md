@@ -18,6 +18,8 @@ cd SrvrOS
 sh tools/macos/build.sh check-host
 sh tools/macos/build.sh -j2 all
 python3 tools/macos/run.py
+# Opt-in fenced VirtIO desktop presentation:
+python3 tools/macos/run.py --display-device virtio
 ```
 
 Use Homebrew Python 3.12 or newer. For an existing checkout, initialize the pinned

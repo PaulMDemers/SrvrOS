@@ -110,10 +110,12 @@ def launch(args, state):
     disk = prepare_disk(state, REPO, build["hashes"])
     session = state / datetime.datetime.now(datetime.timezone.utc).strftime("session-%Y%m%dT%H%M%S.%fZ")
     session.mkdir()
+    cmdline="srvros.log=quiet srvros.audio=hda"
+    if args.display_device=="virtio": cmdline+=" srvros.virtio-gpu=present"
     iso = build_iso(str(REPO), str(session), 1440, 900, os.environ.copy(),
                     kernel_path=str(REPO / "build/kernel/srvros.elf"),
                     initramfs_path=str(REPO / "build/initramfs.tar"),
-                    cmdline="srvros.log=quiet srvros.audio=hda")
+                    cmdline=cmdline)
     # macOS AF_UNIX paths are short. Never put sockets under a long checkout or
     # TMPDIR path; mkdtemp gives this instance a private, unique short directory.
     sockets = Path(tempfile.mkdtemp(prefix="srvros-", dir="/tmp"))
@@ -125,6 +127,7 @@ def launch(args, state):
         "-machine", "q35", "-accel", "tcg,thread=single,tb-size=256",
         "-cpu", "qemu64", "-smp", "1", "-m", "1024M",
         "-cdrom", iso, "-boot", "d",
+        *( ["-vga", "none", "-device", "virtio-vga"] if args.display_device=="virtio" else ["-vga", "std"] ),
         "-drive", f"if=none,id=disk,file={option_path(disk)},format=raw",
         "-device", "ich9-ahci,id=ahci", "-device", "ide-hd,drive=disk,bus=ahci.0",
         "-device", "qemu-xhci,id=xhci", "-device", "usb-kbd,bus=xhci.0",
@@ -189,6 +192,7 @@ def main():
                         help="persistent disks/logs; default: .local/macos-vm in the repo")
     parser.add_argument("--qemu", default="qemu-system-x86_64")
     parser.add_argument("--headless", action="store_true", help="no window or host audio; still leaves VM running")
+    parser.add_argument("--display-device", choices=("std", "virtio"), default="std", help="primary display device (default: std)")
     args = parser.parse_args()
     if platform.system() != "Darwin" or platform.machine() != "arm64":
         parser.error("this launcher requires Apple Silicon macOS")
