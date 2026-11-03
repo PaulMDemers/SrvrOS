@@ -1,7 +1,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
-#include "../userspace/desktools/app.h"
+#include "../userspace/apps/desktools/app.h"
 #include <srvros/sys.h>
 static struct tool tool;
 static int changes;

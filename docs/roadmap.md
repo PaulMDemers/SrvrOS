@@ -6,6 +6,29 @@ and [machine records](machines/README.md) separate implementation from physical
 acceptance. The [device parity ledger](device-parity.md) compares the Air with
 ongoing Pro work.
 
+## Current overhaul — November 2, 2026
+
+Target: separate SrvrUI, SrvrApps and SrvrPorts into GitHub repositories pinned
+as submodules, then apply a coherent native desktop theme inspired by Windows 7
+and OS X 10.7–10.10. Desktop apps are the initial SrvrApps scope; OS services,
+diagnostics and shell commands remain in SrvrOS. Application and port expansion
+will be separate later work; no additional chats are created by this milestone.
+
+Current work: `overhaul/modular-desktop`, based on main `74d38d59`. Preserve the
+existing ABI, executable names, upstream pins and device acceptance boundaries.
+The user authorized repository creation and integration; use focused research,
+local checks and a reviewable OS branch, without enabling hosted Actions.
+
+Required outcomes and evidence:
+- Three published repositories and pinned, recursively cloneable submodules.
+- Matched system build and affected desktop/widget host and VM checks.
+- Shared silver/blue control and chrome treatment, with state and clipping checks
+  and real rendered evidence; retain readable content and existing interactions.
+- Documented repository ownership and instructions for independent app/port work.
+
+Readiness: incomplete. Next: verify the source split, then implement and inspect
+representative controls and the desktop. Native device acceptance is unchanged.
+
 ## 1. Integrate the everyday laptop session
 
 **Completed on Air7,2 release `9aa8dbf6fbda8252`.** Ordinary Home battery,

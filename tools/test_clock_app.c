@@ -1,5 +1,5 @@
 #define main clock_main
-#include "../userspace/deskclock/deskclock.c"
+#include "../userspace/apps/deskclock/deskclock.c"
 #undef main
 #include <assert.h>
 static uint64_t ticks=10;static int canceled;

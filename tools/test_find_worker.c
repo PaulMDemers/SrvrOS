@@ -1,5 +1,5 @@
 #define main worker_main
-#include "../userspace/deskfind/worker.c"
+#include "../userspace/apps/deskfind/worker.c"
 #undef main
 #include <assert.h>
 #include <stdio.h>

@@ -1839,3 +1839,14 @@ Actions dispatch or merge occurred. PR19 `5556641f` remains independent Wi-Fi
 work. Continued tracing reaches resolver retry/deadline policy, duplicated
 pseudo-socket peer/options state and remaining native-FD I/O continuations;
 these need separate directed coverage before claiming a broader socket profile.
+
+
+## Modular desktop overhaul — 2026-11-02
+
+Scope: `overhaul/modular-desktop` from fetched main `74d38d59`; split native
+widgets, desktop applications and ports into pinned repositories, update build
+references, then shared widget and compositor appearance. PR19 retains unrelated
+USB Wi-Fi work; no other open PR was found at inspection. This host runs local
+builds and sequential disposable QEMU checks only. No physical boot, Actions
+dispatch or device-acceptance expansion is planned. Next checkpoint is a matched
+submodule build and recursive clone before theme implementation.

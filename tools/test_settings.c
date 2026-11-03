@@ -1,7 +1,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
-#include "../userspace/desktools/settings.c"
+#include "../userspace/apps/desktools/settings.c"
 static int brightness_send_fail;static uint64_t ticks=10;static struct desk_packet brightness_sent;
 long srv_ticks(void) { return ticks; }
 struct desk_packet desk_packet_new(uint32_t type) { return (struct desk_packet){.window=DESK_DEFAULT_WINDOW,.type=type}; }

@@ -74,7 +74,7 @@ static void tool_phase_end(struct tool_phase_trace *phase,int role,uint64_t wind
 #define pthread_create create_thread
 #define pthread_join join_thread
 #define munmap retire_mapping
-#include "../userspace/desktools/file_service.h"
+#include "../userspace/apps/desktools/file_service.h"
 #undef pthread_create
 #undef pthread_join
 #undef munmap
