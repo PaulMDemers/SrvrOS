@@ -55,7 +55,14 @@ integration contract exists. Actions stay disabled. Initial trials are disposabl
 QEMU images; no physical disk formatting, internal installation or reboot is
 part of this kickoff.
 
-Status: launching the four chats and their first evidence-producing milestones.
+Status: all four chats are active and have acknowledged both required skills
+and their isolated first milestones. Chat IDs for coordination lookup:
+
+- Filesystem: `01a1a38a-c5e8-7a00-a981-4c97778e6b5d`
+- Installation: `01a1a38a-c7fc-71a1-9567-de97accbf119`
+- Profiles: `01a1a38a-c9e7-7df1-a703-7b05d96a20b1`
+- Browser: `01a1a38a-cb75-7d10-8ddb-aeed6b985909`
+
 The parent integration chat owns this roadmap section. Topic chats should own
 `docs/filesystem-layout.md`, `docs/disk-installation.md`,
 `docs/portable-profiles.md`, or `docs/browser-port.md` respectively in their own
