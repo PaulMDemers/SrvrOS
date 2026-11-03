@@ -1047,3 +1047,73 @@ requirements. Keep the unresolved RC6 clock discrepancy and package-C3 result
 separate. The immediate next implementation should be narrowly scoped read-only
 display-HDA context with profile-aware applicability, followed by its own matched
 host/VM/native validation and unchanged final-log retention gate.
+
+
+## Version-7 display-HDA read-only capture
+
+The exact Air6,1 platform profile adds two controller snapshots after its prior
+resource/audio/IRQ endpoint reads, outside RC6 brackets, sparse sampling and
+measured C3 rounds. Ordinary audio startup and production display behavior are
+unchanged. Captured display HDA is 00:03.0 `8086:0a0c`, subsystem `106b:011a`,
+class `040300`; analog HDA remains a separate device/owner.
+
+Live identity/class/subsystem/BDF, the captured non-prefetchable 64-bit 16 KiB
+BAR shape, D0/PM capability and memory decode are required. No BAR sizing or
+D-state/command write occurs. A private first-page mapping at
+`0xffffc001f3230000` is read-only/NX/cache-disabled, with occupied-page refusal.
+Existing GPU/PCH gates and all four display-well views must pass before/after;
+BAR, command/PM and well values must remain unchanged. Observations are
+non-atomic and cannot exclude a firmware change that reverts between checks.
+
+The [Intel HDA 1.0a specification](https://www.intel.com/content/dam/www/public/us/en/documents/product-specifications/high-definition-audio-specification.pdf)
+sections 3.1.2 and 3.3 define naturally aligned register accesses. The capture
+reads GCAP as 16 bits, GCTL/INTCTL/DPLBASE as 32 bits and CORBCTL/RIRBCTL as
+8 bits. GCAP bounds the descriptor sum to 1–30. Each stream control is read
+as 16 plus 8 bits, excluding its status byte at offset +3. GCAP and GCTL are
+rechecked afterward. Reset asserted skips other controls; off-domain skips MMIO.
+No codec/data/ring-pointer/status-window access, reset or acknowledgement is
+added. An active command/stream DMA bit is retained as an observation, not a
+capture error. All-ones or changed access/control identity fails closed.
+
+`ap-platform-hda: v=1 phase=N data=...` holds a canonical 240-character
+base64 encoding of a fixed 179-byte little-endian payload. It preserves all
+raw values and partial/failure rows while fitting the unchanged 64 KiB final
+log; this is an encoding change, not reduced sampling or omitted diagnostics.
+The strict decoder rejects wrong sizes, noncanonical padding, unknown states,
+wrong counts, invalid fields and duplicate/missing/out-of-order endpoints.
+
+| Payload order | Width |
+| --- | --- |
+| State, MMIO read count, stream count | Three unsigned bytes |
+| Begin/end PM microseconds, BAR base | Three uint64 values |
+| Pre command/PM, post command/PM | Four uint16 values |
+| Before wells, after wells | Eight uint32 values |
+| GCAP, GCTL, INTCTL, CORBCTL, RIRBCTL, DPLBASE, GCAP/GCTL rechecks | 2/4/4/1/1/4/2/4 bytes |
+| Thirty stream-control slots | Three bytes each |
+
+Only GCAP's count of stream slots is interpreted; unused slots must be zero.
+State 1 is observed, 2 unavailable without MMIO, 3 invalid/partial, 4 reset
+asserted with only GCAP/GCTL observed. No zero placeholder is decoded as stopped
+hardware. Global producer completeness and final-log coverage require both
+valid new snapshots; overall version-7 acceptance also retains the original
+RC6 predicate and every prior proof.
+
+Host fixtures exercise exact widths, stream bounds, identity/subsystem/BDF,
+PM/decode/BAR, mapping and powered-domain refusals, reset/all-ones/change cases,
+post-read identity/BAR/decode changes, active DMA observations, all emitted
+scalar fields, strict decoding and mandatory tail retention. Native acceptance
+remains pending its exact-source run. No HDA/link/codec readiness, DMA retirement,
+ownership, safe well-clear or package-C3 causal claim follows from these controls.
+
+
+Air6,1 source `f921afc2`, release `2bcb21ae64ee1920`, now supplies both actual
+valid version-7 HDA records directly in its final log. Each has twelve reads:
+GCAP `0x2001`, GCTL `1`, zero INTCTL/CORBCTL/RIRBCTL/DPLBASE and two stream
+controls `0x040000` (RUN/reset clear). Access checks and wells remain stable.
+All 17 compact power/idle/entry samples and earlier proofs survive directly;
+a fresh source-matched width/capacity stress replay also retains every critical
+byte. This accepts bounded control observations and retention only. An out-of-
+reset controller with clear DMA/RUN bits does not establish link readiness,
+retirement, ownership or safe well release. Overall acceptance still fails the
+unchanged RC6 bound (about 0.0730% excess), with package C3 zero. Next is ownership,
+shutdown and restoration design before any write experiment; policy is unchanged.
