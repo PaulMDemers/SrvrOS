@@ -2096,3 +2096,16 @@ The former VM was exited cleanly,
 with its unsaved blank Text document saved as `/fat/tablet-restart-recovery.txt`
 on the retained `.local/macos-vm/virtio-baseline-review/` disk. Submodule pins and
 native hardware acceptance are unchanged.
+
+### Active theme profiles — November 3, 2026
+
+User authorized complete Aero-inspired and Aqua-inspired presets, live Appearance
+previews, application-wide switching/persistence, and rendering/performance
+verification. Branch `device/apple-silicon/theme-profiles` starts at merged tablet
+PR285 (`087029b4`). Owns SrvrUI style rendering, SrvrApps Settings, the shared
+preference protocol/resolver, compositor chrome and focused tests. PR278 owns app
+dispatch, PR252 process/I/O lifetimes, PR19 Wi-Fi; those scopes remain separate.
+Retain Silver as the compatible default, accent/glass controls, content state,
+input geometry and current device profiles. Extend the existing authoritative
+preference path rather than introducing per-app stores. One shared build/VM owner;
+publish child repository commits before OS pins. Native acceptance is unchanged.

@@ -129,7 +129,7 @@ static void dock(struct desk_canvas *c,const struct desktop_scene *s) {
     for(unsigned i=0;i<count;i++) {
         struct desktop_dock_entry entry=entries[i];unsigned app=entry.application;struct desk_rect r=entry.frame;
         const char *name=desk_application_info(app)->title;
-        if(entry.active) desk_fill(c,(struct desk_rect){r.x+2,r.y+1,r.w-4,r.h-3},t->selected);
+        if(entry.active) desk_theme_selection(c,(struct desk_rect){r.x+2,r.y+1,r.w-4,r.h-3},t);
         struct desk_rect clip=c->clip;desk_clip(c,desk_intersect(clip,r));
         int x=r.x+(r.w-32)/2;icon(c,app,x,r.y+2,t);
         int text=desk_text_width(&desk_font_16,name);
@@ -162,6 +162,26 @@ unsigned desktop_titlebar_hit(struct desk_rect frame,int standard,int x,int y) {
 }
 static void window_control(struct desk_canvas *c,struct desk_rect frame,unsigned control,int restored,int focused,const struct desk_theme *t) {
     struct desk_rect hit=desktop_window_control_rect(frame,control);
+    if(t->style==DESK_THEME_AQUA) {
+        /* Keep the established hit targets and order; only the visual changes. */
+        uint32_t top=0xe5e6e8,bottom=0xb9bdc2;
+        if(focused) {
+            top=control==DESKTOP_CLOSE?0xffb1aa:control==DESKTOP_MINIMIZE?0xffe59c:0xb9e7b3;
+            bottom=control==DESKTOP_CLOSE?0xe5695c:control==DESKTOP_MINIMIZE?0xe9ba51:0x76b96a;
+        }
+        desk_theme_glass(c,(struct desk_rect){hit.x+6,hit.y+10,20,20},t->border,t->border,255,8);
+        desk_theme_glass(c,(struct desk_rect){hit.x+7,hit.y+11,18,18},top,bottom,255,8);
+        uint32_t ink=focused?t->text:t->muted;int x=hit.x+12,y=hit.y+16;
+        if(control==DESKTOP_MINIMIZE)desk_fill(c,(struct desk_rect){x-1,y+4,10,2},ink);
+        else if(control==DESKTOP_MAXIMIZE) {
+            desk_fill(c,(struct desk_rect){x-1,y+4,10,2},ink);
+            if(!restored)desk_fill(c,(struct desk_rect){x+3,y,2,10},ink);
+        } else for(int n=0;n<7;n++) {
+            desk_fill(c,(struct desk_rect){x+n,y+1+n,1,1},ink);
+            desk_fill(c,(struct desk_rect){x+6-n,y+1+n,1,1},ink);
+        }
+        return;
+    }
     struct desk_rect box={hit.x+2,hit.y+5,28,30};
     uint32_t ink=focused?0x354352:0x596572,bg=focused?0xf0f1f3:0xe8ebef;
     desk_theme_panel(c,box,t,0,0);
@@ -205,7 +225,8 @@ static void draw_window(struct desk_canvas *c,const struct desktop_window *w,int
     }
     desk_theme_glass(c,(struct desk_rect){r.x,r.y,r.w,44},t->chrome_top,t->chrome_bottom,
         focused?t->glass_alpha:(unsigned)((t->glass_alpha+255)/2),t->corner_radius);
-    desk_theme_glass(c,(struct desk_rect){r.x+3,r.y+2,r.w-6,18},0xffffff,t->chrome_top,32,1);
+    if(t->style!=DESK_THEME_AQUA)
+        desk_theme_glass(c,(struct desk_rect){r.x+3,r.y+2,r.w-6,18},0xffffff,t->chrome_top,t->style==DESK_THEME_AERO?52:32,1);
     desk_fill(c,(struct desk_rect){r.x+8,r.y+1,r.w-16,1},0xffffff);
     struct desk_rect clip=c->clip;
     desk_clip(c,desk_intersect(clip,(struct desk_rect){r.x+16,r.y+1,r.w-(standard?126:62),41}));
@@ -214,13 +235,16 @@ static void draw_window(struct desk_canvas *c,const struct desktop_window *w,int
     int title_width=desk_text_width(&desk_font_16,w->title);
     int title_limit=r.w-(standard?128:64);
     if(title_width>title_limit)title_width=title_limit;
-    if(title_width>0) {
+    if(title_width>0 && t->style!=DESK_THEME_AQUA) {
         desk_theme_glass(c,(struct desk_rect){r.x+12,r.y+5,title_width+16,31},t->chrome_top,t->chrome_top,20,8);
         desk_theme_glass(c,(struct desk_rect){r.x+14,r.y+7,title_width+12,27},t->chrome_top,t->chrome_top,30,7);
         desk_theme_glass(c,(struct desk_rect){r.x+16,r.y+9,title_width+8,23},t->chrome_top,t->chrome_top,48,6);
         desk_theme_glass(c,(struct desk_rect){r.x+17,r.y+10,title_width+6,21},t->chrome_top,t->chrome_top,60,5);
     }
-    desk_label_ellipsis(c,(struct desk_rect){r.x+18,r.y+12,r.w-(standard?128:64),24},&desk_font_16,w->title,t->text);
+    int title_x=r.x+18;
+    if(t->style==DESK_THEME_AQUA && title_width<title_limit)
+        title_x+=(title_limit-title_width)/2;
+    desk_label_ellipsis(c,(struct desk_rect){title_x,r.y+12,r.x+r.w-(standard?110:46)-title_x,24},&desk_font_16,w->title,t->text);
     c->clip=clip;
     for(unsigned control=DESKTOP_CLOSE;control<=(standard?DESKTOP_MINIMIZE:DESKTOP_CLOSE);control++)
         window_control(c,r,control,w->maximized,focused,t);

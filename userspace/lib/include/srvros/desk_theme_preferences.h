@@ -8,11 +8,11 @@
  * No shared mutable theme. */
 static inline struct desk_theme desk_app_theme(const struct desk_app *app) {
     struct desk_theme theme=desk_theme_silver;
-    unsigned accent=0,glass=1;
+    unsigned style=0,accent=0,glass=1;
     if(app && app->preferences_valid) {
-        accent=app->preferences.theme_accent;glass=app->preferences.glass_level;
+        style=app->preferences.theme_style;accent=app->preferences.theme_accent;glass=app->preferences.glass_level;
     }
-    (void)desk_theme_configure(&theme,accent,glass,16);
+    (void)desk_theme_configure_style(&theme,style,accent,glass,16);
     return theme;
 }
 #endif

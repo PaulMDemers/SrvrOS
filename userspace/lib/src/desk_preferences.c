@@ -9,7 +9,7 @@ struct desk_preferences desk_preferences_default(void) {
 int desk_preferences_valid(const struct desk_preferences *p) {
     return p && (p->text_size==16 || p->text_size==20) && p->utc_offset_minutes>=-720 &&
         p->utc_offset_minutes<=840 && p->utc_offset_minutes%15==0 &&
-        !(p->clock_flags&~(DESK_CLOCK_24H|DESK_CLOCK_DATE)) && p->wallpaper<3 && p->pointer_speed>=1 && p->pointer_speed<=5 && p->pointer_acceleration<=1 && p->disable_while_typing<=1 && p->tap_to_click<=1 && p->two_finger_tap<=1 && p->theme_accent<=2 && p->glass_level<=2;
+        !(p->clock_flags&~(DESK_CLOCK_24H|DESK_CLOCK_DATE)) && p->wallpaper<3 && p->pointer_speed>=1 && p->pointer_speed<=5 && p->pointer_acceleration<=1 && p->disable_while_typing<=1 && p->tap_to_click<=1 && p->two_finger_tap<=1 && p->theme_accent<=2 && p->glass_level<=2 && p->theme_style<=2;
 }
 int desk_preferences_merge(struct desk_preferences *d,const struct desk_preferences *s,unsigned mask) {
     if(!d || !s || !mask || (mask&~DESK_PREF_ALL)) return -1;
@@ -26,20 +26,21 @@ int desk_preferences_merge(struct desk_preferences *d,const struct desk_preferen
     if(mask&DESK_PREF_TWO_FINGER_TAP) p.two_finger_tap=s->two_finger_tap;
     if(mask&DESK_PREF_ACCENT) p.theme_accent=s->theme_accent;
     if(mask&DESK_PREF_GLASS) p.glass_level=s->glass_level;
+    if(mask&DESK_PREF_STYLE) p.theme_style=s->theme_style;
     if(!desk_preferences_valid(&p)) return -1;
     *d=p;return 0;
 }
 int desk_preferences_encode(const struct desk_preferences *p,char *out,size_t capacity) {
     if(!desk_preferences_valid(p) || !out || !capacity) return -1;
-    int n=snprintf(out,capacity,"srvros-desktop-v5\ntext_size=%u\nutc_offset_minutes=%d\nclock_flags=%u\nwallpaper=%u\npointer_speed=%u\npointer_acceleration=%u\ndisable_while_typing=%u\ntap_to_click=%u\ntwo_finger_tap=%u\ntheme_accent=%u\nglass_level=%u\n",
-        p->text_size,p->utc_offset_minutes,p->clock_flags,p->wallpaper,p->pointer_speed,p->pointer_acceleration,p->disable_while_typing,p->tap_to_click,p->two_finger_tap,p->theme_accent,p->glass_level);
+    int n=snprintf(out,capacity,"srvros-desktop-v6\ntext_size=%u\nutc_offset_minutes=%d\nclock_flags=%u\nwallpaper=%u\npointer_speed=%u\npointer_acceleration=%u\ndisable_while_typing=%u\ntap_to_click=%u\ntwo_finger_tap=%u\ntheme_accent=%u\nglass_level=%u\ntheme_style=%u\n",
+        p->text_size,p->utc_offset_minutes,p->clock_flags,p->wallpaper,p->pointer_speed,p->pointer_acceleration,p->disable_while_typing,p->tap_to_click,p->two_finger_tap,p->theme_accent,p->glass_level,p->theme_style);
     return n<0 || (size_t)n>=capacity?-1:n;
 }
 int desk_preferences_decode(struct desk_preferences *out,const void *data,size_t length) {
     static const char header[]="srvros-desktop-v";
     if(!out || !data || length<sizeof(header)+1 || length>256 || memcmp(data,header,sizeof(header)-1)) return -1;
     const char *text=data;size_t at=sizeof(header)-1;unsigned seen=0;
-    char version=text[at++];if((version!='1' && version!='2' && version!='3' && version!='4' && version!='5') || text[at++]!='\n') return -1;
+    char version=text[at++];if((version!='1' && version!='2' && version!='3' && version!='4' && version!='5' && version!='6') || text[at++]!='\n') return -1;
     struct desk_preferences p=desk_preferences_default();
     while(at<length) {
         size_t begin=at;while(at<length && text[at]!='=') { if(text[at]=='\n' || !text[at]) return -1;at++; }
@@ -62,13 +63,14 @@ int desk_preferences_decode(struct desk_preferences *out,const void *data,size_t
         else if(version>='3' && name==20 && !memcmp(text+begin,"disable_while_typing",20)) { bit=64;p.disable_while_typing=number; }
         else if(version>='4' && name==12 && !memcmp(text+begin,"tap_to_click",12)) { bit=128;p.tap_to_click=number; }
         else if(version>='4' && name==14 && !memcmp(text+begin,"two_finger_tap",14)) { bit=256;p.two_finger_tap=number; }
-        else if(version=='5' && name==12 && !memcmp(text+begin,"theme_accent",12)) { bit=512;p.theme_accent=number; }
-        else if(version=='5' && name==11 && !memcmp(text+begin,"glass_level",11)) { bit=1024;p.glass_level=number; }
+        else if(version>='5' && name==12 && !memcmp(text+begin,"theme_accent",12)) { bit=512;p.theme_accent=number; }
+        else if(version>='5' && name==11 && !memcmp(text+begin,"glass_level",11)) { bit=1024;p.glass_level=number; }
+        else if(version=='6' && name==11 && !memcmp(text+begin,"theme_style",11)) { bit=2048;p.theme_style=number; }
         else return -1;
         if(seen&bit) return -1;
         seen|=bit;
     }
-    if(seen!=(version=='1'?15u:version=='2'?63u:version=='3'?127u:version=='4'?511u:2047u) || !desk_preferences_valid(&p)) return -1;
+    if(seen!=(version=='1'?15u:version=='2'?63u:version=='3'?127u:version=='4'?511u:version=='5'?2047u:4095u) || !desk_preferences_valid(&p)) return -1;
     *out=p;return 0;
 }
 int desk_clock_format(char *out,size_t capacity,long utc,const struct desk_preferences *p) {
