@@ -1104,3 +1104,16 @@ post-read identity/BAR/decode changes, active DMA observations, all emitted
 scalar fields, strict decoding and mandatory tail retention. Native acceptance
 remains pending its exact-source run. No HDA/link/codec readiness, DMA retirement,
 ownership, safe well-clear or package-C3 causal claim follows from these controls.
+
+
+Air6,1 source `f921afc2`, release `2bcb21ae64ee1920`, now supplies both actual
+valid version-7 HDA records directly in its final log. Each has twelve reads:
+GCAP `0x2001`, GCTL `1`, zero INTCTL/CORBCTL/RIRBCTL/DPLBASE and two stream
+controls `0x040000` (RUN/reset clear). Access checks and wells remain stable.
+All 17 compact power/idle/entry samples and earlier proofs survive directly;
+a fresh source-matched width/capacity stress replay also retains every critical
+byte. This accepts bounded control observations and retention only. An out-of-
+reset controller with clear DMA/RUN bits does not establish link readiness,
+retirement, ownership or safe well release. Overall acceptance still fails the
+unchanged RC6 bound (about 0.0730% excess), with package C3 zero. Next is ownership,
+shutdown and restoration design before any write experiment; policy is unchanged.
