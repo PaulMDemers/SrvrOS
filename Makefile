@@ -2014,6 +2014,13 @@ build/tests/clock-host$(HOST_EXE): tools/test_clock.c kernel/src/arch/x86_64/clo
 test-storage: build/tests/block-host$(HOST_EXE) build/tests/ahci-host$(HOST_EXE)
 	build/tests/block-host$(HOST_EXE)
 	build/tests/ahci-host$(HOST_EXE)
+
+.PHONY: test-installed-root
+test-installed-root: build/tests/exfat-driver$(HOST_EXE)
+	CC='$(HOST_CC)' $(PYTHON) tools/test_installed_root.py
+	$(PYTHON) -m unittest discover -s tools -p 'test_install*.py'
+	$(PYTHON) tools/test_installed_root_exfat.py --driver build/tests/exfat-driver$(HOST_EXE) --output build/review/installed-root-host
+test-core: test-installed-root
 build/tests/block-host$(HOST_EXE): tools/test_block.c kernel/src/block.c kernel/src/block_claim.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
