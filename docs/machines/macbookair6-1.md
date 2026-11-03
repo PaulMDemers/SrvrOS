@@ -125,10 +125,17 @@ Original limits, integrity checks and policy are unchanged. USB preservation,
 offline filesystem/allocation, payload backups and Ubuntu recovery pass; no
 reboot is armed.
 
-Next: audit the remaining display-well dependencies and their ownership/readout
-requirements before proposing any transition. Keep the RC6 clock discrepancy as
-a separate unresolved issue; the all-masked IRQ snapshots do not establish that
-hardware is idle. PR252 lifetimes and PR19 Wi-Fi retain separate scope.
+The remaining dependency audit is complete: captured GPU `0x0a26` is ULT,
+so generic CRT/FDI initialization and port-D probing are unsuitable next steps.
+The existing eDP input is A_ON rather than the fitter forced-through A_ONOFF
+route. Display HDA at 00:03.0 remains D0 with decode/bus mastering enabled;
+its controller/link/DMA context is not covered by the graphics audio controls.
+
+Next: review and implement bounded read-only display-HDA context with exact
+identity/BAR/domain gates and profile-aware applicability. Keep the strict
+RC6 discrepancy separate. A well-clear experiment requires a future display
+ownership/readout/restore lifecycle; this audit does not authorize one. No
+physical boot is planned or armed. PR252 lifetimes and PR19 Wi-Fi remain separate.
 
 ### Historical battery-runtime objective (2026-10-23)
 
@@ -6175,3 +6182,44 @@ All 461 collected evidence files were independently rehashed outside `build`.
 The local run is returned/collected, its collector disabled and no reboot armed.
 Next is a source audit of remaining display-well dependencies and safe ownership
 requirements; this result grants no power transition or policy change.
+
+
+### Remaining display-well ownership audit — active scope (2026-11-02)
+
+Base `cfbf3f97`; docs/source audit only. Cross-check the actual two native
+endpoint inventories against the Haswell domain map, firmware takeover/readout,
+CRT/FDI and display-HDA lifecycles. Scope: this unit record and the current AP
+ownership guide, with pinned upstream sources/hash receipts kept locally. No
+MMIO additions, power writes, policy/limit changes or physical boot are planned
+in this audit. PR252 lifetime and PR19 Wi-Fi scopes remain independent; fetched
+main has no production changes beyond the tested `4e2ff068` image.
+
+
+### Remaining display-well ownership audit completed (2026-11-02)
+
+Audited Linux v7.0 commit `028ef9c96e96197026887c0f092424679298aae8` against
+native source `4e2ff068` / release `ee85beb85b75fdca`, with pinned sources and
+hash receipts retained locally. The [current dependency audit](../ap-ownership-diagnostic.md#remaining-haswell-ult-well-dependencies-2026-11-02)
+records domain coverage, model exclusions and ownership prerequisites.
+No production code, MMIO allowlist, policy, limit or installed payload changes.
+
+`0x0a26` is ULT GT3: upstream excludes CRT and port D. Raw zero slots in the
+existing inventory do not imply implemented ports. Existing eDP input encoding
+0 also excludes the specific fitter-A forced-through condition (encoding 4).
+Those observations narrow the audit; they do not grant a well transition.
+
+The actionable gap is separate display HDA `8086:0a0c` at 00:03.0: actual PCI
+endpoints are D0 with command `0x0006`. Analog `8086:9c20` is a separate owner.
+Linux binds display-HDA power to graphics audio references, stops/resets the
+controller before releasing them, and adopts the display under an INIT reference
+before unused-well cleanup. SrvrOS has no equivalent ownership graph; clear
+ELD/output bits and all-masked display IRQs do not establish DMA retirement.
+
+Next implementation: exact-gated read-only display-HDA control context after
+width/side-effect/domain review, explicit unavailable/changed evidence, bounded
+capability-derived stream coverage and unchanged compact retention checks. It
+must not initialize HDA, issue verbs, acknowledge status, change PCI/D-state or
+clear the BIOS request. A future well transition needs its own serialized
+ownership/adoption/restore design. RC6 timing failure and package-C3 zero remain
+unresolved. Audit-only closeout requires docs/link and diff checks; no hardware
+acceptance is added and no new boot is armed.
