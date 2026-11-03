@@ -30,6 +30,10 @@ names, reboot and reopen the same document/preferences. Missing or ambiguous
 system identity must still halt before namespace activation or disk writes.
 This closes the gap between the separately tested installed-root and global-path
 proofs; it does not add physical installation, upgrade slots or profile import.
+PR313's present harness boots an ISO with raw exFAT disks. The combined fixture
+must instead boot the target's EFI payload and use valid GPT maps on every raw
+disk, mounting any independent provider by its selected partition. Do not weaken
+PR312's refusal policy to reuse the raw-disk fixture unchanged.
 
 Dependencies: integrate/review PR313 with its PR308 foundation, full PR252
 process/I/O lifetime handoff and SrvrPorts PR3 pin `0f51ba9`; preserve one canonical
