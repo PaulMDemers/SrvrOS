@@ -1,6 +1,6 @@
 # MacBookAir6,1 — local bring-up
 
-Updated: 2026-11-02. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted. Short battery sampling and the bounded Home desktop session with five Text saves and three battery lifetimes, plus a three-minute continuous Home desktop capture and attended desktop AC unplug/reconnect with indicator updates, are physically accepted.**
+Updated: 2026-11-03. State: **Native desktop/input, bounded concurrent USB file work, duplicate-ID repair, completed-workload rerun refusal and speed/acceleration persistence physically accepted. Native brightness adjustment across 5–100%, bounded speaker/headphone audio playback and basic read-only CPU/fan telemetry physically accepted. Bounded parked battery sampling, attended AC transitions and observed alarm refresh/retirement and bounded battery/Text USB-image coexistence accepted. Short battery sampling and the bounded Home desktop session with five Text saves and three battery lifetimes, plus a three-minute continuous Home desktop capture and attended desktop AC unplug/reconnect with indicator updates, are physically accepted.**
 
 ## Initial inventory (2026-10-22)
 
@@ -131,18 +131,23 @@ The existing eDP input is A_ON rather than the fitter forced-through A_ONOFF
 route. Display HDA at 00:03.0 remains D0 with decode/bus mastering enabled;
 its controller/link/DMA context is not covered by the graphics audio controls.
 
-Read-only display-HDA capture is implemented and locally validated on source
-`f921afc2`, release `2bcb21ae64ee1920` (PR287), atop the matched modular desktop
-baseline. Exact access, reset/off unknowns and every prior requirement remain.
-Fixed-width raw encoding resolves the failed conservative decimal receipt budget
-without losing values, expanding the log or reducing workload coverage.
+Read-only display-HDA capture is now physically observed on source `f921afc2`,
+release `2bcb21ae64ee1920` (PR287). Both exact-gated snapshots and every original
+proof survive directly in the matching final log. GCAP reports two output
+streams. CORB/RIRB DMA, position-buffer enable and both stream RUN bits are
+clear; GCTL indicates the controller is out of reset. These bounded control
+observations do not establish link/codec readiness, DMA retirement or ownership.
 
-Next: collect the matching automated 30/30/30-second native trial, requiring the
-two actual version-7 HDA records and all original compact proofs directly from
-its final log. Preserve unavailable/failure evidence and the independent strict
-RC6/package-C3 results. No well clear or policy change is authorized. The local
-run record owns installed/recovery and ready/armed/returned state. PR278 app
-registry, PR252 lifetimes and PR19 Wi-Fi retain separate scope.
+All 17 power/idle/entry samples and 32 coordinated core-C3 rounds pass their
+existing checks. The overall platform test remains failed on the original RC6
+bound (about 0.0730% nominal excess), and package C3 remains zero. USB integrity,
+Ubuntu recovery and durable payload/evidence verification pass. No boot is armed.
+
+Next: design the serialized display-domain adoption, HDA shutdown and restoration
+requirements before proposing a well transition. The firmware well request
+remains set; idle DMA controls alone do not prove the well unused. Keep RC6
+semantics and package-C3 causality separate. PR278 app registry, PR252 lifetimes
+and PR19 Wi-Fi retain separate scope.
 
 ### Historical battery-runtime objective (2026-10-23)
 
@@ -6290,3 +6295,54 @@ record. Native acceptance is pending, and no model/synthetic/other-session rows
 may substitute for its returned HDA controls. Original phases, 32 rounds, latency
 limits, fallback, ownership checks and policies remain unchanged. No input is
 required; progress is shown and results save before automatic Ubuntu return.
+
+
+### Native display-HDA capture collected (2026-11-03)
+
+Compiled source `f921afc2`, release `2bcb21ae64ee1920`, returned automatically
+with matching session `session-00065f6457730365-00`. The actual 65,536-byte exit
+SHA-256 is `40dbbe337a1c97fe2dfe858ca6c41ee296e6cd699251ac35970748607f83cd36`.
+Both version-7 HDA records decode directly alongside all 17 power, 17 idle and
+17 entry samples and every original required proof. A fresh ten-source-matched
+stress replay preserves every critical byte with 26,155 bytes of width/capacity
+padding and 128 KiB pre-final chatter. No modeled or joined data supplies native
+acceptance; the replay remains synthetic regression evidence only.
+
+Both HDA endpoints pass all access checks with unchanged BAR/command/PM/wells.
+They take 19 and 18 us, each with twelve MMIO reads. GCAP `0x2001` describes two
+output streams; GCTL `1` is unchanged and means controller reset is deasserted.
+INTCTL, CORBCTL, RIRBCTL and DPLBASE are zero. Both stream controls retain
+`0x040000`: RUN and reset are clear, with zero stream tags. This accepts bounded
+read-only capture/retention, not link or codec readiness, DMA retirement, IRQ
+ownership or power-off permission. Existing resource/audio/IRQ controls and
+firmware well request remain unchanged.
+
+The initial local collector imported the decoder but omitted standalone HDA JSON
+extraction because its script-edit pattern did not match. The existing mandatory
+coverage check already validated both HDA records, so no missing data was
+accepted. Closeout saved the HDA result directly from the unchanged matching
+exit and preserved the original assessment. The local collector now explicitly
+saves/asserts that result; executing its actual extraction/assertion section
+passes the matching trace and refuses missing HDA records. The original overall
+failure classification is unchanged.
+
+All 32 coordinated rounds pass (9,982 us maximum), with core-C3 residency and
+clean terminal AP retirement; package C3 remains zero. Original ordered phases
+complete with mean covered package power 4.038/5.047/4.027 W. Nominal RC6 is
+90.119211520 seconds versus a PM bracket of 90.053459–90.053461 seconds, about
+65.749 ms excess after one tick (0.0730%). The strict RC6 predicate remains
+failed; the **overall platform trial is failed**, independently of complete HDA
+control observations and final-log retention.
+
+All 578 baseline files survive except expected workspace metadata; four session
+logs yield 582 files / 1,645 clusters. Read-only fsck and independent allocation
+are clean, with no leaks/mismatches/errors. The one-shot is consumed and collector
+disabled. Installed candidate, console recovery, protected payload hashes and
+Ubuntu default are verified. All 474 originally collected durable evidence files
+were independently rehashed before correction/closeout; updated receipts are
+backed up separately with originals retained. No reboot is armed.
+
+Next is a bounded ownership/adoption/shutdown/restore design using the observed
+active firmware eDP route and display-HDA controller out of reset. No well clear,
+controller reset or power-policy change follows from this read-only run. RC6's
+clock mismatch and the package-C3 blocker remain unresolved.
