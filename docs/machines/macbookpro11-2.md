@@ -96,10 +96,16 @@ stops immediately without speculative cleanup or replay.
 This is an uncalled host foundation, not a native profile or fresh-gain proof.
 The future private native owner must bind fresh board/gain and same-device parent
 proof before I/O. A shared simulated register bank checks simultaneous selected
-states and original restoration; transfer/cancellation and owner/refusal tests
-are being finalized. No VCO, calibration, RX, credentials, installed payload or
-reboot state changes belong to this implementation. Next: complete host fault/
-sanitizer/full regression validation, then native admission and strict saved-log
+states and original restoration. Full matched build/USB image/core/docs pass
+at `1267acfa`:3732 transfer-failure and3746 cancellation boundaries, all256
+gain scalars, shared-bank selected/original checks, damaged nested proofs,
+exact board/shared-owner/callback refusals and no replay. The coordinator
+entry is absent from the linked native kernel. Focused ASan/UBSan checks pass
+all256 gains, selected-bank/restore, preflight refusals and damaged proofs;
+the exhaustive failure sweep is the separate normal build. Evidence/source
+and executable are sealed outside build in `wifi-channel5-engine-1267acfa`.
+No VCO, calibration, RX, credentials, installed payload or
+reboot state changes belong to this implementation. Next: native admission and strict saved-log
 coverage before any staged hardware trial.
 
 ## v115 fresh5GHz gain/baseband restoration accepted

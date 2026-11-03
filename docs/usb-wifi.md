@@ -361,7 +361,7 @@ unaccepted; those are separate integration/calibration/receive milestones.
 
 `mt76_channel5_capture` keeps band/frequency/A20 selected around PA and BBP,
 using private fixed nesting points after independent selected readbacks. The
-inverse path restores BBP, PA, A20, frequency and band. Its authorizer validates
+inverse path restores BBP, PA, A20, frequency and band. Its ownership predicate validates
 the nested parent proofs and phase; a transport failure or cancellation stops
 without speculative writes or replay. Legacy restored-transaction APIs remain
 unchanged. This foundation has no native caller, VCO/RX or credential use.
