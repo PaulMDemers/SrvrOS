@@ -149,13 +149,18 @@ plus concurrent desktop integration), with matched submodules. It copies observa
 lifetimes and refuses unknown or changed prerequisites. The native adapter sets
 no assurance bits and has no writer API. Quiet hardware remains insufficient.
 
-Next: collect the matching automated native dry run, requiring version 8's raw-
-data-bound expected refusal (mask 127), Observed → Retired software lifetime,
-guard 1 → 0 and zero hardware authority, alongside every existing HDA/power/AP
-proof. Preserve the original RC6 predicate and package-C3 result independently.
-No real framebuffer adoption, HDA shutdown, well clear or policy change is
-implemented. The local run owns installed/recovery and ready/armed/returned state.
-PR288/278 apps, PR252 lifetimes and PR19 Wi-Fi remain separate.
+The matching native dry run completed with version-8 raw-data-bound refusal
+mask 127, epoch 1, Observed → Retired, software guard 1 → 0 and zero references,
+in-flight work, assurances, activity flags or hardware authority. All required
+proofs survive directly in the matching final log. This accepts the diagnostic
+software lifetime/refusal only; no real framebuffer adoption, HDA shutdown or
+well clear is implemented. Next is milestone B's readout/backing-lifetime
+completeness, retaining unsupported-domain and firmware unknowns.
+
+The overall platform trial remains failed on the unchanged RC6 timing predicate
+(about 0.0872% nominal excess); package C3 remains zero. USB integrity, recovery
+and durable evidence verification pass. No reboot is armed. PR288/278 apps,
+PR252 lifetimes and PR19 Wi-Fi remain separate.
 
 ### Historical battery-runtime objective (2026-10-23)
 
@@ -6484,3 +6489,35 @@ being silently inherited by this candidate. No control writes or policies change
 Next is collection of actual version-8 expected-refusal/lifetime evidence and all
 prior proofs. Native acceptance remains pending; no old/model/joined receipt
 can replace this matching run.
+
+
+### Native no-write owner result (2026-11-03)
+
+Integrated source `fa8e503f`, release `9316558efb4b7007` (PR296), completed
+session `session-00065f65ae97e590-00` and returned automatically to Ubuntu.
+The unchanged 65,536-byte exit file has SHA-256
+`8e7c8db5e2167b35259f2374f0ead628341ec9673fde3125dd8868fcd7091e81`.
+Version 8 directly retains the owner record, both HDA/resource/dependency
+endpoints and all original compact power/idle/entry and AP/package proofs.
+
+The raw-data digest matches both stable endpoints. The expected seven-unknown
+refusal is 127, epoch 1, Observed → Retired, software guard 1 → 0, with zero
+route/audio references, in-flight work, assurance/activity flags and hardware
+authority. This physically verifies the diagnostic-only software refusal and
+lifetime. It does not prove actual backing, domain, firmware or HDA ownership.
+
+All 15 retained power/idle/entry samples and ordered 30/30/30-second phases
+complete; average package power is 4.102/5.168/4.112 W. All 32 coordinated C3
+rounds pass, maximum 9,983 us, with positive core residency, mandatory HLT
+fallback and clean AP retirement. Package C3 remains valid zero. The original
+RC6 check still fails: nominal 90.130926080 s versus the PM bracket, exceeding
+its original bound by 78.569800 ms (about 0.0872%). The whole platform trial
+therefore remains failed; no threshold, integrity check or power policy changed.
+
+All 582 prior files are preserved except expected workspace metadata; four new
+session logs produce 586 files / 1,650 allocated clusters. Read-only fsck and
+independent allocation checks pass with zero leaks, bitmap mismatches or errors.
+Installed payload hashes, console/accepted recoveries and durable backups verify;
+Ubuntu is default, the one-shot is consumed and the collector is disabled.
+The tested runtime remains frozen to `fa8e503f`; later mainline app/snapping
+changes have no inherited physical acceptance. No reboot is armed.
