@@ -2109,3 +2109,24 @@ Retain Silver as the compatible default, accent/glass controls, content state,
 input geometry and current device profiles. Extend the existing authoritative
 preference path rather than introducing per-app stores. One shared build/VM owner;
 publish child repository commits before OS pins. Native acceptance is unchanged.
+
+### Theme profiles accepted — November 3, 2026
+
+Clean runtime `50389359` pins published SrvrUI `89fb6d9` and SrvrApps `d245fe2`.
+Full image build and desktop/widget host suite pass, including style migration,
+live window/dialog updates and clipped/full redraw equality during drag/scroll.
+Both profile and existing Settings/application VMs pass; the compact 280×240
+Appearance fix has a focused host test and inspected render. The final matched
+profile VM preserves selected Text content, updates existing/new windows, renders
+dialogs and menus, drags/scrolls, saves Aqua and restores it after desktop restart.
+See the [receipt](../assets/screenshots/theme-profiles-manifest.json) and
+[rendered examples](../desktop-theme.md#profile-acceptance--november-3-2026).
+
+The controlled host frame-paint medians are 334/334/283 µs for Silver/Aero/Aqua;
+title-damage costs are 121/121/70 µs and cursor costs 4/4/4 µs. No host-vblank or
+native-device claim is made. The previous tablet VM and its idle Terminal exited
+cleanly, retaining its disk. The new default Cocoa VM is open in
+`.local/macos-vm/theme-profiles-review/`, reached its first app frame in 4.37 s,
+and shows Appearance with Aero selected. Integration is PR286 with SrvrUI PR1
+and SrvrApps PR1; subsequent acceptance commits change documentation only.
+No further feature is required for the approved profiles milestone.

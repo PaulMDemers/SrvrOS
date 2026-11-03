@@ -57,6 +57,27 @@ existing toolkit callers.
 
 ## Composition and verification
 
+### Profile acceptance — November 3, 2026
+
+Clean runtime `50389359`, SrvrUI `89fb6d9` and SrvrApps `d245fe2` pass the matched
+full build and final profile VM. The complete desktop/widget host suite covers
+migration, style-only updates, clipping, padded strides, and exact partial/full
+redraw equality during drag and scroll. The existing Settings and application
+workflow VMs pass; the final focused Settings host run covers its compact fix.
+Both profiles update existing/new Text windows, dialogs and menus without losing
+selection/content. Aqua restores after desktop restart. Actual 280×240 and
+larger-text Settings renders were inspected alongside the full desktop.
+
+Fifteen alternating samples per style measured median host frame paint costs of
+334/334/283 µs for Silver/Aero/Aqua, title-damage costs of 121/121/70 µs, and cursor
+costs of 4/4/4 µs. This supports bounded renderer cost; host vblank and native
+hardware acceptance are not established by this comparison.
+
+See the [acceptance receipt](assets/screenshots/theme-profiles-manifest.json),
+[widget specimen](assets/screenshots/theme-profiles-widgets.png),
+[Aero desktop](assets/screenshots/theme-profiles-aero.png), and
+[Aqua desktop](assets/screenshots/theme-profiles-aqua.png).
+
 The glass primitive blends only the current destination pixel, with coordinates
 anchored to the original rectangle and bounded rounded spans. It preserves incoming
 clips and padded strides. No neighboring pixel read makes partial damage depend

@@ -17,8 +17,14 @@ Implemented on `device/apple-silicon/theme-profiles`, based on merged PR285:
 shared profile resolver and state rendering in SrvrUI; Appearance-first Settings
 with compact previews in SrvrApps; v17 snapshots and v6 file migration; compositor
 chrome and focused tests. Full build, desktop/widget host tests, new profile VM
-and Settings regression pass. Final matched revision verification and publication
-are in progress. [Theme contract](desktop-theme.md) records the style boundaries.
+and Settings/application regressions pass. Final clean runtime `50389359` passes
+the matched build, focused minimum-height Settings test and profile VM. Published
+SrvrUI `89fb6d9` and SrvrApps `d245fe2` are pinned in
+[PR286](https://github.com/PaulMDemers/SrvrOS/pull/286), with
+[UI PR1](https://github.com/PaulMDemers/SrvrUI/pull/1) and
+[Apps PR1](https://github.com/PaulMDemers/SrvrApps/pull/1).
+[Theme contract and evidence](desktop-theme.md#profile-acceptance--november-3-2026)
+record the completed scope; no additional theme feature is required for it.
 Native acceptance and device drivers are unchanged.
 
 ## Current QEMU VirtIO baseline — November 3, 2026
