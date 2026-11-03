@@ -144,8 +144,8 @@ bound (about 0.0730% nominal excess), and package C3 remains zero. USB integrity
 Ubuntu recovery and durable payload/evidence verification pass. No boot is armed.
 
 The diagnostic-only adoption/eligibility model is now implemented and locally
-validated on source `fcd52df8`, release `814f7e939bc4adf9` (PR296), atop `c609207b`
-and matched submodules. It copies observations, enforces epoch/reference/in-flight
+validated on integrated source `fa8e503f`, release `9316558efb4b7007` (PR296
+plus concurrent desktop integration), with matched submodules. It copies observations, enforces epoch/reference/in-flight
 lifetimes and refuses unknown or changed prerequisites. The native adapter sets
 no assurance bits and has no writer API. Quiet hardware remains insufficient.
 
@@ -6454,3 +6454,33 @@ is needed; progress/results and automatic collection use the existing profile.
 The local collector explicitly saves/asserts the dry-run result; its actual code
 section passes a synthetic valid fixture and refuses missing records. Native
 acceptance remains pending; no modeled, older or joined proof can supply it.
+
+
+### No-write owner rebuilt after concurrent integration (2026-11-03)
+
+PR296 merged as `fa8e503f` while main gained shared app/desktop changes, including
+PR295. The app-pin/source checks prevented arming the earlier `fcd52df8` /
+`814f7e939bc4adf9` image. No native boot occurred. Its collector is disabled;
+its payload and host/VM evidence remain independently backed up as superseded,
+unarmed evidence. That state is not a physical failure or acceptance.
+
+Synchronized the exact app pin and rebuilt the frozen `fa8e503f` integration.
+The owner, adapter and focused fixture sources are byte-identical to the tested
+implementation. Full matched build/USB/AP ELF, core/desktop/widget/host/docs,
+isolation and maximum-retention checks pass. New release `9316558efb4b7007`
+passes all nine main and three legacy VM cases with directed-failure and final-
+receipt review. The native stage is restored and matched to its exact GPT
+refusal/save/unmount/return rehearsal. Fourteen supplemental actual-adapter
+activity cases and ULT port-D exclusion pass on synthetic retained words only.
+
+The actual USB is still 582 files / 1,645 clusters, with unchanged hashes and
+clean fsck/allocation/headroom. The unarmed EFI candidate is retired only after
+verifying its independent durable payload/evidence and repointing through the
+normal installer. The rebuilt candidate retains console recovery and Ubuntu
+default. Its local record binds exact source, payload, rehearsal, collector and
+ready/armed/returned state. The integration source stays fixed through this
+native run; later mainline changes require their own validation rather than
+being silently inherited by this candidate. No control writes or policies change.
+Next is collection of actual version-8 expected-refusal/lifetime evidence and all
+prior proofs. Native acceptance remains pending; no old/model/joined receipt
+can replace this matching run.
