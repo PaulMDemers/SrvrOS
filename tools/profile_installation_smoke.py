@@ -112,6 +112,8 @@ def main():
                 inputs['init'], identity_bound=True, profile_bundle=bundle_path,
                 profile_home=home, profile_alias=alias, profile_uid=uid, profile_gid=gid,
                 profile_driver=inputs['driver'])
+            if plan['version'] != 2:
+                raise RuntimeError('profile plan must refuse legacy installer apply')
             ready = installation_image.apply(stage)
             expected_profile = {'profile_id': ID, 'home': home, 'alias': alias, 'uid': uid,
                                 'gid': gid, 'launch_command': f'run /fat/bin/deskd --profile={home}'}
@@ -200,7 +202,7 @@ def main():
         # Every refusal uses private copies and invokes the actual prepare/apply
         # path. No failing case may publish a usable image or ready receipt.
         cases = ('malformed-bundle', 'truncated-bundle', 'partial-binding', 'invalid-alias',
-                 'invalid-uid', 'traversal-home', 'changed-bundle', 'changed-plan', 'changed-driver',
+                 'invalid-uid', 'traversal-home', 'changed-bundle', 'changed-plan', 'changed-driver', 'downgraded-plan',
                  'occupied-profile-home', 'provision-driver-failure')
         bound_base = out / 'base-a.exfat'
         bound_hash = installation_image.digest(bound_base)
@@ -259,6 +261,12 @@ def main():
                 elif case == 'changed-driver':
                     with case_driver.open('ab') as stream:
                         stream.write(b'changed')
+                elif case == 'downgraded-plan':
+                    plan_path = target / 'plan.json'
+                    downgraded = json.loads(plan_path.read_text())
+                    downgraded['version'] = 1
+                    plan_path.write_text(json.dumps(downgraded))
+                    (target / 'plan.sha256').write_text(installation_image.digest(plan_path) + '\n')
                 expected_bundle = installation_image.digest(case_bundle)
                 expected_driver = installation_image.digest(case_driver)
                 installation_image.apply(target)

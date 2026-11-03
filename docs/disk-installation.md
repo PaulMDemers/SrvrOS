@@ -23,6 +23,10 @@ assembles the new identity-bound GPT image and verifies its exact data bytes
 before ready publication. Explicit profile launch remains separate from boot.
 Original inputs are preserved; malformed, changed or interrupted inputs must not
 publish an installed image/ready marker.
+Profile plans use version 2 so legacy version-1 apply refuses rather than silently
+ignoring profile fields. Ordinary plans remain version 1; version downgrade or
+profile/version mismatch refuses before provisioning. Checksums detect accidental
+edits, not an adversary replacing both a plan and its checksum.
 
 Acceptance: A edit/save/reboot, export the actual persisted content, then B
 provision/reboot with the same UUID and different disk GUID/home/local bindings;
