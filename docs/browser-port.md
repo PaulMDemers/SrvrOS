@@ -27,8 +27,8 @@ At most 2 GiB of source/probe artifacts, two compilation jobs, no full engine
 build. Build only a matched SDK and bounded probes; preserve all external
 checkouts and images. This envelope produced the evidence below; no engine runtime was built.
 
-Status: first feasibility checkpoint implemented and locally verified for draft
-review. Next implementation gate is explicit platform/threaded-runtime support
+Status: first feasibility checkpoint published in [draft PR310](https://github.com/PaulMDemers/SrvrOS/pull/310),
+implementation commit `84b25354`. Locally verified for the bounded draft scope. Next implementation gate is explicit platform/threaded-runtime support
 and a no-JIT JSC configure reaching its next dependency. Actions stay disabled.
 
 ## Engine decision
