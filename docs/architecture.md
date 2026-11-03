@@ -88,8 +88,10 @@ accepted native interactions from cases covered only by synthetic tests.
 
 Window records, GUI queues and surfaces now grow under separate byte budgets;
 sixteen inline compositor records are bootstrap storage, not a count ceiling.
-Client surfaces remain bounded to 1440×900 logical pixels with software rendering. Explicit 2× output expands the logical pixels without changing
-app geometry. GPU discovery is not GPU rendering acceleration. The older
+Client geometry remains bounded to 1440×900 logical pixels with software rendering.
+Native 2× backing and built-in font rasters preserve logical app geometry; surface
+and cache quotas count physical pixel bytes. Settings confirms live scale and
+QEMU VirtIO resolution changes with timed rollback. GPU discovery is not GPU rendering acceleration. The older
 `gui`/`displayd`/`gui2` stack remains for historical regressions and is not the
 current desktop entry point; its [archived architecture](history/architecture-before-native-desktop.md#gui)
 is retained for reference.

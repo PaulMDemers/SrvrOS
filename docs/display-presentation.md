@@ -295,3 +295,11 @@ allocations, blocks further ownership and graphics writes, and makes graphics
 and mode queries fail rather than reporting uncertain geometry. Release and
 owner death use the same reset-before-free rule. Fenced command completion does
 not guarantee host compositor or monitor vblank.
+
+The matched HiDPI host scene sample (960 × 540 logical desktop, 720 × 335 Text
+surface, 100 full draws after five warmups) measured 555 µs at 1× and 2231 µs at
+2× under the macOS x86_64 host test wrapper. Desktop backing increased from
+2,073,600 to 8,294,400 bytes; the client image increased from 964,800 to
+3,859,200 bytes. This measures software drawing cost for a fixed logical scene,
+not guest frame pacing or host vblank. Damage-based presentation remains in use;
+no new full-frame-only upload path was introduced.

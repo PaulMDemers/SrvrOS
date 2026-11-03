@@ -98,7 +98,7 @@ not accumulate tint. The side gesture is informed by Microsoft's
 [Snapping acceptance and captures](assets/screenshots/window-snap-manifest.json)
 cover both integer scales, cancellation and retained document content.
 
-## Display scale and resolution
+## Display scale
 
 Settings → Display selects 1× or 2× scale and, on QEMU's VirtIO GPU, a supported
 resolution. Apply starts a 15-second trial. Keep saves the choice; Revert, timeout,
