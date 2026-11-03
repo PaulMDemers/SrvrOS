@@ -10,6 +10,7 @@
 struct desktop_window {
     struct desk_rect frame;
     const uint32_t *pixels;
+    unsigned scale;
     int width,height,visible,minimized,application,maximized,dialog;
     uint64_t z;
     struct desk_rect restore;

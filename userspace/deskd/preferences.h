@@ -13,9 +13,16 @@ struct desktop_preferences_store {
     unsigned status,dirty_mask;
     uint32_t disk_crc;
     int initialized,loading,existing,writable,dirty;
+    const char *portable_path;
+    struct desk_preferences machine_value;
+    uint32_t portable_crc;
+    unsigned profile_phase,write_mask;
+    int portable_existing;
+
 };
 void desktop_preferences_init_path(struct desktop_preferences_store *store,const char *path);
 void desktop_preferences_init(struct desktop_preferences_store *store);
+void desktop_preferences_init_profile(struct desktop_preferences_store *store,const char *machine_path,const char *portable_path);
 /* Return 1 for a value/status change, 0 otherwise. */
 int desktop_preferences_poll(struct desktop_preferences_store *store,uint64_t ticks);
 int desktop_preferences_set(struct desktop_preferences_store *store,const struct desk_preferences *value,unsigned mask,uint64_t ticks);

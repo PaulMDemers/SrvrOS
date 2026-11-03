@@ -319,7 +319,8 @@ static uint32_t gpt_crc32(uint32_t crc, const uint8_t *bytes, uint64_t count) {
 
 /* Validate the complete primary map before exposing any writable aliases.
  * Bounded to a 64 KiB table and 32 used entries. No backup repair or disk writes. */
-uint64_t block_register_gpt_partitions(struct block_device *device) {
+static uint64_t gpt_scan(struct block_device *device, struct block_gpt_map *map, bool *valid) {
+    if (valid) *valid = false;
     if (!device || !device->used || device->read == partition_read ||
         device->block_size < 512 || device->block_size > 4096 ||
         (device->block_size & (device->block_size - 1)) || device->block_count < 6 ||
@@ -360,7 +361,10 @@ uint64_t block_register_gpt_partitions(struct block_device *device) {
     if (table_lba < 2 || first >= device->block_count || first > last ||
         table_lba >= first || table_blocks > first - table_lba ||
         last >= device->block_count - 1 || table_blocks > device->block_count - 2 - last) return 0;
-    struct { uint64_t first, last; uint32_t index; uint8_t guid[16]; } ranges[BLOCK_MAX_PARTITIONS];
+    struct { uint64_t first, last; uint32_t index; uint8_t guid[16], type[16]; uint16_t name[36]; } ranges[BLOCK_MAX_PARTITIONS];
+    uint8_t disk_guid[16];
+    for (unsigned k = 0; k < 16; k++) disk_guid[k] = header[56 + k];
+    if (map && guid_is_zero(disk_guid)) return 0;
     unsigned used = 0;
     crc = UINT32_MAX;
     for (uint32_t i = 0; i < count; i++) {
@@ -378,18 +382,40 @@ uint64_t block_register_gpt_partitions(struct block_device *device) {
             if (same || (begin <= ranges[j].last && ranges[j].first <= end)) return 0;
         }
         ranges[used].first = begin; ranges[used].last = end; ranges[used].index = i + 1;
-        for (unsigned k = 0; k < 16; k++) ranges[used].guid[k] = entry[16 + k];
+        for (unsigned k = 0; k < 16; k++) {
+            ranges[used].guid[k] = entry[16 + k];
+            ranges[used].type[k] = entry[k];
+        }
+        for (unsigned k = 0; k < 36; k++)
+            ranges[used].name[k] = (uint16_t)entry[56 + 2*k] | ((uint16_t)entry[57 + 2*k] << 8);
         used++;
     }
-    if (~crc != read_le32(header + 88) || used > BLOCK_MAX_PARTITIONS - partition_count ||
-        used > BLOCK_MAX_DEVICES - device_count) return 0;
-    /* Repeated scans must not register duplicate aliases. */
+    if (~crc != read_le32(header + 88)) return 0;
+    /* Strict callers can reuse a previously registered matching view. Legacy
+     * repeated scans retain their historical refusal. Check all capacity and
+     * names before creating any aliases. */
+    struct block_device *views[BLOCK_MAX_PARTITIONS] = {0};
+    unsigned needed = 0;
     char name[16];
     for (unsigned i = 0; i < used; i++) {
         make_partition_name(name, sizeof(name), device->name, ranges[i].index);
-        if (block_find(name)) return 0;
+        views[i] = block_find(name);
+        if (views[i]) {
+            uint64_t bytes = (ranges[i].last - ranges[i].first + 1) * device->block_size;
+            if (!map || views[i]->read != partition_read || views[i]->backing != device ||
+                views[i]->backing_offset != ranges[i].first * device->block_size ||
+                block_device_size(views[i]) != bytes) return 0;
+        } else needed++;
     }
+    if (needed > BLOCK_MAX_PARTITIONS - partition_count ||
+        needed > BLOCK_MAX_DEVICES - device_count) return 0;
+    if (map) {
+        for (unsigned k = 0; k < 16; k++) map->disk_guid[k] = disk_guid[k];
+        map->count = used;
+    }
+
     for (unsigned i = 0; i < used; i++) {
+        if (views[i]) continue;
         uint64_t slot = partition_count++;
         uint64_t blocks = ranges[i].last - ranges[i].first + 1;
         partition_devices[slot] = (struct partition_block_device){.parent = device,
@@ -399,10 +425,30 @@ uint64_t block_register_gpt_partitions(struct block_device *device) {
             blocks, partition_read, device->write ? partition_write : NULL, &partition_devices[slot]);
         if (!partition) { partition_count--; return i; }
         partition->backing=device;partition->backing_offset=partition_devices[slot].offset;
+        views[i] = partition;
         console_printf("block: registered GPT partition %s offset=%u size=%u\n", partition->name,
             partition_devices[slot].offset, partition_devices[slot].size);
     }
+    if (map) for (unsigned i = 0; i < used; i++) {
+        for (unsigned k = 0; k < 16; k++) {
+            map->partitions[i].guid[k] = ranges[i].guid[k];
+            map->partitions[i].type[k] = ranges[i].type[k];
+        }
+        for (unsigned k = 0; k < 36; k++) map->partitions[i].name[k] = ranges[i].name[k];
+        map->partitions[i].view = views[i];
+    }
+    if (valid) *valid = true;
     return used;
+}
+
+uint64_t block_register_gpt_partitions(struct block_device *device) {
+    return gpt_scan(device, NULL, NULL);
+}
+bool block_gpt_scan(struct block_device *device, struct block_gpt_map *map) {
+    bool valid = false;
+    if (!map) return false;
+    (void)gpt_scan(device, map, &valid);
+    return valid;
 }
 
 /* Primary MBR partitions only. Reject ambiguous/overlapping maps as a unit;

@@ -1,5 +1,40 @@
 # Apple Silicon macOS build host
 
+## Installation identity milestone — November 3, 2026
+
+The isolated `SrvrOS-installation` clone, branch
+`device/apple-silicon/installed-root-identity`, builds on merged PR311
+`3db1a1d3`. Scope: opt-in GPT identity/format/role selection, halted no-write
+recovery, image manifests and a disposable two-disk proof. Shared block/exFAT
+admission changes require filesystem-owner review; PR308 `88ea5524` owns
+generic namespace attachment and PR309 `fa9717ad` owns portable profiles.
+Neither profile activation nor physical installation is included. Main's boot
+selection is independent of PR301's display hooks and PR252's lifetime work.
+
+Primary review QEMU PIDs 61610, 6233 and 85869 remain running and untouched.
+Only this clone's own short-lived test VMs may be stopped. One build/harness
+runs at a time here. Acceptance and exact evidence are recorded in
+[disk installation](../disk-installation.md); this is emulated x86_64 evidence,
+not native ARM64 or physical boot acceptance.
+
+Completed at clean source `9989878c`: matched full build, selector sanitizer,
+21 image/provenance tests, real clean-mount zero-write checks, storage and exFAT
+regressions, and all 11 two-disk VM cases. Same GUID selects `ahci0p2` then
+`ahci1p2`, with Text/preferences restored and the decoy unchanged. Nine halted
+recovery cases preserve both whole-disk hashes. Evidence and exact artifacts are
+byte-verified under `.local/installation-evidence/proof-p0_hk8ic`. OVMF can repair
+a bad primary GPT from a valid backup before kernel entry; the invalid-map case
+damages both copies, and the earlier repair observation is retained separately.
+All task-owned test VMs are stopped; the three original review VMs remain live.
+The initial scoped PR was draft pending review. User subsequently authorized
+review/merge of PR312: current PR308/PR313/PR309 contracts are compatible with the
+bounded selector; retained evidence hashes and fresh focused host checks pass.
+No implementation change or new VM run was needed. See the integration review
+and next canonical-path installed-boot checkpoint in the installation document;
+PR313's PR252/SrvrPorts dependencies remain separate integration work.
+
+## Earlier host-tool milestone
+
 Updated: 2026-10-25. This is a development host running an emulated x86_64
 guest, not a native SrvrOS hardware target. Observed host model: MacBookPro18,2.
 
@@ -2539,6 +2574,78 @@ requested behavior and acceptance are complete; no further implementation
 is required. No native boot/install or hosted Actions change.
 
 
+### HiDPI and display settings — active scope November 3, 2026
+
+User authorized native-density 1×/2× rendering, persisted display scale, resolution
+selection/switching in Settings, coordination with the UI portability chat,
+verification and merge. Branch `device/apple-silicon/hidpi-display` starts at
+main `d5822348`; PR297 snapping remains complete. PR301 owns read-only inherited
+Intel capture, PR299 Terminal quoting, PR252 process/I/O lifetime, PR19 Wi-Fi.
+
+SrvrUI's separate portability checkout owns renderer/font/widget density APIs.
+This integration owns logical-to-physical client surfaces, compositor copies,
+presentation, desktop protocol/preferences and Settings; a bounded VirtIO driver
+path adds real mode switching. Native and standard VGA remain inherited-mode
+only. Existing review VMs and disks are preserved. No native boot or hosted
+Actions is authorized by these QEMU changes.
+
+Journey: open Display settings, inspect actual resolution/scale and available
+backend presets, select a supported combination, Apply, then Keep or Revert.
+The compositor owns a 15-second rollback deadline and client-disconnect recovery.
+Only confirmed settings persist; saved-file status is distinct from active mode.
+Keep unsaved application state, logical input coordinates and anchored placement.
+Resource failure must preserve or explicitly report recovered actual geometry;
+uncertain GPU reset retains/quarantines potentially owned memory.
+
+Required evidence: native-density font/clip/damage tests, logical/physical
+surface bounds and cache accounting, preference migration, apply/revert/timeout/
+unsupported/failure host checks, full desktop suites and matched build, QEMU
+resolution/scale switching with retained Text content, restart persistence,
+resize/snap/theme regressions and measured memory/presentation cost. Coordinate
+published child revisions before OS pins. The implementation and required
+verification are now complete; delivery is recorded below.
+
+
+Implementation `e613f8f0` consumes merged SrvrUI PR3 (`9eaaa74e`) and SrvrApps
+PR4 (`edb51dc1`) on integration main `0fd0c5fc`. Its clean matched build and full
+desktop/I/O, console/presentation/VirtIO, package/platform and CPU receipt suites
+pass. QEMU applies and keeps 1920×1080 at 2×, trials 2560×1440, reverts on timeout
+with Alt-Tab held, explicit Revert and Settings close, preserves selected/saved
+Text bytes, and restores confirmed settings on a fresh desktop launch. Menus
+and clock layout update immediately; overlay closure restores input focus.
+
+Snapping and edge resizing pass at 1280×800/1× and 1920×1080/2×; live theme
+changes, persistence and restart pass. Those regressions used the preceding
+`b5eb540f` image; the final display-only fixes and integrated diagnostic changes
+received the complete host suite and extended display VM. All exact build,
+result and capture identities are in the
+[acceptance receipt](../assets/screenshots/hidpi-display-manifest.json). The UI
+portability chat owns the separately merged logical-canvas/physical-backing API
+and native font atlas. At fixed logical size, 2× uses four times the pixel bytes;
+the host full-scene sample measured 555/2231 µs at 1×/2×. This is drawing cost, not
+a vblank or native latency claim.
+
+The Settings form's control-capacity and trial-visibility defects found in live
+verification are fixed and covered by actual host pointer routing. Older review
+VMs/disks remain untouched. No physical boot/install, native modesetting or
+hosted Actions change. [PR303](https://github.com/PaulMDemers/SrvrOS/pull/303)
+records the requested integration; no further implementation is required for
+this target.
+
+
+Final combined runtime `6af9cfda` includes merged Terminal quoting PR299/main
+`bfdcab65`. Its 56 quoting host checks, clean matched build and the extended
+display VM pass again, including actual saved-document and preference readback
+through the updated shell. The renderer, driver and Settings implementation is
+unchanged from the preceding accepted run.
+
+A new attended Aero review VM (PID 61610, separate persistent disk under
+`.local/macos-vm/hidpi-display-review/`) reaches desktop in 4.38 seconds and
+keeps/saves 1920×1080 at 2× through Settings. The native-resolution
+[Aero capture](../assets/screenshots/hidpi-display-aero.png) was inspected.
+Prior resize/snap review PIDs 85869/6233 and their disks are preserved.
+
+
 ### Terminal quoting recovery — completed November 3, 2026
 
 User authorized reproducing/fixing quoted backslash handling and acceptance in
@@ -2588,7 +2695,7 @@ negative controls and check results are in local
 `build/review/awk/20261103-163846-r5l071hz/`. All task VMs are stopped. The shared
 checkout and review VM remain untouched; no main merge was performed.
 
-### Terminal quoting integration — active November 3, 2026
+### Terminal quoting integration — completed November 3, 2026
 
 User authorized integrating PR299 and verifying merged main in the independent
 `SrvrOS-app-quality` checkout. Current main `0fd0c5fc` adds Air6,1 platform
@@ -2597,3 +2704,24 @@ quoting fixture. Merge main into the PR branch, preserve both test targets, then
 merge the reviewed PR and verify clean merged source with host checks, a matched
 build, Terminal persistence and the full CLI suite. Shared checkout and review VM
 remain untouched. Prior native-device and PR252 acceptance boundaries remain.
+
+PR299 merged as `bfdcab65716c846645ef80fb7a4c3620308f4e27`. The isolated
+checkout verified that exact clean source: 56 quoting host checks, package-audit
+and platform-sample C fixtures, 3 package/22 platform/7 backing Python checks,
+a matched build, all 35 Terminal quoting/boundary cases, keyboard input,
+second-boot persistence, process retirement, guest fsck and offline allocation
+checks. All 482 CLI commands and the editing/history regression pass. External
+`fsck.exfat` remains unavailable and is explicitly skipped. An independent
+read-only review confirmed both Makefile test groups and dependencies survived.
+
+Concurrent PR303 landed before the documentation closeout, producing combined
+main `3e9a045f` with Apps `edb51dc1` and UI `9eaaa74e`. After updating those pins
+in this isolated checkout, its clean matched build, host checks, 35 Terminal
+cases, persistence, all 482 CLI commands and editing/history regression passed
+again. The final documentation-only update preserves this combined runtime.
+Merged-runtime identities, hashes and results are retained in local
+`build/review/terminal-quoting/integration-receipt.json`; Terminal evidence is in
+`build/review/awk/20261103-170330-z6kf_bun/` for PR299 and
+`build/review/awk/20261103-171352-3ik016sz/` for combined main. All task VMs are stopped; the shared
+checkout and review VM remain untouched. Delivered and verified; no further work
+is required for this integration target.

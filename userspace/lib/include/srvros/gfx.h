@@ -11,6 +11,18 @@
 #define GFX_FLAG_ACCEL_BLITTER_PLANNED 0x00000004ull
 #define GFX_FLAG_ACCEL_RENDER_PLANNED 0x00000008ull
 #define GFX_FLAG_FENCED_PRESENT 0x00000010ull
+#define GFX_FLAG_MODE_SET 0x00000020ull
+#define GFX_FLAG_PRESENT_ACTIVE 0x00000040ull
+#define GFX_MODE_MAX 7
+
+/* Index 0 is inherited geometry; other entries are QEMU guest presets, not
+ * EDID modes. Query gfx_info after a failed switch. A recovered switch failure
+ * may retain the lease with inactive presentation; retry mode_set or end it.
+ * If retirement is uncertain, gfx_info fails and the lease is quarantined. */
+struct gfx_mode { uint64_t abi_version, struct_size, width, height; };
+int gfx_mode_count(void);
+int gfx_mode_get(uint64_t index, struct gfx_mode *out);
+int gfx_mode_set(uint64_t index);
 
 int gfx_present_begin(void);
 int gfx_present(void);

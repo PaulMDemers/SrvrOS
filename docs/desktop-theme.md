@@ -17,11 +17,15 @@ Applying, Saved, session-only or conflict status rather than claiming a successf
 save when transport or storage failed. Its appearance confirmation has a bounded
 timeout; retry remains explicit.
 
-Protocol v17 appends `theme_style` to the appearance preference payload
+Protocol v18 adds confirmed display requests and authoritative display state
 inside the unchanged 168-byte desktop packet. Build matched compositor and GUI
-applications; no mixed-version compatibility is claimed. The strict v6 preference
-file fits the existing 256-byte bound and reads v1–v5 with Silver as the style.
-Files older than v5 retain Blue/Subtle defaults for accent and glass.
+applications; no mixed-version compatibility is claimed. The strict v7 preference
+file uses a 512-byte bound and reads v1–v6. Older files default to inherited
+resolution and 1× scale; pre-v6 files use Silver, and pre-v5 files use Blue/Subtle.
+Display scale/resolution use a separate Apply/Keep/Revert transaction. Generic
+appearance preference updates cannot bypass its confirmation or overwrite those
+fields. Only Keep persists a trial; startup restoration retains rollback state
+until clients have accepted their new sizes and density.
 The existing delayed-load merge, debounce, verified write, conflict and shutdown
 rules remain in the OS runtime.
 
