@@ -3928,7 +3928,7 @@ build/tests/package-audit$(HOST_EXE): tools/test_package_audit.c kernel/diagnost
 	$(HOST_CC) -std=c11 -Wall -Wextra -Werror -I kernel/include tools/test_package_audit.c kernel/diagnostics/package_audit_core.c -o $@
 test-core: test-package-audit
 
-build/ap-probe/platform.o: kernel/diagnostics/platform_audit.c kernel/diagnostics/platform_hda.inc $(ZIG) $(KERNEL_HEADERS)
+build/ap-probe/platform.o: kernel/diagnostics/platform_audit.c kernel/diagnostics/platform_owner.inc kernel/diagnostics/display_owner_core.c kernel/diagnostics/platform_hda.inc $(ZIG) $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -c $< -o $@
 
@@ -4157,3 +4157,11 @@ include ports/srvros/awk/build.mk
 # Keep incremental OS builds sensitive to changes to the included files.
 build/userspace/lib/src/desk_render.c.o: userspace/widgets/render/desk_render.c userspace/widgets/include/srvros/desk_render.h
 build/userspace/lib/src/desk_font.c.o: userspace/widgets/render/desk_font.c userspace/widgets/include/srvros/desk_render.h
+
+.PHONY: test-display-owner
+test-core: test-display-owner
+test-display-owner: build/tests/display-owner$(HOST_EXE)
+	$<
+build/tests/display-owner$(HOST_EXE): tools/test_display_owner.c kernel/diagnostics/display_owner_core.c kernel/include/srvros/display_owner.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_display_owner.c kernel/diagnostics/display_owner_core.c -o $@

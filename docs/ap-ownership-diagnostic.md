@@ -1127,3 +1127,15 @@ The next implementation is an adoption/eligibility dry run with zero control
 writes; well-off execution remains dependent on owned HDA recovery, complete
 readout and independent evidence/reset prerequisites. This is design, not a new
 native acceptance or a power-policy change.
+
+
+## Version-8 software adoption dry run
+
+The diagnostic-only [milestone A model](macbookair6-1-display-ownership.md#milestone-a-implementation-contract)
+now consumes the existing raw snapshots without new hardware reads. It retains
+all seven unknown adoption/ownership/recovery assurances and reports a closed
+software lifetime with zero hardware authority. Quiet HDA controls cannot fill
+those unknowns. Ordinary startup, all control writes and existing limits remain
+unchanged. The compact raw-data-bound refusal record is mandatory in version-8
+coverage, alongside all prior records and the original strict RC6 predicate.
+Host/VM validation and its matching physical evidence remain separate gates.

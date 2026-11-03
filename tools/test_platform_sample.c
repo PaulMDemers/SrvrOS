@@ -74,8 +74,23 @@ uint16_t pci_read_config16(const struct pci_device *p,uint8_t off) {
 }
 uint64_t pci_device_count(void) {return 0;}
 const struct pci_device *pci_device_at(uint64_t i) {(void)i;return NULL;}
-static unsigned dependency_reports,hda_reports;
+static unsigned dependency_reports,hda_reports,dry_reports;
 void console_printf(const char *fmt,...) {
+    if(!strncmp(fmt,"ap-platform-dry:",16)) {
+        assert(!strcmp(fmt,"ap-platform-dry: v=1 data=%s\n"));
+        va_list ap;va_start(ap,fmt);const char *data=va_arg(ap,const char *);assert(strlen(data)==40 && data[38]=='=' && data[39]=='=');
+        const char *abc="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+        uint8_t bytes[30];unsigned out=0;
+        for(unsigned i=0;i<40;i+=4) {
+            uint32_t v=0;for(unsigned k=0;k<4;k++){const char *p=strchr(abc,data[i+k]);assert(p || data[i+k]=='=');v=(v<<6)|(data[i+k]=='='?0:(unsigned)(p-abc));}
+            bytes[out++]=v>>16;bytes[out++]=v>>8;bytes[out++]=v;
+        }
+        assert(out==30 && !bytes[28] && !bytes[29]);
+        uint64_t epoch=0,digest=0;for(unsigned i=0;i<8;i++){epoch|=(uint64_t)bytes[i]<<(8*i);digest|=(uint64_t)bytes[8+i]<<(8*i);}
+        assert(epoch==dry_owner.epoch && digest==dry_digest && (bytes[16]|(bytes[17]<<8))==dry_reasons);
+        const uint8_t expected[]={dry_before,dry_after,dry_guard_before,dry_guard_after,dry_refs[0],dry_refs[1],dry_inflight,dry_assured,dry_active,0};
+        assert(!memcmp(bytes+18,expected,sizeof(expected)));va_end(ap);dry_reports++;return;
+    }
     if(!strncmp(fmt,"ap-platform-hda:",16)) {
         assert(!strcmp(fmt,"ap-platform-hda: v=1 phase=%u data=%s\n"));
         va_list ap;va_start(ap,fmt);uint64_t phase=va_arg(ap,uint64_t);assert(phase<2);
@@ -258,5 +273,17 @@ int main(void) {
     hda_snapshot(0);hda_snapshot(1);assert(hda_rows[1].state==1);
     hda_snapshot(1);assert(fault);fault=0;
     (void)platform_audit_report();assert(dependency_reports==2 && hda_reports==2);
+    for(unsigned phase=0;phase<2;phase++) {
+        resources[phase].state=1;
+        for(unsigned i=0;i<26;i++)resources[phase].raw[i]=0;
+        resources[phase].raw[7]=0x82200000;resources[phase].raw[8]=1u<<31;
+        resources[phase].raw[20]=1u<<31;resources[phase].raw[25]=1u<<31;
+        for(unsigned i=0;i<8;i++)dependencies[phase].raw[i]=0;
+        for(unsigned i=0;i<30;i++)hda_rows[phase].sd[i]=0;
+    }
+    unsigned saved_hda_reads=hda_reads,saved_resource_reads=resource_reads,saved_dep_reads=dep_reads,saved_well_reads=well_reads;
+    dry_snapshot(0);dry_snapshot(1);assert(dry_complete && !fault && dry_reasons==127 && dry_owner.guard==0);
+    assert(hda_reads==saved_hda_reads && resource_reads==saved_resource_reads && dep_reads==saved_dep_reads && well_reads==saved_well_reads);
+    dry_report();assert(dry_reports==2); /* First zero/invalid row also tested above. */
     puts("platform-sample: PASS exact read-only mappings/refusals, endpoint well bounds/all-ones, sparse hook isolation, ordered reads and capacity");
 }
