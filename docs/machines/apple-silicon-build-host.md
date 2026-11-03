@@ -2537,3 +2537,24 @@ edge-resize review VM and disk are preserved. Logs are in
 [PR297](https://github.com/PaulMDemers/SrvrOS/pull/297) records delivery. The
 requested behavior and acceptance are complete; no further implementation
 is required. No native boot/install or hosted Actions change.
+
+
+### Terminal quoting recovery — active November 3, 2026
+
+User authorized reproducing/fixing quoted backslash handling and acceptance in
+the independent `SrvrOS-app-quality` checkout, branch
+`device/apple-silicon/terminal-quoting`, from fetched main `585ad8e5`. The shared
+checkout and review VM remain untouched. Scope: `userspace/sh/sh.c` quote-aware
+scanning/argument decoding, focused host/guest fixtures and shell documentation.
+PR252 `badfeb37` changes arithmetic overflow and short-circuit evaluation in the
+same shell file; it does not alter quoted-backslash handling. Preserve that
+separate implementation and verify patch compatibility rather than merging its
+broader kernel/I/O work. No cross-task messaging or native acceptance is included.
+
+Acceptance: record failing exact-byte controls before edits; preserve single-
+quoted backslashes and double-quoted ordinary backslashes while respecting
+escaped quote/dollar/backslash behavior. Exercise inline awk/printf, empty and
+spaced arguments, pipelines, redirection and script-file compatibility; run
+focused host/sanitizer, matched build, CLI and Terminal/awk guest checks. Keep
+existing limits; no general shell-language redesign or main merge is implied.
+Next checkpoint: reproduce the defect and identify every affected parsing pass.
