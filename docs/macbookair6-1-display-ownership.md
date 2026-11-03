@@ -2,8 +2,8 @@
 
 Design checkpoint: 2026-11-03, integration base `5b2bf3c7`. Milestone A now has a diagnostic-only software
 model; the hardware transition operations below remain proposed and unavailable. The native diagnostic payload is
-`9316558efb4b7007`, compiled from `fa8e503f`. Its expected no-write refusal and
-software retirement are physically observed. Policy, limits and recovery are
+`9b485ca12b4c2482`, compiled from `728bcbeb`. Expected no-write refusal,
+software retirement and the first tiled framebuffer readout are physically observed. Policy, limits and recovery are
 unchanged. See the [observations and access contract](ap-ownership-diagnostic.md#version-7-display-hda-read-only-capture)
 and [unit record](machines/macbookair6-1.md).
 
