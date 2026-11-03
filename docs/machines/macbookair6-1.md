@@ -143,14 +143,19 @@ existing checks. The overall platform test remains failed on the original RC6
 bound (about 0.0730% nominal excess), and package C3 remains zero. USB integrity,
 Ubuntu recovery and durable payload/evidence verification pass. No boot is armed.
 
-The [ownership and restoration design](../macbookair6-1-display-ownership.md)
-now defines staged adoption, reference/epoch ownership, HDA quiescence and
-bounded release/restore prerequisites. Controller-word replay cannot recover
-unknown codec state after reset. The next implementation is a read-only adoption
-and eligibility state machine with refusal/failure fixtures and zero control
-writes. Actual well/HDA ownership and independent recovery must be qualified
-before any write trial. Policy and limits remain unchanged; no boot is armed.
-PR291 ports, PR288/278 apps, PR252 lifetimes and PR19 Wi-Fi remain separate.
+The diagnostic-only adoption/eligibility model is now implemented and locally
+validated on source `fcd52df8`, release `814f7e939bc4adf9` (PR296), atop `c609207b`
+and matched submodules. It copies observations, enforces epoch/reference/in-flight
+lifetimes and refuses unknown or changed prerequisites. The native adapter sets
+no assurance bits and has no writer API. Quiet hardware remains insufficient.
+
+Next: collect the matching automated native dry run, requiring version 8's raw-
+data-bound expected refusal (mask 127), Observed → Retired software lifetime,
+guard 1 → 0 and zero hardware authority, alongside every existing HDA/power/AP
+proof. Preserve the original RC6 predicate and package-C3 result independently.
+No real framebuffer adoption, HDA shutdown, well clear or policy change is
+implemented. The local run owns installed/recovery and ready/armed/returned state.
+PR288/278 apps, PR252 lifetimes and PR19 Wi-Fi remain separate.
 
 ### Historical battery-runtime objective (2026-10-23)
 
@@ -6401,3 +6406,51 @@ kernel ownership claims. Scope: diagnostic helper/adapter, strict compact report
 producer/parser/lifetime/refusal/retention tests and unit/current design docs.
 PR288/278 apps, PR252 lifetimes and PR19 Wi-Fi remain independent. Next checkpoint:
 matched build/host/VM validation and source-bound no-write native evidence.
+
+
+### No-write owner candidate validated and native handoff (2026-11-03)
+
+Compiled source `fcd52df8`, release `814f7e939bc4adf9`, implements milestone A
+only in the isolated platform diagnostic. The allocation-free software model has
+no I/O/writer callback. One boot pool supplies epochs; tokens bind object,
+epoch, slot and monotonic serial. Eight route/audio reference slots retain busy
+operations. Closing freezes new work and drains before retirement; a fault keeps
+the guard and prohibits reuse. Wrong identity/state/owner, unknown/active/changed
+facts, stale/duplicate tokens, malformed counters and exhaustion refuse.
+
+The adapter consumes existing retained observations without new hardware reads.
+All seven backing/users/HDA/IRQ/restore/recovery/firmware assurances stay unknown.
+Its expected result is refusal mask 127, Observed → Retired, an empty software
+ledger, guard 1 → 0 and authority zero. These software counts are not evidence
+that firmware or hardware users are absent. No hardware owner state or writer
+exists, even if a synthetic host fixture supplies all assurance bits.
+
+The fixed 28-byte version-8 record includes the profile digest, refusal and
+lifetime fields. The decoder recomputes raw-data identity and active/change
+context from required resource/audio/IRQ/HDA rows. It refuses malformed,
+missing/duplicate and authority-claiming data; all earlier proofs and original
+RC6 semantics remain mandatory. The conservative current-source maximum-checkpoint
+model preserves every critical byte with unchanged 64 KiB retention, 128 KiB
+pre-final chatter and 26,155 bytes of width/capacity padding. This model remains
+synthetic, not new native acceptance.
+
+Matched ordinary/AP build, USB image, full core/desktop/widget/host/docs suites,
+focused state/lifetime/adapter/emitter tests, final-source ASan/UBSan, twenty-two
+platform tests and six tail tests pass. An instrumented host formatter emits the
+actual C adapter record, independently checked against Python's wire schema and
+expected observed-word layout/digest. Symbol/disassembly and read-count checks
+verify diagnostic isolation, no forbidden control writes and no added hardware
+reads. All nine main and three legacy VM cases, directed failures and final-
+receipt review pass. Exact GPT refusal saves/unmounts/returns; missing Home halts.
+The integrated AWK build required installing Bison on this Ubuntu host.
+
+The local baseline is 582 files / 1,645 clusters, with all prior hashes, read-only
+fsck, independent allocation and headroom verified. Prior HDA diagnostic payload
+and evidence are verified durably before retiring only its EFI copy through the
+normal repoint/install sequence. Console and accepted recoveries are retained;
+Ubuntu remains default. The new automated 30/30/30-second trial preserves every
+existing phase, 32-round/20 ms bound, fallback and integrity check. No human input
+is needed; progress/results and automatic collection use the existing profile.
+The local collector explicitly saves/asserts the dry-run result; its actual code
+section passes a synthetic valid fixture and refuses missing records. Native
+acceptance remains pending; no modeled, older or joined proof can supply it.
