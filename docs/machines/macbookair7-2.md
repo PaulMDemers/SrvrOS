@@ -23,6 +23,14 @@ tear-free output remain unaccepted. Preparation/reboot state belongs to
 `build/air-intel-backing-native-20261103/run.json`; validation and independent
 candidate backup are recorded in `build/air-intel-backing-20261103/`.
 
+Preparation passed on the local model/firmware: 1319 prior files and92 sessions
+are baselined, offline fsck/allocation/writable/headroom pass and USB is
+unmounted. Release3a3b is installed; preceding c605, accepted c497 and recovery9aa
+are retained and independently verified, with Ubuntu still default. The obsolete
+6ee EFI copy was archived and fully hash-verified before removing only that copy
+for space. The run record tracks one-shot arming and subsequent return; native
+backing acceptance is pending until its matching report is collected.
+
 ### Active backing-readout scope
 
 Consumed main `bfdcab65` (Air6,1 backing readout, window snapping and Terminal
