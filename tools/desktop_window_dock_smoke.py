@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Real offscreen dragging, dock restore/cycling and filtered modal-safe selection."""
-import hashlib,json,os,re,shutil,socket,subprocess,tempfile,time
+import contextlib,hashlib,io,json,os,re,shutil,socket,subprocess,tempfile,time
 from pathlib import Path
 from displayd_frame_smoke import choose_port,connect_serial,stop_process
 from displayd_resolution_smoke import build_iso
@@ -14,12 +14,36 @@ def main(navigation=False,commands=False):
     (out/'result.json').unlink(missing_ok=True);output=b'';consumed=0;pointer=[24,56];documents=[];extras=[]
     with tempfile.TemporaryDirectory(prefix='srvros-window-dock-') as directory:
         tmp=Path(directory);disk=tmp/'disk.exfat'
-        with disk.open('xb') as stream:stream.truncate(64*1024*1024)
-        subprocess.run(['/usr/sbin/mkfs.exfat','-c','4K',str(disk)],check=True,stdout=subprocess.DEVNULL)
-        fixture=ExfatFixture(disk.read_bytes());source=ExfatFixture((root/'build/srvros.exfat').read_bytes())
-        fixture.add_directory_files('bin',{name:source.read('bin/'+name) for name in ('deskd','desktools','deskfs','deskview','imageworker','deskhelp','sh','sync','ps')})
-        fixture.add_directory_files('home',{});fixture.add_directory_files('etc',{'init.sh':b'echo window-dock-ready\n'});disk.write_bytes(fixture.data)
-        (out/'before-fsck.txt').write_text(check_clean_image(disk));iso=build_iso(str(root),str(tmp),1280,800,os.environ.copy());port=choose_port(30001,38000)
+        source=ExfatFixture((root/'build/srvros.exfat').read_bytes())
+        fsck_available=Path('/usr/sbin/fsck.exfat').is_file()
+        independent=Path('/usr/sbin/mkfs.exfat').is_file() and fsck_available
+        if independent:
+            with disk.open('xb') as stream:stream.truncate(64*1024*1024)
+            subprocess.run(['/usr/sbin/mkfs.exfat','-c','4K',str(disk)],check=True,stdout=subprocess.DEVNULL)
+            fixture=ExfatFixture(disk.read_bytes())
+            fixture.add_directory_files('bin',{name:source.read('bin/'+name) for name in ('deskd','desktools','deskfs','deskview','imageworker','deskhelp','sh','sync','ps')})
+            fixture.add_directory_files('home',{});fixture.add_directory_files('etc',{'init.sh':b'echo window-dock-ready\n'})
+            disk.write_bytes(fixture.data)
+            (out/'before-fsck.txt').write_text(check_clean_image(disk))
+            fixture_kind='exfatprogs'
+        else:
+            # Use the matched generated image, retaining its complete runtime.
+            # Never overwrite a preexisting user's files in this fixture.
+            fixture=source
+            home_names={name.casefold() for name,_ in fixture.entries(fixture.read('home'))}
+            reserved={'dock-one.txt','dock-two.txt','dock-three.txt'}
+            if home_names & reserved:raise RuntimeError(f'Generated fixture contains reserved files: {sorted(home_names & reserved)}')
+            disk.write_bytes(fixture.data)
+            from test_exfat_generator import verify_image
+            report=io.StringIO()
+            with contextlib.redirect_stdout(report):verify_image(disk)
+            (out/'before-generator-check.txt').write_text(report.getvalue())
+            before=subprocess.run([str(root/'build/tests/exfat-driver'),str(disk),'allocation-check'],capture_output=True,text=True)
+            (out/'before-allocation.txt').write_text(before.stdout+before.stderr)
+            if before.returncode:raise RuntimeError('Initial offline allocation check failed')
+            fixture_kind='generated'
+            if fsck_available:(out/'before-fsck.txt').write_text(check_clean_image(disk))
+        iso=build_iso(str(root),str(tmp),1280,800,os.environ.copy());port=choose_port(30001,38000)
         command=['qemu-system-x86_64','-M','q35','-m','512M','-cdrom',str(iso),'-boot','d','-drive',f'if=none,id=disk,file={disk},format=raw','-device','ich9-ahci,id=ahci','-device','ide-hd,drive=disk,bus=ahci.0','-device','qemu-xhci,id=xhci','-device','usb-kbd,bus=xhci.0','-serial',f'tcp:127.0.0.1:{port},server=on,wait=off','-qmp',f'unix:{tmp/"qmp"},server=on,wait=off','-display','none','-monitor','none','-no-reboot']
         with (out/'qemu.log').open('wb') as errors:
             process=subprocess.Popen(command,stdout=errors,stderr=errors);qmp=None
@@ -148,9 +172,14 @@ def main(navigation=False,commands=False):
             finally:stop_process(process);(out/'serial.log').write_bytes(output);shutil.copyfile(disk,out/'last-workspace.img')
         result=ExfatFixture(disk.read_bytes());expected={'home/dock-one.txt':b'XOffscreen content kept. edit'+(b' nav' if navigation else b''),'home/dock-two.txt':b'Two.'+(b' focus' if navigation else b''),'home/dock-three.txt':b'Three.'}
         for name,value in expected.items():assert result.read(name)==value,name
-        (out/'fsck.txt').write_text(check_clean_image(disk));(out/'allocation.txt').write_text(subprocess.check_output([str(root/'build/tests/exfat-driver'),str(disk),'allocation-check'],text=True))
-        receipt=dict(status='PASS',qemu_exit=0,physical_acceptance=False,source=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),source_dirty=bool(subprocess.check_output(['git','status','--porcelain'],text=True)),offscreen_left=list(left),offscreen_right_bottom=list(corner),cycled_identities=cycled,documents=documents,modal_safe_dock_chooser=True,keyboard_navigation=navigation,standard_close_commands=commands,process_baseline_restored=True,sha256={name:hashlib.sha256(value).hexdigest() for name,value in expected.items()})
+        if fsck_available:(out/'fsck.txt').write_text(check_clean_image(disk))
+        if not independent:
+            report=io.StringIO()
+            with contextlib.redirect_stdout(report):verify_image(disk)
+            (out/'generator-check.txt').write_text(report.getvalue())
+        (out/'allocation.txt').write_text(subprocess.check_output([str(root/'build/tests/exfat-driver'),str(disk),'allocation-check'],text=True))
+        receipt=dict(status='PASS',fixture=fixture_kind,integrity_limits=('Generator verification and repository allocation checker are not an independent fsck.' if not fsck_available else 'exfatprogs fsck and repository allocation checker'),qemu_exit=0,physical_acceptance=False,source=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),source_dirty=bool(subprocess.check_output(['git','status','--porcelain'],text=True)),offscreen_left=list(left),offscreen_right_bottom=list(corner),cycled_identities=cycled,documents=documents,modal_safe_dock_chooser=True,keyboard_navigation=navigation,standard_close_commands=commands,process_baseline_restored=True,sha256={name:hashlib.sha256(value).hexdigest() for name,value in expected.items()})
         (out/'result.json').write_text(json.dumps(receipt,indent=2)+'\n')
-    print('desktop-window-dock: PASS offscreen drag/recovery, clipped windows, three-owner cycle, minimized restore, unpinned app lifetime, modal-safe filtered chooser, exact files, process baseline and offline integrity')
+    print('desktop-window-dock: PASS offscreen drag/recovery, clipped windows, three-owner cycle, minimized restore, unpinned app lifetime, modal-safe filtered chooser, exact files, process baseline and offline integrity (see receipt for check scope)')
 
 if __name__=='__main__':main()

@@ -14,8 +14,13 @@ includes all previously merged desktop, app, port and resizing milestones.
 Reuse the existing workarea, placement and resize transaction contracts; preserve
 keyboard arrangement, client content and theme updates. Required checks cover
 preview-only movement, exact release placement, cancellation/modal interruption,
-restore geometry, failure recovery and both output scales. Work is in progress
-on `device/apple-silicon/window-snap`; next is implementation and local acceptance.
+restore geometry, failure recovery and both output scales. All required host,
+1×/2× snapping and resize, live-theme and offscreen/dock regressions pass.
+The combined build with main `fa8e503f` has identical kernel/initramfs/disk
+hashes to the accepted runtime. [Evidence](assets/screenshots/window-snap-manifest.json)
+records sources, captures and limits; [PR297](https://github.com/PaulMDemers/SrvrOS/pull/297)
+records delivery. The updated review desktop is open with Text snapped left.
+No additional feature work is required for this milestone.
 
 ## Current resize interaction — November 3, 2026
 

@@ -2509,5 +2509,31 @@ redraw equality for all themes, complete desktop suites and matched build; actua
 Text/VirtIO tablet preview/snap/restore/cancel/modal/content checks at 1x and 2x,
 plus affected resize/theme regressions. The current review VM and persistent disk
 are preserved; automated test VMs remain disposable and sequential. QMP evidence
-is guest behavior, not new native or physical scanout acceptance. Next: implement,
-review, verify and merge this finite milestone.
+is guest behavior, not new native or physical scanout acceptance.
+
+Implementation `8d9e47fc` passes the complete desktop/I/O host suites, matched
+build, snapping and resize VMs at 1280×800/1× and 1920×1080/2×. Preview-only
+movement, exact release placement, direct side changes, stationary clicks,
+drag restoration, Escape/modal cancellation, selection/save readback and GPU
+presenter reset pass. Accepted preview/placement captures and hashes are in
+[the evidence receipt](../assets/screenshots/window-snap-manifest.json).
+
+Combined source `db713e6b` consumes merged PR296/main `fa8e503f`. Its clean
+build produces byte-identical kernel, initramfs and disk artifacts to the
+accepted snap runtime; display-owner, package/platform and CPU receipt tests
+pass. Live theme/persistence and offscreen/dock recovery VMs also pass on this
+combined image. The old free-drag fixture now releases at x=12, outside the
+eight-pixel snap zone. Its macOS fallback uses a generated disposable image
+with generator/allocation checks; independent exfatprogs fsck is unavailable.
+The final fsck-only branch refinement does not change that exercised host path.
+
+A new attended review VM starts in 4.37 seconds and completes preview/release
+to frame 8,52,708,768 with a matching 706×723 Text client commit. It remains
+open under `.local/macos-vm/window-snap-review/current.json`; the previous
+edge-resize review VM and disk are preserved. Logs are in
+`build/review/window-snap/`, `desktop-snap/`, `desktop-resize/`,
+`desktop-theme-profiles/` and `desktop-window-dock/`.
+
+[PR297](https://github.com/PaulMDemers/SrvrOS/pull/297) records delivery. The
+requested behavior and acceptance are complete; no further implementation
+is required. No native boot/install or hosted Actions change.

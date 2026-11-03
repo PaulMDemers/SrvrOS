@@ -95,6 +95,9 @@ Its old and new regions repaint on transitions; changing content behind it does
 not accumulate tint. The side gesture is informed by Microsoft's
 [description of Windows 7 Aero Snap](https://blogs.windows.com/windows-insider/2015/06/04/arrange-your-windows-in-a-snap/).
 
+[Snapping acceptance and captures](assets/screenshots/window-snap-manifest.json)
+cover both integer scales, cancellation and retained document content.
+
 ## Display scale
 
 The default remains 1× on every machine. An explicit integer scale can be selected
