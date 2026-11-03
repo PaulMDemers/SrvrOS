@@ -2343,18 +2343,23 @@ build/tests/trackpad-capture-host$(HOST_EXE): tools/test_trackpad_capture.c kern
 
 .PHONY: test-pointer
 test-core: test-pointer
-test-pointer: build/tests/trackpad-pointer-host$(HOST_EXE) build/tests/mouse-input-host$(HOST_EXE)
+test-pointer: build/tests/trackpad-pointer-host$(HOST_EXE) build/tests/mouse-input-host$(HOST_EXE) build/tests/mouse-position-host$(HOST_EXE)
 	build/tests/trackpad-pointer-host$(HOST_EXE)
 	build/tests/mouse-input-host$(HOST_EXE)
+	build/tests/mouse-position-host$(HOST_EXE)
 	build/tests/syscall-mouse-host$(HOST_EXE)
 
 build/tests/trackpad-pointer-host$(HOST_EXE): tools/test_trackpad_pointer.c kernel/src/drivers/trackpad_pointer.c kernel/include/srvros/trackpad_pointer.h kernel/include/srvros/apple_trackpad.h shared/include/srvros/pointer_config.h
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include tools/test_trackpad_pointer.c kernel/src/drivers/trackpad_pointer.c -o $@
 
-build/tests/mouse-input-host$(HOST_EXE): tools/test_mouse_input.c kernel/src/drivers/mouse_input.c kernel/include/srvros/mouse.h
+build/tests/mouse-input-host$(HOST_EXE): tools/test_mouse_input.c kernel/src/drivers/mouse_input.c kernel/include/srvros/mouse.h shared/include/srvros/mouse_flags.h
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include $< -o $@
+
+build/tests/mouse-position-host$(HOST_EXE): tools/test_mouse_position.c shared/include/srvros/mouse_position.h shared/include/srvros/mouse_flags.h
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include $< -o $@
 
 test-pointer: build/tests/syscall-mouse-host$(HOST_EXE)
 build/tests/syscall-mouse-host$(HOST_EXE): tools/test_syscall_mouse.c kernel/src/arch/x86_64/syscall.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready

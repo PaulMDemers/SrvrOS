@@ -3,6 +3,7 @@
 #include <srvros/gfx.h>
 #include <srvros/gui.h>
 #include <srvros/mouse.h>
+#include <srvros/mouse_position.h>
 #include <srvros/sys.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -69,8 +70,8 @@ int main(int argc,char **argv) {
         struct mouse_event event;
         for (int n=0;n<32 && mouse_scan(&event)>0;n++) {
             desk_damage_add(&damage,cursor_damage(&scene));
-            scene.cursor_x=(int)clamp((int64_t)scene.cursor_x+event.dx,0,canvas.width-1);
-            scene.cursor_y=(int)clamp((int64_t)scene.cursor_y+event.dy,0,canvas.height-1);
+            scene.cursor_x=(int)mouse_position_axis(scene.cursor_x,event.dx,event.flags,canvas.width);
+            scene.cursor_y=(int)mouse_position_axis(scene.cursor_y,event.dy,event.flags,canvas.height);
             if (trace) printf("deskstudy: pointer x=%d y=%d buttons=%u\n",
                 scene.cursor_x,scene.cursor_y,(unsigned)event.buttons);
             struct desk_rect w=scene.window;

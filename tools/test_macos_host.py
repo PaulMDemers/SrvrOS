@@ -152,7 +152,8 @@ class HostTools(unittest.TestCase):
     def test_virtio_profile_and_legacy_fallback(self):
         modern=runner.device_arguments('virtio')
         self.assertIn('virtio-keyboard-pci',modern)
-        self.assertIn('virtio-mouse-pci',modern)
+        self.assertIn('virtio-tablet-pci',modern)
+        self.assertNotIn('virtio-mouse-pci',modern)
         self.assertIn('virtio-blk-pci,drive=disk,disable-legacy=on',modern)
         self.assertIn('virtio-net-pci,netdev=net0,disable-legacy=on',modern)
         self.assertIn('virtio-rng-pci,rng=rng0,disable-legacy=on',modern)

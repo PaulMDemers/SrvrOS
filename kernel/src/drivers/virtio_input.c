@@ -1,6 +1,6 @@
 /* VirtIO 1.2 5.8; QEMU v11.1.2 hw/input/virtio-input-hid.c and Linux
  * input-event-codes.h define the admitted identities and evdev event numbers.
- * No IRQ registration, worker creation, tablet conversion or LED feedback. */
+ * No IRQ registration, worker creation, host passthrough or LED feedback. */
 #include <srvros/virtio_input.h>
 #include <srvros/console.h>
 #include <srvros/virtio_pci.h>
@@ -22,7 +22,7 @@
 struct input_event { uint16_t type, code; uint32_t value; };
 _Static_assert(sizeof(struct input_event) == 8, "VirtIO input event layout");
 _Static_assert(INPUT_DEVICES <= MOUSE_VIRTIO_SOURCES, "independent mouse ownership");
-enum profile { PROFILE_NONE, PROFILE_KEYBOARD, PROFILE_MOUSE };
+enum profile { PROFILE_NONE, PROFILE_KEYBOARD, PROFILE_MOUSE, PROFILE_TABLET };
 struct input_device {
     struct virtio_pci_device *transport;
     enum profile profile;
@@ -30,7 +30,9 @@ struct input_device {
     uint64_t dma, report_started;
     unsigned index, report_count;
     uint16_t token_slot[VIRTIO_PCI_MAX_QUEUE_SIZE];
-    uint8_t keys[BITMAP_BYTES], relative[BITMAP_BYTES], buttons;
+    uint8_t keys[BITMAP_BYTES], relative[BITMAP_BYTES], absolute[BITMAP_BYTES], buttons;
+    int32_t axis_min[2], axis_max[2], position[2];
+    uint8_t axis_seen;
     struct input_event report[REPORT_LIMIT];
     struct keyboard_usage_state keyboard;
     const char *stage;
@@ -74,6 +76,22 @@ static bool name_is(const uint8_t *name, uint8_t size, const char *expected) {
     while (expected[i]) { if (i >= size || name[i] != (uint8_t)expected[i]) return false; ++i; }
     return size == i + 1 && !name[i];
 }
+static bool absolute_range(struct input_device *d, unsigned axis) {
+    uint8_t size, header[3];
+    uint64_t bounds;
+    if (!select_config(d, 0x12, (uint8_t)axis, &size) || size != 20) return false;
+    /* read64 performs two aligned 32-bit accesses under ONE transport config-
+     * generation check, so the adjacent min/max fields cannot be mixed. */
+    if (!virtio_pci_config_read64(d->transport, 8, &bounds) ||
+        !virtio_pci_config_read(d->transport, 0, header, sizeof(header)) ||
+        header[0] != 0x12 || header[1] != axis || header[2] != size) return false;
+    int32_t minimum = (int32_t)(uint32_t)bounds;
+    int32_t maximum = (int32_t)(uint32_t)(bounds >> 32);
+    if (minimum >= maximum) return false;
+    d->axis_min[axis] = minimum;
+    d->axis_max[axis] = maximum;
+    return true;
+}
 static bool identify(struct input_device *d) {
     uint8_t data[128], size;
     d->stage = "name";
@@ -81,8 +99,9 @@ static bool identify(struct input_device *d) {
     d->name_size = size;
     bool keyboard = name_is(data, size, "QEMU Virtio Keyboard");
     bool mouse = name_is(data, size, "QEMU Virtio Mouse");
-    if (!keyboard && !mouse) return false;
-    d->profile = keyboard ? PROFILE_KEYBOARD : PROFILE_MOUSE;
+    bool tablet = name_is(data, size, "QEMU Virtio Tablet");
+    if (!keyboard && !mouse && !tablet) return false;
+    d->profile = keyboard ? PROFILE_KEYBOARD : tablet ? PROFILE_TABLET : PROFILE_MOUSE;
     d->stage = "ids";
     uint16_t bus, vendor, product, version;
     if (!select_config(d, 3, 0, &size) || size != 8 ||
@@ -90,22 +109,30 @@ static bool identify(struct input_device *d) {
         !virtio_pci_config_read16(d->transport, 10, &vendor) ||
         !virtio_pci_config_read16(d->transport, 12, &product) ||
         !virtio_pci_config_read16(d->transport, 14, &version) ||
-        bus != 6 || vendor != 0x0627 || product != (keyboard ? 1 : 2) || version != (keyboard ? 1 : 2)) return false;
+        bus != 6 || vendor != 0x0627 || product != (keyboard ? 1 : tablet ? 3 : 2) ||
+        version != (keyboard ? 1 : 2)) return false;
     d->stage = "key-bits";
     if (!config_array(d, 0x11, 1, d->keys, &size) || !size) return false;
     d->stage = "relative-bits";
     if (!config_array(d, 0x11, 2, d->relative, &size)) return false;
     d->stage = "absolute-bits";
-    if (!config_array(d, 0x11, 3, data, &size) || size) return false; /* No ABS/tablet. */
+    if (!config_array(d, 0x11, 3, d->absolute, &size) || (!tablet && size)) return false;
     d->stage = "profile";
     if (keyboard) {
         if (!bit(d->keys, 1) || !bit(d->keys, 28) || !bit(d->keys, 30) ||
             !bit(d->keys, 29) || !bit(d->keys, 42) || !bit(d->keys, 58) ||
             bit(d->relative, 0) || bit(d->relative, 1)) return false;
         d->profile = PROFILE_KEYBOARD;
-    } else {
+    } else if (mouse) {
         if (!bit(d->keys, 272) || !bit(d->relative, 0) || !bit(d->relative, 1)) return false;
         d->profile = PROFILE_MOUSE;
+    } else {
+        if (!bit(d->keys, 272) || !bit(d->absolute, 0) || !bit(d->absolute, 1) ||
+            bit(d->relative, 0) || bit(d->relative, 1)) return false;
+        d->stage = "absolute-x";
+        if (!absolute_range(d, 0)) return false;
+        d->stage = "absolute-y";
+        if (!absolute_range(d, 1)) return false;
     }
     return true;
 }
@@ -140,6 +167,11 @@ static bool retire(struct input_device *d, bool failure) {
         --statistics.devices;
         if (d->profile == PROFILE_KEYBOARD) { --statistics.keyboards; keyboard_release_usage(&d->keyboard); }
         else if (d->profile == PROFILE_MOUSE) { --statistics.mice; mouse_cancel_virtio(d->index); }
+        else if (d->profile == PROFILE_TABLET) {
+            --statistics.tablets;
+            if (d->axis_seen == 3) mouse_cancel_virtio(d->index);
+            d->buttons = d->axis_seen = 0;
+        }
     }
     d->active = false;
     d->report_count = 0;
@@ -167,7 +199,8 @@ static bool begin_device(struct input_device *d, const struct pci_device *pci) {
     /* QEMU advertises only largest supported payload + 8, not the maximum
      * 136-byte C union. Each later payload read is separately range checked. */
     if (!virtio_pci_open(pci, 18, 0, 0, 16, &d->transport)) return false;
-    if (!identify(d) || pci->subclass != (d->profile == PROFILE_KEYBOARD ? 0 : 2)) return false;
+    if (!identify(d) || pci->subclass != (d->profile == PROFILE_KEYBOARD ? 0 :
+        d->profile == PROFILE_TABLET ? 0x80 : 2)) return false;
     d->stage = "eventq";
     if (!virtio_pci_queue_setup(d->transport, 0, EVENT_POOL)) return false;
     d->stage = "statusq";
@@ -184,7 +217,8 @@ static bool begin_device(struct input_device *d, const struct pci_device *pci) {
     d->active = true;
     ++statistics.devices;
     if (d->profile == PROFILE_KEYBOARD) ++statistics.keyboards;
-    else ++statistics.mice;
+    else if (d->profile == PROFILE_MOUSE) ++statistics.mice;
+    else ++statistics.tablets;
     return true;
 }
 
@@ -195,7 +229,7 @@ bool virtio_input_init(void) {
         for (uint64_t i = 0; i < pci_device_count() && input_count < INPUT_DEVICES; ++i) {
             const struct pci_device *pci = pci_device_at(i);
             if (!pci || pci->vendor_id != 0x1af4 || pci->device_id != 0x1052 ||
-                pci->class_code != 9 || (pci->subclass != 0 && pci->subclass != 2) ||
+                pci->class_code != 9 || (pci->subclass != 0 && pci->subclass != 2 && pci->subclass != 0x80) ||
                 (pci->header_type & 0x7f) != 0) continue;
             struct input_device *d = &inputs[input_count];
             d->index = input_count++;
@@ -212,6 +246,20 @@ bool virtio_input_init(void) {
     leave();
     return ready;
 }
+static int32_t absolute_position(struct input_device *d, unsigned axis, int32_t value) {
+    int64_t minimum = d->axis_min[axis], maximum = d->axis_max[axis];
+    if (value <= minimum) return 0;
+    if (value >= maximum) return 65535;
+    /* Full signed-32-bit ranges fit: at most (2^32-1)*65535, below 2^48. */
+    return (int32_t)(((uint64_t)((int64_t)value - minimum) * 65535u) / (uint64_t)(maximum - minimum));
+}
+static void pointer_report(struct input_device *d, int32_t dx, int32_t dy,
+    int32_t wx, int32_t wy, uint8_t buttons) {
+    if (d->profile == PROFILE_TABLET) {
+        if (d->axis_seen == 3)
+            mouse_inject_virtio_absolute(d->index, d->position[0], d->position[1], wx, wy, buttons);
+    } else mouse_inject_virtio(d->index, dx, dy, wx, wy, buttons);
+}
 static void commit_report(struct input_device *d) {
     if (d->profile == PROFILE_KEYBOARD) {
         for (unsigned i = 0; i < d->report_count; ++i) {
@@ -223,6 +271,7 @@ static void commit_report(struct input_device *d) {
         }
     } else {
         int64_t dx = 0, dy = 0, wx = 0, wy = 0;
+        bool absolute_event = false;
         uint8_t edges[REPORT_LIMIT];
         unsigned edge_count = 0;
         for (unsigned i = 0; i < d->report_count; ++i) {
@@ -233,6 +282,10 @@ static void commit_report(struct input_device *d) {
                 if (e->code == 1) dy += value;
                 if (e->code == 6) wx += (int64_t)value * WHEEL_PIXELS;
                 if (e->code == 8) wy -= (int64_t)value * WHEEL_PIXELS;
+            } else if (e->type == 3 && e->code <= 1 && d->profile == PROFILE_TABLET) {
+                d->position[e->code] = absolute_position(d, e->code, value);
+                d->axis_seen |= (uint8_t)(1u << e->code);
+                absolute_event = true;
             } else if (e->type == 1 && e->code >= 272 && e->code <= 274 && e->value != 2) {
                 uint8_t mask = (uint8_t)(1u << (e->code - 272));
                 uint8_t buttons = e->value ? d->buttons | mask : d->buttons & (uint8_t)~mask;
@@ -241,9 +294,11 @@ static void commit_report(struct input_device *d) {
         }
         /* Preserve even press+release in one report. Movement is committed once
          * at the report's final position, before any remaining button edges. */
-        mouse_inject_virtio(d->index, bounded(dx), bounded(dy), bounded(wx), bounded(wy),
-            edge_count ? edges[0] : d->buttons);
-        for (unsigned i = 1; i < edge_count; ++i) mouse_inject_virtio(d->index, 0, 0, 0, 0, edges[i]);
+        if (d->profile != PROFILE_TABLET || absolute_event || wx || wy || edge_count) {
+            pointer_report(d, bounded(dx), bounded(dy), bounded(wx), bounded(wy),
+                edge_count ? edges[0] : d->buttons);
+            for (unsigned i = 1; i < edge_count; ++i) pointer_report(d, 0, 0, 0, 0, edges[i]);
+        }
     }
     d->report_count = 0;
     ++statistics.reports;
@@ -263,7 +318,8 @@ static bool stage_event(struct input_device *d, struct input_event e, uint64_t n
      * bounded. Unsupported events are otherwise ignored as required by 5.8.6. */
     if (e.type == 1 && bit(d->keys, e.code)) {
         if (e.value > 2) return false;
-    } else if (e.type != 2 || d->profile != PROFILE_MOUSE || !bit(d->relative, e.code)) {
+    } else if (!((e.type == 2 && d->profile != PROFILE_KEYBOARD && bit(d->relative, e.code)) ||
+        (e.type == 3 && d->profile == PROFILE_TABLET && bit(d->absolute, e.code)))) {
         e.type = UINT16_MAX;
     }
     d->report[d->report_count++] = e;

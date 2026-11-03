@@ -1109,9 +1109,9 @@ static void run_command(char *line) {
     } else if (streq(command, "virtio")) {
         struct virtio_input_stats stats;
         virtio_input_get_stats(&stats);
-        console_printf("virtio-input: devices=%u keyboards=%u mice=%u failed=%u quarantined=%u events=%u reports=%u\n",
+        console_printf("virtio-input: devices=%u keyboards=%u mice=%u failed=%u quarantined=%u events=%u reports=%u tablets=%u\n",
             (uint64_t)stats.devices,(uint64_t)stats.keyboards,(uint64_t)stats.mice,
-            (uint64_t)stats.failed,(uint64_t)stats.quarantined,stats.events,stats.reports);
+            (uint64_t)stats.failed,(uint64_t)stats.quarantined,stats.events,stats.reports,(uint64_t)stats.tablets);
         virtio_rng_print_status();
         virtio_block_print_status();
         virtio_net_print_status();

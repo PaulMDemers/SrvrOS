@@ -30,7 +30,7 @@ and VirtIO 1.2 section 4.1.4.9.
 | Driver | Initial supported behavior | Limits |
 | --- | --- | --- |
 | GPU | Two fenced resources with independent pending damage; unchanged frames skip presentation | Full scanout/flush; command completion does not establish host vblank |
-| Input | QEMU keyboard and relative mouse, modifiers/releases/repeat, buttons and wheel; independent source state | Four devices; 64 events per device per poll; no tablet or LED output |
+| Input | QEMU keyboard, relative mouse and absolute tablet; modifiers/releases/repeat, buttons and wheel; independent source state | Four devices; 64 events per device per poll; no LED output or host-device passthrough |
 | RNG | One writable request and a private 4 KiB pool, validated partial replies, nonblocking syscall consumption | Exhaustion keeps the existing random syscall fallback; no new cryptographic guarantee |
 | Block | Two disks, 512-byte sectors, 16 KiB batches, partial-sector read/modify/write, explicit flush | Media without FLUSH or with RO remain read-only; capacity changes/faults retire the device |
 | Network | One RX/TX pair, MAC and optional live link status, Ethernet packets up to 1514 bytes | No offloads, mergeable buffers or live provider replacement |
@@ -41,6 +41,15 @@ transactions with bounded waits and scheduler service checkpoints, restoring the
 caller address space before every checkpoint. Transport/device failures retire
 ownership rather than reuse potentially live DMA. These polling paths are a
 usable initial baseline; interrupt-driven operation is separate work.
+
+The default launchers select `virtio-tablet-pci`. Its signed axis bounds are read
+from ABS_INFO and normalized to inclusive 0..65535. The existing mouse event ABI
+carries positions under `MOUSE_ABSOLUTE`; relative sources retain signed deltas.
+Consumers map positions to their logical canvas, and cancellation preserves the
+current position. Both axes must be known before a tablet can emit pointer
+effects. Queues keep absolute and relative events separate and retain button
+edges. Cocoa's absolute-pointer mode releases capture on window exit and raises
+held buttons; see [QEMU's Cocoa input handling](https://github.com/qemu/qemu/blob/v11.1.2/ui/cocoa.m).
 
 `virtio` in the monitor prints device inventory, failure/quarantine status and
 transfer counters, without exposing entropy bytes. RNG consumption can be

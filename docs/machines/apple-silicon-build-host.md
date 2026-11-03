@@ -2063,3 +2063,19 @@ from this clean runtime is left open at `.local/macos-vm/virtio-baseline-review/
 its `current.json` identifies the owned process, disk, sockets and logs. Exit via
 SrvrOS → Return to console before closing QEMU. Required work for this baseline
 is complete; interrupt-driven queues, tablets and offloads remain optional.
+
+### Active tablet scope — November 3, 2026
+
+User authorized VirtIO tablet support, QEMU default selection, verification of
+automatic cursor release, and merge. Branch `device/apple-silicon/virtio-tablet`
+is based on freshly fetched main `f3f9a3c2`. Owns the input tablet profile,
+normalized absolute pointer queue/ABI semantics, desktop pointer consumers,
+QEMU launch defaults and focused tests. PR252 retains process/I/O lifetime work,
+PR278 application dispatch, PR19 Wi-Fi; no overlapping driver work was found.
+
+Acceptance: exact endpoints and scaling at supported desktop sizes; no jump on
+first full sample or re-entry; ordinary relative devices still work; press/drag/
+release and wheel preserved; automatic release on leaving the Cocoa VM window
+and re-entry without a release shortcut; clean matched build, protocol/queue/
+consumer regressions and VM evidence. Publish and merge after these checks.
+Native boot settings, physical acceptance and repository boundaries are unchanged.

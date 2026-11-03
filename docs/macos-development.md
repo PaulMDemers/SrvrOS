@@ -38,7 +38,7 @@ files. Run builds and VM harnesses sequentially in one checkout.
 ## Interactive VM and controls
 
 The launcher uses Q35, one emulated x86_64 CPU, 1 GiB RAM, a 1440×900 Cocoa window,
-fenced VirtIO graphics, VirtIO keyboard/mouse, entropy, writable VirtIO exFAT storage,
+fenced VirtIO graphics, VirtIO keyboard/tablet, entropy, writable VirtIO exFAT storage,
 VirtIO user-mode networking and
 HDA output through CoreAudio. It configures no host folder sharing, incoming
 port forwarding or microphone capture. Native battery/EC/brightness profiles
@@ -46,15 +46,19 @@ are not enabled. The guest clock is UTC.
 
 `--devices legacy` retains USB input, AHCI storage and e1000 networking independently
 of `--display-device std`. The generated QEMU-only ISO enables the new device
-drivers; native USB and physical boot configurations are unchanged. The mouse
-profile is relative, with real wheel input; absolute tablets are not supported.
+drivers; native USB and physical boot configurations are unchanged. The default
+tablet reports absolute positions, with buttons and wheel input. Coordinates map
+to the desktop's logical size, including UI scaling. The relative VirtIO mouse
+remains supported for explicit configurations and regression tests.
 See [the VirtIO baseline contract](virtio-baseline.md) for device limits and evidence.
 
 It boots the BIOS ISO, starts `/fat/bin/deskd --apps-trace`, waits for the first
 application frame, saves a screenshot and leaves QEMU running. Finding EFI
 firmware in `check-host` is not a UEFI boot test. Use the dock or Command/Meta-Space
 launcher; F1 opens Help. Ctrl-S in an untitled Text document opens Save As, which
-must be completed. QEMU's View menu shows its current mouse-release shortcut.
+must be completed. With the default tablet, Cocoa releases the host cursor when
+it leaves the guest display and reconnects it on entry. QEMU's View menu shows
+the release shortcut for relative-mouse configurations.
 
 To finish, save work and choose **SrvrOS → Return to console** so app workers
 can drain, then close the QEMU window. Returning to the console does not stop

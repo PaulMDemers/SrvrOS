@@ -41,13 +41,14 @@ static int32_t sum(int32_t a,int32_t b) {
     int64_t n=(int64_t)a+b;
     return n>INT32_MAX?INT32_MAX:n<INT32_MIN?INT32_MIN:(int32_t)n;
 }
-static void inject(unsigned source,int32_t dx,int32_t dy,int32_t wx,int32_t wy,uint8_t buttons) {
+static void inject_mode(unsigned source,int32_t dx,int32_t dy,int32_t wx,int32_t wy,uint8_t buttons,bool absolute) {
     uint64_t flags=lock();
     uint8_t previous=combined_buttons();
     source_buttons[source]=buttons&7;
     blocked[source]&=buttons;
     buttons=combined_buttons();
-    if (!dx && !dy && !wx && !wy && buttons==previous) { unlock(flags); return; }
+    /* An absolute (0,0) is a real position, including the first sample. */
+    if (!absolute && !dx && !dy && !wx && !wy && buttons==previous) { unlock(flags); return; }
     /* Never coalesce movement into a button edge: its click position matters. */
     if (count && previous==buttons) {
         struct mouse_event *last=&queue[(head+count-1)%MOUSE_QUEUE_SIZE];
@@ -55,8 +56,11 @@ static void inject(unsigned source,int32_t dx,int32_t dy,int32_t wx,int32_t wy,u
         bool same_direction=(!wx || !last->wheel_x || (wx>0)==(last->wheel_x>0)) &&
             (!wy || !last->wheel_y || (wy>0)==(last->wheel_y>0));
         if (last->buttons==buttons && !last->reserved && !(last->flags&MOUSE_CANCEL) &&
+            ((last->flags&MOUSE_ABSOLUTE)!=0)==absolute &&
             wheel==prior_wheel && (!wheel || same_direction)) {
-            last->dx=sum(last->dx,dx); last->dy=sum(last->dy,dy);
+            /* Absolute samples replace positions; relative deltas accumulate.
+             * Never merge across modes: their ordering affects the cursor. */
+            last->dx=absolute?dx:sum(last->dx,dx); last->dy=absolute?dy:sum(last->dy,dy);
             last->wheel_x=sum(last->wheel_x,wx); last->wheel_y=sum(last->wheel_y,wy);
             /* Preserve the oldest constituent when coalescing. Mixed-source
              * batches are excluded from trackpad-only residence statistics. */
@@ -79,7 +83,8 @@ static void inject(unsigned source,int32_t dx,int32_t dy,int32_t wx,int32_t wy,u
         unlock(flags); return;
     }
     queue[(head+count)%MOUSE_QUEUE_SIZE]=(struct mouse_event){
-        .dx=dx,.dy=dy,.wheel_x=wx,.wheel_y=wy,.buttons=buttons,.flags=buttons,
+        .dx=dx,.dy=dy,.wheel_x=wx,.wheel_y=wy,.buttons=buttons,
+        .flags=buttons|(absolute?MOUSE_ABSOLUTE:0),
         .reserved=previous!=buttons}; /* Internal edge marker, stripped on read. */
     queued_first[(head+count)%MOUSE_QUEUE_SIZE]=queued_last[(head+count)%MOUSE_QUEUE_SIZE]=
         source==1?timer_monotonic_us():0;
@@ -87,6 +92,9 @@ static void inject(unsigned source,int32_t dx,int32_t dy,int32_t wx,int32_t wy,u
     scheduler_wake_all(&input_waiters);
     process_file_poll_wake();
     unlock(flags);
+}
+static void inject(unsigned source,int32_t dx,int32_t dy,int32_t wx,int32_t wy,uint8_t buttons) {
+    inject_mode(source,dx,dy,wx,wy,buttons,false);
 }
 void mouse_inject_event(int32_t dx,int32_t dy,uint8_t buttons) { inject(0,dx,dy,0,0,buttons); }
 void mouse_inject_trackpad(int32_t dx,int32_t dy,uint8_t buttons) { inject(1,dx,dy,0,0,buttons); }
@@ -158,6 +166,10 @@ static void cancel_source(unsigned source,bool force) {
 void mouse_cancel_trackpad(void) { cancel_source(1,false); }
 void mouse_inject_virtio(unsigned source,int32_t dx,int32_t dy,int32_t wx,int32_t wy,uint8_t buttons) {
     if(source<MOUSE_VIRTIO_SOURCES) inject(2+source,dx,dy,wx,wy,buttons);
+}
+void mouse_inject_virtio_absolute(unsigned source,int32_t x,int32_t y,int32_t wx,int32_t wy,uint8_t buttons) {
+    if(source<MOUSE_VIRTIO_SOURCES && x>=0 && x<=MOUSE_ABSOLUTE_MAX && y>=0 && y<=MOUSE_ABSOLUTE_MAX)
+        inject_mode(2+source,x,y,wx,wy,buttons,true);
 }
 void mouse_cancel_virtio(unsigned source) {
     if(source<MOUSE_VIRTIO_SOURCES) cancel_source(2+source,true);
