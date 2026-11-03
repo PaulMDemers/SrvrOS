@@ -1,12 +1,13 @@
 import unittest
 from check_cpu_capture_tail import assess, final_layout, covered
 import test_hardware_platform as platform_tests
+import test_platform_backing as backing_tests
 
 
 class FinalReceiptTests(unittest.TestCase):
-    def fixture(self, resources=False, dependencies=False, hda=False, dry=False):
+    def fixture(self, resources=False, dependencies=False, hda=False, dry=False, backing=False):
         t=platform_tests.PlatformTests()
-        s=t.dry_fixture() if dry else t.hda_fixture() if hda else t.dependency_fixture() if dependencies else t.resource_fixture() if resources else t.display_fixture()
+        s=backing_tests.BackingTests().fixture() if backing else t.dry_fixture() if dry else t.hda_fixture() if hda else t.dependency_fixture() if dependencies else t.resource_fixture() if resources else t.display_fixture()
         lines=s.splitlines(keepends=True)
         header=next(x for x in lines if x.startswith('ap-owner: v=1 admitted=1'))
         lines.remove(header)
@@ -55,6 +56,15 @@ class FinalReceiptTests(unittest.TestCase):
         s=self.fixture(dry=True)
         self.assertEqual(assess(s,True)['status'],'COVERAGE_PASS')
         with self.assertRaises(ValueError):assess(s.replace('ap-platform-dry: v=1','ap-platform-dry: v=2'),True)
+
+    def test_backing_records_remain_required_without_granting_ownership(self):
+        s=self.fixture(backing=True)
+        result=assess(s,True)
+        self.assertEqual(result['status'],'COVERAGE_PASS')
+        self.assertTrue(result['critical_records_preserved_byte_for_byte'])
+        for bad in (s.replace('ap-platform-backing: v=1','ap-platform-backing: v=2'),
+                    '\n'.join(x for x in s.splitlines() if not x.startswith('ap-platform-backing:'))):
+            with self.assertRaises(ValueError):assess(bad,True)
 
     def test_failed_or_missing_data_never_becomes_coverage(self):
         s=self.fixture()
