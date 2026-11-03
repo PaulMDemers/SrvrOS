@@ -268,3 +268,10 @@ endpoints. All seven assurance bits remain unknown. Next is a read-only tiled
 aperture/GGTT backing audit; B is not complete. The broader platform trial still
 fails the unchanged RC6 bound and package C3 remains zero. See the unit's dated
 native result for source/session/hash, integrity and recovery evidence.
+
+
+The [Haswell tiled-backing audit](macbookair6-1-tiled-backing-audit.md) now defines
+the generation-specific readout contract and host-only fixtures. It identifies
+PTE/cache and GGC differences, unobserved swizzle, fence-reference discrepancies
+and a dependency on PR301's shared read-only capture. This completes source
+analysis, not milestone B or its native adapter. No new boot is armed.
