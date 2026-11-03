@@ -178,6 +178,20 @@ nominal excess); package C3 remains zero. USB integrity, recovery and durable
 hash verification pass; no reboot is armed. Next is a read-only tiled-aperture /
 GGTT backing audit, retaining every unknown assurance and original limit.
 
+### Active tiled-backing source audit (2026-11-03)
+
+Updated to actual main `8f47f196`, with matched pinned app/widget submodules.
+The installed/accepted readout remains source `728bcbeb` / release
+`9b485ca12b4c2482`; newer integration has no inherited native acceptance.
+Scope: Haswell-specific fence/GGTT/cache/swizzle audit and host-only executable
+fixtures, documentation and bounded capture contract. No kernel/MMIO/staging,
+policy, allocator or sibling-gate edits. PR301 already owns the shared backing
+capture and its Air7,2 adapter; record the Haswell dependency there through this
+reviewable unit/PR scope, without a competing driver or automatic cross-task
+message. PR252 lifetimes, PR313/314 namespaces/profiles and PR19 Wi-Fi stay separate.
+Next checkpoint: validated Haswell address/size/cache/fence fixtures and a
+read-only adapter contract against the actual PR301 interface. No boot is armed.
+
 ### Active read-only backing readout scope (2026-11-03)
 
 Base `d5822348`, local device branch `device/macbookair6-1/process-admission`.
