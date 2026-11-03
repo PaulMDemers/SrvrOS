@@ -163,14 +163,18 @@ def boot(disk, out, number, args, home, speed, offset_minutes, edit=False):
                 wait(b'srv> ', args.boot_wait)
                 if b'init: readiness=ready' not in output:
                     raise RuntimeError('Installed bootstrap init did not become ready')
-                if b'exfat: mounted /fat from ahci0p2 ' not in output or b'trying initramfs fallback' in output:
+                if (b'exfat: mounted /fat from ahci0p2 ' not in output or
+                    b'installed-root: selected device=ahci0p2 format=exfat-v1 role=system' not in output or
+                    b'trying initramfs fallback' in output):
                     raise RuntimeError('Installed GPT partition is not the sole /fat backing')
                 # Refusal controls must return to the console before the valid session.
                 for invalid in ('/fat/home/not-provisioned', '/fat/home/bad-marker', '/fat/home/../bad'):
                     serial.sendall(('run /fat/bin/deskd --profile=' + invalid + '\n').encode())
                     wait(b'deskd: profile unavailable or invalid;'); wait(b'srv> ')
                 launch_start = len(output)
-                serial.sendall(('run /fat/bin/deskd --profile=' + home + ' --apps-trace --scale=1\n').encode())
+                # Exercise both accepted tracing forms; profile selection always starts apps.
+                flags = ' --apps --trace' if number.endswith('2') else ' --apps-trace'
+                serial.sendall(('run /fat/bin/deskd --profile=' + home + flags + ' --scale=1\n').encode())
                 wait(b'deskd: display physical=1280x800 logical=1280x800 scale=1')
                 wait(b'desktools: starting role=text'); wait(b'deskd: commit')
                 for marker in (f'deskd: profile id={ID} home={home} credentials=unchanged'.encode(),
@@ -315,7 +319,7 @@ def main():
                     subprocess.run([str(profile_driver), str(image), 'write', path, str(content)], check=True)
                 stage = out / ('target-' + installation)
                 installation_image.prepare(stage, ROOT / 'build/kernel/srvros.elf',
-                    ROOT / 'build/limine-binary/BOOTX64.EFI', image, ROOT / 'build/userspace/init.elf')
+                    ROOT / 'build/limine-binary/BOOTX64.EFI', image, ROOT / 'build/userspace/init.elf', identity_bound=True)
                 ready = installation_image.apply(stage)
             disk = stage / 'image.img'
             _, (offset, size) = partitions(disk)
@@ -345,7 +349,12 @@ def main():
                 if document != EDITED: raise RuntimeError('document mismatch')
                 if binary != BINARY: raise RuntimeError('binary document mismatch')
                 portable = fixture.read(prefix + profile_bundle.PREF_PATH)
-                if profile_bundle.decode_json(portable).get('theme_style') != 1: raise RuntimeError('theme mismatch')
+                expected_preferences = dict(make_bundle()['preferences'], theme_style=1)
+                if profile_bundle.decode_json(portable) != expected_preferences:
+                    raise RuntimeError('portable preferences mismatch')
+                for binary_name in ('deskd', 'desktools', 'deskterm'):
+                    if fixture.read('bin/' + binary_name) != runtime_elf((ROOT / f'build/userspace/{binary_name}.elf').read_bytes()):
+                        raise RuntimeError(f'installed {binary_name} differs from built binary')
                 machine = fixture.read('home/desktop.conf')
                 if machine != seed_machine: raise RuntimeError('machine preferences changed')
                 env = fixture.read(prefix + 'Documents/environment.txt').decode()

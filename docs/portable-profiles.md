@@ -460,3 +460,25 @@ review owner's action. No further implementation is required for this target.
 Apps companion: [SrvrApps PR #5](https://github.com/PaulMDemers/SrvrApps/pull/5).
 The OS branch pins its reviewed commit; land the shared header and app change
 together after the PR309 dependency. Neither PR is merged by this task.
+
+
+### Integration review — in progress
+
+The user authorized review, fixes and dependency-order merge of OS #314 and
+SrvrApps #5. Foundation #309 was independently reviewed, updated with main
+`8f47f196`, and merged after its 13 bundle groups, C path fixture, ASan/UBSan and
+documentation checks passed. This branch now consumes that baseline.
+
+Review found that accepted `--profile=... --apps --trace` arguments left the
+legacy `apps` predicate false, disabling app launch and preference loading.
+Explicit validated profile selection now always enables ordinary desktop apps;
+the four-boot proof exercises both tracing forms. The refreshed proof provisions
+identity-bound roots and requires the explicit selected-root boot marker. It
+also checks all six portable values and each installed desktop/app binary in
+every readback, incorporating the earlier independent readback audit.
+
+No authentication or permission behavior changes. Apps #5's environment storage,
+NULL terminator, cwd restoration and failure cleanup were reviewed against the
+matched shared header; no additional Apps code change is required. Current gate:
+matched rebuild, host regressions, four profile boots, legacy reboot regression
+and final head/base checks before Apps #5 then OS #314 merge.
