@@ -92,8 +92,12 @@ def boot(disk, transport, out, label, args, stage, checkpoint=None):
                     consumed = output.index(marker, consumed) + len(marker)
                 def command_run(line, success=True, stop_after=None):
                     start = len(output)
-                    prefix = ('/fat/bin/env SRVROS_PROFILE_STOP_AFTER=' + stop_after + ' /fat/bin/profile ') if stop_after else '/fat/bin/profile '
-                    serial.sendall(('run ' + prefix + line + '\n').encode())
+                    prefix = ('/fat/bin/env SRVROS_PROFILE_STOP_AFTER=' + stop_after + ' profile ') if stop_after else '/fat/bin/profile '
+                    monitor_line = 'run ' + prefix + line
+                    # The monitor reserves one byte of its 128-byte line buffer for NUL.
+                    if len(monitor_line.encode('ascii')) >= 128:
+                        raise RuntimeError(f'{label}: monitor command exceeds line limit')
+                    serial.sendall((monitor_line + '\n').encode())
                     wait(b' exited status='); wait(b'\nsrv> ')
                     match = re.search(rb'run: pid=\d+ exited status=(\d+)', output[start:])
                     if (not match or (int(match.group(1)) == 0) != success or
