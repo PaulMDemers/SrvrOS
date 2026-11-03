@@ -1,5 +1,115 @@
 # Disk installation and recovery
 
+## Canonical-path installed boot — completed proof
+
+User authorized the canonical-path installed-boot proof and a scoped PR. Work
+uses integration branch `device/apple-silicon/installed-canonical-paths` in the same isolated clone,
+from merged PR312 main `8f47f196`, consuming exact PR313 `06d5a416` by a local
+history-preserving dependency merge. PR313 still awaits its separate integration
+review; this branch does not authorize merging that PR or its dependencies.
+It includes PR308, full PR252 `badfeb37`, and SrvrPorts pin `0f51ba9`.
+The delivery branch `device/apple-silicon/canonical-install-proof` contains only
+this milestone's harness/documentation/evidence commits on main `9d642c75`.
+Its draft PR depends on PR313; the published integration branch retains the
+complete tested source without republishing the dependency's implementation in
+the delivery diff. Do not merge the delivery PR until PR313 lands and the
+combined source is reconciled against this evidence.
+
+Latest profile contracts checked: PR309 `fa9717ad` and newer desktop-adoption
+PR314 `814aee20` (SrvrApps5). Profile sessions are explicitly selected and remain
+distinct from root credentials, disk identity and namespace activation. This
+slice retains the existing home provider and desktop settings. PR309 then landed
+as main `9d642c75`, which is merged here before the matched build; PR314's desktop
+session implementation remains separate.
+
+Own the installed GPT fixture/harness and this acceptance record. Consume the
+filesystem owner's `/bin` → `/fat/bin`, `/usr` → `/fat`, `/var` → `/fat/var`,
+`/home` → `/fat/home` implementation unchanged. Required evidence: target-only
+EFI boot, identity selection before aliases, reversed GPT disks, canonical and
+legacy path identity/execution, Text/preferences persistence, an independent
+GPT-backed `/work`, and no-write recovery before namespace activation. Positive
+boots intentionally write the independent provider; protected disk regions must
+stay unchanged. Refusal cases must preserve both complete disk hashes.
+
+Existing review VMs 61610, 6233 and 85869 remain live and untouched. One build or
+harness runs at a time in this clone. No physical install, host reboot, Actions,
+profile activation or upgrade/rollback is included. Status: implementation and
+combined proof complete; publish as a draft while dependency integration remains
+separate. No dependency PR or current milestone merge is authorized by this run.
+
+The initial `77dbd1f9` dependency passed host checks and positive namespace VM
+checks, but its run at `b8da407c` was stopped when PR313 published path-limit and
+rename-error fixes. The retained `proof-8_v1flfj` is superseded, not final
+acceptance. It is retained with verified gzip disk copies at
+`.local/installation-evidence/canonical-superseded-8_v1flfj`. The final proof
+rebuilt and reran with `06d5a416`.
+
+### Canonical-path acceptance
+
+Clean source `3e47911945967e3bb96279938e1199a35b26b730` passes the matched full
+build and all **11** Q35/AHCI/OVMF VM cases. The
+[portable receipt](assets/screenshots/installed-canonical-manifest.json) records
+source/submodule identities, build/tool/firmware hashes, disk GUIDs, case results,
+protected regions and log/screenshot hashes. Later documentation commits do not
+change that tested implementation.
+
+| Proof | Result |
+| --- | --- |
+| Initial EFI boot | Target selected as `ahci0p2`, then aliases activate, then init becomes ready; independent `ahci1p2` mounts at `/work` |
+| Reordered fresh boot | Same target GUID selected as `ahci1p2`; independent provider is now `ahci0p2` |
+| Canonical identity and operations | `/bin`, `/usr/bin`, `/home`, `/fat/home` and `/usr/home` checks pass for shared identity/content, execution, cwd/dirfd, creation/mutation guards, path limits and rename errors |
+| Persistence | Different home/work markers survive reboot and verify through aliases, then clean up; Text reopens exact document bytes via `/home/installed-proof.txt`; preferences match |
+| Isolation and integrity | `/work` is distinct from system/home; both disks retain all bytes outside their data partitions; guest system and four offline system/work allocation checks are clean |
+| Nine recovery cases | Missing/wrong/duplicate identity, wrong role/type/format, invalid map, damaged exFAT backup and pending metadata all halt before aliases/init/monitor; both whole-disk hashes remain unchanged |
+
+The proof uses two independently generated GPT images, the target's own EFI
+loader/kernel/minimal `/init` archive, and no ISO or host kernel/initrd. `/work`
+is explicitly mounted from the generated other partition by the harness; this
+does not qualify automatic USB workspace discovery or introduce a home-provider
+selection policy. Positive boots intentionally change both data volumes. The
+nine recovery cases compare complete images, not merely protected regions.
+
+[Text reopened through `/home`](assets/screenshots/installed-canonical-reopened.png)
+and [recovery before aliases](assets/screenshots/installed-canonical-recovery.png)
+were visually inspected as an expert walkthrough. File opening, selected text,
+restored theme and halted diagnostic are visible. This reuses the existing
+desktop/recovery journey; no representative-user study or new UI is claimed.
+
+Raw images, commands, UART/QEMU logs, screenshots and exact built artifacts are
+retained outside `build` at `.local/installation-evidence/canonical-e5t4y5zz`.
+Backup hashes, final disk hashes and normal/recovery startup ordering were
+independently verified. The task VMs are stopped; original review VMs 61610,
+6233 and 85869 remain live and untouched.
+
+Host validation passes: storage and clean-mount checks, 21 installation/provenance
+tests, namespace/syscall/process/loader/service/lifetime checks, real
+process/exFAT writeback, and all 133 filesystem/namespace modes with ASan/UBSan.
+The selector sanitizer also passes. The initial Make process-writeback invocation
+inherited Zig's cross-compiler and failed on the host CPU; the direct x86_64 host
+invocation below passes. That initial log is retained, not counted as a pass.
+
+Reproduce at the published integration source `3e479119` in an isolated checkout,
+sequentially with the documented Darwin host compiler wrapper. The delivery
+branch alone awaits PR313 and is not the combined runtime used for this proof:
+
+```sh
+sh tools/macos/build.sh HOST_CC='python3 build/tooling/darwin-host-cc.py -D_DARWIN_C_SOURCE' test-storage test-installed-root test-vfs-namespace test-syscall-namespace test-process-output test-process-loader test-process-service test-process-lifetime
+CC='cc -arch x86_64' python3 tools/test_exfat_import.py --process --output build/review/installed-canonical-process
+CC='cc -arch x86_64' python3 tools/test_exfat_import.py --sanitize --output build/review/installed-canonical-sanitize
+python3 tools/test_installed_root.py --sanitize
+sh tools/macos/build.sh -j2 all
+OVMF_CODE=/opt/homebrew/share/qemu/edk2-x86_64-code.fd python3 tools/installed_root_smoke.py --canonical-paths --ovmf-vars /opt/homebrew/share/qemu/edk2-i386-vars.fd
+sh tools/macos/build.sh check-docs
+```
+
+PR312's limits still apply: GUID selection is not authentication; primary GPT
+only; unknown raw maps refuse; OVMF may repair a primary GPT before kernel entry,
+so the invalid-map fixture damages both copies. Missing system volume retains
+the bootable ESP. No physical power-loss, arbitrary mount-I/O-failure, native
+hardware, profile/session activation or external `fsck.exfat` qualification is
+claimed. The profile foundation is present from main; PR314's desktop adoption
+and SrvrApps5 remain independent of this canonical-path proof.
+
 ## PR312 integration review and next checkpoint — November 3, 2026
 
 User requested review and merge if ready. Integration review found no blocking

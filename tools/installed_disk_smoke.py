@@ -89,7 +89,7 @@ def data_image(disk, offset, size):
 
 def boot(disk, out, number, args, negative=False, *, other_disk=None,
          reverse=False, expected_device='ahci0p2', require_identity=False,
-         recovery_reason=None):
+         recovery_reason=None, canonical_paths=False):
     output = bytearray()
     consumed = 0
     serial = qmp = None
@@ -178,7 +178,9 @@ def boot(disk, out, number, args, negative=False, *, other_disk=None,
                             pass
                     if any(marker in output for marker in (b'srvros monitor ready', b'init: started',
                             b'init: readiness=', b'srv> ', b'bootlog: persisted',
-                            b'installed-root: selected', b'trying initramfs fallback')):
+                            b'installed-root: selected', b'trying initramfs fallback',
+                            b'namespace: ',
+                            b' on /work type=exfat', b'exfat: mounted /work')):
                         raise RuntimeError('Recovery reached normal startup or fallback')
                     # Observe the halted state, then stop only this test VM.
                     qmp.call('screendump', {'filename': str(out / f'recovery-{number}.ppm')})
@@ -199,17 +201,45 @@ def boot(disk, out, number, args, negative=False, *, other_disk=None,
                     raise RuntimeError('Installed GPT partition is not the sole /fat backing')
                 if require_identity and f'installed-root: selected device={expected_device} format=exfat-v1 role=system'.encode() not in output:
                     raise RuntimeError('Missing explicit installed-root selection proof')
+                home_path = '/home' if canonical_paths else '/fat/home'
+                if canonical_paths:
+                    if other_disk is None or number not in (1, 2):
+                        raise RuntimeError('Canonical proof requires two disks and two numbered boots')
+                    selected_marker = f'installed-root: selected device={expected_device} format=exfat-v1 role=system'.encode()
+                    namespace_marker = b'namespace: /bin /usr /var /home active'
+                    readiness_marker = b'init: readiness=ready'
+                    if not (selected_marker in output and namespace_marker in output and
+                            output.index(selected_marker) < output.index(namespace_marker) < output.index(readiness_marker)):
+                        raise RuntimeError('Installed selection, namespace activation, and init readiness are out of order')
+                    def command(line, marker, prompt=b'srv> '):
+                        start = len(output)
+                        serial.sendall(line.encode() + b'\n')
+                        wait(marker); wait(prompt)
+                        response = output[start:consumed]
+                        if any(fail in response for fail in (b'namespace: FAIL', b'namespace-persistence: FAIL',
+                                                             b'sysabi: fail', b'exception:')):
+                            raise RuntimeError(f'Canonical command failed: {line}')
+                    work_device = 'ahci0p2' if reverse else 'ahci1p2'
+                    command(f'mount {work_device} /work', f'{work_device} on /work type=exfat'.encode())
+                    command('run /bin/true', b'exited status=0')
+                    command('run /bin/sh', b' $ ', prompt=b'')
+                    command('/bin/sysabi --namespace', b'namespace: PASS', prompt=b' $ ')
+                    phase = 'save' if number == 1 else 'reopen'
+                    command(f'/usr/bin/sysabi --namespace-{phase}',
+                            f'namespace-persistence: {phase} PASS'.encode(), prompt=b' $ ')
+                    command('sync && echo namespace-sync-ok', b'\r\nnamespace-sync-ok\r\n', prompt=b' $ ')
+                    serial.sendall(b'exit\n'); wait(b'srv> ')
                 if number == 2:
-                    serial.sendall(b'cat /fat/home/installed-proof.txt\n')
+                    serial.sendall(f'cat {home_path}/installed-proof.txt\n'.encode())
                     wait(PHRASE); wait(b'srv> ')
                     serial.sendall(b'cat /fat/home/desktop.conf\n')
                     wait(b'theme_style=1'); wait(b'srv> ')
-                serial.sendall(b'run /fat/bin/deskd --apps-trace --scale=1\n')
+                serial.sendall(f"run {'/bin' if canonical_paths else '/fat/bin'}/deskd --apps-trace --scale=1\n".encode())
                 wait(b'deskd: display physical=1280x800 logical=1280x800 scale=1')
                 wait(b'desktools: starting role=text'); wait(b'deskd: commit')
                 if number == 1:
                     text(PHRASE.decode())
-                    shortcut('ctrl-l'); shortcut('ctrl-a'); text('/fat/home/installed-proof.txt')
+                    shortcut('ctrl-l'); shortcut('ctrl-a'); text(home_path + '/installed-proof.txt')
                     shortcut('ctrl-s'); wait(b'picker ready mode=2'); qmp.key('ret')
                     wait(b'file-result role=text op=2 status=0')
                     click(790, 750)
@@ -223,7 +253,7 @@ def boot(disk, out, number, args, negative=False, *, other_disk=None,
                 else:
                     if b'theme_accent=0 glass_level=1 theme_style=1' not in output:
                         wait(b'theme_accent=0 glass_level=1 theme_style=1')
-                    shortcut('ctrl-l'); shortcut('ctrl-a'); text('/fat/home/installed-proof.txt')
+                    shortcut('ctrl-l'); shortcut('ctrl-a'); text(home_path + '/installed-proof.txt')
                     shortcut('ctrl-o'); wait(b'picker ready mode=1')
                     text('installed-proof'); qmp.key('ret')
                     wait(b'file-result role=text op=1 status=0')
@@ -233,6 +263,8 @@ def boot(disk, out, number, args, negative=False, *, other_disk=None,
                 qmp.call('screendump', {'filename': str(out / f'desktop-{number}.ppm')})
                 shortcut('f10'); shortcut('end'); shortcut('ret')
                 wait(b'deskd: exited'); wait(b'srv> ')
+                if canonical_paths:
+                    command('unmount /work', b'exfat: unmounted /work')
                 serial.sendall(b'fsck /fat\n'); wait(b'exfat-check:'); wait(b'srv> ')
                 if not re.search(rb'exfat-check: mounts=1 files=\d+ clusters=\d+ leaks=0 fat=0 errors=0 ok', output):
                     raise RuntimeError('Guest allocation check failed')
