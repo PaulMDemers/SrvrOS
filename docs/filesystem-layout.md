@@ -179,10 +179,57 @@ do not create a replacement home on the fallback RAM image silently.
 
 ## Verification and next action
 
-Implementation/verification in progress. Planned checks: namespace and real exFAT
-host tests (matched x86_64 compiler on ARM64 macOS), storage import regression,
-ASan/UBSan, documentation links, matched image build and disposable ordinary boot.
-No physical power-loss, native hardware, permission isolation or global application
-path activation is accepted by this proof. Next action: complete and record these
-checks, publish coherent commits and a draft PR; global activation remains a
-separate PR252-coordinated milestone.
+The bounded proof is complete and published as draft [PR308](https://github.com/PaulMDemers/SrvrOS/pull/308).
+Implementation commit: `6686ae18fc709a07b636b97fac9e4161a2f3b9da` on base
+`a936baeb`. The later evidence update changes only this document.
+
+| Check | Result and scope |
+| --- | --- |
+| Real exFAT/VFS import suite | 132 modes pass: 123 existing plus nine namespace cases; normal run and ASan/UBSan using `cc -arch x86_64` on ARM64 macOS |
+| Namespace proof | Paths, bounds, binding rejection, attachment lifecycle, pointer/inode identity, persistence, rename/delete, backend quarantine and legacy workspace provider pass |
+| Existing data | Original 1,100-byte fixture file remains exact after mutations and remount; mode/mtime and newly written data survive clean unmount/remount |
+| Image generator | Six tests pass |
+| Focused Make targets | `test-vfs-namespace test-vfs-time check-docs` pass using the documented Darwin x86_64 wrapper; 824 local Markdown links at the implementation checkpoint, 825 after the evidence update |
+| Matched `all` build | Pass from clean implementation commit and pinned submodules; `build/macos-build.json` records source and hashes |
+| Disposable ordinary boot | Q35/TCG, VirtIO, matched kernel/initramfs/disk: desktop and first application frame at 4.31 seconds; QMP reports running and screenshot retained |
+| Cleanup | Task VM stopped through its own QMP socket; original review PIDs 61610, 6233 and 85869 preserved |
+
+Reproduce sequentially in an isolated checkout with the compiler wrapper from
+[macOS guidance](macos-development.md):
+
+```sh
+CC='cc -arch x86_64' python3 tools/test_exfat_import.py
+CC='cc -arch x86_64' python3 tools/test_exfat_import.py --sanitize --output build/review/filesystem-layout/final-sanitize
+sh tools/macos/build.sh HOST_CC='python3 build/tooling/darwin-host-cc.py' test-vfs-namespace test-vfs-time check-docs
+sh tools/macos/build.sh -j2 all
+python3 tools/macos/run.py --headless --state-dir .local/macos-vm/filesystem-layout
+```
+
+The launcher leaves its guest running; inspect its recorded PID/QMP socket and
+stop only that disposable instance after readiness. Local receipts live under
+`build/review/filesystem-layout/`; the Make namespace receipt is under
+`build/review/vfs-namespace/`. VM manifest, serial log and screenshot remain in
+`.local/macos-vm/filesystem-layout/session-20261103T224228.262439Z/`.
+The initial documentation check ran before submodule checkout completed and
+reported missing dependency links; the complete-checkout rerun passed.
+
+The final sanitizer receipt names the clean implementation commit. The ordinary
+132-mode run preceded that commit and used identical implementation; focused
+Make checks and the matched image/VM used the committed tree. Build hashes:
+
+- Kernel: `ac1198e5655ff216b57fab9c1f6e182476c93b214333a6739e3ebf578cad5185`
+- Initramfs: `f31a586d1073314577ce4864afd3b30af19458aed048b0bc6689942c7599baff`
+- exFAT template: `c972e6c49ba978df9476b0e9cfc54108a8f263fdf5b07eea1e891318c68cee7d`
+
+The VM verifies ordinary bootability, not use of new global paths or a clean
+shutdown/remount. Persistence evidence comes from the real backend's disposable
+host fixture. No physical power-loss, native hardware, permission isolation,
+concurrent resolve/operation or global application path activation is accepted.
+No physical boot is armed and no task-owned VM is left running.
+
+Next required platform step: agree the exclusion and canonical-storage identity
+handoff with PR252, then implement complete process/namespace activation and
+logical directory enumeration as a separate milestone. Installation experiments
+can consume the existing `/fat` image contract immediately, with explicit
+selected-volume evidence; profiles can consume the provider boundary above.
+This draft is delivered for review, with no merge requested.
