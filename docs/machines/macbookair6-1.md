@@ -162,6 +162,20 @@ The overall platform trial remains failed on the unchanged RC6 timing predicate
 and durable evidence verification pass. No reboot is armed. PR288/278 apps,
 PR252 lifetimes and PR19 Wi-Fi remain separate.
 
+### Active read-only backing readout scope (2026-11-03)
+
+Base `d5822348`, local device branch `device/macbookair6-1/process-admission`.
+Milestone B first readout binds Haswell primary-A control/stride/linear and tile
+offsets/surface/pipe size, aperture PCI BAR and inherited Limine framebuffer
+geometry/physical mappings and memory-map classification at both endpoints.
+Scope: isolated platform diagnostic/readout fixture, host decoder/retention,
+matched validation and automated native capture. No ordinary driver, PMM policy,
+well/HDA write or assurance-bit changes. GGTT PTE/stolen-memory ownership and
+firmware exclusion remain unknown; this readout cannot complete backing adoption.
+PR301 owns separate Air7,2 capture; PR252 lifetimes, PR299 Terminal and PR19 Wi-Fi
+remain separate. Next checkpoint is positive/refusal fixtures and source-matched
+retention, then exact-stage rehearsal and native comparison under existing limits.
+
 ### Historical battery-runtime objective (2026-10-23)
 
 Base `9bbc3b9`, branch `device/macbookair6-1/battery-runtime`. Audit connected
