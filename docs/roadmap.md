@@ -6,6 +6,61 @@ and [machine records](machines/README.md) separate implementation from physical
 acceptance. The [device parity ledger](device-parity.md) compares the Air with
 ongoing Pro work.
 
+## Platform maturity kickoff — November 3, 2026
+
+User requested dedicated work on POSIX-style filesystem layout, booting and
+operating from an installed disk, users with portable profiles from the outset,
+and a WebKit/Chromium-or-similar browser port. Each chat uses `wnp-developer` and
+`proactive-subagents`, with focused research followed by a bounded first proof.
+This is a new program; the HiDPI milestone below remains delivered.
+
+| Chat / ownership | First milestone and evidence | Dependencies |
+| --- | --- | --- |
+| SrvrOS filesystem and POSIX layout | Audit VFS/exFAT semantics, specify root/system/state/home layout and legacy path migration; implement a small namespace proof with path, persistence and compatibility tests. Compare backing filesystem options before committing to a new disk format. | Owns namespace, mount/root and storage semantics; preserve PR252 lifetime ownership. |
+| SrvrOS disk installation and recovery | Build a disposable installation image/tooling path; boot from the installed target without live media and prove read/write/reboot persistence. Specify disk selection, upgrade and recovery before expanding to physical installation. | Consumes filesystem/root contract; owns installation image and boot tooling, not independent VFS changes. |
+| SrvrOS users and portable profiles | Define stable profile identity separate from local UID/GID, versioned profile manifest, HOME/config/data/cache paths and import/export. Prove round-trip between two fresh installations/fixtures without source-machine paths or IDs; enumerate permission-enforcement gaps. | Owns profile/account and home-provider contracts; filesystem owner supplies namespace/metadata. Profile portability must not be presented as multi-user isolation before enforcement exists. |
+| SrvrOS browser engine port | Compare current primary upstream requirements for WebKit/WPE, Chromium and viable alternatives; map concrete SDK gaps and run a bounded pinned-source build/render probe. Publish a recommended engine, reproducible evidence and ordered dependencies. | Reuse SrvrPorts packaging, SrvrUI density/input APIs and SrvrApps shell conventions; shared libc/kernel changes need explicit ownership. |
+
+Portable profiles initially mean moving user identity, documents and app settings
+between SrvrOS installations, with a format that is not tied to a particular
+machine or absolute mount path. Machine drivers, display choices, runtime caches,
+sessions and secrets need explicit separate policies; do not copy credentials or
+hardware bindings implicitly. Synchronization/cloud roaming is not a prerequisite
+for the first portable profile. User isolation requires actual kernel/filesystem
+checks, not simply account names in libc or a login screen.
+
+Current source facts: boot mounts writable exFAT at `/fat`; the desktop uses
+`/fat/home` or `/work/srvros-work`; libc identity lookup exposes root only. The
+existing `install` command copies files and is not an OS installer. exFAT is not
+journaled and provides no crash-atomic transaction guarantee. Confirm exact
+current code before turning any of these observations into a design decision.
+
+Each chat uses a separate checkout beneath this workspace before editing or
+building: `SrvrOS-filesystem`, `SrvrOS-installation`, `SrvrOS-profiles`, and
+`SrvrOS-browser`. Keep `SrvrOS` as the integration checkout and preserve its
+running review VMs/disks. One build/staging/VM harness per checkout. Publish
+contracts and bounded draft PRs, keeping kernel/root/image changes coordinated;
+no competing edits to shared VFS, process or libc lifetime mechanisms. Existing
+PR252 owns process/I/O lifetime, PR19 Wi-Fi, PR301 native display readout, and
+PR306 plus SrvrPorts PR2 the pending SQLite integration. Inspect live PR heads.
+
+Existing repositories remain the default homes: SrvrOS platform services and
+installation; SrvrApps desktop application shells; SrvrUI reusable widgets;
+SrvrPorts upstream recipes/patches. The user permits a new GitHub repository
+following `PaulMDemers/Srvr...` if a concrete independently maintained component
+requires it (for example `SrvrWeb`). Match established visibility/license
+practice after inspecting it; do not create empty forks or store user profiles
+and secrets in source repositories. Do not add a submodule before its actual
+integration contract exists. Actions stay disabled. Initial trials are disposable
+QEMU images; no physical disk formatting, internal installation or reboot is
+part of this kickoff.
+
+Status: launching the four chats and their first evidence-producing milestones.
+The parent integration chat owns this roadmap section. Topic chats should own
+`docs/filesystem-layout.md`, `docs/disk-installation.md`,
+`docs/portable-profiles.md`, or `docs/browser-port.md` respectively in their own
+checkout, including current target, contracts, exact validation and next action.
+
 ## Current HiDPI and display settings — November 3, 2026
 
 Target: genuinely detailed 1×/2× text and widgets, authoritative Display settings,
