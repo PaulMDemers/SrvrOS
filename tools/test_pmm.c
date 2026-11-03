@@ -18,11 +18,12 @@ void latency_leave(enum latency_site site) { assert(site == LATENCY_PMM && laten
 #define FRAMES 32771 /* Exercise a partial final bitmap byte. */
 static uint8_t bits[(FRAMES + 7) / 8];
 static uint8_t reference[FRAMES];
+static uint8_t tags[FRAMES];
 static uint64_t naive_steps;
 static uint32_t rng = 123;
 static uint32_t random32(void) { rng = rng * 1664525 + 1013904223; return rng; }
 static void reset(void) {
-    bitmap = bits; bitmap_bytes = sizeof(bits); frame_count = FRAMES;
+    bitmap = bits; frame_tags = tags; bitmap_bytes = sizeof(bits); frame_count = FRAMES;
     free_count = 0; search_steps = naive_steps = 0;
     memset(search_hints, 0, sizeof(search_hints)); next_search_hint = 0;
     memset(bits, 0xff, sizeof(bits)); memset(reference, 1, sizeof(reference));
@@ -106,6 +107,26 @@ int main(void) {
     assert(!pmm_alloc_frames_above(1, (FRAMES + 500) * 4096ull));
     assert(!pmm_alloc_frames(0)); assert(!pmm_alloc_frames(FRAMES + 1));
     irq_enabled = false; assert(pmm_alloc_frame() && !irq_enabled && !latency_depth);
+    /* Exercise real metadata initialization and allocation above the old 8 GiB cap. */
+    const uint64_t high_frame = 2 * 1024 * 1024;
+    uint8_t *low_memory = malloc(4 * 1024 * 1024);
+    uint8_t *high_page = malloc(4096);
+    assert(low_memory && high_page);
+    struct limine_memmap_entry low = {.base=0x100000, .length=4*1024*1024,
+        .type=LIMINE_MEMMAP_USABLE};
+    struct limine_memmap_entry high_ram = {.base=high_frame*4096, .length=4096,
+        .type=LIMINE_MEMMAP_USABLE};
+    struct limine_memmap_entry *high_ranges[] = {&low, &high_ram};
+    struct limine_memmap_response high_map = {.entry_count=2, .entries=high_ranges};
+    pmm_init(&high_map, (uint64_t)low_memory - low.base);
+    assert(frame_count == high_frame + 1 && bitmap_get(low.base / 4096));
+    assert(!bitmap_get(high_frame) && frame_tags[high_frame] == PMM_FRAME_FREE);
+    uint64_t high = pmm_alloc_frames_above_tagged(1, high_frame * 4096, PMM_FRAME_USER);
+    assert(high == high_frame * 4096 && pmm_tagged_frames(PMM_FRAME_USER) == 1);
+    hhdm = (uint64_t)high_page - high;
+    pmm_free_frame(high);
+    assert(pmm_tagged_frames(PMM_FRAME_USER) == 0 && frame_tags[high_frame] == PMM_FRAME_FREE);
+    free(high_page); free(low_memory);
     free(memory);
     puts("pmm-host: PASS (first-fit oracle, fragmentation, minimum bounds, reuse, poison, tags, IRQ restoration)");
 }

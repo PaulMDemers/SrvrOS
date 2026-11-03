@@ -33,6 +33,9 @@ int __posix_eventfd_fcntl(int fd, int command, uint64_t flags);
 int __posix_signal_dispatch_pending(void);
 int __posix_signal_dispatch_pending_restartable(void);
 long srv_unix_unlink(const char *path);
+int __posix_socket_pending_error(int fd);
+uint64_t __posix_event_capture_identity(int fd);
+int __posix_event_identity_current(int fd, uint64_t identity);
 
 #define POSIX_PATH_MAX SRV_PATH_MAX
 
@@ -126,10 +129,27 @@ int open64(const char *path, int flags, ...) {
     return open(path, flags);
 }
 
-ssize_t read(int fd, void *buffer, size_t length) {
+/* Check identities only when an interrupted operation could be restarted.
+ * An interrupted syscall itself has made no progress. */
+static int io_restart_after_signal(int fd, int native_fd) {
+    uint64_t identity = __posix_event_capture_identity(fd);
+    uint64_t native_identity = fd == native_fd ? identity :
+        __posix_event_capture_identity(native_fd);
+    int restart = __posix_signal_dispatch_pending_restartable();
+    if (!restart) { errno = EINTR; return 0; }
+    if (!__posix_event_identity_current(fd, identity) ||
+        (fd != native_fd && !__posix_event_identity_current(native_fd, native_identity))) {
+        errno = EBADF;
+        return 0;
+    }
+    return 1;
+}
+
+ssize_t __posix_read_with_socket_error(int fd, void *buffer, size_t length, int *socket_error) {
     if (__posix_eventfd_is_pseudo(fd)) {
         return __posix_eventfd_read(fd, buffer, length);
     }
+    int original_fd = fd;
     fd = __posix_socket_real_fd(fd);
     if (fd < 0) {
         errno = EBADF;
@@ -143,16 +163,15 @@ ssize_t read(int fd, void *buffer, size_t length) {
                 return -1;
             }
             if (result == SRV_ERR_INTR) {
-                if (__posix_signal_dispatch_pending_restartable()) {
+                int restart = io_restart_after_signal(original_fd, fd);
+                if (restart) {
                     continue;
                 }
-                errno = EINTR;
                 return -1;
             }
-            if (__posix_signal_dispatch_pending() != 0) {
-                errno = EINTR;
-                return -1;
-            }
+            if (socket_error && (result == -1 || result == SRV_ERR_BADF))
+                *socket_error = __posix_socket_pending_error(fd);
+            if (__posix_signal_dispatch_pending() != 0) { errno = EINTR; return -1; }
             errno = result < -1 ? (int)-result : EBADF;
             return -1;
         }
@@ -161,10 +180,15 @@ ssize_t read(int fd, void *buffer, size_t length) {
     }
 }
 
-ssize_t write(int fd, const void *buffer, size_t length) {
+ssize_t read(int fd, void *buffer, size_t length) {
+    return __posix_read_with_socket_error(fd, buffer, length, 0);
+}
+
+ssize_t __posix_write_with_socket_error(int fd, const void *buffer, size_t length, int *socket_error) {
     if (__posix_eventfd_is_pseudo(fd)) {
         return __posix_eventfd_write(fd, buffer, length);
     }
+    int original_fd = fd;
     fd = __posix_socket_real_fd(fd);
     if (fd < 0) {
         errno = EBADF;
@@ -178,12 +202,14 @@ ssize_t write(int fd, const void *buffer, size_t length) {
                 return -1;
             }
             if (result == SRV_ERR_INTR) {
-                if (__posix_signal_dispatch_pending_restartable()) {
+                int restart = io_restart_after_signal(original_fd, fd);
+                if (restart) {
                     continue;
                 }
-                errno = EINTR;
                 return -1;
             }
+            if (socket_error && (result == -1 || result == SRV_ERR_BADF))
+                *socket_error = __posix_socket_pending_error(fd);
             (void)__posix_signal_dispatch_pending();
             errno = result < -1 ? (int)-result : EBADF;
             return -1;
@@ -191,6 +217,10 @@ ssize_t write(int fd, const void *buffer, size_t length) {
         (void)__posix_signal_dispatch_pending();
         return (ssize_t)result;
     }
+}
+
+ssize_t write(int fd, const void *buffer, size_t length) {
+    return __posix_write_with_socket_error(fd, buffer, length, 0);
 }
 
 ssize_t pread(int fd, void *buffer, size_t length, off_t offset) {
@@ -241,13 +271,14 @@ static ssize_t vector_io(int fd,const struct iovec *iov,int count,unsigned opera
      * dereference unvalidated vectors here to emulate a kernel operation. */
     if(__posix_eventfd_is_pseudo(fd)) { errno=EOPNOTSUPP;return -1; }
     if(operation>=SRV_VECTOR_PREAD && __posix_socket_is_pseudo(fd)) { errno=ESPIPE;return -1; }
+    int original_fd=fd;
     fd=__posix_socket_real_fd(fd);
     if(fd<0) { errno=EBADF;return -1; }
     for(;;) {
         long result=srv_syscall5(SYS_VECTOR_IO,fd,(long)iov,count,operation,offset);
         if(result==SRV_ERR_INTR) {
-            if(__posix_signal_dispatch_pending_restartable()) continue;
-            errno=EINTR;return -1;
+            if(io_restart_after_signal(original_fd,fd)) continue;
+            return -1;
         }
         (void)__posix_signal_dispatch_pending();
         if(result<0) { errno=result < -1?(int)-result:EBADF;return -1; }
@@ -528,10 +559,9 @@ int fcntl(int fd, int command, ...) {
                     return -1;
                 }
                 if (result == SRV_ERR_INTR) {
-                    if (__posix_signal_dispatch_pending_restartable()) {
+                    if (io_restart_after_signal(fd, fd)) {
                         continue;
                     }
-                    errno = EINTR;
                     return -1;
                 }
                 if (__posix_signal_dispatch_pending() != 0) {

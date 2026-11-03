@@ -11,7 +11,7 @@ static void usage(void) {
 
 static int read_line(FILE *file, char *buffer, size_t capacity) {
     if (fgets(buffer, (int)capacity, file) == 0) {
-        return 0;
+        return ferror(file) ? -1 : 0;
     }
     return 1;
 }
@@ -83,6 +83,12 @@ int main(int argc, char **argv) {
         char right_line[LINE_SIZE];
         int have_left = read_line(left, left_line, sizeof(left_line));
         int have_right = read_line(right, right_line, sizeof(right_line));
+        if (have_left < 0 || have_right < 0) {
+            cli_puts("diff: read failed\n");
+            fclose(left);
+            fclose(right);
+            return 2;
+        }
         if (!have_left && !have_right) {
             break;
         }

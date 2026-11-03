@@ -1,4 +1,6 @@
 srvros initramfs
 
-This archive is loaded by Limine as a boot module and parsed by the kernel.
+The generated archive is loaded by Limine as a boot module and parsed by the
+kernel. The build overlays the compiled userspace init ELF at /init, replacing
+the placeholder init script in this source directory, and embeds srvros.exfat.
 

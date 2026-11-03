@@ -1,4 +1,4 @@
-# Portable profiles: first migration proof
+# Portable profiles: migration and desktop integration
 
 Target: a versioned, machine-independent identity and selected-document/preference
 bundle, validated through two fresh installation fixtures, plus a shared bounded
@@ -301,3 +301,227 @@ of these path and portable-settings contracts after filesystem/installer binding
 are agreed. Credential and permission enforcement remain separate prerequisites
 before real user isolation. The integration checkout and all three named review
 VMs remain untouched and running at closeout; this task launched no VM.
+
+## Desktop adoption milestone — verified for draft review
+
+Authorized follow-on: activate one explicitly imported profile in the compositor
+and current Files/Text/picker/Terminal/command routes; read and save portable
+preferences independently of local device settings; verify actual app interaction,
+clean reboot and migration on two independently provisioned disposable installed
+VMs. Authentication, kernel credentials and access enforcement remain unchanged.
+Branch `device/apple-silicon/profile-desktop` consumes PR309 and fetched main
+`3db1a1d3` (merged installed-disk PR311). PR309 is still a review dependency.
+The existing three review VMs remain running and untouched. One harness/build at
+a time in this isolated checkout; no physical disk or integration checkout writes.
+
+The proof retains `/fat` backing. Explicit profile selection must validate its
+home, UUID marker, required directories and portable settings before rendering;
+missing/malformed selections refuse to console with a corrective message, never
+substitute a shared legacy home. No selection retains existing desktop behavior.
+Enforce the actual 159-byte backing path limit when provisioning/using paths;
+versioned offline imports remain separate from unsupported guest directory-rename
+publication. Two stores/images use different local slots and numeric metadata;
+guest credentials remain root and metadata is not authorization.
+
+Scope ownership: this branch owns the new session/provider and preference
+integration; SrvrApps change is restricted to Terminal environment propagation.
+PR19's compositor diagnostic additions and PR252 process/libc lifetime scope are
+preserved. Existing installation tooling is consumed without editing its contract.
+Completion requires fresh matched artifacts, focused host tests, legacy desktop
+regression, both installed VM lifetimes/reboots, app and raw-byte readback,
+no profile/device setting contamination, missing-profile refusal, and draft PRs
+with source/evidence identities. These checks are now complete; acceptance and
+review handoff follow below.
+
+
+### Activated profile contract
+
+An offline imported image can launch its profile explicitly:
+
+```text
+run /fat/bin/deskd --profile=/fat/home/local-a --apps
+```
+
+This is profile selection, not login. It does not change the root credentials,
+libc identity functions, kernel checks, mount permissions or filesystem access
+policy. The portable UUID identifies the content; `profile-local.json` records
+installation-local alias/UID/GID metadata only. It grants no authority. A profile
+can be selected only for an ordinary desktop session, not diagnostic modes.
+
+Before graphics startup, `profile_startup.h` validates a canonical home (at most
+95 bytes) under `/fat/home/` or `/work/srvros-work/`, its exFAT mount, required
+folders, exact UUID marker and strict portable settings. Missing or malformed
+selection returns to the console with a recovery instruction. Apps and command
+jobs reject conflicting explicit context instead of substituting a shared home.
+No `--profile` retains the previous desktop home and preferences behavior.
+
+The copied session context supplies `HOME`, `SRVROS_DESKTOP_HOME`,
+`SRVROS_PROFILE_ID`, `XDG_CONFIG_HOME`, `XDG_DATA_HOME` and `XDG_CACHE_HOME` to
+queued/direct app launches, command jobs and Terminal shells. Files/Home,
+Text/pickers and screenshot destinations resolve from this context. Terminal's
+working directory is the selected home; shell history stays per-window/in-memory.
+The home-length bound leaves room for the actual guest path buffers; screenshot
+name overflow is refused rather than truncated.
+
+Settings combines the six portable values in
+`HOME/.config/srvros/portable.json` with device settings in the existing machine
+`desktop.conf`. Reads and writes remain asynchronous with independent existence
+and CRC guards. Portable changes write only the profile file; local changes
+preserve the machine file's other fields. Conflicts/failures stop automatic
+writes and retain the existing session-only/conflict indication. Host tests cover
+edits during loading or a pending save, and independent local/portable writes.
+
+`tools/profile_image.py` is an offline Python provisioning API for disposable
+images, not a mounted-disk installer or guest import command. It validates the
+bundle and expanded paths before copying a regular single-link source image,
+then uses `profile-image-driver` (the real kernel exFAT/VFS backend) on a private
+staging copy. Exclusive publication cannot overwrite an existing destination;
+failed stages are removed. Its supported slot is `/fat/home/<ASCII-name>`.
+The source must be offline. Import/export remains a host-mediated operation;
+a graphical account chooser, in-guest import UI and authentication are outside
+this milestone.
+
+### Acceptance on November 3, 2026
+
+Tested OS source: `73c5f2db3fbfce50365602c67cf1e07b42c08705`; implementation
+`2e5d2ea2`, plus a harness-only correction to use external `env`/`pwd` commands
+because this shell's builtins do not apply redirection. Matched SrvrApps:
+`3cf32af2294eebe9d8b9aeb8bc1dcbe46feb2967`, with the pinned SrvrUI. Subsequent
+acceptance-note commits do not claim a new guest build.
+
+- Matched `sh tools/macos/build.sh -j2 all` and `check-host` passed.
+- `test-desktop test-desktop-io test-lifecycle-wait test-profile-desktop` passed
+  with the Darwin x86_64 host compiler adapter (GNU GC-section flag translated to
+  Darwin dead stripping). The profile target includes 13 bundle test groups,
+  six offline-image groups, session/startup fixtures and dual-store preferences.
+- AddressSanitizer/UndefinedBehaviorSanitizer passed for profile session,
+  startup and preferences fixtures; the earlier shared-path sanitizer remains
+  accepted. No sanitizer finding was suppressed.
+- `profile_desktop_smoke.py` passed four independent VM lifetimes: A save, A
+  reboot, import into B, B reboot. Each installation is independently prepared
+  and applied with a distinct GPT disk GUID, its sole boot disk and fresh EFI
+  variable store. The synthetic UUID is unchanged across both local bindings.
+- In all four lifetimes Text opens the imported document through its picker,
+  Files opens the selected home, and Terminal launches external commands whose
+  environment/cwd are read back from disk. A edits the document and changes the
+  theme through Settings. Export after A's second boot uses the actual saved
+  bytes; B imports that export. The selected binary document is preserved too.
+- All six portable values are independently compared after every boot, and
+  installed `deskd`, `desktools` and `deskterm` match their built runtime binaries.
+  Both complete machine preference files remain byte-for-byte equal to their
+  own seeds. Guest and offline allocation checks report zero errors/leaks;
+  bytes outside the data partition are unchanged.
+- Each profile boot refuses missing-home, malformed-marker and traversal
+  selections before the valid launch. Legacy `installed_disk_smoke.py` also
+  passes two desktop lifetimes/save/reopen and damaged-system-volume refusal.
+- Screenshots were inspected for Text's opened document/path, Files/Home and
+  Terminal. This is an automated functional walkthrough, not participant research.
+
+| Installation | Home | Local alias | UID/GID metadata | Clock offset | Pointer speed |
+| --- | --- | --- | --- | --- | --- |
+| A | `/fat/home/local-a` | `local_a` | 1001/1001 | -300 minutes | 4 |
+| B | `/fat/home/local-b` | `local_b` | 2050/2051 | +60 minutes | 2 |
+
+For macOS reproduction, create the ignored host adapter used by the tests:
+
+```python
+# build/tooling/darwin-host-cc.py
+import os, sys
+os.execvp('cc', ['cc', '-arch', 'x86_64'] +
+    [arg.replace('-Wl,--gc-sections', '-Wl,-dead_strip') for arg in sys.argv[1:]])
+```
+
+Run the proof after the matched build and host-driver targets:
+
+```sh
+# Use the Darwin host adapter described above for the GNU-linker test targets.
+sh tools/macos/build.sh \
+  HOST_CC='python3 build/tooling/darwin-host-cc.py -D_DARWIN_C_SOURCE -Wno-array-bounds' \
+  test-profile-desktop build/tests/profile-image-driver build/tests/exfat-driver
+OVMF_CODE=/opt/homebrew/share/qemu/edk2-x86_64-code.fd \
+  python3 tools/profile_desktop_smoke.py \
+  --ovmf-vars /opt/homebrew/share/qemu/edk2-i386-vars.fd
+```
+
+Retained local evidence is under `build/review/profile-desktop/proof-gf_at45k/`
+(receipt, separate installation images, all four data readbacks, export, screenshots,
+serial logs and `independent-readback.json`). Receipt SHA256:
+`0c6d13dcecc93b24e1557a7a9d721fcde57abb8538506a7c48124988a3609036`.
+Legacy evidence: `build/review/installed-disk/proof-x36gz7yw/`.
+Host logs: `build/profile-desktop-host-r4.log` and matched-build logs. The first
+harness failure is retained separately; it is not acceptance evidence.
+
+All task-owned VMs stopped normally. The three pre-existing review VMs and primary
+checkout were left untouched. No physical disk, power-cut durability, external
+`fsck.exfat`, authentication or permission-isolation acceptance is claimed.
+The milestone is complete for draft PR review; merge/integration remains the
+review owner's action. No further implementation is required for this target.
+
+Apps companion: [SrvrApps PR #5](https://github.com/PaulMDemers/SrvrApps/pull/5).
+The OS branch pins its reviewed commit; land the shared header and app change
+together after the PR309 dependency. Neither PR is merged by this task.
+
+
+### Integration review — complete
+
+The user authorized review, fixes and dependency-order merge of OS #314 and
+SrvrApps #5. Foundation #309 was independently reviewed, updated with main
+`8f47f196`, and merged after its 13 bundle groups, C path fixture, ASan/UBSan and
+documentation checks passed. This branch now consumes that baseline.
+
+Review found that accepted `--profile=... --apps --trace` arguments left the
+legacy `apps` predicate false, disabling app launch and preference loading.
+Explicit validated profile selection now always enables ordinary desktop apps;
+the four-boot proof exercises both tracing forms. The refreshed proof provisions
+identity-bound roots and requires the explicit selected-root boot marker. It
+also checks all six portable values and each installed desktop/app binary in
+every readback, incorporating the earlier independent readback audit.
+
+No authentication or permission behavior changes. Apps #5's environment storage,
+NULL terminator, cwd restoration and failure cleanup were reviewed against the
+matched shared header; no additional Apps code change is required. The required implementation and runtime gates below pass. Integration order is
+foundation #309, Apps #5, then OS #314; the OS pin keeps the reviewed Apps commit.
+
+
+The identity-bound rerun found a second integration defect: the offline adapter
+mounted at `/vol`, so the filesystem's absolute-path metadata sidecar named
+`/vol/...`. Strict guest admission at `/fat` correctly refused that image.
+The adapter now uses `/fat`, requires clean admission before every operation,
+and reopens the completed stage through the same gate before publication. No
+kernel admission or permission check was weakened. A real-driver host regression
+checks canonical sidecar paths and injects a bad prefix, proving refusal preserves
+the source and publishes no target. All seven image groups pass. The failed
+identity-bound attempt is retained at `build/review/profile-desktop/proof-s3kg0g7c/`.
+
+
+Final tested source is `4c81085b13b98fca94c931be80ff211146c6882a`, with Apps
+`3cf32af2294eebe9d8b9aeb8bc1dcbe46feb2967`, consuming merged foundation #309
+at main `9d642c759be26624f9cb35e50bd50ef8c292c69a`. Both findings are resolved:
+`cac316e1` fixes profile startup flags, and `4c81085b` fixes offline metadata
+provisioning. No unresolved review finding remains within the agreed scope.
+
+- Full desktop/I/O/lifecycle/profile and installed-root host regressions pass
+  (`build/profile-integration-host.log`). The runtime source is unchanged by
+  the later provisioner-only fix. All seven image groups, including the real
+  driver refusal regression, pass in `build/profile-provisioner-review.log`.
+- The matched build passes (`build/profile-integration-build-r2.log`). Four
+  profile lifetimes pass with identity-bound roots, both accepted trace forms,
+  document/picker/Files/Terminal interaction, exact document bytes, all six
+  portable values, exact machine settings and built runtime binary readback.
+  Each boot has zero guest/offline allocation errors and unchanged protected
+  regions. Evidence: `build/review/profile-desktop/proof-p2vxb6ic/`.
+  Receipt SHA256: `132cbfc0454e755847ade24da00f3dd80bf27d9e76f0acc453ea73f5c9fefe03`.
+- The fresh legacy installed-desktop save/reboot/reopen and damaged-volume
+  refusal regression passes at `build/review/installed-disk/proof-kjq0tunh/`.
+- The earlier shared-path/session/startup/preferences ASan/UBSan checks remain
+  applicable: those implementations did not change. Current installed-root
+  host admission and malformed-metadata controls also pass without weakening
+  any kernel check. Authentication and permission enforcement remain separate.
+
+The final acceptance-note commit changes documentation only. Task-owned VMs
+are stopped, and the primary checkout and pre-existing review VMs remain
+untouched. Older large disposable images are retained as verified lossless gzip
+files, with restoration paths and original hashes in each run's
+`compressed-images.json`; current final proof images remain directly readable.
+OS hosted Actions are still disabled; Apps has no workflow files. No hosted CI
+pass is claimed. Local acceptance above is the authorized merge gate.

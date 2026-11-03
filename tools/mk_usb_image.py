@@ -89,16 +89,23 @@ class Fat32Builder:
         self.root_cluster = 2
         self.entries = []
 
-        clusters_estimate = self.total_sectors // self.sectors_per_cluster
-        self.fat_sectors = align_up((clusters_estimate + 2) * 4, SECTOR) // SECTOR
-        while True:
-            data_sectors = self.total_sectors - self.reserved_sectors - self.fat_count * self.fat_sectors
-            clusters = data_sectors // self.sectors_per_cluster
-            needed = align_up((clusters + 2) * 4, SECTOR) // SECTOR
-            if needed == self.fat_sectors:
-                break
-            self.fat_sectors = needed
-        self.cluster_count = clusters
+        # More FAT sectors hold more entries and leave fewer data clusters.
+        # Choose the smallest sufficient FAT even when no exact fixed point
+        # exists (e.g. 507 MiB alternates between 1012 and 1013 sectors).
+        available = self.total_sectors - self.reserved_sectors
+        low = 1
+        high = align_up((self.total_sectors // self.sectors_per_cluster + 2) * 4, SECTOR) // SECTOR
+        while low < high:
+            candidate = (low + high) // 2
+            clusters = (available - self.fat_count * candidate) // self.sectors_per_cluster
+            if candidate * SECTOR // 4 >= clusters + 2:
+                high = candidate
+            else:
+                low = candidate + 1
+        self.fat_sectors = low
+        self.cluster_count = (available - self.fat_count * low) // self.sectors_per_cluster
+        if self.cluster_count < 1:
+            raise ValueError("ESP is too small for a root directory")
         self.data_sector = self.reserved_sectors + self.fat_count * self.fat_sectors
         self.next_cluster = self.root_cluster + 1
         self.fat = [0] * (self.cluster_count + 2)
@@ -407,7 +414,7 @@ def build_image(args):
     image[backup_lba * SECTOR:(backup_lba + 1) * SECTOR] = gpt_header(
         backup_lba, 1, first_usable, last_usable, backup_entries_lba, entries_count, entries_crc, disk_guid)
 
-    os.makedirs(os.path.dirname(args.output), exist_ok=True)
+    os.makedirs(os.path.dirname(args.output) or ".", exist_ok=True)
     with open(args.output, "wb") as out:
         out.write(image)
 

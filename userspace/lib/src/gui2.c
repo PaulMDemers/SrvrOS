@@ -1572,7 +1572,11 @@ static void gui2_fd_refresh(struct gui2_file_dialog *dialog) {
     if (!gui2_fd_path_is_dir(dialog->cwd)) {
         cli_copy(dialog->cwd, sizeof(dialog->cwd), "/");
     }
-    cli_join_path(prefix, sizeof(prefix), dialog->cwd, "");
+    if (!cli_join_path(prefix, sizeof(prefix), dialog->cwd, "")) {
+        gui2_fd_bind_items(dialog);
+        cli_copy(dialog->status, sizeof(dialog->status), "Path too long");
+        return;
+    }
     for (uint64_t i = 0;; i++) {
         struct srv_stat info;
         char child[GUI2_FILE_NAME_MAX];

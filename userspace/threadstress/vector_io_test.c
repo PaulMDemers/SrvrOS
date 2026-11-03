@@ -1,7 +1,9 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <poll.h>
 #include <pthread.h>
+#include <sched.h>
 #include <signal.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -35,7 +37,99 @@ static void *interrupt_reader(void *data) {
     return NULL;
 }
 
+static int interrupted_reader_fd, replacement_reader_fd;
+static volatile sig_atomic_t replaced_reader;
+
+static void replace_reader(int signal) {
+    if (signal == SIGUSR1) {
+        replaced_reader = dup2(replacement_reader_fd, interrupted_reader_fd) == interrupted_reader_fd;
+    }
+}
+
+static int check_reader_reuse(void) {
+    int original[2], replacement[2];
+    CHECK(pipe(original) == 0 && pipe(replacement) == 0);
+    CHECK(write(replacement[1], "N", 1) == 1);
+    interrupted_reader_fd = original[0];
+    replacement_reader_fd = replacement[0];
+    replaced_reader = 0;
+    struct sigaction action = {.sa_handler = replace_reader, .sa_flags = SA_RESTART}, saved;
+    CHECK(sigaction(SIGUSR1, &action, &saved) == 0);
+    pthread_t worker;
+    struct vector_interrupt interrupt = {.reader = pthread_self()};
+    CHECK(pthread_create(&worker, NULL, interrupt_reader, &interrupt) == 0);
+    char byte = '?';
+    struct iovec iov = {&byte, 1};
+    ssize_t n = readv(original[0], &iov, 1);
+    int read_error = errno;
+    void *result;
+    CHECK(pthread_join(worker, &result) == 0 && !result);
+    CHECK(sigaction(SIGUSR1, &saved, NULL) == 0);
+    CHECK(replaced_reader && n == -1 && read_error == EBADF && byte == '?');
+    CHECK(read(original[0], &byte, 1) == 1 && byte == 'N');
+    close(original[0]);
+    close(original[1]);
+    close(replacement[0]);
+    close(replacement[1]);
+    puts("threadstress: replaced reader preserved new pipe data");
+    return 0;
+}
+
+struct replace_writer {
+    int reader, writer, replacement;
+};
+
+static void *replace_full_writer(void *arg) {
+    struct replace_writer *fds = arg;
+    struct pollfd pfd = {.fd = fds->writer, .events = POLLOUT};
+    /* The pipe has one free byte at entry. A full pipe proves writev has
+     * published its prefix, regardless of which thread started first. */
+    int ready = 1;
+    for (unsigned i = 0; i < 4096 && ready > 0; i++) {
+        ready = poll(&pfd, 1, 0);
+        if (ready > 0) sched_yield();
+    }
+    int replaced = dup2(fds->replacement, fds->writer) == fds->writer;
+    /* Release enough space for a stale writer to finish, so even the old
+     * implementation returns and the assertion can distinguish the result. */
+    char drain[PIPE_BUF];
+    ssize_t drained = read(fds->reader, drain, sizeof(drain));
+    return ready == 0 && replaced && drained == sizeof(drain) ? NULL : (void *)1;
+}
+
+static int check_blocked_writer_reuse(void) {
+    int original[2], replacement[2];
+    CHECK(pipe2(original, O_NONBLOCK) == 0 && pipe(replacement) == 0);
+    CHECK(fcntl(replacement[0], F_SETFL, O_NONBLOCK) == 0);
+    char record[PIPE_BUF] = {0};
+    ssize_t n;
+    do {
+        n = write(original[1], record, sizeof(record));
+    } while (n == sizeof(record));
+    CHECK(n == -1 && errno == EAGAIN);
+    char byte;
+    CHECK(read(original[0], &byte, 1) == 1);
+    CHECK(fcntl(original[1], F_SETFL, 0) == 0);
+    struct replace_writer fds = {original[0], original[1], replacement[1]};
+    pthread_t worker;
+    CHECK(pthread_create(&worker, NULL, replace_full_writer, &fds) == 0);
+    struct iovec iov[] = {{(void *)"P", 1}, {record, sizeof(record)}};
+    n = writev(original[1], iov, 2);
+    void *result;
+    CHECK(pthread_join(worker, &result) == 0 && result == NULL);
+    CHECK(n == 1 && read(replacement[0], &byte, 1) == -1 && errno == EAGAIN);
+    CHECK(write(original[1], "N", 1) == 1 && read(replacement[0], &byte, 1) == 1 && byte == 'N');
+    close(original[0]);
+    close(original[1]);
+    close(replacement[0]);
+    close(replacement[1]);
+    puts("threadstress: blocked writev kept its original prefix");
+    return 0;
+}
+
 int posix_vector_io_test(void) {
+    CHECK(check_reader_reuse() == 0);
+    CHECK(check_blocked_writer_reuse() == 0);
     int p[2];char first[2],second[2];
     struct iovec input[]={{first,2},{NULL,0},{second,2}};
     CHECK(!pipe(p) && write(p[1],"ab",2)==2);

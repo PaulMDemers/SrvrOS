@@ -22,7 +22,7 @@ class DeviceChecks(unittest.TestCase):
             text = (ROOT / 'userspace/examples' / name).read_text()
             (examples / name).write_text(text.replace('/fat', str(self.root)))
         (examples / 'network-check.sh').write_text('echo dhcp-status=0\necho dns-status=0\necho http-status=0\necho HTTP-fixture\n')
-        for name, script in {'playwav': 'echo playwav-fixture\nexit 0', 'ifconfig': 'echo role=active-net0 link=up', 'dhcp': 'exit 1', 'sleep': ':', 'sync': ':'}.items():
+        for name, script in {'playwav': 'echo playwav-fixture\nexit 0', 'ifconfig': 'mkdir -p "$HOME/.cache"; echo retained > "$HOME/.cache/fixture"; echo role=active-net0 link=up', 'dhcp': 'exit 1', 'sleep': ':', 'sync': ':'}.items():
             f = self.bin / name
             f.write_text('#!/bin/sh\n' + script + '\n')
             f.chmod(0o755)
@@ -119,9 +119,15 @@ class DeviceChecks(unittest.TestCase):
         self.assertIn('disconnected-dhcp-status=1', (report/'network-down.txt').read_text())
         self.assertIn('Completion is NOT a pass', result.stdout)
         self.assertNotIn('To return: press F10', result.stdout)
-        before = {p.name:p.read_bytes() for p in report.iterdir()}
+        # Host tools may create directories under the nested report HOME.
+        # Snapshot the entire tree so replay refusal preserves those too.
+        def snapshot():
+            return {str(p.relative_to(report)): p.read_bytes() if p.is_file() else None
+                    for p in report.rglob('*')}
+        before = snapshot()
+        self.assertEqual(before['.cache/fixture'], b'retained\n')
         self.assertNotEqual(self.run_checks(data).returncode, 0)
-        self.assertEqual(before, {p.name:p.read_bytes() for p in report.iterdir()})
+        self.assertEqual(before, snapshot())
 
     def test_partial_observations_survive_eof(self):
         self.assertNotEqual(self.run_checks('\nspeakers-ok\n').returncode, 0)

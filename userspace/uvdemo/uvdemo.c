@@ -9,6 +9,19 @@
 
 static int timer_ticks;
 
+static int write_bounds_test(void) {
+    uv_tcp_t tcp = {0}; uv_write_t request = {0};
+    char byte = 0;
+    uv_buf_t buffers[2] = {{&byte, SIZE_MAX}, {&byte, 1}};
+    tcp.handle.type = UV_TCP; tcp.handle.fd = 1;
+    if (uv_write(&request, (uv_stream_t *)&tcp, buffers, 2, NULL) != UV_EINVAL) return 1;
+    buffers[0].base = NULL; buffers[0].len = 1;
+    if (uv_write(&request, (uv_stream_t *)&tcp, buffers, 1, NULL) != UV_EINVAL) return 1;
+    tcp.write_queue_size = SIZE_MAX; buffers[0].base = &byte;
+    if (uv_write(&request, (uv_stream_t *)&tcp, buffers, 1, NULL) != UV_EINVAL) return 1;
+    return 0;
+}
+
 static void timer_cb(uv_timer_t *timer) {
     timer_ticks++;
     printf("uvdemo: timer tick %d\n", timer_ticks);
@@ -586,7 +599,7 @@ int main(int argc, char **argv) {
         return 0;
     }
     if (strcmp(mode, "basic") == 0) {
-        if (timer_test() != 0 || fs_test() != 0 || work_test() != 0 || poll_test() != 0) {
+        if (write_bounds_test() != 0 || timer_test() != 0 || fs_test() != 0 || work_test() != 0 || poll_test() != 0) {
             return 1;
         }
         puts("uvdemo: basic ok");
