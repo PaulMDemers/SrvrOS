@@ -462,7 +462,7 @@ The OS branch pins its reviewed commit; land the shared header and app change
 together after the PR309 dependency. Neither PR is merged by this task.
 
 
-### Integration review — in progress
+### Integration review — complete
 
 The user authorized review, fixes and dependency-order merge of OS #314 and
 SrvrApps #5. Foundation #309 was independently reviewed, updated with main
@@ -479,9 +479,8 @@ every readback, incorporating the earlier independent readback audit.
 
 No authentication or permission behavior changes. Apps #5's environment storage,
 NULL terminator, cwd restoration and failure cleanup were reviewed against the
-matched shared header; no additional Apps code change is required. Current gate:
-matched rebuild, host regressions, four profile boots, legacy reboot regression
-and final head/base checks before Apps #5 then OS #314 merge.
+matched shared header; no additional Apps code change is required. The required implementation and runtime gates below pass. Integration order is
+foundation #309, Apps #5, then OS #314; the OS pin keeps the reviewed Apps commit.
 
 
 The identity-bound rerun found a second integration defect: the offline adapter
@@ -493,3 +492,36 @@ kernel admission or permission check was weakened. A real-driver host regression
 checks canonical sidecar paths and injects a bad prefix, proving refusal preserves
 the source and publishes no target. All seven image groups pass. The failed
 identity-bound attempt is retained at `build/review/profile-desktop/proof-s3kg0g7c/`.
+
+
+Final tested source is `4c81085b13b98fca94c931be80ff211146c6882a`, with Apps
+`3cf32af2294eebe9d8b9aeb8bc1dcbe46feb2967`, consuming merged foundation #309
+at main `9d642c759be26624f9cb35e50bd50ef8c292c69a`. Both findings are resolved:
+`cac316e1` fixes profile startup flags, and `4c81085b` fixes offline metadata
+provisioning. No unresolved review finding remains within the agreed scope.
+
+- Full desktop/I/O/lifecycle/profile and installed-root host regressions pass
+  (`build/profile-integration-host.log`). The runtime source is unchanged by
+  the later provisioner-only fix. All seven image groups, including the real
+  driver refusal regression, pass in `build/profile-provisioner-review.log`.
+- The matched build passes (`build/profile-integration-build-r2.log`). Four
+  profile lifetimes pass with identity-bound roots, both accepted trace forms,
+  document/picker/Files/Terminal interaction, exact document bytes, all six
+  portable values, exact machine settings and built runtime binary readback.
+  Each boot has zero guest/offline allocation errors and unchanged protected
+  regions. Evidence: `build/review/profile-desktop/proof-p2vxb6ic/`.
+  Receipt SHA256: `132cbfc0454e755847ade24da00f3dd80bf27d9e76f0acc453ea73f5c9fefe03`.
+- The fresh legacy installed-desktop save/reboot/reopen and damaged-volume
+  refusal regression passes at `build/review/installed-disk/proof-kjq0tunh/`.
+- The earlier shared-path/session/startup/preferences ASan/UBSan checks remain
+  applicable: those implementations did not change. Current installed-root
+  host admission and malformed-metadata controls also pass without weakening
+  any kernel check. Authentication and permission enforcement remain separate.
+
+The final acceptance-note commit changes documentation only. Task-owned VMs
+are stopped, and the primary checkout and pre-existing review VMs remain
+untouched. Older large disposable images are retained as verified lossless gzip
+files, with restoration paths and original hashes in each run's
+`compressed-images.json`; current final proof images remain directly readable.
+OS hosted Actions are still disabled; Apps has no workflow files. No hosted CI
+pass is claimed. Local acceptance above is the authorized merge gate.
