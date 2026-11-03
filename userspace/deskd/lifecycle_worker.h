@@ -1,6 +1,7 @@
 #ifndef DESKD_LIFECYCLE_WORKER_H
 #define DESKD_LIFECYCLE_WORKER_H
 #include <pthread.h>
+#include <srvros/profile_session.h>
 /* The UI owns admission and publication. One persistent worker owns blocking
  * syscalls. Release/acquire transfers each record; no scene pointers cross the
  * boundary. A discarded allocation keeps its budget until unmapping completes. */
@@ -26,6 +27,7 @@ struct life_launch {
     unsigned state;
     int application,child_slot;
     char path[160],home[160];
+    struct srv_profile_session profile;
     long pid;
     uint64_t elapsed,queued_us,begin_us,end_us;
 };
@@ -218,11 +220,11 @@ static void life_work(struct lifecycle_worker *w) {
         if(life_state(&j->state)!=LIFE_QUEUED)continue;
         const struct desk_application_info *info=desk_application_info(j->application);
         char *argv[]={(char *)info->program,(char *)info->role,j->path,NULL};
-        char home[192],desktop_home[192];
-        snprintf(home,sizeof(home),"HOME=%s",j->home);
-        snprintf(desktop_home,sizeof(desktop_home),"SRVROS_DESKTOP_HOME=%s",j->home);
-        char *env[]={"PATH=/fat/bin:/:/fat",home,desktop_home,NULL};
-        struct srv_exec_request r={.path=argv[0],.argv=argv,.envp=env,.flags=SRV_EXEC_BACKGROUND,
+        struct srv_profile_environment environment;
+        if(!srv_profile_environment_init(&environment,&j->profile,"/fat/bin:/:/fat")) {
+            j->pid=-1;life_publish(&j->state,LIFE_DONE);continue;
+        }
+        struct srv_exec_request r={.path=argv[0],.argv=argv,.envp=environment.envp,.flags=SRV_EXEC_BACKGROUND,
             .stdin_fd=-1,.stdout_fd=-1,.stderr_fd=-1};
         j->begin_us=(uint64_t)srv_monotonic_us();j->pid=srv_exec(&r);
         j->end_us=(uint64_t)srv_monotonic_us();j->elapsed=j->end_us-j->begin_us;
