@@ -154,7 +154,9 @@ checks were rerun after the final partial-copy checkpoint and immediate poison
 corrections. Documentation links and whitespace checks pass. This is emulator
 acceptance of the named cases, not physical tearing or audio-latency acceptance.
 
-[PR281](https://github.com/PaulMDemers/SrvrOS/pull/281) is a draft stacked on PR280.
+[PR281](https://github.com/PaulMDemers/SrvrOS/pull/281) was merged into `main`
+after PR280 on November 3. Post-merge runtime `1c0896e7` has the identical tree
+and passes the matched build and primary presentation/recovery VM again.
 The [manifest](assets/screenshots/virtio-manifest.json) records clean runtime
 source, kernel/image hashes and screenshot hash. Raw receipts remain in ignored
 `build/review/virtio-gpu-probe/` and `build/review/virtio-gpu-present/`. All test

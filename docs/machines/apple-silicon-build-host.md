@@ -1965,3 +1965,20 @@ Details and inspected screenshot are in [display presentation](../display-presen
 All test VMs stopped; working runtime is complete for this opt-in QEMU target.
 Next is review/integration after PR280, preserving PR252's independent lifetime
 work. No main merge, hosted Actions, native modeset or physical acceptance.
+
+
+### Desktop integration completed — 2026-11-03
+
+The user authorized both merges. PR280 merged as `624e5e8f`; PR281 was retargeted
+from the UI branch to `main` and merged as `1c0896e7`. The combined tree exactly
+matches tested head `29bd1986`; all SrvrUI/SrvrApps/SrvrPorts pins remain the
+published remote main heads. A matched build and the primary VirtIO presentation
+VM pass on clean merged runtime `1c0896e7`, including drag, scroll, normal console
+recovery, forced desktop exit and restart. Raw post-merge results are in
+`build/review/desktop-merge/` and `build/review/virtio-gpu-present/`.
+
+The workspace is being returned to current `main`; no test VM remains running.
+Actions and native acceptance remain unchanged. The repository/theme and opt-in
+presentation milestones are delivered. Next is an attended visible comparison
+of VGA and VirtIO dragging/scrolling, with responsiveness measurements and no
+assumption that command fences establish host-monitor vblank.

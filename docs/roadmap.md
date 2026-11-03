@@ -13,8 +13,8 @@ the user. Finish the complete composed frame before publishing scanout, retain
 buffer ownership until command completion, and recover the VGA console on normal
 exit or desktop process death. The glass/theme milestone remains complete.
 
-Implemented and locally verified at runtime `a8c21344`, published as draft
-[PR281](https://github.com/PaulMDemers/SrvrOS/pull/281), stacked on UI PR280.
+Implemented and locally verified at runtime `a8c21344`, merged through
+[PR281](https://github.com/PaulMDemers/SrvrOS/pull/281) after UI PR280.
 The matched build, transport/lease/console/graphics/I/O/cancellation/desktop host
 regressions and sanitizers pass. Three sequential probe boots cover enabled,
 absent and disabled device paths; the absent case renders/exits a standard VGA
@@ -25,9 +25,10 @@ The final evidence identifies a clean runtime tree and exact image hashes.
 The backend stages a complete frame, alternates two resources, fences commands,
 retains DMA until reset completion, and uses existing scheduler service checkpoints.
 Start it with `python3 tools/macos/run.py --display-device virtio`; standard VGA
-remains the default. The scoped QEMU presentation target is ready for review.
-Next: review PR281 after its PR280 dependency; no further implementation is required
-for this target. Host compositor/physical vblank, native drivers, live mode changes
+remains the default. Both PRs are merged into `main`; post-merge runtime
+`1c0896e7` has the exact tested tree and passes a matched build plus the primary
+presentation/recovery VM. The scoped target is delivered and verified.
+Next: compare visible VGA/VirtIO dragging and scrolling for smoothness. Host compositor/physical vblank, native drivers, live mode changes
 and partial-transfer optimization remain separate work. All verification VMs are
 stopped. See [the contract and screenshot](display-presentation.md).
 
@@ -49,7 +50,7 @@ Readiness: implemented and locally verified at runtime `db898927`, with SrvrUI
 suites, theme sanitizers, dynamic drag/scroll damage oracle, live theme/persistence
 application VM and compositor VM pass. The separate Settings VM passed before the
 final title-frost-only adjustment. [Rendered evidence](desktop-theme.md) is saved.
-Next: review PR280. The scoped glass/theme/presentation investigation is complete;
+PR280 is merged. The scoped glass/theme/presentation investigation is complete;
 real synchronized scanout is separate driver work described in the
 [presentation plan](display-presentation.md). Native acceptance and Actions remain
 unchanged.
