@@ -1,5 +1,48 @@
 # Disk installation and recovery
 
+## PR315 integrated-main review and next milestone
+
+PR313 landed as main `56e1f950`, including PR314 desktop profiles, PR252 and
+the merged SrvrPorts dependency. User authorized review and merge of PR315 if
+ready. Merged that main into the delivery branch and rebuilt the complete matched
+image. Review found a harness readiness problem: the early Text startup log was
+absent even though Text published its window. The harness now waits for window
+publication; actual save/reopen responses, clipboard length and disk bytes remain
+required. The initial timeout is retained outside build at
+`.local/installation-evidence/pr315-startup-log-timeout`.
+
+Clean reviewed source `57fcf482` passes all 11 fresh VM cases against integrated
+main, including canonical Text/theme persistence after reversal and nine recovery
+cases preserving both full disk hashes before namespace activation. Focused
+storage, installation/provenance, namespace/syscall and profile/session/image
+host tests pass; full build and documentation checks pass. No unresolved review
+threads were present. The [review receipt](assets/screenshots/installed-canonical-review-manifest.json)
+records exact identities/hashes and the verified backup at
+`.local/installation-evidence/pr315-5wv8f9vm`; the
+[reviewed screenshot](assets/screenshots/installed-canonical-reviewed.png) shows
+Text reopening `/home/installed-proof.txt`. All task VMs are stopped; existing
+review PIDs 61610, 6233 and 85869 remain live and untouched. Ready for the
+user-authorized merge; PR315 is the authoritative merge record. Earlier pending
+dependency statements below describe the initial publication only.
+
+Next bounded milestone: **profile-aware disposable installation plans**. Compose
+the existing installer and offline profile adapter so one reviewed plan binds a
+validated portable bundle to an explicit destination home/local alias/UID/GID,
+then publishes a new identity-bound GPT image. Prove explicit profile launch,
+document and portable-setting persistence after reboot, and the same portable
+UUID across two installations with different disk GUIDs and local bindings.
+Malformed bundles or changed plans must refuse publication and preserve inputs.
+
+Dependencies are now merged: PR309's bundle/local-binding contract, PR314's
+`profile_image.py` and clean `/fat` metadata publication plus SrvrApps5 session
+consumer, and PR313's canonical namespace/lifetime contract. Reuse these APIs;
+do not create another profile store or namespace. The current accepted profile
+home is `/fat/home/<name>`; logical `/home` aliases do not expand that startup
+allowlist automatically. Preserve machine settings independently of the six
+portable fields. Guest import UI, login/authentication, physical media and
+in-place upgrades remain later work. This paragraph plans the next milestone;
+it does not begin implementation.
+
 ## Canonical-path installed boot — completed proof
 
 User authorized the canonical-path installed-boot proof and a scoped PR. Work

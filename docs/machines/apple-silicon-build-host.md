@@ -1,5 +1,17 @@
 # Apple Silicon macOS build host
 
+## PR315 merge review
+
+Current-main `56e1f950` includes filesystem PR313 and profile-desktop PR314.
+Clean reviewed candidate `57fcf482` rebuilt and passed all 11 canonical installed
+VM cases after replacing the early Text startup-log wait with window-publication
+readiness. Exact save/reopen and no-write recovery requirements remain enforced.
+Focused installation, namespace and profile host checks pass. Evidence/artifacts
+are verified outside build at `.local/installation-evidence/pr315-5wv8f9vm`.
+All task VMs are stopped; original review PIDs 61610, 6233 and 85869 are preserved.
+The user authorized merge if ready; see PR315 for the final state and the
+installation document for the next profile-aware installation-plan scope.
+
 ## Canonical-path installation — proof complete
 
 User authorized a scoped installed-boot PR with reordered-disk persistence and
