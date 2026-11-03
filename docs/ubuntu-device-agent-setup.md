@@ -58,7 +58,7 @@ normal sudo access:
 ```sh
 sudo apt-get update
 sudo apt-get install -y --no-install-recommends \
-  build-essential git python3 python3-pil xorriso \
+  build-essential bison git python3 python3-pil xorriso \
   qemu-system-x86 qemu-system-gui qemu-utils ovmf acpica-tools \
   grub-common grub-efi-amd64-bin mtools dosfstools exfatprogs \
   pciutils usbutils efibootmgr mokutil udisks2 ripgrep
@@ -66,6 +66,7 @@ git submodule update --init --recursive
 tools/host-env.sh make check-host
 ```
 
+Bison generates the pinned awk parser during the normal image build.
 Zig 0.15.2 and pinned Limine artifacts are downloaded by Make. Use the recorded
 submodule revisions, not `git submodule update --remote`. The base image does not
 build the full Node runtime; see [development setup](development.md) for the
