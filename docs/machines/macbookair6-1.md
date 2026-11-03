@@ -6223,3 +6223,17 @@ clear the BIOS request. A future well transition needs its own serialized
 ownership/adoption/restore design. RC6 timing failure and package-C3 zero remain
 unresolved. Audit-only closeout requires docs/link and diff checks; no hardware
 acceptance is added and no new boot is armed.
+
+
+### Read-only display-HDA context — active scope (2026-11-03)
+
+Base `e376669c` with pinned SrvrUI/SrvrApps/SrvrPorts. Add two bounded display-HDA
+control snapshots to the isolated Air6,1 platform diagnostic, exact 00:03.0
+`8086:0a0c` / subsystem `106b:011a`, validated BAR/D0/decode and display-well
+checks. Fixed-width global controls and capability-bounded stream controls only;
+no initialization, reset, verbs, status acknowledgement, power/PCI writes or
+new polling. Scope: isolated producer, host decoder, access/formatter/parser and
+retention regressions, machine/current guide. Preserve every existing phase,
+latency limit and integrity check. PR278 app registry, PR252 lifetimes and PR19
+Wi-Fi retain separate ownership. Next checkpoint: host/build/VM validation and
+an exact-source automated read-only native candidate; no new boot armed yet.
