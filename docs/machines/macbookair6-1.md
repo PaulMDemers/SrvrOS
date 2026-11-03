@@ -143,11 +143,14 @@ existing checks. The overall platform test remains failed on the original RC6
 bound (about 0.0730% nominal excess), and package C3 remains zero. USB integrity,
 Ubuntu recovery and durable payload/evidence verification pass. No boot is armed.
 
-Next: design the serialized display-domain adoption, HDA shutdown and restoration
-requirements before proposing a well transition. The firmware well request
-remains set; idle DMA controls alone do not prove the well unused. Keep RC6
-semantics and package-C3 causality separate. PR278 app registry, PR252 lifetimes
-and PR19 Wi-Fi retain separate scope.
+The [ownership and restoration design](../macbookair6-1-display-ownership.md)
+now defines staged adoption, reference/epoch ownership, HDA quiescence and
+bounded release/restore prerequisites. Controller-word replay cannot recover
+unknown codec state after reset. The next implementation is a read-only adoption
+and eligibility state machine with refusal/failure fixtures and zero control
+writes. Actual well/HDA ownership and independent recovery must be qualified
+before any write trial. Policy and limits remain unchanged; no boot is armed.
+PR291 ports, PR288/278 apps, PR252 lifetimes and PR19 Wi-Fi remain separate.
 
 ### Historical battery-runtime objective (2026-10-23)
 
@@ -6359,3 +6362,29 @@ limit, executable or installed-payload change. PR291 ports, PR288/278 apps,
 PR252 lifetimes and PR19 Wi-Fi remain independent. Next checkpoint: reviewable
 state machine and explicit prerequisites for a future diagnostic implementation.
 No physical test or reboot is armed by this design.
+
+
+### Display/HDA ownership and recovery design completed (2026-11-03)
+
+Consumed integration `5b2bf3c7` and exact submodule pins, preserving native source
+`f921afc2` / release `2bcb21ae64ee1920` as separate evidence. The
+[design](../macbookair6-1-display-ownership.md) maps observations to explicit
+owner/epoch/reference, adoption, guard, HDA quiescence, eligibility, well-off and
+restore states. Unknown ownership, foreign activity, pending work, stale epochs,
+changed gates or missing recovery refuse; uncertainty after a write retains
+ownership and memory. No existing limits or integrity checks are relaxed.
+
+The important recovery gap is codec state: HDA reset/discovery does not guarantee
+preservation of firmware codec settings. A future write profile needs a defined
+owned quiet target and verified recovery, not bulk replay of controller or DMA
+addresses. It also needs the live eDP/framebuffer backing lifetime pinned and an
+evidence/reset path independent of a lost display. Both remain prerequisites.
+
+Next is milestone A: implement a no-write adoption/eligibility owner with exact
+profile checks, immutable epoch, counted users/in-flight operations and retained
+refusal/fault receipts, then validate its positive/negative host and VM paths.
+It must not mark a dry-run software token as hardware authority. Later guard/HDA
+and well-off milestones have separate write-allowlist and recovery gates. This
+work changes documentation only, leaves the installed payload and boot state
+unchanged, and adds no physical acceptance. Docs/source review checks pass; no
+new boot is armed.
