@@ -61,3 +61,64 @@ existing UI/lifetime bounds rather than relax them to accommodate a driver.
 
 No physical test is armed by this plan. Prepare a source-bound run record,
 independent payload/recovery and exact-stage rehearsal before any next reboot.
+
+## First observation implementation
+
+The opt-in `srvros.capture=intel-display` path runs immediately after PCI
+inventory, before normal Intel initialization and userspace. It uses the existing
+exact Air7,2 DSDT matcher plus GPU `8086:1626` rev09, subsystem `106b:011b`,
+PCH `8086:9cc3`, existing memory decode and a validated read-only D0 snapshot.
+It never enables a device or transitions its power state. Ordinary boot retains
+its current behavior; the diagnostic skips the old Intel stub's PCI writes.
+
+The first MMIO prefix is bounded to2MiB and BAR0 must meet the captured16MiB
+alignment and39-bit address limit. Firmware memory-map overlaps with RAM or the
+framebuffer refuse admission. The address-map reference is Intel's
+[Mobile 5th Generation datasheet, section3.2.10](https://cdrdv2-public.intel.com/332379/mobile-5th-gen-core-family-datasheet-vol-2.pdf).
+The read allowlist uses the pinned Linux
+[i9xx plane](https://github.com/torvalds/linux/blob/028ef9c96e96197026887c0f092424679298aae8/drivers/gpu/drm/i915/display/i9xx_plane_regs.h)
+and [display register](https://github.com/torvalds/linux/blob/028ef9c96e96197026887c0f092424679298aae8/drivers/gpu/drm/i915/display/intel_display_regs.h)
+definitions. Intel's [Broadwell manual index](https://www.intel.com/content/www/us/en/docs/graphics-for-linux/developer-reference/1-0/broadwell.html)
+is the architecture reference. The capture accesses no AUX, forcewake, W1C
+status, GTT PTE or framebuffer contents.
+
+Nine temporary kernel-address-space pages have no writable, user or executable
+permission and never enter the global mapping registry. Only translations
+created by this attempt are removed; an existing mapping refuses and is left
+alone. Page-table storage retains the kernel address space's normal lifetime.
+Partial mappings are cleaned up; uncertain cleanup is retained and reported.
+There is one attempt per boot and no runtime API for repeating it.
+
+Two snapshots contain58 allowlisted reads each, bracketed by four power-well
+registers. Their separation targets20ms with a finite counter fallback and a
+100ms clock bound. PCI identity/access is revalidated before each snapshot and
+afterward. Only scanline/frame counters may differ; changed power/control/access
+state refuses a complete observation. These are non-atomic observations, not a
+proof excluding firmware activity. Raw source dimensions, plane/stride/surface,
+DDI/transcoder/timing and cursor fields are preserved. A numerical linear
+surface relation is explicitly separate from unknown GGTT backing and ownership.
+
+```sh
+make -j2 all test-intel-display-capture
+python3 tools/hardware_boot.py stage --laptop-probe-volume VOLUME_SERIAL \
+  --intel-display-capture
+# Verify the reported release and run this immediately in the same checkout:
+python3 tools/hardware_boot_smoke.py --probe-check
+python3 tools/hardware_boot_smoke.py --probe-check --probe-missing-workspace
+```
+
+The exact-stage Q35 check must refuse the unmatched GPU before display MMIO,
+save the full refusal receipt, unmount and reset. A missing workspace must halt
+with save/unmount failure instead of resetting past lost evidence. The stager
+rejects combined firmware experiments and attended failure-hold overrides.
+Successful observations and handled refusals both return automatically after
+successful save/unmount; refusal remains a failed native observation. No tester
+input is needed for this diagnostic. Use the normal recovery/run-record/install
+sequence before a physical boot.
+
+The existing native desktop collector exposes `intel_display_capture` and flags
+missing, refused, malformed or incomplete reports. It validates versioned rows,
+identities, fixed read counts, bounded timing, stable controls/well endpoints and
+mapping retirement. Match the new session/release to its staged manifest before
+accepting the observation. Neither decoder acceptance nor VM fixtures establish
+native flip support or visible tear-free scanout.

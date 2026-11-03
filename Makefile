@@ -346,6 +346,7 @@ USER_SYSROOT_HEADERS := $(shell find shared/include userspace/lib/include -type 
 KERNEL_HEADERS := $(shell find shared/include kernel/include -type f 2>/dev/null | LC_ALL=C sort)
 
 KERNEL_C := $(shell find kernel/src -type f -name '*.c' 2>/dev/null | LC_ALL=C sort)
+KERNEL_C += kernel/diagnostics/package_audit_core.c
 KERNEL_S := $(shell find kernel/src -type f -name '*.S' 2>/dev/null | LC_ALL=C sort)
 UACPI_KERNEL_SRC := $(wildcard ports/upstream/uacpi/source/*.c) ports/srvros/uacpi/kernel/probe.c \
     ports/srvros/uacpi/runtime/work_queue.c ports/srvros/uacpi/runtime/work_worker.c \
@@ -3868,7 +3869,7 @@ build/tests/process-event-host$(HOST_EXE): tools/test_process_event.c kernel/src
 # MP request exists only in this explicit diagnostic ELF. Ordinary objects and
 # boot requests are never overwritten. AP code has no C runtime dependencies.
 AP_PROBE_OBJ := build/ap-probe/power.o build/ap-probe/platform.o build/ap-probe/package.o build/ap-probe/scheduler.o build/ap-probe/main.o build/ap-probe/requests.o build/ap-probe/probe.o build/ap-probe/entry.o
-AP_PROBE_BASE := $(filter-out build/kernel/src/main.c.o build/kernel/src/limine_requests.c.o build/kernel/src/scheduler.c.o build/kernel/src/drivers/power.c.o,$(KERNEL_OBJ))
+AP_PROBE_BASE := $(filter-out build/kernel/src/main.c.o build/kernel/src/limine_requests.c.o build/kernel/src/scheduler.c.o build/kernel/src/drivers/power.c.o build/kernel/diagnostics/package_audit_core.c.o,$(KERNEL_OBJ))
 .PHONY: ap-probe-kernel
 ap-probe-kernel: build/ap-probe/srvros.elf
 build/ap-probe/main.o: kernel/src/main.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
@@ -4180,3 +4181,16 @@ test-display-owner: build/tests/display-owner$(HOST_EXE)
 build/tests/display-owner$(HOST_EXE): tools/test_display_owner.c kernel/diagnostics/display_owner_core.c kernel/include/srvros/display_owner.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_display_owner.c kernel/diagnostics/display_owner_core.c -o $@
+
+.PHONY: test-intel-display-capture
+test-core: test-intel-display-capture
+test-intel-display-capture: build/tests/intel-display-capture$(HOST_EXE) build/tests/intel-display-probe$(HOST_EXE)
+	build/tests/intel-display-capture$(HOST_EXE)
+	build/tests/intel-display-probe$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_display_capture.py
+build/tests/intel-display-capture$(HOST_EXE): tools/test_intel_display_capture.c kernel/src/drivers/intel_display_capture.c kernel/include/srvros/intel_display_capture.h
+	mkdir -p $(dir $@)
+	$(HOST_CC) -std=c11 -Wall -Wextra -Werror -I kernel/include tools/test_intel_display_capture.c kernel/src/drivers/intel_display_capture.c -o $@
+build/tests/intel-display-probe$(HOST_EXE): tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_display_capture.c kernel/diagnostics/package_audit_core.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p $(dir $@)
+	$(HOST_CC) -std=c11 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include tools/test_intel_display_probe.c kernel/src/drivers/intel_display_capture.c kernel/diagnostics/package_audit_core.c -o $@

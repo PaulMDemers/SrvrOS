@@ -790,6 +790,15 @@ def collect(mount, volume, output):
         posix_proof=posix_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
         if re.search(r'srvros\.capture=posix(?:\s|$)',text) and posix_proof is None:
             attention.append('collection: POSIX capture missing, failed or incomplete')
+        from intel_display_capture import capture_result as intel_display_result
+        intel_display=None
+        if re.search(r'srvros\.capture=intel-display(?:\s|$)',text):
+            try:
+                intel_display=intel_display_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+                if not intel_display or not intel_display['observation_complete']:
+                    attention.append('collection: Intel display observation refused, failed or incomplete')
+            except ValueError as error:
+                attention.append('collection: invalid Intel display observation: '+str(error))
         from storage_wait_result import capture_result,PAYLOAD
         storage_wait=capture_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
         if storage_wait:
@@ -805,6 +814,7 @@ def collect(mount, volume, output):
         if 'srvros.capture=storage-wait' in text and storage_wait is None:
             attention.append('collection: storage wait comparison missing or invalid')
         records.append({
+            "intel_display_capture": intel_display,
             "posix_capture": posix_proof,
             "storage_wait": storage_wait,
             "battery_preflight": preflight,

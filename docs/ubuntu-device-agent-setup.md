@@ -706,6 +706,18 @@ This does not enable normal startup or accept physical charging/gauge accuracy.
 Use the collector containing the `7f1438d` session-identity fix; earlier v49
 collection can mislabel the JSON session while leaving its saved logs intact.
 
+### Air7,2 inherited Intel display observation
+
+Use the separate [display capture guide](macbookair7-2-display-presentation.md#first-observation-implementation)
+for `stage --laptop-probe-volume VOLUME_SERIAL --intel-display-capture`.
+This unattended profile reads an exact hardware-gated register allowlist and
+skips normal Intel initialization; it performs no GPU control writes. Run the
+exact staged `hardware_boot_smoke.py --probe-check` and missing-workspace
+negative rehearsal before the normal install/recovery/one-shot sequence below.
+The report saves and returns automatically on a complete observation or handled
+identity/access refusal, while refusal remains failed evidence. Failed save or
+unmount halts. It needs no human input and does not exercise native page flips.
+
 ## 6. Install alongside Ubuntu and select one boot
 
 The installer requires UEFI Ubuntu, a separate writable FAT ESP at `/boot/efi`,

@@ -8,6 +8,7 @@
 #include <srvros/battery_diagnostic.h>
 #include <srvros/desktop_session.h>
 #include <srvros/laptop_probe.h>
+#include <srvros/intel_display_capture.h>
 #include <srvros/audio.h>
 #include <srvros/thermal.h>
 #include <srvros/power.h>
@@ -546,6 +547,11 @@ void kmain(void) {
         ioapic_route_isa_irq(12, 44);
     }
     pci_init();
+    bool intel_display_capture_requested=cmdline_has_token(cmdline,"srvros.capture=intel-display");
+    if(intel_display_capture_requested) {
+        struct limine_framebuffer_response *r=framebuffer_request.response;
+        intel_display_probe_boot(r && r->framebuffer_count && r->framebuffers?r->framebuffers[0]:NULL);
+    }
     bool virtio_baseline=cmdline_has_token(cmdline,"srvros.virtio=on");
     if(virtio_baseline) {
         bool input=virtio_input_init();
@@ -594,7 +600,8 @@ void kmain(void) {
         pci_print_usb_controllers();
         xhci_print_status();
     }
-    intel_gfx_init();
+    if(!intel_display_capture_requested) intel_gfx_init();
+    else console_write("intel-display-observe: ordinary Intel initializer skipped; no capture PCI writes\n");
     if(cmdline_has_token(cmdline,"srvros.sensors=cpu")) thermal_init();
     if(cmdline_has_token(cmdline,"srvros.power=read-only")) power_init();
     if (cmdline_has_token(cmdline, "srvros.storage=ram")) {
@@ -740,11 +747,12 @@ void kmain(void) {
         xhci_print_status();
         xhci_print_input_summary();
     }
-    if(automatic_probe || automatic_idle || automatic_aml || automatic_desktop_idle || automatic_battery || automatic_load || automatic_storage_wait || automatic_posix || automatic_ap) {
+    if(intel_display_capture_requested || automatic_probe || automatic_idle || automatic_aml || automatic_desktop_idle || automatic_battery || automatic_load || automatic_storage_wait || automatic_posix || automatic_ap) {
         console_printf("laptop-capture: boot options=%s\n",cmdline);
         bool started=workspace_active() && workspace_log_start();
         if(started) console_write("laptop-capture: diagnostics collected; physical input acceptance remains pending\n");
         bool sampled=!automatic_idle && !automatic_aml && !automatic_desktop_idle && !automatic_battery && !automatic_load && !automatic_storage_wait && !automatic_posix && !automatic_ap;
+        if(intel_display_capture_requested) sampled=intel_display_probe_report();
         bool battery_prepared=true,workspace_parked=false;
         if(automatic_battery && !home_battery && return_on_failure && started) {
             console_write("laptop-capture: preparing unattended battery probe; missing final report means failure\n");
@@ -836,7 +844,10 @@ void kmain(void) {
         bool saved=started && workspace_log_stop();
         bool unmounted=workspace_active() && workspace_unmount();
         console_printf("laptop-capture: saved=%s unmounted=%s\n",saved?"yes":"NO",unmounted?"yes":"NO");
-        if(return_on_failure || (saved && (sampled || automatic_load) && unmounted)) {
+        /* The new read-only observation may save a handled refusal and return,
+         * but never resets past a failed log save or workspace unmount. */
+        if((!intel_display_capture_requested || (saved && unmounted)) &&
+           (return_on_failure || (saved && (sampled || automatic_load) && unmounted))) {
             console_write("laptop-capture: returning to Ubuntu through normal firmware/GRUB boot\n");
             console_sync();timer_delay_us(250000);
             if(return_on_failure)arch_reboot_unattended();
