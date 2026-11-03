@@ -80,6 +80,12 @@ def main():
                             if not chunk:raise RuntimeError('Serial disconnected')
                             output+=chunk
                         except socket.timeout:pass
+                def wait_all(markers,timeout=45):
+                    nonlocal consumed
+                    start=consumed;end=start
+                    for marker in markers:
+                        consumed=start;wait(marker,timeout);end=max(end,consumed)
+                    consumed=end
                 def shortcut(keys):
                     qmp.call('human-monitor-command',{'command-line':f'sendkey {keys}'});time.sleep(.3)
                 def text(value):
