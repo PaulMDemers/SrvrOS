@@ -2,6 +2,27 @@
 
 Updated: 2026-11-03. State: **active reference machine; partial device acceptance**.
 
+### Bounded backing readout ready for automated native trial
+
+Source `10966846` / release `3a3b2f00b9ff7eca` implements the separate opt-in
+fence/GGTT readout described in the [display contract](../macbookair7-2-display-presentation.md#bounded-backing-readout-implementation).
+Local host/core/docs and normal/AP/native/synthetic kernel builds pass, as do
+staging/collector tests, exact-stage Q35 refusal/save/unmount/reset, missing-volume
+halt, default-off VirtIO presentation and ordinary Open With regressions.
+The first full gate exposed a merged shell host-test declaration issue on
+Ubuntu; a separate POSIX feature-macro fix passes its56-check fixture and the
+complete rerun. Both attempt logs are retained. Actions remain disabled.
+
+The proposed native trial needs no input. It observes32 fences, at most1536
+raw GGTT entries and framebuffer translations/classifications, then saves and
+returns automatically after clean unmount. No GPU/GTT/fence/control writes or
+buffer adoption occur. Collect and independently validate the matching raw
+vector, hashes, padded layout, covering fence and stolen-memory classification
+before claiming a recognized backing relationship. Exclusive ownership and
+tear-free output remain unaccepted. Preparation/reboot state belongs to
+`build/air-intel-backing-native-20261103/run.json`; validation and independent
+candidate backup are recorded in `build/air-intel-backing-20261103/`.
+
 ### Active backing-readout scope
 
 Consumed main `bfdcab65` (Air6,1 backing readout, window snapping and Terminal
