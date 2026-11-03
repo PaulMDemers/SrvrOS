@@ -1,6 +1,144 @@
 # Browser engine port
 
-## Current checkpoint — November 3, 2026
+## Second checkpoint — November 3, 2026
+
+User authorized explicit SrvrOS platform support, a real threaded C++ runtime,
+and advancing no-JIT JavaScriptCore configuration to its next actual dependency.
+Main remains `a936baeb`; PR252/19/301/306 heads were freshly fetched and unchanged.
+This continues draft PR310. The clean assigned checkout and all three protected
+review VMs are retained. Free storage was approximately 16 GiB at the start of this checkpoint.
+
+Own the new SrvrPorts `srvros/webkit` and `srvros/libcxx` recipes, dedicated
+configuration/guest probes, and necessary C++ ABI guard/TLS adaptation in
+`userspace/lib/src/cxx_runtime.cc`. Actual PR252 diffs do not touch that C++
+runtime or pthread implementation. Consume existing pthread/process semantics;
+do not change the kernel, pthread library, descriptors, resolver or ownership
+limits. Any discovered requirement in those owned subsystems must be published
+as a dependency rather than implemented independently. Other platform tracks
+retain their namespace/profile/installation scope.
+
+Acceptance: explicit `OS(SRVROS)` without Linux impersonation; actual upstream
+libc++ thread/mutex/condition-variable/once code linked and exercised in a matched
+disposable guest; thread-local destruction and static initialization correctness;
+documented no-exceptions failure at worker exhaustion; executable (not archive)
+CMake feature checks exposing the next true Threads/ICU dependency. Do not force
+thread discovery success or add missing pthread cancellation/fork-handler stubs.
+No full JSC/WebCore build, browsing, JIT, physical installation or merge is in
+this checkpoint. Keep experiments below 3 GiB additional storage, two compile
+jobs, and one build/VM harness in this checkout. The bounded implementation and guest acceptance are complete; publication
+records and the configure result follow below. SrvrPorts commit
+`4d47276917a9c8738c920cd21208b04fdcd24d02` is published in
+[draft SrvrPorts PR4](https://github.com/PaulMDemers/SrvrPorts/pull/4); the OS
+ABI, harnesses and matching gitlink continue in
+[draft SrvrOS PR310](https://github.com/PaulMDemers/SrvrOS/pull/310).
+Tests ran on the recorded dirty implementation atop `3863241d`; the input
+hashes identify the tested source, not a retroactively claimed clean commit.
+
+### Implemented and measured
+
+The SrvrPorts overlay defines `OS(SRVROS)` and generic `OS(UNIX)` without
+`OS(LINUX)`. Its driver links real SDK executables for CMake checks. C++ uses
+hosted language semantics for ordinary `main` linkage and implicit return zero,
+while retaining the freestanding SrvrOS target, explicit SDK headers/startup and
+static libraries. This does not establish a complete hosted C++ environment.
+
+The separate threaded libc++ archive uses pinned Zig 0.15.2 upstream thread,
+mutex, condition-variable, once and supporting sources. OS changes are confined
+to `userspace/lib/src/cxx_runtime.cc`: synchronized static-initialization guards,
+per-thread LIFO TLS destructors, bounded DSO-filtered global destructor records,
+and main-thread TLS-before-global teardown. Existing pthread operations remain
+the backend. No Node threading shims or success-returning error stubs are used.
+
+Matched SDK, kernel/init, libc++ recipe and existing C++ regression builds pass.
+The diskless, networkless, single-CPU Q35/TCG guest receipt is
+`build/browser-runtime/guest-1550di15/receipt.json`. It records all six passing
+cases: existing `cxxprobe` and `cxxstlprobe`; TLS-first registration/teardown;
+threaded synchronization, call-once, concurrent local-static construction and
+TLS destruction; eight-worker exhaustion with real error 11 and expected abort
+status 134; and a successful fresh normal run afterward. The last run proves
+worker resources were released after the aborted process. The harness stopped
+its own guest. Existing review VMs 61610, 6233 and 85869 remain untouched.
+
+The no-JIT configure passes C/C++ executable validation, explicit platform
+identity and a real `std::thread`/mutex link control. CMake's broad libc pthread
+check fails on undeclared `pthread_cancel`; its upstream `-pthread` fallback
+successfully compiles and links actual `pthread_create`/`pthread_join` against
+the SDK, producing `Found Threads: TRUE`. Nothing pre-seeds this result.
+Configuration then requires target **ICU >=70.1**, with `ICU_INCLUDE_DIR`,
+`ICU_LIBRARY`, `data`, `i18n` and `uc` missing. Host ICU is not substituted.
+Final configure receipt: `build/browser-platform/run-7ik21jgi/receipt.json`
+(41.050 seconds, pinned archive extraction 478,809,532 bytes). The probe exits
+zero for the recognized dependency stop; CMake itself exits one. This is
+dependency discovery, not successful configuration or engine execution.
+CMake still warns that its built-in platform catalog lacks SrvrOS; the explicit
+toolchain and WebKit patch supply this probe's target settings.
+
+The SDK/runtime receipt hashes sources, SDK archive/startup/linker script,
+headers and resulting ELF/archive files. Both harnesses reject stale runtime
+inputs. Guest kernel/init hashes identify the artifacts actually booted;
+Git HEAD is labeled an observation, not an assertion that uncommitted changes
+were absent. Raw logs/receipts remain local under `build/browser-runtime/` and
+`build/browser-platform/`. Failed exploratory runs remain failed evidence:
+monitor echo parsing, same-translation-unit TLS fixture initialization, ordinary
+C++ main linkage, and an ICU diagnostic-format mismatch were corrected before
+final acceptance. No old receipt is relabeled as a pass.
+
+### Supported slice and owner handoff
+
+This is a real, bounded threaded runtime, not the full C++ standard library or
+ABI. Eight workers, 4096-byte ELF TLS templates and 128 global destructor records
+remain limits. No exceptions/unwinder, dynamic unloading, recursive static
+initialization recovery or initializer-thread-death recovery is supplied.
+Concurrent finalizers may execute distinct callbacks concurrently; global LIFO
+completion is only established for single-caller finalization. Aborts and forced
+termination intentionally skip C++ teardown.
+
+`notify_all_at_thread_exit` and promise/future readiness at thread exit are
+excluded. The existing pthread code allocates keys and drains destructors in
+ascending key order; libc++ can therefore notify before user C++ TLS destruction.
+Supporting these APIs needs an agreed pthread teardown-order contract with the
+shared runtime owner. This finding is a dependency handoff, not authorization to
+change pthread lifecycle independently. PR252's process/I/O/socket/resolver
+changes, PR19 Wi-Fi, PR301 display and PR306/SrvrPorts PR2 SQLite remain owned
+interfaces. No competing kernel, pthread, descriptor or resolver implementation
+was added. Existing C `atexit` registration is not a general concurrent teardown
+facility.
+
+The next browser milestone is a pinned SrvrOS ICU recipe and then the next
+no-JIT JSC dependency/compile failure, with runtime requirements handed back to
+their owners. No full engine build, browser rendering, network enablement,
+physical installation or merge is accepted by this checkpoint.
+
+### Reproduce the second checkpoint
+
+From the matching OS branch and published ports gitlink:
+
+```sh
+git submodule update --init ports userspace/widgets userspace/apps
+sh tools/macos/build.sh -j2 srvros-sysroot
+python3 ports/srvros/libcxx/build.py
+sh tools/macos/build.sh -j2 build/kernel/srvros.elf build/userspace/init.elf build/limine-binary/.ready build/userspace/cxxprobe.elf build/userspace/cxxstlprobe.elf
+python3 tools/browser_runtime_smoke.py
+python3 tools/browser_platform_probe.py
+```
+
+The final command requires the pinned archive from the first checkpoint at
+`build/browser-probe/wpewebkit-2.54.2.tar.xz` (URL and digest below). The historical
+`browser_probe.py --fetch` can acquire it but also runs the old expected-gap
+checks; it is not the acceptance command for this updated runtime. CMake/Ninja,
+QEMU and xorriso must be installed. Configure subprocesses have 60-second
+bounds; extraction is capped at 1 GiB and requires 2 GiB free. The guest uses a
+private serial socket and read-only boot ISO with no writable disk or network.
+Run only one build/guest harness in this checkout at a time.
+
+Python syntax, focused document links and diff-whitespace checks pass.
+Negative controls reject missing/stale runtime artifacts and unsupported driver
+target/shared/C++ language modes before compiler or guest invocation. The global `check-docs` gate was
+rerun and still fails on the same nine existing missing vendor-source/license
+links in intentionally uninitialized nested submodules. That gate remains a
+review dependency for a fully initialized integration checkout.
+
+## Historical first checkpoint — November 3, 2026
 
 Target: select an engine from current primary-source requirements and deliver a
 bounded, pinned-source configure/compile probe against the real SrvrOS SDK.
@@ -93,7 +231,7 @@ already exists. No independently maintained adapter exists yet, so creating
 SrvrWeb is premature. Reusable upstream recipes/patches belong in SrvrPorts;
 the eventual browser shell belongs in SrvrApps.
 
-## SDK dependency map at the tested base
+## SDK dependency map at the first-checkpoint base
 
 Headers and a successful static link are weaker evidence than runtime semantics.
 The table separates source findings from the focused tests below. Pending PRs
@@ -123,6 +261,9 @@ The pending SQLite contract was inspected directly at
 [SrvrPorts 8cbf17b](https://github.com/PaulMDemers/SrvrPorts/blob/8cbf17b68b711ab8cf59ee2e5b98657ec9b8968c/srvros/sqlite/README.md).
 
 ## Ordered implementation gates
+
+The bounded platform/threaded-runtime portion of gate 1 is accepted above;
+ICU is the next dependency. The broader runtime and browser gates remain open.
 
 1. **SDK/platform recognition and threaded C++ runtime.** Add an explicit SrvrOS
    cross-build description in a SrvrPorts patch series after dependency review.
@@ -169,7 +310,7 @@ checkpoint. Ownership conflicts should be recorded with exact files and PRs;
 unblocked probe work can continue. No new repository, submodule or hosted CI
 was created for the feasibility slice.
 
-## Reproduce the bounded probe
+## Historical first-checkpoint reproduction
 
 From this isolated checkout on the documented macOS host (CMake/Ninja and
 Rosetta are also required for the configure and x86_64 host fixture):
@@ -207,7 +348,7 @@ symbol names and an always-failing modeled kernel boundary. It establishes
 adapter rejection/flag forwarding and unchanged local bytes after advice;
 it does not simulate working kernel mappings or prove guest memory protection.
 
-## Measured acceptance and limits
+## Historical first-checkpoint acceptance and limits
 
 SDK build: `sh tools/macos/build.sh -j2 srvros-sysroot` passed on base
 `a936baeb4a20ff28304a13252bf20345dee13bf1`, Zig 0.15.2. The source SDK
