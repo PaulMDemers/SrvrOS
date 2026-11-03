@@ -51,6 +51,8 @@ static char boot_directories[VFS_BOOT_DIRECTORIES][VFS_BOOT_PATH];
 static unsigned boot_directory_count;
 static uint64_t next_inode = 1;
 static vfs_metadata_changed_fn metadata_changed_callback;
+static vfs_retire_fn retire_callback;
+void vfs_set_retire_callback(vfs_retire_fn callback) { retire_callback = callback; }
 
 static bool streq(const char *a, const char *b);
 
@@ -149,6 +151,7 @@ static bool path_under_prefix(const char *path, const char *prefix) {
         return false;
     }
 
+    if (prefix[0] == '/' && prefix[1] == '\0') return path[0] == '/';
     uint64_t i = 0;
     while (prefix[i] != '\0') {
         if (path[i] != prefix[i]) {
@@ -306,6 +309,8 @@ static bool boot_parents(const char *path) {
 }
 
 void vfs_init(void) {
+    if (retire_callback) retire_callback("/", true);
+    retire_callback = NULL;
     node_count = 0;
     next_inode = 1;
     boot_directory_count = 0;
@@ -467,6 +472,7 @@ bool vfs_unregister_path(const char *path) {
 
     for (uint64_t i = 0; i < node_capacity; i++) {
         if (node_slot(i)->used && streq(node_slot(i)->path, path)) {
+            if (retire_callback) retire_callback(path, false);
             remove_slot(i);
             return true;
         }
@@ -475,6 +481,15 @@ bool vfs_unregister_path(const char *path) {
 }
 
 uint64_t vfs_unregister_prefix(const char *prefix) {
+    if (!prefix) return 0;
+    /* Notify only if something will actually retire. */
+    if (retire_callback) {
+        for (uint64_t i=0;i<node_count;i++) {
+            if (path_under_prefix(node_slot(live_slots[i])->path,prefix)) {
+                retire_callback(prefix, true); break;
+            }
+        }
+    }
     uint64_t kept=0,old=node_count;
     for(uint64_t i=0;i<old;i++) {
         struct vfs_node *node=node_slot(live_slots[i]);

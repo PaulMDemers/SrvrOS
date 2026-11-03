@@ -1,5 +1,18 @@
 # Release Notes
 
+## 2026-11-02 audit draft checkpoint
+
+[Draft PR252](https://github.com/PaulMDemers/SrvrOS/pull/252) adds checked blocked-I/O
+mappings and descriptor lifetimes, process-scoped user-fault retirement, loader
+and memory bounds, libc/UV and utility corrections, shell arithmetic fixes,
+tracked uACPI namespace/table/register fixes and build/evidence-tool regressions.
+The [coverage ledger](audit-coverage-2026-11-02.md) accounts for every tracked
+baseline path and records focused tests, integrated runs and remaining depth.
+Whole-tree screening is complete; exhaustive manual, dependency and physical
+hardware validation is not. This draft does not promote a native installed image.
+The [portable profile](posix-supported-profile.md) documents the changed behavior.
+
+
 ## 2026-10-25 source and development-host checkpoint
 
 This is a source checkpoint, not a stable binary release. Desktop protocol v15

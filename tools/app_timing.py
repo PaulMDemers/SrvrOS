@@ -4,6 +4,10 @@ Native failed/tail-only logs may intentionally lack an end marker. Never treat
 that as zero duration or a passing cycle. These are elapsed wall times, including
 scheduling and I/O waits, not CPU or gate-wait attribution.
 """
+
+if not __debug__:
+    raise RuntimeError('evidence validation requires Python assertions; disable optimization')
+
 import re
 
 RECORD = re.compile(

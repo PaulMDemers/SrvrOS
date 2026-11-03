@@ -20,7 +20,7 @@ SKIP_NAMES = {"main", "void"}
 def collect_declarations(include_dir: Path) -> dict[str, list[str]]:
     declarations: dict[str, list[str]] = {}
     for header in sorted(include_dir.rglob("*.h")):
-        text = header.read_text(encoding="utf-8", errors="ignore")
+        text = header.read_text(encoding="utf-8")
         text = re.sub(r"/\*.*?\*/", " ", text, flags=re.S)
         current = ""
         for raw in text.splitlines():
@@ -78,6 +78,8 @@ def main() -> int:
         raise SystemExit(f"missing archive: {archive}; build it first")
 
     declarations = collect_declarations(include_dir)
+    if not declarations:
+        raise SystemExit(f"no function declarations found in {include_dir}; refusing an empty audit")
     exports = collect_exports(archive, args.nm)
     missing = sorted(name for name in declarations if name not in exports)
     print(f"headers: {len(list(include_dir.rglob('*.h')))}")

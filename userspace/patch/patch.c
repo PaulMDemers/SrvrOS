@@ -135,6 +135,7 @@ static int read_lines_from_fd(int fd, struct line_vec *lines) {
     }
     int ok = split_lines(data, length, lines);
     free(data);
+    if (!ok) free_lines(lines);
     return ok;
 }
 

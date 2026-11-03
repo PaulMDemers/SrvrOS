@@ -8,6 +8,27 @@
 
 struct process;
 
+/* Checked transfers run callbacks before consuming queued bytes or accepting a
+ * connection. Callers serialize callbacks and commit on CPU0 and supply owned
+ * storage for transmit payloads. The identity callback also ends blocked waits
+ * after descriptor replacement, even while another alias keeps the handle. */
+struct net_transfer {
+    void *context;
+    bool (*current)(void *context);
+    int64_t (*copyout)(void *context, const uint8_t *data, uint64_t length,
+        uint64_t remaining, uint32_t ip, uint16_t port);
+};
+int64_t net_udp_recv_checked(uint64_t handle, uint64_t capacity, bool nonblock,
+    const struct net_transfer *transfer);
+int64_t net_accept_checked(uint64_t handle, uint64_t capacity, bool nonblock,
+    const struct net_transfer *transfer);
+int64_t net_read_checked(uint64_t handle, uint64_t length, bool nonblock, bool peek,
+    const struct net_transfer *transfer);
+int64_t net_respond_checked(uint64_t handle, const char *data, uint64_t length,
+    bool nonblock, const struct net_transfer *transfer);
+int64_t net_udp_send_checked(uint64_t handle, uint32_t ip, uint16_t port,
+    const uint8_t *data, uint64_t length, bool nonblock, const struct net_transfer *transfer);
+
 void net_init(void);
 bool net_start_worker(void);
 void net_handle_ethernet_frame(const uint8_t *frame, uint16_t length);

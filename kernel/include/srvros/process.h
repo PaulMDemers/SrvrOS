@@ -133,6 +133,8 @@ uint64_t process_list(uint64_t start_index,
 uint64_t process_list_details(uint64_t start_index, uint64_t *pid_out,
     const char **name_out, const char **state_out, uint64_t *parent_out, uint64_t *mapped_bytes_out);
 bool process_kill_pid(uint64_t pid);
+/* Record an uncatchable synchronous fault after acquiring the I/O exit gate. */
+bool process_record_user_fault(uint64_t signal);
 bool process_signal_is_supported(uint64_t signal);
 bool process_signal_pid(uint64_t pid, uint64_t signal);
 bool process_signal_target(int64_t pid, uint64_t signal);
@@ -199,7 +201,22 @@ int64_t process_file_pipe_pair(struct process *process, uint64_t fds_out[2]);
 /* IRQ-disabled bounded nonblocking byte transfer, with no rights cleanup or
  * broken-pipe signal. Scheduler same-process exclusion still applies. */
 bool process_file_pipe_io_safe(struct process *process, uint64_t fd, uint64_t length, bool writing);
+/* Copy both ring segments while mappings and pipe state are stable. A false
+ * return leaves bytes and attached rights queued. */
+typedef bool (*process_pipe_copyout)(void *context, const uint8_t *first,
+    uint64_t first_length, const uint8_t *second, uint64_t second_length);
+int64_t process_file_pipe_read_checked(struct process *process, uint64_t fd,
+    uint64_t length, bool dontwait, process_pipe_copyout copyout, void *context);
 int64_t process_file_pipe_read_mode(struct process *process, uint64_t fd, uint8_t *buffer, uint64_t length, bool dontwait);
+/* Copy a single writable prefix while its user mapping is stable. */
+typedef bool (*process_pipe_copyin)(void *context, uint64_t offset, uint8_t *first,
+    uint64_t first_length, uint8_t *second, uint64_t second_length);
+int64_t process_file_pipe_write_checked(struct process *process, uint64_t fd,
+    uint64_t length, bool dontwait, process_pipe_copyin copyin, void *context);
+int64_t process_file_pty_read_checked(struct process *,uint64_t,uint64_t,process_pipe_copyout,void *);
+int64_t process_file_pty_write_checked(struct process *,uint64_t,uint64_t,process_pipe_copyin,void *);
+int64_t process_file_pty_setattr(struct process *,uint64_t,const struct srv_termios *,unsigned);
+uint64_t process_fd_generation(struct process *,uint64_t);
 int64_t process_file_pipe_write_mode(struct process *process, uint64_t fd, const uint8_t *buffer, uint64_t length, bool dontwait);
 int64_t process_file_pipe_read(struct process *process, uint64_t fd, uint8_t *buffer, uint64_t length);
 int64_t process_file_pipe_write(struct process *process, uint64_t fd, const uint8_t *buffer, uint64_t length);
@@ -208,12 +225,19 @@ int64_t process_unix_listen(struct process *process, uint64_t fd, uint64_t backl
 int64_t process_unix_connect(struct process *process, const char *path);
 int64_t process_unix_accept(struct process *process, uint64_t fd);
 int64_t process_unix_unlink(const char *path);
+/* The checked receive copies to userspace before committing queue consumption. */
+typedef bool (*process_message_copyout)(void *context, const void *data,
+    uint64_t length, const struct srv_pipe_message *message);
+int64_t process_file_send_message(struct process *process, uint64_t fd,
+    const uint8_t *buffer, uint64_t length, const struct srv_pipe_message *message);
+int64_t process_file_recv_message_checked(struct process *process, uint64_t fd,
+    uint8_t *buffer, uint64_t length, struct srv_pipe_message *message,
+    process_message_copyout copyout, void *context);
 int64_t process_file_send_rights(struct process *process, uint64_t fd, const int32_t *fds, uint64_t count);
-int64_t process_file_recv_rights(struct process *process,
-    uint64_t fd,
-    int32_t *fds_out,
-    uint64_t capacity,
-    uint64_t *flags_out);
+typedef bool (*process_rights_copyout)(void *context, const int32_t *fds,
+    uint64_t count, uint64_t flags);
+int64_t process_file_recv_rights_checked(struct process *process, uint64_t fd,
+    uint64_t capacity, process_rights_copyout copyout, void *context);
 uint16_t process_file_poll(struct process *process, int64_t fd, uint16_t events);
 /* GUI wait snapshots only explicit nonblocking pipe/PTY endpoints. Replaced
  * descriptor numbers report NVAL; readiness is suppressed during owned I/O. */
@@ -242,10 +266,14 @@ int64_t process_file_truncate(struct process *process, uint64_t fd, uint64_t len
 int64_t process_file_flush(struct process *process, uint64_t fd);
 int64_t process_file_sync_all(void);
 int64_t process_file_seek(struct process *process, uint64_t fd, int64_t offset, uint64_t whence);
+/* These mutation helpers and process_open_file_size consume canonical raw
+ * storage paths. Caller owns filesystem exclusion across resolve and use. */
 int64_t process_path_utime(const char *path,uint64_t atime,uint64_t mtime);
 int64_t process_unlink_file(const char *path);
 int64_t process_rename_file(const char *old_path, const char *new_path);
 int64_t process_path_context(uint64_t operation,const char *path,char *out,uint64_t capacity);
+/* Caller holds CPU0 filesystem exclusion across resolution and use. */
+int64_t process_resolve_storage_path(const char *input,char *out,uint64_t capacity);
 int64_t process_directory(uint64_t operation,uint64_t fd,void *out,uint64_t capacity);
 bool process_open_file_size(const char *path,uint64_t *size);
 int64_t process_file_stat(struct process *process,

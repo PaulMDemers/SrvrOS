@@ -42,7 +42,7 @@ static struct tcp_connection *start(void) {
     for(unsigned i=0;i<TCP_MAX_CONNECTIONS;i++)if(tcp_connections[i].rx_data)free(tcp_connections[i].rx_data);
     memset(tcp_connections,0,sizeof(tcp_connections));memset(pending_requests,0,sizeof(pending_requests));
     memset(listeners,0,sizeof(listeners));
-    initialized=true;listeners[0]=(struct net_listener){.used=true,.id=1,.refs=1,.owner=&owner,.port=7122};
+    initialized=true;local_mac=net_device_mac();listeners[0]=(struct net_listener){.used=true,.id=1,.refs=1,.owner=&owner,.port=7122};
     accept_wakes=poll_wakes=sent=0;
     packet(1000,0,TCP_SYN,NULL);
     struct tcp_connection *c=find_connection(7122,0x0a000202,40000);

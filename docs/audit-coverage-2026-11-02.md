@@ -1,0 +1,113 @@
+# Audit coverage ledger — 2026-11-02
+
+This ledger describes the audit evidence recorded in the four companion reports: [kernel](audit-kernel-2026-11-02.md), [userland and ports](audit-userland-2026-11-02.md), [tooling](audit-tooling-2026-11-02.md), and [documentation and integration](audit-integration-2026-11-02.md). It is a coverage map, not an assertion that the repository received a complete manual audit or that its unreviewed code is safe.
+
+## Counting and depth
+
+The inventory is the tracked tree at `dc0a3fef`, counted with `git ls-tree -r --full-tree dc0a3fef`: **1,618 entries**, including **1,611 regular files and seven submodule gitlinks**. The checked-out `25cd19e5` is a later audit checkpoint; reports describe a shared working tree that also had concurrent edits. The inventory does not count newly created, untracked tests and reports or expand submodule contents. Counts are entry counts, not measures of risk or proof of line-by-line review. For a reproducible file-level inventory of any cohort below, use `git ls-tree -r --name-only dc0a3fef -- <cohort>`; the generated inventory includes every tracked path in that cohort.
+
+- **Inventory:** the tracked path was counted or its type identified. This alone says nothing about contents.
+- **Screening:** the report records a mechanical read, lexical search, parser, compiler, static analyzer, link check, or format check. The exact screen and exclusions differ by domain; matches and clean results are leads, not correctness verdicts.
+- **Manual sample:** the report identifies a particular path, call chain, or risk area examined by a person/agent. A sampled domain or file does not imply every line, caller, configuration or concurrency interleaving was reviewed.
+- **Focused reproduction:** a report records a specific host fixture, fault injection, sanitizer check, or before/after reproduction. It covers that scenario and the version/configuration used. Private stubs and host builds do not establish guest ABI integration.
+- **Integrated runtime:** a built target, full `test-core`, booted guest, physical hardware, or current CI run exercises combined changes. Companion reports explicitly distinguish existing historical evidence from current integration, and their private host runs do not establish this level.
+
+Manual review was selective within the screened cohorts. Where a report names a subsystem rather than every file and line, this ledger does not invent an exhaustive file-by-file review status; all other files in that cohort remain screening-only for purposes of this ledger. The first-party inventory and seven gitlinks were screened/integrated as described in the companion reports; the gitlinks do not have a comprehensive source review. Small dependency helpers were traced where needed to classify callers.
+
+## Exhaustive tracked directory cohorts
+
+These top-level rows are disjoint and sum to 1,618. Subtables partition the larger directories; `(direct)` means files directly in that directory, not files in descendants.
+
+| Cohort | Tracked entries | Recorded coverage and remaining depth |
+|---|---:|---|
+| Repository root files | 9 | Documentation/integration programmatic read; sampled build, security, notices and setup relationships. Whole Makefile and policy behavior are not exhaustively verified. |
+| `.github/` | 4 | Programmatic read and sampled workflow/templates; YAML and shell-block checks recorded. Current hosted run remains pending. |
+| `boot/` | 1 | Boot config inventoried, screened and statically traced to image inputs; matched guest boot and suite results are recorded below; physical boot remains unverified. |
+| `docs/` | 135 | Programmatic read, bounded link/format checks and selected manual cross-checks; historical facts, screenshots and dynamic prototype behavior not exhaustively validated. |
+| `initramfs/` | 3 | Programmatic read and selected archive/overlay wiring review; matched guest suite results are recorded below; broader image and hardware validation remain pending. |
+| `kernel/` | 189 | All paths mechanically screened; 92 kernel C units syntax checked and analyzed, seven assembly units assembled privately, with manual risk samples and host fixtures. Hardware, concurrency and all drivers remain incomplete. |
+| `shared/` | 31 | All shared headers inventoried and mechanically screened; included portions reached by kernel compiler checks. ABI combinations and every user/kernel contract were not exhaustively reviewed. |
+| `ports/` | 191 | First-party and tracked vendored files mechanically screened; C units included in generic analyzer attempt. Samples cover shim, manifests and integration. Seven upstream gitlinks are external dependencies and not expanded as full source-review cohorts. |
+| `tools/` | 561 | Every tracked path opened; all 295 Python files parsed/compiled, C/headers searched, three shell files syntax checked, six ASL files screened and compiled with iasl, fixtures classified. Selected scripts and tests manually traced and run; most tools were not executed. |
+| `userspace/` | 494 | First-party files screened; C units included in generic analyzer attempt. Specific libc, desktop, utility and shim paths manually sampled; threadstress/PTY manual review was assigned elsewhere. Most utility, GUI, synchronization and ABI flows are not exhaustively reviewed. |
+| **Total** | **1,618** | **1,611 regular files + seven gitlinks.** |
+
+### Directory partitions
+
+| Parent | Exhaustive child cohorts (entry counts) |
+|---|---|
+| `.github/` | direct 1; `ISSUE_TEMPLATE/` 2; `workflows/` 1 |
+| `docs/` | direct 87; `assets/` 31; `design/` 4; `history/` 4; `machines/` 9 |
+| `initramfs/` | direct 2; `etc/` 1 |
+| `kernel/` | direct 1; `diagnostics/` 4; `include/` 80; `src/` 104 |
+| `kernel/src/` | direct 36; `arch/` 31; `drivers/` 32; `fs/` 1; `memory/` 4 |
+| `kernel/include/`, `shared/` | `kernel/include/srvros/` 80; `shared/include/srvros/` 31 |
+| `ports/` | direct 1; `node/` 5; `qemu-a1466/` 5; `srvros/` 58; `upstream/` 122 |
+| `ports/srvros/` | direct 5; `ed/` 1; `node/` 15; `uacpi/` 37 |
+| `ports/upstream/` | seven direct gitlinks; `byacc/` 42; `sqlite/` 4; `stb/` 2; `uacpi/` 67. The latter 115 are tracked vendored files; generic analysis is not an upstream security audit. |
+| `tools/` | direct 531; `fixtures/` 27; `macos/` 3 |
+| `tools/fixtures/` | direct 16; `acpi/` 6; `images/` 5 |
+| `userspace/` | direct 2; `deskd/` 22; `deskfind/` 2; `deskhelp/` 3; `deskstudy/` 3; `desktools/` 25; `desktop_runtime/` 5; `examples/` 5; `guifail/` 3; `imageworker/` 3; `lib/` 169; `libcprobe/` 2; `netabi/` 2; `playwav/` 9; `shotworker/` 3; `threadstress/` 51; `widgets/` 65; the remaining single-file directories are enumerated below. |
+| `userspace/lib/` | direct 1; `assets/` 4; `include/` 101; `src/` 63 |
+| `userspace/widgets/` | direct 1; `include/` 31; `src/` 33 |
+
+The remaining 120 `userspace/` cohorts contain exactly one tracked file each: `arp`, `basename`, `calc`, `cat`, `chmod`, `clear`, `clockprobe`, `cmp`, `cp`, `cut`, `cxxprobe`, `cxxstlprobe`, `date`, `dd`, `deskclient`, `deskclock`, `deskfs`, `deskio`, `desknet`, `desksketch`, `deskterm`, `desktop`, `deskview`, `df`, `diff`, `dirname`, `displayd`, `du`, `echo`, `ed`, `env`, `execdemo`, `expr`, `false`, `fdprobe`, `fileman`, `find`, `fpdemo`, `grep`, `gui`, `gui2demo`, `gzip`, `head`, `hello`, `host`, `hostname`, `httpget`, `id`, `ifconfig`, `inidemo`, `init`, `install`, `jsondemo`, `kill`, `libuvdemo`, `lifetimeprobe`, `linedemo`, `lockprobe`, `ls`, `lua`, `make`, `mkdir`, `mktemp`, `more`, `mv`, `netcheck`, `netstat`, `nodeprobe`, `notes`, `paint`, `patch`, `ping`, `posixdemo`, `posixutils`, `printf`, `ps`, `ptyprobe`, `pwd`, `readlink`, `realpath`, `rm`, `route`, `sed`, `seq`, `sh`, `sleep`, `sort`, `spin`, `sqlitedemo`, `stat`, `surfacedemo`, `svscan`, `sysabi`, `tail`, `tap`, `tar`, `tcpprobe`, `tcpstress`, `tee`, `textedit`, `tlsprobe`, `touch`, `tr`, `true`, `ttydemo`, `udpdns`, `udpecho`, `ui`, `uname`, `uniq`, `uptime`, `uvdemo`, `wc`, `webd`, `which`, `whoami`, `write`, `xargs`, `yes`, and `zlibdemo`.
+
+## Named manual and focused-test cohorts
+
+These rows identify known reviewed paths or bounded flows; they are **subsets** of the directory cohorts, not additional entries. A file may appear in more than one row. The reports remain authoritative for exact line-level findings, versions and commands.
+
+| Named paths / flows | Recorded depth | Evidence and gap |
+|---|---|---|
+| `kernel/src/memory/pmm.c`, `kernel/src/initramfs.c`, `kernel/src/memory/vmm.c`, ELF loading, fault entry and selected process/syscall paths | Manual samples plus targeted host reproductions | High-frame accounting, malformed archive, page permissions, canonical user ranges, ELF validation and fault handling were exercised with private fixtures. Matched guest scheduling and boot checks passed; physical hardware remains unverified. |
+| `kernel/src/arch/x86_64/` entry and privilege setup, GUI queue, scheduler and selected exFAT paths | Manual samples plus analyzer triage | Invariants were traced, not exhaustively tested under SMP, real MMIO, adversarial storage, or every execution path. |
+| `userspace/lib/src/posix_alloc.c`, `posix_stdio.c`, `posix_time.c`, path and string layers | Manual samples; targeted allocator/integer host reproductions | Individual bounds and analyzer traces were examined; no complete libc conformance, allocation/thread race, or guest ABI proof. |
+| `ports/srvros/uv.c`, `userspace/uvdemo/`, `tools/test_uv_bounds.c`, `tools/test_uv_lifetime.c` | Manual lifetime/bounds review and focused actual-source private tests | Tested specific queue, async handoff, wake, copy and callback scenarios; not all async teardown, recursive loop use, simultaneous close/send or upstream libuv compatibility. New tests are outside baseline inventory. |
+| `userspace/imageworker/`, `userspace/lib/src/bmp.c`, `userspace/lib/src/gui2.c`, desktop file picker, `userspace/deskfs/`, `deskview/`, `desksketch/` | Manual samples and bounded host sanitizer tests | Decoder limits, image mutation, BMP round trips and one maximum path case tested. Every image input, desktop flow, cancellation, worker failure and path race remains untested. |
+| `userspace/cp/`, `diff/`, `expr/`, `patch/`, `tap/`, `init/`, `webd/`, and option parsing in `head/`, `tail/`, `make/`, `xargs/` | Manual warning/path samples and selected actual-source fixtures | Specific error, integer, allocation, syscall-output and argv invariants investigated. Other commands and edge cases remain screening-only. |
+| `tools/*_records.py`, `serial_records.py`, `desktop_foundation_smoke.py`, `libc_symbol_audit.py` and selected boot, archive and evidence consumers | Manual trace plus Python subprocess/unit tests | Recorded negative cases and optimized-Python guard checks passed. Parser completeness, dynamic imports, other evidence formats and most fixtures remain pending. |
+| Root README, workflow, security and third-party notices; `docs/` current guides; boot config and initramfs inputs | Manual cross-check plus link, format, static parse and shell checks | Matched VM suites passed; no current hosted CI, rendered documentation, remote-link, complete license or physical-device validation. |
+
+## Results and pending integrated evidence
+
+The kernel report records private host passes for PMM, initramfs, VMM, ELF loading and user-fault/user-copy fixtures. Its integrated follow-up records fixes for the reviewed process-exit and user-pointer mapping lifetime concerns and matched guest regression results. Broader concurrency coverage remains incomplete. The userland report records private sanitizer and actual-source tests for allocator/integer bounds, image/BMP inputs, `expr`, `diff`, `patch`, `tap`, GUI path bounds and the libuv bridge. The tooling report records 105 record-parser unit tests, a separate 58-test earlier selection, optimized-interpreter guard tests and symbol-audit subprocess tests. These are distinct bounded results; the subsequent combined results below have their own scope and execution point.
+
+The generic userspace/ports analyzer attempted 367 C units: 351 completed, 15 failed under generic missing-header/configuration conditions and SQLite timed out. Thirty-four units emitted warnings; the userland report classifies their original diagnostics and later follow-ups, including remaining unconfirmed vendored and runtime leads. Its commands do not reproduce every actual target configuration. The kernel analyzer covered 92 C units and reported 18 warnings in 11 units, with source-level triage recorded; hardware mappings and interleavings were not dynamically proved. Tools' AST/compile checks do not execute their contents, and documentation format/link checks do not prove historical accuracy.
+
+Pending integration includes rerunning the combined checks against any changes made after the reported execution points, current CI execution, physical hardware and device-specific validation, and review or reproduction of outstanding analyzer leads. The matched guest suites cover the exercised scheduling-controlled fault/copy/PTY/network cases, not every possible interleaving. Submodule source security, real boot media, the full Python/C fixture inventory, all desktop/app paths, every utility and ABI wrapper, and concurrency/teardown edges remain outside the depth of evidence recorded here. The companion reports were written during concurrent work; repeat checks against a frozen final tree before treating them as release evidence.
+
+
+## Integrated results reported after the domain audits
+
+The audit coordinator verified the following subsequent runs; they supplement the earlier private evidence and reflect the tree and artifacts at those run points:
+
+- The final Linux `test-core` run completed successfully across 173 targets, including 385 Python cases in 53 groups. The additional 30-case offline namespace suite passed in the same command (415 cases/54 groups combined). The expanded user-copy fixture is included. All six ASL sources compiled.
+- Nine matched guest suites passed: `sysabi`, `netabi`, full `threadstress`, libc, local libuv, upstream libuv, process lifetime, CLI and staged ports. The lifetime run covered four iterations, 512 applications and 64 waiter pairs. These results cover the executed configurations and test cases, not all guest workloads or physical hardware.
+- In a baseline comparison, the old ISO with the current test disk panicked in `net.c` at `copy_bytes` line 282 during the UDP regression. The matched build passed all three mapping/reuse cases. This comparison supports those specific regressions; it is not evidence of exhaustive network or concurrency coverage.
+
+The original generic userspace/ports analyzer results are stored in `/tmp/srvros_analyze.json` on the review host, with each record containing the path, exit status and diagnostic text. This temporary file is session-local and is not a tracked audit artifact; its configuration and exclusions are described above and in the userland report.
+
+The subsequent tracked-uACPI review reproduced and fixed null-scope name
+resolution, swallowed physical-table installation failures and GAS width/mapping
+errors. The shell follow-up fixed signed arithmetic and logical short-circuit
+parsing. Their four new core fixtures are included in the final 173-target pass
+and have independent native ARM64 sanitizer coverage. The rebuilt ordinary AML
+resource fixture and Q35 event-enabled runtime guest passed, as did sysabi and
+netabi reruns after the vendor changes.
+
+Configured follow-ups completed SQLite and 14 previously missing-header C
+units, bringing compiler/analyzer completion to 366 of the 367 attempted
+userspace/ports units across the recorded configurations. The remaining custom
+QEMU model lacks its separate QEMU build headers; its source received a bounded
+manual review. New warnings and their source-invariant triage are recorded in
+the userland report. Compilation/analyzer completion is not a source-audit
+completion percentage.
+
+Final frozen implementation checkpoint: `e8491549`. The complete 173-target
+Linux core pass, optional 30-case namespace pass, 491-command CLI and staged-port reruns
+include the later shell changes. Tests run before that checkpoint retain the
+execution scope recorded in their reports; the affected ACPI and syscall/network
+guests were rerun after the vendor fixes. Documentation-only updates follow
+the implementation checkpoint. Source screening of every baseline path is
+complete; sampled review and these tests do not close the deeper manual,
+external-dependency and native-device gaps listed above.
