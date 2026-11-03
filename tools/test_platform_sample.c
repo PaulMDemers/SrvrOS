@@ -29,13 +29,33 @@ static uint32_t platform_test_dependency_read(unsigned off) {
     assert(off==expected[dep_reads%8]);dep_reads++;dependency_after_read();
     return dep_bad==dep_reads?0xffffffffu:off==0x44004 || off==0xc4004?0xffffffffu:off;
 }
+static unsigned hda_reads,hda_bad,hda_change;
+static void hda_after_read(void);
+static uint32_t hda_gcap=0x1001,hda_gctl=1;
+static uint32_t platform_test_hda_read(unsigned off,unsigned width) {
+    hda_reads++;hda_after_read();
+    assert((off==0 && width==2) || (off==8 && width==4) ||
+           (off==0x20 && width==4) || (off==0x4c && width==1) ||
+           (off==0x5c && width==1) || (off==0x70 && width==4) ||
+           (off>=0x80 && off<=0x422 && ((off%32==0 && width==2) || (off%32==2 && width==1))));
+    if(hda_bad==hda_reads)return width==1?255:width==2?65535:0xffffffffu;
+    if(off==0)return hda_gcap;
+    if(off==8)return hda_change==1 && hda_reads>2?hda_gctl^1:hda_gctl;
+    if(off>=0x80)return width==2?2:0x10; /* Active stream remains an observation. */
+    return 0;
+}
 #define SRVROS_PLATFORM_HOST_TEST
 #include "../kernel/diagnostics/platform_audit.c"
 #include "../kernel/diagnostics/package_audit_core.c"
-static uint32_t pci_config[64],pch_config[64];
+static uint32_t pci_config[64],pch_config[64],hda_config[64];
+static void hda_after_read(void) {
+    if(hda_reads==10 && hda_change==2)hda_config[0]^=1;
+    if(hda_reads==10 && hda_change==3)hda_config[4]+=0x4000;
+    if(hda_reads==10 && hda_change==4)hda_config[1]&=~2u;
+}
 static void dependency_after_read(void) {if(dep_change_pch && dep_reads==8)pch_config[0]=0xffffffffu;}
 uint32_t pci_read_config32(const struct pci_device *p,uint8_t offset) {
-    assert((p==gpu || p==pch_device) && !(offset&3));return p==gpu?pci_config[offset/4]:pch_config[offset/4];
+    assert((p==gpu || p==pch_device || p==hda_device) && !(offset&3));return p==gpu?pci_config[offset/4]:p==pch_device?pch_config[offset/4]:hda_config[offset/4];
 }
 uint64_t timer_monotonic_us(void) {return ++test_ticks;}
 bool vmm_virt_to_phys(uint64_t va,uint64_t *pa) {(void)pa;return va==occupied;}
@@ -45,14 +65,31 @@ bool vmm_map_page(uint64_t va,uint64_t pa,uint64_t flags) {
     for(unsigned i=0;i<DISPLAY_RESOURCE_PAGES;i++)
         if(va==RESOURCE_VA+4096ull*i && pa==gpu_base+display_resource_pages[i])match=true;
     for(unsigned i=0;i<DEP_PAGES;i++)if(va==DEP_VA+4096ull*i && pa==gpu_base+dep_pages[i])match=true;
+    if(va==HDA_VA && pa==hda_base)match=true;
     assert(match);
     return map_calls!=map_failure;
 }
 uint16_t pci_read_config16(const struct pci_device *p,uint8_t off) {
     return (uint16_t)(pci_read_config32(p,off&~3u)>>((off&2)*8));
 }
-static unsigned dependency_reports;
+uint64_t pci_device_count(void) {return 0;}
+const struct pci_device *pci_device_at(uint64_t i) {(void)i;return NULL;}
+static unsigned dependency_reports,hda_reports;
 void console_printf(const char *fmt,...) {
+    if(!strncmp(fmt,"ap-platform-hda:",16) || !strncmp(fmt,"ap-platform-hda-sd:",19)) {
+        va_list ap;va_start(ap,fmt);uint64_t phase=va_arg(ap,uint64_t);assert(phase<2);
+        const struct hda_capture *r=&hda_rows[phase];
+        bool sd=!strncmp(fmt,"ap-platform-hda-sd:",19);
+        uint64_t values[]={r->state,r->begin,r->end,r->reads,r->n,r->base,
+            r->pci[0],r->pci[1],r->pci[2],r->pci[3],
+            r->before[0],r->before[1],r->before[2],r->before[3],
+            r->after[0],r->after[1],r->after[2],r->after[3],
+            r->raw[0],r->raw[1],r->raw[2],r->raw[3],r->raw[4],r->raw[5],r->raw[6],r->raw[7]};
+        unsigned count=0;for(const char *p=fmt;*p;p++)if(p[0]=='%' && p[1]=='u')count++;
+        assert(count==(sd?31u:27u));
+        for(unsigned i=0;i<count-1;i++)assert(va_arg(ap,uint64_t)==(sd?r->sd[i]:values[i]));
+        va_end(ap);hda_reports++;return;
+    }
     if(strncmp(fmt,"ap-platform-deps:",17))return;
     va_list ap;va_start(ap,fmt);uint64_t phase=va_arg(ap,uint64_t);assert(phase<2);
     const struct display_resource_snapshot *r=&dependencies[phase];
@@ -172,6 +209,42 @@ int main(void) {
     pch_config[0]=0x9c438086;pch_config[2]=0x06010000;lpc.device=31;well_value=0x40000000;
     dependency_snapshot(0);dependency_snapshot(1);
     assert(dependencies[0].state==1 && dependencies[1].state==1 && dep_reads==16);
-    (void)platform_audit_report();assert(dependency_reports==2);
+    struct pci_device hd={.device=3,.class_code=4,.subclass=3};hda_device=&hd;
+    hda_config[0]=0x0a0c8086;hda_config[1]=0x00100006;hda_config[2]=0x04030009;
+    hda_config[4]=0xb0a10004;hda_config[0x2c/4]=0x011a106b;
+    hda_config[0x34/4]=0x40;hda_config[0x40/4]=0x00010001;
+    for(unsigned j=0;j<20;j++) {
+        hda_seen=0;fault=0;hda_reads=0;hda_mapped=false;map_calls=0;
+        uint32_t saved[64];memcpy(saved,hda_config,sizeof(saved));
+        hda_gcap=0x1001;hda_gctl=1;hd.device=3;
+        if(j==1)hda_config[0]^=1;
+        if(j==2)hda_config[0x2c/4]^=1;
+        if(j==3)hda_config[2]^=0x100;
+        if(j==4)hd.device=4;
+        if(j==5)hda_config[0x44/4]=3;
+        if(j==6)hda_config[1]&=~2u;
+        if(j==7)hda_config[4]|=8;
+        if(j==8)occupied=HDA_VA;
+        if(j==9)map_failure=1;
+        if(j==10)hda_bad=1;
+        if(j==11)hda_gcap=0xf0f9; /* >30 streams */
+        if(j==12)hda_gctl=0;
+        if(j==13)hda_change=1;
+        if(j==14)well_drop_at=well_reads+5;
+        if(j==15)hda_gcap=0xf079; /* 30 stream descriptors */
+        if(j==16)well_value=0;
+        if(j>=17)hda_change=j-15;
+        hda_snapshot(0);
+        if(j==0 || j==15)assert(hda_rows[0].state==1 && !fault && hda_rows[0].reads==8+2*hda_rows[0].n);
+        else assert(fault);
+        if((j>=1 && j<=9) || j==16)assert(!hda_reads);
+        if(j==5 || j==6 || j==16)assert(hda_rows[0].state==2);
+        if(j==12)assert(hda_rows[0].state==4 && hda_reads==4 && !hda_rows[0].n);
+        memcpy(hda_config,saved,sizeof(saved));occupied=0;map_failure=0;hda_bad=0;hda_change=0;well_drop_at=0;well_value=0x40000000;
+    }
+    hda_seen=0;fault=0;hd.device=3;hda_gcap=0x1001;hda_gctl=1;hda_reads=0;
+    hda_snapshot(0);hda_snapshot(1);assert(hda_rows[1].state==1);
+    hda_snapshot(1);assert(fault);fault=0;
+    (void)platform_audit_report();assert(dependency_reports==2 && hda_reports==4);
     puts("platform-sample: PASS exact read-only mappings/refusals, endpoint well bounds/all-ones, sparse hook isolation, ordered reads and capacity");
 }

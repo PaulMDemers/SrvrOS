@@ -4,9 +4,9 @@ import test_hardware_platform as platform_tests
 
 
 class FinalReceiptTests(unittest.TestCase):
-    def fixture(self, resources=False, dependencies=False):
+    def fixture(self, resources=False, dependencies=False, hda=False):
         t=platform_tests.PlatformTests()
-        s=t.dependency_fixture() if dependencies else t.resource_fixture() if resources else t.display_fixture()
+        s=t.hda_fixture() if hda else t.dependency_fixture() if dependencies else t.resource_fixture() if resources else t.display_fixture()
         lines=s.splitlines(keepends=True)
         header=next(x for x in lines if x.startswith('ap-owner: v=1 admitted=1'))
         lines.remove(header)
@@ -43,6 +43,13 @@ class FinalReceiptTests(unittest.TestCase):
         self.assertEqual(assess(s,True)['status'],'COVERAGE_PASS')
         bad=s.replace('reads=8 count=8','reads=7 count=8')
         with self.assertRaises(ValueError):assess(bad,True)
+
+    def test_hda_records_remain_required(self):
+        s=self.fixture(hda=True)
+        self.assertEqual(assess(s,True)['status'],'COVERAGE_PASS')
+        for bad in (s.replace('reads=10 streams=1','reads=9 streams=1'),
+                    '\n'.join(x for x in s.splitlines() if not x.startswith('ap-platform-hda-sd:'))):
+            with self.assertRaises(ValueError):assess(bad,True)
 
     def test_failed_or_missing_data_never_becomes_coverage(self):
         s=self.fixture()
