@@ -236,7 +236,10 @@ def boot(disk, out, number, args, negative=False, *, other_disk=None,
                     wait(b'theme_style=1'); wait(b'srv> ')
                 serial.sendall(f"run {'/bin' if canonical_paths else '/fat/bin'}/deskd --apps-trace --scale=1\n".encode())
                 wait(b'deskd: display physical=1280x800 logical=1280x800 scale=1')
-                wait(b'desktools: starting role=text'); wait(b'deskd: commit')
+                # Child startup logging can be lost while worker threads log
+                # concurrently. Publication is the usable-window boundary;
+                # save/reopen responses and exact disk bytes prove Text below.
+                wait(b'deskd: commit')
                 if number == 1:
                     text(PHRASE.decode())
                     shortcut('ctrl-l'); shortcut('ctrl-a'); text(home_path + '/installed-proof.txt')
