@@ -331,7 +331,7 @@ int main(void) {
     struct limine_memmap_entry entry={.base=0xa0000000,.length=0x10000000,.type=LIMINE_MEMMAP_FRAMEBUFFER};
     struct limine_memmap_entry *entries[]={&entry,&entry};struct limine_memmap_response memory={.entry_count=1,.entries=entries};
     framebuffer_request.response=&response;memmap_request.response=&memory;
-    for(unsigned c=0;c<24;c++) {
+    for(unsigned c=0;c<26;c++) {
         backing_rows[0]=(struct backing_capture){0};backing_seen=0;fault=0;backing_reads=0;map_walks=0;
         backing_mode=1;backing_bad=backing_change=mapping_hole=mapping_disjoint=0;
         pci_config[6]=0xa000000c;pci_config[7]=0;pci_config[1]=0x00100002;
@@ -360,10 +360,12 @@ int main(void) {
         if(c==21)entry.type=LIMINE_MEMMAP_USABLE;
         if(c==22)entry.type=LIMINE_MEMMAP_RESERVED;
         if(c==23)entry.base=0xb0000000;
+        if(c==24){fb.address=(void *)0xfffffffffffff000ull;fb.width=1;fb.height=1;fb.pitch=4;} /* Last canonical page: increment must not wrap. */
+        if(c==25){fb.width=2048;fb.height=2048;fb.pitch=8192;} /* Exact 4096-page cap. */
         unsigned maps=map_calls;backing_snapshot(0);assert(map_calls==maps && map_walks<=BACKING_PAGE_CAP+1);
         if(c==0 || c>=20) {
-            assert(!fault && backing_rows[0].state==1 && backing_reads==9 && backing_rows[0].pages==1056);
-            assert(backing_rows[0].classification==(c==0?1:c==21?3:c==22?2:0));
+            assert(!fault && backing_rows[0].state==1 && backing_reads==9 && backing_rows[0].pages==(c==24?1u:c==25?4096u:1056u));
+            assert(backing_rows[0].classification==(c==0 || c==25?1:c==21?3:c==22?2:0));
         } else assert(fault && backing_rows[0].state!=1);
         if(c==1 || c==2 || c==3 || c==15 || c==19)assert(!backing_reads && !map_walks);
         fb=saved;response.framebuffer_count=1;memory.entry_count=1;entry.base=0xa0000000;entry.length=0x10000000;entry.type=LIMINE_MEMMAP_FRAMEBUFFER;

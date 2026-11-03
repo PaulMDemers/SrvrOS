@@ -40,7 +40,9 @@ static bool backing_descriptor(struct backing_capture *r) {
     r->fb[2]=physical;
     uint64_t first=r->fb[1]&~4095ull,last=(r->fb[1]+r->fb[6]-1)&~4095ull;
     if((physical&4095)!=(r->fb[1]&4095))return false;
-    for(uint64_t va=first;va<=last;va+=4096) {
+    unsigned page_count=(unsigned)((last-first)/4096)+1;
+    for(unsigned i=0;i<page_count;i++) {
+        uint64_t va=first+4096ull*i;
         uint64_t pa;
         if(!vmm_virt_to_phys_in_space(space,va,&pa) || pa!=(physical&~4095ull)+(va-first))return false;
         r->pages++;
