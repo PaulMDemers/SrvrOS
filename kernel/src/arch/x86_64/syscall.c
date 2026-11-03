@@ -973,7 +973,7 @@ static int64_t copy_storage_path(const char *input,char *out,uint64_t capacity,b
     if(!directory) return process_resolve_storage_path(logical,out,capacity);
     error=process_path_context(SRV_PATH_RESOLVE_DIRECTORY,logical,normalized,sizeof(normalized));
     if(error) return error;
-    return vfs_namespace_system_resolve(normalized,out,capacity)?0:SRV_ERR_NOENT;
+    return vfs_namespace_system_path(normalized,out,capacity);
 }
 
 static int64_t syscall_open(const char *user_path) {
@@ -1008,8 +1008,7 @@ static int64_t syscall_list(uint64_t index,char *path_buffer,uint64_t path_capac
     if(!path_buffer || !size_out || !path_capacity ||
         !user_buffer_ok(path_buffer,path_capacity,true) ||
         !user_buffer_ok(size_out,sizeof(*size_out),true)) return SRV_ERR_FAULT;
-    /* Boot archive paths may exceed the mutable filesystem path limit. */
-    char path[512];const struct vfs_node *node;
+    char path[SRV_PATH_MAX];const struct vfs_node *node;
     int status=vfs_namespace_system_list(index,path,sizeof(path),&node);
     if(status<=0) return status;
     uint64_t length=0;while(path[length])length++;

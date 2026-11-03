@@ -11,7 +11,10 @@ static bool rename_fixture,rename_fail_after_publish;
 static unsigned rename_calls;
 static struct vfs_node rename_source,rename_target;
 static char rename_path[160];
-bool exfat_same_mount(const char *a,const char *b) { return !strncmp(a,"/test/",6) && !strncmp(b,"/test/",6); }
+bool exfat_same_mount(const char *a,const char *b) {
+    if(namespace_fixture) return path_under_prefix(a,"/fat") && path_under_prefix(b,"/fat");
+    return !strncmp(a,"/test/",6) && !strncmp(b,"/test/",6);
+}
 bool exfat_replace_file(const char *a,const char *b,bool *published) {
     assert(rename_fixture && !strcmp(a,rename_source.path) && !strcmp(b,rename_target.path));rename_calls++;
     strcpy(rename_path,b);rename_source.path=rename_path;rename_target.used=false;*published=true;
@@ -801,7 +804,9 @@ static void path_context_regression(void) {
 static void namespace_process_regression(void) {
     namespace_fixture=true;clear_process(&subject);current_subject=&subject;
     assert(vfs_namespace_system_activate());
+    char oversized[SRV_NAME_MAX+2];memset(oversized,'x',sizeof(oversized));oversized[sizeof(oversized)-1]=0;
     char path[160];
+    assert(process_file_open_flags(&subject,oversized,SRV_OPEN_READ)==SRV_ERR_NAMETOOLONG);
     assert(!process_path_context(SRV_PATH_CHDIR,"/home",NULL,0));
     assert(!strcmp(subject.cwd,"/home") && !strcmp(subject.cwd_storage,"/fat/home"));
     assert(!process_resolve_storage_path("note",path,sizeof(path)) && !strcmp(path,"/fat/home/note"));
@@ -821,6 +826,9 @@ static void namespace_process_regression(void) {
     struct srv_flock conflict={.type=SRV_F_WRLCK,.start=0,.len=1};
     assert(!process_file_get_lock(&subject,b,&conflict) && conflict.type==SRV_F_WRLCK && conflict.pid==123);
     file_lock_release_path(123,shared);
+    assert(process_rename_file("/fat/home/note","/fat/home")==SRV_ERR_ISDIR);
+    assert(process_rename_file("/fat/home","/fat/home/note")==SRV_ERR_NOTDIR);
+    assert(process_rename_file("/fat/home","/fat/home/cycle")==SRV_ERR_INVAL);
     assert(process_rename_file("/fat/home","/fat/other")==SRV_ERR_BUSY);
     assert(!process_file_close(&subject,a) && !process_file_close(&subject,b));
     assert(!process_file_close(&subject,dir));

@@ -659,7 +659,7 @@ static void command_ls(const char *args) {
 
     for (uint64_t i = 0;; i++) {
         const struct vfs_node *node;
-        char view_path[512];
+        char view_path[SRV_PATH_MAX];
         int status=vfs_namespace_system_list(i,view_path,sizeof(view_path),&node);
         if(status==0) break;
         if(status<0) { console_write("ls: namespace enumeration failed\n");return; }

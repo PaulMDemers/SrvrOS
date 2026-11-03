@@ -1,4 +1,5 @@
 #include <srvros/vfs_namespace.h>
+#include <srvros/syscall_numbers.h>
 
 /* Scan at most the public path capacity, including the terminator. */
 static bool canonical(const char *path, size_t *length_out) {
@@ -172,7 +173,7 @@ bool vfs_namespace_system_activate(void) {
     return true;
 }
 
-bool vfs_namespace_system_resolve(const char *path, char *out, size_t capacity) {
+static bool system_resolve(const char *path, char *out, size_t capacity) {
     if (!system_view.count) {
         size_t length = 0;
         if (out && capacity) out[0] = '\0';
@@ -183,6 +184,31 @@ bool vfs_namespace_system_resolve(const char *path, char *out, size_t capacity) 
         return true;
     }
     return vfs_namespace_resolve(&system_view, path, out, capacity);
+}
+
+int64_t vfs_namespace_system_path(const char *path, char *out, size_t capacity) {
+    if (out && capacity) out[0] = '\0';
+    if (!path || !out || !capacity) return SRV_ERR_FAULT;
+    size_t length = 0;
+    while (length < VFS_NAMESPACE_PATH_MAX && path[length]) length++;
+    if (length == VFS_NAMESPACE_PATH_MAX) return SRV_ERR_NAMETOOLONG;
+    size_t result_length = length;
+    for (unsigned i = 0; i < system_view.count; i++) {
+        const struct vfs_namespace_mapping *m = &system_view.mappings[i];
+        if (!under(path, m->source)) continue;
+        size_t source_length = 0, target_length = 0;
+        while (m->source[source_length]) source_length++;
+        while (m->target[target_length]) target_length++;
+        result_length = target_length + length - source_length;
+        break;
+    }
+    if (result_length >= VFS_NAMESPACE_PATH_MAX || result_length >= capacity)
+        return SRV_ERR_NAMETOOLONG;
+    return system_resolve(path, out, capacity) ? 0 : SRV_ERR_NOENT;
+}
+
+bool vfs_namespace_system_resolve(const char *path, char *out, size_t capacity) {
+    return vfs_namespace_system_path(path, out, capacity) == 0;
 }
 
 const struct vfs_node *vfs_namespace_system_lookup(const char *path) {
