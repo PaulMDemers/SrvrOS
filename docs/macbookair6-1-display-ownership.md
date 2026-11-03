@@ -245,7 +245,7 @@ remain required before physical acceptance. No well/HDA ownership or restore
 milestone is granted by these tests.
 
 
-## Milestone B first readout (native comparison pending)
+## Milestone B first readout (native endpoints observed)
 
 The isolated version-9 capture records primary-A geometry/surface/live surface,
 PCI aperture context, inherited framebuffer descriptor, per-page mapping
@@ -256,3 +256,15 @@ Readout refusal and ambiguous ranges remain explicit. A compatible linear
 aperture relation still cannot prove GGTT/stolen backing or an adopted lifetime.
 Milestone B remains incomplete until these dependencies are resolved; A's native
 software retirement is not a lifetime release of actual scanout storage.
+
+
+The native version-9 comparison on source `728bcbeb`, release
+`9b485ca12b4c2482`, has two stable complete readouts and 1,056 contiguous
+inherited aperture pages with matching geometry/firmware FRAMEBUFFER coverage.
+The primary plane reports tiled mode (`0x98004400`), so the linear relation is
+correctly unbound. These endpoint observations do not identify the GGTT/stolen
+backing, interpret fences, pin real storage or exclude firmware changes between
+endpoints. All seven assurance bits remain unknown. Next is a read-only tiled
+aperture/GGTT backing audit; B is not complete. The broader platform trial still
+fails the unchanged RC6 bound and package C3 remains zero. See the unit's dated
+native result for source/session/hash, integrity and recovery evidence.
