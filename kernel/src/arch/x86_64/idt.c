@@ -6,6 +6,7 @@
 #include <srvros/pmm.h>
 #include <srvros/process.h>
 #include <srvros/scheduler.h>
+#include <srvros/syscall_numbers.h>
 #include <srvros/vmm.h>
 
 #include "descriptor_tables.h"
@@ -210,6 +211,27 @@ static void dispatch_syscall_with_cancellation(struct isr_frame *frame) {
     }
 }
 
+/* Only synchronous faults attributable to CPL3 instructions are contained.
+ * NMIs, machine checks, double faults, and supervisor exceptions retain the
+ * fatal diagnostic path. Synchronous handlers are not yet supported. */
+static bool dispatch_user_fault(struct isr_frame *frame) {
+    if ((frame->cs & 3) != 3) return false;
+    uint64_t signal;
+    switch (frame->vector) {
+    case 0: case 4: case 16: case 19: signal = SRV_SIGNAL_FPE; break;
+    case 6: signal = SRV_SIGNAL_ILL; break;
+    case 5: case 11: case 12: case 13: case 14: case 17: case 21:
+        signal = SRV_SIGNAL_SEGV; break;
+    default: return false;
+    }
+    scheduler_io_set_user_safe(false);
+    scheduler_io_wait();
+    if (!process_record_user_fault(signal)) return false;
+    process_exit(process_current_kill_status());
+    halt_forever(); /* A faulting continuation must never be resumed. */
+    return true;
+}
+
 static void isr_dispatch_inner(struct isr_frame *frame) {
     if (frame->vector == 255) {
         return;
@@ -229,6 +251,8 @@ static void isr_dispatch_inner(struct isr_frame *frame) {
         fpu_selftest_trap(frame->rax);
         return;
     }
+
+    if (dispatch_user_fault(frame)) return;
 
     struct process *process = process_current();
     if (frame->vector != 3) {

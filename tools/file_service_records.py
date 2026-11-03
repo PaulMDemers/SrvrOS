@@ -1,4 +1,8 @@
 """Whole saved receipts for completed process-owned file services, never tail inference."""
+
+if not __debug__:
+    raise RuntimeError('evidence validation requires Python assertions; disable optimization')
+
 import re
 
 RECORD = re.compile(rb'file-service: stopped version=3 pid=(\d+) role=(\d+) requested=(\d+) opened=(\d+) failures=(\d+) cancelled=(\d+) abandoned=(\d+) jobs_cancelled=(\d+) retired=(\d+) retire_failed=(\d+) pending=(\d+) join_error=(\d+) max_start_us=(\d+) max_retire_us=(\d+) async=yes quiesced=yes process_owned=(yes|no) joined=(yes|no)')

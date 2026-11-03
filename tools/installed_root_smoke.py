@@ -77,12 +77,39 @@ def verify_saved(disk, out, number):
     return prefs
 
 
+
+def verify_namespace_markers(target, work, out, number):
+    _, (target_offset, target_size) = proof.partitions(target)
+    _, (work_offset, work_size) = proof.partitions(work)
+    target_fs = ExfatFixture(proof.data_image(target, target_offset, target_size))
+    work_data = proof.data_image(work, work_offset, work_size)
+    work_fs = ExfatFixture(work_data)
+    paths = ((target_fs, 'home/.namespace-persist', b'namespace-home-v1'),
+             (work_fs, '.namespace-persist', b'namespace-work-v1'))
+    for fs, path, expected in paths:
+        try:
+            value = fs.read(path)
+        except StopIteration:
+            value = None
+        if value != (expected if number == 1 else None):
+            raise RuntimeError(f'{path}: unexpected persistent namespace marker after boot {number}')
+    extracted = out / f'work-data-{number}.exfat'
+    extracted.write_bytes(work_data)
+    check = subprocess.run([str(ROOT / 'build/tests/exfat-driver'), str(extracted),
+                            'allocation-check'], capture_output=True, text=True)
+    (out / f'work-allocation-{number}.log').write_text(check.stdout + check.stderr)
+    if check.returncode or 'leaked=0 fat_bitmap_mismatches=0 errors=0' not in check.stdout:
+        raise RuntimeError('offline work allocation check failed')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--qemu', default='qemu-system-x86_64')
     parser.add_argument('--ovmf', default=default_ovmf_path())
     parser.add_argument('--ovmf-vars', required=True)
     parser.add_argument('--boot-wait', type=int, default=120)
+    parser.add_argument('--canonical-paths', action='store_true',
+                        help='exercise canonical paths and a second GPT /work volume')
     args = parser.parse_args()
     for filename in (args.ovmf, args.ovmf_vars):
         if not Path(filename).is_file() or ',' in filename:
@@ -94,13 +121,15 @@ def main():
         member = next(m for m in archive.getmembers() if m.name.lstrip('./') == 'init')
         if archive.extractfile(member).read() != proof.runtime_elf((ROOT / 'build/userspace/init.elf').read_bytes()):
             raise RuntimeError('Bootstrap init differs from matched build archive')
-    base = ROOT / 'build/review/installed-root'; base.mkdir(parents=True, exist_ok=True)
+    base = ROOT / ('build/review/installed-canonical' if args.canonical_paths else 'build/review/installed-root')
+    base.mkdir(parents=True, exist_ok=True)
     out = Path(tempfile.mkdtemp(prefix='proof-', dir=base))
     print(f'Identity-bound evidence: {out}', flush=True)
     receipt = {'status': 'INCOMPLETE', 'source': build['source'], 'build': build,
                'firmware_sha256': sha(Path(args.ovmf)),
                'firmware_vars_template_sha256': sha(Path(args.ovmf_vars)),
                'qemu_version': subprocess.check_output([args.qemu, '--version'], text=True).splitlines()[0],
+               'mode': 'canonical-paths' if args.canonical_paths else 'identity-only',
                'cases': [], 'scope': 'two disposable AHCI GPT disks; recovery halt, no physical installation'}
     receipt['auxiliary_sha256'] = {name: sha(ROOT / name) for name in
         ('build/limine-binary/BOOTX64.EFI', 'build/userspace/init.elf', 'build/tests/exfat-driver')}
@@ -128,18 +157,31 @@ def main():
         receipt['bootstrap_members'] = ['init']
         protected = proof.outside_data(target, offset, size)
         decoy_hash = sha(decoy)
+        _, (work_offset, work_size) = proof.partitions(decoy)
+        work_protected = proof.outside_data(decoy, work_offset, work_size)
         old_prefs = None
         for number, reverse, selected in ((1, False, 'ahci0p2'), (2, True, 'ahci1p2')):
             proof.boot(target, out, number, args, other_disk=decoy, reverse=reverse,
-                       expected_device=selected, require_identity=True)
+                       expected_device=selected, require_identity=True, canonical_paths=args.canonical_paths)
             prefs = verify_saved(target, out, number)
             if old_prefs is not None and prefs != old_prefs:
                 raise RuntimeError('preference bytes changed on reordered reboot')
             old_prefs = prefs
-            if sha(decoy) != decoy_hash or proof.outside_data(target, offset, size) != protected:
-                raise RuntimeError('nonselected disk or protected target regions changed')
-            receipt['cases'].append({'name': f'boot-{number}', 'selected': selected,
-                'reversed': reverse, 'decoy_sha256': decoy_hash, 'status': 'PASS'})
+            if args.canonical_paths:
+                verify_namespace_markers(target, decoy, out, number)
+                if proof.outside_data(decoy, work_offset, work_size) != work_protected:
+                    raise RuntimeError('protected work disk regions changed')
+            elif sha(decoy) != decoy_hash:
+                raise RuntimeError('nonselected disk changed')
+            if proof.outside_data(target, offset, size) != protected:
+                raise RuntimeError('protected target regions changed')
+            case = {'name': f'boot-{number}', 'selected': selected,
+                    'reversed': reverse, 'decoy_sha256': sha(decoy), 'status': 'PASS'}
+            if args.canonical_paths:
+                case.update(work_device='ahci0p2' if reverse else 'ahci1p2',
+                            namespace_phase='save' if number == 1 else 'reopen',
+                            namespace_result='PASS')
+            receipt['cases'].append(case)
             proof.save_json(out / 'receipt.json', receipt)
         guid = uuid.UUID(receipt['target']['gpt']['exfat_partition_guid']).bytes_le
         for name, reason in (('missing-volume', 'missing'), ('wrong-id', 'missing'),
@@ -198,10 +240,10 @@ def main():
             receipt['cases'].append({'name': name, 'reason': reason, 'before': before,
                                      'after': after, 'status': 'PASS'})
             proof.save_json(out / 'receipt.json', receipt)
-        receipt.update(status='PASS', final_target_sha256=sha(target), decoy_sha256=decoy_hash,
+        receipt.update(status='PASS', final_target_sha256=sha(target), decoy_sha256=sha(decoy),
                        document_sha256=hashlib.sha256(proof.PHRASE).hexdigest(),
                        preferences_sha256=hashlib.sha256(old_prefs).hexdigest(),
-                       protected_regions=protected, limits=[
+                       protected_regions=protected, work_protected_regions=work_protected, limits=[
                            'missing system volume retains a bootable ESP; removal of sole boot disk is firmware failure',
                            'all attached raw maps must validate; unrelated unknown media conservatively refuses',
                            'GUIDs are identifiers, not authentication',

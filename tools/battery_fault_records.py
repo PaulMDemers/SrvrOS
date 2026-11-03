@@ -1,4 +1,8 @@
 """Strict fatal-containment records; a blocked reset is never clean retirement."""
+
+if not __debug__:
+    raise RuntimeError('evidence validation requires Python assertions; disable optimization')
+
 import re
 from serial_records import complete_lines
 

@@ -19,6 +19,8 @@ struct pty_model {
     bool master_closed,slave_closed;
 };
 void pty_model_init(struct pty_model *pty);
+typedef bool (*pty_copyout)(void *,const uint8_t *,uint64_t,const uint8_t *,uint64_t);
+int64_t pty_model_read_checked(struct pty_model *,bool,uint64_t,bool,pty_copyout,void *);
 int64_t pty_model_read(struct pty_model *pty,bool master,uint8_t *data,uint64_t length,bool nonblocking);
 int64_t pty_model_write(struct pty_model *pty,bool master,const uint8_t *data,uint64_t length);
 bool pty_model_write_ready(const struct pty_model *pty,bool master,uint8_t byte);

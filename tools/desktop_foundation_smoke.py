@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 """Exercise the native rendering study on a disposable QEMU disk."""
+
+if not __debug__:
+    raise RuntimeError('evidence validation requires Python assertions; disable optimization')
+
 import argparse
 import json
 import os
