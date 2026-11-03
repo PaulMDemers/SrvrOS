@@ -213,6 +213,11 @@ static int append_checked_text(char *out, size_t capacity, size_t *length, const
     return 1;
 }
 
+static int append_checked_char(char *out, size_t capacity, size_t *length, char c) {
+    char text[2] = {c, 0};
+    return append_checked_text(out, capacity, length, text);
+}
+
 static int append_expansion_text(char *out, size_t capacity, size_t *length,
     const char *text, char quote, int word_mode) {
     /* Expanded bytes are data, not new escape/quote syntax. Parameter words
@@ -947,12 +952,8 @@ static int expand_variables_mode(const char *input, char *out, size_t capacity, 
     out[0] = '\0';
     for (size_t i = 0; input[i] != '\0'; i++) {
         char c = input[i];
-        if (length + 1 >= capacity) {
-            shell_error("sh: expanded command too long\n");
-            return 0;
-        }
         if (quote == '\'') {
-            if (!word_mode || c != '\'') append_char(out, capacity, &length, c);
+            if ((!word_mode || c != '\'') && !append_checked_char(out, capacity, &length, c)) return 0;
             if (c == '\'') {
                 quote = '\0';
             }
@@ -965,7 +966,7 @@ static int expand_variables_mode(const char *input, char *out, size_t capacity, 
             } else if (quote == '\0') {
                 quote = c;
             }
-            if (!word_mode) append_char(out, capacity, &length, c);
+            if (!word_mode && !append_checked_char(out, capacity, &length, c)) return 0;
             continue;
         }
         char effective_quote = quote != 0 ? quote : outer_quote;
@@ -975,7 +976,7 @@ static int expand_variables_mode(const char *input, char *out, size_t capacity, 
             continue;
         }
         if (c != '$') {
-            append_char(out, capacity, &length, c);
+            if (!append_checked_char(out, capacity, &length, c)) return 0;
             continue;
         }
         if (input[i + 1] == '?') {
@@ -1091,7 +1092,7 @@ static int expand_variables_mode(const char *input, char *out, size_t capacity, 
             i = cursor - 1;
             continue;
         }
-        append_char(out, capacity, &length, c);
+        if (!append_checked_char(out, capacity, &length, c)) return 0;
     }
     return 1;
 }

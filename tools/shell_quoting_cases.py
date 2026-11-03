@@ -24,7 +24,7 @@ CASES = [
     ('quote-default-words', r'''unset Q; printf '<%s>\n' ${Q:-'two words\x'}''', b'<two words\\x>\n'),
     ('quote-alternate-words', r'''Q=yes; printf '<%s>\n' ${Q:+'two words\x'}''', b'<two words\\x>\n'),
     ('quote-assign-words', r'''unset Q; printf '<%s>\n' ${Q:='two words\x'} "$Q"''', b'<two words\\x>\n<two words\\x>\n'),
-    ('quote-default-apostrophe', r'''unset Q; printf '%s\n' "${Q:-"a'b\c"}"''', b"a'b\\c\n"),
+    ('quote-default-apostrophe', r'''unset Q; printf '%s\n' "${Q:-a'b\c}"''', b"a'b\\c\n"),
     ('quote-substitution', r'''printf '%s\n' "$(printf '%s' 'tail\')"''', b'tail\\\n'),
     ('quote-if', r"if test 'tail\' = 'tail\'; then printf '%s' 'if\ok'; fi", b'if\\ok'),
     ('quote-for', r'''for p in 'tail\' 'two words'; do printf '<%s>\n' "$p"; done''', b'<tail\\>\n<two words>\n'),
@@ -33,6 +33,10 @@ CASES = [
     ('quote-case', r"case 'tail\' in 'tail\') printf '%s' 'case\';; esac", b'case\\'),
     ('quote-nested', r'''sh -c 'printf "%s\n" "nested\path"' ''', b'nested\\path\n'),
 ]
+
+# Fill the expanded command exactly, then expand an empty variable. This must
+# remain valid: only emitted bytes count toward the command capacity.
+CASES.append(('quote-limit-exact', "Q='" + 'a'*240 + "'\nR=$Q$Q\nS=${R}bbbbbbbbbbbbbbbbbbb\nunset EMPTY\nprintf '%s' $S$EMPTY", b'a'*480+b'b'*19))
 
 LIMIT_CASES = [
     ('quote-limit-closing', "Q='" + 'a'*240 + "'\nR=$Q$Q\nprintf '%s' \"${R}abcdefghijklmnopqr\"\necho $?", b'2\n'),
