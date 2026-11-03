@@ -13,6 +13,21 @@ static void test_irq_restore(uint64_t f) { if (f & 512) test_irqs=true; }
 #define SRVROS_CONSOLE_HOST_TEST
 #include "../kernel/src/console.c"
 
+static unsigned damage_calls;
+static uint64_t damage_x,damage_y,damage_w,damage_h;
+void display_present_damage(uint64_t x,uint64_t y,uint64_t w,uint64_t h) {
+    damage_calls++;damage_x=x;damage_y=y;damage_w=w;damage_h=h;
+}
+static void expect_damage(uint64_t x,uint64_t y,uint64_t w,uint64_t h) {
+    assert(damage_calls==1 && damage_x==x && damage_y==y && damage_w==w && damage_h==h);
+    damage_calls=0;
+}
+static uint64_t test_present_owner;
+static bool test_present_poisoned;
+static unsigned test_present_releases;
+void display_present_release(uint64_t pid) { if(pid && pid==test_present_owner) { test_present_releases++; if(!test_present_poisoned) test_present_owner=0; } }
+bool display_present_can_write(uint64_t pid) { return !test_present_poisoned && (!test_present_owner || pid==test_present_owner); }
+
 static char serial_log[65536];
 static size_t serial_count, saved_count;
 static char saved_log[65536];
@@ -115,6 +130,19 @@ static void test_formats_and_invalid(void) {
     frame.pitch=1; console_init(&frame); assert(!framebuffer_console_ready);
     console_write("still serial");
 }
+static void test_present_owner_retirement(void) {
+    setup(false);
+    console_set_framebuffer_muted_owner(7,true); test_present_owner=7;
+    console_set_framebuffer_muted_owner(8,true); assert(console_framebuffer_muted_by(7));
+    console_release_framebuffer_mute_owner(8); assert(console_framebuffer_muted_by(7));
+    console_release_framebuffer_mute_owner(7);
+    assert(!console_framebuffer_muted() && test_present_releases==1 && !test_present_owner);
+    console_set_framebuffer_muted_owner(9,true);test_present_owner=9;test_present_poisoned=true;
+    console_release_framebuffer_mute_owner(9);
+    assert(console_framebuffer_muted_by(9) && test_present_releases==2);
+    test_present_poisoned=false;console_release_framebuffer_mute_owner(9);
+    assert(!console_framebuffer_muted());
+}
 static void test_muted_output(void) {
     setup(true);
     uint32_t before[STRIDE * H + 2];
@@ -146,6 +174,23 @@ static void test_serial_irq_state(void) {
     console_write("Caller IRQ state preserved");
     assert(!test_irqs);
     test_irqs = expected_serial_irqs = true;
+}
+static void test_graphics_damage(void) {
+    setup(false);damage_calls=0;
+    uint32_t source[4*4]={0};
+    assert(console_put_pixel(W-1,H-1,0xffffff));expect_damage(W-1,H-1,1,1);
+    assert(!console_put_pixel(W,H-1,0) && !console_put_pixel(0,H,0));assert(!damage_calls);
+    assert(console_fill_rectangle(W-2,H-3,UINT64_MAX,UINT64_MAX,0));expect_damage(W-2,H-3,2,3);
+    assert(console_fill_rectangle(0,0,0,10,0));assert(!damage_calls);
+    assert(!console_fill_rectangle(W,0,1,1,0));assert(!damage_calls);
+    assert(console_blit_rgb(W-2,H-3,4,4,source,4));expect_damage(W-2,H-3,2,3);
+    assert(console_blit_rgb_scaled(W-3,H-3,2,2,source,4,2));expect_damage(W-3,H-3,3,3);
+    assert(console_blit_rgb_scaled(1,2,2,2,source,4,1));expect_damage(1,2,2,2);
+    assert(!console_blit_rgb(0,0,0,1,source,4));
+    assert(!console_blit_rgb(0,0,2,2,NULL,4));
+    assert(!console_blit_rgb_scaled(0,0,2,2,source,4,3));
+    assert(!console_blit_rgb_scaled(W,0,2,2,source,4,2));assert(!damage_calls);
+    check_guards();
 }
 static void test_scaled_blit(void) {
     setup(false);
@@ -192,8 +237,9 @@ static void test_saved_record_interleaving(void) {
 }
 int main(void) {
     test_saved_record_interleaving();
+    test_graphics_damage();
     test_scaled_blit();
     test_serial_irq_state();
-    test_font_and_bytes(); test_chunking_and_scroll(); test_batch_counters(); test_formats_and_invalid(); test_emergency(); test_muted_output();
+    test_font_and_bytes(); test_chunking_and_scroll(); test_batch_counters(); test_formats_and_invalid(); test_emergency(); test_muted_output(); test_present_owner_retirement();
     puts("console-host-test: PASS (95 glyphs, mixed case, ANSI, chunking, scroll, coalescing, guards, formats)");
 }

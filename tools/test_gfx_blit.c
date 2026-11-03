@@ -8,7 +8,9 @@
 static struct srv_gfx_blit_scaled_rect request;
 static uint32_t pixels[4096*20];
 static uint64_t address_space=7,rows_done,calls;
-static bool fail_alloc,fail_blit,deny_pixels;
+static bool fail_alloc,fail_blit,deny_pixels,deny_writer;
+static bool have_process,gui_owner,muted_owner;
+static unsigned present_calls;
 static unsigned service_depth;
 uint64_t service_window_test_irq_save(void) {return 0;}
 void service_window_test_irq_restore(uint64_t flags) {(void)flags;}
@@ -38,7 +40,7 @@ static void setup(void) {
     request=(struct srv_gfx_blit_scaled_rect){.source={.abi_version=SRV_ABI_VERSION,.struct_size=sizeof(request),
         .x=7,.y=9,.width=4000,.height=20,.stride=4096,.pixels=pixels},.scale=2};
     for(unsigned i=0;i<sizeof(pixels)/sizeof(*pixels);i++) pixels[i]=i;
-    rows_done=calls=0;fail_alloc=fail_blit=deny_pixels=false;address_space=7;
+    rows_done=calls=0;fail_alloc=fail_blit=deny_pixels=deny_writer=false;address_space=7;
 }
 static void rejected(void) { assert(syscall_gfx_blit_scaled_rect(&request)==-1 && !calls && address_space==7); }
 int main(void) {
@@ -57,7 +59,22 @@ int main(void) {
     setup();request.source.y=UINT64_MAX;rejected();
     setup();request.source.pixels=NULL;rejected();
     setup();deny_pixels=true;rejected();
+    setup();deny_writer=true;rejected();
     setup();fail_alloc=true;rejected();
     setup();fail_blit=true;assert(syscall_gfx_blit_scaled_rect(&request)==-1 && calls==1 && address_space==7);
+    assert(syscall_gfx_present(0)==-1 && !present_calls);
+    have_process=true;assert(syscall_gfx_present(0)==-1 && !present_calls);
+    gui_owner=true;assert(syscall_gfx_present(0)==-1 && !present_calls);
+    muted_owner=true;assert(syscall_gfx_present(0)==0 && present_calls==1);
+    assert(syscall_gfx_present(1)==0 && syscall_gfx_present(2)==0 && present_calls==3);
     puts("gfx-blit-host-test: PASS (ABI, scales, mapped bounds, stride, overflow, chunk copy, restore on failure)");
 }
+
+bool display_present_can_write(uint64_t pid) { (void)pid; return !deny_writer; }
+struct process *process_current(void) { return have_process ? (struct process *)1 : NULL; }
+uint64_t process_pid(const struct process *p) { assert(p==(struct process *)1); return 7; }
+bool gui_server_is_owner(uint64_t pid) { assert(pid==7);return gui_owner; }
+bool console_framebuffer_muted_by(uint64_t pid) { assert(pid==7);return muted_owner; }
+bool display_present_begin(uint64_t pid) { assert(pid==7);present_calls++;return true; }
+bool display_present_frame(uint64_t pid) { assert(pid==7);present_calls++;return true; }
+bool display_present_end(uint64_t pid) { assert(pid==7);present_calls++;return true; }

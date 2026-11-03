@@ -4,8 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <srvros/input_timing.h>
-
-#define MOUSE_CANCEL 0x80
+#include <srvros/mouse_flags.h>
 
 struct mouse_event {
     int32_t dx;
@@ -21,6 +20,13 @@ void mouse_trackpad_get_settings(unsigned *speed,unsigned *options);
 bool mouse_init(void);
 void mouse_handle_irq(void);
 void mouse_inject_event(int32_t dx, int32_t dy, uint8_t buttons);
+#define MOUSE_VIRTIO_SOURCES 4u
+void mouse_inject_virtio(unsigned source, int32_t dx, int32_t dy,
+    int32_t wheel_x, int32_t wheel_y, uint8_t buttons);
+/* Both axes must be initialized; normalized inclusive range 0..65535. */
+void mouse_inject_virtio_absolute(unsigned source, int32_t x, int32_t y,
+    int32_t wheel_x, int32_t wheel_y, uint8_t buttons);
+void mouse_cancel_virtio(unsigned source);
 void mouse_inject_trackpad(int32_t dx, int32_t dy, uint8_t buttons);
 void mouse_inject_trackpad_scroll(int32_t dx,int32_t dy,int32_t wheel_x,int32_t wheel_y,uint8_t buttons);
 void mouse_inject_trackpad_tap(uint8_t button);

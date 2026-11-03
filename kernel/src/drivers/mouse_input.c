@@ -14,7 +14,13 @@ static struct input_timing queue_oldest,queue_latest;
 static struct scheduler_wait_queue input_waiters;
 struct scheduler_wait_queue *mouse_wait_queue(void) { return &input_waiters; }
 static uint64_t overflows;
-static uint8_t source_buttons[2],blocked[2];
+#define MOUSE_SOURCES (2 + MOUSE_VIRTIO_SOURCES)
+static uint8_t source_buttons[MOUSE_SOURCES],blocked[MOUSE_SOURCES];
+static uint8_t combined_buttons(void) {
+    uint8_t buttons=0;
+    for(unsigned i=0;i<MOUSE_SOURCES;i++) buttons|=source_buttons[i]&~blocked[i];
+    return buttons;
+}
 static uint64_t lock(void) {
 #ifndef SRVROS_MOUSE_TEST_HOST
     uint64_t flags;
@@ -35,13 +41,14 @@ static int32_t sum(int32_t a,int32_t b) {
     int64_t n=(int64_t)a+b;
     return n>INT32_MAX?INT32_MAX:n<INT32_MIN?INT32_MIN:(int32_t)n;
 }
-static void inject(unsigned source,int32_t dx,int32_t dy,int32_t wx,int32_t wy,uint8_t buttons) {
+static void inject_mode(unsigned source,int32_t dx,int32_t dy,int32_t wx,int32_t wy,uint8_t buttons,bool absolute) {
     uint64_t flags=lock();
-    uint8_t previous=(source_buttons[0]&~blocked[0])|(source_buttons[1]&~blocked[1]);
+    uint8_t previous=combined_buttons();
     source_buttons[source]=buttons&7;
     blocked[source]&=buttons;
-    buttons=(source_buttons[0]&~blocked[0])|(source_buttons[1]&~blocked[1]);
-    if (!dx && !dy && !wx && !wy && buttons==previous) { unlock(flags); return; }
+    buttons=combined_buttons();
+    /* An absolute (0,0) is a real position, including the first sample. */
+    if (!absolute && !dx && !dy && !wx && !wy && buttons==previous) { unlock(flags); return; }
     /* Never coalesce movement into a button edge: its click position matters. */
     if (count && previous==buttons) {
         struct mouse_event *last=&queue[(head+count-1)%MOUSE_QUEUE_SIZE];
@@ -49,8 +56,11 @@ static void inject(unsigned source,int32_t dx,int32_t dy,int32_t wx,int32_t wy,u
         bool same_direction=(!wx || !last->wheel_x || (wx>0)==(last->wheel_x>0)) &&
             (!wy || !last->wheel_y || (wy>0)==(last->wheel_y>0));
         if (last->buttons==buttons && !last->reserved && !(last->flags&MOUSE_CANCEL) &&
+            ((last->flags&MOUSE_ABSOLUTE)!=0)==absolute &&
             wheel==prior_wheel && (!wheel || same_direction)) {
-            last->dx=sum(last->dx,dx); last->dy=sum(last->dy,dy);
+            /* Absolute samples replace positions; relative deltas accumulate.
+             * Never merge across modes: their ordering affects the cursor. */
+            last->dx=absolute?dx:sum(last->dx,dx); last->dy=absolute?dy:sum(last->dy,dy);
             last->wheel_x=sum(last->wheel_x,wx); last->wheel_y=sum(last->wheel_y,wy);
             /* Preserve the oldest constituent when coalescing. Mixed-source
              * batches are excluded from trackpad-only residence statistics. */
@@ -65,7 +75,7 @@ static void inject(unsigned source,int32_t dx,int32_t dy,int32_t wx,int32_t wy,u
          * release before accepting another press from either source. */
         overflows++;
         head=0; count=1;
-        blocked[0]=source_buttons[0]; blocked[1]=source_buttons[1];
+        for(unsigned i=0;i<MOUSE_SOURCES;i++) blocked[i]=source_buttons[i];
         queue[0]=(struct mouse_event){.flags=MOUSE_CANCEL};
         queued_first[0]=queued_last[0]=0;
         scheduler_wake_all(&input_waiters);
@@ -73,7 +83,8 @@ static void inject(unsigned source,int32_t dx,int32_t dy,int32_t wx,int32_t wy,u
         unlock(flags); return;
     }
     queue[(head+count)%MOUSE_QUEUE_SIZE]=(struct mouse_event){
-        .dx=dx,.dy=dy,.wheel_x=wx,.wheel_y=wy,.buttons=buttons,.flags=buttons,
+        .dx=dx,.dy=dy,.wheel_x=wx,.wheel_y=wy,.buttons=buttons,
+        .flags=buttons|(absolute?MOUSE_ABSOLUTE:0),
         .reserved=previous!=buttons}; /* Internal edge marker, stripped on read. */
     queued_first[(head+count)%MOUSE_QUEUE_SIZE]=queued_last[(head+count)%MOUSE_QUEUE_SIZE]=
         source==1?timer_monotonic_us():0;
@@ -81,6 +92,9 @@ static void inject(unsigned source,int32_t dx,int32_t dy,int32_t wx,int32_t wy,u
     scheduler_wake_all(&input_waiters);
     process_file_poll_wake();
     unlock(flags);
+}
+static void inject(unsigned source,int32_t dx,int32_t dy,int32_t wx,int32_t wy,uint8_t buttons) {
+    inject_mode(source,dx,dy,wx,wy,buttons,false);
 }
 void mouse_inject_event(int32_t dx,int32_t dy,uint8_t buttons) { inject(0,dx,dy,0,0,buttons); }
 void mouse_inject_trackpad(int32_t dx,int32_t dy,uint8_t buttons) { inject(1,dx,dy,0,0,buttons); }
@@ -127,22 +141,36 @@ void mouse_trackpad_get_settings(unsigned *speed,unsigned *options) {
  * combine a tap with a held external-mouse button or an overflow-blocked drag. */
 void mouse_inject_trackpad_tap(uint8_t button) {
     uint64_t flags=lock();
-    if((button==1 || button==2) && !(source_buttons[0]|source_buttons[1]|blocked[0]|blocked[1])) {
+    uint8_t held=0;
+    for(unsigned i=0;i<MOUSE_SOURCES;i++) held|=source_buttons[i]|blocked[i];
+    if((button==1 || button==2) && !held) {
         inject(1,0,0,0,0,button);inject(1,0,0,0,0,0);
     }
     unlock(flags);
 }
 
-void mouse_cancel_trackpad(void) {
+static void cancel_source(unsigned source,bool force) {
     uint64_t flags=lock();
-    if(source_buttons[1]) {
-        source_buttons[1]=blocked[1]=0;
+    if(source_buttons[source] || force) {
+        source_buttons[source]=blocked[source]=0;
         head=0;count=1;
-        uint8_t buttons=source_buttons[0]&~blocked[0];
+        uint8_t buttons=combined_buttons();
         queue[0]=(struct mouse_event){.buttons=buttons,.flags=MOUSE_CANCEL|buttons};
         queued_first[0]=queued_last[0]=0;
         scheduler_wake_all(&input_waiters);
         process_file_poll_wake();
     }
     unlock(flags);
+}
+
+void mouse_cancel_trackpad(void) { cancel_source(1,false); }
+void mouse_inject_virtio(unsigned source,int32_t dx,int32_t dy,int32_t wx,int32_t wy,uint8_t buttons) {
+    if(source<MOUSE_VIRTIO_SOURCES) inject(2+source,dx,dy,wx,wy,buttons);
+}
+void mouse_inject_virtio_absolute(unsigned source,int32_t x,int32_t y,int32_t wx,int32_t wy,uint8_t buttons) {
+    if(source<MOUSE_VIRTIO_SOURCES && x>=0 && x<=MOUSE_ABSOLUTE_MAX && y>=0 && y<=MOUSE_ABSOLUTE_MAX)
+        inject_mode(2+source,x,y,wx,wy,buttons,true);
+}
+void mouse_cancel_virtio(unsigned source) {
+    if(source<MOUSE_VIRTIO_SOURCES) cancel_source(2+source,true);
 }

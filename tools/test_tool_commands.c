@@ -1,8 +1,8 @@
-#include "../userspace/desktools/menus.c"
+#include "../userspace/apps/desktools/menus.c"
 #include <assert.h>
 #include <srvros/desk_connection.h>
 #include <stdio.h>
-#include "../userspace/desktools/runtime.h"
+#include "../userspace/apps/desktools/runtime.h"
 static unsigned selected,canceled;
 void tool_files_action(struct tool *t,struct desk_action a) {(void)t;assert(a.flags&DESK_WIDGET_ACTIVATED);selected=a.id;}
 void tool_picker_cancel(struct tool *t) {t->picker_mode=0;canceled++;}

@@ -1,5 +1,5 @@
 #define main preview_main
-#include "../userspace/deskview/deskview.c"
+#include "../userspace/apps/deskview/deskview.c"
 #undef main
 #include <assert.h>
 #include <srvros/desktop_apps.h>

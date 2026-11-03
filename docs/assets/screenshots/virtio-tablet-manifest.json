@@ -1,0 +1,113 @@
+{
+  "date": "2026-11-03",
+  "runtime_source": "0779dd72e3f19e0c2e8fb7ed6494cdc674673c6b",
+  "runtime_dirty": false,
+  "hashes": {
+    "build/kernel/srvros.elf": "3ee1760de53a0ca0d5297db82972fce5f3d992fff38ced92098dbc7529119934",
+    "build/initramfs.tar": "3cb4d253bc9384b16bc82d1a35c7c5a6b9764f1116c0c78df558be0db199dc34",
+    "build/srvros.exfat": "3ae38be3da86a3f0ac87f6007afed27b1fee8ce63ee1be8c76616c135516e5b9"
+  },
+  "qemu": "QEMU emulator version 11.1.2",
+  "tablet": {
+    "status": "PASS",
+    "modes": [
+      {
+        "physical": [
+          1280,
+          800
+        ],
+        "logical": [
+          1280,
+          800
+        ],
+        "scale": 1,
+        "active_pointer": {
+          "index": 2,
+          "name": "QEMU Virtio Tablet",
+          "current": true,
+          "absolute": true
+        }
+      },
+      {
+        "physical": [
+          1920,
+          1080
+        ],
+        "logical": [
+          960,
+          540
+        ],
+        "scale": 2,
+        "active_pointer": {
+          "index": 2,
+          "name": "QEMU Virtio Tablet",
+          "current": true,
+          "absolute": true
+        }
+      }
+    ],
+    "provenance": {
+      "source_commit": "0779dd72e3f19e0c2e8fb7ed6494cdc674673c6b",
+      "source_dirty": false,
+      "kernel_sha256": "3ee1760de53a0ca0d5297db82972fce5f3d992fff38ced92098dbc7529119934",
+      "exfat_sha256": "3ae38be3da86a3f0ac87f6007afed27b1fee8ce63ee1be8c76616c135516e5b9",
+      "qemu_version": "QEMU emulator version 11.1.2"
+    },
+    "checks": [
+      "QMP active absolute pointer",
+      "logical corners and center",
+      "edge release and reentry",
+      "Text click and window drag",
+      "Help wheel",
+      "GPU presenter reset"
+    ],
+    "host_cursor_release": "not tested: requires attended Cocoa window entry/exit"
+  },
+  "relative_baseline": {
+    "status": "PASS",
+    "provenance": {
+      "source_commit": "0779dd72e3f19e0c2e8fb7ed6494cdc674673c6b",
+      "source_dirty": false,
+      "kernel_sha256": "3ee1760de53a0ca0d5297db82972fce5f3d992fff38ced92098dbc7529119934",
+      "exfat_sha256": "3ae38be3da86a3f0ac87f6007afed27b1fee8ce63ee1be8c76616c135516e5b9",
+      "qemu_version": "QEMU emulator version 11.1.2"
+    },
+    "checks": [
+      "modern input and QMP keyboard",
+      "Text typing",
+      "mouse drag and wheel",
+      "GPU presentation and clean reset",
+      "RNG receive and consumption",
+      "VirtIO net DHCP and ping",
+      "VirtIO disk mount and reboot persistence"
+    ]
+  },
+  "host_tests": [
+    "test-virtio-input",
+    "test-pointer",
+    "test-keyboard",
+    "test-desktop",
+    "test_qemu_run.py (5 tests)",
+    "test_macos_host.py (7 tests)",
+    "check_docs.py"
+  ],
+  "cocoa": {
+    "active_pointer": [
+      {
+        "index": 2,
+        "name": "QEMU PS/2 Mouse",
+        "current": false,
+        "absolute": false
+      },
+      {
+        "index": 4,
+        "name": "QEMU Virtio Tablet",
+        "current": true,
+        "absolute": true
+      }
+    ],
+    "attended_cursor_release": "PASS: user confirmed automatic release and re-entry without a shortcut, and no stuck drag after releasing outside",
+    "user_observation": "Both work: automatic release and no stuck drag"
+  },
+  "local_evidence": "build/review/virtio-tablet/"
+}

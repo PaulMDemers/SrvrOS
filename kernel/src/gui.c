@@ -31,6 +31,7 @@ struct gui_queue {
 static struct gui_queue *queues;
 static uint64_t queue_bytes;
 static uint64_t server_pid;
+bool gui_server_is_owner(uint64_t pid) { return pid && server_pid == pid; }
 static uint64_t next_surface_id = 1;
 
 struct gui_surface {

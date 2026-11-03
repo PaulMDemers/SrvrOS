@@ -1,5 +1,5 @@
 #define main worker_main
-#include "../userspace/deskfind/worker.c"
+#include "../userspace/apps/deskfind/worker.c"
 #undef main
 #include <assert.h>
 #include <stdio.h>
@@ -9,7 +9,7 @@ long srv_stat(const char *path,struct srv_stat *s) {
     if(missing || (stat_missing && strstr(path,"item-002"))) return -1;
     *s=(struct srv_stat){.inode=2,.type=!strcmp(path,"/fat/home") || strstr(path,"folder")?1:0,.size=42,.mtime=1234};return 0;
 }
-long srv_list(uint64_t index,char *path,uint64_t capacity,uint64_t *size) {
+long srv_list(uint64_t index,char *path,size_t capacity,uint64_t *size) {
     assert(capacity>=1024);*size=42;if(list_failure && index==3) return -1;if(index>=count) return 0;
     if(index==0) strcpy(path,"/fat/homework/item-outside");
     else if(index==1) strcpy(path,"/fat/home/folder-item");
@@ -17,7 +17,7 @@ long srv_list(uint64_t index,char *path,uint64_t capacity,uint64_t *size) {
     else snprintf(path,capacity,"/fat/home/sub/item-%03llu.txt",(unsigned long long)index);
     return 1;
 }
-long srv_write(int fd,const void *bytes,uint64_t length) {
+long srv_write(int fd,const void *bytes,size_t length) {
     assert(fd==1);if(write_failure) return -1;if(++write_calls%3==0) return SRV_ERR_INTR;
     if(length>71) length=71;
     assert(captured_length+length<=sizeof(captured));memcpy(captured+captured_length,bytes,length);captured_length+=length;return length;

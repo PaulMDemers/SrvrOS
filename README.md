@@ -1,5 +1,17 @@
 # SrvrOS
 
+The native desktop is developed across three pinned repositories:
+
+| Repository | OS checkout path | Owns |
+| --- | --- | --- |
+| [SrvrUI](https://github.com/PaulMDemers/SrvrUI) | `userspace/widgets` | Pure native widgets and themes |
+| [SrvrApps](https://github.com/PaulMDemers/SrvrApps) | `userspace/apps` | Native desktop applications |
+| [SrvrPorts](https://github.com/PaulMDemers/SrvrPorts) | `ports` | Ports, adapters and pinned upstream sources |
+
+Use `git submodule update --init --recursive` after updating an existing checkout.
+See [repository integration](docs/repository-organization.md) for ownership,
+branches, coordinated changes and the Silver theme brief.
+
 **A from-scratch x86_64 operating system, growing into a useful desktop for older Macs.**
 
 SrvrOS has its own kernel, Unix-like userspace and native desktop. The first

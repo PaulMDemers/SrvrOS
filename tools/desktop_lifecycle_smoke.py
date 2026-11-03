@@ -119,10 +119,13 @@ def main():
                         for y in range(100,im.height-height):
                             x=0
                             while x<im.width-width:
-                                color=pixels[x,y]
-                                if color not in ((116,139,121),(56,100,79)) or (x and pixels[x-1,y]==color):x+=1;continue
+                                # Inspect straight border segments, leaving
+                                # rounded corners out. Do not tie pointer tests
+                                # to a theme's focus/border RGB constants.
+                                color=pixels[x+4,y]
+                                if pixels[x+4,y-1]==color:x+=1;continue
                                 right=x+width-1;bottom=y+height-1
-                                if all(pixels[t,y]==color and pixels[t,bottom]==color for t in range(x,x+width)) and all(pixels[x,t]==color and pixels[right,t]==color for t in range(y,y+height)):
+                                if pixels[x+width//2,y+height//2]!=color and all(pixels[t,y]==color and pixels[t,bottom]==color for t in range(x+4,right-3)) and all(pixels[x,t]==color and pixels[right,t]==color for t in range(y+4,bottom-3)):
                                     rows.setdefault(y,[]).append((x,y));x+=width
                                 else:x+=1
                         candidates=[row for row in rows.values() if len(row)==count]

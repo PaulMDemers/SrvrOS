@@ -1,0 +1,76 @@
+{
+  "date": "2026-11-03",
+  "runtime_source": "50389359344e0ed3fa913fd11572438c39bf35c7",
+  "runtime_dirty": false,
+  "hashes": {
+    "build/kernel/srvros.elf": "0506d854b8520176c3e2d5dbcbaa66536c1ffbe5d3c026eb9a6c087e7a23cae0",
+    "build/initramfs.tar": "7b8d4c8964187a90914df2d8e41866f28e3b99a0c1377515ccaf92e95a2e6950",
+    "build/srvros.exfat": "72c8a2e5ab9c60efce3222afd22c9f144d7d667a7968734f290288ed18b5bfee"
+  },
+  "submodules": {
+    "ports": "0494ae22e79cd8689d0cfdea7bba75c4b2ddb107",
+    "userspace/apps": "d245fe2fb5fbd6d451d2f4980691b387249cbf60",
+    "userspace/widgets": "89fb6d9ab79a97e23e615373d4071ff0dc3ee090"
+  },
+  "profile_vm": {
+    "status": "PASS",
+    "metadata": {
+      "source_manifest_sha256": "61d4f5902a70178ca1376e391520f5c691f5124ea279754c00b4d236bb212b36",
+      "kernel_sha256": "0506d854b8520176c3e2d5dbcbaa66536c1ffbe5d3c026eb9a6c087e7a23cae0",
+      "base_disk_sha256": "72c8a2e5ab9c60efce3222afd22c9f144d7d667a7968734f290288ed18b5bfee",
+      "qemu_version": "QEMU emulator version 11.1.2",
+      "boot_iso_sha256": "ff12be708c284789a3afa2041d30100e9d10b28a4c36ffdf717878e8d1f5568a",
+      "final_disk_sha256": "0717566f6f66bb3e2fc5972c64a5b1868f85946a59835688701498193e9f6e4d"
+    },
+    "active_pointer": {
+      "index": 2,
+      "name": "QEMU Virtio Tablet",
+      "current": true,
+      "absolute": true
+    },
+    "checks": [
+      "live Aero and Aqua",
+      "existing and new Text selection",
+      "content and selection retained",
+      "popup and dialog captures",
+      "drag and Help wheel",
+      "saved Aqua and desktop restart"
+    ],
+    "limitations": "QMP guest evidence does not test host-window smoothness or cursor release."
+  },
+  "verification": [
+    "full OS build",
+    "full desktop/widget host suite",
+    "focused Settings host after compact-layout fix",
+    "Settings VM regression",
+    "application workflows VM regression",
+    "final clean matched profile VM",
+    "inspected widget specimen, normal and minimum-size Settings, larger document text"
+  ],
+  "paint_cost": {
+    "samples_per_style": 15,
+    "units": "microseconds median",
+    "silver": {
+      "frame": 334,
+      "title_damage": 121,
+      "cursor": 4
+    },
+    "aero": {
+      "frame": 334,
+      "title_damage": 121,
+      "cursor": 4
+    },
+    "aqua": {
+      "frame": 283,
+      "title_damage": 70,
+      "cursor": 4
+    },
+    "limit": "Controlled host renderer comparison; not host vblank or native-device acceptance"
+  },
+  "local_evidence": [
+    "build/review/theme-profiles/",
+    "build/review/desktop-theme-profiles/",
+    "build/review/desktop-settings/",
+    "build/review/desktop-apps/"
+  ]
+}

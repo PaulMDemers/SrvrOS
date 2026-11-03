@@ -1,4 +1,4 @@
-#include "../userspace/desktools/menus.c"
+#include "../userspace/apps/desktools/menus.c"
 #include <assert.h>
 #include <stdio.h>
 void srv_puts(const char *text) { (void)text; }

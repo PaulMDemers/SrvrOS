@@ -1,5 +1,5 @@
 #define main network_main
-#include "../userspace/desknet/desknet.c"
+#include "../userspace/apps/desknet/desknet.c"
 #undef main
 #include <assert.h>
 static struct srv_net_status_info net;

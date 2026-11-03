@@ -1,4 +1,4 @@
-#include "../userspace/desktools/search.c"
+#include "../userspace/apps/desktools/search.c"
 #include <assert.h>
 #include <stdio.h>
 static struct tool t;

@@ -1,5 +1,13 @@
 .SUFFIXES:
 
+# Avoid empty wildcard archives when first-party submodules are absent.
+ifneq ($(filter-out clean distclean check-host check-docs,$(or $(MAKECMDGOALS),all)),)
+MODULE_MARKERS := userspace/widgets/include/srvros/desk_widgets.h userspace/apps/desktools/main.c ports/README.md
+ifneq ($(words $(wildcard $(MODULE_MARKERS))),$(words $(MODULE_MARKERS)))
+$(error Missing SrvrOS modules; run git submodule update --init --recursive)
+endif
+endif
+
 ARCH := x86_64
 KERNEL := build/kernel/srvros.elf
 IMAGE := build/srvros-$(ARCH).iso
@@ -1920,18 +1928,18 @@ presentation-screens: $(IMAGE) $(EXFAT_IMAGE)
 
 .PHONY: run
 run: $(IMAGE)
-	$(QEMU) -M q35 -m 512M -cdrom $(IMAGE) -boot d -serial stdio -no-reboot
+	$(PYTHON) tools/qemu_run.py --qemu "$(QEMU)" --display-device "$(if $(QEMU_DISPLAY),$(QEMU_DISPLAY),virtio)" -- -M q35 -m 512M -boot d -serial stdio -no-reboot
 
 .PHONY: run-net
 run-net: $(IMAGE)
-	$(QEMU) -M q35 -m 512M -cdrom $(IMAGE) -boot d -serial stdio \
+	$(PYTHON) tools/qemu_run.py --qemu "$(QEMU)" --display-device "$(if $(QEMU_DISPLAY),$(QEMU_DISPLAY),virtio)" -- -M q35 -m 512M -boot d -serial stdio \
 		-netdev user,id=net0,hostfwd=tcp:127.0.0.1:8080-10.0.2.15:80 \
 		-device e1000,netdev=net0 \
 		-no-reboot
 
 .PHONY: run-ahci-net
 run-ahci-net: $(IMAGE) $(EXFAT_IMAGE)
-	$(QEMU) -M q35 -m 512M -cdrom $(IMAGE) -boot d -serial stdio \
+	$(PYTHON) tools/qemu_run.py --qemu "$(QEMU)" --display-device "$(if $(QEMU_DISPLAY),$(QEMU_DISPLAY),virtio)" -- -M q35 -m 512M -boot d -serial stdio \
 		-drive if=none,id=exfat,file=$(EXFAT_IMAGE),format=raw \
 		-device ich9-ahci,id=ahci \
 		-device ide-hd,drive=exfat,bus=ahci.0 \
@@ -1941,7 +1949,7 @@ run-ahci-net: $(IMAGE) $(EXFAT_IMAGE)
 
 .PHONY: run-ahci2-net
 run-ahci2-net: $(IMAGE) $(EXFAT_IMAGE) $(SECOND_EXFAT_IMAGE)
-	$(QEMU) -M q35 -m 512M -cdrom $(IMAGE) -boot d -serial stdio \
+	$(PYTHON) tools/qemu_run.py --qemu "$(QEMU)" --display-device "$(if $(QEMU_DISPLAY),$(QEMU_DISPLAY),virtio)" -- -M q35 -m 512M -boot d -serial stdio \
 		-drive if=none,id=exfat0,file=$(EXFAT_IMAGE),format=raw \
 		-drive if=none,id=exfat1,file=$(SECOND_EXFAT_IMAGE),format=raw \
 		-device ich9-ahci,id=ahci \
@@ -1953,14 +1961,21 @@ run-ahci2-net: $(IMAGE) $(EXFAT_IMAGE) $(SECOND_EXFAT_IMAGE)
 
 .PHONY: run-virtio-net
 run-virtio-net: $(IMAGE)
-	$(QEMU) -M q35 -m 512M -cdrom $(IMAGE) -boot d -serial stdio \
+	$(PYTHON) tools/qemu_run.py --qemu "$(QEMU)" --display-device "$(if $(QEMU_DISPLAY),$(QEMU_DISPLAY),virtio)" --virtio-devices -- -M q35 -m 512M -boot d -serial stdio \
 		-netdev user,id=net0,hostfwd=tcp:127.0.0.1:8080-10.0.2.15:80 \
-		-device virtio-net-pci,netdev=net0 \
+		-device virtio-net-pci,netdev=net0,disable-legacy=on \
 		-no-reboot
+
+.PHONY: run-virtio
+run-virtio: $(IMAGE) $(EXFAT_IMAGE)
+	$(PYTHON) tools/qemu_run.py --qemu "$(QEMU)" --display-device "$(if $(QEMU_DISPLAY),$(QEMU_DISPLAY),virtio)" --virtio-devices -- -M q35 -m 1024M -boot d -serial stdio \
+		-drive if=none,id=disk,file=$(EXFAT_IMAGE),format=raw \
+		-device virtio-blk-pci,drive=disk,disable-legacy=on \
+		-netdev user,id=net0 -device virtio-net-pci,netdev=net0,disable-legacy=on -no-reboot
 
 .PHONY: debug
 debug: $(IMAGE)
-	$(QEMU) -M q35 -m 512M -cdrom $(IMAGE) -boot d -serial stdio -no-reboot -s -S
+	$(PYTHON) tools/qemu_run.py --qemu "$(QEMU)" --display-device "$(if $(QEMU_DISPLAY),$(QEMU_DISPLAY),virtio)" -- -M q35 -m 512M -boot d -serial stdio -no-reboot -s -S
 
 .PHONY: clean
 clean:
@@ -2308,7 +2323,7 @@ build/tests/desktop-scene-host$(HOST_EXE): tools/test_desktop_scene.c shared/inc
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I $(DESK_WIDGETS_INCLUDE) -idirafter userspace/lib/include tools/test_desktop_scene.c userspace/deskd/scene.c $(DESKD_NOTICE_SRC) userspace/deskd/menus.c $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -o $@
 
 test-desktop: build/tests/desktop-session-host$(HOST_EXE)
-build/tests/desktop-session-host$(HOST_EXE): userspace/deskd/scene.c tools/test_desktop_session.c $(DESKD_NOTICE_SRC) userspace/deskd/notifications.h userspace/deskd/notification_view.h userspace/deskd/preferences.c userspace/deskd/preferences.h userspace/lib/src/desk_preferences.c userspace/deskd/deskd.c userspace/deskd/loop_timing.h userspace/deskd/registry.h userspace/deskd/lifecycle_worker.h userspace/lib/include/srvros/desk_capture_job.h userspace/playwav/io_stress_volume.h userspace/deskd/battery_trial.h userspace/deskd/io_trial.h shared/include/srvros/perf_sample.h shared/include/srvros/desktop_trial.h userspace/deskd/scene.h shared/include/srvros/desktop_protocol.h userspace/lib/src/desk_render.c userspace/lib/include/srvros/desk_log.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/deskd/menus.c
+build/tests/desktop-session-host$(HOST_EXE): userspace/deskd/scene.c tools/test_desktop_session.c $(DESKD_NOTICE_SRC) userspace/deskd/notifications.h userspace/deskd/notification_view.h userspace/deskd/preferences.c userspace/deskd/preferences.h userspace/lib/src/desk_preferences.c userspace/deskd/deskd.c userspace/deskd/presentation.h userspace/deskd/loop_timing.h userspace/deskd/registry.h userspace/deskd/lifecycle_worker.h userspace/lib/include/srvros/desk_capture_job.h userspace/playwav/io_stress_volume.h userspace/deskd/battery_trial.h userspace/deskd/io_trial.h shared/include/srvros/perf_sample.h shared/include/srvros/desktop_trial.h userspace/deskd/scene.h shared/include/srvros/desktop_protocol.h userspace/lib/src/desk_render.c userspace/lib/include/srvros/desk_log.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/deskd/menus.c
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I $(DESK_WIDGETS_INCLUDE) -idirafter userspace/lib/include tools/test_desktop_session.c userspace/deskd/preferences.c userspace/lib/src/desk_preferences.c userspace/deskd/scene.c $(DESKD_NOTICE_SRC) userspace/deskd/menus.c $(HOST_DESK_WIDGETS_A) userspace/deskd/clipboard.c userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -Wl,--gc-sections -o $@
 
@@ -2328,18 +2343,23 @@ build/tests/trackpad-capture-host$(HOST_EXE): tools/test_trackpad_capture.c kern
 
 .PHONY: test-pointer
 test-core: test-pointer
-test-pointer: build/tests/trackpad-pointer-host$(HOST_EXE) build/tests/mouse-input-host$(HOST_EXE)
+test-pointer: build/tests/trackpad-pointer-host$(HOST_EXE) build/tests/mouse-input-host$(HOST_EXE) build/tests/mouse-position-host$(HOST_EXE)
 	build/tests/trackpad-pointer-host$(HOST_EXE)
 	build/tests/mouse-input-host$(HOST_EXE)
+	build/tests/mouse-position-host$(HOST_EXE)
 	build/tests/syscall-mouse-host$(HOST_EXE)
 
 build/tests/trackpad-pointer-host$(HOST_EXE): tools/test_trackpad_pointer.c kernel/src/drivers/trackpad_pointer.c kernel/include/srvros/trackpad_pointer.h kernel/include/srvros/apple_trackpad.h shared/include/srvros/pointer_config.h
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include tools/test_trackpad_pointer.c kernel/src/drivers/trackpad_pointer.c -o $@
 
-build/tests/mouse-input-host$(HOST_EXE): tools/test_mouse_input.c kernel/src/drivers/mouse_input.c kernel/include/srvros/mouse.h
+build/tests/mouse-input-host$(HOST_EXE): tools/test_mouse_input.c kernel/src/drivers/mouse_input.c kernel/include/srvros/mouse.h shared/include/srvros/mouse_flags.h
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include $< -o $@
+
+build/tests/mouse-position-host$(HOST_EXE): tools/test_mouse_position.c shared/include/srvros/mouse_position.h shared/include/srvros/mouse_flags.h
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include $< -o $@
 
 test-pointer: build/tests/syscall-mouse-host$(HOST_EXE)
 build/tests/syscall-mouse-host$(HOST_EXE): tools/test_syscall_mouse.c kernel/src/arch/x86_64/syscall.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
@@ -2400,7 +2420,7 @@ build/tests/desktop-chooser-host$(HOST_EXE): tools/test_desktop_chooser.c usersp
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I userspace/widgets/include -idirafter userspace/lib/include -I shared/include tools/test_desktop_chooser.c userspace/desktop_runtime/chooser.c $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -o $@
 
-DESKTOOLS_OBJ := $(patsubst %.c,build/%.c.o,$(wildcard userspace/desktools/*.c))
+DESKTOOLS_OBJ := $(patsubst %.c,build/%.c.o,$(wildcard userspace/apps/desktools/*.c))
 DESKFS_OBJ := build/userspace/deskfs/deskfs.c.o
 $(DESKTOOLS_OBJ): USER_CFLAGS += -I $(DESK_WIDGETS_INCLUDE)
 $(USER_DESKTOOLS): $(ZIG) $(USER_CRT0_OBJ) $(DESKTOOLS_OBJ) $(DESK_RUNTIME_A) $(DESK_WIDGETS_A) $(USER_LIB_OBJ) userspace/app.ld
@@ -2410,12 +2430,12 @@ $(USER_DESKFS): $(ZIG) $(USER_CRT0_OBJ) $(DESKFS_OBJ) $(USER_LIB_OBJ) userspace/
 -include $(DESKTOOLS_OBJ:.o=.d) $(DESKFS_OBJ:.o=.d)
 
 test-desktop: build/tests/desk-app-host$(HOST_EXE) build/tests/calculator-host$(HOST_EXE)
-build/tests/desk-app-host$(HOST_EXE): userspace/lib/include/srvros/desk_application.h userspace/lib/include/srvros/desk_connection.h userspace/lib/include/srvros/desk_app.h shared/include/srvros/desktop_protocol.h tools/test_desk_app.c userspace/lib/src/desk_app.c userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c
+build/tests/desk-app-host$(HOST_EXE): userspace/lib/include/srvros/desk_application.h userspace/lib/include/srvros/desk_connection.h userspace/lib/include/srvros/desk_app.h shared/include/srvros/desktop_protocol.h tools/test_desk_app.c userspace/lib/src/desk_app.c userspace/lib/src/desk_preferences.c userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include $(filter %.c,$^) -o $@
-build/tests/calculator-host$(HOST_EXE): tools/test_calculator.c userspace/desktools/calculator.c
+build/tests/calculator-host$(HOST_EXE): tools/test_calculator.c userspace/apps/desktools/calculator.c userspace/lib/include/srvros/desk_theme_preferences.h
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $^ -lm -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $(filter %.c %.a,$^) -lm -o $@
 
 test-desktop: build/tests/deskfs-host$(HOST_EXE)
 build/tests/deskfs-host$(HOST_EXE): tools/test_deskfs.c userspace/deskfs/deskfs.c shared/include/srvros/desktop_file.h shared/include/srvros/syscall_numbers.h
@@ -2446,9 +2466,9 @@ build/tests/clipboard-host$(HOST_EXE): tools/test_clipboard.c userspace/deskd/cl
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include tools/test_clipboard.c userspace/deskd/clipboard.c userspace/lib/src/desk_clipboard.c -o $@
 
 test-desktop: build/tests/tool-clipboard-host$(HOST_EXE)
-build/tests/tool-clipboard-host$(HOST_EXE): tools/test_tool_clipboard.c userspace/desktools/app.h userspace/desktools/clipboard.c userspace/lib/src/desk_clipboard.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS)
+build/tests/tool-clipboard-host$(HOST_EXE): tools/test_tool_clipboard.c userspace/apps/desktools/app.h userspace/apps/desktools/clipboard.c userspace/lib/src/desk_clipboard.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/lib/include/srvros/desk_theme_preferences.h
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I $(DESK_WIDGETS_INCLUDE) tools/test_tool_clipboard.c userspace/desktools/clipboard.c userspace/lib/src/desk_clipboard.c $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I $(DESK_WIDGETS_INCLUDE) tools/test_tool_clipboard.c userspace/apps/desktools/clipboard.c userspace/lib/src/desk_clipboard.c $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -o $@
 
 .PHONY: test-posix-poll
 test-core: test-posix-poll
@@ -2501,7 +2521,7 @@ build/tests/terminal-view-host$(HOST_EXE): tools/test_terminal_view.c userspace/
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I userspace/widgets/include -idirafter userspace/lib/include -I shared/include tools/test_terminal_view.c userspace/widgets/src/terminal_view.c userspace/widgets/src/terminal.c userspace/widgets/src/widgets.c userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -o $@
 
-DESKTERM_OBJ := build/userspace/deskterm/deskterm.c.o
+DESKTERM_OBJ := build/userspace/apps/deskterm/deskterm.c.o
 $(DESKTERM_OBJ): USER_CFLAGS += -I $(DESK_WIDGETS_INCLUDE)
 $(USER_DESKTERM): $(ZIG) $(USER_CRT0_OBJ) $(DESKTERM_OBJ) $(DESK_RUNTIME_A) $(DESK_WIDGETS_A) $(USER_LIB_OBJ) userspace/app.ld
 	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(DESKTERM_OBJ) $(DESK_RUNTIME_A) $(DESK_WIDGETS_A) $(USER_LIB_OBJ) -o $@
@@ -2563,9 +2583,9 @@ build/tests/file-picker-host$(HOST_EXE): tools/test_file_picker.c $(HOST_DESK_WI
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I userspace/widgets/include -idirafter userspace/lib/include -I shared/include tools/test_file_picker.c $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -o $@
 
 test-file-picker: build/tests/tool-picker-host$(HOST_EXE)
-build/tests/tool-picker-host$(HOST_EXE): userspace/lib/include/srvros/desk_chooser.h tools/test_tool_picker.c userspace/desktop_runtime/chooser.c userspace/desktools/picker.c userspace/desktools/files_app.c userspace/desktools/app.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS)
+build/tests/tool-picker-host$(HOST_EXE): userspace/lib/include/srvros/desk_chooser.h tools/test_tool_picker.c userspace/desktop_runtime/chooser.c userspace/apps/desktools/picker.c userspace/apps/desktools/files_app.c userspace/apps/desktools/app.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/lib/include/srvros/desk_theme_preferences.h
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I userspace/widgets/include -idirafter userspace/lib/include -I shared/include tools/test_tool_picker.c userspace/desktop_runtime/chooser.c userspace/desktools/picker.c userspace/desktools/files_app.c $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -Wl,--gc-sections -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I userspace/widgets/include -idirafter userspace/lib/include -I shared/include tools/test_tool_picker.c userspace/desktop_runtime/chooser.c userspace/apps/desktools/picker.c userspace/apps/desktools/files_app.c $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -Wl,--gc-sections -o $@
 
 .PHONY: test-rtc
 test-rtc: build/tests/rtc-host$(HOST_EXE)
@@ -2599,7 +2619,7 @@ test-desktop: test-preferences
 .PHONY: test-settings
 test-settings: build/tests/settings-host$(HOST_EXE)
 	$<
-build/tests/settings-host$(HOST_EXE): tools/test_settings.c userspace/desktools/settings.c userspace/desktools/app.h userspace/lib/src/desk_preferences.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS)
+build/tests/settings-host$(HOST_EXE): tools/test_settings.c userspace/apps/desktools/settings.c userspace/apps/desktools/app.h userspace/lib/src/desk_preferences.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/lib/include/srvros/desk_theme_preferences.h
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I userspace/widgets/include tools/test_settings.c userspace/lib/src/desk_preferences.c $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -o $@
 test-desktop: test-settings
@@ -2627,7 +2647,7 @@ test-widgets: test-table
 .PHONY: test-system
 test-system: build/tests/system-host$(HOST_EXE)
 	$<
-build/tests/system-host$(HOST_EXE): tools/test_system.c userspace/desktools/system.c userspace/desktools/app.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS)
+build/tests/system-host$(HOST_EXE): tools/test_system.c userspace/apps/desktools/system.c userspace/apps/desktools/app.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/lib/include/srvros/desk_theme_preferences.h
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I userspace/widgets/include tools/test_system.c $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -o $@
 test-desktop: test-system
@@ -2651,7 +2671,7 @@ test-core: test-file-change
 .PHONY: test-files
 test-files: build/tests/files-host$(HOST_EXE)
 	$<
-build/tests/files-host$(HOST_EXE): tools/test_files.c userspace/desktools/files_app.c userspace/desktools/app.h shared/include/srvros/desktop_apps.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) shared/include/srvros/desktop_file.h
+build/tests/files-host$(HOST_EXE): tools/test_files.c userspace/apps/desktools/files_app.c userspace/apps/desktools/app.h shared/include/srvros/desktop_apps.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) shared/include/srvros/desktop_file.h userspace/lib/include/srvros/desk_theme_preferences.h
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I userspace/widgets/include tools/test_files.c $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -o $@
 test-desktop: test-files
@@ -2679,7 +2699,7 @@ test-search: build/tests/search-host$(HOST_EXE) build/tests/tool-search-host$(HO
 build/tests/search-host$(HOST_EXE): tools/test_search.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I userspace/widgets/include $< $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -o $@
-build/tests/tool-search-host$(HOST_EXE): tools/test_tool_search.c userspace/desktools/search.c userspace/desktools/app.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS)
+build/tests/tool-search-host$(HOST_EXE): tools/test_tool_search.c userspace/apps/desktools/search.c userspace/apps/desktools/app.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/lib/include/srvros/desk_theme_preferences.h
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I userspace/widgets/include $< $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -o $@
 test-widgets: test-search
@@ -2728,9 +2748,9 @@ build/tests/number-host$(HOST_EXE): tools/test_number.c userspace/lib/src/posix_
 test-desktop: test-calculator-app
 test-calculator-app: build/tests/calculator-app-host$(HOST_EXE)
 	$<
-build/tests/calculator-app-host$(HOST_EXE): tools/test_calculator_app.c userspace/desktools/calculator_app.c userspace/desktools/calculator.c userspace/desktools/app.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS)
+build/tests/calculator-app-host$(HOST_EXE): tools/test_calculator_app.c userspace/apps/desktools/calculator_app.c userspace/apps/desktools/calculator.c userspace/apps/desktools/app.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/lib/include/srvros/desk_theme_preferences.h
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I $(DESK_WIDGETS_INCLUDE) tools/test_calculator_app.c userspace/desktools/calculator.c $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -lm -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I $(DESK_WIDGETS_INCLUDE) tools/test_calculator_app.c userspace/apps/desktools/calculator.c $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -lm -o $@
 
 .PHONY: test-image-view
 test-widgets: test-image-view
@@ -2759,7 +2779,7 @@ build/tests/image-job-host$(HOST_EXE): tools/test_image_job.c userspace/lib/src/
 	@mkdir -p $(@D)
 	$(HOST_CC) -D_DEFAULT_SOURCE -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -idirafter userspace/lib/include $< -o $@
 
-DESKVIEW_OBJ := build/userspace/deskview/deskview.c.o
+DESKVIEW_OBJ := build/userspace/apps/deskview/deskview.c.o
 $(DESKVIEW_OBJ): USER_CFLAGS += -I $(DESK_WIDGETS_INCLUDE)
 $(USER_DESKVIEW): $(ZIG) $(USER_CRT0_OBJ) $(DESKVIEW_OBJ) $(DESK_RUNTIME_A) $(DESK_WIDGETS_A) $(USER_LIB_OBJ) userspace/app.ld
 	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(DESKVIEW_OBJ) $(DESK_RUNTIME_A) $(DESK_WIDGETS_A) $(USER_LIB_OBJ) -o $@
@@ -2769,7 +2789,7 @@ test-desktop: test-image-view test-image-decode test-image-job
 .PHONY: test-preview-app
 test-preview-app: build/tests/preview-app-host$(HOST_EXE)
 	$<
-build/tests/preview-app-host$(HOST_EXE): userspace/desktop_runtime/commands.c userspace/lib/include/srvros/desk_commands.h userspace/lib/include/srvros/desk_runtime.h userspace/lib/include/srvros/desk_chooser.h userspace/desktop_runtime/chooser.c tools/test_preview_app.c userspace/deskview/deskview.c userspace/lib/src/desk_image_job.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS)
+build/tests/preview-app-host$(HOST_EXE): userspace/desktop_runtime/commands.c userspace/lib/include/srvros/desk_commands.h userspace/lib/include/srvros/desk_runtime.h userspace/lib/include/srvros/desk_chooser.h userspace/desktop_runtime/chooser.c tools/test_preview_app.c userspace/apps/deskview/deskview.c userspace/lib/src/desk_image_job.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/lib/include/srvros/desk_theme_preferences.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -D_DEFAULT_SOURCE -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include -I userspace/widgets/include tools/test_preview_app.c userspace/desktop_runtime/commands.c userspace/desktop_runtime/chooser.c userspace/lib/src/desk_image_job.c $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -Wl,--gc-sections -o $@
 test-desktop: test-preview-app
@@ -2790,7 +2810,7 @@ build/tests/document-view-host$(HOST_EXE): tools/test_document_view.c $(HOST_DES
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I userspace/widgets/include $< $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -o $@
 test-desktop: test-document-view
 
-DESKHELP_OBJ := build/userspace/deskhelp/deskhelp.c.o build/userspace/deskhelp/content.c.o
+DESKHELP_OBJ := build/userspace/apps/deskhelp/deskhelp.c.o build/userspace/apps/deskhelp/content.c.o
 $(DESKHELP_OBJ): USER_CFLAGS += -I $(DESK_WIDGETS_INCLUDE)
 $(USER_DESKHELP): $(ZIG) $(USER_CRT0_OBJ) $(DESKHELP_OBJ) $(DESK_WIDGETS_A) $(USER_LIB_OBJ) userspace/app.ld
 	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(DESKHELP_OBJ) $(DESK_WIDGETS_A) $(USER_LIB_OBJ) -o $@
@@ -2799,9 +2819,9 @@ $(USER_DESKHELP): $(ZIG) $(USER_CRT0_OBJ) $(DESKHELP_OBJ) $(DESK_WIDGETS_A) $(US
 .PHONY: test-help-app
 test-help-app: build/tests/help-app-host$(HOST_EXE)
 	$<
-build/tests/help-app-host$(HOST_EXE): tools/test_help_app.c userspace/deskhelp/deskhelp.c userspace/deskhelp/content.c userspace/deskhelp/content.h userspace/lib/src/desk_clipboard.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS)
+build/tests/help-app-host$(HOST_EXE): tools/test_help_app.c userspace/apps/deskhelp/deskhelp.c userspace/apps/deskhelp/content.c userspace/apps/deskhelp/content.h userspace/lib/src/desk_clipboard.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/lib/include/srvros/desk_theme_preferences.h
 	@mkdir -p $(@D)
-	$(HOST_CC) -D_DEFAULT_SOURCE -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include -I userspace/widgets/include tools/test_help_app.c userspace/deskhelp/content.c userspace/lib/src/desk_clipboard.c $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -Wl,--gc-sections -o $@
+	$(HOST_CC) -D_DEFAULT_SOURCE -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include -I userspace/widgets/include tools/test_help_app.c userspace/apps/deskhelp/content.c userspace/lib/src/desk_clipboard.c $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -Wl,--gc-sections -o $@
 test-desktop: test-help-app
 
 .PHONY: bench-image-view
@@ -2824,7 +2844,7 @@ build/tests/time-model-host$(HOST_EXE): tools/test_time_model.c userspace/widget
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I $(DESK_WIDGETS_INCLUDE) tools/test_time_model.c userspace/widgets/src/time_model.c -o $@
 test-desktop: test-notices test-time-model
 
-DESKCLOCK_OBJ := build/userspace/deskclock/deskclock.c.o
+DESKCLOCK_OBJ := build/userspace/apps/deskclock/deskclock.c.o
 $(DESKCLOCK_OBJ): USER_CFLAGS += -I $(DESK_WIDGETS_INCLUDE)
 $(USER_DESKCLOCK): $(ZIG) $(USER_CRT0_OBJ) $(DESKCLOCK_OBJ) $(DESK_WIDGETS_A) $(USER_LIB_OBJ) userspace/app.ld
 	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(DESKCLOCK_OBJ) $(DESK_WIDGETS_A) $(USER_LIB_OBJ) -o $@
@@ -2833,7 +2853,7 @@ $(USER_DESKCLOCK): $(ZIG) $(USER_CRT0_OBJ) $(DESKCLOCK_OBJ) $(DESK_WIDGETS_A) $(
 .PHONY: test-clock-app
 test-clock-app: build/tests/clock-app-host$(HOST_EXE)
 	$<
-build/tests/clock-app-host$(HOST_EXE): tools/test_clock_app.c userspace/deskclock/deskclock.c userspace/lib/src/desk_notify.c userspace/lib/src/desk_clipboard.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS)
+build/tests/clock-app-host$(HOST_EXE): tools/test_clock_app.c userspace/apps/deskclock/deskclock.c userspace/lib/src/desk_notify.c userspace/lib/src/desk_clipboard.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/lib/include/srvros/desk_theme_preferences.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include -I $(DESK_WIDGETS_INCLUDE) tools/test_clock_app.c userspace/lib/src/desk_notify.c userspace/lib/src/desk_clipboard.c $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -Wl,--gc-sections -o $@
 test-desktop: test-clock-app
@@ -2849,7 +2869,7 @@ test-desktop: test-popup
 .PHONY: test-tool-context
 test-tool-context: build/tests/tool-context-host$(HOST_EXE)
 	$<
-build/tests/tool-context-host$(HOST_EXE): tools/test_tool_context.c userspace/desktools/menus.c userspace/desktools/app.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS)
+build/tests/tool-context-host$(HOST_EXE): tools/test_tool_context.c userspace/apps/desktools/menus.c userspace/apps/desktools/app.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/lib/include/srvros/desk_theme_preferences.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include -I $(DESK_WIDGETS_INCLUDE) $< $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -Wl,--gc-sections -o $@
 test-desktop: test-tool-context
@@ -2865,7 +2885,7 @@ test-desktop: test-properties
 .PHONY: test-file-info
 test-file-info: build/tests/file-info-host$(HOST_EXE)
 	$<
-build/tests/file-info-host$(HOST_EXE): tools/test_file_info.c userspace/desktools/file_info.c userspace/desktools/app.h userspace/lib/src/desk_clipboard.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS)
+build/tests/file-info-host$(HOST_EXE): tools/test_file_info.c userspace/apps/desktools/file_info.c userspace/apps/desktools/app.h userspace/lib/src/desk_clipboard.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/lib/include/srvros/desk_theme_preferences.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include -I $(DESK_WIDGETS_INCLUDE) $< userspace/lib/src/desk_clipboard.c $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -Wl,--gc-sections -o $@
 test-desktop: test-file-info
@@ -2919,7 +2939,7 @@ build/tests/paint-host$(HOST_EXE): tools/test_paint.c $(HOST_DESK_WIDGETS_A) $(D
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I $(DESK_WIDGETS_INCLUDE) -idirafter userspace/lib/include $< $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -o $@
 test-desktop: test-bitmap test-paint
 
-DESKSKETCH_OBJ := build/userspace/desksketch/desksketch.c.o
+DESKSKETCH_OBJ := build/userspace/apps/desksketch/desksketch.c.o
 $(DESKSKETCH_OBJ): USER_CFLAGS += -I $(DESK_WIDGETS_INCLUDE)
 $(USER_DESKSKETCH): $(ZIG) $(USER_CRT0_OBJ) $(DESKSKETCH_OBJ) $(DESK_WIDGETS_A) $(USER_LIB_OBJ) userspace/app.ld
 	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(DESKSKETCH_OBJ) $(DESK_WIDGETS_A) $(USER_LIB_OBJ) -o $@
@@ -2928,7 +2948,7 @@ $(USER_DESKSKETCH): $(ZIG) $(USER_CRT0_OBJ) $(DESKSKETCH_OBJ) $(DESK_WIDGETS_A) 
 .PHONY: test-sketch-app
 test-sketch-app: build/tests/sketch-app-host$(HOST_EXE)
 	$<
-build/tests/sketch-app-host$(HOST_EXE): tools/test_sketch_app.c userspace/desksketch/desksketch.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS)
+build/tests/sketch-app-host$(HOST_EXE): tools/test_sketch_app.c userspace/apps/desksketch/desksketch.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/lib/include/srvros/desk_theme_preferences.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I $(DESK_WIDGETS_INCLUDE) -idirafter userspace/lib/include $< $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -Wl,--gc-sections -o $@
 test-desktop: test-sketch-app
@@ -2965,7 +2985,7 @@ build/tests/command-job-host$(HOST_EXE): tools/test_command_job.c userspace/lib/
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include tools/test_command_job.c -o $@
 test-desktop: test-command-job
 
-DESKNET_OBJ := build/userspace/desknet/desknet.c.o
+DESKNET_OBJ := build/userspace/apps/desknet/desknet.c.o
 $(DESKNET_OBJ): USER_CFLAGS += -I $(DESK_WIDGETS_INCLUDE)
 $(USER_DESKNET): $(ZIG) $(USER_CRT0_OBJ) $(DESKNET_OBJ) $(DESK_WIDGETS_A) $(USER_LIB_OBJ) userspace/app.ld
 	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(DESKNET_OBJ) $(DESK_WIDGETS_A) $(USER_LIB_OBJ) -o $@
@@ -2974,13 +2994,13 @@ $(USER_DESKNET): $(ZIG) $(USER_CRT0_OBJ) $(DESKNET_OBJ) $(DESK_WIDGETS_A) $(USER
 .PHONY: test-network-app
 test-network-app: build/tests/network-app-host$(HOST_EXE)
 	$<
-build/tests/network-app-host$(HOST_EXE): tools/test_network_app.c userspace/desknet/desknet.c userspace/lib/src/desk_clipboard.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS)
+build/tests/network-app-host$(HOST_EXE): tools/test_network_app.c userspace/apps/desknet/desknet.c userspace/lib/src/desk_clipboard.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/lib/include/srvros/desk_theme_preferences.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include -I $(DESK_WIDGETS_INCLUDE) tools/test_network_app.c userspace/lib/src/desk_clipboard.c $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -Wl,--gc-sections -o $@
 test-desktop: test-network-app
 
-DESKFIND_OBJ := build/userspace/deskfind/deskfind.c.o
-FINDFSWORKER_OBJ := build/userspace/deskfind/worker.c.o
+DESKFIND_OBJ := build/userspace/apps/deskfind/deskfind.c.o
+FINDFSWORKER_OBJ := build/userspace/apps/deskfind/worker.c.o
 $(DESKFIND_OBJ) $(FINDFSWORKER_OBJ): USER_CFLAGS += -I $(DESK_WIDGETS_INCLUDE)
 $(USER_DESKFIND): $(ZIG) $(USER_CRT0_OBJ) $(DESKFIND_OBJ) $(DESK_WIDGETS_A) $(USER_LIB_OBJ) userspace/app.ld
 	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(DESKFIND_OBJ) $(DESK_WIDGETS_A) $(USER_LIB_OBJ) -o $@
@@ -2996,7 +3016,7 @@ build/tests/file-search-host$(HOST_EXE): tools/test_file_search.c $(HOST_DESK_WI
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I $(DESK_WIDGETS_INCLUDE) $< $(HOST_DESK_WIDGETS_A) -o $@
 test-find-worker: build/tests/find-worker-host$(HOST_EXE)
 	$<
-build/tests/find-worker-host$(HOST_EXE): tools/test_find_worker.c userspace/deskfind/worker.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS)
+build/tests/find-worker-host$(HOST_EXE): tools/test_find_worker.c userspace/apps/deskfind/worker.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/lib/include/srvros/desk_theme_preferences.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I $(DESK_WIDGETS_INCLUDE) $< $(HOST_DESK_WIDGETS_A) -o $@
 test-desktop: test-file-search test-find-worker
@@ -3004,7 +3024,7 @@ test-desktop: test-file-search test-find-worker
 .PHONY: test-find-app
 test-find-app: build/tests/find-app-host$(HOST_EXE)
 	$<
-build/tests/find-app-host$(HOST_EXE): tools/test_find_app.c userspace/deskfind/deskfind.c userspace/lib/src/desk_clipboard.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS)
+build/tests/find-app-host$(HOST_EXE): tools/test_find_app.c userspace/apps/deskfind/deskfind.c userspace/lib/src/desk_clipboard.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/lib/include/srvros/desk_theme_preferences.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include -I $(DESK_WIDGETS_INCLUDE) tools/test_find_app.c userspace/lib/src/desk_clipboard.c $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -Wl,--gc-sections -o $@
 test-desktop: test-find-app
@@ -3020,6 +3040,7 @@ test-desktop: test-path
 .PHONY: test-widget-boundary
 test-widgets: test-widget-boundary
 test-widget-boundary: $(HOST_DESK_WIDGETS_A)
+	$(PYTHON) -m unittest discover -s tools -p test_widget_boundary.py
 	$(PYTHON) tools/check_widget_boundary.py --nm $(HOST_NM) $(HOST_DESK_WIDGETS_A)
 
 test-core: test-acpi-io-rule
@@ -3734,7 +3755,7 @@ build/tests/desktop-runtime-host$(HOST_EXE): tools/test_desktop_runtime.c usersp
 test-desktop: test-tool-commands
 test-tool-commands: build/tests/tool-commands-host$(HOST_EXE)
 	$<
-build/tests/tool-commands-host$(HOST_EXE): tools/test_tool_commands.c userspace/desktools/menus.c userspace/desktools/app.h userspace/desktop_runtime/commands.c userspace/lib/include/srvros/desk_commands.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS)
+build/tests/tool-commands-host$(HOST_EXE): tools/test_tool_commands.c userspace/apps/desktools/menus.c userspace/apps/desktools/app.h userspace/desktop_runtime/commands.c userspace/lib/include/srvros/desk_commands.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/lib/include/srvros/desk_theme_preferences.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include -I $(DESK_WIDGETS_INCLUDE) tools/test_tool_commands.c userspace/desktop_runtime/commands.c $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -Wl,--gc-sections -o $@
 
@@ -3764,7 +3785,7 @@ test-desktop: test-tool-timing
 .PHONY: test-tool-timing
 test-tool-timing: build/tests/tool-timing-host$(HOST_EXE)
 	$<
-build/tests/tool-timing-host$(HOST_EXE): tools/test_tool_timing.c userspace/desktools/timing.h userspace/lib/include/srvros/desk_log.h shared/include/srvros/scheduler_abi.h
+build/tests/tool-timing-host$(HOST_EXE): tools/test_tool_timing.c userspace/apps/desktools/timing.h userspace/lib/include/srvros/desk_log.h shared/include/srvros/scheduler_abi.h userspace/lib/include/srvros/desk_theme_preferences.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include $< -o $@
 
@@ -3779,7 +3800,7 @@ build/tests/window-set-host$(HOST_EXE): tools/test_window_set.c userspace/deskto
 test-desktop: test-terminal-commands
 test-terminal-commands: build/tests/terminal-commands-host$(HOST_EXE)
 	$<
-build/tests/terminal-commands-host$(HOST_EXE): tools/test_terminal_commands.c userspace/deskterm/deskterm.c userspace/desktop_runtime/commands.c userspace/lib/include/srvros/desk_commands.h $(DESK_WIDGETS_HEADERS)
+build/tests/terminal-commands-host$(HOST_EXE): tools/test_terminal_commands.c userspace/apps/deskterm/deskterm.c userspace/desktop_runtime/commands.c userspace/lib/include/srvros/desk_commands.h $(DESK_WIDGETS_HEADERS) userspace/lib/include/srvros/desk_theme_preferences.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include -I $(DESK_WIDGETS_INCLUDE) tools/test_terminal_commands.c userspace/desktop_runtime/commands.c -Wl,--gc-sections -o $@
 
@@ -3961,7 +3982,7 @@ test-desktop: test-file-service
 test-file-service: build/tests/file-service-host$(HOST_EXE)
 	$<
 	$(PYTHON) -m unittest discover -s tools -p test_file_service_records.py
-build/tests/file-service-host$(HOST_EXE): tools/test_file_service.c userspace/desktools/file_service.h userspace/lib/src/desk_file_job.c userspace/lib/include/srvros/desk_file_job.h
+build/tests/file-service-host$(HOST_EXE): tools/test_file_service.c userspace/apps/desktools/file_service.h userspace/lib/src/desk_file_job.c userspace/lib/include/srvros/desk_file_job.h userspace/lib/include/srvros/desk_theme_preferences.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -pthread -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include $< -Wl,--gc-sections -o $@
 
@@ -3969,7 +3990,7 @@ build/tests/file-service-host$(HOST_EXE): tools/test_file_service.c userspace/de
 test-desktop: test-tool-text-history
 test-tool-text-history: build/tests/tool-text-history-host$(HOST_EXE)
 	$<
-build/tests/tool-text-history-host$(HOST_EXE): tools/test_tool_text_history.c userspace/desktools/text_app.c userspace/desktools/app.h userspace/widgets/src/text.c $(DESK_WIDGETS_HEADERS)
+build/tests/tool-text-history-host$(HOST_EXE): tools/test_tool_text_history.c userspace/apps/desktools/text_app.c userspace/apps/desktools/app.h userspace/widgets/src/text.c $(DESK_WIDGETS_HEADERS) userspace/lib/include/srvros/desk_theme_preferences.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include -I userspace/widgets/include tools/test_tool_text_history.c userspace/widgets/src/text.c -Wl,--gc-sections -o $@
 
@@ -4080,3 +4101,57 @@ test-app-registry: build/tests/app-registry-host$(HOST_EXE)
 build/tests/app-registry-host$(HOST_EXE): tools/test_app_registry.c shared/include/srvros/desktop_apps.h shared/include/srvros/desktop_protocol.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include $< -o $@
+
+.PHONY: test-widget-theme widget-theme-preview
+test-widgets: test-widget-theme
+test-widget-theme: build/tests/widget-theme-host$(HOST_EXE)
+	$<
+build/tests/widget-theme-host$(HOST_EXE): tools/test_widget_theme.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I $(DESK_WIDGETS_INCLUDE) -idirafter userspace/lib/include -I shared/include $< $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -o $@
+widget-theme-preview: build/tests/render-widget-theme$(HOST_EXE)
+	@mkdir -p build/review/theme
+	$< build/review/theme/silver.ppm
+build/tests/render-widget-theme$(HOST_EXE): tools/render_widget_theme.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I $(DESK_WIDGETS_INCLUDE) -idirafter userspace/lib/include -I shared/include $< $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -o $@
+
+.PHONY: test-desktop-presentation
+test-desktop: test-desktop-presentation
+test-desktop-presentation: build/tests/desktop-presentation-host$(HOST_EXE)
+	./$<
+build/tests/desktop-presentation-host$(HOST_EXE): tools/test_desktop_presentation.c userspace/deskd/presentation.h userspace/lib/include/srvros/desk_render.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include $< -o $@
+
+.PHONY: test-virtio-gpu-probe
+test-core: test-virtio-gpu-probe
+test-virtio-gpu-probe: build/tests/virtio-gpu-probe-host$(HOST_EXE)
+	$<
+build/tests/virtio-gpu-probe-host$(HOST_EXE): tools/test_virtio_gpu_probe.c kernel/src/drivers/virtio_gpu_probe.c kernel/include/srvros/timer.h kernel/include/srvros/virtio_gpu_probe.h kernel/include/srvros/pci.h kernel/include/srvros/vmm.h kernel/include/srvros/pmm.h $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -o $@
+
+.PHONY: test-display-present
+test-core: test-display-present
+test-display-present: build/tests/display-present-host$(HOST_EXE)
+	$<
+build/tests/display-present-host$(HOST_EXE): tools/test_display_present.c kernel/src/display_present.c kernel/include/srvros/display_present.h kernel/include/srvros/virtio_gpu_probe.h $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -o $@
+
+.PHONY: test-virtio-pci test-virtio-rng test-virtio-net test-virtio-input test-virtio-block
+test-core: test-virtio-pci test-virtio-rng test-virtio-net test-virtio-input test-virtio-block
+test-virtio-pci: build/tests/virtio-pci-host$(HOST_EXE)
+	$<
+test-virtio-rng: build/tests/virtio-rng-host$(HOST_EXE)
+	$<
+test-virtio-net: build/tests/virtio-net-host$(HOST_EXE)
+	$<
+test-virtio-input: build/tests/virtio-input-host$(HOST_EXE)
+	$<
+test-virtio-block: build/tests/virtio-block-host$(HOST_EXE)
+	$<
+build/tests/virtio-%-host$(HOST_EXE): tools/test_virtio_%.c kernel/src/drivers/virtio_%.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -o $@

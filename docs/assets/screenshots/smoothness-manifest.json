@@ -1,0 +1,273 @@
+{
+  "status": "PASS",
+  "resolution": "1440x900",
+  "display": "cocoa",
+  "repeats_per_backend": 3,
+  "provenance": {
+    "source_commit": "bfb6d2a776d82a5d6fb4fbf7ede1c517c315911c",
+    "source_dirty": true,
+    "kernel_sha256": "fb94e40ab9011a6a64a18524b745ce95b7821e3d18cbfa90f860eddda4af9120",
+    "exfat_sha256": "9778e60965f26c758330842f147e761529f16b2c82d133acf6d18ffc46d9cbef",
+    "qemu_version": "QEMU emulator version 11.1.2"
+  },
+  "measurement_source": {
+    "executed_harness_sha256": "2cb7118268fba0a6a93fda6ac9c83977bb65ed0a3aa43aadb10fc3585cfd040f",
+    "initramfs_sha256": "6e052a2113d168f15a3c0956197c7ba47d1ac43b8efeabb58614798a8dbc3835",
+    "runtime_matches_commit": "bfb6d2a776d82a5d6fb4fbf7ede1c517c315911c",
+    "runtime_diff": "",
+    "tracked_dirty_paths": [
+      "docs/machines/apple-silicon-build-host.md"
+    ],
+    "note": "Captured while comparison was running; the only tracked edit is the active-scope machine record. The new untracked comparison harness is identified by its hash."
+  },
+  "manual_observations": [
+    {
+      "backend": "virtio",
+      "scope": "window dragging",
+      "user_report": "Smooth, with no obvious tearing"
+    },
+    {
+      "backend": "std",
+      "scope": "window dragging compared with VirtIO",
+      "user_report": "VGA is visibly worse"
+    }
+  ],
+  "metrics": {
+    "std": {
+      "drag": {
+        "draw-blit": {
+          "per_run_mean_us": [
+            7970,
+            7953,
+            7938
+          ],
+          "median_run_mean_us": 7953,
+          "per_run_p95_upper_bound_us": [
+            16667,
+            16667,
+            16667
+          ]
+        },
+        "consume-to-final-blit": {
+          "per_run_mean_us": [
+            7959,
+            7962,
+            7941
+          ],
+          "median_run_mean_us": 7959,
+          "per_run_p95_upper_bound_us": [
+            16667,
+            16667,
+            16667
+          ]
+        },
+        "consecutive-motion-gap": {
+          "per_run_mean_us": [
+            11136,
+            11244,
+            11181
+          ],
+          "median_run_mean_us": 11181,
+          "per_run_p95_upper_bound_us": [
+            21169,
+            25000,
+            25000
+          ]
+        },
+        "frame_counts": [
+          465,
+          466,
+          466
+        ],
+        "input_events_per_run": [
+          450,
+          450,
+          450
+        ],
+        "host_input_max_lateness_ns": [
+          4012209,
+          4061167,
+          3828625
+        ]
+      },
+      "scroll": {
+        "draw-blit": {
+          "per_run_mean_us": [
+            6995,
+            7082,
+            6964
+          ],
+          "median_run_mean_us": 6995,
+          "per_run_p95_upper_bound_us": [
+            16667,
+            16667,
+            16667
+          ]
+        },
+        "consume-to-final-blit": {
+          "per_run_mean_us": [
+            6665,
+            6769,
+            6704
+          ],
+          "median_run_mean_us": 6704,
+          "per_run_p95_upper_bound_us": [
+            16667,
+            16667,
+            16667
+          ]
+        },
+        "consecutive-motion-gap": {
+          "per_run_mean_us": [
+            14446,
+            14645,
+            14426
+          ],
+          "median_run_mean_us": 14446,
+          "per_run_p95_upper_bound_us": [
+            22024,
+            25000,
+            23481
+          ]
+        },
+        "frame_counts": [
+          543,
+          542,
+          545
+        ],
+        "input_events_per_run": [
+          450,
+          450,
+          450
+        ],
+        "host_input_max_lateness_ns": [
+          4072292,
+          5021500,
+          4061459
+        ]
+      }
+    },
+    "virtio": {
+      "drag": {
+        "draw-blit": {
+          "per_run_mean_us": [
+            14354,
+            14173,
+            14358
+          ],
+          "median_run_mean_us": 14354,
+          "per_run_p95_upper_bound_us": [
+            25000,
+            25000,
+            16667
+          ]
+        },
+        "consume-to-final-blit": {
+          "per_run_mean_us": [
+            14192,
+            14129,
+            14197
+          ],
+          "median_run_mean_us": 14192,
+          "per_run_p95_upper_bound_us": [
+            16667,
+            16667,
+            16667
+          ]
+        },
+        "consecutive-motion-gap": {
+          "per_run_mean_us": [
+            20153,
+            20048,
+            20049
+          ],
+          "median_run_mean_us": 20049,
+          "per_run_p95_upper_bound_us": [
+            25000,
+            25000,
+            25000
+          ]
+        },
+        "frame_counts": [
+          388,
+          389,
+          387
+        ],
+        "input_events_per_run": [
+          450,
+          450,
+          450
+        ],
+        "host_input_max_lateness_ns": [
+          4059875,
+          4050667,
+          4036917
+        ]
+      },
+      "scroll": {
+        "draw-blit": {
+          "per_run_mean_us": [
+            16621,
+            16588,
+            16619
+          ],
+          "median_run_mean_us": 16619,
+          "per_run_p95_upper_bound_us": [
+            25000,
+            25000,
+            25000
+          ]
+        },
+        "consume-to-final-blit": {
+          "per_run_mean_us": [
+            16510,
+            16427,
+            16500
+          ],
+          "median_run_mean_us": 16500,
+          "per_run_p95_upper_bound_us": [
+            24045,
+            22592,
+            20951
+          ]
+        },
+        "consecutive-motion-gap": {
+          "per_run_mean_us": [
+            22811,
+            23184,
+            23242
+          ],
+          "median_run_mean_us": 23184,
+          "per_run_p95_upper_bound_us": [
+            32240,
+            31658,
+            32439
+          ]
+        },
+        "frame_counts": [
+          362,
+          356,
+          357
+        ],
+        "input_events_per_run": [
+          450,
+          450,
+          450
+        ],
+        "host_input_max_lateness_ns": [
+          4007708,
+          4085000,
+          4063625
+        ]
+      }
+    }
+  },
+  "final_scroll_pixels_below_menu_different_bytes": 0,
+  "limits": [
+    "Whole-session software samples include settling and menu exit; excludes input queue residence and physical scanout.",
+    "Histogram p95/p99 are upper bounds, not exact quantiles.",
+    "Fixed-one-tick diagnostic loop; do not interpret samples as general application FPS.",
+    "Cocoa visible dragging was assessed by the user; screenshots do not prove tear-free scanout.",
+    "Scrollbar drags used because the current QEMU mouse path drops wheel events."
+  ]
+}

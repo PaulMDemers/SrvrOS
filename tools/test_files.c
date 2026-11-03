@@ -1,4 +1,4 @@
-#include "../userspace/desktools/files_app.c"
+#include "../userspace/apps/desktools/files_app.c"
 #include <assert.h>
 
 void tool_files_info_open(struct tool *t) { (void)t;assert(0); }

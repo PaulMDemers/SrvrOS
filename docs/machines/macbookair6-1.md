@@ -112,17 +112,30 @@ stress. No legacy model or joined files participates in native acceptance.
 The overall platform test still fails the original RC6 bound (about 0.0966%
 nominal excess), and package C3 remains zero. No power transition is authorized.
 
-The read-only audio/IRQ endpoint implementation is now validated locally on
-integrated source `4e2ff068`, release `ee85beb85b75fdca` (PR275 plus PR272). It adds eight exact controls
-with separate live PCH identity/class/location checks and unchanged GPU/well gates.
-Full core/build, focused mapping/failure/formatter/parser/retention tests and
-twelve VM cases pass. No HDA initializer, acknowledgement or control write is added.
+The read-only audio/IRQ endpoints are now physically observed on integrated
+source `4e2ff068`, release `ee85beb85b75fdca` (PR275 plus PR272). Both eight-control
+records and all prior compact proofs survive directly in the matching final log.
+Sampled graphics-audio outputs/ELD bits are clear; CPU/PCH interrupt enables are
+zero with all mask bits set. This accepts bounded read-only capture, not HDA/DMA
+retirement, ownership or an unused display well. The BIOS well request stays set.
 
-Next: collect the matching automated native retry first. Require both actual
-version-6 dependency endpoints and all prior compact proof records directly;
-synthetic model rows cannot grant native acceptance. Preserve RC6 and package-C3
-failures independently. PR272 lifecycle, PR252 lifetimes and PR19 Wi-Fi remain
-separate. The local record owns installed/recovery and ready/armed/returned state.
+The overall platform trial remains failed: nominal RC6 exceeds its PM-clock
+bracket by about 80.425 ms after one tick (0.0893%). Package C3 remains zero.
+Original limits, integrity checks and policy are unchanged. USB preservation,
+offline filesystem/allocation, payload backups and Ubuntu recovery pass; no
+reboot is armed.
+
+The remaining dependency audit is complete: captured GPU `0x0a26` is ULT,
+so generic CRT/FDI initialization and port-D probing are unsuitable next steps.
+The existing eDP input is A_ON rather than the fitter forced-through A_ONOFF
+route. Display HDA at 00:03.0 remains D0 with decode/bus mastering enabled;
+its controller/link/DMA context is not covered by the graphics audio controls.
+
+Next: review and implement bounded read-only display-HDA context with exact
+identity/BAR/domain gates and profile-aware applicability. Keep the strict
+RC6 discrepancy separate. A well-clear experiment requires a future display
+ownership/readout/restore lifecycle; this audit does not authorize one. No
+physical boot is planned or armed. PR252 lifetimes and PR19 Wi-Fi remain separate.
 
 ### Historical battery-runtime objective (2026-10-23)
 
@@ -6133,3 +6146,80 @@ version-6 dependency records and all original compact proofs; no modeled rows
 or older VM receipt substitutes for its matching evidence. Native display-audio/
 IRQ ownership and overall platform acceptance remain pending. RC6's original
 bound, package-C3 uncertainty and all policies/limits stay unchanged.
+
+
+### Native display-audio/IRQ capture collected (2026-11-02)
+
+Integrated source `4e2ff068`, release `ee85beb85b75fdca`, returned automatically
+with matching session `session-00065f53a4c841b9-00`. Its actual 65,536-byte exit
+SHA-256 is `d8f7320405ba731e9db34522949bbfaacfaac625c5a7e661a64bc562454ea3c7`.
+One version-2 header, all 15 power/15 idle/15 entry records, both version-6
+dependency endpoints and every original proof parse directly. No synthetic
+retention rows or joined log supplies missing acceptance data.
+
+Both dependency endpoints pass live exact PCH and unchanged well checks, reading
+eight controls in 15 and 13 us. Raw values are identical: pin/ELD `0`, audio
+configs A/B/C `0x0070fa60`, DEIMR/SDEIMR `0xffffffff`, DEIER/SDEIER `0`. Decoded
+ELD-valid, CP-ready and output-enable bits are clear for A/B/C; mathematical
+enable-and-unmasked intersections are zero. BIOS well request remains set and
+all 26 resource controls remain unchanged. These non-atomic observations do not
+prove HDA/stream/DMA retirement, IRQ ownership, platform permission, well disuse
+or the cause of zero package C3.
+
+All 32 coordinated core-C3 rounds pass (9,983 us maximum), with positive core
+residency and terminal AP retirement. Original idle/load/recovery phases complete
+with mean package power 4.024/5.113/4.033 W over covered intervals. Package C3
+remains zero. RC6's nominal 90.131319040 seconds exceeds the PM bracket
+90.050888–90.050891 seconds by about 80.425 ms after one tick (0.0893%); the
+original strict predicate remains failed, so overall platform acceptance is
+**failed**, independently of successful read-only capture and retention.
+
+All 574 prior files survive except expected workspace metadata; four new session
+logs yield 578 files / 1,640 clusters. Read-only fsck and allocation checks are
+clean, with no leaks/mismatches/errors. The one-shot was consumed; Ubuntu default,
+current/console recovery and protected durable payload hashes are verified.
+All 461 collected evidence files were independently rehashed outside `build`.
+The local run is returned/collected, its collector disabled and no reboot armed.
+Next is a source audit of remaining display-well dependencies and safe ownership
+requirements; this result grants no power transition or policy change.
+
+
+### Remaining display-well ownership audit — active scope (2026-11-02)
+
+Base `cfbf3f97`; docs/source audit only. Cross-check the actual two native
+endpoint inventories against the Haswell domain map, firmware takeover/readout,
+CRT/FDI and display-HDA lifecycles. Scope: this unit record and the current AP
+ownership guide, with pinned upstream sources/hash receipts kept locally. No
+MMIO additions, power writes, policy/limit changes or physical boot are planned
+in this audit. PR252 lifetime and PR19 Wi-Fi scopes remain independent; fetched
+main has no production changes beyond the tested `4e2ff068` image.
+
+
+### Remaining display-well ownership audit completed (2026-11-02)
+
+Audited Linux v7.0 commit `028ef9c96e96197026887c0f092424679298aae8` against
+native source `4e2ff068` / release `ee85beb85b75fdca`, with pinned sources and
+hash receipts retained locally. The [current dependency audit](../ap-ownership-diagnostic.md#remaining-haswell-ult-well-dependencies-2026-11-02)
+records domain coverage, model exclusions and ownership prerequisites.
+No production code, MMIO allowlist, policy, limit or installed payload changes.
+
+`0x0a26` is ULT GT3: upstream excludes CRT and port D. Raw zero slots in the
+existing inventory do not imply implemented ports. Existing eDP input encoding
+0 also excludes the specific fitter-A forced-through condition (encoding 4).
+Those observations narrow the audit; they do not grant a well transition.
+
+The actionable gap is separate display HDA `8086:0a0c` at 00:03.0: actual PCI
+endpoints are D0 with command `0x0006`. Analog `8086:9c20` is a separate owner.
+Linux binds display-HDA power to graphics audio references, stops/resets the
+controller before releasing them, and adopts the display under an INIT reference
+before unused-well cleanup. SrvrOS has no equivalent ownership graph; clear
+ELD/output bits and all-masked display IRQs do not establish DMA retirement.
+
+Next implementation: exact-gated read-only display-HDA control context after
+width/side-effect/domain review, explicit unavailable/changed evidence, bounded
+capability-derived stream coverage and unchanged compact retention checks. It
+must not initialize HDA, issue verbs, acknowledge status, change PCI/D-state or
+clear the BIOS request. A future well transition needs its own serialized
+ownership/adoption/restore design. RC6 timing failure and package-C3 zero remain
+unresolved. Audit-only closeout requires docs/link and diff checks; no hardware
+acceptance is added and no new boot is armed.

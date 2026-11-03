@@ -2,6 +2,24 @@
 
 Updated: 2026-11-02. State: **active reference machine; partial device acceptance**.
 
+### Modular repository catch-up
+
+The user requested updating the local checkout for the submodule extraction.
+Incoming main is `e376669c`, with SrvrUI, SrvrApps and SrvrPorts pinned by the
+OS. PR278 remains open on the pre-extraction layout. Preserve its reviewed
+registry/Open With work by porting app edits into SrvrApps, publishing the app
+commit before its OS gitlink, and retaining root SDK/compositor/tests/docs edits.
+Do not rewrite extraction history or update upstream pins with --remote.
+
+Existing seven upstream working trees were clean and deinitialized normally;
+Git metadata remains cached. Saved patches and archive/air-pre-modular-20261103
+retain the complete prior head. Reconcile path/build/theme conflicts, read each
+new module's applicable rules, initialize exact recursive pins, then run local
+build/core and relevant GUI tests. New main adds themes and QEMU/VirtIO work;
+those do not inherit Mac native acceptance. Installed acceptedc497/recovery9aa
+and staged pre-extractionb9 payload/evidence stay independent. No reboot is armed.
+Evidence/checkpoint: `build/air-modular-catchup-20261103/`.
+
 ### Application registry and Open With: ready for attended trial
 
 PR278 extends the existing launch catalog into shared built-in descriptors:

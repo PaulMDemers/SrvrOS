@@ -1,6 +1,6 @@
 # Application lifecycle and document-owned dialogs
 
-This is matched desktop protocol v15. Build the kernel, compositor and all GUI
+This is matched desktop protocol v16. Build the kernel, compositor and all GUI
 clients together. The process budget is unchanged. One application may own many
 document windows and their transient dialogs through one connection dispatcher.
 

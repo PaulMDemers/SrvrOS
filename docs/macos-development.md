@@ -18,6 +18,8 @@ cd SrvrOS
 sh tools/macos/build.sh check-host
 sh tools/macos/build.sh -j2 all
 python3 tools/macos/run.py
+# Explicit VGA and USB/AHCI/e1000 fallback:
+python3 tools/macos/run.py --display-device std --devices legacy
 ```
 
 Use Homebrew Python 3.12 or newer. For an existing checkout, initialize the pinned
@@ -36,16 +38,27 @@ files. Run builds and VM harnesses sequentially in one checkout.
 ## Interactive VM and controls
 
 The launcher uses Q35, one emulated x86_64 CPU, 1 GiB RAM, a 1440×900 Cocoa window,
-USB keyboard/mouse, writable AHCI exFAT storage, e1000 user-mode networking and
+fenced VirtIO graphics, VirtIO keyboard/tablet, entropy, writable VirtIO exFAT storage,
+VirtIO user-mode networking and
 HDA output through CoreAudio. It configures no host folder sharing, incoming
 port forwarding or microphone capture. Native battery/EC/brightness profiles
 are not enabled. The guest clock is UTC.
+
+`--devices legacy` retains USB input, AHCI storage and e1000 networking independently
+of `--display-device std`. The generated QEMU-only ISO enables the new device
+drivers; native USB and physical boot configurations are unchanged. The default
+tablet reports absolute positions, with buttons and wheel input. Coordinates map
+to the desktop's logical size, including UI scaling. The relative VirtIO mouse
+remains supported for explicit configurations and regression tests.
+See [the VirtIO baseline contract](virtio-baseline.md) for device limits and evidence.
 
 It boots the BIOS ISO, starts `/fat/bin/deskd --apps-trace`, waits for the first
 application frame, saves a screenshot and leaves QEMU running. Finding EFI
 firmware in `check-host` is not a UEFI boot test. Use the dock or Command/Meta-Space
 launcher; F1 opens Help. Ctrl-S in an untitled Text document opens Save As, which
-must be completed. QEMU's View menu shows its current mouse-release shortcut.
+must be completed. With the default tablet, Cocoa releases the host cursor when
+it leaves the guest display and reconnects it on entry. QEMU's View menu shows
+the release shortcut for relative-mouse configurations.
 
 To finish, save work and choose **SrvrOS → Return to console** so app workers
 can drain, then close the QEMU window. Returning to the console does not stop
@@ -313,3 +326,22 @@ matched image for syscall 155 before the eight sequential disposable VM checks.
 Netabi now checks per-call flags, duplicate status, pressure and recovery.
 Evidence: `build/review/dns-socket/`, with `/dns-socket-check` for host-local
 outbound HTTP. See the [DNS/socket audit](dns-socket-audit-2026-10-28.md).
+
+## Modular desktop checks
+
+The Silver overhaul qualifies these host targets with the earlier documented
+Darwin compiler wrapper:
+
+```sh
+sh tools/macos/build.sh HOST_CC='python3 build/tooling/darwin-host-cc.py -D_DARWIN_C_SOURCE -Wno-array-bounds' test-desktop test-desktop-io widget-theme-preview
+TMPDIR=/tmp python3 tools/desktop_apps_smoke.py
+TMPDIR=/tmp python3 tools/desktop_compositor_smoke.py --resolution 1280x800
+```
+
+Run sequentially per checkout after a matched `all` build. The host fixtures now
+handle Darwin's pre-1900 `timegm` limit, Mach-O C symbol prefixes and stack
+alignment rules without changing guest behavior. The file-service host fixture
+verifies the supplied-stack request but executes on a host-managed stack; live
+guest workflows separately exercise real application workers. These targeted
+passes do not qualify the full Linux/core suite or native hardware. See the
+[repository milestone](repository-organization.md) for exact tested revisions.

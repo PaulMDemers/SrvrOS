@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Exercise native desktop applications and persisted files in a disposable VM."""
 import os
+from collections import Counter
 import re
 from pathlib import Path
 import shutil
@@ -11,6 +12,26 @@ import time
 from displayd_frame_smoke import choose_port, connect_serial, stop_process
 from displayd_resolution_smoke import build_iso, read_for
 from desktop_foundation_smoke import QMP
+
+
+def selection_color(path, x, y):
+    """Dominant colored pixel in a selected Text row (not desktop chrome)."""
+    data=path.read_bytes()
+    match=re.match(rb"P6\s+(\d+)\s+(\d+)\s+255\s",data)
+    if not match:
+        raise AssertionError(f"Unexpected QEMU PPM: {path}")
+    width,height=map(int,match.groups());pixels=data[match.end():]
+    assert len(pixels)==width*height*3
+    colors=Counter()
+    for py in range(max(0,y),min(height,y+44)):
+        for px in range(max(0,x),min(width,x+300)):
+            offset=(py*width+px)*3;rgb=tuple(pixels[offset:offset+3])
+            if min(rgb)>100 and max(rgb)-min(rgb)>12:
+                colors[rgb]+=1
+    assert colors, f"No selection color in {path}"
+    color,count=colors.most_common(1)[0]
+    assert count>=40, f"No substantial selection fill in {path}: {color} ({count})"
+    return color
 
 
 def main():
@@ -69,6 +90,9 @@ def main():
                 wait(b"srv> ",100)
                 serial.sendall(b"run /fat/bin/deskd --apps-trace\n")
                 wait(b"desktools: starting role=text");wait(b"deskd: commit")
+                original=re.findall(rb"deskd: opened pid=(\d+) window=\d+ id=(\d+) parent=0",output)
+                assert len(original)==1, "Expected the original Text window"
+                text_pid,text_window=original[0]
                 type_text("Hello, SrvrOS!\nNative desktop text.")
                 qmp.key("left");qmp.key("right")
                 shortcut("ctrl-l");shortcut("ctrl-a");type_text("/fat/desktop-smoke.txt")
@@ -98,20 +122,52 @@ def main():
                 wait(b"file-result role=files op=3 status=0");shot("new-folder")
                 shortcut("alt-up");wait(b"file-result role=files op=3 status=0")
                 type_text("desktop-smoke");qmp.key("ret")
-                wait(b"desktools: starting role=text");wait(b"file-result role=text op=1 status=0")
+                wait(b"deskd: document-route reply pid="+text_pid+b" accepted=1")
+                wait(b"text-runtime: admitted window=");wait(b"\n")
+                routed=re.findall(rb"text-runtime: admitted window=(\d+)",output)[-1]
+                assert routed!=text_window, "Routed document must have its own window"
+                assert re.search(rb"deskd: opened pid="+text_pid+rb" window=\d+ id="+routed+rb" parent=0(?:\r?\n)",output), "Routed window must belong to the existing Text process"
+                wait(b"file-result role=text op=1 status=0")
                 shot("opened-from-files");output+=read_for(serial,.1)
-                # Child/parent console writes may interleave at exit. The parent
-                # owns the process status; pair it with this newly opened PID.
-                opened=re.findall(rb"deskd: opened pid=(\d+) window=2\r?\n",output)
-                assert len(opened)==1, "Expected the newly opened Text process"
-                shortcut("ctrl-w");wait(b"deskd: child-exit pid="+opened[0]+b" status=0")
+                shortcut("ctrl-w");wait(b"text-runtime: closed window="+routed+b" ")
+                assert b"deskd: child-exit pid="+text_pid+b" " not in output, "Closing the routed window must preserve the original Text process"
+                assert b"text-runtime: closed window="+text_window+b" " not in output, "The original Text window must remain open"
                 # Calculator is a separate process and receives raw editing/navigation keys.
                 click(590,750);wait(b"desktools: starting role=calculator");wait(b"deskd: commit")
                 type_text("2 + 3 * (4 - 1)");qmp.key("ret");shot("calculator")
                 shortcut("ctrl-a");click(178,22);shot("edit-menu");click(200,162);wait(b"clipboard role=3 action=8")
                 click(690,750);wait(b"desktools: starting role=system");shot("system")
-                click(790,750);wait(b"desktools: starting role=settings");shot("settings")
-                click(210,240);time.sleep(.3);click(490,750);shot("larger-text")
+                click(790,750);wait(b"desktools: starting role=settings");wait(b"deskd: geometry pid=");wait(b"\n");shot("settings")
+                geometry=re.findall(rb"deskd: geometry pid=(\d+) window=(\d+) frame=(\d+),(\d+),(\d+),(\d+)",output)
+                assert geometry, "Settings geometry missing from trace"
+                _,_,sx,sy,_,_=map(int,geometry[-1])
+                shortcut("pgdn");click(210,232);time.sleep(.3);click(490,750);shot("larger-text")
+                # Select existing Text content: its selection fill is widget-owned,
+                # so a changed pixel proves the already-running client repainted.
+                click(90,225);shortcut("ctrl-a");shot("theme-before")
+                before=selection_color(out/"theme-before.ppm",49,64+44+102)
+                assert before==(0xc9,0xe1,0xf6), f"Expected Blue selection, got {before}"
+                click(790,750)
+                # Return to Appearance at the top and choose Teal and Clear.
+                shortcut("pgup")
+                teal_y=sy+44+64+252+16
+                clear_y=sy+44+64+392+16
+                click(sx+45,teal_y);wait(b"theme_accent=2 glass_level=1")
+                click(sx+45,clear_y);wait(b"theme_accent=2 glass_level=2")
+                wait(b"status=1 ");shot("theme-settings-saved")
+                click(490,750);shot("theme-existing-window")
+                teal=selection_color(out/"theme-existing-window.ppm",49,64+44+102)
+                assert teal==(0xc6,0xe7,0xdf), f"Existing Text selection did not adopt Teal: {teal}"
+                shortcut("ctrl-shift-n");wait(b"text-runtime: admitted window=");wait(b"\n")
+                new_window=re.findall(rb"text-runtime: admitted window=(\d+)",output)[-1]
+                type_text("Theme sample");shortcut("ctrl-a");shot("theme-new-window")
+                # Find the new window's screen origin from its server trace.
+                frames=re.findall(rb"deskd: geometry pid="+text_pid+rb" window=\d+ frame=(\d+),(\d+),(\d+),(\d+)",output)
+                assert frames, "New Text window geometry missing"
+                nx,ny,_,_=map(int,frames[-1])
+                assert selection_color(out/"theme-new-window.ppm",nx+17,ny+44+102)==teal, "New Text window did not inherit Teal"
+                qmp.key("backspace");shortcut("ctrl-w");wait(b"text-runtime: closed window="+new_window+b" ")
+                click(490,750)
                 # Minimize and restore through the dock, then zoom and restore.
                 click(666,86);shot("text-minimized");click(490,750)
                 click(700,86);wait(b"maximized=1");shot("text-zoomed")
@@ -141,18 +197,25 @@ def main():
                 # Return through the global menu; saved documents close normally.
                 shortcut("f10");shortcut("end");shortcut("ret")
                 wait(b"deskd: exited",60);wait(b"srv> ")
+                serial.sendall(b"cat /fat/home/desktop.conf\n")
+                wait(b"srvros-desktop-v6");wait(b"theme_accent=2\r\nglass_level=2\r\ntheme_style=0");wait(b"srv> ")
                 serial.sendall(b"cat /fat/desktop-smoke.txt\n")
                 wait(b"Hello, SrvrOS!\r\nNative desktop text. More. Kept.")
                 wait(b"srv> ")
                 serial.sendall(b"cat /fat/desktop-clipboard.txt\n")
                 wait(b"2 + 3 * (4 - 1)");wait(b"srv> ")
                 serial.sendall(b"cat /fat/desktop-replace.txt\n");wait(b"Updated replacement target");wait(b"srv> ")
+                # A new desktop process must reload the saved theme from disk.
+                serial.sendall(b"run /fat/bin/deskd --apps-trace\n")
+                wait(b"status=1 text=20");wait(b"theme_accent=2 glass_level=2")
+                time.sleep(1);shortcut("f10");shortcut("end");shortcut("ret")
+                wait(b"deskd: exited",60);wait(b"srv> ")
                 if b"failure=1" in output or b"deskd: FAIL" in output or b"exception:" in output:
                     raise RuntimeError("Guest failure; see serial.log")
                 serial.close();qmp.stream.close();qmp.sock.close()
             finally:
                 stop_process(process);(out/"serial.log").write_bytes(output)
-    print(f"desktop-apps: PASS native tools, Open/Save/Save As, replacement cancel/verified overwrite, folder navigation, unsaved cancel, shared clipboard/cut undo, text-size broadcast, minimize/zoom restore, empty save and global menus. Evidence: {out}")
+    print(f"desktop-apps: PASS native tools, Open/Save/Save As, replacement cancel/verified overwrite, folder navigation, unsaved cancel, shared clipboard/cut undo, text-size broadcast, live and persisted theme, minimize/zoom restore, empty save and global menus. Evidence: {out}")
 
 
 if __name__=="__main__": main()

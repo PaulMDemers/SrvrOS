@@ -14,11 +14,16 @@ int main(void) {
     unsigned count=0;
     for(int year=1600;year<=2400;year++) for(unsigned month=1;month<=12;month++) for(unsigned first=0;first<7;first++) {
         desk_calendar_select(&c,(struct desk_date){year,month,15});desk_calendar_configure(&c,c.frame,1,first);
-        struct tm first_date={.tm_year=year-1900,.tm_mon=(int)month-1,.tm_mday=1};time_t seconds=timegm(&first_date);
-        seconds-=(first_date.tm_wday+7-first)%7*86400;
+        /* Darwin timegm rejects years before 1900. Gregorian weekdays and leap
+           years repeat every 400 years, including dates crossing a year edge. */
+        int shift=year<1900?400:0;
+        struct tm first_date={.tm_year=year+shift-1900,.tm_mon=(int)month-1,.tm_mday=1};time_t seconds=timegm(&first_date);
+        struct tm normalized;assert(gmtime_r(&seconds,&normalized));
+        assert(normalized.tm_year==year+shift-1900 && normalized.tm_mon==(int)month-1 && normalized.tm_mday==1);
+        seconds-=(normalized.tm_wday+7-first)%7*86400;
         for(unsigned cell=0;cell<42;cell++,seconds+=86400) {
             struct tm expected;gmtime_r(&seconds,&expected);struct desk_date actual;assert(!desk_calendar_cell_date(&c,cell,&actual));
-            assert(actual.year==expected.tm_year+1900 && actual.month==(unsigned)expected.tm_mon+1 && actual.day==(unsigned)expected.tm_mday);count++;
+            assert(actual.year==expected.tm_year+1900-shift && actual.month==(unsigned)expected.tm_mon+1 && actual.day==(unsigned)expected.tm_mday);count++;
         }
     }
     desk_calendar_configure(&c,c.frame,1,0);desk_calendar_select(&c,(struct desk_date){2024,1,31});desk_calendar_event(&c,(struct desk_widget_event){.type=DESK_WIDGET_FOCUS_IN});

@@ -2,12 +2,11 @@
 #define SRVROS_USER_MOUSE_H
 
 #include <stdint.h>
+#include <srvros/mouse_flags.h>
 
 #define MOUSE_LEFT 0x01
 #define MOUSE_RIGHT 0x02
 #define MOUSE_MIDDLE 0x04
-
-#define MOUSE_CANCEL 0x80
 
 struct mouse_event {
     uint64_t abi_version;
