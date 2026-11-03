@@ -5,7 +5,7 @@
 #define SRVROS_PROCESS_HOST_TEST
 #include "../kernel/src/process.c"
 
-static bool opening,fixture_exists,fail_delete,fail_delete_after,path_fixture;
+static bool opening,fixture_exists,fail_delete,fail_delete_after,path_fixture,namespace_fixture;
 static unsigned deletes;
 static bool rename_fixture,rename_fail_after_publish;
 static unsigned rename_calls;
@@ -27,9 +27,26 @@ static struct vfs_node path_nodes[]={
     {.path="/test/dir/sub/b",.type=VFS_NODE_FILE,.metadata={.inode=6}},
     {.path="/test/dir-elsewhere",.type=VFS_NODE_FILE,.metadata={.inode=7}},
 };
-const struct vfs_node *vfs_node_at(uint64_t i) { assert(path_fixture);return i<7?&path_nodes[i]:NULL; }
+static struct vfs_node namespace_nodes[]={
+    {.used=true,.path="/",.type=VFS_NODE_DIRECTORY,.metadata={.inode=1}},
+    {.used=true,.path="/fat",.type=VFS_NODE_DIRECTORY,.metadata={.inode=2}},
+    {.used=true,.path="/fat/bin",.type=VFS_NODE_DIRECTORY,.metadata={.inode=3}},
+    {.used=true,.path="/fat/var",.type=VFS_NODE_DIRECTORY,.metadata={.inode=4}},
+    {.used=true,.path="/fat/home",.type=VFS_NODE_DIRECTORY,.metadata={.inode=5}},
+    {.used=true,.path="/fat/home/note",.type=VFS_NODE_FILE,.metadata={.inode=6}},
+};
+uint64_t vfs_count(void) { return namespace_fixture?6:path_fixture?7:0; }
+const struct vfs_node *vfs_node_at(uint64_t i) {
+    if(namespace_fixture) return i<6?&namespace_nodes[i]:NULL;
+    assert(path_fixture);return i<7?&path_nodes[i]:NULL;
+}
+void vfs_set_retire_callback(vfs_retire_fn callback) { (void)callback; }
 static struct vfs_node fixture_node={.path="/test/output",.type=VFS_NODE_FILE};
 static unsigned saves;
+static struct process_pipe *legacy_retirement_watch;
+static struct process *reentrant_close_process;
+static int reentrant_close_fd = -1;
+static unsigned reentrant_closes;
 static bool fail_save,clean_refusal;
 static bool fail_alloc;
 static uint8_t saved[4096];
@@ -37,6 +54,9 @@ static size_t saved_size;
 static struct process *current_subject;
 static struct process_user_thread *current_worker;
 static unsigned pipe_wait_mode;
+static int message_replacement_fd;
+static uint64_t wait_target_fd, wait_peer_fd, wait_replacement_fd;
+static uint64_t wait_reused_pair[2];
 void *scheduler_current_user_context(void) { return current_subject; }
 void *scheduler_current_user_thread_context(void) { return current_worker; }
 void net_process_wake(struct process *process) { (void)process; }
@@ -44,7 +64,56 @@ void keyboard_wake_waiters(void) {}
 void scheduler_yield(void) { assert(0); }
 void scheduler_wake_all(struct scheduler_wait_queue *queue) { (void)queue; }
 __attribute__((noinline)) bool scheduler_wait(struct scheduler_wait_queue *queue, bool (*ready)(void *), void *arg) {
-    (void)queue;struct process_pipe *pipe=ready==pipe_write_ready?((struct pipe_write_wait *)arg)->pipe:arg;
+    (void)queue;
+    if (ready == pipe_message_ready) {
+        struct pipe_message_wait *wait = arg;
+        if (pipe_wait_mode == 5) {
+            assert(process_file_close(wait->process, wait->fd) == 0);
+            assert(process_file_dup2(wait->process, (uint64_t)message_replacement_fd, wait->fd) == (int64_t)wait->fd);
+        } else {
+            assert(pipe_wait_mode == 6);
+            assert(process_file_dup2(wait->process, 0, 1) == 1);
+            struct process_pipe *pipe = pipe_message_current(wait);
+            pipe->size = 0;
+            pipe->read_pos = pipe->write_pos;
+        }
+        pipe_wait_mode = 0;
+        return ready(arg);
+    }
+    if (pipe_wait_mode == 11) {
+        assert(!ready(arg));
+        struct srv_pipe_message message = {.fds = {(int32_t)wait_replacement_fd}, .count = 1};
+        pipe_wait_mode = 0;
+        assert(process_file_send_message(current_subject, wait_peer_fd,
+            (const uint8_t *)"ready", 5, &message) == 5);
+        return ready(arg);
+    }
+    if (pipe_wait_mode >= 7) {
+        assert(!ready(arg));
+        unsigned action = pipe_wait_mode;
+        pipe_wait_mode = 0;
+        if (action == 7) {
+            assert(process_file_close(current_subject, wait_target_fd) == 0);
+        } else if (action == 8) {
+            assert(process_file_close(current_subject, wait_target_fd) == 0);
+            assert(process_file_close(current_subject, wait_peer_fd) == 0);
+            assert(process_file_pipe(current_subject, wait_reused_pair) == 0);
+            assert(wait_reused_pair[0] == wait_target_fd);
+            assert(process_file_pipe_write(current_subject, wait_reused_pair[1], (const uint8_t *)"B", 1) == 1);
+        } else if (action == 9) {
+            assert(process_file_dup2(current_subject, wait_replacement_fd, wait_target_fd) == (int64_t)wait_target_fd);
+        } else {
+            assert(action == 10);
+            assert(process_file_close(current_subject, wait_target_fd) == 0);
+            assert(process_file_close(current_subject, wait_peer_fd) == 0);
+            assert(process_file_pipe(current_subject, wait_reused_pair) == 0);
+            assert(wait_reused_pair[1] == wait_target_fd);
+        }
+        assert(ready(arg)); /* Retiring/replacing an FD wakes its waiter. */
+        return true;
+    }
+    struct process_pipe *pipe = pipe_io_current((const struct pipe_io_wait *)arg);
+    assert(pipe);
     if(ready==pipe_write_ready) assert(!ready(arg));
     if(pipe_wait_mode==1) { pipe->size=0;pipe->read_pos=pipe->write_pos; }
     else if(pipe_wait_mode==2) { memcpy(pipe->buffer,"ready",5);pipe->read_pos=0;pipe->write_pos=pipe->size=5; }
@@ -54,6 +123,7 @@ __attribute__((noinline)) bool scheduler_wait(struct scheduler_wait_queue *queue
     pipe_wait_mode=0;return ready(arg);
 }
 void vfs_release_data(const struct vfs_node *node, const uint8_t *data) {
+    if(namespace_fixture) { assert(node==&namespace_nodes[5] && data==saved);return; }
     if(rename_fixture) { assert((node==&rename_source || node==&rename_target) && data);return; }
     assert(opening && node==&fixture_node && data==saved);
 }
@@ -69,6 +139,13 @@ void *kmalloc(size_t size) { return fail_alloc ? NULL : malloc(size); }
 void kfree(void *ptr) { free(ptr); }
 bool exfat_write_file(const char *path, const uint8_t *data, uint64_t size) {
     assert(!strcmp(path,"/test/output")); saves++;
+    if (legacy_retirement_watch) assert(!legacy_retirement_watch->rights[0].used);
+    if (reentrant_close_fd >= 0) {
+        int fd = reentrant_close_fd;
+        reentrant_close_fd = -1;
+        reentrant_closes++;
+        assert(process_file_close(reentrant_close_process, (uint64_t)fd) == 0);
+    }
     if (fail_save) return false;
     assert(size<=sizeof(saved));if(size) memcpy(saved,data,size);saved_size=size;
     if(opening) fixture_exists=true;
@@ -83,6 +160,10 @@ bool exfat_write_file_mode(const char *path,const uint8_t *data,uint64_t size,ui
     return ok;
 }
 const struct vfs_node *vfs_lookup(const char *path) {
+    if(namespace_fixture) {
+        for(unsigned i=0;i<6;i++) if(namespace_nodes[i].used && !strcmp(path,namespace_nodes[i].path)) return &namespace_nodes[i];
+        return NULL;
+    }
     if(rename_fixture) {
         if(rename_source.used && !strcmp(path,rename_source.path)) return &rename_source;
         if(rename_target.used && !strcmp(path,rename_target.path)) return &rename_target;
@@ -93,9 +174,12 @@ const struct vfs_node *vfs_lookup(const char *path) {
         if(!strcmp(path,"/test/output")) return &fixture_node;
         return NULL;
     }
+    if(opening && !strcmp(path,"/")) return &path_nodes[0];
+    if(opening && !strcmp(path,"/test")) return &path_nodes[1];
     assert(opening && !strcmp(path,"/test/output"));return fixture_exists?&fixture_node:NULL;
 }
 bool vfs_read_all(const struct vfs_node *node,const uint8_t **data,uint64_t *size) {
+    if(namespace_fixture) { assert(node==&namespace_nodes[5]);*data=saved;*size=saved_size;return true; }
     assert(opening && node==&fixture_node);*data=saved;*size=saved_size;return true;
 }
 bool exfat_delete_file(const char *path) {
@@ -236,6 +320,44 @@ static void pipe_regression(void) {
     subject.signal_ignore_mask=1ull<<SRV_SIGNAL_PIPE;
     pipe_wait_mode=4;assert(process_file_pipe_write(&subject,4,input,10)==SRV_ERR_PIPE);
     assert(process_file_close(&subject,3)==0 && process_file_close(&subject,4)==0 && !pipes[0].used);
+}
+static bool mapping_copyout_fail(void *context, const uint8_t *first, uint64_t first_len,
+    const uint8_t *second, uint64_t second_len) {
+    (void)context; (void)first; (void)first_len; (void)second; (void)second_len;
+    return false;
+}
+static bool mapping_copyin_prefix(void *context, uint64_t offset, uint8_t *first,
+    uint64_t first_len, uint8_t *second, uint64_t second_len) {
+    (void)context;
+    if (offset) return false;
+    memset(first, 'x', first_len); memset(second, 'x', second_len); return true;
+}
+static void pipe_mapping_commit_regression(void) {
+    clear_process(&subject); memset(pipes, 0, sizeof(pipes));
+    uint64_t carrier[2], payload[2];
+    assert(process_file_pipe_pair(&subject, carrier) == 0);
+    assert(process_file_pipe(&subject, payload) == 0);
+    current_subject = &subject;
+    wait_peer_fd = carrier[0]; wait_replacement_fd = payload[1]; pipe_wait_mode = 11;
+    assert(process_file_pipe_read_checked(&subject, carrier[1], 5, false,
+        mapping_copyout_fail, NULL) == SRV_ERR_FAULT);
+    struct process_pipe *pipe = pipe_at(subject.files[carrier[1]].handle);
+    assert(!pipe_wait_mode && pipe && pipe->size == 5 && pipe->rights[0].used);
+    struct srv_pipe_message received = {.count = 1};
+    uint8_t output[5];
+    assert(process_file_recv_message_checked(&subject, carrier[1], output, sizeof(output),
+        &received, NULL, NULL) == 5);
+    assert(!memcmp(output, "ready", 5) && received.count == 1);
+    assert(process_file_pipe_write(&subject, received.fds[0], (const uint8_t *)"x", 1) == 1);
+    uint8_t byte;
+    assert(process_file_pipe_read(&subject, payload[0], &byte, 1) == 1 && byte == 'x');
+    assert(process_file_close(&subject, received.fds[0]) == 0);
+    assert(process_file_close(&subject, carrier[0]) == 0 && process_file_close(&subject, carrier[1]) == 0);
+    pipe_wait_mode = 1;
+    assert(process_file_pipe_write_checked(&subject, payload[1], PROCESS_PIPE_CAPACITY + 1, false,
+        mapping_copyin_prefix, NULL) == PROCESS_PIPE_CAPACITY);
+    assert(!pipe_wait_mode && pipe_at(subject.files[payload[1]].handle)->size == 0);
+    assert(process_file_close(&subject, payload[0]) == 0 && process_file_close(&subject, payload[1]) == 0);
 }
 static void snapshot_read_regression(void) {
     static uint8_t data[32777],out[16386];
@@ -618,6 +740,7 @@ static void orphan_lock_regression(void) {
 }
 static void path_context_regression(void) {
     clear_process(&subject);current_subject=&subject;path_fixture=true;
+    for(unsigned i=0;i<7;i++) path_nodes[i].used=true;
     char out[160]="unchanged";
     assert(!process_path_context(SRV_PATH_GETCWD,NULL,out,sizeof(out)) && !strcmp(out,"/"));
     assert(!process_path_context(SRV_PATH_CHDIR,"/test/dir",NULL,0));
@@ -674,6 +797,52 @@ static void path_context_regression(void) {
     assert(!process_has_open_vfs_prefix("/test/dir"));
     path_fixture=false;current_subject=NULL;
     puts("process-cwd: PASS checked traversal, errors and unchanged state on failure");
+}
+static void namespace_process_regression(void) {
+    namespace_fixture=true;clear_process(&subject);current_subject=&subject;
+    assert(vfs_namespace_system_activate());
+    char path[160];
+    assert(!process_path_context(SRV_PATH_CHDIR,"/home",NULL,0));
+    assert(!strcmp(subject.cwd,"/home") && !strcmp(subject.cwd_storage,"/fat/home"));
+    assert(!process_resolve_storage_path("note",path,sizeof(path)) && !strcmp(path,"/fat/home/note"));
+    assert(!process_path_context(SRV_PATH_RESOLVE,"../bin",path,sizeof(path)) && !strcmp(path,"/bin"));
+    long dir=process_file_open_flags(&subject,"/home",SRV_OPEN_READ|SRV_OPEN_DIRECTORY);
+    assert(dir>=0 && !process_directory(SRV_DIRECTORY_PATH,dir,path,sizeof(path)) && !strcmp(path,"/home"));
+    struct srv_dirent entry;
+    assert(process_directory(SRV_DIRECTORY_READ,dir,&entry,sizeof(entry))==1 && !strcmp(entry.name,".") && entry.inode==5);
+    assert(process_directory(SRV_DIRECTORY_READ,dir,&entry,sizeof(entry))==1 && !strcmp(entry.name,"..") && entry.inode==1);
+    assert(process_directory(SRV_DIRECTORY_READ,dir,&entry,sizeof(entry))==1 && !strcmp(entry.name,"note"));
+    assert(process_has_open_vfs_prefix("/fat/home"));
+    long a=process_file_open_flags(&subject,"/home/note",SRV_OPEN_READ);
+    long b=process_file_open_flags(&subject,"/fat/home/note",SRV_OPEN_READ);
+    assert(a>=0 && b>=0 && read_file_at(subject.files[a].handle)->content==read_file_at(subject.files[b].handle)->content);
+    struct process_file_content *shared=read_file_at(subject.files[a].handle)->content;
+    assert(!file_lock_update(123,shared,0,10,SRV_F_WRLCK));subject.pid=321;
+    struct srv_flock conflict={.type=SRV_F_WRLCK,.start=0,.len=1};
+    assert(!process_file_get_lock(&subject,b,&conflict) && conflict.type==SRV_F_WRLCK && conflict.pid==123);
+    file_lock_release_path(123,shared);
+    assert(process_rename_file("/fat/home","/fat/other")==SRV_ERR_BUSY);
+    assert(!process_file_close(&subject,a) && !process_file_close(&subject,b));
+    assert(!process_file_close(&subject,dir));
+    long root=process_file_open_flags(&subject,"/",SRV_OPEN_READ|SRV_OPEN_DIRECTORY);
+    assert(root>=0);unsigned seen=0;
+    while(process_directory(SRV_DIRECTORY_READ,root,&entry,sizeof(entry))>0) {
+        if(!strcmp(entry.name,"home")) seen|=1;
+        if(!strcmp(entry.name,"usr")) seen|=2;
+        if(!strcmp(entry.name,"bin")) seen|=4;
+        if(!strcmp(entry.name,"var")) seen|=8;
+    }
+    assert(seen==15 && !process_file_close(&subject,root));
+    /* A stale logical alias must not erase the retained backing busy guard. */
+    processes[0].allocated=true;
+    copy_process_path(processes[0].cwd,sizeof(processes[0].cwd),subject.cwd);
+    copy_process_path(processes[0].cwd_storage,sizeof(processes[0].cwd_storage),subject.cwd_storage);
+    vfs_namespace_system_reset();
+    assert(process_has_open_vfs_prefix("/fat/home"));
+    processes[0].allocated=false;
+    assert(!process_path_context(SRV_PATH_CHDIR,"/",NULL,0));
+    namespace_fixture=false;current_subject=NULL;
+    puts("process-namespace: PASS logical cwd, dirfd and shared storage identity");
 }
 static void rename_failure_regression(void) {
     for(unsigned post_error=0;post_error<2;post_error++) {
@@ -757,11 +926,668 @@ static void watch_regression(void) {
     subject.files[3]=(struct process_file){0};
     puts("process-watch: PASS pipe/PTY readiness, ownership deferral, close/dup2 ABA and generation exhaustion");
 }
-int main(void) {
+static int64_t process_file_recv_message(struct process *process, uint64_t fd,
+    uint8_t *buffer, uint64_t length, struct srv_pipe_message *message) {
+    return process_file_recv_message_checked(process, fd, buffer, length, message, NULL, NULL);
+}
+
+struct test_rights_output { int32_t *fds; uint64_t *flags; bool reject; };
+static bool test_rights_copyout(void *context, const int32_t *fds, uint64_t count, uint64_t flags) {
+    struct test_rights_output *out = context;
+    if (out->reject) return false;
+    if (count) memcpy(out->fds, fds, count * sizeof(*fds));
+    if (out->flags) *out->flags = flags;
+    return true;
+}
+
+static int64_t process_file_recv_rights(struct process *process, uint64_t fd,
+    int32_t *fds, uint64_t capacity, uint64_t *flags) {
+    struct test_rights_output out = {fds, flags, false};
+    return process_file_recv_rights_checked(process, fd, capacity, test_rights_copyout, &out);
+}
+
+static bool reject_message_copyout(void *context, const void *data, uint64_t length,
+    const struct srv_pipe_message *message) {
+    (void)context; (void)data; (void)length; (void)message;
+    return false;
+}
+
+static void message_rights_regression(void) {
+    clear_process(&subject);
+    memset(pipes, 0, sizeof(pipes));
+    uint64_t pair[2];
+    assert(process_file_pipe_pair(&subject, pair) == 0);
+    uint64_t send_fd = pair[0], recv_fd = pair[1];
+    struct process_pipe *pipe = pipe_at(subject.files[send_fd].aux_handle);
+    assert(pipe);
+    struct srv_pipe_message plain = {0};
+    struct srv_pipe_message send_rights = {.fds = {1}, .count = 1};
+    struct srv_pipe_message recv = {.count = SRV_RIGHTS_MAX};
+    uint8_t out[32] = {0};
+    assert(process_file_send_message(&subject, send_fd, (const uint8_t *)"abc", 3, &plain) == 3);
+    assert(process_file_send_message(&subject, send_fd, (const uint8_t *)"def", 3, &send_rights) == 3);
+    assert(process_file_send_message(&subject, send_fd, (const uint8_t *)"ghi", 3, &send_rights) == 3);
+    assert(process_file_recv_message(&subject, recv_fd, out, sizeof(out), &recv) == 3);
+    assert(!memcmp(out, "abc", 3) && recv.count == 0);
+    recv = (struct srv_pipe_message){.count = SRV_RIGHTS_MAX, .flags = SRV_PIPE_MSG_PEEK | SRV_PIPE_MSG_CLOEXEC};
+    assert(process_file_recv_message(&subject, recv_fd, out, sizeof(out), &recv) == 3);
+    assert(!memcmp(out, "def", 3) && recv.count == 1 && process_file_get_fd_flags(&subject, recv.fds[0]) == SRV_FD_CLOEXEC);
+    assert(process_file_close(&subject, recv.fds[0]) == 0);
+    recv = (struct srv_pipe_message){.count = SRV_RIGHTS_MAX};
+    fail_alloc = true;
+    assert(process_file_recv_message(&subject, recv_fd, out, sizeof(out), &recv) == SRV_ERR_NOMEM);
+    assert(pipe->size == 6 && pipe->rights[0].used);
+    fail_alloc = false;
+    recv = (struct srv_pipe_message){.count = SRV_RIGHTS_MAX};
+    assert(process_file_recv_message_checked(&subject, recv_fd, out, sizeof(out), &recv, reject_message_copyout, NULL) == SRV_ERR_FAULT);
+    assert(pipe->size == 6 && pipe->rights[0].used && !pipe->rights[0].offset);
+    recv = (struct srv_pipe_message){.count = 0};
+    assert(process_file_recv_message(&subject, recv_fd, out, sizeof(out), &recv) == 3);
+    assert(!memcmp(out, "def", 3) && recv.count == 0 && (recv.flags & SRV_PIPE_MSG_CTRUNC));
+    recv = (struct srv_pipe_message){.count = SRV_RIGHTS_MAX};
+    assert(process_file_recv_message(&subject, recv_fd, out, sizeof(out), &recv) == 3);
+    assert(!memcmp(out, "ghi", 3) && recv.count == 1);
+    assert(process_file_close(&subject, recv.fds[0]) == 0);
+    recv = (struct srv_pipe_message){.count = SRV_RIGHTS_MAX, .flags = SRV_PIPE_MSG_DONTWAIT};
+    assert(process_file_recv_message(&subject, recv_fd, out, sizeof(out), &recv) == SRV_ERR_AGAIN);
+    /* Old senders can queue multiple records before producing one byte. */
+    int32_t old_fd = 1;
+    assert(process_file_send_rights(&subject, send_fd, &old_fd, 1) == 0);
+    assert(process_file_send_rights(&subject, send_fd, &old_fd, 1) == 0);
+    assert(process_file_pipe_write(&subject, send_fd, (const uint8_t *)"L", 1) == 1);
+    recv = (struct srv_pipe_message){.count = SRV_RIGHTS_MAX, .flags = SRV_PIPE_MSG_PEEK};
+    assert(process_file_recv_message(&subject, recv_fd, out, sizeof(out), &recv) == 1);
+    assert(out[0] == 'L' && recv.count == 2 && pipe->rights[0].used && pipe->rights[1].used);
+    assert(process_file_close(&subject, recv.fds[0]) == 0);
+    assert(process_file_close(&subject, recv.fds[1]) == 0);
+    recv = (struct srv_pipe_message){.count = 1};
+    assert(process_file_recv_message(&subject, recv_fd, out, sizeof(out), &recv) == 1);
+    assert(out[0] == 'L' && recv.count == 1 && (recv.flags & SRV_PIPE_MSG_CTRUNC));
+    assert(process_file_close(&subject, recv.fds[0]) == 0 && !pipe->rights[0].used);
+
+    /* Predicate observes the waiting thread, even from another context. */
+    struct process_user_thread *waiting_thread = &subject.user_threads[0];
+    waiting_thread->used = true; waiting_thread->owner = &subject;
+    struct pipe_message_wait wait = {&subject, recv_fd, subject.file_generations[recv_fd],
+        subject.files[recv_fd].handle, false, false, waiting_thread};
+    waiting_thread->pending_signals = 1ull << SRV_SIGNAL_WINCH;
+    waiting_thread->signal_mask = 0;
+    assert(pipe_message_ready(&wait));
+    waiting_thread->signal_mask = 1ull << SRV_SIGNAL_WINCH;
+    assert(!pipe_message_ready(&wait));
+    waiting_thread->used = false; waiting_thread->pending_signals = 0;
+
+    /* Discarding the last queued reference retires its pipe after commit. */
+    uint64_t carried[2];
+    assert(process_file_pipe(&subject, carried) == 0);
+    struct process_pipe *carried_pipe = pipe_at(subject.files[carried[1]].handle);
+    struct srv_pipe_message carry = {.count = 1};
+    carry.fds[0] = (int32_t)carried[1];
+    assert(process_file_send_message(&subject, send_fd, (const uint8_t *)"r", 1, &carry) == 1);
+    assert(process_file_close(&subject, carried[0]) == 0);
+    assert(process_file_close(&subject, carried[1]) == 0 && carried_pipe->used);
+    recv = (struct srv_pipe_message){.count = 0};
+    assert(process_file_recv_message(&subject, recv_fd, out, sizeof(out), &recv) == 1);
+    assert((recv.flags & SRV_PIPE_MSG_CTRUNC) && !carried_pipe->used && !pipe->rights[0].used);
+
+    assert(process_file_pipe(&subject, carried) == 0);
+    carried_pipe = pipe_at(subject.files[carried[1]].handle);
+    carry.fds[0] = (int32_t)carried[1];
+    assert(process_file_send_message(&subject, send_fd, (const uint8_t *)"s", 1, &carry) == 1);
+    assert(process_file_close(&subject, carried[0]) == 0);
+    assert(process_file_close(&subject, carried[1]) == 0 && carried_pipe->used);
+    struct test_rights_output discard = {NULL, NULL, false};
+    assert(process_file_recv_rights_checked(&subject, recv_fd, 0, test_rights_copyout, &discard) == 0);
+    assert(!carried_pipe->used && !pipe->rights[0].used && pipe->size == 1);
+    recv = (struct srv_pipe_message){.count = SRV_RIGHTS_MAX};
+    assert(process_file_recv_message(&subject, recv_fd, out, sizeof(out), &recv) == 1 && out[0] == 's');
+
+    /* A bounded partial write commits rights with the first available byte. */
+    pipe->size = PROCESS_PIPE_CAPACITY - 1;
+    send_rights.flags = SRV_PIPE_MSG_DONTWAIT;
+    assert(process_file_send_message(&subject, send_fd, (const uint8_t *)"xy", 2, &send_rights) == 1);
+    assert(pipe->rights[0].used && pipe->rights[0].offset == PROCESS_PIPE_CAPACITY - 1);
+    uint8_t drain[SRV_PIPE_BUF];
+    while (pipe->size) {
+        uint64_t chunk = pipe->size < sizeof(drain) ? pipe->size : sizeof(drain);
+        assert(process_file_pipe_read(&subject, recv_fd, drain, chunk) == (int64_t)chunk);
+    }
+    assert(!pipe->rights[0].used);
+    send_rights.flags = 0;
+
+    /* Exhaustion must not consume bytes or install a subset of rights. */
+    assert(process_file_send_message(&subject, send_fd, (const uint8_t *)"z", 1, &send_rights) == 1);
+    int fillers[PROCESS_MAX_OPEN_FILES]; unsigned filler_count = 0;
+    int64_t filler;
+    while ((filler = process_file_dup_min(&subject, 1, 0, false)) >= 0) fillers[filler_count++] = (int)filler;
+    assert(filler == SRV_ERR_MFILE);
+    recv = (struct srv_pipe_message){.count = SRV_RIGHTS_MAX};
+    assert(process_file_recv_message(&subject, recv_fd, out, sizeof(out), &recv) == SRV_ERR_MFILE);
+    assert(pipe->size == 1 && pipe->rights[0].used);
+    assert(process_file_close(&subject, fillers[--filler_count]) == 0);
+    recv = (struct srv_pipe_message){.count = SRV_RIGHTS_MAX};
+    assert(process_file_recv_message(&subject, recv_fd, out, sizeof(out), &recv) == 1 && recv.count == 1);
+    assert(process_file_close(&subject, recv.fds[0]) == 0);
+    while (filler_count) assert(process_file_close(&subject, fillers[--filler_count]) == 0);
+
+    send_rights.flags = SRV_PIPE_MSG_DONTWAIT;
+    for (unsigned i = 0; i < PROCESS_PIPE_RIGHTS_QUEUE; i++)
+        assert(process_file_send_message(&subject, send_fd, (const uint8_t *)"q", 1, &send_rights) == 1);
+    assert(process_file_send_message(&subject, send_fd, (const uint8_t *)"x", 1, &send_rights) == SRV_ERR_AGAIN);
+    assert(pipe->size == PROCESS_PIPE_RIGHTS_QUEUE);
+    int32_t legacy_fd; uint64_t legacy_flags;
+    struct test_rights_output rejected = {&legacy_fd, &legacy_flags, true};
+    fail_alloc = true;
+    assert(process_file_recv_rights_checked(&subject, recv_fd, 1, test_rights_copyout, &rejected) == SRV_ERR_NOMEM);
+    fail_alloc = false;
+    assert(process_file_recv_rights_checked(&subject, recv_fd, 1, test_rights_copyout, &rejected) == SRV_ERR_FAULT);
+    assert(pipe->rights[0].used && pipe->size == PROCESS_PIPE_RIGHTS_QUEUE);
+    assert(process_file_recv_rights(&subject, recv_fd, &legacy_fd, 1, &legacy_flags) == 1);
+    assert(process_file_close(&subject, (uint64_t)legacy_fd) == 0);
+    assert(process_file_send_message(&subject, send_fd, (const uint8_t *)"q", 1, &send_rights) == 1);
+    /* The raw receiver consumed rights only; its associated byte is a prefix. */
+    recv = (struct srv_pipe_message){.count = SRV_RIGHTS_MAX};
+    assert(process_file_recv_message(&subject, recv_fd, out, sizeof(out), &recv) == 1 && recv.count == 0);
+    for (unsigned i = 0; i < PROCESS_PIPE_RIGHTS_QUEUE; i++) {
+        recv = (struct srv_pipe_message){.count = SRV_RIGHTS_MAX};
+        assert(process_file_recv_message(&subject, recv_fd, out, sizeof(out), &recv) == 1 && recv.count == 1);
+        assert(process_file_close(&subject, recv.fds[0]) == 0);
+    }
+
+    pipe->size = PROCESS_PIPE_CAPACITY;
+    send_rights.flags = SRV_PIPE_MSG_DONTWAIT;
+    assert(process_file_send_message(&subject, send_fd, (const uint8_t *)"x", 1, &send_rights) == SRV_ERR_AGAIN);
+    assert(!pipe->rights[0].used);
+    pipe->size = 0;
+    int64_t alias = process_file_dup_min(&subject, send_fd, 0, false);
+    assert(alias >= 0);
+    pipe->size = PROCESS_PIPE_CAPACITY;
+    send_rights.flags = 0;
+    message_replacement_fd = (int)alias; pipe_wait_mode = 5;
+    assert(process_file_send_message(&subject, send_fd, (const uint8_t *)"x", 1, &send_rights) == SRV_ERR_BADF);
+    assert(!pipe_wait_mode && !pipe->rights[0].used && pipe->size == PROCESS_PIPE_CAPACITY);
+    pipe_wait_mode = 6;
+    assert(process_file_send_message(&subject, send_fd, (const uint8_t *)"x", 1, &send_rights) == SRV_ERR_BADF);
+    assert(!pipe_wait_mode && !pipe->rights[0].used && pipe->size == 0);
+    pipe->size = 0;
+    assert(process_file_close(&subject, (uint64_t)alias) == 0);
+    alias = process_file_dup_min(&subject, recv_fd, 0, false);
+    assert(alias >= 0);
+    message_replacement_fd = (int)alias; pipe_wait_mode = 5;
+    recv = (struct srv_pipe_message){.count = SRV_RIGHTS_MAX};
+    assert(process_file_recv_message(&subject, recv_fd, out, sizeof(out), &recv) == SRV_ERR_BADF);
+    assert(!pipe_wait_mode && pipe->size == 0);
+    assert(process_file_close(&subject, (uint64_t)alias) == 0);
+    assert(process_file_close(&subject, send_fd) == 0);
+    recv = (struct srv_pipe_message){.count = SRV_RIGHTS_MAX};
+    assert(process_file_recv_message(&subject, recv_fd, out, sizeof(out), &recv) == 0 && recv.count == 0);
+    subject.active = true;
+    subject.signal_catch_mask = 1ull << SRV_SIGNAL_PIPE;
+    struct srv_pipe_message nosignal = {.flags = SRV_PIPE_MSG_NOSIGNAL};
+    assert(process_file_send_message(&subject, recv_fd, (const uint8_t *)"x", 1, &nosignal) == SRV_ERR_PIPE);
+    assert(!(subject.pending_signals & (1ull << SRV_SIGNAL_PIPE)));
+    nosignal.flags = 0;
+    assert(process_file_send_message(&subject, recv_fd, (const uint8_t *)"x", 1, &nosignal) == SRV_ERR_PIPE);
+    assert(subject.pending_signals & (1ull << SRV_SIGNAL_PIPE));
+    assert(process_file_close(&subject, recv_fd) == 0);
+}
+
+static void legacy_retirement_writeback_regression(void) {
+    setup(1);
+    uint64_t pair[2];
+    assert(process_file_pipe_pair(&subject, pair) == 0);
+    legacy_retirement_watch = pipe_at(subject.files[pair[0]].aux_handle);
+    struct srv_pipe_message sent = {.fds = {3}, .count = 1};
+    assert(process_file_send_message(&subject, pair[0], (const uint8_t *)"w", 1, &sent) == 1);
+    write_files[0].content->dirty = true;
+    assert(process_file_close(&subject, 3) == 0 && process_file_close(&subject, 1) == 0);
+    assert(saves == 0 && legacy_retirement_watch->rights[0].used);
+    struct test_rights_output discard = {NULL, NULL, false};
+    assert(process_file_recv_rights_checked(&subject, pair[1], 0, test_rights_copyout, &discard) == 0);
+    assert(saves == 1 && !legacy_retirement_watch->rights[0].used);
+    legacy_retirement_watch = NULL;
+    assert(process_file_close(&subject, pair[0]) == 0 && process_file_close(&subject, pair[1]) == 0);
+}
+
+/* Each case uses public process APIs to create the graph; descriptor counts
+ * and pipe/listener liveness are checked immediately at the close boundary. */
+static void cycle_fixture_reset(void) {
+    clear_process(&subject);
+    memset(pipes, 0, sizeof(pipes));
+    memset(unix_listeners, 0, sizeof(unix_listeners));
+}
+
+static void cycle_writer_only(void) {
+    cycle_fixture_reset();
+    uint64_t pair[2];
+    assert(process_file_pipe(&subject, pair) == 0);
+    struct process_pipe *pipe = pipe_at(subject.files[pair[0]].handle);
+    int32_t reader = (int32_t)pair[0];
+    assert(process_file_send_rights(&subject, pair[1], &reader, 1) == 0);
+    assert(process_file_close(&subject, pair[0]) == 0);
+    /* The surviving writer cannot receive the queued reader reference. */
+    assert(pipe->used && pipe->read_refs == 0 && !pipe->rights[0].used);
+    assert(process_file_poll(&subject, pair[1], SRV_POLLOUT) & SRV_POLLERR);
+    assert(process_file_close(&subject, pair[1]) == 0 && !pipe->used);
+}
+
+static void cycle_direct(void) {
+    cycle_fixture_reset();
+    uint64_t pair[2];
+    assert(process_file_pipe_pair(&subject, pair) == 0);
+    struct process_pipe *ab = pipe_at(subject.files[pair[0]].aux_handle);
+    struct process_pipe *ba = pipe_at(subject.files[pair[0]].handle);
+    struct srv_pipe_message msg = {.fds = {(int32_t)pair[1]}, .count = 1};
+    assert(process_file_send_message(&subject, pair[0], (const uint8_t *)"x", 1, &msg) == 1);
+    assert(process_file_close(&subject, pair[1]) == 0);
+    assert(ab->used && ab->read_refs == 0 && !ab->rights[0].used);
+    assert(ba->write_refs == 0);
+    uint8_t byte = 0;
+    assert(process_file_pipe_read(&subject, pair[0], &byte, 1) == 0);
+    assert(process_file_close(&subject, pair[0]) == 0);
+    assert(!ab->used && !ba->used);
+}
+
+static void cycle_indirect(void) {
+    cycle_fixture_reset();
+    uint64_t a[2], b[2];
+    assert(process_file_pipe_pair(&subject, a) == 0);
+    assert(process_file_pipe_pair(&subject, b) == 0);
+    struct process_pipe *ab = pipe_at(subject.files[a[0]].aux_handle);
+    struct process_pipe *ba = pipe_at(subject.files[b[0]].aux_handle);
+    struct process_pipe *ar = pipe_at(subject.files[a[0]].handle);
+    struct process_pipe *br = pipe_at(subject.files[b[0]].handle);
+    struct srv_pipe_message into_a = {.fds = {(int32_t)b[1]}, .count = 1};
+    struct srv_pipe_message into_b = {.fds = {(int32_t)a[1]}, .count = 1};
+    assert(process_file_send_message(&subject, a[0], (const uint8_t *)"a", 1, &into_a) == 1);
+    assert(process_file_send_message(&subject, b[0], (const uint8_t *)"b", 1, &into_b) == 1);
+    assert(process_file_close(&subject, a[1]) == 0);
+    assert(process_file_close(&subject, b[1]) == 0);
+    assert(ab->read_refs == 0 && ba->read_refs == 0);
+    assert(!ab->rights[0].used && !ba->rights[0].used);
+    assert(process_file_close(&subject, a[0]) == 0);
+    assert(process_file_close(&subject, b[0]) == 0);
+    assert(!ab->used && !ba->used && !ar->used && !br->used);
+}
+
+static void cycle_mixed(void) {
+    cycle_fixture_reset();
+    uint64_t plain[2], socket[2];
+    assert(process_file_pipe(&subject, plain) == 0);
+    assert(process_file_pipe_pair(&subject, socket) == 0);
+    struct process_pipe *p = pipe_at(subject.files[plain[0]].handle);
+    struct process_pipe *q = pipe_at(subject.files[socket[0]].aux_handle);
+    struct process_pipe *reverse = pipe_at(subject.files[socket[0]].handle);
+    int32_t endpoint = (int32_t)socket[1];
+    assert(process_file_send_rights(&subject, plain[1], &endpoint, 1) == 0);
+    struct srv_pipe_message message = {.fds = {(int32_t)plain[0]}, .count = 1};
+    assert(process_file_send_message(&subject, socket[0], (const uint8_t *)"m", 1, &message) == 1);
+    assert(process_file_close(&subject, plain[0]) == 0);
+    assert(process_file_close(&subject, socket[1]) == 0);
+    assert(p->read_refs == 0 && q->read_refs == 0);
+    assert(!p->rights[0].used && !q->rights[0].used);
+    assert(process_file_close(&subject, plain[1]) == 0);
+    assert(process_file_close(&subject, socket[0]) == 0);
+    assert(!p->used && !q->used && !reverse->used);
+}
+
+static void cycle_live_alias(void) {
+    cycle_fixture_reset();
+    uint64_t pair[2];
+    assert(process_file_pipe_pair(&subject, pair) == 0);
+    struct process_pipe *pipe = pipe_at(subject.files[pair[0]].aux_handle);
+    int64_t alias = process_file_dup(&subject, pair[1]);
+    assert(alias >= 0);
+    struct srv_pipe_message sent = {.fds = {(int32_t)pair[1]}, .count = 1};
+    assert(process_file_send_message(&subject, pair[0], (const uint8_t *)"v", 1, &sent) == 1);
+    assert(process_file_close(&subject, pair[1]) == 0);
+    assert(pipe->rights[0].used && pipe->size == 1);
+    uint8_t data = 0;
+    struct srv_pipe_message received = {.count = SRV_RIGHTS_MAX};
+    assert(process_file_recv_message(&subject, (uint64_t)alias, &data, 1, &received) == 1);
+    assert(data == 'v' && received.count == 1 && !pipe->rights[0].used);
+    assert(process_file_close(&subject, received.fds[0]) == 0);
+    assert(process_file_close(&subject, (uint64_t)alias) == 0);
+    assert(process_file_close(&subject, pair[0]) == 0 && !pipe->used);
+}
+
+static void cycle_listener(bool keep_alias) {
+    cycle_fixture_reset();
+    int64_t listener = process_unix_bind(&subject, "/cycle-listener");
+    assert(listener >= 0 && process_unix_listen(&subject, (uint64_t)listener, 1) == 0);
+    struct process_unix_listener *slot = unix_listener_at(subject.files[listener].handle);
+    int64_t alias = keep_alias ? process_file_dup(&subject, (uint64_t)listener) : -1;
+    if (keep_alias) assert(alias >= 0);
+    int64_t client = process_unix_connect(&subject, "/cycle-listener");
+    assert(client >= 0);
+    struct process_pipe *pipe = pipe_at(subject.files[client].aux_handle);
+    struct srv_pipe_message sent = {.fds = {(int32_t)listener}, .count = 1};
+    assert(process_file_send_message(&subject, (uint64_t)client, (const uint8_t *)"l", 1, &sent) == 1);
+    assert(process_file_close(&subject, (uint64_t)listener) == 0);
+    if (keep_alias) {
+        assert(slot->used && pipe->rights[0].used);
+        int64_t server = process_unix_accept(&subject, (uint64_t)alias);
+        assert(server >= 0);
+        uint8_t byte = 0;
+        struct srv_pipe_message recv = {.count = SRV_RIGHTS_MAX};
+        assert(process_file_recv_message(&subject, (uint64_t)server, &byte, 1, &recv) == 1);
+        assert(byte == 'l' && recv.count == 1);
+        assert(process_file_close(&subject, recv.fds[0]) == 0);
+        assert(process_file_close(&subject, (uint64_t)server) == 0);
+        assert(process_file_close(&subject, (uint64_t)alias) == 0);
+    } else {
+        assert(!slot->used && pipe->read_refs == 0 && !pipe->rights[0].used);
+    }
+    assert(process_file_close(&subject, (uint64_t)client) == 0 && !pipe->used);
+}
+
+/* A reachable queued reader roots the inner cycle until control truncation
+ * discards that last outside reference during receive. */
+static void cycle_receive_discard(void) {
+    cycle_fixture_reset();
+    uint64_t inner[2], outer[2];
+    assert(process_file_pipe_pair(&subject, inner) == 0);
+    assert(process_file_pipe_pair(&subject, outer) == 0);
+    struct process_pipe *inner_pipe = pipe_at(subject.files[inner[0]].aux_handle);
+    struct srv_pipe_message self = {.fds = {(int32_t)inner[1]}, .count = 1};
+    assert(process_file_send_message(&subject, inner[0], (const uint8_t *)"i", 1, &self) == 1);
+    assert(process_file_send_message(&subject, outer[0], (const uint8_t *)"o", 1, &self) == 1);
+    assert(process_file_close(&subject, inner[1]) == 0);
+    assert(inner_pipe->rights[0].used && inner_pipe->read_refs != 0);
+    uint8_t byte = 0;
+    struct srv_pipe_message recv = {.count = 0};
+    assert(process_file_recv_message(&subject, outer[1], &byte, 1, &recv) == 1);
+    assert(byte == 'o' && (recv.flags & SRV_PIPE_MSG_CTRUNC));
+    assert(inner_pipe->read_refs == 0 && !inner_pipe->rights[0].used);
+    assert(process_file_close(&subject, inner[0]) == 0 && !inner_pipe->used);
+    assert(process_file_close(&subject, outer[0]) == 0);
+    assert(process_file_close(&subject, outer[1]) == 0);
+}
+
+static void cycle_final_file(void) {
+    setup(1);
+    memset(pipes, 0, sizeof(pipes));
+    assert(process_file_write(&subject, 3, (const uint8_t *)"z", 1) == 1);
+    uint64_t pair[2];
+    assert(process_file_pipe_pair(&subject, pair) == 0);
+    struct process_pipe *pipe = pipe_at(subject.files[pair[0]].aux_handle);
+    struct srv_pipe_message msg = {.fds = {(int32_t)pair[1], 3}, .count = 2};
+    assert(process_file_send_message(&subject, pair[0], (const uint8_t *)"x", 1, &msg) == 1);
+    assert(process_file_close(&subject, 1) == 0);
+    assert(process_file_close(&subject, 3) == 0 && saves == 0);
+    assert(process_file_close(&subject, pair[1]) == 0);
+    assert(saves == 1 && !pipe->rights[0].used);
+    assert(process_file_close(&subject, pair[0]) == 0 && !pipe->used);
+}
+
+/* Final writeback reenters descriptor close while a discarded rights record
+ * owns both a live reader and a dirty file. Another cycle becomes unreachable
+ * inside that callback; its collection must not be dropped or double-run. */
+static void cycle_reentrant_writeback(bool retire) {
+    setup(1);
+    memset(pipes, 0, sizeof(pipes));
+    assert(process_file_write(&subject, 3, (const uint8_t *)"z", 1) == 1);
+    uint64_t carrier[2], live[2], nested[2];
+    assert(process_file_pipe_pair(&subject, carrier) == 0);
+    assert(process_file_pipe_pair(&subject, live) == 0);
+    assert(process_file_pipe_pair(&subject, nested) == 0);
+    struct process_pipe *carrier_pipe = pipe_at(subject.files[carrier[0]].aux_handle);
+    struct process_pipe *nested_in = pipe_at(subject.files[nested[0]].aux_handle);
+    struct process_pipe *nested_back = pipe_at(subject.files[nested[0]].handle);
+    struct srv_pipe_message self = {.fds = {(int32_t)nested[1]}, .count = 1};
+    assert(process_file_send_message(&subject, nested[0], (const uint8_t *)"n", 1, &self) == 1);
+    int32_t rights[] = {(int32_t)live[1], 3};
+    if (retire) {
+        assert(process_file_send_rights(&subject, carrier[0], rights, 2) == 0);
+        assert(process_file_pipe_write(&subject, carrier[0], (const uint8_t *)"c", 1) == 1);
+    } else {
+        struct srv_pipe_message message = {.fds = {rights[0], rights[1]}, .count = 2};
+        assert(process_file_send_message(&subject, carrier[0], (const uint8_t *)"c", 1, &message) == 1);
+    }
+    assert(process_file_close(&subject, 1) == 0);
+    assert(process_file_close(&subject, 3) == 0 && saves == 0);
+    legacy_retirement_watch = carrier_pipe;
+    reentrant_close_process = &subject;
+    reentrant_close_fd = (int)nested[1];
+    reentrant_closes = 0;
+    if (retire) {
+        assert(process_file_close(&subject, carrier[1]) == 0);
+    } else {
+        uint8_t byte = 0;
+        assert(process_file_pipe_read(&subject, carrier[1], &byte, 1) == 1 && byte == 'c');
+    }
+    legacy_retirement_watch = NULL;
+    reentrant_close_process = NULL;
+    assert(reentrant_close_fd == -1 && reentrant_closes == 1 && saves == 1);
+    assert(!carrier_pipe->rights[0].used);
+    assert(nested_in->read_refs == 0 && !nested_in->rights[0].used && nested_back->write_refs == 0);
+    uint8_t byte = 0;
+    assert(process_file_pipe_read(&subject, nested[0], &byte, 1) == 0);
+    assert(process_file_pipe_write(&subject, live[0], (const uint8_t *)"v", 1) == 1);
+    assert(process_file_pipe_read(&subject, live[1], &byte, 1) == 1 && byte == 'v');
+    assert(process_file_close(&subject, nested[0]) == 0);
+    assert(!nested_in->used && !nested_back->used);
+    assert(process_file_close(&subject, live[0]) == 0);
+    assert(process_file_close(&subject, live[1]) == 0);
+    assert(process_file_close(&subject, carrier[0]) == 0);
+    if (!retire) assert(process_file_close(&subject, carrier[1]) == 0);
+    assert(!carrier_pipe->used && saves == 1);
+}
+
+/* A real inherited reader remains a root after the parent exits. Once the
+ * child exits without receiving the message, the witness sees immediate EOF. */
+static void cycle_inherited_reader(void) {
+    static struct process child, observer;
+    cycle_fixture_reset();
+    clear_process(&child);
+    clear_process(&observer);
+    uint64_t pair[2], witness[2];
+    assert(process_file_pipe_pair(&subject, pair) == 0);
+    assert(process_file_pipe(&subject, witness) == 0);
+    struct process_pipe *incoming = pipe_at(subject.files[pair[0]].aux_handle);
+    struct process_pipe *reverse = pipe_at(subject.files[pair[0]].handle);
+    struct process_pipe *witness_pipe = pipe_at(subject.files[witness[0]].handle);
+    struct srv_pipe_message sent = {
+        .fds = {(int32_t)pair[1], (int32_t)witness[1]}, .count = 2
+    };
+    assert(process_file_send_message(&subject, pair[0], (const uint8_t *)"i", 1, &sent) == 1);
+    assert(process_inherit_files(&child, &subject) == 0);
+    assert(process_file_dup_into(&observer, &subject.files[witness[0]], 3) == 3);
+    assert(process_file_close(&child, pair[0]) == 0);
+    assert(process_file_close(&child, witness[1]) == 0);
+    assert(finish_process_files(&subject, 0) == 0);
+    assert(incoming->used && incoming->rights[0].used && witness_pipe->write_refs == 1);
+    assert(finish_process_files(&child, 0) == 0);
+    assert(!incoming->used && !reverse->used && witness_pipe->write_refs == 0);
+    uint8_t byte = 0;
+    assert(process_file_pipe_read(&observer, 3, &byte, 1) == 0);
+    assert(process_file_close(&observer, 3) == 0 && !witness_pipe->used);
+}
+
+/* Fault-injected wakeups exercise descriptor retirement while an ordinary
+ * blocking pipe operation is parked, including a partially completed write. */
+static void pipe_wait_reuse_regression(void) {
+    uint64_t pair[2], replacement[2];
+    uint8_t byte = 0;
+    struct process *old_current = current_subject;
+    current_subject = &subject;
+
+    cycle_fixture_reset();
+    assert(process_file_pipe(&subject, pair) == 0);
+    wait_target_fd = pair[0];
+    pipe_wait_mode = 7;
+    assert(process_file_pipe_read(&subject, pair[0], &byte, 1) == SRV_ERR_BADF);
+    assert(!pipe_wait_mode && process_file_at(&subject, pair[1]) != NULL);
+    assert(process_file_close(&subject, pair[1]) == 0);
+
+    cycle_fixture_reset();
+    assert(process_file_pipe(&subject, pair) == 0);
+    uint64_t original_handle = subject.files[pair[0]].handle;
+    wait_target_fd = pair[0];
+    wait_peer_fd = pair[1];
+    pipe_wait_mode = 8;
+    assert(process_file_pipe_read(&subject, pair[0], &byte, 1) == SRV_ERR_BADF);
+    assert(subject.files[wait_reused_pair[0]].handle == original_handle);
+    assert(process_file_pipe_read(&subject, wait_reused_pair[0], &byte, 1) == 1 && byte == 'B');
+    assert(process_file_close(&subject, wait_reused_pair[0]) == 0);
+    assert(process_file_close(&subject, wait_reused_pair[1]) == 0);
+
+    cycle_fixture_reset();
+    assert(process_file_pipe(&subject, pair) == 0);
+    int64_t alias = process_file_dup(&subject, pair[0]);
+    assert(alias >= 0 && process_file_pipe(&subject, replacement) == 0);
+    assert(process_file_pipe_write(&subject, replacement[1], (const uint8_t *)"B", 1) == 1);
+    wait_target_fd = pair[0];
+    wait_replacement_fd = replacement[0];
+    pipe_wait_mode = 9;
+    assert(process_file_pipe_read(&subject, pair[0], &byte, 1) == SRV_ERR_BADF);
+    assert(process_file_pipe_read(&subject, pair[0], &byte, 1) == 1 && byte == 'B');
+    assert(process_file_close(&subject, pair[0]) == 0);
+    assert(process_file_close(&subject, pair[1]) == 0);
+    assert(process_file_close(&subject, (uint64_t)alias) == 0);
+    assert(process_file_close(&subject, replacement[0]) == 0);
+    assert(process_file_close(&subject, replacement[1]) == 0);
+
+    cycle_fixture_reset();
+    assert(process_file_pipe(&subject, pair) == 0);
+    pipe_at(subject.files[pair[0]].handle)->size = PROCESS_PIPE_CAPACITY;
+    wait_target_fd = pair[1];
+    pipe_wait_mode = 7;
+    assert(process_file_pipe_write(&subject, pair[1], (const uint8_t *)"x", 1) == SRV_ERR_BADF);
+    assert(process_file_close(&subject, pair[0]) == 0);
+
+    for (unsigned partial = 0; partial < 2; partial++) {
+        cycle_fixture_reset();
+        assert(process_file_pipe(&subject, pair) == 0);
+        struct process_pipe *original = pipe_at(subject.files[pair[0]].handle);
+        static uint8_t data[PROCESS_PIPE_CAPACITY + 1];
+        memset(data, 'w', sizeof(data));
+        if (!partial) original->size = PROCESS_PIPE_CAPACITY;
+        wait_target_fd = pair[1];
+        wait_peer_fd = pair[0];
+        pipe_wait_mode = 10;
+        int64_t result = process_file_pipe_write(&subject, pair[1], data,
+            partial ? sizeof(data) : 1);
+        assert(result == (partial ? PROCESS_PIPE_CAPACITY : SRV_ERR_BADF));
+        assert(pipe_at(subject.files[wait_reused_pair[0]].handle)->size == 0);
+        assert(process_file_close(&subject, wait_reused_pair[0]) == 0);
+        assert(process_file_close(&subject, wait_reused_pair[1]) == 0);
+    }
+
+    for (unsigned partial = 0; partial < 2; partial++) {
+        cycle_fixture_reset();
+        assert(process_file_pipe(&subject, pair) == 0);
+        alias = process_file_dup(&subject, pair[1]);
+        assert(alias >= 0 && process_file_pipe(&subject, replacement) == 0);
+        struct process_pipe *original = pipe_at(subject.files[pair[0]].handle);
+        struct process_pipe *new_pipe = pipe_at(subject.files[replacement[0]].handle);
+        static uint8_t data[PROCESS_PIPE_CAPACITY + 1];
+        memset(data, 'w', sizeof(data));
+        if (!partial) original->size = PROCESS_PIPE_CAPACITY;
+        wait_target_fd = pair[1];
+        wait_replacement_fd = replacement[1];
+        pipe_wait_mode = 9;
+        int64_t result = process_file_pipe_write(&subject, pair[1], data,
+            partial ? sizeof(data) : 1);
+        assert(result == (partial ? PROCESS_PIPE_CAPACITY : SRV_ERR_BADF));
+        assert(new_pipe->size == 0);
+        if (partial) {
+            assert(original->size == PROCESS_PIPE_CAPACITY && original->buffer[0] == 'w');
+        }
+        assert(process_file_close(&subject, pair[0]) == 0);
+        assert(process_file_close(&subject, pair[1]) == 0);
+        assert(process_file_close(&subject, (uint64_t)alias) == 0);
+        assert(process_file_close(&subject, replacement[0]) == 0);
+        assert(process_file_close(&subject, replacement[1]) == 0);
+    }
+    current_subject = old_current;
+    puts("pipe wait: PASS close, slot reuse, replacement and partial write");
+}
+
+/* Independently compute graph reachability. Each vertex's queued writer
+ * controls EOF on its witness pipe, providing an external reclamation check. */
+static void cycle_graph_oracle(void) {
+    unsigned cases = 0;
+    for (unsigned graph = 0; graph < 512; graph++) {
+        for (unsigned roots = 0; roots < 8; roots++) {
+            clear_process(&subject);
+            uint64_t pair[3][2], witness[3][2];
+            for (unsigned i = 0; i < 3; i++) {
+                assert(process_file_pipe_pair(&subject, pair[i]) == 0);
+                assert(process_file_pipe(&subject, witness[i]) == 0);
+            }
+            for (unsigned i = 0; i < 3; i++) {
+                struct srv_pipe_message record = {.count = 1, .fds = {(int32_t)witness[i][1]}};
+                for (unsigned j = 0; j < 3; j++) {
+                    if (graph & (1u << (3 * i + j))) record.fds[record.count++] = (int32_t)pair[j][1];
+                }
+                assert(process_file_send_message(&subject, pair[i][0], (const uint8_t *)"x", 1, &record) == 1);
+            }
+            unsigned reachable = roots;
+            for (unsigned step = 0; step < 3; step++)
+                for (unsigned i = 0; i < 3; i++)
+                    if (reachable & (1u << i)) reachable |= (graph >> (3 * i)) & 7u;
+            for (unsigned i = 0; i < 3; i++) {
+                assert(process_file_close(&subject, pair[i][0]) == 0);
+                assert(process_file_close(&subject, witness[i][1]) == 0);
+                if (!(roots & (1u << i))) assert(process_file_close(&subject, pair[i][1]) == 0);
+            }
+            for (unsigned i = 0; i < 3; i++) {
+                struct process_pipe *pipe = pipe_at(subject.files[witness[i][0]].handle);
+                bool expected = (reachable & (1u << i)) != 0;
+                if (!pipe || (pipe->write_refs != 0) != expected) {
+                    fprintf(stderr, "pipe graph mismatch graph=%u roots=%u vertex=%u expected=%u writers=%llu\n",
+                        graph, roots, i, (unsigned)expected,
+                        pipe ? (unsigned long long)pipe->write_refs : 0);
+                    assert(0);
+                }
+            }
+            for (unsigned i = 0; i < 3; i++) {
+                if (roots & (1u << i)) assert(process_file_close(&subject, pair[i][1]) == 0);
+                assert(process_file_close(&subject, witness[i][0]) == 0);
+            }
+            for (unsigned i = 0; i < PROCESS_MAX_PIPES; i++) assert(!pipes[i].used);
+            cases++;
+        }
+    }
+    printf("pipe graph oracle: %u graph/root combinations PASS\n", cases);
+}
+
+static bool cycle_regression(const char *name) {
+    bool matched = false;
+#define RUN_CYCLE(case_name, expression) do { \
+    if (!name || !strcmp(name, case_name)) { matched = true; expression; } \
+} while (0)
+    RUN_CYCLE("writer", cycle_writer_only());
+    RUN_CYCLE("direct", cycle_direct());
+    RUN_CYCLE("indirect", cycle_indirect());
+    RUN_CYCLE("mixed", cycle_mixed());
+    RUN_CYCLE("alias", cycle_live_alias());
+    RUN_CYCLE("listener", cycle_listener(false));
+    RUN_CYCLE("listener-live", cycle_listener(true));
+    RUN_CYCLE("discard", cycle_receive_discard());
+    RUN_CYCLE("file", cycle_final_file());
+    RUN_CYCLE("reentrant-read", cycle_reentrant_writeback(false));
+    RUN_CYCLE("reentrant-retire", cycle_reentrant_writeback(true));
+    RUN_CYCLE("graph", cycle_graph_oracle());
+    RUN_CYCLE("wait", pipe_wait_reuse_regression());
+    RUN_CYCLE("inheritance", cycle_inherited_reader());
+#undef RUN_CYCLE
+    return matched;
+}
+
+int main(int argc, char **argv) {
+    pipe_mapping_commit_regression();
+    if (argc > 1) {
+        if (argc == 2 && cycle_regression(argv[1])) return 0;
+        fprintf(stderr, "unknown process-output cycle case\n");
+        return 2;
+    }
     watch_regression();
     rename_failure_regression();
     orphan_io_failure_regression();
     path_context_regression();
+    namespace_process_regression();
     descriptor_regression();
     positional_regression();
     snapshot_read_regression();
@@ -893,6 +1719,9 @@ int main(void) {
         assert(process_file_dup_min(&subject,1,i,true)==i);
     assert(process_file_dup_min(&subject,1,0,false)==SRV_ERR_MFILE);
     assert(cleanup_process_files(&subject));
+    message_rights_regression();
+    assert(cycle_regression(NULL));
+    legacy_retirement_writeback_regression();
     targeted_signal_regression();
     cpu_usage_regression();
     open_flags_regression();

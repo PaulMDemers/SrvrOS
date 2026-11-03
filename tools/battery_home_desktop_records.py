@@ -1,4 +1,8 @@
 """Strict saved receipts for explicit Home idle and guided AC captures."""
+
+if not __debug__:
+    raise RuntimeError('evidence validation requires Python assertions; disable optimization')
+
 import re
 from serial_records import complete_lines
 from battery_workspace_controls_records import check_hold, check_home_returns

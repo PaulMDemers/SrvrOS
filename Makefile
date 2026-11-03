@@ -2132,6 +2132,40 @@ build/tests/pmm-host$(HOST_EXE): tools/test_pmm.c kernel/src/memory/pmm.c $(KERN
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
 test-core: test-pmm
+
+.PHONY: test-initramfs test-vmm-user-range
+test-initramfs: build/tests/initramfs-host$(HOST_EXE)
+	$<
+build/tests/initramfs-host$(HOST_EXE): tools/test_initramfs.c kernel/src/initramfs.c $(KERNEL_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/initramfs.c -o $@
+test-vmm-user-range: build/tests/vmm-user-range-host$(HOST_EXE)
+	$<
+build/tests/vmm-user-range-host$(HOST_EXE): tools/test_vmm_user_range.c kernel/src/memory/vmm.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+test-core: test-initramfs test-vmm-user-range
+
+.PHONY: test-user-fault test-process-fault
+test-user-fault: build/tests/user-fault-host$(HOST_EXE)
+	$<
+build/tests/user-fault-host$(HOST_EXE): tools/test_user_fault.c kernel/src/arch/x86_64/idt.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+test-process-fault: build/tests/process-fault-host$(HOST_EXE)
+	$<
+build/tests/process-fault-host$(HOST_EXE): tools/test_process_fault.c kernel/src/process.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+test-core: test-user-fault test-process-fault
+
+.PHONY: test-syscall-user-copy
+test-syscall-user-copy: build/tests/syscall-user-copy-host$(HOST_EXE)
+	$<
+build/tests/syscall-user-copy-host$(HOST_EXE): tools/test_syscall_user_copy.c kernel/src/arch/x86_64/syscall.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+test-core: test-syscall-user-copy
 interrupt-smoke: $(IMAGE) $(EXFAT_IMAGE) test-core
 	$(PYTHON) tools/interrupt_smoke.py --qemu $(QEMU) --boot-wait $(SMOKE_BOOT_WAIT)
 
@@ -2247,9 +2281,9 @@ test-core: test-workspace-io
 .PHONY: test-process-output
 test-process-output: build/tests/process-output-host$(HOST_EXE)
 	$<
-build/tests/process-output-host$(HOST_EXE): tools/test_process_output.c kernel/src/process.c kernel/src/pty.c kernel/src/pty_model.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+build/tests/process-output-host$(HOST_EXE): tools/test_process_output.c kernel/src/process.c kernel/src/vfs_namespace.c kernel/src/pty.c kernel/src/pty_model.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	mkdir -p build/tests
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include -DSRVROS_PTY_HOST_TEST $< kernel/src/pty.c kernel/src/pty_model.c -Wl,--gc-sections -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include -DSRVROS_PTY_HOST_TEST $< kernel/src/vfs_namespace.c kernel/src/pty.c kernel/src/pty_model.c -Wl,--gc-sections -o $@
 test-core: test-process-output
 
 .PHONY: workspace-latency-smoke
@@ -3108,7 +3142,16 @@ build/tests/laptop-resources-host$(HOST_EXE): tools/test_laptop_resources.c kern
 .PHONY: test-desktop-host-tools
 test-core: test-desktop-host-tools
 test-desktop-host-tools:
+	$(PYTHON) tools/test_optimized_records.py
+	$(PYTHON) tools/test_libc_symbol_audit.py
+	$(PYTHON) tools/test_mk_usb_image.py
 	$(PYTHON) tools/test_desktop_wait_records.py
+	$(PYTHON) tools/test_app_timing.py
+	$(PYTHON) tools/test_desktop_combined_workload.py
+	$(PYTHON) tools/test_desktop_io_result.py
+	$(PYTHON) tools/test_desktop_session_workload.py
+	$(PYTHON) tools/test_hardware_cpu_load.py
+	CC="$(HOST_CC)" $(PYTHON) tools/test_cpu_load_capture.py
 	$(PYTHON) tools/test_hardware_boot.py
 	$(PYTHON) tools/test_device_checks.py
 	$(PYTHON) tools/test_hardware_desktop.py
@@ -3157,6 +3200,30 @@ build/tools/acpi-namespace$(HOST_EXE): tools/acpi_namespace_probe.c kernel/src/d
 test-acpi-namespace: acpi-namespace
 	$(PYTHON) tools/test_acpi_namespace.py
 
+.PHONY: test-uacpi-namespace-root
+test-core: test-uacpi-namespace-root
+test-uacpi-namespace-root: build/tests/uacpi-namespace-root-host$(HOST_EXE)
+	$<
+build/tests/uacpi-namespace-root-host$(HOST_EXE): tools/test_uacpi_namespace_root.c $(UACPI_SRC) $(UACPI_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I ports/upstream/uacpi/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-uacpi-table-install
+test-core: test-uacpi-table-install
+test-uacpi-table-install: build/tests/uacpi-table-install-host$(HOST_EXE)
+	$<
+build/tests/uacpi-table-install-host$(HOST_EXE): tools/test_uacpi_table_install.c $(UACPI_SRC) $(UACPI_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I ports/upstream/uacpi/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-uacpi-gas
+test-core: test-uacpi-gas
+test-uacpi-gas: build/tests/uacpi-gas-host$(HOST_EXE)
+	$<
+build/tests/uacpi-gas-host$(HOST_EXE): tools/test_uacpi_gas.c $(UACPI_SRC) $(UACPI_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -DUACPI_FORMATTED_LOGGING -I ports/upstream/uacpi/include $< ports/upstream/uacpi/source/stdlib.c -Wl,--gc-sections -o $@
+
 .PHONY: test-make-bootstrap
 test-make-bootstrap:
 	$(PYTHON) -m unittest discover -s tools -p test_make_bootstrap.py
@@ -3202,9 +3269,9 @@ build/tests/thermal-host$(HOST_EXE): tools/test_thermal.c kernel/src/drivers/the
 test-core: test-process-loader
 test-process-loader: build/tests/process-loader-host$(HOST_EXE)
 	$<
-build/tests/process-loader-host$(HOST_EXE): tools/test_process_loader.c kernel/src/process.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+build/tests/process-loader-host$(HOST_EXE): tools/test_process_loader.c kernel/src/process.c kernel/src/vfs_namespace.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/vfs_namespace.c -Wl,--gc-sections -o $@
 
 .PHONY: test-aml-boundary
 test-core: test-aml-boundary
@@ -3458,6 +3525,7 @@ build/tests/battery-cache$(HOST_EXE): tools/test_battery_cache.c kernel/src/driv
 
 .PHONY: test-exfat-scratch
 test-exfat-scratch: build/tests/exfat-driver$(HOST_EXE)
+	$(PYTHON) tools/test_exfat_bitmap.py
 	$(PYTHON) tools/test_exfat_allocation_check.py
 	$(PYTHON) tools/exfat_scratch_test.py
 test-core: test-exfat-scratch
@@ -3730,9 +3798,9 @@ build/tests/audio-io-receipt$(HOST_EXE): tools/test_audio_io_receipt.c userspace
 .PHONY: test-process-service
 test-process-service: build/tests/process-service-host$(HOST_EXE)
 	$<
-build/tests/process-service-host$(HOST_EXE): tools/test_process_service.c kernel/src/process.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+build/tests/process-service-host$(HOST_EXE): tools/test_process_service.c kernel/src/process.c kernel/src/vfs_namespace.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	mkdir -p build/tests
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include $< -Wl,--gc-sections -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include $< kernel/src/vfs_namespace.c -Wl,--gc-sections -o $@
 test-core: test-process-service
 
 .PHONY: test-graphics-service
@@ -3942,7 +4010,7 @@ build/ap-probe/platform.o: kernel/diagnostics/platform_audit.c kernel/diagnostic
 
 .PHONY: test-net-query test-posix-udp-owner
 test-net-query: build/tests/net-query-host$(HOST_EXE)
-	@for mode in arp-overlap arp-timeout arp-cache arp-exit arp-opcode dns-overlap dns-arp-overlap dns-completed-overlap dns-source dns-id dns-exit dns-failure-retry dns-timeout; do $< $$mode || exit $$?; done
+	@for mode in arp-overlap arp-timeout arp-cache arp-exit arp-opcode dns-overlap dns-arp-overlap dns-completed-overlap dns-source dns-id dns-exit dns-failure-retry dns-timeout dns-last-poll dns-deadline-wake; do $< $$mode || exit $$?; done
 build/tests/net-query-host$(HOST_EXE): tools/test_net_query.c kernel/src/net.c $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
@@ -3951,7 +4019,25 @@ test-posix-udp-owner: build/tests/posix-udp-owner-host$(HOST_EXE)
 build/tests/posix-udp-owner-host$(HOST_EXE): tools/test_posix_udp_owner.c userspace/lib/src/posix_socket.c userspace/lib/include/sys/socket.h shared/include/srvros/syscall_numbers.h shared/include/srvros/dns_wire.h userspace/lib/include/netdb.h tools/posix_socket_host_names.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include $< -Wl,--gc-sections -o $@
-test-core: test-net-query test-posix-udp-owner
+test-core: test-net-query test-posix-udp-owner test-socket-aliases
+
+.PHONY: test-socket-aliases
+test-socket-aliases: build/tests/socket-aliases-host$(HOST_EXE)
+	$<
+build/tests/socket-aliases-host$(HOST_EXE): tools/test_socket_aliases.c tools/test_posix_udp_owner.c tools/posix_socket_host_names.h userspace/lib/src/posix_socket.c $(USER_SYSROOT_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -idirafter userspace/lib/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-fd-io-restart
+test-core: test-fd-io-restart
+test-fd-io-restart: build/tests/fd-io-restart-host$(HOST_EXE)
+	$<
+build/tests/fd-io-restart-file.o: userspace/lib/src/posix_file.c tools/posix_file_host_names.h $(USER_SYSROOT_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffreestanding -ffunction-sections -fdata-sections -I shared/include -I userspace/lib/include -include tools/posix_file_host_names.h -c $< -o $@
+build/tests/fd-io-restart-host$(HOST_EXE): tools/test_fd_io_restart.c build/tests/fd-io-restart-file.o $(USER_SYSROOT_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -idirafter userspace/lib/include $< build/tests/fd-io-restart-file.o -Wl,--gc-sections -o $@
 
 .PHONY: test-dns-response test-socket-calls test-socket-try-io
 DNS_RESPONSE_MODES := valid case question qtype qclass qr opcode tc rcode self-pointer forward-pointer bad-pointer unrelated trailing-answer trailing-additional bounds cname interior-pointer header-pointer cname-cycle cname-length cname-conflict unrelated-first
@@ -3963,8 +4049,13 @@ build/tests/dns-kernel-host$(HOST_EXE): tools/test_dns_response.c kernel/src/net
 build/tests/dns-libc-host$(HOST_EXE): tools/test_dns_response.c userspace/lib/src/posix_socket.c shared/include/srvros/dns_wire.h shared/include/srvros/syscall_numbers.h userspace/lib/include/netdb.h tools/posix_socket_host_names.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -DTEST_DNS_LIBC -ffunction-sections -fdata-sections -I shared/include -idirafter userspace/lib/include $< -Wl,--gc-sections -o $@
+PIPE_MESSAGE_MODES := send-raw send-pseudo recv-raw recv-pseudo recv-discard recv-overlap \
+	send-interrupt send-interrupt-reuse recv-interrupt recv-interrupt-reuse \
+	send-large send-short send-error recv-error send-empty send-empty-discard \
+	recv-empty send-right-pseudo send-nosignal send-interrupt-right-reuse \
+	send-pseudo-interrupt-backing-reuse
 test-socket-calls: build/tests/socket-calls-host$(HOST_EXE)
-	@for mode in unix-copy rights-const connect-reuse connect-restart connect-control accept-reuse accept-restart accept-control flags-recv flags-send flags-peek flags-udp-recv flags-udp-send raw-retry raw-full dns-retry dns-truncate dns-source dns-busy; do $< $$mode || exit $$?; done
+	@for mode in unix-copy rights-const connect-reuse connect-restart connect-control accept-reuse accept-restart accept-control flags-recv flags-send flags-peek flags-udp-recv flags-udp-send raw-retry raw-full dns-retry dns-truncate dns-source dns-flood dns-source-flood dns-near-deadline dns-error dns-interrupt dns-recv-error dns-recv-intr dns-recv-again dns-readable-error dns-pollerr dns-busy stream-error-send stream-error-recv stream-error-send-callback stream-error-recv-callback $(addprefix pipe-message-,$(PIPE_MESSAGE_MODES)); do $< $$mode || exit $$?; done
 build/tests/socket-calls-host$(HOST_EXE): tools/test_socket_calls.c userspace/lib/src/posix_socket.c shared/include/srvros/dns_wire.h shared/include/srvros/syscall_numbers.h userspace/lib/include/netdb.h tools/posix_socket_host_names.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -idirafter userspace/lib/include $< -Wl,--gc-sections -o $@
@@ -3973,7 +4064,29 @@ test-socket-try-io: build/tests/socket-try-io-host$(HOST_EXE)
 build/tests/socket-try-io-host$(HOST_EXE): tools/test_socket_try_io.c kernel/src/arch/x86_64/syscall.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
-test-core: test-dns-response test-socket-calls test-socket-try-io
+test-net-transfer: build/tests/net-transfer-host$(HOST_EXE)
+	$<
+build/tests/net-transfer-host$(HOST_EXE): tools/test_net_transfer.c kernel/src/net.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+.PHONY: test-net-transfer
+test-core: test-dns-response test-socket-calls test-socket-try-io test-net-transfer
+
+.PHONY: test-pipe-message
+test-core: test-pipe-message
+test-pipe-message: build/tests/pipe-message-host$(HOST_EXE)
+	$<
+build/tests/pipe-message-host$(HOST_EXE): tools/test_pipe_message_syscall.c kernel/src/arch/x86_64/syscall.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-pipe-user-mapping
+test-core: test-pipe-user-mapping
+test-pipe-user-mapping: build/tests/pipe-user-mapping-host$(HOST_EXE)
+	$<
+build/tests/pipe-user-mapping-host$(HOST_EXE): tools/test_pipe_user_mapping.c kernel/src/arch/x86_64/syscall.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
 
 # Capture hook is absent from the ordinary power object and ordinary kernel.
 build/ap-probe/power.o: kernel/src/drivers/power.c $(ZIG) $(KERNEL_HEADERS)
@@ -4199,3 +4312,76 @@ build/tests/display-owner$(HOST_EXE): tools/test_display_owner.c kernel/diagnost
 
 # The session fixture includes display transaction implementation directly.
 build/tests/desktop-session-host$(HOST_EXE): userspace/deskd/display_settings.h
+
+.PHONY: test-vfs-namespace
+test-vfs-namespace:
+	CC="$(HOST_CC)" $(PYTHON) tools/test_exfat_import.py --namespace --output build/review/vfs-namespace
+.PHONY: test-expr-bounds
+test-core: test-expr-bounds
+test-expr-bounds: build/tests/expr-bounds-host$(HOST_EXE)
+	$<
+
+build/tests/expr-bounds-host$(HOST_EXE): tools/test_expr_bounds.c userspace/expr/expr.c userspace/lib/include/srvros/cli.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -idirafter userspace/lib/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-uv-bounds test-uv-lifetime
+test-core: test-uv-bounds test-uv-lifetime
+test-uv-bounds: build/tests/uv-bounds-host$(HOST_EXE)
+	$<
+test-uv-lifetime: build/tests/uv-lifetime-host$(HOST_EXE)
+	$<
+
+build/tests/uv-bounds-host$(HOST_EXE): tools/test_uv_bounds.c tools/uv_host_compat.h ports/srvros/uv.c ports/srvros/uv.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -D_GNU_SOURCE -std=gnu11 -O2 -Wall -Wextra -Werror -pthread -ffunction-sections -fdata-sections -I shared/include -idirafter userspace/lib/include -I ports/srvros -include tools/uv_host_compat.h tools/test_uv_bounds.c ports/srvros/uv.c -Wl,--gc-sections -o $@
+
+build/tests/uv-lifetime-host$(HOST_EXE): tools/test_uv_lifetime.c tools/uv_host_compat.h ports/srvros/uv.c ports/srvros/uv.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -D_GNU_SOURCE -std=gnu11 -O2 -Wall -Wextra -Werror -pthread -ffunction-sections -fdata-sections -I shared/include -idirafter userspace/lib/include -I ports/srvros -include tools/uv_host_compat.h tools/test_uv_lifetime.c -Wl,--gc-sections -o $@
+
+.PHONY: test-diff-errors test-patch-alloc test-tap-create
+test-core: test-diff-errors test-patch-alloc test-tap-create
+test-diff-errors: build/tests/diff-errors-host$(HOST_EXE)
+	$<
+test-patch-alloc: build/tests/patch-alloc-host$(HOST_EXE)
+	$<
+test-tap-create: build/tests/tap-create-host$(HOST_EXE)
+	$<
+
+build/tests/diff-errors-host$(HOST_EXE): tools/test_diff_errors.c userspace/diff/diff.c
+	@mkdir -p $(@D)
+	$(HOST_CC) -D_DEFAULT_SOURCE -std=gnu11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -idirafter userspace/lib/include $< -Wl,--gc-sections -o $@
+
+build/tests/patch-alloc-host$(HOST_EXE): tools/test_patch_alloc.c userspace/patch/patch.c
+	@mkdir -p $(@D)
+	$(HOST_CC) -D_DEFAULT_SOURCE -std=gnu11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -idirafter userspace/lib/include $< -Wl,--gc-sections -o $@
+
+build/tests/tap-create-host$(HOST_EXE): tools/test_tap_create.c userspace/tap/tap.c
+	@mkdir -p $(@D)
+	$(HOST_CC) -D_DEFAULT_SOURCE -std=gnu11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -idirafter userspace/lib/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-gui2-path-bounds
+test-core: test-gui2-path-bounds
+test-gui2-path-bounds: build/tests/gui2-path-bounds-host$(HOST_EXE)
+	$<
+
+build/tests/gui2-path-bounds-host$(HOST_EXE): tools/test_gui2_path_bounds.c userspace/lib/src/gui2.c
+	@mkdir -p $(@D)
+	$(HOST_CC) -D_DEFAULT_SOURCE -std=gnu11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -idirafter userspace/lib/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-sh-arithmetic
+test-core: test-sh-arithmetic
+test-sh-arithmetic: build/tests/sh-arithmetic-host$(HOST_EXE)
+	$<
+build/tests/sh-arithmetic-host$(HOST_EXE): tools/test_sh_arithmetic.c userspace/sh/sh.c userspace/lib/include/srvros/cli.h shared/include/srvros/syscall_numbers.h ports/upstream/linenoise/linenoise.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include -I ports/upstream/linenoise $< -Wl,--gc-sections -o $@
+
+.PHONY: test-syscall-namespace
+test-core: test-syscall-namespace
+test-syscall-namespace: build/tests/syscall-namespace-host$(HOST_EXE)
+	$<
+build/tests/syscall-namespace-host$(HOST_EXE): tools/test_syscall_namespace.c kernel/src/arch/x86_64/syscall.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@

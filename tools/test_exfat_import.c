@@ -577,9 +577,12 @@ static void growth_case(const char *mode) {
     } else assert(false);
     assert(exfat_unmount("/vol"));
 }
+#include "test_vfs_namespace.inc"
+
 int main(int argc,char **argv) {
     assert(argc==2);const char *mode=argv[1];
-    if(!strncmp(mode,"writeback-",10)) {writeback_case(mode);
+    if(!strncmp(mode,"namespace-",10)) {namespace_case(mode);
+    } else if(!strncmp(mode,"writeback-",10)) {writeback_case(mode);
     } else if(!strncmp(mode,"retire-",7)) {retirement_case(mode);
     } else if(!strncmp(mode,"growth-",7)) {growth_case(mode);
     } else if(!strncmp(mode,"boot-",5) || !strncmp(mode,"system-",7)) {boot_system_case(mode);

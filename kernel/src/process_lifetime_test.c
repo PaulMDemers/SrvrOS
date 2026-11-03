@@ -6,6 +6,15 @@
 #include <stddef.h>
 
 #define CHECK(x) do { if(!(x)) { console_printf("lifetime-test: FAIL line=%u\n",(uint64_t)__LINE__);goto failed; } } while(0)
+/* Park the monitor between polls so runnable descendants can make progress. */
+static struct scheduler_wait_queue poll_queue;
+static bool poll_due(void *arg) {
+    return timer_ticks()>=*(uint64_t *)arg;
+}
+static void poll_pause(void) {
+    uint64_t tick=timer_ticks()+1;
+    if(!scheduler_wait_timeout(&poll_queue,poll_due,&tick,tick))scheduler_yield();
+}
 static bool retire(uint64_t token) {
     if(!process_lifetime_revoke(token))return false;
     uint64_t end=timer_monotonic_us()+5000000;
@@ -13,9 +22,12 @@ static bool retire(uint64_t token) {
     do {
         if(!process_lifetime_drain(token) || !process_lifetime_status(token,&s))return false;
         if(!s.members)return process_lifetime_release(token);
-        timer_wait_ticks(1);
+        poll_pause();
     } while(timer_monotonic_us()<end);
     return false;
+}
+static bool wait_deadline(void *arg) {
+    return timer_monotonic_us()>=*(uint64_t *)arg;
 }
 static bool wait_exit(uint64_t pid,uint64_t *status,uint64_t us) {
     uint64_t end=timer_monotonic_us()+us;
@@ -23,7 +35,12 @@ static bool wait_exit(uint64_t pid,uint64_t *status,uint64_t us) {
         int64_t result=process_wait(pid,status,true);
         if(result==(int64_t)pid)return true;
         if(result<0)return false;
-        timer_wait_ticks(1);
+        uint64_t now=timer_monotonic_us();
+        if(now>=end)break;
+        /* The scheduler tick is 100 Hz; recheck the monotonic deadline after
+         * any exit, signal, or timeout wakeup. */
+        uint64_t tick=timer_ticks()+(end-now+9999)/10000;
+        if(!process_wait_event(pid,wait_deadline,&end,tick))scheduler_yield();
     }while(timer_monotonic_us()<end);
     return false;
 }
@@ -59,7 +76,7 @@ void process_lifetime_test_run(void) {
             if(process_wait_startup(pid,1) && process_group(pid)!=(uint64_t)root && process_session(pid)!=(uint64_t)root)ready++;
         }
         if(ready==2)break;
-        timer_wait_ticks(1);
+        poll_pause();
     }while(timer_monotonic_us()<end);
     CHECK(ready==2 && process_lifetime_status(token,&s) && s.members==2);
     CHECK(!process_lifetime_release(token));

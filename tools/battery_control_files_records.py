@@ -1,4 +1,8 @@
 """Strict combined control/file evidence. Pending jobs are not USB DMA proof."""
+
+if not __debug__:
+    raise RuntimeError('evidence validation requires Python assertions; disable optimization')
+
 import re
 from serial_records import complete_lines
 from battery_native_smbus_records import expand_compact_records

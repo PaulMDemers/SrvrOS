@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 """Real exFAT/VFS operations and exhaustive write-boundary failures on disposable images."""
+
+if not __debug__:
+    raise RuntimeError('evidence validation requires Python assertions; disable optimization')
+
 from pathlib import Path
 import re
 import struct

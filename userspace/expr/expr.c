@@ -5,7 +5,7 @@
 static int parse_i64(const char *text, int64_t *out) {
     int sign = 1;
     int saw_digit = 0;
-    int64_t value = 0;
+    uint64_t value = 0;
 
     if (text == 0 || text[0] == '\0') {
         return 0;
@@ -16,18 +16,21 @@ static int parse_i64(const char *text, int64_t *out) {
     } else if (*text == '+') {
         text++;
     }
+    uint64_t limit = (uint64_t)INT64_MAX + (sign < 0);
     while (*text != '\0') {
         if (*text < '0' || *text > '9') {
             return 0;
         }
         saw_digit = 1;
-        value = value * 10 + (int64_t)(*text - '0');
+        unsigned digit = (unsigned)(*text - '0');
+        if (value > (limit - digit) / 10) return 0;
+        value = value * 10 + digit;
         text++;
     }
     if (!saw_digit) {
         return 0;
     }
-    *out = sign < 0 ? -value : value;
+    *out = sign < 0 ? (value == (uint64_t)INT64_MAX + 1 ? INT64_MIN : -(int64_t)value) : (int64_t)value;
     return 1;
 }
 
@@ -123,25 +126,30 @@ static int binary_compare(const char *left, const char *op, const char *right) {
 static int binary_arithmetic(const char *left, const char *op, const char *right) {
     int64_t a;
     int64_t b;
+    int64_t result;
 
     if (!parse_i64(left, &a) || !parse_i64(right, &b)) {
         cli_puts("expr: integer expected\n");
         return 2;
     }
     if (cli_streq(op, "+")) {
-        return print_i64_result(a + b);
+        if (__builtin_add_overflow(a, b, &result)) goto overflow;
+        return print_i64_result(result);
     }
     if (cli_streq(op, "-")) {
-        return print_i64_result(a - b);
+        if (__builtin_sub_overflow(a, b, &result)) goto overflow;
+        return print_i64_result(result);
     }
     if (cli_streq(op, "*")) {
-        return print_i64_result(a * b);
+        if (__builtin_mul_overflow(a, b, &result)) goto overflow;
+        return print_i64_result(result);
     }
     if (cli_streq(op, "/")) {
         if (b == 0) {
             cli_puts("expr: division by zero\n");
             return 2;
         }
+        if (a == INT64_MIN && b == -1) goto overflow;
         return print_i64_result(a / b);
     }
     if (cli_streq(op, "%")) {
@@ -149,8 +157,12 @@ static int binary_arithmetic(const char *left, const char *op, const char *right
             cli_puts("expr: division by zero\n");
             return 2;
         }
+        if (a == INT64_MIN && b == -1) goto overflow;
         return print_i64_result(a % b);
     }
+    return 2;
+overflow:
+    cli_puts("expr: integer overflow\n");
     return 2;
 }
 

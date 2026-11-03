@@ -36,17 +36,29 @@ static struct kernel_mapping kernel_mappings[VMM_MAX_KERNEL_MAPPINGS];
 static uint64_t kernel_mapping_count;
 
 static uint64_t read_cr3(void) {
+#ifdef SRVROS_VMM_HOST_TEST
+    return vmm_test_cr3();
+#else
     uint64_t value;
     __asm__ volatile ("mov %%cr3, %0" : "=r"(value));
     return value;
+#endif
 }
 
 static void write_cr3(uint64_t value) {
+#ifdef SRVROS_VMM_HOST_TEST
+    (void)value;
+#else
     __asm__ volatile ("mov %0, %%cr3" : : "r"(value) : "memory");
+#endif
 }
 
 static void invlpg(uint64_t virtual_address) {
+#ifdef SRVROS_VMM_HOST_TEST
+    (void)virtual_address;
+#else
     __asm__ volatile ("invlpg (%0)" : : "r"(virtual_address) : "memory");
+#endif
 }
 
 static uint16_t pml4_index(uint64_t virtual_address) {
@@ -486,6 +498,7 @@ static bool vmm_entry_for_address(uint64_t address_space, uint64_t virtual_addre
     uint64_t *pd;
     uint64_t *pt;
     uint64_t entry;
+    uint64_t effective = VMM_PAGE_USER | VMM_PAGE_WRITABLE;
 
     if (entry_out == NULL) {
         return false;
@@ -499,6 +512,7 @@ static bool vmm_entry_for_address(uint64_t address_space, uint64_t virtual_addre
     if ((entry & VMM_PAGE_PRESENT) == 0) {
         return false;
     }
+    effective &= entry;
     pdpt = entry_table(entry);
     if (!is_canonical((uint64_t)pdpt)) {
         return false;
@@ -508,8 +522,9 @@ static bool vmm_entry_for_address(uint64_t address_space, uint64_t virtual_addre
     if ((entry & VMM_PAGE_PRESENT) == 0) {
         return false;
     }
+    effective &= entry;
     if ((entry & PAGE_LARGE) != 0) {
-        *entry_out = entry;
+        *entry_out = (entry & ~(VMM_PAGE_USER | VMM_PAGE_WRITABLE)) | effective;
         return true;
     }
     pd = entry_table(entry);
@@ -521,8 +536,9 @@ static bool vmm_entry_for_address(uint64_t address_space, uint64_t virtual_addre
     if ((entry & VMM_PAGE_PRESENT) == 0) {
         return false;
     }
+    effective &= entry;
     if ((entry & PAGE_LARGE) != 0) {
-        *entry_out = entry;
+        *entry_out = (entry & ~(VMM_PAGE_USER | VMM_PAGE_WRITABLE)) | effective;
         return true;
     }
 
@@ -535,7 +551,8 @@ static bool vmm_entry_for_address(uint64_t address_space, uint64_t virtual_addre
         return false;
     }
 
-    *entry_out = entry;
+    effective &= entry;
+    *entry_out = (entry & ~(VMM_PAGE_USER | VMM_PAGE_WRITABLE)) | effective;
     return true;
 }
 
@@ -548,6 +565,11 @@ bool vmm_user_range_mapped(uint64_t virtual_address, uint64_t length, bool writa
     }
 
     uint64_t end = virtual_address + length - 1;
+    /* Page-table indices alone alias noncanonical addresses. User buffers
+     * must remain entirely in the canonical lower half before dereference. */
+    if ((virtual_address >> 47) != 0 || (end >> 47) != 0) {
+        return false;
+    }
     uint64_t page = virtual_address & ~(uint64_t)(PAGE_SIZE - 1);
     uint64_t address_space = active_address_space();
 

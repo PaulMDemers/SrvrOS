@@ -1,4 +1,8 @@
 """Strict automatic desktop power phases from bounded saved checkpoints."""
+
+if not __debug__:
+    raise RuntimeError('evidence validation requires Python assertions; disable optimization')
+
 import re
 from hardware_cpu_load import phase_power
 from hardware_desktop import device_snapshot
