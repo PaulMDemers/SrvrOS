@@ -38,6 +38,24 @@ compatible hardware. Local credentials remain private and unused until the
 security stage. Do not report connection-ready until authentication, data
 exchange and clean disconnect actually pass.
 
+## Fresh5GHz gain and baseband restoration implementation scope
+
+Consume main `105077d7` (separate Air6,1 display/HDA receipts, no Wi-Fi overlap).
+Next bounded source work captures logical40 afresh, privately decodes channel161
+high-band LNA/RSSI using pinned Linux v7.0 fallback/field-width rules, and adds
+one21-target A-band/20MHz BBP selection/readback/reverse-restoration transaction.
+All21 originals must match the captured v113 tuple before any new BBP write.
+The AGC8 forward value derives from fresh validated high-band gain, not the
+legacy G-band decoder or a stale captured12. Three fixed table entries select
+all-ones deliberately; no other sentinel/calibration gate is relaxed. Preserve
+legacy gain read/guard/cancellation behavior through shared capture plumbing.
+Scope is mt76 bringup/MCU helpers, explicit xHCI owner, main/staging, fixtures,
+strict saved proof and tests. No VCO/RX/network frame/credential is added.
+PR289 owns standalone UI rendering, PR288/278 own Files/app behavior and PR252
+owns resolver/socket lifetimes; these are separate from this radio transaction.
+Require matched build, sanitizer, source projection and exact-stage VM checks,
+local recovery/storage proof and durable record before cold physical testing.
+
 ## v113 frontend capture accepted; modular baseline integration
 
 Release `efbdb378d6bd0974`, runtime `de6cef51`, main `88c56afa`, matching

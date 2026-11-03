@@ -43,6 +43,9 @@ static const unsigned dep_pages[DEP_PAGES]={0x65000,0x44000,0xc4000};
 static struct display_resource_snapshot dependencies[2];
 static uint32_t dep_pch[2][2];
 static unsigned dep_seen;
+static unsigned hda_seen;
+static void hda_snapshot(unsigned phase);
+static void hda_report(void);
 static bool dep_mapped;
 #ifdef SRVROS_PLATFORM_HOST_TEST
 static uint64_t ordered_tsc(void) {return platform_test_tsc();}
@@ -188,6 +191,7 @@ static void dependency_snapshot(unsigned phase) {
 done:
     r->end=timer_monotonic_us();if(r->state!=1)fault=1;
 }
+#include "platform_hda.inc"
 void platform_audit_sample(uint64_t sample_us) {
     /* Caller is the existing IRQ-masked power checkpoint. Binding and teardown
      * run before/after capture, so no worker or owner is added here. */
@@ -232,6 +236,7 @@ void platform_audit_snapshot(unsigned phase) {
     well_snapshot(phase);
     resource_snapshot(phase);
     dependency_snapshot(phase);
+    hda_snapshot(phase);
     if(!phase)series_active=true;
     for(unsigned i=0;i<count;i++) {
         const struct pci_device *p=pci_device_at(i);
@@ -248,8 +253,8 @@ void platform_audit_snapshot(unsigned phase) {
 }
 bool platform_audit_report(void) {
     bool ok=!fault && mapped && stamp[1]>stamp[0] && config[0]==config[1] &&
-        series_count && !series_active && !series_overflow && well_seen==3 && resource_seen==3 && dep_seen==3;
-    console_printf("ap-platform: v=6 fault=%u devices=%u policy_writes=0 forcewake_writes=0 permission=unavailable reason=no-validated-grant-register completed=%s\n",(uint64_t)fault,(uint64_t)count,ok?"yes":"NO");
+        series_count && !series_active && !series_overflow && well_seen==3 && resource_seen==3 && dep_seen==3 && hda_seen==3;
+    console_printf("ap-platform: v=7 fault=%u devices=%u policy_writes=0 forcewake_writes=0 permission=unavailable reason=no-validated-grant-register completed=%s\n",(uint64_t)fault,(uint64_t)count,ok?"yes":"NO");
     console_printf("ap-platform-gfx: bdf=16 id=170295430 base=%u time_us=%u,%u status=%u,%u rc6=%u,%u config=%u,%u rc_control=unavailable\n",gpu_base,stamp[0],stamp[1],(uint64_t)status[0],(uint64_t)status[1],(uint64_t)rc6[0],(uint64_t)rc6[1],config[0],config[1]);
     for(unsigned i=0;i<2;i++)console_printf("ap-platform-time: phase=%u pm_us=%u,%u tsc=%u,%u nominal_mhz=%u reference=acpi-pm\n",(uint64_t)i,pm_begin[i],pm_end[i],tsc_begin[i],tsc_end[i],(uint64_t)nominal_mhz[i]);
     for(unsigned i=0;i<2;i++)console_printf("ap-platform-well: phase=%u pm_us=%u,%u ctl=%u,%u,%u,%u\n",(uint64_t)i,well_begin[i],well_end[i],(uint64_t)well_ctl[i][0],(uint64_t)well_ctl[i][1],(uint64_t)well_ctl[i][2],(uint64_t)well_ctl[i][3]);
@@ -272,6 +277,7 @@ bool platform_audit_report(void) {
             (uint64_t)r->raw[0],(uint64_t)r->raw[1],(uint64_t)r->raw[2],(uint64_t)r->raw[3],
             (uint64_t)r->raw[4],(uint64_t)r->raw[5],(uint64_t)r->raw[6],(uint64_t)r->raw[7]);
     }
+    hda_report();
     console_printf("ap-platform-series: v=1 count=%u cap=12 checkpoints=%u stride=2 overflow=%u completed=%s\n",(uint64_t)series_count,(uint64_t)series_checkpoints,(uint64_t)series_overflow,(!series_active && !series_overflow && series_count)?"yes":"NO");
     for(unsigned i=0;i<series_count;i++) {
         const struct series_row *r=&series[i];
