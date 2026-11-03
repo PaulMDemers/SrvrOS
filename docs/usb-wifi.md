@@ -334,7 +334,7 @@ rereads them. AGC8 derives from122c54f2 using8-bit subtraction of twice the fres
 LNA into bits14:8. Exact all-ones forward values are legal only for AGC51/53/55;
 originals remain exact/non-sentinel and IBI9 does not become calibration-ready.
 735 guarded operations and736 authorization boundaries include42 writes and693
-reads. There is no RF exchange callback or caller-selected address/value.
+reads. There is no RF exchange callback or caller-supplied register/value plan.
 
 The explicit automatic `--wifi-bbp5-cycle` profile requires full PA/frontend/
 channel161/A20 parent proof. It captures fresh fields only after parent PA

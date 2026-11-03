@@ -38,6 +38,54 @@ compatible hardware. Local credentials remain private and unused until the
 security stage. Do not report connection-ready until authentication, data
 exchange and clean disconnect actually pass.
 
+## Ready v115 fresh5GHz gain/baseband restoration trial
+
+Installed release `e405f17dd9a5449b`, runtime `ec117c9e`, main `105077d7`,
+requires full accepted parent/PA restoration and the exact21 v113 BBP originals.
+It reads logical40 afresh, privately selects the channel161 LNA/RSSI fields,
+then selects/independently reads/reverses/independently reads the21-row
+A-band/20MHz table. AGC8 derives from fresh high-band gain. The new child uses
+735 guarded direct operations,42 writes and736 authorization boundaries;
+fresh EFUSE transport adds12+polls operations (4053 combined with one poll).
+Bounded extra polls/delays must match the strict saved trace. Three fixed
+forward all-ones table rows do not relax any original/guard/calibration predicate.
+The engine has no RF exchange route. All native transfers require same private
+owner/device, fresh board/live parents, exact count/packet and matching gain.
+
+Full matched build/USB image/core/docs passes at `ec117c9e`, including new main's
+platform/HDA receipt fixtures without granting Pro HDA ownership. All206 staging
+groups,65536 LNA fallback pairs,65536 RSSI tuples, fresh-read I/O/cancellation/
+timeout/unmapped/scrub/no-replay, unchanged legacy gain,735 I/O/736 cancellation
+boundaries, all stored BBP proof bits,256 gain scalars, parent tuple and native
+unowned-I/O refusals pass. Saved-log deletion/duplication/field and repeated-poll
+cases pass. Both gain/BBP ASan/UBSan suites, eight pinned source/projection checks
+and four altered-source refusals pass. The637003-byte synthetic complete prefix
+passes; it is parser rehearsal, not native acceptance. Exact-stage diagnostic
+refusal/save/readback/preserved files/clean-unmount/automatic-return and
+missing-workspace VMs pass. Kernel and independently packaged initramfs match;
+new native gain/BBP ownership and proof validators are linked.
+
+Fresh local model/descriptors/UUID, capacity, offline fsck/allocation and write
+eligibility pass. Durable archive `wifi-bbp5-cycle-ec117c9e` contains payload,
+frozen whole-prefix collectors, source/fixture pins, accepted-parent binding and
+all receipts. Ubuntu default/EFI order and e47d previous remain unchanged;
+accepted v110–v114 remain installed/backed up. The unreferenced standalone v109
+band-only EFI copy was retired only after complete byte equality to its accepted
+independent backup; its native evidence and full backup remain preserved.
+
+Native fresh-gain/BBP acceptance is pending. This MAC-disabled transaction runs
+after parent restoration; it does not accept held-channel operation, VCO,
+calibrated reception, association/security or connectivity. Credentials remain
+unread/private. The authorized cold trial uses shutdown: Wi-Fi unplug10seconds
+while off, reconnect same port, power on, workspace retained. Guest progress,
+save and Ubuntu return are automatic; no commands/photos. Local run record owns
+exact armed state. On return run
+`build/bringup/wifi-bbp5-cycle/return_collect.py` FIRST and require matching
+source/release/session, complete parent/fresh fields/BBP reverse proof and
+storage/recovery checks. Then integrate channel161 prerequisites for calibration
+and5GHz RX, followed by Demers5 authenticated connect/disconnect/data.
+Demers2.4 requires compatible hardware; connection-ready remains unaccepted.
+
 ## Fresh5GHz gain and baseband restoration implementation scope
 
 Consume main `105077d7` (separate Air6,1 display/HDA receipts, no Wi-Fi overlap).
