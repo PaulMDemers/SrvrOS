@@ -12,8 +12,9 @@ It includes PR308, full PR252 `badfeb37`, and SrvrPorts pin `0f51ba9`.
 Latest profile contracts checked: PR309 `fa9717ad` and newer desktop-adoption
 PR314 `814aee20` (SrvrApps5). Profile sessions are explicitly selected and remain
 distinct from root credentials, disk identity and namespace activation. This
-slice retains the existing home provider and desktop settings; it does not
-import the profile branch or create a competing session implementation.
+slice retains the existing home provider and desktop settings. PR309 then landed
+as main `9d642c75`, which is merged here before the matched build; PR314's desktop
+session implementation remains separate.
 
 Own the installed GPT fixture/harness and this acceptance record. Consume the
 filesystem owner's `/bin` → `/fat/bin`, `/usr` → `/fat`, `/var` → `/fat/var`,
