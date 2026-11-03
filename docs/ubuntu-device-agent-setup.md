@@ -58,7 +58,7 @@ normal sudo access:
 ```sh
 sudo apt-get update
 sudo apt-get install -y --no-install-recommends \
-  build-essential git python3 python3-pil xorriso \
+  build-essential bison git python3 python3-pil xorriso \
   qemu-system-x86 qemu-system-gui qemu-utils ovmf acpica-tools \
   grub-common grub-efi-amd64-bin mtools dosfstools exfatprogs \
   pciutils usbutils efibootmgr mokutil udisks2 ripgrep

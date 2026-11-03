@@ -73,6 +73,18 @@ END {print "total: " total}
 def digest(data): return hashlib.sha256(data).hexdigest()
 
 
+def image_file_hashes(fixture):
+    result={};seen=set()
+    def walk(first,size=None,contiguous=False,parent=''):
+        if first in seen:raise RuntimeError('Directory alias in fixture')
+        seen.add(first)
+        for name,entry in fixture.entries(fixture.chain(first,size,contiguous)):
+            child=int.from_bytes(entry[52:56],'little');length=int.from_bytes(entry[56:64],'little');flag=bool(entry[33]&2);path=parent+'/'+name
+            if int.from_bytes(entry[4:6],'little')&16:walk(child,length,flag,path)
+            else:result[path]=digest(fixture.chain(child,length,flag))
+    walk(fixture.root);return result
+
+
 def main():
     global EVIDENCE
     parser = argparse.ArgumentParser(description=__doc__)
@@ -101,13 +113,16 @@ def main():
     for name in ('version','report','features','pipe','process','concat','decr','format','recovery'):
         expected[name+'-status.txt'] = b'0\n'
     fixture = ExfatFixture(disk.read_bytes())
+    source_files = image_file_hashes(fixture)
+    copied_aliases = fixture.copy_file_aliases()
+    if image_file_hashes(fixture)!=source_files:raise RuntimeError('Independent fixture changed file names or bytes')
     staged_binary = fixture.read('bin/awk')
     fixture.add_directory_files('awk-test', files); disk.write_bytes(fixture.data)
     binary = ROOT/'build/userspace/awk.elf'
     receipt = {'upstream_revision':revision, 'upstream_cases':list(CASES),
                'fixtures_sha256':{k:digest(v) for k,v in files.items()},
                'expected_sha256':{k:digest(v) for k,v in expected.items()},
-               'binary_sha256':digest(binary.read_bytes()), 'runtime_binary_sha256':digest(runtime_elf(binary.read_bytes())), 'staged_binary_sha256':digest(staged_binary), 'source_disk_sha256':digest(args.disk.read_bytes()),
+               'binary_sha256':digest(binary.read_bytes()), 'runtime_binary_sha256':digest(runtime_elf(binary.read_bytes())), 'staged_binary_sha256':digest(staged_binary), 'source_disk_sha256':digest(args.disk.read_bytes()), 'fixture_independent_file_copies':copied_aliases, 'fixture_source_files':len(source_files), 'fixture_source_file_hashes_sha256':digest(json.dumps(source_files,sort_keys=True).encode()), 'fixture_initial_sha256':digest(fixture.data),
                'port_source_sha256':{str(p.relative_to(ROOT)):digest(p.read_bytes()) for p in sorted((ROOT/'ports/srvros/awk').rglob('*')) if p.is_file()},
                'source_diff_sha256':digest(subprocess.check_output(['git','diff','--binary','HEAD'],cwd=ROOT)),
                'source_commit':subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(),
@@ -117,6 +132,12 @@ def main():
                'status':'INCOMPLETE', 'scope':'selected regression cases only; no complete upstream suite claim'}
     if staged_binary != runtime_elf(binary.read_bytes()): raise RuntimeError('Staged awk differs from build/userspace/awk.elf')
     (out/'receipt.json').write_text(json.dumps(receipt, indent=2, sort_keys=True)+'\n')
+    if args.fsck:
+        initial=subprocess.run([args.fsck,'-n',str(disk)],capture_output=True,text=True)
+        (out/'fsck-initial.log').write_text(initial.stdout+initial.stderr)
+        if initial.returncode or 'ERROR' in initial.stdout+initial.stderr or 'corrupted' in initial.stdout+initial.stderr:
+            raise RuntimeError('Initial independent-extent fixture is not clean')
+
     print('awk smoke evidence:',out,flush=True)
     with tempfile.TemporaryDirectory(prefix='awk-vm-') as temp:
         temp=Path(temp)
