@@ -147,12 +147,19 @@ int main(void) {
     assert(display_action.id==SETTINGS_DISPLAY_APPLY && (display_action.flags&DESK_WIDGET_ACTIVATED));
     tool_settings_action(&t,display_action);
     assert(brightness_sent.type==DESK_DISPLAY && brightness_sent.value==DESK_DISPLAY_APPLY && brightness_sent.x==2);
-    /* A trial reply reveals confirmation even if the user scrolled away. */
+    /* A trial reply reveals the heading and confirmation in a 363px client. */
+    t.window.height=363;tool_layout(&t);
     tool_settings_scroll(&t,-500);
     assert(t.settings_scroll.offset<desk_scrollbar_limit(&t.settings_scroll));
     dp.serial=brightness_sent.serial;dp.generation=7;ds.scale=2;ds.phase=DESK_DISPLAY_TRIAL;ds.remaining_seconds=15;memcpy(dp.text,&ds,sizeof(ds));
     tool_settings_display(&t,&dp);assert(t.display_token==7 && t.buttons[21].enabled);
-    assert(t.settings_scroll.offset==desk_scrollbar_limit(&t.settings_scroll));
+    assert(t.settings_scroll.offset==1610);
+    struct desk_rect display_view=viewport(&t);
+    int display_heading=64-t.settings_scroll.offset+1610;
+    assert(display_heading>=display_view.y && display_heading+64<=display_view.y+display_view.h);
+    assert(t.buttons[21].frame.y>=display_view.y &&
+        t.buttons[21].frame.y+t.buttons[21].frame.h<=display_view.y+display_view.h &&
+        t.buttons[22].frame.y+t.buttons[22].frame.h<=display_view.y+display_view.h);
     tool_settings_scroll(&t,-100);int trial_offset=t.settings_scroll.offset;
     dp.serial=0;ds.remaining_seconds=14;memcpy(dp.text,&ds,sizeof(ds));tool_settings_display(&t,&dp);
     assert(t.settings_scroll.offset==trial_offset);
