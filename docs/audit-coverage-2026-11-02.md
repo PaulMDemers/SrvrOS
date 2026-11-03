@@ -111,3 +111,8 @@ guests were rerun after the vendor fixes. Documentation-only updates follow
 the implementation checkpoint. Source screening of every baseline path is
 complete; sampled review and these tests do not close the deeper manual,
 external-dependency and native-device gaps listed above.
+
+
+Subsequent review: the [2026-11-03 kernel isolation follow-up](audit-kernel-isolation-2026-11-03.md)
+records a low-level VMM canonical-address fix, active-root retirement regression
+and observed BIOS/QEMU CR0.WP state. It does not close the broader manual audit.

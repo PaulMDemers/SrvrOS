@@ -2975,3 +2975,13 @@ reported zero leaks/FAT/errors. The full host transcript is
 The final staged-port guest also passed after the shell changes, with a clean
 post-run filesystem check. Its transcript is
 `build/review/whole/ports-shell-final.log`.
+
+
+## Kernel isolation follow-up — 2026-11-03
+
+Scope: independent VMM address-boundary and process teardown review after PR313,
+based on merged main `56e1f950`. Coordinated with the filesystem integration
+owner; separate checkout and disposable guest only. The confirmed low-level
+noncanonical-address alias defect, actual-source regressions, CR0.WP observation
+and remaining teardown coverage are recorded in the
+[kernel follow-up](../audit-kernel-isolation-2026-11-03.md).
