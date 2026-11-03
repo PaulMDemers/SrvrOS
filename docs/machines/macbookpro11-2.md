@@ -90,20 +90,47 @@ implement a fixed external5GHz PA/baseband admission/readback/restoration
 contract with fresh high-band gain validation, then calibration and5GHz RX.
 Connection-ready remains unaccepted; credentials remain unread/private.
 
-## Next bounded implementation: external5GHz PA restoration
+## Ready v114 external5GHz PA restoration trial
 
-Starting from merged main `e376669c` and the accepted v113 frontend originals,
-add one immutable14-target PA transaction: fresh before-read of all targets,
-fixed external-A-band selector/11 RF settings/attenuation/ALC policy, independent
-selected readback, reverse restoration and independent original readback. Exact
-same-unit board and complete parent/frontend proofs must precede admission;
-MAC/DMA guards stay active throughout. No BBP gain, VCO pulse, RX, credentials
-or network frame is part of this transaction. This isolates PA command behavior
-before the gain-dependent baseband step. Shared scope is mt76 MCU engine,
-explicit xHCI owner, main/staging profile, strict saved proof and host tests.
-PR278 app-descriptor work and PR252 resolver/socket work stay separate.
-Publish and validate the matched image and exact-stage recovery VMs before any
-native installation. Preserve all accepted payload/evidence and Ubuntu default.
+Installed release `bf9e136ebf72e6fe`, runtime `9e370a25`, main `e376669c`,
+requires the complete v113 parent/frontend proof and exact captured PA originals.
+It independently reads all14 originals, applies the external-A selector,
+11 fixed high-band RF settings and attenuation/ALC policy, independently reads
+all14 selected values, restores14 in reverse order and independently reads
+all14 originals. The490-operation child retains every guard/reply/count and
+requires491 authorization boundaries. Full parent plus child is3305 operations.
+Native callbacks require the exact static owner/device, fresh NIC0fd11/NIC11004,
+complete parent proofs and fixed requests before USB. No BBP gain, VCO pulse,
+RX, credential or network frame is added. It runs after parent restoration;
+this does not test PA operation inside an active channel or accept RF readiness.
+
+Full matched build/USB image/core/docs passes at `9e370a25`. All205 staging
+groups, engine I/O/cancellation/reply/proof/board/parent faults, native unowned
+USB refusal, saved-receipt deletion/duplication/field/parent mutations and
+ASan/UBSan pass. Pinned-source projection and four altered-source refusals pass.
+The complete571183-byte synthetic prefix passes the whole-source saved proof;
+it is parser rehearsal, not new native evidence. Exact-stage diagnostic
+refusal/save/readback/preserved files/clean unmount/automatic-return and
+missing-workspace VMs pass. Committed kernel and independently packaged firmware
+initramfs bytes match; native owner/proof validators are linked.
+
+Fresh model/descriptor/UUID, workspace capacity, offline fsck/allocation and
+write-eligibility checks pass. The durable archive `wifi-pa5-cycle-9e370a25`
+contains payload, frozen full-prefix proof, source/fixture pins, parent binding
+and all receipts. Ubuntu default and EFI order are unchanged. Previous e47d and
+accepted v109–v113 payloads remain installed and independently backed up. The
+unreferenced older empty-cache UI EFI copy b134 was retired only after complete
+byte equality to its independent accepted backup; all evidence/backup is retained.
+
+Native PA acceptance is pending. The user-authorized cold test uses shutdown:
+unplug only Wi-Fi10seconds while off, reconnect same port, power on, workspace
+retained. Progress, save and Ubuntu return are automatic; no commands/photos.
+Local run record owns exact armed state. On return run the frozen
+`build/bringup/wifi-pa5-cycle/return_collect.py` FIRST and require matching
+source/release/session, full parent/PA restoration, storage and recovery proof.
+Then continue fresh high-band gain/baseband, calibration and5GHz RX toward
+Demers5 authenticated connection/disconnection/data. Demers2.4 needs compatible
+hardware. Credentials remain unread/private; connection-ready is unaccepted.
 
 ## Historical v113 candidate validation —44 frontend observations
 
