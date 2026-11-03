@@ -46,6 +46,7 @@ int main(void) {
     uint32_t pressed=pixels[(b.frame.y+3)*280+b.frame.x+3];
     uint32_t reference[280*240]={0};struct desk_canvas expected;
     assert(!desk_canvas_init(&expected,reference,280,240,280));
+    desk_fill(&expected,expected.clip,desk_theme_quiet.surface);
     struct desk_button visual=b;visual.armed=visual.inside=1;
     desk_button_draw(&expected,&visual,"Text size",&desk_theme_quiet);
     for(int y=b.frame.y;y<b.frame.y+b.frame.h;y++)

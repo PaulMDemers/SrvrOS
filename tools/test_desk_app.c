@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <srvros/desk_app.h>
+#include <srvros/desk_preferences.h>
 #include <srvros/desk_connection.h>
 #include <srvros/desk_application.h>
 #include <srvros/gui.h>
@@ -119,6 +120,17 @@ static void connection_windows(void) {
     assert(connection_receive(&c,&target,&event)==2 && a.pending && b.pending);
     receive(DESK_RELEASE,1);incoming.window=2;incoming.surface=b.surface;incoming.serial=b.pending;
     assert(connection_receive(&c,&target,&event)==2 && !b.pending && a.pending);
+    /* Each admitted window accepts only its own valid authoritative snapshot. */
+    struct desk_preferences appearance=desk_preferences_default();appearance.theme_accent=2;appearance.glass_level=2;
+    a.dirty=b.dirty=0;receive(DESK_PREFERENCES,0);incoming.window=2;incoming.value=DESK_PREF_SAVED;
+    memcpy(incoming.text,&appearance,sizeof(appearance));
+    assert(connection_receive(&c,&target,&event)==1 && target==&b && b.preferences_valid && b.dirty && !a.preferences_valid && !a.dirty);
+    b.dirty=0;appearance.theme_accent=3;receive(DESK_PREFERENCES,0);incoming.window=2;incoming.value=DESK_PREF_SAVED;
+    memcpy(incoming.text,&appearance,sizeof(appearance));
+    assert(connection_receive(&c,&target,&event)==2 && b.preferences.theme_accent==2 && !b.dirty);
+    appearance.theme_accent=1;receive(DESK_PREFERENCES,0);incoming.window=1;incoming.value=DESK_PREF_SAVING;
+    memcpy(incoming.text,&appearance,sizeof(appearance));
+    assert(connection_receive(&c,&target,&event)==1 && target==&a && a.dirty && a.preferences.theme_accent==1 && b.preferences.theme_accent==2);
     receive(DESK_FOCUS,0);incoming.window=2;incoming.value=1;
     assert(connection_receive(&c,&target,&event)==1 && target==&b && b.focused && !a.focused);
     int checks_before=liveness_checks;

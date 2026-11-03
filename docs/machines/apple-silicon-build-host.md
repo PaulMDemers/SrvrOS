@@ -1867,3 +1867,16 @@ Evidence and limitations: [repository milestone](../repository-organization.md),
 awaits integration review; no main merge or Actions dispatch occurred. Next:
 review the published submodule integration; application/port work can branch
 from these documented boundaries.
+
+
+## Glass and global appearance — 2026-11-02
+
+Continuing `overhaul/modular-desktop` from completed `3b286e0`, main `74d38d59`.
+Scope: SrvrUI resolver/glass primitives, compositor chrome and ordered presentation,
+shared preference protocol/runtime, SrvrApps Appearance controls and live updates.
+Required evidence is matched host/build and sequential VM checks with real images.
+PR280 owns this work. PR278 `f11cbf8` overlaps desktop/application dispatch files
+for Open With and descriptors; preserve that separate implementation at integration.
+PR252 `badfeb3` owns process/I/O kernel audit work; this milestone changes no kernel
+or framebuffer driver. PR19 retains USB Wi-Fi work. No physical trial or Actions.
+Next checkpoint: host regression suite and live theme/persistence VM checks.

@@ -26,6 +26,8 @@ struct desk_app {
     int menu_pending;
     uint32_t *pixels,width,height;
     int dirty,focused,closed,failed;
+    struct desk_preferences preferences;
+    int preferences_valid;
 };
 int desk_app_open(struct desk_app *app,const char *title,uint32_t width,uint32_t height);
 /* Return 1 app event, 0 empty, 2 handled/discarded transport event, -1 failure. CONFIGURE is emitted

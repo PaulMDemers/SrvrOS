@@ -8,6 +8,7 @@ struct desk_preferences {
     uint32_t clock_flags,wallpaper;
     uint32_t pointer_speed,pointer_acceleration,disable_while_typing;
     uint32_t tap_to_click,two_finger_tap;
+    uint32_t theme_accent,glass_level;
 };
 #define DESK_CLOCK_24H 1u
 #define DESK_CLOCK_DATE 2u
@@ -23,7 +24,9 @@ struct desk_preferences {
 #define DESK_PREF_TAP_CLICK 256u
 #define DESK_PREF_TWO_FINGER_TAP 512u
 #define DESK_PREF_POINTER (DESK_PREF_TAP_CLICK|DESK_PREF_TWO_FINGER_TAP|DESK_PREF_POINTER_SPEED|DESK_PREF_POINTER_ACCELERATION|DESK_PREF_DISABLE_WHILE_TYPING)
-#define DESK_PREF_ALL 1023u
+#define DESK_PREF_ACCENT 1024u
+#define DESK_PREF_GLASS 2048u
+#define DESK_PREF_ALL 4095u
 enum desk_preferences_status { DESK_PREF_LOADING, DESK_PREF_SAVED, DESK_PREF_SAVING,
     DESK_PREF_SESSION_ONLY, DESK_PREF_CONFLICT };
 #endif

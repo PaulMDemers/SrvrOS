@@ -51,7 +51,12 @@ static void compare(struct desk_rect clip,int reduction) {
     for(int y=0;y<H;y++) for(int x=W;x<S;x++) assert(optimized[y*S+x]==0xdeadbeef);
 }
 static void adversarial(void) {
-    initialize(2);compare((struct desk_rect){0,0,W,H},1);
+    for(unsigned glass=0;glass<3;glass++) {
+        initialize(2);desk_theme_configure(&scene.theme,0,glass,16);
+        compare((struct desk_rect){0,0,W,H},1);
+        compare((struct desk_rect){120,90,180,180},1);
+    }
+    initialize(2);
     /* A higher frame covers the lower frame but not its bottom shadow. */
     windows[1].frame.y-=7;compare((struct desk_rect){0,0,W,H},0);
     compare((struct desk_rect){100,348,310,14},0);
@@ -68,6 +73,12 @@ static void adversarial(void) {
     initialize(2);windows[1].pixels=NULL;compare((struct desk_rect){0,0,W,H},1);
     windows[1].minimized=1;compare((struct desk_rect){0,0,W,H},0);
     windows[1].minimized=0;windows[1].visible=0;compare((struct desk_rect){0,0,W,H},0);
+    /* A lower title and shadow entirely inside an opaque body may be culled;
+     * near-minimum height keeps resize grips outside its opaque body. */
+    initialize(2);windows[0].frame=(struct desk_rect){150,140,128,47};
+    windows[1].frame=(struct desk_rect){100,70,400,310};
+    compare((struct desk_rect){0,0,W,H},1);
+    compare((struct desk_rect){150,180,128,7},0);
     /* Malformed small frames paint titlebar controls outside their frame. */
     initialize(2);windows[0].frame=(struct desk_rect){100,70,12,9};
     windows[1].frame=(struct desk_rect){100,70,300,285};

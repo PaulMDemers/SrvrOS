@@ -83,10 +83,11 @@ references take priority over catalog presets.
   symbol with the same values for existing callers. The default wallpaper is
   Blue; Sand and Slate remain available through Settings.
 
-`make widget-theme-preview` renders actual controls at 280 and 470 px widths,
+`make widget-theme-preview` renders actual controls in three 340 px accent columns,
 including long text, focused editing and selected lists. It writes
 `build/review/theme/silver.ppm`. This is a source-rendered specimen, not a mockup.
-The theme intentionally stays opaque; composited translucency, new icon artwork,
+The initial Silver milestone used opaque chrome. The subsequent
+[global appearance engine](desktop-theme.md) adds tinted composited glass. New icon artwork,
 a font overhaul and broader application redesign are separate later decisions.
 
 ## Acceptance record

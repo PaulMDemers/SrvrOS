@@ -6,6 +6,23 @@ and [machine records](machines/README.md) separate implementation from physical
 acceptance. The [device parity ledger](device-parity.md) compares the Air with
 ongoing Pro work.
 
+## Glass and live theme refinement — November 2, 2026
+
+Target: more polished glass chrome, application-wide appearance controls in
+Settings, and an evidence-based plan to eliminate scanout tearing. Continue
+`overhaul/modular-desktop` / draft PR280; prior repository split stays complete.
+Focused research confirms the current inherited framebuffer has no synchronized
+flip contract. This milestone separates composition from uploads; real vblank
+and page flips remain a driver milestone, not a claim of this software change.
+
+Required: Blue/Graphite/Teal accents and Solid/Subtle/Clear glass, persisted with
+migration and broadcast to existing/new windows; clipping-safe glass and correct
+translucent occlusion; unchanged content and input behavior; matched full build,
+host regressions, runtime preference checks and inspected desktop/widget images.
+Current work: integrate resolver, compositor, Settings/runtime preference path
+and presentation ordering, then verify before updating PR280. Native acceptance
+and Actions remain unchanged. See [presentation plan](display-presentation.md).
+
 ## Current overhaul — November 2, 2026
 
 Target: separate SrvrUI, SrvrApps and SrvrPorts into GitHub repositories pinned

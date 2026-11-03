@@ -1111,7 +1111,15 @@ int main(void) {
     incoming(&s,42,&p);assert(pointer_options==(SRV_POINTER_ACCELERATION|SRV_POINTER_TWO_FINGER_TAP));
     changed.two_finger_tap=0;memcpy(p.text,&changed,sizeof(changed));p.value=DESK_PREF_TWO_FINGER_TAP;
     incoming(&s,42,&p);assert(pointer_options==SRV_POINTER_ACCELERATION);
-    p.value=2048;incoming(&s,42,&p);assert(s.preferences.value.text_size==20);
+    s.clients[0].preferences_dirty=0;
+    p.value=4096;incoming(&s,42,&p);assert(s.preferences.value.text_size==20 && s.clients[0].preferences_dirty);
+    changed.theme_accent=2;changed.glass_level=2;p.value=DESK_PREF_ACCENT|DESK_PREF_GLASS;
+    memcpy(p.text,&changed,sizeof(changed));s.damage.count=0;
+    incoming(&s,42,&p);assert(s.scene.theme.accent==0x16776e && s.scene.theme.glass_alpha==184 && s.damage.count);
+    assert(s.preferences.value.theme_accent==2 && s.preferences.value.glass_level==2);
+    s.scene.focus=-1;changed.theme_accent=1;memcpy(p.text,&changed,sizeof(changed));s.clients[0].preferences_dirty=0;
+    incoming(&s,42,&p);assert(s.preferences.value.theme_accent==2 && s.clients[0].preferences_dirty);
+    s.scene.focus=old_focus;
     request_close(&s,0);assert(s.clients[0].close_requested && !s.clients[0].closing);
     p=desk_packet_new(DESK_CANCEL_CLOSE);incoming(&s,42,&p);assert(!s.clients[0].close_requested);
     const struct desk_menu_item menu[]={ {0,DESK_MENU_HEADING,"File",""},{7,0,"New","Ctrl-N"} };

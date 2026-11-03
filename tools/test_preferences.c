@@ -24,6 +24,15 @@ static void model(void) {
     const char old[]="srvros-desktop-v1\ntext_size=16\nutc_offset_minutes=0\nclock_flags=3\nwallpaper=0\n";
     assert(!desk_preferences_decode(&q,old,sizeof(old)-1) && q.pointer_speed==3 && q.pointer_acceleration==1);
     assert(!p.disable_while_typing && !q.disable_while_typing);
+    assert(q.theme_accent==0 && q.glass_level==1);
+    const char v4[]="srvros-desktop-v4\ntext_size=16\nutc_offset_minutes=0\nclock_flags=3\nwallpaper=0\npointer_speed=3\npointer_acceleration=1\ndisable_while_typing=0\ntap_to_click=1\ntwo_finger_tap=1\n";
+    assert(!desk_preferences_decode(&q,v4,sizeof(v4)-1) && q.theme_accent==0 && q.glass_level==1);
+    p.theme_accent=2;p.glass_level=2;
+    assert(!desk_preferences_merge(&q,&p,DESK_PREF_ACCENT|DESK_PREF_GLASS));
+    char appearance[256];int appearance_len=desk_preferences_encode(&q,appearance,sizeof(appearance));
+    assert(appearance_len>0 && !desk_preferences_decode(&q,appearance,appearance_len) && q.theme_accent==2 && q.glass_level==2);
+    p.theme_accent=3;assert(desk_preferences_merge(&q,&p,DESK_PREF_ACCENT)<0 && q.theme_accent==2);
+    p=desk_preferences_default();
     const char v2[]="srvros-desktop-v2\ntext_size=16\nutc_offset_minutes=0\nclock_flags=3\nwallpaper=0\npointer_speed=5\npointer_acceleration=0\n";
     assert(!desk_preferences_decode(&q,v2,sizeof(v2)-1) && q.pointer_speed==5 && !q.pointer_acceleration && !q.disable_while_typing);
     assert(!desk_preferences_decode(&q,old,sizeof(old)-1));

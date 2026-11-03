@@ -8,10 +8,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-static void specimen(struct desk_canvas *c,int x,int w) {
-    const struct desk_theme *t=&desk_theme_silver;
+static void specimen(struct desk_canvas *c,int x,int w,unsigned accent) {
+    struct desk_theme theme;desk_theme_configure(&theme,accent,2,16);const struct desk_theme *t=&theme;
     desk_fill(c,(struct desk_rect){x,0,w,470},t->surface);
-    desk_label_draw(c,(struct desk_rect){x+12,10,w-24,24},t->heading,w>350?"Silver · wide":"Silver · compact",t->text);
+    desk_label_draw(c,(struct desk_rect){x+12,10,w-24,24},t->heading,accent==0?"Blue · Glass":accent==1?"Graphite · Glass":"Teal · Glass",t->text);
     struct desk_button b={0};
     const char *labels[]={"Normal","Pressed","Focused","Disabled"};
     for(int i=0;i<4;i++) {
@@ -36,10 +36,19 @@ static void specimen(struct desk_canvas *c,int x,int w) {
     desk_list_set_items(&list,rows,3);desk_list_configure(&list,(struct desk_rect){x+12,325,w-24,120},1);desk_list_select(&list,1);desk_list_draw(c,&list,t);
 }
 int main(int argc,char **argv) {
-    enum { W=760,H=470 };if(argc!=2) return 2;
+    enum { W=1040,H=530 };if(argc!=2) return 2;
     uint32_t *pixels=calloc(W*H,sizeof(*pixels));if(!pixels) return 1;
     struct desk_canvas c;if(desk_canvas_init(&c,pixels,W,H,W)) return 1;
-    specimen(&c,0,280);specimen(&c,290,470);
+    desk_fill(&c,c.clip,0xd3d9e0);
+    specimen(&c,0,340,0);specimen(&c,350,340,1);specimen(&c,700,340,2);
+    for(unsigned i=0;i<3;i++) {
+        struct desk_theme t;desk_theme_configure(&t,i,2,16);
+        int x=i*350;
+        desk_theme_gradient(&c,(struct desk_rect){x,470,340,60},0x587fa4,0xa4bfd3);
+        desk_fill(&c,(struct desk_rect){x+100,470,80,60},0x53716a);
+        desk_theme_glass(&c,(struct desk_rect){x+12,480,316,38},t.chrome_top,t.chrome_bottom,t.glass_alpha,3);
+        desk_label_draw(&c,(struct desk_rect){x+24,488,280,24},t.body,"Glass over two backgrounds",t.text);
+    }
     FILE *f=fopen(argv[1],"wb");if(!f) return 1;fprintf(f,"P6\n%d %d\n255\n",W,H);
     for(int i=0;i<W*H;i++) { unsigned char rgb[]={pixels[i]>>16,pixels[i]>>8,pixels[i]};fwrite(rgb,1,3,f); }
     int error=fclose(f);free(pixels);return error!=0;
