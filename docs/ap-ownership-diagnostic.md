@@ -954,3 +954,96 @@ This accepts the bounded read-only observations and retention only. HDA/DMA
 retirement, IRQ ownership and a safe well transition remain unproven.
 The overall platform trial still fails the original RC6 bound (about 0.0893%
 nominal excess), and package C3 remains zero. No policy or limit changes follow.
+
+
+## Remaining Haswell ULT well dependencies (2026-11-02)
+
+This source audit uses Linux v7.0 commit
+`028ef9c96e96197026887c0f092424679298aae8` and the actual Air6,1
+`ee85beb85b75fdca` endpoints. It changes no register access, ownership, policy,
+limit or installed payload. Upstream code describes prerequisites; it does not
+supply native acceptance or prove the cause of zero package C3.
+
+### Applicability and observed coverage
+
+The pinned [PCI IDs](https://github.com/torvalds/linux/blob/028ef9c96e96197026887c0f092424679298aae8/include/drm/intel/pciids.h)
+classify captured `0x0a26` as Haswell ULT GT3 mobile. The
+[display device profile](https://github.com/torvalds/linux/blob/028ef9c96e96197026887c0f092424679298aae8/drivers/gpu/drm/i915/display/intel_display_device.c)
+removes port D for ULT. The
+[output setup](https://github.com/torvalds/linux/blob/028ef9c96e96197026887c0f092424679298aae8/drivers/gpu/drm/i915/display/intel_display.c)
+excludes CRT on ULT before CRT initialization. Do not add a general Haswell
+CRT/FDI probe to this unit merely because the generic domain list includes CRT.
+Existing raw port-D/E slots remain recorded; zero bits in an unsupported slot
+do not establish an implemented, disabled port or an ownership proof.
+
+The [Haswell well map](https://github.com/torvalds/linux/blob/028ef9c96e96197026887c0f092424679298aae8/drivers/gpu/drm/i915/display/intel_display_power_map.c)
+associates the switchable well with pipes B/C, fitters A/B/C, transcoders A/B/C,
+DDI lanes B/C/D, CRT, VGA, audio MMIO/playback and initialization. Pipe A, the
+eDP transcoder and DDI A are outside this switchable domain list. This software
+map is context, not an exhaustive hardware permission register.
+
+| Dependency | Actual endpoint evidence | Remaining requirement |
+| --- | --- | --- |
+| Pipes/transcoders B/C and other non-eDP routes | Sampled A/B/C transcoder controls disabled; eDP selects pipe A | Adopt and retain the active route, framebuffer and resource lifetime before any release |
+| Fitters A/B/C | Enable bits clear; eDP DDI input field is 0 | Preserve both fitter enable and forced-through routing semantics; no inference from enable alone |
+| DDI B/C and VGA | Sampled buffers disabled; VGA disable set | Supported-resource ownership and exclusion of concurrent users, not only two snapshots |
+| CRT/FDI and port D | ULT source profile excludes CRT and port D | Treat as profile applicability; no speculative CRT initialization or generic register sweep |
+| Display audio | A/B/C output/ELD bits clear; configs retained | Separate display-HDA controller, link and DMA context remains unmeasured |
+| Display IRQs | DE/SDE enables zero; all mask bits set | Masks do not stop DMA, drain events or acquire an IRQ owner |
+| Firmware/init references | BIOS well request remains set | Establish a serialized takeover/readout/release lifecycle and recovery before writes |
+
+A subtle fitter dependency is already checkable without adding MMIO:
+`hsw_get_transcoder_state()` in the pinned output source marks fitter A forced
+through when the eDP input is `A_ONOFF` (encoding 4). The actual input field
+is `A_ON` (0), so that specific forced-through condition is absent at both
+endpoints. This is a bounded routing observation, not proof that the well is free.
+
+### Display HDA is the next useful read-only gap
+
+The same native PCI snapshots retain display HDA `8086:0a0c` at 00:03.0 in D0
+with command `0x0006` (memory decode and bus mastering enabled) at both endpoints.
+The distinct analog controller `8086:9c20` at 00:1b.0 is also D0 with command
+`0x0006`. Neither fact proves active DMA; neither permits treating the controller
+as retired. The ordinary `srvros.audio=hda` initializer does not own display HDA.
+
+Pinned [HDA controller code](https://github.com/torvalds/linux/blob/028ef9c96e96197026887c0f092424679298aae8/sound/hda/controllers/intel.c)
+keeps Haswell display-HDA power bound to the graphics component. Its runtime
+resume gets display power before controller initialization; shutdown stops the
+chip, enters link reset and clears pending IRQs before releasing display power.
+The [graphics component](https://github.com/torvalds/linux/blob/028ef9c96e96197026887c0f092424679298aae8/drivers/gpu/drm/i915/display/intel_audio.c)
+backs its audio power reference with `POWER_DOMAIN_AUDIO_PLAYBACK`. Clear ELD or
+output-enable bits cannot substitute for this controller lifecycle.
+
+A future bounded capture should first review exact display-HDA PCI identity,
+subsystem, class/BDF, BAR span, live D0/decode and powered-domain prerequisites.
+Candidate controls from the pinned
+[HDA definitions](https://github.com/torvalds/linux/blob/028ef9c96e96197026887c0f092424679298aae8/include/sound/hda_register.h)
+are GCAP (16 bits), GCTL/INTCTL (32), CORBCTL/RIRBCTL (8), DPLBASE (32), and
+capability-bounded stream control fields. Read widths must exclude adjacent
+status bytes; stream-count arithmetic must be validated before addressing.
+These are candidates requiring access/side-effect review, not a new allowlist.
+Exclude codec verbs, immediate commands, data buffers, ring pointers, W1C status,
+BAR sizing writes, resets, D-state changes and bus-master changes. Unsupported,
+off, inaccessible or changing state must remain explicit unknown/failure.
+Even an all-stopped capture would not grant ownership or permission to power off.
+
+### Why a well-clear experiment is premature
+
+Pinned [power-domain initialization](https://github.com/torvalds/linux/blob/028ef9c96e96197026887c0f092424679298aae8/drivers/gpu/drm/i915/display/intel_display_power.c)
+holds INIT until hardware readout has established resource references; sanitation
+releases only enabled wells with no users. The
+[well takeover](https://github.com/torvalds/linux/blob/028ef9c96e96197026887c0f092424679298aae8/drivers/gpu/drm/i915/display/intel_display_power_well.c)
+sets the driver's request before clearing the BIOS request. Copying only the BIOS
+clear would omit those protections. SrvrOS `intel_gfx_init()` enables PCI decode/
+bus mastering and maps four pages; it supplies no equivalent modeset/domain
+reference graph, display-HDA lifecycle or firmware-resource adoption. The Limine
+framebuffer remains live and must survive console, desktop and failure reporting.
+
+Before any future transition proposal, define exact exclusive ownership,
+active-route and framebuffer invariants, domain users and teardown ordering,
+bounded state verification, restoration with tested fallback, and evidence for
+success and refusal paths. Read-only observations alone cannot fulfill these
+requirements. Keep the unresolved RC6 clock discrepancy and package-C3 result
+separate. The immediate next implementation should be narrowly scoped read-only
+display-HDA context with profile-aware applicability, followed by its own matched
+host/VM/native validation and unchanged final-log retention gate.
