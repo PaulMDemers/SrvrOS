@@ -3,37 +3,87 @@
 Updated November 3, 2026. Global activation follows the explicit namespace proof
 in [PR308](https://github.com/PaulMDemers/SrvrOS/pull/308).
 
-## Dependency integration — active review
+## Dependency integration — verified for merge
 
-The user authorized review, integration and merge of PR313 after combined
-verification, with explicit coordination with PR252 and SrvrPorts PR3. Current
-review heads are PR313 `29a0ad23`, PR252 `badfeb37` and Ports3 `0f51ba9`.
-Fetched SrvrOS main is `3db1a1d3` (adds merged installation PR311); SrvrPorts main
-is `d75eebe`. No submitted reviews or unresolved review threads are present on
-these three PRs. Review scope is dependency provenance, lifetime/exclusion and
-ABI reconciliation, then exact combined host/build/guest verification. Land the
-ports dependency before the OS history-preserving combined merge. Keep the
-primary checkout, existing review VMs and physical devices untouched.
+The user authorized dependency review, integration and merge of
+[PR313](https://github.com/PaulMDemers/SrvrOS/pull/313). The PR252 owner reviewed
+full-head integration (`badfeb37`), ports provenance, lifetime/exclusion and the
+two compatibility corrections below, with no remaining source-review blocker.
+No submitted review requested changes and no unresolved review thread was found
+on PR313, PR252 or SrvrPorts PR3. Use a history-preserving PR313 merge: it contains
+both PR252 and PR308; do not independently land PR252's obsolete tracked ports tree.
 
-The first full combined threadstress run caught the proof helper's stale
-160-byte bound: long-path mkdir failed despite the existing 1024-byte path ABI.
-The integration correction uses `SRV_PATH_MAX` throughout namespace translation
-and projected listing, and preserves `ENAMETOOLONG` when alias expansion exceeds
-the backing bound. Host tests cover exact capacity and failed outputs; the guest
-now creates a deep alias path with a 1023-byte backing name, checks listing and
-identity, and verifies overflow errors for open/stat/mkdir/chdir. The failed run
-is retained; full affected verification must pass before merge.
+[SrvrPorts PR3](https://github.com/PaulMDemers/SrvrPorts/pull/3) merged first as
+`5e994f53`. Its tree is identical to tested head `0f51ba9`, now an ancestor of
+ports main. The OS gitlink pins that actual merge. Four transferred code files
+match PR252 byte-for-byte; its provenance addition is retained alongside newer
+cross-repository links. The owner confirmed no unpublished fixes or newer head.
+
+Combined verification used clean OS source `421591d6` and ports `0f51ba9`,
+including main `9d642c75` (installed-root identity PR312 and portable profiles
+PR309, after installation PR311). Main subsequently advanced to `e224ac2c`
+(PR316: device documentation and an independent host audit tool); that merge
+changes no runtime sources, and its eight host tests pass. Final build manifests
+and image-hash comparison are retained with the evidence below to connect the
+final documentation/gitlink integration to the tested matched images.
+
+Full threadstress found two compatibility regressions before acceptance:
+
+- The proof helper's stale 160-byte bound rejected legacy long-path mkdir.
+  `3563dd30` uses `SRV_PATH_MAX` (1024) throughout namespace translation and
+  projected listing, propagates `ENAMETOOLONG` for alias expansion overflow,
+  and clears refused outputs. Guest coverage creates a 1023-byte backing path,
+  checks listing/identity, and rejects overflowing open/stat/mkdir/chdir.
+- `06d5a416` restores existing rename type/cycle error precedence before the
+  attachment busy guard, while retaining the guard before mutation or I/O.
+  Tests cover EISDIR, ENOTDIR, EINVAL and valid protected-root EBUSY.
+
+The owner accepted both corrections without changes to owner-span lifetime,
+checked-copy/descriptor protections, private-image admission, or process exit
+exclusion. Spawn/exec still have no outer filesystem owner scope. The two failed
+threadstress logs (`thread.log`, `thread-fixed.log`) remain as failure evidence;
+subsequent full runs pass.
+
+| Combined check | Result |
+| --- | --- |
+| Real exFAT/VFS and process writeback at `421591d6` | 133/133 normal, 133/133 ASan/UBSan, writeback pass |
+| Namespace guest at `421591d6` | Long paths, alias guards, `/fat` compatibility, independent `/work`, two-boot persistence and cleanup pass |
+| Full threadstress at `421591d6` | Pass, including path-limits and rename |
+| Installed-root guest at `421591d6` | Two successful identity-selected boots with reversed disk order; nine recovery refusals preserve disk hashes |
+| Activation and recovery ordering | Aliases activate on both selected-root boots; no activation on any recovery refusal |
+| Ordinary desktop at `421591d6` | VirtIO Q35/TCG first application frame 4.33 seconds, running QMP state and screenshot retained |
+| Focused host regressions after both fixes | Lifetime, process/service/loader, fault cleanup, checked usercopy, syscall I/O/listing, replacement/file changes, pipe rights/message, mappings, socket transfer/aliases/restart, PTY, PMM/VMM, shell, uv and uACPI pass |
+| Workspace host contract | Identity/marker/duplicate/dirty refusal, mount holds/stale tokens, ownership, busy/flush/unmount/revoke and sync-failure checks pass |
+| Network and libuv guests at `06d5a416` | netabi, uv and libuv pass; later main merges do not change their runtime implementation |
+| New main host contracts | Installed-root selector, clean-mount no-write refusal, 21 installation Python cases, storage, portable-profile header and 13 Python cases pass |
+
+Local ignored evidence: `build/review/filesystem-integration/` holds
+`host-final.log`, `socket-host.log`, `new-main-host.log`, `current-exfat/`,
+`current-exfat-sanitize/`, `current-writeback/`, `current-thread.log`,
+`current-namespace/20261103T233037.982713Z/`, guest network/libuv logs and the
+`tested-421591d6-build.json` manifest. Installed-root receipt and all positive /
+negative logs are in `build/review/installed-root/proof-5aolw6w9/`.
+Ordinary desktop evidence is in
+`.local/macos-vm/filesystem-integrated-main/session-20261103T233242.983475Z/`.
+The earlier disposable installed-disk proof at `06d5a416` also passed, including
+post-boot allocation checks with zero leaks/errors.
+
+The primary checkout and existing review VMs (61610, 6233, 85869) were preserved;
+task VMs were stopped. No physical installation or reboot was performed.
+SrvrOS Actions is disabled; SrvrPorts Actions is enabled with no workflows.
+No CI setting was changed. Earlier checkpoint statements about disabled Actions
+refer to SrvrOS, not a verified SrvrPorts policy.
 
 ## Global activation milestone
 
-Review: [draft PR313](https://github.com/PaulMDemers/SrvrOS/pull/313).
+Review: [PR313](https://github.com/PaulMDemers/SrvrOS/pull/313).
 
 Branch `device/apple-silicon/filesystem-global` builds on main `a936baeb`, proof
 `88ea5524`, and full PR252 `badfeb37`. The PR252 owner supplied a read-only
 lifetime/exclusion handoff and recommended full integration, not a partial
 cherry-pick. Dependency merge `c0773799` preserves main's graphics syscalls
 156–161 and assigns the incoming pipe-message syscall 162. The five incoming
-ports changes moved to SrvrPorts commit `0f51ba9`, draft
+ports changes initially moved to SrvrPorts commit `0f51ba9`,
 [PR3](https://github.com/PaulMDemers/SrvrPorts/pull/3); no tracked ports tree was
 reintroduced. This branch is separate from the unchanged PR308 proof branch.
 
@@ -134,7 +184,7 @@ through new/legacy names; write/readback, metadata and clean unmount/remount thr
 real exFAT/VFS; preservation of existing file contents; full matched build and
 ordinary disposable VM boot. Evidence and limitations are recorded below.
 
-## Current source facts
+## First checkpoint source facts (historical)
 
 - `kernel/src/main.c:mount_exfat_volume` tries whole `ahci0`, otherwise `virtio0`,
   then GPT partitions in order 2, 1, 3 through 32, then initramfs `/srvros.exfat`.
