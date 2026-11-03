@@ -4200,6 +4200,15 @@ test-intel-display-capture: build/tests/intel-display-capture$(HOST_EXE) build/t
 build/tests/intel-display-capture$(HOST_EXE): tools/test_intel_display_capture.c kernel/src/drivers/intel_display_capture.c kernel/include/srvros/intel_display_capture.h
 	mkdir -p $(dir $@)
 	$(HOST_CC) -std=c11 -Wall -Wextra -Werror -I kernel/include tools/test_intel_display_capture.c kernel/src/drivers/intel_display_capture.c -o $@
-build/tests/intel-display-probe$(HOST_EXE): tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_display_capture.c kernel/diagnostics/package_audit_core.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+build/tests/intel-display-probe$(HOST_EXE): tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_display_capture.c kernel/src/drivers/intel_display_backing.c kernel/diagnostics/package_audit_core.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	mkdir -p $(dir $@)
-	$(HOST_CC) -std=c11 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include tools/test_intel_display_probe.c kernel/src/drivers/intel_display_capture.c kernel/diagnostics/package_audit_core.c -o $@
+	$(HOST_CC) -std=c11 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include tools/test_intel_display_probe.c kernel/src/drivers/intel_display_capture.c kernel/src/drivers/intel_display_backing.c kernel/diagnostics/package_audit_core.c -o $@
+
+.PHONY: test-intel-display-backing
+test-core: test-intel-display-backing
+test-intel-display-backing: build/tests/intel-display-backing$(HOST_EXE) build/tests/intel-display-probe$(HOST_EXE)
+	build/tests/intel-display-backing$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_display_backing.py
+build/tests/intel-display-backing$(HOST_EXE): tools/test_intel_display_backing.c kernel/src/drivers/intel_display_backing.c kernel/include/srvros/intel_display_backing.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_intel_display_backing.c kernel/src/drivers/intel_display_backing.c -o $@

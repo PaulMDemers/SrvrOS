@@ -799,6 +799,15 @@ def collect(mount, volume, output):
                     attention.append('collection: Intel display observation refused, failed or incomplete')
             except ValueError as error:
                 attention.append('collection: invalid Intel display observation: '+str(error))
+        intel_backing=None
+        if 'srvros.intel-backing=read-only' in text:
+            from intel_display_backing import backing_result
+            try:
+                intel_backing=backing_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+                if not intel_backing or not intel_backing['observation_complete']:
+                    attention.append('collection: Intel backing observation refused, failed or incomplete')
+            except ValueError as error:
+                attention.append('collection: invalid Intel backing observation: '+str(error))
         from storage_wait_result import capture_result,PAYLOAD
         storage_wait=capture_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
         if storage_wait:
@@ -815,6 +824,7 @@ def collect(mount, volume, output):
             attention.append('collection: storage wait comparison missing or invalid')
         records.append({
             "intel_display_capture": intel_display,
+            "intel_display_backing": intel_backing,
             "posix_capture": posix_proof,
             "storage_wait": storage_wait,
             "battery_preflight": preflight,

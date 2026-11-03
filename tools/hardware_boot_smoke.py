@@ -170,7 +170,7 @@ def main():
     if args.ap_inject and args.ap_inject.startswith("c3-") and not args.ap_c3_sim: parser.error("C3 injections require simulation")
     cpu_load_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v35-","ram-usb-v1-mwait-","ram-usb-v1-ap-c3-","ram-usb-v1-ap-package-","ram-usb-v1-ap-platform-")))
     idle_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v23-"))
-    intel_display_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v1-intel-display-"))
+    intel_display_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v1-intel-display-","ram-usb-v1-intel-backing-")))
     posix_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v1-posix-"))
     storage_wait_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v1-storage-wait-"))
     desktop_idle_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v25-","ram-usb-v26-")))
@@ -504,6 +504,12 @@ def main():
                         assert proof and proof['status']=='identity-refused' and not proof['observation_complete']
                         assert not proof['scanout_ownership'] and not proof['rows']['observe'][0]['maps']
                         (logs/'intel-display-result.json').write_text(json.dumps(proof,indent=2)+"\n")
+                        if 'srvros.intel-backing=read-only' in text:
+                            from intel_display_backing import backing_result
+                            backing=backing_result(stored.read(folder+"/exit.log").decode())
+                            assert backing and backing['status']==2 and not backing['observation_complete']
+                            assert not backing['scanout_ownership'] and not backing['summary']['maps']
+                            (logs/'intel-backing-result.json').write_text(json.dumps(backing,indent=2)+"\n")
                     if posix_capture:
                         from posix_capture_result import capture_result
                         proof=capture_result(stored.read(folder+"/exit.log").decode())

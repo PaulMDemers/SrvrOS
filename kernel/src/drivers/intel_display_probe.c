@@ -150,3 +150,133 @@ bool intel_display_probe_report(void) {
     console_printf("intel-display-relation: v=1 active_planes=%u linear_relation=%u ggtt_backing=unproven\n",(uint64_t)r->active_planes,(uint64_t)r->linear_relation);
     return r->status==INTEL_CAPTURE_OBSERVED;
 }
+
+/* Optional extension of the same exact boot-only observation. This cannot be
+ * entered without the successful first capture and never adopts its buffers. */
+#include <srvros/intel_display_backing.h>
+#define BACKING_VA (CAPTURE_VA+0x100000)
+static struct intel_backing_result backing;
+static bool backing_attempted;
+struct backing_adapter {struct adapter common;struct limine_framebuffer *fb;uint64_t physical;uint32_t page;bool mapped;};
+static bool backing_range_reserved(uint64_t base,uint64_t bytes) {
+    const struct limine_memmap_response *m=memmap_request.response;
+    if(!base || !bytes || base>UINT64_MAX-bytes || !m || !m->entries || !m->entry_count || m->entry_count>4096)return false;
+    for(uint64_t i=0;i<m->entry_count;i++) {
+        const struct limine_memmap_entry *e=m->entries[i];
+        if(!e || !e->length || e->base>UINT64_MAX-e->length)return false;
+        if(e->base<base+bytes && base<e->base+e->length && e->type!=LIMINE_MEMMAP_RESERVED)return false;
+    }
+    return true;
+}
+static bool backing_endpoint(void *opaque,struct intel_backing_endpoint *e) {
+    struct backing_adapter *a=opaque;*e=(struct intel_backing_endpoint){0};
+    if(!identity(&a->common,&e->identity))return false;
+    const struct pci_device *host=NULL;
+    for(uint64_t i=0;i<pci_device_count();i++){const struct pci_device *p=pci_device_at(i);if(p && !p->bus && !p->device && !p->function)host=p;}
+    if(!host)return false;
+    e->config[0]=pci_read_config32(host,0);e->config[1]=pci_read_config32(host,0x50);
+    e->config[2]=pci_read_config32(host,0xb0);e->config[3]=pci_read_config32(host,0xb4);e->config[4]=pci_read_config32(host,0xbc);
+    e->config[5]=pci_read_config32(a->common.gpu,0x50);e->config[6]=pci_read_config32(a->common.gpu,0x5c);
+    uint64_t base=((uint64_t)e->identity.bar[1]<<32)|(e->identity.bar[0]&~15u);
+    e->config[7]=backing_range_reserved(base,0x1000000);
+    const struct limine_framebuffer *f=a->fb;uint64_t va=f?(uint64_t)f->address:0,physical;
+    if(!f || f->width!=result.fb.width || f->height!=result.fb.height || f->pitch!=result.fb.pitch || f->bpp!=result.fb.bpp ||
+       f->memory_model!=result.fb.model || f->red_mask_size!=result.fb.red_size || f->red_mask_shift!=result.fb.red_shift ||
+       f->green_mask_size!=result.fb.green_size || f->green_mask_shift!=result.fb.green_shift || f->blue_mask_size!=result.fb.blue_size ||
+       f->blue_mask_shift!=result.fb.blue_shift || va<0xffff800000000000ull)return false;
+    uint64_t bytes=f->pitch*f->height;
+    if(!bytes || va>UINT64_MAX-bytes || bytes>INTEL_BACKING_PTES*4096ull-(va&4095) ||
+       !vmm_virt_to_phys_in_space(a->common.cr3,va,&physical) || physical!=result.fb.physical ||
+       physical>UINT64_MAX-bytes || (physical&4095)!=(va&4095))return false;
+    uint64_t first=va&~4095ull,last=(va+bytes-1)&~4095ull;
+    e->fb_pages=(last-first)/4096+1;
+    for(uint64_t i=0;i<e->fb_pages;i++) {
+        uint64_t p;if(!vmm_virt_to_phys_in_space(a->common.cr3,first+i*4096,&p) || p!=(physical&~4095ull)+i*4096)return false;
+    }
+    const struct limine_memmap_response *m=memmap_request.response;unsigned overlaps=0;
+    if(!m || !m->entries || !m->entry_count || m->entry_count>4096)return false;
+    for(uint64_t i=0;i<m->entry_count;i++) {
+        const struct limine_memmap_entry *entry=m->entries[i];
+        if(!entry || !entry->length || entry->base>UINT64_MAX-entry->length)return false;
+        if(entry->base<physical+bytes && physical<entry->base+entry->length) {
+            overlaps++;if(entry->base<=physical && physical+bytes<=entry->base+entry->length){e->fb_entry_base=entry->base;e->fb_entry_length=entry->length;e->fb_entry_type=entry->type;}
+        }
+    }
+    if(overlaps!=1 || !e->fb_entry_length)return false;
+    uint64_t stolen=e->config[2]&0xfff00000, gms=(e->config[1]>>8)&255,stolen_bytes=gms<<25;overlaps=0;
+    if(stolen && gms && gms<=16)for(uint64_t i=0;i<m->entry_count;i++) {
+        const struct limine_memmap_entry *entry=m->entries[i];
+        if(entry->base<stolen+stolen_bytes && stolen<entry->base+entry->length) {
+            overlaps++;
+            if(entry->base<=stolen && stolen+stolen_bytes<=entry->base+entry->length){e->stolen_entry_base=entry->base;e->stolen_entry_length=entry->length;e->stolen_entry_type=entry->type;}
+        }
+    }
+    if(overlaps!=1){e->stolen_entry_base=e->stolen_entry_length=e->stolen_entry_type=0;}
+    return true;
+}
+static bool backing_map(void *opaque,uint32_t page) {
+    struct backing_adapter *a=opaque;uint64_t old;
+    bool allowed=page==0x45000 || page==0x60000 || page==0x70000 || page==0x100000 || (page>=0x800000 && page<0x1000000);
+    if(!allowed || (page&4095) || a->mapped || vmm_current_address_space()!=a->common.cr3 ||
+       vmm_virt_to_phys_in_space(a->common.cr3,BACKING_VA,&old))return false;
+    uint64_t physical=result.mmio_base+page;
+    if(!backing_range_reserved(physical,4096) || !vmm_map_page_in_space(a->common.cr3,BACKING_VA,physical,VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE))return false;
+    a->physical=physical;a->page=page;a->mapped=true;return true;
+}
+static bool backing_unmap(void *opaque) {
+    struct backing_adapter *a=opaque;uint64_t old;
+    if(!a->mapped || vmm_current_address_space()!=a->common.cr3 || !vmm_virt_to_phys_in_space(a->common.cr3,BACKING_VA,&old) || old!=a->physical ||
+       !vmm_unmap_page_in_space(a->common.cr3,BACKING_VA,&old) || old!=a->physical)return false;
+    a->mapped=false;return true;
+}
+static bool backing_read(void *opaque,uint32_t off,uint32_t *value) {
+    struct backing_adapter *a=opaque;
+    if(!value || !a->mapped || (off&~4095u)!=a->page || (off&3) || vmm_current_address_space()!=a->common.cr3)return false;
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+    return intel_display_test_read(off,value);
+#else
+    *value=*(volatile const uint32_t *)(BACKING_VA+(off&4095));return true;
+#endif
+}
+void intel_display_backing_probe_boot(struct limine_framebuffer *fb) {
+    if(backing_attempted)return;
+    backing_attempted=true;backing.status=2;
+    if(!attempted || result.status!=INTEL_CAPTURE_OBSERVED || result.retained || !timer_reference_ready())return;
+    struct backing_adapter a={.common={.cr3=vmm_kernel_address_space()},.fb=fb};
+    if(!a.common.cr3 || a.common.cr3!=vmm_current_address_space())return;
+    for(uint64_t i=0;i<pci_device_count();i++) {
+        const struct pci_device *p=pci_device_at(i);if(!p || p->bus || p->function)continue;
+        if(p->device==2)a.common.gpu=p;
+        if(p->device==31 && p->class_code==6 && p->subclass==1)a.common.pch=p;
+    }
+    console_write("intel-backing: beginning bounded read-only fence/GGTT observation\n");
+    (void)intel_display_backing(&backing,&result,&(struct intel_backing_io){&a,backing_endpoint,backing_map,backing_unmap,backing_read,now});
+    console_printf("intel-backing: boot status=%u; no buffer ownership\n",(uint64_t)backing.status);
+}
+bool intel_display_backing_probe_report(void) {
+    if(!backing_attempted)return true;
+    const struct intel_backing_result *b=&backing;
+    console_printf("intel-backing-summary: v=1 status=%u maps=%u retained=%u count=%u tiled=%u fence_matches=%u offset=%u bytes=%u ggtt_bytes=%u stolen_base=%x stolen_end=%x writes=0 ownership=none\n",
+        (uint64_t)b->status,(uint64_t)b->maps,(uint64_t)b->retained,(uint64_t)b->count,(uint64_t)b->tiled,(uint64_t)b->fence_matches,b->offset,b->bytes,b->ggtt_bytes,b->stolen_base,b->stolen_end);
+    for(unsigned n=0;n<2;n++) {
+        const struct intel_backing_sample *s=&b->sample[n];const struct intel_backing_endpoint *e=&s->endpoint;
+        console_printf("intel-backing-sample: v=1 sample=%u begin_us=%u end_us=%u reads=%u ptes=%u present=%u contiguous=%u stolen=%u hash=%x first=%x last=%x\n",(uint64_t)n,s->begin_us,s->end_us,(uint64_t)s->reads,(uint64_t)s->ptes,(uint64_t)s->present,(uint64_t)s->contiguous,(uint64_t)s->stolen,s->hash,s->first,s->last);
+        console_printf("intel-backing-endpoint: v=1 sample=%u host=%x ggc=%x bdsm=%x bgsm=%x tolud=%x gpu_ggc=%x gpu_bdsm=%x safe=%u fb_pages=%u entry_base=%x entry_length=%u entry_type=%u stolen_entry_base=%x stolen_entry_length=%u stolen_entry_type=%u\n",
+            (uint64_t)n,(uint64_t)e->config[0],(uint64_t)e->config[1],(uint64_t)e->config[2],(uint64_t)e->config[3],(uint64_t)e->config[4],(uint64_t)e->config[5],(uint64_t)e->config[6],(uint64_t)e->config[7],e->fb_pages,e->fb_entry_base,e->fb_entry_length,e->fb_entry_type,e->stolen_entry_base,e->stolen_entry_length,e->stolen_entry_type);
+    }
+    if(b->status==1) {
+        for(unsigned i=0;i<INTEL_BACKING_FENCES;i++)console_printf("intel-backing-fence: v=1 index=%u raw=%x\n",(uint64_t)i,b->sample[0].fence[i]);
+        static const char abc[]="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+        for(unsigned i=0;i<b->count;i+=16) {
+            uint8_t bytes[128];char data[173];unsigned count=b->count-i;if(count>16)count=16;
+            for(unsigned j=0;j<count*8;j++)bytes[j]=(uint8_t)(b->pte[i+j/8]>>(8*(j%8)));
+            unsigned k=0;
+            for(unsigned j=0;j<count*8;j+=3) {
+                unsigned left=count*8-j;uint32_t v=(uint32_t)bytes[j]<<16;if(left>1)v|=(uint32_t)bytes[j+1]<<8;if(left>2)v|=bytes[j+2];
+                data[k++]=abc[v>>18];data[k++]=abc[(v>>12)&63];data[k++]=left>1?abc[(v>>6)&63]:'=';data[k++]=left>2?abc[v&63]:'=';
+            }
+            data[k]=0;console_printf("intel-backing-pte: v=1 first=%u count=%u data=%s\n",(uint64_t)i,(uint64_t)count,data);
+        }
+    }
+    return b->status==1;
+}

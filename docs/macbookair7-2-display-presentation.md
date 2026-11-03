@@ -147,3 +147,62 @@ exclusive buffer ownership, inactive scanout allocation and vblank flips with
 retirement/restore proofs. This snapshot accepts none of those later milestones.
 Raw reports and return-integrity evidence remain in ignored
 `build/air-intel-observe-native-20261103/returned/` and independent reviewed storage.
+
+## Bounded backing readout implementation
+
+The separate `--intel-backing-capture` staging profile retains the version1
+inherited capture and adds `srvros.intel-backing=read-only`. It is default-off,
+uses the ordinary kernel, rejects mixed experiments and keeps automatic return
+conditional on saved logs and clean unmount. Q35 must refuse before any MMIO.
+
+This first extension admits only the exact previously captured Broadwell profile,
+primaryA BGRX888, zero origin/rotation, synchronous linear or X-tiled layout,
+matching source/stride/live surface and an aligned256MiB CPU aperture. For X
+layout, the observed storage extent includes complete8-row tiles. It refuses
+more than1536 PTEs rather than enlarging the logger's64KiB retention limit. The
+Air's padded extent is5554176 bytes/1356 pages, versus5529600 visible bytes.
+This is a proposed interpretation to validate against the next native receipt.
+
+Read-only host bridge `8086:1604` and GPU snapshots preserve GGC, BDSM, BGSM and
+TOLUD. Admission requires matching GGC/BDSM mirrors, supported nonzero GMS/GGMS,
+disjoint bounded stolen-data/table intervals and full16MiB BAR0 exclusion from
+non-reserved firmware ranges. No destructive BAR sizing occurs. The inherited
+framebuffer CPU translation is walked page by page in the kernel CR3, with one
+unambiguous enclosing reserved/framebuffer firmware entry. This is a translation
+observation, not a reservation or a pin.
+
+The access reference is Intel's
+[Broadwell Memory Views, pp7,15,44–45](https://cdrdv2-public.intel.com/690798/intel-gfx-prm-osrc-bdw-vol-05-memory-views.pdf),
+with the pinned Linux
+[GGTT implementation](https://github.com/torvalds/linux/blob/028ef9c96e96197026887c0f092424679298aae8/drivers/gpu/drm/i915/gt/intel_ggtt.c)
+and [fence implementation](https://github.com/torvalds/linux/blob/028ef9c96e96197026887c0f092424679298aae8/drivers/gpu/drm/i915/gt/intel_ggtt_fencing.c).
+Read32 fence pairs at `0x100000`, and only the selected primary extent's8-byte
+GGTT entries through BAR0+8MiB. Each pair uses high/low/high reads. No backing address or pixel/aperture data is dereferenced. No PTE, fence, AUX,
+power-policy or display-control write occurs. One temporary supervisor/read-only/NX/uncached page is reused;
+retirement failure stops reuse and remains explicit.
+
+Two finite traversals compare every raw PTE bit, fence and PCI/translation
+endpoint, bracketed by the original route and well values. Each traversal and
+inter-traversal gap has a100ms clock bound; fixed PTE/page/map caps also bound a
+frozen-clock path. There is no wait for a whole frame and no claim of an atomic
+snapshot. The report retains one complete stable raw PTE vector in canonical
+base64 chunks, all32 raw fences, per-traversal hashes/counts/times and endpoints.
+The host decoder recomputes the extent, raw-vector hash, present/stolen counts,
+contiguity, unique covering X-fence relationship and the stolen range's
+firmware classification. Observation completion is
+separate from a recognized backing relationship. Neither grants allocation,
+exclusive ownership, freedom from firmware activity, flip readiness or physical
+tear-free acceptance. Unsupported PTE/address/fence relationships remain unknown.
+
+```sh
+make -j2 all test-intel-display-capture test-intel-display-backing
+python3 tools/hardware_boot.py stage --laptop-probe-volume VOLUME_SERIAL \
+  --intel-backing-capture
+python3 tools/hardware_boot_smoke.py --probe-check
+python3 tools/hardware_boot_smoke.py --probe-check --probe-missing-workspace
+```
+
+Collect the matching new native boot/exit logs, independently decode
+`intel_display_backing`, verify full-vector retention, then perform ordinary
+file-preservation/offline integrity/recovery checks before accepting this readout.
+The previously accepted version1 observation remains separate evidence.

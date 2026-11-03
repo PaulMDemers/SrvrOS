@@ -1137,3 +1137,16 @@ runtime ownership halts with the mount retained. Collect the strict
 `battery_home_session` proof and exact saved `text-1.txt` through `text-5.txt`
 contents (`AA`), prior-file hashes and offline allocation before another trial.
 Ordinary desktop startup and continuous battery admission remain disabled.
+
+### Air7,2 inherited display backing study
+
+After the first versioned display observation, the separate
+`--intel-backing-capture` profile adds a bounded read-only fence/GGTT study. Use
+it alone with `stage --laptop-probe-volume VOLUME_SERIAL`, then run the exact-stage
+`--probe-check` and `--probe-check --probe-missing-workspace` rehearsals. Follow
+the same durable recovery, one-shot boot, collection and offline integrity
+sequence. No tester input is required; handled refusal returns after successful
+save/unmount, while persistence failure halts. Inspect the collector's
+`intel_display_backing` result, not just automatic Ubuntu return. See the
+[display backing contract](macbookair7-2-display-presentation.md#bounded-backing-readout-implementation).
+This diagnostic grants no display or buffer ownership.

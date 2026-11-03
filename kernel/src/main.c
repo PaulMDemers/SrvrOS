@@ -9,6 +9,7 @@
 #include <srvros/desktop_session.h>
 #include <srvros/laptop_probe.h>
 #include <srvros/intel_display_capture.h>
+#include <srvros/intel_display_backing.h>
 #include <srvros/audio.h>
 #include <srvros/thermal.h>
 #include <srvros/power.h>
@@ -551,6 +552,8 @@ void kmain(void) {
     if(intel_display_capture_requested) {
         struct limine_framebuffer_response *r=framebuffer_request.response;
         intel_display_probe_boot(r && r->framebuffer_count && r->framebuffers?r->framebuffers[0]:NULL);
+        if(cmdline_has_token(cmdline,"srvros.intel-backing=read-only"))
+            intel_display_backing_probe_boot(r && r->framebuffer_count && r->framebuffers?r->framebuffers[0]:NULL);
     }
     bool virtio_baseline=cmdline_has_token(cmdline,"srvros.virtio=on");
     if(virtio_baseline) {
@@ -752,7 +755,10 @@ void kmain(void) {
         bool started=workspace_active() && workspace_log_start();
         if(started) console_write("laptop-capture: diagnostics collected; physical input acceptance remains pending\n");
         bool sampled=!automatic_idle && !automatic_aml && !automatic_desktop_idle && !automatic_battery && !automatic_load && !automatic_storage_wait && !automatic_posix && !automatic_ap;
-        if(intel_display_capture_requested) sampled=intel_display_probe_report();
+        if(intel_display_capture_requested) {
+            sampled=intel_display_probe_report();
+            bool backing_ok=intel_display_backing_probe_report();sampled=sampled && backing_ok;
+        }
         bool battery_prepared=true,workspace_parked=false;
         if(automatic_battery && !home_battery && return_on_failure && started) {
             console_write("laptop-capture: preparing unattended battery probe; missing final report means failure\n");
