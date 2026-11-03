@@ -97,5 +97,21 @@
     "capture lifetime/modal/focus invalidation"
   ],
   "host_compiler": "existing Darwin x86_64 wrapper, _DARWIN_C_SOURCE, -Wno-array-bounds",
-  "limits": "QMP guest evidence; no new native hardware, physical vblank or host cursor-release acceptance."
+  "limits": "QMP guest evidence; no new native hardware, physical vblank or host cursor-release acceptance.",
+  "combined_review": {
+    "source": "84478be4a05c646c52b8e38e4369d0cf88f2eb56",
+    "worktree_dirty": false,
+    "first_app_frame_seconds": 4.32,
+    "pid": 85869,
+    "resized_frame": [
+      32,
+      64,
+      762,
+      550
+    ],
+    "status": "PASS",
+    "state_file": ".local/macos-vm/edge-resize-review/current.json",
+    "kernel_and_compositor_match_accepted_sha256": true,
+    "merged_awk_base": "c609207bce90e265a3d72ac087392c1e73e3f4d0"
+  }
 }

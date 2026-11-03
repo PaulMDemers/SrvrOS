@@ -21,8 +21,10 @@ matched OS build, real Text resize/content checks at both supported scales with
 VirtIO tablet input, and clean presentation teardown. Native device acceptance
 and host-window release observations remain separate. The full host suites, clean build, both resize VMs and live-theme regression
 pass. [Evidence](assets/screenshots/edge-resize-manifest.json) records the tested
-source and limits. PR292 is ready for its authorized merge after the matched
-build/startup check with merged awk. No additional resize feature is required.
+source and limits. [PR292](https://github.com/PaulMDemers/SrvrOS/pull/292) records delivery. The
+combined image with merged awk also builds, starts and completes a live corner
+resize; its kernel/compositor hashes match the accepted runtime. No additional
+resize feature is required.
 
 ## Pinned awk port — November 3, 2026
 

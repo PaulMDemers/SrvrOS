@@ -2260,5 +2260,10 @@ established display mode, and leave room above the dock; no acceptance was waive
 retain source/hash evidence. Raw results are under `build/review/edge-resize`,
 `build/review/desktop-resize` and `build/review/desktop-theme-profiles`. Test VMs
 are stopped. Merged awk PR291 is now included, retaining both independent scope
-records and the published ports pin. Next is the final combined build/startup
-check and authorized PR292 merge. Native acceptance and Actions are unchanged.
+records and the published ports pin. The final combined source `84478be4` builds cleanly; kernel and compositor ELF
+hashes equal the accepted runtime. Its default Cocoa desktop opens in 4.32 s
+and commits a 40×25 corner enlargement to a 762×550 frame. This review VM is
+left open at `.local/macos-vm/edge-resize-review/current.json`; the prior review
+VM had already stopped and its persistent disk is retained. Required verification
+is complete for [PR292](https://github.com/PaulMDemers/SrvrOS/pull/292). Native
+acceptance and Actions are unchanged.
