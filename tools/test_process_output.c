@@ -5,7 +5,7 @@
 #define SRVROS_PROCESS_HOST_TEST
 #include "../kernel/src/process.c"
 
-static bool opening,fixture_exists,fail_delete,fail_delete_after,path_fixture;
+static bool opening,fixture_exists,fail_delete,fail_delete_after,path_fixture,namespace_fixture;
 static unsigned deletes;
 static bool rename_fixture,rename_fail_after_publish;
 static unsigned rename_calls;
@@ -27,7 +27,20 @@ static struct vfs_node path_nodes[]={
     {.path="/test/dir/sub/b",.type=VFS_NODE_FILE,.metadata={.inode=6}},
     {.path="/test/dir-elsewhere",.type=VFS_NODE_FILE,.metadata={.inode=7}},
 };
-const struct vfs_node *vfs_node_at(uint64_t i) { assert(path_fixture);return i<7?&path_nodes[i]:NULL; }
+static struct vfs_node namespace_nodes[]={
+    {.used=true,.path="/",.type=VFS_NODE_DIRECTORY,.metadata={.inode=1}},
+    {.used=true,.path="/fat",.type=VFS_NODE_DIRECTORY,.metadata={.inode=2}},
+    {.used=true,.path="/fat/bin",.type=VFS_NODE_DIRECTORY,.metadata={.inode=3}},
+    {.used=true,.path="/fat/var",.type=VFS_NODE_DIRECTORY,.metadata={.inode=4}},
+    {.used=true,.path="/fat/home",.type=VFS_NODE_DIRECTORY,.metadata={.inode=5}},
+    {.used=true,.path="/fat/home/note",.type=VFS_NODE_FILE,.metadata={.inode=6}},
+};
+uint64_t vfs_count(void) { return namespace_fixture?6:path_fixture?7:0; }
+const struct vfs_node *vfs_node_at(uint64_t i) {
+    if(namespace_fixture) return i<6?&namespace_nodes[i]:NULL;
+    assert(path_fixture);return i<7?&path_nodes[i]:NULL;
+}
+void vfs_set_retire_callback(vfs_retire_fn callback) { (void)callback; }
 static struct vfs_node fixture_node={.path="/test/output",.type=VFS_NODE_FILE};
 static unsigned saves;
 static struct process_pipe *legacy_retirement_watch;
@@ -110,6 +123,7 @@ __attribute__((noinline)) bool scheduler_wait(struct scheduler_wait_queue *queue
     pipe_wait_mode=0;return ready(arg);
 }
 void vfs_release_data(const struct vfs_node *node, const uint8_t *data) {
+    if(namespace_fixture) { assert(node==&namespace_nodes[5] && data==saved);return; }
     if(rename_fixture) { assert((node==&rename_source || node==&rename_target) && data);return; }
     assert(opening && node==&fixture_node && data==saved);
 }
@@ -146,6 +160,10 @@ bool exfat_write_file_mode(const char *path,const uint8_t *data,uint64_t size,ui
     return ok;
 }
 const struct vfs_node *vfs_lookup(const char *path) {
+    if(namespace_fixture) {
+        for(unsigned i=0;i<6;i++) if(namespace_nodes[i].used && !strcmp(path,namespace_nodes[i].path)) return &namespace_nodes[i];
+        return NULL;
+    }
     if(rename_fixture) {
         if(rename_source.used && !strcmp(path,rename_source.path)) return &rename_source;
         if(rename_target.used && !strcmp(path,rename_target.path)) return &rename_target;
@@ -156,9 +174,12 @@ const struct vfs_node *vfs_lookup(const char *path) {
         if(!strcmp(path,"/test/output")) return &fixture_node;
         return NULL;
     }
+    if(opening && !strcmp(path,"/")) return &path_nodes[0];
+    if(opening && !strcmp(path,"/test")) return &path_nodes[1];
     assert(opening && !strcmp(path,"/test/output"));return fixture_exists?&fixture_node:NULL;
 }
 bool vfs_read_all(const struct vfs_node *node,const uint8_t **data,uint64_t *size) {
+    if(namespace_fixture) { assert(node==&namespace_nodes[5]);*data=saved;*size=saved_size;return true; }
     assert(opening && node==&fixture_node);*data=saved;*size=saved_size;return true;
 }
 bool exfat_delete_file(const char *path) {
@@ -719,6 +740,7 @@ static void orphan_lock_regression(void) {
 }
 static void path_context_regression(void) {
     clear_process(&subject);current_subject=&subject;path_fixture=true;
+    for(unsigned i=0;i<7;i++) path_nodes[i].used=true;
     char out[160]="unchanged";
     assert(!process_path_context(SRV_PATH_GETCWD,NULL,out,sizeof(out)) && !strcmp(out,"/"));
     assert(!process_path_context(SRV_PATH_CHDIR,"/test/dir",NULL,0));
@@ -775,6 +797,52 @@ static void path_context_regression(void) {
     assert(!process_has_open_vfs_prefix("/test/dir"));
     path_fixture=false;current_subject=NULL;
     puts("process-cwd: PASS checked traversal, errors and unchanged state on failure");
+}
+static void namespace_process_regression(void) {
+    namespace_fixture=true;clear_process(&subject);current_subject=&subject;
+    assert(vfs_namespace_system_activate());
+    char path[160];
+    assert(!process_path_context(SRV_PATH_CHDIR,"/home",NULL,0));
+    assert(!strcmp(subject.cwd,"/home") && !strcmp(subject.cwd_storage,"/fat/home"));
+    assert(!process_resolve_storage_path("note",path,sizeof(path)) && !strcmp(path,"/fat/home/note"));
+    assert(!process_path_context(SRV_PATH_RESOLVE,"../bin",path,sizeof(path)) && !strcmp(path,"/bin"));
+    long dir=process_file_open_flags(&subject,"/home",SRV_OPEN_READ|SRV_OPEN_DIRECTORY);
+    assert(dir>=0 && !process_directory(SRV_DIRECTORY_PATH,dir,path,sizeof(path)) && !strcmp(path,"/home"));
+    struct srv_dirent entry;
+    assert(process_directory(SRV_DIRECTORY_READ,dir,&entry,sizeof(entry))==1 && !strcmp(entry.name,".") && entry.inode==5);
+    assert(process_directory(SRV_DIRECTORY_READ,dir,&entry,sizeof(entry))==1 && !strcmp(entry.name,"..") && entry.inode==1);
+    assert(process_directory(SRV_DIRECTORY_READ,dir,&entry,sizeof(entry))==1 && !strcmp(entry.name,"note"));
+    assert(process_has_open_vfs_prefix("/fat/home"));
+    long a=process_file_open_flags(&subject,"/home/note",SRV_OPEN_READ);
+    long b=process_file_open_flags(&subject,"/fat/home/note",SRV_OPEN_READ);
+    assert(a>=0 && b>=0 && read_file_at(subject.files[a].handle)->content==read_file_at(subject.files[b].handle)->content);
+    struct process_file_content *shared=read_file_at(subject.files[a].handle)->content;
+    assert(!file_lock_update(123,shared,0,10,SRV_F_WRLCK));subject.pid=321;
+    struct srv_flock conflict={.type=SRV_F_WRLCK,.start=0,.len=1};
+    assert(!process_file_get_lock(&subject,b,&conflict) && conflict.type==SRV_F_WRLCK && conflict.pid==123);
+    file_lock_release_path(123,shared);
+    assert(process_rename_file("/fat/home","/fat/other")==SRV_ERR_BUSY);
+    assert(!process_file_close(&subject,a) && !process_file_close(&subject,b));
+    assert(!process_file_close(&subject,dir));
+    long root=process_file_open_flags(&subject,"/",SRV_OPEN_READ|SRV_OPEN_DIRECTORY);
+    assert(root>=0);unsigned seen=0;
+    while(process_directory(SRV_DIRECTORY_READ,root,&entry,sizeof(entry))>0) {
+        if(!strcmp(entry.name,"home")) seen|=1;
+        if(!strcmp(entry.name,"usr")) seen|=2;
+        if(!strcmp(entry.name,"bin")) seen|=4;
+        if(!strcmp(entry.name,"var")) seen|=8;
+    }
+    assert(seen==15 && !process_file_close(&subject,root));
+    /* A stale logical alias must not erase the retained backing busy guard. */
+    processes[0].allocated=true;
+    copy_process_path(processes[0].cwd,sizeof(processes[0].cwd),subject.cwd);
+    copy_process_path(processes[0].cwd_storage,sizeof(processes[0].cwd_storage),subject.cwd_storage);
+    vfs_namespace_system_reset();
+    assert(process_has_open_vfs_prefix("/fat/home"));
+    processes[0].allocated=false;
+    assert(!process_path_context(SRV_PATH_CHDIR,"/",NULL,0));
+    namespace_fixture=false;current_subject=NULL;
+    puts("process-namespace: PASS logical cwd, dirfd and shared storage identity");
 }
 static void rename_failure_regression(void) {
     for(unsigned post_error=0;post_error<2;post_error++) {
@@ -1519,6 +1587,7 @@ int main(int argc, char **argv) {
     rename_failure_regression();
     orphan_io_failure_regression();
     path_context_regression();
+    namespace_process_regression();
     descriptor_regression();
     positional_regression();
     snapshot_read_regression();

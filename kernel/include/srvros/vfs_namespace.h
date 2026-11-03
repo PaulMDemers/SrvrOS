@@ -44,4 +44,23 @@ bool vfs_namespace_resolve(const struct vfs_namespace *ns, const char *path,
 /* Returns the raw node itself, preserving its pointer and inode identity. */
 const struct vfs_node *vfs_namespace_lookup(const struct vfs_namespace *ns, const char *path);
 
+/* System view operations require caller-held filesystem exclusion, including
+ * across the operation using a resolved path or returned node. Activation is
+ * all-or-nothing. Retirement invalidates affected bindings until a subsequent
+ * successful explicit activation. Raw vfs_lookup/count/node_at remain raw. */
+bool vfs_namespace_system_activate(void);
+void vfs_namespace_system_reset(void);
+bool vfs_namespace_system_resolve(const char *path, char *out, size_t capacity);
+const struct vfs_node *vfs_namespace_system_lookup(const char *path);
+/* True for a raw target or its ancestor while a binding is live. */
+bool vfs_namespace_system_protects(const char *canonical_path);
+/* Dense raw-then-projected enumeration and dense active root bindings.
+ * Return 1 for an entry, 0 for end, -1 for invalid arguments or overflow.
+ * On failure/end, output string and node pointer are cleared where possible.
+ * Enumeration is stable only while the caller excludes filesystem mutation. */
+int vfs_namespace_system_list(uint64_t index, char *out, size_t capacity,
+    const struct vfs_node **node_out);
+int vfs_namespace_system_root(unsigned index, char *out, size_t capacity,
+    const struct vfs_node **node_out);
+
 #endif

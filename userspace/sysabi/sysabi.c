@@ -340,7 +340,13 @@ static int check_fault_exit(const char *mode, int expected_signal) {
     return 0;
 }
 
+int namespace_test(void);
+int namespace_test_persistence(int verify);
+
 int main(int argc, char **argv) {
+    if (argc == 2 && !strcmp(argv[1], "--namespace")) return namespace_test();
+    if (argc == 2 && !strcmp(argv[1], "--namespace-save")) return namespace_test_persistence(0);
+    if (argc == 2 && !strcmp(argv[1], "--namespace-reopen")) return namespace_test_persistence(1);
     if (argc == 2 && !strcmp(argv[1], "--fault-retired-main")) {
         pthread_t worker;
         if (pthread_create(&worker, NULL, delayed_invalid_instruction, NULL)) return 1;

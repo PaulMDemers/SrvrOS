@@ -32,6 +32,7 @@
 #include <srvros/syscall_numbers.h>
 #include <srvros/timer.h>
 #include <srvros/vfs.h>
+#include <srvros/vfs_namespace.h>
 #include <srvros/vmm.h>
 
 #include <stdbool.h>
@@ -962,11 +963,23 @@ static bool copy_user_string(const char *source, char *destination, uint64_t cap
     return false;
 }
 
+static int64_t copy_exec_string(const char *,char *,uint64_t,int64_t);
+/* The consuming syscall owns admission: libc's earlier PATH_RESOLVE is not
+ * authority to reuse an alias or cached backing path after a namespace change. */
+static int64_t copy_storage_path(const char *input,char *out,uint64_t capacity,bool directory) {
+    char logical[MAX_PATH_LENGTH],normalized[MAX_PATH_LENGTH];
+    int64_t error=copy_exec_string(input,logical,sizeof(logical),SRV_ERR_NAMETOOLONG);
+    if(error) return error;
+    if(!directory) return process_resolve_storage_path(logical,out,capacity);
+    error=process_path_context(SRV_PATH_RESOLVE_DIRECTORY,logical,normalized,sizeof(normalized));
+    if(error) return error;
+    return vfs_namespace_system_resolve(normalized,out,capacity)?0:SRV_ERR_NOENT;
+}
+
 static int64_t syscall_open(const char *user_path) {
     char path[MAX_PATH_LENGTH];
-    if (!copy_user_string(user_path, path, sizeof(path))) {
-        return -1;
-    }
+    int64_t error=copy_storage_path(user_path,path,sizeof(path),false);
+    if(error) return error;
 
     const struct vfs_node *node = vfs_lookup(path);
     const uint8_t *data;
@@ -991,27 +1004,18 @@ static int64_t syscall_close(uint64_t fd) {
     return process_file_close(process_current(), fd);
 }
 
-static int64_t syscall_list(uint64_t index, char *path_buffer, uint64_t path_capacity, uint64_t *size_out) {
-    if (path_buffer == NULL ||
-        size_out == NULL ||
-        path_capacity == 0 ||
-        !user_buffer_ok(path_buffer, path_capacity, true) ||
-        !user_buffer_ok(size_out, sizeof(*size_out), true)) {
-        return -1;
-    }
-
-    const struct vfs_node *node = vfs_node_at(index);
-    if (node == NULL) {
-        return 0;
-    }
-
-    uint64_t i = 0;
-    while (node->path[i] != '\0' && i + 1 < path_capacity) {
-        path_buffer[i] = node->path[i];
-        i++;
-    }
-    path_buffer[i] = '\0';
-    *size_out = node->size;
+static int64_t syscall_list(uint64_t index,char *path_buffer,uint64_t path_capacity,uint64_t *size_out) {
+    if(!path_buffer || !size_out || !path_capacity ||
+        !user_buffer_ok(path_buffer,path_capacity,true) ||
+        !user_buffer_ok(size_out,sizeof(*size_out),true)) return SRV_ERR_FAULT;
+    /* Boot archive paths may exceed the mutable filesystem path limit. */
+    char path[512];const struct vfs_node *node;
+    int status=vfs_namespace_system_list(index,path,sizeof(path),&node);
+    if(status<=0) return status;
+    uint64_t length=0;while(path[length])length++;
+    if(length>=path_capacity) { length=path_capacity-1;path[length]=0; }
+    uint64_t size=node->size;(void)process_open_file_size(node->path,&size);
+    if(!copy_to_user(path_buffer,path,length+1) || !copy_to_user(size_out,&size,sizeof(size))) return SRV_ERR_FAULT;
     return 1;
 }
 
@@ -1234,10 +1238,9 @@ static int64_t syscall_fs_write(const char *user_path, const uint8_t *buffer, ui
     char path[MAX_PATH_LENGTH];
     uint8_t *copy;
     int64_t result;
-    if (!copy_user_string(user_path, path, sizeof(path)) ||
-        length > MAX_SYSCALL_COPY) {
-        return -1;
-    }
+    if(length > MAX_SYSCALL_COPY) return SRV_ERR_FBIG;
+    int64_t error=copy_storage_path(user_path,path,sizeof(path),false);
+    if(error) return error;
 
     /* Native whole-file publication must not invalidate a live POSIX content
      * object. Callers can close their handles or use descriptor writes. */
@@ -1268,10 +1271,9 @@ static int64_t syscall_fs_append(const char *user_path, const uint8_t *buffer, u
     uint8_t *copy = NULL;
     int64_t result = -1;
 
-    if (!copy_user_string(user_path, path, sizeof(path)) ||
-        length > MAX_SYSCALL_COPY) {
-        return -1;
-    }
+    if(length > MAX_SYSCALL_COPY) return SRV_ERR_FBIG;
+    int64_t error=copy_storage_path(user_path,path,sizeof(path),false);
+    if(error) return error;
     if(process_has_open_vfs_prefix(path)) return SRV_ERR_AGAIN;
     if (length != 0) {
         copy = kmalloc(length);
@@ -1329,7 +1331,7 @@ static int64_t syscall_stat(const char *user_path, struct syscall_stat *info) {
     struct syscall_stat copy = {0};
     struct vfs_metadata metadata;
     if(!info) return SRV_ERR_FAULT;
-    int64_t error=copy_exec_string(user_path,path,sizeof(path),SRV_ERR_NAMETOOLONG);
+    int64_t error=copy_storage_path(user_path,path,sizeof(path),false);
     if(error) return error;
 
     if (!vfs_stat(path, &metadata, &copy.size, &copy.type)) {
@@ -1357,7 +1359,7 @@ static int64_t syscall_statfs(const char *user_path, struct syscall_fsinfo *info
     struct exfat_fsinfo fsinfo;
     struct syscall_fsinfo copy = {0};
     if(!info) return SRV_ERR_FAULT;
-    int64_t error=copy_exec_string(user_path,path,sizeof(path),SRV_ERR_NAMETOOLONG);
+    int64_t error=copy_storage_path(user_path,path,sizeof(path),false);
     if(error) return error;
     if(!vfs_lookup(path)) return SRV_ERR_NOENT;
 
@@ -1384,7 +1386,7 @@ static int64_t syscall_statfs(const char *user_path, struct syscall_fsinfo *info
 
 static int64_t syscall_chmod(const char *user_path, uint64_t mode) {
     char path[MAX_PATH_LENGTH];
-    int64_t error=copy_exec_string(user_path,path,sizeof(path),SRV_ERR_NAMETOOLONG);
+    int64_t error=copy_storage_path(user_path,path,sizeof(path),false);
     if(error) return error;
     if(!vfs_lookup(path)) return SRV_ERR_NOENT;
     return vfs_chmod(path, mode) ? 0 : SRV_ERR_IO;
@@ -1392,32 +1394,31 @@ static int64_t syscall_chmod(const char *user_path, uint64_t mode) {
 
 static int64_t syscall_utime(const char *user_path, uint64_t atime, uint64_t mtime) {
     char path[MAX_PATH_LENGTH];
-    if (!copy_user_string(user_path, path, sizeof(path))) {
-        return -1;
-    }
+    int64_t error=copy_storage_path(user_path,path,sizeof(path),false);
+    if(error) return error;
     return process_path_utime(path,atime,mtime);
 }
 
 static int64_t syscall_unlink(const char *user_path) {
     char path[MAX_PATH_LENGTH];
-    if(!copy_user_string(user_path,path,sizeof(path))) return SRV_ERR_FAULT;
+    int64_t error=copy_storage_path(user_path,path,sizeof(path),false);
+    if(error) return error;
     return process_unlink_file(path);
 }
 
 static int64_t syscall_mkdir(const char *user_path,uint64_t mode) {
     char path[MAX_PATH_LENGTH];
-    if (!copy_user_string(user_path, path, sizeof(path))) {
-        return -1;
-    }
+    int64_t error=copy_storage_path(user_path,path,sizeof(path),true);
+    if(error) return error;
     if(vfs_lookup(path)) return SRV_ERR_EXIST;
     return exfat_create_directory_mode(path,mode==UINT64_MAX?mode:process_creation_mode(mode)) ? 0 : SRV_ERR_IO;
 }
 
 static int64_t syscall_rmdir(const char *user_path) {
     char path[MAX_PATH_LENGTH];
-    if (!copy_user_string(user_path, path, sizeof(path))) {
-        return -1;
-    }
+    int64_t error=copy_storage_path(user_path,path,sizeof(path),false);
+    if(error) return error;
+    if(vfs_namespace_system_protects(path)) return SRV_ERR_BUSY;
     const struct vfs_node *directory=vfs_lookup(path);
     if(!directory) return SRV_ERR_NOENT;
     if(directory->type!=VFS_NODE_DIRECTORY) return SRV_ERR_NOTDIR;
@@ -1434,10 +1435,10 @@ static int64_t syscall_rmdir(const char *user_path) {
 static int64_t syscall_rename(const char *user_old_path, const char *user_new_path) {
     char old_path[MAX_PATH_LENGTH];
     char new_path[MAX_PATH_LENGTH];
-    if (!copy_user_string(user_old_path, old_path, sizeof(old_path)) ||
-        !copy_user_string(user_new_path, new_path, sizeof(new_path))) {
-        return -1;
-    }
+    int64_t error=copy_storage_path(user_old_path,old_path,sizeof(old_path),false);
+    if(error) return error;
+    error=copy_storage_path(user_new_path,new_path,sizeof(new_path),false);
+    if(error) return error;
     return process_rename_file(old_path,new_path);
 }
 
@@ -1448,13 +1449,15 @@ static int64_t syscall_file_change(const struct srv_file_change *user_request) {
     struct srv_file_change q;char path[MAX_PATH_LENGTH],destination[MAX_PATH_LENGTH];
     if(abi_user_struct_size(user_request,sizeof(q),SRV_ABI_VERSION)!=sizeof(q) ||
         !copy_from_user(&q,user_request,sizeof(q)) || q.operation<SRV_FILE_RENAME || q.operation>SRV_FILE_DUPLICATE ||
-        !q.expected_inode || q.expected_type>VFS_NODE_DIRECTORY || !copy_user_string(q.path,path,sizeof(path)) || path[0]!='/') return SRV_FILE_INVALID;
-    if(q.operation!=SRV_FILE_DELETE && (!copy_user_string(q.destination,destination,sizeof(destination)) || destination[0]!='/')) return SRV_FILE_INVALID;
+        !q.expected_inode || q.expected_type>VFS_NODE_DIRECTORY || copy_storage_path(q.path,path,sizeof(path),false)) return SRV_FILE_INVALID;
+    if(q.operation!=SRV_FILE_DELETE && (copy_storage_path(q.destination,destination,sizeof(destination),false))) return SRV_FILE_INVALID;
     if(q.operation==SRV_FILE_COPY && (q.expected_type!=VFS_NODE_FILE || q.length!=q.expected_size || q.length>MAX_SYSCALL_COPY)) return SRV_FILE_LIMIT;
     if(q.operation==SRV_FILE_DUPLICATE) {
         if(q.data || q.length) return SRV_FILE_INVALID;
         if(q.expected_type!=VFS_NODE_FILE || q.expected_size>SRV_FILE_DUPLICATE_MAX) return SRV_FILE_LIMIT;
     }
+    if((q.operation==SRV_FILE_RENAME || q.operation==SRV_FILE_DELETE) &&
+       (vfs_namespace_system_protects(path) || (q.operation==SRV_FILE_RENAME && vfs_namespace_system_protects(destination)))) return SRV_FILE_BUSY;
     const struct vfs_node *node=vfs_lookup(path);
     if(!node || node->metadata.inode!=q.expected_inode || node->size!=q.expected_size ||
         node->metadata.mtime!=q.expected_mtime || (uint64_t)node->type!=q.expected_type) return SRV_FILE_CHANGED;
@@ -3290,7 +3293,7 @@ static int64_t syscall_audio(uint64_t operation,uint64_t value,struct srv_audio_
     return copy_to_user(out,&snapshot,sizeof(snapshot))?result:-1;
 }
 
-void syscall_dispatch(struct isr_frame *frame) {
+static void syscall_dispatch_impl(struct isr_frame *frame) {
     switch (frame->rax) {
     case SYS_WRITE:
         frame->rax = (uint64_t)syscall_write(frame->rdi, (const char *)frame->rsi, frame->rdx);
@@ -3812,4 +3815,28 @@ void syscall_dispatch(struct isr_frame *frame) {
         frame->rax = (uint64_t)-1;
         return;
     }
+}
+
+/* One owner span covers pathname snapshots, namespace translation, guards,
+ * backend I/O and publication. Spawn/exec retain their existing image-specific
+ * scopes: wrapping their entire lifetime would defeat private-image admission.
+ * This does not change syscall_io_safe or make filesystem operations I/O-safe. */
+static bool namespace_syscall(uint64_t number) {
+    switch(number) {
+    case SYS_OPEN: case SYS_OPEN_MODE: case SYS_LIST:
+    case SYS_FS_WRITE: case SYS_FS_APPEND: case SYS_STAT: case SYS_STATFS:
+    case SYS_CHMOD: case SYS_UTIME: case SYS_UNLINK: case SYS_MKDIR:
+    case SYS_MKDIR_MODE: case SYS_RMDIR: case SYS_RENAME: case SYS_FILE_CHANGE:
+    case SYS_PATH_CONTEXT: case SYS_DIRECTORY: return true;
+    default: return false;
+    }
+}
+void syscall_dispatch(struct isr_frame *frame) {
+    if(!namespace_syscall(frame->rax)) { syscall_dispatch_impl(frame);return; }
+    uint64_t flags=irq_save();
+    scheduler_io_set_user_safe(false);scheduler_io_wait();
+    bool held=scheduler_io_begin();
+    if(!held) frame->rax=(uint64_t)SRV_ERR_IO;
+    else { syscall_dispatch_impl(frame);scheduler_io_end(); }
+    irq_restore(flags);
 }

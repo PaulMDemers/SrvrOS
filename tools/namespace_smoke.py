@@ -1,0 +1,102 @@
+#!/usr/bin/env python3
+"""Global namespace, legacy mounts and persistence on two disposable disks."""
+import argparse
+import datetime
+import json
+import os
+from pathlib import Path
+import shutil
+import socket
+import subprocess
+import sys
+import tempfile
+import time
+
+from displayd_resolution_smoke import build_iso, has_fatal_exception
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--qemu', default='qemu-system-x86_64')
+    parser.add_argument('--output', type=Path, default=Path('build/review/namespace-smoke'))
+    args = parser.parse_args()
+    root = Path(__file__).resolve().parents[1]
+    output = args.output.resolve() / datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%S.%fZ')
+    output.mkdir(parents=True)
+    # On the macOS host, refuse mixed or stale build images.
+    manifest = root / 'build/macos-build.json'
+    if manifest.exists():
+        sys.path.insert(0,str(root/'tools/macos'))
+        from macos.run import verified_build
+        build = verified_build(root)
+    else:
+        build = {'source': subprocess.check_output(['git','rev-parse','HEAD'],cwd=root,text=True).strip()}
+    disks = [output / 'system.exfat', output / 'work.exfat']
+    for disk in disks:
+        shutil.copyfile(root / 'build/srvros.exfat', disk)
+    iso = build_iso(str(root),str(output),1024,768,os.environ.copy(),
+        kernel_path=str(root/'build/kernel/srvros.elf'),initramfs_path=str(root/'build/initramfs.tar'))
+    record = {'build':build,'disks':[str(d) for d in disks],'boots':[]}
+    (output/'result.json').write_text(json.dumps(record,indent=2)+'\n')
+    for phase in ('save','reopen'):
+        with tempfile.TemporaryDirectory(prefix='srvns-',dir='/tmp') as sockets:
+            serial = Path(sockets)/'serial'
+            command = [args.qemu,'-M','q35','-accel','tcg,thread=single','-cpu','qemu64',
+                '-m','768M','-cdrom',iso,'-boot','d','-device','ich9-ahci,id=ahci',
+                '-serial',f'unix:{serial},server=on,wait=on','-monitor','none','-display','none','-no-reboot']
+            for i,disk in enumerate(disks):
+                command += ['-drive',f'if=none,id=disk{i},file={str(disk).replace(",",",,")},format=raw',
+                    '-device',f'ide-hd,drive=disk{i},bus=ahci.{i}']
+            with (output/f'{phase}-qemu.log').open('wb') as errors, (output/f'{phase}-serial.log').open('wb') as log:
+                process = subprocess.Popen(command,cwd=root,stdout=errors,stderr=errors)
+                print(f'namespace-smoke: {phase} PID {process.pid}; evidence {output}',flush=True)
+                try:
+                    with socket.socket(socket.AF_UNIX) as sock:
+                        sock.settimeout(.2)
+                        deadline=time.monotonic()+15
+                        while True:
+                            try: sock.connect(str(serial));break
+                            except (FileNotFoundError,ConnectionRefusedError):
+                                if process.poll() is not None or time.monotonic()>deadline: raise
+                                time.sleep(.1)
+                        def receive(prompt,required=None):
+                            data=b'';deadline=time.monotonic()+180
+                            while not data.endswith(prompt) and time.monotonic()<deadline:
+                                try:
+                                    part=sock.recv(65536)
+                                    if not part: break
+                                    data+=part;log.write(part);log.flush()
+                                except socket.timeout: pass
+                            text=data.decode(errors='replace')
+                            if not data.endswith(prompt) or has_fatal_exception(text) or (required and required not in text):
+                                raise RuntimeError(f'{phase}: missing prompt/marker {required!r}; see {log.name}')
+                            if 'namespace: FAIL' in text or 'sysabi: fail' in text:
+                                raise RuntimeError(f'{phase}: guest failure; see {log.name}')
+                            return text
+                        def send(command,prompt=b'srv> ',required=None):
+                            print(f'namespace-smoke: {command}',flush=True)
+                            sock.sendall((command+'\n').encode());return receive(prompt,required)
+                        receive(b'srv> ','namespace: /bin /usr /var /home active')
+                        send('mount ahci1 /work',required='on /work type=exfat')
+                        send('run /fat/bin/sh',b' $ ')
+                        if phase=='save':
+                            send('/fat/bin/sysabi',b' $ ','sysabi: ok')
+                            send('/bin/sysabi --namespace',b' $ ','namespace: PASS')
+                        send(f'/usr/bin/sysabi --namespace-{phase}',b' $ ',f'namespace-persistence: {phase} PASS')
+                        send('exit')
+                        for mount in ('/work','/fat'):
+                            result=send('unmount '+mount)
+                            if 'busy' in result or 'failed' in result:
+                                raise RuntimeError(f'unmount refused: {result}')
+                        record['boots'].append({'phase':phase,'command':command,'passed':True})
+                finally:
+                    process.terminate()
+                    try: process.wait(timeout=3)
+                    except subprocess.TimeoutExpired: process.kill();process.wait()
+                    (output/'result.json').write_text(json.dumps(record,indent=2)+'\n')
+    print(f'namespace-smoke: PASS; evidence {output}',flush=True)
+    return 0
+
+
+if __name__=='__main__':
+    raise SystemExit(main())

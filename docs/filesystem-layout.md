@@ -1,7 +1,56 @@
 # Filesystem layout and root contract
 
-Updated November 3, 2026. First checkpoint: a bounded namespace compatibility
-proof, not a completed POSIX filesystem or installed-root implementation.
+Updated November 3, 2026. Global activation follows the explicit namespace proof
+in [PR308](https://github.com/PaulMDemers/SrvrOS/pull/308).
+
+## Global activation milestone
+
+Branch `device/apple-silicon/filesystem-global` builds on main `a936baeb`, proof
+`88ea5524`, and full PR252 `badfeb37`. The PR252 owner supplied a read-only
+lifetime/exclusion handoff and recommended full integration, not a partial
+cherry-pick. Dependency merge `c0773799` preserves main's graphics syscalls
+156–161 and assigns the incoming pipe-message syscall 162. The five incoming
+ports changes moved to SrvrPorts commit `0f51ba9`, draft
+[PR3](https://github.com/PaulMDemers/SrvrPorts/pull/3); no tracked ports tree was
+reintroduced. This branch is separate from the unchanged PR308 proof branch.
+
+Boot atomically attaches `/bin` → `/fat/bin`, `/usr` → `/fat`, `/var` →
+`/fat/var`, and `/home` → `/fat/home` after the backing volume and boot log
+layout exist. Missing/conflicting targets refuse activation and retain legacy
+paths. `/fat` stays available; an independently mounted `/work` stays independent.
+Existing `/etc` remains the initramfs tree. Profiles retains HOME/provider policy;
+this change does not select a new user identity, workspace, or root filesystem.
+
+Path-consuming syscalls copy and normalize logical paths, resolve their backing
+names, and perform guards/backend operations/publication in one masked-IRQ,
+scheduler I/O owner span. Eligibility in `syscall_io_safe` is unchanged. Executable
+paths are prepared under ordinary admission before entering PR252's private-child
+image scope. Unix socket names retain their separate registry and path contract.
+
+Content objects, locks, dirty-size queries, mutation guards and unmount references
+use canonical backing paths. Cwd and directory handles separately retain logical
+paths, so `/home/..` is `/` and fchdir/openat preserve the attachment view. Root
+readdir and native indexed listing include new paths; native listing retains its
+short-buffer truncation contract. Active attachment targets and their ancestors
+cannot be removed or renamed through filesystem syscalls. VFS retirement removes
+affected bindings before node slots can be reused; mounting a replacement at the
+same raw name does not reactivate aliases. Explicit activation is required.
+
+Host validation covers the 133 real exFAT/VFS cases normally and with ASan/UBSan,
+process content writeback, logical cwd/dirfd, shared alias content/locks, protected
+roots, raw listing compatibility, loader/private-image admission and PR252 lifetime,
+I/O-admission and checked-usercopy regressions. The guest test is
+`sysabi --namespace`; `tools/namespace_smoke.py` uses two disposable disks and two
+boots for `/fat`/`/work` compatibility and persistence. Matched build and guest
+results are recorded below when complete.
+
+Known bounds remain: 159-byte mutable paths, no symlinks or nonempty directory
+rename, and the existing exFAT sidecar/recovery limitations. Indexed flat projected
+listing rescans the raw node table and is quadratic for a complete scan; directory
+root enumeration uses a direct four-binding accessor. No cache or second lock was
+introduced. This milestone does not provide physical-device acceptance.
+
+## First checkpoint history
 
 ## Target, baseline and ownership
 

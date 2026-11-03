@@ -17,7 +17,7 @@ MODES=('writeback-reserve','writeback-clean','writeback-entry','writeback-begin'
        'alias-delete','alias-overwrite','alias-truncate','alias-replace','alias-chain',
        'ownership-overlap','ownership-bitmap','ownership-leak','ownership-alias-flags',
        'alias-overwrite-failure','ownership-read-failure','ownership-oom','allocation-faults','alias-write-quarantine')
-NAMESPACE_MODES=tuple('namespace-'+case for case in ('paths','bounds','bindings','lifecycle','identity','persistence','rename','failure','workspace'))
+NAMESPACE_MODES=tuple('namespace-'+case for case in ('paths','bounds','bindings','lifecycle','identity','persistence','rename','failure','workspace','system'))
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output',type=Path,default=ROOT/'build/review/exfat-import')

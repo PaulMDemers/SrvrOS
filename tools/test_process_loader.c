@@ -128,7 +128,14 @@ static void clone_lifecycle(void) {
 static const uint8_t *executable_data = image;
 static uint64_t executable_size = sizeof(image);
 static struct vfs_node executable = {.type=VFS_NODE_FILE, .metadata={.mode=0755}};
-const struct vfs_node *vfs_lookup(const char *path) { (void)path; return &executable; }
+static const struct vfs_node fixture_directory={.used=true,.type=VFS_NODE_DIRECTORY};
+uint64_t vfs_count(void) { return 0; }
+const struct vfs_node *vfs_node_at(uint64_t i) { (void)i;return NULL; }
+void vfs_set_retire_callback(vfs_retire_fn callback) { (void)callback; }
+const struct vfs_node *vfs_lookup(const char *path) {
+    if(!strcmp(path,"/") || !strcmp(path,"/fat") || !strcmp(path,"/fat/bin")) return &fixture_directory;
+    return &executable;
+}
 bool vfs_read_all(const struct vfs_node *node, const uint8_t **data, uint64_t *size) {
     (void)node; *data=executable_data; *size=executable_size; return true;
 }

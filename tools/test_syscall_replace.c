@@ -4,6 +4,12 @@
 #include <stdio.h>
 #define SRVROS_SYSCALL_IO_HOST_TEST
 #include "../kernel/src/arch/x86_64/syscall.c"
+/* This fixture isolates publication/usercopy; real path translation is covered
+ * by test-vfs-namespace, test-process-output and sysabi --namespace. */
+int64_t process_resolve_storage_path(const char *path,char *out,uint64_t capacity) {
+    if(strlen(path)>=capacity) return SRV_ERR_NAMETOOLONG;
+    strcpy(out,path);return 0;
+}
 struct process_file *process_file_at(struct process *p,uint64_t fd) { (void)p;(void)fd;assert(0);return NULL; }
 uint64_t process_fd_generation(struct process *p,uint64_t fd) { (void)p;(void)fd;assert(0);return UINT64_MAX; }
 static int allocation_failure,write_failure,calls,allocations,frees;
@@ -14,7 +20,7 @@ static unsigned char saved[32];static size_t saved_length;
 bool vmm_user_range_mapped(uint64_t address,uint64_t length,bool writable) {
     (void)length;(void)writable;return address && (const void *)address!=invalid;
 }
-void *kmalloc(uint64_t length) { if(allocation_failure) return NULL;allocations++;return malloc(length); }
+void *kmalloc(size_t length) { if(allocation_failure) return NULL;allocations++;return malloc(length); }
 void kfree(void *p) { if(p) frees++;free(p); }
 bool exfat_write_file(const char *path,const uint8_t *data,uint64_t length) {
     assert(!strcmp(path,"/fat/test") && length<=sizeof(saved));calls++;

@@ -1,5 +1,6 @@
 /* Included by the exFAT import fixture: reuse its real backend and disposable
- * media, not a second mock filesystem. No process/global namespace is enabled. */
+ * media, not a second mock filesystem. The system case explicitly activates the
+ * global view; the remaining cases exercise caller-owned views. */
 #include <srvros/vfs_namespace.h>
 
 static void namespace_resolves(const struct vfs_namespace *ns,const char *path,const char *expected) {
@@ -136,6 +137,43 @@ static void namespace_case(const char *mode) {
         assert(!exfat_is_writable("/fat"));
         namespace_data(&ns,"/home/note","before");namespace_data(&ns,"/fat/home/note","before");
         assert(!exfat_write_file(path,(const uint8_t *)"retry",5));
+    } else if(!strcmp(mode,"namespace-system")) {
+        char out[160];const struct vfs_node *node;
+        assert(vfs_register_directory("/bin"));
+        assert(!vfs_namespace_system_activate());
+        assert(!vfs_namespace_system_lookup("/usr/bin/tool"));
+        assert(vfs_unregister_path("/bin"));
+        assert(vfs_namespace_system_activate());
+        assert(vfs_namespace_system_protects("/fat") && vfs_namespace_system_protects("/fat/bin"));
+        assert(!vfs_namespace_system_protects("/fat/bin/tool") && !vfs_namespace_system_protects("/work"));
+        node=vfs_lookup("/fat/bin/tool");
+        assert(node && vfs_namespace_system_lookup("/bin/tool")==node);
+        assert(vfs_namespace_system_lookup("/usr/bin/tool")==node);
+        assert(vfs_namespace_system_lookup("/fat/bin/tool")==node);
+        bool roots[4]={false,false,false,false}, projected=false;
+        const char *names[]={"/bin","/usr","/var","/home"};
+        for(unsigned i=0;i<4;i++) {
+            assert(vfs_namespace_system_root(i,out,sizeof(out),&node)==1);
+            for(unsigned j=0;j<4;j++) if(!strcmp(out,names[j])) roots[j]=true;
+        }
+        for(unsigned i=0;i<4;i++) assert(roots[i]);
+        assert(vfs_namespace_system_root(4,out,sizeof(out),&node)==0 && !out[0] && !node);
+        for(uint64_t i=0;;i++) {
+            int result=vfs_namespace_system_list(i,out,sizeof(out),&node);
+            assert(result>=0);if(!result)break;
+            if(!strcmp(out,"/usr/bin/tool")) { assert(node==vfs_lookup("/fat/bin/tool"));projected=true; }
+        }
+        assert(projected);
+        assert(vfs_namespace_system_list(0,out,1,&node)==-1 && !out[0] && !node);
+        assert(exfat_unmount("/fat"));
+        assert(!vfs_namespace_system_lookup("/bin/tool"));
+        assert(!vfs_namespace_system_protects("/fat"));
+        assert(exfat_mount_block_device("/fat",&device));
+        assert(!vfs_namespace_system_lookup("/bin/tool"));
+        assert(vfs_namespace_system_activate());
+        assert(vfs_namespace_system_lookup("/bin/tool")==vfs_lookup("/fat/bin/tool"));
+        vfs_namespace_system_reset();
+        assert(!vfs_namespace_system_lookup("/bin/tool"));
     } else if(!strcmp(mode,"namespace-workspace")) {
         assert(exfat_unmount("/fat") && exfat_mount_block_device("/work",&device));
         assert(exfat_create_directory("/work/srvros-work"));

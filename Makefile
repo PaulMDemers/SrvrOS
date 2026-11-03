@@ -2274,9 +2274,9 @@ test-core: test-workspace-io
 .PHONY: test-process-output
 test-process-output: build/tests/process-output-host$(HOST_EXE)
 	$<
-build/tests/process-output-host$(HOST_EXE): tools/test_process_output.c kernel/src/process.c kernel/src/pty.c kernel/src/pty_model.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+build/tests/process-output-host$(HOST_EXE): tools/test_process_output.c kernel/src/process.c kernel/src/vfs_namespace.c kernel/src/pty.c kernel/src/pty_model.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	mkdir -p build/tests
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include -DSRVROS_PTY_HOST_TEST $< kernel/src/pty.c kernel/src/pty_model.c -Wl,--gc-sections -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include -DSRVROS_PTY_HOST_TEST $< kernel/src/vfs_namespace.c kernel/src/pty.c kernel/src/pty_model.c -Wl,--gc-sections -o $@
 test-core: test-process-output
 
 .PHONY: workspace-latency-smoke
@@ -3262,9 +3262,9 @@ build/tests/thermal-host$(HOST_EXE): tools/test_thermal.c kernel/src/drivers/the
 test-core: test-process-loader
 test-process-loader: build/tests/process-loader-host$(HOST_EXE)
 	$<
-build/tests/process-loader-host$(HOST_EXE): tools/test_process_loader.c kernel/src/process.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+build/tests/process-loader-host$(HOST_EXE): tools/test_process_loader.c kernel/src/process.c kernel/src/vfs_namespace.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/vfs_namespace.c -Wl,--gc-sections -o $@
 
 .PHONY: test-aml-boundary
 test-core: test-aml-boundary
@@ -3791,9 +3791,9 @@ build/tests/audio-io-receipt$(HOST_EXE): tools/test_audio_io_receipt.c userspace
 .PHONY: test-process-service
 test-process-service: build/tests/process-service-host$(HOST_EXE)
 	$<
-build/tests/process-service-host$(HOST_EXE): tools/test_process_service.c kernel/src/process.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+build/tests/process-service-host$(HOST_EXE): tools/test_process_service.c kernel/src/process.c kernel/src/vfs_namespace.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	mkdir -p build/tests
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include $< -Wl,--gc-sections -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include $< kernel/src/vfs_namespace.c -Wl,--gc-sections -o $@
 test-core: test-process-service
 
 .PHONY: test-graphics-service
@@ -4370,3 +4370,11 @@ test-sh-arithmetic: build/tests/sh-arithmetic-host$(HOST_EXE)
 build/tests/sh-arithmetic-host$(HOST_EXE): tools/test_sh_arithmetic.c userspace/sh/sh.c userspace/lib/include/srvros/cli.h shared/include/srvros/syscall_numbers.h ports/upstream/linenoise/linenoise.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include -I ports/upstream/linenoise $< -Wl,--gc-sections -o $@
+
+.PHONY: test-syscall-namespace
+test-core: test-syscall-namespace
+test-syscall-namespace: build/tests/syscall-namespace-host$(HOST_EXE)
+	$<
+build/tests/syscall-namespace-host$(HOST_EXE): tools/test_syscall_namespace.c kernel/src/arch/x86_64/syscall.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@

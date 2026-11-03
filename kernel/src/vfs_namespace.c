@@ -137,3 +137,130 @@ const struct vfs_node *vfs_namespace_lookup(const struct vfs_namespace *ns, cons
     if (!vfs_namespace_resolve(ns, path, resolved, sizeof(resolved))) return NULL;
     return vfs_lookup(resolved);
 }
+
+/* The global view owns no VFS nodes and changes only under filesystem
+ * exclusion. Retired mappings are removed, rather than rediscovered by name. */
+static struct vfs_namespace system_view;
+
+static void system_retire(const char *path, bool prefix) {
+    (void)prefix;
+    unsigned kept = 0;
+    for (unsigned i = 0; i < system_view.count; i++) {
+        struct vfs_namespace_mapping *m = &system_view.mappings[i];
+        if (under(m->source, path) || under(m->target, path)) continue;
+        if (kept != i) system_view.mappings[kept] = *m;
+        kept++;
+    }
+    system_view.count = kept;
+}
+
+void vfs_namespace_system_reset(void) {
+    system_view.count = 0;
+    vfs_set_retire_callback(NULL);
+}
+
+bool vfs_namespace_system_activate(void) {
+    static const char *const sources[] = {"/bin", "/usr", "/var", "/home"};
+    static const char *const targets[] = {"/fat/bin", "/fat", "/fat/var", "/fat/home"};
+    struct vfs_namespace candidate;
+    vfs_namespace_init(&candidate);
+    for (unsigned i = 0; i < sizeof(sources)/sizeof(sources[0]); i++) {
+        if (!vfs_namespace_bind(&candidate, sources[i], targets[i])) return false;
+    }
+    system_view = candidate;
+    vfs_set_retire_callback(system_retire);
+    return true;
+}
+
+bool vfs_namespace_system_resolve(const char *path, char *out, size_t capacity) {
+    if (!system_view.count) {
+        size_t length = 0;
+        if (out && capacity) out[0] = '\0';
+        if (!path || !out || !capacity) return false;
+        while (length < capacity && path[length]) length++;
+        if (length == capacity) return false;
+        copy_path(out, path, length);
+        return true;
+    }
+    return vfs_namespace_resolve(&system_view, path, out, capacity);
+}
+
+const struct vfs_node *vfs_namespace_system_lookup(const char *path) {
+    char resolved[VFS_NAMESPACE_PATH_MAX];
+    if (!vfs_namespace_system_resolve(path, resolved, sizeof(resolved))) return NULL;
+    return vfs_lookup(resolved);
+}
+
+/* Return a valid binding's target only if the source remains usable. */
+static const struct vfs_node *system_mapping_node(unsigned i) {
+    char resolved[VFS_NAMESPACE_PATH_MAX];
+    const struct vfs_namespace_mapping *m = &system_view.mappings[i];
+    if (!vfs_namespace_resolve(&system_view, m->source, resolved, sizeof(resolved))) return NULL;
+    return vfs_lookup(resolved);
+}
+
+bool vfs_namespace_system_protects(const char *canonical_path) {
+    size_t length;
+    if (!canonical(canonical_path, &length)) return false;
+    for (unsigned i = 0; i < system_view.count; i++) {
+        if (system_mapping_node(i) && under(system_view.mappings[i].target, canonical_path)) return true;
+    }
+    return false;
+}
+
+static int list_result(const char *path, const struct vfs_node *node, char *out,
+    size_t capacity, const struct vfs_node **node_out) {
+    size_t length = 0;
+    while (length < capacity && path[length]) length++;
+    if (length == capacity) return -1;
+    copy_path(out, path, length);
+    *node_out = node;
+    return 1;
+}
+
+int vfs_namespace_system_root(unsigned index, char *out, size_t capacity,
+    const struct vfs_node **node_out) {
+    if (out && capacity) out[0] = '\0';
+    if (node_out) *node_out = NULL;
+    if (!out || !capacity || !node_out) return -1;
+    for (unsigned i = 0; i < system_view.count; i++) {
+        const struct vfs_node *node = system_mapping_node(i);
+        if (!node) continue;
+        if (index-- == 0) return list_result(system_view.mappings[i].source, node, out, capacity, node_out);
+    }
+    return 0;
+}
+
+int vfs_namespace_system_list(uint64_t index, char *out, size_t capacity,
+    const struct vfs_node **node_out) {
+    if (out && capacity) out[0] = '\0';
+    if (node_out) *node_out = NULL;
+    if (!out || !capacity || !node_out) return -1;
+    uint64_t raw_count = vfs_count();
+    if (index < raw_count) {
+        const struct vfs_node *node = vfs_node_at(index);
+        return node ? list_result(node->path, node, out, capacity, node_out) : -1;
+    }
+    index -= raw_count;
+    for (unsigned i = 0; i < system_view.count; i++) {
+        const struct vfs_namespace_mapping *m = &system_view.mappings[i];
+        if (!system_mapping_node(i)) continue;
+        size_t source_length = 0, target_length = 0;
+        while (m->source[source_length]) source_length++;
+        while (m->target[target_length]) target_length++;
+        for (uint64_t j = 0; j < raw_count; j++) {
+            const struct vfs_node *node = vfs_node_at(j);
+            if (!node || !under(node->path, m->target)) continue;
+            if (index--) continue;
+            size_t suffix_length = 0;
+            while (node->path[target_length + suffix_length]) suffix_length++;
+            size_t length = source_length + suffix_length;
+            if (length >= capacity) return -1;
+            for (size_t k = 0; k < source_length; k++) out[k] = m->source[k];
+            for (size_t k = 0; k <= suffix_length; k++) out[source_length+k] = node->path[target_length+k];
+            *node_out = node;
+            return 1;
+        }
+    }
+    return 0;
+}

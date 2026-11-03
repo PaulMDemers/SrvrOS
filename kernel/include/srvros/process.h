@@ -266,10 +266,14 @@ int64_t process_file_truncate(struct process *process, uint64_t fd, uint64_t len
 int64_t process_file_flush(struct process *process, uint64_t fd);
 int64_t process_file_sync_all(void);
 int64_t process_file_seek(struct process *process, uint64_t fd, int64_t offset, uint64_t whence);
+/* These mutation helpers and process_open_file_size consume canonical raw
+ * storage paths. Caller owns filesystem exclusion across resolve and use. */
 int64_t process_path_utime(const char *path,uint64_t atime,uint64_t mtime);
 int64_t process_unlink_file(const char *path);
 int64_t process_rename_file(const char *old_path, const char *new_path);
 int64_t process_path_context(uint64_t operation,const char *path,char *out,uint64_t capacity);
+/* Caller holds CPU0 filesystem exclusion across resolution and use. */
+int64_t process_resolve_storage_path(const char *input,char *out,uint64_t capacity);
 int64_t process_directory(uint64_t operation,uint64_t fd,void *out,uint64_t capacity);
 bool process_open_file_size(const char *path,uint64_t *size);
 int64_t process_file_stat(struct process *process,

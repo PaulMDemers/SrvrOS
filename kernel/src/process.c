@@ -16,6 +16,7 @@
 #include <srvros/syscall_numbers.h>
 #include <srvros/timer.h>
 #include <srvros/vfs.h>
+#include <srvros/vfs_namespace.h>
 #include <srvros/vmm.h>
 
 #include <stddef.h>
@@ -215,6 +216,7 @@ struct process {
     struct srv_rlimit fsize_limit;
     uint64_t creation_mask;
     char cwd[PROCESS_PATH_MAX];
+    char cwd_storage[PROCESS_PATH_MAX];
     uint64_t process_group;
     uint64_t lifetime; /* Immutable across exec, job control and orphaning. */
     uint64_t session_id;
@@ -773,6 +775,7 @@ static void clear_process(struct process *process) {
     process_latency_end(LATENCY_PROCESS_RECORD,span);
     process->fsize_limit=(struct srv_rlimit){UINT64_MAX,UINT64_MAX};
     process->cwd[0]='/';
+    process->cwd_storage[0]='/';
     for(unsigned i=0;i<3;i++) process->files[i]=(struct process_file){.used=true,.type=PROCESS_FILE_STDIO,.handle=i};
 }
 
@@ -855,7 +858,8 @@ static struct process *alloc_process_lifetime(const char *path,bool detached,uin
     process->lifetime=token;
     process->parent_pid=process_pid(parent);
     if(parent) { process->creation_mask=parent->creation_mask;process->fsize_limit=parent->fsize_limit;process->signal_ignore_mask=parent->signal_ignore_mask;
-        copy_process_path(process->cwd,sizeof(process->cwd),parent->cwd); }
+        copy_process_path(process->cwd,sizeof(process->cwd),parent->cwd);
+        copy_process_path(process->cwd_storage,sizeof(process->cwd_storage),parent->cwd_storage); }
     process->process_group=parent?parent->process_group:pid;
     process->session_id=parent?parent->session_id:pid;
     process->controlling_tty=parent?parent->controlling_tty:0;
@@ -1738,7 +1742,18 @@ static int64_t load_elf_image_checked_impl(const char *path, struct process *pro
 static int64_t load_elf_image_checked(const char *path,struct process *process,uint64_t stack_top,uint64_t *entry_out) {
     struct process_latency_span span=process_latency_begin();
     struct process_service_scope scope=process_service_begin();
-    int64_t result=load_elf_image_checked_impl(path,process,stack_top,entry_out);
+    char logical[PROCESS_PATH_MAX],storage[PROCESS_PATH_MAX];
+    struct process *current=process_current();
+    int64_t result=0;
+#if !defined(SRVROS_PROCESS_HOST_TEST) || defined(SRVROS_PROCESS_SERVICE_HOST_TEST)
+    /* Before scheduling starts there is no current user process; retain the
+     * boot loader path. A running process must own admission before lookup. */
+    if(current && !scope.held) result=SRV_ERR_IO;
+#endif
+    if(result>=0) result=current?process_path_context_for(current,SRV_PATH_RESOLVE,path,logical,sizeof(logical)):
+        (copy_process_path(logical,sizeof(logical),path)?0:SRV_ERR_NAMETOOLONG);
+    if(result>=0) result=vfs_namespace_system_resolve(logical,storage,sizeof(storage))?
+        load_elf_image_checked_impl(storage,process,stack_top,entry_out):SRV_ERR_NOENT;
     process_service_end(scope);
     process_latency_end(LATENCY_PROCESS_IMAGE,span);return result;
 }
@@ -1767,9 +1782,30 @@ static struct process_service_scope process_spawn_image_scope(struct process *pa
 static int64_t load_spawn_image_checked(struct process *parent,struct process *child,const char *path) {
     char snapshot[PROCESS_PATH_MAX]={0};
     struct process_latency_span span=process_latency_begin();
-    struct process_service_scope scope=process_spawn_image_scope(parent,child,path,snapshot,sizeof(snapshot));
-    int64_t result=snapshot[0]?load_elf_image_checked_impl(snapshot,child,USER_STACK_TOP,&child->entry):SRV_ERR_NAMETOOLONG;
-    process_service_end(scope);process_latency_end(LATENCY_PROCESS_IMAGE,span);return result;
+    /* Resolve while the parent is admitted, then keep IRQs masked over the
+     * transition to the private-image scope. The private scope sees only the
+     * copied raw path and never inspects the parent cwd or namespace. */
+    uint64_t irq=process_irq_save();
+    struct process_service_scope preparation=process_service_begin();
+    char logical[PROCESS_PATH_MAX],storage[PROCESS_PATH_MAX];
+    int64_t result=0;
+#if !defined(SRVROS_PROCESS_HOST_TEST) || defined(SRVROS_PROCESS_SERVICE_HOST_TEST)
+    if(parent && !preparation.held) result=SRV_ERR_IO;
+#endif
+    if(result>=0) result=parent?process_path_context_for(parent,SRV_PATH_RESOLVE,path,logical,sizeof(logical)):
+        (copy_process_path(logical,sizeof(logical),path)?0:SRV_ERR_NAMETOOLONG);
+    if(result>=0 && !vfs_namespace_system_resolve(logical,storage,sizeof(storage))) result=SRV_ERR_NOENT;
+    process_service_end(preparation);
+    if(result>=0) {
+        struct process_service_scope scope=process_spawn_image_scope(parent,child,storage,snapshot,sizeof(snapshot));
+#if !defined(SRVROS_PROCESS_HOST_TEST) || defined(SRVROS_PROCESS_SERVICE_HOST_TEST)
+        if(parent && !scope.held) result=SRV_ERR_IO;
+#endif
+        if(result>=0) result=snapshot[0]?load_elf_image_checked_impl(snapshot,child,USER_STACK_TOP,&child->entry):SRV_ERR_NAMETOOLONG;
+        process_service_end(scope);
+    }
+    process_irq_restore(irq);
+    process_latency_end(LATENCY_PROCESS_IMAGE,span);return result;
 }
 
 static bool load_elf_image(const char *path, struct process *process, uint64_t stack_top, uint64_t *entry_out) {
@@ -3141,7 +3177,7 @@ static int64_t process_path_context_for(struct process *process,uint64_t operati
             for(uint64_t i=0;i<count;i++) resolved[length++]=path[start+i];
             resolved[length]=0;
             if(path[at]=='/') {
-                const struct vfs_node *node=vfs_lookup(resolved);
+                const struct vfs_node *node=vfs_namespace_system_lookup(resolved);
                 uint64_t next=at;while(path[next]=='/') next++;
                 if(!node && operation==SRV_PATH_RESOLVE_DIRECTORY && !path[next]) continue;
                 if(!node) return SRV_ERR_NOENT;
@@ -3149,10 +3185,13 @@ static int64_t process_path_context_for(struct process *process,uint64_t operati
             }
         }
         if(operation==SRV_PATH_CHDIR) {
-            const struct vfs_node *node=vfs_lookup(resolved);
+            const struct vfs_node *node=vfs_namespace_system_lookup(resolved);
             if(!node) return SRV_ERR_NOENT;
             if(node->type!=VFS_NODE_DIRECTORY) return SRV_ERR_NOTDIR;
+            char storage[PROCESS_PATH_MAX];
+            if(!vfs_namespace_system_resolve(resolved,storage,sizeof(storage))) return SRV_ERR_NOENT;
             copy_process_path(process->cwd,sizeof(process->cwd),resolved);
+            copy_process_path(process->cwd_storage,sizeof(process->cwd_storage),storage);
             return 0;
         }
     } else return SRV_ERR_INVAL;
@@ -3167,11 +3206,18 @@ int64_t process_path_context(uint64_t operation,const char *path,char *out,uint6
     return process_path_context_for(process_current(),operation,path,out,capacity);
 }
 
+int64_t process_resolve_storage_path(const char *input,char *out,uint64_t capacity) {
+    char logical[PROCESS_PATH_MAX];
+    int64_t result=process_path_context_for(process_current(),SRV_PATH_RESOLVE,input,logical,sizeof(logical));
+    if(result<0) return result;
+    return vfs_namespace_system_resolve(logical,out,capacity)?0:SRV_ERR_NOENT;
+}
+
 bool process_has_open_vfs_prefix(const char *prefix) {
     /* Keep the current pathname stable until directory identities can survive
      * rename/removal. This is an explicit busy boundary, not stale PWD state. */
     for(unsigned i=0;i<PROCESS_MAX_PROCESSES;i++)
-        if(processes[i].allocated && path_under_prefix(processes[i].cwd,prefix)) return true;
+        if(processes[i].allocated && path_under_prefix(processes[i].cwd_storage,prefix)) return true;
     for(unsigned i=0;i<PROCESS_MAX_WRITE_FILES+PROCESS_MAX_READ_FILES;i++)
         if(file_contents[i].refs && !file_contents[i].unlinked && path_under_prefix(file_contents[i].path,prefix)) return true;
     return false;
@@ -3951,21 +3997,32 @@ static int64_t directory_next(struct process_read_file *read,struct srv_dirent_i
     uint64_t length=0;while(path[length]) length++;
     if(read->offset<2) {
         bool parent=read->offset==1;
-        char parent_path[PROCESS_PATH_MAX];copy_process_path(parent_path,sizeof(parent_path),path);
+        char parent_path[PROCESS_PATH_MAX];copy_process_path(parent_path,sizeof(parent_path),read->path);
+        length=0;while(parent_path[length]) length++;
         if(parent) {
             while(length>1 && parent_path[length-1]!='/') length--;
             if(length>1) length--;
             parent_path[length]=0;
         }
-        const struct vfs_node *node=vfs_lookup(parent_path);
+        const struct vfs_node *node=vfs_namespace_system_lookup(parent_path);
         if(!node) return SRV_ERR_NOENT;
         selected=node;entry.inode=node->metadata.inode;entry.type=VFS_NODE_DIRECTORY;
         entry.name[0]='.';if(parent) entry.name[1]='.';
         read->offset++;
     } else {
         for(;;) {
-            const struct vfs_node *node=vfs_node_at(read->offset-2);
-            if(!node) return 0;
+            uint64_t index=read->offset-2;
+            const struct vfs_node *node=vfs_node_at(index);
+            if(!node) {
+                if(path[0]!='/' || path[1]) return 0;
+                char projected[PROCESS_PATH_MAX];
+                int found=vfs_namespace_system_root((unsigned)(index-vfs_count()),projected,sizeof(projected),&node);
+                if(found<=0) return found;
+                read->offset++;
+                selected=node;entry.inode=node->metadata.inode;entry.type=node->type;
+                if(!copy_process_path(entry.name,sizeof(entry.name),projected[0]=='/'?projected+1:projected)) return SRV_ERR_NAMETOOLONG;
+                break;
+            }
             read->offset++;
             uint64_t i=0;while(i<length && node->path[i]==path[i]) i++;
             if(i!=length) continue;
@@ -3987,7 +4044,7 @@ int64_t process_directory(uint64_t operation,uint64_t fd,void *out,uint64_t capa
     if(!file) return SRV_ERR_BADF;
     struct process_read_file *read=file->type==PROCESS_FILE_VFS?read_file_at(file->handle):NULL;
     if(!read || !read->directory) return SRV_ERR_NOTDIR;
-    const char *path=read->content->path;
+    const char *path=read->path;
     if(operation==SRV_DIRECTORY_PATH) {
         uint64_t length=0;while(path[length]) length++;
         if(!out) return SRV_ERR_FAULT;
@@ -4296,6 +4353,7 @@ int64_t process_rename_file(const char *old_path,const char *new_path) {
     const struct vfs_node *source=vfs_lookup(old_path),*target=vfs_lookup(new_path);
     if(!source) return SRV_ERR_NOENT;
     if(process_path_equal(old_path,new_path)) return 0;
+    if(vfs_namespace_system_protects(old_path) || vfs_namespace_system_protects(new_path)) return SRV_ERR_BUSY;
     if(!exfat_same_mount(old_path,new_path)) return SRV_ERR_XDEV;
     if(source->type==VFS_NODE_DIRECTORY) {
         if(target && target->type!=VFS_NODE_DIRECTORY) return SRV_ERR_NOTDIR;
@@ -4341,6 +4399,8 @@ int64_t process_rename_file(const char *old_path,const char *new_path) {
     return ok?0:SRV_ERR_IO;
 }
 
+static int64_t process_file_open_write_raw(struct process *process,const char *path,uint64_t flags);
+
 int64_t process_file_open_flags(struct process *process,const char *path,uint64_t flags) {
     if(!(flags&(SRV_OPEN_READ|SRV_OPEN_WRITE)) ||
         (flags&~(SRV_OPEN_READ|SRV_OPEN_WRITE|SRV_OPEN_CREATE|SRV_OPEN_TRUNC|SRV_OPEN_APPEND|SRV_OPEN_NONBLOCK|SRV_OPEN_EXCL|SRV_OPEN_CLOEXEC|SRV_OPEN_DIRECTORY|SRV_OPEN_PERMISSIONS|SRV_OPEN_MODE_MASK))) return SRV_ERR_INVAL;
@@ -4348,16 +4408,25 @@ int64_t process_file_open_flags(struct process *process,const char *path,uint64_
     if((flags&SRV_OPEN_DIRECTORY) && (flags&(SRV_OPEN_CREATE|SRV_OPEN_WRITE|SRV_OPEN_TRUNC))) return SRV_ERR_INVAL;
     /* Hold filesystem admission across lookup, exclusive create and descriptor
      * publication. O_EXCL must not be a userspace stat/create race. */
-    if(!scheduler_io_begin()) return SRV_ERR_IO;
-    int64_t result;
-    if(flags&(SRV_OPEN_WRITE|SRV_OPEN_CREATE)) result=process_file_open_write(process,path,flags);
+    struct process_service_scope scope=process_service_begin();
+#if !defined(SRVROS_PROCESS_HOST_TEST) || defined(SRVROS_PROCESS_SERVICE_HOST_TEST)
+    if(!scope.held) { process_service_end(scope);return SRV_ERR_IO; }
+#endif
+    char logical[PROCESS_PATH_MAX],storage[PROCESS_PATH_MAX];
+    int64_t result=process_path_context_for(process,SRV_PATH_RESOLVE,path,logical,sizeof(logical));
+    if(result<0) { process_service_end(scope);return result; }
+    if(!vfs_namespace_system_resolve(logical,storage,sizeof(storage))) { process_service_end(scope);return SRV_ERR_NOENT; }
+    if(flags&(SRV_OPEN_WRITE|SRV_OPEN_CREATE)) result=process_file_open_write_raw(process,storage,flags);
     else {
-        const struct vfs_node *node=vfs_lookup(path);const uint8_t *data;uint64_t size;
+        const struct vfs_node *node=vfs_lookup(storage);const uint8_t *data;uint64_t size;
         if(!node) result=SRV_ERR_NOENT;
         else if((flags&SRV_OPEN_DIRECTORY) && node->type!=VFS_NODE_DIRECTORY) result=SRV_ERR_NOTDIR;
         else if(node->type==VFS_NODE_DIRECTORY) {
             result=process_file_alloc(process,node,NULL,0);
             if(result>=0) {
+                struct process_file *opened=process_file_at(process,(uint64_t)result);
+                struct process_read_file *read=opened?read_file_at(opened->handle):NULL;
+                if(read) (void)copy_process_path(read->path,sizeof(read->path),logical);
                 (void)process_file_set_flags(process,result,(flags&SRV_OPEN_NONBLOCK)?SRV_FD_NONBLOCK:0);
                 (void)process_file_set_fd_flags(process,result,(flags&SRV_OPEN_CLOEXEC)?SRV_FD_CLOEXEC:0);
             }
@@ -4372,10 +4441,22 @@ int64_t process_file_open_flags(struct process *process,const char *path,uint64_
             }
         }
     }
-    scheduler_io_end();return result;
+    process_service_end(scope);return result;
 }
 
 int64_t process_file_open_write(struct process *process, const char *path, uint64_t flags) {
+    struct process_service_scope scope=process_service_begin();
+#if !defined(SRVROS_PROCESS_HOST_TEST) || defined(SRVROS_PROCESS_SERVICE_HOST_TEST)
+    if(!scope.held) { process_service_end(scope);return SRV_ERR_IO; }
+#endif
+    char logical[PROCESS_PATH_MAX],storage[PROCESS_PATH_MAX];
+    int64_t result=process_path_context_for(process,SRV_PATH_RESOLVE,path,logical,sizeof(logical));
+    if(result>=0) result=vfs_namespace_system_resolve(logical,storage,sizeof(storage)) ?
+        process_file_open_write_raw(process,storage,flags) : SRV_ERR_NOENT;
+    process_service_end(scope);return result;
+}
+
+static int64_t process_file_open_write_raw(struct process *process, const char *path, uint64_t flags) {
     if (process == NULL ||
         path == NULL ||
         (flags & (SRV_OPEN_READ|SRV_OPEN_WRITE)) == 0 ||

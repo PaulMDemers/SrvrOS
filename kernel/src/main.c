@@ -43,6 +43,7 @@
 #include <srvros/serial.h>
 #include <srvros/timer.h>
 #include <srvros/vfs.h>
+#include <srvros/vfs_namespace.h>
 #include <srvros/vmm.h>
 #include <srvros/workqueue.h>
 #include <srvros/xhci.h>
@@ -609,6 +610,9 @@ void kmain(void) {
     mount_exfat_volume(cmdline_has_token(cmdline,"srvros.capture=posix") &&
         cmdline_has_token(cmdline,"srvros.storage=ram"));
     persist_bootlog();
+    console_write(vfs_namespace_system_activate()?
+        "namespace: /bin /usr /var /home active; /fat /work retained\n":
+        "namespace: activation refused; legacy storage paths retained\n");
     e1000_init();
     if(virtio_baseline) {
         virtio_net_init();
