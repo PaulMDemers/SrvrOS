@@ -154,6 +154,17 @@ class ProfileInstallationTests(unittest.TestCase):
             install.apply(self.target)
         self.assertFalse((self.target / 'image.img').exists())
 
+    def test_profile_plan_cannot_be_downgraded_to_legacy_version(self):
+        plan = self.prepare()
+        self.assertEqual(plan['version'], 2)
+        plan['version'] = 1
+        path = self.target / 'plan.json'
+        path.write_text(json.dumps(plan))
+        (self.target / 'plan.sha256').write_text(install.digest(path) + '\n')
+        with self.assertRaisesRegex(ValueError, 'version 2'):
+            install.apply(self.target)
+        self.assertFalse((self.target / 'in-progress.json').exists())
+
     def test_driver_failure_leaves_no_publication_and_cannot_resume(self):
         self.driver.write_text('#!/bin/sh\nexit 1\n')
         self.prepare()

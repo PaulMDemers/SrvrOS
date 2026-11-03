@@ -156,7 +156,7 @@ def prepare(staging_dir, kernel, bootx64, exfat, init, *, identity_bound=False,
     spec = layout(sources['exfat']['size'])
     os.mkdir(target, 0o700)  # exclusive: existing files, directories and devices are refused
     st = target.stat()
-    plan = {'version': 1, 'target_uuid': str(uuid.uuid4()), 'target_directory': str(target),
+    plan = {'version': 2 if profile is not None else 1, 'target_uuid': str(uuid.uuid4()), 'target_directory': str(target),
             'target_device': st.st_dev, 'target_inode': st.st_ino,
             'sources': sources, 'layout': spec}
     if profile is not None:
@@ -276,7 +276,7 @@ def apply(staging_dir):
         raise ValueError('plan changed since prepare')
     with open(plan_path) as f:
         plan = json.load(f)
-    if (plan['version'] != 1 or plan['target_directory'] != str(target) or
+    if (type(plan['version']) is not int or plan['version'] not in (1, 2) or plan['target_directory'] != str(target) or
         (st.st_dev, st.st_ino) != (plan['target_device'], plan['target_inode']) or
         plan['layout'] != layout(plan['sources']['exfat']['size'])):
         raise ValueError('target or plan identity mismatch')
@@ -297,6 +297,8 @@ def apply(staging_dir):
         if source(item['path']) != item:
             raise ValueError('source changed since prepare')
     profile = plan.get('profile')
+    if (plan['version'] == 2) != (profile is not None):
+        raise ValueError('profile plan requires version 2')
     bundle = None
     if profile is not None:
         if not selection or set(profile) != {'profile_id', 'home', 'alias', 'uid', 'gid'}:
