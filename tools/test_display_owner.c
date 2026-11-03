@@ -58,7 +58,18 @@ int main(void) {
     for(unsigned i=0;i<DISPLAY_OWNER_WORDS;i++) {changed=p;changed.raw[i]=1;assert(display_owner_check(&empty,empty.epoch,&changed)&DISPLAY_OWNER_CHANGED);}
     changed=p;changed.active=1;assert(display_owner_check(&empty,empty.epoch,&changed)&DISPLAY_OWNER_ACTIVE);
     empty.serial=UINT64_MAX;assert(!display_owner_hold(&empty,empty.epoch,0,&bad));
-    empty.serial=0;empty.refs[0]=UINT32_MAX;assert(!display_owner_hold(&empty,empty.epoch,0,&bad));
+    empty.serial=0;
+    assert(display_owner_hold(&empty,empty.epoch,0,&bad));
+    enum display_owner_state saved_state=empty.state;
+    empty.state=(enum display_owner_state)99;
+    struct display_owner snapshot=empty;
+    assert(!display_owner_begin(&empty,&bad) && !display_owner_release(&empty,&bad));
+    assert(!memcmp(&empty,&snapshot,sizeof(empty)));
+    empty.state=saved_state;empty.guard=2;snapshot=empty;
+    assert(!display_owner_begin(&empty,&bad) && !display_owner_close(&empty,empty.epoch));
+    assert(!memcmp(&empty,&snapshot,sizeof(empty)));
+    empty.guard=1;assert(display_owner_release(&empty,&bad));
+    empty.refs[0]=UINT32_MAX;assert(!display_owner_hold(&empty,empty.epoch,0,&bad));
     assert(!display_owner_close(&empty,empty.epoch));
     puts("display-owner: PASS immutable profile, unknown/active/changed/stale refusal, bounded references, epoch/serial exhaustion, cancellation/drain, retained fault; no writer API");
 }

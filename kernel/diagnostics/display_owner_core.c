@@ -8,13 +8,15 @@ static bool live(const struct display_owner *o) {
     return o && (o->state==DISPLAY_OWNER_OBSERVED || o->state==DISPLAY_OWNER_ADOPTED);
 }
 static bool invariant(const struct display_owner *o) {
-    if(!o)return false;
+    if(!o || (unsigned)o->state>DISPLAY_OWNER_FAULT || o->guard>1)return false;
+    if((o->state==DISPLAY_OWNER_EMPTY || o->state==DISPLAY_OWNER_RETIRED)?o->guard!=0:(!o->epoch || o->guard!=1))return false;
     unsigned refs[2]={0},busy=0;
     for(unsigned i=0;i<DISPLAY_OWNER_SLOTS;i++) {
         const struct display_owner_ref *r=&o->slots[i];
         if(r->live) {if(r->domain>DISPLAY_OWNER_AUDIO || !r->serial)return false;refs[r->domain]++;if(r->busy)busy++;}
         else if(r->busy)return false;
     }
+    if((o->state==DISPLAY_OWNER_EMPTY || o->state==DISPLAY_OWNER_RETIRED) && (refs[0] || refs[1] || busy))return false;
     return o->refs[0]==refs[0] && o->refs[1]==refs[1] && o->inflight==busy;
 }
 static bool same(const struct display_owner_profile *a,const struct display_owner_profile *b) {

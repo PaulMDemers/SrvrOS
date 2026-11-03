@@ -2,7 +2,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 /* Diagnostic software model only. No I/O/writer callback or hardware authority.
- * Caller serializes all access on CPU0; no SMP/interrupt-safe ownership claim. */
+ * Zero-initialize objects/pool and use one non-reset boot pool. Caller serializes
+ * all access on CPU0; no SMP/interrupt-safe ownership claim. */
 #define DISPLAY_OWNER_SLOTS 8u
 #define DISPLAY_OWNER_WORDS 96u
 #define DISPLAY_OWNER_REQUIRED 127u
