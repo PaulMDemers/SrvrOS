@@ -128,6 +128,10 @@ def prepare(staging_dir, kernel, bootx64, exfat, init):
             'target_device': st.st_dev, 'target_inode': st.st_ino,
             'sources': sources, 'layout': spec}
     write_json(target / 'plan.json', plan)
+    with open(target / 'plan.sha256', 'x') as f:
+        f.write(digest(target / 'plan.json') + '\n')
+        f.flush()
+        os.fsync(f.fileno())
     sync_dir(target)
     sync_dir(target.parent)
     return plan
@@ -210,11 +214,18 @@ def verify_image(path, plan, bootstrap):
 def apply(staging_dir):
     target = checked_path(staging_dir)
     st = target.stat()
-    if not stat.S_ISDIR(st.st_mode) or set(os.listdir(target)) != {'plan.json'}:
+    if not stat.S_ISDIR(st.st_mode) or set(os.listdir(target)) != {'plan.json', 'plan.sha256'}:
         raise ValueError('unknown, already used, or interrupted staging target')
     plan_path = checked_path(target / 'plan.json')
     if not stat.S_ISREG(plan_path.stat().st_mode):
         raise ValueError('invalid plan')
+    checksum_path = checked_path(target / 'plan.sha256')
+    if not stat.S_ISREG(checksum_path.stat().st_mode):
+        raise ValueError('invalid plan checksum')
+    with open(checksum_path) as f:
+        checksum = f.read()
+    if checksum != digest(plan_path) + '\n':
+        raise ValueError('plan changed since prepare')
     with open(plan_path) as f:
         plan = json.load(f)
     if (plan['version'] != 1 or plan['target_directory'] != str(target) or

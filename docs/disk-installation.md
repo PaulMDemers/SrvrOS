@@ -100,6 +100,7 @@ privileged device tools are needed. Run one build/harness at a time:
 ```sh
 sh tools/macos/build.sh -j2 all
 python3 -m unittest discover -s tools -p test_installation_image.py -v
+python3 -m unittest discover -s tools -p test_installed_disk_smoke.py -v
 mkdir -p build/tooling
 cat > build/tooling/darwin-host-cc.py <<'PY'
 import os, sys
@@ -143,12 +144,20 @@ python3 tools/installation_image.py apply .local/installation/trial
 
 `prepare` refuses existing targets and symlink path components. `apply` binds to
 the recorded staging device/inode, source identities/hashes and exact bounds;
-it refuses unknown contents or changed sources. It verifies both GPT copies,
+it refuses unknown contents or changed sources. A separately saved `plan.sha256`
+detects edits to the reviewed plan, including replacement source records and
+target UUIDs, before any image writes. This detects accidental edits, not an
+actor deliberately changing both the plan and its checksum. It verifies both GPT copies,
 boot artifact readback and the copied exFAT before publishing `ready.json`.
 Staging UUID and generated GPT disk/partition GUIDs are distinct and recorded.
 An interrupted directory is retained and cannot be reused. These protections
 cover accidental misuse of disposable fixtures; they are not a privileged,
 hostile-concurrency-resistant physical installer or a power-loss durability claim.
+The proof harness requires `build/macos-build.json` from the build wrapper and
+refuses missing/malformed records, artifact mismatches, or a changed source tree
+(including commit, tracked/untracked changes and recursive submodules). Re-run
+the build wrapper after any source changes, even documentation-only changes,
+before generating a new proof receipt.
 
 ## Evidence and next action
 
@@ -198,9 +207,51 @@ resource/default. No host disk was formatted, mounted or installed to, and no
 host reboot occurred. All task-owned VMs are stopped; the three original review
 VMs remain live and untouched.
 
-Published as [draft PR311](https://github.com/PaulMDemers/SrvrOS/pull/311); not
-merged. Next: review that scoped PR. A subsequent installed-root milestone must
+Published in [PR311](https://github.com/PaulMDemers/SrvrOS/pull/311).
+A subsequent installed-root milestone must
 consume the filesystem owner's stable-volume selector and the profile owner's
 home/migration contract before enabling multiple candidate volumes or upgrades.
 No further implementation is required for this disposable proof, and no merge
 or physical-install authorization is implied by its success.
+
+## Merge review and next bounded milestone — November 3, 2026
+
+User authorized review and merge if ready. The original raw logs, installed disk,
+tool hashes and matched artifacts were rechecked against the portable receipt;
+main remained `a936baeb`. Review found two reproducibility gaps: apply trusted some
+editable plan fields as their own baseline, and the harness allowed a missing
+build record. The plan checksum and mandatory exact-source build validation above
+close those gaps. Twelve image/preflight tests and six build-provenance tests
+cover the corrected behavior; the original eleven-test acceptance above remains
+historical evidence for its named revision. The refreshed VM receipt and merge
+state are recorded with PR311, rather than relabeling that original run.
+
+Next proposed milestone: **identity-bound installed-volume boot and recovery in
+QEMU**. Attach an installed target and a decoy/source disk; select the installed
+system by stable identity, independent of enumeration order. Prove normal and
+reordered boots, missing/wrong/duplicate identity refusal, recovery entry without
+writing any candidate disk, and continued document/preferences persistence.
+Hash the decoy before/after every case. This is still disposable image work;
+physical installation, in-place upgrade and authenticated multi-user sessions
+remain separate milestones.
+
+Dependencies inspected at live heads:
+
+- [Filesystem PR308](https://github.com/PaulMDemers/SrvrOS/pull/308), `88ea5524`:
+  its namespace helper does not implement installed-root selection. The filesystem
+  owner must supply an explicit stable volume identifier plus format/version/role,
+  unique-match validation before writable mount, and a no-fallback recovery result
+  for missing/ambiguous/mismatched targets. Installation owns the boot manifest,
+  boot configuration and disk fixtures; filesystem owns validation/mount attachment.
+- [Profiles PR309](https://github.com/PaulMDemers/SrvrOS/pull/309), `fa9717ad`:
+  preserve the v1 portable UUID independently of disk GUID and local UID/GID;
+  keep destination HOME/config/data/cache binding separate from boot selection.
+  The next boot-selection slice can preserve the existing home unchanged and
+  does not need guest profile activation. Profile import later requires an agreed
+  destination HOME/local-binding API, guest-qualified publication/recovery semantics,
+  and an app/compositor adapter for the portable preference allowlist. The host
+  profile fixture's directory-rename behavior is not a guest exFAT guarantee.
+
+Both dependency PRs were open at review. Merging them alone will not provide the
+missing volume selector or guest profile consumer. Profile migration/login is
+not silently added to this next boot-selection checkpoint.

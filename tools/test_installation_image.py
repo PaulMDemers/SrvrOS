@@ -204,6 +204,27 @@ class InstallationImageTests(unittest.TestCase):
             image.apply(self.target)
         self.assertEqual(before, self.exfat.read_bytes())
 
+    def test_changed_source_record_and_uuid_are_refused_before_apply(self):
+        for field in ('source', 'uuid'):
+            with self.subTest(field=field):
+                target = self.root / ('stage-' + field)
+                image.prepare(target, self.kernel, self.boot, self.exfat, self.init)
+                plan_path = target / 'plan.json'
+                plan = json.loads(plan_path.read_text())
+                if field == 'source':
+                    alternate = self.root / 'alternate-kernel'
+                    alternate.write_bytes(b'\x7fELFalternate')
+                    plan['sources']['kernel'] = image.source(alternate)
+                else:
+                    plan['target_uuid'] = '00000000-0000-4000-8000-000000000001'
+                plan_path.write_text(json.dumps(plan))
+                before = {path.name: path.read_bytes() for path in target.iterdir()}
+                with self.assertRaisesRegex(ValueError, 'plan changed since prepare'):
+                    image.apply(target)
+                self.assertEqual(before, {path.name: path.read_bytes() for path in target.iterdir()})
+                self.assertEqual(self.kernel.read_bytes(), b'\x7fELFkernel')
+                self.assertEqual(self.exfat.read_bytes()[3:11], b'EXFAT   ')
+
     def test_source_changed_during_build(self):
         plan = self.prepare()
         before = self.exfat.read_bytes()

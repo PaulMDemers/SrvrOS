@@ -24,6 +24,7 @@ from exfat_test_image import ExfatFixture
 from pack_runtime_elf import runtime_elf
 from uefi_usb_smoke import default_ovmf_path
 import installation_image
+import source_provenance
 
 ROOT = Path(__file__).resolve().parents[1]
 PHRASE = b'installed disk persistence proof'
@@ -35,6 +36,24 @@ def digest(data):
 
 def save_json(path, value):
     path.write_text(json.dumps(value, indent=2, sort_keys=True) + '\n')
+
+
+def verified_build(root):
+    """Require recorded artifacts and the exact current source/submodule state."""
+    try:
+        build = json.loads((root / 'build/macos-build.json').read_text())
+        current = source_provenance.capture(root)
+        if (build['schema'] != 1 or build['source'] != current['.']['head'] or
+            build['worktree_dirty'] != current['.']['dirty'] or
+            build['tracked_diff_sha256'] != current['.']['tracked_diff_sha256'] or
+            build['repositories'] != current):
+            raise ValueError('source or submodule state differs from build record')
+        for name in ('build/kernel/srvros.elf', 'build/initramfs.tar', 'build/srvros.exfat'):
+            if digest((root / name).read_bytes()) != build['hashes'][name]:
+                raise ValueError(f'artifact differs from build record: {name}')
+        return build
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        raise RuntimeError(f'Run sh tools/macos/build.sh -j2 all for a matched build first: {error}') from error
 
 
 def partitions(disk):
@@ -239,13 +258,7 @@ def main():
                              ('installation_image.py', 'installed_disk_smoke.py', 'mk_usb_image.py')}
     save_json(out / 'receipt.json', receipt)
     try:
-        build_manifest = ROOT / 'build/macos-build.json'
-        if build_manifest.exists():
-            build = json.loads(build_manifest.read_text())
-            for name in ('build/kernel/srvros.elf', 'build/initramfs.tar', 'build/srvros.exfat'):
-                if digest((ROOT / name).read_bytes()) != build['hashes'][name]:
-                    raise RuntimeError('Artifacts differ from recorded matched build; rebuild first')
-            receipt['build'] = build
+        receipt['build'] = verified_build(ROOT)
         with tarfile.open(ROOT / 'build/initramfs.tar') as archive:
             member = next(m for m in archive.getmembers() if m.name.lstrip('./') == 'init')
             if archive.extractfile(member).read() != runtime_elf((ROOT / 'build/userspace/init.elf').read_bytes()):
