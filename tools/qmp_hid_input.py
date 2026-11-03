@@ -41,16 +41,18 @@ class HIDQueueReceipt:
         pending = b''
         while True:
             pending += self.read()
+            if self.clock()-began >= self.timeout:
+                raise TimeoutError('QEMU USB HID edge was not consumed before deadline')
             if b'hid_kbd_queue_empty queue empty\n' in pending:
                 self.edges += 1
                 self.max_wait_seconds = max(self.max_wait_seconds, self.clock()-began)
                 return
-            if self.clock()-began >= self.timeout:
-                raise TimeoutError('QEMU USB HID edge was not consumed before deadline')
             self.sleep(.005)
 
     def result(self):
         self.read()
+        if self.partial:
+            raise RuntimeError('Incomplete final QEMU HID trace')
         return dict(mode='QEMU HID queue consumption per edge', edges=self.edges,
                     max_wait_seconds=round(self.max_wait_seconds, 6), overflow=False,
                     physical_latency_acceptance=False)

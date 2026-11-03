@@ -18,6 +18,17 @@ def main():
         except TimeoutError:pass
         else:raise AssertionError('stale acknowledgement accepted')
         assert receipt.edges == 0
+        def late():
+            now[0] += .03
+            append(b'hid_kbd_queue_empty queue empty\n')
+        try:receipt.deliver(late)
+        except TimeoutError:pass
+        else:raise AssertionError('late acknowledgement accepted')
+        append(b'hid_kbd_queue_')
+        try:receipt.deliver(lambda:None)
+        except RuntimeError:pass
+        else:raise AssertionError('partial stale trace accepted')
+        append(b'empty queue empty\n')
         receipt.deliver(lambda:append(b'hid_kbd_queue_empty queue empty\n'))
         assert receipt.edges == 1
         # Partial reads must combine into one complete new notification.
