@@ -19,9 +19,15 @@ Required: Blue/Graphite/Teal accents and Solid/Subtle/Clear glass, persisted wit
 migration and broadcast to existing/new windows; clipping-safe glass and correct
 translucent occlusion; unchanged content and input behavior; matched full build,
 host regressions, runtime preference checks and inspected desktop/widget images.
-Current work: integrate resolver, compositor, Settings/runtime preference path
-and presentation ordering, then verify before updating PR280. Native acceptance
-and Actions remain unchanged. See [presentation plan](display-presentation.md).
+Readiness: implemented and locally verified at runtime `db898927`, with SrvrUI
+`df2e311` and SrvrApps `e4b9235` published. Matched build, desktop/widget/I/O host
+suites, theme sanitizers, dynamic drag/scroll damage oracle, live theme/persistence
+application VM and compositor VM pass. The separate Settings VM passed before the
+final title-frost-only adjustment. [Rendered evidence](desktop-theme.md) is saved.
+Next: review PR280. The scoped glass/theme/presentation investigation is complete;
+real synchronized scanout is separate driver work described in the
+[presentation plan](display-presentation.md). Native acceptance and Actions remain
+unchanged.
 
 ## Current overhaul — November 2, 2026
 

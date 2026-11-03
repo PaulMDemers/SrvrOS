@@ -66,3 +66,22 @@ whole covered windows. These are stress-fixture host numbers, not native input
 latency or a guarantee of frame rate. Caching or accelerated composition is a
 separate performance direction; correctness requires retaining visible glass
 layers. Ordinary application workflows are checked in QEMU.
+
+
+## Verified result — November 2, 2026
+
+Runtime `db898927`; SrvrUI `df2e311`, SrvrApps `e4b9235`, SrvrPorts `0494ae2`.
+Full matched build, desktop/widget/I/O host suites, theme ASan/UBSan and final
+application/compositor VMs pass. The separate Settings VM passed before the last
+title-frost-only adjustment. The host scene test includes preserved-buffer drag
+and lower-window content changes under glass, not only static tiled rendering.
+The live application check proves existing and new window selection colors and
+saved appearance reload. All disposable VMs stopped; native scanout is unverified.
+
+![Teal Clear desktop with live Settings](assets/screenshots/glass-desktop.png)
+
+![Open Text window after the global appearance update](assets/screenshots/glass-text.png)
+
+![Blue, Graphite and Teal controls rendered by SrvrUI](assets/screenshots/glass-widgets.png)
+
+[Image hashes and source revisions](assets/screenshots/glass-manifest.json).

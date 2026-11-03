@@ -1880,3 +1880,30 @@ for Open With and descriptors; preserve that separate implementation at integrat
 PR252 `badfeb3` owns process/I/O kernel audit work; this milestone changes no kernel
 or framebuffer driver. PR19 retains USB Wi-Fi work. No physical trial or Actions.
 Next checkpoint: host regression suite and live theme/persistence VM checks.
+
+
+### Glass/theme verification result
+
+Runtime `db89892768c34dd7c79e9b37ad1f8207806fe43d`; published SrvrUI `df2e311`,
+SrvrApps `e4b9235`, unchanged SrvrPorts `0494ae2`. Matched full image build and
+complete desktop/widget/I/O host targets pass. Native ARM64 ASan/UBSan theme
+blending/clipping passes. Dynamic preserved-buffer old/new window drag and lower
+client-content changes match fresh full rendering for all three glass levels.
+Opaque-body culling matches the unculled oracle, including randomized overlap,
+small/stale caches and 128-window stress. Composition completes before any upload.
+
+Final-source application VM verifies existing/new Text selection colors, saved
+Teal/Clear appearance and a new desktop process loading it, alongside file and
+clipboard workflows. Final compositor VM verifies drag, resize, scrolling/capture,
+client death and console recovery. The separate Settings VM passes clock,
+wallpaper, pointer controls and config reload; it ran before the final title-frost
+visual adjustment, which is covered by final host/app/compositor checks.
+
+Evidence: `build/review/theme-global-*.log`, matched
+`build/review/theme-global-manifest.json`, `build/review/desktop-apps/`,
+`build/review/desktop-settings/`, `build/review/desktop-1280x800/`, and tracked
+[images/provenance](../assets/screenshots/glass-manifest.json). All disposable VMs
+stopped. Theme CPU stress cost and lack of physical tear-free evidence are explicit
+in [the theme contract](../desktop-theme.md) and [driver plan](../display-presentation.md).
+No native install, Actions dispatch or main merge. Next: PR280 integration review;
+no further work is required for this scoped theme/presentation investigation.

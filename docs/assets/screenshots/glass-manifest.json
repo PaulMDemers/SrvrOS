@@ -1,0 +1,29 @@
+{
+  "runtime_source": "db89892768c34dd7c79e9b37ad1f8207806fe43d",
+  "SrvrUI": "df2e311d9b02c643c819092f6f91390b224b8953",
+  "SrvrApps": "e4b9235fe3a4c4f5c354e63c8bc024229157f2ac",
+  "SrvrPorts": "0494ae22e79cd8689d0cfdea7bba75c4b2ddb107",
+  "desktop_capture": "QEMU native desktop, 1280x800, Teal/Clear",
+  "widget_capture": "actual toolkit control-state renderer",
+  "physical_scanout_verified": false,
+  "images": [
+    {
+      "file": "glass-desktop.png",
+      "width": 1280,
+      "height": 800,
+      "sha256": "4521ca600f3db48e6b7b4bfb75a1232711c73d9bbe2045f22c67ea526bbae141"
+    },
+    {
+      "file": "glass-text.png",
+      "width": 1280,
+      "height": 800,
+      "sha256": "317525516b39c3fafd60db41f52ac37ae5f7bf426b8cc509a8f9ad3e0ed485a6"
+    },
+    {
+      "file": "glass-widgets.png",
+      "width": 1040,
+      "height": 530,
+      "sha256": "d048abd3a034fe07e330099a00c52e862d1ffc2e3d34494d02d2e1412a0fe70c"
+    }
+  ]
+}
