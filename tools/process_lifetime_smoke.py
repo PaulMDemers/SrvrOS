@@ -33,12 +33,14 @@ def main():
                 while b'\nsrv> ' not in output and time.monotonic()-start<60:
                     output.extend(read_for(serial,.1));qmp.boot_if_menu_stalled(output,time.monotonic()-start)
                 assert b'\nsrv> ' in output,'boot did not reach monitor'
-                for iteration in range(2):
+                # Repeat in one guest: prior failures appeared only after churn.
+                iterations=4
+                for iteration in range(iterations):
                     before=len(output);serial.sendall(b'lifetimetest\n');end=time.monotonic()+120
                     while b'\nsrv> ' not in output[before:] and time.monotonic()<end:
                         output.extend(read_for(serial,.2))
                     part=bytes(output[before:])
-                    assert b'lifetime-test: PASS orphan exec setsid group-change descendants=2 unrelated=preserved drained=yes' in part
+                    assert b'lifetime-test: PASS orphan exec setsid group-change descendants=2 unrelated=preserved drained=yes' in part, f'iteration {iteration + 1}: orphan launcher did not complete'
                     assert b'lifetime-test: failed root retired' in part and b'lifetime-test: churn retired' in part
                     assert b'lifetimeprobe: churn=128 failed-spawn=refused synchronous=2' in part
                     assert b'lifetimeprobe: competing-waiters=16 one-winner=yes' in part
@@ -51,7 +53,7 @@ def main():
                 qmp.call('screendump',{'filename':str(out/'screen.ppm')})
                 result={'status':'PASS','source':subprocess.check_output(['git','rev-parse','HEAD'],cwd=root,text=True).strip(),
                         'source_dirty':bool(subprocess.check_output(['git','status','--porcelain'],cwd=root)),
-                        'iterations':2,'sequential_apps':256,'competing_waiter_pairs':32,'physical_acceptance':False,
+                        'iterations':iterations,'sequential_apps':128*iterations,'competing_waiter_pairs':16*iterations,'physical_acceptance':False,
                         'payload_sha256':{str(p.relative_to(root)):hashlib.sha256(p.read_bytes()).hexdigest()
                                           for p in (root/'build/kernel/srvros.elf',root/'build/initramfs.tar')}}
                 (out/'result.json').write_text(json.dumps(result,indent=2)+'\n')

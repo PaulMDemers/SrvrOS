@@ -1,4 +1,8 @@
 """Validate retained, whole-record desktop loop wall-time diagnostics."""
+
+if not __debug__:
+    raise RuntimeError('evidence validation requires Python assertions; disable optimization')
+
 STAGES = ('control', 'messages', 'lifecycle', 'service', 'trial', 'input',
           'render', 'post', 'wait')
 FIELDS = ('version', 'samples', 'over_limit', 'invalid', 'seq', 'start_us',

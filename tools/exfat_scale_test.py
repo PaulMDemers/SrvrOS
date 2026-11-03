@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 """Growth beyond the old table limits on disposable, independently checked exFAT."""
+
+if not __debug__:
+    raise RuntimeError('evidence validation requires Python assertions; disable optimization')
+
 from pathlib import Path
 import subprocess,tempfile,time,struct,hashlib
 from exfat_test_image import ExfatFixture,check_clean_image

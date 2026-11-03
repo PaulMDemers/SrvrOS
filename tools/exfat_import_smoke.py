@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 """Run imported exFAT data-length tests on a disposable copy of the built disk."""
+
+if not __debug__:
+    raise RuntimeError('evidence validation requires Python assertions; disable optimization')
+
 import argparse
 import hashlib
 from pathlib import Path

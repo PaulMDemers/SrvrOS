@@ -1,0 +1,135 @@
+{
+  "baseline": "a936baeb4a20ff28304a13252bf20345dee13bf1",
+  "boot_contract": {
+    "disk_boot_payloads": [
+      "EFI/BOOT/BOOTX64.EFI",
+      "BOOT/SRVROS.ELF",
+      "BOOT/INITRAMFS.TAR"
+    ],
+    "firmware_flash_devices": 2,
+    "fresh_variable_store_each_boot": true,
+    "guest_mount": "/fat from ahci0p2",
+    "host_kernel_initrd": false,
+    "iso": false,
+    "storage_disks": 1
+  },
+  "bootstrap_members": [
+    "init"
+  ],
+  "build_dirty": false,
+  "build_hashes": {
+    "build/initramfs.tar": "a1a1393302ce66f750c0e80de78eff2bfb2a403ff5557a9e056ee2a39e2a354b",
+    "build/kernel/srvros.elf": "c65155021db68ec7f3964f021166cefefc6d55b22ce25fb46eb02be0970a5298",
+    "build/srvros.exfat": "c972e6c49ba978df9476b0e9cfc54108a8f263fdf5b07eea1e891318c68cee7d"
+  },
+  "build_source": "f0824d5c53252712e527d0a7462c3a4470ee379d",
+  "checks": [
+    "single disk EFI boot",
+    "minimal init bootstrap without RAM disk/apps",
+    "disk-loaded Text save and Settings preference",
+    "guest reboot with flush",
+    "fresh VM exact file readback and Text reopen",
+    "preference restoration",
+    "two guest/offline allocation checks",
+    "unchanged bytes outside data",
+    "damaged system volume refuses app with no RAM fallback"
+  ],
+  "data_bounds": {
+    "bytes": 134217728,
+    "offset": 403701760
+  },
+  "date": "2026-11-03",
+  "document_sha256": "0cd9c190ef2aeb5bbf088a5080a940c86e1e01c718d43dda589f08eaa9f9ea8f",
+  "final_disk_sha256": "507f5a6f8a2fb5ce83131f750f1ddcb0fa117bb2471791b19472783ebd42ae80",
+  "firmware_mapping": "QEMU share/qemu/firmware/60-edk2-x86_64.json",
+  "firmware_sha256": "33090cc07675baa5190d9f1e84bf5176b33bcbfa9bacac522961150cdb6dbb2a",
+  "firmware_vars_template_sha256": "5d2ac383371b408398accee7ec27c8c09ea5b74a0de0ceea6513388b15be5d1e",
+  "gpt": {
+    "disk_guid": "e82f69da-9a41-4155-90b2-63b4fa3a850c",
+    "esp_partition_guid": "c2fd10d7-5dde-41bd-b354-a062888511e3",
+    "exfat_partition_guid": "6e562b69-3757-4b54-9b55-0bc22ca2bbd5"
+  },
+  "guest_allocations": "both boots: mounts=1 files=365 clusters=13821 leaks=0 fat=0 errors=0 ok",
+  "host": "Apple Silicon macOS; x86_64 QEMU TCG; x86_64 host allocation fixture",
+  "image_layout": {
+    "esp": {
+      "offset_bytes": 1048576,
+      "size_bytes": 402653184
+    },
+    "exfat": {
+      "offset_bytes": 403701760,
+      "size_bytes": 134217728
+    },
+    "size_bytes": 538968064
+  },
+  "installed_sha256": "751e5ed9f4e224d17754b1d1e8ca2402132857c0c04acca771edb8168cbd43ea",
+  "limits": [
+    "VM image provisioning only",
+    "no physical disk or power-cut acceptance",
+    "external fsck.exfat not run",
+    "no multi-disk root selection or in-place upgrade"
+  ],
+  "logs_sha256": {
+    "allocation-1.log": "4e9e9d0f4eff46edf6125adb43b62c0b1cf7bd07b4b22df2d5f57f8c09ebcacc",
+    "allocation-2.log": "4e9e9d0f4eff46edf6125adb43b62c0b1cf7bd07b4b22df2d5f57f8c09ebcacc",
+    "qemu-1.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "qemu-2.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "qemu-negative.log": "c9588ecaea74cb8a8860be06ec11dc88169db156d72efd54cd8944dfd46eabb3",
+    "serial-1.log": "cb3e763eed0f37e3c42797a410153d738f1f4325065169aef8322c189abe7f9c",
+    "serial-2.log": "eee4cf3950e877e5e4c0b8ed21e7bf26206d7bf441f2e2bee65c3532aed3d798",
+    "serial-negative.log": "20d0d74cab41abc4fa833cae5e8f553a71f1c4c7c428e619d54a66ff89ec749c"
+  },
+  "offline_allocations": "both boots: files=365 clusters=13821 leaked=0 fat_bitmap_mismatches=0 errors=0",
+  "preferences_sha256": "75e445c776e1aa1441f10e14d86ff2a62b00ca1976e5fca6caf78e3f2b4f7580",
+  "prior_failed_attempts": [
+    {
+      "directory": "proof-c96xfye3",
+      "reason": "OVMF without writable variable store wrote NvVars to ESP; strict protected-region check failed; resolved with matched per-boot flash template"
+    },
+    {
+      "directory": "proof-mo31qr8m",
+      "reason": "harness sent full pathname to focused picker list; saved bytes read back but Text reopen step timed out; fixed picker navigation"
+    },
+    {
+      "directory": "proof-9inqpblq",
+      "reason": "negative fixture wait consumed echoed prompt before command completion; corrected to require explicit ELF-not-found result"
+    }
+  ],
+  "proof_directory": "proof-ris6lu8z",
+  "protected_regions": {
+    "after_data_sha256": "0abb47f875121fa9f56de7584fa193194ad2f0fe7a970a5e8e8e0a02c764282f",
+    "before_data_sha256": "bbcf31602b3a7b667d32f14420f3fbb71f3e7c202c4a35710cf3016172b61b8e"
+  },
+  "qemu_version": "QEMU emulator version 11.1.2",
+  "retained_evidence": ".local/installation-evidence/proof-ris6lu8z",
+  "screenshot": "installed-disk-reopened.png",
+  "screenshot_sha256": "15b7a1f921c26544ade5fac9a2cf26e4866d828288e424fa0e55698777181a73",
+  "source": "f0824d5c53252712e527d0a7462c3a4470ee379d",
+  "source_artifacts": {
+    "bootx64": {
+      "sha256": "333f7a69379b1f47e019be215885cdc078b9edd6e9255cbe2f706d6c5ec0ef06",
+      "size": 319488
+    },
+    "exfat": {
+      "sha256": "c972e6c49ba978df9476b0e9cfc54108a8f263fdf5b07eea1e891318c68cee7d",
+      "size": 134217728
+    },
+    "init": {
+      "sha256": "16951b8d5572bb1fed915575fdd985c0db069e902f69bb282685bac80cc28fc6",
+      "size": 1227960
+    },
+    "kernel": {
+      "sha256": "c65155021db68ec7f3964f021166cefefc6d55b22ce25fb46eb02be0970a5298",
+      "size": 4353088
+    }
+  },
+  "source_status": "",
+  "status": "PASS",
+  "submodules": " 5e30ecd3f500f7ccbb4f4ce9a3354adddade735f ports (remotes/origin/port/awk)\n 5739fd79bcfc75ba7526773d0cf634521f8aca3c ports/upstream/awk (20260426)\n c859b25da02955fef659d658b8f324b5cde87be3 ports/upstream/cjson (v1.7.15-48-gc859b25)\n 26254ee9de7681f8825433415443e7116ff24b98 ports/upstream/inih (r62)\n 1cfa32ff59c076ffb6ed735bbc8c18361558661f ports/upstream/libuv (v1.52.1)\n dc83cc373ac2058030eb3cf5e404959a26fef112 ports/upstream/linenoise (1.0-47-gdc83cc3)\n 6e22fedb74cf0c9b6656e9fce8b7331db847c605 ports/upstream/lua (v5.4-beta-336-g6e22fedb)\n c7d10158bc31036de6783d66beaaaf551e3167aa ports/upstream/node (v24.16.0)\n da607da739fa6047df13e66a2af6b8bec7c2a498 ports/upstream/zlib (v1.3.2)\n edb51dc16214d58bcd1768b3a52fdb3b9793c8b8 userspace/apps (heads/main)\n 9eaaa74e1423c15c99f8ce388b08ed5e514de3d6 userspace/widgets (heads/main)\n",
+  "tool_sha256": {
+    "installation_image.py": "719e09601fc0b86928c5a41f440ead224193ab4d32bd506003cda93eeaf802ca",
+    "installed_disk_smoke.py": "a72394e79bf589b11a28e674442f406dd82b966a4c4ba70007db8725e1640dee",
+    "mk_usb_image.py": "b20b0134bd2f5159249e1d4b3294ea6b5396ac32cd063223debda19a23949c58"
+  },
+  "unit_tests": 11
+}

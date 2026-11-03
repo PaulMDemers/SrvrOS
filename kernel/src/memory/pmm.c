@@ -5,12 +5,11 @@
 
 #include <stddef.h>
 
-#define PMM_MAX_TRACKED_FRAMES (2 * 1024 * 1024)
 #define PMM_TAG_COUNT 8
 #define PMM_POISON_FREE 0xcc
 
 static uint8_t *bitmap;
-static uint8_t frame_tags[PMM_MAX_TRACKED_FRAMES];
+static uint8_t *frame_tags;
 static uint64_t tag_counts[PMM_TAG_COUNT];
 static uint64_t bitmap_bytes;
 static uint64_t frame_count;
@@ -69,7 +68,7 @@ static bool tag_valid(enum pmm_frame_tag tag) {
 }
 
 static void set_frame_tag(uint64_t frame, enum pmm_frame_tag tag) {
-    if (frame >= frame_count || frame >= PMM_MAX_TRACKED_FRAMES || !tag_valid(tag)) {
+    if (frame >= frame_count || !tag_valid(tag)) {
         return;
     }
 
@@ -204,14 +203,20 @@ void pmm_init(struct limine_memmap_response *memmap, uint64_t hhdm_offset) {
     frame_count = align_up(find_highest_managed_address(memmap), PMM_FRAME_SIZE) / PMM_FRAME_SIZE;
     bitmap_bytes = align_up(frame_count, 8) / 8;
 
-    uint64_t bitmap_physical = find_bitmap_location(memmap, bitmap_bytes);
+    if (frame_count > UINT64_MAX - bitmap_bytes) {
+        console_write("pmm: frame metadata size overflow\n");
+        halt_forever();
+    }
+    uint64_t metadata_bytes = bitmap_bytes + frame_count;
+    uint64_t bitmap_physical = find_bitmap_location(memmap, metadata_bytes);
     if (bitmap_physical == 0) {
-        print_bitmap_location_failure(memmap, bitmap_bytes);
+        print_bitmap_location_failure(memmap, metadata_bytes);
         console_write("pmm: no usable range can hold the bitmap\n");
         halt_forever();
     }
 
     bitmap = (uint8_t *)(bitmap_physical + hhdm);
+    frame_tags = bitmap + bitmap_bytes;
 
     for (uint64_t i = 0; i < bitmap_bytes; i++) {
         bitmap[i] = 0xff;
@@ -220,14 +225,9 @@ void pmm_init(struct limine_memmap_response *memmap, uint64_t hhdm_offset) {
     for (uint64_t i = 0; i < PMM_TAG_COUNT; i++) {
         tag_counts[i] = 0;
     }
-    for (uint64_t i = 0; i < frame_count && i < PMM_MAX_TRACKED_FRAMES; i++) {
+    for (uint64_t i = 0; i < frame_count; i++) {
         frame_tags[i] = PMM_FRAME_RESERVED;
         tag_counts[PMM_FRAME_RESERVED]++;
-    }
-    if (frame_count > PMM_MAX_TRACKED_FRAMES) {
-        console_printf("pmm: tag tracking capped frames=%u tracked=%u\n",
-            frame_count,
-            (uint64_t)PMM_MAX_TRACKED_FRAMES);
     }
 
     for (uint64_t i = 0; i < memmap->entry_count; i++) {
@@ -237,7 +237,7 @@ void pmm_init(struct limine_memmap_response *memmap, uint64_t hhdm_offset) {
         }
     }
 
-    mark_range(bitmap_physical, bitmap_bytes, true);
+    mark_range(bitmap_physical, metadata_bytes, true);
 
     console_printf("pmm: frames total=%u free=%u used=%u bitmap=%x bytes=%u\n",
         frame_count,
@@ -359,9 +359,7 @@ void pmm_free_frame_range(uint64_t physical_address, uint64_t count) {
             console_printf("pmm: double free frame=%u\n", frame + i);
             halt_forever();
         }
-        enum pmm_frame_tag tag = frame + i < PMM_MAX_TRACKED_FRAMES ?
-            (enum pmm_frame_tag)frame_tags[frame + i] :
-            PMM_FRAME_RESERVED;
+        enum pmm_frame_tag tag = (enum pmm_frame_tag)frame_tags[frame + i];
         if (tag == PMM_FRAME_RESERVED) {
             console_printf("pmm: free reserved frame=%u phys=%x\n",
                 frame + i,

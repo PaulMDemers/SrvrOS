@@ -26,11 +26,13 @@
 #include <srvros/net.h>
 #include <srvros/pci.h>
 #include <srvros/pmm.h>
+#include <srvros/path_limits.h>
 #include <srvros/process.h>
 #include <srvros/process_lifetime_test.h>
 #include <srvros/scheduler.h>
 #include <srvros/timer.h>
 #include <srvros/vfs.h>
+#include <srvros/vfs_namespace.h>
 #include <srvros/workqueue.h>
 #include <srvros/workspace.h>
 #include <srvros/xhci.h>
@@ -655,23 +657,24 @@ static void command_ls(const char *args) {
         prefix[i] = '\0';
     }
 
-    for (uint64_t i = 0; i < count; i++) {
-        const struct vfs_node *node = vfs_node_at(i);
-        if (node == NULL) {
-            continue;
-        }
+    for (uint64_t i = 0;; i++) {
+        const struct vfs_node *node;
+        char view_path[SRV_PATH_MAX];
+        int status=vfs_namespace_system_list(i,view_path,sizeof(view_path),&node);
+        if(status==0) break;
+        if(status<0) { console_write("ls: namespace enumeration failed\n");return; }
 
-        if (streq(node->path, directory)) {
-            console_printf("%s %u bytes\n", node->path, node->size);
+        if (streq(view_path, directory)) {
+            console_printf("%s %u bytes\n", view_path, node->size);
             found = true;
             continue;
         }
 
-        if (!starts_with(node->path, prefix)) {
+        if (!starts_with(view_path, prefix)) {
             continue;
         }
 
-        const char *rest = node->path + cstrlen(prefix);
+        const char *rest = view_path + cstrlen(prefix);
         if (rest[0] == '\0') {
             continue;
         }
@@ -696,6 +699,12 @@ static void command_ls(const char *args) {
                 remember_child(children, &child_count, child);
             }
             found = true;
+        } else if(node->type==VFS_NODE_DIRECTORY) {
+            if(!child_seen(children,child_count,child)) {
+                console_printf("%s/\n",child);
+                remember_child(children,&child_count,child);
+            }
+            found=true;
         } else {
             console_printf("%s %u bytes\n", child, node->size);
             found = true;
@@ -713,7 +722,7 @@ static void command_cat(const char *path) {
         return;
     }
 
-    const struct vfs_node *node = vfs_lookup(path);
+    const struct vfs_node *node = vfs_namespace_system_lookup(path);
     const uint8_t *data;
     uint64_t size;
 
@@ -758,7 +767,10 @@ static void command_write(char *args) {
         length++;
     }
 
-    if (!exfat_write_file(path, (const uint8_t *)args, length)) {
+    char storage[SRV_PATH_MAX];
+    if (!vfs_namespace_system_resolve(path,storage,sizeof(storage)) ||
+        process_has_open_vfs_prefix(storage) ||
+        !exfat_write_file(storage, (const uint8_t *)args, length)) {
         console_write("write: failed\n");
         return;
     }
@@ -771,7 +783,7 @@ static void command_elf(const char *path) {
         return;
     }
 
-    const struct vfs_node *node = vfs_lookup(path);
+    const struct vfs_node *node = vfs_namespace_system_lookup(path);
     const uint8_t *data;
     uint64_t size;
     struct elf64_info info;
@@ -1024,6 +1036,30 @@ static void command_kill(const char *target) {
     console_write("kill: requested background stop\n");
 }
 
+/* Monitor file commands share the same owner as syscall pathname operations.
+ * Keep it until the VFS snapshot is released or the mutation is published. */
+struct monitor_fs_scope { uint64_t flags; bool held; };
+static struct monitor_fs_scope monitor_fs_begin(void) {
+    struct monitor_fs_scope scope;
+    __asm__ volatile("pushfq; popq %0; cli" : "=r"(scope.flags) : : "memory");
+    scheduler_io_wait();
+    scope.held=scheduler_io_begin();
+    return scope;
+}
+static void monitor_fs_end(struct monitor_fs_scope scope) {
+    if(scope.held) scheduler_io_end();
+    if(scope.flags & (1ull<<9)) __asm__ volatile("sti" : : : "memory");
+}
+static void monitor_file_command(const char *command,char *args) {
+    struct monitor_fs_scope scope=monitor_fs_begin();
+    if(!scope.held) console_write("filesystem: storage admission failed\n");
+    else if(streq(command,"ls")) command_ls(args);
+    else if(streq(command,"cat")) command_cat(args);
+    else if(streq(command,"write")) command_write(args);
+    else command_elf(args);
+    monitor_fs_end(scope);
+}
+
 static void run_command(char *line) {
     char *command = trim(line);
 
@@ -1161,14 +1197,9 @@ static void run_command(char *line) {
     } else if (streq(command, "echo")) {
         console_write(args);
         console_putc('\n');
-    } else if (streq(command, "ls")) {
-        command_ls(args);
-    } else if (streq(command, "cat")) {
-        command_cat(args);
-    } else if (streq(command, "write")) {
-        command_write(args);
-    } else if (streq(command, "elf")) {
-        command_elf(args);
+    } else if (streq(command, "ls") || streq(command, "cat") ||
+        streq(command, "write") || streq(command, "elf")) {
+        monitor_file_command(command,args);
     } else if (streq(command, "run")) {
         command_run(args);
     } else {

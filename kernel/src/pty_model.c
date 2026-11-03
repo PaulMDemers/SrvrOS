@@ -2,7 +2,6 @@
 
 static uint32_t space(const struct pty_ring *r) { return PTY_BYTES-r->size; }
 static void put(struct pty_ring *r,uint8_t byte) { r->data[(r->head+r->size)%PTY_BYTES]=byte;r->size++; }
-static uint8_t get(struct pty_ring *r) { uint8_t c=r->data[r->head];r->head=(r->head+1)%PTY_BYTES;r->size--;return c; }
 static void clear_input(struct pty_model *p) {
     p->input.head=p->input.size=p->line_size=p->record_head=p->record_count=0;
 }
@@ -117,33 +116,47 @@ int64_t pty_model_write(struct pty_model *p,bool master,const uint8_t *data,uint
     }
     return done?(int64_t)done:SRV_ERR_AGAIN;
 }
-int64_t pty_model_read(struct pty_model *p,bool master,uint8_t *data,uint64_t length,bool nonblocking) {
+int64_t pty_model_read_checked(struct pty_model *p,bool master,uint64_t length,bool nonblocking,pty_copyout copyout,void *context) {
     if(!length) return 0;
-    if(!data) return -1;
     struct pty_ring *r=master?&p->output:&p->input;
-    if(!master && (p->attributes.lflag&SRV_TTY_LFLAG_ICANON)) {
+    bool canonical=!master && (p->attributes.lflag&SRV_TTY_LFLAG_ICANON);
+    bool line=false;uint64_t count;
+    if(canonical) {
         if(!p->record_count) {
             if(!p->master_closed) return SRV_ERR_AGAIN;
-            /* The master can disappear with a partial canonical line. */
-            uint64_t count=length<p->line_size?length:p->line_size;
-            for(uint64_t i=0;i<count;i++) data[i]=p->line[i];
-            for(uint64_t i=count;i<p->line_size;i++) p->line[i-count]=p->line[i];
-            p->line_size-=count;return count;
-        }
-        uint16_t *record=&p->records[p->record_head];
-        uint64_t count=length<*record?length:*record;
-        for(uint64_t i=0;i<count;i++) data[i]=get(r);
-        *record-=count;
-        if(!*record) { p->record_head=(p->record_head+1)%PTY_RECORDS;p->record_count--; }
-        return count;
+            line=true;count=length<p->line_size?length:p->line_size;
+        } else count=length<p->records[p->record_head]?length:p->records[p->record_head];
+    } else {
+        unsigned minimum=master || nonblocking?1:p->attributes.cc[SRV_TTY_VMIN];
+        if(minimum>length) minimum=length;
+        if(r->size<minimum && !(master?p->slave_closed:p->master_closed)) return SRV_ERR_AGAIN;
+        count=length<r->size?length:r->size;
     }
-    unsigned minimum=master || nonblocking?1:p->attributes.cc[SRV_TTY_VMIN];
-    if(minimum>length) minimum=length;
-    bool closed=master?p->slave_closed:p->master_closed;
-    if(r->size<minimum && !closed) return SRV_ERR_AGAIN;
-    uint64_t count=length<r->size?length:r->size;
-    for(uint64_t i=0;i<count;i++) data[i]=get(r);
+    uint64_t first=line?count:PTY_BYTES-r->head;
+    if(first>count) first=count;
+    if(count && !copyout(context,line?p->line:r->data+r->head,first,r->data,count-first)) return SRV_ERR_FAULT;
+    if(line) {
+        for(uint64_t i=count;i<p->line_size;i++) p->line[i-count]=p->line[i];
+        p->line_size-=count;
+    } else {
+        r->head=(r->head+count)%PTY_BYTES;r->size-=count;
+        if(canonical) {
+            uint16_t *record=&p->records[p->record_head];*record-=count;
+            if(!*record) { p->record_head=(p->record_head+1)%PTY_RECORDS;p->record_count--; }
+        }
+    }
     return count;
+}
+struct read_buffer { uint8_t *data; };
+static bool read_copy(void *context,const uint8_t *a,uint64_t an,const uint8_t *b,uint64_t bn) {
+    struct read_buffer *out=context;
+    for(uint64_t i=0;i<an;i++) out->data[i]=a[i];
+    for(uint64_t i=0;i<bn;i++) out->data[an+i]=b[i];
+    return true;
+}
+int64_t pty_model_read(struct pty_model *p,bool master,uint8_t *data,uint64_t length,bool nonblocking) {
+    if(!data && length) return -1;
+    struct read_buffer out={data};return pty_model_read_checked(p,master,length,nonblocking,read_copy,&out);
 }
 uint16_t pty_model_poll(const struct pty_model *p,bool master,uint16_t events) {
     uint16_t result=0;bool closed=master?p->slave_closed:p->master_closed;
