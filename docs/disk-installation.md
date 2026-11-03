@@ -1,5 +1,40 @@
 # Disk installation and recovery
 
+## Profile-aware installation plans — active milestone
+
+User authorized implementation, two-installation persistence/refusal proof and
+a scoped PR. Branch `device/apple-silicon/profile-install-plans` uses the existing
+isolated installation clone, based on fetched main `c7be6574` (merged filesystem
+acceptance PR318). Latest contracts consumed: merged PR309 bundle/local identity,
+PR314 offline image adapter and explicit profile session (Apps `3cf32af2`),
+PR313 namespace/clean admission and merged Ports `5e994f53`.
+
+Own installer plan/API/tests, a new profile-installation proof and this record.
+Reuse profile validation/publication and explicit desktop startup; no competing
+account store, home resolver, namespace or credentials implementation. A minimal
+shared profile validation helper keeps prepare and provisioning under the same
+contract. Filesystem busy-unmount/remount work is independent; this slice does
+not edit the installed-root/canonical harnesses or guest namespace tests.
+
+Required outcome: prepare validates profile bundle/home/local alias/UID/GID before
+creating a target; a checksummed plan binds source bundle and driver identity,
+portable UUID and destination binding. Apply provisions a private exFAT copy,
+assembles the new identity-bound GPT image and verifies its exact data bytes
+before ready publication. Explicit profile launch remains separate from boot.
+Original inputs are preserved; malformed, changed or interrupted inputs must not
+publish an installed image/ready marker.
+
+Acceptance: A edit/save/reboot, export the actual persisted content, then B
+provision/reboot with the same UUID and different disk GUID/home/local bindings;
+exact documents, all six portable values, environment/cwd and independent machine
+settings; guest/offline allocation checks and protected regions; real refusal
+fixtures plus focused unit tests. Source/artifact provenance and all raw evidence
+must be retained outside build before delivery. Status: in progress.
+
+Review VMs 61610, 6233 and 85869 remain live and untouched. One build/harness runs
+at a time here; no physical media, host reboot or Actions. No guest import UI,
+authentication or in-place update is included.
+
 ## PR315 integrated-main review and next milestone
 
 PR313 landed as main `56e1f950`, including PR314 desktop profiles, PR252 and

@@ -1,5 +1,17 @@
 # Apple Silicon macOS build host
 
+## Profile-aware installation plans — active scope
+
+User authorized a scoped PR and two-installation persistence/refusal proof in
+`SrvrOS-installation`, branch `device/apple-silicon/profile-install-plans`, main
+`c7be6574`. Consume merged profile PR309/314, namespace PR313 and acceptance PR318;
+Apps pin `3cf32af2`, Ports pin `5e994f53`. Own installation plans/tests and new
+proof harness; shared profile preflight is extracted from the existing adapter.
+The existing installed/canonical harnesses and guest namespace files remain the
+filesystem owner's active scope. Preserve VMs 61610, 6233 and 85869; run one
+build/harness at a time. No physical media, reboot or Actions. Current acceptance
+and exact evidence will be recorded in `docs/disk-installation.md`.
+
 ## PR315 merge review
 
 Current-main `56e1f950` includes filesystem PR313 and profile-desktop PR314.
