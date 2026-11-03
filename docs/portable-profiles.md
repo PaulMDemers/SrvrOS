@@ -527,7 +527,7 @@ OS hosted Actions are still disabled; Apps has no workflow files. No hosted CI
 pass is claimed. Local acceptance above is the authorized merge gate.
 
 
-## Guest transfer milestone — in progress
+## Guest transfer milestone — verified for review
 
 Authorized target: guest export, import and activation using the v1 bundle,
 with real migration between two disposable installed VMs and interrupted-import
@@ -541,3 +541,90 @@ No physical disks or existing review VMs are part of this trial. One build or
 VM harness runs at a time in this checkout. Completion requires full guest proof,
 malformed-input refusal, interrupted import refusal/recovery, reboot persistence,
 unchanged machine settings and a reviewable PR.
+
+
+### Guest commands and recovery
+
+The installed `profile` command uses the same v1 JSON bundle and strict bounds
+as the host tooling. Run from the monitor (the transport volume is mounted at
+`/work`):
+
+```text
+run /fat/bin/profile export /fat/home/local-a /work/transfer.json Documents/migration.txt Documents/binary.dat
+run /fat/bin/profile inspect /work/transfer.json
+run /fat/bin/profile import /work/transfer.json /fat/home/local-b local_b 2050 2051
+run /fat/bin/profile activate /fat/home/local-b
+run /fat/bin/profile recover /fat/home/local-b
+```
+
+Export includes only the named Documents files and portable preferences; zero
+selected files exports identity/settings only. Import requires a new single-slot
+`/fat/home/SLOT`, validates the complete bundle and expanded guest paths before
+mutation, and refuses existing homes, UUID/alias/UID collisions and reservations
+held by pending imports. Destination binding numbers remain metadata. Activation
+executes the existing desktop with the validated profile context.
+
+Before creating HOME, import exclusively creates and flushes a sibling
+`HOME.profile-import.json` journal. It binds the destination, profile ID and local
+binding to the original bundle's absolute path and SHA256. A pending marker inside
+HOME blocks both the CLI and direct compositor activation. A reserved root scratch
+file is flushed then renamed into each destination file; final files must match
+the manifest exactly before recovery proceeds. Publication removes the pending
+marker only after all required content, identity and directories are complete and
+flushed. A remaining completed journal can be reconciled without rewriting data.
+
+Recover resumes a valid journal using the unchanged original bundle at its
+original mounted path. It verifies the existing tree before mutation, retries an
+interrupted reserved scratch copy and never recursively deletes a profile.
+Unknown files/directories, changed final bytes, changed bundles, malformed
+journals and linked/special host fixture files refuse and preserve state.
+
+A torn initial journal created before HOME exists requires manual inspection;
+recover does not infer ownership from unreadable metadata. Interrupted export can
+leave an incomplete exclusive output: inspect it and choose a fresh filename;
+completed outputs are never overwritten. These are process-interruption and
+clean-reboot guarantees for cooperative single-writer operation, not power-cut
+atomicity or a hostile-writer boundary. Guest symlinks/access control are not
+implemented here. Authentication and kernel permission enforcement remain separate.
+
+The merged canonical filesystem namespace is consumed without duplicating its
+implementation. This milestone retains the explicit `/fat/home` backing provider,
+which is also exposed by the filesystem's `/home` alias.
+
+
+### Final guest acceptance
+
+Tested integrated source: `d309ae5819b7bfa1e44634e8dea70523e565e520`, consuming main
+`c7be6574` (filesystem/installed-path acceptance and process-lifetime integration).
+The full build and focused `test-guest-profiles test-profile-desktop check-docs`
+pass. Fifteen real-filesystem host groups cover v1 cross-compatibility, binary
+roundtrips, SHA/base64 boundaries through 1 MiB, aggregate/document/path limits,
+malformed/deep/duplicate JSON, collisions/reservations, all five interruption
+checkpoints, partial scratch recovery, unknown/mismatched data preservation,
+changed bundles, torn journals and completed-publication reconciliation. The
+same CLI implementation passes x86_64 ASan/UBSan (all 15 groups).
+
+`tools/profile_guest_smoke.py` passes 13 VM lifetimes across source A and
+destination B, including five independent interrupted-import copies of B. A uses
+Text/Settings to edit the source profile and exports directly to a second,
+guest-mounted GPT transport disk. That same disk moves to B; the host never
+injects the exported profile payload. Each fault copy exits at `journal`,
+`directories`, `document`, `identity` or `commit-ready`, reboots, refuses
+activation and successfully recovers. Fresh B then imports, reboots and activates
+through the guest CLI; Text reopens the edited document. Screenshot inspected.
+
+The stable UUID, exact text/binary bytes and all six portable settings match.
+A's 1001/1001 binding becomes B's 2050/2051 binding. Both complete machine settings
+files remain unchanged. Installed profile/desktop/app binaries match the build;
+guest and offline allocation checks have zero errors/leaks; GPT/boot regions
+remain unchanged and the transport bundle is preserved byte-for-byte.
+
+Evidence: `build/review/profile-guest/proof-b3mc85lt/`, receipt SHA256
+`fa3c610698160f6e3e0166e780afa660a7748b95e6df4c0714749692f6fefae4`. Logs: `build/profile-guest-integrated-build.log`,
+`build/profile-guest-integrated-host.log`, `build/profile-guest-integrated-vm.log`
+and `build/profile-guest-sanitized.log`. Earlier proof images are losslessly
+compressed with original hashes/restoration paths in `compressed-images.json`.
+The first harness trial caught a monitor-line-length issue; the corrected
+failpoint commands are bounded below 128 bytes, and that failed run is retained.
+All task-owned VMs are stopped. No physical disk or existing review VM was changed.
+This milestone is complete for PR review; a graphical chooser remains future work.
