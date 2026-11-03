@@ -3,11 +3,12 @@ from wifi_frontend_log import check,targets,PROGRESS,BOARD,SUMMARY,RAW
 from test_wifi_a20_cycle_log import fixture as prior_fixture
 
 
-def fixture(raw=False):
+def fixture(raw=False,overrides=None):
     log=prior_fixture().replace('srvros.wifi-a20-cycle=1','srvros.wifi-a20-cycle=1 srvros.wifi-frontend=1');rows=[BOARD,PROGRESS];values=[]
     for i,a in enumerate(targets()):
         v=((0x10000000+i*0x1001) if i<30 else (i*7)&255)
         if raw and a in RAW:v=0xffffffff
+        if overrides and a in overrides:v=overrides[a]
         for n in range(7):
             op=i*7+n
             if n!=3:

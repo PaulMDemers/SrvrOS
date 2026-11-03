@@ -4764,3 +4764,16 @@ test-virtio-block: build/tests/virtio-block-host$(HOST_EXE)
 build/tests/virtio-%-host$(HOST_EXE): tools/test_virtio_%.c kernel/src/drivers/virtio_%.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -o $@
+
+.PHONY: test-mt76-pa5
+test-core: test-mt76-pa5
+test-mt76-pa5: build/tests/mt76-pa5-host$(HOST_EXE)
+	$(HOST_RUN) $< tools/fixtures/mt7610-5ghz-pa-cycle.bin
+build/tests/mt76-pa5-host$(HOST_EXE): tools/test_mt76_pa5.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h tools/fixtures/mt7610-5ghz-pa-cycle.bin
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-wifi-pa5-log
+test-core: test-wifi-pa5-log
+test-wifi-pa5-log:
+	$(PYTHON) -m unittest discover -s tools -p test_wifi_pa5_log.py

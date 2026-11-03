@@ -864,4 +864,32 @@ uint32_t mt76_agc_state_address(unsigned operation);
 bool mt76_agc_state_admit(const struct mt76_agc_state *,unsigned operation);
 bool mt76_agc_state_valid(const struct mt76_agc_state *);
 enum mt76_mcu_timing_status mt76_agc_state_capture(struct mt76_agc_state *,const struct mt76_mcu_timing_io *);
+
+/* Captured external5GHz PA only:14 originals,select,verify,reverse,verify.
+ * One-shot exact board/tuple; no caller target/value, BBP, VCO or RX. */
+#define MT76_PA5_TARGETS 14u
+#define MT76_PA5_COMMANDS 70u
+#define MT76_PA5_OPS 490u
+struct mt76_pa5 {
+    bool attempted,complete,restored;
+    unsigned operations,reads,exchanges,writes;
+    int received;
+    uint32_t guards[140][3],words[70][4];
+};
+struct mt76_pa5_io {void *context;bool (*authorize)(void *);bool (*transfer)(void *,bool,uint32_t,uint32_t *);int (*exchange)(void *,const uint8_t *,size_t,uint8_t *,size_t);};
+bool mt76_pa5_parent_valid(const struct mt76_5ghz_prereq *s);
+uint32_t mt76_pa5_target(unsigned index);
+uint32_t mt76_pa5_initial(unsigned index);
+uint32_t mt76_pa5_selected(unsigned index);
+unsigned mt76_pa5_index(unsigned command);
+bool mt76_pa5_write(unsigned command);
+bool mt76_pa5_rf(unsigned operation);
+uint32_t mt76_pa5_address(unsigned operation);
+uint32_t mt76_pa5_expected(unsigned command);
+bool mt76_pa5_admit(const struct mt76_pa5 *s,unsigned operation);
+bool mt76_pa5_transfer_valid(const struct mt76_pa5 *s,unsigned operation,bool write,uint32_t address,uint32_t value);
+size_t mt76_pa5_packet(const struct mt76_pa5 *s,unsigned operation,uint8_t *out,size_t capacity);
+bool mt76_pa5_valid(const struct mt76_pa5 *s);
+enum mt76_mcu_timing_status mt76_pa5_capture(struct mt76_pa5 *s,uint16_t nic0,uint16_t nic1,const struct mt76_pa5_io *io);
+
 #endif

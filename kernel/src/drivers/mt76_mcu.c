@@ -3201,3 +3201,87 @@ enum mt76_mcu_timing_status mt76_agc_state_capture(struct mt76_agc_state *s,cons
     for(unsigned i=0;i<2;i++)s->current[i]=s->initial[i]=(s->raw[i]>>8)&127;
     s->low_gain=-1;s->init_done=s->complete=true;return MT76_TIMING_OK;
 }
+
+/* Exact v113 originals, independently captured after41-word restoration. */
+static const uint32_t pa5_targets[14]={0x518,0x8006002d,0x80060032,0x80060033,0x80060034,0x80060035,0x80060036,0x80060037,0x80060038,0x80060039,0x8006003a,0x8006003b,0x13a8,0x13b4};
+static const uint32_t pa5_originals[14]={1,0,0,0,0,0,0,0,0,0,0,0,0x6c6c6c6c,0xc9540000};
+static const uint32_t pa5_values[14]={5,0x33,2,2,8,8,10,10,5,5,2,2,0x686a7800,0x89040000};
+uint32_t mt76_pa5_target(unsigned i){return i<14?pa5_targets[i]:UINT32_MAX;}
+uint32_t mt76_pa5_initial(unsigned i){return i<14?pa5_originals[i]:UINT32_MAX;}
+uint32_t mt76_pa5_selected(unsigned i){return i<14?pa5_values[i]:UINT32_MAX;}
+unsigned mt76_pa5_index(unsigned q){return q<42?q%14:q<56?55-q:q<70?q-56:UINT32_MAX;}
+bool mt76_pa5_write(unsigned q){return (q>=14 && q<28) || (q>=42 && q<56);}
+bool mt76_pa5_rf(unsigned op){return op<490 && op%7==3 && (mt76_pa5_target(mt76_pa5_index(op/7))&0x80000000u);}
+uint32_t mt76_pa5_address(unsigned op){return op>=490?UINT32_MAX:op%7==3?mt76_pa5_target(mt76_pa5_index(op/7)):mt76_rf_probe_read_address(op%7<3?op%7:op%7-4);}
+uint32_t mt76_pa5_expected(unsigned q){unsigned i=mt76_pa5_index(q);return i>=14?UINT32_MAX:q>=14 && q<42?pa5_values[i]:pa5_originals[i];}
+static bool pa5_state(const struct mt76_pa5 *s,unsigned op){
+    if(!s || !s->attempted || op>490 || s->operations!=op)return false;
+    unsigned reads=0,exchanges=0,writes=0;int received=-1;
+    for(unsigned q=0;q<70;q++){
+        unsigned done=op>=7*(q+1)?7:op>7*q?op-7*q:0;
+        for(unsigned n=0;n<done;n++){
+            if(n!=3){unsigned j=n<3?n:n-4;if(!rf_central_guard_valid(j,s->guards[2*q+(n>=4)][j]))return false;reads++;}
+            else {
+                const uint32_t *w=s->words[q];uint32_t v=mt76_pa5_expected(q);
+                if(mt76_pa5_rf(7*q+3)){
+                    uint32_t h=0x4a000008u|(((q%15)+1)<<16);
+                    if(w[0]!=h || w[1]!=mt76_pa5_address(7*q+3) || w[2]!=v || w[3]!=h)return false;
+                    exchanges++;received=16;
+                }else{if(w[0]!=v || w[1] || w[2] || w[3])return false;if(!mt76_pa5_write(q))reads++;}
+                writes+=mt76_pa5_write(q);
+            }
+        }
+    }
+    return s->reads==reads && s->exchanges==exchanges && s->writes==writes && s->received==received;
+}
+bool mt76_pa5_admit(const struct mt76_pa5 *s,unsigned op){return s && !s->complete && !s->restored && op<490 && pa5_state(s,op);}
+bool mt76_pa5_transfer_valid(const struct mt76_pa5 *s,unsigned op,bool write,uint32_t address,uint32_t value){
+    return mt76_pa5_admit(s,op) && !mt76_pa5_rf(op) && address==mt76_pa5_address(op) &&
+        write==(op%7==3 && mt76_pa5_write(op/7)) && (!write || value==mt76_pa5_expected(op/7));
+}
+size_t mt76_pa5_packet(const struct mt76_pa5 *s,unsigned op,uint8_t *out,size_t cap){
+    if(!mt76_pa5_admit(s,op) || !mt76_pa5_rf(op))return 0;
+    unsigned q=op/7;uint8_t p[8]={0};uint32_t a=mt76_pa5_address(op);
+    for(unsigned b=0;b<4;b++)p[b]=(uint8_t)(a>>(b*8));
+    if(mt76_pa5_write(q))p[4]=(uint8_t)mt76_pa5_expected(q);
+    return mt76_mcu_encode(mt76_pa5_write(q)?12:10,q%15+1,p,8,out,cap);
+}
+bool mt76_pa5_valid(const struct mt76_pa5 *s){return s && s->complete && s->restored && pa5_state(s,490);}
+enum mt76_mcu_timing_status mt76_pa5_capture(struct mt76_pa5 *s,uint16_t nic0,uint16_t nic1,const struct mt76_pa5_io *io){
+    if(!s || s->attempted || nic0!=0xfd11 || nic1!=0x1004 || !io || !io->authorize || !io->transfer || !io->exchange)return MT76_TIMING_REFUSED;
+    *s=(struct mt76_pa5){.attempted=true,.received=-1};
+    for(unsigned op=0;op<490;op++){
+        if(!mt76_pa5_admit(s,op))return MT76_TIMING_STATE;
+        if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+        unsigned q=op/7,n=op%7;uint32_t value=0;
+        if(mt76_pa5_rf(op)){
+            uint8_t packet[16],reply[MT76_MCU_RESPONSE_MAX]={0};if(mt76_pa5_packet(s,op,packet,16)!=16)return MT76_TIMING_STATE;
+            s->received=io->exchange(io->context,packet,16,reply,sizeof reply);if(s->received<0)return MT76_TIMING_IO;if(s->received!=16)return MT76_TIMING_REPLY;
+            uint32_t *w=s->words[q];for(unsigned j=0;j<4;j++)for(unsigned b=0;b<4;b++)w[j]|=(uint32_t)reply[4*j+b]<<(8*b);
+            uint32_t h=0x4a000008u|(((q%15)+1)<<16);
+            if(w[0]!=h || w[1]!=mt76_pa5_address(op) || w[2]!=mt76_pa5_expected(q) || w[3]!=h)return MT76_TIMING_REPLY;
+            value=w[2];s->exchanges++;
+        }else{
+            bool write=n==3 && mt76_pa5_write(q);if(write)value=mt76_pa5_expected(q);
+            if(!mt76_pa5_transfer_valid(s,op,write,mt76_pa5_address(op),value))return MT76_TIMING_STATE;
+            if(!io->transfer(io->context,write,mt76_pa5_address(op),&value))return MT76_TIMING_IO;
+            if(!write)s->reads++;
+            if(n==3){if(value!=mt76_pa5_expected(q))return MT76_TIMING_STATE;s->words[q][0]=value;}
+        }
+        s->operations++;
+        if(n==3)s->writes+=mt76_pa5_write(q);
+        else{unsigned j=n<3?n:n-4;s->guards[2*q+(n>=4)][j]=value;if(!rf_central_guard_valid(j,value))return MT76_TIMING_STATE;}
+    }
+    if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+    if(!pa5_state(s,490))return MT76_TIMING_STATE;
+    s->complete=s->restored=true;return MT76_TIMING_OK;
+}
+
+bool mt76_pa5_parent_valid(const struct mt76_5ghz_prereq *s){
+    if(!mt76_frontend_valid(s))return false;
+    for(unsigned i=0;i<14;i++){
+        unsigned j=i==0?0:i<12?29+i:i==12?1:2;
+        if(mt76_frontend_target(j)!=mt76_pa5_target(i) || s->values[j]!=mt76_pa5_initial(i))return false;
+    }
+    return true;
+}

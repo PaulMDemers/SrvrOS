@@ -273,6 +273,38 @@ the actual tuple. IBI9 observed raw all-ones; AGC51/53/55 did not. These are
 same-unit observations after this exact common/restored sequence, not reset
 constants or calibration readiness. PA/BBP programming remains the next scope.
 
+## External5GHz PA restoration candidate (v114)
+
+The fixed14-target `mt76_pa5` transaction requires the captured board
+NIC0fd11/NIC11004 and the complete v113 frontend proof, including its exact
+PA originals. All14 originals are independently reread before any new write.
+Forward order follows pinned Linux v7.0 `mt76x0_phy_set_chan_rf_params`:
+RF_MISC0518 clears bits2/3 then enables external-A bit2 (1→5),11 high-band
+external-PA RF6 settings, attenuation13a8=`686a7800`, and ALC13b4 masked by
+`890400ff` (c9540000→89040000). The numeric fixture and source audit reproduce
+that projection; originals are same-unit v113 observations, not generic resets.
+
+The490-operation engine independently rereads all14 selected values, restores
+all14 in reverse order, then rereads all14 originals. Every command has three
+MAC/core/DMA guards before and after, and authorization before every I/O plus
+final completion. MCU response identity/address/value/trailer and fixed direct
+read/write predicates are exact. One-shot records retain every guard/reply;
+any mutation, unexpected original, cancellation or I/O failure refuses progress
+and cannot replay. A failed partial write is not called restored, and uncertain
+transport ownership remains quarantined under the existing driver contract.
+
+The explicit automatic `--wifi-pa5-cycle` profile requires the complete frontend/
+integrated A20/channel161/common chain. It runs after the parent's restoration,
+with MAC disabled; this verifies PA commands separately from held-channel RF
+operation. Native callbacks require the same static owner/device, fresh board,
+complete live parent proofs, exact originals and operation count before USB.
+Unknown callers cannot choose a target, value or packet. Ordinary startup and
+legacy profiles remain unchanged. No BBP gain, VCO pulse, calibration, receive,
+network frame or credential is part of this profile. Complete saved source-bound
+proof and storage/recovery/automatic-return checks are required for native
+acceptance. Baseband setup still requires fresh high-band gain validation.
+Run `make test-mt76-pa5 test-wifi-pa5-log` for engine and saved-receipt checks.
+
 ## Captured baseline
 
 USB high speed (480 Mb/s), one configuration, interface 0 / alternate 0,

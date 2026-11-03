@@ -6673,6 +6673,16 @@ static void test_wifi_mcu_transport(void) {
 #include "test_xhci_wifi_burst.inc"
 #include "test_xhci_wifi_window.inc"
 
+static void test_pa5_refusal(void){
+    struct xhci_device d={0};uint32_t v=0;uint8_t packet[16]={0},reply[1024]={0};
+    assert(!wifi_pa5_parent(NULL) && !wifi_pa5_parent(&d));
+    assert(!wifi_pa5_owned(NULL) && !wifi_pa5_owned(&wifi_pa5));
+    assert(!wifi_pa5_transfer(&wifi_pa5,false,0x1004,&v));
+    assert(!wifi_pa5_transfer(&wifi_pa5,true,0x518,&v));
+    assert(wifi_pa5_exchange(&wifi_pa5,packet,16,reply,sizeof reply)<0);
+    assert(!wifi_pa5.submitted && !wifi_pa5.state.attempted);
+    puts("xhci PA5: PASS unowned/unknown context refuses direct read/write and MCU exchange before USB");
+}
 int main(int argc, char **argv) {
     if(argc==3 && !strcmp(argv[1],"--wifi-scan-batch-group")){batch_test_enabled=batch_test_group=true;batch_case=(unsigned)strtoul(argv[2],0,10);assert(batch_case<6);receive_test_only=scan_test_only=true;test_wifi_window();return 0;}
     if(argc==4 && (!strcmp(argv[1],"--wifi-scan-batch-case") || !strcmp(argv[1],"--wifi-scan-batch-trace"))){batch_trace=!strcmp(argv[1],"--wifi-scan-batch-trace");batch_test_enabled=true;batch_case=(unsigned)strtoul(argv[2],0,10);batch_fault_visit=(unsigned)strtoul(argv[3],0,10);assert(batch_case<=35 && batch_fault_visit<3);receive_test_only=scan_test_only=true;test_wifi_window();return 0;}
@@ -6793,6 +6803,7 @@ int main(int argc, char **argv) {
     test_wifi_firmware_transport();
     test_control_worker_completion();
     test_strict_control();
+    test_pa5_refusal();
     test_strict_no_data();
     test_wifi_write_guard();
     test_wifi_probe();
