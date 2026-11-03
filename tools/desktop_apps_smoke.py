@@ -140,23 +140,18 @@ def main():
                 click(790,750);wait(b"desktools: starting role=settings");wait(b"deskd: geometry pid=");wait(b"\n");shot("settings")
                 geometry=re.findall(rb"deskd: geometry pid=(\d+) window=(\d+) frame=(\d+),(\d+),(\d+),(\d+)",output)
                 assert geometry, "Settings geometry missing from trace"
-                _,_,sx,sy,sw,sh=map(int,geometry[-1]);client_w=sw-2;client_h=sh-45
-                click(210,240);time.sleep(.3);click(490,750);shot("larger-text")
+                _,_,sx,sy,_,_=map(int,geometry[-1])
+                shortcut("pgdn");click(210,232);time.sleep(.3);click(490,750);shot("larger-text")
                 # Select existing Text content: its selection fill is widget-owned,
                 # so a changed pixel proves the already-running client repainted.
                 click(90,225);shortcut("ctrl-a");shot("theme-before")
                 before=selection_color(out/"theme-before.ppm",49,64+44+102)
                 assert before==(0xc9,0xe1,0xf6), f"Expected Blue selection, got {before}"
                 click(790,750)
-                # Drag the Settings scrollbar to the bottom; coordinates derive
-                # from the traced frame and the widget's documented viewport.
-                track_x=sx+1+client_w-22;track_y=sy+44+64;view_h=client_h-108
-                qmp.mouse(track_x-pointer[0],track_y+20-pointer[1]);pointer[:]=[track_x,track_y+20]
-                qmp.mouse(0,0,1);qmp.mouse(0,view_h+30,1);qmp.mouse(0,0,0);pointer[1]+=view_h+30
-                # Appearance rows are 36px high; choose Teal and Clear.
-                offset=1514-view_h
-                teal_y=sy+44+64-offset+460+760+36+72+16
-                clear_y=sy+44+64-offset+460+760+36+180+28+16
+                # Return to Appearance at the top and choose Teal and Clear.
+                shortcut("pgup")
+                teal_y=sy+44+64+252+16
+                clear_y=sy+44+64+392+16
                 click(sx+45,teal_y);wait(b"theme_accent=2 glass_level=1")
                 click(sx+45,clear_y);wait(b"theme_accent=2 glass_level=2")
                 wait(b"status=1 ");shot("theme-settings-saved")
@@ -203,7 +198,7 @@ def main():
                 shortcut("f10");shortcut("end");shortcut("ret")
                 wait(b"deskd: exited",60);wait(b"srv> ")
                 serial.sendall(b"cat /fat/home/desktop.conf\n")
-                wait(b"theme_accent=2\r\nglass_level=2");wait(b"srv> ")
+                wait(b"srvros-desktop-v6");wait(b"theme_accent=2\r\nglass_level=2\r\ntheme_style=0");wait(b"srv> ")
                 serial.sendall(b"cat /fat/desktop-smoke.txt\n")
                 wait(b"Hello, SrvrOS!\r\nNative desktop text. More. Kept.")
                 wait(b"srv> ")

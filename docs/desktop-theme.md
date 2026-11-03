@@ -1,7 +1,8 @@
 # Global desktop appearance
 
-Settings → Appearance (below Sound) changes Blue, Graphite or Teal accent and
-Solid, Subtle or Clear window glass. Selection and focus colors follow the accent;
+Settings opens with Appearance: rendered previews select Silver, Aero or Aqua.
+Blue, Graphite or Teal accent and Solid, Subtle or Clear glass remain independent
+choices. Selection and focus colors follow the accent;
 window title bars, menu bar and dock follow the glass treatment. App content stays
 opaque. This is tinted transparency, highlights and bounded fading shadows, not
 backdrop blur. Solid remains available for predictable contrast.
@@ -16,27 +17,66 @@ Applying, Saved, session-only or conflict status rather than claiming a successf
 save when transport or storage failed. Its appearance confirmation has a bounded
 timeout; retry remains explicit.
 
-Protocol v16 appends `theme_accent` and `glass_level` to the preference payload
+Protocol v17 appends `theme_style` to the appearance preference payload
 inside the unchanged 168-byte desktop packet. Build matched compositor and GUI
-applications; no mixed-version compatibility is claimed. The strict v5 preference
-file fits the existing 256-byte bound and reads v1–v4 with Blue/Subtle defaults.
+applications; no mixed-version compatibility is claimed. The strict v6 preference
+file fits the existing 256-byte bound and reads v1–v5 with Silver as the style.
+Files older than v5 retain Blue/Subtle defaults for accent and glass.
 The existing delayed-load merge, debounce, verified write, conflict and shutdown
 rules remain in the OS runtime.
 
 Each `desk_app` caches a validated, server-authenticated preference snapshot.
 Visual changes dirty that window. The inline `desk_app_theme()` adapter resolves
-a caller-owned theme through SrvrUI's `desk_theme_configure()`; no mutable theme
+a caller-owned theme through SrvrUI's `desk_theme_configure_style()`; no mutable theme
 global or OS calls enter the widget library. App main windows and owned dialogs
 resolve their own snapshots. Theme changes do not rewrite image, paint or terminal
 content colors. Compact control fonts retain their established size; the existing
-document text-size behavior remains app-owned. Color-only updates avoid relayout
+document text-size behavior remains app-owned. Appearance updates avoid relayout
 and preserve selection, scroll position and pointer capture.
 
 The first engine exposes bounded presets. Future properties should extend this
 same validated snapshot/resolver path, with a protocol/file migration when the
 wire or saved representation changes. Avoid new per-app preference stores.
 
+## Complete style profiles
+
+Silver retains the original appearance and is the migration/default style. Aero
+adds cool glass, a split highlight on beveled controls, richer selection, inset
+fields and stronger scrollbar thumbs. Aqua uses neutral silver chrome, softer
+rounded controls, colored window-control indicators and centered window titles.
+All three retain the same control geometry, window-button order, font metrics,
+keyboard navigation and content layout. Disabled, focused, pressed and selected
+states share the same profile resolver. The previews draw actual toolkit pixels.
+
+These are original adaptations informed by Microsoft's
+[Windows 7 design guide](https://learn.microsoft.com/en-us/windows/win32/uxguide/guidelines)
+and Apple's [Yosemite design announcement](https://www.apple.com/newsroom/2014/10/16OS-X-Yosemite-Available-Today-as-a-Free-Upgrade/).
+They use the existing bounded renderer; no backdrop-blur pass or animation loop
+is introduced. `desk_theme_configure()` remains a Silver-compatible wrapper for
+existing toolkit callers.
+
 ## Composition and verification
+
+### Profile acceptance — November 3, 2026
+
+Clean runtime `50389359`, SrvrUI `89fb6d9` and SrvrApps `d245fe2` pass the matched
+full build and final profile VM. The complete desktop/widget host suite covers
+migration, style-only updates, clipping, padded strides, and exact partial/full
+redraw equality during drag and scroll. The existing Settings and application
+workflow VMs pass; the final focused Settings host run covers its compact fix.
+Both profiles update existing/new Text windows, dialogs and menus without losing
+selection/content. Aqua restores after desktop restart. Actual 280×240 and
+larger-text Settings renders were inspected alongside the full desktop.
+
+Fifteen alternating samples per style measured median host frame paint costs of
+334/334/283 µs for Silver/Aero/Aqua, title-damage costs of 121/121/70 µs, and cursor
+costs of 4/4/4 µs. This supports bounded renderer cost; host vblank and native
+hardware acceptance are not established by this comparison.
+
+See the [acceptance receipt](assets/screenshots/theme-profiles-manifest.json),
+[widget specimen](assets/screenshots/theme-profiles-widgets.png),
+[Aero desktop](assets/screenshots/theme-profiles-aero.png), and
+[Aqua desktop](assets/screenshots/theme-profiles-aqua.png).
 
 The glass primitive blends only the current destination pixel, with coordinates
 anchored to the original rectangle and bounded rounded spans. It preserves incoming

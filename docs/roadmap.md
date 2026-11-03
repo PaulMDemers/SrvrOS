@@ -6,7 +6,33 @@ and [machine records](machines/README.md) separate implementation from physical
 acceptance. The [device parity ledger](device-parity.md) compares the Air with
 ongoing Pro work.
 
+## Current theme profiles — November 3, 2026
+
+Target: complete Aero-inspired and Aqua-inspired widget/chrome profiles, live
+Appearance previews, consistent updates across existing/new application windows,
+saved style restoration, and preserved dragging/scrolling performance. Keep
+Silver as the default and retain accent/glass controls and document state.
+
+Implemented on `device/apple-silicon/theme-profiles`, based on merged PR285:
+shared profile resolver and state rendering in SrvrUI; Appearance-first Settings
+with compact previews in SrvrApps; v17 snapshots and v6 file migration; compositor
+chrome and focused tests. Full build, desktop/widget host tests, new profile VM
+and Settings/application regressions pass. Final clean runtime `50389359` passes
+the matched build, focused minimum-height Settings test and profile VM. Published
+SrvrUI `89fb6d9` and SrvrApps `d245fe2` are pinned in
+[PR286](https://github.com/PaulMDemers/SrvrOS/pull/286), with
+[UI PR1](https://github.com/PaulMDemers/SrvrUI/pull/1) and
+[Apps PR1](https://github.com/PaulMDemers/SrvrApps/pull/1).
+[Theme contract and evidence](desktop-theme.md#profile-acceptance--november-3-2026)
+record the completed scope; no additional theme feature is required for it.
+Native acceptance and device drivers are unchanged.
+
 ## Current QEMU VirtIO baseline — November 3, 2026
+
+Follow-up: [PR285](https://github.com/PaulMDemers/SrvrOS/pull/285) is merged.
+The default absolute tablet passed automated input/scaling regressions and the
+user's attended automatic-release/no-stuck-drag check. The QEMU baseline is
+delivered; its optional driver improvements do not block desktop work.
 
 Target: make the smoother VirtIO presentation the QEMU default, reduce full-frame
 copy cost, then deliver input, RNG, block and network drivers. User confirmed all
@@ -30,7 +56,7 @@ launcher pass. Source and receipts are published through
 [PR284](https://github.com/PaulMDemers/SrvrOS/pull/284), following measurement PR283.
 The requested baseline is implemented and verified; no additional driver feature
 is required for this target. Details and evidence: [VirtIO baseline](virtio-baseline.md).
-Native hardware, interrupt-driven queues, absolute tablets, packed rings and host
+Native hardware, interrupt-driven queues, packed rings and host
 vblank are separate work; they do not block the requested polling baseline.
 
 ## QEMU fenced presentation — November 3, 2026

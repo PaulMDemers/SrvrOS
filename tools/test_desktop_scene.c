@@ -18,10 +18,10 @@ static void draw_damage(struct desk_canvas *canvas,const struct desktop_scene *s
     }
 }
 static void dynamic_damage(void) {
-    for(unsigned glass=0;glass<3;glass++) {
+    for(unsigned style=0;style<3;style++) for(unsigned glass=0;glass<3;glass++) {
         for(unsigned i=0;i<310*260;i++) { front[i]=(i*37u)&0xffffff;other_front[i]=(i*139u)&0xffffff; }
         struct desktop_scene s={.focus=1,.cursor_x=500,.cursor_y=450};
-        assert(!desk_theme_configure(&s.theme,0,glass,16));
+        assert(!desk_theme_configure_style(&s.theme,style,0,glass,16));
         s.windows[0]=(struct desktop_window){.frame={35,55,312,305},.pixels=front,
             .width=310,.height=260,.visible=1,.title="Lower"};
         s.windows[1]=(struct desktop_window){.frame={145,115,302,305},.pixels=other_front,
@@ -55,7 +55,7 @@ int main(void) {
     assert(desk_canvas_init(&a,full,W,H,S)==0);
     assert(desk_canvas_init(&b,tiles,W,H,S)==0);
     for (int pass=0;pass<7;pass++) {
-        desk_theme_configure(&s.theme,(unsigned)(pass%3),(unsigned)(pass%3),16);
+        desk_theme_configure_style(&s.theme,(unsigned)(pass%3),(unsigned)(pass%3),(unsigned)(pass%3),16);
         if(pass==3) {
             s.apps=1;s.windows[0].application=DESK_APP_TEXT;s.windows[1].application=DESK_APP_PREVIEW;desk_menu_init(&s.menu);
             const struct desk_menu_item menu[]={ {0,DESK_MENU_HEADING,"SrvrOS",""},{1,0,"Settings",""},

@@ -89,7 +89,8 @@ static int app_receive(struct desk_app *a,uint64_t source,const struct desk_pack
         struct desk_preferences preferences;memcpy(&preferences,p.text,sizeof(preferences));
         if(p.value>DESK_PREF_CONFLICT || !desk_preferences_valid(&preferences)) return 2;
         if(!a->preferences_valid || a->preferences.theme_accent!=preferences.theme_accent ||
-           a->preferences.glass_level!=preferences.glass_level || a->preferences.text_size!=preferences.text_size) a->dirty=1;
+           a->preferences.glass_level!=preferences.glass_level || a->preferences.theme_style!=preferences.theme_style ||
+           a->preferences.text_size!=preferences.text_size) a->dirty=1;
         a->preferences=preferences;a->preferences_valid=1;
     }
     if(p.type==DESK_FOCUS) a->focused=p.value!=0;

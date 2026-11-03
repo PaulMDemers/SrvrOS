@@ -131,6 +131,21 @@ static void connection_windows(void) {
     appearance.theme_accent=1;receive(DESK_PREFERENCES,0);incoming.window=1;incoming.value=DESK_PREF_SAVING;
     memcpy(incoming.text,&appearance,sizeof(appearance));
     assert(connection_receive(&c,&target,&event)==1 && target==&a && a.dirty && a.preferences.theme_accent==1 && b.preferences.theme_accent==2);
+    /* A style-only snapshot redraws each window without replacing its canvas or state. */
+    appearance.theme_accent=2;appearance.theme_style=1;b.dirty=0;
+    uint32_t *b_pixels=b.pixels;uint64_t b_surface=b.surface;
+    receive(DESK_PREFERENCES,0);incoming.window=2;incoming.value=DESK_PREF_SAVED;
+    memcpy(incoming.text,&appearance,sizeof(appearance));
+    assert(connection_receive(&c,&target,&event)==1 && target==&b && b.dirty && b.preferences.theme_style==1);
+    assert(b.pixels==b_pixels && b.surface==b_surface && b.pixels[0]==0xabcdef);
+    b.dirty=0;appearance.theme_style=3;
+    receive(DESK_PREFERENCES,0);incoming.window=2;incoming.value=DESK_PREF_SAVED;
+    memcpy(incoming.text,&appearance,sizeof(appearance));
+    assert(connection_receive(&c,&target,&event)==2 && !b.dirty && b.preferences.theme_style==1);
+    appearance=a.preferences;appearance.theme_style=2;a.dirty=0;
+    receive(DESK_PREFERENCES,0);incoming.window=1;incoming.value=DESK_PREF_SAVED;
+    memcpy(incoming.text,&appearance,sizeof(appearance));
+    assert(connection_receive(&c,&target,&event)==1 && target==&a && a.dirty && a.preferences.theme_style==2 && a.pixels[0]==0x123456);
     receive(DESK_FOCUS,0);incoming.window=2;incoming.value=1;
     assert(connection_receive(&c,&target,&event)==1 && target==&b && b.focused && !a.focused);
     int checks_before=liveness_checks;
@@ -184,6 +199,7 @@ static void connection_windows(void) {
     assert(desk_connection_poll(&c,&target,&event)<0 && c.failed);queued=0;
     puts("desk-connection: PASS two windows, single reader, creation credit/refusal, independent focus/frames, blocked close, stale IDs, server death and flood deadline");
 }
+_Static_assert(sizeof(struct desk_preferences)<=sizeof(((struct desk_packet *)0)->text), "preferences snapshot fits packet");
 static void parent_dialogs(void) {
     alive=1;full=0;source=42;queued=0;
     struct desk_connection c,foreign;struct desk_app parent,other,*target;struct desk_packet event;
@@ -205,6 +221,14 @@ static void parent_dialogs(void) {
     assert(!desk_dialog_window_sync(&dialog,&parent,1,"Save",400,300));
     connection_configure(&c,&dialog.window);
     assert(desk_dialog_window_sync(&dialog,&parent,1,"Save",400,300)==1);
+    struct desk_preferences prefs=desk_preferences_default();
+    receive(DESK_PREFERENCES,0);incoming.window=dialog.window.window;incoming.value=DESK_PREF_SAVED;
+    memcpy(incoming.text,&prefs,sizeof(prefs));assert(connection_receive(&c,&target,&event)==1);
+    dialog.window.dirty=0;dialog.window.pixels[0]=0x1234;prefs.theme_style=2;
+    receive(DESK_PREFERENCES,0);incoming.window=dialog.window.window;incoming.value=DESK_PREF_SAVED;
+    memcpy(incoming.text,&prefs,sizeof(prefs));
+    assert(connection_receive(&c,&target,&event)==1 && target==&dialog.window && dialog.window.dirty && dialog.window.pixels[0]==0x1234);
+    assert(dialog.window.parent_window==parent.window && !strcmp(dialog.title,"Save"));
     full=1;assert(desk_dialog_window_sync(&dialog,&parent,1,"Open",400,300)==1 && !strcmp(dialog.title,"Save"));
     full=0;assert(desk_dialog_window_sync(&dialog,&parent,1,"Open",400,300)==1 && !strcmp(dialog.title,"Open"));
     assert(last_sent.type==DESK_TITLE && last_sent.window==dialog.window.window);

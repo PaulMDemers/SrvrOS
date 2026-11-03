@@ -21,6 +21,18 @@ static void scene(struct desk_canvas *c) {
     desk_theme_panel(c,(struct desk_rect){2,40,1,1},&desk_theme_silver,0,0);
     desk_theme_panel(c,(struct desk_rect){4,40,2,2},&desk_theme_silver,0,0);
 }
+static void profile_scene(struct desk_canvas *c,const struct desk_theme *t) {
+    desk_theme_panel(c,(struct desk_rect){2,2,20,20},t,0,0);
+    desk_theme_panel(c,(struct desk_rect){25,2,20,20},t,1,0);
+    desk_theme_panel(c,(struct desk_rect){48,2,20,20},t,0,1);
+    desk_theme_field_draw(c,(struct desk_rect){2,25,30,20},t,1);
+    desk_theme_selection(c,(struct desk_rect){35,25,35,20},t);
+    struct desk_check check={0};
+    desk_check_configure(&check,(struct desk_rect){3,25,32,20},1,1,0);
+    desk_check_draw(c,&check,"",t);
+    struct desk_scrollbar bar={0};desk_scrollbar_configure(&bar,(struct desk_rect){55,24,14,25},100,30);
+    bar.dragging=1;desk_scrollbar_draw(c,&bar,t);
+}
 int main(void) {
     uint32_t full[STRIDE*H+2],tiled[STRIDE*H+2];
     for(unsigned i=0;i<STRIDE*H+2;i++) full[i]=tiled[i]=0x12345678;
@@ -54,6 +66,46 @@ int main(void) {
         assert(theme.accent!=theme.surface && theme.selected!=theme.field);
     }
     assert(theme.accent==0x16776e && theme.selected==0xc6e7df);
+    prior=theme;
+    assert(desk_theme_configure_style(&theme,3,0,0,16)<0 && !memcmp(&theme,&prior,sizeof(theme)));
+    for(unsigned accent=0;accent<3;accent++) {
+        struct desk_theme silver,aero;
+        assert(!desk_theme_configure_style(&silver,DESK_THEME_SILVER,accent,1,16));
+        assert(!desk_theme_configure_style(&aero,DESK_THEME_AERO,accent,1,16));
+        assert(aero.selected!=silver.selected && aero.selected!=aero.accent);
+    }
+    for(unsigned style=0;style<3;style++) {
+        for(unsigned accent=0;accent<3;accent++) for(unsigned glass=0;glass<3;glass++) {
+            assert(!desk_theme_configure_style(&theme,style,accent,glass,20));
+            assert(theme.body==&desk_font_20 && theme.glass_alpha==(glass==0?255:glass==1?224:184));
+            assert(theme.accent!=theme.surface && theme.selected!=theme.field);
+        }
+        assert(!desk_theme_configure_style(&theme,style,0,1,16));
+        assert(theme.style==(enum desk_theme_style)style);
+        for(unsigned i=0;i<STRIDE*H+2;i++) full[i]=tiled[i]=0x12345678;
+        desk_canvas_init(&a,full+1,W,H,STRIDE);desk_canvas_init(&b,tiled+1,W,H,STRIDE);
+        profile_scene(&a,&theme);
+        for(int y=0;y<H;y+=7) for(int x=0;x<W;x+=11) {
+            desk_clip(&b,(struct desk_rect){x,y,11,7});profile_scene(&b,&theme);
+        }
+        assert(!memcmp(full,tiled,sizeof(full)));
+        assert(full[1+10*STRIDE+12]!=full[1+10*STRIDE+35]);
+        assert(full[1+2*STRIDE+58]==theme.accent);
+        if(style!=DESK_THEME_SILVER) {
+            uint32_t buttons[80*32]={0};struct desk_canvas button_canvas;
+            assert(!desk_canvas_init(&button_canvas,buttons,80,32,80));
+            struct desk_button normal={0},disabled={0};
+            desk_button_configure(&normal,(struct desk_rect){0,0,36,28},1);
+            desk_button_configure(&disabled,(struct desk_rect){40,0,36,28},0);
+            desk_button_draw(&button_canvas,&normal,"",&theme);
+            desk_button_draw(&button_canvas,&disabled,"",&theme);
+            assert(buttons[3*80+18]!=buttons[3*80+58]);
+            assert(full[1+2*STRIDE+2]==0x12345678); /* rounded corner */
+            assert(full[1+26*STRIDE+40]!=full[1+43*STRIDE+40]); /* selection gradient */
+        }
+        assert(full[0]==0x12345678 && full[STRIDE*H+1]==0x12345678);
+        for(int y=0;y<H;y++) for(int x=W;x<STRIDE;x++) assert(full[1+y*STRIDE+x]==0x12345678);
+    }
     /* Legacy themes omit the appended fields; actual controls retain their colors. */
     struct desk_theme custom=desk_theme_silver;
     custom.surface=0x17212b;custom.border=0x445566;custom.field=custom.shadow=0;

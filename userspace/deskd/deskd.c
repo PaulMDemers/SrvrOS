@@ -868,9 +868,9 @@ static void pointer_preferences(struct session *s) {
 }
 static void preferences_changed(struct session *s) {
     struct desk_theme theme=desk_theme_silver;
-    (void)desk_theme_configure(&theme,s->preferences.value.theme_accent,
+    (void)desk_theme_configure_style(&theme,s->preferences.value.theme_style,s->preferences.value.theme_accent,
         s->preferences.value.glass_level,s->preferences.value.text_size);
-    if(!s->scene.theme.body || s->scene.theme.accent!=theme.accent ||
+    if(!s->scene.theme.body || s->scene.theme.style!=theme.style || s->scene.theme.accent!=theme.accent ||
        s->scene.theme.glass_alpha!=theme.glass_alpha || s->scene.theme.body!=theme.body) {
         s->scene.theme=theme;
         desk_damage_add(&s->damage,(struct desk_rect){0,0,s->damage.width,s->damage.height});
@@ -882,12 +882,12 @@ static void preferences_changed(struct session *s) {
     }
     clock_update(s,1);
     for(int n=0;n<session_capacity(s);n++) if(session_client(s,n)->pid) session_client(s,n)->preferences_dirty=1;
-    if(s->trace) desk_log("deskd: preferences revision=%llu status=%u text=%u offset=%d flags=%u wallpaper=%u pointer_speed=%u acceleration=%u disable_while_typing=%u tap_to_click=%u two_finger_tap=%u theme_accent=%u glass_level=%u\n",
+    if(s->trace) desk_log("deskd: preferences revision=%llu status=%u text=%u offset=%d flags=%u wallpaper=%u pointer_speed=%u acceleration=%u disable_while_typing=%u tap_to_click=%u two_finger_tap=%u theme_accent=%u glass_level=%u theme_style=%u\n",
         (unsigned long long)s->preferences.revision,s->preferences.status,s->preferences.value.text_size,
         s->preferences.value.utc_offset_minutes,s->preferences.value.clock_flags,s->preferences.value.wallpaper,
         s->preferences.value.pointer_speed,s->preferences.value.pointer_acceleration,s->preferences.value.disable_while_typing,
         s->preferences.value.tap_to_click,s->preferences.value.two_finger_tap,
-        s->preferences.value.theme_accent,s->preferences.value.glass_level);
+        s->preferences.value.theme_accent,s->preferences.value.glass_level,s->preferences.value.theme_style);
 }
 static void global_menu_rebuild(struct session *s) {
     if(!s->scene.apps) return;
