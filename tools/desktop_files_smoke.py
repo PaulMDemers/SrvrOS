@@ -149,6 +149,10 @@ def main():
                 serial.close();qmp.stream.close();qmp.sock.close()
             finally:
                 stop_process(process);(out/"serial.log").write_bytes(output)
+        from exfat_test_image import ExfatFixture
+        saved=ExfatFixture((tmp/"disk.exfat").read_bytes())
+        for name in ("renamed-actions.txt","recovered-open.txt"):
+            assert saved.read(name)==b"Files action sample.",name
     print(f"desktop-files: PASS Places, successful-only history, back/forward/branching, path normalization, refresh, sorted metadata, shared rename/duplicate prompts, verified copy, safe delete cancel/confirm, collision selection preservation, Open With cancel/routing/readback and empty-directory rename. Evidence: {out}")
 
 
