@@ -6,6 +6,23 @@ and [machine records](machines/README.md) separate implementation from physical
 acceptance. The [device parity ledger](device-parity.md) compares the Air with
 ongoing Pro work.
 
+## Current resize interaction — November 3, 2026
+
+The repository/theme/VirtIO milestones are complete. The user authorized the
+next bounded shared desktop improvement: all edge and corner resize directions
+with matching cursor feedback, verification and merge. Snapping is separate.
+
+Branch `device/apple-silicon/edge-resize` starts at main `5b2bf3c7`. Scope stays
+in the compositor: discoverable resize targets, anchored geometry, safe capture
+and failure recovery, plus damage-correct cursors. App recovery and awk work
+remain in their own PRs; SrvrUI portability's merged renderer boundary is retained.
+
+Required evidence: host geometry/session/render regressions, full desktop suite,
+matched OS build, real Text resize/content checks at both supported scales with
+VirtIO tablet input, and clean presentation teardown. Native device acceptance
+and host-window release observations remain separate. Status: implementation and
+verification in progress; next is review and merge of the verified candidate.
+
 ## Current theme profiles — November 3, 2026
 
 Target: complete Aero-inspired and Aqua-inspired widget/chrome profiles, live

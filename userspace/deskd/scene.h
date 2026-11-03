@@ -19,7 +19,7 @@ struct desktop_scene {
     struct desktop_window windows[DESKD_WINDOWS]; /* Inline compatibility storage. */
     struct desktop_window **records;
     int capacity,*order;
-    int focus,cursor_x,cursor_y,trackpad_trial,apps;
+    int focus,cursor_x,cursor_y,cursor_shape,trackpad_trial,apps;
     struct desk_menu menu;
     struct desk_popup context;
     struct desktop_notice_view notifications;
@@ -38,6 +38,11 @@ struct desktop_scene {
     struct desk_theme theme;
     char io_status[160],io_check[160],io_next[160];
 };
+enum desktop_resize_edge { DESKTOP_RESIZE_LEFT=1, DESKTOP_RESIZE_RIGHT=2,
+    DESKTOP_RESIZE_TOP=4, DESKTOP_RESIZE_BOTTOM=8 };
+unsigned desktop_resize_hit(struct desk_rect frame,int x,int y);
+int desktop_window_resize(int screen_width,int screen_height,struct desk_rect original,
+    unsigned edges,int64_t dx,int64_t dy,struct desk_rect *result);
 enum desktop_window_control { DESKTOP_CLOSE=1,DESKTOP_MAXIMIZE,DESKTOP_MINIMIZE };
 struct desk_rect desktop_window_control_rect(struct desk_rect frame,unsigned control);
 unsigned desktop_titlebar_hit(struct desk_rect frame,int standard,int x,int y);

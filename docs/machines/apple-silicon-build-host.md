@@ -2130,3 +2130,30 @@ cleanly, retaining its disk. The new default Cocoa VM is open in
 and shows Appearance with Aero selected. Integration is PR286 with SrvrUI PR1
 and SrvrApps PR1; subsequent acceptance commits change documentation only.
 No further feature is required for the approved profiles milestone.
+
+
+### Edge and corner resizing — active scope November 3, 2026
+
+User authorized implementation, verification and merge. Branch
+`device/apple-silicon/edge-resize` starts from fetched main `5b2bf3c7`, including
+merged SrvrUI host/render separation PR289. This block owns compositor resize
+hit testing, anchored geometry, directional software cursors and focused
+host/VM verification. SrvrUI/SrvrApps/ports interfaces and pins are unchanged.
+PR278 retains application registry/dispatch work in deskd; PR252 owns lifetime
+work. PR288 Files recovery and PR291 awk retain their separate scopes.
+
+Interaction: hover identifies the available resize direction; pressing an edge
+or corner does not jump the window; dragging keeps the opposite edge fixed;
+release ends capture. Minimum/client maximum bounds and reachable titlebars
+remain enforced. Modal parents, maximized windows, overlays and application
+controls must not accidentally start resizing. Failed reservations or application
+refusal preserve usable prior geometry/content. Cursor changes must invalidate
+both old and new pixels, including changes without pointer movement.
+
+Acceptance: geometry and failure/lifetime host regressions, exact partial/full
+render comparisons for every cursor, full desktop suite, matched OS build, and
+actual Text/tablet resize checks at 1x and 2x with content retained and clean GPU
+retirement. QMP tests do not establish host-monitor vblank or physical input
+acceptance. The existing attended review VM/disk is preserved; disposable test
+VMs run sequentially. Hosted Actions remain disabled. Next: implement and inspect
+these transitions, verify the exact candidate, then publish and merge its PR.

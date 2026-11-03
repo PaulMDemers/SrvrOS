@@ -396,12 +396,28 @@ static void buffer_budget(void) {
     assert(cache_prepare(&s,3,DESK_MAX_WIDTH,DESK_MAX_HEIGHT) && s.cache_bytes<=DESKD_CACHE_BUDGET);
     cache_free(&s);assert(!s.cache_bytes && allocations-frees==balance);
 }
+static void resize_hit_stacking(void) {
+    struct session s={.scene={.focus=1}};unsigned e=0;
+    s.clients[0].pid=42;s.clients[0].window=1;s.clients[0].identity=1;
+    s.clients[1].pid=42;s.clients[1].window=2;s.clients[1].identity=2;
+    s.scene.windows[0]=(struct desktop_window){.visible=1,.frame={100,100,500,400},.z=1};
+    s.scene.windows[1]=(struct desktop_window){.visible=1,.frame={90,150,300,300},.z=2};
+    assert(resize_hit(&s,99,200,&e)==-1 && !e); /* upper body occludes lower halo */
+    s.scene.windows[1].minimized=1;
+    assert(resize_hit(&s,99,200,&e)==0 && e==DESKTOP_RESIZE_LEFT);
+    s.scene.windows[0].maximized=1;assert(resize_hit(&s,99,200,&e)==-1 && !e);
+    s.scene.windows[0].maximized=0;s.clients[0].closing=1;
+    assert(resize_hit(&s,99,200,&e)==-1 && !e);
+    desk_damage_init(&s.damage,800,600);s.scene.cursor_x=99;s.scene.cursor_y=200;
+    cursor_shape(&s,DESKTOP_RESIZE_LEFT);assert(s.scene.cursor_shape==DESKTOP_RESIZE_LEFT && s.damage.count);
+    desk_damage_init(&s.damage,800,600);cursor_shape(&s,0);assert(!s.scene.cursor_shape && s.damage.count);
+}
 static void resize_refusal(void) {
     struct session s={.scene={.focus=0}};desk_damage_init(&s.damage,800,600);
     s.clients[0].pid=42;s.clients[0].window=DESK_DEFAULT_WINDOW;s.scene.windows[0].frame=(struct desk_rect){30,70,402,325};
     uint32_t *old=cache_prepare(&s,0,400,280);assert(old);old[0]=99;
     s.scene.windows[0].pixels=old;s.scene.windows[0].width=400;s.scene.windows[0].height=280;
-    assert(configure(&s,0,600,400));s.scene.windows[0].frame.x=8;
+    assert(resize_apply(&s,0,(struct desk_rect){8,65,602,445}));
     struct desk_packet p=desk_packet_new(DESK_RESIZE_REFUSED);p.generation=s.clients[0].generation;p.width=400;p.height=280;
     uint64_t generation=p.generation;incoming(&s,42,&p);
     assert(s.clients[0].generation==generation+1 && s.scene.windows[0].frame.x==30 && s.scene.windows[0].frame.w==402);
@@ -889,7 +905,7 @@ int main(void) {
     assert(loop_sample(&loop_last,&loop_max,100100)==100000);
     assert(loop_sample(&loop_last,&loop_max,800100)==700000);
     assert(loop_max==700000);
-    buffer_budget();resize_refusal();
+    buffer_budget();resize_refusal();resize_hit_stacking();
     idle_admission();
     battery_ui_notifications();
     pointer_cancel_keeps_keyboard();
