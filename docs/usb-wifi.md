@@ -16,8 +16,10 @@ restoration. It does not accept populated discovery, live reattach/rescan,
 association/security or an active Wi-Fi IP provider. Current work targets
 channel161/20MHz: native v110 accepts fixed frequency fields with independent
 13-word selection/restoration checks. Native v111 captures all24 high-band RF
-originals; the v112 candidate adds a fixed admission/write/read/reverse contract
-inside selected channel161 and awaits native evidence.
+originals; v112 accepts a fixed admission/write/read/reverse contract
+inside selected channel161. v113 accepts44 read-only frontend originals after
+41-target restoration (2815 total operations), with complete saved proof and
+automatic return. PA/BBP writes and reception remain unaccepted.
 5GHz bandwidth/baseband/calibration and receiver startup remain pending. Ordinary startup
 leaves diagnostic radio operations disabled. Dated milestones below are history
 and must not be used to reinstate the withdrawn band assumption.

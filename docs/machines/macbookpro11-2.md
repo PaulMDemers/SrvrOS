@@ -1,6 +1,6 @@
 # MacBookPro11,2 / A1398
 
-Updated: 2026-11-02. State: **native desktop, input, brightness, sound, CPU/fan telemetry and captured USB Ethernet DHCP/DNS/HTTP and live cable-status UI accepted**.
+Updated: 2026-11-03. State: **native desktop, input, brightness, sound, CPU/fan telemetry and captured USB Ethernet DHCP/DNS/HTTP and live cable-status UI accepted**.
 
 The sections below retain the dated bring-up sequence. The latest acceptance
 and next scope are recorded at the end; earlier failures are historical.
@@ -37,6 +37,29 @@ compatible hardware. Local credentials remain private and unused until the
 security stage. Do not report connection-ready until authentication, data
 exchange and clean disconnect actually pass.
 
+## v113 frontend capture accepted; modular baseline integration
+
+Release `efbdb378d6bd0974`, runtime `de6cef51`, main `88c56afa`, matching
+session `session-00065f54ca5964fa-00` passes the complete524449-byte prefix:
+2507 parent operations and308 read-only frontend operations, all41 changed
+registers restored, all44 fixed originals captured, fresh NIC0fd11/NIC11004
+and zero network output. Source/release/session, payload/recovery equality,
+offline filesystem/allocation and automatic Ubuntu return pass. The107-file
+sealed archive `wifi-frontend-de6cef51` survives outside build. IBI9 was raw
+all-ones; this remains an observation, not calibration readiness. Other captured
+values do not become generic reset assumptions. The run is collected and unarmed.
+
+Next bounded scope consumes fetched main `e376669c`, including pinned SrvrUI,
+SrvrApps and SrvrPorts extraction, desktop themes and VirtIO changes. Preserve
+local Wi-Fi UI/checklist and checkpoint logging changes in their extracted
+repositories; reconcile shared build/main/syscall paths by behavior. Validate
+the recursive matched source set locally before any new stage or hardware test.
+PR278 owns shared app descriptors/Files Open With; PR252 owns resolver/socket
+lifetime work. Neither grants this unit new native acceptance. Then continue
+external5GHz PA/baseband admission/restoration, calibration and reception toward
+Demers5 authenticated data. Cold shutdown/unplug remains required; no new boot
+is armed as part of source migration.
+
 ## Ready native candidate —44 frontend original observations
 
 Installed v113 `efbdb378d6bd0974`, runtime `de6cef51`, main `88c56afa`,
@@ -58,7 +81,7 @@ passes. Independent source/fixture projection/hash audits and four damaged-sourc
 refusals pass. A525302-byte synthetic whole-prefix proof and exact-image
 refusal/save/readback/clean-unmount/return and missing-workspace VMs pass.
 Kernel and independently firmware-packaged initramfs match exactly; new native
-owner/inventory validators are linked. Native v113 evidence is pending.
+owner/inventory validators are linked. Native v113 subsequently passed as recorded above.
 
 Ubuntu remains default; e47d previous and accepted v109-v112 remain installed
 and independently backed up. The unreferenced superseded scan EFI copy3337
