@@ -59,6 +59,17 @@ accepts that named workload; multi-second storage waits and separate physical
 input/audible/SMP acceptance remain outside this result. See the
 [unit record](machines/macbookair7-2.md) for exact evidence and earlier failures.
 
+## Built-in application descriptors and Open With
+
+The [registry contract](application-registry.md) covers shared stable keys,
+document candidates and per-app service admission. Directed actual-consumer
+fixtures (`desktop_lifecycle_smoke.py --open-with` and `--refuse-dialogs
+--open-with`) cover real chooser clicks, cancellation, explicit Text selection,
+existing-process routing, unsaved sibling retention, exact contents and cleanup.
+The 20-window Files/copy-through-Close and combined loaded fixtures remain gates.
+The native candidate opens a focused checklist through the existing attended
+lifecycle profile; host/VM results do not accept real pointer or keyboard behavior.
+
 ## Repeat the local gates
 
 Use one checkout and one build/VM harness at a time. The scripts share output

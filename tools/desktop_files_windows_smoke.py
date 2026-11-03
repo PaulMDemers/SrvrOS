@@ -105,9 +105,9 @@ def main():
                 assert len(opened)==args.windows
                 shot('grown-windows')
                 launch('left window',b'launcher window=');text('large')
-                # File menu: New window/Open/New folder/Info/Copy path/Rename/Duplicate.
+                # File menu: New window/Open/Open With/New folder/Info/Copy path/Rename/Duplicate.
                 shortcut('f10');shortcut('right');shortcut('home')
-                for _ in range(6):shortcut('down')
+                for _ in range(7):shortcut('down')
                 shortcut('ret');modal_ready(b'files-prompt operation=7')
                 qmp.call('block_set_io_throttle',{'device':'disk','bps':0,'bps_rd':0,'bps_wr':1048576,'iops':0,'iops_rd':0,'iops_wr':0})
                 qmp.key('ret');wait_all([b'file-submitted role=files op=7',retired]);shortcut('ctrl-w')

@@ -1,6 +1,116 @@
 # MacBookAir7,2 / A1466
 
-Updated: 2026-11-02. State: **active reference machine; partial device acceptance**.
+Updated: 2026-11-03. State: **active reference machine; partial device acceptance**.
+
+### Exact-stage keyboard injection fix
+
+The unchanged staged payload `f586e4a2d58cb3ab` now passes its whole exact-stage
+Q35 test with acknowledged USB input. Kernel event-ring snapshots localized loss
+before the terminal; QEMU 10.2.1's `hid_kbd_queue_full` trace confirms its sixteen
+scancode slots overflowed during guest service gaps. A missing Shift release
+also left subsequent events shifted. Fixed host-wall sleeps, including a paced
+retry, were insufficient. These failures and the raw overflow proof remain
+preserved; no terminal/PTY or native driver change is justified by this evidence.
+
+The exact-stage harness now waits up to ten seconds for QEMU HID consumption of
+each individual press/release, including modifier edges and shortcuts, and fails
+on overflow or absent acknowledgement. Firmware menu selection stays unchanged.
+Unit coverage rejects stale, late and overflowed acknowledgements, handles split
+trace lines and checks modifier ordering; full saved-file, lifetime/reopen and offline allocation assertions are
+unchanged. This proves delivered-input correctness, not native input latency.
+
+Both the first corrected gate and the final clean-source `4685c6bb` gate pass:
+486 acknowledged edges, zero overflow, both exact terminal proof files, saved
+Home text, complete lifetime/exit/reopen, four saved logs and offline allocation.
+The final maximum emulator-consumption wait was 0.529641 seconds; this is not
+native typing latency. Full host/core/docs and matched ordinary/native/synthetic
+builds pass after integrating main `adc25965`. Later receipt hardening changes
+only host test files, with its directed tests and final matched build repeated.
+
+The freshly built kernel/initramfs/loader are byte-identical to preserved v75
+`f586e4a2d58cb3ab`, so staging correctly reuses its original source `8a6c4f2a`
+manifest instead of rewriting history. The final harness source is `4685c6bb`;
+module pins remain Apps `ff6c8de`, UI `89fb6d9`, Ports `0494ae2`. The candidate
+and prior known-good/recovery payloads verify independently outside `build`.
+OS PR278 and Apps PR2 are ready for review together; native Open With acceptance
+still needs the focused in-guest attended checklist. No install or reboot is
+armed, and installed c497/recovery9aa remain unchanged.
+
+Fetched main `adc25965` adds
+independent Air6,1 read-only HDA diagnostics; PR288 owns Files recovery, PR289
+host UI integration, and PR19 Wi-Fi. No overlapping implementation is claimed.
+Evidence: `build/air-modular-catchup-20261103/`. No hardware reboot is armed.
+
+### Modular repository catch-up
+
+Merged actual main `e376669c` into the existing device branch as `6880b1f6`.
+SrvrUI is pinned to `89fb6d9`, SrvrPorts to `0494ae2`, and SrvrApps to
+`ff6c8de`. All seven nested upstream pins remain unchanged. Recursive module
+initialization is complete; no dependency follows a remote branch implicitly.
+
+The pending registry/Open With changes were ported into extracted SrvrApps,
+preserving upstream themes, and published before the OS gitlink. Review the
+matched pair [OS PR278](https://github.com/PaulMDemers/SrvrOS/pull/278) and
+[Apps PR2](https://github.com/PaulMDemers/SrvrApps/pull/2). Old patches and
+`archive/air-pre-modular-20261103` preserve the pre-extraction branch.
+
+On clean source `6880b1f6`, full Linux core/docs/build, actual Open With clicks,
+embedded-dialog refusal fallback, and the twenty-window Files regression pass.
+The VM click detector now recognizes rounded themed buttons by geometry instead
+of old theme colors. The current chooser screenshot uses the updated theme.
+New themes and QEMU/VirtIO changes have no new native acceptance.
+
+Installed accepted `c497eb0cb48c1b01`, recovery `9aa8dbf6fbda8252`, and the
+pre-extraction staged `b9d0f6bd7897979d` remain preserved independently. The
+matched candidate `f586e4a2d58cb3ab` / source `8a6c4f2a` is preserved but not
+installed or armed. Exact-stage Q35 testing failed twice: terminal redirect
+paths lost characters, so required saved-file receipts were absent. A paced
+retry saved terminal-proof but still lost a character in orphan-proof's path.
+Guide delivery, Home text save and clean return/reopen ran; the whole gate is
+still FAIL historically. Both attempts and screenshots remain preserved. The
+acknowledged-input resolution and final passing gates are recorded above; no
+failed assertion was relaxed. No hardware reboot was attempted. Evidence: `build/air-modular-catchup-20261103/`, backed up outside
+`build`. Historical source-specific results below remain historical.
+
+### Application registry and Open With: ready for attended trial
+
+PR278 extends the existing launch catalog into shared built-in descriptors:
+stable keys, program/role discovery, document handlers and service capabilities.
+Launcher/dock, desktools role lookup, Files associations and compositor service
+admission use the same entries. Existing app IDs/protocol and resource budgets
+are unchanged. Files has owned Open With from File/context menus and Ctrl-Shift-O,
+with preferred/alternate choice, immutable captured path, cancellation and normal
+Text/Preview routing. External installation/manifests and persistent user choices
+remain future work; see the [registry contract](../application-registry.md).
+
+Full core/docs/builds pass on `e884e888`. After correcting an omitted test-harness
+wait helper, source `61351907` passes actual chooser Cancel/explicit Text clicks,
+default Text/Preview existing-process routing, unsaved sibling retention, failed
+save recovery, exact bytes and process cleanup. Refused owned-window admission
+passes the same fixture through its embedded modal fallback. Twenty Files windows
+pass independent histories, owned mutation cancellation/collision, accepted8MiB
+copy through Close, concurrent Text saving and cleanup. The initial harness
+NameError attempt remains failed, with its output preserved.
+
+Final Help checklist source `132f5eff` passes matched builds/docs and a combined
+read100/write100 plus1200-metadata KVM run:20lifetimes, UI120075us, ready1207979us,
+Close1318181us,158live overlap windows,1267prior files preserved, zero underruns
+and lost/pending logs, capture and retirement. Runtime app code is unchanged from
+the corrected consumer source; later edits add only Help instructions/docs.
+
+Exact attended v75 stage `b9d0f6bd7897979d` passes GRUB/staged Limine/native-kernel
+VM guide delivery, Home save, clean exit/reopen, offline allocation and monitor
+return. The new focused checklist is visibly first in Help. Native hardware
+providers are unavailable/refused on Q35; this is not device acceptance. An
+independent candidate and evidence copy survive `make distclean` from
+`build/air-app-registry-20261102/`.
+
+The candidate is not installed or armed. Native acceptance needs a short attended
+trial with real keyboard/trackpad input. Announce that input is required before
+reboot. The automatically opened guide supplies preparation, cancel/default/
+explicit choice, unsaved retention, Preview reuse and manual return instructions;
+there is no timer or automatic reboot. Installed acceptedc497/recovery9aa remain
+preserved. No syscall/device policy or POSIX claim was widened.
 
 ### PR272 integration closeout
 
