@@ -3,6 +3,77 @@
 Updated November 3, 2026. Global activation follows the explicit namespace proof
 in [PR308](https://github.com/PaulMDemers/SrvrOS/pull/308).
 
+## Workspace lifecycle — verified
+
+User authorized the installed-root workspace lifecycle proof on main `c7be6574`.
+Coordinated the additive harness mode with the installation owner and declared
+the process audit boundary. No kernel, syscall, process, installer policy or
+profile change was needed. This is a fixture/proof milestone: it adds sysabi
+holder/verification modes and optional `--workspace-lifecycle`, which requires
+`--canonical-paths`; existing installed-boot defaults remain unchanged.
+
+Clean matched source `9ba7e944` passes the build and all 11 installed-root cases.
+On each of the normal and reversed-disk boots, independent file, directory and
+cwd holders each cause `unmount /work` to report busy. The file is dirty while
+held; release performs fsync/close. Directory release closes its descriptor;
+cwd release changes to `/`. Control is an explicit `/home` marker, adding no
+extra `/work` reference. Each holder has a bounded 60-second timeout.
+
+After every release, sync and unmount succeed. System aliases are checked while
+`/work` is absent, then the correct other GPT partition remounts and the exact
+file bytes plus `/home`/`/usr`/`/fat` identities and workspace isolation are checked.
+All six independent refusal/release cycles and 12 absent/remounted checks pass.
+The fixture file is removed after verification. The existing full namespace,
+long-path, two-boot home/work marker persistence, canonical Text/theme restoration
+and nine no-write recovery cases pass. Four offline allocation checks report
+zero leaks, FAT/bitmap mismatches or errors; protected disk regions are unchanged.
+
+Reproduce after a matched build:
+
+```sh
+OVMF_CODE=/opt/homebrew/share/qemu/edk2-x86_64-code.fd \
+  python3 tools/installed_root_smoke.py --canonical-paths --workspace-lifecycle \
+  --ovmf-vars /opt/homebrew/share/qemu/edk2-i386-vars.fd
+```
+
+Six build-provenance host tests, whitespace and documentation checks pass.
+Evidence is in `build/review/installed-canonical/proof-q8wzmgqx/` and
+`build/review/workspace-lifecycle/`; receipt SHA256 is
+`4370536d27cd2a4cc72afe7b3bb48d320bd12f44d2524f55a38f0b324f78373e`.
+The independent review counts all expected READY/RELEASED/refusal/verification
+markers, rejects failure markers, compares every recovery disk hash and checks
+allocation results. Receipts, commands, logs, matched manifest and independent
+checks are also retained at
+`.local/filesystem-evidence/workspace-lifecycle-9ba7e944/` outside build cleanup.
+
+All proof VMs stopped; review VMs 61610, 6233 and 85869 and primary checkout were
+preserved. This covers disposable GPT/AHCI mounted-volume reference lifetime,
+not physical hot unplug, automatic USB workspace admission, failed-flush injection
+or power-loss qualification. No further implementation is required for this target.
+
+### PR319 merge review and next bounded milestone
+
+The user authorized review and merge if ready. Actual main remains `c7be6574`.
+The five-file diff changes only sysabi test modes, optional harness behavior and
+this document. Rechecked the archived receipt SHA256, exact source and all six
+READY/refusal/RELEASED cycles, 12 alias/persistence checks and nine complete disk
+hash comparisons. No review correction or unresolved thread was present.
+Six provenance tests, 871 local documentation links and whitespace checks pass.
+A clean build of the review head reproduces all three image hashes from tested
+`9ba7e944`; changes since that run are documentation only. The passing VM proof
+therefore remains applicable without another run. Existing review VMs remain live.
+
+Next proposed filesystem milestone: **failed-writeback workspace retirement
+contract and fault proof**. Use the actual process/exFAT/VFS path with a disposable
+`/work` backend and deterministic write/flush failures. Establish the expected
+sync/close error, retained or quarantined state and safe mount-retirement behavior;
+verify that failures cannot be reported as clean persistence and leave the
+selected system volume and `/home`/`/usr`/`/fat` aliases intact. Reuse existing
+fault adapters and coordinate process cleanup with its audit owner. Begin with
+an explicit failure-state contract and focused reproducer; change production
+code only for demonstrated gaps. No automatic repair/retry, physical media or
+new backend is implied. This is the next proposal, not work begun by this review.
+
 ## Installed-root canonical paths — verified
 
 November 3, 2026: canonical paths work end to end on an identity-selected
