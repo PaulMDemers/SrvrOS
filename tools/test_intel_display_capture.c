@@ -8,7 +8,7 @@ struct fake {
     unsigned identities,maps,unmaps,reads,clocks;
     int fail_map,fail_unmap,change_identity;
     uint32_t bad_offset;
-    bool well_off,well_changes,register_changes,frozen,backwards;
+    bool well_off,well_changes,register_changes,frozen,backwards,rewind_start,rewind_sample;
     uint64_t time;
     bool owned[INTEL_CAPTURE_PAGES];
 };
@@ -32,6 +32,8 @@ static uint64_t now(void *p) {
     struct fake *f=p;f->clocks++;
     if(f->backwards && f->clocks>3)return 0;
     if(!f->frozen)f->time+=100;
+    if(f->rewind_start && f->clocks==3)return 0;
+    if(f->rewind_sample && f->clocks==204)return f->time-600;
     return f->time;
 }
 static bool read(void *p,uint32_t off,uint32_t *value) {
@@ -103,5 +105,7 @@ int main(void) {
     f=fresh();f.register_changes=true;assert(!run(&f,&fb,&r) && r.status==INTEL_CAPTURE_UNSTABLE);
     f=fresh();f.frozen=true;assert(!run(&f,&fb,&r) && r.status==INTEL_CAPTURE_CLOCK && f.clocks<=1000010);
     f=fresh();f.backwards=true;assert(!run(&f,&fb,&r) && r.status==INTEL_CAPTURE_CLOCK);
+    f=fresh();f.rewind_start=true;assert(!run(&f,&fb,&r) && r.status==INTEL_CAPTURE_CLOCK);
+    f=fresh();f.rewind_sample=true;assert(!run(&f,&fb,&r) && r.status==INTEL_CAPTURE_CLOCK);
     puts("intel-display-capture: PASS profile/format/range refusal, allowlist, stable endpoints, bounded clock, partial-map cleanup and retained failures");
 }

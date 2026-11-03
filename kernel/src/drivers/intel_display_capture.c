@@ -109,6 +109,7 @@ bool intel_display_capture(struct intel_capture_result *r,const struct intel_cap
     r->status=sample(io,&r->sample[0]);
     if(r->status!=INTEL_CAPTURE_OBSERVED) goto done;
     uint64_t start=io->now(io->ctx),previous=start;
+    if(start<r->sample[0].end_us) {r->status=INTEL_CAPTURE_CLOCK;goto done;}
     bool elapsed=false;
     for(unsigned spin=0;spin<1000000;spin++) {
         uint64_t now=io->now(io->ctx);
@@ -122,6 +123,8 @@ bool intel_display_capture(struct intel_capture_result *r,const struct intel_cap
     }
     r->status=sample(io,&r->sample[1]);
     if(r->status!=INTEL_CAPTURE_OBSERVED) goto done;
+    if(r->sample[1].begin_us<previous || r->sample[1].begin_us-r->sample[0].end_us<20000 ||
+       r->sample[1].begin_us-r->sample[0].end_us>100000) {r->status=INTEL_CAPTURE_CLOCK;goto done;}
     if(!io->identity(io->ctx,&r->after) || !same(&r->before,&r->after)) {
         r->status=INTEL_CAPTURE_UNSTABLE;goto done;
     }
