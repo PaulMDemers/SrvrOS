@@ -1,8 +1,9 @@
 # Air6,1 display/HDA ownership and recovery design
 
 Design checkpoint: 2026-11-03, integration base `5b2bf3c7`. Milestone A now has a diagnostic-only software
-model; the hardware transition operations below remain proposed and unavailable. The installed native payload remains
-`2bcb21ae64ee1920`, compiled from `f921afc2`. Policy, limits and recovery are
+model; the hardware transition operations below remain proposed and unavailable. The native diagnostic payload is
+`9316558efb4b7007`, compiled from `fa8e503f`. Its expected no-write refusal and
+software retirement are physically observed. Policy, limits and recovery are
 unchanged. See the [observations and access contract](ap-ownership-diagnostic.md#version-7-display-hda-read-only-capture)
 and [unit record](machines/macbookair6-1.md).
 
@@ -180,8 +181,10 @@ RC6's separate original timing failure remains a failure.
 | C: guard and HDA owner | Exact gated well-on ownership plus controlled HDA shutdown/restore, with no well-off operation | Mock posted-write/timeout/interleaving/reset-change failures, quarantine/lifetime and restore checks; matched VM and separately bounded native qualification |
 | D: single well-off trial | One release/restore cycle only after A–C and independent recovery pass | Refusal/fault matrix, exact-stage rehearsal, durable run/recovery records, native display survival and restoration; unchanged latency/ownership/integrity limits |
 
-Milestone A is implemented for host/diagnostic validation, with native evidence
-still required. It retains unknowns and cannot acquire hardware authority.
+Milestone A passes host/VM checks and the source-bound native expected-refusal
+and software-lifetime capture. It retains unknowns and cannot acquire hardware
+authority. The broader platform trial still fails the unchanged RC6 bound;
+package C3 remains zero. Milestone B readout/backing-lifetime work is next.
 Milestones C/D require a separately reviewed explicit write allowlist and
 completed recovery/codec contract; this design does not supply either. No
 physical trial or new power policy is enabled by this document.
@@ -240,3 +243,16 @@ Sanitizer checks cover the pure owner; host decoding and conservative tail tests
 cover the matched schema. Runtime source/isolation and VM/native validation
 remain required before physical acceptance. No well/HDA ownership or restore
 milestone is granted by these tests.
+
+
+## Milestone B first readout (native comparison pending)
+
+The isolated version-9 capture records primary-A geometry/surface/live surface,
+PCI aperture context, inherited framebuffer descriptor, per-page mapping
+continuity and firmware classification at both endpoints. See the
+[exact readout contract](ap-ownership-diagnostic.md#version-9-primary-a-and-inherited-framebuffer-readout).
+It adds no mappings, GGTT/PTE/data reads, control writes or assurance bits.
+Readout refusal and ambiguous ranges remain explicit. A compatible linear
+aperture relation still cannot prove GGTT/stolen backing or an adopted lifetime.
+Milestone B remains incomplete until these dependencies are resolved; A's native
+software retirement is not a lifetime release of actual scanout storage.

@@ -2587,3 +2587,13 @@ negative controls and check results are in local
 `build/review/terminal-quoting/receipt.json`; Terminal evidence is in
 `build/review/awk/20261103-163846-r5l071hz/`. All task VMs are stopped. The shared
 checkout and review VM remain untouched; no main merge was performed.
+
+### Terminal quoting integration — active November 3, 2026
+
+User authorized integrating PR299 and verifying merged main in the independent
+`SrvrOS-app-quality` checkout. Current main `0fd0c5fc` adds Air6,1 platform
+backing diagnostics and tooling; its Makefile additions combine cleanly with the
+quoting fixture. Merge main into the PR branch, preserve both test targets, then
+merge the reviewed PR and verify clean merged source with host checks, a matched
+build, Terminal persistence and the full CLI suite. Shared checkout and review VM
+remain untouched. Prior native-device and PR252 acceptance boundaries remain.
