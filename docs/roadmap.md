@@ -42,6 +42,21 @@ combined image with merged awk also builds, starts and completes a live corner
 resize; its kernel/compositor hashes match the accepted runtime. No additional
 resize feature is required.
 
+## SQLite CLI port — November 3, 2026
+
+Active target: integrate SQLite 3.53.1 as a static `sqlite3` command for bounded
+single-connection, exclusive-access SQL scripts and CSV import/query/export,
+including database reopen. The CLI has a separate engine configuration so the
+existing `sqlitedemo` remains unchanged. WAL, process commands, extension loading
+and readline are excluded. Full build, host and guest VFS ownership/temp/error checks, and two-boot CSV
+workflow acceptance pass. Two clean CLI builds match SHA256
+`a23d90c8e8b49f7e36ff996e8cf009eee5ab7537faea6edabbe7a34cfd873b2f`.
+Guest fsck and offline allocation pass; independent fsck is unavailable. Evidence
+is under `build/sqlite-cli-smoke/` and `build/review/sqlite/`. No full-image
+reproducibility or power-loss atomicity claim is made. Implementation is ready
+for review; see
+[port usage and scope](ports.md). No native device acceptance is implied.
+
 ## Pinned awk port — November 3, 2026
 
 Target: a useful upstream interpreter for Terminal CSV/text reporting, with

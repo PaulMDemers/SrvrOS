@@ -2537,3 +2537,19 @@ edge-resize review VM and disk are preserved. Logs are in
 [PR297](https://github.com/PaulMDemers/SrvrOS/pull/297) records delivery. The
 requested behavior and acceptance are complete; no further implementation
 is required. No native boot/install or hosted Actions change.
+
+### SQLite CLI port — active scope November 3, 2026
+
+Branch `ports/sqlite` starts at runtime `0fd0c5fc`. This isolated checkout owns
+the SQLite 3.53.1 CLI adapter, static build/image integration and bounded guest
+checks for single-connection exclusive-access SQL scripts and CSV import, query,
+export and reopen. It depends on the pinned SrvrPorts SQLite amalgamation; the
+existing `sqlitedemo` keeps its own engine configuration. WAL, process commands,
+loadable extensions and readline are excluded. Full build, host VFS tests, guest ownership/temp/error probe and two-boot CSV
+workflow pass. Two clean CLI builds match SHA256
+`a23d90c8e8b49f7e36ff996e8cf009eee5ab7537faea6edabbe7a34cfd873b2f`.
+Raw receipts are under `build/sqlite-cli-smoke/` and `build/review/sqlite/`;
+external fsck is unavailable, while guest fsck and offline allocation pass.
+No full-image reproducibility or power-loss durability claim is made;
+the integration checkout and existing review VMs are preserved. No physical
+boot or native acceptance is part of this scope.
