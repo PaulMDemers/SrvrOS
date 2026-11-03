@@ -357,6 +357,17 @@ fields and command/restoration transaction after parent restore. Simultaneous
 held-channel PA/BBP state, VCO, calibrated reception and connectivity remain
 unaccepted; those are separate integration/calibration/receive milestones.
 
+## Current merged development baseline
+
+Runtime `d9c28128` consumes main `1dad02c2`, Apps `1f5f894`, Ports `5aacedd`
+and UI `76deeb3`, preserving local Wi-Fi UI and checkpoint logging. Matched
+build/core/desktop/I/O/awk and exact-stage save/return, compositor, Files, resize
+and two-boot awk VMs pass. Test/host fixes `0dea148e`/`739d95b6` do not alter
+the staged runtime. Artifact `9ecaa96bdc9dced6` is uninstalled and adds no native
+acceptance; v115 above remains the latest physical result. The machine record
+owns the preserved initial refusals and disposable fixture filesystem checks.
+Next work integrates simultaneous selected-state ownership before VCO/RX.
+
 ## Captured baseline
 
 USB high speed (480 Mb/s), one configuration, interface 0 / alternate 0,

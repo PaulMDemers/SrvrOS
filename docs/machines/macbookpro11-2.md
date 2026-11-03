@@ -40,20 +40,46 @@ compatible hardware. Local credentials remain private and unused until the
 security stage. Do not report connection-ready until authentication, data
 exchange and clean disconnect actually pass.
 
-## Current source scope: reconcile renderer/apps/ports before held-channel work
+## Current source scope: held channel161 integration
 
-Fetched main `1dad02c2` pins SrvrUI76deeb3, SrvrAppsae56bf7 and SrvrPorts5e30ecd.
-First reconcile those exact revisions with local Wi-Fi Help/System controls and
-checkpoint-only power logging, preserving renderer/font/Open With/Files recovery/
-edge-resize/awk behavior. Scope is submodule merges and shared Makefile/compositor/
-System tests; publish module commits before the OS gitlinks. Validate full matched
-build/core/desktop, exact-image save/return and desktop workflows before staging
-new native code. No new native acceptance or reboot is implied by source merge.
-PR252 retains resolver/socket scope; no other open Wi-Fi owner was found.
-After this baseline is sound, design held channel161 band/frequency/A20/PA and
-fresh-gain BBP selected-state ownership/cleanup. Keep the accepted v115 payload,
-Ubuntu and independent backups intact, and do not add a VCO/RX operation merely
-because individual restored transactions passed.
+Consumed actual main `1dad02c2` in runtime merge `d9c28128`. Published module
+merges SrvrApps `1f5f894` and SrvrPorts `5aacedd` preserve Wi-Fi Help/System
+controls and checkpoint-only power logging with upstream Open With/Files
+recovery. SrvrUI is upstream `76deeb3`; seven previous upstream pins are unchanged
+and awk is `5739fd7`. Root validation fixes are `0dea148e`/`739d95b6`.
+
+Full matched build/USB image/core/desktop/I/O/awk/docs and206 staging groups
+pass. Staged v115 baseline `9ecaa96bdc9dced6` has the exact built kernel and
+independently firmware-packaged initramfs. Exact-stage probe save/return and
+missing-workspace refusal, compositor lifecycle/input/resize, Files/Open With,
+two-resolution resize and two-boot awk persistence/retirement VMs pass. Theme
+preview is visually checked. Host prerequisites now include Bison; this host
+installed Bison3.8.2 and m4. The initial missing-Bison refusal is retained.
+
+The old compositor smoke clicked inside the client, which the new outside-edge
+resize contract reserves for input. The corrected smoke drags the outside corner
+and requires the exact resized frame/client trace; its original refusal is kept.
+The initial awk fixture exposed production image exact-extent file aliases that
+SrvrOS supports but external exfatprogs rejects before boot. Its separate fresh
+VM fixture now copies aliases into independent extents in memory, verifies every
+source filename and byte, then requires external fsck before and after both
+boots. Seven generator tests include exact-alias copying, idempotence and atomic
+partial-overlap refusal. Neither the production image nor native USB was repaired
+or modified. Both failed VM receipts remain separate from the passing receipts.
+
+Evidence and staged payload are preserved outside build in
+`channel161-main-d9c28128`. This is host/VM integration only: native remains
+v115 `e405f17dd9a5449b`/`ec117c9e`, previous `e47dca3a6b30c6c1`, Ubuntu default,
+collected and unarmed. Do not repeat a baseline-only physical trial.
+
+Next bounded work owns channel161 band/frequency/A20/PA and fresh-gain BBP
+selected state together, with independent selected readbacks and reverse cleanup.
+Touched subsystems are the fixed MT76 engines, private native owner, immutable
+trial recipe, host fault/proof suites and saved-log collector. Existing restored
+transaction APIs remain separate. Audit pinned trim/DAC/VCO ordering before any
+pulse or RX; separate VCO/calibrated reception and authenticated IP milestones
+remain pending. PR252 retains resolver/socket scope; no other open Wi-Fi owner
+was found at this integration checkpoint. Preserve v115 and independent backups.
 
 ## v115 fresh5GHz gain/baseband restoration accepted
 
