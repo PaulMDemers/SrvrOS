@@ -2,31 +2,35 @@
 
 Updated: 2026-11-03. State: **active reference machine; partial device acceptance**.
 
-### Attended Open With hardware trial preparation
+### Attended Open With hardware trial prepared
 
-The user authorized proceeding with the next trial. Test the existing matched
-v75 `f586e4a2d58cb3ab` payload (manifest source `8a6c4f2a`, Apps `ff6c8de`, UI
-`89fb6d9`, Ports `0494ae2`) with real keyboard/trackpad chooser input. The focused
-three-part checklist opens automatically in Help. This requires tester input;
+The user authorized the next trial. Installed v75 `6ee815bb354a4100` / source
+`053c5947`, Apps `efd9dba`, UI `89fb6d9`, Ports `0494ae2`. The focused three-part
+Open With checklist opens automatically in Help. This requires tester input;
 there is no timer/automatic return. Save observations/screenshots, Return to
-console, wait for clean USB unmount and type `reboot`.
+console, type `workspace unmount`, wait for `workspace: unmounted; USB writes
+disabled`, then type `reboot`.
 
-Scope is native Open With/default/explicit handlers, cancellation, unsaved draft
-retention and existing Preview reuse. Preserve c497 and recovery9aa, refresh the
-local USB baseline/offline checks, install with recovery retained, and record
-one-shot state before reboot. Collection precedes any next run. Fetched main
-`105077d7` adds Air6,1 acceptance documentation; this trial keeps the exact
-VM-validated payload. Local run: `build/air-open-with-native-20261103/`.
-No physical acceptance is claimed before return and collection.
+Scope: default/explicit handlers, Cancel/Escape/Close, unsaved draft retention,
+owned chooser parent blocking and existing Preview reuse. Audio/sensor checks
+are not required. The final Help-only change makes the unmount command explicit;
+its published app commit precedes the OS gitlink. All app/runtime behavior is
+unchanged from the earlier modular tests. Matched build/docs and the new whole
+exact-stage gate pass on clean `053c5947`:486 acknowledged edges, zero overflow,
+both exact terminal receipts, Home save, lifetime/reopen and offline allocation.
+The former f586 preparation was not booted; its record/payload remain preserved.
 
-Preparation passed: all 1313 prior files and 90 sessions are baselined; the last
-native run is already collected. Offline fsck/allocation/writable/headroom and
-clean volume flags pass. Candidate f586 is installed and hash-verified, current
-accepted c497 stays available independently and on EFI, and recovery9aa plus
-Ubuntu's default are unchanged. The unused failed 291 payload was copied and
-verified outside EFI before its obsolete EFI copy was removed to make space.
-The run record is prepared, not yet armed; it records any subsequent one-shot
-reboot request. Native acceptance remains pending.
+All1313 prior files/90 sessions are baselined and the prior native run is
+collected. Offline fsck/allocation/writable/headroom and clean flags pass; USB
+remains unmounted. The new current is verified, accepted c497 stays on EFI and
+independently backed up, recovery9aa and Ubuntu's default are unchanged. Unused
+291/0d1 EFI payloads were archived and fully verified before removing only their
+obsolete EFI copies for space. The on-disk record records subsequent one-shot
+state. No physical acceptance is claimed before return and collection.
+
+Fetched main `105077d7` adds Air6,1 acceptance documentation; this trial keeps
+the exact VM-validated payload. Local run: `build/air-open-with-native-20261103/`.
+Collect its matching new 6ee session, notes and screenshots before another run.
 
 ### Exact-stage keyboard injection fix
 
