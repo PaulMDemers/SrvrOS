@@ -89,7 +89,7 @@ def data_image(disk, offset, size):
 
 def boot(disk, out, number, args, negative=False, *, other_disk=None,
          reverse=False, expected_device='ahci0p2', require_identity=False,
-         recovery_reason=None, canonical_paths=False):
+         recovery_reason=None, canonical_paths=False, workspace_lifecycle=False):
     output = bytearray()
     consumed = 0
     serial = qmp = None
@@ -217,10 +217,24 @@ def boot(disk, out, number, args, negative=False, *, other_disk=None,
                         wait(marker); wait(prompt)
                         response = output[start:consumed]
                         if any(fail in response for fail in (b'namespace: FAIL', b'namespace-persistence: FAIL',
-                                                             b'sysabi: fail', b'exception:')):
+                                                             b'sysabi: fail', b'exception:', b'workspace-lifecycle: FAIL')):
                             raise RuntimeError(f'Canonical command failed: {line}')
                     work_device = 'ahci0p2' if reverse else 'ahci1p2'
                     command(f'mount {work_device} /work', f'{work_device} on /work type=exfat'.encode())
+                    if workspace_lifecycle:
+                        for hold in ('file', 'directory', 'cwd'):
+                            # Each numbered boot starts with no lifecycle fixture.
+                            command(f'run /bin/sysabi --workspace-launch-{hold}',
+                                    f'workspace-lifecycle: {hold} READY'.encode(), prompt=b'')
+                            command('unmount /work', b'unmount: busy: /work')
+                            command('write /home/.namespace-lifecycle-release release',
+                                    b'write: /home/.namespace-lifecycle-release')
+                            wait(f'workspace-lifecycle: {hold} RELEASED'.encode())
+                            command('run /bin/sh -c sync', b'exited status=0')
+                            command('unmount /work', b'exfat: unmounted /work')
+                            command(f'mount {work_device} /work', f'{work_device} on /work type=exfat'.encode())
+                            command('run /bin/sysabi --workspace-verify', b'workspace-lifecycle: verify PASS')
+                        command('run /bin/sh -c "rm /work/.namespace-lifecycle"', b'exited status=0')
                     command('run /bin/true', b'exited status=0')
                     command('run /bin/sh', b' $ ', prompt=b'')
                     command('/bin/sysabi --namespace', b'namespace: PASS', prompt=b' $ ')

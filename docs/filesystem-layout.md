@@ -3,6 +3,15 @@
 Updated November 3, 2026. Global activation follows the explicit namespace proof
 in [PR308](https://github.com/PaulMDemers/SrvrOS/pull/308).
 
+## Workspace lifecycle — active milestone
+
+User authorized the installed-root workspace lifecycle proof. Base `c7be6574`;
+scoped to sysabi fixture modes, an optional installed-root harness mode and this
+document. Hold file/directory/cwd references independently, require busy unmount,
+release/sync/remount and check bytes plus unchanged selected-root aliases.
+Coordinate harness edits with installation owner and any process defect with
+the process audit owner. No physical devices or existing review VMs are targets.
+
 ## Installed-root canonical paths — verified
 
 November 3, 2026: canonical paths work end to end on an identity-selected
