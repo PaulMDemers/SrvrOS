@@ -161,7 +161,7 @@ matching source/stride/live surface and an aligned256MiB CPU aperture. For X
 layout, the observed storage extent includes complete8-row tiles. It refuses
 more than1536 PTEs rather than enlarging the logger's64KiB retention limit. The
 Air's padded extent is5554176 bytes/1356 pages, versus5529600 visible bytes.
-This is a proposed interpretation to validate against the next native receipt.
+The native receipt below confirms this padded extent on the reference unit.
 
 Read-only host bridge `8086:1604` and GPU snapshots preserve GGC, BDSM, BGSM and
 TOLUD. Admission requires matching GGC/BDSM mirrors, supported nonzero GMS/GGMS,
@@ -206,3 +206,35 @@ Collect the matching new native boot/exit logs, independently decode
 `intel_display_backing`, verify full-vector retention, then perform ordinary
 file-preservation/offline integrity/recovery checks before accepting this readout.
 The previously accepted version1 observation remains separate evidence.
+
+## Native backing observation (2026-11-03)
+
+Source `10966846`, release `3a3b2f00b9ff7eca`, session
+`session-00065f66d0e1ad3c-00` completes the bounded readout and returns
+automatically. The39211-byte saved exit log contains the complete raw vector and
+both endpoint records. Each traversal reads4280 words and1356 PTEs, taking825us
+and822us; all entries match bit for bit. The host independently recomputes hash
+`0x7f0b9ad930cbe611`, counts, contiguity and fence/layout relationships. All22
+temporary backing mappings retire with retained0 and writes0.
+
+Host/GPU GGC `0x02c1` and BDSM `0x8c000001` agree. Captured stolen data is
+`[0x8c000000,0x90000000)` (64MiB); BGSM `0x8b800001` describes the separate8MiB
+table interval below it. Firmware reserves `[0x8b000000,0x90000000)`; this does
+not make its unobserved allocations available to the kernel. All observed PTEs
+are present, mapping consecutive pages from `0x8c001000` through `0x8c54c000`.
+Raw first/last entries are `0x8c001001`/`0x8c54c001`. No backing data is read.
+
+The CPU aperture starts at `0xb0000000`. Its visible5529600 bytes have1350
+contiguous CPU pages in a framebuffer-classified firmware entry. X-tile padding
+extends the GPU-visible storage span to5554176 bytes/1356 pages. Fence0 raw
+`0x021ff02f00000001` uniquely matches X layout and pitch6144, covering graphics
+offsets `[0,0x02200000)` (34MiB). Preserve that full fence and any other firmware
+users; neither the padding nor the rest of its range is proven free.
+
+Prior-file preservation, both copied log hashes, offline fsck/allocation/writable/
+headroom and consumed one-shot/default/recovery checks pass. USB is remounted and
+no new test is armed. Raw evidence is retained locally and in independent reviewed
+storage. This accepts read-only observation of the backing relationship on this
+unit. PMM/GGTT allocation authority, DMA-translation authority, exclusion of later
+firmware activity, buffer pinning, exclusive ownership and flip completion still
+require their own contracts and tests before display writes.

@@ -2,6 +2,26 @@
 
 Updated: 2026-11-03. State: **active reference machine; partial device acceptance**.
 
+### Native backing readout accepted
+
+Release `3a3b2f00b9ff7eca` / source `10966846` returned automatically and is
+collected as `session-00065f66d0e1ad3c-00`. The complete39211-byte exit log
+retains both observations. All1356 raw PTEs match across two traversals, with
+4280 reads each in825us/822us, present and contiguous within captured64MiB
+stolen data memory. Firmware reserves the enclosing range. Unique X-fence0
+matches pitch6144 and covers34MiB; the visible/padded extents are5529600/
+5554176 bytes. All22 backing mappings retire, retained0/writes0. This accepts
+the bounded read-only backing relationship, not an allocator, ownership or flips.
+
+All1319 prior files are preserved except expected filesystem metadata. Both new
+logs are copied/hash-verified; offline fsck/allocation/writable/headroom pass with
+zero leaks/mismatches, the one-shot is consumed, Ubuntu stays default and retained
+payloads/recovery match independent copies. USB is remounted; no new boot is
+armed. Evidence: `build/air-intel-backing-native-20261103/returned/`, backed up
+outside build. Next: explicit scanout/buffer ownership and retirement design;
+preserve the full inherited fence and every firmware allocation, not just visible
+pixels. See the [native backing findings](../macbookair7-2-display-presentation.md#native-backing-observation-2026-11-03).
+
 ### Bounded backing readout ready for automated native trial
 
 Source `10966846` / release `3a3b2f00b9ff7eca` implements the separate opt-in
