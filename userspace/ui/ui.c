@@ -1,6 +1,7 @@
 #include <srvros/conio.h>
 #include <srvros/gfx.h>
 #include <srvros/mouse.h>
+#include <srvros/mouse_position.h>
 #include <srvros/sys.h>
 
 #include <stdint.h>
@@ -52,17 +53,6 @@ static void draw_cursor(uint64_t x, uint64_t y, uint32_t color) {
     fillrect(x, y, 3, 18, color);
     fillrect(x + 3, y + 3, 3, 3, color);
     fillrect(x + 6, y + 6, 3, 3, color);
-}
-
-static uint64_t clamp_add(uint64_t value, int32_t delta, uint64_t min, uint64_t max) {
-    int64_t next = (int64_t)value + delta;
-    if (next < (int64_t)min) {
-        return min;
-    }
-    if (next > (int64_t)max) {
-        return max;
-    }
-    return (uint64_t)next;
 }
 
 int main(void) {
@@ -131,11 +121,15 @@ int main(void) {
 
         if (mouse_scan(&mouse) > 0) {
             draw_cursor(mouse_x, mouse_y, 0x0b101a);
-            if (gfx.width > 20) {
-                mouse_x = clamp_add(mouse_x, mouse.dx, 0, gfx.width - 20);
-            }
-            if (gfx.height > 20) {
-                mouse_y = clamp_add(mouse_y, mouse.dy, 0, gfx.height - 20);
+            if (!(mouse.flags & MOUSE_CANCEL)) {
+                if (gfx.width > 20) {
+                    mouse_x = mouse_position_axis(mouse_x, mouse.dx, mouse.flags, gfx.width);
+                    if (mouse_x > gfx.width - 20) mouse_x = gfx.width - 20;
+                }
+                if (gfx.height > 20) {
+                    mouse_y = mouse_position_axis(mouse_y, mouse.dy, mouse.flags, gfx.height);
+                    if (mouse_y > gfx.height - 20) mouse_y = gfx.height - 20;
+                }
             }
             mouse_buttons = mouse.buttons;
             draw_cursor(mouse_x, mouse_y, mouse_buttons != 0 ? 0xf85149 : 0xffffff);

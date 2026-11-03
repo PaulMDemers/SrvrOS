@@ -18,6 +18,10 @@ struct virtio_pci_device {
     uint64_t addresses[64];
     struct queued_event events[FAKE_EVENTS];
     unsigned head, count;
+    int32_t axis_min[2], axis_max[2];
+    uint8_t abs_size[2], missing_axes;
+    bool generation_fail, header_changed, bad_version;
+    unsigned absolute_reads;
 };
 static struct virtio_pci_device fake[4];
 static struct pci_device pci_devices[4];
@@ -29,7 +33,7 @@ static uint64_t clock_now, current_space;
 struct key_record { unsigned source; uint8_t usage; bool down; };
 static struct key_record key_records[1024];
 static unsigned key_count, repeat_checks[4];
-struct pointer_record { unsigned source; int32_t dx, dy, wx, wy; uint8_t buttons; bool cancel; };
+struct pointer_record { unsigned source; int32_t dx, dy, wx, wy; uint8_t buttons; bool cancel, absolute; };
 static struct pointer_record pointer_records[1024];
 static unsigned pointer_count;
 static uint8_t pointer_buttons[4];
@@ -132,6 +136,7 @@ static unsigned config_payload(struct virtio_pci_device *d, uint8_t *data) {
     }
     if (d->select == 3 && d->subsel == 0) {
         uint16_t ids[4] = {6, 0x0627, (uint16_t)d->kind, (uint16_t)(d->kind == 1 ? 1 : 2)};
+        if (d->bad_version) ids[3] = 1;
         memcpy(data, ids, sizeof(ids)); return sizeof(ids);
     }
     if (d->select == 0x11 && d->subsel == 1) {
@@ -140,6 +145,17 @@ static unsigned config_payload(struct virtio_pci_device *d, uint8_t *data) {
     }
     if (d->select == 0x11 && d->subsel == 2 && d->kind == 2) {
         data[0] = 3 | (1u << 6); data[1] = 1; return 2;
+    }
+    if (d->kind == 3 && d->select == 0x11 && d->subsel == 2) {
+        data[0] = 1u << 6; data[1] = 1; return 2;
+    }
+    if (d->kind == 3 && d->select == 0x11 && d->subsel == 3) {
+        data[0] = 3 & ~d->missing_axes; return 1;
+    }
+    if (d->kind == 3 && d->select == 0x12 && d->subsel < 2) {
+        memcpy(data, &d->axis_min[d->subsel], 4);
+        memcpy(data + 4, &d->axis_max[d->subsel], 4);
+        return d->abs_size[d->subsel];
     }
     return 0;
 }
@@ -152,6 +168,7 @@ bool virtio_pci_config_read(struct virtio_pci_device *d, uint32_t offset, void *
     uint8_t data[128]; unsigned size = config_payload(d, data);
     if (offset == 0) {
         assert(length == 3); uint8_t header[3] = {size ? d->select : 0, size ? d->subsel : 0, (uint8_t)size};
+        if (d->select == 0x12 && d->header_changed && d->absolute_reads) header[1] ^= 1;
         memcpy(dst, header, 3); return true;
     }
     assert(offset == 8 && length <= size && length <= 128 && d->select != 3);
@@ -161,6 +178,12 @@ bool virtio_pci_config_read(struct virtio_pci_device *d, uint32_t offset, void *
 bool virtio_pci_config_read16(struct virtio_pci_device *d, uint32_t offset, uint16_t *value) {
     assert(d->select == 3 && !d->subsel && offset >= 8 && offset <= 14 && !(offset & 1));
     uint8_t data[128]; config_payload(d, data); memcpy(value, data + offset - 8, 2); return true;
+}
+bool virtio_pci_config_read64(struct virtio_pci_device *d, uint32_t offset, uint64_t *value) {
+    assert(d->select == 0x12 && d->subsel < 2 && offset == 8);
+    ++d->absolute_reads;
+    if (d->generation_fail) return false;
+    uint8_t data[128]; config_payload(d, data); memcpy(value, data, 8); return true;
 }
 static unsigned keyboard_source(struct keyboard_usage_state *state) {
     for (unsigned i = 0; i < 4; ++i) if (state == &inputs[i].keyboard) return i;
@@ -185,7 +208,13 @@ void mouse_inject_virtio(unsigned source, int32_t dx, int32_t dy, int32_t wx, in
     assert(source < 4);
     if (!dx && !dy && !wx && !wy && buttons == pointer_buttons[source]) return;
     assert(pointer_count < 1024);
-    pointer_records[pointer_count++] = (struct pointer_record){source, dx, dy, wx, wy, buttons, false};
+    pointer_records[pointer_count++] = (struct pointer_record){source, dx, dy, wx, wy, buttons, false, false};
+    pointer_buttons[source] = buttons;
+}
+void mouse_inject_virtio_absolute(unsigned source, int32_t x, int32_t y, int32_t wx, int32_t wy, uint8_t buttons) {
+    assert(source < 4 && x >= 0 && x <= 65535 && y >= 0 && y <= 65535);
+    assert(pointer_count < 1024);
+    pointer_records[pointer_count++] = (struct pointer_record){source, x, y, wx, wy, buttons, false, true};
     pointer_buttons[source] = buttons;
 }
 void mouse_cancel_virtio(unsigned source) {
@@ -205,6 +234,8 @@ static void setup(unsigned devices) {
         pci_devices[i] = (struct pci_device){.vendor_id = 0x1af4, .device_id = 0x1052,
             .class_code = 9, .subclass = i % 2 ? 2 : 0};
         fake[i].index = i; fake[i].kind = i % 2 ? 2 : 1;
+        fake[i].axis_max[0] = fake[i].axis_max[1] = 32767;
+        fake[i].abs_size[0] = fake[i].abs_size[1] = 20;
     }
 }
 static void event(unsigned dev, unsigned type, unsigned code, int32_t value) {
@@ -216,9 +247,10 @@ static void sync_event(unsigned dev) { event(dev, 0, 0, 0); }
 static void stopped(void) {
     assert(virtio_input_stop() && !virtio_input_ready() && allocations == frees);
 }
+static void tablet_tests(void);
 int main(void) {
     setup(0); assert(!virtio_input_init() && !allocations);
-    setup(1); pci_devices[0].subclass = 0x80; assert(!virtio_input_init() && !fake[0].opens);
+    setup(1); pci_devices[0].subclass = 0x80; assert(!virtio_input_init() && !allocations);
     setup(1); pci_devices[0].subclass = 2; assert(!virtio_input_init() && !allocations);
     setup(1); fake[0].kind = 3; assert(!virtio_input_init() && !allocations && fake[0].stops == 1);
     setup(1); fake[0].bad_config = true; assert(!virtio_input_init() && !allocations);
@@ -297,5 +329,112 @@ int main(void) {
         assert(failure==4 ? (!frees && statistics.quarantined==1 && !virtio_input_stop()) : allocations==frees);
     }
     virtio_input_get_stats(NULL);
+    tablet_tests();
     puts("virtio-input: PASS identities/config, populated event queue, permuted token recycling, SYN batching/bounds, key mapping, relative scroll, source retirement and reset-before-free quarantine");
+}
+
+static void tablet_setup(void) {
+    setup(1); fake[0].kind = 3; pci_devices[0].subclass = 0x80;
+}
+static struct pointer_record last_absolute(int32_t x, int32_t y, unsigned buttons) {
+    assert(pointer_count);
+    struct pointer_record p = pointer_records[pointer_count - 1];
+    assert(p.absolute && !p.cancel && p.source == 0 && p.dx == x && p.dy == y && p.buttons == buttons);
+    return p;
+}
+static void tablet_xy(int32_t x, int32_t y) {
+    event(0,3,0,x); event(0,3,1,y); sync_event(0); virtio_input_poll();
+}
+static void tablet_tests(void) {
+    tablet_setup(); assert(virtio_input_init());
+    assert(statistics.devices == 1 && statistics.tablets == 1 && !statistics.mice && !statistics.keyboards);
+    assert(fake[0].absolute_reads == 2);
+    event(0,1,272,1); event(0,2,8,1); sync_event(0); virtio_input_poll();
+    assert(!pointer_count && inputs[0].buttons == 1); /* Never click/scroll the old pointer. */
+    event(0,3,0,0); sync_event(0); virtio_input_poll();
+    assert(!pointer_count && inputs[0].axis_seen == 1);
+    event(0,3,1,32767); sync_event(0); virtio_input_poll();
+    struct pointer_record p = last_absolute(0,65535,1);
+    assert(pointer_count == 1 && !p.wx && !p.wy); /* Retained held button, no old wheel. */
+    event(0,1,272,0); sync_event(0); virtio_input_poll(); last_absolute(0,65535,0);
+    tablet_xy(0,0); last_absolute(0,0,0);
+    tablet_xy(32767,0); last_absolute(65535,0,0);
+    tablet_xy(32767,32767); last_absolute(65535,65535,0);
+    tablet_xy(0,32767); last_absolute(0,65535,0);
+    event(0,3,0,16384); sync_event(0); virtio_input_poll(); last_absolute(32768,65535,0);
+    event(0,3,1,8192); sync_event(0); virtio_input_poll(); last_absolute(32768,16384,0);
+    tablet_xy(-123,INT32_MAX); last_absolute(0,65535,0); /* Out-of-range samples clamp. */
+    unsigned before = pointer_count;
+    event(0,3,2,456); sync_event(0); sync_event(0); virtio_input_poll();
+    assert(pointer_count == before); /* Unknown axes/empty reports cannot reposition. */
+    event(0,2,8,-2); event(0,2,6,1); sync_event(0); virtio_input_poll();
+    p = last_absolute(0,65535,0); assert(p.wx == 48 && p.wy == 96);
+    before = pointer_count;
+    event(0,1,272,1); event(0,1,272,0); sync_event(0); virtio_input_poll();
+    assert(pointer_count == before + 2 && pointer_records[before].buttons == 1);
+    assert(pointer_records[before].absolute && pointer_records[before+1].absolute);
+    last_absolute(0,65535,0); stopped(); assert(!statistics.tablets);
+
+    tablet_setup(); assert(virtio_input_init());
+    event(0,1,272,1); event(0,1,272,0); event(0,2,8,10); sync_event(0); virtio_input_poll();
+    event(0,3,1,100); sync_event(0); virtio_input_poll(); assert(!pointer_count);
+    stopped(); assert(!pointer_count && !inputs[0].buttons && !inputs[0].axis_seen);
+    tablet_setup(); assert(virtio_input_init());
+    event(0,1,272,1); event(0,1,272,0); sync_event(0); virtio_input_poll();
+    tablet_xy(10,20); assert(pointer_count == 1); last_absolute(20,40,0); stopped();
+
+    tablet_setup(); fake[0].axis_min[0] = -100; fake[0].axis_max[0] = 100;
+    fake[0].axis_min[1] = -200; fake[0].axis_max[1] = -100;
+    assert(virtio_input_init());
+    tablet_xy(-100,-200); last_absolute(0,0,0);
+    tablet_xy(0,-150); last_absolute(32767,32767,0);
+    tablet_xy(100,-100); last_absolute(65535,65535,0); stopped();
+    tablet_setup(); fake[0].axis_min[0] = INT32_MIN; fake[0].axis_max[0] = INT32_MAX;
+    fake[0].axis_min[1] = -1; fake[0].axis_max[1] = 1;
+    assert(virtio_input_init());
+    tablet_xy(INT32_MIN,-1); last_absolute(0,0,0);
+    tablet_xy(0,0); last_absolute(32767,32767,0);
+    tablet_xy(INT32_MAX,1); last_absolute(65535,65535,0); stopped();
+
+    for (unsigned failure = 0; failure < 11; ++failure) {
+        tablet_setup();
+        if (failure == 0) fake[0].axis_max[0] = 0;
+        if (failure == 1) { fake[0].axis_min[1] = 100; fake[0].axis_max[1] = -100; }
+        if (failure == 2) fake[0].missing_axes = 1;
+        if (failure == 3) fake[0].missing_axes = 2;
+        if (failure == 4) fake[0].abs_size[0] = 0;
+        if (failure == 5) fake[0].abs_size[0] = 19;
+        if (failure == 6) fake[0].abs_size[1] = 21;
+        if (failure == 7) fake[0].generation_fail = true;
+        if (failure == 8) fake[0].header_changed = true;
+        if (failure == 9) fake[0].axis_max[0] = -1;
+        if (failure == 10) fake[0].bad_version = true;
+        assert(!virtio_input_init() && !allocations && statistics.failed == 1 && !statistics.tablets);
+        assert(fake[0].stopped && !pointer_count);
+    }
+
+    setup(4); fake[2].kind = 3; pci_devices[2].subclass = 0x80;
+    assert(virtio_input_init());
+    assert(statistics.devices == 4 && statistics.keyboards == 1 && statistics.mice == 2 && statistics.tablets == 1);
+    event(0,1,30,1); sync_event(0);
+    event(1,2,0,5); event(1,2,1,-7); event(1,1,272,1); sync_event(1);
+    event(2,3,0,32767); event(2,3,1,0); event(2,1,273,1); sync_event(2); virtio_input_poll();
+    assert(key_count == 1 && key_records[0].usage == 4);
+    assert(pointer_count == 2 && !pointer_records[0].absolute && pointer_records[0].source == 1);
+    assert(pointer_records[0].dx == 5 && pointer_records[0].dy == -7 && pointer_records[0].buttons == 1);
+    assert(pointer_records[1].absolute && pointer_records[1].source == 2 && pointer_records[1].dx == 65535);
+    event(2,0,3,0); virtio_input_poll();
+    assert(pointer_records[pointer_count-1].cancel && pointer_records[pointer_count-1].source == 2);
+    assert(pointer_buttons[1] == 1 && statistics.devices == 3 && !statistics.tablets); stopped();
+
+    for (unsigned stuck = 0; stuck < 2; ++stuck) {
+        tablet_setup(); assert(virtio_input_init()); tablet_xy(1,2);
+        event(0,1,272,1); sync_event(0); virtio_input_poll();
+        event(0,3,0,3); fake[0].events[fake[0].head % FAKE_EVENTS].length = 7;
+        fake[0].reset_stuck = stuck != 0; virtio_input_poll();
+        assert(!virtio_input_ready() && !statistics.tablets && statistics.failed == 1);
+        assert(pointer_records[pointer_count-1].cancel && !inputs[0].buttons && !inputs[0].axis_seen);
+        assert(stuck ? (!frees && statistics.quarantined == 1 && !virtio_input_stop()) : frees == allocations);
+    }
+    puts("virtio-tablet: PASS exact profile, generation-checked signed bounds, corners/clipping, partial axes, safe first-position buttons/wheel, coexistence and retirement");
 }

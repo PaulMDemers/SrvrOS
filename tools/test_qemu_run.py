@@ -52,6 +52,8 @@ class QemuRunTest(unittest.TestCase):
             self.assertEqual(qemu_run.main(["--virtio-devices","--",*extra]),0)
         self.assertIn("srvros.virtio=on",build.call_args.kwargs["cmdline"])
         self.assertIn("virtio-keyboard-pci",call.call_args.args[0])
+        self.assertIn("virtio-tablet-pci",call.call_args.args[0])
+        self.assertNotIn("virtio-mouse-pci",call.call_args.args[0])
         self.assertEqual(call.call_args.args[0][-2:],extra)
 
 

@@ -187,7 +187,7 @@ def launch(args, state):
 def device_arguments(profile):
     if profile=="virtio":
         return ["-device","virtio-blk-pci,drive=disk,disable-legacy=on",
-                "-device","virtio-keyboard-pci","-device","virtio-mouse-pci",
+                "-device","virtio-keyboard-pci","-device","virtio-tablet-pci",
                 "-object","rng-random,id=rng0,filename=/dev/urandom",
                 "-device","virtio-rng-pci,rng=rng0,disable-legacy=on",
                 "-netdev","user,id=net0","-device","virtio-net-pci,netdev=net0,disable-legacy=on"]

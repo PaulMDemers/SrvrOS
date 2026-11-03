@@ -2,6 +2,7 @@
 #include <srvros/gfx.h>
 #include <srvros/gui.h>
 #include <srvros/mouse.h>
+#include <srvros/mouse_position.h>
 #include <srvros/sys.h>
 #include <srvros/ui.h>
 
@@ -191,17 +192,6 @@ static uint64_t clamp_u64(uint64_t value, uint64_t low, uint64_t high) {
         return high;
     }
     return value;
-}
-
-static uint64_t clamp_add(uint64_t value, int32_t delta, uint64_t min, uint64_t max) {
-    int64_t next = (int64_t)value + delta;
-    if (next < (int64_t)min) {
-        return min;
-    }
-    if (next > (int64_t)max) {
-        return max;
-    }
-    return (uint64_t)next;
 }
 
 static int streq(const char *a, const char *b) {
@@ -3119,11 +3109,15 @@ int main(int argc, char **argv) {
             struct display_client *client = 0;
             struct display_client *frame_client = 0;
             int was_dragging = state.dragging_surface_id != 0 || state.resizing_surface_id != 0;
-            if (gfx.width > CURSOR_W) {
-                mouse_x = clamp_add(mouse_x, mouse.dx, 0, gfx.width - CURSOR_W);
-            }
-            if (gfx.height > CURSOR_H) {
-                mouse_y = clamp_add(mouse_y, mouse.dy, 0, gfx.height - CURSOR_H);
+            if (!(mouse.flags & MOUSE_CANCEL)) {
+                if (gfx.width > CURSOR_W) {
+                    mouse_x = mouse_position_axis(mouse_x, mouse.dx, mouse.flags, gfx.width);
+                    if (mouse_x > gfx.width - CURSOR_W) mouse_x = gfx.width - CURSOR_W;
+                }
+                if (gfx.height > CURSOR_H) {
+                    mouse_y = mouse_position_axis(mouse_y, mouse.dy, mouse.flags, gfx.height);
+                    if (mouse_y > gfx.height - CURSOR_H) mouse_y = gfx.height - CURSOR_H;
+                }
             }
             buttons = mouse.buttons;
             cursor_dirty = mouse_x != old_mouse_x || mouse_y != old_mouse_y;

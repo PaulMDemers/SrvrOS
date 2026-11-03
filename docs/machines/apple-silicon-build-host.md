@@ -2063,3 +2063,36 @@ from this clean runtime is left open at `.local/macos-vm/virtio-baseline-review/
 its `current.json` identifies the owned process, disk, sockets and logs. Exit via
 SrvrOS → Return to console before closing QEMU. Required work for this baseline
 is complete; interrupt-driven queues, tablets and offloads remain optional.
+
+### Active tablet scope — November 3, 2026
+
+User authorized VirtIO tablet support, QEMU default selection, verification of
+automatic cursor release, and merge. Branch `device/apple-silicon/virtio-tablet`
+is based on freshly fetched main `f3f9a3c2`. Owns the input tablet profile,
+normalized absolute pointer queue/ABI semantics, desktop pointer consumers,
+QEMU launch defaults and focused tests. PR252 retains process/I/O lifetime work,
+PR278 application dispatch, PR19 Wi-Fi; no overlapping driver work was found.
+
+Acceptance: exact endpoints and scaling at supported desktop sizes; no jump on
+first full sample or re-entry; ordinary relative devices still work; press/drag/
+release and wheel preserved; automatic release on leaving the Cocoa VM window
+and re-entry without a release shortcut; clean matched build, protocol/queue/
+consumer regressions and VM evidence. Publish and merge after these checks.
+Native boot settings, physical acceptance and repository boundaries are unchanged.
+
+### Tablet verification — November 3, 2026
+
+Clean runtime `0779dd72` built successfully and passed input, pointer/ABI,
+keyboard and desktop host tests, launcher unit tests, both absolute-tablet VM
+modes (1280×800 scale 1 and 1920×1080 scale 2), and the original two-boot relative
+VirtIO baseline. All runs match kernel/exFAT hashes in the
+[tablet receipt](../assets/screenshots/virtio-tablet-manifest.json).
+
+The default Cocoa desktop is open in `.local/macos-vm/virtio-tablet-review/` and
+reports the tablet as its active absolute pointer. First app frame: 4.32 seconds.
+The user confirmed automatic host cursor release/re-entry without a shortcut and
+outside-release/re-entry without a stuck drag, completing acceptance for PR285.
+The former VM was exited cleanly,
+with its unsaved blank Text document saved as `/fat/tablet-restart-recovery.txt`
+on the retained `.local/macos-vm/virtio-baseline-review/` disk. Submodule pins and
+native hardware acceptance are unchanged.

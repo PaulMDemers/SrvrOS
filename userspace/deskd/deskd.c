@@ -19,6 +19,7 @@
 #include <srvros/gfx.h>
 #include <srvros/gui.h>
 #include <srvros/mouse.h>
+#include <srvros/mouse_position.h>
 #include <srvros/sys.h>
 #include <stdio.h>
 #include <string.h>
@@ -1967,6 +1968,11 @@ int main(int argc,char **argv) {
         for (int j=i;j<argc;j++) argv[j]=argv[j+1];
         argc--; i--;
     }
+    int pointer_trace=0, apps_trace=0;
+    for (int i=1;i<argc;i++) {
+        if (!strcmp(argv[i],"--trace")) pointer_trace=1;
+        if (!strcmp(argv[i],"--apps-trace")) apps_trace=1;
+    }
     if (argc==2 && strcmp(argv[1],"--license")==0) { ui_puts(desk_font_license); return 0; }
     int control_monitor=argc==2 && !strcmp(argv[1],"--battery-monitor");
     int control_manual=control_monitor || (argc==2 && !strcmp(argv[1],"--battery-controls-manual"));
@@ -1995,7 +2001,7 @@ int main(int argc,char **argv) {
     int growth=argc==2 && !strcmp(argv[1],"--window-growth-smoke");
     int multiwindow=growth || (argc==2 && !strcmp(argv[1],"--multiwindow-smoke"));
     int dialog_refusal=argc==2 && !strcmp(argv[1],"--dialog-refusal-test");
-    int apps=dialog_refusal || pool_wait || multiwindow || battery_guided || home_apps || idle_capture || hardware_trial || argc==1 || (argc==2 && (!strcmp(argv[1],"--apps") || !strcmp(argv[1],"--apps-trace") || !strcmp(argv[1],"--registry-pressure-test")));
+    int apps=apps_trace || dialog_refusal || pool_wait || multiwindow || battery_guided || home_apps || idle_capture || hardware_trial || argc==1 || (argc==2 && (!strcmp(argv[1],"--apps") || !strcmp(argv[1],"--registry-pressure-test")));
     int scroll_smoke=argc==2 && strcmp(argv[1],"--scroll-smoke")==0,scroll_phase=0;
     int smoke=scroll_smoke || (argc==2 && strcmp(argv[1],"--smoke")==0);
     int lifecycle=argc==2 && strcmp(argv[1],"--lifecycle-smoke")==0,phase=0;
@@ -2019,7 +2025,7 @@ int main(int argc,char **argv) {
     if(stress_volume<0){ui_puts("audio-io: result=FAIL reason=volume-override\n");return 1;}
     if (gfx_console_mute(1)!=0) return 1;
     struct session s={.dynamic=1,.refuse_dialogs=dialog_refusal,.registry_budget=argc==2 && !strcmp(argv[1],"--registry-pressure-test")?1:DESK_REGISTRY_BYTES,.ram_text=coexist_text || control_capture,.home=(battery_guided || hardware_trial || idle_capture || home_apps)?DESK_WORKSPACE_HOME:DESK_RAM_HOME,.scene={.focus=-1,.cursor_x=24,.cursor_y=56,.automatic_test=capacity_capture},
-        .trace=audio_io_attended || dialog_refusal || capacity_capture || pool_wait || multiwindow || battery_guided || coexist || idle_capture || lifecycle || (argc==2 && (!strcmp(argv[1],"--trace") || !strcmp(argv[1],"--apps-trace") || !strcmp(argv[1],"--registry-pressure-test")))};
+        .trace=pointer_trace || apps_trace || audio_io_attended || dialog_refusal || capacity_capture || pool_wait || multiwindow || battery_guided || coexist || idle_capture || lifecycle || (argc==2 && !strcmp(argv[1],"--registry-pressure-test"))};
     if(s.registry_budget==1)ui_puts("deskd: diagnostic registry growth budget=1 byte\n");
     desk_capture_job_init(&s.capture);
     desktop_notice_view_init(&s.scene.notifications);desktop_notice_view_configure(&s.scene.notifications,width,height);
@@ -2510,21 +2516,28 @@ int main(int argc,char **argv) {
         if(hardware_trial) desktop_timing_poll(&timing,poll_time);
         struct mouse_event e;
         for (int n=0;n<32 && mouse_scan(&e)>0;n++) {
+            int previous_x=s.scene.cursor_x, previous_y=s.scene.cursor_y;
+            int x=(int)mouse_position_axis(previous_x,e.dx,e.flags,canvas.width);
+            int y=(int)mouse_position_axis(previous_y,e.dy,e.flags,canvas.height);
+            /* ABS carries a position, including zero. A stationary absolute
+             * wheel report must not count as motion or insert client HOVER. */
+            int motion=!(e.flags&MOUSE_CANCEL) && ((e.flags&MOUSE_ABSOLUTE)?
+                (x!=previous_x || y!=previous_y):(e.dx || e.dy));
             if(hardware_trial) {
                 long now=srv_monotonic_us();
-                desktop_timing_input(&timing,poll_time,now>0?(uint64_t)now:0,e.dx||e.dy);
+                desktop_timing_input(&timing,poll_time,now>0?(uint64_t)now:0,motion);
             }
-            if (e.dx || e.dy || e.wheel_x || e.wheel_y || e.buttons!=buttons) {
+            if (motion || e.wheel_x || e.wheel_y || e.buttons!=buttons) {
                 if(battery_work || (audio_io_attended && audio_io_pid))work_motion++;
                 stop_warning=0; io_trial_input(&s.io,1);
             }
             if (io_trial_active(&s.io)) {
-                if (e.dx || e.dy) s.io.motions++;
+                if (motion) s.io.motions++;
                 if (e.wheel_x || e.wheel_y) s.io.wheels++;
             }
             desk_damage_add(&s.damage,(struct desk_rect){s.scene.cursor_x,s.scene.cursor_y,10,17});
-            int x=s.scene.cursor_x=clamp((int64_t)s.scene.cursor_x+e.dx,0,canvas.width-1);
-            int y=s.scene.cursor_y=clamp((int64_t)s.scene.cursor_y+e.dy,0,canvas.height-1);
+            s.scene.cursor_x=x;
+            s.scene.cursor_y=y;
             if (s.trace && !apps) desk_log("deskd: pointer x=%d y=%d buttons=%u\n",x,y,(unsigned)e.buttons);
             if(s.context_down) {
                 if(!e.buttons || (e.flags&MOUSE_CANCEL)) { s.context_down=0;s.pointer_blocked=0; }
@@ -2640,7 +2653,7 @@ int main(int argc,char **argv) {
             /* A stationary two-finger scroll must not insert HOVER between
              * every scroll packet: that defeats coalescing and floods clients. */
             if (drag<0 && resize<0 && !(e.flags&MOUSE_CANCEL) &&
-                (e.dx || e.dy || e.buttons!=buttons))
+                (motion || e.buttons!=buttons))
                 pointer_at(&s,x,y,e.buttons,(e.buttons&MOUSE_LEFT) && !(buttons&MOUSE_LEFT));
             buttons=e.buttons;
             desk_damage_add(&s.damage,(struct desk_rect){x,y,10,17});

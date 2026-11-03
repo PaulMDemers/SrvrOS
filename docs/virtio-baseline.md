@@ -30,7 +30,7 @@ and VirtIO 1.2 section 4.1.4.9.
 | Driver | Initial supported behavior | Limits |
 | --- | --- | --- |
 | GPU | Two fenced resources with independent pending damage; unchanged frames skip presentation | Full scanout/flush; command completion does not establish host vblank |
-| Input | QEMU keyboard and relative mouse, modifiers/releases/repeat, buttons and wheel; independent source state | Four devices; 64 events per device per poll; no tablet or LED output |
+| Input | QEMU keyboard, relative mouse and absolute tablet; modifiers/releases/repeat, buttons and wheel; independent source state | Four devices; 64 events per device per poll; no LED output or host-device passthrough |
 | RNG | One writable request and a private 4 KiB pool, validated partial replies, nonblocking syscall consumption | Exhaustion keeps the existing random syscall fallback; no new cryptographic guarantee |
 | Block | Two disks, 512-byte sectors, 16 KiB batches, partial-sector read/modify/write, explicit flush | Media without FLUSH or with RO remain read-only; capacity changes/faults retire the device |
 | Network | One RX/TX pair, MAC and optional live link status, Ethernet packets up to 1514 bytes | No offloads, mergeable buffers or live provider replacement |
@@ -41,6 +41,15 @@ transactions with bounded waits and scheduler service checkpoints, restoring the
 caller address space before every checkpoint. Transport/device failures retire
 ownership rather than reuse potentially live DMA. These polling paths are a
 usable initial baseline; interrupt-driven operation is separate work.
+
+The default launchers select `virtio-tablet-pci`. Its signed axis bounds are read
+from ABS_INFO and normalized to inclusive 0..65535. The existing mouse event ABI
+carries positions under `MOUSE_ABSOLUTE`; relative sources retain signed deltas.
+Consumers map positions to their logical canvas, and cancellation preserves the
+current position. Both axes must be known before a tablet can emit pointer
+effects. Queues keep absolute and relative events separate and retain button
+edges. Cocoa's absolute-pointer mode releases capture on window exit and raises
+held buttons; see [QEMU's Cocoa input handling](https://github.com/qemu/qemu/blob/v11.1.2/ui/cocoa.m).
 
 `virtio` in the monitor prints device inventory, failure/quarantine status and
 transfer counters, without exposing entropy bytes. RNG consumption can be
@@ -78,3 +87,21 @@ recorded run; this is one startup observation, not a benchmark. The explicit
 VGA/USB/AHCI/e1000 launcher also renders and returns to the console cleanly.
 See the [compact acceptance receipt](assets/screenshots/virtio-baseline-manifest.json)
 and [PR284](https://github.com/PaulMDemers/SrvrOS/pull/284).
+
+### Absolute tablet verification — November 3, 2026
+
+Clean runtime `0779dd72` passes the full build, input/pointer ABI/keyboard/desktop
+host suites, and launcher tests. `python3 tools/virtio_tablet_smoke.py` passes with
+PS/2 disabled at 1280×800 scale 1 and 1920×1080 scale 2 (960×540 logical): all
+corners, center, edge release/re-entry, Text edit/save/drag, Help wheel input, and
+clean presentation reset. The original relative-mouse baseline also passes both
+boots, including networking, entropy, and flushed disk persistence.
+
+The default 1440×900 Cocoa launcher reaches its first app frame in 4.32 seconds
+in this run and reports `QEMU Virtio Tablet` as its active absolute pointer.
+Automated guest input does not establish host cursor release. In the separate
+attended check, the user confirmed automatic release and re-entry without a
+shortcut, plus dragging to the edge and releasing outside without a stuck drag.
+See the
+[tablet receipt](assets/screenshots/virtio-tablet-manifest.json) and
+[PR285](https://github.com/PaulMDemers/SrvrOS/pull/285).

@@ -43,7 +43,7 @@ def main(argv=None):
         cmdline=boot_cmdline(args.display_device)
         if args.virtio_devices:
             cmdline+=" srvros.virtio=on"
-            extra_args=["-device","virtio-keyboard-pci","-device","virtio-mouse-pci",
+            extra_args=["-device","virtio-keyboard-pci","-device","virtio-tablet-pci",
                         "-object","rng-random,id=rng0,filename=/dev/urandom",
                         "-device","virtio-rng-pci,rng=rng0,disable-legacy=on",*extra_args]
         iso = build_iso(str(ROOT), directory, 1280, 800, os.environ.copy(), cmdline=cmdline)
