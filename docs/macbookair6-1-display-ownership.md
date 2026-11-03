@@ -1,8 +1,7 @@
 # Air6,1 display/HDA ownership and recovery design
 
-Design checkpoint: 2026-11-03, integration base `5b2bf3c7`. This document proposes
-interfaces and proof obligations; none of the transition operations below is
-implemented or enabled by this change. The installed native payload remains
+Design checkpoint: 2026-11-03, integration base `5b2bf3c7`. Milestone A now has a diagnostic-only software
+model; the hardware transition operations below remain proposed and unavailable. The installed native payload remains
 `2bcb21ae64ee1920`, compiled from `f921afc2`. Policy, limits and recovery are
 unchanged. See the [observations and access contract](ap-ownership-diagnostic.md#version-7-display-hda-read-only-capture)
 and [unit record](machines/macbookair6-1.md).
@@ -66,8 +65,9 @@ fight with firmware, repeated clear loop or inferred firmware exclusion is allow
 
 ## State machine and refusal behavior
 
-All states and transitions in this table are proposed. Today only the independent
-read-only observations exist. Ordinary startup must not enter a transition path.
+The hardware states and transitions in this table remain proposed. The implemented
+dry run models observations/references and retirement only, with no control writer.
+Ordinary startup must not enter a transition path.
 
 | State | Required action/evidence before leaving | Allowed next state |
 | --- | --- | --- |
@@ -180,8 +180,63 @@ RC6's separate original timing failure remains a failure.
 | C: guard and HDA owner | Exact gated well-on ownership plus controlled HDA shutdown/restore, with no well-off operation | Mock posted-write/timeout/interleaving/reset-change failures, quarantine/lifetime and restore checks; matched VM and separately bounded native qualification |
 | D: single well-off trial | One release/restore cycle only after A–C and independent recovery pass | Refusal/fault matrix, exact-stage rehearsal, durable run/recovery records, native display survival and restoration; unchanged latency/ownership/integrity limits |
 
-Milestone A is the next implementation. It should describe eligibility and retain
-unknowns, not pretend that the dry-run owner has acquired hardware authority.
+Milestone A is implemented for host/diagnostic validation, with native evidence
+still required. It retains unknowns and cannot acquire hardware authority.
 Milestones C/D require a separately reviewed explicit write allowlist and
 completed recovery/codec contract; this design does not supply either. No
 physical trial or new power policy is enabled by this document.
+
+
+## Milestone A implementation contract
+
+`display_owner_core.c` is a pure, allocation-free diagnostic model with no I/O
+or writer callback. One boot pool mints monotonically increasing epochs; it must
+not be cloned or reset during the boot. An owner copies its profile, including
+all 96 observed-data words. Token identity binds object address, epoch, slot and
+monotonic slot serial. Reusing a slot or retired object cannot revive an old token.
+The bounded ledger has eight route/audio slots and an internal software guard;
+these counts do not measure unknown firmware or other kernel hardware users.
+
+Callers serialize access on CPU0. This is not an SMP locking primitive or an
+untrusted-client security API. Closing refuses new references/operations, retains
+busy references until completion, and retires only after release/drain. A fault
+retains the guard and prevents reuse even after software users drain. Overflow,
+underflow, duplicate/wrong-owner/stale tokens and invalid states refuse.
+
+The immutable assurance mask has seven bits: backing lifetime, known domain
+users, HDA ownership, IRQ ownership, restore target, independent recovery and
+firmware exclusion. All seven remain **unknown** in the native adapter. Only
+synthetic host cases may supply the full mask to exercise the predicate. A zero
+predicate result still grants no write authority and enters no hardware state.
+Changing either assurances or an observed word requires a new, validated lifetime;
+it is not an in-place upgrade to an existing token.
+
+The adapter consumes existing resource/audio/IRQ/HDA snapshots only, outside
+measured rounds and sparse sampling. It adds no MMIO reads or hooks to ordinary
+startup. It checks active control bits with ULT applicability, including fitter
+forced-through routing. It opens an Observed lifetime, compares the second
+immutable snapshot, retains refusal reasons and closes its own empty software
+ledger. Expected native refusal is mask 127 (all seven missing assurances),
+Observed → Retired, guard 1 → 0, no software users/in-flight operations, and
+hardware authority zero. This is successful dry-run evidence, not adoption of
+the actual framebuffer or permission to release a domain.
+
+Version 8 adds one `ap-platform-dry: v=1 data=...` record: a canonical base64
+encoding of 28 little-endian bytes (`uint64 epoch`, `uint64 profile digest`,
+`uint16 refusal mask`, then ten bytes: before/after state, before/after software
+guard, route/audio reference counts, in-flight count, assurance mask, active mask,
+and hardware authority). The digest identifies all 96 words, using FNV-1a in
+little-endian word order; it is not authentication. The strict host decoder
+recomputes it and active/change context from independently required raw records.
+It rejects malformed/duplicate/missing/authority-claiming records. Earlier
+versions remain readable; version-8 final coverage requires the expected refusal
+and every earlier raw proof, without relaxing the original RC6 predicate.
+
+Host tests exercise unknown/active/changed profiles, every assurance bit, wrong
+identities, bounded references, serial/epoch exhaustion, ABA/stale/wrong-owner
+refusal, cancellation/drain and retained faults. The actual adapter/emitter is
+checked for no extra hardware reads and field-by-field wire preservation.
+Sanitizer checks cover the pure owner; host decoding and conservative tail tests
+cover the matched schema. Runtime source/isolation and VM/native validation
+remain required before physical acceptance. No well/HDA ownership or restore
+milestone is granted by these tests.
