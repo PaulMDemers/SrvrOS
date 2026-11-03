@@ -2,6 +2,23 @@
 
 Updated: 2026-11-03. State: **active reference machine; partial device acceptance**.
 
+### Attended Open With hardware trial preparation
+
+The user authorized proceeding with the next trial. Test the existing matched
+v75 `f586e4a2d58cb3ab` payload (manifest source `8a6c4f2a`, Apps `ff6c8de`, UI
+`89fb6d9`, Ports `0494ae2`) with real keyboard/trackpad chooser input. The focused
+three-part checklist opens automatically in Help. This requires tester input;
+there is no timer/automatic return. Save observations/screenshots, Return to
+console, wait for clean USB unmount and type `reboot`.
+
+Scope is native Open With/default/explicit handlers, cancellation, unsaved draft
+retention and existing Preview reuse. Preserve c497 and recovery9aa, refresh the
+local USB baseline/offline checks, install with recovery retained, and record
+one-shot state before reboot. Collection precedes any next run. Fetched main
+`105077d7` adds Air6,1 acceptance documentation; this trial keeps the exact
+VM-validated payload. Local run: `build/air-open-with-native-20261103/`.
+No physical acceptance is claimed before return and collection.
+
 ### Exact-stage keyboard injection fix
 
 The unchanged staged payload `f586e4a2d58cb3ab` now passes its whole exact-stage
