@@ -1748,7 +1748,7 @@ static int64_t load_elf_image_checked(const char *path,struct process *process,u
 #if !defined(SRVROS_PROCESS_HOST_TEST) || defined(SRVROS_PROCESS_SERVICE_HOST_TEST)
     /* Before scheduling starts there is no current user process; retain the
      * boot loader path. A running process must own admission before lookup. */
-    if(current && !scope.held) result=SRV_ERR_IO;
+    if(!scope.held && (current || scheduler_io_active())) result=SRV_ERR_IO;
 #endif
     if(result>=0) result=current?process_path_context_for(current,SRV_PATH_RESOLVE,path,logical,sizeof(logical)):
         (copy_process_path(logical,sizeof(logical),path)?0:SRV_ERR_NAMETOOLONG);

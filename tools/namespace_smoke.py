@@ -13,6 +13,7 @@ import tempfile
 import time
 
 from displayd_resolution_smoke import build_iso, has_fatal_exception
+from cli_smoke import send_serial
 
 
 def main():
@@ -61,7 +62,8 @@ def main():
                                 time.sleep(.1)
                         def receive(prompt,required=None):
                             data=b'';deadline=time.monotonic()+180
-                            while not data.endswith(prompt) and time.monotonic()<deadline:
+                            while time.monotonic()<deadline:
+                                if data.endswith(prompt) and (not required or required.encode() in data): break
                                 try:
                                     part=sock.recv(65536)
                                     if not part: break
@@ -75,19 +77,45 @@ def main():
                             return text
                         def send(command,prompt=b'srv> ',required=None):
                             print(f'namespace-smoke: {command}',flush=True)
-                            sock.sendall((command+'\n').encode());return receive(prompt,required)
+                            send_serial(sock,command+'\n',.003);return receive(prompt,required)
                         receive(b'srv> ','namespace: /bin /usr /var /home active')
                         send('mount ahci1 /work',required='on /work type=exfat')
+                        if phase=='save':
+                            listing=send('ls /',required='home/')
+                            for name in ('bin/','usr/','var/','home/','fat/','work/'):
+                                if listing.count(name+'\r\n')!=1:
+                                    raise RuntimeError(f'monitor root listing missing/duplicates {name}')
+                            send('ls /bin',required='true ')
+                            send('elf /bin/true',required='elf: type=')
+                            send('write /var/log/init.log namespace-must-not-write',required='write: failed')
+                            send('write /home/.namespace-monitor monitor-view',required='write: /home/')
+                            send('cat /fat/home/.namespace-monitor',required='monitor-view')
+                            send('cat /usr/home/.namespace-monitor',required='monitor-view')
+                            send('run /bin/true',required='exited status=0')
                         send('run /fat/bin/sh',b' $ ')
+                        if phase=='save':
+                            send('rm /home/.namespace-monitor',b' $ ')
                         if phase=='save':
                             send('/fat/bin/sysabi',b' $ ','sysabi: ok')
                             send('/bin/sysabi --namespace',b' $ ','namespace: PASS')
                         send(f'/usr/bin/sysabi --namespace-{phase}',b' $ ',f'namespace-persistence: {phase} PASS')
+                        send('sync && echo namespace-sync-ok',b' $ ','namespace-sync-ok')
                         send('exit')
-                        for mount in ('/work','/fat'):
-                            result=send('unmount '+mount)
-                            if 'busy' in result or 'failed' in result:
-                                raise RuntimeError(f'unmount refused: {result}')
+                        result=send('unmount /work',required='exfat: unmounted /work')
+                        if 'busy' in result or 'failed' in result:
+                            raise RuntimeError(f'unmount refused: {result}')
+                        # Init retains a log on /fat. Use the normal checked
+                        # reboot flush instead of bypassing its live reference.
+                        send_serial(sock,'reboot\n',.003)
+                        tail=b'';deadline=time.monotonic()+30
+                        while process.poll() is None and time.monotonic()<deadline:
+                            try:
+                                part=sock.recv(65536)
+                                if not part: break
+                                tail+=part;log.write(part);log.flush()
+                            except socket.timeout: pass
+                        if process.wait(timeout=5)!=0 or b'failed' in tail:
+                            raise RuntimeError('checked guest reboot failed')
                         record['boots'].append({'phase':phase,'command':command,'passed':True})
                 finally:
                     process.terminate()

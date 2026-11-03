@@ -45,6 +45,7 @@ void scheduler_wake_all(struct scheduler_wait_queue *queue) {
     queue->waiters=0;wakes++;
 }
 bool scheduler_io_begin(void) {begins++;if(!available)return false;depth++;return true;}
+bool scheduler_io_active(void) {return depth != 0;}
 void scheduler_io_end(void) {assert(depth);depth--;ends++;}
 void scheduler_io_checkpoint(void) {
     checkpoints++;if(!depth)return;yields++;
@@ -98,6 +99,7 @@ static void reset(void) {
 }
 void console_write(const char *text) {(void)text;}
 bool vmm_create_address_space(uint64_t *space) {*space=0x1000;return true;}
+static unsigned namespace_reads;
 static const struct vfs_node fixture_dirs[]={
     {.used=true,.path="/",.type=VFS_NODE_DIRECTORY},
     {.used=true,.path="/fat",.type=VFS_NODE_DIRECTORY},
@@ -105,10 +107,11 @@ static const struct vfs_node fixture_dirs[]={
     {.used=true,.path="/fat/var",.type=VFS_NODE_DIRECTORY},
     {.used=true,.path="/fat/home",.type=VFS_NODE_DIRECTORY},
 };
-uint64_t vfs_count(void) { return sizeof(fixture_dirs)/sizeof(fixture_dirs[0]); }
-const struct vfs_node *vfs_node_at(uint64_t i) { return i<vfs_count()?&fixture_dirs[i]:NULL; }
+uint64_t vfs_count(void) { namespace_reads++;return sizeof(fixture_dirs)/sizeof(fixture_dirs[0]); }
+const struct vfs_node *vfs_node_at(uint64_t i) { namespace_reads++;return i<sizeof(fixture_dirs)/sizeof(fixture_dirs[0])?&fixture_dirs[i]:NULL; }
 void vfs_set_retire_callback(vfs_retire_fn callback) { (void)callback; }
 const struct vfs_node *vfs_lookup(const char *path) {
+    namespace_reads++;
     if(checking_namespace) {
         assert(depth);
         if(!strcmp(path,"/fat/bin")) namespace_admitted=true;
@@ -154,6 +157,18 @@ static void private_scope_contract(void) {
     assert(namespace_admitted && !depth && !child->address_space && destroyed==old_destroyed+1);
     checking_namespace=false;vfs_namespace_system_reset();observed=NULL;
     free(child);free(parent);puts("spawn-image-scope: PASS frozen path, fresh child only, ordinary fallback, nested ownership and unavailable gate");
+}
+static void foreign_loader_contract(void) {
+    struct process *image=calloc(1,sizeof(*image));assert(image);
+    assert(!current && !depth && vfs_namespace_system_activate());
+    unsigned reads=namespace_reads,old_begins=begins,old_ends=ends;
+    uint64_t entry=123;
+    depth=1;available=false; /* A different thread owns admission. */
+    assert(load_elf_image_checked("/bin/desktools",image,USER_STACK_TOP,&entry)==SRV_ERR_IO);
+    assert(depth==1 && begins==old_begins+1 && ends==old_ends &&
+        namespace_reads==reads && entry==123 && !image->address_space);
+    depth=0;available=true;vfs_namespace_system_reset();free(image);
+    puts("process-loader: PASS foreign admission refuses before namespace access");
 }
 static void private_unmap_refused(struct process *p,uint64_t address,uint64_t length) {
     static struct process snapshot;memcpy(&snapshot,p,sizeof(snapshot));
@@ -361,6 +376,7 @@ int main(void) {
     current=NULL;memset(processes,0,sizeof(processes));
     puts("retired-child: PASS empty reapable direct child only, single claim/accounting, unchanged foreign I/O owner");
     private_scope_contract();
+    foreign_loader_contract();
     private_unmap_contract();
     startup_map_contract();
     startup_thread_contract();

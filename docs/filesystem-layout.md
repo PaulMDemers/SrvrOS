@@ -23,7 +23,8 @@ this change does not select a new user identity, workspace, or root filesystem.
 
 Path-consuming syscalls copy and normalize logical paths, resolve their backing
 names, and perform guards/backend operations/publication in one masked-IRQ,
-scheduler I/O owner span. Eligibility in `syscall_io_safe` is unchanged. Executable
+scheduler I/O owner span. Monitor `ls`, `cat`, `write` and `elf` use the same admission and view; admin
+mountpoint names stay raw. Eligibility in `syscall_io_safe` is unchanged. Executable
 paths are prepared under ordinary admission before entering PR252's private-child
 image scope. Unix socket names retain their separate registry and path contract.
 
