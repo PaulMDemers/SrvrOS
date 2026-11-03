@@ -4357,11 +4357,11 @@ int64_t process_rename_file(const char *old_path,const char *new_path) {
     const struct vfs_node *source=vfs_lookup(old_path),*target=vfs_lookup(new_path);
     if(!source) return SRV_ERR_NOENT;
     if(process_path_equal(old_path,new_path)) return 0;
-    if(vfs_namespace_system_protects(old_path) || vfs_namespace_system_protects(new_path)) return SRV_ERR_BUSY;
     if(!exfat_same_mount(old_path,new_path)) return SRV_ERR_XDEV;
     if(source->type==VFS_NODE_DIRECTORY) {
         if(target && target->type!=VFS_NODE_DIRECTORY) return SRV_ERR_NOTDIR;
         if(path_under_prefix(new_path,old_path)) return SRV_ERR_INVAL;
+        if(vfs_namespace_system_protects(old_path) || vfs_namespace_system_protects(new_path)) return SRV_ERR_BUSY;
         if(process_has_open_vfs_prefix(old_path) || process_has_open_vfs_prefix(new_path)) return SRV_ERR_BUSY;
         /* Directory subtree/replacement transactions are a separate backend
          * contract. Preserve the existing empty, unused directory operation. */
@@ -4369,6 +4369,7 @@ int64_t process_rename_file(const char *old_path,const char *new_path) {
         return exfat_rename(old_path,new_path)?0:SRV_ERR_IO;
     }
     if(target && target->type==VFS_NODE_DIRECTORY) return SRV_ERR_ISDIR;
+    if(vfs_namespace_system_protects(old_path) || vfs_namespace_system_protects(new_path)) return SRV_ERR_BUSY;
     uint64_t source_inode=source->metadata.inode;
     struct vfs_metadata target_metadata=target?target->metadata:(struct vfs_metadata){0};
     struct process_file_content *source_content=content_find(old_path),*target_content=content_find(new_path);
