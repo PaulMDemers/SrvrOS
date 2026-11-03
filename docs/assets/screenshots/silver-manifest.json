@@ -1,0 +1,15 @@
+{
+  "source": "e65e593818b67cd8e1a3bc24bc3f3656df76f230",
+  "repositories": {
+    "SrvrUI": "4fdf91a1835e1de98401e327bc2aaf4c4d64db27",
+    "SrvrApps": "d3863864f41c832e8c6e71c6b55819ed614ac623",
+    "SrvrPorts": "0494ae22e79cd8689d0cfdea7bba75c4b2ddb107"
+  },
+  "desktop": "QEMU TCG 1440x900; empty Text document, default Silver theme",
+  "widgets": "Native renderer specimen at 280px and 470px content widths",
+  "images": {
+    "silver-desktop.png": "7a93e2c7e10a5e3614c2c46d7f3a0c99b5d02caeb7d3d9ab6406775dc3bf9f54",
+    "silver-widgets.png": "cd27d836e969f266963f4e4dcb6e78b839174971ab7bbb68a9fa85bb091a8530",
+    "silver-before.png": "b0471225aea31a76aa4049b8d19e9dcd73722fa3fafc5dd5f752073f31e85a80"
+  }
+}

@@ -43,11 +43,21 @@ int main(void) {
     uint32_t pixels[280*240];struct desk_canvas c;
     assert(desk_canvas_init(&c,pixels,280,240,280)==0);
     draw(&c,"",0,&bar,&b,f.active);
-    assert(pixels[(b.frame.y+3)*280+b.frame.x+3]==desk_theme_quiet.selected);
+    uint32_t pressed=pixels[(b.frame.y+3)*280+b.frame.x+3];
+    uint32_t reference[280*240]={0};struct desk_canvas expected;
+    assert(!desk_canvas_init(&expected,reference,280,240,280));
+    desk_fill(&expected,expected.clip,desk_theme_quiet.surface);
+    struct desk_button visual=b;visual.armed=visual.inside=1;
+    desk_button_draw(&expected,&visual,"Text size",&desk_theme_quiet);
+    for(int y=b.frame.y;y<b.frame.y+b.frame.h;y++)
+        for(int x=b.frame.x;x<b.frame.x+b.frame.w;x++) assert(pixels[y*280+x]==reference[y*280+x]);
     assert(!b.armed); /* Drawing the pulse cannot hold a logical drag. */
     assert(feedback_expire(&f,7010));assert(!feedback_expire(&f,7011));
     draw(&c,"",0,&bar,&b,f.active);
-    assert(pixels[(b.frame.y+3)*280+b.frame.x+3]==desk_theme_quiet.surface);
+    assert(pixels[(b.frame.y+3)*280+b.frame.x+3]!=pressed);
+    desk_button_draw(&expected,&b,"Text size",&desk_theme_quiet);
+    for(int y=b.frame.y;y<b.frame.y+b.frame.h;y++)
+        for(int x=b.frame.x;x<b.frame.x+b.frame.w;x++) assert(pixels[y*280+x]==reference[y*280+x]);
     f=(struct button_feedback){.active=1};feedback_commit(&f,5);
     f=(struct button_feedback){.active=1}; /* New activation while a frame is pending. */
     feedback_release(&f,5,8000);assert(!f.until);

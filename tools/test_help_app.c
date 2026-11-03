@@ -1,5 +1,5 @@
 #define main help_main
-#include "../userspace/deskhelp/deskhelp.c"
+#include "../userspace/apps/deskhelp/deskhelp.c"
 #undef main
 #include <assert.h>
 #include <srvros/desktop_apps.h>

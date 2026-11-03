@@ -5,6 +5,10 @@ import hashlib
 import json
 from pathlib import Path
 import subprocess
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import source_provenance
 
 REPO = Path(__file__).resolve().parents[2]
 INPUTS = ("build/kernel/srvros.elf", "build/initramfs.tar", "build/srvros.exfat")
@@ -28,6 +32,7 @@ def main():
         "worktree_dirty": bool(git("status", "--porcelain")),
         "tracked_diff_sha256": hashlib.sha256(git("diff", "HEAD", "--binary")).hexdigest(),
         "hashes": image_hashes(REPO),
+        "repositories": source_provenance.capture(REPO),
     }
     (REPO / "build/macos-build.json").write_text(json.dumps(record, indent=2) + "\n")
     print("macOS: recorded matched build in build/macos-build.json")

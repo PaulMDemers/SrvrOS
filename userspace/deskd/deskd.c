@@ -5,6 +5,7 @@
 #include <srvros/desk_paths.h>
 #include <srvros/desktop_apps.h>
 #include "scene.h"
+#include "presentation.h"
 #include "clipboard.h"
 #include "menus.h"
 #include "preferences.h"
@@ -26,6 +27,22 @@
 #include "../playwav/io_stress_volume.h"
 #include <sys/mman.h>
 #include <srvros/calendar.h>
+
+struct present_frame {
+    struct desk_canvas *canvas;
+    const struct desktop_scene *scene;
+    const int *order;
+    unsigned scale;
+};
+static void compose_frame_rect(void *context,struct desk_rect rect) {
+    struct present_frame *f=context;
+    desk_clip(f->canvas,rect);desktop_draw_ordered(f->canvas,f->scene,f->order,1);
+}
+static int upload_frame_rect(void *context,struct desk_rect r) {
+    struct present_frame *f=context;struct desk_canvas *c=f->canvas;
+    return blitrect_scaled((uint64_t)r.x*f->scale,(uint64_t)r.y*f->scale,r.w,r.h,
+        c->pixels+(size_t)r.y*c->stride+r.x,c->stride,f->scale);
+}
 
 /* Stress-only setup, before the measured loop or PCM owner exists. */
 static int stress_volume_request(void) {
@@ -849,6 +866,14 @@ static void pointer_preferences(struct session *s) {
         (p->tap_to_click?SRV_POINTER_TAP_CLICK:0)|(p->two_finger_tap?SRV_POINTER_TWO_FINGER_TAP:0));
 }
 static void preferences_changed(struct session *s) {
+    struct desk_theme theme=desk_theme_silver;
+    (void)desk_theme_configure(&theme,s->preferences.value.theme_accent,
+        s->preferences.value.glass_level,s->preferences.value.text_size);
+    if(!s->scene.theme.body || s->scene.theme.accent!=theme.accent ||
+       s->scene.theme.glass_alpha!=theme.glass_alpha || s->scene.theme.body!=theme.body) {
+        s->scene.theme=theme;
+        desk_damage_add(&s->damage,(struct desk_rect){0,0,s->damage.width,s->damage.height});
+    }
     pointer_preferences(s);
     if(s->scene.wallpaper!=(int)s->preferences.value.wallpaper) {
         s->scene.wallpaper=s->preferences.value.wallpaper;
@@ -856,11 +881,12 @@ static void preferences_changed(struct session *s) {
     }
     clock_update(s,1);
     for(int n=0;n<session_capacity(s);n++) if(session_client(s,n)->pid) session_client(s,n)->preferences_dirty=1;
-    if(s->trace) desk_log("deskd: preferences revision=%llu status=%u text=%u offset=%d flags=%u wallpaper=%u pointer_speed=%u acceleration=%u disable_while_typing=%u tap_to_click=%u two_finger_tap=%u\n",
+    if(s->trace) desk_log("deskd: preferences revision=%llu status=%u text=%u offset=%d flags=%u wallpaper=%u pointer_speed=%u acceleration=%u disable_while_typing=%u tap_to_click=%u two_finger_tap=%u theme_accent=%u glass_level=%u\n",
         (unsigned long long)s->preferences.revision,s->preferences.status,s->preferences.value.text_size,
         s->preferences.value.utc_offset_minutes,s->preferences.value.clock_flags,s->preferences.value.wallpaper,
         s->preferences.value.pointer_speed,s->preferences.value.pointer_acceleration,s->preferences.value.disable_while_typing,
-        s->preferences.value.tap_to_click,s->preferences.value.two_finger_tap);
+        s->preferences.value.tap_to_click,s->preferences.value.two_finger_tap,
+        s->preferences.value.theme_accent,s->preferences.value.glass_level);
 }
 static void global_menu_rebuild(struct session *s) {
     if(!s->scene.apps) return;
@@ -1519,6 +1545,8 @@ static void incoming(struct session *s,uint64_t pid,struct desk_packet *p) {
         return;
     }
     if(p->type==DESK_PREFERENCES_SET) {
+        /* Always answer with authoritative state, including rejected requests. */
+        c->preferences_dirty=1;
         if(s->scene.apps && w->application==DESK_APP_SETTINGS && s->scene.focus==i) {
             struct desk_preferences value;memcpy(&value,p->text,sizeof(value));
             int changed=desktop_preferences_set(&s->preferences,&value,p->value,srv_ticks());
@@ -2013,7 +2041,7 @@ int main(int argc,char **argv) {
     }
     desk_damage_init(&s.damage,width,height);
     if(apps) { desktop_preferences_init_path(&s.preferences,(battery_guided || hardware_trial || idle_capture || home_apps)?DESKTOP_WORKSPACE_PREFERENCES_PATH:DESKTOP_PREFERENCES_PATH);
-        pointer_preferences(&s);clock_update(&s,1); }
+        preferences_changed(&s); }
     battery_update(&s,1);
     global_menu_rebuild(&s);
     desk_damage_add(&s.damage,(struct desk_rect){0,0,width,height});
@@ -2335,7 +2363,9 @@ int main(int argc,char **argv) {
             } else if (phase==1 && !(*session_children(&s,0)) && !session_client(&s,0)->pid) {
                 ui_puts("deskd: lifecycle replacing client\n"); spawn_client(&s); phase=2;
             } else if (phase==2 && desktop_window_at(&s.scene,0)->pixels && (uint64_t)srv_ticks()-start>=200) {
-                ui_puts("deskd: lifecycle abrupt server exit\n");
+                /* This opt-in crash fixture cannot queue its final evidence to
+                 * the worker that srv_exit is about to destroy. */
+                srv_puts("deskd: lifecycle abrupt server exit\n");
                 srv_exit(0); /* Deliberately exercise kernel cleanup, not the normal exit path. */
             }
             if ((uint64_t)srv_ticks()-start>600) { failed=1; break; }
@@ -2643,14 +2673,9 @@ int main(int argc,char **argv) {
          * the registry scratch order for all damage rectangles. */
         int inline_order[DESKD_WINDOWS];int *frame_order=s.scene.order?s.scene.order:inline_order;
         if(s.damage.count) desktop_stack(&s.scene,frame_order);
-        for (unsigned n=0;n<s.damage.count;n++) {
-            struct desk_rect r=s.damage.rects[n]; desk_clip(&canvas,r); desktop_draw_ordered(&canvas,&s.scene,frame_order,1);
-            if (blitrect_scaled((uint64_t)r.x*scale,(uint64_t)r.y*scale,r.w,r.h,pixels+(size_t)r.y*canvas.stride+r.x,canvas.stride,scale)!=0) failed=1;
-            uint64_t physical_w=(uint64_t)r.w*scale,physical_h=(uint64_t)r.h*scale;
-            if(physical_w>info.width-(uint64_t)r.x*scale) physical_w=info.width-(uint64_t)r.x*scale;
-            if(physical_h>info.height-(uint64_t)r.y*scale) physical_h=info.height-(uint64_t)r.y*scale;
-            bytes+=physical_w*physical_h*4;
-        }
+        struct present_frame frame={&canvas,&s.scene,frame_order,scale};
+        const struct desktop_present_ops present_ops={compose_frame_rect,upload_frame_rect};
+        if(desktop_present(&s.damage,scale,info.width,info.height,&present_ops,&frame,&bytes)) failed=1;
         if(hardware_trial) {
             long end=s.damage.count?srv_monotonic_us():0;
             desktop_timing_end(&timing,poll_time,render_start>0?(uint64_t)render_start:0,end>0?(uint64_t)end:0,!failed && s.damage.count);

@@ -1,5 +1,5 @@
 #define main find_main
-#include "../userspace/deskfind/deskfind.c"
+#include "../userspace/apps/deskfind/deskfind.c"
 #undef main
 #include <assert.h>
 static int started,poll_result,spawn_fail,launched;static unsigned launch_app;static char launch_path[160],child_root[160],child_query[96];

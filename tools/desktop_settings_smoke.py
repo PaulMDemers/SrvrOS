@@ -97,9 +97,10 @@ def main():
                 click(110,504);wait(b"disable_while_typing=1 tap_to_click=0 two_finger_tap=1")
                 wait(b"status=1 text=20 offset=-240 flags=0 wallpaper=1 pointer_speed=5 acceleration=0 disable_while_typing=1 tap_to_click=0 two_finger_tap=1")
                 # The last checkbox straddles the viewport edge; reveal it
-                # with the scrollbar before attempting to activate it.
+                # with the scrollbar before attempting to activate it. The 16px drag
+                # accounts for the longer content and preserves the ~65px scroll.
                 qmp.mouse(590-pointer[0],360-pointer[1]);pointer[:]=[590,360]
-                qmp.mouse(0,0,1);qmp.mouse(0,20,1);qmp.mouse(0,0,0);pointer[1]+=20
+                qmp.mouse(0,0,1);qmp.mouse(0,16,1);qmp.mouse(0,0,0);pointer[1]+=16
                 click(110,480);wait(b"disable_while_typing=1 tap_to_click=0 two_finger_tap=0")
                 wait(b"status=1 text=20 offset=-240 flags=0 wallpaper=1 pointer_speed=5 acceleration=0 disable_while_typing=1 tap_to_click=0 two_finger_tap=0")
                 shot("trackpad-settings")
@@ -110,7 +111,7 @@ def main():
                 shortcut("f10");shortcut("end");shortcut("ret")
                 wait(b"deskd: exited",60);wait(b"srv> ")
                 serial.sendall(b"cat /fat/home/desktop.conf\n")
-                wait(b"srvros-desktop-v4\r\ntext_size=20\r\nutc_offset_minutes=-240\r\nclock_flags=0\r\nwallpaper=1\r\npointer_speed=5\r\npointer_acceleration=0\r\ndisable_while_typing=1\r\ntap_to_click=0\r\ntwo_finger_tap=0")
+                wait(b"srvros-desktop-v5\r\ntext_size=20\r\nutc_offset_minutes=-240\r\nclock_flags=0\r\nwallpaper=1\r\npointer_speed=5\r\npointer_acceleration=0\r\ndisable_while_typing=1\r\ntap_to_click=0\r\ntwo_finger_tap=0\r\ntheme_accent=0\r\nglass_level=1")
                 wait(b"srv> ")
                 # A fresh desktop process reloads disk, not inherited process state.
                 pointer[:]=[24,56]
@@ -124,7 +125,7 @@ def main():
                 wait(b"status=1 text=20 offset=-240 flags=0 wallpaper=1 pointer_speed=5 acceleration=0 disable_while_typing=0")
                 click(110,504);wait(b"disable_while_typing=0 tap_to_click=1 two_finger_tap=0")
                 qmp.mouse(590-pointer[0],360-pointer[1]);pointer[:]=[590,360]
-                qmp.mouse(0,0,1);qmp.mouse(0,20,1);qmp.mouse(0,0,0);pointer[1]+=20
+                qmp.mouse(0,0,1);qmp.mouse(0,16,1);qmp.mouse(0,0,0);pointer[1]+=16
                 click(110,480);wait(b"disable_while_typing=0 tap_to_click=1 two_finger_tap=1")
                 wait(b"status=1 text=20 offset=-240 flags=0 wallpaper=1 pointer_speed=5 acceleration=0 disable_while_typing=0 tap_to_click=1 two_finger_tap=1")
                 shot("tap-settings-restored")

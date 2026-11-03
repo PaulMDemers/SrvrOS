@@ -7,6 +7,43 @@
 
 enum { W=640,H=480,S=647 };
 static uint32_t full[S*H],tiles[S*H],front[310*260];
+static uint32_t other_front[310*260];
+static struct desk_rect paint_bounds(struct desk_rect frame) {
+    frame.w+=6;frame.h+=8;return frame;
+}
+static void draw_damage(struct desk_canvas *canvas,const struct desktop_scene *scene,struct desk_damage *damage) {
+    int order[DESKD_WINDOWS];desktop_stack(scene,order);
+    for(unsigned i=0;i<damage->count;i++) {
+        desk_clip(canvas,damage->rects[i]);desktop_draw_ordered(canvas,scene,order,1);
+    }
+}
+static void dynamic_damage(void) {
+    for(unsigned glass=0;glass<3;glass++) {
+        for(unsigned i=0;i<310*260;i++) { front[i]=(i*37u)&0xffffff;other_front[i]=(i*139u)&0xffffff; }
+        struct desktop_scene s={.focus=1,.cursor_x=500,.cursor_y=450};
+        assert(!desk_theme_configure(&s.theme,0,glass,16));
+        s.windows[0]=(struct desktop_window){.frame={35,55,312,305},.pixels=front,
+            .width=310,.height=260,.visible=1,.title="Lower"};
+        s.windows[1]=(struct desktop_window){.frame={145,115,302,305},.pixels=other_front,
+            .width=300,.height=260,.visible=1,.title="Foreground"};
+        struct desk_canvas fresh,partial;
+        assert(!desk_canvas_init(&fresh,full,W,H,S));assert(!desk_canvas_init(&partial,tiles,W,H,S));
+        for(unsigned i=0;i<S*H;i++)full[i]=tiles[i]=0xdeadbeef;
+        desktop_draw(&partial,&s);
+        struct desk_damage damage;desk_damage_init(&damage,W,H);
+        desk_damage_add(&damage,paint_bounds(s.windows[1].frame));
+        s.windows[1].frame.x+=55;s.windows[1].frame.y-=25;
+        desk_damage_add(&damage,paint_bounds(s.windows[1].frame));
+        draw_damage(&partial,&s,&damage);desktop_draw(&fresh,&s);
+        assert(!memcmp(full,tiles,sizeof(full)));
+        /* Replace the lower window's cached pixels while foreground glass
+         * overlaps it, as when the application scrolls and commits a frame. */
+        for(unsigned i=0;i<310*260;i++)front[i]=(i*101u+0x123456u)&0xffffff;
+        desk_damage_init(&damage,W,H);desk_damage_add(&damage,paint_bounds(s.windows[0].frame));
+        draw_damage(&partial,&s,&damage);desktop_draw(&fresh,&s);
+        assert(!memcmp(full,tiles,sizeof(full)));
+    }
+}
 int main(void) {
     for (unsigned i=0;i<310*260;i++) front[i]=i;
     struct desktop_scene s={.focus=1,.cursor_x=195,.cursor_y=180};
@@ -18,6 +55,7 @@ int main(void) {
     assert(desk_canvas_init(&a,full,W,H,S)==0);
     assert(desk_canvas_init(&b,tiles,W,H,S)==0);
     for (int pass=0;pass<7;pass++) {
+        desk_theme_configure(&s.theme,(unsigned)(pass%3),(unsigned)(pass%3),16);
         if(pass==3) {
             s.apps=1;s.windows[0].application=DESK_APP_TEXT;s.windows[1].application=DESK_APP_PREVIEW;desk_menu_init(&s.menu);
             const struct desk_menu_item menu[]={ {0,DESK_MENU_HEADING,"SrvrOS",""},{1,0,"Settings",""},
@@ -105,6 +143,7 @@ int main(void) {
     for(unsigned app=1;app<=DESK_APP_COUNT;app++)dock_scene.windows[app-1]=(struct desktop_window){.visible=1,.application=app};
     assert(desktop_dock_entries(&dock_scene,640,480,entries)==DESK_APP_COUNT);
     assert(entries[0].frame.x>=8 && entries[DESK_APP_COUNT-1].frame.x+entries[DESK_APP_COUNT-1].frame.w<=632);
-    puts("desktop-scene: PASS overlap, clipping, stale-size cache, focus, tiled/full equality, stride guards and bounded window placement");
+    dynamic_damage();
+    puts("desktop-scene: PASS overlap, clipping, dynamic drag/scroll damage, stale-size cache, tiled/full equality, stride guards and bounded placement");
     return 0;
 }

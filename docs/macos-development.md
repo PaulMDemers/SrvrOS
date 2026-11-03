@@ -313,3 +313,22 @@ matched image for syscall 155 before the eight sequential disposable VM checks.
 Netabi now checks per-call flags, duplicate status, pressure and recovery.
 Evidence: `build/review/dns-socket/`, with `/dns-socket-check` for host-local
 outbound HTTP. See the [DNS/socket audit](dns-socket-audit-2026-10-28.md).
+
+## Modular desktop checks
+
+The Silver overhaul qualifies these host targets with the earlier documented
+Darwin compiler wrapper:
+
+```sh
+sh tools/macos/build.sh HOST_CC='python3 build/tooling/darwin-host-cc.py -D_DARWIN_C_SOURCE -Wno-array-bounds' test-desktop test-desktop-io widget-theme-preview
+TMPDIR=/tmp python3 tools/desktop_apps_smoke.py
+TMPDIR=/tmp python3 tools/desktop_compositor_smoke.py --resolution 1280x800
+```
+
+Run sequentially per checkout after a matched `all` build. The host fixtures now
+handle Darwin's pre-1900 `timegm` limit, Mach-O C symbol prefixes and stack
+alignment rules without changing guest behavior. The file-service host fixture
+verifies the supplied-stack request but executes on a host-managed stack; live
+guest workflows separately exercise real application workers. These targeted
+passes do not qualify the full Linux/core suite or native hardware. See the
+[repository milestone](repository-organization.md) for exact tested revisions.

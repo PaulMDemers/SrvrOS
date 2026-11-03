@@ -1839,3 +1839,71 @@ Actions dispatch or merge occurred. PR19 `5556641f` remains independent Wi-Fi
 work. Continued tracing reaches resolver retry/deadline policy, duplicated
 pseudo-socket peer/options state and remaining native-FD I/O continuations;
 these need separate directed coverage before claiming a broader socket profile.
+
+
+## Modular desktop overhaul — 2026-11-02
+
+Scope: `overhaul/modular-desktop` from fetched main `74d38d59`; split native
+widgets, desktop applications and ports into pinned repositories, update build
+references, then shared widget and compositor appearance. PR19 retains unrelated
+USB Wi-Fi work; no other open PR was found at inspection. This host runs local
+builds and sequential disposable QEMU checks only. No physical boot, Actions
+dispatch or device-acceptance expansion is planned. Next checkpoint is a matched
+submodule build and recursive clone before theme implementation.
+
+### Modular desktop verification result
+
+Runtime source `e65e5938`; SrvrUI `4fdf91a`, SrvrApps `d386386`, SrvrPorts
+`0494ae2`. Public repository creation, recursive clone and clean full build pass.
+All upstream pins and port source hashes are retained. Full desktop/widget/I/O
+host targets pass with the Darwin wrapper, plus theme ASan/UBSan, Python host
+and boundary checks. The application workflow and compositor VMs pass, including
+file readback and abrupt-owner console recovery. Final 1440×900 desktop and
+widget-state images were inspected; disposable VMs stopped.
+
+Evidence and limitations: [repository milestone](../repository-organization.md),
+`build/review/modular-desktop/`, `build/review/desktop-apps/` and
+`build/review/desktop-1280x800/`. This supersedes no physical acceptance. OS branch
+awaits integration review; no main merge or Actions dispatch occurred. Next:
+review the published submodule integration; application/port work can branch
+from these documented boundaries.
+
+
+## Glass and global appearance — 2026-11-02
+
+Continuing `overhaul/modular-desktop` from completed `3b286e0`, main `74d38d59`.
+Scope: SrvrUI resolver/glass primitives, compositor chrome and ordered presentation,
+shared preference protocol/runtime, SrvrApps Appearance controls and live updates.
+Required evidence is matched host/build and sequential VM checks with real images.
+PR280 owns this work. PR278 `f11cbf8` overlaps desktop/application dispatch files
+for Open With and descriptors; preserve that separate implementation at integration.
+PR252 `badfeb3` owns process/I/O kernel audit work; this milestone changes no kernel
+or framebuffer driver. PR19 retains USB Wi-Fi work. No physical trial or Actions.
+Next checkpoint: host regression suite and live theme/persistence VM checks.
+
+
+### Glass/theme verification result
+
+Runtime `db89892768c34dd7c79e9b37ad1f8207806fe43d`; published SrvrUI `df2e311`,
+SrvrApps `e4b9235`, unchanged SrvrPorts `0494ae2`. Matched full image build and
+complete desktop/widget/I/O host targets pass. Native ARM64 ASan/UBSan theme
+blending/clipping passes. Dynamic preserved-buffer old/new window drag and lower
+client-content changes match fresh full rendering for all three glass levels.
+Opaque-body culling matches the unculled oracle, including randomized overlap,
+small/stale caches and 128-window stress. Composition completes before any upload.
+
+Final-source application VM verifies existing/new Text selection colors, saved
+Teal/Clear appearance and a new desktop process loading it, alongside file and
+clipboard workflows. Final compositor VM verifies drag, resize, scrolling/capture,
+client death and console recovery. The separate Settings VM passes clock,
+wallpaper, pointer controls and config reload; it ran before the final title-frost
+visual adjustment, which is covered by final host/app/compositor checks.
+
+Evidence: `build/review/theme-global-*.log`, matched
+`build/review/theme-global-manifest.json`, `build/review/desktop-apps/`,
+`build/review/desktop-settings/`, `build/review/desktop-1280x800/`, and tracked
+[images/provenance](../assets/screenshots/glass-manifest.json). All disposable VMs
+stopped. Theme CPU stress cost and lack of physical tear-free evidence are explicit
+in [the theme contract](../desktop-theme.md) and [driver plan](../display-presentation.md).
+No native install, Actions dispatch or main merge. Next: PR280 integration review;
+no further work is required for this scoped theme/presentation investigation.

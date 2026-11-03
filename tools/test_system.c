@@ -1,7 +1,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
-#include "../userspace/desktools/system.c"
+#include "../userspace/apps/desktools/system.c"
 static uint64_t ticks=500;
 static int phase,reads,net_phase,net_reads,device_phase,thermal_phase,smc_phase;
 long srv_monotonic_us(void) { return 5000000; }

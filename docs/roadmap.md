@@ -6,6 +6,59 @@ and [machine records](machines/README.md) separate implementation from physical
 acceptance. The [device parity ledger](device-parity.md) compares the Air with
 ongoing Pro work.
 
+## Glass and live theme refinement — November 2, 2026
+
+Target: more polished glass chrome, application-wide appearance controls in
+Settings, and an evidence-based plan to eliminate scanout tearing. Continue
+`overhaul/modular-desktop` / draft PR280; prior repository split stays complete.
+Focused research confirms the current inherited framebuffer has no synchronized
+flip contract. This milestone separates composition from uploads; real vblank
+and page flips remain a driver milestone, not a claim of this software change.
+
+Required: Blue/Graphite/Teal accents and Solid/Subtle/Clear glass, persisted with
+migration and broadcast to existing/new windows; clipping-safe glass and correct
+translucent occlusion; unchanged content and input behavior; matched full build,
+host regressions, runtime preference checks and inspected desktop/widget images.
+Readiness: implemented and locally verified at runtime `db898927`, with SrvrUI
+`df2e311` and SrvrApps `e4b9235` published. Matched build, desktop/widget/I/O host
+suites, theme sanitizers, dynamic drag/scroll damage oracle, live theme/persistence
+application VM and compositor VM pass. The separate Settings VM passed before the
+final title-frost-only adjustment. [Rendered evidence](desktop-theme.md) is saved.
+Next: review PR280. The scoped glass/theme/presentation investigation is complete;
+real synchronized scanout is separate driver work described in the
+[presentation plan](display-presentation.md). Native acceptance and Actions remain
+unchanged.
+
+## Current overhaul — November 2, 2026
+
+Target: separate SrvrUI, SrvrApps and SrvrPorts into GitHub repositories pinned
+as submodules, then apply a coherent native desktop theme inspired by Windows 7
+and OS X 10.7–10.10. Desktop apps are the initial SrvrApps scope; OS services,
+diagnostics and shell commands remain in SrvrOS. Application and port expansion
+will be separate later work; no additional chats are created by this milestone.
+
+Current work: `overhaul/modular-desktop`, based on main `74d38d59`. Preserve the
+existing ABI, executable names, upstream pins and device acceptance boundaries.
+The user authorized repository creation and integration; use focused research,
+local checks and a reviewable OS branch, without enabling hosted Actions.
+
+Required outcomes and evidence:
+- Three published repositories and pinned, recursively cloneable submodules.
+- Matched system build and affected desktop/widget host and VM checks.
+- Shared silver/blue control and chrome treatment, with state and clipping checks
+  and real rendered evidence; retain readable content and existing interactions.
+- Documented repository ownership and instructions for independent app/port work.
+
+Readiness: implemented and locally verified on `overhaul/modular-desktop`.
+SrvrUI `4fdf91a`, SrvrApps `d386386` and SrvrPorts `0494ae2` are published and
+pinned. Fresh recursive clone/full image build, the complete desktop/widget/I/O
+host targets, native theme sanitizers, application workflow and compositor VMs
+pass. Final runtime source is `e65e5938`; subsequent evidence/docs commits do
+not change it. See [organization and visual evidence](repository-organization.md).
+Next: review and merge the OS integration change. Native device acceptance is
+unchanged. New application and port work can use the documented submodule
+boundaries; no additional feature milestone is required for this review target.
+
 ## 1. Integrate the everyday laptop session
 
 **Completed on Air7,2 release `9aa8dbf6fbda8252`.** Ordinary Home battery,

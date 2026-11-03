@@ -2,7 +2,7 @@
 int command_probe_chdir(const char *path);
 #define chdir command_probe_chdir
 #define main terminal_main
-#include "../userspace/deskterm/deskterm.c"
+#include "../userspace/apps/deskterm/deskterm.c"
 #undef main
 #undef chdir
 #include <assert.h>

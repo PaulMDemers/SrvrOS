@@ -25,7 +25,7 @@ def main():
     print(f'{"ok" if ovmf else "MISSING"}: UEFI firmware: {ovmf or "install OVMF or set OVMF_CODE"}')
     failed |= ovmf is None
     repo = Path(__file__).resolve().parent.parent
-    status = subprocess.check_output(['git', 'submodule', 'status'], cwd=repo, text=True)
+    status = subprocess.check_output(['git', 'submodule', 'status', '--recursive'], cwd=repo, text=True)
     for line in status.splitlines():
         print(f'{"ok" if line.startswith(" ") else "CHECK"}: submodule {line.strip()}')
         failed |= line.startswith(('-', 'U'))
@@ -34,6 +34,11 @@ def main():
                          ('libuv', 'include/uv.h'), ('node', 'configure.py')]:
         if not (repo / 'ports/upstream' / name / marker).is_file():
             print(f'MISSING: {name} checkout; run git submodule update --init --recursive')
+            failed = True
+    for marker in ('userspace/widgets/include/srvros/desk_widgets.h',
+                   'userspace/apps/desktools/main.c', 'ports/README.md'):
+        if not (repo / marker).is_file():
+            print(f'MISSING: {marker}; run git submodule update --init --recursive')
             failed = True
     zig = repo / 'build/tooling/zig' / ('zig.exe' if os.name == 'nt' else 'zig')
     print(f'ok: Zig: {zig if zig.is_file() else "downloaded and checksum-verified on first make"}')
