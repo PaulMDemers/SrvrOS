@@ -1,0 +1,91 @@
+{
+  "runtime_source": "6d1ae527",
+  "integration_base": "5b2bf3c7",
+  "ports": "5e30ecd",
+  "upstream": "5739fd79bcfc75ba7526773d0cf634521f8aca3c",
+  "profile": "C-locale ASCII; local deterministic random; no SIGFPE handler",
+  "clean_builds": 2,
+  "generated_source_equality": true,
+  "artifact_equality": {
+    "build/userspace/awk.elf": true,
+    "build/kernel/srvros.elf": true,
+    "build/initramfs.tar": false,
+    "build/srvros.exfat": true
+  },
+  "artifact_hashes": [
+    {
+      "build/userspace/awk.elf": "4c51140ea29050172beb4b68a0564a7c1d2442efa5fee3f04df75361749db430",
+      "build/kernel/srvros.elf": "76dc35d09f7ba281368b56d32e2cf2ed1c3253ca2f675d220df7b8ad1b3951fc",
+      "build/initramfs.tar": "6f2567ef5611c881944f4cea3ab755ac6c3955746c0c40a37b5d7221e9976695",
+      "build/srvros.exfat": "6061ab00adbc73f8588a67570d43e7ce15c3702f051de4a4890e7ede80c59e53"
+    },
+    {
+      "build/userspace/awk.elf": "4c51140ea29050172beb4b68a0564a7c1d2442efa5fee3f04df75361749db430",
+      "build/kernel/srvros.elf": "76dc35d09f7ba281368b56d32e2cf2ed1c3253ca2f675d220df7b8ad1b3951fc",
+      "build/initramfs.tar": "96f749cf1a2ade5c1953bc51eea9897d80e8dec46d1b4b7b64ced15da0b81bef",
+      "build/srvros.exfat": "6061ab00adbc73f8588a67570d43e7ce15c3702f051de4a4890e7ede80c59e53"
+    }
+  ],
+  "generated_sha256": {
+    "awk.h": "f86da3c2f83adf8632629db3a3a84e2c2ec37bc1ad72951128e3f2c09d8e3aef",
+    "awkgram.tab.c": "3ee9183e9098f6b92b498bf882521be977b30d2f13fc2fa690e0ac672f025d3a",
+    "awkgram.tab.h": "473d9a525725ec662c29d47cd07b110e7045d27b7e4b81a5e5e4005a238c15cf",
+    "awkgram.y": "452c57bb2c797ab4acb6972048e883db47e9c52268dc17c984374823ed73e079",
+    "b.c": "aa04c712f90e9b4a51f14605edb95a9981488f52693edf27172ea3a30344716f",
+    "lex.c": "a647150d9c65ce5ca8b797702717f3c72b783a581b0e7cd7539c3b6c54049186",
+    "lib.c": "ee6e8bab1e8dbb9e6937d8b349d23d2db53aa5ddb502c5f32f798da86d310dad",
+    "main.c": "528fdd20546f3a4f7a4869f2741dc312943a38adfb7b421e8996f1c4dec56dfc",
+    "maketab.c": "f74dada43c14a559ade42374438fc4512f831d23266c4da01ac2a78fc18748e9",
+    "parse.c": "7fc9b7167d908bdd52bdb3dae87e734047abce639e44c91a8c80776b00c79ce8",
+    "proctab.c": "5b927c4c02909a7e2e384f7a7b78061db74c344d49b5b4d56c2dd595d8b0789a",
+    "proto.h": "4906218fb7061ab7baf98bf17ea3b70938e3471f1af886cc9cf9530d08400937",
+    "run.c": "ccb57afcc38df2fba7240a3d06ff30d69fec91a05b93f3fc1a61cbaf8a5af0a6",
+    "tran.c": "ba008482675fd75fbb3c2b92ea27c672d0bce2584b3067ccf1600a4913da8e8c"
+  },
+  "build_tools": {
+    "bison": "bison (GNU Bison) 2.3",
+    "hostcc": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
+    "maketab": ""
+  },
+  "guest": {
+    "status": "PASS",
+    "upstream_cases": [
+      "concat-assign-same",
+      "decr-NF",
+      "a-format"
+    ],
+    "awk_sha256": "4c51140ea29050172beb4b68a0564a7c1d2442efa5fee3f04df75361749db430",
+    "kernel_sha256": "76dc35d09f7ba281368b56d32e2cf2ed1c3253ca2f675d220df7b8ad1b3951fc",
+    "initramfs_sha256": "96f749cf1a2ade5c1953bc51eea9897d80e8dec46d1b4b7b64ced15da0b81bef",
+    "terminal_csv_report": true,
+    "disk_reopen": true,
+    "process_baseline_restored": true,
+    "guest_fsck": "PASS",
+    "host_allocation": "PASS",
+    "external_fsck": "SKIP: unavailable",
+    "runtime_awk_sha256": "eeeddc00e885277169140bfc65aae220ae486f97705563328e790530972215ed"
+  },
+  "other_validation": {
+    "ports_smoke": "PASS",
+    "host_prepare_and_modified_input_refusal": "PASS",
+    "docs": "PASS"
+  },
+  "screenshot": {
+    "path": "awk-terminal.png",
+    "sha256": "568e85480d0b0d50c4f174dc3930c593bda58f9b644b15fb776c986240a20380"
+  },
+  "limits": [
+    "No full-image bit reproducibility: initramfs hashes differ",
+    "Three selected upstream regressions, not the full suite",
+    "No native hardware acceptance",
+    "Shell backslash parsing unchanged; staged-file pipe fixture used"
+  ],
+  "evidence": "build/review/awk/; initial failed fixture retained; integrated guest 20261103-150115-46mpl5g7",
+  "previous_verified_runtime_source": "f563020a",
+  "widgets": "76deeb3",
+  "runtime_awk_unchanged_after_integration": true,
+  "pull_requests": [
+    "https://github.com/PaulMDemers/SrvrPorts/pull/1",
+    "https://github.com/PaulMDemers/SrvrOS/pull/291"
+  ]
+}

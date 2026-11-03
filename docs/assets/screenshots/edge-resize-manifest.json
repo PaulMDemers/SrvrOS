@@ -1,0 +1,117 @@
+{
+  "runtime_source": "d0053c89a8e363abab24b264c02ddbbc24914999",
+  "host_test_runtime": "bb7f9b17b9fa933b6318a41e75e933b59fd8a3e1",
+  "host_runtime_equal": true,
+  "resize_vm": {
+    "status": "PASS",
+    "metadata": {
+      "source_manifest_sha256": "7f594c845c64a09a082a3f6fd12df4267c83d3dc7fc7a43e342decad3956830b",
+      "kernel_sha256": "0506d854b8520176c3e2d5dbcbaa66536c1ffbe5d3c026eb9a6c087e7a23cae0",
+      "base_disk_sha256": "40f973fcbea98c7e7d892559ca215f8b593259f39a2eafd5581b922d253d3412",
+      "qemu_version": "QEMU emulator version 11.1.2"
+    },
+    "modes": [
+      {
+        "mode": "1280x800-scale1",
+        "logical": [
+          1280,
+          800
+        ],
+        "text_pid": 6,
+        "text_window": 1,
+        "identity": 1,
+        "boot_iso_sha256": "ddc605614190a156e23f977acacd8602277c628f78ce41185bfe23a8e7974ce0",
+        "active_pointer": {
+          "index": 2,
+          "name": "QEMU Virtio Tablet",
+          "current": true,
+          "absolute": true
+        }
+      },
+      {
+        "mode": "1920x1080-scale2",
+        "logical": [
+          960,
+          540
+        ],
+        "text_pid": 6,
+        "text_window": 1,
+        "identity": 1,
+        "boot_iso_sha256": "ad74c9577a3c14a47ae640f82cfca1614c118d5ec7d735d8744f9e144c40b28b",
+        "active_pointer": {
+          "index": 2,
+          "name": "QEMU Virtio Tablet",
+          "current": true,
+          "absolute": true
+        }
+      }
+    ],
+    "checks": [
+      "eight resize directions and anchored opposite edges",
+      "minimum frame bounds",
+      "directional cursor traces and arrow after leave",
+      "selection and saved content",
+      "stationary press and Escape cancellation",
+      "modal parent capture and capture cancellation",
+      "edge release and reentry",
+      "GPU presenter reset"
+    ],
+    "limitations": "Cursor screenshots provide visual evidence; host pointer capture and smoothness are not tested."
+  },
+  "theme_vm": {
+    "status": "PASS",
+    "metadata": {
+      "source_manifest_sha256": "7f594c845c64a09a082a3f6fd12df4267c83d3dc7fc7a43e342decad3956830b",
+      "kernel_sha256": "0506d854b8520176c3e2d5dbcbaa66536c1ffbe5d3c026eb9a6c087e7a23cae0",
+      "base_disk_sha256": "40f973fcbea98c7e7d892559ca215f8b593259f39a2eafd5581b922d253d3412",
+      "qemu_version": "QEMU emulator version 11.1.2",
+      "boot_iso_sha256": "64fac59675fef01f059fe5adc19be16f8ac38168c9900d9fda568e112b41c4de",
+      "final_disk_sha256": "bed868c6d33184b937a15bea7a0c5a2bc3d3a82e1a9eea6ed05f386ce465f413"
+    },
+    "active_pointer": {
+      "index": 2,
+      "name": "QEMU Virtio Tablet",
+      "current": true,
+      "absolute": true
+    },
+    "checks": [
+      "live Aero and Aqua",
+      "existing and new Text selection",
+      "content and selection retained",
+      "popup and dialog captures",
+      "drag and Help wheel",
+      "saved Aqua and desktop restart"
+    ],
+    "limitations": "QMP guest evidence does not test host-window smoothness or cursor release."
+  },
+  "screenshots_sha256": {
+    "edge-resize-2x.png": "914980ec1ad2f4eae8a9bc13947f7f9b7b190457cf0a98bfa9b10ea96197557a",
+    "edge-resize-1x.png": "1a9edc422b0de1becebc59d3c0bb945dbda60e237a296dd71921e7fb0afab8ed"
+  },
+  "host_checks": [
+    "full desktop",
+    "desktop I/O",
+    "geometry and clipping",
+    "cursor partial/full redraw equality across three themes",
+    "resize refusal",
+    "capture lifetime/modal/focus invalidation"
+  ],
+  "host_compiler": "existing Darwin x86_64 wrapper, _DARWIN_C_SOURCE, -Wno-array-bounds",
+  "limits": "QMP guest evidence; no new native hardware, physical vblank or host cursor-release acceptance.",
+  "combined_review": {
+    "source": "84478be4a05c646c52b8e38e4369d0cf88f2eb56",
+    "worktree_dirty": false,
+    "first_app_frame_seconds": 4.32,
+    "pid": 85869,
+    "resized_frame": [
+      32,
+      64,
+      762,
+      550
+    ],
+    "status": "PASS",
+    "state_file": ".local/macos-vm/edge-resize-review/current.json",
+    "kernel_and_compositor_match_accepted_sha256": true,
+    "merged_awk_base": "c609207bce90e265a3d72ac087392c1e73e3f4d0"
+  }
+}

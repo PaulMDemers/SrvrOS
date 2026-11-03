@@ -2279,3 +2279,171 @@ renderer extraction. Merge the Open With pair (Apps PR2 then OS PR278) first;
 retarget Apps PR3 to main and merge it before OS PR288. Do not merge recovery into
 the Open With feature branch. The child dependency was published before the OS
 pin. The reviews are ready for integration review, not merged by this task.
+
+
+### Edge and corner resizing — active scope November 3, 2026
+
+User authorized implementation, verification and merge. Branch
+`device/apple-silicon/edge-resize` starts from fetched main `5b2bf3c7`, including
+merged SrvrUI host/render separation PR289. This block owns compositor resize
+hit testing, anchored geometry, directional software cursors and focused
+host/VM verification. SrvrUI/SrvrApps/ports interfaces and pins are unchanged.
+PR278 retains application registry/dispatch work in deskd; PR252 owns lifetime
+work. PR288 Files recovery and PR291 awk retain their separate scopes.
+
+Interaction: hover identifies the available resize direction; pressing an edge
+or corner does not jump the window; dragging keeps the opposite edge fixed;
+release ends capture. Minimum/client maximum bounds and reachable titlebars
+remain enforced. Modal parents, maximized windows, overlays and application
+controls must not accidentally start resizing. Failed reservations or application
+refusal preserve usable prior geometry/content. Cursor changes must invalidate
+both old and new pixels, including changes without pointer movement.
+
+Acceptance: geometry and failure/lifetime host regressions, exact partial/full
+render comparisons for every cursor, full desktop suite, matched OS build, and
+actual Text/tablet resize checks at 1x and 2x with content retained and clean GPU
+retirement. QMP tests do not establish host-monitor vblank or physical input
+acceptance. The existing attended review VM/disk is preserved; disposable test
+VMs run sequentially. Hosted Actions remain disabled. Next: implement and inspect
+these transitions, verify the exact candidate, then publish and merge its PR.
+
+### Pinned awk port — active isolated scope, November 3, 2026
+
+User authorized a separate-checkout awk milestone. Base `e376669c`, branch
+`ports/awk`, checkout `SrvrOS-ports-awk`; SrvrPorts branch `port/awk` starts at
+`0494ae2`. Independent Git/submodule directories, build caches, staging and VM
+disks preserve the integration checkout and attended review VM. This scope owns
+the pinned One True Awk adapter, image wiring and focused host/guest tests.
+PR278 remains application descriptors/Open With; PR252 remains process and I/O
+lifetimes, PR19 USB Wi-Fi. The integration chat has been notified. Any shared
+libc/kernel defect requires coordination before implementation.
+
+Target: upstream awk `5739fd79bcfc75ba7526773d0cf634521f8aca3c` (20260426)
+processes saved CSV in Terminal, writes a report and preserves exact output
+after guest disk reopen. Acceptance includes selected unchanged upstream cases,
+errors/status, pipe completion, two clean reproducible executable builds, matched
+image provenance and existing ports regression. C-locale/ASCII is the initial
+case-conversion contract; no full Unicode locale, POSIX certification or native
+hardware claim. Keep upstream clean and adaptations under `ports/srvros/awk`.
+No hosted Actions or physical boot is authorized by this scope.
+
+
+### Awk milestone verified — November 3, 2026
+
+Implementation `f563020a` pins published SrvrPorts `5e30ecd`. Two clean full builds
+(after removing generated port objects/sources as well as `make clean`) pass.
+Both produce awk ELF SHA-256
+`4823d7df393bb56797db40f4b2d4f01d7d37ea2201bb26766cb6fda7e0be5963`
+and identical preparation manifests/generated text. Kernel and exFAT hashes also
+match; initramfs archives do not. This is executable/source reproducibility,
+not a deterministic-whole-image claim. Bison 2.3 and the native host compiler
+only produce build-time parser tables; target code uses pinned Zig 0.15.2.
+
+The final matched guest run passes real Terminal quoted/multiline CSV reporting,
+fields/arrays/regex/substitution/math/random, stdin pipes, subprocess/status,
+three unchanged upstream regression programs, error/nonzero status and recovery,
+process-baseline restoration, exact offline contents, and second-boot readback.
+Guest fsck and offline allocation checks pass on both boots; external fsck.exfat
+is unavailable on this host. Existing staged-ports smoke also passes. Host tests
+compare two fresh preparations and reject modified source. Docs and whitespace
+checks pass. No full upstream-suite or native acceptance is claimed.
+
+The initial fixture run failed because shell quoted-token parsing consumed
+backslashes in printf input; all other files/statuses matched. Its disk/logs are
+preserved. The corrected fixture pipes a staged file and passes. This shell issue
+was reported separately to integration/PR252 ownership and is not changed here.
+The first host allocation-check build used a Linux linker flag; rerunning with
+the documented Darwin wrapper passes. Failures were not relabeled as passes.
+
+Raw evidence: `build/review/awk/`, final guest `20261103-145438-ov9g6a_o`.
+[Portable hashes and screenshot](../assets/screenshots/awk-manifest.json) retain
+source identities and limits. All task-owned VMs stopped; integration checkout
+and attended review VM untouched. Main advanced to `105077d7` with Air6,1 HDA
+work; read-only merge-tree validation reports no conflict, but the tested runtime
+remains based on `e376669c`. Delivery is linked draft PRs, beginning with
+[SrvrPorts PR1](https://github.com/PaulMDemers/SrvrPorts/pull/1); merge acceptance
+remains with integration. No merge or Actions run.
+
+
+### Awk draft integration reconciled — November 3, 2026
+
+[SrvrOS draft291](https://github.com/PaulMDemers/SrvrOS/pull/291) and
+[SrvrPorts draft1](https://github.com/PaulMDemers/SrvrPorts/pull/1) are published.
+Main advanced again to `5b2bf3c7` (SrvrUI host extraction). Merge `6d1ae527`
+resolves the sole Makefile EOF conflict by retaining both the awk include and
+SrvrUI renderer dependencies; it consumes published SrvrUI `76deeb3`. No separate
+libc/kernel fix was introduced. The final diff against main is the awk integration.
+
+Two new clean full builds on merged runtime `6d1ae527` pass with identical
+generated sources/tool manifests and debug awk ELF SHA-256
+`4c51140ea29050172beb4b68a0564a7c1d2442efa5fee3f04df75361749db430`.
+The packed runtime awk remains byte-identical to the pre-merge guest-tested one;
+the debug ELF reflects relocated renderer source metadata. Kernel and exFAT
+images match across these two builds; initramfs archives still differ. Final
+matched Terminal, upstream/profile, errors, retirement, offline allocation and
+second-boot persistence all pass again; staged-ports smoke passes again.
+Integrated guest evidence is `20261103-150115-46mpl5g7`; earlier runs remain retained.
+The portable manifest and screenshot now identify this merged runtime. Follow-up
+commits change evidence/docs only. Task-owned VMs stopped; review VM untouched.
+
+
+### Files integration delivery — active November 3, 2026
+
+The user authorized merging the documented dependency sequence: Apps PR2,
+OS PR278, retarget Apps PR3 to main and merge it, then OS PR288. Work and all
+verification remain in the independent `SrvrOS-app-quality` checkout; the shared
+checkout and review VM must remain untouched. Main `c609207b` adds the already
+accepted awk integration. Resolve the Makefile tail by retaining QMP input
+validation, the SrvrPorts awk include and canonical SrvrUI renderer dependencies;
+preserve both host journal entries and main's Ports pin. The merged Open With
+prerequisite will receive host/build checks before publication, and the final
+merged Files candidate will receive matched host/build and sequential disposable
+VM checks. Preserve source-specific evidence; do not enable hosted Actions or
+claim native acceptance. No unrelated feature work is included.
+
+
+### Edge resize verification — November 3, 2026
+
+Runtime `bb7f9b17` passes the full desktop and desktop-I/O host suites, including
+anchored geometry, all cursor partial/full redraw states, resize refusal and
+capture invalidation. Clean candidate `d0053c89` differs only in harness/docs
+and passes the matched build, actual Text/VirtIO tablet runs at 1280×800 scale 1
+and 1920×1080 scale 2, plus the existing live theme/profile regression. All eight
+edges/corners, no-jump presses, minimums, selection/saved bytes, Escape, modal
+blocking (including opening a picker while held), edge release/re-entry and clean
+GPU reset pass. Directional cursor and minimum-size screenshots were inspected.
+
+Independent review found and resolved a queued-motion/modal race before final
+verification: capture eligibility is checked before each resize, and after the
+input batch. Initial harness failures are retained in ignored evidence: a modal
+probe hit the dialog, a requested 2560×1600 mode fell back, and scale-2 outward
+travel overlapped the dock. Final fixtures target the exposed parent, use the
+established display mode, and leave room above the dock; no acceptance was waived.
+
+[Portable receipt](../assets/screenshots/edge-resize-manifest.json) and screenshots
+retain source/hash evidence. Raw results are under `build/review/edge-resize`,
+`build/review/desktop-resize` and `build/review/desktop-theme-profiles`. Test VMs
+are stopped. Merged awk PR291 is now included, retaining both independent scope
+records and the published ports pin. The final combined source `84478be4` builds cleanly; kernel and compositor ELF
+hashes equal the accepted runtime. Its default Cocoa desktop opens in 4.32 s
+and commits a 40×25 corner enlargement to a 762×550 frame. This review VM is
+left open at `.local/macos-vm/edge-resize-review/current.json`; the prior review
+VM had already stopped and its persistent disk is retained. Required verification
+is complete for [PR292](https://github.com/PaulMDemers/SrvrOS/pull/292). Native
+acceptance and Actions are unchanged.
+
+
+### Files integration sequence — November 3, 2026
+
+Apps PR2 merged as `45cbd585`; OS PR278 merged as `c0fa8d90` after preserving
+main's renderer/awk rules and edge-resize integration. Both intermediate matched
+host/build candidates passed. Apps PR3 was then retargeted to main and merged as
+`ae56bf71`; its tree exactly matches reviewed `4f2f3425`. OS PR288 now pins that
+merged app and incorporates current main, preserving the Files regressions and
+all host journal entries. The theme fixture uses the new outer right-edge halo
+and anchored pointer delta, retaining exact 722/600-pixel width assertions.
+
+Next: merge OS PR288 after host/build checks, then verify the actual merged main
+with host/sanitizer checks and sequential owned/refused Open With, Files, theme
+and awk VMs. Evidence belongs in `build/review/files-merged/`. Shared checkout
+and review VM remain untouched; native acceptance and hosted Actions unchanged.

@@ -6,6 +6,41 @@ and [machine records](machines/README.md) separate implementation from physical
 acceptance. The [device parity ledger](device-parity.md) compares the Air with
 ongoing Pro work.
 
+## Current resize interaction — November 3, 2026
+
+The repository/theme/VirtIO milestones are complete. The user authorized the
+next bounded shared desktop improvement: all edge and corner resize directions
+with matching cursor feedback, verification and merge. Snapping is separate.
+
+Branch `device/apple-silicon/edge-resize` starts at main `5b2bf3c7`. Scope stays
+in the compositor: discoverable resize targets, anchored geometry, safe capture
+and failure recovery, plus damage-correct cursors. App recovery remains in its own PR; merged awk integration is retained; SrvrUI portability's merged renderer boundary is retained.
+
+Required evidence: host geometry/session/render regressions, full desktop suite,
+matched OS build, real Text resize/content checks at both supported scales with
+VirtIO tablet input, and clean presentation teardown. Native device acceptance
+and host-window release observations remain separate. The full host suites, clean build, both resize VMs and live-theme regression
+pass. [Evidence](assets/screenshots/edge-resize-manifest.json) records the tested
+source and limits. [PR292](https://github.com/PaulMDemers/SrvrOS/pull/292) records delivery. The
+combined image with merged awk also builds, starts and completes a live corner
+resize; its kernel/compositor hashes match the accepted runtime. No additional
+resize feature is required.
+
+## Pinned awk port — November 3, 2026
+
+Target: a useful upstream interpreter for Terminal CSV/text reporting, with
+pinned clean source and repeatable builds. Isolated branch `ports/awk` integrates
+SrvrPorts `port/awk`; [port usage and scope](ports.md#one-true-awk) describe the
+C-locale profile and explicit exclusions. No libc/kernel changes are required.
+The Terminal report, three unchanged upstream programs, error/status handling,
+pipe/subprocess completion, process retirement and saved-disk reopen checks pass.
+Two clean full builds produce identical awk ELF and generated sources/tool
+manifests; the existing ports regression and final matched guest run pass.
+Kernel and exFAT hashes match; initramfs archives differ, so full-image bit
+reproducibility is not claimed. The milestone is merged through SrvrPorts PR1 and SrvrOS PR291 (`c609207b`). The port is published in [SrvrPorts PR1](https://github.com/PaulMDemers/SrvrPorts/pull/1). [Portable evidence](assets/screenshots/awk-manifest.json)
+records exact runtime source `6d1ae527` and published port `5e30ecd`. Shell quote parsing remains a
+separate integration issue; no shared review VM or physical boot is touched.
+
 ## Current theme profiles — November 3, 2026
 
 Target: complete Aero-inspired and Aqua-inspired widget/chrome profiles, live

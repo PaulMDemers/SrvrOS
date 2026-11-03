@@ -211,12 +211,11 @@ def main():
                     qmp.key('esc'); wait(b'deskd: retired pid=' + files_pid)
 
                 def files_resize(current_width, target_width):
-                    # Drag the actual bottom-right resize grip. Zoom and restore
-                    # logs expose the compositor's resulting frame for assertion.
-                    # The compositor derives frame size from absolute pointer
-                    # position, not from the distance dragged from the grip.
-                    move(fx + current_width - 10, fy + fh - 10)
-                    button('left', True); move(fx + target_width - 1, fy + fh - 1); button('left', False)
+                    # Drag the outer right-edge halo by the exact width delta.
+                    # Edge resizing anchors the original frame and pointer;
+                    # zoom/restore logs still prove the resulting exact size.
+                    move(fx + current_width + 2, fy + fh // 2)
+                    button('left', True); move(fx + target_width + 2, fy + fh // 2); button('left', False)
                     time.sleep(.5)
                     click(fx + target_width - 56, fy + 20)
                     wait(b'deskd: zoom pid=' + files_pid + b' maximized=1 ')
