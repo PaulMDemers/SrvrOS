@@ -13,3 +13,5 @@ ports/node/*/node_modules/
 regs[R_EAX]=*
 /.vscode
 /.local/macos-vm/
+/.local/installation/
+/.local/installation-evidence/
