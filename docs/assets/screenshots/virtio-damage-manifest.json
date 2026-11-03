@@ -1,0 +1,277 @@
+{
+  "schema": 1,
+  "status": "PASS",
+  "date": "2026-11-03",
+  "profile": "1440x900 Cocoa Q35 single TCG qemu64, 450 moves at 60Hz per workload",
+  "provenance": {
+    "source_commit": "d643d2b847a8d33ae5fc5e2e2a62cef2fdb90316",
+    "source_dirty": true,
+    "kernel_sha256": "d3caff45d5edc8d2b3961d14e605c2e589f9dfd03ec2965ffc43847b9f1b8716",
+    "exfat_sha256": "9778e60965f26c758330842f147e761529f16b2c82d133acf6d18ffc46d9cbef",
+    "qemu_version": "QEMU emulator version 11.1.2"
+  },
+  "runs": [
+    {
+      "repeat": 1,
+      "sessions": {
+        "drag": {
+          "timings": {
+            "poll-gap": {
+              "count": 816,
+              "mean_us": 14706,
+              "max_us": 79614,
+              "p95_bound_us": 25000,
+              "p99_bound_us": 25000
+            },
+            "consecutive-motion-gap": {
+              "count": 351,
+              "mean_us": 19894,
+              "max_us": 29381,
+              "p95_bound_us": 25000,
+              "p99_bound_us": 25000
+            },
+            "consume-to-final-blit": {
+              "count": 376,
+              "mean_us": 10372,
+              "max_us": 24552,
+              "p95_bound_us": 16667,
+              "p99_bound_us": 16667
+            },
+            "draw-blit": {
+              "count": 383,
+              "mean_us": 10545,
+              "max_us": 65983,
+              "p95_bound_us": 16667,
+              "p99_bound_us": 25000
+            }
+          },
+          "presented_frames": 383,
+          "skipped_frames": 0,
+          "copied_bytes": 710571128,
+          "transferred_bytes": 710571128,
+          "full_frame_baseline_bytes": 1985472000,
+          "copy_reduction_percent": 64.21,
+          "reset": "ok",
+          "serial_sha256": "334823d145f4d38553c12afa0702e346656f9810e371b017d7f18da23933c8a5"
+        },
+        "scroll": {
+          "timings": {
+            "poll-gap": {
+              "count": 819,
+              "mean_us": 14896,
+              "max_us": 73658,
+              "p95_bound_us": 25000,
+              "p99_bound_us": 50000
+            },
+            "consecutive-motion-gap": {
+              "count": 375,
+              "mean_us": 19706,
+              "max_us": 54270,
+              "p95_bound_us": 25000,
+              "p99_bound_us": 50000
+            },
+            "consume-to-final-blit": {
+              "count": 402,
+              "mean_us": 10913,
+              "max_us": 48013,
+              "p95_bound_us": 16667,
+              "p99_bound_us": 25000
+            },
+            "draw-blit": {
+              "count": 419,
+              "mean_us": 11128,
+              "max_us": 64140,
+              "p95_bound_us": 16667,
+              "p99_bound_us": 25000
+            }
+          },
+          "presented_frames": 419,
+          "skipped_frames": 0,
+          "copied_bytes": 709497364,
+          "transferred_bytes": 709497364,
+          "full_frame_baseline_bytes": 2172096000,
+          "copy_reduction_percent": 67.34,
+          "reset": "ok",
+          "serial_sha256": "c32df91005909da8c50cbf2130868806177fa9fec99fa5b8749b5af9e75582b0"
+        }
+      }
+    },
+    {
+      "repeat": 2,
+      "sessions": {
+        "drag": {
+          "timings": {
+            "poll-gap": {
+              "count": 816,
+              "mean_us": 14730,
+              "max_us": 77278,
+              "p95_bound_us": 25000,
+              "p99_bound_us": 25000
+            },
+            "consecutive-motion-gap": {
+              "count": 353,
+              "mean_us": 19842,
+              "max_us": 28526,
+              "p95_bound_us": 25000,
+              "p99_bound_us": 25000
+            },
+            "consume-to-final-blit": {
+              "count": 377,
+              "mean_us": 10471,
+              "max_us": 26700,
+              "p95_bound_us": 16667,
+              "p99_bound_us": 16667
+            },
+            "draw-blit": {
+              "count": 384,
+              "mean_us": 10684,
+              "max_us": 65731,
+              "p95_bound_us": 16667,
+              "p99_bound_us": 25000
+            }
+          },
+          "presented_frames": 384,
+          "skipped_frames": 0,
+          "copied_bytes": 714144204,
+          "transferred_bytes": 714144204,
+          "full_frame_baseline_bytes": 1990656000,
+          "copy_reduction_percent": 64.13,
+          "reset": "ok",
+          "serial_sha256": "9659d37bf88c8e53a89ac3f26026af881c3d885611f94b3e2cf96f0482a2b199"
+        },
+        "scroll": {
+          "timings": {
+            "poll-gap": {
+              "count": 824,
+              "mean_us": 14830,
+              "max_us": 74931,
+              "p95_bound_us": 25000,
+              "p99_bound_us": 50000
+            },
+            "consecutive-motion-gap": {
+              "count": 381,
+              "mean_us": 19674,
+              "max_us": 33647,
+              "p95_bound_us": 25000,
+              "p99_bound_us": 33647
+            },
+            "consume-to-final-blit": {
+              "count": 405,
+              "mean_us": 11068,
+              "max_us": 22962,
+              "p95_bound_us": 16667,
+              "p99_bound_us": 22962
+            },
+            "draw-blit": {
+              "count": 418,
+              "mean_us": 11225,
+              "max_us": 67992,
+              "p95_bound_us": 16667,
+              "p99_bound_us": 25000
+            }
+          },
+          "presented_frames": 418,
+          "skipped_frames": 0,
+          "copied_bytes": 708734004,
+          "transferred_bytes": 708734004,
+          "full_frame_baseline_bytes": 2166912000,
+          "copy_reduction_percent": 67.29,
+          "reset": "ok",
+          "serial_sha256": "f933372fbf7d97493772af22c440eddee4932083bc11d68a54405b4546b8ac8c"
+        }
+      }
+    },
+    {
+      "repeat": 3,
+      "sessions": {
+        "drag": {
+          "timings": {
+            "poll-gap": {
+              "count": 808,
+              "mean_us": 14824,
+              "max_us": 75276,
+              "p95_bound_us": 25000,
+              "p99_bound_us": 25000
+            },
+            "consecutive-motion-gap": {
+              "count": 369,
+              "mean_us": 19893,
+              "max_us": 27515,
+              "p95_bound_us": 25000,
+              "p99_bound_us": 25000
+            },
+            "consume-to-final-blit": {
+              "count": 382,
+              "mean_us": 10263,
+              "max_us": 18005,
+              "p95_bound_us": 16667,
+              "p99_bound_us": 16667
+            },
+            "draw-blit": {
+              "count": 389,
+              "mean_us": 10464,
+              "max_us": 66929,
+              "p95_bound_us": 16667,
+              "p99_bound_us": 25000
+            }
+          },
+          "presented_frames": 389,
+          "skipped_frames": 0,
+          "copied_bytes": 721520280,
+          "transferred_bytes": 721520280,
+          "full_frame_baseline_bytes": 2016576000,
+          "copy_reduction_percent": 64.22,
+          "reset": "ok",
+          "serial_sha256": "7a2676842ea6229267c613733ed3f49eab26f2165b07f574cbcfd9af25a09364"
+        },
+        "scroll": {
+          "timings": {
+            "poll-gap": {
+              "count": 826,
+              "mean_us": 14756,
+              "max_us": 73223,
+              "p95_bound_us": 25000,
+              "p99_bound_us": 50000
+            },
+            "consecutive-motion-gap": {
+              "count": 368,
+              "mean_us": 19575,
+              "max_us": 33868,
+              "p95_bound_us": 25000,
+              "p99_bound_us": 33868
+            },
+            "consume-to-final-blit": {
+              "count": 401,
+              "mean_us": 10850,
+              "max_us": 22906,
+              "p95_bound_us": 16667,
+              "p99_bound_us": 22906
+            },
+            "draw-blit": {
+              "count": 423,
+              "mean_us": 11058,
+              "max_us": 65194,
+              "p95_bound_us": 16667,
+              "p99_bound_us": 25000
+            }
+          },
+          "presented_frames": 423,
+          "skipped_frames": 0,
+          "copied_bytes": 720313524,
+          "transferred_bytes": 720313524,
+          "full_frame_baseline_bytes": 2192832000,
+          "copy_reduction_percent": 67.15,
+          "reset": "ok",
+          "serial_sha256": "b60d3e546605d029996b2ae169a4a6509a9c4d083d8d1ffc4fd325f507525062"
+        }
+      }
+    }
+  ],
+  "baseline_manifest": "smoothness-manifest.json",
+  "notes": [
+    "GPU fences, full scanout and flush unchanged; only staging copy and host resource transfer are limited to accumulated damage.",
+    "Timing measures complete session compose/upload/present intervals, not host scanout or vblank.",
+    "Uses the prior PS2/USB input profile for a comparable GPU-only measurement.",
+    "Runtime source was dirty; raw matched build and timing evidence retained locally."
+  ]
+}

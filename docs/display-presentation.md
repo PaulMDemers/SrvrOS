@@ -219,3 +219,36 @@ merged image. The working tree was dirty only for measurement tooling and the
 scope record, not kernel/userspace changes; the executed harness and initramfs
 are separately hashed. Raw inputs, screenshots and serial logs are local under
 `build/review/display-smoothness/cocoa/`. All automated VMs were stopped.
+
+## Damage-aware presentation — November 3, 2026
+
+The user accepted VirtIO as visibly smoother than VGA and authorized making it
+the QEMU default. Each of the two resources now accumulates its own pending
+damage. A presentation copies only the inactive resource's accumulated rectangle
+and transfers that rectangle with the full resource row stride. Full scanout,
+flush, fences and reset-before-free remain unchanged. The first two actual
+presentations initialize their resources completely; unchanged frames do not
+flip to a stale resource. All successful graphics writes report clipped damage.
+
+Three further Cocoa runs repeated the same drag/scroll workloads with the prior
+input devices, isolating the GPU change. All visible displacement, scroll and
+clean-reset checks pass. Median of the three per-run draw-and-present means:
+
+| Workload | Full-frame VirtIO | Damage-aware VirtIO | Copy/transfer reduction |
+| --- | ---: | ---: | ---: |
+| Drag | 14.354 ms | 10.545 ms | 64.13–64.22% |
+| Scroll | 16.619 ms | 11.128 ms | 67.15–67.34% |
+
+The byte reductions compare actual successful presentations with a full-frame
+copy for the same number of presentations. The timing reduction is about 27%
+for dragging and 33% for scrolling. The workload and measurement limits above
+still apply; command completion is not host compositor vblank. The fenced
+publication mechanism that the user preferred is retained, but these timings
+do not independently establish tear-free scanout.
+
+The 107-frame host oracle compares each entire flushed resource against staging
+after disjoint, overlapping, clipped, full and randomized writes. Partial command
+failures, pending damage, restart and quarantine tests pass. The primary desktop
+VM also passes drag, scroll, normal exit, process death and restart. See the
+[compact measurement manifest](assets/screenshots/virtio-damage-manifest.json);
+raw evidence is in `build/review/virtio-baseline/smoothness/`.

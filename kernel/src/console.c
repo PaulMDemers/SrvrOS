@@ -250,6 +250,8 @@ void console_enable_deferred(void) { deferred_output = true; }
 
 /* Only for a terminal fault: the interrupted presenter will never resume. */
 void console_emergency(void) {
+    /* Emergency text bypasses normal graphics uploads: invalidate both images. */
+    if (fb) display_present_damage(0, 0, fb->width, fb->height);
     deferred_output = false;
     presenting = false;
     framebuffer_console_muted = false;
@@ -748,6 +750,7 @@ bool console_put_pixel(uint64_t x, uint64_t y, uint32_t rgb) {
     }
 
     put_pixel(x, y, rgb_color(rgb));
+    display_present_damage(x, y, 1, 1);
     return true;
 }
 
@@ -756,7 +759,11 @@ bool console_fill_rectangle(uint64_t x, uint64_t y, uint64_t width, uint64_t hei
         return false;
     }
 
+    if (width > fb->width - x) width = fb->width - x;
+    if (height > fb->height - y) height = fb->height - y;
+    if (!width || !height) return true;
     fill_rect(x, y, width, height, rgb_color(rgb));
+    display_present_damage(x, y, width, height);
     return true;
 }
 
@@ -790,6 +797,7 @@ bool console_blit_rgb(uint64_t x, uint64_t y, uint64_t width, uint64_t height,
             destination[px] = direct_rgb ? source[px] : rgb_color(source[px]);
         }
     }
+    display_present_damage(x, y, copy_width, copy_height);
     return true;
 }
 
@@ -818,5 +826,6 @@ bool console_blit_rgb_scaled(uint64_t x, uint64_t y, uint64_t width, uint64_t he
         for (uint64_t px=0; px<copy_width; px++)
             destination[px] = direct_rgb ? source[px/2] : rgb_color(source[px/2]);
     }
+    display_present_damage(x, y, copy_width, copy_height);
     return true;
 }

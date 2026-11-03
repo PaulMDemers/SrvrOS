@@ -18,8 +18,8 @@ cd SrvrOS
 sh tools/macos/build.sh check-host
 sh tools/macos/build.sh -j2 all
 python3 tools/macos/run.py
-# Opt-in fenced VirtIO desktop presentation:
-python3 tools/macos/run.py --display-device virtio
+# Explicit VGA and USB/AHCI/e1000 fallback:
+python3 tools/macos/run.py --display-device std --devices legacy
 ```
 
 Use Homebrew Python 3.12 or newer. For an existing checkout, initialize the pinned
@@ -38,10 +38,17 @@ files. Run builds and VM harnesses sequentially in one checkout.
 ## Interactive VM and controls
 
 The launcher uses Q35, one emulated x86_64 CPU, 1 GiB RAM, a 1440×900 Cocoa window,
-USB keyboard/mouse, writable AHCI exFAT storage, e1000 user-mode networking and
+fenced VirtIO graphics, VirtIO keyboard/mouse, entropy, writable VirtIO exFAT storage,
+VirtIO user-mode networking and
 HDA output through CoreAudio. It configures no host folder sharing, incoming
 port forwarding or microphone capture. Native battery/EC/brightness profiles
 are not enabled. The guest clock is UTC.
+
+`--devices legacy` retains USB input, AHCI storage and e1000 networking independently
+of `--display-device std`. The generated QEMU-only ISO enables the new device
+drivers; native USB and physical boot configurations are unchanged. The mouse
+profile is relative, with real wheel input; absolute tablets are not supported.
+See [the VirtIO baseline contract](virtio-baseline.md) for device limits and evidence.
 
 It boots the BIOS ISO, starts `/fat/bin/deskd --apps-trace`, waits for the first
 application frame, saves a screenshot and leaves QEMU running. Finding EFI

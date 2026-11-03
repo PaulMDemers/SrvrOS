@@ -23,6 +23,7 @@
 #include <srvros/mouse.h>
 #include <srvros/net.h>
 #include <srvros/pmm.h>
+#include <srvros/virtio_rng.h>
 #include <srvros/process.h>
 #include <srvros/pty.h>
 #include <srvros/scheduler.h>
@@ -309,6 +310,12 @@ static uint64_t splitmix64_next(uint64_t *state) {
 static uint64_t random_u64(void) {
     uint64_t hardware;
     uint64_t flags = irq_save();
+    /* Nonblocking: the VM entropy worker replenishes a private pool. Existing
+     * hardware/software fallback semantics are retained when it is empty. */
+    if (virtio_rng_take_u64(&hardware)) {
+        irq_restore(flags);
+        return hardware;
+    }
     if (random_state == 0) {
         random_state = rdtsc() ^
             (timer_ticks() << 32) ^

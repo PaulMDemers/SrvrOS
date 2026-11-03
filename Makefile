@@ -1928,18 +1928,18 @@ presentation-screens: $(IMAGE) $(EXFAT_IMAGE)
 
 .PHONY: run
 run: $(IMAGE)
-	$(QEMU) -M q35 -m 512M -cdrom $(IMAGE) -boot d -serial stdio -no-reboot
+	$(PYTHON) tools/qemu_run.py --qemu "$(QEMU)" --display-device "$(if $(QEMU_DISPLAY),$(QEMU_DISPLAY),virtio)" -- -M q35 -m 512M -boot d -serial stdio -no-reboot
 
 .PHONY: run-net
 run-net: $(IMAGE)
-	$(QEMU) -M q35 -m 512M -cdrom $(IMAGE) -boot d -serial stdio \
+	$(PYTHON) tools/qemu_run.py --qemu "$(QEMU)" --display-device "$(if $(QEMU_DISPLAY),$(QEMU_DISPLAY),virtio)" -- -M q35 -m 512M -boot d -serial stdio \
 		-netdev user,id=net0,hostfwd=tcp:127.0.0.1:8080-10.0.2.15:80 \
 		-device e1000,netdev=net0 \
 		-no-reboot
 
 .PHONY: run-ahci-net
 run-ahci-net: $(IMAGE) $(EXFAT_IMAGE)
-	$(QEMU) -M q35 -m 512M -cdrom $(IMAGE) -boot d -serial stdio \
+	$(PYTHON) tools/qemu_run.py --qemu "$(QEMU)" --display-device "$(if $(QEMU_DISPLAY),$(QEMU_DISPLAY),virtio)" -- -M q35 -m 512M -boot d -serial stdio \
 		-drive if=none,id=exfat,file=$(EXFAT_IMAGE),format=raw \
 		-device ich9-ahci,id=ahci \
 		-device ide-hd,drive=exfat,bus=ahci.0 \
@@ -1949,7 +1949,7 @@ run-ahci-net: $(IMAGE) $(EXFAT_IMAGE)
 
 .PHONY: run-ahci2-net
 run-ahci2-net: $(IMAGE) $(EXFAT_IMAGE) $(SECOND_EXFAT_IMAGE)
-	$(QEMU) -M q35 -m 512M -cdrom $(IMAGE) -boot d -serial stdio \
+	$(PYTHON) tools/qemu_run.py --qemu "$(QEMU)" --display-device "$(if $(QEMU_DISPLAY),$(QEMU_DISPLAY),virtio)" -- -M q35 -m 512M -boot d -serial stdio \
 		-drive if=none,id=exfat0,file=$(EXFAT_IMAGE),format=raw \
 		-drive if=none,id=exfat1,file=$(SECOND_EXFAT_IMAGE),format=raw \
 		-device ich9-ahci,id=ahci \
@@ -1961,14 +1961,21 @@ run-ahci2-net: $(IMAGE) $(EXFAT_IMAGE) $(SECOND_EXFAT_IMAGE)
 
 .PHONY: run-virtio-net
 run-virtio-net: $(IMAGE)
-	$(QEMU) -M q35 -m 512M -cdrom $(IMAGE) -boot d -serial stdio \
+	$(PYTHON) tools/qemu_run.py --qemu "$(QEMU)" --display-device "$(if $(QEMU_DISPLAY),$(QEMU_DISPLAY),virtio)" --virtio-devices -- -M q35 -m 512M -boot d -serial stdio \
 		-netdev user,id=net0,hostfwd=tcp:127.0.0.1:8080-10.0.2.15:80 \
-		-device virtio-net-pci,netdev=net0 \
+		-device virtio-net-pci,netdev=net0,disable-legacy=on \
 		-no-reboot
+
+.PHONY: run-virtio
+run-virtio: $(IMAGE) $(EXFAT_IMAGE)
+	$(PYTHON) tools/qemu_run.py --qemu "$(QEMU)" --display-device "$(if $(QEMU_DISPLAY),$(QEMU_DISPLAY),virtio)" --virtio-devices -- -M q35 -m 1024M -boot d -serial stdio \
+		-drive if=none,id=disk,file=$(EXFAT_IMAGE),format=raw \
+		-device virtio-blk-pci,drive=disk,disable-legacy=on \
+		-netdev user,id=net0 -device virtio-net-pci,netdev=net0,disable-legacy=on -no-reboot
 
 .PHONY: debug
 debug: $(IMAGE)
-	$(QEMU) -M q35 -m 512M -cdrom $(IMAGE) -boot d -serial stdio -no-reboot -s -S
+	$(PYTHON) tools/qemu_run.py --qemu "$(QEMU)" --display-device "$(if $(QEMU_DISPLAY),$(QEMU_DISPLAY),virtio)" -- -M q35 -m 512M -boot d -serial stdio -no-reboot -s -S
 
 .PHONY: clean
 clean:
@@ -4118,4 +4125,20 @@ test-display-present: build/tests/display-present-host$(HOST_EXE)
 	$<
 build/tests/display-present-host$(HOST_EXE): tools/test_display_present.c kernel/src/display_present.c kernel/include/srvros/display_present.h kernel/include/srvros/virtio_gpu_probe.h $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -o $@
+
+.PHONY: test-virtio-pci test-virtio-rng test-virtio-net test-virtio-input test-virtio-block
+test-core: test-virtio-pci test-virtio-rng test-virtio-net test-virtio-input test-virtio-block
+test-virtio-pci: build/tests/virtio-pci-host$(HOST_EXE)
+	$<
+test-virtio-rng: build/tests/virtio-rng-host$(HOST_EXE)
+	$<
+test-virtio-net: build/tests/virtio-net-host$(HOST_EXE)
+	$<
+test-virtio-input: build/tests/virtio-input-host$(HOST_EXE)
+	$<
+test-virtio-block: build/tests/virtio-block-host$(HOST_EXE)
+	$<
+build/tests/virtio-%-host$(HOST_EXE): tools/test_virtio_%.c kernel/src/drivers/virtio_%.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -o $@

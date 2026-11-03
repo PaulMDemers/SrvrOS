@@ -6,6 +6,30 @@ and [machine records](machines/README.md) separate implementation from physical
 acceptance. The [device parity ledger](device-parity.md) compares the Air with
 ongoing Pro work.
 
+## Current QEMU VirtIO baseline — November 3, 2026
+
+Target: make the smoother VirtIO presentation the QEMU default, reduce full-frame
+copy cost, then deliver input, RNG, block and network drivers. User confirmed all
+four drivers and accepted VirtIO dragging as smoother than VGA. Work branch:
+`device/apple-silicon/virtio-baseline`, based on measurement PR283 at `d643d2b8`.
+
+Implemented: per-resource accumulated damage; modern PCI split-queue transport;
+QEMU keyboard/relative mouse including wheel; pooled entropy; durable-capable
+block I/O; network provider; explicit fallback profiles. GPU host oracle and
+three repeated Cocoa sessions pass, with 64–67% lower copy/transfer volume and
+27–33% lower draw/present time for the measured workloads. Protocol and existing
+input/storage/graphics/scheduler host regressions pass. The integrated two-boot
+VM passes keyboard/Text input, real wheel scrolling, dragging, entropy use,
+network link changes, DHCP, four ICMP replies, clean GPU exit and disk persistence.
+QEMU compact input configuration, SeaBIOS block handoff and a QEMU receive-header
+quirk are handled with bounded checks and regression coverage.
+
+Required before delivery: ordinary fallback and default-launcher desktop checks,
+final build/host checks, and published
+reviewable source. Details and evidence: [VirtIO baseline](virtio-baseline.md).
+Native hardware, interrupt-driven queues, absolute tablets, packed rings and host
+vblank are separate work; they do not block the requested polling baseline.
+
 ## QEMU fenced presentation — November 3, 2026
 
 Target: an opt-in QEMU VirtIO desktop presentation path, explicitly selected by

@@ -87,6 +87,17 @@ int main(void) {
     test_us=1000;mouse_inject_trackpad(0,0,1);mouse_cancel_trackpad();
     test_us=2000;e=next(0,0,0);assert(e.flags&MOUSE_CANCEL);
     mouse_queue_timing(&oldest,&latest);assert(oldest.count==1);
+    mouse_inject_trackpad(0,0,0);
+    /* VirtIO sources have independent physical buttons and external scroll. */
+    mouse_inject_event(0,0,1);next(0,0,1);
+    mouse_inject_virtio(0,2,3,48,-96,2);e=next(2,3,3);assert(e.wheel_x==48 && e.wheel_y==-96);
+    mouse_inject_virtio(1,0,0,0,0,4);next(0,0,7);
+    mouse_cancel_virtio(0);e=next(0,0,5);assert(e.flags&MOUSE_CANCEL);
+    mouse_cancel_trackpad();assert(!mouse_scan(&e));
+    mouse_inject_trackpad_tap(1);assert(!mouse_scan(&e));
+    mouse_inject_event(0,0,0);next(0,0,4);
+    mouse_cancel_virtio(1);e=next(0,0,0);assert(e.flags&MOUSE_CANCEL);
+    mouse_inject_virtio(MOUSE_VIRTIO_SOURCES,1,2,3,4,7);assert(!mouse_scan(&e));
     mouse_inject_trackpad(0,0,0);assert(!mouse_scan(&e));
     for(unsigned i=0;i<65;i++)mouse_inject_trackpad(0,0,(i&1)?0:1);
     e=next(0,0,0);assert(e.flags&MOUSE_CANCEL);

@@ -43,6 +43,17 @@ const char *virtio_gpu_probe_status_name(enum virtio_gpu_probe_status status);
 bool virtio_gpu_present_prepare(uint64_t framebuffer_physical, uint32_t width, uint32_t height);
 bool virtio_gpu_present_begin(void);
 bool virtio_gpu_present_frame(const void *inherited_framebuffer, uint64_t pitch);
+/* Report every successful staging write before frame(), in kernel CR3 with
+ * external IRQ/owner exclusion. Writers are forbidden during a driver operation.
+ * Coordinates are clipped without overflowing. Unknown/bulk writes must report
+ * the full viewport; unreported writes cannot be detected by this backend. */
+void virtio_gpu_present_damage(uint32_t x, uint32_t y, uint32_t width, uint32_t height);
+struct virtio_gpu_present_stats {
+    uint64_t presented_frames, skipped_frames, copied_bytes, transferred_bytes;
+};
+/* Serialized caller snapshot, reset at each accepted begin attempt. Byte counts
+ * include work done before a later failure; transferred bytes require its fence. */
+void virtio_gpu_present_get_stats(struct virtio_gpu_present_stats *out);
 bool virtio_gpu_present_end(void);
 bool virtio_gpu_present_available(void);
 bool virtio_gpu_present_active(void);

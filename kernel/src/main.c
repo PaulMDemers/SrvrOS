@@ -26,6 +26,10 @@
 #include <srvros/initramfs.h>
 #include <srvros/intel_gfx.h>
 #include <srvros/virtio_gpu_probe.h>
+#include <srvros/virtio_input.h>
+#include <srvros/virtio_rng.h>
+#include <srvros/virtio_net.h>
+#include <srvros/virtio_block.h>
 #include <srvros/display_present.h>
 #include <srvros/keyboard.h>
 #include <srvros/lpss_spi.h>
@@ -63,6 +67,26 @@ bool ioapic_route_isa_irq(uint8_t irq, uint8_t vector);
 bool ioapic_route_pci_irq(uint8_t irq, uint8_t vector);
 
 static bool boot_verbose;
+
+static bool virtio_service_ready(void *arg) {
+    (void)arg; return virtio_input_ready() || virtio_rng_ready();
+}
+static bool virtio_poll_due(void *arg) { return timer_ticks()>=*(uint64_t *)arg; }
+static void virtio_service(void *arg) {
+    (void)arg;
+    struct scheduler_wait_queue wake={0};
+    for(;;) {
+        /* Service threads own kernel CR3. Exclude IRQ reentry while publishing
+         * device events and while the syscall consumes the private RNG pool. */
+        uint64_t flags;
+        __asm__ volatile("pushfq; popq %0; cli":"=r"(flags)::"memory");
+        virtio_input_poll();
+        virtio_rng_poll();
+        if(flags&(1ull<<9)) __asm__ volatile("sti":::"memory");
+        uint64_t due=timer_ticks()+1;
+        if(!scheduler_wait_timeout(&wake,virtio_poll_due,&due,due)) scheduler_yield();
+    }
+}
 
 static bool char_is_separator(char c) {
     return c == '\0' || c == ' ' || c == '\t' || c == '\n' || c == '\r';
@@ -369,12 +393,13 @@ static void partition_name(char *out, uint64_t out_size, const char *base, uint6
 }
 
 static void mount_exfat_volume(bool diagnostic_ram) {
-    struct block_device *ahci = diagnostic_ram ? NULL : block_find("ahci0");
-    if (ahci != NULL && exfat_mount_block_device("/fat", ahci)) {
+    struct block_device *disk = diagnostic_ram ? NULL : block_find("ahci0");
+    if (!disk && !diagnostic_ram) disk=block_find("virtio0");
+    if (disk != NULL && exfat_mount_block_device("/fat", disk)) {
         return;
     }
-    if (ahci != NULL) {
-        block_register_gpt_partitions(ahci);
+    if (disk != NULL) {
+        block_register_gpt_partitions(disk);
         uint64_t order[] = {
             2, 1, 3, 4, 5, 6, 7, 8,
             9, 10, 11, 12, 13, 14, 15, 16,
@@ -383,7 +408,7 @@ static void mount_exfat_volume(bool diagnostic_ram) {
         };
         for (uint64_t i = 0; i < sizeof(order) / sizeof(order[0]); i++) {
             char name[16];
-            partition_name(name, sizeof(name), "ahci0", order[i]);
+            partition_name(name, sizeof(name), disk->name, order[i]);
             struct block_device *partition = block_find(name);
             if (partition != NULL && exfat_mount_block_device("/fat", partition)) {
                 return;
@@ -521,6 +546,17 @@ void kmain(void) {
         ioapic_route_isa_irq(12, 44);
     }
     pci_init();
+    bool virtio_baseline=cmdline_has_token(cmdline,"srvros.virtio=on");
+    if(virtio_baseline) {
+        bool input=virtio_input_init();
+        bool rng=virtio_rng_init();
+        console_printf("virtio: input=%s rng=%s\n",input?"ready":"unavailable",rng?"ready":"unavailable");
+        if((input || rng) && !scheduler_spawn_io_service("virtio-input",virtio_service,0,virtio_service_ready)) {
+            console_write("virtio: input/rng worker failed\n");
+            virtio_input_stop();
+            virtio_rng_stop();
+        }
+    }
     if (cmdline_has_token(cmdline, "srvros.virtio-gpu=present")) {
         struct limine_framebuffer_response *r = framebuffer_request.response;
         bool ready = r && r->framebuffer_count && display_present_prepare(r->framebuffers[0]);
@@ -565,11 +601,20 @@ void kmain(void) {
         console_write("storage: RAM-only mode; AHCI disabled\n");
     } else {
         ahci_init();
+        if(virtio_baseline) {
+            virtio_block_init();
+            virtio_block_print_status();
+        }
     }
     mount_exfat_volume(cmdline_has_token(cmdline,"srvros.capture=posix") &&
         cmdline_has_token(cmdline,"srvros.storage=ram"));
     persist_bootlog();
     e1000_init();
+    if(virtio_baseline) {
+        virtio_net_init();
+        virtio_net_print_status();
+        virtio_rng_print_status();
+    }
     if (e1000_available()) {
         uint8_t irq = e1000_irq_line();
         if (ioapic_route_pci_irq(irq, 32 + irq)) {

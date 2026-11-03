@@ -149,6 +149,20 @@ class HostTools(unittest.TestCase):
                 check.assert_called_once_with(123, 0)
             with patch.object(runner.os, 'kill', side_effect=ProcessLookupError):runner.refuse_running(pid)
 
+    def test_virtio_profile_and_legacy_fallback(self):
+        modern=runner.device_arguments('virtio')
+        self.assertIn('virtio-keyboard-pci',modern)
+        self.assertIn('virtio-mouse-pci',modern)
+        self.assertIn('virtio-blk-pci,drive=disk,disable-legacy=on',modern)
+        self.assertIn('virtio-net-pci,netdev=net0,disable-legacy=on',modern)
+        self.assertIn('virtio-rng-pci,rng=rng0,disable-legacy=on',modern)
+        self.assertFalse(any('usb-' in a or 'e1000' in a or 'ide-hd' in a for a in modern))
+        legacy=runner.device_arguments('legacy')
+        self.assertIn('usb-kbd,bus=xhci.0',legacy)
+        self.assertIn('ide-hd,drive=disk,bus=ahci.0',legacy)
+        self.assertIn('e1000,netdev=net0',legacy)
+        self.assertFalse(any('virtio' in a for a in legacy))
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -2011,3 +2011,23 @@ and [manifest](../assets/screenshots/smoothness-manifest.json). No runtime/defau
 backend changes were made. The full-frame copy cost is an optional optimization
 candidate. Automated VMs are stopped; the attended VirtIO desktop is restored for
 continued user review using `.local/smoothness-visible-virtio/`.
+
+
+### VirtIO QEMU baseline — active scope 2026-11-03
+
+The user authorized making VirtIO presentation the QEMU default, reducing its
+full-frame copy cost while preserving fenced complete frames, then implementing
+input, RNG, block storage and networking. Base is measurement source `d643d2b8`
+(PR283) over merged `bfb6d2a7`. PR252 retains independent process/I/O lifetime work,
+PR278 app dispatch and PR19 Wi-Fi. This branch owns additive modern VirtIO drivers,
+QEMU launcher defaults, GPU dirty-region ownership and focused host/VM evidence.
+Keep legacy/native launch paths available; do not alter physical acceptance or
+boot/limine.conf/native USB capture policy. Stage and run one matched VM at a time.
+
+Acceptance: damage-aware alternating GPU resources equal full reference frames
+and improve measured copy/transfer cost; QEMU defaults exercise the backend with
+explicit VGA fallback; VirtIO input delivers keys/releases, motion/buttons/wheel;
+RNG, block and network integrate with their existing kernel interfaces and pass
+bounded malformed/failure/reset tests plus disposable QEMU positive/fallback runs.
+Shared transport requires strict PCI/feature/queue validation and reset-before-free.
+Device defaults advance only with their matching end-to-end evidence.
