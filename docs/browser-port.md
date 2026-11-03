@@ -1,5 +1,141 @@
 # Browser engine port
 
+## ICU checkpoint — November 3, 2026
+
+User authorized a pinned SrvrOS ICU port and advancing the existing no-JIT
+JavaScriptCore configure to its next dependency. Continue draft PR310 and
+SrvrPorts PR4 in the assigned `SrvrOS-browser` checkout, starting at OS
+`ddb841d2` and ports `4d47276`. Freshly fetched main is `3db1a1d3`: its new
+installation PR311 changes only provisioning tools/docs, not this SDK. Retain
+the already tested runtime base for this bounded library experiment; do not
+claim the new installation implementation is tested here.
+
+Own `ports/srvros/icu`, browser dependency/guest tooling and this topic record.
+ICU 79 requires RTTI; extend the owned C++ port with a separate pinned upstream
+libc++abi RTTI archive and focused cast tests, without changing the existing
+OS guard/TLS implementation or adding duplicate ABI providers. Executable ICU
+linking also exposes missing `tanhf`; the bounded SDK math addition supplies
+`tanhf` and its `expm1f` dependency from the pinned musl source with numerical
+edge tests. Fresh inspection of PR252 file changes shows no overlap in math
+sources/header. Keep this shared SDK addition reviewable in PR310; no parallel
+ICU-local libc implementation or pthread/kernel change is authorized by it.
+Consume the existing SDK and threaded libc++ slice. Shared process, I/O,
+pthread, resolver and kernel changes remain owner-coordinated dependencies;
+PR252 `badfeb37`, Wi-Fi PR19 `993e920a`, display PR301 `4c9fc184`, SQLite
+PR306 `5028871b` and filesystem/profile PR308/309 retain their scopes. No new
+runtime stubs or duplicate implementations to pass configuration.
+
+Pin official ICU4C 79.1, source archive 28,162,455 bytes, SHA256
+`06fa63ecb521048f8082f12ad988f6b678d90cbd88aafce24cbc94902b191d99`.
+The [official release](https://github.com/unicode-org/icu/releases/tag/release-79.1)
+and [ICU release index](https://unicode-org.github.io/icu/download/) were checked
+November 3. Build target common/i18n/data static libraries and meaningful guest
+Unicode/data/concurrency checks, then rerun real executable CMake detection.
+Any data reduction or unsupported ICU facility must be explicit; no host ICU
+may satisfy the target. A complete JavaScriptCore build remains out of scope.
+
+Resource envelope: approximately 7.2 GiB free at start, at most 3 GiB additional
+artifacts, two compiler jobs, one build/guest harness at a time. Protected QEMU
+PIDs 61610, 6233 and 85869 remain untouched. No physical disk, host reboot,
+Actions dispatch or merge. Publish ports before the OS gitlink; preserve exact
+hashes/logs and distinguish compiler/link checks from guest acceptance.
+
+### ICU checkpoint result and evidence
+
+Published SrvrPorts commit `e866ff5` extends
+[draft SrvrPorts PR4](https://github.com/PaulMDemers/SrvrPorts/pull/4); matched SDK
+math, probes and the gitlink are carried by
+[draft SrvrOS PR310](https://github.com/PaulMDemers/SrvrOS/pull/310).
+
+The bounded milestone is complete: pinned ICU 79.1 common/i18n libraries and
+its full 33,558,160-byte little-endian data image build as static SrvrOS archives.
+The matched guest passes Unicode and locale fixtures. No-JIT JSCOnly CMake
+configuration and generation now **complete successfully**; no additional
+required dependency is reported at configure time. The next gate is actual
+JavaScriptCore compilation and then executable/runtime acceptance, not another
+claimed missing package. No engine source was compiled or executed here.
+
+ICU requires RTTI, so the port builds a separate real libc++abi RTTI archive
+from pinned Zig 0.15.2 sources. ICU also required `tanhf`; the SDK now supplies
+it and `expm1f` using the pinned musl algorithms, with MIT/Sun notices retained
+in `posix_math_hyperbolic.c` and indexed in `THIRD_PARTY.md`. The host numerical
+comparison passes signed zero, infinities, NaNs, subnormals, threshold neighbors
+and 200,000 deterministic float bit patterns within its three-ULP bound. This
+is bounded numerical evidence under the tested rounding environment, not a
+claim of full libm conformance.
+
+| Acceptance | Recorded result |
+| --- | --- |
+| Clean ICU recipe | `build/browser-icu/run-_0xar8ww/receipt.json`: successful common/i18n/data build and selected executable link; 245 hashed files and dependency receipts. Current receipt SHA256 `7fc26c99e22524443cbb968b81ac0e676bf45ab399a855367482a85c71ed084b`. |
+| Matched guest | `build/browser-runtime/guest-f3hw_u3w/receipt.json`: all 11 cases pass; own diskless/networkless Q35 VM stopped. Math edges, RTTI down/cross/failed pointer casts, expected fatal reference cast, ICU twice, existing C++ probes, TLS ordering, thread exhaustion and recovery. |
+| ICU guest behavior | Initialization, concurrent NFC normalization, German case expansion, invalid UTF-8 rejection, English word boundaries, Swedish tailored collation, German and English number formatting, UTF-32 supplementary-character roundtrip and cleanup/reinitialization. |
+| Executable bounds | Unstripped ELF 50,721,616 bytes; loadable segment memory totals 36,110,325 bytes, TLS template 2,084 bytes (below existing 4,096-byte limit). These are artifact sizes, not peak working-set measurements. |
+| No-JIT configure | `build/browser-platform/run-uhaxo369/receipt.json`: status zero, configuration and generation complete, 40.672 seconds including bounded extraction/controls. ICU 79.1 headers and data/i18n/uc resolve exactly to the verified target install. |
+| Negative proof check | A changed ICU library digest is rejected before compiler or VM launch. Runtime, RTTI and math receipts must share the SDK header digest; extra unrecorded installed files are refused. |
+
+The first post-ICU configure found all three libraries but stopped because the
+WPE release archive omits `Tools/Scripts/hmaptool`. The final probe uses the
+upstream-supported `USE_HEADER_MAPS=OFF` path (also the WPE/GTK default), leaving
+ordinary include paths. The failed receipt `run-aty0yc_0` remains failed evidence.
+No missing target API was stubbed and no thread/ICU discovery result was forced.
+The probe's temporary WebKit extraction is removed afterward; the recorded
+CMake graph is configure evidence, not a retained ready-to-build source tree.
+
+The separate whole-archive audit explicitly disables section garbage collection.
+It still fails on unsupported exception/future-related symbols referenced by
+unused sections of the existing libc++ `future.o`. This does not identify a new
+ICU API requirement; the normal selected-object link with garbage collection
+passes. It also does not establish complete ICU API or full C++ runtime link
+closure. Preserve this audit limitation rather than enabling untested futures,
+exception handling or thread-exit notification behavior. Those prior pthread
+teardown-order handoffs remain open. The ICU wide-string API explicitly uses
+UTF-32 on the four-byte SrvrOS wchar ABI; libc's byte-oriented multibyte routines
+remain a separate shared-runtime limitation.
+
+Final coordination fetch observes OS main `4c4c37a5` and SrvrPorts main
+`5e994f5`. Newly landed installation/profile/desktop and uACPI/libuv work does
+not overlap this math/header or C++ port implementation. PR252 remains open at
+`badfeb37`. These newer integration changes were inspected but not imported into
+this tested SDK; the evidence is for the dirty implementation atop `ddb841d2`.
+Integration must retain the other owners' changes and rebuild/retest the merged
+SDK. No pthread, kernel, descriptor or resolver implementation changed in this
+ICU checkpoint. All three protected review VMs were retained. Disk-pressure
+pauses and cleanup removed only our regenerable source/build trees, retaining
+pinned archives, failure logs and receipts; the user restored working space.
+
+### Reproduce ICU and the advanced configure
+
+From the matching OS and ports revisions, with the pinned WPE archive already
+present as described below:
+
+```sh
+sh tools/macos/build.sh -j2 srvros-sysroot build/kernel/srvros.elf build/userspace/init.elf build/limine-binary/.ready build/userspace/cxxprobe.elf build/userspace/cxxstlprobe.elf
+python3 ports/srvros/libcxx/build.py
+python3 ports/srvros/libcxx/build_rtti.py
+python3 tools/browser_math_probe.py
+mkdir -p build/browser-icu
+# First download only; subsequent runs reuse the verified archives.
+gh release download release-79.1 --repo unicode-org/icu --dir build/browser-icu --pattern 'icu4c-79.1-sources.tgz' --pattern 'icu4c-79.1-data-bin-l.zip'
+python3 ports/srvros/icu/build.py
+python3 tools/browser_runtime_smoke.py --icu
+python3 tools/browser_platform_probe.py --icu
+```
+
+The ICU recipe extracts a fresh source tree, generates upstream cross-build
+configuration, builds with two jobs and a 1.5 GiB free-space reserve, and installs
+under `build/browser-icu/sysroot`. Move an existing install aside before a fresh
+rebuild; the recipe refuses to overwrite it. No host ICU can satisfy target
+library/header detection. Math tests use the host libm solely as a comparison
+oracle for privately renamed functions; guest math links the actual SrvrOS SDK.
+The installed ICU license and every installed file are covered by the receipt.
+
+Syntax, focused new links and whitespace checks pass. The global documentation
+checker still reports the same nine existing missing vendor-source/license
+links in uninitialized nested submodules; it is not a pass. No full engine
+build, browser rendering, network browsing, physical installation or merge is
+claimed. This checkpoint is for draft review, with compilation as the next
+browser milestone.
+
 ## Second checkpoint — November 3, 2026
 
 User authorized explicit SrvrOS platform support, a real threaded C++ runtime,
@@ -262,8 +398,9 @@ The pending SQLite contract was inspected directly at
 
 ## Ordered implementation gates
 
-The bounded platform/threaded-runtime portion of gate 1 is accepted above;
-ICU is the next dependency. The broader runtime and browser gates remain open.
+The bounded platform/threaded-runtime and ICU checkpoints are accepted above;
+no-JIT configuration now completes. JavaScriptCore compilation and the broader
+runtime/browser gates remain open.
 
 1. **SDK/platform recognition and threaded C++ runtime.** Add an explicit SrvrOS
    cross-build description in a SrvrPorts patch series after dependency review.

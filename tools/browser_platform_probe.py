@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Apply the pinned SrvrOS overlay and record the next real no-JIT JSC dependency."""
+import argparse
 import json
 import os
 from pathlib import Path, PurePosixPath
@@ -11,10 +12,13 @@ import time
 import shutil
 
 from browser_probe import ARCHIVE, DIGEST, LIMIT, ROOT, SIZE, sha
-from browser_evidence import verify_runtime
+from browser_evidence import verify_runtime, verify_icu
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--icu', action='store_true', help='require and use the verified pinned ICU port')
+    args = parser.parse_args()
     base = ROOT / 'build/browser-platform'
     base.mkdir(parents=True, exist_ok=True)
     run = Path(tempfile.mkdtemp(prefix='run-', dir=base))
@@ -50,9 +54,15 @@ def main():
         if not ARCHIVE.is_file() or ARCHIVE.stat().st_size != SIZE or sha(ARCHIVE) != DIGEST:
             raise RuntimeError('verified archive required; first run tools/browser_probe.py --fetch')
         receipt['runtime_provenance'] = verify_runtime()
+        icu_options = []
+        if args.icu:
+            receipt['icu_provenance'] = verify_icu()
+            icu_root = ROOT / 'build/browser-icu/sysroot'
+            icu_options = ['-DSRVROS_ICU_ROOT=' + str(icu_root), '-DICU_ROOT=' + str(icu_root)]
         paths = [ARCHIVE, ROOT / 'build/sysroot/srvros/lib/libsrvros.a',
                  ROOT / 'build/sysroot/srvros/lib/crt0.o',
                  ROOT / 'build/browser-runtime/libcxx-threaded.a', Path(__file__).resolve(),
+                 ROOT / 'tools/browser_evidence.py',
                  *[port / name for name in ('PORT.md', 'cc', 'cxx', 'compiler.py',
                                             'srvros-platform.patch', 'toolchain.cmake')],
                  ROOT / 'ports/srvros/libcxx/config.h']
@@ -114,7 +124,24 @@ def main():
                                              '-DCMAKE_TOOLCHAIN_FILE=' + str(port / 'toolchain.cmake'),
                                              '-DPORT=JSCOnly', '-DENABLE_STATIC_JSC=ON',
                                              '-DENABLE_JIT=OFF', '-DENABLE_WEBASSEMBLY=OFF',
-                                             '-DENABLE_REMOTE_INSPECTOR=OFF', '-DUSE_SYSTEM_MALLOC=ON'])
+                                             '-DENABLE_REMOTE_INSPECTOR=OFF', '-DUSE_SYSTEM_MALLOC=ON',
+                                             '-DUSE_HEADER_MAPS=OFF',
+                                             *icu_options])
+            if args.icu:
+                cache = {}
+                for line in (run / 'cmake/CMakeCache.txt').read_text().splitlines():
+                    if ':' in line and '=' in line and not line.startswith(('//', '#')):
+                        key, value = line.split('=', 1)
+                        cache[key.split(':', 1)[0]] = value
+                expected_icu = {
+                    'ICU_INCLUDE_DIR': icu_root / 'include',
+                    'ICU_DATA_LIBRARY_RELEASE': icu_root / 'lib/libicudata.a',
+                    'ICU_I18N_LIBRARY_RELEASE': icu_root / 'lib/libicui18n.a',
+                    'ICU_UC_LIBRARY_RELEASE': icu_root / 'lib/libicuuc.a',
+                }
+                receipt['icu_discovery'] = {key: cache.get(key) for key in expected_icu}
+                if any(cache.get(key) != str(value) for key, value in expected_icu.items()):
+                    raise RuntimeError('configure did not discover exactly the verified target ICU install')
             if code == 0:
                 receipt['result'] = 'configured; next gate is compilation, not executed here'
             elif 'Could NOT find Threads' in log:

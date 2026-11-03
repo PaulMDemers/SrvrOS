@@ -14,7 +14,7 @@ import tempfile
 import time
 
 from pack_runtime_elf import runtime_elf
-from browser_evidence import verify_runtime
+from browser_evidence import verify_runtime, verify_icu
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -59,6 +59,7 @@ def receive_run(sock, seconds):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--elf', type=Path, default=ROOT / 'build/browser-runtime/cxxthreads.elf')
+    parser.add_argument('--icu', action='store_true', help='also verify and exercise the pinned ICU guest twice')
     args = parser.parse_args()
     artifacts = {
         'kernel': ROOT / 'build/kernel/srvros.elf',
@@ -70,6 +71,10 @@ def main():
         'limine_bios': ROOT / 'build/limine-binary/limine-bios.sys',
         'limine_cd': ROOT / 'build/limine-binary/limine-bios-cd.bin',
     }
+    if args.icu:
+        artifacts['icuprobe'] = ROOT / 'build/browser-icu/icuprobe.elf'
+        artifacts['rttiprobe'] = ROOT / 'build/browser-runtime/rttiprobe.elf'
+        artifacts['mathprobe'] = ROOT / 'build/browser-runtime/mathprobe.elf'
     for path in artifacts.values():
         if not path.is_file():
             parser.error(f'missing {path}; build the matched kernel/init, Limine and runtime test first')
@@ -80,10 +85,14 @@ def main():
                'source_observation_only': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
                'dirty': subprocess.check_output(['git', 'status', '--porcelain'], cwd=ROOT, text=True),
                'artifacts': {key: {'path': str(path), 'sha256': digest(path)} for key, path in artifacts.items()},
+               'harness_sha256': {name: digest(ROOT / 'tools' / name) for name in
+                                  ('browser_runtime_smoke.py', 'browser_evidence.py', 'pack_runtime_elf.py')},
                'tests': []}
     output = bytearray()
     try:
         receipt['runtime_provenance'] = verify_runtime()
+        if args.icu:
+            receipt['icu_provenance'] = verify_icu()
         if digest(artifacts['test']) != digest(ROOT / 'build/browser-runtime/cxxthreads.elf'):
             raise ValueError('test ELF differs from verified runtime build')
         iso_root = run / 'iso-root'
@@ -93,8 +102,12 @@ def main():
         shutil.copyfile(artifacts['limine_bios'], boot / 'limine-bios.sys')
         shutil.copyfile(artifacts['limine_cd'], boot / 'limine-bios-cd.bin')
         with tarfile.open(iso_root / 'boot/initramfs.tar', 'w', format=tarfile.USTAR_FORMAT) as archive:
-            for name, key in [('init', 'init'), ('cxxthreads', 'test'), ('tlsfirst', 'tlsfirst'),
-                              ('cxxprobe', 'cxxprobe'), ('cxxstlprobe', 'cxxstlprobe')]:
+            programs = [('init', 'init'), ('cxxthreads', 'test'), ('tlsfirst', 'tlsfirst'),
+                        ('cxxprobe', 'cxxprobe'), ('cxxstlprobe', 'cxxstlprobe')]
+            if args.icu:
+                programs.extend([('icuprobe', 'icuprobe'), ('rttiprobe', 'rttiprobe'),
+                                 ('mathprobe', 'mathprobe')])
+            for name, key in programs:
                 data = runtime_elf(artifacts[key].read_bytes())
                 info = tarfile.TarInfo(name)
                 info.size, info.mode, info.mtime = len(data), 0o755, 0
@@ -139,23 +152,32 @@ def main():
                         output.extend(boot_log)
                         if b'srv> ' not in boot_log:
                             raise RuntimeError('guest did not reach monitor')
-                        for mode, status in [('cxxprobe', 0), ('cxxstlprobe', 0), ('tlsfirst', 0),
-                                             ('all', 0), ('exhaust', 134), ('all', 0)]:
+                        tests = [('cxxprobe', 0), ('cxxstlprobe', 0), ('tlsfirst', 0),
+                                 ('all', 0), ('exhaust', 134), ('all', 0)]
+                        if args.icu:
+                            tests = [('mathprobe', 0), ('rttiprobe', 0), ('badcast', 134), ('icuprobe', 0),
+                                     *tests, ('icuprobe', 0)]
+                        for mode, status in tests:
                             start = time.monotonic()
-                            command = (f'run /{mode}' if mode in ('tlsfirst', 'cxxprobe', 'cxxstlprobe')
+                            command = (f'run /{mode}' if mode in ('tlsfirst', 'cxxprobe', 'cxxstlprobe', 'icuprobe', 'rttiprobe', 'mathprobe')
+                                       else 'run /rttiprobe badcast' if mode == 'badcast'
                                        else f'run /cxxthreads {mode}')
                             sock.sendall((command + '\n').encode())
-                            result = receive_run(sock, 45)
+                            result = receive_run(sock, 90 if mode == 'icuprobe' else 45)
                             output.extend(result)
                             exits = re.findall(rb'run: pid=\d+ exited status=(\d+)', result)
-                            marker = (f'{mode}: ok'.encode() if mode in ('cxxprobe', 'cxxstlprobe') else
+                            marker = (f'{mode}: ok'.encode() if mode in ('cxxprobe', 'cxxstlprobe', 'icuprobe', 'rttiprobe', 'mathprobe') else
+                                      b'rttiprobe: badcast must abort' if mode == 'badcast' else
                                       b'cxxthreads: ok' if mode == 'all' else
                                       b'cxxthreads: tls-first registered' if mode == 'tlsfirst' else
                                       b'cxxthreads: capacity=8; next construction must abort')
                             ok = (marker in result and exits == [str(status).encode()] and
                                   b'srv> ' in result and b'exception:' not in result)
-                            if mode in ('cxxprobe', 'cxxstlprobe'):
-                                pass
+                            if mode in ('cxxprobe', 'cxxstlprobe', 'icuprobe', 'rttiprobe', 'mathprobe'):
+                                ok = ok and result.count(marker) == 1
+                            elif mode == 'badcast':
+                                ok = (ok and result.count(marker) == 1 and b'rttiprobe: ok' not in result
+                                      and b'rttiprobe: unexpected success' not in result)
                             elif mode == 'tlsfirst':
                                 markers = (b'cxxthreads: tls-first registered', b'cxxthreads: tls-first tls',
                                            b'cxxthreads: tls-first global')
