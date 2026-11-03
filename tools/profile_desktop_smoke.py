@@ -202,8 +202,8 @@ def boot(disk, out, number, args, home, speed, offset_minutes, edit=False):
                 qmp.call('screendump', {'filename': str(out / f'files-{number}.ppm')})
                 shortcut('meta_l-spc'); text('Terminal'); qmp.key('ret'); wait(b'deskterm: ready')
                 time.sleep(1)
-                text('env > $HOME/Documents/environment.txt'); qmp.key('ret'); time.sleep(2)
-                text('pwd > $HOME/Documents/cwd.txt'); qmp.key('ret'); time.sleep(2)
+                text('/fat/bin/env > $HOME/Documents/environment.txt'); qmp.key('ret'); time.sleep(2)
+                text('/fat/bin/pwd > $HOME/Documents/cwd.txt'); qmp.key('ret'); time.sleep(2)
                 qmp.call('screendump', {'filename': str(out / f'terminal-{number}.ppm')})
                 text('exit'); qmp.key('ret'); time.sleep(2)
                 time.sleep(.5)
@@ -336,6 +336,10 @@ def main():
                 if result.returncode or 'leaked=0 fat_bitmap_mismatches=0 errors=0' not in result.stdout:
                     raise RuntimeError('offline allocation check failed')
                 fixture = ExfatFixture(payload); prefix = home.removeprefix('/fat/') + '/'
+                marker = fixture.read(prefix + 'profile.id')
+                binding = profile_bundle.decode_json(fixture.read(prefix + 'profile-local.json'))
+                if marker != b'srvros-profile-v1\n' + ID.encode() + b'\n' or binding != {'alias': alias, 'uid': uid, 'gid': gid}:
+                    raise RuntimeError('profile identity or local binding mismatch')
                 document = fixture.read(prefix + 'Documents/migration.txt')
                 binary = fixture.read(prefix + 'Documents/binary.dat')
                 if document != EDITED: raise RuntimeError('document mismatch')
