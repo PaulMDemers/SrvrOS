@@ -6,8 +6,10 @@ Separate Apple Silicon audit checkout, branch
 `device/apple-silicon/kernel-isolation-audit`, started at PR313 `3cd9ce86`
 and advanced to merged main `56e1f950`. PR313's owner retained integration
 and VM ownership; its merge includes PR252 and PR308 by ancestry and pins
-SrvrPorts `5e994f53`. This follow-up changes no process, syscall, namespace,
-port, or ABI implementation. It does not complete the broader audit.
+SrvrPorts `5e994f53`. The initial VMM checkpoint changed no process, syscall, namespace,
+port, or ABI implementation. The subsequent teardown checkpoint below adds
+process IRQ test hooks and reuses existing IRQ primitives without changing
+admission or retirement policy. It does not complete the broader audit.
 
 ## Confirmed VMM boundary defect
 
@@ -79,10 +81,68 @@ kernel copy writable, the final ISO was rebuilt with the repository's boot
 options and BIOS installation; its kernel was compared byte-for-byte with the
 new build before the passing guest run.
 
+## Deterministic fault/writeback teardown checkpoint
+
+The continuation from `b6a0feb8` executes the actual IDT user-fault dispatcher,
+`process_exit`, file writeback/close, futex cleanup and mapping-retirement loops.
+The existing output fixture supplies deterministic scheduler and device callbacks;
+it does not run a real context switch or real exFAT I/O. No sleeps or racing host
+threads determine whether the intended interleaving occurs.
+
+`make test-process-output` now also runs its `teardown` mode. The twelve schedules
+cover normal initial-thread exit and an invalid-instruction worker fault after
+the initial thread has exited, each with and without an inherited description,
+and successful, clean-retryable and sticky-error writeback. The controlled foreign
+owner flushes shared dirty content while fault/exit admission is pending. In the
+fault cases another owner takes a dirty turn before the parked initial thread
+resumes with IRQs enabled, forcing it to reacquire admission at `process_exit`.
+
+Assertions require descriptors, mappings and futex state to remain live during
+foreign ownership; sibling retirement and futex cleanup before exit writeback;
+file release before frame retirement; user-context clearing before address-space
+cleanup; correct cached/final status; and retained dirty data/error ownership for
+the surviving description. Normal successful status becomes 1 on writeback error;
+a fatal SIGILL status survives those errors. The existing first-fatal-cause test
+continues to cover competing fault records.
+
+No new production defect was confirmed. To execute the complete exit function
+on the host, its duplicate CLI/STI instructions now use the existing
+`process_irq_save`/`process_irq_restore` primitives (the worker still explicitly
+enables IRQs before scheduler retirement). An opt-in host-test hook models IF;
+other host fixtures retain their default behavior. Production admission,
+writeback ownership, sibling cancellation and retirement order are unchanged.
+
+Verification:
+
+- Twelve controlled schedules and the existing output suite pass on strict Linux
+  GCC 14 and Darwin/Rosetta. GCC exposed a missing explicit `stdint.h` include in
+  the new fixture; it was corrected before the passing run.
+- Darwin/Rosetta ASan/UBSan passes the twelve schedules. Two compiled negative
+  controls abort: omitting `process_exit` admission reaches sibling cancellation
+  under foreign ownership; omitting the gate's IRQ mask reaches admission with
+  IRQs enabled. These are injected regressions, not newly discovered defects.
+- Focused host targets pass: process output, process fault, process service,
+  user fault, syscall user copy and the actual scheduler ownership fixture.
+- The rebuilt kernel passes Q35 sysabi and full threadstress against retained
+  PR313 runtime files on disposable disks. These guest suites supplement the
+  deterministic host model; they do not force the same interleaving in a VM.
+- Kernel compilation passes. Evidence is under `build/review/teardown/`; the
+  focused host log is `build/review/isolation/teardown-host-suite.log`.
+
+Adjacent source tracing checked worker TLS release after context clearing and
+reapable publication. TLS release performs bounded page retirement under the
+existing IRQ mask without checkpoints; the main thread therefore cannot run
+between its context clearing and completion. Parent reaping requires completed
+runtime retirement and no live scheduler reference. No additional defect was
+confirmed in those inspected paths. The test's scheduler/device callbacks remain
+modeled boundaries; real DMA and arbitrary scheduling interleavings are open.
+
 ## Remaining work
 
-Deterministic fault/dirty-writeback contention through full process exit,
-long IRQ-disabled operations, driver DMA/reset/removal ownership and broader
-manual isolation review remain open. Future boot paths must establish or verify
-WP rather than inheriting this configuration's acceptance. The historical
-[coverage ledger](audit-coverage-2026-11-02.md) retains the broader gaps.
+Long IRQ-disabled operations, including generic mapping/protection scans,
+driver DMA/reset/removal ownership and broader manual isolation review remain
+open. Deterministic fault/dirty-writeback ordering now has the host coverage above;
+forcing it through actual VM context switches remains separate work. Future boot
+paths must establish or verify WP rather than inheriting this configuration's
+acceptance. The historical [coverage ledger](audit-coverage-2026-11-02.md) retains
+the broader gaps.

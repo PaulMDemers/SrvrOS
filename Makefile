@@ -2288,9 +2288,10 @@ test-core: test-workspace-io
 .PHONY: test-process-output
 test-process-output: build/tests/process-output-host$(HOST_EXE)
 	$<
-build/tests/process-output-host$(HOST_EXE): tools/test_process_output.c kernel/src/process.c kernel/src/vfs_namespace.c kernel/src/pty.c kernel/src/pty_model.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	$< teardown
+build/tests/process-output-host$(HOST_EXE): tools/test_process_output.c tools/test_process_teardown.inc tools/test_process_teardown_fault.c kernel/src/arch/x86_64/idt.c kernel/src/process.c kernel/src/vfs_namespace.c kernel/src/pty.c kernel/src/pty_model.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	mkdir -p build/tests
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include -DSRVROS_PTY_HOST_TEST $< kernel/src/vfs_namespace.c kernel/src/pty.c kernel/src/pty_model.c -Wl,--gc-sections -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include -DSRVROS_PTY_HOST_TEST $< tools/test_process_teardown_fault.c kernel/src/vfs_namespace.c kernel/src/pty.c kernel/src/pty_model.c -Wl,--gc-sections -o $@
 test-core: test-process-output
 
 .PHONY: workspace-latency-smoke

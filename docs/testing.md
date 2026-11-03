@@ -1460,3 +1460,16 @@ Q35 guest. These tests do not enable or validate native firmware ownership.
 variable conversion, minimum-value formatting and nested short-circuit parsing.
 The full CLI smoke checks these paths in the rebuilt guest, including error
 status 2 without terminating the shell. The host fixture is also in `test-core`.
+
+
+### Deterministic fault/writeback teardown
+
+`make test-process-output` includes a `teardown` invocation: twelve controlled
+schedules execute the actual user-fault dispatcher and process exit/cleanup with
+modeled scheduler and storage boundaries. It covers foreign dirty-writeback
+admission, worker fault and parked initial continuation, inherited descriptions,
+clean/sticky failures, status and retirement ordering. Run the built
+`build/tests/process-output-host teardown` directly to select only those cases.
+The [kernel audit](audit-kernel-isolation-2026-11-03.md) records negative controls,
+sanitizers and guest evidence, and distinguishes modeled callbacks from real
+context switches and physical storage.

@@ -367,7 +367,9 @@ static bool process_apply_stdio_fds(struct process *process,
     int64_t stderr_fd);
 
 static uint64_t process_irq_save(void) {
-#ifdef SRVROS_PROCESS_HOST_TEST
+#ifdef SRVROS_PROCESS_IRQ_HOST_TEST
+    return process_test_irq_save();
+#elif defined(SRVROS_PROCESS_HOST_TEST)
     return 0;
 #else
     uint64_t flags;
@@ -377,7 +379,9 @@ static uint64_t process_irq_save(void) {
 }
 
 static void process_irq_restore(uint64_t flags) {
-#ifdef SRVROS_PROCESS_HOST_TEST
+#ifdef SRVROS_PROCESS_IRQ_HOST_TEST
+    process_test_irq_restore(flags);
+#elif defined(SRVROS_PROCESS_HOST_TEST)
     (void)flags;
 #else
     if ((flags & (1ull << 9)) != 0) {
@@ -7367,7 +7371,7 @@ void process_exit(uint64_t status) {
 
     struct process_user_thread *thread = process_current_user_thread();
     if (thread != NULL) {
-        __asm__ volatile ("cli" : : : "memory");
+        (void)process_irq_save();
         process->exit_status = status;
         process_record_exit_status(process->pid, status);
         process->exiting = true;
@@ -7380,11 +7384,11 @@ void process_exit(uint64_t status) {
          * Preserve their bindings; final teardown kills them before cleanup. */
         process_futex_wake_process(process);
         scheduler_clear_user_context();
-        __asm__ volatile ("sti" : : : "memory");
+        process_irq_restore(1ull << 9);
         scheduler_exit_current();
     }
 
-    __asm__ volatile ("cli" : : : "memory");
+    (void)process_irq_save();
     struct process_latency_span exit_span=process_latency_begin();
     scheduler_kill_user_threads(process, NULL);
     process_futex_cleanup_process(process);

@@ -2985,3 +2985,18 @@ owner; separate checkout and disposable guest only. The confirmed low-level
 noncanonical-address alias defect, actual-source regressions, CR0.WP observation
 and remaining teardown coverage are recorded in the
 [kernel follow-up](../audit-kernel-isolation-2026-11-03.md).
+
+
+### Fault/writeback teardown scope
+
+Continuing PR317 from `b6a0feb8`: deterministic full `process_exit` coverage
+under foreign dirty-writeback admission, worker-fault/initial-thread continuation,
+retained descriptions and clean/sticky flush failures. Only this isolated audit
+checkout is used; no namespace/ABI integration edits or shared VM operations.
+
+Result: twelve deterministic full fault/exit schedules pass normally, under
+Darwin/Rosetta ASan/UBSan and Linux GCC14; both admission/mask negative controls
+fail as intended. Focused host suites, kernel build, sysabi and full threadstress
+pass. No new production defect confirmed; the exit IRQ operations reuse existing
+primitives so the host can observe masking. Details and remaining work are in
+the [kernel audit](../audit-kernel-isolation-2026-11-03.md). Task guests stopped.
