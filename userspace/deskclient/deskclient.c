@@ -76,8 +76,7 @@ int main(int argc,char **argv) {
     if (desk_send(0,&open)!=0) { srv_puts("deskclient: no compositor\n"); return 1; }
     uint64_t server=0,surface=0,serial=0,generation=0,pending=0,pending_gen=0,retry_after=0;
     uint64_t last=srv_ticks(),frames=0,input_serial=0;
-    uint32_t width=0,height=0,*pixels=desk_pixels_alloc(DESK_MAX_WIDTH,DESK_MAX_HEIGHT);
-    if(!pixels) return 1;
+    uint32_t width=0,height=0,scale=1,*pixels=NULL;
     struct desk_packet configure={0};
     char input[160]={0}; size_t length=0;
     int dirty=0,large=0,failed=0,quit=0;
@@ -91,10 +90,11 @@ int main(int argc,char **argv) {
             if (r<0) { failed=1; quit=1; break; }
             if (!r) break;
             if (r==2 || p.window!=DESK_DEFAULT_WINDOW) continue;
-            if (!server && p.type==DESK_CONFIGURE) server=source;
+            if (!server && p.type==DESK_CONFIGURE && (p.value==0 || p.value==1 || p.value==2)) server=source;
             if (!server || server!=source) continue;
             if (p.type==DESK_CLOSE) { quit=1; break; }
             if (p.type==DESK_CONFIGURE && p.generation>configure.generation &&
+                (p.value==0 || p.value==1 || p.value==2) &&
                 p.width>=280 && p.height>=240 && p.width<=DESK_MAX_WIDTH && p.height<=DESK_MAX_HEIGHT) {
                 configure=p;
                 feedback=(struct button_feedback){0};
@@ -150,21 +150,26 @@ int main(int argc,char **argv) {
             dirty=1;
         }
         if (!pending && configure.generation>generation) {
+            uint32_t next_scale=configure.value ? configure.value : 1;
+            uint32_t physical_width=configure.width*next_scale, physical_height=configure.height*next_scale;
+            uint32_t *next_pixels=desk_pixels_alloc(physical_width,physical_height);
             uint64_t next_surface=0;
-            if (gui_surface_create(configure.width,configure.height,DESK_SURFACE_STREAM,&next_surface)!=0) {
+            if (!next_pixels || gui_surface_create(physical_width,physical_height,DESK_SURFACE_STREAM,&next_surface)!=0) {
+                desk_pixels_free(next_pixels,physical_width,physical_height);
                 failed=1; break;
             }
             if (surface) gui_surface_destroy(surface);
-            surface=next_surface; width=configure.width; height=configure.height;
+            desk_pixels_free(pixels,width*scale,height*scale);
+            pixels=next_pixels; surface=next_surface; width=configure.width; height=configure.height; scale=next_scale;
             generation=configure.generation; retry_after=0; layout(&scrollbar,&size_button,width,height); dirty=1;
         }
         if (dirty && !pending && surface && (uint64_t)srv_ticks()>=retry_after) {
             struct desk_canvas c;
-            desk_canvas_init(&c,pixels,width,height,width);
+            if (desk_canvas_init_scaled(&c,pixels,width,height,width*scale,scale)!=0) { failed=1; break; }
             draw(&c,input,large,&scrollbar,&size_button,feedback.active);
             struct desk_packet p=desk_packet_new(DESK_COMMIT);
-            p.input_serial=input_serial; p.surface=surface; p.serial=serial+1; p.generation=generation; p.width=width; p.height=height;
-            if (gui_surface_blit(surface,0,0,width,height,pixels,width)!=0) { failed=1; break; }
+            p.input_serial=input_serial; p.surface=surface; p.serial=serial+1; p.generation=generation; p.width=width; p.height=height; p.value=scale;
+            if (gui_surface_blit(surface,0,0,width*scale,height*scale,pixels,width*scale)!=0) { failed=1; break; }
             if (desk_send(server,&p)==0) {
                 pending=++serial; feedback_commit(&feedback,pending); pending_gen=generation; dirty=0; last=srv_ticks(); frames++;
             }
@@ -175,7 +180,7 @@ int main(int argc,char **argv) {
     }
     if (server) { struct desk_packet p=desk_packet_new(DESK_CLOSE); desk_send(server,&p); }
     if (surface && !pending) gui_surface_destroy(surface);
-    desk_pixels_free(pixels,DESK_MAX_WIDTH,DESK_MAX_HEIGHT);
+    desk_pixels_free(pixels,width*scale,height*scale);
     desk_log("deskclient: %s frames=%llu input=%s\n",failed?"FAIL":"exited",(unsigned long long)frames,input);
     return failed?1:0;
 }

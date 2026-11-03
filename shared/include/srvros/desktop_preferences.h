@@ -10,6 +10,7 @@ struct desk_preferences {
     uint32_t tap_to_click,two_finger_tap;
     uint32_t theme_accent,glass_level;
     uint32_t theme_style;
+    uint32_t display_scale,display_width,display_height;
 };
 #define DESK_CLOCK_24H 1u
 #define DESK_CLOCK_DATE 2u
@@ -28,7 +29,10 @@ struct desk_preferences {
 #define DESK_PREF_ACCENT 1024u
 #define DESK_PREF_GLASS 2048u
 #define DESK_PREF_STYLE 4096u
-#define DESK_PREF_ALL 8191u
+#define DESK_PREF_DISPLAY_SCALE 8192u
+#define DESK_PREF_DISPLAY_MODE 16384u
+#define DESK_PREF_DISPLAY (DESK_PREF_DISPLAY_SCALE|DESK_PREF_DISPLAY_MODE)
+#define DESK_PREF_ALL 32767u
 enum desk_preferences_status { DESK_PREF_LOADING, DESK_PREF_SAVED, DESK_PREF_SAVING,
     DESK_PREF_SESSION_ONLY, DESK_PREF_CONFLICT };
 #endif

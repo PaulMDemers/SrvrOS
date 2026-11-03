@@ -499,6 +499,7 @@ static void presentation_tests(void) {
     prepare_small();
     assert(!virtio_gpu_present_prepare(FB, 4, 3)); /* Boot admission is once. */
     assert(virtio_gpu_present_begin() && virtio_gpu_present_active());
+    assert(!virtio_gpu_present_configure(3,3)); /* Never resize live resources. */
     assert(commands == 5 && !host_scanout && allocated == 3 && backing_allocated == 2);
     const unsigned initial[] = {0x100, 0x101, 0x106, 0x101, 0x106};
     assert(!memcmp(command_types, initial, sizeof(initial)));
@@ -527,6 +528,12 @@ static void presentation_tests(void) {
     assert(virtio_gpu_present_end()); retired_cleanly();
     assert(virtio_gpu_present_begin() && !host_scanout); /* Full clean restart. */
     assert(virtio_gpu_present_frame(image, 20));
+    assert(virtio_gpu_present_end()); retired_cleanly();
+    assert(!virtio_gpu_present_configure(0,3));
+    assert(!virtio_gpu_present_configure(16384,16384));
+    assert(virtio_gpu_present_configure(3,3));
+    assert(virtio_gpu_present_begin() && virtio_gpu_present_frame(image,20));
+    assert(presentation.width==3 && presentation.height==3 && presentation.bytes==36);
     assert(virtio_gpu_present_end()); retired_cleanly();
 
     setup_primary(); assert(!virtio_gpu_present_prepare(FB + 4096, 4, 3)); unchanged();

@@ -54,3 +54,10 @@ int blitrect_scaled(uint64_t x, uint64_t y, uint64_t width, uint64_t height,
 int gfx_present_begin(void) { return (int)srv_syscall0(SYS_GFX_PRESENT_BEGIN); }
 int gfx_present(void) { return (int)srv_syscall0(SYS_GFX_PRESENT); }
 int gfx_present_end(void) { return (int)srv_syscall0(SYS_GFX_PRESENT_END); }
+
+int gfx_mode_count(void) { return (int)srv_syscall0(SYS_GFX_MODE_COUNT); }
+int gfx_mode_get(uint64_t index, struct gfx_mode *out) {
+    if (out) { out->abi_version=SRV_ABI_VERSION; out->struct_size=sizeof(*out); }
+    return (int)srv_syscall2(SYS_GFX_MODE_GET,(long)index,(long)out);
+}
+int gfx_mode_set(uint64_t index) { return (int)srv_syscall1(SYS_GFX_MODE_SET,(long)index); }

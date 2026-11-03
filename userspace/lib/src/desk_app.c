@@ -20,42 +20,45 @@ extern void __desk_app_surface_trace(struct desk_app *,const char *,int) __attri
 static void surface_trace(struct desk_app *a,const char *stage,int begin) {
     if(!a->serial && __desk_app_surface_trace)__desk_app_surface_trace(a,stage,begin);
 }
+static uint32_t app_scale(const struct desk_app *a) { return a->scale?a->scale:1; }
 int desk_app_adopt_pixels(struct desk_app *a,uint32_t *pixels,uint32_t width,uint32_t height) {
     if(!a || !pixels || !width || !height || width>DESK_MAX_WIDTH || height>DESK_MAX_HEIGHT ||
        a->closed || a->closing || a->failed || a->pixels || a->surface || a->serial ||
        a->pending || a->generation || a->configure.generation || !a->opening || !a->connection)return -1;
-    a->pixels=pixels;a->width=width;a->height=height;return 0;
+    a->pixels=pixels;a->width=width;a->height=height;a->scale=1;return 0;
 }
 static int app_prepare(struct desk_app *a,struct desk_packet *event) {
     if(a->closed || a->failed) return -1;
     if(!a->pending && a->configure.generation>a->generation) {
         if(a->configure.generation==a->rejected_generation) {
             struct desk_packet refused=desk_packet_new(DESK_RESIZE_REFUSED);
-            refused.window=a->window;refused.generation=a->rejected_generation;refused.width=a->width;refused.height=a->height;
+            refused.window=a->window;refused.generation=a->rejected_generation;refused.width=a->width;refused.height=a->height;refused.value=app_scale(a);
             if(!desk_send(a->server,&refused)) { a->last=srv_ticks();a->configure.generation=a->generation; }
         } else {
-            int reuse=a->pixels && a->width==a->configure.width && a->height==a->configure.height;
+            uint32_t scale=a->configure.value?a->configure.value:1;
+            uint32_t width=a->configure.width*scale,height=a->configure.height*scale;
+            int reuse=a->pixels && a->width==a->configure.width && a->height==a->configure.height && app_scale(a)==scale;
             int same=a->surface && reuse;
             surface_trace(a,"canvas-pixels",1);
-            uint32_t *pixels=reuse?a->pixels:desk_pixels_alloc(a->configure.width,a->configure.height);
+            uint32_t *pixels=reuse?a->pixels:desk_pixels_alloc(width,height);
             surface_trace(a,"canvas-pixels",0);
             uint64_t surface=a->surface;int surface_error=0;
             if(pixels && !same) {
                 surface_trace(a,"canvas-surface",1);
-                surface_error=gui_surface_create(a->configure.width,a->configure.height,DESK_SURFACE_STREAM,&surface);
+                surface_error=gui_surface_create(width,height,DESK_SURFACE_STREAM,&surface);
                 surface_trace(a,"canvas-surface",0);
             }
             if(!pixels || surface_error) {
-                if(!reuse)desk_pixels_free(pixels,a->configure.width,a->configure.height);
+                if(!reuse)desk_pixels_free(pixels,width,height);
                 if(!a->surface) { a->failed=1;return -1; }
                 a->rejected_generation=a->configure.generation;a->last=srv_ticks();
                 return 2;
             }
             if(!same) {
                 if(a->surface)gui_surface_destroy(a->surface);
-                if(!reuse)desk_pixels_free(a->pixels,a->width,a->height);
+                if(!reuse)desk_pixels_free(a->pixels,a->width*app_scale(a),a->height*app_scale(a));
             }
-            a->pixels=pixels;a->surface=surface;a->width=a->configure.width;a->height=a->configure.height;
+            a->pixels=pixels;a->surface=surface;a->width=a->configure.width;a->height=a->configure.height;a->scale=scale;
             a->generation=a->configure.generation;a->retry_after=0;a->dirty=1;a->last=srv_ticks();
             *event=a->configure;return 1;
         }
@@ -65,10 +68,11 @@ static int app_prepare(struct desk_app *a,struct desk_packet *event) {
 static int app_receive(struct desk_app *a,uint64_t source,const struct desk_packet *packet,struct desk_packet *event) {
     struct desk_packet p=*packet;
     if(p.window!=a->window) return 2;
-    if(!a->server && p.type==DESK_CONFIGURE) a->server=source;
+    if(!a->server && p.type==DESK_CONFIGURE && (p.value==0 || p.value==1 || p.value==2) &&
+       p.generation && p.width>=280 && p.height>=240 && p.width<=DESK_MAX_WIDTH && p.height<=DESK_MAX_HEIGHT) a->server=source;
     if(!a->server || a->server!=source) return 2;
     if(p.type==DESK_CONFIGURE && p.generation>a->configure.generation && p.generation>a->rejected_generation &&
-       p.width>=280 && p.height>=240 && p.width<=DESK_MAX_WIDTH && p.height<=DESK_MAX_HEIGHT) {
+       (p.value==0 || p.value==1 || p.value==2) && p.width>=280 && p.height>=240 && p.width<=DESK_MAX_WIDTH && p.height<=DESK_MAX_HEIGHT) {
         a->configure=p;a->last=srv_ticks();return 2;
     }
     if(p.type==DESK_CONFIGURE)return 2;
@@ -138,14 +142,14 @@ int desk_app_canvas(struct desk_app *a,struct desk_canvas *canvas) {
     if(a->failed || a->closed || a->closing || a->opening) return -1;
     if(!a->dirty || a->pending || !a->surface || a->generation!=a->configure.generation ||
        (a->retry_after && (uint64_t)srv_ticks()<a->retry_after)) return 0;
-    return desk_canvas_init(canvas,a->pixels,a->width,a->height,a->width)?-1:1;
+    return desk_canvas_init_scaled(canvas,a->pixels,a->width,a->height,a->width*app_scale(a),app_scale(a))?-1:1;
 }
 int desk_app_present(struct desk_app *a) {
     if(a->failed || a->closed || a->closing || a->opening || a->pending || !a->surface) return -1;
     struct desk_packet p=desk_packet_new(DESK_COMMIT);p.window=a->window;
     p.surface=a->surface;p.serial=a->serial+1;p.generation=a->generation;
-    p.width=a->width;p.height=a->height;p.input_serial=a->input_serial;
-    if(gui_surface_blit(a->surface,0,0,a->width,a->height,a->pixels,a->width)) { a->failed=1;return -1; }
+    p.width=a->width;p.height=a->height;p.value=app_scale(a);p.input_serial=a->input_serial;
+    if(gui_surface_blit(a->surface,0,0,a->width*app_scale(a),a->height*app_scale(a),a->pixels,a->width*app_scale(a))) { a->failed=1;return -1; }
     if(desk_send(a->server,&p)) {
         if(!a->send_since) a->send_since=srv_ticks();
         if((uint64_t)srv_ticks()-a->send_since>500) { a->failed=1;return -1; }
@@ -189,7 +193,7 @@ void desk_app_close(struct desk_app *a) {
     if(a->connection) { desk_window_close(a);return; }
     if(a->server) { struct desk_packet p=desk_packet_new(DESK_CLOSE);p.window=a->window;desk_send(a->server,&p); }
     if(a->surface && !a->pending) gui_surface_destroy(a->surface);
-    desk_pixels_free(a->pixels,a->width,a->height);
+    desk_pixels_free(a->pixels,a->width*app_scale(a),a->height*app_scale(a));
     a->pixels=0;a->closed=1;
 }
 
@@ -259,8 +263,8 @@ int desk_window_dispose_with(struct desk_app *a,int (*retire)(void *,void *,size
     if(a->surface && gui_surface_destroy(a->surface))return -1;
     a->surface=0;
     if(a->pixels && retire) {
-        if(retire(context,a->pixels,(size_t)a->width*a->height*4))return -1;
-    } else desk_pixels_free(a->pixels,a->width,a->height);
+        if(retire(context,a->pixels,(size_t)a->width*a->height*app_scale(a)*app_scale(a)*4))return -1;
+    } else desk_pixels_free(a->pixels,a->width*app_scale(a),a->height*app_scale(a));
     a->pixels=0;
     *link=a->next;
     if(c->cursor==a)c->cursor=a->next?a->next:c->windows;

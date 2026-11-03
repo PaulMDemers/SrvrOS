@@ -58,6 +58,22 @@ static unsigned brightness_calls;
 int gui_brightness(unsigned percent) { brightness_calls++;return percent?(int)percent:14; }
 static unsigned pointer_options;
 int gui_pointer_config(unsigned speed,unsigned options) { (void)speed;pointer_options=options;return 0; }
+static struct gfx_info fake_display_info;
+static unsigned fake_mode_calls;
+static const struct gfx_mode fake_display_modes[]={
+    {.width=1600,.height=1200}, {.width=1280,.height=960}
+};
+int gfx_mode_count(void) { return (int)(sizeof(fake_display_modes)/sizeof(fake_display_modes[0])); }
+int gfx_mode_get(uint64_t index,struct gfx_mode *out) {
+    if(index>=(uint64_t)gfx_mode_count())return -1;
+    *out=fake_display_modes[index];return 0;
+}
+int gfx_mode_set(uint64_t index) {
+    if(index>=(uint64_t)gfx_mode_count() || !(fake_display_info.flags&GFX_FLAG_MODE_SET))return -1;
+    fake_mode_calls++;fake_display_info.width=fake_display_modes[index].width;fake_display_info.height=fake_display_modes[index].height;
+    fake_display_info.pitch=fake_display_info.width*4;return 0;
+}
+int gfx_info(struct gfx_info *out) { *out=fake_display_info;return 0; }
 static uint64_t now=1;
 static int slow_console_probe;
 static unsigned slow_console_calls;
@@ -922,7 +938,65 @@ static void deferred_ui_diagnostics(void) {
     life_log_work(&w);ui_logger=NULL;slow_console_probe=0;now=1;
     puts("desktop-ui-log: PASS controlled600ms backend, window-open returns without console delay, FIFO ownership, wrap, full refusal, drain and recovery");
 }
+/* Exercise display transactions without changing a host display. */
+static void display_transaction_tests(void) {
+    struct session s={0};struct gfx_info info={.width=1600,.height=1200,.pitch=6400,.flags=GFX_FLAG_MODE_SET};
+    struct desk_canvas canvas={0};fake_display_info=info;fake_mode_calls=0;
+    uint32_t *pixels=desk_pixels_alloc(1600,1200);assert(pixels);
+    assert(!desk_canvas_init_scaled(&canvas,pixels,1600,1200,1600,1));
+    s.display.canvas=&canvas;s.display.info=&info;s.display.restore_done=1;s.scale=1;
+    s.scene.apps=1;s.scene.focus=0;s.preferences.initialized=1;s.preferences.value=desk_preferences_default();
+    desktop_notice_view_init(&s.scene.notifications);desk_damage_init(&s.damage,1600,1200);
+    struct client *c=&s.clients[0];struct desktop_window *w=&s.scene.windows[0];
+    c->pid=42;c->window=1;c->identity=99;c->generation=5;
+    w->application=DESK_APP_SETTINGS;w->frame=(struct desk_rect){800,300,500,345};w->restore=(struct desk_rect){50,80,400,300};
+    struct desk_rect original=w->frame,original_restore=w->restore;
+    struct desk_packet p=desk_packet_new(DESK_DISPLAY);p.serial=1;p.value=DESK_DISPLAY_APPLY;p.width=1280;p.height=960;p.x=2;
+    info.flags=0;fake_display_info.flags=0;display_received(&s,0,&p);
+    assert(c->display_reply.value==DESK_DISPLAY_UNSUPPORTED && !s.display.trial && !fake_mode_calls && canvas.pixels==pixels);
+    info.flags=GFX_FLAG_MODE_SET;fake_display_info.flags=GFX_FLAG_MODE_SET;
+    c->input_count=2;c->input[0]=desk_packet_new(DESK_POINTER);c->input[0].generation=5;
+    c->input[1]=desk_packet_new(DESK_KEY);s.pointer_buttons=MOUSE_LEFT;
+    display_received(&s,0,&p);
+    assert(c->display_reply.value==DESK_DISPLAY_OK && s.display.trial && canvas.width==640 && canvas.height==480 && s.scale==2);
+    assert(c->generation==6 && c->configure && c->awaiting && c->pointer_cancel_pending && s.pointer_blocked);
+    assert(c->input_count==1 && c->input[c->input_head].type==DESK_KEY);
+    assert(s.display.previous_canvas.pixels==pixels && w->frame.x!=original.x);
+    uint64_t token=s.display.token;
+    p.value=DESK_DISPLAY_KEEP;p.generation=token+1;p.serial++;
+    display_received(&s,0,&p);assert(c->display_reply.value==DESK_DISPLAY_INVALID && s.display.trial);
+    p.generation=token;s.display.owner++;display_received(&s,0,&p);
+    assert(c->display_reply.value==DESK_DISPLAY_INVALID && s.display.trial);s.display.owner--;
+    display_received(&s,0,&p);assert(c->display_reply.value==DESK_DISPLAY_BUSY && s.display.trial && !s.preferences.dirty);
+    p.value=DESK_DISPLAY_REVERT;display_received(&s,0,&p);
+    assert(c->display_reply.value==DESK_DISPLAY_OK && !s.display.trial && canvas.pixels==pixels && s.scale==1);
+    assert(!memcmp(&w->frame,&original,sizeof(original)) && !memcmp(&w->restore,&original_restore,sizeof(original_restore)));
+    c->configure=c->awaiting=0;s.pointer_buttons=0;s.pointer_blocked=0;
+    p.value=DESK_DISPLAY_APPLY;p.generation=0;p.serial++;display_received(&s,0,&p);assert(s.display.trial);
+    p.value=DESK_DISPLAY_KEEP;p.generation=s.display.token;p.serial++;c->configure=c->awaiting=0;
+    display_received(&s,0,&p);assert(!s.display.trial && s.preferences.dirty && (s.preferences.dirty_mask&DESK_PREF_DISPLAY));
+    assert(s.preferences.value.display_width==1280 && s.preferences.value.display_height==960 && s.preferences.value.display_scale==2);
+    /* Timeout and owner disappearance both restore the previous exact frame. */
+    c->configure=c->awaiting=0;p.value=DESK_DISPLAY_APPLY;p.width=1600;p.height=1200;p.x=1;p.serial++;
+    struct desk_rect before=w->frame;display_received(&s,0,&p);assert(s.display.trial);
+    now+=1501;display_tick(&s);assert(!s.display.trial && s.scale==2 && !memcmp(&w->frame,&before,sizeof(before)));
+    c->configure=c->awaiting=0;display_received(&s,0,&p);assert(s.display.trial);
+    c->closing=1;display_tick(&s);assert(!s.display.trial && s.scale==2 && !memcmp(&w->frame,&before,sizeof(before)));
+    c->closing=0;c->configure=c->awaiting=0;
+    /* Startup restoration is provisional until clients settle; an allocation
+     * failure leaves the old canvas, while a client refusal rolls it back. */
+    s.preferences.value.display_width=1600;s.preferences.value.display_height=1200;s.preferences.value.display_scale=1;
+    s.display.restore_done=0;s.preferences.loading=1;display_tick(&s);assert(!s.display.restore_done && !s.display.trial);s.preferences.loading=0;
+    uint32_t *prior=canvas.pixels;alloc_fail=allocations;
+    display_tick(&s);assert(!s.display.trial && canvas.pixels==prior && s.scale==2);alloc_fail=0;
+    s.display.restore_done=0;display_tick(&s);assert(s.display.trial && s.display.startup && s.scale==1);
+    s.display.abort=1;display_tick(&s);assert(!s.display.trial && canvas.pixels==prior && s.scale==2);
+    display_cleanup(&s);desk_pixels_free(canvas.pixels,desk_canvas_pixel_width(&canvas),desk_canvas_pixel_height(&canvas));
+    now=1;
+    puts("desktop-display: PASS mode admission, transaction ownership, cancellation, keep, timeout and disconnect rollback");
+}
 int main(void) {
+    display_transaction_tests();
     deferred_ui_diagnostics();
     seeded_cache_reuse();
     retained_operations();window_navigation();

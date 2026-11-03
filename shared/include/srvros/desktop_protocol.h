@@ -2,9 +2,9 @@
 #define SRVROS_DESKTOP_PROTOCOL_H
 #include <stdint.h>
 
-/* Fixed-size v17 packet carried in gui_message.text. The kernel supplies the
+/* Fixed-size v18 packet carried in gui_message.text. The kernel supplies the
  * envelope source PID. Unknown versions/types are rejected, never guessed. */
-#define DESK_PROTOCOL_VERSION 17 /* Adds theme style to the complete preference snapshot. */
+#define DESK_PROTOCOL_VERSION 18 /* Display state and surface density. */
 /* Window IDs are scoped to the authenticated process/desktop connection.
  * The compatibility wrapper uses ID1; connection windows never reuse IDs. */
 #define DESK_DEFAULT_WINDOW 1ull
@@ -32,8 +32,27 @@ enum desk_packet_type {
     DESK_CLOSE, DESK_TEXT, DESK_FOCUS, DESK_SCROLL, DESK_POINTER,
     DESK_KEY, DESK_CLOSE_REQUEST, DESK_CANCEL_CLOSE, DESK_TITLE, DESK_LAUNCH,
     DESK_PREFERENCES_SET, DESK_PREFERENCES,
-    DESK_CLIPBOARD_SET, DESK_CLIPBOARD_GET, DESK_CLIPBOARD_ACK, DESK_CLIPBOARD_DATA, DESK_MENU_SET, DESK_MENU_ACTION, DESK_NOTIFY, DESK_NOTIFY_ACK, DESK_CONTEXT, DESK_BRIGHTNESS, DESK_AUDIO, DESK_RESIZE_REFUSED, DESK_OPEN_REPLY, DESK_CLOSE_ACK, DESK_APP_SERVICE, DESK_OPEN_DOCUMENT, DESK_OPEN_DOCUMENT_REPLY
+    DESK_CLIPBOARD_SET, DESK_CLIPBOARD_GET, DESK_CLIPBOARD_ACK, DESK_CLIPBOARD_DATA, DESK_MENU_SET, DESK_MENU_ACTION, DESK_NOTIFY, DESK_NOTIFY_ACK, DESK_CONTEXT, DESK_BRIGHTNESS, DESK_AUDIO, DESK_RESIZE_REFUSED, DESK_OPEN_REPLY, DESK_CLOSE_ACK, DESK_APP_SERVICE, DESK_OPEN_DOCUMENT, DESK_OPEN_DOCUMENT_REPLY, DESK_DISPLAY, DESK_DISPLAY_STATE
 };
+enum desk_display_operation { DESK_DISPLAY_QUERY, DESK_DISPLAY_APPLY, DESK_DISPLAY_KEEP, DESK_DISPLAY_REVERT };
+enum desk_display_result { DESK_DISPLAY_OK, DESK_DISPLAY_UNSUPPORTED, DESK_DISPLAY_INVALID, DESK_DISPLAY_BUSY, DESK_DISPLAY_FAILED };
+#define DESK_DISPLAY_CAP_MODE_SET 1u
+#define DESK_DISPLAY_CAP_SCALE 2u
+#define DESK_DISPLAY_IDLE 0u
+#define DESK_DISPLAY_TRIAL 1u
+#define DESK_DISPLAY_MODES 7u
+struct desk_display_mode { uint32_t width,height; };
+struct desk_display_state {
+    uint32_t width,height,scale,capabilities,phase,remaining_seconds,mode_count;
+    struct desk_display_mode modes[DESK_DISPLAY_MODES];
+};
+_Static_assert(sizeof(struct desk_display_state)==84,"display state wire layout");
+/* DISPLAY requests use nonzero serial, value=operation. APPLY carries requested
+ * physical width/height and x=scale (1 or 2); KEEP/REVERT carry trial token in
+ * generation. DISPLAY_STATE echoes serial (zero for unsolicited updates),
+ * generation=trial token, value=result and text=actual desk_display_state.
+ * Mode candidates and capability bits are authoritative, not synthetic.
+ * Trials are compositor-owned and revert after 15 seconds unless kept. */
 #define DESK_SERVICE_OPEN_DOCUMENT 1u
 enum desk_application { DESK_APP_FILES=1, DESK_APP_TEXT, DESK_APP_CALCULATOR,
     DESK_APP_SYSTEM, DESK_APP_SETTINGS, DESK_APP_TERMINAL, DESK_APP_PREVIEW, DESK_APP_HELP, DESK_APP_CLOCK, DESK_APP_SKETCH, DESK_APP_NETWORK, DESK_APP_FIND, DESK_APP_COUNT=12 };
@@ -80,6 +99,9 @@ _Static_assert(sizeof(struct desk_packet) == 168, "desktop wire layout");
  * RESIZE_REFUSED carries the failed CONFIGURE generation and retained canvas
  * width/height. The server may restore the last published geometry with a fresh
  * generation; stale refusals cannot undo a later resize.
+ * CONFIGURE width/height and pointer coordinates are logical; CONFIGURE.value
+ * is density 1 or 2 (zero means legacy 1). COMMIT.value echoes density and
+ * its surface is physical width*density by height*density.
  * CONFIGURE generations prevent an old-sized frame replacing a newer resize.
  * SCROLL uses signed x/y viewport-pixel deltas (positive right/down); only the
  * server may send it, targeting the window under the pointer without focus change.

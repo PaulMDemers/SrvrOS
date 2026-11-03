@@ -2537,3 +2537,34 @@ edge-resize review VM and disk are preserved. Logs are in
 [PR297](https://github.com/PaulMDemers/SrvrOS/pull/297) records delivery. The
 requested behavior and acceptance are complete; no further implementation
 is required. No native boot/install or hosted Actions change.
+
+
+### HiDPI and display settings — active scope November 3, 2026
+
+User authorized native-density 1×/2× rendering, persisted display scale, resolution
+selection/switching in Settings, coordination with the UI portability chat,
+verification and merge. Branch `device/apple-silicon/hidpi-display` starts at
+main `d5822348`; PR297 snapping remains complete. PR301 owns read-only inherited
+Intel capture, PR299 Terminal quoting, PR252 process/I/O lifetime, PR19 Wi-Fi.
+
+SrvrUI's separate portability checkout owns renderer/font/widget density APIs.
+This integration owns logical-to-physical client surfaces, compositor copies,
+presentation, desktop protocol/preferences and Settings; a bounded VirtIO driver
+path adds real mode switching. Native and standard VGA remain inherited-mode
+only. Existing review VMs and disks are preserved. No native boot or hosted
+Actions is authorized by these QEMU changes.
+
+Journey: open Display settings, inspect actual resolution/scale and available
+backend presets, select a supported combination, Apply, then Keep or Revert.
+The compositor owns a 15-second rollback deadline and client-disconnect recovery.
+Only confirmed settings persist; saved-file status is distinct from active mode.
+Keep unsaved application state, logical input coordinates and anchored placement.
+Resource failure must preserve or explicitly report recovered actual geometry;
+uncertain GPU reset retains/quarantines potentially owned memory.
+
+Required evidence: native-density font/clip/damage tests, logical/physical
+surface bounds and cache accounting, preference migration, apply/revert/timeout/
+unsupported/failure host checks, full desktop suites and matched build, QEMU
+resolution/scale switching with retained Text content, restart persistence,
+resize/snap/theme regressions and measured memory/presentation cost. Coordinate
+published child revisions before OS pins. Next: implement and verify this target.

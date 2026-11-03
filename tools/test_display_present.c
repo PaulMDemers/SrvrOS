@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdlib.h>
 static bool interrupts = true;
 uint64_t service_window_test_irq_save(void) { bool old = interrupts; interrupts = false; return old ? 512 : 0; }
 void service_window_test_irq_restore(uint64_t flags) { interrupts = !!(flags & 512); }
@@ -10,6 +11,8 @@ void service_window_test_irq_restore(uint64_t flags) { interrupts = !!(flags & 5
 #include "../kernel/src/display_present.c"
 static uint64_t cr3 = 11;
 static bool active, available, begin_ok = true, frame_ok = true, end_ok = true;
+static bool alloc_fail;
+static struct limine_framebuffer *graphics;
 static unsigned begins, frames, ends, checkpoints, damages;
 static uint32_t damage_x,damage_y,damage_w,damage_h;
 static bool service_held;
@@ -28,9 +31,15 @@ bool virtio_gpu_present_prepare(uint64_t physical, uint32_t w, uint32_t h) {
     assert(physical == 0x80000000 && w == 32 && h == 16); available = true; return true;
 }
 bool virtio_gpu_present_available(void) { return available; }
+void console_set_graphics_framebuffer(struct limine_framebuffer *fb) { graphics=fb; }
+uint64_t pmm_alloc_frames_tagged(uint64_t n, enum pmm_frame_tag tag) { (void)tag; return alloc_fail ? 0 : (uint64_t)(uintptr_t)calloc(n,4096); }
+void pmm_free_frame_range(uint64_t physical, uint64_t n) { (void)n; free((void *)(uintptr_t)physical); }
+void *pmm_phys_to_virt(uint64_t physical) { return (void *)(uintptr_t)physical; }
+bool virtio_gpu_present_configure(uint32_t w,uint32_t h) { (void)w;(void)h;return true; }
+bool virtio_gpu_present_active(void) { return active; }
 bool virtio_gpu_present_begin(void) { assert(cr3 == 11 && !interrupts); begins++; active = begin_ok; return begin_ok; }
 bool virtio_gpu_present_frame(const void *address, uint64_t pitch) {
-    assert(cr3 == 11 && !interrupts && active && address == pixels && pitch == 128);
+    assert(cr3 == 11 && !interrupts && active && address && pitch);
     frames++; service_callback(service_argument); assert(cr3==11 && !interrupts); return frame_ok;
 }
 bool virtio_gpu_present_end(void) { assert(cr3 == 11 && !interrupts); ends++; active = false; return end_ok; }
@@ -47,6 +56,17 @@ int main(void) {
     begin_ok = true; assert(display_present_begin(7) && cr3 == 23 && interrupts);
     assert(!display_present_begin(8) && !display_present_frame(8) && !display_present_end(8));
     assert(!display_present_can_write(0) && !display_present_can_write(8) && display_present_can_write(7));
+    uint64_t w,h;
+    assert(display_mode_count()==7 && display_mode_get(1,&w,&h) && w==1024 && h==768);
+    alloc_fail=true; assert(!display_mode_set(7,1) && active && !graphics); alloc_fail=false;
+    assert(!display_mode_set(8,1));
+    assert(display_mode_set(7,1) && graphics && graphics->width==1024 && active);
+    assert(display_mode_set(7,0) && !graphics && active);
+    begin_ok=false; assert(!display_mode_set(7,1) && !graphics && !active && owner==7);
+    assert(!display_present_active() && display_present_info_available() && display_mode_count()==7);
+    begin_ok=true; assert(display_mode_set(7,1) && graphics && active && display_present_active());
+    assert(display_mode_set(7,0) && !graphics && active);
+    begins=2; ends=0; frames=0; checkpoints=0;
     cr3=11;display_present_damage(30,15,UINT64_MAX,UINT64_MAX);
     assert(damages==1 && damage_x==30 && damage_y==15 && damage_w==2 && damage_h==1);
     display_present_damage(UINT64_MAX,0,1,1);display_present_damage(0,0,0,1);assert(damages==1);cr3=23;

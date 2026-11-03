@@ -6,6 +6,18 @@ and [machine records](machines/README.md) separate implementation from physical
 acceptance. The [device parity ledger](device-parity.md) compares the Air with
 ongoing Pro work.
 
+## Current HiDPI and display settings — November 3, 2026
+
+Target: genuinely detailed 1×/2× text and widgets, authoritative Display settings,
+saved scale and QEMU VirtIO resolution switching with timed Keep/Revert recovery.
+User authorized implementation, renderer coordination, verification and merge.
+SrvrUI retains logical layout/input and adds physical-density backing; SrvrOS
+owns client surfaces, compositor, display transactions and persistence.
+Unsupported native/standard VGA backends expose current mode only. Required
+checks cover density/clipping, budgets, migration, runtime recovery, retained
+app state, persistence and presentation cost. Implementation is in progress;
+previous snapping/resize/theme milestones remain complete.
+
 ## Current window snapping — November 3, 2026
 
 User authorized left/right titlebar snapping, top-edge maximize, themed placement

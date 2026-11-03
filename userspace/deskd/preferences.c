@@ -52,7 +52,7 @@ int desktop_preferences_poll(struct desktop_preferences_store *s,uint64_t now) {
         }
     }
     if(!s->loading && s->writable && s->dirty && !s->job.busy && now-s->changed_at>=30) {
-        char data[256];int length=desk_preferences_encode(&s->value,data,sizeof(data));
+        char data[512];int length=desk_preferences_encode(&s->value,data,sizeof(data));
         if(length<0 || desk_file_job_start(&s->job,DESK_FILE_WRITE,s->path,data,(size_t)length,
             s->existing?DESK_FILE_EXPECT_EXISTING:0,s->disk_crc)) {
             s->status=DESK_PREF_SESSION_ONLY;s->writable=0;return 1;
