@@ -152,8 +152,54 @@ hostile-concurrency-resistant physical installer or a power-loss durability clai
 
 ## Evidence and next action
 
-Status: implementation and verification in progress. Build a matched image,
-run refusal/bounds/interruption fixtures, then prove app save and second-boot
-persistence with one disk and no live payload. Publish the exact commands,
-source identities and evidence limits here with a draft PR; do not merge or
-expand to physical installation as part of this checkpoint.
+Status: the disposable installed-disk checkpoint is implemented and VM-tested.
+Clean source `f0824d5c53252712e527d0a7462c3a4470ee379d`, based on `a936baeb`,
+passes the complete proof with QEMU 11.1.2 on this ARM64 macOS host. Main was
+fetched again before publication and remains `a936baeb`. The kernel and source
+exFAT hashes match the first baseline build; no kernel/VFS/app code changed.
+The documentation/evidence follow-up does not claim another runtime revision.
+
+[Portable receipt](assets/screenshots/installed-disk-manifest.json) records
+source/submodule pins, tool and artifact hashes, partition GUIDs and bounds,
+firmware identity, check results and retained failures.
+[The second-boot screenshot](assets/screenshots/installed-disk-reopened.png)
+was inspected: Text shows the exact reopened document under the restored Aero
+theme. The proof image is 514 MiB: a 384 MiB ESP and 128 MiB exFAT volume, plus
+alignment and partition tables. The screenshot is supporting visual evidence;
+exact bytes and preference restoration are independently checked in the harness.
+
+| Required outcome | Actual evidence |
+| --- | --- |
+| Boot from installed target | Firmware reports the QEMU hard disk; Limine loads both kernel and bootstrap from `boot():`; each command has one storage disk, no CD-ROM or host kernel/initrd |
+| Disk-backed applications | Only `/init` is in bootstrap; `/fat` mounts from `ahci0p2`; installed deskd/desktools match built runtime ELFs; Text and Settings run |
+| Write and reboot persistence | Text writes `installed disk persistence proof`; Settings saves `theme_style=1`; normal guest reboot flushes storage and exits QEMU with `-no-reboot`; a new VM reads exact bytes, restores theme and reopens/selects the document in Text |
+| Selected bounds | GPT/boot readback validates exact layout before publication; hashes of every byte before and after the data partition remain equal after both boots |
+| Filesystem consistency | Both guest checks report 365 files, 13,821 clusters, zero leaks/FAT errors; both x86_64 host allocation checks report zero leaks, mismatches or errors |
+| No live-image false pass | Separate copy with both exFAT boot sectors invalid reaches explicit missing-fallback diagnostics and cannot find the installed application ELF |
+| Preflight/interruption refusal | Eleven Python fixtures pass: existing/source/alias/symlink/unknown target, changed source, malformed geometry/bounds and tampered plan, GPT corruption, interrupted build/publication and successful minimal-bootstrap publication |
+| Repository verification | Matched `all`, Python compilation, documentation links and `git diff --check` pass; Actions remain disabled |
+
+The first trial correctly failed the protected-region check because unpaired
+OVMF wrote `NvVars` into the ESP. Pairing the code flash with the matching blank
+variable-store template resolved this without relaxing the check. Two subsequent
+harness failures (picker-list focus and early consumption of an echoed prompt)
+are retained as failed attempts, not counted as passes. The final run is
+`proof-ris6lu8z`. Full accepted evidence is copied to
+`.local/installation-evidence/proof-ris6lu8z/`, surviving `distclean`; validation
+logs are under `.local/installation-evidence/validation/`. Earlier failed runs
+remain under `build/review/installed-disk/`.
+
+Limitations: this is one clean reboot of one disposable image, not physical
+power-loss acceptance, full recovery qualification, all-application coverage,
+enforced immutable system storage, multi-disk root selection or an in-place
+updater. External `fsck.exfat` was not run. The minimal `/init` archive is specific
+to this bounded proof; it does not claim to preserve every ordinary live-image
+resource/default. No host disk was formatted, mounted or installed to, and no
+host reboot occurred. All task-owned VMs are stopped; the three original review
+VMs remain live and untouched.
+
+Next: review the scoped draft PR. A subsequent installed-root milestone must
+consume the filesystem owner's stable-volume selector and the profile owner's
+home/migration contract before enabling multiple candidate volumes or upgrades.
+No further implementation is required for this disposable proof, and no merge
+or physical-install authorization is implied by its success.
