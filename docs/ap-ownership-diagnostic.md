@@ -1075,15 +1075,28 @@ No codec/data/ring-pointer/status-window access, reset or acknowledgement is
 added. An active command/stream DMA bit is retained as an observation, not a
 capture error. All-ones or changed access/control identity fails closed.
 
-`ap-platform-hda: v=1` retains state, bracket, read count, stream count, BAR,
-pre/post command/PM, wells and eight global raw values (GCAP, GCTL, INTCTL,
-CORBCTL, RIRBCTL, DPLBASE, GCAP recheck, GCTL recheck).
-`ap-platform-hda-sd` retains thirty fixed raw slots, with only GCAP's count
-interpreted; unused slots must be zero. State 1 is observed, 2 unavailable
-without MMIO, 3 invalid/partial, 4 reset asserted with only GCAP/GCTL observed.
-No zero placeholder is decoded as stopped hardware. Global producer completeness
-and final-log coverage require both valid new snapshots; overall version-7
-acceptance also retains the original RC6 predicate and every prior proof.
+`ap-platform-hda: v=1 phase=N data=...` holds a canonical 240-character
+base64 encoding of a fixed 179-byte little-endian payload. It preserves all
+raw values and partial/failure rows while fitting the unchanged 64 KiB final
+log; this is an encoding change, not reduced sampling or omitted diagnostics.
+The strict decoder rejects wrong sizes, noncanonical padding, unknown states,
+wrong counts, invalid fields and duplicate/missing/out-of-order endpoints.
+
+| Payload order | Width |
+| --- | --- |
+| State, MMIO read count, stream count | Three unsigned bytes |
+| Begin/end PM microseconds, BAR base | Three uint64 values |
+| Pre command/PM, post command/PM | Four uint16 values |
+| Before wells, after wells | Eight uint32 values |
+| GCAP, GCTL, INTCTL, CORBCTL, RIRBCTL, DPLBASE, GCAP/GCTL rechecks | 2/4/4/1/1/4/2/4 bytes |
+| Thirty stream-control slots | Three bytes each |
+
+Only GCAP's count of stream slots is interpreted; unused slots must be zero.
+State 1 is observed, 2 unavailable without MMIO, 3 invalid/partial, 4 reset
+asserted with only GCAP/GCTL observed. No zero placeholder is decoded as stopped
+hardware. Global producer completeness and final-log coverage require both
+valid new snapshots; overall version-7 acceptance also retains the original
+RC6 predicate and every prior proof.
 
 Host fixtures exercise exact widths, stream bounds, identity/subsystem/BDF,
 PM/decode/BAR, mapping and powered-domain refusals, reset/all-ones/change cases,

@@ -168,12 +168,23 @@ class PlatformTests(unittest.TestCase):
         self.assertEqual(platform_dependencies_result(off)['status'],'UNAVAILABLE')
         self.assertIsNone(platform_dependencies_result(off)['samples'][0]['decoded']);self.assertIsNone(platform_result(off))
     def hda_fixture(self):
+        import struct,base64
         s=self.dependency_fixture().replace('ap-platform: v=6','ap-platform: v=7')
-        ctl='3221225472,1073741824,1073741824,1073741824'
         for phase,us in [(0,11),(1,92000011)]:
-            s+=f'ap-platform-hda: v=1 phase={phase} state=1 pm_us={us},{us+20} reads=10 streams=1 base=2963341312 pci=6,0,6,0 before={ctl} after={ctl} raw=4097,1,0,2,2,1,4097,1\n'
-            s+=f'ap-platform-hda-sd: phase={phase} raw='+','.join(map(str,[1048578]+[0]*29))+'\n'
+            values=[1,10,1,us,us+20,2963341312,6,0,6,0]+[3221225472,1073741824,1073741824,1073741824]*2+[4097,1,0,2,2,1,4097,1]
+            sd=(1048578).to_bytes(3,'little')+bytes(87)
+            data=base64.b64encode(struct.pack('<BBBQQQ4H8IHIIBBIHI90s',*values,sd)).decode()
+            s+=f'ap-platform-hda: v=1 phase={phase} data={data}\n'
         return s
+    def hda_change(self,s,change):
+        import struct,base64
+        lines=s.splitlines(keepends=True)
+        for i,line in enumerate(lines):
+            if not line.startswith('ap-platform-hda:'):continue
+            data=line.split(' data=')[1].strip();values=list(struct.unpack('<BBBQQQ4H8IHIIBBIHI90s',base64.b64decode(data)))
+            change(values)
+            lines[i]=line.split(' data=')[0]+' data='+base64.b64encode(struct.pack('<BBBQQQ4H8IHIIBBIHI90s',*values)).decode()+'\n'
+        return ''.join(lines)
     def test_hda_observation(self):
         from hardware_platform import platform_hda_result
         s=self.hda_fixture();r=platform_hda_result(s)
@@ -186,25 +197,23 @@ class PlatformTests(unittest.TestCase):
     def test_hda_refusals(self):
         from hardware_platform import platform_hda_result
         s=self.hda_fixture()
-        for a,b in [('v=7 fault','v=6 fault'),('base=2963341312','base=0'),('reads=10 streams=1','reads=9 streams=1'),('streams=1 base','streams=31 base'),('raw=4097,1,0,2,2,1,4097,1','raw=4097,1,0,255,2,1,4097,1'),('pci=6,0,6,0','pci=6,0,2,0'),('pm_us=11,31','pm_us=9,31'),('state=1 pm_us=11','state=3 pm_us=11'),('raw=1048578,0','raw=16777215,0'),('raw=1048578,0','raw=1048578,1')]:
-            with self.subTest(a=a):self.assertIsNone(platform_hda_result(s.replace(a,b)))
-        rows=s.splitlines(keepends=True)
-        self.assertIsNone(platform_hda_result(s+rows[-1]))
-        self.assertIsNone(platform_hda_result(''.join(rows[:-1])))
+        for idx,val in [(0,0),(0,3),(0,5),(1,9),(2,31),(5,0),(5,2963349504),(8,2),(3,9),(18,65535),(21,255),(24,0),(26,b'\xff'*90),(26,b'\x00'*3+b'\x01'+bytes(86))]:
+            with self.subTest(idx=idx):self.assertIsNone(platform_hda_result(self.hda_change(s,lambda v:v.__setitem__(idx,val))))
+        self.assertIsNone(platform_hda_result(s.replace('v=7 fault','v=6 fault')))
+        self.assertIsNone(platform_hda_result(s+s.splitlines()[-1]+'\n'))
+        self.assertIsNone(platform_hda_result('\n'.join(s.splitlines()[:-1])))
+        self.assertIsNone(platform_hda_result(s.replace('data=','data=?')))
+        self.assertIsNone(platform_hda_result(s.replace('=\n','A\n')))
     def test_hda_off_unknown(self):
         from hardware_platform import platform_hda_result
-        s=self.hda_fixture()
-        for phase in [0,1]:
-            start=s.index(f'ap-platform-hda: v=1 phase={phase} ');end=s.index('\n',start)
-            line=s[start:end].replace('state=1','state=2').replace('reads=10 streams=1','reads=0 streams=0').replace('pci=6,0,6,0','pci=6,3,0,0').replace('before=3221225472,1073741824,1073741824,1073741824','before=0,0,0,0').replace('after=3221225472,1073741824,1073741824,1073741824','after=0,0,0,0').replace('raw=4097,1,0,2,2,1,4097,1','raw=0,0,0,0,0,0,0,0')
-            s=s[:start]+line+s[end:]
-        s=s.replace('raw=1048578,','raw=0,')
-        r=platform_hda_result(s);self.assertEqual(r['status'],'UNAVAILABLE');self.assertIsNone(r['samples'][0]['decoded'])
+        def off(v):
+            v[0:3]=[2,0,0];v[6:10]=[6,3,0,0];v[10:26]=[0]*16;v[26]=bytes(90)
+        r=platform_hda_result(self.hda_change(self.hda_fixture(),off))
+        self.assertEqual(r['status'],'UNAVAILABLE');self.assertIsNone(r['samples'][0]['decoded'])
     def test_hda_reset_unknown(self):
         from hardware_platform import platform_hda_result
-        s=self.hda_fixture().replace('state=1 pm_us=11','state=4 pm_us=11').replace('reads=10 streams=1','reads=4 streams=0').replace('raw=4097,1,0,2,2,1,4097,1','raw=4097,0,0,0,0,0,4097,0').replace('raw=1048578,','raw=0,')
-        # Both phases must carry the same unavailable shape.
-        s=s.replace('state=1 pm_us=92000011','state=4 pm_us=92000011')
-        r=platform_hda_result(s);self.assertEqual(r['status'],'UNAVAILABLE')
-        self.assertTrue(r['samples'][0]['decoded']['controller_reset']);self.assertIsNone(platform_result(s))
+        def reset(v):
+            v[0:3]=[4,4,0];v[18:26]=[4097,0,0,0,0,0,4097,0];v[26]=bytes(90)
+        s=self.hda_change(self.hda_fixture(),reset);r=platform_hda_result(s)
+        self.assertEqual(r['status'],'UNAVAILABLE');self.assertTrue(r['samples'][0]['decoded']['controller_reset']);self.assertIsNone(platform_result(s))
 if __name__=='__main__':unittest.main()

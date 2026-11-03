@@ -47,8 +47,8 @@ class FinalReceiptTests(unittest.TestCase):
     def test_hda_records_remain_required(self):
         s=self.fixture(hda=True)
         self.assertEqual(assess(s,True)['status'],'COVERAGE_PASS')
-        for bad in (s.replace('reads=10 streams=1','reads=9 streams=1'),
-                    '\n'.join(x for x in s.splitlines() if not x.startswith('ap-platform-hda-sd:'))):
+        for bad in (s.replace('ap-platform-hda: v=1','ap-platform-hda: v=2'),
+                    '\n'.join(x for x in s.splitlines() if not x.startswith('ap-platform-hda:'))):
             with self.assertRaises(ValueError):assess(bad,True)
 
     def test_failed_or_missing_data_never_becomes_coverage(self):

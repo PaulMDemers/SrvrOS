@@ -93,16 +93,34 @@ static void hda_snapshot(unsigned phase) {
 done:
     r->end=timer_monotonic_us();if(r->state!=1)fault=1;
 }
+/* Fixed-width little-endian wire schema: 179 bytes, canonical base64 (240).
+ * This preserves every field, including partial/failure rows and unused slots.
+ * No struct padding, byte count guess, numeric truncation or semantic omission. */
+static void hda_put(uint8_t *bytes,unsigned *n,uint64_t value,unsigned width) {
+    for(unsigned i=0;i<width;i++)bytes[(*n)++]=(uint8_t)(value>>(8*i));
+}
 static void hda_report(void) {
+    static const char alphabet[]="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     for(unsigned phase=0;phase<2;phase++) {
         const struct hda_capture *r=&hda_rows[phase];
-        console_printf("ap-platform-hda: v=1 phase=%u state=%u pm_us=%u,%u reads=%u streams=%u base=%u pci=%u,%u,%u,%u before=%u,%u,%u,%u after=%u,%u,%u,%u raw=%u,%u,%u,%u,%u,%u,%u,%u\n",
-            (uint64_t)phase,(uint64_t)r->state,(uint64_t)r->begin,(uint64_t)r->end,(uint64_t)r->reads,(uint64_t)r->n,
-            (uint64_t)r->base,(uint64_t)r->pci[0],(uint64_t)r->pci[1],(uint64_t)r->pci[2],(uint64_t)r->pci[3],(uint64_t)r->before[0],
-            (uint64_t)r->before[1],(uint64_t)r->before[2],(uint64_t)r->before[3],(uint64_t)r->after[0],(uint64_t)r->after[1],(uint64_t)r->after[2],
-            (uint64_t)r->after[3],(uint64_t)r->raw[0],(uint64_t)r->raw[1],(uint64_t)r->raw[2],(uint64_t)r->raw[3],(uint64_t)r->raw[4],
-            (uint64_t)r->raw[5],(uint64_t)r->raw[6],(uint64_t)r->raw[7]);
-        console_printf("ap-platform-hda-sd: phase=%u raw=%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u\n",
-            (uint64_t)phase,(uint64_t)r->sd[0],(uint64_t)r->sd[1],(uint64_t)r->sd[2],(uint64_t)r->sd[3],(uint64_t)r->sd[4],(uint64_t)r->sd[5],(uint64_t)r->sd[6],(uint64_t)r->sd[7],(uint64_t)r->sd[8],(uint64_t)r->sd[9],(uint64_t)r->sd[10],(uint64_t)r->sd[11],(uint64_t)r->sd[12],(uint64_t)r->sd[13],(uint64_t)r->sd[14],(uint64_t)r->sd[15],(uint64_t)r->sd[16],(uint64_t)r->sd[17],(uint64_t)r->sd[18],(uint64_t)r->sd[19],(uint64_t)r->sd[20],(uint64_t)r->sd[21],(uint64_t)r->sd[22],(uint64_t)r->sd[23],(uint64_t)r->sd[24],(uint64_t)r->sd[25],(uint64_t)r->sd[26],(uint64_t)r->sd[27],(uint64_t)r->sd[28],(uint64_t)r->sd[29]);
+        uint8_t bytes[179];char encoded[241];unsigned n=0,j=0;
+        hda_put(bytes,&n,r->state,1);hda_put(bytes,&n,r->reads,1);hda_put(bytes,&n,r->n,1);
+        hda_put(bytes,&n,r->begin,8);hda_put(bytes,&n,r->end,8);hda_put(bytes,&n,r->base,8);
+        for(unsigned i=0;i<4;i++)hda_put(bytes,&n,r->pci[i],2);
+        for(unsigned i=0;i<4;i++)hda_put(bytes,&n,r->before[i],4);
+        for(unsigned i=0;i<4;i++)hda_put(bytes,&n,r->after[i],4);
+        static const unsigned widths[]={2,4,4,1,1,4,2,4};
+        for(unsigned i=0;i<8;i++)hda_put(bytes,&n,r->raw[i],widths[i]);
+        for(unsigned i=0;i<HDA_STREAM_CAP;i++)hda_put(bytes,&n,r->sd[i],3);
+        for(unsigned i=0;i<n;i+=3) {
+            unsigned left=n-i;uint32_t v=(uint32_t)bytes[i]<<16;
+            if(left>1)v|=(uint32_t)bytes[i+1]<<8;
+            if(left>2)v|=bytes[i+2];
+            encoded[j++]=alphabet[v>>18];encoded[j++]=alphabet[(v>>12)&63];
+            encoded[j++]=left>1?alphabet[(v>>6)&63]:'=';
+            encoded[j++]=left>2?alphabet[v&63]:'=';
+        }
+        encoded[j]=0;
+        console_printf("ap-platform-hda: v=1 phase=%u data=%s\n",(uint64_t)phase,encoded);
     }
 }

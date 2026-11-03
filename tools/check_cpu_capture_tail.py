@@ -84,7 +84,7 @@ CAPS = {'cpu-load-power: power_state=': 24, 'cpu-load-idle:': 24,
         'cpu-idle-entry:': 24, 'ap-platform-point:': 12,
         'ap-c3-round:': 32, 'ap-package-round:': 32,
         'ap-package-pci:': 50, 'ap-platform-ltr:': 25,
-        'ap-platform-well:': 2, 'ap-platform-resources:': 2, 'ap-platform-resource:': 2, 'ap-platform-deps:': 2, 'ap-platform-hda:': 2, 'ap-platform-hda-sd:': 2, 'cpu-p2:': 24,
+        'ap-platform-well:': 2, 'ap-platform-resources:': 2, 'ap-platform-resource:': 2, 'ap-platform-deps:': 2, 'ap-platform-hda:': 2,  'cpu-p2:': 24,
         'cpu-i2:': 24, 'cpu-e2:': 24}
 WIDTHS = dict(version=1, v=1, phase=1, seq=2, us=5, id=10, seen=1,
               signature=6, ready_us=5, max_us=5, retire_us=5,

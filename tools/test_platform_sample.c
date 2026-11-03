@@ -76,19 +76,31 @@ uint64_t pci_device_count(void) {return 0;}
 const struct pci_device *pci_device_at(uint64_t i) {(void)i;return NULL;}
 static unsigned dependency_reports,hda_reports;
 void console_printf(const char *fmt,...) {
-    if(!strncmp(fmt,"ap-platform-hda:",16) || !strncmp(fmt,"ap-platform-hda-sd:",19)) {
+    if(!strncmp(fmt,"ap-platform-hda:",16)) {
+        assert(!strcmp(fmt,"ap-platform-hda: v=1 phase=%u data=%s\n"));
         va_list ap;va_start(ap,fmt);uint64_t phase=va_arg(ap,uint64_t);assert(phase<2);
+        const char *data=va_arg(ap,const char *);assert(strlen(data)==240 && data[239]=='=');
+        const char *abc="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+        uint8_t bytes[180];unsigned out=0;
+        for(unsigned i=0;i<240;i+=4) {
+            uint32_t v=0;for(unsigned k=0;k<4;k++){const char *p=strchr(abc,data[i+k]);assert(p || data[i+k]=='=');v=(v<<6)|(data[i+k]=='='?0:(unsigned)(p-abc));}
+            bytes[out++]=v>>16;bytes[out++]=v>>8;bytes[out++]=v;
+        }
+        assert(out==180 && !bytes[179]);
         const struct hda_capture *r=&hda_rows[phase];
-        bool sd=!strncmp(fmt,"ap-platform-hda-sd:",19);
-        uint64_t values[]={r->state,r->begin,r->end,r->reads,r->n,r->base,
+        uint64_t values[]={r->state,r->reads,r->n,r->begin,r->end,r->base,
             r->pci[0],r->pci[1],r->pci[2],r->pci[3],
             r->before[0],r->before[1],r->before[2],r->before[3],
             r->after[0],r->after[1],r->after[2],r->after[3],
             r->raw[0],r->raw[1],r->raw[2],r->raw[3],r->raw[4],r->raw[5],r->raw[6],r->raw[7]};
-        unsigned count=0;for(const char *p=fmt;*p;p++)if(p[0]=='%' && p[1]=='u')count++;
-        assert(count==(sd?31u:27u));
-        for(unsigned i=0;i<count-1;i++)assert(va_arg(ap,uint64_t)==(sd?r->sd[i]:values[i]));
-        va_end(ap);hda_reports++;return;
+        const unsigned widths[]={1,1,1,8,8,8,2,2,2,2,4,4,4,4,4,4,4,4,2,4,4,1,1,4,2,4};
+        unsigned at=0;
+        for(unsigned i=0;i<56;i++) {
+            unsigned width=i<26?widths[i]:3;uint64_t value=0;
+            for(unsigned k=0;k<width;k++)value|=(uint64_t)bytes[at++]<<(8*k);
+            assert(value==(i<26?values[i]:r->sd[i-26]));
+        }
+        assert(at==179);va_end(ap);hda_reports++;return;
     }
     if(strncmp(fmt,"ap-platform-deps:",17))return;
     va_list ap;va_start(ap,fmt);uint64_t phase=va_arg(ap,uint64_t);assert(phase<2);
@@ -245,6 +257,6 @@ int main(void) {
     hda_seen=0;fault=0;hd.device=3;hda_gcap=0x1001;hda_gctl=1;hda_reads=0;
     hda_snapshot(0);hda_snapshot(1);assert(hda_rows[1].state==1);
     hda_snapshot(1);assert(fault);fault=0;
-    (void)platform_audit_report();assert(dependency_reports==2 && hda_reports==4);
+    (void)platform_audit_report();assert(dependency_reports==2 && hda_reports==2);
     puts("platform-sample: PASS exact read-only mappings/refusals, endpoint well bounds/all-ones, sparse hook isolation, ordered reads and capacity");
 }

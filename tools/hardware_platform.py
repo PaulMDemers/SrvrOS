@@ -1,5 +1,7 @@
 """Strict optional platform receipts; no inferred platform grant or RC6 policy."""
 import re
+import base64
+import struct
 from hardware_package import package_result
 from cpu_capture_format import capture_input
 
@@ -265,22 +267,23 @@ def _dependencies(text):
 def platform_hda_result(text):
     """Exact display-HDA control observations; never DMA retirement/ownership."""
     try:return _hda(text)
-    except (ValueError,KeyError,IndexError,OverflowError):return None
+    except (ValueError,KeyError,IndexError,OverflowError,struct.error):return None
 
 def _hda(text):
     deps=platform_dependencies_result(text)
     if not deps or not re.search(r'^ap-platform: v=7 ',text,re.M):return None
     controls=[x for x in text.splitlines() if x.startswith('ap-platform-hda:')]
-    streams=[x for x in text.splitlines() if x.startswith('ap-platform-hda-sd:')]
-    if len(controls)!=2 or len(streams)!=2:return None
+    if len(controls)!=2:return None
     rows=[]
-    for phase,(line,sdline) in enumerate(zip(controls,streams)):
-        m=re.fullmatch(r'ap-platform-hda: v=1 phase=([01]) state=([1234]) pm_us=(\d+),(\d+) reads=(\d+) streams=(\d+) base=(\d+) pci=(\d+),(\d+),(\d+),(\d+) before=(\d+),(\d+),(\d+),(\d+) after=(\d+),(\d+),(\d+),(\d+) raw=(\d+(?:,\d+){7})',line)
-        t=re.fullmatch(r'ap-platform-hda-sd: phase=([01]) raw=(\d+(?:,\d+){29})',sdline)
-        if not m or not t:return None
-        ph,state,a,b,reads,n,base,*gate=map(int,m.groups()[:-1]);raw=list(map(int,m.groups()[-1].split(',')));sd=list(map(int,t[2].split(',')))
-        if text.index(sdline)<text.index(line) or (phase==0 and text.index(sdline)>text.index(controls[1])):return None
-        if ph!=phase or int(t[1])!=phase or state==3 or not 0<a<=b<2**64 or n>30:return None
+    for phase,line in enumerate(controls):
+        m=re.fullmatch(r'ap-platform-hda: v=1 phase=([01]) data=([A-Za-z0-9+/]{239}=)',line)
+        if not m:return None
+        ph=int(m[1]);blob=base64.b64decode(m[2],validate=True)
+        if len(blob)!=179 or base64.b64encode(blob).decode()!=m[2]:return None
+        state,reads,n,a,b,base,*v=struct.unpack('<BBBQQQ4H8IHIIBBIHI90s',blob)
+        gate=v[:12];raw=v[12:20];packed=v[20]
+        sd=[int.from_bytes(packed[i:i+3],'little') for i in range(0,90,3)]
+        if ph!=phase or state not in (1,2,4) or not 0<a<=b<2**64 or n>30:return None
         if a<deps['samples'][phase]['pm_us'][1] or any(v>=0xffffffff for v in gate) or any(v>=65536 for v in gate[:4]):return None
         if not base or base&0x3fff or base>0x000fffffffffc000:return None
         if any(v>=2**w for v,w in zip(raw,[16,32,32,8,8,32,16,32])) or any(v>=0xffffff for v in sd):return None
