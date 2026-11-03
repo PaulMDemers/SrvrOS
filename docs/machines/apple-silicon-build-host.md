@@ -2447,3 +2447,39 @@ Next: merge OS PR288 after host/build checks, then verify the actual merged main
 with host/sanitizer checks and sequential owned/refused Open With, Files, theme
 and awk VMs. Evidence belongs in `build/review/files-merged/`. Shared checkout
 and review VM remain untouched; native acceptance and hosted Actions unchanged.
+
+### Files integration delivered and verified — November 3, 2026
+
+The authorized dependency sequence is merged: Apps PR2 `45cbd585` at 20:16 UTC,
+OS PR278 `c0fa8d90` at 20:21, Apps PR3 `ae56bf71` at 20:21, then OS PR288
+`eaf11488` at 20:23. The actual clean OS merge `eaf11488` was checked out in
+`SrvrOS-app-quality` and tested with Apps `ae56bf71`, UI `76deeb30`, Ports
+`5e30ecd3` and upstream awk `5739fd79`; the other seven upstream pins are
+unchanged. Main's awk and edge-resize work is retained. The merged tree and its
+kernel/initramfs/disk hashes match the prepared integration candidate.
+
+Fresh verification on the actual merged source passes:
+
+- Desktop/widget/I/O and QMP host checks: 112 PASS records; awk host smoke,
+  Files ASan/UBSan, full matched build and documentation checks also pass.
+- Owned and refused-dialog Open With VMs: cancellation, default/explicit routing,
+  unsaved siblings, existing Text/Preview reuse, exact saved bytes, restored
+  process baseline and pre/post generator/allocation checks.
+- Files VM: collision/refresh selection recovery, chooser cancel/reopen, source
+  routing through Text, exact source/output bytes and navigation/history.
+- Theme VM: selected Files row, independent sibling history/close, all three
+  live profiles and exact 722/600-pixel widths using the new outer resize edge,
+  plus Text selection, persistence and restart/readback. Both chooser forms and
+  all six Files theme/size captures were inspected.
+- Awk VM: selected upstream regressions, Terminal workflow, errors, process
+  commands, offline byte verification and reboot persistence. This is not the
+  full upstream awk suite; independent exfatprogs fsck is unavailable here.
+
+Evidence and exact recursive identities are in `build/review/files-merged/`,
+including `tested-build.json`, merge timestamps and the final `receipt.json`.
+The previous acceptance captures are preserved under its `prior-acceptance/`;
+earlier failing controls and interleaved-log evidence remain retained. Every
+disposable VM stopped. The shared checkout and attended review VM were untouched;
+no hosted Actions or new native acceptance. Remaining changes in this closeout
+are documentation only. The requested integration is delivered and verified;
+no further implementation is required for this target.
