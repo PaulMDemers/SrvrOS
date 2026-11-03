@@ -198,7 +198,8 @@ resource/default. No host disk was formatted, mounted or installed to, and no
 host reboot occurred. All task-owned VMs are stopped; the three original review
 VMs remain live and untouched.
 
-Next: review the scoped draft PR. A subsequent installed-root milestone must
+Published as [draft PR311](https://github.com/PaulMDemers/SrvrOS/pull/311); not
+merged. Next: review that scoped PR. A subsequent installed-root milestone must
 consume the filesystem owner's stable-volume selector and the profile owner's
 home/migration contract before enabling multiple candidate volumes or upgrades.
 No further implementation is required for this disposable proof, and no merge
