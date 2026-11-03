@@ -90,6 +90,21 @@ implement a fixed external5GHz PA/baseband admission/readback/restoration
 contract with fresh high-band gain validation, then calibration and5GHz RX.
 Connection-ready remains unaccepted; credentials remain unread/private.
 
+## Next bounded implementation: external5GHz PA restoration
+
+Starting from merged main `e376669c` and the accepted v113 frontend originals,
+add one immutable14-target PA transaction: fresh before-read of all targets,
+fixed external-A-band selector/11 RF settings/attenuation/ALC policy, independent
+selected readback, reverse restoration and independent original readback. Exact
+same-unit board and complete parent/frontend proofs must precede admission;
+MAC/DMA guards stay active throughout. No BBP gain, VCO pulse, RX, credentials
+or network frame is part of this transaction. This isolates PA command behavior
+before the gain-dependent baseband step. Shared scope is mt76 MCU engine,
+explicit xHCI owner, main/staging profile, strict saved proof and host tests.
+PR278 app-descriptor work and PR252 resolver/socket work stay separate.
+Publish and validate the matched image and exact-stage recovery VMs before any
+native installation. Preserve all accepted payload/evidence and Ubuntu default.
+
 ## Historical v113 candidate validation —44 frontend observations
 
 The installed v113 `efbdb378d6bd0974`, runtime `de6cef51`, main `88c56afa`,
