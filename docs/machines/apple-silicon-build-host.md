@@ -2031,3 +2031,35 @@ RNG, block and network integrate with their existing kernel interfaces and pass
 bounded malformed/failure/reset tests plus disposable QEMU positive/fallback runs.
 Shared transport requires strict PCI/feature/queue validation and reset-before-free.
 Device defaults advance only with their matching end-to-end evidence.
+
+### VirtIO baseline accepted — November 3, 2026
+
+Runtime `986c16e82f19f4da518190b092d84b27df0dc0bf` is clean and published in
+[PR284](https://github.com/PaulMDemers/SrvrOS/pull/284), based on measurement PR283.
+Its matched rebuild reproduces the accepted kernel SHA-256
+`f32535f07875d7e951ec2e0d87613d7ce4008eeea311b832957f74f4e51b486d` exactly.
+Submodules remain on their previous published pins; native boot settings and
+physical acceptance are unchanged. Actions were not enabled or dispatched.
+
+Verified: protocol host tests and sanitizers; keyboard/mouse, storage, network
+provider/worker, graphics/lease/console, scheduler/cancellation and full desktop
+host suites; docs checks; three repeated Cocoa damage workloads; two-boot modern
+VirtIO VM with PS/2 disabled; explicit legacy launcher; default Cocoa launcher.
+The modern VM types in the monitor and Text, saves a document, drags a window,
+scrolls Help by a real wheel event, consumes entropy, changes link state,
+completes DHCP and 4/4 pings, releases the presenter, flushes/reboots and reads
+back its persistent marker. Observed firmware block admission is15 with reset
+proof. No device failures/quarantines occurred in the accepted run.
+
+Copy/transfer volume falls64–67% in the repeated drag/scroll workloads, while
+median draw/present time falls27–33%; host vblank remains unmeasured. The default
+launcher uses VirtIO graphics/input/RNG/block/network; explicit legacy fallback
+remains available. See [the driver contract](../virtio-baseline.md),
+[measurement receipt](../assets/screenshots/virtio-damage-manifest.json) and
+[acceptance receipt](../assets/screenshots/virtio-baseline-manifest.json).
+
+All automated verification VMs are stopped. One attended default Cocoa desktop
+from this clean runtime is left open at `.local/macos-vm/virtio-baseline-review/`;
+its `current.json` identifies the owned process, disk, sockets and logs. Exit via
+SrvrOS → Return to console before closing QEMU. Required work for this baseline
+is complete; interrupt-driven queues, tablets and offloads remain optional.

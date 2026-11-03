@@ -69,3 +69,12 @@ old path. It requires modern-device boot, actual VirtIO `/fat` mounting, keyboar
 typing, mouse drag/wheel, RNG consumption, network traffic, clean desktop exit,
 and a written file surviving a guest-flushed reboot. Evidence is saved under
 `build/review/virtio-baseline/`; missing markers or fallback mounts fail the run.
+
+The accepted runtime is clean commit `986c16e8`; its rebuilt kernel/exFAT hashes
+exactly match the two-boot test. The final protocol, existing input/storage/
+graphics/network/scheduler/cancellation and desktop suites pass. The default
+1440×900 Cocoa launcher reaches its first app frame in 4.61 seconds in the
+recorded run; this is one startup observation, not a benchmark. The explicit
+VGA/USB/AHCI/e1000 launcher also renders and returns to the console cleanly.
+See the [compact acceptance receipt](assets/screenshots/virtio-baseline-manifest.json)
+and [PR284](https://github.com/PaulMDemers/SrvrOS/pull/284).

@@ -24,9 +24,12 @@ network link changes, DHCP, four ICMP replies, clean GPU exit and disk persisten
 QEMU compact input configuration, SeaBIOS block handoff and a QEMU receive-header
 quirk are handled with bounded checks and regression coverage.
 
-Required before delivery: ordinary fallback and default-launcher desktop checks,
-final build/host checks, and published
-reviewable source. Details and evidence: [VirtIO baseline](virtio-baseline.md).
+The clean runtime `986c16e8` builds and matches the tested image byte-for-byte.
+Final host/desktop regressions, the explicit legacy launcher and default Cocoa
+launcher pass. Source and receipts are published through
+[PR284](https://github.com/PaulMDemers/SrvrOS/pull/284), following measurement PR283.
+The requested baseline is implemented and verified; no additional driver feature
+is required for this target. Details and evidence: [VirtIO baseline](virtio-baseline.md).
 Native hardware, interrupt-driven queues, absolute tablets, packed rings and host
 vblank are separate work; they do not block the requested polling baseline.
 

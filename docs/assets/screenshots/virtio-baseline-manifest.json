@@ -1,0 +1,44 @@
+{
+  "status": "PASS",
+  "runtime_commit": "986c16e82f19f4da518190b092d84b27df0dc0bf",
+  "clean_rebuild_matches_tested_kernel": true,
+  "hashes": {
+    "build/kernel/srvros.elf": "f32535f07875d7e951ec2e0d87613d7ce4008eeea311b832957f74f4e51b486d",
+    "build/initramfs.tar": "6e052a2113d168f15a3c0956197c7ba47d1ac43b8efeabb58614798a8dbc3835",
+    "build/srvros.exfat": "9778e60965f26c758330842f147e761529f16b2c82d133acf6d18ffc46d9cbef"
+  },
+  "qemu_version": "QEMU emulator version 11.1.2",
+  "checks": [
+    "modern input and QMP keyboard",
+    "Text typing",
+    "mouse drag and wheel",
+    "GPU presentation and clean reset",
+    "RNG receive and consumption",
+    "VirtIO net DHCP and ping",
+    "VirtIO disk mount and reboot persistence",
+    "network link down/up",
+    "legacy launcher desktop and clean exit",
+    "default Cocoa launcher desktop"
+  ],
+  "default_launch": {
+    "desktop_ready_seconds": 4.61,
+    "first_app_frame_seconds": 4.61
+  },
+  "evidence": {
+    "serial-1.log": {
+      "sha256": "31ce4af0a08d9688c0e116d8bcc25940235b58280b4e27691abddb78c79d956d"
+    },
+    "serial-2.log": {
+      "sha256": "36c85f701de2cb7ee89824ae264c5a58f0a8c94dc9f7b09218a034308c216151"
+    },
+    "final-host.log": {
+      "sha256": "347e5bceaa25d1b047478e36979e0b4824b74a12c1f9b3cdb3b3b8d5b3457d41"
+    },
+    "desktop-after-drag.ppm": {
+      "sha256": "e9da7b30cd62fcff5bfe55758dc702ce1a1ed62c66beea90166c414e9c9e6993"
+    },
+    "help-after-wheel.ppm": {
+      "sha256": "fa161cc8478700cfa30bcf58ef472da2e5b2dbb508e0aa831243ea50a86040c8"
+    }
+  }
+}
