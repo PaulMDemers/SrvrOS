@@ -12,38 +12,38 @@ The captured EW-7711MAC `7392:a711`/`0100` is **5GHz-only**; see the
 mistaken for assembled-model capability. Historical2.4GHz packet/USB traces do
 not establish2.4GHz RF support. Do not repeat the withdrawn v107 trial.
 
-Latest native v115 `e405f17dd9a5449b`, runtime `ec117c9e`, main `105077d7`,
-passes the complete637002-byte prefix in matching session
-`session-00065f64e70cadfc-00`:4053 operations, full parent/PA restoration,
-fresh logical40 channel161 gain and21-row A-band/20MHz BBP selection,
-independent selected readback, reverse restoration and original readback.
-Fresh effective LNA is12 and derived AGC8 is122c3cf2;13 EFUSE I/Os include
-one bounded poll. Source/release/session, recovery bytes, offline fsck/allocation
-and automatic Ubuntu return pass. The115-file sealed native archive
-`wifi-bbp5-cycle-ec117c9e` survives outside build. Collected and unarmed.
-This accepts the MAC-disabled fresh-gain/command/restoration transaction after
-parent restore, not simultaneous held-channel operation, VCO/RF lock,
-calibrated reception, authentication or connectivity.
+Latest native v116 `466528fc7669566e`, runtime `c3088243`, main `1dad02c2`,
+passes the complete1063627-byte prefix in matching session
+`session-00065f6683c07ec1-00`:7785 operations, including3732 new operations
+with band/frequency/A20 held around PA and gain-adjusted BBP selection. Selected
+readbacks and inverse BBP/PA/A20/frequency/band original readbacks pass. Fresh
+same-boot effective LNA is12 and AGC8 is122c3cf2. Full v115 parent/common-init,
+source/release/session, recovery bytes, offline fsck/allocation and saved automatic
+Ubuntu return pass. The140-file sealed native capsule `wifi-held-native-c3088243`
+survives outside build. Collected, workspace unmounted, Ubuntu default, unarmed.
 
-Current installed candidate v116 `466528fc7669566e`, runtime `c3088243`, keeps
-main `1dad02c2` and awaits a cold native run. Full build/core/docs,207 staging
-groups,3732 transfer failures/3746 cancellation boundaries,256 gains, native
-request/owner refusals and focused ASan/UBSan pass. Exact-image save/readback/
-clean-unmount/automatic-reset and missing-workspace refusal VMs pass. The exact
-kernel and independently packaged initramfs match; all required native helpers
-are linked. The1063627-byte synthetic complete-prefix rehearsal retains all7785
-operations; it is not native acceptance. Real filesystem/VFS2MiB write/read,
-unmount/remount/readback and external fsck pass on a disposable image.
+This accepts the explicit MAC-disabled combined command/state/restoration scope.
+It does not accept VCO/RF lock, calibrated reception, authentication or IP data.
+Credentials remain unread/unpackaged. Next: audit fresh trim/DAC/VCO ordering and
+bounded restoration/ownership before calibration and5GHz reception.
 
-The durable capsule `wifi-held-native-c3088243` preserves payload, source,
-frozen collector and accepted-v115 parent binding. Ubuntu default/EFI order and
-known-good previous `e47dca3a6b30c6c1` are unchanged. EFI headroom required retiring
-only the unreferenced standalone v110 copy `960af51da95c68fd`, after complete
-byte equality to its accepted independent backup; v110 evidence/backup survives,
-and v111–v115 remain installed/backed up. Current local run/checkpoint records
-own one-shot/shutdown state. This is the MAC-disabled combined select/readback/
-reverse-restoration trial only: no VCO, RX, credentials or connectivity claim.
-After return collect `build/bringup/wifi-held-native/return_collect.py` first.
+The initial host collector refused the larger exit file at its old1MiB bound;
+that refusal is preserved. Host-only fix `94ed10ba` keeps default1MiB and64MiB
+aggregate/path protections and admits up to2MiB only for an explicit matching
+session/release with held-radio boot options.38 collector tests pass, covering
+exact limits, unrelated/echoed/mixed identities, large checkpoints and unsafe
+paths. The same native bytes then pass the unchanged preboot frozen radio
+checker. No kernel change or rerun was needed for collection recovery.
+
+Ubuntu default/EFI order and known-good previous `e47dca3a6b30c6c1` are unchanged.
+Only the unreferenced standalone v110 EFI copy was retired after full equality
+to its independent accepted backup; its evidence/backup survives, and v111–v115
+remain installed/backed up. Full build/core/docs,207 staging groups,3732 transfer
+failures/3746 cancellation boundaries,256 gains and focused ASan/UBSan pass.
+Exact-stage save/readback/clean-unmount/automatic-reset and missing-workspace VMs,
+independent packaged artifact equality, a synthetic complete-prefix rehearsal
+and disposable real2MiB filesystem write/read/remount/fsck checks are preserved
+as separate preboot evidence, not substituted for this native result.
 
 The preceding warm session `session-00065f50a0330abf-00` remains FAILED before
 firmware preparation: first0730 read1, already-running MCU refusal. Cold adapter
@@ -60,7 +60,7 @@ compatible hardware. Local credentials remain private and unused until the
 security stage. Do not report connection-ready until authentication, data
 exchange and clean disconnect actually pass.
 
-## Current source scope: held channel161 integration
+## Consumed renderer/apps/ports baseline checkpoint
 
 Consumed actual main `1dad02c2` in runtime merge `d9c28128`. Published module
 merges SrvrApps `1f5f894` and SrvrPorts `5aacedd` preserve Wi-Fi Help/System
@@ -88,12 +88,12 @@ partial-overlap refusal. Neither the production image nor native USB was repaire
 or modified. Both failed VM receipts remain separate from the passing receipts.
 
 Evidence and staged payload are preserved outside build in
-`channel161-main-d9c28128`. This is host/VM integration only: native remains
+`channel161-main-d9c28128`. At that baseline checkpoint this was host/VM integration only: native remained
 v115 `e405f17dd9a5449b`/`ec117c9e`, previous `e47dca3a6b30c6c1`, Ubuntu default,
 collected and unarmed. Do not repeat a baseline-only physical trial.
 
-Next bounded work owns channel161 band/frequency/A20/PA and fresh-gain BBP
-selected state together, with independent selected readbacks and reverse cleanup.
+The completed bounded v116 work owns channel161 band/frequency/A20/PA and fresh-gain
+BBP selected state together, with independent selected readbacks and reverse cleanup.
 Touched subsystems are the fixed MT76 engines, private native owner, immutable
 trial recipe, host fault/proof suites and saved-log collector. Existing restored
 transaction APIs remain separate. Audit pinned trim/DAC/VCO ordering before any
@@ -101,21 +101,20 @@ pulse or RX; separate VCO/calibrated reception and authenticated IP milestones
 remain pending. PR252 retains resolver/socket scope; no other open Wi-Fi owner
 was found at this integration checkpoint. Preserve v115 and independent backups.
 
-## v116 return collection scope
+## v116 collection recovery accepted
 
-The matching native exit prefix is saved as1063627bytes and passes the unchanged
-frozen7785-operation checker, including3732 held operations and full restoration.
-Initial collection refused the file at the host's old1MiB per-log bound; this is
-an infrastructure refusal, not evidence of radio failure or acceptance. Preserve
-that refusal. The bounded correction touches only `hardware_desktop.collect`
-and its host tests: default1MiB/64MiB aggregate/path protections remain; one
-explicit session/release may transport up to2MiB only with matching held-radio
-boot identity/options. Larger files, unrelated sessions, echoed options, mixed
-releases and large checkpoints remain refused. Recollect the same saved session
-and verify storage/recovery before publishing physical acceptance; no rerun or
-kernel change is needed to recover these bytes.
+Native session `session-00065f6683c07ec1-00` was recovered under an explicit
+session/release-bound2MiB transport option after the default collector refused
+its1063627-byte exit file. The original refusal and preboot frozen checker are
+preserved. All7785 operations,3732 held operations, joint selected readbacks and
+inverse originals pass on the same bytes, followed by payload/recovery equality,
+offline fsck/allocation and clean automatic Ubuntu return. The native capsule is
+sealed with140files; no reboot is armed. The host-only transport fix does not
+relax radio predicates or enlarge ordinary collection limits. Archive verified
+large sessions, or explicitly identify them, before a future ordinary collection;
+unknown large sessions remain refused rather than silently admitted.
 
-## Active native held-channel scope
+## Completed v116 native implementation scope
 
 Reviewed remote main `d5822348` and open PRs301/299/252: current work is display
 ownership, Terminal quoting and resolver/socket auditing, with no MT76 overlap.
@@ -134,7 +133,7 @@ then matched build/sanitizers/exact-image VM/storage/recovery before installatio
 No trim/DAC/VCO/RX or credential use is in this trial. Installed v115/previous
 recovery remain untouched until every prerequisite passes; currently unarmed.
 
-## Native held-channel implementation pending validation
+## Native held-channel implementation and v116 validation
 
 The new explicit v116 automatic profile runs the fixed coordinator after the
 complete restored v115 chain. One static native context requires the same device,
@@ -155,8 +154,9 @@ cover exact capacity, persistence/readback, wrap ordering and refusal after pref
 loss, and a subsequent ordinary capture.207 staging tests pass. Exact native
 compiler stack reporting gives3776bytes for the nested coordinator/band/synth/A20/
 PA/BBP engine frames, with static state; existing transport/IRQ frames remain
-separate; scheduled task stacks are128KiB. No native acceptance is claimed. Full
-regression/sanitizer/exact-stage VM/source/recovery checks precede installation;
+separate; scheduled task stacks are128KiB. Native command/state/restoration acceptance is recorded above; VCO/RX remains
+pending. Full regression/sanitizer/exact-stage VM/source/recovery checks preceded
+installation;
 source remains based on main `1dad02c2` with newer main reviewed separately.
 
 ## Held-channel host foundation

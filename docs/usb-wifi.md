@@ -364,9 +364,9 @@ using private fixed nesting points after independent selected readbacks. The
 inverse path restores BBP, PA, A20, frequency and band. Its ownership predicate validates
 the nested parent proofs and phase; a transport failure or cancellation stops
 without speculative writes or replay. Legacy restored-transaction APIs remain
-unchanged. This foundation has no native caller, VCO/RX or credential use.
-Numeric gain admission is not fresh EFUSE proof: a separate native owner and
-strict saved-log recipe must bind that proof before physical validation.
+unchanged. The host foundation `1267acfa` had no native caller. Numeric gain admission
+alone is not fresh EFUSE proof: the v116 private owner and strict saved-log
+recipe below bind that proof. No VCO/RX or credential use is enabled.
 
 The explicit v116 `--wifi-held-channel` recipe requires the full automatic v115
 parent, fresh same-boot gain/board and one private same-device owner. Fixed
@@ -377,13 +377,24 @@ checker verifies the nested plan independently from pinned fixtures. A dedicated
 Implementation and host trace checks do not grant native acceptance or enable
 VCO/RX. See the unit record for current validation and stack/storage scope.
 
-Candidate v116 `466528fc7669566e`/`c3088243` is installed awaiting its cold
-native run. Full host/core/staging/fault and focused sanitizer checks, a complete
-1063627-byte synthetic-prefix rehearsal, real disposable2MiB filesystem write/
-read/remount/fsck, and exact-stage save/return/missing-workspace VMs pass. Kernel
-and independently packaged firmware archive match. All7785 operations at one
-EFUSE poll are covered by the strict combined proof. Physical acceptance remains
-v115 above until matching saved native evidence is collected.
+Native v116 `466528fc7669566e`/`c3088243`, matching session
+`session-00065f6683c07ec1-00`, passes the complete1063627-byte prefix and7785
+operations, including3732 new held-channel operations. The band/frequency/A20
+state remains selected around PA and BBP, with independent selected reads and
+inverse/original checks. Same-boot fresh gain remains LNA12/AGC8=122c3cf2.
+Full parent/common-init, source/release/session, payload/recovery equality,
+offline fsck/allocation and automatic saved Ubuntu return pass. The140-file
+sealed native capsule survives outside build; collected/unarmed.
+
+The default host collector initially refused the file at1MiB. Host-only fix
+`94ed10ba` adds a fixed2MiB option for one explicit matching session/release and
+held-radio boot identity, retaining ordinary limits, aggregate/path protections
+and refusal of unknown large files.38 host tests pass. The original refusal is
+preserved, and the unchanged preboot frozen checker validates the recovered
+native bytes; no kernel rerun or radio predicate change is involved.
+This accepts the MAC-disabled simultaneous command/state/restoration contract,
+not VCO/RF lock, calibrated reception, authentication or IP data. Next is audited
+fresh trim/DAC/VCO/calibration and receive work. Credentials remain unused.
 
 ## Current merged development baseline
 
@@ -392,9 +403,10 @@ and UI `76deeb3`, preserving local Wi-Fi UI and checkpoint logging. Matched
 build/core/desktop/I/O/awk and exact-stage save/return, compositor, Files, resize
 and two-boot awk VMs pass. Test/host fixes `0dea148e`/`739d95b6` do not alter
 the staged runtime. Artifact `9ecaa96bdc9dced6` is uninstalled and adds no native
-acceptance; v115 above remains the latest physical result. The machine record
+acceptance; v116 above is the latest physical command/state result. The machine record
 owns the preserved initial refusals and disposable fixture filesystem checks.
-Next work integrates simultaneous selected-state ownership before VCO/RX.
+V116 accepts simultaneous selected-state ownership/restoration; audited trim/
+calibration and VCO/RX remain next.
 
 ## Captured baseline
 
