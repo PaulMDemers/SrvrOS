@@ -21,6 +21,7 @@ from desktop_foundation_smoke import QMP
 from displayd_frame_smoke import choose_port, connect_serial, stop_process
 from displayd_resolution_smoke import build_iso, has_fatal_exception
 from virtio_gpu_present_smoke import ppm
+from serial_records import desktop_progress_end
 
 ABS_MAX = 32767
 WIDTH, HEIGHT = 1280, 800
@@ -111,7 +112,7 @@ def main():
                     nonlocal consumed
                     end = time.monotonic() + timeout
                     search_from = consumed if start is None else start
-                    while marker not in output[search_from:]:
+                    while (matched_end := desktop_progress_end(output, marker, search_from)) is None:
                         if process.poll() is not None or time.monotonic() >= end:
                             raise RuntimeError(f'missing {marker!r}; see serial.log')
                         if boot:
@@ -123,7 +124,7 @@ def main():
                             output.extend(chunk)
                         except socket.timeout:
                             pass
-                    consumed = max(consumed, output.index(marker, search_from) + len(marker))
+                    consumed = max(consumed, matched_end)
                     markers.append(marker.decode(errors='replace'))
 
                 def shortcut(keys):
