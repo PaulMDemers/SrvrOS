@@ -243,3 +243,16 @@ Sanitizer checks cover the pure owner; host decoding and conservative tail tests
 cover the matched schema. Runtime source/isolation and VM/native validation
 remain required before physical acceptance. No well/HDA ownership or restore
 milestone is granted by these tests.
+
+
+## Milestone B first readout (native comparison pending)
+
+The isolated version-9 capture records primary-A geometry/surface/live surface,
+PCI aperture context, inherited framebuffer descriptor, per-page mapping
+continuity and firmware classification at both endpoints. See the
+[exact readout contract](ap-ownership-diagnostic.md#version-9-primary-a-and-inherited-framebuffer-readout).
+It adds no mappings, GGTT/PTE/data reads, control writes or assurance bits.
+Readout refusal and ambiguous ranges remain explicit. A compatible linear
+aperture relation still cannot prove GGTT/stolen backing or an adopted lifetime.
+Milestone B remains incomplete until these dependencies are resolved; A's native
+software retirement is not a lifetime release of actual scanout storage.

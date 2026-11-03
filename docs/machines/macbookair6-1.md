@@ -162,6 +162,34 @@ The overall platform trial remains failed on the unchanged RC6 timing predicate
 and durable evidence verification pass. No reboot is armed. PR288/278 apps,
 PR252 lifetimes and PR19 Wi-Fi remain separate.
 
+The first milestone-B readout is staged as release `9b485ca12b4c2482`, compiled
+from `728bcbeb` (PR302). It adds fixed primary-A geometry/surface/live-surface
+observations and bounded inherited framebuffer mapping/classification endpoints,
+without GGTT reads, new mappings, control writers or assurance bits. Complete
+resource/dependency records are losslessly packed to retain all proofs within
+the original 64 KiB tail. Matched build, focused/sanitizer/isolation/parser/tail
+checks and all twelve VM cases pass; see the validation journal below.
+Native comparison remains pending. This cannot complete backing-lifetime
+adoption or authorize a well/HDA transition. The next unattended capture retains
+30/30/30-second phases, 32 coordinated rounds, existing bounds and automatic
+Ubuntu return/collection. Local records own installation and ready/armed state.
+
+### Active read-only backing readout scope (2026-11-03)
+
+Base `d5822348`, local device branch `device/macbookair6-1/process-admission`.
+Milestone B first readout binds Haswell primary-A control/stride/linear and tile
+offsets/surface/pipe size, aperture PCI BAR and inherited Limine framebuffer
+geometry/physical mappings and memory-map classification at both endpoints.
+Scope: isolated platform diagnostic/readout fixture, host decoder/retention,
+matched validation and automated native capture. No ordinary driver, PMM policy,
+well/HDA write or assurance-bit changes. GGTT PTE/stolen-memory ownership and
+firmware exclusion remain unknown; this readout cannot complete backing adoption.
+PR301 owns separate Air7,2 capture; PR252 lifetimes, PR299 Terminal and PR19 Wi-Fi
+remain separate. The first maximum-retention model exposed a 619-byte proof displacement.
+Lossless version-9 resource/dependency packing preserves every field within the
+original 64 KiB tail. Positive/refusal/schema and native-comparison fixtures and
+source-matched retention are required before exact-stage rehearsal/native capture.
+
 ### Historical battery-runtime objective (2026-10-23)
 
 Base `9bbc3b9`, branch `device/macbookair6-1/battery-runtime`. Audit connected
@@ -6521,3 +6549,47 @@ Installed payload hashes, console/accepted recoveries and durable backups verify
 Ubuntu is default, the one-shot is consumed and the collector is disabled.
 The tested runtime remains frozen to `fa8e503f`; later mainline app/snapping
 changes have no inherited physical acceptance. No reboot is armed.
+
+
+### Primary-A and inherited backing readout staged (2026-11-03)
+
+Source `728bcbeb`, release `9b485ca12b4c2482` (PR302), implements the first
+read-only milestone-B comparison on integration base `d5822348`. Nine fixed
+reads use existing private read-only/NX mappings: primary-A control, stride,
+legacy offset, surface, Haswell offset, pipe-A size, live surface and two
+control/surface rechecks. BAR2/PCI command and well endpoints are preserved.
+Only a single bounded RGB32 inherited descriptor drives kernel page-table
+observations, capped at 4,096 pages and 4,096 firmware entries. Every page must
+translate contiguously; ambiguous/absent firmware coverage remains unknown.
+A last-canonical-page regression and exact-cap case verify a page-count loop
+cannot wrap into an unbounded walk. No framebuffer pixels or GGTT PTEs are read.
+
+Two fixed 203-byte records retain every readout field. Version 9 additionally
+packs every existing resource/dependency field losslessly into 154/90-byte
+records, preserving the original strict validators and version-1–8 decoding.
+Source-matched maximum-checkpoint modeling preserves all critical bytes under
+64 KiB retention, 128 KiB pre-final chatter and 26,282 bytes of width/capacity
+padding. This remains explicitly synthetic, not native acceptance. The earlier
+unpacked model failed retention and was corrected; no proof, sample capacity,
+latency bound or integrity check was removed.
+
+Full matched build/USB/AP, core/desktop/widget/host/docs suites pass on `6a9f85c9`.
+The final diagnostic-only wrap fix on `728bcbeb` passes rebuilt matched artifacts,
+actual C fixtures (26 backing cases), ASan/UBSan, 36 platform/parser/tail tests,
+isolation/disassembly and actual-emitter C-to-Python wire checks. Actual collector
+save/decoder/assertion code passes a complete synthetic fixture and refuses
+missing backing or malformed packed-resource data. All nine fresh main VM cases
+and three legacy profiles pass on the final source, with directed-failure and
+final-receipt review. Exact GPT refusal saves/unmounts/returns; missing Home halts.
+The native stage is restored and independently hash-verified outside build.
+
+The baseline is 586 files / 1,650 allocated clusters from the collected prior
+native run. Console and accepted recovery payloads remain protected. The local
+run requires exact unit/USB identity, all prior hashes, clean offline fsck and
+allocation/headroom, verified payload/recovery backups and Ubuntu default before
+one-shot arming. No human input is required. All seven assurance bits, GGTT/stolen
+backing, true pin/lifetime, domain ownership and firmware exclusion remain unknown.
+Compatible aperture/geometry observations cannot turn those unknowns into grants.
+Native comparison and the original RC6/package-C3 results must be collected
+separately before the next implementation; no broader desktop acceptance is
+inferred for this tree.
