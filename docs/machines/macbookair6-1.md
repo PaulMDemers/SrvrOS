@@ -162,17 +162,21 @@ The overall platform trial remains failed on the unchanged RC6 timing predicate
 and durable evidence verification pass. No reboot is armed. PR288/278 apps,
 PR252 lifetimes and PR19 Wi-Fi remain separate.
 
-The first milestone-B readout is staged as release `9b485ca12b4c2482`, compiled
-from `728bcbeb` (PR302). It adds fixed primary-A geometry/surface/live-surface
-observations and bounded inherited framebuffer mapping/classification endpoints,
-without GGTT reads, new mappings, control writers or assurance bits. Complete
-resource/dependency records are losslessly packed to retain all proofs within
-the original 64 KiB tail. Matched build, focused/sanitizer/isolation/parser/tail
-checks and all twelve VM cases pass; see the validation journal below.
-Native comparison remains pending. This cannot complete backing-lifetime
-adoption or authorize a well/HDA transition. The next unattended capture retains
-30/30/30-second phases, 32 coordinated rounds, existing bounds and automatic
-Ubuntu return/collection. Local records own installation and ready/armed state.
+The first milestone-B readout is physically observed on source `728bcbeb`,
+release `9b485ca12b4c2482` (PR302). Both nine-read endpoints are identical, and
+all 1,056 inherited framebuffer pages translate contiguously at CPU aperture
+address `0xa0000000`, with matching geometry and firmware FRAMEBUFFER coverage.
+Primary-A control reports tiled mode, so the conservative linear-aperture
+predicate correctly remains unbound. GGTT/stolen backing, fence interpretation,
+real allocator pin/lifetime and firmware/domain ownership are still unknown.
+
+The version-9 packed resource/dependency fields, both new readouts and all
+original proofs survive directly in the matching 64 KiB final file. All 15
+power/idle/entry samples and 32 coordinated rounds pass their existing checks.
+The whole platform trial still fails the original RC6 predicate (about 0.1073%
+nominal excess); package C3 remains zero. USB integrity, recovery and durable
+hash verification pass; no reboot is armed. Next is a read-only tiled-aperture /
+GGTT backing audit, retaining every unknown assurance and original limit.
 
 ### Active read-only backing readout scope (2026-11-03)
 
@@ -6593,3 +6597,45 @@ Compatible aperture/geometry observations cannot turn those unknowns into grants
 Native comparison and the original RC6/package-C3 results must be collected
 separately before the next implementation; no broader desktop acceptance is
 inferred for this tree.
+
+
+### Native primary-A and inherited backing readout (2026-11-03)
+
+Source `728bcbeb`, release `9b485ca12b4c2482` (PR302), completed matching session
+`session-00065f667400f67f-00` and returned automatically to Ubuntu. The unchanged
+65,536-byte final exit file has SHA-256
+`791ef184dccd9e1a56251d6c14bb527d17f07832eea401f3f3b3e22e02056eb3`.
+Both new readouts, losslessly packed resource/dependency rows, HDA/dry-run
+records and every original CPU/AP/package proof parse from that file directly.
+No model, joined session or missing-field reconstruction supplies acceptance.
+
+Both backing endpoints have state 1, exactly nine reads and stable raw controls;
+PM brackets are 35/34 us. Primary-A control is `0x98004400` (tiled bit set),
+stride 5,632, legacy/Haswell offsets zero, programmed/live surface zero, and pipe
+size 1366×768. BAR2 is `0xa000000c`, high word zero, with stable PCI command 7.
+All well words and earlier display/HDA control observations remain stable.
+
+The single RGB32 inherited descriptor has pitch 5,632 and span 4,325,376 bytes.
+All 1,056 pages translate contiguously from CPU aperture address `0xa0000000`;
+the sole enclosing firmware entry is FRAMEBUFFER with that exact span, among
+44 entries. This accepts bounded readout and endpoint mapping continuity, not
+underlying GGTT/stolen RAM identity, fence interpretation or an actual pin.
+Tiled mode correctly produces `unbound-or-unsupported` rather than a false
+linear-backing grant. The software owner still refuses all seven unknowns
+(mask 127), retiring its empty software guard without hardware authority.
+
+All 15 retained power/idle/entry samples and ordered idle/load/recovery phases
+complete, averaging 4.007/5.173/4.013 W package power. All 32 coordinated core-C3
+rounds pass, maximum 9,984 us, with positive core residency, mandatory HLT
+fallback and terminal AP retirement. Package C3 remains valid zero. The whole
+platform trial remains failed: nominal RC6 is 90.147270400 s and exceeds its
+original snapshot-clock bound by 96.605120 ms after one tick (about 0.1073%).
+No power policy, ownership/integrity check, sample capacity or limit changed.
+
+All 586 prior files remain unchanged except expected workspace metadata; four
+new session logs yield 590 files / 1,655 allocated clusters. Read-only fsck and
+independent allocation checks pass with zero leaks, bitmap mismatches or errors.
+Installed/recovery payload hashes and durable evidence verify; Ubuntu remains
+default, the one-shot is consumed and the collector is disabled. No reboot is
+armed. The next scope is read-only tracing of the tiled aperture/GGTT backing;
+no HDA/well transition or real adoption is authorized by this result.
