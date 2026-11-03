@@ -2539,7 +2539,7 @@ requested behavior and acceptance are complete; no further implementation
 is required. No native boot/install or hosted Actions change.
 
 
-### Terminal quoting recovery — active November 3, 2026
+### Terminal quoting recovery — completed November 3, 2026
 
 User authorized reproducing/fixing quoted backslash handling and acceptance in
 the independent `SrvrOS-app-quality` checkout, branch
@@ -2569,4 +2569,21 @@ The focused host suite passes 56 checks with ASan/UBSan. PR252's unchanged
 `badfeb37` shell/CLI patch applies cleanly to the corrected source in ignored
 fixture storage; 63 combined checks include its arithmetic limits, overflow and
 short-circuit behavior. This does not resolve or accept its wider kernel/I/O
-conflicts. Final clean-build CLI and two-boot Terminal acceptance are next.
+conflicts. The shell/CLI patches also apply cleanly in the reverse order.
+
+Clean runtime `d2fdc17d` passes all 482 CLI commands, the shell editing/history
+regression, and 35 exact-byte quoting/boundary cases in the actual Terminal.
+Keyboard-typed quoting, inline awk and existing program-file regressions,
+process retirement, guest fsck, offline allocation checks and second-boot
+persistence pass. Documentation links, Python compilation and three CLI-harness
+checks pass. Independent `fsck.exfat` is unavailable on this host and is explicitly
+skipped. Existing nested parameter/quote grammar limits remain; this milestone
+does not claim general POSIX shell conformance.
+
+[PR299](https://github.com/PaulMDemers/SrvrOS/pull/299) contains the reviewable
+change. The final documentation head builds identical kernel, initramfs and disk
+artifacts to the tested clean runtime. Source identities, recursive pins, hashes,
+negative controls and check results are in local
+`build/review/terminal-quoting/receipt.json`; Terminal evidence is in
+`build/review/awk/20261103-163846-r5l071hz/`. All task VMs are stopped. The shared
+checkout and review VM remain untouched; no main merge was performed.
