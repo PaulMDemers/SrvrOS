@@ -78,7 +78,15 @@ Linux/Windows, full IME preedit, shaping/grapheme layout, native accessibility a
 notarized distribution remain outside this milestone. The macOS showcase milestone
 is complete and accepted. Published implementation revisions remain SrvrUI
 `d65c93f` and SrvrOS `7fa07c9a`; this closeout changes documentation only.
-[SrvrUI PR2](https://github.com/PaulMDemers/SrvrUI/pull/2) and
-[SrvrOS PR289](https://github.com/PaulMDemers/SrvrOS/pull/289) are ready for
-integration review, with the child dependency landing first. No additional
-implementation or acceptance work is required for this milestone.
+[SrvrUI PR2](https://github.com/PaulMDemers/SrvrUI/pull/2) merged as
+`76deeb30c583a98cf47ffd9bdada34c15b37890c`; its tree exactly matches the accepted
+`d65c93f` implementation. The OS pin now names that merged revision. Rebuilding
+that merged child passes all 12 CTests and the native Cocoa showcase smoke.
+
+[SrvrOS PR289](https://github.com/PaulMDemers/SrvrOS/pull/289) integrates main
+`105077d70fe35c8f85fd7954c0f8118a98c2710b`, preserving the newer Air6,1 read-only
+HDA diagnostics. The combined tree passes the full image build, 110 desktop/I/O
+PASS records, theme preview, 789-link docs check, package/platform audit and CPU
+receipt tests. Merge verification logs live in `build/review/ui-host/merge/`.
+The shared checkout and its review VM remain untouched. No additional feature
+work is required for this milestone.
