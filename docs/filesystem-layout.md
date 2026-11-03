@@ -51,6 +51,29 @@ preserved. This covers disposable GPT/AHCI mounted-volume reference lifetime,
 not physical hot unplug, automatic USB workspace admission, failed-flush injection
 or power-loss qualification. No further implementation is required for this target.
 
+### PR319 merge review and next bounded milestone
+
+The user authorized review and merge if ready. Actual main remains `c7be6574`.
+The five-file diff changes only sysabi test modes, optional harness behavior and
+this document. Rechecked the archived receipt SHA256, exact source and all six
+READY/refusal/RELEASED cycles, 12 alias/persistence checks and nine complete disk
+hash comparisons. No review correction or unresolved thread was present.
+Six provenance tests, 871 local documentation links and whitespace checks pass.
+A clean build of the review head reproduces all three image hashes from tested
+`9ba7e944`; changes since that run are documentation only. The passing VM proof
+therefore remains applicable without another run. Existing review VMs remain live.
+
+Next proposed filesystem milestone: **failed-writeback workspace retirement
+contract and fault proof**. Use the actual process/exFAT/VFS path with a disposable
+`/work` backend and deterministic write/flush failures. Establish the expected
+sync/close error, retained or quarantined state and safe mount-retirement behavior;
+verify that failures cannot be reported as clean persistence and leave the
+selected system volume and `/home`/`/usr`/`/fat` aliases intact. Reuse existing
+fault adapters and coordinate process cleanup with its audit owner. Begin with
+an explicit failure-state contract and focused reproducer; change production
+code only for demonstrated gaps. No automatic repair/retry, physical media or
+new backend is implied. This is the next proposal, not work begun by this review.
+
 ## Installed-root canonical paths — verified
 
 November 3, 2026: canonical paths work end to end on an identity-selected
