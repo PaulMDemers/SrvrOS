@@ -36,6 +36,19 @@ static void dynamic_damage(void) {
         desk_damage_add(&damage,paint_bounds(s.windows[1].frame));
         draw_damage(&partial,&s,&damage);desktop_draw(&fresh,&s);
         assert(!memcmp(full,tiles,sizeof(full)));
+        /* Redraw an unchanged translucent preview over changing content, then
+         * switch and remove it. Each partial frame must equal a fresh frame. */
+        s.snap_preview=DESKTOP_TILE_LEFT;s.snap_frame=(struct desk_rect){8,52,300,348};
+        desk_damage_init(&damage,W,H);desk_damage_add(&damage,s.snap_frame);
+        draw_damage(&partial,&s,&damage);desktop_draw(&fresh,&s);assert(!memcmp(full,tiles,sizeof(full)));
+        for(unsigned i=0;i<310*260;i++)front[i]=(i*71u+33u)&0xffffff;
+        desk_damage_init(&damage,W,H);desk_damage_add(&damage,paint_bounds(s.windows[0].frame));
+        draw_damage(&partial,&s,&damage);desktop_draw(&fresh,&s);assert(!memcmp(full,tiles,sizeof(full)));
+        desk_damage_init(&damage,W,H);desk_damage_add(&damage,s.snap_frame);
+        s.snap_preview=DESKTOP_TILE_RIGHT;s.snap_frame=(struct desk_rect){332,52,300,348};desk_damage_add(&damage,s.snap_frame);
+        draw_damage(&partial,&s,&damage);desktop_draw(&fresh,&s);assert(!memcmp(full,tiles,sizeof(full)));
+        desk_damage_init(&damage,W,H);desk_damage_add(&damage,s.snap_frame);s.snap_preview=0;
+        draw_damage(&partial,&s,&damage);desktop_draw(&fresh,&s);assert(!memcmp(full,tiles,sizeof(full)));
         /* A stationary pointer changing shape must repaint both old and new pixels. */
         const int shapes[]={1,2,4,8,5,6,9,10,0};
         for(unsigned k=0;k<sizeof(shapes)/sizeof(shapes[0]);k++) {
@@ -119,7 +132,16 @@ int main(void) {
     assert(!desktop_window_placement(20000,800,original,DESKTOP_CENTER,&center));
     assert(!desktop_window_placement(800,400,original,DESKTOP_TILE_LEFT,&center));
     assert(!desktop_window_placement(800,600,original,0,&center));
+    assert(desktop_snap_trigger(1280,800,0,52)==DESKTOP_MAXIMIZE_PLACEMENT);
+    assert(desktop_snap_trigger(1280,800,7,53)==DESKTOP_TILE_LEFT);
+    assert(desktop_snap_trigger(1280,800,1272,53)==DESKTOP_TILE_RIGHT);
+    assert(!desktop_snap_trigger(1280,800,8,53));
+    assert(!desktop_snap_trigger(1280,800,0,720));
+    assert(desktop_window_placement(1280,800,original,DESKTOP_MAXIMIZE_PLACEMENT,&center));
+    assert(center.x==8 && center.y==52 && center.w==1264 && center.h==668);
     struct desk_rect moved;
+    assert(desktop_drag_restore(1280,800,center,original,632,20,640,200,&moved));
+    assert(moved.x==279 && moved.y==180 && moved.w==722 && moved.h==525);
     assert(desktop_window_drag(1280,800,original,-400,700,&moved));
     assert(moved.x==-400 && moved.y==688 && moved.w==original.w && moved.h==original.h);
     for(int x=-4000;x<=4000;x+=137)for(int y=-4000;y<=4000;y+=271) {

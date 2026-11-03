@@ -25,6 +25,8 @@ struct desktop_scene {
     struct desktop_notice_view notifications;
     struct desk_palette launcher;
     int launcher_open;
+    unsigned snap_preview;
+    struct desk_rect snap_frame;
     struct desk_calendar calendar;
     struct desk_ui calendar_ui;
     struct desk_button calendar_today,calendar_close;
@@ -46,11 +48,13 @@ int desktop_window_resize(int screen_width,int screen_height,struct desk_rect or
 enum desktop_window_control { DESKTOP_CLOSE=1,DESKTOP_MAXIMIZE,DESKTOP_MINIMIZE };
 struct desk_rect desktop_window_control_rect(struct desk_rect frame,unsigned control);
 unsigned desktop_titlebar_hit(struct desk_rect frame,int standard,int x,int y);
-enum desktop_placement { DESKTOP_TILE_LEFT=1,DESKTOP_TILE_RIGHT,DESKTOP_CENTER };
+enum desktop_placement { DESKTOP_TILE_LEFT=1,DESKTOP_TILE_RIGHT,DESKTOP_CENTER,DESKTOP_MAXIMIZE_PLACEMENT };
 /* Pure geometry: keep decorated windows below the menu and above the dock,
  * honor client surface bounds, and leave output unchanged if there is no room. */
 int desktop_window_placement(int screen_width,int screen_height,struct desk_rect original,
     unsigned placement,struct desk_rect *result);
+unsigned desktop_snap_trigger(int width,int height,int x,int y);
+int desktop_drag_restore(int width,int height,struct desk_rect placed,struct desk_rect restore,int grabx,int graby,int x,int y,struct desk_rect *result);
 /* Movement may put content outside the output. Keep a useful titlebar segment
  * below the menu and above the dock; do not resize or allocate a surface. */
 int desktop_window_drag(int width,int height,struct desk_rect original,

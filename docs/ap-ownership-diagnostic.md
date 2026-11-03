@@ -1139,3 +1139,59 @@ those unknowns. Ordinary startup, all control writes and existing limits remain
 unchanged. The compact raw-data-bound refusal record is mandatory in version-8
 coverage, alongside all prior records and the original strict RC6 predicate.
 Host/VM validation and its matching physical evidence remain separate gates.
+
+
+## Version 9 primary-A and inherited-framebuffer readout
+
+The Air6,1-only platform diagnostic adds two `ap-platform-backing: v=1` endpoint
+records. Each is a canonical 272-character base64 encoding of 203 little-endian
+bytes, schema `<BBQQ4I2H8I9I7QH7BHHB3Q3B`. Fields are state/read count, PM start/end,
+BAR2 low/high before/after, PCI command before/after, four well words before/after,
+nine fixed raw controls, seven framebuffer values, bpp, seven color fields,
+memory-map entry/page counts, classification, enclosing firmware range and three
+bytes for contiguous mapping/GGTT proof/hardware authority. The latter two bytes
+are always zero. No control writes, GGTT PTE reads or framebuffer data reads occur.
+
+The fixed offsets are primary-A control `0x70180`, stride `0x70188`, legacy
+linear offset `0x70184`, surface `0x7019c`, Haswell offset `0x701a4`, pipe-A size
+`0x6001c`, live surface `0x701ac`, then control/surface rechecks. They use already
+read-only/NX mapped resource pages. Exact existing model/D0/decode/well gates
+apply, with the captured 64-bit prefetchable 256 MiB-aligned BAR2 shape; no BAR
+sizing writes. PCI command/BAR and well state must survive both sides of each
+capture. Unsupported ULT domains are not probed.
+
+The framebuffer values are count, inherited virtual/physical start, width,
+height, pitch and span. Only a single bounded RGB32 descriptor is walked in the
+kernel address space: at most 4,096 pages / 16 MiB and 4,096 firmware entries.
+Every page must translate contiguously with identical page offsets. An enclosing
+firmware range is classified only if it is the sole overlap; otherwise all range
+fields and classification are unknown. A FRAMEBUFFER or RESERVED firmware label
+is not a PMM pin or proof of underlying stolen/RAM ownership. Mapping observation
+at two endpoints is not an intervening lifetime guarantee.
+
+The host independently compares all raw endpoints, resource control identity,
+geometry, stride, active/live surface and physical aperture-relative address.
+Haswell DSPOFFSET, rather than pre-Haswell DSPLINOFF, controls interpretation;
+nonzero offsets, tiled/rotated/stereo/line-double or unknown formats remain
+unbound. Even a compatible simple linear-aperture relation leaves GGTT PTE
+translation, stolen backing, firmware exclusion, real lifetime adoption and all
+seven software-owner assurance bits unknown. Milestone B is not complete from
+these observations alone. Source references are the pinned
+[Linux initial-plane readout](https://github.com/torvalds/linux/blob/028ef9c96e96197026887c0f092424679298aae8/drivers/gpu/drm/i915/display/i9xx_plane.c)
+and [register definitions](https://github.com/torvalds/linux/blob/028ef9c96e96197026887c0f092424679298aae8/drivers/gpu/drm/i915/display/i9xx_plane_regs.h).
+
+Version 9 requires both complete raw records alongside all version-8 proofs,
+without relaxing RC6 acceptance or any existing round/retention/ownership bound.
+These reads run outside the original RC6 brackets, masked C3 rounds and sparse
+power hook; no ordinary boot path gains this optional capture.
+
+To fit every proof in the unchanged 64 KiB tail, version 9 losslessly packs the
+existing resource and dependency records too. `ap-platform-resources: v=2` stores
+154 bytes (`<BBQQ8I26I`): state/read count, begin/end, before/after wells and all
+26 raw controls. `ap-platform-deps: v=2` stores 90 bytes (`<BBQQ2I8I8I`), adding
+before/after PCH identity before the wells and all eight raw controls. Each carries
+its phase and canonical base64 data. No raw field or failure state is dropped.
+The strict decoder expands only those exact bytes into the existing field
+validator; missing/duplicate/mixed legacy rows, noncanonical data and wrong sizes
+refuse. Versions 1–8 keep their previous formats. Native evidence is always the
+matching saved file; expansion is format decoding, never filling in missing data.

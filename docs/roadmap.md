@@ -6,6 +6,22 @@ and [machine records](machines/README.md) separate implementation from physical
 acceptance. The [device parity ledger](device-parity.md) compares the Air with
 ongoing Pro work.
 
+## Current window snapping — November 3, 2026
+
+User authorized left/right titlebar snapping, top-edge maximize, themed placement
+previews and drag-to-restore, followed by verification and merge. Base `da0db066`
+includes all previously merged desktop, app, port and resizing milestones.
+Reuse the existing workarea, placement and resize transaction contracts; preserve
+keyboard arrangement, client content and theme updates. Required checks cover
+preview-only movement, exact release placement, cancellation/modal interruption,
+restore geometry, failure recovery and both output scales. All required host,
+1×/2× snapping and resize, live-theme and offscreen/dock regressions pass.
+The combined build with main `fa8e503f` has identical kernel/initramfs/disk
+hashes to the accepted runtime. [Evidence](assets/screenshots/window-snap-manifest.json)
+records sources, captures and limits; [PR297](https://github.com/PaulMDemers/SrvrOS/pull/297)
+records delivery. The updated review desktop is open with Text snapped left.
+No additional feature work is required for this milestone.
+
 ## Current resize interaction — November 3, 2026
 
 The repository/theme/VirtIO milestones are complete. The user authorized the

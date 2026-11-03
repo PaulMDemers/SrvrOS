@@ -1499,7 +1499,7 @@ static void incoming(struct session *s,uint64_t pid,struct desk_packet *p) {
             struct desk_rect origin=c->resize_origin,restore=c->resize_restore;int maximized=c->resize_maximized;
             damage_window(s,i);
             if(configure(s,i,w->width,w->height)) {
-                w->frame=origin;w->restore=restore;w->maximized=maximized;damage_window(s,i);memory_notice(s);
+                w->frame=origin;w->restore=restore;w->maximized=maximized;damage_window(s,i);global_menu_rebuild(s);memory_notice(s);
                 desk_log("deskd: resize restored pid=%llu generation=%llu\n",(unsigned long long)pid,(unsigned long long)c->generation);
             }
         }
@@ -1706,7 +1706,7 @@ static void service(struct session *s) {
                         damage_window(s,i);w->frame=c->sent_frame;w->restore=c->sent_restore;w->maximized=c->sent_maximized;
                         c->generation=c->sent_generation;c->configure=0;
                         c->awaiting=!w->pixels || w->width!=w->frame.w-2 || w->height!=w->frame.h-45;
-                        damage_window(s,i);
+                        damage_window(s,i);global_menu_rebuild(s);
                     }
                 }continue;
             }
@@ -1860,6 +1860,28 @@ static int resize_capture_valid(const struct session *s,int i,uint64_t identity,
         modal_child(s,i)<0 && !s->scene.launcher_open && !s->scene.calendar_open && !s->scene.notifications.opened &&
         !desk_popup_active(&s->scene.context) && s->scene.menu.open<0 &&
         w->frame.x==expected.x && w->frame.y==expected.y && w->frame.w==expected.w && w->frame.h==expected.h;
+}
+static int drag_capture_valid(const struct session *s,int i,uint64_t identity,struct desk_rect expected) {
+    if(!window_lifetime_valid(s,i,identity))return 0;
+    const struct desktop_window *w=desktop_window_at(&s->scene,i);
+    return !session_client(s,i)->closing && s->scene.focus==i && w->visible && !w->minimized &&
+        modal_child(s,i)<0 && !s->scene.launcher_open && !s->scene.calendar_open && !s->scene.notifications.opened &&
+        !desk_popup_active(&s->scene.context) && s->scene.menu.open<0 &&
+        !memcmp(&w->frame,&expected,sizeof(expected));
+}
+static void snap_preview(struct session *s,unsigned mode,struct desk_rect frame) {
+    if(s->scene.snap_preview==mode && (!mode || !memcmp(&s->scene.snap_frame,&frame,sizeof(frame))))return;
+    if(s->scene.snap_preview)desk_damage_add(&s->damage,s->scene.snap_frame);
+    s->scene.snap_preview=mode;s->scene.snap_frame=mode?frame:(struct desk_rect){0};
+    if(mode)desk_damage_add(&s->damage,frame);
+    if(s->trace)desk_log("deskd: snap-preview mode=%u frame=%d,%d,%d,%d\n",mode,s->scene.snap_frame.x,s->scene.snap_frame.y,s->scene.snap_frame.w,s->scene.snap_frame.h);
+}
+static int snap_apply(struct session *s,int i,unsigned mode,struct desk_rect target,struct desk_rect restore) {
+    struct desktop_window *w=desktop_window_at(&s->scene,i);
+    if(!resize_apply(s,i,target))return 0;
+    w->restore=restore;w->maximized=1;global_menu_rebuild(s);
+    if(s->trace)desk_log("deskd: snapped identity=%llu mode=%u frame=%d,%d,%d,%d\n",(unsigned long long)session_client(s,i)->identity,mode,target.x,target.y,target.w,target.h);
+    return 1;
 }
 static void cursor_shape(struct session *s,unsigned shape) {
     if(s->scene.cursor_shape==(int)shape)return;
@@ -2149,7 +2171,7 @@ int main(int argc,char **argv) {
     uint64_t start=srv_ticks(),frames=0,bytes=0;
     uint64_t drag_identity=0,resize_identity=0;
     int quit=0,failed=0,drag=-1,resize=-1,grabx=0,graby=0,pending_key=0,io_leaving=0;
-    unsigned resize_edges=0;struct desk_rect resize_start={0},resize_last={0};int resize_x=0,resize_y=0;
+    unsigned resize_edges=0;struct desk_rect resize_start={0},resize_last={0},drag_last={0},drag_restore={0};int resize_x=0,resize_y=0,drag_x=0,drag_y=0,drag_placed=0,drag_moved=0;
     int fenced_present=0;
     if(info.flags&GFX_FLAG_FENCED_PRESENT) {
         if(gfx_present_begin()!=0) { ui_puts("deskd: gfx-present begin failed\n");quit=failed=1; }
@@ -2475,9 +2497,9 @@ int main(int argc,char **argv) {
                 }
                 continue;
             }
-            if(resize>=0 && ((key.flags&SRV_KEY_CANCEL) ||
+            if((resize>=0 || drag>=0) && ((key.flags&SRV_KEY_CANCEL) ||
                 ((key.flags&SRV_KEY_DOWN_EVENT) && key.usage==SRV_KEY_ESCAPE))) {
-                resize=-1;s.pointer_blocked=(buttons&MOUSE_LEFT)!=0;continue;
+                drag=resize=-1;snap_preview(&s,0,(struct desk_rect){0});s.pointer_blocked=(buttons&MOUSE_LEFT)!=0;continue;
             }
             if(navigation_key(&s,&key)) {drag=resize=-1;continue;}
             if((key.flags&SRV_KEY_DOWN_EVENT) && !(key.flags&SRV_KEY_REPEAT) &&
@@ -2555,6 +2577,7 @@ int main(int argc,char **argv) {
         if(hardware_trial) desktop_timing_poll(&timing,poll_time);
         struct mouse_event e;
         for (int n=0;n<32 && mouse_scan(&e)>0;n++) {
+            if(drag<0 && s.scene.snap_preview)snap_preview(&s,0,(struct desk_rect){0});
             int previous_x=s.scene.cursor_x, previous_y=s.scene.cursor_y;
             int x=(int)mouse_position_axis(previous_x,e.dx,e.flags,canvas.width);
             int y=(int)mouse_position_axis(previous_y,e.dy,e.flags,canvas.height);
@@ -2664,19 +2687,34 @@ int main(int argc,char **argv) {
                     else if (control==DESKTOP_MINIMIZE) { minimize(&s,i);s.pointer_blocked=1; }
                     else if (edge) { resize=i;resize_identity=session_client(&s,i)->identity;
                         resize_edges=edge;resize_start=resize_last=w;resize_x=x;resize_y=y; }
-                    else if (!desktop_window_at(&s.scene,i)->maximized && y<w.y+43) { drag=i;drag_identity=session_client(&s,i)->identity; grabx=x-w.x; graby=y-w.y; }
+                    else if (y<w.y+43 && !session_client(&s,i)->awaiting) { snap_preview(&s,0,(struct desk_rect){0});drag=i;drag_identity=session_client(&s,i)->identity; grabx=x-w.x; graby=y-w.y;
+                        drag_x=x;drag_y=y;drag_last=w;drag_placed=desktop_window_at(&s.scene,i)->maximized;drag_moved=0;
+                        drag_restore=drag_placed?desktop_window_at(&s.scene,i)->restore:w; }
                 }
             }
-            if(drag>=0 && !window_lifetime_valid(&s,drag,drag_identity)) { drag=-1;s.pointer_blocked=1; }
+            if(drag>=0 && !drag_capture_valid(&s,drag,drag_identity,drag_last)) { drag=-1;snap_preview(&s,0,(struct desk_rect){0});s.pointer_blocked=1; }
             if(resize>=0 && !resize_capture_valid(&s,resize,resize_identity,resize_last)) { resize=-1;s.pointer_blocked=1; }
             if (drag>=0 && session_client(&s,drag)->pid) {
-                struct desktop_window *w=desktop_window_at(&s.scene,drag); damage_window(&s,drag);
-                if(s.scene.apps)desktop_window_drag(canvas.width,canvas.height,w->frame,(int64_t)x-grabx,(int64_t)y-graby,&w->frame);
-                else {
-                    w->frame.x=clamp(x-grabx,0,canvas.width-w->frame.w-6);
-                    w->frame.y=clamp(y-graby,44,canvas.height-w->frame.h-36);
+                struct desktop_window *w=desktop_window_at(&s.scene,drag);
+                if(!drag_moved && ((int64_t)x-drag_x>4 || (int64_t)drag_x-x>4 || (int64_t)y-drag_y>4 || (int64_t)drag_y-y>4))drag_moved=1;
+                if(drag_placed && drag_moved) {
+                    struct desk_rect target;
+                    if(desktop_drag_restore(canvas.width,canvas.height,drag_last,drag_restore,grabx,graby,x,y,&target) && resize_apply(&s,drag,target)) {
+                        w->maximized=0;global_menu_rebuild(&s);grabx=x-target.x;graby=y-target.y;drag_placed=0;drag_last=target;
+                        if(s.trace)desk_log("deskd: drag-restored identity=%llu frame=%d,%d,%d,%d\n",(unsigned long long)drag_identity,target.x,target.y,target.w,target.h);
+                    } else {drag=-1;s.pointer_blocked=1;}
                 }
-                damage_window(&s,drag);
+                if(drag>=0 && !drag_placed && drag_moved) {
+                    damage_window(&s,drag);
+                    if(s.scene.apps)desktop_window_drag(canvas.width,canvas.height,w->frame,(int64_t)x-grabx,(int64_t)y-graby,&w->frame);
+                    else {w->frame.x=clamp(x-grabx,0,canvas.width-w->frame.w-6);w->frame.y=clamp(y-graby,44,canvas.height-w->frame.h-36);}
+                    damage_window(&s,drag);drag_last=w->frame;
+                }
+                if(drag>=0 && s.scene.apps && drag_moved && !w->dialog) {
+                    unsigned mode=desktop_snap_trigger(canvas.width,canvas.height,x,y);struct desk_rect target={0};
+                    if(mode && !desktop_window_placement(canvas.width,canvas.height,drag_restore,mode,&target))mode=0;
+                    snap_preview(&s,mode,target);
+                }
             }
             if (resize>=0 && session_client(&s,resize)->pid) {
                 struct desk_rect target;
@@ -2687,6 +2725,8 @@ int main(int argc,char **argv) {
                 }
             }
             if (!(e.buttons&MOUSE_LEFT)) {
+                if(drag>=0 && drag_moved && s.scene.snap_preview) snap_apply(&s,drag,s.scene.snap_preview,s.scene.snap_frame,drag_restore);
+                snap_preview(&s,0,(struct desk_rect){0});
                 if(drag>=0 && s.trace && window_lifetime_valid(&s,drag,drag_identity)) {
                     struct desk_rect r=desktop_window_at(&s.scene,drag)->frame;
                     desk_log("deskd: moved identity=%llu frame=%d,%d,%d,%d\n",(unsigned long long)drag_identity,r.x,r.y,r.w,r.h);
@@ -2709,6 +2749,8 @@ int main(int argc,char **argv) {
             if(resize>=0 && !resize_capture_valid(&s,resize,resize_identity,resize_last)) {
                 resize=-1;s.pointer_blocked=(buttons&MOUSE_LEFT)!=0;
             }
+            if(drag>=0 && !drag_capture_valid(&s,drag,drag_identity,drag_last)) {drag=-1;s.pointer_blocked=(buttons&MOUSE_LEFT)!=0;}
+            if(drag<0) snap_preview(&s,0,(struct desk_rect){0});
             unsigned shape=0;
             if(resize>=0 && window_lifetime_valid(&s,resize,resize_identity))shape=resize_edges;
             else if(drag<0 && !s.pointer_pid && !s.pointer_blocked && !s.context_down &&

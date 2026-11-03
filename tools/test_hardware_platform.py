@@ -153,7 +153,7 @@ class PlatformTests(unittest.TestCase):
         self.assertIsNotNone(platform_result(s))
         bad=s.replace('rc6=100,1000','rc6=100,72000000')
         self.assertEqual(platform_dependencies_result(bad)['status'],'OBSERVED');self.assertIsNone(platform_result(bad))
-        self.assertIsNone(platform_resources_result(s.replace('ap-platform: v=6','ap-platform: v=9')))
+        self.assertIsNone(platform_resources_result(s.replace('ap-platform: v=6','ap-platform: v=10')))
     def test_dependency_refusal(self):
         s=self.dependency_fixture()
         for old,new in [('phase=1 state=1 pm_us=92000009','phase=0 state=1 pm_us=92000009'),('pm_us=9,10','pm_us=8,7'),('pm_us=9,10','pm_us=6,10'),('pm_us=9,10','pm_us=9,92000009'),('reads=8 count=8','reads=7 count=8'),('raw=341,0,0,0','raw=4294967295,0,0,0'),('raw=341,0,0,0','raw=341,0,0,0,0'),('raw=341,0,0,0','raw=341,0,0,4294967296'),('after=3221225472','after=1073741824'),('state=1 pm_us=9','state=3 pm_us=9'),('ap-platform: v=6','ap-platform: v=5'),(f'pch={0x9c438086},{0x9c438086}',f'pch={0x9c438086},0')]:

@@ -2483,3 +2483,117 @@ disposable VM stopped. The shared checkout and attended review VM were untouched
 no hosted Actions or new native acceptance. Remaining changes in this closeout
 are documentation only. The requested integration is delivered and verified;
 no further implementation is required for this target.
+
+
+### Window snapping — active scope November 3, 2026
+
+User authorized Windows 7-style snapping, placement previews, verification and
+merge. Branch `device/apple-silicon/window-snap` starts at fetched main
+`da0db066`, retaining merged Files recovery/Open With, SrvrUI host extraction,
+awk and edge resizing. This scope owns compositor titlebar drag placement and
+preview rendering, transaction/capture tests and matched QEMU acceptance.
+PR296 retains Air6,1 adoption diagnostics, PR252 lifetime work, and PR19 Wi-Fi.
+No submodule, kernel, physical driver or hosted Actions change is planned.
+
+Interaction: drag a titlebar toward a side for half-workarea placement or toward
+the top for maximize; show the exact themed target before release. Move away or
+cancel to remove the preview. A small drag threshold on an already placed window
+restores its prior dimensions under the pointer, while a stationary click keeps
+it placed. Preserve original restore geometry across side changes and existing
+keyboard Arrange commands. Modal/focus/lifetime changes invalidate capture before
+queued input can move a blocked window. Failed placement retains usable content
+and geometry through the existing configure/refusal transaction.
+
+Acceptance: geometry and capture/failure host fixtures, exact preview partial/full
+redraw equality for all themes, complete desktop suites and matched build; actual
+Text/VirtIO tablet preview/snap/restore/cancel/modal/content checks at 1x and 2x,
+plus affected resize/theme regressions. The current review VM and persistent disk
+are preserved; automated test VMs remain disposable and sequential. QMP evidence
+is guest behavior, not new native or physical scanout acceptance.
+
+Implementation `8d9e47fc` passes the complete desktop/I/O host suites, matched
+build, snapping and resize VMs at 1280×800/1× and 1920×1080/2×. Preview-only
+movement, exact release placement, direct side changes, stationary clicks,
+drag restoration, Escape/modal cancellation, selection/save readback and GPU
+presenter reset pass. Accepted preview/placement captures and hashes are in
+[the evidence receipt](../assets/screenshots/window-snap-manifest.json).
+
+Combined source `db713e6b` consumes merged PR296/main `fa8e503f`. Its clean
+build produces byte-identical kernel, initramfs and disk artifacts to the
+accepted snap runtime; display-owner, package/platform and CPU receipt tests
+pass. Live theme/persistence and offscreen/dock recovery VMs also pass on this
+combined image. The old free-drag fixture now releases at x=12, outside the
+eight-pixel snap zone. Its macOS fallback uses a generated disposable image
+with generator/allocation checks; independent exfatprogs fsck is unavailable.
+The final fsck-only branch refinement does not change that exercised host path.
+
+A new attended review VM starts in 4.37 seconds and completes preview/release
+to frame 8,52,708,768 with a matching 706×723 Text client commit. It remains
+open under `.local/macos-vm/window-snap-review/current.json`; the previous
+edge-resize review VM and disk are preserved. Logs are in
+`build/review/window-snap/`, `desktop-snap/`, `desktop-resize/`,
+`desktop-theme-profiles/` and `desktop-window-dock/`.
+
+[PR297](https://github.com/PaulMDemers/SrvrOS/pull/297) records delivery. The
+requested behavior and acceptance are complete; no further implementation
+is required. No native boot/install or hosted Actions change.
+
+
+### Terminal quoting recovery — completed November 3, 2026
+
+User authorized reproducing/fixing quoted backslash handling and acceptance in
+the independent `SrvrOS-app-quality` checkout, branch
+`device/apple-silicon/terminal-quoting`, from fetched main `585ad8e5`. The shared
+checkout and review VM remain untouched. Scope: `userspace/sh/sh.c` quote-aware
+scanning/argument decoding, focused host/guest fixtures and shell documentation.
+PR252 `badfeb37` changes arithmetic overflow and short-circuit evaluation in the
+same shell file; it does not alter quoted-backslash handling. Preserve that
+separate implementation and verify patch compatibility rather than merging its
+broader kernel/I/O work. No cross-task messaging or native acceptance is included.
+
+Acceptance: record failing exact-byte controls before edits; preserve single-
+quoted backslashes and double-quoted ordinary backslashes while respecting
+escaped quote/dollar/backslash behavior. Exercise inline awk/printf, empty and
+spaced arguments, pipelines, redirection and script-file compatibility; run
+focused host/sanitizer, matched build, CLI and Terminal/awk guest checks. Keep
+existing limits; no general shell-language redesign or main merge is implied.
+The original shell fails 27 of 40 focused checks; exact guest bytes confirm
+`'left\nright'` becomes `leftnright`. Quote-aware scanners and argument/path
+decoding now share one escape rule. Expansion values retain literal quote and
+backslash bytes through the later decoder; parameter defaults preserve quoted
+word boundaries and store raw assignment values. Expanded commands refuse
+capacity overflow instead of silently losing closing syntax. The CLI sed case
+now sends one backslash per backreference rather than compensating for the bug.
+
+The focused host suite passes 56 checks with ASan/UBSan. PR252's unchanged
+`badfeb37` shell/CLI patch applies cleanly to the corrected source in ignored
+fixture storage; 63 combined checks include its arithmetic limits, overflow and
+short-circuit behavior. This does not resolve or accept its wider kernel/I/O
+conflicts. The shell/CLI patches also apply cleanly in the reverse order.
+
+Clean runtime `d2fdc17d` passes all 482 CLI commands, the shell editing/history
+regression, and 35 exact-byte quoting/boundary cases in the actual Terminal.
+Keyboard-typed quoting, inline awk and existing program-file regressions,
+process retirement, guest fsck, offline allocation checks and second-boot
+persistence pass. Documentation links, Python compilation and three CLI-harness
+checks pass. Independent `fsck.exfat` is unavailable on this host and is explicitly
+skipped. Existing nested parameter/quote grammar limits remain; this milestone
+does not claim general POSIX shell conformance.
+
+[PR299](https://github.com/PaulMDemers/SrvrOS/pull/299) contains the reviewable
+change. The final documentation head builds identical kernel, initramfs and disk
+artifacts to the tested clean runtime. Source identities, recursive pins, hashes,
+negative controls and check results are in local
+`build/review/terminal-quoting/receipt.json`; Terminal evidence is in
+`build/review/awk/20261103-163846-r5l071hz/`. All task VMs are stopped. The shared
+checkout and review VM remain untouched; no main merge was performed.
+
+### Terminal quoting integration — active November 3, 2026
+
+User authorized integrating PR299 and verifying merged main in the independent
+`SrvrOS-app-quality` checkout. Current main `0fd0c5fc` adds Air6,1 platform
+backing diagnostics and tooling; its Makefile additions combine cleanly with the
+quoting fixture. Merge main into the PR branch, preserve both test targets, then
+merge the reviewed PR and verify clean merged source with host checks, a matched
+build, Terminal persistence and the full CLI suite. Shared checkout and review VM
+remain untouched. Prior native-device and PR252 acceptance boundaries remain.

@@ -9,6 +9,8 @@ static uint32_t rc=50;
 static unsigned well_reads,map_calls,map_failure;
 static uint64_t occupied;
 static uint32_t well_value;
+static unsigned backing_mode,backing_reads,backing_bad,backing_change,backing_emit;
+static uint32_t backing_values[9]={0x98000000,5632,0,0x100000,0,(1365u<<16)|767,0x100000,0x98000000,0x100000};
 static unsigned resource_reads,resource_bad,well_drop_at,dep_reads,dep_bad;
 static unsigned dep_change_pch;
 static void dependency_after_read(void);
@@ -21,6 +23,12 @@ static uint32_t platform_test_well_read(unsigned off) {
     assert(off==0x400+4*(well_reads%4));well_reads++;return well_drop_at && well_reads>=well_drop_at?0:well_value;
 }
 static uint32_t platform_test_resource_read(unsigned off) {
+    if(backing_mode) {
+        static const unsigned expected[]={0x70180,0x70188,0x70184,0x7019c,0x701a4,0x6001c,0x701ac,0x70180,0x7019c};
+        assert(backing_reads<9 && off==expected[backing_reads]);unsigned i=backing_reads++;
+        if(backing_change==2 && i==8)backing_values[8]^=4096;
+        return backing_bad==i+1?0xffffffffu:backing_values[i];
+    }
     resource_reads++;assert(off>=0x41000 && off<=0x7f008);
     return resource_bad==resource_reads?0xffffffffu:off;
 }
@@ -47,6 +55,15 @@ static uint32_t platform_test_hda_read(unsigned off,unsigned width) {
 #define SRVROS_PLATFORM_HOST_TEST
 #include "../kernel/diagnostics/platform_audit.c"
 #include "../kernel/diagnostics/package_audit_core.c"
+volatile struct limine_framebuffer_request framebuffer_request;
+volatile struct limine_memmap_request memmap_request;
+static unsigned mapping_hole,mapping_disjoint,map_walks;
+uint64_t vmm_kernel_address_space(void) {return 0x1000;}
+bool vmm_virt_to_phys_in_space(uint64_t space,uint64_t va,uint64_t *pa) {
+    assert(space==0x1000);map_walks++;
+    if(mapping_hole && map_walks==mapping_hole)return false;
+    *pa=va-0xffff800000000000ull+(mapping_disjoint && map_walks==mapping_disjoint?4096:0);return true;
+}
 static uint32_t pci_config[64],pch_config[64],hda_config[64];
 static void hda_after_read(void) {
     if(hda_reads==10 && hda_change==2)hda_config[0]^=1;
@@ -76,6 +93,13 @@ uint64_t pci_device_count(void) {return 0;}
 const struct pci_device *pci_device_at(uint64_t i) {(void)i;return NULL;}
 static unsigned dependency_reports,hda_reports,dry_reports;
 void console_printf(const char *fmt,...) {
+    if(!strncmp(fmt,"ap-platform-backing:",20)) {
+        assert(!strcmp(fmt,"ap-platform-backing: v=1 phase=%u data=%s\n"));
+        va_list ap;va_start(ap,fmt);uint64_t phase=va_arg(ap,uint64_t);const char *data=va_arg(ap,const char *);
+        assert(phase<2 && strlen(data)==272 && data[271]=='=');
+        if(backing_emit)printf("ap-platform-backing: v=1 phase=%llu data=%s\n",(unsigned long long)phase,data);
+        va_end(ap);return;
+    }
     if(!strncmp(fmt,"ap-platform-dry:",16)) {
         assert(!strcmp(fmt,"ap-platform-dry: v=1 data=%s\n"));
         va_list ap;va_start(ap,fmt);const char *data=va_arg(ap,const char *);assert(strlen(data)==40 && data[38]=='=' && data[39]=='=');
@@ -117,16 +141,30 @@ void console_printf(const char *fmt,...) {
         }
         assert(at==179);va_end(ap);hda_reports++;return;
     }
-    if(strncmp(fmt,"ap-platform-deps:",17))return;
+    bool dep=!strncmp(fmt,"ap-platform-deps:",17),res=!strncmp(fmt,"ap-platform-resources:",22);
+    if(!dep && !res)return;
+    assert(!strcmp(fmt,dep?"ap-platform-deps: v=2 phase=%u data=%s\n":"ap-platform-resources: v=2 phase=%u data=%s\n"));
     va_list ap;va_start(ap,fmt);uint64_t phase=va_arg(ap,uint64_t);assert(phase<2);
-    const struct display_resource_snapshot *r=&dependencies[phase];
-    uint64_t expected[]={r->state,r->begin,r->end,r->read_count,dep_pch[phase][0],dep_pch[phase][1],
-        r->before[0],r->before[1],r->before[2],r->before[3],r->after[0],r->after[1],r->after[2],r->after[3],
-        r->raw[0],r->raw[1],r->raw[2],r->raw[3],r->raw[4],r->raw[5],r->raw[6],r->raw[7]};
-    unsigned fields=0;for(const char *p=fmt;*p;p++)if(p[0]=='%' && p[1]=='u')fields++;
-    assert(fields==23);
-    for(unsigned i=0;i<22;i++)assert(va_arg(ap,uint64_t)==expected[i]);
-    va_end(ap);dependency_reports++;
+    const char *data=va_arg(ap,const char *);unsigned len=dep?120:208;assert(strlen(data)==len);
+    const char *abc="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";uint8_t bytes[156];unsigned out=0;
+    for(unsigned i=0;i<len;i+=4) {
+        uint32_t v=0;for(unsigned k=0;k<4;k++){const char *p=strchr(abc,data[i+k]);assert(p || data[i+k]=='=');v=(v<<6)|(data[i+k]=='='?0:(unsigned)(p-abc));}
+        bytes[out++]=v>>16;bytes[out++]=v>>8;bytes[out++]=v;
+    }
+    const struct display_resource_snapshot *r=dep?&dependencies[phase]:&resources[phase];
+    uint64_t values[40]={r->state,r->read_count,r->begin,r->end};unsigned widths[40]={1,1,8,8},count=4;
+    if(dep)for(unsigned i=0;i<2;i++){values[count]=dep_pch[phase][i];widths[count++]=4;}
+    for(unsigned i=0;i<4;i++){values[count]=r->before[i];widths[count++]=4;}
+    for(unsigned i=0;i<4;i++){values[count]=r->after[i];widths[count++]=4;}
+    for(unsigned i=0;i<(dep?8u:26u);i++){values[count]=r->raw[i];widths[count++]=4;}
+    unsigned at=0;for(unsigned i=0;i<count;i++) {
+        uint64_t value=0;for(unsigned k=0;k<widths[i];k++)value|=(uint64_t)bytes[at++]<<(8*k);
+        assert(value==values[i]);
+    }
+    assert(at==(dep?90u:154u));if(res)assert(!bytes[154] && !bytes[155]);
+    if(backing_emit)printf(dep?"ap-platform-deps: v=2 phase=%llu data=%s\n":"ap-platform-resources: v=2 phase=%llu data=%s\n",(unsigned long long)phase,data);
+    va_end(ap);if(dep)dependency_reports++;
+
 }
 int main(void) {
     struct pci_device device={0};gpu=&device;
@@ -285,5 +323,59 @@ int main(void) {
     dry_snapshot(0);dry_snapshot(1);assert(dry_complete && !fault && dry_reasons==127 && dry_owner.guard==0);
     assert(hda_reads==saved_hda_reads && resource_reads==saved_resource_reads && dep_reads==saved_dep_reads && well_reads==saved_well_reads);
     dry_report();assert(dry_reports==2); /* First zero/invalid row also tested above. */
+    /* Actual backing adapter: no new maps, only the exact nine register reads.
+     * Positive wire output is also independently decoded by the Python suite. */
+    struct limine_framebuffer fb={.address=(void *)0xffff8000a0100000ull,.width=1366,.height=768,.pitch=5632,.bpp=32,
+        .memory_model=LIMINE_FRAMEBUFFER_RGB,.red_mask_size=8,.red_mask_shift=16,.green_mask_size=8,.green_mask_shift=8,.blue_mask_size=8};
+    struct limine_framebuffer *fbs[]={&fb};struct limine_framebuffer_response response={.framebuffer_count=1,.framebuffers=fbs};
+    struct limine_memmap_entry entry={.base=0xa0000000,.length=0x10000000,.type=LIMINE_MEMMAP_FRAMEBUFFER};
+    struct limine_memmap_entry *entries[]={&entry,&entry};struct limine_memmap_response memory={.entry_count=1,.entries=entries};
+    framebuffer_request.response=&response;memmap_request.response=&memory;
+    for(unsigned c=0;c<26;c++) {
+        backing_rows[0]=(struct backing_capture){0};backing_seen=0;fault=0;backing_reads=0;map_walks=0;
+        backing_mode=1;backing_bad=backing_change=mapping_hole=mapping_disjoint=0;
+        pci_config[6]=0xa000000c;pci_config[7]=0;pci_config[1]=0x00100002;
+        resource_mapped=true;mapped=true;well_value=0x40000000;well_drop_at=0;resources[0].state=1;resources[0].raw[8]=backing_values[0];
+        struct limine_framebuffer saved=fb;
+        if(c==1)pci_config[6]|=0x1000;
+        if(c==2)pci_config[7]=1;
+        if(c==3)pci_config[1]&=~2u;
+        if(c==4)response.framebuffer_count=2;
+        if(c==5)fb.pitch=1;
+        if(c==6)fb.height=4097;
+        if(c==7)fb.bpp=24;
+        if(c==8)fb.red_mask_shift=0;
+        if(c==9)fb.address=(void *)(UINT64_MAX-1024);
+        if(c==10)fb.pitch=65536;
+        if(c==11)mapping_hole=3;
+        if(c==12)mapping_disjoint=3;
+        if(c==13)memory.entry_count=4097;
+        if(c==14)entry.length=UINT64_MAX;
+        if(c==15)well_value=0;
+        if(c==16)backing_bad=4;
+        if(c==17)backing_change=2;
+        if(c==18)well_drop_at=well_reads+5;
+        if(c==19)resource_mapped=false;
+        if(c==20)memory.entry_count=2; /* Ambiguous classification remains unknown, never ownership. */
+        if(c==21)entry.type=LIMINE_MEMMAP_USABLE;
+        if(c==22)entry.type=LIMINE_MEMMAP_RESERVED;
+        if(c==23)entry.base=0xb0000000;
+        if(c==24){fb.address=(void *)0xfffffffffffff000ull;fb.width=1;fb.height=1;fb.pitch=4;} /* Last canonical page: increment must not wrap. */
+        if(c==25){fb.width=2048;fb.height=2048;fb.pitch=8192;} /* Exact 4096-page cap. */
+        unsigned maps=map_calls;backing_snapshot(0);assert(map_calls==maps && map_walks<=BACKING_PAGE_CAP+1);
+        if(c==0 || c>=20) {
+            assert(!fault && backing_rows[0].state==1 && backing_reads==9 && backing_rows[0].pages==(c==24?1u:c==25?4096u:1056u));
+            assert(backing_rows[0].classification==(c==0 || c==25?1:c==21?3:c==22?2:0));
+        } else assert(fault && backing_rows[0].state!=1);
+        if(c==1 || c==2 || c==3 || c==15 || c==19)assert(!backing_reads && !map_walks);
+        fb=saved;response.framebuffer_count=1;memory.entry_count=1;entry.base=0xa0000000;entry.length=0x10000000;entry.type=LIMINE_MEMMAP_FRAMEBUFFER;
+        backing_values[8]=backing_values[3];
+    }
+    backing_seen=0;backing_rows[0]=(struct backing_capture){0};backing_rows[1]=(struct backing_capture){0};
+    fault=0;backing_reads=0;map_walks=0;backing_bad=backing_change=mapping_hole=mapping_disjoint=0;resource_mapped=true;well_drop_at=0;
+    resources[1]=resources[0];backing_snapshot(0);backing_reads=0;backing_snapshot(1);
+    assert(!fault && backing_seen==3);backing_emit=1;backing_report();
+    for(unsigned i=0;i<2;i++){endpoint_report(i,false);endpoint_report(i,true);}
+    backing_snapshot(1);assert(fault);backing_emit=0;backing_mode=0;
     puts("platform-sample: PASS exact read-only mappings/refusals, endpoint well bounds/all-ones, sparse hook isolation, ordered reads and capacity");
 }

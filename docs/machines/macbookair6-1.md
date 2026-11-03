@@ -144,18 +144,51 @@ bound (about 0.0730% nominal excess), and package C3 remains zero. USB integrity
 Ubuntu recovery and durable payload/evidence verification pass. No boot is armed.
 
 The diagnostic-only adoption/eligibility model is now implemented and locally
-validated on source `fcd52df8`, release `814f7e939bc4adf9` (PR296), atop `c609207b`
-and matched submodules. It copies observations, enforces epoch/reference/in-flight
+validated on integrated source `fa8e503f`, release `9316558efb4b7007` (PR296
+plus concurrent desktop integration), with matched submodules. It copies observations, enforces epoch/reference/in-flight
 lifetimes and refuses unknown or changed prerequisites. The native adapter sets
 no assurance bits and has no writer API. Quiet hardware remains insufficient.
 
-Next: collect the matching automated native dry run, requiring version 8's raw-
-data-bound expected refusal (mask 127), Observed → Retired software lifetime,
-guard 1 → 0 and zero hardware authority, alongside every existing HDA/power/AP
-proof. Preserve the original RC6 predicate and package-C3 result independently.
-No real framebuffer adoption, HDA shutdown, well clear or policy change is
-implemented. The local run owns installed/recovery and ready/armed/returned state.
-PR288/278 apps, PR252 lifetimes and PR19 Wi-Fi remain separate.
+The matching native dry run completed with version-8 raw-data-bound refusal
+mask 127, epoch 1, Observed → Retired, software guard 1 → 0 and zero references,
+in-flight work, assurances, activity flags or hardware authority. All required
+proofs survive directly in the matching final log. This accepts the diagnostic
+software lifetime/refusal only; no real framebuffer adoption, HDA shutdown or
+well clear is implemented. Next is milestone B's readout/backing-lifetime
+completeness, retaining unsupported-domain and firmware unknowns.
+
+The overall platform trial remains failed on the unchanged RC6 timing predicate
+(about 0.0872% nominal excess); package C3 remains zero. USB integrity, recovery
+and durable evidence verification pass. No reboot is armed. PR288/278 apps,
+PR252 lifetimes and PR19 Wi-Fi remain separate.
+
+The first milestone-B readout is staged as release `9b485ca12b4c2482`, compiled
+from `728bcbeb` (PR302). It adds fixed primary-A geometry/surface/live-surface
+observations and bounded inherited framebuffer mapping/classification endpoints,
+without GGTT reads, new mappings, control writers or assurance bits. Complete
+resource/dependency records are losslessly packed to retain all proofs within
+the original 64 KiB tail. Matched build, focused/sanitizer/isolation/parser/tail
+checks and all twelve VM cases pass; see the validation journal below.
+Native comparison remains pending. This cannot complete backing-lifetime
+adoption or authorize a well/HDA transition. The next unattended capture retains
+30/30/30-second phases, 32 coordinated rounds, existing bounds and automatic
+Ubuntu return/collection. Local records own installation and ready/armed state.
+
+### Active read-only backing readout scope (2026-11-03)
+
+Base `d5822348`, local device branch `device/macbookair6-1/process-admission`.
+Milestone B first readout binds Haswell primary-A control/stride/linear and tile
+offsets/surface/pipe size, aperture PCI BAR and inherited Limine framebuffer
+geometry/physical mappings and memory-map classification at both endpoints.
+Scope: isolated platform diagnostic/readout fixture, host decoder/retention,
+matched validation and automated native capture. No ordinary driver, PMM policy,
+well/HDA write or assurance-bit changes. GGTT PTE/stolen-memory ownership and
+firmware exclusion remain unknown; this readout cannot complete backing adoption.
+PR301 owns separate Air7,2 capture; PR252 lifetimes, PR299 Terminal and PR19 Wi-Fi
+remain separate. The first maximum-retention model exposed a 619-byte proof displacement.
+Lossless version-9 resource/dependency packing preserves every field within the
+original 64 KiB tail. Positive/refusal/schema and native-comparison fixtures and
+source-matched retention are required before exact-stage rehearsal/native capture.
 
 ### Historical battery-runtime objective (2026-10-23)
 
@@ -6454,3 +6487,109 @@ is needed; progress/results and automatic collection use the existing profile.
 The local collector explicitly saves/asserts the dry-run result; its actual code
 section passes a synthetic valid fixture and refuses missing records. Native
 acceptance remains pending; no modeled, older or joined proof can supply it.
+
+
+### No-write owner rebuilt after concurrent integration (2026-11-03)
+
+PR296 merged as `fa8e503f` while main gained shared app/desktop changes, including
+PR295. The app-pin/source checks prevented arming the earlier `fcd52df8` /
+`814f7e939bc4adf9` image. No native boot occurred. Its collector is disabled;
+its payload and host/VM evidence remain independently backed up as superseded,
+unarmed evidence. That state is not a physical failure or acceptance.
+
+Synchronized the exact app pin and rebuilt the frozen `fa8e503f` integration.
+The owner, adapter and focused fixture sources are byte-identical to the tested
+implementation. Full matched build/USB/AP ELF, core/desktop/widget/host/docs,
+isolation and maximum-retention checks pass. New release `9316558efb4b7007`
+passes all nine main and three legacy VM cases with directed-failure and final-
+receipt review. The native stage is restored and matched to its exact GPT
+refusal/save/unmount/return rehearsal. Fourteen supplemental actual-adapter
+activity cases and ULT port-D exclusion pass on synthetic retained words only.
+
+The actual USB is still 582 files / 1,645 clusters, with unchanged hashes and
+clean fsck/allocation/headroom. The unarmed EFI candidate is retired only after
+verifying its independent durable payload/evidence and repointing through the
+normal installer. The rebuilt candidate retains console recovery and Ubuntu
+default. Its local record binds exact source, payload, rehearsal, collector and
+ready/armed/returned state. The integration source stays fixed through this
+native run; later mainline changes require their own validation rather than
+being silently inherited by this candidate. No control writes or policies change.
+Next is collection of actual version-8 expected-refusal/lifetime evidence and all
+prior proofs. Native acceptance remains pending; no old/model/joined receipt
+can replace this matching run.
+
+
+### Native no-write owner result (2026-11-03)
+
+Integrated source `fa8e503f`, release `9316558efb4b7007` (PR296), completed
+session `session-00065f65ae97e590-00` and returned automatically to Ubuntu.
+The unchanged 65,536-byte exit file has SHA-256
+`8e7c8db5e2167b35259f2374f0ead628341ec9673fde3125dd8868fcd7091e81`.
+Version 8 directly retains the owner record, both HDA/resource/dependency
+endpoints and all original compact power/idle/entry and AP/package proofs.
+
+The raw-data digest matches both stable endpoints. The expected seven-unknown
+refusal is 127, epoch 1, Observed → Retired, software guard 1 → 0, with zero
+route/audio references, in-flight work, assurance/activity flags and hardware
+authority. This physically verifies the diagnostic-only software refusal and
+lifetime. It does not prove actual backing, domain, firmware or HDA ownership.
+
+All 15 retained power/idle/entry samples and ordered 30/30/30-second phases
+complete; average package power is 4.102/5.168/4.112 W. All 32 coordinated C3
+rounds pass, maximum 9,983 us, with positive core residency, mandatory HLT
+fallback and clean AP retirement. Package C3 remains valid zero. The original
+RC6 check still fails: nominal 90.130926080 s versus the PM bracket, exceeding
+its original bound by 78.569800 ms (about 0.0872%). The whole platform trial
+therefore remains failed; no threshold, integrity check or power policy changed.
+
+All 582 prior files are preserved except expected workspace metadata; four new
+session logs produce 586 files / 1,650 allocated clusters. Read-only fsck and
+independent allocation checks pass with zero leaks, bitmap mismatches or errors.
+Installed payload hashes, console/accepted recoveries and durable backups verify;
+Ubuntu is default, the one-shot is consumed and the collector is disabled.
+The tested runtime remains frozen to `fa8e503f`; later mainline app/snapping
+changes have no inherited physical acceptance. No reboot is armed.
+
+
+### Primary-A and inherited backing readout staged (2026-11-03)
+
+Source `728bcbeb`, release `9b485ca12b4c2482` (PR302), implements the first
+read-only milestone-B comparison on integration base `d5822348`. Nine fixed
+reads use existing private read-only/NX mappings: primary-A control, stride,
+legacy offset, surface, Haswell offset, pipe-A size, live surface and two
+control/surface rechecks. BAR2/PCI command and well endpoints are preserved.
+Only a single bounded RGB32 inherited descriptor drives kernel page-table
+observations, capped at 4,096 pages and 4,096 firmware entries. Every page must
+translate contiguously; ambiguous/absent firmware coverage remains unknown.
+A last-canonical-page regression and exact-cap case verify a page-count loop
+cannot wrap into an unbounded walk. No framebuffer pixels or GGTT PTEs are read.
+
+Two fixed 203-byte records retain every readout field. Version 9 additionally
+packs every existing resource/dependency field losslessly into 154/90-byte
+records, preserving the original strict validators and version-1–8 decoding.
+Source-matched maximum-checkpoint modeling preserves all critical bytes under
+64 KiB retention, 128 KiB pre-final chatter and 26,282 bytes of width/capacity
+padding. This remains explicitly synthetic, not native acceptance. The earlier
+unpacked model failed retention and was corrected; no proof, sample capacity,
+latency bound or integrity check was removed.
+
+Full matched build/USB/AP, core/desktop/widget/host/docs suites pass on `6a9f85c9`.
+The final diagnostic-only wrap fix on `728bcbeb` passes rebuilt matched artifacts,
+actual C fixtures (26 backing cases), ASan/UBSan, 36 platform/parser/tail tests,
+isolation/disassembly and actual-emitter C-to-Python wire checks. Actual collector
+save/decoder/assertion code passes a complete synthetic fixture and refuses
+missing backing or malformed packed-resource data. All nine fresh main VM cases
+and three legacy profiles pass on the final source, with directed-failure and
+final-receipt review. Exact GPT refusal saves/unmounts/returns; missing Home halts.
+The native stage is restored and independently hash-verified outside build.
+
+The baseline is 586 files / 1,650 allocated clusters from the collected prior
+native run. Console and accepted recovery payloads remain protected. The local
+run requires exact unit/USB identity, all prior hashes, clean offline fsck and
+allocation/headroom, verified payload/recovery backups and Ubuntu default before
+one-shot arming. No human input is required. All seven assurance bits, GGTT/stolen
+backing, true pin/lifetime, domain ownership and firmware exclusion remain unknown.
+Compatible aperture/geometry observations cannot turn those unknowns into grants.
+Native comparison and the original RC6/package-C3 results must be collected
+separately before the next implementation; no broader desktop acceptance is
+inferred for this tree.
