@@ -1,5 +1,29 @@
 # Browser engine port
 
+## Active compilation checkpoint — November 3, 2026
+
+User authorizes actual no-JIT JavaScriptCore compilation and resolving build
+blockers. Start at OS `4f84d500` and ports `e866ff5`; pinned WPE 2.54.2 and
+ICU 79.1 remain the inputs. Retain a source/build tree and actual compiler logs.
+Own the SrvrPorts WebKit overlay/build recipe, dedicated build evidence and
+this topic record. Shared SDK additions require inspected ownership and real
+behavioral tests; no success stubs or parallel pthread/kernel implementations.
+
+Fresh main is `56e1f950`, including merged PR252 and filesystem namespace work.
+Inspect and consume relevant published dependencies before shared runtime fixes;
+early compiler exploration can use the prior verified SDK but cannot claim
+current-main acceptance. PR317 owns VMM range/teardown; PR315 owns installed
+paths, PR301 display, PR19 Wi-Fi, and PR306 SQLite retain their independent scopes.
+
+Target: compile and link the static no-JIT JSC target where the supplied runtime
+permits; resolve local build/platform errors and publish concrete shared-runtime
+requirements when an owner contract is necessary. Configuration alone is not
+acceptance. Keep JIT, WebAssembly and remote inspection disabled. A runtime shell
+smoke is appropriate only after a valid ELF link; browser rendering/networking
+remain later milestones. Initial budget: 14 GiB free, at most 6 GiB additional
+artifacts, two compiler jobs, one build/VM harness, 2 GiB disk reserve. Preserve
+review VMs 61610, 6233 and 85869. No physical install, Actions dispatch or merge.
+
 ## ICU checkpoint — November 3, 2026
 
 User authorized a pinned SrvrOS ICU port and advancing the existing no-JIT
