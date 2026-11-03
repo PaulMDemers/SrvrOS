@@ -12,14 +12,16 @@ The captured EW-7711MAC `7392:a711`/`0100` is **5GHz-only**; see the
 mistaken for assembled-model capability. Historical2.4GHz packet/USB traces do
 not establish2.4GHz RF support. Do not repeat the withdrawn v107 trial.
 
-Latest native v113 `efbdb378d6bd0974`, source `de6cef51`, main `88c56afa`,
-accepts the integrated channel161/high-band transaction,41-target reverse
-restoration and44 read-only frontend observations. Matching session
-`session-00065f54ca5964fa-00` has a complete524449-byte prefix and2815 operations.
-Source/release/session, common proof, recovery equality, offline storage and
-automatic return pass. The107-file durable archive `wifi-frontend-de6cef51`
-is separate from prior failures. This does not accept PA/BBP writes, VCO/RF
-lock, reception, security or connectivity. The run is collected and unarmed.
+Latest native v114 `bf9e136ebf72e6fe`, runtime `9e370a25`, main `e376669c`,
+passes the complete571183-byte prefix in matching session
+`session-00065f644da09d20-00`:3305 operations, full parent41-target restoration,
+44 frontend originals, external5GHz PA selection/readback,14-target reverse
+restoration and independent original readback. Source/release/session, recovery
+bytes, offline fsck/allocation and automatic Ubuntu return pass. The105-file
+sealed archive `wifi-pa5-cycle-9e370a25` is outside build. This accepts PA
+command/readback/restoration with MAC disabled after the parent has restored;
+it does not accept operational PA inside held channel161, BBP gain/baseband,
+VCO/RF lock, reception, authentication or connectivity. Collected and unarmed.
 
 The preceding warm session `session-00065f50a0330abf-00` remains FAILED before
 firmware preparation: first0730 read1, already-running MCU refusal. Cold adapter
@@ -90,9 +92,9 @@ implement a fixed external5GHz PA/baseband admission/readback/restoration
 contract with fresh high-band gain validation, then calibration and5GHz RX.
 Connection-ready remains unaccepted; credentials remain unread/private.
 
-## Ready v114 external5GHz PA restoration trial
+## v114 external5GHz PA restoration accepted
 
-Installed release `bf9e136ebf72e6fe`, runtime `9e370a25`, main `e376669c`,
+Release `bf9e136ebf72e6fe`, runtime `9e370a25`, main `e376669c`,
 requires the complete v113 parent/frontend proof and exact captured PA originals.
 It independently reads all14 originals, applies the external-A selector,
 11 fixed high-band RF settings and attenuation/ALC policy, independently reads
@@ -122,15 +124,34 @@ accepted v109–v113 payloads remain installed and independently backed up. The
 unreferenced older empty-cache UI EFI copy b134 was retired only after complete
 byte equality to its independent accepted backup; all evidence/backup is retained.
 
-Native PA acceptance is pending. The user-authorized cold test uses shutdown:
-unplug only Wi-Fi10seconds while off, reconnect same port, power on, workspace
-retained. Progress, save and Ubuntu return are automatic; no commands/photos.
-Local run record owns exact armed state. On return run the frozen
-`build/bringup/wifi-pa5-cycle/return_collect.py` FIRST and require matching
-source/release/session, full parent/PA restoration, storage and recovery proof.
-Then continue fresh high-band gain/baseband, calibration and5GHz RX toward
-Demers5 authenticated connection/disconnection/data. Demers2.4 needs compatible
-hardware. Credentials remain unread/private; connection-ready is unaccepted.
+Matching session `session-00065f644da09d20-00` passes all3305 operations and
+28 PA writes (14 forward,14 reverse), independent selected/original readbacks,
+complete571183-byte prefix, full parent/frontend proof and automatic saved
+return. Payload/recovery byte equality and offline fsck/allocation pass. The
+105-file durable archive is sealed; the matching run is collected and unarmed.
+The earlier warm-admission refusal remains failed; no warm takeover is inferred.
+
+Next bounded scope: fresh mapped logical40 gain fields for channel161, then
+A-band/20MHz baseband selection/readback/restoration using the accepted v113
+originals. Pinned Linux v7.0 selects the high-band LNA byte at4d, falling back
+to45 only when4d is zero/ff; ff then normalizes to zero. The5GHz RSSI tuple
+starts at4a. AGC8 uses the A-band raw table122c54f2 and gain bits14:8, with
+8-bit subtraction of twice the fresh LNA before7-bit field insertion. Existing
+G-band gain decoding cannot substitute. Keep raw EFUSE blocks scrubbed/private,
+use exact board/live parent gates, and retain explicit all-ones policy solely
+for the three fixed A-band table values that require it. IBI9 raw all-ones
+still does not authorize calibration. Publish this source scope before shared
+implementation and validate the old gain path independently.
+
+Fetched main is now `adc25965`: it adds separate Air6,1 read-only display/HDA
+capture and encoded receipts; no Wi-Fi file overlap was found. The physically
+accepted runtime still uses `e376669c`. Consume the actual new baseline and
+rerun its affected checks before the next native stage; its Air-only results
+do not accept Pro HDA/firmware ownership. Installed bf9/e47d and accepted
+recovery copies remain unchanged. No new stage or reboot is armed. Continue
+from fresh gain/baseband to calibration and5GHz reception, then Demers5
+association/security/connect-disconnect/data. Demers2.4 needs compatible hardware.
+Credentials remain unread/private; connection-ready is unaccepted.
 
 ## Historical v113 candidate validation —44 frontend observations
 

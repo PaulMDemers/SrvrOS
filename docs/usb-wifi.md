@@ -273,7 +273,7 @@ the actual tuple. IBI9 observed raw all-ones; AGC51/53/55 did not. These are
 same-unit observations after this exact common/restored sequence, not reset
 constants or calibration readiness. PA/BBP programming remains the next scope.
 
-## External5GHz PA restoration candidate (v114)
+## External5GHz PA restoration (v114)
 
 The fixed14-target `mt76_pa5` transaction requires the captured board
 NIC0fd11/NIC11004 and the complete v113 frontend proof, including its exact
@@ -304,6 +304,16 @@ network frame or credential is part of this profile. Complete saved source-bound
 proof and storage/recovery/automatic-return checks are required for native
 acceptance. Baseband setup still requires fresh high-band gain validation.
 Run `make test-mt76-pa5 test-wifi-pa5-log` for engine and saved-receipt checks.
+
+Native v114 `bf9e136ebf72e6fe` / `9e370a25`, matching session
+`session-00065f644da09d20-00`, passes the complete571183-byte prefix and all3305
+operations, including28 PA writes, independent selected-state checks and
+14-target reverse restoration/original readback. Source/release/session,
+payload/recovery equality, offline fsck/allocation and automatic Ubuntu return
+pass. The105-file sealed durable archive preserves full evidence. This accepts
+the explicit MAC-disabled command/restoration transaction after parent restore;
+it does not accept PA operation in held channel161, baseband, VCO, calibrated
+reception or connectivity. Fresh high-band gain/baseband remains the next scope.
 
 ## Captured baseline
 
