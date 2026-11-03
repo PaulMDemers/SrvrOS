@@ -40,6 +40,21 @@ compatible hardware. Local credentials remain private and unused until the
 security stage. Do not report connection-ready until authentication, data
 exchange and clean disconnect actually pass.
 
+## Current source scope: reconcile renderer/apps/ports before held-channel work
+
+Fetched main `1dad02c2` pins SrvrUI76deeb3, SrvrAppsae56bf7 and SrvrPorts5e30ecd.
+First reconcile those exact revisions with local Wi-Fi Help/System controls and
+checkpoint-only power logging, preserving renderer/font/Open With/Files recovery/
+edge-resize/awk behavior. Scope is submodule merges and shared Makefile/compositor/
+System tests; publish module commits before the OS gitlinks. Validate full matched
+build/core/desktop, exact-image save/return and desktop workflows before staging
+new native code. No new native acceptance or reboot is implied by source merge.
+PR252 retains resolver/socket scope; no other open Wi-Fi owner was found.
+After this baseline is sound, design held channel161 band/frequency/A20/PA and
+fresh-gain BBP selected-state ownership/cleanup. Keep the accepted v115 payload,
+Ubuntu and independent backups intact, and do not add a VCO/RX operation merely
+because individual restored transactions passed.
+
 ## v115 fresh5GHz gain/baseband restoration accepted
 
 Release `e405f17dd9a5449b`, runtime `ec117c9e`, main `105077d7`,
