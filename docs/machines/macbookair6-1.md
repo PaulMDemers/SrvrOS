@@ -6175,3 +6175,14 @@ All 461 collected evidence files were independently rehashed outside `build`.
 The local run is returned/collected, its collector disabled and no reboot armed.
 Next is a source audit of remaining display-well dependencies and safe ownership
 requirements; this result grants no power transition or policy change.
+
+
+### Remaining display-well ownership audit — active scope (2026-11-02)
+
+Base `cfbf3f97`; docs/source audit only. Cross-check the actual two native
+endpoint inventories against the Haswell domain map, firmware takeover/readout,
+CRT/FDI and display-HDA lifecycles. Scope: this unit record and the current AP
+ownership guide, with pinned upstream sources/hash receipts kept locally. No
+MMIO additions, power writes, policy/limit changes or physical boot are planned
+in this audit. PR252 lifetime and PR19 Wi-Fi scopes remain independent; fetched
+main has no production changes beyond the tested `4e2ff068` image.
