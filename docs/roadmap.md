@@ -14,14 +14,15 @@ with matching cursor feedback, verification and merge. Snapping is separate.
 
 Branch `device/apple-silicon/edge-resize` starts at main `5b2bf3c7`. Scope stays
 in the compositor: discoverable resize targets, anchored geometry, safe capture
-and failure recovery, plus damage-correct cursors. App recovery and awk work
-remain in their own PRs; SrvrUI portability's merged renderer boundary is retained.
+and failure recovery, plus damage-correct cursors. App recovery remains in its own PR; merged awk integration is retained; SrvrUI portability's merged renderer boundary is retained.
 
 Required evidence: host geometry/session/render regressions, full desktop suite,
 matched OS build, real Text resize/content checks at both supported scales with
 VirtIO tablet input, and clean presentation teardown. Native device acceptance
-and host-window release observations remain separate. Status: implementation and
-verification in progress; next is review and merge of the verified candidate.
+and host-window release observations remain separate. The full host suites, clean build, both resize VMs and live-theme regression
+pass. [Evidence](assets/screenshots/edge-resize-manifest.json) records the tested
+source and limits. PR292 is ready for its authorized merge after the matched
+build/startup check with merged awk. No additional resize feature is required.
 
 ## Pinned awk port — November 3, 2026
 
@@ -34,8 +35,7 @@ pipe/subprocess completion, process retirement and saved-disk reopen checks pass
 Two clean full builds produce identical awk ELF and generated sources/tool
 manifests; the existing ports regression and final matched guest run pass.
 Kernel and exFAT hashes match; initramfs archives differ, so full-image bit
-reproducibility is not claimed. The milestone is complete for draft review; merge acceptance remains with
-integration. The port is published in [SrvrPorts PR1](https://github.com/PaulMDemers/SrvrPorts/pull/1). [Portable evidence](assets/screenshots/awk-manifest.json)
+reproducibility is not claimed. The milestone is merged through SrvrPorts PR1 and SrvrOS PR291 (`c609207b`). The port is published in [SrvrPorts PR1](https://github.com/PaulMDemers/SrvrPorts/pull/1). [Portable evidence](assets/screenshots/awk-manifest.json)
 records exact runtime source `6d1ae527` and published port `5e30ecd`. Shell quote parsing remains a
 separate integration issue; no shared review VM or physical boot is touched.
 

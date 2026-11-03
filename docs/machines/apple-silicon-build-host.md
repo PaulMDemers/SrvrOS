@@ -2236,3 +2236,29 @@ second-boot persistence all pass again; staged-ports smoke passes again.
 Integrated guest evidence is `20261103-150115-46mpl5g7`; earlier runs remain retained.
 The portable manifest and screenshot now identify this merged runtime. Follow-up
 commits change evidence/docs only. Task-owned VMs stopped; review VM untouched.
+
+
+### Edge resize verification — November 3, 2026
+
+Runtime `bb7f9b17` passes the full desktop and desktop-I/O host suites, including
+anchored geometry, all cursor partial/full redraw states, resize refusal and
+capture invalidation. Clean candidate `d0053c89` differs only in harness/docs
+and passes the matched build, actual Text/VirtIO tablet runs at 1280×800 scale 1
+and 1920×1080 scale 2, plus the existing live theme/profile regression. All eight
+edges/corners, no-jump presses, minimums, selection/saved bytes, Escape, modal
+blocking (including opening a picker while held), edge release/re-entry and clean
+GPU reset pass. Directional cursor and minimum-size screenshots were inspected.
+
+Independent review found and resolved a queued-motion/modal race before final
+verification: capture eligibility is checked before each resize, and after the
+input batch. Initial harness failures are retained in ignored evidence: a modal
+probe hit the dialog, a requested 2560×1600 mode fell back, and scale-2 outward
+travel overlapped the dock. Final fixtures target the exposed parent, use the
+established display mode, and leave room above the dock; no acceptance was waived.
+
+[Portable receipt](../assets/screenshots/edge-resize-manifest.json) and screenshots
+retain source/hash evidence. Raw results are under `build/review/edge-resize`,
+`build/review/desktop-resize` and `build/review/desktop-theme-profiles`. Test VMs
+are stopped. Merged awk PR291 is now included, retaining both independent scope
+records and the published ports pin. Next is the final combined build/startup
+check and authorized PR292 merge. Native acceptance and Actions are unchanged.
