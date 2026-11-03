@@ -2079,3 +2079,19 @@ release and wheel preserved; automatic release on leaving the Cocoa VM window
 and re-entry without a release shortcut; clean matched build, protocol/queue/
 consumer regressions and VM evidence. Publish and merge after these checks.
 Native boot settings, physical acceptance and repository boundaries are unchanged.
+
+### Tablet verification — November 3, 2026
+
+Clean runtime `0779dd72` built successfully and passed input, pointer/ABI,
+keyboard and desktop host tests, launcher unit tests, both absolute-tablet VM
+modes (1280×800 scale 1 and 1920×1080 scale 2), and the original two-boot relative
+VirtIO baseline. All runs match kernel/exFAT hashes in the
+[tablet receipt](../assets/screenshots/virtio-tablet-manifest.json).
+
+The default Cocoa desktop is open in `.local/macos-vm/virtio-tablet-review/` and
+reports the tablet as its active absolute pointer. First app frame: 4.32 seconds.
+Host cursor release and outside-release/re-entry require the user's observation;
+that result is pending before merging PR285. The former VM was exited cleanly,
+with its unsaved blank Text document saved as `/fat/tablet-restart-recovery.txt`
+on the retained `.local/macos-vm/virtio-baseline-review/` disk. Submodule pins and
+native hardware acceptance are unchanged.

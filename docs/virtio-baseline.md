@@ -87,3 +87,19 @@ recorded run; this is one startup observation, not a benchmark. The explicit
 VGA/USB/AHCI/e1000 launcher also renders and returns to the console cleanly.
 See the [compact acceptance receipt](assets/screenshots/virtio-baseline-manifest.json)
 and [PR284](https://github.com/PaulMDemers/SrvrOS/pull/284).
+
+### Absolute tablet verification — November 3, 2026
+
+Clean runtime `0779dd72` passes the full build, input/pointer ABI/keyboard/desktop
+host suites, and launcher tests. `python3 tools/virtio_tablet_smoke.py` passes with
+PS/2 disabled at 1280×800 scale 1 and 1920×1080 scale 2 (960×540 logical): all
+corners, center, edge release/re-entry, Text edit/save/drag, Help wheel input, and
+clean presentation reset. The original relative-mouse baseline also passes both
+boots, including networking, entropy, and flushed disk persistence.
+
+The default 1440×900 Cocoa launcher reaches its first app frame in 4.32 seconds
+in this run and reports `QEMU Virtio Tablet` as its active absolute pointer.
+Automated guest input does not establish host cursor release. The attended
+window-boundary check is pending. See the
+[tablet receipt](assets/screenshots/virtio-tablet-manifest.json) and
+[PR285](https://github.com/PaulMDemers/SrvrOS/pull/285).
