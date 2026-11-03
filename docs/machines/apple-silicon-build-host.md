@@ -2483,3 +2483,57 @@ disposable VM stopped. The shared checkout and attended review VM were untouched
 no hosted Actions or new native acceptance. Remaining changes in this closeout
 are documentation only. The requested integration is delivered and verified;
 no further implementation is required for this target.
+
+
+### Window snapping — active scope November 3, 2026
+
+User authorized Windows 7-style snapping, placement previews, verification and
+merge. Branch `device/apple-silicon/window-snap` starts at fetched main
+`da0db066`, retaining merged Files recovery/Open With, SrvrUI host extraction,
+awk and edge resizing. This scope owns compositor titlebar drag placement and
+preview rendering, transaction/capture tests and matched QEMU acceptance.
+PR296 retains Air6,1 adoption diagnostics, PR252 lifetime work, and PR19 Wi-Fi.
+No submodule, kernel, physical driver or hosted Actions change is planned.
+
+Interaction: drag a titlebar toward a side for half-workarea placement or toward
+the top for maximize; show the exact themed target before release. Move away or
+cancel to remove the preview. A small drag threshold on an already placed window
+restores its prior dimensions under the pointer, while a stationary click keeps
+it placed. Preserve original restore geometry across side changes and existing
+keyboard Arrange commands. Modal/focus/lifetime changes invalidate capture before
+queued input can move a blocked window. Failed placement retains usable content
+and geometry through the existing configure/refusal transaction.
+
+Acceptance: geometry and capture/failure host fixtures, exact preview partial/full
+redraw equality for all themes, complete desktop suites and matched build; actual
+Text/VirtIO tablet preview/snap/restore/cancel/modal/content checks at 1x and 2x,
+plus affected resize/theme regressions. The current review VM and persistent disk
+are preserved; automated test VMs remain disposable and sequential. QMP evidence
+is guest behavior, not new native or physical scanout acceptance.
+
+Implementation `8d9e47fc` passes the complete desktop/I/O host suites, matched
+build, snapping and resize VMs at 1280×800/1× and 1920×1080/2×. Preview-only
+movement, exact release placement, direct side changes, stationary clicks,
+drag restoration, Escape/modal cancellation, selection/save readback and GPU
+presenter reset pass. Accepted preview/placement captures and hashes are in
+[the evidence receipt](../assets/screenshots/window-snap-manifest.json).
+
+Combined source `db713e6b` consumes merged PR296/main `fa8e503f`. Its clean
+build produces byte-identical kernel, initramfs and disk artifacts to the
+accepted snap runtime; display-owner, package/platform and CPU receipt tests
+pass. Live theme/persistence and offscreen/dock recovery VMs also pass on this
+combined image. The old free-drag fixture now releases at x=12, outside the
+eight-pixel snap zone. Its macOS fallback uses a generated disposable image
+with generator/allocation checks; independent exfatprogs fsck is unavailable.
+The final fsck-only branch refinement does not change that exercised host path.
+
+A new attended review VM starts in 4.37 seconds and completes preview/release
+to frame 8,52,708,768 with a matching 706×723 Text client commit. It remains
+open under `.local/macos-vm/window-snap-review/current.json`; the previous
+edge-resize review VM and disk are preserved. Logs are in
+`build/review/window-snap/`, `desktop-snap/`, `desktop-resize/`,
+`desktop-theme-profiles/` and `desktop-window-dock/`.
+
+[PR297](https://github.com/PaulMDemers/SrvrOS/pull/297) records delivery. The
+requested behavior and acceptance are complete; no further implementation
+is required. No native boot/install or hosted Actions change.

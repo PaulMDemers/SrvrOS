@@ -64,9 +64,39 @@ application refusal restores the last accepted geometry through the existing
 configure transaction.
 
 These compositor controls apply across all theme profiles and both integer
-display scales. Snapping and native-density typography remain separate features.
+display scales. Native-density typography remains a separate feature.
 The directional cursor is software rendered, with old/new damage covered even
 when its shape changes without pointer movement.
+
+## Snapping and placement previews
+
+Drag a normal window by its titlebar toward the left or right screen edge for
+half-workarea placement, or toward the top for maximize. A translucent preview
+shows the exact destination; release applies it. The placement respects the menu
+bar, dock, existing client size limits and the same margins as keyboard Arrange.
+Top corners choose maximize. Windows too small to fit the minimum client size
+are not offered as targets.
+
+Move away from the edge to dismiss the preview and keep dragging. Escape stops
+at the current free position without applying a snap. Opening a modal dialog,
+switching focus or losing the window cancels its capture and preview. Dialogs
+keep ordinary titlebar movement but are not snapping targets. The preview does
+not allocate a client surface or resize the app until release.
+
+Dragging an already tiled or maximized titlebar restores its previous normal
+size under the pointer after a small movement threshold. Switching directly
+between snapped sides retains the original restore frame; releasing freely
+establishes a new normal position for the next drag. Existing keyboard Arrange
+and Restore commands continue to work. Allocation or client refusal follows the
+same rollback contract as manual resizing, retaining usable document content.
+
+The preview uses the active theme accent with a translucent fill and outline.
+Its old and new regions repaint on transitions; changing content behind it does
+not accumulate tint. The side gesture is informed by Microsoft's
+[description of Windows 7 Aero Snap](https://blogs.windows.com/windows-insider/2015/06/04/arrange-your-windows-in-a-snap/).
+
+[Snapping acceptance and captures](assets/screenshots/window-snap-manifest.json)
+cover both integer scales, cancellation and retained document content.
 
 ## Display scale
 
@@ -160,8 +190,9 @@ injection/cache totals were not measured in that round.
 
 Tile left/right retain the original frame across side switches. Center returns
 to the original normal dimensions at the middle of the workspace. Restore size
-returns to the original position as well. Tiled windows must be restored or
-centered before free dragging/resizing. Narrow screens disable tiling when two
+returns to the original position as well. Dragging a tiled or maximized titlebar beyond a small movement threshold
+restores its normal dimensions under the pointer. A stationary click preserves
+placement. Restore or drag away before edge resizing. Narrow screens disable tiling when two
 minimum-size clients would not fit.
 
 The clock opens a month calendar with Today and keyboard navigation. Alerts
@@ -493,7 +524,8 @@ eight-pixel side margins visible. Clicking again restores the original window
 position and size. Preview's Fit/1:1 controls affect the image inside that window
 independently. Shared client surfaces are capped at 1440x900; the kernel pixel
 budget derives from the same constants. Larger screens still respect that cap.
-Compositor caches remain preallocated, so resizing adds no cache allocations.
+Compositor caches grow on demand within their existing budget; allocation
+refusal preserves the last usable window.
 
 All standard desktop windows draw the same three outlined titlebar buttons:
 minimize, maximize/restore and close, from left to right. Their visibility depends
