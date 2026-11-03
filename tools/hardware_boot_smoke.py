@@ -170,7 +170,7 @@ def main():
     if args.ap_inject and args.ap_inject.startswith("c3-") and not args.ap_c3_sim: parser.error("C3 injections require simulation")
     cpu_load_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v35-","ram-usb-v1-mwait-","ram-usb-v1-ap-c3-","ram-usb-v1-ap-package-","ram-usb-v1-ap-platform-")))
     idle_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v23-"))
-    intel_display_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v1-intel-display-","ram-usb-v1-intel-backing-")))
+    intel_display_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v1-intel-display-","ram-usb-v1-intel-backing-","ram-usb-v1-intel-lifetime-")))
     posix_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v1-posix-"))
     storage_wait_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v1-storage-wait-"))
     desktop_idle_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v25-","ram-usb-v26-")))
@@ -350,7 +350,7 @@ def main():
                         assert "battery: REFUSED platform/resource ownership preflight" in text
                         assert battery_marker+": returned=yes clean=NO" in text
                         assert "laptop-capture: saved=yes unmounted=yes" in text
-                        assert "laptop-capture: completed=NO" in text
+                        assert ("laptop-capture: completed=yes" if "srvros.intel-lifetime=fixture" in text else "laptop-capture: completed=NO") in text
                         assert "battery-native: REFUSED check=pci-gpu" in text
                         assert "battery: phase=" not in text
                         if battery_home_work or battery_home_desktop or battery_home_transitions:
@@ -380,7 +380,7 @@ def main():
                         assert "intel-display-observe: boot result=identity-refused" in text
                         assert "ordinary Intel initializer skipped; no capture PCI writes" in text
                         assert "intel-gfx: intel-" not in text and "laptop-probe: read-only" not in text
-                        assert "laptop-capture: completed=NO" in text
+                        assert ("laptop-capture: completed=yes" if "srvros.intel-lifetime=fixture" in text else "laptop-capture: completed=NO") in text
                     if keyboard_retry and args.keyboard_fail: assert "keyboard-test: retries=10" in text
                     if keyboard_retry and args.keyboard_timeout: assert "keyboard-test: timeout step=1 limit_seconds=90" in text
                     if keyboard_capture:
@@ -504,6 +504,14 @@ def main():
                         assert proof and proof['status']=='identity-refused' and not proof['observation_complete']
                         assert not proof['scanout_ownership'] and not proof['rows']['observe'][0]['maps']
                         (logs/'intel-display-result.json').write_text(json.dumps(proof,indent=2)+"\n")
+                        if 'srvros.intel-lifetime=' in text:
+                            from intel_scanout_lifetime import lifetime_result
+                            lifetime=lifetime_result(stored.read(folder+"/exit.log").decode())
+                            fixture='srvros.intel-lifetime=fixture' in text
+                            assert lifetime and lifetime['kind']==('fixture' if fixture else 'native')
+                            assert lifetime['complete']==fixture and lifetime['summary']['admitted']==int(fixture)
+                            assert not lifetime['hardware_ownership'] and not lifetime['physical_tearfree']
+                            (logs/'intel-lifetime-result.json').write_text(json.dumps(lifetime,indent=2)+"\n")
                         if 'srvros.intel-backing=read-only' in text:
                             from intel_display_backing import backing_result
                             backing=backing_result(stored.read(folder+"/exit.log").decode())

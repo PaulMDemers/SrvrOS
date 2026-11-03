@@ -4240,3 +4240,20 @@ test-profile-desktop: test-portable-profiles test-preferences build/tests/profil
 build/tests/profile-image-driver$(HOST_EXE): tools/profile_image_driver.c tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
 	@mkdir -p build/tests
 	$(HOST_CC) -DSRVROS_EXFAT_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include tools/profile_image_driver.c kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c -Wl,--gc-sections -o $@
+
+.PHONY: test-scanout-lifetime
+test-core: test-scanout-lifetime
+test-scanout-lifetime: build/tests/scanout-lifetime$(HOST_EXE)
+	$<
+build/tests/scanout-lifetime$(HOST_EXE): tools/test_scanout_lifetime.c kernel/src/scanout_lifetime.c kernel/include/srvros/scanout_lifetime.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_scanout_lifetime.c kernel/src/scanout_lifetime.c -o $@
+
+.PHONY: test-intel-scanout-trial
+test-core: test-intel-scanout-trial
+test-intel-scanout-trial: build/tests/intel-scanout-trial$(HOST_EXE) build/tests/intel-display-probe$(HOST_EXE)
+	build/tests/intel-scanout-trial$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_scanout_lifetime.py
+build/tests/intel-scanout-trial$(HOST_EXE): tools/test_intel_scanout_trial.c kernel/src/drivers/intel_scanout_trial.c kernel/src/scanout_lifetime.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include tools/test_intel_scanout_trial.c kernel/src/scanout_lifetime.c -o $@

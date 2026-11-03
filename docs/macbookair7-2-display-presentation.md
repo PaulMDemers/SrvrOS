@@ -238,3 +238,12 @@ storage. This accepts read-only observation of the backing relationship on this
 unit. PMM/GGTT allocation authority, DMA-translation authority, exclusion of later
 firmware activity, buffer pinning, exclusive ownership and flip completion still
 require their own contracts and tests before display writes.
+
+## Buffer lifetime implementation checkpoint
+
+The [scanout lifetime contract](scanout-buffer-lifetime.md) defines the new pure
+owner, private RAM lifetime, pre-publication pin, matching completion and
+cancel/drain/restore/quarantine rules. Its first source-bound hardware trial is
+shadow-only, paced by read-only native frame-counter observations and followed
+by full backing revalidation. It does not authorize a GGTT allocator, physical
+flip completion or desktop backend. The existing inherited fence remains intact.

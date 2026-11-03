@@ -795,7 +795,7 @@ def collect(mount, volume, output):
         if re.search(r'srvros\.capture=intel-display(?:\s|$)',text):
             try:
                 intel_display=intel_display_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
-                if not intel_display or not intel_display['observation_complete']:
+                if (not intel_display or not intel_display['observation_complete']) and 'srvros.intel-lifetime=fixture' not in text:
                     attention.append('collection: Intel display observation refused, failed or incomplete')
             except ValueError as error:
                 attention.append('collection: invalid Intel display observation: '+str(error))
@@ -808,6 +808,16 @@ def collect(mount, volume, output):
                     attention.append('collection: Intel backing observation refused, failed or incomplete')
             except ValueError as error:
                 attention.append('collection: invalid Intel backing observation: '+str(error))
+        intel_lifetime=None
+        if 'srvros.intel-lifetime=' in text:
+            from intel_scanout_lifetime import lifetime_result
+            try:
+                intel_lifetime=lifetime_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+                expected='fixture' if 'srvros.intel-lifetime=fixture' in text else 'native'
+                if not intel_lifetime or not intel_lifetime['complete'] or intel_lifetime['kind']!=expected:
+                    attention.append('collection: shadow scanout lifecycle refused, failed, mismatched or incomplete')
+            except ValueError as error:
+                attention.append('collection: invalid shadow scanout lifecycle: '+str(error))
         from storage_wait_result import capture_result,PAYLOAD
         storage_wait=capture_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
         if storage_wait:
@@ -825,6 +835,7 @@ def collect(mount, volume, output):
         records.append({
             "intel_display_capture": intel_display,
             "intel_display_backing": intel_backing,
+            "intel_scanout_lifetime": intel_lifetime,
             "posix_capture": posix_proof,
             "storage_wait": storage_wait,
             "battery_preflight": preflight,

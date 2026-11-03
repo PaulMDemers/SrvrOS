@@ -156,6 +156,7 @@ bool intel_display_probe_report(void) {
 #include <srvros/intel_display_backing.h>
 #define BACKING_VA (CAPTURE_VA+0x100000)
 static struct intel_backing_result backing;
+static struct limine_framebuffer trial_framebuffer;
 static bool backing_attempted;
 struct backing_adapter {struct adapter common;struct limine_framebuffer *fb;uint64_t physical;uint32_t page;bool mapped;};
 static bool backing_range_reserved(uint64_t base,uint64_t bytes) {
@@ -241,6 +242,7 @@ static bool backing_read(void *opaque,uint32_t off,uint32_t *value) {
 void intel_display_backing_probe_boot(struct limine_framebuffer *fb) {
     if(backing_attempted)return;
     backing_attempted=true;backing.status=2;
+    if(fb)trial_framebuffer=*fb;
     if(!attempted || result.status!=INTEL_CAPTURE_OBSERVED || result.retained || !timer_reference_ready())return;
     struct backing_adapter a={.common={.cr3=vmm_kernel_address_space()},.fb=fb};
     if(!a.common.cr3 || a.common.cr3!=vmm_current_address_space())return;
@@ -279,4 +281,88 @@ bool intel_display_backing_probe_report(void) {
         }
     }
     return b->status==1;
+}
+
+#include <srvros/intel_scanout_trial.h>
+static bool trial_mapping_fault;
+static struct intel_backing_result trial_after;
+static bool trial_endpoint_same(const struct intel_backing_endpoint *e) {
+    const struct intel_backing_endpoint *old=&backing.sample[1].endpoint;
+    const struct intel_capture_identity *a=&e->identity,*b=&old->identity;
+    if(a->id!=b->id || a->class_rev!=b->class_rev || a->subsystem!=b->subsystem || a->pch!=b->pch || a->command!=b->command ||
+       a->pm!=b->pm || a->power_valid!=b->power_valid || a->firmware_match!=b->firmware_match || a->mmio_safe!=b->mmio_safe)return false;
+    for(unsigned i=0;i<4;i++)if(a->bar[i]!=b->bar[i])return false;
+    for(unsigned i=0;i<8;i++)if(e->config[i]!=old->config[i])return false;
+    return e->fb_pages==old->fb_pages && e->fb_entry_base==old->fb_entry_base && e->fb_entry_length==old->fb_entry_length &&
+        e->fb_entry_type==old->fb_entry_type && e->stolen_entry_base==old->stolen_entry_base &&
+        e->stolen_entry_length==old->stolen_entry_length && e->stolen_entry_type==old->stolen_entry_type;
+}
+static bool trial_adapter(struct backing_adapter *a) {
+    if(trial_mapping_fault || !backing_attempted || backing.status!=1 || backing.retained || result.retained ||
+       result.status!=INTEL_CAPTURE_OBSERVED || !timer_reference_ready())return false;
+    *a=(struct backing_adapter){.common={.cr3=vmm_kernel_address_space()},.fb=&trial_framebuffer};
+    if(!a->common.cr3 || a->common.cr3!=vmm_current_address_space())return false;
+    for(uint64_t i=0;i<pci_device_count();i++) {
+        const struct pci_device *p=pci_device_at(i);if(!p || p->bus || p->function)continue;
+        if(p->device==2)a->common.gpu=p;
+        if(p->device==31 && p->class_code==6 && p->subclass==1)a->common.pch=p;
+    }
+    return a->common.gpu && a->common.pch;
+}
+bool intel_scanout_trial_profile(struct scanout_profile *p) {
+    if(!p || backing.status!=1 || backing.retained || backing.count!=1356 || !backing.tiled || backing.fence_matches!=1 ||
+       backing.sample[1].present!=backing.count || backing.sample[1].stolen!=backing.count || !backing.sample[1].contiguous)return false;
+    const struct intel_backing_endpoint *e=&backing.sample[1].endpoint;
+    if(e->stolen_entry_type!=1 || e->stolen_entry_base>backing.stolen_base || e->stolen_entry_length>UINT64_MAX-e->stolen_entry_base ||
+       e->stolen_entry_base+e->stolen_entry_length<backing.stolen_end)return false;
+    *p=(struct scanout_profile){.physical={result.fb.physical,0,0},.bytes=result.fb.pitch*result.fb.height,
+        .width=(uint32_t)result.fb.width,.height=(uint32_t)result.fb.height,.pitch=(uint32_t)result.fb.pitch,.mode=SCANOUT_SHADOW,.assured=0};
+    return !trial_mapping_fault;
+}
+bool intel_scanout_trial_ram(uint64_t physical,uint64_t frames) {
+    const struct limine_memmap_response *m=memmap_request.response;
+    if(!physical || (physical&4095) || !frames || frames>4096 || physical>0x100000000ull-frames*4096 ||
+       !m || !m->entries || !m->entry_count || m->entry_count>4096)return false;
+    uint64_t end=physical+frames*4096;unsigned overlaps=0;
+    for(uint64_t i=0;i<m->entry_count;i++) {
+        const struct limine_memmap_entry *e=m->entries[i];
+        if(!e || !e->length || e->base>UINT64_MAX-e->length)return false;
+        if(e->base<end && physical<e->base+e->length) {
+            if(e->type!=LIMINE_MEMMAP_USABLE || e->base>physical || end>e->base+e->length)return false;
+            overlaps++;
+        }
+    }
+    return overlaps==1;
+}
+static bool trial_words(struct backing_adapter *a,uint32_t page,const uint32_t *offset,const uint32_t *expected,unsigned count,uint32_t *frame,uint32_t *line) {
+    if(!backing_map(a,page))return false;
+    bool ok=true;
+    for(unsigned i=0;i<count;i++){uint32_t v;if(!backing_read(a,offset[i],&v) || v!=expected[i]){ok=false;break;}}
+    if(ok && frame && line)ok=backing_read(a,0x70040,frame) && backing_read(a,0x70000,line) && *frame!=UINT32_MAX && *line!=UINT32_MAX;
+    if(!backing_unmap(a)){trial_mapping_fault=true;ok=false;}
+    return ok;
+}
+bool intel_scanout_trial_clock(struct intel_scanout_clock *clock) {
+    struct backing_adapter a;
+    if(!clock || !trial_adapter(&a))return false;
+    struct intel_backing_endpoint e;
+    if(!backing_endpoint(&a,&e) || !trial_endpoint_same(&e))return false;
+    uint32_t wells[4];for(unsigned i=0;i<4;i++)wells[i]=result.sample[1].well_after[i];
+    const uint32_t well_offsets[]={0x45400,0x45404,0x45408,0x4540c};
+    const uint32_t plane_offsets[]={0x70180,0x70188,0x7019c,0x701a4,0x701ac};
+    uint32_t plane[]={result.sample[1].pipe[0][2],result.sample[1].pipe[0][3],result.sample[1].pipe[0][4],result.sample[1].pipe[0][5],result.sample[1].pipe[0][6]};
+    if(!trial_words(&a,0x45000,well_offsets,wells,4,NULL,NULL) ||
+       !trial_words(&a,0x70000,plane_offsets,plane,5,&clock->frame,&clock->line) ||
+       !trial_words(&a,0x45000,well_offsets,wells,4,NULL,NULL))return false;
+    clock->us=timer_monotonic_us();
+    return true;
+}
+bool intel_scanout_trial_revalidate(void) {
+    struct backing_adapter a;if(!trial_adapter(&a))return false;
+    bool ok=intel_display_backing(&trial_after,&result,&(struct intel_backing_io){&a,backing_endpoint,backing_map,backing_unmap,backing_read,now});
+    if(trial_after.retained)trial_mapping_fault=true;
+    if(!ok || trial_after.count!=backing.count || trial_after.bytes!=backing.bytes || !trial_endpoint_same(&trial_after.sample[1].endpoint))return false;
+    for(unsigned i=0;i<backing.count;i++)if(trial_after.pte[i]!=backing.pte[i])return false;
+    for(unsigned i=0;i<32;i++)if(trial_after.sample[1].fence[i]!=backing.sample[1].fence[i])return false;
+    return true;
 }

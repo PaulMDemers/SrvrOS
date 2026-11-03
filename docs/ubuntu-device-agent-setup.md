@@ -1150,3 +1150,16 @@ save/unmount, while persistence failure halts. Inspect the collector's
 `intel_display_backing` result, not just automatic Ubuntu return. See the
 [display backing contract](macbookair7-2-display-presentation.md#bounded-backing-readout-implementation).
 This diagnostic grants no display or buffer ownership.
+
+### Air7,2 scanout lifetime trial
+
+The opt-in `--intel-lifetime-capture` stage exercises private PMM buffers and
+shadow publication after the accepted read-only backing prerequisites. No human
+input is needed. Follow exact-stage VM, durable payload/recovery, run-record and
+one-shot procedures above. Collect `intel_scanout_lifetime` plus full display/
+backing receipts, preserve prior USB files and run all offline integrity checks
+on return. Three injected faults deliberately retain six private buffers until
+reboot; their exact accounting is required, not an unexpected failure to ignore.
+The separate `--intel-lifetime-fixture` stage is synthetic QEMU evidence and
+cannot replace a native trial. Neither profile enables physical flips. See the
+[scanout buffer contract](scanout-buffer-lifetime.md).

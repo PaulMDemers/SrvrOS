@@ -49,6 +49,24 @@ class InstallTests(unittest.TestCase):
             release=boot.stage(intel_backing_capture=True,laptop_probe_volume='37d8c5d0')
         self.assertEqual(boot.verify(self.stage/release)['config_version'],version)
 
+    def test_intel_lifetime_profiles(self):
+        for flag,part,mode in [('intel_lifetime_capture','intel-lifetime','shadow'),('intel_lifetime_fixture','intel-lifetime-fixture','fixture')]:
+            version=f'ram-usb-v1-{part}-laptop-probe-37d8c5d0-auto-return'
+            config=boot.limine_config('0123456789abcdef',version)
+            self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+            for token in ('srvros.capture=intel-display',f'srvros.intel-lifetime={mode}','srvros.capture-failure=reboot'):
+                self.assertIn(token,config)
+            self.assertEqual('srvros.intel-backing=read-only' in config,mode=='shadow')
+            with self.assertRaises(ValueError):boot.stage(**{flag:True})
+            for options in (dict(intel_display_capture=True),dict(intel_backing_capture=True),dict(hold_on_failure=True),dict(desktop_scale=2),dict(aml_capture=True),dict(repeat=2),dict(diagnostic=True)):
+                with self.subTest(flag=flag,options=options),self.assertRaises(ValueError):
+                    boot.stage(**{flag:True},laptop_probe_volume='37d8c5d0',**options)
+            for name in ('limine-binary/BOOTX64.EFI','kernel/srvros.elf','initramfs.tar'):
+                path=self.root/'build'/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text(name)
+            with patch.object(boot,'ROOT',self.root),patch.object(boot.subprocess,'check_output',side_effect=['tested-source','']):
+                release=boot.stage(**{flag:True},laptop_probe_volume='37d8c5d0')
+            self.assertEqual(boot.verify(self.stage/release)['config_version'],version)
+
     def test_navigation_attended_profile(self):
         config=boot.limine_config('0123456789abcdef','ram-usb-v76-desktop-37d8c5d0')
         for token in ('srvros.desktop=session','srvros.battery=on','srvros.desktop-guide=window-navigation','srvros.usb-network=ecm'):

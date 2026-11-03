@@ -10,6 +10,7 @@
 #include <srvros/laptop_probe.h>
 #include <srvros/intel_display_capture.h>
 #include <srvros/intel_display_backing.h>
+#include <srvros/intel_scanout_trial.h>
 #include <srvros/audio.h>
 #include <srvros/thermal.h>
 #include <srvros/power.h>
@@ -788,6 +789,12 @@ void kmain(void) {
         if(intel_display_capture_requested) {
             sampled=intel_display_probe_report();
             bool backing_ok=intel_display_backing_probe_report();sampled=sampled && backing_ok;
+            bool fixture=cmdline_has_token(cmdline,"srvros.intel-lifetime=fixture");
+            if(fixture || cmdline_has_token(cmdline,"srvros.intel-lifetime=shadow")) {
+                struct limine_framebuffer_response *r=framebuffer_request.response;
+                bool lifetime=started && init_ready && timer_running && intel_scanout_lifetime_trial(r && r->framebuffer_count && r->framebuffers?r->framebuffers[0]:NULL,fixture);
+                sampled=fixture?lifetime:(sampled && lifetime);
+            }
         }
         bool battery_prepared=true,workspace_parked=false;
         if(automatic_battery && !home_battery && return_on_failure && started) {
