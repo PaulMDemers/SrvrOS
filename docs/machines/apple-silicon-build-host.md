@@ -2132,6 +2132,32 @@ and SrvrApps PR1; subsequent acceptance commits change documentation only.
 No further feature is required for the approved profiles milestone.
 
 
+### Edge and corner resizing — active scope November 3, 2026
+
+User authorized implementation, verification and merge. Branch
+`device/apple-silicon/edge-resize` starts from fetched main `5b2bf3c7`, including
+merged SrvrUI host/render separation PR289. This block owns compositor resize
+hit testing, anchored geometry, directional software cursors and focused
+host/VM verification. SrvrUI/SrvrApps/ports interfaces and pins are unchanged.
+PR278 retains application registry/dispatch work in deskd; PR252 owns lifetime
+work. PR288 Files recovery and PR291 awk retain their separate scopes.
+
+Interaction: hover identifies the available resize direction; pressing an edge
+or corner does not jump the window; dragging keeps the opposite edge fixed;
+release ends capture. Minimum/client maximum bounds and reachable titlebars
+remain enforced. Modal parents, maximized windows, overlays and application
+controls must not accidentally start resizing. Failed reservations or application
+refusal preserve usable prior geometry/content. Cursor changes must invalidate
+both old and new pixels, including changes without pointer movement.
+
+Acceptance: geometry and failure/lifetime host regressions, exact partial/full
+render comparisons for every cursor, full desktop suite, matched OS build, and
+actual Text/tablet resize checks at 1x and 2x with content retained and clean GPU
+retirement. QMP tests do not establish host-monitor vblank or physical input
+acceptance. The existing attended review VM/disk is preserved; disposable test
+VMs run sequentially. Hosted Actions remain disabled. Next: implement and inspect
+these transitions, verify the exact candidate, then publish and merge its PR.
+
 ### Pinned awk port — active isolated scope, November 3, 2026
 
 User authorized a separate-checkout awk milestone. Base `e376669c`, branch
@@ -2210,3 +2236,34 @@ second-boot persistence all pass again; staged-ports smoke passes again.
 Integrated guest evidence is `20261103-150115-46mpl5g7`; earlier runs remain retained.
 The portable manifest and screenshot now identify this merged runtime. Follow-up
 commits change evidence/docs only. Task-owned VMs stopped; review VM untouched.
+
+
+### Edge resize verification — November 3, 2026
+
+Runtime `bb7f9b17` passes the full desktop and desktop-I/O host suites, including
+anchored geometry, all cursor partial/full redraw states, resize refusal and
+capture invalidation. Clean candidate `d0053c89` differs only in harness/docs
+and passes the matched build, actual Text/VirtIO tablet runs at 1280×800 scale 1
+and 1920×1080 scale 2, plus the existing live theme/profile regression. All eight
+edges/corners, no-jump presses, minimums, selection/saved bytes, Escape, modal
+blocking (including opening a picker while held), edge release/re-entry and clean
+GPU reset pass. Directional cursor and minimum-size screenshots were inspected.
+
+Independent review found and resolved a queued-motion/modal race before final
+verification: capture eligibility is checked before each resize, and after the
+input batch. Initial harness failures are retained in ignored evidence: a modal
+probe hit the dialog, a requested 2560×1600 mode fell back, and scale-2 outward
+travel overlapped the dock. Final fixtures target the exposed parent, use the
+established display mode, and leave room above the dock; no acceptance was waived.
+
+[Portable receipt](../assets/screenshots/edge-resize-manifest.json) and screenshots
+retain source/hash evidence. Raw results are under `build/review/edge-resize`,
+`build/review/desktop-resize` and `build/review/desktop-theme-profiles`. Test VMs
+are stopped. Merged awk PR291 is now included, retaining both independent scope
+records and the published ports pin. The final combined source `84478be4` builds cleanly; kernel and compositor ELF
+hashes equal the accepted runtime. Its default Cocoa desktop opens in 4.32 s
+and commits a 40×25 corner enlargement to a 762×550 frame. This review VM is
+left open at `.local/macos-vm/edge-resize-review/current.json`; the prior review
+VM had already stopped and its persistent disk is retained. Required verification
+is complete for [PR292](https://github.com/PaulMDemers/SrvrOS/pull/292). Native
+acceptance and Actions are unchanged.

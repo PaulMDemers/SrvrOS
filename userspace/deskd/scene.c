@@ -4,6 +4,48 @@
 #include <stdio.h>
 #include <string.h>
 
+unsigned desktop_resize_hit(struct desk_rect r,int x,int y) {
+    /* The client and titlebar remain entirely interactive. Corners extend along
+     * both outside edges, providing a larger target without stealing controls. */
+    int64_t right=(int64_t)r.x+r.w,bottom=(int64_t)r.y+r.h;
+    if(x<(int64_t)r.x-6 || x>=right+6 || y<(int64_t)r.y-6 || y>=bottom+6 ||
+       (x>=r.x && x<right && y>=r.y && y<bottom))return 0;
+    unsigned e=0;
+    if(x<r.x || ((y<r.y || y>=bottom) && x<r.x+12))e|=DESKTOP_RESIZE_LEFT;
+    else if(x>=right || ((y<r.y || y>=bottom) && x>=right-12))e|=DESKTOP_RESIZE_RIGHT;
+    if(y<r.y || ((x<r.x || x>=right) && y<r.y+12))e|=DESKTOP_RESIZE_TOP;
+    else if(y>=bottom || ((x<r.x || x>=right) && y>=bottom-12))e|=DESKTOP_RESIZE_BOTTOM;
+    return e;
+}
+static int64_t resize_clamp(int64_t value,int64_t lo,int64_t hi) {
+    return value<lo?lo:value>hi?hi:value;
+}
+int desktop_window_resize(int sw,int sh,struct desk_rect r,unsigned e,int64_t dx,int64_t dy,struct desk_rect *out) {
+    if(!out || sw<160 || sh<156 || sw>16384 || sh>16384 ||
+       r.w<282 || r.h<285 || r.w>DESK_MAX_WIDTH+2 || r.h>DESK_MAX_HEIGHT+45 ||
+       !e || (e&~15u) || (e&3)==3 || (e&12)==12)return 0;
+    int64_t right=(int64_t)r.x+r.w,bottom=(int64_t)r.y+r.h;
+    dx=resize_clamp(dx,-65536,65536);dy=resize_clamp(dy,-65536,65536);
+    if(e&DESKTOP_RESIZE_LEFT) {
+        int64_t lo=right-(DESK_MAX_WIDTH+2),hi=right-282;
+        if(hi>sw-160)hi=sw-160;
+        if(lo>hi)lo=hi;
+        r.x=(int)resize_clamp((int64_t)r.x+dx,lo,hi);r.w=(int)(right-r.x);
+    } else if(e&DESKTOP_RESIZE_RIGHT) {
+        int64_t min=160-(int64_t)r.x;if(min<282)min=282;
+        if(min>DESK_MAX_WIDTH+2)min=DESK_MAX_WIDTH+2;
+        r.w=(int)resize_clamp((int64_t)r.w+dx,min,DESK_MAX_WIDTH+2);
+    }
+    if(e&DESKTOP_RESIZE_TOP) {
+        int64_t lo=bottom-(DESK_MAX_HEIGHT+45),hi=bottom-285;
+        if(lo<44)lo=44;
+        if(hi>sh-112)hi=sh-112;
+        if(lo>hi)lo=hi;
+        r.y=(int)resize_clamp((int64_t)r.y+dy,lo,hi);r.h=(int)(bottom-r.y);
+    } else if(e&DESKTOP_RESIZE_BOTTOM) r.h=(int)resize_clamp((int64_t)r.h+dy,285,DESK_MAX_HEIGHT+45);
+    *out=r;return 1;
+}
+
 int desktop_window_drag(int width,int height,struct desk_rect original,
     int64_t x,int64_t y,struct desk_rect *result) {
     if(!result || width<160 || height<156 || width>16384 || height>16384 ||
@@ -258,8 +300,6 @@ static void draw_window(struct desk_canvas *c,const struct desktop_window *w,int
                 c->pixels[(size_t)y*c->stride+x]=w->pixels[(size_t)(y-content.y)*w->width+x-content.x];
         c->pixel_writes+=(uint64_t)visible.w*visible.h;
     }
-    if(!skip_body || r.h<49) for (int n=0;n<3;n++)
-        desk_fill(c,(struct desk_rect){r.x+r.w-5-4*n,r.y+r.h-5,2,2},t->chrome_border);
 }
 struct desk_rect desktop_clock_rect(int width,const char *clock) {
     int text=desk_text_width(&desk_font_16,clock);return (struct desk_rect){width-text-24,0,text+24,44};
@@ -394,8 +434,35 @@ void desktop_draw_ordered(struct desk_canvas *c,const struct desktop_scene *s,
         if(s->notifications.opened || (!s->launcher_open && !s->calendar_open && s->menu.open<0 && !desk_popup_active(&s->context))) desktop_notice_view_draw(c,&s->notifications,t);
     }
     if(s->apps) desk_popup_draw(c,&s->context,t);
-    for (int y=0;y<16;y++) {
-        desk_fill(c,(struct desk_rect){s->cursor_x,s->cursor_y+y,1+y/2,1},0x252a30);
-        if (y>1 && y<13) desk_fill(c,(struct desk_rect){s->cursor_x+1,s->cursor_y+y,y/2,1},0xf0f1f3);
+    if(!s->cursor_shape) {
+        for (int y=0;y<16;y++) {
+            desk_fill(c,(struct desk_rect){s->cursor_x,s->cursor_y+y,1+y/2,1},0x252a30);
+            if (y>1 && y<13) desk_fill(c,(struct desk_rect){s->cursor_x+1,s->cursor_y+y,y/2,1},0xf0f1f3);
+        }
+    } else {
+        /* Rasterize a two-headed arrow, then outline the mask. The hotspot is
+         * its center, so switching shapes does not change the target point. */
+        unsigned e=(unsigned)s->cursor_shape;
+        int horizontal=(e&3)!=0,vertical=(e&12)!=0;
+        unsigned char mask[17][17]={{0}};
+        for(int y=0;y<17;y++)for(int x=0;x<17;x++) {
+            int u,v;
+            if(horizontal && vertical) {
+                u=x;v=(e==5 || e==10)?y:16-y;
+                mask[y][x]=(u>=2 && u<=14 && v>=2 && v<=14 &&
+                    ((u-v>=-1 && u-v<=1) || (u<=6 && v<=6 && (u<=3 || v<=3)) ||
+                     (u>=10 && v>=10 && (u>=13 || v>=13))));
+            } else {
+                u=horizontal?x:y;v=horizontal?y:x;
+                mask[y][x]=(u>=2 && u<=14 && ((v>=7 && v<=9) ||
+                    ((u<=6 || u>=10) && v>=8-(u<=6?u-2:14-u) && v<=8+(u<=6?u-2:14-u))));
+            }
+        }
+        for(int y=0;y<17;y++)for(int x=0;x<17;x++) {
+            int near=0;
+            for(int yy=y-1;yy<=y+1;yy++)for(int xx=x-1;xx<=x+1;xx++)
+                if(xx>=0 && xx<17 && yy>=0 && yy<17 && mask[yy][xx])near=1;
+            if(near)desk_fill(c,(struct desk_rect){s->cursor_x+x-8,s->cursor_y+y-8,1,1},mask[y][x]?0xf0f1f3:0x252a30);
+        }
     }
 }

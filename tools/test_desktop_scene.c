@@ -36,6 +36,14 @@ static void dynamic_damage(void) {
         desk_damage_add(&damage,paint_bounds(s.windows[1].frame));
         draw_damage(&partial,&s,&damage);desktop_draw(&fresh,&s);
         assert(!memcmp(full,tiles,sizeof(full)));
+        /* A stationary pointer changing shape must repaint both old and new pixels. */
+        const int shapes[]={1,2,4,8,5,6,9,10,0};
+        for(unsigned k=0;k<sizeof(shapes)/sizeof(shapes[0]);k++) {
+            desk_damage_init(&damage,W,H);
+            desk_damage_add(&damage,(struct desk_rect){s.cursor_x-8,s.cursor_y-8,25,25});
+            s.cursor_shape=shapes[k];draw_damage(&partial,&s,&damage);desktop_draw(&fresh,&s);
+            assert(!memcmp(full,tiles,sizeof(full)));
+        }
         /* Replace the lower window's cached pixels while foreground glass
          * overlaps it, as when the application scrolls and commits a frame. */
         for(unsigned i=0;i<310*260;i++)front[i]=(i*101u+0x123456u)&0xffffff;
@@ -122,6 +130,31 @@ int main(void) {
     assert(desktop_window_drag(1280,800,original,INT64_MIN,INT64_MAX,&moved));
     assert(moved.x==160-original.w && moved.y==688);
     moved=unchanged;assert(!desktop_window_drag(128,100,original,0,0,&moved));assert(!memcmp(&moved,&unchanged,sizeof(moved)));
+    struct desk_rect resized,base={100,100,500,400};
+    const unsigned directions[]={1,2,4,8,5,6,9,10};
+    const int points[][2]={{99,200},{600,200},{300,99},{300,500},{99,99},{600,99},{99,500},{600,500}};
+    for(unsigned i=0;i<8;i++) {
+        unsigned e=directions[i];
+        assert(desktop_resize_hit(base,points[i][0],points[i][1])==e);
+        assert(desktop_window_resize(1280,800,base,e,0,0,&resized));
+        assert(!memcmp(&base,&resized,sizeof(base)));
+        assert(desktop_window_resize(1280,800,base,e,35,30,&resized));
+        if(e&1)assert(resized.x+resized.w==base.x+base.w);
+        if(e&2)assert(resized.x==base.x);
+        if(e&4)assert(resized.y+resized.h==base.y+base.h);
+        if(e&8)assert(resized.y==base.y);
+        assert(desktop_window_resize(1280,800,base,e,100000,-100000,&resized));
+        assert(resized.w>=282 && resized.h>=285 && resized.w<=DESK_MAX_WIDTH+2 && resized.h<=DESK_MAX_HEIGHT+45);
+    }
+    assert(desktop_window_resize(1280,800,base,5,INT64_MIN,INT64_MAX,&resized));
+    assert(resized.x+resized.w==600 && resized.y+resized.h==500 && resized.w<=DESK_MAX_WIDTH+2 && resized.h>=285);
+    struct desk_rect offscreen={-400,100,600,400};
+    assert(desktop_window_resize(1280,800,offscreen,2,-1000,0,&resized));
+    assert(resized.x+resized.w>=160);
+    assert(!desktop_resize_hit(base,599,499)); /* client never becomes a resize handle */
+    assert(!desktop_resize_hit(base,50,50));
+    resized=unchanged;assert(!desktop_window_resize(1280,800,base,3,0,0,&resized));
+    assert(!memcmp(&resized,&unchanged,sizeof(resized)));
     struct desktop_scene dock_scene={.focus=2};
     dock_scene.windows[0]=(struct desktop_window){.visible=1,.application=DESK_APP_TEXT,.minimized=1};
     dock_scene.windows[1]=(struct desktop_window){.visible=1,.application=DESK_APP_TEXT};
