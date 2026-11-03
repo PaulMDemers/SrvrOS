@@ -2,6 +2,27 @@
 
 Updated: 2026-11-03. State: **active reference machine; partial device acceptance**.
 
+### Native Intel read-only observation accepted
+
+Release `c60576b371caaab4` / compiled source `5c8c0569` returned automatically;
+matching `session-00065f6627117de5-00` contains complete boot/exit logs and a
+validated version1 report. Two58-read samples, 20084us apart, retain stable
+identity/access, power-well and non-counter state. All9 temporary mappings are
+retired with zero retained mappings and zero capture writes. One active plane
+reports1440×900/pitch6144; raw control `0xd8000400` and surface/live0 are saved.
+The numerical linear-relation check does not pass; GGTT backing remains unproven.
+See the [display evidence and next checkpoint](../macbookair7-2-display-presentation.md#first-native-observation-2026-11-03).
+
+All1317 prior files are preserved except expected filesystem metadata. Two new
+logs are copied/hash-verified. Offline fsck/allocation/writable/headroom pass,
+Ubuntu remains default, the one-shot is consumed and recovery/accepted/prior
+payloads match their independent copies. USB is remounted; no new boot is armed.
+The accepted scope is bounded read-only observation on this unit, not scanout
+ownership or tear-free output. PR301 remains the review surface; next work is a
+bounded read-only layout/GGTT/backing proof before mutating display state.
+Evidence: `build/air-intel-observe-native-20261103/returned/`, independently backed
+up under the unit's reviewed-evidence storage outside build.
+
 ### Read-only Intel snapshot ready for native collection
 
 Draft PR301 implements the first display milestone on base `fa8e503f`.

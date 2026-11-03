@@ -122,3 +122,28 @@ identities, fixed read counts, bounded timing, stable controls/well endpoints an
 mapping retirement. Match the new session/release to its staged manifest before
 accepting the observation. Neither decoder acceptance nor VM fixtures establish
 native flip support or visible tear-free scanout.
+
+## First native observation (2026-11-03)
+
+Air7,2 release `c60576b371caaab4`, compiled source `5c8c0569`, saved a complete
+version1 observation in `session-00065f6627117de5-00` and returned automatically.
+Both samples contain58 reads; their durations are12us and8us and their starts
+are20084us apart. PCI identity/access, well endpoints and all non-counter fields
+are stable. All9 temporary pages are retired, retained mask0, capture writes0.
+This accepts the bounded read-only diagnostic on this unit.
+
+Inherited framebuffer: physical `0xb0000000`, 1440×900, pitch6144, 32-bit BGRX.
+PipeA reports source `0x059f0383`, control `0xd8000400`, stride `0x1800`, surface/
+offset/live0 and disabled cursor. Its scanline changes856→120 and frame count
+724→726. PipesB/C have zero plane control. The eDP transcoder reports htotal
+`0x063f059f`, vtotal/vblank `0x039d0383`, DDI `0x82200000`, config `0xc0000000`.
+Preserve these as raw inherited observations; Linux's reference state remains
+separate. The capture reports active-plane mask1 and linear-relation mask0.
+
+Next checkpoint: decode the captured format/layout and independently establish
+the inherited GGTT/backing, aperture and stolen-memory bounds using a bounded
+read-only extension. Refuse unsupported or ambiguous state. Only then design
+exclusive buffer ownership, inactive scanout allocation and vblank flips with
+retirement/restore proofs. This snapshot accepts none of those later milestones.
+Raw reports and return-integrity evidence remain in ignored
+`build/air-intel-observe-native-20261103/returned/` and independent reviewed storage.
