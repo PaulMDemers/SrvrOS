@@ -4,7 +4,7 @@
 
 User authorized the canonical-path installed-boot proof and a scoped PR. Work
 uses `device/apple-silicon/installed-canonical-paths` in the same isolated clone,
-from merged PR312 main `8f47f196`, consuming exact PR313 `77dbd1f9` by a local
+from merged PR312 main `8f47f196`, consuming exact PR313 `06d5a416` by a local
 history-preserving dependency merge. PR313 still awaits its separate integration
 review; this branch does not authorize merging that PR or its dependencies.
 It includes PR308, full PR252 `badfeb37`, and SrvrPorts pin `0f51ba9`.
@@ -30,6 +30,11 @@ harness runs at a time in this clone. No physical install, host reboot, Actions,
 profile activation or upgrade/rollback is included. Status: implementation and
 combined verification in progress; publish exact source, dependencies, evidence
 and any integration limitations before delivery.
+
+The initial `77dbd1f9` dependency passed host checks and positive namespace VM
+checks, but its run at `b8da407c` was stopped when PR313 published path-limit and
+rename-error fixes. The retained `proof-8_v1flfj` is superseded, not final
+acceptance. The final proof must rebuild and rerun with `06d5a416`.
 
 ## PR312 integration review and next checkpoint — November 3, 2026
 
