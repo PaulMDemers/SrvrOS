@@ -925,4 +925,11 @@ bool mt76_channel5_owned(const struct mt76_channel5 *s);
 bool mt76_channel5_valid(const struct mt76_channel5 *s);
 enum mt76_mcu_timing_status mt76_channel5_capture(struct mt76_channel5 *s,uint16_t nic0,uint16_t nic1,unsigned lna,const struct mt76_mcu_timing_io *rf,const struct mt76_band_mac_io *mac,const struct mt76_pa5_io *pa,const struct mt76_bbp5_io *bbp);
 
+/* Immutable per-phase requests for the separate native coordinator owner. */
+unsigned mt76_channel5_operations(const struct mt76_channel5 *s);
+unsigned mt76_channel5_phase(const struct mt76_channel5 *s);
+unsigned mt76_channel5_local(const struct mt76_channel5 *s);
+bool mt76_channel5_transfer_valid(const struct mt76_channel5 *s,bool write,uint32_t address,uint32_t value);
+size_t mt76_channel5_packet(const struct mt76_channel5 *s,uint8_t *out,size_t capacity);
+
 #endif

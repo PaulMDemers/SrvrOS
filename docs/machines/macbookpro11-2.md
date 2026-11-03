@@ -97,6 +97,31 @@ then matched build/sanitizers/exact-image VM/storage/recovery before installatio
 No trim/DAC/VCO/RX or credential use is in this trial. Installed v115/previous
 recovery remain untouched until every prerequisite passes; currently unarmed.
 
+## Native held-channel implementation pending validation
+
+The new explicit v116 automatic profile runs the fixed coordinator after the
+complete restored v115 chain. One static native context requires the same device,
+exact board, completed parent counts and this boot's private logical40 gain proof
+before every fixed read/write/packet. Public coordinator request helpers bind
+phase/local operation/address/direction/value; unknown/inactive/reentrant owners
+refuse before USB. A failed USB transaction quarantines through the existing
+failure path; no replay or speculative cleanup is introduced. Every operation
+logs its global index and fixed nested phase/local index, with a final selected/
+restored summary. The checker requires all3732 new operations after full v115
+proof, retaining all7785 operations with one EFUSE poll. The C simulated shared
+register-bank trace matches the independently fixture-derived Python plan.
+
+This explicit profile adds a fixed2MiB prefix option because the full common-init
+and nested trace can exceed1MiB. Ordinary/default and older profile limits remain
+unchanged; static ring/linear/workspace storage grows by3MiB. New boundary tests
+cover exact capacity, persistence/readback, wrap ordering and refusal after prefix
+loss, and a subsequent ordinary capture.207 staging tests pass. Exact native
+compiler stack reporting gives3776bytes for the nested coordinator/band/synth/A20/
+PA/BBP engine frames, with static state; existing transport/IRQ frames remain
+separate within the128KiB task stack. No native acceptance is claimed. Full
+regression/sanitizer/exact-stage VM/source/recovery checks precede installation;
+source remains based on main `1dad02c2` with newer main reviewed separately.
+
 ## Held-channel host foundation
 
 A fixed coordinator now nests PA at A20 operation504 while synth operation623

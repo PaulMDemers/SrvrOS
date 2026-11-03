@@ -3420,3 +3420,26 @@ enum mt76_mcu_timing_status mt76_channel5_capture(struct mt76_channel5 *s,uint16
     if(!rf->authorize(rf->context))return MT76_TIMING_CANCELLED;
     s->complete=true;return mt76_channel5_valid(s)?MT76_TIMING_OK:MT76_TIMING_STATE;
 }
+
+unsigned mt76_channel5_operations(const struct mt76_channel5 *s){
+    if(!s || !s->attempted)return UINT32_MAX;
+    const struct mt76_5ghz_band *b=&s->band;
+    uint64_t n=(uint64_t)b->before.operations+b->rf.operations+b->mac.operations+b->selected.operations+b->synth.operations+b->a20.operations+b->mac_restore.operations+b->rf_restore.operations+b->original.operations+s->pa.operations+s->bbp.operations;
+    return n<=3732?(unsigned)n:UINT32_MAX;
+}
+unsigned mt76_channel5_phase(const struct mt76_channel5 *s){return !s?UINT32_MAX:s->phase==1?mt76_5ghz_band_wire_phase(&s->band):s->phase==2?10:s->phase==3?11:s->phase==4?12:UINT32_MAX;}
+unsigned mt76_channel5_local(const struct mt76_channel5 *s){return !s?UINT32_MAX:s->phase==1?mt76_5ghz_band_operations(&s->band):s->phase==2?s->pa.operations:s->phase==3?s->bbp.operations:UINT32_MAX;}
+bool mt76_channel5_transfer_valid(const struct mt76_channel5 *s,bool write,uint32_t a,uint32_t value){
+    if(!mt76_channel5_owned(s))return false;
+    unsigned op=mt76_channel5_local(s);
+    if(s->phase==2)return mt76_pa5_transfer_valid(&s->pa,op,write,a,value);
+    if(s->phase==3)return mt76_bbp5_transfer_valid(&s->bbp,op,write,a,value);
+    if(s->phase!=1)return false;
+    if(s->band.phase==3 || s->band.phase==5){uint8_t data[4];for(unsigned i=0;i<4;i++)data[i]=(uint8_t)(value>>(i*8));return mt76_5ghz_band_transfer_valid(&s->band,op,write,a,data,4);}
+    return !write && mt76_5ghz_band_read_valid(&s->band,op,a);
+}
+size_t mt76_channel5_packet(const struct mt76_channel5 *s,uint8_t *out,size_t cap){
+    if(!mt76_channel5_owned(s))return 0;
+    unsigned op=mt76_channel5_local(s);
+    return s->phase==1?mt76_5ghz_band_packet(&s->band,op,out,cap):s->phase==2?mt76_pa5_packet(&s->pa,op,out,cap):0;
+}

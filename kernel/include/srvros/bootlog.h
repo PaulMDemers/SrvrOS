@@ -9,6 +9,7 @@
 #define BOOTLOG_LARGE_CAPTURE_CAPACITY 262144u
 #define BOOTLOG_FULL_CAPTURE_CAPACITY 524288u
 #define BOOTLOG_EXTENDED_CAPTURE_CAPACITY 1048576u
+#define BOOTLOG_RADIO_CAPTURE_CAPACITY 2097152u
 /* Opt-in startup capture only. Refuse if the ordinary ring already wrapped;
  * a larger buffer cannot recover discarded proof. */
 bool bootlog_extend_capture(void);

@@ -368,6 +368,15 @@ unchanged. This foundation has no native caller, VCO/RX or credential use.
 Numeric gain admission is not fresh EFUSE proof: a separate native owner and
 strict saved-log recipe must bind that proof before physical validation.
 
+The explicit v116 `--wifi-held-channel` recipe requires the full automatic v115
+parent, fresh same-boot gain/board and one private same-device owner. Fixed
+coordinator helpers validate each phase/local request before USB; receipts retain
+all3732 new operations and inverse readbacks after the complete parent. The strict
+checker verifies the nested plan independently from pinned fixtures. A dedicated
+2MiB prefix option preserves this larger trial, with older limits unchanged.
+Implementation and host trace checks do not grant native acceptance or enable
+VCO/RX. See the unit record for current validation and stack/storage scope.
+
 ## Current merged development baseline
 
 Runtime `d9c28128` consumes main `1dad02c2`, Apps `1f5f894`, Ports `5aacedd`
