@@ -1,5 +1,24 @@
 # Apple Silicon macOS build host
 
+## Installation identity milestone — November 3, 2026
+
+The isolated `SrvrOS-installation` clone, branch
+`device/apple-silicon/installed-root-identity`, builds on merged PR311
+`3db1a1d3`. Scope: opt-in GPT identity/format/role selection, halted no-write
+recovery, image manifests and a disposable two-disk proof. Shared block/exFAT
+admission changes require filesystem-owner review; PR308 `88ea5524` owns
+generic namespace attachment and PR309 `fa9717ad` owns portable profiles.
+Neither profile activation nor physical installation is included. Main's boot
+selection is independent of PR301's display hooks and PR252's lifetime work.
+
+Primary review QEMU PIDs 61610, 6233 and 85869 remain running and untouched.
+Only this clone's own short-lived test VMs may be stopped. One build/harness
+runs at a time here. Acceptance and exact evidence are recorded in
+[disk installation](../disk-installation.md); this is emulated x86_64 evidence,
+not native ARM64 or physical boot acceptance.
+
+## Earlier host-tool milestone
+
 Updated: 2026-10-25. This is a development host running an emulated x86_64
 guest, not a native SrvrOS hardware target. Observed host model: MacBookPro18,2.
 

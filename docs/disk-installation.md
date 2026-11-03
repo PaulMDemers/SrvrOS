@@ -1,5 +1,50 @@
 # Disk installation and recovery
 
+## Active identity-bound boot milestone — November 3, 2026
+
+User authorized implementation and a scoped PR with the two-disk proof. Base is
+merged PR311, fetched main `3db1a1d3`; branch
+`device/apple-silicon/installed-root-identity` uses the existing isolated
+installation clone. Original review VMs 61610, 6233 and 85869 remain live and
+untouched. One build/harness runs at a time here; no physical media is a target.
+
+Latest contracts remain filesystem PR308 `88ea5524` and profiles PR309
+`fa9717ad`, both open. No selector implementation exists in either diff. This
+branch proposes the missing opt-in installation selector using the existing GPT
+validator and exFAT mount. Shared selector/mount integration needs filesystem-owner
+review before merge; generic namespace attachment remains PR308's ownership.
+No change to portable identity, HOME policy, credentials or process/I/O lifetime
+is included. PR252's block/main diff is empty; its independent FAT sizing fix
+is preserved by adding only optional GUID/name inputs to the image builder.
+PR301's native display hooks in main remain separate from this boot decision.
+
+Proposed opt-in contract: `srvros.root=<canonical GPT partition UUID>`,
+`srvros.root-format=exfat-v1`, `srvros.root-role=system`. The selected partition
+must have the basic-data GPT type and exact role name `srvros-system-v1`, with
+exFAT validated before normal use. The provisioner chooses disk/partition GUIDs
+before writing boot configuration and binds all values into the reviewed plan.
+The opt-in clean mount performs no writes or flushes during admission. It refuses
+filesystem recovery flags, invalid boot copies, pending metadata temporaries and
+malformed committed metadata; it never replays a sidecar while selecting a root.
+Ordinary mounts keep their existing behavior.
+No selector fields means the ordinary legacy boot path. Partial, duplicate or
+malformed selector fields refuse; any unknown/invalid participating raw map
+refuses rather than assuming it cannot contain a duplicate. GUIDs establish
+selection, not authentication or resistance to a deliberately cloned identity.
+
+Acceptance: target plus decoy, reversed device ordering, exact saved document
+and preferences after reboot, and full decoy hash preservation; missing, wrong,
+duplicate and corrupt candidate refusal with full hashes of both disks unchanged.
+The target alone supplies its boot payload throughout. Recovery uses the existing
+framebuffer/UART to show a reason and correction path, then halts before bootlog,
+init, workspace startup or the writable monitor. It is a diagnostic recovery
+halt, not a repair shell or automatic upgrade rollback. This flow applies
+optimize-ux's explicit failure/correction states and will be checked in real VMs.
+
+Status: implementation/proof in progress. Publish exact commands, tested source,
+refusal cases and evidence limitations here before delivery. Physical install,
+in-place upgrade, profile import and guest account activation remain out of scope.
+
 ## Current target and ownership
 
 The first checkpoint is an independently bootable, disposable QEMU disk: its

@@ -109,7 +109,12 @@ def sync_dir(path):
         os.close(fd)
 
 
-def prepare(staging_dir, kernel, bootx64, exfat, init):
+def identity_config(partition_guid):
+    return CONFIG.replace(b"    cmdline: srvros.virtio=on\n",
+        f"    cmdline: srvros.virtio=on srvros.root={partition_guid} srvros.root-format=exfat-v1 srvros.root-role=system\n".encode("ascii"))
+
+
+def prepare(staging_dir, kernel, bootx64, exfat, init, *, identity_bound=False):
     target = checked_path(staging_dir)
     sources = {name: source(value) for name, value in
                [('kernel', kernel), ('bootx64', bootx64), ('exfat', exfat), ('init', init)]}
@@ -127,6 +132,12 @@ def prepare(staging_dir, kernel, bootx64, exfat, init):
     plan = {'version': 1, 'target_uuid': str(uuid.uuid4()), 'target_directory': str(target),
             'target_device': st.st_dev, 'target_inode': st.st_ino,
             'sources': sources, 'layout': spec}
+    if identity_bound:
+        gpt = {'disk_guid': str(uuid.uuid4()), 'esp_partition_guid': str(uuid.uuid4()),
+               'exfat_partition_guid': str(uuid.uuid4()), 'exfat_partition_name': 'srvros-system-v1'}
+        plan['selection'] = {'mode': 'identity-bound', 'format': 'exfat-v1', 'role': 'system'}
+        plan['gpt'] = gpt
+        plan['config'] = identity_config(gpt['exfat_partition_guid']).decode('ascii')
     write_json(target / 'plan.json', plan)
     with open(target / 'plan.sha256', 'x') as f:
         f.write(digest(target / 'plan.json') + '\n')
@@ -167,6 +178,7 @@ def verify_image(path, plan, bootstrap):
         backup_guid, backup_entries = header(total - 1, 1, total - 33)
         if disk_guid != backup_guid or entries != backup_entries:
             raise ValueError('GPT copies differ')
+        expected_gpt = plan.get('gpt')
         guids = []
         for index, (kind, key) in enumerate(((usb.ESP_TYPE, 'esp'), (usb.BASIC_DATA_TYPE, 'exfat'))):
             entry = entries[index * 128:(index + 1) * 128]
@@ -175,7 +187,14 @@ def verify_image(path, plan, bootstrap):
             expected_last = expected_first + spec[key]['size_bytes'] // 512 - 1
             if part_type != kind.bytes_le or (first, last) != (expected_first, expected_last) or not any(part_id):
                 raise ValueError('GPT partition does not match plan')
-            guids.append(str(uuid.UUID(bytes_le=part_id)))
+            guid = str(uuid.UUID(bytes_le=part_id))
+            name = entry[56:128].decode('utf-16le').rstrip('\x00')
+            expected_name = 'srvros-esp' if key == 'esp' else (expected_gpt['exfat_partition_name'] if expected_gpt else 'srvros-fat')
+            if name != expected_name or (expected_gpt and guid != expected_gpt[key + '_partition_guid']):
+                raise ValueError('GPT partition identity does not match plan')
+            guids.append(guid)
+        if expected_gpt and str(uuid.UUID(bytes_le=disk_guid)) != expected_gpt['disk_guid']:
+            raise ValueError('GPT disk identity does not match plan')
         if any(entries[256:]) or len(set(guids + [str(uuid.UUID(bytes_le=disk_guid))])) != 3:
             raise ValueError('unexpected or duplicate GPT entries')
         fat = usb.Fat32Builder(spec['esp']['size_bytes'], spec['esp']['offset_bytes'] // 512)
@@ -196,7 +215,7 @@ def verify_image(path, plan, bootstrap):
         if esp[fat_offset:fat_offset + fat_bytes] != esp[fat_offset + fat_bytes:fat_offset + 2 * fat_bytes]:
             raise ValueError('FAT copies differ')
         fat.fat = [value[0] for value in struct.iter_unpack('<I', esp[fat_offset:fat_offset + fat_bytes])]
-        usb.validate_fat32_image(esp, fat, expected_config=CONFIG)
+        usb.validate_fat32_image(esp, fat, expected_config=plan.get('config', CONFIG.decode('ascii')).encode('ascii'))
         for filename, expected in (('EFI/BOOT/BOOTX64.EFI', plan['sources']['bootx64']['sha256']),
                                    ('BOOT/SRVROS.ELF', plan['sources']['kernel']['sha256']),
                                    ('BOOT/INITRAMFS.TAR', hashlib.sha256(bootstrap).hexdigest())):
@@ -233,6 +252,18 @@ def apply(staging_dir):
         plan['layout'] != layout(plan['sources']['exfat']['size'])):
         raise ValueError('target or plan identity mismatch')
     uuid.UUID(plan['target_uuid'])
+    selection = plan.get('selection')
+    if selection is not None:
+        if selection != {'mode': 'identity-bound', 'format': 'exfat-v1', 'role': 'system'}:
+            raise ValueError('invalid root selection')
+        gpt = plan['gpt']
+        identifiers = [gpt[k] for k in ('disk_guid', 'esp_partition_guid', 'exfat_partition_guid')]
+        if (any(str(uuid.UUID(value)) != value or uuid.UUID(value).int == 0 for value in identifiers) or
+            len(set(identifiers)) != 3 or gpt['exfat_partition_name'] != 'srvros-system-v1' or
+            plan['config'] != identity_config(gpt['exfat_partition_guid']).decode('ascii')):
+            raise ValueError('invalid identity-bound plan')
+    elif 'gpt' in plan or 'config' in plan:
+        raise ValueError('unexpected root selection fields')
     for item in plan['sources'].values():
         if source(item['path']) != item:
             raise ValueError('source changed since prepare')
@@ -245,12 +276,16 @@ def apply(staging_dir):
         entry = tarfile.TarInfo('init')
         entry.mode, entry.size = 0o755, len(init_data)
         tar.addfile(entry, io.BytesIO(init_data))
-    (target / 'limine.conf').write_bytes(CONFIG)
+    (target / 'limine.conf').write_bytes(plan.get('config', CONFIG.decode('ascii')).encode('ascii'))
     temp = target / 'image.partial'
     usb.build_image(SimpleNamespace(esp_size_mib=ESP_MIB, exfat=plan['sources']['exfat']['path'],
         bootx64=plan['sources']['bootx64']['path'], bootia32=None,
         kernel=plan['sources']['kernel']['path'], initramfs=str(target / 'bootstrap.tar'),
-        config=str(target / 'limine.conf'), output=str(temp)))
+        config=str(target / 'limine.conf'), output=str(temp),
+        disk_guid=plan['gpt']['disk_guid'] if selection else None,
+        esp_guid=plan['gpt']['esp_partition_guid'] if selection else None,
+        data_guid=plan['gpt']['exfat_partition_guid'] if selection else None,
+        data_name=plan['gpt']['exfat_partition_name'] if selection else None))
     with open(temp, 'rb') as f:
         os.fsync(f.fileno())
     gpt = verify_image(temp, plan, (target / 'bootstrap.tar').read_bytes())
@@ -275,6 +310,9 @@ def apply(staging_dir):
     sync_dir(target)
     ready = {'version': 1, 'gpt': gpt, 'target_uuid': plan['target_uuid'], 'image': str(target / 'image.img'),
              'image_sha256': image_hash, 'layout': plan['layout'], 'sources': plan['sources']}
+    if selection:
+        ready['selection'] = dict(selection, partition_guid=plan['gpt']['exfat_partition_guid'],
+                                  partition_name=plan['gpt']['exfat_partition_name'])
     write_json(target / 'ready.partial', ready)
     os.link(target / 'ready.partial', target / 'ready.json')
     os.unlink(target / 'ready.partial')
@@ -289,11 +327,12 @@ def main():
     prep.add_argument('staging_dir')
     for name in ('kernel', 'bootx64', 'exfat', 'init'):
         prep.add_argument('--' + name, required=True)
+    prep.add_argument('--identity-bound', action='store_true')
     run = sub.add_parser('apply')
     run.add_argument('staging_dir')
     args = parser.parse_args()
     try:
-        result = (prepare(args.staging_dir, args.kernel, args.bootx64, args.exfat, args.init)
+        result = (prepare(args.staging_dir, args.kernel, args.bootx64, args.exfat, args.init, identity_bound=args.identity_bound)
                   if args.action == 'prepare' else apply(args.staging_dir))
         print(json.dumps(result, indent=2, sort_keys=True))
     except (ValueError, OSError, KeyError) as error:
