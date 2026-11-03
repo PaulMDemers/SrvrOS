@@ -17,26 +17,30 @@ MODES=('writeback-reserve','writeback-clean','writeback-entry','writeback-begin'
        'alias-delete','alias-overwrite','alias-truncate','alias-replace','alias-chain',
        'ownership-overlap','ownership-bitmap','ownership-leak','ownership-alias-flags',
        'alias-overwrite-failure','ownership-read-failure','ownership-oom','allocation-faults','alias-write-quarantine')
+NAMESPACE_MODES=tuple('namespace-'+case for case in ('paths','bounds','bindings','lifecycle','identity','persistence','rename','failure','workspace'))
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output',type=Path,default=ROOT/'build/review/exfat-import')
     parser.add_argument('--limine-include',type=Path,default=ROOT/'build/limine-protocol/include')
-    parser.add_argument('--process',action='store_true',help='Link real process content writeback (x86_64 host/Rosetta on macOS)')
+    selection=parser.add_mutually_exclusive_group()
+    selection.add_argument('--process',action='store_true',help='Link real process content writeback (x86_64 host/Rosetta on macOS)')
+    selection.add_argument('--namespace',action='store_true',help='Run only the explicit namespace view contracts')
     parser.add_argument('--sanitize', action='store_true', help='Enable address and undefined-behavior sanitizers')
     args=parser.parse_args();out=args.output.resolve();out.mkdir(parents=True,exist_ok=True)
     exe=out/'exfat-import'
     files=['tools/test_exfat_import.c','kernel/src/fs/exfat.c','kernel/src/vfs.c','tools/test_exfat_import.py','kernel/src/block_claim.c','kernel/include/srvros/block.h','kernel/include/srvros/exfat.h']
+    files+=['kernel/src/vfs_namespace.c','kernel/include/srvros/vfs_namespace.h','tools/test_vfs_namespace.inc']
     compiler=shlex.split(os.environ.get('CC','cc'))
     command=compiler+['-DSRVROS_EXFAT_HOST_TEST','-std=c11','-O1','-g','-Wall','-Wextra','-Werror',
         '-ffunction-sections','-fdata-sections','-I',str(ROOT/'shared/include'),'-I',str(ROOT/'kernel/include'),
-        str(ROOT/files[0]),str(ROOT/files[2]),'-Wl,-dead_strip' if platform.system()=='Darwin' else '-Wl,--gc-sections','-o',str(exe)]
+        str(ROOT/files[0]),str(ROOT/files[2]),str(ROOT/'kernel/src/vfs_namespace.c'),'-Wl,-dead_strip' if platform.system()=='Darwin' else '-Wl,--gc-sections','-o',str(exe)]
     if args.process:
         files+=['tools/test_process_writeback.c','kernel/src/process.c']
         command[len(compiler):len(compiler)]=(['-arch','x86_64'] if platform.system()=='Darwin' else [])+['-DSRVROS_EXFAT_PROCESS_TEST','-I',str(args.limine_include.resolve()),str(ROOT/'tools/test_process_writeback.c')]
     if args.sanitize: command[len(compiler):len(compiler)]=['-fsanitize=address,undefined','-fno-sanitize-recover=all']
     subprocess.run(command,check=True,cwd=ROOT)
     results=[]
-    for mode in (('writeback-process',) if args.process else MODES):
+    for mode in (('writeback-process',) if args.process else NAMESPACE_MODES if args.namespace else MODES+NAMESPACE_MODES):
         r=subprocess.run([str(exe),mode],capture_output=True,text=True,timeout=15)
         print(mode, 'PASS' if r.returncode==0 else 'FAIL',r.stdout+r.stderr,flush=True)
         results.append(dict(mode=mode,exit=r.returncode,stdout=r.stdout,stderr=r.stderr))

@@ -4192,3 +4192,7 @@ build/tests/display-owner$(HOST_EXE): tools/test_display_owner.c kernel/diagnost
 
 # The session fixture includes display transaction implementation directly.
 build/tests/desktop-session-host$(HOST_EXE): userspace/deskd/display_settings.h
+
+.PHONY: test-vfs-namespace
+test-vfs-namespace:
+	CC="$(HOST_CC)" $(PYTHON) tools/test_exfat_import.py --namespace --output build/review/vfs-namespace
