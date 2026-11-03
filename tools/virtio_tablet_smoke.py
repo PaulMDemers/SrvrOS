@@ -121,9 +121,13 @@ def main():
                             {'type': 'abs', 'data': {'axis': 'y', 'value': y}}]})
 
                     def logical(x, y):
-                        # Choose the nearest QMP position corresponding to this logical point.
-                        absolute((x * ABS_MAX + logical_w-2)//(logical_w-1),
-                                 (y * ABS_MAX + logical_h-2)//(logical_h-1))
+                        # Invert both floor mappings: QMP/tablet 0..32767 ->
+                        # input ABI 0..65535 -> logical pixel. Inverting only
+                        # the endpoints can land one pixel short at scale 2.
+                        def axis(pixel, extent):
+                            normalized = (pixel * 65535 + extent-2)//(extent-1)
+                            return (normalized * ABS_MAX + 65534)//65535
+                        absolute(axis(x,logical_w), axis(y,logical_h))
 
                     def button(name, down):
                         qmp.call('input-send-event', {'events': [
