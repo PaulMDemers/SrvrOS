@@ -81,7 +81,7 @@ def main():
                             chunk = serial.recv(16384)
                             if not chunk:
                                 raise RuntimeError('serial disconnected')
-                            output.extend(chunk)
+                            output.extend(chunk); (out / "serial.log").write_bytes(output)
                         except socket.timeout:
                             pass
                     consumed = max(consumed, output.index(marker, pos) + len(marker))
@@ -93,7 +93,7 @@ def main():
                             chunk = serial.recv(16384)
                             if not chunk:
                                 raise RuntimeError('serial disconnected')
-                            output.extend(chunk)
+                            output.extend(chunk); (out / "serial.log").write_bytes(output)
                         except socket.timeout:
                             pass
 
@@ -140,9 +140,9 @@ def main():
 
                 def display_button(which):
                     # Maximized Settings occupies the standard work area. The
-                    # scrollbar is at its end; Settings content height is 1880.
+                    # scrollbar is at its end; Settings content height is 1912.
                     content_h = logical[1] - 177
-                    offset = 1880 - (content_h - 108)
+                    offset = 1912 - (content_h - 108)
                     local_y = 64 + 1610 + (72 if which in ('mode', 'scale') else 112) - offset + 16
                     x = {'mode': 24+55, 'scale': 172+36, 'apply': 24+40,
                          'keep': 24+40, 'revert': 120+40}[which]
@@ -182,8 +182,10 @@ def main():
                 click(sx + sw - 56, sy + 20)
                 wait(b'deskd: zoom pid=' + settings_pid + b' maximized=1 ')
                 scroll_bottom()
-                # Presets currently order 1440x900 immediately before 1920x1080.
-                display_button('mode'); display_button('scale'); display_button('apply')
+                # Index zero is inherited1440x900, then deduplicated presets
+                # 1024x768,1280x800,1920x1080.
+                for _ in range(3): display_button('mode')
+                display_button('scale'); display_button('apply')
                 applied(1920, 1080, 2, 0); shot('trial-1920x1080-2x', (1920, 1080))
                 scroll_bottom(); display_button('keep')
                 wait(b'deskd: display-kept scale=2 resolution=1920x1080')
