@@ -6653,3 +6653,30 @@ Installed/recovery payload hashes and durable evidence verify; Ubuntu remains
 default, the one-shot is consumed and the collector is disabled. No reboot is
 armed. The next scope is read-only tracing of the tiled aperture/GGTT backing;
 no HDA/well transition or real adoption is authorized by this result.
+
+
+### Tiled/GGTT source audit and shared-capture dependency (2026-11-03)
+
+Main is updated to `8f47f196` with its actual app/widget pins; the installed
+native readout remains `728bcbeb` / `9b485ca12b4c2482`. No newer tree inherits
+that acceptance. The [Haswell audit](../macbookair6-1-tiled-backing-audit.md)
+finds model-critical differences from PR301's Broadwell capture: +2 MiB GGTT
+alias in a 4 MiB BAR, 32-bit PTEs, different GGC size fields and cache bit 11
+rather than physical-address bit 39. Haswell swizzle also remains unobserved.
+
+The Intel register volume documents sixteen fences/ten pitch bits while Linux
+selects thirty-two Gen7 fences and a wider pitch. Both references are retained;
+no new native allowlist is inferred from a sibling. Partial coverage cannot
+prove uniqueness. Linux fence-debug metadata was unavailable, resolving nothing.
+
+The host-only executable contract reproduces the actual 1,056-entry / 4,224-byte
+GGTT extent and tile padding, and tests generation/cache/address/fence refusal
+cases. All eight test groups pass; no raw PTE/fence/GGC has been captured natively.
+PR301 owns shared capture; a separately exact Haswell adapter and versioned
+full-vector receipt remain next after integration or explicit shared-interface
+coordination. This audit does not introduce a competing driver, runtime gate,
+control writer or staged payload. No policy, limit or integrity check changes.
+Docs/host fixtures are validated independently; a new matched build, exact-stage
+VM, native preflight and complete collection are still required before another
+physical test. Existing RC6 failure/package-C3 zero and unknown ownership remain.
+No reboot is armed.
