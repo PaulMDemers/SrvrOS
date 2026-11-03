@@ -41,7 +41,7 @@ def main():
     results = []
     with tempfile.TemporaryDirectory(prefix='srvros-virtio-tablet-') as directory:
         tmp = Path(directory)
-        for width, height, scale in ((1280, 800, 1), (1440, 1080, 2)):
+        for width, height, scale in ((1280, 800, 1), (1920, 1080, 2)):
             logical_w, logical_h = (width + scale - 1)//scale, (height + scale - 1)//scale
             mode = f'{width}x{height}-scale{scale}'
             work = tmp / mode
