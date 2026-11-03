@@ -261,7 +261,8 @@
   "captures": {
     "hidpi-display-rollback.png": "a969bdf1aef8cd08a4a2418bb3992fa9bc1e0d97ac687c14051a1cc11da6e20b",
     "hidpi-display-trial.png": "26e13269b7f4ed085176ea461ba1984f2f792b5c6478dd33e0fb8e108f0715ba",
-    "hidpi-display-restored.png": "dc65f925dc9093c69ee61d7253e0088e65c869552b382bdf7ab430832eae0230"
+    "hidpi-display-restored.png": "dc65f925dc9093c69ee61d7253e0088e65c869552b382bdf7ab430832eae0230",
+    "hidpi-display-aero.png": "cb0edf9fa3e28d64bb0554feb28c727aff427b46d26069b25f9659b27e69cfda"
   },
   "render_cost": {
     "logical_desktop": [
@@ -291,5 +292,107 @@
     "Resolution presets are supported QEMU guest modes, not EDID; native/stdVGA are current-mode-only.",
     "Native hardware, host vblank and physical timing are not accepted by these VM results.",
     "Independent exfatprogs fsck is unavailable; document readback and preference restart checks passed."
-  ]
+  ],
+  "integrated_runtime": {
+    "source": "6af9cfda755898241c025e9fc160b44eb50ecaa7",
+    "base": "bfdcab65",
+    "repositories": {
+      ".": {
+        "head": "6af9cfda755898241c025e9fc160b44eb50ecaa7",
+        "dirty": false
+      },
+      "ports": {
+        "head": "5e30ecd3f500f7ccbb4f4ce9a3354adddade735f",
+        "dirty": false
+      },
+      "ports/upstream/awk": {
+        "head": "5739fd79bcfc75ba7526773d0cf634521f8aca3c",
+        "dirty": false
+      },
+      "ports/upstream/cjson": {
+        "head": "c859b25da02955fef659d658b8f324b5cde87be3",
+        "dirty": false
+      },
+      "ports/upstream/inih": {
+        "head": "26254ee9de7681f8825433415443e7116ff24b98",
+        "dirty": false
+      },
+      "ports/upstream/libuv": {
+        "head": "1cfa32ff59c076ffb6ed735bbc8c18361558661f",
+        "dirty": false
+      },
+      "ports/upstream/linenoise": {
+        "head": "dc83cc373ac2058030eb3cf5e404959a26fef112",
+        "dirty": false
+      },
+      "ports/upstream/lua": {
+        "head": "6e22fedb74cf0c9b6656e9fce8b7331db847c605",
+        "dirty": false
+      },
+      "ports/upstream/node": {
+        "head": "c7d10158bc31036de6783d66beaaaf551e3167aa",
+        "dirty": false
+      },
+      "ports/upstream/zlib": {
+        "head": "da607da739fa6047df13e66a2af6b8bec7c2a498",
+        "dirty": false
+      },
+      "userspace/apps": {
+        "head": "edb51dc16214d58bcd1768b3a52fdb3b9793c8b8",
+        "dirty": false
+      },
+      "userspace/widgets": {
+        "head": "9eaaa74e1423c15c99f8ce388b08ed5e514de3d6",
+        "dirty": false
+      }
+    },
+    "image_hashes": {
+      "build/kernel/srvros.elf": "ef52958679d22a92e927e0e4dab03c7585c53c2ed6929034400777e421e8be65",
+      "build/initramfs.tar": "71b0f346b5912427e5aa89cf5d13e725e61b5e6d306e3232579ed88f738cd633",
+      "build/srvros.exfat": "c972e6c49ba978df9476b0e9cfc54108a8f263fdf5b07eea1e891318c68cee7d"
+    },
+    "shell_host": "56 checks passed",
+    "display_result_sha256": "d5cf7d090ce09bf2576aea4d318e8a672afa0dc8caef7b34edd014143b0853c7",
+    "display_result": {
+      "status": "PASS",
+      "metadata": {
+        "source_manifest_sha256": "1cca36f5c5d4e373953350aee469600fc2783866236f95cd79eb5b795f69e46d",
+        "kernel_sha256": "ef52958679d22a92e927e0e4dab03c7585c53c2ed6929034400777e421e8be65",
+        "base_disk_sha256": "c972e6c49ba978df9476b0e9cfc54108a8f263fdf5b07eea1e891318c68cee7d",
+        "qemu_version": "QEMU emulator version 11.1.2",
+        "boot_iso_sha256": "624a6295a0dfd59cd402c983f0033be84591e2016cd8b61ae613eb61ed5f3bdf",
+        "active_pointer": {
+          "index": 2,
+          "name": "QEMU Virtio Tablet",
+          "current": true,
+          "absolute": true
+        }
+      },
+      "checks": [
+        "Settings apply and keep",
+        "Text selection, snap, resize and saved document",
+        "timed rollback with held switcher; explicit and owner-close rollback",
+        "saved preference and fresh desktop restore"
+      ],
+      "limitations": "Requires current preset ordering and Settings layout. Screenshots prove dimensions, not native glyph detail."
+    },
+    "note": "Includes merged Terminal quoting PR299. Same extended display trial, owner/timeout/switcher rollback, saved Text readback and fresh-desktop preference restore all pass. Existing capture PNGs show the identical renderer at e613f8f0."
+  },
+  "attended_review": {
+    "pid": 61610,
+    "source": "6af9cfda755898241c025e9fc160b44eb50ecaa7",
+    "physical": [
+      1920,
+      1080
+    ],
+    "scale": 2,
+    "theme": "Aero",
+    "preferences_saved": true,
+    "state_dir": ".local/macos-vm/hidpi-display-review",
+    "desktop_ready_seconds": 4.38,
+    "previous_review_pids_preserved": [
+      6233,
+      85869
+    ]
+  }
 }

@@ -2598,6 +2598,19 @@ records the requested integration; no further implementation is required for
 this target.
 
 
+Final combined runtime `6af9cfda` includes merged Terminal quoting PR299/main
+`bfdcab65`. Its 56 quoting host checks, clean matched build and the extended
+display VM pass again, including actual saved-document and preference readback
+through the updated shell. The renderer, driver and Settings implementation is
+unchanged from the preceding accepted run.
+
+A new attended Aero review VM (PID 61610, separate persistent disk under
+`.local/macos-vm/hidpi-display-review/`) reaches desktop in 4.38 seconds and
+keeps/saves 1920×1080 at 2× through Settings. The native-resolution
+[Aero capture](../assets/screenshots/hidpi-display-aero.png) was inspected.
+Prior resize/snap review PIDs 85869/6233 and their disks are preserved.
+
+
 ### Terminal quoting recovery — completed November 3, 2026
 
 User authorized reproducing/fixing quoted backslash handling and acceptance in
