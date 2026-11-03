@@ -2679,9 +2679,14 @@ checks. All 482 CLI commands and the editing/history regression pass. External
 `fsck.exfat` remains unavailable and is explicitly skipped. An independent
 read-only review confirmed both Makefile test groups and dependencies survived.
 
-The documentation closeout builds the same kernel, initramfs and disk artifacts.
+Concurrent PR303 landed before the documentation closeout, producing combined
+main `3e9a045f` with Apps `edb51dc1` and UI `9eaaa74e`. After updating those pins
+in this isolated checkout, its clean matched build, host checks, 35 Terminal
+cases, persistence, all 482 CLI commands and editing/history regression passed
+again. The final documentation-only update preserves this combined runtime.
 Merged-runtime identities, hashes and results are retained in local
 `build/review/terminal-quoting/integration-receipt.json`; Terminal evidence is in
-`build/review/awk/20261103-170330-z6kf_bun/`. All task VMs are stopped; the shared
+`build/review/awk/20261103-170330-z6kf_bun/` for PR299 and
+`build/review/awk/20261103-171352-3ik016sz/` for combined main. All task VMs are stopped; the shared
 checkout and review VM remain untouched. Delivered and verified; no further work
 is required for this integration target.
