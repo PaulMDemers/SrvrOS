@@ -1,4 +1,4 @@
-#include "../userspace/desktools/file_info.c"
+#include "../userspace/apps/desktools/file_info.c"
 #include <assert.h>
 static struct tool t;
 long srv_ticks(void) { return 10; }

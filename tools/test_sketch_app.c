@@ -1,6 +1,6 @@
 #define _DEFAULT_SOURCE
 #define main sketch_main
-#include "../userspace/desksketch/desksketch.c"
+#include "../userspace/apps/desksketch/desksketch.c"
 #undef main
 #include <assert.h>
 static int canceled,save_failed,save_starts;static char copied[16];

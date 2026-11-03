@@ -159,13 +159,19 @@
 #define SYS_GUI_CANCEL_WAIT 153
 #define SYS_SCHED_TRACE 154
 #define SYS_SOCKET_TRY_IO 155
-#define SYS_WIFI 156
+/* Explicit whole-frame presentation; ordinary framebuffer ABI stays intact. */
+#define SYS_GFX_PRESENT_BEGIN 156
+#define SYS_GFX_PRESENT 157
+#define SYS_GFX_PRESENT_END 158
+#define SYS_WIFI 159
 #define SRV_DIRECTORY_READ 0
 #define SRV_DIRECTORY_PATH 1
 #define SRV_DIRECTORY_CHDIR 2
 struct srv_dirent { uint64_t inode,type; char name[SRV_NAME_MAX + 1]; };
 /* Metadata and names from the same quiescent enumeration turn. Capacity is
- * bytes for 1..16 records; return count, zero at EOF, or a negative error. */
+ * bytes for 1..16 records; fills capacity unless EOF, or returns a negative
+ * error. A short count (including zero) reaches EOF for this turn; concurrent
+ * directory mutations retain unspecified enumeration order. */
 #define SRV_DIRECTORY_READ_INFO 3
 #define SRV_DIRECTORY_BATCH_MAX 16
 struct srv_dirent_info { struct srv_dirent entry; uint64_t size,modified; };

@@ -30,6 +30,35 @@ separate work.
 The selected [portable C/POSIX profile](posix-supported-profile.md) has its own
 acceptance; this desktop work is not full POSIX or Linux compatibility.
 
+## Folder-list completion under storage load
+
+The native Files deadline in the Air7,2 record includes an accepted folder job
+still draining after visual Close. The deskfs backend now consumes the existing
+READ_INFO fill-or-EOF contract: a short metadata batch terminates enumeration
+without an extra EOF-only syscall. Exact full batches still require a following
+call, and every returned record retains validation, truncation and CRC handling.
+This removes one potential storage-gate wait from a short final batch; it does
+not cancel accepted work, admit directory operations during foreign I/O, or
+change the 500 ms UI / 10 s whole-lifetime limits. Actual native improvement
+requires a new source-matched physical result.
+
+The automatic PCM/disk diagnostic uses separate one-way start/completion pipes.
+Both producer endpoints are nonblocking before streaming. These plain endpoints
+use the existing atomic simple-pipe close path; duplex channels would regain
+storage admission on close. A host fixture executes the actual producer and
+rejects any duplex close or blocking signal during live PCM, checks early/late
+completion, full nominal duration, bounded extension, malformed/EOF failure and
+complete child/descriptor cleanup. This does not relax underrun acceptance or
+change the kernel's rights-bearing/duplex cleanup policy.
+
+Air7,2 release `c497eb0cb48c1b01` / source `ca66d874` subsequently passes the
+full1800-second native automatic workload:999 app lifetimes, three screenshots,
+zero underruns/log loss, clean retirement and independent USB integrity checks.
+UI112285us, ready4303178us and Close6759999us meet the unchanged limits. This
+accepts that named workload; multi-second storage waits and separate physical
+input/audible/SMP acceptance remain outside this result. See the
+[unit record](machines/macbookair7-2.md) for exact evidence and earlier failures.
+
 ## Repeat the local gates
 
 Use one checkout and one build/VM harness at a time. The scripts share output

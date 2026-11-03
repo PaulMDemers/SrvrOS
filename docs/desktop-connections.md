@@ -1,6 +1,6 @@
 # Desktop connections and window lifetime
 
-The desktop connection implementation uses matched protocol v15. It adds multiple
+The desktop connection implementation uses matched protocol v16. It adds multiple
 window identities per authenticated process. Compositor registries grow under
 explicit byte budgets; refusal remains part of the creation contract. The shared header, kernel, compositor and applications must
 come from the same build. This is not a stable external binary ABI.

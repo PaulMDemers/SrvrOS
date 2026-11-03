@@ -1,24 +1,145 @@
 # MacBookAir7,2 / A1466
 
-Updated: 2026-11-01. State: **active reference machine; partial device acceptance**.
+Updated: 2026-11-02. State: **active reference machine; partial device acceptance**.
 
-### Authorized PR261 merge and automatic hardware trial
+### PR272 integration closeout
 
-The user authorized merging PR261 and rebooting into the full automatic endurance
-trial at 1% volume. Main `7ee6a048` is integrated; full local core/docs, matched
-ordinary/native/synthetic builds and the AP diagnostic kernel pass. The unused
-failed ff payload was archived with every file hash verified to make EFI space;
-current accepted62ed and recovery9aa remain intact. No device gate was widened.
+Integrated main `88c56afa` as clean tested source `131ac835`. Conflicts were
+confined to appended Makefile targets and adjacent machine-table rows; all three
+tests and each unit's independent evidence are retained. Reviewed Files/PCM
+runtime and regression files match native-tested `ca66d874` byte-for-byte.
+Main's compact optional power/idle capture output and validation tools remain
+separate; no device gate or ordinary desktop policy was widened.
 
-Next steps are merging the reviewed PR, building/staging its exact new baseline,
-positive loaded VM and exact-stage refusal/save/unmount rehearsal, then fresh
-USB preservation/offline checks, volume override and recovery/install guards.
-The trial needs no input, shows progress, saves results and returns after safe
-cleanup. Unsafe cleanup retains a visible halt. Records live in
-`build/air-pr261-merged-native-20261101/`; collect its matching session before a
-new trial. Physical acceptance of this new candidate remains pending.
+Full local core/docs, ordinary/native/synthetic builds and the AP diagnostic
+kernel pass. Combined read100/write100 plus1200-metadata KVM passes21 lifetimes,
+UI119521us, ready1118608us and Close1020678us at unchanged500ms/10s limits;
+161 live overlap windows,1267 preserved files, zero underruns/lost/pending logs,
+full capture and cache/service retirement. Twenty Files windows pass independent
+histories, owned cancel/collision, accepted8MiB copy through Close, concurrent
+Text save, exact files and cleanup. No actionable review findings remain.
 
-### PR261 message-stall closeout: ready for merge review
+PR272 carries this integration and the source-specific native pass below.
+Physical acceptance stays tied to `ca66d874`/releasec497; integrated diagnostic
+format changes have host/VM evidence only. Installed c497, independent known-good
+payloads and recovery9aa are unchanged. No reboot is armed; Actions remain
+disabled. Evidence is backed up outside `build` from
+`build/air-pr272-integration-20261102/`.
+
+### PR272 native endurance: full pass
+
+Release `c497eb0cb48c1b01` / clean source `ca66d874`, session
+`session-00065f521be13cdd-00`, passes the full1800-second automatic trial at1%
+volume:999 completed app lifetimes, three decoded1440×900 screenshots,
+345829376PCM bytes and zero underruns. Matching whole saved text and separate
+binary disk receipts show2793 bursts/732168192 verified bytes spanning1797452469us
+inside live PCM. The full nominal PCM minimum and bounded completion extension
+remain intact. UI112285us, ready4303178us and Close6759999us meet unchanged500ms
+UI/10s whole-lifetime limits. Final whole lifecycle/operation/cleanup proofs
+validate; UI logs drain with zero dropped/pending, cache retires0bytes/0retained/
+824reuses, battery runtime retires, and automatic Ubuntu return succeeds.
+
+All1304 prior files are preserved except expected metadata; nine new files are
+copied and hash-verified. Offline fsck is clean,289directories/1313files;
+allocation/writable/headroom, recovery/default and consumed one-shot checks pass.
+USB is remounted. The payload is independently preserved as known-good; recovery
+9aa and prior accepted62ed/7d remain retained. All earlier failures remain failed.
+This accepts the named automated workload only, with no new physical input,
+audible routing, gauge calibration, SMP or sibling acceptance. Retained storage
+mutations/gate waits still reach6.658seconds; not all latency is eliminated.
+
+Evidence in `build/air-files-drain-20261102/` is backed up outside `build`.
+The integration closeout above records main `88c56afa` and its local checks.
+No new test is armed. The next section
+preserves pretrial readiness and exact host/VM sources as historical evidence.
+
+### Files drain and PCM signal fixes (historical): pretrial readiness
+
+Clean source `ca66d874`, based on main `95ddb8d6`, is staged as
+`c497eb0cb48c1b01`. Files listing now terminates on a short READ_INFO batch,
+removing an unnecessary EOF-only storage-gate turn while preserving full-batch
+continuation, all returned records and failure/truncation checks. The actual
+old backend fails the new short-batch regression; boundaries and the actual
+kernel shared-directory-cookie EOF behavior pass.
+
+The initial loaded trial on `53f08a82` failed with one underrun. Its evidence is
+retained. A separate actual-producer host reproducer catches a live duplex-close
+route even after making its start endpoint nonblocking. The corrected producer
+uses one-way pipes and explicitly nonblocking start/completion endpoints; the
+existing simple-pipe close prelude needs no new kernel admission. Actual-producer
+tests pass early/late completion, full nominal PCM, the bounded tail, malformed
+or EOF refusal, setup failure, and child/descriptor retirement. The exact
+scheduling cause of the earlier underrun is not independently bracketed.
+
+Two combined read100/write100 plus1200-metadata VM trials pass on `ca66d874`,
+each with 20 app lifetimes and 1267 prior files preserved. UI maxima are120063 /
+153300us; ready1629212 /1329768us; Close1299125 /1423373us. Both have zero
+underruns and lost/pending UI logs, complete capture and worker/cache/service
+retirement, cache0bytes/0retained/16reuses, and valid whole saved receipts. The
+20-window Files VM passes independent histories, owned cancel/collision, an
+accepted8MiB copy through Close, concurrent Text saving, exact bytes and cleanup.
+Full core passes on the preceding folder fix; actual-producer, process-output,
+PCM/receipt tests and ordinary builds pass after the producer correction. Docs
+checks pass. Exact-stage TCG passes native refusal/save/unmount/return plumbing
+only; it is not positive native device evidence.
+
+No workload, 500ms UI/10s lifetime limit, accepted-job drain, storage ordering or
+hardware gate changes. The candidate and evidence are independently backed up
+outside `build`. Installed291, accepted62ed and recovery9aa remain unchanged.
+No reboot is armed. Next checkpoint is the same full1800-second automatic native
+trial at1% with fresh volume override, USB preservation/offline guards, full
+receipts/three screenshots and automatic safe return. Physical acceptance of
+both fixes remains pending. Evidence: `build/air-files-drain-20261102/`.
+
+### Files drain scope (historical)
+
+Integrated main PR270 documentation; runtime remains the merged PR261 baseline.
+The saved final Files trace places about 9.3 seconds between canvas disposal and
+history release, then 3.090923 seconds in pool retirement. Accepted job draining
+and dispatcher diagnostics precede history release; their exact split is not
+measured. Review found a redundant READ_INFO call after a short terminal
+batch. Bounded scope: remove that EOF round trip in deskfs, document the existing
+fill-or-EOF contract, test boundaries/errors and actual kernel short-batch EOF,
+then run loaded VM app/audio/disk and multi-Files regression. No syscall admission,
+accepted-job cancellation, storage ordering, workload or deadline is widened.
+Physical endurance acceptance remains pending; no reboot is armed.
+
+The first loaded VM on `53f08a82` fails with one PCM underrun after 20 app
+lifetimes; UI119995us, ready1095825us and Close1599275us remain within limits.
+Keep that failure. The producer uses duplex pipes for one-way start/completion
+signals; closing them during live PCM takes the ordinary storage gate. Expanded
+scope is confined to those diagnostic channels in playwav: use simple pipes and
+nonblocking producer endpoints, test the actual producer with a gate-aware host
+fixture, then repeat loaded VMs. No kernel pipe admission is widened.
+
+### Merged PR261 native return: Files retirement deadline
+
+PR261 merged as `466f4743`; local checkout uses that baseline. Release
+`291536821097eefb`, session `session-00065f436b5cced3-00`, automatically returned
+after failing the unchanged whole-lifetime limit at 10009854 us after 13 completed
+cycles. Files PID24 became ready after 4594202 us and visually closed, but remained
+background at the deadline. Exit/reap completion for that lifetime is unobserved.
+UI maximum 101281 us and completed Close maximum 6590199 us stay within their
+limits; that completed maximum excludes the failed final lifetime.
+
+The deferred UI log drains with zero dropped/pending records. Cache retires with
+zero bytes/retained surfaces and 11 reuses; battery runtime retires. Saved storage
+gate waits last 4.19–5.09 seconds, with retained successful write/append mutations
+at 4.63–5.22 seconds. This establishes continuing storage contention, without
+uniquely proving the cause of the final missing process exit. Full 1800-second
+PCM/disk receipts and three captures are absent; one screenshot decodes during
+cleanup. This run is a failure, not new endurance acceptance. Volume remained 1%.
+
+All 1298 prior files are preserved except expected workspace metadata; six new
+files are copied and hash-verified. Offline fsck reports clean, 287 directories /
+1304 files; allocation, writable and headroom checks pass. Candidate/recovery
+payloads, Ubuntu default and consumed one-shot are verified. Accepted62ed and
+recovery9aa remain retained; failed291 is not promoted. USB is remounted.
+Evidence and hashes in `build/air-pr261-merged-native-20261101/` are backed up
+outside `build`. No test is armed. Next bounded scope is Files process retirement
+after visual Close under storage contention, preserving workload and deadlines.
+
+### PR261 message-stall closeout (historical): merge readiness
 
 Integrated main `a6b9e1b7` as clean tested source `721339ea`. The new main changes
 retain isolated Air6,1 CPU/AP diagnostic receipts; hardware gates and ordinary

@@ -13,6 +13,7 @@
 
 #include <srvros/block.h>
 #include <srvros/console.h>
+#include <srvros/display_present.h>
 #include <srvros/exfat.h>
 #include <srvros/gui.h>
 #include <srvros/heap.h>
@@ -23,6 +24,7 @@
 #include <srvros/mouse.h>
 #include <srvros/net.h>
 #include <srvros/pmm.h>
+#include <srvros/virtio_rng.h>
 #include <srvros/process.h>
 #include <srvros/pty.h>
 #include <srvros/scheduler.h>
@@ -309,6 +311,12 @@ static uint64_t splitmix64_next(uint64_t *state) {
 static uint64_t random_u64(void) {
     uint64_t hardware;
     uint64_t flags = irq_save();
+    /* Nonblocking: the VM entropy worker replenishes a private pool. Existing
+     * hardware/software fallback semantics are retained when it is empty. */
+    if (virtio_rng_take_u64(&hardware)) {
+        irq_restore(flags);
+        return hardware;
+    }
     if (random_state == 0) {
         random_state = rdtsc() ^
             (timer_ticks() << 32) ^
@@ -1681,12 +1689,27 @@ static int64_t syscall_gfx_info(struct syscall_gfx_info *info) {
     copy.green_mask_shift = display.green_mask_shift;
     copy.blue_mask_size = display.blue_mask_size;
     copy.blue_mask_shift = display.blue_mask_shift;
-    copy.flags = intel_gfx_flags();
+    copy.flags = intel_gfx_flags() | (display_present_available() ? 0x10ull : 0);
     copy.accel_backend = intel_gfx_backend();
     return copy_abi_struct_to_user(info, &copy, sizeof(copy), SRV_ABI_VERSION) ? 0 : -1;
 }
 
+static bool gfx_write_allowed(void) {
+    struct process *p = process_current();
+    return display_present_can_write(p ? process_pid(p) : 0);
+}
+static int64_t syscall_gfx_present(unsigned operation) {
+    struct process *p = process_current();
+    uint64_t pid = p ? process_pid(p) : 0;
+    if (!pid) return -1;
+    if (operation == 0 && (!gui_server_is_owner(pid) || !console_framebuffer_muted_by(pid))) return -1;
+    bool ok = operation == 0 ? display_present_begin(pid) :
+        operation == 1 ? display_present_frame(pid) : display_present_end(pid);
+    return ok ? 0 : -1;
+}
+
 static int64_t syscall_gfx_put_pixel(uint64_t x, uint64_t y, uint32_t rgb) {
+    if (!gfx_write_allowed()) return -1;
     uint64_t previous = vmm_current_address_space();
     uint64_t kernel = vmm_kernel_address_space();
     bool ok;
@@ -1701,6 +1724,7 @@ static int64_t syscall_gfx_put_pixel(uint64_t x, uint64_t y, uint32_t rgb) {
 }
 
 static int64_t syscall_gfx_fill_rect(uint64_t x, uint64_t y, uint64_t width, uint64_t height, uint32_t rgb) {
+    if (!gfx_write_allowed()) return -1;
     uint64_t previous = vmm_current_address_space();
     uint64_t kernel = vmm_kernel_address_space();
     bool ok;
@@ -1748,6 +1772,7 @@ static int64_t syscall_gfx_blit_copy_impl(struct srv_gfx_blit_rect request, uint
     }
 
     for (uint64_t row = 0; row < height; row += chunk_rows) {
+        if (!gfx_write_allowed()) { kfree(copy); return -1; }
         uint64_t rows = height - row;
         if (rows > chunk_rows) {
             rows = chunk_rows;
@@ -3088,6 +3113,12 @@ void syscall_dispatch(struct isr_frame *frame) {
     case SYS_KEY_SCAN:
         frame->rax = (uint64_t)syscall_key_scan();
         return;
+    case SYS_GFX_PRESENT_BEGIN:
+        frame->rax = (uint64_t)syscall_gfx_present(0); break;
+    case SYS_GFX_PRESENT:
+        frame->rax = (uint64_t)syscall_gfx_present(1); break;
+    case SYS_GFX_PRESENT_END:
+        frame->rax = (uint64_t)syscall_gfx_present(2); break;
     case SYS_GFX_INFO:
         frame->rax = (uint64_t)syscall_gfx_info((struct syscall_gfx_info *)frame->rdi);
         return;

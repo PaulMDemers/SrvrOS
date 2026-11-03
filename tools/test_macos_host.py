@@ -15,6 +15,7 @@ sys.path.insert(0, str(TOOLS / 'macos'))
 sys.path.insert(0, str(TOOLS))
 import bootstrap_zig
 import build_manifest
+import source_provenance
 
 spec = importlib.util.spec_from_file_location('macos_run', TOOLS / 'macos/run.py')
 runner = importlib.util.module_from_spec(spec)
@@ -66,6 +67,39 @@ class HostTools(unittest.TestCase):
             with self.assertRaises(ValueError):
                 bootstrap_zig.release_for(version, system, arch)
 
+    def test_nested_source_changes_are_recorded(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            def git(repo, *args):
+                return subprocess.run(['git', '-C', str(repo), *args], check=True,
+                                      stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            def init(repo):
+                repo.mkdir()
+                git(repo, 'init', '-q')
+                git(repo, 'config', 'user.name', 'Test')
+                git(repo, 'config', 'user.email', 'test@example.invalid')
+                (repo / 'tracked').write_text('original')
+                git(repo, 'add', 'tracked')
+                git(repo, 'commit', '-qm', 'initial')
+            child = root / 'child'
+            parent = root / 'parent'
+            init(child)
+            init(parent)
+            git(parent, '-c', 'protocol.file.allow=always', 'submodule', 'add', '-q',
+                str(child), 'nested')
+            git(parent, 'commit', '-qam', 'add child')
+            before = source_provenance.capture(parent)
+            (parent / 'nested/tracked').write_text('changed')
+            (parent / 'nested/new').write_text('untracked one')
+            after = source_provenance.capture(parent)
+            self.assertTrue(after['nested']['dirty'])
+            self.assertNotEqual(before['nested']['tracked_diff_sha256'],
+                                after['nested']['tracked_diff_sha256'])
+            first = after['nested']['untracked']['new']['sha256']
+            (parent / 'nested/new').write_text('untracked two')
+            self.assertNotEqual(first, source_provenance.capture(parent)
+                                ['nested']['untracked']['new']['sha256'])
+
     def test_changed_images_refuse_old_provenance(self):
         with tempfile.TemporaryDirectory() as temp:
             repo = Path(temp)
@@ -114,6 +148,21 @@ class HostTools(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError, 'still exists'):runner.refuse_running(pid)
                 check.assert_called_once_with(123, 0)
             with patch.object(runner.os, 'kill', side_effect=ProcessLookupError):runner.refuse_running(pid)
+
+    def test_virtio_profile_and_legacy_fallback(self):
+        modern=runner.device_arguments('virtio')
+        self.assertIn('virtio-keyboard-pci',modern)
+        self.assertIn('virtio-tablet-pci',modern)
+        self.assertNotIn('virtio-mouse-pci',modern)
+        self.assertIn('virtio-blk-pci,drive=disk,disable-legacy=on',modern)
+        self.assertIn('virtio-net-pci,netdev=net0,disable-legacy=on',modern)
+        self.assertIn('virtio-rng-pci,rng=rng0,disable-legacy=on',modern)
+        self.assertFalse(any('usb-' in a or 'e1000' in a or 'ide-hd' in a for a in modern))
+        legacy=runner.device_arguments('legacy')
+        self.assertIn('usb-kbd,bus=xhci.0',legacy)
+        self.assertIn('ide-hd,drive=disk,bus=ahci.0',legacy)
+        self.assertIn('e1000,netdev=net0',legacy)
+        self.assertFalse(any('virtio' in a for a in legacy))
 
 
 if __name__ == '__main__':

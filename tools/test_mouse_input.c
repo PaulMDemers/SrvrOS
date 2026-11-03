@@ -12,6 +12,50 @@ static struct mouse_event next(int x,int y,int buttons) {
     assert(mouse_scan(&e)); assert(e.dx==x && e.dy==y && e.buttons==buttons && !e.reserved);
     return e;
 }
+static void absolute_events(void) {
+    struct mouse_event e;
+    mouse_inject_trackpad(0,0,0); /* Clear the preceding overflow's blocked pad. */
+    assert(!mouse_pending());
+    mouse_inject_virtio_absolute(0,0,0,0,0,0);
+    e=next(0,0,0);assert(e.flags&MOUSE_ABSOLUTE);
+    mouse_inject_virtio_absolute(0,50000,60000,0,0,0);
+    mouse_inject_virtio_absolute(0,65535,0,0,0,0);
+    e=next(65535,0,0);assert((e.flags&MOUSE_ABSOLUTE) && !mouse_pending());
+    /* Mode boundaries preserve ordering, including a return to exact origin. */
+    mouse_inject_virtio_absolute(0,100,200,0,0,0);
+    mouse_inject_event(3,-4,0);
+    mouse_inject_virtio_absolute(0,0,0,0,0,0);
+    e=next(100,200,0);assert(e.flags&MOUSE_ABSOLUTE);
+    e=next(3,-4,0);assert(!(e.flags&MOUSE_ABSOLUTE));
+    e=next(0,0,0);assert(e.flags&MOUSE_ABSOLUTE);
+    mouse_inject_virtio_absolute(0,100,100,0,0,1);
+    mouse_inject_virtio_absolute(0,200,200,0,0,1);
+    mouse_inject_virtio_absolute(0,200,200,0,0,0);
+    e=next(100,100,1);assert(e.flags&MOUSE_ABSOLUTE);
+    e=next(200,200,1);assert(e.flags&MOUSE_ABSOLUTE);
+    e=next(200,200,0);assert(e.flags&MOUSE_ABSOLUTE);
+    mouse_inject_virtio_absolute(0,300,400,0,48,0);
+    mouse_inject_virtio_absolute(0,301,401,0,48,0);
+    mouse_inject_virtio_absolute(0,301,401,0,-48,0);
+    e=next(301,401,0);assert(e.wheel_y==96 && (e.flags&MOUSE_ABSOLUTE));
+    e=next(301,401,0);assert(e.wheel_y==-48);
+    mouse_inject_event(0,0,1);next(0,0,1);
+    mouse_inject_virtio_absolute(0,99,88,0,0,2);next(99,88,3);
+    mouse_cancel_virtio(0);e=next(0,0,1);
+    assert((e.flags&MOUSE_CANCEL) && !(e.flags&MOUSE_ABSOLUTE));
+    mouse_inject_event(0,0,0);next(0,0,0);
+    uint64_t before=mouse_overflow_count();
+    for(unsigned i=0;i<65;i++) mouse_inject_virtio_absolute(0,i,i,0,0,(i&1)?0:1);
+    e=next(0,0,0);assert(mouse_overflow_count()==before+1 && (e.flags&MOUSE_CANCEL));
+    mouse_inject_virtio_absolute(0,9,9,0,0,1);next(9,9,0); /* Block held edge. */
+    mouse_inject_virtio_absolute(0,10,10,0,0,0);next(10,10,0);
+    mouse_inject_virtio_absolute(0,11,11,0,0,1);next(11,11,1);
+    mouse_inject_virtio_absolute(0,11,11,0,0,0);next(11,11,0);
+    mouse_inject_virtio_absolute(0,-1,0,0,0,1);
+    mouse_inject_virtio_absolute(0,0,65536,0,0,1);
+    mouse_inject_virtio_absolute(MOUSE_VIRTIO_SOURCES,0,0,0,0,1);
+    assert(!mouse_pending());
+}
 int main(void) {
     struct input_timing oldest,latest;
     test_us=100;mouse_inject_trackpad(1,0,0);
@@ -87,10 +131,22 @@ int main(void) {
     test_us=1000;mouse_inject_trackpad(0,0,1);mouse_cancel_trackpad();
     test_us=2000;e=next(0,0,0);assert(e.flags&MOUSE_CANCEL);
     mouse_queue_timing(&oldest,&latest);assert(oldest.count==1);
+    mouse_inject_trackpad(0,0,0);
+    /* VirtIO sources have independent physical buttons and external scroll. */
+    mouse_inject_event(0,0,1);next(0,0,1);
+    mouse_inject_virtio(0,2,3,48,-96,2);e=next(2,3,3);assert(e.wheel_x==48 && e.wheel_y==-96);
+    mouse_inject_virtio(1,0,0,0,0,4);next(0,0,7);
+    mouse_cancel_virtio(0);e=next(0,0,5);assert(e.flags&MOUSE_CANCEL);
+    mouse_cancel_trackpad();assert(!mouse_scan(&e));
+    mouse_inject_trackpad_tap(1);assert(!mouse_scan(&e));
+    mouse_inject_event(0,0,0);next(0,0,4);
+    mouse_cancel_virtio(1);e=next(0,0,0);assert(e.flags&MOUSE_CANCEL);
+    mouse_inject_virtio(MOUSE_VIRTIO_SOURCES,1,2,3,4,7);assert(!mouse_scan(&e));
     mouse_inject_trackpad(0,0,0);assert(!mouse_scan(&e));
     for(unsigned i=0;i<65;i++)mouse_inject_trackpad(0,0,(i&1)?0:1);
     e=next(0,0,0);assert(e.flags&MOUSE_CANCEL);
     mouse_queue_timing(&oldest,&latest);assert(oldest.count==1);
+    absolute_events();
     assert(wakes==poll_wakes); /* Enqueue, overflow and cancellation notify both paths. */
     puts("mouse-input: PASS ordered edges, click positions, coalescing, source buttons, saturation, overflow cancellation, wrap");
 }

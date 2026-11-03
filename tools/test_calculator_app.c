@@ -1,7 +1,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
-#include "../userspace/desktools/calculator_app.c"
+#include "../userspace/apps/desktools/calculator_app.c"
 static struct tool t;
 static int clipboard_fail;
 long srv_ticks(void) { return 1; }

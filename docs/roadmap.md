@@ -6,6 +6,142 @@ and [machine records](machines/README.md) separate implementation from physical
 acceptance. The [device parity ledger](device-parity.md) compares the Air with
 ongoing Pro work.
 
+## Current theme profiles — November 3, 2026
+
+Target: complete Aero-inspired and Aqua-inspired widget/chrome profiles, live
+Appearance previews, consistent updates across existing/new application windows,
+saved style restoration, and preserved dragging/scrolling performance. Keep
+Silver as the default and retain accent/glass controls and document state.
+
+Implemented on `device/apple-silicon/theme-profiles`, based on merged PR285:
+shared profile resolver and state rendering in SrvrUI; Appearance-first Settings
+with compact previews in SrvrApps; v17 snapshots and v6 file migration; compositor
+chrome and focused tests. Full build, desktop/widget host tests, new profile VM
+and Settings/application regressions pass. Final clean runtime `50389359` passes
+the matched build, focused minimum-height Settings test and profile VM. Published
+SrvrUI `89fb6d9` and SrvrApps `d245fe2` are pinned in
+[PR286](https://github.com/PaulMDemers/SrvrOS/pull/286), with
+[UI PR1](https://github.com/PaulMDemers/SrvrUI/pull/1) and
+[Apps PR1](https://github.com/PaulMDemers/SrvrApps/pull/1).
+[Theme contract and evidence](desktop-theme.md#profile-acceptance--november-3-2026)
+record the completed scope; no additional theme feature is required for it.
+Native acceptance and device drivers are unchanged.
+
+## Current QEMU VirtIO baseline — November 3, 2026
+
+Follow-up: [PR285](https://github.com/PaulMDemers/SrvrOS/pull/285) is merged.
+The default absolute tablet passed automated input/scaling regressions and the
+user's attended automatic-release/no-stuck-drag check. The QEMU baseline is
+delivered; its optional driver improvements do not block desktop work.
+
+Target: make the smoother VirtIO presentation the QEMU default, reduce full-frame
+copy cost, then deliver input, RNG, block and network drivers. User confirmed all
+four drivers and accepted VirtIO dragging as smoother than VGA. Work branch:
+`device/apple-silicon/virtio-baseline`, based on measurement PR283 at `d643d2b8`.
+
+Implemented: per-resource accumulated damage; modern PCI split-queue transport;
+QEMU keyboard/relative mouse including wheel; pooled entropy; durable-capable
+block I/O; network provider; explicit fallback profiles. GPU host oracle and
+three repeated Cocoa sessions pass, with 64–67% lower copy/transfer volume and
+27–33% lower draw/present time for the measured workloads. Protocol and existing
+input/storage/graphics/scheduler host regressions pass. The integrated two-boot
+VM passes keyboard/Text input, real wheel scrolling, dragging, entropy use,
+network link changes, DHCP, four ICMP replies, clean GPU exit and disk persistence.
+QEMU compact input configuration, SeaBIOS block handoff and a QEMU receive-header
+quirk are handled with bounded checks and regression coverage.
+
+The clean runtime `986c16e8` builds and matches the tested image byte-for-byte.
+Final host/desktop regressions, the explicit legacy launcher and default Cocoa
+launcher pass. Source and receipts are published through
+[PR284](https://github.com/PaulMDemers/SrvrOS/pull/284), following measurement PR283.
+The requested baseline is implemented and verified; no additional driver feature
+is required for this target. Details and evidence: [VirtIO baseline](virtio-baseline.md).
+Native hardware, interrupt-driven queues, packed rings and host
+vblank are separate work; they do not block the requested polling baseline.
+
+## QEMU fenced presentation — November 3, 2026
+
+Target: an opt-in QEMU VirtIO desktop presentation path, explicitly selected by
+the user. Finish the complete composed frame before publishing scanout, retain
+buffer ownership until command completion, and recover the VGA console on normal
+exit or desktop process death. The glass/theme milestone remains complete.
+
+Implemented and locally verified at runtime `a8c21344`, merged through
+[PR281](https://github.com/PaulMDemers/SrvrOS/pull/281) after UI PR280.
+The matched build, transport/lease/console/graphics/I/O/cancellation/desktop host
+regressions and sanitizers pass. Three sequential probe boots cover enabled,
+absent and disabled device paths; the absent case renders/exits a standard VGA
+desktop. The primary VirtIO VM verifies visible drag, deterministic scroll,
+normal console restoration, abrupt desktop termination and successful restart.
+The final evidence identifies a clean runtime tree and exact image hashes.
+
+The backend stages a complete frame, alternates two resources, fences commands,
+retains DMA until reset completion, and uses existing scheduler service checkpoints.
+Start it with `python3 tools/macos/run.py --display-device virtio`; standard VGA
+remains the default. Both PRs are merged into `main`; post-merge runtime
+`1c0896e7` has the exact tested tree and passes a matched build plus the primary
+presentation/recovery VM. The scoped target is delivered and verified.
+The visible comparison is complete: the user reports smoother VirtIO dragging,
+while six paired-session runs quantify its higher software frame cost. See the
+[measurements and limits](display-presentation.md#visible-smoothness-comparison--november-3-2026).
+Reducing full-frame copy/transfer cost is an optional follow-up; the current
+opt-in backend is usable and the launcher default is unchanged. Host compositor/physical vblank, native drivers, live mode changes
+and partial-transfer optimization remain separate work. All verification VMs are
+stopped. See [the contract and screenshot](display-presentation.md).
+
+## Glass and live theme refinement — November 2, 2026
+
+Target: more polished glass chrome, application-wide appearance controls in
+Settings, and an evidence-based plan to eliminate scanout tearing. Continue
+`overhaul/modular-desktop` / draft PR280; prior repository split stays complete.
+Focused research confirms the current inherited framebuffer has no synchronized
+flip contract. This milestone separates composition from uploads; real vblank
+and page flips remain a driver milestone, not a claim of this software change.
+
+Required: Blue/Graphite/Teal accents and Solid/Subtle/Clear glass, persisted with
+migration and broadcast to existing/new windows; clipping-safe glass and correct
+translucent occlusion; unchanged content and input behavior; matched full build,
+host regressions, runtime preference checks and inspected desktop/widget images.
+Readiness: implemented and locally verified at runtime `db898927`, with SrvrUI
+`df2e311` and SrvrApps `e4b9235` published. Matched build, desktop/widget/I/O host
+suites, theme sanitizers, dynamic drag/scroll damage oracle, live theme/persistence
+application VM and compositor VM pass. The separate Settings VM passed before the
+final title-frost-only adjustment. [Rendered evidence](desktop-theme.md) is saved.
+PR280 is merged. The scoped glass/theme/presentation investigation is complete;
+real synchronized scanout is separate driver work described in the
+[presentation plan](display-presentation.md). Native acceptance and Actions remain
+unchanged.
+
+## Current overhaul — November 2, 2026
+
+Target: separate SrvrUI, SrvrApps and SrvrPorts into GitHub repositories pinned
+as submodules, then apply a coherent native desktop theme inspired by Windows 7
+and OS X 10.7–10.10. Desktop apps are the initial SrvrApps scope; OS services,
+diagnostics and shell commands remain in SrvrOS. Application and port expansion
+will be separate later work; no additional chats are created by this milestone.
+
+Current work: `overhaul/modular-desktop`, based on main `74d38d59`. Preserve the
+existing ABI, executable names, upstream pins and device acceptance boundaries.
+The user authorized repository creation and integration; use focused research,
+local checks and a reviewable OS branch, without enabling hosted Actions.
+
+Required outcomes and evidence:
+- Three published repositories and pinned, recursively cloneable submodules.
+- Matched system build and affected desktop/widget host and VM checks.
+- Shared silver/blue control and chrome treatment, with state and clipping checks
+  and real rendered evidence; retain readable content and existing interactions.
+- Documented repository ownership and instructions for independent app/port work.
+
+Readiness: implemented and locally verified on `overhaul/modular-desktop`.
+SrvrUI `4fdf91a`, SrvrApps `d386386` and SrvrPorts `0494ae2` are published and
+pinned. Fresh recursive clone/full image build, the complete desktop/widget/I/O
+host targets, native theme sanitizers, application workflow and compositor VMs
+pass. Final runtime source is `e65e5938`; subsequent evidence/docs commits do
+not change it. See [organization and visual evidence](repository-organization.md).
+Next: review and merge the OS integration change. Native device acceptance is
+unchanged. New application and port work can use the documented submodule
+boundaries; no additional feature milestone is required for this review target.
+
 ## 1. Integrate the everyday laptop session
 
 **Completed on Air7,2 release `9aa8dbf6fbda8252`.** Ordinary Home battery,

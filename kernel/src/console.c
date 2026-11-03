@@ -1,5 +1,6 @@
 #include <srvros/latency.h>
 #include <srvros/console.h>
+#include <srvros/display_present.h>
 #include <srvros/bootlog.h>
 #include <srvros/serial.h>
 #include <srvros/font5x7.h>
@@ -249,6 +250,8 @@ void console_enable_deferred(void) { deferred_output = true; }
 
 /* Only for a terminal fault: the interrupted presenter will never resume. */
 void console_emergency(void) {
+    /* Emergency text bypasses normal graphics uploads: invalidate both images. */
+    if (fb) display_present_damage(0, 0, fb->width, fb->height);
     deferred_output = false;
     presenting = false;
     framebuffer_console_muted = false;
@@ -487,11 +490,14 @@ void console_clear(void) {
 }
 
 void console_set_framebuffer_muted(bool muted) {
+    display_present_release(framebuffer_console_mute_owner);
+    if (!display_present_can_write(0)) return;
     framebuffer_console_muted = muted;
     framebuffer_console_mute_owner = 0;
 }
 
 void console_set_framebuffer_muted_owner(uint64_t owner_pid, bool muted) {
+    if (!display_present_can_write(owner_pid)) return;
     if (muted) {
         framebuffer_console_muted = true;
         framebuffer_console_mute_owner = owner_pid;
@@ -499,6 +505,8 @@ void console_set_framebuffer_muted_owner(uint64_t owner_pid, bool muted) {
     }
     if (framebuffer_console_mute_owner == 0 ||
         framebuffer_console_mute_owner == owner_pid) {
+        display_present_release(framebuffer_console_mute_owner);
+        if (!display_present_can_write(0)) return;
         framebuffer_console_muted = false;
         framebuffer_console_mute_owner = 0;
     }
@@ -506,9 +514,15 @@ void console_set_framebuffer_muted_owner(uint64_t owner_pid, bool muted) {
 
 void console_release_framebuffer_mute_owner(uint64_t owner_pid) {
     if (owner_pid != 0 && framebuffer_console_mute_owner == owner_pid) {
+        display_present_release(framebuffer_console_mute_owner);
+        if (!display_present_can_write(0)) return;
         framebuffer_console_muted = false;
         framebuffer_console_mute_owner = 0;
     }
+}
+
+bool console_framebuffer_muted_by(uint64_t pid) {
+    return pid && framebuffer_console_muted && framebuffer_console_mute_owner == pid;
 }
 
 bool console_framebuffer_muted(void) {
@@ -736,6 +750,7 @@ bool console_put_pixel(uint64_t x, uint64_t y, uint32_t rgb) {
     }
 
     put_pixel(x, y, rgb_color(rgb));
+    display_present_damage(x, y, 1, 1);
     return true;
 }
 
@@ -744,7 +759,11 @@ bool console_fill_rectangle(uint64_t x, uint64_t y, uint64_t width, uint64_t hei
         return false;
     }
 
+    if (width > fb->width - x) width = fb->width - x;
+    if (height > fb->height - y) height = fb->height - y;
+    if (!width || !height) return true;
     fill_rect(x, y, width, height, rgb_color(rgb));
+    display_present_damage(x, y, width, height);
     return true;
 }
 
@@ -778,6 +797,7 @@ bool console_blit_rgb(uint64_t x, uint64_t y, uint64_t width, uint64_t height,
             destination[px] = direct_rgb ? source[px] : rgb_color(source[px]);
         }
     }
+    display_present_damage(x, y, copy_width, copy_height);
     return true;
 }
 
@@ -806,5 +826,6 @@ bool console_blit_rgb_scaled(uint64_t x, uint64_t y, uint64_t width, uint64_t he
         for (uint64_t px=0; px<copy_width; px++)
             destination[px] = direct_rgb ? source[px/2] : rgb_color(source[px/2]);
     }
+    display_present_damage(x, y, copy_width, copy_height);
     return true;
 }

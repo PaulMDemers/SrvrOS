@@ -22,7 +22,8 @@ static uint64_t now(void) { long n=srv_monotonic_us();return n>0?(uint64_t)n:0; 
 static int save(const char *path,const void *p,size_t n) {
     int fd=open(path,O_WRONLY|O_CREAT|O_EXCL,0600);if(fd<0)return -1;
     int ok=write(fd,p,n)==(ssize_t)n && fsync(fd)==0;
-    if(close(fd))ok=0;return ok?0:-1;
+    if(close(fd))ok=0;
+    return ok?0:-1;
 }
 static int disk_worker(const char *directory,unsigned seconds) {
     if(chdir(directory))return 1;
@@ -35,7 +36,8 @@ static int disk_worker(const char *directory,unsigned seconds) {
         int fd=open("payload.tmp",O_WRONLY|O_CREAT|O_EXCL,0600);if(fd<0)return 1;
         int ok=1;
         for(unsigned i=0;i<CHUNKS;i++)if(write(fd,block,BLOCK)!=BLOCK){ok=0;break;}
-        if(fsync(fd))ok=0;if(close(fd))ok=0;
+        if(fsync(fd))ok=0;
+        if(close(fd))ok=0;
         if(!ok || rename("payload.tmp","payload.bin"))return 1;
         fd=open("payload.bin",O_RDONLY);if(fd<0)return 1;
         for(unsigned i=0;i<CHUNKS;i++)if(read(fd,check,BLOCK)!=BLOCK || memcmp(check,block,BLOCK)){ok=0;break;}
@@ -58,15 +60,20 @@ static int producer(unsigned seconds) {
     char directory[160],duration[24];
     snprintf(directory,sizeof(directory),"/work/srvros-work/audio-io-%llu",(unsigned long long)now());
     if(mkdir(directory,0700))return 1;
-    int gate[2],done[2];if(srv_pipe_pair(gate)<0)return 1;
-    if(srv_pipe_pair(done)<0){srv_close(gate[0]);srv_close(gate[1]);return 1;}
+    /* One-way signals need ordinary pipes. Duplex endpoint close may release
+     * transferred rights and therefore regains the storage gate, even when
+     * this particular endpoint never carried rights. Keep that cleanup out
+     * of the live producer by using the audited simple-pipe path. */
+    int gate[2],done[2];if(srv_pipe(gate)<0)return 1;
+    if(srv_pipe(done)<0){srv_close(gate[0]);srv_close(gate[1]);return 1;}
     snprintf(duration,sizeof(duration),"%u",seconds);
     char *args[]={"/fat/bin/playwav","--io-worker",directory,duration,NULL};
     struct srv_exec_request request={.path=args[0],.argv=args,.flags=SRV_EXEC_BACKGROUND,
         .stdin_fd=gate[0],.stdout_fd=done[1],.stderr_fd=2};
     long child=srv_exec(&request);srv_close(gate[0]);srv_close(done[1]);
     if(child<=0){srv_close(gate[1]);srv_close(done[0]);return 1;}
-    if(srv_fcntl(done[0],SRV_F_SETFL,SRV_FD_NONBLOCK)<0) {
+    if(srv_fcntl(done[0],SRV_F_SETFL,SRV_FD_NONBLOCK)<0 ||
+       srv_fcntl(gate[1],SRV_F_SETFL,SRV_FD_NONBLOCK)<0) {
         uint64_t status;srv_close(done[0]);srv_close(gate[1]);srv_kill(child);srv_wait(child,&status,0);return 1;
     }
     printf("audio-io: begin seconds=%u directory=%s automatic=yes\n",seconds,directory);fflush(stdout);

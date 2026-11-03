@@ -18,7 +18,7 @@ PURE_RUNTIME = {
     "strcpy", "strlen", "strncmp", "strrchr", "snprintf", "vsnprintf",
     "__memcpy_chk", "__memmove_chk", "__memset_chk", "__snprintf_chk",
     "__vsnprintf_chk", "__strcpy_chk", "__stack_chk_fail", "__stack_chk_guard",
-    "__chkstk_ms", "___chkstk_ms", "__mingw_snprintf", "__mingw_vsnprintf",
+    "__chkstk_ms", "___chkstk_ms", "___chkstk_darwin", "__bzero", "__mingw_snprintf", "__mingw_vsnprintf",
 }
 
 
@@ -49,6 +49,11 @@ def check(archive, nm):
     result = subprocess.run([nm, "-g", "-P", str(archive)],
                             check=True, capture_output=True, text=True)
     defined, undefined = symbols(result.stdout)
+    # Mach-O prefixes C symbols with one underscore. Detect the archive's ABI
+    # from our own known public symbol, not from the OS running this checker.
+    if "_desk_button_draw" in defined and "desk_button_draw" not in defined:
+        defined = {name.removeprefix("_") for name in defined}
+        undefined = {name.removeprefix("_") for name in undefined}
     external = undefined - defined
     denied = sorted(name for name in external
                     if canonical(name) not in RENDERER | PURE_RUNTIME)

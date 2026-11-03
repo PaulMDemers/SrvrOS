@@ -7,7 +7,7 @@ static void *history_malloc(size_t n) {allocations++;return refuse?NULL:malloc(n
 static void history_free(void *p) {assert(p);frees++;free(p);}
 #define malloc history_malloc
 #define free history_free
-#include "../userspace/desktools/text_app.c"
+#include "../userspace/apps/desktools/text_app.c"
 #undef malloc
 #undef free
 static struct tool first,second;

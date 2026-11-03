@@ -73,34 +73,36 @@ def main():
                 serial.sendall(b"run /fat/bin/deskd --apps-trace\n")
                 wait(b"desktools: starting role=text");wait(b"deskd: commit")
                 click(790,750);wait(b"desktools: starting role=settings");wait(b"deskd: commit");shot("settings-default")
-                # Second window content starts at (57,132); shared radio labels are clickable.
-                click(210,260);wait(b"text=20 offset=0 flags=3 wallpaper=0")
+                # Scroll one full viewport to the text and clock controls.
+                shortcut("pgdn")
+                click(210,252);wait(b"text=20 offset=0 flags=3 wallpaper=0")
                 wait(b"status=1 text=20 offset=0 flags=3 wallpaper=0")
-                click(110,382);wait(b"text=20 offset=0 flags=2 wallpaper=0")
-                click(110,418);wait(b"text=20 offset=0 flags=0 wallpaper=0")
-                click(140,496);shortcut("ctrl-a");type_text("-04:00");qmp.key("ret")
+                click(110,374);wait(b"text=20 offset=0 flags=2 wallpaper=0")
+                click(110,410);wait(b"text=20 offset=0 flags=0 wallpaper=0")
+                click(140,488);shortcut("ctrl-a");type_text("-04:00");qmp.key("ret")
                 wait(b"text=20 offset=-240 flags=0 wallpaper=0")
                 wait(b"status=1 text=20 offset=-240 flags=0 wallpaper=0");shot("clock-offset")
                 # Resize shorter, then Page Down scrolls the shared viewport; pick Sand.
                 qmp.mouse(613-pointer[0],688-pointer[1]);pointer[:]=[613,688]
                 qmp.mouse(0,0,1);qmp.mouse(0,-80,1);qmp.mouse(0,0,0);pointer[1]-=80;time.sleep(.5)
-                shortcut("pgdn");shot("settings-scrolled");click(225,231)
+                shortcut("pgdn");shot("settings-scrolled");click(225,223)
                 wait(b"text=20 offset=-240 flags=0 wallpaper=1")
                 wait(b"status=1 text=20 offset=-240 flags=0 wallpaper=1");shot("settings-saved")
                 # The middle of the longer settings viewport contains native
                 # trackpad controls. They must save without disturbing clock/color.
-                click(545,336);wait(b"pointer_speed=5 acceleration=1")
-                click(110,384);wait(b"pointer_speed=5 acceleration=0")
+                click(545,328);wait(b"pointer_speed=5 acceleration=1")
+                click(110,376);wait(b"pointer_speed=5 acceleration=0")
                 wait(b"status=1 text=20 offset=-240 flags=0 wallpaper=1 pointer_speed=5 acceleration=0")
-                click(110,424);wait(b"pointer_speed=5 acceleration=0 disable_while_typing=1")
+                click(110,416);wait(b"pointer_speed=5 acceleration=0 disable_while_typing=1")
                 wait(b"status=1 text=20 offset=-240 flags=0 wallpaper=1 pointer_speed=5 acceleration=0 disable_while_typing=1")
-                click(110,504);wait(b"disable_while_typing=1 tap_to_click=0 two_finger_tap=1")
+                click(110,496);wait(b"disable_while_typing=1 tap_to_click=0 two_finger_tap=1")
                 wait(b"status=1 text=20 offset=-240 flags=0 wallpaper=1 pointer_speed=5 acceleration=0 disable_while_typing=1 tap_to_click=0 two_finger_tap=1")
                 # The last checkbox straddles the viewport edge; reveal it
-                # with the scrollbar before attempting to activate it.
-                qmp.mouse(590-pointer[0],360-pointer[1]);pointer[:]=[590,360]
-                qmp.mouse(0,0,1);qmp.mouse(0,20,1);qmp.mouse(0,0,0);pointer[1]+=20
-                click(110,480);wait(b"disable_while_typing=1 tap_to_click=0 two_finger_tap=0")
+                # with the scrollbar before attempting to activate it. The 14px drag
+                # accounts for the longer content and advances about 63px.
+                qmp.mouse(590-pointer[0],420-pointer[1]);pointer[:]=[590,420]
+                qmp.mouse(0,0,1);qmp.mouse(0,14,1);qmp.mouse(0,0,0);pointer[1]+=14
+                click(110,474);wait(b"disable_while_typing=1 tap_to_click=0 two_finger_tap=0")
                 wait(b"status=1 text=20 offset=-240 flags=0 wallpaper=1 pointer_speed=5 acceleration=0 disable_while_typing=1 tap_to_click=0 two_finger_tap=0")
                 shot("trackpad-settings")
                 assert b"desktools: brightness percent=-1" in output
@@ -110,22 +112,23 @@ def main():
                 shortcut("f10");shortcut("end");shortcut("ret")
                 wait(b"deskd: exited",60);wait(b"srv> ")
                 serial.sendall(b"cat /fat/home/desktop.conf\n")
-                wait(b"srvros-desktop-v4\r\ntext_size=20\r\nutc_offset_minutes=-240\r\nclock_flags=0\r\nwallpaper=1\r\npointer_speed=5\r\npointer_acceleration=0\r\ndisable_while_typing=1\r\ntap_to_click=0\r\ntwo_finger_tap=0")
+                wait(b"srvros-desktop-v6\r\ntext_size=20\r\nutc_offset_minutes=-240\r\nclock_flags=0\r\nwallpaper=1\r\npointer_speed=5\r\npointer_acceleration=0\r\ndisable_while_typing=1\r\ntap_to_click=0\r\ntwo_finger_tap=0\r\ntheme_accent=0\r\nglass_level=1\r\ntheme_style=0")
                 wait(b"srv> ")
                 # A fresh desktop process reloads disk, not inherited process state.
                 pointer[:]=[24,56]
                 serial.sendall(b"run /fat/bin/deskd --apps-trace\n")
                 wait_all([b"status=1 text=20 offset=-240 flags=0 wallpaper=1 pointer_speed=5 acceleration=0 disable_while_typing=1 tap_to_click=0 two_finger_tap=0", b"deskd: commit"])
                 click(790,750);wait(b"desktools: starting role=settings");shot("settings-restored")
+                shortcut("pgdn")
                 qmp.mouse(613-pointer[0],688-pointer[1]);pointer[:]=[613,688]
                 qmp.mouse(0,0,1);qmp.mouse(0,-80,1);qmp.mouse(0,0,0);pointer[1]-=80;time.sleep(.5)
-                shortcut("pgdn");click(110,424)
+                shortcut("pgdn");click(110,416)
                 wait(b"pointer_speed=5 acceleration=0 disable_while_typing=0")
                 wait(b"status=1 text=20 offset=-240 flags=0 wallpaper=1 pointer_speed=5 acceleration=0 disable_while_typing=0")
-                click(110,504);wait(b"disable_while_typing=0 tap_to_click=1 two_finger_tap=0")
-                qmp.mouse(590-pointer[0],360-pointer[1]);pointer[:]=[590,360]
-                qmp.mouse(0,0,1);qmp.mouse(0,20,1);qmp.mouse(0,0,0);pointer[1]+=20
-                click(110,480);wait(b"disable_while_typing=0 tap_to_click=1 two_finger_tap=1")
+                click(110,496);wait(b"disable_while_typing=0 tap_to_click=1 two_finger_tap=0")
+                qmp.mouse(590-pointer[0],420-pointer[1]);pointer[:]=[590,420]
+                qmp.mouse(0,0,1);qmp.mouse(0,14,1);qmp.mouse(0,0,0);pointer[1]+=14
+                click(110,474);wait(b"disable_while_typing=0 tap_to_click=1 two_finger_tap=1")
                 wait(b"status=1 text=20 offset=-240 flags=0 wallpaper=1 pointer_speed=5 acceleration=0 disable_while_typing=0 tap_to_click=1 two_finger_tap=1")
                 shot("tap-settings-restored")
                 shortcut("f10");shortcut("end");shortcut("ret");wait(b"deskd: exited",60);wait(b"srv> ")

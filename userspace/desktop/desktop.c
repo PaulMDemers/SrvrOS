@@ -2,6 +2,7 @@
 #include <srvros/gfx.h>
 #include <srvros/gui.h>
 #include <srvros/mouse.h>
+#include <srvros/mouse_position.h>
 #include <srvros/sys.h>
 #include <srvros/ui.h>
 
@@ -221,17 +222,6 @@ static void launch_notes_app(void) {
     notes_path[13] = 's';
     notes_path[14] = '\0';
     launch_app(notes_label, notes_path);
-}
-
-static uint64_t clamp_add(uint64_t value, int32_t delta, uint64_t min, uint64_t max) {
-    int64_t next = (int64_t)value + delta;
-    if (next < (int64_t)min) {
-        return min;
-    }
-    if (next > (int64_t)max) {
-        return max;
-    }
-    return (uint64_t)next;
 }
 
 static void draw_cursor(uint64_t x, uint64_t y, uint64_t screen_width,
@@ -929,19 +919,23 @@ int main(int argc, char **argv) {
                 old_h = captured->height;
                 old_rect_valid = captured->parent == &root;
             }
-            if (gfx.width > CURSOR_W) {
-                mouse_x = clamp_add(mouse_x, mouse.dx, 0, gfx.width - CURSOR_W);
-            }
-            if (gfx.height > CURSOR_H) {
-                mouse_y = clamp_add(mouse_y, mouse.dy, 0, gfx.height - CURSOR_H);
+            if (!(mouse.flags & MOUSE_CANCEL)) {
+                if (gfx.width > CURSOR_W) {
+                    mouse_x = mouse_position_axis(mouse_x, mouse.dx, mouse.flags, gfx.width);
+                    if (mouse_x > gfx.width - CURSOR_W) mouse_x = gfx.width - CURSOR_W;
+                }
+                if (gfx.height > CURSOR_H) {
+                    mouse_y = mouse_position_axis(mouse_y, mouse.dy, mouse.flags, gfx.height);
+                    if (mouse_y > gfx.height - CURSOR_H) mouse_y = gfx.height - CURSOR_H;
+                }
             }
             if (mouse_x != old_mouse_x || mouse_y != old_mouse_y) {
                 event_scratch = (struct ui_event) {
                     .type = UI_EVENT_MOUSE_MOVE,
                     .x = (int64_t)mouse_x,
                     .y = (int64_t)mouse_y,
-                    .dx = mouse.dx,
-                    .dy = mouse.dy,
+                    .dx = (mouse.flags & MOUSE_ABSOLUTE) ? (int64_t)mouse_x - (int64_t)old_mouse_x : mouse.dx,
+                    .dy = (mouse.flags & MOUSE_ABSOLUTE) ? (int64_t)mouse_y - (int64_t)old_mouse_y : mouse.dy,
                     .buttons = mouse.buttons,
                 };
                 if (captured != 0) {

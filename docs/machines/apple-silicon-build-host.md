@@ -1839,3 +1839,294 @@ Actions dispatch or merge occurred. PR19 `5556641f` remains independent Wi-Fi
 work. Continued tracing reaches resolver retry/deadline policy, duplicated
 pseudo-socket peer/options state and remaining native-FD I/O continuations;
 these need separate directed coverage before claiming a broader socket profile.
+
+
+## Modular desktop overhaul — 2026-11-02
+
+Scope: `overhaul/modular-desktop` from fetched main `74d38d59`; split native
+widgets, desktop applications and ports into pinned repositories, update build
+references, then shared widget and compositor appearance. PR19 retains unrelated
+USB Wi-Fi work; no other open PR was found at inspection. This host runs local
+builds and sequential disposable QEMU checks only. No physical boot, Actions
+dispatch or device-acceptance expansion is planned. Next checkpoint is a matched
+submodule build and recursive clone before theme implementation.
+
+### Modular desktop verification result
+
+Runtime source `e65e5938`; SrvrUI `4fdf91a`, SrvrApps `d386386`, SrvrPorts
+`0494ae2`. Public repository creation, recursive clone and clean full build pass.
+All upstream pins and port source hashes are retained. Full desktop/widget/I/O
+host targets pass with the Darwin wrapper, plus theme ASan/UBSan, Python host
+and boundary checks. The application workflow and compositor VMs pass, including
+file readback and abrupt-owner console recovery. Final 1440×900 desktop and
+widget-state images were inspected; disposable VMs stopped.
+
+Evidence and limitations: [repository milestone](../repository-organization.md),
+`build/review/modular-desktop/`, `build/review/desktop-apps/` and
+`build/review/desktop-1280x800/`. This supersedes no physical acceptance. OS branch
+awaits integration review; no main merge or Actions dispatch occurred. Next:
+review the published submodule integration; application/port work can branch
+from these documented boundaries.
+
+
+## Glass and global appearance — 2026-11-02
+
+Continuing `overhaul/modular-desktop` from completed `3b286e0`, main `74d38d59`.
+Scope: SrvrUI resolver/glass primitives, compositor chrome and ordered presentation,
+shared preference protocol/runtime, SrvrApps Appearance controls and live updates.
+Required evidence is matched host/build and sequential VM checks with real images.
+PR280 owns this work. PR278 `f11cbf8` overlaps desktop/application dispatch files
+for Open With and descriptors; preserve that separate implementation at integration.
+PR252 `badfeb3` owns process/I/O kernel audit work; this milestone changes no kernel
+or framebuffer driver. PR19 retains USB Wi-Fi work. No physical trial or Actions.
+Next checkpoint: host regression suite and live theme/persistence VM checks.
+
+
+### Glass/theme verification result
+
+Runtime `db89892768c34dd7c79e9b37ad1f8207806fe43d`; published SrvrUI `df2e311`,
+SrvrApps `e4b9235`, unchanged SrvrPorts `0494ae2`. Matched full image build and
+complete desktop/widget/I/O host targets pass. Native ARM64 ASan/UBSan theme
+blending/clipping passes. Dynamic preserved-buffer old/new window drag and lower
+client-content changes match fresh full rendering for all three glass levels.
+Opaque-body culling matches the unculled oracle, including randomized overlap,
+small/stale caches and 128-window stress. Composition completes before any upload.
+
+Final-source application VM verifies existing/new Text selection colors, saved
+Teal/Clear appearance and a new desktop process loading it, alongside file and
+clipboard workflows. Final compositor VM verifies drag, resize, scrolling/capture,
+client death and console recovery. The separate Settings VM passes clock,
+wallpaper, pointer controls and config reload; it ran before the final title-frost
+visual adjustment, which is covered by final host/app/compositor checks.
+
+Evidence: `build/review/theme-global-*.log`, matched
+`build/review/theme-global-manifest.json`, `build/review/desktop-apps/`,
+`build/review/desktop-settings/`, `build/review/desktop-1280x800/`, and tracked
+[images/provenance](../assets/screenshots/glass-manifest.json). All disposable VMs
+stopped. Theme CPU stress cost and lack of physical tear-free evidence are explicit
+in [the theme contract](../desktop-theme.md) and [driver plan](../display-presentation.md).
+No native install, Actions dispatch or main merge. Next: PR280 integration review;
+no further work is required for this scoped theme/presentation investigation.
+
+
+## QEMU display transport probe — active scope 2026-11-03
+
+Branch `device/apple-silicon/virtio-display-probe`, stacked on completed UI
+`0b6b5e53`; fetched main remains `74d38d59`. The user requested proceeding toward
+the remaining display work. QEMU is the initial target in this workspace.
+Scope: boot-only opt-in VirtIO GPU probe on a separate modern PCI device, bounded
+capability/queue/fence validation and safe reset/DMA retirement. The inherited
+standard VGA display remains the boot/desktop owner; there is no scanout handoff.
+
+Inspecting PR278 `f11cbf8`, PR252 `badfeb3`, and PR19 `71e7d4c` found separate
+app-dispatch, kernel/process/I/O, and Wi-Fi work. This implementation uses new
+probe files and a small explicit main boot-token hook; it does not alter syscall,
+process lifetime, native Intel or firmware ownership policy. Main integration
+must preserve other opt-in captures. No physical trial, Actions or main merge.
+
+Implementation prerequisites: require a unique modern non-VGA VirtIO GPU and
+exact inherited framebuffer base match to standard VGA; use validated PCI_CFG
+access to confirm inactive device status before BAR sizing/ownership. The probe
+runs once immediately after PCI initialization in kernel CR3, maps/unmaps only
+that address space, and never consumes the kernel mapping registry (which lacks
+a capacity/retirement API). Require reset completion before freeing DMA; uncertain
+retirement retains allocations and reports failure. Next checkpoint: host fake
+hardware tests, matched build and sequential positive/absent/disabled VM boots.
+
+
+### Confirmed presentation scope
+
+The user explicitly selected QEMU-first VirtIO presentation. Continue through an
+opt-in primary `virtio-vga` backend with two resources, fenced transfer/scanout,
+a desktop-owned presentation lease and console recovery. Additive graphics
+syscalls and console retirement hooks are now included; preserve PR252's existing
+copy bounds/checkpoint and process cleanup behavior. No process lifetime rewrite
+or native modeset is included. The probe is an intermediate checkpoint, not the
+completed user target. All three probe VM cases passed with a live shell and
+nonblank inherited display; local evidence is `build/review/virtio-gpu-probe/`.
+
+
+### QEMU presentation verified and published
+
+Runtime `a8c21344367883edd07f5ee051caa9edc6cd8308` is locally verified and published
+in draft [PR281](https://github.com/PaulMDemers/SrvrOS/pull/281), based on PR280's
+UI branch. The final matched build and kernel/framebuffer image hashes are in
+[the presentation manifest](../assets/screenshots/virtio-manifest.json). QEMU
+11.1.2 primary scanout passes glass desktop/drag, scrolling, normal console
+recovery, abrupt owner termination and reacquisition. The separate transport
+harness passes all three opt-in/absent/disabled cases, including a standard VGA
+desktop fallback. Final VM runs identify clean runtime `a8c21344`.
+
+Transport/lease, PCI, console, graphics copy/service, I/O scheduler, syscall
+cancellation and full desktop/widget host regressions pass. Driver/lease
+ASan/UBSan pass. The final review fixes bound partial-copy service intervals and
+block staging writes immediately when a failed frame cannot prove reset/restore.
+Details and inspected screenshot are in [display presentation](../display-presentation.md).
+All test VMs stopped; working runtime is complete for this opt-in QEMU target.
+Next is review/integration after PR280, preserving PR252's independent lifetime
+work. No main merge, hosted Actions, native modeset or physical acceptance.
+
+
+### Desktop integration completed — 2026-11-03
+
+The user authorized both merges. PR280 merged as `624e5e8f`; PR281 was retargeted
+from the UI branch to `main` and merged as `1c0896e7`. The combined tree exactly
+matches tested head `29bd1986`; all SrvrUI/SrvrApps/SrvrPorts pins remain the
+published remote main heads. A matched build and the primary VirtIO presentation
+VM pass on clean merged runtime `1c0896e7`, including drag, scroll, normal console
+recovery, forced desktop exit and restart. Raw post-merge results are in
+`build/review/desktop-merge/` and `build/review/virtio-gpu-present/`.
+
+The workspace is being returned to current `main`; no test VM remains running.
+Actions and native acceptance remain unchanged. The repository/theme and opt-in
+presentation milestones are delivered. Next is an attended visible comparison
+of VGA and VirtIO dragging/scrolling, with responsiveness measurements and no
+assumption that command fences establish host-monitor vblank.
+
+
+### VGA / VirtIO smoothness comparison — active scope 2026-11-03
+
+The user authorized the next comparison after both milestones merged. Base is
+`bfb6d2a7`; inspected PR278/252/19 retain their separate application/lifetime/Wi-Fi
+scopes. This block owns a disposable sequential QEMU comparison harness and
+measurement/reporting only. Hold resolution, scale, CPU, memory, source image and
+input workload constant while changing the display backend. Reuse the existing
+software cursor/frame timers, require actual VirtIO acquisition, and distinguish
+software/fenced-completion timing from Cocoa/physical presentation. Inspect the
+visible window separately. No native driver change or default-backend change is
+accepted without evidence; no physical boot or Actions run is planned.
+
+
+### Smoothness comparison completed
+
+The user observed smooth dragging with no obvious tearing under VirtIO, followed
+by visibly worse dragging under VGA in the 1440×900 Cocoa desktop. Six automated
+runs (three per backend, alternating order; two fresh sessions per run) pass
+verified 300-pixel drags, reversing scrollbar movement and normal teardown.
+Median per-run frame-work means: VGA/VirtIO drag 7.953/14.354 ms; scroll
+6.995/16.619 ms. Final scroll pixels match below the menu bar. These whole-session
+software samples include startup/menu work and do not measure physical scanout.
+See the [report](../display-presentation.md#visible-smoothness-comparison--november-3-2026)
+and [manifest](../assets/screenshots/smoothness-manifest.json). No runtime/default
+backend changes were made. The full-frame copy cost is an optional optimization
+candidate. Automated VMs are stopped; the attended VirtIO desktop is restored for
+continued user review using `.local/smoothness-visible-virtio/`.
+
+
+### VirtIO QEMU baseline — active scope 2026-11-03
+
+The user authorized making VirtIO presentation the QEMU default, reducing its
+full-frame copy cost while preserving fenced complete frames, then implementing
+input, RNG, block storage and networking. Base is measurement source `d643d2b8`
+(PR283) over merged `bfb6d2a7`. PR252 retains independent process/I/O lifetime work,
+PR278 app dispatch and PR19 Wi-Fi. This branch owns additive modern VirtIO drivers,
+QEMU launcher defaults, GPU dirty-region ownership and focused host/VM evidence.
+Keep legacy/native launch paths available; do not alter physical acceptance or
+boot/limine.conf/native USB capture policy. Stage and run one matched VM at a time.
+
+Acceptance: damage-aware alternating GPU resources equal full reference frames
+and improve measured copy/transfer cost; QEMU defaults exercise the backend with
+explicit VGA fallback; VirtIO input delivers keys/releases, motion/buttons/wheel;
+RNG, block and network integrate with their existing kernel interfaces and pass
+bounded malformed/failure/reset tests plus disposable QEMU positive/fallback runs.
+Shared transport requires strict PCI/feature/queue validation and reset-before-free.
+Device defaults advance only with their matching end-to-end evidence.
+
+### VirtIO baseline accepted — November 3, 2026
+
+Runtime `986c16e82f19f4da518190b092d84b27df0dc0bf` is clean and published in
+[PR284](https://github.com/PaulMDemers/SrvrOS/pull/284), based on measurement PR283.
+Its matched rebuild reproduces the accepted kernel SHA-256
+`f32535f07875d7e951ec2e0d87613d7ce4008eeea311b832957f74f4e51b486d` exactly.
+Submodules remain on their previous published pins; native boot settings and
+physical acceptance are unchanged. Actions were not enabled or dispatched.
+
+Verified: protocol host tests and sanitizers; keyboard/mouse, storage, network
+provider/worker, graphics/lease/console, scheduler/cancellation and full desktop
+host suites; docs checks; three repeated Cocoa damage workloads; two-boot modern
+VirtIO VM with PS/2 disabled; explicit legacy launcher; default Cocoa launcher.
+The modern VM types in the monitor and Text, saves a document, drags a window,
+scrolls Help by a real wheel event, consumes entropy, changes link state,
+completes DHCP and 4/4 pings, releases the presenter, flushes/reboots and reads
+back its persistent marker. Observed firmware block admission is 15 with reset
+proof. No device failures/quarantines occurred in the accepted run.
+
+Copy/transfer volume falls 64–67% in the repeated drag/scroll workloads, while
+median draw/present time falls 27–33%; host vblank remains unmeasured. The default
+launcher uses VirtIO graphics/input/RNG/block/network; explicit legacy fallback
+remains available. See [the driver contract](../virtio-baseline.md),
+[measurement receipt](../assets/screenshots/virtio-damage-manifest.json) and
+[acceptance receipt](../assets/screenshots/virtio-baseline-manifest.json).
+
+All automated verification VMs are stopped. One attended default Cocoa desktop
+from this clean runtime is left open at `.local/macos-vm/virtio-baseline-review/`;
+its `current.json` identifies the owned process, disk, sockets and logs. Exit via
+SrvrOS → Return to console before closing QEMU. Required work for this baseline
+is complete; interrupt-driven queues, tablets and offloads remain optional.
+
+### Active tablet scope — November 3, 2026
+
+User authorized VirtIO tablet support, QEMU default selection, verification of
+automatic cursor release, and merge. Branch `device/apple-silicon/virtio-tablet`
+is based on freshly fetched main `f3f9a3c2`. Owns the input tablet profile,
+normalized absolute pointer queue/ABI semantics, desktop pointer consumers,
+QEMU launch defaults and focused tests. PR252 retains process/I/O lifetime work,
+PR278 application dispatch, PR19 Wi-Fi; no overlapping driver work was found.
+
+Acceptance: exact endpoints and scaling at supported desktop sizes; no jump on
+first full sample or re-entry; ordinary relative devices still work; press/drag/
+release and wheel preserved; automatic release on leaving the Cocoa VM window
+and re-entry without a release shortcut; clean matched build, protocol/queue/
+consumer regressions and VM evidence. Publish and merge after these checks.
+Native boot settings, physical acceptance and repository boundaries are unchanged.
+
+### Tablet verification — November 3, 2026
+
+Clean runtime `0779dd72` built successfully and passed input, pointer/ABI,
+keyboard and desktop host tests, launcher unit tests, both absolute-tablet VM
+modes (1280×800 scale 1 and 1920×1080 scale 2), and the original two-boot relative
+VirtIO baseline. All runs match kernel/exFAT hashes in the
+[tablet receipt](../assets/screenshots/virtio-tablet-manifest.json).
+
+The default Cocoa desktop is open in `.local/macos-vm/virtio-tablet-review/` and
+reports the tablet as its active absolute pointer. First app frame: 4.32 seconds.
+The user confirmed automatic host cursor release/re-entry without a shortcut and
+outside-release/re-entry without a stuck drag, completing acceptance for PR285.
+The former VM was exited cleanly,
+with its unsaved blank Text document saved as `/fat/tablet-restart-recovery.txt`
+on the retained `.local/macos-vm/virtio-baseline-review/` disk. Submodule pins and
+native hardware acceptance are unchanged.
+
+### Active theme profiles — November 3, 2026
+
+User authorized complete Aero-inspired and Aqua-inspired presets, live Appearance
+previews, application-wide switching/persistence, and rendering/performance
+verification. Branch `device/apple-silicon/theme-profiles` starts at merged tablet
+PR285 (`087029b4`). Owns SrvrUI style rendering, SrvrApps Settings, the shared
+preference protocol/resolver, compositor chrome and focused tests. PR278 owns app
+dispatch, PR252 process/I/O lifetimes, PR19 Wi-Fi; those scopes remain separate.
+Retain Silver as the compatible default, accent/glass controls, content state,
+input geometry and current device profiles. Extend the existing authoritative
+preference path rather than introducing per-app stores. One shared build/VM owner;
+publish child repository commits before OS pins. Native acceptance is unchanged.
+
+### Theme profiles accepted — November 3, 2026
+
+Clean runtime `50389359` pins published SrvrUI `89fb6d9` and SrvrApps `d245fe2`.
+Full image build and desktop/widget host suite pass, including style migration,
+live window/dialog updates and clipped/full redraw equality during drag/scroll.
+Both profile and existing Settings/application VMs pass; the compact 280×240
+Appearance fix has a focused host test and inspected render. The final matched
+profile VM preserves selected Text content, updates existing/new windows, renders
+dialogs and menus, drags/scrolls, saves Aqua and restores it after desktop restart.
+See the [receipt](../assets/screenshots/theme-profiles-manifest.json) and
+[rendered examples](../desktop-theme.md#profile-acceptance--november-3-2026).
+
+The controlled host frame-paint medians are 334/334/283 µs for Silver/Aero/Aqua;
+title-damage costs are 121/121/70 µs and cursor costs 4/4/4 µs. No host-vblank or
+native-device claim is made. The previous tablet VM and its idle Terminal exited
+cleanly, retaining its disk. The new default Cocoa VM is open in
+`.local/macos-vm/theme-profiles-review/`, reached its first app frame in 4.37 s,
+and shows Appearance with Aero selected. Integration is PR286 with SrvrUI PR1
+and SrvrApps PR1; subsequent acceptance commits change documentation only.
+No further feature is required for the approved profiles milestone.

@@ -883,3 +883,167 @@ rounds and terminal AP retirement pass; display controls and firmware request
 remain unchanged. The encoding fix grants no display/audio/IRQ ownership or
 power-policy acceptance. Continue with the audited read-only dependency
 inventory; retain the new trace/source identity when checking future additions.
+
+
+## Version-6 read-only display audio and IRQ controls
+
+The exact-Air6,1 opt-in platform diagnostic adds eight fixed control readbacks
+at its existing two endpoints, after the version-5 resource brackets:
+
+| Order | Control | GPU BAR0 offset |
+| --- | --- | --- |
+| 0 | HSW_AUD_PIN_ELD_CP_VLD | 0x650c0 |
+| 1–3 | HSW audio config A/B/C | 0x65000, 0x65100, 0x65200 |
+| 4–5 | CPU DEIMR / DEIER | 0x44004, 0x4400c |
+| 6–7 | PCH SDEIMR / SDEIER | 0xc4004, 0xc400c |
+
+Linux v7.0 `intel_audio_regs.h` and `i915_reg.h` define these control offsets.
+The [PCH detection](https://github.com/torvalds/linux/blob/v7.0/drivers/gpu/drm/i915/display/intel_pch.c)
+identifies the `0x9c00` family as LynxPoint LP, and its display IRQ implementation
+uses the SDE mask/enable block for LPT. SrvrOS admits only captured `8086:9c43`
+at 00:1f.0 with live class `060100`, not the whole family. The captured DSDT,
+CPU/GPU profile and existing BAR/D0/memory-decode gates remain mandatory.
+
+The PCH block is reached through the validated GPU aperture. Its separate gate
+rechecks the exact LPC identity/class/location before and after the reads; it
+does not invent an LPC PM capability or request D0. GPU identity/BAR/decode/D0
+and all four well status views must also validate on both sides, with unchanged
+pre/post well raw values. These are non-atomic checks; an intervening firmware
+change which reverts between reads remains outside the observation.
+
+Three new private pages at `0xffffc001f3220000` map only BAR0 offsets `0x65000`,
+`0x44000` and `0xc4000` with read-only/NX/cache-disabled flags. Occupied virtual
+pages or a partial mapping fail closed; partial maps remain unused until reset.
+Only the eight fixed offsets are read, outside RC6 brackets, sparse power hooks
+and measured C3 rounds. No HDA initialization, verbs, ELD data windows, CORB/RIRB,
+IIR/status acknowledgement, mask write, forcewake, power request or firmware
+transaction is added. Existing sampling, policies, ownership and limits remain.
+
+`ap-platform-deps: v=1` records each phase's state, read count, PM bracket,
+pre/post PCH identity, all pre/post well values and eight raw controls. An
+all-ones audio control is invalid; all-ones IRQ masks are legitimate all-masked
+values and are retained. The parser accepts uint32 IRQ raw values without
+claiming reserved bits or master enables imply dispatch. Its mathematical
+`enable_and_not_mask` value is context only, not pending interrupt status.
+Off-domain captures report explicit unavailable state, with no decoded zero
+values; other access changes or partial/invalid reads fail the capture.
+
+The independent `platform_dependencies_result` decodes A/B/C ELD-valid,
+CP-ready, output-enable and inactive bits plus raw audio config and CPU/PCH
+mask/enable intersections. Version-6 overall acceptance requires both complete
+valid dependency endpoints in addition to all prior proofs and the unchanged
+RC6 predicate. Independent observations remain available on an RC6 failure.
+No mask or graphics-audio readback establishes HDA controller/stream retirement,
+IRQ ownership, unused display well or a causal package-C3 blocker.
+
+Host fixtures verify exact maps/offset order, all pre-access gates, powered-off
+skips, all-ones handling, changed PCH/well state, and every reported scalar against
+retained C data. Parser fixtures preserve versions 1–5 and refuse malformed,
+missing/duplicate/out-of-order/invalid version-6 endpoints. Retention regression
+uses the preserved native compact trace plus explicitly synthetic new endpoint
+records and source-derived maximum final checkpoint shapes/widths; it is never
+native acceptance. Require the actual new records directly after the retry.
+
+
+Air6,1 source `4e2ff068`, release `ee85beb85b75fdca`, now supplies both actual
+valid eight-control endpoints directly in its 64 KiB final log, alongside all
+15 compact power/idle/entry samples and earlier proofs. The two endpoint values
+are identical: pin/ELD zero, configs A/B/C `0x0070fa60`, CPU/PCH masks
+`0xffffffff` and enables zero. Live access gates and unchanged well checks pass.
+This accepts the bounded read-only observations and retention only. HDA/DMA
+retirement, IRQ ownership and a safe well transition remain unproven.
+The overall platform trial still fails the original RC6 bound (about 0.0893%
+nominal excess), and package C3 remains zero. No policy or limit changes follow.
+
+
+## Remaining Haswell ULT well dependencies (2026-11-02)
+
+This source audit uses Linux v7.0 commit
+`028ef9c96e96197026887c0f092424679298aae8` and the actual Air6,1
+`ee85beb85b75fdca` endpoints. It changes no register access, ownership, policy,
+limit or installed payload. Upstream code describes prerequisites; it does not
+supply native acceptance or prove the cause of zero package C3.
+
+### Applicability and observed coverage
+
+The pinned [PCI IDs](https://github.com/torvalds/linux/blob/028ef9c96e96197026887c0f092424679298aae8/include/drm/intel/pciids.h)
+classify captured `0x0a26` as Haswell ULT GT3 mobile. The
+[display device profile](https://github.com/torvalds/linux/blob/028ef9c96e96197026887c0f092424679298aae8/drivers/gpu/drm/i915/display/intel_display_device.c)
+removes port D for ULT. The
+[output setup](https://github.com/torvalds/linux/blob/028ef9c96e96197026887c0f092424679298aae8/drivers/gpu/drm/i915/display/intel_display.c)
+excludes CRT on ULT before CRT initialization. Do not add a general Haswell
+CRT/FDI probe to this unit merely because the generic domain list includes CRT.
+Existing raw port-D/E slots remain recorded; zero bits in an unsupported slot
+do not establish an implemented, disabled port or an ownership proof.
+
+The [Haswell well map](https://github.com/torvalds/linux/blob/028ef9c96e96197026887c0f092424679298aae8/drivers/gpu/drm/i915/display/intel_display_power_map.c)
+associates the switchable well with pipes B/C, fitters A/B/C, transcoders A/B/C,
+DDI lanes B/C/D, CRT, VGA, audio MMIO/playback and initialization. Pipe A, the
+eDP transcoder and DDI A are outside this switchable domain list. This software
+map is context, not an exhaustive hardware permission register.
+
+| Dependency | Actual endpoint evidence | Remaining requirement |
+| --- | --- | --- |
+| Pipes/transcoders B/C and other non-eDP routes | Sampled A/B/C transcoder controls disabled; eDP selects pipe A | Adopt and retain the active route, framebuffer and resource lifetime before any release |
+| Fitters A/B/C | Enable bits clear; eDP DDI input field is 0 | Preserve both fitter enable and forced-through routing semantics; no inference from enable alone |
+| DDI B/C and VGA | Sampled buffers disabled; VGA disable set | Supported-resource ownership and exclusion of concurrent users, not only two snapshots |
+| CRT/FDI and port D | ULT source profile excludes CRT and port D | Treat as profile applicability; no speculative CRT initialization or generic register sweep |
+| Display audio | A/B/C output/ELD bits clear; configs retained | Separate display-HDA controller, link and DMA context remains unmeasured |
+| Display IRQs | DE/SDE enables zero; all mask bits set | Masks do not stop DMA, drain events or acquire an IRQ owner |
+| Firmware/init references | BIOS well request remains set | Establish a serialized takeover/readout/release lifecycle and recovery before writes |
+
+A subtle fitter dependency is already checkable without adding MMIO:
+`hsw_get_transcoder_state()` in the pinned output source marks fitter A forced
+through when the eDP input is `A_ONOFF` (encoding 4). The actual input field
+is `A_ON` (0), so that specific forced-through condition is absent at both
+endpoints. This is a bounded routing observation, not proof that the well is free.
+
+### Display HDA is the next useful read-only gap
+
+The same native PCI snapshots retain display HDA `8086:0a0c` at 00:03.0 in D0
+with command `0x0006` (memory decode and bus mastering enabled) at both endpoints.
+The distinct analog controller `8086:9c20` at 00:1b.0 is also D0 with command
+`0x0006`. Neither fact proves active DMA; neither permits treating the controller
+as retired. The ordinary `srvros.audio=hda` initializer does not own display HDA.
+
+Pinned [HDA controller code](https://github.com/torvalds/linux/blob/028ef9c96e96197026887c0f092424679298aae8/sound/hda/controllers/intel.c)
+keeps Haswell display-HDA power bound to the graphics component. Its runtime
+resume gets display power before controller initialization; shutdown stops the
+chip, enters link reset and clears pending IRQs before releasing display power.
+The [graphics component](https://github.com/torvalds/linux/blob/028ef9c96e96197026887c0f092424679298aae8/drivers/gpu/drm/i915/display/intel_audio.c)
+backs its audio power reference with `POWER_DOMAIN_AUDIO_PLAYBACK`. Clear ELD or
+output-enable bits cannot substitute for this controller lifecycle.
+
+A future bounded capture should first review exact display-HDA PCI identity,
+subsystem, class/BDF, BAR span, live D0/decode and powered-domain prerequisites.
+Candidate controls from the pinned
+[HDA definitions](https://github.com/torvalds/linux/blob/028ef9c96e96197026887c0f092424679298aae8/include/sound/hda_register.h)
+are GCAP (16 bits), GCTL/INTCTL (32), CORBCTL/RIRBCTL (8), DPLBASE (32), and
+capability-bounded stream control fields. Read widths must exclude adjacent
+status bytes; stream-count arithmetic must be validated before addressing.
+These are candidates requiring access/side-effect review, not a new allowlist.
+Exclude codec verbs, immediate commands, data buffers, ring pointers, W1C status,
+BAR sizing writes, resets, D-state changes and bus-master changes. Unsupported,
+off, inaccessible or changing state must remain explicit unknown/failure.
+Even an all-stopped capture would not grant ownership or permission to power off.
+
+### Why a well-clear experiment is premature
+
+Pinned [power-domain initialization](https://github.com/torvalds/linux/blob/028ef9c96e96197026887c0f092424679298aae8/drivers/gpu/drm/i915/display/intel_display_power.c)
+holds INIT until hardware readout has established resource references; sanitation
+releases only enabled wells with no users. The
+[well takeover](https://github.com/torvalds/linux/blob/028ef9c96e96197026887c0f092424679298aae8/drivers/gpu/drm/i915/display/intel_display_power_well.c)
+sets the driver's request before clearing the BIOS request. Copying only the BIOS
+clear would omit those protections. SrvrOS `intel_gfx_init()` enables PCI decode/
+bus mastering and maps four pages; it supplies no equivalent modeset/domain
+reference graph, display-HDA lifecycle or firmware-resource adoption. The Limine
+framebuffer remains live and must survive console, desktop and failure reporting.
+
+Before any future transition proposal, define exact exclusive ownership,
+active-route and framebuffer invariants, domain users and teardown ordering,
+bounded state verification, restoration with tested fallback, and evidence for
+success and refusal paths. Read-only observations alone cannot fulfill these
+requirements. Keep the unresolved RC6 clock discrepancy and package-C3 result
+separate. The immediate next implementation should be narrowly scoped read-only
+display-HDA context with profile-aware applicability, followed by its own matched
+host/VM/native validation and unchanged final-log retention gate.

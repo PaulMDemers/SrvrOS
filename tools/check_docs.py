@@ -17,6 +17,15 @@ def main():
     root = Path(__file__).resolve().parents[1]
     files = subprocess.check_output(['git', 'ls-files', '--cached', '--others',
         '--exclude-standard', '-z', '--', '*.md'], cwd=root).decode().split('\0')
+    # First-party submodule files are not returned by the parent ls-files.
+    # Before extraction they are already included by the parent enumeration.
+    for sub in ('userspace/widgets', 'userspace/apps', 'ports'):
+        directory = root / sub
+        if not (directory / '.git').exists():
+            continue
+        nested = subprocess.check_output(['git', 'ls-files', '--cached', '--others',
+            '--exclude-standard', '-z', '--', '*.md'], cwd=directory).decode().split('\0')
+        files.extend(f'{sub}/{name}' for name in nested if name)
     errors = []
     checked = 0
     for name in sorted(set(files)):

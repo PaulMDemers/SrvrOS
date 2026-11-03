@@ -35,6 +35,7 @@ struct desktop_scene {
     char notice[96],clock[64],battery[32];
     int automatic_test;
     int wallpaper;
+    struct desk_theme theme;
     char io_status[160],io_check[160],io_next[160];
 };
 enum desktop_window_control { DESKTOP_CLOSE=1,DESKTOP_MAXIMIZE,DESKTOP_MINIMIZE };

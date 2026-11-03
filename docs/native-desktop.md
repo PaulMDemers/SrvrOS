@@ -740,3 +740,13 @@ seek and ordinary readdir; mutation between batches retains unspecified ordering
 The desktop worker preserves its 256-entry limit, path bounds, error handling and
 complete-response validation. This removes per-entry readdir/stat admission waits
 without admitting metadata access inside another storage owner's operation.
+
+
+## Global appearance
+
+In Settings, scroll below Sound to Appearance. Blue, Graphite and Teal update
+focus and selection colors in open and new applications. Solid, Subtle and Clear
+control title-bar, menu-bar and dock glass. Changes apply immediately and Settings
+reports whether they were saved or apply only to this session. The larger-text
+option continues to affect supported document views. See the
+[theme engine](desktop-theme.md) and [display presentation plan](display-presentation.md).

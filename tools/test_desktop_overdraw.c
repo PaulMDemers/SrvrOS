@@ -51,7 +51,12 @@ static void compare(struct desk_rect clip,int reduction) {
     for(int y=0;y<H;y++) for(int x=W;x<S;x++) assert(optimized[y*S+x]==0xdeadbeef);
 }
 static void adversarial(void) {
-    initialize(2);compare((struct desk_rect){0,0,W,H},1);
+    for(unsigned style=0;style<3;style++) for(unsigned glass=0;glass<3;glass++) {
+        initialize(2);desk_theme_configure_style(&scene.theme,style,0,glass,16);
+        compare((struct desk_rect){0,0,W,H},1);
+        compare((struct desk_rect){120,90,180,180},1);
+    }
+    initialize(2);
     /* A higher frame covers the lower frame but not its bottom shadow. */
     windows[1].frame.y-=7;compare((struct desk_rect){0,0,W,H},0);
     compare((struct desk_rect){100,348,310,14},0);
@@ -68,6 +73,12 @@ static void adversarial(void) {
     initialize(2);windows[1].pixels=NULL;compare((struct desk_rect){0,0,W,H},1);
     windows[1].minimized=1;compare((struct desk_rect){0,0,W,H},0);
     windows[1].minimized=0;windows[1].visible=0;compare((struct desk_rect){0,0,W,H},0);
+    /* A lower title and shadow entirely inside an opaque body may be culled;
+     * near-minimum height keeps resize grips outside its opaque body. */
+    initialize(2);windows[0].frame=(struct desk_rect){150,140,128,47};
+    windows[1].frame=(struct desk_rect){100,70,400,310};
+    compare((struct desk_rect){0,0,W,H},1);
+    compare((struct desk_rect){150,180,128,7},0);
     /* Malformed small frames paint titlebar controls outside their frame. */
     initialize(2);windows[0].frame=(struct desk_rect){100,70,12,9};
     windows[1].frame=(struct desk_rect){100,70,300,285};
@@ -133,8 +144,31 @@ static void benchmark(void) {
         }
     }
 }
+static void benchmark_profiles(void) {
+    const struct desk_rect clips[]={{0,0,W,H},{90,65,330,90},{213,193,10,17}};
+    const char *names[]={"frame","title-drag","cursor"};
+    const char *styles[]={"silver","aero","aqua"};
+    for(unsigned clip=0;clip<3;clip++) {
+        uint64_t samples[3][REPS],writes[3]={0};
+        initialize(2);desktop_stack(&scene,order);
+        /* Rotate style order over identical cached content and damage. Host
+         * paint timing is a cost comparison, not host-vblank evidence. */
+        for(unsigned rep=0;rep<REPS;rep++) for(unsigned turn=0;turn<3;turn++) {
+            unsigned style=(rep+turn)%3;
+            desk_theme_configure_style(&scene.theme,style,0,1,16);
+            fill_guard(optimized);
+            writes[style]=paint(optimized,clips[clip],1,&samples[style][rep]);
+        }
+        for(unsigned style=0;style<3;style++) {
+            qsort(samples[style],REPS,sizeof(uint64_t),compare_u64);
+            printf("theme-cost: style=%s clip=%s samples=%d writes=%llu ns_p50=%llu\n",
+                styles[style],names[clip],REPS,(unsigned long long)writes[style],
+                (unsigned long long)samples[style][REPS/2]);
+        }
+    }
+}
 int main(void) {
     for(unsigned i=0;i<310*260;i++) content[i]=(i*1291U)&0xffffff;
-    adversarial();randomized();benchmark();
+    adversarial();randomized();benchmark();benchmark_profiles();
     puts("desktop-overdraw: PASS exact reference pixels, 128 records, randomized clips, shadow holes, stale caches, tiny frames and stride guards");
 }

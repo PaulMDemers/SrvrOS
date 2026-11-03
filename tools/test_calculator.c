@@ -1,7 +1,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
-#include "../userspace/desktools/calculator.h"
+#include "../userspace/apps/desktools/calculator.h"
 int main(void) {
     double x=123;
     assert(!desk_calculate("2 + 3 * (4 - 1)",&x) && x==11);

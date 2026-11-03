@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <srvros/wifi_service.h>
-#include "../userspace/desktools/system.c"
+#include "../userspace/apps/desktools/system.c"
 static bool wifi_live[2]={true,true};
 static uint64_t wifi_owner[2];
 static unsigned wifi_selects;

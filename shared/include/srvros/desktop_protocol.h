@@ -2,9 +2,9 @@
 #define SRVROS_DESKTOP_PROTOCOL_H
 #include <stdint.h>
 
-/* Fixed-size v15 packet carried in gui_message.text. The kernel supplies the
+/* Fixed-size v17 packet carried in gui_message.text. The kernel supplies the
  * envelope source PID. Unknown versions/types are rejected, never guessed. */
-#define DESK_PROTOCOL_VERSION 15
+#define DESK_PROTOCOL_VERSION 17 /* Adds theme style to the complete preference snapshot. */
 /* Window IDs are scoped to the authenticated process/desktop connection.
  * The compatibility wrapper uses ID1; connection windows never reuse IDs. */
 #define DESK_DEFAULT_WINDOW 1ull

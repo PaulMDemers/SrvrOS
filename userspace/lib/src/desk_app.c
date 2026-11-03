@@ -1,9 +1,11 @@
 #include <srvros/desk_app.h>
+#include <srvros/desk_preferences.h>
 #include <srvros/desk_connection.h>
 #include <srvros/desk_application.h>
 #include <srvros/gui.h>
 #include <srvros/sys.h>
 #include <string.h>
+_Static_assert(sizeof(struct desk_preferences)<=sizeof(((struct desk_packet *)0)->text),"preferences fit packet");
 
 int desk_app_open(struct desk_app *a,const char *title,uint32_t width,uint32_t height) {
     *a=(struct desk_app){.last=srv_ticks(),.dirty=1,.focused=1,.window=DESK_DEFAULT_WINDOW};
@@ -82,6 +84,14 @@ static int app_receive(struct desk_app *a,uint64_t source,const struct desk_pack
         if(p.serial==a->menu_revision) for(unsigned i=0;i<a->menu_count;i++)
             if(a->menus[i].id==p.value && p.value && !(a->menus[i].flags&(DESK_MENU_DISABLED|DESK_MENU_HEADING|DESK_MENU_SEPARATOR))) valid=1;
         if(!valid || !a->focused) return 2;
+    }
+    if(p.type==DESK_PREFERENCES) {
+        struct desk_preferences preferences;memcpy(&preferences,p.text,sizeof(preferences));
+        if(p.value>DESK_PREF_CONFLICT || !desk_preferences_valid(&preferences)) return 2;
+        if(!a->preferences_valid || a->preferences.theme_accent!=preferences.theme_accent ||
+           a->preferences.glass_level!=preferences.glass_level || a->preferences.theme_style!=preferences.theme_style ||
+           a->preferences.text_size!=preferences.text_size) a->dirty=1;
+        a->preferences=preferences;a->preferences_valid=1;
     }
     if(p.type==DESK_FOCUS) a->focused=p.value!=0;
     if((p.type==DESK_POINTER || p.type==DESK_CONTEXT) && (p.generation!=a->generation || a->configure.generation!=a->generation)) return 2;
