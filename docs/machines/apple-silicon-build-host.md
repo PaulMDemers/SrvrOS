@@ -2660,7 +2660,7 @@ negative controls and check results are in local
 `build/review/awk/20261103-163846-r5l071hz/`. All task VMs are stopped. The shared
 checkout and review VM remain untouched; no main merge was performed.
 
-### Terminal quoting integration — active November 3, 2026
+### Terminal quoting integration — completed November 3, 2026
 
 User authorized integrating PR299 and verifying merged main in the independent
 `SrvrOS-app-quality` checkout. Current main `0fd0c5fc` adds Air6,1 platform
@@ -2669,3 +2669,19 @@ quoting fixture. Merge main into the PR branch, preserve both test targets, then
 merge the reviewed PR and verify clean merged source with host checks, a matched
 build, Terminal persistence and the full CLI suite. Shared checkout and review VM
 remain untouched. Prior native-device and PR252 acceptance boundaries remain.
+
+PR299 merged as `bfdcab65716c846645ef80fb7a4c3620308f4e27`. The isolated
+checkout verified that exact clean source: 56 quoting host checks, package-audit
+and platform-sample C fixtures, 3 package/22 platform/7 backing Python checks,
+a matched build, all 35 Terminal quoting/boundary cases, keyboard input,
+second-boot persistence, process retirement, guest fsck and offline allocation
+checks. All 482 CLI commands and the editing/history regression pass. External
+`fsck.exfat` remains unavailable and is explicitly skipped. An independent
+read-only review confirmed both Makefile test groups and dependencies survived.
+
+The documentation closeout builds the same kernel, initramfs and disk artifacts.
+Merged-runtime identities, hashes and results are retained in local
+`build/review/terminal-quoting/integration-receipt.json`; Terminal evidence is in
+`build/review/awk/20261103-170330-z6kf_bun/`. All task VMs are stopped; the shared
+checkout and review VM remain untouched. Delivered and verified; no further work
+is required for this integration target.
