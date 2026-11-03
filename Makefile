@@ -4103,3 +4103,19 @@ test-desktop-presentation: build/tests/desktop-presentation-host$(HOST_EXE)
 build/tests/desktop-presentation-host$(HOST_EXE): tools/test_desktop_presentation.c userspace/deskd/presentation.h userspace/lib/include/srvros/desk_render.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include $< -o $@
+
+.PHONY: test-virtio-gpu-probe
+test-core: test-virtio-gpu-probe
+test-virtio-gpu-probe: build/tests/virtio-gpu-probe-host$(HOST_EXE)
+	$<
+build/tests/virtio-gpu-probe-host$(HOST_EXE): tools/test_virtio_gpu_probe.c kernel/src/drivers/virtio_gpu_probe.c kernel/include/srvros/timer.h kernel/include/srvros/virtio_gpu_probe.h kernel/include/srvros/pci.h kernel/include/srvros/vmm.h kernel/include/srvros/pmm.h $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -o $@
+
+.PHONY: test-display-present
+test-core: test-display-present
+test-display-present: build/tests/display-present-host$(HOST_EXE)
+	$<
+build/tests/display-present-host$(HOST_EXE): tools/test_display_present.c kernel/src/display_present.c kernel/include/srvros/display_present.h kernel/include/srvros/virtio_gpu_probe.h $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -o $@

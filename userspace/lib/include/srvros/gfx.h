@@ -10,6 +10,11 @@
 #define GFX_FLAG_ACCEL_MMIO_MAPPED 0x00000002ull
 #define GFX_FLAG_ACCEL_BLITTER_PLANNED 0x00000004ull
 #define GFX_FLAG_ACCEL_RENDER_PLANNED 0x00000008ull
+#define GFX_FLAG_FENCED_PRESENT 0x00000010ull
+
+int gfx_present_begin(void);
+int gfx_present(void);
+int gfx_present_end(void);
 
 struct gfx_info {
     uint64_t abi_version;

@@ -6,6 +6,31 @@ and [machine records](machines/README.md) separate implementation from physical
 acceptance. The [device parity ledger](device-parity.md) compares the Air with
 ongoing Pro work.
 
+## QEMU fenced presentation — November 3, 2026
+
+Target: an opt-in QEMU VirtIO desktop presentation path, explicitly selected by
+the user. Finish the complete composed frame before publishing scanout, retain
+buffer ownership until command completion, and recover the VGA console on normal
+exit or desktop process death. The glass/theme milestone remains complete.
+
+Implemented and locally verified at runtime `a8c21344`, published as draft
+[PR281](https://github.com/PaulMDemers/SrvrOS/pull/281), stacked on UI PR280.
+The matched build, transport/lease/console/graphics/I/O/cancellation/desktop host
+regressions and sanitizers pass. Three sequential probe boots cover enabled,
+absent and disabled device paths; the absent case renders/exits a standard VGA
+desktop. The primary VirtIO VM verifies visible drag, deterministic scroll,
+normal console restoration, abrupt desktop termination and successful restart.
+The final evidence identifies a clean runtime tree and exact image hashes.
+
+The backend stages a complete frame, alternates two resources, fences commands,
+retains DMA until reset completion, and uses existing scheduler service checkpoints.
+Start it with `python3 tools/macos/run.py --display-device virtio`; standard VGA
+remains the default. The scoped QEMU presentation target is ready for review.
+Next: review PR281 after its PR280 dependency; no further implementation is required
+for this target. Host compositor/physical vblank, native drivers, live mode changes
+and partial-transfer optimization remain separate work. All verification VMs are
+stopped. See [the contract and screenshot](display-presentation.md).
+
 ## Glass and live theme refinement — November 2, 2026
 
 Target: more polished glass chrome, application-wide appearance controls in

@@ -2,6 +2,8 @@
 #define SRVROS_GUI_H
 
 #include <stdint.h>
+#include <stdbool.h>
+bool gui_server_is_owner(uint64_t pid);
 #include <srvros/key_event.h>
 #include <srvros/gui_wait.h>
 #include <srvros/pointer_config.h>

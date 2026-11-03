@@ -159,6 +159,10 @@
 #define SYS_GUI_CANCEL_WAIT 153
 #define SYS_SCHED_TRACE 154
 #define SYS_SOCKET_TRY_IO 155
+/* Explicit whole-frame presentation; ordinary framebuffer ABI stays intact. */
+#define SYS_GFX_PRESENT_BEGIN 156
+#define SYS_GFX_PRESENT 157
+#define SYS_GFX_PRESENT_END 158
 #define SRV_DIRECTORY_READ 0
 #define SRV_DIRECTORY_PATH 1
 #define SRV_DIRECTORY_CHDIR 2
