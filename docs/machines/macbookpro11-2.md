@@ -101,6 +101,20 @@ pulse or RX; separate VCO/calibrated reception and authenticated IP milestones
 remain pending. PR252 retains resolver/socket scope; no other open Wi-Fi owner
 was found at this integration checkpoint. Preserve v115 and independent backups.
 
+## v116 return collection scope
+
+The matching native exit prefix is saved as1063627bytes and passes the unchanged
+frozen7785-operation checker, including3732 held operations and full restoration.
+Initial collection refused the file at the host's old1MiB per-log bound; this is
+an infrastructure refusal, not evidence of radio failure or acceptance. Preserve
+that refusal. The bounded correction touches only `hardware_desktop.collect`
+and its host tests: default1MiB/64MiB aggregate/path protections remain; one
+explicit session/release may transport up to2MiB only with matching held-radio
+boot identity/options. Larger files, unrelated sessions, echoed options, mixed
+releases and large checkpoints remain refused. Recollect the same saved session
+and verify storage/recovery before publishing physical acceptance; no rerun or
+kernel change is needed to recover these bytes.
+
 ## Active native held-channel scope
 
 Reviewed remote main `d5822348` and open PRs301/299/252: current work is display
