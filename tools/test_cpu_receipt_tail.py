@@ -4,9 +4,9 @@ import test_hardware_platform as platform_tests
 
 
 class FinalReceiptTests(unittest.TestCase):
-    def fixture(self, resources=False, dependencies=False, hda=False):
+    def fixture(self, resources=False, dependencies=False, hda=False, dry=False):
         t=platform_tests.PlatformTests()
-        s=t.hda_fixture() if hda else t.dependency_fixture() if dependencies else t.resource_fixture() if resources else t.display_fixture()
+        s=t.dry_fixture() if dry else t.hda_fixture() if hda else t.dependency_fixture() if dependencies else t.resource_fixture() if resources else t.display_fixture()
         lines=s.splitlines(keepends=True)
         header=next(x for x in lines if x.startswith('ap-owner: v=1 admitted=1'))
         lines.remove(header)
@@ -50,6 +50,11 @@ class FinalReceiptTests(unittest.TestCase):
         for bad in (s.replace('ap-platform-hda: v=1','ap-platform-hda: v=2'),
                     '\n'.join(x for x in s.splitlines() if not x.startswith('ap-platform-hda:'))):
             with self.assertRaises(ValueError):assess(bad,True)
+
+    def test_dry_record_remains_required(self):
+        s=self.fixture(dry=True)
+        self.assertEqual(assess(s,True)['status'],'COVERAGE_PASS')
+        with self.assertRaises(ValueError):assess(s.replace('ap-platform-dry: v=1','ap-platform-dry: v=2'),True)
 
     def test_failed_or_missing_data_never_becomes_coverage(self):
         s=self.fixture()
