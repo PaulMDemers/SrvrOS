@@ -2048,11 +2048,11 @@ VirtIO VM with PS/2 disabled; explicit legacy launcher; default Cocoa launcher.
 The modern VM types in the monitor and Text, saves a document, drags a window,
 scrolls Help by a real wheel event, consumes entropy, changes link state,
 completes DHCP and 4/4 pings, releases the presenter, flushes/reboots and reads
-back its persistent marker. Observed firmware block admission is15 with reset
+back its persistent marker. Observed firmware block admission is 15 with reset
 proof. No device failures/quarantines occurred in the accepted run.
 
-Copy/transfer volume falls64–67% in the repeated drag/scroll workloads, while
-median draw/present time falls27–33%; host vblank remains unmeasured. The default
+Copy/transfer volume falls 64–67% in the repeated drag/scroll workloads, while
+median draw/present time falls 27–33%; host vblank remains unmeasured. The default
 launcher uses VirtIO graphics/input/RNG/block/network; explicit legacy fallback
 remains available. See [the driver contract](../virtio-baseline.md),
 [measurement receipt](../assets/screenshots/virtio-damage-manifest.json) and
