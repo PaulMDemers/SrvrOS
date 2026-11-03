@@ -2,6 +2,19 @@
 
 Updated: 2026-11-03. State: **active reference machine; partial device acceptance**.
 
+### Active backing-readout scope
+
+Consumed main `bfdcab65` (Air6,1 backing readout, window snapping and Terminal
+quoting) at merge `df893f1f`. Next bounded Air7,2 objective: decode the accepted
+tiled primary plane, observe CPU aperture fences and narrowly bounded GGTT PTEs,
+and classify their relationship to PCI stolen-memory bounds and the inherited
+framebuffer translations. No pixel reads, allocator adoption, mapping/control
+writes or flips. Touch only isolated Intel observation code, its host/collector
+fixtures and the existing opt-in capture path; preserve version1 capture and
+Air6,1's independent diagnostic. PR303 owns HiDPI userspace, PR19 Wi-Fi and PR252
+audit. Validate host refusal/retirement and matched VM/default-off regressions
+before preparing a source-bound automated physical readout.
+
 ### Native Intel read-only observation accepted
 
 Release `c60576b371caaab4` / compiled source `5c8c0569` returned automatically;
