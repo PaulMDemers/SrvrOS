@@ -66,8 +66,8 @@ fallback count; the entire trial has a30-second bound.
 At1440×900/pitch6144 the trial allocates21600 frames across eight lifetimes,
 releases13500 and retains8100 (about31.6MiB) on the three expected faults. It
 performs12 full private copies,13 logical requests,10 matched shadow completions
-and3 logical restores. It never overwrites the inherited framebuffer, its34MiB
-fence or any firmware allocation. Progress is printed in the guest and complete
+and3 logical restores. Copy work touches private RAM only. Ordinary console progress continues through
+the inherited framebuffer; its34MiB fence and firmware allocations stay intact. Progress is printed in the guest and complete
 versioned receipts are saved. Handled refusal/failure returns automatically only
 after successful save/unmount; persistence failure halts visibly.
 

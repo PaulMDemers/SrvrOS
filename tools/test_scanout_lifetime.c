@@ -19,6 +19,7 @@ int main(void){
  /* Cancel during copy and before any publication: CPU work must drain first. */
  start();struct scanout_token c;assert(scanout_copy_begin(&o,42,&c));assert(scanout_close(&o,42,o.epoch));assert(o.state==SCANOUT_CLOSING);assert(!scanout_take_release(&o,1,&time));assert(scanout_copy_end(&o,&c,true));assert(o.state==SCANOUT_RETIRED);release();
  start();copy();assert(scanout_close(&o,42,o.epoch));release();
+ start();copy();complete(request());assert(scanout_copy_begin(&o,42,&c));assert(scanout_close(&o,42,o.epoch));assert(scanout_copy_end(&o,&c,true));assert(o.state==SCANOUT_CLOSING && o.front==1);complete(request());assert(o.state==SCANOUT_RETIRED);release();
  /* Cancel while submission is being issued and while the flip is pending. */
  for(unsigned phase=0;phase<2;phase++){
   start();copy();struct scanout_token t=request();if(phase)assert(scanout_issued(&o,&t,SCANOUT_ISSUED,++time));
