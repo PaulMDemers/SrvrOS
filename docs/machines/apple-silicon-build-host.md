@@ -17,6 +17,17 @@ runs at a time here. Acceptance and exact evidence are recorded in
 [disk installation](../disk-installation.md); this is emulated x86_64 evidence,
 not native ARM64 or physical boot acceptance.
 
+Completed at clean source `9989878c`: matched full build, selector sanitizer,
+21 image/provenance tests, real clean-mount zero-write checks, storage and exFAT
+regressions, and all 11 two-disk VM cases. Same GUID selects `ahci0p2` then
+`ahci1p2`, with Text/preferences restored and the decoy unchanged. Nine halted
+recovery cases preserve both whole-disk hashes. Evidence and exact artifacts are
+byte-verified under `.local/installation-evidence/proof-p0_hk8ic`. OVMF can repair
+a bad primary GPT from a valid backup before kernel entry; the invalid-map case
+damages both copies, and the earlier repair observation is retained separately.
+All task-owned test VMs are stopped; the three original review VMs remain live.
+The scoped PR is draft pending filesystem-owner review, with no merge requested.
+
 ## Earlier host-tool milestone
 
 Updated: 2026-10-25. This is a development host running an emulated x86_64
