@@ -131,11 +131,18 @@ The existing eDP input is A_ON rather than the fitter forced-through A_ONOFF
 route. Display HDA at 00:03.0 remains D0 with decode/bus mastering enabled;
 its controller/link/DMA context is not covered by the graphics audio controls.
 
-Next: review and implement bounded read-only display-HDA context with exact
-identity/BAR/domain gates and profile-aware applicability. Keep the strict
-RC6 discrepancy separate. A well-clear experiment requires a future display
-ownership/readout/restore lifecycle; this audit does not authorize one. No
-physical boot is planned or armed. PR252 lifetimes and PR19 Wi-Fi remain separate.
+Read-only display-HDA capture is implemented and locally validated on source
+`f921afc2`, release `2bcb21ae64ee1920` (PR287), atop the matched modular desktop
+baseline. Exact access, reset/off unknowns and every prior requirement remain.
+Fixed-width raw encoding resolves the failed conservative decimal receipt budget
+without losing values, expanding the log or reducing workload coverage.
+
+Next: collect the matching automated 30/30/30-second native trial, requiring the
+two actual version-7 HDA records and all original compact proofs directly from
+its final log. Preserve unavailable/failure evidence and the independent strict
+RC6/package-C3 results. No well clear or policy change is authorized. The local
+run record owns installed/recovery and ready/armed/returned state. PR278 app
+registry, PR252 lifetimes and PR19 Wi-Fi retain separate scope.
 
 ### Historical battery-runtime objective (2026-10-23)
 
@@ -6223,3 +6230,63 @@ clear the BIOS request. A future well transition needs its own serialized
 ownership/adoption/restore design. RC6 timing failure and package-C3 zero remain
 unresolved. Audit-only closeout requires docs/link and diff checks; no hardware
 acceptance is added and no new boot is armed.
+
+
+### Read-only display-HDA context — active scope (2026-11-03)
+
+Base `e376669c` with pinned SrvrUI/SrvrApps/SrvrPorts. Add two bounded display-HDA
+control snapshots to the isolated Air6,1 platform diagnostic, exact 00:03.0
+`8086:0a0c` / subsystem `106b:011a`, validated BAR/D0/decode and display-well
+checks. Fixed-width global controls and capability-bounded stream controls only;
+no initialization, reset, verbs, status acknowledgement, power/PCI writes or
+new polling. Scope: isolated producer, host decoder, access/formatter/parser and
+retention regressions, machine/current guide. Preserve every existing phase,
+latency limit and integrity check. PR278 app registry, PR252 lifetimes and PR19
+Wi-Fi retain separate ownership. Next checkpoint: host/build/VM validation and
+an exact-source automated read-only native candidate; no new boot armed yet.
+
+
+### Display-HDA candidate validation and automated handoff (2026-11-03)
+
+Compiled source `f921afc2`, release `2bcb21ae64ee1920`, adds two exact-gated
+read-only display-HDA snapshots to the existing platform profile. The actual
+`8086:0a0c` / `106b:011a` identity, 00:03.0/class, live D0/decode/16 KiB BAR,
+GPU/PCH and stable well gates are mandatory. GCAP/GCTL, interrupt and ring DMA
+controls, position-buffer context and 1–30 capability-bounded stream controls
+use exact widths excluding status bytes. Reset/off remain unknown; active DMA
+is observed without being mistaken for an access error. No initializer, verbs,
+reset, power/PCI/IRQ write or new polling is added.
+
+The first decimal report failed the conservative final-log budget; that failed
+synthetic result remains local. Fixed 179-byte little-endian payloads encoded
+canonically in 240 base64 characters preserve every raw field, partial/failure
+row and unused slot. The actual C emitter is checked field-by-field after an
+independent decode. The host parser rejects malformed/noncanonical encoding,
+unknown states, counts, gates, missing/duplicate endpoints and invalid raw data.
+Old report versions remain readable. Version 7 adds mandatory actual HDA proof;
+no prior predicate or original RC6 bound is relaxed.
+
+Matched ordinary/AP build and USB image, full core/desktop/widget suites, docs,
+focused mapping/access/width/reset/change/formatter tests, twenty platform tests
+and five tail tests pass. Symbol/disassembly isolation confirms no diagnostic
+MP request in the ordinary ELF, no forbidden platform control writes and no new
+sparse-sampler accesses. All nine main and three legacy VM profiles pass,
+including directed failure-state and twelve-case final-receipt review. Exact
+GPT refusal saves, unmounts and returns; missing Home halts as expected.
+
+The explicit synthetic maximum-30-stream model preserves all prior native
+proofs and new HDA rows byte-for-byte under the unchanged 64 KiB tail, source-
+derived maximum checkpoint shapes, 128 KiB pre-final chatter and 26,898 bytes
+of width/capacity padding. Its source fingerprints include the new producer
+include. This is regression evidence only, not new native acceptance.
+
+Local preflight verifies 578 files / 1,640 clusters, all prior hashes, clean
+read-only fsck/allocation and headroom, exact model/USB and connected AC. The
+previous diagnostic's EFI copy is retired only after independent durable
+payload/evidence hashes pass and normal installation repoints its entry; console
+and accepted recoveries remain intact. The new matched candidate retains console
+recovery and Ubuntu default. Exact install/backup/boot state is in the local run
+record. Native acceptance is pending, and no model/synthetic/other-session rows
+may substitute for its returned HDA controls. Original phases, 32 rounds, latency
+limits, fallback, ownership checks and policies remain unchanged. No input is
+required; progress is shown and results save before automatic Ubuntu return.
