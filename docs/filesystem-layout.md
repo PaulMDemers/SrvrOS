@@ -3,6 +3,18 @@
 Updated November 3, 2026. Global activation follows the explicit namespace proof
 in [PR308](https://github.com/PaulMDemers/SrvrOS/pull/308).
 
+## Dependency integration — active review
+
+The user authorized review, integration and merge of PR313 after combined
+verification, with explicit coordination with PR252 and SrvrPorts PR3. Current
+review heads are PR313 `29a0ad23`, PR252 `badfeb37` and Ports3 `0f51ba9`.
+Fetched SrvrOS main is `3db1a1d3` (adds merged installation PR311); SrvrPorts main
+is `d75eebe`. No submitted reviews or unresolved review threads are present on
+these three PRs. Review scope is dependency provenance, lifetime/exclusion and
+ABI reconciliation, then exact combined host/build/guest verification. Land the
+ports dependency before the OS history-preserving combined merge. Keep the
+primary checkout, existing review VMs and physical devices untouched.
+
 ## Global activation milestone
 
 Review: [draft PR313](https://github.com/PaulMDemers/SrvrOS/pull/313).
