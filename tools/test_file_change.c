@@ -2,7 +2,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#define SRVROS_SYSCALL_IO_HOST_TEST
 #include "../kernel/src/arch/x86_64/syscall.c"
+struct process_file *process_file_at(struct process *p,uint64_t fd) { (void)p;(void)fd;assert(0);return NULL; }
+uint64_t process_fd_generation(struct process *p,uint64_t fd) { (void)p;(void)fd;assert(0);return UINT64_MAX; }
 static struct vfs_node node={.used=true,.path="/fat/old",.type=VFS_NODE_FILE,.size=3,.metadata={.inode=71,.mtime=123}};
 static int exists,busy,fail,calls,operation,reads,releases,read_fail,read_mismatch;static const void *invalid;
 bool vmm_user_range_mapped(uint64_t address,uint64_t length,bool writable) { (void)length;(void)writable;return address && (const void *)address!=invalid; }

@@ -3,6 +3,7 @@
  * owning address space, including identical virtual addresses. */
 #include <assert.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #define SRVROS_PROCESS_HOST_TEST
 #include "../kernel/src/process.c"
@@ -11,9 +12,9 @@ static struct process first, second,clone;
 static unsigned destroyed_spaces;
 bool vmm_create_address_space(uint64_t *out) { *out=3;return true; }
 void vmm_destroy_address_space(uint64_t space) { assert(space==3);destroyed_spaces++; }
-static uint8_t frames[2048][4096];
+static uint8_t frames[4096][4096];
 static unsigned allocated, freed, fail_after;
-static bool freed_frames[2048];
+static bool freed_frames[4096];
 static bool interleave,allocating,releasing;
 static struct process *nested;
 void *scheduler_current_user_context(void) { return NULL; }
@@ -37,7 +38,8 @@ void pmm_free_frame_range(uint64_t address,uint64_t count) {
 static uint8_t image[9000];
 static struct elf64_program_header segment={.type=PT_LOAD,.flags=PF_W,
     .vaddr=0x500000,.filesz=sizeof(image),.memsz=12288};
-void console_printf(const char *format,...) { (void)format;assert(fail_after); }
+void console_printf(const char *format,...) { (void)format; }
+void console_write(const char *s) { (void)s; }
 void pmm_free_frame(uint64_t address) {
     assert(address && address%4096==0 && address/4096<=allocated);
     assert(!freed_frames[address/4096]);freed_frames[address/4096]=true;freed++;
@@ -50,7 +52,7 @@ uint64_t pmm_alloc_frames_above_tagged(uint64_t count,uint64_t minimum,enum pmm_
         assert(map_user_stack(&second,0x1000000));
     }
     if(fail_after && allocated==fail_after) return 0;
-    assert(allocated+1<2048);return (uint64_t)++allocated*4096;
+    assert(allocated+1<4096);return (uint64_t)++allocated*4096;
 }
 void *pmm_phys_to_virt(uint64_t physical) {
     assert(physical/4096<=allocated);return frames[physical/4096]+physical%4096;
@@ -123,7 +125,61 @@ static void clone_lifecycle(void) {
     puts("process-loader: fork private pages, flags, parent preservation and partial-copy rollback PASS");
 }
 
-int main(void) {
+static const uint8_t *executable_data = image;
+static uint64_t executable_size = sizeof(image);
+static struct vfs_node executable = {.type=VFS_NODE_FILE, .metadata={.mode=0755}};
+const struct vfs_node *vfs_lookup(const char *path) { (void)path; return &executable; }
+bool vfs_read_all(const struct vfs_node *node, const uint8_t **data, uint64_t *size) {
+    (void)node; *data=executable_data; *size=executable_size; return true;
+}
+void vfs_release_data(const struct vfs_node *node, const uint8_t *data) { (void)node; (void)data; }
+static void test_elf_loading(void) {
+    memset(image,0,sizeof(image));
+    struct elf64_header *h=(struct elf64_header *)image;
+    h->ident[0]=ELFMAG0; h->ident[1]=ELFMAG1; h->ident[2]=ELFMAG2; h->ident[3]=ELFMAG3;
+    h->ident[4]=ELFCLASS64; h->ident[5]=ELFDATA2LSB; h->ident[6]=EV_CURRENT;
+    h->type=ET_EXEC; h->machine=EM_X86_64; h->version=EV_CURRENT;
+    h->phoff=sizeof(*h); h->phentsize=sizeof(struct elf64_program_header); h->phnum=2;
+    struct elf64_program_header *ph=(void *)(image+h->phoff);
+    ph[0]=(struct elf64_program_header){.type=PT_LOAD,.flags=PF_X,.vaddr=0x500000,.offset=4096,.filesz=3,.memsz=4096,.align=4096};
+    ph[1]=(struct elf64_program_header){.type=PT_LOAD,.flags=PF_W,.vaddr=0x502000,.offset=8192,.filesz=3,.memsz=4096,.align=4096};
+    image[4096]=0xaa; image[8192]=0xbb;
+    uint64_t entry;
+    h->entry=0x1000000500000ull;
+    assert(load_elf_image_checked_impl("test",&clone,USER_STACK_TOP,&entry)==SRV_ERR_NOEXEC);
+    h->entry=0x502000; /* Mapped data is not an executable entry. */
+    assert(load_elf_image_checked_impl("test",&clone,USER_STACK_TOP,&entry)==SRV_ERR_NOEXEC);
+    h->entry=0x500000;
+    ph[1].vaddr=0x1000000502000ull;
+    assert(load_elf_image_checked_impl("test",&clone,USER_STACK_TOP,&entry)==SRV_ERR_NOEXEC);
+    ph[1].vaddr=0xfffffffffffff000ull; ph[1].memsz=8192;
+    assert(load_elf_image_checked_impl("test",&clone,USER_STACK_TOP,&entry)==SRV_ERR_NOEXEC);
+    ph[1].vaddr=0x502000; ph[1].memsz=4096; ph[1].align=3;
+    assert(load_elf_image_checked_impl("test",&clone,USER_STACK_TOP,&entry)==SRV_ERR_NOEXEC);
+    ph[1].align=4096; ph[1].offset=8193;
+    assert(load_elf_image_checked_impl("test",&clone,USER_STACK_TOP,&entry)==SRV_ERR_NOEXEC);
+    ph[1].offset=8192;
+    assert(load_elf_image_checked_impl("test",&clone,USER_STACK_TOP,&entry)==0 && entry==0x500000);
+    uint64_t physical;
+    assert(vmm_virt_to_phys_in_space(3,0x500000,&physical) && *(uint8_t *)pmm_phys_to_virt(physical)==0xaa);
+    assert(vmm_virt_to_phys_in_space(3,0x502000,&physical) && *(uint8_t *)pmm_phys_to_virt(physical)==0xbb);
+    cleanup_process_address_space(&clone);
+    memset(freed_frames,0,sizeof(freed_frames)); allocated=freed=0; destroyed_spaces=0;
+}
+static void test_real_elf(const char *path) {
+    FILE *f=fopen(path,"rb"); assert(f); assert(!fseek(f,0,SEEK_END));
+    long n=ftell(f); assert(n>0 && !fseek(f,0,SEEK_SET));
+    uint8_t *data=malloc((size_t)n); assert(data && fread(data,1,(size_t)n,f)==(size_t)n); fclose(f);
+    executable_data=data; executable_size=(uint64_t)n;
+    uint64_t entry; assert(load_elf_image_checked_impl(path,&clone,USER_STACK_TOP,&entry)==0);
+    cleanup_process_address_space(&clone); free(data);
+    executable_data=image; executable_size=sizeof(image);
+    memset(freed_frames,0,sizeof(freed_frames)); allocated=freed=0; destroyed_spaces=0;
+}
+
+int main(int argc, char **argv) {
+    test_elf_loading();
+    for(int i=1;i<argc;i++) test_real_elf(argv[i]);
     allocating=true;
     struct process *p=alloc_process("first",false);
     assert(p==&processes[0] && p->allocated && p->active && p->pid==1 && nested->pid==2);
