@@ -408,6 +408,17 @@ static void resize_hit_stacking(void) {
     s.scene.windows[0].maximized=1;assert(resize_hit(&s,99,200,&e)==-1 && !e);
     s.scene.windows[0].maximized=0;s.clients[0].closing=1;
     assert(resize_hit(&s,99,200,&e)==-1 && !e);
+    s.clients[0].closing=0;s.scene.focus=0;s.scene.menu.open=-1;
+    struct desk_rect expected=s.scene.windows[0].frame;
+    assert(resize_capture_valid(&s,0,1,expected));
+    s.scene.focus=1;assert(!resize_capture_valid(&s,0,1,expected));s.scene.focus=0;
+    s.scene.windows[0].minimized=1;assert(!resize_capture_valid(&s,0,1,expected));s.scene.windows[0].minimized=0;
+    s.scene.windows[0].visible=0;assert(!resize_capture_valid(&s,0,1,expected));s.scene.windows[0].visible=1;
+    s.scene.windows[0].maximized=1;assert(!resize_capture_valid(&s,0,1,expected));s.scene.windows[0].maximized=0;
+    s.clients[1].parent_window=1;assert(!resize_capture_valid(&s,0,1,expected));s.clients[1].parent_window=0;
+    s.scene.launcher_open=1;assert(!resize_capture_valid(&s,0,1,expected));s.scene.launcher_open=0;
+    s.scene.windows[0].frame.x++;assert(!resize_capture_valid(&s,0,1,expected));s.scene.windows[0].frame.x--;
+    assert(!resize_capture_valid(&s,0,2,expected));
     desk_damage_init(&s.damage,800,600);s.scene.cursor_x=99;s.scene.cursor_y=200;
     cursor_shape(&s,DESKTOP_RESIZE_LEFT);assert(s.scene.cursor_shape==DESKTOP_RESIZE_LEFT && s.damage.count);
     desk_damage_init(&s.damage,800,600);cursor_shape(&s,0);assert(!s.scene.cursor_shape && s.damage.count);

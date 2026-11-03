@@ -1853,6 +1853,15 @@ static int resize_hit(struct session *s,int x,int y,unsigned *edges) {
     }
     return -1;
 }
+/* A capture can become invalid while IPC is serviced between pointer batches. */
+static int resize_capture_valid(const struct session *s,int i,uint64_t identity,struct desk_rect expected) {
+    if(!window_lifetime_valid(s,i,identity))return 0;
+    const struct desktop_window *w=desktop_window_at(&s->scene,i);
+    return !session_client(s,i)->closing && s->scene.focus==i && w->visible && !w->minimized && !w->maximized &&
+        modal_child(s,i)<0 && !s->scene.launcher_open && !s->scene.calendar_open && !s->scene.notifications.opened &&
+        !desk_popup_active(&s->scene.context) && s->scene.menu.open<0 &&
+        w->frame.x==expected.x && w->frame.y==expected.y && w->frame.w==expected.w && w->frame.h==expected.h;
+}
 static void cursor_shape(struct session *s,unsigned shape) {
     if(s->scene.cursor_shape==(int)shape)return;
     desk_damage_add(&s->damage,(struct desk_rect){s->scene.cursor_x-8,s->scene.cursor_y-8,25,25});
@@ -2660,7 +2669,7 @@ int main(int argc,char **argv) {
                 }
             }
             if(drag>=0 && !window_lifetime_valid(&s,drag,drag_identity)) { drag=-1;s.pointer_blocked=1; }
-            if(resize>=0 && !window_lifetime_valid(&s,resize,resize_identity)) { resize=-1;s.pointer_blocked=1; }
+            if(resize>=0 && !resize_capture_valid(&s,resize,resize_identity,resize_last)) { resize=-1;s.pointer_blocked=1; }
             if (drag>=0 && session_client(&s,drag)->pid) {
                 struct desktop_window *w=desktop_window_at(&s.scene,drag); damage_window(&s,drag);
                 if(s.scene.apps)desktop_window_drag(canvas.width,canvas.height,w->frame,(int64_t)x-grabx,(int64_t)y-graby,&w->frame);
@@ -2671,10 +2680,8 @@ int main(int argc,char **argv) {
                 damage_window(&s,drag);
             }
             if (resize>=0 && session_client(&s,resize)->pid) {
-                struct desk_rect current=desktop_window_at(&s.scene,resize)->frame,target;
-                if(current.x!=resize_last.x || current.y!=resize_last.y || current.w!=resize_last.w || current.h!=resize_last.h) {
-                    resize=-1;s.pointer_blocked=1; /* Refused or superseded transaction. */
-                } else if(desktop_window_resize(canvas.width,canvas.height,resize_start,resize_edges,
+                struct desk_rect target;
+                if(desktop_window_resize(canvas.width,canvas.height,resize_start,resize_edges,
                    (int64_t)x-resize_x,(int64_t)y-resize_y,&target)) {
                     if(resize_apply(&s,resize,target))resize_last=target;
                     else {resize=-1;s.pointer_blocked=1;}
@@ -2700,11 +2707,7 @@ int main(int argc,char **argv) {
             desk_damage_add(&s.damage,(struct desk_rect){x-8,y-8,25,25});
         }
         {
-            if(resize>=0 && (!window_lifetime_valid(&s,resize,resize_identity) ||
-                session_client(&s,resize)->closing || s.scene.focus!=resize || desktop_window_at(&s.scene,resize)->minimized ||
-                desktop_window_at(&s.scene,resize)->maximized || modal_child(&s,resize)>=0 ||
-                s.scene.launcher_open || s.scene.calendar_open || s.scene.notifications.opened ||
-                desk_popup_active(&s.scene.context) || s.scene.menu.open>=0)) {
+            if(resize>=0 && !resize_capture_valid(&s,resize,resize_identity,resize_last)) {
                 resize=-1;s.pointer_blocked=(buttons&MOUSE_LEFT)!=0;
             }
             unsigned shape=0;

@@ -41,7 +41,7 @@ def main():
                 'qemu_version': subprocess.check_output([args.qemu, '--version'], text=True).splitlines()[0]}
     results = []
     with tempfile.TemporaryDirectory(prefix='srvros-resize-') as directory:
-        for width, height, scale in ((1280, 800, 1), (2560, 1600, 2)):
+        for width, height, scale in ((1280, 800, 1), (1920, 1080, 2)):
             mode = f'{width}x{height}-scale{scale}'
             logical_w, logical_h = (width + scale - 1) // scale, (height + scale - 1) // scale
             work = Path(directory) / mode
@@ -270,6 +270,29 @@ def main():
                     start = len(output); shortcut('ctrl-c')
                     wait(f'clipboard role=2 action=8 bytes={len(phrase)}'.encode(), start=start)
                     drain()
+                    # Start capture first, then open a modal while the button
+                    # remains down. The newly modal parent must lose capture.
+                    x, y = point(frame, 4); move(x, y); drain()
+                    button(True); modal_start = len(output)
+                    shortcut('ctrl-o'); wait(b'picker ready mode=1', start=modal_start)
+                    wait(f'deskd: commit pid={pid} generation=1 '.encode(), start=modal_start)
+                    drain(); start = len(output)
+                    move(x, y+20); button(False); drain()
+                    resized = re.findall(rb'deskd: resized identity=(\d+)', output[start:])
+                    if str(next(iter(identities))).encode() in resized:
+                        raise AssertionError('parent capture survived modal opening')
+                    shot('modal-during-capture'); qmp.key('esc'); time.sleep(.5)
+                    start = len(output); shortcut('ctrl-c')
+                    wait(f'clipboard role=2 action=8 bytes={len(phrase)}'.encode(), start=start)
+                    drain()
+                    # A fresh stationary probe exposes the actual parent frame,
+                    # including any change that happened before release.
+                    x, y = point(frame, 4); move(x, y); start = len(output)
+                    button(True); button(False)
+                    _, after_modal_capture = latest_resize(start, 4)
+                    if after_modal_capture != frame:
+                        raise AssertionError(f'parent geometry changed during modal: {after_modal_capture} != {frame}')
+                    drain()
                     # Release at the display edge and return: a new movement must
                     # not continue the released resize capture.
                     x, y = point(frame, 2); move(x, y); start = len(output)
@@ -312,7 +335,7 @@ def main():
     (out / 'result.json').write_text(json.dumps({'status': 'PASS', 'metadata': metadata, 'modes': results,
         'checks': ['eight resize directions and anchored opposite edges', 'minimum frame bounds',
                    'directional cursor traces and arrow after leave', 'selection and saved content',
-                   'stationary press and Escape cancellation', 'modal parent capture', 'edge release and reentry', 'GPU presenter reset'],
+                   'stationary press and Escape cancellation', 'modal parent capture and capture cancellation', 'edge release and reentry', 'GPU presenter reset'],
         'limitations': 'Cursor screenshots provide visual evidence; host pointer capture and smoothness are not tested.'}, indent=2) + '\n')
     print(f'desktop-resize: PASS; evidence: {out}')
 
