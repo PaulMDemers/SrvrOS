@@ -2090,8 +2090,9 @@ VirtIO baseline. All runs match kernel/exFAT hashes in the
 
 The default Cocoa desktop is open in `.local/macos-vm/virtio-tablet-review/` and
 reports the tablet as its active absolute pointer. First app frame: 4.32 seconds.
-Host cursor release and outside-release/re-entry require the user's observation;
-that result is pending before merging PR285. The former VM was exited cleanly,
+The user confirmed automatic host cursor release/re-entry without a shortcut and
+outside-release/re-entry without a stuck drag, completing acceptance for PR285.
+The former VM was exited cleanly,
 with its unsaved blank Text document saved as `/fat/tablet-restart-recovery.txt`
 on the retained `.local/macos-vm/virtio-baseline-review/` disk. Submodule pins and
 native hardware acceptance are unchanged.

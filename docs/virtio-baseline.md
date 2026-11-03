@@ -99,7 +99,9 @@ boots, including networking, entropy, and flushed disk persistence.
 
 The default 1440×900 Cocoa launcher reaches its first app frame in 4.32 seconds
 in this run and reports `QEMU Virtio Tablet` as its active absolute pointer.
-Automated guest input does not establish host cursor release. The attended
-window-boundary check is pending. See the
+Automated guest input does not establish host cursor release. In the separate
+attended check, the user confirmed automatic release and re-entry without a
+shortcut, plus dragging to the edge and releasing outside without a stuck drag.
+See the
 [tablet receipt](assets/screenshots/virtio-tablet-manifest.json) and
 [PR285](https://github.com/PaulMDemers/SrvrOS/pull/285).

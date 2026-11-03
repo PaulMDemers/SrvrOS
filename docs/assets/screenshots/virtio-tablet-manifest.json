@@ -106,7 +106,8 @@
         "absolute": true
       }
     ],
-    "attended_cursor_release": "pending"
+    "attended_cursor_release": "PASS: user confirmed automatic release and re-entry without a shortcut, and no stuck drag after releasing outside",
+    "user_observation": "Both work: automatic release and no stuck drag"
   },
   "local_evidence": "build/review/virtio-tablet/"
 }
