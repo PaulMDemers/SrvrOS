@@ -2,7 +2,9 @@
 """Application lifecycle: owned native dialogs, quit cancellation and existing-process file opens."""
 import os
 import argparse
+import contextlib
 import hashlib
+import io
 import json
 from pathlib import Path
 import re
@@ -27,11 +29,13 @@ def main():
     parser.add_argument('--crash',action='store_true',help='kill Preview with an owned picker, then save through healthy apps')
     parser.add_argument('--refuse-dialogs',action='store_true',help='force modal admission refusal and validate embedded recovery')
     parser.add_argument('--open-with',action='store_true',help='Exercise Files owned application chooser, cancellation, explicit handler, routing and unsaved sibling preservation')
+    parser.add_argument('--generated-fixture',action='store_true',help='use the matched generated disk with generator and allocation checks instead of exfatprogs')
     args=parser.parse_args()
     if sum((args.crash,args.refuse_dialogs,args.pointer,args.shutdown))>1:parser.error('choose one directed fixture')
     root=Path(__file__).resolve().parents[1]
     out=root/('build/review/desktop-lifecycle-shutdown' if args.shutdown else 'build/review/desktop-lifecycle-pointer' if args.pointer else 'build/review/desktop-lifecycle-crash' if args.crash else 'build/review/desktop-lifecycle-refusal' if args.refuse_dialogs else 'build/review/desktop-lifecycle')
     if args.open_with:out=out.with_name(out.name+'-open-with')
+    if args.generated_fixture:out=out.with_name(out.name+'-generated')
     out.mkdir(parents=True,exist_ok=True)
     (out/'result.json').unlink(missing_ok=True)
     shots=[];pointer_actions=[];shutdown_actions=[]
@@ -40,21 +44,40 @@ def main():
         tmp=Path(directory)
         from exfat_test_image import ExfatFixture
         source=ExfatFixture((root/'build/srvros.exfat').read_bytes())
-        # The legacy boot packer omits standard boot/upcase metadata. Use a
-        # formatted fixture with matched binaries, so before/after fsck is valid.
-        with (tmp/'disk.exfat').open('xb') as stream:stream.truncate(64*1024*1024)
-        subprocess.run(['/usr/sbin/mkfs.exfat','-c','4K',str(tmp/'disk.exfat')],check=True,stdout=subprocess.DEVNULL)
-        fixture=ExfatFixture((tmp/'disk.exfat').read_bytes())
-        fixture.add_directory_files('bin',{name:source.read('bin/'+name) for name in
-            ('deskd','desktools','deskfs','deskview','imageworker','deskterm','sh','kill','sync','ps')})
-        fixture.add_directory_files('etc',{'init.sh':b'echo lifecycle-fixture-ready\n'})
-        fixture.add_directory_files('home',{})
+        if args.generated_fixture:
+            # Keep the complete matched generated image and add only test data.
+            fixture=source
+            existing={name.casefold() for name,_ in fixture.entries(fixture.chain(fixture.root))}
+            reserved={'route-text','route-image','route-alternate','sibling.txt','survivor.txt',
+                'routed-copy.txt','explicit-copy.txt','exit-retained.txt','after-crash.txt'}
+            if existing & reserved:raise RuntimeError(f'Generated fixture names already exist: {sorted(existing & reserved)}')
+            if args.pointer:
+                home_names={name.casefold() for name,_ in fixture.entries(fixture.read('home'))}
+                if 'pointer.txt' in home_names:raise RuntimeError('Generated fixture home/pointer.txt already exists')
+        else:
+            # Preserve the independently formatted exfatprogs fixture and fsck.
+            with (tmp/'disk.exfat').open('xb') as stream:stream.truncate(64*1024*1024)
+            subprocess.run(['/usr/sbin/mkfs.exfat','-c','4K',str(tmp/'disk.exfat')],check=True,stdout=subprocess.DEVNULL)
+            fixture=ExfatFixture((tmp/'disk.exfat').read_bytes())
+            fixture.add_directory_files('bin',{name:source.read('bin/'+name) for name in
+                ('deskd','desktools','deskfs','deskview','imageworker','deskterm','sh','kill','sync','ps')})
+            fixture.add_directory_files('etc',{'init.sh':b'echo lifecycle-fixture-ready\n'})
+            fixture.add_directory_files('home',{})
         fixture.add_directory_files('route-text',{'Routed.txt':b'Routed text\n'})
         if args.open_with:fixture.add_directory_files('route-alternate',{'Note.bmp':b'Explicit text handler\n'})
         fixture.add_directory_files('route-image',{'Routed.bmp':(root/'tools/fixtures/images/pattern.bmp').read_bytes()})
         (tmp/'disk.exfat').write_bytes(fixture.data)
-        from exfat_test_image import check_clean_image
-        (out/'before-fsck.txt').write_text(check_clean_image(tmp/'disk.exfat'))
+        if args.generated_fixture:
+            from test_exfat_generator import verify_image
+            check_output=io.StringIO()
+            with contextlib.redirect_stdout(check_output):verify_image(tmp/'disk.exfat')
+            (out/'before-generator-check.txt').write_text(check_output.getvalue())
+            before_allocation=subprocess.run([str(root/'build/tests/exfat-driver'),str(tmp/'disk.exfat'),'allocation-check'],capture_output=True,text=True)
+            (out/'before-allocation.txt').write_text(before_allocation.stdout+before_allocation.stderr)
+            if before_allocation.returncode:raise RuntimeError('Initial offline allocation failed')
+        else:
+            from exfat_test_image import check_clean_image
+            (out/'before-fsck.txt').write_text(check_clean_image(tmp/'disk.exfat'))
         iso=build_iso(str(root),str(tmp),1280,800,os.environ.copy());port=choose_port(30001,38000)
         command=['qemu-system-x86_64','-M','q35','-m','512M','-cdrom',str(iso),'-boot','d',
             '-drive',f'if=none,id=disk,file={tmp/"disk.exfat"},format=raw',
@@ -290,8 +313,12 @@ def main():
             if args.shutdown:assert disk.read('exit-retained.txt')==b'Exit draft survives intact saved during exit'
             if args.pointer:assert disk.read('home/pointer.txt')==b'Click draft remains'
             if args.crash:assert disk.read('after-crash.txt')==b'Routed text\n after crash'
-            from exfat_test_image import check_clean_image
-            (out/'fsck.txt').write_text(check_clean_image(tmp/'disk.exfat'))
+            if args.generated_fixture:
+                check_output=io.StringIO()
+                with contextlib.redirect_stdout(check_output):verify_image(tmp/'disk.exfat')
+                (out/'generator-check.txt').write_text(check_output.getvalue())
+            else:
+                (out/'fsck.txt').write_text(check_clean_image(tmp/'disk.exfat'))
             allocation=subprocess.run([str(root/'build/tests/exfat-driver'),str(tmp/'disk.exfat'),'allocation-check'],capture_output=True,text=True)
             (out/'allocation.txt').write_text(allocation.stdout+allocation.stderr)
             if allocation.returncode:
@@ -300,6 +327,11 @@ def main():
             names=(['explicit-copy.txt','route-alternate/Note.bmp'] if args.open_with else [])+(['exit-retained.txt'] if args.shutdown else [])+(['home/pointer.txt'] if args.pointer else [])+['sibling.txt','survivor.txt','routed-copy.txt','route-text/Routed.txt']+(['after-crash.txt'] if args.crash else [])
             result={'status':'PASS','open_with':args.open_with,'crash':args.crash,'refused_dialogs':args.refuse_dialogs,
                 'physical_acceptance':False,'shutdown_actions':shutdown_actions,'pointer_actions':pointer_actions,'source':subprocess.check_output(['git','rev-parse','HEAD'],cwd=root,text=True).strip(),
+                'source_submodules_recursive':subprocess.check_output(['git','submodule','status','--recursive'],cwd=root,text=True).splitlines(),
+                'fixture_format':'matched-generated' if args.generated_fixture else 'mkfs.exfat',
+                'independent_fsck':'not run' if args.generated_fixture else 'PASS',
+                'generator_checks':'pre and post PASS' if args.generated_fixture else 'not run',
+                'initial_offline_allocation':'PASS' if args.generated_fixture else 'not run',
                 'source_dirty':bool(subprocess.check_output(['git','status','--porcelain'],cwd=root)),
                 'saved_files':{name:hashlib.sha256(disk.read(name)).hexdigest() for name in names},
                 'process_baseline_restored':True,'offline_allocation':'PASS','screenshots':shots,

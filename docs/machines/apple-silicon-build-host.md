@@ -2202,3 +2202,23 @@ VMs exited; the shared integration checkout and its attended review VM were not
 modified. Implementation and acceptance are complete for this milestone. Next:
 integration review, reconciling the Files/test overlap with PR278/SrvrApps PR2;
 no merge or broader app-suite work is included.
+
+
+### Files recovery / Open With integration — active November 3, 2026
+
+The user authorized reviewing and reconciling Apps PR3 / OS PR288 with Open With
+without accessing the shared checkout or attended VM. All work remains in the
+independent `SrvrOS-app-quality` checkout. Fetched main is OS `adc25965`, Apps
+`d54b6cf`; inspected Open With is Apps `ff6c8dec` / OS `7bfa0e47`. Merge those
+branches into the owned recovery branches without rewriting published history;
+stack the recovery reviews on their Open With dependencies so the final review
+diff stays bounded. Preserve PR278's SDK, runtime consumers and original tests.
+
+App hunks merge cleanly; resolve the OS app gitlink to the combined app commit
+and retain both Files fixture controls (failure injection and expected launch
+app/path). Add explicit collision/refresh/navigation-to-Open-With checks. Verify
+the combined host suites, build and owned/refused Open With consumer workflows,
+including unsaved Text retention and file readback. A clearly labeled generated
+disk fixture mode will permit the existing consumer harness on macOS without
+claiming Linux exfatprogs validation. No main merge, hosted Actions, hardware
+trial, or PR252 process/I/O / PR19 Wi-Fi work is included.
