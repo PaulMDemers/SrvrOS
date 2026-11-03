@@ -90,3 +90,14 @@ PASS records, theme preview, 789-link docs check, package/platform audit and CPU
 receipt tests. Merge verification logs live in `build/review/ui-host/merge/`.
 The shared checkout and its review VM remain untouched. No additional feature
 work is required for this milestone.
+
+## Text host dependency review — November 3, 2026
+
+The subsequent bounded [Text dependency review](../text-macos-host-review.md)
+is complete on the refreshed integration baseline. Five Text-related units
+compile as native ARM64 objects with matched headers, and native history,
+replacement and command fixtures pass. A standalone Text app still needs a
+Text-specific state boundary, SDL command/modal/search routing and host file,
+picker and lifecycle services. The review defines a single-window implementation
+milestone and its acceptance cases; it does not implement or accept that port.
+Work remains isolated; the shared checkout and review VM are untouched.
