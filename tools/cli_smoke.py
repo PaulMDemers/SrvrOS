@@ -303,7 +303,7 @@ def main():
         "sed --quiet --expression=/beta/p /fat/longopts.txt\n"
         "sed -n '/b[aeiou]t./p' /fat/longopts.txt\n"
         "sed 's/[Aa]lph./regex-&/' /fat/longopts.txt\n"
-        "sed 's/([Aa]lph)(.)/cap-\\\\2-\\\\1/' /fat/longopts.txt\n"
+        "sed 's/([Aa]lph)(.)/cap-\\2-\\1/' /fat/longopts.txt\n"
         "find /fat -name longopts.txt -type f -print\n"
         "mkdir -p /fat/longsrc/sub\n"
         "write /fat/longsrc/sub/data.txt long-copy\n"

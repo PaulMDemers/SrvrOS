@@ -2557,4 +2557,16 @@ escaped quote/dollar/backslash behavior. Exercise inline awk/printf, empty and
 spaced arguments, pipelines, redirection and script-file compatibility; run
 focused host/sanitizer, matched build, CLI and Terminal/awk guest checks. Keep
 existing limits; no general shell-language redesign or main merge is implied.
-Next checkpoint: reproduce the defect and identify every affected parsing pass.
+The original shell fails 27 of 40 focused checks; exact guest bytes confirm
+`'left\nright'` becomes `leftnright`. Quote-aware scanners and argument/path
+decoding now share one escape rule. Expansion values retain literal quote and
+backslash bytes through the later decoder; parameter defaults preserve quoted
+word boundaries and store raw assignment values. Expanded commands refuse
+capacity overflow instead of silently losing closing syntax. The CLI sed case
+now sends one backslash per backreference rather than compensating for the bug.
+
+The focused host suite passes 56 checks with ASan/UBSan. PR252's unchanged
+`badfeb37` shell/CLI patch applies cleanly to the corrected source in ignored
+fixture storage; 63 combined checks include its arithmetic limits, overflow and
+short-circuit behavior. This does not resolve or accept its wider kernel/I/O
+conflicts. Final clean-build CLI and two-boot Terminal acceptance are next.
