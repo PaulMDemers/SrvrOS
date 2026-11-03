@@ -309,7 +309,11 @@ def main():
             b"for name in words; do commands; done\n"
             b"while command; do commands; done\n"
             b"case word in pattern) commands ;; esac\n"
-            b"Separate commands with ;, chain with && or ||, append & for background.\n"),
+            b"Separate commands with ;, chain with && or ||, append & for background.\n"
+            b"Single quotes preserve every character, including backslashes.\n"
+            b"Double quotes expand variables; backslash escapes only $, backtick,\n"
+            b"double quote, backslash and newline. Other backslashes are literal.\n"
+            b"Use single quotes around inline awk programs containing $ or backslashes.\n"),
         ("expansion.txt",
             b"shell expansion\n"
             b"\n"

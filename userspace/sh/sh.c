@@ -85,6 +85,7 @@ static uint64_t previous_job_id = 0;
 static uint64_t run_line(char *line, char *cwd);
 static uint64_t run_command_impl(char *line, char *cwd, int background, int bypass_alias_functions);
 static int expand_variables(const char *input, char *out, size_t capacity, char *cwd);
+static int expand_variables_mode(const char *input, char *out, size_t capacity, char *cwd, char outer_quote, int word_mode);
 static int resolve_command(char *out, size_t capacity, const char *command);
 static int split_words(char *text, char **argv, size_t capacity);
 static int valid_shell_name(const char *name);
@@ -163,6 +164,14 @@ static int shell_is_digit(char c) {
     return c >= '0' && c <= '9';
 }
 
+/* Backslashes are literal in single quotes. Within double quotes they only
+ * escape shell-special characters; every parsing pass must agree with decoding. */
+static int shell_escape_pair(char quote, char current, char next) {
+    return current == '\\' && next != '\0' && quote != '\'' &&
+        (quote != '"' || next == '$' || next == '`' || next == '"' ||
+         next == '\\' || next == '\n');
+}
+
 static int shell_is_separator(char c) {
     return c == '\0' || c == ' ' || c == '\t' || c == ';' || c == '\r' || c == '\n' || c == '(' || c == ')';
 }
@@ -193,6 +202,37 @@ static void append_text(char *out, size_t capacity, size_t *length, const char *
     while (text != 0 && *text != '\0') {
         append_char(out, capacity, length, *text++);
     }
+}
+
+static int append_checked_text(char *out, size_t capacity, size_t *length, const char *text) {
+    if (*length >= capacity || cli_strlen(text) >= capacity - *length) {
+        shell_error("sh: expanded command too long\n");
+        return 0;
+    }
+    append_text(out, capacity, length, text);
+    return 1;
+}
+
+static int append_checked_char(char *out, size_t capacity, size_t *length, char c) {
+    char text[2] = {c, 0};
+    return append_checked_text(out, capacity, length, text);
+}
+
+static int append_expansion_text(char *out, size_t capacity, size_t *length,
+    const char *text, char quote, int word_mode) {
+    /* Expanded bytes are data, not new escape/quote syntax. Parameter words
+     * request raw bytes; command output must survive the later quote decoder. */
+    while (text != 0 && *text != '\0') {
+        int escaped = !word_mode && quote != '\'' &&
+            (*text == '\\' || *text == '"' || (quote == '\0' && *text == '\''));
+        if (*length + 1u + (unsigned)escaped >= capacity) {
+            shell_error("sh: expanded command too long\n");
+            return 0;
+        }
+        if (escaped) append_char(out, capacity, length, '\\');
+        append_char(out, capacity, length, *text++);
+    }
+    return 1;
 }
 
 static void append_number(char *out, size_t capacity, size_t *length, uint64_t value) {
@@ -235,7 +275,7 @@ static size_t find_command_substitution_end(const char *input, size_t open_index
         if (quote != '\0') {
             if (c == quote) {
                 quote = '\0';
-            } else if (c == '\\' && input[i + 1] != '\0') {
+            } else if (shell_escape_pair(quote, c, input[i + 1])) {
                 i++;
             }
             continue;
@@ -244,7 +284,7 @@ static size_t find_command_substitution_end(const char *input, size_t open_index
             quote = c;
             continue;
         }
-        if (c == '\\' && input[i + 1] != '\0') {
+        if (shell_escape_pair(quote, c, input[i + 1])) {
             i++;
             continue;
         }
@@ -277,7 +317,9 @@ static int append_command_substitution(const char *command_text,
     char *cwd,
     char *out,
     size_t capacity,
-    size_t *length) {
+    size_t *length,
+    char quote,
+    int word_mode) {
     char temp_path[CLI_PATH_MAX];
     char command[EXPANDED_LINE_MAX];
     size_t command_out = 0;
@@ -320,8 +362,7 @@ static int append_command_substitution(const char *command_text,
         captured_length--;
     }
     captured[captured_length] = '\0';
-    append_text(out, capacity, length, captured);
-    return 1;
+    return append_expansion_text(out, capacity, length, captured, quote, word_mode);
 }
 
 static size_t find_arithmetic_substitution_end(const char *input, size_t open_index) {
@@ -656,6 +697,26 @@ static void shell_parameter_value(const char *name, char *out, size_t capacity, 
     cli_copy(out, capacity, value != 0 ? value : "");
 }
 
+static int checked_parameter_value(const char *name, char *out, size_t capacity, int *is_set) {
+    size_t required = 0;
+    if (cli_streq(name, "@")) {
+        for (int argument = 1; argument < shell_argc; argument++) {
+            required += cli_strlen(positional_parameter(argument)) + (argument > 1);
+        }
+    } else if (name[0] >= '0' && name[0] <= '9' && name[1] == '\0') {
+        required = cli_strlen(positional_parameter(name[0] - '0'));
+    } else if (shell_is_name_start(name[0])) {
+        const char *value = getenv(name);
+        if (value != 0) required = cli_strlen(value);
+    }
+    if (required >= capacity) {
+        shell_error("sh: expanded command too long\n");
+        return 0;
+    }
+    shell_parameter_value(name, out, capacity, is_set);
+    return 1;
+}
+
 static int valid_assignable_parameter(const char *name) {
     return valid_shell_name(name);
 }
@@ -724,11 +785,31 @@ static void append_trimmed_suffix(char *out,
     append_text(out, capacity, length, value);
 }
 
+/* Decode an already-expanded operand without field splitting. The syntax is
+ * retained separately when an unquoted parameter contains quoted subwords. */
+static void remove_word_quotes(char *text) {
+    char quote = 0;
+    size_t length = 0;
+    for (size_t i = 0; text[i] != '\0'; i++) {
+        char c = text[i];
+        if ((c == '\'' || c == '"') && (quote == 0 || quote == c)) {
+            quote = quote == 0 ? c : 0;
+        } else if (shell_escape_pair(quote, c, text[i + 1])) {
+            text[length++] = text[++i];
+        } else {
+            text[length++] = c;
+        }
+    }
+    text[length] = '\0';
+}
+
 static int append_parameter_expansion(const char *body,
     char *cwd,
     char *out,
     size_t capacity,
-    size_t *length) {
+    size_t *length,
+    char quote,
+    int word_mode) {
     char name[64];
     char value[ARG_EXPANDED_MAX];
     char word[ARG_EXPANDED_MAX];
@@ -742,8 +823,10 @@ static int append_parameter_expansion(const char *body,
 
     if (body[0] == '#') {
         if (body[1] == '\0') {
-            append_number(out, capacity, length, shell_argc > 0 ? (uint64_t)(shell_argc - 1) : 0);
-            return 1;
+            char number[32] = {0};
+            size_t number_length = 0;
+            append_number(number, sizeof(number), &number_length, shell_argc > 0 ? (uint64_t)(shell_argc - 1) : 0);
+            return append_checked_text(out, capacity, length, number);
         }
         cursor = 1;
         if (shell_is_name_start(body[cursor])) {
@@ -762,9 +845,11 @@ static int append_parameter_expansion(const char *body,
             return 0;
         }
         name[name_length] = '\0';
-        shell_parameter_value(name, value, sizeof(value), &is_set);
-        append_number(out, capacity, length, cli_strlen(value));
-        return 1;
+        if (!checked_parameter_value(name, value, sizeof(value), &is_set)) return 0;
+        char number[32] = {0};
+        size_t number_length = 0;
+        append_number(number, sizeof(number), &number_length, cli_strlen(value));
+        return append_checked_text(out, capacity, length, number);
     }
 
     if (shell_is_name_start(body[cursor])) {
@@ -779,11 +864,10 @@ static int append_parameter_expansion(const char *body,
         return 0;
     }
     name[name_length] = '\0';
-    shell_parameter_value(name, value, sizeof(value), &is_set);
+    if (!checked_parameter_value(name, value, sizeof(value), &is_set)) return 0;
 
     if (body[cursor] == '\0') {
-        append_text(out, capacity, length, value);
-        return 1;
+        return append_expansion_text(out, capacity, length, value, quote, word_mode);
     }
     if (body[cursor] == ':' && body[cursor + 1] != '\0') {
         colon = 1;
@@ -795,33 +879,40 @@ static int append_parameter_expansion(const char *body,
         cursor++;
     }
     cli_copy(word, sizeof(word), body + cursor);
-    if (!expand_variables(word, expanded_word, sizeof(expanded_word), cwd)) {
+    int preserve_word_syntax = quote == 0 && !word_mode &&
+        (op == '-' || op == '+' || op == '=' || op == '?');
+    if (!expand_variables_mode(word, expanded_word, sizeof(expanded_word), cwd, quote, !preserve_word_syntax)) {
         return 0;
     }
 
+    char raw_word[ARG_EXPANDED_MAX];
+    cli_copy(raw_word, sizeof(raw_word), expanded_word);
+    if (preserve_word_syntax) remove_word_quotes(raw_word);
     int use_word = !is_set || (colon && value[0] == '\0');
     if (op == '-') {
-        append_text(out, capacity, length, use_word ? expanded_word : value);
-        return 1;
+        return use_word ? (preserve_word_syntax ? append_checked_text(out, capacity, length, expanded_word) :
+            append_expansion_text(out, capacity, length, expanded_word, quote, word_mode)) :
+            append_expansion_text(out, capacity, length, value, quote, word_mode);
     }
     if (op == '=') {
         if (use_word) {
-            if (!valid_assignable_parameter(name) || setenv(name, expanded_word, 1) < 0) {
+            if (!valid_assignable_parameter(name) || setenv(name, raw_word, 1) < 0) {
                 cli_puts("sh: cannot assign parameter\n");
                 return 0;
             }
             if (cli_streq(name, "PATH")) {
-                set_path_list(expanded_word);
+                set_path_list(raw_word);
             }
-            append_text(out, capacity, length, expanded_word);
+            return preserve_word_syntax ? append_checked_text(out, capacity, length, expanded_word) :
+                append_expansion_text(out, capacity, length, expanded_word, quote, word_mode);
         } else {
-            append_text(out, capacity, length, value);
+            return append_expansion_text(out, capacity, length, value, quote, word_mode);
         }
-        return 1;
     }
     if (op == '+') {
         if (!use_word) {
-            append_text(out, capacity, length, expanded_word);
+            return preserve_word_syntax ? append_checked_text(out, capacity, length, expanded_word) :
+                append_expansion_text(out, capacity, length, expanded_word, quote, word_mode);
         }
         return 1;
     }
@@ -830,85 +921,108 @@ static int append_parameter_expansion(const char *body,
             cli_puts("sh: ");
             cli_puts(name);
             cli_puts(": ");
-            cli_puts(expanded_word[0] != '\0' ? expanded_word : "parameter not set");
+            cli_puts(raw_word[0] != '\0' ? raw_word : "parameter not set");
             cli_puts("\n");
             return 0;
         }
-        append_text(out, capacity, length, value);
-        return 1;
+        return append_expansion_text(out, capacity, length, value, quote, word_mode);
     }
     if (op == '#') {
-        append_trimmed_prefix(out, capacity, length, value, expanded_word, doubled);
-        return 1;
+        char trimmed[ARG_EXPANDED_MAX] = {0};
+        size_t trimmed_length = 0;
+        append_trimmed_prefix(trimmed, sizeof(trimmed), &trimmed_length, value, expanded_word, doubled);
+        return append_expansion_text(out, capacity, length, trimmed, quote, word_mode);
     }
     if (op == '%') {
-        append_trimmed_suffix(out, capacity, length, value, expanded_word, doubled);
-        return 1;
+        char trimmed[ARG_EXPANDED_MAX] = {0};
+        size_t trimmed_length = 0;
+        append_trimmed_suffix(trimmed, sizeof(trimmed), &trimmed_length, value, expanded_word, doubled);
+        return append_expansion_text(out, capacity, length, trimmed, quote, word_mode);
     }
     cli_puts("sh: bad substitution\n");
     return 0;
 }
 
-static int expand_variables(const char *input, char *out, size_t capacity, char *cwd) {
+/* Parameter operands remove their own quotes into a raw word (including for
+ * := storage). Ordinary commands retain syntax until argument decoding. */
+static int expand_variables_mode(const char *input, char *out, size_t capacity, char *cwd, char outer_quote, int word_mode) {
     size_t length = 0;
-    char quote = '\0';
+    char quote = 0;
+    if (capacity == 0) return 0;
     out[0] = '\0';
     for (size_t i = 0; input[i] != '\0'; i++) {
         char c = input[i];
         if (quote == '\'') {
-            append_char(out, capacity, &length, c);
+            if ((!word_mode || c != '\'') && !append_checked_char(out, capacity, &length, c)) return 0;
             if (c == '\'') {
                 quote = '\0';
             }
             continue;
         }
-        if (c == '\'' || c == '"') {
+        if ((c == '"' || (c == '\'' && !(word_mode && outer_quote == '"' && quote == 0))) &&
+            (quote == 0 || quote == c)) {
             if (quote == c) {
                 quote = '\0';
             } else if (quote == '\0') {
                 quote = c;
             }
-            append_char(out, capacity, &length, c);
+            if (!word_mode && !append_checked_char(out, capacity, &length, c)) return 0;
             continue;
         }
-        if (c == '\\' && input[i + 1] != '\0') {
-            append_char(out, capacity, &length, c);
-            append_char(out, capacity, &length, input[++i]);
+        char effective_quote = quote != 0 ? quote : outer_quote;
+        if (shell_escape_pair(effective_quote, c, input[i + 1])) {
+            char pair[3] = {c, input[++i], 0};
+            if (!append_checked_text(out, capacity, &length, pair + (word_mode ? 1 : 0))) return 0;
             continue;
         }
         if (c != '$') {
-            append_char(out, capacity, &length, c);
+            if (!append_checked_char(out, capacity, &length, c)) return 0;
             continue;
         }
         if (input[i + 1] == '?') {
-            append_number(out, capacity, &length, last_status);
+            char number[32] = {0};
+            size_t number_length = 0;
+            append_number(number, sizeof(number), &number_length, last_status);
+            if (!append_checked_text(out, capacity, &length, number)) return 0;
             i++;
             continue;
         }
         if (input[i + 1] == '$') {
-            append_number(out, capacity, &length, shell_pid);
+            char number[32] = {0};
+            size_t number_length = 0;
+            append_number(number, sizeof(number), &number_length, shell_pid);
+            if (!append_checked_text(out, capacity, &length, number)) return 0;
             i++;
             continue;
         }
         if (input[i + 1] == '!') {
             if (last_background_pid != 0) {
-                append_number(out, capacity, &length, last_background_pid);
+                char number[32] = {0};
+                size_t number_length = 0;
+                append_number(number, sizeof(number), &number_length, last_background_pid);
+                if (!append_checked_text(out, capacity, &length, number)) return 0;
             }
             i++;
             continue;
         }
         if (input[i + 1] == '#') {
-            append_number(out, capacity, &length, shell_argc > 0 ? (uint64_t)(shell_argc - 1) : 0);
+            char number[32] = {0};
+            size_t number_length = 0;
+            append_number(number, sizeof(number), &number_length, shell_argc > 0 ? (uint64_t)(shell_argc - 1) : 0);
+            if (!append_checked_text(out, capacity, &length, number)) return 0;
             i++;
             continue;
         }
         if (input[i + 1] == '@') {
-            append_positional_all(out, capacity, &length);
+            for (int argument = 1; argument < shell_argc; argument++) {
+                if (argument > 1 && !append_checked_text(out, capacity, &length, " ")) return 0;
+                if (!append_expansion_text(out, capacity, &length, positional_parameter(argument), effective_quote, word_mode)) return 0;
+            }
             i++;
             continue;
         }
         if (input[i + 1] >= '0' && input[i + 1] <= '9') {
-            append_text(out, capacity, &length, positional_parameter(input[i + 1] - '0'));
+            if (!append_expansion_text(out, capacity, &length, positional_parameter(input[i + 1] - '0'), effective_quote, word_mode)) return 0;
             i++;
             continue;
         }
@@ -929,7 +1043,10 @@ static int expand_variables(const char *input, char *out, size_t capacity, char 
                 cli_puts("sh: bad arithmetic expansion\n");
                 return 0;
             }
-            append_i64(out, capacity, &length, value);
+            char number[32] = {0};
+            size_t number_length = 0;
+            append_i64(number, sizeof(number), &number_length, value);
+            if (!append_checked_text(out, capacity, &length, number)) return 0;
             i = end;
             continue;
         }
@@ -939,7 +1056,7 @@ static int expand_variables(const char *input, char *out, size_t capacity, char 
                 shell_error("sh: unterminated command substitution\n");
                 return 0;
             }
-            if (!append_command_substitution(input + i + 2, end - i - 2, cwd, out, capacity, &length)) {
+            if (!append_command_substitution(input + i + 2, end - i - 2, cwd, out, capacity, &length, effective_quote, word_mode)) {
                 return 0;
             }
             i = end;
@@ -957,7 +1074,7 @@ static int expand_variables(const char *input, char *out, size_t capacity, char 
                 return 0;
             }
             body[body_length] = '\0';
-            if (!append_parameter_expansion(body, cwd, out, capacity, &length)) {
+            if (!append_parameter_expansion(body, cwd, out, capacity, &length, effective_quote, word_mode)) {
                 return 0;
             }
             i = cursor;
@@ -971,13 +1088,18 @@ static int expand_variables(const char *input, char *out, size_t capacity, char 
                 name[name_length++] = input[cursor++];
             }
             name[name_length] = '\0';
-            append_text(out, capacity, &length, getenv(name));
+            if (!append_expansion_text(out, capacity, &length, getenv(name), effective_quote, word_mode)) return 0;
             i = cursor - 1;
             continue;
         }
-        append_char(out, capacity, &length, c);
+        if (!append_checked_char(out, capacity, &length, c)) return 0;
     }
     return 1;
+}
+
+
+static int expand_variables(const char *input, char *out, size_t capacity, char *cwd) {
+    return expand_variables_mode(input, out, capacity, cwd, '\0', 0);
 }
 
 static int resolve_command(char *out, size_t capacity, const char *command) {
@@ -1124,7 +1246,7 @@ static int token_is_command_position(const char *line, size_t token_start) {
         if (quote != '\0') {
             if (c == quote) {
                 quote = '\0';
-            } else if (c == '\\' && line[i + 1] != '\0') {
+            } else if (shell_escape_pair(quote, c, line[i + 1])) {
                 i++;
             }
             continue;
@@ -1133,7 +1255,7 @@ static int token_is_command_position(const char *line, size_t token_start) {
             quote = c;
             continue;
         }
-        if (c == '\\' && line[i + 1] != '\0') {
+        if (shell_escape_pair(quote, c, line[i + 1])) {
             i++;
             continue;
         }
@@ -1464,7 +1586,7 @@ static void expand_globs(const char *args, const char *cwd, char *out, size_t ca
                     cursor++;
                     continue;
                 }
-                if (current == '\\' && cursor[1] != '\0') {
+                if (shell_escape_pair(quote, current, cursor[1])) {
                     escaped = 1;
                     cursor++;
                     if (raw_length + 1 < sizeof(raw_token)) {
@@ -1489,7 +1611,7 @@ static void expand_globs(const char *args, const char *cwd, char *out, size_t ca
                     cursor++;
                     continue;
                 }
-                if (current == '\\' && cursor[1] != '\0') {
+                if (shell_escape_pair(quote, current, cursor[1])) {
                     escaped = 1;
                     cursor++;
                     if (raw_length + 1 < sizeof(raw_token)) {
@@ -1867,7 +1989,7 @@ static int split_words(char *text, char **argv, size_t capacity) {
                     read++;
                     continue;
                 }
-                if (*read == '\\' && read[1] != '\0') {
+                if (shell_escape_pair(quote, *read, read[1])) {
                     read++;
                 }
                 *write++ = *read++;
@@ -1877,7 +1999,7 @@ static int split_words(char *text, char **argv, size_t capacity) {
                 quote = *read++;
                 continue;
             }
-            if (*read == '\\' && read[1] != '\0') {
+            if (shell_escape_pair(quote, *read, read[1])) {
                 read++;
                 *write++ = *read++;
                 continue;
@@ -4374,10 +4496,14 @@ static char *skip_command_word(char *cursor) {
         if (quote != '\0') {
             if (*cursor == quote) {
                 quote = '\0';
-            } else if (*cursor == '\\' && cursor[1] != '\0') {
+            } else if (shell_escape_pair(quote, *cursor, cursor[1])) {
                 cursor++;
             }
             cursor++;
+            continue;
+        }
+        if (shell_escape_pair(quote, *cursor, cursor[1])) {
+            cursor += 2;
             continue;
         }
         if (*cursor == '\'' || *cursor == '"') {
@@ -4477,10 +4603,14 @@ static char *find_argument_tail(char *command) {
         if (quote != '\0') {
             if (*command == quote) {
                 quote = '\0';
-            } else if (*command == '\\' && command[1] != '\0') {
+            } else if (shell_escape_pair(quote, *command, command[1])) {
                 command++;
             }
             command++;
+            continue;
+        }
+        if (shell_escape_pair(quote, *command, command[1])) {
+            command += 2;
             continue;
         }
         if (*command == '\'' || *command == '"') {
@@ -4508,7 +4638,7 @@ static int rewrite_heredoc_command(const char *line,
         if (quote != '\0') {
             if (c == quote) {
                 quote = '\0';
-            } else if (c == '\\' && line[i + 1] != '\0') {
+            } else if (shell_escape_pair(quote, c, line[i + 1])) {
                 i++;
             }
             continue;
@@ -4517,7 +4647,7 @@ static int rewrite_heredoc_command(const char *line,
             quote = c;
             continue;
         }
-        if (c == '\\' && line[i + 1] != '\0') {
+        if (shell_escape_pair(quote, c, line[i + 1])) {
             i++;
             continue;
         }
@@ -4831,7 +4961,7 @@ static int text_contains_heredoc(const char *text) {
         if (quote != '\0') {
             if (c == quote) {
                 quote = '\0';
-            } else if (c == '\\' && text[i + 1] != '\0') {
+            } else if (shell_escape_pair(quote, c, text[i + 1])) {
                 i++;
             }
             continue;
@@ -4840,7 +4970,7 @@ static int text_contains_heredoc(const char *text) {
             quote = c;
             continue;
         }
-        if (c == '\\' && text[i + 1] != '\0') {
+        if (shell_escape_pair(quote, c, text[i + 1])) {
             i++;
             continue;
         }
@@ -4876,7 +5006,7 @@ static char *copy_redirection_path(char *cursor, char *destination, size_t capac
                 cursor++;
                 continue;
             }
-            if (*cursor == '\\' && cursor[1] != '\0') {
+            if (shell_escape_pair(quote, *cursor, cursor[1])) {
                 cursor++;
             }
         } else {
@@ -4887,7 +5017,7 @@ static char *copy_redirection_path(char *cursor, char *destination, size_t capac
             if (*cursor == ' ' || *cursor == '\t') {
                 break;
             }
-            if (*cursor == '\\' && cursor[1] != '\0') {
+            if (shell_escape_pair(quote, *cursor, cursor[1])) {
                 cursor++;
             }
         }
@@ -4909,9 +5039,14 @@ static void split_redirections(char *args, struct command_redirection *redirecti
         if (quote != '\0') {
             if (*read == quote) {
                 quote = '\0';
-            } else if (*read == '\\' && read[1] != '\0') {
+            } else if (shell_escape_pair(quote, *read, read[1])) {
                 *write++ = *read++;
             }
+            *write++ = *read++;
+            continue;
+        }
+        if (shell_escape_pair(quote, *read, read[1])) {
+            *write++ = *read++;
             *write++ = *read++;
             continue;
         }
@@ -4969,9 +5104,13 @@ static int split_pipeline_segments(char *line, char **segments, size_t capacity)
         if (quote != '\0') {
             if (*cursor == quote) {
                 quote = '\0';
-            } else if (*cursor == '\\' && cursor[1] != '\0') {
+            } else if (shell_escape_pair(quote, *cursor, cursor[1])) {
                 cursor++;
             }
+            continue;
+        }
+        if (shell_escape_pair(quote, *cursor, cursor[1])) {
+            cursor += 1;
             continue;
         }
         if (*cursor == '\'' || *cursor == '"') {
@@ -5790,7 +5929,7 @@ static int find_if_parts(const char *line, struct if_parts *parts) {
         if (quote != '\0') {
             if (c == quote) {
                 quote = '\0';
-            } else if (c == '\\' && line[i + 1] != '\0') {
+            } else if (shell_escape_pair(quote, c, line[i + 1])) {
                 i++;
             }
             continue;
@@ -5799,7 +5938,7 @@ static int find_if_parts(const char *line, struct if_parts *parts) {
             quote = c;
             continue;
         }
-        if (c == '\\' && line[i + 1] != '\0') {
+        if (shell_escape_pair(quote, c, line[i + 1])) {
             i++;
             continue;
         }
@@ -5881,12 +6020,12 @@ static int case_patterns_match(const char *patterns, const char *word) {
         if (quote != '\0') {
             if (c == quote) {
                 quote = '\0';
-            } else if (c == '\\' && patterns[i + 1] != '\0') {
+            } else if (shell_escape_pair(quote, c, patterns[i + 1])) {
                 i++;
             }
         } else if (c == '\'' || c == '"') {
             quote = c;
-        } else if (c == '\\' && patterns[i + 1] != '\0') {
+        } else if (shell_escape_pair(quote, c, patterns[i + 1])) {
             i++;
         } else if (c == '|' || c == '\0') {
             char pattern[128];
@@ -6005,7 +6144,7 @@ static int find_function_definition(const char *line,
         if (quote != '\0') {
             if (c == quote) {
                 quote = '\0';
-            } else if (c == '\\' && line[i + 1] != '\0') {
+            } else if (shell_escape_pair(quote, c, line[i + 1])) {
                 i++;
             }
             continue;
@@ -6014,7 +6153,7 @@ static int find_function_definition(const char *line,
             quote = c;
             continue;
         }
-        if (c == '\\' && line[i + 1] != '\0') {
+        if (shell_escape_pair(quote, c, line[i + 1])) {
             i++;
             continue;
         }
@@ -6046,7 +6185,7 @@ static int find_while_parts(const char *line, struct while_parts *parts) {
         if (quote != '\0') {
             if (c == quote) {
                 quote = '\0';
-            } else if (c == '\\' && line[i + 1] != '\0') {
+            } else if (shell_escape_pair(quote, c, line[i + 1])) {
                 i++;
             }
             continue;
@@ -6055,7 +6194,7 @@ static int find_while_parts(const char *line, struct while_parts *parts) {
             quote = c;
             continue;
         }
-        if (c == '\\' && line[i + 1] != '\0') {
+        if (shell_escape_pair(quote, c, line[i + 1])) {
             i++;
             continue;
         }
@@ -6118,7 +6257,7 @@ static int find_for_parts(const char *line, struct for_parts *parts) {
         if (quote != '\0') {
             if (c == quote) {
                 quote = '\0';
-            } else if (c == '\\' && line[i + 1] != '\0') {
+            } else if (shell_escape_pair(quote, c, line[i + 1])) {
                 i++;
             }
             continue;
@@ -6127,7 +6266,7 @@ static int find_for_parts(const char *line, struct for_parts *parts) {
             quote = c;
             continue;
         }
-        if (c == '\\' && line[i + 1] != '\0') {
+        if (shell_escape_pair(quote, c, line[i + 1])) {
             i++;
             continue;
         }
@@ -6181,7 +6320,7 @@ static int find_case_parts(const char *line, struct case_parts *parts) {
         if (quote != '\0') {
             if (c == quote) {
                 quote = '\0';
-            } else if (c == '\\' && line[i + 1] != '\0') {
+            } else if (shell_escape_pair(quote, c, line[i + 1])) {
                 i++;
             }
             continue;
@@ -6190,7 +6329,7 @@ static int find_case_parts(const char *line, struct case_parts *parts) {
             quote = c;
             continue;
         }
-        if (c == '\\' && line[i + 1] != '\0') {
+        if (shell_escape_pair(quote, c, line[i + 1])) {
             i++;
             continue;
         }
@@ -6236,7 +6375,7 @@ static int find_group_parts(const char *line, size_t *body_start, size_t *body_e
         if (quote != '\0') {
             if (c == quote) {
                 quote = '\0';
-            } else if (c == '\\' && line[i + 1] != '\0') {
+            } else if (shell_escape_pair(quote, c, line[i + 1])) {
                 i++;
             }
             continue;
@@ -6245,7 +6384,7 @@ static int find_group_parts(const char *line, size_t *body_start, size_t *body_e
             quote = c;
             continue;
         }
-        if (c == '\\' && line[i + 1] != '\0') {
+        if (shell_escape_pair(quote, c, line[i + 1])) {
             i++;
             continue;
         }
@@ -6272,7 +6411,7 @@ static int find_case_arm_end(const char *arms, size_t start, size_t *pattern_end
         if (quote != '\0') {
             if (c == quote) {
                 quote = '\0';
-            } else if (c == '\\' && arms[i + 1] != '\0') {
+            } else if (shell_escape_pair(quote, c, arms[i + 1])) {
                 i++;
             }
             continue;
@@ -6281,7 +6420,7 @@ static int find_case_arm_end(const char *arms, size_t start, size_t *pattern_end
             quote = c;
             continue;
         }
-        if (c == '\\' && arms[i + 1] != '\0') {
+        if (shell_escape_pair(quote, c, arms[i + 1])) {
             i++;
             continue;
         }
@@ -6736,11 +6875,13 @@ static uint64_t run_line(char *line, char *cwd) {
         if (quote != '\0') {
             if (c == quote) {
                 quote = '\0';
-            } else if (c == '\\' && cursor[1] != '\0') {
+            } else if (shell_escape_pair(quote, c, cursor[1])) {
                 cursor++;
             }
         } else if (c == '\'' || c == '"') {
             quote = c;
+        } else if (shell_escape_pair(quote, c, cursor[1])) {
+            cursor++;
         } else if (c == '$' && cursor[1] == '(' && cursor[2] == '(') {
             size_t end = find_arithmetic_substitution_end(line, (size_t)(cursor - line));
             if (end != 0) {
