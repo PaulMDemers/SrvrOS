@@ -1,24 +1,31 @@
 # MacBookAir7,2 / A1466
 
-Updated: 2026-11-02. State: **active reference machine; partial device acceptance**.
+Updated: 2026-11-03. State: **active reference machine; partial device acceptance**.
 
 ### Modular repository catch-up
 
-The user requested updating the local checkout for the submodule extraction.
-Incoming main is `e376669c`, with SrvrUI, SrvrApps and SrvrPorts pinned by the
-OS. PR278 remains open on the pre-extraction layout. Preserve its reviewed
-registry/Open With work by porting app edits into SrvrApps, publishing the app
-commit before its OS gitlink, and retaining root SDK/compositor/tests/docs edits.
-Do not rewrite extraction history or update upstream pins with --remote.
+Merged actual main `e376669c` into the existing device branch as `6880b1f6`.
+SrvrUI is pinned to `89fb6d9`, SrvrPorts to `0494ae2`, and SrvrApps to
+`ff6c8de`. All seven nested upstream pins remain unchanged. Recursive module
+initialization is complete; no dependency follows a remote branch implicitly.
 
-Existing seven upstream working trees were clean and deinitialized normally;
-Git metadata remains cached. Saved patches and archive/air-pre-modular-20261103
-retain the complete prior head. Reconcile path/build/theme conflicts, read each
-new module's applicable rules, initialize exact recursive pins, then run local
-build/core and relevant GUI tests. New main adds themes and QEMU/VirtIO work;
-those do not inherit Mac native acceptance. Installed acceptedc497/recovery9aa
-and staged pre-extractionb9 payload/evidence stay independent. No reboot is armed.
-Evidence/checkpoint: `build/air-modular-catchup-20261103/`.
+The pending registry/Open With changes were ported into extracted SrvrApps,
+preserving upstream themes, and published before the OS gitlink. Review the
+matched pair [OS PR278](https://github.com/PaulMDemers/SrvrOS/pull/278) and
+[Apps PR2](https://github.com/PaulMDemers/SrvrApps/pull/2). Old patches and
+`archive/air-pre-modular-20261103` preserve the pre-extraction branch.
+
+On clean source `6880b1f6`, full Linux core/docs/build, actual Open With clicks,
+embedded-dialog refusal fallback, and the twenty-window Files regression pass.
+The VM click detector now recognizes rounded themed buttons by geometry instead
+of old theme colors. The current chooser screenshot uses the updated theme.
+New themes and QEMU/VirtIO changes have no new native acceptance.
+
+Installed accepted `c497eb0cb48c1b01`, recovery `9aa8dbf6fbda8252`, and the
+pre-extraction staged `b9d0f6bd7897979d` remain preserved independently. The
+attended candidate is being refreshed for this matched modular tree; no reboot
+is armed. Evidence: `build/air-modular-catchup-20261103/`, backed up outside
+`build`. Historical source-specific results below remain historical.
 
 ### Application registry and Open With: ready for attended trial
 
