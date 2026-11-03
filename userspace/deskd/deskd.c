@@ -1510,8 +1510,7 @@ static void incoming(struct session *s,uint64_t pid,struct desk_packet *p) {
         return;
     }
     if(p->type==DESK_APP_SERVICE) {
-        if(!c->parent_window && !(p->value&~DESK_SERVICE_OPEN_DOCUMENT) &&
-           (w->application==DESK_APP_TEXT || w->application==DESK_APP_PREVIEW))c->service_bits=p->value;
+        if(!c->parent_window && desk_application_services_valid(w->application,p->value))c->service_bits=p->value;
         return;
     }
     if(p->type==DESK_OPEN_DOCUMENT_REPLY) {

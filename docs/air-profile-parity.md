@@ -1,7 +1,9 @@
 # MacBook Air profile parity
 
-Reviewed October 28, 2026 against main `5a94d755`, then integrated PR232
-(`80b0a8aa`) while retaining the distinct AP diagnostic gate.
+Current endurance status updated November 2, 2026 on main `ce5bb7bd`.
+The original October 28 review used `5a94d755` and integrated PR232 (`80b0a8aa`);
+dated checkpoint sections below retain historical pending/failure statements.
+The distinct AP diagnostic gate remains in place.
 The [Air7,2 record](machines/macbookair7-2.md) and
 [Air6,1 record](machines/macbookair6-1.md) own independent native acceptance.
 This compares source support and test coverage; firmware, USB volume identities,
@@ -13,7 +15,7 @@ CPU selectors and physical results are not interchangeable.
 | Brightness, audio, CPU/SMC | Exact Haswell, CS4208 and one-fan profiles; bounded native controls and playback | Separate captured Broadwell, codec and one-fan profiles already exist and have native evidence. Retain those gates. |
 | Battery/AC | Separate EC/SMBus ownership, indicator and combined-session acceptance | Existing Air7,2 backend/indicator remains in place; shared worker and supervisor event waits are integrated. Newer polling reductions need matching native measurements. |
 | Combined reopen | v72 automated two-session test and native acceptance | New v79 selects the same mechanism with the Air7,2 kernel; local and native evidence must name this profile. |
-| Audio/disk/app/screenshot stress | v74 bounded 30-minute native run, 703 app cycles; v77 attended variant | New v80 automatic and v81 attended profiles reuse the same workload, deadlines and ownership. Air7,2 has not inherited the 30-minute result; three v80 native runs failed early lifecycle deadlines and remain unaccepted. |
+| Audio/disk/app/screenshot stress | v74 bounded 30-minute native run, 703 app cycles; v77 attended variant | New v80 automatic and v81 attended profiles reuse the same workload, deadlines and ownership. Air7,2 independently accepts the full1800-second v80 workload on source `ca66d874` / release `c497eb0cb48c1b01`:999 app lifetimes, three screenshots, zero underruns/log loss, clean retirement and USB integrity under unchanged limits. Earlier failed runs remain failures; interactive/audible acceptance is separate. |
 | Desktop power phases | v78 idle/apps/recovery; worker-wakeup receipts and native measurements | v82 release `775c5051149c0e38` accepts three native phases, 13 app cycles, bounded loop/ready/close and clean retirement. No inferred energy saving. |
 | Idle residency and capture prerequisites | Ten counters; HLT entry, E2/APIC/misc and topology audit | Captured Broadwell support adds seven counters and the shared audit. C8/C9/C10 remain unavailable, not valid zeros. Native CPU0 diagnostic accepted on release `71049508c4a1fbd0`: complete seven-counter capture, unchanged configuration and zero observed deep-idle deltas. |
 | Explicit MWAIT experiments | Bounded shallow/C3-hint execution accepted; PR237 additionally accepts coordinated core C3 with valid-zero package C3 | Broadwell MWAIT/coordinated C3 remain refused until their own prerequisites/selector review and bounded trials. Read-only counter admission does not enable instructions or copy Haswell policy. Ordinary idle remains HLT. |

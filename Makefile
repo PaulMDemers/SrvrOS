@@ -2674,7 +2674,7 @@ test-core: test-file-change
 .PHONY: test-files
 test-files: build/tests/files-host$(HOST_EXE)
 	$<
-build/tests/files-host$(HOST_EXE): tools/test_files.c userspace/apps/desktools/files_app.c userspace/apps/desktools/app.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) shared/include/srvros/desktop_file.h userspace/lib/include/srvros/desk_theme_preferences.h
+build/tests/files-host$(HOST_EXE): tools/test_files.c userspace/apps/desktools/files_app.c userspace/apps/desktools/app.h shared/include/srvros/desktop_apps.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) shared/include/srvros/desktop_file.h userspace/lib/include/srvros/desk_theme_preferences.h
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I userspace/widgets/include tools/test_files.c $(HOST_DESK_WIDGETS_A) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c -o $@
 test-desktop: test-files
@@ -4097,6 +4097,14 @@ test-core: test-cpu-capture-format
 test-cpu-capture-format:
 	$(PYTHON) -m unittest discover -s tools -p test_cpu_capture_format.py
 
+.PHONY: test-app-registry
+test-desktop: test-app-registry
+test-app-registry: build/tests/app-registry-host$(HOST_EXE)
+	$<
+build/tests/app-registry-host$(HOST_EXE): tools/test_app_registry.c shared/include/srvros/desktop_apps.h shared/include/srvros/desktop_protocol.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include $< -o $@
+
 .PHONY: test-widget-theme widget-theme-preview
 test-widgets: test-widget-theme
 test-widget-theme: build/tests/widget-theme-host$(HOST_EXE)
@@ -4150,6 +4158,11 @@ test-virtio-block: build/tests/virtio-block-host$(HOST_EXE)
 build/tests/virtio-%-host$(HOST_EXE): tools/test_virtio_%.c kernel/src/drivers/virtio_%.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -o $@
+
+.PHONY: test-qmp-hid-input
+test-core: test-qmp-hid-input
+test-qmp-hid-input:
+	$(PYTHON) tools/test_qmp_hid_input.py
 
 # Third-party source preparation and target compilation belong to SrvrPorts.
 include ports/srvros/awk/build.mk

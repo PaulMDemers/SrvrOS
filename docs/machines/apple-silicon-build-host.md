@@ -2238,6 +2238,21 @@ The portable manifest and screenshot now identify this merged runtime. Follow-up
 commits change evidence/docs only. Task-owned VMs stopped; review VM untouched.
 
 
+### Files integration delivery — active November 3, 2026
+
+The user authorized merging the documented dependency sequence: Apps PR2,
+OS PR278, retarget Apps PR3 to main and merge it, then OS PR288. Work and all
+verification remain in the independent `SrvrOS-app-quality` checkout; the shared
+checkout and review VM must remain untouched. Main `c609207b` adds the already
+accepted awk integration. Resolve the Makefile tail by retaining QMP input
+validation, the SrvrPorts awk include and canonical SrvrUI renderer dependencies;
+preserve both host journal entries and main's Ports pin. The merged Open With
+prerequisite will receive host/build checks before publication, and the final
+merged Files candidate will receive matched host/build and sequential disposable
+VM checks. Preserve source-specific evidence; do not enable hosted Actions or
+claim native acceptance. No unrelated feature work is included.
+
+
 ### Edge resize verification — November 3, 2026
 
 Runtime `bb7f9b17` passes the full desktop and desktop-I/O host suites, including
