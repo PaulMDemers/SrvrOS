@@ -15,12 +15,28 @@ preserved; no terminal/PTY or native driver change is justified by this evidence
 The exact-stage harness now waits up to ten seconds for QEMU HID consumption of
 each individual press/release, including modifier edges and shortcuts, and fails
 on overflow or absent acknowledgement. Firmware menu selection stays unchanged.
-Unit coverage refuses stale/partial/overflowed acknowledgements and checks modifier
-ordering; full saved-file, lifetime/reopen and offline allocation assertions are
+Unit coverage rejects stale, late and overflowed acknowledgements, handles split
+trace lines and checks modifier ordering; full saved-file, lifetime/reopen and offline allocation assertions are
 unchanged. This proves delivered-input correctness, not native input latency.
 
-The first corrected full gate passes on the original clean staged payload;
-host integration/final matched staging follow. Fetched main `adc25965` adds
+Both the first corrected gate and the final clean-source `4685c6bb` gate pass:
+486 acknowledged edges, zero overflow, both exact terminal proof files, saved
+Home text, complete lifetime/exit/reopen, four saved logs and offline allocation.
+The final maximum emulator-consumption wait was 0.529641 seconds; this is not
+native typing latency. Full host/core/docs and matched ordinary/native/synthetic
+builds pass after integrating main `adc25965`. Later receipt hardening changes
+only host test files, with its directed tests and final matched build repeated.
+
+The freshly built kernel/initramfs/loader are byte-identical to preserved v75
+`f586e4a2d58cb3ab`, so staging correctly reuses its original source `8a6c4f2a`
+manifest instead of rewriting history. The final harness source is `4685c6bb`;
+module pins remain Apps `ff6c8de`, UI `89fb6d9`, Ports `0494ae2`. The candidate
+and prior known-good/recovery payloads verify independently outside `build`.
+OS PR278 and Apps PR2 are ready for review together; native Open With acceptance
+still needs the focused in-guest attended checklist. No install or reboot is
+armed, and installed c497/recovery9aa remain unchanged.
+
+Fetched main `adc25965` adds
 independent Air6,1 read-only HDA diagnostics; PR288 owns Files recovery, PR289
 host UI integration, and PR19 Wi-Fi. No overlapping implementation is claimed.
 Evidence: `build/air-modular-catchup-20261103/`. No hardware reboot is armed.
@@ -51,9 +67,9 @@ installed or armed. Exact-stage Q35 testing failed twice: terminal redirect
 paths lost characters, so required saved-file receipts were absent. A paced
 retry saved terminal-proof but still lost a character in orphan-proof's path.
 Guide delivery, Home text save and clean return/reopen ran; the whole gate is
-still FAIL. Both attempts and screenshots remain preserved. Keep OS PR278 and
-Apps PR2 in draft until this input/receipt issue is resolved; no failed assertion
-was relaxed. No hardware reboot was attempted. Evidence: `build/air-modular-catchup-20261103/`, backed up outside
+still FAIL historically. Both attempts and screenshots remain preserved. The
+acknowledged-input resolution and final passing gates are recorded above; no
+failed assertion was relaxed. No hardware reboot was attempted. Evidence: `build/air-modular-catchup-20261103/`, backed up outside
 `build`. Historical source-specific results below remain historical.
 
 ### Application registry and Open With: ready for attended trial
