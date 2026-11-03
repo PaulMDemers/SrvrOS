@@ -3,17 +3,54 @@
 Updated November 3, 2026. Global activation follows the explicit namespace proof
 in [PR308](https://github.com/PaulMDemers/SrvrOS/pull/308).
 
-## Installed-root canonical paths — active verification
+## Installed-root canonical paths — verified
 
-November 3, 2026: the next authorized filesystem milestone verifies canonical
-paths end to end on an identity-selected installed boot, retaining `/fat` and an
-independent `/work`. Base main is `56e1f950` (PR313); the installation owner owns
-PR315 and its `installed_*_smoke.py` implementation. This checkout reuses that
-published proof without competing edits to installer policy or harness files.
-Acceptance requires two EFI/GPT boots with reversed disk ordering, full namespace
-and persistence guest cases, canonical Text save/reopen, and recovery refusal
-before namespace activation with unchanged disks. All disks are disposable.
-The primary checkout and existing review VMs remain outside this milestone.
+November 3, 2026: canonical paths work end to end on an identity-selected
+installed-root boot, preserving `/fat` and independent `/work`. Coordinated with
+the installation owner of [PR315](https://github.com/PaulMDemers/SrvrOS/pull/315):
+this proof reuses their published harness unchanged. No production filesystem
+fix or competing installer implementation was needed. PR315's owner retains its
+integration/merge decision; this is independent filesystem acceptance evidence.
+
+Clean tested source `a85cc716` combines main `56e1f950` (PR313/PR314 included)
+and published PR315. Six build-provenance host tests and a matched
+`sh tools/macos/build.sh -j2 all` pass. The command is:
+
+```sh
+OVMF_CODE=/opt/homebrew/share/qemu/edk2-x86_64-code.fd \
+  python3 tools/installed_root_smoke.py --canonical-paths \
+  --ovmf-vars /opt/homebrew/share/qemu/edk2-i386-vars.fd
+```
+
+All 11 VM cases pass. No ISO, host kernel or host initrd supplies the OS; GPT
+installation images provide loader, kernel, bootstrap and applications. The
+bootstrap contains only `/init`. Firmware templates are host supplied.
+
+| Installed-root acceptance | Result |
+| --- | --- |
+| Boot order and root identity | System selects `ahci0p2`, then `ahci1p2` after disk reversal; selection precedes aliases and init readiness |
+| Canonical namespace on both boots | Full `sysabi --namespace` passes: `/bin`/`/usr`/`/fat` inode identity, logical cwd/dirfd, raw listing, shared content, guards, rename/unlink, spawn, 1023-byte backing paths and expansion-overflow refusal |
+| Independent workspace | `/work` mounts the other GPT data partition (`ahci1p2`, then `ahci0p2`); guest isolation checks and clean unmount pass |
+| Persistence | Distinct `/home` and `/work` markers survive boot, reopen through global/legacy aliases, then checked cleanup; offline images confirm separate storage |
+| Desktop | `/bin/deskd` saves and reopens `/home/installed-proof.txt`; saved Text bytes and theme preference survive reordered boot; screenshot inspected |
+| Integrity | Four offline system/work allocation checks report zero leaks, FAT/bitmap mismatches and errors; protected regions outside both data partitions remain unchanged |
+| Recovery | Nine missing/duplicate/wrong-role/type/format/invalid-map/recovery/pending cases halt before namespace activation, with both disk hashes unchanged |
+
+Evidence: `build/review/installed-canonical/proof-zj4uzynn/receipt.json` has SHA256
+`7694ffd8a1ddd91729a25fdf6430dad852a66799de2795b22a043261088426cc`.
+Commands, full serial logs, disk images, allocation checks and screenshots remain
+in that directory. `build/review/filesystem-installed/` contains host/build logs,
+`tested-build.json`, `independent-review.json` and `reopened.png`. Receipt, logs,
+commands, matched manifest, independent checks and PNG are also retained under
+`.local/filesystem-evidence/installed-canonical-a85cc716/` to survive build cleanup.
+The independent checks verify ordering, markers, command boot inputs, both
+reordered mount devices, every recovery hash comparison and allocation results.
+
+The primary checkout and review VMs (61610, 6233, 85869) were preserved; every
+VM created by this proof was stopped. This accepts disposable QEMU EFI/GPT
+installation behavior. Physical media, power-loss qualification, authenticated
+identity, GPT repair and profile-session activation remain outside this proof.
+No further filesystem implementation is required for this target.
 
 ## Dependency integration — verified for merge
 
