@@ -1,9 +1,9 @@
 # Apple Silicon macOS build host
 
-## Canonical-path installation — active scope
+## Canonical-path installation — proof complete
 
 User authorized a scoped installed-boot PR with reordered-disk persistence and
-recovery evidence. Branch `device/apple-silicon/installed-canonical-paths` in
+recovery evidence. Integration branch `device/apple-silicon/installed-canonical-paths` in
 `SrvrOS-installation` combines merged main `8f47f196` with exact filesystem PR313
 `06d5a416` by local merge, retaining PR252 and SrvrPorts `0f51ba9`. The dependency
 PR remains separately under review. Installation owns the fixture/harness and
@@ -12,8 +12,23 @@ Latest profile contracts: PR309 `fa9717ad`, desktop PR314 `814aee20`; preserve
 the existing home binding without activating that independent work.
 
 Preserve primary QEMU PIDs 61610, 6233 and 85869. Only disposable task VMs run
-here, one build/harness at a time; no physical media, reboot or Actions. Exact
-acceptance and retained evidence will be recorded in the installation document.
+here, one build/harness at a time; no physical media, reboot or Actions.
+
+Clean `3e479119` with filesystem dependency `06d5a416` and merged profile
+foundation main `9d642c75` passes the matched build and all 11 canonical installed
+VM cases. Target and independent `/work` swap AHCI positions; canonical/raw
+identity and persistence pass, Text reopens through `/home`, and nine recovery
+cases retain both disk hashes before any alias/init startup. Protected regions
+and both filesystems' allocation checks pass. Focused host/process checks and
+133 filesystem/namespace sanitizer cases pass. The earlier `b8da407c` run was
+superseded when dependency review fixes arrived, not accepted as final evidence.
+Retained exact artifacts and byte-verified evidence:
+`.local/installation-evidence/canonical-e5t4y5zz`. Task VMs are stopped; original
+review VMs remain live. Delivery is a scoped draft PR, with dependency integration
+and any later merge separate from this user's proof/publication request.
+The delivery branch `device/apple-silicon/canonical-install-proof` contains only
+the installation harness/evidence changes and remains dependent on open PR313;
+the exact combined source stays available on the published integration branch.
 
 ## Installation identity milestone — November 3, 2026
 
