@@ -68,6 +68,36 @@ Ordinary desktop evidence is in
 The earlier disposable installed-disk proof at `06d5a416` also passed, including
 post-boot allocation checks with zero leaks/errors.
 
+### Final current-main profile integration
+
+Main advanced again to `4c4c37a5` (desktop-profile PR314). Merge `3cd9ce86`
+preserves both appended Makefile test groups; this was the only conflict.
+The selected SrvrApps pin is `3cf32af2`. Source review confirms profile selection
+retains explicit `/fat` and `/work` homes and owns session/environment data across
+launch. Kernel/shared ABI sources and the kernel image hash are unchanged from
+`421591d6`.
+
+On clean matched source `3cd9ce86`, profile session/startup, preferences,
+portable-profile/image, command-job, lifecycle-wait and desktop-session host
+checks pass. The four-boot profile guest passes edits, preference persistence,
+export/import, independent installation identities, Terminal environment/cwd and
+offline allocation checks. The two-boot long-path namespace/persistence suite and
+full threadstress pass again. Ordinary desktop first frame is 4.32 seconds.
+The task desktop VM was stopped after retaining its running-state evidence.
+
+Evidence: `profile-host-final.log` (profile/command/lifecycle checks),
+`profile-session-host.log`, `profile-build.log`, `profile-guest.log`,
+`profile-thread.log`, `profile-namespace/20261103T233903.642148Z/` and
+`tested-3cd9ce86-build.json` under `build/review/filesystem-integration/`;
+`build/review/profile-desktop/proof-bm81r8zn/receipt.json`; and desktop session
+`.local/macos-vm/filesystem-profile-main/session-20261103T233958.865517Z/`.
+The initial host compile attempts are retained: Darwin requires
+`-D_DARWIN_C_SOURCE` for `O_NOFOLLOW`; the desktop-session fixture additionally
+uses the documented `-Wno-array-bounds` for its inactive inline-storage branch.
+No production warning policy was changed. Final documentation-only build hashes
+are compared with this tested source before merge. Documentation link validation
+passes with 864 local links and zero errors.
+
 The primary checkout and existing review VMs (61610, 6233, 85869) were preserved;
 task VMs were stopped. No physical installation or reboot was performed.
 SrvrOS Actions is disabled; SrvrPorts Actions is enabled with no workflows.
