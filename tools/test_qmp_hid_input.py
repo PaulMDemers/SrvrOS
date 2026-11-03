@@ -29,7 +29,7 @@ def main():
         try:receipt.deliver(lambda:append(b'hid_kbd_queue_full queue full\nhid_kbd_queue_empty queue empty\n'))
         except RuntimeError:pass
         else:raise AssertionError('overflow accepted as delivery')
-        append(b'hid_kbd_queue_full queue full\n')
+        # Overflow stays fatal even after its original trace bytes were read.
         try:receipt.result()
         except RuntimeError:pass
         else:raise AssertionError('late overflow hidden')

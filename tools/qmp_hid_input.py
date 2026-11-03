@@ -11,9 +11,12 @@ class HIDQueueReceipt:
         self.offset = 0
         self.partial = b''
         self.edges = 0
+        self.overflow = False
         self.max_wait_seconds = 0
 
     def read(self):
+        if self.overflow:
+            raise RuntimeError('QEMU USB HID injection queue previously overflowed')
         with self.path.open('rb') as stream:
             stream.seek(self.offset)
             data = stream.read()
@@ -22,6 +25,7 @@ class HIDQueueReceipt:
         end = data.rfind(b'\n')+1
         self.partial, data = data[end:], data[:end]
         if b'hid_kbd_queue_full' in data:
+            self.overflow = True
             raise RuntimeError('QEMU USB HID injection queue overflowed')
         return data
 
