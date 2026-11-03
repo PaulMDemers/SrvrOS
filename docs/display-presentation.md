@@ -134,3 +134,30 @@ The launcher defaults to standard VGA. The new backend guarantees the implemente
 VirtIO command ordering, not host compositor vblank or physical tear-free output.
 The current supported mode is the inherited 32-bit BGRX resolution; live resizing,
 native acceleration and adaptive refresh are outside this milestone.
+
+
+### Verified checkpoint
+
+Runtime `a8c21344367883edd07f5ee051caa9edc6cd8308` passes the matched build and
+QEMU 11.1.2 checks on the Apple Silicon build host. The final primary run rendered
+16 frames through the visible drag session, 4 through deterministic scrolling,
+and 2 after kill/reacquisition. Console output was visually inspected after the
+forced owner exit. Separate probe boots pass enabled, absent and disabled cases;
+the absent-device case also renders/exits the ordinary VGA desktop.
+
+The driver/lease fixtures cover malformed PCI/completion state, resource order,
+inactive backing, queue slot reuse/index wrap, partial allocation, timeout,
+reset-before-free, quarantine, restart, CR3/service checkpoints and ownership
+exclusion. PCI, console, graphics copy/service, I/O scheduler, syscall cancellation
+and full desktop/widget host suites pass; driver and lease ASan/UBSan pass. Focused
+checks were rerun after the final partial-copy checkpoint and immediate poison
+corrections. Documentation links and whitespace checks pass. This is emulator
+acceptance of the named cases, not physical tearing or audio-latency acceptance.
+
+[PR281](https://github.com/PaulMDemers/SrvrOS/pull/281) is a draft stacked on PR280.
+The [manifest](assets/screenshots/virtio-manifest.json) records clean runtime
+source, kernel/image hashes and screenshot hash. Raw receipts remain in ignored
+`build/review/virtio-gpu-probe/` and `build/review/virtio-gpu-present/`. All test
+VMs were stopped; no native boot or Actions run occurred.
+
+![Glass desktop presented through VirtIO after dragging Text](assets/screenshots/virtio-desktop.png)

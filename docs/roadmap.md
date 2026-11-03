@@ -13,20 +13,23 @@ the user. Finish the complete composed frame before publishing scanout, retain
 buffer ownership until command completion, and recover the VGA console on normal
 exit or desktop process death. The glass/theme milestone remains complete.
 
-Current work: `device/apple-silicon/virtio-display-probe`, stacked on UI source
-`0b6b5e53`, with fetched main `74d38d59`. The isolated secondary-device probe now
-passes positive, absent-device and disabled QEMU boots, including fenced display
-information, reset and a surviving visible console. Host capability/BAR/queue,
-timeout and reset-before-free fixtures pass. Next is primary virtio-vga resource
-ownership, explicit desktop frame submission, teardown and matched runtime tests.
+Implemented and locally verified at runtime `a8c21344`, published as draft
+[PR281](https://github.com/PaulMDemers/SrvrOS/pull/281), stacked on UI PR280.
+The matched build, transport/lease/console/graphics/I/O/cancellation/desktop host
+regressions and sanitizers pass. Three sequential probe boots cover enabled,
+absent and disabled device paths; the absent case renders/exits a standard VGA
+desktop. The primary VirtIO VM verifies visible drag, deterministic scroll,
+normal console restoration, abrupt desktop termination and successful restart.
+The final evidence identifies a clean runtime tree and exact image hashes.
 
-Required evidence: validated PCI/device ownership; two-resource command ordering
-and fence checks; no current scanout resource writes; whole-frame desktop submit;
-normal exit, abrupt owner death and restart restore usable console; standard VGA
-fallback; matched build, focused host regressions and actual desktop screenshots.
-VirtIO fences prove command completion, not Cocoa presentation timing or physical
-vblank. Native Intel ownership and acceptance remain unchanged. See the
-[presentation investigation](display-presentation.md).
+The backend stages a complete frame, alternates two resources, fences commands,
+retains DMA until reset completion, and uses existing scheduler service checkpoints.
+Start it with `python3 tools/macos/run.py --display-device virtio`; standard VGA
+remains the default. The scoped QEMU presentation target is ready for review.
+Next: review PR281 after its PR280 dependency; no further implementation is required
+for this target. Host compositor/physical vblank, native drivers, live mode changes
+and partial-transfer optimization remain separate work. All verification VMs are
+stopped. See [the contract and screenshot](display-presentation.md).
 
 ## Glass and live theme refinement — November 2, 2026
 

@@ -1944,3 +1944,24 @@ copy bounds/checkpoint and process cleanup behavior. No process lifetime rewrite
 or native modeset is included. The probe is an intermediate checkpoint, not the
 completed user target. All three probe VM cases passed with a live shell and
 nonblank inherited display; local evidence is `build/review/virtio-gpu-probe/`.
+
+
+### QEMU presentation verified and published
+
+Runtime `a8c21344367883edd07f5ee051caa9edc6cd8308` is locally verified and published
+in draft [PR281](https://github.com/PaulMDemers/SrvrOS/pull/281), based on PR280's
+UI branch. The final matched build and kernel/framebuffer image hashes are in
+[the presentation manifest](../assets/screenshots/virtio-manifest.json). QEMU
+11.1.2 primary scanout passes glass desktop/drag, scrolling, normal console
+recovery, abrupt owner termination and reacquisition. The separate transport
+harness passes all three opt-in/absent/disabled cases, including a standard VGA
+desktop fallback. Final VM runs identify clean runtime `a8c21344`.
+
+Transport/lease, PCI, console, graphics copy/service, I/O scheduler, syscall
+cancellation and full desktop/widget host regressions pass. Driver/lease
+ASan/UBSan pass. The final review fixes bound partial-copy service intervals and
+block staging writes immediately when a failed frame cannot prove reset/restore.
+Details and inspected screenshot are in [display presentation](../display-presentation.md).
+All test VMs stopped; working runtime is complete for this opt-in QEMU target.
+Next is review/integration after PR280, preserving PR252's independent lifetime
+work. No main merge, hosted Actions, native modeset or physical acceptance.

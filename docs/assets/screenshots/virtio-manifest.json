@@ -1,0 +1,27 @@
+{
+  "status": "PASS",
+  "frame_counts": [
+    "16",
+    "4",
+    "2"
+  ],
+  "checks": [
+    "glass desktop",
+    "drag updates",
+    "scroll",
+    "normal console restore",
+    "abrupt owner termination",
+    "reacquisition"
+  ],
+  "provenance": {
+    "source_commit": "a8c21344367883edd07f5ee051caa9edc6cd8308",
+    "source_dirty": false,
+    "kernel_sha256": "fb94e40ab9011a6a64a18524b745ce95b7821e3d18cbfa90f860eddda4af9120",
+    "exfat_sha256": "9778e60965f26c758330842f147e761529f16b2c82d133acf6d18ffc46d9cbef",
+    "qemu_version": "QEMU emulator version 11.1.2"
+  },
+  "screenshot": {
+    "file": "virtio-desktop.png",
+    "sha256": "3d1911d4321bb70d8ae351df6071fc1c043d1107d81a180126f9963849375208"
+  }
+}
