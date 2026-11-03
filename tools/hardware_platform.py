@@ -1,5 +1,7 @@
 """Strict optional platform receipts; no inferred platform grant or RC6 policy."""
 import re
+import base64
+import struct
 from hardware_package import package_result
 from cpu_capture_format import capture_input
 
@@ -109,7 +111,7 @@ def _display(text):
     if not base or base&0x3fffff or base>0xfffffff800000:return None
     headers=[x for x in text.splitlines() if x.startswith('ap-platform:')]
     if len(headers)!=1:return None
-    h=re.fullmatch(r'ap-platform: v=(?:4|5|6) fault=(\d+) devices=(\d+) policy_writes=0 forcewake_writes=0 permission=unavailable reason=no-validated-grant-register completed=(yes|NO)',headers[0])
+    h=re.fullmatch(r'ap-platform: v=(?:4|5|6|7) fault=(\d+) devices=(\d+) policy_writes=0 forcewake_writes=0 permission=unavailable reason=no-validated-grant-register completed=(yes|NO)',headers[0])
     if not h or int(h[1])>=2**32 or not 1<=int(h[2])<=128:return None
     rows={}
     for line in (x for x in text.splitlines() if x.startswith('ap-platform-well:')):
@@ -131,7 +133,7 @@ def _parse(text):
     if not package:return None
     h=[x for x in text.splitlines() if x.startswith('ap-platform:')]
     if len(h)!=1:return None
-    m=re.fullmatch(r'ap-platform: v=(1|2|3|4|5|6) fault=0 devices=(\d+) policy_writes=0 forcewake_writes=0 permission=unavailable reason=no-validated-grant-register completed=yes',h[0])
+    m=re.fullmatch(r'ap-platform: v=(1|2|3|4|5|6|7) fault=0 devices=(\d+) policy_writes=0 forcewake_writes=0 permission=unavailable reason=no-validated-grant-register completed=yes',h[0])
     if not m or int(m[2])!=len(package['devices']):return None
     version=int(m[1]);timing=platform_timing_result(text)
     if version>=2 and not timing:return None
@@ -143,6 +145,8 @@ def _parse(text):
     if version>=5 and (not resources or resources['status']!='OBSERVED' or
                       resources['source_fault'] or not resources['source_completed']):return None
     dependencies=platform_dependencies_result(text) if version>=6 else None
+    hda=platform_hda_result(text) if version>=7 else None
+    if version>=7 and (not hda or hda['status']!='OBSERVED'):return None
     if version>=6 and (not dependencies or dependencies['status']!='OBSERVED' or dependencies['source_fault'] or not dependencies['source_completed']):return None
     gfx=[x for x in text.splitlines() if x.startswith('ap-platform-gfx:')]
     if len(gfx)!=1:return None
@@ -176,7 +180,7 @@ def _parse(text):
                 decoded.append(None)
         rows[bdf]=dict(state=a,offset=o0,raw=[v0,v1],decoded=decoded,headers=[n0,n1])
     if rows.keys()!=devices.keys():return None
-    return dict(status='PASS',timing=timing,series=series,display_well=display,resources=resources,dependencies=dependencies,graphics=dict(base=base,time_us=[t0,t1],status_raw=[s0,s1],rc_state=[{0:'RC0',2:'RC3',3:'RC6',4:'RC7'}.get(v&7,'unknown') for v in (s0,s1)],rc6_raw=[r0,r1],rc6_delta_ticks=delta,rc6_delta_ns=delta*1280,rc6_observed=bool(delta),rc_control='unavailable'),firmware_config=c0,permission='unavailable',permission_reason='no-validated-grant-register',latency=rows,scope='Paired read-only context, no causal blocker or policy inference; max LTR capability is not measured response latency or proof of a current request')
+    return dict(status='PASS',timing=timing,series=series,display_well=display,resources=resources,dependencies=dependencies,hda=hda,graphics=dict(base=base,time_us=[t0,t1],status_raw=[s0,s1],rc_state=[{0:'RC0',2:'RC3',3:'RC6',4:'RC7'}.get(v&7,'unknown') for v in (s0,s1)],rc6_raw=[r0,r1],rc6_delta_ticks=delta,rc6_delta_ns=delta*1280,rc6_observed=bool(delta),rc_control='unavailable'),firmware_config=c0,permission='unavailable',permission_reason='no-validated-grant-register',latency=rows,scope='Paired read-only context, no causal blocker or policy inference; max LTR capability is not measured response latency or proof of a current request')
 
 
 RESOURCE_OFFSETS = (0x70008,0x71008,0x72008,0x7f008,0x60400,0x61400,0x62400,0x6f400,
@@ -190,7 +194,7 @@ def platform_resources_result(text):
 
 def _resources(text):
     display=platform_display_result(text)
-    if not display or not re.search(r'^ap-platform: v=(?:5|6) ',text,re.M):return None
+    if not display or not re.search(r'^ap-platform: v=(?:5|6|7) ',text,re.M):return None
     rows={}
     for line in (x for x in text.splitlines() if x.startswith('ap-platform-resources:')):
         m=re.fullmatch(r'ap-platform-resources: v=1 phase=([01]) state=([123]) pm_us=(\d+),(\d+) reads=(\d+) count=26 before=(\d+),(\d+),(\d+),(\d+) after=(\d+),(\d+),(\d+),(\d+)',line)
@@ -236,7 +240,7 @@ def platform_dependencies_result(text):
 
 def _dependencies(text):
     resource=platform_resources_result(text)
-    if not resource or not re.search(r'^ap-platform: v=6 ',text,re.M):return None
+    if not resource or not re.search(r'^ap-platform: v=(?:6|7) ',text,re.M):return None
     rows=[]
     for line in (x for x in text.splitlines() if x.startswith('ap-platform-deps:')):
         m=re.fullmatch(r'ap-platform-deps: v=1 phase=([01]) state=([123]) pm_us=(\d+),(\d+) reads=(\d+) count=8 pch=(\d+),(\d+) before=(\d+),(\d+),(\d+),(\d+) after=(\d+),(\d+),(\d+),(\d+) raw=(\d+(?:,\d+){7})',line)
@@ -259,3 +263,44 @@ def _dependencies(text):
     return dict(status='OBSERVED' if all(r['state']==1 for r in rows) else 'UNAVAILABLE',acceptance=False,samples=rows,
                 source_fault=resource['source_fault'],source_completed=resource['source_completed'],
                 scope='Non-atomic control readbacks only; no HDA/IRQ owner, DMA retirement, platform permission or causal power inference')
+
+def platform_hda_result(text):
+    """Exact display-HDA control observations; never DMA retirement/ownership."""
+    try:return _hda(text)
+    except (ValueError,KeyError,IndexError,OverflowError,struct.error):return None
+
+def _hda(text):
+    deps=platform_dependencies_result(text)
+    if not deps or not re.search(r'^ap-platform: v=7 ',text,re.M):return None
+    controls=[x for x in text.splitlines() if x.startswith('ap-platform-hda:')]
+    if len(controls)!=2:return None
+    rows=[]
+    for phase,line in enumerate(controls):
+        m=re.fullmatch(r'ap-platform-hda: v=1 phase=([01]) data=([A-Za-z0-9+/]{239}=)',line)
+        if not m:return None
+        ph=int(m[1]);blob=base64.b64decode(m[2],validate=True)
+        if len(blob)!=179 or base64.b64encode(blob).decode()!=m[2]:return None
+        state,reads,n,a,b,base,*v=struct.unpack('<BBBQQQ4H8IHIIBBIHI90s',blob)
+        gate=v[:12];raw=v[12:20];packed=v[20]
+        sd=[int.from_bytes(packed[i:i+3],'little') for i in range(0,90,3)]
+        if ph!=phase or state not in (1,2,4) or not 0<a<=b<2**64 or n>30:return None
+        if a<deps['samples'][phase]['pm_us'][1] or any(v>=0xffffffff for v in gate) or any(v>=65536 for v in gate[:4]):return None
+        if not base or base&0x3fff or base>0x000fffffffffc000:return None
+        if any(v>=2**w for v,w in zip(raw,[16,32,32,8,8,32,16,32])) or any(v>=0xffffff for v in sd):return None
+        if state==2:
+            if reads or n or any(raw) or any(sd) or any(gate[2:4]) or any(gate[8:]):return None
+            if not (gate[1]&3 or not gate[0]&2 or not all(v&(1<<30) for v in gate[4:8])):return None
+            decoded=None
+        else:
+            if gate[:2]!=gate[2:4] or not gate[0]&2 or gate[1]&3 or gate[4:8]!=gate[8:] or not all(v&(1<<30) for v in gate[4:]):return None
+            gcap,gctl=raw[:2];total=((gcap>>12)&15)+((gcap>>8)&15)+((gcap>>3)&31)
+            if gcap==65535 or gctl==0xffffffff or not 1<=total<=30 or ((gcap>>1)&3)==3 or raw[6:]!=raw[:2]:return None
+            if state==4:
+                if gctl&1 or reads!=4 or n or any(raw[2:6]) or any(sd):return None
+                decoded=dict(controller_reset=True,other_controls='unknown')
+            else:
+                if not gctl&1 or n!=total or reads!=8+2*n or any(sd[n:]) or any(raw[i]==v for i,v in [(2,0xffffffff),(3,255),(4,255),(5,0xffffffff)]):return None
+                decoded=dict(controller_reset=False,interrupt_control=raw[2],corb_dma=bool(raw[3]&2),rirb_dma=bool(raw[4]&2),position_buffer_enabled=bool(raw[5]&1),streams=[dict(run=bool(v&2),reset=bool(v&1),tag=(v>>20)&15) for v in sd[:n]])
+        rows.append(dict(state=state,pm_us=[a,b],reads=reads,streams=n,base=base,pci=gate[:4],before=gate[4:8],after=gate[8:],raw=raw,stream_raw=sd,decoded=decoded))
+    if rows[0]['pm_us'][1]>=deps['samples'][1]['pm_us'][0]:return None
+    return dict(status='OBSERVED' if all(x['state']==1 for x in rows) else 'UNAVAILABLE',acceptance=False,samples=rows,source_fault=deps['source_fault'],source_completed=deps['source_completed'],scope='Non-atomic exact display-HDA controls only; reset/off controls unknown, no codec/link readiness, DMA retirement, ownership or power grant')
