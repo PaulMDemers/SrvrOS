@@ -5,6 +5,8 @@ in [PR308](https://github.com/PaulMDemers/SrvrOS/pull/308).
 
 ## Global activation milestone
 
+Review: [draft PR313](https://github.com/PaulMDemers/SrvrOS/pull/313).
+
 Branch `device/apple-silicon/filesystem-global` builds on main `a936baeb`, proof
 `88ea5524`, and full PR252 `badfeb37`. The PR252 owner supplied a read-only
 lifetime/exclusion handoff and recommended full integration, not a partial
