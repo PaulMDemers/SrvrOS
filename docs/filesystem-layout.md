@@ -3,6 +3,18 @@
 Updated November 3, 2026. Global activation follows the explicit namespace proof
 in [PR308](https://github.com/PaulMDemers/SrvrOS/pull/308).
 
+## Installed-root canonical paths — active verification
+
+November 3, 2026: the next authorized filesystem milestone verifies canonical
+paths end to end on an identity-selected installed boot, retaining `/fat` and an
+independent `/work`. Base main is `56e1f950` (PR313); the installation owner owns
+PR315 and its `installed_*_smoke.py` implementation. This checkout reuses that
+published proof without competing edits to installer policy or harness files.
+Acceptance requires two EFI/GPT boots with reversed disk ordering, full namespace
+and persistence guest cases, canonical Text save/reopen, and recovery refusal
+before namespace activation with unchanged disks. All disks are disposable.
+The primary checkout and existing review VMs remain outside this milestone.
+
 ## Dependency integration — verified for merge
 
 The user authorized dependency review, integration and merge of
