@@ -19,7 +19,7 @@ manifests; the existing ports regression and final matched guest run pass.
 Kernel and exFAT hashes match; initramfs archives differ, so full-image bit
 reproducibility is not claimed. The milestone is complete for draft review; merge acceptance remains with
 integration. The port is published in [SrvrPorts PR1](https://github.com/PaulMDemers/SrvrPorts/pull/1). [Portable evidence](assets/screenshots/awk-manifest.json)
-records exact runtime source `f563020a` and published port `5e30ecd`. Shell quote parsing remains a
+records exact runtime source `6d1ae527` and published port `5e30ecd`. Shell quote parsing remains a
 separate integration issue; no shared review VM or physical boot is touched.
 
 ## Current theme profiles — November 3, 2026

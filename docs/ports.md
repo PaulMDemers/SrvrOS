@@ -57,7 +57,7 @@ the mandatory guest and host allocation checks. No native-device acceptance is
 implied by these checks.
 
 [Acceptance provenance](assets/screenshots/awk-manifest.json) records the two clean
-builds and final Terminal/disk-reopen result on runtime `f563020a`. The awk ELF
+builds and final Terminal/disk-reopen result on runtime `6d1ae527`. The awk ELF
 and generated sources match; complete-image bit reproducibility is not claimed.
 
 ![Pinned awk CSV report in Terminal](assets/screenshots/awk-terminal.png)

@@ -1,6 +1,6 @@
 {
-  "runtime_source": "f563020a",
-  "integration_base": "e376669c",
+  "runtime_source": "6d1ae527",
+  "integration_base": "5b2bf3c7",
   "ports": "5e30ecd",
   "upstream": "5739fd79bcfc75ba7526773d0cf634521f8aca3c",
   "profile": "C-locale ASCII; local deterministic random; no SIGFPE handler",
@@ -14,15 +14,15 @@
   },
   "artifact_hashes": [
     {
-      "build/userspace/awk.elf": "4823d7df393bb56797db40f4b2d4f01d7d37ea2201bb26766cb6fda7e0be5963",
+      "build/userspace/awk.elf": "4c51140ea29050172beb4b68a0564a7c1d2442efa5fee3f04df75361749db430",
       "build/kernel/srvros.elf": "76dc35d09f7ba281368b56d32e2cf2ed1c3253ca2f675d220df7b8ad1b3951fc",
-      "build/initramfs.tar": "c9da522457fdb68fdba734588d5703b4b3eec00fa74f309005778e1b50c93276",
+      "build/initramfs.tar": "6f2567ef5611c881944f4cea3ab755ac6c3955746c0c40a37b5d7221e9976695",
       "build/srvros.exfat": "6061ab00adbc73f8588a67570d43e7ce15c3702f051de4a4890e7ede80c59e53"
     },
     {
-      "build/userspace/awk.elf": "4823d7df393bb56797db40f4b2d4f01d7d37ea2201bb26766cb6fda7e0be5963",
+      "build/userspace/awk.elf": "4c51140ea29050172beb4b68a0564a7c1d2442efa5fee3f04df75361749db430",
       "build/kernel/srvros.elf": "76dc35d09f7ba281368b56d32e2cf2ed1c3253ca2f675d220df7b8ad1b3951fc",
-      "build/initramfs.tar": "ab80a6a404d2b383a9622019b48f89e7833ffd966064f430859dca394497f733",
+      "build/initramfs.tar": "96f749cf1a2ade5c1953bc51eea9897d80e8dec46d1b4b7b64ced15da0b81bef",
       "build/srvros.exfat": "6061ab00adbc73f8588a67570d43e7ce15c3702f051de4a4890e7ede80c59e53"
     }
   ],
@@ -54,15 +54,16 @@
       "decr-NF",
       "a-format"
     ],
-    "awk_sha256": "4823d7df393bb56797db40f4b2d4f01d7d37ea2201bb26766cb6fda7e0be5963",
+    "awk_sha256": "4c51140ea29050172beb4b68a0564a7c1d2442efa5fee3f04df75361749db430",
     "kernel_sha256": "76dc35d09f7ba281368b56d32e2cf2ed1c3253ca2f675d220df7b8ad1b3951fc",
-    "initramfs_sha256": "ab80a6a404d2b383a9622019b48f89e7833ffd966064f430859dca394497f733",
+    "initramfs_sha256": "96f749cf1a2ade5c1953bc51eea9897d80e8dec46d1b4b7b64ced15da0b81bef",
     "terminal_csv_report": true,
     "disk_reopen": true,
     "process_baseline_restored": true,
     "guest_fsck": "PASS",
     "host_allocation": "PASS",
-    "external_fsck": "SKIP: unavailable"
+    "external_fsck": "SKIP: unavailable",
+    "runtime_awk_sha256": "eeeddc00e885277169140bfc65aae220ae486f97705563328e790530972215ed"
   },
   "other_validation": {
     "ports_smoke": "PASS",
@@ -71,7 +72,7 @@
   },
   "screenshot": {
     "path": "awk-terminal.png",
-    "sha256": "c19070cf9b025551f5657287f60d3c03773394d3a266b85a4f85972dbad52843"
+    "sha256": "568e85480d0b0d50c4f174dc3930c593bda58f9b644b15fb776c986240a20380"
   },
   "limits": [
     "No full-image bit reproducibility: initramfs hashes differ",
@@ -79,5 +80,12 @@
     "No native hardware acceptance",
     "Shell backslash parsing unchanged; staged-file pipe fixture used"
   ],
-  "evidence": "build/review/awk/; failed first fixture run preserved; final guest 20261103-145438-ov9g6a_o"
+  "evidence": "build/review/awk/; initial failed fixture retained; integrated guest 20261103-150115-46mpl5g7",
+  "previous_verified_runtime_source": "f563020a",
+  "widgets": "76deeb3",
+  "runtime_awk_unchanged_after_integration": true,
+  "pull_requests": [
+    "https://github.com/PaulMDemers/SrvrPorts/pull/1",
+    "https://github.com/PaulMDemers/SrvrOS/pull/291"
+  ]
 }

@@ -2188,3 +2188,25 @@ work; read-only merge-tree validation reports no conflict, but the tested runtim
 remains based on `e376669c`. Delivery is linked draft PRs, beginning with
 [SrvrPorts PR1](https://github.com/PaulMDemers/SrvrPorts/pull/1); merge acceptance
 remains with integration. No merge or Actions run.
+
+
+### Awk draft integration reconciled — November 3, 2026
+
+[SrvrOS draft291](https://github.com/PaulMDemers/SrvrOS/pull/291) and
+[SrvrPorts draft1](https://github.com/PaulMDemers/SrvrPorts/pull/1) are published.
+Main advanced again to `5b2bf3c7` (SrvrUI host extraction). Merge `6d1ae527`
+resolves the sole Makefile EOF conflict by retaining both the awk include and
+SrvrUI renderer dependencies; it consumes published SrvrUI `76deeb3`. No separate
+libc/kernel fix was introduced. The final diff against main is the awk integration.
+
+Two new clean full builds on merged runtime `6d1ae527` pass with identical
+generated sources/tool manifests and debug awk ELF SHA-256
+`4c51140ea29050172beb4b68a0564a7c1d2442efa5fee3f04df75361749db430`.
+The packed runtime awk remains byte-identical to the pre-merge guest-tested one;
+the debug ELF reflects relocated renderer source metadata. Kernel and exFAT
+images match across these two builds; initramfs archives still differ. Final
+matched Terminal, upstream/profile, errors, retirement, offline allocation and
+second-boot persistence all pass again; staged-ports smoke passes again.
+Integrated guest evidence is `20261103-150115-46mpl5g7`; earlier runs remain retained.
+The portable manifest and screenshot now identify this merged runtime. Follow-up
+commits change evidence/docs only. Task-owned VMs stopped; review VM untouched.
