@@ -72,7 +72,8 @@ def main(navigation=False,commands=False):
                 first=admitted();text('Offscreen content kept.')
                 # Initial Text geometry is the established default; subsequent
                 # positions are acknowledged by real compositor drag receipts.
-                left=drag((32,64,722,525),5,180);assert left[0]<0 and left[2:]==(722,525);shot('left-offscreen')
+                # Keep this free-drag target outside the eight-pixel snap zone.
+                left=drag((32,64,722,525),12,180);assert left[0]<0 and left[2:]==(722,525);shot('left-offscreen')
                 frame=center();corner=drag(frame,1279,799,100);assert corner[:2]==(1120,688);shot('right-bottom-offscreen')
                 shortcut('ctrl-s');wait_all([b'picker ready mode=2',b'deskd: commit']);shot('visible-owned-picker')
                 dock(2);wait(b'deskd: dock activate application=2');qmp.key('esc');wait(retired)
