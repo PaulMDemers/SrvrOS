@@ -168,7 +168,11 @@ def main():
                         stream.seek(offset + sector * 512 + 3); stream.write(b'UNKNOWN ')
             elif name == 'invalid-decoy-map':
                 with other.open('r+b') as stream:
-                    stream.seek(512 + 16); stream.write(bytes(4))
+                    # OVMF repairs a bad primary from a valid backup before
+                    # kernel entry. Damage both to reach kernel refusal without
+                    # a firmware repair write; retain this distinction in proof.
+                    for lba in (1, other.stat().st_size // 512 - 1):
+                        stream.seek(lba * 512 + 16); stream.write(bytes(4))
             elif name == 'filesystem-recovery':
                 with candidate.open('r+b') as stream:
                     stream.seek(offset + 12 * 512); stream.write(bytes(512))
@@ -202,6 +206,7 @@ def main():
                            'all attached raw maps must validate; unrelated unknown media conservatively refuses',
                            'GUIDs are identifiers, not authentication',
                            'primary GPT validation only; no disk repair or profile activation',
+                           'invalid-map VM fixture damages both GPT copies to prevent OVMF primary-map repair',
                            'not physical power-loss or arbitrary mount-I/O-failure qualification'])
     except Exception as error:
         receipt.update(status='FAIL', error=f'{type(error).__name__}: {error}')
