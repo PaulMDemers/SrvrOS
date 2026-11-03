@@ -9,6 +9,7 @@ import subprocess
 from pathlib import Path
 
 RENDERER = {
+    "desk_canvas_scale", "desk_canvas_physical_rect",
     "desk_clip", "desk_fill", "desk_intersect", "desk_text", "desk_text_width",
     "desk_utf8_next", "desk_text_block_draw", "desk_text_block_height",
     "desk_font_16", "desk_font_20", "desk_font_mono_16", "desk_font_digits_32",

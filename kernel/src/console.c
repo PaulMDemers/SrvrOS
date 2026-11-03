@@ -26,6 +26,8 @@ enum ansi_state {
 };
 
 static struct limine_framebuffer *fb;
+static struct limine_framebuffer *graphics_fb;
+void console_set_graphics_framebuffer(struct limine_framebuffer *framebuffer) { graphics_fb = framebuffer; }
 static uint64_t columns;
 static uint64_t rows;
 static uint64_t cursor_x;
@@ -110,15 +112,6 @@ static uint32_t fg_color(void) {
 
 static uint32_t accent_color(void) {
     return color(0x7d, 0xde, 0xb5);
-}
-
-static void put_pixel(uint64_t x, uint64_t y, uint32_t value) {
-    if (fb == NULL || x >= fb->width || y >= fb->height) {
-        return;
-    }
-
-    volatile uint32_t *pixels = fb->address;
-    pixels[y * (fb->pitch / 4) + x] = value;
 }
 
 /* Public pixel APIs still draw directly; console presentation uses contiguous
@@ -552,6 +545,7 @@ void console_set_cursor(uint64_t x, uint64_t y) {
 
 void console_init(struct limine_framebuffer *framebuffer) {
     fb = framebuffer;
+    graphics_fb = NULL;
     framebuffer_console_ready = false;
     framebuffer_console_muted = false;
     framebuffer_console_mute_owner = 0;
@@ -723,7 +717,10 @@ bool console_framebuffer_info(uint64_t *width_out, uint64_t *height_out, uint64_
     return true;
 }
 
+static struct limine_framebuffer *console_inherited_framebuffer(void) { return fb; }
+
 bool console_display_info(struct console_display_info *info) {
+    struct limine_framebuffer *fb = graphics_fb ? graphics_fb : console_inherited_framebuffer();
     if (fb == NULL || info == NULL) {
         return false;
     }
@@ -745,16 +742,19 @@ bool console_display_info(struct console_display_info *info) {
 }
 
 bool console_put_pixel(uint64_t x, uint64_t y, uint32_t rgb) {
+    struct limine_framebuffer *fb = graphics_fb ? graphics_fb : console_inherited_framebuffer();
     if (fb == NULL || x >= fb->width || y >= fb->height) {
         return false;
     }
 
-    put_pixel(x, y, rgb_color(rgb));
+    ((volatile uint32_t *)fb->address)[y * (fb->pitch / 4) + x] =
+        (((rgb >> 16) & 255) << fb->red_mask_shift) | (((rgb >> 8) & 255) << fb->green_mask_shift) | ((rgb & 255) << fb->blue_mask_shift);
     display_present_damage(x, y, 1, 1);
     return true;
 }
 
 bool console_fill_rectangle(uint64_t x, uint64_t y, uint64_t width, uint64_t height, uint32_t rgb) {
+    struct limine_framebuffer *fb = graphics_fb ? graphics_fb : console_inherited_framebuffer();
     if (fb == NULL || x >= fb->width || y >= fb->height) {
         return false;
     }
@@ -762,13 +762,17 @@ bool console_fill_rectangle(uint64_t x, uint64_t y, uint64_t width, uint64_t hei
     if (width > fb->width - x) width = fb->width - x;
     if (height > fb->height - y) height = fb->height - y;
     if (!width || !height) return true;
-    fill_rect(x, y, width, height, rgb_color(rgb));
+    uint32_t value = (((rgb >> 16) & 255) << fb->red_mask_shift) | (((rgb >> 8) & 255) << fb->green_mask_shift) | ((rgb & 255) << fb->blue_mask_shift);
+    volatile uint32_t *pixels = fb->address;
+    for (uint64_t row = 0; row < height; ++row)
+        for (uint64_t col = 0; col < width; ++col) pixels[(y + row) * (fb->pitch / 4) + x + col] = value;
     display_present_damage(x, y, width, height);
     return true;
 }
 
 bool console_blit_rgb(uint64_t x, uint64_t y, uint64_t width, uint64_t height,
     const uint32_t *rgb_pixels, uint64_t stride) {
+    struct limine_framebuffer *fb = graphics_fb ? graphics_fb : console_inherited_framebuffer();
     if (fb == NULL || rgb_pixels == NULL || width == 0 || height == 0 ||
         stride < width || x >= fb->width || y >= fb->height) {
         return false;
@@ -805,6 +809,7 @@ bool console_blit_rgb(uint64_t x, uint64_t y, uint64_t width, uint64_t height,
  * logical-sized; neither a physical backbuffer nor framebuffer reads are needed. */
 bool console_blit_rgb_scaled(uint64_t x, uint64_t y, uint64_t width, uint64_t height,
     const uint32_t *rgb_pixels, uint64_t stride, uint64_t scale) {
+    struct limine_framebuffer *fb = graphics_fb ? graphics_fb : console_inherited_framebuffer();
     if ((scale != 1 && scale != 2) || fb == NULL || rgb_pixels == NULL ||
         !width || !height || stride < width || x >= fb->width || y >= fb->height ||
         width > UINT64_MAX / scale || height > UINT64_MAX / scale ||

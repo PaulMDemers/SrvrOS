@@ -19,31 +19,40 @@ static void response(unsigned status,const char *data) {
     active->response.crc=desk_file_crc(active->incoming,active->response.length);result=1;
 }
 static void model(void) {
-    struct desk_preferences p=desk_preferences_default(),q;char data[256],text[64];
+    struct desk_preferences p=desk_preferences_default(),q;char data[512],text[64];
     int n=desk_preferences_encode(&p,data,sizeof(data));assert(n>0 && !desk_preferences_decode(&q,data,n) && !memcmp(&p,&q,sizeof(p)));
+    assert(p.display_scale==1 && !p.display_width && !p.display_height);
     const char old[]="srvros-desktop-v1\ntext_size=16\nutc_offset_minutes=0\nclock_flags=3\nwallpaper=0\n";
     assert(!desk_preferences_decode(&q,old,sizeof(old)-1) && q.pointer_speed==3 && q.pointer_acceleration==1);
     assert(!p.disable_while_typing && !q.disable_while_typing && !q.theme_style);
     assert(q.theme_accent==0 && q.glass_level==1 && q.theme_style==0);
+    assert(q.display_scale==1 && !q.display_width && !q.display_height);
+    const char v6[]="srvros-desktop-v6\ntext_size=16\nutc_offset_minutes=0\nclock_flags=3\nwallpaper=0\npointer_speed=3\npointer_acceleration=1\ndisable_while_typing=0\ntap_to_click=1\ntwo_finger_tap=1\ntheme_accent=0\nglass_level=1\ntheme_style=0\n";
+    assert(!desk_preferences_decode(&q,v6,sizeof(v6)-1) && q.display_scale==1 && !q.display_width && !q.display_height);
+    struct desk_preferences display=q;display.display_scale=2;display.display_width=1920;display.display_height=1080;
+    assert(!desk_preferences_merge(&q,&display,DESK_PREF_DISPLAY));
+    int display_len=desk_preferences_encode(&q,data,sizeof(data));assert(display_len>0 && !desk_preferences_decode(&q,data,display_len) && q.display_scale==2 && q.display_width==1920 && q.display_height==1080);
+    display.display_height=0;struct desk_preferences previous=q;
+    assert(desk_preferences_merge(&q,&display,DESK_PREF_DISPLAY)<0 && !memcmp(&q,&previous,sizeof(q)));
     const char v4[]="srvros-desktop-v4\ntext_size=16\nutc_offset_minutes=0\nclock_flags=3\nwallpaper=0\npointer_speed=3\npointer_acceleration=1\ndisable_while_typing=0\ntap_to_click=1\ntwo_finger_tap=1\n";
     assert(!desk_preferences_decode(&q,v4,sizeof(v4)-1) && q.theme_accent==0 && q.glass_level==1 && q.theme_style==0);
     const char v5[]="srvros-desktop-v5\ntext_size=20\nutc_offset_minutes=-720\nclock_flags=3\nwallpaper=2\npointer_speed=5\npointer_acceleration=1\ndisable_while_typing=1\ntap_to_click=1\ntwo_finger_tap=1\ntheme_accent=2\nglass_level=2\n";
     assert(!desk_preferences_decode(&q,v5,sizeof(v5)-1) && q.theme_accent==2 && q.glass_level==2 && q.theme_style==0);
     p.theme_accent=2;p.glass_level=2;p.theme_style=2;
     assert(!desk_preferences_merge(&q,&p,DESK_PREF_ACCENT|DESK_PREF_GLASS|DESK_PREF_STYLE));
-    char appearance[256];int appearance_len=desk_preferences_encode(&q,appearance,sizeof(appearance));
+    char appearance[512];int appearance_len=desk_preferences_encode(&q,appearance,sizeof(appearance));
     assert(appearance_len>0 && !desk_preferences_decode(&q,appearance,appearance_len) && q.theme_accent==2 && q.glass_level==2 && q.theme_style==2);
     struct desk_preferences before_style=q;p.theme_style=3;p.theme_accent=1;
     assert(desk_preferences_merge(&q,&p,DESK_PREF_STYLE|DESK_PREF_ACCENT)<0 && !memcmp(&q,&before_style,sizeof(q)));
     p.theme_style=1;assert(!desk_preferences_merge(&q,&p,DESK_PREF_STYLE) && q.theme_style==1 && q.theme_accent==2);
-    char invalid[256];memcpy(invalid,appearance,appearance_len+1);
+    char invalid[512];memcpy(invalid,appearance,appearance_len+1);
     char *style=strstr(invalid,"theme_style=2\n");assert(style);style[12]='3';
     before_style=q;assert(desk_preferences_decode(&q,invalid,appearance_len)<0 && !memcmp(&q,&before_style,sizeof(q)));
     assert(desk_preferences_decode(&q,appearance,appearance_len-14)<0);
     p.theme_accent=3;assert(desk_preferences_merge(&q,&p,DESK_PREF_ACCENT)<0 && q.theme_accent==2);
     p=desk_preferences_default();p.text_size=20;p.utc_offset_minutes=-720;p.wallpaper=2;p.pointer_speed=5;
     p.disable_while_typing=1;p.theme_accent=2;p.glass_level=2;p.theme_style=2;
-    int max_len=desk_preferences_encode(&p,data,sizeof(data));assert(max_len>0 && max_len<256);
+    int max_len=desk_preferences_encode(&p,data,sizeof(data));assert(max_len>0 && max_len<512);
     assert(!desk_preferences_decode(&q,data,max_len) && !memcmp(&p,&q,sizeof(p)));
     p=desk_preferences_default();
     const char v2[]="srvros-desktop-v2\ntext_size=16\nutc_offset_minutes=0\nclock_flags=3\nwallpaper=0\npointer_speed=5\npointer_acceleration=0\n";
@@ -55,7 +64,7 @@ static void model(void) {
     assert(!desk_preferences_decode(&q,old,sizeof(old)-1));
     p.tap_to_click=0;assert(!desk_preferences_merge(&q,&p,DESK_PREF_TAP_CLICK) && !q.tap_to_click && q.two_finger_tap);
     p.two_finger_tap=0;assert(!desk_preferences_merge(&q,&p,DESK_PREF_TWO_FINGER_TAP) && !q.two_finger_tap);
-    char tap_file[256];int tap_len=desk_preferences_encode(&q,tap_file,sizeof(tap_file));
+    char tap_file[512];int tap_len=desk_preferences_encode(&q,tap_file,sizeof(tap_file));
     assert(tap_len>0 && !desk_preferences_decode(&q,tap_file,tap_len) && !q.tap_to_click && !q.two_finger_tap);
     p.tap_to_click=2;assert(!desk_preferences_valid(&p));p.tap_to_click=1;p.two_finger_tap=2;assert(!desk_preferences_valid(&p));
     p=desk_preferences_default();assert(!desk_preferences_decode(&q,old,sizeof(old)-1));
@@ -63,7 +72,7 @@ static void model(void) {
     for(int i=0;i<n;i++) { assert(desk_preferences_decode(&q,data,i)<0);assert(!memcmp(&q,&saved,sizeof(q))); }
     assert(desk_preferences_encode(&p,data,8)<0);
     p.disable_while_typing=1;assert(!desk_preferences_merge(&q,&p,DESK_PREF_DISABLE_WHILE_TYPING) && q.disable_while_typing==1);
-    char updated[256];int updated_length=desk_preferences_encode(&q,updated,sizeof(updated));
+    char updated[512];int updated_length=desk_preferences_encode(&q,updated,sizeof(updated));
     assert(updated_length>0 && !desk_preferences_decode(&q,updated,updated_length) && q.disable_while_typing==1);
     p.disable_while_typing=2;assert(!desk_preferences_valid(&p) && desk_preferences_merge(&q,&p,DESK_PREF_DISABLE_WHILE_TYPING)<0);
     q=saved;p=desk_preferences_default();
@@ -88,7 +97,7 @@ int main(void) {
     struct desk_preferences p=desk_preferences_default();p.text_size=20;
     assert(desktop_preferences_set(&s,&p,DESK_PREF_TEXT,10)==1);
     struct desk_preferences disk=desk_preferences_default();disk.wallpaper=2;disk.utc_offset_minutes=330;
-    char data[256];assert(desk_preferences_encode(&disk,data,sizeof(data))>0);
+    char data[512];assert(desk_preferences_encode(&disk,data,sizeof(data))>0);
     response(DESK_FILE_OK,data);assert(desktop_preferences_poll(&s,20)==1);
     assert(s.value.text_size==20 && s.value.wallpaper==2 && s.value.utc_offset_minutes==330 && !s.loading && s.writable && s.existing);
     assert(!desktop_preferences_poll(&s,39) && !s.job.busy);

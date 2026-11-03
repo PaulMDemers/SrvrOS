@@ -46,7 +46,9 @@ The client allocates a new current-size canvas and kernel surface before
 releasing either old allocation. Protocol v12 adds RESIZE_REFUSED with the
 failed generation and retained canvas dimensions. A matching refusal restores
 the last committed window geometry using a fresh generation. Returning to the
-client's existing size reuses its old surface/canvas without allocation. Refusal
+client's existing size and density reuses its old surface/canvas without allocation.
+Protocol v18 carries density with configure/commit/refusal; the per-surface bound
+allows native 2× backing, and aggregate surface/cache budgets count physical bytes. Refusal
 packets retry queue pressure; stale requests/refusals are ignored. An initial
 window that cannot allocate its first frame still fails to open. Copy/protocol
 errors retain their existing bounded retirement policy.

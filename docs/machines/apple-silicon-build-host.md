@@ -2539,6 +2539,78 @@ requested behavior and acceptance are complete; no further implementation
 is required. No native boot/install or hosted Actions change.
 
 
+### HiDPI and display settings — active scope November 3, 2026
+
+User authorized native-density 1×/2× rendering, persisted display scale, resolution
+selection/switching in Settings, coordination with the UI portability chat,
+verification and merge. Branch `device/apple-silicon/hidpi-display` starts at
+main `d5822348`; PR297 snapping remains complete. PR301 owns read-only inherited
+Intel capture, PR299 Terminal quoting, PR252 process/I/O lifetime, PR19 Wi-Fi.
+
+SrvrUI's separate portability checkout owns renderer/font/widget density APIs.
+This integration owns logical-to-physical client surfaces, compositor copies,
+presentation, desktop protocol/preferences and Settings; a bounded VirtIO driver
+path adds real mode switching. Native and standard VGA remain inherited-mode
+only. Existing review VMs and disks are preserved. No native boot or hosted
+Actions is authorized by these QEMU changes.
+
+Journey: open Display settings, inspect actual resolution/scale and available
+backend presets, select a supported combination, Apply, then Keep or Revert.
+The compositor owns a 15-second rollback deadline and client-disconnect recovery.
+Only confirmed settings persist; saved-file status is distinct from active mode.
+Keep unsaved application state, logical input coordinates and anchored placement.
+Resource failure must preserve or explicitly report recovered actual geometry;
+uncertain GPU reset retains/quarantines potentially owned memory.
+
+Required evidence: native-density font/clip/damage tests, logical/physical
+surface bounds and cache accounting, preference migration, apply/revert/timeout/
+unsupported/failure host checks, full desktop suites and matched build, QEMU
+resolution/scale switching with retained Text content, restart persistence,
+resize/snap/theme regressions and measured memory/presentation cost. Coordinate
+published child revisions before OS pins. The implementation and required
+verification are now complete; delivery is recorded below.
+
+
+Implementation `e613f8f0` consumes merged SrvrUI PR3 (`9eaaa74e`) and SrvrApps
+PR4 (`edb51dc1`) on integration main `0fd0c5fc`. Its clean matched build and full
+desktop/I/O, console/presentation/VirtIO, package/platform and CPU receipt suites
+pass. QEMU applies and keeps 1920×1080 at 2×, trials 2560×1440, reverts on timeout
+with Alt-Tab held, explicit Revert and Settings close, preserves selected/saved
+Text bytes, and restores confirmed settings on a fresh desktop launch. Menus
+and clock layout update immediately; overlay closure restores input focus.
+
+Snapping and edge resizing pass at 1280×800/1× and 1920×1080/2×; live theme
+changes, persistence and restart pass. Those regressions used the preceding
+`b5eb540f` image; the final display-only fixes and integrated diagnostic changes
+received the complete host suite and extended display VM. All exact build,
+result and capture identities are in the
+[acceptance receipt](../assets/screenshots/hidpi-display-manifest.json). The UI
+portability chat owns the separately merged logical-canvas/physical-backing API
+and native font atlas. At fixed logical size, 2× uses four times the pixel bytes;
+the host full-scene sample measured 555/2231 µs at 1×/2×. This is drawing cost, not
+a vblank or native latency claim.
+
+The Settings form's control-capacity and trial-visibility defects found in live
+verification are fixed and covered by actual host pointer routing. Older review
+VMs/disks remain untouched. No physical boot/install, native modesetting or
+hosted Actions change. [PR303](https://github.com/PaulMDemers/SrvrOS/pull/303)
+records the requested integration; no further implementation is required for
+this target.
+
+
+Final combined runtime `6af9cfda` includes merged Terminal quoting PR299/main
+`bfdcab65`. Its 56 quoting host checks, clean matched build and the extended
+display VM pass again, including actual saved-document and preference readback
+through the updated shell. The renderer, driver and Settings implementation is
+unchanged from the preceding accepted run.
+
+A new attended Aero review VM (PID 61610, separate persistent disk under
+`.local/macos-vm/hidpi-display-review/`) reaches desktop in 4.38 seconds and
+keeps/saves 1920×1080 at 2× through Settings. The native-resolution
+[Aero capture](../assets/screenshots/hidpi-display-aero.png) was inspected.
+Prior resize/snap review PIDs 85869/6233 and their disks are preserved.
+
+
 ### Terminal quoting recovery — completed November 3, 2026
 
 User authorized reproducing/fixing quoted backslash handling and acceptance in

@@ -24,7 +24,7 @@ struct desk_app {
     uint64_t menu_revision;
     unsigned menu_count,menu_next;
     int menu_pending;
-    uint32_t *pixels,width,height;
+    uint32_t *pixels,width,height,scale; /* Logical size; zero scale means 1x. */
     int dirty,focused,closed,failed;
     struct desk_preferences preferences;
     int preferences_valid;

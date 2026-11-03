@@ -1674,7 +1674,7 @@ static int64_t syscall_gfx_info(struct syscall_gfx_info *info) {
         .scale_den = 1,
     };
 
-    if (!console_display_info(&display)) {
+    if (!display_present_info_available() || !console_display_info(&display)) {
         return -1;
     }
     copy.width = display.width;
@@ -1688,9 +1688,36 @@ static int64_t syscall_gfx_info(struct syscall_gfx_info *info) {
     copy.green_mask_shift = display.green_mask_shift;
     copy.blue_mask_size = display.blue_mask_size;
     copy.blue_mask_shift = display.blue_mask_shift;
-    copy.flags = intel_gfx_flags() | (display_present_available() ? 0x10ull : 0);
+    copy.flags = intel_gfx_flags() | (display_present_available() ? 0x30ull : 0) |
+        (display_present_active() ? 0x40ull : 0);
     copy.accel_backend = intel_gfx_backend();
     return copy_abi_struct_to_user(info, &copy, sizeof(copy), SRV_ABI_VERSION) ? 0 : -1;
+}
+
+struct syscall_gfx_mode { uint64_t abi_version, struct_size, width, height; };
+static int64_t syscall_gfx_mode_count(void) {
+    struct console_display_info display;
+    if (!display_present_info_available() || !console_display_info(&display)) return -1;
+    return display_present_available() ? (int64_t)display_mode_count() : 1;
+}
+static int64_t syscall_gfx_mode_get(uint64_t index, struct syscall_gfx_mode *out) {
+    struct console_display_info display;
+    struct syscall_gfx_mode mode = {.abi_version=SRV_ABI_VERSION,.struct_size=sizeof(mode)};
+    if (!display_present_info_available() || !console_display_info(&display)) return -1;
+    if (display_present_available()) {
+        if (!display_mode_get(index,&mode.width,&mode.height)) return -1;
+    } else {
+        if (index) return -1;
+        mode.width=display.width; mode.height=display.height;
+    }
+    if (abi_user_struct_size(out,sizeof(mode),SRV_ABI_VERSION)!=sizeof(mode)) return -1;
+    return copy_abi_struct_to_user(out,&mode,sizeof(mode),SRV_ABI_VERSION) ? 0 : -1;
+}
+static int64_t syscall_gfx_mode_set(uint64_t index) {
+    struct process *p=process_current();
+    uint64_t pid=p ? process_pid(p) : 0;
+    if (!pid || !gui_server_is_owner(pid) || !console_framebuffer_muted_by(pid)) return -1;
+    return display_mode_set(pid,index) ? 0 : -1;
 }
 
 static bool gfx_write_allowed(void) {
@@ -3101,6 +3128,12 @@ void syscall_dispatch(struct isr_frame *frame) {
         frame->rax = (uint64_t)syscall_gfx_present(1); break;
     case SYS_GFX_PRESENT_END:
         frame->rax = (uint64_t)syscall_gfx_present(2); break;
+    case SYS_GFX_MODE_COUNT:
+        frame->rax = (uint64_t)syscall_gfx_mode_count(); break;
+    case SYS_GFX_MODE_GET:
+        frame->rax = (uint64_t)syscall_gfx_mode_get(frame->rdi,(struct syscall_gfx_mode *)frame->rsi); break;
+    case SYS_GFX_MODE_SET:
+        frame->rax = (uint64_t)syscall_gfx_mode_set(frame->rdi); break;
     case SYS_GFX_INFO:
         frame->rax = (uint64_t)syscall_gfx_info((struct syscall_gfx_info *)frame->rdi);
         return;
