@@ -434,7 +434,25 @@ static void resize_refusal(void) {
     assert(s.clients[0].generation==generation+1 && s.scene.windows[0].frame.x==30 && s.scene.windows[0].frame.w==402);
     assert(s.scene.windows[0].pixels==old && old[0]==99 && !s.clients[0].closing);
     incoming(&s,42,&p);assert(s.clients[0].generation==generation+1); /* Stale refusal. */
+    s.clients[0].awaiting=0;s.scene.windows[0].visible=1;s.clients[0].identity=1;s.scene.menu.open=-1;
+    struct desk_rect original=s.scene.windows[0].frame,target;
+    assert(desktop_window_placement(800,600,original,DESKTOP_TILE_LEFT,&target));
+    assert(snap_apply(&s,0,DESKTOP_TILE_LEFT,target,original));
+    assert(drag_capture_valid(&s,0,1,target));
+    p.generation=s.clients[0].generation;incoming(&s,42,&p);
+    assert(!memcmp(&s.scene.windows[0].frame,&original,sizeof(original)) && !s.scene.windows[0].maximized);
+    assert(!memcmp(&s.scene.windows[0].restore,&s.clients[0].resize_restore,sizeof(original)));
+    assert(!drag_capture_valid(&s,0,1,target));
     cache_free(&s);
+    struct session failed={.scene={.focus=0}};desk_damage_init(&failed.damage,800,600);
+    failed.clients[0].pid=42;failed.scene.windows[0].frame=original;
+    failed.scene.windows[0].restore=(struct desk_rect){9,10,420,330};
+    struct desk_rect saved_restore=failed.scene.windows[0].restore;
+    alloc_fail=allocations;assert(alloc_fail);
+    assert(!snap_apply(&failed,0,DESKTOP_TILE_LEFT,target,original));alloc_fail=0;
+    assert(!memcmp(&failed.scene.windows[0].frame,&original,sizeof(original)));
+    assert(!memcmp(&failed.scene.windows[0].restore,&saved_restore,sizeof(saved_restore)) && !failed.scene.windows[0].maximized);
+    cache_free(&failed);
 }
 static void clipboard_client_retirement(void) {
     struct session s={.scene={.focus=-1,.apps=1},.children={42}};
@@ -1076,6 +1094,16 @@ int main(void) {
     struct srv_key_event placement_key={.usage=SRV_KEY_LEFT,.modifiers=SRV_KEY_META|SRV_KEY_ALT,.flags=SRV_KEY_DOWN_EVENT};
     assert(arrange_shortcut(&placement_key)==GLOBAL_TILE_LEFT);placement_key.flags|=SRV_KEY_REPEAT;assert(!arrange_shortcut(&placement_key));placement_key.flags=0;assert(!arrange_shortcut(&placement_key));
     placement_key.flags=SRV_KEY_DOWN_EVENT;placement_key.modifiers|=SRV_KEY_CTRL;assert(!arrange_shortcut(&placement_key));
+    /* Snap transactions share configure rollback and preserve the restore frame. */
+    s.clients[0].awaiting=0;s.clients[0].identity=101;s.scene.menu.open=-1;s.scene.windows[0].frame=original;
+    struct desk_rect snap_target;assert(desktop_window_placement(1280,800,original,DESKTOP_TILE_LEFT,&snap_target));
+    assert(snap_apply(&s,0,DESKTOP_TILE_LEFT,snap_target,original));
+    assert(s.scene.windows[0].maximized && !memcmp(&s.scene.windows[0].restore,&original,sizeof(original)));
+    assert(drag_capture_valid(&s,0,101,snap_target));
+    snap_preview(&s,DESKTOP_TILE_LEFT,snap_target);assert(s.scene.snap_preview==DESKTOP_TILE_LEFT);
+    snap_preview(&s,0,(struct desk_rect){0});assert(!s.scene.snap_preview);
+    s.scene.windows[0].minimized=1;assert(!drag_capture_valid(&s,0,101,snap_target));s.scene.windows[0].minimized=0;
+    s.clients[0].awaiting=0;s.scene.windows[0].frame=original;s.scene.windows[0].maximized=0;
     minimize(&s,0);assert(s.scene.windows[0].minimized && s.scene.focus==-1 && hit(&s,80,120)==-1);
     focus(&s,0);assert(!s.scene.windows[0].minimized && s.scene.focus==0);
     /* Dock clicks select actual main windows, cycle all siblings and preserve

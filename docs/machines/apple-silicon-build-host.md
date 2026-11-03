@@ -2483,3 +2483,31 @@ disposable VM stopped. The shared checkout and attended review VM were untouched
 no hosted Actions or new native acceptance. Remaining changes in this closeout
 are documentation only. The requested integration is delivered and verified;
 no further implementation is required for this target.
+
+
+### Window snapping — active scope November 3, 2026
+
+User authorized Windows 7-style snapping, placement previews, verification and
+merge. Branch `device/apple-silicon/window-snap` starts at fetched main
+`da0db066`, retaining merged Files recovery/Open With, SrvrUI host extraction,
+awk and edge resizing. This scope owns compositor titlebar drag placement and
+preview rendering, transaction/capture tests and matched QEMU acceptance.
+PR296 retains Air6,1 adoption diagnostics, PR252 lifetime work, and PR19 Wi-Fi.
+No submodule, kernel, physical driver or hosted Actions change is planned.
+
+Interaction: drag a titlebar toward a side for half-workarea placement or toward
+the top for maximize; show the exact themed target before release. Move away or
+cancel to remove the preview. A small drag threshold on an already placed window
+restores its prior dimensions under the pointer, while a stationary click keeps
+it placed. Preserve original restore geometry across side changes and existing
+keyboard Arrange commands. Modal/focus/lifetime changes invalidate capture before
+queued input can move a blocked window. Failed placement retains usable content
+and geometry through the existing configure/refusal transaction.
+
+Acceptance: geometry and capture/failure host fixtures, exact preview partial/full
+redraw equality for all themes, complete desktop suites and matched build; actual
+Text/VirtIO tablet preview/snap/restore/cancel/modal/content checks at 1x and 2x,
+plus affected resize/theme regressions. The current review VM and persistent disk
+are preserved; automated test VMs remain disposable and sequential. QMP evidence
+is guest behavior, not new native or physical scanout acceptance. Next: implement,
+review, verify and merge this finite milestone.

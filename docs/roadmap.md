@@ -6,6 +6,17 @@ and [machine records](machines/README.md) separate implementation from physical
 acceptance. The [device parity ledger](device-parity.md) compares the Air with
 ongoing Pro work.
 
+## Current window snapping — November 3, 2026
+
+User authorized left/right titlebar snapping, top-edge maximize, themed placement
+previews and drag-to-restore, followed by verification and merge. Base `da0db066`
+includes all previously merged desktop, app, port and resizing milestones.
+Reuse the existing workarea, placement and resize transaction contracts; preserve
+keyboard arrangement, client content and theme updates. Required checks cover
+preview-only movement, exact release placement, cancellation/modal interruption,
+restore geometry, failure recovery and both output scales. Work is in progress
+on `device/apple-silicon/window-snap`; next is implementation and local acceptance.
+
 ## Current resize interaction — November 3, 2026
 
 The repository/theme/VirtIO milestones are complete. The user authorized the
