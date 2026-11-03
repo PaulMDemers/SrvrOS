@@ -2335,7 +2335,9 @@ int main(int argc,char **argv) {
             } else if (phase==1 && !(*session_children(&s,0)) && !session_client(&s,0)->pid) {
                 ui_puts("deskd: lifecycle replacing client\n"); spawn_client(&s); phase=2;
             } else if (phase==2 && desktop_window_at(&s.scene,0)->pixels && (uint64_t)srv_ticks()-start>=200) {
-                ui_puts("deskd: lifecycle abrupt server exit\n");
+                /* This opt-in crash fixture cannot queue its final evidence to
+                 * the worker that srv_exit is about to destroy. */
+                srv_puts("deskd: lifecycle abrupt server exit\n");
                 srv_exit(0); /* Deliberately exercise kernel cleanup, not the normal exit path. */
             }
             if ((uint64_t)srv_ticks()-start>600) { failed=1; break; }
