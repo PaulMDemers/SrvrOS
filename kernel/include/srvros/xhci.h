@@ -112,6 +112,7 @@ bool xhci_wifi_capture_a20_inventory(void);
 bool xhci_wifi_capture_a20_cycle(void);
 bool xhci_wifi_capture_frontend(void);
 bool xhci_wifi_capture_pa5_cycle(void);
+bool xhci_wifi_capture_bbp5_cycle(void);
 bool xhci_wifi_capture_rf_g20(void);
 bool xhci_wifi_capture_rf_trim(void);
 bool xhci_wifi_capture_rf_cal(void);

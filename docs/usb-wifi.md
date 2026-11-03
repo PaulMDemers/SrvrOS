@@ -315,6 +315,36 @@ the explicit MAC-disabled command/restoration transaction after parent restore;
 it does not accept PA operation in held channel161, baseband, VCO, calibrated
 reception or connectivity. Fresh high-band gain/baseband remains the next scope.
 
+## Fresh channel161 gain/baseband restoration candidate (v115)
+
+The logical40 reader shares the legacy guarded transport and preserves the
+G-band decoder/validation API. A distinct5GHz result selects high-band LNA4d,
+falls back to45 only for zero/ff, then maps ff to zero. RSSI4a offsets are signed
+and clamp outside[-10,10], matching pinned Linux v7.0
+[RX gain normalization](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/mediatek/mt76/mt76x0/eeprom.c).
+Raw block and encoded fields stay private and are scrubbed on failure; only
+effective LNA/fallback/clamp flags and the derived AGC8 word are logged. Fresh
+read guards, selector/direction/value, bounded poll/delay, cancellation and
+one-shot proof remain unchanged. The old G-band gain cannot substitute.
+
+The fixed21-row A-band/20MHz BBP engine independently reads all originals,
+requires the v113 captured tuple, writes the source-projected table, independently
+reads all selected words, restores originals in reverse order and independently
+rereads them. AGC8 derives from122c54f2 using8-bit subtraction of twice the fresh
+LNA into bits14:8. Exact all-ones forward values are legal only for AGC51/53/55;
+originals remain exact/non-sentinel and IBI9 does not become calibration-ready.
+735 guarded operations and736 authorization boundaries include42 writes and693
+reads. There is no RF exchange callback or caller-selected address/value.
+
+The explicit automatic `--wifi-bbp5-cycle` profile requires full PA/frontend/
+channel161/A20 parent proof. It captures fresh fields only after parent PA
+restoration, then requires same owner/device, fresh exact board, complete live
+parent/EFUSE proof and matching gain before every BBP transfer. It runs after
+parent restoration, not in an active channel; no VCO, RX, transmission, credential
+or connectivity is enabled. Complete saved source/session and storage/recovery
+proof are required for native acceptance. Host decoder/engine/source projection,
+legacy regressions, saved-log and exact-stage VM checks precede installation.
+
 ## Captured baseline
 
 USB high speed (480 Mb/s), one configuration, interface 0 / alternate 0,

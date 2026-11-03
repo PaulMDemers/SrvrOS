@@ -173,4 +173,11 @@ bool mt76_rx_fields_command(uint32_t previous,unsigned block,uint32_t *command);
 bool mt76_rx_fields_begin(struct mt76_efuse_map_gate *,bool write,uint32_t address,uint32_t value);
 bool mt76_rx_fields_finish(struct mt76_efuse_map_gate *,bool ok,uint32_t value);
 enum mt76_capture_status mt76_capture_rx_fields(const struct mt76_efuse_map_io *,const struct mt76_identity *,struct mt76_rx_fields *);
+/* Same private logical40 transport, distinct channel161 high-band decode.
+ * The nested transport proof preserves the legacy G-band contract. Raw fields
+ * are private, never log the block or these encoded fields. */
+struct mt76_gain5_fields {struct mt76_rx_fields transport;bool valid,fallback;uint8_t primary,high_raw,lna,clamped;uint16_t rssi_raw;int rssi[2];uint32_t agc8;};
+void mt76_gain5_decode(uint8_t primary,uint8_t high,uint16_t rssi,struct mt76_gain5_fields *s);
+bool mt76_gain5_valid(const struct mt76_gain5_fields *s);
+enum mt76_capture_status mt76_capture_gain5(const struct mt76_efuse_map_io *,const struct mt76_identity *,struct mt76_gain5_fields *);
 #endif

@@ -6681,6 +6681,13 @@ static void test_pa5_refusal(void){
     assert(!wifi_pa5_transfer(&wifi_pa5,true,0x518,&v));
     assert(wifi_pa5_exchange(&wifi_pa5,packet,16,reply,sizeof reply)<0);
     assert(!wifi_pa5.submitted && !wifi_pa5.state.attempted);
+    assert(!wifi_bbp5_parent(NULL) && !wifi_bbp5_parent(&d));
+    assert(!wifi_gain5_owned(NULL) && !wifi_gain5_owned(&wifi_bbp5));
+    assert(!wifi_gain5_transfer(&wifi_bbp5,false,0x24,&v));
+    assert(!wifi_gain5_transfer(&wifi_bbp5,true,0x24,&v));
+    assert(!wifi_bbp5_transfer(&wifi_bbp5,true,0x2320,&v));
+    assert(!wifi_bbp5.submitted && !wifi_bbp5.gain.transport.attempted);
+    puts("xhci BBP5: PASS unowned gain/control/read/write and BBP direct transfer refuse before USB");
     puts("xhci PA5: PASS unowned/unknown context refuses direct read/write and MCU exchange before USB");
 }
 int main(int argc, char **argv) {

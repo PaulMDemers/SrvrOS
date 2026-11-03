@@ -548,8 +548,23 @@ bool mt76_rx_fields_command(uint32_t previous,unsigned block,uint32_t *command){
 bool mt76_rx_fields_begin(struct mt76_efuse_map_gate *g,bool w,uint32_t a,uint32_t v){return efuse_begin(g,4,w,a,v);}
 bool mt76_rx_fields_finish(struct mt76_efuse_map_gate *g,bool ok,uint32_t v){return efuse_finish(g,4,ok,v);}
 
-enum mt76_capture_status mt76_capture_rx_fields(const struct mt76_efuse_map_io *io,
-    const struct mt76_identity *identity,struct mt76_rx_fields *s){
+void mt76_gain5_decode(uint8_t primary,uint8_t high,uint16_t rssi,struct mt76_gain5_fields *s){
+    if(!s)return;
+    s->valid=false;s->primary=primary;s->high_raw=high;s->rssi_raw=rssi;
+    s->fallback=!high || high==255;unsigned lna=s->fallback?primary:high;s->lna=lna==255?0:lna;s->clamped=0;
+    for(unsigned i=0;i<2;i++){int v=(rssi>>(8*i))&255;if(v&128)v-=256;if(v < -10 || v > 10){v=0;s->clamped|=1u<<i;}s->rssi[i]=v;}
+    uint8_t gain=(uint8_t)(84-s->lna*2);s->agc8=(0x122c54f2u&~0x7f00u)|((uint32_t)(gain&127)<<8);
+}
+static bool gain5_content(const struct mt76_gain5_fields *s){
+    if(!s || !s->transport.valid || !mt76_rx_fields_valid(&s->transport))return false;
+    struct mt76_gain5_fields expected={0};mt76_gain5_decode(s->primary,s->high_raw,s->rssi_raw,&expected);
+    return s->fallback==expected.fallback && s->lna==expected.lna && s->clamped==expected.clamped &&
+        s->rssi[0]==expected.rssi[0] && s->rssi[1]==expected.rssi[1] && s->agc8==expected.agc8;
+}
+bool mt76_gain5_valid(const struct mt76_gain5_fields *s){return s && s->valid && gain5_content(s);}
+
+static enum mt76_capture_status capture_rx_fields(const struct mt76_efuse_map_io *io,
+    const struct mt76_identity *identity,struct mt76_rx_fields *s,struct mt76_gain5_fields *gain5){
     if(!s || s->attempted || !io || !io->authorize || !io->registers.read || !io->registers.write ||
        !io->registers.delay || !identity || identity->asic!=0x76100002 || identity->mac!=0x76502000)return MT76_CAPTURE_REFUSED;
     *s=(struct mt76_rx_fields){.attempted=true};uint8_t data[16]={0};enum mt76_capture_status result=MT76_CAPTURE_IO;
@@ -579,9 +594,11 @@ enum mt76_capture_status mt76_capture_rx_fields(const struct mt76_efuse_map_io *
     MAP_AUTH();s->complete=true;
     mt76_rx_gain_decode(data[4],(uint16_t)data[6]|((uint16_t)data[7]<<8),s);
     s->valid=mt76_rx_fields_valid(s);
-    result=s->valid?MT76_CAPTURE_OK:MT76_CAPTURE_REFUSED;
+    if(gain5){mt76_gain5_decode(data[5],data[13],(uint16_t)data[10]|((uint16_t)data[11]<<8),gain5);gain5->valid=gain5_content(gain5);}
+    result=(gain5?mt76_gain5_valid(gain5):s->valid)?MT76_CAPTURE_OK:MT76_CAPTURE_REFUSED;
 done:
     if(result!=MT76_CAPTURE_OK)s->lna_raw=s->lna=s->rssi_clamped=0,s->rssi[0]=s->rssi[1]=0,s->agc8=0;
+    if(result!=MT76_CAPTURE_OK && gain5){struct mt76_rx_fields transport=gain5->transport;*gain5=(struct mt76_gain5_fields){.transport=transport};}
     for(unsigned i=0;i<sizeof data;i++)((volatile uint8_t *)data)[i]=0;
     return result;
 #undef MAP_AUTH
@@ -589,3 +606,6 @@ done:
 #undef MAP_GUARDS
 
 }
+
+enum mt76_capture_status mt76_capture_rx_fields(const struct mt76_efuse_map_io *io,const struct mt76_identity *id,struct mt76_rx_fields *s){return capture_rx_fields(io,id,s,0);}
+enum mt76_capture_status mt76_capture_gain5(const struct mt76_efuse_map_io *io,const struct mt76_identity *id,struct mt76_gain5_fields *s){return s?capture_rx_fields(io,id,&s->transport,s):MT76_CAPTURE_REFUSED;}

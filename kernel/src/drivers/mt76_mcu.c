@@ -3285,3 +3285,58 @@ bool mt76_pa5_parent_valid(const struct mt76_5ghz_prereq *s){
     }
     return true;
 }
+
+/* Fixed A-band table and independently captured v113 originals. */
+static const uint32_t bbp5_targets[21]={0x2310u,0x2318u,0x2320u,0x2330u,0x2334u,0x2338u,0x2368u,0x236cu,0x2370u,0x2970u,0x237cu,0x2380u,0x2384u,0x238cu,0x239cu,0x23acu,0x23ccu,0x23d4u,0x23dcu,0x23e8u,0x2800u};
+static const uint32_t bbp5_originals[21]={0x1feda049u,0x45u,0x16344ef0u,0x5052879u,0x35050004u,0x310f2e3cu,0x7c2005u,0xe1u,0x60806u,0x3fu,0xe23u,0x3218u,0x3240u,0x11111616u,0x2a2a3036u,0x27273438u,0x17171c1cu,0x26262a2fu,0x40404040u,0x1010u,0x3d5000e0u};
+static const uint32_t bbp5_values[21]={0x1feca054u,0xau,0x122c54f2u,0x50528f9u,0x2c3a0406u,0x310f2a3fu,0x7c2005u,0xecu,0x60806u,0x8au,0xe13u,0x181cu,0x3218u,0x11111111u,0x2a2a2a2au,0x27271a1au,0xffffffffu,0xffffffffu,0xffffffffu,0x0u,0x895000e0u};
+uint32_t mt76_bbp5_target(unsigned i){return i<21?bbp5_targets[i]:UINT32_MAX;}
+uint32_t mt76_bbp5_initial(unsigned i){return i<21?bbp5_originals[i]:UINT32_MAX;}
+uint32_t mt76_bbp5_raw(unsigned i){return i<21?bbp5_values[i]:UINT32_MAX;}
+unsigned mt76_bbp5_index(unsigned q){return q<63?q%21:q<84?83-q:q<105?q-84:UINT32_MAX;}
+bool mt76_bbp5_write(unsigned q){return (q>=21 && q<42) || (q>=63 && q<84);}
+uint32_t mt76_bbp5_address(unsigned op){return op>=735?UINT32_MAX:op%7==3?mt76_bbp5_target(mt76_bbp5_index(op/7)):mt76_rf_probe_read_address(op%7<3?op%7:op%7-4);}
+uint32_t mt76_bbp5_expected(unsigned q,unsigned lna){
+    unsigned i=mt76_bbp5_index(q);if(i>=21 || lna>255)return UINT32_MAX;
+    if(q<21 || q>=63)return bbp5_originals[i];
+    uint32_t v=bbp5_values[i];if(i==2){uint8_t gain=(uint8_t)(84-lna*2);v=(v&~0x7f00u)|((uint32_t)(gain&127)<<8);}return v;
+}
+static bool bbp5_state(const struct mt76_bbp5 *s,unsigned op){
+    if(!s || !s->attempted || s->lna>255 || op>735 || s->operations!=op)return false;
+    unsigned reads=0,writes=0;
+    for(unsigned q=0;q<105;q++){
+        unsigned done=op>=7*(q+1)?7:op>7*q?op-7*q:0;
+        for(unsigned n=0;n<done;n++){
+            if(n==3){if(s->values[q]!=mt76_bbp5_expected(q,s->lna))return false;if(mt76_bbp5_write(q))writes++;else reads++;}
+            else{unsigned j=n<3?n:n-4;if(!rf_central_guard_valid(j,s->guards[q*2+(n>=4)][j]))return false;reads++;}
+        }
+    }
+    return s->reads==reads && s->writes==writes;
+}
+bool mt76_bbp5_admit(const struct mt76_bbp5 *s,unsigned op){return s && !s->complete && !s->restored && op<735 && bbp5_state(s,op);}
+bool mt76_bbp5_transfer_valid(const struct mt76_bbp5 *s,unsigned op,bool write,uint32_t address,uint32_t value){
+    return mt76_bbp5_admit(s,op) && address==mt76_bbp5_address(op) && write==(op%7==3 && mt76_bbp5_write(op/7)) && (!write || value==mt76_bbp5_expected(op/7,s->lna));
+}
+bool mt76_bbp5_valid(const struct mt76_bbp5 *s){return s && s->complete && s->restored && bbp5_state(s,735);}
+bool mt76_bbp5_parent_valid(const struct mt76_5ghz_prereq *s){
+    if(!mt76_frontend_valid(s))return false;
+    for(unsigned i=0;i<21;i++)if(mt76_frontend_target(i+4)!=bbp5_targets[i] || s->values[i+4]!=bbp5_originals[i])return false;
+    return true;
+}
+enum mt76_mcu_timing_status mt76_bbp5_capture(struct mt76_bbp5 *s,unsigned lna,const struct mt76_bbp5_io *io){
+    if(!s || s->attempted || lna>255 || !io || !io->authorize || !io->transfer)return MT76_TIMING_REFUSED;
+    *s=(struct mt76_bbp5){.attempted=true,.lna=lna};
+    for(unsigned op=0;op<735;op++){
+        if(!mt76_bbp5_admit(s,op))return MT76_TIMING_STATE;
+        if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+        unsigned q=op/7,n=op%7;bool write=n==3 && mt76_bbp5_write(q);uint32_t v=write?mt76_bbp5_expected(q,lna):0;
+        if(!mt76_bbp5_transfer_valid(s,op,write,mt76_bbp5_address(op),v))return MT76_TIMING_STATE;
+        if(!io->transfer(io->context,write,mt76_bbp5_address(op),&v))return MT76_TIMING_IO;
+        s->operations++;if(write)s->writes++;else s->reads++;
+        if(n==3){if(v!=mt76_bbp5_expected(q,lna))return MT76_TIMING_STATE;s->values[q]=v;}
+        else{unsigned j=n<3?n:n-4;s->guards[q*2+(n>=4)][j]=v;if(!rf_central_guard_valid(j,v))return MT76_TIMING_STATE;}
+    }
+    if(!io->authorize(io->context))return MT76_TIMING_CANCELLED;
+    if(!bbp5_state(s,735))return MT76_TIMING_STATE;
+    s->complete=s->restored=true;return MT76_TIMING_OK;
+}

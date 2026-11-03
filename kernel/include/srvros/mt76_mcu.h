@@ -892,4 +892,22 @@ size_t mt76_pa5_packet(const struct mt76_pa5 *s,unsigned operation,uint8_t *out,
 bool mt76_pa5_valid(const struct mt76_pa5 *s);
 enum mt76_mcu_timing_status mt76_pa5_capture(struct mt76_pa5 *s,uint16_t nic0,uint16_t nic1,const struct mt76_pa5_io *io);
 
+/*21-row A-band20MHz table; gain scalar must be fresh natively. No RF I/O. */
+#define MT76_BBP5_TARGETS 21u
+#define MT76_BBP5_OPS 735u
+struct mt76_bbp5 {bool attempted,complete,restored;unsigned lna,operations,reads,writes;uint32_t guards[210][3],values[105];};
+struct mt76_bbp5_io {void *context;bool (*authorize)(void *);bool (*transfer)(void *,bool,uint32_t,uint32_t *);};
+uint32_t mt76_bbp5_target(unsigned index);
+uint32_t mt76_bbp5_initial(unsigned index);
+uint32_t mt76_bbp5_raw(unsigned index);
+unsigned mt76_bbp5_index(unsigned command);
+bool mt76_bbp5_write(unsigned command);
+uint32_t mt76_bbp5_address(unsigned operation);
+uint32_t mt76_bbp5_expected(unsigned command,unsigned lna);
+bool mt76_bbp5_parent_valid(const struct mt76_5ghz_prereq *s);
+bool mt76_bbp5_admit(const struct mt76_bbp5 *s,unsigned operation);
+bool mt76_bbp5_transfer_valid(const struct mt76_bbp5 *s,unsigned operation,bool write,uint32_t address,uint32_t value);
+bool mt76_bbp5_valid(const struct mt76_bbp5 *s);
+enum mt76_mcu_timing_status mt76_bbp5_capture(struct mt76_bbp5 *s,unsigned lna,const struct mt76_bbp5_io *io);
+
 #endif

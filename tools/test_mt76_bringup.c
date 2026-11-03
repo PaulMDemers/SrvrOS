@@ -465,4 +465,21 @@ static void rx_fields_test(void){
  for(unsigned lna=0;lna<256;lna++)for(unsigned raw=0;raw<256;raw++){s=(struct mt76_rx_fields){0};mt76_rx_gain_decode(lna,(uint16_t)(raw|((255-raw)<<8)),&s);unsigned effective=lna==255?0:lna;assert(s.lna==effective && s.agc8==((0x16344ef0u&~0x7f00u)|(((78-effective*2)&127)<<8)));for(unsigned i=0;i<2;i++){int v=i?255-(int)raw:(int)raw;if(v>=128)v-=256;bool clamp=v < -10 || v > 10;assert(s.rssi[i]==(clamp?0:v) && !!(s.rssi_clamped&(1u<<i))==clamp);}}
  puts("RX gain fields: PASS fixed mapped40, all transfer/cancel/timeout/unmapped boundaries, command bits, scrub/no replay and65536 decoder inputs");
 }
-int main(void) { rx_fields_test();trim_fields_test(); ant_fields_test(); captured_address_profile();private_header();private_address_gate();mac_address();efuse_gate();efuse_map();efuse();firmware();puts("mt76-bringup: PASS logical capture, per-operation faults, bounded timeout, private-output clearing, firmware chunk boundaries"); }
+static enum mt76_capture_status gain5_run(struct rx_map *f,struct mt76_gain5_fields *s){const struct mt76_identity id={0x76100002,0x76502000};const struct mt76_efuse_map_io io={{f,rx_read,rx_write,rx_delay},rx_auth};return mt76_capture_gain5(&io,&id,s);}
+static void gain5_fields_test(void){
+ struct rx_map f;rx_init(&f);f.f.bytes[5]=9;f.f.bytes[13]=12;f.f.bytes[10]=0xfd;f.f.bytes[11]=7;struct mt76_gain5_fields s={0};
+ assert(gain5_run(&f,&s)==MT76_CAPTURE_OK && mt76_gain5_valid(&s) && s.transport.reads==12 && s.transport.writes==1 && s.lna==12 && s.agc8==0x122c3cf2 && s.rssi[0]==-3 && s.rssi[1]==7);
+ struct mt76_gain5_fields good=s;for(unsigned bit=0;bit<32;bit++){s=good;s.agc8^=1u<<bit;assert(!mt76_gain5_valid(&s));}s=good;s.lna^=1;assert(!mt76_gain5_valid(&s));s=good;s.fallback=!s.fallback;assert(!mt76_gain5_valid(&s));s=good;
+ unsigned calls=f.f.calls,auth=f.f.auth;assert(gain5_run(&f,&s)==MT76_CAPTURE_REFUSED);
+ for(unsigned n=1;n<=calls;n++){rx_init(&f);f.f.fail=n;s=(struct mt76_gain5_fields){0};assert(gain5_run(&f,&s)!=MT76_CAPTURE_OK && !s.valid && !s.agc8 && !s.primary && !s.high_raw);assert(gain5_run(&f,&s)==MT76_CAPTURE_REFUSED);}
+ for(unsigned n=1;n<=auth;n++){rx_init(&f);f.f.deny=n;s=(struct mt76_gain5_fields){0};assert(gain5_run(&f,&s)==MT76_CAPTURE_CANCELLED && !s.valid && !s.agc8);}
+ rx_init(&f);f.f.stuck=true;s=(struct mt76_gain5_fields){0};assert(gain5_run(&f,&s)==MT76_CAPTURE_TIMEOUT && s.transport.polls==1024 && !s.valid);
+ rx_init(&f);f.f.unmapped=true;s=(struct mt76_gain5_fields){0};assert(gain5_run(&f,&s)!=MT76_CAPTURE_OK && !s.valid);
+ for(unsigned primary=0;primary<256;primary++)for(unsigned high=0;high<256;high++){
+  s=(struct mt76_gain5_fields){0};mt76_gain5_decode(primary,high,0,&s);unsigned lna=(!high || high==255)?primary:high;if(lna==255)lna=0;
+  assert(s.lna==lna && s.fallback==(!high || high==255) && s.agc8==((0x122c54f2u&~0x7f00u)|(((84-lna*2)&127)<<8)));
+ }
+ for(unsigned raw=0;raw<65536;raw++){s=(struct mt76_gain5_fields){0};mt76_gain5_decode(9,12,raw,&s);for(unsigned i=0;i<2;i++){int v=(raw>>(8*i))&255;if(v&128)v-=256;bool clamp=v < -10 || v > 10;assert(s.rssi[i]==(clamp?0:v) && !!(s.clamped&(1u<<i))==clamp);}}
+ puts("5GHz gain: PASS fresh40 selection45/4d/4a,all65536 fallback pairs and RSSI tuples,capture I/O/cancel/timeout/unmapped/scrub/no replay;legacy unchanged");
+}
+int main(void) { gain5_fields_test();rx_fields_test();trim_fields_test(); ant_fields_test(); captured_address_profile();private_header();private_address_gate();mac_address();efuse_gate();efuse_map();efuse();firmware();puts("mt76-bringup: PASS logical capture, per-operation faults, bounded timeout, private-output clearing, firmware chunk boundaries"); }

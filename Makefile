@@ -4777,3 +4777,16 @@ build/tests/mt76-pa5-host$(HOST_EXE): tools/test_mt76_pa5.c kernel/src/drivers/m
 test-core: test-wifi-pa5-log
 test-wifi-pa5-log:
 	$(PYTHON) -m unittest discover -s tools -p test_wifi_pa5_log.py
+
+.PHONY: test-mt76-bbp5
+test-core: test-mt76-bbp5
+test-mt76-bbp5: build/tests/mt76-bbp5-host$(HOST_EXE)
+	$(HOST_RUN) $< tools/fixtures/mt7610-5ghz-bbp-cycle.bin
+build/tests/mt76-bbp5-host$(HOST_EXE): tools/test_mt76_bbp5.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h tools/fixtures/mt7610-5ghz-bbp-cycle.bin
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mcu.c -o $@
+
+.PHONY: test-wifi-bbp5-log
+test-core: test-wifi-bbp5-log
+test-wifi-bbp5-log:
+	$(PYTHON) -m unittest discover -s tools -p test_wifi_bbp5_log.py
