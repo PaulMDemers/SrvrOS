@@ -13,8 +13,8 @@ image assembly and system-level tests. It pins complete known revision sets.
   Settings, System and Calculator). Compositor/services and diagnostic clients
   stay with the OS. Executable names and image paths are unchanged.
 - **SrvrPorts**, mounted at `ports`: third-party sources, adapters, staging
-  recipes and port contracts. Its seven upstream gitlinks keep their exact
-  previous pins; vendored byacc, SQLite, stb and uACPI stay vendored.
+  recipes and port contracts. Existing upstream gitlinks keep their exact
+  pins; the awk port adds one pinned upstream repository; vendored byacc, SQLite, stb and uACPI stay vendored.
 
 The UI and ports retain extracted path history. SrvrApps begins at the grouping
 commit; its earlier history remains under `userspace/desk*` in SrvrOS at

@@ -6,6 +6,18 @@ and [machine records](machines/README.md) separate implementation from physical
 acceptance. The [device parity ledger](device-parity.md) compares the Air with
 ongoing Pro work.
 
+## Pinned awk port — November 3, 2026
+
+Target: a useful upstream interpreter for Terminal CSV/text reporting, with
+pinned clean source and repeatable builds. Isolated branch `ports/awk` integrates
+SrvrPorts `port/awk`; [port usage and scope](ports.md#one-true-awk) describe the
+C-locale profile and explicit exclusions. No libc/kernel changes are required.
+The Terminal report, three unchanged upstream programs, error/status handling,
+pipe/subprocess completion, process retirement and saved-disk reopen checks pass.
+Remaining delivery gates: two clean build comparisons, existing ports regression,
+then linked draft SrvrPorts/OS integration PRs. Shell quote parsing remains a
+separate integration issue; no shared review VM or physical boot is touched.
+
 ## Current theme profiles — November 3, 2026
 
 Target: complete Aero-inspired and Aqua-inspired widget/chrome profiles, live

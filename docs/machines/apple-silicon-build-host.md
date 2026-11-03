@@ -2130,3 +2130,24 @@ cleanly, retaining its disk. The new default Cocoa VM is open in
 and shows Appearance with Aero selected. Integration is PR286 with SrvrUI PR1
 and SrvrApps PR1; subsequent acceptance commits change documentation only.
 No further feature is required for the approved profiles milestone.
+
+
+### Pinned awk port — active isolated scope, November 3, 2026
+
+User authorized a separate-checkout awk milestone. Base `e376669c`, branch
+`ports/awk`, checkout `SrvrOS-ports-awk`; SrvrPorts branch `port/awk` starts at
+`0494ae2`. Independent Git/submodule directories, build caches, staging and VM
+disks preserve the integration checkout and attended review VM. This scope owns
+the pinned One True Awk adapter, image wiring and focused host/guest tests.
+PR278 remains application descriptors/Open With; PR252 remains process and I/O
+lifetimes, PR19 USB Wi-Fi. The integration chat has been notified. Any shared
+libc/kernel defect requires coordination before implementation.
+
+Target: upstream awk `5739fd79bcfc75ba7526773d0cf634521f8aca3c` (20260426)
+processes saved CSV in Terminal, writes a report and preserves exact output
+after guest disk reopen. Acceptance includes selected unchanged upstream cases,
+errors/status, pipe completion, two clean reproducible executable builds, matched
+image provenance and existing ports regression. C-locale/ASCII is the initial
+case-conversion contract; no full Unicode locale, POSIX certification or native
+hardware claim. Keep upstream clean and adaptations under `ports/srvros/awk`.
+No hosted Actions or physical boot is authorized by this scope.
