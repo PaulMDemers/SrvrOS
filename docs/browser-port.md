@@ -1,5 +1,99 @@
 # Browser engine port
 
+## Active startup milestone — November 3, 2026
+
+User authorizes diagnosing/fixing the JSC startup abort and WTF footprint fault,
+then a minimal real no-JIT JavaScript smoke. Start from OS `ccb969c3`, ports
+`af466ba` and the retained verified ELF/source/proofs. Acceptance requires the
+utility's mapped-byte/arithmetic/Unicode checks and an actual JavaScript result,
+with honest limits on collector/concurrency qualification. Preserve old binaries,
+failed guest ISOs and receipts. Own WebKit adaptations and browser diagnostics;
+inspect shared SDK/kernel ownership before any runtime fix. No success stubs,
+fabricated register contexts or competing suspension mechanism.
+
+Fetched main `c90f3522` adds installation/profile/salvage/Haswell diagnostics;
+its diff since the tested base does not change syscall/process, pthread, signal,
+C++ or math implementation. Ports main remains `ca74951` (libuv). PR317 at
+`e2457b1b` owns VMM/process/DMA hardening; PR329 owns filesystem sync/salvage,
+PR330 installation I/O, PR301 display, PR19 Wi-Fi and PR306 SQLite retain scope.
+Use the current matched SDK first to diagnose the exact retained failure.
+Resource bounds continue: two compiler jobs, one build/VM harness, 2 GiB reserve,
+6 GiB per retained JSC run; approximately 27 GiB host free at start. Protected
+review VMs 61610/6233/85869 remain live. No physical boot/disk, Actions or merge.
+
+### Confirmed startup causes and shared-runtime handoff
+
+The utility fix is verified in `build/browser-jsc/guest-8diqa2_5/receipt.json`:
+status zero and every footprint, mapped-memory delta, UInt128 decimal and scalar
+Unicode marker passes. The ELF is separately linked with the corrected source
+script while the original SDK/evidence was still preserved. A second discovered
+fixture defect was a Debug/Release C++ ABI mismatch: its missing `NDEBUG` made
+inline CString access skip eight bytes compared with the Release library layout.
+The new fixture recipe derives the real Ninja compile profile, including
+`NDEBUG` and libc++ hardening, rather than approximating it. The failing decimal
+assertion is retained in guests `guest-2i0vh_a1` and `guest-nyp5lqx2`; it was not
+weakened. The exact successful recipe is archived beside its receipt.
+
+`tools/browser_jsc_elf.py` now rejects missing or partial PT_TLS coverage of
+SHF_TLS sections, enforces the kernel's 4 KiB template/alignment limit and
+rejects dynamic/interpreter segments. It rejects both old malformed binaries
+and accepts the corrected utility ELF. The build calls this gate before recording
+success. A historical helper snapshot may be supplied explicitly when replaying
+an old immutable ELF after validation-only helper changes; its exact recorded
+hash is required and all other inputs/artifacts still have to match.
+
+The user authorized a direct owner handoff to “Review SrvrOS repository context”;
+the confirmed abort backtrace and proposed context/suspension contract were sent.
+No shared signal/context ownership agreement or implementation is claimed yet.
+Matched SDK/runtime/ICU rebuild now passes. All 17 combined runtime cases pass
+in `build/browser-runtime/guest-_liv6x0k/receipt.json`, including both new TLS/GOT
+thread-isolation cases; both writable filesystem runs pass in
+`build/browser-filesystem/guest-g8tllct7/receipt.json`. Both guests stopped.
+The current structural proof `build/browser-tls-got/proof-7252x0jm/receipt.json`
+rejects both old layouts and accepts complete PT_TLS coverage for both corrected
+layouts (zero-initialized and mixed initialized/zero TLS). Old SDK/dependency artifacts were hashed and copied to
+`build/browser-integrated/startup-baseline` before refreshing the installed SDK.
+
+CPU trace `build/browser-jsc/guest-m3bl4ghw/interrupts.log` records a CPL3 page
+fault at `signal_dispatch_pending` reading `%fs:0` with FS base zero. The first
+raw phase marker's `write()` triggers this during its post-I/O signal dispatch,
+**before the footprint query is called**. This supersedes the earlier interval
+inference attributing the utility fault to its first footprint call. The ELF's
+`.tbss` is 2,084 bytes but its PT_TLS memory size is zero. JSC similarly has a
+2,096-byte `.tbss` but advertises only 40 bytes in PT_TLS (its orphan GOT).
+A bounded target-only TLS/GOT regression reproduces the linker-script defect;
+explicit GOT placement before TLS is under verification.
+
+A hardware breakpoint on the original JSC's `abort()` gives the exact backtrace
+in `build/browser-jsc/debug-t2rszujx/lldb.log`: `main` → `WTF::initialize` →
+`Thread::initializePlatformThreading` → `RELEASE_ASSERT(signalIsInstalled)` at
+`ThreadingPOSIX.cpp:237`. The SDK rejects its `SA_RESTART | SA_SIGINFO` handler.
+No missing memory query, arithmetic failure or random-source failure has been
+established by these observations.
+
+Proposed shared signal/context work, for agreement with the runtime owner:
+
+- Deliver a directed signal asynchronously on the target user thread with its
+  interrupted x86_64 general registers, instruction/stack pointers and masks.
+  Preserve the scheduler's CR3/TLS/FPU and I/O admission/teardown contracts.
+- Supply a real public machine-context layout, validated signal frame and
+  return/trampoline path; preserve masks, nesting, atomic suspend/resume and
+  thread-exit race handling. Do not merely accept the flag or invent registers.
+- Prove async-safe semaphore publication/waiting and the suspension handshake
+  with a CPU-bound target, a root held only in a register, stack roots, repeated
+  suspend/resume, masking, exit races and refusal/failure paths before GC use.
+- Connect WebKit to that tested context. Its present `HAVE(MACHINE_CONTEXT)=0`
+  fallback captures only an approximate stack pointer and is insufficient for
+  conservative register roots even if handler installation starts succeeding.
+
+Pinned-source review found no supported option that removes this requirement:
+`useConcurrentGC=false` selects a stop-the-world scheduler (`Heap.cpp:461-469`),
+and one marker removes parallel markers (`HeapHelperPool.cpp:48`); machine-root
+scanning still suspends registered mutators (`MachineStackMarker.cpp:145-230`).
+The first owner handoff should agree the kernel/process/pthread implementation
+branch and how PR317's live process/VMM changes are consumed. No competing
+suspension implementation is being integrated in this browser branch.
+
 ## Active compilation checkpoint — November 3, 2026
 
 The compile/link target is achieved: pinned WPE WebKit 2.54.2 produces a real

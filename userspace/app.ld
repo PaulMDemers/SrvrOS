@@ -45,6 +45,13 @@ SECTIONS
         PROVIDE(__fini_array_end = .);
     } :data
 
+    /* Keep LLD's GOT out of the TLS program header, including when .tdata
+       is empty and only zero-initialized TLS is present. */
+    .got : ALIGN(0x8)
+    {
+        *(.got .got.* .igot .igot.*)
+    } :data
+
     .tdata : ALIGN(0x10)
     {
         *(.tdata*)

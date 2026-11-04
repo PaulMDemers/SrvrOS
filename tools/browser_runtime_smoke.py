@@ -15,6 +15,7 @@ import time
 
 from pack_runtime_elf import runtime_elf
 from browser_evidence import verify_runtime, verify_icu
+from browser_jsc_elf import inspect_target_elf
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -60,6 +61,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--elf', type=Path, default=ROOT / 'build/browser-runtime/cxxthreads.elf')
     parser.add_argument('--icu', action='store_true', help='also verify and exercise the pinned ICU guest twice')
+    parser.add_argument('--tls-got-receipt', type=Path, help='run the two validated TLS/GOT linker fixtures')
     parser.add_argument('--runtime-extensions', action='store_true', help='also exercise math, C++ linkage and algorithm providers')
     parser.add_argument('--signal-contract', action='store_true', help='also check the existing signal boundary')
     args = parser.parse_args()
@@ -95,13 +97,45 @@ def main():
                'dirty': subprocess.check_output(['git', 'status', '--porcelain'], cwd=ROOT, text=True),
                'artifacts': {key: {'path': str(path), 'sha256': digest(path)} for key, path in artifacts.items()},
                'harness_sha256': {name: digest(ROOT / 'tools' / name) for name in
-                                  ('browser_runtime_smoke.py', 'browser_evidence.py', 'pack_runtime_elf.py')},
+                                  ('browser_runtime_smoke.py', 'browser_evidence.py', 'pack_runtime_elf.py', 'browser_jsc_elf.py')},
                'tests': []}
     output = bytearray()
     try:
         receipt['runtime_provenance'] = verify_runtime()
         if args.icu:
             receipt['icu_provenance'] = verify_icu()
+        if args.tls_got_receipt:
+            tls_path = args.tls_got_receipt.resolve()
+            tls_data = json.loads(tls_path.read_text()); tls_hashes = tls_data['sha256']
+            if tls_data.get('result') != 'passed' or tls_data.get('sdk_headers_sha256') != receipt['runtime_provenance']['sdk_headers_sha256']:
+                raise ValueError('TLS/GOT proof missing success or mismatched SDK headers')
+            required_tls = ('tools/browser_tls_link_probe.py', 'tools/test_browser_tls_got.c', 'tools/browser_jsc_elf.py',
+                            'tools/browser_evidence.py', 'userspace/app.ld', 'build/sysroot/srvros/lib/app.ld',
+                            'build/sysroot/srvros/lib/libsrvros.a', 'build/sysroot/srvros/lib/crt0.o',
+                            'build/browser-runtime/receipt.json')
+            if not all(name in tls_hashes for name in required_tls): raise ValueError('TLS/GOT proof missing required inputs')
+            for name, expected in tls_hashes.items():
+                path=Path(name)
+                if path.is_absolute() or '..' in path.parts or not (ROOT/path).is_file() or digest(ROOT/path)!=expected:
+                    raise ValueError('TLS/GOT proof input mismatch: '+name)
+            cases = {(c['mode'],c['layout']):c for c in tls_data['cases']}
+            if len(tls_data['cases'])!=4 or set(cases)!={(a,b) for a in ('zero','initialized') for b in ('legacy','fixed')}:
+                raise ValueError('TLS/GOT proof missing exact cases')
+            for mode in ('zero','initialized'):
+                for layout in ('legacy','fixed'):
+                    case=cases[(mode,layout)]; path=Path(case['elf'])
+                    if path.is_absolute() or '..' in path.parts or not (ROOT/path).is_file() or digest(ROOT/path)!=case['sha256']:
+                        raise ValueError('TLS/GOT case artifact mismatch')
+                    try:
+                        inspect_target_elf(ROOT/path);valid=True
+                    except ValueError:
+                        valid=False
+                    if valid != (layout=='fixed'):
+                        raise ValueError('TLS/GOT independent validation mismatch')
+                    if layout=='fixed':
+                        name='tls-got-'+mode;artifacts[name]=ROOT/path
+                        receipt['artifacts'][name]={'path':str(ROOT/path),'sha256':digest(ROOT/path)}
+            receipt['tls_got_provenance']={'path':str(tls_path),'sha256':digest(tls_path)}
         if args.runtime_extensions:
             extension_receipt = ROOT / 'build/browser-runtime/extension-receipt.json'
             data = json.loads(extension_receipt.read_text()); hashes = data['sha256']
@@ -147,6 +181,8 @@ def main():
             if args.icu:
                 programs.extend([('icuprobe', 'icuprobe'), ('rttiprobe', 'rttiprobe'),
                                  ('mathprobe', 'mathprobe')])
+            if args.tls_got_receipt:
+                programs.extend((name, name) for name in ('tls-got-zero', 'tls-got-initialized'))
             if args.runtime_extensions:
                 programs.extend((name, name) for name in ('libmprobe', 'cpp-linkage', 'algorithmprobe'))
             if args.signal_contract:
@@ -201,20 +237,23 @@ def main():
                         if args.icu:
                             tests = [('mathprobe', 0), ('rttiprobe', 0), ('badcast', 134), ('icuprobe', 0),
                                      *tests, ('icuprobe', 0)]
+                        if args.tls_got_receipt:
+                            tests.extend((name,0) for name in ('tls-got-zero', 'tls-got-initialized'))
                         if args.runtime_extensions:
                             tests.extend((name, 0) for name in ('libmprobe', 'cpp-linkage', 'algorithmprobe'))
                         if args.signal_contract:
                             tests.append(('signal-contract', 0))
                         for mode, status in tests:
                             start = time.monotonic()
-                            command = (f'run /{mode}' if mode in ('tlsfirst', 'cxxprobe', 'cxxstlprobe', 'icuprobe', 'rttiprobe', 'mathprobe', 'signal-contract', 'libmprobe', 'cpp-linkage', 'algorithmprobe')
+                            command = (f'run /{mode}' if mode in ('tlsfirst', 'cxxprobe', 'cxxstlprobe', 'icuprobe', 'rttiprobe', 'mathprobe', 'signal-contract', 'libmprobe', 'cpp-linkage', 'algorithmprobe', 'tls-got-zero', 'tls-got-initialized')
                                        else 'run /rttiprobe badcast' if mode == 'badcast'
                                        else f'run /cxxthreads {mode}')
                             sock.sendall((command + '\n').encode())
                             result = receive_run(sock, 90 if mode == 'icuprobe' else 45)
                             output.extend(result)
                             exits = re.findall(rb'run: pid=\d+ exited status=(\d+)', result)
-                            marker = (b'libmprobe: ok' if mode == 'libmprobe' else
+                            marker = (b'tls-got: ok' if mode in ('tls-got-zero', 'tls-got-initialized') else
+                                      b'libmprobe: ok' if mode == 'libmprobe' else
                                       b'browser-c-linkage: ok' if mode == 'cpp-linkage' else
                                       b'browser-algorithm: ok' if mode == 'algorithmprobe' else
                                       b'browser-signal-contract: siginfo rejected; handler preserved' if mode == 'signal-contract' else
@@ -225,7 +264,7 @@ def main():
                                       b'cxxthreads: capacity=8; next construction must abort')
                             ok = (marker in result and exits == [str(status).encode()] and
                                   b'srv> ' in result and b'exception:' not in result)
-                            if mode in ('cxxprobe', 'cxxstlprobe', 'icuprobe', 'rttiprobe', 'mathprobe', 'signal-contract', 'libmprobe', 'cpp-linkage', 'algorithmprobe'):
+                            if mode in ('cxxprobe', 'cxxstlprobe', 'icuprobe', 'rttiprobe', 'mathprobe', 'signal-contract', 'libmprobe', 'cpp-linkage', 'algorithmprobe', 'tls-got-zero', 'tls-got-initialized'):
                                 ok = ok and result.count(marker) == 1
                             elif mode == 'badcast':
                                 ok = (ok and result.count(marker) == 1 and b'rttiprobe: ok' not in result

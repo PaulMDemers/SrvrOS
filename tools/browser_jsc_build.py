@@ -16,6 +16,7 @@ import tempfile
 import time
 from browser_probe import ARCHIVE, DIGEST, LIMIT, ROOT, SIZE, sha
 from browser_evidence import verify_runtime, verify_icu
+from browser_jsc_elf import inspect_target_elf
 
 base = ROOT / 'build/browser-jsc'
 port = ROOT / 'ports/srvros/webkit'
@@ -234,7 +235,7 @@ try:
         raise RuntimeError('pinned WPE archive absent or invalid')
     receipt['source_observation_only'] = subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()
     receipt['dirty_observation_only'] = subprocess.check_output(['git','status','--porcelain'],cwd=ROOT,text=True)
-    for path in [Path(__file__), ARCHIVE, *sorted(port.glob('*'))]:
+    for path in [Path(__file__), ROOT/'tools/browser_jsc_elf.py', ARCHIVE, *sorted(port.glob('*'))]:
         if path.is_file(): receipt['inputs'][str(path.relative_to(ROOT))] = sha(path)
     if not args.resume:
         total = 0
@@ -502,11 +503,7 @@ try:
     if not all(name in archives for name in ('libJavaScriptCore.a', 'libWTF.a', 'libbmalloc.a')):
         raise RuntimeError('expected target archives missing')
     jsc = next(p for p in outputs if p.name == 'jsc')
-    with jsc.open('rb') as f: head = f.read(64)
-    if len(head) < 64 or head[:6] != b'\x7fELF\x02\x01' or struct.unpack('<H', head[16:18])[0] != 2 or struct.unpack('<H', head[18:20])[0] != 62:
-        raise RuntimeError('jsc is not a static ELF64 x86_64 executable')
-    receipt['jsc_elf'] = {'type': 'ET_EXEC', 'machine': 'x86_64', 'entry': struct.unpack_from('<Q', head, 24)[0],
-                          'program_headers': struct.unpack_from('<H', head, 56)[0]}
+    receipt['jsc_elf'] = inspect_target_elf(jsc)
     receipt['target_archives'] = archives
     receipt['outputs'] = {str(p.relative_to(ROOT)): sha(p) for p in outputs}
     receipt['result'] = 'built; not executed'

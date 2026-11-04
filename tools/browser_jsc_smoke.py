@@ -22,6 +22,9 @@ parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--jsc-receipt', type=Path, required=True)
 parser.add_argument('--wtf-elf', type=Path, required=True)
 parser.add_argument('--fixture-receipt', type=Path, required=True)
+parser.add_argument('--build-helper-snapshot', type=Path, help='exact archived recipe for replaying a historical ELF after helper-only changes')
+parser.add_argument('--qemu-interrupt-log', action='store_true', help='record target exceptions/interrupt registers for diagnosis')
+parser.add_argument('--require-success', action='store_true', help='require status zero and exact fixture/JavaScript success markers')
 parser.add_argument('--wtf-only', action='store_true', help='run only the utility fixture')
 args=parser.parse_args()
 base = ROOT/'build/browser-jsc'
@@ -38,9 +41,15 @@ def sha(path):
         for block in iter(lambda: stream.read(1024*1024), b''): h.update(block)
     return h.hexdigest()
 
-def check_hashes(mapping):
+def check_hashes(mapping, historical_recipe=False):
     for name, expected in mapping.items():
         path = Path(name)
+        if historical_recipe and name == 'tools/browser_jsc_build.py' and args.build_helper_snapshot:
+            snapshot = args.build_helper_snapshot.resolve()
+            if not snapshot.is_relative_to(base.resolve()) or sha(snapshot) != expected:
+                raise ValueError('historical build-helper snapshot mismatch')
+            receipt['historical_build_helper'] = {'path': str(snapshot.relative_to(ROOT)), 'sha256': expected}
+            continue
         if path.is_absolute() or '..' in path.parts or not (ROOT/path).is_file() or sha(ROOT/path) != expected:
             raise ValueError('input hash mismatch: '+name)
 
@@ -53,7 +62,7 @@ try:
     if jsc.get('result')!='built; not executed' or fixture.get('result')!='linked; not run': raise ValueError('build receipts are not successful')
     if jsc['runtime']['sha256']!=runtime['sha256'] or jsc['icu']['sha256']!=icu['sha256']:
         raise ValueError('JSC runtime or ICU proof changed')
-    check_hashes(jsc['inputs']);check_hashes(jsc['outputs']);check_hashes(fixture['sha256'])
+    check_hashes(jsc['inputs'], historical_recipe=True);check_hashes(jsc['outputs']);check_hashes(fixture['sha256'])
     if fixture['jsc_source_sha256']!=jsc['verified_final_source_sha256'] or fixture['jsc_build_identifier']!=jsc['build_identifier']['sha256']:
         raise ValueError('fixture and JSC build identity differ')
     math_guest=ROOT/jsc['math_provider']['guest_receipt']; math=json.loads(math_guest.read_text())
@@ -88,6 +97,8 @@ try:
     receipt['iso_sha256']=sha(iso)
     with tempfile.TemporaryDirectory(prefix='srv-jsc-',dir='/tmp') as tmp:
         serial=str(Path(tmp)/'serial');cmd=['qemu-system-x86_64','-name','SrvrOS JSC bounded observation','-machine','q35','-accel','tcg,thread=single','-cpu','qemu64','-smp','1','-m','1024M','-cdrom',str(iso),'-boot','d','-display','none','-nic','none','-serial',f'unix:{serial},server=on,wait=off','-monitor','none','-no-reboot']
+        if args.qemu_interrupt_log:
+            cmd += ['-d', 'int', '-D', str(out/'interrupts.log')]
         receipt['qemu_command']=cmd
         with (out/'qemu.log').open('wb') as log:
             proc=subprocess.Popen(cmd,stdout=log,stderr=subprocess.STDOUT);receipt['pid']=proc.pid
@@ -110,18 +121,25 @@ try:
                         marker=b'wtfprobe: ok' if name=='wtfprobe' else b'42'
                         marker_found=(marker in result if name=='wtfprobe' else bool(re.search(rb'(?:^|\r?\n)42\r?\n',result)))
                         completed=len(exits)==1 and b'srv> ' in result
-                        receipt['tests'].append({'name':name,'exit_status':int(exits[0]) if len(exits)==1 else None,'marker_found':marker_found,'completed':completed,'seconds':round(time.monotonic()-start,3)})
+                        passed = (completed and exits == [b'0'] and marker_found and b'exception:' not in result)
+                        if name=='wtfprobe': passed = passed and result.count(marker)==1
+                        else: passed = passed and len(re.findall(rb'(?:^|\r?\n)42\r?\n',result))==1
+                        receipt['tests'].append({'name':name,'exit_status':int(exits[0]) if len(exits)==1 else None,'marker_found':marker_found,'completed':completed,'passed':passed,'seconds':round(time.monotonic()-start,3)})
                         if not completed: raise RuntimeError(name+' did not return a monitor exit receipt')
             finally:
                 if proc.poll() is None: proc.terminate()
                 try:proc.wait(timeout=5)
                 except subprocess.TimeoutExpired:proc.kill();proc.wait(timeout=5)
                 receipt['guest_stopped']=proc.poll() is not None
-    receipt['result']='observed'
+    if args.require_success and not all(test['passed'] for test in receipt['tests']):
+        raise RuntimeError('guest smoke did not produce every required successful result')
+    receipt['result']='passed' if args.require_success else 'observed'
 except (OSError,ValueError,KeyError,RuntimeError,subprocess.SubprocessError,tarfile.TarError) as error:
     receipt['result']='failed';receipt['error']=str(error)
 finally:
+    if (out/'interrupts.log').is_file():
+        receipt['interrupt_log'] = {'path': str((out/'interrupts.log').relative_to(ROOT)), 'sha256': sha(out/'interrupts.log'), 'bytes': (out/'interrupts.log').stat().st_size}
     (out/'serial.log').write_bytes(serial_data)
     (out/'receipt.json').write_text(json.dumps(receipt,indent=2)+'\n')
     print('Guest receipt:',out/'receipt.json','result:',receipt['result'])
-if receipt['result']!='observed':sys.exit(1)
+if receipt['result'] not in ('observed','passed'):sys.exit(1)
