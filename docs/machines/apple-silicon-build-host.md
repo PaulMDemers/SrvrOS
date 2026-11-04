@@ -1,5 +1,32 @@
 # Apple Silicon macOS build host
 
+## PR338 managed filesystem merge review
+
+Review consumes main `a37eb7b2`, then `f0c88a6d` and `b78e3ed5`, preserving all
+host notices. Revalidated all 154 original evidence hashes. After jq changed the
+runtime image, matched `1e83ee2c` passes fresh three-boot managed USB qualification
+and all 11 canonical/CLI cases. Complete fresh proof backups are independently
+cloned/hashed (154 files) at `.local/filesystem-evidence/pr338-review/`. Focused
+host checks and 19 installation-inspection tests pass using the documented Darwin
+feature macro. PR317 owner reports no current blocker; explicit slot/terminal
+work stays separate. Review VMs 61610, 6233 and 85869 remain untouched; all review
+guests stopped. See the [filesystem contract](../filesystem-layout.md) for limits
+and the next proposed late-flush proof. User authorized merge if ready.
+
+## Managed USB workspace filesystem proof
+
+Isolated `SrvrOS-filesystem`, branch
+`device/apple-silicon/filesystem-managed-salvage`, consumes main `5634cd9d` and
+subsequently `62b0708e`. PR317 lifetime review precedes the fixture-only BOT fault;
+no terminal stop/reclaim or production process/block/driver changes. Matched
+`3c480516` passes clean control, retained-reader salvage/failed retirement and
+restart readback through actual workspace commands; canonical compatibility
+passes all 11 cases. Combined `351eb986` produces identical tested payloads.
+The [filesystem contract](../filesystem-layout.md) records exact limits and
+154-file SHA-256-verified backups outside build cleanup. All task VMs stopped;
+review VMs 61610, 6233 and 85869 and primary checkout remain untouched. Delivery
+is a scoped draft PR; no physical trial, hosted Actions or merge requested.
+
 ## PR336 integrated-main merge review — ready
 
 User authorizes review and merge if ready. Reuse the isolated

@@ -120,3 +120,71 @@ int destination_open_test(void) {
     printf("destination-open: %s\n",ok?"PASS":"FAIL");
     return ok?0:1;
 }
+
+/* Disposable prepared USB workspace proof. Control files stay on healthy /home
+ * and never add a hidden /work reference while the monitor tests retirement. */
+static const char *managed_source="/work/srvros-work/source";
+static const char *managed_copy="/home/.managed-salvage-copy";
+static const char managed_original[]="managed-workspace-source-v1\n";
+static int managed_verify(const char *path,int payload) {
+    int fd=open(path,O_RDONLY),ok=fd>=0;
+    if(ok && payload)ok=dirty_reader(fd);
+    else if(ok) {
+        char bytes[sizeof(managed_original)];
+        ok=read(fd,bytes,sizeof(bytes))==sizeof(managed_original)-1 &&
+            !memcmp(bytes,managed_original,sizeof(managed_original)-1);
+    }
+    if(fd>=0 && close(fd))ok=0;
+    return ok;
+}
+static int managed_wait(const char *path) {
+    struct stat st;
+    for(unsigned i=0;i<2400;i++) {
+        if(!stat(path,&st))return !unlink(path);
+        usleep(50000);
+    }
+    return 0;
+}
+int managed_salvage_launch(void) {
+    char *argv[]={"sysabi","--managed-salvage-hold",NULL};
+    struct srv_exec_request request={.path="/bin/sysabi",.argv=argv,.envp=environ,
+        .flags=SRV_EXEC_BACKGROUND,.stdin_fd=-1,.stdout_fd=-1,.stderr_fd=-1};
+    return srv_exec(&request)>0?0:1;
+}
+int managed_salvage_test(const char *mode) {
+    if(strcmp(mode,"hold") && strcmp(mode,"control") && strcmp(mode,"reopen"))return 1;
+    int writer=-1,reader=-1,ok=1,control=!strcmp(mode,"control");
+    for(unsigned i=0;i<sizeof(dirty_payload);i++)dirty_payload[i]=(unsigned char)(i*43+23);
+    if(!strcmp(mode,"reopen")) {
+        ok=managed_verify(managed_copy,1) && managed_verify("/fat/home/.managed-salvage-copy",1) && managed_verify(managed_source,0);
+        if(ok)ok=!unlink(managed_copy);
+        printf("managed-salvage: reopen %s\n",ok?"PASS":"FAIL");return ok?0:1;
+    }
+    struct stat st;
+    if(!managed_verify(managed_source,0) || !stat(managed_copy,&st) ||
+        !stat("/home/.managed-copy-go",&st) || !stat("/home/.managed-close-go",&st))ok=0;
+    if(ok) {writer=open(managed_source,O_RDWR);reader=open(managed_source,O_RDONLY);ok=writer>=0 && reader>=0;}
+    if(ok)ok=write(writer,dirty_payload,sizeof(dirty_payload))==sizeof(dirty_payload);
+    if(ok) {errno=0;int result=fsync(writer);ok=control?result==0:result<0 && errno==EIO;}
+    if(writer>=0) {errno=0;int result=close(writer);if(control?result!=0:result>=0 || errno!=EIO)ok=0;writer=-1;}
+    if(ok)ok=dirty_reader(reader);
+    if(ok && !control) {
+        puts("managed-salvage: source fsync/close EIO; held PASS");
+        ok=managed_wait("/home/.managed-copy-go");
+        if(ok)ok=run_consumer(reader,"/work/srvros-work/denied",1) &&
+            fcntl(reader,F_GETFD)>=0 && lseek(reader,0,SEEK_CUR)==37 && dirty_reader(reader) &&
+            stat("/work/srvros-work/denied",&st)<0;
+    }
+    if(ok)ok=run_consumer(reader,managed_copy,0) && fcntl(reader,F_GETFD)>=0 &&
+        lseek(reader,0,SEEK_CUR)==37 && dirty_reader(reader) && managed_verify(managed_copy,1) &&
+        managed_verify("/fat/home/.managed-salvage-copy",1);
+    if(ok && !control) {
+        puts("managed-salvage: copied; reader held PASS");
+        ok=managed_wait("/home/.managed-close-go");
+        if(ok) {errno=0;ok=fsync(reader)<0 && errno==EIO && srv_sync()<0;}
+    }
+    if(reader>=0) {errno=0;int result=close(reader);if(control?result!=0:result>=0 || errno!=EIO)ok=0;reader=-1;}
+    if(ok && control)ok=!unlink(managed_copy);
+    printf("managed-salvage: %s %s\n",control?"control":"closed",ok?"PASS":"FAIL");
+    return ok?0:1;
+}
