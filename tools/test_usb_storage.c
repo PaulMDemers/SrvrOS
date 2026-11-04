@@ -19,7 +19,7 @@ static uint8_t disk[65536], cdb[16];
 static uint32_t tag, length, done;
 static unsigned data_calls, fault_chunk, checkpoints;
 static unsigned phase, calls, writes, syncs, senses, tur_failures, fault;
-static bool empty, claim_busy;
+static bool empty, claim_busy,retire_during_attach;
 static uint32_t sector_bytes=512;
 static unsigned diagnosed;
 static void diagnose(void *ctx) { assert(ctx==&storage);diagnosed++; }
@@ -38,6 +38,7 @@ static unsigned gpt_scans, mbr_scans, gpt_found;
 uint64_t block_register_gpt_partitions(struct block_device *d) { assert(d==&block); gpt_scans++; return gpt_found; }
 uint64_t block_register_mbr_partitions(struct block_device *d) { assert(d==&block); mbr_scans++; return 0; }
 static bool bulk(void *ctx,bool in,void *data,uint32_t n,uint32_t *actual) {
+    if(retire_during_attach) {retire_during_attach=false;assert(storage.initializing && !usb_storage_retire(&storage));}
     assert(ctx==&storage); if(regress_clock) clock_us--; else clock_us+=(phase+1)*10; calls++; *actual=n;
     if(fault==1) return false;
     if((fault==10 && phase==2) || (fault==11 && phase==1)) { *actual=0;return false; }
@@ -205,7 +206,46 @@ static void test_runtime_status(void) {
         assert(!block.flush(&block) && calls==before && storage.failed && block.offline && block.used);
     }
 }
+static unsigned retired_diagnostics;
+static void retiring_diagnostic(void *context) {
+    assert(context==&storage && storage.diagnostic_users==1);
+    assert(!usb_storage_retire(&storage) && block.private_data==&storage);
+    retired_diagnostics++;
+    if(retired_diagnostics==1)usb_storage_print_status(&block); /* New diagnostic admission is closed. */
+}
+static void test_retire(void) {
+    reset();retire_during_attach=true;
+    assert(!usb_storage_attach(&storage,&storage,bulk,true));
+    assert(!retire_during_attach && !storage.initializing && storage.retiring && !storage.block);
+    assert(usb_storage_retire(&storage));
+    reset();assert(usb_storage_attach(&storage,&storage,bulk,true));
+    block_read_fn saved_read=block.read;block_write_fn saved_write=block.write;
+    block_flush_fn saved_flush=block.flush;uint64_t sectors=block.block_count;
+    storage.busy=true;unsigned before=calls;uint8_t data[512];memset(data,0xcc,sizeof(data));
+    assert(!usb_storage_retire(&storage) && storage.failed && block.offline && block.private_data==&storage);
+    assert(!saved_read(&block,0,data,sizeof(data)) && calls==before);
+    storage.busy=false;storage.diagnostic_users=1;
+    assert(!usb_storage_retire(&storage) && block.read==saved_read);
+    storage.diagnostic_users=0;
+    assert(usb_storage_retire(&storage) && storage.retired && block.used && block.block_count==sectors);
+    assert(!block.private_data && block.read==retired_read && block.write==retired_write && block.flush==retired_flush && !storage.context && !storage.bulk);
+    for(unsigned i=0;i<4;i++) {
+        assert(usb_storage_retire(&storage));
+        assert(!saved_read(&block,0,data,sizeof(data)) && !saved_write(&block,0,data,sizeof(data)) && !saved_flush(&block));
+        for(unsigned j=0;j<sizeof(data);j++)assert(data[j]==0xcc);
+        assert(calls==before && irq_enabled);
+    }
+    assert(!usb_storage_enable_volume_writes(&block) && !usb_storage_disable_volume_writes(&block));
+    reset();assert(usb_storage_attach(&storage,&storage,bulk,true));
+    retired_diagnostics=0;storage.diagnose=retiring_diagnostic;
+    usb_storage_print_status(&block);
+    assert(retired_diagnostics==1 && !storage.diagnostic_users && !storage.retired && irq_enabled);
+    assert(usb_storage_retire(&storage));usb_storage_print_status(&block);
+    assert(retired_diagnostics==1 && irq_enabled);
+    puts("usb-storage-retire: PASS busy/diagnostic references, offline tombstones and stale raw callbacks");
+}
 int main(void) {
+    test_retire();
     reset();assert(usb_storage_attach(&storage,&storage,bulk,true));
     unsigned attached_calls=calls;
     assert(!usb_storage_attach(&storage,&storage,bulk,true) && calls==attached_calls);

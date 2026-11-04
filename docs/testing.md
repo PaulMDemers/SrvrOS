@@ -1460,3 +1460,276 @@ Q35 guest. These tests do not enable or validate native firmware ownership.
 variable conversion, minimum-value formatting and nested short-circuit parsing.
 The full CLI smoke checks these paths in the rebuilt guest, including error
 status 2 without terminating the shell. The host fixture is also in `test-core`.
+
+
+### Deterministic fault/writeback teardown
+
+`make test-process-output` includes a `teardown` invocation: twelve controlled
+schedules execute the actual user-fault dispatcher and process exit/cleanup with
+modeled scheduler and storage boundaries. It covers foreign dirty-writeback
+admission, worker fault and parked initial continuation, inherited descriptions,
+clean/sticky failures, status and retirement ordering. Run the built
+`build/tests/process-output-host teardown` directly to select only those cases.
+The [kernel audit](audit-kernel-isolation-2026-11-03.md) records negative controls,
+sanitizers and guest evidence, and distinguishes modeled callbacks from real
+context switches and physical storage.
+
+
+`make test-process-service` also checks bulk protection and private-msync service
+windows, unsorted mapping records, coherent PTE/flags publication, sparse
+PROT_NONE reservations, inherited/foreign ownership, partial failure/retry and
+failed-mmap suffix rollback. The fixture checks operation counts and ownership,
+not a hardware IRQ-latency deadline. `make test-futex-contracts` retains the
+protection-revocation regression against the private index-based update helper.
+
+The service fixture also copies 256 KiB to a destination at page offset 17,
+checking that page-count checkpoints occur and bytes outside the destination
+remain untouched. Byte-modulo checkpoint accounting fails this case even when
+the copy succeeds. Atomic startup/TLS copies retain their explicit no-service
+contract.
+
+
+`test-process-service` compares free virtual-range selection with an independent
+page-by-page oracle (3,072 occupancy/length/hint cases) and checks the off-stride
+fit through public mmap. `test-pmm` checks size-specific exhaustion hints, freed
+bridging runs and exact first-fit addresses alongside its randomized oracle.
+`tools/bench_heap_startup.c` records the retained heap validation workload; its
+host replay timings are not an IRQ-latency deadline. See the
+[kernel audit](audit-kernel-isolation-2026-11-03.md) for counts and limitations.
+
+
+PMM cost regressions also check cold occupied-prefix probe counts, free runs
+crossing a 64-frame group, and one hint-maintenance pass per multi-frame free.
+These are work-count checks; poisoning remains complete and IRQ-excluded.
+
+
+`test-storage` checks all four pre-publication AHCI DMA allocation failures and
+keeps its existing timeout/pinned-backing cases. `test-process-service` checks
+private exec-image zeroing, owner retention, OOM and foreign-owner refusal.
+These tests preserve the distinction between unpublished allocation rollback
+and device-owned backing that requires proven quiescence before reuse.
+
+
+`make test-e1000-init` runs four separate boot-attempt scenarios (success, absent
+device, mapping failure and allocation failure). Repeated entry must preserve
+DMA data, software indices, MMIO/PCI and provider state. It uses modeled hardware
+with the actual driver and does not accept native reset or hotplug behavior.
+
+
+`test-xhci` includes repeated boot-entry preservation of seeded controller, DMA,
+quarantine and worker records. `test-display-present` verifies uncertain reset
+retains switched staging and its owner; `test-display-owner` remains a diagnostic
+predicate/reference model without hardware write authority.
+
+
+`test-xhci` also requires exact command completion pointers and unchanged slot
+output on failure. It covers nested refusal, two ring wraps/Link cycles, sticky
+timeout containment and late events followed by saturation refusal without ring
+mutation or frees. Storage late completion must retain quarantine and backing.
+The host-only command timeout override keeps failure tests bounded; production
+poll limits are unchanged. These are modeled MMIO/event tests, not physical
+removal or command-reset acceptance.
+
+
+`test-xhci` now includes root unplug/reconnect and EP0 failure containment. It
+requires no late HID injection/rearm, cleared keyboard repeat, retained pending
+backing, refusal to enumerate an occupied root, and unchanged control rings on
+retry after timeout/error. Failed enumeration records must remain distinct even
+when no device has yet been successfully addressed.
+
+`python3 tools/usb_removal_smoke.py --iso PATH --disk PATH` boots an existing ISO
+with a disposable disk copy and an emulated USB keyboard/tablet. QMP removes and
+replaces both devices on the same ports; the old slots must remain unconfigured,
+without new command completions, and sysabi must pass afterward. It retains logs
+under `build/review/usb-removal` (override with `--output`) and stops its guest.
+This accepts containment on replug, not successful runtime re-enumeration. Use
+`--qemu` for the installed emulator path. No physical removal/reset acceptance is
+implied.
+
+
+`test-xhci` links the actual block/cache and claim sources into its host fixture.
+The USB provider-retirement case primes parent, alias and independent caches;
+root removal must refuse parent/alias reads without changing caller buffers,
+preserve the healthy cache and retain the claim until ordinary owner release.
+Fatal HID error/residue cases must stop polling/repeat and ignore late reports.
+Network send/poll/service entry tests must observe root replacement before new
+work, retaining pending DMA. A continuously refilled stale-event stream must
+consume at most 64 events per service turn across ring cycle changes. The MMIO
+model observes both halves of 64-bit writes. Software draining does not prove
+endpoint/controller quiescence or authorize freeing DMA/provider records.
+
+
+`test-virtio-net` now retains provider callbacks during and after DMA retirement,
+including TX failure triggered from RX delivery. Successful reset must precede
+every free, failed reset must pin backing, packet delivery must use a private
+copy, and callback reentry/repetition must refuse work while preserving foreign
+CR3 and both IRQ states. An injected free-before-stop control must fail.
+`test-virtio-pci` also rejects a stop whose reset completes but whose PCI disable
+write does not take effect, retaining queue identities and sticky quarantine.
+These actual-source fixtures model the transport/PCI hardware and registration;
+they do not qualify physical reset or SMP reclamation.
+
+
+`test-net-device` covers irreversible `net_device_retire` admission, callbacks
+retiring themselves with outstanding/nested references, and context/name freeing
+only after a drained result. Subsequent send/poll/link/wake/inventory calls must
+avoid the freed context while retaining registry-owned metadata and selection.
+Unknown identities refuse retirement; tombstones cannot rebind or fail over.
+
+`test-xhci` covers terminal halt/drain, inaccessible/stale MMIO acknowledgements,
+firmware/CR3 refusal, explicit synchronous owners, provider reference refusal,
+in-call command/control/bulk cancellation, bounded continuous events, retries and
+idempotence without freeing backing. The prior halt helper fails the invalid-MMIO
+regression. `tools/usb_removal_smoke.py --terminal-stop --iso PATH --disk PATH`
+additionally runs `xhcistop` twice with live emulated input before QMP replug and
+sysabi; use its normal `--qemu`/`--output` options as needed. This is terminal
+shutdown; USB input cannot restart in that boot. It does not prove storage/worker
+reference release, physical reset or safe xHCI allocation reclamation.
+
+
+`test-usb-retire-block` combines actual USB retirement, block/cache and claim
+code. It requires stable offline parent/alias descriptors, unchanged failed-read
+buffers, safe saved callbacks, retained claim release, healthy cache preservation
+and continued global flush refusal for a retired writable disk. Removing the
+write tombstone is an explicit failing control. `test-usb-storage` also checks
+initializer/request/diagnostic ownership and closed diagnostic admission.
+
+`test-xhci` allocates 513 scratchpads plus two metadata pages and endpoint/controller
+backing for reclamation. Every free is poisoned and checked against halt/PCI/
+worker/poll/probe gates; all pages must retire exactly once in batches of at most
+16. Retained metadata and post-release entry points stay usable without DMA.
+
+`tools/usb_removal_smoke.py --reclaim --usb-storage --iso PATH --disk PATH` adds a
+separate disposable USB-storage disk copy, invokes terminal stop and bounded
+reclaim until completion, repeats reclaim, then performs input replug and sysabi.
+`--qemu` and `--output` select emulator/log paths. This is terminal DMA retirement,
+not reset/re-enumeration, managed-workspace unmount or physical acceptance.
+
+
+### Explicit xHCI slot retirement
+
+`test-xhci` exercises actual driver helpers with modeled MMIO: subtree admission,
+provider drain, one-command child-first Disable Slot progress, wrong-slot/timeout
+refusal, retained backing, duplicate live slot containment, startup readback and
+hub route exhaustion. Use `xhcislot <1..255>` at the kernel monitor only for an
+explicit retirement trial. `pending-or-unproven` may require retry after progress
+or owner release; no DMA is freed. Retired block/network identities remain offline.
+Neither successful retirement nor `xhci_init` enables runtime re-enumeration.
+
+The disposable Q35 proof can retire slots before whole-controller reclamation:
+
+```sh
+python3 tools/usb_removal_smoke.py --iso /absolute/candidate.iso \
+  --disk /absolute/source.exfat --retire-slots --reclaim --usb-storage
+```
+
+The harness copies both disks, disables each storage/input slot, repeats retirement,
+then verifies terminal halt/reclaim, input unplug/replug containment and sysabi.
+It does not prove managed writable-workspace salvage, live hotplug recovery, native
+hardware or SMP retirement. Keep existing review VMs outside the harness untouched.
+
+
+### Hub removal and EP0 protocol-STALL recovery
+
+`test-xhci` now covers asynchronous USB2 hub status, missed disconnect/reconnect,
+child/descendant quarantine with sibling preservation, short/timeout refusal, hub
+reset acknowledgement and exact Setup/Data/Status error matching. Recovery tests
+verify Halted → Reset Endpoint → Stopped → fresh Set TR Dequeue publication, plus
+command/state/owner/storage/TT refusal and pinned old/replacement ring accounting.
+
+```sh
+python3 tools/usb_hub_smoke.py --iso /absolute/candidate.iso \
+  --disk /absolute/source.exfat --qemu qemu-system-x86_64
+```
+
+The disposable Q35 fixture boots a hub with a keyboard and a root-attached tablet.
+It runs `xhciep0check <tablet-slot>` (invalid read-only descriptor → protocol STALL
+→ explicit EP0 reset/fresh dequeue → valid descriptor), removes/replaces the hub
+keyboard without dropping the root link, verifies tablet/hub survival and no old
+slot revival, then retires children before the hub and performs terminal reclaim
+and sysabi. Both DMA rings remain pinned until terminal halt/reference retirement.
+`xhciep0 <slot>` only recovers a previously acknowledged EP0 STALL, once; it
+refuses timed-out DMA and published storage. Routed recovery requires validated
+ancestry and, where applicable, the serialized single-TT cleanup described below.
+No bulk retry, generic class recovery, hotplug re-enumeration or controller restart
+is implied. The harness owns/stops its guest and copies the disk; preserve review VMs.
+
+
+### Nested USB2 hubs and shared endpoint recovery
+
+```sh
+python3 tools/usb_hub_smoke.py --iso /absolute/candidate.iso \
+  --disk /absolute/source.exfat --nested --interrupt-recovery
+```
+
+Two full-speed hubs lead to the keyboard; a root tablet exercises real EP0 STALL
+recovery and command-acknowledged interrupt Stop Endpoint → fresh dequeue → new
+input. Downstream remove/replacement stays quarantined, siblings survive, and
+child-first retirement/terminal reclaim/sysabi follow. High-speed TT boundaries
+and think-time fields are covered by actual helper tests in both context sizes,
+not a physical high-speed hub claim. Normal startup selects single-TT alternate
+zero; it does not select a multi-TT interface.
+
+`xhcireset <slot> <dci>` explicitly recovers acknowledged EP0/HID STALLs only,
+with stable routed identity and the applicable single-TT cleanup gate.
+HID recovery requires Reset Endpoint → device clear-halt → fresh Set Dequeue;
+`test-xhci` checks that exact order and negative stages. The explicit
+`xhciintrcheck <slot>` diagnostic uses an owned Stop proof instead, preserving
+data toggles (no reset/clear-halt on an already-stopped healthy poll). QEMU rejected
+the attempted SET_FEATURE interrupt-halt injector, so actual HID STALL clear-halt
+is host-modeled coverage, not VM/native acceptance. Timeouts, published storage,
+network/bulk/isochronous endpoints, unsupported multi-TT/owner states and repeated
+attempts refuse.
+Old/staged rings remain tracked until terminal controller reclaim.
+
+
+### Shared-TT cleanup and class cancellation
+
+```sh
+python3 tools/usb_hub_smoke.py --iso /absolute/candidate.iso \
+  --disk /absolute/source.exfat --nested --interrupt-recovery --routed-recovery
+```
+
+The extra flag verifies EP0 recovery on the keyboard behind two full-speed hubs,
+which have no high-speed TT. It does not qualify high-speed cleanup on hardware.
+Host xHCI fixtures model a shared HS translator above an FS hub: require the
+actual hardware USB address (different from slot ID), stable addressed/configured
+contexts, both EP0 directions and single-TT index 1, plus a hub EP0 lease. Test
+owner-busy/poll exclusion, missing/changed identity, first/second cleanup failure,
+command timeout and closed dependent branches. Never send CLEAR_TT_BUFFER for a
+periodic endpoint or issue RESET_TT. DMA stays tracked on every failed stage.
+
+Class cancellation tests require removal to make a yielded bulk waiter ready and
+wake it without claiming pending DMA completed; the caller's output remains
+unchanged and no request retries. Unsafe TT-backed bulk/network ownership closes
+its slow-speed dependent domain; failed hub EP0 closes the whole subtree.
+`test-pointer` verifies independent USB/PS2/VirtIO button ownership and MOUSE_CANCEL
+without a click-producing release. XHCI tests require cancellation on removal,
+endpoint failure and explicit stop; source identities are static boot-lifetime
+software records. Generic storage/network restart and ambiguous write replay stay
+unavailable; terminal reference/hardware proofs still precede DMA release.
+
+
+### HID report recovery and restart refusal
+
+`test-xhci` delivers actual Transfer Events for every short length below the
+accepted boot-keyboard (8 bytes), relative-mouse (3) and absolute-pointer (5)
+minima. A successful USB transfer can still carry an incomplete class report:
+count it as a class error, cancel that device's held input/repeat and absolute
+baseline, then rearm the healthy endpoint. Parse mouse coordinates from actual
+transferred bytes, never endpoint capacity. A subsequent valid report resumes
+input; the first absolute report establishes a fresh baseline. Equal relative
+reports each deliver movement; only absolute state can be deduplicated.
+
+The fixture also requires published storage, registered network, ambiguous bulk
+and trackpad-only endpoint recovery to refuse without command submission,
+allocation or state mutation. Existing transport/retirement tests retain the
+no-replay, provider-reference and hardware-quiescence requirements. No automatic
+class restart or device re-enumeration is enabled.
+
+Repeated public initialization is checked at modeled failed firmware handoff,
+partial allocation, worker retirement, every bounded reclaim batch and completed
+reclamation. It must preserve controller/device metadata, allocations, provider
+identity and worker state without PCI rediscovery or MMIO writes. Terminal private
+start/reset helpers refuse too. These are one-attempt boot-lifetime guards, not
+support for a new controller generation or proof that hardware can restart.

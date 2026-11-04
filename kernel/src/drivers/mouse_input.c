@@ -14,7 +14,7 @@ static struct input_timing queue_oldest,queue_latest;
 static struct scheduler_wait_queue input_waiters;
 struct scheduler_wait_queue *mouse_wait_queue(void) { return &input_waiters; }
 static uint64_t overflows;
-#define MOUSE_SOURCES (2 + MOUSE_VIRTIO_SOURCES)
+#define MOUSE_SOURCES (2 + MOUSE_VIRTIO_SOURCES + MOUSE_USB_SOURCES)
 static uint8_t source_buttons[MOUSE_SOURCES],blocked[MOUSE_SOURCES];
 static uint8_t combined_buttons(void) {
     uint8_t buttons=0;
@@ -173,4 +173,11 @@ void mouse_inject_virtio_absolute(unsigned source,int32_t x,int32_t y,int32_t wx
 }
 void mouse_cancel_virtio(unsigned source) {
     if(source<MOUSE_VIRTIO_SOURCES) cancel_source(2+source,true);
+}
+
+void mouse_inject_usb(unsigned source,int32_t dx,int32_t dy,uint8_t buttons) {
+    if(source<MOUSE_USB_SOURCES)inject(2+MOUSE_VIRTIO_SOURCES+source,dx,dy,0,0,buttons);
+}
+void mouse_cancel_usb(unsigned source) {
+    if(source<MOUSE_USB_SOURCES)cancel_source(2+MOUSE_VIRTIO_SOURCES+source,true);
 }
