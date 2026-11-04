@@ -1,0 +1,651 @@
+{
+  "base": "0cba30a162663a0d66d5908982749e9ac6c6ac7d",
+  "boots": {
+    "a1": {
+      "allocation": "allocation-check: PASS files=373 clusters=14054 leaked=0 fat_bitmap_mismatches=0 errors=0",
+      "application_sha256": {
+        "deskd": "e7c25e70bb1f9cce732b877c4de86ba06375fbd737787c50f24b02c91ab68dde",
+        "deskterm": "ef8717b465cddf8586c8e559ed4f541f725179a7e1e34493557715f1272bbff7",
+        "desktools": "f266ff632e9ea31e76502941a8fdbb6f74959e161e9d8730768c6b3cb08e84b7"
+      },
+      "binary_sha256": "54615f979ce7cc7523885bae0456990cd1ae0d6e47ec7ddb51a279d57c2c6a45",
+      "cwd": "/fat/home/local-a",
+      "data_sha256": "dfac072e28ee4b34c62b0b090f951b66947db6f48c67b863fb6694ff8c6697d6",
+      "document_sha256": "72bbf76fbd41437c635decf661a2c123b2f945ac8463a9c230e14d563d41d71e",
+      "environment_sha256": "ec589f4a1c79e04e92d6a6d40abf71084825afcaaf7d60dbaafed3b4eb06b402",
+      "home": "/fat/home/local-a",
+      "local": {
+        "alias": "local_a",
+        "gid": 1001,
+        "uid": 1001
+      },
+      "machine_preferences_sha256": "fe0a4369803f1f9d413c78af0929ad8e4307d9550146ab183d186927bda27212",
+      "portable_preferences_sha256": "5da283988149ec9bfd002c8aa7a944135765175f259ba448fbff72a756c1f9fc",
+      "post_guest_inspect": {
+        "can_reconcile": false,
+        "reason": "verified image content changed",
+        "state": "refused"
+      },
+      "profile_id": "12345678-1234-4234-8234-123456789abc",
+      "reconcile_refused": true,
+      "stage_preserved": true
+    },
+    "a2": {
+      "allocation": "allocation-check: PASS files=373 clusters=14054 leaked=0 fat_bitmap_mismatches=0 errors=0",
+      "application_sha256": {
+        "deskd": "e7c25e70bb1f9cce732b877c4de86ba06375fbd737787c50f24b02c91ab68dde",
+        "deskterm": "ef8717b465cddf8586c8e559ed4f541f725179a7e1e34493557715f1272bbff7",
+        "desktools": "f266ff632e9ea31e76502941a8fdbb6f74959e161e9d8730768c6b3cb08e84b7"
+      },
+      "binary_sha256": "54615f979ce7cc7523885bae0456990cd1ae0d6e47ec7ddb51a279d57c2c6a45",
+      "cwd": "/fat/home/local-a",
+      "data_sha256": "a552be74d5adef95dfc922b7cf17e946db31c7dc85ee0d126c7e40a5e93be41b",
+      "document_sha256": "72bbf76fbd41437c635decf661a2c123b2f945ac8463a9c230e14d563d41d71e",
+      "environment_sha256": "ec589f4a1c79e04e92d6a6d40abf71084825afcaaf7d60dbaafed3b4eb06b402",
+      "home": "/fat/home/local-a",
+      "local": {
+        "alias": "local_a",
+        "gid": 1001,
+        "uid": 1001
+      },
+      "machine_preferences_sha256": "fe0a4369803f1f9d413c78af0929ad8e4307d9550146ab183d186927bda27212",
+      "portable_preferences_sha256": "5da283988149ec9bfd002c8aa7a944135765175f259ba448fbff72a756c1f9fc",
+      "post_guest_inspect": {
+        "can_reconcile": false,
+        "reason": "verified image content changed",
+        "state": "refused"
+      },
+      "profile_id": "12345678-1234-4234-8234-123456789abc",
+      "reconcile_refused": true,
+      "stage_preserved": true
+    }
+  },
+  "boundaries": {
+    "assembled": {
+      "apply_exit": 75,
+      "inspect": {
+        "can_reconcile": false,
+        "reason": "no verified publication record",
+        "state": "incomplete"
+      },
+      "reconcile_exit": 1,
+      "snapshot_after_sha256": "1699e30b48aa4bd0bf640fc56a82acd2b0e416313b29964ae5ef3d8f0d34918d",
+      "snapshot_before_sha256": "1699e30b48aa4bd0bf640fc56a82acd2b0e416313b29964ae5ef3d8f0d34918d"
+    },
+    "image-linked": {
+      "apply_exit": 75,
+      "candidate_sha256": "09a214daa9f9aae4de1fda002488fcf5cac15fe75aedfc8ec9f2bf2fb51c40cf",
+      "idempotent_reconcile_exit": 0,
+      "inspect": {
+        "can_reconcile": true,
+        "reason": "verified publication",
+        "state": "image-linked"
+      },
+      "profile": {
+        "alias": "local_a",
+        "gid": 1001,
+        "home": "/fat/home/local-a",
+        "launch_command": "run /fat/bin/deskd --profile=/fat/home/local-a",
+        "profile_id": "12345678-1234-4234-8234-123456789abc",
+        "uid": 1001
+      },
+      "reconcile_exit": 0,
+      "snapshot_after_sha256": "1141ba192d60b57a00f105adae91cce9c162a18ae681eb762392deb596734777",
+      "snapshot_before_sha256": "7b30e6316f6900c834f8e9798318af3f8cd73a9fa1773285b8d5b152ee23e920"
+    },
+    "image-published": {
+      "apply_exit": 75,
+      "candidate_sha256": "264626d1b1cc8fc9e6ec083d011e8eb44e81cc79016c1f0b18843586e3b77654",
+      "idempotent_reconcile_exit": 0,
+      "inspect": {
+        "can_reconcile": true,
+        "reason": "verified publication",
+        "state": "image-published"
+      },
+      "profile": {
+        "alias": "local_a",
+        "gid": 1001,
+        "home": "/fat/home/local-a",
+        "launch_command": "run /fat/bin/deskd --profile=/fat/home/local-a",
+        "profile_id": "12345678-1234-4234-8234-123456789abc",
+        "uid": 1001
+      },
+      "reconcile_exit": 0,
+      "snapshot_after_sha256": "a9b4cc223cb2e0b8465671efbb97c6407976409fc8e8948a778ec24c425ad87f",
+      "snapshot_before_sha256": "1b8ab432e4bb91f6c408c99b0a79c2dce70244668f5a0d2a1a08e785e82c4395"
+    },
+    "provisioned": {
+      "apply_exit": 75,
+      "inspect": {
+        "can_reconcile": false,
+        "reason": "no verified publication record",
+        "state": "incomplete"
+      },
+      "reconcile_exit": 1,
+      "snapshot_after_sha256": "952359290cb545bb278f11c2a95c1553774cbd20f92cbaa6744ebb165211f71e",
+      "snapshot_before_sha256": "952359290cb545bb278f11c2a95c1553774cbd20f92cbaa6744ebb165211f71e"
+    },
+    "provisioning-started": {
+      "apply_exit": 75,
+      "inspect": {
+        "can_reconcile": false,
+        "reason": "no verified publication record",
+        "state": "incomplete"
+      },
+      "reconcile_exit": 1,
+      "snapshot_after_sha256": "36c07e3e5cea4eec967d7ff4580f18b7dc1642ad2a64b4a527f4d37ad0aa816a",
+      "snapshot_before_sha256": "36c07e3e5cea4eec967d7ff4580f18b7dc1642ad2a64b4a527f4d37ad0aa816a"
+    },
+    "ready-linked": {
+      "apply_exit": 75,
+      "candidate_sha256": "89fbeb9b1fdfa7bc5784bd9aab6d8d55759230de0eae55dfa79958eda7563f47",
+      "idempotent_reconcile_exit": 0,
+      "inspect": {
+        "can_reconcile": true,
+        "reason": "verified publication",
+        "state": "ready-linked"
+      },
+      "profile": {
+        "alias": "local_a",
+        "gid": 1001,
+        "home": "/fat/home/local-a",
+        "launch_command": "run /fat/bin/deskd --profile=/fat/home/local-a",
+        "profile_id": "12345678-1234-4234-8234-123456789abc",
+        "uid": 1001
+      },
+      "reconcile_exit": 0,
+      "snapshot_after_sha256": "0fb7e6c733624360d17c4dd23dac5f9507b7a076140ebae3e54a42f5c94043d7",
+      "snapshot_before_sha256": "31ffd7bf95fa7aa708a922ef3a6418b34c24c8e35a56654676f1bbdf909ef1f3"
+    },
+    "ready-published": {
+      "apply_exit": 75,
+      "candidate_sha256": "e9d893e9a1c4a4cca60f17ac9ebba1897a3dfcd08dfb3cdbdb66312a701f2d63",
+      "idempotent_reconcile_exit": 0,
+      "inspect": {
+        "can_reconcile": true,
+        "reason": "verified publication",
+        "state": "ready"
+      },
+      "profile": {
+        "alias": "local_a",
+        "gid": 1001,
+        "home": "/fat/home/local-a",
+        "launch_command": "run /fat/bin/deskd --profile=/fat/home/local-a",
+        "profile_id": "12345678-1234-4234-8234-123456789abc",
+        "uid": 1001
+      },
+      "reconcile_exit": 0,
+      "snapshot_after_sha256": "d99068dfb896bc13bbe4a651fb085f7ffd62a68c826d478d0a857a8bff4913a3",
+      "snapshot_before_sha256": "d99068dfb896bc13bbe4a651fb085f7ffd62a68c826d478d0a857a8bff4913a3"
+    },
+    "ready-written": {
+      "apply_exit": 75,
+      "candidate_sha256": "c4397aa8037d1ab48a58303355831eac814727111ebab7e84072fadd2ca3bc68",
+      "idempotent_reconcile_exit": 0,
+      "inspect": {
+        "can_reconcile": true,
+        "reason": "verified publication",
+        "state": "ready-written"
+      },
+      "profile": {
+        "alias": "local_a",
+        "gid": 1001,
+        "home": "/fat/home/local-a",
+        "launch_command": "run /fat/bin/deskd --profile=/fat/home/local-a",
+        "profile_id": "12345678-1234-4234-8234-123456789abc",
+        "uid": 1001
+      },
+      "reconcile_exit": 0,
+      "snapshot_after_sha256": "228c85443b83ef8f9331bbb52a8685322a03dfbf6835ff14fe86e251693e8831",
+      "snapshot_before_sha256": "887d46b4dc1268988e16a7c73b71e8b10a5af821ca306df0d9386c811a4cf7b8"
+    },
+    "verified": {
+      "apply_exit": 75,
+      "candidate_sha256": "cdb5b75e39ec694e678acf22af1c5a6826b0769e8c55117321c978c47fe25c91",
+      "idempotent_reconcile_exit": 0,
+      "inspect": {
+        "can_reconcile": true,
+        "reason": "verified publication",
+        "state": "verified"
+      },
+      "profile": {
+        "alias": "local_a",
+        "gid": 1001,
+        "home": "/fat/home/local-a",
+        "launch_command": "run /fat/bin/deskd --profile=/fat/home/local-a",
+        "profile_id": "12345678-1234-4234-8234-123456789abc",
+        "uid": 1001
+      },
+      "reconcile_exit": 0,
+      "snapshot_after_sha256": "23045f2cb873cf8e3b879b8016d4ad8c79d737abd926bf7ff2da34f65af339b4",
+      "snapshot_before_sha256": "dbb0bc94a04d53b6c8e9a1bb4fb60665d1c561ad7a0e05d2067d3b12f071420f"
+    }
+  },
+  "build": {
+    "built_at": "2026-11-04T00:29:14.863313+00:00",
+    "hashes": {
+      "build/initramfs.tar": "5368a8013ac245cfd7baa8480bcf8b39c8f2f9be4593338e26d062c750b22743",
+      "build/kernel/srvros.elf": "bfabff0b2414eaf47bd96fec53a6ed0296e22e33b8a314e86546814cdeba3aa3",
+      "build/srvros.exfat": "b7d37f55efe038f44c9f4a2ab3541038606306abf9b674d74587661a9fe52aa3"
+    },
+    "repositories": {
+      ".": {
+        "dirty": false,
+        "head": "291f469ec00c431f359eb21fbf713343cdee6eca",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports": {
+        "dirty": false,
+        "head": "5e994f53fd34b65227a992e2d01751ce80b08cb6",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/awk": {
+        "dirty": false,
+        "head": "5739fd79bcfc75ba7526773d0cf634521f8aca3c",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/cjson": {
+        "dirty": false,
+        "head": "c859b25da02955fef659d658b8f324b5cde87be3",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/inih": {
+        "dirty": false,
+        "head": "26254ee9de7681f8825433415443e7116ff24b98",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/libuv": {
+        "dirty": false,
+        "head": "1cfa32ff59c076ffb6ed735bbc8c18361558661f",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/linenoise": {
+        "dirty": false,
+        "head": "dc83cc373ac2058030eb3cf5e404959a26fef112",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/lua": {
+        "dirty": false,
+        "head": "6e22fedb74cf0c9b6656e9fce8b7331db847c605",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/node": {
+        "dirty": false,
+        "head": "c7d10158bc31036de6783d66beaaaf551e3167aa",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/zlib": {
+        "dirty": false,
+        "head": "da607da739fa6047df13e66a2af6b8bec7c2a498",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "userspace/apps": {
+        "dirty": false,
+        "head": "3cf32af2294eebe9d8b9aeb8bc1dcbe46feb2967",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "userspace/widgets": {
+        "dirty": false,
+        "head": "9eaaa74e1423c15c99f8ce388b08ed5e514de3d6",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      }
+    },
+    "schema": 1,
+    "source": "291f469ec00c431f359eb21fbf713343cdee6eca",
+    "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "worktree_dirty": false
+  },
+  "evidence": ".local/installation-evidence/recovery-d86be75i",
+  "firmware_sha256": "33090cc07675baa5190d9f1e84bf5176b33bcbfa9bacac522961150cdb6dbb2a",
+  "firmware_vars_sha256": "5d2ac383371b408398accee7ec27c8c09ea5b74a0de0ceea6513388b15be5d1e",
+  "inputs": {
+    "bootx64": "333f7a69379b1f47e019be215885cdc078b9edd6e9255cbe2f706d6c5ec0ef06",
+    "driver": "5a4165be97737b1862b41324d3cc7e6a4ee67b6deb7ca638e32a5b01bea50198",
+    "exfat": "b7d37f55efe038f44c9f4a2ab3541038606306abf9b674d74587661a9fe52aa3",
+    "fs_driver": "7cd305abbe9d38f45f317947b439583ad465eea449e6fd30214a8c20007812c8",
+    "init": "fe39fd93a29e520d252612533c161c18512ef3a52508fbb552c982ed22da0b1f",
+    "kernel": "bfabff0b2414eaf47bd96fec53a6ed0296e22e33b8a314e86546814cdeba3aa3"
+  },
+  "limits": [
+    "disposable QEMU prototype only",
+    "process interruption after successful I/O, not media failure or fsync fault qualification",
+    "journal is an integrity record, not authentication",
+    "no physical disk or power-loss acceptance",
+    "external fsck.exfat not run"
+  ],
+  "logs_sha256": {
+    "allocation-a1.log": "704932ddbb52176b93c3c57d122568b47d1e23d4e8d992f4fed25b31431d5e17",
+    "allocation-a2.log": "704932ddbb52176b93c3c57d122568b47d1e23d4e8d992f4fed25b31431d5e17",
+    "install-recovery-build.log": "6c9c190b997f40b49fc925d107731f7f2cda4bdd49ad8944ccf7291aac3ae307",
+    "install-recovery-final-tests.log": "4033696fbe5492be64cc15c56f900f3c02551ec7ae3086db6e51f5ef09121c42",
+    "install-recovery-host.log": "987f94751bb2d32305a059d72aaccae03e8a6c068444428164e97b05bc283e66",
+    "install-recovery-proof.log": "ad4e59cf26e2c5b9902709315584ee4809e2da2d2b9cafce78cad7e05c5b49ad",
+    "qemu-a1.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "qemu-a2.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "serial-a1.log": "f4edc82568c6b7d9f9ab5bfe5da0bb3297f3cfedc9afec7a7e007a187bbf841a",
+    "serial-a2.log": "fd3a49c9b6553f41bdcac497d8edf8293b44b96473c8761faa90f20f06a26d3a"
+  },
+  "negative_cases": {
+    "altered-profile": {
+      "inspect": {
+        "can_reconcile": false,
+        "reason": "invalid exFAT boot region",
+        "state": "refused"
+      },
+      "preserved": true,
+      "reconcile_exit": 1,
+      "snapshot_after_sha256": "8ae76fedf539aeacceb40325e0b2f4a6645bc24ac98e02b2fbd40989507df479",
+      "snapshot_before_sha256": "8ae76fedf539aeacceb40325e0b2f4a6645bc24ac98e02b2fbd40989507df479"
+    },
+    "changed-base": {
+      "inspect": {
+        "can_reconcile": false,
+        "reason": "source changed since prepare",
+        "state": "refused"
+      },
+      "preserved": true,
+      "reconcile_exit": 1,
+      "snapshot_after_sha256": "dbb0bc94a04d53b6c8e9a1bb4fb60665d1c561ad7a0e05d2067d3b12f071420f",
+      "snapshot_before_sha256": "dbb0bc94a04d53b6c8e9a1bb4fb60665d1c561ad7a0e05d2067d3b12f071420f"
+    },
+    "changed-bundle": {
+      "inspect": {
+        "can_reconcile": false,
+        "reason": "source changed since prepare",
+        "state": "refused"
+      },
+      "preserved": true,
+      "reconcile_exit": 1,
+      "snapshot_after_sha256": "dbb0bc94a04d53b6c8e9a1bb4fb60665d1c561ad7a0e05d2067d3b12f071420f",
+      "snapshot_before_sha256": "dbb0bc94a04d53b6c8e9a1bb4fb60665d1c561ad7a0e05d2067d3b12f071420f"
+    },
+    "changed-driver": {
+      "inspect": {
+        "can_reconcile": false,
+        "reason": "source changed since prepare",
+        "state": "refused"
+      },
+      "preserved": true,
+      "reconcile_exit": 1,
+      "snapshot_after_sha256": "dbb0bc94a04d53b6c8e9a1bb4fb60665d1c561ad7a0e05d2067d3b12f071420f",
+      "snapshot_before_sha256": "dbb0bc94a04d53b6c8e9a1bb4fb60665d1c561ad7a0e05d2067d3b12f071420f"
+    },
+    "changed-kernel": {
+      "inspect": {
+        "can_reconcile": false,
+        "reason": "source changed since prepare",
+        "state": "refused"
+      },
+      "preserved": true,
+      "reconcile_exit": 1,
+      "snapshot_after_sha256": "dbb0bc94a04d53b6c8e9a1bb4fb60665d1c561ad7a0e05d2067d3b12f071420f",
+      "snapshot_before_sha256": "dbb0bc94a04d53b6c8e9a1bb4fb60665d1c561ad7a0e05d2067d3b12f071420f"
+    },
+    "changed-plan-and-checksum": {
+      "inspect": {
+        "can_reconcile": false,
+        "reason": "invalid in-progress record",
+        "state": "refused"
+      },
+      "preserved": true,
+      "reconcile_exit": 1,
+      "snapshot_after_sha256": "66620c7a63fbb6727f8623aac5f6c42dd47d311e6660eb3ac4da6ae501bec29a",
+      "snapshot_before_sha256": "66620c7a63fbb6727f8623aac5f6c42dd47d311e6660eb3ac4da6ae501bec29a"
+    },
+    "corrupt-data": {
+      "inspect": {
+        "can_reconcile": false,
+        "reason": "verified image content changed",
+        "state": "refused"
+      },
+      "preserved": true,
+      "reconcile_exit": 1,
+      "snapshot_after_sha256": "5833fd491cf0b373b87a21d2fba63a5e4b52ae073262535244a86cfb9d437e79",
+      "snapshot_before_sha256": "5833fd491cf0b373b87a21d2fba63a5e4b52ae073262535244a86cfb9d437e79"
+    },
+    "corrupt-esp": {
+      "inspect": {
+        "can_reconcile": false,
+        "reason": "verified image content changed",
+        "state": "refused"
+      },
+      "preserved": true,
+      "reconcile_exit": 1,
+      "snapshot_after_sha256": "16d8efd4f1568bc467f200a0d557996b5eb8992ed77963a602633d5ecbbd995c",
+      "snapshot_before_sha256": "16d8efd4f1568bc467f200a0d557996b5eb8992ed77963a602633d5ecbbd995c"
+    },
+    "corrupt-gpt": {
+      "inspect": {
+        "can_reconcile": false,
+        "reason": "verified image content changed",
+        "state": "refused"
+      },
+      "preserved": true,
+      "reconcile_exit": 1,
+      "snapshot_after_sha256": "a0d75e186554ec5fa6261b91916afca2a46c3532427a2978cef3a767064f9424",
+      "snapshot_before_sha256": "a0d75e186554ec5fa6261b91916afca2a46c3532427a2978cef3a767064f9424"
+    },
+    "mismatched-ready": {
+      "inspect": {
+        "can_reconcile": false,
+        "reason": "ready marker mismatch",
+        "state": "refused"
+      },
+      "preserved": true,
+      "reconcile_exit": 1,
+      "snapshot_after_sha256": "efa66c82b0ae66dec68022d2a6a9e5f4a7cd039c5cb7cd42c786beb8562e80f2",
+      "snapshot_before_sha256": "efa66c82b0ae66dec68022d2a6a9e5f4a7cd039c5cb7cd42c786beb8562e80f2"
+    },
+    "outside-hardlink": {
+      "inspect": {
+        "can_reconcile": false,
+        "reason": "invalid file or unexpected hard links: image.partial",
+        "state": "refused"
+      },
+      "preserved": true,
+      "reconcile_exit": 1,
+      "snapshot_after_sha256": "5ae400911bd8ba535f59797a747a73f1c4bb797b53bffdf04aacf9c99d33559e",
+      "snapshot_before_sha256": "5ae400911bd8ba535f59797a747a73f1c4bb797b53bffdf04aacf9c99d33559e"
+    },
+    "symlink": {
+      "inspect": {
+        "can_reconcile": false,
+        "reason": "unknown staging entries",
+        "state": "refused"
+      },
+      "preserved": true,
+      "reconcile_exit": 1,
+      "snapshot_after_sha256": "11aa653b23a97d091c864c44cbb4af40c7dbe566a33d44ee764b7daddc876199",
+      "snapshot_before_sha256": "11aa653b23a97d091c864c44cbb4af40c7dbe566a33d44ee764b7daddc876199"
+    },
+    "torn-journal": {
+      "inspect": {
+        "can_reconcile": false,
+        "reason": "Expecting property name enclosed in double quotes: line 1 column 2 (char 1)",
+        "state": "refused"
+      },
+      "preserved": true,
+      "reconcile_exit": 1,
+      "snapshot_after_sha256": "a73330f7a93d76e1f0580c04f83b91e3d0087854e34690b1367a06799bcd751a",
+      "snapshot_before_sha256": "a73330f7a93d76e1f0580c04f83b91e3d0087854e34690b1367a06799bcd751a"
+    },
+    "torn-ready": {
+      "inspect": {
+        "can_reconcile": false,
+        "reason": "ready marker mismatch",
+        "state": "refused"
+      },
+      "preserved": true,
+      "reconcile_exit": 1,
+      "snapshot_after_sha256": "3ef70a8806dc5e0cc3bb651e15a2a300a67f51a429b731a941d4099e4f16cdb6",
+      "snapshot_before_sha256": "3ef70a8806dc5e0cc3bb651e15a2a300a67f51a429b731a941d4099e4f16cdb6"
+    },
+    "unknown-file": {
+      "inspect": {
+        "can_reconcile": false,
+        "reason": "unknown staging entries",
+        "state": "refused"
+      },
+      "preserved": true,
+      "reconcile_exit": 1,
+      "snapshot_after_sha256": "f0d8376847c2d98ad6782f9064072ba0f28a2d73b1b01d209ad41468973c2664",
+      "snapshot_before_sha256": "f0d8376847c2d98ad6782f9064072ba0f28a2d73b1b01d209ad41468973c2664"
+    },
+    "wrong-target-inode": {
+      "inspect": {
+        "can_reconcile": false,
+        "reason": "target or plan identity mismatch",
+        "state": "refused"
+      },
+      "preserved": true,
+      "reconcile_exit": 1,
+      "snapshot_after_sha256": "4b82a47276a8b9e063bbbd169d9b7f835b95492aa1da5cfa18bd624eee141371",
+      "snapshot_before_sha256": "4b82a47276a8b9e063bbbd169d9b7f835b95492aa1da5cfa18bd624eee141371"
+    }
+  },
+  "reconcile_interruptions": {
+    "completed_exit": 0,
+    "idempotent_exit": 0,
+    "steps": [
+      {
+        "boundary": "image-linked",
+        "exit": 75,
+        "inspect": {
+          "can_reconcile": true,
+          "reason": "verified publication",
+          "state": "image-linked"
+        }
+      },
+      {
+        "boundary": "ready-linked",
+        "exit": 75,
+        "inspect": {
+          "can_reconcile": true,
+          "reason": "verified publication",
+          "state": "ready-linked"
+        }
+      }
+    ]
+  },
+  "scope": "disposable QEMU prototype only",
+  "screenshot_sha256": "ab62dd5cb1599fd16dba1935eb801d2b784eb01b40992a1302f0dc9e48cc478a",
+  "source": {
+    ".": {
+      "dirty": false,
+      "head": "291f469ec00c431f359eb21fbf713343cdee6eca",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports": {
+      "dirty": false,
+      "head": "5e994f53fd34b65227a992e2d01751ce80b08cb6",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/awk": {
+      "dirty": false,
+      "head": "5739fd79bcfc75ba7526773d0cf634521f8aca3c",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/cjson": {
+      "dirty": false,
+      "head": "c859b25da02955fef659d658b8f324b5cde87be3",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/inih": {
+      "dirty": false,
+      "head": "26254ee9de7681f8825433415443e7116ff24b98",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/libuv": {
+      "dirty": false,
+      "head": "1cfa32ff59c076ffb6ed735bbc8c18361558661f",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/linenoise": {
+      "dirty": false,
+      "head": "dc83cc373ac2058030eb3cf5e404959a26fef112",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/lua": {
+      "dirty": false,
+      "head": "6e22fedb74cf0c9b6656e9fce8b7331db847c605",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/node": {
+      "dirty": false,
+      "head": "c7d10158bc31036de6783d66beaaaf551e3167aa",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/zlib": {
+      "dirty": false,
+      "head": "da607da739fa6047df13e66a2af6b8bec7c2a498",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "userspace/apps": {
+      "dirty": false,
+      "head": "3cf32af2294eebe9d8b9aeb8bc1dcbe46feb2967",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "userspace/widgets": {
+      "dirty": false,
+      "head": "9eaaa74e1423c15c99f8ce388b08ed5e514de3d6",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    }
+  },
+  "status": "PASS",
+  "tools": {
+    "installation_image.py": "2f0a98d7deedca6867177e1a28174ac057a225492a238cede6c6438b6e2b741d",
+    "installation_recovery_smoke.py": "4697bd0f4b0fd09fa92f0738809f9cbd881e4c9a125db44858def33cc0853c64",
+    "profile_bundle.py": "5c9747b2f83916a31400f3a1c7df642bb070e7e3c69b451a47ea9d35aaf468ee",
+    "profile_desktop_smoke.py": "862d4a86087edac7f5ad77cac73aec5a06129c03f77641ead0d11adda582fccf",
+    "profile_image.py": "50b981822748afe17b2f5112082df900453370cf353e41e34f53b2022927201c",
+    "profile_installation_smoke.py": "7697ea0e06eaacea8b58d61a0cb14b7d2c6c1663155de2de3d17cb5e41dd780a"
+  }
+}

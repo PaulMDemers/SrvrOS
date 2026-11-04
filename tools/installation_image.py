@@ -2,16 +2,19 @@
 """Build a disposable installed-disk fixture, never a physical-device installer.
 
 prepare creates a new private directory; apply consumes its plan exactly once.
-An interrupted apply leaves evidence and must not be resumed or overwritten.
+Publication recovery requires an offline, controlled, single-writer staging directory.
+The publication record is an integrity record, not authentication.
 """
 import argparse
 import binascii
+import fcntl
 import hashlib
 import io
 import json
 import mmap
 import os
 from pathlib import Path
+from contextlib import contextmanager
 import stat
 import subprocess
 import struct
@@ -259,16 +262,31 @@ def verify_image(path, plan, bootstrap):
             'esp_partition_guid': guids[0], 'exfat_partition_guid': guids[1]}
 
 
-def apply(staging_dir):
-    target = checked_path(staging_dir)
+@contextmanager
+def plan_lock(target):
+    # Cooperative lock on the stable plan inode; not a hostile-process defense.
+    path = checked_path(target / 'plan.json')
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    try:
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+            raise ValueError('invalid plan file')
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        yield
+    finally:
+        os.close(fd)
+
+
+def validate_plan(target):
     st = target.stat()
-    if not stat.S_ISDIR(st.st_mode) or set(os.listdir(target)) != {'plan.json', 'plan.sha256'}:
-        raise ValueError('unknown, already used, or interrupted staging target')
+    if (not stat.S_ISDIR(st.st_mode) or st.st_uid != os.geteuid() or
+        stat.S_IMODE(st.st_mode) & 0o077):
+        raise ValueError('staging directory must be private and owned by current user')
     plan_path = checked_path(target / 'plan.json')
-    if not stat.S_ISREG(plan_path.stat().st_mode):
+    if not stat.S_ISREG(plan_path.stat().st_mode) or plan_path.stat().st_nlink != 1 or plan_path.stat().st_size > 1024 * 1024:
         raise ValueError('invalid plan')
     checksum_path = checked_path(target / 'plan.sha256')
-    if not stat.S_ISREG(checksum_path.stat().st_mode):
+    if not stat.S_ISREG(checksum_path.stat().st_mode) or checksum_path.stat().st_nlink != 1 or checksum_path.stat().st_size > 128:
         raise ValueError('invalid plan checksum')
     with open(checksum_path) as f:
         checksum = f.read()
@@ -310,16 +328,72 @@ def apply(staging_dir):
     elif 'profile_bundle' in plan['sources'] or 'profile_driver' in plan['sources']:
         raise ValueError('unexpected profile sources')
     validate_exfat(plan['sources']['exfat']['path'], plan['sources']['exfat']['size'])
+    return plan, selection, profile, bundle
+
+
+def bootstrap_bytes(init_data):
+    data = io.BytesIO()
+    with tarfile.open(fileobj=data, mode='w', format=tarfile.USTAR_FORMAT) as tar:
+        entry = tarfile.TarInfo('init')
+        entry.mode, entry.size = 0o755, len(init_data)
+        tar.addfile(entry, io.BytesIO(init_data))
+    return data.getvalue()
+
+
+def ready_record(target, plan, gpt, image_hash, data_hash):
+    ready = {'version': 1, 'gpt': gpt, 'target_uuid': plan['target_uuid'],
+             'image': str(target / 'image.img'), 'image_sha256': image_hash,
+             'layout': plan['layout'], 'sources': plan['sources']}
+    profile, selection = plan.get('profile'), plan.get('selection')
+    if profile is not None:
+        ready['profile'] = dict(profile, launch_command='run /fat/bin/deskd --profile=' + profile['home'])
+        ready['profile_exfat_sha256'] = data_hash
+    if selection:
+        ready['selection'] = dict(selection, partition_guid=plan['gpt']['exfat_partition_guid'],
+                                  partition_name=plan['gpt']['exfat_partition_name'])
+    return ready
+
+
+def data_digest(path, spec):
+    h = hashlib.sha256()
+    with open(path, 'rb') as f:
+        f.seek(spec['exfat']['offset_bytes'])
+        remaining = spec['exfat']['size_bytes']
+        while remaining:
+            chunk = f.read(min(1024 * 1024, remaining))
+            if not chunk:
+                raise ValueError('truncated image')
+            h.update(chunk)
+            remaining -= len(chunk)
+    return h.hexdigest()
+
+
+def apply(staging_dir, checkpoint=None):
+    checkpoint = checkpoint or (lambda name: None)
+    target = checked_path(staging_dir)
+    with plan_lock(target):
+        return _apply(target, checkpoint)
+
+
+def _apply(target, checkpoint):
+    if set(os.listdir(target)) != {'plan.json', 'plan.sha256'}:
+        raise ValueError('unknown, already used, or interrupted staging target')
+    plan, selection, profile, bundle = validate_plan(target)
     write_json(target / 'in-progress.json', {'target_uuid': plan['target_uuid']})
     sync_dir(target)
     # Private temporary files are retained on failure, preventing ambiguous reuse.
     init_data = Path(plan['sources']['init']['path']).read_bytes()
-    with tarfile.open(target / 'bootstrap.tar', 'x', format=tarfile.USTAR_FORMAT) as tar:
-        entry = tarfile.TarInfo('init')
-        entry.mode, entry.size = 0o755, len(init_data)
-        tar.addfile(entry, io.BytesIO(init_data))
-    (target / 'limine.conf').write_bytes(plan.get('config', CONFIG.decode('ascii')).encode('ascii'))
+    with open(target / 'bootstrap.tar', 'xb') as stream:
+        stream.write(bootstrap_bytes(init_data))
+        stream.flush()
+        os.fsync(stream.fileno())
+    with open(target / 'limine.conf', 'xb') as stream:
+        stream.write(plan.get('config', CONFIG.decode('ascii')).encode('ascii'))
+        stream.flush()
+        os.fsync(stream.fileno())
+    sync_dir(target)
     exfat_path = plan['sources']['exfat']['path']
+    checkpoint('provisioning-started')
     if profile is not None:
         provisioned = target / 'profile.exfat'
         result = profile_image.provision(exfat_path, provisioned, bundle, profile['home'],
@@ -333,6 +407,7 @@ def apply(staging_dir):
         with open(provisioned, 'rb') as stream:
             os.fsync(stream.fileno())
         exfat_path = str(provisioned)
+    checkpoint('provisioned')
     exfat_hash = digest(exfat_path) if profile is not None else plan['sources']['exfat']['sha256']
     temp = target / 'image.partial'
     usb.build_image(SimpleNamespace(esp_size_mib=ESP_MIB, exfat=exfat_path,
@@ -345,39 +420,182 @@ def apply(staging_dir):
         data_name=plan['gpt']['exfat_partition_name'] if selection else None))
     with open(temp, 'rb') as f:
         os.fsync(f.fileno())
+    sync_dir(target)
+    checkpoint('assembled')
     gpt = verify_image(temp, plan, (target / 'bootstrap.tar').read_bytes())
     for item in plan['sources'].values():
         if source(item['path']) != item:
             raise ValueError('source changed during build')
-    with open(temp, 'rb') as f:
-        f.seek(plan['layout']['exfat']['offset_bytes'])
-        h = hashlib.sha256()
-        remaining = plan['layout']['exfat']['size_bytes']
-        while remaining:
-            chunk = f.read(min(1024 * 1024, remaining))
-            if not chunk:
-                raise ValueError('truncated image')
-            h.update(chunk)
-            remaining -= len(chunk)
-    if h.hexdigest() != exfat_hash or digest(exfat_path) != exfat_hash:
+    if data_digest(temp, plan['layout']) != exfat_hash or digest(exfat_path) != exfat_hash:
         raise ValueError('image exFAT verification failed')
     image_hash = digest(temp)
-    os.link(temp, target / 'image.img')  # atomic no-overwrite publication
-    os.unlink(temp)
+    ready = ready_record(target, plan, gpt, image_hash, exfat_hash)
+    candidate = temp.stat()
+    journal = {'version': 1, 'target_uuid': plan['target_uuid'],
+               'target_device': plan['target_device'], 'target_inode': plan['target_inode'],
+               'plan_sha256': digest(target / 'plan.json'), 'sources': plan['sources'],
+               'candidate': {'device': candidate.st_dev, 'inode': candidate.st_ino,
+                             'size': candidate.st_size, 'sha256': image_hash},
+               'data_sha256': exfat_hash, 'ready': ready}
+    write_json(target / 'publication.json', journal)
     sync_dir(target)
-    ready = {'version': 1, 'gpt': gpt, 'target_uuid': plan['target_uuid'], 'image': str(target / 'image.img'),
-             'image_sha256': image_hash, 'layout': plan['layout'], 'sources': plan['sources']}
+    checkpoint('verified')
+    return publish(target, ready, checkpoint)
+
+
+def regular(path, links=1):
+    st = path.lstat()
+    if not stat.S_ISREG(st.st_mode) or st.st_nlink != links:
+        raise ValueError(f'invalid file or unexpected hard links: {path.name}')
+    return st
+
+
+def inspect(staging_dir):
+    """Read-only diagnosis; journal is integrity metadata, not authentication."""
+    try:
+        target = checked_path(staging_dir)
+        return _inspect(target)
+    except (OSError, ValueError, KeyError, TypeError, IndexError, RuntimeError, UnicodeError) as error:
+        return {'state': 'refused', 'can_reconcile': False, 'reason': str(error)}
+
+
+def _inspect(target):
+    names = set(os.listdir(target))
+    allowed = {'plan.json', 'plan.sha256', 'in-progress.json', 'bootstrap.tar', 'limine.conf',
+               'profile.exfat', 'image.partial', 'image.img', 'publication.json',
+               'ready.partial', 'ready.json'}
+    if names - allowed:
+        raise ValueError('unknown staging entries')
+    # All fixed names are regular files, with only two known publication alias pairs.
+    for name in names - {'image.partial', 'image.img', 'ready.partial', 'ready.json'}:
+        info = regular(target / name)
+        if name in {'in-progress.json', 'publication.json'} and info.st_size > 1024 * 1024:
+            raise ValueError('metadata exceeds size limit')
+    for pair in (('image.partial', 'image.img'), ('ready.partial', 'ready.json')):
+        paths = [target / name for name in pair if name in names]
+        stats = [regular(path, len(paths)) for path in paths]
+        if len(stats) == 2 and (stats[0].st_dev, stats[0].st_ino) != (stats[1].st_dev, stats[1].st_ino):
+            raise ValueError('publication aliases differ')
+        if pair[0] == 'ready.partial' and any(info.st_size > 1024 * 1024 for info in stats):
+            raise ValueError('ready metadata exceeds size limit')
+    plan, selection, profile, _ = validate_plan(target)
+    if names == {'plan.json', 'plan.sha256'}:
+        return {'state': 'prepared', 'can_reconcile': False, 'reason': 'apply has not started'}
+    if 'publication.json' not in names:
+        return {'state': 'incomplete', 'can_reconcile': False, 'reason': 'no verified publication record'}
+    required = {'plan.json', 'plan.sha256', 'in-progress.json', 'bootstrap.tar', 'limine.conf', 'publication.json'}
     if profile is not None:
-        ready['profile'] = dict(profile, launch_command='run /fat/bin/deskd --profile=' + profile['home'])
-        ready['profile_exfat_sha256'] = exfat_hash
-    if selection:
-        ready['selection'] = dict(selection, partition_guid=plan['gpt']['exfat_partition_guid'],
-                                  partition_name=plan['gpt']['exfat_partition_name'])
-    write_json(target / 'ready.partial', ready)
-    os.link(target / 'ready.partial', target / 'ready.json')
-    os.unlink(target / 'ready.partial')
-    sync_dir(target)
+        required.add('profile.exfat')
+    elif 'profile.exfat' in names:
+        raise ValueError('unexpected profile image')
+    if not required <= names:
+        raise ValueError('publication files missing')
+    with open(target / 'in-progress.json') as stream:
+        if json.load(stream) != {'target_uuid': plan['target_uuid']}:
+            raise ValueError('invalid in-progress record')
+    with open(target / 'publication.json') as stream:
+        journal = json.load(stream)
+    if (set(journal) != {'version', 'target_uuid', 'target_device', 'target_inode', 'plan_sha256',
+                         'sources', 'candidate', 'data_sha256', 'ready'} or type(journal['version']) is not int or
+        journal['version'] != 1 or set(journal['candidate']) != {'device', 'inode', 'size', 'sha256'} or
+        any(type(journal['candidate'][key]) is not int for key in ('device', 'inode', 'size')) or
+        journal['target_uuid'] != plan['target_uuid'] or journal['target_device'] != plan['target_device'] or
+        journal['target_inode'] != plan['target_inode'] or journal['plan_sha256'] != digest(target / 'plan.json') or
+        journal['sources'] != plan['sources']):
+        raise ValueError('publication record does not match plan')
+    images = [target / n for n in ('image.partial', 'image.img') if n in names]
+    if not images:
+        raise ValueError('verified image missing')
+    for path in images:
+        st = regular(path, len(images))
+        if (st.st_dev, st.st_ino, st.st_size) != (journal['candidate']['device'],
+            journal['candidate']['inode'], journal['candidate']['size']):
+            raise ValueError('image identity mismatch')
+    if len(images) == 2 and images[0].stat().st_ino != images[1].stat().st_ino:
+        raise ValueError('image aliases differ')
+    image = images[0]
+    if digest(image) != journal['candidate']['sha256']:
+        raise ValueError('verified image content changed')
+    expected_bootstrap = bootstrap_bytes(Path(plan['sources']['init']['path']).read_bytes())
+    if ((target / 'bootstrap.tar').stat().st_size != len(expected_bootstrap) or
+        (target / 'bootstrap.tar').read_bytes() != expected_bootstrap):
+        raise ValueError('bootstrap changed')
+    expected_config = plan.get('config', CONFIG.decode('ascii')).encode('ascii')
+    if ((target / 'limine.conf').stat().st_size != len(expected_config) or
+        (target / 'limine.conf').read_bytes() != expected_config):
+        raise ValueError('configuration changed')
+    if profile is not None:
+        data_path = target / 'profile.exfat'
+        validate_exfat(data_path, plan['sources']['exfat']['size'])
+        if data_path.stat().st_size != plan['sources']['exfat']['size']:
+            raise ValueError('profile image size changed')
+    else:
+        data_path = Path(plan['sources']['exfat']['path'])
+    if digest(data_path) != journal['data_sha256'] or data_digest(image, plan['layout']) != journal['data_sha256']:
+        raise ValueError('partition content changed')
+    gpt = verify_image(image, plan, expected_bootstrap)
+    expected = ready_record(target, plan, gpt, journal['candidate']['sha256'], journal['data_sha256'])
+    if journal['ready'] != expected:
+        raise ValueError('publication ready record mismatch')
+    ready_paths = [target / n for n in ('ready.partial', 'ready.json') if n in names]
+    if ready_paths and 'image.img' not in names:
+        raise ValueError('ready marker without published image')
+    expected_ready_bytes = (json.dumps(expected, indent=2, sort_keys=True) + '\n').encode('utf-8')
+    for path in ready_paths:
+        # Two names may coexist only as the very same publication hardlink.
+        regular(path, len(ready_paths))
+        if path.read_bytes() != expected_ready_bytes:
+            raise ValueError('ready marker mismatch')
+    if len(ready_paths) == 2 and ready_paths[0].stat().st_ino != ready_paths[1].stat().st_ino:
+        raise ValueError('ready aliases differ')
+    if 'ready.json' in names:
+        state = 'ready-linked' if 'ready.partial' in names else 'ready'
+    elif 'ready.partial' in names:
+        state = 'ready-written'
+    elif len(images) == 2:
+        state = 'image-linked'
+    elif 'image.img' in names:
+        state = 'image-published'
+    else:
+        state = 'verified'
+    return {'state': state, 'can_reconcile': True, 'reason': 'verified publication', 'ready': expected}
+
+
+def publish(target, ready, checkpoint):
+    if not (target / 'image.img').exists():
+        os.link(target / 'image.partial', target / 'image.img')
+        sync_dir(target)
+        checkpoint('image-linked')
+    if (target / 'image.partial').exists():
+        os.unlink(target / 'image.partial')
+        sync_dir(target)
+        checkpoint('image-published')
+    if not (target / 'ready.json').exists():
+        if not (target / 'ready.partial').exists():
+            write_json(target / 'ready.partial', ready)
+            sync_dir(target)
+            checkpoint('ready-written')
+        os.link(target / 'ready.partial', target / 'ready.json')
+        sync_dir(target)
+        checkpoint('ready-linked')
+    if (target / 'ready.partial').exists():
+        os.unlink(target / 'ready.partial')
+        sync_dir(target)
+        checkpoint('ready-published')
     return ready
+
+
+def reconcile(staging_dir, checkpoint=None):
+    """Publish verified bytes only; never provision, repair or rewrite an image."""
+    checkpoint = checkpoint or (lambda name: None)
+    target = checked_path(staging_dir)
+    with plan_lock(target):
+        result = inspect(target)  # Verify every existing item before mutation.
+        if not result['can_reconcile']:
+            raise ValueError(result['reason'])
+        if result['state'] == 'ready':
+            return result['ready']
+        return publish(target, result['ready'], checkpoint)
 
 
 def main():
@@ -394,13 +612,33 @@ def main():
         prep.add_argument('--profile-' + name, type=int)
     run = sub.add_parser('apply')
     run.add_argument('staging_dir')
+    run.add_argument('--interrupt-after', choices=('provisioning-started', 'provisioned', 'assembled', 'verified',
+                                                   'image-linked', 'image-published', 'ready-written',
+                                                   'ready-linked', 'ready-published'))
+    sub.add_parser('inspect').add_argument('staging_dir')
+    recovery = sub.add_parser('reconcile')
+    recovery.add_argument('staging_dir')
+    recovery.add_argument('--interrupt-after', choices=('image-linked', 'image-published', 'ready-written',
+                                                        'ready-linked', 'ready-published'))
     args = parser.parse_args()
     try:
-        result = (prepare(args.staging_dir, args.kernel, args.bootx64, args.exfat, args.init, identity_bound=args.identity_bound,
-                            profile_bundle=args.profile_bundle, profile_home=args.profile_home,
-                            profile_alias=args.profile_alias, profile_uid=args.profile_uid,
-                            profile_gid=args.profile_gid, profile_driver=args.profile_driver)
-                  if args.action == 'prepare' else apply(args.staging_dir))
+        if args.action == 'prepare':
+            result = prepare(args.staging_dir, args.kernel, args.bootx64, args.exfat, args.init,
+                identity_bound=args.identity_bound, profile_bundle=args.profile_bundle,
+                profile_home=args.profile_home, profile_alias=args.profile_alias, profile_uid=args.profile_uid,
+                profile_gid=args.profile_gid, profile_driver=args.profile_driver)
+        elif args.action == 'apply':
+            def checkpoint(name):
+                if name == args.interrupt_after:
+                    os._exit(75)
+            result = apply(args.staging_dir, checkpoint=checkpoint)
+        elif args.action == 'inspect':
+            result = inspect(args.staging_dir)
+        else:
+            def checkpoint(name):
+                if name == args.interrupt_after:
+                    os._exit(75)
+            result = reconcile(args.staging_dir, checkpoint=checkpoint)
         print(json.dumps(result, indent=2, sort_keys=True))
     except (ValueError, OSError, KeyError, subprocess.CalledProcessError) as error:
         parser.exit(1, f'error: {error}\n')
