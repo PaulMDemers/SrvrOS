@@ -1114,6 +1114,33 @@ exact tuple/caller/error review. A bounded invariant diagnostic/halt is acceptab
 for an impossible trusted commit violation, not ordinary constructor refusal;
 no FPU proof minting or signal admission is approved.
 
+## November 4: checked-root qualification
+
+PR334's `d7466e1c` replaces root creation's unchecked mapping replay with saved
+IRQ exclusion spanning registration, checked preparation and output publication
+or rollback unregistration. Allocation/zeroing precedes exclusion; failure keeps
+output zero and unregisters before freeing only the new root. Legacy setter and
+process refresh paths remain unchanged in this slice. Independent actual-source
+preparation/creation and existing range/teardown fixtures pass strict Rosetta and
+ASan/UBSan; isolated logs: `build/review/pr334-root-review/`.
+
+Verified the owner's combined `vmm-create-receipt.json` SHA256
+`2c62e69c812f1dd671b912dec388474de28186bb15dbaaf03452474609693791`, its
+17 source/artifact hashes and nested guest hashes. Matched kernel worker binding/
+detached/TLS/FPU/stack probe, full threadstress and sysabi fault/reaping guests
+all report status zero and stopped. Retained userspace fixtures are not a complete
+current-userspace rebuild. This qualifies checked root creation; it does not
+qualify the next metadata implementation.
+
+Reviewed the `a0a7f474` design's exact process membership/image/root, main/worker
+FPU/TLS and owned stack tuple predicates, including valid killed-parent restoration
+and main atexit continuation. The next separately owned metadata-only slice must
+validate before any association/accounting/hardware mutation and preserve failed
+admission state. Fixed bounded serial diagnostic plus IF-disabled halt is accepted
+for violated trusted commit invariants; recoverable staging errors still return
+before publication. Its implementation remains subject to source/host/VM review.
+No FPU proof object, trap capture, assembly change or signal admission is approved.
+
 ## Remaining work
 
 Other long IRQ-disabled operations, including initial/churning PMM scans, heap validation and poisoning,
