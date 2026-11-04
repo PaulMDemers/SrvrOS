@@ -10,7 +10,7 @@ reservation for the next milestone.
 | Order | Application | Bounded outcome | State |
 | --- | --- | --- | --- |
 | 1 | GNU Diffutils 3.12 `diff` | Correct normal/quiet/unified comparison of two capped text files; long lines and 0/1/2 statuses; host patch validation and explicit local-patch subset. | Delivered and verified: ports PR11 `4da8a98b`, then OS PR369 `3fcf2630`; exact trees and reachable pin checked. |
-| 2 | GNU Patch 2.8.1 | Apply a bounded single-file unified patch to an explicit separate output; preserve source, reject ambiguous/unsafe paths and failed hunks; qualify the diff edge cases excluded by the compact local patch. | Active in isolated `SrvrOS-ports-patch`, reconciled with delivered diff/main `3fcf2630`; Six earlier guests pass; miniport correction is frozen. Final archive-identity gate failed before QEMU; fresh full guest qualification is required on the retained final payload. No merge. |
+| 2 | GNU Patch 2.8.1 | Apply a bounded single-file unified patch to an explicit separate output; preserve source, reject ambiguous/unsafe paths and failed hunks; qualify the diff edge cases excluded by the compact local patch. | Active in isolated `SrvrOS-ports-patch`, reconciled with delivered diff/main `3fcf2630`; Qualified on clean60baca64 with all seven fresh guests PASS; delivery order [Ports12](https://github.com/PaulMDemers/SrvrPorts/pull/12) then [OS370](https://github.com/PaulMDemers/SrvrOS/pull/370). Linked PR state records delivery. No further feature required. |
 | 3 | GNU Grep 3.12 | C-locale text search over bounded files/finite stdin; fixed strings and qualified BRE/ERE, useful match/count/quiet status contracts. No PCRE, recursion, color or Unicode claims. | Deferred by closeout instruction; authenticated source/research retained, no implementation started. |
 | 4 | GNU Coreutils 9.12 `sha256sum` | File/stdin SHA-256 and a bounded explicit verification manifest; exact known vectors and failure statuses. No broader coreutils import or automatic filesystem traversal. | Deferred by closeout instruction; authenticated source retained, no implementation started. |
 
@@ -163,3 +163,20 @@ actual tar/disk/kernel/executables and complete tar-member inventory outside
 build before all seven fresh guest checks. The browser currently owns the
 resource slot; queue acceptance is not a launch grant. Allow under 1 GiB of
 additional evidence/frozen copies while retaining all earlier failed proofs.
+
+### Final GNU Patch qualification complete
+
+Clean `60baca64`, runtime ports `de7adcea`, incorporates actual main `72fde837`.
+All seven fresh guests pass against the same frozen payload: Patch two-boot
+`182936-0ni9wujs`, diff interchange two-boot `183053-b881aave`, actual Terminal
+`proof-7fywfq_q` plus separate expert receipt, full 498-command CLI and full ports
+regression. Miniport builds from a separate output and its original-source
+comparison succeeds. Guest fsck is clean. All ten frozen files and prior SDK
+object hashes were rechecked after the runs. The resource window was released.
+`build/review/patch/final-qualification-receipt.json` indexes the exact raw proofs;
+[portable evidence](assets/screenshots/patch-manifest.json) records public scope.
+Native two PASS/one expected XFAIL and two clean GNU rebuilds retain their stated
+host/same-SDK limits. Earlier failed/partial runs are preserved without promotion.
+Independent source/evidence review finds no bounded-profile blocker. Deliver
+Ports12 before OS370 with exact-head/tree/pin checks, then update final status
+and stop. Grep and sha256sum remain deferred; no new heavy reservation exists.

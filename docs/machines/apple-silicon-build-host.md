@@ -5241,3 +5241,28 @@ are host inspection/test and documentation only; target runtime/ABI and port
 pins are unchanged. The new matched payload, archive members and disk manifest
 will be frozen outside build before seven fresh sequential guests. Browser
 owns the current resource turn; no new build/guest is launched until handoff.
+
+### GNU Patch final bounded qualification — complete
+
+Clean `60baca64` with runtime ports `de7adcea` reconciles actual main `72fde837`,
+including filesystem PR366. Before guests, ten actual payload files, 146 tar
+members and 392 logical disk entries were frozen/readback-verified outside build.
+Seven fresh sequential 512 MiB guests pass: Patch and diff interchange two boots
+each, actual Terminal functional/expert, full 498-command CLI and full ports.
+The shipped miniport uses separate output, installs the patched program and
+confirms its original source remains unchanged. Fsck is clean. The final receipt
+is `build/review/patch/final-qualification-receipt.json`; public screenshots and
+scope are in `docs/assets/screenshots/patch-manifest.json`. All frozen payload
+and earlier SDK-object hashes remain identical after the runs.
+
+Two clean GNU core/gnulib/diagnostic rebuilds use the same SDK objects; native
+selected tests have two PASS and one expected XFAIL. No full guest upstream
+suite, whole SDK/image reproducibility, RAM/RSS peak, traced in-call cancellation
+bound, user-study or physical acceptance claim. Historical failures remain failed.
+The missing old-container member proof was resolved through fresh qualification
+on the retained final payload. No shared runtime or shell-quoting change.
+Independent review finds no bounded-profile blocker. All jobs stopped and the
+resource window was released early. Ports12→OS370 ordered delivery and exact
+head/tree/pin checks follow; linked PR states record delivery. Then stop: Grep
+and sha256sum are deferred under the later closeout instruction. Integration
+checkout and review VMs remain untouched.
