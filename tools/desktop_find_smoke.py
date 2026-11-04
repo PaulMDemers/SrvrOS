@@ -137,7 +137,9 @@ def main():
                 frames=re.findall(rb'deskd: geometry pid=(\d+) window=(\d+) frame=(\d+),(\d+),(\d+),(\d+)',output)
                 pid,window,x,y,w,h=next(tuple(map(int,row)) for row in frames if int(row[4])==762 and int(row[5])==545)
                 qmp.mouse(-1600,-1000);pointer[:]=[0,0]
-                qmp.mouse(x+w-2,y+h-2);pointer[:]=[x+w-2,y+h-2]
+                # Current desktop resize handles live in the six-pixel
+                # outside halo, preserving all client pixels for interaction.
+                qmp.mouse(x+w+2,y+h+2);pointer[:]=[x+w+2,y+h+2]
                 qmp.mouse(0,0,1);qmp.mouse(-480,-260,1);qmp.mouse(0,0,0);pointer[0]-=480;pointer[1]-=260
                 wait_all([f'deskd: commit pid={pid}'.encode(),b'size=280x240']);shot("find-compact")
                 click(x+1+24,y+44+146+24+14)
