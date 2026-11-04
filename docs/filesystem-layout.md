@@ -3,6 +3,46 @@
 Updated November 3, 2026. Global activation follows the explicit namespace proof
 in [PR308](https://github.com/PaulMDemers/SrvrOS/pull/308).
 
+## PR329 merge review and next bounded milestone
+
+User authorized review and merge if ready. Reviewed `05905122` against actual
+main `c90f3522`; no blocking finding. Traced `process_file_flush` through retained
+content writeback and the exFAT mutation boundary: successful outer mutation
+flushes data/metadata, writes the clean marker and flushes that marker on the
+backing parent. Failed transactions cannot return success. Clean/unlinked
+content does not need an unrelated global device barrier. Global sync and reboot
+still retain their existing all-device behavior.
+
+Fresh exact-head review proof `build/review/dirty-salvage/proof-qhb4hf4j/` passes
+both installed EFI boots with the isolated work EIO, exact 12,289-byte healthy
+copy after controlled cold restart, unchanged work hash/protected regions and
+clean allocation checks. Independently checked raw bytes, command graphs and
+explicit global reboot refusal. Fresh ordinary installed-root canonical/CLI
+proof `build/review/installed-canonical/proof-0cqpa1bt/` passes all 11 cases,
+including `/fat` and `/work` compatibility. Focused fsync/namespace/usercopy/I/O,
+helper/CLI, seven scope guards and documentation checks pass. Revalidated the
+49 sanitized salvage cases and recorded source hashes; previous threadstress
+and sanitized syscall evidence remain applicable to unchanged code.
+
+PR317 at `e2457b1b` remains draft/unmerged. Its owner confirms no current overlap
+or new relevant concern; hardware stop/drain/provider retirement remains open
+there. That is scope feedback, not independent approval of this flush contract.
+Review VMs 61610, 6233 and 85869 stay running; all task VMs stop normally or through
+the documented owned-VM restart. Review receipts/logs are backed up outside build
+under `.local/filesystem-evidence/pr329-review/`. No hosted Actions or physical
+trial was run. The current dirty-source salvage milestone is complete.
+
+Next proposed bounded milestone: **installed-root salvage destination-writeback
+failure qualification**. Existing guest proof covers failed-source destinations
+and exclusive conflicts; destination write/flush failures currently have host
+coverage only. First review fault placement on a third disposable target image.
+Prove the real CLI reports failure without losing the caller's retained dirty
+reader or offset, then copies to a separate healthy volume and verifies exact
+bytes after controlled restart. Preserve uncertain artifacts and the global
+reboot guard; coordinate any process/driver changes with PR317. No automatic
+repair, retry or failed-volume retirement is included. This is proposed work,
+not begun by the merge review.
+
 ## Installed-root dirty-source salvage — verified
 
 User authorized mechanism review and installed-root proof on main `1a5a6dee`,
