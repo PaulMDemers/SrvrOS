@@ -77,8 +77,8 @@ def parser_selftest():
     assert boot_network_state(boot)['allowed']
     assert not boot_network_state(BOOT_NETWORK_LINES[0]+b'\n')['allowed']
     assert not boot_network_state(boot.replace(b'\r\n',b'',1))['allowed']
-    assert not boot_network_state(boot+b'net: provider=e1000\n')['allowed']
-    assert not boot_network_state(boot+BOOT_NETWORK_LINES[0]+b'\n')['allowed']
+    assert not boot_network_state(boot+b'\nnet: provider=e1000\n')['allowed']
+    assert not boot_network_state(boot+b'\n'+BOOT_NETWORK_LINES[0]+b'\n')['allowed']
     print('signal-public-parser: ok')
 
 
