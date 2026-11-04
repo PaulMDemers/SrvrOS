@@ -12688,7 +12688,7 @@ before the eventual matched hardware candidate;preserve v122 acceptance.
 
 Private handshake nonce groundwork now uses CPUID-gated RDRAND/CF with at most
 ten attempts per word and no clock/software fallback;the general RNG syscall
-is unchanged. Whole-result publication,sticky failures,zero/ones/word/block
+is unchanged. Validated-result publication under exclusive caller ownership,sticky failures,zero/ones/word/block
 repetition,aliases,reentry,generation exhaustion and callback-state mutation
 are covered. An initial reversible-state mutation test exposed an end-only
 check;ownership/state is now checked after every callback. Host and fatal

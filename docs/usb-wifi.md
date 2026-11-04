@@ -6749,8 +6749,8 @@ clock/software fallback;other architectures refuse. See the [Intel DRNG
 implementation guide](https://www.intel.com/content/www/us/en/developer/articles/guide/intel-digital-random-number-generator-drng-software-implementation-guide.html).
 Local checks additionally refuse zero/ones/repeated words,repeated whole blocks,
 state changes,generation exhaustion and an already faulted source. These are
-failure checks,not an independent entropy-quality certification. Publication
-is atomic at the32-byte result boundary;failures scrub separate output and
+failure checks,not an independent entropy-quality certification. All32 output bytes are copied only after validation;the caller retains
+exclusive output ownership until return. Failures scrub separate output and
 preserve prior successful state. Alias and reentrant calls refuse. A faulted
 source stays unavailable rather than switching to a weak fallback. Values are
 not logged. Host/fatal-sanitizer/native-object checks pass;the Linux CPU backend
