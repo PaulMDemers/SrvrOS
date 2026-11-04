@@ -36,6 +36,19 @@ struct mt76_rx_beacon {
 enum mt76_rx_status mt76_rx_beacon(const uint8_t *, size_t,
                                   unsigned tuned_channel,
                                   struct mt76_rx_beacon *);
+/* Separate offline foundation for the captured 5GHz channel161/20MHz plan.
+ * No hardware caller or authority to tune/enable MAC/RX. The transport must
+ * supply its verified tuning, never a packet-derived channel. DS Parameter Set
+ * is unsupported here. Optional HT Operation must be unique, exactly22 bytes
+ * and advertise the supplied primary channel; absent HT uses verified tuning.
+ * Existing 1-11 parser, diagnostic, output layout and policy are unchanged.
+ * Security remains advertisement only. No VHT width/RSSI/association inference. */
+struct mt76_rx_beacon5 {
+    struct mt76_rx_beacon beacon;
+    bool ht_present;
+};
+enum mt76_rx_status mt76_rx_beacon5(const uint8_t *, size_t,
+    unsigned tuned_channel, unsigned bandwidth, struct mt76_rx_beacon5 *);
 /* Anonymous diagnostic only: fully validate under the advertised US1-11
  * channel and return that scalar. Never licenses a mismatched receive frame. */
 unsigned mt76_rx_advertised_channel(const uint8_t *,size_t);

@@ -12,19 +12,21 @@ The captured EW-7711MAC `7392:a711`/`0100` is **5GHz-only**; see the
 mistaken for assembled-model capability. Historical2.4GHz packet/USB traces do
 not establish2.4GHz RF support. Do not repeat the withdrawn v107 trial.
 
-Latest native v119 `ace4b3dcaa85e353`, runtime source `11689cfa`, on main
-`7ef140ef`, accepts the complete1520120-byte prefix in session
-`session-00065f6c26a94612-00`:11774 operations, including the full v118 parent
-and105 common VCO operations. Fresh trim44 spans one RF0:4 b0 trigger,
-immediate b0 read and six delayed30 reads; the first clear is the first delayed
-sample, after a requested10ms wait. This does not measure the exact calibration
-latency or establish RF lock. Selected trim44 and inverse trim0 readbacks pass,
-as do every MAC/CORE/DMA guard, source/release/session proof, saved automatic
-Ubuntu return, offline USB fsck/allocation and all installed recovery bytes.
-The208-file sealed native capsule and separate accepted notes survive outside
-build. Workspace unmounted, Ubuntu default, unarmed. This accepts the bounded
-MAC-disabled common trigger/self-clear/trim-restoration contract only; calibrated
-RX, populated discovery/reattach, authentication and IP remain pending.
+Latest native v120 `019299c5a721fcda`, runtime `e2bf7e3b`, on main
+`845f703c`, accepts the complete1991045-byte prefix in session
+`session-00065f6d30db0147-00`:15618 operations, including the full v119 parent
+and3844 selected-channel operations with77 child I/O and six exact waits.
+Fresh trim44/channel161/20MHz remain selected while one RF0:4 trigger reads b0
+immediately and30 at all six delayed observations. Independent inverse originals
+pass. This observes clearing by the first requested10ms delay, not exact latency
+or RF lock. All MAC/CORE/DMA guards, source/release/session, offline USB fsck/
+allocation, installed recovery equality and automatic Ubuntu return pass.
+The215-file sealed native capsule and separate accepted notes survive outside
+build. Workspace unmounted, Ubuntu default, unarmed. This accepts bounded
+MAC-disabled selected-state/self-clear/register restoration only; channel MCU
+calibration, RX, populated discovery/reattach, authentication and IP stay pending.
+Prior v119 `ace4b3dcaa85e353`/`11689cfa` retains its1520120-byte/11774-operation
+common VCO acceptance and208-file capsule, independently preserved.
 
 Prior v118 `62e3a5325065719e`/`4dd9cfd5`, session
 `session-00065f6a45979c71-00`, remains accepted for its1510049-byte/11669-operation
@@ -33,18 +35,15 @@ separate accepted notes remain intact. Prior v117 `2a03a519eac62cbf`/`1fe64aac`,
 session `session-00065f693a903b08-00`, retains its1501530-byte/11578-operation
 fresh-trim/held-channel acceptance and154-file capsule.
 
-Next: separately owned channel161 VCO while fresh trim44, band/synth/A20/PA and
-gain-adjusted BBP are still selected, before inverse restoration. The audited
-selected checkpoint is outer trim phase2/op21, channel phase3, band phase8,
-synth paused, A20/op504, PA/op294 and BBP/op441. Preserve legacy no-child plans,
-private fresh parent proof, bounded timing/observation and no force-clear/replay.
-Then audit MCU calibration and controlled reception before authentication/data.
-Next installed candidate is v120 `019299c5a721fcda`, runtime `e2bf7e3b`, main
-`845f703c`. Its exact-image host/VM/storage/recovery checks pass; physical result
-is pending. Collect `build/bringup/wifi-channel-vco5-native/return_collect.py`
-FIRST after return. Cold adapter unplug remains required; ordinary startup
-does not enable this diagnostic. The separate bc VM allocation failure remains
-unaccepted and preserved; this native USB/storage result does not resolve it.
+Next: source-audited high-band MCU calibration, including saved IBI9 admission
+and exact acknowledgements, followed by bounded endpoint ownership and real5GHz
+reception. A separate fixed channel161/20MHz passive beacon decoder is the next
+host foundation; it must preserve legacy1–11 parser behavior and expose no
+hardware authority. Main `7766ed5a` was fetched/inspected; current runtime still
+uses845f703c and the newer desktop/session changes are not native acceptance.
+Cold adapter unplug remains required for new physical trials; use shutdown under
+standing authority. Ordinary startup does not enable radio diagnostics. The
+separate bc VM allocation failure stays unaccepted and preserved.
 
 Previous native v116 `466528fc7669566e`, runtime `c3088243`, main `1dad02c2`,
 passes the complete1063627-byte prefix in matching session
@@ -12311,3 +12310,28 @@ with HT-primary validation, host fault/truncation tests and unchanged legacy
 source-audited channel MCU calibration and IBI9 saved-word admission separately;
 existing all-ones observations do not automatically admit new5GHz calibration.
 No new boot armed; cold-unplug shutdown authority persists. Credentials unused.
+
+
+### Channel161 passive decoder foundation and calibration audit
+
+Separate `mt76_rx_beacon5` now provides offline fixed161/20MHz management
+parsing and optional HT-primary validation without widening legacy1–11 native
+callers or structs. Exact truncations, all primary/tuning values, malformed/
+duplicate/mismatched HT, shared framing refusals, security advertisements and
+100000 hostile transfers pass, including ASan/UBSan and the full old parser
+suite. Existing RX-window/discovery/scan/batch regressions, matched kernel/USB
+build, docs and native private-owner refusal filter pass. Test-only implicit
+return compilation refusal is preserved, then corrected with an explicit return.
+No new source is physically installed or accepted by these host checks.
+
+Eight additional pinned Linux v7.0 sources confirm HT61's22-byte primary field,
+AGC8/9 software-cache reads and initial MAC-start before power-on calibration.
+For channel161 the MCU power-on VCO argument must be161, then high-band FULL901,
+LC1 and RXDCOC1; neither the selected RF pulse nor old VCO1 accepts this startup.
+Next is explicit same-lifetime selected-channel MAC/RX ownership, fresh IBI9
+write effect and exact raw restoration, bounded firmware acknowledgements and
+terminal drain/disable/endpoint retirement before controlled5GHz reception.
+Local `build/bringup/wifi-rx5-foundation` retains source pins/audit and tests;
+accepted notes outside build retain a sealed copy. Demers5 security/data remain
+later;Demers2.4 needs compatible hardware. Installed v120 stays collected/unarmed,
+Ubuntu default; no shutdown is required for this offline work.

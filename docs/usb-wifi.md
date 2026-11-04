@@ -120,6 +120,36 @@ survive outside build. The native prefix fits the unchanged2MiB bound with
 106107bytes remaining. No calibrated receive or connectivity claim
 follows from preparation or a self-cleared trigger.
 
+## Channel161 passive decoder foundation (host-tested only)
+
+`mt76_rx_beacon5` separately admits supplied channel161/20MHz. It shares the
+validated USB/RXWI/management framing with the legacy parser, copies output only
+after the full IE stream passes, rejects DS Parameter Set here, and validates
+unique optional HT Operation61/22-byte primary-channel data against supplied
+tuning. Missing HT uses the transport-supplied tuning. The shape follows Linux
+v7.0 [HT definitions](https://github.com/torvalds/linux/blob/v7.0/include/linux/ieee80211-ht.h).
+It infers no VHT width, calibrated RSSI, security acceptance or RF tuning from
+untrusted air bytes. The legacy1–11 function, output layout, diagnostics and
+native callers remain unchanged. There is no hardware caller for this new API.
+
+`make test-mt76-rx5` checks every exact-frame truncation, unaligned buffers, all
+primary-channel values and unsupported supplied channel/width values, duplicate/
+malformed/mismatched HT, trailing malformed IEs, shared framing refusals,
+advertised security and100000 hostile transfers, plus the complete legacy
+parser suite. ASan/UBSan, legacy RX/window/discovery/scan/batch, matched kernel/
+USB build and native private-owner refusal checks pass. Initial test compilation
+exposed the renamed legacy main's implicit return; an explicit return fixes the
+test without disabling warnings. No physical receive acceptance follows.
+
+The next source audit confirms initial USB startup calls MAC start before
+power-on calibration. A fresh channel161 startup needs MCU R=0 and VCO=161,
+then FULL=901/LC=1/RXDCOC=1 with exact temporary-word and acknowledgement proofs.
+The selected RF-register VCO pulse and historical MCU VCO=1 are not substitutes.
+AGC initialization reads AGC8/9 into a software cache; it is not another register
+table. Native startup/drain/disable/endpoint ownership, fresh IBI9 write effect/
+restoration and controlled receive remain required. No new physical trial or
+credentials are armed by this offline foundation.
+
 ## 5GHz RF band-selection foundation
 
 The fixed `mt76_rf_band5g_*` engine replays 38 bank6 settings, then selects

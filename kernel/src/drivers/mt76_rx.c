@@ -49,11 +49,12 @@ static bool unicast(const uint8_t *p) {
     return any && !(p[0] & 1);
 }
 
-enum mt76_rx_status mt76_rx_beacon(const uint8_t *p, size_t size,
-                                  unsigned channel, struct mt76_rx_beacon *out) {
+static enum mt76_rx_status beacon_decode(const uint8_t *p, size_t size,
+    unsigned channel, bool high_band, bool *ht_present, struct mt76_rx_beacon *out) {
     if (!out) return MT76_RX_INVALID;
     *out = (struct mt76_rx_beacon){0};
-    if (channel < 1 || channel > 11) return MT76_RX_INVALID;
+    if (high_band ? channel != 161 : (channel < 1 || channel > 11))
+        return MT76_RX_INVALID;
     struct mt76_rx_view v;
     enum mt76_rx_status status = mt76_rx_usb_view(p, size, &v);
     if (status != MT76_RX_OK) return status;
@@ -75,7 +76,7 @@ enum mt76_rx_status mt76_rx_beacon(const uint8_t *p, size_t size,
         b.bssid[i] = v.header[16 + i]; b.transmitter[i] = v.header[10 + i];
     }
     for (unsigned i = 0; i < 4; i++) b.rssi_raw[i] = v.rssi_raw[i];
-    bool ssid = false, rates = false;
+    bool ssid = false, rates = false, ht = false;
     /* Entire IE stream must validate before publishing even a partial SSID. */
     for (size_t pos = 12; pos < v.body_size;) {
         if (v.body_size - pos < 2) return MT76_RX_INVALID;
@@ -92,9 +93,17 @@ enum mt76_rx_status mt76_rx_beacon(const uint8_t *p, size_t size,
             if (rates || !n || n > 8) return MT76_RX_INVALID;
             rates = true;
         } else if (id == 3) {
+            if (high_band) return MT76_RX_UNSUPPORTED;
             if (b.ds_present || n != 1 || !ie[0] || ie[0] > 14)
                 return MT76_RX_INVALID;
             b.ds_present = true;
+            if (ie[0] != channel) return MT76_RX_CHANNEL_MISMATCH;
+        } else if (id == 61 && high_band) {
+            /* HT Operation has a primary channel followed by 21 bytes.
+             * Wider AP operation does not change our supplied 20MHz tuning.
+             * Never infer a channel from unvalidated air bytes. */
+            if (ht || n != 22) return MT76_RX_INVALID;
+            ht = true;
             if (ie[0] != channel) return MT76_RX_CHANNEL_MISMATCH;
         } else if (id == 48) {
             if (b.rsn_present || n < 2 || le16(ie) != 1) return MT76_RX_INVALID;
@@ -108,7 +117,25 @@ enum mt76_rx_status mt76_rx_beacon(const uint8_t *p, size_t size,
     }
     if (!ssid || !rates) return MT76_RX_INVALID;
     *out = b;
+    if (ht_present) *ht_present = ht;
     return MT76_RX_OK;
+}
+
+enum mt76_rx_status mt76_rx_beacon(const uint8_t *p, size_t size,
+    unsigned channel, struct mt76_rx_beacon *out) {
+    return beacon_decode(p, size, channel, false, NULL, out);
+}
+
+enum mt76_rx_status mt76_rx_beacon5(const uint8_t *p, size_t size,
+    unsigned channel, unsigned bandwidth, struct mt76_rx_beacon5 *out) {
+    if (!out) return MT76_RX_INVALID;
+    *out = (struct mt76_rx_beacon5){0};
+    if (channel != 161 || bandwidth != 20) return MT76_RX_INVALID;
+    struct mt76_rx_beacon5 b = {0};
+    enum mt76_rx_status status = beacon_decode(p, size, channel, true,
+        &b.ht_present, &b.beacon);
+    if (status == MT76_RX_OK) *out = b;
+    return status;
 }
 
 unsigned mt76_rx_advertised_channel(const uint8_t *p,size_t size) {

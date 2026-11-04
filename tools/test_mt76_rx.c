@@ -136,4 +136,5 @@ int main(void) {
         free(p);
     }
     puts("MT76 receive: PASS padding,unaligned/truncated DMA,management framing,binary/hidden SSIDs,IE boundaries,100000 hostile transfers");
+    return 0;
 }
