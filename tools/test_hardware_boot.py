@@ -60,7 +60,7 @@ class InstallTests(unittest.TestCase):
 
     def test_intel_lifetime_profiles(self):
         for flag,part,mode in [('intel_lifetime_capture','intel-lifetime','shadow'),('intel_lifetime_fixture','intel-lifetime-fixture','fixture')]:
-            version=f'ram-usb-v1-{part}-laptop-probe-37d8c5d0-auto-return'
+            version=f'ram-usb-v{2 if mode=="fixture" else 1}-{part}-laptop-probe-37d8c5d0-auto-return'
             config=boot.limine_config('0123456789abcdef',version)
             self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
             for token in ('srvros.capture=intel-display',f'srvros.intel-lifetime={mode}','srvros.capture-failure=reboot'):
@@ -75,6 +75,12 @@ class InstallTests(unittest.TestCase):
             with patch.object(boot,'ROOT',self.root),patch.object(boot.subprocess,'check_output',side_effect=['tested-source','']):
                 release=boot.stage(**{flag:True},laptop_probe_volume='37d8c5d0')
             self.assertEqual(boot.verify(self.stage/release)['config_version'],version)
+
+    def test_legacy_lifetime_fixture_config(self):
+        old='ram-usb-v1-intel-lifetime-fixture-laptop-probe-37d8c5d0-auto-return'
+        new='ram-usb-v2-intel-lifetime-fixture-laptop-probe-37d8c5d0-auto-return'
+        self.assertEqual(boot.limine_config('0123456789abcdef',old),boot.limine_config('0123456789abcdef',new))
+        self.assertNotEqual(boot.release_id({},old),boot.release_id({},new))
 
     def test_navigation_attended_profile(self):
         config=boot.limine_config('0123456789abcdef','ram-usb-v76-desktop-37d8c5d0')

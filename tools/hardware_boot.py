@@ -24,7 +24,7 @@ CONFIG_VERSIONS = ("ram-usb-v2", "ram-usb-v3-inputdiag", CONFIG_VERSION, DIAGNOS
 RELEASE_RE = re.compile(r"[0-9a-f]{16}")
 AUTOTEST_RE = re.compile(r"ram-usb-v[5689]-autotest-([0-9a-f]{8})-([0-9a-f]{16})")
 WORKSPACE_RE = re.compile(r"ram-usb-v7-workspace-([0-9a-f]{8})")
-LAPTOP_PROBE_RE = re.compile(r"ram-usb-v(?:1-hsw|2-hsw|3-hsw|1-intel-dma|1-intel-lifetime-fixture|1-intel-lifetime|1-intel-backing|1-intel-display|1-ap-owner|1-ap-c3|1-ap-package|1-ap-platform|1-posix|1-storage-wait|1-mwait|1-mwait-c3|19|23|24|25|26|27|28|31|32|33|34|35|36|38|40|41|42|43|44|45|46|47|48|49|51|52|60|61|62|63|64|65|66|67|68|69)-laptop-probe-([0-9a-f]{8})(-auto-return)?")
+LAPTOP_PROBE_RE = re.compile(r"ram-usb-v(?:1-hsw|2-hsw|3-hsw|1-intel-dma|1-intel-lifetime-fixture|2-intel-lifetime-fixture|1-intel-lifetime|1-intel-backing|1-intel-display|1-ap-owner|1-ap-c3|1-ap-package|1-ap-platform|1-posix|1-storage-wait|1-mwait|1-mwait-c3|19|23|24|25|26|27|28|31|32|33|34|35|36|38|40|41|42|43|44|45|46|47|48|49|51|52|60|61|62|63|64|65|66|67|68|69)-laptop-probe-([0-9a-f]{8})(-auto-return)?")
 DESKTOP_RE = re.compile(r"ram-usb-v(?:17|18|20|21|22|29|30|31|36|37|53|54|55|56|57|58|59|70|71|72|73|74|75|76|77|78|79|80|81|82)-desktop-([0-9a-f]{8})")
 TRACKPAD_RE = re.compile(r"ram-usb-v(?:10|11|12|13|14|15|16|50)-trackpad-([0-9a-f]{8})-([0-9a-f]{16})")
 
@@ -48,12 +48,12 @@ def limine_config(release, version=CONFIG_VERSION):
     if probe:
         cmdline = (f"srvros.storage=ram srvros.workspace-volume={probe[1]} "
                    f"srvros.desktop-release={release} srvros.laptop-services=probe-autoreboot")
-        if version.startswith(("ram-usb-v1-intel-dma-","ram-usb-v1-intel-display-","ram-usb-v1-intel-backing-","ram-usb-v1-intel-lifetime-")):
+        if version.startswith(("ram-usb-v1-intel-dma-","ram-usb-v1-intel-display-","ram-usb-v1-intel-backing-","ram-usb-v1-intel-lifetime-","ram-usb-v2-intel-lifetime-fixture-")):
             cmdline = (f"srvros.storage=ram srvros.workspace-volume={probe[1]} "
                        f"srvros.desktop-release={release} srvros.capture=intel-display")
-            if version.startswith(("ram-usb-v1-intel-dma-","ram-usb-v1-intel-backing-","ram-usb-v1-intel-lifetime-")) and not version.startswith("ram-usb-v1-intel-lifetime-fixture-"):cmdline += " srvros.intel-backing=read-only"
+            if version.startswith(("ram-usb-v1-intel-dma-","ram-usb-v1-intel-backing-","ram-usb-v1-intel-lifetime-","ram-usb-v2-intel-lifetime-fixture-")) and not version.startswith(("ram-usb-v1-intel-lifetime-fixture-","ram-usb-v2-intel-lifetime-fixture-")):cmdline += " srvros.intel-backing=read-only"
             if version.startswith("ram-usb-v1-intel-dma-"):cmdline += " srvros.intel-dma=read-only"
-            if version.startswith("ram-usb-v1-intel-lifetime-fixture-"):cmdline += " srvros.intel-lifetime=fixture"
+            if version.startswith(("ram-usb-v1-intel-lifetime-fixture-","ram-usb-v2-intel-lifetime-fixture-")):cmdline += " srvros.intel-lifetime=fixture"
             elif version.startswith("ram-usb-v1-intel-lifetime-"):cmdline += " srvros.intel-lifetime=shadow"
         if version.startswith(("ram-usb-v23-","ram-usb-v25-","ram-usb-v26-")):
             cmdline = (f"srvros.storage=ram srvros.workspace-volume={probe[1]} "
@@ -358,7 +358,7 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
         if intel_dma_capture:version=f"ram-usb-v1-intel-dma-laptop-probe-{laptop_probe_volume}"
         if intel_backing_capture: version=f"ram-usb-v1-intel-backing-laptop-probe-{laptop_probe_volume}"
         if intel_lifetime_capture:version=f"ram-usb-v1-intel-lifetime-laptop-probe-{laptop_probe_volume}"
-        if intel_lifetime_fixture:version=f"ram-usb-v1-intel-lifetime-fixture-laptop-probe-{laptop_probe_volume}"
+        if intel_lifetime_fixture:version=f"ram-usb-v2-intel-lifetime-fixture-laptop-probe-{laptop_probe_volume}"
         if ap_coordinated_c3: version=f"ram-usb-v1-ap-c3-laptop-probe-{laptop_probe_volume}"
         if ap_package_audit: version=f"ram-usb-v1-ap-package-laptop-probe-{laptop_probe_volume}"
         if ap_platform_audit: version=f"ram-usb-v1-ap-platform-laptop-probe-{laptop_probe_volume}"

@@ -117,6 +117,7 @@ done:
         (uint64_t)n,(uint64_t)ok,o->epoch,(uint64_t)o->state,(uint64_t)o->front,(uint64_t)o->phase,(uint64_t)o->released,(uint64_t)o->fault,(uint64_t)(n>=5));
     return ok && scanout_invariant(o);
 }
+#include "../../diagnostics/scanout_publish_model.inc"
 bool intel_scanout_lifetime_trial(struct limine_framebuffer *fb,bool fixture) {
     if(attempted)return false;
     attempted=true;
@@ -137,6 +138,7 @@ bool intel_scanout_lifetime_trial(struct limine_framebuffer *fb,bool fixture) {
             ok=run_case(&t,n,&p,frames);if(ok)cases++;
             if(clock_us()<began || clock_us()-began>30000000)ok=false;
         }
+        if(fixture && ok)ok=pub_model_run();
         preserved=fixture?true:intel_scanout_trial_revalidate();
         ok=ok && preserved;
         service_window_end(t.window);

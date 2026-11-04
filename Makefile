@@ -4495,9 +4495,10 @@ test-core: test-intel-scanout-trial
 test-intel-scanout-trial: build/tests/intel-scanout-trial$(HOST_EXE) build/tests/intel-display-probe$(HOST_EXE)
 	build/tests/intel-scanout-trial$(HOST_EXE)
 	$(PYTHON) -m unittest discover -s tools -p test_intel_scanout_lifetime.py
-build/tests/intel-scanout-trial$(HOST_EXE): tools/test_intel_scanout_trial.c kernel/src/drivers/intel_scanout_trial.c kernel/src/scanout_lifetime.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	$(PYTHON) -m unittest discover -s tools -p test_scanout_publish_model.py
+build/tests/intel-scanout-trial$(HOST_EXE): tools/test_intel_scanout_trial.c kernel/src/drivers/intel_scanout_trial.c kernel/diagnostics/scanout_publish_model.inc kernel/src/scanout_lifetime.c kernel/src/scanout_publish.c kernel/src/scanout_space.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include tools/test_intel_scanout_trial.c kernel/src/scanout_lifetime.c -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include tools/test_intel_scanout_trial.c kernel/src/scanout_lifetime.c kernel/src/scanout_publish.c kernel/src/scanout_space.c -o $@
 -include $(USER_PROFILE_DEP)
 
 .PHONY: test-guest-profiles
@@ -4605,3 +4606,11 @@ build/userspace/test_less_probe.elf: tools/test_less_probe.c userspace/widgets/s
 	$(CC) $(USER_CFLAGS) -I userspace/widgets/include -c tools/test_less_probe.c -o build/userspace/less-probe/probe.o
 	$(CC) $(USER_CFLAGS) -I userspace/widgets/include -c userspace/widgets/src/terminal.c -o build/userspace/less-probe/model.o
 	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) build/userspace/less-probe/probe.o build/userspace/less-probe/model.o $(USER_LIB_OBJ) -o $@
+
+.PHONY: test-scanout-publish
+test-core: test-scanout-publish
+test-scanout-publish: build/tests/scanout-publish$(HOST_EXE)
+	$<
+build/tests/scanout-publish$(HOST_EXE): tools/test_scanout_publish.c kernel/src/scanout_publish.c kernel/src/scanout_space.c kernel/include/srvros/scanout_publish.h kernel/include/srvros/scanout_space.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_scanout_publish.c kernel/src/scanout_publish.c kernel/src/scanout_space.c -o $@

@@ -4,7 +4,8 @@ This software mechanism is the next step after the accepted
 [Air7,2 shadow lifetime trial](scanout-buffer-lifetime.md#air72-native-shadow-acceptance).
 It reserves offsets inside a bounded GPU address arena; it does not establish
 GGTT ownership, encode or write PTEs, map physical RAM to a GPU, or advertise a
-native desktop backend. There is currently **no native caller**. The tested
+native desktop backend. The [publication transaction](scanout-publication.md) now consumes leases in a
+software-only guest fixture. There is currently **no native caller**. The tested
 managed ranges are synthetic authority supplied by host fixtures.
 
 ## Import and leases
