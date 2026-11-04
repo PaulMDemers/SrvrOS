@@ -17,11 +17,11 @@ import time
 from browser_probe import ARCHIVE, DIGEST, LIMIT, ROOT, SIZE, sha
 from browser_evidence import verify_runtime, verify_icu
 from browser_jsc_elf import inspect_target_elf
+from browser_storage import StorageGuard
 
 base = ROOT / 'build/browser-jsc'
 port = ROOT / 'ports/srvros/webkit'
 icu = ROOT / 'build/browser-icu/sysroot'
-reserve = 2 * 1024**3
 budget = 6 * 1024**3
 base.mkdir(parents=True, exist_ok=True)
 parser = argparse.ArgumentParser(description=__doc__)
@@ -46,6 +46,7 @@ source = run / 'wpewebkit-2.54.2'
 build = run / 'cmake'
 receipt = {'scope': 'target JSCOnly build; no guest runtime or browser claim',
            'source_observation_only': '', 'commands': [], 'result': 'failed', 'inputs': {}}
+storage = StorageGuard(run.resolve())
 env = os.environ.copy()
 for key in ('CC', 'CXX', 'CFLAGS', 'CXXFLAGS', 'CPPFLAGS', 'LDFLAGS', 'LIBS',
             'CPATH', 'C_INCLUDE_PATH', 'CPLUS_INCLUDE_PATH', 'LIBRARY_PATH',
@@ -183,8 +184,7 @@ def archive_info(path):
     return {'sha256': sha(path), 'elf64_x86_64_members': count}
 
 def check_space():
-    if shutil.disk_usage(base).free < reserve:
-        raise RuntimeError('2 GiB free-disk reserve reached')
+    storage.preflight()
     size = subprocess.check_output(['du', '-sk', str(run)], text=True).split()[0]
     if int(size) * 1024 > budget:
         raise RuntimeError('6 GiB build directory budget reached')
@@ -200,11 +200,11 @@ def command(name, argv, timeout=3600):
         try:
             while proc.poll() is None:
                 now = time.monotonic()
-                if shutil.disk_usage(base).free < reserve:
-                    reason = 'disk reserve'
-                elif now - start > timeout:
+                try: storage.preflight()
+                except RuntimeError as error: reason = str(error)
+                if not reason and now - start > timeout:
                     reason = 'timeout'
-                elif now >= next_size:
+                elif not reason and now >= next_size:
                     try: check_space()
                     except RuntimeError as error: reason = str(error)
                     next_size = now + 10
@@ -227,6 +227,7 @@ def command(name, argv, timeout=3600):
 
 try:
     started = time.monotonic()
+    env = storage.environment(env)
     check_space()
     receipt['runtime'] = verify_runtime(); receipt['icu'] = verify_icu()
     receipt['filesystem'] = verify_filesystem(receipt['runtime'])
@@ -235,7 +236,7 @@ try:
         raise RuntimeError('pinned WPE archive absent or invalid')
     receipt['source_observation_only'] = subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()
     receipt['dirty_observation_only'] = subprocess.check_output(['git','status','--porcelain'],cwd=ROOT,text=True)
-    for path in [Path(__file__), ROOT/'tools/browser_jsc_elf.py', ARCHIVE, *sorted(port.glob('*'))]:
+    for path in [Path(__file__), ROOT/'tools/browser_jsc_elf.py', ROOT/'tools/browser_storage.py', ARCHIVE, *sorted(port.glob('*'))]:
         if path.is_file(): receipt['inputs'][str(path.relative_to(ROOT))] = sha(path)
     if not args.resume:
         total = 0
@@ -256,7 +257,7 @@ try:
                         while True:
                             block = inp.read(1024*1024)
                             if not block: break
-                            if shutil.disk_usage(base).free < reserve: raise RuntimeError('disk reserve during extraction')
+                            storage.preflight()
                             out.write(block)
                     dest.chmod(member.mode & 0o777)
         receipt['extracted_bytes'] = total
@@ -510,6 +511,8 @@ try:
 except (OSError, ValueError, KeyError, RuntimeError, subprocess.SubprocessError, tarfile.TarError) as error:
     receipt['error'] = str(error)
 finally:
+    receipt['storage_minimum'] = storage.minimum
+    receipt['storage_snapshot'] = storage.snapshot
     # Preserve target archive evidence even when the final executable does not link.
     try:
         recorded = {}
