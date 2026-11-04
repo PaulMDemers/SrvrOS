@@ -35,12 +35,12 @@ separate accepted notes remain intact. Prior v117 `2a03a519eac62cbf`/`1fe64aac`,
 session `session-00065f693a903b08-00`, retains its1501530-byte/11578-operation
 fresh-trim/held-channel acceptance and154-file capsule.
 
-Installed v121 `3732593a41f9be22`, runtime `12b47dbc`, is the separate
+Installed v121 retry `285dad07e7a14417`, runtime `128c25b0`, is the separate
 selected161 firmware calibration/controlled receive candidate. Exact-image
 save/reset/refusal and desktop VMs, source-frozen full-prefix capacity/refusal,
 local fault/sanitizer/legacy regression, workspace and recovery checks pass.
 Physical acceptance is pending. After automatic Ubuntu return, collect
-`build/bringup/wifi-cal5-native/return_collect.py` FIRST. Require the full parent,
+`build/bringup/wifi-cal5-retry/return_collect.py` FIRST. Require the full parent,
 fresh IBI write/restoration proof, exact R0/VCO161/FULL901/LC1/RXDCOC1 replies,
 retained-window/drain/disable/stop and inverse originals. Quiet is not reception.
 Current runtime uses main845f703c; reviewed mainf4ea0ccb's newer desktop/session/
@@ -12454,3 +12454,24 @@ calibration/window/coordinator engines retain their exact prior source-bound
 fault/sanitizer evidence. Requalify current native sanitizer/frame and exact
 stage/save/refusal/desktop proofs before installation. Preserve failed3732593a
 and its raw session; no physical calibration or receive is accepted yet.
+
+
+### v121 fresh-field retry installed
+
+Installed285dad07e7a14417/runtime128c25b0 after exact GPT save/reset,
+missing-workspace refusal and desktop VMs, current native sanitizer/frame,
+positive fresh-field/empty-legacy and damaged-field regression, strict ledger
+and bounded-prefix checks (2004724bytes,92428bytes headroom).
+The unchanged pure engines retain exact source-bound prior fault/sanitizer
+proofs; no new hardware acceptance is claimed. The initial failed session was
+independently archived/verified against its597-file failure capsule before
+pruning only that generated USB session. Actual descriptor/model,offline fsck/
+allocation/writable/headroom and recovery equality pass. The unreferenced v116
+EFI copy was retired only after equality with its independently sealed accepted
+backup. v117–v120,failed3732593a,e47d recovery and all accepted backups remain.
+Source/run/payload/frozen proof/VM receipts are sealed outside build as
+`wifi-cal5-retry-128c25b0`. Latest fetched main5f670602 adds independent Air
+read-only inventory; runtime still uses845f703c. Shutdown for10seconds Wi-Fi
+unplug while off,reconnect same port,power on,workspace retained. Automatic
+progress/save/unmount/Ubuntu return;no commands/photos. Collect the matching
+retry first. Initialv121 remains failed;latest native acceptance is stillv120.
