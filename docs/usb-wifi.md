@@ -61,6 +61,21 @@ build. This does not accept VCO, RF lock, calibrated RX or connectivity; next is
 the separate common VCO lifetime with freshly selected trim, followed by the
 per-channel VCO/calibration/receiver contract.
 
+## Common VCO child candidate (v119; physical acceptance pending)
+
+The opt-in fixed child requires the complete same-boot v118 fresh-field/DAC
+proof, selects trim44 again, reads RF0:4 original30 and issues exactly one bit7
+set (b0). It reads immediately and after10/40/50/100/300/500ms delays. Only30 or
+b0 is admitted; nontrigger bits must stay unchanged and a cleared trigger may
+not reassert. The last delayed sample must be30 before reading trim44 and
+inversely writing/reading trim0. No force-clear or repeated pulse exists. Pending
+or uncertain I/O stops/quarantines without speculative restoration. The fixed plan is15 commands,
+including12 reads and3 writes, with90 guard reads, for105 I/O and six waits.
+The source trigger order is pinned; the one-second observation bound is diagnostic
+policy, not a Linux RF-lock criterion. Self-clear and final word restoration do
+not establish analog calibration or usable reception. The separate per-channel
+VCO after held band/synth/gain/BBP remains pending, as do security and IP.
+
 ## 5GHz RF band-selection foundation
 
 The fixed `mt76_rf_band5g_*` engine replays 38 bank6 settings, then selects

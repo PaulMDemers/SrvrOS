@@ -833,6 +833,12 @@ Pro11,2 accepted this bounded contract in release `62e3a5325065719e`:11669
 operations and1510049bytes, complete restoration/storage/recovery and automatic
 return. Require a new source-bound proof for later VCO or receive trials.
 
+The v119 common VCO child inherits the same full-prefix/automatic-return policy.
+Require the entire v118 parent,105 new I/O records and six exact delay receipts,
+monotonic self-clear, original RF word and inverse trim readbacks. Pending or
+reasserted triggers are failures; do not force-clear/replay or accept calibration
+from a cleared bit. Physical acceptance remains machine/source/release specific.
+
 Collect and inspect the matching session before preparing another run:
 
 ```sh

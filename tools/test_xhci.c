@@ -6716,6 +6716,16 @@ static void test_pa5_refusal(void){
     wifi_dac5_requested=true;assert(!xhci_wifi_capture_dac5());wifi_dac5_requested=false;
     wifi_trim5_requested=true;assert(!xhci_wifi_capture_dac5());wifi_trim5_requested=false;
     wifi_dac5.state.attempted=true;assert(!xhci_wifi_capture_dac5());wifi_dac5.state.attempted=false;
+    assert(!wifi_vco5_parent(NULL) && !wifi_vco5_parent(&d));
+    assert(!wifi_vco5_owned(NULL) && !wifi_vco5_owned(&wifi_vco5));
+    assert(!wifi_vco5_read(&wifi_vco5,0x1004,&v));
+    assert(!wifi_vco5_delay(&wifi_vco5,10000));
+    assert(wifi_vco5_exchange(&wifi_vco5,packet,16,reply,sizeof reply)<0);
+    assert(!wifi_vco5.submitted && !wifi_vco5.delays && !wifi_vco5.state.attempted);
+    wifi_vco5_requested=true;assert(!xhci_wifi_capture_vco5());wifi_vco5_requested=false;
+    wifi_dac5_requested=true;assert(!xhci_wifi_capture_vco5());wifi_dac5_requested=false;
+    wifi_vco5.state.attempted=true;assert(!xhci_wifi_capture_vco5());wifi_vco5.state.attempted=false;
+    puts("xhci VCO5: PASS inactive/stale parent,read/command/delay owner,reentrant/replay refuse before USB");
     puts("xhci DAC5: PASS unknown/inactive/stale parent and read/command owner,reentrant/replayed capture refuse before USB");
     puts("xhci trim5: PASS unknown/inactive fresh-field and RF owners, fixed transfer and reentrant profile refuse before USB");
     puts("xhci held: PASS unknown/inactive owner and reentrant profile refuse before USB");

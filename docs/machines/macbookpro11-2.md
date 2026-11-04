@@ -12112,3 +12112,32 @@ and Ubuntu default/unarmed state pass. The157-file capsule
 `wifi-dac5-native-4dd9cfd5` and separate `wifi-dac5-accepted-4dd9cfd5` notes are
 outside build. No rerun is required for this contract. Word restoration is not
 analog calibration, RF lock, receive, authentication or data acceptance.
+
+## 2026-11-03 common VCO implementation and refreshed baseline
+
+Merge `48c8fc02` consumes actual main `7ef140ef`, published Ports `af92777f`,
+Apps `f85c7107` and UI `9eaaa74e`. The only root merge conflict concatenates
+independent Make targets; shared Wi-Fi ownership is unchanged. Matched ordinary
+build/USB image and full xHCI regression pass at the integration checkpoint.
+Installed-media inspection19 tests, dirty salvage9 and Haswell audit7 pass.
+The first command used three nonexistent Make aliases; the corrected commands
+and original refusal are retained. An unrelated exhaustive publication matrix
+was stopped after preserving its completed bounded subset; no full-matrix pass
+is claimed. Normal publication control coverage is separate.
+
+The new fixed VCO engine/native child requires completed v118 private parent,
+selects fresh trim44, reads original30 and issues one b0 write. Immediate and
+six timed observations admit only30/b0, require monotonic clearing and final30
+before inverse trim0 restoration. Fifteen commands/90 guards total105 I/O,
+with six measured delays totaling one second. Failure never forces clear,
+replays or speculatively restores trim. Exact source/fixture projection, all105
+transfer failures/corruptions and112 cancellation/state-mutation boundaries,
+six delay failures, seven clear timings, pending/reassertion, strict log proof
+and source-tamper tests pass. Native physical acceptance remains v118; further
+build/staging/sanitizer/exact-VM and recovery checks precede any v119 trial.
+Self-clear is not RF lock, calibrated RX or connectivity. Credentials unused.
+
+The updated image/build,213 staging groups and targeted native read/command/
+delay-owner refusal checks pass. xHCI/VCO ASan/UBSan and exact native compiler
+stack reports pass; disposable real2MiB exFAT/VFS write/read/unmount/remount/fsck
+also passes. These remain host checks; no new physical acceptance is claimed.

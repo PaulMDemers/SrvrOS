@@ -42,7 +42,7 @@ static bool wifi_mcu_dac5(struct xhci_device *d){
     m->table_active=m->dcoc_active=m->skey_active=m->wcid_active=m->mac_tail_active=m->mac_fixed_active=m->efuse_map_active=m->mac_board_active=m->ant_snapshot_active=m->ant_init_active=m->rf_probe_active=m->rf_table_active=m->rf_bank5_active=m->rf_bank6_active=m->rf_vga_active=false;
     bool valid=status==MT76_TIMING_OK && mt76_dac5_valid(s) && wifi_dac5.submitted==91;
     console_printf("wifi-dac5: status=%u complete=%u valid=%u words_restored=%u dac_reset=%u operations=%u submitted=%u trim=%u parent=%u network_out=0\n",(uint64_t)status,(uint64_t)s->complete,(uint64_t)valid,(uint64_t)s->words_restored,(uint64_t)s->dac_reset,(uint64_t)s->operations,(uint64_t)wifi_dac5.submitted,(uint64_t)s->trim,(uint64_t)parent);
-    return valid?true:wifi_mcu_fail(d);
+    return valid?(!wifi_vco5_requested || wifi_mcu_vco5(d)):wifi_mcu_fail(d);
 }
 bool xhci_wifi_capture_dac5(void){
     if(wifi_dac5_requested || wifi_dac5.active || wifi_dac5.state.attempted || wifi_trim5_requested || wifi_held_requested || wifi_bbp5_requested || wifi_pa5_requested || wifi_frontend_requested || wifi_a20_cycle_requested || wifi_a20_inventory_requested || wifi_5ghz_channel_requested || wifi_5ghz_band_requested || wifi_5ghz_prereq_requested)return false;
