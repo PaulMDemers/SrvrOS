@@ -846,10 +846,23 @@ not accept a calibrated receiver or Wi-Fi connection.
 The opt-in v120 selected-channel VCO coordinator keeps the2MiB automatic capture
 bound. Require the complete v119 parent and3844 new I/O, with its77-operation
 child inserted before the first inverse BBP write, six exact wait receipts,
-monotonic trigger clear and all inverse originals. The prepared Pro11,2
-`019299c5a721fcda`/`e2bf7e3b` synthetic prefix is1991043bytes; this is capacity/
-parser evidence only. Physical acceptance requires the matching saved session,
-offline allocation/fsck and recovery checks before another stage.
+monotonic trigger clear and all inverse originals. Pro11,2
+`019299c5a721fcda`/`e2bf7e3b` now accepts the matching saved session
+`session-00065f6d30db0147-00`:15618 operations and1991045bytes, trigger clear,
+selected-state/inverse-original proof, offline allocation/fsck and recovery.
+It does not accept MCU calibration or reception.
+
+The separate v121 `--wifi-cal5` automatic profile requires all v120 flags and
+keeps the2MiB limit. Inspect fresh IBI9 effect/raw restoration, exact R0/VCO161/
+FULL901/LC1/RXDCOC1 replies and timing, all receive attempts and anonymous
+metadata, MAC drain/disable/filter/TXOP restoration, exact endpoint cessation and
+inverse band/trim originals. The selected-state hook must bracket these before
+the first inverse BBP write. Missing completion, uncertain ownership or failed
+restoration is incomplete evidence. Zero decoded beacons accepts no RF or
+populated discovery. Firmware acknowledgements accept no analog calibration.
+Use the matching source-frozen full-prefix checker; no generic G-band recipe,
+network OUT or credentials. Cold shutdown/unplug remains required on this unit;
+automatic save/unmount/Ubuntu return and progress require no guest commands.
 
 Collect and inspect the matching session before preparing another run:
 

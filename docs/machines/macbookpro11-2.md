@@ -12380,3 +12380,22 @@ v121 cold trial saves results and returns automatically; an empty window will
 not accept reception or discovery. No credentials or network OUT. Complete
 source/VM/storage/recovery gates and a sealed run record are required before
 install/shutdown; accepted v120 and Ubuntu recovery remain independent.
+
+
+### v121 exact candidate qualification
+
+Runtime `12b47dbc`, release `3732593a41f9be22`, passes exact staged GPT
+save/readback/clean-unmount/reset and missing-workspace refusal VMs plus the
+matched desktop input/render/resize/relaunch VM. Kernel and independently
+firmware-packaged initramfs match the staged bytes. The complete synthetic
+parent/calibration/receive ledger is2004637bytes/15719 operations (101 additional
+minimum-path operations), with five malformed whole-prefix refusals and92515
+bytes remaining within2MiB. This is capacity/parser evidence, not hardware.
+All12 targeted sanitizer/build/frame checks pass; new exact native frames peak
+at376bytes. The earlier disposable2MiB real exFAT/VFS
+write/read/remount/fsck proof is reused only after exact source-hash equality;
+no new filesystem acceptance or resolution of the separate bc anomaly follows.
+Cold-test staging is ready for verified offline workspace/recovery installation.
+Collect `build/bringup/wifi-cal5-native/return_collect.py` first after automatic
+Ubuntu return. Distinguish actual beacon count from quiet lifecycle completion;
+Demers5 security/IP data and live reattach stay pending. Credentials unused.
