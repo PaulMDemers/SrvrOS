@@ -78,6 +78,10 @@ class WorkspaceInspectionTests(unittest.TestCase):
     def test_driver_failure_still_verifies_image(self):
         with mock.patch.object(inspect.native,'driver_output',side_effect=ValueError('refused')):
             r=self.run_inspect('refused');self.assertTrue(r['image_unchanged'])
+    def test_unexpected_payload_refused(self):
+        report=self.run_inspect()['diagnostic'];report['payload']='not-permitted'
+        with mock.patch.object(inspect.native,'driver_output',return_value=report):
+            self.run_inspect('refused')
     def test_mutation_detection_does_not_claim_unchanged(self):
         def change(*args):self.image.chmod(0o400);raise ValueError('injected permission change')
         with mock.patch.object(inspect.native,'driver_output',side_effect=change):

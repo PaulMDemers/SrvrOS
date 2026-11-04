@@ -1,17 +1,30 @@
 # Apple Silicon macOS build host
 
-## Uncertain workspace read-only inspection — qualification underway
+## Uncertain workspace read-only inspection — host qualified
 
 User authorizes offline read-only inspection in `SrvrOS-filesystem`, branch
 `device/apple-silicon/filesystem-uncertain-inspection`, base `83e5d1ad`. Reuse
 the native installation inspector and inherited O_RDONLY regular-file shim;
 add only a host-test diagnostic entry in exfat.c, forcing write blocking before
 sidecar loading. No process.c, USB/BOT, live transport or production runtime
-change. PR317 owner at `ddfa4ddb` confirms no lifetime overlap; published-storage
+change. PR317 owner through `04b82bdd` confirms no lifetime overlap; published-storage
 failure remains sticky and diagnostic output cannot authorize repair/remount.
 Preserve all uncertain images and review VMs 61610/6233/85869. Qualify bounded
 metadata-only output, explicit ranges, unchanged hashes/identity/permissions,
 default strict admission and malformed/refusal cases before draft delivery.
+
+Implementation `859342b2` integrates main `5ed7f015` as `787c8daa`;
+Ports is synchronized to `d760e541`. Matched OS build, 14 diagnostic and 19
+existing inspector groups, storage regressions and halt-on-error ASan/UBSan pass.
+Production-preprocessed exFAT tokens equal the baseline. Removing forced
+blocking makes the clean diagnostic qualification fail as expected. All three
+uncertain images and the accepted fault backup retain whole-image hashes,
+identity/ownership/mode `0444`; clean control remains `0644`. Dirty inputs report
+four leaked clusters and a 28-byte source entry; clean control has no allocation
+errors and source size 12,289. No source content or orphan export. Evidence is
+backed up under `.local/filesystem-evidence/workspace-inspection/`; see the
+filesystem guide for explicit-range, metadata and admission limits. No fresh VM
+is needed for a host-only path; existing review guests stay untouched.
 
 ## Graphical profile transfer — qualified for review
 

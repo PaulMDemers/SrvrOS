@@ -5,7 +5,6 @@ import fcntl
 import hashlib
 import json
 import os
-from pathlib import Path
 import stat
 import subprocess
 import installation_image as image
@@ -22,10 +21,15 @@ def digest(fd,size):
     h=hashlib.sha256();native.fd_hash_range(fd,0,size,h);return h.hexdigest()
 
 def validate(report):
-    native.require(type(report) is dict and report.get('version')==1 and report.get('kind')=='workspace-diagnostic','invalid native diagnostic')
+    native.require(type(report) is dict and set(report)=={'version','kind','writable_admission','sidecar_loaded','metadata_origin','marker_uuid','marker_binding_authenticated','filesystem','entries'} and type(report.get('version')) is int and report['version']==1 and report.get('kind')=='workspace-diagnostic','invalid native diagnostic')
     native.require(report.get('writable_admission') is False and report.get('sidecar_loaded') is False and
                    report.get('metadata_origin')=='directory_entries_only' and report.get('marker_binding_authenticated') is False,'unexpected native capabilities')
-    fs=report['filesystem'];counts=fs['allocation'];entries=report['entries']
+    uuid=report['marker_uuid']
+    native.require(type(uuid) is str and len(uuid)==8 and all(c in '0123456789abcdef' for c in uuid),'invalid marker syntax')
+    fs=report['filesystem'];entries=report['entries']
+    native.require(type(fs) is dict and set(fs)=={'volume_flags','dirty','allocation_consistent','allocation','writes','flushes'},'unexpected filesystem content')
+    counts=fs['allocation']
+    native.require(type(counts) is dict and set(counts)=={'files','clusters','leaked','fat_bitmap_mismatches','errors'},'unexpected allocation content')
     native.require(type(fs['volume_flags']) is int and 0<=fs['volume_flags']<=65535 and
                    type(fs['dirty']) is bool and fs['dirty']==bool(fs['volume_flags']&2) and type(fs['allocation_consistent']) is bool and
                    type(fs['writes']) is int and fs['writes']==0 and type(fs['flushes']) is int and fs['flushes']==0,'invalid filesystem diagnostic')
