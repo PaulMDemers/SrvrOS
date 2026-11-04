@@ -244,6 +244,10 @@ Makefile's existing Linux host target or claim a matched guest result.
 
 ## Specific FPU proof representation for review only
 
+The [concrete next-entry packet](fpu-user-trap-proof.md) specifies the exact
+64-byte layout, save-before-query order, derived-pointer validation, internal
+operations and qualification boundary following the metadata implementation.
+
 The image-generation and association prerequisite is implemented at `fea6bbb1`,
 with independent owner source/host acceptance and matched guest results below.
 Committed image IDs are nonreused and mirrored with the selected FPU in scheduler
