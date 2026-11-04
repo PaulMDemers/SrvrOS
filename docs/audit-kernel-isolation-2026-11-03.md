@@ -1225,7 +1225,7 @@ Qualified PR334 `c27d018f` private restore after independent source/host/codegen
 review and matched regression receipt verification. Initialization invalidates
 old availability/mask state, explicitly zeroes the capture area, then samples
 actual FXSAVE MXCSR support with the defined zero-mask fallback. The helper checks
-current witness/ownership/policy, full private source extent and physical-object
+current witness/ownership/policy, full private source extent and selected FPU-object
 nonoverlap before source reads; rejects unsupported/high MXCSR bits; copies only
 the saved 512-byte prefix and consumes once. Original unmodified kernel capture
 provenance remains a caller precondition, not authenticity from MXCSR checks.
