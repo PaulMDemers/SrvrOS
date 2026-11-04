@@ -1371,6 +1371,42 @@ a source-identical external-environment supplement passes. Those workflow result
 are owner-reported, not independently rerun by this audit. The separate PR334
 frame-copy target/latency and combined image-metadata boundaries remain unchanged.
 
+## November 4: effective-supervisor copy qualification
+
+The first isolated guest never entered the hook: production IDT3 is DPL0. A
+four-line test-flag-only DPL3 registration admits the private probe through the
+existing stub; normal gate policy is unchanged. The second guest reached the
+helper but refused before stores. Its Limine HHDM had U/S set in upper entries
+and clear at the supervisor 2 MiB leaf. The original every-level-supervisor rule
+was unnecessarily strict. The reviewed correction retains the accumulated U/S
+permission and requires effective supervisor access for source translations;
+destinations still require effective user access. Encoding, physical/cache/RW/NX,
+owned-stack and full-FPU alias checks are unchanged. This follows Intel SDM3A
+section 4.6's effective permission rule; no inherited page table is modified.
+
+Independent strict Rosetta and ASan/UBSan fixtures both pass for the corrected
+source. The permission matrix admits each sole supervisor level and rejects an
+all-user path for 4 KiB/2 MiB/1 GiB stack translations and independent user/kernel
+FPU spans. The owner retains an old-gate negative control failing the new admitted
+fixture. Qualification is bound to source hashes in
+`build/review/pr334-frame-copy-effective-review/`, before the owner's final commit.
+
+Verified the third isolated guest receipt's 19 artifact hashes and all 129 normal
+kernel/object hashes unchanged by the test build. Actual target disassembly shows
+scalar stores with no calls or failure path after the first user store. Main and
+worker success/refusal, canaries and FS/TLS/RSP/R12 checks pass; genuine ordinary
+mappings reach 65,536, the two-page copy succeeds and the guest exits zero/stops.
+Both failed admissions remain evidence. No production helper caller is enabled.
+
+The maximum-count sample reports 262,144 possible record visits and a 911 us
+ACPI-PM helper interval on single-CPU QEMU qemu64/TCG with 1,536 MiB RAM. The first
+small-count sample was 1,664 us. These are quantized observations from one guest,
+excluding preparation and serial, not a hard bound or the whole IRQ-disabled
+window. No numeric delivery budget was agreed. The required actual measurement
+is complete; a future production caller still needs an end-to-end exclusion budget
+and separately reviewed copy-to-infallible-state-commit transaction. No lookup
+redesign, signal delivery or physical/SMP acceptance is implied.
+
 ## Remaining work
 
 Other long IRQ-disabled operations, including initial/churning PMM scans, heap validation and poisoning,
