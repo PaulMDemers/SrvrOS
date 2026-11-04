@@ -23,10 +23,11 @@ Current delivery gates:
   rerun, independently review, merge Ports #12 then OS #370, and stop the queue.
 - Filesystem GUID selection: close the bounded review/tests and merge OS #366;
   preserve original media and completed streaming-review evidence.
-- Runtime audit: reconcile and deliver the bounded documentation checkpoint
-  in OS #365; pending browser target review and runtime acceptance stay separate.
-- Installation, application quality and UI portability: verify delivered heads,
-  close any existing documentation-only work and report remaining gaps explicitly.
+- Runtime audit: documentation checkpoint OS #365 is merged as `db95fc9b`;
+  browser target review and runtime acceptance remain separately owned.
+- Installation OS #364 (`70c3ea0f`), application quality OS #368 (`88a95f9a`)
+  and UI portability closeout OS #371 (`518175df`) are merged and verified.
+  Their owners are idle; optional follow-on work is deferred.
 
 The integration coordinator owns aggregate status consistency. Topic owners
 retain their evidence and unit records. Heavy compiler/VM/local-model windows
@@ -34,8 +35,8 @@ remain serialized with explicit handoffs and resource reserves. Actions remain
 disabled. Original installations, review-disk evidence and accepted backups are
 retained. The three historical review VM PIDs are now absent; no cause is
 established by this closeout, and no restart is requested. Physical-device PRs
-#301/#19 are being inventoried separately for
-owner reachability and integration gates; no new physical trial is authorized
+#301/#19 have separate current-main integration gates and their owners are not
+reachable through the available local chat tools; no new physical trial is authorized
 by this record. PR #19's proposed syscall 164 conflicts with browser's reserved
 164–167 and cannot merge unchanged; profile streaming reserves 168.
 
@@ -44,6 +45,9 @@ or verified. Final merged hashes and remaining explicit exceptions follow after
 the delivery checks.
 
 ## Automatic CLI queue — November 4, 2026
+
+The closeout instruction above supersedes automatic continuation: finish GNU
+Patch, then stop. GNU grep and sha256sum remain deferred backlog entries.
 
 User authorized the bounded GNU diff milestone, then automatic research,
 implementation, independent review and dependency-order merge through a finite

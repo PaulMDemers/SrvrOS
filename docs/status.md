@@ -1,9 +1,40 @@
 # Current status
 
-Updated 2026-11-03. SrvrOS is an experimental x86_64 desktop OS with a shell and
+Updated 2026-11-04. SrvrOS is an experimental x86_64 desktop OS with a shell and
 server capabilities. This page describes the current source baseline.
 Check the source commit of an image before assuming it contains a change;
 there is no supported stable binary release yet.
+
+## November 4 integration closeout
+
+Current non-browser chats are finishing their existing milestones, merging only
+verified changes and updating their records. New backlog milestones are deferred.
+Browser work is exempt and continues separately. Exact acceptance remains tied to
+the source and payload in each linked record; this is not a new combined physical
+hardware qualification.
+
+| Workstream | Delivered baseline or remaining gate |
+| --- | --- |
+| Installation | Export-publication recovery merged in [OS #364](https://github.com/PaulMDemers/SrvrOS/pull/364), `70c3ea0f`; bounded fresh-install restore and exact re-export verified. Owner is idle. See [installation](disk-installation.md). |
+| Desktop applications | Files and Find Contents work merged through UI #6, Apps #12 and [OS #368](https://github.com/PaulMDemers/SrvrOS/pull/368), `88a95f9a`; host, rendered and guest checks pass. Owner is idle. |
+| UI portability | macOS showcase and density milestones delivered; [documentation #371](https://github.com/PaulMDemers/SrvrOS/pull/371), `518175df`, closes the record. Text portability is research only; implementation is deferred. See [portability status](machines/apple-silicon-ui-host.md). |
+| Portable profiles | Creation, migration and session switching are delivered. Larger-document streaming in Apps #11 / OS #367 still requires its corrected changed-review fixture and full integrated guest proof. See [profiles](portable-profiles.md). |
+| Filesystem tooling | Explicit partition-GUID selection in OS #366 awaits final current-main native tests and delivery. Original media remains preserved. |
+| Ports | xz and GNU diff are delivered. GNU Patch in Ports #12 / OS #370 is finishing verification, including migration of the shipped miniport caller. Grep and sha256sum are deferred. |
+| Runtime audit | The bounded historical audit checkpoint is merged in [OS #365](https://github.com/PaulMDemers/SrvrOS/pull/365), `db95fc9b`. It does not qualify the ongoing browser experiment. |
+| Browser | Exempt, ongoing. The browser owner has completed its prepared target review; the next bounded guest run is pending the shared resource handoff. No full WTF/JSC or browser acceptance is claimed. |
+
+The [roadmap](roadmap.md#current-work-closeout--november-4-2026) records the
+remaining merge gates. Physical-device PRs #301 and #19 retain separate owners and
+acceptance ledgers. They are not silently included in this closeout: #301 needs
+current-main lifetime integration review, and #19's syscall 164 conflicts with
+the browser reservation of 164–167. Profile streaming uses 168. Local chat tools
+cannot reach those physical-device owners; no new device trial is scheduled here.
+
+Original installations and accepted evidence archives are retained. Historical
+review-VM PIDs 6233, 61610 and 85869 are now absent; available evidence does not
+establish when or why they exited. Disk preservation is separate from process
+liveness. Hosted Actions remain disabled.
 
 ## Hardware
 
