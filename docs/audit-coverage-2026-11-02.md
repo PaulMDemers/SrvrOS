@@ -294,3 +294,11 @@ consume and bootlog-record publication. Independently confirmed existing empty
 keyboard pending-signal wait loop at70ca1894 in strict+sanitizer; exit and queued
 byte controls pass. Owner has ordinary-tty correction and consumed-byte retention
 requirements. Narrow primitives/integration/regressions pending; no guest claim.
+
+
+Process backend review at70ca1894 independently reproduces F_SETLKW pre-enrollment
+release/retirement/cancellation missed readiness (six negative cases; four
+controls), and WAIT late-output failure after modeled child consumption (four
+negative cases; four controls). Actual source, modeled scheduler/mapping/reap,
+strict+sanitizer; no guest claim. Owner implementing checked fd/content commit and
+status-before-child-claim for normal raw/POSIX plus gateway paths.

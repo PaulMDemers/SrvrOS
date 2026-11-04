@@ -2069,6 +2069,45 @@ claimed yet. Evidence: `build/review/pr334-console-lifetime-review/`, with exact
 source/fixture hashes and six deterministic results. PR317 introduces no competing
 keyboard/console implementation.
 
+## November 4: blocking record locks and wait-result ownership
+
+Reviewed PR334's proposed checked process backends. F_SETLKW caches a content
+identity before sleeping and does not revalidate the descriptor generation before
+later conflict/update. The new helper must check live fd/generation/content
+identity under IF0 before each use; stale pointer equality alone cannot admit
+reused content. The condition used for atomic wait enrollment must also include
+lock availability and cancellation after checking identity first.
+
+Independently reproduced three missing readiness conditions in exact `70ca1894`
+process source. A modeled scheduler changes state between the loop conflict check
+and its atomic condition evaluation: release the conflicting lock, retire the fd,
+or mark the process killed. All three conditions remain false and would park in
+both strict and ASan/UBSan profiles. An explicit bounded sentinel exits 42 instead
+of hanging. Pending-signal and nonblocking-conflict controls pass: EINTR after one
+wait and EAGAIN without waiting respectively. Ten results/source hashes are in
+`build/review/pr334-lock-wait-review/`. The outer retry loop must return on
+cancellation too; fixing only the enrollment predicate would still permit a spin.
+
+WAIT currently validates the status buffer before waiting, consumes/reaps the
+child, then performs a fallible copy. Independently reproduced this ordering with
+actual syscall_wait/usercopy and modeled mapping/reap services: invalidate the
+mapping at the I/O gate or inside the modeled wait after initial validation.
+Strict and sanitizer cases both return failure with status sentinel unchanged
+but the child already consumed. Valid-output and initially-invalid-output
+controls pass. Eight results are retained in `build/review/pr334-wait-copy-review/`;
+this is a modeled mapping race, not real guest unmapping.
+
+The proposed checked wait transaction selects the owned child, revalidates the
+entire eight-byte status output (including a two-page span) and completes its
+copy under IF0 before an infallible child claim. On refusal, child waitability,
+CHLD, accounting, history and lifetime state must remain unchanged. Cleanup after
+successful claim retains ordinary admission and may yield without replaying the
+result. NULL status and WNOHANG no-result preserve existing semantics. The owner
+will use this transaction for ordinary raw/POSIX WAIT as well as the typed gateway;
+the existing late-copy defect must not remain behind a guest-only correction.
+Concrete implementation/regressions and native qualification remain pending;
+PR317 does not duplicate the process source edits.
+
 ## Remaining work
 
 Other long IRQ-disabled operations, including initial/churning PMM scans, heap validation and poisoning,
