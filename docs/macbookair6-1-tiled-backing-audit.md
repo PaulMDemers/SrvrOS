@@ -2,8 +2,9 @@
 
 Initial source-audit checkpoint: 2026-11-03, base `8f47f196`. The starting-point
 sections below preserve that earlier audit. The subsequent isolated pilot and
-native results are recorded later in this guide; current accepted version-2
-readout is `8dc0947f9c7fbd56` / `1b0d37dd`, following version 1 at
+native results are recorded later in this guide; current accepted version-3
+readout is `86257762f155128f` / `169f3808`, following version 2 at
+`8dc0947f9c7fbd56` / `1b0d37dd` and version 1 at
 `e98aed0c5f8d06cf` / `baaa94b5`. The prerequisite audit uses base `5634cd9d`
 and grants no ownership. Policy,
 limits, recovery and ordinary startup are unchanged.
@@ -372,3 +373,46 @@ This accepts sampled observations only. GT/full-path swizzle, real backing
 allocation and scanout lifetime, firmware exclusion and ownership stay open;
 the original RC6 timing failure and package-C3 zero are unchanged. The next
 bounded step is auditing those remaining prerequisites before any control change.
+
+
+## Remaining access and lifetime contract (2026-11-04)
+
+The host path audit now consumes the receipt version: version1 still proposes
+raw CPU-control observation; version2 identifies the Linux-model32 readout;
+version3 stops proposing already completed captures. Its explicit prerequisite
+ledger always denies GT read/write admission and native ownership. This is an
+evidence report, not an executable hardware permission or new test recipe.
+
+The pinned [uncore implementation](https://github.com/torvalds/linux/blob/028ef9c96e96197026887c0f092424679298aae8/drivers/gpu/drm/i915/intel_uncore.c)
+selects the Gen6 render range for Haswell's Gen7 path, encompassing `0x4030`.
+Normal reads can acquire forcewake. Haswell's acquisition uses the MT request,
+HSW acknowledgement and a GT thread-status wait to avoid a spurious zero read;
+release clears the request. Therefore neither a raw zero nor Linux's logical
+read API is a no-write consistency proof. Any later acquisition needs its own
+exact-model request/ack/thread-status, concurrency, deadline and retirement
+contract. No such owner or extra MMIO allowlist is added here.
+
+Pinned [initial-plane adoption](https://github.com/torvalds/linux/blob/028ef9c96e96197026887c0f092424679298aae8/drivers/gpu/drm/i915/i915_initial_plane.c)
+creates a preallocated region object, reserves conflicting GGTT space when
+relocating, pins a VMA and conditionally pins a fence. Those allocator/lifetime
+actions are separate from observing PTEs. Copying this path would also introduce
+binding/publication behavior outside our read-only experiment.
+
+The native 16 MiB fence covers a 4,325,376-byte observed surface; the extra
+12,451,840 bytes are not a captured allocation. Our vector observes only the
+surface footprint. Reading the whole fence would require 4,096 PTEs, beyond
+the unchanged 1,536-PTE cap, and would still not establish ownership. Firmware
+reservation excludes ordinary RAM allocation, but is not firmware exclusion,
+a GGTT lease, a fence pin or proof of inactive DMA. Matching snapshots cannot
+replace cache/publication, matched scanout completion or a restore lifetime.
+
+The next bounded implementation should be a host-only inherited-layout and
+reservation **proposal** for the exact captured footprint, with collision,
+alias, partial-range, stale-generation and uncertain-retirement refusal tests.
+It must remain separate from native managed GGTT ranges and grant no assurance
+bits. Coordinate any shared reservation mechanism with the actual PR301 API
+before integration; its Broadwell DMA readout does not admit Air6,1 registers.
+A GT forcewake owner, native DMA/resource binding and real scanout adoption
+remain separate work. No new reboot can resolve those software contracts merely
+by repeating stable snapshots. Power policy, existing limits and the unresolved
+RC6/package-C3 results remain unchanged.

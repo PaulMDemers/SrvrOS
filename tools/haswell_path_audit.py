@@ -44,6 +44,37 @@ def next_readout(offset, count):
                 requires_new_adapter_codec_retention_and_VM_validation=True)
 
 
+def prerequisites(observed, candidates):
+    """Evidence ledger, not an admission API: sampled state cannot grant a pin."""
+    version = observed.get('source_version', 1)
+    cpu_observed = version >= 2
+    model32_observed = version == 3
+    # Only the captured surface vector is observed. A covering fence's larger
+    # extent is neither an allocation size nor permission to inspect more PTEs.
+    return dict(
+        cpu_control_observed=cpu_observed,
+        linux_model32_observed=model32_observed,
+        gt_access=dict(offset=0x4030, access=access_class(0x4030),
+                       read_authorized=False, forcewake_writes_authorized=False,
+                       requires='Exact Haswell wake request/ack/thread-status ownership and bounded retirement'),
+        lifetime=dict(
+            observed_surface_bytes=observed['bytes'],
+            candidate_fence_extents=[dict(index=c['index'], start=c['start'], end=c['end'])
+                                     for c in candidates],
+            fence_extent_is_allocation=False,
+            extra_fence_bytes_owned=False,
+            software_reservation_is_hardware_exclusion=False,
+            backing_allocation_owned=False, ggtt_range_owned=False,
+            fence_pinned=False, firmware_excluded=False,
+            dma_translation_bound=False, cache_publication_bound=False,
+            matched_scanout_completion=False, route_restore_bound=False),
+        next_step=('audit-gt-access-and-allocation-lifetime' if model32_observed else
+                   'validate-linux-model32-readout' if cpu_observed else
+                   'validate-raw-cpu-control-readout'),
+        new_native_test_authorized_by_report=False,
+        ownership=False, hardware_authority=False)
+
+
 def audit(text):
     observed = backing_result(text)
     if not observed or observed['status'] != 'OBSERVED':
@@ -77,7 +108,11 @@ def audit(text):
                 all_present=observed['all_present'], all_stolen_candidates=observed['all_stolen_candidates'],
                 firmware_reserved=observed['stolen_range_reserved'],
                 backing_bytes_read=0, ownership=False, pin=False, hardware_authority=False,
-                next_readout=next_readout(observed['offset'], observed['count']))
+                prerequisites=prerequisites(observed, candidates),
+                # Retain the original proposal only for receipts that actually
+                # lack CPU control. Newer receipts must not request it again.
+                next_readout=(next_readout(observed['offset'], observed['count'])
+                              if observed.get('source_version', 1) == 1 else None))
 
 
 if __name__ == '__main__':
