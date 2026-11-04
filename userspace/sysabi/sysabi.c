@@ -343,12 +343,17 @@ static int check_fault_exit(const char *mode, int expected_signal) {
 int namespace_test(void);
 int salvage_consumer_test(int reopen);
 int dirty_salvage_test(int reopen);
+int destination_salvage_test(int reopen);
+int destination_open_test(void);
 int namespace_workspace_hold(const char *mode);
 int namespace_workspace_launch(const char *mode);
 int namespace_workspace_verify(int system_only);
 int namespace_test_persistence(int verify);
 
 int main(int argc, char **argv) {
+    if(argc==2 && !strcmp(argv[1],"--destination-open")) return destination_open_test();
+    if(argc==2 && !strcmp(argv[1],"--destination-salvage-save")) return destination_salvage_test(0);
+    if(argc==2 && !strcmp(argv[1],"--destination-salvage-reopen")) return destination_salvage_test(1);
     if(argc==2 && !strcmp(argv[1],"--dirty-salvage-save")) return dirty_salvage_test(0);
     if(argc==2 && !strcmp(argv[1],"--dirty-salvage-reopen")) return dirty_salvage_test(1);
     if(argc==2 && !strcmp(argv[1],"--salvage-cli-save")) return salvage_consumer_test(0);

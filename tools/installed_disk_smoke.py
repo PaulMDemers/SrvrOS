@@ -89,7 +89,7 @@ def data_image(disk, offset, size):
 
 def boot(disk, out, number, args, negative=False, *, other_disk=None,
          reverse=False, expected_device='ahci0p2', require_identity=False,
-         recovery_reason=None, canonical_paths=False, workspace_lifecycle=False, salvage_consumer=False, dirty_salvage=False, work_fault_config=None):
+         recovery_reason=None, canonical_paths=False, workspace_lifecycle=False, salvage_consumer=False, dirty_salvage=False, work_fault_config=None, target_disk=None, target_fault_config=None, destination_mode=None):
     output = bytearray()
     consumed = 0
     serial = qmp = None
@@ -107,6 +107,24 @@ def boot(disk, out, number, args, negative=False, *, other_disk=None,
                 raise RuntimeError('Fault target must be distinct from owned boot disk')
             if Path(other_disk).resolve().is_relative_to(out.resolve()) is False:
                 raise RuntimeError('Fault target must be fixture-owned work image')
+        if destination_mode is not None or target_disk is not None or target_fault_config is not None:
+            if destination_mode not in ('calibrate','write','flush','reopen') or target_disk is None or other_disk is None:
+                raise RuntimeError('Destination proof requires explicit mode and three images')
+            paths=[Path(p).resolve() for p in (disk,other_disk,target_disk)]
+            if len(set(paths))!=3 or not all(p.is_relative_to(out.resolve()) for p in paths):
+                raise RuntimeError('Destination images must be distinct and fixture-owned')
+            if destination_mode in ('write','flush'):
+                if not dirty_salvage or number!=1 or work_fault_config is None or target_fault_config is None:
+                    raise RuntimeError('Destination failure requires both isolated first-boot filters')
+            elif work_fault_config is not None or target_fault_config is not None:
+                raise RuntimeError('Calibration/reopen must not have fault filters')
+            if destination_mode=='reopen' and (not dirty_salvage or number!=2):
+                raise RuntimeError('Destination reopen requires second dirty boot')
+            if target_fault_config is not None:
+                target_fault_config=Path(target_fault_config).resolve()
+                if target_fault_config.parent!=out.resolve():
+                    raise RuntimeError('Destination config must be fixture-owned')
+            storage.append(target_disk)
         drives = ['-device', 'ich9-ahci,id=ahci']
         for index, path in enumerate(storage):
             image = str(path)
@@ -114,8 +132,11 @@ def boot(disk, out, number, args, negative=False, *, other_disk=None,
             if work_fault_config is not None and path==other_disk:
                 image=f'blkdebug:{work_fault_config}:{path}'
                 policy=',werror=report,rerror=report'
+            if target_fault_config is not None and path==target_disk:
+                image=f'blkdebug:{target_fault_config}:{path}'
+                policy=',werror=report,rerror=report'
             drives += ['-drive', f'if=none,id=disk{index},format=raw,file={image}{policy}',
-                       '-device', f'ide-hd,drive=disk{index},bus=ahci.{index},bootindex={1 if path == disk else 2}']
+                       '-device', f'ide-hd,drive=disk{index},bus=ahci.{index},bootindex={1 if path == disk else 3 if path == target_disk else 2}']
         command = [args.qemu, '-machine', 'q35,i8042=off', '-accel', 'tcg',
                    '-m', '1024M', '-smp', '1', '-nic', 'none',
                    '-drive', f'if=pflash,format=raw,readonly=on,file={args.ovmf}',
@@ -215,6 +236,21 @@ def boot(disk, out, number, args, negative=False, *, other_disk=None,
                 if require_identity and f'installed-root: selected device={expected_device} format=exfat-v1 role=system'.encode() not in output:
                     raise RuntimeError('Missing explicit installed-root selection proof')
                 home_path = '/home' if canonical_paths or dirty_salvage else '/fat/home'
+                if destination_mode=='calibrate':
+                    serial.sendall(b'mount ahci2p2 /target\n')
+                    wait(b'ahci2p2 on /target type=exfat');wait(b'srv> ')
+                    before=qmp.call('query-blockstats')
+                    serial.sendall(b'run /bin/sysabi --destination-open\n')
+                    wait(b'destination-open: PASS');wait(b'srv> ')
+                    after=qmp.call('query-blockstats')
+                    stats=lambda rows: next(r['stats'] for r in rows if r.get('device')=='disk2')
+                    first,last=stats(before),stats(after)
+                    if first['wr_operations']!=0 or last['wr_operations']<=0:
+                        raise RuntimeError('Unexpected calibration target writes')
+                    save_json(out/'target-open.json',{'before':before,'after':after,'writes':last['wr_operations']})
+                    qmp.call('quit');vm.wait(timeout=30)
+                    if vm.returncode!=0: raise RuntimeError('Calibration VM failed to exit')
+                    return
                 if dirty_salvage:
                     if other_disk is None or (number==1)!=(work_fault_config is not None):
                         raise RuntimeError('Dirty proof requires isolated work filter only on first boot')
@@ -223,8 +259,20 @@ def boot(disk, out, number, args, negative=False, *, other_disk=None,
                     work_device='ahci0p2' if reverse else 'ahci1p2'
                     serial.sendall(f'mount {work_device} /work\n'.encode())
                     wait(f'{work_device} on /work type=exfat'.encode());wait(b'srv> ')
-                    serial.sendall(f'run /bin/sysabi --dirty-salvage-{"save" if number==1 else "reopen"}\n'.encode())
-                    wait(f'dirty-salvage: {"save" if number==1 else "reopen"} PASS'.encode(),120);wait(b'srv> ')
+                    prefix='destination-salvage' if destination_mode else 'dirty-salvage'
+                    if destination_mode and number==1:
+                        serial.sendall(b'mount ahci2p2 /target\n')
+                        wait(b'ahci2p2 on /target type=exfat');wait(b'srv> ')
+                    serial.sendall(f'run /bin/sysabi --{prefix}-{"save" if number==1 else "reopen"}\n'.encode())
+                    wait(f'{prefix}: {"save" if number==1 else "reopen"} PASS'.encode(),120);wait(b'srv> ')
+                    if destination_mode and number==1:
+                        attempt=output.split(b'destination-salvage: target begin',1)[-1].split(b'destination-salvage: target failed; reader retained',1)
+                        if len(attempt)!=2 or b'salvage: failed stage=flush error=5 close-error=5 restore-error=0 bytes=12289' not in attempt[0] or b'salvage: copied' in attempt[0] or b'destination artifact retained; copy is not acknowledged' not in attempt[0]:
+                            raise RuntimeError('Target fault did not prove unacknowledged writeback failure')
+                        command='35' if destination_mode=='write' else '(?:ea|e7)'
+                        if not re.search(rb'ahci: port=2 command=0x0*'+command.encode()+rb' failed; disk offline',attempt[0]):
+                            raise RuntimeError('Missing target-specific ATA write/flush failure')
+                        serial.sendall(b'unmount /target\n');wait(b'exfat: unmounted /target');wait(b'srv> ')
                     if number==1 and b'dirty-salvage: source fsync EIO' not in output:
                         raise RuntimeError('Missing explicit source failure')
                     serial.sendall(b'unmount /work\n');wait(b'exfat: unmounted /work');wait(b'srv> ')
