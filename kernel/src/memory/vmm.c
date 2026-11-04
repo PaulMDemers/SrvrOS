@@ -742,29 +742,35 @@ void vmm_switch_address_space(uint64_t address_space) {
 }
 
 bool vmm_create_address_space(uint64_t *address_space_out) {
-    if (address_space_out == NULL || kernel_pml4 == NULL) {
-        return false;
-    }
+    if (address_space_out == NULL) return false;
+    *address_space_out = 0;
+    if (kernel_pml4 == NULL) return false;
 
+    /* PMM returns a fresh, uniquely owned frame or zero on failure. */
     uint64_t physical = pmm_alloc_frames_above_tagged(1,
         VMM_PAGE_TABLE_MIN_PHYSICAL,
         PMM_FRAME_PAGE_TABLE);
-    if (physical == 0) {
-        return false;
-    }
-
+    if (physical == 0) return false;
     uint64_t *pml4 = pmm_phys_to_virt(physical);
     zero_page(pml4);
 
-    *address_space_out = physical;
-    if (!register_address_space(physical)) {
-        pmm_free_frame(physical);
-        *address_space_out = 0;
-        return false;
-    }
-    vmm_refresh_kernel_mappings(physical);
-
-    return true;
+    uint64_t flags;
+#ifdef SRVROS_VMM_HOST_TEST
+    flags=vmm_test_irq_save();
+#else
+    __asm__ volatile ("pushfq; popq %0; cli" : "=r"(flags) : : "memory");
+#endif
+    bool registered=register_address_space(physical);
+    bool prepared=registered && vmm_prepare_user_kernel_mappings(physical);
+    if (prepared) *address_space_out=physical;
+    else if (registered) unregister_address_space(physical);
+#ifdef SRVROS_VMM_HOST_TEST
+    vmm_test_irq_restore(flags);
+#else
+    if (flags & (1ull << 9)) __asm__ volatile ("sti" : : : "memory");
+#endif
+    if (!prepared) pmm_free_frame(physical);
+    return prepared;
 }
 
 void vmm_refresh_kernel_mappings(uint64_t address_space) {

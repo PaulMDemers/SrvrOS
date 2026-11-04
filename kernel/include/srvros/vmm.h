@@ -25,6 +25,9 @@ bool vmm_user_exec_current(uint64_t address, uint64_t expected_cr3);
 uint64_t vmm_kernel_address_space(void);
 uint64_t vmm_current_address_space(void);
 void vmm_switch_address_space(uint64_t address_space);
+/* CPU0: allocate/zero a fresh PMM frame, then register, prepare and publish
+ * under saved IRQ exclusion. Failure returns output zero and frees only that
+ * fresh root after unregistering it. Preserves the caller's IRQ state. */
 bool vmm_create_address_space(uint64_t *address_space_out);
 void vmm_destroy_address_space(uint64_t address_space);
 void vmm_refresh_kernel_mappings(uint64_t address_space);

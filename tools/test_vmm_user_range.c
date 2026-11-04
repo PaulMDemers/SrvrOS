@@ -9,6 +9,8 @@ static uint64_t test_rflags, test_efer=1ull<<11;
 static uint32_t test_maxext=0x80000001u, test_nx=1u<<20;
 static unsigned cpuid_calls, efer_calls, table_reads;
 static uint64_t vmm_test_rflags(void) { return test_rflags; }
+static uint64_t vmm_test_irq_save(void) { uint64_t old=test_rflags;test_rflags&=~(1ull<<9);return old; }
+static void vmm_test_irq_restore(uint64_t flags) { test_rflags=flags; }
 static void vmm_test_cpuid(uint32_t leaf,uint32_t *eax,uint32_t *ebx,uint32_t *ecx,uint32_t *edx) {
     cpuid_calls++; *eax=*ebx=*ecx=*edx=0;
     if(leaf==0x80000000u) *eax=test_maxext;
