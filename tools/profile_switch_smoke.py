@@ -50,6 +50,13 @@ def pump(vm, seconds=1):
             pass
 
 
+def capture(vm, name):
+    # Window admission precedes first presentation. Drain another render turn
+    # before evidence capture; retained images still require visual inspection.
+    pump(vm, .6)
+    vm.screenshot(name)
+
+
 def launch(vm, query, marker):
     app_id = {'Files': 1, 'Text': 2, 'Terminal': 6, 'Clock': 9, 'Sketch': 10, 'Profiles': 13}[query]
     start = len(vm.output)
@@ -77,12 +84,15 @@ def focus_window(vm, pid, window, frame, *, close_start=None):
                    window + rb'(?:\r?\n|\s)')
         modals = list(re.finditer(pattern, vm.output[close_start:]))
         if modals: expected = modals[-1].group(1)
-    x, y, _, _ = frame
-    vm.click(x + 50, y + 20)
-    pump(vm, .8)
-    matches = list(re.finditer(rb'deskd: focused pid=(\d+) window=(\d+) identity=\d+', vm.output))
-    if not matches or matches[-1].group(1, 2) != (pid, expected):
-        raise RuntimeError('intended app or owned modal window did not receive focus')
+    # Windows overlap and title-bar coordinates can hit another window's
+    # resize border. Use normal keyboard switching and verify actual focus.
+    for attempt in range(8):
+        pump(vm, .3)
+        matches = list(re.finditer(rb'deskd: focused pid=(\d+) window=(\d+) identity=\d+', vm.output))
+        if matches and matches[-1].group(1, 2) == (pid, expected):
+            return
+        vm.key('alt-tab')
+    raise RuntimeError('intended app or owned modal window did not receive focus')
 
 
 def switch_request(vm):
@@ -179,7 +189,7 @@ def active_io_waves(vm):
     if b'session-ui: phase=committed action=switch' in vm.output[ending:exited.end()]:
         raise RuntimeError('switch committed before accepted Files copy and helpers retired')
     focus_window(vm, term_pid, term_window, term_frame, close_start=ending); vm.key('esc'); canceled(vm, ending)
-    vm.screenshot('files-close-wait'); canceled_boundary(vm)
+    capture(vm, 'files-close-wait'); canceled_boundary(vm)
 
     profiles, profile_pid, profile_window, profile_frame = launch(vm, 'Profiles', rb'profile-ui: started pid=\d+')
     x, y, w, h = profile_frame
@@ -199,7 +209,7 @@ def active_io_waves(vm):
     if b'session-ui: phase=committed action=switch' in vm.output[ending:exited.end()]:
         raise RuntimeError('switch committed before accepted Profiles export retired')
     focus_window(vm, term_pid, term_window, term_frame, close_start=ending); vm.key('esc'); canceled(vm, ending)
-    vm.screenshot('profiles-close-wait'); canceled_boundary(vm)
+    capture(vm, 'profiles-close-wait'); canceled_boundary(vm)
     type_shell(vm, 'exit'); observe(vm, rb'deskterm: shell exited status=0', terminal)
     vm.key('ctrl-shift-w'); observe(vm, rb'deskterm: exited failure=0', terminal)
 
@@ -211,7 +221,7 @@ def text_cancel_and_save(vm):
     t.text(vm, 'Switch draft')
     first = switch_request(vm)
     observe(vm, rb'deskd: opened pid=\d+ window=\d+ id=\d+ parent=\d+', first)
-    vm.screenshot('text-switch-prompt'); vm.key('esc'); canceled(vm, first)
+    capture(vm, 'text-switch-prompt'); vm.key('esc'); canceled(vm, first)
     canceled_boundary(vm); t.text(vm, ' survives')
     second = switch_request(vm)
     observe(vm, rb'deskd: opened pid=\d+ window=\d+ id=\d+ parent=\d+', second)
@@ -224,7 +234,7 @@ def text_cancel_and_save(vm):
     vm.key('shift-tab'); vm.key('shift-tab'); vm.key('ret')
     observe(vm, rb'picker ready mode=2', failed); vm.key('ret')
     observe(vm, rb'file-result role=text op=2 status=[1-9]\d*', failed)
-    canceled(vm, failed); vm.screenshot('text-failed-save')
+    canceled(vm, failed); capture(vm, 'text-failed-save')
     canceled_boundary(vm); save_text(vm, A + '/Documents/switch-saved.txt', len(vm.output))
     # Keep a known secret-free clipboard marker; B will paste into a blank
     # document and save the result, proving old clipboard bytes are absent.
@@ -243,7 +253,7 @@ def sketch_cancel(vm):
     vm.click(x + w // 2, y + 44 + min(180, h - 100))
     observe(vm, rb'desksketch: stroke revision=\d+ tool=0', start)
     first = switch_request(vm); observe(vm, rb'desksketch: confirm operation=\d+', first)
-    vm.screenshot('sketch-switch-prompt'); vm.key('esc'); canceled(vm, first)
+    capture(vm, 'sketch-switch-prompt'); vm.key('esc'); canceled(vm, first)
     return pid, window, frame
 
 
@@ -265,7 +275,7 @@ def clock_notice(vm):
     observe(vm, rb'deskclock: timer finished', start, 30)
     observe(vm, rb'deskclock: notification result=1', start)
     vm.key('meta_l-shift-n'); observe(vm, rb'notifications opened count=1', start)
-    vm.screenshot('a-notification'); vm.key('esc'); vm.key('ctrl-w')
+    capture(vm, 'a-notification'); vm.key('esc'); vm.key('ctrl-w')
     observe(vm, rb'deskclock: exited', start)
 
 
@@ -275,7 +285,7 @@ def clipboard_is_empty(vm, start):
     observe(vm, rb'clipboard role=2 action=32 bytes=0', start)
     t.text(vm, PASTE.decode())
     save_text(vm, B + '/Documents/clipboard-check.txt', start)
-    vm.screenshot('b-clipboard-empty')
+    capture(vm, 'b-clipboard-empty')
 
 
 def menu_cancel_console(vm, token, pid):
@@ -399,7 +409,7 @@ def main():
             vm.key('tab'); vm.key('ret')
             observe(vm, rb'desksketch: exited failure=0', partial)
             focus_window(vm, term_pid, term_window, term_frame, close_start=partial); vm.key('esc'); canceled(vm, partial)
-            vm.screenshot('terminal-cancel-partial'); canceled_boundary(vm)
+            capture(vm, 'terminal-cancel-partial'); canceled_boundary(vm)
             # Recreate a dirty Sketch, then spawn a naturally releasing orphan
             # last. Scope waiting must be observed before the timer expires.
             sketch, sketch_pid, sketch_window, sketch_frame = launch(vm, 'Sketch', rb'desksketch: starting')
@@ -430,7 +440,7 @@ def main():
             b_start = chooser_start
             observe(vm, rb'deskd: preferences revision=\d+ status=\d+ text=20 offset=-300 flags=1 wallpaper=1 .*theme_accent=2 glass_level=0 theme_style=1', b_start)
             vm.key('meta_l-shift-n'); observe(vm, rb'notifications opened count=0', b_start)
-            vm.screenshot('b-notifications-empty'); vm.key('esc')
+            capture(vm, 'b-notifications-empty'); vm.key('esc')
             clipboard_is_empty(vm, b_start)
             # Close the saved Text and inspect B's real shell environment/cwd.
             vm.key('ctrl-w'); observe(vm, rb'desktools: exited role=text failure=0', b_start)
@@ -449,7 +459,7 @@ def main():
             observe(vm, rb'file-result role=text op=1 status=0', chooser_a)
             vm.key('ctrl-a'); vm.key('ctrl-c')
             observe(vm, rb'clipboard role=2 action=8 bytes=' + str(len(SAVED)).encode(), chooser_a)
-            vm.screenshot('a-return-document')
+            capture(vm, 'a-return-document')
             vm.key('ctrl-w'); observe(vm, rb'desktools: exited role=text failure=0', chooser_a)
             terminal_a2, _, _, _ = launch(vm, 'Terminal', rb'deskterm: ready shell=\d+')
             context_commands(vm, 'a-return'); type_shell(vm, 'exit')
@@ -493,14 +503,14 @@ def main():
             t.text(vm, 'compact cancel')
             attempt = switch_request(vm)
             observe(vm, rb'deskd: opened pid=\d+ window=\d+ id=\d+ parent=\d+', attempt)
-            vm.screenshot('small-keyboard-cancel'); vm.key('esc'); canceled(vm, attempt)
+            capture(vm, 'small-keyboard-cancel'); vm.key('esc'); canceled(vm, attempt)
             canceled_boundary(vm); vm.key('ctrl-w'); vm.key('shift-tab'); vm.key('ret')
             observe(vm, rb'desktools: exited role=text failure=0', attempt)
             small_switch = switch_request(vm)
             next_token, next_pid, small_chooser = transition(vm, small_switch, small_token, small_pid)
-            vm.screenshot('small-chooser')
+            capture(vm, 'small-chooser')
             select_profile(vm, B, ID_B, small_chooser)
-            vm.screenshot('small-profile-b')
+            capture(vm, 'small-profile-b')
             menu_cancel_console(vm, next_token, next_pid); vm.finish()
         if d.outside_data(small, *d.partitions(small)[1]) != bounds:
             raise RuntimeError('small fixture protected bytes changed')
