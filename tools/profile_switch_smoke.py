@@ -89,7 +89,11 @@ def switch_request(vm):
     # In the system menu Return to console is last; the disabled Cancel item
     # is skipped, so Up selects Switch Profile. This is a real menu action.
     start = len(vm.output)
-    vm.key('f10'); vm.key('end'); vm.key('up'); vm.key('ret')
+    # Submit ordered press/release edges together so accepted I/O is still
+    # in progress when the normal menu action requests cooperative closure.
+    events = [{'type': 'key', 'data': {'down': down, 'key': {'type': 'qcode', 'data': key}}}
+              for key in ('f10', 'end', 'up', 'ret') for down in (True, False)]
+    vm.qmp.call('input-send-event', {'events': events})
     observe(vm, rb'session-ui: phase=closing action=switch', start)
     return start
 
@@ -278,7 +282,8 @@ def menu_cancel_console(vm, token, pid):
 
 
 def fixture(out, receipt):
-    base = (ROOT / 'build/srvros.exfat').resolve(); driver = ROOT / 'build/tests/profile-image-driver'
+    base = (ROOT / 'build/srvros.exfat').resolve()
+    driver = (ROOT / 'build/tests/profile-image-driver').resolve()
     machine = d.machine_preferences(4, -300)
     bundle_a = d.make_bundle()
     bundle_b = d.make_bundle()
