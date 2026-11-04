@@ -1,7 +1,45 @@
 # Filesystem layout and root contract
 
-Updated November 3, 2026. Global activation follows the explicit namespace proof
+Updated November 4, 2026. Global activation follows the explicit namespace proof
 in [PR308](https://github.com/PaulMDemers/SrvrOS/pull/308).
+
+## PR349 current-main merge review — ready
+
+User authorizes review and merge if ready, preserving uncertain media and review
+VMs and coordinating PR317. Reviewed `7b40686a` with no blocking finding. Merged
+actual main `6225e4d1` as `e853ef90`, preserving Files/profile and Air6,1 records;
+Apps `2ddea666`, Widgets `586bd002`, Ports `d760e541` are synchronized. Inspector,
+shim, Python contracts and native exFAT/VFS sources match the qualified head.
+Production-preprocessed exFAT tokens match current main exactly. No new runtime
+filesystem/process/transport or admission-policy change is introduced.
+
+Fresh 14 diagnostic groups, 19 strict-inspection regression groups, storage
+lease/workspace/USB regressions and matched OS build pass on the integrated
+source. The unchanged-source ASan/UBSan and omitted-blocking negative-control
+evidence is verified and retained. Before/after whole-file SHA-256 and full
+identity/ownership/mode stamps for all three uncertain images, accepted fault
+backup and clean control match their original qualification. All diagnostic
+write/flush counts remain zero; uncertain images remain mode `0444`. Review VMs
+61610/6233/85869 stay running and untouched. Complete review evidence survives
+outside build in `.local/filesystem-evidence/pr349-review/`.
+
+PR317 owner confirms no new overlap or lifetime constraint at current published
+head `ae3b39b9`; this is scope coordination, not an independent diff review.
+Published-storage failure stays sticky; diagnostics confer no replay, transport
+recovery, repair, remount or writable-admission authority. No live/physical media,
+new VM, reboot or hosted Actions. Current-main review is ready for authorized
+merge; explicit ranges and unauthenticated marker syntax remain documented limits.
+
+Next proposed bounded milestone: **GPT-aware read-only workspace selection**.
+Remove manual offset entry for preserved whole-disk images by researching reuse
+of the existing native GPT map and host validation before adding an adapter.
+Require valid bounded partition metadata and one unambiguous workspace candidate;
+refuse corrupt/overlapping/ambiguous maps. Compare reports against the existing
+explicit-range results on retained clean/uncertain images; verify unchanged
+whole-file hashes/permissions and malformed-map refusals on disposable fixtures.
+Preserve strict admission, metadata-only output, review VMs and uncertain media;
+coordinate any block/GPT boundary with PR317. No repair, writable admission or
+source/orphan export. This proposal is not implemented by PR349.
 
 ## Read-only uncertain-workspace inspection — host qualified
 
