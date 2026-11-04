@@ -3649,3 +3649,14 @@ Rosetta and ASan/UBSan pass; existing service suite and target build are being
 checked before independent source/host review. No guest boundary-ID claim yet.
 Session scope163 is reserved by the separate runtime owner; PR334 allocates no
 signal syscall number and does not edit that owner's lifecycle hooks.
+
+
+Owner accepted final `c27d018f` restore qualification (receipt `377c5a80…ca224`),
+including all14 source/host/codegen and24 combined plus4 nested guest hashes.
+The private helper is real-FX host-tested and remains unwired. The separate
+thread-ID candidate `783c4eb8` now also passes normal main/worker register/TLS,
+full threadstress and sysabi guests. Boundary counters remain actual-source
+host-tested only. Final thread-ID review/qualification is with the owner.
+The frame-copy policy is revised at `1b571126` with strict control/PTE/PAT/
+MAXPHYADDR policy, owned current32-frame kernel-stack source, producer/retirement
+and physical alias constraints; no copy implementation is authorized yet.

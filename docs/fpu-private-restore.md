@@ -116,3 +116,20 @@ init FXSAVE, mask publication afterward, complete helper validation before its
 first saved-source read, exact512-byte copy before consumption and no calls or
 FXRSTOR after copy begins. Common entry/exit retains its qualified ordering.
 Matched kernel register/thread/sysabi/I/O guests remain to be run for this slice.
+
+
+Owner independently accepted `c27d018f` source/host/codegen and final matched
+regression qualification. Host/codegen receipt
+`build/signal-context/fpu-restore-host-codegen-receipt.json`, SHA256
+`2f6388d70d8aa2d4e8196a90b972f16481aef6db2d6efb396e2984a3e49fb2b7`;
+combined VM receipt `build/signal-context/fpu-restore-vm-receipt.json`, SHA256
+`377c5a8062bf44a3579dc0d9b8126c74586a47900142e9fffe584584564ca224`.
+Owner reran all4 host profiles and verified14 source/host/codegen and24 combined
+plus4 nested guest hashes. The all16-pattern main/worker guest, full threadstress,
+sysabi and OVMF storage contention pass; same-guest CR4/EFER remain0x620/0xd00.
+The private restore operation itself is real-FX **host-tested**, remains unwired,
+and is not exercised by a production or guest private-operation caller. Original
+17 packed apps are unchanged; all task guests stopped and protected review VMs
+preserved. Exact accepted14 artifacts are frozen under
+`build/signal-context/accepted-fpu-restore-host/` with retention mapping so later
+source/docs/builds cannot overwrite the qualified bytes.

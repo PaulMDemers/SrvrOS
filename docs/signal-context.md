@@ -760,3 +760,28 @@ No production snapshot/consume caller, saved-image replacement, transactional
 user-frame copy, signal ABI/delivery/return or WTF context adapter is provided by
 this candidate. Those remain required before a new minimal no-JIT JavaScript
 smoke can pass. The latest required-success JSC result remains134 without42.
+
+
+## Qualified private saved-image restoration
+
+Owner-qualified `c27d018f` adds only private captured-image replacement and a
+validity-marked initialization hardware MXCSR mask. All checks precede exact512-
+byte prefix replacement and one-shot proof consumption; metadata/kernel state
+and association remain unchanged. No FXRSTOR occurs in the helper, source-mask
+bytes cannot authorize MXCSR, and repeat-init failure invalidates prior mask
+validity. [Exact policy/evidence](fpu-private-restore.md) describes the independent
+strict/sanitized source and target-codegen acceptance plus matched main/worker,
+thread/sysabi/OVMF regression passes. Private helper restoration is exercised by
+real-FX host tests; guests cover initialization/common preservation, not a wired
+private-operation caller. Combined receipt SHA256
+`377c5a8062bf44a3579dc0d9b8126c74586a47900142e9fffe584584564ca224`.
+
+The next [bounded user-frame copy packet](signal-user-frame-copy.md) specifies
+strict current-owned stack source, ordinary owned user4KiB pages, physical alias
+and exact paging/access policy. It remains design-only pending owner review.
+Successful user copying followed by a fallible consume/query is not approved;
+final signal publication needs its own prevalidated nonfailing commit contract.
+No signal syscall is allocated. The separate session owner reserves163, and
+future signal numbers must be agreed above that allocation. JSC still lacks real
+delivery/return and the WTF context adapter; last required-success smoke remains
+134 without42.
