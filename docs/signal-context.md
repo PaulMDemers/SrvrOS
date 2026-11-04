@@ -241,3 +241,64 @@ warnings, section splitting, the shared/kernel/Limine includes and Darwin
 `-Wl,-dead_strip`; sanitized verification uses `-O1 -g
 -fsanitize=address,undefined -fno-omit-frame-pointer`. This does not change the
 Makefile's existing Linux host target or claim a matched guest result.
+
+## Specific FPU proof representation for review only
+
+Proposed prerequisite: allocate a nonreused process-image generation when an image
+is committed; mirror that identity in its scheduler user binding alongside the
+selected user-FPU pointer. A failed exec leaves the current binding unchanged;
+new main/worker bindings carry the actual committed generation. This is a proposed
+lifecycle/API change requiring process-owner review, not a field already provided
+by `scheduler_observe_user_return()`.
+
+Proposed representation: a fixed 64-byte aligned private proof on the *common*
+ISR's kernel stack, containing the exact ISR-frame pointer, scheduler lifetime,
+actual CR3, committed image generation, selected user-FPU pointer, owning kernel-
+FPU pointer and validity/consumption state. Reserve an additional 64 stack bytes
+beside the existing private 512-byte kernel-trap area; static assertions define
+assembly offsets. Add a kernel-only active-proof pointer associated with each
+thread's kernel-FPU state, rather than a single CPU-global proof. Stable scheduler
+records already retain each kernel-FPU state across growth and context switches.
+This pointer is internal bookkeeping, never user restore input.
+
+Only a new common-entry FPU wrapper may mint the proof. In the existing no-SSE
+module, first remember whether this is CPL3 with available, initialized, loaded
+user state and an initialized selected kernel state. Perform the *actual*
+`fpu_trap_enter()` FXSAVE/kernel-FPU switch before calling any ordinary C scheduler
+binding helper: such a helper may emit SIMD and must not run before the save.
+Then obtain the IRQ-excluded current scheduler binding (no process dereference),
+require its selected FPU pointer to match the image actually saved, and bind all
+identities to the exact common frame before publishing the active-proof pointer.
+That entry-binding query cannot use the return-admission query: user accounting
+and user-safe flags are still set at pre-dispatch entry. Its exact API is another
+review gate. A refused proof still follows normal FPU entry/exit, but cannot admit
+signal work. The current void entry API is unchanged until this is reviewed.
+
+During a scheduler switch, do not invalidate a suspended thread's proof: select
+its own kernel-FPU state and active-proof association when it resumes. Nested CPL0
+and direct IRQ handling continue using their private trap area and cannot mint,
+replace or clear the common proof. At common return, require a fresh successful
+return-admission observation, the same active proof pointer and exact frame,
+scheduler lifetime, CR3, image generation, kernel-FPU owner and selected user-FPU
+pointer. Also require initialized current user state and not-loaded hardware
+state. Pointer equality or `user_state_loaded=false` alone remains insufficient.
+The proof cannot outlive this common continuation or be cached by a caller.
+
+Normal common FPU exit clears its own active association before restoring user
+hardware state. Successful exec/context replacement and terminal exit clear the
+old association before changing/releasing the binding; failed exec preserves it.
+Fresh kernel-FPU initialization clears it on thread-slot reuse. Fork's new
+scheduler/kernel-FPU state starts with no association. Initial entry and direct
+legacy returns have none. These invalidation hooks must be reviewed together with
+lifecycle changes; a declaration alone does not establish them.
+
+Capture copies the authoritative saved user image into a kernel-owned record.
+Sigreturn replacement accepts only a validated top private record for this same
+live binding; it never FXRSTORs while C runs. Mark the current proof consumed
+when a replacement or delivery commits, and defer a further signal to a later
+common entry instead of reusing a pre-replacement proof. Normal assembly exit
+then restores the trusted saved image. Refusal leaves outputs and saved images
+unchanged. Host fixtures must interleave actual entered-user save, nested kernel/
+direct traps, scheduler A→B→A selection, failure, image replacement and stale proof
+attempts; guest x87/MXCSR/XMM/FS tests remain mandatory. This representation is a
+review proposal; no FPU structure, assembly path or lifecycle hook implements it.
