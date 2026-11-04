@@ -7,8 +7,9 @@ workflows share this contract. Login, cloud roaming and multi-user security
 isolation remain separate.
 
 Current milestone: ending a desktop session and switching profiles without
-reboot is independently qualified in [Apps #9](https://github.com/PaulMDemers/SrvrApps/pull/9)
-and [OS #355](https://github.com/PaulMDemers/SrvrOS/pull/355), following merged
+reboot is delivered and independently verified in [Apps #9](https://github.com/PaulMDemers/SrvrApps/pull/9)
+(`c3ad11b1`) and [OS #355](https://github.com/PaulMDemers/SrvrOS/pull/355)
+(`82face72`), following merged
 [runtime #354](https://github.com/PaulMDemers/SrvrOS/pull/354). Profile creation,
 recovery and migration are already delivered in Apps8/OS348. Their earlier
 20-lifetime creation and 19-lifetime transfer proofs retain their recorded source
