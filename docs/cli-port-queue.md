@@ -9,8 +9,8 @@ reservation for the next milestone.
 
 | Order | Application | Bounded outcome | State |
 | --- | --- | --- | --- |
-| 1 | GNU Diffutils 3.12 `diff` | Correct normal/quiet/unified comparison of two capped text files; long lines and 0/1/2 statuses; host patch validation and explicit local-patch subset. | Active: corrected two-boot qualification, reproducibility and Terminal pass; combined-cap target fixture, regressions and final review remain. |
-| 2 | GNU Patch 2.8.1 | Apply a bounded single-file unified patch to an explicit separate output; preserve source, reject ambiguous/unsafe paths and failed hunks; qualify the diff edge cases excluded by the compact local patch. | Source-only preparation in isolated `SrvrOS-ports-patch` from `88a95f9a`; authenticated pristine2.8.1 imported. No build/VM/PR/merge before diff delivery and a fresh slot. |
+| 1 | GNU Diffutils 3.12 `diff` | Correct normal/quiet/unified comparison of two capped text files; long lines and 0/1/2 statuses; host patch validation and explicit local-patch subset. | Active: corrected two-boot qualification, reproducibility and Terminal pass; combined-cap target fixture and final review remain; CLI/ports regressions pass. |
+| 2 | GNU Patch 2.8.1 | Apply a bounded single-file unified patch to an explicit separate output; preserve source, reject ambiguous/unsafe paths and failed hunks; qualify the diff edge cases excluded by the compact local patch. | Source-only preparation in isolated `SrvrOS-ports-patch` from `88a95f9a`; authenticated pristine 2.8.1 imported. No build/VM/PR/merge before diff delivery and a fresh slot. |
 | 3 | GNU Grep 3.12 | C-locale text search over bounded files/finite stdin; fixed strings and qualified BRE/ERE, useful match/count/quiet status contracts. No PCRE, recursion, color or Unicode claims. | Queued: authenticate/pin stable release and qualify regex/SDK/memory/cancellation gates. |
 | 4 | GNU Coreutils 9.12 `sha256sum` | File/stdin SHA-256 and a bounded explicit verification manifest; exact known vectors and failure statuses. No broader coreutils import or automatic filesystem traversal. | Queued: authenticate/pin stable release and bound manifest/path behavior. |
 
@@ -43,7 +43,7 @@ Two clean core/gnulib and diagnostic rebuilds match byte-for-byte against the
 same SDK objects. Native upstream scripts: three PASS and the upstream-declared
 `large-subopt` XFAIL. Guest upstream input fixtures are separately labeled.
 Actual Terminal/less/local-patch-subset/error/readback proof and expert screenshot
-inspection pass at `build/review/diff-terminal/proof-wvsivqnz`. CLI regression passes all491 commands and clean fsck; ports regression passes
+inspection pass at `build/review/diff-terminal/proof-wvsivqnz`. CLI regression passes all 491 commands and clean fsck; ports regression passes
 with clean fsck. All five owned guests have stopped and the slice is released.
 
 One final memory-envelope fixture now reaches 256 KiB, 8192 lines and one 64 KiB
@@ -74,3 +74,8 @@ Review delivery (draft, not accepted): [SrvrPorts #11](https://github.com/PaulMD
 and dependent [SrvrOS #369](https://github.com/PaulMDemers/SrvrOS/pull/369).
 Both explicitly retain the failed probe/remaining target, Terminal and
 regression gates. Merge order remains ports first, then OS, only after passing.
+
+Latest baseline: OS main `70c3ea0f` is merged here; its delta is host installation
+tooling/docs. Kernel, SDK, apps, headers and Makefile match tested `a3bace0f`.
+Port main is merged as `2562a335`, differing from tested `aa4f0f1` only in
+PORT.md. The next manifest/combined-cap run will bind the reconciled source.
