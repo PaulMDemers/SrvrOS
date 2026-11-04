@@ -599,3 +599,12 @@ from user mode. Make targets: `test-process-foreground` and
 and `-Wl,-dead_strip`, and sanitizer commands add
 `-O1 -g -fsanitize=address,undefined`. Evidence is under
 `build/signal-context/process-{foreground,spawn-failure}-review{,-san}.log`.
+
+The unchanged full threadstress suite also passes all markers and top-level
+status0 on this corrected kernel, including foreground main-thread spawn,
+fork/exec, signals, accounting and teardown. Combined source/test/build/guest
+receipt: `build/signal-context/worker-spawn-receipt.json`, SHA256
+`192f992b27d9854d7a6a2b46633af997923bcd37306a9fb0d763023f54c0f622`.
+This references the new retained harness result without replacing the original
+accepted transition result. No public ABI, signal admission or JSC execution
+success is introduced by the correction.

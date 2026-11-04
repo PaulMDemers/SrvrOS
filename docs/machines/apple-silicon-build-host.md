@@ -3530,3 +3530,28 @@ Page1GB=0); same-guest QMP readback shows NXE/WP on and SMAP off. Exact receipt 
 scope are in the signal/context guide. Lifecycle uses mandatory association
 invalidation as the owner's design preference; no binding epoch or FPU/lifetime
 implementation is authorized yet. Task guests stopped; review VMs preserved.
+
+
+### PR334 preparation and worker binding qualification — November 4
+
+Owner independently accepted unwired `vmm_prepare_user_kernel_mappings` at
+`439d274d` after source, strict Rosetta and sanitizer review. No live caller or
+creation/setter change yet. Lifecycle audit then reproduced foreground worker
+spawn corruption on the accepted baseline (worker never returned, status3).
+Owner-approved `bfee424f` refuses all user synchronous foreground spawn forms
+before effects and preserves detached spawn; it removes only a redundant
+preparation-error setter that selected the wrong parent/main binding.
+
+Fresh corrected kernel guest passes all four foreground syscall refusals,
+detached load/action failure and successful detached child/wait, with real
+FS:0, volatile TLS, XMM15, RSP/canary and refused-redirection absence checks.
+Full unchanged threadstress also passes. Fixtures at `d3986f00` pass strict
+Rosetta and ASan/UBSan independently: guard/no-effect checks, and real minimal
+ELF load followed by forced vector rejection with complete child cleanup and
+unchanged parent/modeled worker binding. Exact receipt and limitations are in
+[signal-context qualification](../signal-context.md#worker-foreground-spawn-binding-correction).
+Task guests stopped; protected review guests preserved. Source/guest production
+review passed; final forced-vector independent review remains with the owner.
+Checked image/binding/FPU metadata remains design-only, and the last JavaScript
+result remains JSC134 without42. Large JSC allocation remains serialized with the
+profile owner's proof; no new JSC build started.
