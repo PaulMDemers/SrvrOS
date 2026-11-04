@@ -3265,6 +3265,49 @@ bool process_signal_target(int64_t pid, uint64_t signal) {
     return matched;
 }
 
+struct signal_default_decision {
+    uint64_t *pending;
+    uint64_t bit,signal;
+};
+/* A disposition is process-wide, including peer-local pending queues. Choose
+ * an eligible local bit before a shared duplicate, and the lowest public TID
+ * among eligible local recipients. Caller holds CPU0 IRQ exclusion throughout
+ * preparation and commit; no scheduler/pointer observation follows publication. */
+static struct signal_default_decision process_prepare_signal_default(
+    struct process *process,uint64_t signal) {
+    struct signal_default_decision decision={0};
+    if(!process->allocated || !process->active || process->killed || process->exiting ||
+       signal==SRV_SIGNAL_CHLD || signal==SRV_SIGNAL_WINCH) return decision;
+    uint64_t bit=1ull<<signal,lowest=UINT64_MAX;
+    bool shared_eligible=false;
+    if(!process->main_thread_exited && !(process->main_signal_mask&bit)) {
+        shared_eligible=true;
+        if(process->main_pending_signals&bit) {
+            decision.pending=&process->main_pending_signals;lowest=1;
+        }
+    }
+    for(unsigned i=0;i<PROCESS_MAX_USER_THREADS;i++) {
+        struct process_user_thread *thread=&process->user_threads[i];
+        if(!thread->used || !thread->active || thread->owner!=process ||
+           thread->tid<2 || thread->tid>(uint64_t)INT64_MAX || (thread->signal_mask&bit)) continue;
+        shared_eligible=true;
+        if((thread->pending_signals&bit) && thread->tid<lowest) {
+            decision.pending=&thread->pending_signals;lowest=thread->tid;
+        }
+    }
+    if(!decision.pending && shared_eligible && (process->pending_signals&bit))
+        decision.pending=&process->pending_signals;
+    if(decision.pending) {decision.bit=bit;decision.signal=signal;}
+    return decision;
+}
+static void process_commit_signal_default(struct process *process,
+    struct signal_default_decision decision) {
+    if(decision.pending) {
+        *decision.pending &= ~decision.bit;
+        process->killed=true;process->kill_signal=decision.signal;
+    }
+}
+
 /* No fallible work follows descriptor/mirror publication. previous is a
  * caller-owned kernel output, not a user copy or pointer into process state. */
 static bool process_usr1_commit_action(struct process *process,
@@ -3272,6 +3315,9 @@ static bool process_usr1_commit_action(struct process *process,
     struct signal_action_descriptor *previous,uint64_t *generation_out) {
     if(process->usr1_action_generation==UINT64_MAX) return false;
     struct signal_action_descriptor next=*replacement,old=process->usr1_action;
+    struct signal_default_decision decision={0};
+    if(next.mode==SIGNAL_ACTION_DEFAULT)
+        decision=process_prepare_signal_default(process,SRV_SIGNAL_USR1);
     uint64_t bit=1ull<<SRV_SIGNAL_USR1;
     process->usr1_action=next;
     process->usr1_action_generation++;
@@ -3283,6 +3329,7 @@ static bool process_usr1_commit_action(struct process *process,
         process->signal_ignore_mask |= bit;
         process_discard_signals(process,bit);
     }
+    process_commit_signal_default(process,decision);
     if(previous) *previous=old;
     if(generation_out) *generation_out=process->usr1_action_generation;
     return true;
@@ -3325,6 +3372,8 @@ static bool process_signal_config_current_locked(uint64_t signal, uint64_t actio
             action==SRV_SIGNAL_IGNORE ? SIGNAL_ACTION_IGNORE : SIGNAL_ACTION_DEFAULT};
         return process_usr1_commit_action(process,&next,NULL,NULL);
     }
+    struct signal_default_decision decision={0};
+    if(action==SRV_SIGNAL_DEFAULT) decision=process_prepare_signal_default(process,signal);
     uint64_t mask = 1ull << signal;
     process->signal_catch_mask &= ~mask;
     process->signal_ignore_mask &= ~mask;
@@ -3339,6 +3388,7 @@ static bool process_signal_config_current_locked(uint64_t signal, uint64_t actio
     }
     if (signal == SRV_SIGNAL_CHLD || signal == SRV_SIGNAL_WINCH)
         process_discard_signals(process,mask);
+    process_commit_signal_default(process,decision);
     return true;
 }
 int64_t process_signal_action_current(uint64_t signal) {

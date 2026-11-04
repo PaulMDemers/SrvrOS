@@ -3767,3 +3767,18 @@ register preservation, then stops. Source, link inputs, ELF layouts and raw gues
 logs are frozen outside distclean; receipt
 `8ce57965d33a6c4ce81682793cda0ea1ed58becea5d250934ea2154f778dd7f4`.
 This is linker/fixture qualification, not a newly rebuilt SDK/ICU/JSC claim.
+
+PR334 raw CATCH-to-DEFAULT correction now selects pending defaults process-wide,
+including an unblocked peer when the caller blocks that signal. Preparation
+chooses eligible local before shared, lowest live owner-matching publicTID, and
+preserves an earlier fatal cause. Inactive/all-blocked pending stays; IGNORE and
+CHLD/WINCH DEFAULT retain their existing discard semantics. Expanded actual-source
+strict/sanitized matrix and12 state/delivery/lifecycle regression profiles pass;
+target compile/link pass. The old normal guest reaches sentinel90 in all four
+USR1/USR2 × peer-local/shared cases; the fix terminates138/138/140/140 before all
+sentinels, with main/worker register preservation0 and both guests stopped.
+Frozen95-file receipt:
+`47c5a5d9b4039c5d31bbfb444f9a5388c9f23178f4f422add0d8b0a47c96ee54`.
+Owner review separately reproduced an unwired private INFO|RESET peer-pending
+case that still strands a default after automatic reset. That case remains open;
+this raw configuration correction does not close it or enable public signals.

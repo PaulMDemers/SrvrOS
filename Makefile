@@ -4605,3 +4605,11 @@ build/tests/process-signal-delivery-host$(HOST_EXE): tools/test_process_signal_d
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include $< kernel/src/arch/x86_64/signal_state.c kernel/src/arch/x86_64/signal_context.c -Wl,--gc-sections -o $@
 test-core: test-process-signal-delivery
+
+.PHONY: test-process-signal-action-defaults
+test-process-signal-action-defaults: build/tests/process-signal-action-defaults-host$(HOST_EXE)
+	$<
+build/tests/process-signal-action-defaults-host$(HOST_EXE): tools/test_process_signal_action_defaults.c tools/test_process_user_frame_copy.c kernel/src/process.c kernel/src/process_signal.h kernel/src/arch/x86_64/signal_state.c kernel/src/arch/x86_64/signal_context.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include $< kernel/src/arch/x86_64/signal_state.c kernel/src/arch/x86_64/signal_context.c -Wl,--gc-sections -o $@
+test-core: test-process-signal-action-defaults
