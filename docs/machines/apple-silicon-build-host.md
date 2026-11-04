@@ -3720,3 +3720,9 @@ Ports pin, and use the merged UI dependency. Validate Files guards/alias keys,
 profile/session contracts, matched build and actual Files/profile workflows.
 Shared checkout and review VM remain untouched; all test guests disposable and
 sequential. Historical physical-closure and filesystem acceptance limits remain.
+
+UI4 merged as `586bd002956a7418e619b62fcbd8180d285df452`; Apps7 merged as `2ddea666ee8da3479427e0152518ff0cf0dd33db`.
+Both merge trees match their reviewed candidates. Candidate host checks and
+matched build passed, including Files, chooser, guarded changes, desktop/session
+and profile image/catalog tests. The OS now pins these merged dependencies.
+Final Files and profile runtime qualification follows before OS344 merge.
