@@ -12419,3 +12419,21 @@ Ubuntu stays default. Shutdown for10seconds Wi-Fi unplug while off, reconnect
 same port and power on; leave workspace connected. Guest progress/save/unmount/
 Ubuntu return are automatic; no commands/photos. Collect first, preserve any
 failure and inspect actual beacon count before accepting receive observations.
+
+
+## 2026-11-04 v121 refusal and bounded fresh-field correction
+
+Matching3732593a41f9be22/session-00065f7819b0d2f4-00 saved1844154bytes and
+returned automatically, but is FAILED/INCOMPLETE: selected VCO completed, the
+new endpoint configured and stopped exactly with zero posts; MAC/calibration
+never began (zero operations/commands). No inverse selected-state proof or RX
+acceptance follows. Whole-prefix completion refusal is preserved in the597-file
+sealed capsule; offline workspace/recovery and Ubuntu default/unarmed checks
+pass. Source inspection identifies the new owner incorrectly testing legacy
+`mcu.trim_fields`, which this5GHz route never populates, instead of the fresh
+private `wifi_trim5.fields` already bound by the accepted parent. Correct that
+specific binding, retain exact board/trim/gate/device checks, add positive
+current-field/empty-legacy and damaged-field regression plus explicit anonymous
+admission diagnostics. No register/model gate is widened. Requalify the exact
+retry image and preserve this failure before another cold trial. Main was
+fetched again; shared scope remains MT76 and the named calibration profile.
