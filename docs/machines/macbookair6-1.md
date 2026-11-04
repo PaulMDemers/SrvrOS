@@ -7153,3 +7153,21 @@ authorized step preserves recovery/accepted backups and runs the no-input
 firmware-only capture automatically. Native acceptance remains the earlier
 `86257762f155128f` observation until collection; no translation/ownership or
 RC6/package-C3 acceptance follows from preparing this trial.
+
+
+### Capture revalidation after current-main integration (2026-11-04)
+
+Before merge/install, fresh fetch found main `5f4f6fc6` with PR317 isolation,
+PMM/VMM, USB retirement and current Apps/UI pins. The prepared `f3cfcb90` /
+`2ee43cb527989448` candidate remains independently backed up, uninstalled and
+unarmed; it is superseded for this run. Integrate through merge `1de62896`,
+preserving both new firmware targets and upstream GPT-inspector targets in the
+Makefile EOF conflict. The host longjmp fixture correction remains intact.
+
+Rebuild and repeat full local checks, capture sanitizers/codec/tail and the
+sequential exact-stage/legacy VM matrix against the consumed integration.
+Firmware copying still requires ACPI reclaimable/NVS RAM and exact existing
+translations, consistent with new canonical-address VMM checks. No native
+acceptance transfers to PMM/USB/desktop changes merely through this merge.
+Local run state remains revalidating/unarmed until the replacement candidate
+passes every required check and fresh storage/recovery verification.
