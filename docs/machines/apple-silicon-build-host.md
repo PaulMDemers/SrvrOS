@@ -3550,8 +3550,18 @@ Rosetta and ASan/UBSan independently: guard/no-effect checks, and real minimal
 ELF load followed by forced vector rejection with complete child cleanup and
 unchanged parent/modeled worker binding. Exact receipt and limitations are in
 [signal-context qualification](../signal-context.md#worker-foreground-spawn-binding-correction).
-Task guests stopped; protected review guests preserved. Source/guest production
-review passed; final forced-vector independent review remains with the owner.
+Task guests stopped; protected review guests preserved. The owner independently qualified the production, guest and both strict/sanitized
+host fixtures, including the forced-vector failure.
 Checked image/binding/FPU metadata remains design-only, and the last JavaScript
 result remains JSC134 without42. Large JSC allocation remains serialized with the
 profile owner's proof; no new JSC build started.
+
+
+PR334 checked-root code `d7466e1c` now replaces creation's void replay with checked
+preparation inside one saved-IRQ registry/publication transaction. Owner source/
+host review passed independently. Fresh full kernel and matched worker regression,
+full threadstress and sysabi/fault-reaping guests pass; task guests stopped.
+[Exact qualification](../signal-context.md#checked-user-root-creation-at-d7466e1c)
+records the combined receipt and limits. Owner-approved next slice is metadata
+image-generation/association and atomic validated tuple wiring only, after root
+evidence publication; no FPU proof, assembly, signal API or JSC success yet.

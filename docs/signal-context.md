@@ -608,3 +608,39 @@ receipt: `build/signal-context/worker-spawn-receipt.json`, SHA256
 This references the new retained harness result without replacing the original
 accepted transition result. No public ABI, signal admission or JSC execution
 success is introduced by the correction.
+
+## Checked user-root creation at d7466e1c
+
+The owner approved and independently qualified the bounded source/host slice:
+allocate and zero a fresh uniquely owned PMM root before saved IRQ exclusion;
+hold exclusion across registry admission, checked mapping preparation and either
+unregister rollback or success publication. Output remains zero until success.
+On failure unregister before freeing only the new root; preserve the prior IRQ
+state. No legacy map replay, lower/kernel/shared table free, scheduler setter,
+process refresh or FPU change is included. PMM returning an already-live frame
+would violate the existing allocator ownership contract and is not a modeled
+recoverable admission failure.
+
+The extended actual-source preparation fixture checks both initial IF states,
+output/zeroing/publication order, allocation and full-registry failures, late
+mapping-preflight refusal, unregister-before-free, unchanged kernel tables and
+zero lower/correct upper entries. Strict native and ASan/UBSan pass, including
+independent parent reruns; existing VMM range/teardown passes both profiles. The
+owner separately reran strict Rosetta and sanitizer builds of both fixtures.
+
+A fresh full kernel compiles with pinned Zig0.15.2/two jobs. Matched disposable
+guests pass the worker TLS/XMM/stack/refusal/detached regression, the complete
+threadstress suite, and sysabi including faulting process/worker reaping. All
+exit0 and all task guests stopped. Combined receipt:
+`build/signal-context/vmm-create-receipt.json`, SHA256
+`2c62e69c812f1dd671b912dec388474de28186bb15dbaaf03452474609693791`.
+It binds source, fixtures, logs, candidate kernel/ISO/probe receipt and unchanged
+selected userspace/disk provenance. Candidate head `a0a7f474` has the same kernel
+code as `d7466e1c`; its later change is the next design packet. Final guest
+qualification is with the owner; there is no signal/JSC acceptance claim.
+
+The owner accepted the complete tuple/caller/fatal contract at `a0a7f474` as the
+next implementation boundary, after this root qualification is published. That
+slice is limited to committed image-generation and opaque association metadata,
+atomic validated binding wiring and corresponding failure/lifetime tests. It
+must not add an FPU proof object, minting, assembly change or signal delivery.
