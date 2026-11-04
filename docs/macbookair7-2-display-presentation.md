@@ -247,3 +247,9 @@ cancel/drain/restore/quarantine rules. Its first source-bound hardware trial is
 shadow-only, paced by read-only native frame-counter observations and followed
 by full backing revalidation. It does not authorize a GGTT allocator, physical
 flip completion or desktop backend. The existing inherited fence remains intact.
+
+The subsequent [address reservation mechanism](native-scanout-reservations.md)
+now passes host/VM checks on source `96b5cc0e`. It protects explicit inherited
+intervals and retains exposed ranges until independently proven retirement;
+no native caller supplies managed space. DMA-remapping state, padded tiled
+layout, firmware exclusion and route/restore authority remain the next audit.

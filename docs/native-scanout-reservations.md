@@ -67,6 +67,7 @@ There is no hardware reset, timer or recovery callback inside this pure core.
 | --- | --- |
 | Inherited backing | Accepted full 1356-PTE/fence readout and final shadow-trial preservation. Preserve the complete fence and all firmware allocations. |
 | Private RAM | Accepted bounded PMM allocation/free/quarantine trial. It did not give the GPU access to those allocations. |
+| Scanout layout | The shadow allocation has1350 visible pages; the inherited X-tiled extent has1356. Preserving this tiled route requires the complete padded extent and verified tiling/swizzle/cache layout. The current visible-only shadow profile is not that proof. |
 | GGTT arena | No managed native interval. Establish a boot-scoped exclusive owner and audited reservation import before a PTE writer. Do not reclaim arbitrary invalid/scratch entries. |
 | DMA addresses | Firmware describes a GPU-specific remapping unit. Observe the actual SrvrOS translation/coverage state; physical-address equality is not assumed. No IOMMU bypass or control writes are proposed here. |
 | Firmware exclusion | Stable observations are insufficient. Establish which kernel/firmware users can change mappings, plane, route and power while an owner exists. |
@@ -110,3 +111,10 @@ retirement. Keep the mechanism disconnected from the ordinary Intel/VirtIO
 paths. The next physical work is source-bound read-only DMA/ownership inventory;
 a writer requires a separate reviewed implementation, exact-stage VM checks,
 persisted trial results, independent recovery and explicit native acceptance.
+
+Source `96b5cc0e` passes the complete local core/profile/build gates, ASan/UBSan,
+three compiled negative controls, real guest PMM shadow fixture, VirtIO
+presentation ownership/reacquisition and desktop/Open With regression. The
+allocation oracle includes10,803 successful allocations,10,792 releases and
+17,564 refusals at193 distinct starts. These are host/VM results; they grant
+no managed native interval and do not accept real hardware mapping retirement.

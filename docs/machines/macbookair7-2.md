@@ -2,23 +2,48 @@
 
 Updated: 2026-11-03. State: **active reference machine; partial device acceptance**.
 
-### Active GPU address reservation work
+### GPU address reservations implemented; host/VM validation complete
 
-Consumed integration main `1a5a6dee` at `9541ce4e`; exact recursive submodule
-pins follow that merge. The appended Makefile conflict preserves both scanout
-and new profile/salvage test groups. Accepted native evidence remains bound to
-`ae598610`; no updated hardware payload is installed or armed.
+Consumed integration main `1a5a6dee` at `9541ce4e`, retaining both appended
+Makefile test groups and exact recursive submodule revisions. SrvrPorts is
+explicitly advanced to merged `ca749517` for its reviewed strict-host spawn
+fix. Source `96b5cc0e` passes the full local host/core/profile/docs and matched
+normal/AP/native/synthetic kernel builds, hardware collectors, ASan/UBSan,
+three deliberately broken reservation controls, guest PMM shadow fixture,
+VirtIO owner-death/reacquisition and ordinary desktop/Open With regression.
+Actions remain disabled; no hosted CI pass is claimed.
 
-Bounded objective: a CPU0 software reservation mechanism for the observed
-256MiB aperture, with default-unavailable pages, explicit managed intervals,
-protected inherited/fence intervals, epoch/serial leases and quarantine after
-uncertain exposure. This is host-tested groundwork, not a GGTT allocator grant
-or hardware authority. No native caller may import free ranges from absent PTEs
-or stable observations. Touch new reservation header/core/tests, Makefile and
-this unit's display/lifetime contracts. Preserve PR317's allocator/VMM/DMA audit,
-PR324's independent Haswell capture and ordinary VirtIO behavior. Next: fault,
-reuse and allocation-oracle tests plus integrated local gates, then publish the
-remaining native takeover/DMA/restore prerequisites. No new reboot is planned.
+The new CPU0 address lease core defaults every page to unavailable. Explicit
+managed intervals are distinct from protected inherited/fence intervals;
+protected pages always win. Epoch/serial tokens survive owner/slot reuse,
+exposure blocks premature release, and uncertain exposure quarantines its range
+and blocks new admission. The independent 50,000-operation allocation oracle
+covers10,803 allocations/10,792 releases/17,564 refusals at193 distinct starts.
+Removing protection, serial identity or retirement proof makes the regressions
+fail. This is software groundwork: **no native managed range or GGTT writer**.
+See the [reservation contract](../native-scanout-reservations.md).
+
+Read-only Ubuntu DMAR reference identifies a GPU-scoped remapping unit and an
+RMRR covering the observed table/stolen data. It does not read live translation
+state or authorize private RAM DMA. The visible1350-page shadow allocation also
+is not the1356-page padded tiled scanout layout. Next: source-bound, read-only
+native DMA/ownership inventory and explicit padded-layout/route/restore audit
+before any writer. PR317's allocator/VMM/DMA audit and PR324's Haswell capture
+remain separate; their hardware gates are not widened.
+
+Current integration exposed strict Linux host-fixture declarations/formatting
+and a fortified profile-test path-buffer issue. The relevant published Air6,1
+fixes were consumed, the remaining profile declarations/statement boundaries
+corrected, and the fixture now uses libc's allocated realpath result. Warnings,
+fortification and assertions remain enabled. Failed/interrupted attempts are
+preserved; the final complete PASS is separately source-bound to96b5cc0e.
+
+Evidence and checkpoint: `build/air-ggtt-reservation-20261103/`, independently
+backed up outside build. VM-only fixture release `0bd51a1b900015ff` is staged,
+not installed. EFI current remains accepted shadow capture `d79f3ca9a74fa201`
+(source `ae598610`), recovery9aa, with current/recovery/known-good/prior payloads
+matching independent copies. Ubuntu remains default, USB is mounted, and no
+reboot is armed. New software is not physically accepted; PR301 is updated.
 
 ### Native shadow scanout lifetime trial accepted
 
