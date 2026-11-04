@@ -11,6 +11,7 @@
 #include <srvros/laptop_probe.h>
 #include <srvros/intel_display_capture.h>
 #include <srvros/intel_dma_observe.h>
+#include <srvros/x86_cache.h>
 #include <srvros/intel_display_backing.h>
 #include <srvros/intel_scanout_trial.h>
 #include <srvros/audio.h>
@@ -562,6 +563,7 @@ void kmain(void) {
             intel_display_backing_probe_boot(r && r->framebuffer_count && r->framebuffers?r->framebuffers[0]:NULL);
     }
     if(intel_display_capture_requested && cmdline_has_token(cmdline,"srvros.intel-dma=read-only")) intel_dma_probe_boot();
+    if(intel_display_capture_requested && cmdline_has_token(cmdline,"srvros.intel-cache=read-only")) intel_cache_probe_boot();
     bool virtio_baseline=cmdline_has_token(cmdline,"srvros.virtio=on");
     if(virtio_baseline) {
         bool input=virtio_input_init();
@@ -799,6 +801,7 @@ void kmain(void) {
             sampled=intel_display_probe_report();
             bool backing_ok=intel_display_backing_probe_report();sampled=sampled && backing_ok;
             bool dma_ok=intel_dma_probe_report();sampled=sampled && dma_ok;
+            bool cache_ok=intel_cache_probe_report();sampled=sampled && cache_ok;
             bool fixture=cmdline_has_token(cmdline,"srvros.intel-lifetime=fixture");
             if(fixture || cmdline_has_token(cmdline,"srvros.intel-lifetime=shadow")) {
                 struct limine_framebuffer_response *r=framebuffer_request.response;

@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <srvros/intel_display_capture.h>
+static bool cache_mode;
 static bool intel_display_test_read(uint32_t,uint32_t *);
 #define SRVROS_INTEL_DISPLAY_HOST_TEST
 #include "../kernel/src/drivers/intel_display_probe.c"
@@ -71,7 +72,7 @@ static bool intel_display_test_read(uint32_t off,uint32_t *value) {
     if(off>=0x1000000 && off<=0x1000024){mmio_reads++;*value=off;return true;}
     if(backing_mode && (off>=0x100000 || !intel_capture_offset_allowed(off))) {
         *value=0;
-        if(off>=0x100000 && off<0x100100){unsigned i=(off-0x100000)/8;uint64_t f=i?0:((uint64_t)(5554176-4096+47)<<32)|1;*value=(uint32_t)(f>>((off&4)?32:0));}
+        if(off>=0x100000 && off<0x100100){unsigned i=(off-0x100000)/8;uint64_t f=i?0:cache_mode?0x021ff02f00000001ull:((uint64_t)(5554176-4096+47)<<32)|1;*value=(uint32_t)(f>>((off&4)?32:0));}
         else if(off>=0x800000 && off<0x803000){unsigned i=(off-0x800000)/8;*value=(uint32_t)((0x90000001ull+4096ull*i)>>((off&4)?32:0));}
         else assert(0);
         mmio_reads++;return true;
@@ -141,12 +142,12 @@ int main(int argc,char **argv) {
         dma_checked=63;dma_passed=31;dma_failed=32;dma_guards=1;
         dma_attempted=true;dma_result.status=DMA_ACCESS;reporting=true;assert(!intel_dma_probe_report());return 0;
     }
-    reset();backing_mode=argc==2 && !strcmp(argv[1],"--backing-report");reporting=argc==2 && (!strcmp(argv[1],"--report") || backing_mode);
+    reset();cache_mode=argc==2 && !strcmp(argv[1],"--cache-backing-report");backing_mode=cache_mode || (argc==2 && !strcmp(argv[1],"--backing-report"));reporting=argc==2 && (!strcmp(argv[1],"--report") || backing_mode);
     if(backing_mode)memory.entry_count=3;
     intel_display_probe_boot(&frame);
     assert(result.status==INTEL_CAPTURE_OBSERVED && map_calls==9 && unmap_calls==9 && mmio_reads==116);
     assert(intel_display_probe_report());unsigned old_reads=mmio_reads;intel_display_probe_boot(&frame);assert(mmio_reads==old_reads);
-    if(backing_mode){intel_display_backing_probe_boot(&frame);assert(backing.status==1 && backing.count==1356 && backing.sample[0].present==1356 && backing.fence_matches==1 && !backing.retained && map_calls==unmap_calls);struct scanout_profile profile;struct intel_scanout_clock clock;assert(intel_scanout_trial_profile(&profile) && !profile.assured && !profile.physical[1]);assert(intel_scanout_trial_ram(0x1000000,1350));assert(!intel_scanout_trial_ram(0x8c000000,1350));assert(!intel_scanout_trial_ram(0xb0000000,1350));assert(intel_scanout_trial_clock(&clock));assert(intel_scanout_trial_revalidate());assert(intel_display_backing_probe_report());unsigned calls=mmio_reads;intel_display_backing_probe_boot(&frame);assert(calls==mmio_reads);return 0;}
+    if(backing_mode){intel_display_backing_probe_boot(&frame);assert(backing.status==1 && backing.count==1356 && backing.sample[0].present==1356 && backing.fence_matches==1 && !backing.retained && map_calls==unmap_calls);struct scanout_profile profile;struct intel_scanout_clock clock;assert(intel_scanout_trial_profile(&profile) && !profile.assured && !profile.physical[1]);assert(intel_scanout_trial_ram(0x1000000,1350));assert(!intel_scanout_trial_ram(0x8c000000,1350));assert(!intel_scanout_trial_ram(0xb0000000,1350));assert(intel_scanout_trial_clock(&clock));assert(intel_scanout_trial_revalidate());uint64_t pages[3]={0};assert(intel_scanout_trial_cache_pages(pages)==cache_mode);if(cache_mode)assert(pages[0]==0xc0101000 && pages[1]==0xc0811000 && pages[2]==0xb2200000);assert(intel_display_backing_probe_report());unsigned calls=mmio_reads;intel_display_backing_probe_boot(&frame);assert(calls==mmio_reads);return 0;}
     if(reporting)return 0;
     reset();firmware_ok=false;intel_display_probe_boot(&frame);assert(result.status==INTEL_CAPTURE_IDENTITY && !map_calls && !mmio_reads);
     reset();ram.base=0xc0000000;intel_display_probe_boot(&frame);assert(result.status==INTEL_CAPTURE_ACCESS && !map_calls && !mmio_reads);

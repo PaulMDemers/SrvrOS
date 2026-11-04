@@ -367,6 +367,21 @@ bool intel_scanout_trial_revalidate(void) {
     return true;
 }
 
+bool intel_scanout_trial_cache_pages(uint64_t pages[3]) {
+    struct backing_adapter a;struct scanout_profile p;struct intel_backing_endpoint e;
+    if(!pages || !intel_scanout_trial_profile(&p) || !trial_adapter(&a) ||
+       !backing_endpoint(&a,&e) || !trial_endpoint_same(&e) ||
+       backing.sample[1].fence[0]!=0x021ff02f00000001ull)return false;
+    for(unsigned i=1;i<32;i++)if(backing.sample[1].fence[i])return false;
+    /* First page beyond the FULL observed34MiB fence, not just visible pixels.
+     * These are hypothetical memory-type queries. Nothing maps/reads that slot
+     * or imports it as managed. BAR/aperture ownership is still unestablished. */
+    pages[0]=result.mmio_base+0x101000;
+    pages[1]=result.mmio_base+0x800000+(0x2200000/4096)*8;
+    pages[2]=(e.identity.bar[2]&~15ull)+0x2200000;
+    return true;
+}
+
 /* VT-d v4.1 sections11.4.1-5. No GCMD/FSTS reads or any write callback.
  * Share the retired backing window; guards run only while it is unmapped. */
 #include <srvros/intel_dma_observe.h>

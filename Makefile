@@ -4615,3 +4615,16 @@ test-scanout-publish: build/tests/scanout-publish$(HOST_EXE)
 build/tests/scanout-publish$(HOST_EXE): tools/test_scanout_publish.c kernel/src/scanout_publish.c kernel/src/scanout_space.c kernel/include/srvros/scanout_publish.h kernel/include/srvros/scanout_space.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_scanout_publish.c kernel/src/scanout_publish.c kernel/src/scanout_space.c -o $@
+
+.PHONY: test-x86-cache
+test-core: test-x86-cache
+test-x86-cache: build/tests/x86-cache$(HOST_EXE)
+build/tests/x86-cache$(HOST_EXE): tools/test_x86_cache.c kernel/src/x86_cache.c kernel/include/srvros/x86_cache.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_x86_cache.c kernel/src/x86_cache.c -o $@
+test-x86-cache: build/tests/intel-cache-probe$(HOST_EXE) build/tests/intel-display-probe$(HOST_EXE)
+	build/tests/x86-cache$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_cache.py
+build/tests/intel-cache-probe$(HOST_EXE): tools/test_intel_cache_probe.c kernel/src/drivers/intel_cache_probe.c kernel/src/x86_cache.c kernel/include/srvros/x86_cache.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -DSRVROS_CACHE_PROBE_HOST_TEST -I kernel/include tools/test_intel_cache_probe.c kernel/src/drivers/intel_cache_probe.c kernel/src/x86_cache.c -o $@

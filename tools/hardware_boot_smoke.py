@@ -171,7 +171,7 @@ def main():
     if args.ap_inject and args.ap_inject.startswith("c3-") and not args.ap_c3_sim: parser.error("C3 injections require simulation")
     cpu_load_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v35-","ram-usb-v1-mwait-","ram-usb-v1-ap-c3-","ram-usb-v1-ap-package-","ram-usb-v1-ap-platform-")))
     idle_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v23-"))
-    intel_display_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v1-intel-dma-","ram-usb-v1-intel-display-","ram-usb-v1-intel-backing-","ram-usb-v1-intel-lifetime-","ram-usb-v2-intel-lifetime-fixture-")))
+    intel_display_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v1-intel-cache-","ram-usb-v1-intel-dma-","ram-usb-v1-intel-display-","ram-usb-v1-intel-backing-","ram-usb-v1-intel-lifetime-","ram-usb-v2-intel-lifetime-fixture-")))
     posix_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v1-posix-"))
     storage_wait_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v1-storage-wait-"))
     desktop_idle_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v25-","ram-usb-v26-")))
@@ -233,6 +233,10 @@ def main():
                    "-device", "qemu-xhci,id=xhci", "-device", "usb-kbd,bus=xhci.0",
                    "-serial", f"file:{serial}", "-qmp", f"unix:{qmp_path},server=on,wait=off",
                    "-monitor", "none", "-display", "none", "-no-reboot"]
+        # Explicit cache-only CPU observation in TCG; absent Intel GPU still
+        # refuses native address binding and aggregate display acceptance.
+        if manifest["config_version"].startswith("ram-usb-v1-intel-cache-"):
+            command += ["-cpu","Broadwell"]
         if hsw_capture or ap_capture or coord_capture: command += ["-smp",str(args.ap_cpus)]
         if scaled_desktop:
             command += ["-vga","none","-device","VGA,vgamem_mb=64,xres=2880,yres=1800"]
@@ -527,6 +531,12 @@ def main():
                                 publication=model_result(stored.read(folder+"/exit.log").decode())
                                 assert publication and publication['complete'] and not publication['dma_authority']
                                 (logs/'scanout-publish-model-result.json').write_text(json.dumps(publication,indent=2)+"\n")
+                        if 'srvros.intel-cache=read-only' in text:
+                            from intel_cache import native_cache_result
+                            cache=native_cache_result(stored.read(folder+"/exit.log").decode())
+                            assert cache and cache['cpu_observation_complete'] and not cache['native_observation_complete']
+                            assert cache['summary']['native_pages']==0 and not cache['hardware_ownership']
+                            (logs/'intel-cache-result.json').write_text(json.dumps(cache,indent=2)+"\n")
                         if 'srvros.intel-dma=read-only' in text:
                             from intel_dma_observe import dma_result
                             dma=dma_result(stored.read(folder+"/exit.log").decode())
