@@ -91,3 +91,5 @@ void test_workspace_exercise(struct block_device *device,bool close_first,bool f
         assert(read_file_close(1)==0 && workspace_unmount() && !active && test_disables==1);
     }
 }
+
+#include "test_process_salvage.inc"

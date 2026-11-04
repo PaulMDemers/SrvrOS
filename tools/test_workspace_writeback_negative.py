@@ -43,7 +43,7 @@ def main():
         command = list(record['command'])
         command[command.index(str(ROOT / 'tools/test_process_writeback.c'))] = str(adapter)
         command[command.index('-o') + 1] = str(out / name)
-        command += ['-I', str(ROOT / 'kernel/src')]
+        command += ['-I', str(ROOT / 'kernel/src'), '-I', str(ROOT / 'tools')]
         subprocess.run(command, cwd=ROOT, check=True)
         run = subprocess.run([str(out / name), mode], capture_output=True, text=True)
         if run.returncode == 0 or assertion not in run.stderr:

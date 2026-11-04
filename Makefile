@@ -4442,3 +4442,10 @@ build/tests/hsw-backing$(HOST_EXE): tools/test_hsw_backing.c kernel/diagnostics/
 build/tests/hsw-backing-adapter$(HOST_EXE): tools/test_hsw_backing_adapter.c tools/test_platform_sample.c kernel/diagnostics/haswell_backing_core.c kernel/diagnostics/haswell_backing_adapter.inc $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include tools/test_hsw_backing_adapter.c kernel/diagnostics/haswell_backing_core.c -Wl,--gc-sections -o $@
+.PHONY: test-salvage
+test-core: test-salvage
+test-salvage: build/tests/salvage-host$(HOST_EXE)
+	$<
+build/tests/salvage-host$(HOST_EXE): tools/test_salvage.c userspace/lib/src/salvage.c userspace/lib/include/srvros/salvage.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include $< -o $@
