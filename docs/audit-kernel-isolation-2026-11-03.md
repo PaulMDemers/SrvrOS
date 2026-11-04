@@ -404,6 +404,44 @@ together. The newer salvage helper was not staged into these kernel-only guests.
 checkouts remain untouched. Broader native E1000 admission, xHCI/USB, display
 hardware ownership, DMA concurrency and explicit recovery remain audit work.
 
+## USB/xHCI and native display teardown checkpoint
+
+Continuation from `2e304da2` confirms repeated xHCI entry cleared the entire
+controller/device record before discovery. Existing workers and uncertain DMA
+can still reference those records. A one-attempt guard now preserves state on
+repeated boot entry, including an absent/failed first discovery. Recovery,
+hotplug and reset/reinitialization are not supplied by this guard.
+
+The actual-source host regression performs absent discovery, then seeds a
+modeled live controller with DMA addresses, nonzero ring indices, a quarantined
+device and a started-worker marker. Another init call must preserve the complete
+record, allocation/free counts and worker marker without rediscovery. The old
+function fails this assertion (`build/review/usb-dma/before.log`). This is a
+seeded ownership test, not a full modeled successful hardware bringup. It runs
+with the existing xHCI root-port, handoff, scratchpad, HID/storage/network,
+late-event, timeout and quarantine tests. Normal, ASan/UBSan and GCC14 runs pass.
+
+The reviewed USB storage timeout path leaves pending backing pinned and rejects
+reuse; a trackpad endpoint can reclaim a ring on buffer-allocation failure before
+configuration, but ambiguous configure completion retains both allocations.
+The new guard prevents another init from discarding those retained identities.
+Explicit recovery and device removal remain separate work.
+
+Display review covers `intel_gfx.c`, `display_present.c` and the native diagnostic
+`display_owner_core.c`. Intel discovery maps registers and reports planned
+capabilities; it does not implement accelerated native DMA teardown. The native
+owner model retains a fault guard even when references drain and grants no
+hardware write authority. Its existing token/epoch/inflight/fault tests pass.
+The runtime presentation layer and VirtIO GPU reset-before-free fixtures also
+pass. A new staging regression requires uncertain end/reset to retain switched
+backing, owner and blocked writes; only the private host arena is disposed after
+assertions. No additional display defect was confirmed. No native-device reset,
+physical removal or framebuffer ownership acceptance is inferred from these
+models.
+
+Kernel compilation passes. Evidence is under `build/review/usb-dma/`; guest
+results are recorded after execution. No libc or filesystem policy changes.
+
 ## Remaining work
 
 Other long IRQ-disabled operations, including initial/churning PMM scans, heap validation and poisoning,

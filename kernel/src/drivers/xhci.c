@@ -375,6 +375,7 @@ struct xhci_state {
 };
 
 static struct xhci_state xhci;
+static bool xhci_init_attempted;
 static volatile bool xhci_input_probe_active;
 static bool xhci_poll_worker_started;
 
@@ -2582,6 +2583,10 @@ static bool bringup_command_path(void) {
 }
 
 void xhci_init(void) {
+    /* Live/uncertain DMA and the polling worker retain these records. Boot
+     * discovery is one-shot; recovery requires a separate quiescence proof. */
+    if(xhci_init_attempted)return;
+    xhci_init_attempted=true;
     xhci = (struct xhci_state) { .stage = "find-controller", .handoff = "not-attempted" };
     xhci.pci = find_xhci_controller();
     if (xhci.pci == 0) {

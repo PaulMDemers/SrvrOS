@@ -993,8 +993,26 @@ static void test_device_inventory(void) {
     assert(!xhci_device_snapshot(4,&info) && !xhci_device_snapshot(UINT64_MAX,&info));
 }
 
+static unsigned init_discoveries;
+uint64_t pci_device_count(void) { init_discoveries++;return 0; }
+const struct pci_device *pci_device_at(uint64_t i) { (void)i;return NULL; }
+static void test_repeated_init(void) {
+    xhci_init();assert(init_discoveries==1);
+    xhci.present=xhci.operational=true;xhci.command_ring_phys=0xa000;
+    xhci.command_enqueue=7;xhci.event_dequeue=9;
+    xhci.devices[0].present=true;xhci.devices[0].bulk_failed=true;
+    xhci_poll_worker_started=true;
+    static struct xhci_state saved;saved=xhci;
+    uint64_t allocations=pool_used,releases=freed;
+    xhci_init();
+    assert(init_discoveries==1 && !memcmp(&saved,&xhci,sizeof(saved)));
+    assert(pool_used==allocations && freed==releases && xhci_poll_worker_started);
+    xhci_poll_worker_started=false; /* Restore only the host model. */
+    puts("xhci-init: PASS repeated entry preserves modeled controller/DMA/quarantine/worker state");
+}
 int main(int argc, char **argv) {
     assert(argc == 4);
+    test_repeated_init();
     test_ep0_packet();
     test_network_transport();
     test_device_inventory();

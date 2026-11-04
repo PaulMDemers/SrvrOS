@@ -35,6 +35,7 @@ void xhci_set_storage_writable(bool writable);
 void xhci_set_trackpad_capture(bool enabled);
 void xhci_set_trackpad_pointer(bool enabled);
 void xhci_set_trackpad_gestures(bool enabled);
+/* Exclusive boot-owner entry: repeated calls preserve existing DMA records. */
 void xhci_init(void);
 bool xhci_is_present(void);
 uint64_t xhci_keyboard_count(void);

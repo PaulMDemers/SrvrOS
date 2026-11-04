@@ -1514,3 +1514,9 @@ and device-owned backing that requires proven quiescence before reuse.
 device, mapping failure and allocation failure). Repeated entry must preserve
 DMA data, software indices, MMIO/PCI and provider state. It uses modeled hardware
 with the actual driver and does not accept native reset or hotplug behavior.
+
+
+`test-xhci` includes repeated boot-entry preservation of seeded controller, DMA,
+quarantine and worker records. `test-display-present` verifies uncertain reset
+retains switched staging and its owner; `test-display-owner` remains a diagnostic
+predicate/reference model without hardware write authority.

@@ -3222,3 +3222,13 @@ Implementation `8db6e2df` passes kernel compilation, E1000 netabi and sysabi
 guests with retained PR313 runtime files. Main `1f177761` is integrated without
 kernel changes; both appended Makefile test groups were preserved and their
 combined init/salvage run passes. Task guests stopped.
+
+
+### USB/xHCI and native display teardown
+
+Continuing PR317 from `2e304da2`: repeated xHCI initialization wiped retained
+controller/device records. One boot-attempt guard and a seeded DMA/worker-state
+regression now preserve those identities. xHCI host/sanitizer/GCC checks and
+display presentation/native-owner/VirtIO GPU fixtures pass. Native display
+ownership remains diagnostic; no physical reset/removal claim. Filesystem owner
+notified; no libc/content/workspace changes.
