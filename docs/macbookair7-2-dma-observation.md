@@ -137,3 +137,21 @@ MMIO. Default host validation skips the explicitly opt-in exhaustive installatio
 I/O matrix. The next native capture needs no input and automatically returns
 after saving/unmounting, including a handled refusal. Native diagnostics and
 DMA-state observation remain pending; no access gate was widened.
+
+## Native diagnostic result (2026-11-04)
+
+Release `c32abebf3401b572`, source `057b8d33`, session
+`00065f6c2ff63eb2-00`, identifies the first failure as firmware resource bit32
+(checked63, passed31). Its structurally valid34-entry boot memory map has zero
+overlaps with the required VT-d page; the nearest entries are reserved ranges
+`[0xfed1c000,0xfed20000)` and `[0xffd70000,0xffda0000)`. This proves missing
+boot-map coverage rather than missing hardware. The clock check is unreached.
+No DMA mapping, register read or write occurs. Display/backing observations
+complete, but aggregate completed=NO and DMA observation remains unaccepted.
+
+Both logs save and the machine returns automatically. Prior-file preservation,
+offline filesystem/allocation/writable/headroom, recovery and consumed one-shot
+checks pass. No reboot is armed. Next is an explicit fixed-MMIO resource-contract
+audit; do not merely remove the reserved-page gate or infer disabled translation
+from the refusal. Private GPU buffers and physical page flips remain separate
+unimplemented/acceptance milestones.

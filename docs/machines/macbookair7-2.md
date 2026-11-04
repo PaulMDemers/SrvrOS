@@ -1,8 +1,38 @@
 # MacBookAir7,2 / A1466
 
-Updated: 2026-11-03. State: **active reference machine; partial device acceptance**.
+Updated: 2026-11-04. State: **active reference machine; partial device acceptance**.
 
-### DMA admission diagnostics ready; reboot unarmed
+### Native diagnostic identifies missing MMIO resource coverage
+
+Source `057b8d33` / release `c32abebf3401b572` returned automatically as
+`session-00065f6c2ff63eb2-00`. Initial admission fails specifically at the
+firmware-resource check: checked63 / passed31 / failed32. Profile, exact DMAR,
+unmapped window, mapping retirement and kernel CR3 checks pass; the later clock
+check is unreached. The complete34-entry firmware memory map is structurally
+valid, with **zero intersections** covering `[0xfed90000,0xfed91000)` and no
+conflicting entries. Its nearest disjoint entries are reserved ranges
+`[0xfed1c000,0xfed20000)` and `[0xffd70000,0xffda0000)`.
+
+This establishes missing boot-map coverage, not absence of the VT-d hardware.
+There are zero DMA maps, register reads, retained mappings or writes; aggregate
+capture correctly reports `completed=NO`. Display/full backing observations
+complete. DMA translation state and private-buffer GPU addressability remain
+unknown, and native tear-free presentation is not implemented or accepted.
+
+All1,325 prior files are preserved except expected workspace metadata; two new
+logs are copied/hash-verified. Offline fsck/allocation/writable/headroom,
+independent payloads/recovery, Ubuntu default and consumed one-shot checks pass.
+The matching run is collected; no reboot is armed. Evidence:
+`build/air-dma-admission-native-20261103/returned/`, backed up outside build.
+
+Next: audit fixed-MMIO admission against the exact firmware/device resource
+contract, keeping table identity and RAM-alias protection. Resolve this read-only
+inventory prerequisite before granting any private GPU mappings. The remaining
+presentation milestones are managed GGTT/DMA/layout ownership, inactive-buffer
+publication with matched vblank completion, and restore/owner-death/fault plus
+visible desktop-load acceptance. Existing shadow trials do not replace these.
+
+### Diagnostic preparation checkpoint (before the collected run)
 
 Source `057b8d33` / release `c32abebf3401b572` is installed for the next
 no-input capture, from main `a64661e9` merged as `fe078dba`. The adapter reports
