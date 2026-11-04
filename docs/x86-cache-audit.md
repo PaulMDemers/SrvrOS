@@ -2,8 +2,10 @@
 
 The explicit `--intel-cache-capture` profile records CPU0's inherited PAT/MTRR
 state alongside the exact Air7,2 display/backing observation. Ordinary startup
-and other Intel recipes do not run it. It creates no mappings, changes no CPU
-policy and writes no MSR, GPU entry, invalidate register or display control.
+and other Intel recipes do not run it. The CPU snapshot/classifier creates no mapping and changes no CPU policy.
+The profile reuses the existing temporary read-only backing windows for its
+final preservation check. It writes no MSR, GPU entry, invalidate register or
+display control.
 This is a prerequisite observation, not GPU ownership or DMA authority.
 
 ## What it observes
@@ -37,7 +39,8 @@ fence and captured Broadwell CPU signature/width permits three proposed queries:
 BAR0+0x101000 (flush-register page), BAR0+0x811000 (GGTT alias for the first page
 beyond the full fence), and aperture base+34MiB. Each is evaluated with indices
 0,2,3 in both snapshots. These are addresses for cache classification only:
-no candidate slot/aperture bytes are read or mapped and no address range is
+`candidate_mappings=0` means none of these proposed pages are mapped.
+No candidate slot/aperture bytes are read and no address range is
 imported as managed. The final full inherited1356-PTE/fence revalidation must pass.
 
 The receipt parser independently recomputes types, matches every row and binds

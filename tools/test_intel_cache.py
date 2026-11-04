@@ -36,11 +36,11 @@ class CacheTests(unittest.TestCase):
             for text in (self.text.replace(row+'\n','',1),self.text+row+'\n'):
                 with self.subTest(prefix=prefix),self.assertRaises(ValueError):cache_result(text)
     def test_faults(self):
-        for old,new in [('writes=0','writes=1'),('mappings=0','mappings=1'),('authority=none','authority=owned'),
+        for old,new in [('writes=0','writes=1'),('candidate_mappings=0','candidate_mappings=1'),('authority=none','authority=owned'),
                         ('cpu_complete=1','cpu_complete=0'),('equal=1','equal=0'),('native_pages=3','native_pages=2'),
                         ('effective=1','effective=0'),('reads=10','reads=9'),('pat_index=2','pat_index=3'),
                         ('mask=0x0000007ff0000800','mask=0x0000007ff0010800'),
-                        ('bits=39','bits=35'),('count=2','count=17'),('physical=0x00000000b2200000','physical=0x00000000b2200001')]:
+                        ('features=0x0000000000011000','features=0x0000000100011000'),('signature=0x00000000000306d4','signature=0x00000001000306d4'),('bits=39','bits=35'),('count=2','count=17'),('physical=0x00000000b2200000','physical=0x00000000b2200001')]:
             with self.subTest(old=old):
                 self.assertIn(old,self.text)
                 with self.assertRaises(ValueError):cache_result(self.text.replace(old,new,1))

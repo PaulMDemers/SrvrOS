@@ -4,7 +4,7 @@ SCHEMAS={
  'sample':'v sample status begin_us end_us reads count fixed signature features bits cr0 pat cap def vendor0 vendor1 vendor2',
  'variable':'v sample index base mask', 'fixed':'v sample index raw',
  'page':'v sample page physical pat_index ok mtrr pat effective',
- 'summary':'v cpu_complete native_pages preserved equal queries writes mappings authority',
+ 'summary':'v cpu_complete native_pages preserved equal queries writes candidate_mappings authority',
 }
 HEX=set('signature features cr0 pat cap def vendor0 vendor1 vendor2 base mask raw physical'.split())
 TYPES={0,1,4,5,6}
@@ -67,10 +67,11 @@ def cache_result(text):
     if not any(rows.values()):return None
     if len(rows['summary'])!=1 or [s['sample'] for s in rows['sample']]!=[0,1]:raise ValueError('missing/duplicate cache outcome')
     summary=rows['summary'][0]
-    if summary['writes'] or summary['mappings'] or summary['authority']!='none' or summary['native_pages'] not in (0,3) or any(summary[k]>1 for k in ('cpu_complete','preserved','equal','queries')):raise ValueError('cache authority/outcome')
+    if summary['writes'] or summary['candidate_mappings'] or summary['authority']!='none' or summary['native_pages'] not in (0,3) or any(summary[k]>1 for k in ('cpu_complete','preserved','equal','queries')):raise ValueError('cache authority/outcome')
     samples=rows['sample'];regions=[]
     for n,s in enumerate(samples):
-        if s['status']>5 or s['count']>255 or s['fixed'] not in (0,11) or s['reads']>49:raise ValueError('cache sample bounds')
+        if (s['status']>5 or s['count']>255 or s['fixed'] not in (0,11) or s['reads']>49 or s['bits']>255 or
+            any(s[k]>0xffffffff for k in ('signature','features','vendor0','vendor1','vendor2'))):raise ValueError('cache sample bounds')
         variables=[r for r in rows['variable'] if r['sample']==n];fixed=[r for r in rows['fixed'] if r['sample']==n]
         if [r['index'] for r in variables]!=list(range(min(16,s['count']))) or [r['index'] for r in fixed]!=list(range(s['fixed'])):raise ValueError('cache register rows incomplete')
         regions.append(_snapshot(s,variables,fixed) if s['status']==1 else None)

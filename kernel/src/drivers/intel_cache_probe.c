@@ -63,7 +63,7 @@ bool intel_cache_probe_report(void) {
         }
     }
     bool preserved=native && intel_scanout_trial_revalidate();
-    console_printf("intel-cache-summary: v=1 cpu_complete=%u native_pages=%u preserved=%u equal=%u queries=%u writes=0 mappings=0 authority=none\n",
+    console_printf("intel-cache-summary: v=1 cpu_complete=%u native_pages=%u preserved=%u equal=%u queries=%u writes=0 candidate_mappings=0 authority=none\n",
         (uint64_t)complete,(uint64_t)(native?3:0),(uint64_t)preserved,(uint64_t)equal,(uint64_t)(native && queries));
     return complete && native && queries && preserved;
 }
