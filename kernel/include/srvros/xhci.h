@@ -42,6 +42,11 @@ void xhci_init(void);
  * True verifies R/S clear, halted controller and drained software event ring.
  * No reset/restart or DMA/record free: block/worker/diagnostic references remain. */
 bool xhci_stop(void);
+/* Terminal DMA reclaim after stop, storage/worker/diagnostic reference drain
+ * and PCI bus-master disable readback. At most 16 frames per call; retry false
+ * for pending owners, unproven hardware or progress. Metadata stays offline and
+ * stable; no record, MMIO mapping, block descriptor or network metadata free. */
+bool xhci_reclaim(void);
 bool xhci_is_present(void);
 uint64_t xhci_keyboard_count(void);
 uint64_t xhci_mouse_count(void);

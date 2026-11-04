@@ -163,3 +163,12 @@ waits for software owners/provider callbacks. Context-release and terminal-stop
 host/VM fixtures accompany it. All xHCI backing stays pinned: block/worker/
 diagnostic reference release, per-slot teardown, restart and physical acceptance
 remain open. See the current kernel-isolation checkpoint for exact limits.
+
+
+PR317 terminal DMA retirement now adds USB initializer/request/diagnostic callback
+drain, poll-worker acknowledgement, diagnostic/poll ownership and PCI bus-master
+readback before bounded 16-frame xHCI reclamation. Offline metadata/claims remain;
+global writable-media failure visibility is preserved. Exact-once poisoned frees,
+combined USB/block/claim tests and QMP storage+HID retirement cover the boundary.
+Per-slot reset/restart, live metadata recycling, physical/SMP acceptance and the
+separately owned managed-workspace fault/salvage proof remain outside this result.

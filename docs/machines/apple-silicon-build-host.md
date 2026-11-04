@@ -3361,3 +3361,37 @@ task guests stopped; review VMs preserved. Evidence: `build/review/xhci-stop/`.
 Nine known missing nested license targets remain. Per-slot teardown, block and
 worker reference release, physical acceptance and safe whole-xHCI reclamation
 remain open. No PR329/330/332 filesystem/installer implementation overlap.
+
+
+### xHCI block/worker/diagnostic retirement and DMA reclaim
+
+Continue PR317 from `c9f4f306` in the isolated kernel checkout. Add USB-storage
+callback retirement through its busy/diagnostic gate, worker acknowledgement,
+poll/diagnostic ownership and bounded DMA reclaim after terminal halt plus PCI
+bus-master disable readback. Preserve static device records, offline block
+geometry/claims and diagnostic tombstones; no slot reuse/reset/restart. Planned
+shared sources: USB storage, xHCI, monitor, headers and host/VM fixtures/docs.
+No generic block contract, filesystem/process or installer edits. Main and open
+PR scopes inspected; filesystem owner notified. Preserve review VMs.
+
+USB retirement now waits for initializer/request/diagnostic owners, blocks new
+admission, and installs context-free refusing callbacks with stable offline
+geometry/name/claims. Writable tombstone markers preserve global flush/reboot
+refusal. Saved raw callbacks reject detached context. Worker acknowledgement and
+poll/probe references precede xHCI reclaim; PCI bus mastering is verified disabled
+before each batch of at most 16 frames. DMA pointers clear after free; static
+records, block identities, MMIO mappings and network metadata remain retained.
+
+Host poison tests account exactly once for 513 scratchpads, two metadata pages
+and controller/device/network backing, with reference/PCI refusal, bounded retry
+and idempotence. Combined actual USB/block/cache/claim tests preserve healthy
+cache/claim release and global failure visibility. Controls removing writable
+markers or the diagnostic admission gate fail. Normal/GCC14/ASan/UBSan and related
+host suites pass, as does kernel compilation. Final Q35 storage+HID proof frees
+23 frames, repeats reclaim without further frees, survives QMP input replug and
+passes sysabi; E1000 netabi and full threadstress pass separately. Retained PR313
+runtime files were used; no complete userspace or physical/SMP acceptance claim.
+All task guests stopped, review VMs preserved. Evidence: `build/review/xhci-reclaim/`.
+Nine known nested license links remain missing. Managed-USB fault/salvage proof
+is separately owned and does not invoke terminal stop/reclaim; no filesystem,
+process, generic block or installer implementation overlap.

@@ -321,7 +321,8 @@ struct xhci_device {
 struct xhci_state {
     bool present;
     bool operational;
-    bool stopping,stopped,controller_owned;
+    bool stopping,stopped,controller_owned,reclaiming,reclaimed,worker_retired,bus_master_disabled;
+    uint64_t poll_users,diagnostic_users,reclaimed_frames,scratchpad_array_phys,scratchpad_array_pages;
     uint64_t sync_users,stop_events;
     const char *stage;
     const char *handoff;
@@ -974,6 +975,7 @@ static bool allocate_scratchpads(void) {
         }
         xhci.scratchpads_allocated++;
     }
+    xhci.scratchpad_array_phys=array_phys;xhci.scratchpad_array_pages=pages;
     xhci.dcbaa[0] = array_phys;
     console_printf("xhci: scratchpads allocated=%u array=%x\n",
         (uint64_t)xhci.scratchpads_allocated, array_phys);
@@ -1967,7 +1969,7 @@ bool xhci_stop(void) {
             else released=false;
         }
     }
-    if(xhci.sync_users || !released) {event_irq_restore(flags);return false;}
+    if(xhci.sync_users || xhci.poll_users || !released) {event_irq_restore(flags);return false;}
     if(!halt_controller()) {xhci.stage="stop-halt-unproven";event_irq_restore(flags);return false;}
     if(xhci.event_ring) {
         struct xhci_trb event;
@@ -1981,6 +1983,88 @@ bool xhci_stop(void) {
      * and this terminal halt cannot be resumed through boot initialization. */
     xhci.stopped=true;xhci.stage="stopped-retained";
     event_irq_restore(flags);return true;
+}
+
+
+static bool reclaim_page(uint64_t *physical,unsigned *budget) {
+    if(*physical && *budget) {
+        pmm_free_frame(*physical);*physical=0;(*budget)--;xhci.reclaimed_frames++;
+    }
+    return *physical!=0;
+}
+bool xhci_reclaim(void) {
+    uint64_t flags=event_irq_save();
+    if(!xhci_stop()) {event_irq_restore(flags);return false;}
+    if(xhci.reclaimed) {event_irq_restore(flags);return true;}
+    if(xhci.sync_users || xhci.poll_users || xhci.diagnostic_users ||
+       (xhci_poll_worker_started && !xhci.worker_retired)) {
+        xhci.stage="reclaim-wait-references";event_irq_restore(flags);return false;
+    }
+    if(!xhci_poll_worker_started)xhci.worker_retired=true;
+    for(unsigned i=0;i<XHCI_MAX_DEVICES;i++) {
+        if(!usb_storage_retire(&xhci.devices[i].storage)) {
+            xhci.stage="reclaim-wait-storage";event_irq_restore(flags);return false;
+        }
+    }
+    {
+        if(!xhci.pci) {event_irq_restore(flags);return false;}
+        uint16_t command=pci_read_config16(xhci.pci,4);
+        if(command==UINT16_MAX) {event_irq_restore(flags);return false;}
+        xhci.bus_master_disabled=false;
+        if(command&4)pci_write_config16(xhci.pci,4,command&~4u);
+        if(pci_read_config16(xhci.pci,4)&4) {
+            xhci.stage="reclaim-bus-master-unproven";event_irq_restore(flags);return false;
+        }
+        xhci.bus_master_disabled=true;
+    }
+    xhci.reclaiming=true;xhci.stage="reclaim-in-progress";
+    unsigned budget=16;bool pending=false;
+    for(unsigned i=0;i<XHCI_MAX_DEVICES;i++) {
+        struct xhci_device *d=&xhci.devices[i];
+#define RELEASE(field,pointer) do {pending|=reclaim_page(&d->field,&budget);if(!d->field)d->pointer=NULL;} while(0)
+        RELEASE(input_context_phys,input_context);RELEASE(output_context_phys,output_context);
+        RELEASE(ep0_ring_phys,ep0_ring);RELEASE(descriptor_buffer_phys,descriptor_buffer);
+        RELEASE(interrupt_ring_phys,interrupt_ring);RELEASE(interrupt_buffer_phys,interrupt_buffer);
+        RELEASE(bulk_buffer_phys,bulk_buffer);
+#undef RELEASE
+        for(unsigned ep=0;ep<2;ep++) {
+            pending|=reclaim_page(&d->bulk_ep[ep].ring_phys,&budget);
+            if(!d->bulk_ep[ep].ring_phys)d->bulk_ep[ep].ring=NULL;
+        }
+        pending|=reclaim_page(&d->trackpad.ring_phys,&budget);
+        pending|=reclaim_page(&d->trackpad.buffer_phys,&budget);
+        if(!d->trackpad.ring_phys)d->trackpad.ring=NULL;
+        if(!d->trackpad.buffer_phys)d->trackpad.buffer=NULL;
+        d->interrupt_pending=d->trackpad.pending=d->bulk_pending=false;
+        if(d->network)for(unsigned ep=0;ep<3;ep++) {
+            struct xhci_network_endpoint *e=&d->network->ep[ep];
+            pending|=reclaim_page(&e->hw.ring_phys,&budget);
+            pending|=reclaim_page(&e->buffer_phys,&budget);
+            if(!e->hw.ring_phys)e->hw.ring=NULL;
+            if(!e->buffer_phys)e->buffer=NULL;
+            e->pending=e->done=false;
+        }
+    }
+    if(xhci.scratchpad_array_phys) {
+        uint64_t *array=pmm_phys_to_virt(xhci.scratchpad_array_phys);
+        while(budget && xhci.scratchpads_allocated) {
+            uint64_t index=--xhci.scratchpads_allocated;
+            (void)reclaim_page(&array[index],&budget);
+        }
+        if(!xhci.scratchpads_allocated && budget>=xhci.scratchpad_array_pages) {
+            pmm_free_frame_range(xhci.scratchpad_array_phys,xhci.scratchpad_array_pages);
+            budget-=xhci.scratchpad_array_pages;xhci.reclaimed_frames+=xhci.scratchpad_array_pages;
+            xhci.scratchpad_array_phys=xhci.scratchpad_array_pages=0;
+        }
+        pending|=xhci.scratchpad_array_phys!=0;
+    }
+#define RELEASE(field,pointer) do {pending|=reclaim_page(&xhci.field,&budget);if(!xhci.field)xhci.pointer=NULL;} while(0)
+    /* DCBAA can go only after its scratchpad array has been retired. */
+    if(!xhci.scratchpad_array_phys)RELEASE(dcbaa_phys,dcbaa);
+    RELEASE(command_ring_phys,command_ring);RELEASE(event_ring_phys,event_ring);RELEASE(erst_phys,erst);
+#undef RELEASE
+    if(!pending) {xhci.reclaimed=true;xhci.reclaiming=false;xhci.stage="reclaimed-tombstones";}
+    event_irq_restore(flags);return xhci.reclaimed;
 }
 
 
@@ -2093,6 +2177,8 @@ static void dispatch_transfer_event(const struct xhci_trb *event) {
 
 static void poll_hid_events_once(void) {
     uint64_t flags = event_irq_save();
+    if(xhci.stopping) {event_irq_restore(flags);return;}
+    xhci.poll_users++;
     for (uint64_t i = 0; i < XHCI_MAX_DEVICES; i++) {
         submit_interrupt_poll(&xhci.devices[i]);
         submit_trackpad_poll(&xhci.devices[i]);
@@ -2101,20 +2187,27 @@ static void poll_hid_events_once(void) {
     /* Bound work even if a malfunctioning device floods events. */
     for (unsigned i=0; i<XHCI_EVENT_TRB_COUNT && poll_event(&event); i++) dispatch_transfer_event(&event);
     for(unsigned i=0;i<XHCI_MAX_DEVICES;i++) if(xhci.devices[i].network) network_service(&xhci.devices[i]);
-    event_irq_restore(flags);
+    xhci.poll_users--;event_irq_restore(flags);
 }
 
 static bool xhci_io_service_ready(void *arg) {
     (void)arg;
-    return xhci.operational && !xhci_input_probe_active;
+    return (xhci.stopping && !xhci.worker_retired) || (xhci.operational && !xhci_input_probe_active);
 }
 
+static bool retire_poll_worker(void) {
+    uint64_t flags=event_irq_save();
+    bool done=xhci.stopping;
+    if(done) {xhci.worker_retired=true;xhci_poll_worker_started=false;}
+    event_irq_restore(flags);return done;
+}
 static bool input_poll_due(void *arg) { return timer_ticks()>=*(uint64_t *)arg; }
 
 static void xhci_poll_worker(void *arg) {
     (void)arg;
     struct scheduler_wait_queue wake={0};
     for (;;) {
+        if(retire_poll_worker())return;
         if (xhci.operational && !xhci_input_probe_active && (xhci.hid_keyboards != 0 || xhci.hid_mice != 0 || network_count)) {
             poll_hid_events_once();
             uint64_t now = timer_monotonic_us();
@@ -2769,6 +2862,9 @@ uint64_t xhci_hub_count(void) {
 }
 
 void xhci_probe_input(uint64_t wait_ticks) {
+    uint64_t flags=event_irq_save();
+    if(xhci.stopping) {event_irq_restore(flags);return;}
+    xhci.diagnostic_users++;event_irq_restore(flags);
     uint64_t start = timer_ticks();
     uint64_t start_tsc = rdtsc();
     uint64_t wait_seconds = (wait_ticks + XHCI_INPUT_PROBE_TICKS_PER_SECOND - 1) /
@@ -2784,7 +2880,7 @@ void xhci_probe_input(uint64_t wait_ticks) {
         wait_seconds,
         start,
         XHCI_INPUT_PROBE_SPIN_LIMIT);
-    while (timer_ticks() - start < wait_ticks &&
+    while (!xhci.stopping && timer_ticks() - start < wait_ticks &&
            rdtsc() - start_tsc < tsc_wait &&
            spins < XHCI_INPUT_PROBE_SPIN_LIMIT) {
         if (xhci.operational && (xhci.hid_keyboards != 0 || xhci.hid_mice != 0 || network_count)) {
@@ -2805,6 +2901,7 @@ void xhci_probe_input(uint64_t wait_ticks) {
         keyboard_pushed_count(),
         keyboard_dropped_count());
     xhci_input_probe_active = false;
+    flags=event_irq_save();xhci.diagnostic_users--;event_irq_restore(flags);
 }
 
 static void print_input_timing(const char *name,const struct input_timing *s) {
@@ -2904,8 +3001,10 @@ void xhci_print_status(void) {
         (uint64_t)xhci.pci->interrupt_line,
         (uint64_t)xhci.pci->interrupt_pin,
         xhci.operational ? "yes" : "no");
-    console_printf("xhci: lifecycle=%s owners=%u drained=%u retained=yes\n",
+    console_printf("xhci: lifecycle=%s owners=%u drained=%u metadata=retained\n",
         xhci.stage?xhci.stage:"none",xhci.sync_users,xhci.stop_events);
+    console_printf("xhci: reclaim frames=%u worker_retired=%u poll_owners=%u diagnostics=%u\n",
+        xhci.reclaimed_frames,(uint64_t)xhci.worker_retired,xhci.poll_users,xhci.diagnostic_users);
     console_printf("xhci: mmio_phys=%x mmio_virt=%x caplen=%u version=%x pagesize=%x dboff=%x rtsoff=%x\n",
         xhci.mmio_phys,
         xhci.mmio_virt,

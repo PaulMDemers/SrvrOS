@@ -24,6 +24,7 @@ static _Alignas(4096) uint8_t pool[5 * 1024 * 1024];
 static uint64_t pool_used;
 static uint64_t fail_after;
 static uint64_t freed;
+static bool reclaim_check;static bool released_pages[1280];
 static _Alignas(4096) uint8_t registers[XHCI_MMIO_MAP_SIZE];
 
 /* A deterministic root-port model: delayed connection/reset acknowledgement,
@@ -76,7 +77,9 @@ static uint32_t xhci_test_read32(uint64_t offset) {
 
 static bool command_nested,event_flood,stop_on_doorbell;
 static uint64_t test_space=1;
-static bool retire_ready=true;static unsigned retire_calls;
+static bool retire_ready=true,storage_retire_ready=true,reject_bus_master;
+static unsigned retire_calls;static uint16_t pci_command=6;
+static struct pci_device reclaim_pci;
 static unsigned flood_dequeues;
 static struct xhci_device *mode_device;
 static unsigned mode_doorbells;
@@ -128,6 +131,9 @@ void net_handle_ethernet_frame(const uint8_t *frame,uint16_t length) { (void)fra
 bool usb_storage_attach(struct usb_storage *s,void *context,usb_bulk_fn bulk,bool writable) {
     (void)s;(void)context;(void)bulk;(void)writable;abort();
 }
+bool usb_storage_retire(struct usb_storage *s) {if(!storage_retire_ready || s->busy || s->diagnostic_users)return false;s->failed=s->retired=true;return true;}
+uint16_t pci_read_config16(const struct pci_device *p,uint8_t offset) {assert(p==&reclaim_pci && offset==4);return pci_command;}
+void pci_write_config16(const struct pci_device *p,uint8_t offset,uint16_t value) {assert(p==&reclaim_pci && offset==4);if(!reject_bus_master)pci_command=value;}
 bool net_device_retire(const struct net_device_ops *ops) { assert(ops && ops->send && ops->context);retire_calls++;return retire_ready; }
 uint64_t vmm_current_address_space(void) { return test_space; }
 uint64_t vmm_kernel_address_space(void) { return 1; }
@@ -143,10 +149,21 @@ uint64_t pmm_alloc_frames_tagged(uint64_t count, enum pmm_frame_tag tag) {
 }
 uint64_t pmm_alloc_frame_tagged(enum pmm_frame_tag tag) { return pmm_alloc_frames_tagged(1, tag); }
 void *pmm_phys_to_virt(uint64_t address) { return (void *)address; }
-void pmm_free_frame(uint64_t address) { assert(address != 0); freed++; }
-void pmm_free_frame_range(uint64_t address, uint64_t count) { assert(address != 0); freed += count; }
+void pmm_free_frame(uint64_t address) {
+    assert(address!=0);
+    if(reclaim_check) {
+        assert(xhci.stopped && !(pci_command&4) && xhci.worker_retired && !xhci.poll_users && !xhci.diagnostic_users);
+        assert(address>=(uint64_t)pool && address<(uint64_t)pool+sizeof(pool));
+        uint64_t index=(address-(uint64_t)pool)/PMM_FRAME_SIZE;
+        assert(!released_pages[index]);released_pages[index]=true;memset((void *)address,0xdd,PMM_FRAME_SIZE);
+    }
+    freed++;
+}
+void pmm_free_frame_range(uint64_t address,uint64_t count) {for(uint64_t i=0;i<count;i++)pmm_free_frame(address+i*PMM_FRAME_SIZE);}
 
 static void reset_test(void) {
+    reclaim_check=false;memset(released_pages,0,sizeof(released_pages));
+    storage_retire_ready=true;reject_bus_master=false;pci_command=6;
     reject_halt=false;halt_reads=halt_after=halt_writes=0;test_space=1;retire_ready=true;retire_calls=0;stop_on_doorbell=false;
     memset(&port_model, 0, sizeof(port_model));
     memset(&xhci, 0, sizeof(xhci));
@@ -1153,6 +1170,45 @@ static void test_terminal_stop(void) {
     assert(xhci_stop() && !freed);
     puts("xhci-stop: PASS verified halt, caller/provider drain, in-call cancellation, bounded events, retry and pinned backing");
 }
+static void test_backing_reclaim(void) {
+    stop_fixture();xhci.pci=&reclaim_pci;
+    /* Real allocator paths, including multi-page scratchpad metadata. */
+    xhci.hcs_params2=(16u<<21)|(1u<<27); /* 513 scratchpads, two metadata pages. */
+    assert(allocate_runtime_structures());
+    struct xhci_device *d=&xhci.devices[0];
+    *d=(struct xhci_device){.present=true,.slot_id=1};assert(allocate_device_runtime(d));
+    void *memory;assert(alloc_frame_zero(&d->interrupt_ring_phys,&memory));d->interrupt_ring=memory;
+    assert(alloc_frame_zero(&d->interrupt_buffer_phys,&memory));d->interrupt_buffer=memory;
+    assert(alloc_frame_zero(&d->bulk_buffer_phys,&memory));d->bulk_buffer=memory;
+    for(unsigned ep=0;ep<2;ep++) {assert(alloc_frame_zero(&d->bulk_ep[ep].ring_phys,&memory));d->bulk_ep[ep].ring=memory;}
+    assert(alloc_frame_zero(&d->trackpad.ring_phys,&memory));d->trackpad.ring=memory;
+    assert(alloc_frame_zero(&d->trackpad.buffer_phys,&memory));d->trackpad.buffer=memory;
+    static struct xhci_network network;memset(&network,0,sizeof(network));d->network=&network;
+    for(unsigned ep=0;ep<3;ep++) {
+        assert(alloc_frame_zero(&network.ep[ep].hw.ring_phys,&memory));network.ep[ep].hw.ring=memory;
+        assert(alloc_frame_zero(&network.ep[ep].buffer_phys,&memory));network.ep[ep].buffer=memory;
+    }
+    uint64_t expected=pool_used;reclaim_check=true;xhci_poll_worker_started=true;
+    assert(!xhci_reclaim() && !freed); /* Worker has not acknowledged retirement. */
+    assert(xhci_io_service_ready(NULL) && retire_poll_worker());
+    xhci.poll_users=1;assert(!xhci_reclaim() && !freed);xhci.poll_users=0;
+    xhci.diagnostic_users=1;assert(!xhci_reclaim() && !freed);xhci.diagnostic_users=0;
+    storage_retire_ready=false;assert(!xhci_reclaim() && !freed);storage_retire_ready=true;
+    reject_bus_master=true;assert(!xhci_reclaim() && !freed);reject_bus_master=false;
+    for(unsigned i=0;i<128 && !xhci.reclaimed;i++) {
+        uint64_t before=freed;bool done=xhci_reclaim();
+        assert(freed-before<=16 && done==xhci.reclaimed);
+    }
+    assert(xhci.reclaimed && freed==expected && xhci.reclaimed_frames==expected);
+    assert(!d->input_context && !d->output_context && !d->descriptor_buffer && !d->ep0_ring);
+    assert(!d->interrupt_buffer && !d->bulk_buffer && !d->trackpad.buffer && !network.ep[0].buffer);
+    assert(!xhci.dcbaa && !xhci.event_ring && !xhci.command_ring && !xhci.erst);
+    struct srv_device_info info;assert(xhci_device_snapshot(0,&info)>0 && (info.flags&SRV_DEVICE_FAILED));
+    uint64_t before=freed;assert(xhci_reclaim() && xhci_stop() && freed==before);
+    poll_hid_events_once();assert(freed==before); /* Freed-ring poison must not be read. */
+    reclaim_check=false;
+    puts("xhci-reclaim: PASS worker/poll/diagnostic/storage/PCI gates, bounded exact-once DMA free and tombstones");
+}
 static void test_retired_event_drain(void) {
     reset_test();
     static struct xhci_trb events[XHCI_EVENT_TRB_COUNT];memset(events,0,sizeof(events));
@@ -1342,6 +1398,7 @@ int main(int argc, char **argv) {
     assert(argc == 4);
     test_repeated_init();
     test_terminal_stop();
+    test_backing_reclaim();
     test_retired_event_drain();
     test_network_retirement();
     test_interrupt_retirement();

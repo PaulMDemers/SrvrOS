@@ -1585,3 +1585,22 @@ additionally runs `xhcistop` twice with live emulated input before QMP replug an
 sysabi; use its normal `--qemu`/`--output` options as needed. This is terminal
 shutdown; USB input cannot restart in that boot. It does not prove storage/worker
 reference release, physical reset or safe xHCI allocation reclamation.
+
+
+`test-usb-retire-block` combines actual USB retirement, block/cache and claim
+code. It requires stable offline parent/alias descriptors, unchanged failed-read
+buffers, safe saved callbacks, retained claim release, healthy cache preservation
+and continued global flush refusal for a retired writable disk. Removing the
+write tombstone is an explicit failing control. `test-usb-storage` also checks
+initializer/request/diagnostic ownership and closed diagnostic admission.
+
+`test-xhci` allocates 513 scratchpads plus two metadata pages and endpoint/controller
+backing for reclamation. Every free is poisoned and checked against halt/PCI/
+worker/poll/probe gates; all pages must retire exactly once in batches of at most
+16. Retained metadata and post-release entry points stay usable without DMA.
+
+`tools/usb_removal_smoke.py --reclaim --usb-storage --iso PATH --disk PATH` adds a
+separate disposable USB-storage disk copy, invokes terminal stop and bounded
+reclaim until completion, repeats reclaim, then performs input replug and sysabi.
+`--qemu` and `--output` select emulator/log paths. This is terminal DMA retirement,
+not reset/re-enumeration, managed-workspace unmount or physical acceptance.

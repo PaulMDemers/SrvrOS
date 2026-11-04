@@ -4443,3 +4443,11 @@ test-salvage: build/tests/salvage-host$(HOST_EXE)
 build/tests/salvage-host$(HOST_EXE): tools/test_salvage.c userspace/lib/src/salvage.c userspace/lib/include/srvros/salvage.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include $< -o $@
+
+.PHONY: test-usb-retire-block
+test-core: test-usb-retire-block
+test-usb-retire-block: build/tests/usb-retire-block$(HOST_EXE)
+	$<
+build/tests/usb-retire-block$(HOST_EXE): tools/test_usb_retire_block.c kernel/src/block.c kernel/src/block_claim.c kernel/src/drivers/usb_storage.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@

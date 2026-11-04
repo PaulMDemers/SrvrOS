@@ -714,6 +714,75 @@ acceptance. All task guests stopped; review VMs remained untouched. Evidence:
 nested-submodule license targets. Branch integration base remains `1f177761`;
 new main `10890eed` was inspected for scope, not merged into this candidate.
 
+## Block, worker and diagnostic retirement before xHCI DMA release
+
+Continuation from `c9f4f306` adds explicit `xhci_reclaim`/monitor `xhcireclaim`.
+It first completes terminal stop, then requires zero command/control/bulk and
+poll owners, a poll-worker retirement acknowledgement, zero active input-probe
+diagnostics, retired network registrations and retired USB-storage callbacks.
+The worker is allowed one retirement turn after operational admission closes;
+it acknowledges before returning and does not touch DMA afterward. Read-only
+status/snapshot paths retain static metadata and never dereference DMA backing.
+An active input probe holds a separate reference and exits on terminal stop.
+
+`usb_storage_retire` blocks new I/O/diagnostic admission and waits for initializer,
+request and diagnostic owners. Startup has a distinct owner because partition
+scanning itself needs ordinary block callbacks. A retirement request during
+startup cannot publish a successful live device. Once drained, transport and
+diagnostic context pointers detach. Block geometry/name/claims and storage
+records remain boot-lifetime tombstones, with context-free refusing callbacks;
+saved raw read/write/flush callbacks also safely reject a detached context.
+Write-enable/disable metadata publication is IRQ-serialized with retirement.
+
+Two retirement hazards were caught before publication: clearing `write` would
+hide an uncertain writable disk from `block_flush_all`, and allowing new
+post-request diagnostics could prevent reference drain. Writable tombstones now
+retain refusing write/flush markers, so global sync/reboot refusal remains; new
+diagnostic admission closes immediately. Private controls omitting either rule
+fail their intended assertions. No historical xHCI premature free is claimed:
+published backing was retained before this implementation.
+
+After software retirement, PCI bus mastering must read back disabled before
+freeing any DMA. Every reclaim call rechecks it. Each call frees at most sixteen
+4 KiB frames, returns false for further progress or unresolved proof, and keeps
+all remaining pages pinned. Partial progress cannot restart. Reclamation covers
+controller rings/DCBAA/ERST, scratchpad frames and their recorded metadata pages,
+per-device contexts/EP0/descriptor/HID/bulk/trackpad backing and network endpoint
+rings/buffers. Freed pointer/physical fields are cleared. Static records, MMIO
+mappings, block descriptors/claims and network metadata are retained; no slot
+reuse, controller reset/restart or hotplug re-enumeration is added.
+
+The actual-xHCI fixture allocates 513 scratchpads with two metadata pages plus
+controller/device/network backing. It poisons each released frame and requires
+exact-once accounting, no more than sixteen frees per call and refusal while
+worker/poll/probe/storage or PCI proof is unresolved. Repeated stop/reclaim and
+post-release polling/snapshots must stay safe. USB fixtures cover a retirement
+request from startup and diagnostics, saved callbacks and unchanged buffers.
+`test-usb-retire-block` combines actual USB retirement, block/cache and claim
+sources: cached parent/alias reads refuse, healthy cached reads survive, the
+claim releases once and global flush continues to fail. Hardware and worker
+scheduling remain modeled at those host boundaries.
+
+The QMP smoke's `--reclaim --usb-storage` mode attaches a disposable USB mass
+storage copy alongside keyboard/tablet, stops, retires/reclaims, repeats reclaim,
+then removes/replaces USB input and runs sysabi over serial. The storage disk is
+read-only in this guest; writable-failure visibility is covered by the combined
+host fixture. This does not qualify physical removal, SMP reclamation, managed
+workspace salvage/unmount or global reboot after uncertain writable-media loss.
+Automatic reclamation on a transport fault is not enabled; the separate managed
+USB fault/salvage proof remains under filesystem ownership.
+
+Normal/Rosetta, strict GCC14/Linux and ASan/UBSan USB, combined USB/block and
+xHCI fixtures pass; related block/AHCI, network registry and VirtIO net/PCI hosts
+also pass. Kernel compilation passes. The final Q35 guest initializes a USB
+mass-storage disk plus keyboard/tablet, acknowledges worker retirement and frees
+23 DMA frames; repeated reclaim leaves that count unchanged with poll/probe
+owners zero. QMP input removal/replacement and sysabi pass after reclamation.
+Separate E1000 netabi and full threadstress guests pass. Runtime files are retained
+PR313 artifacts, not a complete current-userspace build. All task guests stopped;
+review VMs stayed untouched. Evidence: `build/review/xhci-reclaim/`. Nine known
+missing nested-submodule license targets remain in documentation checking.
+
 ## Remaining work
 
 Other long IRQ-disabled operations, including initial/churning PMM scans, heap validation and poisoning,
