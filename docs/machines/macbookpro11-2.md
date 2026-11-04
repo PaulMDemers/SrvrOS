@@ -12672,3 +12672,16 @@ acceptance remains bound tobec108a3/main5f4f6fc6. Touch MT76 management/TX/secur
 private live xHCI ownership and explicit native/log/host/VM proofs. No new native
 trial is installed or armed by this scope;existing cold-shutdown authority
 persists. Battery/headphone/latency work remains deferred.
+
+The first association component is a pure management/USB-TXWI codec,with no
+hardware caller. It constructs fixed161/20MHz/6Mbps auth,canonical PSK/CCMP
+association and reason3 leave;validates exact response peer/subtype/transaction,
+fragment/status/AID/rate/IE fields;and refuses aliases/short outputs without
+publishing partial packets. Full host and fatal ASan/UBSan mutation/truncation/
+100000-hostile-input tests and native object/stack compilation pass. Linux7.0
+public layout/rate/TX framing sources are pinned locally. A private read-only
+Linux cached512-byte EEPROM and current reference channel161/80MHz/15dBm were
+captured without changing its working connection. This reference does not
+program or accept SrvrOS TX power. No hardware TX,association,WPA2 or IP is
+claimed;no new boot is armed. Integrate reviewed main518175df/module updates
+before the eventual matched hardware candidate;preserve v122 acceptance.

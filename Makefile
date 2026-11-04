@@ -5323,3 +5323,11 @@ test-mt76-discovery5: build/tests/mt76-discovery5-host$(HOST_EXE)
 build/tests/mt76-discovery5-host$(HOST_EXE): tools/test_mt76_discovery5.c kernel/src/drivers/mt76_discovery5.c kernel/src/drivers/mt76_discovery.c kernel/src/drivers/mt76_rsn.c kernel/src/drivers/mt76_rx_window.c kernel/src/drivers/mt76_rx.c $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_discovery5.c kernel/src/drivers/mt76_discovery.c kernel/src/drivers/mt76_rsn.c kernel/src/drivers/mt76_rx_window.c kernel/src/drivers/mt76_rx.c -o $@
+
+.PHONY: test-mt76-mgmt5
+test-core: test-mt76-mgmt5
+test-mt76-mgmt5: build/tests/mt76-mgmt5-host$(HOST_EXE)
+	$<
+build/tests/mt76-mgmt5-host$(HOST_EXE): tools/test_mt76_mgmt5.c kernel/src/drivers/mt76_mgmt5.c kernel/src/drivers/mt76_rsn.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_mgmt5.c kernel/src/drivers/mt76_rsn.c -o $@

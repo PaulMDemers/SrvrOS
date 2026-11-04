@@ -6720,3 +6720,22 @@ or unsupported target still permits proven inverse RF cleanup,but fails the
 strict selection trial proof. All prior parent/stop/restoration/storage checks
 remain required. No authentication,keys,network OUT,IP or data transfer is
 implemented or accepted by this checkpoint;management TX/security work follows.
+
+### Management codec groundwork (not a live association owner)
+
+`mt76_mgmt5` adds pure copied protocol construction for fixedUS161/20MHz legacy
+OFDM6 open-system transaction1,PSK/CCMP association and reason3 leave. It emits
+MPDUs without FCS,or the matching four-byte USB TXINFO/20-byte TXWI/alignment/
+zero-trailer envelope. The pinned Linux7.0 MT76 reference supplies PHY/rate,
+EDCA/WIV/ACK/manual-sequence and anonymous rate-only status encoding. USB
+completion is never association or radio-ACK proof. No endpoint,power,device,
+DMA,key or controlled-port authority is granted by a successful codec call.
+
+Response parsing requires exact peer addresses,subtype,open transaction2,
+zero fragmentation,bounded complete IEs,supported basic rates,status and valid
+association AID. Station RSNEs are canonical PSK/CCMP with no PMF/PMKID assertion;
+unsupported security refuses. Buffer aliases refuse without clearing retained
+inputs,and short output capacity publishes nothing. Host/fatal-sanitizer tests
+cover framing,all header/address mutations,truncation/IE/status/AID/security
+refusal and100000 hostile inputs. This is implemented/tested groundwork only;
+live same-owner association,WPA2,keys,IP/data and disconnect remain pending.
