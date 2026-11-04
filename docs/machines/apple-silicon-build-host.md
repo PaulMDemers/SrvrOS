@@ -3080,3 +3080,9 @@ independent range oracle covers 3,072 cases. PMM's repeated fragmentation case
 inspects no further bitmap positions after the first scan until free/eviction.
 Heap replay retains full validation, about 600.65 million visits per epoch; no
 new heap correctness defect or hardware IRQ-latency guarantee is claimed.
+
+Implementation `9a280d23` passes focused host tests, PMM/service sanitizer and
+strict GCC14 checks, kernel compilation, Q35 sysabi and full threadstress.
+Main `a8e1fca1` is integrated without kernel/shared changes. Guest runtime files
+remain the retained PR313 payload, not newly staged profile userspace. The
+freed-prefix negative control is rejected by the first-fit oracle. Guests stopped.

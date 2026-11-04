@@ -121,3 +121,8 @@ The same follow-up subsequently confirms protection/validation service gaps,
 failed mmap rollback without turns, and unaligned process-copy checkpoint loss.
 It records fixed owner-retaining batches and their baseline/host/guest evidence;
 allocator and free-range search latency remain open.
+
+The subsequent free-range/allocator pass fixes skipped virtual gaps and repeated
+PMM contiguous-run refusal scans, backed by independent oracles. The kernel
+follow-up records unchanged full heap validation cost and remaining initial-scan,
+cache-churn, poisoning and driver-lifetime work.

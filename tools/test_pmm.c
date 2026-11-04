@@ -25,7 +25,8 @@ static uint32_t random32(void) { rng = rng * 1664525 + 1013904223; return rng; }
 static void reset(void) {
     bitmap = bits; frame_tags = tags; bitmap_bytes = sizeof(bits); frame_count = FRAMES;
     free_count = 0; search_steps = naive_steps = 0;
-    memset(search_hints, 0, sizeof(search_hints)); next_search_hint = 0;
+    memset(search_hints, 0, sizeof(search_hints));memset(run_hints,0,sizeof(run_hints));
+    next_search_hint=next_run_hint=0;
     memset(bits, 0xff, sizeof(bits)); memset(reference, 1, sizeof(reference));
     memset(tag_counts, 0, sizeof(tag_counts));
     memset(frame_tags, PMM_FRAME_RESERVED, FRAMES);
@@ -96,6 +97,10 @@ int main(void) {
     /* Free a bridge: a new valid run can start before the freed frame. */
     release(257*4096,1);assert(alloc(2,0x100000)==256*4096);
     assert(alloc(1,0x100000)==258*4096);
+    reset();uint64_t requested=0;
+    /* More sizes than run-cache slots must retain the shared dense frontier. */
+    for(unsigned i=0;i<192;i++) { unsigned n=1+i%12;assert(alloc(n,0x100000));requested+=n; }
+    assert(search_steps<=requested);
     reset();
     struct { uint64_t address; unsigned count; } slots[128] = {0};
     for (unsigned i = 0; i < 12000; i++) {

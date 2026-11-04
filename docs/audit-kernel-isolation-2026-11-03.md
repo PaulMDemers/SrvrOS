@@ -224,7 +224,8 @@ The continuation from `8115e7e4` confirms two further issues:
   stride. Atomic startup mapping still uses its unchanged bounded helper.
 - PMM hints keyed only by minimum address retained the first small free hole
   even for requests needing a larger contiguous run. Identical failures on
-  unchanged fragmentation rescanned the full eligible bitmap. Hints now key on
+  unchanged fragmentation rescanned the full eligible bitmap. The allocator now
+  keeps its shared lowest-free frontier and adds run hints keyed by
   `(minimum frame, run length)`, retaining successful progress and exhaustion.
   Allocation cannot create a new earlier run. Free rewinds each affected hint
   to at least `freed frame - (run length - 1)`, clamped at its minimum, because
@@ -239,12 +240,22 @@ four request sizes and three hints. PMM retains its 12,000-operation randomized
 first-fit oracle and high-frame/tag/poison tests. The new fragmented case scans
 32,515 positions once; 64 further identical refusals inspect zero additional
 positions. Freeing a bridge must then return the earlier first-fit start, and a
-smaller request must still see its remaining small hole. The old implementation
+smaller request must still see its remaining small hole. A dense-allocation
+case cycles 192 requests through twelve sizes (more than the eight run slots),
+requiring at most 1,248 visited positions. This caught a regression in the
+initial size-only cache replacement (`mixed-before.log`); restoring the shared
+frontier alongside the size-specific hints preserves dense mixed-size progress.
+That intermediate regression was corrected before publishing this slice. The old implementation
 fails the repeated-scan assertion (`pmm-before.log`).
 
 Focused host tests pass normally; PMM and the service fixture pass relevant
-ASan/UBSan and strict GCC14 runs. Kernel build passes. Updated-kernel guest
-results are recorded after execution under `build/review/search/`.
+ASan/UBSan and strict GCC14 runs. Kernel build passes. The updated kernel passes Q35 sysabi and full
+threadstress with retained PR313 runtime files and disposable disks. Production
+implementation `9a280d23` is unchanged by the integration of main `a8e1fca1`
+at `16af9d76`. Logs and oracle/negative-control evidence are retained under
+`build/review/search/`. A compiled control that omits the freed-prefix rewind
+fails the first-fit oracle on the bridging allocation. This guards the cache
+optimization's correctness, separately from its reduced scan count.
 
 ### Heap cost evidence
 
