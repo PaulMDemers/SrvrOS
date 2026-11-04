@@ -1,14 +1,22 @@
 # Apple Silicon macOS build host
 
-## PR326 merge review — in progress
+## PR326 merge review — complete
 
 User authorized review, fixes and merge after passing checks. Review the chooser,
-remembered selection and read-only recovery preflight on current main `4b5ddb7c`,
+remembered selection and read-only recovery preflight, integrating main `1f177761`
+(PR327's salvage helper) after starting from `4b5ddb7c`,
 preserving guest import ownership, filesystem policy, authentication and
 permission enforcement as separate concerns. The branch is conflict-free and
-has no existing review findings. Run fresh host/sanitizer checks and a matched
-build; verify exact runtime/evidence equivalence before reusing the accepted
-14-lifetime proof. A bounded additional Escape/Enter guest probe passed without
+has no existing review findings. Review found no blocker within the documented
+transaction/selection scope; preserve both test targets in the Makefile merge
+conflict. Fresh host checks, 29 installation tests, ASan/UBSan CLI/catalog checks
+and the full matched build pass. Because the rebuilt kernel/bootstrap differ
+from the earlier proof, clean `115899c3` passes a fresh complete 14-lifetime VM
+proof, with small-screen and recovery screenshots inspected. Exact receipt and
+scope are in [portable profiles](../portable-profiles.md#pr326-merge-review).
+Evidence/artifacts are verified outside build cleanup at
+`.local/profile-326-review/proof-yrfw5f6o/`. Ready for authorized merge.
+A bounded additional Escape/Enter guest probe passed without
 starting a selection write or recovery. Only disposable copies were touched.
 Use isolated `SrvrOS-profile-326-review` because separate proof-storage work is
 active in `SrvrOS-profiles`; preserve its uncommitted files. Primary checkout and

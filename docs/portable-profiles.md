@@ -807,3 +807,47 @@ checks and profile/session/preferences/bundle/image-adapter regressions. Logs
 are `build/profile-chooser-pr325-{host,installation,docs}.log`, also preserved
 outside build cleanup with the integration receipt. [PR326](https://github.com/PaulMDemers/SrvrOS/pull/326)
 is the scoped chooser draft for review.
+
+### PR326 merge review
+
+The user authorized review, fixes and merge after checks. Main `1f177761`
+(PR327's userspace salvage helper) is integrated; both independently appended
+Makefile test targets are preserved. Review covered discovery bounds and parsing,
+choice revalidation and save failures, worker/child ownership and console return,
+shared recovery preflight, startup compatibility, and the proof assertions.
+No unresolved blocker remains within the documented recovery scope. No guest
+runtime correction was required. Authentication and permission enforcement
+remain separate; selection metadata does not establish either boundary.
+
+Clean `115899c3832ad67d9cc41fdb52b7697cf03acc40` passes fresh chooser/catalog,
+guest CLI, profile/session/preferences, desktop and salvage host checks; 29
+installation preparation/profile/recovery tests; ASan/UBSan on all 16 guest CLI
+groups and the production catalog; and the complete matched build. The sanitizer
+build retains warnings for vendored cJSON's existing deprecated `sprintf` calls
+with a vendor-only warning exception; first-party warnings remain errors. The
+initial strict SDK-warning failure remains logged. No vendor code was changed.
+
+The rebuilt kernel/bootstrap hashes differ from the earlier proof, so review
+uses a fresh complete two-installation, 14-lifetime VM run rather than reusing
+that proof. Migration, independent choices and reboot restoration, explicit
+override, missing/stale/corrupt choices, real 640 × 480 interaction, interrupted
+import recovery and blocked-state preservation all pass. The same document,
+preference, local-binding, machine-setting, transport, binary, allocation and
+protected-region checks pass. Blocked comparison again covers 397 namespace
+entries/396 metadata rows, with six access-time advances and four exact service
+log lines as the only observation/background changes. Screenshots were inspected.
+
+[Review receipt](assets/screenshots/profile-chooser-review.json) records exact
+source/build hashes and limits. Full evidence:
+`build/review/profile-chooser/proof-yrfw5f6o/`, receipt SHA256
+`3e524cfd4604c49da75729d49f2aa126ec74609eb4e6560cd2c9b75c99e8c94c`.
+Logs: `build/profile-326-review-{host,installation,sanitized,build,vm,docs}.log`.
+Byte-verified full proof, logs and matched artifacts are retained outside build
+cleanup at `.local/profile-326-review/proof-yrfw5f6o/`; completed proof images may
+be losslessly compressed with original hashes/restoration paths recorded.
+
+Review ran in isolated `SrvrOS-profile-326-review`, preserving separate
+uncommitted proof-storage work in `SrvrOS-profiles`. All task VMs are stopped;
+the three existing review VMs and primary checkout remain untouched. Actions
+remain disabled. The final acceptance commit changes only documentation and the
+portable review receipt. Ready for the user's authorized merge of PR326.
