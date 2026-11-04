@@ -1,14 +1,14 @@
 # Disk installation and recovery
 
-## Host publication I/O failures — active milestone
+## Host publication I/O failures — qualified
 
 User authorized deterministic write/sync/link/unlink qualification and a scoped
 PR. Branch `device/apple-silicon/install-publication-io-qualification` uses the isolated
-installation clone and integrated main `1a5a6dee` (PR325/326/327/328). Own the host publication
+installation clone and integrated main `c90f3522` (PR324/325/326/327/328). Own the host publication
 tool, fault fixture/tests and installation evidence. No kernel, filesystem,
 guest profile or application policy changes. Review VMs 61610, 6233 and 85869
 remain live and untouched; one build/harness at a time; no physical disk, reboot
-or Actions. Status: implementation and qualification in progress.
+or Actions. Status: qualification complete; publish a scoped draft PR.
 
 Current dependencies are PR325's journal/identity/locking, PR321's version-2
 plans, PR320's pending-import/unknown-state refusal and PR322/323's managed
@@ -46,6 +46,83 @@ and configuration byte counts are checked too. The bounded matrix samples the
 first write per path, with all top-level publisher writes covered and sparse
 image/provisioning-adapter sampling limits explicit. The separate production
 proof uses the actual single-write image builder and real profile driver.
+
+### Accepted I/O-failure evidence
+
+The bounded matrix at clean `3eae3223` passes **436** selected faults across
+11 baseline scenarios: legacy-v1, identity-v1 and profile-v2 apply, plus four
+reconciliation states for identity-v1 and profile-v2. Every selected fault fires
+and the operation reports failure. There are 64 write, 36 explicit flush,
+278 file/directory fsync, 26 link and 32 unlink cases. Modes include 208 errors
+before effects, 186 after effects, 22 prefix-write errors and 20 short returns.
+All 300 eligible cases finish explicit reconciliation with identical candidate
+bytes; 136 unverified/torn cases refuse without stage mutation. Source type,
+permissions, device/inode, link count, size and bytes are checked across both the
+failed operation and fresh-process inspection/reconciliation (access times are
+excluded). Repeated recovery preserves bytes and namespace, while reissuing syncs.
+
+Seven additional controls preserve/refuse torn journal/ready, unknown entries,
+an unknown symlink, an outside image hard link, changed source and changed image.
+Two in-memory mutants of actual production reconciliation are rejected: the
+old already-ready shortcut and swallowing an existing-file fsync error.
+The sparse GPT/FAT builder samples its first MBR write, and the profile adapter
+uses a subprocess stub; later sparse writes and the stub's internal I/O are not
+claimed as exhaustively injected. Disposable matrix stages are removed only by
+the test harness after snapshots and recovery checks, not by product recovery.
+
+Current main `c90f3522` was then integrated, including the Ports `ca749517` pin,
+hardware diagnostics and strict host-build fixes. Every recorded Python matrix
+component hash still matches exactly; the receipt records that equivalence,
+retaining the original matrix source attribution. Fresh installation/profile/
+chooser/guest checks pass: the default discovery run has 36 passing tests and one
+opt-in matrix entry skipped because the complete matrix ran separately.
+Both native host drivers were rebuilt with captured commands/source/output
+hashes, and EFI bytes match the pinned prebuilt Limine Git blob.
+
+Clean current candidate `b6ffb556` passes the matched full build and the separate
+production-image proof. Six faulted API processes exercise a failed publication
+journal fsync, post-effect image link/unlink, failed ready-file fsync and
+post-effect ready link/unlink. Fresh CLI inspections diagnose each state; final
+reconciliation and its repeat preserve the same candidate. A seventh real-image
+write fault leaves a partial legacy image which inspection/reconciliation preserve
+and refuse. The actual image builder and profile driver are used in this proof.
+
+The reconciled image then passes two VM lifetimes: edit/save and fresh
+reboot/reopen. Root identity precedes namespace activation and explicit profile
+launch. Exact text/binary documents, six portable settings, UUID/local binding,
+machine preferences, environment/cwd, installed apps and `identity.json` match.
+Guest/offline allocation checks and protected GPT/ESP regions pass. After each
+boot, inspection and reconciliation refuse the changed image without altering
+any bytes or the original ready receipt. All task VMs stopped; review PIDs
+61610, 6233 and 85869 remain live and untouched.
+
+The [portable receipt](assets/screenshots/installation-io-manifest.json) records
+coverage, negative controls, source equivalence, production fault snapshots and
+both boot readbacks. The [reopened document](assets/screenshots/installation-io-reopened.png)
+was visually inspected. Full raw receipts, stages, logs and matched artifacts
+are byte-verified outside build cleanup at
+`.local/installation-evidence/io-proof-j8xbfmgc`. Original recovery targets stay
+at their recorded paths/inodes; backups are audit copies. The earlier passing
+runtime and its artifacts are retained separately as `io-proof-oyq2ene6-original`.
+Interrupted development matrices and the resolved temporary-path bring-up failure
+remain recorded and are excluded from accepted counts.
+
+```sh
+sh tools/macos/build.sh HOST_CC='python3 build/tooling/darwin-host-cc.py -D_DARWIN_C_SOURCE -Wno-array-bounds' test-installed-root test-profile-desktop test-profile-chooser test-guest-profiles
+sh tools/macos/build.sh -j2 all
+python3 tools/installation_io_faults.py run --output build/review/installation-io-faults.json
+python3 tools/installation_io_smoke.py --ovmf /opt/homebrew/share/qemu/edk2-x86_64-code.fd --ovmf-vars /opt/homebrew/share/qemu/edk2-i386-vars.fd
+```
+
+An error may leave complete visible bytes, including a ready receipt. `inspect`
+is still a read-only diagnosis, never a new durability acknowledgment. Explicit
+successful `reconcile` must revalidate and complete all required host syncs;
+another sync error remains a failure. No automatic retry, unknown-state cleanup,
+profile import-marker clearing or managed workspace repair is introduced.
+Open PR329's guest file-fsync isolation/dirty-source proof was inspected and is
+independent of this host path; it is not imported as a dependency. No physical
+media, power cut, kernel/device fault, profile-driver subprocess I/O or arbitrary
+hostile-writer qualification is claimed. Journal integrity is not authentication.
 
 ## PR325 integrated-main review and next checkpoint
 

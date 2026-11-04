@@ -1,10 +1,10 @@
 # Apple Silicon macOS build host
 
-## Host publication I/O-failure qualification — active scope
+## Host publication I/O-failure qualification — complete
 
 User authorized a scoped PR with write/sync/link/unlink failure, reconciliation
 and refusal proof in isolated `SrvrOS-installation-io`, branch
-`device/apple-silicon/install-publication-io-qualification`, main `1a5a6dee`.
+`device/apple-silicon/install-publication-io-qualification`, main `c90f3522`.
 Own host publication tool/fault fixtures and installation docs only. Latest
 integrated filesystem/profile contracts, including PR326's identity metadata and
 PR327/328 salvage boundaries, are inspected and consumed. Separate storage-guard
@@ -13,7 +13,19 @@ must re-establish verified stage-file and namespace syncs after uncertain errors
 including an already visible ready receipt. No guest or kernel policy changes.
 Preserve review VMs 61610, 6233 and 85869, primary checkout and accepted evidence.
 One build/harness at a time; no physical media, reboot or Actions. Acceptance
-and exact evidence will be recorded in `docs/disk-installation.md`.
+and exact evidence are recorded in `docs/disk-installation.md`.
+
+Clean `3eae3223` passes 436 bounded host fault cases, seven refusal controls and
+two source-mutant negative controls. Every recorded matrix component hash still
+matches after consuming `c90f3522`/Ports `ca749517`. Fresh host checks and the
+matched full build pass at `b6ffb556`; the production image/driver proof reports
+all seven selected errors, reconciles identical candidate bytes, and passes
+two edit/save/reboot/readback boots. Source/profile/machine/protected-region
+and allocation checks pass; guest-used images refuse recovery without mutation.
+Reopened Text was visually checked. Byte-verified raw evidence and artifacts:
+`.local/installation-evidence/io-proof-j8xbfmgc`. Original task VMs stopped;
+review VMs remain live and untouched. Publish a scoped draft; no merge requested.
+Power loss, media/device faults and automatic repair remain outside acceptance.
 
 ## PR326 merge review — complete
 
