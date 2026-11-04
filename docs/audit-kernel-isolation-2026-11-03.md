@@ -2389,10 +2389,11 @@ Prepared suite SHA256
 `e9c5112c75bc5f7c8263187642bd5682039ba2c4fa4419d8c281f347eaf5c770`
 independently verifies all 32 inputs, nested fixture/build/source/SDK receipts,
 headers, ISO/config/initramfs and parser controls. It retains the native-qualified
-kernel `f5f12369` and alloc-equivalent fresh SDK. Technically cleared only this
-single-CPU TCG, diskless, no-NIC, quiet, 1,536 MiB experiment after unchanged-input
-and storage preflight checks: seven fresh processes for WTF suspend, utility,
-GC control/GP/FX/red-zone and JSC print(42). Observed network-idle/worker-off boot
+kernel `f5f12369` and alloc-equivalent fresh SDK. Only the unchanged-input and
+storage preflight cleared for this single-CPU TCG, diskless, no-NIC, quiet,
+1,536 MiB seven-process experiment: WTF suspend, utility, GC control/GP/FX/red-zone
+and JSC print(42). The actual run failed in its first case with exit 134; the six
+remaining cases did not run. Observed network-idle/worker-off boot
 lines must precede payloads; require full LF markers, exit zero and later prompt,
 stop and preserve the first failure, and stop only the owned QEMU.
 
@@ -2417,7 +2418,9 @@ full serial SHA256
 
 The harness correctly stops at that first failure after 5.695 seconds. Utility,
 all four GC modes and JavaScript print(42) did not run. Owned QEMU 11532 is absent;
-protected review QEMUs 6233/61610/85869 are still alive and untouched. No overall
+protected review QEMUs 6233/61610/85869 were alive and untouched at this observation.
+At later documentation closeout, those four PIDs are now absent; available evidence
+does not establish when or why the protected review QEMUs exited. No overall
 WTF/JSC or sole-root GC acceptance follows from the initial subphase marker.
 Raw logs and independent checks are retained in
 `build/review/pr334-jsc-companions-review/packet-ee207df0/first-run/`.

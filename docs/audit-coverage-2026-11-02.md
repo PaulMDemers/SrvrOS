@@ -358,24 +358,32 @@ stopped/protected three untouched; payload/evidence preserved outside build.
 Whole-codebase, physical/SMP/new-generation restart and PR334/JSC remain open.
 
 
-PR317 merged5f4f6fc6; actual tree matches reviewedd784705a (audit-doc delta only
-from tested4fa518eb). Continued PR334/WTF/JSC packetee207df0/e404d84:568 files,
-1661+1288 source blobs,292 linked function bodies/1058 named relocation values
-and32 prepared suite inputs independently verify. Bounded7-case single-CPU/noNIC
-experiment cleared; no new guest/sole-root GC/full ABI/SMP/capability acceptance.
+PR317 merged `5f4f6fc6`; actual tree matches reviewed `d784705a` (audit-doc delta
+only from tested `4fa518eb`). Continued PR334/WTF/JSC packet `ee207df0/e404d84`
+contains 568 files; 1,661 + 1,288 source blobs, 292 linked function bodies,
+1,058 named relocation values and 32 prepared suite inputs independently verify.
+Preflight for the bounded seven-case single-CPU/no-NIC experiment cleared after
+unchanged-input and storage checks. The subsequent run failed in its first case;
+no new guest, sole-root GC, full ABI, SMP or capability acceptance follows.
 
 
-Exact WTF/JSC suiteqvdnmbic first case FAIL134 after main-register/red-zone marker.
-Raw boot/case/serial identities independently verify, exit134+prompt observed;
-owned11532 stopped/protected3alive. Later utility/GC/JSC cases NOTRUN. Silent
+Exact WTF/JSC suite `qvdnmbic` first case FAIL 134 after main-register/red-zone
+marker. Raw boot/case/serial identities independently verify, exit 134 and later
+prompt observed; owned QEMU 11532 was stopped; protected QEMUs 6233/61610/85869
+were alive at that observation. Later utility/GC/JSC cases NOTRUN. Silent
 terminal path attribution pending with PR334 owner; no overall runtime acceptance.
 Deterministic extra-handler acknowledgement remains uncovered by finite yields.
 
+Closeout status is a later snapshot: PIDs 11532, 6233, 61610 and 85869 are now
+absent. Available evidence does not establish when or why the protected review
+processes exited; this does not change the contemporaneous liveness observation.
+
 
 WTF retirement/ACK race confirmed with actual destructor scheduling. Canonical
-ports224ed6a/OS7c59ab8e correction independently passes35 strict+35 ASan/UBSan
-cases; old posted/consumed handoffs fail in both profiles. Last count update
-precedes final Idle publication; TLS/group retirement drains stable handoff with
+Ports `224ed6a` / OS `7c59ab8e` correction independently passes 35 strict + 35
+ASan/UBSan cases; old posted/consumed handoffs fail in both profiles. The last
+count update precedes final Idle publication; TLS/group retirement drains the stable handoff with
 identity/pending/clock/budget checks, no ACK stealing. New target/guest pending.
-Diagnostic24675 attempted/timed out without attribution, superseding unperformed
-wording; original134 and all six unrun suite cases remain unqualified.
+Diagnostic QEMU 24675 was attempted and timed out without attribution, superseding
+the earlier “unperformed” wording; original 134 and all six unrun suite cases
+remain unqualified.

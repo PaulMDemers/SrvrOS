@@ -6,6 +6,10 @@ kernel catalogs only. No VT-d register, root/context table, `/dev/mem`, PCI writ
 firmware method or driver-control operation was used. No native SrvrOS DMA
 translation state, pin, private GPU mapping or hardware ownership is accepted.
 
+The [native firmware/catalog capture](#native-firmwarecatalog-observation-accepted-2026-11-04)
+has now completed. The Ubuntu inventory and initial proposal below remain as
+history; translation-state observation and native ownership remain open.
+
 ## Firmware declaration
 
 The exported DMAR is136 bytes, revision1, valid checksum, OEM `APPLE / HSW`.
@@ -55,9 +59,10 @@ contains no enclosing entry for either. Its nearest reserved edges are
 labels are not a native Limine map or a generic permission to map a gap.
 Neither these edges nor this unit's RMRR/flags may be replaced by sibling values.
 
-## Next bounded native prerequisite
+## Initial native capture prerequisite
 
-A future isolated **firmware-only** SrvrOS capture should retain the complete
+At the Ubuntu inventory checkpoint, the proposed isolated **firmware-only**
+SrvrOS capture was to retain the complete
 current DMAR and full current Limine catalog, exact GPU identity, hashes and
 resource intersections before considering VT-d reads. It should refuse changed,
 malformed, ambiguous or conflicting tables/resources, retain the inherited
@@ -76,3 +81,58 @@ policy, the prior RC6 timing failure and package-C3 zero remain unchanged.
 Raw firmware, Ubuntu catalogs and local verification scripts are stored in
 ignored evidence with a hash-verified durable copy outside build. Only this
 sanitized inventory is committed.
+
+
+## Opt-in firmware-only native capture candidate
+
+`--haswell-firmware-capture --laptop-probe-volume UUID` selects the separate
+`ram-usb-v1-hfw` diagnostic ELF/profile. It omits the ordinary Intel graphics
+stub and optional AML/battery/power services. The capture reads PCI identity,
+then copies the complete current Limine catalog (1–128 entries) and136-byte DMAR
+twice through existing firmware RAM mappings. The whole table must match this
+unit's SHA256 pin; both catalogs, table addresses and raw bytes must agree.
+Unknown/overlapping/overflowing/partial catalogs and duplicate/malformed tables
+refuse. Table bytes require exactly one enclosing ACPI-reclaim/NVS
+entry (generic reserved/device ranges refuse) and exact existing kernel translations before reads. No new mappings,
+VT-d/GT/GGTT access, firmware method or writer is provided by the capture.
+
+Each copy and inter-copy interval remains within100ms; the128-entry report bound
+is specific to this new profile. Other profiles' limits stay unchanged. Two full
+raw catalogs and DMAR records plus PCI/address/timing metadata are retained in
+the unchanged64KiB tail. Independent decoding recomputes checksum/SHA256,
+identity/catalog/timing/coverage and all matching endpoints. It reports resource
+intersections, always denying DMA state, mapping permission and ownership.
+A refusal is saved as failure/incomplete, never disabled-translation evidence.
+
+The guest shows progress without input and uses ordinary log save, clean USB
+unmount and Ubuntu return. Missing workspace returns without capture/save;
+exact Q35 rehearsals must refuse identity before firmware copying. Dedicated
+core/actual-adapter tests, independent hash/receipt/max-tail checks, matched
+builds/VMs and local recovery/storage preflight are required before installation.
+Implementation is not native acceptance; the local run record owns install/arm
+state and collection. Prior inherited backing evidence remains unchanged.
+
+
+## Native firmware/catalog observation accepted (2026-11-04)
+
+The firmware-only capture is now physically observed on release
+`6b7dbee3a9441281` / source `e53b7a63`. Both complete136-byte DMAR copies match
+the unit SHA256 pin and all42 native Limine entries agree. Table address
+`0x8cd64000` is inside the ACPI-reclaimable interval
+`[0x8cd64000,0x8cd8f000)`. Copy brackets21/16 us and the4us inter-copy interval
+satisfy the unchanged bounds. See the [unit closeout](machines/macbookair6-1.md#native-firmwarefull-catalog-observation-accepted-2026-11-04)
+for exact session, storage-integrity and recovery evidence.
+
+Both declared DRHD pages have no intersection with the complete native catalog.
+Nearest reserved edges are `[0xfed1c000,0xfed20000)` and
+`[0xffe10000,0xffe40000)`, matching this unit's earlier Ubuntu catalog observation.
+These are observed resource prerequisites, not an enclosing memory-map grant,
+a DMA-state readout or proof of exclusive firmware/device ownership. The gap
+must not be treated as allocatable RAM or an arbitrary MMIO allowlist.
+
+The next bounded step is a source audit of exact-Haswell VT-d read semantics,
+unit-specific resource admission, finite sampling and mapping retirement before
+any native register test. Keep this unit's complete DMAR pin, explicit GPU scope
+and gap edges independent of PR301's Broadwell profile. No VT-d command/fault
+acknowledgement write, root-table traversal, forcewake, private mapping or owner
+assurance is granted here. No new test is staged or reboot armed by closeout.

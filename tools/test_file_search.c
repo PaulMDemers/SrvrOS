@@ -12,6 +12,18 @@ static void valid(void) {
     payload.entries[1]=(struct desk_search_entry){.path="/fat/home/Reports",.inode=2,.directory=1};
 }
 static void rejects(void) { struct desk_search_header old=header;memcpy(before,entries,sizeof(before));assert(desk_file_search_decode(&header,entries,&payload,length(),"/fat/home","report",0)<0);assert(!memcmp(&old,&header,sizeof(old)) && !memcmp(before,entries,sizeof(before))); }
+static void content_valid(void) {
+    valid();payload.header.version=DESK_SEARCH_CONTENT_VERSION;payload.header.count=payload.header.matched=1;
+    strcpy(payload.entries[0].path,"/fat/home/unrelated.txt");
+}
+static int content_decode(unsigned kind,unsigned mode,const char *query) {
+    return desk_file_search_decode_mode(&header,entries,&payload,length(),"/fat/home",query,kind,mode);
+}
+static void content_rejects(unsigned kind,unsigned mode,const char *query) {
+    struct desk_search_header old=header;memcpy(before,entries,sizeof(before));
+    assert(content_decode(kind,mode,query)<0);
+    assert(!memcmp(&old,&header,sizeof(old)) && !memcmp(before,entries,sizeof(before)));
+}
 int main(void) {
     const char *good[]={"/","/fat/home","/fat/café/x.txt","/fat/with space"};
     const char *bad[]={"","fat","//","/fat/","/fat//x","/fat/../x","/fat/./x","/fat/\nname","/fat/\xff"};
@@ -31,6 +43,46 @@ int main(void) {
     valid();payload.header.count=1;payload.header.matched=100;payload.header.scanned=200;payload.header.flags=DESK_SEARCH_TRUNCATED;payload.header.skipped=2;
     assert(desk_file_search_decode(&header,entries,&payload,length(),"/fat/home","report",1)==1 && header.flags==1);
     valid();payload.header.count=payload.header.matched=0;assert(!desk_file_search_decode(&header,entries,&payload,length(),"/fat/home","report",0));
+    assert(desk_file_search_query_valid_mode("a/b",DESK_SEARCH_CONTENTS));
+    assert(!desk_file_search_query_valid_mode("a/b",DESK_SEARCH_NAME));
+    assert(!desk_file_search_query_valid_mode("x\n",DESK_SEARCH_CONTENTS));
+    assert(!desk_file_search_query_valid_mode("\xff",DESK_SEARCH_CONTENTS));
+    assert(!desk_file_search_query_valid_mode("ok",99));
+    char long_query[DESK_SEARCH_QUERY+1];memset(long_query,'a',sizeof(long_query));long_query[DESK_SEARCH_QUERY-1]=0;
+    assert(desk_file_search_query_valid_mode(long_query,DESK_SEARCH_CONTENTS));
+    long_query[DESK_SEARCH_QUERY-1]='a';long_query[DESK_SEARCH_QUERY]=0;
+    assert(!desk_file_search_query_valid_mode(long_query,DESK_SEARCH_CONTENTS));
+    const char text[]={ 'A','/', 'b',0,'C','a','f', (char)0xc3,(char)0xa9 };
+    assert(desk_file_search_text_matches(text,sizeof(text),"a/B"));
+    assert(desk_file_search_text_matches(text,sizeof(text),"café"));
+    assert(!desk_file_search_text_matches(text,sizeof(text),"CAFÉ"));
+    assert(!desk_file_search_text_matches(text,2,"a/b"));
+    assert(!desk_file_search_text_matches(text,sizeof(text),""));
+    content_valid();assert(content_decode(1,DESK_SEARCH_CONTENTS,"a/b")==1);
+    content_valid();content_rejects(0,DESK_SEARCH_CONTENTS,"a/b");
+    content_valid();content_rejects(2,DESK_SEARCH_CONTENTS,"a/b");
+    content_valid();content_rejects(3,DESK_SEARCH_CONTENTS,"a/b");
+    content_valid();content_rejects(1,99,"a/b");
+    content_valid();content_rejects(1,DESK_SEARCH_NAME,"unrelated");
+    valid();content_rejects(1,DESK_SEARCH_CONTENTS,"report");
+    content_valid();payload.entries[0].directory=1;content_rejects(1,DESK_SEARCH_CONTENTS,"x");
+    content_valid();payload.entries[0].inode=0;content_rejects(1,DESK_SEARCH_CONTENTS,"x");
+    content_valid();payload.entries[0].reserved=1;content_rejects(1,DESK_SEARCH_CONTENTS,"x");
+    content_valid();payload.entries[0].size=DESK_SEARCH_CONTENT_FILE_BYTES;assert(content_decode(1,DESK_SEARCH_CONTENTS,"x")==1);
+    content_valid();payload.entries[0].size=DESK_SEARCH_CONTENT_FILE_BYTES+1;content_rejects(1,DESK_SEARCH_CONTENTS,"x");
+    content_valid();payload.header.flags=DESK_SEARCH_BYTE_LIMIT;assert(content_decode(1,DESK_SEARCH_CONTENTS,"x")==1);
+    content_valid();payload.header.flags=8;content_rejects(1,DESK_SEARCH_CONTENTS,"x");
+    content_valid();payload.header.scanned=DESK_SEARCH_CONTENT_SCAN_LIMIT;payload.header.flags=DESK_SEARCH_SCAN_LIMIT;assert(content_decode(1,DESK_SEARCH_CONTENTS,"x")==1);
+    content_valid();payload.header.scanned=DESK_SEARCH_CONTENT_SCAN_LIMIT;content_rejects(1,DESK_SEARCH_CONTENTS,"x");
+    content_valid();payload.header.flags=DESK_SEARCH_SCAN_LIMIT;content_rejects(1,DESK_SEARCH_CONTENTS,"x");
+    content_valid();payload.header.scanned=DESK_SEARCH_CONTENT_SCAN_LIMIT+1;payload.header.flags=DESK_SEARCH_SCAN_LIMIT;content_rejects(1,DESK_SEARCH_CONTENTS,"x");
+    content_valid();payload.header.matched=2;content_rejects(1,DESK_SEARCH_CONTENTS,"x");
+    content_valid();payload.header.matched=2;payload.header.flags=DESK_SEARCH_TRUNCATED;assert(content_decode(1,DESK_SEARCH_CONTENTS,"x")==1);
+    content_valid();strcpy(payload.entries[0].path,"/fat/homework/x");content_rejects(1,DESK_SEARCH_CONTENTS,"x");
+    content_valid();payload.header.count=payload.header.matched=2;payload.entries[1]=payload.entries[0];content_rejects(1,DESK_SEARCH_CONTENTS,"x");
+    content_valid();struct desk_search_header old=header;memcpy(before,entries,sizeof(before));
+    assert(desk_file_search_decode_mode(&header,entries,&payload,length()-1,"/fat/home","x",1,DESK_SEARCH_CONTENTS)<0);
+    assert(!memcmp(&old,&header,sizeof(old)) && !memcmp(before,entries,sizeof(before)));
     /* Independently check literal matching against a simple ASCII reference. */
     uint32_t rng=1;char name[64],query[32],lower[64],needle[32],path[80];
     for(unsigned round=0;round<10000;round++) {
