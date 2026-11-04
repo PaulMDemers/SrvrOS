@@ -3277,3 +3277,12 @@ review, archive identity checking, a clean matched candidate build, the two-boot
 jq/SQLite guest workflow, existing ports regression and the added audit tests.
 The single-thread/no-regex scope and untraced optional three-thread allocation
 failure remain explicit; no shared libc/kernel edits or physical acceptance.
+
+Clean candidate `e5db0a37` passes the full image/probe build, two-boot jq workflow,
+existing ports regression, seven Haswell audit tests and documentation checks.
+The original CLI hash remains identical. Independent archive verification covers
+all 312 tracked entries (311 regular files and one archive hard link). Fresh
+source provenance is clean, recorded in `build/review/jq-merge/tested-build.json`
+and `build/jq-smoke/20261103-215652-k40favot/receipt.json`. No concrete scoped
+review blocker remains. SrvrPorts PR6 merged first as `747cca28`; its merge tree
+is identical to reviewed `22c2660`. The OS now pins that merged revision.

@@ -35,7 +35,10 @@ independent fsck.exfat is unavailable. Two clean CLI builds match SHA256
 No whole-image reproducibility or physical-device acceptance is claimed.
 Evidence: `build/jq-smoke/20261103-214345-kx3nfg74/` and
 `build/review/jq/accepted.json`. Existing ports regression and documentation/whitespace checks pass.
-Status: implementation complete and ready for review; no merge authorized.
+Status: independent review and fresh combined guest/ports validation pass.
+User authorized ports-first then OS merge. SrvrPorts PR6 is merged as
+`747cca28`; SrvrOS PR337 records integration. No further implementation is
+required for this bounded target; threaded jq remains separately unaccepted.
 
 
 ## Current HiDPI and display settings — November 3, 2026
