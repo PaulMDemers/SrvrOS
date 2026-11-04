@@ -3449,3 +3449,18 @@ Evidence and source identities are in local
 Shared checkout and review VM remain untouched. Integration is delivered and
 verified; historical physical-device closures remain unresolved as documented.
 No further work is required for this integration target.
+
+## Managed USB late-flush filesystem proof
+
+Isolated filesystem branch `device/apple-silicon/filesystem-late-flush`, main
+`819956be`, qualifies matched `8321de3b`: three managed EFI lifetimes plus 11
+canonical/CLI cases pass. PR317 reviewed placement and sticky quarantine first.
+Four writes/one flush precede the failed source flush; retained RAM data salvage
+to healthy storage survives restart with uncertain USB entirely detached. No
+repair, writable remount or production implementation changes. The uncertain
+whole disk is cloned/hash-checked/read-only outside build before restart; full
+proof/canonical backups (153 files) are also verified. The
+[filesystem contract](../filesystem-layout.md) records source attribution,
+resource recovery and exact limits. Newer bc main `7ef140ef` is not consumed;
+merge review must refresh/reverify it. All task VMs stopped and review VMs
+61610/6233/85869 remain untouched. Delivery is a scoped draft PR, no merge.
