@@ -6937,6 +6937,9 @@ static void test_pa5_refusal(void){
     assert(!wifi_cal5_command(&wifi_cal5,MT76_POWERON_R,0));
     assert(!wifi_cal5_delay(&wifi_cal5,500,false));
     assert(!wifi_cal5_stop() && !wifi_cal5.operations && !wifi_cal5.posts);
+    assert(!wifi_discovery5_owned(NULL,NULL) && !wifi_discovery5_owned(&wifi_cal5,&wifi_cal5.window));
+    wifi_discovery5_requested=true;assert(!xhci_wifi_capture_discovery5());wifi_discovery5_requested=false;
+    wifi_cal5.attempted=true;assert(!xhci_wifi_capture_discovery5());wifi_cal5.attempted=false;
     wifi_cal5_requested=true;assert(!xhci_wifi_capture_cal5());wifi_cal5_requested=false;
     wifi_cal5.attempted=true;assert(!xhci_wifi_capture_cal5());wifi_cal5.attempted=false;
     assert(!wifi_channel_vco5_parent(NULL) && !wifi_channel_vco5_parent(&d));

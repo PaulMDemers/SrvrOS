@@ -12565,3 +12565,22 @@ upstream preferences-finish host fixture formatting defect is corrected without
 behavior changes.71 installed-root regressions pass(one expected skip);focused
 combined lifecycle/private recovery passes. Remaining core checks are rerunning
 with the successful installed-root prerequisite retained;no native result follows.
+
+### v122 private Demers5 selection implementation
+
+Separate fixedUS161/20MHz collector/choice now rebuilds the whole copied cache
+from stopped retained pages,requires one exact authorized Demers5 match and
+consistent explicit PSK/CCMP RSNEs,and refuses conflicting/unsupported/PMF-required
+security. No strongest/open fallback,identifier logging,credentials or network
+OUT. Existing1/6/11 admission remains separate. Native binding runs only after
+calibration/MAC cleanup/exact stop while the selected parent still owns the
+same device/ring/pages;the copied boot candidate does not authorize a live join.
+Initial sanitizer alias-order finding was corrected before publication;fatal
+ASan/UBSan pure tests pass. New host tests,10168 legacy collections,strict saved
+summary refusal tests,216 staging/rollback tests and combined controller/private
+recovery tests pass. A stale intermediate host binary produced a preserved
+immediate-data fixture refusal;the corrected source was rebuilt with the new
+headers and focused34-case recovery/model gates pass. Full merged core/build,
+source-matched desktop/exact-stage VM,disposable2MiB filesystem and frozen full
+prefix qualification remain required. Latest native acceptance staysv121285dad07;
+no candidate installed or boot armed. Authentication/key/TX/IP/data remains open.

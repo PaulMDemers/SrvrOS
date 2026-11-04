@@ -1,9 +1,11 @@
+#include <srvros/mt76_discovery5.h>
 /* Explicit fixed161/20MHz owner. Pages/ring survive every outcome until reset. */
 static struct {
  struct xhci_device *d;struct xhci_bulk_endpoint ep;
  struct mt76_calibration_probe probe;struct mt76_calibration cal;
  struct mt76_mac_cycle mac;struct mt76_rx_window window;
  struct mt76_rx_window_plan plan;
+ struct mt76_discovery discovery;struct mt76_discovery5_choice choice;
  uint64_t command_ring,output,input,ep0,descriptor,stop_dequeue,pin_ring,pin_pages[8];
  uintptr_t pin_rptr,pin_v[8];
  unsigned operations,commands,posts,events,completion,remaining,late,stop_state;
@@ -46,7 +48,7 @@ static bool wifi_cal5_fields(struct xhci_device *d){
 static bool wifi_cal5_owned(void *context,bool cleanup){
  struct xhci_device *d=wifi_cal5.d;
  if(context!=&wifi_cal5 || !wifi_cal5_requested || !wifi_cal5.active || !wifi_cal5.attempted || !d ||
-    !d->present || !d->slot_id || d->vendor_id!=0x7392 || d->product_id!=0xa711 || d->device_bcd!=0x100 ||
+    !d->present || d->removed || d->retiring || xhci.stopping || xhci.command_pending || xhci.command_failed || d->control_pending || d->control_failed || !d->slot_id || d->vendor_id!=0x7392 || d->product_id!=0xa711 || d->device_bcd!=0x100 ||
     d->ep0_quarantined || !d->ep0_ring || strict_control.device || firmware_command_failed ||
     wifi_cal5.command_ring!=xhci.command_ring_phys || wifi_cal5.output!=d->output_context_phys ||
     wifi_cal5.input!=d->input_context_phys || wifi_cal5.ep0!=d->ep0_ring_phys || wifi_cal5.descriptor!=d->descriptor_buffer_phys ||
@@ -173,6 +175,34 @@ static bool wifi_cal5_stop(void){
  if(ok){wifi_cal5.pending=false;wifi_cal5.stopped=true;}event_irq_restore(flags);
  console_printf("wifi-cal5-stop: ok=%u posts=%u state=%u dequeue=%x ring=%x retained=1\n",(uint64_t)ok,(uint64_t)wifi_cal5.posts,(uint64_t)wifi_cal5.stop_state,wifi_cal5.stop_dequeue,wifi_cal5.plan.ring);return ok;
 }
+/* Selection inspects immutable retained buffers only after MAC cleanup and
+ * exact endpoint cessation, while the same selected RF owner is still live. */
+static bool wifi_discovery5_requested;
+static bool wifi_discovery5_owned(void *c,const struct mt76_rx_window *window){
+ return c==&wifi_cal5 && wifi_discovery5_requested && window==&wifi_cal5.window &&
+ wifi_cal5_owned(c,true) && wifi_channel_vco5_owned(&wifi_channel_vco5) &&
+ mt76_channel_vco5_selected(&wifi_channel_vco5.state) && mt76_cvco5_valid(&wifi_channel_vco5.state.vco) &&
+ wifi_cal5_fields(wifi_cal5.d) && !wifi_cal5.failed && wifi_cal5.stopped && !wifi_cal5.pending &&
+ wifi_cal5.cal.complete && wifi_cal5.probe.complete && wifi_cal5.mac.complete &&
+ wifi_cal5.mac.mac_disabled && wifi_cal5.mac.rx_drained && wifi_cal5.mac.tx_drained &&
+ wifi_cal5.mac.filter_restored && wifi_cal5.mac.txop_restored &&
+ window->complete && window->stopped && !window->failed;
+}
+static bool wifi_discovery5_inspect(void){
+ const struct mt76_discovery_io io={&wifi_cal5,wifi_discovery5_owned};
+ bool complete=mt76_discovery5_collect(&wifi_cal5.discovery,&wifi_cal5.window,&io);
+ enum mt76_discovery5_status status=MT76_DISC5_OWNERSHIP;
+ if(complete)status=mt76_discovery5_choose(&wifi_cal5.choice,&wifi_cal5.discovery,&wifi_cal5.window,&io,1,(const uint8_t *)"Demers5",7);
+ /* No identifiers,other SSIDs,raw advertisements or secrets in logs. This
+  * is an explicitly requested target candidate,not authentication authority. */
+ console_printf("wifi-discovery5: complete=%u inputs=%u parsed=%u rows=%u matches=%u status=%u selected=%u channel=%u rsn_bytes=%u generation=%u retained=1 network_out=0 authenticated=0\n",
+ (uint64_t)complete,(uint64_t)wifi_cal5.discovery.inputs,(uint64_t)wifi_cal5.discovery.parsed,(uint64_t)wifi_cal5.discovery.count,
+ (uint64_t)wifi_cal5.choice.matches,(uint64_t)status,(uint64_t)wifi_cal5.choice.selected,(uint64_t)wifi_cal5.choice.row.channel,
+ (uint64_t)wifi_cal5.choice.rsn_size,wifi_cal5.choice.generation);
+ /* Absence/ambiguous/security refusal still permits inverse RF cleanup.
+  * The strict saved trial checker separately requires successful selection. */
+ return complete && status!=MT76_DISC5_OWNERSHIP;
+}
 static bool wifi_cal5_inspect(void *context){
  if(context!=&wifi_channel_vco5 || wifi_cal5.attempted || !wifi_cal5_requested || !wifi_channel_vco5_owned(context) || !mt76_channel_vco5_selected(&wifi_channel_vco5.state) || !mt76_cvco5_valid(&wifi_channel_vco5.state.vco))return false;
  struct xhci_device *d=wifi_channel_vco5.d;wifi_cal5.d=d;wifi_cal5.attempted=wifi_cal5.active=true;wifi_cal5.command_ring=xhci.command_ring_phys;wifi_cal5.output=d->output_context_phys;wifi_cal5.input=d->input_context_phys;wifi_cal5.ep0=d->ep0_ring_phys;wifi_cal5.descriptor=d->descriptor_buffer_phys;
@@ -185,6 +215,12 @@ static bool wifi_cal5_inspect(void *context){
  for(unsigned i=0;i<wifi_cal5.window.attempts && i<8;i++){const struct mt76_rx_window_item *v=&wifi_cal5.window.item[i];console_printf("wifi-cal5-rx: index=%u submitted=%u completed=%u cc=%u remaining=%u actual=%u inspected=%u view=%u beacon_status=%u beacon=%u mpdu=%u interval=%u ssid_size=%u privacy=%u rsn=%u wpa=%u\n",(uint64_t)i,(uint64_t)v->submitted,(uint64_t)v->completed,(uint64_t)v->completion,(uint64_t)v->remaining,(uint64_t)v->actual,(uint64_t)v->inspected,(uint64_t)v->view_status,(uint64_t)v->beacon_status,(uint64_t)v->beacon,(uint64_t)v->mpdu,(uint64_t)v->interval,(uint64_t)v->ssid_size,(uint64_t)v->privacy,(uint64_t)v->rsn,(uint64_t)v->wpa);}
  ok=ok && stopped && !wifi_cal5.failed && wifi_cal5.cal.complete && wifi_cal5.mac.complete && wifi_cal5.mac.mac_disabled && wifi_cal5.mac.rx_drained && wifi_cal5.mac.tx_drained && wifi_cal5.window.complete;
  console_printf("wifi-cal5: ok=%u operations=%u commands=%u probe=%u calibration=%u mac=%u disabled=%u tx_drained=%u rx_drained=%u filter_restored=%u txop_restored=%u stopped=%u window=%u attempts=%u completions=%u beacons=%u elapsed_us=%u retained=1 network_out=0\n",(uint64_t)ok,(uint64_t)wifi_cal5.operations,(uint64_t)wifi_cal5.commands,(uint64_t)wifi_cal5.probe.complete,(uint64_t)wifi_cal5.cal.complete,(uint64_t)wifi_cal5.mac.complete,(uint64_t)wifi_cal5.mac.mac_disabled,(uint64_t)wifi_cal5.mac.tx_drained,(uint64_t)wifi_cal5.mac.rx_drained,(uint64_t)wifi_cal5.mac.filter_restored,(uint64_t)wifi_cal5.mac.txop_restored,(uint64_t)wifi_cal5.stopped,(uint64_t)wifi_cal5.window.complete,(uint64_t)wifi_cal5.window.attempts,(uint64_t)wifi_cal5.window.completions,(uint64_t)wifi_cal5.window.beacons,wifi_cal5.window.elapsed_us);
+ if(wifi_discovery5_requested && ok)ok=wifi_discovery5_inspect();
  wifi_cal5.active=false;return ok;
 }
 bool xhci_wifi_capture_cal5(void){if(wifi_cal5_requested || wifi_cal5.attempted)return false;wifi_cal5_requested=true;bool ok=xhci_wifi_capture_channel_vco5();wifi_cal5_requested=false;return ok;}
+
+bool xhci_wifi_capture_discovery5(void){
+ if(wifi_discovery5_requested || wifi_cal5_requested || wifi_cal5.attempted)return false;
+ wifi_discovery5_requested=true;bool ok=xhci_wifi_capture_cal5();wifi_discovery5_requested=false;return ok;
+}

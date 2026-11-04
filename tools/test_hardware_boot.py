@@ -14,6 +14,15 @@ import hardware_boot as boot
 
 
 class InstallTests(unittest.TestCase):
+    def test_discovery5_profile(self):
+        version='ram-usb-wifi-fw-v122-laptop-probe-0e535900-auto-return'
+        base=boot.limine_config('0123456789abcdef',version.replace('v122-','v121-'))
+        config=boot.limine_config('0123456789abcdef',version)
+        self.assertEqual(config,base.replace('srvros.wifi-cal5=1','srvros.wifi-cal5=1 srvros.wifi-discovery5=1'))
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        with self.assertRaises(ValueError):boot.limine_config('0123456789abcdef',version.replace('-auto-return',''))
+        with self.assertRaises(ValueError):boot.limine_config('0123456789abcdef',version,legacy_wifi_calibration=True)
+
     def test_cal5_profile(self):
         version='ram-usb-wifi-fw-v121-laptop-probe-0e535900-auto-return'
         base=boot.limine_config('0123456789abcdef',version.replace('v121-','v120-'))

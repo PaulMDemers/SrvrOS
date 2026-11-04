@@ -1,8 +1,12 @@
-#include <srvros/mt76_discovery.h>
+#include <srvros/mt76_discovery5.h>
 
 static void scrub(void *p, size_t n) {
     volatile uint8_t *v=p;
     while(n--) *v++=0;
+}
+static bool overlap(const void *a,size_t an,const void *b,size_t bn) {
+    uintptr_t x=(uintptr_t)a,y=(uintptr_t)b;
+    return x<=y?y-x<an:x-y<bn;
 }
 static bool equal(const uint8_t *a,const uint8_t *b,unsigned n) {
     for(unsigned i=0;i<n;i++)if(a[i]!=b[i])return false;
@@ -34,8 +38,8 @@ static void add(struct mt76_discovery *s,const struct mt76_rx_beacon *b) {
         }
     }
 }
-static bool ledger(const struct mt76_rx_window *w) {
-    if(!w || !mt76_rx_window_channel(&w->plan) || !w->attempted || !w->polled || !w->poll_ok || !w->finish_attempted ||
+static bool ledger(const struct mt76_rx_window *w,bool high) {
+    if(!w || !(high?mt76_rx5_window_plan_valid(&w->plan):mt76_rx_window_channel(&w->plan)) || !w->attempted || !w->polled || !w->poll_ok || !w->finish_attempted ||
        !w->complete || w->failed || !w->stop_attempted || !w->stopped ||
        !w->attempts || w->attempts>MT76_RX_WINDOW_SLOTS || w->completions>w->attempts ||
        w->attempts-w->completions>1 || w->beacons>w->completions)return false;
@@ -57,12 +61,19 @@ static bool ledger(const struct mt76_rx_window *w) {
     }
     return true;
 }
-bool mt76_discovery_collect(struct mt76_discovery *out,
+static bool collect(struct mt76_discovery *out,
                             const struct mt76_rx_window *w,
-                            const struct mt76_discovery_io *io) {
-    if(!out || out->attempted)return false;
+                            const struct mt76_discovery_io *io,bool high) {
+    if(!out)return false;
+    if(high) {
+        if((w && overlap(out,sizeof *out,w,sizeof *w)) ||
+           (io && overlap(out,sizeof *out,io,sizeof *io)))return false;
+        if(w)for(unsigned i=0;i<MT76_RX_WINDOW_SLOTS;i++)
+            if(w->plan.buffer[i] && overlap(out,sizeof *out,w->plan.buffer[i],MT76_RX_WINDOW_BYTES))return false;
+    }
+    if(out->attempted)return false;
     *out=(struct mt76_discovery){.attempted=true,.failed=true};
-    if(!ledger(w) || !io || !io->owned || !io->owned(io->context,w))return false;
+    if(!ledger(w,high) || !io || !io->owned || !io->owned(io->context,w))return false;
     const struct mt76_discovery_io f=*io;
     struct mt76_discovery next={.attempted=true};
     struct mt76_rx_beacon b={0};struct mt76_rx_view view={0};bool ok=true;
@@ -73,7 +84,10 @@ bool mt76_discovery_collect(struct mt76_discovery *out,
         if(!v->actual){next.empty++;continue;}
         enum mt76_rx_status vs=mt76_rx_usb_view(w->plan.buffer[i],v->actual,&view);
         enum mt76_rx_status bs=MT76_RX_INVALID;
-        if(vs==MT76_RX_OK)bs=mt76_rx_beacon(w->plan.buffer[i],v->actual,mt76_rx_window_channel(&w->plan),&b);
+        if(vs==MT76_RX_OK) {
+            if(high){struct mt76_rx_beacon5 b5={0};bs=mt76_rx_beacon5(w->plan.buffer[i],v->actual,161,20,&b5);b=b5.beacon;scrub(&b5,sizeof b5);}
+            else bs=mt76_rx_beacon(w->plan.buffer[i],v->actual,mt76_rx_window_channel(&w->plan),&b);
+        }
         if(vs!=v->view_status || (vs==MT76_RX_OK &&
            (view.consumed!=v->consumed || view.mpdu_size!=v->mpdu ||
             view.frame_control!=v->frame_control || bs!=v->beacon_status)) ||
@@ -92,4 +106,11 @@ bool mt76_discovery_collect(struct mt76_discovery *out,
     if(ok){next.complete=true;*out=next;}
     scrub(&b,sizeof b);scrub(&view,sizeof view);scrub(&next,sizeof next);
     return ok;
+}
+
+bool mt76_discovery_collect(struct mt76_discovery *out,const struct mt76_rx_window *w,const struct mt76_discovery_io *io) {
+    return collect(out,w,io,false);
+}
+bool mt76_discovery5_collect(struct mt76_discovery *out,const struct mt76_rx_window *w,const struct mt76_discovery_io *io) {
+    return collect(out,w,io,true);
 }

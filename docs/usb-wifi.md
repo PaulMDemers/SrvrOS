@@ -6694,3 +6694,29 @@ The prepared2.4GHz diagnostic was withdrawn before install; its framework remain
 offline evidence. See the [unit handoff](machines/macbookpro11-2.md) for source,
 validation, retained recoveries and remaining limits. No working Wi-Fi connection
 or live reattachment is claimed by this correction.
+
+## Private fixed161 Demers5 candidate selection (v122)
+
+The Pro11,2 follow-up `--wifi-discovery5` requires the automatic v121 calibration
+parent and emits a v122 matched payload. It collects the same at-most-eight
+stopped,retained receive inputs into a private copied BSSID cache,then requests
+an exact binary `Demers5` match. One matching AP is required;no strongest/first,
+open-network or legacy-channel fallback. Every target observation is reparsed
+and must agree on the full RSNE. The bounded initial security profile requires
+explicit group/pairwise CCMP and PSK AKM;PMF-required,cached PMKID,alternative
+suites and conflicting/malformed advertisements refuse. Optional capabilities
+never grant authentication authority. The implementation follows the RSN field
+layout documented in the [hostap reference](https://chromium.googlesource.com/external/w1.fi/cgit/hostap/+/c4ca476ad224fd376ee52a70dbb5b0f9f7f82408/src/common/wpa_common.c).
+
+The separate fixedUS161/20MHz entry points preserve the existing1/6/11 collector
+and selection admission. Collection requires completed calibration and MAC
+cleanup,exact endpoint cessation,same live selected parent and stable retained
+ring/pages. All-or-nothing publication scrubs refused selections;input/output
+aliases cannot erase receive pages. The result is generation-bound and copied,
+with no borrowed DMA pointers. A one-shot boot candidate is not a live join or
+UI provider. Logs contain only anonymous counts,status and selected/security
+length,never unrelated SSIDs/BSSIDs,raw advertisements or credentials. A missing
+or unsupported target still permits proven inverse RF cleanup,but fails the
+strict selection trial proof. All prior parent/stop/restoration/storage checks
+remain required. No authentication,keys,network OUT,IP or data transfer is
+implemented or accepted by this checkpoint;management TX/security work follows.
