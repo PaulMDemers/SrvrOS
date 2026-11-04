@@ -532,3 +532,11 @@ Third-party source is kept as pinned submodules or snapshots under
    requests, TTY, signals, and thread-pool work are boring under smoke tests.
 8. Register srvros as a Node.js configure/GYP OS flavor and keep the first
    Node target static and CLI-only while V8, libuv, and libc gaps are reduced.
+
+
+## jq bounded CLI milestone
+
+The active jq 1.8.2 port targets offline JSON files/stdin/pipelines and CSV
+reports, with static linking and upstream decimal-number defaults. Oniguruma
+regex functions are outside this first profile. See the [port contract](../ports/srvros/jq/PORT.md) and current roadmap
+for the accepted workflow and its optional threaded-test limitation.

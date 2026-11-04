@@ -6,6 +6,38 @@ and [machine records](machines/README.md) separate implementation from physical
 acceptance. The [device parity ledger](device-parity.md) compares the Air with
 ongoing Pro work.
 
+## jq CLI workflow — November 3, 2026
+
+Target: jq 1.8.2 for offline JSON files/stdin/pipelines, filtering/aggregation,
+raw/compact output, filter files and CSV export consumed by SQLite. Separate
+`ports/jq` checkout begins at main `5634cd9d`; integration checkout and review
+VM remain untouched. Preserve upstream source, decimal-number defaults and
+licenses; omit Oniguruma regex functions. Port-local entropy adaptation uses
+existing getrandom. No shared libc/kernel edits without concrete gap coordination.
+Required gates: static build/link, selected unchanged upstream tests, guest
+JSON-to-CSV-to-SQLite workflow, Unicode/numeric/errors/pipeline checks, two clean
+CLI builds with identical binaries, existing ports regressions and docs checks.
+Implementation and scoped guest acceptance pass. The port builds static jq
+with upstream decNumber defaults and port-local entropy, dirname and UTC
+timezone-name adapters; no shared libc/kernel changes were needed. Oniguruma
+regex and optional configure-gated libm/date wrappers are outside this profile.
+The first run passed its 11 selected upstream cases but later aborted during
+the optional three-thread regression; that test-only feature gate is omitted
+for the single-thread CLI. Real pthread keys/once/atexit remain enabled. No
+multithreaded jq acceptance or allocator root cause is claimed.
+
+Two-boot JSON report/CSV-to-SQLite, exact Unicode/NUL and numeric literal output,
+exit statuses, invalid JSON/filter/files, unsupported regex, actual stdout error
+and recovery checks pass. The 11 unchanged upstream cases and remaining
+single-state internal tests complete. Guest fsck and offline allocation pass;
+independent fsck.exfat is unavailable. Two clean CLI builds match SHA256
+`286f8cbe0cd27f983881208981d5f29773197aa00641487d0f6087caf7ef1de8`.
+No whole-image reproducibility or physical-device acceptance is claimed.
+Evidence: `build/jq-smoke/20261103-214345-kx3nfg74/` and
+`build/review/jq/accepted.json`. Existing ports regression and documentation/whitespace checks pass.
+Status: implementation complete and ready for review; no merge authorized.
+
+
 ## Current HiDPI and display settings — November 3, 2026
 
 Target: genuinely detailed 1×/2× text and widgets, authoritative Display settings,
