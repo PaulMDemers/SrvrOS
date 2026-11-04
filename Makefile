@@ -3960,7 +3960,7 @@ build/tests/process-event-host$(HOST_EXE): tools/test_process_event.c kernel/src
 
 # MP request exists only in this explicit diagnostic ELF. Ordinary objects and
 # boot requests are never overwritten. AP code has no C runtime dependencies.
-AP_PROBE_OBJ := build/ap-probe/power.o build/ap-probe/platform.o build/ap-probe/package.o build/ap-probe/scheduler.o build/ap-probe/main.o build/ap-probe/requests.o build/ap-probe/probe.o build/ap-probe/entry.o
+AP_PROBE_OBJ := build/ap-probe/haswell-backing.o build/ap-probe/power.o build/ap-probe/platform.o build/ap-probe/package.o build/ap-probe/scheduler.o build/ap-probe/main.o build/ap-probe/requests.o build/ap-probe/probe.o build/ap-probe/entry.o
 AP_PROBE_BASE := $(filter-out build/kernel/src/main.c.o build/kernel/src/limine_requests.c.o build/kernel/src/scheduler.c.o build/kernel/src/drivers/power.c.o,$(KERNEL_OBJ))
 .PHONY: ap-probe-kernel
 ap-probe-kernel: build/ap-probe/srvros.elf
@@ -4022,7 +4022,11 @@ build/tests/package-audit$(HOST_EXE): tools/test_package_audit.c kernel/diagnost
 	$(HOST_CC) -std=c11 -Wall -Wextra -Werror -I kernel/include tools/test_package_audit.c kernel/diagnostics/package_audit_core.c -o $@
 test-core: test-package-audit
 
-build/ap-probe/platform.o: kernel/diagnostics/platform_audit.c kernel/diagnostics/platform_backing.inc kernel/diagnostics/platform_owner.inc kernel/diagnostics/display_owner_core.c kernel/diagnostics/platform_hda.inc $(ZIG) $(KERNEL_HEADERS)
+build/ap-probe/haswell-backing.o: kernel/diagnostics/haswell_backing_core.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+build/ap-probe/platform.o: kernel/diagnostics/platform_audit.c kernel/diagnostics/haswell_backing_adapter.inc kernel/diagnostics/platform_backing.inc kernel/diagnostics/platform_owner.inc kernel/diagnostics/display_owner_core.c kernel/diagnostics/platform_hda.inc $(ZIG) $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -c $< -o $@
 
@@ -4115,7 +4119,7 @@ build/tests/power-platform-host$(HOST_EXE): tools/test_power_service.c kernel/sr
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -DSRVROS_AP_PROBE -I kernel/include -I shared/include tools/test_power_service.c kernel/src/drivers/power_core.c -o $@
 
-build/tests/platform-sample$(HOST_EXE): tools/test_platform_sample.c kernel/diagnostics/platform_backing.inc kernel/diagnostics/platform_owner.inc kernel/diagnostics/display_owner_core.c kernel/diagnostics/platform_hda.inc kernel/diagnostics/platform_audit.c kernel/diagnostics/package_audit_core.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+build/tests/platform-sample$(HOST_EXE): tools/test_platform_sample.c kernel/diagnostics/haswell_backing_adapter.inc kernel/diagnostics/platform_backing.inc kernel/diagnostics/platform_owner.inc kernel/diagnostics/display_owner_core.c kernel/diagnostics/platform_hda.inc kernel/diagnostics/platform_audit.c kernel/diagnostics/package_audit_core.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
 
@@ -4422,8 +4426,22 @@ test-guest-profiles: build/tests/guest-profile-host$(HOST_EXE)
 	$(PYTHON) tools/test_guest_profile.py $< -v
 build/tests/guest-profile-host$(HOST_EXE): $(USER_PROFILE_C) userspace/profile/codec.h ports/upstream/cjson/cJSON.c ports/upstream/cjson/cJSON.h userspace/lib/include/srvros/profile_session.h userspace/lib/include/srvros/profile_paths.h
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=c11 -D_DARWIN_C_SOURCE -DSRVROS_PROFILE_HOST_TEST -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I ports/upstream/cjson $(USER_PROFILE_C) ports/upstream/cjson/cJSON.c -o $@
+	$(HOST_CC) -std=c11 -D_DARWIN_C_SOURCE -D_POSIX_C_SOURCE=200809L -DSRVROS_PROFILE_HOST_TEST -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I ports/upstream/cjson $(USER_PROFILE_C) ports/upstream/cjson/cJSON.c -o $@
 
+.PHONY: test-haswell-backing
+test-core: test-haswell-backing
+test-haswell-backing: build/tests/hsw-backing$(HOST_EXE) build/tests/hsw-backing-adapter$(HOST_EXE)
+	build/tests/hsw-backing$(HOST_EXE)
+	build/tests/hsw-backing-adapter$(HOST_EXE) > build/tests/hsw-backing-producer.log
+	$(PYTHON) -m unittest discover -s tools -p test_hardware_haswell_backing.py
+	$(PYTHON) -m unittest discover -s tools -p test_haswell_backing_audit.py
+	$(PYTHON) tools/check_hsw_capture_tail.py --log build/tests/hsw-backing-producer.log --output build/tests/hsw-backing-tail.json
+build/tests/hsw-backing$(HOST_EXE): tools/test_hsw_backing.c kernel/diagnostics/haswell_backing_core.c kernel/include/srvros/haswell_backing.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_hsw_backing.c kernel/diagnostics/haswell_backing_core.c -o $@
+build/tests/hsw-backing-adapter$(HOST_EXE): tools/test_hsw_backing_adapter.c tools/test_platform_sample.c kernel/diagnostics/haswell_backing_core.c kernel/diagnostics/haswell_backing_adapter.inc $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include tools/test_hsw_backing_adapter.c kernel/diagnostics/haswell_backing_core.c -Wl,--gc-sections -o $@
 .PHONY: test-profile-chooser
 test-profile-chooser: test-guest-profiles build/tests/profile-catalog-host$(HOST_EXE)
 	build/tests/profile-catalog-host$(HOST_EXE) $(CURDIR)/build/tests/guest-profile-host$(HOST_EXE)

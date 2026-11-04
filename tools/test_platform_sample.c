@@ -20,6 +20,7 @@ static uint32_t platform_test_read(unsigned off) {
     return off==0x60?3:rc++;
 }
 static uint32_t platform_test_well_read(unsigned off) {
+    if(off==0)return 0x2000;
     assert(off==0x400+4*(well_reads%4));well_reads++;return well_drop_at && well_reads>=well_drop_at?0:well_value;
 }
 static uint32_t platform_test_resource_read(unsigned off) {
@@ -58,13 +59,17 @@ static uint32_t platform_test_hda_read(unsigned off,unsigned width) {
 volatile struct limine_framebuffer_request framebuffer_request;
 volatile struct limine_memmap_request memmap_request;
 static unsigned mapping_hole,mapping_disjoint,map_walks;
+static bool test_hsw_translate(uint64_t,uint64_t *);
 uint64_t vmm_kernel_address_space(void) {return 0x1000;}
 bool vmm_virt_to_phys_in_space(uint64_t space,uint64_t va,uint64_t *pa) {
-    assert(space==0x1000);map_walks++;
+    assert(space==0x1000);if(va==HWB_VA)return test_hsw_translate(va,pa);map_walks++;
     if(mapping_hole && map_walks==mapping_hole)return false;
     *pa=va-0xffff800000000000ull+(mapping_disjoint && map_walks==mapping_disjoint?4096:0);return true;
 }
-static uint32_t pci_config[64],pch_config[64],hda_config[64];
+static uint32_t pci_config[64],pch_config[64],hda_config[64],hsw_host_config[64];
+static unsigned hsw_emit,hsw_vmm_maps,hsw_vmm_unmaps,hsw_vmm_map_fail,hsw_vmm_unmap_fail;
+static bool hsw_vmm_live;static uint64_t hsw_vmm_pa,hsw_test_space=0x1000;
+static bool test_hsw_translate(uint64_t va,uint64_t *pa) {(void)va;if(hsw_vmm_live){*pa=hsw_vmm_pa;return true;}return false;}
 static void hda_after_read(void) {
     if(hda_reads==10 && hda_change==2)hda_config[0]^=1;
     if(hda_reads==10 && hda_change==3)hda_config[4]+=0x4000;
@@ -72,6 +77,7 @@ static void hda_after_read(void) {
 }
 static void dependency_after_read(void) {if(dep_change_pch && dep_reads==8)pch_config[0]=0xffffffffu;}
 uint32_t pci_read_config32(const struct pci_device *p,uint8_t offset) {
+    if(p==hsw_host)return hsw_host_config[offset/4];
     assert((p==gpu || p==pch_device || p==hda_device) && !(offset&3));return p==gpu?pci_config[offset/4]:p==pch_device?pch_config[offset/4]:hda_config[offset/4];
 }
 uint64_t timer_monotonic_us(void) {return ++test_ticks;}
@@ -91,8 +97,35 @@ uint16_t pci_read_config16(const struct pci_device *p,uint8_t off) {
 }
 uint64_t pci_device_count(void) {return 0;}
 const struct pci_device *pci_device_at(uint64_t i) {(void)i;return NULL;}
+uint64_t vmm_current_address_space(void) {return hsw_test_space;}
+bool vmm_map_page_in_space(uint64_t space,uint64_t va,uint64_t pa,uint64_t flags) {
+    assert(space==0x1000 && va==HWB_VA && flags==(VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE));
+    hsw_vmm_maps++;if(hsw_vmm_map_fail)return false;
+    assert(!hsw_vmm_live);hsw_vmm_live=true;hsw_vmm_pa=pa;return true;
+}
+bool vmm_unmap_page_in_space(uint64_t space,uint64_t va,uint64_t *pa) {
+    assert(space==0x1000 && va==HWB_VA && hsw_vmm_live);hsw_vmm_unmaps++;
+    if(hsw_vmm_unmap_fail)return false;
+    *pa=hsw_vmm_pa;hsw_vmm_live=false;return true;
+}
+void platform_test_hsw_endpoint_start(void) {backing_reads=0;map_walks=0;}
+uint32_t platform_test_hsw_read(unsigned off) {
+    if(off>=0x100000 && off<0x100080)return off>=0x100008?0:off&4?0x41f02b:1;
+    assert(off>=0x200000 && off<0x201800 && !(off&3));
+    return (0x8da00000+4096*((off-0x200000)/4))|0x805;
+}
 static unsigned dependency_reports,hda_reports,dry_reports;
 void console_printf(const char *fmt,...) {
+    if(!strncmp(fmt,"hsw-backing",11)) {
+        if(!hsw_emit)return;
+        va_list ap;va_start(ap,fmt);
+        for(const char *p=fmt;*p;p++) {
+            if(p[0]=='%' && p[1]=='u'){printf("%llu",(unsigned long long)va_arg(ap,uint64_t));p++;}
+            else if(p[0]=='%' && p[1]=='s'){fputs(va_arg(ap,const char *),stdout);p++;}
+            else putchar(*p);
+        }
+        va_end(ap);return;
+    }
     if(!strncmp(fmt,"ap-platform-backing:",20)) {
         assert(!strcmp(fmt,"ap-platform-backing: v=1 phase=%u data=%s\n"));
         va_list ap;va_start(ap,fmt);uint64_t phase=va_arg(ap,uint64_t);const char *data=va_arg(ap,const char *);
@@ -378,4 +411,5 @@ int main(void) {
     for(unsigned i=0;i<2;i++){endpoint_report(i,false);endpoint_report(i,true);}
     backing_snapshot(1);assert(fault);backing_emit=0;backing_mode=0;
     puts("platform-sample: PASS exact read-only mappings/refusals, endpoint well bounds/all-ones, sparse hook isolation, ordered reads and capacity");
+    return 0;
 }
