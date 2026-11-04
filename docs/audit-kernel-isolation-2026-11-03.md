@@ -1219,6 +1219,45 @@ at `b643077f`. Physical/SMP/NMI and unsupported inherited CPU policies are not
 accepted. Replacement image validation/alias/consume policy is the next separate
 design review; frame-copy/action/delivery ABI remains later. No signals enabled.
 
+## November 4: private FPU restore and continued runtime review
+
+Qualified PR334 `c27d018f` private restore after independent source/host/codegen
+review and matched regression receipt verification. Initialization invalidates
+old availability/mask state, explicitly zeroes the capture area, then samples
+actual FXSAVE MXCSR support with the defined zero-mask fallback. The helper checks
+current witness/ownership/policy, full private source extent and physical-object
+nonoverlap before source reads; rejects unsupported/high MXCSR bits; copies only
+the saved 512-byte prefix and consumes once. Original unmodified kernel capture
+provenance remains a caller precondition, not authenticity from MXCSR checks.
+There is no production caller, editable context or signal integration.
+
+Independent init-mask and real-FXSAVE restore strict Rosetta/ASan+UBSan profiles
+pass 4/4; target codegen confirms zero/capture/mask-publication order, validation
+before reads/copy, scalar copy before consumption and no helper FXRSTOR or call
+after copying begins. Evidence: `build/review/pr334-fpu-restore-review/`.
+Verified final receipt SHA256
+`377c5a8062bf44a3579dc0d9b8126c74586a47900142e9fffe584584564ca224`,
+24 combined and four nested hashes, main/worker register status-zero, full thread,
+sysabi and OVMF contention regressions. CR4 `0x620`/EFER `0xd00` and retained 17-app
+payload attribution remain recorded. The private helper's actual restore is
+host-tested; guests exercise initialization/common preservation, not an unwired
+private call. Task guests stopped, review VMs preserved.
+
+The next bounded frame-copy packet remains design-only until exact paging/access
+policy, admitted encodings and non-DMA source/destination ownership are reviewed.
+A separate confirmed thread-ID defect can publish a worker while returning a
+negative signed ID after INT64_MAX; PR334 owns reproduction and the nonwrapping
+positive-ID admission fix, with no signal implementation implied.
+
+Read-only main `f7ec75e7` review for the separately human-authorized session-switch
+milestone confirms kernel lifetime membership survives descendants/orphaning and
+retains loading/I/O/teardown ownership, but there is no userspace empty-scope API.
+Existing drain forces cancellation and must not back graceful logout silently.
+A nongraphical supervisor/one scoped GUI root capability proposal is under
+integration/profiles review; no new kernel interface implementation is approved.
+It must preserve live-parent wait status, error attribution and legacy kernel
+lifetime diagnostics, with revocation plus true zero before profile replacement.
+
 ## Remaining work
 
 Other long IRQ-disabled operations, including initial/churning PMM scans, heap validation and poisoning,
