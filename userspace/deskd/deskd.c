@@ -1918,7 +1918,7 @@ static void service(struct session *s) {
                *session_child_apps(s,i)>=DESK_APP_FILES && *session_child_apps(s,i)<=DESK_APP_COUNT) {
                 uint64_t pid=*session_children(s,i);
                 session_end_cancel(s,"app-exit",pid);
-                strcpy(s->scene.notice,"Session kept: an app exited with an error. Review saved work before switching again.");
+                strcpy(s->scene.notice,"Session kept: an app failed. Review saved work before switching again.");
                 desk_log("session-ui: phase=app-error pid=%llu status=%llu\n",(unsigned long long)pid,(unsigned long long)status);
             }
         }
