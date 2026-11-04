@@ -33,6 +33,70 @@ real power-loss or Actions qualification. Review VMs 6233/61610/85869 remain
 untouched. Implementation is complete; hand exact heads/evidence to coordinator
 for independent merge, then release resources for the installation owner's
 separately authorized fresh-v2-B four-boot proof.
+## PR349 current-main merge review — ready
+
+User authorizes review and merge if ready, preserving uncertain media and review
+VMs and coordinating PR317. Reviewed `7b40686a` with no blocking finding. Merged
+actual main `6225e4d1` as `e853ef90`, preserving Files/profile and Air6,1 records;
+Apps `2ddea666`, Widgets `586bd002`, Ports `d760e541` are synchronized. Inspector,
+shim, Python contracts and native exFAT/VFS sources match the qualified head.
+Production-preprocessed exFAT tokens match current main exactly. No new runtime
+filesystem/process/transport or admission-policy change is introduced.
+
+Fresh 14 diagnostic groups, 19 strict-inspection regression groups, storage
+lease/workspace/USB regressions and matched OS build pass on the integrated
+source. The unchanged-source ASan/UBSan and omitted-blocking negative-control
+evidence is verified and retained. Before/after whole-file SHA-256 and full
+identity/ownership/mode stamps for all three uncertain images, accepted fault
+backup and clean control match their original qualification. All diagnostic
+write/flush counts remain zero; uncertain images remain mode `0444`. Review VMs
+61610/6233/85869 stay running and untouched. Complete review evidence survives
+outside build in `.local/filesystem-evidence/pr349-review/`.
+
+PR317 owner confirms no new overlap or lifetime constraint at current published
+head `ae3b39b9`; this is scope coordination, not an independent diff review.
+Published-storage failure stays sticky; diagnostics confer no replay, transport
+recovery, repair, remount or writable-admission authority. No live/physical media,
+new VM, reboot or hosted Actions. Current-main review is ready for authorized
+merge; explicit ranges and unauthenticated marker syntax remain documented limits.
+
+Next proposed bounded milestone: **GPT-aware read-only workspace selection**.
+Remove manual offset entry for preserved whole-disk images by researching reuse
+of the existing native GPT map and host validation before adding an adapter.
+Require valid bounded partition metadata and one unambiguous workspace candidate;
+refuse corrupt/overlapping/ambiguous maps. Compare reports against the existing
+explicit-range results on retained clean/uncertain images; verify unchanged
+whole-file hashes/permissions and malformed-map refusals on disposable fixtures.
+Preserve strict admission, metadata-only output, review VMs and uncertain media;
+coordinate any block/GPT boundary with PR317. No repair, writable admission or
+source/orphan export. This proposal is not implemented by PR349.
+
+
+## Uncertain workspace read-only inspection — host qualified
+
+User authorizes offline read-only inspection in `SrvrOS-filesystem`, branch
+`device/apple-silicon/filesystem-uncertain-inspection`, base `83e5d1ad`. Reuse
+the native installation inspector and inherited O_RDONLY regular-file shim;
+add only a host-test diagnostic entry in exfat.c, forcing write blocking before
+sidecar loading. No process.c, USB/BOT, live transport or production runtime
+change. PR317 owner through `04b82bdd` confirms no lifetime overlap; published-storage
+failure remains sticky and diagnostic output cannot authorize repair/remount.
+Preserve all uncertain images and review VMs 61610/6233/85869. Qualify bounded
+metadata-only output, explicit ranges, unchanged hashes/identity/permissions,
+default strict admission and malformed/refusal cases before draft delivery.
+
+Implementation `859342b2` integrates main `5ed7f015` as `787c8daa`;
+Ports is synchronized to `d760e541`. Matched OS build, 14 diagnostic and 19
+existing inspector groups, storage regressions and halt-on-error ASan/UBSan pass.
+Production-preprocessed exFAT tokens equal the baseline. Removing forced
+blocking makes the clean diagnostic qualification fail as expected. All three
+uncertain images and the accepted fault backup retain whole-image hashes,
+identity/ownership/mode `0444`; clean control remains `0644`. Dirty inputs report
+four leaked clusters and a 28-byte source entry; clean control has no allocation
+errors and source size 12,289. No source content or orphan export. Evidence is
+backed up under `.local/filesystem-evidence/workspace-inspection/`; see the
+filesystem guide for explicit-range, metadata and admission limits. No fresh VM
+is needed for a host-only path; existing review guests stay untouched.
 
 ## Graphical profile transfer — qualified for review
 
