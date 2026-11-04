@@ -6731,3 +6731,40 @@ before installation. Matched build, full host suites, exact-stage identity
 refusal/persistence, missing-workspace halt and old-profile regressions remain
 pending. The current installed native image is still `9b485ca12b4c2482`; no new
 physical acceptance or reboot is claimed by implementation alone.
+
+### Haswell vector pilot validation and prepared native run (2026-11-03)
+
+[PR324](https://github.com/PaulMDemers/SrvrOS/pull/324) integrates actual main
+`59928ec9`; tested code is `baaa94b5`, with ports `ca749517` and the other
+recursive pins preserved. Recent mainline installation/salvage/profile changes
+are included. Strict GCC host compatibility fixes retain namespace/range checks,
+POSIX no-follow/exclusive/close-on-exec flags, flush and ownership behavior; no
+warning flag is disabled. The ports-only best-effort-result compatibility change
+is merged in [SrvrPorts PR5](https://github.com/PaulMDemers/SrvrPorts/pull/5).
+
+Matched normal/AP kernels, RAM/USB images, complete core/desktop/widget suites,
+profile-chooser regressions, host prerequisites and docs checks pass locally.
+Actual capture core/adapter tests and ASan/UBSan pass, including full-vector
+producer decoding, mapping/clock/change failures, retained uncertainty and normal
+kernel isolation. Source-matched maximum retention preserves all raw records
+with 128 KiB earlier chatter and 32 KiB subsequent allowance in the unchanged
+64 KiB exit tail; its source-derived checkpoint bound is 16,514 bytes. This is
+synthetic retention coverage, not physical acceptance. Sanitizer stdout/stderr
+are retained separately; the initial interleaved host transcript is kept, not
+repaired into evidence.
+
+Four legacy AP owner/C3/package/platform VM profiles pass. Exact staged release
+`e98aed0c5f8d06cf` safely refuses Q35 identity, saves its refusal, unmounts and
+resets. Missing workspace returns without starting the capture or falsely saving.
+Both are negative-path checks, not native readout acceptance. The exact staged
+payload is durably backed up; at this validation checkpoint it is uninstalled
+and unarmed. The approved next step is its automated native install/one-shot,
+requiring complete two-pass observations, unchanged endpoints, verified window
+retirement, preserved USB files and clean offline allocation. Runtime arming and
+collection state stay in the local run record. No human input is required.
+
+The previous native payload remains `9b485ca12b4c2482` until that installation.
+Its complete payload/evidence must verify before reclaiming only its EFI copy;
+console recovery and accepted fallbacks remain protected. GGTT observation does
+not grant real ownership/pinning, complete fence/swizzle knowledge, package C3 or
+RC6 timing acceptance. Those limitations and all existing limits remain unchanged.
