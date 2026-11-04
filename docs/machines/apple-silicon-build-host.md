@@ -3853,3 +3853,13 @@ phases, bounds uncertain acknowledgements terminally and delays thread publicati
 until target TLS/TID/stack initialization. The broader network prototype is
 preserved in ignored task evidence and excluded from the live implementation.
 No physical boot, merge or hosted CI is part of this source qualification.
+
+Owner review of bb201307 found that TTY per-byte eligibility revalidated the
+entire user buffer/vector with IRQs excluded. The correction resolves only the
+current destination byte from the owned bounded iovec metadata, checks one byte,
+and caches that address for the atomic commit. Owned kernel sinks perform no user
+walk. Initial syscall validation stays separate. The actual-helper negative
+control fails against bb201307; corrected strict and ASan/UBSan checks pass,
+including later unmapped vectors, current-byte refusal, NUL and address wrap.
+Normal and experimental target kernels relink. The first prepared public guest
+is superseded without running; a fresh configuration/evidence review is required.

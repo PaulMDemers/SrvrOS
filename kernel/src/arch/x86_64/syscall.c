@@ -647,21 +647,31 @@ struct tty_checked_read {
     struct console_fd_guard guard;
     char *buffer;uint64_t length,count;bool owned,canonical,finished;
     const struct srv_iovec *iov;uint64_t iov_count;
+    volatile char *destination;
     char echo;bool echo_valid;uint64_t erase_echo;
 };
 static int tty_read_eligible(void *opaque) {
     struct tty_checked_read *r=opaque;int status=console_read_eligible(&r->guard);if(status)return status;
+    if(r->count>=r->length)return SRV_ERR_FAULT;
+    uint64_t offset=r->count,address=(uint64_t)(uintptr_t)r->buffer;
     if(r->iov) {
-        uint64_t total=0;
+        if(r->iov_count>SRV_IOV_MAX)return SRV_ERR_FAULT;
+        bool found=false;
         for(uint64_t i=0;i<r->iov_count;i++) {
-            if(r->iov[i].length>UINT64_MAX-total || !user_buffer_ok(r->iov[i].base,r->iov[i].length,true))return SRV_ERR_FAULT;
-            total+=r->iov[i].length;
+            if(offset<r->iov[i].length) {address=(uint64_t)(uintptr_t)r->iov[i].base;found=true;break;}
+            offset-=r->iov[i].length;
         }
-        if(total<r->length)return SRV_ERR_FAULT;
-    } else if(!r->owned && !user_buffer_ok(r->buffer,r->length,true))return SRV_ERR_FAULT;
+        if(!found)return SRV_ERR_FAULT;
+    }
+    if(offset>UINT64_MAX-address)return SRV_ERR_FAULT;
+    address+=offset;
+    /* Initial syscall validation is separate. This callback runs per byte
+     * under IF0: visit only the destination that this consume can publish. */
+    if((r->iov || !r->owned) && !user_buffer_ok((void *)(uintptr_t)address,1,true))return SRV_ERR_FAULT;
+    r->destination=(volatile char *)(uintptr_t)address;
     return 0;
 }
-/* Eligibility established every destination with IRQs excluded; no call,
+/* Eligibility established this byte's destination with IRQs excluded; no call,
  * fault-recovery, scheduler, or fallible operation is permitted here. */
 static void tty_read_commit(void *opaque,char input) {
     struct tty_checked_read *r=opaque;char c=tty_filter_input(input);r->echo=0;r->echo_valid=false;r->erase_echo=0;
@@ -675,13 +685,7 @@ static void tty_read_commit(void *opaque,char input) {
         if(c==kill) {r->erase_echo=r->count;r->count=0;return;}
         if(c=='\n' || c==eol)r->finished=true;
     } else r->finished=true;
-    if(r->iov) {
-        uint64_t offset=r->count;
-        for(uint64_t i=0;i<r->iov_count;i++) {
-            if(offset<r->iov[i].length) {((volatile char *)r->iov[i].base)[offset]=c;break;}
-            offset-=r->iov[i].length;
-        }
-    } else ((volatile char *)r->buffer)[r->count]=c;
+    *r->destination=c;
     r->count++;r->echo=c;r->echo_valid=true;
 }
 static int64_t tty_read_console_sink(uint64_t fd,char *buffer,uint64_t length,bool owned,
