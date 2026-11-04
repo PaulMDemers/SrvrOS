@@ -191,9 +191,9 @@ def main():
             receipt['steps'].append(row); save(); guard()
             require(proc.returncode == code, 'unexpected command exit: ' + str(row))
             return json.loads(proc.stdout) if proc.stdout.strip() else None
-        def export_args(folder, checkpoint=None):
-            argv = command + ['export-profile', str(stage), str(folder / 'output.json'),
-                '--profile-id', args.profile_id, '--home', args.home,
+        def export_args(folder, checkpoint=None, source=stage, home=args.home):
+            argv = command + ['export-profile', str(source), str(folder / 'output.json'),
+                '--profile-id', args.profile_id, '--home', home,
                 '--inspect-driver', str(inputs['inspect_driver']), '--export-driver', str(inputs['export_driver']),
                 '--publication-dir', str(folder / 'attempt')]
             for doc in DOCS: argv += ['--document', doc]
@@ -322,6 +322,14 @@ def main():
                     fs.read(prefix + '.cache/proof-cwd').decode().strip() == HOME_B, 'B environment/cwd mismatch')
             require(d.outside_data(disk, offset, size) == protected, 'B protected regions changed')
             receipt['boots'].append(label); guard(); save()
+        b_before = tree(bstage)
+        inspected = call(command + ['inspect-installed', str(bstage), '--driver', str(inputs['inspect_driver'])])
+        require(inspected['consistent'] and inspected['used'] and inspected['filesystem']['writes'] ==
+                inspected['filesystem']['flushes'] == 0, 'used B native inspection failed')
+        reexport = case('b-reexport'); result = call(export_args(reexport, source=bstage, home=HOME_B))
+        require(result['state'] == 'exported' and (reexport / 'output.json').read_bytes() == expected_bytes and
+                tree(bstage) == b_before, 'B re-export changed source or portable bytes')
+        receipt['b_roundtrip_export'] = result
         guard(); require(source_provenance.capture(ROOT) == receipt['source'], 'source checkout changed')
         require({str(path): image.digest(path) for path in map(Path, (args.ovmf, args.ovmf_vars))} == receipt['firmware'], 'firmware changed')
         require({name: image.digest(ROOT / 'tools' / name) for name in receipt['tools']} == receipt['tools'], 'proof tool changed')
