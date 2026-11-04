@@ -261,6 +261,26 @@ class ExportPublicationTests(unittest.TestCase):
         self.assertEqual(pub.publish(attempt, output, value, self.observation)['state'], 'refused')
         self.assertEqual(snapshot(root), before)
 
+    def test_changed_bytes_or_directory_alias_before_link_are_not_published(self):
+        for kind in ('contents', 'directory-alias'):
+            root, attempt, output = self.paths()
+            def changed(name):
+                if name != 'file-synced': return
+                if kind == 'contents':
+                    (attempt / 'bundle.partial').write_bytes(self.data.upper())
+                else:
+                    attempt.rename(root / 'moved'); attempt.symlink_to(root / 'moved')
+            result = pub.publish(attempt, output, self.value, self.observation, changed)
+            self.assertEqual(result['state'], 'refused'); self.assertFalse(output.exists())
+
+    def test_boolean_record_preference_is_not_integer_metadata(self):
+        root, attempt, _ = self.stop('written')
+        record = json.loads((attempt / 'intent.json').read_bytes())
+        record['selection']['preferences']['clock_flags'] = True
+        raw = p.encode_json(record); (attempt / 'intent.json').write_bytes(raw)
+        (attempt / 'intent.sha256').write_text(hashlib.sha256(raw).hexdigest() + '\n')
+        self.refused(root, attempt)
+
     def test_cli_inspect_and_reconcile_in_fresh_process(self):
         root, attempt, output = self.stop('linked')
         tool = Path(__file__).resolve().with_name('installation_image.py')

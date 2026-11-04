@@ -115,7 +115,10 @@ def locked(path, *, exclusive=False, create=False):
                 stable(os.stat('.lock', dir_fd=root, follow_symlinks=False)) == stable(ls),
                 'publication directory or lock changed')
         yield path, root, identity(ls)
-        require(identity(path.stat()) == identity(st) and
+        image.checked_path(path)
+        after = path.stat()
+        require(identity(after) == identity(st) and after.st_uid == os.geteuid() and
+                stat.S_IMODE(after.st_mode) == 0o700 and
                 stable(os.stat('.lock', dir_fd=root, follow_symlinks=False)) == stable(ls),
                 'publication directory or lock changed')
     finally:
@@ -167,10 +170,14 @@ def load(path, root, lock):
             'invalid publication format or attempt')
     for key in ('directory_identity', 'lock_identity', 'parent_identity', 'bundle_identity'):
         valid_identity(record[key])
+    image.checked_path(path)
     require(record['directory'] == str(path) and record['directory_identity'] == identity(os.fstat(root))
+            and record['directory_identity'] == identity(path.stat())
             and record['lock_identity'] == lock, 'publication identity mismatch')
     require(type(record['size']) is int and 0 < record['size'] <= p.MAX_BUNDLE, 'invalid bundle size')
     valid_hash(record['sha256'])
+    p.exact(record['selection'], ('profile', 'preferences', 'documents'), 'recorded selection')
+    p.identity(record['selection']['profile']); p.preferences(record['selection']['preferences'])
     output = image.checked_path(record['output'])
     require(str(output) == record['output'] and output != path and path not in output.parents,
             'invalid recorded output')
@@ -200,7 +207,7 @@ def state(path, root, lock):
             raw, _ = read_regular(directory, name, p.MAX_BUNDLE, links=len(found))
             require(digest(raw) == record['sha256'], 'bundle hash mismatch')
             bundle = p.decode_json(raw)
-            require(projection(bundle) == record['selection'] and p.encode_json(bundle) == raw,
+            require(p.encode_json(projection(bundle)) == p.encode_json(record['selection']) and p.encode_json(bundle) == raw,
                     'bundle selection or encoding mismatch')
             if complete:
                 ack, _ = read_regular(root, 'complete.json', MAX_RECORD)
