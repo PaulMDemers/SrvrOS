@@ -3883,3 +3883,30 @@ SrvrPorts1a30fbe adds an unbuilt actual-WTF main/two-worker suspend/register pro
 and verified-profile link adapter. Its intended register/red-zone observations
 make no GC-only-root or forced-spurious-delivery claim. No JavaScript0+42 result,
 main merge, physical boot or hosted CI is claimed.
+
+The owner subsequently completed the bounded configuration review. Harness
+1db6652c requires actual full boot lines proving no supported network device and
+no network worker, and rejects an unexpected provider before sending the probe.
+The one reviewed diskless guest passes native main/worker GP/FX/x87/XMM/DF/TLS/SP/
+red-zone preservation despite public context destruction, then nested temporary-
+mask suspend/resume, with full exit0 and following prompt. Boot network guards
+pass, owned QEMU31408 stops, and protected review VMs remain alive. The owner
+independently binds all input/config/ISO/raw-serial hashes and accepts only this
+bounded functional scope, excluding SMP, only-root GC and general ABI admission.
+
+Frozen collection: task APFS `evidence/native-public-1db6652c/receipt.json`, SHA256
+`9551e9c9a5e6322eda4ad3fdea0dd7cdf4bf05b234dd9c3fd810bff4f49be18e`;
+prepared run `signal-public-7215z728`, prepare SHA256
+`1d5c393cf85e05664cc379ab55bcc5a23b27fb05843e10573f9a864630312cd9`;
+serial SHA256 `76fb617cdb89f685f56736ab70f96f0e5d45bd478850481956600e3f986d9e94`.
+Fresh normal-caps0 dependency guest `source/build/browser-runtime/guest-s8yi9nbf`
+passes14 cases including expected134 controls; filesystem `guest-3hgmtf0x` passes
+both runs. Both guests stop. Fresh no-JIT JSC with the experimental WTF overlay is
+building; JavaScript0+42 remains unpassed.
+
+Host pressure interrupted preparation at1.6GiB. The task's stopped historical VM
+artifacts (505 entries) were copied byte/type/mode-identically to a separate task
+APFS archive, with their original build path preserved by symlink. Receipt lives
+under `.local/pr334-archive-volume/relocation-receipt.json`; existing protected
+VMs, disks, checkouts and frozen evidence were not changed. Root free space
+recovers above the2GiB reserve; the build volume retains its JSC capacity.

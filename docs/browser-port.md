@@ -56,11 +56,14 @@ zero-FD waits and threading. Unqualified storage/socket paths fail before effect
 A JavaScript failure that requires another path is evidence for the next bounded
 qualification; it must not be bypassed by broadening the gate without review.
 
-Current checkpoint: the owner independently reproduced the bounded TTY correction
-and linked-code retained-stack analysis. Final callback/IRQ configuration review
-for the corrected disposable guest is pending. The earlier prepared image was
-superseded without running. Fresh matched SDK, threaded libc++, RTTI, math, ICU,
-filesystem and runtime-extension builds succeed on the task APFS volume, but
-their new guest checks, WTF target build and JavaScript smoke remain unrun.
+Current checkpoint: the owner independently accepted the bounded native context
+and nested-wait functional probe after source, linked-code, stack and exact guest
+configuration review. The corrected image exits0 with both required markers;
+boot serial proves no network device/worker before the payload, and the owned
+guest stops. This does not establish general public ABI, SMP or only-root GC
+acceptance. Fresh matched SDK, threaded libc++, RTTI, math, ICU, filesystem and
+runtime-extension builds and normal guest checks pass on the task APFS volume.
+The experimental-overlay JSC rebuild is in progress; its JavaScript smoke is
+still unpassed.
 SrvrPorts also contains an unbuilt actual-WTF suspend/register probe; its register
 and red-zone checks do not establish only-root garbage-collector survival.
