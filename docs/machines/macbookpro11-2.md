@@ -12625,3 +12625,50 @@ Authentication,cryptographic nonce/key lifecycle,management/data TX,IP and
 connect/disconnect are still open;AP credentials remain unread/unpackaged.
 The general random API's deterministic fallback must not become handshake
 nonce authority. No new battery,headphone,trackpad-latency or sibling acceptance.
+
+## 2026-11-04 v122 native target discovery and selection accepted
+
+27a82f0daa89a62f/sourcebec108a3/session-00065f7b53eeb5b0-00 passes the unchanged
+frozen complete2007868-byte/15719-operation proof. All five calibration replies,
+saved-word restoration,eight retained receive completions,terminal MAC drain/
+disable/exact stop and inverse originals pass. Six anonymous beacon/probe
+observations aggregate into three private candidates;the exact requested Demers5
+target is unique and all its observations agree on a valid22-byte PSK/CCMP RSNE.
+This accepts the bounded fixed161 candidate selection,not AP authentication,
+key installation,network transmission,IP,data or sustained reception.
+
+Collection initially refused an older accepted large log before evaluating the
+new session. The old session was compared byte-for-byte with its sealed accepted
+capsule,independently archived/verified,and only that generated older USB folder
+was pruned. The new session then passed the original frozen checker without a
+repeat boot. The refusal and both archives are preserved;it is not a native
+runtime failure. Offline storage/recovery checks and automatic Ubuntu return
+pass. The213-file `wifi-discovery5-native-bec108a3` native capsule is sealed outside
+build;acceptance notes are `wifi-discovery5-accepted-bec108a3`. Ubuntu default,
+collected/unarmed. Credentials remain unused. No repeat boot is needed for this
+selection contract. Authentication/data and clean connect/disconnect remain open.
+
+### Active association and authenticated-data scope
+
+Continue the user's end-to-end Demers5 goal. Next implement same-live-owner
+management-frame/TXWI framing and bounded association,with source-audited
+board-specific TX power/rate admission before any management OUT. Read the
+current Linux driver's cached EEPROM/power reference privately without changing
+its working connection. Bind responses to selected device/channel/generation,
+addresses/transaction/status and bounded retirement;copied stopped selection
+alone cannot authorize TX. Then strict entropy,WPA2 PSK/CCMP MIC/nonce/replay/key
+lifecycle,authenticated IP provider,bidirectional data and disconnect/reconnect.
+No deterministic RNG fallback or key reinstallation/PN rollback is admitted.
+Raw reference identifiers and credentials stay in ignored private storage.
+
+Fetched current main518175df after collection:merged offline export recovery,
+Find contents,xz/diff packaging and isolated Air firmware-only capture,including
+the same two host-fixture compiler fixes consumed locally. No new xHCI/Wi-Fi
+owner found. Open370 owns Patch,367 profile streaming,366 GUID selection,365
+kernel audit,334 signal/JSC,310 browser and301 Air scanout. Read their actual
+unit scopes without contacting another chat. Consume/reconcile current module
+pins and main before the next matched physical candidate;current native
+acceptance remains bound tobec108a3/main5f4f6fc6. Touch MT76 management/TX/security,
+private live xHCI ownership and explicit native/log/host/VM proofs. No new native
+trial is installed or armed by this scope;existing cold-shutdown authority
+persists. Battery/headphone/latency work remains deferred.
