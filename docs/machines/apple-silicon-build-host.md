@@ -1,17 +1,29 @@
 # Apple Silicon macOS build host
 
-## Read-only used-installation inspection — active scope
+## Read-only used-installation inspection — qualified
 
 User authorized a scoped PR with used-image and refusal proof. Reuse isolated
 `SrvrOS-installation-io`, branch `device/apple-silicon/installed-state-inspection`,
-main `408cbf8c`. Inspect current filesystem/profile contracts; own the separate
+main `5634cd9d`. Inspect current filesystem/profile contracts; own the separate
 host inspector, inherited-read-only-fd native metadata reader, CLI/tests and proof.
 Original publication/reconciliation rules remain unchanged; receipts stay
 historical after guest use. No kernel/provisioning/profile-policy implementation.
 Validate boot/root identity, current allocation/admission and bounded profile
 metadata; refuse uncertain state without cleanup. Preserve review VMs
 61610/6233/85869 and primary checkout, one build/harness at a time, no physical
-media/reboot/Actions. Acceptance/evidence will be recorded in the installation guide.
+media/reboot/Actions. Acceptance/evidence are recorded in the installation guide.
+
+Clean `ff974bdf` passes the matched build, 19 new inspection groups and combined
+installation/profile checks. The real two-boot proof records six successful
+pristine/used inspections, 23 mutation refusals plus a busy lock, four unchanged
+publication refusals and exact source/stage/receipt preservation. Guest profile
+identity/preferences/data/env/apps and protected regions pass; native writes and
+flushes stay zero. Reopened Text was visually checked. Raw proof and artifacts
+are byte-verified outside build cleanup at
+`.local/installation-evidence/used-proof-4k419y9m`. Review VMs remain live and
+untouched; task VMs stopped. Publish a scoped draft PR; no merge requested.
+Used v2 needs its retained profile snapshot, used v1 its exact old data source.
+On-disk consistency is not authentication, live health or physical durability.
 
 ## PR330 merge review
 

@@ -1,11 +1,11 @@
 # Disk installation and recovery
 
-## Read-only used-installation inspection — active milestone
+## Read-only used-installation inspection — qualified
 
 User authorized implementation, used-image/refusal proof and a scoped PR.
 Branch `device/apple-silicon/installed-state-inspection` reuses isolated
-`SrvrOS-installation-io`, main `408cbf8c` (PR330 plus hardware-evidence-only
-PR331 and additive filesystem proof PR332). Current filesystem/profile contracts include PR312/313/318 root and
+`SrvrOS-installation-io`, main `5634cd9d` (PR330, hardware-evidence-only
+PR331, additive filesystem proof PR332 and SQLite integration PR306). Current filesystem/profile contracts include PR312/313/318 root and
 allocation admission, PR320/321 import and binding, PR326 identity/selection,
 and PR329's file-scoped fsync versus global sync/reboot boundaries. Open PR317
 and browser/hardware work were inspected; no installation/profile overlap is
@@ -44,7 +44,108 @@ publication acknowledgment, authentication, live health, repair or physical-medi
 acceptance. Cooperative offline ownership is required. Preserve review VMs
 61610, 6233 and 85869, primary checkout and earlier evidence. One build/harness
 at a time; no physical disks, host reboot, Actions or merge requested. Status:
-implementation and proof in progress.
+implementation and proof complete; publish a scoped draft for review.
+
+### Inspection contract and accepted proof
+
+```sh
+python3 tools/installation_image.py inspect-installed .local/installation/profile-a --driver build/tests/installation-inspect-driver
+```
+
+Exit zero and `state=installed-consistent` mean the stated offline structural
+checks passed. Exit one emits a JSON refusal reason. The result reports whether
+the image differs from its original publication (`used`), current image hash,
+historical publication/data baseline, GPT identities, filesystem admission and
+allocation counts, namespace backing targets, profiles and remembered choice.
+It does not write a replacement receipt, choose a profile or certify live boot
+readiness. Keep the image offline; nonblocking plan/image/baseline locks serialize
+cooperating tools, not arbitrary writers. Copied/replaced stage/candidate inodes,
+partial aliases, unknown entries, unsafe links and incomplete records refuse.
+
+The original source files are not used as a release dependency for v2 inspection:
+retained records and the canonical bootstrap prove boot payloads, while the
+unchanged retained `profile.exfat` allows streaming recombination of current
+protected regions with original data. Pristine images can prove the original
+whole hash directly. Used v1 images instead require their exact original exFAT
+source inode/device/size/hash; unavailable baselines refuse without guessing.
+Existing publication `inspect` and `reconcile` retain their original stricter
+source/output checks and continue to refuse guest-used images.
+
+The native bridge accepts only an inherited `O_RDONLY`, single-link regular
+image descriptor and a checked aligned range. It uses the actual kernel clean
+exFAT mount/allocation checker, verifies `/fat/bin`, `/fat/var`, `/fat/home`
+backing directories (`/usr` maps to `/fat`), and fails if any write/flush is
+attempted. It does not reuse the provisioning driver. Limits are 2 GiB exFAT in
+the frontend; 128 MiB live native heap, 2 GiB aggregate reads, one million native
+read calls, 4096 emitted metadata entries, 159-byte paths and 1 MiB output.
+Large/unsupported inputs may be refused rather than partially inspected.
+
+Profile checks preserve current guest semantics: UUID and planned local binding,
+required directories, optional legacy identity display record, literal portable
+preference keys/canonical unsigned values within the guest's 512-byte startup
+limit, profile ambiguity and the remembered-choice CRC. Present malformed or
+mismatched identity records refuse. Any import journal, pending marker or unknown
+transaction/selection scratch blocks inspection; no recovery authority is inferred.
+Ordinary document/settings changes remain allowed.
+
+Clean candidate `ff974bdf` includes main `5634cd9d` and Ports `525f4229`.
+The matched full build and combined host checks pass: 55 passing tests and one
+long-matrix entry skipped by default, including 19 new inspection groups;
+profile/session/preferences/chooser/catalog and guest-profile checks also pass.
+New coverage includes API/CLI snapshot equality, v1/v2 historical baselines,
+missing original v2 inputs, older v2 identity fallback, exact 512/513-byte and
+guest JSON grammar boundaries, locks, read-only fd/range enforcement, structural,
+metadata and source-identity refusals. A stale-helper development run is retained
+as failed bring-up evidence and excluded from acceptance.
+
+The real installed-image proof passes two VM lifetimes (edit/save and fresh
+reboot/reopen). Root selection precedes namespace activation and explicit profile
+launch; text/binary documents, six portable settings, identity/local binding,
+machine settings, environment/cwd, installed apps and protected regions match.
+Six positive inspections include pristine, repeated post-boot used states and the
+restored final image. All show zero native write/flush attempts and preserve the
+whole stage and source hashes. Four old publication inspection/reconciliation
+calls refuse used output without changing its original receipt.
+
+Twenty-three in-place mutations plus a busy-image-lock case refuse with the
+expected diagnostic and identical before/after snapshots: kernel/config payload,
+ESP padding, GPT root/label, dirty/backup boot regions, allocation leak, marker/
+identity/local/preferences corruption, pending/journal/torn/scratch/selection
+state, torn receipt, unknown stage entry and missing/tampered historical baseline.
+The allocation-leak refusal occurs in clean admission, which runs the allocation
+check before the later explicit checker. Known fixture mutations are restored
+only by the proof harness after recording refusal; the inspector performs none.
+The final used image inspects successfully again.
+
+The [portable receipt](assets/screenshots/installation-used-manifest.json)
+contains source/build/reader hashes, baseline/protected-region results, expected
+refusal reasons, snapshot hashes and both boot readbacks. The
+[reopened document](assets/screenshots/installation-used-reopened.png) was visually
+inspected. Raw images, patch records, commands, logs and matched artifacts were
+byte-verified outside build cleanup at
+`.local/installation-evidence/used-proof-4k419y9m`; originals remain at their
+recorded paths/inodes. All task VMs stopped; review PIDs 61610/6233/85869 and the
+primary checkout remain untouched. Open reviewed-transfer PR333 was inspected:
+it reuses the existing import journal; this inspector never invokes its commands
+or takes import/recovery authority, and consumes no unmerged dependency.
+
+Final publication refresh integrates main `62b0708e` (PR335): its host-only
+Haswell path audit, test-target addition and hardware documentation change no
+installation, filesystem, profile or runtime source. Fresh combined host checks
+pass; all proof tool/native-source and matched artifact hashes remain identical.
+The accepted VM proof stays attributed to clean `ff974bdf`, with this unchanged
+runtime equivalence recorded separately rather than relabeling the evidence.
+
+```sh
+sh tools/macos/build.sh HOST_CC='python3 build/tooling/darwin-host-cc.py -D_DARWIN_C_SOURCE -Wno-array-bounds' test-installed-root test-profile-desktop test-profile-chooser test-guest-profiles
+sh tools/macos/build.sh -j2 all
+python3 tools/installation_inspection_smoke.py --ovmf /opt/homebrew/share/qemu/edk2-x86_64-code.fd --ovmf-vars /opt/homebrew/share/qemu/edk2-i386-vars.fd
+```
+
+No physical media, power loss, authentication, arbitrary writer isolation,
+automatic repair or lossless recovery is qualified. Inspection reports the
+supported on-disk structure, not current application authenticity or a successful
+global storage flush. Publication/recovery formats and policy remain unchanged.
 
 ## PR330 merge review and next bounded checkpoint
 
