@@ -5101,6 +5101,35 @@ archive SHA256. Restore paths/hashes remain under
 `.local/app-proof/find-contents/archived-superseded-images.json`; current accepted
 raw disks remain. No evidence was discarded. No physical-media/power-loss claim.
 
+### GNU Patch queue source preparation — November 4, 2026
+
+The authorized finite CLI queue permits source preparation while GNU diff waits
+for a separately coordinated combined-cap fixture. Separate `SrvrOS-ports-patch`,
+branch `ports/patch`, starts at actual main `88a95f9a`; integration/review checkouts
+remain untouched. Managed worktree creation rejected the nested source root, so
+the isolated worktree was created through Git from the owned diff clone. No
+compiler/configure/build/guest runs are authorized for this row before GNU diff
+delivery, current-main reconciliation and a fresh resource window.
+
+GNU Patch2.8.1 is pinned to archive SHA256
+`3240c7959c5347c8ed347e3c4201c0337bf4240d5cf09d68889e58eeaba30e17`;
+its direct signature was independently verified against primary fingerprint
+`259B3792B3D6D319212CC4DCD5BF9FEB0313653A`, with PGPy trust/revocation limits
+retained. All578 regular imported files match the authenticated archive.
+Adapt only a generated copy; preserve all licenses.
+
+Proposed useful profile: `patch -i PATCH -o NEW_OUTPUT SOURCE`, single unified
+file section, explicit existing regular source and exclusive distinct new output.
+Noninteractive forward-only/fuzz0, no in-place/backups/reject files, Git/rename or
+create/delete semantics. Preserve source and clean up owned output/temp on failure
+or cancellation; bound actual source/output to256KiB/8192lines/64KiB lines and
+patch to1MiB/32768records/128KiB lines, with declared hunk ranges checked before
+allocation. Qualify zero-count changes, removed dash-prefixed content, missing
+final newline, multi-hunk cases, failed/malformed inputs, caps, allocation/output
+errors, cancellation and two clean builds through genuine GNU parser/engine.
+Status contracts are GNU patch0success/1unapplied hunks/2trouble, independent of
+diff's equal/different contract. Source-only adapter/test helpers own disjoint
+files; no fake shared capability or next-port acceptance is claimed.
 GNU diff checkpoint: genuine core and gnulib link, and the first isolated guest
 passes exact labeled output, statuses, NUL refusal and fsck. Full harness stopped
 before QEMU at xorriso error 32 while internal storage was below reserve; the
@@ -5150,3 +5179,90 @@ record delivery. All owned jobs stopped and each resource slice was released.
 GNU Patch source-only preparation is isolated; further builds require its own
 finite handoff after diff delivery. Review VMs and integration checkout remain
 untouched. No further diff feature is required for this target.
+
+GNU Patch compatibility work now consumes delivered diff: ports `4da8a98b`
+and OS `3fcf2630`, with exact merged trees and port pin verified. Its separate
+checkout reconciles both mains. The explicit ≤30-minute first window covers
+SDK bootstrap, genuine cross-config and port-local compile fixes at ≤2 jobs,
+then one 512 MiB initial guest only after both binaries link. Stop/release on
+shared blocker, first runtime failure, reserve breach, expiry or completion.
+Full qualification is separate. External build/cache/temp and checked reserves
+apply; no unrelated shell quoting or shared runtime change is authorized here.
+
+### GNU Patch first full qualification — incomplete
+
+Clean `37139e18` with published ports `de7adcea` passes the matched build,
+two clean GNU core/gnulib/diagnostic rebuilds against the same SDK objects,
+and selected native tests (two PASS, one expected `dash-o-append` XFAIL).
+The two-boot harness at `build/review/patch/20261104-174642-s7p0g0jh`
+stopped at its outside-fixture artifact comparison: root gained `.srvros/meta`
+and the intended `patch-test`, while Home/tmp entries are unchanged. Both
+guest fsck checks completed. Probe observations are retained, but the overall
+receipt remains FAIL and no acceptance is inferred from assertions not reached.
+The five later guests were not run. All owned jobs stopped and the resource
+window was released immediately; diagnosis is source-only until a concrete
+correction and fresh finite handoff. Integration checkout and review VMs remain
+untouched. No shared libc/kernel blocker has been established.
+
+The later user closeout instruction, relayed by integration, limits this work
+to finishing and verifying GNU Patch Ports12→OS370, updating documentation and
+status, then stopping. Grep/sha256sum are deferred; their source-only research
+creates no implementation or launch authorization. The metadata-sidecar harness
+correction at `1ec87276` validates complete records and passes host-only retained
+605-row and six malformed-input checks. Fresh guest qualification and remaining
+integration gates are still required before merge.
+
+### GNU Patch corrected qualification and remaining miniport caller
+
+Clean `328c2a3a` passes the corrected two-boot Patch, two-boot diff interoperability,
+Terminal functional/expert and full 498-command CLI/fsck gates. Exact paths are
+in `docs/cli-port-queue.md`; production/diagnostic binaries match prior clean
+rebuilds. The original failed artifact receipt remains failed. Six owned guests
+stopped and the resource window was released early. Ports regression was not
+run because the shipped miniport example retained the old Patch syntax.
+`dea65ffc` corrects it to explicit separate output, safe labels, build from the
+patched copy and conditional original-source preservation. A fresh finite
+data-refresh/ports-guest handoff remains required, after filesystem/profiles
+turns. The actual `db95fc9b` main is reconciled; its changes here are docs only.
+No shared libc/kernel change, physical claim or next-port implementation.
+
+The final `d32133b3` data refresh passed its build, but failed the strict
+initramfs byte-identity predicate before QEMU. The archive embeds the changed
+data image; only the intended shipped script differs across 392 logical disk
+entries, and all named ELF payloads are unchanged. Old archive member bytes/
+inventory were not retained, so no member-equivalence acceptance is claimed.
+The failure is preserved and the slot released. Current payloads are frozen
+and readback-verified outside build cleanup. Fresh full guest qualification on
+the final payload is required; no ports guest or merge occurred in that slice.
+
+Fresh qualification candidate reconciles filesystem PR366 `7b1bfcb8` and
+actual main `72fde837` through `a7563231` without conflicts. Incoming changes
+are host inspection/test and documentation only; target runtime/ABI and port
+pins are unchanged. The new matched payload, archive members and disk manifest
+will be frozen outside build before seven fresh sequential guests. Browser
+owns the current resource turn; no new build/guest is launched until handoff.
+
+### GNU Patch final bounded qualification — complete
+
+Clean `60baca64` with runtime ports `de7adcea` reconciles actual main `72fde837`,
+including filesystem PR366. Before guests, ten actual payload files, 146 tar
+members and 392 logical disk entries were frozen/readback-verified outside build.
+Seven fresh sequential 512 MiB guests pass: Patch and diff interchange two boots
+each, actual Terminal functional/expert, full 498-command CLI and full ports.
+The shipped miniport uses separate output, installs the patched program and
+confirms its original source remains unchanged. Fsck is clean. The final receipt
+is `build/review/patch/final-qualification-receipt.json`; public screenshots and
+scope are in `docs/assets/screenshots/patch-manifest.json`. All frozen payload
+and earlier SDK-object hashes remain identical after the runs.
+
+Two clean GNU core/gnulib/diagnostic rebuilds use the same SDK objects; native
+selected tests have two PASS and one expected XFAIL. No full guest upstream
+suite, whole SDK/image reproducibility, RAM/RSS peak, traced in-call cancellation
+bound, user-study or physical acceptance claim. Historical failures remain failed.
+The missing old-container member proof was resolved through fresh qualification
+on the retained final payload. No shared runtime or shell-quoting change.
+Independent review finds no bounded-profile blocker. All jobs stopped and the
+resource window was released early. Ports12→OS370 ordered delivery and exact
+head/tree/pin checks follow; linked PR states record delivery. Then stop: Grep
+and sha256sum are deferred under the later closeout instruction. Integration
+checkout and review VMs remain untouched.
