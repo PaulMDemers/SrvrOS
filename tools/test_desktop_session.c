@@ -11,6 +11,11 @@ static void test_registry_free(void *p,size_t bytes);
 #include "../userspace/deskd/deskd.c"
 #undef main
 
+/* This scene fixture never starts a persistence helper. Final-save helper
+ * restart and retirement are exercised by test_preferences_finish.c. */
+int desk_file_job_init(struct desk_file_job *job) {(void)job;assert(!"unexpected file helper start");return -1;}
+void desk_file_job_close(struct desk_file_job *job) {(void)job;assert(!"unexpected file helper close");}
+
 static unsigned capture_closes,capture_reap_pending;
 int desk_capture_job_prepare(struct desk_capture_job *j,uint32_t width,uint32_t height,const char *path) {
     (void)j;(void)width;(void)height;(void)path;assert(!"unexpected capture preparation");return -1;
@@ -91,6 +96,7 @@ void srv_puts(const char *text) {
 static int alive=1,queue_full,copy_failure,allocations,frees,killed,sends,reaped,alloc_fail;
 static unsigned kill_delay;
 static int terminal_snapshot,defer_reap;static unsigned worker_reaps;
+static uint64_t waited_status;
 long srv_proc_list(uint64_t index,struct srv_process_info *info) {
     if(!terminal_snapshot || index)return 0;
     *info=(struct srv_process_info){.pid=42,.parent_pid=4};strcpy(info->state,"exited");return 1;
@@ -115,7 +121,7 @@ long srv_wait(uint64_t pid,uint64_t *status,uint64_t flags) {
         if(flags&SRV_WAIT_NOHANG)return 0;
         assert(terminal_snapshot && pid==42);worker_reaps++;*status=0;return 42;
     }
-    (void)status;return !alive?(reaped?-1:(long)pid):0;
+    *status=waited_status;return !alive?(reaped?-1:(long)pid):0;
 }
 static void asynchronous_client_termination(void) {
     struct lifecycle_worker w={0};struct session s={.worker=&w};
@@ -586,6 +592,36 @@ static void shutdown_dialog_lifetime(void) {
     service(&s);
     alive=0;service(&s);assert(!s.cache_bytes && !s.children[0]);alive=1;sends=0;
     puts("desktop-shutdown: PASS owned prompts survive exit, repeated exit skips modal children, cancel retains desktop and late roots close cooperatively");
+}
+static void supervised_shutdown_policy(void) {
+    struct session s={.session_child=1,.scene={.focus=-1,.apps=1},.children={42},.child_apps={DESK_APP_TEXT}};
+    memset(&clipboard,0,sizeof(clipboard));alive=1;reaped=0;queue_full=0;send_allow=-1;sends=0;
+    desk_damage_init(&s.damage,1280,800);desk_menu_init(&s.scene.menu);desk_palette_init(&s.scene.launcher);
+    global_menu_action(&s,GLOBAL_SWITCH_PROFILE);assert(s.exiting && s.end_action==DESKTOP_SESSION_SWITCH);
+    waited_status=137;service(&s);assert(s.exiting && s.children[0]==42); /* no wait result yet */
+    alive=0;service(&s);
+    assert(!s.exiting && !s.end_action && !s.children[0] && s.child_errors==1 && strstr(s.scene.notice,"an app failed"));
+    global_menu_action(&s,GLOBAL_SWITCH_PROFILE);assert(s.exiting); /* acknowledged prior failure is not sticky */
+    s.children[0]=42;waited_status=0;service(&s);assert(s.exiting && !s.children[0]);
+    s.exiting=0;s.children[0]=42;waited_status=17;service(&s);assert(!s.exiting && !s.children[0]);
+    global_menu_action(&s,GLOBAL_SWITCH_PROFILE);assert(s.exiting); /* historical command/app errors do not poison retry */
+    s.children[0]=42;s.child_apps[0]=0;service(&s);assert(s.exiting); /* not a registered GUI app */
+    s.session_child=0;s.children[0]=42;s.child_apps[0]=DESK_APP_TEXT;service(&s);assert(s.exiting); /* legacy diagnostic policy */
+    waited_status=0;alive=1;sends=0;
+
+    s=(struct session){.session_child=1,.scene={.focus=0,.apps=1},.exiting=1};
+    desk_damage_init(&s.damage,1280,800);desk_menu_init(&s.scene.menu);desk_palette_init(&s.scene.launcher);
+    for(int i=0;i<2;i++) {
+        s.clients[i]=(struct client){.pid=42,.window=(uint64_t)i+1,.identity=(uint64_t)i+1};
+        s.scene.windows[i]=(struct desktop_window){.visible=1,.application=DESK_APP_TEXT,.z=i+1,.frame={32,64,402,325}};
+    }
+    launcher_open(&s);assert(!s.scene.launcher_open); /* new app launcher stays paused */
+    struct srv_key_event tab={.flags=SRV_KEY_DOWN_EVENT,.usage=SRV_KEY_TAB,.modifiers=SRV_KEY_ALT};
+    assert(navigation_key(&s,&tab) && s.switching && s.scene.launcher_open);
+    struct srv_key_event release={.usage=0xe2};
+    assert(navigation_key(&s,&release) && !s.switching && s.scene.focus==1 && s.exiting);
+    strcpy(executed_path,"paused");spawn_app(&s,DESK_APP_TEXT,"");assert(!strcmp(executed_path,"paused"));
+    puts("desktop-supervised-shutdown: PASS confirmed app failure retains session, retry, ordinary statuses and keyboard focus while launches pause");
 }
 static void dynamic_registry(void) {
     static struct session s;
@@ -1313,7 +1349,7 @@ int main(void) {
         else { item->id=i;snprintf(item->label,sizeof(item->label),"Action %u",i); }
     }
     for(unsigned i=0;i<DESKD_WINDOWS;i++) { s.clients[i].pid=42+i;s.clients[i].identity=i+1;s.clients[i].parent_window=0;s.scene.windows[i].visible=1; }
-    global_menu_rebuild(&s);assert(s.scene.menu.count==58+DESKD_WINDOWS && s.scene.menu.groups==7 && desk_menu_valid(s.scene.menu.items,s.scene.menu.count));
+    global_menu_rebuild(&s);assert(s.scene.menu.count==60+DESKD_WINDOWS && s.scene.menu.groups==7 && desk_menu_valid(s.scene.menu.items,s.scene.menu.count));
     for(unsigned i=0;i<DESKD_WINDOWS;i++) { unsigned found=0;for(unsigned j=0;j<s.scene.menu.count;j++) found+=s.scene.menu.items[j].id==GLOBAL_WINDOW+s.clients[i].identity;assert(found==1); }
     s.clients[0].menus=saved_menus;for(unsigned i=1;i<DESKD_WINDOWS;i++) s.clients[i].pid=0;global_menu_rebuild(&s);
     global_menu_action(&s,GLOBAL_FIND);assert(!strcmp(executed_path,"/fat/bin/deskfind") && !strcmp(executed_role,"find"));
@@ -1410,6 +1446,7 @@ int main(void) {
     delayed_control_delivery();
     connection_lifetime();
     shutdown_dialog_lifetime();
+    supervised_shutdown_policy();
     dynamic_registry();
     document_routing_failures();
     puts("desktop-session: PASS stale resize release, queue retry, partial-copy isolation, dead/unresponsive/already-reaped client cleanup");

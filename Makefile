@@ -2359,6 +2359,7 @@ build/tests/apple-trackpad-host$(HOST_EXE): tools/test_apple_trackpad.c kernel/s
 
 DESKD_NOTICE_SRC := userspace/deskd/notifications.c userspace/deskd/notification_view.c
 DESKD_OBJ := build/userspace/deskd/profile_catalog.c.o build/userspace/deskd/profile_chooser.c.o build/userspace/deskd/notifications.c.o build/userspace/deskd/notification_view.c.o build/userspace/deskd/preferences.c.o build/userspace/deskd/menus.c.o build/userspace/deskd/clipboard.c.o build/userspace/deskd/deskd.c.o build/userspace/deskd/scene.c.o build/userspace/deskd/io_trial.c.o
+DESKD_OBJ += build/userspace/deskd/session_supervisor.c.o
 DESKCLIENT_OBJ := build/userspace/deskclient/deskclient.c.o
 DESK_WIDGETS_INCLUDE := userspace/widgets/include
 DESK_WIDGETS_SRC := $(wildcard userspace/widgets/src/*.c)
@@ -2686,11 +2687,21 @@ build/tests/check-host$(HOST_EXE): tools/test_check.c $(HOST_DESK_WIDGETS_A) $(D
 test-widgets: test-check
 
 .PHONY: test-preferences
-test-preferences: build/tests/preferences-host$(HOST_EXE)
-	$<
+test-preferences: build/tests/preferences-host$(HOST_EXE) build/tests/preferences-finish-host$(HOST_EXE)
+	build/tests/preferences-host$(HOST_EXE)
+	build/tests/preferences-finish-host$(HOST_EXE)
 build/tests/preferences-host$(HOST_EXE): userspace/lib/include/srvros/profile_preferences.h tools/test_preferences.c userspace/deskd/preferences.c userspace/deskd/preferences.h userspace/lib/src/desk_preferences.c userspace/lib/include/srvros/desk_preferences.h shared/include/srvros/desktop_preferences.h
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include tools/test_preferences.c userspace/deskd/preferences.c userspace/lib/src/desk_preferences.c -o $@
+build/tests/preferences-finish-host$(HOST_EXE): tools/test_preferences_finish.c userspace/deskd/preferences.c userspace/deskd/preferences.h userspace/lib/src/desk_preferences.c userspace/lib/include/srvros/profile_preferences.h
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include tools/test_preferences_finish.c userspace/deskd/preferences.c userspace/lib/src/desk_preferences.c -o $@
+.PHONY: test-profile-switch
+test-profile-switch: test-preferences build/tests/session-supervisor-host$(HOST_EXE)
+	build/tests/session-supervisor-host$(HOST_EXE)
+build/tests/session-supervisor-host$(HOST_EXE): tools/test_session_supervisor.c userspace/deskd/session_supervisor.c userspace/deskd/session_supervisor.h userspace/lib/include/srvros/sys.h shared/include/srvros/session_scope.h
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -Dchdir=fake_chdir -idirafter userspace/lib/include -I shared/include tools/test_session_supervisor.c userspace/deskd/session_supervisor.c -o $@
 test-desktop: test-preferences
 
 .PHONY: test-settings

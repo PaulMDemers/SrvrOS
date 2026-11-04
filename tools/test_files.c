@@ -5,7 +5,8 @@ void tool_files_info_open(struct tool *t) { (void)t;assert(0); }
 void tool_files_info_finish(struct tool *t,int result) { (void)t;(void)result;assert(0); }
 void tool_files_copy_path(struct tool *t) { (void)t;assert(0); }
 static struct tool t;
-static unsigned started,launched,clipboard_id;
+static unsigned started,launched,clipboard_id,cancels;
+int desk_app_cancel_close(struct desk_app *app) { (void)app;cancels++;return 0; }
 static int refuse_start;
 static unsigned expected_app=DESK_APP_TEXT;
 static const char *expected_path="/fat/notes.txt";
@@ -40,7 +41,7 @@ static void choose(uint64_t inode) {
 static void activate(unsigned id) { tool_files_action(&t,(struct desk_action){id,DESK_WIDGET_ACTIVATED}); }
 static void accept(void) { tool_files_prompt(&t,(struct desk_action){DESK_PROMPT_ACCEPT,DESK_WIDGET_ACTIVATED}); }
 static void init(void) {
-    memset(&t,0,sizeof(t));refuse_start=0;started=launched=clipboard_id=0;
+    memset(&t,0,sizeof(t));refuse_start=0;started=launched=clipboard_id=cancels=0;
     expected_app=DESK_APP_TEXT;expected_path="/fat/notes.txt";
     desk_ui_init(&t.ui);desk_dialog_init(&t.dialog);desk_prompt_init(&t.prompt);
     desk_text_buffer_init(&t.path_text,t.path_store[0],t.path_store[1],DESK_FILE_PATH);
@@ -50,6 +51,16 @@ static void init(void) {
 }
 static void finish_status(unsigned status) {
     t.job.busy=0;t.job.response.status=status;tool_files_finish(&t,1);
+}
+static void close_failure_tests(void) {
+    init();choose(5);activate(TOOL_DUPLICATE);accept();
+    assert(t.job.busy && t.job.request.operation==DESK_FILE_COPY);
+    t.closing=1;t.job.busy=0;t.job.response.status=DESK_FILE_IO;tool_files_finish(&t,1);
+    assert(!t.closing && cancels==1 && strstr(t.status,"could not be verified"));
+    init();choose(5);activate(TOOL_DUPLICATE);accept();
+    t.closing=1;t.job.busy=0;t.job.response.status=0;tool_files_finish(&t,1);
+    assert(t.closing && !cancels && t.job.busy && t.job.request.operation==DESK_FILE_LIST);
+    listing(1);assert(t.closing && !cancels && t.quit);
 }
 static void alias_listing(void) {
     const struct desk_file_entry entries[]={
@@ -194,7 +205,7 @@ int main(int argc,char **argv) {
     recovery_selection(0,DESK_FILE_COPY);recovery_selection(1,DESK_FILE_COPY);
     for(int i=0;i<4;i++)recovery_notice(i);
     recovery_worker();
-    transfer_tests();alias_tests();
+    transfer_tests();alias_tests();close_failure_tests();
     init();
     assert(t.file_count==3 && t.entries[0].directory && !strcmp(t.entries[1].name,"Alpha"));
     assert(!strcmp(t.file_dates[2],"2026-10-18 12:34"));choose(5);activate(TOOL_OPEN);assert(launched==1);

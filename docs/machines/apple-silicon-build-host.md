@@ -1,32 +1,55 @@
 # Apple Silicon macOS build host
 
-## Session switching — integration review in progress November 4, 2026
+## Session switching — integration qualified November 4, 2026
 
-User authorizes ending sessions and switching profiles without reboot, with
-unsaved-work handling, clean shutdown, settings isolation and merge when ready.
-Coordinator reuses `SrvrOS-migration-review`, initially based on actual main
-`f7ec75e7`. Required runtime dependency is on `device/apple-silicon/session-scope`
-(PR #354); profiles owner supplies OS/Apps/chooser changes in its isolated
-checkout. Runtime owner independently reviews process ownership and retirement.
-Browser owner released the heavy build/VM window; other evidence and review VMs
-remain preserved.
+User authorized cooperative session ending, no-reboot profile switching,
+coordination, verification and merge. Coordinator used isolated
+`SrvrOS-migration-review`; Profiles owner supplied OS/Apps changes in
+`SrvrOS-profile-326-review`; runtime owner independently reviewed scope ownership.
+Runtime PR354 merged as `f58e0725`. Apps9 (`2a8bc2d9`) precedes OS355. UI pin
+`586bd002`, Ports `d760e541` and actual main `f58e0725` are preserved.
 
-Clean `cd93e1eb` passes the full matched macOS build. Strict host process/service,
-loader, lifetime, syscall validation and scheduler tests pass; relevant fixtures
-also pass ASan/UBSan. Follow-up `e3eeaf21` contains only comment/test closure.
-`build/review/session-scope/result.json` records two successful guest scope runs,
-live init PID 1 before/after, inherited lifetime, PTY and syscall ABI regressions.
-The probe proves held descendants prevent release and natural exit allows ordinary
-init reaping; it does not qualify operation without an init reaper. The first
-harness attempt used a shell command at the monitor and was corrected to execute
-`/fat/bin/sysabi`; its log is retained separately. No production failure occurred.
+Ordinary desktop source is `c55a26da`; `3658d8fd` changes only opt-in lifetimeprobe
+console logging and is the matched full graphical proof source. Later `919524bd`
+changes proof tools only, and all three build payload hashes are identical.
+Current source passes focused actual-source host checks, including supervisor,
+preferences flush/retirement, Files/picker and desktop app-failure/Alt-Tab cases.
+Runtime, supervisor, preferences and desktop-session ASan/UBSan checks pass.
+On Darwin the desktop fixture needs `_DARWIN_C_SOURCE`, `-dead_strip` and an
+expanded 65520 KiB stack for its ASan-instrumented large frame; the initial
+8176 KiB stack failure remains recorded. `test-profile-switch` covers supervisor
+and preferences; also run `test-desktop` for compositor regressions.
 
-Parent build uses a new 16 GiB regular-file APFS image on miniTB, mounted beneath
-`.local/session-switch-review/runtime-volume`; `build` links to that volume.
-Prior profile-creation and installation raw paths/inodes and evidence volumes are
-untouched. Host receipts and storage record are in `.local/session-switch-review`.
-No physical-media acceptance is claimed. Desktop integration and its full proof
-remain pending; Actions remain disabled.
+The accepted composite contains three disposable QEMU lifetimes. Original
+`build/review/profile-switch/proof-_b3okkzh` completes graphical A→B→A plus
+640×480 keyboard Cancel/switch and all storage checks reached before env audit.
+Its receipt remains FAIL because the shell builtin env ignored redirection.
+`build/review/profile-switch-context/proof-x_3cf1z2` is a separate PASS: independent
+copies of the stopped original disks, exact same guest payloads, real external
+env/pwd captures, A→B→A and all six variables/cwd without duplicate keys. The
+owner independently audited originals, copies, ten installed binaries, protected
+regions, identities/preferences/bindings, 16 MiB copy, 1 MiB export, saved Text
+and Sketch, machine settings and both normal/640 rendered states. Original hashes
+remain unchanged; prior FAIL receipts are never rewritten. See the
+[composite receipt](../assets/screenshots/profile-switch-review.json).
+
+The actual journey verifies successful/canceled/failed save, partial close plus
+Cancel, accepted work finishing before commit, direct app error cancellation and
+explicit retry, and a held orphan blocking release until natural exit. The
+supervisor requires root exit, successful revoke, authoritative zero membership
+and release before the fresh chooser; unknown/error states never claim completion.
+New launches pause while ending, but Alt-Tab among existing windows remains
+available. Cancel retains the profile; queued app closes may finish.
+
+Parent build uses a task-owned 16 GiB regular-file APFS image on miniTB, mounted
+at `.local/session-switch-review/runtime-volume`; build is a symlink. Accepted
+payloads, source snapshots, receipts, raw images and rendered evidence are
+stream-verified outside build in the external task backup recorded by the
+composite receipt. Earlier creation/installation evidence paths/inodes and review
+VMs remain untouched. All task proof guests stopped; the heavy window is released
+to browser work. Actions remain disabled. No physical-media, power-loss,
+authentication, permission-enforcement or concurrent-session acceptance is added.
+Next delivery action: Apps9 then OS355 and verify exact merged trees/pins.
 
 ## Desktop profile creation — integration delivered November 4, 2026
 

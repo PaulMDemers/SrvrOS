@@ -6,13 +6,13 @@ HOME/config/data/cache resolver. Host tooling, guest commands and desktop
 workflows share this contract. Login, cloud roaming and multi-user security
 isolation remain separate.
 
-Current milestone: native desktop profile creation is qualified for coordinated
-review in [SrvrApps #8](https://github.com/PaulMDemers/SrvrApps/pull/8) and dependent
-[SrvrOS #348](https://github.com/PaulMDemers/SrvrOS/pull/348). The source-matched
-20-lifetime disposable-VM proof passes creation, recovery, remembered selection
-and graphical migration to a second installation. Graphical transfer remains
-merged; its earlier 19-lifetime proof retains its recorded source attribution.
-Authentication and permission enforcement remain separate.
+Current milestone: ending a desktop session and switching profiles without
+reboot is independently qualified in [Apps #9](https://github.com/PaulMDemers/SrvrApps/pull/9)
+and [OS #355](https://github.com/PaulMDemers/SrvrOS/pull/355), following merged
+[runtime #354](https://github.com/PaulMDemers/SrvrOS/pull/354). Profile creation,
+recovery and migration are already delivered in Apps8/OS348. Their earlier
+20-lifetime creation and 19-lifetime transfer proofs retain their recorded source
+attribution. Authentication and permission enforcement remain separate.
 
 | Transfer state | User decision | Result and correction |
 | --- | --- | --- |
@@ -1168,3 +1168,79 @@ match exactly. The helper's optional native inspection mode is not consumed by
 the creation proof. The [integration receipt](assets/screenshots/profile-create-integration.json)
 records the production command, hashes and merge source. No new build or VM run
 is claimed; the 20-lifetime proof retains its actual `1ef0ccdd` attribution.
+
+## Ending sessions and switching profiles
+
+Choose **SrvrOS → Switch Profile…** to end the current desktop and return to the
+profile chooser without rebooting. Choose **Return to console** to finish at the
+console instead. Resolve each app's existing close prompt: Text and Sketch offer
+Save/Discard/Cancel; Terminal explains that Close hangs up its processes. Failed
+saves remain visible and keep the document open. Alt-Tab still reaches existing
+windows while ending; new application launches pause.
+
+Cancel keeps the current profile active. Close requests already accepted or
+queued in another app may still finish; closed apps and discarded documents are
+not reconstructed. Review remaining work before trying again. A confirmed app
+failure during the active close wave cancels the transition and asks the user
+to review saved work. A later explicit retry is allowed. Historical errors and
+ordinary nonzero Terminal command statuses are not treated as a save verdict.
+
+Accepted Files changes and Profiles transfers finish, report failures and retire
+their workers. Preference persistence also finishes before the GUI root commits.
+The nongraphical supervisor waits for the root's actual exit, revokes further
+session admission without sending kill signals, and waits for authoritative
+zero membership before releasing the scope. A still-running descendant blocks
+the next desktop; a timeout is never interpreted as successful shutdown. After
+GUI exit, waiting/errors are shown on the console. Unknown root exits, scope
+errors or uncertain retirement do not open a new chooser. Ownerless revoked
+scopes need the normal live init reaper to make retirement progress.
+
+The next profile starts in a fresh process with its own HOME, profile ID,
+XDG config/data/cache paths and six portable preferences. Its clipboard,
+notifications and windows start fresh. Machine settings stay local. This is
+sequential profile selection, not authentication or simultaneous logged-in
+sessions. Diagnostic/battery lifetimes that cannot create an ordinary scope
+retain their existing path with Switch Profile disabled.
+
+### Session-switch acceptance
+
+The [composite review](assets/screenshots/profile-switch-review.json) records
+three accepted disposable installed-QEMU lifetimes and exact source/payload
+hashes. Matched builds and focused actual-source host tests pass; runtime,
+supervisor, preference finish and desktop-session fixtures also pass ASan/UBSan.
+The full graphical proof uses clean `3658d8fd` with Apps `2a8bc2d9`, UI `586bd002`
+and Ports `d760e541`. It covers A→B→A in one boot; Text/Sketch decisions and
+failed/canceled Save As; partial close with Terminal Cancel; a deliberate direct
+app error followed by explicit retry; accepted 16 MiB Files copy and 1 MiB
+Profiles export; naturally retiring orphan; preference/environment isolation;
+clipboard/notification reset; return to console; and 640×480 keyboard operation.
+
+The two-VM graphical receipt `proof-_b3okkzh` remains **FAIL** at its final
+environment capture audit: shell builtin env ignores redirection. Completed
+workflow assertions and retained disks were independently audited. A separate
+one-VM proof `proof-x_3cf1z2` runs real `/fat/bin/env` and `/fat/bin/pwd` on
+independent copies of those stopped disks and passes A→B→A environment/cwd checks.
+All three guest payload hashes are identical despite the later tool-only source
+`919524bd`. Original disk and receipt hashes are unchanged. Composite acceptance
+uses both records; it does not claim an uninterrupted full-harness PASS.
+
+Independent offline review verifies all six variables without duplicate keys,
+actual cwd, ten installed binaries, identities/local bindings, portable and
+machine preferences, saved Text/Sketch, exact copy/export bytes, allocation and
+protected regions. Normal and small-screen prompts/chooser/readback were
+visually inspected: [unsaved Text](assets/screenshots/profile-switch-unsaved.png),
+[failed save](assets/screenshots/profile-switch-save-error.png),
+[Terminal confirmation](assets/screenshots/profile-switch-terminal.png),
+[640×480 chooser](assets/screenshots/profile-switch-chooser.png), and
+[returned A document](assets/screenshots/profile-switch-return.png).
+Images describe visible states; lifecycle completion comes from process and
+storage evidence. Prior failed attempts remain retained, not relabeled.
+
+Reproduce with a clean matched build, `make test-profile-switch` and
+`make test-desktop`, then `python3 tools/profile_switch_smoke.py
+--ovmf /path/to/edk2-x86_64-code.fd --ovmf-vars /path/to/edk2-i386-vars.fd`.
+The bounded supplemental tool is specifically for the retained capture-gap
+receipt and refuses changed payloads or incomplete graphical prerequisites.
+Accepted backups survive build cleanup; the composite review records their
+location and verified member count. This milestone adds no physical-media,
+arbitrary power-loss, authentication or permission-enforcement acceptance.
