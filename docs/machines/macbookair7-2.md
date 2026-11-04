@@ -2,17 +2,43 @@
 
 Updated: 2026-11-04. State: **active reference machine; partial device acceptance**.
 
-### Active scope: exact declared-MMIO read-only admission
+### Exact declared-MMIO readout validated; automated trial prepared
 
-Consumed main `6225e4d1` as `16a9fd3e`, retaining Intel profiles alongside both
-Haswell capture versions and exact Apps/UI/Ports pins. Objective: correct the
-reserved-entry-only DMA readout rule using the exact ACPI DRHD declaration and
-this unit's captured, non-RAM map gap. Touches Intel adapter/resource receipts,
-strict decoder and tests; no GPU writer, IOMMU command, private DMA grant or
-ordinary startup change. The explicit read-only capture remains isolated.
-PR317 allocator/VMM work, Air6,1 fence/TILECTL work and Pro Wi-Fi remain separate.
-Native c32 is collected; no reboot armed. Next: host/VM validation of the two
-explicit resource sources, then an exact-stage candidate for native readout.
+Source `d5ad0c54` / release `53460fd7c2c0f337` is installed, consuming main
+`6225e4d1` at `16a9fd3e` and its exact Apps/UI/Ports pins. The DMA observer now
+admits either one enclosing reserved entry (source1) or the exact current DMAR
+DRHD page within this unit's captured non-RAM gap (source2). No conflicting,
+partial, duplicate, unknown or malformed map coverage is permitted. The full
+pinned table is revalidated before each gap mapping. Register offsets, read-only
+mapping, retirement and backing-preservation requirements remain unchanged.
+The [resource contract](../macbookair7-2-dma-observation.md) records the UEFI and
+Intel specification audit. There are no IOMMU commands, private GPU mappings,
+GGTT writes, ordinary startup changes or new ownership grants.
+
+Full local host/core/profile/docs and normal/AP/native/synthetic builds pass,
+as do DMA-core and actual-adapter ASan/UBSan, strict hardware collectors, exact
+Q35 refusal/save/return, missing-workspace halt, VirtIO presentation and both
+Haswell capture versions. The local pinned-DMAR mock adapter admits and retires
+one simulated page and rejects both invalid-checksum and valid-checksum changed
+headers. Synthetic references cannot bypass the production pin. The default
+installation suite's opt-in exhaustive matrix is skipped. Actions stay disabled.
+
+Preparation verifies1,327 files /96 prior sessions, offline fsck/allocation/
+writable/headroom, firmware/GPU identity, Ubuntu default and independent recovery,
+known-good, accepted-shadow and preceding diagnostic payloads. Older unused c9e
+was fully archived/hash-verified before removing only its EFI copy for space.
+Preflight also caught a missing older46b backup before deletion; a fresh,
+self-contained copy now verifies against the retained live payload. No existing
+backup was overwritten. Failed preparation/repair attempts are retained.
+
+The no-input native readout is ready; source2 admission and actual DMA-state
+observation remain **unaccepted** pending its matching session. It automatically
+returns after successful save/unmount, including a handled refusal; persistence
+failure visibly halts. Current is5346, recovery9aa; c32/5f6/d79/c497 remain held.
+Run/arming state: `build/air-dma-resource-native-20261104/run.json`; validation:
+`build/air-dma-resource-20261104/`. Evidence and payloads are backed up outside
+build before reboot. Collect this exact run before another install. PR317,
+Air6,1 Haswell/fence/TILECTL and Pro Wi-Fi work remain independent.
 
 ### Native diagnostic identifies missing MMIO resource coverage
 

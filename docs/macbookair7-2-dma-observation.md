@@ -178,3 +178,16 @@ checks pass. No reboot is armed. Next is an explicit fixed-MMIO resource-contrac
 audit; do not merely remove the reserved-page gate or infer disabled translation
 from the refusal. Private GPU buffers and physical page flips remain separate
 unimplemented/acceptance milestones.
+
+## Declared-MMIO candidate (2026-11-04)
+
+Source `d5ad0c54`, release `53460fd7c2c0f337`, implements the two explicit
+resource sources above. Full local host/core/profile/builds, core and adapter
+sanitizers, strict collectors, exact Q35 refusal/save/return, missing-workspace
+halt, VirtIO and both Haswell capture versions pass. The private pinned-table
+host fixture exercises the actual mapping adapter with simulated MMIO and
+rejects changed headers with both invalid and repaired checksums. It does not
+read live registers. The opt-in exhaustive installation fault matrix is skipped
+by the default host run. The native automatic readout is prepared; its positive
+observation and source2 admission require the matching native receipt. No DMA
+mapping or physical tear-free presentation is accepted by host/VM evidence.
