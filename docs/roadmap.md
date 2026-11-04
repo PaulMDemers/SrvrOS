@@ -6,55 +6,33 @@ and [machine records](machines/README.md) separate implementation from physical
 acceptance. The [device parity ledger](device-parity.md) compares the Air with
 ongoing Pro work.
 
-## End session and switch profile — in progress November 4, 2026
+## End session and switch profile — qualified November 4, 2026
 
-Target: explicitly end the current desktop session, resolve unsaved work, retire
-its applications and owned work, return to the chooser and open another profile
-without rebooting. Profiles owner implements the coordinated OS/Apps changes;
-integration coordinator owns this roadmap, independent review and ordered merges.
-Start from actual main `f7ec75e7`; preserve completed creation/migration evidence.
+The requested no-reboot session workflow is implemented and independently
+qualified for merge: **SrvrOS → Switch Profile…** resolves unsaved work, drains
+accepted operations and retires the old session before opening a fresh chooser.
+**Return to console** uses the same cooperative shutdown. Cancel keeps the
+current profile; previously accepted closes may finish and closed apps stay closed.
 
-Required acceptance: Save/Discard/Cancel using actual app workflows, failed-save
-and busy-work handling without implicit data loss, responsive shutdown with
-verified app/owned-child retirement, and repeated A → B → A in one boot. New
-sessions must receive their own HOME/XDG paths and portable preferences, with
-clipboard/notifications/window state cleared and machine settings preserved.
-No silent timeout force-kill or success claim based on window disappearance.
-Unsupported or nonretiring work must prevent a successful switch and explain
-what the user can do. Reuse existing lifecycle/chooser contracts; coordinate any
-runtime dependency with the process-isolation and browser owners.
+Acceptance covers Text/Sketch Save/Discard/Cancel and failed saves, Terminal
+confirmation, in-flight Files/Profiles work, direct app failure and retry,
+a naturally retiring orphan, repeated A → B → A, separate preferences and
+HOME/XDG/cwd, fresh clipboard/notifications, unchanged machine settings, exact
+saved data and 640 × 480 keyboard operation. Full matched builds, focused actual
+source host/sanitizer tests, independent source/storage/rendered review and three
+disposable QEMU lifetimes establish the bounded result. The original graphical
+receipt retains its environment-capture FAIL; a separate source-equivalent
+context proof closes that gap without relabeling it. See the
+[workflow and acceptance](portable-profiles.md#ending-sessions-and-switching-profiles)
+and [composite review](assets/screenshots/profile-switch-review.json).
 
-Source review confirms Text and Sketch already support Save/Discard/Cancel.
-Cancellation keeps the current profile active; already-closed apps remain closed.
-A required runtime dependency is now established: main exposes no authoritative
-userspace descendant-drained query. Reuse its kernel-only immutable lifetime
-membership through a narrowly reviewed owner interface; separate graceful
-negotiation, irreversible admission revocation, nonkilling retirement progress
-and revoked-plus-zero completion. Existing lifetime drain actively kills and
-must not be used as an implicit close operation. Runtime owner reviews this
-boundary with the browser/process owner before implementation; snapshot ancestry
-and window disappearance cannot substitute for it. Data-save success remains
-separate from process retirement.
-
-The runtime dependency is qualified on clean source `cd93e1eb`: matched full
-macOS build, actual-source host tests (including ASan/UBSan), independent runtime
-review, and a disposable full-boot QEMU proof. Two scope-probe runs verify failed
-root cleanup, a held orphan blocking release, natural retirement, and ownerless
-scope cleanup by the live system init (PID 1). Inherited lifetime, PTY/job-control
-and syscall ABI guest regressions also pass. Follow-up `e3eeaf21` changes only a
-header comment and host test, adding actual main/worker exit coverage with a
-pending root reservation. Ownerless cleanup requires the ordinary live init
-reaper; absence of progress must remain a refusal, never a forced completion.
-See [runtime PR #354](https://github.com/PaulMDemers/SrvrOS/pull/354).
-
-The current working scope excludes concurrent logged-in desktops, authentication,
-permission enforcement and physical-media qualification. The profiles owner
-implements the explicit cancellation/commit boundary and private supervisor;
-parent integration uses `SrvrOS-migration-review` and a dedicated external APFS
-build volume. Existing creation/installation evidence remains unchanged. Next:
-review and integrate the desktop/Apps candidate, qualify the complete A → B → A
-flow, and merge matching Apps/OS revisions when ready. Runtime qualification
-alone does not establish desktop-switch acceptance.
+Runtime [OS #354](https://github.com/PaulMDemers/SrvrOS/pull/354) is merged as
+`f58e0725`. Delivery order is [Apps #9](https://github.com/PaulMDemers/SrvrApps/pull/9)
+then [OS #355](https://github.com/PaulMDemers/SrvrOS/pull/355), with no remaining
+implementation or verification blocker. Existing installation/creation evidence
+and review VMs remain preserved; browser work has the heavy build/VM window.
+Authentication, permissions, concurrent logged-in desktops and physical-media or
+power-loss qualification remain separate. Actions remain disabled.
 
 ## Desktop profile creation — delivered and verified November 4, 2026
 
