@@ -134,3 +134,68 @@ failure cleanup; accept the trusted setter's fail-closed fatal invariant policy;
 approve the metadata-only generation/association implementation and tests. This
 does not approve FPU proof minting, interrupted-context capture/restore, signal
 admission or a public ABI.
+
+## Complete tuple predicates and caller matrix for owner review
+
+The owner accepted the checked-preparation/fail-closed direction, but authorized
+only checked root creation first. The following is the exact proposed metadata
+boundary; it is not implementation approval. Keep **binding validity** separate
+from **signal deliverability**: a parent killed while a foreground child runs
+must be able to restore its intact binding and reach ordinary cancellation, and
+main `pthread_exit` can return to its atexit continuation. Neither condition is
+an internal tuple corruption or justification for a kernel halt.
+
+Process-owned validation runs with IRQs already excluded and no callbacks. Match
+an opaque process pointer by equality against the bounded static process-slot
+array before dereferencing it; then require allocated, active, not reapable and
+not reserved for release/reuse. Require a nonzero issued image generation equal
+to the argument, and its exact nonzero aligned registered nonkernel root equal
+to the argument. Root preparation is independently repeated under the same
+exclusion immediately before publication. Job/PID/CR3 or a nonzero number alone
+does not authenticate the image. A staging heap object is never a publishable
+process-slot pointer: exec moves its reserved image/generation into the validated
+live process while unbound before calling a setter.
+
+| Component | Exact proposed predicate |
+| --- | --- |
+| Scheduler | Initialized, not switching, current index within published capacity, current record RUNNING, nonzero immutable scheduler identity; current kernel-FPU record belongs to that stable slot. Require io_depth==0 or io_owner==current_thread: no setter during a foreign owner's service window. Existing owned-I/O calls retain their audited process/service contract; no wait is added inside the commit. |
+| Main selection | The current scheduler worker association is NULL. Resolve the validated process's main FPU and FS directly; never infer main FS from `process_fs_base`'s current-worker fallback. An explicitly supplied FPU must equal that main record. Ordinary main restore may retain killed/exiting/main-exited flags for cancellation/atexit; it must still own a live intact image. |
+| Worker selection | Match the worker pointer by equality against one of that validated process's eight slots before dereference. Require used, active, exact owner, tid >=2 and exact FPU pointer equal to that slot's FPU. Fresh scheduler identity is issued before READY; parent must still hold the same live image generation/root. A bare/recycled TID is not proof authority. Directed-send TID wrap is a separate gate before signal admission. |
+| FPU | Selected record address is 16-byte aligned and exactly the validated main/worker record; when FPU is available its record is initialized. Unavailable hardware follows the existing no-FPU initialization semantics and cannot mint a future proof. User records have no active association; the opaque association belongs only to the selected scheduler kernel-FPU record. |
+| FS/TLS | Selected FS equals that exact main/worker TLS pointer. For zero TLS size require zero file size/base/pointer. Otherwise require file<=memory<=template limit, power-of-two alignment<=page, checked block/TCB size, deterministic slot base within USER_TLS bounds, and FS==base+aligned block size. Do not dereference user TCB bytes during this metadata transaction. This validates the owned TLS selection; future signal/copy proof must separately validate actual resident page permissions. |
+| Main stack/TSS | Supplied top equals the process-owned kernel-stack top; nonzero physical allocation is page aligned, frame count equals PROCESS_KERNEL_STACK_SIZE/page, virtual base equals its PMM direct-map address, and checked base+size is a canonical upper aligned top. No fallback to default TSS for a publishable main image. |
+| Worker stack/TSS | New scheduler slot owns its fresh SCHEDULER_STACK_SIZE allocation with matching direct-map base, checked canonical upper/aligned end and frame extent. Worker kernel_stack_top remains zero so TSS selects this verified scheduler-owned stack, rather than the process main stack or default fallback. Validate before READY. |
+| Clear | Initialized current RUNNING slot with valid identity, and a nonzero valid kernel root/default TSS stack established before mutation. Invalidate first, clear process/worker/generation/FPU/FS/root fields, select kernel root/FS0/default TSS under the same saved exclusion. Before scheduler initialization clear can remain a no-op because no user binding exists. |
+| Delivery (later) | In addition to valid binding, refuse killed/exiting/reapable/zero-image, inactive or main-exited target, cancellation, I/O ownership, and missing exact entered-user FPU proof. No delivery predicate is enabled by metadata alone. |
+
+The scheduler must not dereference a caller's arbitrary process/FPU pointer before
+process-owned membership validation. A private common main-binding implementation
+can serve both existing main setter entry points and resolve FPU/FS only after
+that check; the public wrappers must not call today's unchecked
+`process_fpu_state` first. `scheduler_set_user_thread_context` has no production
+caller (only declaration/definition and fixture mocks). Propose removing that
+unused standalone partial-binding setter in this slice, rather than leaving a
+way to change worker identity independently of FPU/FS/root/TSS. Worker publication
+remains one complete `scheduler_spawn_user_thread` transaction.
+
+| Caller | Recoverable prepublication failure | Committed binding and failure boundary |
+| --- | --- | --- |
+| Kernel `run` and native foreground args/redirect | Image/vector/preparation/reservation failure cleans staged image; existing false/-1 result; old binding/association untouched. Remove the two redundant foreground load-error setters. | Main child generation committed before first bind; parent restore reuses its old generation. Final setter revalidates; trusted invariant failure halts before its first mutation. |
+| `process_spawn_exec`, foreground or detached | Load/vector/fd/action errors keep their current errors and cleanup. Root preflight failure returns IO; generation exhaustion AGAIN; both before publication. Existing file-action external effects are not promised rollback. | Foreground main-only bind; detached scheduler admission failure cleans child and returns AGAIN. Delayed background first bind revalidates the complete committed main tuple. |
+| `process_exec_replace` | Load/vector/preparation/ID reservation/stdio-clone failures preserve old image/binding/association; IO for prep and AGAIN for exhaustion. Reserve before stdio; an unused ID can burn. | After stdio, invalidate/unbind, zero old generation, retire old backing while unbound, move staged image+generation and rebind. Late trusted validation failure halts; no false rollback or silent setter refusal. |
+| Background start/quiet/lifetime/fds constructors | Existing false/-1 and cleanup on preflight/reservation/admission failure; never READY with zero ID. | Commit staged generation before scheduler publication; revalidate on delayed first bind. |
+| Fork | After clone, prep/reserve before READY; IO/AGAIN as above with existing child cleanup. Descriptor-clone/admission errors unchanged. | New child generation, copied register image but empty association; parent generation/association unchanged. |
+| Worker creation | Validate current parent tuple before admission, then new worker tuple/TLS/stack and root again before READY; existing -1/false with staged TLS/stack cleanup. Uninitialized scheduler returns false. | Inherit committed process generation; fresh immutable scheduler identity/empty association. Failure never invalidates the parent's association. |
+| Main setter before scheduler init or malformed internal tuple | No user constructor is allowed to reach this case; main initializes scheduler before every production launcher. | Trusted invariant failure, not silent return. Host fixtures must cover it and verify zero tuple/hardware/accounting mutation. |
+| Exit/clear/kill/reuse | No generation allocation or recoverable commit work. | Invalidate before first binding/FS/FPU/CR3/TSS or backing mutation. Main atexit continuation keeps the shared image generation; final image teardown retires it. |
+
+For the fatal path propose one fixed short `serial_write` message followed by
+`halt_forever`, entered with IRQs already excluded. Bypass `console_write`, which
+can request framebuffer presentation. Audit the entire serial path: fixed bytes,
+bounded SERIAL_TX_SPIN_LIMIT per byte, no allocation/lock/scheduler callback,
+nested IRQ save/restore cannot enable interrupts, and optional latency recording
+only performs bounded clock/counter reads. The halt must retain IF0; diagnostic
+is best-effort if UART is absent/stalled. Host fixture substitutes a terminal
+test trap and verifies that no binding/accounting/hardware mutation preceded it.
+Owner must approve that audit or select a dedicated bounded diagnostic before
+the metadata slice changes any trusted void setter behavior.
