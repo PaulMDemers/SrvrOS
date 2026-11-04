@@ -440,12 +440,17 @@ static void session_scope_contract(void) {
     user_scope_detach(current);current->main_thread_exited=false;
     for(unsigned worker=0;worker<2;worker++) {
         assert(!process_scope_create(&token));
+        assert(!process_scope_reserve(token));
+        struct process_lifetime *pending=lifetime_find(token);
+        assert(pending && pending->reservation && pending->members==1);
         current_user_thread=worker?&current->user_threads[0]:NULL;
         check_exit_hook=true;
         if(!setjmp(exit_hook)) process_exit(0);
         check_exit_hook=false;current_user_thread=NULL;
         assert(!lifetime_find(token) && !current->owned_user_scope);
     }
+    assert(!process_scope_create(&other)); /* No stranded ownerless reservation. */
+    user_scope_detach(current);
     current=NULL;
     memset(processes,0,sizeof(processes));memset(process_lifetimes,0,sizeof(process_lifetimes));
     puts("session-scope: PASS reservation/revoke, single root, fast reap errors, stale capability and ownerless zero retirement");

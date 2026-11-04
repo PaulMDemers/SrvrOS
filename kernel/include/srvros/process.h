@@ -116,10 +116,10 @@ int64_t process_spawn_background_elf_args_fds(const char *path,
     const char *args,
     int64_t stdin_fd,
     int64_t stdout_fd);
-/* Kernel-only owner capability; no userspace setter or syscall. One root per
- * token, inherited by all spawn paths; exec/job control do not change it.
- * CPU0 only, matching process management. Members include preparation/release.
- * Revoke, drain until members==0, then release. A timeout is not retirement. */
+/* Backend for the userspace session-scope syscall. Authority belongs to the
+ * current unscoped owner and its exact token; reservations count as members.
+ * Revoke closes admission without signals. Reap claims at most one retired
+ * orphan; release requires revocation and zero members. */
 struct srv_scope_status;
 int64_t process_scope_create(uint64_t *out);
 int64_t process_scope_reserve(uint64_t token);
@@ -127,6 +127,10 @@ void process_scope_cancel_reservation(uint64_t token);
 int64_t process_scope_control(unsigned op,uint64_t token,struct srv_scope_status *out);
 int64_t process_scope_reap(uint64_t token);
 
+/* Kernel-only owner capability; no userspace setter or syscall. One root per
+ * token, inherited by all spawn paths; exec/job control do not change it.
+ * CPU0 only, matching process management. Members include preparation/release.
+ * Revoke, drain until members==0, then release. A timeout is not retirement. */
 struct process_lifetime_status { uint64_t members, peak; bool revoked; };
 uint64_t process_lifetime_create(void);
 int64_t process_lifetime_spawn(uint64_t token,const char *path,const char *args);
