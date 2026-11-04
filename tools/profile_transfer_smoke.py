@@ -27,6 +27,13 @@ import source_provenance
 ROOT = Path(__file__).resolve().parents[1]
 A, B = guest.A, '/fat/home/local_b'
 CHECKPOINTS = ('journal', 'directories', 'document', 'identity', 'commit-ready')
+# Synthetic only: these files must remain on A and must not enter the bundle.
+SENTINELS = (
+    ('unselected_document', 'Documents/unselected.txt', 'synthetic-unselected-document'),
+    ('credential_fixture', '.config/credential-sentinel.fixture', 'synthetic-not-a-credential'),
+    ('application_state', '.local/share/app-state.fixture', 'synthetic-app-state'),
+    ('cache', '.cache/runtime-cache.fixture', 'synthetic-runtime-cache'),
+)
 
 
 def text(vm, value):
@@ -113,6 +120,8 @@ def check_profile(fixture, home, machine, bundle, *, source=False):
     prefix = home.removeprefix('/fat/') + '/'
     if fixture.read(prefix + 'profile.id') != b'srvros-profile-v1\n' + d.ID.encode() + b'\n':
         raise RuntimeError('profile identity mismatch')
+    if profile_bundle.decode_json(fixture.read(prefix + 'identity.json')) != bundle['profile']:
+        raise RuntimeError('full profile identity mismatch')
     binding = profile_bundle.decode_json(fixture.read(prefix + 'profile-local.json'))
     if binding['alias'] != ('local_a' if source else 'local_b'):
         raise RuntimeError('local alias mismatch')
@@ -126,6 +135,12 @@ def check_profile(fixture, home, machine, bundle, *, source=False):
         fixture.read('home/desktop.conf') != machine):
         raise RuntimeError('document, portable preferences, or machine settings mismatch')
     c.absent(fixture, prefix + '.profile-import-pending')
+    for _, path, payload in SENTINELS:
+        if source:
+            if fixture.read(prefix + path) != (payload + '\n').encode('ascii'):
+                raise RuntimeError(f'source sentinel changed: {path}')
+        else:
+            c.absent(fixture, prefix + path)
     for binary in ('deskd', 'desktools', 'deskterm', 'deskprofiles', 'profile'):
         expected = runtime_elf((ROOT / f'build/userspace/{binary}.elf').read_bytes())
         if fixture.read('bin/' + binary) != expected:
@@ -288,6 +303,8 @@ def main():
         c.absent(guest.check_allocation(disks['transport'], out, 'transport-empty'), 'transfer.json')
         d.save_json(out / 'receipt.json', receipt)
         with c.VM(disks['a'], disks['transport'], out, 'a-interrupted-export', args) as vm:
+            for _, path, payload in SENTINELS:
+                vm.run('/fat/bin/write ' + A + '/' + path + ' ' + payload)
             start, index = c.chooser(vm, A, flags='--choose-profile --apps-trace --scale=1 ' +
                                      checkpoint_flag('export-partial'))
             vm.screenshot('chooser-source')
@@ -309,11 +326,16 @@ def main():
         (out / 'guest-export.json').write_bytes(exported)
         bundle = profile_bundle.decode_json(exported)
         payloads = profile_bundle.validate_bundle(bundle)
-        if (bundle['profile']['id'] != d.ID or payloads != {'Documents/migration.txt': d.SOURCE,
+        if (bundle['profile'] != d.make_bundle()['profile'] or payloads != {'Documents/migration.txt': d.SOURCE,
                 'Documents/binary.dat': d.BINARY} or bundle['preferences'] != d.make_bundle()['preferences']):
             raise RuntimeError('GUI export differs from selected source documents or preferences')
         receipt['guest_export'] = {'sha256': d.digest(exported), 'bytes': len(exported),
                                    'path': str(out / 'guest-export.json')}
+        receipt['exclusions'] = [{'class': kind, 'path': path,
+            'synthetic_sha256': d.digest((payload + '\n').encode('ascii')),
+            'bundle_absent': path not in payloads, 'source_preserved': False,
+            'destination_absent': False, 'recovered_checkpoints_absent': []}
+            for kind, path, payload in SENTINELS]
         # Derive a separate identity-bound installation from A's offline data;
         # apply the 640x480 EFI config to both planning and image creation.
         _, (a_offset, a_size) = d.partitions(disks['a'])
@@ -387,6 +409,8 @@ def main():
                 raise RuntimeError(checkpoint + ': protected bytes changed')
             fixture = guest.check_allocation(probe, out, 'recovered-' + checkpoint)
             binding = check_profile(fixture, B, machines['b'], bundle)
+            for exclusion in receipt['exclusions']:
+                exclusion['recovered_checkpoints_absent'].append(checkpoint)
             receipt['interruptions'].append({'checkpoint': checkpoint, 'disk': str(probe),
                 'binding': binding, 'final_disk_sha256': d.digest(probe.read_bytes())})
             d.save_json(out / 'receipt.json', receipt)
@@ -412,6 +436,9 @@ def main():
             binding = check_profile(fixture, home, machines[name], bundle, source=name == 'a')
             receipt['installations'][name]['profile'] = {'id': d.ID, 'home': home, 'binding': binding,
                 'machine_sha256': d.digest(machines[name])}
+        for exclusion in receipt['exclusions']:
+            exclusion['source_preserved'] = True
+            exclusion['destination_absent'] = True
         a_final_choice = guest.check_allocation(disks['a'], out, 'a-final-choice').read('home/.desktop-profile')
         if a_final_choice != a_choice or a_final_choice != c.expected_choice(A):
             raise RuntimeError('source remembered choice changed during transfer')
