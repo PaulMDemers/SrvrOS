@@ -12685,3 +12685,16 @@ captured without changing its working connection. This reference does not
 program or accept SrvrOS TX power. No hardware TX,association,WPA2 or IP is
 claimed;no new boot is armed. Integrate reviewed main518175df/module updates
 before the eventual matched hardware candidate;preserve v122 acceptance.
+
+Private handshake nonce groundwork now uses CPUID-gated RDRAND/CF with at most
+ten attempts per word and no clock/software fallback;the general RNG syscall
+is unchanged. Whole-result publication,sticky failures,zero/ones/word/block
+repetition,aliases,reentry,generation exhaustion and callback-state mutation
+are covered. An initial reversible-state mutation test exposed an end-only
+check;ownership/state is now checked after every callback. Host and fatal
+ASan/UBSan tests pass,including partial-read failures,plus native object/stack
+compilation(maximum frame184bytes). This Ubuntu CPU backend is exercised with
+no values logged;it is not SrvrOS native nonce or authenticated-link acceptance.
+The codec/nonce helpers still have no live hardware caller. TX-power fields,
+association state,WPA2 crypto/key/data provider and current-main integration
+remain to be implemented/qualified;v122 stays the latest physical acceptance.

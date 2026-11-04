@@ -6739,3 +6739,20 @@ inputs,and short output capacity publishes nothing. Host/fatal-sanitizer tests
 cover framing,all header/address mutations,truncation/IE/status/AID/security
 refusal and100000 hostile inputs. This is implemented/tested groundwork only;
 live same-owner association,WPA2,keys,IP/data and disconnect remain pending.
+
+### Private handshake nonce source
+
+`wpa2_nonce_generate` is a separate fail-closed source,with no change to the
+general random syscall or its fallback behavior. On x86 it requires CPUID
+RDRAND support and checks CF for each word,with ten bounded attempts and no
+clock/software fallback;other architectures refuse. See the [Intel DRNG
+implementation guide](https://www.intel.com/content/www/us/en/developer/articles/guide/intel-digital-random-number-generator-drng-software-implementation-guide.html).
+Local checks additionally refuse zero/ones/repeated words,repeated whole blocks,
+state changes,generation exhaustion and an already faulted source. These are
+failure checks,not an independent entropy-quality certification. Publication
+is atomic at the32-byte result boundary;failures scrub separate output and
+preserve prior successful state. Alias and reentrant calls refuse. A faulted
+source stays unavailable rather than switching to a weak fallback. Values are
+not logged. Host/fatal-sanitizer/native-object checks pass;the Linux CPU backend
+is exercised without exposing values. No SrvrOS native nonce/handshake/key
+acceptance or device/transmission authority follows from those checks.
