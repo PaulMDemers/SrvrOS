@@ -1203,3 +1203,16 @@ runtime ownership halts with the mount retained. Collect the strict
 `battery_home_session` proof and exact saved `text-1.txt` through `text-5.txt`
 contents (`AA`), prior-file hashes and offline allocation before another trial.
 Ordinary desktop startup and continuous battery admission remain disabled.
+
+### Pro11,2 fixed161 private discovery candidate (v122)
+
+The opt-in `--wifi-discovery5` child requires `--wifi-cal5` and its complete
+existing automatic parent chain. It adds private copied aggregation and exact
+requested-target PSK/CCMP candidate selection after stopped retained receive,
+then inverse RF cleanup. Follow the normal matched build,exact-stage VM,recovery,
+run-record,one-shot and collection sequence. This is an unattended console trial
+with progress and complete saved results,not an attended desktop or an
+authenticated/IP provider. See [USB Wi-Fi](usb-wifi.md) and the local unit's
+record for acceptance. Pro11,2 still needs a cold adapter unplug;use shutdown
+under the user's existing authorization rather than silently substituting a
+warm reboot. Retain the workspace drive and collect the matching session first.

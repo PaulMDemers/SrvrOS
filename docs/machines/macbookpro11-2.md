@@ -12584,3 +12584,44 @@ headers and focused34-case recovery/model gates pass. Full merged core/build,
 source-matched desktop/exact-stage VM,disposable2MiB filesystem and frozen full
 prefix qualification remain required. Latest native acceptance staysv121285dad07;
 no candidate installed or boot armed. Authentication/key/TX/IP/data remains open.
+
+## 2026-11-04 v122 Demers5 selection candidate installed
+
+Release27a82f0daa89a62f/sourcebec108a3 is installed,unarmed,for the separate
+fixed161 private discovery/explicit target/PSK-CCMP selection checkpoint.
+Integration base5f4f6fc6 is consumed with published Apps1e28aa1a,UIb3fa806a and
+Ports78bf21b8. Full core/build/docs qualification passes across source-checked
+resumed prerequisites:71 installed-root tests(one expected skip),full combined
+xHCI sweep,all remaining core tests and refreshed matched ordinary images.
+The upstream session-scope longjmp fixture now retains its volatile loop state;
+this changes no runtime code. Wi-Fi164/session-scope163 are distinct and the
+actual rebuilt System caller is checked. Fatal ASan/UBSan covers new security/
+discovery,legacy collection and combined controller/private lifetime recovery.
+New native maximum frame856bytes. Fresh disposable real2MiB filesystem write,
+read,unmount/remount and external fsck pass on the current filesystem source.
+
+Initial stage refusal found that the old prerequisite allowlist omitted the
+new exact child. Corrected child admission retains all parent and mode guards;
+217 staging tests now include the actual complete staging API and eight missing-
+parent/extra-mode refusals. Only staging/test Python differs from1534632a's
+qualified runtime tree;exact runtime/source/input/artifact equality preserves
+those successful receipts. The matched desktop VM is rerun atbec108a3;exact
+GPT stage/save/automatic-return and missing-workspace VMs pass. Full frozen
+2004949-byte/15719-operation parent plus selection composition passes seven
+whole-prefix refusals,with92203bytes remaining in the2MiB capture. Synthetic
+selection does not accept the real target.
+
+Actual model/descriptor/workspace,offline fsck/allocation/writable/headroom and
+all installed recovery bytes pass. The unreferenced v117 EFI copy is retired
+only after equality with its independently sealed accepted backup;currentv121,
+failed initialv121,v118–v120,e47d recovery and all independent accepted evidence
+remain. Payload/source/receipts/frozen checker/run state are sealed outside
+build as `wifi-discovery5-native-bec108a3`. Ubuntu stays default and e47d previous.
+Shutdown remains authorized for10second Wi-Fi unplug while off,reconnect same
+port,power on,workspace retained. Automatic progress/save/unmount/Ubuntu return;
+no commands/photos. Collect this matching v122 session first after return.
+Latest native acceptance remainsv121285dad07;target selection is pending.
+Authentication,cryptographic nonce/key lifecycle,management/data TX,IP and
+connect/disconnect are still open;AP credentials remain unread/unpackaged.
+The general random API's deterministic fallback must not become handshake
+nonce authority. No new battery,headphone,trackpad-latency or sibling acceptance.
