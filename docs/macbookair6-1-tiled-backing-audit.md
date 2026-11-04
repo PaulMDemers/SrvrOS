@@ -1,10 +1,11 @@
 # Air6,1 tiled framebuffer backing audit
 
-Audit checkpoint: 2026-11-03, integration base `8f47f196`. This is source analysis
-and executable host arithmetic, not a new native capture, adapter or ownership
-implementation. Installed release `9b485ca12b4c2482` / source `728bcbeb` remains
-the last observed readout. Its underlying backing and seven owner assurances
-remain unknown. Policy, limits, recovery and ordinary startup are unchanged.
+Initial source-audit checkpoint: 2026-11-03, base `8f47f196`. The starting-point
+sections below preserve that earlier audit. The subsequent isolated pilot and
+native result are recorded later in this guide; current accepted readout is
+`e98aed0c5f8d06cf` / `baaa94b5`. The latest fence/swizzle prerequisite audit uses
+base `5634cd9d`, adds host-only interpretation and grants no ownership. Policy,
+limits, recovery and ordinary startup are unchanged.
 
 ## Captured starting point
 
@@ -189,3 +190,85 @@ synthetic; only the matching native saved file can accept the observation.
 Both the record and decoder preserve `upper=unknown`, `swizzle=partial` and
 `ownership=0`. No full fence uniqueness, complete CPU-view equivalence, firmware
 exclusion, GGTT allocation, scanout ownership or well/HDA transition is inferred.
+
+## Native pilot result (2026-11-03)
+
+Release `e98aed0c5f8d06cf` / source `baaa94b5` retains two matching complete
+1,056-entry Haswell DWORD vectors, bracketed at 371/368 us. All PTEs are present
+and identify consecutive address candidates in firmware-reserved stolen RAM;
+eight temporary windows retire without uncertainty. FENCE0 is the only lower
+candidate, and the observed display-arbitration swizzle bit is clear. This accepts
+bounded read-only observations, not full fence uniqueness, complete swizzle,
+CPU-detiled equivalence, allocation lifetime, pinning or real hardware ownership.
+See the [unit record](machines/macbookair6-1.md#native-haswell-full-vector-observation-accepted-2026-11-03)
+for exact session and storage/recovery checks. The original RC6 timing failure
+and package-C3 result are unchanged. Remaining prerequisites require further
+source audit/read-only evidence before any writer or adoption can be considered.
+
+## Inherited fence/swizzle prerequisite audit (2026-11-03)
+
+Current integration base is `5634cd9d`; native input remains the complete
+`baaa94b5` / `e98aed0c5f8d06cf` receipt. The host-only
+[path audit](../tools/haswell_path_audit.py) strictly re-decodes that receipt and
+never accesses MMIO. Its output cannot grant hardware authority or new physical
+acceptance. PR301 at `5287fa13` remains an independent, unmerged Broadwell scope.
+
+The Intel Haswell Memory Views volume, pp24–26, distinguishes CPU/aperture,
+display and render/media swizzle controls. The register volume, p503, defines
+**both** display bits 14:13: `00` disables display swizzling, `01` enables it,
+and the other values are reserved. Native `DISP_ARB_CTL=0x16661056` has field
+`00`. The existing bit-13 observation is correct, but interpreting only that
+bit would miss reserved value `10`. Host fixtures now cover all four values.
+This settles the sampled display-side field, not other access paths.
+
+Pinned Linux's [initial-plane setup](https://github.com/torvalds/linux/blob/028ef9c96e96197026887c0f092424679298aae8/drivers/gpu/drm/i915/i915_initial_plane.c)
+sets `preserve_bios_swizzle` for an inherited nonlinear object. Its
+[fence/swizzle detector](https://github.com/torvalds/linux/blob/028ef9c96e96197026887c0f092424679298aae8/drivers/gpu/drm/i915/gt/intel_ggtt_fencing.c)
+then selects the display field instead of deriving a new policy from DIMM
+configuration. Its initializer writes multiple controls when enabling swizzle.
+That policy-selection path does not prove firmware configured every access path
+consistently, nor authorize copying those writes into this read-only diagnostic.
+CPU `TILECTL` and GT `ARB_MODE` remain unobserved. Preserve their full words in
+any later experiment; the Linux TILECTL bit-1 prefetch label and the PRM's generic
+two-bit swizzle description must not be silently conflated.
+
+The exact [PCI-ID definitions](https://github.com/torvalds/linux/blob/028ef9c96e96197026887c0f092424679298aae8/include/drm/intel/pciids.h)
+and [device info](https://github.com/torvalds/linux/blob/028ef9c96e96197026887c0f092424679298aae8/drivers/gpu/drm/i915/i915_pci.c)
+map `0a26` to Haswell ULT GT3 and the Gen7 feature path. With a native aperture,
+Linux consequently models 32 fences, not the Valleyview/Cherryview exceptions.
+This is exact-Haswell corroboration, not a copied Broadwell gate. The Intel
+volume's explicit 16-row table still disagrees; this audit grants no upper-row
+read permission or complete uniqueness. Native FENCE0 covers 16 MiB, larger than
+the observed 4,325,376-byte surface. Both ten- and eleven-bit pitch decoders agree
+on 5,632 for this word. Neither agreement nor excess coverage proves allocation
+size, the unobserved PTEs outside the visible footprint, exclusion or lifetime.
+
+Pinned [uncore access code](https://github.com/torvalds/linux/blob/028ef9c96e96197026887c0f092424679298aae8/drivers/gpu/drm/i915/intel_uncore.c)
+uses the render-forcewake table `0..0x3ffff` for non-Valleyview Gen6/7.
+`ARB_MODE=0x4030` lies inside it. A Linux-style logical read can therefore
+perform wake-control writes; a naked read without ownership is not an equivalent
+replacement. Defer GT access rather than infer a valid zero or take forcewake.
+`TILECTL=0x101000` lies outside that table and is defined by the pinned register
+header. This makes one raw CPU/aperture word the smaller next read-only candidate,
+not a blanket always-on assertion or register permission for other offsets.
+
+### Proposed next read-only experiment
+
+Extend only the isolated exact-Air6,1 pilot with one raw `TILECTL` observation
+per pass; require agreement and retain full raw values. Keep the complete two
+GGTT vectors, endpoint/fence rechecks, existing identity/D0/decode/firmware/RAM
+exclusion and poisoned-window retirement rules. Do not read GT `0x4030`, DIMM
+controls or extra fences, and do not map backing pixels or take ownership.
+
+Retain the 1,536-PTE cap, 100 ms pass/gap bounds, ten-map ceiling and 64 KiB tail.
+One extra page per pass requires ten maps for the native two-PTE-page layout.
+A layout needing three PTE pages would require twelve maps and must refuse this
+extension; the ceiling must not increase. These two CPU-control observations
+would not bracket every PTE access or establish full-path equivalence.
+
+Implementation still needs explicit offset admission, versioned additional raw
+receipts, actual-adapter/refusal/retirement tests, independent decoding and a
+source-matched maximum-tail proof. Then perform a matched build, exact-stage VM
+refusal/save and missing-workspace checks, local USB/recovery preflight and a
+new saved run record before any automated native boot. No such boot is staged,
+installed or armed by this audit; the accepted payload remains installed.

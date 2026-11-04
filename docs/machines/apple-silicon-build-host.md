@@ -1,5 +1,134 @@
 # Apple Silicon macOS build host
 
+## PR338 managed filesystem merge review
+
+Review consumes main `a37eb7b2`, then `f0c88a6d` and `b78e3ed5`, preserving all
+host notices. Revalidated all 154 original evidence hashes. After jq changed the
+runtime image, matched `1e83ee2c` passes fresh three-boot managed USB qualification
+and all 11 canonical/CLI cases. Complete fresh proof backups are independently
+cloned/hashed (154 files) at `.local/filesystem-evidence/pr338-review/`. Focused
+host checks and 19 installation-inspection tests pass using the documented Darwin
+feature macro. PR317 owner reports no current blocker; explicit slot/terminal
+work stays separate. Review VMs 61610, 6233 and 85869 remain untouched; all review
+guests stopped. See the [filesystem contract](../filesystem-layout.md) for limits
+and the next proposed late-flush proof. User authorized merge if ready.
+
+## Managed USB workspace filesystem proof
+
+Isolated `SrvrOS-filesystem`, branch
+`device/apple-silicon/filesystem-managed-salvage`, consumes main `5634cd9d` and
+subsequently `62b0708e`. PR317 lifetime review precedes the fixture-only BOT fault;
+no terminal stop/reclaim or production process/block/driver changes. Matched
+`3c480516` passes clean control, retained-reader salvage/failed retirement and
+restart readback through actual workspace commands; canonical compatibility
+passes all 11 cases. Combined `351eb986` produces identical tested payloads.
+The [filesystem contract](../filesystem-layout.md) records exact limits and
+154-file SHA-256-verified backups outside build cleanup. All task VMs stopped;
+review VMs 61610, 6233 and 85869 and primary checkout remain untouched. Delivery
+is a scoped draft PR; no physical trial, hosted Actions or merge requested.
+
+## PR336 integrated-main merge review — ready
+
+User authorizes review and merge if ready. Reuse the isolated
+`SrvrOS-installation-io` checkout and existing inspection branch at `b3c6a694`;
+fetched main remains `62b0708e`. Own review/tests, proof-equivalence receipt and
+installation continuity documentation only. Inspect filesystem/profile contracts
+and pending PR333 without consuming unmerged changes. Preserve review VMs
+61610/6233/85869, primary checkout and prior evidence; one build/harness here,
+no physical media, host reboot or Actions.
+
+Review finds no material blocker or unresolved thread. Fresh installation checks
+pass (55 passing and one default skip, including 19 inspection groups), as do
+profile/guest and documentation checks. All accepted artifact/tool/native-source
+and build-output hashes match; the retained used stage matches its final proof
+snapshot. Two fresh read-only used inspections pass and strict publication
+inspection/reconciliation still refuse, preserving stage/source/receipt bytes.
+Unchanged main/runtime inputs preserve the source-attributed two-boot and refusal
+proof; no new VM is needed. Review receipt/logs/script survive at
+`.local/installation-evidence/pr336-review`. Ready for the authorized merge.
+Next proposal: read-only selected-profile export directly from a used image,
+using a bounded read-only document reader, strict portable bundle codec and
+fresh-install restoration proof. Dependencies and acceptance are in the
+installation guide; no dependency on unmerged desktop-transfer/salvage work.
+
+## Read-only used-installation inspection — qualified
+
+User authorized a scoped PR with used-image and refusal proof. Reuse isolated
+`SrvrOS-installation-io`, branch `device/apple-silicon/installed-state-inspection`,
+main `5634cd9d`. Inspect current filesystem/profile contracts; own the separate
+host inspector, inherited-read-only-fd native metadata reader, CLI/tests and proof.
+Original publication/reconciliation rules remain unchanged; receipts stay
+historical after guest use. No kernel/provisioning/profile-policy implementation.
+Validate boot/root identity, current allocation/admission and bounded profile
+metadata; refuse uncertain state without cleanup. Preserve review VMs
+61610/6233/85869 and primary checkout, one build/harness at a time, no physical
+media/reboot/Actions. Acceptance/evidence are recorded in the installation guide.
+
+Clean `ff974bdf` passes the matched build, 19 new inspection groups and combined
+installation/profile checks. The real two-boot proof records six successful
+pristine/used inspections, 23 mutation refusals plus a busy lock, four unchanged
+publication refusals and exact source/stage/receipt preservation. Guest profile
+identity/preferences/data/env/apps and protected regions pass; native writes and
+flushes stay zero. Reopened Text was visually checked. Raw proof and artifacts
+are byte-verified outside build cleanup at
+`.local/installation-evidence/used-proof-4k419y9m`. Review VMs remain live and
+untouched; task VMs stopped. Publish a scoped draft PR; no merge requested.
+Used v2 needs its retained profile snapshot, used v1 its exact old data source.
+On-disk consistency is not authentication, live health or physical durability.
+Final publication refresh integrates main `62b0708e`/PR335, an unrelated
+host-only Haswell audit. Fresh combined host and documentation checks pass;
+all proof tool/native-source and matched artifact hashes remain unchanged.
+The accepted VM evidence retains its original clean-source attribution.
+
+## PR330 merge review
+
+Final refresh consumes main `10890eed`/PR329 as `740869f0`. Fresh file-fsync,
+installation/profile/chooser/guest checks and the matched build pass; the full
+seven-error/two-boot production proof was rerun because guest save uses the
+changed syscall. All matrix component hashes still match. Verified raw proof
+and artifacts survive at `.local/installation-evidence/pr330-fsync-review`.
+This supersedes the earlier unchanged-main runtime-equivalence assessment.
+Review VMs remain live and untouched; ready for authorized merge.
+
+Initial review, authorized to merge if ready: main `c90f3522` was already
+integrated in `5d0fa39e`; independent review finds no material blocker or unresolved
+thread. Fresh installation/profile/chooser/guest checks and the matched build
+pass. All matrix/smoke tool and artifact hashes, receipt hashes and the final raw
+stage snapshot match accepted evidence, preserving the 436-case/seven-refusal/
+two-negative-control/seven-production-error/two-boot proof without another VM.
+Review logs and build metadata survive at `.local/installation-evidence/pr330-review`.
+Original review VMs remain live and untouched; no physical work or Actions.
+Ready for authorized merge. Next proposal is read-only post-boot installed-state
+inspection with the existing filesystem/profile refusal boundaries and a bounded
+read-only metadata reader; see the installation guide for dependencies/acceptance.
+
+## Host publication I/O-failure qualification — complete
+
+User authorized a scoped PR with write/sync/link/unlink failure, reconciliation
+and refusal proof in isolated `SrvrOS-installation-io`, branch
+`device/apple-silicon/install-publication-io-qualification`, main `c90f3522`.
+Own host publication tool/fault fixtures and installation docs only. Latest
+integrated filesystem/profile contracts, including PR326's identity metadata and
+PR327/328 salvage boundaries, are inspected and consumed. Separate storage-guard
+work stays intact in the earlier checkout, with private build outputs here. Reconciliation
+must re-establish verified stage-file and namespace syncs after uncertain errors,
+including an already visible ready receipt. No guest or kernel policy changes.
+Preserve review VMs 61610, 6233 and 85869, primary checkout and accepted evidence.
+One build/harness at a time; no physical media, reboot or Actions. Acceptance
+and exact evidence are recorded in `docs/disk-installation.md`.
+
+Clean `3eae3223` passes 436 bounded host fault cases, seven refusal controls and
+two source-mutant negative controls. Every recorded matrix component hash still
+matches after consuming `c90f3522`/Ports `ca749517`. Fresh host checks and the
+matched full build pass at `b6ffb556`; the production image/driver proof reports
+all seven selected errors, reconciles identical candidate bytes, and passes
+two edit/save/reboot/readback boots. Source/profile/machine/protected-region
+and allocation checks pass; guest-used images refuse recovery without mutation.
+Reopened Text was visually checked. Byte-verified raw evidence and artifacts:
+`.local/installation-evidence/io-proof-j8xbfmgc`. Original task VMs stopped;
+review VMs remain live and untouched. Publish a scoped draft; no merge requested.
+Power loss, media/device faults and automatic repair remain outside acceptance.
+
 ## PR326 merge review — complete
 
 User authorized review, fixes and merge after passing checks. Review the chooser,
@@ -2753,6 +2882,22 @@ edge-resize review VM and disk are preserved. Logs are in
 requested behavior and acceptance are complete; no further implementation
 is required. No native boot/install or hosted Actions change.
 
+### SQLite CLI port — active scope November 3, 2026
+
+Branch `ports/sqlite` starts at runtime `0fd0c5fc`. This isolated checkout owns
+the SQLite 3.53.1 CLI adapter, static build/image integration and bounded guest
+checks for single-connection exclusive-access SQL scripts and CSV import, query,
+export and reopen. It depends on the pinned SrvrPorts SQLite amalgamation; the
+existing `sqlitedemo` keeps its own engine configuration. WAL, process commands,
+loadable extensions and readline are excluded. Full build, host VFS tests, guest ownership/temp/error probe and two-boot CSV
+workflow pass. Two clean CLI builds match SHA256
+`a23d90c8e8b49f7e36ff996e8cf009eee5ab7537faea6edabbe7a34cfd873b2f`.
+Raw receipts are under `build/sqlite-cli-smoke/` and `build/review/sqlite/`;
+external fsck is unavailable, while guest fsck and offline allocation pass.
+No full-image reproducibility or power-loss durability claim is made;
+the integration checkout and existing review VMs are preserved. No physical
+boot or native acceptance is part of this scope.
+
 
 ### HiDPI and display settings — active scope November 3, 2026
 
@@ -3155,3 +3300,198 @@ reported zero leaks/FAT/errors. The full host transcript is
 The final staged-port guest also passed after the shell changes, with a clean
 post-run filesystem check. Its transcript is
 `build/review/whole/ports-shell-final.log`.
+
+
+### SQLite merge review — November 3, 2026
+
+Candidate `d3b5c321` integrates main `89c210db`, including merged PR252, and
+pins SrvrPorts `525f422`. Review fixed a shell-helper rollback-journal collision;
+guards now protect journal names before creation, case variants, inode aliases
+and streams opened before the database. Independent source review and host VFS
+checks pass. Fresh two-boot CLI/guest VFS tests, exact rollback rows after rejected
+journal writes, guest fsck and offline allocation pass. Receipts are under
+`build/sqlite-cli-smoke/20261103-212748-7tm1f5tf/` and
+`build/review/sqlite-merge/`. A clean rebuild matches CLI ELF SHA256
+`1107f624eba0a878c4d4440d4ddae9c77af7785de42a0647eeb60999f74d8e51`.
+Independent fsck is unavailable. The original acceptance hash above remains
+historical; no power-loss, physical-device or full-image reproducibility claim
+is added. Integration checkout/review VM remain untouched. PR2 in SrvrPorts must
+merge before OS PR306; the user authorized both merges conditional on checks.
+
+### Unexpected app closure investigation — bounded audit completed November 3, 2026
+
+User authorized a bounded app recovery investigation in the independent
+`SrvrOS-app-quality` checkout, branch `app/closure-recovery`, from main
+`62b0708e`. Earlier unexplained physical app closures remain historical evidence,
+not a reproduced VM defect. Own investigation of Text/Files/Preview/Sketch
+failed saves, canceled dialogs, closure during accepted file work and process
+retirement. Reuse existing lifecycle/Sketch fixtures and fix only reproduced
+in-scope defects. Keep native acceptance, PR252 kernel/I/O ownership, the shared
+checkout and review VM untouched. Build and disposable VM harnesses run sequentially.
+
+Acceptance: matched source/pins/build; bounded mixed-app lifetime workload;
+normal and refused-dialog save/cancel/quit paths; exact saved bytes and retained
+edits; Sketch revision isolation/failed replacement; no unintended app retirement,
+surviving workers or unbounded heap/frame growth. Report physical closure cause
+as unresolved unless evidence actually identifies it. The bounded audit is now
+complete; results follow.
+
+Clean source `4f01d9c1` (Apps `3cf32af2`, UI `9eaaa74e`, Ports `525f4229`)
+produces byte-identical kernel/initramfs/disk artifacts to baseline `6f277f51`.
+Three desktop sessions and 36 application lifetimes pass with no surviving GUI
+workers. Post-session heap remains 1,075,712 bytes and physical-frame use is
+identical across completed rounds. The directed normal/Open With, refused-dialog,
+shutdown-cancellation and deliberate Preview-termination fixtures all pass with
+retained edits, exact saved files and process-baseline restoration. Sketch passes
+exact pixels, editing during save, saved-revision isolation, failed replacement,
+close prompts and Preview import. A rendered failed-save capture confirms Text
+retains its unsaved document and displays an error. This is functional/expert
+inspection, not representative-user or physical-device evaluation.
+
+No unintended closure or runtime defect was reproduced; no application/kernel
+runtime change is justified. Source review likewise found no demonstrated normal
+close/worker-retirement fault. The historical physical-device closure cause
+remains unresolved. Reopening that investigation requires a new reproducer or
+an affected-device exit reason/trace; another unchanged VM pass is not evidence
+of a physical fix.
+
+The only implementation change adds optional `--output` to the lifecycle and
+Sketch harnesses. Defaults and assertions are preserved; each new run retains its
+own evidence. The first directed run failed on missing host Pillow before image
+inspection; its failure is retained, and reruns passed using local ignored
+`build/tooling/recovery-venv` with Pillow. Generated-image and offline allocation
+checks pass; independent exfatprogs fsck was not run. Evidence, hashes, source
+identities and limits are in `build/review/app-closure-recovery/receipt.json`.
+All task VMs are stopped. Shared checkout and review VM remain untouched. The
+bounded target is complete; integration of this evidence/tooling review is a
+separate delivery action.
+
+
+### jq isolated port — active November 3, 2026
+
+User authorized the bounded jq milestone on `ports/jq` in SrvrOS-ports-jq,
+based on `5634cd9d`. Owns port adapter/build configuration, image entries and
+disposable guest JSON report/CSV-to-SQLite checks. No integration checkout or
+review VM access. No kernel/libc changes planned; confirmed gaps are coordinated
+with integration. Implementation and scoped guest acceptance pass. The port builds static jq
+with upstream decNumber defaults and port-local entropy, dirname and UTC
+timezone-name adapters; no shared libc/kernel changes were needed. Oniguruma
+regex and optional configure-gated libm/date wrappers are outside this profile.
+The first run passed its 11 selected upstream cases but later aborted during
+the optional three-thread regression; that test-only feature gate is omitted
+for the single-thread CLI. Real pthread keys/once/atexit remain enabled. No
+multithreaded jq acceptance or allocator root cause is claimed.
+
+Two-boot JSON report/CSV-to-SQLite, exact Unicode/NUL and numeric literal output,
+exit statuses, invalid JSON/filter/files, unsupported regex, actual stdout error
+and recovery checks pass. The 11 unchanged upstream cases and remaining
+single-state internal tests complete. Guest fsck and offline allocation pass;
+independent fsck.exfat is unavailable. Two clean CLI builds match SHA256
+`286f8cbe0cd27f983881208981d5f29773197aa00641487d0f6087caf7ef1de8`.
+No whole-image reproducibility or physical-device acceptance is claimed.
+Evidence: `build/jq-smoke/20261103-214345-kx3nfg74/` and
+`build/review/jq/accepted.json`. Existing ports regression and documentation/whitespace checks pass.
+Status: implementation complete and ready for review; no merge authorized.
+
+
+### jq merge review — verified November 3, 2026
+
+User authorized reviewing SrvrPorts PR6, merging it before SrvrOS PR337, and
+verifying the combined build. Work uses only `SrvrOS-ports-jq`; integration
+checkout and attended review VMs remain untouched. Main `62b0708e` contributes
+read-only Haswell audit tooling/docs since the original `5634cd9d` jq baseline;
+it changes no jq runtime dependency. Port `22c2660` receives independent source
+review, archive identity checking, a clean matched candidate build, the two-boot
+jq/SQLite guest workflow, existing ports regression and the added audit tests.
+The single-thread/no-regex scope and untraced optional three-thread allocation
+failure remain explicit; no shared libc/kernel edits or physical acceptance.
+
+Clean candidate `e5db0a37` passes the full image/probe build, two-boot jq workflow,
+existing ports regression, seven Haswell audit tests and documentation checks.
+The original CLI hash remains identical. Independent archive verification covers
+all 312 tracked entries (311 regular files and one archive hard link). Fresh
+source provenance is clean, recorded in `build/review/jq-merge/tested-build.json`
+and `build/jq-smoke/20261103-215652-k40favot/receipt.json`. No concrete scoped
+review blocker remains. SrvrPorts PR6 merged first as `747cca28`; its merge tree
+is identical to reviewed `22c2660`. The OS now pins that merged revision.
+
+Final combined source `fcd79c0a` also preserves installed-state inspection
+PR336/main `a37eb7b2`. Its clean build produces byte-identical kernel, initramfs
+and disk artifacts to the freshly guest-tested candidate; 902 documentation
+links pass. This refresh changes no runtime dependency. SrvrOS PR337 records
+the authorized ports-first integration; final merge identities/build receipts
+are retained in `build/review/jq-merge/`. All test VMs stopped; the integration
+checkout and attended review VM remain untouched. No further work is required
+for this bounded jq milestone.
+
+### PR339 integration — verified November 3, 2026
+
+User authorized integrating the bounded recovery audit/tooling PR339 in
+`SrvrOS-app-quality`, preserving the shared checkout and review VM. Current main
+`f0c88a6d` adds jq and installed-state inspection. Resolve only the appended
+host-journal conflict by retaining both records; preserve the new Ports pin.
+Verify Python/doc checks and a matched merged build, then exercise both changed
+harnesses with explicit evidence directories. Existing recovery assertions and
+the unresolved physical-device closure boundary remain unchanged.
+
+PR339 merged as `b78e3ed5`. The exact clean merged source builds with Ports
+`747cca28`, Apps `3cf32af2` and UI `9eaaa74e`. Python compilation and documentation
+checks pass. Both changed harnesses pass with explicit independent evidence
+paths: lifecycle/Open With retains edits after failed saves/canceled quits,
+checks exact saved files and process-baseline restoration; Sketch verifies exact
+pixels, edits during saves, failed replacement, close prompts and Preview import.
+Existing audit acceptance remains valid; no assertions or app runtime changed.
+Independent review found no remaining conflict or behavioral regression.
+
+The documentation closeout preserves the tested kernel/initramfs/disk hashes.
+Evidence and source identities are in local
+`build/review/app-closure-integration/receipt.json`. All task VMs are stopped.
+Shared checkout and review VM remain untouched. Integration is delivered and
+verified; historical physical-device closures remain unresolved as documented.
+No further work is required for this integration target.
+
+### bc isolated milestone — active November 3, 2026
+
+User authorized bc-only 7.0.3 on `ports/bc` from main `b78e3ed5`, with signal
+recovery resolved before acceptance. Owns port adapter/configuration, image
+entries and disposable guest decimal/report/signal checks. Integration checkout
+and review VM remain untouched. No libc/kernel edits without concrete-gap
+coordination. Implemented and verified: bc 7.0.3 static core arithmetic, scale/sqrt/bases,
+functions/loops and file/stdin/pipeline exact reports. The signal gate is
+resolved in the port's generated copy: callback records state and returns,
+libc restores dispatcher/mask state, and existing bc unwind paths run afterward.
+Bytecode loops poll via public sched_yield every 1024 instructions. A single
+long arithmetic instruction can delay signal delivery; interactive interrupt
+messages differ from upstream. No shared libc/kernel changes were needed.
+
+Guest probes pass same-process syntax/division-error recovery, repeated blocked
+input and busy-loop SIGINT with successful calculations afterward, busy-loop
+SIGTERM exit and actual stdout failure. Seven unchanged upstream arithmetic
+fixtures plus exact report save/reopen across two boots pass. Guest fsck and
+offline allocation pass; independent fsck.exfat is unavailable. Full build,
+existing ports regression and docs/whitespace checks pass. Two clean CLI builds
+match SHA256 `62c0737baafa6b569bd917303600e5aee341c5f09b24776fce49615e5fa6af61`.
+Receipts are under `build/bc-smoke/20261103-221517-z7lm_s73/` and
+`build/review/bc/accepted.json`. No full-suite, physical-device, full-image
+reproducibility or general asynchronous-signal acceptance is claimed.
+Status: bounded implementation complete and ready for review; no merge performed.
+
+
+### bc merge review — November 3, 2026
+
+User authorized ports PR7 followed by OS PR341 if review passes. Clean candidate
+`8e59f9d9` integrates main `819956be` and pins port `78fb8184`. Source review
+found no signal implementation blocker within the cooperative scope, but
+tightened the TERM probe: unique pre-loop marker, live-child check before the
+signal, and expected normal exit zero. The fresh two-boot arithmetic/report,
+seven unchanged upstream fixtures, actual stdout failure and repeated
+blocked-input/busy-loop signal recovery checks pass. Guest fsck/offline
+allocation, existing ports regression, nine salvage-scope tests and docs pass.
+CLI SHA256 remains `62c0737baafa6b569bd917303600e5aee341c5f09b24776fce49615e5fa6af61`.
+Raw receipts: `build/bc-smoke/20261103-222330-wjogff8d/` and
+`build/review/bc-merge/`. Inactive owned proof disks were losslessly compressed
+and hash-verified to reduce host disk pressure; `proof-archives.json` records
+restoration paths/hashes. No evidence was discarded. No libc/kernel changes,
+full asynchronous-signal or physical-device acceptance is added. Integration
+checkout and review VM remain untouched. The final merge receipts record the
+authorized dependency-order delivery; no additional feature work is needed.

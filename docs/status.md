@@ -42,6 +42,11 @@ cases were subsequently exercised in the October 23 follow-up; tap refinement is
 `5282cfde546ea2b5`; Text copy/paste/select-all shortcuts were explicitly
 validated in the same round.
 Earlier unexpected app closures are not conclusively explained by these fixes.
+A November 3 isolated VM audit passed 36 application lifetimes and directed
+save/cancel/quit, refused-dialog, crash-isolation and Sketch recovery checks;
+it did not reproduce an unintended closure or establish the physical cause.
+See the [bounded audit record](machines/apple-silicon-build-host.md#unexpected-app-closure-investigation--bounded-audit-completed-november-3-2026).
+New device evidence or a reproducer is needed before reopening that diagnosis.
 
 Air7,2 first accepted sixteen-window opening and saved-file integrity at
 `bf68e4e9b88b8ae7`. Later release `f01d4049daae0b4a` passed two automated rounds

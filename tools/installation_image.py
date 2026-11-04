@@ -100,9 +100,10 @@ def layout(exfat_size):
 
 
 def write_json(path, obj):
+    payload = json.dumps(obj, indent=2, sort_keys=True) + '\n'
     with open(path, 'x') as f:
-        json.dump(obj, f, indent=2, sort_keys=True)
-        f.write('\n')
+        if f.write(payload) != len(payload):
+            raise OSError('short metadata write')
         f.flush()
         os.fsync(f.fileno())
 
@@ -383,12 +384,16 @@ def _apply(target, checkpoint):
     sync_dir(target)
     # Private temporary files are retained on failure, preventing ambiguous reuse.
     init_data = Path(plan['sources']['init']['path']).read_bytes()
+    bootstrap = bootstrap_bytes(init_data)
     with open(target / 'bootstrap.tar', 'xb') as stream:
-        stream.write(bootstrap_bytes(init_data))
+        if stream.write(bootstrap) != len(bootstrap):
+            raise OSError('short bootstrap write')
         stream.flush()
         os.fsync(stream.fileno())
+    config = plan.get('config', CONFIG.decode('ascii')).encode('ascii')
     with open(target / 'limine.conf', 'xb') as stream:
-        stream.write(plan.get('config', CONFIG.decode('ascii')).encode('ascii'))
+        if stream.write(config) != len(config):
+            raise OSError('short configuration write')
         stream.flush()
         os.fsync(stream.fileno())
     sync_dir(target)
@@ -593,6 +598,24 @@ def reconcile(staging_dir, checkpoint=None):
         result = inspect(target)  # Verify every existing item before mutation.
         if not result['can_reconcile']:
             raise ValueError(result['reason'])
+        # An earlier fsync may have failed after complete bytes became visible.
+        # Hash equality alone cannot establish that those bytes or names reached
+        # the filesystem's durability boundary. Re-establish every stage-file
+        # barrier, including an already visible ready receipt, before success.
+        synced = set()
+        for path in sorted(target.iterdir()):
+            fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+            try:
+                info = os.fstat(fd)
+                if not stat.S_ISREG(info.st_mode):
+                    raise ValueError('nonregular verified stage entry')
+                identity = (info.st_dev, info.st_ino)
+                if identity not in synced:
+                    os.fsync(fd)
+                    synced.add(identity)
+            finally:
+                os.close(fd)
+        sync_dir(target)
         if result['state'] == 'ready':
             return result['ready']
         return publish(target, result['ready'], checkpoint)
@@ -616,6 +639,9 @@ def main():
                                                    'image-linked', 'image-published', 'ready-written',
                                                    'ready-linked', 'ready-published'))
     sub.add_parser('inspect').add_argument('staging_dir')
+    installed = sub.add_parser('inspect-installed')
+    installed.add_argument('staging_dir')
+    installed.add_argument('--driver', required=True)
     recovery = sub.add_parser('reconcile')
     recovery.add_argument('staging_dir')
     recovery.add_argument('--interrupt-after', choices=('image-linked', 'image-published', 'ready-written',
@@ -634,12 +660,17 @@ def main():
             result = apply(args.staging_dir, checkpoint=checkpoint)
         elif args.action == 'inspect':
             result = inspect(args.staging_dir)
+        elif args.action == 'inspect-installed':
+            from installation_inspection import inspect_installed
+            result = inspect_installed(args.staging_dir, args.driver)
         else:
             def checkpoint(name):
                 if name == args.interrupt_after:
                     os._exit(75)
             result = reconcile(args.staging_dir, checkpoint=checkpoint)
         print(json.dumps(result, indent=2, sort_keys=True))
+        if args.action == 'inspect-installed' and not result['consistent']:
+            raise SystemExit(1)
     except (ValueError, OSError, KeyError, subprocess.CalledProcessError) as error:
         parser.exit(1, f'error: {error}\n')
 
