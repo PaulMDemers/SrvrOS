@@ -20,12 +20,14 @@ static void setup_adapter(void) {
  pch_config[0]=0x9c438086;pch_config[2]=0x06010000;
  hsw_host_config[0]=0x0a048086;hsw_host_config[0x50/4]=0x209;hsw_host_config[0xb0/4]=0x8da00001;hsw_host_config[0xb4/4]=0x8d800001;hsw_host_config[0xbc/4]=0x8fa00001;
  framebuffer_request.response=&frames;memmap_request.response=&memory;frames.framebuffer_count=1;
+ hsw_cpu_control=false;hsw_tile_reads=hsw_tile_change=0;hsw_tile_value=8;
  hsw_firmware=true;mapped=true;resource_mapped=true;backing_mode=1;mapping_hole=mapping_disjoint=backing_change=backing_bad=0;
  const uint32_t v[]={0x98004400,5632,0,0,0,(1365u<<16)|767,0,0x98004400,0};memcpy(backing_values,v,sizeof(v));
  hsw_window_live=hsw_window_poison=hsw_vmm_live=false;hsw_vmm_maps=hsw_vmm_unmaps=hsw_vmm_map_fail=hsw_vmm_unmap_fail=0;hsw_test_space=0x1000;
  well_value=0x40000000;well_reads=well_drop_at=0;ram.base=0x100000;ram.length=0x7ff00000;stolen.type=LIMINE_MEMMAP_RESERVED;
 }
-int main(void) {
+int main(int argc,char **argv) {
+ (void)argv;
  setup_adapter();unsigned oldmaps=map_calls;assert(hsw_capture_bound());assert(hsw_result.status==1 && hsw_result.count==1056 && hsw_result.sample[0].stolen==1056);
  assert(map_calls==oldmaps && hsw_vmm_maps==8 && hsw_vmm_unmaps==8 && !hsw_window_live && !hsw_vmm_live);
  for(unsigned c=0;c<10;c++) {
@@ -49,6 +51,21 @@ int main(void) {
  backing_values[1]=1536;backing_values[5]=(383u<<16)|4095;
  assert(hsw_capture_bound() && hsw_result.count==1536 && hsw_result.sample[1].count==1536);
  fb.width=1366;fb.height=768;fb.pitch=5632;framebuffer.length=4325376;
- setup_adapter();assert(hsw_capture_bound());hsw_emit=1;hsw_report();puts("laptop-capture: completed=yes");
+ setup_adapter();assert(hsw_capture_bound());assert(!hsw_map(NULL,0x101000));
+ setup_adapter();hsw_cpu_control=true;assert(hsw_capture_bound());
+ assert(hsw_result.version==2 && hsw_vmm_maps==10 && hsw_vmm_unmaps==10 && hsw_tile_reads==2 && !hsw_window_live);
+ assert(hsw_result.sample[0].tilectl==8 && hsw_result.sample[1].tilectl==8 && hsw_result.sample[1].reads==1153);
+ setup_adapter();hsw_cpu_control=true;hsw_tile_change=1;assert(!hsw_capture_bound() && hsw_result.status==3 && !hsw_window_live);
+ setup_adapter();hsw_cpu_control=true;hsw_tile_value=UINT32_MAX;assert(!hsw_capture_bound() && hsw_result.status==4 && !hsw_window_live);
+ setup_adapter();hsw_cpu_control=true;hsw_result.count=1056;hsw_result.offset=0;
+ assert(!hsw_map(NULL,0x4000) && !hsw_map(NULL,0x100080));
+ assert(hsw_map(NULL,0x101000));uint32_t word;assert(!hsw_read(NULL,0x101004,&word));assert(hsw_read(NULL,0x101000,&word) && word==8);assert(hsw_unmap(NULL));
+ setup_adapter();hsw_cpu_control=true;fb.address=(void *)0xffff8000a03ff000ull;framebuffer.base=0xa03ff000;
+ backing_values[3]=backing_values[6]=backing_values[8]=0x3ff000;
+ assert(!hsw_capture_bound() && hsw_result.status==2 && !hsw_vmm_maps && !hsw_tile_reads);
+ fb.address=(void *)0xffff8000a0000000ull;framebuffer.base=0xa0000000;
+ setup_adapter();hsw_cpu_control=argc>1;
+ if(argc>2){fb.width=384;fb.height=4096;fb.pitch=1536;framebuffer.length=1536*4096;backing_values[1]=1536;backing_values[5]=(383u<<16)|4095;}
+ assert(hsw_capture_bound());hsw_emit=1;hsw_report();puts("laptop-capture: completed=yes");
  fprintf(stderr,"hsw-adapter: PASS exact metadata, kernel-only RO/NX non-global maps, RAM/descriptor/profile refusal and retained failures\n");
 }

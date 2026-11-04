@@ -272,3 +272,34 @@ source-matched maximum-tail proof. Then perform a matched build, exact-stage VM
 refusal/save and missing-workspace checks, local USB/recovery preflight and a
 new saved run record before any automated native boot. No such boot is staged,
 installed or armed by this audit; the accepted payload remains installed.
+
+## Opt-in raw CPU TILECTL capture (version 2)
+
+The isolated pilot now implements the smaller experiment with
+`--haswell-backing-capture --haswell-tilectl --laptop-probe-volume UUID`.
+The modifier requires the dedicated profile, selects `ram-usb-v2-hsw` and adds
+`srvros.hsw-cpu-control=read-only`. The original flag alone preserves version 1.
+Normal startup and other diagnostic profiles do not acquire this read permission.
+
+Version 2 admits exactly the aligned DWORD at BAR0+`0x101000` through the existing
+kernel-only RO/NX/non-global window. Neighbouring words, GT `0x4030`, extra fences
+and backing pixels stay outside the permission. Each pass reads this word after
+the final fence recheck, then rechecks the ordinary endpoint and verifies final
+window retirement. The two raw CPU words must agree and must not be all ones.
+This is a pair of observations, not a continuous swizzle or lifetime guarantee.
+No interpretation of TILECTL bit 1 or full-path equivalence is granted.
+
+The unchanged ten-map ceiling is explicit. Before any window mapping, version 2
+refuses a derived vector requiring more than two GGTT pages. Native and aligned
+maximum-capacity layouts need five page mappings per pass, ten total. The same
+1,536-PTE, 100 ms pass/gap and 64 KiB receipt bounds apply. Map/read/clock/change
+and poisoned-retirement failures retain their existing refusal behavior.
+
+All summary/metadata/vector lines carry the matching version. Version-2 metadata
+is `<50Q16Q3Q5I`, 572 bytes: the version-1 layout plus the raw TILECTL DWORD.
+Its window-read count is `PTE count + 97`, and its verified mapping count is
+`2*(PTE pages + 3)`. Version-1 records retain their original 568-byte layout and
+counts. Mixed versions, missing/changed/raw-all-ones CPU observations, truncated
+records and false mapping/read counts refuse. CPU words remain raw-only in the
+independent path audit. Actual adapter producers cover both versions and the
+1,536-entry maximum, with unchanged raw tail retention checked independently.
