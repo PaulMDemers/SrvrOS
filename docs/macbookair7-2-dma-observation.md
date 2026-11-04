@@ -78,3 +78,13 @@ offline integrity and recovery checks. Refusal, missing rows or a VM fixture is
 not native acceptance. The next writer still needs explicit DMA/GGTT/firmware/
 route/restore authority and correct padded scanout layout. The shadow allocation
 is1350 visible pages, not the inherited X-tiled1356-page storage extent.
+
+## Prepared candidate
+
+Source `c7c3548d`, release `5f6ec95399aa9dcd`, passes full local host/core/
+profile/build checks, pure-core ASan/UBSan, strict collectors and the exact-stage
+Q35 refusal/save/unmount/reset and missing-workspace halt checks. Separate
+Haswell refusal and ordinary VirtIO presentation regressions also pass. The
+candidate is installed with independent recovery and prior payloads preserved;
+no reboot is armed. Native DMA-state observation remains pending its matching
+session. The [unit record](machines/macbookair7-2.md) owns physical acceptance.

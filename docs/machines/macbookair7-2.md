@@ -2,22 +2,41 @@
 
 Updated: 2026-11-03. State: **active reference machine; partial device acceptance**.
 
-### Active read-only DMA-state capture
+### Read-only DMA-state capture ready; reboot unarmed
+
+Source `c7c3548d` / release `5f6ec95399aa9dcd` is installed for the no-input
+Air7,2 DMA-remapping observation. It requires exact firmware/DMAR/backing
+identity and one unambiguous reserved register page, reads two bounded raw
+snapshots, retires each mapping and revalidates the entire inherited backing.
+There are no control writes, root-table walks, GPU mappings or authority grants.
+Native observation is **pending**; a stable TES bit will not prove DMA authority.
+See the [capture contract](../macbookair7-2-dma-observation.md).
 
 Consumed main `10890eed` at `06f1a23f`, preserving the independent Haswell
-capture, Intel capture/lifetime profiles and both Makefile test groups. Scope:
-exact Air7,2 DMAR identity and bounded GPU-remapping VER/CAP/ECAP/GSTS/RTADDR
-snapshots, through one temporary read-only/NX/uncached reserved page. No IOMMU
-controls, translation-table traversal, GPU mappings or authority grants. Native
-snapshot stability is evidence only, not permission to publish scanout buffers.
+capture and both Makefile test groups. Full local host/core/profile/docs and
+matched normal/AP/native/synthetic kernel builds pass. Pure DMA-core ASan/UBSan,
+all collector tests, exact-stage Q35 refusal with zero MMIO/save/unmount/reset,
+missing-workspace halt, ordinary VirtIO presentation and separate Haswell Q35
+refusal/save/return pass. The real Linux DMAR reference parses through the actual
+core with the pinned hash, without reading live registers. Tests cover exact
+scopes/checksum/pin separation, both TES states, torn/changed reads, every read/
+map/guard/unmap failure, clock rollback/freeze, actual adapter resource/window
+identity and sticky mapping retirement. Actions remain disabled.
 
-Touch new pure DMA capture/header/decoder/tests, the existing exact Intel
-adapter, isolated boot/staging/collection and this unit's guides. Preserve the
-open PR317 allocator/VMM/DMA audit and Air6,1 ownership gates. Next: host parser,
-adapter and failure fixtures, matched builds and exact-stage Q35 refusal/save/
-return checks before preparing a native no-input trial. EFI current remains
-d79f/recovery9aa; no new reboot is armed. Evidence:
-`build/air-dma-observe-20261103/`.
+Preparation verifies 1,323 prior files and 94 sessions, offline fsck/allocation/
+writable/headroom, firmware/GPU identity, Ubuntu default and independent
+recovery/known-good/preceding payloads. USB is unmounted. Superseded unbooted
+release41e was archived and fully hash-verified before removing only its EFI
+copy for space. Accepted d79, known-good c497 and recovery9aa remain intact.
+The new payload is installed but **no reboot is armed**. Handled refusal/failure
+returns automatically after successful save/unmount; persistence failure halts.
+
+Run record: `build/air-dma-observe-native-20261103/run.json`; validation:
+`build/air-dma-observe-20261103/`. Both have independent evidence backups outside
+build. Next: run the prepared automatic trial, collect its matching native
+session and independently decode all display/backing/DMA receipts before any
+acceptance. No GUI/input/audible acceptance is claimed. PR317's allocator/VMM/
+DMA audit remains separate; Air6,1/device gates are not widened.
 
 ### GPU address reservations implemented; host/VM validation complete
 
