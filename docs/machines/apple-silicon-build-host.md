@@ -3424,7 +3424,7 @@ are retained in `build/review/jq-merge/`. All test VMs stopped; the integration
 checkout and attended review VM remain untouched. No further work is required
 for this bounded jq milestone.
 
-### PR339 integration — active November 3, 2026
+### PR339 integration — verified November 3, 2026
 
 User authorized integrating the bounded recovery audit/tooling PR339 in
 `SrvrOS-app-quality`, preserving the shared checkout and review VM. Current main
@@ -3433,3 +3433,19 @@ host-journal conflict by retaining both records; preserve the new Ports pin.
 Verify Python/doc checks and a matched merged build, then exercise both changed
 harnesses with explicit evidence directories. Existing recovery assertions and
 the unresolved physical-device closure boundary remain unchanged.
+
+PR339 merged as `b78e3ed5`. The exact clean merged source builds with Ports
+`747cca28`, Apps `3cf32af2` and UI `9eaaa74e`. Python compilation and documentation
+checks pass. Both changed harnesses pass with explicit independent evidence
+paths: lifecycle/Open With retains edits after failed saves/canceled quits,
+checks exact saved files and process-baseline restoration; Sketch verifies exact
+pixels, edits during saves, failed replacement, close prompts and Preview import.
+Existing audit acceptance remains valid; no assertions or app runtime changed.
+Independent review found no remaining conflict or behavioral regression.
+
+The documentation closeout preserves the tested kernel/initramfs/disk hashes.
+Evidence and source identities are in local
+`build/review/app-closure-integration/receipt.json`. All task VMs are stopped.
+Shared checkout and review VM remain untouched. Integration is delivered and
+verified; historical physical-device closures remain unresolved as documented.
+No further work is required for this integration target.
