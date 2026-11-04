@@ -3,6 +3,44 @@
 Updated November 3, 2026. Global activation follows the explicit namespace proof
 in [PR308](https://github.com/PaulMDemers/SrvrOS/pull/308).
 
+## PR332 merge review and next bounded milestone
+
+User authorized review and merge if ready. Reviewed `eba6b83b` against unchanged
+main `89c210db`; no blocking finding. The CLI must reach stage=flush with all
+12,289 accepted bytes and no offset-restore error; the host additionally checks
+ATA write/flush failure on the third target. Open refusal cannot pass. Scope
+validation confines both filters to distinct fixture images and leaves installed
+root unfiltered. Calibration and reopen carry no filters; default modes preserve
+their existing behavior. No kernel/process/block/driver implementation changes.
+
+Revalidated all 79 preserved final image/log hashes, raw healthy bytes, the
+flush case's unacknowledged payload, source/target hashes, failed-attempt output,
+explicit reboot refusal and both restart readbacks. The five-boot proof at
+`4c368c23` remains applicable: `eba6b83b` changes only documentation and builds
+identical guest payloads. The existing 11-case canonical/CLI proof also remains
+applicable. Fresh fsync/namespace/usercopy/I/O/helper/CLI/scope and documentation
+checks pass. Unchanged runtime evidence was inspected rather than relabeled as
+a new VM run. Review record and fresh host log are retained outside build at
+`.local/filesystem-evidence/pr332-review/`.
+
+PR317 at `c9f4f306` remains draft, with independent terminal xHCI stop/drain and
+network callback retirement. No overlap or dependency is established for this
+proof-only merge. Review VMs 61610, 6233 and 85869 remain running and untouched;
+no new VM, physical trial or hosted Actions run was needed for this review.
+The destination-writeback qualification target is complete.
+
+Next proposed bounded milestone: **installed-root managed USB workspace salvage
+and failed-retirement proof**. Current guest proofs use raw AHCI mounts; host
+coverage already exercises managed workspace refusal. Start by reviewing the
+prepared disposable USB source and write-fault placement, coordinating transport
+and lifetime assumptions with PR317. Boot from installed root, use the actual
+`workspace mount/sync/unmount` controller, retain dirty source data through CLI
+salvage to healthy `/home`, and verify failed sync/retirement both while the
+reader is held and after deliberate final close. Check healthy-copy bytes after
+controlled restart and preserve `/fat` and `/work` compatibility. No physical
+unplug/reset, forced retirement, automatic repair or backing reclamation is
+included. This is proposed work, not implementation started by the merge review.
+
 ## Installed-root destination-writeback qualification — verified
 
 User authorized this bounded proof on main `10890eed`, with PR317 coordination
