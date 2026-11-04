@@ -1,6 +1,43 @@
 # SrvrUI macOS host showcase
 
-## Active scope — November 3, 2026
+## Current status — November 4, 2026
+
+The established portability work is complete. No implementation is active and
+there are no remaining blockers for these bounded milestones:
+
+- Standalone macOS SDL3 showcase: [SrvrUI PR2](https://github.com/PaulMDemers/SrvrUI/pull/2)
+  merged as `76deeb30c583a98cf47ffd9bdada34c15b37890c`, then
+  [SrvrOS PR289](https://github.com/PaulMDemers/SrvrOS/pull/289) merged as
+  `5b2bf3c77937c6b665aa88dce7abcf4582d6ba10`. Exact merged revisions were
+  verified in the isolated checkout; local receipts are under
+  `build/review/ui-host/merge/`.
+- Portable integer density and 40-control capacity:
+  [SrvrUI PR3](https://github.com/PaulMDemers/SrvrUI/pull/3) merged as
+  `9eaaa74e1423c15c99f8ce388b08ed5e514de3d6`, with a tree identical to tested
+  `2227f6c1656f3b58dfa5c7c6339f1161996e0900`. The agreed
+  [density contract](../../userspace/widgets/docs/render-density.md) remains
+  logical geometry/input/clip/damage with physical backing/stride and native 2x
+  font coverage. Fourteen CTests pass; the renderer revision passed thirteen
+  sanitizer checks, and the capacity follow-up passed focused UI/density
+  sanitizer checks. Original 1x metrics/atlas and reference images are unchanged.
+- Matched display integration: [SrvrOS PR303](https://github.com/PaulMDemers/SrvrOS/pull/303)
+  merged as `b0959ac50e1b1577dbf257141ffbb30beb38d35f`, consuming that UI merge
+  and SrvrApps `edb51dc16214d58bcd1768b3a52fdb3b9793c8b8`. The integration owner
+  verified full host checks, live scale/resolution Apply/Keep and rollback,
+  retained document bytes, restart persistence, snapping, resizing and themes.
+  Its [committed evidence](../assets/screenshots/hidpi-display-manifest.json)
+  identifies the actual tested runtime and limits; these are not new physical
+  SrvrOS hardware acceptance claims from this host.
+- The [Text dependency review](../text-macos-host-review.md) is complete and
+  retained as research. A macOS Text implementation is optional future work;
+  it has not been started or accepted.
+
+This closeout updates records only. Hosted Actions remain disabled; the shared
+checkout, protected images and review VMs remain untouched by this chat. No new
+OS backend or portability layer is underway. Further feature work requires a
+new target; the prior plans below are historical evidence.
+
+## Initial showcase scope — November 3, 2026
 
 Target: standalone macOS ARM64 SDL3 widget showcase, with unchanged SrvrOS
 widget behavior and Silver/Aero/Aqua styling. User authorized implementation,

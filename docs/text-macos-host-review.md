@@ -8,6 +8,11 @@ a standalone application: compilation succeeds with the matched OS headers, but
 window, file, chooser, clipboard and lifecycle services still require host
 implementations. This review changes documentation only.
 
+Closeout on November 4: this research milestone is finished. The implementation
+proposal below remains optional, unstarted future work. The subsequent merged
+density work is recorded in the [host status](machines/apple-silicon-ui-host.md);
+it does not imply that Text itself has been ported or accepted on macOS.
+
 Reviewed November 3, 2026 in the isolated `SrvrOS-ui-host` checkout:
 
 - SrvrOS main: `585ad8e5ea3ec6fedb109a7a237346b26533f6e5`.
@@ -70,7 +75,7 @@ executables. These tests exercise selected code with existing fixture stubs and
 linker removal of unused sections. They do not link or run the complete Text
 application, perform host document I/O, or accept a native picker/lifecycle.
 
-## Recommended implementation milestone
+## Optional future implementation — not started
 
 Deliver one macOS ARM64 Text window with Open, New, Save, Save As, editing,
 undo/redo, find/replace, clipboard and guarded Close/Quit. Keep the existing
@@ -115,5 +120,5 @@ search focus routing; clipboard, dead-key input, resizing and Retina; matched
 SrvrOS regressions. Use a throwaway directory for file tests. Preserve the
 existing OS multiwindow and worker ownership behavior during extraction.
 
-This defines the next implementation scope. The authorized dependency review is
+This defines a possible future scope. The authorized dependency review is
 finished; no application implementation or new runtime acceptance is claimed.
