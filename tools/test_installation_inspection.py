@@ -186,6 +186,32 @@ class InstalledInspectionTests(unittest.TestCase):
                     self.publish()
                 self.check_inspection(size == 512)
 
+    def test_portable_preferences_guest_lexical_grammar(self):
+        validate = profile_image.validate_request
+        cases = (
+            (b'{"text_size":16}', True),
+            (b' \t\r\n{"text_size":16}\r\n\t ', True),
+            (b'{"text\\u005fsize":16}', False),
+            (b'{"clock_flags":-0}', False),
+            (b'{"text_size":16.0}', False),
+            (b'{"text_size":16e0}', False),
+            (b'\x0c{"text_size":16}', False),
+            (b'{"text_size":16,"text_size":16}', False),
+        )
+        for payload, valid in cases:
+            with self.subTest(payload=payload):
+                if self.stage.exists():
+                    import shutil
+                    shutil.rmtree(self.stage)
+                def custom_request(*args, **kwargs):
+                    metadata, files, directories = validate(*args, **kwargs)
+                    files[metadata['home'] + '/' + profile_bundle.PREF_PATH] = payload
+                    return metadata, files, directories
+                with mock.patch.object(profile_image, 'validate_request', side_effect=custom_request):
+                    self.publish()
+                self.check_inspection(valid)
+                self.check_inspection(valid, cli=True)
+
     def test_profile_used_with_missing_original_sources(self):
         self.publish()
         ready = (self.stage / 'ready.json').read_bytes()

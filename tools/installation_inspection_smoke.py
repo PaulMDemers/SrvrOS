@@ -139,7 +139,7 @@ def run(args, storage):
             'gpt-partition-label':'invalid GPT entries checksum', 'dirty-boot':'clean-admission',
             'bad-boot-backup':'clean-admission', 'allocation-leak':'clean-admission',
             'marker-uuid':'invalid profile ID', 'identity-json':'invalid or truncated JSON',
-            'local-binding':'invalid or truncated JSON', 'portable-preferences':'invalid or truncated JSON',
+            'local-binding':'invalid or truncated JSON', 'portable-preferences':'invalid guest portable preferences syntax',
             'pending-marker':'pending import or selection scratch', 'journal':'pending import or selection scratch',
             'torn-journal':'pending import or selection scratch', 'copy-scratch':'pending import or selection scratch',
             'selection-scratch':'pending import or selection scratch', 'selection-stale':'stale remembered selection',

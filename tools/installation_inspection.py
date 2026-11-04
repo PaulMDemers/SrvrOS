@@ -140,6 +140,16 @@ def driver_output(driver, fd, spec):
         sel.close(); proc.stdout.close(); proc.stderr.close()
 
 
+def guest_preferences(raw):
+    # Match userspace/lib/include/srvros/profile_preferences.h: the guest
+    # accepts a flat object with literal keys and canonical unsigned numbers.
+    ws = rb'[ \t\r\n]*'
+    member = rb'"[a-z_]+"' + ws + rb':' + ws + rb'(?:0|[1-9][0-9]*)'
+    pattern = ws + rb'\{' + ws + rb'(?:' + member + ws + rb'(?:,' + ws + member + ws + rb')*)?\}' + ws
+    require(re.fullmatch(pattern, raw) is not None, 'invalid guest portable preferences syntax')
+    return p.preferences(p.decode_json(raw))
+
+
 def catalog(result, planned):
     require(type(result) is dict and set(result) == {'version','filesystem','entries'} and type(result['version']) is int and result['version'] == 1, 'invalid driver output')
     fs = result['filesystem']
@@ -181,7 +191,7 @@ def catalog(result, planned):
             display_name = home.rsplit('/', 1)[-1]
         binding = p.decode_json(data(home+'/profile-local.json',1024)); p.exact(binding, ('alias','uid','gid'), 'local binding'); p.binding(**binding)
         for suffix in ('Documents','.config','.config/srvros','.local','.local/share','.cache'): directory(home+'/'+suffix)
-        p.preferences(p.decode_json(data(home+'/.config/srvros/portable.json',512)))
+        guest_preferences(data(home+'/.config/srvros/portable.json',512))
         profiles.append({'home':home, 'profile_id':ident, 'display_name':display_name, 'identity_present':identity_path in paths, **binding})
     for key in ('profile_id','alias','uid'):
         values = [x[key] for x in profiles]; require(len(values) == len(set(values)), 'duplicate profile ' + key)
