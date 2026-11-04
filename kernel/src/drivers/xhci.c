@@ -40,7 +40,9 @@
 #ifndef XHCI_HALT_TIMEOUT
 #define XHCI_HALT_TIMEOUT XHCI_RESET_TIMEOUT
 #endif
+#ifndef XHCI_TRANSFER_TIMEOUT
 #define XHCI_TRANSFER_TIMEOUT 20000000ull
+#endif
 #define XHCI_INPUT_PROBE_TICKS_PER_SECOND 100ull
 #define XHCI_INPUT_PROBE_TSC_PER_SECOND 3000000000ull
 #define XHCI_INPUT_PROBE_SPIN_LIMIT 4000000ull
@@ -96,6 +98,8 @@
 #define XHCI_TRB_TYPE_ADDRESS_DEVICE 11
 #define XHCI_TRB_TYPE_CONFIGURE_ENDPOINT 12
 #define XHCI_TRB_TYPE_EVALUATE_CONTEXT 13
+#define XHCI_TRB_TYPE_RESET_ENDPOINT 14
+#define XHCI_TRB_TYPE_SET_DEQUEUE 16
 #define XHCI_TRB_TYPE_NOOP 23
 #define XHCI_TRB_TYPE_TRANSFER_EVENT 32
 #define XHCI_TRB_TYPE_COMMAND_COMPLETION 33
@@ -238,6 +242,9 @@ struct xhci_device {
     bool configured;
     bool removed,control_pending,control_failed;
     bool retiring,slot_disabled;
+    bool control_short,control_recovery_attempted,hub_status_pending;
+    uint8_t control_completion,control_td_count,hub_poll_port;
+    uint64_t control_td[3],retired_ep0_ring_phys,hub_status_since;
     bool hid_keyboard;
     bool hid_mouse;
     bool hid_boot_mouse;
@@ -327,7 +334,7 @@ struct xhci_state {
     bool operational;
     bool stopping,stopped,controller_owned,reclaiming,reclaimed,worker_retired,bus_master_disabled;
     uint64_t poll_users,diagnostic_users,reclaimed_frames,scratchpad_array_phys,scratchpad_array_pages;
-    uint64_t sync_users,stop_events;
+    uint64_t sync_users,stop_events,hub_poll_cursor;
     const char *stage;
     const char *handoff;
     uint16_t scratchpad_count;
@@ -395,6 +402,8 @@ static volatile bool xhci_input_probe_active;
 static bool xhci_poll_worker_started;
 static bool device_removed(struct xhci_device *device);
 static bool poll_event(struct xhci_trb *event_out);
+static void service_hub_changes(void);
+static void hub_status_event(struct xhci_device *d,const struct xhci_trb *event);
 
 static bool network_enabled;
 static uint64_t network_count;
@@ -1212,61 +1221,45 @@ static uint64_t ring_push(struct xhci_trb *ring,
     return trb_phys;
 }
 
-static bool wait_transfer_completion(uint8_t slot_id,
-    uint8_t dci,
-    uint64_t expected_trb,
-    uint64_t *completion_out) {
-    for (uint64_t i = 0; i < XHCI_TRANSFER_TIMEOUT; i++) {
-        if(xhci.stopping)return false;
+/* Only the current TD's exact TRBs can retire EP0. Errors may identify
+ * Setup or Data; a successful Data-stage event is not Status completion. */
+static int control_event_result(struct xhci_device *d,const struct xhci_trb *event) {
+    if(((event->control>>10)&63)!=XHCI_TRB_TYPE_TRANSFER_EVENT ||
+       (event->control>>24)!=d->slot_id || ((event->control>>16)&31)!=1)return 0;
+    uint64_t pointer=event->parameter_low|((uint64_t)event->parameter_high<<32);
+    unsigned i;
+    for(i=0;i<d->control_td_count;i++)if(d->control_td[i]==pointer)break;
+    if(i==d->control_td_count)return 0;
+    unsigned cc=event->status>>24;
+    if(cc==13 && i+1<d->control_td_count) {d->control_short=true;return 0;}
+    if(cc==1 && i+1<d->control_td_count)return 0;
+    d->control_completion=cc;
+    return cc==1 && !(event->status&0xffffff) && !d->control_short?1:-1;
+}
+static bool wait_transfer_completion(struct xhci_device *d,uint64_t *completion_out) {
+    for(uint64_t i=0;i<XHCI_TRANSFER_TIMEOUT;i++) {
+        if(xhci.stopping || device_removed(d))return false;
         struct xhci_trb event;
-        if (!poll_event(&event)) {
-            continue;
+        if(!poll_event(&event))continue;
+        int result=control_event_result(d,&event);
+        if(result) {
+            xhci.transfer_events++;xhci.last_completion_code=d->control_completion;
+            xhci.last_slot_id=d->slot_id;
+            if(completion_out)*completion_out=d->control_completion;
+            return result>0;
         }
-
-        uint64_t type = (event.control >> 10) & 0x3f;
-        if (type == XHCI_TRB_TYPE_COMMAND_COMPLETION) {
-            xhci.command_events++;
-            xhci.last_completion_code = (event.status >> 24) & 0xff;
-            xhci.last_slot_id = (event.control >> 24) & 0xff;
-            continue;
-        }
-        if (type != XHCI_TRB_TYPE_TRANSFER_EVENT) {
-            continue;
-        }
-
-        uint64_t event_slot = (event.control >> 24) & 0xff;
-        uint64_t event_dci = (event.control >> 16) & 0x1f;
-        uint64_t pointer = (uint64_t)event.parameter_low | ((uint64_t)event.parameter_high << 32);
-        uint64_t completion = (event.status >> 24) & 0xff;
-        xhci.transfer_events++;
-        xhci.last_completion_code = completion;
-        xhci.last_slot_id = event_slot;
-        if (event_slot != slot_id || event_dci != dci) {
-            dispatch_transfer_event(&event);
-            continue;
-        }
-        if (expected_trb != 0 && pointer != expected_trb) {
-            continue;
-        }
-        if (completion_out != 0) {
-            *completion_out = completion;
-        }
-        return completion == 1 || completion == 13;
+        dispatch_transfer_event(&event);
     }
-    console_printf("xhci: transfer timeout slot=%u dci=%u last_cc=%u\n",
-        (uint64_t)slot_id,
-        (uint64_t)dci,
-        xhci.last_completion_code);
     return false;
 }
 
-static bool control_transfer(struct xhci_device *device,
+static void queue_control_transfer(struct xhci_device *device,
     const struct usb_setup_packet *setup,
     uint64_t buffer_phys,
     uint32_t length,
     bool data_in) {
-    if(device_removed(device) || device->control_failed || device->control_pending || xhci.command_failed || xhci.sync_users==UINT64_MAX)return false;
-    device->control_pending=true;xhci.sync_users++;
+    device->control_pending=true;device->control_short=false;
+    device->control_completion=0;device->control_td_count=0;
     uint64_t setup_value =
         (uint64_t)setup->request_type |
         ((uint64_t)setup->request << 8) |
@@ -1282,7 +1275,7 @@ static bool control_transfer(struct xhci_device *device,
             XHCI_TRB_IDT |
             (length == 0 ? XHCI_SETUP_TRT_NONE : (data_in ? XHCI_SETUP_TRT_IN : XHCI_SETUP_TRT_OUT)),
     };
-    (void)ring_push(device->ep0_ring,
+    device->control_td[device->control_td_count++]=ring_push(device->ep0_ring,
         device->ep0_ring_phys,
         &device->ep0_enqueue,
         &device->ep0_cycle,
@@ -1293,10 +1286,10 @@ static bool control_transfer(struct xhci_device *device,
             .parameter_low = (uint32_t)buffer_phys,
             .parameter_high = (uint32_t)(buffer_phys >> 32),
             .status = length,
-            .control = (XHCI_TRB_TYPE_DATA_STAGE << 10) |
+            .control = (XHCI_TRB_TYPE_DATA_STAGE << 10) | XHCI_TRB_ISP |
                 (data_in ? XHCI_DATA_DIR_IN : 0),
         };
-        (void)ring_push(device->ep0_ring,
+        device->control_td[device->control_td_count++]=ring_push(device->ep0_ring,
             device->ep0_ring_phys,
             &device->ep0_enqueue,
             &device->ep0_cycle,
@@ -1311,15 +1304,22 @@ static bool control_transfer(struct xhci_device *device,
             XHCI_TRB_IOC |
             (length == 0 || !data_in ? XHCI_STATUS_DIR_IN : 0),
     };
-    uint64_t status_phys = ring_push(device->ep0_ring,
+    device->control_td[device->control_td_count++]=ring_push(device->ep0_ring,
         device->ep0_ring_phys,
         &device->ep0_enqueue,
         &device->ep0_cycle,
         &status_trb);
 
     db_write32(device->slot_id, 1);
+}
+static bool control_transfer(struct xhci_device *device,const struct usb_setup_packet *setup,
+    uint64_t buffer_phys,uint32_t length,bool data_in) {
+    if(device_removed(device) || device->control_failed || device->control_pending ||
+       xhci.command_pending || xhci.command_failed || xhci.sync_users==UINT64_MAX)return false;
+    xhci.sync_users++;
+    queue_control_transfer(device,setup,buffer_phys,length,data_in);
     uint64_t completion = 0;
-    bool completed=wait_transfer_completion(device->slot_id,1,status_phys,&completion);
+    bool completed=wait_transfer_completion(device,&completion);
     xhci.sync_users--;
     if (!completed || device_removed(device)) {
         device->control_failed=true;
@@ -1974,6 +1974,115 @@ static bool device_removed(struct xhci_device *d) {
 }
 
 
+/* A hub status loss invalidates its subtree. Stable records prevent rebinding. */
+static void quarantine_subtree(struct xhci_device *root) {
+    root->retiring=true;(void)device_removed(root);
+    for(unsigned pass=0;pass<XHCI_MAX_DEVICES;pass++) {
+        bool changed=false;
+        for(unsigned i=0;i<XHCI_MAX_DEVICES;i++) {
+            struct xhci_device *d=&xhci.devices[i];
+            if(!d->present || d->removed || !d->parent_slot_id)continue;
+            struct xhci_device *parent=device_by_slot(d->parent_slot_id);
+            if(parent && parent->removed) {d->retiring=true;(void)device_removed(d);changed=true;}
+        }
+        if(!changed)break;
+    }
+}
+static void apply_hub_port_status(struct xhci_device *hub,uint8_t port,uint32_t status) {
+    /* Replacement can already have CCS set again. Any change, reset, suspend,
+     * overcurrent or lost enable quarantines that port's old descendants. */
+    if((status&3)==3 && !(status&(0xffff0000u|0x1cu)))return;
+    for(unsigned i=0;i<XHCI_MAX_DEVICES;i++) {
+        struct xhci_device *d=&xhci.devices[i];
+        if(d->present && d->parent_slot_id==hub->slot_id && d->hub_port_id==port)
+            quarantine_subtree(d);
+    }
+}
+static void hub_status_event(struct xhci_device *d,const struct xhci_trb *event) {
+    int result=control_event_result(d,event);
+    if(!result)return;
+    d->hub_status_pending=d->control_pending=false;
+    if(result<0) {d->control_failed=true;quarantine_subtree(d);return;}
+    uint32_t status=(uint32_t)d->descriptor_buffer[0]|((uint32_t)d->descriptor_buffer[1]<<8)|
+        ((uint32_t)d->descriptor_buffer[2]<<16)|((uint32_t)d->descriptor_buffer[3]<<24);
+    apply_hub_port_status(d,d->hub_poll_port,status);
+    if(++d->hub_poll_port>d->hub_ports)d->hub_poll_port=1;
+}
+static void service_hub_changes(void) {
+    if(!xhci.operational || xhci.stopping)return;
+    uint64_t now=timer_monotonic_us();
+    for(unsigned i=0;i<XHCI_MAX_DEVICES;i++) {
+        struct xhci_device *d=&xhci.devices[i];
+        if(d->hub_status_pending && now-d->hub_status_since>=2000000) {
+            /* An unanswered TD is not reusable. Stop admission to all children. */
+            d->control_failed=true;quarantine_subtree(d);
+        }
+    }
+    if(xhci.sync_users || xhci.command_pending || xhci.command_failed)return;
+    for(unsigned n=0;n<XHCI_MAX_DEVICES;n++) {
+        unsigned i=xhci.hub_poll_cursor++%XHCI_MAX_DEVICES;
+        struct xhci_device *d=&xhci.devices[i];
+        if(!d->present || !d->configured || !d->hub_ports || device_removed(d) ||
+           d->control_failed || d->control_pending)continue;
+        if(!d->hub_poll_port)d->hub_poll_port=1;
+        struct usb_setup_packet setup={.request_type=0xa3,.request=USB_REQ_GET_STATUS,
+            .index=d->hub_poll_port,.length=4};
+        d->hub_status_pending=true;d->hub_status_since=now;
+        queue_control_transfer(d,&setup,d->descriptor_buffer_phys,4,true);
+        break; /* One asynchronous request per worker turn; no busy wait. */
+    }
+}
+
+bool xhci_recover_control(uint8_t slot) {
+    uint64_t flags=event_irq_save(),kernel=vmm_kernel_address_space();
+    struct xhci_device *d=device_by_slot(slot);
+    if(!kernel || vmm_current_address_space()!=kernel || !xhci.operational || !xhci.controller_owned || xhci.stopping ||
+       xhci.command_pending || xhci.command_failed || xhci.sync_users || xhci.poll_users || xhci.diagnostic_users || !d || device_removed(d) ||
+       !d->control_failed || d->control_pending || d->control_completion!=6 ||
+       d->control_recovery_attempted || d->parent_slot_id || d->storage.block || d->bulk_failed || !d->output_context ||
+       (context_read32(d->output_context,1,0)&7)!=2) {event_irq_restore(flags);return false;}
+    uint64_t fresh_phys=0;void *fresh=NULL;
+    if(!alloc_frame_zero(&fresh_phys,&fresh)) {event_irq_restore(flags);return false;}
+    d->control_recovery_attempted=true;
+    /* Both rings stay tracked even if a command times out or removal intervenes. */
+    d->retired_ep0_ring_phys=fresh_phys;
+    write_link_trb(fresh,fresh_phys,true);
+    uint64_t completed=UINT64_MAX;
+    if(!submit_command(XHCI_TRB_TYPE_RESET_ENDPOINT,((uint32_t)slot<<24)|(1u<<16),&completed) ||
+       completed!=slot || device_removed(d) || (context_read32(d->output_context,1,0)&7)!=3) {
+        if(completed!=UINT64_MAX && completed!=slot)xhci.command_failed=true;
+        event_irq_restore(flags);return false;
+    }
+    struct xhci_trb command={.parameter_low=(uint32_t)fresh_phys|1u,.parameter_high=fresh_phys>>32,
+        .control=(XHCI_TRB_TYPE_SET_DEQUEUE<<10)|((uint32_t)slot<<24)|(1u<<16)};
+    completed=UINT64_MAX;
+    if(!submit_command_trb(&command,XHCI_TRB_TYPE_SET_DEQUEUE,&completed) || completed!=slot ||
+       device_removed(d) || (context_read32(d->output_context,1,0)&7)!=3 ||
+       (context_read32(d->output_context,1,2)|((uint64_t)context_read32(d->output_context,1,3)<<32))!=(fresh_phys|1u)) {
+        if(completed!=UINT64_MAX && completed!=slot)xhci.command_failed=true;
+        event_irq_restore(flags);return false;
+    }
+    d->retired_ep0_ring_phys=d->ep0_ring_phys;d->ep0_ring_phys=fresh_phys;d->ep0_ring=fresh;
+    d->ep0_enqueue=0;d->ep0_cycle=true;d->control_td_count=0;d->control_failed=false;
+    d->stage="ep0-recovered";
+    event_irq_restore(flags);return true;
+}
+
+/* Attended diagnostic used by disposable-VM regression: a read-only invalid
+ * descriptor request induces a protocol STALL, then verifies a fresh descriptor. */
+bool xhci_test_control_recovery(uint8_t slot) {
+    uint64_t flags=event_irq_save(),kernel=vmm_kernel_address_space();
+    struct xhci_device *d=device_by_slot(slot);
+    if(!kernel || vmm_current_address_space()!=kernel || !xhci.operational || !xhci.controller_owned ||
+       !d || !(d->hid_keyboard || d->hid_mouse) || d->control_failed ||
+       d->storage.block || d->control_recovery_attempted || xhci.sync_users ||
+       xhci.poll_users || xhci.diagnostic_users) {event_irq_restore(flags);return false;}
+    bool failed=!get_descriptor(d,0xff,0,0,8);
+    bool ok=failed && xhci_recover_control(slot) && get_descriptor(d,USB_DESC_DEVICE,0,0,8) &&
+        d->descriptor_buffer[0]==18 && d->descriptor_buffer[1]==USB_DESC_DEVICE;
+    event_irq_restore(flags);return ok;
+}
+
 /* Explicit retirement closes providers before Disable Slot. Retain records
  * and DMA even after completion: published identities and old events do not
  * authorize ring reuse or runtime re-enumeration. */
@@ -2110,6 +2219,7 @@ bool xhci_reclaim(void) {
 #define RELEASE(field,pointer) do {pending|=reclaim_page(&d->field,&budget);if(!d->field)d->pointer=NULL;} while(0)
         RELEASE(input_context_phys,input_context);RELEASE(output_context_phys,output_context);
         RELEASE(ep0_ring_phys,ep0_ring);RELEASE(descriptor_buffer_phys,descriptor_buffer);
+        pending|=reclaim_page(&d->retired_ep0_ring_phys,&budget);
         RELEASE(interrupt_ring_phys,interrupt_ring);RELEASE(interrupt_buffer_phys,interrupt_buffer);
         RELEASE(bulk_buffer_phys,bulk_buffer);
 #undef RELEASE
@@ -2167,6 +2277,7 @@ static void dispatch_transfer_event(const struct xhci_trb *event) {
     xhci.last_slot_id = slot;
     struct xhci_device *device = device_by_slot(slot);
     if (!device || device_removed(device)) return;
+    if(dci==1 && device->hub_status_pending) {hub_status_event(device,event);return;}
     if(network_event(device,dci,pointer,completion,remaining)) return;
     struct xhci_trackpad_endpoint *t=&device->trackpad;
     if (t->pending && dci==t->dci && pointer==t->trb) {
@@ -2273,6 +2384,7 @@ static void poll_hid_events_once(void) {
     /* Bound work even if a malfunctioning device floods events. */
     for (unsigned i=0; i<XHCI_EVENT_TRB_COUNT && poll_event(&event); i++) dispatch_transfer_event(&event);
     for(unsigned i=0;i<XHCI_MAX_DEVICES;i++) if(xhci.devices[i].network) network_service(&xhci.devices[i]);
+    service_hub_changes();
     xhci.poll_users--;event_irq_restore(flags);
 }
 
@@ -2294,7 +2406,7 @@ static void xhci_poll_worker(void *arg) {
     struct scheduler_wait_queue wake={0};
     for (;;) {
         if(retire_poll_worker())return;
-        if (xhci.operational && !xhci_input_probe_active && (xhci.hid_keyboards != 0 || xhci.hid_mice != 0 || network_count)) {
+        if (xhci.operational && !xhci_input_probe_active && (xhci.hid_keyboards != 0 || xhci.hid_mice != 0 || network_count || xhci.hubs_seen)) {
             poll_hid_events_once();
             uint64_t now = timer_monotonic_us();
             latency_input_poll(now);
@@ -2342,16 +2454,17 @@ static uint8_t hub_status_speed(uint32_t port_status) {
     return 1;
 }
 
-static void clear_hub_port_changes(struct xhci_device *hub, uint8_t port, uint32_t status) {
+static bool clear_hub_port_changes(struct xhci_device *hub, uint8_t port, uint32_t status) {
     if ((status & (1u << USB_FEATURE_C_PORT_CONNECTION)) != 0) {
-        (void)hub_clear_port_feature(hub, port, USB_FEATURE_C_PORT_CONNECTION);
+        if(!hub_clear_port_feature(hub, port, USB_FEATURE_C_PORT_CONNECTION))return false;
     }
     if ((status & (1u << USB_FEATURE_C_PORT_ENABLE)) != 0) {
-        (void)hub_clear_port_feature(hub, port, USB_FEATURE_C_PORT_ENABLE);
+        if(!hub_clear_port_feature(hub, port, USB_FEATURE_C_PORT_ENABLE))return false;
     }
     if ((status & (1u << USB_FEATURE_C_PORT_RESET)) != 0) {
-        (void)hub_clear_port_feature(hub, port, USB_FEATURE_C_PORT_RESET);
+        if(!hub_clear_port_feature(hub, port, USB_FEATURE_C_PORT_RESET))return false;
     }
+    return true;
 }
 
 static bool reset_hub_port(struct xhci_device *hub, uint8_t port, uint32_t *status_out) {
@@ -2367,6 +2480,7 @@ static bool reset_hub_port(struct xhci_device *hub, uint8_t port, uint32_t *stat
         (status & USB_HUB_PORT_CONNECTION) == 0) {
         return false;
     }
+    if(!clear_hub_port_changes(hub,port,status))return false;
     if (!hub_set_port_feature(hub, port, USB_FEATURE_PORT_RESET)) {
         return false;
     }
@@ -2374,11 +2488,15 @@ static bool reset_hub_port(struct xhci_device *hub, uint8_t port, uint32_t *stat
         if (!hub_get_port_status(hub, port, &status)) {
             return false;
         }
-        if ((status & USB_HUB_PORT_ENABLE) != 0 && (status & (1u << USB_FEATURE_PORT_RESET)) == 0) {
+        if(!(status&USB_HUB_PORT_CONNECTION))return false;
+        if ((status & USB_HUB_PORT_ENABLE) != 0 && (status & (1u << USB_FEATURE_PORT_RESET)) == 0 &&
+            (status&(1u<<USB_FEATURE_C_PORT_RESET))) {
             break;
         }
     }
-    clear_hub_port_changes(hub, port, status);
+    if((status&(USB_HUB_PORT_CONNECTION|USB_HUB_PORT_ENABLE|(1u<<USB_FEATURE_PORT_RESET)|(1u<<USB_FEATURE_C_PORT_RESET)))!=
+       (USB_HUB_PORT_CONNECTION|USB_HUB_PORT_ENABLE|(1u<<USB_FEATURE_C_PORT_RESET)) ||
+       !clear_hub_port_changes(hub,port,status))return false;
     xhci.hub_ports_reset++;
     *status_out = status;
     return (status & USB_HUB_PORT_ENABLE) != 0;
@@ -2387,6 +2505,8 @@ static bool reset_hub_port(struct xhci_device *hub, uint8_t port, uint32_t *stat
 static bool enumerate_device(struct xhci_device *device);
 
 static bool enumerate_hub(struct xhci_device *hub, uint8_t configuration) {
+    /* USB3 hubs require a different descriptor/status contract. */
+    if(hub->speed==4)return false;
     if (!set_configuration(hub, configuration)) {
         return false;
     }
@@ -2828,7 +2948,7 @@ static void enumerate_connected_ports(void) {
     for (uint64_t i = 0; i < count; i++) {
         (void)enumerate_port(i);
     }
-    if (xhci.hid_keyboards != 0 || xhci.hid_mice != 0 || network_count) {
+    if (xhci.hid_keyboards != 0 || xhci.hid_mice != 0 || network_count || xhci.hubs_seen) {
         xhci_poll_worker_started=scheduler_spawn_io_service("xhci-hid", xhci_poll_worker, 0, xhci_io_service_ready);
         if (!xhci_poll_worker_started) {
             console_write("xhci: hid poll worker failed\n");
@@ -2974,7 +3094,7 @@ void xhci_probe_input(uint64_t wait_ticks) {
     while (!xhci.stopping && timer_ticks() - start < wait_ticks &&
            rdtsc() - start_tsc < tsc_wait &&
            spins < XHCI_INPUT_PROBE_SPIN_LIMIT) {
-        if (xhci.operational && (xhci.hid_keyboards != 0 || xhci.hid_mice != 0 || network_count)) {
+        if (xhci.operational && (xhci.hid_keyboards != 0 || xhci.hid_mice != 0 || network_count || xhci.hubs_seen)) {
             poll_hid_events_once();
         }
         for (uint64_t i = 0; i < 5000; i++) {

@@ -6,6 +6,7 @@
 #include <string.h>
 #include <stdint.h>
 #define XHCI_COMMAND_TIMEOUT 256ull
+#define XHCI_TRANSFER_TIMEOUT 256ull
 #define XHCI_RESET_TIMEOUT 256ull
 #define XHCI_HALT_TIMEOUT 256ull
 #define SRVROS_XHCI_TEST_MMIO
@@ -78,6 +79,11 @@ static uint32_t xhci_test_read32(uint64_t offset) {
 
 static bool command_nested,event_flood,stop_on_doorbell;
 static bool disable_auto,disable_wrong_slot,start_status_model;
+static struct xhci_device *control_model;
+static unsigned control_model_cc=1,control_model_stage=2;
+static uint32_t hub_model_status=3;
+static bool recovery_auto,recovery_bad_dequeue,recovery_wrong_slot,control_fail_clear;
+static unsigned recovery_commands,recovery_fail_at,recovery_timeout_at;
 static uint8_t disabled_order[32];static unsigned disabled_count;
 static uint64_t test_space=1;
 static bool retire_ready=true,storage_retire_ready=true,reject_bus_master;
@@ -87,6 +93,35 @@ static unsigned flood_dequeues;
 static struct xhci_device *mode_device;
 static unsigned mode_doorbells;
 static void xhci_test_write32(uint64_t offset, uint32_t value) {
+    if(control_model && offset==xhci.db_base+4*control_model->slot_id && value==1) {
+        struct xhci_device *d=control_model;
+        struct xhci_trb *setup=(struct xhci_trb *)(uintptr_t)d->control_td[0];
+        unsigned cc=control_fail_clear && ((setup->parameter_low>>8)&255)==USB_REQ_CLEAR_FEATURE?6:control_model_cc;
+        uint64_t ptr=d->control_td[cc==1 || control_model_stage>=d->control_td_count?d->control_td_count-1u:control_model_stage];
+        if(cc==6)context_write32(d->output_context,1,0,2);
+        if(d->hub_ports)for(unsigned i=0;i<4;i++)d->descriptor_buffer[i]=hub_model_status>>(i*8);
+        else {d->descriptor_buffer[0]=18;d->descriptor_buffer[1]=1;}
+        xhci.event_ring[xhci.event_dequeue]=(struct xhci_trb){.parameter_low=(uint32_t)ptr,
+            .parameter_high=ptr>>32,.status=cc<<24,
+            .control=(xhci.event_cycle?1u:0u)|(32u<<10)|((uint32_t)d->slot_id<<24)|(1u<<16)};
+    }
+    if(recovery_auto && offset==xhci.db_base) {
+        unsigned index=(xhci.command_enqueue+XHCI_TRB_COUNT-2)%(XHCI_TRB_COUNT-1);
+        struct xhci_trb *cmd=&xhci.command_ring[index];unsigned type=(cmd->control>>10)&63;
+        assert(type==14 || type==16);recovery_commands++;
+        if(recovery_commands==recovery_timeout_at)return;
+        unsigned cc=recovery_commands==recovery_fail_at?19:1;
+        struct xhci_device *d=&xhci.devices[0];
+        if(cc==1 && type==14)context_write32(d->output_context,1,0,3);
+        if(cc==1 && type==16 && !recovery_bad_dequeue) {
+            context_write32(d->output_context,1,2,cmd->parameter_low);
+            context_write32(d->output_context,1,3,cmd->parameter_high);
+        }
+        uint64_t ptr=xhci.command_ring_phys+index*sizeof(*cmd);
+        xhci.event_ring[xhci.event_dequeue]=(struct xhci_trb){.parameter_low=(uint32_t)ptr,
+            .parameter_high=ptr>>32,.status=cc<<24,
+            .control=(xhci.event_cycle?1u:0u)|(33u<<10)|((recovery_wrong_slot?2u:1u)<<24)};
+    }
     if(disable_auto && offset==xhci.db_base) {
         uint64_t index=(xhci.command_enqueue+XHCI_TRB_COUNT-2)%(XHCI_TRB_COUNT-1);
         const struct xhci_trb *cmd=&xhci.command_ring[index];
@@ -178,6 +213,9 @@ void pmm_free_frame(uint64_t address) {
 void pmm_free_frame_range(uint64_t address,uint64_t count) {for(uint64_t i=0;i<count;i++)pmm_free_frame(address+i*PMM_FRAME_SIZE);}
 
 static void reset_test(void) {
+    control_model=NULL;control_model_cc=1;control_model_stage=2;hub_model_status=3;
+    recovery_auto=recovery_bad_dequeue=recovery_wrong_slot=control_fail_clear=false;
+    recovery_commands=recovery_fail_at=recovery_timeout_at=0;
     disable_auto=disable_wrong_slot=start_status_model=false;disabled_count=0;
     reclaim_check=false;memset(released_pages,0,sizeof(released_pages));
     storage_retire_ready=true;reject_bus_master=false;pci_command=6;
@@ -1187,6 +1225,86 @@ static void test_terminal_stop(void) {
     assert(xhci_stop() && !freed);
     puts("xhci-stop: PASS verified halt, caller/provider drain, in-call cancellation, bounded events, retry and pinned backing");
 }
+static struct xhci_device *control_fixture(void) {
+    stop_fixture();xhci.port_count=1;halt_after=0;
+    *(uint32_t *)(registers+xhci.op_base+XHCI_OP_PORTS)=XHCI_PORTSC_CCS|XHCI_PORTSC_PED;
+    struct xhci_device *d=&xhci.devices[0];
+    *d=(struct xhci_device){.present=true,.configured=true,.slot_id=1,.port_id=1};
+    assert(allocate_device_runtime(d));return d;
+}
+static void test_ep0_recovery(void) {
+    struct usb_setup_packet setup={.request=USB_REQ_GET_STATUS,.length=4};
+    for(unsigned stage=0;stage<3;stage++) {
+        struct xhci_device *d=control_fixture();control_model=d;control_model_cc=6;control_model_stage=stage;
+        d->ep0_enqueue=62; /* Setup/Data/Status straddle the Link TRB. */
+        assert(!control_transfer(d,&setup,d->descriptor_buffer_phys,4,true));
+        assert(d->control_failed && !d->control_pending && d->control_completion==6 && !xhci.sync_users);
+        uint64_t old=d->ep0_ring_phys,allocated=pool_used;
+        xhci.sync_users=1;assert(!xhci_recover_control(1) && pool_used==allocated);xhci.sync_users=0;
+        d->parent_slot_id=2;assert(!xhci_recover_control(1) && pool_used==allocated);d->parent_slot_id=0;
+        d->storage.block=(struct block_device *)1;
+        assert(!xhci_recover_control(1) && pool_used==allocated);d->storage.block=NULL;
+        recovery_auto=true;assert(xhci_recover_control(1));
+        assert(recovery_commands==2 && !d->control_failed && d->retired_ep0_ring_phys==old &&
+            d->ep0_ring_phys!=old && d->ep0_enqueue==0 && d->ep0_cycle && !freed);
+        struct xhci_trb late={.parameter_low=(uint32_t)old,.parameter_high=old>>32,
+            .status=6u<<24,.control=(32u<<10)|(1u<<24)|(1u<<16)};
+        assert(!control_event_result(d,&late));
+        control_model_cc=1;assert(control_transfer(d,&setup,d->descriptor_buffer_phys,4,true));
+        assert(!xhci_recover_control(1) && recovery_commands==2 && pool_used==allocated+1);
+    }
+    for(unsigned failure=0;failure<6;failure++) {
+        struct xhci_device *d=control_fixture();d->control_failed=true;d->control_completion=6;
+        context_write32(d->output_context,1,0,2);recovery_auto=true;
+        if(failure<2)recovery_fail_at=failure+1;
+        if(failure==2 || failure==3)recovery_timeout_at=failure-1;
+        if(failure==4)recovery_bad_dequeue=true;
+        if(failure==5)recovery_wrong_slot=true;
+        uint64_t old=d->ep0_ring_phys;
+        assert(!xhci_recover_control(1) && d->control_failed && d->ep0_ring_phys==old &&
+            d->retired_ep0_ring_phys && d->control_recovery_attempted && !freed);
+        assert(!xhci_recover_control(1));
+    }
+    struct xhci_device *d=control_fixture();
+    assert(!control_transfer(d,&setup,d->descriptor_buffer_phys,4,true));
+    assert(d->control_pending && !d->control_completion && !xhci_recover_control(1));
+    puts("xhci-ep0: PASS every TD stage/wrap, fresh dequeue, no replay, wrong state/owner/storage/command refusal and retained rings");
+}
+static void test_hub_changes(void) {
+    struct xhci_device *hub=control_fixture();hub->hub_ports=2;
+    struct xhci_device *child=&xhci.devices[1],*grandchild=&xhci.devices[2],*sibling=&xhci.devices[3];
+    *child=(struct xhci_device){.present=true,.configured=true,.slot_id=2,.port_id=1,.parent_slot_id=1,.hub_port_id=1};
+    *grandchild=(struct xhci_device){.present=true,.configured=true,.slot_id=3,.port_id=1,.parent_slot_id=2,.hub_port_id=1};
+    *sibling=(struct xhci_device){.present=true,.configured=true,.slot_id=4,.port_id=1,.parent_slot_id=1,.hub_port_id=2};
+    control_model=hub;hub_model_status=3|(1u<<16); /* CCS high after missed unplug/replug. */
+    test_time=100;test_time_step=0;
+    service_hub_changes();assert(hub->hub_status_pending && hub->control_pending && !child->removed);
+    struct xhci_trb event;assert(poll_event(&event));dispatch_transfer_event(&event);
+    assert(child->removed && grandchild->removed && sibling->configured && !sibling->removed &&
+        !hub->removed && !hub->control_pending && hub->hub_poll_port==2 && !freed);
+    hub_model_status=3;service_hub_changes();assert(poll_event(&event));dispatch_transfer_event(&event);
+    assert(!sibling->removed && hub->hub_poll_port==1);
+    /* Short status refuses stale trailing bytes, even with later successful Status. */
+    control_model=NULL;service_hub_changes();assert(hub->hub_status_pending);
+    uint64_t ptr=hub->control_td[1];event=(struct xhci_trb){.parameter_low=(uint32_t)ptr,.parameter_high=ptr>>32,
+        .status=(13u<<24)|2,.control=(32u<<10)|(1u<<24)|(1u<<16)};
+    dispatch_transfer_event(&event);assert(hub->hub_status_pending);
+    ptr=hub->control_td[2];event.parameter_low=ptr;event.parameter_high=ptr>>32;event.status=1u<<24;
+    dispatch_transfer_event(&event);assert(hub->removed && sibling->removed && !freed);
+    hub=control_fixture();hub->hub_ports=1;test_time=100;test_time_step=0;
+    service_hub_changes();assert(hub->control_pending);
+    test_time=2000100;service_hub_changes();assert(hub->removed && hub->control_pending && !freed);
+    uint64_t enqueue=hub->ep0_enqueue;service_hub_changes();assert(hub->ep0_enqueue==enqueue);
+    /* A reset bit stuck high must never be reported as successful enumeration. */
+    hub=control_fixture();hub->hub_ports=1;control_model=hub;hub_model_status=3|(1u<<4);
+    uint32_t status=0xdeadbeef;
+    assert(!reset_hub_port(hub,1,&status) && status==0xdeadbeef && !xhci.hub_ports_reset);
+    hub=control_fixture();hub->hub_ports=1;control_model=hub;hub_model_status=3;
+    assert(!reset_hub_port(hub,1,&status) && !xhci.hub_ports_reset); /* Rejected reset with stale enable. */
+    hub=control_fixture();hub->hub_ports=1;control_model=hub;hub_model_status=3|(1u<<20);control_fail_clear=true;
+    assert(!reset_hub_port(hub,1,&status) && hub->control_failed && hub->control_completion==6 && !xhci.hub_ports_reset);
+    puts("xhci-hub-change: PASS asynchronous poll, missed disconnect, descendant/sibling isolation, short/timeout quarantine and stuck reset refusal");
+}
 static void test_hub_route_depth(void) {
     uint32_t route=0;
     for(unsigned depth=0;depth<5;depth++) {
@@ -1261,6 +1379,7 @@ static void test_backing_reclaim(void) {
     assert(allocate_runtime_structures());
     struct xhci_device *d=&xhci.devices[0];
     *d=(struct xhci_device){.present=true,.slot_id=1};assert(allocate_device_runtime(d));
+    d->retired_ep0_ring_phys=pmm_alloc_frame_tagged(PMM_FRAME_DMA);assert(d->retired_ep0_ring_phys);
     void *memory;assert(alloc_frame_zero(&d->interrupt_ring_phys,&memory));d->interrupt_ring=memory;
     assert(alloc_frame_zero(&d->interrupt_buffer_phys,&memory));d->interrupt_buffer=memory;
     assert(alloc_frame_zero(&d->bulk_buffer_phys,&memory));d->bulk_buffer=memory;
@@ -1484,6 +1603,8 @@ int main(int argc, char **argv) {
     test_terminal_stop();
     test_slot_retirement();
     test_hub_route_depth();
+    test_ep0_recovery();
+    test_hub_changes();
     test_start_reset_boundaries();
     test_backing_reclaim();
     test_retired_event_drain();

@@ -3427,3 +3427,37 @@ targets, no new missing target. Runtime restart/re-enumeration and identity recy
 remain unavailable. Next audit: hub port-change service and endpoint reset/dequeue
 recovery; fresh controller generation/worker and immutable provider policy remain
 prerequisites for any enabling change. PR338 salvage semantics remain independent.
+
+
+### Hub changes and endpoint recovery scope
+
+Continue PR317 from `1350a055`; actual main `819956be` and open PR scopes
+inspected. Add bounded asynchronous hub port-status monitoring with subtree
+quarantine on connection/enable/reset changes or uncertain hub status. Fix EP0
+Setup/Data-stage error identity and audit Reset Endpoint/Set TR Dequeue recovery
+for acknowledged stalls only, retaining uncertain DMA and storage failure state.
+Sources: xHCI/header/monitor and host/VM fixtures/docs. No process/VMM/filesystem
+or generic block edits; signal PR334 and managed USB late-flush proof remain
+separately owned. Preserve review VMs and do not enable hotplug identity reuse.
+
+Implemented asynchronous USB2 hub status (one submission per poll turn), changed
+port subtree quarantine with sibling preservation, whole-hub refusal on short/error/
+unanswered status and verified reset/change acknowledgement. EP0 matches exact
+Setup/Data/Status pointers across wrap and tracks short data. Explicit root-attached
+protocol-STALL recovery verifies Reset Endpoint/Stopped and fresh Set TR Dequeue
+readback; failed or old rings stay tracked until terminal reclaim. No published
+storage, ambiguous timeout, TT or repeat recovery. Added attended `xhciep0check`
+diagnostic and disposable `tools/usb_hub_smoke.py`; no request replay or hotplug reuse.
+
+Final normal/Rosetta, GCC14, ASan/UBSan xHCI and related USB/block/registry hosts,
+plus kernel compilation pass. Three negative controls fail intended assertions.
+Q35 hub/keyboard/tablet proof passes actual downstream removal/replacement with
+sibling survival, induced EP0 STALL/reset/fresh-dequeue/valid descriptor, child-first
+hub retirement, 21-frame terminal reclaim, repeat and sysabi. Storage+HID retire/
+reclaim/replug, E1000 netabi and full threadstress pass separately. Retained PR313
+runtime files used; no complete userspace/native/SMP/TT/USB3 acceptance. All task
+guests stopped; review VMs 61610, 6233 and 85869 preserved. Evidence:
+`build/review/xhci-hub/`. Docs: 890 local links, nine known nested-license errors.
+Next: nested USB2 translator ownership/port inheritance, device-side clear-halt/TT
+cleanup and generic endpoint dequeue/cancellation recovery. Signal PR334 and managed
+late-flush proof remain separately owned with no process/VMM/block/filesystem edits.

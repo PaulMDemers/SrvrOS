@@ -838,6 +838,71 @@ still based on main `1f177761`; main `a37eb7b2` was inspected for overlap, not m
 PR338's managed USB fault/salvage proof remains independently owned; there are no
 filesystem/process/generic block or installer changes here.
 
+## Hub port changes and EP0 reset/dequeue recovery
+
+Confirmed three further driver defects: downstream hub changes were invisible
+while the root stayed connected; EP0 errors on Setup/Data TRBs were discarded
+because only the Status pointer was accepted; and hub reset could succeed with
+Enable set while Reset stayed asserted or without a fresh reset-change acknowledgement.
+
+USB2 hubs now receive asynchronous four-byte port-status requests from the existing
+worker, round-robin with at most one submission per turn. There is no synchronous
+control wait in the runtime poll loop. Each hub owns its EP0 TD/buffer until its
+completion; synchronous controls cannot overlap it. Connection/enable/reset,
+suspend/overcurrent or any latched change quarantines the affected port's existing
+child subtree, even if Connection is already high again. Sibling ports remain
+available. A failed/short status request or two-second unanswered TD quarantines
+the hub and descendants; unanswered TDs remain pending and pinned. Polling and
+worker service latency bound observation, not physical plug detection itself;
+this is containment, not zero-latency unplug or runtime re-enumeration. The worker
+also runs when a hub has no initial HID/network child. Change bits deliberately
+remain latched during runtime: old identities cannot be rebound or re-enumerated.
+SuperSpeed hubs require a separate descriptor/status contract and are refused.
+
+Control completion matching tracks all exact TRBs across ring wrap. Definite
+Setup/Data errors retire the active TD immediately. A successful Data event does
+not complete Status; Data short-packet events are requested and tracked so an
+incomplete status buffer cannot publish stale bytes. Hub boot reset clears old
+changes before reset, requires Connection+Enable, Reset clear and fresh reset
+change, then requires successful change acknowledgements before publishing a child.
+
+`xhci_recover_control` / `xhciep0 <slot>` permits one explicit recovery for an
+acknowledged EP0 protocol STALL on a root-attached device, with no active owners,
+command ambiguity, removed identity or published USB storage. Require Halted state,
+Reset Endpoint completion and Stopped state, then Set TR Dequeue completion and
+matching fresh ring pointer/cycle. Only after all proofs publish the new EP0 ring.
+The old ring remains tracked until terminal reclaim; a failed command retains both
+rings and the closed endpoint. Timeout, wrong state/slot/dequeue, repeated recovery,
+USB storage or hub-routed/TT recovery refuse. No failed request is replayed and
+no bulk/storage failure is revived. Other endpoint reset, device-side clear-halt,
+TT cleanup and generic dequeue/cancellation recovery remain unavailable. The
+[controller specification](https://cdrdv2-public.intel.com/625472/625472_xHCI_Rev1_2b.pdf)
+sections 4.6.8 and 4.8.3 describe the Halted/Stopped/dequeue and control-STALL contract.
+
+The explicit `xhciep0check <slot>` HID diagnostic requests an invalid descriptor,
+recovers the acknowledged STALL, then verifies a new device-descriptor request.
+It is an attended regression diagnostic, not automatic recovery or ordinary input
+startup. Host tests cover every control stage and wrap, short reads, subtree and
+sibling behavior, stalled reset, failed change acknowledgement, owners/storage/TT
+refusal, command timeout/error/wrong-slot/dequeue and retained-ring reclaim accounting.
+Normal/Rosetta, GCC14 and ASan/UBSan xHCI fixtures, related USB/block/registry
+hosts and kernel compilation pass. Negative controls restoring Status-only EP0
+matching, removing hub containment or restoring old hub reset fail their intended
+assertions. Final Q35 hub+keyboard+tablet proof passes downstream remove/replacement
+with hub/tablet survival, real protocol STALL followed by two recovery commands
+and a valid descriptor, child-first parent retirement, terminal reclaim of 21
+frames (including both EP0 rings), idempotence and sysabi. Separate storage+HID
+retire/reclaim/replug, E1000 netabi and full threadstress guests pass. Retained PR313
+runtime files were used; no complete current-userspace, physical/SMP, TT or USB3
+acceptance is claimed. Task guests stopped and review VMs 61610/6233/85869 stayed
+untouched. Docs check: 890 local links, nine known nested-license targets missing.
+Continuing topology review identifies nested USB2 translator ownership/port
+inheritance as the next source/specification checkpoint before any TT recovery.
+
+Evidence: `build/review/xhci-hub/`. Main `819956be` inspected, not merged into the
+branch's existing `1f177761` integration base. PR334 signal and the filesystem
+late-flush proof remain separately owned; no process/VMM/filesystem/block edits.
+
 ## Remaining work
 
 Other long IRQ-disabled operations, including initial/churning PMM scans, heap validation and poisoning,

@@ -47,6 +47,11 @@ bool xhci_stop(void);
  * active owners or unproven commands.
  * True retains all DMA/identity tombstones; no slot reuse or re-enumeration. */
 bool xhci_retire_slot(uint8_t slot);
+/* One explicit EP0 protocol-STALL recovery per slot: verified Halted -> Reset ->
+ * Stopped -> fresh dequeue. Never revives published storage or timed-out DMA. */
+bool xhci_recover_control(uint8_t slot);
+/* Explicit diagnostic: induce protocol STALL on a HID slot and verify recovery. */
+bool xhci_test_control_recovery(uint8_t slot);
 /* Terminal DMA reclaim after stop, storage/worker/diagnostic reference drain
  * and PCI bus-master disable readback. At most 16 frames per call; retry false
  * for pending owners, unproven hardware or progress. Metadata stays offline and

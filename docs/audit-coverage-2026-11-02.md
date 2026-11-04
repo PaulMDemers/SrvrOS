@@ -185,3 +185,17 @@ See the [kernel audit](audit-kernel-isolation-2026-11-03.md) for evidence and li
 Runtime restart/re-enumeration, fresh generation ownership, hub port-change service,
 endpoint reset/dequeue recovery and physical/SMP acceptance remain open. This is a
 bounded driver checkpoint, not complete codebase coverage.
+
+
+### November 3: hub changes and EP0 recovery checkpoint
+
+PR317 continues with asynchronous USB2 hub status monitoring and subtree
+quarantine, exact control-stage error matching and verified hub-reset acknowledgement.
+Explicit one-shot root-attached EP0 protocol-STALL recovery uses Reset Endpoint
+and a fresh Set TR Dequeue ring while retaining both allocations on uncertainty.
+Published storage, timeouts, TT recovery and identity recycling remain closed.
+See the [kernel audit](audit-kernel-isolation-2026-11-03.md) and
+[testing guide](testing.md) for bounded host/VM coverage and limitations.
+Generic endpoint clear-halt/dequeue cancellation, USB3 hubs, native TT behavior,
+restart generations and physical/SMP validation remain open; no complete-codebase
+coverage claim.

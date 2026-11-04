@@ -1627,3 +1627,28 @@ The harness copies both disks, disables each storage/input slot, repeats retirem
 then verifies terminal halt/reclaim, input unplug/replug containment and sysabi.
 It does not prove managed writable-workspace salvage, live hotplug recovery, native
 hardware or SMP retirement. Keep existing review VMs outside the harness untouched.
+
+
+### Hub removal and EP0 protocol-STALL recovery
+
+`test-xhci` now covers asynchronous USB2 hub status, missed disconnect/reconnect,
+child/descendant quarantine with sibling preservation, short/timeout refusal, hub
+reset acknowledgement and exact Setup/Data/Status error matching. Recovery tests
+verify Halted → Reset Endpoint → Stopped → fresh Set TR Dequeue publication, plus
+command/state/owner/storage/TT refusal and pinned old/replacement ring accounting.
+
+```sh
+python3 tools/usb_hub_smoke.py --iso /absolute/candidate.iso \
+  --disk /absolute/source.exfat --qemu qemu-system-x86_64
+```
+
+The disposable Q35 fixture boots a hub with a keyboard and a root-attached tablet.
+It runs `xhciep0check <tablet-slot>` (invalid read-only descriptor → protocol STALL
+→ explicit EP0 reset/fresh dequeue → valid descriptor), removes/replaces the hub
+keyboard without dropping the root link, verifies tablet/hub survival and no old
+slot revival, then retires children before the hub and performs terminal reclaim
+and sysabi. Both DMA rings remain pinned until terminal halt/reference retirement.
+`xhciep0 <slot>` only recovers a previously acknowledged root-attached EP0 STALL,
+once; it refuses timed-out DMA, published storage and TT/hub-routed recovery.
+No bulk retry, device-side clear-halt, hotplug re-enumeration or controller restart
+is implied. The harness owns/stops its guest and copies the disk; preserve review VMs.
