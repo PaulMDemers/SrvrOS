@@ -7036,3 +7036,69 @@ reservation proposal and collision/alias/stale/retirement tests, coordinated wit
 PR301 before any shared allocator work. Native GT/DMA/scanout ownership remains
 separate and the RC6/package-C3 limitations persist. Durable audit evidence is
 saved outside build before closeout.
+
+
+### Host-only inherited layout proposal scope (2026-11-04)
+
+Base `f4ea0ccb`, recursive pins unchanged. PR301 inspected at `a803af45`; its
+scanout-space API stays independent and unmerged. Add a separate host-only
+exact-Air6,1 layout proposal derived from the strict version3 raw receipt and a
+finite simulated reservation/lifetime model. Cover GGTT/physical conflicts,
+partial overlaps, PTE aliases, foreign/stale tokens, retained references and
+uncertain retirement without importing native managed ranges or setting owner
+assurances. Touch only tools/tests, the Haswell test target and Air6,1 docs.
+No kernel/shared allocator changes, MMIO, boot stage, power policy or new limits.
+Validate actual receipt replay and host refusals, then merge and durably preserve
+the host evidence. This simulation cannot accept a native pin or allocation.
+
+
+Implemented the separate host proposal/model. Replay of the accepted version3
+receipt yields the exact4,325,376-byte/1056-page surface, physical candidates
+`[0x8da00000,0x8de20000)`, and full protected16MiB inherited fence. No native
+managed range, physical ownership, pin or assurance bit is created. Exact GGTT
+and physical collisions, aliases, stale/foreign tokens, retained/busy readers,
+slot/generation exhaustion and uncertain quarantine are covered by nine new
+regressions, including a valid matching aliased receipt that the proposal refuses.
+
+`make test-haswell-backing check-docs`, all actual core/adapter producers and
+three raw maximum-tail checks, independent native-receipt host replay and diff
+checks pass. The shared PR301 allocator remains untouched: software protection
+of a full inherited fence is not a managed native grant or DMA mapping. Durable
+host evidence is kept outside build. No new native acceptance, installation or
+reboot is armed. Next prerequisite is this unit's read-only DMA/resource inventory
+and an exact-model ownership/publication contract before any hardware writer;
+GT forcewake, firmware exclusion and actual scanout retirement remain unbound.
+
+
+### Read-only DMA/resource inventory scope (2026-11-04)
+
+Base `1fbec70d`, PR301 inspected at `b89e4e43`; native Broadwell DMA gates remain
+independent. Collect this actual MacBookAir6,1's exported DMAR bytes, Ubuntu GPU
+PCI/resource/IOMMU topology and kernel memory-resource catalog into ignored local
+evidence. Decode offline with installed ACPICA and verify checksum/length/scopes;
+compare only against the accepted Haswell footprint. No `/dev/mem`, PCI config
+writes, IOMMU controls, driver unbind, firmware method, root-table walk or reboot.
+Touch only Air6,1 documentation; no native parser/driver admission is added.
+Ubuntu driver state is inventory evidence, not SrvrOS translation acceptance.
+
+
+Inventory completed without MMIO/reboot: valid136-byte DMAR (39-bit host width,
+flags01) declares GPU-specific segment0 `00:02.0` DRHD at `0xfed90000`, a separate
+include-all unit at `0xfed91000`, and GPU RMRR `[0x8d800000,0x8fa00000)` covering
+both accepted table/stolen intervals and the observed surface. ACPICA decoding,
+independent byte/checksum/scope checks and native-footprint containment agree.
+See the [sanitized DMA inventory](../macbookair6-1-dma-inventory.md).
+
+Ubuntu has i915/active DMAR and a GPU-only IOMMU group; that initialized state is
+not native SrvrOS translation evidence. Its exported firmware catalog has no
+entry enclosing either DRHD page; `/proc/iomem` runtime labels do not substitute
+for native Limine admission. This unit's flags/RMRR and reserved gap edges differ
+from the Broadwell profile; no sibling gate is copied. No DMA/MMIO/ownership
+assurance or new physical runtime acceptance is granted.
+
+Next is an isolated firmware-only native capture of complete DMAR/current Limine
+catalog and exact identity before any VT-d read protocol. It requires matched
+validation and a new recorded run; none is staged here. Raw inventory and
+verification have durable copies outside build; docs/diff checks pass. Current
+installed payload/recovery and reboot state remain unchanged, with no reboot
+armed. GT forcewake and real backing/publication/scanout lifetime remain open.
