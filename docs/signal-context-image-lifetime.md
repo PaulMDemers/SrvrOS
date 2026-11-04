@@ -2,6 +2,17 @@
 
 Design for owner review, based on signal-context checkout `6fb08496`. This slice adds image identity and invalidation metadata only. It does not mint a proof, capture or restore FPU state, alter assembly, deliver a signal, or expose a public ABI. CPU0 scheduler and IRQ exclusion remain explicit assumptions; this is not an SMP contract.
 
+Current preparation prerequisite: the owner independently accepted unwired
+`vmm_prepare_user_kernel_mappings()` at `439d274d`. Its inactive-root upper copy
+is allocation-free and validates the complete registered kernel mapping set
+before writing. An active root succeeds only as a byte-identical no-store
+operation; this is not a TLB coherence or lifetime guarantee. It is still not
+called by creation, scheduler setters or process refresh. The owner-approved
+worker foreground-spawn refusal and detached-error binding preservation are
+isolated at `bfee424f`; a matched guest passes the foreground refusal and detached
+failure/success checks. These prerequisites do not approve the lifecycle design
+below.
+
 ## State and internal API
 
 Add `uint64_t image_generation` to `struct process`, initially zero. A CPU0/IRQ-excluded monotonic allocator reserves a nonzero value exactly once; saturation refuses rather than wraps or reuses. Reservation can burn a value on later failure. Process job `lifetime`, PID, TID, CR3 and scheduler identity are not image identities. A committed image retains its generation across normal scheduler switches and foreground parent suspension/restoration; a successful exec or fork child gets a fresh generation. Process slot reuse starts at zero. Audit direct retirement paths such as `process_try_wait_retired` as well as `release_process`; clear the private image ID before an allocated slot is reusable, after bindings/proofs/backing have retired.
@@ -66,3 +77,60 @@ The binding setters remain void and perform no generation allocation. All user-b
 Source clarification for commit preparation: `vmm_refresh_kernel_mappings` copies 256 upper PML4 entries and loops at most `VMM_MAX_KERNEL_MAPPINGS` (128), then ignores `map_page_in_space` failure. The path has no scheduler or service callback, but `ensure_next_table` can allocate via PMM if a level is absent. Existing kernel mappings are upper-half entries already present in `kernel_pml4`; copying them usually shares existing tables, but that invariant and failure cases need actual-source proof before declaring the entire refresh allocation-free. Preferred bounded ordering for review is refresh/preparation while the old binding is intact, then an IRQ-excluded, callback/allocation-free association-invalidate and binding/FPU/FS/CR3/TSS commit. Do not move a possibly failing preparation after old image retirement without an explicit fatal-failure contract; the current void API cannot silently report rollback.
 
 `process_configure_stdio_fds` clones all three selected sources before its first file-slot replacement. Its false path releases cloned references and returns without replacing those slots; `process_apply_stdio_fds` only calls that helper with parent==child. Generation reservation precedes it, and no association/binding mutation occurs on its false path. After it returns true, current exec code has no normal error return before new user entry. Tests must validate this exact boundary, including clone failure, rather than merely assert failed-exec preservation from a plan.
+
+## Concrete checked-binding proposal after the preparation helper
+
+This section supersedes the earlier suggestion to run the void refresh as
+preparation. It is a proposal for the next owner decision, not implemented code.
+
+1. Change new user-root creation to run the checked preparation under saved IRQ
+   exclusion after registering the fresh, inactive root. On failure unregister
+   and free only that root, publish output zero and return false. Allocation and
+   initial zeroing precede this exclusion. Remove only creation's legacy refresh
+   call; do not change generic process refresh or user mapping replay in this
+   slice. Test actual creation admission and failed-preflight cleanup as well as
+   the helper itself.
+2. Before an image can reach READY or an irreversible foreground/exec commit,
+   prepare its root and reserve a nonzero committed image generation under IRQ
+   exclusion while its parent/old binding remains intact. Recoverable failure
+   cleans only staged resources and returns the existing constructor error (or
+   the agreed `SRV_ERR_AGAIN` on generation exhaustion). Exec performs this
+   before stdio replacement. File actions may themselves have external effects;
+   this proposal does not introduce rollback promises for those existing APIs.
+3. An internal scheduler setter keeps its existing void interface but saves and
+   excludes IRQs around the entire trusted binding commit. Before changing any
+   association/accounting/binding/FPU/FS/CR3/TSS state, validate the complete
+   tuple and revalidate/prepare its root. The explicit image generation must be
+   nonzero; no generation allocation occurs here. After successful validation,
+   invalidate the old association, then commit the tuple and hardware selection
+   without allocation, callbacks, service windows or IRQ reenabling. Restore
+   the caller's exact prior IRQ state on normal return. Clear likewise excludes
+   IRQs for invalidate through kernel-root/FS/TSS selection.
+4. Preparation is not a lease. A staged root can become stale during stdio,
+   cleanup or a background thread's delay before first binding; therefore the
+   final excluded setter revalidates even after successful earlier preparation.
+   If this trusted internal precondition fails after an irreversible boundary,
+   halt with a bounded invariant diagnostic rather than silently keep an old
+   binding, publish a partial binding, or return to user mode. A process-local
+   recovery mechanism is not claimed: current `process_exit` cannot perform
+   ordinary teardown when the current scheduler process binding is NULL. Agree
+   the diagnostic/fatal policy explicitly before changing the void setters.
+5. Worker READY publication validates the inherited nonzero image/root under
+   exclusion before publishing the complete worker tuple; recoverable admission
+   failure frees only staged scheduler resources. It must preserve the parent's
+   association on failure. Fresh fork and background bindings use their reserved
+   generation. Ordinary scheduler switches retain per-slot association state.
+
+The foreground-spawn audit found that process loading and vector writes use
+physical direct-map access rather than switching the scheduler binding. The
+detached shared error-path parent setter was removed in `bfee424f`; the two
+main-thread-only foreground load-error setters remain candidates for removal in
+this lifecycle implementation. A worker cannot synchronously rebind through the
+user spawn APIs after that fix. Kernel-only `process_run_elf_args` callers remain
+main/monitor/trackpad launch paths; this packet does not broaden that API.
+
+Owner decisions still required: accept creation/preflight wiring and exact
+failure cleanup; accept the trusted setter's fail-closed fatal invariant policy;
+approve the metadata-only generation/association implementation and tests. This
+does not approve FPU proof minting, interrupted-context capture/restore, signal
+admission or a public ABI.
