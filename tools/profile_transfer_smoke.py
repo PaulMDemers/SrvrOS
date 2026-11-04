@@ -7,6 +7,8 @@ Evidence is retained under build/review/profile-transfer. Run only one VM/build
 at a time. No host device paths or pre-existing disks are accepted.
 """
 import argparse
+import gzip
+import hashlib
 from pathlib import Path
 import re
 import shutil
@@ -34,6 +36,47 @@ SENTINELS = (
     ('application_state', '.local/share/app-state.fixture', 'synthetic-app-state'),
     ('cache', '.cache/runtime-cache.fixture', 'synthetic-runtime-cache'),
 )
+ARCHIVE_BUDGET = 1024**3
+
+
+def archive_completed(path, out):
+    """Retain a completed image losslessly, verify readback, then release raw bytes.
+
+    Call only after the last consumer; failures retain the original image.
+    The finite archive budget is part of the preflight peak-space bound.
+    """
+    path = Path(path)
+    manifest_path = out / 'archived-images.json'
+    manifest = profile_bundle.decode_json(manifest_path.read_bytes()) if manifest_path.exists() else []
+    archive = path.with_name(path.name + '.gz')
+    original = hashlib.sha256()
+    size = 0
+    with path.open('rb') as source, archive.open('xb') as target:
+        with gzip.GzipFile(filename='', mode='wb', fileobj=target, mtime=0) as packed:
+            for block in iter(lambda: source.read(1024 * 1024), b''):
+                size += len(block); original.update(block); packed.write(block)
+    restored = hashlib.sha256()
+    restored_size = 0
+    with gzip.open(archive, 'rb') as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b''):
+            restored_size += len(block); restored.update(block)
+    if restored_size != size or restored.digest() != original.digest():
+        raise RuntimeError(f'archive readback failed: {path}')
+    if sum(item['archive_bytes'] for item in manifest) + archive.stat().st_size > ARCHIVE_BUDGET:
+        raise RuntimeError('completed-image archive budget exceeded; raw image retained')
+    manifest.append({'path': str(path), 'bytes': size, 'sha256': original.hexdigest(),
+        'archive': str(archive), 'archive_bytes': archive.stat().st_size,
+        'archive_sha256': installation_image.digest(archive),
+        'restore': 'gzip -dc ARCHIVE > PATH', 'round_trip_verified': True})
+    d.save_json(manifest_path, manifest)
+    path.unlink()
+
+
+def check_allocation(disk, out, label):
+    fixture = guest.check_allocation(disk, out, label)
+    # ExfatFixture owns the validated payload in memory, independently of this file.
+    archive_completed(out / f'data-{label}.exfat', out)
+    return fixture
 
 
 def text(vm, value):
@@ -110,9 +153,11 @@ def prepare(args, out, receipt):
         receipt['installations'][name] = {'disk': str(disk), 'gpt': ready['gpt'],
             'data_offset': offset, 'data_bytes': size, 'protected_regions': bounds[name],
             'initial_disk_sha256': d.digest(disk.read_bytes())}
-        guest.check_allocation(disk, out, name + '-initial')
+        check_allocation(disk, out, name + '-initial')
     if len({v['gpt']['disk_guid'] for v in receipt['installations'].values()}) != 3:
         raise RuntimeError('fixture disk GUIDs must differ')
+    archive_completed(source, out)
+    archive_completed(target, out)
     return disks, bounds, machines
 
 
@@ -149,17 +194,20 @@ def check_profile(fixture, home, machine, bundle, *, source=False):
 
 
 def free_space_preflight(out):
-    # Worst case includes all complete installation and checkpoint copies, the
-    # retained allocation snapshots, provisioned volumes, plus transient image
-    # creation copies. Do not count sparse allocation as a guarantee.
+    # At most four live disks (A/B/transport plus small-screen OR one checkpoint)
+    # and one compression transient. Eight volumes cover preparation/snapshots,
+    # plus a capped 1 GiB archive and 1 GiB reserve for screenshots/other evidence.
+    # Do not count sparse allocation or an assumed compression ratio as a guarantee.
     volume_size = (ROOT / 'build/srvros.exfat').stat().st_size
     disk_size = installation_image.layout(volume_size)['size_bytes']
-    estimate = 14 * disk_size + 32 * volume_size + 1024**3
+    estimate = 5 * disk_size + 8 * volume_size + ARCHIVE_BUDGET + 1024**3
     available = shutil.disk_usage(out).free
     if available < estimate:
         raise RuntimeError(f'insufficient free space: need {estimate} bytes including 1 GiB reserve; have {available}')
     return {'required_bytes': estimate, 'available_bytes': available,
-            'reserve_bytes': 1024**3, 'disk_bytes': disk_size, 'volume_bytes': volume_size}
+            'reserve_bytes': 1024**3, 'archive_budget_bytes': ARCHIVE_BUDGET,
+            'maximum_live_disks': 4, 'compression_transient_disks': 1,
+            'volume_allowance': 8, 'disk_bytes': disk_size, 'volume_bytes': volume_size}
 
 
 def geometry(vm, start):
@@ -299,8 +347,8 @@ def main():
     try:
         receipt['space_preflight'] = free_space_preflight(out)
         disks, bounds, machines = prepare(args, out, receipt)
-        c.absent(guest.check_allocation(disks['b'], out, 'b-empty'), 'home/local_b/profile.id')
-        c.absent(guest.check_allocation(disks['transport'], out, 'transport-empty'), 'transfer.json')
+        c.absent(check_allocation(disks['b'], out, 'b-empty'), 'home/local_b/profile.id')
+        c.absent(check_allocation(disks['transport'], out, 'transport-empty'), 'transfer.json')
         d.save_json(out / 'receipt.json', receipt)
         with c.VM(disks['a'], disks['transport'], out, 'a-interrupted-export', args) as vm:
             for _, path, payload in SENTINELS:
@@ -310,19 +358,19 @@ def main():
             vm.screenshot('chooser-source')
             c.select(vm, index); c.opened(vm, A, start)
             transfer(vm, 'export', 'export-partial', 'partial.json'); close_session(vm)
-        partial = guest.check_allocation(disks['transport'], out, 'transport-partial').read('partial.json')
+        partial = check_allocation(disks['transport'], out, 'transport-partial').read('partial.json')
         if not partial: raise RuntimeError('interrupted export did not retain partial output')
         receipt['partial_export'] = {'sha256': d.digest(partial), 'bytes': len(partial)}
-        a_choice = guest.check_allocation(disks['a'], out, 'a-initial-choice').read('home/.desktop-profile')
+        a_choice = check_allocation(disks['a'], out, 'a-initial-choice').read('home/.desktop-profile')
         if a_choice != c.expected_choice(A): raise RuntimeError('source chooser record mismatch')
         with c.VM(disks['a'], disks['transport'], out, 'a-partial-retry', args) as vm:
             launch_desktop(vm, A); transfer(vm, 'export', filename='partial.json', expect='transfer-error'); close_session(vm)
-        if guest.check_allocation(disks['transport'], out, 'transport-partial-retry').read('partial.json') != partial:
+        if check_allocation(disks['transport'], out, 'transport-partial-retry').read('partial.json') != partial:
             raise RuntimeError('refused retry modified partial export')
         receipt['partial_export']['same_filename_refused_and_preserved'] = True
         with c.VM(disks['a'], disks['transport'], out, 'a-export', args) as vm:
             launch_desktop(vm, A); transfer(vm, 'export'); close_session(vm)
-        exported = guest.check_allocation(disks['transport'], out, 'transport-export').read('transfer.json')
+        exported = check_allocation(disks['transport'], out, 'transport-export').read('transfer.json')
         (out / 'guest-export.json').write_bytes(exported)
         bundle = profile_bundle.decode_json(exported)
         payloads = profile_bundle.validate_bundle(bundle)
@@ -366,7 +414,7 @@ def main():
             'source_data_sha256': d.digest(small_volume.read_bytes()), 'config': config.decode('ascii'),
             'config_sha256': d.digest(config), 'protected_regions': small_bounds,
             'initial_disk_sha256': d.digest(small.read_bytes())}
-        guest.check_allocation(small, out, 'small-initial')
+        check_allocation(small, out, 'small-initial')
         d.save_json(out / 'receipt.json', receipt)
         with c.VM(small, disks['transport'], out, 'small-export', args, 640, 480) as vm:
             start = len(vm.output)
@@ -374,18 +422,20 @@ def main():
             c.observe(vm, rb'deskd: display physical=640x480 logical=640x480 scale=1', start)
             transfer(vm, 'export', filename='small.json')
             close_session(vm)
-        small_export = guest.check_allocation(disks['transport'], out, 'transport-small').read('small.json')
+        small_export = check_allocation(disks['transport'], out, 'transport-small').read('small.json')
         if small_export != exported:
             raise RuntimeError('640x480 graphical export differs from source export')
         if d.outside_data(small, small_offset, small_size) != small_bounds:
             raise RuntimeError('small fixture protected bytes changed')
-        small_fixture = guest.check_allocation(small, out, 'small-final')
+        small_fixture = check_allocation(small, out, 'small-final')
         check_profile(small_fixture, A, machines['a'], bundle, source=True)
         if small_fixture.read('home/.desktop-profile') != a_choice:
             raise RuntimeError('small fixture source choice changed')
         receipt['small_fixture'].update(final_disk_sha256=d.digest(small.read_bytes()),
                                         export_sha256=d.digest(small_export))
         d.save_json(out / 'receipt.json', receipt)
+        archive_completed(small_volume, out)
+        archive_completed(small, out)
         # Invalid data is created in the guest solely as an invalid-input fixture.
         with c.VM(disks['b'], disks['transport'], out, 'b-invalid', args) as vm:
             vm.run('/fat/bin/write /work/invalid.json malformed')
@@ -395,7 +445,9 @@ def main():
             after = vm.quiesced_data_snapshot('invalid-after')
             receipt['invalid_comparison'] = c.compare_blocked(before, after)
             vm.finish()
-        invalid_b = guest.check_allocation(disks['b'], out, 'b-invalid')
+        archive_completed(before, out)
+        archive_completed(after, out)
+        invalid_b = check_allocation(disks['b'], out, 'b-invalid')
         c.absent(invalid_b, 'home/local_b/profile.id')
         c.absent(invalid_b, 'home/local_b.profile-import.json')
         receipt['interruptions'] = []
@@ -407,12 +459,13 @@ def main():
                 recover(vm)
             if d.outside_data(probe, *d.partitions(probe)[1]) != bounds['b']:
                 raise RuntimeError(checkpoint + ': protected bytes changed')
-            fixture = guest.check_allocation(probe, out, 'recovered-' + checkpoint)
+            fixture = check_allocation(probe, out, 'recovered-' + checkpoint)
             binding = check_profile(fixture, B, machines['b'], bundle)
             for exclusion in receipt['exclusions']:
                 exclusion['recovered_checkpoints_absent'].append(checkpoint)
             receipt['interruptions'].append({'checkpoint': checkpoint, 'disk': str(probe),
                 'binding': binding, 'final_disk_sha256': d.digest(probe.read_bytes())})
+            archive_completed(probe, out)
             d.save_json(out / 'receipt.json', receipt)
         with c.VM(disks['b'], disks['transport'], out, 'b-import', args) as vm:
             launch_desktop(vm); transfer(vm, 'import'); close_session(vm)
@@ -428,26 +481,28 @@ def main():
             after = vm.quiesced_data_snapshot('duplicate-after')
             receipt['duplicate_comparison'] = c.compare_blocked(before, after)
             vm.finish()
-        duplicate_b = guest.check_allocation(disks['b'], out, 'b-duplicate')
+        archive_completed(before, out)
+        archive_completed(after, out)
+        duplicate_b = check_allocation(disks['b'], out, 'b-duplicate')
         c.absent(duplicate_b, 'home/duplicate/profile.id')
         c.absent(duplicate_b, 'home/duplicate.profile-import.json')
         for name, home in (('a', A), ('b', B)):
-            fixture = guest.check_allocation(disks[name], out, name + '-final')
+            fixture = check_allocation(disks[name], out, name + '-final')
             binding = check_profile(fixture, home, machines[name], bundle, source=name == 'a')
             receipt['installations'][name]['profile'] = {'id': d.ID, 'home': home, 'binding': binding,
                 'machine_sha256': d.digest(machines[name])}
         for exclusion in receipt['exclusions']:
             exclusion['source_preserved'] = True
             exclusion['destination_absent'] = True
-        a_final_choice = guest.check_allocation(disks['a'], out, 'a-final-choice').read('home/.desktop-profile')
+        a_final_choice = check_allocation(disks['a'], out, 'a-final-choice').read('home/.desktop-profile')
         if a_final_choice != a_choice or a_final_choice != c.expected_choice(A):
             raise RuntimeError('source remembered choice changed during transfer')
         receipt['installations']['a']['profile']['choice_sha256'] = d.digest(a_final_choice)
-        b_fixture = guest.check_allocation(disks['b'], out, 'b-choice')
+        b_fixture = check_allocation(disks['b'], out, 'b-choice')
         if b_fixture.read('home/.desktop-profile') != c.expected_choice(B):
             raise RuntimeError('remembered imported selection mismatch')
         receipt['installations']['b']['profile']['choice_sha256'] = d.digest(b_fixture.read('home/.desktop-profile'))
-        transport = guest.check_allocation(disks['transport'], out, 'transport-final')
+        transport = check_allocation(disks['transport'], out, 'transport-final')
         if (transport.read('transfer.json') != exported or transport.read('partial.json') != partial or
                 transport.read('invalid.json') != b'malformed\n' or transport.read('small.json') != small_export):
             raise RuntimeError('transport output changed after export')
@@ -455,6 +510,7 @@ def main():
             if d.outside_data(disk, *d.partitions(disk)[1]) != bounds[name]:
                 raise RuntimeError(name + ': protected bytes changed')
             receipt['installations'][name]['final_disk_sha256'] = d.digest(disk.read_bytes())
+            archive_completed(disk, out)
         receipt['process_lifecycle'] = {'gui_workers': 'reaped and streams drained; see serial logs',
             'gui_app': 'exit observed after retirement; see serial logs',
             'qemu': 'each owned VM stopped at context exit'}
