@@ -70,6 +70,35 @@ filesystem runtime. No new VM proof is claimed for this host fault qualification
 
 No further production implementation is required for this qualification target.
 
+### PR322 merge review and next bounded milestone
+
+User authorized review and merge if ready. Integrated actual main `b9ac7435`
+(PR321 profile-aware installation plans); it changes none of the code recorded
+in the fault-proof receipts. Rechecked every recorded source hash, all 52 normal
+and 52 sanitized results, 134 existing cases and both negative-control failures.
+Both negative controls and six build-provenance tests pass again against the
+merged tree. The matched build, whitespace and all 877 local links pass.
+No submitted correction or unresolved review thread was present.
+
+The PR317 audit owner confirms no new content/close/workspace/exFAT/VFS policy
+overlap and no overlap-based blocker. That coordination is not an independent
+full-diff approval. This review covers the six fixture/tool/documentation files;
+no production source is changed. New review logs are retained under
+`build/review/workspace-writeback/merge-review-*`. Prior positive receipts remain
+exact-source evidence, rather than being relabeled as tests of later revisions.
+
+Next proposed filesystem milestone: **explicit salvage of retained dirty data**.
+With an injected `/work` writeback failure and an existing reader still holding
+the dirty content, copy those bytes through existing file operations to an
+explicit destination on a healthy volume. Fsync and close that destination,
+remount it and verify exact bytes before releasing the final failing-work reader.
+Prove destination errors cannot report successful salvage and preserve the
+original held content; the failed workspace must remain failed. Start with a
+focused actual-source proof and coordinate any process changes with its audit
+owner. No new recovery API, automatic retry, repair, or forced unmount is implied.
+This closes the practical evidence gap before the documented final-close RAM
+release; it is a proposal, not work begun by this merge review.
+
 ## Workspace lifecycle — verified
 
 User authorized the installed-root workspace lifecycle proof on main `c7be6574`.
