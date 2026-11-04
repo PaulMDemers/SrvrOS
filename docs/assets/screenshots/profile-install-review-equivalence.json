@@ -1,0 +1,118 @@
+{
+  "status": "PASS",
+  "source": "6de308a154f2f76fb3b47a7ccff746ba7b06b41b",
+  "base": "805519b258bfe84c877c9eb11b1d8a324661fa69",
+  "prior_vm_source": "bf6efeb23aec3dde64cff1c493d03e0efd069caa",
+  "changed_template_files": [
+    "bin-sysabi",
+    "bin/sysabi"
+  ],
+  "changed_archive_files": [
+    "srvros.exfat",
+    "sysabi"
+  ],
+  "embedded_template_verified": true,
+  "kernel_unchanged": true,
+  "bootstrap_init_drivers_loader_unchanged": true,
+  "all_other_packaged_files_unchanged": true,
+  "prior_boots": 4,
+  "prior_refusals": 12,
+  "build": {
+    "schema": 1,
+    "built_at": "2026-11-04T00:06:42.417162+00:00",
+    "source": "6de308a154f2f76fb3b47a7ccff746ba7b06b41b",
+    "worktree_dirty": false,
+    "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "hashes": {
+      "build/kernel/srvros.elf": "bfabff0b2414eaf47bd96fec53a6ed0296e22e33b8a314e86546814cdeba3aa3",
+      "build/initramfs.tar": "bedea00fa78d9320a3120819473710c070198b98e4249319560426258faec300",
+      "build/srvros.exfat": "5272c1782822762ddb1c588374ae60ca5435354943427ff54ddb41550ae3ca14"
+    },
+    "repositories": {
+      ".": {
+        "head": "6de308a154f2f76fb3b47a7ccff746ba7b06b41b",
+        "dirty": false,
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports": {
+        "head": "5e994f53fd34b65227a992e2d01751ce80b08cb6",
+        "dirty": false,
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/awk": {
+        "head": "5739fd79bcfc75ba7526773d0cf634521f8aca3c",
+        "dirty": false,
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/cjson": {
+        "head": "c859b25da02955fef659d658b8f324b5cde87be3",
+        "dirty": false,
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/inih": {
+        "head": "26254ee9de7681f8825433415443e7116ff24b98",
+        "dirty": false,
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/libuv": {
+        "head": "1cfa32ff59c076ffb6ed735bbc8c18361558661f",
+        "dirty": false,
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/linenoise": {
+        "head": "dc83cc373ac2058030eb3cf5e404959a26fef112",
+        "dirty": false,
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/lua": {
+        "head": "6e22fedb74cf0c9b6656e9fce8b7331db847c605",
+        "dirty": false,
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/node": {
+        "head": "c7d10158bc31036de6783d66beaaaf551e3167aa",
+        "dirty": false,
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/zlib": {
+        "head": "da607da739fa6047df13e66a2af6b8bec7c2a498",
+        "dirty": false,
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "userspace/apps": {
+        "head": "3cf32af2294eebe9d8b9aeb8bc1dcbe46feb2967",
+        "dirty": false,
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "userspace/widgets": {
+        "head": "9eaaa74e1423c15c99f8ce388b08ed5e514de3d6",
+        "dirty": false,
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      }
+    }
+  }
+}

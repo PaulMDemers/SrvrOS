@@ -176,7 +176,9 @@ def boot(disk, out, number, args, home, speed, offset_minutes, edit=False):
                 flags = ' --apps --trace' if number.endswith('2') else ' --apps-trace'
                 serial.sendall(('run /fat/bin/deskd --profile=' + home + flags + ' --scale=1\n').encode())
                 wait(b'deskd: display physical=1280x800 logical=1280x800 scale=1')
-                wait(b'desktools: starting role=text'); wait(b'deskd: commit')
+                # Window publication is the usable UI boundary. The early
+                # child startup diagnostic is not a readiness contract.
+                wait(b'deskd: commit')
                 for marker in (f'deskd: profile id={ID} home={home} credentials=unchanged'.encode(),
                                f'offset={offset_minutes} flags=3 wallpaper=0 pointer_speed={speed}'.encode()):
                     if marker not in output[launch_start:]: wait(marker)

@@ -1,0 +1,510 @@
+{
+  "base": "a8e1fca100528722a782b94c4186c1730b619cc7",
+  "boots": {
+    "a1": {
+      "allocation": "allocation-check: PASS files=373 clusters=14054 leaked=0 fat_bitmap_mismatches=0 errors=0",
+      "application_sha256": {
+        "deskd": "e7c25e70bb1f9cce732b877c4de86ba06375fbd737787c50f24b02c91ab68dde",
+        "deskterm": "ef8717b465cddf8586c8e559ed4f541f725179a7e1e34493557715f1272bbff7",
+        "desktools": "f266ff632e9ea31e76502941a8fdbb6f74959e161e9d8730768c6b3cb08e84b7"
+      },
+      "binary_sha256": "54615f979ce7cc7523885bae0456990cd1ae0d6e47ec7ddb51a279d57c2c6a45",
+      "cwd": "/fat/home/local-a",
+      "data_sha256": "a4a3cde5437791fb0e1253180e792196b9c4fcaf974e4b498c9f3a8d66a82205",
+      "document_sha256": "72bbf76fbd41437c635decf661a2c123b2f945ac8463a9c230e14d563d41d71e",
+      "environment_sha256": "ec589f4a1c79e04e92d6a6d40abf71084825afcaaf7d60dbaafed3b4eb06b402",
+      "home": "/fat/home/local-a",
+      "local": {
+        "alias": "local_a",
+        "gid": 1001,
+        "uid": 1001
+      },
+      "machine_preferences_sha256": "fe0a4369803f1f9d413c78af0929ad8e4307d9550146ab183d186927bda27212",
+      "portable_preferences_sha256": "5da283988149ec9bfd002c8aa7a944135765175f259ba448fbff72a756c1f9fc",
+      "profile_id": "12345678-1234-4234-8234-123456789abc"
+    },
+    "a2": {
+      "allocation": "allocation-check: PASS files=373 clusters=14054 leaked=0 fat_bitmap_mismatches=0 errors=0",
+      "application_sha256": {
+        "deskd": "e7c25e70bb1f9cce732b877c4de86ba06375fbd737787c50f24b02c91ab68dde",
+        "deskterm": "ef8717b465cddf8586c8e559ed4f541f725179a7e1e34493557715f1272bbff7",
+        "desktools": "f266ff632e9ea31e76502941a8fdbb6f74959e161e9d8730768c6b3cb08e84b7"
+      },
+      "binary_sha256": "54615f979ce7cc7523885bae0456990cd1ae0d6e47ec7ddb51a279d57c2c6a45",
+      "cwd": "/fat/home/local-a",
+      "data_sha256": "307b94d678bddd75328b39a9e102e85206043a0f1cb94532ac4a1d935383f0d4",
+      "document_sha256": "72bbf76fbd41437c635decf661a2c123b2f945ac8463a9c230e14d563d41d71e",
+      "environment_sha256": "ec589f4a1c79e04e92d6a6d40abf71084825afcaaf7d60dbaafed3b4eb06b402",
+      "home": "/fat/home/local-a",
+      "local": {
+        "alias": "local_a",
+        "gid": 1001,
+        "uid": 1001
+      },
+      "machine_preferences_sha256": "fe0a4369803f1f9d413c78af0929ad8e4307d9550146ab183d186927bda27212",
+      "portable_preferences_sha256": "5da283988149ec9bfd002c8aa7a944135765175f259ba448fbff72a756c1f9fc",
+      "profile_id": "12345678-1234-4234-8234-123456789abc"
+    },
+    "b1": {
+      "allocation": "allocation-check: PASS files=373 clusters=14054 leaked=0 fat_bitmap_mismatches=0 errors=0",
+      "application_sha256": {
+        "deskd": "e7c25e70bb1f9cce732b877c4de86ba06375fbd737787c50f24b02c91ab68dde",
+        "deskterm": "ef8717b465cddf8586c8e559ed4f541f725179a7e1e34493557715f1272bbff7",
+        "desktools": "f266ff632e9ea31e76502941a8fdbb6f74959e161e9d8730768c6b3cb08e84b7"
+      },
+      "binary_sha256": "54615f979ce7cc7523885bae0456990cd1ae0d6e47ec7ddb51a279d57c2c6a45",
+      "cwd": "/fat/home/local-b",
+      "data_sha256": "22a699828bd52015d6ee2838d2fc1f464d083d61e3e88f567b1fc0418deb053d",
+      "document_sha256": "72bbf76fbd41437c635decf661a2c123b2f945ac8463a9c230e14d563d41d71e",
+      "environment_sha256": "8491e21f4c10efb96578f569bd2751c54f8bcdd32e6f4dbf76d19bec03dff375",
+      "home": "/fat/home/local-b",
+      "local": {
+        "alias": "local_b",
+        "gid": 2051,
+        "uid": 2050
+      },
+      "machine_preferences_sha256": "1eac45b0c4897dfeded2144174cde34298803e3fa583f4ff33b893025db93b71",
+      "portable_preferences_sha256": "1e7df0b860740766f2ccd1a699b43d77ffdb62d37d2ddaef0db0f0343ba9935c",
+      "profile_id": "12345678-1234-4234-8234-123456789abc"
+    },
+    "b2": {
+      "allocation": "allocation-check: PASS files=373 clusters=14054 leaked=0 fat_bitmap_mismatches=0 errors=0",
+      "application_sha256": {
+        "deskd": "e7c25e70bb1f9cce732b877c4de86ba06375fbd737787c50f24b02c91ab68dde",
+        "deskterm": "ef8717b465cddf8586c8e559ed4f541f725179a7e1e34493557715f1272bbff7",
+        "desktools": "f266ff632e9ea31e76502941a8fdbb6f74959e161e9d8730768c6b3cb08e84b7"
+      },
+      "binary_sha256": "54615f979ce7cc7523885bae0456990cd1ae0d6e47ec7ddb51a279d57c2c6a45",
+      "cwd": "/fat/home/local-b",
+      "data_sha256": "899aaf520471b9d166859a986ecaaf3c5fa7ed3530cdf78e251c8cd815133c11",
+      "document_sha256": "72bbf76fbd41437c635decf661a2c123b2f945ac8463a9c230e14d563d41d71e",
+      "environment_sha256": "8491e21f4c10efb96578f569bd2751c54f8bcdd32e6f4dbf76d19bec03dff375",
+      "home": "/fat/home/local-b",
+      "local": {
+        "alias": "local_b",
+        "gid": 2051,
+        "uid": 2050
+      },
+      "machine_preferences_sha256": "1eac45b0c4897dfeded2144174cde34298803e3fa583f4ff33b893025db93b71",
+      "portable_preferences_sha256": "1e7df0b860740766f2ccd1a699b43d77ffdb62d37d2ddaef0db0f0343ba9935c",
+      "profile_id": "12345678-1234-4234-8234-123456789abc"
+    }
+  },
+  "build": {
+    "built_at": "2026-11-04T00:11:15.456538+00:00",
+    "hashes": {
+      "build/initramfs.tar": "5368a8013ac245cfd7baa8480bcf8b39c8f2f9be4593338e26d062c750b22743",
+      "build/kernel/srvros.elf": "bfabff0b2414eaf47bd96fec53a6ed0296e22e33b8a314e86546814cdeba3aa3",
+      "build/srvros.exfat": "b7d37f55efe038f44c9f4a2ab3541038606306abf9b674d74587661a9fe52aa3"
+    },
+    "repositories": {
+      ".": {
+        "dirty": false,
+        "head": "d091049851341aec48aad20abfbc42c8bc4fc984",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports": {
+        "dirty": false,
+        "head": "5e994f53fd34b65227a992e2d01751ce80b08cb6",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/awk": {
+        "dirty": false,
+        "head": "5739fd79bcfc75ba7526773d0cf634521f8aca3c",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/cjson": {
+        "dirty": false,
+        "head": "c859b25da02955fef659d658b8f324b5cde87be3",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/inih": {
+        "dirty": false,
+        "head": "26254ee9de7681f8825433415443e7116ff24b98",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/libuv": {
+        "dirty": false,
+        "head": "1cfa32ff59c076ffb6ed735bbc8c18361558661f",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/linenoise": {
+        "dirty": false,
+        "head": "dc83cc373ac2058030eb3cf5e404959a26fef112",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/lua": {
+        "dirty": false,
+        "head": "6e22fedb74cf0c9b6656e9fce8b7331db847c605",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/node": {
+        "dirty": false,
+        "head": "c7d10158bc31036de6783d66beaaaf551e3167aa",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/zlib": {
+        "dirty": false,
+        "head": "da607da739fa6047df13e66a2af6b8bec7c2a498",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "userspace/apps": {
+        "dirty": false,
+        "head": "3cf32af2294eebe9d8b9aeb8bc1dcbe46feb2967",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "userspace/widgets": {
+        "dirty": false,
+        "head": "9eaaa74e1423c15c99f8ce388b08ed5e514de3d6",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      }
+    },
+    "schema": 1,
+    "source": "d091049851341aec48aad20abfbc42c8bc4fc984",
+    "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "worktree_dirty": false
+  },
+  "evidence": ".local/installation-evidence/pr321-current-tkf2agxs",
+  "export_sha256": "bcabb0a35697c489421fe073b439d655cce6c28e99c0faff9d00719f13727b57",
+  "installations": {
+    "a": {
+      "base_sha256": "98401acc8ec25dc41aca7ddc05bf2781f33ea76ec41f8c95316886fd4d202862",
+      "bundle_sha256": "7af8e79dbceb015be9bb4a1f3ece9a81c14952c667bf95f35348b858fd5bfff6",
+      "data_bytes": 134217728,
+      "data_offset": 403701760,
+      "final_disk_sha256": "fd411306f3d366cdc2b543e549cc58b8fb414ff2fb90f61b24b2e9edd8edba9d",
+      "gpt": {
+        "disk_guid": "4c63d199-79fd-4d9b-8fe3-d8d9dac25281",
+        "esp_partition_guid": "c4a460fa-07cb-4ecb-abce-223ef96dd6d6",
+        "exfat_partition_guid": "bf45a656-ddf2-406a-a3a3-1204a27c29a9"
+      },
+      "initial_disk_sha256": "ea866f7f7af75682e89bd0091207d7270cecf45579f5a2684614d469c516982a",
+      "plan_version": 2,
+      "profile": {
+        "alias": "local_a",
+        "gid": 1001,
+        "home": "/fat/home/local-a",
+        "launch_command": "run /fat/bin/deskd --profile=/fat/home/local-a",
+        "profile_id": "12345678-1234-4234-8234-123456789abc",
+        "uid": 1001
+      },
+      "protected_regions": {
+        "after_data_sha256": "52c9f2244b62e8385b8e4f79b09c7c3b941098fab0ad0289af9f067bc3f27922",
+        "before_data_sha256": "e76a0bcc4f1a7dbebe0eae76a5a21af209445bf3f46ed7179c37a1cabf17975f"
+      }
+    },
+    "b": {
+      "base_sha256": "1448b47d4e556b3ae1327c1ad2eda4aeb7daadd3753c7acb2889a93ba38c84d4",
+      "bundle_sha256": "bcabb0a35697c489421fe073b439d655cce6c28e99c0faff9d00719f13727b57",
+      "data_bytes": 134217728,
+      "data_offset": 403701760,
+      "final_disk_sha256": "b71d89c2eca32f7317f74b5b604aeedb763a07d23690e7df36a2c043828c8510",
+      "gpt": {
+        "disk_guid": "a94e03e9-d7dc-4ab5-bfb6-b60c8a74b5a3",
+        "esp_partition_guid": "72b78e88-0de5-4e36-a39c-47bfe80d333d",
+        "exfat_partition_guid": "d7329ed4-8c96-4e79-8213-a1258976b5a2"
+      },
+      "initial_disk_sha256": "6e0032295a1e5dda25e5466849eb7194a3c45ec544c9b56644dc5b95ba521f75",
+      "plan_version": 2,
+      "profile": {
+        "alias": "local_b",
+        "gid": 2051,
+        "home": "/fat/home/local-b",
+        "launch_command": "run /fat/bin/deskd --profile=/fat/home/local-b",
+        "profile_id": "12345678-1234-4234-8234-123456789abc",
+        "uid": 2050
+      },
+      "protected_regions": {
+        "after_data_sha256": "c37c07f7e81fbcec97b6c0239a3c542858aca7c07c294dfa635d156ce00ef2e5",
+        "before_data_sha256": "169665d99107a8192d854d0b10dd2e6e4a80b899c9779731529ca2e1c796585f"
+      }
+    }
+  },
+  "limits": [
+    "disposable QEMU images only",
+    "no authentication or access-control claim",
+    "no physical disk or power-loss acceptance",
+    "external fsck.exfat not run"
+  ],
+  "logs_sha256": {
+    "allocation-a1.log": "704932ddbb52176b93c3c57d122568b47d1e23d4e8d992f4fed25b31431d5e17",
+    "allocation-a2.log": "704932ddbb52176b93c3c57d122568b47d1e23d4e8d992f4fed25b31431d5e17",
+    "allocation-b1.log": "704932ddbb52176b93c3c57d122568b47d1e23d4e8d992f4fed25b31431d5e17",
+    "allocation-b2.log": "704932ddbb52176b93c3c57d122568b47d1e23d4e8d992f4fed25b31431d5e17",
+    "pr321-current-build.log": "c26e6e215fa9c3ac7bac6e339cd1833f4fbf1341431959b3649bf5def0b2926b",
+    "pr321-current-host.log": "38dc7ef80c1244d2002d3b188d1506032ce047c1f88d82fbf51c2e51cfd2e438",
+    "pr321-current-proof.log": "beb208d3f0cf683bcdf598b0fdf1c9cc76cba606875a5b1ea71837c1ce9da135",
+    "qemu-a1.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "qemu-a2.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "qemu-b1.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "qemu-b2.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "serial-a1.log": "4f851ecb00a8fd0739a36ed4c7704547cb3166d52275d684d58a92792fbe14ba",
+    "serial-a2.log": "5c9b7982008a3f3f7cd2572ea595e81bef5377683eb771db415a9f365634d8f7",
+    "serial-b1.log": "8b78eba1fa33f9a23c339829b3c6f3f5baa7cdd5c86e09f4d2d836e03aa939fe",
+    "serial-b2.log": "35eaaec9cec5da3439b3c64c86c412a98aa26bae8bee6217432fb08063008cb3"
+  },
+  "refusals": [
+    {
+      "base_after_sha256": "98401acc8ec25dc41aca7ddc05bf2781f33ea76ec41f8c95316886fd4d202862",
+      "base_sha256": "98401acc8ec25dc41aca7ddc05bf2781f33ea76ec41f8c95316886fd4d202862",
+      "bundle_after_sha256": "28385d27f95d53a5d9787053f72cc2c1c06ba9964c5b7d727ec50430e5dbf053",
+      "bundle_sha256": "28385d27f95d53a5d9787053f72cc2c1c06ba9964c5b7d727ec50430e5dbf053",
+      "case": "malformed-bundle",
+      "driver_after_sha256": "5a4165be97737b1862b41324d3cc7e6a4ee67b6deb7ca638e32a5b01bea50198",
+      "driver_sha256": "5a4165be97737b1862b41324d3cc7e6a4ee67b6deb7ca638e32a5b01bea50198",
+      "published_image": false,
+      "published_ready": false,
+      "status": "REFUSED"
+    },
+    {
+      "base_after_sha256": "98401acc8ec25dc41aca7ddc05bf2781f33ea76ec41f8c95316886fd4d202862",
+      "base_sha256": "98401acc8ec25dc41aca7ddc05bf2781f33ea76ec41f8c95316886fd4d202862",
+      "bundle_after_sha256": "9193d9776635606c947cbc03d3c11e16df45c8bfe26ab59bab4b4ff8fcd383f0",
+      "bundle_sha256": "9193d9776635606c947cbc03d3c11e16df45c8bfe26ab59bab4b4ff8fcd383f0",
+      "case": "truncated-bundle",
+      "driver_after_sha256": "5a4165be97737b1862b41324d3cc7e6a4ee67b6deb7ca638e32a5b01bea50198",
+      "driver_sha256": "5a4165be97737b1862b41324d3cc7e6a4ee67b6deb7ca638e32a5b01bea50198",
+      "published_image": false,
+      "published_ready": false,
+      "status": "REFUSED"
+    },
+    {
+      "base_after_sha256": "98401acc8ec25dc41aca7ddc05bf2781f33ea76ec41f8c95316886fd4d202862",
+      "base_sha256": "98401acc8ec25dc41aca7ddc05bf2781f33ea76ec41f8c95316886fd4d202862",
+      "bundle_after_sha256": "7af8e79dbceb015be9bb4a1f3ece9a81c14952c667bf95f35348b858fd5bfff6",
+      "bundle_sha256": "7af8e79dbceb015be9bb4a1f3ece9a81c14952c667bf95f35348b858fd5bfff6",
+      "case": "partial-binding",
+      "driver_after_sha256": "5a4165be97737b1862b41324d3cc7e6a4ee67b6deb7ca638e32a5b01bea50198",
+      "driver_sha256": "5a4165be97737b1862b41324d3cc7e6a4ee67b6deb7ca638e32a5b01bea50198",
+      "published_image": false,
+      "published_ready": false,
+      "status": "REFUSED"
+    },
+    {
+      "base_after_sha256": "98401acc8ec25dc41aca7ddc05bf2781f33ea76ec41f8c95316886fd4d202862",
+      "base_sha256": "98401acc8ec25dc41aca7ddc05bf2781f33ea76ec41f8c95316886fd4d202862",
+      "bundle_after_sha256": "7af8e79dbceb015be9bb4a1f3ece9a81c14952c667bf95f35348b858fd5bfff6",
+      "bundle_sha256": "7af8e79dbceb015be9bb4a1f3ece9a81c14952c667bf95f35348b858fd5bfff6",
+      "case": "invalid-alias",
+      "driver_after_sha256": "5a4165be97737b1862b41324d3cc7e6a4ee67b6deb7ca638e32a5b01bea50198",
+      "driver_sha256": "5a4165be97737b1862b41324d3cc7e6a4ee67b6deb7ca638e32a5b01bea50198",
+      "published_image": false,
+      "published_ready": false,
+      "status": "REFUSED"
+    },
+    {
+      "base_after_sha256": "98401acc8ec25dc41aca7ddc05bf2781f33ea76ec41f8c95316886fd4d202862",
+      "base_sha256": "98401acc8ec25dc41aca7ddc05bf2781f33ea76ec41f8c95316886fd4d202862",
+      "bundle_after_sha256": "7af8e79dbceb015be9bb4a1f3ece9a81c14952c667bf95f35348b858fd5bfff6",
+      "bundle_sha256": "7af8e79dbceb015be9bb4a1f3ece9a81c14952c667bf95f35348b858fd5bfff6",
+      "case": "invalid-uid",
+      "driver_after_sha256": "5a4165be97737b1862b41324d3cc7e6a4ee67b6deb7ca638e32a5b01bea50198",
+      "driver_sha256": "5a4165be97737b1862b41324d3cc7e6a4ee67b6deb7ca638e32a5b01bea50198",
+      "published_image": false,
+      "published_ready": false,
+      "status": "REFUSED"
+    },
+    {
+      "base_after_sha256": "98401acc8ec25dc41aca7ddc05bf2781f33ea76ec41f8c95316886fd4d202862",
+      "base_sha256": "98401acc8ec25dc41aca7ddc05bf2781f33ea76ec41f8c95316886fd4d202862",
+      "bundle_after_sha256": "7af8e79dbceb015be9bb4a1f3ece9a81c14952c667bf95f35348b858fd5bfff6",
+      "bundle_sha256": "7af8e79dbceb015be9bb4a1f3ece9a81c14952c667bf95f35348b858fd5bfff6",
+      "case": "traversal-home",
+      "driver_after_sha256": "5a4165be97737b1862b41324d3cc7e6a4ee67b6deb7ca638e32a5b01bea50198",
+      "driver_sha256": "5a4165be97737b1862b41324d3cc7e6a4ee67b6deb7ca638e32a5b01bea50198",
+      "published_image": false,
+      "published_ready": false,
+      "status": "REFUSED"
+    },
+    {
+      "base_after_sha256": "98401acc8ec25dc41aca7ddc05bf2781f33ea76ec41f8c95316886fd4d202862",
+      "base_sha256": "98401acc8ec25dc41aca7ddc05bf2781f33ea76ec41f8c95316886fd4d202862",
+      "bundle_after_sha256": "525ea3417b3f28d2e25c18f2ff8fba4475a26c65a74787745dabcbad8e925a05",
+      "bundle_sha256": "7af8e79dbceb015be9bb4a1f3ece9a81c14952c667bf95f35348b858fd5bfff6",
+      "case": "changed-bundle",
+      "driver_after_sha256": "5a4165be97737b1862b41324d3cc7e6a4ee67b6deb7ca638e32a5b01bea50198",
+      "driver_sha256": "5a4165be97737b1862b41324d3cc7e6a4ee67b6deb7ca638e32a5b01bea50198",
+      "published_image": false,
+      "published_ready": false,
+      "status": "REFUSED"
+    },
+    {
+      "base_after_sha256": "98401acc8ec25dc41aca7ddc05bf2781f33ea76ec41f8c95316886fd4d202862",
+      "base_sha256": "98401acc8ec25dc41aca7ddc05bf2781f33ea76ec41f8c95316886fd4d202862",
+      "bundle_after_sha256": "7af8e79dbceb015be9bb4a1f3ece9a81c14952c667bf95f35348b858fd5bfff6",
+      "bundle_sha256": "7af8e79dbceb015be9bb4a1f3ece9a81c14952c667bf95f35348b858fd5bfff6",
+      "case": "changed-plan",
+      "driver_after_sha256": "5a4165be97737b1862b41324d3cc7e6a4ee67b6deb7ca638e32a5b01bea50198",
+      "driver_sha256": "5a4165be97737b1862b41324d3cc7e6a4ee67b6deb7ca638e32a5b01bea50198",
+      "published_image": false,
+      "published_ready": false,
+      "status": "REFUSED"
+    },
+    {
+      "base_after_sha256": "98401acc8ec25dc41aca7ddc05bf2781f33ea76ec41f8c95316886fd4d202862",
+      "base_sha256": "98401acc8ec25dc41aca7ddc05bf2781f33ea76ec41f8c95316886fd4d202862",
+      "bundle_after_sha256": "7af8e79dbceb015be9bb4a1f3ece9a81c14952c667bf95f35348b858fd5bfff6",
+      "bundle_sha256": "7af8e79dbceb015be9bb4a1f3ece9a81c14952c667bf95f35348b858fd5bfff6",
+      "case": "changed-driver",
+      "driver_after_sha256": "908d6f8c5c34446108315524374784ca01ba9302fc7788ef6ec237be0cb36ec3",
+      "driver_sha256": "5a4165be97737b1862b41324d3cc7e6a4ee67b6deb7ca638e32a5b01bea50198",
+      "published_image": false,
+      "published_ready": false,
+      "status": "REFUSED"
+    },
+    {
+      "base_after_sha256": "98401acc8ec25dc41aca7ddc05bf2781f33ea76ec41f8c95316886fd4d202862",
+      "base_sha256": "98401acc8ec25dc41aca7ddc05bf2781f33ea76ec41f8c95316886fd4d202862",
+      "bundle_after_sha256": "7af8e79dbceb015be9bb4a1f3ece9a81c14952c667bf95f35348b858fd5bfff6",
+      "bundle_sha256": "7af8e79dbceb015be9bb4a1f3ece9a81c14952c667bf95f35348b858fd5bfff6",
+      "case": "downgraded-plan",
+      "driver_after_sha256": "5a4165be97737b1862b41324d3cc7e6a4ee67b6deb7ca638e32a5b01bea50198",
+      "driver_sha256": "5a4165be97737b1862b41324d3cc7e6a4ee67b6deb7ca638e32a5b01bea50198",
+      "published_image": false,
+      "published_ready": false,
+      "status": "REFUSED"
+    },
+    {
+      "base_after_sha256": "d23077817a1c31be2a9f651917deae44af90f2ec86af0cda4ff10b2547fd4f6d",
+      "base_sha256": "d23077817a1c31be2a9f651917deae44af90f2ec86af0cda4ff10b2547fd4f6d",
+      "bundle_after_sha256": "7af8e79dbceb015be9bb4a1f3ece9a81c14952c667bf95f35348b858fd5bfff6",
+      "bundle_sha256": "7af8e79dbceb015be9bb4a1f3ece9a81c14952c667bf95f35348b858fd5bfff6",
+      "case": "occupied-profile-home",
+      "driver_after_sha256": "5a4165be97737b1862b41324d3cc7e6a4ee67b6deb7ca638e32a5b01bea50198",
+      "driver_sha256": "5a4165be97737b1862b41324d3cc7e6a4ee67b6deb7ca638e32a5b01bea50198",
+      "published_image": false,
+      "published_ready": false,
+      "status": "REFUSED"
+    },
+    {
+      "base_after_sha256": "98401acc8ec25dc41aca7ddc05bf2781f33ea76ec41f8c95316886fd4d202862",
+      "base_sha256": "98401acc8ec25dc41aca7ddc05bf2781f33ea76ec41f8c95316886fd4d202862",
+      "bundle_after_sha256": "7af8e79dbceb015be9bb4a1f3ece9a81c14952c667bf95f35348b858fd5bfff6",
+      "bundle_sha256": "7af8e79dbceb015be9bb4a1f3ece9a81c14952c667bf95f35348b858fd5bfff6",
+      "case": "provision-driver-failure",
+      "driver_after_sha256": "275239824e00e61b0a220e61a41791c7e9b4bd726f8b0c27077a338f8131c9dc",
+      "driver_sha256": "275239824e00e61b0a220e61a41791c7e9b4bd726f8b0c27077a338f8131c9dc",
+      "published_image": false,
+      "published_ready": false,
+      "status": "REFUSED"
+    }
+  ],
+  "source": {
+    ".": {
+      "dirty": false,
+      "head": "d091049851341aec48aad20abfbc42c8bc4fc984",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports": {
+      "dirty": false,
+      "head": "5e994f53fd34b65227a992e2d01751ce80b08cb6",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/awk": {
+      "dirty": false,
+      "head": "5739fd79bcfc75ba7526773d0cf634521f8aca3c",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/cjson": {
+      "dirty": false,
+      "head": "c859b25da02955fef659d658b8f324b5cde87be3",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/inih": {
+      "dirty": false,
+      "head": "26254ee9de7681f8825433415443e7116ff24b98",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/libuv": {
+      "dirty": false,
+      "head": "1cfa32ff59c076ffb6ed735bbc8c18361558661f",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/linenoise": {
+      "dirty": false,
+      "head": "dc83cc373ac2058030eb3cf5e404959a26fef112",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/lua": {
+      "dirty": false,
+      "head": "6e22fedb74cf0c9b6656e9fce8b7331db847c605",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/node": {
+      "dirty": false,
+      "head": "c7d10158bc31036de6783d66beaaaf551e3167aa",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/zlib": {
+      "dirty": false,
+      "head": "da607da739fa6047df13e66a2af6b8bec7c2a498",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "userspace/apps": {
+      "dirty": false,
+      "head": "3cf32af2294eebe9d8b9aeb8bc1dcbe46feb2967",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "userspace/widgets": {
+      "dirty": false,
+      "head": "9eaaa74e1423c15c99f8ce388b08ed5e514de3d6",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    }
+  },
+  "status": "PASS",
+  "tools": {
+    "installation_image.py": "45c61e42fd6a77644149e31174e0dcbbff496a10c1cc8d59c1a65cd25707d307",
+    "profile_bundle.py": "5c9747b2f83916a31400f3a1c7df642bb070e7e3c69b451a47ea9d35aaf468ee",
+    "profile_desktop_smoke.py": "862d4a86087edac7f5ad77cac73aec5a06129c03f77641ead0d11adda582fccf",
+    "profile_image.py": "50b981822748afe17b2f5112082df900453370cf353e41e34f53b2022927201c",
+    "profile_installation_smoke.py": "7697ea0e06eaacea8b58d61a0cb14b7d2c6c1663155de2de3d17cb5e41dd780a"
+  }
+}
