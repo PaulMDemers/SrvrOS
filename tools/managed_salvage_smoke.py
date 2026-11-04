@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Installed-root salvage and failed retirement through the managed USB controller."""
 import argparse
+import struct
 from pathlib import Path
 import subprocess
 import tempfile
@@ -33,6 +34,7 @@ def work_data(path):
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--late-flush',action='store_true',help='fail source flush after payload writes; restart with source detached')
     parser.add_argument('--qemu',default='qemu-system-x86_64')
     parser.add_argument('--ovmf',default=default_ovmf_path())
     parser.add_argument('--ovmf-vars',required=True)
@@ -41,13 +43,23 @@ def main():
     for name in (args.ovmf,args.ovmf_vars):
         if not Path(name).is_file() or ',' in name:parser.error('Invalid firmware template')
     build=proof.verified_build(ROOT)
-    base=ROOT/'build/review/managed-salvage';base.mkdir(parents=True,exist_ok=True)
+    base=ROOT/('build/review/late-flush' if args.late_flush else 'build/review/managed-salvage');base.mkdir(parents=True,exist_ok=True)
     out=Path(tempfile.mkdtemp(prefix='proof-',dir=base));print(f'Managed-salvage evidence: {out}',flush=True)
     receipt={'status':'INCOMPLETE','build':build,'cases':[],
         'qemu_version':subprocess.check_output([args.qemu,'--version'],text=True).splitlines()[0],
         'firmware_sha256':dirty.sha(Path(args.ovmf)),'vars_template_sha256':dirty.sha(Path(args.ovmf_vars))}
+    work=None
+    archive=ROOT/'.local/filesystem-evidence/late-flush'/out.name
+    def preserve_uncertain():
+        if args.late_flush and work is not None and work.exists():
+            archive.mkdir(parents=True,exist_ok=True)
+            saved=archive/'uncertain-usb.img'
+            if not saved.exists():destination.copy_image(work,saved)
+            if dirty.sha(saved)!=dirty.sha(work):raise RuntimeError('Uncertain USB changed after preservation')
+            saved.chmod(0o444);work.chmod(0o444)
+            receipt['uncertain_archive']=str(saved)
     try:
-        receipt['mechanism']=dirty.probe(out)
+        receipt['mechanism']=destination.probe(out,'flush',0) if args.late_flush else dirty.probe(out)
         original=out/'original';original.mkdir();system=original/'system'
         provision.prepare(system,ROOT/'build/kernel/srvros.elf',ROOT/'build/limine-binary/BOOTX64.EFI',ROOT/'build/srvros.exfat',ROOT/'build/userspace/init.elf',identity_bound=True)
         provision.apply(system)
@@ -63,22 +75,33 @@ def main():
         case=out/'fault';case.mkdir();disk=case/'system.img';work=case/'usb.img'
         destination.copy_image(system/'image.img',disk);destination.copy_image(usb,work)
         _,(offset,size)=proof.partitions(disk);protected=proof.outside_data(disk,offset,size);work_hash=dirty.sha(work)
-        cfg=case/'work.conf';cfg.write_text(dirty.RULE)
-        for number,mode in ((1,'save'),(2,'reopen')):
+        cfg=case/'work.conf';cfg.write_text(destination.target_rule(0,'flush') if args.late_flush else dirty.RULE)
+        for number,mode in ((1,'late-save' if args.late_flush else 'save'),(2,'late-reopen' if args.late_flush else 'reopen')):
             proof.boot(disk,case,number,args,other_disk=work,require_identity=True,managed_workspace=mode,workspace_uuid=uuid,work_fault_config=cfg if number==1 else None)
-            if dirty.sha(work)!=work_hash or proof.outside_data(disk,offset,size)!=protected:raise RuntimeError('Failed workspace or protected system regions changed')
+            if proof.outside_data(disk,offset,size)!=protected:raise RuntimeError('Protected system regions changed')
+            if args.late_flush:
+                if number==1:
+                    raw=work_data(work);uncertain_hash=dirty.sha(work)
+                    if uncertain_hash==work_hash or dirty.PAYLOAD not in raw or not struct.unpack_from('<H',raw,106)[0]&2:
+                        raise RuntimeError('Late fault must preserve changed dirty media containing full payload')
+                    (case/'uncertain-usb.exfat').write_bytes(raw)
+                    preserve_uncertain()
+                elif dirty.sha(work)!=uncertain_hash:raise RuntimeError('Uncertain USB changed during detached restart')
+            elif dirty.sha(work)!=work_hash:raise RuntimeError('Failed workspace changed')
             data=proof.data_image(disk,offset,size);fs=ExfatFixture(data)
             try:payload=fs.read('home/.managed-salvage-copy')
             except StopIteration:payload=None
             if payload!=(dirty.PAYLOAD if number==1 else None):raise RuntimeError('Healthy copy persistence/cleanup mismatch')
             destination.allocation(case,number,data)
-            receipt['cases'].append({'name':f'managed-{mode}','status':'PASS','work_sha256':work_hash,'healthy_bytes':len(dirty.PAYLOAD)})
+            receipt['cases'].append({'name':f'managed-{mode}','status':'PASS','work_sha256':dirty.sha(work),'healthy_bytes':len(dirty.PAYLOAD)})
             proof.save_json(out/'receipt.json',receipt)
         if ExfatFixture(work_data(work)).read('srvros-work/source')!=ORIGINAL:raise RuntimeError('Failed source changed on disk')
         receipt['status']='PASS'
     except Exception as error:
         receipt.update(status='FAIL',error=f'{type(error).__name__}: {error}');raise
-    finally:proof.save_json(out/'receipt.json',receipt)
+    finally:
+        preserve_uncertain()
+        proof.save_json(out/'receipt.json',receipt)
     print(f'managed-salvage: PASS; evidence {out}',flush=True)
 
 if __name__=='__main__':main()

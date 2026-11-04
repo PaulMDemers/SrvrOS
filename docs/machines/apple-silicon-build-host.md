@@ -3554,6 +3554,21 @@ Shared checkout and review VM remain untouched. Integration is delivered and
 verified; historical physical-device closures remain unresolved as documented.
 No further work is required for this integration target.
 
+## Managed USB late-flush filesystem proof
+
+Isolated filesystem branch `device/apple-silicon/filesystem-late-flush`, main
+`819956be`, qualifies matched `8321de3b`: three managed EFI lifetimes plus 11
+canonical/CLI cases pass. PR317 reviewed placement and sticky quarantine first.
+Four writes/one flush precede the failed source flush; retained RAM data salvage
+to healthy storage survives restart with uncertain USB entirely detached. No
+repair, writable remount or production implementation changes. The uncertain
+whole disk is cloned/hash-checked/read-only outside build before restart; full
+proof/canonical backups (153 files) are also verified. The
+[filesystem contract](../filesystem-layout.md) records source attribution,
+resource recovery and exact limits. Newer bc main `7ef140ef` is not consumed;
+merge review must refresh/reverify it. All task VMs stopped and review VMs
+61610/6233/85869 remain untouched. Delivery is a scoped draft PR, no merge.
+
 ### bc isolated milestone — active November 3, 2026
 
 User authorized bc-only 7.0.3 on `ports/bc` from main `b78e3ed5`, with signal
@@ -3599,3 +3614,18 @@ restoration paths/hashes. No evidence was discarded. No libc/kernel changes,
 full asynchronous-signal or physical-device acceptance is added. Integration
 checkout and review VM remain untouched. The final merge receipts record the
 authorized dependency-order delivery; no additional feature work is needed.
+
+## PR345 current-main merge review
+
+User authorized integration/requalification/merge. bc main `7ef140ef`, profile
+main `60618a4c` and diagnostic main `d791b949` are consumed. Matched `22fd9e9a`
+passes fresh three-boot late-flush proof and all 11 canonical/CLI cases; subsequent
+`fb8549be` ordinary payload hashes are identical. Matched bc ELF is present in
+the installed GPT. The interrupted 10-case headroom run is not counted as a pass;
+failed/interrupted raw fixtures are losslessly archived with restoration indexes.
+Fresh focused/Haswell host checks pass. Full evidence (153 files) and review are
+under `.local/filesystem-evidence/pr345-review/`; every uncertain whole disk is
+preserved read-only. No production fix, physical trial or hosted Actions. PR317
+reports no conflict; all review guests stopped and VMs 61610/6233/85869 remain
+untouched. The [filesystem contract](../filesystem-layout.md) records the ready
+review and next proposed read-only uncertain-media inspection milestone.
