@@ -228,6 +228,20 @@ def boot(disk, out, number, args, negative=False, *, other_disk=None,
                     if number==1 and b'dirty-salvage: source fsync EIO' not in output:
                         raise RuntimeError('Missing explicit source failure')
                     serial.sendall(b'unmount /work\n');wait(b'exfat: unmounted /work');wait(b'srv> ')
+                    serial.sendall(b'fsck /fat\n');wait(b'exfat-check:');wait(b'srv> ')
+                    if not re.search(rb'exfat-check: mounts=1 files=\d+ clusters=\d+ leaks=0 fat=0 errors=0 ok',output):
+                        raise RuntimeError('Healthy filesystem check failed')
+                    serial.sendall(b'reboot\n')
+                    if number==1:
+                        # Do not weaken the global failed-device reboot guard.
+                        # Healthy-file durability was acknowledged independently;
+                        # stop this owned VM and verify in a fresh EFI process.
+                        wait(b'reboot: storage flush failed');wait(b'srv> ')
+                        save_json(out/'restart-1.json',{'guest_reboot':'refused-storage-flush','method':'owned VM cold restart after healthy file acknowledgment'})
+                        qmp.call('quit')
+                    vm.wait(timeout=30)
+                    if vm.returncode!=0: raise RuntimeError('Dirty proof VM failed to exit')
+                    return
                 if canonical_paths:
                     if other_disk is None or number not in (1, 2):
                         raise RuntimeError('Canonical proof requires two disks and two numbered boots')
