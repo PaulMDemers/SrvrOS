@@ -136,8 +136,39 @@ static bool valid_bound(const struct signal_thread_state *s,struct signal_state_
 bool signal_state_validate(const struct signal_thread_state *s,struct signal_state_identity id) {
     return valid_bound(s,id);
 }
+static bool fork_eligible(const struct signal_thread_state *state,struct signal_state_identity id) {
+    if(id.public_tid!=1 || !valid_bound(state,id) || state->stack.depth || state->request.sequence || state->local.flags) return false;
+    for(unsigned i=0;i<4;i++) {
+        const struct signal_wait_slot *w=&state->waits[i];
+        if(w->ticket && (i || (w->phase_flags&255)!=SIGNAL_WAIT_LEGACY_READY ||
+            (w->phase_flags&(SIGNAL_WAIT_INFO_ONLY|SIGNAL_WAIT_INFO_COMPLETED)))) return false;
+        if((state->io[i].flags&SIGNAL_IO_LIVE) && state->io[i].depth) return false;
+    }
+    return true;
+}
+bool signal_state_fork_clone(struct signal_thread_state *child,const struct signal_thread_state *parent,
+    struct signal_state_identity id,uint64_t image) {
+    if(!child || !parent || child==parent || !all_zero(child,sizeof(*child)) || !image ||
+       image==id.image_generation || !fork_eligible(parent,id)) return false;
+    struct signal_thread_state next=*parent;
+    /* Validate the complete copied shape with a temporary valid identity;
+     * the pending identity is never accepted by ordinary validation. */
+    struct signal_state_identity candidate={image,1,id.scheduler_identity};
+    next.identity=candidate;
+    if(!fork_eligible(&next,candidate)) return false;
+    next.identity.scheduler_identity=0;next.request_reserved=SIGNAL_STATE_NEEDS_SCHEDULER_BIND;
+    *child=next;return true;
+}
 bool signal_thread_state_bind(struct signal_thread_state *state,struct signal_state_identity id) {
     if (!state || !valid_identity(id) || state->stack.depth>SIGNAL_CONTEXT_MAX_DEPTH) return false;
+    if(state->request_reserved==SIGNAL_STATE_NEEDS_SCHEDULER_BIND) {
+        if(state->identity.image_generation!=id.image_generation || state->identity.public_tid!=1 ||
+           id.public_tid!=1 || state->identity.scheduler_identity || state->stack.depth ||
+           state->request.sequence || state->local.flags) return false;
+        struct signal_thread_state next=*state;next.identity=id;next.request_reserved=0;
+        if(!fork_eligible(&next,id)) return false;
+        *state=next;return true;
+    }
     if (same_identity(state->identity,id)) return valid_bound(state,id);
     if (state->identity.image_generation || state->identity.public_tid || state->identity.scheduler_identity ||
         state->stack.depth || state->stack.last_token ||

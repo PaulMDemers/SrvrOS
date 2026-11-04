@@ -145,6 +145,51 @@ static void ordinary_delivery_cases(void) {
     before=s;seq=99;assert(!signal_request_stage(&s,id,1,1,0,0,wire,SIGNAL_REQUEST_CONTROL,1,&seq) &&
         seq==99 && !memcmp(&s,&before,sizeof s));
 }
+static void fork_cases(void) {
+    static struct signal_thread_state parent,child,copy;
+    const struct signal_state_identity pid={100,1,9},cid={200,1,19};
+    uint8_t wire[128]={0};uint64_t a,b,cookie,seq,wait;
+    assert(signal_thread_state_bind(&parent,pid));
+    assert(signal_io_begin(&parent,pid,0,2,4,0,0xc000,UINT64_MAX,0,0,0,&a));
+    assert(signal_io_prepare_outcome(&parent,pid,0,a,4,&cookie));
+    assert(signal_io_commit_outcome(&parent,pid,0,a,cookie,4,7,5,2,true,true,true));
+    assert(signal_io_begin(&parent,pid,0,4,50,0,0xb000,123,0,0,0,&b));
+    assert(signal_request_stage(&parent,pid,0xaaa,1,0,0,wire,SIGNAL_REQUEST_SUSPEND,0,&seq));
+    assert(signal_wait_begin(&parent,pid,0xa000,0x20,0x40,seq,false,&wait));
+    assert(signal_request_clear(&parent,pid,0xaaa,seq));
+    assert(signal_wait_wake(&parent,pid,wait) && signal_wait_no_delivery(&parent,pid,wait));
+    copy=parent;assert(signal_state_fork_clone(&child,&parent,pid,200) && !memcmp(&parent,&copy,sizeof parent));
+    assert(child.identity.image_generation==200 && child.identity.public_tid==1 && !child.identity.scheduler_identity &&
+        child.request_reserved==SIGNAL_STATE_NEEDS_SCHEDULER_BIND && !memcmp(child.io,parent.io,sizeof child.io) &&
+        !memcmp(child.waits,parent.waits,sizeof child.waits) && child.io_sequence==parent.io_sequence);
+    assert(!signal_state_validate(&child,cid) && !signal_io_admit(&child,cid,0,b));
+    struct signal_thread_state saved=child;
+    assert(!signal_thread_state_bind(&child,(struct signal_state_identity){201,1,19}) && !memcmp(&child,&saved,sizeof child));
+    assert(!signal_thread_state_bind(&child,(struct signal_state_identity){200,2,19}) && !memcmp(&child,&saved,sizeof child));
+    child.io[3].ticket=77;struct signal_thread_state bad=child;
+    assert(!signal_thread_state_bind(&child,cid) && !memcmp(&child,&bad,sizeof child));child=saved;
+    assert(signal_thread_state_bind(&child,cid) && !child.request_reserved && signal_state_validate(&child,cid));
+    assert(signal_thread_state_bind(&child,cid)); /* existing bind is deliberately idempotent */
+    assert(!signal_thread_state_bind(&child,(struct signal_state_identity){200,1,20}));
+    assert(signal_io_end(&child,cid,0,b) && !memcmp(&parent,&copy,sizeof parent));
+    assert(parent.io_top==b && child.io_top==a && child.io[0].cookie==cookie);
+    signal_thread_state_reset(&child);parent.io_sequence=INT64_MAX;copy=parent;
+    assert(signal_state_fork_clone(&child,&parent,pid,201));
+    assert(signal_thread_state_bind(&child,(struct signal_state_identity){201,1,20}));
+    uint64_t sentinel=0x55;assert(!signal_io_begin(&child,(struct signal_state_identity){201,1,20},0,1,1,0,0x9000,0,0,0,0,&sentinel) && sentinel==0x55);
+    assert(!memcmp(&parent,&copy,sizeof parent));
+    signal_thread_state_reset(&child);
+    child.io_top=1;copy=parent;struct signal_thread_state dirty=child;
+    assert(!signal_state_fork_clone(&child,&parent,pid,201) && !memcmp(&child,&dirty,sizeof child));
+    signal_thread_state_reset(&child);assert(!signal_state_fork_clone(&parent,&parent,pid,201));
+    assert(!signal_state_fork_clone(&child,&parent,pid,100) && !memcmp(&parent,&copy,sizeof parent));
+    parent.waits[0].phase_flags=SIGNAL_WAIT_RETURNING;copy=parent;
+    assert(!signal_state_fork_clone(&child,&parent,pid,201) && !memcmp(&parent,&copy,sizeof parent));
+    parent.waits[0].phase_flags=SIGNAL_WAIT_LEGACY_READY|SIGNAL_WAIT_INFO_ONLY;copy=parent;
+    assert(!signal_state_fork_clone(&child,&parent,pid,201) && !memcmp(&parent,&copy,sizeof parent));
+    parent.waits[0].phase_flags=SIGNAL_WAIT_LEGACY_READY;parent.io[1].flags|=SIGNAL_IO_IN_FLIGHT;copy=parent;
+    assert(!signal_state_fork_clone(&child,&parent,pid,201) && !memcmp(&parent,&copy,sizeof parent));
+}
 int main(void) {
     assert(sizeof(s)==4032 && signal_thread_state_bind(&s,id));
     uint64_t t=begin(0x9000),u=begin(0x8000),g=0,old=0;bool no=false;
@@ -164,6 +209,6 @@ int main(void) {
     s.io_sequence=INT64_MAX;before=s;x=99;
     assert(!signal_io_begin(&s,id,0,1,1,0,0x9000,0,0,0,0,&x) && x==99 && !memcmp(&s,&before,sizeof s));
     before=s;assert(!signal_io_mark_interrupted(&s,(struct signal_state_identity){1,2,4}) && !memcmp(&s,&before,sizeof s));
-    invalid_state_cases();outcome_cases();wait_cases();nested_wait_cases(false);nested_wait_cases(true);ordinary_delivery_cases();
+    invalid_state_cases();outcome_cases();wait_cases();nested_wait_cases(false);nested_wait_cases(true);ordinary_delivery_cases();fork_cases();
     puts("signal-runtime: pure ticket and guard transitions pass");
 }

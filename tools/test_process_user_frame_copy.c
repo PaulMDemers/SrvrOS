@@ -22,6 +22,9 @@ static struct fpu_state kernel_fpu;
 bool scheduler_observe_user_return(struct scheduler_user_return_observation *out) {
     if(!observation_ok || (test_flags&0x200)) return false;*out=observation;return true;
 }
+bool scheduler_observe_user_entry(struct scheduler_user_return_observation *out) {
+    (void)out;assert(!"Private frame operations must retain strict return admission");return false;
+}
 bool scheduler_observe_user_worker_stack(struct scheduler_user_worker_stack *out) {
     worker_queries++;if(!worker_ok)return false;*out=worker_stack;return true;
 }

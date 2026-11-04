@@ -1,5 +1,8 @@
 #ifndef SRVROS_PRIVATE_PROCESS_SIGNAL_H
 #define SRVROS_PRIVATE_PROCESS_SIGNAL_H
+#if defined(SRVROS_SIGNAL_EXPERIMENTAL_INFO) && !defined(SRVROS_SIGNAL_PUBLIC_GUEST_TEST)
+#error "Experimental INFO requires a separate PUBLIC_GUEST_TEST kernel"
+#endif
 #include "arch/x86_64/signal_state.h"
 
 /* Internal SIGUSR1 prerequisite, no syscall or delivery caller. Inputs/outputs
@@ -39,4 +42,27 @@ enum process_signal_delivery_result process_signal_deliver_private(struct isr_fr
 #define PROCESS_SIGNAL_RETURN_RESTORED 1u
 #define PROCESS_SIGNAL_RETURN_EXIT_MIN 129u
 uint64_t process_signal_return_private(struct isr_frame *,uint64_t token,uint64_t frame_identity);
+#ifdef SRVROS_SIGNAL_PUBLIC_GUEST_TEST
+/* Staged guest-only public frontend. Wire is already copied into trusted kernel
+ * storage. Completion runs at the ordinary common-return seam under IF0. */
+int64_t process_signal_public_stage(struct isr_frame *,uint64_t kind,uint64_t operation,
+    const uint8_t wire[128],uint64_t output,uint64_t output_size);
+/* 0: ordinary completion; 1: authoritative restored frame; >=129: direct exit.
+ * UINT64_MAX: contained terminal contract failure. */
+uint64_t process_signal_public_complete(struct isr_frame *);
+/* Fixed bounded read used only after common-return ordinary admission. */
+bool syscall_signal_copy_input(void *,uint64_t,size_t);
+/* Pre-admission guard: 0 ordinary,1 compact END handled,2 allowed guarded
+ * syscall,3 refused guarded syscall,4 guarded non-syscall entry, >=129 exit. */
+uint64_t process_signal_public_entry(struct isr_frame *);
+int64_t process_signal_io_check(struct isr_frame *,const struct srv_signal_io_v1 *,struct signal_io_slot *root_out);
+int64_t process_signal_io_reserve(struct isr_frame *,const struct srv_signal_io_v1 *,
+    const struct srv_signal_descriptor_v1 *,size_t count,uint64_t *cookie,uint64_t *request_sequence);
+bool process_signal_io_capture(struct isr_frame *,const struct srv_signal_io_v1 *,uint64_t cookie,uint64_t sequence,
+    int64_t result,uint64_t elapsed_us,uint64_t elapsed_ticks,bool mono_valid,bool ticks_valid);
+bool process_signal_info_pending_current(void);
+#ifdef SRVROS_SIGNAL_EXPERIMENTAL_INFO
+bool process_signal_experimental_fd_allowed(uint64_t fd);
+#endif
+#endif
 #endif

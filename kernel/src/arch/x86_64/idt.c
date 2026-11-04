@@ -12,6 +12,9 @@
 #include "descriptor_tables.h"
 #include "irq.h"
 #include "isr_frame.h"
+#ifdef SRVROS_SIGNAL_PUBLIC_GUEST_TEST
+#include "../../process_signal.h"
+#endif
 #ifdef SRVROS_USER_FRAME_COPY_GUEST_TEST
 #include "user_frame_copy.h"
 #include <srvros/serial.h>
@@ -24,6 +27,9 @@
 #endif
 #if defined(SRVROS_USER_FRAME_COPY_GUEST_TEST) && defined(SRVROS_SIGNAL_CONTEXT_GUEST_TEST)
 #error "Build each private diagnostic kernel separately"
+#endif
+#if defined(SRVROS_SIGNAL_PUBLIC_GUEST_TEST) && (defined(SRVROS_SIGNAL_CONTEXT_GUEST_TEST) || defined(SRVROS_USER_FRAME_COPY_GUEST_TEST))
+#error "Public and private guest fixtures require separate kernels"
 #endif
 
 #include <stdint.h>
@@ -477,6 +483,15 @@ void isr_dispatch(struct isr_frame *frame) {
         scheduler_account_kernel_enter();
         scheduler_io_set_user_safe(false);
     }
+#ifdef SRVROS_SIGNAL_PUBLIC_GUEST_TEST
+    uint64_t public_entry=0;
+    if(user) {
+        if(process_should_exit_current()){scheduler_io_wait();process_exit(process_current_kill_status());}
+        public_entry=process_signal_public_entry(frame);
+        if(public_entry>=PROCESS_SIGNAL_RETURN_EXIT_MIN){scheduler_io_wait();process_exit(public_entry);}
+    }
+    if(public_entry!=1 && public_entry!=3)
+#endif
 #ifdef SRVROS_USER_FRAME_COPY_GUEST_TEST
     bool copy_test=user && frame->vector==3 && frame->rax==USER_FRAME_COPY_TEST_MAGIC;
     if(!copy_test)
@@ -491,6 +506,24 @@ void isr_dispatch(struct isr_frame *frame) {
         syscall_cancel_test_exclude_irqs();
 #else
         __asm__ volatile ("cli" : : : "memory");
+#endif
+#ifdef SRVROS_SIGNAL_PUBLIC_GUEST_TEST
+        /* All dispatcher continuations are unwound. Regain ordinary admission
+         * before fresh common-return proof, never during a publication suffix. */
+        if(public_entry!=2 && public_entry!=3 && public_entry!=4) {
+        scheduler_io_wait();
+        __asm__ volatile ("cli" : : : "memory");
+        scheduler_io_set_user_safe(false);
+        if(process_should_exit_current())process_exit(process_current_kill_status());
+        uint64_t signal_completion=process_signal_public_complete(frame);
+        if(signal_completion==UINT64_MAX)process_exit(128+SRV_SIGNAL_SEGV);
+        if(signal_completion>=PROCESS_SIGNAL_RETURN_EXIT_MIN)process_exit(signal_completion);
+        if(signal_completion!=PROCESS_SIGNAL_RETURN_RESTORED) {
+            enum process_signal_delivery_result delivered=process_signal_deliver_private(frame);
+            if(delivered==PROCESS_SIGNAL_DELIVERED_EXIT_USR1)process_exit((uint64_t)delivered);
+            if(delivered==PROCESS_SIGNAL_FATAL)process_exit(128+SRV_SIGNAL_SEGV);
+        }
+        }
 #endif
 #ifdef SRVROS_USER_FRAME_COPY_GUEST_TEST
         if(copy_test) user_frame_copy_guest_test(frame);

@@ -1,6 +1,6 @@
 # Public signal v1: logical I/O review supplement
 
-Proposal only; no public implementation is admitted. This replaces the libc
+Staged implementation is under review; normal public dispatch remains disabled. A separately compiled experimental guest may qualify only its enforced local-runtime allowlist. This replaces the libc
 notification counter as retry authority in [the public packet](signal-public-v1.md).
 The owner reproduced gaps in synthetic poll, eventfd and epoll loops, even with
 no legacy RESTART disposition. An internal ten-millisecond timeout is not the
@@ -9,8 +9,8 @@ cannot close the gap. Sticky image profiles were considered and rejected.
 
 ## Authority and exact proposed storage
 
-Add syscall167 SIGNAL_IO, subject to allocation review alongside164..166. Its
-operations are BEGIN1, CALL2, END3, UNWIND4, LOCAL_BEGIN5, LOCAL_END6 and RESULT7. All operations require the current live
+The owner reserved syscall167 SIGNAL_IO alongside164..166. Its
+operations are BEGIN1, CALL2, END3, UNWIND4, LOCAL_BEGIN5, LOCAL_END6, RESULT7 and EPOLL-only CAPTURE_DESCRIPTORS8. All operations require the current live
 image/public TID/scheduler identity; tickets are private to that binding. A
 ticket exists before BEGIN can return through INFO delivery. INFO delivery marks
 **every live ticket** interrupted in its existing private commit before entering
@@ -202,7 +202,7 @@ before effects. Reservation binds the exact root, depth, cookie and raw operatio
 wait snapshot before any INFO handler can execute, then publishes those words and
 the raw syscall number into that exact root. RESULT7 takes the ticket and returns
 64 bytes: size/version8, outcome_cookie8, syscall_number8, signed_result8,
-elapsed_us8, elapsed_ticks8, validity8 and reserved0_8. Query does not overwrite
+elapsed_us8, elapsed_ticks8, validity8 and reserved0_8. Validity masks are MONO_VALID=1, TICKS_VALID=2 and COMPLETED_NATIVE=4; all other bits are zero. Completion is the captured kernel decision, never inferred from a later userspace clock reading. An incomplete native zero may reach the actual outer timeout only through an ordinary guarded local decision; it cannot use positive-result finalization. Query does not overwrite
 or authorize a new attempt. A sticky admission refusal with no backend attempt
 leaves the previous snapshot unchanged; SLEEP has only one backend attempt and
 an outcome cookie0 means it never began sleeping.
@@ -468,3 +468,43 @@ failed/successful exec and INFO registration during an already-live operation.
 Use backend-entry counters in host fixtures and real main/worker guests. Re-run
 legacy-only fixtures to prove restart/fork/exec behavior is preserved. These tests
 are requirements, not results. Public implementation remains awaiting review.
+
+
+## Dynamic epoll capture and experimental qualification
+
+CAPTURE_DESCRIPTORS8 accepts only the current top EPOLL root at its originating
+depth, without an active guard or in-flight backend. Raw number, arguments and
+deadline are zero; flags allow only POLL_LIST1. The input/output vectors follow
+BEGIN's exact16-byte entry format and count<=64, including zero-count NULL/0.
+Validate the fixed shape and identity first, then refuse sticky interruption
+before reading any input vector. Snapshot the full input before exact-alias
+output. A live exhausted generation refuses EOVERFLOW; absent poll entries stay
+MAX. The qualified common-return copy precedes publication. No I/O ticket,
+I/O counter, mask or output changes on refusal; staged request sequence advances
+under the ordinary request rules. Successful capture does not clear interruption
+or change the outer deadline. It enrolls an explicit current watch identity and
+revision under the existing event mutex and must not revive retired snapshots.
+POLL roots reject this operation, preserving their original fixed invalid-vector
+semantics. Subsequent CALL/commit still validate generations and watch revisions.
+
+The shared owner cleared a bounded experimental qualification sequence. Define
+SRVROS_SIGNAL_EXPERIMENTAL_INFO only together with SRVROS_SIGNAL_PUBLIC_GUEST_TEST;
+other combinations fail compilation. The Make fragment builds separate objects.
+Only that exact disposable test image reports experimental INFO capabilities.
+Normal builds keep public dispatch disabled, and the nonexperimental test kernel
+reports capabilities0. The experimental kernel rejects external/namespace socket
+entries and network descriptors before effects. Its CALL allowlist covers console and genuinely rights-free byte-pipe
+read/write and nonpositional vector I/O, poll limited to those families, and
+zero-FD child wait, sleep and yield. VFS, PTY, duplex/rights-bearing pipes,
+positional I/O, lock-wait and network entry points reject before BEGIN/effects.
+Raw read-only GETFD/GETFL metadata remains available for admitted descriptors;
+these calls cannot run inside an active local guard. Rights-free state is
+rechecked at every wake, consume and publication, with a separate experimental
+read path that cannot retire rights or release their referenced resources. Tests must still establish every path actually used.
+
+Broader socket admission remains open: interrupted connecting reservations need
+a reviewed pure rollback; connected UDP needs peer filtering before positive
+capture; native message family/flags and batching need one-operation semantics;
+accept flags must be configured at creation. The preserved network prototype is
+not part of the qualified implementation. An experimental JavaScript0+42 result
+will not establish general INFO/network/runtime acceptance or merge readiness.

@@ -333,3 +333,15 @@ coordinator probes, and the minimal no-JIT JavaScript smoke with actual0+42.
   Strict/sanitized baseline, fatal, default-ignored and earlier-fatal profiles
   pass; target compilation passes. A native guest remains to be run. This does
   not qualify untested explicit native exec attribute-default/mask semantics.
+
+
+## Experimental guest qualification boundary
+
+The owner cleared a separately compiled PUBLIC_GUEST_TEST image with an explicit
+SRVROS_SIGNAL_EXPERIMENTAL_INFO define for native context/nested-wait/WTF/root
+probes and the required no-JIT JavaScript0+42 test. Compilation refuses the
+experimental define without the public guest gate. Normal dispatch stays off.
+The exact experimental kernel enforces the local-runtime allowlist described in
+[logical I/O](signal-logical-io-v1.md), rejecting unqualified network effects.
+Source, configuration, kernel, SDK, probe and stopped-guest evidence must match.
+This is experimental ABI test acceptance, not general public runtime admission.

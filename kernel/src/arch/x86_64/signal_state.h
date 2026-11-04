@@ -34,6 +34,11 @@ struct signal_thread_state {
  * Inputs and outputs must not alias state or each other. Reset is retirement,
  * not an implicit rebind. No operation establishes a user-memory transaction. */
 void signal_thread_state_reset(struct signal_thread_state *state);
+/* Constructor-only pending child: no ordinary admission until bind installs
+ * its actual scheduler identity. Destination must be all-zero and distinct. */
+#define SIGNAL_STATE_NEEDS_SCHEDULER_BIND UINT64_C(0x535256464f524b31)
+bool signal_state_fork_clone(struct signal_thread_state *child,const struct signal_thread_state *parent,
+    struct signal_state_identity parent_identity,uint64_t child_image_generation);
 bool signal_thread_state_bind(struct signal_thread_state *state,struct signal_state_identity identity);
 bool signal_thread_state_push(struct signal_thread_state *state,struct signal_state_identity identity,
     const struct signal_context_record *record,struct signal_context_range range);

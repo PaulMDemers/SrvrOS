@@ -3824,3 +3824,32 @@ four-deep lock-free TLS marker. Unimplemented getcontext/swapcontext/makecontext
 honestly report ENOSYS without mutating outputs. Native host nesting/layout and
 pinned Zig object compilation pass; public kernel/libc/WTF wiring and fresh
 JavaScript exit0/output42 are still required.
+
+
+PR334 next experimental source slice stages CONTROL/RETURN/SUSPEND and logical
+I/O at the common CPL3 seam. Normal dispatch remains off; a separate guest flag
+requires PUBLIC_GUEST_TEST at compile time and enforces a console/simple byte-pipe
+and zero-FD wait profile before effects. VFS/PTY/positional/lock/message/network
+operations are excluded from that first qualification. Rights are rechecked on
+every pipe wake/consume/publication. Raw GETFD/GETFL remains bounded metadata for
+admitted descriptors. The kernel/source implements same-ticket wait rearming,
+late INFO completion association, captured native completion and dynamic epoll
+capture without clearing interruption. The selected state stays4032 bytes.
+
+Independent review closed foundation70ca1894 only. Host modeled fixtures cover
+public libc/kernel state, nested waits, descriptor/copy rollback, guarded local
+updates, timeout capture, pipe rights refusal and waitpid status formatting.
+Normal and experimental kernel plus current SDK/native-context probe link with
+pinned Zig. Earlier host compile attempts exposed missing new observer/timing
+mocks and renamed-main return handling; corrected attempts and failures are kept.
+Actual target code confirms unused RETURN registers zero and sem_post's successful
+publishing CAS as its last semaphore-storage access. Transaction-only stack proof
+passes; context-sensitive blocking/scheduler callback closure remains under review.
+No new public/native guest or JavaScript0+42 result is claimed at this checkpoint.
+
+SrvrPorts8d9b9b7 adds the unbuilt WTF context/handshake overlay and protocol model.
+It preserves original GP/SP/IP/FX/red-zone roots, uses per-target ticket/semaphore
+phases, bounds uncertain acknowledgements terminally and delays thread publication
+until target TLS/TID/stack initialization. The broader network prototype is
+preserved in ignored task evidence and excluded from the live implementation.
+No physical boot, merge or hosted CI is part of this source qualification.

@@ -32,6 +32,7 @@ parser.add_argument('--refresh-sdk-headers', metavar='REASON', help='allow only 
 parser.add_argument('--filesystem-guest-receipt', type=Path, required=True, help='passing private filesystem guest receipt')
 parser.add_argument('--math-guest-receipt', type=Path, required=True, help='passing guest receipt for math and C++ runtime extensions')
 parser.add_argument('--add-patch', action='append', help='apply a new named .patch from ports/srvros/webkit after validating the retained tree')
+parser.add_argument('--experimental-signal-context', action='store_true', help='opt in to the unqualified SrvrOS WTF signal/context overlay for disposable guest tests')
 args = parser.parse_args()
 if args.refresh_sdk_headers and (not args.resume or args.refresh_runtime_proofs or not args.refresh_sdk_headers.strip()):
     parser.error('--refresh-sdk-headers requires --resume, a reason, and no runtime-only refresh')
@@ -268,6 +269,7 @@ try:
                    'file-map-flags.patch', 'optional-signals.patch', 'mincore-unavailable.patch',
                    'cache-version.patch', 'repatch-nojit.patch', 'cache-build-id.patch',
                    'target-archive-tools.patch', 'repatch-llint-includes.patch', 'jsc-math-provider.patch']
+        if args.experimental_signal_context: patches.append('srvros-signal-context.patch')
         for name in patches:
             command('patch-' + name, ['patch','--batch','--fuzz=0','-p1','-d',source,'-i',port/name])
         state = {'patches': {name: sha(port/name) for name in patches},
@@ -416,6 +418,9 @@ try:
                 state['source_sha256'] = source_digest()
                 state_path.write_text(json.dumps(state, indent=2) + '\n')
     receipt['source_state'] = state
+    if args.experimental_signal_context and 'srvros-signal-context.patch' not in state['patches']:
+        raise RuntimeError('retained run lacks the experimental overlay; use explicit --add-patch or start a fresh run')
+    receipt['experimental_signal_context'] = 'srvros-signal-context.patch' in state['patches']
     if state.get('last_runtime_transition'):
         receipt['runtime_transition'] = state['last_runtime_transition']
     if state.get('sdk_header_transition'):

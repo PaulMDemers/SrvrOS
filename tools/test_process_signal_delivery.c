@@ -14,6 +14,9 @@ void *scheduler_current_user_thread_context(void) {assert(!post_store);return ob
 bool scheduler_observe_user_return(struct scheduler_user_return_observation *out) {
     assert(!post_store);if(!observation_ok || (test_flags&0x200))return false;*out=observation;return true;
 }
+bool scheduler_observe_user_entry(struct scheduler_user_return_observation *out) {
+    (void)out;assert(!"Private delivery must use strict return admission");return false;
+}
 bool scheduler_observe_user_worker_stack(struct scheduler_user_worker_stack *out) {
     assert(!post_store);worker_queries++;if(!worker_ok)return false;*out=worker_stack;return true;
 }

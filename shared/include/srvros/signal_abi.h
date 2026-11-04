@@ -26,6 +26,28 @@
 #define SRV_SIGNAL_NATIVE_RESET UINT32_C(0x80000000)
 #define SRV_SIGNAL_SUSPEND_BEGIN 1u
 #define SRV_SIGNAL_SUSPEND_FINISH 2u
+#define SRV_SIGNAL_IO_BEGIN 1u
+#define SRV_SIGNAL_IO_CALL 2u
+#define SRV_SIGNAL_IO_END 3u
+#define SRV_SIGNAL_IO_UNWIND 4u
+#define SRV_SIGNAL_IO_LOCAL_BEGIN 5u
+#define SRV_SIGNAL_IO_LOCAL_END 6u
+#define SRV_SIGNAL_IO_RESULT 7u
+#define SRV_SIGNAL_IO_CAPTURE_DESCRIPTORS 8u
+#define SRV_SIGNAL_IO_POLL_LIST UINT64_C(1)
+#define SRV_SIGNAL_IO_LEGACY_MASKED UINT64_C(2)
+#define SRV_SIGNAL_IO_FINALIZE_NATIVE UINT64_C(1)
+#define SRV_SIGNAL_IO_RESULT_MONO_VALID UINT64_C(1)
+#define SRV_SIGNAL_IO_RESULT_TICKS_VALID UINT64_C(2)
+#define SRV_SIGNAL_IO_RESULT_COMPLETED_NATIVE UINT64_C(4)
+#define SRV_SIGNAL_ROOT_RAW 1u
+#define SRV_SIGNAL_ROOT_READ 2u
+#define SRV_SIGNAL_ROOT_WRITE 3u
+#define SRV_SIGNAL_ROOT_POLL 4u
+#define SRV_SIGNAL_ROOT_EPOLL 5u
+#define SRV_SIGNAL_ROOT_SEM_WAIT 6u
+#define SRV_SIGNAL_ROOT_WAITPID 7u
+#define SRV_SIGNAL_ROOT_SLEEP 8u
 #define SIGNAL_CONTEXT_VERSION 1u
 #define SIGNAL_CONTEXT_FPU_SIZE 512u
 struct signal_context_snapshot {
@@ -47,6 +69,8 @@ struct srv_signal_features_v1 { uint32_t size,version; uint64_t capabilities,inf
 struct srv_signal_legacy_take_v1 { uint32_t size,version; uint64_t signum; struct srv_signal_action_v1 action; uint64_t previous_mask,generation,reserved; };
 struct srv_signal_io_v1 { uint32_t size,version; uint64_t operation,ticket,raw_syscall,args[6],descriptor_vector,descriptor_count,flags,deadline,reserved[2]; };
 struct srv_signal_io_result_v1 { uint32_t size,version; uint64_t cookie,syscall_number; int64_t result; uint64_t elapsed_us,elapsed_ticks,validity,reserved; };
+struct srv_signal_descriptor_v1 { int64_t fd; uint64_t value; }; /* reserved input / generation output */
+SRV_SIGNAL_ASSERT(sizeof(struct srv_signal_descriptor_v1)==16,"descriptor wire size");
 SRV_SIGNAL_ASSERT(sizeof(struct signal_context_snapshot)==688,"snapshot wire size");
 SRV_SIGNAL_ASSERT(offsetof(struct signal_context_snapshot,fpu)==176,"snapshot FX offset");
 SRV_SIGNAL_ASSERT(sizeof(struct srv_signal_info_v1)==64,"info wire size");

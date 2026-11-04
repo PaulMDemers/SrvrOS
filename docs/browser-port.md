@@ -2,10 +2,12 @@
 
 The current target is real threaded signal/register-context support followed by
 a minimal JavaScriptCore execution with exit0 and output42. That target is not
-complete. Public INFO registration, atomic temporary-mask waiting, libc adapters
-and the bounded WTF suspend/resume handshake are still under owner design review.
+complete. Public INFO registration, atomic temporary-mask waiting and libc adapters have
+a guest-gated source implementation under target/owner qualification. Normal
+public dispatch remains disabled. The bounded WTF handshake overlay is a source
+candidate, with target compilation and native/conservative-root tests pending.
 The [public packet](signal-public-v1.md) and [logical I/O supplement](signal-logical-io-v1.md)
-are proposals, not an enabled ABI.
+record the reviewed contract and explicit experimental qualification boundary.
 
 The private signal path has owner-reviewed source, host and native guest evidence,
 including the [RESET peer correction](signal-publication-transaction.md).
@@ -44,3 +46,12 @@ Heavy output uses the task-owned external APFS volume. Preserve existing images,
 VMs and checkouts; check host, output and sparse-image backing reserves and keep
 temporary files/caches on the output volume. Maximum concurrency is two compiler
 jobs or one private VM. No physical boot or hosted CI is authorized by this work.
+
+
+The experimental build flag is `--experimental-signal-context` on a fresh
+`browser_jsc_build.py` run. It records/applies the separate WTF overlay after the
+existing patches and does not enable kernel production capabilities. The first
+matched guest profile permits only console, rights-free simple pipes, bounded
+zero-FD waits and threading. Unqualified storage/socket paths fail before effects.
+A JavaScript failure that requires another path is evidence for the next bounded
+qualification; it must not be bypassed by broadening the gate without review.

@@ -303,6 +303,11 @@ bool process_try_munmap_private(struct process *process, uint64_t address, uint6
 /* Exact direct child only; consume fully cleaned reapable metadata atomically.
  * False leaves ownership/status unchanged and requires ordinary wait admission. */
 bool process_try_wait_retired(uint64_t pid, uint64_t *status, int64_t *result);
+/* Copy/status callback runs under IF0 before child claim/accounting. It must
+ * validate the complete output before writing and cannot yield or allocate. */
+typedef bool (*process_wait_copy_fn)(void *,uint64_t);
+bool process_try_wait_retired_checked(uint64_t pid,process_wait_copy_fn,void *,int64_t *result);
+int64_t process_wait_checked(int64_t selector,uint64_t flags,process_wait_copy_fn,void *);
 int64_t process_mprotect(struct process *process,
     uint64_t address,
     uint64_t length,
