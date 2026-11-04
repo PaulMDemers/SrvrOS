@@ -1,6 +1,6 @@
 # Directed signal and interrupted-context runtime dependency
 
-Status: internal helper slice implemented; delivery remains a proposal. The shared-runtime branch owns this dependency; process, VMM and teardown integration require the audit owner's review before implementation. The first acceptance target is one CPU, one process, and a thread-directed asynchronous `SIGUSR1` for a running or safely blocked thread. This is a real signal contract, not a JSC-only callback. It does not promise SMP, synchronous fault recovery, alternate signal stacks, arbitrary context editing, or unrestricted POSIX signal conformance.
+Status: internal context/scheduler/VMM helpers, common-return correction and a worker-spawn binding correction are implemented; delivery remains a proposal. The shared-runtime branch owns this dependency; process, VMM and teardown integration require the audit owner's review before implementation. The first acceptance target is one CPU, one process, and a thread-directed asynchronous `SIGUSR1` for a running or safely blocked thread. This is a real signal contract, not a JSC-only callback. It does not promise SMP, synchronous fault recovery, alternate signal stacks, arbitrary context editing, or unrestricted POSIX signal conformance.
 
 ## Existing behavior and the gap
 
@@ -547,3 +547,55 @@ VMM object compiles with pinned Zig0.15.2. Logs:
 `build/signal-context/vmm-prepare-{host,sanitizers,target}.log` and
 `vmm-range-after-prepare.log`. No live guest helper invocation or image-generation/
 FPU/delivery acceptance is claimed.
+
+The owner independently reviewed `439d274d` and reran strict Rosetta and
+ASan/UBSan preparation fixtures successfully. The unwired helper is accepted;
+creation/refresh/setter wiring remains a separate design decision.
+
+## Worker foreground-spawn binding correction
+
+Lifecycle review found that synchronous spawn from a user worker retained its
+worker association while selecting a child/main-thread FPU and stack binding.
+An unchanged `fa69b4dc` guest reproduces it: the worker calls raw `SYS_SPAWN` for
+`echo` and never returns; the parent deadline reports status3. Source, ELF, ISO,
+disk and UART remain under
+`build/signal-context/vm-1793763902047506000/worker-binding-probe-2/`.
+
+The owner approved an isolated refusal, implemented at `bfee424f`:
+`process_spawn_elf`/args, redirect and non-detached `process_spawn_exec` return
+`SRV_ERR_NOTSUP` for a worker before allocating or changing file actions or
+bindings. Detached spawn remains supported. Its shared preparation-error path
+no longer invokes a redundant parent setter; no child binding had been installed
+there, and that setter could select the wrong FPU/TSS for the worker. Error codes
+and child cleanup order are unchanged. Kernel-only run APIs remain unchanged;
+their callers are main/monitor/trackpad launch paths.
+
+The tracked `tools/test_worker_spawn_guest.c` uses raw INT instructions to check
+all four foreground syscall forms, detached missing-image and file-action
+failure, detached child success and wait, volatile TLS data, FS:0, XMM15, RSP and
+a stack canary. It also checks that refused redirection created no file. On a
+fresh kernel built from the correction, the disposable guest exits0 with
+`foreground refusal, detached failure/success, TLS/FPU/stack ok`. Receipt:
+`build/signal-context/vm-1793763902047506000/worker-binding-fixed-1/receipt.json`,
+SHA256 `f209d39e69bc0be4ac4e1916b9f7fff7bcf6f9822396916ca6e6104c4d17fec2`.
+It binds source, ELF, ISO and kernel hashes. The owner independently checked
+these and the UART result. The guest is stopped; protected review guests remain
+untouched. This check does not expose kernel TSS directly or establish signal
+delivery. Actual-source host fixtures provide the separately modeled binding
+and child-cleanup checks.
+
+`tools/test_process_foreground.c` and `test_process_spawn_failure.c` include the
+actual process implementation. Both pass strict x86-64/Rosetta and ASan/UBSan,
+including an independent rerun. Foreground refusals preserve the entire parent
+and worker object, allocation/PID/slot state and scheduler admission counters.
+The detached vector-failure fixture successfully reads a real minimal ELF and
+maps its stack, then passes non-NULL argv with argc0 directly to the internal
+constructor. It returns `SRV_ERR_NOMEM`, frees every child frame/kernel stack and
+address space, releases the child slot, performs no setter or admission, and
+preserves the entire parent plus modeled worker/FPU/FS/CR3/TSS selection. These
+are host models of external hardware facilities, not a claim of reading TSS
+from user mode. Make targets: `test-process-foreground` and
+`test-process-spawn-failure`; this Mac's strict commands use `clang -arch x86_64`
+and `-Wl,-dead_strip`, and sanitizer commands add
+`-O1 -g -fsanitize=address,undefined`. Evidence is under
+`build/signal-context/process-{foreground,spawn-failure}-review{,-san}.log`.

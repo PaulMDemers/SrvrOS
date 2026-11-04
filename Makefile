@@ -3839,6 +3839,22 @@ build/tests/process-service-host$(HOST_EXE): tools/test_process_service.c kernel
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include $< kernel/src/vfs_namespace.c -Wl,--gc-sections -o $@
 test-core: test-process-service
 
+.PHONY: test-process-foreground
+test-process-foreground: build/tests/process-foreground-host$(HOST_EXE)
+	$<
+build/tests/process-foreground-host$(HOST_EXE): tools/test_process_foreground.c tools/test_process_service.c kernel/src/process.c kernel/src/vfs_namespace.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include $< kernel/src/vfs_namespace.c -Wl,--gc-sections -o $@
+test-core: test-process-foreground
+
+.PHONY: test-process-spawn-failure
+test-process-spawn-failure: build/tests/process-spawn-failure-host$(HOST_EXE)
+	$<
+build/tests/process-spawn-failure-host$(HOST_EXE): tools/test_process_spawn_failure.c kernel/src/process.c kernel/src/vfs_namespace.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include $< kernel/src/vfs_namespace.c -Wl,--gc-sections -o $@
+test-core: test-process-spawn-failure
+
 .PHONY: test-graphics-service
 test-graphics-service: build/tests/graphics-service-host$(HOST_EXE)
 	$<
