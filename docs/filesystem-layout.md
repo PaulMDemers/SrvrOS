@@ -36,6 +36,12 @@ repair, replay, transport recovery, remount or writable-admission authority.
 512-byte sectors, conservative native attribute policy and exactly one Basic
 Data candidate remain explicit limits. Review is ready for authorized merge.
 
+The merge guard subsequently held delivery when main advanced. Integrated
+Files folder-picker main `bc3d4933` as `f4769af5`, synchronizing Apps `b2b93f65`
+and Widgets `b3fa806a` and preserving its host record. All qualified native/tool
+sources remain identical. Fresh 27-group checks and retained-media comparisons
+pass again; no new runtime/UI acceptance is claimed by this host-only review.
+
 Next proposed bounded milestone: **explicit partition-GUID selection for offline
 multi-volume workspace images**. Add a caller-supplied GUID option which requires
 one matching Basic Data partition in the already validated primary/backup map,
