@@ -1,12 +1,13 @@
 # Apple Silicon macOS build host
 
-## Session switching — integration qualified November 4, 2026
+## Session switching — delivered and verified November 4, 2026
 
 User authorized cooperative session ending, no-reboot profile switching,
 coordination, verification and merge. Coordinator used isolated
 `SrvrOS-migration-review`; Profiles owner supplied OS/Apps changes in
 `SrvrOS-profile-326-review`; runtime owner independently reviewed scope ownership.
-Runtime PR354 merged as `f58e0725`. Apps9 (`2a8bc2d9`) precedes OS355. UI pin
+Runtime PR354 merged as `f58e0725`. Apps9 (`2a8bc2d9`) merged as `c3ad11b1`,
+then OS355 (`c750e02d`) as `82face72`. Both merge trees equal reviewed heads. UI pin
 `586bd002`, Ports `d760e541` and actual main `f58e0725` are preserved.
 
 Ordinary desktop source is `c55a26da`; `3658d8fd` changes only opt-in lifetimeprobe
@@ -49,7 +50,11 @@ composite receipt. Earlier creation/installation evidence paths/inodes and revie
 VMs remain untouched. All task proof guests stopped; the heavy window is released
 to browser work. Actions remain disabled. No physical-media, power-loss,
 authentication, permission-enforcement or concurrent-session acceptance is added.
-Next delivery action: Apps9 then OS355 and verify exact merged trees/pins.
+Actual OS main pins reviewed Apps `2a8bc2d9`, whose tree equals merged Apps main.
+Final comparison confirms only proof tools/docs changed after guest source
+`3658d8fd`; retained three payload and relevant host source hashes still match.
+No new VM run is claimed for the docs-only delivery record. No further work is
+required for this target.
 
 ## Desktop profile creation — integration delivered November 4, 2026
 

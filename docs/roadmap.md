@@ -6,10 +6,10 @@ and [machine records](machines/README.md) separate implementation from physical
 acceptance. The [device parity ledger](device-parity.md) compares the Air with
 ongoing Pro work.
 
-## End session and switch profile — qualified November 4, 2026
+## End session and switch profile — delivered and verified November 4, 2026
 
 The requested no-reboot session workflow is implemented and independently
-qualified for merge: **SrvrOS → Switch Profile…** resolves unsaved work, drains
+qualified: **SrvrOS → Switch Profile…** resolves unsaved work, drains
 accepted operations and retires the old session before opening a fresh chooser.
 **Return to console** uses the same cooperative shutdown. Cancel keeps the
 current profile; previously accepted closes may finish and closed apps stay closed.
@@ -27,9 +27,11 @@ context proof closes that gap without relabeling it. See the
 and [composite review](assets/screenshots/profile-switch-review.json).
 
 Runtime [OS #354](https://github.com/PaulMDemers/SrvrOS/pull/354) is merged as
-`f58e0725`. Delivery order is [Apps #9](https://github.com/PaulMDemers/SrvrApps/pull/9)
-then [OS #355](https://github.com/PaulMDemers/SrvrOS/pull/355), with no remaining
-implementation or verification blocker. Existing installation/creation evidence
+`f58e0725`. [Apps #9](https://github.com/PaulMDemers/SrvrApps/pull/9) merged first
+as `c3ad11b1`, then [OS #355](https://github.com/PaulMDemers/SrvrOS/pull/355) as
+`82face72`. Both merged trees equal their reviewed candidates; OS pins accepted
+Apps `2a8bc2d9`. Retained payload and host-source hashes match. No further work
+is required for this target. Existing installation/creation evidence
 and review VMs remain preserved; browser work has the heavy build/VM window.
 Authentication, permissions, concurrent logged-in desktops and physical-media or
 power-loss qualification remain separate. Actions remain disabled.

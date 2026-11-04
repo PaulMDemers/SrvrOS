@@ -1,6 +1,6 @@
 {
   "schema": "org.srvros.desktop-session-switch-review.v1",
-  "status": "QUALIFIED_FOR_MERGE",
+  "status": "DELIVERED_AND_VERIFIED",
   "date": "2026-11-04",
   "runtime_source": "3658d8fd3a10378043ed1c6580b53158ce15619b",
   "context_tool_source": "919524bdc37016eebea7c1d17951fa3519846ed0",
@@ -185,5 +185,21 @@
     "archive_sha256": "f5bf4aa264b18f10ce1f54f7870c49c0e990c2dba463c56f04bf3eca997294f7",
     "members_verified": 390,
     "originals": "Original stopped proof disks and all prior installation/creation evidence remain unchanged; no cleanup or inode replacement."
+  },
+  "merges": {
+    "runtime": "f58e072546fc5feffea3ded920c0336c77d615e8",
+    "apps": "c3ad11b1ebda374c8a61e5424c991824fec1999a",
+    "os": "82face72a9c976a8d0cff2694d34f76c615faf29"
+  },
+  "reviewed_os_final_head": "c750e02daaab4959b18aefbe761f357d553c41e2",
+  "post_merge_verification": {
+    "status": "PASS",
+    "os_merge_tree_equals_reviewed_head": true,
+    "apps_merge_tree_equals_reviewed_pin": true,
+    "os_apps_pin": "2a8bc2d91863f35ff98894ea97aa8a74649a7b28",
+    "guest_source_unchanged_from": "3658d8fd3a10378043ed1c6580b53158ce15619b",
+    "later_delta": "proof tools and documentation only; no repeat guest run claimed",
+    "retained_build_payload_hashes_rechecked": 3,
+    "actual_source_host_receipt_hashes_rechecked": true
   }
 }
