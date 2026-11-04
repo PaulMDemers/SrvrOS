@@ -6,6 +6,39 @@ and [machine records](machines/README.md) separate implementation from physical
 acceptance. The [device parity ledger](device-parity.md) compares the Air with
 ongoing Pro work.
 
+## Installed-desktop migration — November 3, 2026
+
+Target: move a selected portable profile from a used installed QEMU desktop to
+a fresh installation, preserving identity, selected document bytes and all six
+portable preferences through reboot. The user authorizes coordination, full
+flow verification and dependency-order merges when ready. Authentication,
+permission enforcement, physical installation and browser work remain separate.
+
+The installation chat owns offline used-image export and fresh-install restore;
+the profiles chat owns SrvrApps #6 and SrvrOS #333 graphical transfer. The parent
+integration chat owns independent review, combined verification and merges.
+The filesystem chat's managed-workspace proof is independent; consume its merged
+contracts without adding salvage requirements to healthy-profile migration.
+
+Required evidence: installation A edits/saves/reboots; explicit selected export;
+fresh B has different disk/home/local bindings; boot/reboot B verifies UUID,
+text/binary files and portable preferences. Unselected documents, machine
+settings, local bindings, application state, caches and implicit credentials must
+not migrate. Preserve source images/receipts and refuse existing outputs,
+changed/invalid previews, ambiguous imports and unsafe offline source state.
+Graphical review must keep confirmation, progress and recovery understandable.
+
+Current: final topic verification is active. A separate ordinary clone,
+`SrvrOS-migration-review`, owns parent review and integration; the managed
+worktree API cannot attach a nested repository under this workspace. Preserve
+the primary checkout and existing review VMs. Run one build/proof per checkout,
+sequence large image proofs within available host storage, and keep accepted
+evidence outside build cleanup. Hosted Actions remain disabled.
+
+Next: review exact final topic heads and evidence, merge Apps before its OS pin,
+verify the combined installed export/restore workflow, and merge the remaining
+installation/integration changes. No readiness claim until these gates pass.
+
 ## jq CLI workflow — November 3, 2026
 
 Target: jq 1.8.2 for offline JSON files/stdin/pipelines, filtering/aggregation,
