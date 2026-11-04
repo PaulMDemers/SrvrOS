@@ -165,10 +165,19 @@ def active_io_waves(vm):
     waited = observe(vm, rb'window-lifecycle: close-wait role=1 window=' + file_window +
                      rb' busy=1 operation=7', ending)
     copied = observe(vm, rb'file-result role=files op=7 status=0', waited.end(), 180)
-    refreshed = observe(vm, rb'file-result role=files op=3 status=0', copied.end(), 180)
-    retired = observe(vm, rb'deskd: retired pid=' + file_pid + rb'(?:\r?\n|\s)', refreshed.end(), 180)
-    if b'session-ui: phase=committed action=switch' in vm.output[ending:retired.end()]:
-        raise RuntimeError('switch committed before accepted Files copy retired')
+    # The immediate folder refresh is read-only: a request not yet submitted
+    # may be canceled on close. Once submitted it must complete successfully.
+    refresh = observe(vm, rb'file-job: cancelled-unsubmitted role=files window=' + file_window +
+                      rb' op=3 id=\d+|desktools: file-submitted role=files op=3 id=\d+', copied.end(), 180)
+    if b'file-submitted' in refresh.group(0):
+        refresh = observe(vm, rb'file-result role=files op=3 status=0', refresh.end(), 180)
+    retired = observe(vm, rb'deskd: retired pid=' + file_pid + rb'(?:\r?\n|\s)', refresh.end(), 180)
+    service = observe(vm, rb'file-service: stopped version=3 pid=' + file_pid +
+                      rb' role=1 [^\r\n]*failures=0 [^\r\n]*abandoned=0 [^\r\n]*retire_failed=0 pending=0 join_error=0 ', retired.end())
+    pool = observe(vm, rb'file-pool: retired role=files spawned=\d+ reaped=\d+ peak=\d+ live=0 bound=0', service.end())
+    exited = observe(vm, rb'deskd: child-exit pid=' + file_pid + rb' status=0 ', pool.end())
+    if b'session-ui: phase=committed action=switch' in vm.output[ending:exited.end()]:
+        raise RuntimeError('switch committed before accepted Files copy and helpers retired')
     focus_window(vm, term_pid, term_window, term_frame, close_start=ending); vm.key('esc'); canceled(vm, ending)
     vm.screenshot('files-close-wait'); canceled_boundary(vm)
 
