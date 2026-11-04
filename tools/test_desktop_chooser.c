@@ -82,6 +82,42 @@ int main(void) {
     assert(!memcmp(&selected,&prior,sizeof(prior)) && chooser.active);
     strcpy(picker.target,"/fat/new.txt");assert(action(DESK_PICKER_ACCEPT)==DESK_CHOOSER_ACCEPTED);
     assert(selected.mode==DESK_PICKER_SAVE && !strcmp(selected.path,"/fat/new.txt"));
+    /* Folder selection requires a completed directory listing and cannot
+     * accept a stale browse target, a file row, or an initial/failed path. */
+    assert(!desk_chooser_open(&chooser,DESK_PICKER_FOLDER,"/fat",""));
+    assert(action(DESK_PICKER_ACCEPT)==DESK_CHOOSER_REFUSED);
+    assert(!desk_chooser_browse(&chooser));uint64_t folder_id=chooser.pending_id;
+    response();assert(desk_chooser_finish(&chooser,folder_id,1)==DESK_CHOOSER_READY);
+    assert(chooser.count==1 && picker.list.count==1 && items[0].folder && !strcmp(items[0].label,"Folder"));
+    strcpy(picker.target,"/fat/z.txt");assert(action(DESK_PICKER_ACCEPT)==DESK_CHOOSER_REFUSED);
+    struct srv_key_event enter={.usage=SRV_KEY_ENTER,.flags=SRV_KEY_DOWN_EVENT};
+    desk_ui_focus(&picker.ui,DESK_PICKER_OK);
+    assert(desk_chooser_action(&chooser,desk_picker_key(&picker,&enter),&selected)==DESK_CHOOSER_ACCEPTED);
+    assert(selected.mode==DESK_PICKER_FOLDER && !strcmp(selected.path,"/fat"));
+    assert(!desk_chooser_open(&chooser,DESK_PICKER_FOLDER,"/fat","") && !desk_chooser_browse(&chooser));
+    response();job.response.status=DESK_FILE_INVALID;
+    assert(desk_chooser_finish(&chooser,chooser.pending_id,1)==DESK_CHOOSER_ERROR);
+    assert(action(DESK_PICKER_ACCEPT)==DESK_CHOOSER_REFUSED && chooser.active);
+    assert(!desk_chooser_browse(&chooser));response();
+    assert(desk_chooser_finish(&chooser,chooser.pending_id,1)==DESK_CHOOSER_READY);
+    fail_start=1;assert(desk_chooser_browse(&chooser)<0);fail_start=0;
+    assert(action(DESK_PICKER_ACCEPT)==DESK_CHOOSER_REFUSED);
+    assert(!desk_chooser_browse(&chooser));response();job.response.count=0;job.response.length=0;
+    assert(desk_chooser_finish(&chooser,chooser.pending_id,1)==DESK_CHOOSER_READY && !picker.list.count);
+    desk_ui_focus(&picker.ui,DESK_PICKER_OK);
+    assert(desk_chooser_action(&chooser,desk_picker_key(&picker,&enter),&selected)==DESK_CHOOSER_ACCEPTED);
+    assert(!strcmp(selected.path,"/fat"));
+    assert(!desk_chooser_open(&chooser,DESK_PICKER_FOLDER,"/","") && !desk_chooser_browse(&chooser));
+    folder_id=chooser.pending_id;assert(action(DESK_PICKER_CANCEL)==DESK_CHOOSER_CANCELED);
+    assert(desk_chooser_open(&chooser,DESK_PICKER_FOLDER,"/fat","")<0);
+    response();assert(desk_chooser_finish(&chooser,folder_id,1)==DESK_CHOOSER_DISCARDED);
+    /* Real namespace aliases are distinct directory choices, not duplicate IDs. */
+    assert(!desk_chooser_open(&chooser,DESK_PICKER_FOLDER,"/","") && !desk_chooser_browse(&chooser));
+    const struct desk_file_entry aliases[]={{.name="fat",.directory=1,.inode=77},{.name="usr",.directory=1,.inode=77}};
+    memcpy(job.incoming,aliases,sizeof(aliases));job.response=(struct desk_file_response){.length=sizeof(aliases),.count=2};job.busy=0;
+    assert(desk_chooser_finish(&chooser,chooser.pending_id,1)==DESK_CHOOSER_READY);
+    assert(chooser.count==2 && items[0].id!=items[1].id);
+    desk_chooser_cancel(&chooser);
     chooser.next_id=UINT64_MAX;
     assert(!desk_chooser_open(&chooser,DESK_PICKER_OPEN,"/fat",""));int count=starts;
     assert(desk_chooser_browse(&chooser)<0 && starts==count && !chooser.pending && !job.busy);

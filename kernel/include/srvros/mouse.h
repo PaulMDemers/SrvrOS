@@ -21,6 +21,10 @@ bool mouse_init(void);
 void mouse_handle_irq(void);
 void mouse_inject_event(int32_t dx, int32_t dy, uint8_t buttons);
 #define MOUSE_VIRTIO_SOURCES 4u
+#define MOUSE_USB_SOURCES 32u
+/* Stable boot-lifetime USB device identities, separate from PS/2 and VirtIO. */
+void mouse_inject_usb(unsigned source,int32_t dx,int32_t dy,uint8_t buttons);
+void mouse_cancel_usb(unsigned source);
 void mouse_inject_virtio(unsigned source, int32_t dx, int32_t dy,
     int32_t wheel_x, int32_t wheel_y, uint8_t buttons);
 /* Both axes must be initialized; normalized inclusive range 0..65535. */
