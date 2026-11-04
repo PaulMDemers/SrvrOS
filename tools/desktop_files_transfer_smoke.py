@@ -136,8 +136,9 @@ def main():
                     if not args.refuse_dialogs: wait(b'deskd: commit')
                 def target(path,error=False):
                     shortcut('ctrl-l');text(path);qmp.key('ret')
-                    wait((('folder picker error path=' if error else 'picker ready mode=3 items=')).encode())
-                    wait(('path='+path).encode())
+                    if error:
+                        wait(('folder picker error path='+path).encode());return
+                    wait(b'picker ready mode=3 items=');wait(('path='+path).encode())
                 wait(b'srv> ',100);before=baseline();assert before
                 serial.sendall(b'run /fat/bin/mkdir /fat/transfer-dest/nested\n');wait(b'run: pid=');wait(b' exited status=0');wait(b'srv> ')
                 serial.sendall(b'run /fat/bin/deskd '+(b'--dialog-refusal-test' if args.refuse_dialogs else b'--apps-trace')+b'\n')
