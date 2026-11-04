@@ -6,6 +6,7 @@ from pathlib import Path
 import shutil
 import struct
 import subprocess
+import sys
 import tempfile
 import dirty_salvage_smoke as dirty
 import installed_disk_smoke as proof
@@ -53,6 +54,14 @@ def probe(out,mode):
         if image.read_bytes()[i*512:(i+1)*512]!=expected:raise RuntimeError('Counted rule fired at wrong write')
     return {'status':'PASS','command':cmd,'control_command':control,'rule':cfg.read_text()}
 
+def copy_image(source,destination):
+    # Independent copy-on-write clones bound disposable evidence storage on APFS.
+    # Never use hard links: every case must have its own writable disk identity.
+    if sys.platform=='darwin':
+        subprocess.run(['cp','-c',str(source),str(destination)],check=True)
+    else:
+        shutil.copyfile(source,destination)
+
 def prepare(out):
     images=[]
     for name in ('system','work','target'):
@@ -86,14 +95,14 @@ def main():
         calibration=out/'calibration';calibration.mkdir()
         clones=[]
         for name,image in zip(('system','work','target'),images):
-            clone=calibration/f'{name}.img';shutil.copyfile(image,clone);clones.append(clone)
+            clone=calibration/f'{name}.img';copy_image(image,clone);clones.append(clone)
         proof.boot(clones[0],calibration,1,args,other_disk=clones[1],target_disk=clones[2],destination_mode='calibrate',require_identity=True)
         counts=json.loads((calibration/'target-open.json').read_text());writes=counts['writes']
         receipt['calibration']=counts
         for mode in ('write','flush'):
             case=out/mode;case.mkdir();copies=[]
             for name,image in zip(('system','work','target'),images):
-                clone=case/f'{name}.img';shutil.copyfile(image,clone);copies.append(clone)
+                clone=case/f'{name}.img';copy_image(image,clone);copies.append(clone)
             system,work,target=copies
             _,(offset,size)=proof.partitions(system);_,(to,ts)=proof.partitions(target)
             protected=proof.outside_data(system,offset,size);target_protected=proof.outside_data(target,to,ts);work_hash=dirty.sha(work)
