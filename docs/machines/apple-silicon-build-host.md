@@ -6,8 +6,8 @@ User authorizes bounded-memory larger-document migration, preserving existing
 bundles and verifying transfer/recovery across two disposable VMs. Reuse isolated
 `SrvrOS-profile-326-review`, branch `device/apple-silicon/profile-stream`, actual
 main `5f670602`, subsequently integrated `5f4f6fc6` including delivered
-PR317 and folder-picker dependencies (Apps `b2b93f65`, UI `b3fa806a`,
-Ports `d760e541`). Prior session/creation/installation
+PR317 and folder-picker dependencies, then actual main `a90bf57e`
+with merged xz (Apps `7f2b5aae`, UI `b3fa806a`, Ports `fc51ddb4`). Prior session/creation/installation
 proofs, baselines, accepted backups and three original review VMs stay preserved.
 
 The [implementation contract](../portable-profile-streaming.md) adds framed v2 (bounded JSON manifest + sequential
@@ -48,7 +48,10 @@ new area with verified source/submodule pins. Browser's heavy slot was released;
 ports-xz subsequently released its bounded trial. The installation publication
 owner takes its matched build/two fresh-B qualification first, with a briefly
 lent unchanged-ELF browser diagnostic; wait for explicit handback before our
-heavy launch. Next: commit qualified source, matched build, then serial
+heavy launch. The implementation is published in draft OS #367 and Apps #11; a separate
+clean external clone passes the combined native target. A docs-only followup
+explains compatibility, and the proof now opens migrated Text and the >1 MiB BMP
+in destination apps after remembered reboot. Next: source-matched build, then serial
 two-installation migration/recovery
 and actual import/export mapped-memory proof. This milestone remains incomplete;
 there is no new merge authorization.
@@ -4680,6 +4683,74 @@ No physical-media, power-loss or external fsck.exfat acceptance is added. All
 owned guests stop at test completion; shared checkout and review VM are untouched.
 
 
+### xz isolated milestone — verified November 4, 2026
+
+User authorized bounded XZ Utils 5.8.4 in `SrvrOS-ports-xz`, branch `ports/xz`,
+based on actual main `f4ea0ccb`. Owns only port source/adapters, image entries,
+qualification helpers and relevant continuity docs. Resolve memory and signal
+recovery before accepting the profile in the roadmap. Existing integration and
+review VMs are protected; only disposable task-owned guests may run. No shared
+libc/kernel change without a reproduced concrete blocker and coordination.
+The bounded milestone is complete. No physical boot was performed.
+
+Accepted evidence under this checkout:
+
+- `build/review/xz/source-authentication.json`: official archive SHA-256
+  `0014c7886930454fe8bd4228665b51af55eeae560ea135c9c4cd33f55b2591d9`,
+  all 655 pristine regular files match, detached primary-key signature verified.
+  The verifier and its explicit self-signature/revocation limitations are retained.
+- `build/review/xz/20261104-135556-m_qxupp7/receipt.json`: PASS two-boot host/guest
+  interoperability, zero/empty/ASCII/binary/multiblock/concat, host preset-6 decode,
+  intermediate tar listing, invalid/truncated/CRC/legacy/dictionary/cap/env/in-place
+  refusals, exact source preservation, real failed output and closed consumer.
+- The same receipt retains actual allocator diagnostics: fail each of 14 encoder
+  and 9 decoder allocations, recover, and repeat 64 cycles with private mapped
+  bytes returning to the 2,531,328 baseline. Requested peaks 2,833,479 encoder and
+  297,744 decoder are codec payloads, not process RSS. Production preset-6 decode
+  samples 10,866,688 private mapped bytes; encoding samples 5,283,840, neither a
+  true peak/RSS guarantee. Codec ceilings stay 8/32 MiB and cannot be raised by
+  CLI/environment overrides. The normal heap and shared allocator are unchanged.
+- Repeated blocked input/output SIGINT and SIGTERM pass with restored fd flags;
+  separate diagnostic active-stream cancellation after codec progress returns
+  130/143. The marker proves progress, not signal arrival inside a codec call or
+  an in-call latency bound. Callback flags return through the dispatcher, and
+  safe normal I/O/codec-loop checkpoints perform cleanup.
+- `build/review/xz-terminal/proof-svpdq5tn/receipt.json`: PASS actual graphical
+  report/compress/check/restore/compare, bad-input feedback and two Ctrl-C pipeline
+  cancellations followed by the usable shell. Expert screenshots show the exact
+  restored report and shell prompt; no user study was performed.
+- `build/review/xz/upstream-tests/summary.json`: native-host selected upstream
+  programs, 22 passing subcases and two skipped threaded subcases, no errors.
+  This is separate from target behavior, not full guest upstream-suite acceptance.
+- `build/review/xz/build-verification.json`: two clean CLI ELF builds identical
+  at `e0efaa0d2b08361a0c56d58c247cea01704a4e4b1ad30ba9c68a8d5cc4128e1f`;
+  runtime ELF `1d5c86a03caa5aa68ba8b7706b20573b37006fcc29f6d3f3393c5e59e770131a`.
+  Clean committed implementation `425c87d2` retains all three tested payload
+  hashes (`committed-build.json`); later delivery changes are documentation only.
+- Existing ports smoke passes with guest fsck `leaks=0 fat=0 errors=0`.
+
+Earlier failures remain retained: the first build missed a probe include; the
+first guest diagnostic request violated the inherited-stdio ABI and failed before
+cancellation ran. Permissions were already correct. Native host attempts initially
+tried unavailable Autotools regeneration because a copy changed source timestamps;
+restoring authenticated archive timestamps resolved the build setup. The first
+GUI receipt predates the final sparse-output disable and is not final acceptance.
+
+No shared libc/kernel blockers were found, so no integration-chat message was
+sent. All task-owned guests are stopped; integration checkout and review VM remain
+untouched. Target is complete and ready for draft port/OS PRs; neither PR nor merge
+was requested in this work block.
+
+xz draft-PR delivery — November 4, 2026: opened
+[SrvrPorts #10](https://github.com/PaulMDemers/SrvrPorts/pull/10) and dependent
+[SrvrOS #363](https://github.com/PaulMDemers/SrvrOS/pull/363), both as drafts
+against main. Descriptions cross-link the dependency, retain the exact verification
+and distinguish codec limits from RSS, sampled mappings from peaks, and
+post-codec-progress cancellation from in-call latency guarantees. Source/runtime
+and host/guest evidence remain separate. This delivery record is documentation
+only. No concrete shared blocker required an integration message; its checkout
+and review VM remain untouched. Neither PR is merged.
+
 ### November 4: PR317 merge integration in progress
 
 User authorized merging the kernel isolation/driver retirement work. Integrating
@@ -4778,3 +4849,35 @@ review VMs6233/61610/85869 remain untouched. Payload and logs survive build clea
 at `.local/kernel-audit-evidence/pr317-merge/`. Earlier setup failures retained.
 No physical media/boot or PR334 public/JSC acceptance. User authorized PR317 merge;
 continuing audit starts from the merged baseline.
+
+### xz current-main merge review — November 4, 2026
+
+User authorized readiness review and dependency-order merge of SrvrPorts #10
+and SrvrOS #363. Actual main `5f4f6fc6`, including the merged kernel isolation
+work, is incorporated in clean tested commit `df34da93`. Resolution preserves
+both xz diagnostic targets and main's workspace GPT driver, and retains both
+host-record additions. Independent port and resolved OS reviews found no blocker
+within the bounded profile. Neither PR has hosted checks configured.
+
+Fresh matched build and two-boot guest receipt
+`build/review/xz/20261104-145029-1yu8f806/receipt.json` pass interoperability,
+format/memory/output refusals, allocation failure and 64-cycle mapping cleanup,
+repeated blocked-I/O SIGINT/SIGTERM and cancellation after observed codec progress.
+The fresh production CLI ELF hash remains the original reproducible-build hash.
+Current-main memory samples and requested allocation peaks match the earlier
+record; they remain codec/requested-byte and sampled-mapping measurements, not
+RSS or guaranteed process peaks. The cooperative in-call latency limit remains.
+
+`build/review/xz-terminal/proof-sb7vr3em/receipt.json` passes the actual graphical
+workflow. Expert inspection confirms useful bad-input feedback, two Ctrl-C
+recoveries and the exact restored report plus usable prompt. Fresh ports smoke
+passes with `leaks=0 fat=0 errors=0`. Matched build metadata and the combined
+review record are under `build/review/xz-merge/`. This delivery note changes
+documentation only; implementation acceptance remains tied to `df34da93`.
+
+No shared libc/kernel blocker was found. Integration requested a concrete shared
+resource handoff while profiles awaited the heavy slot; all xz guests were already
+stopped and the slot was explicitly released. No more compile/VM work is planned;
+any new need must coordinate before launch. Integration checkout and protected
+review VMs remain untouched. Both PRs are accepted for the authorized port-first,
+OS-second merge; linked PR state records the delivery result.

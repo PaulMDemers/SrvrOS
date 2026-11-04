@@ -6,6 +6,47 @@ and [machine records](machines/README.md) separate implementation from physical
 acceptance. The [device parity ledger](device-parity.md) compares the Air with
 ongoing Pro work.
 
+## xz bounded stream interchange — November 4, 2026
+
+Authorized target: upstream XZ Utils 5.8.4 static single-threaded `xz`, preset-0
+compression, `.xz` decompression and integrity testing, regular files and finite
+stdin/stdout pipelines. Preserve inputs and require stdout for transformed data;
+refuse automatic file replacement/deletion and unaccepted modes. Proposed codec
+budgets are 8 MiB compression and 32 MiB decoding with no silent adjustment.
+
+Work starts from `f4ea0ccb` in isolated `SrvrOS-ports-xz` on `ports/xz`. Port-local
+allocator and cooperative signal recovery are explicit gates, not assumed SDK
+capabilities. Required checks: authenticated pristine source, real target link,
+host/guest byte interoperability and malformed/memory/write failures, repeated
+blocked-I/O and CPU-active interruption, exact second-boot saved bytes, actual
+Terminal workflow, supported tar interchange through an intermediate file, selected
+upstream regressions, two clean CLI builds and existing ports/fsck checks.
+
+Outside scope: threaded codecs, legacy/raw formats, helper scripts, custom filter
+CLI, automatic replacement/metadata/sparse-file behavior and job control. Keep
+integration checkout and review VM untouched; coordinate only a reproduced shared
+blocker. Status: implemented and verified for this bounded profile. No shared libc or
+kernel change was needed. Final guest receipt
+`build/review/xz/20261104-135556-m_qxupp7` passes both-boot byte interoperability,
+host preset-6 decode, zero-filled/multiblock/concatenated data, format/corruption/
+memory/output refusals and preserved inputs. Allocator failure at every tested
+site and 64 reuse cycles show zero net mapping growth. Repeated blocked I/O
+SIGINT/SIGTERM restore flags; cancellation after observed codec progress passes.
+This is cooperative recovery, not an in-call interruption-latency guarantee.
+
+The actual Terminal workflow and two Ctrl-C pipelines pass at
+`build/review/xz-terminal/proof-svpdq5tn`, with expert visual review. Six selected
+native-host upstream programs contain 22 passing subcases and two skipped threaded
+subcases; no guest full-upstream-suite claim. Two clean CLI builds match ELF hash
+`e0efaa0d2b08361a0c56d58c247cea01704a4e4b1ad30ba9c68a8d5cc4128e1f`.
+Existing ports smoke and guest fsck pass. All qualification is QEMU only; full
+image reproducibility and physical acceptance are not claimed. Milestone complete;
+draft PRs are open: [SrvrPorts #10](https://github.com/PaulMDemers/SrvrPorts/pull/10)
+and dependent [SrvrOS #363](https://github.com/PaulMDemers/SrvrOS/pull/363).
+Current-main merge review passes on clean `df34da93`, including the matched
+build, both-boot memory/signal probes, actual Terminal walkthrough and ports/fsck.
+Authorized delivery order is port first, OS second; linked PR state records delivery.
+
 ## End session and switch profile — delivered and verified November 4, 2026
 
 The requested no-reboot session workflow is implemented and independently
