@@ -6,15 +6,13 @@ HOME/config/data/cache resolver. Host tooling, guest commands and desktop
 workflows share this contract. Login, cloud roaming and multi-user security
 isolation remain separate.
 
-Current development target: create a portable profile directly in the startup
-chooser and Profiles app. Graphical transfer is merged and its accepted
-19-lifetime proof remains historical evidence for its recorded source. Creation
-reuses the same codec, binding/capacity rules and transaction engine with a
-self-contained creation journal. Implementation is in
-[SrvrApps #8](https://github.com/PaulMDemers/SrvrApps/pull/8) and dependent
-[SrvrOS #348](https://github.com/PaulMDemers/SrvrOS/pull/348); final creation VM
-qualification is pending. Authentication and permission enforcement remain
-separate.
+Current milestone: native desktop profile creation is qualified for coordinated
+review in [SrvrApps #8](https://github.com/PaulMDemers/SrvrApps/pull/8) and dependent
+[SrvrOS #348](https://github.com/PaulMDemers/SrvrOS/pull/348). The source-matched
+20-lifetime disposable-VM proof passes creation, recovery, remembered selection
+and graphical migration to a second installation. Graphical transfer remains
+merged; its earlier 19-lifetime proof retains its recorded source attribution.
+Authentication and permission enforcement remain separate.
 
 | Transfer state | User decision | Result and correction |
 | --- | --- | --- |
@@ -1014,7 +1012,7 @@ receipt records this final main, source, build, pins and corrected check invocat
 Apps PR6 has merged first; the coordinator owns the final OS333 merge and combined
 installation proof.
 
-## Desktop profile creation — implementation and qualification in progress
+## Desktop profile creation — qualified for review
 
 Profiles adds a Create tab with a display name and installation-local name.
 The startup chooser adds Create Profile, available through the existing explicit
@@ -1077,7 +1075,7 @@ journal without changing content. The existing diagnostic allowlist gains
 through the owned worker path. Ordinary environment construction strips test
 faultpoints, and desktop child admission remains unchanged.
 
-The planned proof is `tools/profile_create_smoke.py`: 20 serial disposable VM
+The accepted proof is `tools/profile_create_smoke.py`: 20 serial disposable VM
 lifetimes covering both creation entry points, initial empty/default state,
 canonical/distinct dynamic UUIDs, remembered selection, guest-saved selected
 text/binary files, graphical export/import and reboot readback in an independent
@@ -1086,5 +1084,73 @@ covers the five stop/recover pairs, invalid/occupied/capacity refusals, 640 × 4
 and preservation of legacy/machine/unselected data, bindings, allocation and
 protected regions. Final A/B/transport images and original baselines remain raw
 for independent audit; completed probes/snapshots use verified bounded gzip
-archives and restore manifests. Builds and VMs are serialized. This section
-records implementation/acceptance scope, not a claim that the VM proof has run.
+archives and restore manifests. Builds and VMs are serialized. The accepted run records PASS for all 20 lifetimes.
+
+### Creation acceptance and retained evidence
+
+Clean OS source `1ef0ccdd`, integrated with actual main `6225e4d1`, passes the
+matched build and focused profile/catalog/desktop/fsync checks. Pins are Apps
+`0bf8e137` (includes merged Files `2ddea66`), UI `586bd002` and Ports `d760e541`.
+All 25 guest CLI groups and production catalog integration also pass ASan/UBSan;
+current-main documentation checks pass. The catalog tests exercise real CLI
+creation/recovery at all five boundaries, with no external bundle, and verify
+Ready plus remembered selection after reconciliation. An initial Files assertion
+against the older OS tests is retained in `host-new-pins-r1.log`; integrating
+OS344's matching tests resolves it without changing creation behavior.
+
+The final proof is `build/review/profile-create/proof-hhj_ogf8/`, receipt SHA256
+`3ffbf4f27a92a0cba7bab7702e28e37bf489ba45b90741b696cd8b3290ffc086`.
+It uses dynamically captured guest UUIDs throughout. Both entry points produce
+canonical distinct UUIDv4 identities and empty Documents with all six defaults
+before editing. A reopens through its remembered choice, saves the selected
+text/binary data and exports through Profiles. B already has its own independently
+created profile, then graphically imports A's exact bundle into a different home
+with different local bindings; chooser selection, reboot restoration and Text
+readback pass. Defaults stay unchanged through migration. Legacy files, machine
+preferences, the unrelated profile and four synthetic exclusion fixtures are
+preserved. Exact selected bytes, UUID/display name, local metadata, installed
+binaries, allocation and protected regions are checked.
+
+All five interrupted creations recover through the existing chooser. The
+published case verifies marker removal while a valid self-contained journal
+remains, then reconciles without replacing profile content. Invalid/occupied
+names and a full 16-entry catalog refuse with compared data/namespace preserved;
+only the existing narrow access-time and append-only service-log differences
+are allowed. Every owned worker is reaped/drained and every owned QEMU stops.
+The 640 × 480 case exercises Ctrl-A replacement, Undo/Redo and the corrected Tab
+order in both fields, then reviews and commits those exact visible values.
+This catches stale storage-pointer reads after the shared text model swaps its
+active buffer. The final correction reads model data for validation, rendering
+and immutable worker snapshots.
+
+The [portable manifest](assets/screenshots/profile-create-manifest.json) records
+source/build/tool hashes, identities, defaults, interruptions, exclusions,
+comparisons, archive mappings and raw primary-image paths. Selected rendered
+states are [chooser review](assets/screenshots/profile-create-chooser.png),
+[app review](assets/screenshots/profile-create-app.png),
+[small-screen corrected form](assets/screenshots/profile-create-small-form.png),
+[small-screen review](assets/screenshots/profile-create-small-review.png),
+[published-journal recovery](assets/screenshots/profile-create-recovery.png),
+[capacity refusal](assets/screenshots/profile-create-capacity.png) and
+[B document readback](assets/screenshots/profile-create-document.png).
+These captions describe the sampled visible states; completion is established
+by child/status and filesystem checks.
+
+The independent coordinator verified all 37 archived streams against hashes and
+sizes, initial empty/default A, final A/B contents/bindings/choices/machine files,
+and all five stopped inline journals and recovered images. Audit results survive
+in `SrvrOS-migration-review/.local/profile-create-review/audit-result.json`.
+Full accepted evidence, matched build payloads and source snapshots are also
+stream-verified outside `build` under `.local/profile-create/proof-hhj_ogf8/`.
+Original final raw A/B/transport and baseline volumes remain available for audit
+and the separately authorized installation follow-up. No source inode is
+recreated or silently adopted as an installation recovery target.
+
+Reproduce with a clean source-matched `make all`, focused profile/catalog/desktop
+checks and `python3 tools/profile_create_smoke.py --ovmf-vars PATH`, setting
+`OVMF_CODE` to the paired x86_64 firmware. The harness reserves four live disks,
+one compression transient, eight volumes, a capped 1 GiB archive budget and a
+further 1 GiB reserve. Completed snapshots/probes are removed only after verified
+lossless compression and their last consumer; final primary images stay raw.
+No physical-media, real power-loss, external `fsck.exfat`, cryptographic identity,
+authentication or permission-enforcement acceptance is claimed.

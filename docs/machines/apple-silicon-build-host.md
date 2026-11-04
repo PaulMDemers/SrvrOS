@@ -1,41 +1,38 @@
 # Apple Silicon macOS build host
 
-## Desktop profile creation — implementation in progress
+## Desktop profile creation — qualified for coordinated review
 
-User authorizes creation in the chooser and Profiles app, recovery, remembered
-reboot selection, migration to a second installation and merging after review.
-Coordinator owns independent review and Apps-first/OS-second merges. Reuse the
-isolated `SrvrOS-profile-326-review` checkout; OS branch
-`device/apple-silicon/profile-create`, starting main `83e5d1ad` (PR347 complete)
-and now merged actual main `6225e4d1` (Files/less integration). Apps creation
-head `0bf8e137` includes actual Apps main `2ddea66` (Files PR7); UI `586bd002`
-(PR4) and Ports `d760e541` are explicit final-qualification pins. Source, host
-and runtime evidence must retain these actual revisions.
+User authorizes chooser/Profiles creation, recovery, remembered reboot and
+migration to a second installation. Coordinator owns independent review and
+Apps-first/OS-second merges. Isolated checkout `SrvrOS-profile-326-review`, OS
+`device/apple-silicon/profile-create`; accepted clean source `1ef0ccdd` includes
+actual main `6225e4d1`, Apps `0bf8e137` (Files `2ddea66`), UI `586bd002` and
+Ports `d760e541`. Apps8 precedes OS348. Final follow-up changes evidence/docs only.
 
-Own guest creation CLI/tests, Profiles UI, embedded chooser creation, fixed-command
-workers and scoped build/diagnostic wiring, plus a new bounded disposable-VM proof.
-Read-only preview generates one checked UUIDv4 and reviews name/local alias,
-empty home and six default portable preferences; confirmation rechecks before
-writing. The existing import engine gets a self-contained creation journal so
-recovery requires no disappearing temporary bundle. Old import journals, exact
-publication/reconciliation, binding/collision/capacity and legacy startup remain
-supported. Existing random may use its PRNG fallback; UUID is metadata, without
-an entropy/authentication claim. No kernel/filesystem/security architecture edits.
+Matched build and profile/catalog/desktop/fsync/docs checks pass. All 25 CLI
+groups and real-CLI catalog recovery tests pass under ASan/UBSan. The final
+`build/review/profile-create/proof-hhj_ogf8/receipt.json` records PASS for all 20
+VM lifetimes: both entry points, empty/default state, dynamic distinct UUIDs,
+remembered A, selected Text/binary save and graphical migration to independently
+installed B, B selection/reboot/readback, all five interrupted creation/recovery
+boundaries including published-journal reconciliation, invalid/occupied/capacity
+refusals, and 640 × 480 Ctrl-A/Undo/Redo/Tab. Exact data/defaults/identity,
+local/machine/legacy/unselected state, binaries, allocation and protected regions
+pass. Parent independently verified all 37 archive streams and actual A/B plus
+all stopped/recovered images. Portable manifest/screenshots live in the profile
+guide; full evidence/matched artifacts/sources survive outside build cleanup at
+`.local/profile-create/proof-hhj_ogf8/`. Keep primary raw images and baselines for
+audit/follow-up. Sampled busy frames are not labeled as completion evidence.
 
-CLI/App/chooser workers have separate files; parent reviews/integrates and alone
-runs builds or VMs. Acceptance: old/new host and sanitizer checks, matched build,
-actual chooser/app creation, initial emptiness/defaults, all five applicable
-interruption/recovery boundaries including published-journal reconciliation,
-invalid/duplicate/capacity refusal, keyboard/640 × 480, remembered reboot and
-actual GUI export/import/readback across two independently installed disks.
-Preserve legacy/machine/unselected data, allocation/protected regions and owned
-process retirement. Retain bounded verified image archives, exact source evidence
-and failed attempts outside destructive build cleanup. Publish scoped draft PRs;
-hold merges for the coordinator. Original review VMs and physical media remain
-untouched; Actions stay disabled. Authentication and permission enforcement stay
-separate. Implementation, initial guest build, 25 CLI groups and real-catalog
-ASan/UBSan checks pass. Final current-main build/host checks and the 20-lifetime
-VM proof remain; shared resources are now released for that qualification.
+Creation uses a checked random UUID metadata identifier and self-contained
+create-v1 journal in the existing transaction engine; import-v1 is preserved.
+Random may use its existing PRNG fallback. Authentication/permission enforcement
+remain separate. Legacy startup/current app homes are unchanged; no forced
+onboarding or security/kernel/filesystem architecture changes. No physical,
+real power-loss or Actions qualification. Review VMs 6233/61610/85869 remain
+untouched. Implementation is complete; hand exact heads/evidence to coordinator
+for independent merge, then release resources for the installation owner's
+separately authorized fresh-v2-B four-boot proof.
 
 ## Graphical profile transfer — qualified for review
 
