@@ -1729,6 +1729,59 @@ qualification remain pending. Explicit native exec signal-default attributes
 retain their own contract/audit boundary; this does not infer every attribute
 path from ordinary exec tests. Public-v1 design remains preparation only.
 
+## November 4: exec and GOT/TLS dependency closure
+
+Closed exec fix `1163ed75` after verifying all 65 frozen files and committed source
+hashes; receipt SHA256 `d6f39053008cdbd8183988a860946657fe448c868944ecda0a3e9f1feda67dc6`
+is retained at `.local/pr334-build-volume/evidence/exec-pending/receipt.json`.
+Independent six lifecycle profiles plus two earlier-fatal profiles pass: injected
+TERM at the final console checkpoint preserves status 143 over a lower pending
+USR1. The identical raw native guest on old normal kernel reaches fatal sentinel
+90 and fails ignored-state checking at 91; fixed kernel exits 138 before sentinel
+and clears CHLD/WINCH while retaining blocked USR2, status zero. Both normal FPU
+main/worker checks pass and guests stop. This now includes actual guest termination,
+with no alternate IDT/INFO hook; explicit native exec attributes remain unqualified.
+
+Closed exact GOT-before-TLS carry `8f446141` from browser `26e9e78f`, after live
+main's pre-fix `app.ld` blob `212f56212292148f846b2277f4fd43a5cf62bddc` showed no
+competing linker change. All 97 frozen files/committed source hashes verify;
+receipt SHA256 `8ce57965d33a6c4ce81682793cda0ea1ed58becea5d250934ea2154f778dd7f4`
+is at `.local/pr334-build-volume/evidence/got-tls/receipt.json`. Independent ELF
+parsing verifies virtual/file-offset TLS coverage: old zero/initialized layouts
+cover only 8/16 bytes; fixed layouts cover 2,148/2,164 bytes with the real 8-byte GOT
+before TLS. Both current-normal main/worker TLS/GOT fixtures and FPU probe pass,
+guests stopped. This is focused static layout/runtime evidence, not matched
+SDK/ICU/WTF/JSC acceptance. Evidence: `build/review/pr334-exec-got-final-review/`.
+
+## November 4: raw action-default fix and separate RESET peer finding
+
+Independent actual-source reproduction confirms raw CATCH-to-DEFAULT strands
+peer-local/shared USR1 and USR2 when the caller blocks the signal but a live peer
+unmasks it. The PR334 owner's bounded fix stages eligible main/lowest-public-TID
+local selection before shared selection, then commits exact pending/cause stores
+without callbacks. Blocked/inactive/foreign-owner state and an existing fatal cause
+are preserved; existing IGNORE and CHLD/WINCH discard behavior is unchanged.
+Independent strict Rosetta/sanitizer matrix profiles pass. Normal-kernel guests
+reproduce four old sentinel-90 cases; fixed exits are 138/138/140/140 with no
+sentinels, plus normal main/worker FPU passes. Task guests stop. Final immutable
+raw-fix source closure is pending. Evidence: `build/review/pr334-action-default-review/`.
+
+A distinct unwired private RESET path still bypasses that explicit-action helper.
+Actual-source/model reproduction delivers main INFO|RESET with an unblocked peer's
+local USR1 pending, restores main, then observes the peer boundary return NONE
+under DEFAULT with `killed=0` and peer bit `0x400` stranded. This reopens that RESET
+peer scenario beyond prior bounded private coverage; nonreset/native preservation
+evidence is unchanged. Evidence: `build/review/pr334-reset-peer-review/`.
+Correction must stage the first signal's exact consumption and prospective handler
+self-mask before deciding peer defaults, with a reviewed exit outcome and complete
+physical exclusions; the raw helper cannot simply be called after user stores.
+
+The public design is still prepare-only. Revised same-ticket FINISH rewait avoids
+spurious clear/rearm gaps; pthread synchronization stays signal-transparent, and
+poll invalid entries retain POLLNVAL. Exact legacy nonlocal-unwind ownership,
+scoped masked-poll compatibility, fork constructor binding and public output
+coverage remain reviewed contracts requiring implementation-specific evidence.
+
 ## Remaining work
 
 Other long IRQ-disabled operations, including initial/churning PMM scans, heap validation and poisoning,
