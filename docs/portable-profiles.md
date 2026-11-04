@@ -628,3 +628,42 @@ The first harness trial caught a monitor-line-length issue; the corrected
 failpoint commands are bounded below 128 bytes, and that failed run is retained.
 All task-owned VMs are stopped. No physical disk or existing review VM was changed.
 This milestone is complete for PR review; a graphical chooser remains future work.
+
+
+### PR320 integration review — complete
+
+The user authorized review, fixes and merge after passing checks. Main
+`805519b2` (workspace lifecycle PR319) is merged into this branch; existing
+filesystem, process-lifetime and ownership policy is consumed unchanged.
+
+Review found that a journal preceding HOME creation was insufficient evidence
+to delete a reserved scratch file in an unmarked home. Recovery now refuses any
+scratch without the pending marker, before removing anything. A real-filesystem
+regression and a guest VM case prove refusal preserves the bytes. The VM test
+then explicitly removes its synthetic unknown file as the operator and resumes
+normal recovery. Authentication and permission enforcement are separate; the
+change establishes transaction state, not user authority.
+
+The existing torn-initial-journal boundary remains explicit: preserve unreadable
+intent for manual inspection, with no HOME created. An interrupted creation of
+the pending marker can similarly leave an ambiguous pre-marker scratch; that
+state is preserved for manual inspection too. Valid marked transactions resume
+partial scratch copies. No automatic ownership inference or recursive cleanup
+is added, and no hostile/concurrent-writer or power-cut guarantee is claimed.
+
+
+Reviewed runtime source `0cafd5806989a361166d1c48df64396643111595` passes 16 host groups,
+x86_64 ASan/UBSan, the full matched build, existing profile tests and documentation
+checks. The fresh 13-lifetime VM proof passes all five interrupted-import reboots,
+the new unknown-scratch preservation test, migration and final desktop activation.
+It verifies exact document/binary data, all portable settings, local bindings,
+unchanged machine settings/transport, matched installed binaries, clean allocation
+and protected regions. Evidence: `build/review/profile-guest/proof-_jun_0yp/`,
+receipt SHA256 `41e78554d2d6ef4ffe64e1bcecad646aceef5f30fbe66afc8029facab8b6a319`. Logs: `build/profile-320-review-host.log`,
+`build/profile-320-review-focused.log`, `build/profile-320-review-sanitized.log`,
+`build/profile-320-review-build.log`, `build/profile-320-review-vm.log`.
+
+No unresolved finding remains within this documented recovery scope. The final
+acceptance-note commit changes documentation only. All task-owned VMs are stopped;
+existing review VMs and the primary checkout remain untouched. Hosted Actions
+remain disabled; the recorded local checks are the authorized merge gate.
