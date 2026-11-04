@@ -1,3 +1,4 @@
+#define _POSIX_C_SOURCE 200809L
 /* Real host files + the real profile CLI preflight. Only the guest mount prefix
  * and statfs are adapted; catalog parsing, directory enumeration and writes run
  * unchanged. Run with the native guest-profile-host executable as argv[1]. */
@@ -100,8 +101,9 @@ static struct profile_entry *entry(struct profile_catalog *c,const char *slot) {
     assert(!"missing catalog entry");return NULL;
 }
 static void new_fixture(void) {
-    char canonical[1024];assert(realpath("/tmp",canonical));
+    char *canonical=realpath("/tmp",NULL);assert(canonical);
     assert(snprintf(fixture,sizeof(fixture),"%s/srvpc-XXXXXX",canonical)<(int)sizeof(fixture));
+    free(canonical);
     assert(mkdtemp(fixture));char path[160];
     snprintf(path,sizeof(path),"%s/fat",fixture);mkdir_real(path);
     snprintf(path,sizeof(path),"%s/fat/home",fixture);mkdir_real(path);
@@ -140,7 +142,8 @@ int main(int argc,char **argv) {
     entry(&c,"alpha")->state=PROFILE_RECOVERABLE;assert(profile_choice_load("/fat/home/.desktop-profile",&c,&index,reason)<0);
     c.truncated=1;assert(profile_choice_load("/fat/home/.desktop-profile",&c,&index,reason)<0);
     char longpath[300];memset(longpath,'a',sizeof(longpath));longpath[0]='/';
-    for(unsigned k=60;k<sizeof(longpath);k+=60)longpath[k]='/';longpath[299]=0;
+    for(unsigned k=60;k<sizeof(longpath);k+=60)longpath[k]='/';
+    longpath[299]=0;
     assert(profile_choice_save(longpath,&alpha)<0);c.truncated=0;
     assert(profile_choice_load(longpath,&c,&index,reason)<0);
     const char *bad_identity[]={"","{","{\"id\"","{\"id\":","{\"id\":\"x\",","{\"id\":\"x\",\"display_name\":\"y\"","{\"id\":\"x\",\"id\":\"y\"}"};
