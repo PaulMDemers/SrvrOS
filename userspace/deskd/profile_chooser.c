@@ -190,9 +190,9 @@ static void draw(struct chooser *ui) {
         unsigned i=row+ui->first;const struct profile_entry *e=&ui->catalog.entries[i];
         struct desk_rect r={ui->list.x+2,ui->list.y+(int)row*52+2,ui->list.w-12,50};
         if(i==ui->selected)desk_theme_selection(c,r,t);
-        desk_label_ellipsis(c,(struct desk_rect){r.x+10,r.y+4,r.w-146,22},&desk_font_16,e->name,t->text);
+        desk_label_ellipsis(c,(struct desk_rect){r.x+10,r.y+4,r.w-178,22},&desk_font_16,e->name,t->text);
         const char *state=e->state==PROFILE_READY?"Ready":e->state==PROFILE_RECOVERABLE?"Recovery needed":"Unavailable";
-        desk_label_draw(c,(struct desk_rect){r.x+r.w-132,r.y+4,124,22},&desk_font_16,state,t->muted);
+        desk_label_draw(c,(struct desk_rect){r.x+r.w-164,r.y+4,156,22},&desk_font_16,state,t->muted);
         desk_label_ellipsis(c,(struct desk_rect){r.x+10,r.y+27,r.w-20,21},&desk_font_16,
             e->state==PROFILE_READY?e->home:e->detail,t->muted);
     }
