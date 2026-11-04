@@ -4904,6 +4904,23 @@ any new need must coordinate before launch. Integration checkout and protected
 review VMs remain untouched. Both PRs are accepted for the authorized port-first,
 OS-second merge; linked PR state records the delivery result.
 
+### GNU diff and automatic CLI queue — active November 4, 2026
+
+User authorized GNU diff 3.12 in separate `SrvrOS-ports-diff` from actual main
+`a90bf57e`, with automatic review/merge/proceed through the finite queue in
+[cli-port-queue.md](../cli-port-queue.md). Parent owns root build/staging/docs,
+independent verification and GitHub delivery; port/test helpers own disjoint
+files. The integration checkout and protected review VMs are excluded.
+
+Initial scope is the bounded comparison/review proposal. Source signature and
+pristine provenance must be verified; SDK/gnulib compatibility, input/allocation
+bounds and cancellation remain gates. No shared libc/kernel edit is planned.
+Installation stopped its owned work and explicitly released; profiles
+relinquished its next turn pending a kernel range-I/O prerequisite. Integration
+granted one bounded GNU diff compatibility/matched-build and 512 MiB guest window
+at 15:21 America/New_York (20:21 UTC). The port helper owns the single -j2 build
+token; parent launches no competing job. This window must be explicitly released,
+and later qualification/queue rows require a separate coordinated handoff.
 ### Find Files bounded Contents search — verified November 4, 2026
 
 User authorizes bounded content search alongside unchanged filename search in
@@ -4994,3 +5011,53 @@ size/SHA256 against the already round-trip-verified archive and rechecking the
 archive SHA256. Restore paths/hashes remain under
 `.local/app-proof/find-contents/archived-superseded-images.json`; current accepted
 raw disks remain. No evidence was discarded. No physical-media/power-loss claim.
+
+GNU diff checkpoint: genuine core and gnulib link, and the first isolated guest
+passes exact labeled output, statuses, NUL refusal and fsck. Full harness stopped
+before QEMU at xorriso error 32 while internal storage was below reserve; the
+window was released. All files/links in task-owned diff/xz build/evidence trees
+were verified before relocation to dedicated external APFS `SrvrOSCLIQueue`,
+backed by `/Volumes/miniTB/SrvrOS-CLI-queue-20261104.sparsebundle`; old paths are
+symlinks, and volume-root manifests retain every SHA256/link. `TMPDIR` and build
+caches use the owned external volume. Require ≥2 GiB free on internal, output,
+temp and backing filesystems before each heavy launch. Current source is merged
+with actual main `88a95f9a` and exact merged Apps/UI pins; guest evidence on this
+source remains pending. Integration relayed a fresh explicit ≤40-minute window
+for a matched incremental -j2 build, two clean diff rebuilds/native tests and at
+most six sequential 512 MiB guests, stopping/releasing on failure or expiry. No
+standing reservation applies to later queue entries.
+
+### GNU diff bounded qualification — ready for dependency-order delivery
+
+All bounded gates pass on clean source `5796a9cd`, reconciled with main
+`70c3ea0f`. The full two-boot proof at
+`build/review/diff/20261104-164420-i8c5qkr8` includes a changed input simultaneously
+256 KiB, 8192 lines and a 64 KiB line, exact GNU references and host GNU Patch
+roundtrips, allocation refusal/recovery, source preservation, saved reboot bytes
+and clean guest fsck. Repeated signals after comparison progress and observed
+held-output stall return exactly 130/143 with unchanged flags. The stalled pipe
+contains 65534 bytes while POLLOUT remains true; the previous failed assertion
+and the earlier pre-QEMU ISO failure are retained as historical failures.
+
+Actual Terminal/less/error/readback and expert screenshot walkthrough pass on
+the same packed runtime `258775bcfa0102cd1ca1c666e6005fa63f155198eed634569c709ce9ee5811b6`.
+The full 491-line CLI and ports regressions each pass with clean fsck. Two clean
+GNU core/gnulib and diagnostic builds match against the same SDK objects, with
+production ELF `83a5f8a0c7e803cf0c5e716f1e202b4918561dfbc461ed3fa75de41499d7d714`.
+Native upstream scripts have three PASS and one expected large-subopt XFAIL;
+guest input fixtures are separately labeled. No full guest-suite, independent
+SDK/whole-image reproducibility, RSS/true peak, traced syscall wait, in-call
+latency, physical-device or representative-user claim. No shared libc/kernel
+change or unresolved bounded-profile blocker.
+
+Independent source/evidence review passes. [Portable evidence](../assets/screenshots/diff-manifest.json)
+and a readback-verified archive of all 4083 files/links plus source/payload copies
+survive outside build cleanup in ignored `.local/cli-port-evidence/diff/`
+(archive SHA256 `8dc2bf0a2e75b55ee355d404eb4a7785c68c28c09810fa531976bba14922c5ef`).
+Final documentation/gitlinks change no tested runtime source; exact-head/tree
+and port-pin checks guard [SrvrPorts #11](https://github.com/PaulMDemers/SrvrPorts/pull/11)
+then [SrvrOS #369](https://github.com/PaulMDemers/SrvrOS/pull/369). Linked PR states
+record delivery. All owned jobs stopped and each resource slice was released.
+GNU Patch source-only preparation is isolated; further builds require its own
+finite handoff after diff delivery. Review VMs and integration checkout remain
+untouched. No further diff feature is required for this target.
