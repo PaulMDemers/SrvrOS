@@ -55,3 +55,12 @@ matched guest profile permits only console, rights-free simple pipes, bounded
 zero-FD waits and threading. Unqualified storage/socket paths fail before effects.
 A JavaScript failure that requires another path is evidence for the next bounded
 qualification; it must not be bypassed by broadening the gate without review.
+
+Current checkpoint: the owner independently reproduced the bounded TTY correction
+and linked-code retained-stack analysis. Final callback/IRQ configuration review
+for the corrected disposable guest is pending. The earlier prepared image was
+superseded without running. Fresh matched SDK, threaded libc++, RTTI, math, ICU,
+filesystem and runtime-extension builds succeed on the task APFS volume, but
+their new guest checks, WTF target build and JavaScript smoke remain unrun.
+SrvrPorts also contains an unbuilt actual-WTF suspend/register probe; its register
+and red-zone checks do not establish only-root garbage-collector survival.

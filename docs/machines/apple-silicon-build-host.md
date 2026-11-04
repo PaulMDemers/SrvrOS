@@ -3863,3 +3863,23 @@ control fails against bb201307; corrected strict and ASan/UBSan checks pass,
 including later unmapped vectors, current-byte refusal, NUL and address wrap.
 Normal and experimental target kernels relink. The first prepared public guest
 is superseded without running; a fresh configuration/evidence review is required.
+
+The owner independently verifies the corrected TTY negative/strict/sanitized
+results and the build6 linked target graph. Retained synchronous bounds are
+20303 bytes for CALL and22575 for completion/SUSPEND; the conditional named-IRQ
+supplement adds1311, giving23886 at completion against131072. This is bounded
+probe review material, excluding NMI/MCE, unlisted IRQs and terminal teardown;
+final callback/configuration clearance is still pending. Review execution was
+interrupted before that final decision. No corrected public guest has started.
+The exact corrected prepared receipt is retained on task APFS under
+`signal-public-3w5tycef/prepare-receipt.json`, SHA256
+`9c7af348811b50b2ac025f1b9a8cca99a7f0023bae90ee01a8774c7131ea13d0`.
+
+The task APFS `source` checkout at5c4b6942 freshly builds SDK/init, threaded
+libc++, RTTI, scalar math, pinned ICU79.1, libc++ filesystem, the math supplement,
+runtime extensions and C++ controls. Runtime/ICU provenance verification passes;
+new guest proofs are pending. Large output, caches and TMPDIR stay on that volume.
+SrvrPorts1a30fbe adds an unbuilt actual-WTF main/two-worker suspend/register probe
+and verified-profile link adapter. Its intended register/red-zone observations
+make no GC-only-root or forced-spurious-delivery claim. No JavaScript0+42 result,
+main merge, physical boot or hosted CI is claimed.
