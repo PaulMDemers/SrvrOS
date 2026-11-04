@@ -17,6 +17,8 @@
 #define CR4_OSXMMEXCPT (1ull << 10)
 
 static bool available;
+static uint32_t sampled_mxcsr_mask;
+static bool sampled_mxcsr_mask_valid;
 static uint8_t initial_fxsave_area[FPU_FXSAVE_AREA_SIZE] __attribute__((aligned(16)));
 static struct fpu_state *current_kernel_state;
 static struct fpu_state *current_user_state;
@@ -68,7 +70,14 @@ bool fpu_init(void) {
     uint32_t ebx;
     uint32_t ecx;
     uint32_t edx;
+    sampled_mxcsr_mask=0;
+    sampled_mxcsr_mask_valid=false;
+    available=false;
+#ifdef SRVROS_FPU_INIT_HOST_TEST
+    fpu_init_test_cpuid(1,&eax,&ebx,&ecx,&edx);
+#else
     cpuid(1, &eax, &ebx, &ecx, &edx);
+#endif
     (void)eax;
     (void)ebx;
     (void)ecx;
@@ -80,19 +89,40 @@ bool fpu_init(void) {
         return false;
     }
 
+#ifdef SRVROS_FPU_INIT_HOST_TEST
+    uint64_t cr0 = fpu_init_test_read_cr0();
+#else
     uint64_t cr0 = read_cr0();
+#endif
     cr0 &= ~(CR0_EM | CR0_TS);
     cr0 |= CR0_MP | CR0_NE;
+#ifdef SRVROS_FPU_INIT_HOST_TEST
+    fpu_init_test_write_cr0(cr0);
+    uint64_t cr4 = fpu_init_test_read_cr4();
+#else
     write_cr0(cr0);
-
     uint64_t cr4 = read_cr4();
+#endif
     cr4 |= CR4_OSFXSR | CR4_OSXMMEXCPT;
+#ifdef SRVROS_FPU_INIT_HOST_TEST
+    fpu_init_test_write_cr4(cr4);
+#else
     write_cr4(cr4);
-
+#endif
+    for (size_t i=0;i<sizeof(initial_fxsave_area);i++) initial_fxsave_area[i]=0;
+#ifdef SRVROS_FPU_INIT_HOST_TEST
+    fpu_init_test_capture(initial_fxsave_area);
+#else
     __asm__ volatile ("fninit" : : : "memory");
     uint32_t mxcsr = 0x1f80;
     __asm__ volatile ("ldmxcsr %0" : : "m"(mxcsr) : "memory");
     fxsave(initial_fxsave_area);
+#endif
+    uint32_t mask=(uint32_t)initial_fxsave_area[28] |
+        ((uint32_t)initial_fxsave_area[29]<<8) | ((uint32_t)initial_fxsave_area[30]<<16) |
+        ((uint32_t)initial_fxsave_area[31]<<24);
+    sampled_mxcsr_mask=mask ? mask : 0xffbf;
+    sampled_mxcsr_mask_valid=true;
     available = true;
     console_write("fpu: fxsave/sse/sse2 enabled\n");
     return true;
@@ -318,18 +348,36 @@ static bool ranges_overlap(uintptr_t a, size_t alen, uintptr_t b, size_t blen) {
     return a <= b ? b-a < alen : a-b < blen;
 }
 
-bool fpu_snapshot_user_trap(const struct isr_frame *frame, struct fpu_user_snapshot *out) {
-    struct fpu_user_trap_proof *proof;
-    if (!out || ((uintptr_t)out & 15) || !kernel_extent((uintptr_t)out,sizeof(*out)) ||
-        !proof_current(frame,&proof)) return false;
+/* Extent and numeric alias checks do not authenticate allocation/provenance. */
+static bool private_snapshot_range(const struct isr_frame *frame,
+    const struct fpu_user_trap_proof *proof, const struct fpu_user_snapshot *object) {
+    if (!object || ((uintptr_t)object & 15) || !kernel_extent((uintptr_t)object,sizeof(*object))) return false;
     uintptr_t aligned=(uintptr_t)frame & ~(uintptr_t)15;
     if (aligned < FPU_COMMON_RESERVATION || (uintptr_t)frame > UINTPTR_MAX-sizeof(*frame)) return false;
     uintptr_t start=aligned-FPU_COMMON_RESERVATION;
     size_t size=(uintptr_t)frame+sizeof(*frame)-start;
-    if (ranges_overlap((uintptr_t)out,sizeof(*out),start,size) ||
-        ranges_overlap((uintptr_t)out,sizeof(*out),(uintptr_t)proof->user_fpu,sizeof(*proof->user_fpu)) ||
-        ranges_overlap((uintptr_t)out,sizeof(*out),(uintptr_t)proof->kernel_fpu,sizeof(*proof->kernel_fpu))) return false;
+    return !ranges_overlap((uintptr_t)object,sizeof(*object),start,size) &&
+        !ranges_overlap((uintptr_t)object,sizeof(*object),(uintptr_t)proof->user_fpu,sizeof(*proof->user_fpu)) &&
+        !ranges_overlap((uintptr_t)object,sizeof(*object),(uintptr_t)proof->kernel_fpu,sizeof(*proof->kernel_fpu));
+}
+
+bool fpu_snapshot_user_trap(const struct isr_frame *frame, struct fpu_user_snapshot *out) {
+    struct fpu_user_trap_proof *proof;
+    if (!out || ((uintptr_t)out & 15) || !kernel_extent((uintptr_t)out,sizeof(*out)) ||
+        !proof_current(frame,&proof) || !private_snapshot_range(frame,proof,out)) return false;
     copy_fx_area(out->bytes,proof->user_fpu->fxsave_area);
+    return true;
+}
+
+bool fpu_restore_saved_user_trap(const struct isr_frame *frame, const struct fpu_user_snapshot *saved) {
+    struct fpu_user_trap_proof *proof;
+    if (!proof_current(frame,&proof) || !sampled_mxcsr_mask_valid ||
+        !private_snapshot_range(frame,proof,saved)) return false;
+    uint32_t mxcsr=(uint32_t)saved->bytes[24] | ((uint32_t)saved->bytes[25]<<8) |
+        ((uint32_t)saved->bytes[26]<<16) | ((uint32_t)saved->bytes[27]<<24);
+    if ((mxcsr & 0xffff0000u) || (mxcsr & ~sampled_mxcsr_mask)) return false;
+    copy_fx_area(proof->user_fpu->fxsave_area,saved->bytes);
+    proof->state=FPU_PROOF_CONSUMED;
     return true;
 }
 

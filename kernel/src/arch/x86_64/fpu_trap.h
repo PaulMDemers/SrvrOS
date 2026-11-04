@@ -42,5 +42,8 @@ void fpu_common_trap_exit(const struct isr_frame *,const uint8_t *,struct fpu_us
  * live trap reservation/frame and either FPU object are refused. */
 bool fpu_snapshot_user_trap(const struct isr_frame *,struct fpu_user_snapshot *);
 bool fpu_consume_user_trap(const struct isr_frame *);
+/* saved must be a resident caller-owned, unmodified prior private capture;
+ * numeric checks cannot authenticate provenance. No user or wire bytes. */
+bool fpu_restore_saved_user_trap(const struct isr_frame *,const struct fpu_user_snapshot *);
 #endif
 #endif

@@ -4555,3 +4555,11 @@ build/tests/file-fsync-host$(HOST_EXE): tools/test_syscall_fsync.c kernel/src/ar
 test-core: test-dirty-salvage-scope
 test-dirty-salvage-scope:
 	$(PYTHON) -m unittest discover -s tools -p test_dirty_salvage_scope.py -v
+
+.PHONY: test-fpu-init-mask
+test-fpu-init-mask: build/tests/fpu-init-mask-host$(HOST_EXE)
+	$<
+build/tests/fpu-init-mask-host$(HOST_EXE): tools/test_fpu_init_mask.c kernel/src/arch/x86_64/fpu.c kernel/src/arch/x86_64/fpu_trap.h $(KERNEL_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -mno-sse -mno-sse2 -mno-mmx -mno-80387 -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+test-core: test-fpu-init-mask

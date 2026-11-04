@@ -29,7 +29,7 @@ static inline __attribute__((always_inline)) uint64_t fpu_test_read_efer(void) {
 #define SRVROS_FPU_TRAP_HOST_TEST
 #include "../kernel/src/arch/x86_64/fpu.c"
 
-static struct {struct fpu_state state;uint8_t tail[512];} ua,ka,ub,kb;
+static struct {uint8_t head[512];struct fpu_state state;uint8_t tail[512];} ua,ka,ub,kb;
 struct common_storage { _Alignas(16) uint8_t bytes[FPU_COMMON_RESERVATION+sizeof(struct isr_frame)+1024]; };
 static struct common_storage a,b,nested;
 static struct fpu_user_snapshot host_initial,user_image,kernel_image,expected,observed;
@@ -91,7 +91,7 @@ static void setup(void) {
     memcpy(ua.state.fxsave_area,kernel_image.bytes,512);memcpy(ka.state.fxsave_area,kernel_image.bytes,512);
     memcpy(ub.state.fxsave_area,kernel_image.bytes,512);memcpy(kb.state.fxsave_area,kernel_image.bytes,512);
     ua.state.initialized=ka.state.initialized=ub.state.initialized=kb.state.initialized=true;
-    available=true;current_user_state=&ua.state;current_kernel_state=&ka.state;user_state_loaded=false;
+    available=true;sampled_mxcsr_mask=0xffff;sampled_mxcsr_mask_valid=true;current_user_state=&ua.state;current_kernel_state=&ka.state;user_state_loaded=false;
     entry_ok=return_ok=resolve_ok=prepare_ok=canonical_output=query_clobber=true;
     corrupt_query_owner=false;modeled_cr4=(1ull<<9);modeled_efer=0;
     memset(expected.bytes,0,512);memset(observed.bytes,0,512);select_a();
@@ -102,6 +102,14 @@ static void refused(struct fpu_user_snapshot *out) {
     memcpy(&before,out,512);
     assert(!fpu_snapshot_user_trap(frame_of(&a),out));
     assert(!memcmp(&before,out,512) && !memcmp(&user_before,&ua.state,sizeof(user_before)) &&
+        !memcmp(&kernel_before,&ka.state,sizeof(kernel_before)) && !memcmp(&witness,proof_of(&a),sizeof(witness)));
+}
+static void restore_refused(const struct fpu_user_snapshot *in) {
+    struct fpu_user_snapshot before=*in;
+    struct fpu_state user_before=ua.state,kernel_before=ka.state;
+    struct fpu_user_trap_proof witness=*proof_of(&a);
+    assert(!fpu_restore_saved_user_trap(frame_of(&a),in));
+    assert(!memcmp(&before,in,512) && !memcmp(&user_before,&ua.state,sizeof(user_before)) &&
         !memcmp(&kernel_before,&ka.state,sizeof(kernel_before)) && !memcmp(&witness,proof_of(&a),sizeof(witness)));
 }
 static CRITICAL void nested_roundtrip(bool direct,struct fpu_user_snapshot *before,struct fpu_user_snapshot *after) {
@@ -205,8 +213,69 @@ int main(void) {
     fpu_switch_kernel_state(&kb.state,&ka.state,&ua.state);select_a();
     assert(ka.state.active_user_trap==proof_of(&a) && fpu_snapshot_user_trap(frame_of(&a),out));
     exit_user(&a);assert(kb.state.active_user_trap==proof_of(&b));fpu_invalidate_user_trap(&kb.state);
+    /* The input is the immutable snapshot captured by the real entry API,
+     * retained privately while a later handler entry saves different state. */
+    struct fpu_user_snapshot original_pattern=user_image,private_saved,invalid;
+    setup();enter_user(&a);assert(fpu_snapshot_user_trap(frame_of(&a),&private_saved));exit_user(&a);
+    user_image=kernel_image;setup();enter_user(&a);
+    sampled_mxcsr_mask_valid=false;restore_refused(&private_saved);sampled_mxcsr_mask_valid=true;
+    for(unsigned bit=0;bit<32;bit++) {
+        /* Each bit is unsupported in the sampled mask or architecturally high. */
+        sampled_mxcsr_mask=bit<16 ? (0xffffu & ~(1u<<bit)) : UINT32_MAX;
+        invalid=private_saved;
+        for(unsigned byte=0;byte<4;byte++) invalid.bytes[24+byte]=0;
+        invalid.bytes[24+bit/8]=(uint8_t)(1u<<(bit%8));
+        memset(invalid.bytes+28,0xff,4); /* Source mask is never authority. */
+        restore_refused(&invalid);
+    }
+    sampled_mxcsr_mask=0xffbf;invalid=private_saved;invalid.bytes[24]|=0x40;
+    restore_refused(&invalid);sampled_mxcsr_mask=0xffff;
+    restore_refused((void *)((uint8_t *)&ua.state-496));
+    restore_refused((void *)((uint8_t *)&ka.state-496));
+    restore_refused((void *)&ua.state);restore_refused((void *)((uint8_t *)&ua.state+16));
+    restore_refused((void *)((uint8_t *)&ua.state+512));restore_refused((void *)&ka.state);
+    restore_refused((void *)((uint8_t *)&ka.state+512));
+    restore_refused((void *)proof_of(&a));restore_refused((void *)frame_of(&a));
+    assert(!fpu_restore_saved_user_trap(NULL,&private_saved) && !fpu_restore_saved_user_trap(frame_of(&a),NULL));
+    assert(!fpu_restore_saved_user_trap(frame_of(&a),(void *)((uintptr_t)&private_saved+1)));
+    assert(!fpu_restore_saved_user_trap(frame_of(&a),(void *)(UINTPTR_MAX&~(uintptr_t)15)));
+    canonical_output=false;restore_refused(&private_saved);canonical_output=true;
+    return_ok=false;restore_refused(&private_saved);return_ok=true;
+    resolve_ok=false;restore_refused(&private_saved);resolve_ok=true;
+    prepare_ok=false;restore_refused(&private_saved);prepare_ok=true;
+    observation.image_generation++;restore_refused(&private_saved);observation.image_generation--;
+    observation.thread_identity++;restore_refused(&private_saved);observation.thread_identity--;
+    observation.address_space+=4096;restore_refused(&private_saved);observation.address_space-=4096;
+    ka.state.active_user_trap=(void *)1;restore_refused(&private_saved);ka.state.active_user_trap=proof_of(&a);
+    current_user_state=(void *)1;restore_refused(&private_saved);current_user_state=&ua.state;
+    for(unsigned i=0;i<3;i++) {
+        modeled_cr4=denied_cr4[i];modeled_efer=denied_efer[i];restore_refused(&private_saved);
+        modeled_cr4=(1ull<<9);modeled_efer=0;
+    }
+    ua.state.initialized=false;restore_refused(&private_saved);ua.state.initialized=true;
+    ka.state.initialized=false;restore_refused(&private_saved);ka.state.initialized=true;
+    user_state_loaded=true;restore_refused(&private_saved);user_state_loaded=false;
+    available=false;restore_refused(&private_saved);available=true;
+    memcpy(out,&private_saved,512); /* Source ends exactly at the protected page. */
+    struct fpu_state saved_kernel=ka.state;bool initialized_user=ua.state.initialized;
+    assert(fpu_restore_saved_user_trap(frame_of(&a),out));
+    assert(!memcmp(ua.state.fxsave_area,private_saved.bytes,512) && ua.state.initialized==initialized_user &&
+        !ua.state.active_user_trap && !memcmp(&saved_kernel,&ka.state,sizeof(saved_kernel)) &&
+        proof_of(&a)->state==FPU_PROOF_CONSUMED);
+    restore_refused(&private_saved);refused(out);assert(!fpu_consume_user_trap(frame_of(&a)));
+    exit_user(&a);assert(!memcmp(observed.bytes,private_saved.bytes,512) && !ka.state.active_user_trap);
+    /* Optional DAZ is accepted only as an explicit modeled capability; perform
+     * a final hardware restore only when this host actually advertises it. */
+    uint32_t host_mask=0;memcpy(&host_mask,host_initial.bytes+28,4);
+    if(host_mask&(1u<<6)) {
+        setup();enter_user(&a);sampled_mxcsr_mask=host_mask;
+        invalid=private_saved;invalid.bytes[24]|=0x40;
+        assert(fpu_restore_saved_user_trap(frame_of(&a),&invalid));exit_user(&a);
+        assert(!memcmp(observed.bytes,invalid.bytes,512));
+    }
+    user_image=original_pattern;
     user_state_loaded=false;current_kernel_state=current_user_state=NULL;load_fx(&host_initial);
     assert(!munmap(guard,(size_t)page*2));
-    puts("fpu-user-trap: PASS real FXSAVE/FXRSTOR x87/MXCSR/XMM, save-before-query, nesting, aliases, lifetime and consume");
+    puts("fpu-user-trap: PASS real FXSAVE/FXRSTOR x87/MXCSR/XMM, save-before-query, nesting, aliases, lifetime, consume and private restore");
     return 0;
 }

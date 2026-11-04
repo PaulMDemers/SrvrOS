@@ -3618,3 +3618,14 @@ ABI/delivery/return/WTF adapter exists yet. Last JSC smoke remains134 without42.
 Resource/window request for eventual8GiB JSC build is pending; no large build has
 started. Fetched main `f7ec75e7`; no process/scheduler/VMM/FPU overlap since the
 recorded integration base was found, and main was not merged.
+
+
+The owner independently accepted all final `2a3b1a89` guest receipts, closing
+snapshot/consume qualification. They approved the separate
+[private restore contract](../fpu-private-restore.md) with explicit successful-
+hardware-sample validity and repeated-init failure handling. Its private helper
+and initialization/operation fixtures are implemented; strict Rosetta and
+ASan/UBSan profiles plus full target kernel/codegen pass. Source is being sent
+for independent review before matched regression guests. No production caller,
+signal/action/copy/public ABI or WTF change is included. The user target remains
+incomplete; large JSC resources/window are still pending.

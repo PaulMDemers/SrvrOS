@@ -1,8 +1,8 @@
 # Private saved-user FPU replacement: proposed next boundary
 
-Status: design for process/FPU owner review following snapshot/consume candidate
-`2a3b1a89`. No implementation, replacement stub, signal hook or public context
-editing is included. The user's target still requires real signal delivery and
+Status: owner-approved private contract following qualified snapshot/consume
+candidate `2a3b1a89`. Implementation is ready for independent source/host/codegen
+review. No production caller, signal hook or public context editing is included. The user's target still requires real signal delivery and
 return plus the WTF adapter and a successful no-JIT JavaScript smoke.
 
 ## Authority and provenance
@@ -34,8 +34,12 @@ bytes and does not claim to do so.
 
 ## Legal image and alias policy
 
-At FPU initialization, retain the MXCSR support mask from the initialized,
-zero-backed hardware FXSAVE image (offset28). A zero hardware mask means0xffbf;
+At each FPU initialization attempt, invalidate the retained mask and availability
+before feature checks. Explicitly zero all512 initialization bytes before the
+hardware save and publish mask-valid only after FXSAVE completes. Failed initial
+or repeated initialization leaves the mask invalid; a later successful attempt
+samples fresh state. Retain the MXCSR support mask from this initialized
+hardware FXSAVE image (offset28). A zero hardware mask means0xffbf;
 never take the mask from `saved`. Refuse a saved MXCSR (offset24, little endian)
 with any bit outside that hardware mask, and refuse reserved high bits16–31.
 Read the fields with scalar bytes or aligned-safe integer accesses. Do not mask
@@ -86,3 +90,29 @@ images are only validated/refused, never loaded into hardware. Strict/no-SSE and
 sanitized operation validation must preserve the existing boundary exclusions.
 Inspect actual target codegen and run matched main/worker/full regression guests.
 No production caller or signal/JSC success follows from these helper tests alone.
+
+
+## Implementation verification pending independent acceptance
+
+Strict Rosetta and ASan/UBSan tests pass the real-FXSAVE operation fixture and
+separate modeled initialization fixture. Operations use a prior actual private
+snapshot, enter a later trap with different legal hardware state, replace the
+saved prefix, consume once and verify the actual final restore. Refusals cover
+all32 unsupported/high MXCSR bits (high bits rejected even with a permissive
+modeled mask), forged source masks, optional DAZ absence/support, no sampled mask,
+policy/owner/root/image/lifetime changes, first/last partial FPU-object aliases,
+current frame/proof overlap, null/misaligned/overflow/noncanonical inputs and
+unchanged source/proof/full user/kernel objects. The legal source ends at a
+protected page. Optional DAZ is actually restored only if host FXSAVE advertises
+it. The fixture continues to pattern XMM15, not all16 independently.
+
+Initialization hooks model CPUID, control registers and the capture result;
+they verify initial failure without hardware reads/writes, full zeroing before
+capture, zero-mask fallback, failure invalidation and fresh successful resampling.
+These model checks are separate from actual host FXSAVE and actual target init
+codegen. No fully instrumented pre-save boundary is claimed. Target full kernel
+builds, with no compiler SIMD operands; disassembly shows scalar zeroing before
+init FXSAVE, mask publication afterward, complete helper validation before its
+first saved-source read, exact512-byte copy before consumption and no calls or
+FXRSTOR after copy begins. Common entry/exit retains its qualified ordering.
+Matched kernel register/thread/sysabi/I/O guests remain to be run for this slice.
