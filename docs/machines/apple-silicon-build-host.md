@@ -3406,3 +3406,30 @@ host-journal conflict by retaining both records; preserve the new Ports pin.
 Verify Python/doc checks and a matched merged build, then exercise both changed
 harnesses with explicit evidence directories. Existing recovery assertions and
 the unresolved physical-device closure boundary remain unchanged.
+
+
+### bc isolated milestone — active November 3, 2026
+
+User authorized bc-only 7.0.3 on `ports/bc` from main `b78e3ed5`, with signal
+recovery resolved before acceptance. Owns port adapter/configuration, image
+entries and disposable guest decimal/report/signal checks. Integration checkout
+and review VM remain untouched. No libc/kernel edits without concrete-gap
+coordination. Implemented and verified: bc 7.0.3 static core arithmetic, scale/sqrt/bases,
+functions/loops and file/stdin/pipeline exact reports. The signal gate is
+resolved in the port's generated copy: callback records state and returns,
+libc restores dispatcher/mask state, and existing bc unwind paths run afterward.
+Bytecode loops poll via public sched_yield every 1024 instructions. A single
+long arithmetic instruction can delay signal delivery; interactive interrupt
+messages differ from upstream. No shared libc/kernel changes were needed.
+
+Guest probes pass same-process syntax/division-error recovery, repeated blocked
+input and busy-loop SIGINT with successful calculations afterward, busy-loop
+SIGTERM exit and actual stdout failure. Seven unchanged upstream arithmetic
+fixtures plus exact report save/reopen across two boots pass. Guest fsck and
+offline allocation pass; independent fsck.exfat is unavailable. Full build,
+existing ports regression and docs/whitespace checks pass. Two clean CLI builds
+match SHA256 `62c0737baafa6b569bd917303600e5aee341c5f09b24776fce49615e5fa6af61`.
+Receipts are under `build/bc-smoke/20261103-221517-z7lm_s73/` and
+`build/review/bc/accepted.json`. No full-suite, physical-device, full-image
+reproducibility or general asynchronous-signal acceptance is claimed.
+Status: bounded implementation complete and ready for review; no merge performed.
