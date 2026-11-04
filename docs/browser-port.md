@@ -70,12 +70,24 @@ process/VMM/teardown integration review. The isolated `SrvrOS-signal-context`
 checkout, branch `device/apple-silicon/browser-signal-context`, merges main
 `89c210db` with PR317 `c9f4f306` as `af470fff`. [Draft PR334](https://github.com/PaulMDemers/SrvrOS/pull/334)
 contains design commits `8c8dc952`, `76d70a49` and `d71c254c`, including independent review
-invariants and the JSC handshake failure rule. It contains no signal/runtime
-implementation yet. PR310 must consume the reviewed dependency; its code remains
-separate. The remaining JavaScript gate is the agreed owner's ABI/delivery
-review followed by the shared primitive implementation and its host/VM tests;
-PR334 proposes a bounded first slice but enables no signal feature. The minimal
-JavaScript smoke remains failed and this startup milestone remains incomplete.
+invariants and the JSC handshake failure rule. The owner explicitly approved only
+an internal, unwired helper slice. Implementation `1d7c62b6` adds aligned snapshots,
+explicit GPR/FPU mapping, bounded frame planning, private LIFO/replay validation
+and saturating generations. Strict native host tests, ASan/UBSan and the actual
+freestanding no-SSE object compile pass; a protected-page test checks CPL0 refusal
+before missing user RSP/SS access. These are helper checks, not delivery acceptance.
+Source review packet `ce06cf05` enumerates every return-route category, scheduler
+admission, actual saved FPU ownership and whole-frame preflight/publication.
+
+The owner identified that the inner syscall `scheduler_user_enter()` precedes
+the proposed outer hook, so `!scheduler_io_active()` alone cannot admit delivery.
+They requested the next scheduler/FPU/copy slice remain design until their source
+review after their active xHCI checkpoint. No process integration, public ABI,
+`SA_SIGINFO` admission or delivery capability is enabled. PR310 must consume the
+reviewed dependency; its code remains separate. Remaining work is that review,
+shared primitive implementation and host/VM verification, then matched SDK/JSC
+integration and the actual required-success smoke. The minimal JavaScript smoke
+remains failed and this startup milestone remains incomplete.
 The managed-worktree tool rejected the nested-repository workspace,
 so a separate local checkout was used without changing the integration checkout.
 Matched SDK/runtime/ICU rebuild now passes. All 17 combined runtime cases pass
