@@ -3799,3 +3799,11 @@ The first normal harness run failed on a partial serial line; its strict-line
 rerun passes and both records remain. Frozen317-file receipt outside distclean:
 `fa60ae294d585e5c6ebab3ad2e58e71b468e7d37de939a074f0aab3c3e4aa258`.
 Public ABI/libc/WTF review and required no-JIT JavaScript0+42 remain incomplete.
+
+SDK source reconciliation carries the existing browser185db570 threaded C++
+lifetime, hyperbolic math/linkage declarations and proof tools/fixtures. Ports
+`f88f1bd0` starts at current-main pin d760 and adds55 exact browser overlay blobs,
+preserving1,230 other tree entries and newer bc/jq/less work. SrvrPorts draft9
+owns that source integration. Imported port-manifest runtime claims are historical
+browser-checkout evidence; fresh matched SDK/ICU/JSC verification is pending.
+The [current browser checkpoint](../browser-port.md) records that distinction.

@@ -20,6 +20,14 @@ struct statvfs {
     uint64_t f_namemax;
 };
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 int statvfs(const char *path, struct statvfs *buf);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
