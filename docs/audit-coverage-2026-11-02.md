@@ -274,3 +274,9 @@ snapshot design findings;4032B is arithmetic, not compiled layout acceptance.
 Cleared for staged implementation review; target/native admission remains open.
 SDK source carry68f18cd8 binds all27 files and exact f88f1bd0 port gitlink; no
 kernel/shared/salvage delta. Fresh dependency runtime remains pending.
+
+
+Reserved164..167 SIGNAL_CONTROL/RETURN/SUSPEND/IO for PR334 against freshly fetched
+main7766ed5a/headerddb22cf8 (assigned through163). Integration owner notified;
+pure wire/state implementation may start with normal public dispatch disabled.
+This is coordination, not runtime acceptance; recheck at wiring/integration.

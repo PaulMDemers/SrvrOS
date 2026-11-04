@@ -1973,6 +1973,28 @@ Separately bound all 27 source manifest files to committed carry `68f18cd8`, wit
 exact ports gitlink `f88f1bd0` and no kernel/shared/salvage change; source acceptance
 is closed, fresh matched SDK/ICU/WTF/JSC validation is still pending.
 
+## November 4: coordinated signal syscall reservation
+
+Freshly fetched actual main `7766ed5a6fae18b60fc96fe809a5eeabd7657504`
+and independently queried live GitHub header blob
+`ddb22cf84c92f7713ed1c159f284ebc021c51ca9` still assign through
+163 SESSION_SCOPE. Reserve the following numbers for the PR334 owner:
+
+| Number | Planned operation | Owner |
+| --- | --- | --- |
+| 164 | SIGNAL_CONTROL | PR334 |
+| 165 | SIGNAL_RETURN | PR334 |
+| 166 | SIGNAL_SUSPEND | PR334 |
+| 167 | SIGNAL_IO | PR334 |
+
+The shared integration owner was notified to prevent overlapping assignments.
+The implementation owner alone updates the shared header in its isolated branch;
+PR317 does not duplicate that source change. Initial work is fixed wire/layout
+and pure per-thread state helpers. This reservation does not enable normal public
+dispatch or qualify runtime support. Recheck actual allocation at wiring and
+integration; retain the target/layout/host/native verification boundaries from
+proposal `37cd7382`. Evidence: `build/review/pr334-public-packet-review/allocation.json`.
+
 ## Remaining work
 
 Other long IRQ-disabled operations, including initial/churning PMM scans, heap validation and poisoning,
