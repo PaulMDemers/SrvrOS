@@ -3508,3 +3508,15 @@ or scheduler/IRQ mutation. The freestanding scheduler object compiles with Zig
 0.15.2. No production caller or live transition/FPU/copy/API change is enabled.
 Send the concrete query/tests for review before wiring; saved-FPU proof and
 image-generation/action/restart/nested-wait/lifetime gates remain open.
+
+PR334 transition code `fa69b4dc` preserves audited safe-syscall admission and the
+unsafe-call handoff while making common CPL3 entry unsafe and the final user
+transition singular/IRQ-excluded. Strict/sanitized actual cancellation and full
+scheduler fixtures pass, including nested CPL0 and eligible-service/foreign-owner
+progress. Fresh kernel plus selected current userspace compile with GNU Make4/
+Zig0.15.2 and pass full matched thread/accounting, sysabi and throttled AHCI/USB
+cancellation/relaunch/timeout guests. Receipt and exact scope are in
+[signal/context verification](../signal-context.md#matched-transition-verification-at-fa69b4dc).
+Task guests stopped; review VMs preserved. The source/test result is with the
+owner for review; FPU/image/lifetime/VMM copy and public signal admission remain
+unimplemented. New lifetime/executable-query packets are design only.

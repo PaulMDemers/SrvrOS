@@ -338,3 +338,107 @@ thread/syscall/accounting and I/O-contention guest verification is pending befor
 acceptance. FPU/copy/image-generation/action/restart/nested-wait/lifecycle and
 public `SA_SIGINFO` support are still absent; no JSC success follows from this
 transition correction alone.
+
+### Matched transition verification at fa69b4dc
+
+Clean code `fa69b4dc` passes the fresh matched Q35 full threadstress suite,
+including CPU/thread/child accounting, times, targeted legacy signals and all
+existing synchronization/lifecycle cases; top-level status is zero. Fresh sysabi
+passes size/copy checks and faulting process/worker reaping. The sequential OVMF
+AHCI/USB contention proof passes throttled writes with typing, Ctrl-C after real
+I/O admission, copy comparison, fsck, three executable relaunches, then deliberate
+timeout/quarantine and failed-sync refusal. These are fresh selected userspace
+binaries from the same source, not retained PR313 files or a complete OS payload.
+
+Receipt: `build/signal-context/vm-1793763902047506000/receipt.json`, SHA256
+`f7a9e2a4f77de45806082c976f280bb022b079700b7780265a9e0b3727f06c77`.
+It binds kernel, apps, pristine disk, ISO, harnesses and result logs. A wrapper
+changes temporary-file retention only; failed disks remain, success disks are
+removed after the harness stops its guest. Two initial I/O launches failed before
+boot because the evidence path exceeded macOS's UNIX-socket limit; their logs and
+images remain. Short temporary sockets and the explicit Homebrew OVMF path fix
+that staging issue without changing checks. All task guests stopped; review VMs
+61610/6233/85869 remain live and untouched. No physical/SMP or asynchronous signal
+acceptance follows. Send this code/test result for owner review before new hooks.
+
+## Image-lifetime and executable-query packet for owner review only
+
+These proposals do not authorize fields, entry hooks, syscall allocation or copy
+publication. Current code still lacks a committed image identity and real FPU
+entry proof. Expected implementation remains on this dependency branch with the
+process/VMM/teardown owner's review.
+
+### Committed image and binding lifetime
+
+Add a nonzero `uint64_t image_generation` to the process's committed image and
+mirror it in the scheduler's user binding; zero denotes no committed image. A
+CPU0 IRQ-excluded saturating allocator never reuses issued IDs. Reservation may
+burn an ID after a later failed construction, but must not change the old image
+or output on reservation failure. Job lifetime (`process.c:221,837–862`) survives
+exec and may be shared; PID/TID, CR3, FPU pointer and scheduler lifetime are not
+image identities. No dynamic registry is proposed.
+
+| Source boundary | Proposed ordering requiring review |
+| --- | --- |
+| Slot allocation (`process.c:837–882`) | Start image generation at zero; do not publish an image merely because its slot exists |
+| Initial/foreground/background/spawn construction (`:1852–2113`, `:2246+`, `:2332+`, `:2516+`) | Complete load/arguments/actions, reserve and commit a fresh ID before any binding, user entry or READY publication; refuse and clean staged resources on failure |
+| Fork (`:2294–2323`) | Child gets a fresh image ID even for identical addresses/FPU bytes; no copied active proof |
+| Exec (`:2172–2243`) | Reserve before irreversible stdio/binding mutation; failed load/setup/reservation leaves old identity/binding/proof unchanged. At commit invalidate old proof and detach binding before old CR3/mappings/FPU backing change, then move staged image plus fresh ID and publish new binding. No fallible allocation after retiring the old identity |
+| Worker creation (`:3290–3355`, scheduler spawn) | Inherit committed image ID; fresh scheduler lifetime and empty proof before READY |
+| Worker/main exit and final teardown (`:3399–3428`, `:7412–7447`) | Revoke proof admission and invalidate associations before TLS/FPU/CR3 release or slot reuse; main pthread exit's atexit continuation does not itself retire the whole live image |
+
+The concrete API should pass the committed generation explicitly into scheduler
+binding publication and worker publication, not dereference an opaque process
+from an FPU entry helper. Audit every `scheduler_set_user_context[_fpu]` caller.
+Foreground A→child B→A may use the same scheduler thread and restore A's unchanged
+image identity; every actual setter/clear must invalidate the prior active proof
+before changing the binding, and must never revive the old association on A's
+restoration. Ordinary scheduler A→B→A context switching retains a suspended
+thread's own proof instead. Failed exec preserves its old binding/proof; a setter
+called on a separate failed-spawn restoration may conservatively invalidate it
+and defer signal work to a fresh common entry.
+
+One review choice remains explicit: a separate nonreused binding epoch can carry
+continuity through observations, but requires a fallible prepare/commit API and
+an exhaustion policy even for parent restoration (today's setter returns void).
+Alternatively, mandatory active-association invalidation on every setter/clear
+and a strict ban on retaining observations across any binding mutation can enforce
+the narrower proof lifetime. Neither alternative may substitute scheduler/job IDs
+for image generation. Agree the smallest sufficient contract before implementation.
+Also audit existing exec stdio failure atomicity rather than asserting it by
+declaration. Directed bare-TID wrapping remains a separate enabling gate.
+
+Required actual-source cases include failed/successful exec and reservation
+exhaustion, failed stdio preparation, fork/worker empty proof state, slot/CR3/FPU
+pointer reuse, foreground binding replacement versus pure scheduler switching,
+main/worker exit, delayed service cleanup and stale-proof refusal. Memory cost is
+bounded process/scheduler scalar identities and the fixed private proof; no
+unbounded allocation or per-delivery service window is permitted.
+
+### Read-only executable mapping query before any copy path
+
+Propose internal unwired `vmm_user_exec_current(address, expected_cr3)`: require
+already-excluded IRQs and the expected nonzero actual user CR3, a nonzero canonical
+lower-half entry address, all-level PRESENT/USER, and effective NX clear. Compute
+NX by OR over PML4/PDPT/PD/PT, including ancestors of 1 GiB/2 MiB leaves; retain
+existing AND semantics for USER/WRITE. The present walker propagates only leaf NX,
+and the tracked process leaf check alone does not establish effective execution.
+The query is about the entry mapping, not the extent or validity of an arbitrary
+handler's instructions.
+
+Fail closed unless CPU extended CPUID advertises NX and actual EFER.NXE is set;
+never enable NXE or modify permissions as a query side effect. No kernel source
+currently establishes that policy explicitly, so measure it in an isolated guest
+rather than infer it from Limine or successful boots. Host seams must model both
+CPUID support and EFER, plus IF/CR3. Independently vary PRESENT/USER/NX at every
+level and large leaf, test invalid/canonical/zero/root cases and unchanged state,
+then compile the actual freestanding object. No live action/delivery caller or
+public capability is proposed by this query slice.
+
+Whole-frame copying remains a later separate review: the complete bounded range
+must preflight resident effective writable mappings and exact ownership before
+any store, under uninterrupted CPU0 IRQ exclusion and no I/O owner/callback/
+scheduling/allocation. Define behavior for aliases, future COW/demand paging and
+actual CR0.WP/SMAP policy before claiming fault-free transactionality. Missing or
+nonwritable second pages must leave destination and pending/private/frame state
+unchanged. Existing per-page syscall copy remains insufficient and unchanged.
