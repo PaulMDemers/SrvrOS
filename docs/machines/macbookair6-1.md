@@ -6945,3 +6945,29 @@ v1/v2/v3/max producers/decoders/tail tests pass, including changed/all-ones uppe
 rows, candidate overlap and uncertain mapping retirement. Matched full suites,
 sanitisers and exact-stage negative/legacy VMs remain pending before installing
 or arming a native test. No source change is physically accepted yet.
+
+### Linux-model32 trial validated and prepared (2026-11-04)
+
+[PR351](https://github.com/PaulMDemers/SrvrOS/pull/351), code `169f3808`, passes
+matched normal/AP and RAM/USB builds, full core/desktop/widget/profile-chooser/
+host/docs checks, actual core/adapter ASan/UBSan and independent v1/v2/v3/max raw
+producer decoding. The default installation suite reports71 tests, with its
+existing opt-in exhaustive I/O matrix skipped. No warning or integrity check,
+map/read/time/data limit or power policy is relaxed.
+
+Source-matched maximum retention preserves the full version3 records in the
+unchanged64KiB tail. Exact-model source predicates and pinned reference hashes
+verify the0a26/Haswell/Gen7/native-aperture32-row and register-offset chain; its
+Intel16 discrepancy stays unresolved. All four older AP VM profiles and both
+older Haswell modes pass. Exact release `86257762f155128f` passes Q35 identity
+refusal/save/unmount/reset and missing-workspace no-start/no-save return. These
+negative-path checks do not accept native32-row values or table size.
+
+The exact payload is durably backed up. At this validation checkpoint it is
+uninstalled and unarmed. The authorized next step preserves console recovery and
+accepted fallback/evidence, installs this image, then runs/collects automatically.
+USB baseline594 files/1661 clusters, all hashes, fsck/allocation and headroom pass.
+No human input is required. Local run records own subsequent arming/collection.
+Native acceptance remains `1b0d37dd` / `8dc0947f9c7fbd56` until the new run; no GT,
+forcewake, global uniqueness, pin, lifetime, firmware-exclusion or ownership grant
+is inferred. RC6 timing and package-C3 limitations remain unchanged.
