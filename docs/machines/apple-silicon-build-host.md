@@ -5266,3 +5266,23 @@ resource window was released early. Ports12→OS370 ordered delivery and exact
 head/tree/pin checks follow; linked PR states record delivery. Then stop: Grep
 and sha256sum are deferred under the later closeout instruction. Integration
 checkout and review VMs remain untouched.
+
+### GNU Patch delivered and verified — closeout stopped
+
+Ports12 merged `72f3d6fad7423aa06ce4fd4f4ab611b4a4930ac3`, then OS370 merged
+`3e3275139d7bac169c2b06816cbca3d3f2623708`. Both merge trees equal their exact
+reviewed heads (`6ff5eda`, `0ba39ba3` respectively), and OS pin `6ff5eda` is
+reachable from merged port main. Actual remote heads/PR states were verified.
+The final documentation/pin changes do not change the qualified runtime.
+
+All seven fresh guests, same-SDK clean GNU rebuilds, selected native tests and
+independent source/evidence review retain their bounded claims above. The
+outside-build archive verifies 2,199 entries, SHA256
+`3a33ed5bd9138781e3e630ec3830c2eba210cac083f2279b51b0744815f3f64e`; source,
+frozen payload/inventories, accepted/failed proofs and restore records survive
+build cleanup. Final delivery/review receipts are under ignored
+`.local/cli-port-evidence/patch/`. Integration received exact merges, trees, pin
+and receipt locations for aggregate PR373. All owned jobs stopped and resource
+windows released; protected integration checkout/review VMs remain untouched.
+No further bounded Patch feature is required. Stop under the later closeout
+instruction: Grep and sha256sum are deferred, with no new heavy reservation.

@@ -8,6 +8,21 @@
     "source_output_lines": 8192
   },
   "command": "patch -i PATCH -o NEW_OUTPUT SOURCE",
+  "delivery": {
+    "archive_entries_verified": 2199,
+    "archive_sha256": "3a33ed5bd9138781e3e630ec3830c2eba210cac083f2279b51b0744815f3f64e",
+    "os_merge": "3e3275139d7bac169c2b06816cbca3d3f2623708",
+    "os_tree": "f8deea8297e82c548e7d0c646482d4d6bd71c038",
+    "pin": "6ff5edade20620dbaeeed367c4616e34a1c9194a",
+    "pin_reachable": true,
+    "port_merge": "72f3d6fad7423aa06ce4fd4f4ab611b4a4930ac3",
+    "port_tree": "8bd17ef9efe9f1a679620639044edb52e9038911",
+    "reviewed_heads": {
+      "os": "0ba39ba31b7f1e7a13510f0f6ef185d2b49eaaee",
+      "ports": "6ff5edade20620dbaeeed367c4616e34a1c9194a"
+    },
+    "trees_equal_reviewed": true
+  },
   "delivery_order": [
     "https://github.com/PaulMDemers/SrvrPorts/pull/12",
     "https://github.com/PaulMDemers/SrvrOS/pull/370"
@@ -55,7 +70,7 @@
   "next_ports": "Grep and sha256sum deferred by later closeout instruction; stop after Patch delivery.",
   "production_elf_sha256": "d6da63efcdcb4dbc24663123f7fc48d9acb4fc5bc502b3abf1b06301ce3c0651",
   "production_runtime_sha256": "8359e2a7d74d6592f254b810685c5ebb106a629dbcd7cb1965f9b37ec003aa43",
-  "status": "PASS bounded qualification; linked PRs record delivery",
+  "status": "DELIVERED AND VERIFIED",
   "statuses": {
     "0": "applied",
     "1": "unapplied hunks",
