@@ -4454,3 +4454,11 @@ test-salvage-cli: build/tests/salvage-cli-host$(HOST_EXE)
 build/tests/salvage-cli-host$(HOST_EXE): tools/test_salvage_cli.c userspace/salvage/salvage.c userspace/lib/include/srvros/salvage.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include $< -o $@
+
+.PHONY: test-file-fsync
+test-core: test-file-fsync
+test-file-fsync: build/tests/file-fsync-host$(HOST_EXE)
+	$<
+build/tests/file-fsync-host$(HOST_EXE): tools/test_syscall_fsync.c kernel/src/arch/x86_64/syscall.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@

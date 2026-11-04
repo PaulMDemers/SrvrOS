@@ -103,6 +103,8 @@ def boot(disk, out, number, args, negative=False, *, other_disk=None,
             work_fault_config=Path(work_fault_config).resolve()
             if not dirty_salvage or number!=1 or other_disk is None or work_fault_config.parent!=out.resolve():
                 raise RuntimeError('Fault filter requires first dirty-salvage boot and owned config')
+            if Path(other_disk).resolve()==Path(disk).resolve() or not Path(disk).resolve().is_relative_to(out.resolve()):
+                raise RuntimeError('Fault target must be distinct from owned boot disk')
             if Path(other_disk).resolve().is_relative_to(out.resolve()) is False:
                 raise RuntimeError('Fault target must be fixture-owned work image')
         drives = ['-device', 'ich9-ahci,id=ahci']
