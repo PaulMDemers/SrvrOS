@@ -1,5 +1,29 @@
 # Apple Silicon macOS build host
 
+## PR336 integrated-main merge review — ready
+
+User authorizes review and merge if ready. Reuse the isolated
+`SrvrOS-installation-io` checkout and existing inspection branch at `b3c6a694`;
+fetched main remains `62b0708e`. Own review/tests, proof-equivalence receipt and
+installation continuity documentation only. Inspect filesystem/profile contracts
+and pending PR333 without consuming unmerged changes. Preserve review VMs
+61610/6233/85869, primary checkout and prior evidence; one build/harness here,
+no physical media, host reboot or Actions.
+
+Review finds no material blocker or unresolved thread. Fresh installation checks
+pass (55 passing and one default skip, including 19 inspection groups), as do
+profile/guest and documentation checks. All accepted artifact/tool/native-source
+and build-output hashes match; the retained used stage matches its final proof
+snapshot. Two fresh read-only used inspections pass and strict publication
+inspection/reconciliation still refuse, preserving stage/source/receipt bytes.
+Unchanged main/runtime inputs preserve the source-attributed two-boot and refusal
+proof; no new VM is needed. Review receipt/logs/script survive at
+`.local/installation-evidence/pr336-review`. Ready for the authorized merge.
+Next proposal: read-only selected-profile export directly from a used image,
+using a bounded read-only document reader, strict portable bundle codec and
+fresh-install restoration proof. Dependencies and acceptance are in the
+installation guide; no dependency on unmerged desktop-transfer/salvage work.
+
 ## Read-only used-installation inspection — qualified
 
 User authorized a scoped PR with used-image and refusal proof. Reuse isolated

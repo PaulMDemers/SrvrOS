@@ -1,5 +1,78 @@
 # Disk installation and recovery
 
+## PR336 integrated-main review and next bounded checkpoint
+
+User authorized review and merge if ready. Reviewed `b3c6a694` against fetched
+main `62b0708e`; no material blocker or unresolved review thread. The separate
+inspector retains strict publication/reconciliation refusal after guest saves,
+uses only an inherited read-only image descriptor in the actual kernel exFAT
+reader, and checks historical protected bytes and current bounded profile
+metadata without repair or receipt replacement. Profile preference grammar,
+startup size limit, optional legacy identity, pending-import/scratch rules and
+remembered-choice CRC were checked against the integrated guest consumers.
+
+Fresh installation checks pass (55 passing, one optional long-matrix entry
+skipped), including all 19 inspection groups. Profile bundle/adapter, desktop
+preferences/startup/catalog/chooser and guest-profile checks pass. Documentation
+checks pass. All ten accepted artifacts, nine proof tools, five native source
+files and three matched build outputs have the accepted hashes. The retained
+used stage matches its final accepted snapshot and receipt. Two fresh CLI used
+inspections pass with zero native writes/flushes; strict publication inspection
+and reconciliation still refuse it. All four calls preserve the whole stage,
+original source inputs and historical receipt.
+
+Main and runtime inputs are unchanged, so no affected VM proof requires rerun.
+The original two-boot, six-positive, 23-mutation-plus-busy and four-strict-refusal
+proof remains attributed to `ff974bdf`. The
+[review receipt](assets/screenshots/installation-used-review.json) records the
+fresh checks and equivalence. Logs and verification script survive outside build
+cleanup at `.local/installation-evidence/pr336-review`; the original full proof
+and matched artifacts remain separately archived. Review VMs 61610/6233/85869
+remain running and untouched; no new VM, physical trial or Actions was needed.
+Ready for the authorized merge; follow-up commits contain only review evidence
+and continuity documentation.
+
+Next proposed bounded installation milestone: **read-only selected-profile
+export from a used installed image**. PR321's migration proof reads persisted
+bytes into a host fixture before exporting. Supply an actual offline export
+command that binds an admitted inspected image and explicit profile UUID/home,
+reads only individually selected `Documents/...` files and portable identity/
+preferences, and creates a new portable bundle. Preserve the used image and its
+historical receipts; restore through the existing fresh-install plan rather
+than changing the source installation. This is proposed work only.
+
+Dependencies and boundaries:
+
+- PR336's stage/target identity, protected-region proof, cooperative offline
+  locks and refusal rules. Revalidate the same image through document reads;
+  a stale prior inspection result is insufficient. Add a bounded `O_RDONLY`
+  selected-document reader: the current native bridge intentionally emits only
+  metadata and cannot export document contents.
+- Integrated PR309/314/321 profile bundle/provisioning contracts, PR320 import
+  boundaries and PR326 identity/local-choice semantics. Reuse the normative v1
+  codec/path rules and limits (64 explicitly selected files, 1 MiB each, 8 MiB
+  decoded aggregate, 12 MiB bundle); preserve portable UUID and validate any
+  legacy identity fallback explicitly. Local alias/UID/GID, machine settings,
+  caches, credentials and arbitrary application state are excluded.
+- Integrated PR312/313/318 clean root/namespace/allocation admission and PR329
+  file-fsync semantics; keep source inspection read-only and publish output
+  exclusively with checked file/directory sync. Dirty, pending, torn, ambiguous,
+  changed or unsupported source/output states refuse without replacement.
+- Use the existing matched-build/provenance and v2 fresh-install adapters for
+  restoration proof. No new kernel repair/salvage API is required. Open PR333
+  owns desktop reviewed transfer and depends on SrvrApps #6; a host offline CLI
+  need not wait for or duplicate that UI. Open PR338 qualifies managed workspace
+  salvage without production contract changes; it is not an export dependency.
+
+Acceptance: edit/save/reboot installation A, export the actual stopped image
+through the new reader without an intermediate host profile fixture, then
+provision and reboot fresh B with different disk/home/local bindings. Verify
+selected text/binary bytes, portable UUID and all six preferences; prove
+unselected files and local/machine state are excluded, source/receipt hashes
+unchanged, and changed/unsafe/oversized/pending/conflicting cases refuse without
+publishing success. No dirty-media salvage, in-place upgrade, authentication or
+physical-media claim belongs to this slice.
+
 ## Read-only used-installation inspection — qualified
 
 User authorized implementation, used-image/refusal proof and a scoped PR.
