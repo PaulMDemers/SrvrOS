@@ -970,6 +970,69 @@ Main `7ef140ef` inspected without merging into the branch's `1f177761` base; PR3
 signal and PR345 managed late-flush work remain separately owned, with no process,
 VMM, generic block or filesystem edits here.
 
+## Shared single-TT cleanup and class cancellation
+
+Confirmed cancellation defects: root/slot removal marked bulk requests failed but
+neither woke a yielded waiter nor made its readiness predicate observe cancellation.
+XHCI mice also injected into the legacy PS/2 source and did not cancel their own
+held buttons on removal/endpoint failure. Removal now publishes failure, wakes the
+bulk queue and makes the predicate observe removal/failure/terminal stop. The
+transfer exits without claiming completion, copying output, recycling DMA or
+retrying. USB mouse input uses one stable source per software record, disjoint
+from PS/2, VirtIO and trackpad sources. Removal, endpoint failure and owned stop
+issue source cancellation, clear the report/absolute baseline and preserve other
+physical buttons. Existing MOUSE_CANCEL semantics discard ambiguous queued input
+without generating a click-producing release; the event ABI is unchanged.
+
+Explicit routed EP0/HID recovery now validates ancestry and hardware TT context.
+For a single-TT control endpoint, require the actual output-context USB address
+(nonzero 7-bit, Addressed/Configured), owner hub Configured/Hub/single-TT state,
+matching owner/downstream port, and an idle healthy owner EP0. Lease that EP0 against
+hub status work across Reset Endpoint, two targeted CLEAR_TT_BUFFER requests (OUT
+and IN, endpoint zero/type control, actual USB address, single-TT index one), then
+Set Dequeue. Revalidate identities before/after each cleanup. Never substitute
+slot ID for USB address or physical downstream port for single-TT request index.
+This follows the targeted control/bulk-buffer model described by the
+[USB core implementation](https://github.com/torvalds/linux/blob/master/drivers/usb/core/hub.c)
+and [USB host API](https://www.kernel.org/doc/html/latest/driver-api/usb/usb.html).
+Periodic HID recovery must not issue this nonperiodic buffer request; it retains
+its device clear-halt or owned Stop/toggle-preserving policy.
+
+Cleanup/identity failure leaves both rings tracked and closes the translator's
+slow-speed dependent branches. If hub EP0 itself failed, close the whole hub
+subtree. Unrelated HS siblings keep their admission metadata when the owner stays
+trustworthy; an ambiguous global command path remains closed independently.
+TT-backed bulk/network transport failure or removal with unproven nonperiodic
+ownership likewise quarantines dependents rather than resetting the shared TT,
+replaying a request or reviving a provider. No automatic cleanup, RESET_TT,
+multi-TT interface, published-storage recovery or bulk/network retry is enabled.
+Manual cleanup is modeled host coverage, not physical HS-TT acceptance.
+
+Tests cover a shared HS owner above an FS hub, slot/address mismatch, both control
+directions, index one, lease contention/poll exclusion, invalid context/address/MTT,
+first/second request failures, address change and command timeout, periodic
+exclusion and DMA retention. Bulk tests force cancellation inside the actual wait
+seam and require readiness plus wake; driver/pointer fixtures cover USB source
+identity, held-button cancellation and preserved PS/2/other-USB state. The Q35
+fixture adds `--routed-recovery` to existing nested removal/EP0/interrupt/new-input
+proof. Normal/Rosetta, GCC14 and ASan/UBSan xHCI/mouse fixtures, existing pointer/
+mouse ABI/VirtIO input and related USB/block/registry hosts, plus kernel compilation
+pass. Five controls removing a TT direction, using slot instead of USB address,
+ignoring the owner lease, omitting the bulk wake or omitting mouse cancellation
+fail their intended assertions. Final Q35 routed/nested EP0 and interrupt/new-input
+proof passes with child-first retirement, 27-frame reclaim and sysabi. Separate
+storage+HID retire/reclaim/replug, E1000 netabi and full threadstress guests pass.
+All final guests use a private read-only fixture disk clone with recorded hash;
+retained runtime fixtures are not a full current-userspace build. Task guests
+stopped, review VMs 61610/6233/85869 preserved. Docs: 893 local links, nine known
+missing nested-license targets. Evidence: `build/review/xhci-shared-tt/`.
+
+Main `d791b949` inspected at start and `83e5d1ad` at publication, with no upstream
+diff in the driver/mouse sources from the existing `1f177761` base; neither newer
+main was merged. No process/VMM/filesystem/generic block edits overlap PR334 or
+managed late-flush work. Continuing the audit leaves generic class recovery,
+physical TT failure scheduling, multi-TT/USB3 and restart generations open.
+
 ## Remaining work
 
 Other long IRQ-disabled operations, including initial/churning PMM scans, heap validation and poisoning,

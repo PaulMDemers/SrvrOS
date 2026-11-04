@@ -47,10 +47,10 @@ bool xhci_stop(void);
  * active owners or unproven commands.
  * True retains all DMA/identity tombstones; no slot reuse or re-enumeration. */
 bool xhci_retire_slot(uint8_t slot);
-/* One explicit EP0 protocol-STALL recovery per slot: verified Halted -> Reset ->
- * Stopped -> fresh dequeue. Never revives published storage or timed-out DMA. */
+/* One explicit EP0 protocol-STALL recovery per slot: verified reset/fresh
+ * dequeue, with leased single-TT control cleanup where needed. No storage revival. */
 bool xhci_recover_control(uint8_t slot);
-/* Shared endpoint recovery entry; currently EP0 and root HID STALL only.
+/* Shared endpoint recovery entry; currently EP0 and HID STALL only.
  * Non-control recovery clears the device halt before fresh dequeue publication. */
 bool xhci_recover_endpoint(uint8_t slot,uint8_t dci);
 bool xhci_test_endpoint_recovery(uint8_t slot);

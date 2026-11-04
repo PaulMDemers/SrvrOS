@@ -85,6 +85,7 @@ static uint32_t hub_model_status=3;
 static bool recovery_auto,recovery_bad_dequeue,recovery_wrong_slot,control_fail_clear;
 static unsigned recovery_commands,recovery_fail_at,recovery_timeout_at;
 static unsigned recovery_trace[8],recovery_trace_count;
+static unsigned tt_calls,tt_fail_at,tt_change_address_at;static uint16_t tt_values[2],tt_indices[2];
 static uint8_t disabled_order[32];static unsigned disabled_count;
 static uint64_t test_space=1;
 static bool retire_ready=true,storage_retire_ready=true,reject_bus_master;
@@ -97,9 +98,18 @@ static void xhci_test_write32(uint64_t offset, uint32_t value) {
     if(control_model && offset==xhci.db_base+4*control_model->slot_id && value==1) {
         struct xhci_device *d=control_model;
         struct xhci_trb *setup=(struct xhci_trb *)(uintptr_t)d->control_td[0];
+        unsigned request=(setup->parameter_low>>8)&255;
         unsigned cc=control_fail_clear && ((setup->parameter_low>>8)&255)==USB_REQ_CLEAR_FEATURE?6:control_model_cc;
         if(recovery_auto && ((setup->parameter_low>>8)&255)==USB_REQ_CLEAR_FEATURE) {
             assert(recovery_trace_count<8);recovery_trace[recovery_trace_count++]=1;
+        }
+        if(request==8) {
+            assert(tt_calls<2 && d->tt_cleanup_owner==1);
+            tt_values[tt_calls]=setup->parameter_low>>16;tt_indices[tt_calls]=setup->parameter_high;
+            tt_calls++;assert(recovery_trace_count<8);recovery_trace[recovery_trace_count++]=7+tt_calls;
+            if(tt_calls==tt_fail_at)cc=6;
+            if(tt_calls==tt_change_address_at)context_write32(xhci.devices[0].output_context,0,3,
+                (context_read32(xhci.devices[0].output_context,0,3)&~255u)|38);
         }
         uint64_t ptr=d->control_td[cc==1 || control_model_stage>=d->control_td_count?d->control_td_count-1u:control_model_stage];
         if(cc==6)context_write32(d->output_context,1,0,2);
@@ -219,6 +229,7 @@ void pmm_free_frame(uint64_t address) {
 void pmm_free_frame_range(uint64_t address,uint64_t count) {for(uint64_t i=0;i<count;i++)pmm_free_frame(address+i*PMM_FRAME_SIZE);}
 
 static void reset_test(void) {
+    tt_calls=tt_fail_at=tt_change_address_at=0;
     control_model=NULL;control_model_cc=1;control_model_stage=2;hub_model_status=3;
     recovery_auto=recovery_bad_dequeue=recovery_wrong_slot=control_fail_clear=false;
     recovery_commands=recovery_fail_at=recovery_timeout_at=recovery_trace_count=0;
@@ -477,7 +488,8 @@ static void test_root_ports(void) {
 static unsigned test_pointer_options,tap_injected;static uint8_t last_tap;
 void mouse_trackpad_get_settings(unsigned *speed,unsigned *options) { *speed=3;*options=test_pointer_options; }
 uint64_t mouse_overflow_count(void) { return 0; }
-static unsigned injected, pointer_injected, pointer_canceled, net_wakeups;
+static unsigned injected, pointer_injected, pointer_canceled, net_wakeups,usb_mouse_cancels,last_usb_mouse;
+static uint8_t usb_mouse_buttons;
 void net_notify_rx(void) { net_wakeups++; }
 static struct trackpad_motion last_pointer;
 void mouse_inject_trackpad(int32_t x,int32_t y,uint8_t buttons) {
@@ -488,6 +500,10 @@ void keyboard_inject_hid_report(const uint8_t report[8], struct keyboard_hid_sta
     (void)state; assert(report[2]==4 || report[2]==0); if(report[2]==4)injected++;
 }
 void mouse_inject_event(int32_t x,int32_t y,uint8_t buttons) { (void)x;(void)y;(void)buttons; }
+void mouse_inject_usb(unsigned source,int32_t x,int32_t y,uint8_t buttons) {
+    (void)x;(void)y;last_usb_mouse=source;usb_mouse_buttons=buttons;
+}
+void mouse_cancel_usb(unsigned source) {last_usb_mouse=source;usb_mouse_buttons=0;usb_mouse_cancels++;}
 void mouse_inject_trackpad_tap(uint8_t button) { tap_injected++;last_tap=button;mouse_inject_trackpad(0,0,button);mouse_inject_trackpad(0,0,0); }
 void mouse_inject_trackpad_scroll(int32_t x,int32_t y,int32_t wx,int32_t wy,uint8_t buttons) {
     mouse_inject_trackpad(x,y,buttons); last_pointer.wheel_x=wx; last_pointer.wheel_y=wy;
@@ -524,7 +540,10 @@ bool scheduler_io_wait_timeout(struct scheduler_wait_queue *q,
     struct xhci_device *d=arg;
     assert(q==&d->bulk_wait && test_io_active && deadline==timer_ticks()+1);
     wait_calls++;
-    if(stop_on_wait) {stop_on_wait=false;assert(xhci.sync_users==1 && !xhci_stop());return false;}
+    if(stop_on_wait) {
+        stop_on_wait=false;unsigned before=bulk_wakes;assert(xhci.sync_users==1 && !xhci_stop());
+        assert(ready(arg) && bulk_wakes>before && d->bulk_pending);return true;
+    }
     if(wait_refused)return false;
     if(ready(arg))return true;
     if(wait_keyboard) {
@@ -1235,7 +1254,7 @@ static struct xhci_device *control_fixture(void) {
     stop_fixture();xhci.port_count=1;halt_after=0;
     *(uint32_t *)(registers+xhci.op_base+XHCI_OP_PORTS)=XHCI_PORTSC_CCS|XHCI_PORTSC_PED;
     struct xhci_device *d=&xhci.devices[0];
-    *d=(struct xhci_device){.present=true,.configured=true,.slot_id=1,.port_id=1};
+    *d=(struct xhci_device){.present=true,.configured=true,.slot_id=1,.port_id=1,.speed=1};
     assert(allocate_device_runtime(d));return d;
 }
 static void test_ep0_recovery(void) {
@@ -1310,6 +1329,84 @@ static void test_hub_changes(void) {
     hub=control_fixture();hub->hub_ports=1;control_model=hub;hub_model_status=3|(1u<<20);control_fail_clear=true;
     assert(!reset_hub_port(hub,1,&status) && hub->control_failed && hub->control_completion==6 && !xhci.hub_ports_reset);
     puts("xhci-hub-change: PASS asynchronous poll, missed disconnect, descendant/sibling isolation, short/timeout quarantine and stuck reset refusal");
+}
+static struct xhci_device *tt_cleanup_fixture(void) {
+    struct xhci_device *d=control_fixture();
+    d->parent_slot_id=3;d->hub_port_id=4;d->addressed=true;
+    context_write32(d->output_context,0,2,2u|(6u<<8));context_write32(d->output_context,0,3,(2u<<27)|37);
+    d->control_failed=true;d->control_completion=6;context_write32(d->output_context,1,0,2);
+    struct xhci_device *hub=&xhci.devices[1];
+    *hub=(struct xhci_device){.present=true,.configured=true,.slot_id=2,.speed=3,.port_id=1,.hub_ports=8};
+    assert(allocate_device_runtime(hub));context_write32(hub->output_context,0,0,1u<<26);
+    context_write32(hub->output_context,0,3,(3u<<27)|9);
+    xhci.devices[2]=(struct xhci_device){.present=true,.configured=true,.slot_id=3,.speed=1,.port_id=1,
+        .hub_ports=8,.parent_slot_id=2,.hub_port_id=6,.control_pending=true};
+    xhci.devices[3]=(struct xhci_device){.present=true,.configured=true,.slot_id=4,.speed=1,.port_id=1,.parent_slot_id=2,.hub_port_id=7};
+    xhci.devices[4]=(struct xhci_device){.present=true,.configured=true,.slot_id=5,.speed=3,.port_id=1,.parent_slot_id=2,.hub_port_id=8};
+    control_model=hub;recovery_auto=true;return d;
+}
+static void test_shared_tt_cleanup(void) {
+    for(unsigned failure=0;failure<5;failure++) {
+        struct xhci_device *d=tt_cleanup_fixture(),*hub=&xhci.devices[1];
+        uint64_t allocated=pool_used,old=d->ep0_ring_phys;
+        hub->control_pending=true;assert(!xhci_recover_control(1) && pool_used==allocated);hub->control_pending=false;
+        hub->tt_cleanup_owner=7;assert(!xhci_recover_control(1) && pool_used==allocated);hub->tt_cleanup_owner=0;
+        context_write32(d->output_context,0,3,(2u<<27)|128);assert(!xhci_recover_control(1) && pool_used==allocated);
+        context_write32(d->output_context,0,3,37);assert(!xhci_recover_control(1) && pool_used==allocated);
+        context_write32(d->output_context,0,3,0);assert(!xhci_recover_control(1) && pool_used==allocated);
+        context_write32(d->output_context,0,3,(2u<<27)|37);
+        context_write32(hub->output_context,0,0,(1u<<26)|(1u<<25));assert(!xhci_recover_control(1));
+        context_write32(hub->output_context,0,0,1u<<26);
+        if(failure==1 || failure==2)tt_fail_at=failure;
+        if(failure==3)tt_change_address_at=1;
+        if(failure==4)recovery_timeout_at=1;
+        assert(xhci_recover_control(1)==(failure==0));
+        assert(!hub->tt_cleanup_owner && !freed && d->control_recovery_attempted);
+        if(!failure) {
+            assert(tt_calls==2 && tt_values[0]==(37u<<4) && tt_values[1]==((37u<<4)|0x8000) &&
+                tt_indices[0]==1 && tt_indices[1]==1);
+            assert(recovery_trace_count==4 && recovery_trace[0]==14 && recovery_trace[1]==8 &&
+                recovery_trace[2]==9 && recovery_trace[3]==16);
+            assert(d->ep0_ring_phys!=old && d->retired_ep0_ring_phys==old && !d->control_failed);
+            assert(!xhci.devices[3].removed && !xhci.devices[4].removed);
+        } else {
+            assert(hub->tt_cleanup_failed && d->removed && xhci.devices[3].removed);
+            assert(d->ep0_ring_phys==old && d->retired_ep0_ring_phys);
+            if(failure==1 || failure==2)assert(hub->removed && xhci.devices[4].removed);
+            else assert(!hub->removed && xhci.devices[4].configured);
+            assert(recovery_commands==1); /* No fresh dequeue after failed cleanup/proof. */
+        }
+    }
+    struct xhci_device *d=tt_cleanup_fixture(),*hub=&xhci.devices[1];
+    hub->tt_cleanup_owner=1;uint64_t before=hub->ep0_enqueue;
+    test_time=0;test_time_step=0;service_hub_changes();
+    assert(hub->ep0_enqueue==before && !hub->control_pending);hub->tt_cleanup_owner=0;
+    /* A periodic endpoint never receives CLEAR_TT_BUFFER. */
+    d->control_failed=false;d->control_completion=0;d->hid_mouse=true;context_write32(d->output_context,1,0,1);
+    void *ring=NULL,*buffer=NULL;assert(alloc_frame_zero(&d->interrupt_ring_phys,&ring));d->interrupt_ring=ring;
+    assert(alloc_frame_zero(&d->interrupt_buffer_phys,&buffer));d->interrupt_buffer=buffer;
+    d->interrupt_dci=3;d->interrupt_max_packet=8;d->interrupt_failed=true;d->last_interrupt_completion=6;
+    context_write32(d->output_context,3,0,2);control_model=d;
+    assert(xhci_recover_endpoint(1,3) && !tt_calls);
+    d=tt_cleanup_fixture();hub=&xhci.devices[1];
+    d->control_failed=false;d->bulk_pending=true;d->bulk_failed=true;
+    unsigned wake_before=bulk_wakes;quarantine_unsafe_tt(d);
+    assert(hub->tt_cleanup_failed && d->removed && d->bulk_pending && bulk_wakes>wake_before &&
+        xhci.devices[3].removed && !xhci.devices[4].removed && !freed);
+    puts("xhci-shared-tt: PASS physical address/both directions/single-TT index, owner lease, periodic exclusion, failure domain and pinned DMA");
+}
+static void test_hid_cancellation(void) {
+    struct xhci_device *d=control_fixture();static uint8_t report[8]={1,0,0};
+    d->hid_mouse=true;d->interrupt_buffer=report;d->interrupt_max_packet=8;
+    handle_hid_mouse_report(d);assert(last_usb_mouse==0 && usb_mouse_buttons==1);
+    d->retiring=true;unsigned before=usb_mouse_cancels;
+    assert(device_removed(d) && usb_mouse_cancels==before+1 && !usb_mouse_buttons && !d->hid_have_absolute);
+    d=control_fixture();d->hid_mouse=true;d->interrupt_pending=true;d->interrupt_ready=true;
+    d->interrupt_trb=0xa000;d->interrupt_dci=3;d->interrupt_max_packet=8;
+    struct xhci_trb error={.parameter_low=0xa000,.status=6u<<24,.control=(32u<<10)|(1u<<24)|(3u<<16)};
+    before=usb_mouse_cancels;dispatch_transfer_event(&error);
+    assert(usb_mouse_cancels==before+1 && d->interrupt_failed && !d->interrupt_ready);
+    puts("xhci-hid-cancel: PASS per-record pointer source cancellation on removal and endpoint failure");
 }
 static void test_nested_tt(void) {
     for(unsigned size64=0;size64<2;size64++) {
@@ -1711,6 +1808,8 @@ int main(int argc, char **argv) {
     test_slot_retirement();
     test_hub_route_depth();
     test_nested_tt();
+    test_shared_tt_cleanup();
+    test_hid_cancellation();
     test_interrupt_recovery();
     test_ep0_recovery();
     test_hub_changes();

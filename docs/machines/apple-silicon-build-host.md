@@ -3497,3 +3497,44 @@ guests stopped and review VMs 61610/6233/85869 preserved. Evidence:
 Next: shared TT buffer cleanup/error containment, class-specific cancellation,
 USB3/multi-TT and restart generations. PR334/345 remain separate with no shared
 process/VMM/filesystem/generic block implementation changes.
+
+
+### Shared TT cleanup and class cancellation scope
+
+Continue PR317 from `17f0348e`; actual main `d791b949` and open PR scopes
+inspected. Audit targeted single-TT control-buffer cleanup with stable owner/USB
+address/port identity, serialization against hub status and failure containment.
+Extend only proven class-specific stop/recovery; retain BOT/storage and uncertain
+DMA quarantine, no replay or shared-translator reset. Sources: xHCI/network
+service, headers/monitor and host/VM fixtures/docs. PR334 signal and PR345 late
+flush remain separately owned; no process/VMM/filesystem/generic block edits.
+Preserve review VMs; next checkpoint is deterministic cleanup/cancellation faults
+and disposable guest regression.
+
+Confirmed class-cancellation additions: wake yielded bulk waiters from removal
+without claiming DMA completion; give each xHCI mouse a stable input source so
+removal/endpoint stop/error cancels only its buttons. Mouse input/header/tests
+also in scope; actual main has no diff in those files from this branch's base.
+No event ABI change; static USB source identities remain boot-lifetime.
+
+Implemented explicit routed EP0/HID recovery with stable hardware TT/address
+identity and a single-TT owner-EP0 lease. Control cleanup clears both directions
+using USB address and index one; periodic recovery never issues the nonperiodic
+request. Failed cleanup or unsafe bulk/network ownership quarantines dependents,
+and failed owner EP0 closes the whole subtree. No RESET_TT, write replay or provider
+revival. Confirmed bulk readiness/wake and per-USB mouse button cancellation defects
+are fixed; mouse sources are separate from PS/2/VirtIO, with unchanged event ABI.
+
+Normal/Rosetta, GCC14, ASan/UBSan xHCI/mouse, pointer/mouse ABI/VirtIO input and
+related USB/block/registry hosts pass, plus kernel compilation. Five negative
+controls fail intended direction/address/lease/wake/mouse-cancel assertions.
+Final Q35 two-FS-hub routed EP0/root input proof passes with new input, removal
+containment, child-first retirement, 27-frame reclaim and sysabi. Storage+HID
+retire/reclaim/replug, E1000 netabi and full threadstress pass separately. All
+final guests use a private read-only fixture disk clone/hash; retained runtime
+fixtures are not a complete current-userspace rebuild. HS-TT is modeled host
+coverage; no physical/MTT/USB3/SMP acceptance. All task guests stopped, review VMs
+61610/6233/85869 preserved. Evidence: `build/review/xhci-shared-tt/`. Docs: 893 local
+links, nine known nested-license errors. Main83e5d1ad inspected at publication
+(driver/mouse source baseline unchanged); main1f177761 remains unmerged base.
+Next: generic class recovery, physical TT scheduling and restart lifetimes.

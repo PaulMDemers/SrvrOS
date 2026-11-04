@@ -5,6 +5,7 @@ static void network_fail(struct xhci_device *d,const char *reason) {
     struct xhci_network *n=d->network;if(n->failed) return;
     n->ready=false;n->failed=true;n->errors++;n->link.known=true;n->link.up=false;
     d->stage="network-quarantined";
+    quarantine_unsafe_tt(d);
     net_notify_rx(); /* Publish link loss before waking network waiters. */
     console_printf("xhci-network: slot=%u quarantined reason=%s tx=%u rx=%u\n",(uint64_t)d->slot_id,reason,n->tx_packets,n->rx_packets);
 }

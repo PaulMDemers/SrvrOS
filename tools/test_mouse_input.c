@@ -147,6 +147,14 @@ int main(void) {
     e=next(0,0,0);assert(e.flags&MOUSE_CANCEL);
     mouse_queue_timing(&oldest,&latest);assert(oldest.count==1);
     absolute_events();
+    /* USB records own separate buttons and cancellation never synthesizes a click. */
+    mouse_inject_usb(0,0,0,1);next(0,0,1);
+    mouse_inject_usb(1,0,0,2);next(0,0,3);
+    mouse_inject_event(0,0,4);next(0,0,7);
+    mouse_cancel_usb(0);e=next(0,0,6);assert(e.flags&MOUSE_CANCEL);
+    mouse_cancel_usb(1);e=next(0,0,4);assert(e.flags&MOUSE_CANCEL);
+    mouse_inject_event(0,0,0);next(0,0,0);
+    mouse_inject_usb(MOUSE_USB_SOURCES,1,1,7);mouse_cancel_usb(MOUSE_USB_SOURCES);assert(!mouse_pending());
     assert(wakes==poll_wakes); /* Enqueue, overflow and cancellation notify both paths. */
     puts("mouse-input: PASS ordered edges, click positions, coalescing, source buttons, saturation, overflow cancellation, wrap");
 }

@@ -21,6 +21,7 @@ def main():
     parser.add_argument("--disk", required=True)
     parser.add_argument("--qemu", default="qemu-system-x86_64")
     parser.add_argument("--nested", action="store_true", help="place keyboard behind two full-speed hubs")
+    parser.add_argument("--routed-recovery", action="store_true", help="verify EP0 recovery on the hub-routed keyboard")
     parser.add_argument("--interrupt-recovery", action="store_true", help="stop a root HID endpoint and verify fresh dequeue/input")
     parser.add_argument("--output", default="build/review/usb-hub")
     args = parser.parse_args()
@@ -85,6 +86,10 @@ def main():
                 assert b"xhci-ep0-check: ok" in command(f"xhciep0check {tablet}")
                 records,after=status();assert after==before+2 and all(v["configured"] for v in records.values())
                 if args.nested:assert records[hub]["parent"] and not records[records[hub]["parent"]]["parent"]
+                if args.routed_recovery:
+                    assert b"xhci-ep0-check: ok" in command(f"xhciep0check {keyboard}")
+                    records,current=status();assert current==after+2 and records[keyboard]["configured"]
+                    after=current
                 if args.interrupt_recovery:
                     reports=records[tablet]["mouse_reports"]
                     assert b"xhci-intr-check: ok" in command(f"xhciintrcheck {tablet}")
@@ -144,7 +149,7 @@ def main():
                     qmp.stream.close()
                     qmp.sock.close()
                 (out / "serial.log").write_bytes(output)
-    print("usb-hub: PASS downstream removal/replacement containment, sibling survival, EP0 fresh-dequeue recovery, child-first disable, terminal reclaim and sysabi" + (", nested hubs" if args.nested else "") + (", interrupt stopped/dequeue recovery and input" if args.interrupt_recovery else ""))
+    print("usb-hub: PASS downstream removal/replacement containment, sibling survival, EP0 fresh-dequeue recovery, child-first disable, terminal reclaim and sysabi" + (", nested hubs" if args.nested else "") + (", routed EP0 recovery" if args.routed_recovery else "") + (", interrupt stopped/dequeue recovery and input" if args.interrupt_recovery else ""))
 
 
 if __name__ == "__main__":

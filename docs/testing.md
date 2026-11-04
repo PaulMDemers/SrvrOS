@@ -1648,8 +1648,9 @@ It runs `xhciep0check <tablet-slot>` (invalid read-only descriptor → protocol 
 keyboard without dropping the root link, verifies tablet/hub survival and no old
 slot revival, then retires children before the hub and performs terminal reclaim
 and sysabi. Both DMA rings remain pinned until terminal halt/reference retirement.
-`xhciep0 <slot>` only recovers a previously acknowledged root-attached EP0 STALL,
-once; it refuses timed-out DMA, published storage and TT/hub-routed recovery.
+`xhciep0 <slot>` only recovers a previously acknowledged EP0 STALL, once; it
+refuses timed-out DMA and published storage. Routed recovery requires validated
+ancestry and, where applicable, the serialized single-TT cleanup described below.
 No bulk retry, device-side clear-halt, hotplug re-enumeration or controller restart
 is implied. The harness owns/stops its guest and copies the disk; preserve review VMs.
 
@@ -1669,12 +1670,41 @@ and think-time fields are covered by actual helper tests in both context sizes,
 not a physical high-speed hub claim. Normal startup selects single-TT alternate
 zero; it does not select a multi-TT interface.
 
-`xhcireset <slot> <dci>` explicitly recovers acknowledged root EP0/HID STALLs only.
+`xhcireset <slot> <dci>` explicitly recovers acknowledged EP0/HID STALLs only,
+with stable routed identity and the applicable single-TT cleanup gate.
 HID recovery requires Reset Endpoint → device clear-halt → fresh Set Dequeue;
 `test-xhci` checks that exact order and negative stages. The explicit
 `xhciintrcheck <slot>` diagnostic uses an owned Stop proof instead, preserving
 data toggles (no reset/clear-halt on an already-stopped healthy poll). QEMU rejected
 the attempted SET_FEATURE interrupt-halt injector, so actual HID STALL clear-halt
 is host-modeled coverage, not VM/native acceptance. Timeouts, published storage,
-network/bulk/isochronous endpoints, hub/TT recovery and repeated attempts refuse.
+network/bulk/isochronous endpoints, unsupported multi-TT/owner states and repeated
+attempts refuse.
 Old/staged rings remain tracked until terminal controller reclaim.
+
+
+### Shared-TT cleanup and class cancellation
+
+```sh
+python3 tools/usb_hub_smoke.py --iso /absolute/candidate.iso \
+  --disk /absolute/source.exfat --nested --interrupt-recovery --routed-recovery
+```
+
+The extra flag verifies EP0 recovery on the keyboard behind two full-speed hubs,
+which have no high-speed TT. It does not qualify high-speed cleanup on hardware.
+Host xHCI fixtures model a shared HS translator above an FS hub: require the
+actual hardware USB address (different from slot ID), stable addressed/configured
+contexts, both EP0 directions and single-TT index 1, plus a hub EP0 lease. Test
+owner-busy/poll exclusion, missing/changed identity, first/second cleanup failure,
+command timeout and closed dependent branches. Never send CLEAR_TT_BUFFER for a
+periodic endpoint or issue RESET_TT. DMA stays tracked on every failed stage.
+
+Class cancellation tests require removal to make a yielded bulk waiter ready and
+wake it without claiming pending DMA completed; the caller's output remains
+unchanged and no request retries. Unsafe TT-backed bulk/network ownership closes
+its slow-speed dependent domain; failed hub EP0 closes the whole subtree.
+`test-pointer` verifies independent USB/PS2/VirtIO button ownership and MOUSE_CANCEL
+without a click-producing release. XHCI tests require cancellation on removal,
+endpoint failure and explicit stop; source identities are static boot-lifetime
+software records. Generic storage/network restart and ambiguous write replay stay
+unavailable; terminal reference/hardware proofs still precede DMA release.

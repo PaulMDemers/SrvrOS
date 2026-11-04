@@ -214,3 +214,14 @@ the [kernel audit](audit-kernel-isolation-2026-11-03.md) for evidence and limits
 TT buffer cleanup/shared translator recovery, bulk/network/isochronous cancellation,
 multi-TT selection, USB3 hubs, restart generations and physical/SMP qualification
 remain open; no entire-codebase coverage claim.
+
+
+### November 3: shared TT cleanup and class cancellation
+
+PR317 adds leased, identity-checked single-TT control cleanup to explicit routed
+recovery, with both directions and hardware USB address. Unsafe TT ownership
+quarantines dependents; no whole-TT reset or storage/network replay. Confirmed
+bulk cancellation readiness/wake and USB mouse source/button cancellation defects
+are fixed. See the [kernel audit](audit-kernel-isolation-2026-11-03.md) and
+[testing guide](testing.md) for modeled HS-TT versus actual routed-FS guest coverage.
+Physical HS-TT/MTT, generic class recovery and restart generations remain open.
