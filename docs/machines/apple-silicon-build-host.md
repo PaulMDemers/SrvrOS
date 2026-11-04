@@ -4028,7 +4028,7 @@ space preflight failures ran no profile guest and are not counted as acceptance.
 No physical-media, power-loss or external fsck.exfat acceptance is added. All
 owned guests stop at test completion; shared checkout and review VM are untouched.
 
-### Files destination-folder picker — active November 4, 2026
+### Files destination-folder picker — verified November 4, 2026
 
 User authorizes a browsable destination-folder picker for Files Copy to and Move
 to, in isolated `SrvrOS-app-quality` only. Base OS `f4ea0ccb`, Apps `2a8bc2d9`,
@@ -4048,3 +4048,37 @@ copy through Close; exact saved bytes, guest fsck/offline allocation, clean work
 retirement, Open/Save regressions, clipped/narrow/theme rendering and matched
 source/build. Build/VM harnesses run sequentially. Shared checkout and review VM
 remain untouched. Draft/review delivery follows acceptance; merge is separate.
+
+Clean runtime/acceptance source `bac25c8d` pins UI `65ab080a` and Apps `6b2b00a3`.
+Full widget and desktop host suites, guarded file-change contracts, folder/picker/
+chooser checks and widget-theme preview pass. Portable CTest passes all 11 cases;
+ASan/UBSan CTest passes 10 (instrumented symbol-boundary test excluded,
+plain boundary passes separately). Focused folder-picker and chooser sanitizer
+checks pass. Independent source and evidence reviews find no blocker.
+
+Both normal and dialog-refusal Files transfer VMs pass nested/empty destinations,
+root alias browsing, keyboard and pointer cancel/accept, unavailable-folder
+recovery, exact copy/move bytes and collision preservation, destination selection,
+Back/Forward, sibling independence, accepted copy through Close, two document
+retirements, reaped worker pool and restored process baseline. Guest fsck and
+offline generator/allocation checks pass. Existing Files/Open With and actual
+Text/Preview pointer/lifecycle regressions pass, including failed-save/cancel
+retention, exact files and cleanup. Metadata snapshots are asserted by host and
+backend guard tests; guest proof establishes real resulting file bytes.
+
+Screenshots received expert inspection: path and primary action fit, folder-only
+empty state is accurate, and failed browse disables confirmation. No participant
+study or physical-device acceptance is claimed. Three harness-only failures
+(pointer trace removal, diagnostic spelling and diagnostic consumption) retain
+raw disks/logs/screenshots; none count as acceptance or required a runtime fix.
+Evidence/receipt: `build/review/files-folder-picker/`; a verified evidence and
+matched-artifact archive is retained under `.local/app-proof/files-folder-picker/`
+outside build cleanup. No external fsck.exfat or real power-loss acceptance.
+
+Review delivery: [SrvrUI #5](https://github.com/PaulMDemers/SrvrUI/pull/5),
+[SrvrApps #10](https://github.com/PaulMDemers/SrvrApps/pull/10), then
+[SrvrOS #359](https://github.com/PaulMDemers/SrvrOS/pull/359). The final journal
+commit receives a clean matched build and byte-identity comparison with accepted
+runtime; the receipt records exact revisions. Ready for dependency-order
+integration; merge is separate. All owned guests are stopped. Shared checkout
+and review VM remain untouched. No further feature is needed for this target.
