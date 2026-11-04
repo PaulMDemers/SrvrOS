@@ -1944,6 +1944,35 @@ with exact bounded storage and nesting/alias behavior. Implementation and passin
 matched regression remain with PR334's owner. Evidence/source hashes:
 `build/review/pr334-sleep-return-review/`. No shared implementation was edited.
 
+## November 4: immutable public protocol revision review
+
+Reviewed proposal `37cd7382`, retaining exact hashes of both packet files.
+Four 96-byte tickets capture signed native result, elapsed reference microseconds,
+elapsed ticks and a nonreused outcome cookie. Together with the separate 32-byte
+local guard, the stated selected-state arithmetic is 4,032 bytes. This is not a
+compiled layout assertion. The revised sleep backend captures elapsed time at its
+interrupt/completion decision before INFO, closing the modeled design finding;
+its implementation and passing regression remain pending.
+
+The local guard owns a separate nonreused cookie and original mask. Its compact
+exit validates exact registers and live ticket/binding ownership; an ACTIVE
+pre-admission filter rejects unsafe calls before waiting for I/O. The existing
+mutex release source uses only THREAD_SELF, atomic stores and FUTEX_WAKE with
+count one, matching the narrow exception. Native completion finalization is
+one-shot and tied to the captured result/cookie; EPOLL slices and SEM yields
+cannot declare their enclosing call complete. No new contract conflict found in
+this revision. Implementation must preserve all 96-byte outcomes across permitted
+fork, and delayed-handler tests must use supported monotonic/yield or nested wait
+operations rather than assume nanosleep is supported inside INFO.
+
+These findings are cleared for staged implementation review, not public runtime
+qualification. Actual syscall allocation, C layout/offset assertions, backend-kind
+mapping, target instruction/stack evidence and the full deterministic/native race
+matrix remain required. Evidence: `build/review/pr334-public-packet-review/`.
+Separately bound all 27 source manifest files to committed carry `68f18cd8`, with
+exact ports gitlink `f88f1bd0` and no kernel/shared/salvage change; source acceptance
+is closed, fresh matched SDK/ICU/WTF/JSC validation is still pending.
+
 ## Remaining work
 
 Other long IRQ-disabled operations, including initial/churning PMM scans, heap validation and poisoning,

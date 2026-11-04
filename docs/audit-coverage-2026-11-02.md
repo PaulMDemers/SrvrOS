@@ -267,3 +267,10 @@ Actual-libc/model reproduction confirms future INFO return would subtract handle
 time from relative sleep remainder (0 instead of0.750000123s); cooperative control
 and existing timing suite pass. Pre-delivery timestamp/remainder snapshot is now
 required; public implementation/native qualification remains open.
+
+
+Immutable public proposal37cd7382 closes the reviewed local-guard/outcome/sleep
+snapshot design findings;4032B is arithmetic, not compiled layout acceptance.
+Cleared for staged implementation review; target/native admission remains open.
+SDK source carry68f18cd8 binds all27 files and exact f88f1bd0 port gitlink; no
+kernel/shared/salvage delta. Fresh dependency runtime remains pending.
