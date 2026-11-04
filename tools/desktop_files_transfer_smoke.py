@@ -132,7 +132,10 @@ def main():
                 def launch(query):
                     shortcut('meta_l-spc');wait(b'launcher opened');text(query);qmp.key('ret');wait(b'launcher window=')
                 def prompt(action):
-                    shortcut('ctrl-shift-'+action);wait_all([('files-transfer-prompt action='+('copy' if action=='c' else 'move')+' source=').encode(),b'deskd: commit'])
+                    shortcut('ctrl-shift-'+action)
+                    marker=('files-transfer-prompt action='+('copy' if action=='c' else 'move')+' source=').encode()
+                    if args.refuse_dialogs: wait(marker)
+                    else: wait_all([marker,b'deskd: commit'])
                 def target(path):
                     shortcut('ctrl-a');text(path)
                 wait(b'srv> ',100);before=baseline();assert before
@@ -159,7 +162,10 @@ def main():
                 # The sibling retains its own folder and collision file while
                 # the original window navigates to the copy destination.
                 launch('transfer-collision window');shortcut('ctrl-r');wait(b'file-result role=files op=3 status=0')
-                text('payload');shortcut('f2');wait_all([b'files-prompt operation=5 name=payload.bin',b'deskd: commit']);qmp.key('esc')
+                text('payload');shortcut('f2')
+                if args.refuse_dialogs: wait(b'files-prompt operation=5 name=payload.bin')
+                else: wait_all([b'files-prompt operation=5 name=payload.bin',b'deskd: commit'])
+                qmp.key('esc')
                 launch('transfer-dest window')
                 # Selection after copy is proved by moving that very file without reselecting.
                 prompt('m');target('/fat/transfer-source');qmp.key('ret');wait(b'file-result role=files op=5 status=2')

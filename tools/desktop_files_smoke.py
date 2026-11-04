@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Exercise the Files mutations and shared prompts in a disposable VM."""
 import os
+import argparse
 import re
 from pathlib import Path
 import shutil
@@ -14,8 +15,12 @@ from desktop_foundation_smoke import QMP
 
 
 def main():
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--output',type=Path,help='write evidence to this directory')
+    args=parser.parse_args()
     root=Path(__file__).resolve().parents[1]
-    out=root/"build/review/desktop-files"
+    out=args.output if args.output is not None else root/"build/review/desktop-files"
+    out=out.resolve()
     out.mkdir(parents=True,exist_ok=True)
     output=b"";consumed=0
     port=choose_port(30001,38000)
