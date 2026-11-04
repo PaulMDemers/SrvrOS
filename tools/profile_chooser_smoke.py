@@ -11,6 +11,7 @@ from pathlib import Path
 import re
 import shutil
 import socket
+import struct
 import subprocess
 import tempfile
 import time
@@ -19,6 +20,7 @@ import zlib
 from desktop_foundation_smoke import QMP
 from desktop_theme_profiles_smoke import qmp_axis
 from displayd_frame_smoke import choose_port, connect_serial, stop_process
+from exfat_test_image import ExfatFixture
 from pack_runtime_elf import runtime_elf
 from uefi_usb_smoke import default_ovmf_path
 import installation_image
@@ -123,7 +125,7 @@ class VM:
         if not match or tuple(map(int, match.groups())) != (self.width, self.height):
             raise RuntimeError(f'{self.label}: screenshot dimensions differ from requested {self.width}x{self.height}')
 
-    def quiesced_data_hash(self):
+    def quiesced_data_snapshot(self, name):
         # Flush guest writes before pausing all vCPUs. Never inspect the disk
         # while QEMU can mutate it; always resume even if reading fails.
         self.run('/fat/bin/sync')
@@ -133,7 +135,10 @@ class VM:
             if status.get('status') != 'paused':
                 raise RuntimeError(f'{self.label}: QEMU did not pause')
             _, (offset, size) = d.partitions(self.disk)
-            return d.digest(d.data_image(self.disk, offset, size))
+            payload = d.data_image(self.disk, offset, size)
+            path = self.out / f'{name}-{self.label}.exfat'
+            path.write_bytes(payload)
+            return path
         finally:
             self.qmp.call('cont')
 
@@ -241,6 +246,73 @@ def back(vm, start, button=False):
     vm.wait(b'srv> ')
     if b'deskd: profile id=' in vm.output[start:]:
         raise RuntimeError(f'{vm.label}: chooser launched a profile unexpectedly')
+
+
+def snapshot_tree(path):
+    fixture = ExfatFixture(path.read_bytes())
+    result = {}
+    def visit(directory, prefix):
+        for name, entry in fixture.entries(directory):
+            if name in ('.', '..') or '/' in name or not name:
+                raise RuntimeError('invalid snapshot entry name')
+            path = prefix + name
+            if path in result: raise RuntimeError(f'duplicate snapshot path: {path}')
+            is_directory = bool(struct.unpack_from('<H', entry, 4)[0] & 0x10)
+            first = struct.unpack_from('<I', entry, 52)[0]
+            size = struct.unpack_from('<Q', entry, 56)[0]
+            content = fixture.chain(first, size, bool(entry[33] & 2))
+            result[path] = ('directory' if is_directory else 'file', content)
+            if is_directory: visit(content, path + '/')
+    visit(fixture.chain(fixture.root), '')
+    return result
+
+
+def metadata_rows(data):
+    lines = data.decode('utf-8', errors='strict').splitlines()
+    if not data.endswith(b'\n') or not lines or lines[0] != 'SRVROSMETA1':
+        raise RuntimeError('invalid metadata sidecar header')
+    rows = {}
+    for line in lines[1:]:
+        columns = line.split('\t')
+        if (len(columns) != 9 or not (columns[0] == '/fat' or columns[0].startswith('/fat/')) or
+            any(not re.fullmatch(r'[0-9]+', item) for item in columns[1:]) or columns[0] in rows):
+            raise RuntimeError('invalid or duplicate metadata sidecar row')
+        rows[columns[0]] = tuple(map(int, columns[1:]))
+    return rows
+
+
+def compare_blocked(before, after):
+    left, right = snapshot_tree(before), snapshot_tree(after)
+    if set(left) != set(right): raise RuntimeError('blocked chooser changed filesystem namespace')
+    for name in left:
+        if left[name][0] != right[name][0]: raise RuntimeError(f'blocked chooser changed type: {name}')
+        if left[name][0] == 'file' and name not in ('.srvros/meta', 'var/log/svscan.log'):
+            if left[name][1] != right[name][1]: raise RuntimeError(f'blocked chooser changed file: {name}')
+    for name in ('.srvros/meta', 'var/log/svscan.log'):
+        if name not in left or left[name][0] != 'file': raise RuntimeError(f'missing comparison file: {name}')
+    a, b = metadata_rows(left['.srvros/meta'][1]), metadata_rows(right['.srvros/meta'][1])
+    if set(a) != set(b): raise RuntimeError('blocked chooser changed metadata namespace')
+    changed_atime = 0
+    for name in a:
+        x, y = a[name], b[name]
+        # inode, mode, link count, uid and gid never change; atime may advance.
+        if x[:5] != y[:5] or y[5] < x[5]:
+            raise RuntimeError(f'blocked chooser changed metadata: {name}')
+        changed_atime += y[5] != x[5]
+        if name == '/fat/var/log/svscan.log':
+            if y[6] < x[6] or y[7] < x[7]: raise RuntimeError('service log timestamps moved backward')
+        elif x[6:] != y[6:]:
+            raise RuntimeError(f'blocked chooser changed modification metadata: {name}')
+    old_log, new_log = left['var/log/svscan.log'][1], right['var/log/svscan.log'][1]
+    line = b'svscan: webd waiting dependency\n'
+    if not new_log.startswith(old_log): raise RuntimeError('service log is not append-only')
+    appended = new_log[len(old_log):]
+    if len(appended) % len(line) or appended != line * (len(appended) // len(line)):
+        raise RuntimeError('unexpected service log append')
+    return {'before_path': str(before), 'before_sha256': d.digest(before.read_bytes()),
+            'after_path': str(after), 'after_sha256': d.digest(after.read_bytes()),
+            'namespace_entries': len(left), 'metadata_rows': len(a), 'atime_advanced': changed_atime,
+            'service_log_lines_appended': len(appended) // len(line)}
 
 
 def expected_choice(home, profile_id=d.ID):
@@ -436,15 +508,14 @@ def main():
             vm.run('/fat/bin/write /fat/home/local-b.profile-import.json malformed')
             vm.finish()
         with VM(blocked, disks['transport'], out, 'b-blocked', args) as vm:
-            blocked_before = vm.quiesced_data_hash()
+            blocked_before = vm.quiesced_data_snapshot('blocked-before')
             start, index = chooser(vm, B, 'blocked'); vm.screenshot('blocked')
             select(vm, index); time.sleep(1); back(vm, start)
             if b'profile-chooser: recovery start' in vm.output[start:]:
                 raise RuntimeError('blocked journal started recovery')
-            blocked_after = vm.quiesced_data_hash()
-            if blocked_after != blocked_before:
-                raise RuntimeError('blocked chooser changed data partition bytes')
-            receipt['blocked_data_sha256'] = blocked_before
+            blocked_after = vm.quiesced_data_snapshot('blocked-after')
+            receipt['blocked_comparison'] = compare_blocked(blocked_before, blocked_after)
+            d.save_json(out / 'receipt.json', receipt)
             vm.finish()
         blocked_fixture = guest.check_allocation(blocked, out, 'b-blocked')
         if blocked_fixture.read('home/local-b.profile-import.json') != b'malformed\n':
