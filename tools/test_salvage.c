@@ -1,3 +1,4 @@
+#define _POSIX_C_SOURCE 200809L
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -33,7 +34,8 @@ static ssize_t mock_write(int fd,const void *in,size_t length) {
     if(failure==10 && once(32))return -1;
     if(failure==5 && total>=7){errno=ENOSPC;return -1;}
     if(failure==6)return 0;
-    if(length>7)length=7;memcpy(destination+total,in,length);total+=length;return (ssize_t)length;
+    if(length>7)length=7;
+    memcpy(destination+total,in,length);total+=length;return (ssize_t)length;
 }
 static int mock_flush(int fd) {
     assert(fd==9 && opened);
