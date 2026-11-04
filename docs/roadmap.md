@@ -6,38 +6,56 @@ and [machine records](machines/README.md) separate implementation from physical
 acceptance. The [device parity ledger](device-parity.md) compares the Air with
 ongoing Pro work.
 
-## Installed-desktop migration — November 3, 2026
+## Installed-desktop migration — delivered November 3, 2026
 
-Target: move a selected portable profile from a used installed QEMU desktop to
-a fresh installation, preserving identity, selected document bytes and all six
-portable preferences through reboot. The user authorizes coordination, full
-flow verification and dependency-order merges when ready. Authentication,
-permission enforcement, physical installation and browser work remain separate.
+The coordinated QEMU milestone is complete. A used installed desktop can export
+selected portable data through the Profiles application or the offline installer
+CLI, then restore into a fresh installation with its own disk/home/local binding.
+SrvrApps [PR6](https://github.com/PaulMDemers/SrvrApps/pull/6) merged first
+(`2ebaca5e`), followed by SrvrOS [PR333](https://github.com/PaulMDemers/SrvrOS/pull/333)
+(`60618a4c`). The installation owner separately merged the offline exporter in
+[PR342](https://github.com/PaulMDemers/SrvrOS/pull/342) (`a64661e9`). Merge results
+retain the reviewed code and the pinned Apps revision is an ancestor of Apps main.
 
-The installation chat owns offline used-image export and fresh-install restore;
-the profiles chat owns SrvrApps #6 and SrvrOS #333 graphical transfer. The parent
-integration chat owns independent review, combined verification and merges.
-The filesystem chat's managed-workspace proof is independent; consume its merged
-contracts without adding salvage requirements to healthy-profile migration.
+Required outcomes and evidence:
 
-Required evidence: installation A edits/saves/reboots; explicit selected export;
-fresh B has different disk/home/local bindings; boot/reboot B verifies UUID,
-text/binary files and portable preferences. Unselected documents, machine
-settings, local bindings, application state, caches and implicit credentials must
-not migrate. Preserve source images/receipts and refuse existing outputs,
-changed/invalid previews, ambiguous imports and unsafe offline source state.
-Graphical review must keep confirmation, progress and recovery understandable.
+- Graphical transfer: 19 disposable VM lifetimes passed, including all five
+  interrupted-import recoveries, incomplete-export preservation, invalid and
+  duplicate refusals, remembered selection/reboot, Text readback and a real
+  640×480 review. Full identity/display name, six preferences and selected
+  text/binary bytes match; synthetic unselected documents, credential placeholders,
+  application data and caches stay on A and are absent from the bundle and B.
+- Final combined runtime: a fresh four-boot proof on merged `60618a4c` edits,
+  saves and reopens A, directly exports its stopped image, then provisions and
+  reboots B with different GPT/home/alias/UID/GID and machine settings. All
+  portable values and selected bytes survive; B retains destination-local state.
+  Sixteen reason-matched export refusals and 33 inspection/export steps preserve
+  the source, output and historical records as required.
+- Independent review: source and rendered-flow reviews found no remaining
+  blocker. All 40 graphical image archives were decompressed and hash-checked.
+  Direct final A/B filesystem reads independently verified identity, preferences,
+  documents, exclusions and local/machine separation. The combined images also
+  contain the matched new `profile` and `deskprofiles` binaries; A's final whole
+  image hash matches its export-source hash.
+- Matched build, 70 installation tests (one optional matrix entry skipped),
+  21 guest-profile groups, profile/session/fsync regressions and documentation
+  checks pass. The first combined attempt stopped for storage before any guest
+  boot and remains INCOMPLETE; it is separate from the subsequent passing run.
 
-Current: final topic verification is active. A separate ordinary clone,
-`SrvrOS-migration-review`, owns parent review and integration; the managed
-worktree API cannot attach a nested repository under this workspace. Preserve
-the primary checkout and existing review VMs. Run one build/proof per checkout,
-sequence large image proofs within available host storage, and keep accepted
-evidence outside build cleanup. Hosted Actions remain disabled.
+[Qualification record](assets/screenshots/installed-migration-review.json) and
+[restored desktop](assets/screenshots/installed-migration-restored.png) identify
+exact sources and receipts. See [profile operations](portable-profiles.md) and
+[offline installation/export](disk-installation.md) for contracts and reproduction.
+Full proofs, matched artifacts and restoration mappings are retained outside
+build cleanup. Large inactive synthetic proof images were losslessly archived;
+open images, existing interactive review VMs and source changes were preserved.
 
-Next: review exact final topic heads and evidence, merge Apps before its OS pin,
-verify the combined installed export/restore workflow, and merge the remaining
-installation/integration changes. No readiness claim until these gates pass.
+Acceptance is for the named QEMU runtime, not physical installation, arbitrary
+power-loss durability, authentication or permission enforcement. Later opt-in
+hardware diagnostics and salvage proofs retain their own acceptance. Hosted
+Actions remain disabled. No further work is required for this migration target;
+Unix filesystem semantics, account security and browser runtime remain separate
+future milestones.
 
 ## bc exact decimal workflow — November 3, 2026
 
