@@ -22,7 +22,7 @@ hardware qualification.
 | Filesystem tooling | Explicit partition-GUID selection merged in [OS #366](https://github.com/PaulMDemers/SrvrOS/pull/366), `7b1bfcb8`, after selector, installation, storage and sanitizer checks. Original media remains preserved. |
 | Ports | xz and GNU diff are delivered. GNU Patch in Ports #12 / OS #370 passed six earlier guest checks; the corrected miniport payload requires a fresh full suite because the old initramfs member comparison is unavailable. Grep and sha256sum are deferred. |
 | Runtime audit | The bounded historical audit checkpoint is merged in [OS #365](https://github.com/PaulMDemers/SrvrOS/pull/365), `db95fc9b`. It does not qualify the ongoing browser experiment. |
-| Browser | Exempt, ongoing. The browser owner has completed its prepared target review; the next bounded guest run is pending the shared resource handoff. No full WTF/JSC or browser acceptance is claimed. |
+| Browser | Exempt, ongoing. The corrected WTF and utility guest cases passed; the first GC-control case failed with a page-quota rejection and later cases did not run. Source-only investigation continues. No full WTF/JSC or browser acceptance is claimed. |
 
 The [roadmap](roadmap.md#current-work-closeout--november-4-2026) records the
 remaining merge gates. Physical-device PRs #301 and #19 retain separate owners and
