@@ -183,6 +183,12 @@
     "bytes": 605,
     "sha256": "92a842412c9cdc2992866f93509e228c76c209553e3c04560d7facd7dcfc9e01"
   },
+  "host_only_integration": {
+    "guest_input_equivalence": "production preprocessing identical; 148 retained artifact/metadata hashes and proof tools unchanged",
+    "integrated_main": "ba35d16c",
+    "path": "docs/assets/screenshots/profile-create-integration.json",
+    "sha256": "9374ecd4270909b6c63201058ce050d2a48fc880f98233a838e3e5517a789334"
+  },
   "independent_audit": {
     "archives_verified": 37,
     "path": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-migration-review/.local/profile-create-review/audit-result.json",

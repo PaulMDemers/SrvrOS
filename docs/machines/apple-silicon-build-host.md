@@ -33,6 +33,14 @@ real power-loss or Actions qualification. Review VMs 6233/61610/85869 remain
 untouched. Implementation is complete; hand exact heads/evidence to coordinator
 for independent merge, then release resources for the installation owner's
 separately authorized fresh-v2-B four-boot proof.
+
+Actual main `ba35d16c` is subsequently merged (`dcf69557`) with both unit records
+preserved. Only host-test-guarded exFAT/inspector code, a host target and docs are
+added. Actual production preprocessing proves identical guest exFAT input; all
+148 retained build artifacts/metadata and proof tools remain byte-identical.
+The integration receipt preserves original proof attribution without a new
+build/VM claim. Final follow-up records integration evidence and docs only.
+
 ## PR349 current-main merge review — ready
 
 User authorizes review and merge if ready, preserving uncertain media and review

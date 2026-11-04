@@ -1154,3 +1154,17 @@ further 1 GiB reserve. Completed snapshots/probes are removed only after verifie
 lossless compression and their last consumer; final primary images stay raw.
 No physical-media, real power-loss, external `fsck.exfat`, cryptographic identity,
 authentication or permission-enforcement acceptance is claimed.
+
+### Host-only current-main integration
+
+After the accepted proof, main `ba35d16c` adds the independent read-only workspace
+inspector. Its exFAT additions are all guarded by `SRVROS_EXFAT_HOST_TEST`; the
+actual guest compiler and production flags produce identical preprocessed exFAT
+text after removing blank lines/trailing whitespace. The normalized SHA256 is
+`42cb55645d245a9d884da51b8d793a793d9f5ccfd1305087a030ac78234335d4`.
+All other guest source/pins and all proof tools are unchanged, and all 148
+retained build artifacts/metadata checked against the accepted archive still
+match exactly. The helper's optional native inspection mode is not consumed by
+the creation proof. The [integration receipt](assets/screenshots/profile-create-integration.json)
+records the production command, hashes and merge source. No new build or VM run
+is claimed; the 20-lifetime proof retains its actual `1ef0ccdd` attribution.
