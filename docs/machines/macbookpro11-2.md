@@ -12,22 +12,25 @@ The captured EW-7711MAC `7392:a711`/`0100` is **5GHz-only**; see the
 mistaken for assembled-model capability. Historical2.4GHz packet/USB traces do
 not establish2.4GHz RF support. Do not repeat the withdrawn v107 trial.
 
-Latest native v117 `2a03a519eac62cbf`, source `1fe64aac`, accepts the complete
-1501530-byte prefix in session `session-00065f693a903b08-00`:11578 operations,
-including26 fresh logical30/d0 field operations and3767 trim/held-channel
-operations. Fresh effective trim44 stays selected through the full channel161
-band/frequency/A20/PA/gain-adjusted BBP transaction, then trim0 and all originals
-are independently restored. Fresh LNA12/AGC8=122c3cf2, all parent/common-init,
-source/release/session, payload/recovery bytes, offline fsck/allocation and saved
-automatic Ubuntu return pass. The154-file sealed native capsule and separate
+Latest native v118 `62e3a5325065719e`, runtime source `4dd9cfd5`, on main
+`10890eed`, accepts the complete1510049-byte prefix in session
+`session-00065f6a45979c71-00`:11669 operations, including the full v117 parent,
+26 fresh trim-field operations and91 common DAC operations. Fresh trim44 is
+selected around RF0:73 bit7 set/clear/set, independent DAC93/trim44 reads pass,
+and trim0 is independently restored. All MAC/CORE/DMA guards, source/release/
+session checks, saved automatic Ubuntu return, offline fsck/allocation and
+installed recovery bytes pass. The157-file sealed native capsule and separate
 accepted notes survive outside build. Workspace unmounted, Ubuntu default,
-unarmed. This accepts MAC-disabled command/state/restoration only; DAC/VCO,
+unarmed. This accepts the MAC-disabled command/reset-word contract only;
+restoring register words does not undo internal DAC reset effects. VCO/RF lock,
 calibrated RX, populated discovery/reattach, authentication and IP remain pending.
 
-Next installed candidate is v118 `62e3a5325065719e`, source `4dd9cfd5`, on
-integrated main `10890eed`. It adds only the fixed common DAC reset/word-readback
-child after the complete v117 parent; no VCO/RX or credentials. The cold trial
-must be collected before new work, and remains physically unaccepted until then.
+Prior v117 `2a03a519eac62cbf`/`1fe64aac`, session
+`session-00065f693a903b08-00`, remains accepted for its1501530-byte/11578-operation
+fresh-trim/held-channel contract. Its154-file capsule and separate notes are
+retained independently. No new boot is armed; next implement the separately
+audited common VCO lifetime after fresh trim/DAC proof, preserving the separate
+per-channel VCO/calibration ordering and cold-unplug requirement.
 
 Previous native v116 `466528fc7669566e`, runtime `c3088243`, main `1dad02c2`,
 passes the complete1063627-byte prefix in matching session
@@ -12076,3 +12079,15 @@ write, ESP payload retirement, new physical acceptance or reboot is part of this
 correction. Next: a separate5GHz band/BBP/calibration/restore contract and
 band-aware receive parser for161 before native reception, then real discovery,
 reattach, association/security and IP. Do not run another2.4GHz hardware trial.
+
+## 2026-11-03 v118 native common DAC return
+
+The matching automatically saved session passed the frozen complete-parent and
+DAC proof:11669 operations,1510049bytes,13 fixed commands/78 guards, all91 new
+I/O requests/replies/readbacks. Fresh trim44 spans DAC93/13/93; final DAC93 and
+selected trim44 readbacks precede inverse trim0 write/read. MAC remains disabled
+and network OUT is zero. Storage fsck/allocation, every installed recovery payload
+and Ubuntu default/unarmed state pass. The157-file capsule
+`wifi-dac5-native-4dd9cfd5` and separate `wifi-dac5-accepted-4dd9cfd5` notes are
+outside build. No rerun is required for this contract. Word restoration is not
+analog calibration, RF lock, receive, authentication or data acceptance.

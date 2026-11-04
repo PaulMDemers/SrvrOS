@@ -11,8 +11,8 @@ withdrawn before installation. New installation and runtime gates refuse that
 captured2.4GHz RF recipe. Historical rendering remains for offline regression.
 
 Native evidence accepts the bounded empty-cache desktop, trackpad, unplug
-retirement and automatic return. Latest v117 accepts11578 MAC-disabled command
-operations, including26 fresh trim-field operations and3767 operations holding
+retirement and automatic return. Latest v118 accepts11669 MAC-disabled command
+operations, including91 common DAC operations,26 fresh trim-field operations and3767 operations holding
 trim44 around channel161/20MHz band/frequency/A20/PA/gain-adjusted BBP selection. Independent selected reads and
 inverse original reads pass. This is command/state/restoration evidence; VCO/RF
 lock, calibrated reception, populated discovery, live reattach/rescan,
@@ -38,7 +38,7 @@ contract with a complete1501530-byte prefix,11578 operations, independent
 restoration, offline storage checks and automatic Ubuntu return. It does not
 accept DAC/VCO calibration, reception or connectivity.
 
-## Common DAC child candidate (v118; physical acceptance pending)
+## Common DAC child (v118; bounded native acceptance)
 
 The fixed common DAC child runs only after the complete same-boot v117 proof.
 Its private owner retains the freshly decoded fields, device identity and exact
@@ -52,6 +52,14 @@ The immutable automatic recipe inherits the2MiB complete prefix and automatic
 return. Its frozen checker requires all prior11578 minimum-poll operations and
 every new request/reply/direction/guard/readback, for11669 minimum-poll operations.
 No network frames, receiver, credentials or VCO pulse are enabled by this child.
+
+Pro11,2 release `62e3a5325065719e`/source `4dd9cfd5` accepts this command/reset-word
+contract with11669 operations and a complete1510049-byte saved prefix. Every
+fixed command, guard and independent readback passes, as do offline storage,
+recovery and automatic Ubuntu return. The sealed native capsule survives outside
+build. This does not accept VCO, RF lock, calibrated RX or connectivity; next is
+the separate common VCO lifetime with freshly selected trim, followed by the
+per-channel VCO/calibration/receiver contract.
 
 ## 5GHz RF band-selection foundation
 

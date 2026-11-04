@@ -829,6 +829,9 @@ The v118 common DAC child uses the same automatic2MiB transport after the full
 v117 fresh-field/trim/channel parent. Require the complete91-operation DAC
 sequence and independent final word reads; word restoration is not analog
 calibration or receiver acceptance. No VCO pulse or credential is part of v118.
+Pro11,2 accepted this bounded contract in release `62e3a5325065719e`:11669
+operations and1510049bytes, complete restoration/storage/recovery and automatic
+return. Require a new source-bound proof for later VCO or receive trials.
 
 Collect and inspect the matching session before preparing another run:
 
