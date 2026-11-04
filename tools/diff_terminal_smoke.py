@@ -22,12 +22,16 @@ EXPECTED = b'--- before\n+++ after\n@@ -1,3 +1,4 @@\n alpha\n-beta\n+BETA\n+inse
 
 def main():
     out = Path(tempfile.mkdtemp(prefix='proof-', dir=ROOT / 'build/review/diff-terminal'))
-    fixture = ExfatFixture((ROOT / 'build/srvros.exfat').read_bytes())
+    source_disk = (ROOT / 'build/srvros.exfat').read_bytes()
+    fixture = ExfatFixture(source_disk)
     fixture.add_directory_files('diff-ui', {'before.txt': BEFORE, 'after.txt': AFTER, 'target.txt': BEFORE})
     disk = out / 'disk.exfat'
     disk.write_bytes(fixture.data)
     receipt = {'status': 'INCOMPLETE', 'scope': 'actual Terminal functional/expert walkthrough; no user study',
                'source_commit': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
+               'source_disk_sha256': hashlib.sha256(source_disk).hexdigest(),
+               'kernel_sha256': hashlib.sha256((ROOT / 'build/iso_root/boot/srvros.elf').read_bytes()).hexdigest(),
+               'initramfs_sha256': hashlib.sha256((ROOT / 'build/iso_root/boot/initramfs.tar').read_bytes()).hexdigest(),
                'lessons': 'Compare and read a report; patch to a new output; an existing output returns status 2; retry with a new name and preserve the source.'}
     output = bytearray()
     consumed = 0
@@ -154,7 +158,8 @@ def main():
     assert actual.read('diff-ui/changes.diff') == EXPECTED
     assert b'exception:' not in output and b'deskd: FAIL' not in output
     receipt.update(status='PASS', screenshots='expert visual inspection required',
-                   runtime_sha256=hashlib.sha256(actual.read('bin/diff')).hexdigest())
+                   runtime_sha256=hashlib.sha256(actual.read('bin/diff')).hexdigest(),
+                   patch_runtime_sha256=hashlib.sha256(actual.read('bin/patch')).hexdigest())
     (out / 'receipt.json').write_text(json.dumps(receipt, indent=2) + '\n')
     print('GNU diff actual Terminal: PASS', out, flush=True)
 

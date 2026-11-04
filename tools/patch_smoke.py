@@ -155,6 +155,18 @@ def entries(image,directory):
     return {name for name,_ in image.entries(image.read(directory))}
 
 
+def directory_snapshot(image):
+    root={name for name,_ in image.entries(image.chain(image.root))}
+    sidecar={}
+    if '.srvros' in root:
+        for name,entry in image.entries(image.read('.srvros')):
+            data=image.read('.srvros/'+name)
+            sidecar[name]={'sha256':sha(data),'size':len(data),
+                           'attributes':int.from_bytes(entry[4:6],'little')}
+    return {'root':sorted(root),'home':sorted(entries(image,'home')),
+            'tmp':sorted(entries(image,'tmp')),'sidecar':sidecar}
+
+
 def main():
     global EVIDENCE
     ap=argparse.ArgumentParser(description=__doc__)
@@ -176,9 +188,11 @@ def main():
     files,expected=fixtures(args.gnu_diff,args.gnu_patch);files['multihunk.expected']=expected['multihunk']
     files['workflow.sh']=workflow();files['reboot.sh']=(b'#!/fat/bin/sh\ncmp -s /fat/patch-test/multihunk.out /fat/patch-test/multihunk.expected\necho $? > /fat/patch-test/reboot.status\necho PATCH_REBOOT_DONE\n')
     files['patch-probe']=runtime_elf(args.probe.read_bytes());files['patch-diagnostic']=runtime_elf(args.diagnostic.read_bytes())
-    root_before={name for name,_ in image.entries(image.chain(image.root))}
-    home_before=entries(image,'home');tmp_before=entries(image,'tmp')
+    baseline=directory_snapshot(image);root_before=set(baseline['root'])
+    if 'meta.tmp' in baseline['sidecar']:raise RuntimeError('source image contains an unfinished metadata sidecar')
     if 'patch-test' in root_before:raise RuntimeError('source image already contains patch-test')
+    directory_evidence={'before':baseline}
+    (out/'directory-evidence.json').write_text(json.dumps(directory_evidence,indent=2,sort_keys=True)+'\n')
     image.add_directory_files('patch-test',files);disk.write_bytes(image.data)
     source_files=[p for p in sorted((ROOT/'ports/srvros/patch').rglob('*')) if p.is_file()]
     receipt={'status':'INCOMPLETE','source_disk_sha256':sha(args.disk.read_bytes()),'patch_sha256':sha(binary),
@@ -236,6 +250,8 @@ def main():
                     if qmp:qmp.stream.close();qmp.sock.close()
                     stop_process(vm);(out/f'serial-{boot}.log').write_bytes(output)
             image=ExfatFixture(disk.read_bytes())
+            directory_evidence[f'boot-{boot}']=directory_snapshot(image)
+            (out/'directory-evidence.json').write_text(json.dumps(directory_evidence,indent=2,sort_keys=True)+'\n')
             # Retain guest files before checking preservation or later gates so
             # failed comparisons leave directly reviewable evidence as well as
             # the full disposable image.
@@ -250,9 +266,18 @@ def main():
                     if image.read('patch-test/'+name)!=b'G'*(256*1024+1):raise RuntimeError('race input growth differs')
                 elif image.read('patch-test/'+name)!=data:raise RuntimeError('fixture modified: '+name)
     image=ExfatFixture(disk.read_bytes())
-    root_after={name for name,_ in image.entries(image.chain(image.root))}
-    if root_after!=root_before|{'patch-test'} or entries(image,'home')!=home_before or entries(image,'tmp')!=tmp_before:
-        raise RuntimeError('unexpected artifact outside fixture directory')
+    final=directory_evidence['boot-2'];root_after=set(final['root'])
+    before_sidecar=baseline['sidecar'];after_sidecar=final['sidecar']
+    if (root_after!=root_before|{'patch-test','.srvros'} or final['home']!=baseline['home'] or
+        final['tmp']!=baseline['tmp'] or 'meta.tmp' in after_sidecar or
+        set(after_sidecar)!=set(before_sidecar)|{'meta'}):
+        raise RuntimeError('unexpected artifact outside fixture directory; see directory-evidence.json')
+    for name,record in before_sidecar.items():
+        if name!='meta' and after_sidecar.get(name)!=record:
+            raise RuntimeError('pre-existing sidecar artifact changed: '+name)
+    if after_sidecar['meta']['attributes'] & 0x10 or not image.read('.srvros/meta').startswith(b'SRVROSMETA1\n'):
+        raise RuntimeError('invalid SrvrOS metadata sidecar')
+    receipt['directory_evidence_sha256']=sha((out/'directory-evidence.json').read_bytes())
     def get(name):
         data=image.read('patch-test/'+name);(out/name).write_bytes(data);return data
     failures=('malformed','truncated','overflow','multi','unsafe','failed-hunk','existing','alias',

@@ -10,7 +10,7 @@ reservation for the next milestone.
 | Order | Application | Bounded outcome | State |
 | --- | --- | --- | --- |
 | 1 | GNU Diffutils 3.12 `diff` | Correct normal/quiet/unified comparison of two capped text files; long lines and 0/1/2 statuses; host patch validation and explicit local-patch subset. | Delivered and verified: ports PR11 `4da8a98b`, then OS PR369 `3fcf2630`; exact trees and reachable pin checked. |
-| 2 | GNU Patch 2.8.1 | Apply a bounded single-file unified patch to an explicit separate output; preserve source, reject ambiguous/unsafe paths and failed hunks; qualify the diff edge cases excluded by the compact local patch. | Active in isolated `SrvrOS-ports-patch`, reconciled with delivered diff/main `3fcf2630`; genuine SDK cross-configuration/link compatibility gate underway. |
+| 2 | GNU Patch 2.8.1 | Apply a bounded single-file unified patch to an explicit separate output; preserve source, reject ambiguous/unsafe paths and failed hunks; qualify the diff edge cases excluded by the compact local patch. | Active in isolated `SrvrOS-ports-patch`, reconciled with delivered diff/main `3fcf2630`; compatibility, matched build, two clean GNU rebuilds and selected native tests pass; first two-boot qualification stopped on an unexpected root artifact. No acceptance or merge. |
 | 3 | GNU Grep 3.12 | C-locale text search over bounded files/finite stdin; fixed strings and qualified BRE/ERE, useful match/count/quiet status contracts. No PCRE, recursion, color or Unicode claims. | Queued: authenticate/pin stable release and qualify regex/SDK/memory/cancellation gates. |
 | 4 | GNU Coreutils 9.12 `sha256sum` | File/stdin SHA-256 and a bounded explicit verification manifest; exact known vectors and failure statuses. No broader coreutils import or automatic filesystem traversal. | Queued: authenticate/pin stable release and bound manifest/path behavior. |
 
@@ -61,14 +61,14 @@ authorized port-first, OS-second delivery. [SrvrPorts #11](https://github.com/Pa
 and [SrvrOS #369](https://github.com/PaulMDemers/SrvrOS/pull/369) record its outcome.
 
 GNU Patch 2.8.1 source is authenticated (578 regular files match the archive) and
-its adapter/tests are prepared in the separate checkout. Its configuration,
-recipe, link, snapshot/output/memory/signal behavior and guest acceptance remain
-unverified. Reconcile with delivered diff/main before building; do not merge
-unqualified source to maintain queue momentum. Grep/coreutils source signatures
+its adapter/tests are prepared in the separate checkout. Configuration, recipe,
+link and clean rebuild gates pass. Full snapshot/output/memory/signal guest
+acceptance remains incomplete at the failed filesystem artifact check described
+below; do not merge unqualified source to maintain queue momentum. Grep/coreutils source signatures
 and digests are prepared and must be rechecked at entry. All four rows remain
 authorized; no new Proceed is required, but no later heavy slot is assumed.
 
-GNU Patch current window: ≤30 minutes for SDK bootstrap, genuine cross-config
+GNU Patch initial window (completed and released): ≤30 minutes for SDK bootstrap, genuine cross-config
 and sequential port-local compile fixes at ≤2 jobs, then at most one 512 MiB
 initial guest after production/diagnostic link. Stop/release on a shared blocker,
 first runtime failure, reserve breach, expiry or completion. Full qualification,
@@ -80,7 +80,34 @@ matched-image builds pass. Initial dirty-source proof
 `build/review/patch/first-mr6qicc4` passes named hunk edge cases, relative
 --version source, source preservation, exclusive-output/legacy refusals, failed
 hunk status 1 with output removed and fsck. No shared runtime change. The slice
-is explicitly released. Full ≤40-minute/two-clean-build/seven-512-MiB-guest
-qualification request is queued, not granted; no acceptance or merge yet.
+is explicitly released. The subsequent full ≤40-minute/two-clean-build/seven-512-MiB-guest
+window was granted and stopped at the first failed gate below; no acceptance
+or merge yet.
 Pinned dependency and alternate-depth setup failures remain historical evidence;
 direct owned reference stores solved them without changing older checkouts.
+
+GNU Patch full-window checkpoint: clean OS `37139e18`, ports `de7adcea`,
+matched build and two clean GNU core/gnulib/diagnostic rebuilds pass against
+the same SDK objects. Native selected tests have two PASS and one expected
+XFAIL (`dash-o-append`, outside the single-file profile). Two disposable boots
+and guest fsck completed, but the harness failed its outside-fixture artifact
+comparison at `build/review/patch/20261104-174642-s7p0g0jh`. The exact root
+addition is `.srvros` containing `meta`, besides the intended `patch-test`;
+Home and tmp entries are unchanged. Diagnosis is source-only; the failed
+receipt remains failed, later qualification assertions and five later guests
+are not accepted. The slot was released at first failure. A concrete harness
+correction and a fresh finite handoff are required before another heavy run.
+
+Grep source-only preparation: genuine GNU regex/DFA is required for BRE/ERE;
+full capped input must be admitted before `-q` can exit, so later input errors
+remain status 2. Prefer a measured port-local heap-arena ceiling at the actual
+SDK break-growth boundary over replacing the allocator. SDK calloc/realloc and
+aligned allocations call malloc within the same translation unit, so linker
+wrapping allocation symbols alone does not prove coverage. Audit the final
+`sbrk`/`srv_sbrk`/`brk` relocations and direct mappings; count page-rounded
+high-water because reducing program break does not unmap prior pages. This
+would bound heap arena, including fragmentation, rather than RSS or all process
+memory. No budget value or target acceptance is asserted before measurement.
+Cancellation checks must cover actual grep/kwset/DFA/regex compilation and
+matching/backreference loops, not only the caller around GNU execute. No Grep
+implementation, configure, compiler or guest run has started.

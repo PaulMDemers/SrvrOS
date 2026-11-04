@@ -5099,3 +5099,18 @@ then one 512 MiB initial guest only after both binaries link. Stop/release on
 shared blocker, first runtime failure, reserve breach, expiry or completion.
 Full qualification is separate. External build/cache/temp and checked reserves
 apply; no unrelated shell quoting or shared runtime change is authorized here.
+
+### GNU Patch first full qualification — incomplete
+
+Clean `37139e18` with published ports `de7adcea` passes the matched build,
+two clean GNU core/gnulib/diagnostic rebuilds against the same SDK objects,
+and selected native tests (two PASS, one expected `dash-o-append` XFAIL).
+The two-boot harness at `build/review/patch/20261104-174642-s7p0g0jh`
+stopped at its outside-fixture artifact comparison: root gained `.srvros/meta`
+and the intended `patch-test`, while Home/tmp entries are unchanged. Both
+guest fsck checks completed. Probe observations are retained, but the overall
+receipt remains FAIL and no acceptance is inferred from assertions not reached.
+The five later guests were not run. All owned jobs stopped and the resource
+window was released immediately; diagnosis is source-only until a concrete
+correction and fresh finite handoff. Integration checkout and review VMs remain
+untouched. No shared libc/kernel blocker has been established.
