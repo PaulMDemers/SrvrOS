@@ -1823,6 +1823,52 @@ This fixture installation is separate from delivery's refusal transaction; it is
 not a public fused-install contract. Updated whole-suffix/stack, mixed diagnostic
 negative/current native guests and normal closure remain pending before acceptance.
 
+## November 4: private RESET final qualification
+
+Closed the bounded correction at PR334 `63984900`. Final receipt SHA256
+`fa60ae294d585e5c6ebab3ad2e58e71b468e7d37de939a074f0aab3c3e4aa258`
+at `.local/pr334-build-volume/evidence/reset-peer/receipt.json` and all 317 retained
+files verify. All ten compiled/tested source hashes match the final commit.
+Independent six host-profile hashes bind to these sources, including prospective
+selection, complete refusal rollback, 48 alias controls and original three-object
+limits. Source attribution remains precommit base plus exact dirty hashes, with
+an explicit final commit closure rather than a retrospective clean-build claim.
+
+The mixed diagnostic negative retains new VMM/FPU/op-four IDT and the same packed
+payload while substituting the byte-matching frozen `2777eda7` process object;
+it is not a clean old-kernel build. Six main/worker peer-queue cases reach forbidden
+handler status 90 there. Fixed cases all exit 138 with no forbidden handler or
+continuation. In each current-only control, exactly one delayed handler runs,
+then private return exits 138. Both eight-case raw logs have complete exit lines,
+independently checked rather than trusting parsed receipt numbers. Nonreset real
+register/FPU/DF/pointer/red-zone preservation and depth-four/fifth-pending recovery
+pass. The 65,536-map sample is 936 us for the nonreset path only, not a RESET
+worst-case measurement, hard budget or complete IRQ-disabled-hook bound.
+
+Independent strengthened target analysis verifies 41 actual/audit function bodies
+and relocation identities, fully decodes all 40 reachable control graphs, rejects
+indirect/unknown transfers, and checks target addends land at function entries.
+Recomputed conservative stack bounds are 12,351/10,991 bytes including the 983-byte
+common prefix, within 131,072 bytes. Scope remains fixed CPU0 IF0 transaction;
+NMI/MCE and exit teardown are outside the bound. Actual suffix/IDT code routes
+committed 138 to process exit before post-call time/diagnostic work.
+
+Fresh normal closure two verifies complete exit-line/newline plus following
+prompt, and passes raw defaults, exec, both TLS layouts, default full threadstress,
+sysabi and main/worker FPU preservation. The first normal closure stopped on a
+partial status parse (13 before 138 completed); its failure/driver/logs remain,
+and no kernel pass/failure is inferred from that parser run. Task guests stopped;
+retained application payloads are not a full current-userspace rebuild.
+Evidence: `build/review/pr334-reset-peer-{native,stack,final}-review/`.
+This closes the reopened private RESET case; public ABI/libc/WTF, atomic waits,
+logical I/O gateway and nonlocal-unwind contracts remain preparation-only.
+
+SDK carry review also checked live main: the queried C++/statvfs/regex/semaphore
+files match pre-carry source and hyperbolic math is absent. However main's ports
+pin `d760e541` diverges from browser `af466ba` (13 ahead, seven behind). Future
+file-scoped dependency carries must preserve current ports integrations rather
+than replacing the whole tree/pin. No matched SDK/ICU/JSC success is inferred.
+
 ## Remaining work
 
 Other long IRQ-disabled operations, including initial/churning PMM scans, heap validation and poisoning,
