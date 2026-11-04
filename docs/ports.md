@@ -594,5 +594,5 @@ For tar interchange, decompress to an intermediate `.tar` file first; the local
 tar command does not accept an archive on stdin.
 
 Engineering provenance, cooperative interruption limits and reproduction commands
-are recorded in [the port contract](../ports/srvros/xz/PORT.md). Final qualification
-is in progress in the isolated xz checkout; see the roadmap for acceptance status.
+are recorded in [the port contract](../ports/srvros/xz/PORT.md). The isolated xz checkout passes the bounded qualification; see the roadmap for
+exact evidence and scope limits.

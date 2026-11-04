@@ -25,7 +25,23 @@ upstream regressions, two clean CLI builds and existing ports/fsck checks.
 Outside scope: threaded codecs, legacy/raw formats, helper scripts, custom filter
 CLI, automatic replacement/metadata/sparse-file behavior and job control. Keep
 integration checkout and review VM untouched; coordinate only a reproduced shared
-blocker. Status: implementing; no shared libc/kernel edit is planned.
+blocker. Status: implemented and verified for this bounded profile. No shared libc or
+kernel change was needed. Final guest receipt
+`build/review/xz/20261104-135556-m_qxupp7` passes both-boot byte interoperability,
+host preset-6 decode, zero-filled/multiblock/concatenated data, format/corruption/
+memory/output refusals and preserved inputs. Allocator failure at every tested
+site and 64 reuse cycles show zero net mapping growth. Repeated blocked I/O
+SIGINT/SIGTERM restore flags; cancellation after observed codec progress passes.
+This is cooperative recovery, not an in-call interruption-latency guarantee.
+
+The actual Terminal workflow and two Ctrl-C pipelines pass at
+`build/review/xz-terminal/proof-svpdq5tn`, with expert visual review. Six selected
+native-host upstream programs contain 22 passing subcases and two skipped threaded
+subcases; no guest full-upstream-suite claim. Two clean CLI builds match ELF hash
+`e0efaa0d2b08361a0c56d58c247cea01704a4e4b1ad30ba9c68a8d5cc4128e1f`.
+Existing ports smoke and guest fsck pass. All qualification is QEMU only; full
+image reproducibility and physical acceptance are not claimed. Milestone complete;
+branches are ready for separate draft port and OS integration PRs, in that order.
 
 ## End session and switch profile — delivered and verified November 4, 2026
 

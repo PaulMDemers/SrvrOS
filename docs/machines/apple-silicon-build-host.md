@@ -4029,7 +4029,7 @@ No physical-media, power-loss or external fsck.exfat acceptance is added. All
 owned guests stop at test completion; shared checkout and review VM are untouched.
 
 
-### xz isolated milestone — active November 4, 2026
+### xz isolated milestone — verified November 4, 2026
 
 User authorized bounded XZ Utils 5.8.4 in `SrvrOS-ports-xz`, branch `ports/xz`,
 based on actual main `f4ea0ccb`. Owns only port source/adapters, image entries,
@@ -4037,4 +4037,52 @@ qualification helpers and relevant continuity docs. Resolve memory and signal
 recovery before accepting the profile in the roadmap. Existing integration and
 review VMs are protected; only disposable task-owned guests may run. No shared
 libc/kernel change without a reproduced concrete blocker and coordination.
-Implementation and qualification are pending; no physical boot is authorized.
+The bounded milestone is complete. No physical boot was performed.
+
+Accepted evidence under this checkout:
+
+- `build/review/xz/source-authentication.json`: official archive SHA-256
+  `0014c7886930454fe8bd4228665b51af55eeae560ea135c9c4cd33f55b2591d9`,
+  all 655 pristine regular files match, detached primary-key signature verified.
+  The verifier and its explicit self-signature/revocation limitations are retained.
+- `build/review/xz/20261104-135556-m_qxupp7/receipt.json`: PASS two-boot host/guest
+  interoperability, zero/empty/ASCII/binary/multiblock/concat, host preset-6 decode,
+  intermediate tar listing, invalid/truncated/CRC/legacy/dictionary/cap/env/in-place
+  refusals, exact source preservation, real failed output and closed consumer.
+- The same receipt retains actual allocator diagnostics: fail each of 14 encoder
+  and 9 decoder allocations, recover, and repeat 64 cycles with private mapped
+  bytes returning to the 2,531,328 baseline. Requested peaks 2,833,479 encoder and
+  297,744 decoder are codec payloads, not process RSS. Production preset-6 decode
+  samples 10,866,688 private mapped bytes; encoding samples 5,283,840, neither a
+  true peak/RSS guarantee. Codec ceilings stay 8/32 MiB and cannot be raised by
+  CLI/environment overrides. The normal heap and shared allocator are unchanged.
+- Repeated blocked input/output SIGINT and SIGTERM pass with restored fd flags;
+  separate diagnostic active-stream cancellation after codec progress returns
+  130/143. The marker proves progress, not signal arrival inside a codec call or
+  an in-call latency bound. Callback flags return through the dispatcher, and
+  safe normal I/O/codec-loop checkpoints perform cleanup.
+- `build/review/xz-terminal/proof-svpdq5tn/receipt.json`: PASS actual graphical
+  report/compress/check/restore/compare, bad-input feedback and two Ctrl-C pipeline
+  cancellations followed by the usable shell. Expert screenshots show the exact
+  restored report and shell prompt; no user study was performed.
+- `build/review/xz/upstream-tests/summary.json`: native-host selected upstream
+  programs, 22 passing subcases and two skipped threaded subcases, no errors.
+  This is separate from target behavior, not full guest upstream-suite acceptance.
+- `build/review/xz/build-verification.json`: two clean CLI ELF builds identical
+  at `e0efaa0d2b08361a0c56d58c247cea01704a4e4b1ad30ba9c68a8d5cc4128e1f`;
+  runtime ELF `1d5c86a03caa5aa68ba8b7706b20573b37006fcc29f6d3f3393c5e59e770131a`.
+  Clean committed implementation `425c87d2` retains all three tested payload
+  hashes (`committed-build.json`); later delivery changes are documentation only.
+- Existing ports smoke passes with guest fsck `leaks=0 fat=0 errors=0`.
+
+Earlier failures remain retained: the first build missed a probe include; the
+first guest diagnostic request violated the inherited-stdio ABI and failed before
+cancellation ran. Permissions were already correct. Native host attempts initially
+tried unavailable Autotools regeneration because a copy changed source timestamps;
+restoring authenticated archive timestamps resolved the build setup. The first
+GUI receipt predates the final sparse-output disable and is not final acceptance.
+
+No shared libc/kernel blockers were found, so no integration-chat message was
+sent. All task-owned guests are stopped; integration checkout and review VM remain
+untouched. Target is complete and ready for draft port/OS PRs; neither PR nor merge
+was requested in this work block.
