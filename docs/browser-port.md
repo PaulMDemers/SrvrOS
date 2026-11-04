@@ -78,6 +78,12 @@ freestanding no-SSE object compile pass; a protected-page test checks CPL0 refus
 before missing user RSP/SS access. These are helper checks, not delivery acceptance.
 Source review packet `ce06cf05` enumerates every return-route category, scheduler
 admission, actual saved FPU ownership and whole-frame preflight/publication.
+A second owner-approved internal slice, `c03372ee`, adds the unwired read-only
+scheduler observation and actual scheduler-fixture refusal/invariance tests.
+Strict x86-64/Rosetta, full fixture ASan/UBSan and the target scheduler object
+compile pass. It returns opaque identities only, with no process-image or saved-
+FPU proof. Design `2e297895` specifies a stack-lived actual-save proof, per-thread
+kernel-FPU association and invalidation across scheduling/exec/exit, pending review.
 
 The owner identified that the inner syscall `scheduler_user_enter()` precedes
 the proposed outer hook, so `!scheduler_io_active()` alone cannot admit delivery.
