@@ -147,8 +147,8 @@ static int start_create_work(struct chooser *ui,const struct desktop_profile_req
     if(ui->job.active)return -1;
     ui->job=(struct chooser_job){.active=1,.kind=kind,.request=request};
     snprintf(ui->job.home,sizeof(ui->job.home),"%s",ui->home);
-    snprintf(ui->job.alias,sizeof(ui->job.alias),"%s",ui->alias);
-    snprintf(ui->job.name,sizeof(ui->job.name),"%s",ui->name);
+    snprintf(ui->job.alias,sizeof(ui->job.alias),"%s",ui->alias_text.data);
+    snprintf(ui->job.name,sizeof(ui->job.name),"%s",ui->name_text.data);
     snprintf(ui->job.uid,sizeof(ui->job.uid),"%s",ui->uid);
     snprintf(ui->job.gid,sizeof(ui->job.gid),"%s",ui->gid);
     snprintf(ui->job.uuid,sizeof(ui->job.uuid),"%s",ui->uuid);
@@ -189,12 +189,12 @@ static int parse_create_review(struct chooser *ui) {
     cJSON_Delete(j);return ok;
 }
 static int create_inputs(struct chooser *ui,const struct desktop_profile_request *request) {
-    size_t n=strlen(ui->alias);if(!n || n>32 || ui->alias[0]<'a' || ui->alias[0]>'z' || !ui->name[0])return 0;
-    size_t name_len=strlen(ui->name);
-    if(ui->name[0]==' ' || ui->name[name_len-1]==' ')return 0;
-    for(size_t i=0;i<name_len;i++)if((unsigned char)ui->name[i]<32 || (unsigned char)ui->name[i]>126 || ui->name[i]=='/' || ui->name[i]=='\\')return 0;
-    for(size_t i=0;i<n;i++)if(!((ui->alias[i]>='a' && ui->alias[i]<='z') || (ui->alias[i]>='0' && ui->alias[i]<='9') || ui->alias[i]=='-' || ui->alias[i]=='_'))return 0;
-    int len=snprintf(ui->home,sizeof(ui->home),"%s%s%s",request->root,!strcmp(request->root,"/")?"":"/",ui->alias);
+    size_t n=strlen(ui->alias_text.data);if(!n || n>32 || ui->alias_text.data[0]<'a' || ui->alias_text.data[0]>'z' || !ui->name_text.data[0])return 0;
+    size_t name_len=strlen(ui->name_text.data);
+    if(ui->name_text.data[0]==' ' || ui->name_text.data[name_len-1]==' ')return 0;
+    for(size_t i=0;i<name_len;i++)if((unsigned char)ui->name_text.data[i]<32 || (unsigned char)ui->name_text.data[i]>126 || ui->name_text.data[i]=='/' || ui->name_text.data[i]=='\\')return 0;
+    for(size_t i=0;i<n;i++)if(!((ui->alias_text.data[i]>='a' && ui->alias_text.data[i]<='z') || (ui->alias_text.data[i]>='0' && ui->alias_text.data[i]<='9') || ui->alias_text.data[i]=='-' || ui->alias_text.data[i]=='_'))return 0;
+    int len=snprintf(ui->home,sizeof(ui->home),"%s%s%s",request->root,!strcmp(request->root,"/")?"":"/",ui->alias_text.data);
     return len>0 && (size_t)len<sizeof(ui->home) && srv_profile_home_valid(ui->home);
 }
 static void failure_detail(struct chooser *ui,const char *fallback) {
@@ -296,7 +296,7 @@ static void draw(struct chooser *ui) {
             wrapped(c,(struct desk_rect){p.x+20,p.y+214,p.w-40,40},"Use a lowercase local alias with letters, digits, - or _.",t->muted);
         } else {
             char line[180];
-            snprintf(line,sizeof(line),"Name: %s",ui->name);desk_label_ellipsis(c,(struct desk_rect){p.x+20,p.y+65,p.w-40,22},&desk_font_16,line,t->text);
+            snprintf(line,sizeof(line),"Name: %s",ui->name_text.data);desk_label_ellipsis(c,(struct desk_rect){p.x+20,p.y+65,p.w-40,22},&desk_font_16,line,t->text);
             snprintf(line,sizeof(line),"Destination: %s",ui->home);desk_label_ellipsis(c,(struct desk_rect){p.x+20,p.y+90,p.w-40,22},&desk_font_16,line,t->text);
             snprintf(line,sizeof(line),"Identity: %s",ui->uuid);desk_label_ellipsis(c,(struct desk_rect){p.x+20,p.y+115,p.w-40,22},&desk_font_16,line,t->text);
             desk_text(c,&desk_font_16,p.x+20,p.y+150,"Standard text; 24-hour clock and date",t->text);

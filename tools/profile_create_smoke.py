@@ -96,7 +96,9 @@ def chooser_create(vm, name, alias, checkpoint=None, keyboard=False):
     vm.click(x + 260, y + h - 33)
     if keyboard:
         t.text(vm, 'wrong name'); vm.key('ctrl-a'); t.text(vm, name)
+        t.text(vm, 'x'); vm.key('ctrl-z'); vm.key('ctrl-y'); vm.key('ctrl-z')
         vm.key('tab'); t.text(vm, 'wrong_alias'); vm.key('ctrl-a'); t.text(vm, alias)
+        t.text(vm, 'x'); vm.key('ctrl-z'); vm.key('ctrl-y'); vm.key('ctrl-z')
         vm.screenshot('create-form-corrected')
         vm.key('tab'); vm.key('ret')
     else:
