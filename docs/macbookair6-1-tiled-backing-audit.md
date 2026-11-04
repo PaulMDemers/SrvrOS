@@ -354,3 +354,21 @@ records. Native acceptance requires a newly matched, staged/VM-tested image,
 local recovery/storage preflight and complete saved capture. The accepted
 version2 observations remain historical evidence, not advance acceptance of
 this new profile. GT and actual ownership/lifetime remain later prerequisites.
+
+
+## Native version-3 Linux-model32 result (2026-11-04)
+
+Release `86257762f155128f` / source `169f3808` records two matching complete
+32-row observations: fence0=`0x00fff02b00000001`, rows1–31 zero. Fence0 remains
+the only candidate within the pinned Linux model; zero upper values do not
+resolve the Intel16/Linux32 discrepancy or prove global hardware uniqueness.
+Two matching 1,056-entry GGTT vectors, raw CPU TILECTL zero twice, 1,249 reads
+per pass and ten verified retired mappings complete the read-only receipt.
+Pass brackets are396/391 us. No GT access, forcewake, policy or limits changed.
+
+The [unit closeout](machines/macbookair6-1.md#native-linux-model32-fence-observation-accepted-2026-11-04)
+records matching session, unchanged prior files, clean allocation and recovery.
+This accepts sampled observations only. GT/full-path swizzle, real backing
+allocation and scanout lifetime, firmware exclusion and ownership stay open;
+the original RC6 timing failure and package-C3 zero are unchanged. The next
+bounded step is auditing those remaining prerequisites before any control change.
