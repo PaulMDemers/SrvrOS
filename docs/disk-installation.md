@@ -1,5 +1,76 @@
 # Disk installation and recovery
 
+## PR342 integrated-main review and next bounded checkpoint
+
+User authorizes review and merge if ready. Reviewed `1a19e2c6` against actual
+main `7ef140ef`, merged as `e5088ac2`, with Ports `78fb8184`. No material blocker
+or unresolved review thread. The read-only exporter preserves explicit profile/
+document selection, v1 codec bounds, historical source receipts, final source
+revalidation and exclusive checked output publication. Native fd/range/path/
+allocation/namespace admission and deferred framed output remain unchanged.
+Uncertain output publication correctly fails without overwriting or deleting a
+visible bundle. It does not yet provide durable export-publication reconciliation.
+
+Fresh combined checks pass: 70 passing installation tests and one optional
+long-matrix skip, including 15 export and 19 inspection groups; profile bundle/
+adapter, preferences/startup/catalog/chooser and guest-profile checks pass.
+The matched full build is clean `87c5b786`. All ten proof-consumed kernel/init/
+EFI/desktop/native-reader artifacts exactly match the accepted four-boot proof.
+Proof tools and native sources match apart from the previously recorded trailing
+blank-line trim, which produces identical native binaries. Comparing all file
+payloads against the original qualified base finds only the two new bc aliases
+and the already-reviewed sysabi test/legacy alias differences: 367 old files,
+369 current files, 15 unchanged directory names. Current base clean/allocation/
+namespace admission passes with zero write/flush attempts and unchanged bytes.
+No production filesystem/profile/installer contract or consumed runtime behavior
+changes; no affected VM proof needs rerun. The four-boot proof retains its actual
+clean `ca90437a` attribution rather than being relabeled as a new run.
+
+Independently streamed all seven compressed images to their original SHA-256
+and byte lengths, verified 16 screenshots and 11 archived matched artifacts,
+and checked all 33 proof steps: two identical exports, 16 reason-matched export
+refusals, five used inspections and ten strict publication refusals. Stage/source
+snapshots agree throughout; refusal output snapshots agree. No historical inode
+was restored or adopted as a recovery target. The
+[review receipt](assets/screenshots/installation-export-review.json), exact
+checks/build metadata and streaming/comparison scripts survive at
+`.local/installation-evidence/pr342-review`. Original proof receipts/screenshots
+stay at their paths. Under shared disk pressure, the inactive inspection and
+fsync proof images were also retained in verified gzip form with compression
+manifests; no evidence bytes were discarded. Review VMs 61610/6233/85869 stay
+running and untouched; no review VM, physical trial or Actions was launched.
+Ready for the authorized merge; subsequent commits contain review records only.
+
+Next proposed bounded installation milestone: **interrupted export-publication
+inspection and reconciliation**. The current exporter reports failure and retains
+a complete visible bundle after uncertain sync/cleanup/close, but it has no
+durable export record that a later process can inspect and finish synchronizing.
+Add a small export-specific publication record outside the source stage, a
+read-only inspection action and explicit idempotent reconciliation of a fully
+verified owned bundle. Partial, changed, unowned, linked or ambiguous artifacts
+remain preserved refusals; no re-export, output replacement or source repair is
+implied. This is a proposed follow-up, not work started by this merge review.
+
+Dependencies: PR342's admitted read-only source, fixed portable payload and
+checked publication boundaries; PR336's source/history distinction; the
+integrated PR309/314/320/321/326 bundle, identity/preferences, pending-state and
+fresh-install binding contracts; and the host identity/locking/file-directory
+sync and fault-experiment patterns from PR325/330. Export records must remain
+separate from installation publication receipts. Reconciliation acknowledges
+the verified exported snapshot, not current source health or authentication.
+Existing PR312/313/318 clean root/namespace/allocation and PR329 file-fsync
+semantics suffice for restoration verification. No new kernel repair API is
+required. Desktop transfer PR333 remains unmerged and separately owned; its UI
+is not a prerequisite for this offline host publication slice.
+
+Acceptance: interrupt private write, file sync, link, temporary unlink and
+directory/acknowledgment boundaries in fresh processes; inspect retained state,
+reconcile only exact complete owned output, and repeat without changing bundle
+bytes. Refuse torn records, wrong inode/hash, unknown aliases or conflicting
+destinations while preserving source images, historical receipts and evidence.
+Restore a reconciled bundle into fresh B and verify after reboot. Keep physical
+power loss, dirty-media salvage, in-place upgrade and authentication separate.
+
 ## Offline selected-profile export — qualified
 
 User authorized implementation, fresh-install restoration/refusal proof and a

@@ -1,6 +1,6 @@
 # Apple Silicon macOS build host
 
-## PR342 integrated-main merge review — active
+## PR342 integrated-main merge review — ready
 
 User authorizes review and merge if ready. Reuse isolated
 `SrvrOS-installation-io` and the export branch, initial head `1a19e2c6`;
@@ -12,6 +12,21 @@ review VMs 61610/6233/85869, existing evidence and other checkouts. One build or
 harness here, no physical media/reboot/Actions. Start with bounded host checks
 and streamed retained evidence under shared disk pressure, then determine which
 runtime proof is affected before the authorized merge.
+
+No material finding or unresolved thread. Fresh combined checks pass (70 passing
+installation tests, one optional skip, 15 export and 19 inspection groups), plus
+profile/guest and documentation checks. Clean matched build `87c5b786` preserves
+all ten proof-consumed artifacts. Complete base payload comparison adds only bc
+aliases and the previously reviewed sysabi fixture differences; native read-only
+admission passes. Streamed seven compressed images, verified 16 screenshots/11
+artifacts and all 33 original proof steps. No changed runtime contract invalidates
+the source-attributed four-boot proof, so no new VM is needed. Review VMs stay
+live and untouched. Evidence survives at `.local/installation-evidence/pr342-review`.
+Inactive inspection/fsync images retain verified compressed bytes and historical
+inode mappings. Ready for authorized merge. Next proposal: export-publication
+inspection/reconciliation for retained complete output after interruption or
+uncertain sync; reuse current codec/source/fresh-install and host-publication
+contracts, with no dependency on unmerged desktop-transfer UI.
 
 ## Offline selected-profile export — qualified
 
