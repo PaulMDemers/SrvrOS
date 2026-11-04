@@ -6,6 +6,7 @@ import json
 import hashlib
 import io
 import contextlib
+import re
 from pathlib import Path
 import shutil
 import socket
@@ -131,10 +132,21 @@ def main():
                 shortcut("ctrl-l");type_text("/fat/find-fixture");shortcut("ctrl-f");type_text("nothing-matches");shortcut("ctrl-1");shortcut("ctrl-ret");wait(b"count=0 matched=0 skipped=0")
                 shortcut("ctrl-f");type_text("report");shortcut("ctrl-ret");wait(b"count=2 matched=2 skipped=0")
                 shortcut("shift-f10");shot("find-context");shortcut("esc")
-                # Third window: content origin (81,156), 760 by 500.
-                qmp.mouse(837-pointer[0],652-pointer[1]);pointer[:]=[837,652]
-                qmp.mouse(0,0,1);qmp.mouse(-480,-260,1);qmp.mouse(0,0,0);pointer[0]-=480;pointer[1]-=260;time.sleep(.5);shot("find-compact")
+                # Calibrate against a clamped screen origin, then use the
+                # compositor's actual frame rather than a stale cursor offset.
+                frames=re.findall(rb'deskd: geometry pid=(\d+) window=(\d+) frame=(\d+),(\d+),(\d+),(\d+)',output)
+                pid,window,x,y,w,h=next(tuple(map(int,row)) for row in frames if int(row[4])==762 and int(row[5])==545)
+                qmp.mouse(-1600,-1000);pointer[:]=[0,0]
+                qmp.mouse(x+w-2,y+h-2);pointer[:]=[x+w-2,y+h-2]
+                qmp.mouse(0,0,1);qmp.mouse(-480,-260,1);qmp.mouse(0,0,0);pointer[0]-=480;pointer[1]-=260
+                wait_all([f'deskd: commit pid={pid}'.encode(),b'size=280x240']);shot("find-compact")
+                click(x+1+24,y+44+146+24+14)
                 shortcut("down");shortcut("ctrl-c");wait(b"deskfind: copy path=/fat/find-fixture/report-two.txt")
+                shortcut("ctrl-shift-2");shortcut("ctrl-f");type_text("first report");shortcut("ctrl-ret")
+                wait(b"deskfind: started root=/fat/find-fixture query=first report kind=1 mode=1")
+                wait(b"count=1 matched=1 skipped=0 mode=1 flags=0");shot("find-compact-contents")
+                shortcut("ctrl-shift-1");shortcut("ctrl-f");type_text("report");shortcut("ctrl-ret")
+                wait(b"count=2 matched=2 skipped=0 mode=0 flags=0")
                 shortcut("f1");wait_all([b"deskhelp: page=find",b"deskhelp: starting"]);shot("find-help");shortcut("ctrl-w");wait(b"deskhelp: exited")
                 focus_find();shortcut("ctrl-w");wait(b"deskfind: exited failure=0")
                 # The global shortcut starts a new search from the home folder.

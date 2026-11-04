@@ -66,7 +66,7 @@ int main(void) {
     payload.header=(struct desk_search_header){DESK_SEARCH_MAGIC,DESK_SEARCH_CONTENT_VERSION,1,DESK_SEARCH_BYTE_LIMIT,10,1,3};
     payload.entries[0]=(struct desk_search_entry){.path="/fat/home/unrelated.txt",.inode=10,.size=30};
     poll_result=1;poll_job();poll_result=0;
-    assert(app.header.count==1 && !strcmp(selected()->path,"/fat/home/unrelated.txt") && strstr(app.status,"Partial") && strstr(app.status,"3 skipped"));
+    assert(app.header.count==1 && !strcmp(selected()->path,"/fat/home/unrelated.txt") && strstr(app.status,"Partial") && strstr(app.status,"3 skipped") && strstr(app.status,"needle/inside"));
     set(&app.query_text,"needle");set(&app.root_text,"/fat/home");run();
     payload.header.flags=DESK_SEARCH_TRUNCATED|DESK_SEARCH_SCAN_LIMIT;payload.header.matched=257;payload.header.scanned=DESK_SEARCH_CONTENT_SCAN_LIMIT;
     poll_result=1;poll_job();poll_result=0;assert(strstr(app.status,"First 256") && strstr(app.status,"item limit"));
