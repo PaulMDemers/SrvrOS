@@ -3237,3 +3237,21 @@ Independent fsck is unavailable. The original acceptance hash above remains
 historical; no power-loss, physical-device or full-image reproducibility claim
 is added. Integration checkout/review VM remain untouched. PR2 in SrvrPorts must
 merge before OS PR306; the user authorized both merges conditional on checks.
+
+### Unexpected app closure investigation — active November 3, 2026
+
+User authorized a bounded app recovery investigation in the independent
+`SrvrOS-app-quality` checkout, branch `app/closure-recovery`, from main
+`62b0708e`. Earlier unexplained physical app closures remain historical evidence,
+not a reproduced VM defect. Own investigation of Text/Files/Preview/Sketch
+failed saves, canceled dialogs, closure during accepted file work and process
+retirement. Reuse existing lifecycle/Sketch fixtures and fix only reproduced
+in-scope defects. Keep native acceptance, PR252 kernel/I/O ownership, the shared
+checkout and review VM untouched. Build and disposable VM harnesses run sequentially.
+
+Acceptance: matched source/pins/build; bounded mixed-app lifetime workload;
+normal and refused-dialog save/cancel/quit paths; exact saved bytes and retained
+edits; Sketch revision isolation/failed replacement; no unintended app retirement,
+surviving workers or unbounded heap/frame growth. Report physical closure cause
+as unresolved unless evidence actually identifies it. Next: baseline reproduction
+and source review before runtime changes.
