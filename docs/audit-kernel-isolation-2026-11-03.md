@@ -395,8 +395,12 @@ slicing cases. These tests model PCI/MMIO/device responses; they do not establis
 physical-device or arbitrary hot-removal acceptance. No additional confirmed
 VirtIO defect was found in this bounded pass.
 
-Kernel compilation passes; updated-kernel guest results are recorded after
-execution under `build/review/network-dma/`. Existing review VMs and other
+Implementation `8db6e2df` compiles and passes rebuilt-kernel Q35 netabi
+(explicit E1000 device) and sysabi against retained PR313 runtime files and
+disposable disks. Evidence is under `build/review/network-dma/`. Main `1f177761`
+was integrated at `ec22a216` without kernel changes. An appended-Makefile conflict
+was resolved preserving both E1000-init and salvage test targets, which pass
+together. The newer salvage helper was not staged into these kernel-only guests. Existing review VMs and other
 checkouts remain untouched. Broader native E1000 admission, xHCI/USB, display
 hardware ownership, DMA concurrency and explicit recovery remain audit work.
 

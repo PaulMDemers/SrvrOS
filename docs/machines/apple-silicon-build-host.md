@@ -3217,3 +3217,8 @@ recorded success/failure and all existing backing. Four modeled init scenarios,
 RX/link and VirtIO net/input/GPU/transport quarantine suites pass; new init
 fixture also passes GCC14 and sanitizers. No libc/workspace policy changes;
 filesystem owner notified. Broader hardware reset/removal remains open.
+
+Implementation `8db6e2df` passes kernel compilation, E1000 netabi and sysabi
+guests with retained PR313 runtime files. Main `1f177761` is integrated without
+kernel changes; both appended Makefile test groups were preserved and their
+combined init/salvage run passes. Task guests stopped.
