@@ -345,3 +345,26 @@ verifies the supplied-stack request but executes on a host-managed stack; live
 guest workflows separately exercise real application workers. These targeted
 passes do not qualify the full Linux/core suite or native hardware. See the
 [repository milestone](repository-organization.md) for exact tested revisions.
+For the libc socket continuation, use the host compiler wrapper above and run
+`sh tools/macos/build.sh HOST_CC='python3 build/tooling/darwin-host-cc.py' test-socket-calls test-socket-aliases test-fd-io-restart test-event-adapters`.
+Build the guest with `sh tools/macos/build.sh -j2 all`, then run
+`python3 tools/netabi_smoke.py --boot-wait 60` and
+`python3 tools/thread_smoke.py --boot-wait 60 --run-wait 300` sequentially.
+
+For Unix-stream descriptor passing, add the host targets
+`test-process-output`, `test-pipe-message` and `test-syscall-io` to that command. Rebuild both kernel and libc for
+syscall 156 before running the network ABI smoke. The pre-fix probe used the
+same public socketpair operations against the previous matched image.
+
+To reproduce the queue lifetime checks on an ARM64 Mac, run
+`sh tools/macos/build.sh HOST_CC='python3 build/tooling/darwin-host-cc.py' test-process-output`,
+then `sh tools/macos/build.sh -j4 all`. Run
+`python3 tools/netabi_smoke.py --boot-wait 60 --command-wait 60` and
+`python3 tools/thread_smoke.py --test vector-io --boot-wait 60 --run-wait 80`
+in sequence.
+
+For pipe mapping and launcher regressions, build a matched image with
+`sh tools/macos/build.sh -j4 all`. Run `python3 tools/process_lifetime_smoke.py`
+and `python3 tools/thread_smoke.py --test pipe-mapping --boot-wait 60`
+sequentially. Use the Darwin host compiler wrapper above with
+`test-pipe-user-mapping test-process-output` for the corresponding host tests.

@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
+#define SRVROS_SYSCALL_IO_HOST_TEST
 #include "../kernel/src/arch/x86_64/syscall.c"
 static struct srv_sched_trace output;
 static bool mapped=true,available=true;

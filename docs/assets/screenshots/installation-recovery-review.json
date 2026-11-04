@@ -1,0 +1,102 @@
+{
+  "accepted_build_log": "pr325-build-review-sequential.log",
+  "candidate": "8b4619b63ac2a04ee467c5ee67e338fde14944a5",
+  "changed_since_original_proof": [
+    "docs/assets/screenshots/installation-recovery-manifest.json",
+    "docs/assets/screenshots/installation-recovery-reopened.png",
+    "docs/disk-installation.md",
+    "docs/filesystem-layout.md",
+    "docs/machines/apple-silicon-build-host.md",
+    "tools/test_exfat_import.c",
+    "tools/test_exfat_import.py",
+    "tools/test_process_salvage.inc",
+    "tools/test_process_writeback.c",
+    "tools/test_workspace_salvage.inc",
+    "tools/test_workspace_writeback_negative.py"
+  ],
+  "equivalence": {
+    "build/initramfs.tar": {
+      "matches_original_proof": true,
+      "sha256": "5368a8013ac245cfd7baa8480bcf8b39c8f2f9be4593338e26d062c750b22743"
+    },
+    "build/kernel/srvros.elf": {
+      "matches_original_proof": true,
+      "sha256": "bfabff0b2414eaf47bd96fec53a6ed0296e22e33b8a314e86546814cdeba3aa3"
+    },
+    "build/limine-binary/BOOTX64.EFI": {
+      "matches_original_proof": true,
+      "sha256": "333f7a69379b1f47e019be215885cdc078b9edd6e9255cbe2f706d6c5ec0ef06"
+    },
+    "build/srvros.exfat": {
+      "matches_original_proof": true,
+      "sha256": "b7d37f55efe038f44c9f4a2ab3541038606306abf9b674d74587661a9fe52aa3"
+    },
+    "build/tests/exfat-driver": {
+      "matches_original_proof": true,
+      "sha256": "7cd305abbe9d38f45f317947b439583ad465eea449e6fd30214a8c20007812c8"
+    },
+    "build/tests/profile-image-driver": {
+      "matches_original_proof": true,
+      "sha256": "5a4165be97737b1862b41324d3cc7e6a4ee67b6deb7ca638e32a5b01bea50198"
+    },
+    "build/userspace/init.elf": {
+      "matches_original_proof": true,
+      "sha256": "fe39fd93a29e520d252612533c161c18512ef3a52508fbb552c982ed22da0b1f"
+    },
+    "tools/installation_image.py": {
+      "matches_original_proof": true,
+      "sha256": "2f0a98d7deedca6867177e1a28174ac057a225492a238cede6c6438b6e2b741d"
+    },
+    "tools/installation_recovery_smoke.py": {
+      "matches_original_proof": true,
+      "sha256": "4697bd0f4b0fd09fa92f0738809f9cbd881e4c9a125db44858def33cc0853c64"
+    },
+    "tools/profile_bundle.py": {
+      "matches_original_proof": true,
+      "sha256": "5c9747b2f83916a31400f3a1c7df642bb070e7e3c69b451a47ea9d35aaf468ee"
+    },
+    "tools/profile_desktop_smoke.py": {
+      "matches_original_proof": true,
+      "sha256": "862d4a86087edac7f5ad77cac73aec5a06129c03f77641ead0d11adda582fccf"
+    },
+    "tools/profile_image.py": {
+      "matches_original_proof": true,
+      "sha256": "50b981822748afe17b2f5112082df900453370cf353e41e34f53b2022927201c"
+    },
+    "tools/profile_installation_smoke.py": {
+      "matches_original_proof": true,
+      "sha256": "7697ea0e06eaacea8b58d61a0cb14b7d2c6c1663155de2de3d17cb5e41dd780a"
+    }
+  },
+  "fresh_checks": {
+    "installation_tests": 35,
+    "installed_root_admission": "PASS",
+    "matched_full_build": "PASS",
+    "profile_adapter_groups": 7,
+    "profile_bundle_groups": 13,
+    "profile_paths_session_startup_preferences": "PASS"
+  },
+  "integrated_main": "4f5edb0e7ce5f3593e6a522fdf7af81f0ca79590",
+  "limits": [
+    "disposable QEMU prototype only",
+    "process interruption after successful I/O, not media failure or fsync fault qualification",
+    "journal is an integrity record, not authentication",
+    "no physical disk or power-loss acceptance",
+    "external fsck.exfat not run"
+  ],
+  "logs_sha256": {
+    "pr325-build-review-sequential.log": "6c9c190b997f40b49fc925d107731f7f2cda4bdd49ad8944ccf7291aac3ae307",
+    "pr325-build-review.log": "6c9c190b997f40b49fc925d107731f7f2cda4bdd49ad8944ccf7291aac3ae307",
+    "pr325-host-review.log": "c2a55425a7588c14a23aaa1e955caf0fa37597a80282c8da3c8b084b86591461"
+  },
+  "original_vm_proof_source": "291f469ec00c431f359eb21fbf713343cdee6eca",
+  "review": "independent read-only implementation review: no material blocker; no submitted reviews/unresolved threads",
+  "review_vms_alive": [
+    61610,
+    6233,
+    85869
+  ],
+  "runtime_rerun": "not required: complete changed-file inspection and exact rebuilt artifact/tool equality",
+  "status": "PASS",
+  "unaccepted_overlapping_build_log": "pr325-build-review.log"
+}

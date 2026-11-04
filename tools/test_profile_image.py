@@ -97,6 +97,7 @@ class DriverTests(unittest.TestCase):
         self.assertEqual(metadata[0], b'SRVROSMETA1')
         self.assertTrue(all(line.split(b'\t')[0] == b'/fat' or line.startswith(b'/fat/') for line in metadata[1:]))
         self.assertEqual(fs.read('home/alice/Documents/notes.txt'), b'portable data')
+        self.assertEqual(p.decode_json(fs.read('home/alice/identity.json')), bundle()['profile'])
         # A malformed stored mount prefix must fail before publication, without
         # changing the source or silently repairing its sidecar.
         entry=dict(fs.entries(fs.read('.srvros')))['meta']

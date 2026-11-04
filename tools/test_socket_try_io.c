@@ -2,11 +2,18 @@
  * nonblocking dispatch and no mutation of the shared file status flags. */
 #include <assert.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#define SRVROS_SYSCALL_IO_HOST_TEST
 #include "../kernel/src/arch/x86_64/syscall.c"
 static struct process_file file;
 static unsigned calls;
 static uint64_t bad_address;
 static bool expected_writable;
+static uint64_t test_generation=1;
+static uint64_t revoke_at_transport;
+static bool replace_at_transport;
+static uint8_t *mutate_source;
 struct process *process_current(void) { return (struct process *)1; }
 struct process_file *process_file_at(struct process *p,uint64_t fd) { assert(p==(struct process *)1);return fd==7?&file:NULL; }
 bool vmm_user_range_mapped(uint64_t address,uint64_t length,bool writable) {
@@ -14,6 +21,11 @@ bool vmm_user_range_mapped(uint64_t address,uint64_t length,bool writable) {
     if(length==3)assert(writable==expected_writable);
     return true;
 }
+uint64_t process_fd_generation(struct process *p,uint64_t fd) { assert(p==(struct process *)1 && fd==7);return test_generation; }
+int64_t process_handle_alloc(struct process *p,enum process_file_type type,uint64_t h) { (void)p;(void)type;(void)h;assert(0);return -1; }
+int64_t net_close(uint64_t h) { (void)h;assert(0);return -1; }
+void *kmalloc(size_t n) { return malloc(n); }
+void kfree(void *p) { free(p); }
 static int64_t invoked(uint64_t h,uint64_t length,bool nonblock) {
     assert(h==42 && length==3 && nonblock && file.flags==SRV_FD_APPEND);calls++;return 3;
 }
@@ -26,11 +38,41 @@ int64_t net_udp_sendto_mode(uint64_t h,uint32_t ip,uint16_t port,const uint8_t *
 int64_t net_udp_recvfrom(uint64_t h,uint8_t *b,uint64_t n,uint32_t *ip,uint16_t *port,bool nonblock) {
     (void)b;*ip=0x01020304;*port=53;return invoked(h,n,nonblock);
 }
-int64_t process_file_pipe_read_mode(struct process *p,uint64_t fd,uint8_t *b,uint64_t n,bool nonblock) {
-    (void)b;assert(p==(struct process *)1 && fd==7);return invoked(42,n,nonblock);
+int64_t net_accept_checked(uint64_t h,uint64_t n,bool nonblock,const struct net_transfer *t) {
+    (void)h;(void)n;(void)nonblock;(void)t;assert(0);return -1;
 }
-int64_t process_file_pipe_write_mode(struct process *p,uint64_t fd,const uint8_t *b,uint64_t n,bool nonblock) {
-    (void)b;assert(p==(struct process *)1 && fd==7);return invoked(42,n,nonblock);
+int64_t net_read_checked(uint64_t h,uint64_t n,bool nonblock,bool peek,const struct net_transfer *t) {
+    (void)peek;
+    if(revoke_at_transport) bad_address=revoke_at_transport;
+    if(replace_at_transport) test_generation++;
+    if(!t->current(t->context)) return SRV_ERR_BADF;
+    int64_t result=t->copyout(t->context,(const uint8_t *)"abc",3,0,0,0);
+    return result<0?result:invoked(h,n,nonblock);
+}
+int64_t net_udp_recv_checked(uint64_t h,uint64_t n,bool nonblock,const struct net_transfer *t) {
+    if(revoke_at_transport) bad_address=revoke_at_transport;
+    if(replace_at_transport) test_generation++;
+    if(!t->current(t->context)) return SRV_ERR_BADF;
+    int64_t result=t->copyout(t->context,(const uint8_t *)"abc",3,0,0x01020304,53);
+    return result<0?result:invoked(h,n,nonblock);
+}
+int64_t net_respond_checked(uint64_t h,const char *b,uint64_t n,bool nonblock,const struct net_transfer *t) {
+    assert(t->current(t->context) && b && n==3);
+    if(mutate_source) { memset(mutate_source,'z',3);assert(!memcmp(b,"abc",3)); }
+    return invoked(h,n,nonblock);
+}
+int64_t net_udp_send_checked(uint64_t h,uint32_t ip,uint16_t port,const uint8_t *b,uint64_t n,bool nonblock,const struct net_transfer *t) {
+    assert(t->current(t->context) && b && ip==0x01020304 && port==53);
+    if(mutate_source) { memset(mutate_source,'z',3);assert(!memcmp(b,"abc",3)); }
+    return invoked(h,n,nonblock);
+}
+int64_t process_file_pipe_read_checked(struct process *p,uint64_t fd,uint64_t n,bool nonblock,
+    process_pipe_copyout copyout,void *context) {
+    assert(copyout && context && p==(struct process *)1 && fd==7);return invoked(42,n,nonblock);
+}
+int64_t process_file_pipe_write_checked(struct process *p,uint64_t fd,uint64_t n,bool nonblock,
+    process_pipe_copyin copyin,void *context) {
+    assert(copyin && context && p==(struct process *)1 && fd==7);return invoked(42,n,nonblock);
 }
 int main(void) {
     uint8_t buffer[3];struct srv_socket_peer peer={.ip=0x01020304,.port=53};
@@ -54,5 +96,24 @@ int main(void) {
     expected_writable=true;assert(syscall_socket_try_io(7,4,buffer,3,&peer)==SRV_ERR_FAULT);
     assert(calls==before);bad_address=0;peer.ip=0;peer.port=0;
     assert(syscall_socket_try_io(7,4,buffer,3,&peer)==3 && peer.ip==0x01020304 && peer.port==53 && !peer.reserved);
-    puts("socket-try-io: PASS types, operations, user access, peer copy, flags and nonblocking dispatch");
+    assert(!memcmp(buffer,"abc",3));
+    /* Mapping or descriptor identity can change after initial validation but
+     * before transport commit. Neither payload nor peer may be published. */
+    memset(buffer,0xa5,sizeof(buffer));memset(&peer,0xa5,sizeof(peer));
+    struct srv_socket_peer sentinel=peer;
+    revoke_at_transport=(uint64_t)buffer;expected_writable=true;
+    assert(syscall_socket_try_io(7,SRV_SOCKET_UDP_RECV,buffer,3,&peer)==SRV_ERR_FAULT);
+    assert(buffer[0]==0xa5 && buffer[1]==0xa5 && buffer[2]==0xa5 && !memcmp(&peer,&sentinel,sizeof(peer)));
+    bad_address=0;revoke_at_transport=(uint64_t)&peer;
+    assert(syscall_socket_try_io(7,SRV_SOCKET_UDP_RECV,buffer,3,&peer)==SRV_ERR_FAULT);
+    assert(buffer[0]==0xa5 && buffer[1]==0xa5 && buffer[2]==0xa5 && !memcmp(&peer,&sentinel,sizeof(peer)));
+    bad_address=0;revoke_at_transport=0;replace_at_transport=true;
+    assert(syscall_socket_try_io(7,SRV_SOCKET_UDP_RECV,buffer,3,&peer)==SRV_ERR_BADF);
+    assert(buffer[0]==0xa5 && buffer[1]==0xa5 && buffer[2]==0xa5 && !memcmp(&peer,&sentinel,sizeof(peer)));
+    replace_at_transport=false;
+    file.type=PROCESS_FILE_NET_CONNECTION;expected_writable=false;memcpy(buffer,"abc",3);mutate_source=buffer;
+    assert(syscall_socket_try_io(7,SRV_SOCKET_SEND,buffer,3,NULL)==3 && !memcmp(buffer,"zzz",3));
+    file.type=PROCESS_FILE_NET_UDP;peer=(struct srv_socket_peer){.ip=0x01020304,.port=53};memcpy(buffer,"abc",3);
+    assert(syscall_socket_try_io(7,SRV_SOCKET_UDP_SEND,buffer,3,&peer)==3 && !memcmp(buffer,"zzz",3));
+    puts("socket-try-io: PASS types, flags, nonblocking dispatch, mapping/peer/fd revalidation and send snapshots");
 }

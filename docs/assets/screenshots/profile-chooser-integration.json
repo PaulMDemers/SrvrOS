@@ -1,0 +1,99 @@
+{
+  "schema": "org.srvros.profile-chooser-integration.v1",
+  "tested_runtime": "3f9c225a504830580440488b41c267bdf9992d72",
+  "integration_source": "e8795d8079a05dfbfb4fa8664d6a58bcc90abe07",
+  "integrated_main": "4b5ddb7cd9a32fcafe8f842805f0a6a989733159",
+  "unchanged_top_level_objects": {
+    ".github": {
+      "before": "d0230cee3e14f20c3ca02ce4715a9e9424a00301",
+      "after": "d0230cee3e14f20c3ca02ce4715a9e9424a00301"
+    },
+    ".gitignore": {
+      "before": "84402d08d29858f278c4319aa52d88886c71d877",
+      "after": "84402d08d29858f278c4319aa52d88886c71d877"
+    },
+    ".gitmodules": {
+      "before": "7dcd1f74106a3266f5c8640dc3c2cc9074d0019e",
+      "after": "7dcd1f74106a3266f5c8640dc3c2cc9074d0019e"
+    },
+    "AGENTS.md": {
+      "before": "a6f497e5c9568db511f8b1593da321391ebbfbb2",
+      "after": "a6f497e5c9568db511f8b1593da321391ebbfbb2"
+    },
+    "CONTRIBUTING.md": {
+      "before": "3dcd763243f44c0cb0648a34e82669a882838cdd",
+      "after": "3dcd763243f44c0cb0648a34e82669a882838cdd"
+    },
+    "LICENSE": {
+      "before": "ed46dd677b5c68462788ad903722aa2890693574",
+      "after": "ed46dd677b5c68462788ad903722aa2890693574"
+    },
+    "Makefile": {
+      "before": "91b14d501e2530595c8df75161faa0d7159e7d31",
+      "after": "91b14d501e2530595c8df75161faa0d7159e7d31"
+    },
+    "README.md": {
+      "before": "7088c4d834b1f4bf1ed7e21a4ab8ce4dc22d8df4",
+      "after": "7088c4d834b1f4bf1ed7e21a4ab8ce4dc22d8df4"
+    },
+    "SECURITY.md": {
+      "before": "be6855ca42eaeaa579be6dc5a98f7df90476d624",
+      "after": "be6855ca42eaeaa579be6dc5a98f7df90476d624"
+    },
+    "THIRD_PARTY.md": {
+      "before": "f899754c2d5b263b594153c453d455767624499e",
+      "after": "f899754c2d5b263b594153c453d455767624499e"
+    },
+    "boot": {
+      "before": "db24c4f9d92e797a0a5d9fcc8d9de65f6c0e5f67",
+      "after": "db24c4f9d92e797a0a5d9fcc8d9de65f6c0e5f67"
+    },
+    "initramfs": {
+      "before": "d75316cfae408a15374022fbdd1607d22e780a9e",
+      "after": "d75316cfae408a15374022fbdd1607d22e780a9e"
+    },
+    "kernel": {
+      "before": "c39c71c79666a96a1542bec42507685f4a8c6201",
+      "after": "c39c71c79666a96a1542bec42507685f4a8c6201"
+    },
+    "ports": {
+      "before": "5e994f53fd34b65227a992e2d01751ce80b08cb6",
+      "after": "5e994f53fd34b65227a992e2d01751ce80b08cb6"
+    },
+    "shared": {
+      "before": "9a64d686eba10155310f47ee9fb3407613c50872",
+      "after": "9a64d686eba10155310f47ee9fb3407613c50872"
+    },
+    "userspace": {
+      "before": "e13e057433aecd6da1d0ff1de98e9935a0a8d8d6",
+      "after": "e13e057433aecd6da1d0ff1de98e9935a0a8d8d6"
+    }
+  },
+  "changed_tools": [
+    "tools/installation_image.py",
+    "tools/installation_recovery_smoke.py",
+    "tools/test_installation_recovery.py"
+  ],
+  "matched_build_hashes": {
+    "build/initramfs.tar": {
+      "proof": "b157e76b4c9b612cc882f4a8415c008b9a64c97210e48d33042e8612caebfbb0",
+      "current": "b157e76b4c9b612cc882f4a8415c008b9a64c97210e48d33042e8612caebfbb0"
+    },
+    "build/kernel/srvros.elf": {
+      "proof": "de81939d2499fc1a8bd85862aaa6eee6a131999bf0815f257a0417f6aaa4a5ad",
+      "current": "de81939d2499fc1a8bd85862aaa6eee6a131999bf0815f257a0417f6aaa4a5ad"
+    },
+    "build/srvros.exfat": {
+      "proof": "e41239daec0c2d6dde16d33cdb85a0c2d5b23dc2aaa45a4f06240f2b7ad0455a",
+      "current": "e41239daec0c2d6dde16d33cdb85a0c2d5b23dc2aaa45a4f06240f2b7ad0455a"
+    }
+  },
+  "receipt_sha256": "3fd65ce67376ab6a9e6ca9929d4abccb735f8820fd61b57b15761552873172bc",
+  "scope": "PR325 adds host-only installation publication recovery; guest runtime and all matched build payload bytes are identical to the accepted 14-lifetime proof.",
+  "checks": {
+    "installation_preparation_profile_recovery": "29 tests PASS",
+    "profile_chooser": "16 guest CLI groups and real-filesystem catalog PASS",
+    "profile_desktop": "profile/session/preferences, 13 bundle and 7 image-adapter groups PASS",
+    "documentation": "885 local links PASS before integration note"
+  }
+}

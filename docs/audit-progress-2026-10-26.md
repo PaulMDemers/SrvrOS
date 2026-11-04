@@ -143,7 +143,45 @@ handling, isolates MSG_DONTWAIT without shared flag mutation and guards TCP
 connect/accept continuations. Main `46b60b24` through PR246 is integrated. Next:
 resolver retry/deadline policy, duplicated peer/options state and remaining
 native-FD I/O continuations. Broad network conformance remains unqualified.
-Delivery is [draft PR182](https://github.com/PaulMDemers/SrvrOS/pull/182).
+[PR182](https://github.com/PaulMDemers/SrvrOS/pull/182) merged at `198c6a1c`.
+[Draft PR252](https://github.com/PaulMDemers/SrvrOS/pull/252) starts the next
+audit with native resolver deadline tests. They cover an answer published in
+the final poll and one published while the caller waits for the deadline.
+The November 2 pass also covers libc's per-send DNS receive budget, connection
+and option state across socket duplicates, and I/O restarted after a signal
+handler replaces a descriptor.
+
+The Unix-stream pass reproduced stale rights after a refused send, early descriptor
+delivery on a zero-byte receive, and lost rights behind an unrelated prefix.
+The matched libc and kernel now transfer bytes and rights together. Host and
+guest coverage includes copyout failure, duplicate survival, truncation and
+peek.
+
+The queue-lifetime follow-up reproduced direct and indirect socket reference
+cycles and verified their reclamation after external close. Its host oracle
+checks all 4,096 combinations of directed edges and retained readers among
+three queues. Additional cases cover pending accepts, inheritance, ordinary
+reads that discard rights, and final-file writeback that reenters close.
+A blocked pipe-read probe also consumed data from a reused pipe slot on the
+pre-fix kernel. The read and write paths now recheck descriptor identity when
+they wake and preserve a writer's completed prefix.
+
+Unmapping a buffer during scalar pipe I/O panicked the pre-fix kernel in
+both its read and write copy paths. Guest tests also reproduced a partial
+scatter and lost input in
+`readv` after a sibling unmapped a destination. The guest now gets `EFAULT`
+and reads both original bytes on retry. Scalar pipe reads and writes check
+the current mappings before committing each transfer. A partial writer keeps
+its completed byte count. The process fixture also redeems queued rights
+after a failed ordinary read.
+
+The separate lifetime guest previously timed out with both the orphan launcher
+and its child ready. The monitor now parks on child exit and between bounded
+retirement checks. The expanded guest exercises four iterations per boot.
+The next mapping audit is the PTY path. Its master and slave have separate
+input and output queues, with canonical records and backpressure. Exercise
+those queues across blocked transfer, descriptor replacement and mapping
+changes before extending the pipe guarantees to terminals.
 This checkpoint is separate from the completed event-adapter target.
 
 ## Broader work still outside exhaustive coverage
@@ -166,3 +204,22 @@ This checkpoint is separate from the completed event-adapter target.
 The documented, regression-tested **bounded event adapter profile** is complete.
 Unsupported capabilities are explicitly rejected or identified above. This is
 not complete Linux API parity or certification of the entire OS.
+
+
+## Repository-wide review checkpoint, November 2
+
+The [current coverage ledger](audit-coverage-2026-11-02.md) accounts for every
+one of the 1,618 entries tracked at `dc0a3fef`. It adds whole-tree compiler,
+analyzer, Python, shell, ASL and documentation screening to the earlier focused
+audits. It records the depth and gaps for each cohort. Whole-tree screening is
+complete; exhaustive manual and runtime coverage remains open.
+
+The current fixes cover PTY mapping/descriptor lifetime, guarded syscall copies
+and network transfer commits, user-fault containment and exit admission, ELF and
+initramfs bounds, high-memory frame tags, libc arithmetic, UV ownership,
+selected utility errors, shell arithmetic/short-circuit parsing, tracked uACPI
+namespace/table/register handling and boot/image tooling. See the
+[kernel](audit-kernel-2026-11-02.md),
+[userland](audit-userland-2026-11-02.md),
+[tooling](audit-tooling-2026-11-02.md) and
+[integration](audit-integration-2026-11-02.md) reports for evidence and limits.

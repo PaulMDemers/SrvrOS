@@ -5,6 +5,7 @@
 #include <srvros/sys.h>
 #include <sys/stat.h>
 #include <stdio.h>
+#include <errno.h>
 
 /* Startup only, before graphics/event loops. This validates a provisioned home;
  * it does not authenticate a user or establish a filesystem permission boundary. */
@@ -26,7 +27,13 @@ static inline int desktop_profile_load(struct srv_profile_session *session,char 
         int n=snprintf(path,sizeof(path),"%s%s",home,directories[i]);
         if(n<0 || (size_t)n>=sizeof(path) || stat(path,&st) || !S_ISDIR(st.st_mode))return -1;
     }
-    int n=snprintf(path,sizeof(path),"%s/profile.id",home);
+    /* A profile.id is not sufficient while an import transaction is pending.
+     * Fail closed on both a present marker and an indeterminate lookup. */
+    int n=snprintf(path,sizeof(path),"%s/.profile-import-pending",home);
+    if(n<0 || (size_t)n>=sizeof(path))return -1;
+    errno=0;
+    if(!lstat(path,&st) || errno!=ENOENT)return -1;
+    n=snprintf(path,sizeof(path),"%s/profile.id",home);
     if(n<0 || (size_t)n>=sizeof(path))return -1;
     n=desktop_profile_read(path,marker,sizeof(marker));
     static const char header[]="srvros-profile-v1\n";

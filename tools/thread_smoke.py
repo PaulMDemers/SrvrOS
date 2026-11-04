@@ -163,6 +163,9 @@ def main():
             "threadstress: fork ok",
             "threadstress: exec-vectors ok",
             "threadstress: pipe-atomic ok",
+            "threadstress: pipe-mapping ok",
+            "threadstress: pty-mapping ok",
+            "threadstress: replaced reader preserved new pipe data",
             "threadstress: vector-io ok",
             "threadstress: file-errors ok",
             "threadstress: endpoint-flags ok",
@@ -202,6 +205,8 @@ def main():
         ])
     else:
         expected.append(f"threadstress: {args.test} ok")
+    if args.test in ("all", "vector-io"):
+        expected.append("threadstress: blocked writev kept its original prefix")
     missing = [marker for marker in expected if marker not in text]
     if has_fatal_exception(text):
         print("thread-smoke: fatal exception detected", file=sys.stderr)

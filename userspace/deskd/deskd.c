@@ -10,6 +10,7 @@
 #include "menus.h"
 #include "preferences.h"
 #include "profile_startup.h"
+#include "profile_chooser.h"
 #include <srvros/desk_text.h>
 #include "io_trial.h"
 #include "input_timing.h"
@@ -2046,11 +2047,20 @@ static void timing_print(const char *name,const struct perf_sample *p) {
 }
 int main(int argc,char **argv) {
     struct srv_profile_session selected_profile={0};char portable_path[160];const char *profile_home=NULL;
+    int choose_profile=0,profile_server_registered=0;
+    for(int i=1;i<argc;i++)if(!strcmp(argv[i],"--choose-profile")) {
+        choose_profile=1;
+        for(int j=i;j<argc;j++)argv[j]=argv[j+1];
+        argc--;i--;
+    }
     for(int i=1;i<argc;i++) if(!strncmp(argv[i],"--profile=",10)) {
         if(profile_home){ui_puts("deskd: select exactly one profile\n");return 1;}
         profile_home=argv[i]+10;
         for(int j=i;j<argc;j++)argv[j]=argv[j+1];
         argc--;i--;
+    }
+    if(profile_home && choose_profile) {
+        ui_puts("deskd: --choose-profile cannot be combined with --profile\n");return 1;
     }
     if(profile_home && desktop_profile_load(&selected_profile,portable_path,sizeof(portable_path),profile_home)) {
         ui_puts("deskd: profile unavailable or invalid; restore it or start without --profile.\n");return 1;
@@ -2065,6 +2075,11 @@ int main(int argc,char **argv) {
         argc--; i--;
     }
     int pointer_trace=0, apps_trace=0;
+    int ordinary_desktop=1;
+    for(int i=1;i<argc;i++)if(strcmp(argv[i],"--apps") && strcmp(argv[i],"--apps-trace") && strcmp(argv[i],"--trace"))ordinary_desktop=0;
+    if(choose_profile && !ordinary_desktop) {
+        ui_puts("deskd: --choose-profile requires an ordinary desktop session\n");return 1;
+    }
     if(profile_home) for(int i=1;i<argc;i++) {
         if(strcmp(argv[i],"--apps") && strcmp(argv[i],"--apps-trace") && strcmp(argv[i],"--trace")) {
             ui_puts("deskd: profile selection requires an ordinary desktop session\n");return 1;
@@ -2073,6 +2088,17 @@ int main(int argc,char **argv) {
     for (int i=1;i<argc;i++) {
         if (!strcmp(argv[i],"--trace")) pointer_trace=1;
         if (!strcmp(argv[i],"--apps-trace")) apps_trace=1;
+    }
+    if(ordinary_desktop && !profile_home) {
+        struct desktop_profile_request request={.root="/fat/home",.remember_path="/fat/home/.desktop-profile",.scale=scale,.force=choose_profile};
+        struct desktop_profile_result choice;
+        int result=desktop_profile_choose(&request,&choice);
+        if(result==DESKTOP_PROFILE_ERROR) {desk_log("deskd: %s\n",choice.error);return 1;}
+        if(result==DESKTOP_PROFILE_CONSOLE)return 0;
+        profile_server_registered=choice.server_registered;
+        if(result==DESKTOP_PROFILE_SELECTED) {
+            selected_profile=choice.profile;strcpy(portable_path,choice.portable_path);profile_home=selected_profile.home;
+        }
     }
     if (argc==2 && strcmp(argv[1],"--license")==0) { ui_puts(desk_font_license); return 0; }
     int control_monitor=argc==2 && !strcmp(argv[1],"--battery-monitor");
@@ -2102,7 +2128,7 @@ int main(int argc,char **argv) {
     int growth=argc==2 && !strcmp(argv[1],"--window-growth-smoke");
     int multiwindow=growth || (argc==2 && !strcmp(argv[1],"--multiwindow-smoke"));
     int dialog_refusal=argc==2 && !strcmp(argv[1],"--dialog-refusal-test");
-    int apps=profile_home || apps_trace || dialog_refusal || pool_wait || multiwindow || battery_guided || home_apps || idle_capture || hardware_trial || argc==1 || (argc==2 && (!strcmp(argv[1],"--apps") || !strcmp(argv[1],"--registry-pressure-test")));
+    int apps=profile_home || choose_profile || apps_trace || dialog_refusal || pool_wait || multiwindow || battery_guided || home_apps || idle_capture || hardware_trial || argc==1 || (argc==2 && (!strcmp(argv[1],"--apps") || !strcmp(argv[1],"--registry-pressure-test")));
     int scroll_smoke=argc==2 && strcmp(argv[1],"--scroll-smoke")==0,scroll_phase=0;
     int smoke=scroll_smoke || (argc==2 && strcmp(argv[1],"--smoke")==0);
     int lifecycle=argc==2 && strcmp(argv[1],"--lifecycle-smoke")==0,phase=0;
@@ -2121,7 +2147,7 @@ int main(int argc,char **argv) {
     uint32_t *pixels=desk_pixels_alloc(width*scale,height*scale);
     struct desk_canvas canvas;
     if (!pixels || desk_canvas_init_scaled(&canvas,pixels,width,height,width*scale,scale)!=0) return 1;
-    if (gui_register_server()!=0) { ui_puts("deskd: another display server is active\n"); return 1; }
+    if (!profile_server_registered && gui_register_server()!=0) { ui_puts("deskd: another display server is active\n"); return 1; }
     int stress_volume=audio_io?stress_volume_request():0;
     if(stress_volume<0){ui_puts("audio-io: result=FAIL reason=volume-override\n");return 1;}
     if (gfx_console_mute(1)!=0) return 1;

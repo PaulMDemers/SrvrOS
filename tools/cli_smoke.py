@@ -142,6 +142,15 @@ def main():
         "N=5\n"
         "echo arith-var-$((N * (N + 1) / 2))\n"
         "echo arith-logic-$((N > 3 && N < 10))\n"
+        "echo arith-limits=$((9223372036854775807)):$((-9223372036854775808))\n"
+        "echo arith-skip=$((0 && 1 / 0)):$((1 || -9223372036854775808 / -1))\n"
+        "echo $((9223372036854775807 + 1))\n"
+        "echo arith-overflow-status-$?\n"
+        "echo $((-9223372036854775808 / -1))\n"
+        "echo arith-divide-status-$?\n"
+        "ARITH_LIMIT=9223372036854775808\n"
+        "echo $((ARITH_LIMIT))\n"
+        "echo arith-variable-status-$?\n"
         "false && echo should-not-run\n"
         "echo after-false-$?\n"
         "true || echo should-not-run\n"
@@ -702,6 +711,11 @@ def main():
         "arith-7",
         "arith-var-15",
         "arith-logic-1",
+        "\r\narith-limits=9223372036854775807:-9223372036854775808\r\n",
+        "\r\narith-skip=0:1\r\n",
+        "\r\narith-overflow-status-2\r\n",
+        "\r\narith-divide-status-2\r\n",
+        "\r\narith-variable-status-2\r\n",
         "after-false-1",
         "or-ok",
         "pid-",

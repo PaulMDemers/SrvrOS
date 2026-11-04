@@ -121,6 +121,20 @@ static uint64_t event_identity(int fd, int create) {
     }
     return event_identities[index];
 }
+/* Capture only at a cooperative signal checkpoint, before running handlers.
+ * Public close/dup operations retire or replace the identity under this lock. */
+uint64_t __posix_event_capture_identity(int fd) {
+    __posix_event_lock();
+    uint64_t identity = event_identity(fd, 1);
+    __posix_event_unlock();
+    return identity;
+}
+int __posix_event_identity_current(int fd, uint64_t identity) {
+    __posix_event_lock();
+    int current = identity != 0 && event_identity(fd, 0) == identity;
+    __posix_event_unlock();
+    return current;
+}
 /* Called with the lifecycle lock held; aliases can predate the first watch. */
 int __posix_event_prepare_dup(int fd) {
     if (fd >= POSIX_EVENTFD_BASE && fd < POSIX_EVENTFD_BASE + POSIX_EVENTFD_MAX &&

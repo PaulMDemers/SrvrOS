@@ -1,0 +1,337 @@
+{
+  "auxiliary_sha256": {
+    "build/limine-binary/BOOTX64.EFI": "333f7a69379b1f47e019be215885cdc078b9edd6e9255cbe2f706d6c5ec0ef06",
+    "build/tests/exfat-driver": "7cd305abbe9d38f45f317947b439583ad465eea449e6fd30214a8c20007812c8",
+    "build/userspace/init.elf": "c096163de2f2b14c1c4b0eb0f336c33828ef6d1b2f8fe757a7b1acc08ad9b463"
+  },
+  "base": "9d642c759be26624f9cb35e50bd50ef8c292c69a",
+  "bootstrap_members": [
+    "init"
+  ],
+  "build_hashes": {
+    "build/initramfs.tar": "118064c2be042061e971ffdaad867cfbda06b0e11f04198eb05a51c646eb7cc6",
+    "build/kernel/srvros.elf": "bfabff0b2414eaf47bd96fec53a6ed0296e22e33b8a314e86546814cdeba3aa3",
+    "build/srvros.exfat": "17dec7e542f87537192c41f83387460f7999bfd5419345d590d00731cf4d3b46"
+  },
+  "build_worktree_dirty": false,
+  "cases": [
+    {
+      "decoy_sha256": "a06a07ac3e67137f0172c05fe7b35d851efe9d9efbc8e23da7ec626e9b01e236",
+      "name": "boot-1",
+      "namespace_phase": "save",
+      "namespace_result": "PASS",
+      "reversed": false,
+      "selected": "ahci0p2",
+      "status": "PASS",
+      "work_device": "ahci1p2"
+    },
+    {
+      "decoy_sha256": "803c43276f698a3236af860ec4ecc6fd04d48d55c8a2a7725c918f80519194f8",
+      "name": "boot-2",
+      "namespace_phase": "reopen",
+      "namespace_result": "PASS",
+      "reversed": true,
+      "selected": "ahci1p2",
+      "status": "PASS",
+      "work_device": "ahci0p2"
+    },
+    {
+      "after": {
+        "decoy": "803c43276f698a3236af860ec4ecc6fd04d48d55c8a2a7725c918f80519194f8",
+        "target": "ef3b53fb2be2ba155fa574787a44979ca63de981a737017d9c97fc0c07a36c74"
+      },
+      "before": {
+        "decoy": "803c43276f698a3236af860ec4ecc6fd04d48d55c8a2a7725c918f80519194f8",
+        "target": "ef3b53fb2be2ba155fa574787a44979ca63de981a737017d9c97fc0c07a36c74"
+      },
+      "name": "missing-volume",
+      "reason": "missing",
+      "status": "PASS"
+    },
+    {
+      "after": {
+        "decoy": "803c43276f698a3236af860ec4ecc6fd04d48d55c8a2a7725c918f80519194f8",
+        "target": "db4824ae6de07141722e982414cf33b463713bad1a91bc68a279c5cf936efe66"
+      },
+      "before": {
+        "decoy": "803c43276f698a3236af860ec4ecc6fd04d48d55c8a2a7725c918f80519194f8",
+        "target": "db4824ae6de07141722e982414cf33b463713bad1a91bc68a279c5cf936efe66"
+      },
+      "name": "wrong-id",
+      "reason": "missing",
+      "status": "PASS"
+    },
+    {
+      "after": {
+        "decoy": "d714b038b34d2f101479fc4359c56c63262e046b3f7393dd4dcc11bbeb1bba40",
+        "target": "6b2aa0872e683f53e0b2867bb90c5edc2dd07571e5a20f4207c804ee3042f512"
+      },
+      "before": {
+        "decoy": "d714b038b34d2f101479fc4359c56c63262e046b3f7393dd4dcc11bbeb1bba40",
+        "target": "6b2aa0872e683f53e0b2867bb90c5edc2dd07571e5a20f4207c804ee3042f512"
+      },
+      "name": "duplicate-id",
+      "reason": "ambiguous",
+      "status": "PASS"
+    },
+    {
+      "after": {
+        "decoy": "803c43276f698a3236af860ec4ecc6fd04d48d55c8a2a7725c918f80519194f8",
+        "target": "d3b8d5090651bf69865adab15df368d14bd6bafa24b2c9329e5e17c5238cf9a5"
+      },
+      "before": {
+        "decoy": "803c43276f698a3236af860ec4ecc6fd04d48d55c8a2a7725c918f80519194f8",
+        "target": "d3b8d5090651bf69865adab15df368d14bd6bafa24b2c9329e5e17c5238cf9a5"
+      },
+      "name": "wrong-role",
+      "reason": "role",
+      "status": "PASS"
+    },
+    {
+      "after": {
+        "decoy": "803c43276f698a3236af860ec4ecc6fd04d48d55c8a2a7725c918f80519194f8",
+        "target": "cf8d27ab668e0a6fa160409e32e53d3312af8d04a56bba52b9d74887437c8d0a"
+      },
+      "before": {
+        "decoy": "803c43276f698a3236af860ec4ecc6fd04d48d55c8a2a7725c918f80519194f8",
+        "target": "cf8d27ab668e0a6fa160409e32e53d3312af8d04a56bba52b9d74887437c8d0a"
+      },
+      "name": "wrong-type",
+      "reason": "role",
+      "status": "PASS"
+    },
+    {
+      "after": {
+        "decoy": "803c43276f698a3236af860ec4ecc6fd04d48d55c8a2a7725c918f80519194f8",
+        "target": "4ac1c26107f8c89c90f33365ebeeb32e0f68a65b9c7ba68d0ca37e17053df1ac"
+      },
+      "before": {
+        "decoy": "803c43276f698a3236af860ec4ecc6fd04d48d55c8a2a7725c918f80519194f8",
+        "target": "4ac1c26107f8c89c90f33365ebeeb32e0f68a65b9c7ba68d0ca37e17053df1ac"
+      },
+      "name": "wrong-format",
+      "reason": "format",
+      "status": "PASS"
+    },
+    {
+      "after": {
+        "decoy": "eea088670832fa67f8c9942cc353b9db4f42e34c51883295fa3e2ad9e0088b5e",
+        "target": "6b2aa0872e683f53e0b2867bb90c5edc2dd07571e5a20f4207c804ee3042f512"
+      },
+      "before": {
+        "decoy": "eea088670832fa67f8c9942cc353b9db4f42e34c51883295fa3e2ad9e0088b5e",
+        "target": "6b2aa0872e683f53e0b2867bb90c5edc2dd07571e5a20f4207c804ee3042f512"
+      },
+      "name": "invalid-decoy-map",
+      "reason": "invalid-map",
+      "status": "PASS"
+    },
+    {
+      "after": {
+        "decoy": "803c43276f698a3236af860ec4ecc6fd04d48d55c8a2a7725c918f80519194f8",
+        "target": "34a4a4197e6c38f8c472408885ad0fbc134c650eda0219b4dff79d96b0ca3404"
+      },
+      "before": {
+        "decoy": "803c43276f698a3236af860ec4ecc6fd04d48d55c8a2a7725c918f80519194f8",
+        "target": "34a4a4197e6c38f8c472408885ad0fbc134c650eda0219b4dff79d96b0ca3404"
+      },
+      "name": "filesystem-recovery",
+      "reason": "filesystem-recovery",
+      "status": "PASS"
+    },
+    {
+      "after": {
+        "decoy": "803c43276f698a3236af860ec4ecc6fd04d48d55c8a2a7725c918f80519194f8",
+        "target": "98d6958bd28511e2181b4bd9a4c09f18f4d91ef88c3e5f212027d6457f707640"
+      },
+      "before": {
+        "decoy": "803c43276f698a3236af860ec4ecc6fd04d48d55c8a2a7725c918f80519194f8",
+        "target": "98d6958bd28511e2181b4bd9a4c09f18f4d91ef88c3e5f212027d6457f707640"
+      },
+      "name": "pending-metadata",
+      "reason": "filesystem-recovery",
+      "status": "PASS"
+    }
+  ],
+  "checks": [
+    "target-only EFI payload; GPT system identity before aliases/init",
+    "canonical/raw shared identity, alias creation/read/write, cwd/dirfd, spawn, guard and error semantics",
+    "independent GPT /work and home markers persist across order reversal then clean up",
+    "Text save and reopen via /home; same preferences after reboot",
+    "both data volumes pass offline allocation checks; guest /fat check passes",
+    "protected regions unchanged on both disks",
+    "nine recovery cases preserve both whole-disk hashes and show no namespace/init/monitor startup",
+    "133 filesystem/namespace modes pass ASan/UBSan",
+    "focused storage, clean mount, process/syscall/loader/lifetime and actual process-writeback pass"
+  ],
+  "date": "2026-11-03",
+  "decoy_sha256": "803c43276f698a3236af860ec4ecc6fd04d48d55c8a2a7725c918f80519194f8",
+  "document_sha256": "0cd9c190ef2aeb5bbf088a5080a940c86e1e01c718d43dda589f08eaa9f9ea8f",
+  "evidence": ".local/installation-evidence/canonical-e5t4y5zz",
+  "filesystem_dependency": "06d5a416734be477a9e8da59b3c54ef8214c1f9f",
+  "final_target_sha256": "6b2aa0872e683f53e0b2867bb90c5edc2dd07571e5a20f4207c804ee3042f512",
+  "firmware_sha256": "33090cc07675baa5190d9f1e84bf5176b33bcbfa9bacac522961150cdb6dbb2a",
+  "firmware_vars_template_sha256": "5d2ac383371b408398accee7ec27c8c09ea5b74a0de0ceea6513388b15be5d1e",
+  "limits": [
+    "missing system volume retains a bootable ESP; removal of sole boot disk is firmware failure",
+    "all attached raw maps must validate; unrelated unknown media conservatively refuses",
+    "GUIDs are identifiers, not authentication",
+    "primary GPT validation only; no disk repair or profile activation",
+    "invalid-map VM fixture damages both GPT copies to prevent OVMF primary-map repair",
+    "not physical power-loss or arbitrary mount-I/O-failure qualification"
+  ],
+  "logs_sha256": {
+    "allocation-1.log": "0886411080f95aa209917f54ae171072ff3f0f68ca97c04e8c9a549dd7d3c638",
+    "allocation-2.log": "fe6d336ebd7d917086425be77c3eb8d067441039c528a1da9c434d2bb5e2fd63",
+    "duplicate-id/qemu-duplicate-id.log": "c7e17345bf5694ee8107367370426caa4ff4ff0d9e3289e7ef33f13096f2b434",
+    "duplicate-id/serial-duplicate-id.log": "5b122f6e39faa1385f89a80f537cbf757e9c05cc5a43bd986e1a97ce9ea9998d",
+    "filesystem-recovery/qemu-filesystem-recovery.log": "c7e17345bf5694ee8107367370426caa4ff4ff0d9e3289e7ef33f13096f2b434",
+    "filesystem-recovery/serial-filesystem-recovery.log": "b17760b3cc6ac1558a2f072575eafdf461f575acccdab8d920144ac133b9c695",
+    "installed-canonical-build.log": "b30b08ac87728e3a5fe75f166de85a85362eb23354ae597295d74703c992bcdd",
+    "installed-canonical-exfat-sanitize.log": "72588e84b41bfeb75d81f39ac448b417d0a4a2e7ac1ae57f17ed53f3d1e937f8",
+    "installed-canonical-final-proof.log": "8f5259f4ab4e2108867c0a6b9ec61977edecb0b5270bd9177cf82aee902c64f2",
+    "installed-canonical-host.log": "69eac2320d6c9c06b6bf6b10bc8f17039363cb4ba8c9aa38524dccfdcb1ddae6",
+    "installed-canonical-process.log": "f2155a0abf296a2a321585bfda8294426786eb34ea11b599d84389a07483d96d",
+    "installed-canonical-proof.log": "832a7b599d53d5283b4d1f74d9e9d38deed8d02d9a78c16e916caeebdd46ec36",
+    "installed-canonical-selector-sanitize.log": "86a6a48695badd7ccc681fdfdaf3ef5955553df7f89f3ee2d97b1fe034e84b0e",
+    "installed-canonical-updated-build.log": "a8b7356cab21ba46eeda3936aab19c28160679398b82a8cb923384744a45cccf",
+    "installed-canonical-updated-host.log": "bb208338733e09a82d7ecdddd33cc6d4ddced20c9d78b7d0f42062267316fc3f",
+    "installed-canonical-updated-process.log": "f2155a0abf296a2a321585bfda8294426786eb34ea11b599d84389a07483d96d",
+    "installed-canonical-updated-sanitize.log": "72588e84b41bfeb75d81f39ac448b417d0a4a2e7ac1ae57f17ed53f3d1e937f8",
+    "invalid-decoy-map/qemu-invalid-decoy-map.log": "c7e17345bf5694ee8107367370426caa4ff4ff0d9e3289e7ef33f13096f2b434",
+    "invalid-decoy-map/serial-invalid-decoy-map.log": "9aed1d65e6d6d64cd8a10b8fe38e24d853c2b8aaa1a71624587f6e05f7bb2e9b",
+    "missing-volume/qemu-missing-volume.log": "c7e17345bf5694ee8107367370426caa4ff4ff0d9e3289e7ef33f13096f2b434",
+    "missing-volume/serial-missing-volume.log": "79fa7cc2a4a69b264a812abf7a3c5faacac9287e4ba7cea19dc8f11dc77aee27",
+    "pending-metadata/qemu-pending-metadata.log": "c7e17345bf5694ee8107367370426caa4ff4ff0d9e3289e7ef33f13096f2b434",
+    "pending-metadata/seed.log": "0d2a7b5ba1a7da0a768156e47e08c255d728a1a401f6df6a9698ee1d0e714932",
+    "pending-metadata/serial-pending-metadata.log": "e2dc47372121e122bb0e9dd21baebe7cee5fedf06a0523c5b5ed72a0154eb7a6",
+    "qemu-1.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "qemu-2.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "serial-1.log": "0fad3b3dc2790373100f090e4c3fd36b59a9221a50e2f20508912839b2ee2659",
+    "serial-2.log": "4d649287d475a9a34402efdd9b0ad2bcedf9c0d004fe537e782854ea91a5fdc4",
+    "work-allocation-1.log": "e8fe1b31bb39c7d4bece2faefbc99e5ce254d1af467a403b0014d1090c5909eb",
+    "work-allocation-2.log": "4d9fd39b93cccfe7b50d318a2ec893ee29dadce688239e72d6e35342e4624d11",
+    "wrong-format/qemu-wrong-format.log": "c7e17345bf5694ee8107367370426caa4ff4ff0d9e3289e7ef33f13096f2b434",
+    "wrong-format/serial-wrong-format.log": "c3a9719fc2cfdd182737870a980e217e4bcf9a3c78cbf5bfb9fcb69887f29757",
+    "wrong-id/qemu-wrong-id.log": "c7e17345bf5694ee8107367370426caa4ff4ff0d9e3289e7ef33f13096f2b434",
+    "wrong-id/serial-wrong-id.log": "22bdd5daeeb8caa7404a9798c2dcb6d0185eb713f8a41cef4b728a75a00b7f0d",
+    "wrong-role/qemu-wrong-role.log": "c7e17345bf5694ee8107367370426caa4ff4ff0d9e3289e7ef33f13096f2b434",
+    "wrong-role/serial-wrong-role.log": "adc38c983113c6ca0b98072eaf077b3ce2e13a0496bd2c65c0a2ec722562e81a",
+    "wrong-type/qemu-wrong-type.log": "c7e17345bf5694ee8107367370426caa4ff4ff0d9e3289e7ef33f13096f2b434",
+    "wrong-type/serial-wrong-type.log": "1e6c0961503c0200d15682d22f1bd21488e909fc685b519faeb7ed3263c2165d"
+  },
+  "mode": "canonical-paths",
+  "preferences_sha256": "75e445c776e1aa1441f10e14d86ff2a62b00ca1976e5fca6caf78e3f2b4f7580",
+  "protected_regions": {
+    "after_data_sha256": "45cb36357f2684b6f3e0c7312a0fa94327bfa35f208d77860d6b8687142a6812",
+    "before_data_sha256": "27203bb7bcc6820cb3ebc43c51fe1819b2b8a552c603d03a633529f6eaecfbb4"
+  },
+  "qemu_version": "QEMU emulator version 11.1.2",
+  "repositories": {
+    ".": {
+      "dirty": false,
+      "head": "3e47911945967e3bb96279938e1199a35b26b730",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports": {
+      "dirty": false,
+      "head": "0f51ba9283ba5d9a81581c5eeacee98e7a5ca5a8",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/awk": {
+      "dirty": false,
+      "head": "5739fd79bcfc75ba7526773d0cf634521f8aca3c",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/cjson": {
+      "dirty": false,
+      "head": "c859b25da02955fef659d658b8f324b5cde87be3",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/inih": {
+      "dirty": false,
+      "head": "26254ee9de7681f8825433415443e7116ff24b98",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/libuv": {
+      "dirty": false,
+      "head": "1cfa32ff59c076ffb6ed735bbc8c18361558661f",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/linenoise": {
+      "dirty": false,
+      "head": "dc83cc373ac2058030eb3cf5e404959a26fef112",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/lua": {
+      "dirty": false,
+      "head": "6e22fedb74cf0c9b6656e9fce8b7331db847c605",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/node": {
+      "dirty": false,
+      "head": "c7d10158bc31036de6783d66beaaaf551e3167aa",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/zlib": {
+      "dirty": false,
+      "head": "da607da739fa6047df13e66a2af6b8bec7c2a498",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "userspace/apps": {
+      "dirty": false,
+      "head": "edb51dc16214d58bcd1768b3a52fdb3b9793c8b8",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "userspace/widgets": {
+      "dirty": false,
+      "head": "9eaaa74e1423c15c99f8ce388b08ed5e514de3d6",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    }
+  },
+  "scope": "two disposable AHCI GPT disks; recovery halt, no physical installation",
+  "screenshots_sha256": {
+    "installed-canonical-recovery.png": "e4ae4ec4be40a4dbf48f8b5aec9e3dfae4cfdcfa0722e812e06d4b640ee697ca",
+    "installed-canonical-reopened.png": "341225c80838da2789aa7727768a3fbde62bb221be2a6b1828726e092f6c804b"
+  },
+  "source": "3e47911945967e3bb96279938e1199a35b26b730",
+  "status": "PASS",
+  "target_gpt": {
+    "disk_guid": "1e85faee-d83c-4239-a882-7af4375003a9",
+    "esp_partition_guid": "1487eaf7-218b-403b-a9a0-d14cf97b4f67",
+    "exfat_partition_guid": "077d92b9-e4fb-49f4-b082-37aa75f5b7f0"
+  },
+  "work_gpt": {
+    "disk_guid": "e4233212-a338-4210-a70b-d90dab857f41",
+    "esp_partition_guid": "cb29f781-6236-4071-a923-6253d746bf0a",
+    "exfat_partition_guid": "da274bff-3b3e-4348-8f13-1773d0c18dc7"
+  },
+  "work_protected_regions": {
+    "after_data_sha256": "6851491f5f0beecb0faa216f4e5195c45fd351a408a21038a8aee892af547726",
+    "before_data_sha256": "ef8819b9501c6df3aba0a0d16f232e747e8223387fd07cfe9d4a4123a61c484f"
+  }
+}

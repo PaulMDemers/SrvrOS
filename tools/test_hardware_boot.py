@@ -153,6 +153,33 @@ class InstallTests(unittest.TestCase):
         (self.stage / "latest").write_text(release)
         return release
 
+    def test_install_checks_selected_release_identity(self):
+        release = self.payload("requested")
+        different = self.payload("different")
+        (self.stage / release).rename(self.stage / "original")
+        (self.stage / different).rename(self.stage / release)
+        with self.assertRaises(ValueError):
+            boot.install(release)
+        self.assertFalse(self.snippet.exists())
+        self.assertFalse(self.base.exists())
+
+    def test_install_rejects_unlisted_files_and_links(self):
+        release = self.payload("extra")
+        source = self.stage / release
+        for name in ("unlisted", "loader/unlisted"):
+            entry = source / name
+            entry.write_text("unexpected")
+            with self.assertRaises(ValueError):
+                boot.install(release)
+            entry.unlink()
+        loader = source / "loader"
+        actual = self.stage / "backup"
+        loader.rename(actual)
+        loader.symlink_to(actual, target_is_directory=True)
+        with self.assertRaises(ValueError):
+            boot.install(release)
+        self.assertFalse(self.base.exists())
+
     def test_native_desktop_profile(self):
         version="ram-usb-v17-desktop-37d8c5d0"
         release=self.payload("desktop", version)
@@ -1107,6 +1134,22 @@ class InstallTests(unittest.TestCase):
         # An identical redeploy must retain the previous release.
         boot.install()
         self.assertEqual(json.loads((self.base / "state.json").read_text()), state)
+
+    def test_corrupt_obsolete_release_fails_before_install_mutation(self):
+        first = self.payload("first"); boot.install(first)
+        second = self.payload("second"); boot.install(second)
+        third = self.payload("third")
+        (self.base / first / "srvros.elf").write_bytes(b"corrupt")
+        paths = (self.snippet, self.cfg, self.base / "state.json")
+        before = {path: path.read_bytes() for path in paths}
+        with patch.object(boot.subprocess, "run", side_effect=self.run_command) as command:
+            with self.assertRaises(ValueError):
+                boot.install(third)
+            command.assert_not_called()
+        self.assertFalse((self.base / third).exists())
+        self.assertEqual(before, {path: path.read_bytes() for path in paths})
+        self.assertTrue((self.base / first).exists())
+        self.assertTrue((self.base / second).exists())
 
     def test_failed_update_restores_grub_and_old_selection(self):
         first = self.payload("one")
