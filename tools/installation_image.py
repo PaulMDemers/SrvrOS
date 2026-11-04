@@ -639,6 +639,9 @@ def main():
                                                    'image-linked', 'image-published', 'ready-written',
                                                    'ready-linked', 'ready-published'))
     sub.add_parser('inspect').add_argument('staging_dir')
+    installed = sub.add_parser('inspect-installed')
+    installed.add_argument('staging_dir')
+    installed.add_argument('--driver', required=True)
     recovery = sub.add_parser('reconcile')
     recovery.add_argument('staging_dir')
     recovery.add_argument('--interrupt-after', choices=('image-linked', 'image-published', 'ready-written',
@@ -657,12 +660,17 @@ def main():
             result = apply(args.staging_dir, checkpoint=checkpoint)
         elif args.action == 'inspect':
             result = inspect(args.staging_dir)
+        elif args.action == 'inspect-installed':
+            from installation_inspection import inspect_installed
+            result = inspect_installed(args.staging_dir, args.driver)
         else:
             def checkpoint(name):
                 if name == args.interrupt_after:
                     os._exit(75)
             result = reconcile(args.staging_dir, checkpoint=checkpoint)
         print(json.dumps(result, indent=2, sort_keys=True))
+        if args.action == 'inspect-installed' and not result['consistent']:
+            raise SystemExit(1)
     except (ValueError, OSError, KeyError, subprocess.CalledProcessError) as error:
         parser.exit(1, f'error: {error}\n')
 
