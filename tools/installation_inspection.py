@@ -117,8 +117,8 @@ def bootstrap(target, plan):
     return raw
 
 
-def driver_output(driver, fd, spec, mode="--fd"):
-    proc = subprocess.Popen([str(driver), mode, str(fd), str(spec['offset_bytes']), str(spec['size_bytes'])], pass_fds=(fd,), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+def driver_output(driver, fd, spec, mode="--fd", extra_args=()):
+    proc = subprocess.Popen([str(driver), mode, str(fd), str(spec['offset_bytes']), str(spec['size_bytes']), *extra_args], pass_fds=(fd,), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     sel = selectors.DefaultSelector()
     for stream in (proc.stdout, proc.stderr): sel.register(stream, selectors.EVENT_READ)
     output = {proc.stdout: bytearray(), proc.stderr: bytearray()}

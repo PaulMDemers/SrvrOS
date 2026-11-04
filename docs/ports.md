@@ -596,3 +596,81 @@ tar command does not accept an archive on stdin.
 Engineering provenance, cooperative interruption limits and reproduction commands
 are recorded in [the port contract](../ports/srvros/xz/PORT.md). The isolated xz checkout passes the bounded qualification; see the roadmap for
 exact evidence and scope limits.
+
+## GNU diff text-file review
+
+The qualified bounded GNU Diffutils 3.12 port compares two
+regular text files in the C locale with normal, `-q`, or three-context-line `-u`
+output, optional `-L` labels and `--` before paths. Use labels to make saved
+reports independent of filesystem timestamps:
+
+```sh
+diff -u -L before -L after before.txt after.txt > changes.diff
+echo $?
+less changes.diff
+```
+
+Status 0 means equal, 1 means different (a successful comparison), and 2 means
+trouble. Inputs are preserved; stdout can contain a partial report on failure or
+cancellation. Each file is limited to 256 KiB, 8192 physical lines and 64 KiB per
+physical line including its newline. NUL, stdin, directories, recursion,
+configurable context, binary/ignore/regex/color/pager modes and other diffutils
+executables are outside this profile. These caps do not promise a strict RSS or
+interruption latency.
+
+GNU diff supports missing final newlines and zero-count unified hunks. The GNU
+Patch milestone adds a bounded separate-output consumer for its labeled reports:
+
+```sh
+patch -i changes.diff -o restored.txt before.txt
+cmp restored.txt after.txt
+```
+
+The output path must not already exist. The source stays unchanged. Reports use
+safe leaf labels such as before/after or a/name,b/name; absolute/traversal/Git/
+rename/create-delete/multi-file metadata is refused. The previous compact
+command's in-place syntax is intentionally outside the new profile. Historical
+diff evidence used the compact command's narrower subset; GNU Patch acceptance
+is tracked separately in [the CLI queue](cli-port-queue.md).
+
+## GNU Patch single-file output workflow
+
+GNU Patch 2.8.1 supports `patch -i PATCH -o NEW_OUTPUT SOURCE` for one unified
+file section, existing regular text inputs and exclusive distinct new output.
+The genuine GNU engine applies forward-only with zero fuzz and no prompts,
+backups, reject files or in-place changes. Status 0 is applied, 1 means unapplied
+hunks, and 2 means trouble. Empty existing source and empty newly produced output
+are supported; metadata creation/deletion, multi-file, Git/rename, reverse and
+other patch formats are excluded.
+
+Source/output caps are 256 KiB, 8192 physical lines and 64 KiB per line including
+newline. Patch caps are 1 MiB, 32768 records and 128 KiB per record. NUL is
+refused and numeric hunk ranges/counts are bounded before GNU allocations.
+Validated unlinked snapshots provide later GNU reads and metadata. Ordinary
+failure/caught cancellation removes the run's own partial output; unverifiable
+ownership/cleanup reports a possibly remaining path. Stat-then-unlink is not
+atomic against adversarial namespace replacement; power loss is outside scope.
+
+Clean `60baca64` with runtime ports `de7adcea`, integrated with main `72fde837`,
+passes seven fresh sequential 512 MiB guests on a readback-verified frozen
+kernel/initramfs/disk/ELF set. Exact GNU references, all caps, refusals,
+allocation/recovery, snapshot races, real post-admission EFBIG, repeated
+INT/TERM after matching/positive output progress, cleanup, reboot and fsck pass.
+Fresh diff interchange, actual Terminal functional/expert walkthrough, all 498
+CLI commands and full ports regression pass. The shipped miniport example builds
+a separate patched file and verifies its original source is preserved.
+
+Two clean GNU core/gnulib/diagnostic rebuilds match against the same unchanged
+SDK objects; selected native upstream tests have two PASS and one expected XFAIL.
+No full upstream guest-suite, independent SDK/image reproducibility, total RAM
+or RSS/true peak, traced in-call cancellation latency, user study or physical
+acceptance is claimed. Earlier failed artifact/archive-identity receipts remain
+failed; missing old initramfs member comparison was resolved by the fresh suite.
+No shared libc/kernel or unrelated shell-quoting change is included.
+
+[Portable evidence](assets/screenshots/patch-manifest.json) and the port manifest
+record scope and provenance. Raw proof, frozen payloads and source snapshots are
+retained outside build cleanup. Independent review finds no bounded-profile
+blocker; [port PR12](https://github.com/PaulMDemers/SrvrPorts/pull/12) then
+[OS PR370](https://github.com/PaulMDemers/SrvrOS/pull/370) record ordered delivery.
+No further feature is required; later ports are deferred under the closeout.

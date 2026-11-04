@@ -272,16 +272,23 @@ def main():
         "write /fat/patch-target.txt alpha\n"
         "write -a /fat/patch-target.txt beta\n"
         "write -a /fat/patch-target.txt gamma\n"
-        "write /fat/change.patch '--- /fat/patch-target.txt'\n"
-        "write -a /fat/change.patch '+++ /fat/patch-target.txt'\n"
+        "cp /fat/patch-target.txt /fat/patch-before.txt\n"
+        "write /fat/change.patch '--- before'\n"
+        "write -a /fat/change.patch '+++ after'\n"
         "write -a /fat/change.patch '@@ -1,3 +1,4 @@'\n"
         "write -a /fat/change.patch ' alpha'\n"
         "write -a /fat/change.patch '-beta'\n"
         "write -a /fat/change.patch '+BETA'\n"
         "write -a /fat/change.patch '+inserted'\n"
         "write -a /fat/change.patch ' gamma'\n"
-        "patch -i /fat/change.patch\n"
-        "cat /fat/patch-target.txt\n"
+        "patch -i /fat/change.patch -o /fat/patch-result.txt /fat/patch-target.txt && echo patch-explicit-ok\n"
+        "cmp -s /fat/patch-target.txt /fat/patch-before.txt && echo patch-source-preserved\n"
+        "write /fat/patch-expected.txt alpha\n"
+        "write -a /fat/patch-expected.txt BETA\n"
+        "write -a /fat/patch-expected.txt inserted\n"
+        "write -a /fat/patch-expected.txt gamma\n"
+        "cmp -s /fat/patch-result.txt /fat/patch-expected.txt && echo patch-result-exact\n"
+        "cat /fat/patch-result.txt\n"
         "mkdir -p /fat/maketest/src /fat/maketest/build\n"
         "write /fat/maketest/src/input.txt make-source\n"
         "write /fat/maketest/Makefile 'OUT = /fat/maketest/build/out.txt'\n"
@@ -675,11 +682,11 @@ def main():
         "usage: cmp [-s] file1 file2",
         "usage: yes [string ...]",
         "usage: install [-d] [-D] [-m mode] source dest | install -d dir [...]",
-        "usage: diff [-q|-u] file1 file2",
+        "Usage: diff [-q|-u] [-L LABEL] [-L LABEL] FILE1 FILE2",
         "usage: tar -cf archive file... | tar -tf archive | tar -xf archive [-C dir]",
         "usage: gzip [-cdk] [file ...]",
         "usage: gunzip [-ck] [file ...]",
-        "usage: patch [-pN] [-i file] [target]",
+        "Usage: patch -i PATCH -o NEW_OUTPUT SOURCE",
         "usage: make [-nB] [-f file] [target ...]",
         "usage: udpecho server [port]",
         "shell.txt",
@@ -797,7 +804,9 @@ def main():
         "/fat/extract/fat/install/sub/status-copy.txt",
         "gzip-roundtrip-ok",
         "gzip-tar-ok",
-        "patch: /fat/patch-target.txt",
+        "patch-explicit-ok",
+        "patch-source-preserved",
+        "patch-result-exact",
         "BETA",
         "inserted",
         "make-source",
