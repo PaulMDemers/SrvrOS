@@ -1,5 +1,18 @@
 # Apple Silicon macOS build host
 
+## Read-only used-installation inspection — active scope
+
+User authorized a scoped PR with used-image and refusal proof. Reuse isolated
+`SrvrOS-installation-io`, branch `device/apple-silicon/installed-state-inspection`,
+main `408cbf8c`. Inspect current filesystem/profile contracts; own the separate
+host inspector, inherited-read-only-fd native metadata reader, CLI/tests and proof.
+Original publication/reconciliation rules remain unchanged; receipts stay
+historical after guest use. No kernel/provisioning/profile-policy implementation.
+Validate boot/root identity, current allocation/admission and bounded profile
+metadata; refuse uncertain state without cleanup. Preserve review VMs
+61610/6233/85869 and primary checkout, one build/harness at a time, no physical
+media/reboot/Actions. Acceptance/evidence will be recorded in the installation guide.
+
 ## PR330 merge review
 
 Final refresh consumes main `10890eed`/PR329 as `740869f0`. Fresh file-fsync,

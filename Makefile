@@ -2027,7 +2027,7 @@ test-storage: build/tests/block-host$(HOST_EXE) build/tests/ahci-host$(HOST_EXE)
 	build/tests/ahci-host$(HOST_EXE)
 
 .PHONY: test-installed-root
-test-installed-root: build/tests/exfat-driver$(HOST_EXE)
+test-installed-root: build/tests/exfat-driver$(HOST_EXE) build/tests/installation-inspect-driver$(HOST_EXE) build/tests/profile-image-driver$(HOST_EXE)
 	CC='$(HOST_CC)' $(PYTHON) tools/test_installed_root.py
 	$(PYTHON) -m unittest discover -s tools -p 'test_install*.py'
 	$(PYTHON) tools/test_installed_root_exfat.py --driver build/tests/exfat-driver$(HOST_EXE) --output build/review/installed-root-host
@@ -4485,3 +4485,7 @@ build/tests/file-fsync-host$(HOST_EXE): tools/test_syscall_fsync.c kernel/src/ar
 test-core: test-dirty-salvage-scope
 test-dirty-salvage-scope:
 	$(PYTHON) -m unittest discover -s tools -p test_dirty_salvage_scope.py -v
+
+build/tests/installation-inspect-driver$(HOST_EXE): tools/installation_inspect_driver.c kernel/src/fs/exfat.c kernel/src/block_claim.c kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_EXFAT_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include tools/installation_inspect_driver.c kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c -Wl,--gc-sections -o $@

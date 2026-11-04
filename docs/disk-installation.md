@@ -1,5 +1,51 @@
 # Disk installation and recovery
 
+## Read-only used-installation inspection — active milestone
+
+User authorized implementation, used-image/refusal proof and a scoped PR.
+Branch `device/apple-silicon/installed-state-inspection` reuses isolated
+`SrvrOS-installation-io`, main `408cbf8c` (PR330 plus hardware-evidence-only
+PR331 and additive filesystem proof PR332). Current filesystem/profile contracts include PR312/313/318 root and
+allocation admission, PR320/321 import and binding, PR326 identity/selection,
+and PR329's file-scoped fsync versus global sync/reboot boundaries. Open PR317
+and browser/hardware work were inspected; no installation/profile overlap is
+consumed. Own a separate host inspector, bounded read-only native metadata
+reader, CLI/tests and proof. No kernel, provisioning or profile-policy edits.
+
+| Offline stage | Inspection action/result |
+| --- | --- |
+| Original sealed publication, current data unchanged | Validate immutable boot/root identity, current filesystem and profile; report consistency |
+| Same installed image after legitimate saves | Allow mutable data changes; report used state and current metadata while preserving the original receipt as history |
+| Wrong boot/GPT/root identity, allocation inconsistency or invalid profile | Refuse with bounded diagnostic and preserve all bytes |
+| Pending/torn import or unknown transaction/selection scratch | Report blocked/refused; never run recovery, remove markers or choose a profile |
+
+The new `inspect-installed` path is separate from strict publication `inspect`
+and `reconcile`; guest-modified output remains ineligible for publication recovery.
+It uses retained plan/journal/ready/bootstrap records. Used v2 images also need
+the unchanged retained `profile.exfat`; other original provisioning sources may
+be absent. Used legacy v1 images need the exact original exFAT source as their
+data baseline, otherwise inspection refuses with a baseline diagnostic. The
+current protected image bytes are combined with that verified original partition
+and checked against the original whole-image hash; all GPT/ESP/padding bytes
+remain bound while current user data may differ. The original private directory and candidate inode still
+bind the inspected target. A native reader receives only an inherited regular
+`O_RDONLY` image descriptor and a checked partition range, runs actual exFAT clean
+admission/allocation checks and returns bounded metadata with zero attempted
+writes/flushes. It checks the backing directories required by the existing
+namespace bindings. The existing `O_RDWR` provisioning adapter is not reused.
+Profile identity display records remain optional for older v2 installations,
+matching the guest fallback; present records must validate. Portable settings
+use the guest's 512-byte limit and remembered selections require its exact CRC.
+
+Acceptance includes a stopped used image after edit/save/reboot, exact identity
+and data readback, structural/profile refusals, busy/unsafe input refusal and
+whole-stage/source/receipt preservation. Matching on-disk structure is not a new
+publication acknowledgment, authentication, live health, repair or physical-media
+acceptance. Cooperative offline ownership is required. Preserve review VMs
+61610, 6233 and 85869, primary checkout and earlier evidence. One build/harness
+at a time; no physical disks, host reboot, Actions or merge requested. Status:
+implementation and proof in progress.
+
 ## PR330 merge review and next bounded checkpoint
 
 Final refresh: main advanced to `10890eed` (PR329) during merge preparation.
