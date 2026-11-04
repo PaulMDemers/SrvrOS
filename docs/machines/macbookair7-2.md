@@ -2,6 +2,26 @@
 
 Updated: 2026-11-04. State: **active reference machine; partial device acceptance**.
 
+### Active scope: exact aperture and candidate-entry prerequisites
+
+Main `3fcf2630` is integrated as `efd398e2`, including merged PR317 retirement,
+Files/toolkit and portable-tool updates. Preserve Air7,2 capture recipes, the
+Haswell firmware-only diagnostic and scope-owner cancellation; directed process,
+cache and publication checks pass after conflict resolution. No new physical
+acceptance follows from this integration.
+
+Before a private-page writer can restore exactly, capture the live Broadwell
+MSAC aperture-size control and the original GGTT entries immediately beyond the
+entire34MiB inherited fence. Bounded next objective: a read-only16-entry window,
+two complete raw vectors, fresh CPU0 UC classification, exact profile/config
+and full backing/fence guards, strict no-write/map-retirement receipts and
+source-bound tests. An empty/stable entry is never a managed-range grant. Touches
+a new GGTT-window core/adapter, explicit capture recipe/collector, tests and docs;
+no PTE, aperture-data, engine, power-policy or cache-policy writes. Current07df
+is collected and backed up; no reboot armed. PR365 ongoing retirement and the
+other machine agents keep independent scope. Next is a source-matched automatic
+readout after host/VM validation, then native writer ownership/admission.
+
 ### Native read-only cache observation accepted
 
 Release `07df02f62d1074ac`, source `e9391d64`, completes as
