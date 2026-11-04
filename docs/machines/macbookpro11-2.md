@@ -114,6 +114,26 @@ relax radio predicates or enlarge ordinary collection limits. Archive verified
 large sessions, or explicitly identify them, before a future ordinary collection;
 unknown large sessions remain refused rather than silently admitted.
 
+## Active main integration and native trim scope
+
+Fetched actual main `0cba30a1` (PR322). Incoming pins are Apps `3cf32af2`,
+Ports `5e994f53`, UI `9eaaa74e`; current local Apps/Ports preserve Wi-Fi controls
+and checkpoint-only power logging. Merge those exact pins first and publish
+module merges before root gitlinks. Reconcile root build/main/installer paths,
+retaining upstream filesystem/profile/display and installer hardening alongside
+our fixed diagnostic recipes/strict evidence bounds. Read-only Air display and
+PR317 VMM audit remain independent; no MT76 owner overlap was found.
+
+Validate the matched build/core/desktop/I/O and focused global filesystem/profile/
+installation regressions, plus exact-stage save/return/missing-workspace and
+relevant UI VMs. Preserve accepted v116/previous recovery and native capsule.
+Only after baseline checks should fresh private logical30/d0 trim fields bind
+the host-tested trim/channel lifetime to one native static owner, an immutable
+automatic recipe and complete-prefix collector. Retain source/field/packet/
+cleanup refusal checks. No DAC/VCO/RX or credential use is part of that next
+trim trial. Native trim acceptance requires matching saved physical evidence;
+no reboot is armed by this source integration.
+
 ## Current bounded trim/calibration scope
 
 Fetched/reviewed main `8f47f196` and active PRs314/313/310/309/308/306/301/252.
