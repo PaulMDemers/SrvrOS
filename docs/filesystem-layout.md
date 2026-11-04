@@ -3,6 +3,15 @@
 Updated November 3, 2026. Global activation follows the explicit namespace proof
 in [PR308](https://github.com/PaulMDemers/SrvrOS/pull/308).
 
+## Userspace salvage helper — active implementation
+
+Authorized helper milestone on main `4f5edb0e`. Add a libc helper using existing
+POSIX operations and an explicit result, exclusive destination, source ownership
+and offset restoration. Test short/interrupted I/O, failure/cleanup ordering and
+connect the implementation to the retained-dirty-data actual-source matrix.
+No production process/driver edits planned; coordination sent to PR317's owner.
+Primary checkout and existing review VMs are not test targets.
+
 ## Retained dirty-data salvage — verified
 
 User authorized this explicit salvage-copy proof on main `0cba30a1`.
