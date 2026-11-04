@@ -106,3 +106,28 @@ core/actual-adapter tests, independent hash/receipt/max-tail checks, matched
 builds/VMs and local recovery/storage preflight are required before installation.
 Implementation is not native acceptance; the local run record owns install/arm
 state and collection. Prior inherited backing evidence remains unchanged.
+
+
+## Native firmware/catalog observation accepted (2026-11-04)
+
+The firmware-only capture is now physically observed on release
+`6b7dbee3a9441281` / source `e53b7a63`. Both complete136-byte DMAR copies match
+the unit SHA256 pin and all42 native Limine entries agree. Table address
+`0x8cd64000` is inside the ACPI-reclaimable interval
+`[0x8cd64000,0x8cd8f000)`. Copy brackets21/16 us and the4us inter-copy interval
+satisfy the unchanged bounds. See the [unit closeout](machines/macbookair6-1.md#native-firmwarefull-catalog-observation-accepted-2026-11-04)
+for exact session, storage-integrity and recovery evidence.
+
+Both declared DRHD pages have no intersection with the complete native catalog.
+Nearest reserved edges are `[0xfed1c000,0xfed20000)` and
+`[0xffe10000,0xffe40000)`, matching this unit's earlier Ubuntu catalog observation.
+These are observed resource prerequisites, not an enclosing memory-map grant,
+a DMA-state readout or proof of exclusive firmware/device ownership. The gap
+must not be treated as allocatable RAM or an arbitrary MMIO allowlist.
+
+The next bounded step is a source audit of exact-Haswell VT-d read semantics,
+unit-specific resource admission, finite sampling and mapping retirement before
+any native register test. Keep this unit's complete DMAR pin, explicit GPU scope
+and gap edges independent of PR301's Broadwell profile. No VT-d command/fault
+acknowledgement write, root-table traversal, forcewake, private mapping or owner
+assurance is granted here. No new test is staged or reboot armed by closeout.
