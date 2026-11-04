@@ -1550,6 +1550,29 @@ the original copy wrapper; those do not qualify the complete fused operation.
 Target suffix, expanded owner regressions and private/normal guest qualification
 remain pending. No public delivery or ABI is admitted.
 
+## November 4: first private fused target/guest checkpoint
+
+Independently verified all 29 frozen first-run input hashes against the private
+guest receipt retained outside cleanable build output at
+`.local/pr334-evidence/private-guest-1/receipt.json`, SHA256
+`a65166cb2728aca75dd5e2ade351f1380557644f52643f09b195d5d1e8faaabc`.
+Main/worker/repeated register/FPU preservation with complete public snapshot
+destruction passes, exits zero and stops. Pure user-loop delivery uses timer vector
+32. At 65,536 genuine mappings the two-page 760-byte transaction reports 262,144
+possible visits and 961 us for prepare/copy/commit. This quantized CPU0 TCG sample
+excludes outer hook admission/diagnostics, not the whole IRQ-disabled interval or
+a hard bound. No production hook or public signal capability is enabled.
+
+Fresh disassembly of the frozen process/FPU objects and linked private kernel
+confirms successful delivery/return suffixes contain bounded copies and prepared
+state/frame/mask/RESET/default-fatal stores plus FPU commit, with no fallible query.
+The FPU commit and linked memcpy are call-free; no FXRSTOR occurs while C continues.
+Delivery reserves `0x1938` bytes of local stack plus register saves. Independent
+evidence and available raw logs: `build/review/pr334-signal-fused-first-guest-review/`.
+Expanded actual heap-pointer register preservation, DF and four-deep nesting,
+fresh normal/I/O regressions and final immutable closure remain pending. This
+checkpoint is neither final fused acceptance nor a garbage-collector/root proof.
+
 ## Remaining work
 
 Other long IRQ-disabled operations, including initial/churning PMM scans, heap validation and poisoning,
