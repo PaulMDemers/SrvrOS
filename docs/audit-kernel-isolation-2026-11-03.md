@@ -1911,6 +1911,39 @@ admission. No public implementation or successful WTF/JSC suspension is inferred
 Documentation checking covers 895 local links with the same nine missing nested
 submodule license targets; no new missing local link.
 
+## November 4: local commit guard and sleep-return ordering
+
+Reviewed the proposed LOCAL_END metadata path against current syscall admission.
+Existing signal metadata calls can overlap owned I/O because they only mutate
+fixed masks and cancellation state; process teardown remains gated in the IDT.
+A register-only SIGNAL_IO form can follow that boundary if classification uses
+only exact immutable registers and its helper independently checks live binding,
+thread identity, top ticket/depth and ACTIVE ownership under IF0. The owner must
+prove restoration does not wait behind foreign storage ownership, acquire a
+copy/FPU lease, invoke callbacks or allocate. Wire-pointer operations remain
+unsafe. This is design review, not implemented syscall admission.
+
+Socket poll update currently calls unsafe NET_ERROR and may trace through
+`fprintf`; neither belongs inside the proposed masked local commit. The owner
+will hoist observations/tracing and revalidate the same synthetic/native identity
+around bounded stores. A native-completion exception also needs immutable actual
+result storage, a fixed root-kind/backend table and one-shot finalization; a flag
+must not authorize another effect after interruption.
+
+Actual `posix_time.c` has a confirmed integration gap for future public INFO:
+its remainder clock sample occurs after `srv_sleep_ticks` returns. A handler at
+the common user-return seam has already run by that sample, unlike today's
+cooperative handler dispatch. An independent modeled-service fixture reproduces
+this ordering with the actual libc: request 1.000000123 s, interrupted after
+250 ms, handler 1.5 s. The cooperative control returns 0.750000123 s; moving the
+handler duration into syscall return yields zero and fails the intended check.
+The existing complete timing suite still passes. Public INFO is not enabled,
+so this is not a native runtime regression claim. The proposed gateway must
+capture interruption time/remainder before delivery, including tick fallback,
+with exact bounded storage and nesting/alias behavior. Implementation and passing
+matched regression remain with PR334's owner. Evidence/source hashes:
+`build/review/pr334-sleep-return-review/`. No shared implementation was edited.
+
 ## Remaining work
 
 Other long IRQ-disabled operations, including initial/churning PMM scans, heap validation and poisoning,

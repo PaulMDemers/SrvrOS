@@ -259,3 +259,11 @@ browser overlay modes/blobs; 27 root files/modes match browser185db570 after the
 missing math fixtures. Copied runtime claims now have explicit historical attribution. Independent hyperbolic host checks pass ARM strict,
 ARM sanitizer and x86 strict, not SDK/guest acceptance. Public synthetic local
 commit guard remains proposed. See the kernel checkpoint for precise scope.
+
+
+Public local-commit guard review remains preparation-only. Exact register-only
+mask restoration must bypass foreign I/O admission without widening wire forms.
+Actual-libc/model reproduction confirms future INFO return would subtract handler
+time from relative sleep remainder (0 instead of0.750000123s); cooperative control
+and existing timing suite pass. Pre-delivery timestamp/remainder snapshot is now
+required; public implementation/native qualification remains open.
