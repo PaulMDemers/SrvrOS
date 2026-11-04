@@ -2,6 +2,16 @@
 
 ## End session and switch profile — source integration in progress
 
+Follow-up source review found two shutdown gaps. Existing-window Alt-Tab now
+opens a windows-only switcher while ending; new application admission remains
+paused. A confirmed nonzero exit of a desktop-owned GUI app during the current
+close wave cancels that transition and reports the app failure. Generic command
+and descendant statuses remain diagnostic, and historical errors do not prevent
+a later explicit retry. The actual desktop-session host fixture passes these
+boundaries and the full existing suite; freestanding syntax also passes. Final
+guest qualification must use this follow-up source, including a finite direct-app
+crash while unsaved prompts keep the close wave active.
+
 User authorizes ending sessions and switching without reboot, coordination,
 unsaved-work/clean-retirement/profile-isolation verification and merging after
 review. Coordinator owns independent review and merge ordering. Reuse isolated
