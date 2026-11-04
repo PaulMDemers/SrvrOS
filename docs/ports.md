@@ -599,7 +599,7 @@ exact evidence and scope limits.
 
 ## GNU diff text-file review
 
-The bounded GNU Diffutils 3.12 port is under qualification. It compares two
+The qualified bounded GNU Diffutils 3.12 port compares two
 regular text files in the C locale with normal, `-q`, or three-context-line `-u`
 output, optional `-L` labels and `--` before paths. Use labels to make saved
 reports independent of filesystem timestamps:
@@ -623,4 +623,4 @@ existing compact local `patch` has a narrower tested subset: do not assume it
 can apply every GNU report. Its zero-context insertion, removed `--- ` content,
 missing-final-newline and create/delete cases are not accepted. GNU patch is a
 separate later queue entry; host GNU patch roundtrips are a distinct diff gate.
-Current draft gates and delivery order are in [the CLI queue](cli-port-queue.md).
+Qualification evidence and delivery order are in [the CLI queue](cli-port-queue.md).

@@ -9,7 +9,7 @@ reservation for the next milestone.
 
 | Order | Application | Bounded outcome | State |
 | --- | --- | --- | --- |
-| 1 | GNU Diffutils 3.12 `diff` | Correct normal/quiet/unified comparison of two capped text files; long lines and 0/1/2 statuses; host patch validation and explicit local-patch subset. | Active: corrected two-boot qualification, reproducibility and Terminal pass; combined-cap target fixture and final review remain; CLI/ports regressions pass. |
+| 1 | GNU Diffutils 3.12 `diff` | Correct normal/quiet/unified comparison of two capped text files; long lines and 0/1/2 statuses; host patch validation and explicit local-patch subset. | Qualified: all bounded gates and independent review pass; port-first/OS-second delivery recorded in linked PRs. |
 | 2 | GNU Patch 2.8.1 | Apply a bounded single-file unified patch to an explicit separate output; preserve source, reject ambiguous/unsafe paths and failed hunks; qualify the diff edge cases excluded by the compact local patch. | Source-only preparation in isolated `SrvrOS-ports-patch` from `88a95f9a`; authenticated pristine 2.8.1 imported. No build/VM/PR/merge before diff delivery and a fresh slot. |
 | 3 | GNU Grep 3.12 | C-locale text search over bounded files/finite stdin; fixed strings and qualified BRE/ERE, useful match/count/quiet status contracts. No PCRE, recursion, color or Unicode claims. | Queued: authenticate/pin stable release and qualify regex/SDK/memory/cancellation gates. |
 | 4 | GNU Coreutils 9.12 `sha256sum` | File/stdin SHA-256 and a bounded explicit verification manifest; exact known vectors and failure statuses. No broader coreutils import or automatic filesystem traversal. | Queued: authenticate/pin stable release and bound manifest/path behavior. |
@@ -28,54 +28,42 @@ never silently reduce an approved input/behavior boundary or add fake runtime
 capability stubs. A shared libc/kernel need requires a minimal reproducer and
 coordination before changing its contract.
 
-Current checkpoint: isolated source includes OS main `88a95f9a` and exact merged
-Apps/UI pins. Corrected two-boot GNU diff qualification passes at
-`build/review/diff/20261104-160706-4um4u8va`: normal/quiet/unified references,
-actual-read refusals, real calloc/malloc injection and recovery, timestamp-matched
-unlabeled output, GNU host patch roundtrips, narrow local-patch subset, preserved
-inputs, reboot bytes and fsck. Exact SIGINT/SIGTERM statuses 130/143 pass after
-comparison progress and observed held-output stall with unchanged flags. The
-pipe remains at 65534 bytes while POLLOUT stays true; this corrects the old
-probe's false assumption and does not trace a kernel write wait or promise
-interruption latency. The failed preceding receipts remain retained.
+Current diff checkpoint: all bounded gates pass on clean `5796a9cd`, including
+the changed simultaneous 256 KiB/8192-line/64 KiB-line fixture and full two-boot
+reference, allocation, signal, output, host patch, preservation and fsck checks.
+Actual Terminal expert walkthrough, full 491-line CLI regression and ports
+regression pass against identical kernel/initramfs/base-disk bytes. Two clean
+GNU core/gnulib/diagnostic rebuilds match against the same SDK objects. Native
+upstream scripts have three PASS and one expected XFAIL, with guest input
+fixtures separately labeled. Independent source/evidence review found no blocker.
+No shared libc/kernel change, full guest-suite, whole-image/SDK reproducibility,
+RSS/true peak, traced syscall wait, in-call latency or physical acceptance claim.
 
-Two clean core/gnulib and diagnostic rebuilds match byte-for-byte against the
-same SDK objects. Native upstream scripts: three PASS and the upstream-declared
-`large-subopt` XFAIL. Guest upstream input fixtures are separately labeled.
-Actual Terminal/less/local-patch-subset/error/readback proof and expert screenshot
-inspection pass at `build/review/diff-terminal/proof-wvsivqnz`. CLI regression passes all 491 commands and clean fsck; ports regression passes
-with clean fsck. All five owned guests have stopped and the slice is released.
+The former held-output probe's false POLLOUT assumption is retained as a failed
+receipt: corrected evidence observes 65534 stable bytes while POLLOUT stays true,
+then exact signal statuses 130/143 and unchanged flags. Earlier ISO/disk-pressure
+failure also remains historical evidence, without a guest claim. All owned
+builds/guests stopped and every resource slice was explicitly released. There is
+no standing reservation for GNU patch or later rows.
 
-One final memory-envelope fixture now reaches 256 KiB, 8192 lines and one 64 KiB
-line simultaneously, with a changed byte. Host data construction passes; target
-qualification remains pending in a separately requested ≤8-minute/two-boot
-slice. No production code changed. Do not merge before this gate and regressions
-pass, final independent review completes and merged trees/pins are verified.
+[Portable evidence](assets/screenshots/diff-manifest.json) and the verified
+qualification archive under ignored `.local/cli-port-evidence/diff/` preserve
+all failed/passing proofs and source/payload copies outside build cleanup.
+Exact storage/restore paths are in ignored local records. Recheck internal,
+output/temp and backing reserves before every heavy launch; current coordination
+requires 2 GiB internal and 4 GiB backing reserve. Use external build/cache/temp
+storage and one owned compiler/VM job at a time within each finite handoff.
 
-Task-owned diff/xz build/evidence trees live on `/Volumes/SrvrOSCLIQueue` after
-all copied file hashes/link targets matched. Volume-root relocation manifests
-retain the originals' hashes; workspace paths remain symlinks. The APFS image is
-`/Volumes/miniTB/SrvrOS-CLI-queue-20261104.sparsebundle`. Build/cache/TMPDIR use
-this owned volume. Recheck internal, output/temp and backing reserves (≥2 GiB)
-before every heavy launch. The prior ≤25-minute/five-boot slice is complete and explicitly released. The
-≤8-minute/two-boot combined-cap request is queued behind other ready owners and
-is not a launch grant. Source-only GNU patch preparation in a separate checkout
-may continue, but no next-port build or merge precedes diff acceptance. No
-standing reservation applies to later queue entries.
+Actual OS main `70c3ea0f` is reconciled here, adding host installation tools/docs
+without target runtime changes. The tested port tree and later delivery head
+differ only in PORT.md. Final exact-head/tree/pin verification belongs to the
+authorized port-first, OS-second delivery. [SrvrPorts #11](https://github.com/PaulMDemers/SrvrPorts/pull/11)
+and [SrvrOS #369](https://github.com/PaulMDemers/SrvrOS/pull/369) record its outcome.
 
-
-Primary GNU release indexes were fetched directly during source preparation:
-patch 2.8.1, grep 3.12 and coreutils 9.12 are the latest numbered tarball releases
-listed. Recheck these pins at entry rather than relying on search cache freshness.
-All four queue entries are authorized; pin verification is not another approval
-request. No queued source is accepted until its own gates pass.
-
-Review delivery (draft, not accepted): [SrvrPorts #11](https://github.com/PaulMDemers/SrvrPorts/pull/11)
-and dependent [SrvrOS #369](https://github.com/PaulMDemers/SrvrOS/pull/369).
-Both explicitly retain the failed probe/remaining target, Terminal and
-regression gates. Merge order remains ports first, then OS, only after passing.
-
-Latest baseline: OS main `70c3ea0f` is merged here; its delta is host installation
-tooling/docs. Kernel, SDK, apps, headers and Makefile match tested `a3bace0f`.
-Port main is merged as `2562a335`, differing from tested `aa4f0f1` only in
-PORT.md. The next manifest/combined-cap run will bind the reconciled source.
+GNU Patch 2.8.1 source is authenticated (578 regular files match the archive) and
+its adapter/tests are prepared in the separate checkout. Its configuration,
+recipe, link, snapshot/output/memory/signal behavior and guest acceptance remain
+unverified. Reconcile with delivered diff/main before building; do not merge
+unqualified source to maintain queue momentum. Grep/coreutils source signatures
+and digests are prepared and must be rechecked at entry. All four rows remain
+authorized; no new Proceed is required, but no later heavy slot is assumed.

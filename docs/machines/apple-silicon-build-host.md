@@ -5026,3 +5026,38 @@ source remains pending. Integration relayed a fresh explicit ≤40-minute window
 for a matched incremental -j2 build, two clean diff rebuilds/native tests and at
 most six sequential 512 MiB guests, stopping/releasing on failure or expiry. No
 standing reservation applies to later queue entries.
+
+### GNU diff bounded qualification — ready for dependency-order delivery
+
+All bounded gates pass on clean source `5796a9cd`, reconciled with main
+`70c3ea0f`. The full two-boot proof at
+`build/review/diff/20261104-164420-i8c5qkr8` includes a changed input simultaneously
+256 KiB, 8192 lines and a 64 KiB line, exact GNU references and host GNU Patch
+roundtrips, allocation refusal/recovery, source preservation, saved reboot bytes
+and clean guest fsck. Repeated signals after comparison progress and observed
+held-output stall return exactly 130/143 with unchanged flags. The stalled pipe
+contains 65534 bytes while POLLOUT remains true; the previous failed assertion
+and the earlier pre-QEMU ISO failure are retained as historical failures.
+
+Actual Terminal/less/error/readback and expert screenshot walkthrough pass on
+the same packed runtime `258775bcfa0102cd1ca1c666e6005fa63f155198eed634569c709ce9ee5811b6`.
+The full 491-line CLI and ports regressions each pass with clean fsck. Two clean
+GNU core/gnulib and diagnostic builds match against the same SDK objects, with
+production ELF `83a5f8a0c7e803cf0c5e716f1e202b4918561dfbc461ed3fa75de41499d7d714`.
+Native upstream scripts have three PASS and one expected large-subopt XFAIL;
+guest input fixtures are separately labeled. No full guest-suite, independent
+SDK/whole-image reproducibility, RSS/true peak, traced syscall wait, in-call
+latency, physical-device or representative-user claim. No shared libc/kernel
+change or unresolved bounded-profile blocker.
+
+Independent source/evidence review passes. [Portable evidence](../assets/screenshots/diff-manifest.json)
+and a readback-verified archive of all 4083 files/links plus source/payload copies
+survive outside build cleanup in ignored `.local/cli-port-evidence/diff/`
+(archive SHA256 `8dc2bf0a2e75b55ee355d404eb4a7785c68c28c09810fa531976bba14922c5ef`).
+Final documentation/gitlinks change no tested runtime source; exact-head/tree
+and port-pin checks guard [SrvrPorts #11](https://github.com/PaulMDemers/SrvrPorts/pull/11)
+then [SrvrOS #369](https://github.com/PaulMDemers/SrvrOS/pull/369). Linked PR states
+record delivery. All owned jobs stopped and each resource slice was released.
+GNU Patch source-only preparation is isolated; further builds require its own
+finite handoff after diff delivery. Review VMs and integration checkout remain
+untouched. No further diff feature is required for this target.
