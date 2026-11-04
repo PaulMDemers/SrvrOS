@@ -278,7 +278,7 @@ def menu_cancel_console(vm, token, pid):
 
 
 def fixture(out, receipt):
-    base = ROOT / 'build/srvros.exfat'; driver = ROOT / 'build/tests/profile-image-driver'
+    base = (ROOT / 'build/srvros.exfat').resolve(); driver = ROOT / 'build/tests/profile-image-driver'
     machine = d.machine_preferences(4, -300)
     bundle_a = d.make_bundle()
     bundle_b = d.make_bundle()
@@ -292,9 +292,9 @@ def fixture(out, receipt):
     receipt['installations'] = {}
     for name, volume in (('system', second), ('transport', base)):
         stage = out / ('target-' + name)
-        installation_image.prepare(stage, ROOT / 'build/kernel/srvros.elf',
-            ROOT / 'build/limine-binary/BOOTX64.EFI', volume,
-            ROOT / 'build/userspace/init.elf', identity_bound=True)
+        installation_image.prepare(stage, (ROOT / 'build/kernel/srvros.elf').resolve(),
+            (ROOT / 'build/limine-binary/BOOTX64.EFI').resolve(), volume,
+            (ROOT / 'build/userspace/init.elf').resolve(), identity_bound=True)
         ready = installation_image.apply(stage)
         disk = stage / 'image.img'; disks[name] = disk
         _, (offset, size) = d.partitions(disk)
@@ -336,7 +336,7 @@ def main():
     if not 10 <= args.boot_wait <= 240: parser.error('invalid boot wait')
     for firmware in (args.ovmf, args.ovmf_vars):
         if not Path(firmware).is_file() or ',' in firmware: parser.error('invalid firmware path')
-    base = ROOT / 'build/review/profile-switch'; base.mkdir(parents=True, exist_ok=True)
+    base = (ROOT / 'build/review/profile-switch').resolve(); base.mkdir(parents=True, exist_ok=True)
     out = Path(tempfile.mkdtemp(prefix='proof-', dir=base))
     print(f'Profile switch evidence: {out}', flush=True)
     receipt = {'status': 'INCOMPLETE', 'source': source_provenance.capture(ROOT),
@@ -350,7 +350,7 @@ def main():
     d.save_json(out / 'receipt.json', receipt)
     try:
         receipt['build'] = d.verified_build(ROOT)
-        volume = (ROOT / 'build/srvros.exfat').stat().st_size
+        volume = ((ROOT / 'build/srvros.exfat').resolve()).stat().st_size
         disk_size = installation_image.layout(volume)['size_bytes']
         required = 4 * disk_size + 8 * volume + t.ARCHIVE_BUDGET + 1024**3
         free = shutil.disk_usage(out).free
@@ -456,9 +456,9 @@ def main():
         if small_config == original: raise RuntimeError('small display override unavailable')
         try:
             installation_image.CONFIG = small_config
-            plan = installation_image.prepare(stage, ROOT / 'build/kernel/srvros.elf',
-                ROOT / 'build/limine-binary/BOOTX64.EFI', small_volume,
-                ROOT / 'build/userspace/init.elf', identity_bound=True)
+            plan = installation_image.prepare(stage, (ROOT / 'build/kernel/srvros.elf').resolve(),
+                (ROOT / 'build/limine-binary/BOOTX64.EFI').resolve(), small_volume,
+                (ROOT / 'build/userspace/init.elf').resolve(), identity_bound=True)
             ready = installation_image.apply(stage)
         finally:
             installation_image.CONFIG = original
