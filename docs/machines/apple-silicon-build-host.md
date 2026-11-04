@@ -3465,3 +3465,18 @@ task guests stopped; review VMs preserved. Evidence: `build/review/xhci-stop/`.
 Nine known missing nested license targets remain. Per-slot teardown, block and
 worker reference release, physical acceptance and safe whole-xHCI reclamation
 remain open. No PR329/330/332 filesystem/installer implementation overlap.
+
+
+## Browser signal/context dependency — November 3, 2026
+
+Dedicated branch `device/apple-silicon/browser-signal-context` consumes main
+`89c210db` and PR317 `c9f4f306` through merge `af470fff`. The browser milestone
+needs real directed asynchronous delivery and interrupted register roots before
+JSC startup/GC can be accepted. The audit owner agreed this separate dependency
+branch and retains process/VMM/teardown integration review; browser PR310 should
+consume the reviewed dependency. The [design proposal](../signal-context.md)
+is for ABI/delivery/return review before implementation. No runtime code,
+physical work, kernel/SDK build or VM run is claimed by this design checkpoint.
+The separate browser checkout owns the demonstrated app.ld TLS correction and
+its utility/runtime proofs. Preserve the existing review VMs and all other
+owners' device/runtime scopes.
