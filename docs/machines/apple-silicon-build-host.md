@@ -3307,3 +3307,27 @@ physical fault acceptance or complete userspace rebuild is claimed. All task
 guests stopped, existing review VMs preserved. Hardware stop/drain, provider
 unregister/reference retirement and reclamation remain open. Evidence:
 `build/review/usb-retirement/`. Nine known nested license links remain missing.
+
+
+### Hardware quiescence and retained provider references
+
+Continue PR317 from `e2457b1b` in the isolated kernel checkout. Review xHCI
+pre-publication frees and VirtIO reset/stop reclamation, including retained
+network callback references. Planned files are VirtIO host fixtures, lifecycle
+header comments and audit/testing docs; production fixes only for reproduced
+defects. Main `c90f3522` and PR329/330 scopes inspected. No process/syscall,
+filesystem, block contract or installer changes planned. Filesystem integration
+owner notified; preserve review VMs and use disposable guest disks.
+
+The bounded source/model review found no additional runtime premature-free or
+retained-provider callback defect. New VirtIO-net tests retain callbacks during
+DMA free and after nested receive-delivery retirement, with reset success/failure,
+foreign CR3 and both IRQ states. Shared PCI tests retain queues when reset succeeds
+but PCI disable readback fails. A free-before-stop negative control is rejected.
+Normal/GCC14 and ASan/UBSan net/PCI tests pass, as do existing VirtIO input/RNG/
+block/GPU and xHCI suites. Corrected header lifecycle overclaims only; runtime
+header tokens are unchanged, so no new kernel/VM qualification is claimed.
+Evidence: `build/review/dma-reclaim/`; nine known missing nested license links.
+No task guests started, existing review VMs untouched. xHCI hardware stop/drain,
+generic provider-reference release, reset/hotplug and physical acceptance remain
+open. PR329 integration remains separately owned and does not overlap this work.

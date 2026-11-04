@@ -1557,3 +1557,14 @@ work, retaining pending DMA. A continuously refilled stale-event stream must
 consume at most 64 events per service turn across ring cycle changes. The MMIO
 model observes both halves of 64-bit writes. Software draining does not prove
 endpoint/controller quiescence or authorize freeing DMA/provider records.
+
+
+`test-virtio-net` now retains provider callbacks during and after DMA retirement,
+including TX failure triggered from RX delivery. Successful reset must precede
+every free, failed reset must pin backing, packet delivery must use a private
+copy, and callback reentry/repetition must refuse work while preserving foreign
+CR3 and both IRQ states. An injected free-before-stop control must fail.
+`test-virtio-pci` also rejects a stop whose reset completes but whose PCI disable
+write does not take effect, retaining queue identities and sticky quarantine.
+These actual-source fixtures model the transport/PCI hardware and registration;
+they do not qualify physical reset or SMP reclamation.

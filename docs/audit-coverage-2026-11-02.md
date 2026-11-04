@@ -147,3 +147,11 @@ Actual block/cache/claim code now participates in USB retirement tests. Bounded
 continuous stale-event drain is modeled across ring cycles. Hardware stop/drain,
 provider unregister/reference retirement, reset and re-enumeration remain open;
 software quarantine retains all backing rather than authorizing reclamation.
+
+
+PR317 quiescence/reference follow-up reviews existing reset-before-free and
+pre-publication-only cleanup, with new retained VirtIO-net callback/nested
+delivery and PCI-disable-failure regressions. No new runtime defect confirmed;
+lifecycle header overclaims corrected. Source/model evidence does not implement
+xHCI hardware stop/drain, generic provider reference release, hotplug or SMP
+reclamation. See the kernel-isolation report for exact scope and prerequisites.

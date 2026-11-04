@@ -588,6 +588,63 @@ retains only nine known missing nested-submodule license targets. New main
 `c90f3522` and PR329's independent syscall-only fix were inspected for scope;
 this branch retains integration base `1f177761` without that newer work.
 
+## Hardware quiescence and retained-provider references checkpoint
+
+Continuation from `e2457b1b` reviews the actual frees in xHCI, shared VirtIO PCI,
+input, net, block, RNG and GPU paths. xHCI only frees scratchpad/setup allocations
+before controller publication and a trackpad ring if its buffer allocation fails
+before Configure Endpoint. Published xHCI allocations remain pinned; no runtime
+stop/free implementation is implied. AHCI and E1000 retain published backing.
+The sampled audio allocation-refusal cleanup also precedes stream publication;
+its ordinary stop retains PCM backing.
+
+The VirtIO ownership boundary is a completed device reset, not an empty event
+ring. [VirtIO 1.2 section 2.4](https://docs.oasis-open.org/virtio/virtio/v1.2/virtio-v1.2.html)
+defines status zero as reset completion and prevents further queue interaction
+until reinitialization. Shared PCI teardown observes reset, checks PCI disable
+and only then frees queue allocations. Caller drivers deactivate admission before
+stop/free; failure retains caller backing. Block retirement invalidates its
+published identity before reset, input retires source state, RNG erases its
+private pool and GPU holds its presentation owner across reset/reclamation.
+These are source checks plus modeled regression evidence, not physical-device
+or hostile-controller acceptance.
+
+A new actual-driver VirtIO-net regression retains the registered callback copy
+while a receive-delivery callback triggers a TX fault and teardown. The delivered
+packet must remain valid because it is a private copy, while reset succeeds and
+DMA is reclaimed or reset fails and all backing stays pinned. Every free invokes
+send/poll/link reentry; later repeated retained callbacks run with both IRQ states
+from a foreign CR3. They must refuse work, preserve CR3/IRQs, avoid delivery or
+further frees and refuse initialization/rebinding. An injected free-before-stop
+control fails the new reset-proof assertion. The registration and transport
+boundaries are modeled; the driver and reclamation helpers are actual source.
+
+A new shared-PCI case accepts reset completion but rejects the PCI disable write.
+It requires unchanged queue allocation identities, zero frees, inactive admission
+and permanent quarantine even if later PCI writes would work. This passes the
+existing driver. The header incorrectly promised decode/bus mastering was always
+disabled on quarantine; it now states disable is attempted and failed readback
+may leave those bits enabled, requiring retained backing. RNG stop's kernel-CR3
+and IRQ-exclusion requirement is explicit. Network API comments now reflect
+boot-lifetime callback/context retention and the fact that link snapshots may
+read configuration and retire a faulting provider without delivering RX/TX.
+
+No additional runtime premature-free or retained-callback defect was confirmed
+in this cohort. There is no new reset, unregister, hotplug or reclamation feature.
+SMP, physical reset/removal, xHCI stop/drain and generic provider-reference release
+still need separate implementation/acceptance. Current CPU0 serialization and
+stable contexts are prerequisites, not a general concurrent reclamation scheme.
+
+The new net/PCI cases pass normal/Rosetta, strict GCC14/Linux and ASan/UBSan;
+existing VirtIO input/RNG/block/GPU and xHCI suites also pass. The private
+free-before-stop negative control fails at the intended proof assertion. All
+production edits in this cohort are header comments; token comparison against
+`e2457b1b` confirms unchanged runtime declarations/code. No kernel/VM rebuild was
+needed or claimed for these test/documentation edits; the earlier VM acceptance
+remains historical evidence at its recorded source. Review VMs were untouched,
+and no task guest was started. Evidence: `build/review/dma-reclaim/`. Link checking
+still reports the same nine missing nested-submodule license targets.
+
 ## Remaining work
 
 Other long IRQ-disabled operations, including initial/churning PMM scans, heap validation and poisoning,
