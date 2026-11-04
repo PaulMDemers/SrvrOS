@@ -120,6 +120,29 @@ static void imported(const char *slot,unsigned number,const char *checkpoint) {
     char *args[]={program,"import",source,actual_home,alias,uid,uid,NULL};
     assert(cli(args,checkpoint)==(checkpoint?86:0));
 }
+/* Fixed SHA-256 of 65536 ASCII x bytes; payload is written incrementally. */
+static void stream_bundle(const char *path,unsigned number) {
+    char text[700];int n=snprintf(text,sizeof(text),
+        "{\"format\":\"org.srvros.portable-profile\",\"schema_version\":2,"
+        "\"profile\":{\"id\":\"12345678-1234-4234-8234-%012u\",\"display_name\":\"Profile %u\"},"
+        "\"preferences\":{\"text_size\":20},\"documents\":[{\"path\":\"Documents/data.bin\","
+        "\"size\":65536,\"sha256\":\"1f8745f0d2d1387ec1af2211a3cf417b2e9e885e853472649c1d979d0e9370e3\"}]}",number,number);
+    assert(n>0 && (size_t)n<sizeof(text));
+    unsigned char header[24]="SRVROS-PROFILE2\n";
+    header[16]=(unsigned char)n;header[17]=(unsigned char)(n>>8);
+    header[18]=(unsigned char)(n>>16);header[19]=(unsigned char)(n>>24);
+    FILE *f=fopen(path,"wb");assert(f);
+    assert(fwrite(header,1,sizeof(header),f)==sizeof(header));assert(fwrite(text,1,(size_t)n,f)==(size_t)n);
+    char chunk[1024];memset(chunk,'x',sizeof(chunk));
+    for(unsigned i=0;i<64;i++)assert(fwrite(chunk,1,sizeof(chunk),f)==sizeof(chunk));
+    assert(!fclose(f));
+}
+static void stream_interrupted(const char *checkpoint,unsigned number,char source[160],char home[1024]) {
+    mapped("/fat/home/pending",home);snprintf(source,160,"%s/stream.bundle",fixture);
+    stream_bundle(source,number);char alias[32],uid[20];
+    snprintf(alias,sizeof(alias),"p%u",number);snprintf(uid,sizeof(uid),"%u",2000+number);
+    char *args[]={program,"import",source,home,alias,uid,uid,NULL};assert(cli(args,checkpoint)==86);
+}
 static struct profile_entry *entry(struct profile_catalog *c,const char *slot) {
     for(unsigned i=0;i<c->count;i++)if(!strcmp(strrchr(c->entries[i].home,'/')+1,slot))return &c->entries[i];
     assert(!"missing catalog entry");return NULL;
@@ -196,6 +219,23 @@ int main(int argc,char **argv) {
         assert(!profile_catalog_scan(&c,"/fat/home") && entry(&c,"pending")->state==PROFILE_BLOCKED);
         put("/fat/home/pending.profile-import.json","{\"format\":");
         assert(!profile_catalog_scan(&c,"/fat/home") && c.count==1 && entry(&c,"pending")->state==PROFILE_BLOCKED);
+        cleanup();
+    }
+    /* V2 recovery must validate its original source at every checkpoint. */
+    const char *stream_stops[]={"journal","directories","copy-partial","document","identity","commit-ready","published"};
+    for(unsigned i=0;i<sizeof(stream_stops)/sizeof(stream_stops[0]);i++) {
+        new_fixture();char source[160],saved[180],home[1024];
+        stream_interrupted(stream_stops[i],30+i,source,home);
+        assert(!profile_catalog_scan(&c,"/fat/home") && c.count==1 && entry(&c,"pending")->state==PROFILE_RECOVERABLE);
+        assert(snprintf(saved,sizeof(saved),"%s.saved",source)<(int)sizeof(saved));
+        assert(!rename(source,saved));
+        assert(!profile_catalog_scan(&c,"/fat/home") && entry(&c,"pending")->state==PROFILE_BLOCKED);
+        assert(!rename(saved,source));
+        assert(!profile_catalog_scan(&c,"/fat/home") && entry(&c,"pending")->state==PROFILE_RECOVERABLE);
+        char *recover_args[]={program,"recover",home,NULL};assert(cli(recover_args,NULL)==0);
+        assert(!profile_catalog_scan(&c,"/fat/home") && c.count==1 && entry(&c,"pending")->state==PROFILE_READY);
+        char document[1024];assert(snprintf(document,sizeof(document),"%s/Documents/data.bin",home)<(int)sizeof(document));
+        struct stat st;assert(!stat(document,&st) && st.st_size==65536);
         cleanup();
     }
     /* Creation recovery is self-contained: no external portable bundle exists. */

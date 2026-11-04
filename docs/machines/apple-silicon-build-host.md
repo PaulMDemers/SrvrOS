@@ -24,10 +24,34 @@ Parent owns the wire/review contract, GUI/catalog integration, Makefile, docs an
 independent review; bounded workers own guest codec/transaction, host streaming
 codec/tests and VM proof tooling. Local discovery worker was attempted: Ollama
 11434 unavailable, so native fallbacks are used. Source/host work first; preserve
-browser's heavy build/VM window until resource coordination. Next: freeze the
-wire/CLI/recovery/memory contract, implement and cross-test v1/v2, then matched
-build and two-installation migration/recovery proof. This is implementation
-work in progress, with no new verification or delivery claim yet.
+browser's heavy build/VM window until resource coordination.
+
+Source implementation now includes guest and host v2 dispatch/streaming,
+existing-journal recovery, opt-in memory diagnostics, graphical auto-format
+selection and a compatibility note. Native actual-source GUI parser checks cover
+64 maximum-length paths and version/per-file/aggregate/reported-total limits.
+The host codec's initial eight groups include bidirectional native-guest
+interoperability, short I/O, fsync failure, and source replacement. Actual CLI
+catalog tests cover recoverable/blocked/restored/ready states at all seven v2
+checkpoints. Guest review corrections now retain source descriptors through final rehash,
+respect the 67-descriptor target limit, preserve partial-export interruption and
+exercise complete 64 MiB import/recovery/export with native owned peak <1 MiB.
+Independent latest native runs pass 25 legacy guest and 9 streaming guest groups;
+strict syntax, maximum desktop review packing and documentation checks pass.
+No VM acceptance is claimed.
+
+A separately owned regular-file 18 GiB APFS image is being prepared under
+`/Volumes/miniTB/SrvrOS-profile-stream-20261104-145109`; original build/raw paths
+remain untouched. Managed-worktree creation rejected this chat's unmanaged nested
+source root, so the matched build will use a separate normal local clone in that
+new area with verified source/submodule pins. Browser's heavy slot was released;
+ports-xz subsequently released its bounded trial. The installation publication
+owner takes its matched build/two fresh-B qualification first, with a briefly
+lent unchanged-ELF browser diagnostic; wait for explicit handback before our
+heavy launch. Next: commit qualified source, matched build, then serial
+two-installation migration/recovery
+and actual import/export mapped-memory proof. This milestone remains incomplete;
+there is no new merge authorization.
 
 ## PR360 current-main merge review — ready
 

@@ -4,7 +4,7 @@ This is the in-progress implementation contract, not an acceptance claim.
 
 User authorizes larger-document migration with bounded memory, v1 compatibility,
 two disposable-VM transfer/recovery proof. Authentication and permission
-enforcement remain separate. Base actual main5f670602 in existing isolated
+enforcement remain separate. Base actual main5f670602, integrated main5f4f6fc6, in existing isolated
 SrvrOS-profile-326-review. No kernel/filesystem changes, no ordinary device trial.
 
 Wire: 16 magic bytes `SRVROS-PROFILE2\n` (ASCII), uint32 little-endian manifest
@@ -69,8 +69,12 @@ and file count, no payload-sized allocations. Measure peak ALL engine allocation
 (incl cJSON) in native actual-source tests, plus guest srv_usage(SELF)
 peak_mapped_bytes at completion, separately labeled; do not call mapped high-water
 exact heap or kernel memory. Capture small/16MiB/64MiB workloads and refuse
-metadata abuse without unbounded allocation. Freeze concrete measured bounds
-before qualification. Numeric stats stderr only, no review/payload pollution.
+metadata abuse without unbounded allocation. Native actual-engine allocation ceiling is 1 MiB for v2 boundary workloads.
+Guest acceptance ceilings, frozen before VM qualification: peak mapped <=32 MiB
+for each workload and growth from the small v2 workload <=4 MiB. These ceilings
+are requirements, not measurements. Production guest stats require explicit
+SRVROS_PROFILE_TRACE_MEMORY=1 and report at exit or a selected interruption
+checkpoint. Numeric stats stderr only, no review/payload pollution.
 
 Acceptance: host-v2/guest-v2 cross interoperability, v1 unchanged tests plus actual
 v1 guest import/export, >1MiB image+16MiB binary+selected Text, aggregate64MiB
