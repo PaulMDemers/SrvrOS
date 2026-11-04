@@ -3,6 +3,195 @@
 Updated November 3, 2026. Global activation follows the explicit namespace proof
 in [PR308](https://github.com/PaulMDemers/SrvrOS/pull/308).
 
+## Retained dirty-data salvage — verified
+
+User authorized this explicit salvage-copy proof on main `0cba30a1`.
+Coordinated with the PR317 audit owner, who confirmed no overlapping content,
+close or workspace edits and reiterated the held-description lifetime requirement.
+No production `process.c` change, new salvage API or recovery policy was needed.
+
+The fixture stages a 2,049-byte binary pattern through real process file writes,
+then faults `/work` writeback, latches managed workspace failure, and closes the
+writer with its expected I/O error. An existing reader retains the dirty content.
+The copy reads only that held description through actual process read/seek calls,
+using 127-byte chunks; it never reopens the failed source pathname. Destination
+`/home/salvage` is explicitly opened through namespace resolution with exclusive
+create, written through actual process file writes, flushed and closed through
+the real description-close handler. Transport and unrelated PTY/scheduler wake
+branches are host adapters; no full syscall/usercopy or guest fault claim is made.
+
+On success, the source reader remains held through destination fsync/close,
+healthy-volume unmount/remount and exact byte readback. Retiring `/fat` invalidates
+its aliases as designed; explicit activation restores the view after remount.
+`/home/salvage` and `/fat/home/salvage` then name the verified file. Only after all
+these checks does the fixture release the source reader, expecting its sticky
+close error. The failed workspace remains failed and refuses managed retirement.
+
+The baseline copy has 29 destination writes and 17 flushes. Fault injection at
+every boundary must report copy failure. Destination conflict and allocation
+refusal also fail with zero destination writes/flushes and unchanged destination
+image. After every failed attempt, the original reader is still held, dirty and
+failed; seek/read verifies every source byte again. The failed workspace disk
+and its transport counters remain unchanged throughout the attempt. An unrelated
+system anchor file stays readable and unchanged, and aliases keep their backing
+identity. A transport failure may leave an incomplete or even fully published
+destination artifact; it never constitutes acknowledged salvage success.
+
+Cleanup on a failed test attempt explicitly closes the source only after proving
+it remains usable. That is fixture teardown, not a recommended automatic error
+path. The proof does not promise source survival after last close; callers must
+keep the source reader alive until a verified copy or an explicit discard choice.
+
+Clean source `e86776ec` passes **49/49** cases normally and with ASan/UBSan:
+one durable-copy control, 46 transport faults, destination conflict and allocation
+refusal. The 52-case writeback matrix, one existing process writeback case and
+133 exFAT/namespace cases also pass with the extended adapters. Both existing
+negative controls still reject lost failure-latch and swallowed close-error
+variants. The initial missing PTY adapter link failure is retained as bring-up
+evidence; PTY callbacks now trap if reached in this regular-file-only proof.
+
+Reproduce after host tool preparation:
+
+```sh
+CC='cc -arch x86_64' python3 tools/test_exfat_import.py --workspace-salvage --output build/review/workspace-salvage/normal
+CC='cc -arch x86_64' python3 tools/test_exfat_import.py --workspace-salvage --sanitize --output build/review/workspace-salvage/sanitize
+```
+
+Evidence is in `build/review/workspace-salvage/`: `final-normal/`,
+`final-sanitize/`, `writeback/`, `negative/`, `legacy-process/`, `import/` and their
+logs. Receipts retain exact source hashes and compiler commands. Backups outside
+build cleanup are in `.local/filesystem-evidence/workspace-salvage-e86776ec/`.
+All three review VMs (61610, 6233, 85869) and the primary checkout remain untouched;
+this proof starts no VM. Physical media, USB admission, power loss, automated
+retry/repair and product recovery UI remain outside this host qualification.
+No further production implementation is required for the authorized proof.
+
+### PR323 merge review and next bounded milestone
+
+User authorized review/merge if ready. Main remains `0cba30a1`. Revalidated
+all receipt source hashes and 49 normal + 49 sanitized salvage results, 52
+writeback cases and 134 existing cases. Both negative controls pass again;
+matched build reproduces the qualified production image hashes, whitespace
+checks and all 877 local documentation links pass. No submitted correction or
+unresolved review thread was present. Review confirms no source-path reopen,
+exclusive destination creation and source lifetime through destination verification;
+failure teardown remains explicit and is not a success acknowledgment.
+
+Coordinated with PR317's owner: its current work concerns PMM/allocator scans and
+poisoning, with no writeback/content/workspace policy changes planned. This is
+scope coordination, not independent full-diff approval. PR323 changes only seven
+fixture/tool/documentation files and introduces no production runtime change.
+Review VMs remain live and untouched. Review logs are retained under
+`build/review/workspace-salvage/review-*`.
+
+Next proposed filesystem milestone: **descriptor-preserving userspace salvage
+helper**. Turn the proven sequence into a reusable helper taking a caller-owned,
+seekable source descriptor and an explicit exclusive destination. Handle short
+reads/writes and interruptions; flush/close the destination before acknowledging
+success, preserve source ownership and restore its offset on every result.
+Return clear failure information without automatically deleting uncertain
+artifacts. Verify with the same healthy-volume and injected-failure fixtures,
+including destination conflict and source usability after failure. Reuse existing
+file operations; no kernel recovery API, forced unmount, automatic repair or
+application-wide recovery UI is implied. This is the next proposal, not work
+begun by the merge review.
+
+## Workspace writeback failure — qualified
+
+User authorized deterministic writeback-failure qualification on main `805519b2`.
+Coordinated with the PR317 audit owner, who confirmed no overlapping content,
+close, writeback or exFAT/VFS edits. No production change was necessary: this
+milestone extends the actual-source host fixture and records its failure contract.
+
+The fixture links actual `process.c`, `workspace.c`, exFAT, VFS, namespace and block
+claim code. Two independent in-memory exFAT devices provide `/fat` and `/work`;
+active `/home`, `/usr`, `/bin` and `/var` bindings target the system volume.
+It adopts the already-mounted work device into the managed workspace controller;
+USB discovery/UUID admission remains covered by the existing workspace suite.
+It prepares real process content and independent writer/reader descriptions, then
+uses real global sync and description-close handlers. Transport, allocation and
+scheduler admission use deterministic host adapters, not a guest fault injector.
+
+The tested failure-state contract is:
+
+| Failure | Observable result and retirement policy |
+| --- | --- |
+| Clean refusal before mutation | Sync errors; disk bytes unchanged, content stays dirty/retryable and exFAT writable. Explicit content retry can persist later. A managed workspace sync failure still latches its conservative failure state; content recovery does not silently clear it. |
+| exFAT mutation write/flush failure | Sync/close errors; content remains dirty with sticky error while a reader holds it, exFAT is quarantined from further writes. Subsequent mutation attempts perform no transport I/O. |
+| Last retained-reader close after failure | Reports I/O error and releases the now-unreferenced RAM buffer. This is error propagation, not a guarantee that edited bytes survive the final close. No false clean-persistence result is asserted. |
+| Workspace device barrier failure | Managed sync errors and retains its failure latch and mount. This controller latch is distinct from an exFAT mutation quarantine; the underlying exFAT writable flag is not itself cleared by this barrier-only case. |
+| Managed retirement after failure | Workspace sync/unmount stay false, the volume remains attached and write callbacks are not revoked. Raw driver unmount used for fixture teardown is explicitly not managed clean retirement. |
+
+Clean source `d4cb4487` passes **52/52** cases normally and with ASan/UBSan.
+The clean replacement has 17 writes and seven flushes; the runner injects one
+failure at each boundary through both sync and writer-close paths (48 cases),
+plus sync/close controls, a device barrier failure and a clean allocation refusal.
+Every case verifies unchanged complete system-volume bytes, no system writes or
+flushes, alias identity/readability, and balanced filesystem/I/O scopes. Clean
+controls also prove managed retirement and remount byte readback. The retained
+reader checks verify edited bytes before final close; both close handlers return
+the expected error when the writer and then last reader retire.
+
+The existing real process writeback test (one case) and complete exFAT/namespace
+suite (133 cases) pass with the extended adapter. Two temporary-source negative
+controls are rejected: removing the workspace failure latch and swallowing the
+last reader's close error. No production source is modified by these controls.
+The initial bridge prototype/root-fixture setup failures are retained separately;
+they are fixture bring-up failures, not passing acceptance evidence.
+
+Reproduce on this ARM64 macOS host with matched x86_64 host execution:
+
+```sh
+CC='cc -arch x86_64' python3 tools/test_exfat_import.py --workspace-writeback --output build/review/workspace-writeback/normal
+CC='cc -arch x86_64' python3 tools/test_exfat_import.py --workspace-writeback --sanitize --output build/review/workspace-writeback/sanitize
+python3 tools/test_workspace_writeback_negative.py --record build/review/workspace-writeback/normal/result.json --output build/review/workspace-writeback/negative
+```
+
+Local evidence is under `build/review/workspace-writeback/`: `final-normal/`,
+`final-sanitize/`, `legacy-process/`, `import/`, `negative/`, plus associated logs.
+Result receipts include source hashes and compiler commands. A backup outside
+build cleanup is retained in `.local/filesystem-evidence/workspace-writeback-d4cb4487/`.
+Review VMs 61610, 6233 and 85869 and the primary checkout remain untouched; this
+milestone starts no VM. No physical power-loss, arbitrary media corruption,
+full syscall/usercopy, USB transport or automatic recovery claim is added.
+Main subsequently advanced to `a8e1fca1` (PR320 guest profile transfer). That
+merge changes no process/workspace/exFAT/VFS or fixture source in these receipts;
+all recorded positive-suite source hashes still match. It is consumed here
+without altering profile policy. The final matched build is recorded separately
+from the `a9508644` build whose production image hashes matched the earlier
+filesystem runtime. No new VM proof is claimed for this host fault qualification.
+
+No further production implementation is required for this qualification target.
+
+### PR322 merge review and next bounded milestone
+
+User authorized review and merge if ready. Integrated actual main `b9ac7435`
+(PR321 profile-aware installation plans); it changes none of the code recorded
+in the fault-proof receipts. Rechecked every recorded source hash, all 52 normal
+and 52 sanitized results, 134 existing cases and both negative-control failures.
+Both negative controls and six build-provenance tests pass again against the
+merged tree. The matched build, whitespace and all 877 local links pass.
+No submitted correction or unresolved review thread was present.
+
+The PR317 audit owner confirms no new content/close/workspace/exFAT/VFS policy
+overlap and no overlap-based blocker. That coordination is not an independent
+full-diff approval. This review covers the six fixture/tool/documentation files;
+no production source is changed. New review logs are retained under
+`build/review/workspace-writeback/merge-review-*`. Prior positive receipts remain
+exact-source evidence, rather than being relabeled as tests of later revisions.
+
+Next proposed filesystem milestone: **explicit salvage of retained dirty data**.
+With an injected `/work` writeback failure and an existing reader still holding
+the dirty content, copy those bytes through existing file operations to an
+explicit destination on a healthy volume. Fsync and close that destination,
+remount it and verify exact bytes before releasing the final failing-work reader.
+Prove destination errors cannot report successful salvage and preserve the
+original held content; the failed workspace must remain failed. Start with a
+focused actual-source proof and coordinate any process changes with its audit
+owner. No new recovery API, automatic retry, repair, or forced unmount is implied.
+This closes the practical evidence gap before the documented final-close RAM
+release; it is a proposal, not work begun by this merge review.
+
 ## Workspace lifecycle — verified
 
 User authorized the installed-root workspace lifecycle proof on main `c7be6574`.
