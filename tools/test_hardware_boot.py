@@ -14,6 +14,16 @@ import hardware_boot as boot
 
 
 class InstallTests(unittest.TestCase):
+    def test_common_dac_profile(self):
+        version='ram-usb-wifi-fw-v118-laptop-probe-0e535900-auto-return'
+        base=boot.limine_config('0123456789abcdef',version.replace('v118-','v117-'))
+        config=boot.limine_config('0123456789abcdef',version)
+        self.assertEqual(config,base.replace('srvros.wifi-trim5-channel=1','srvros.wifi-trim5-channel=1 srvros.wifi-dac5=1'))
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        with self.assertRaises(ValueError):boot.limine_config('0123456789abcdef',version.removesuffix('-auto-return'))
+        for options in ({},dict(wifi_trim5_channel=True,hold_on_failure=True),dict(haswell_backing_capture=True)):
+            with self.assertRaises(ValueError):boot.stage(wifi_dac5=True,**options)
+
     def test_fresh_trim_channel_profile(self):
         version='ram-usb-wifi-fw-v117-laptop-probe-0e535900-auto-return'
         base=boot.limine_config('0123456789abcdef',version.replace('v117-','v116-'))

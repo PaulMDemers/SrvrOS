@@ -825,6 +825,11 @@ Archive the byte-verified older large session first, preserving its accepted
 backup. Require the full parent and fresh-field/trim/channel/restoration trace;
 firmware completion alone does not accept this trial or Wi-Fi connectivity.
 
+The v118 common DAC child uses the same automatic2MiB transport after the full
+v117 fresh-field/trim/channel parent. Require the complete91-operation DAC
+sequence and independent final word reads; word restoration is not analog
+calibration or receiver acceptance. No VCO pulse or credential is part of v118.
+
 Collect and inspect the matching session before preparing another run:
 
 ```sh

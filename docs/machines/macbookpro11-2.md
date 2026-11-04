@@ -96,6 +96,35 @@ stay separate. Validate integrated build/profile/salvage/installer checks before
 freezing the next native image. Cold adapter unplug remains required; shutdown
 under existing user authorization only after the complete candidate is ready.
 
+### Integrated main10890 and implemented common DAC child
+
+Merge `2eb00032` consumes actual main `10890eed`, reconciled published Ports
+`68422a8e`, unchanged Apps `f85c7107` and UI `9eaaa74e`. It preserves upstream
+profile selection, dirty-source salvage, publication/root hardening and isolated
+Haswell diagnostics, plus Wi-Fi controls and exact hardware gates. Matched
+build/USB image, desktop/I/O, profile/catalog/chooser, salvage CLI/scope,
+namespace, installed-root, Haswell and docs checks pass. Exact baseline
+save/return/missing-workspace, two-boot namespace, profile chooser/persistence/
+interruption recovery and dirty-source salvage VMs pass. This is host/VM
+integration coverage, separate from accepted native v117/source `1fe64aac`.
+
+The new common DAC child has one private static owner after the complete v117
+parent and same-boot fresh fields. It selects trim44, preserves the three RF0:73
+read/modify/write pairs (93,13,93), independently reads final DAC93 and trim44,
+then inversely writes/reads trim0. Thirteen fixed commands and MAC/CORE/DMA
+guards total91 I/O. No caller-selected plan or VCO register is exposed. Field,
+parent, counter, immutable packet and ownership checks precede I/O; failure
+retains existing quarantine without replay or speculative cleanup. Word
+restoration does not undo internal reset effects or establish calibration/RX.
+
+All91 transfer failure/corruption and92 cancellation/state-mutation boundaries,
+reply/guard proof bits, DMA faults, board/trim/admission/refusal and shared trim
+state checks pass in the host model. The source projection and tamper tests,
+independent C/saved-checker trace, four log-proof groups,212 staging/installer
+cases and full xHCI regression pass. Sanitizer/exact-stage/storage/equality checks
+and a source-bound run record are required before installation and cold trial;
+no new native acceptance is claimed by this implementation checkpoint.
+
 ## Consumed renderer/apps/ports baseline checkpoint
 
 Consumed actual main `1dad02c2` in runtime merge `d9c28128`. Published module

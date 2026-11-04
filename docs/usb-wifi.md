@@ -38,6 +38,21 @@ contract with a complete1501530-byte prefix,11578 operations, independent
 restoration, offline storage checks and automatic Ubuntu return. It does not
 accept DAC/VCO calibration, reception or connectivity.
 
+## Common DAC child candidate (v118; physical acceptance pending)
+
+The fixed common DAC child runs only after the complete same-boot v117 proof.
+Its private owner retains the freshly decoded fields, device identity and exact
+parent counts; caller-supplied trim is not admission. It selects trim44, performs
+the source RF0:73 bit7 set/clear/set read/modify/write pairs, independently reads
+DAC93 and selected trim44, then restores trim0. Thirteen fixed RF commands and
+MAC/CORE/idle-DMA guards total91 I/O, with no VCO register in the plan. Errors
+quarantine without replay or speculative cleanup. Final word readbacks do not
+undo internal DAC reset effects or accept analog calibration, RF lock or RX.
+The immutable automatic recipe inherits the2MiB complete prefix and automatic
+return. Its frozen checker requires all prior11578 minimum-poll operations and
+every new request/reply/direction/guard/readback, for11669 minimum-poll operations.
+No network frames, receiver, credentials or VCO pulse are enabled by this child.
+
 ## 5GHz RF band-selection foundation
 
 The fixed `mt76_rf_band5g_*` engine replays 38 bank6 settings, then selects
