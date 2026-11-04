@@ -24,6 +24,53 @@ remain later milestones. Initial budget: 14 GiB free, at most 6 GiB additional
 artifacts, two compiler jobs, one build/VM harness, 2 GiB disk reserve. Preserve
 review VMs 61610, 6233 and 85869. No physical install, Actions dispatch or merge.
 
+### Compilation integration checkpoint
+
+Consumed main `56e1f950` through merge `95510aba`; ports merge `04092809`
+retains both the browser work and main's PR252 libuv/uACPI fixes. The previous
+build proof remains tied to its older SDK. Rebuild all runtime/ICU evidence and
+matched kernel/init before continuing the Release JSC build. The matched rebuild and all 11 guest
+cases pass in `build/browser-runtime/guest-0klm2ysr/receipt.json`; its VM stopped.
+Integration logs are under `build/browser-integrated/run-H97H4c`. Initial retained
+run `build/browser-jsc/run-znpq988j` configured successfully and generated host
+derived sources, then failed on bmalloc's missing direct standard-library
+include. It is failed compilation evidence, not an engine build pass.
+
+### Concrete compiler and runtime dependencies
+
+Release compilation has passed the bmalloc header error and exposed additional
+portable adaptations: avoid an unavailable context header while retaining
+`HAVE(MACHINE_CONTEXT)=false`, and select upstream's 512 MiB available-memory
+guess when `_SC_PHYS_PAGES` is unavailable. That value is a heuristic, not a
+system-RAM or per-process capacity measurement.
+
+The next actual compile failure is WTF FileSystem: header presence enables
+`HAVE_STD_FILESYSTEM` despite failed CMake link probes, while the configured
+libc++ excludes filesystem operations. Investigate pinned upstream filesystem
+support against existing SDK calls; do not turn off the feature and silently
+omit required WebKit operations. Consume merged namespace semantics rather than
+creating another filesystem policy or pretending unsupported calls succeed.
+The pinned filesystem archive now links and its private exFAT guest passes two
+consecutive create/write/read/copy/overwrite/error/rename/iteration/cleanup runs:
+`build/browser-filesystem/guest-178phxcj/receipt.json`. Copy uses real POSIX
+read/write without enabling localization. A minimal SDK `statvfs` declaration
+fix supplies its existing C ABI to C++ callers; it adds no filesystem policy.
+The changed header is covered by fresh ICU run `run-t8u158dv` and all 11
+combined guest cases in `build/browser-runtime/guest-sknzuzqp/receipt.json`;
+the guest stopped before JSC restarts. Runtime/provider hashes and patched-source fingerprints are recorded.
+
+Disk reserve pauses preserve failed runs; only inactive generated trees are
+reclaimed while their command logs/receipts and pinned source inputs remain.
+The current JSC source state is retained until a replacement build is ready.
+
+Independently, compiling the fallback register type does not qualify JSC GC.
+ThreadingPOSIX uses signal suspension and register capture; current SDK
+`sigaction` explicitly rejects `SA_SIGINFO`. MachineStackMarker suspends/scans
+other threads. The runtime owner must supply a supported suspension/root-capture
+contract (or an upstream configuration proven to require none) before accepting
+collector execution. No fabricated context layout, successful suspend stub or
+new competing pthread/signal implementation is permitted by this checkpoint.
+
 ## ICU checkpoint — November 3, 2026
 
 User authorized a pinned SrvrOS ICU port and advancing the existing no-JIT
