@@ -270,7 +270,8 @@ try:
                    'cache-version.patch', 'repatch-nojit.patch', 'cache-build-id.patch',
                    'target-archive-tools.patch', 'repatch-llint-includes.patch', 'jsc-math-provider.patch']
         if args.experimental_signal_context:
-            patches.extend(('srvros-signal-context.patch', 'signal-stack-bounds.patch'))
+            patches.extend(('srvros-signal-context.patch', 'signal-stack-bounds.patch',
+                            'signal-machine-context.patch'))
         for name in patches:
             command('patch-' + name, ['patch','--batch','--fuzz=0','-p1','-d',source,'-i',port/name])
         state = {'patches': {name: sha(port/name) for name in patches},
@@ -420,7 +421,7 @@ try:
                 state_path.write_text(json.dumps(state, indent=2) + '\n')
     receipt['source_state'] = state
     if args.experimental_signal_context and not all(name in state['patches'] for name in
-            ('srvros-signal-context.patch', 'signal-stack-bounds.patch')):
+            ('srvros-signal-context.patch', 'signal-stack-bounds.patch', 'signal-machine-context.patch')):
         raise RuntimeError('retained run lacks the experimental overlay; use explicit --add-patch or start a fresh run')
     receipt['experimental_signal_context'] = 'srvros-signal-context.patch' in state['patches']
     if state.get('last_runtime_transition'):
