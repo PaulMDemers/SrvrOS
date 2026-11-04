@@ -15,6 +15,19 @@ Native5346 is collected and backed up; no reboot armed. PR317 memory/driver
 retirement, Air6,1 fence/swizzle and Pro Wi-Fi keep their own scope. Next:
 source-bound host/sanitizer/VM validation before any hardware adapter proposal.
 
+### Publication validation: supervisor-death regression
+
+The new publication model passes host/sanitizer and exact Q35 fixture checks.
+Combined-tree VirtIO recovery fails on source `a784244c`: killing the new outer
+session supervisor leaves its live scoped compositor holding the console mute.
+Bounded additional scope: cancel active scope members when their authority owner
+exits/execs, including a reserved child published after a yielding allocation.
+Explicit revoke for normal session switching stays graceful. Process references
+and resources must survive until real teardown/reaping. Touches `process.c`, its
+actual-source host fixture, VirtIO recovery tests and session documentation.
+No native reboot is armed; this is a reproduced VM regression, not a hardware
+publication result. Other memory-isolation work in PR317 stays independent.
+
 ### Native read-only DMA-state observation accepted
 
 Source `d5ad0c54` / release `53460fd7c2c0f337` completed and returned
