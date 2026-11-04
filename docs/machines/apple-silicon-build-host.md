@@ -3086,3 +3086,10 @@ strict GCC14 checks, kernel compilation, Q35 sysabi and full threadstress.
 Main `a8e1fca1` is integrated without kernel/shared changes. Guest runtime files
 remain the retained PR313 payload, not newly staged profile userspace. The
 freed-prefix negative control is rejected by the first-fit oracle. Guests stopped.
+
+Additional mixed-size validation caught cache churn in the initial size-only
+optimization before publication. Final `513199d5` retains a shared frontier plus
+size-specific bounds and passes 192 allocations across twelve sizes within the
+1,248-position budget, the full first-fit oracle, sanitizers, GCC14 and fresh
+sysabi/full-threadstress guest runs. The final freed-prefix negative control
+fails as intended; this result supersedes the initial cache implementation.
