@@ -3475,3 +3475,23 @@ Receipts are under `build/bc-smoke/20261103-221517-z7lm_s73/` and
 `build/review/bc/accepted.json`. No full-suite, physical-device, full-image
 reproducibility or general asynchronous-signal acceptance is claimed.
 Status: bounded implementation complete and ready for review; no merge performed.
+
+
+### bc merge review — November 3, 2026
+
+User authorized ports PR7 followed by OS PR341 if review passes. Clean candidate
+`8e59f9d9` integrates main `819956be` and pins port `78fb8184`. Source review
+found no signal implementation blocker within the cooperative scope, but
+tightened the TERM probe: unique pre-loop marker, live-child check before the
+signal, and expected normal exit zero. The fresh two-boot arithmetic/report,
+seven unchanged upstream fixtures, actual stdout failure and repeated
+blocked-input/busy-loop signal recovery checks pass. Guest fsck/offline
+allocation, existing ports regression, nine salvage-scope tests and docs pass.
+CLI SHA256 remains `62c0737baafa6b569bd917303600e5aee341c5f09b24776fce49615e5fa6af61`.
+Raw receipts: `build/bc-smoke/20261103-222330-wjogff8d/` and
+`build/review/bc-merge/`. Inactive owned proof disks were losslessly compressed
+and hash-verified to reduce host disk pressure; `proof-archives.json` records
+restoration paths/hashes. No evidence was discarded. No libc/kernel changes,
+full asynchronous-signal or physical-device acceptance is added. Integration
+checkout and review VM remain untouched. The final merge receipts record the
+authorized dependency-order delivery; no additional feature work is needed.
