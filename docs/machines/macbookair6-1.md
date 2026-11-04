@@ -7068,3 +7068,37 @@ host evidence is kept outside build. No new native acceptance, installation or
 reboot is armed. Next prerequisite is this unit's read-only DMA/resource inventory
 and an exact-model ownership/publication contract before any hardware writer;
 GT forcewake, firmware exclusion and actual scanout retirement remain unbound.
+
+
+### Read-only DMA/resource inventory scope (2026-11-04)
+
+Base `1fbec70d`, PR301 inspected at `b89e4e43`; native Broadwell DMA gates remain
+independent. Collect this actual MacBookAir6,1's exported DMAR bytes, Ubuntu GPU
+PCI/resource/IOMMU topology and kernel memory-resource catalog into ignored local
+evidence. Decode offline with installed ACPICA and verify checksum/length/scopes;
+compare only against the accepted Haswell footprint. No `/dev/mem`, PCI config
+writes, IOMMU controls, driver unbind, firmware method, root-table walk or reboot.
+Touch only Air6,1 documentation; no native parser/driver admission is added.
+Ubuntu driver state is inventory evidence, not SrvrOS translation acceptance.
+
+
+Inventory completed without MMIO/reboot: valid136-byte DMAR (39-bit host width,
+flags01) declares GPU-specific segment0 `00:02.0` DRHD at `0xfed90000`, a separate
+include-all unit at `0xfed91000`, and GPU RMRR `[0x8d800000,0x8fa00000)` covering
+both accepted table/stolen intervals and the observed surface. ACPICA decoding,
+independent byte/checksum/scope checks and native-footprint containment agree.
+See the [sanitized DMA inventory](../macbookair6-1-dma-inventory.md).
+
+Ubuntu has i915/active DMAR and a GPU-only IOMMU group; that initialized state is
+not native SrvrOS translation evidence. Its exported firmware catalog has no
+entry enclosing either DRHD page; `/proc/iomem` runtime labels do not substitute
+for native Limine admission. This unit's flags/RMRR and reserved gap edges differ
+from the Broadwell profile; no sibling gate is copied. No DMA/MMIO/ownership
+assurance or new physical runtime acceptance is granted.
+
+Next is an isolated firmware-only native capture of complete DMAR/current Limine
+catalog and exact identity before any VT-d read protocol. It requires matched
+validation and a new recorded run; none is staged here. Raw inventory and
+verification have durable copies outside build; docs/diff checks pass. Current
+installed payload/recovery and reboot state remain unchanged, with no reboot
+armed. GT forcewake and real backing/publication/scanout lifetime remain open.
