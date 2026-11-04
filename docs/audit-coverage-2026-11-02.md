@@ -240,3 +240,15 @@ retirement, netabi and full threadstress guests pass within the documented fixtu
 limits. Physical class recovery, multi-TT/USB3, new-generation restart and SMP qualification
 remain open. Broader process-isolation review continues with the independently
 owned PR334 foreground-worker spawn defect; no whole-codebase completion claim.
+
+
+### November 4: owned user-frame copy preflight
+
+PR334's unwired owned frame-copy helper has independent source and ten host-profile
+checks, plus two maximum-table strict/sanitizer profiles. Duplicate destination VA
+and distant physical-alias refusal preserve the destination. Current hardware and
+paging state is modeled by those fixtures. The 65,536-mapping wrapper can visit
+262,144 records under IRQ exclusion; target build/codegen and actual worst-case
+helper latency remain pending before any production caller. The optional isolated
+guest test hook has source review only. See the [kernel audit](audit-kernel-isolation-2026-11-03.md)
+for exact source versions, evidence and remaining signal-delivery boundaries.

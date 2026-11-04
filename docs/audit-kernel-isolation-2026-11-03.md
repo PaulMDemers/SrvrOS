@@ -1329,6 +1329,41 @@ combined PR334 image metadata. Reconciliation must retain PR334's saved-IRQ
 clear/gen0/cleanup ordering and separately reviewed signal boundaries. The
 profiles/integration owners continue the actual user workflow and matched proof.
 
+## November 4: unwired owned frame-copy review
+
+Independently reviewed PR334 source `641e6694` and maximum-table/test-hook closure
+`3381ea71`. The private helper admits only a current owned kernel-stack source
+and one or two ordinary writable user pages after strict current-root, hardware
+policy, mapping identity and physical-alias preflight. Every refusal precedes
+stores; the final bounded byte copy has no callback or fallible operation. The
+proof validator is read-only. There is no production caller, signal delivery or
+copy-to-FPU-consume transaction approved by this checkpoint.
+
+Ten independent strict Rosetta/ASan/UBSan host profiles cover the VMM helper,
+process wrapper, scheduler ownership, FPU proof and image metadata at the recorded
+source version. Both additional maximum-table wrapper profiles pass at closure:
+65,536 mappings, successful two-page copy, duplicate destination VA and a distant
+physical alias. Privileged paging/CPU state is modeled; these are not guest tests.
+Evidence is retained in `build/review/pr334-frame-copy-review/` and
+`build/review/pr334-frame-copy-max-review/` with source hashes and results.
+
+The wrapper can visit four full mapping tables: 262,144 records at the admitted
+maximum while IRQs remain disabled. A 1 KiB copy bound is not a total work bound.
+Target code-generation/build checks and an actual maximum-table helper-latency
+measurement remain required before a production caller. The separate flag-only
+INT3 test hook/build recipe has source review only: bounded serial diagnostics,
+a complete-last scalar record and reference-timer measurement. Its `helper_us`
+excludes source preparation and serial output, rather than measuring the entire
+IRQ-disabled hook. No target build or guest result is claimed here. Normal and
+test kernels must have distinct recorded artifacts. Integration released the
+heavy-test window after its context VM passed; the PR334 owner has begun separate
+normal/test builds, with guest evidence still pending. Existing review VMs remain
+untouched.
+
+The previously qualified session runtime PR354 has since merged as `f58e0725`.
+Graphical profile-switch acceptance remains with its integration owner; this
+checkpoint does not extend the bounded runtime or PR334 integration claims above.
+
 ## Remaining work
 
 Other long IRQ-disabled operations, including initial/churning PMM scans, heap validation and poisoning,
