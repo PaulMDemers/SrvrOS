@@ -3,6 +3,16 @@
 Updated November 3, 2026. Global activation follows the explicit namespace proof
 in [PR308](https://github.com/PaulMDemers/SrvrOS/pull/308).
 
+## Retained dirty-data salvage — active proof
+
+Authorized proof on main `0cba30a1`: copy from a held failed-work reader to an
+explicit healthy-volume destination through existing process file operations;
+require fsync/close/remount byte verification before last source close. Destination
+failures must keep the reader and dirty bytes usable, report failure and preserve
+the failed workspace retirement state. PR317 owner confirms no overlap; coordinate
+any production process fix first. Only host fixture/tools/docs planned; preserve
+primary checkout/review VMs and introduce no automatic recovery policy.
+
 ## Workspace writeback failure — qualified
 
 User authorized deterministic writeback-failure qualification on main `805519b2`.
