@@ -1501,6 +1501,33 @@ host profiles. New internal operations are host-tested only; there is no private
 operation guest caller, public signal ABI or asynchronous delivery. The next fused
 copy-to-infallible-publication design remains a separate review.
 
+## November 4: private fused-return pending-disposition finding
+
+The next initially unwired PR334 private delivery/return candidate is under
+review, with no public syscall, INFO registration or normal return hook. Its
+candidate stages the complete 760-byte frame and kernel-private state before
+copy, adds three bounded static-object physical exclusions and prepares a
+same-continuation FPU commit. This is not yet qualification of that transaction.
+
+Independent actual-source/model-backend reproduction confirms a return-path
+mask-transition defect: raw restoration of the interrupted mask bypasses existing
+handling of newly unblocked default pending signals. A USR2 masked by the handler
+remains pending after return (`killed=0`, pending `0x1000`, restored mask `0x20`).
+With RESET and both local/shared USR1 queued, delivery consumes local and resets
+the action; return leaves shared `0x400` pending, and the next delivery reports
+NONE under DEFAULT. That must follow the default disposition before user resume.
+Default-ignored pending signals also need the existing unblock discard semantics.
+Evidence with source hash: `build/review/pr334-signal-fused-review/return-mask-repro.json`
+and adjacent source/log. Scheduler/FPU/VMM backends are explicit host models.
+
+Final private-transaction acceptance is withheld pending staged restored-mask
+pending/disposition effects, nonfailing commit, and an explicit outer termination
+outcome before user resume. No fallible mask helper or admission query may be
+inserted after commit. Required regressions cover main/worker, mixed pending
+sources/RESET, default ignored/caught dispositions and unchanged-state refusal.
+Target/post-copy code generation, nested/private guest execution and complete
+maximum-mapping exclusion timings remain separate pending evidence.
+
 ## Remaining work
 
 Other long IRQ-disabled operations, including initial/churning PMM scans, heap validation and poisoning,
