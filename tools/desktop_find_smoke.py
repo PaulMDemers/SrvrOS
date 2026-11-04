@@ -29,12 +29,12 @@ def main():
     out.mkdir(parents=True,exist_ok=True)
     output=b"";consumed=0
     (out/'result.json').unlink(missing_ok=True)
-    source={'source':subprocess.check_output(['git','rev-parse','HEAD'],cwd=root,text=True).strip(),
+    provenance={'source':subprocess.check_output(['git','rev-parse','HEAD'],cwd=root,text=True).strip(),
         'source_status':subprocess.check_output(['git','status','--porcelain'],cwd=root,text=True).splitlines(),
         'submodules':subprocess.check_output(['git','submodule','status','--recursive'],cwd=root,text=True).splitlines(),
         'payload_sha256':{str(p.relative_to(root)):hashlib.sha256(p.read_bytes()).hexdigest() for p in
             (root/'build/kernel/srvros.elf',root/'build/initramfs.tar',root/'build/srvros.exfat')}}
-    (out/'source.json').write_text(json.dumps(source,indent=2)+'\n')
+    (out/'source.json').write_text(json.dumps(provenance,indent=2)+'\n')
     port=choose_port(30001,38000)
     with tempfile.TemporaryDirectory(prefix="srvros-find-") as directory:
         tmp=Path(directory)
@@ -169,7 +169,7 @@ def main():
             for name,data in fixtures.items(): assert fixture.read("find-fixture/"+name)==data
             assert fixture.read("find-fixture-extra/Report-outside.txt")==b"outside"
             check_image('after')
-            (out/'result.json').write_text(json.dumps({'status':'PASS','source':source,'guest_fsck':'PASS','offline_allocation':'PASS','filename_search':'unchanged','open_reveal_copy_exact_bytes':'PASS'},indent=2)+'\n')
+            (out/'result.json').write_text(json.dumps({'status':'PASS','source':provenance,'guest_fsck':'PASS','offline_allocation':'PASS','filename_search':'unchanged','open_reveal_copy_exact_bytes':'PASS'},indent=2)+'\n')
     print(f"desktop-find: PASS Files/global launch, case-insensitive literal names, root boundaries, result open/reveal/copy, 256 of 300 cap, kind filtering, errors/empty results, compact/context/Help and exact saved proofs. Evidence: {out}")
 
 
