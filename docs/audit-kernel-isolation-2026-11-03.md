@@ -1187,6 +1187,38 @@ separate exact frame/lifetime/save/invalidation/failure review before implementa
 No saved-proof minting, trap assembly, user copy, context replacement or signal
 admission follows from metadata qualification.
 
+## November 4: entered-user FPU witness qualification
+
+Independently qualified PR334 candidate `2a3b1a89` after source, host, target
+code-generation and matched-guest review. Only common entry reserves the private
+64-byte witness alongside the existing trap area; genuine loaded-user FXSAVE
+precedes the ordinary entry query and witness publication. Derived association
+comparison precedes witness dereference. Internal snapshot/consume require fresh
+strict return ownership/preflight, disjoint resident caller-owned kernel output
+and read-only CR4/EFER completeness checks. No replacement operation or production
+snapshot/consume caller exists. Direct IRQ paths remain unchanged.
+
+Independent actual-FXSAVE and scheduler strict Rosetta/ASan+UBSan profiles pass
+4/4. Target disassembly confirms save-before-query, complete witness before
+association publication, no common-exit calls or compiler SIMD operands, and the
+direct IRQ macro is unchanged. Critical host save/restore functions exclude
+sanitizer prologues; operations remain instrumented, guarded extents are tested,
+privileged policy/address reads are modeled, and host patterns cover XMM15.
+Evidence: `build/review/pr334-fpu-proof-review/`.
+
+Verified the owner's final guest receipt SHA256
+`202b4ee99bbbd1cd638df96143002f16608c2d1d931e608a3581a3f23da8c6f1`,
+23 combined and four nested hashes, status-zero main/worker guest covering all
+16 XMM registers, nonempty x87/CW/MXCSR, selected GPR/FS/TLS/RSP, and full thread,
+sysabi fault/reaping and OVMF storage contention/three-relaunch/quarantine results.
+QMP records CR4 `0x620`, EFER `0xd00`. Timer/preemption progress is sampled across
+the test window, not attributed to an exact assembly interval. All 17 retained
+packed apps were byte-verified; this is not a full userspace rebuild. Task guests
+stopped; review VMs 61610/6233/85869 live. PR334's current qualification docs are
+at `b643077f`. Physical/SMP/NMI and unsupported inherited CPU policies are not
+accepted. Replacement image validation/alias/consume policy is the next separate
+design review; frame-copy/action/delivery ABI remains later. No signals enabled.
+
 ## Remaining work
 
 Other long IRQ-disabled operations, including initial/churning PMM scans, heap validation and poisoning,
