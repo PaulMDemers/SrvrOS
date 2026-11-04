@@ -80,6 +80,10 @@ rollback/retry after that fault. Retain RAM, vectors and context until an extern
 reset: even a failed first callback may have queued a partial write. Unrelated
 safe leases retain their existing release rules. Prepared cancellation performs
 no I/O; it is unavailable once exposed.
+Cancellation only establishes that this transaction did not publish entries.
+A native adapter must separately retire any temporary CPU mappings, pins or
+other context it created while preparing; this core has no callback-context
+cleanup or RAM-release operation.
 
 Phases check monotonic time, a100ms deadline and positive elapsed progress; loops
 have fixed1536-entry caps. Callback implementations must themselves be bounded;
@@ -113,3 +117,15 @@ admit private layout/DMA/cache policy; audit native posted-write/translation
 completion; then integrate exact plane completion and inherited-route restore.
 The accepted [native read-only DMA observation](macbookair7-2-dma-observation.md#native-observation-accepted-2026-11-04)
 removes an inventory uncertainty, but supplies none of those grants by itself.
+
+## November 4 software checkpoint
+
+Exact code `4fb8fb33` passes the host whole-arena oracle, ASan/UBSan and four
+compiled negative controls (missing exposure, stale translations, missing restore
+readback and missing quarantine). Version2 Q35 fixture release
+`0ddd22b8f7fdc62e` produces the complete model receipt; missing workspace visibly
+halts. Ordinary VirtIO validates normal exit, separate compositor/supervisor
+death, console recovery and five presenter acquisitions. The session-owner
+cancellation regression found during integration is fixed without changing
+explicit graceful revoke or releasing live resources. Host and VM evidence
+remain distinct from native mapping and physical presentation acceptance.

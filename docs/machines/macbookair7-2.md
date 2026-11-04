@@ -2,7 +2,45 @@
 
 Updated: 2026-11-04. State: **active reference machine; partial device acceptance**.
 
-### Active scope: private publication and restore transaction
+### Publication model validated; native mapping remains next
+
+Main `1fbec70d` is integrated as `b89e4e43`; exact code `4fb8fb33` passes the
+[publication transaction](../scanout-publication.md) host oracle, ASan/UBSan,
+four compiled negative controls, strict receipt tests and version2 Q35 fixture
+release `0ddd22b8f7fdc62e`. The fixture performs65 **model** write attempts,
+two flushes and retains32 model pages on its injected fault. Hardware writes,
+DMA authority and physical tear-free acceptance remain zero/false. There is no
+native managed arena, PTE writer, private GPU mapping or plane switch.
+
+Local host/core/profile/docs and normal/AP/native/synthetic builds pass. The
+71-test installation suite (one expected opt-in skip) and real exFAT admission
+pass at `b89e4e43`; only two unrelated process-fixture guards changed afterward,
+so that completed receipt is reused explicitly by the `4fb8fb33` run rather than
+rerunning it. All other current checks run at `4fb8fb33`. The236 hardware
+collector tests, missing-workspace halt, DMA Q35 refusal/save/return and all three
+Haswell capture recipe refusal/save/return checks pass. These are VM results,
+not sibling hardware acceptance. Actions remain disabled.
+
+Combined validation exposed a real main integration regression: terminating the
+new outer session supervisor left its scoped compositor holding the console
+mute. Owner exit/exec now revokes admission and requests unmaskable cancellation
+of active members, including a child published after a yielding allocation.
+References/resources remain until actual teardown/reaping; explicit normal
+session revoke stays graceful. Actual-source host/ASan/UBSan and two compiled
+negative controls pass. VirtIO now exercises separate compositor and supervisor
+deaths: both restore the console and permit reacquisition, across five presenter
+acquisitions. Failed baseline/linkage attempts remain retained. PR317 must retain
+the scope-detach hooks when integrating its separate exec/exit memory changes.
+
+Current native remains collected release5346/source `d5ad0c54`; recovery and
+accepted shadow/known-good copies are unchanged. No new payload is installed and
+no reboot is armed. Software fixture/payload/results are retained independently
+outside build. Next bounded objective is native owner/range/cache/invalidation
+admission, then a single private-page aperture round-trip with exact restore
+before attempting visible flips. Preserve the entire inherited34MiB fence.
+Local evidence: `build/air-publication-20261104/` and its reviewed-evidence backup.
+
+### Publication implementation scope (software checkpoint complete)
 
 Consumed main `7766ed5a` as `234f6039`, preserving Intel and all three Haswell
 capture variants and the current session/profile APIs. Bounded objective: model-
