@@ -4086,3 +4086,13 @@ No shared libc/kernel blockers were found, so no integration-chat message was
 sent. All task-owned guests are stopped; integration checkout and review VM remain
 untouched. Target is complete and ready for draft port/OS PRs; neither PR nor merge
 was requested in this work block.
+
+xz draft-PR delivery — November 4, 2026: opened
+[SrvrPorts #10](https://github.com/PaulMDemers/SrvrPorts/pull/10) and dependent
+[SrvrOS #363](https://github.com/PaulMDemers/SrvrOS/pull/363), both as drafts
+against main. Descriptions cross-link the dependency, retain the exact verification
+and distinguish codec limits from RSS, sampled mappings from peaks, and
+post-codec-progress cancellation from in-call latency guarantees. Source/runtime
+and host/guest evidence remain separate. This delivery record is documentation
+only. No concrete shared blocker required an integration message; its checkout
+and review VM remain untouched. Neither PR is merged.

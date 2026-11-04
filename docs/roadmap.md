@@ -41,7 +41,9 @@ subcases; no guest full-upstream-suite claim. Two clean CLI builds match ELF has
 `e0efaa0d2b08361a0c56d58c247cea01704a4e4b1ad30ba9c68a8d5cc4128e1f`.
 Existing ports smoke and guest fsck pass. All qualification is QEMU only; full
 image reproducibility and physical acceptance are not claimed. Milestone complete;
-branches are ready for separate draft port and OS integration PRs, in that order.
+draft PRs are open: [SrvrPorts #10](https://github.com/PaulMDemers/SrvrPorts/pull/10)
+and dependent [SrvrOS #363](https://github.com/PaulMDemers/SrvrOS/pull/363).
+Review and merge order is port first, OS second; neither is merged.
 
 ## End session and switch profile — delivered and verified November 4, 2026
 
