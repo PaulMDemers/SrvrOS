@@ -3,15 +3,68 @@
 Updated November 3, 2026. Global activation follows the explicit namespace proof
 in [PR308](https://github.com/PaulMDemers/SrvrOS/pull/308).
 
-## Retained dirty-data salvage — active proof
+## Retained dirty-data salvage — verified
 
-Authorized proof on main `0cba30a1`: copy from a held failed-work reader to an
-explicit healthy-volume destination through existing process file operations;
-require fsync/close/remount byte verification before last source close. Destination
-failures must keep the reader and dirty bytes usable, report failure and preserve
-the failed workspace retirement state. PR317 owner confirms no overlap; coordinate
-any production process fix first. Only host fixture/tools/docs planned; preserve
-primary checkout/review VMs and introduce no automatic recovery policy.
+User authorized this explicit salvage-copy proof on main `0cba30a1`.
+Coordinated with the PR317 audit owner, who confirmed no overlapping content,
+close or workspace edits and reiterated the held-description lifetime requirement.
+No production `process.c` change, new salvage API or recovery policy was needed.
+
+The fixture stages a 2,049-byte binary pattern through real process file writes,
+then faults `/work` writeback, latches managed workspace failure, and closes the
+writer with its expected I/O error. An existing reader retains the dirty content.
+The copy reads only that held description through actual process read/seek calls,
+using 127-byte chunks; it never reopens the failed source pathname. Destination
+`/home/salvage` is explicitly opened through namespace resolution with exclusive
+create, written through actual process file writes, flushed and closed through
+the real description-close handler. Transport and unrelated PTY/scheduler wake
+branches are host adapters; no full syscall/usercopy or guest fault claim is made.
+
+On success, the source reader remains held through destination fsync/close,
+healthy-volume unmount/remount and exact byte readback. Retiring `/fat` invalidates
+its aliases as designed; explicit activation restores the view after remount.
+`/home/salvage` and `/fat/home/salvage` then name the verified file. Only after all
+these checks does the fixture release the source reader, expecting its sticky
+close error. The failed workspace remains failed and refuses managed retirement.
+
+The baseline copy has 29 destination writes and 17 flushes. Fault injection at
+every boundary must report copy failure. Destination conflict and allocation
+refusal also fail with zero destination writes/flushes and unchanged destination
+image. After every failed attempt, the original reader is still held, dirty and
+failed; seek/read verifies every source byte again. The failed workspace disk
+and its transport counters remain unchanged throughout the attempt. An unrelated
+system anchor file stays readable and unchanged, and aliases keep their backing
+identity. A transport failure may leave an incomplete or even fully published
+destination artifact; it never constitutes acknowledged salvage success.
+
+Cleanup on a failed test attempt explicitly closes the source only after proving
+it remains usable. That is fixture teardown, not a recommended automatic error
+path. The proof does not promise source survival after last close; callers must
+keep the source reader alive until a verified copy or an explicit discard choice.
+
+Clean source `e86776ec` passes **49/49** cases normally and with ASan/UBSan:
+one durable-copy control, 46 transport faults, destination conflict and allocation
+refusal. The 52-case writeback matrix, one existing process writeback case and
+133 exFAT/namespace cases also pass with the extended adapters. Both existing
+negative controls still reject lost failure-latch and swallowed close-error
+variants. The initial missing PTY adapter link failure is retained as bring-up
+evidence; PTY callbacks now trap if reached in this regular-file-only proof.
+
+Reproduce after host tool preparation:
+
+```sh
+CC='cc -arch x86_64' python3 tools/test_exfat_import.py --workspace-salvage --output build/review/workspace-salvage/normal
+CC='cc -arch x86_64' python3 tools/test_exfat_import.py --workspace-salvage --sanitize --output build/review/workspace-salvage/sanitize
+```
+
+Evidence is in `build/review/workspace-salvage/`: `final-normal/`,
+`final-sanitize/`, `writeback/`, `negative/`, `legacy-process/`, `import/` and their
+logs. Receipts retain exact source hashes and compiler commands. Backups outside
+build cleanup are in `.local/filesystem-evidence/workspace-salvage-e86776ec/`.
+All three review VMs (61610, 6233, 85869) and the primary checkout remain untouched;
+this proof starts no VM. Physical media, USB admission, power loss, automated
+retry/repair and product recovery UI remain outside this host qualification.
+No further production implementation is required for the authorized proof.
 
 ## Workspace writeback failure — qualified
 
