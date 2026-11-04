@@ -3,7 +3,8 @@
 #include <srvros/mt76_mcu.h>
 /* Fixed board trim lifetime. Numeric admission is not fresh EFUSE proof;
  * a separate native owner must bind that proof before any hardware use.
- * No native caller, DAC/VCO pulse, receiver or caller-selected register plan. */
+ * Native callers require explicit fresh-field admission; no DAC/VCO pulse,
+ * receiver or caller-selected register plan. */
 #define MT76_TRIM5_OPS 35u
 struct mt76_trim5 {
     bool attempted,complete,restored,with_channel;

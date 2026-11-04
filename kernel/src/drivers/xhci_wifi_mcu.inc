@@ -1,3 +1,4 @@
+#include <srvros/mt76_trim5.h>
 static bool wifi_5ghz_prereq_requested;
 static bool wifi_5ghz_band_requested;
 static bool wifi_5ghz_channel_requested;
@@ -7,6 +8,8 @@ static bool wifi_frontend_requested;
 static bool wifi_pa5_requested;
 static bool wifi_bbp5_requested;
 static bool wifi_held_requested;
+static bool wifi_trim5_requested;
+static bool wifi_mcu_trim5(struct xhci_device *d);
 static bool wifi_mcu_held(struct xhci_device *d);
 /* One-shot MCU identity diagnostic, optionally preceded by guarded MAC/BBP
  * reset. Opt-in fixed RF initialization follows the full captured chain.
@@ -2616,6 +2619,86 @@ static bool wifi_mcu_held(struct xhci_device *d){
     m->table_active=m->dcoc_active=m->skey_active=m->wcid_active=m->mac_tail_active=m->mac_fixed_active=m->efuse_map_active=m->mac_board_active=m->ant_snapshot_active=m->ant_init_active=m->rf_probe_active=m->rf_table_active=m->rf_bank5_active=m->rf_bank6_active=m->rf_vga_active=false;
     bool valid=status==MT76_TIMING_OK && mt76_channel5_valid(s) && wifi_held.submitted==3732;
     console_printf("wifi-held: status=%u complete=%u valid=%u selected=%u restored=%u operations=%u submitted=%u lna=%u parent=%u network_out=0\n",(uint64_t)status,(uint64_t)s->complete,(uint64_t)valid,(uint64_t)s->selected,(uint64_t)(mt76_5ghz_band_valid(&s->band) && mt76_pa5_valid(&s->pa) && mt76_bbp5_valid(&s->bbp)),(uint64_t)mt76_channel5_operations(s),(uint64_t)wifi_held.submitted,(uint64_t)s->lna,(uint64_t)parent);
+    return valid?(!wifi_trim5_requested || wifi_mcu_trim5(d)):wifi_mcu_fail(d);
+}
+/* Separate fresh-field and RF ownership; no old G-band trim-mode admission. */
+static struct {struct xhci_device *d;struct mt76_trim5 state;struct mt76_trim_fields fields;struct mt76_efuse_map_gate gate;unsigned submitted;bool active,fields_active;} wifi_trim5;
+static bool wifi_trim5_parent(struct xhci_device *d){
+    return wifi_trim5_requested && d && d==wifi_held.d && !wifi_held.active && wifi_held_parent(d) &&
+        mt76_channel5_valid(&wifi_held.state) && wifi_held.submitted==3732;
+}
+static bool wifi_trim5_fields_owned(void *context){
+    struct mt76_trim_fields *f=&wifi_trim5.fields;struct mt76_efuse_map_gate *g=&wifi_trim5.gate;
+    return context==&wifi_trim5 && wifi_trim5.active && wifi_trim5.fields_active && wifi_trim5_parent(wifi_trim5.d) &&
+        f->attempted && !f->complete && !wifi_trim5.state.attempted && !g->failed && !g->pending && g->submitted==f->reads+f->writes;
+}
+static bool wifi_trim5_fields_transfer(void *context,bool write,uint32_t address,uint32_t *v){
+    struct mt76_efuse_map_gate *g=&wifi_trim5.gate;unsigned phase=g->phase,block=g->block,op=g->submitted;
+    if(!v || !wifi_trim5_fields_owned(context) || !mt76_trim_fields_begin(g,write,address,*v))return false;
+    bool ok=wifi_mac_private_usb(wifi_trim5.d,write,address,v);bool valid=mt76_trim_fields_finish(g,ok,*v);
+    console_printf("wifi-trim5-field-io: op=%u block=%u phase=%u write=%u address=%x ok=%u raw_block_logged=0\n",(uint64_t)op,(uint64_t)block,(uint64_t)phase,(uint64_t)write,(uint64_t)address,(uint64_t)(ok && valid));
+    return ok && valid?true:wifi_mcu_fail(wifi_trim5.d);
+}
+static bool wifi_trim5_fields_read(void *context,uint32_t address,uint32_t *v){if(!v)return false;*v=0;return wifi_trim5_fields_transfer(context,false,address,v);}
+static bool wifi_trim5_fields_write(void *context,uint32_t address,uint32_t v){return wifi_trim5_fields_transfer(context,true,address,&v);}
+static bool wifi_trim5_fields_wait(void *context,uint32_t us){
+    struct mt76_efuse_map_gate *g=&wifi_trim5.gate;unsigned phase=g->phase,block=g->block;
+    if(!wifi_trim5_fields_owned(context) || !mt76_efuse_map_delay(g,us))return false;
+    bool ok=timer_delay_us(us);if(!ok){g->failed=true;wifi_mcu_fail(wifi_trim5.d);}
+    console_printf("wifi-trim5-field-delay: block=%u phase=%u us=%u ok=%u\n",(uint64_t)block,(uint64_t)phase,(uint64_t)us,(uint64_t)ok);return ok;
+}
+static bool wifi_trim5_owned(void *context){
+    struct mt76_trim_fields *f=&wifi_trim5.fields;struct mt76_efuse_map_gate *g=&wifi_trim5.gate;struct mt76_trim5 *s=&wifi_trim5.state;
+    return context==&wifi_trim5 && wifi_trim5.active && !wifi_trim5.fields_active && wifi_trim5_parent(wifi_trim5.d) &&
+        mt76_trim_fields_valid(f) && g->phase==15 && g->block==2 && !g->failed && !g->pending &&
+        g->polls==f->polls && g->submitted==f->reads+f->writes && s->trim==f->trim && s->lna==wifi_bbp5.gain.lna && s->with_channel &&
+        mt76_trim5_owned(s) && wifi_trim5.submitted==mt76_trim5_operations(s);
+}
+static bool wifi_trim5_transfer(void *context,bool write,uint32_t address,uint32_t *v){
+    if(!v || !wifi_trim5_owned(context) || !mt76_trim5_transfer_valid(&wifi_trim5.state,write,address,*v))return false;
+    unsigned op=wifi_trim5.submitted++,phase=mt76_trim5_phase(&wifi_trim5.state),local=mt76_trim5_local(&wifi_trim5.state);
+    bool ok=wifi_mac_private_usb(wifi_trim5.d,write,address,v);
+    console_printf("wifi-trim5-usb: op=%u phase=%u local=%u write=%u address=%x value=%x ok=%u\n",(uint64_t)op,(uint64_t)phase,(uint64_t)local,(uint64_t)write,(uint64_t)address,(uint64_t)*v,(uint64_t)ok);
+    return ok?true:wifi_mcu_fail(wifi_trim5.d);
+}
+static bool wifi_trim5_read(void *context,uint32_t address,uint32_t *v){if(!v)return false;*v=0;return wifi_trim5_transfer(context,false,address,v);}
+static bool wifi_trim5_mac(void *context,unsigned op,bool write,uint32_t address,uint8_t *data,unsigned length){
+    if(!data || length!=4 || !wifi_trim5_owned(context) || wifi_trim5.state.phase!=2 || wifi_trim5.state.channel.phase!=1 || op!=mt76_trim5_local(&wifi_trim5.state))return false;
+    uint32_t v=0;for(unsigned i=0;i<4;i++)v|=(uint32_t)data[i]<<(8*i);
+    if(!wifi_trim5_transfer(context,write,address,&v))return false;
+    for(unsigned i=0;i<4;i++)data[i]=(uint8_t)(v>>(8*i));
+    return true;
+}
+static int wifi_trim5_exchange(void *context,const uint8_t *packet,size_t length,uint8_t *reply,size_t capacity){
+    uint8_t allowed[16];
+    if(!wifi_trim5_owned(context) || !packet || !reply || length!=16 || capacity<MT76_MCU_RESPONSE_MAX || mt76_trim5_packet(&wifi_trim5.state,allowed,16)!=16)return -1;
+    for(unsigned i=0;i<16;i++)if(packet[i]!=allowed[i])return -1;
+    unsigned op=wifi_trim5.submitted++,phase=mt76_trim5_phase(&wifi_trim5.state),local=mt76_trim5_local(&wifi_trim5.state);
+    struct xhci_device *d=wifi_trim5.d;struct xhci_wifi_mcu *m=&d->firmware.mcu;
+    for(unsigned i=0;i<16;i++)d->firmware.buffer[i]=packet[i];
+    int sent=wifi_mcu_bulk(d,false,16),received=-1;if(sent==16)received=wifi_mcu_bulk(d,true,MT76_MCU_RESPONSE_MAX);
+    uint32_t w[4]={0};for(unsigned n=0;n<4;n++)if(received>=(int)(4*n+4))for(unsigned b=0;b<4;b++)w[n]|=(uint32_t)m->buffer[4*n+b]<<(8*b);
+    console_printf("wifi-trim5-command: op=%u phase=%u local=%u write=%u sent=%d received=%d cc=%u residue=%u h=%x address=%x value=%x t=%x\n",(uint64_t)op,(uint64_t)phase,(uint64_t)local,(uint64_t)((packet[2]>>4)==12),(int64_t)sent,(int64_t)received,(uint64_t)m->completion,(uint64_t)m->remaining,(uint64_t)w[0],(uint64_t)w[1],(uint64_t)w[2],(uint64_t)w[3]);
+    if(received<0 || (size_t)received>capacity)return -1;
+    for(int i=0;i<received;i++)reply[i]=m->buffer[i];
+    return received;
+}
+static bool wifi_mcu_trim5(struct xhci_device *d){
+    struct xhci_wifi_mcu *m=&d->firmware.mcu;struct mt76_trim5 *s=&wifi_trim5.state;struct mt76_trim_fields *f=&wifi_trim5.fields;struct mt76_efuse_map_gate *g=&wifi_trim5.gate;
+    if(s->attempted || f->attempted || wifi_trim5.active)return false;
+    m->table_active=m->dcoc_active=m->skey_active=m->wcid_active=m->mac_tail_active=m->mac_fixed_active=m->efuse_map_active=m->mac_board_active=m->ant_snapshot_active=m->ant_init_active=m->rf_probe_active=m->rf_table_active=m->rf_bank5_active=m->rf_bank6_active=m->rf_vga_active=true;
+    bool parent=wifi_trim5_parent(d);enum mt76_capture_status fs=MT76_CAPTURE_REFUSED;enum mt76_mcu_timing_status status=MT76_TIMING_REFUSED;
+    console_write("wifi-trim5-progress: fresh frequency fields;select trim around band/frequency/A20/PA/BBP;independent reads;reverse originals;no DAC/VCO/RX/network OUT\n");
+    if(parent){wifi_trim5.d=d;wifi_trim5.active=wifi_trim5.fields_active=true;const struct mt76_efuse_map_io io={{&wifi_trim5,wifi_trim5_fields_read,wifi_trim5_fields_write,wifi_trim5_fields_wait},wifi_trim5_fields_owned};fs=mt76_capture_trim_fields(&io,&d->wifi_identity,f);wifi_trim5.fields_active=false;}
+    console_printf("wifi-trim5-fields: status=%u valid=%u reads=%u writes=%u polls=%u blocks=%u submitted=%u phase=%u failed=%u raw_block_logged=0\n",(uint64_t)fs,(uint64_t)mt76_trim_fields_valid(f),(uint64_t)f->reads,(uint64_t)f->writes,(uint64_t)f->polls,(uint64_t)f->blocks,(uint64_t)g->submitted,(uint64_t)g->phase,(uint64_t)g->failed);
+    console_printf("wifi-trim5-value: trim=%u lna=%u channel=161 bandwidth=20 raw_fields_logged=0\n",(uint64_t)f->trim,(uint64_t)wifi_bbp5.gain.lna);
+    for(unsigned i=0;i<4;i++)console_printf("wifi-trim5-field-guard: index=%u mac=%x core=%x\n",(uint64_t)i,(uint64_t)g->mac[i],(uint64_t)g->core[i]);
+    for(unsigned i=0;i<2;i++)console_printf("wifi-trim5-field-dma: index=%u value=%x\n",(uint64_t)i,(uint64_t)g->dma[i]);
+    if(fs==MT76_CAPTURE_OK && mt76_trim_fields_valid(f)){const struct mt76_mcu_timing_io rf={&wifi_trim5,wifi_trim5_owned,wifi_trim5_read,wifi_trim5_exchange};const struct mt76_band_mac_io mac={&wifi_trim5,wifi_trim5_owned,wifi_trim5_mac};const struct mt76_pa5_io pa={&wifi_trim5,wifi_trim5_owned,wifi_trim5_transfer,wifi_trim5_exchange};const struct mt76_bbp5_io bbp={&wifi_trim5,wifi_trim5_owned,wifi_trim5_transfer};status=mt76_trim5_channel_capture(s,f->nic0,f->nic1,f->trim,wifi_bbp5.gain.lna,&rf,&mac,&pa,&bbp);}
+    wifi_trim5.active=wifi_trim5.fields_active=false;
+    m->table_active=m->dcoc_active=m->skey_active=m->wcid_active=m->mac_tail_active=m->mac_fixed_active=m->efuse_map_active=m->mac_board_active=m->ant_snapshot_active=m->ant_init_active=m->rf_probe_active=m->rf_table_active=m->rf_bank5_active=m->rf_bank6_active=m->rf_vga_active=false;
+    bool valid=status==MT76_TIMING_OK && mt76_trim5_valid(s) && s->with_channel && wifi_trim5.submitted==3767;
+    console_printf("wifi-trim5: status=%u complete=%u valid=%u restored=%u operations=%u submitted=%u trim=%u lna=%u parent=%u network_out=0\n",(uint64_t)status,(uint64_t)s->complete,(uint64_t)valid,(uint64_t)s->restored,(uint64_t)mt76_trim5_operations(s),(uint64_t)wifi_trim5.submitted,(uint64_t)s->trim,(uint64_t)s->lna,(uint64_t)parent);
     return valid?true:wifi_mcu_fail(d);
 }
 static bool wifi_rf_g20_owned(void *context){
@@ -3791,4 +3874,9 @@ bool xhci_wifi_capture_bbp5_cycle(void){
 bool xhci_wifi_capture_held_channel(void){
     if(wifi_held_requested || wifi_bbp5_requested || wifi_pa5_requested || wifi_frontend_requested || wifi_a20_cycle_requested || wifi_a20_inventory_requested || wifi_5ghz_channel_requested || wifi_5ghz_band_requested || wifi_5ghz_prereq_requested)return false;
     wifi_held_requested=true;bool ok=xhci_wifi_capture_bbp5_cycle();wifi_held_requested=false;return ok;
+}
+
+bool xhci_wifi_capture_trim5_channel(void){
+    if(wifi_trim5_requested || wifi_held_requested || wifi_bbp5_requested || wifi_pa5_requested || wifi_frontend_requested || wifi_a20_cycle_requested || wifi_a20_inventory_requested || wifi_5ghz_channel_requested || wifi_5ghz_band_requested || wifi_5ghz_prereq_requested)return false;
+    wifi_trim5_requested=true;bool ok=xhci_wifi_capture_held_channel();wifi_trim5_requested=false;return ok;
 }

@@ -819,6 +819,12 @@ previous firmware captures stay128KiB. The selected profile determines the exact
 `tail_limit`; require the whole prefix and matching byte count, and reject a
 lost/truncated prefix even when a completion marker is present.
 
+The v117 fresh-trim child inherits the held-channel2MiB prefix. Collect it with
+an explicit matching session/release bound; ordinary collection remains1MiB.
+Archive the byte-verified older large session first, preserving its accepted
+backup. Require the full parent and fresh-field/trim/channel/restoration trace;
+firmware completion alone does not accept this trial or Wi-Fi connectivity.
+
 Collect and inspect the matching session before preparing another run:
 
 ```sh

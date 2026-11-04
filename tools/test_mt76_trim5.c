@@ -1,7 +1,19 @@
+#include <stdio.h>
+#include <stdarg.h>
+#include <string.h>
+/* Reuse the child model without changing its historical trace vocabulary. */
+static int trim_model_printf(const char *format,...) {
+    char text[512];va_list args;va_start(args,format);
+    int n=vsnprintf(text,sizeof(text),format,args);va_end(args);
+    if(!strncmp(text,"wifi-held",9))printf("wifi-trim5%s",text+9);else fputs(text,stdout);
+    return n;
+}
+#define printf trim_model_printf
 /* Reuse the existing independent shared RF/direct-register model. */
 #define main channel5_test_main
 #include "test_mt76_channel5.c"
 #undef main
+#undef printf
 #include <srvros/mt76_trim5.h>
 static struct mt76_trim5 outer,accepted;
 static bool combined,check_requests;static int trim_reply_length=16;
@@ -19,7 +31,9 @@ static bool trim_read(void *p,uint32_t a,uint32_t *v){
     if(outer.phase==2)return read_value(p,a,v);
     unsigned n=outer.operations%7,j=n<3?n:n-4;assert(n!=3 && a==(j==0?0x1004u:j==1?0x2000u:0x208u));
     if(!step(f))return false;
-    *v=guard(j);if(f->calls==f->bad)*v^=1;return true;
+    *v=guard(j);if(f->calls==f->bad)*v^=1;
+    if(trace)printf("wifi-trim5-usb: op=%u phase=%u local=%u write=0 address=0x%016llx value=0x%016llx ok=1\n",f->calls-1,mt76_trim5_phase(&outer),mt76_trim5_local(&outer),(unsigned long long)a,(unsigned long long)*v);
+    return true;
 }
 static int trim_exchange(void *p,const uint8_t *packet,size_t length,uint8_t *reply,size_t cap){
     struct fake *f=p;uint8_t want[16];
@@ -32,6 +46,7 @@ static int trim_exchange(void *p,const uint8_t *packet,size_t length,uint8_t *re
     if(cmd==12)f->rf[0][22]=(uint8_t)w[2];else assert(!w[2]);
     w[0]=w[3]=0x4a000008u|(seq<<16);w[2]=f->rf[0][22];memset(reply,0,cap);
     for(unsigned i=0;i<4;i++)for(unsigned b=0;b<4;b++)reply[4*i+b]=(uint8_t)(w[i]>>(8*b));
+    if(trace)printf("wifi-trim5-command: op=%u phase=%u local=%u write=%u sent=16 received=16 cc=13 residue=1008 h=0x%016llx address=0x%016llx value=0x%016llx t=0x%016llx\n",f->calls-1,mt76_trim5_phase(&outer),mt76_trim5_local(&outer),(unsigned)(cmd==12),(unsigned long long)w[0],(unsigned long long)w[1],(unsigned long long)w[2],(unsigned long long)w[3]);
     if(f->calls==f->bad)reply[0]^=1;
     return trim_reply_length;
 }
@@ -80,6 +95,11 @@ static void trim_preflight(struct fake *f){
 #undef NO_IO
 }
 int main(int argc,char **argv){
+    if(argc==2 && !strcmp(argv[1],"--trace")) {
+        struct fake f={0};trim_init(&f);combined=trace=check_requests=true;
+        assert(trim_run(&f,0x44,12)==MT76_TIMING_OK && mt76_trim5_valid(&outer) && f.calls==3767);
+        return 0;
+    }
     bool quick=argc==2 && !strcmp(argv[1],"--quick");assert(argc==1 || quick);
     struct fake f={0};trim_init(&f);trim_preflight(&f);check_requests=true;assert(trim_run(&f,0x44,12)==MT76_TIMING_OK && mt76_trim5_valid(&outer));accepted=outer;check_requests=false;
     assert(f.calls==35 && f.auth==36 && outer.writes==2 && outer.exchanges==5 && !f.rf[0][22]);

@@ -6694,11 +6694,26 @@ static void test_pa5_refusal(void){
     assert(wifi_held_exchange(&wifi_held,packet,16,reply,sizeof reply)<0);
     assert(!wifi_held.submitted && !wifi_held.state.attempted);
     wifi_held_requested=true;assert(!xhci_wifi_capture_held_channel());wifi_held_requested=false;
+    assert(!wifi_trim5_parent(NULL) && !wifi_trim5_parent(&d));
+    assert(!wifi_trim5_owned(NULL) && !wifi_trim5_owned(&wifi_trim5));
+    assert(!wifi_trim5_fields_owned(NULL) && !wifi_trim5_fields_owned(&wifi_trim5));
+    assert(!wifi_trim5_fields_read(&wifi_trim5,0x24,&v));
+    assert(!wifi_trim5_fields_write(&wifi_trim5,0x24,0));
+    assert(!wifi_trim5_fields_wait(&wifi_trim5,2));
+    assert(!wifi_trim5_transfer(&wifi_trim5,false,0x1004,&v));
+    assert(!wifi_trim5_transfer(&wifi_trim5,true,0x518,&v));
+    assert(!wifi_trim5_mac(&wifi_trim5,0,false,0x1004,packet,4));
+    assert(wifi_trim5_exchange(&wifi_trim5,packet,16,reply,sizeof reply)<0);
+    assert(!wifi_trim5.submitted && !wifi_trim5.gate.submitted && !wifi_trim5.fields.attempted && !wifi_trim5.state.attempted);
+    wifi_trim5_requested=true;assert(!xhci_wifi_capture_trim5_channel());wifi_trim5_requested=false;
+    wifi_held_requested=true;assert(!xhci_wifi_capture_trim5_channel());wifi_held_requested=false;
+    puts("xhci trim5: PASS unknown/inactive fresh-field and RF owners, fixed transfer and reentrant profile refuse before USB");
     puts("xhci held: PASS unknown/inactive owner and reentrant profile refuse before USB");
     puts("xhci BBP5: PASS unowned gain/control/read/write and BBP direct transfer refuse before USB");
     puts("xhci PA5: PASS unowned/unknown context refuses direct read/write and MCU exchange before USB");
 }
 int main(int argc, char **argv) {
+    if(argc==2 && !strcmp(argv[1],"--wifi-trim5-refusal")){test_pa5_refusal();return 0;}
     if(argc==3 && !strcmp(argv[1],"--wifi-scan-batch-group")){batch_test_enabled=batch_test_group=true;batch_case=(unsigned)strtoul(argv[2],0,10);assert(batch_case<6);receive_test_only=scan_test_only=true;test_wifi_window();return 0;}
     if(argc==4 && (!strcmp(argv[1],"--wifi-scan-batch-case") || !strcmp(argv[1],"--wifi-scan-batch-trace"))){batch_trace=!strcmp(argv[1],"--wifi-scan-batch-trace");batch_test_enabled=true;batch_case=(unsigned)strtoul(argv[2],0,10);batch_fault_visit=(unsigned)strtoul(argv[3],0,10);assert(batch_case<=35 && batch_fault_visit<3);receive_test_only=scan_test_only=true;test_wifi_window();return 0;}
     if(argc==2 && !strcmp(argv[1],"--wifi-agc-timing")){test_wifi_agc_scan_timing();return 0;}

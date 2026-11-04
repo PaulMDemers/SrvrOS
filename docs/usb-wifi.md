@@ -11,18 +11,29 @@ withdrawn before installation. New installation and runtime gates refuse that
 captured2.4GHz RF recipe. Historical rendering remains for offline regression.
 
 Native evidence accepts the bounded empty-cache desktop, trackpad, unplug
-retirement and automatic return, plus fixed5GHz band selection and four-word
-restoration. It does not accept populated discovery, live reattach/rescan,
-association/security or an active Wi-Fi IP provider. Current work targets
-channel161/20MHz: native v110 accepts fixed frequency fields with independent
-13-word selection/restoration checks. Native v111 captures all24 high-band RF
-originals; v112 accepts a fixed admission/write/read/reverse contract
-inside selected channel161. v113 accepts44 read-only frontend originals after
-41-target restoration (2815 total operations), with complete saved proof and
-automatic return. PA/BBP writes and reception remain unaccepted.
-5GHz bandwidth/baseband/calibration and receiver startup remain pending. Ordinary startup
-leaves diagnostic radio operations disabled. Dated milestones below are history
-and must not be used to reinstate the withdrawn band assumption.
+retirement and automatic return. Latest v116 accepts7785 MAC-disabled command
+operations, including3732 operations with channel161/20MHz band/frequency/A20
+held around PA and gain-adjusted BBP selection. Independent selected reads and
+inverse original reads pass. This is command/state/restoration evidence; VCO/RF
+lock, calibrated reception, populated discovery, live reattach/rescan,
+association/security and an active Wi-Fi IP provider remain pending. Ordinary
+startup leaves diagnostic radio operations disabled. Dated milestones below
+must not reinstate the withdrawn2.4GHz model assumption.
+
+## Fresh trim lifetime candidate (v117; physical acceptance pending)
+
+After the complete restored v116 chain, the new private static owner reads fresh
+logical30/d0 factory fields through the bounded read-only EFUSE transaction.
+Raw factory blocks stay private. Exact board/frequency admission, completed
+parent proofs and immutable per-operation requests guard every I/O. The fixed
+RF0:22 trim cycle selects44 around the full held channel161 transaction, then
+restores0 with independent readbacks. Five trim commands plus the nested channel
+plan total3767 I/O; the fresh fields add24 plus the bounded poll count. The
+saved checker requires the original parent and every new request/reply/direction/
+phase/order/guard/restoration record. Existing radio captures keep their limits;
+this automatic child inherits v116's2MiB full-prefix save and automatic return.
+No DAC/VCO pulse, receiver, network frame or credential is enabled by this trial.
+A matching complete physical session is required before accepting it.
 
 ## 5GHz RF band-selection foundation
 

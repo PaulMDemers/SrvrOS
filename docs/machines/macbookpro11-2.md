@@ -114,6 +114,31 @@ relax radio predicates or enlarge ordinary collection limits. Archive verified
 large sessions, or explicitly identify them, before a future ordinary collection;
 unknown large sessions remain refused rather than silently admitted.
 
+## Current integrated baseline and fresh-trim candidate
+
+Main `0cba30a1` is integrated as `e5731168`, with Apps `f85c7107`, Ports
+`2676a2ab` and UI `9eaaa74e`. Upstream namespace/profile/installation hardening,
+display controls and pipe-message ABI remain intact; private Wi-Fi now uses163.
+The matched Ubuntu image and core dependency run exposed GCC fixture/formatting/
+feature-declaration failures. All failed dependencies passed focused retries,
+alongside the final matched image/desktop/I/O/docs run; original refusals remain
+retained. The unchanged trim engine's exhaustive failure/cancellation sweep also
+passes. Exact-stage save/readback/automatic return and missing-workspace refusal,
+two-boot namespace, two-installation profile desktop, display mode/scale/persistence
+and1440x900 compositor VMs pass. The source-bound Ubuntu artifact receipt and
+integration evidence are sealed outside build. This is host/VM integration
+coverage, not new native acceptance; installed accepted v116 stays unchanged.
+
+The next v117 candidate binds fresh logical30/d0 trim fields to one private
+native static owner after the complete restored v116 parent. Exact field/board,
+parent, request and counter predicates guard every transfer. A fixed RF0:22
+0-to44-to0 lifetime encloses the3732-operation held channel161 plan, for3767
+combined I/O plus fresh-field reads. Raw factory blocks stay private; failed I/O
+retains existing quarantine/no-replay behavior. Automatic progress,2MiB complete
+prefix, frozen full-parent/new-trace checker and recovery checks precede a cold
+trial. No DAC/VCO/RX or credentials are included. New native acceptance remains
+pending; preserve the accepted v116 capsule and previous known-good payload.
+
 ## Active main integration and native trim scope
 
 Main now owns syscalls159–161 for display modes and162 for pipe messages. Move
