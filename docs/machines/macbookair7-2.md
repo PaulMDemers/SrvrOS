@@ -2,7 +2,40 @@
 
 Updated: 2026-11-04. State: **active reference machine; partial device acceptance**.
 
-### Active scope: native cache-policy prerequisite
+### Read-only cache audit installed; native observation pending
+
+Source `e9391d64`, consuming main `5f670602` through `8eac2536`, is staged and
+installed as `07df02f62d1074ac` for the [read-only CPU cache audit](../x86-cache-audit.md).
+No native cache result is accepted yet. This reads inherited PAT/MTRRs and
+classifies proposed4KiB leaf policies; it maps no proposed GPU pages and grants
+no GGTT range, DMA authority or physical tear-free acceptance. Final inherited
+backing verification still uses the existing temporary read-only windows.
+
+The full local host/core/profile/docs/build suite passes at `78908318`, including
+71 installation tests with one expected opt-in skip, cache-core/adapter
+ASan/UBSan, three compiled negative controls,237 hardware collector tests and
+DMA/shadow-lifetime/Haswell3 refusal/fixture checks. The subsequent `e9391d64`
+change only distinguishes candidate mappings in the receipt and bounds32-bit
+CPU decoder fields. Fresh matched normal/AP/native/synthetic builds, cache host
+and adapter sanitizer tests,237 collectors, real Q35 architectural CPU reads,
+missing-workspace visible halt and VirtIO compositor/supervisor recovery pass.
+The unchanged initial full-suite receipt is retained explicitly, with all prior
+attempts and exact payloads. Q35 observes two matching33-read CPU snapshots;
+its absent native GPU cannot pass address binding or aggregate acceptance.
+
+Preparation preserves1,329 files /97 sessions, exact native firmware/GPU/CPU
+profile, USB ancestry, offline fsck/allocation/writable/headroom, independent
+payloads/recovery and Ubuntu default. Older inactive5f6 was fully archived and
+hash-verified before retiring only its EFI copy for space. Recovery9aa,
+known-goodc497, accepted shadowd79 and previous native5346 remain held and
+verified. The new run is automatic and needs no input; saved/unmounted outcomes
+return to Ubuntu, while persistence failure visibly halts. Volume is1%; guest
+audio is not enabled. The run record controls actual arming/return state; collect
+it before any new installation. Evidence: `build/air-cache-20261104/` and
+`build/air-cache-native-20261104/`, backed up outside build before reboot.
+
+### Cache audit implementation scope
+
 
 Consumed main `5f670602` (Air6,1 read-only DMA/resource inventory) on this device
 branch. Before native GGTT writes, add a bounded read-only CPU PAT/MTRR snapshot
