@@ -166,7 +166,8 @@ def load(path, root, lock):
     p.exact(record, ('format', 'attempt', 'directory', 'directory_identity', 'lock_identity',
                      'output', 'parent_identity', 'bundle_identity', 'size', 'sha256',
                      'selection', 'source_snapshot'), 'export publication')
-    require(record['format'] == FORMAT and str(uuid.UUID(record['attempt'])) == record['attempt'],
+    require(record['format'] == FORMAT and type(record['attempt']) is str and
+            str(uuid.UUID(record['attempt'])) == record['attempt'],
             'invalid publication format or attempt')
     for key in ('directory_identity', 'lock_identity', 'parent_identity', 'bundle_identity'):
         valid_identity(record[key])

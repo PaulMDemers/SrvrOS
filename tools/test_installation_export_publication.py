@@ -281,6 +281,14 @@ class ExportPublicationTests(unittest.TestCase):
         (attempt / 'intent.sha256').write_text(hashlib.sha256(raw).hexdigest() + '\n')
         self.refused(root, attempt)
 
+    def test_malformed_attempt_type_is_a_bounded_refusal(self):
+        for value in (None, True, 42, []):
+            root, attempt, _ = self.stop('written')
+            record = json.loads((attempt / 'intent.json').read_bytes()); record['attempt'] = value
+            raw = p.encode_json(record); (attempt / 'intent.json').write_bytes(raw)
+            (attempt / 'intent.sha256').write_text(hashlib.sha256(raw).hexdigest() + '\n')
+            self.refused(root, attempt)
+
     def test_cli_inspect_and_reconcile_in_fresh_process(self):
         root, attempt, output = self.stop('linked')
         tool = Path(__file__).resolve().with_name('installation_image.py')
