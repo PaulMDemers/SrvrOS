@@ -1,6 +1,6 @@
 # MacBookPro11,2 / A1398
 
-Updated: 2026-11-03. State: **native desktop, input, brightness, sound, CPU/fan telemetry and captured USB Ethernet DHCP/DNS/HTTP and live cable-status UI accepted**.
+Updated: 2026-11-04. State: **native desktop, input, brightness, sound, CPU/fan telemetry and captured USB Ethernet DHCP/DNS/HTTP and live cable-status UI accepted**.
 
 The sections below retain the dated bring-up sequence. The latest acceptance
 and next scope are recorded at the end; earlier failures are historical.
@@ -12199,3 +12199,27 @@ capsule and separate `wifi-vco5-accepted-11689cfa` notes survive outside build.
 The source-pinned follow-up audit identifies the still-selected held-channel
 checkpoint for a separate VCO child; it performs no new hardware I/O and accepts
 no calibrated receive, RF lock, security or IP behavior. Credentials unused.
+
+## 2026-11-04 active channel calibration/receive scope
+
+Fetched main `845f703c` (profile transfer/export, less and isolated Air6,1
+TILECTL observation); Ports pin `d760e541`, Apps `b2220909`, UI `9eaaa74e`.
+No MT76 owner overlaps. PR349 owns uncertain-media inspection,348 profile
+creation,344 Files transfer,334 signal context,317 isolation,310 browser and301
+Air scanout; retain their boundaries and independent native evidence. Consume
+actual pinned modules and root changes with focused profile/staging/build/VM
+checks before freezing a new native image. v119 acceptance remains source-bound.
+
+Bounded next implementation: a fixed private channel161/20MHz coordinator that
+holds fresh trim44 and all selected band/synth/A20/PA/gain-adjusted BBP words
+while issuing one channel VCO trigger. Read trim44 before/after, require original
+RF0:4=30, exact b0 acknowledgement and bounded monotonic30/b0 observations,
+then permit inverse originals only after observed clear. Preserve legacy engine
+behavior with a separate coordinator and no caller-selected register plan. No
+force-clear/replay/speculative cleanup. Touch MT76 fixed engine/native owner,
+opt-in automatic recipe and fault/source/log tests; defer MAC enable, MCU
+calibration/RX until the selected-channel proof is checked. Next audit complete
+channel calibration and controlled receive lifecycle from pinned source; this
+first dependent hardware checkpoint is not usable Wi-Fi. Credentials unused.
+Known bc VM allocation anomaly remains unaccepted; no unrelated filesystem
+sweep or repair is part of this bounded Wi-Fi work.
