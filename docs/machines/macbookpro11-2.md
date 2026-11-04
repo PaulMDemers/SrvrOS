@@ -12223,3 +12223,36 @@ channel calibration and controlled receive lifecycle from pinned source; this
 first dependent hardware checkpoint is not usable Wi-Fi. Credentials unused.
 Known bc VM allocation anomaly remains unaccepted; no unrelated filesystem
 sweep or repair is part of this bounded Wi-Fi work.
+
+### Integrated main845f and selected-channel VCO implementation
+
+Root merge `bcb6ec20` consumes main `845f703c`, published Ports `78bf21b8`, Apps
+`fe681996` and unchanged UI `9eaaa74e`. Active Ports connectivity fsck is clean;
+ort could not resolve an unavailable historical submodule reference, including
+an explicit remote-ref refusal. The normal resolve strategy exposed file/gitlink
+conflicts, which retain both published module merges, Wi-Fi recipes, Haswell v2
+TILECTL gates and independent Make targets. No source acceptance is inherited.
+Matched build/USB image, desktop/I/O, guest profiles, Haswell backing and docs
+checks pass. An initial nonexistent desktop-session Make alias is retained as
+a host command refusal, separate from the corrected passing target set.
+
+The new explicit coordinator leaves legacy engine code/structures unchanged and
+adds one fixed child before inverse writes at the selected checkpoint. Every
+child callback guards composite ownership and exact packet/delay requests.
+Normal tests pass all77 new I/O failures/corruptions,84 child cancellation
+boundaries and neighboring parent phase transitions,256 gains, six delay
+failures, seven clear timings, pending/reassertion, context/callback/board
+refusals, composite mutation and no replay. Standalone child tests additionally
+cover every77 transfer/84 cancellation/state-mutation boundary, proof bits and
+malformed replies. Four full-ledger groups, two pinned-source/tamper groups,
+214 staging groups and native owner/refusal checks pass. Targeted xHCI, child
+and combined ASan/UBSan pass. Exact native frames are216bytes for the coordinator
+and1144bytes for the pulse engine. No new physical acceptance is claimed.
+
+Read-only Linux currently reports161/5805MHz. Pinned source orders per-channel
+VCO after band/synth/gain/BBP and before MCU calibration; high-band calibration
+arguments and temporary-word restoration are audited separately. Existing IBI9
+and5GHz receive-decoder admission remain unresolved prerequisites. The next
+cold trial is the selected-channel pulse/readback/inverse-original contract,
+without receiver, network OUT or credentials. It must pass exact-stage save/
+refusal, full-prefix capacity/parser, storage and recovery checks before install.

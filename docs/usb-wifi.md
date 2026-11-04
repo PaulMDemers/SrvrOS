@@ -86,6 +86,29 @@ measurement. Held-channel VCO/calibration, receive and connectivity stay pending
 record for the separately unaccepted bc VM allocation anomaly; it does not
 substitute for or relax this capture's storage checks.
 
+## Held-channel VCO candidate (v120; physical acceptance pending)
+
+A separate fixed coordinator runs after complete common VCO/fresh-field proof.
+It reuses the unchanged legacy trim/channel engines and enters one guarded child
+at the still-selected checkpoint: trim phase2/op21, band phase8/synth paused,
+A20/op504, PA/op294 and BBP/op441. The child independently reads trim44 and RF0:4
+original30, issues one b0 trigger, observes immediately and at six fixed waits,
+and independently reads trim44 again. Only30/b0 and monotonic clearing are
+admitted; final30 is mandatory before any inverse BBP/PA/A20/frequency/band/trim
+writes. It exposes no arbitrary plan, force-clear, replay or speculative cleanup.
+All child callbacks revalidate the coordinator and native private owner before
+I/O; they do not reenter the trigger path. The child adds77 I/O; the complete
+second trim/channel transaction totals3844 I/O plus six waits. Legacy profiles
+and their request plans remain unchanged. This is MAC-disabled command/selected
+state/restoration evidence only, not analog calibration, RF lock or reception.
+
+The source audit confirms channel161 non-power-on FULL=901, LC=1 and RXDCOC=1
+with TX_ALC0 suppression, delayed IBI9 save/write,15ms settle and inverse saved
+word restoration. All-ones IBI9 remains an unresolved calibration prerequisite;
+no old G-band admission is widened. The existing receive/scan decoder explicitly
+admits channels1–11/1,6,11; a separately tested5GHz decoder and endpoint lifecycle
+are required before channel161 receive testing. Credentials remain unused.
+
 ## 5GHz RF band-selection foundation
 
 The fixed `mt76_rf_band5g_*` engine replays 38 bank6 settings, then selects

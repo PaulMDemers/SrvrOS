@@ -9,6 +9,8 @@ static bool wifi_pa5_requested;
 static bool wifi_bbp5_requested;
 static bool wifi_held_requested;
 static bool wifi_trim5_requested;
+static bool wifi_channel_vco5_requested;
+static bool wifi_mcu_channel_vco5(struct xhci_device *d);
 static bool wifi_vco5_requested;
 static bool wifi_mcu_vco5(struct xhci_device *d);
 static bool wifi_dac5_requested;
@@ -3888,3 +3890,5 @@ bool xhci_wifi_capture_trim5_channel(void){
 #include "xhci_wifi_dac5.inc"
 
 #include "xhci_wifi_vco5.inc"
+
+#include "xhci_wifi_channel_vco5.inc"

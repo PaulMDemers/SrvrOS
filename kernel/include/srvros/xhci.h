@@ -115,6 +115,7 @@ bool xhci_wifi_capture_pa5_cycle(void);
 bool xhci_wifi_capture_bbp5_cycle(void);
 bool xhci_wifi_capture_held_channel(void);
 bool xhci_wifi_capture_trim5_channel(void);
+bool xhci_wifi_capture_channel_vco5(void);
 bool xhci_wifi_capture_vco5(void);
 bool xhci_wifi_capture_dac5(void);
 bool xhci_wifi_capture_rf_g20(void);
