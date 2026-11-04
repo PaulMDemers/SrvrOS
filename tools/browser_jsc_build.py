@@ -269,7 +269,8 @@ try:
                    'file-map-flags.patch', 'optional-signals.patch', 'mincore-unavailable.patch',
                    'cache-version.patch', 'repatch-nojit.patch', 'cache-build-id.patch',
                    'target-archive-tools.patch', 'repatch-llint-includes.patch', 'jsc-math-provider.patch']
-        if args.experimental_signal_context: patches.append('srvros-signal-context.patch')
+        if args.experimental_signal_context:
+            patches.extend(('srvros-signal-context.patch', 'signal-stack-bounds.patch'))
         for name in patches:
             command('patch-' + name, ['patch','--batch','--fuzz=0','-p1','-d',source,'-i',port/name])
         state = {'patches': {name: sha(port/name) for name in patches},
@@ -418,7 +419,8 @@ try:
                 state['source_sha256'] = source_digest()
                 state_path.write_text(json.dumps(state, indent=2) + '\n')
     receipt['source_state'] = state
-    if args.experimental_signal_context and 'srvros-signal-context.patch' not in state['patches']:
+    if args.experimental_signal_context and not all(name in state['patches'] for name in
+            ('srvros-signal-context.patch', 'signal-stack-bounds.patch')):
         raise RuntimeError('retained run lacks the experimental overlay; use explicit --add-patch or start a fresh run')
     receipt['experimental_signal_context'] = 'srvros-signal-context.patch' in state['patches']
     if state.get('last_runtime_transition'):
