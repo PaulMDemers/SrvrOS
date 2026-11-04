@@ -40,10 +40,11 @@ static bool number(const char *s,uint64_t *out) {
     *out=n;return true;
 }
 /* Supplement native primary validation; never reconstruct either map. */
-static bool backup_agrees(struct block_device *d) {
-    uint8_t primary[512],backup[512],a[512],b[512];uint64_t end=d->block_count-1;
-    if(!block_read(d,512,primary,512)||!block_read(d,end*512,backup,512))return false;
+static bool backup_agrees(struct block_device *d,const uint8_t primary[512]) {
+    uint8_t backup[512],a[512],b[512];uint64_t end=d->block_count-1;
+    if(!block_read(d,end*512,backup,512))return false;
     uint32_t size=read_le32(primary+12),crc=read_le32(backup+16);
+    if(size<92||size>512)return false;
     if(memcmp(primary,backup,16)||read_le32(backup+20)||read_le64(backup+24)!=end||read_le64(backup+32)!=1||
        memcmp(primary+40,backup+40,32)||memcmp(primary+80,backup+80,12)||
        memcmp(primary+92,backup+92,size-92))return false;
@@ -73,8 +74,11 @@ int main(int argc,char **argv) {
        st.st_size<0||(uint64_t)st.st_size!=length)goto fail;
     block_init();struct block_device *d=block_register("image",512,length/512,source_read,NULL,NULL);
     struct block_gpt_map map={0};reason="primary-gpt";
-    if(!d||!block_gpt_scan(d,&map)||read_failed)goto fail;
-    reason="backup-gpt";if(!backup_agrees(d)||read_failed)goto fail;
+    /* Prefetch the primary header used by native validation; keep its bounds
+     * after the table scan evicts it from the cache. Never reread new bounds. */
+    uint8_t primary[512];
+    if(!d||!block_read(d,512,primary,512)||!block_gpt_scan(d,&map)||read_failed)goto fail;
+    reason="backup-gpt";if(!backup_agrees(d,primary)||read_failed)goto fail;
     static const uint8_t basic[16]={0xa2,0xa0,0xd0,0xeb,0xe5,0xb9,0x33,0x44,0x87,0xc0,0x68,0xb6,0xb7,0x26,0x99,0xc7};
     struct block_gpt_partition *selected=NULL;unsigned candidates=0;
     for(unsigned i=0;i<map.count;i++) {
