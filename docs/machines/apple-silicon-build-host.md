@@ -3060,3 +3060,8 @@ strict host and sanitizer fixtures; see the
 The adjacent copy audit also confirmed that unaligned destination copies could
 miss byte-modulo checkpoints. Page-chunk counting fixes this, with an offset-17
 256 KiB regression and preserved untouched boundary bytes.
+
+Final implementation `4ce73e79` passes the focused host suite, strict Linux GCC14
+and Darwin/Rosetta sanitizer fixture, kernel build, Q35 sysabi and full
+threadstress. Main `805519b2` is integrated; newer main userspace was not staged
+in these retained-runtime kernel checks. Task guests stopped.

@@ -116,3 +116,8 @@ external-dependency and native-device gaps listed above.
 Subsequent review: the [2026-11-03 kernel isolation follow-up](audit-kernel-isolation-2026-11-03.md)
 records a low-level VMM canonical-address fix, active-root retirement regression
 and observed BIOS/QEMU CR0.WP state. It does not close the broader manual audit.
+
+The same follow-up subsequently confirms protection/validation service gaps,
+failed mmap rollback without turns, and unaligned process-copy checkpoint loss.
+It records fixed owner-retaining batches and their baseline/host/guest evidence;
+allocator and free-range search latency remain open.

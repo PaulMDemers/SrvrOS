@@ -1481,3 +1481,9 @@ PROT_NONE reservations, inherited/foreign ownership, partial failure/retry and
 failed-mmap suffix rollback. The fixture checks operation counts and ownership,
 not a hardware IRQ-latency deadline. `make test-futex-contracts` retains the
 protection-revocation regression against the private index-based update helper.
+
+The service fixture also copies 256 KiB to a destination at page offset 17,
+checking that page-count checkpoints occur and bytes outside the destination
+remain untouched. Byte-modulo checkpoint accounting fails this case even when
+the copy succeeds. Atomic startup/TLS copies retain their explicit no-service
+contract.

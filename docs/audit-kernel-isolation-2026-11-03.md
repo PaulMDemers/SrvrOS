@@ -193,8 +193,13 @@ Focused Darwin/Rosetta host tests and strict Linux GCC14 pass; the service
 fixture also passes ASan/UBSan. Both old-behavior failures are retained under
 `build/review/teardown/protection-before.log` and
 `build/review/protection/rollback-before.log`; passing evidence is under
-`build/review/protection/`. The freestanding kernel builds. The protection/rollback kernel passes sysabi
-and full threadstress; the later unaligned-copy change receives its own reruns.
+`build/review/protection/`. The freestanding kernel builds. Both the protection/rollback kernel and the
+final unaligned-copy kernel pass sysabi and full threadstress; final logs are
+`sysabi-final.log` and `thread-final.log`. The unchanged PR313 runtime files are
+retained, so this is a rebuilt-kernel check, not a clean image of newer userspace.
+Main `805519b2` was integrated at `d4e91913`; that merge changes no kernel/shared
+source. The final tested implementation is `4ce73e79`; subsequent documentation
+changes preserve its kernel implementation.
 
 These checks bound batch work and show service opportunities; they do not set a
 wall-clock IRQ-latency guarantee. PMM allocation, fixed-size table scans and
