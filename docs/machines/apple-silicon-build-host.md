@@ -4826,7 +4826,7 @@ any new need must coordinate before launch. Integration checkout and protected
 review VMs remain untouched. Both PRs are accepted for the authorized port-first,
 OS-second merge; linked PR state records the delivery result.
 
-### Find Files bounded Contents search — active November 4, 2026
+### Find Files bounded Contents search — verified November 4, 2026
 
 User authorizes bounded content search alongside unchanged filename search in
 isolated `SrvrOS-app-quality`. Base OS `a90bf57e`; consume pinned recursive
@@ -4851,3 +4851,44 @@ responses, cancellation/restart/close, current-profile root, narrow rendering,
 source/pins/build provenance, guest fsck and offline allocation. One build/VM at
 a time. Implementation, independent review and checks precede review delivery;
 merging is a separate action.
+
+Clean accepted runtime `0336341b` pins UI `5cd6ddb0`, Apps `da891161` and Ports
+`fc51ddb4`. Full desktop/widget host suites, focused matcher/decoder/worker/app
+and command-job tests pass. Coverage includes original v1 names/kinds, v2 mode
+mismatch and atomic malformed-reply refusal, literal Unicode/ASCII matching,
+short/EINTR/failed reads, metadata races, all limits and exact-boundary conservative
+flags. Partial failed reads consume the 16MiB budget and all opened descriptors
+close. Eleven plain portable CTest cases and ten sanitized cases pass; the
+instrumented symbol-boundary test is excluded, with plain boundary passing.
+Focused matcher, worker and app ASan/UBSan checks pass on the host.
+
+Both matched generated-disk guest proofs pass on the same committed source.
+The full Name regression covers Files/global launch, root/kind filters, 256 of
+300 results, open/reveal/copy and exact saved data, failures/empty results,
+compact Name and Contents, Help and guest/offline integrity. The Contents proof
+finds text in unrelated filenames, rejects binary/invalid UTF-8/oversize fixtures,
+preserves root boundaries, returns 256 of 300 matches, stops after 16MiB with a
+Partial result, cancels/restarts and closes a busy worker, restores the process
+baseline and preserves all source bytes. Both guest fsck and independent offline
+allocation/generator checks pass. Cancellation is observed after accepted worker
+start; the exact in-flight syscall is not traced. The unchanged 60-second timeout
+is checked by host command-job tests, not an additional minute-long guest wait.
+
+Expert rendered inspection confirms readable mode labels and usable results at
+280x240, and clearly prioritised Partial/read-limit status at normal size. Host
+and rendered review corrected compact height, initial query focus and original
+query context. Retained harness-only failures (dock assumptions, obsolete resize
+targeting and JSON receipt serialization) are excluded from acceptance. Completed
+prior proofs remain historical evidence. Host architecture-mismatch linkage was
+corrected before app sanitizer execution; it is not a runtime result.
+
+Evidence: `build/review/find-contents/receipt.json`; matched raw images, logs,
+screenshots and provenance are retained there, with a verified archive under
+`.local/app-proof/find-contents/` outside build cleanup. Final documentation
+source receives a clean matched build and byte-identity comparison with accepted
+runtime. Review order is [SrvrUI #6](https://github.com/PaulMDemers/SrvrUI/pull/6),
+[SrvrApps #12](https://github.com/PaulMDemers/SrvrApps/pull/12), then
+[SrvrOS #368](https://github.com/PaulMDemers/SrvrOS/pull/368). Ready for review and
+integration; merge is separate. No index, regex, coherent snapshot, native media,
+external fsck.exfat or real power-loss acceptance. All owned guests stopped;
+shared checkout and review VM are untouched. No further feature is required.
