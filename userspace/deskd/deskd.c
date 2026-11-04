@@ -1110,10 +1110,10 @@ static void launcher_catalog(struct session *s) {
         desk_palette_items(p,items,count);if(s->scene.launcher_open) launcher_damage(s);
     }
 }
-static void launcher_open(struct session *s) {
+static void launcher_open_for(struct session *s,int windows_only) {
     context_close(s);
     if(s->scene.notifications.opened) notifications_close(s);
-    if(s->exiting || s->scene.launcher_open) return;
+    if((s->exiting && !windows_only) || s->scene.launcher_open) return;
     s->launcher_application=0;
     if(s->scene.calendar_open) calendar_close(s);
     s->overlay_return=s->scene.focus;s->overlay_identity=s->scene.focus>=0?session_client(s,s->scene.focus)->identity:0;s->overlay_down=0;
@@ -1124,6 +1124,7 @@ static void launcher_open(struct session *s) {
     s->scene.launcher_open=1;launcher_damage(s);
     if(s->trace) desk_log("deskd: launcher opened items=%u\n",p->count);
 }
+static void launcher_open(struct session *s) {launcher_open_for(s,0);}
 static void dock_windows(struct session *s,unsigned app) {
     launcher_open(s);if(!s->scene.launcher_open)return;
     s->launcher_application=app;launcher_catalog(s);
@@ -1180,7 +1181,7 @@ static void switcher_step(struct session *s,int reverse) {
     struct desk_palette *p=&s->scene.launcher;
     if(!s->switching) {
         if(s->scene.launcher_open)launcher_close(s);
-        launcher_open(s);if(!s->scene.launcher_open)return;
+        launcher_open_for(s,1);if(!s->scene.launcher_open)return;
         struct desk_palette_item inline_items[DESKD_WINDOWS+DESK_APP_COUNT]={0};
         struct desk_palette_item *items=s->palette_build?s->palette_build:inline_items;unsigned count=0;
         int inline_order[DESKD_WINDOWS];int *order=s->scene.order?s->scene.order:inline_order;desktop_stack(&s->scene,order);
@@ -1908,7 +1909,19 @@ static void service(struct session *s) {
         if(elapsed>50000)desk_log("desktop-reap: elapsed_us=%llu\n",(unsigned long long)elapsed);
         /* An interrupted wait is not proof of death. Init only adopts a
          * child after its parent exits; live clients retain their own results. */
-        if (waited==(long)(*session_children(s,i))) { s->child_reaped++;if(status)s->child_errors++; }
+        if (waited==(long)(*session_children(s,i))) {
+            s->child_reaped++;if(status)s->child_errors++;
+            /* An owned GUI app failing during this close wave differs from
+             * a shell command/descendant's legitimate nonzero exit. Keep the
+             * current profile for review; a later explicit switch can retry. */
+            if(s->session_child && s->exiting && status &&
+               *session_child_apps(s,i)>=DESK_APP_FILES && *session_child_apps(s,i)<=DESK_APP_COUNT) {
+                uint64_t pid=*session_children(s,i);
+                session_end_cancel(s,"app-exit",pid);
+                strcpy(s->scene.notice,"Session kept: an app exited with an error. Review saved work before switching again.");
+                desk_log("session-ui: phase=app-error pid=%llu status=%llu\n",(unsigned long long)pid,(unsigned long long)status);
+            }
+        }
         else if(waited<0 && waited!=SRV_ERR_INTR && !desk_process_alive((*session_children(s,i))) && !cooperative_process(s,*session_children(s,i))) s->child_errors++;
         if (waited==(long)(*session_children(s,i)))
             desk_log("deskd: child-exit pid=%llu status=%llu tick=%llu\n",(unsigned long long)(*session_children(s,i)),(unsigned long long)status,(unsigned long long)srv_ticks());
