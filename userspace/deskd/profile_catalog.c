@@ -54,8 +54,10 @@ static int read_regular(const char *path,char *out,size_t cap) {
 static int folded_equal(const char *a,const char *b) {
     for(;;a++,b++) {
         unsigned x=(unsigned char)*a,y=(unsigned char)*b;
-        if(x>='A'&&x<='Z')x+=32;if(y>='A'&&y<='Z')y+=32;
-        if(x!=y)return 0;if(!x)return 1;
+        if(x>='A'&&x<='Z')x+=32;
+        if(y>='A'&&y<='Z')y+=32;
+        if(x!=y)return 0;
+        if(!x)return 1;
     }
 }
 static void blocked(struct profile_entry *e,const char *why) {
@@ -93,7 +95,8 @@ static int json_string(const char **p,char *out,size_t cap) {
         if(v<32 || v>126 || n+1>=cap)return -1;
         out[n++]=(char)v;
     }
-    if(**p!='"')return -1;++*p;out[n]=0;return 0;
+    if(**p!='"')return -1;
+    ++*p;out[n]=0;return 0;
 }
 static int display_valid(const char *s) {
     size_t n=strlen(s);if(!n || n>64 || s[0]==' ' || s[n-1]==' ')return 0;
@@ -179,7 +182,8 @@ static void inspect_entry(struct profile_entry *e) {
     e->state=PROFILE_READY;strcpy(e->detail,"Ready to open.");
 }
 int profile_catalog_scan(struct profile_catalog *c,const char *root) {
-    if(!c)return -1;memset(c,0,sizeof(*c));struct stat st;
+    if(!c)return -1;
+    memset(c,0,sizeof(*c));struct stat st;
     if(!root || (strcmp(root,"/fat/home") && strcmp(root,"/work/srvros-work")) ||
        !parents_safe(root) || lstat(root,&st) || !S_ISDIR(st.st_mode)) {
         scan_error(c,"Profile location is unavailable or unsafe.");return -1;
@@ -293,7 +297,8 @@ int profile_choice_save(const char *path,const struct profile_entry *e) {
         if(r<0 && errno==EINTR)continue;
         if(r<=0){failed=1;break;}done+=(size_t)r;
     }
-    if(fsync(fd))failed=1;if(close(fd))failed=1;
+    if(fsync(fd))failed=1;
+    if(close(fd))failed=1;
     if(!failed && sync_directory(parent))failed=1;
     if(!failed) {
         if(previous>=0) { int now=read_regular(path,current,sizeof(current));if(now!=previous || memcmp(old,current,(size_t)previous))failed=1; }
