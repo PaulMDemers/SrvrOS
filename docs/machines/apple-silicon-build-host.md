@@ -4793,3 +4793,35 @@ review VMs6233/61610/85869 remain untouched. Payload and logs survive build clea
 at `.local/kernel-audit-evidence/pr317-merge/`. Earlier setup failures retained.
 No physical media/boot or PR334 public/JSC acceptance. User authorized PR317 merge;
 continuing audit starts from the merged baseline.
+
+### xz current-main merge review — November 4, 2026
+
+User authorized readiness review and dependency-order merge of SrvrPorts #10
+and SrvrOS #363. Actual main `5f4f6fc6`, including the merged kernel isolation
+work, is incorporated in clean tested commit `df34da93`. Resolution preserves
+both xz diagnostic targets and main's workspace GPT driver, and retains both
+host-record additions. Independent port and resolved OS reviews found no blocker
+within the bounded profile. Neither PR has hosted checks configured.
+
+Fresh matched build and two-boot guest receipt
+`build/review/xz/20261104-145029-1yu8f806/receipt.json` pass interoperability,
+format/memory/output refusals, allocation failure and 64-cycle mapping cleanup,
+repeated blocked-I/O SIGINT/SIGTERM and cancellation after observed codec progress.
+The fresh production CLI ELF hash remains the original reproducible-build hash.
+Current-main memory samples and requested allocation peaks match the earlier
+record; they remain codec/requested-byte and sampled-mapping measurements, not
+RSS or guaranteed process peaks. The cooperative in-call latency limit remains.
+
+`build/review/xz-terminal/proof-sb7vr3em/receipt.json` passes the actual graphical
+workflow. Expert inspection confirms useful bad-input feedback, two Ctrl-C
+recoveries and the exact restored report plus usable prompt. Fresh ports smoke
+passes with `leaks=0 fat=0 errors=0`. Matched build metadata and the combined
+review record are under `build/review/xz-merge/`. This delivery note changes
+documentation only; implementation acceptance remains tied to `df34da93`.
+
+No shared libc/kernel blocker was found. Integration requested a concrete shared
+resource handoff while profiles awaited the heavy slot; all xz guests were already
+stopped and the slot was explicitly released. No more compile/VM work is planned;
+any new need must coordinate before launch. Integration checkout and protected
+review VMs remain untouched. Both PRs are accepted for the authorized port-first,
+OS-second merge; linked PR state records the delivery result.

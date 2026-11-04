@@ -43,7 +43,9 @@ Existing ports smoke and guest fsck pass. All qualification is QEMU only; full
 image reproducibility and physical acceptance are not claimed. Milestone complete;
 draft PRs are open: [SrvrPorts #10](https://github.com/PaulMDemers/SrvrPorts/pull/10)
 and dependent [SrvrOS #363](https://github.com/PaulMDemers/SrvrOS/pull/363).
-Review and merge order is port first, OS second; neither is merged.
+Current-main merge review passes on clean `df34da93`, including the matched
+build, both-boot memory/signal probes, actual Terminal walkthrough and ports/fsck.
+Authorized delivery order is port first, OS second; linked PR state records delivery.
 
 ## End session and switch profile — delivered and verified November 4, 2026
 
