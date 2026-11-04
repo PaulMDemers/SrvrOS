@@ -51,6 +51,29 @@ static void init(void) {
 static void finish_status(unsigned status) {
     t.job.busy=0;t.job.response.status=status;tool_files_finish(&t,1);
 }
+static void alias_listing(void) {
+    const struct desk_file_entry entries[]={
+        {.name="fat",.inode=77,.directory=1},{.name="usr",.inode=77,.directory=1},
+        {.name="note",.inode=9,.size=3}};
+    memcpy(t.job.incoming,entries,sizeof(entries));
+    t.job.response=(struct desk_file_response){.count=3,.length=sizeof(entries)};t.job.busy=0;tool_files_finish(&t,1);
+}
+static void alias_select(const char *name) {
+    for(int i=0;i<t.file_count;i++) if(!strcmp(t.entries[i].name,name)) { desk_list_select(&t.table.body,i);return; }
+    assert(0);
+}
+static void alias_tests(void) {
+    init();activate(TOOL_ROOT);alias_listing();assert(!strcmp(t.saved_path,"/") && t.file_count==3);
+    alias_select("usr");uint64_t usr=t.table_rows[t.table.body.selected].id;assert(usr!=77);
+    activate(TOOL_REFRESH);alias_listing();assert(!strcmp(t.entries[t.table.body.selected].name,"usr"));
+    desk_table_sort_indicator(&t.table,2,1);tool_files_action(&t,(struct desk_action){TOOL_LIST,DESK_TABLE_SORT});
+    assert(!strcmp(t.entries[t.table.body.selected].name,"usr") && t.table_rows[t.table.body.selected].id==usr);
+    activate(TOOL_HOME);listing(0);activate(TOOL_BACK);alias_listing();
+    assert(!strcmp(t.entries[t.table.body.selected].name,"usr"));
+    alias_select("fat");assert(t.table_rows[t.table.body.selected].id!=usr);
+    activate(TOOL_RENAME);assert(t.file_selected.inode==77);desk_text_buffer_set(&t.prompt.text,"renamed",7);accept();
+    struct desk_file_change change;memcpy(&change,t.job.outgoing,sizeof(change));assert(change.inode==77);
+}
 static void open_recovered(const char *path) {
     unsigned before=launched;int selected=t.table.body.selected;
     expected_app=DESK_APP_TEXT;expected_path=path;
@@ -171,7 +194,7 @@ int main(int argc,char **argv) {
     recovery_selection(0,DESK_FILE_COPY);recovery_selection(1,DESK_FILE_COPY);
     for(int i=0;i<4;i++)recovery_notice(i);
     recovery_worker();
-    transfer_tests();
+    transfer_tests();alias_tests();
     init();
     assert(t.file_count==3 && t.entries[0].directory && !strcmp(t.entries[1].name,"Alpha"));
     assert(!strcmp(t.file_dates[2],"2026-10-18 12:34"));choose(5);activate(TOOL_OPEN);assert(launched==1);
@@ -218,7 +241,7 @@ int main(int argc,char **argv) {
     assert(!t.prompt_mode && started==before && strstr(t.status,"16 MiB"));t.entries[selected].size=7;
     t.entries[0].modified=INT64_MAX;file_rows(&t);
     for(int i=0;i<t.file_count;i++) if(t.entries[i].modified==INT64_MAX) assert(!strcmp(t.file_dates[i],"—"));
-    struct desk_file_entry bad[2]={{.name="a",.inode=1},{.name="b",.inode=1}};memcpy(t.job.incoming,bad,sizeof(bad));t.job.response.count=2;t.job.response.length=sizeof(bad);
+    struct desk_file_entry bad[2]={{.name="a",.inode=1},{.name="a",.inode=2}};memcpy(t.job.incoming,bad,sizeof(bad));t.job.response.count=2;t.job.response.length=sizeof(bad);
     assert(tool_listing_decode(&t)<0);
     /* Successful navigation is the only operation that moves history. */
     assert(t.location_count==1 && t.location_index==0 && !strcmp(t.locations[0].path,"/fat"));
