@@ -62,6 +62,30 @@ CC='cc -arch x86_64' python3 tools/test_exfat_import.py --workspace-salvage --sa
 The bounded helper target is complete. Application integration, recovery UI,
 physical power-loss and automated retry/repair remain separate work.
 
+### PR327 integration review
+
+User authorized review, integration and merge if ready. Actual main remains
+`4b5ddb7c`; no conflict or overlapping production process/driver change is present.
+Revalidated every fault-suite source hash and all 49 normal + 49 sanitized salvage
+results, 52 writeback cases and 134 existing cases. Focused helper normal and
+ASan/UBSan checks and both negative controls pass again. Matched build reproduces
+the qualified images; whitespace and all 880 local documentation links pass.
+No submitted review correction or unresolved thread was present.
+
+Review confirms exclusive creation, caller-owned source lifetime, serialized
+shared-offset precondition, first-error preservation, secondary cleanup errors,
+one-shot close and restoration failure reporting. The source is never closed,
+and success is withheld for any flush, close or restore failure. The API does not
+promise source offset recovery when seek itself fails or automatic removal of
+uncertain destination artifacts. Existing exact-source host and desktop evidence
+remains applicable; no new VM is needed for this documentation-only review update.
+
+PR317's active audit concerns driver DMA/reset/repeated initialization; no libc
+salvage, content, close or workspace policy changes were planned. Coordination is
+not represented as independent full-diff approval. The bounded helper is ready
+for integration; application recovery/UI adoption remains separate optional work.
+Review logs are retained under `build/review/salvage-helper/review-*`.
+
 ## Retained dirty-data salvage — verified
 
 User authorized this explicit salvage-copy proof on main `0cba30a1`.
