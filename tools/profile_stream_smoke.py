@@ -13,6 +13,7 @@ import shutil
 import struct
 import subprocess
 import tempfile
+import time
 
 from exfat_test_image import ExfatFixture
 from pack_runtime_elf import runtime_elf
@@ -261,6 +262,46 @@ def recover(vm, home=B):
     done = c.observe(vm, rb'profile-chooser: recovery result=success home=' + re.escape(home.encode()), start, 180)
     if b'deskd: profile id=' in vm.output[start:done.start()]: raise RuntimeError('profile opened before recovery')
     index = c.row(vm, home, 'ready', start); c.select(vm, index); c.opened(vm, home, start)
+    t.close_session(vm)
+
+
+def restored_readback(vm):
+    start = len(vm.output); vm.launch('--apps-trace --scale=1')
+    c.observe(vm, rb'profile-chooser: remembered restored home=' + re.escape(B.encode()), start)
+    c.observe(vm, rb'deskd: profile id=' + d.ID.encode() + rb' home=' + re.escape(B.encode()) +
+              rb' credentials=unchanged', start)
+    c.observe(vm, rb'deskd: commit', start)
+    if b'profile-chooser: ready rows=' in vm.output[start:]:
+        raise RuntimeError('remembered B session unexpectedly showed chooser')
+    # Use Text's actual Open picker and verify the loaded content length; the
+    # offline final checks also compare every byte of the original file.
+    opened = len(vm.output)
+    vm.key('meta_l-spc'); t.text(vm, 'Text new app'); vm.key('ret')
+    c.observe(vm, rb'desktools: starting role=text', opened)
+    c.observe(vm, rb'deskd: commit', opened)
+    vm.key('ctrl-l'); vm.key('ctrl-a'); t.text(vm, B + '/Documents/migration.txt')
+    vm.key('ctrl-o'); c.observe(vm, rb'picker ready mode=1', opened)
+    t.text(vm, 'migration'); vm.key('ret')
+    c.observe(vm, rb'file-result role=text op=1 status=0', opened)
+    vm.key('ctrl-a'); vm.key('ctrl-c')
+    c.observe(vm, rb'clipboard role=2 action=8 bytes=' + str(len(TEXT)).encode(), opened)
+    vm.screenshot('imported-text')
+    vm.key('ctrl-w'); c.observe(vm, rb'desktools: exited role=text failure=0', opened)
+    # Preview decodes the actual migrated BMP, then a screenshot records its
+    # rendered view. No save or transform is requested.
+    preview = len(vm.output)
+    vm.key('meta_l-spc'); t.text(vm, 'Preview new app'); vm.key('ret')
+    c.observe(vm, rb'deskd: launcher application=7', preview)
+    c.observe(vm, rb'deskview: starting', preview); c.observe(vm, rb'deskd: commit', preview)
+    vm.key('ctrl-o'); c.observe(vm, rb'deskview: picker ready', preview)
+    browse = len(vm.output); vm.key('ctrl-l'); t.text(vm, B + '/Documents'); vm.key('ret')
+    c.observe(vm, rb'deskview: picker ready', browse)
+    vm.key('tab'); vm.key('ctrl-a'); t.text(vm, 'photo.bmp'); vm.key('ret')
+    c.observe(vm, rb'deskview: loaded path=' + re.escape((B + '/Documents/photo.bmp').encode()) +
+              rb' width=1024 height=768', preview, 180)
+    time.sleep(.5); vm.screenshot('imported-bmp')
+    vm.key('ctrl-w'); c.observe(vm, rb'deskview: workers retired=1', preview)
+    c.observe(vm, rb'deskview: exited failure=0', preview)
     t.close_session(vm)
 
 
@@ -634,7 +675,7 @@ def main():
             start, index = c.chooser(vm, B); vm.screenshot('imported-chooser')
             c.select(vm, index); c.opened(vm, B, start); t.close_session(vm)
         with c.VM(disks['b'], disks['transport'], out, 'b-restored', args) as vm:
-            c.restored(vm, B); vm.finish()
+            restored_readback(vm)
         # Measure previews at three sizes, then actual reviewed 64 MiB export
         # and import on fresh owned images; report kernel-mapped high-water, not
         # exact heap or kernel allocation. Native engine allocation is separate.
