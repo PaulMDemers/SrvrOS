@@ -35,9 +35,6 @@ static bool protect_fails;
 bool vmm_user_range_mapped(uint64_t address,uint64_t length,bool writable) {
     assert(masked && address && length==4 && !writable);return mapped;
 }
-static int64_t process_mapping_index(struct process *p,uint64_t page) {
-    return p->mapping_count && p->mappings[0].virtual_address==page ? 0 : -1;
-}
 static bool vmm_unmap_page_in_space(uint64_t space,uint64_t page,uint64_t *physical) {
     assert(masked && space==1 && page==a.mappings[0].virtual_address);
     mapped=false;*physical=123;return true;
@@ -86,9 +83,8 @@ static bool scheduler_wait_timeout(struct scheduler_wait_queue *q,scheduler_wait
     if(mode==3) { process_irq_restore(flags);return false; }
     q->waiters++;process_irq_restore(flags);
     if(mode>=13 && mode<=17) {
-        uint64_t page=a.mappings[0].virtual_address;
         if(mode==13 || mode==15) process_unmap_mapping_at(&a,0);
-        else { protect_fails=mode==17;assert(mmap_apply_protection(&a,page,mode==16?VMM_PAGE_USER:0)==!protect_fails); }
+        else { protect_fails=mode==17;assert(mmap_apply_protection(&a,0,mode==16?VMM_PAGE_USER:0)==!protect_fails); }
         if(mode<=15) {
             assert(!q->waiters); /* Removal/revocation itself woke the waiter. */
             if(mode==15) {

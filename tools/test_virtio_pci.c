@@ -374,6 +374,15 @@ static void test_quarantine(void) {
     assert(virtio_pci_get_status(t) == VIRTIO_PCI_RESET_FAILED && !virtio_pci_active(t));
     struct virtio_pci_buffer b = {0x200000, 8, true}; uint16_t token;
     assert(!virtio_pci_submit(t, 0, &b, 1, &token));
+    /* A completed reset alone must not bypass failed PCI disable admission.
+     * A lost config write can leave bus mastering enabled: retain all queues. */
+    fixture(); t = running(8); submit(t,8); reject_disable=true;
+    uint64_t saved[3];memcpy(saved,t->queues[0].dma,sizeof(saved));
+    assert(!virtio_pci_stop(t) && virtio_pci_quarantined(t) && !frees);
+    assert(!mmio[0][VPCI_STATUS] && (get(cfg[0],4,2)&6)==6);
+    assert(!memcmp(saved,t->queues[0].dma,sizeof(saved)) && !virtio_pci_active(t));
+    reject_disable=false;
+    assert(!virtio_pci_stop(t) && !frees); /* Sticky, despite later PCI recovery. */
     fixture(); t = running(8); stuck_reset = true; reference_clock = true;
     assert(!virtio_pci_stop(t) && virtio_pci_quarantined(t) && !frees);
     assert(pauses < VPCI_RESET_POLLS && clock_us >= 100000);
