@@ -6,6 +6,27 @@ and [machine records](machines/README.md) separate implementation from physical
 acceptance. The [device parity ledger](device-parity.md) compares the Air with
 ongoing Pro work.
 
+## xz bounded stream interchange — November 4, 2026
+
+Authorized target: upstream XZ Utils 5.8.4 static single-threaded `xz`, preset-0
+compression, `.xz` decompression and integrity testing, regular files and finite
+stdin/stdout pipelines. Preserve inputs and require stdout for transformed data;
+refuse automatic file replacement/deletion and unaccepted modes. Proposed codec
+budgets are 8 MiB compression and 32 MiB decoding with no silent adjustment.
+
+Work starts from `f4ea0ccb` in isolated `SrvrOS-ports-xz` on `ports/xz`. Port-local
+allocator and cooperative signal recovery are explicit gates, not assumed SDK
+capabilities. Required checks: authenticated pristine source, real target link,
+host/guest byte interoperability and malformed/memory/write failures, repeated
+blocked-I/O and CPU-active interruption, exact second-boot saved bytes, actual
+Terminal workflow, supported tar interchange through an intermediate file, selected
+upstream regressions, two clean CLI builds and existing ports/fsck checks.
+
+Outside scope: threaded codecs, legacy/raw formats, helper scripts, custom filter
+CLI, automatic replacement/metadata/sparse-file behavior and job control. Keep
+integration checkout and review VM untouched; coordinate only a reproduced shared
+blocker. Status: implementing; no shared libc/kernel edit is planned.
+
 ## End session and switch profile — delivered and verified November 4, 2026
 
 The requested no-reboot session workflow is implemented and independently

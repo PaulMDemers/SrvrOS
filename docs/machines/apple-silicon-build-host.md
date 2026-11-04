@@ -4027,3 +4027,14 @@ meet the profile suite's unmodified free-space preflight. Initial firmware and
 space preflight failures ran no profile guest and are not counted as acceptance.
 No physical-media, power-loss or external fsck.exfat acceptance is added. All
 owned guests stop at test completion; shared checkout and review VM are untouched.
+
+
+### xz isolated milestone — active November 4, 2026
+
+User authorized bounded XZ Utils 5.8.4 in `SrvrOS-ports-xz`, branch `ports/xz`,
+based on actual main `f4ea0ccb`. Owns only port source/adapters, image entries,
+qualification helpers and relevant continuity docs. Resolve memory and signal
+recovery before accepting the profile in the roadmap. Existing integration and
+review VMs are protected; only disposable task-owned guests may run. No shared
+libc/kernel change without a reproduced concrete blocker and coordination.
+Implementation and qualification are pending; no physical boot is authorized.

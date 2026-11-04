@@ -566,3 +566,33 @@ handles interruption afterward. No shared libc or kernel changes were needed.
 A held-open pipe probe verifies repeated blocked-read Ctrl-C recovery and quit
 before EOF, with exact termios and alternate-screen restoration. See the
 [roadmap](roadmap.md) and host record for verification evidence and limits.
+
+## xz stream interchange
+
+The bounded XZ Utils 5.8.4 profile compresses reports and restores `.xz` files
+through standard output. Use separate output paths and check command status:
+
+```sh
+xz -0 -c report.txt > report.txt.xz
+xz -t report.txt.xz
+xz -dc report.txt.xz > report-restored.txt
+cmp report.txt report-restored.txt
+```
+
+Compression defaults to preset `-0`. Codec allocation budgets are 8 MiB for
+compression and 32 MiB for decompression; they are not total process-memory
+limits. Explicit memory options can lower these ceilings. Oversized inputs fail
+instead of silently raising the budget or changing the compression preset.
+Failed redirection can leave partial output; only accept output after a successful
+exit and integrity/readback checks. The CLI does not replace or delete inputs.
+
+Regular files and finite stdin/stdout pipelines are included. Threaded coding,
+other compression presets, legacy/raw formats, custom filter CLI, automatic file
+replacement, metadata/sparse output, progress UI, job control and helper scripts
+are excluded. Unsupported options and nonempty `XZ_DEFAULTS`/`XZ_OPT` are rejected.
+For tar interchange, decompress to an intermediate `.tar` file first; the local
+tar command does not accept an archive on stdin.
+
+Engineering provenance, cooperative interruption limits and reproduction commands
+are recorded in [the port contract](../ports/srvros/xz/PORT.md). Final qualification
+is in progress in the isolated xz checkout; see the roadmap for acceptance status.
