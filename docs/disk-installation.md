@@ -1,5 +1,87 @@
 # Disk installation and recovery
 
+## Recoverable offline export publication
+
+The opt-in host recovery flow records an admitted export before writing its
+portable payload. It can finish publication after process interruption or an
+uncertain write/sync/link/unlink/close result. The source remains an offline
+installation; returning to the console or switching profiles does not make a
+running guest image safe for host export. Ordinary `export-profile` without a
+publication directory retains its existing one-shot behavior.
+
+```sh
+python3 tools/installation_image.py export-profile STAGE /absolute/new-profile.json \
+  --publication-dir /absolute/new-export-attempt \
+  --profile-id 12345678-1234-4234-8234-123456789abc --home /fat/home/local-a \
+  --document Documents/migration.txt --document Documents/binary.dat \
+  --inspect-driver build/tests/installation-inspect-driver \
+  --export-driver build/tests/installation-export-driver
+python3 tools/installation_image.py inspect-export /absolute/new-export-attempt
+python3 tools/installation_image.py reconcile-export /absolute/new-export-attempt
+```
+
+Choose a new private record directory outside the installation stage, on the
+same host filesystem as the output. The host must support exclusive creation,
+hardlinks, advisory locks and checked file/directory sync. The mounted APFS
+evidence image is suitable; a bare ExFAT output filesystem lacks hardlinks.
+No existing output or record directory is replaced or retroactively adopted.
+
+| Observed state | Meaning | Next action |
+| --- | --- | --- |
+| `incomplete` | Durable intent exists, but the owned private bundle is partial | Preserve it; choose a new record/output for another export |
+| `prepared` | Complete canonical v1 bytes match the recorded private inode/hash | Explicit reconciliation can sync and exclusively publish them |
+| `visible-uncertain` | Exact owned output exists; synchronization/acknowledgment is unfinished | Inspect, then reconcile the recorded attempt |
+| `complete` | Output and completion record match | Reconciliation may be repeated to check all sync barriers without rewriting bytes |
+| `refused` | Torn, changed, foreign, busy or ambiguous state | Preserve every artifact and correct the identified condition; no repair is inferred |
+
+Inspection is read-only: it creates no files, attempts no flush and does not
+establish a new durability acknowledgment. Reconciliation performs checked sync
+operations and returns `complete` only after verification and successful close.
+A failed reconciliation can still have made progress; inspect the retained
+attempt before choosing the next action. A visible completion record is an
+observed integrity record, not proof against arbitrary power loss.
+
+The private `srvros-export-publication-v1` record is separate from the portable
+bundle format and from installation `publication.json`/`ready.json`. It binds the
+record directory, stable lock inode, original output parent, candidate inode,
+exact canonical v1 size/hash, selected profile/preferences/document metadata,
+and historical source stage/plan/image hashes/home. `intent.json` and its checksum
+are immutable. `bundle.partial` is the only recorded temporary payload name;
+`complete.json` is an exclusive final acknowledgment. Unknown entries refuse.
+
+Before retiring a temporary alias, the publisher/reconciler verifies that both
+known names refer to the recorded regular file with exactly the expected link
+count. Extra hardlinks, symlinks, replacement inodes, changed parents, wrong
+hashes, torn acknowledgment records and conflicting paths refuse unchanged.
+Partial data is never appended or reconstructed. Reconciliation does not reopen
+the source, re-export documents, repair media or overwrite a destination. Its
+success acknowledges the recorded exported snapshot, independently of whether
+the historical source is still available; it says nothing about current source
+health or authentication. Cooperative ownership and offline use remain required.
+
+Source admission, original v1 baseline identity (or retained v2 `profile.exfat`),
+pending creation/import refusal, v1 codec bounds and fresh-install destination
+binding rules remain unchanged. Recovery supports canonical portable v1 only;
+future streaming bundle versions require separate host/native qualification.
+Keep original source/baseline paths/device/inodes and the host evidence volume
+mounted through review. Restored copies are historical evidence, not adopted
+publication authority.
+
+The process-interruption diagnostic `export-profile --publication-dir NEW_DIR
+--interrupt-after POINT` exits 75 at `recorded`, `partial-write`, `written`,
+`file-synced`, `linked`, `unlinked`, `directory-synced` or `acknowledged`.
+`reconcile-export --interrupt-after POINT` supports the five final boundaries.
+These are controlled host-process experiments, not power-cut simulation.
+
+Qualification is in progress in PR364. Focused tests cover all transitions,
+idempotence, independent source lifetime, actual syscall failures, ownership/
+corruption refusals and fresh-process CLI entry points. The bounded proof tool
+`tools/installation_export_recovery_smoke.py` consumes the existing synthetic A
+read-only, retains its original baseline and verifies a new B through two boots.
+It requires a clean matched build, the qualified selected text/binary fixture,
+8 GiB initial evidence headroom and a 4 GiB reserve. Existing review VMs and
+earlier primary images remain untouched.
+
 ## PR342 integrated-main review and next bounded checkpoint
 
 User authorizes review and merge if ready. Reviewed `1a19e2c6` against actual
