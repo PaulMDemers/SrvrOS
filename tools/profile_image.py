@@ -25,6 +25,7 @@ def validate_request(bundle, home, alias, uid, gid, machine_preferences=None):
         p.require(type(machine_preferences) is bytes, 'invalid machine preferences')
         p.desktop_projection(machine_preferences)
     files = {
+        home + '/identity.json': p.encode_json(bundle['profile']),
         home + '/profile.id': b'srvros-profile-v1\n' + bundle['profile']['id'].encode('ascii') + b'\n',
         home + '/profile-local.json': p.encode_json(local),
         home + '/' + p.PREF_PATH: p.encode_json(bundle['preferences']),
