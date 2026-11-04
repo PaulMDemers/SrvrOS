@@ -6886,3 +6886,34 @@ hashes preserved and offline integrity/headroom clean. Native source remains
 run record owns subsequent arming/collection state. Raw CPU observations do not
 accept full swizzle consistency, upper fences, a pin or graphics ownership;
 original RC6/package-C3 limitations remain unchanged.
+
+### Native raw CPU TILECTL observation accepted (2026-11-03)
+
+Release `8dc0947f9c7fbd56`, compiled source `1b0d37dd` from merged PR343,
+automatically returned and collected session `session-00065f6b460f31de-00`.
+The complete version-2 receipt independently decodes again: both raw CPU/aperture
+TILECTL values are `0x00000000`; display control remains `0x16661056` with bits
+14:13=`00`. These are matching sampled observations, not a continuous guarantee
+or proof of the unobserved GT path.
+
+Both complete 1,056-entry GGTT vectors and endpoint/lower-fence observations
+agree. All entries are present and point into the firmware-reserved stolen
+interval. Each pass performs 1,153 window reads; ten temporary mappings retire
+with no retained uncertainty or hardware authority. Brackets are 383 and 376 us,
+under the unchanged 100 ms bounds. No GT/forcewake/upper-fence/backing-pixel access,
+policy write, pin or actual scanout ownership is accepted by this readout.
+
+All 592 prior files remain unchanged apart from expected workspace metadata.
+Two new logs yield 594 files / 1,661 allocated clusters; read-only fsck and
+independent allocation checks pass with zero leaks, bitmap mismatches or errors.
+The exact 24,816-byte exit receipt and 475 durable evidence files verify.
+Installed/recovery payload hashes, Ubuntu default and the consumed one-shot
+verify; collector disabled and no reboot armed.
+
+Closeout consumes main `5ed7f015` and its recursive pins for documentation only;
+newer desktop/port changes do not inherit this physical acceptance. CPU and
+display observations narrow the swizzle unknowns, while GT access prerequisites,
+the Intel16/Linux32 fence discrepancy, full-path consistency and real allocation/
+scanout lifetime remain open. Prior RC6 timing failure and package-C3 zero are
+unchanged. The next work is resolving those remaining prerequisites before any
+ownership or power-control change.

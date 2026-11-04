@@ -2,9 +2,10 @@
 
 Initial source-audit checkpoint: 2026-11-03, base `8f47f196`. The starting-point
 sections below preserve that earlier audit. The subsequent isolated pilot and
-native result are recorded later in this guide; current accepted readout is
-`e98aed0c5f8d06cf` / `baaa94b5`. The latest fence/swizzle prerequisite audit uses
-base `5634cd9d`, adds host-only interpretation and grants no ownership. Policy,
+native results are recorded later in this guide; current accepted version-2
+readout is `8dc0947f9c7fbd56` / `1b0d37dd`, following version 1 at
+`e98aed0c5f8d06cf` / `baaa94b5`. The prerequisite audit uses base `5634cd9d`
+and grants no ownership. Policy,
 limits, recovery and ordinary startup are unchanged.
 
 ## Captured starting point
@@ -303,3 +304,16 @@ counts. Mixed versions, missing/changed/raw-all-ones CPU observations, truncated
 records and false mapping/read counts refuse. CPU words remain raw-only in the
 independent path audit. Actual adapter producers cover both versions and the
 1,536-entry maximum, with unchanged raw tail retention checked independently.
+
+
+## Native version-2 CPU control result (2026-11-03)
+
+Release `8dc0947f9c7fbd56` / source `1b0d37dd` retains two matching raw
+`TILECTL=0x00000000` observations alongside complete matching 1,056-entry vectors,
+1,153 reads per pass and verified retirement of all ten temporary mappings.
+Readout brackets are 383/376 us. The captured display swizzle field is also `00`.
+This accepts bounded CPU/display observations; GT `ARB_MODE` remains unread,
+upper-fence coverage remains unresolved, and neither full-path consistency nor
+real ownership/pinning/lifetime is inferred. No policy or limit changed.
+See the [native unit closeout](machines/macbookair6-1.md#native-raw-cpu-tilectl-observation-accepted-2026-11-03)
+for exact session, storage integrity and recovery evidence. No new boot is armed.
