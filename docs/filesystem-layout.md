@@ -61,6 +61,13 @@ build cleanup is retained in `.local/filesystem-evidence/workspace-writeback-d4c
 Review VMs 61610, 6233 and 85869 and the primary checkout remain untouched; this
 milestone starts no VM. No physical power-loss, arbitrary media corruption,
 full syscall/usercopy, USB transport or automatic recovery claim is added.
+Main subsequently advanced to `a8e1fca1` (PR320 guest profile transfer). That
+merge changes no process/workspace/exFAT/VFS or fixture source in these receipts;
+all recorded positive-suite source hashes still match. It is consumed here
+without altering profile policy. The final matched build is recorded separately
+from the `a9508644` build whose production image hashes matched the earlier
+filesystem runtime. No new VM proof is claimed for this host fault qualification.
+
 No further production implementation is required for this qualification target.
 
 ## Workspace lifecycle — verified
