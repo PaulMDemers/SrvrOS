@@ -35,15 +35,19 @@ separate accepted notes remain intact. Prior v117 `2a03a519eac62cbf`/`1fe64aac`,
 session `session-00065f693a903b08-00`, retains its1501530-byte/11578-operation
 fresh-trim/held-channel acceptance and154-file capsule.
 
-Next: source-audited high-band MCU calibration, including saved IBI9 admission
-and exact acknowledgements, followed by bounded endpoint ownership and real5GHz
-reception. A separate fixed channel161/20MHz passive beacon decoder is the next
-host foundation; it must preserve legacy1–11 parser behavior and expose no
-hardware authority. Main `7766ed5a` was fetched/inspected; current runtime still
-uses845f703c and the newer desktop/session changes are not native acceptance.
-Cold adapter unplug remains required for new physical trials; use shutdown under
-standing authority. Ordinary startup does not enable radio diagnostics. The
-separate bc VM allocation failure stays unaccepted and preserved.
+Installed v121 `3732593a41f9be22`, runtime `12b47dbc`, is the separate
+selected161 firmware calibration/controlled receive candidate. Exact-image
+save/reset/refusal and desktop VMs, source-frozen full-prefix capacity/refusal,
+local fault/sanitizer/legacy regression, workspace and recovery checks pass.
+Physical acceptance is pending. After automatic Ubuntu return, collect
+`build/bringup/wifi-cal5-native/return_collect.py` FIRST. Require the full parent,
+fresh IBI write/restoration proof, exact R0/VCO161/FULL901/LC1/RXDCOC1 replies,
+retained-window/drain/disable/stop and inverse originals. Quiet is not reception.
+Current runtime uses main845f703c; reviewed mainf4ea0ccb's newer desktop/session/
+Air changes are not integrated or native accepted here. Cold adapter unplug
+remains required; use shutdown under standing authority. Ordinary startup
+leaves radio diagnostics disabled. The separate bc VM allocation failure stays
+unaccepted and preserved. Credentials remain unused.
 
 Previous native v116 `466528fc7669566e`, runtime `c3088243`, main `1dad02c2`,
 passes the complete1063627-byte prefix in matching session
@@ -12399,3 +12403,19 @@ Cold-test staging is ready for verified offline workspace/recovery installation.
 Collect `build/bringup/wifi-cal5-native/return_collect.py` first after automatic
 Ubuntu return. Distinguish actual beacon count from quiet lifecycle completion;
 Demers5 security/IP data and live reattach stay pending. Credentials unused.
+
+
+### v121 installation / cold handoff
+
+Installed3732593a41f9be22 after confirming actual MacBookPro11,2, workspace UUID
+and captured adapter descriptor, offline fsck/allocation/writable/headroom and
+full recovery payload equality. Accepted v120 large USB logs were independently
+archived and verified against its sealed native capsule before pruning only
+those generated logs. The unreferenced v115 BBP EFI copy was retired only after
+full equality with its independently sealed accepted backup. v116–v120, previous
+e47d recovery and all accepted backups remain. The new payload/run/source/frozen
+proof/VM receipts are sealed outside build as `wifi-cal5-native-12b47dbc`.
+Ubuntu stays default. Shutdown for10seconds Wi-Fi unplug while off, reconnect
+same port and power on; leave workspace connected. Guest progress/save/unmount/
+Ubuntu return are automatic; no commands/photos. Collect first, preserve any
+failure and inspect actual beacon count before accepting receive observations.
