@@ -29,6 +29,9 @@ accept the current common frame, never a caller-supplied proof pointer. Compare
 the active association to that derived address **before dereferencing it**;
 stale arbitrary association values must refuse without being followed. These
 APIs are borrowed within the live common continuation and cannot cache a frame.
+Worker ownership is checked again using the current observed worker slot and
+exact user-FPU record; immutable scheduler identity plus image generation prevent
+slot-reuse authority. A bare TID is never a proof identity.
 
 ## Save first, then bind the witness
 
