@@ -2,41 +2,40 @@
 
 Updated: 2026-11-03. State: **active reference machine; partial device acceptance**.
 
-### Scanout lifetime hardware trial prepared; reboot unarmed
+### Native shadow scanout lifetime trial accepted
 
-Final compiled source `ae598610` / release `d79f3ca9a74fa201` is installed for
-the automated shadow-publication trial. It owns private PMM RAM, authenticates
-every mutating operation by epoch and refuses hardware-mode admission without
-the missing takeover assurances. No native plane/GGTT writer or desktop backend
-is enabled. Guest progress and saved per-completion token/frame-clock records
-cover eight cases; no tester input is required. Expected injected faults retain
-six buffers until reboot. See the [lifetime contract](../scanout-buffer-lifetime.md).
+Source `ae598610` / release `d79f3ca9a74fa201` returned automatically and is
+collected as `session-00065f687e92a7ff-00`. All eight private-RAM shadow cases
+pass:12 copies,13 requests,10 matched completions and3 restores. At1350 frames
+per buffer,21600 frames are allocated,13500 released and8100 deliberately
+retained by the three injected faults until reboot. DMA accounting matches
+57→8157. Native frame pacing takes169137us in total with1268 polls and a
+maximum wait16635us. Every completion retains its exact epoch/serial, targets,
+frame advance and timestamps. Final full fence/PTE revalidation passes.
+
+This accepts private PMM ownership and the bounded **shadow** lifetime trial.
+There are zero GPU control/GGTT/fence/plane writes, no private GPU mappings and
+no native desktop backend. Hardware ownership, real page-flip completion and
+visible tear-free output remain unaccepted. Ordinary console progress still
+uses the inherited framebuffer. See the [lifetime contract](../scanout-buffer-lifetime.md).
+
+All1321 prior files are preserved except expected filesystem metadata. The two
+new logs are copied/hash-verified, the matching collector has no attention flags,
+and offline fsck/allocation/writable/headroom checks pass. Ubuntu remains the
+default, the one-shot is consumed and current/prior/known-good/recovery payloads
+match independent copies. USB is remounted; no new boot is armed. Evidence:
+`build/air-scanout-lifetime-native-20261103/returned/`, independently backed up
+outside build. PR301 contains the scoped implementation and validation.
 
 Full host/core/profile/docs/build and ordinary VirtIO/Open With gates pass on
-`f714bbd9`, including actual VirtIO owner death and reacquisition. Final review
-found queued starts/guards/releases needed caller epochs as well as completion
-tokens. The bounded delta to `ae598610` repeats directed tests, ASan/UBSan,
-matched normal/AP/native/synthetic kernels, real guest PMM fixture, exact native
-Q35 refusal/save/unmount/reset and missing-volume halt. Stale work cannot affect
-a reopened same-PID lifetime or claim a new lifetime's release. The final VM
-fixture completes all eight cases,12 copies,13 requests,10 shadow completions
-and3 restores. Native timing and physical flips remain unaccepted.
-
-The initial installed f714 candidate `41e1d478feb52f3e` was superseded before
-any boot/arming; its records are preserved. Preparation verifies1321 prior USB
-files/93 sessions, unchanged host boot identity, offline fsck/allocation/writable/
-headroom, Ubuntu default and independent recovery9aa/accepted c497/prior41e.
-USB is unmounted. Obsolete c605 and3a3b EFI copies were archived/hash-verified
-before removing only those copies for space; independent payloads and accepted
-evidence remain. No new run is armed. Run record:
-`build/air-scanout-lifetime-native-20261103/run.json`; validation/checkpoint:
-`build/air-scanout-lifetime-20261103/`. Stop here until the next test instruction.
-
-Merged integration prerequisites needed three isolated GCC portability fixes:
-statement boundaries in installed-root selection and Display Settings, plus the
-profile-startup host fixture's glibc feature macro. Tests/assertions/warnings
-were retained; failed attempts and the complete error-collection pass are saved.
-Actions remain disabled. PR301 retains the complete scoped review and evidence.
+`f714bbd9`, including VirtIO owner death and reacquisition. The final epoch-auth
+change at `ae598610` repeats directed tests, ASan/UBSan, matched kernels, guest
+PMM fixture, exact Q35 refusal/save/unmount/reset and missing-volume halt.
+The initial f714/41e candidate was superseded before boot; its evidence remains.
+Merged GCC portability fixes preserve warnings and assertions. Actions stay off.
+Next: establish an auditable GGTT reservation/DMA/firmware-exclusion and
+route/restore contract before implementing any native writer. Preserve the
+whole inherited34MiB fence and every firmware allocation.
 
 ### Active scanout lifetime milestone
 
@@ -51,9 +50,8 @@ Unknown GGTT/DMA/takeover authority remains a refusal for real publication.
 Shared touchpoints are the existing Intel capture adapter, boot/staging/collector
 and new pure lifetime code/tests; ordinary VirtIO and application APIs retain
 their behavior. PR301 is the review surface; PR252 audit, PR19 Wi-Fi and other
-agents' installed/profile/browser work remain separate. Validate host failure
-fixtures and integrated QEMU behavior, then stage a no-input hardware trial and
-stop ready for testing without arming a reboot.
+agents' installed/profile/browser work remain separate. Host/VM validation and the bounded native shadow trial are complete. The next
+checkpoint is the explicit hardware-ownership contract; no further boot is armed.
 
 ### Native backing readout accepted
 

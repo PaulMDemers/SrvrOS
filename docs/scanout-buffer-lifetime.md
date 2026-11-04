@@ -103,4 +103,19 @@ serial exhaustion and deterministic event interleavings. Actual producer/decoder
 fixtures validate receipt loss and false hardware claims. The ordinary VirtIO
 normal exit/owner death/reacquisition regression remains required. Native shadow
 acceptance, real GGTT/plane programming and visible tear-free desktop acceptance
-are three distinct future checkpoints.
+are distinct checkpoints; only the bounded shadow trial below is accepted.
+
+## Air7,2 native shadow acceptance
+
+Source `ae598610`, release `d79f3ca9a74fa201`, session
+`00065f687e92a7ff-00` completes all eight cases with exact resource, token and
+completion accounting. The native1440×900/pitch6144 run allocates21600 frames,
+releases13500 and retains8100 on the three expected injected faults. DMA grows
+57→8157, exactly matching retention. Ten shadow completions observe bounded
+frame progress; the maximum wait is16635us and the full trial takes169137us.
+Full inherited fence/PTE preservation, zero hardware control writes, complete
+saved reports, clean unmount/automatic Ubuntu return and offline filesystem
+integrity are verified. The [unit record](machines/macbookair7-2.md) owns this
+physical evidence. Private buffers were never mapped to the GPU. Actual GGTT
+reservation, DMA/firmware authority, native route/restore ownership and real
+flip completion remain prerequisites for a hardware writer and desktop backend.
