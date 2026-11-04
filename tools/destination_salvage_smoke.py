@@ -17,7 +17,7 @@ from uefi_usb_smoke import default_ovmf_path
 ROOT=Path(__file__).resolve().parents[1]
 
 def target_rule(open_writes,mode):
-    if open_writes<1 or mode not in ('write','flush'): raise ValueError('Invalid target calibration')
+    if open_writes<0 or mode not in ('write','flush'): raise ValueError('Invalid target calibration')
     # Admit creation and the fsync dirty marker; fault allocation write, or the
     # next flush after allocation begins. Count writes, never redundant flushes.
     operation=open_writes+2
@@ -27,17 +27,19 @@ def target_rule(open_writes,mode):
     rules.append(f'[inject-error]\nevent = "{event}"\niotype = "{mode}"\nstate = "{transitions+1}"\nerrno = "5"\nonce = "on"\n')
     return '\n'.join(rules)
 
-def probe(out,mode):
+def probe(out,mode,open_writes=2):
     folder=out/f'probe-{mode}';folder.mkdir()
     image=folder/'target.img';image.write_bytes(bytes(8192))
-    cfg=folder/'rule.conf';cfg.write_text(target_rule(2,mode))
-    commands=[f'write -P {i+1} {i*512} 512' for i in range(4)]
+    cfg=folder/'rule.conf';cfg.write_text(target_rule(open_writes,mode))
+    operation=open_writes+2
+    count=operation+(mode=='flush')
+    commands=[f'write -P {i+1} {i*512} 512' for i in range(count)]
     if mode=='flush':commands+=['flush']
     cmd=['qemu-io','-t','writeback','-f','raw']
     for command in commands:cmd+=['-c',command]
     cmd+=[f'blkdebug:{cfg}:{image}']
     control=['qemu-io','-t','writeback','-f','raw']
-    for command in commands[:3]+['flush']:control+=['-c',command]
+    for command in commands[:operation-1]+['flush']:control+=['-c',command]
     control+=[cmd[-1]]
     before=subprocess.run(control,capture_output=True,text=True)
     (folder/'control.log').write_text(before.stdout+before.stderr)
@@ -47,10 +49,10 @@ def probe(out,mode):
     (folder/'probe.log').write_text(result.stdout+result.stderr)
     # qemu-io flush communicates failure by exit status without printing errno.
     errors=(result.stdout+result.stderr).count('Input/output error')
-    if result.returncode!=1 or errors!=(1 if mode=='write' else 0) or result.stdout.count('wrote 512/512')!=(3 if mode=='write' else 4):
+    if result.returncode!=1 or errors!=(1 if mode=='write' else 0) or result.stdout.count('wrote 512/512')!=(operation-1 if mode=='write' else count):
         raise RuntimeError(f'{mode} rule did not inject the intended operation')
-    for i in range(4):
-        expected=bytes([i+1])*512 if mode=='flush' or i<3 else bytes(512)
+    for i in range(count):
+        expected=bytes([i+1])*512 if mode=='flush' or i<operation-1 else bytes(512)
         if image.read_bytes()[i*512:(i+1)*512]!=expected:raise RuntimeError('Counted rule fired at wrong write')
     return {'status':'PASS','command':cmd,'control_command':control,'rule':cfg.read_text()}
 

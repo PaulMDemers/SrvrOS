@@ -152,13 +152,13 @@ int managed_salvage_launch(void) {
     return srv_exec(&request)>0?0:1;
 }
 int managed_salvage_test(const char *mode) {
-    if(strcmp(mode,"hold") && strcmp(mode,"control") && strcmp(mode,"reopen"))return 1;
+    if(strcmp(mode,"hold") && strcmp(mode,"control") && strcmp(mode,"reopen") && strcmp(mode,"offline-reopen"))return 1;
     int writer=-1,reader=-1,ok=1,control=!strcmp(mode,"control");
     for(unsigned i=0;i<sizeof(dirty_payload);i++)dirty_payload[i]=(unsigned char)(i*43+23);
-    if(!strcmp(mode,"reopen")) {
-        ok=managed_verify(managed_copy,1) && managed_verify("/fat/home/.managed-salvage-copy",1) && managed_verify(managed_source,0);
+    if(!strcmp(mode,"reopen") || !strcmp(mode,"offline-reopen")) {
+        ok=managed_verify(managed_copy,1) && managed_verify("/fat/home/.managed-salvage-copy",1) && (!strcmp(mode,"offline-reopen") || managed_verify(managed_source,0));
         if(ok)ok=!unlink(managed_copy);
-        printf("managed-salvage: reopen %s\n",ok?"PASS":"FAIL");return ok?0:1;
+        printf("managed-salvage: %s %s\n",mode,ok?"PASS":"FAIL");return ok?0:1;
     }
     struct stat st;
     if(!managed_verify(managed_source,0) || !stat(managed_copy,&st) ||
@@ -180,7 +180,7 @@ int managed_salvage_test(const char *mode) {
         managed_verify("/fat/home/.managed-salvage-copy",1);
     if(ok && !control) {
         puts("managed-salvage: copied; reader held PASS");
-        ok=managed_wait("/home/.managed-close-go");
+        ok=managed_wait("/home/.managed-close-go") && dirty_reader(reader);
         if(ok) {errno=0;ok=fsync(reader)<0 && errno==EIO && srv_sync()<0;}
     }
     if(reader>=0) {errno=0;int result=close(reader);if(control?result!=0:result>=0 || errno!=EIO)ok=0;reader=-1;}
