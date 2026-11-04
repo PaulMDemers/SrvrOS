@@ -490,3 +490,11 @@ policy. Its first command reader stopped on an echoed prompt before execution;
 that failed attempt remains retained, and the successful reader requires the
 process exit receipt. Both guests stopped. This does not establish physical or
 other virtual CPU policy, executable-query runtime behavior, or signal support.
+
+
+The exact next identity/association metadata slice is specified in the
+[image commit and invalidation packet](signal-context-image-lifetime.md). It
+includes all constructors, exec stdio preflight/rollback, foreground restoration,
+noncurrent teardown and invalidation before kernel-stack reuse. Binding commit
+exclusion and the current void mapping-refresh preparation contract are explicit
+owner decisions. It introduces no binding epoch and remains design only.
