@@ -370,3 +370,12 @@ Raw boot/case/serial identities independently verify, exit134+prompt observed;
 owned11532 stopped/protected3alive. Later utility/GC/JSC cases NOTRUN. Silent
 terminal path attribution pending with PR334 owner; no overall runtime acceptance.
 Deterministic extra-handler acknowledgement remains uncovered by finite yields.
+
+
+WTF retirement/ACK race confirmed with actual destructor scheduling. Canonical
+ports224ed6a/OS7c59ab8e correction independently passes35 strict+35 ASan/UBSan
+cases; old posted/consumed handoffs fail in both profiles. Last count update
+precedes final Idle publication; TLS/group retirement drains stable handoff with
+identity/pending/clock/budget checks, no ACK stealing. New target/guest pending.
+Diagnostic24675 attempted/timed out without attribution, superseding unperformed
+wording; original134 and all six unrun suite cases remain unqualified.

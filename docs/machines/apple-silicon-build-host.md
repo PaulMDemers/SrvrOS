@@ -4748,3 +4748,16 @@ case and full serial hashes to preparee9c5112c; boot network guards pass. Owned
 QEMU11532 is stopped/protected3live. PR334 owner diagnoses silent terminal site
 before changing behavior; no WTF/JSC/GC acceptance. Profiles holds the heavy
 resource window, so follow-up diagnostics await handoff. No physical operations.
+
+
+### November 4: WTF retirement handoff source correction
+
+Confirmed source race between final resume acknowledgement and worker TLS exit.
+Canonical ports224ed6a staged by7c59ab8e independently passes70 actual-source
+strict/sanitizer cases and four intended old-source negatives. Companion patch
+keeps INFO handler unchanged, publishes Idle only after final count update and
+drains the exact controller handoff before dropping TLS/group references. Source
+accepted; new target build/linked-code/guest review awaits a resource handoff.
+Diagnostic QEMU24675/LLDB did run and stopped after100s with no terminal capture;
+original134 remains unattributed. Tool-reported system errors and failed runs are
+retained. No debug retry routed elsewhere; no task VM/build here or pin import.

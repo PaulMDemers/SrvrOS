@@ -2433,6 +2433,82 @@ so deterministic spurious-delivery coverage remains separate. Profiles now owns
 the heavy build/guest window; any repeat VM requires a coordinated resource
 handoff, not new human permission. No audit compiler or VM is currently running.
 
+## November 4: confirmed WTF retirement/acknowledgement race
+
+Independent actual-source scheduling reproducer confirms a distinct lifetime
+defect in the frozen `ee207df0` WTF overlay. The handler publishes srvRunning,
+posts its final semaphore acknowledgement and returns. Before the controller
+consumes that acknowledgement and publishes srvIdle, the resumed worker can
+finish its callback and reach the second Thread::destructTLS pass. The existing
+Idle-only check terminates this valid Running handoff. The main-thread fixture
+phase joins its controller, whereas the worker fixture immediately exits after
+resume; that difference is consistent with the observed failure boundary but
+does not yet attribute the native status 134.
+
+Compiled the verbatim frozen destructTLS body under strict and ASan/UBSan host
+profiles: both reject the valid Running+posted-ACK schedule (modeled sentinel
+42), while Idle retirement and active-Requested refusal controls pass. Source
+SHA256 `e925d20c6ab7d94f8a85c50a20c4b52ad8187191061a6c1ac2edd455362cbb73`;
+extracted body SHA256
+`b449aba83bf3d709105d000eb62d9bec9da2f906095560117ee4b4ea81b7730a`.
+The synthetic scheduling model is not a new native guest result. Evidence:
+`build/review/pr334-jsc-companions-review/packet-ee207df0/retirement-race/`.
+
+PR334 owner has the reproducer and owns the correction/regressions. Proposed
+contract keeps INFO blocked and boundedly drains only the exact Running-to-Idle
+controller handoff outside the handler before TLS/group/reference retirement.
+Pending INFO, foreign TLS, active requests, ticket changes and invalid/expired
+clock states remain terminal. Simply destroying storage with an outstanding
+controller acknowledgement is insufficient. Native pthread destructor callbacks
+run without the key lock; current WTF TLS remains installed until this retirement
+barrier, allowing a normal bounded service wait. Unchanged-payload debugger
+attribution and corrected target/guest validation remain pending.
+
+## November 4: canonical WTF retirement correction independently passes
+
+The PR334 owner published the correction in SrvrPorts `224ed6a`, staged by OS
+`7c59ab8e`. A separate companion patch preserves the previously qualified overlay
+and INFO handler. The controller now decrements its final suspend count before
+its release-store of Idle, then returns without another Thread-object access.
+TLS destruction blocks INFO, checks the live TLS/native-thread identity and
+matching ticket/acknowledgement, and retains its group/reference while the exact
+Running-to-Idle controller handoff completes. Retirement never consumes the
+controller's semaphore acknowledgement. It rechecks identity and pending INFO,
+rejects other phases or ticket changes, and uses a checked ten-second monotonic
+deadline plus 100,000 direct scheduler-yield attempts. It does not depend on the
+nanosleep-backed WTF Thread::yield for a stalled-clock fallback.
+
+Independently verified the eight-file review receipt and exact fuzz-zero patch
+application: patch SHA256
+`17d6dcc31f26ecb123582847427419298bdb11c1d3483721b77b3407aab37e51`,
+applied ThreadingPOSIX source SHA256
+`19aa0a7883955b97c7ae1e6805f3c8614d9c8eafda2b76a35356519ccae9a9cd`.
+All 35 actual-source cases pass independently in strict and ASan/UBSan builds
+(70 results), including posted/consumed ACK schedules, final resume publication,
+nested counts, untouched first destructor pass, identity/ticket/pending/phase
+refusals, invalid/backward/expired clocks and stopped-clock attempt exhaustion.
+Both valid handoff schedules fail against the old source in both profiles, at
+the intended retirement refusal. The INFO handler source remains byte-identical.
+Evidence: `build/review/pr334-jsc-companions-review/retirement-fix/canonical-review/`.
+
+Source correction and host regression coverage are accepted for a fresh target
+rebuild. New linked-code/prepare/guest evidence is still pending; no WTF suite,
+GC or JavaScript acceptance is implied. My separate noncanonical candidate was
+frozen and archived/stashed; the checkout's ports pin is restored to main. No
+experimental implementation is imported into PR365/main. PR334 retains canonical
+implementation ownership and the next exact target review.
+
+Diagnostic history correction: the owner later confirmed QEMU 24675 and LLDB
+had attempted the unchanged-payload diagnosis and stopped at a 100-second
+deadline, with no terminal capture or attribution. Earlier reports of no active
+VM were process snapshots, not proof that no attempt occurred. The source chat
+also encountered tool-reported system errors during diagnostic setup and a
+subsequent source-only resume: “This content was flagged for possible
+cybersecurity risk.” No blocked debugger operation was rerouted through another
+chat. The ordinary source correction proceeded with its own authorized scope
+and actual-source regression evidence. Original status 134 remains unattributed;
+the failed suite and unsuccessful diagnostic are preserved separately.
+
 ## Remaining work
 
 Other long IRQ-disabled operations, including initial/churning PMM scans, heap validation and poisoning,
