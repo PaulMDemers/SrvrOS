@@ -438,7 +438,8 @@ static void session_scope_contract(void) {
     if(!setjmp(exit_hook)) process_thread_exit(17);
     check_thread_hook=false;assert(current->owned_user_scope==token && current->main_thread_exited);
     user_scope_detach(current);current->main_thread_exited=false;
-    for(unsigned worker=0;worker<2;worker++) {
+    /* This loop resumes through longjmp; retain its counter explicitly. */
+    for(volatile unsigned worker=0;worker<2;worker++) {
         assert(!process_scope_create(&token));
         assert(!process_scope_reserve(token));
         struct process_lifetime *pending=lifetime_find(token);
