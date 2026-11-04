@@ -1,5 +1,19 @@
 # Apple Silicon macOS build host
 
+## PR326 merge review — in progress
+
+User authorized review, fixes and merge after passing checks. Review the chooser,
+remembered selection and read-only recovery preflight on current main `4b5ddb7c`,
+preserving guest import ownership, filesystem policy, authentication and
+permission enforcement as separate concerns. The branch is conflict-free and
+has no existing review findings. Run fresh host/sanitizer checks and a matched
+build; verify exact runtime/evidence equivalence before reusing the accepted
+14-lifetime proof. A bounded additional Escape/Enter guest probe passed without
+starting a selection write or recovery. Only disposable copies were touched.
+Use isolated `SrvrOS-profile-326-review` because separate proof-storage work is
+active in `SrvrOS-profiles`; preserve its uncommitted files. Primary checkout and
+review VMs remain untouched, with no Actions or physical trial requested.
+
 ## Desktop profile chooser — proof complete
 
 User authorized the desktop chooser, installation-local remembered selection
