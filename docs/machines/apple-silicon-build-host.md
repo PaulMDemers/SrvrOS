@@ -1,5 +1,18 @@
 # Apple Silicon macOS build host
 
+## Uncertain workspace read-only inspection — qualification underway
+
+User authorizes offline read-only inspection in `SrvrOS-filesystem`, branch
+`device/apple-silicon/filesystem-uncertain-inspection`, base `83e5d1ad`. Reuse
+the native installation inspector and inherited O_RDONLY regular-file shim;
+add only a host-test diagnostic entry in exfat.c, forcing write blocking before
+sidecar loading. No process.c, USB/BOT, live transport or production runtime
+change. PR317 owner at `ddfa4ddb` confirms no lifetime overlap; published-storage
+failure remains sticky and diagnostic output cannot authorize repair/remount.
+Preserve all uncertain images and review VMs 61610/6233/85869. Qualify bounded
+metadata-only output, explicit ranges, unchanged hashes/identity/permissions,
+default strict admission and malformed/refusal cases before draft delivery.
+
 ## Graphical profile transfer — qualified for review
 
 User authorized the Profiles app, reviewed export/import and disposable two-VM

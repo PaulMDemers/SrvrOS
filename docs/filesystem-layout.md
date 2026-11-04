@@ -3,6 +3,20 @@
 Updated November 3, 2026. Global activation follows the explicit namespace proof
 in [PR308](https://github.com/PaulMDemers/SrvrOS/pull/308).
 
+## Read-only uncertain-workspace inspection — in progress
+
+Authorized on main `83e5d1ad`, isolated filesystem checkout. Reuse the native
+installation inspector and bounded inherited-O_RDONLY-fd shim. An explicit
+host-only diagnostic entry will force write blocking before sidecar loading;
+ordinary mounting is not suitable because it may attempt metadata recovery.
+Default clean installed-image inspection/admission stays strict. Report selected
+volume flags, allocation state and committed workspace names/types/sizes only;
+no source/orphan content export or authoritative sidecar permissions. Validate
+explicit bounded file ranges, unchanged whole-file hash/mode/identity, clean and
+late-failed inputs plus malformed/refusal cases. No live transport, repair,
+write callbacks, writable admission or review-VM changes. Coordinate with PR317
+before executing preserved-media checks.
+
 ## PR345 merge review and current-main requalification
 
 User authorized review, current-main integration/requalification and merge if

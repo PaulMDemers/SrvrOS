@@ -2033,6 +2033,10 @@ test-storage: build/tests/block-host$(HOST_EXE) build/tests/ahci-host$(HOST_EXE)
 	build/tests/block-host$(HOST_EXE)
 	build/tests/ahci-host$(HOST_EXE)
 
+.PHONY: test-workspace-inspection
+test-workspace-inspection: build/tests/installation-inspect-driver$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_workspace_inspection.py -v
+
 .PHONY: test-installed-root
 test-installed-root: build/tests/exfat-driver$(HOST_EXE) build/tests/installation-export-driver$(HOST_EXE) build/tests/installation-inspect-driver$(HOST_EXE) build/tests/profile-image-driver$(HOST_EXE)
 	CC='$(HOST_CC)' $(PYTHON) tools/test_installed_root.py
