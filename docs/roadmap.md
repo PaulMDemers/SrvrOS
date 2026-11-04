@@ -6,6 +6,74 @@ and [machine records](machines/README.md) separate implementation from physical
 acceptance. The [device parity ledger](device-parity.md) compares the Air with
 ongoing Pro work.
 
+## bc exact decimal workflow — November 3, 2026
+
+Target: static bc 7.0.3 for scripts/files/stdin/pipelines, arbitrary-precision
+decimal calculations, scale/sqrt/bases and variables/functions/loops. Isolated
+`ports/bc` checkout begins at main `b78e3ed5`. First gate is safe signal recovery:
+handlers must return through the cooperative libc dispatcher before nonlocal
+recovery; compute-bound code needs bounded dispatch checkpoints. No blind
+SA_NODEFER or sigjmp stubs. Coordinate any shared-runtime need with integration.
+No dc, history/readline, NLS or extended-math acceptance initially. Required
+gates: selected upstream arithmetic cases, exact guest reports, repeated
+signal/error recovery, real stdout failures, clean CLI binary reproducibility
+and existing ports/docs checks. Implemented and verified: bc 7.0.3 static core arithmetic, scale/sqrt/bases,
+functions/loops and file/stdin/pipeline exact reports. The signal gate is
+resolved in the port's generated copy: callback records state and returns,
+libc restores dispatcher/mask state, and existing bc unwind paths run afterward.
+Bytecode loops poll via public sched_yield every 1024 instructions. A single
+long arithmetic instruction can delay signal delivery; interactive interrupt
+messages differ from upstream. No shared libc/kernel changes were needed.
+
+Guest probes pass same-process syntax/division-error recovery, repeated blocked
+input and busy-loop SIGINT with successful calculations afterward, busy-loop
+SIGTERM exit and actual stdout failure. Seven unchanged upstream arithmetic
+fixtures plus exact report save/reopen across two boots pass. Guest fsck and
+offline allocation pass; independent fsck.exfat is unavailable. Full build,
+existing ports regression and docs/whitespace checks pass. Two clean CLI builds
+match SHA256 `62c0737baafa6b569bd917303600e5aee341c5f09b24776fce49615e5fa6af61`.
+Receipts are under `build/bc-smoke/20261103-221517-z7lm_s73/` and
+`build/review/bc/accepted.json`. No full-suite, physical-device, full-image
+reproducibility or general asynchronous-signal acceptance is claimed.
+Status: bounded implementation complete and ready for review; no merge performed.
+
+Integration checkout/review VM remain untouched.
+
+## jq CLI workflow — November 3, 2026
+
+Target: jq 1.8.2 for offline JSON files/stdin/pipelines, filtering/aggregation,
+raw/compact output, filter files and CSV export consumed by SQLite. Separate
+`ports/jq` checkout begins at main `5634cd9d`; integration checkout and review
+VM remain untouched. Preserve upstream source, decimal-number defaults and
+licenses; omit Oniguruma regex functions. Port-local entropy adaptation uses
+existing getrandom. No shared libc/kernel edits without concrete gap coordination.
+Required gates: static build/link, selected unchanged upstream tests, guest
+JSON-to-CSV-to-SQLite workflow, Unicode/numeric/errors/pipeline checks, two clean
+CLI builds with identical binaries, existing ports regressions and docs checks.
+Implementation and scoped guest acceptance pass. The port builds static jq
+with upstream decNumber defaults and port-local entropy, dirname and UTC
+timezone-name adapters; no shared libc/kernel changes were needed. Oniguruma
+regex and optional configure-gated libm/date wrappers are outside this profile.
+The first run passed its 11 selected upstream cases but later aborted during
+the optional three-thread regression; that test-only feature gate is omitted
+for the single-thread CLI. Real pthread keys/once/atexit remain enabled. No
+multithreaded jq acceptance or allocator root cause is claimed.
+
+Two-boot JSON report/CSV-to-SQLite, exact Unicode/NUL and numeric literal output,
+exit statuses, invalid JSON/filter/files, unsupported regex, actual stdout error
+and recovery checks pass. The 11 unchanged upstream cases and remaining
+single-state internal tests complete. Guest fsck and offline allocation pass;
+independent fsck.exfat is unavailable. Two clean CLI builds match SHA256
+`286f8cbe0cd27f983881208981d5f29773197aa00641487d0f6087caf7ef1de8`.
+No whole-image reproducibility or physical-device acceptance is claimed.
+Evidence: `build/jq-smoke/20261103-214345-kx3nfg74/` and
+`build/review/jq/accepted.json`. Existing ports regression and documentation/whitespace checks pass.
+Status: independent review and fresh combined guest/ports validation pass.
+User authorized ports-first then OS merge. SrvrPorts PR6 is merged as
+`747cca28`; SrvrOS PR337 records integration. No further implementation is
+required for this bounded target; threaded jq remains separately unaccepted.
+
+
 ## Current HiDPI and display settings — November 3, 2026
 
 Target: genuinely detailed 1×/2× text and widgets, authoritative Display settings,
@@ -57,6 +125,21 @@ source and limits. [PR292](https://github.com/PaulMDemers/SrvrOS/pull/292) recor
 combined image with merged awk also builds, starts and completes a live corner
 resize; its kernel/compositor hashes match the accepted runtime. No additional
 resize feature is required.
+
+## SQLite CLI port — November 3, 2026
+
+Active target: integrate SQLite 3.53.1 as a static `sqlite3` command for bounded
+single-connection, exclusive-access SQL scripts and CSV import/query/export,
+including database reopen. The CLI has a separate engine configuration so the
+existing `sqlitedemo` remains unchanged. WAL, process commands, extension loading
+and readline are excluded. Full build, host and guest VFS ownership/temp/error checks, and two-boot CSV
+workflow acceptance pass. Two clean CLI builds match SHA256
+`a23d90c8e8b49f7e36ff996e8cf009eee5ab7537faea6edabbe7a34cfd873b2f`.
+Guest fsck and offline allocation pass; independent fsck is unavailable. Evidence
+is under `build/sqlite-cli-smoke/` and `build/review/sqlite/`. No full-image
+reproducibility or power-loss atomicity claim is made. Implementation is ready
+for review; see
+[port usage and scope](ports.md). No native device acceptance is implied.
 
 ## Pinned awk port — November 3, 2026
 

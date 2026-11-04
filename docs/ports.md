@@ -253,6 +253,13 @@ clean while mapping the public API onto srvros console reads/writes. It supports
 editable lines, cursor movement over serial escape sequences, simple completion
 hooks, and file-backed history. `/fat/bin/linedemo` verifies history trimming,
 save, and load behavior.
+The SQLite `3.53.1` command-line port is installed as `/fat/bin/sqlite3`
+(and `/sqlite3` in the initramfs). Its bounded profile targets single-connection,
+exclusive-access database work: SQL scripts, CSV import, queries, export, and
+closing and reopening files. WAL, concurrent access, shell process commands,
+dynamic extensions and readline are outside this profile. See the
+[port contract](../ports/srvros/sqlite/README.md) for usage and current evidence.
+
 The `sqlitedemo` app links the SQLite `3.53.1` amalgamation with
 `SQLITE_OS_OTHER` and registers a small srvros VFS. It creates
 `/fat/sqlitedemo.db`, inserts two page records, closes and reopens the database,
@@ -525,3 +532,19 @@ Third-party source is kept as pinned submodules or snapshots under
    requests, TTY, signals, and thread-pool work are boring under smoke tests.
 8. Register srvros as a Node.js configure/GYP OS flavor and keep the first
    Node target static and CLI-only while V8, libuv, and libc gaps are reduced.
+
+
+## jq bounded CLI milestone
+
+The active jq 1.8.2 port targets offline JSON files/stdin/pipelines and CSV
+reports, with static linking and upstream decimal-number defaults. Oniguruma
+regex functions are outside this first profile. See the [port contract](../ports/srvros/jq/PORT.md) and current roadmap
+for the accepted workflow and its optional threaded-test limitation.
+
+
+## bc exact decimal milestone
+
+bc 7.0.3 is integrated for static exact-decimal file/stdin/pipeline calculations.
+Its deferred signal-recovery gate passes the bounded guest probes; see the
+[port contract](../ports/srvros/bc/PORT.md) and roadmap for evidence and the
+cooperative interruption limit. dc/history/NLS/extra math remain outside this profile.
