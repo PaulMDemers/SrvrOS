@@ -19,8 +19,10 @@ Current delivery gates:
 - Larger-document profiles: finish the corrected source-change fixture and
   complete GUI, recovery, storage and bounded-memory verification before
   Apps #11 and OS #367. The first full proof remains failed, not relabeled.
-- GNU Patch: complete strict sidecar validation and the current qualification
-  rerun, independently review, merge Ports #12 then OS #370, and stop the queue.
+- GNU Patch: six guest checks pass (two Patch boots, two diff interoperability
+  boots, Terminal and CLI). The shipped miniport caller is corrected; verify
+  the final data refresh and ports guest, merge Ports #12 then OS #370, and stop
+  the queue. Prior results retain their exact source and payload attribution.
 - Filesystem GUID selection: close the bounded review/tests and merge OS #366;
   preserve original media and completed streaming-review evidence.
 - Runtime audit: documentation checkpoint OS #365 is merged as `db95fc9b`;
