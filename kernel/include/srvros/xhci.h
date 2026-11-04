@@ -42,6 +42,11 @@ void xhci_init(void);
  * True verifies R/S clear, halted controller and drained software event ring.
  * No reset/restart or DMA/record free: block/worker/diagnostic references remain. */
 bool xhci_stop(void);
+/* Explicit subtree retirement: close admission, retire providers, disable children
+ * before their parent, at most one command per call. Retry false for progress,
+ * active owners or unproven commands.
+ * True retains all DMA/identity tombstones; no slot reuse or re-enumeration. */
+bool xhci_retire_slot(uint8_t slot);
 /* Terminal DMA reclaim after stop, storage/worker/diagnostic reference drain
  * and PCI bus-master disable readback. At most 16 frames per call; retry false
  * for pending owners, unproven hardware or progress. Metadata stays offline and

@@ -31,7 +31,9 @@
 #define XHCI_MAX_DEVICES 32
 #define XHCI_MAX_HUB_PORTS 15
 #define XHCI_MAX_PROTOCOLS 8
+#ifndef XHCI_RESET_TIMEOUT
 #define XHCI_RESET_TIMEOUT 10000000ull
+#endif
 #ifndef XHCI_COMMAND_TIMEOUT
 #define XHCI_COMMAND_TIMEOUT 10000000ull
 #endif
@@ -85,6 +87,7 @@
 #define XHCI_INTR_ERDP 0x18
 
 #define XHCI_TRB_TYPE_ENABLE_SLOT 9
+#define XHCI_TRB_TYPE_DISABLE_SLOT 10
 #define XHCI_TRB_TYPE_LINK 6
 #define XHCI_TRB_TYPE_NORMAL 1
 #define XHCI_TRB_TYPE_SETUP_STAGE 2
@@ -234,6 +237,7 @@ struct xhci_device {
     bool addressed;
     bool configured;
     bool removed,control_pending,control_failed;
+    bool retiring,slot_disabled;
     bool hid_keyboard;
     bool hid_mouse;
     bool hid_boot_mouse;
@@ -733,7 +737,9 @@ static bool map_mmio(uint64_t physical) {
 
 static bool wait_status_set(uint32_t mask, bool set, uint64_t attempts) {
     for (uint64_t i = 0; i < attempts; i++) {
-        bool value = (op_read32(XHCI_OP_USBSTS) & mask) != 0;
+        uint32_t state=op_read32(XHCI_OP_USBSTS);
+        if(state==UINT32_MAX)return false;
+        bool value = (state & mask) != 0;
         if (value == set) {
             return true;
         }
@@ -762,6 +768,9 @@ static bool halt_controller(void) {
 }
 
 static bool reset_controller(void) {
+    /* Reset is a boot-only operation, never a shortcut around live owners or
+     * terminal reclamation. Existing rings retain ambiguous DMA ownership. */
+    if(xhci.stopping || xhci.reclaiming || xhci.reclaimed || xhci.command_ring || xhci.event_ring || xhci.dcbaa)return false;
     if (!halt_controller()) {
         console_write("xhci: halt timeout\n");
         return false;
@@ -1034,9 +1043,19 @@ static void program_rings(void) {
 }
 
 static bool start_controller(void) {
+    if(xhci.stopping || xhci.reclaiming || xhci.reclaimed ||
+       !xhci.command_ring || !xhci.event_ring || !xhci.dcbaa || !xhci.erst)return false;
+    uint32_t command=op_read32(XHCI_OP_USBCMD);
+    if(command==UINT32_MAX || (command&XHCI_USBCMD_HCRST))return false;
     op_write32(XHCI_OP_USBSTS, XHCI_USBSTS_EINT);
-    op_write32(XHCI_OP_USBCMD, (op_read32(XHCI_OP_USBCMD) & ~XHCI_USBCMD_INTE) | XHCI_USBCMD_RUN);
-    return wait_status_set(XHCI_USBSTS_HCH, false, XHCI_RESET_TIMEOUT);
+    op_write32(XHCI_OP_USBCMD, (command & ~XHCI_USBCMD_INTE) | XHCI_USBCMD_RUN);
+    for(uint64_t i=0;i<XHCI_RESET_TIMEOUT;i++) {
+        uint32_t state=op_read32(XHCI_OP_USBSTS),readback=op_read32(XHCI_OP_USBCMD);
+        if(state==UINT32_MAX || readback==UINT32_MAX)return false;
+        if((readback&XHCI_USBCMD_RUN) && !(readback&(XHCI_USBCMD_HCRST|XHCI_USBCMD_INTE)) &&
+           !(state&(XHCI_USBSTS_HCH|XHCI_USBSTS_CNR)))return true;
+    }
+    return false;
 }
 
 /* CPU0 synchronous BOT ownership supplies at most one timed request. Sample
@@ -1448,7 +1467,7 @@ static bool allocate_device_runtime(struct xhci_device *device) {
 
 static struct xhci_device *device_by_slot(uint8_t slot_id) {
     for (uint64_t i = 0; i < XHCI_MAX_DEVICES; i++) {
-        if (xhci.devices[i].present && xhci.devices[i].slot_id == slot_id) {
+        if (slot_id && xhci.devices[i].present && !xhci.devices[i].slot_disabled && xhci.devices[i].slot_id == slot_id) {
             return &xhci.devices[i];
         }
     }
@@ -1467,14 +1486,14 @@ static uint8_t device_root_port(const struct xhci_device *device) {
 
 static uint32_t child_route_string(uint32_t parent_route, uint8_t hub_port_id) {
     if (hub_port_id == 0 || hub_port_id > 15) {
-        return parent_route;
+        return UINT32_MAX;
     }
     for (uint32_t shift = 0; shift < 20; shift += 4) {
         if (((parent_route >> shift) & 0xfu) == 0) {
             return parent_route | ((uint32_t)hub_port_id << shift);
         }
     }
-    return parent_route;
+    return UINT32_MAX; /* No sixth route nibble: never alias the parent. */
 }
 
 static bool device_needs_tt(const struct xhci_device *device) {
@@ -1518,6 +1537,8 @@ static bool address_device(struct xhci_device *device) {
             (uint64_t)enable_flags);
         return false;
     }
+    /* A duplicate live slot must not overwrite another device's DCBAA entry. */
+    if(device_by_slot((uint8_t)slot)) {xhci.command_failed=true;return false;}
     device->slot_id = (uint8_t)slot;
     xhci.enable_slot_completions++;
     xhci.last_slot_id = slot;
@@ -1933,10 +1954,12 @@ static void release_keyboard(struct xhci_device *d) {
  * re-enumeration is safe until endpoint/provider references are retired. */
 static bool device_removed(struct xhci_device *d) {
     if(d->removed)return true;
-    if(!d->present)return xhci.stopping;
-    if(!xhci.stopping && (!d->port_id || d->port_id>xhci.port_count))return false;
-    uint32_t state=xhci.stopping?0:op_read32(XHCI_OP_PORTS+(d->port_id-1)*16);
-    if((state&XHCI_PORTSC_CCS) && !(state&XHCI_PORTSC_CSC))return false;
+    if(!d->retiring) {
+        if(!d->present)return xhci.stopping;
+        if(!xhci.stopping && (!d->port_id || d->port_id>xhci.port_count))return false;
+        uint32_t state=xhci.stopping?0:op_read32(XHCI_OP_PORTS+(d->port_id-1)*16);
+        if((state&XHCI_PORTSC_CCS) && !(state&XHCI_PORTSC_CSC))return false;
+    }
     d->removed=true;d->configured=false;d->interrupt_ready=false;
     d->stage="removed-quarantined";
     release_keyboard(d);
@@ -1948,6 +1971,69 @@ static bool device_removed(struct xhci_device *d) {
     if(d->storage.block) { d->storage.failed=true;block_invalidate(d->storage.block); }
     if(d->network)network_fail(d,"removed");
     return true;
+}
+
+
+/* Explicit retirement closes providers before Disable Slot. Retain records
+ * and DMA even after completion: published identities and old events do not
+ * authorize ring reuse or runtime re-enumeration. */
+bool xhci_retire_slot(uint8_t slot) {
+    uint64_t flags=event_irq_save(),kernel=vmm_kernel_address_space();
+    if(!slot || !kernel || vmm_current_address_space()!=kernel || !xhci.operational ||
+       xhci.stopping || !xhci.controller_owned) {event_irq_restore(flags);return false;}
+    struct xhci_device *root=NULL;
+    for(unsigned i=0;i<XHCI_MAX_DEVICES;i++)
+        if(xhci.devices[i].present && xhci.devices[i].slot_id==slot) {root=&xhci.devices[i];break;}
+    if(!root) {event_irq_restore(flags);return false;}
+    if(root->slot_disabled) {event_irq_restore(flags);return true;}
+    bool selected[XHCI_MAX_DEVICES]={false};
+    selected[root-xhci.devices]=true;
+    /* Close the whole subtree before yielding to any provider callback. */
+    for(unsigned pass=0;pass<XHCI_MAX_DEVICES;pass++) {
+        bool changed=false;
+        for(unsigned i=0;i<XHCI_MAX_DEVICES;i++)if(selected[i])
+            for(unsigned j=0;j<XHCI_MAX_DEVICES;j++)
+                if(!selected[j] && xhci.devices[j].present &&
+                   xhci.devices[j].parent_slot_id==xhci.devices[i].slot_id) {
+                    selected[j]=true;changed=true;
+                }
+        if(!changed)break;
+    }
+    for(unsigned i=0;i<XHCI_MAX_DEVICES;i++)if(selected[i]) {
+        xhci.devices[i].retiring=true;(void)device_removed(&xhci.devices[i]);
+    }
+    if(xhci.sync_users || xhci.poll_users || xhci.diagnostic_users) {event_irq_restore(flags);return false;}
+    bool released=true;
+    for(unsigned i=0;i<XHCI_MAX_DEVICES;i++)if(selected[i]) {
+        struct xhci_device *d=&xhci.devices[i];
+        if(d->network && d->network->registered) {
+            struct net_device_ops identity={.context=d,.send=network_send};
+            if(net_device_retire(&identity))d->network->registered=false;
+            else released=false;
+        }
+        if(!usb_storage_retire(&d->storage))released=false;
+    }
+    if(!released) {event_irq_restore(flags);return false;}
+    /* At most one Disable Slot per call bounds command waits. Retrying false
+     * continues leaf-first progress without recycling any record or ring. */
+    for(unsigned i=0;i<XHCI_MAX_DEVICES;i++)if(selected[i] && !xhci.devices[i].slot_disabled) {
+        struct xhci_device *d=&xhci.devices[i];bool children=false;
+        for(unsigned j=0;j<XHCI_MAX_DEVICES;j++)
+            if(selected[j] && !xhci.devices[j].slot_disabled && xhci.devices[j].parent_slot_id==d->slot_id)children=true;
+        if(children)continue;
+        uint64_t completed_slot=0;
+        if(!submit_command(XHCI_TRB_TYPE_DISABLE_SLOT,(uint32_t)d->slot_id<<24,&completed_slot)) {
+            event_irq_restore(flags);return false;
+        }
+        if(completed_slot!=d->slot_id) {
+            xhci.command_failed=true;event_irq_restore(flags);return false;
+        }
+        d->slot_disabled=true;d->stage="slot-disabled-retained";
+        if(xhci.dcbaa)xhci.dcbaa[d->slot_id]=0;
+        bool done=root->slot_disabled;
+        event_irq_restore(flags);return done;
+    }
+    event_irq_restore(flags);return false;
 }
 
 
@@ -2329,6 +2415,11 @@ static bool enumerate_hub(struct xhci_device *hub, uint8_t configuration) {
         (uint64_t)hub->route_string);
 
     for (uint8_t port = 1; port <= hub->hub_ports; port++) {
+        uint32_t route=child_route_string(hub->route_string,port);
+        if(route==UINT32_MAX) {
+            console_write("xhci: hub route depth exhausted; children retained unavailable\n");
+            return false;
+        }
         uint32_t status = 0;
         if (!reset_hub_port(hub, port, &status)) {
             continue;
@@ -2347,7 +2438,7 @@ static bool enumerate_hub(struct xhci_device *hub, uint8_t configuration) {
             .hub_port_id = port,
             .speed = hub_status_speed(status),
             .ep0_max_packet = default_ep0_packet_for_speed(hub_status_speed(status)),
-            .route_string = child_route_string(hub->route_string, port),
+            .route_string = route,
             .slot_type = root_port_slot_type(hub->port_id),
         };
         xhci.routed_devices++;

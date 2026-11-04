@@ -21,6 +21,7 @@ def main():
     parser.add_argument("--iso", required=True)
     parser.add_argument("--disk", required=True)
     parser.add_argument("--qemu", default="qemu-system-x86_64")
+    parser.add_argument("--retire-slots", action="store_true", help="disable each boot slot before terminal stop/replug")
     parser.add_argument("--reclaim", action="store_true", help="retire references and reclaim DMA after terminal halt")
     parser.add_argument("--usb-storage", action="store_true", help="attach a disposable second disk copy as USB storage")
     parser.add_argument("--terminal-stop", action="store_true", help="verify terminal xHCI halt after replug")
@@ -74,6 +75,15 @@ def main():
                     return rings[1]
 
                 initial_commands = status(b"1")
+                if args.retire_slots:
+                    for slot in range(count,0,-1):
+                        for _ in range(2):
+                            serial.sendall(f"xhcislot {slot}\n".encode())
+                            part=read_until(serial,b"srv> ",10);output.extend(part)
+                            assert b"xhci-slot: disabled-retained" in part,part
+                    after=status(b"0")
+                    assert int(after)==int(initial_commands)+count
+                    initial_commands=after
                 if args.terminal_stop or args.reclaim:
                     for _ in range(2):
                         serial.sendall(b"xhcistop\n")
@@ -127,7 +137,7 @@ def main():
                     qmp.stream.close()
                     qmp.sock.close()
                 (out / "serial.log").write_bytes(output)
-    print("usb-removal: PASS two devices removed/replaced, retained slots quarantined, no new commands, sysabi" + (", terminal halt" if args.terminal_stop or args.reclaim else "") + (", DMA reclaimed" if args.reclaim else ""))
+    print("usb-removal: PASS two devices removed/replaced, retained slots quarantined, no new commands, sysabi" + (", terminal halt" if args.terminal_stop or args.reclaim else "") + (", per-slot disable" if args.retire_slots else "") + (", DMA reclaimed" if args.reclaim else ""))
 
 
 if __name__ == "__main__":

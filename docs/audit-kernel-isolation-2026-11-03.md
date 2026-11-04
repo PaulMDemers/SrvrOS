@@ -783,6 +783,61 @@ PR313 artifacts, not a complete current-userspace build. All task guests stopped
 review VMs stayed untouched. Evidence: `build/review/xhci-reclaim/`. Nine known
 missing nested-submodule license targets remain in documentation checking.
 
+## Per-slot retirement and reset/re-enumeration boundaries
+
+The startup audit confirmed that a rejected Run write could be accepted when
+USBSTS.HCH was already clear. `start_controller` now requires valid command and
+status readbacks, Run set, reset/interrupt-enable clear and Halted/Not Ready clear.
+The status wait helper rejects inaccessible all-ones MMIO. A negative control
+restoring the old startup helper fails the rejected-Run assertion. Boot reset
+refuses existing controller rings/DCBAA or terminal retirement state; startup
+requires complete runtime metadata and refuses terminal reclamation. These guards
+preserve the one-attempt initialization contract; they do not implement restart.
+
+`xhci_retire_slot` and monitor `xhcislot <1..255>` explicitly close admission on
+a slot and all descendants. Kernel address-space/controller ownership is required;
+synchronous, poll/probe, USB initializer/request/diagnostic and registered network
+callbacks must drain before Disable Slot. Each call submits at most one command,
+children before parents, requiring both exact command pointer and matching returned
+slot. False may mean bounded progress or pending/unproven ownership; retry explicitly.
+Timeouts retain command quarantine. True retains all DMA and stable offline block,
+claim, network and diagnostic records; only terminal halt/reclaim may free backing.
+Disabled records cannot receive new transfer events. Other slots remain available.
+No automatic retirement on ordinary BOT failure is introduced.
+
+Enable Slot now refuses a duplicate live slot before writing DCBAA; this is a
+malformed-controller-response containment check, not a QEMU-observed duplicate.
+Continuing the hub audit found a separate route-depth alias: a sixth downstream
+route nibble silently returned its parent's route. Exhausted/invalid routes now
+refuse before child reset/allocation rather than addressing an ambiguous path.
+
+Host coverage exercises a three-level subtree, child-first progress of one command
+per call, other-slot preservation, owner/provider refusal, command timeout, wrong
+returned slot, duplicate live-slot refusal, idempotence and zero per-slot frees.
+It also checks startup acknowledgements, inaccessible/CNR refusal, reset/restart
+refusal over retained backing and five valid hub-route nibbles followed by refusal.
+Runtime re-enumeration remains unavailable: root-port guards and permanent records
+prevent overwriting old identities; one-attempt init cannot revive reclaimed rings.
+Future restart requires a new controller generation and fresh worker/rings plus a
+policy for immutable block/network tombstones. Hub port-change processing, endpoint
+reset/dequeue recovery and physical/SMP validation remain separate audit work.
+
+Normal/Rosetta, strict GCC14 and ASan/UBSan fixtures pass, as do related USB,
+combined USB/block and network-registry host tests and kernel compilation. Controls
+restoring old startup and hub-route helpers fail their intended assertions. Final
+Q35 storage+keyboard+tablet retirement succeeds twice per slot, with exactly three
+new Disable Slot completions. Terminal halt/reclaim frees 23 frames and repeats
+without further frees; post-reclaim QMP unplug/replug remains contained and sysabi
+passes. Separate E1000 netabi and full threadstress guests pass. Runtime files are
+retained PR313 artifacts, not a complete current-userspace build. All task guests
+stopped; review VMs 61610, 6233 and 85869 remained untouched. Documentation checking
+covers 888 local links with only the nine known missing nested license targets.
+
+Evidence for this checkpoint is `build/review/xhci-slot/`. The current branch is
+still based on main `1f177761`; main `a37eb7b2` was inspected for overlap, not merged.
+PR338's managed USB fault/salvage proof remains independently owned; there are no
+filesystem/process/generic block or installer changes here.
+
 ## Remaining work
 
 Other long IRQ-disabled operations, including initial/churning PMM scans, heap validation and poisoning,

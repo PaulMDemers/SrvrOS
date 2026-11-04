@@ -521,7 +521,7 @@ static void render_stress(void) {
 }
 
 static void print_help(void) {
-    console_write("commands: help clear bootinfo hwdiag dmesg mem memstat ticks renderstat renderbench [serial] renderstress fpustress latency [reset|off] heap workers semaphoretest acpiworktest scitest [arm|status|stop] block mount unmount workspace fsck pci gpu spi spiregs acpiinput xhci xhcistop xhcireclaim audio [test|stop|speakers|headphones] thermal smc power net ps bg kill echo ls [dir] cat write elf run [args]\n");
+    console_write("commands: help clear bootinfo hwdiag dmesg mem memstat ticks renderstat renderbench [serial] renderstress fpustress latency [reset|off] heap workers semaphoretest acpiworktest scitest [arm|status|stop] block mount unmount workspace fsck pci gpu spi spiregs acpiinput xhci xhcislot <1..255> xhcistop xhcireclaim audio [test|stop|speakers|headphones] thermal smc power net ps bg kill echo ls [dir] cat write elf run [args]\n");
     console_write("workspace: status | mount <UUID> | shell | sync | unmount\n");
     console_write("desktop battery: ordinary Home session with opt-in battery monitoring; Ctrl+Alt+Esc exits\n");
     console_write("reboot: flush storage and return through the normal boot entry\n");
@@ -1169,6 +1169,12 @@ static void run_command(char *line) {
         render_stress();
     } else if (streq(command, "renderbench")) {
         render_benchmark(streq(args, "serial"));
+    } else if (streq(command, "xhcislot")) {
+        uint64_t slot=0;
+        const char *p=args;
+        while(*p>='0' && *p<='9' && slot<=255)slot=slot*10+(*p++-'0');
+        if(*p || !slot || slot>255)console_write("usage: xhcislot <1..255>\n");
+        else console_write(xhci_retire_slot((uint8_t)slot)?"xhci-slot: disabled-retained\n":"xhci-slot: pending-or-unproven\n");
     } else if (streq(command, "xhcireclaim")) {
         console_write(xhci_reclaim()?"xhci-reclaim: reclaimed-tombstones\n":"xhci-reclaim: pending-or-unproven\n");
     } else if (streq(command, "xhcistop")) {

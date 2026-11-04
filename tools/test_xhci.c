@@ -6,6 +6,7 @@
 #include <string.h>
 #include <stdint.h>
 #define XHCI_COMMAND_TIMEOUT 256ull
+#define XHCI_RESET_TIMEOUT 256ull
 #define XHCI_HALT_TIMEOUT 256ull
 #define SRVROS_XHCI_TEST_MMIO
 static uint32_t xhci_test_read32(uint64_t offset);
@@ -76,6 +77,8 @@ static uint32_t xhci_test_read32(uint64_t offset) {
 }
 
 static bool command_nested,event_flood,stop_on_doorbell;
+static bool disable_auto,disable_wrong_slot,start_status_model;
+static uint8_t disabled_order[32];static unsigned disabled_count;
 static uint64_t test_space=1;
 static bool retire_ready=true,storage_retire_ready=true,reject_bus_master;
 static unsigned retire_calls;static uint16_t pci_command=6;
@@ -84,8 +87,21 @@ static unsigned flood_dequeues;
 static struct xhci_device *mode_device;
 static unsigned mode_doorbells;
 static void xhci_test_write32(uint64_t offset, uint32_t value) {
+    if(disable_auto && offset==xhci.db_base) {
+        uint64_t index=(xhci.command_enqueue+XHCI_TRB_COUNT-2)%(XHCI_TRB_COUNT-1);
+        const struct xhci_trb *cmd=&xhci.command_ring[index];
+        assert(((cmd->control>>10)&63)==XHCI_TRB_TYPE_DISABLE_SLOT);
+        uint8_t slot=cmd->control>>24;assert(disabled_count<32);disabled_order[disabled_count++]=slot;
+        uint64_t ptr=xhci.command_ring_phys+index*sizeof(*cmd);
+        xhci.event_ring[xhci.event_dequeue]=(struct xhci_trb){.parameter_low=(uint32_t)ptr,
+            .parameter_high=ptr>>32,.status=1u<<24,
+            .control=(xhci.event_cycle?1u:0u)|(33u<<10)|((uint32_t)(disable_wrong_slot?slot+1:slot)<<24)};
+    }
     if(stop_on_doorbell && offset>=xhci.db_base && offset<xhci.db_base+8) {
         stop_on_doorbell=false;assert(xhci.sync_users==1 && !xhci_stop());
+    }
+    if(start_status_model && offset==xhci.op_base+XHCI_OP_USBSTS) {
+        *(uint32_t *)(registers+offset)&=~(value&XHCI_USBSTS_EINT);return;
     }
     if(offset==xhci.op_base+XHCI_OP_USBCMD) {
         halt_writes++;if(reject_halt)return;
@@ -162,6 +178,7 @@ void pmm_free_frame(uint64_t address) {
 void pmm_free_frame_range(uint64_t address,uint64_t count) {for(uint64_t i=0;i<count;i++)pmm_free_frame(address+i*PMM_FRAME_SIZE);}
 
 static void reset_test(void) {
+    disable_auto=disable_wrong_slot=start_status_model=false;disabled_count=0;
     reclaim_check=false;memset(released_pages,0,sizeof(released_pages));
     storage_retire_ready=true;reject_bus_master=false;pci_command=6;
     reject_halt=false;halt_reads=halt_after=halt_writes=0;test_space=1;retire_ready=true;retire_calls=0;stop_on_doorbell=false;
@@ -1170,6 +1187,73 @@ static void test_terminal_stop(void) {
     assert(xhci_stop() && !freed);
     puts("xhci-stop: PASS verified halt, caller/provider drain, in-call cancellation, bounded events, retry and pinned backing");
 }
+static void test_hub_route_depth(void) {
+    uint32_t route=0;
+    for(unsigned depth=0;depth<5;depth++) {
+        uint32_t next=child_route_string(route,depth+1);
+        assert(next==(route|((depth+1)<<(4*depth))) && next!=route);route=next;
+    }
+    assert(child_route_string(route,1)==UINT32_MAX);
+    assert(child_route_string(0,0)==UINT32_MAX && child_route_string(0,16)==UINT32_MAX);
+    puts("xhci-hub: PASS five route nibbles and exhausted/invalid path refusal");
+}
+static void test_slot_retirement(void) {
+    stop_fixture();
+    static uint64_t dcbaa[256];memset(dcbaa,0,sizeof(dcbaa));xhci.dcbaa=dcbaa;
+    for(unsigned i=0;i<3;i++) {
+        xhci.devices[i]=(struct xhci_device){.present=true,.configured=true,.slot_id=i+1,
+            .port_id=1,.parent_slot_id=i?i:0,.bulk_buffer_phys=0x9000+i*4096};
+        dcbaa[i+1]=0xa000+i*4096;
+    }
+    xhci.devices[3]=(struct xhci_device){.present=true,.configured=true,.slot_id=4,.port_id=2};
+    assert(!xhci_retire_slot(0) && !xhci_retire_slot(5) && !disabled_count);
+    test_space=2;assert(!xhci_retire_slot(1) && !xhci.devices[0].removed);test_space=1;
+    xhci.sync_users=1;assert(!xhci_retire_slot(1));xhci.sync_users=0;
+    for(unsigned i=0;i<3;i++)assert(xhci.devices[i].removed && xhci.devices[i].retiring);
+    xhci.diagnostic_users=1;assert(!xhci_retire_slot(1));xhci.diagnostic_users=0;
+    xhci.poll_users=1;assert(!xhci_retire_slot(1));xhci.poll_users=0;
+    storage_retire_ready=false;assert(!xhci_retire_slot(1));storage_retire_ready=true;
+    struct xhci_network network={.registered=true};xhci.devices[2].network=&network;
+    retire_ready=false;assert(!xhci_retire_slot(1) && !disabled_count);retire_ready=true;
+    disable_auto=true;assert(!xhci_retire_slot(1) && disabled_count==1);
+    assert(!xhci_retire_slot(1) && disabled_count==2);assert(xhci_retire_slot(1));
+    assert(disabled_count==3 && disabled_order[0]==3 && disabled_order[1]==2 && disabled_order[2]==1);
+    for(unsigned i=0;i<3;i++)assert(xhci.devices[i].slot_disabled && !device_by_slot(i+1) &&
+        !dcbaa[i+1] && xhci.devices[i].bulk_buffer_phys==0x9000+i*4096);
+    assert(xhci_retire_slot(1) && disabled_count==3 && !freed && xhci.operational);
+    assert(xhci.devices[3].configured && !xhci.devices[3].removed && device_by_slot(4)==&xhci.devices[3]);
+    assert(!enumerate_port(0)); /* Permanent records block accidental re-enumeration. */
+    stop_fixture();xhci.devices[0]=(struct xhci_device){.present=true,.slot_id=1};
+    disable_auto=true;disable_wrong_slot=true;
+    assert(!xhci_retire_slot(1) && xhci.command_failed && !xhci.devices[0].slot_disabled && !freed);
+    stop_fixture();xhci.devices[0]=(struct xhci_device){.present=true,.slot_id=1};
+    assert(!xhci_retire_slot(1) && xhci.command_failed && !freed);
+    disable_auto=true;assert(!xhci_retire_slot(1) && !disabled_count); /* Late completion cannot recover timeout. */
+    stop_fixture();xhci.max_slots=8;xhci.dcbaa=dcbaa;dcbaa[1]=0xabcdef;
+    xhci.devices[0]=(struct xhci_device){.present=true,.slot_id=1};
+    xhci.event_ring[0]=(struct xhci_trb){.parameter_low=(uint32_t)xhci.command_ring_phys,
+        .parameter_high=xhci.command_ring_phys>>32,.status=1u<<24,.control=1|(33u<<10)|(1u<<24)};
+    assert(!address_device(&xhci.devices[1]) && xhci.command_failed && dcbaa[1]==0xabcdef);
+    puts("xhci-slot: PASS subtree admission, provider drain, leaf-first disable, timeout/identity refusal and retained tombstones");
+}
+static void test_start_reset_boundaries(void) {
+    stop_fixture();halt_after=0;start_status_model=true;
+    static uint64_t dcbaa[256];static struct xhci_erst_entry erst;
+    xhci.dcbaa=dcbaa;xhci.erst=&erst;
+    /* Already-clear HCH plus a rejected Run write used to falsely pass. */
+    *(uint32_t *)(registers+xhci.op_base+XHCI_OP_USBCMD)=0;
+    *(uint32_t *)(registers+xhci.op_base+XHCI_OP_USBSTS)=0;
+    reject_halt=true;assert(!start_controller());reject_halt=false;
+    assert(start_controller());
+    *(uint32_t *)(registers+xhci.op_base+XHCI_OP_USBSTS)=UINT32_MAX;
+    assert(!wait_status_set(XHCI_USBSTS_HCH,true,1) && !start_controller());
+    *(uint32_t *)(registers+xhci.op_base+XHCI_OP_USBSTS)=XHCI_USBSTS_CNR;
+    assert(!start_controller());
+    unsigned writes=halt_writes;assert(!reset_controller() && halt_writes==writes);
+    xhci.stopping=true;assert(!start_controller() && !reset_controller() && halt_writes==writes);
+    xhci.stopping=false;xhci.reclaimed=true;assert(!start_controller());
+    puts("xhci-start: PASS Run readback, CNR/inaccessible refusal and no reset/restart over retained DMA");
+}
 static void test_backing_reclaim(void) {
     stop_fixture();xhci.pci=&reclaim_pci;
     /* Real allocator paths, including multi-page scratchpad metadata. */
@@ -1398,6 +1482,9 @@ int main(int argc, char **argv) {
     assert(argc == 4);
     test_repeated_init();
     test_terminal_stop();
+    test_slot_retirement();
+    test_hub_route_depth();
+    test_start_reset_boundaries();
     test_backing_reclaim();
     test_retired_event_drain();
     test_network_retirement();

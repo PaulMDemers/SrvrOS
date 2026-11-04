@@ -3395,3 +3395,35 @@ All task guests stopped, review VMs preserved. Evidence: `build/review/xhci-recl
 Nine known nested license links remain missing. Managed-USB fault/salvage proof
 is separately owned and does not invoke terminal stop/reclaim; no filesystem,
 process, generic block or installer implementation overlap.
+
+
+### Per-slot retirement and reset/start audit scope
+
+Continue PR317 from `283c097a`; main `a37eb7b2` and open PR scopes inspected.
+Audit per-slot teardown, boot reset/start acknowledgement and restart/re-enumeration
+refusal. Add explicit leaf-first Disable Slot after provider/synchronous/diagnostic
+owner drain, retaining all DMA and published identities until terminal reclaim.
+Fix confirmed startup readback defects and test reset/start failure boundaries.
+No automatic hotplug, tombstone reuse, filesystem/process or generic block edits.
+PR338 managed salvage remains separately owned and does not invoke teardown.
+Preserve review VMs; next checkpoint is host fault tests and disposable Q35 proof.
+
+Implemented `xhci_retire_slot`/`xhcislot`: subtree admission closes before provider
+drain, one child-first Disable Slot per call, exact pointer/slot completion, sticky
+timeout refusal and retained DMA/identity tombstones. Startup now verifies Run
+readback and ready/halted state; reset/start refuse retained/terminal DMA state.
+Malformed duplicate live slots refuse before DCBAA overwrite. Continuing the hub
+audit fixed exhausted route depth aliasing the parent; refuse before child reset.
+
+Normal/Rosetta, GCC14 and ASan/UBSan fixtures, related USB/block/registry hosts and
+kernel compilation pass. Controls restoring old startup and route helpers fail.
+Final Q35 storage+HID run disables each slot twice, records exactly three Disable
+Slot completions, then terminal reclaim frees 23 frames and stays idempotent.
+Post-reclaim input replug and sysabi pass; separate E1000 netabi and full threadstress
+pass. Retained PR313 runtime files used; no complete userspace/native/SMP claim.
+All task VMs stopped; review VMs 61610, 6233, 85869 preserved. Evidence:
+`build/review/xhci-slot/`. Docs: 888 local links, nine known missing nested license
+targets, no new missing target. Runtime restart/re-enumeration and identity recycling
+remain unavailable. Next audit: hub port-change service and endpoint reset/dequeue
+recovery; fresh controller generation/worker and immutable provider policy remain
+prerequisites for any enabling change. PR338 salvage semantics remain independent.

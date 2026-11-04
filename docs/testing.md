@@ -1604,3 +1604,26 @@ separate disposable USB-storage disk copy, invokes terminal stop and bounded
 reclaim until completion, repeats reclaim, then performs input replug and sysabi.
 `--qemu` and `--output` select emulator/log paths. This is terminal DMA retirement,
 not reset/re-enumeration, managed-workspace unmount or physical acceptance.
+
+
+### Explicit xHCI slot retirement
+
+`test-xhci` exercises actual driver helpers with modeled MMIO: subtree admission,
+provider drain, one-command child-first Disable Slot progress, wrong-slot/timeout
+refusal, retained backing, duplicate live slot containment, startup readback and
+hub route exhaustion. Use `xhcislot <1..255>` at the kernel monitor only for an
+explicit retirement trial. `pending-or-unproven` may require retry after progress
+or owner release; no DMA is freed. Retired block/network identities remain offline.
+Neither successful retirement nor `xhci_init` enables runtime re-enumeration.
+
+The disposable Q35 proof can retire slots before whole-controller reclamation:
+
+```sh
+python3 tools/usb_removal_smoke.py --iso /absolute/candidate.iso \
+  --disk /absolute/source.exfat --retire-slots --reclaim --usb-storage
+```
+
+The harness copies both disks, disables each storage/input slot, repeats retirement,
+then verifies terminal halt/reclaim, input unplug/replug containment and sysabi.
+It does not prove managed writable-workspace salvage, live hotplug recovery, native
+hardware or SMP retirement. Keep existing review VMs outside the harness untouched.

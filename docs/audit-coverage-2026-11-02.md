@@ -172,3 +172,16 @@ global writable-media failure visibility is preserved. Exact-once poisoned frees
 combined USB/block/claim tests and QMP storage+HID retirement cover the boundary.
 Per-slot reset/restart, live metadata recycling, physical/SMP acceptance and the
 separately owned managed-workspace fault/salvage proof remain outside this result.
+
+
+### November 3: xHCI per-slot and restart boundary checkpoint
+
+PR317 adds explicit child-first slot retirement after callback/owner drain, one
+Disable Slot per call, with all DMA/identity tombstones retained until terminal
+reclaim. Confirmed stale-Halted startup acknowledgement is fixed; malformed duplicate
+live-slot responses refuse before DCBAA overwrite. Continuing hub review fixed route
+depth exhaustion aliasing the parent's path. Host fixtures cover these boundaries.
+See the [kernel audit](audit-kernel-isolation-2026-11-03.md) for evidence and limits.
+Runtime restart/re-enumeration, fresh generation ownership, hub port-change service,
+endpoint reset/dequeue recovery and physical/SMP acceptance remain open. This is a
+bounded driver checkpoint, not complete codebase coverage.
