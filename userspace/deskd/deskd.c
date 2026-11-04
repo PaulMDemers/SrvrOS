@@ -821,7 +821,7 @@ static void cycle_windows(struct session *s,int reverse,unsigned application) {
 }
 static void cycle_focus(struct session *s,int reverse) {cycle_windows(s,reverse,0);}
 enum global_action { GLOBAL_ABOUT=65536,GLOBAL_SETTINGS,GLOBAL_TEXT,GLOBAL_TERMINAL,GLOBAL_EXIT,
-    GLOBAL_MINIMIZE,GLOBAL_ZOOM,GLOBAL_NEXT,GLOBAL_LAUNCHER,GLOBAL_CALENDAR,GLOBAL_HELP,GLOBAL_NOTIFICATIONS,GLOBAL_FILES,GLOBAL_SYSTEM,GLOBAL_CAPTURE,GLOBAL_FIND,GLOBAL_TILE_LEFT,GLOBAL_TILE_RIGHT,GLOBAL_CENTER,GLOBAL_PREVIOUS,GLOBAL_SAME_APP,GLOBAL_CLOSE,GLOBAL_WINDOW=65792 };
+    GLOBAL_MINIMIZE,GLOBAL_ZOOM,GLOBAL_NEXT,GLOBAL_LAUNCHER,GLOBAL_CALENDAR,GLOBAL_HELP,GLOBAL_NOTIFICATIONS,GLOBAL_FILES,GLOBAL_SYSTEM,GLOBAL_CAPTURE,GLOBAL_FIND,GLOBAL_TILE_LEFT,GLOBAL_TILE_RIGHT,GLOBAL_CENTER,GLOBAL_PREVIOUS,GLOBAL_SAME_APP,GLOBAL_CLOSE,GLOBAL_PROFILES,GLOBAL_WINDOW=65792 };
 static unsigned arrange_shortcut(const struct srv_key_event *key) {
     if(!(key->flags&SRV_KEY_DOWN_EVENT) || (key->flags&SRV_KEY_REPEAT) ||
        !(key->modifiers&SRV_KEY_META) || !(key->modifiers&SRV_KEY_ALT) || (key->modifiers&(SRV_KEY_CTRL|SRV_KEY_SHIFT))) return 0;
@@ -917,7 +917,8 @@ static void global_menu_rebuild(struct session *s) {
     if(!s->scene.apps) return;
     const struct desk_menu_item system_items[]={
         {0,DESK_MENU_HEADING,"SrvrOS",""},{GLOBAL_ABOUT,0,"About SrvrOS",""},
-        {GLOBAL_SETTINGS,0,"Settings",""},{GLOBAL_LAUNCHER,0,"Open application or window…","Cmd-Space"},
+        {GLOBAL_SETTINGS,0,"Settings",""},{GLOBAL_PROFILES,0,"Profiles…",""},
+        {GLOBAL_LAUNCHER,0,"Open application or window…","Cmd-Space"},
         {GLOBAL_FIND,0,"Find Files…","Cmd-Shift-F"},
         {GLOBAL_CALENDAR,0,"Calendar",""},{GLOBAL_TEXT,0,"New Text document",""},
         {GLOBAL_TERMINAL,0,"New Terminal",""},{GLOBAL_HELP,0,"SrvrOS Help","F1"},
@@ -984,6 +985,7 @@ static void global_menu_action(struct session *s,uint32_t id) {
     else if(id==GLOBAL_NOTIFICATIONS) notifications_open(s);
     else if(id==GLOBAL_CAPTURE) capture_request(s);
     else if(id==GLOBAL_FIND) spawn_app(s,DESK_APP_FIND,"");
+    else if(id==GLOBAL_PROFILES) spawn_app(s,DESK_APP_PROFILES,"");
     else if(id==GLOBAL_FILES) spawn_app(s,DESK_APP_FILES,"");
     else if(id==GLOBAL_SYSTEM) spawn_app(s,DESK_APP_SYSTEM,"");
     else if(id==GLOBAL_ABOUT) spawn_app(s,DESK_APP_HELP,"about");

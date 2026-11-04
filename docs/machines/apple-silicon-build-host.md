@@ -1,5 +1,36 @@
 # Apple Silicon macOS build host
 
+## Graphical profile transfer — implementation in progress
+
+User authorized desktop profile export/import with reviewed selections, progress
+and recovery, verified across two disposable installations. Reuse the clean
+`SrvrOS-profile-326-review` checkout on `device/apple-silicon/profile-transfer`,
+based on actual main `c90f3522`. Apps branch `app/profile-transfer` starts from
+`3cf32af2`; UI `9eaaa74e`, Ports `ca749517`. Separate proof-storage work remains
+in `SrvrOS-profiles`; do not modify or include it. Own the new Profiles app,
+fixed-command preview/confirmation adapters, desktop catalog/menu/build wiring,
+focused tests and a new migration proof. Consume existing import/chooser and
+filesystem contracts; authentication and permission enforcement stay separate.
+
+Use existing file-picker/widgets, explicit document selection and a review step.
+Bind confirmation to the exact previewed content before mutation. Local binding
+numbers remain metadata, allocated by the destination rather than imported or
+shown as account/security controls. Imports appear in the next desktop chooser;
+current applications retain their session home. Worker/child ownership survives
+close until mutation finishes. Existing/partial export files and ambiguous import
+state are preserved. No new bundle validator or transaction engine.
+
+Acceptance: full matched build, focused host/sanitizer tests, rendered keyboard
+and pointer interaction including 640 × 480, and graphical export → transport →
+import → chooser → reboot. Exercise invalid/duplicate/changed-preview input,
+interrupted export and import/recovery; verify exact documents/settings/identity,
+local bindings, independent remembered choice, unchanged machine settings,
+transport, installed binaries, allocation and protected regions. One build or VM
+harness at a time. Publish scoped Apps/OS draft PRs in dependency order; merge
+is not requested by this milestone. Primary checkout, review VMs and physical
+media remain untouched. Actions stay disabled. Next: integrate command/app
+workers, run focused checks, then the two-installation proof.
+
 ## PR326 merge review — complete
 
 User authorized review, fixes and merge after passing checks. Review the chooser,

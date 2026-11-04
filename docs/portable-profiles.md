@@ -5,6 +5,24 @@ bundle, validated through two fresh installation fixtures, plus a shared bounded
 HOME/config/data/cache resolver. This is a host executable migration proof, not
 login, guest account switching, cloud roaming or multi-user security isolation.
 
+Current development target: graphical profile transfer, following merged PR326.
+The chooser milestone is complete. The new Profiles app will expose existing
+guest transfer commands through selected-file export, reviewed import and owned
+asynchronous jobs. Main `c90f3522`, Apps `3cf32af2`, UI `9eaaa74e` and Ports
+`ca749517` are the inspected baseline. Authentication and permission enforcement
+remain separate. Completion requires a matched build, focused host tests and a
+rendered two-installation transfer/recovery proof, then scoped draft PRs.
+
+| Transfer state | User decision | Result and correction |
+| --- | --- | --- |
+| Export selection | Choose individual Documents files and a new bundle path | Keep selections editable; show source and destination |
+| Export review | Confirm identity, portable preferences, files/total size and selected-byte consequence | Bind confirmation to previewed bytes; changed input refuses before output creation |
+| Import selection | Choose a bundle and destination-local name | Validate the complete bundle and local collisions before review |
+| Import review | Confirm profile, files/preferences and local destination | Revalidate exact bytes and local binding before using existing transaction |
+| Working | Observe status or request close | Continue rendering and safely wait for owned child completion |
+| Completed import | Finish the current session and select the profile at next desktop start | Existing chooser supplies ready/recoverable/blocked status |
+| Failure or interruption | Correct inputs, choose a fresh export filename, or resume eligible import recovery | Preserve partial output, existing profiles and ambiguous state |
+
 Recovered baseline: `a936baeb4a20ff28304a13252bf20345dee13bf1` from actual
 `origin/main`, November 3, 2026. Independent ordinary clone `SrvrOS-profiles`,
 branch `device/apple-silicon/portable-profiles`. The integration checkout and
