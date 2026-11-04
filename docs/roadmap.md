@@ -6,6 +6,43 @@ and [machine records](machines/README.md) separate implementation from physical
 acceptance. The [device parity ledger](device-parity.md) compares the Air with
 ongoing Pro work.
 
+## Current work closeout — November 4, 2026
+
+The user requested finishing the current non-browser chat scopes, merging only
+verified changes in dependency order, then updating documentation and status.
+Browser work is explicitly exempt and remains ongoing. No deadline or reduced
+acceptance bar is implied. Later CLI queue rows and new feature milestones are
+not part of this closeout.
+
+Current delivery gates:
+
+- Larger-document profiles: finish the corrected source-change fixture and
+  complete GUI, recovery, storage and bounded-memory verification before
+  Apps #11 and OS #367. The first full proof remains failed, not relabeled.
+- GNU Patch: complete strict sidecar validation and the current qualification
+  rerun, independently review, merge Ports #12 then OS #370, and stop the queue.
+- Filesystem GUID selection: close the bounded review/tests and merge OS #366;
+  preserve original media and completed streaming-review evidence.
+- Runtime audit: reconcile and deliver the bounded documentation checkpoint
+  in OS #365; pending browser target review and runtime acceptance stay separate.
+- Installation, application quality and UI portability: verify delivered heads,
+  close any existing documentation-only work and report remaining gaps explicitly.
+
+The integration coordinator owns aggregate status consistency. Topic owners
+retain their evidence and unit records. Heavy compiler/VM/local-model windows
+remain serialized with explicit handoffs and resource reserves. Actions remain
+disabled. Original installations, review-disk evidence and accepted backups are
+retained. The three historical review VM PIDs are now absent; no cause is
+established by this closeout, and no restart is requested. Physical-device PRs
+#301/#19 are being inventoried separately for
+owner reachability and integration gates; no new physical trial is authorized
+by this record. PR #19's proposed syscall 164 conflicts with browser's reserved
+164–167 and cannot merge unchanged; profile streaming reserves 168.
+
+This is an in-progress closeout record, not a claim that pending PRs are merged
+or verified. Final merged hashes and remaining explicit exceptions follow after
+the delivery checks.
+
 ## Automatic CLI queue — November 4, 2026
 
 User authorized the bounded GNU diff milestone, then automatic research,
