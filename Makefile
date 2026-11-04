@@ -4483,6 +4483,7 @@ test-haswell-backing: build/tests/hsw-backing$(HOST_EXE) build/tests/hsw-backing
 	$(PYTHON) -m unittest discover -s tools -p test_hardware_haswell_fences.py
 	$(PYTHON) -m unittest discover -s tools -p test_haswell_backing_audit.py
 	$(PYTHON) -m unittest discover -s tools -p test_haswell_path_audit.py
+	$(PYTHON) -m unittest discover -s tools -p test_haswell_layout_proposal.py
 	$(PYTHON) tools/check_hsw_capture_tail.py --log build/tests/hsw-backing-producer.log --output build/tests/hsw-backing-tail.json
 	$(PYTHON) tools/check_hsw_capture_tail.py --log build/tests/hsw-backing-producer-v2-max.log --output build/tests/hsw-backing-tail-v2.json
 	$(PYTHON) tools/check_hsw_capture_tail.py --log build/tests/hsw-backing-producer-v3-max.log --output build/tests/hsw-backing-tail-v3.json
