@@ -139,6 +139,33 @@ prefix, frozen full-parent/new-trace checker and recovery checks precede a cold
 trial. No DAC/VCO/RX or credentials are included. New native acceptance remains
 pending; preserve the accepted v116 capsule and previous known-good payload.
 
+### v117 installed; cold native evidence pending
+
+Source `1fe64aac`, release `2a03a519eac62cbf`, is installed after matched native
+build/full xHCI regression,211 staging/installer cases, five saved-log groups,
+targeted xHCI/trim ASan/UBSan and exact native stack reports. An independent C
+shared-register-bank trace matches every3767 new request/reply/phase/direction
+record. A synthetic full common/parent/fresh-field/trim prefix is1501524bytes;
+all11578 minimum-poll operations and five malformed whole-prefix refusals pass.
+It is explicitly synthetic, not native acceptance. Disposable real kernel
+exFAT/VFS2MiB write/read/unmount/remount and external fsck pass. Exact staged
+save/readback/clean-unmount/automatic-reset and missing-workspace refusal VMs
+both pass. Firmware packaging is independently reproduced; credentials remain
+unread and unpackaged.
+
+The accepted v116 large USB session was matched byte-for-byte to its sealed
+native capsule, copied/flushed/verified to a separate Ubuntu archive and only
+then pruned from USB so the next collection can bind one new large session.
+Original preflight argument refusal remains recorded; corrected separate extent,
+headroom and writable-admission checks pass. The unreferenced v111 inventory EFI
+copy was retired only after equality with its separately sealed accepted backup;
+v112–v116 and the previous known-good desktop remain available. New source,
+payload, frozen complete-prefix checker, run record and recovery/storage proofs
+are sealed outside build. Ubuntu remains default. The authorized next action is
+cold shutdown,10-second Wi-Fi unplug/reconnect to the same port, power on, and
+automatic save/return. Collect that exact run before staging another. No new
+trim, DAC/VCO/RX, connectivity or sibling-model acceptance is claimed here.
+
 ## Active main integration and native trim scope
 
 Main now owns syscalls159–161 for display modes and162 for pipe messages. Move
