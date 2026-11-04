@@ -1433,6 +1433,28 @@ exec detach within saved exclusion before clear/gen0/cleanup, final exit detach
 adjacent to trap invalidation, and release detach before backing retirement.
 Main pthread_exit retains its session owner/image while retiring its signal records.
 
+## November 4: internal action/state source and host review
+
+The PR334 owner implemented that bounded, initially unwired slice. Independent
+source review found no blocker in the private descriptor/exchange, four-record
+identity/LIFO/range state, INFO cooperative exclusion and lifecycle changes.
+All nine main/worker slots participate in active-record fork/exec refusal before
+allocation or file effects. Legacy/default/spawn/fork/exec paths keep descriptor
+and catch/ignore mirrors coherent. Actual process exit excludes IRQs before record
+cleanup; successful exec and backing retirement clear records before invalidation.
+
+Six independent strict Rosetta/ASan/UBSan module, actual process-wrapper and actual
+image-lifecycle profiles pass. A first lifecycle link omitted the existing VFS
+namespace dependency; corrected builds/executions pass and failed logs remain.
+Evidence with unchanged source and test hashes:
+`build/review/pr334-signal-state-review/results.json`. Privileged state and
+scheduler/paging backends are explicit host models. The declared host layout adds
+3,056 bytes per main/worker state and 1,763,328 bytes across 64 process slots;
+target ABI size verification, no-SIMD/generated-code review and normal VM evidence
+remain pending. Range checks establish shape/overlap only, not a user mapping
+lease or proof of a future serialized frame's complete extent. No production
+signal delivery, public ABI or fused state publication is accepted here.
+
 ## Remaining work
 
 Other long IRQ-disabled operations, including initial/churning PMM scans, heap validation and poisoning,
