@@ -4,8 +4,9 @@ The current target is real threaded signal/register-context support followed by
 a minimal JavaScriptCore execution with exit0 and output42. That target is not
 complete. Public INFO registration, atomic temporary-mask waiting and libc adapters have
 a guest-gated source implementation under target/owner qualification. Normal
-public dispatch remains disabled. The bounded WTF handshake overlay is a source
-candidate, with target compilation and native/conservative-root tests pending.
+public dispatch remains disabled. The bounded WTF handshake overlay compiles,
+but its first actual-WTF guest fails; conservative-root and JavaScript tests
+remain unrun.
 The [public packet](signal-public-v1.md) and [logical I/O supplement](signal-logical-io-v1.md)
 record the reviewed contract and explicit experimental qualification boundary.
 
@@ -63,7 +64,19 @@ boot serial proves no network device/worker before the payload, and the owned
 guest stops. This does not establish general public ABI, SMP or only-root GC
 acceptance. Fresh matched SDK, threaded libc++, RTTI, math, ICU, filesystem and
 runtime-extension builds and normal guest checks pass on the task APFS volume.
-The experimental-overlay JSC rebuild is in progress; its JavaScript smoke is
-still unpassed.
-SrvrPorts also contains an unbuilt actual-WTF suspend/register probe; its register
-and red-zone checks do not establish only-root garbage-collector survival.
+The experimental-overlay no-JIT JSC and actual-WTF, utility and GC-root fixtures
+now compile and link. The owner reviewed the exact prepared seven-case payload
+and cleared its bounded guest experiment. Its first WTF case exits134 after only
+the main-register/red-zone marker; the remaining six cases are not run. An
+unchanged-ELF diagnostic reproduces134 without locating the abort. Original
+failure and diagnostic evidence are preserved, and both owned guests stopped.
+
+The owner independently reproduced a Running-to-Idle TLS-retirement race. The
+new `signal-retirement.patch` retains the worker's TLS/group reference until its
+controller finishes the matching acknowledgement and publishes Idle. Resume
+updates its suspend count before that final publication. The actual destructor
+and resume method pass35 deterministic cases in strict and ASan/UBSan builds;
+the original source rejects both valid posted/consumed acknowledgement schedules.
+The INFO handler is unchanged. This source correction awaits owner review and
+matched target/guest verification; it does not identify the original abort or
+establish only-root GC survival or JavaScript output42.

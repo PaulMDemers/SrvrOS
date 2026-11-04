@@ -3910,3 +3910,29 @@ APFS archive, with their original build path preserved by symlink. Receipt lives
 under `.local/pr334-archive-volume/relocation-receipt.json`; existing protected
 VMs, disks, checkouts and frozen evidence were not changed. Root free space
 recovers above the2GiB reserve; the build volume retains its JSC capacity.
+
+### PR334 actual-WTF failure and retirement candidate
+
+Fresh no-JIT JSC and all three WTF/utility/GC-root fixtures compile and link on
+the task APFS source ee207df0/ports e404d84. Owner-reviewed prepared suite
+`signal-public-qvdnmbic` passes its boot network guards, then the first WTF case
+exits134 after only the main-context marker. Remaining utility, four GC modes
+and JavaScript cases are NOT RUN. Owned QEMU11532 stops; the unchanged-ELF
+diagnostic also reproduces134 but captures no abort location, times out100s and
+stops owned QEMU24675. Original evidence remains frozen. Failure receipt SHA256
+`56459c4a9e956f3e6779d4c5f7a80a63543553cdbda155986030252184543b7b`.
+
+The runtime owner independently reproduces an ordinary C++ Running-to-Idle
+retirement race. After that chat encounters platform system errors, canonical
+implementation ownership returns here; its separate uncommitted candidate stays
+frozen. The new companion `signal-retirement.patch` preserves the previously
+applied overlay and handler, drains only the matching final controller handoff
+before releasing TLS/group ownership, and moves the suspend-count update before
+final Idle publication. No kernel/libc/header changes or capability expansion.
+Actual-source destructor/resume35 cases pass strict and ASan/UBSan; both valid
+posted/consumed schedules fail against the old source as expected. Candidate
+receipt `evidence/retirement-canonical/review-receipt.json` SHA256
+`362124ed2a22dd8b2bb8d8a2cbbca3f1905906b8cca201d85232336a7b66afc3`.
+Owner review, a separate resource handoff, target rebuild and a fresh bounded
+guest remain required. No JavaScript42, GC-only-root, normal capability flip,
+main merge, physical boot or hosted CI acceptance is claimed.
