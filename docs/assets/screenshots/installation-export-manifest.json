@@ -623,6 +623,59 @@
     "kernel/src/vfs.c": "26f77035199d0f6890eef9c4059b6da172b3524d305c51876789b8927170eba5",
     "tools/installation_readonly_host.h": "a44e542bb62d6ba5770ee8c84ee3f221ac67e6cc21523d6a9890e8175989ef1d"
   },
+  "publication_refresh": {
+    "base": "819956bec20ce081a28d042c490504094bc83c10",
+    "base_filesystem_admission": {
+      "allocation": {
+        "clusters": 14941,
+        "errors": 0,
+        "fat_bitmap_mismatches": 0,
+        "files": 367,
+        "leaked": 0
+      },
+      "clean_admission": true,
+      "flushes": 0,
+      "namespace_targets_valid": true,
+      "writes": 0
+    },
+    "changed_filesystem_payloads": {
+      "bin-sysabi": {
+        "after": "e3953b36248f2a900eb744d3ec47b8e03508b5611c7b54e8ffdf3e47a2f032fe",
+        "before": "d86a1163f64df5c72640be69279790659338cf6fc5d0ba40fc29f9bd8c137c22"
+      },
+      "bin/sysabi": {
+        "after": "e3953b36248f2a900eb744d3ec47b8e03508b5611c7b54e8ffdf3e47a2f032fe",
+        "before": "d86a1163f64df5c72640be69279790659338cf6fc5d0ba40fc29f9bd8c137c22"
+      }
+    },
+    "current_base_exfat_sha256": "7325e46d453bd063b8d958f9e0d8fe344da4b9cbc43c25f45540a4ab7bd1d5a2",
+    "documentation_check": "PASS",
+    "documentation_log_sha256": "d05882aabb4a60b3eb0c72dd5cc2a103d93a7b30d49bb77a4f43ba939e2f5574",
+    "filesystem_directory_count": 15,
+    "filesystem_file_count": 367,
+    "host_checks": "PASS: 70 installation tests and one optional skip; profile and guest checks pass",
+    "integrated_source": "ef3aca201913d95a494c54bfb036d93542a739ab",
+    "logs": {
+      "installed-export-refresh-build.log": "0f10ded78bbe387dcc531b6033d8bb8657a8658590afd4af91d3c1cc72952c06",
+      "installed-export-refresh-host.log": "5edd696eda89163e16e7a3463b2c38ac1805bfcba328992c945df19b582aac08"
+    },
+    "matched_build": "PASS",
+    "proof_source_remains": "ca90437a9a1df7e51b68e3dc6480c54100e9e279",
+    "proof_tools_and_native_sources_unchanged": true,
+    "scope": "PR338 adds explicit sysabi managed-salvage fixture and harnesses; PR339/340 app-closure work is harness/docs only. No production kernel/filesystem/profile/installer contract changed.",
+    "unchanged_consumed_artifacts": {
+      "bootx64": "333f7a69379b1f47e019be215885cdc078b9edd6e9255cbe2f706d6c5ec0ef06",
+      "deskd": "340269be9da49c449b2795747a0832a82cd582b383581b05d6252cb850b46c45",
+      "deskterm": "f798f8f56d096ef2b405594251113cc8010a8aebb0dacd56d82336ba1e9030f5",
+      "desktools": "b0415cd6b9c3fd1ea165d7c6307da321d9b768d7863b6951d5b337f3c9c19695",
+      "export_driver": "606d1227895511d00daea1f167b0d807b5ce0f22bb7ac1713f10b3b71611b939",
+      "fs_driver": "7cd305abbe9d38f45f317947b439583ad465eea449e6fd30214a8c20007812c8",
+      "init": "ac3107f6c9866bc9b11128f91424a1fc54ed9c130d30c3d1afd718927f9e35f9",
+      "inspect_driver": "74d6b2ea4a296787a2be44d0226de12d92df7236d16091c1577e2f2abadfd4e9",
+      "kernel": "0d96451a850857b0b3ed19bdecd354a5f81363e4792e27b107c2fc1fe4f38f15",
+      "profile_driver": "5a4165be97737b1862b41324d3cc7e6a4ee67b6deb7ca638e32a5b01bea50198"
+    }
+  },
   "raw_files_verified": 67,
   "raw_receipt_sha256": "bab1b0651b8e7aa88386f8bad0fc3818e0e37c39216f0cfeb2b34383fcda9ab8",
   "review_vms_alive": [

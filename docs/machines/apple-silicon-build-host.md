@@ -9,8 +9,9 @@ Own separate host export command, bounded inherited-read-only-fd document reader
 focused tests, proof and installation docs. Reuse PR336 inspection, strict v1
 portable bundle rules, existing v2 fresh installation plans and integrated clean
 filesystem/profile contracts. No kernel, account, mount, recovery or profile-policy
-implementation; open PR333 desktop transfer and PR338 managed salvage remain
-independent. Export only explicit Documents files and portable identity/settings;
+implementation; PR333 desktop transfer remains independent and PR338's managed
+salvage qualification changes no export policy. Export only explicit Documents
+files and portable identity/settings;
 exclude implicit local/machine/session state. Refuse uncertain source/output
 without replacement; preserve historical receipts. Acceptance is A edit/save/
 reboot, direct stopped-image export, fresh B with different disk/home/local
@@ -32,6 +33,13 @@ Reopened B Text was visually checked. Original current proof targets remain at
 their recorded paths/inodes. Superseded IO images retain exact bytes in verified
 gzip archives with compression manifests; no earlier evidence was discarded.
 Status: proof complete, scoped draft publication; no merge requested.
+
+Final refresh consumes main `819956be`/PR338/339/340. Fresh host checks and matched
+build pass. All consumed artifact/tool/native-source hashes stay identical;
+complete base payload comparison changes only `sysabi` and its legacy alias.
+The new base passes native read-only admission with zero writes/flushes. The
+four-boot proof retains its clean `ca90437a` attribution, with refresh evidence
+recorded separately in the portable receipt and accepted archive.
 
 ## PR338 managed filesystem merge review
 

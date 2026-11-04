@@ -125,6 +125,20 @@ physical-media qualification. Open desktop-transfer PR333 remains independently
 owned; no unmerged profile/UI behavior is consumed. Publish a scoped draft for
 independent review; merge remains separate.
 
+Final publication refresh integrates main `819956be` (PR338 managed-salvage
+qualification and PR339/340 app-closure investigation). Fresh combined host checks
+and matched build pass. No production kernel/filesystem/profile/installer contract
+changes. All ten consumed kernel/init/EFI/desktop/native-driver artifacts, proof
+tools and native source hashes remain identical. A complete comparison of 367
+file payloads and 15 directory names differs only in the explicit `sysabi`
+managed-salvage test executable and its legacy alias (`bin/sysabi`, `bin-sysabi`);
+every other payload and directory name matches. The new base passes native
+read-only clean/allocation/namespace admission with zero writes/flushes. No
+affected four-boot behavior requires rerun; evidence retains clean `ca90437a`
+attribution and records this refresh separately. Refreshed build metadata/logs
+and comparison survive beside the accepted raw proof. PR338 is consumed;
+desktop transfer PR333 stays separate.
+
 ## PR336 integrated-main review and next bounded checkpoint
 
 User authorized review and merge if ready. Reviewed `b3c6a694` against fetched
