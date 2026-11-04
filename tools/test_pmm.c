@@ -24,8 +24,9 @@ static uint32_t rng = 123;
 static uint32_t random32(void) { rng = rng * 1664525 + 1013904223; return rng; }
 static void reset(void) {
     bitmap = bits; frame_tags = tags; bitmap_bytes = sizeof(bits); frame_count = FRAMES;
-    free_count = 0; search_steps = naive_steps = 0;
-    memset(search_hints, 0, sizeof(search_hints)); next_search_hint = 0;
+    free_count = 0; search_steps = naive_steps = hint_steps = 0;
+    memset(search_hints, 0, sizeof(search_hints));memset(run_hints,0,sizeof(run_hints));
+    next_search_hint=next_run_hint=0;
     memset(bits, 0xff, sizeof(bits)); memset(reference, 1, sizeof(reference));
     memset(tag_counts, 0, sizeof(tag_counts));
     memset(frame_tags, PMM_FRAME_RESERVED, FRAMES);
@@ -84,6 +85,36 @@ int main(void) {
     /* A small hole must remain available after a larger request skips it. */
     release(258 * 4096, 1); assert(alloc(2, 0x100000));
     assert(alloc(1, 0x100000) == 258 * 4096);
+    reset();
+    for(unsigned i=257;i<FRAMES;i+=2) {
+        bitmap_set(i,true);set_frame_tag(i,PMM_FRAME_GENERAL);reference[i]=1;
+    }
+    assert(!alloc(2,0x100000));uint64_t failed_scan=search_steps;
+    for(unsigned i=0;i<64;i++)assert(!alloc(2,0x100000));
+    assert(search_steps==failed_scan);
+    printf("pmm-host: fragmented refusal initial=%llu repeated=64 additional=0\n",
+        (unsigned long long)failed_scan);
+    /* Free a bridge: a new valid run can start before the freed frame. */
+    release(257*4096,1);assert(alloc(2,0x100000)==256*4096);
+    assert(alloc(1,0x100000)==258*4096);
+    reset();uint64_t requested=0;
+    /* More sizes than run-cache slots must retain the shared dense frontier. */
+    for(unsigned i=0;i<192;i++) { unsigned n=1+i%12;assert(alloc(n,0x100000));requested+=n; }
+    assert(search_steps<=requested);
+    reset();
+    for(unsigned i=256;i<FRAMES-3;i++) {
+        bitmap_set(i,true);set_frame_tag(i,PMM_FRAME_GENERAL);reference[i]=1;
+    }
+    assert(alloc(1,0x100000)==(FRAMES-3)*4096ull);
+    assert(search_steps<=FRAMES/64+16);
+    reset();uint64_t chunk=alloc(16,0x100000);assert(chunk);
+    uint64_t before_hints=hint_steps;release(chunk,16);
+    assert(hint_steps-before_hints<=PMM_SEARCH_HINTS);
+    reset();
+    for(unsigned i=256;i<FRAMES;i++) {
+        bitmap_set(i,true);set_frame_tag(i,PMM_FRAME_GENERAL);reference[i]=1;
+    }
+    release(319*4096,2);assert(alloc(2,0x100000)==319*4096);
     reset();
     struct { uint64_t address; unsigned count; } slots[128] = {0};
     for (unsigned i = 0; i < 12000; i++) {

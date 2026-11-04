@@ -36,6 +36,8 @@ int desk_chooser_action(struct desk_chooser *c,struct desk_picker_result result,
         return desk_chooser_browse(c)?DESK_CHOOSER_REFUSED:DESK_CHOOSER_NONE;
     if(result.operation!=DESK_PICKER_ACCEPT)return DESK_CHOOSER_NONE;
     if(!selection || c->pending || c->job->busy)return DESK_CHOOSER_REFUSED;
+    if(c->picker->mode==DESK_PICKER_FOLDER && (c->count<0 || !c->picker->listed ||
+       strcmp(c->picker->target,c->picker->directory)))return DESK_CHOOSER_REFUSED;
     struct desk_chooser_selection chosen={.mode=c->picker->mode};
     if(!memchr(c->picker->target,0,sizeof(c->picker->target)))return DESK_CHOOSER_REFUSED;
     if(desk_path_normalize(chosen.path,sizeof(chosen.path),c->picker->target))return DESK_CHOOSER_REFUSED;
@@ -52,6 +54,13 @@ int desk_chooser_finish(struct desk_chooser *c,uint64_t id,int result) {
     if(result>0 && !c->job->response.status)
         c->count=desk_listing_decode(c->entries,c->items,c->details,c->job->incoming,
             c->job->response.length,c->job->response.count);
+    /* Keep decoded metadata stable; the folder view borrows only directory
+     * rows. No widget or UI dispatch path performs filesystem I/O. */
+    if(c->count>=0 && c->picker->mode==DESK_PICKER_FOLDER) {
+        int folders=0;
+        for(int i=0;i<c->count;i++)if(c->items[i].folder)c->items[folders++]=c->items[i];
+        c->count=folders;
+    }
     if(c->count<0 || desk_picker_listing(c->picker,c->job->request.path,c->items,c->count)) {
         c->count=-1;desk_picker_error(c->picker,"Could not read this folder. Check the path and volume.");
         return DESK_CHOOSER_ERROR;

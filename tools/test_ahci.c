@@ -85,7 +85,27 @@ static struct ahci_disk setup(unsigned mode) {
     return (struct ahci_disk){.port=&model,.command_list=&header,.command_table=&table,
         .io_buffer=buffer,.sectors=8,.flush_command=ATA_CMD_FLUSH_CACHE_EXT};
 }
+static unsigned dma_calls,dma_fail,dma_frees;
+static bool dma_live[5];
+static _Alignas(4096) uint8_t dma_pages[5][4096];
+uint64_t pmm_alloc_frame_tagged(enum pmm_frame_tag tag) {
+    assert(tag==PMM_FRAME_DMA);unsigned n=++dma_calls;
+    if(n==dma_fail)return 0;
+    assert(n<=4);dma_live[n]=true;return n*4096;
+}
+void *pmm_phys_to_virt(uint64_t p) { assert(p/4096<=4);return dma_pages[p/4096]; }
+void pmm_free_frame(uint64_t p) { assert(p && p/4096<=4 && dma_live[p/4096]);dma_live[p/4096]=false;dma_frees++; }
+static void allocation_contract(void) {
+    for(unsigned fail=1;fail<=4;fail++) {
+        struct ahci_disk d={0};dma_calls=dma_frees=0;dma_fail=fail;memset(dma_live,0,sizeof(dma_live));
+        assert(!allocate_port_memory(&d));
+        assert(dma_frees==dma_calls-1);
+        assert(!d.command_list_phys && !d.fis_phys && !d.command_table_phys && !d.io_buffer_phys);
+        for(unsigned i=1;i<=4;i++)assert(!dma_live[i]);
+    }
+}
 int main(void) {
+    allocation_contract();
     struct ahci_disk disk=setup(0);
     assert(issue_command(&disk,ATA_CMD_IDENTIFY,0,0,false));
     assert(header.prdt_length==1 && (table.prdt[0].dbc_i&0x3fffff)==511 && current_space==2);

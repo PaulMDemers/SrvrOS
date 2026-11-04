@@ -6,6 +6,9 @@
 #define NET_DEVICE_FRAME_MAX 1514
 struct net_device_link { bool up, full_duplex, duplex_known;uint16_t speed_mbps; };
 /* Register before net_init. The selected provider is immutable for this boot.
+ * Callback context stays valid until net_device_retire reports drained. Names
+ * and MAC metadata are copied; slots/selection remain boot-lifetime tombstones.
+ * Hardware quiescence is a separate prerequisite before reclaiming DMA.
  * All callbacks may run with interrupts disabled and must not block on another
  * thread. send must copy/queue the frame before returning; the caller retains
  * ownership. poll delivers complete frames through net_handle_ethernet_frame and must
@@ -27,7 +30,15 @@ struct net_device_ops {
 };
 bool net_device_register(const struct net_device_ops *ops);
 bool net_device_select(void);
-/* Read-only enumeration; never polls hardware or delivers receive frames. */
+/* CPU0 retirement: identity is the registered (context,send) pair. Blocks new
+ * callbacks immediately; false means unknown identity or references still held.
+ * Retry after callbacks unwind. True is idempotent and releases this
+ * registration's callable context references, not hardware ownership. Retire
+ * every registration sharing a context before freeing it. No failover, slot
+ * reuse or re-registration; identity keys remain opaque tombstones. */
+bool net_device_retire(const struct net_device_ops *identity);
+/* Enumerates without servicing RX/TX or delivering frames. Link callbacks may
+ * read device configuration and quarantine their provider on an access fault. */
 unsigned net_device_inventory(struct srv_net_adapter_info *out,unsigned capacity);
 const char *net_device_name(void);
 const uint8_t *net_device_mac(void);
