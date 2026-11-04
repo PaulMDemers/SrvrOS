@@ -1,5 +1,166 @@
 # Disk installation and recovery
 
+## PR325 integrated-main review and next checkpoint
+
+User authorized review and merge if ready. Candidate `8b4619b6` integrates main
+`4f5edb0e`, including PR323's retained-reader salvage qualification. Main added
+only host fixtures and documentation; no kernel, installed userspace, profile
+policy, installation tool or exercised VM harness changed from the accepted
+`291f469e` proof. Independent implementation review found no material blocker
+within the private, offline, cooperative-writer scope. No submitted correction
+or unresolved review thread was present.
+
+Fresh 35 installation/provenance tests, installed-root admission checks,
+profile/session/preferences checks, 13 bundle groups and seven adapter groups
+pass. A sequential matched full build reproduces every kernel, init, initramfs,
+exFAT, EFI and host-driver hash used by the original proof; its six recorded
+recovery/profile tool hashes also match. The nine CLI interruptions, sixteen
+refusals, two interrupted reconciliations and two persistence boots therefore
+remain valid by exact source/artifact equivalence; no new VM was needed.
+The [review receipt](assets/screenshots/installation-recovery-review.json)
+records the comparison and fresh check logs, preserved outside build cleanup at
+`.local/installation-evidence/pr325-review`. Review VMs 61610, 6233 and 85869
+remain live and untouched. The premature overlapping build invocation is retained
+as history; only the subsequent sequential build is accepted for this review.
+Status: ready for the authorized merge, with process-interruption limits intact.
+
+Next proposed bounded installation milestone: **host publication I/O-failure
+qualification**. Deterministically fail metadata/image writes, file and directory
+syncs, publication links and alias removal on disposable stages. Require a
+non-success result on each failure, exact preservation of source inputs and
+unknown/preexisting state, conservative read-only diagnosis after restart, and
+explicit reconciliation only when the existing verified record and candidate
+still satisfy the complete contract. Record uncertain artifacts without cleanup
+or automatic retry. Qualify both ordinary-v1 and profile-v2 plans, including a
+reconciled-image boot/persistence control if runtime output changes.
+
+Dependencies: PR325's verified journal/identity/locking rules and PR321's v2
+plans; the existing GPT/ESP/root-selection and filesystem allocation checks;
+PR320's pending-import and unknown-scratch refusal rules; and PR322/323's error
+and lifetime boundaries. Their managed dirty-data salvage is a separate path:
+publication must neither clear failure latches nor replay provisioning after an
+ambiguous error. The proposed userspace salvage helper is not a prerequisite.
+This next slice is deterministic host I/O-error qualification, not physical
+media, power-cut durability, authentication, in-place upgrade or automatic
+repair. It is a proposal, not implementation begun by this review.
+
+## Interrupted installation publication — completed proof
+
+User authorized inspect/reconcile implementation, interruption/refusal proof and
+a scoped PR. Branch `device/apple-silicon/install-publication-recovery` uses the
+isolated installation clone, main `0cba30a1` after PR322 landed. Consume PR321's
+version-2 profile plans, PR320's pending-import/unknown-scratch preservation rules,
+and existing GPT/boot/hash validation. PR322 `312f4f15` was inspected before its
+merge: six host fixture/tool/docs files, no production change. It qualifies
+managed workspace failure retention, not host staging recovery or guest faults.
+
+Own installation publication API/CLI, focused tests, new process-interruption
+proof and this record. No kernel/filesystem/profile-policy implementation or
+guest import journal changes. Before publishing image aliases, persist an
+exclusive verified-publication record binding plan/source/target identity and
+the complete output. Inspection is read-only. Explicit reconciliation may link
+only that fully verified output and its canonical ready receipt; it must not
+re-provision data, rebuild GPT or discard unknown state.
+
+| Observed state | Operator action / completion |
+| --- | --- |
+| Prepared | Normal apply is available; no output has been verified |
+| Interrupted without a complete verification record | Preserve evidence and prepare a fresh target; reconciliation refuses |
+| Verified bytes, publication incomplete | Inspect identities/hashes, then explicitly reconcile publication |
+| Ready and unchanged | Inspection/idempotent reconciliation confirms the existing receipt |
+| Changed, torn, unknown or linked outside the stage | Preserve all bytes; refuse publication/reconciliation |
+
+Use one cooperative publisher at a time. Reconciliation must revalidate while
+holding admission before any mutation. Named interruption checkpoints cover
+successful host write/flush/link boundaries; this is process-restart proof,
+not media-error recovery, power-loss atomicity or PR322's managed-retirement
+contract. A guest-modified image is outside unbooted publication recovery and
+must not be relabeled as the original verified output.
+
+Acceptance: fresh CLI processes interrupted at provisioning, assembly and
+publication boundaries; early refusals preserve state, later verified stages
+reconcile, interrupted reconciliation can finish, and repeated reconciliation
+does not mutate a ready stage. Modified inputs/output, torn metadata, symlinks,
+outside hard links and unknown files refuse without cleanup. A reconciled
+profile image must boot, edit/save and reboot with exact profile persistence.
+Exact source, commands, hashes and evidence must survive build cleanup.
+
+Review VMs 61610, 6233 and 85869 remain live and untouched. One build/harness runs
+at a time here; no physical disks, host reboot, Actions or merge request. Status:
+implementation and proof complete; publish a scoped draft for review. The CLI journey uses the existing UX
+recovery guidance: diagnose uncertainty before an explicit corrective action;
+do not imply completion from a timeout or offer destructive retry.
+
+### Publication-recovery contract and evidence
+
+The new `publication.json` is created exclusively and flushed, including its
+directory entry, only after image/GPT/ESP/partition verification and final source
+checks. It binds the original plan hash, sources, target device/inode/UUID,
+candidate device/inode/size/hash, partition hash and exact expected ready record.
+It is an integrity record for an owned offline stage, not authentication.
+
+`inspect` emits JSON with `state`, `can_reconcile` and `reason`. Exit zero means
+diagnosis succeeded, not that an installation is ready. It never writes the
+stage. `reconcile` takes a nonblocking cooperative lock on the stable plan inode,
+rechecks everything, then may publish verified hard-link aliases and canonical
+ready bytes. It never rebuilds GPT or replays provisioning. A matching ready
+stage is idempotent. Unknown files, unsafe links, nonprivate ownership/mode,
+changed sources/output or malformed metadata are preserved and refused.
+Only known duplicate image/ready aliases of the same inode may be removed.
+
+```sh
+python3 tools/installation_image.py inspect .local/installation/profile-a
+# Only when diagnosis reports can_reconcile=true:
+python3 tools/installation_image.py reconcile .local/installation/profile-a
+```
+
+Keep the original stage and sources offline at their reviewed paths. Copying a
+stage changes its identity and is deliberately refused; evidence backups are
+audit copies, not adopted recovery targets. Legacy stages without this tool's
+complete publication record cannot be retroactively reconciled. Once a guest
+writes the image, its original ready receipt remains historical and recovery
+refuses to overwrite or relabel it.
+
+Clean source `291f469e` passes the full matched build and the real-process
+proof below. Every apply/reconcile interruption uses a separate CLI process and
+exit 75 after successful host I/O at a named boundary; no mocked kill is counted.
+
+| Boundary / scenario | Observed outcome |
+| --- | --- |
+| Provisioning-started, provisioned, assembled | Read-only inspection reports incomplete; reconciliation refuses with the complete stage unchanged |
+| Verified, image-linked, image-published, ready-written, ready-linked, ready-published | Reconciliation succeeds using identical candidate bytes; source inputs stay unchanged; repeated reconciliation is idempotent |
+| Reconciliation interrupted after image-linked and ready-linked | Fresh processes diagnose each state and finish publication; no data re-provisioning or image rewrite |
+| 16 altered-state cases | Plan plus checksum, target inode, bundle/driver/kernel/base, GPT/ESP/data, profile image, torn journal, unknown file, symlink, outside hard link and torn/wrong ready records all refuse without mutation |
+| Reconciled profile boots | Two VM lifetimes pass edit/save/reboot/reopen, UUID/local binding, text/binary documents, all six portable settings, machine settings, environment/cwd and app binary checks |
+| Guest-written image | Inspection/reconciliation refuse the changed image after both boots, preserving all bytes and the original ready receipt |
+
+The [portable receipt](assets/screenshots/installation-recovery-manifest.json)
+records boundary states/exit codes, whole-stage snapshot hashes, candidate hashes,
+refusal preservation, restart/idempotency results and both boot readbacks.
+The [reopened document](assets/screenshots/installation-recovery-reopened.png)
+was visually inspected with the existing profile journey. Raw images, source
+snapshots, commands/logs and matched artifacts are byte-verified outside build
+at `.local/installation-evidence/recovery-d86be75i`. All task VMs are stopped;
+original review VMs 61610, 6233 and 85869 remain live and untouched.
+
+Host coverage includes the existing 27 installation/provenance tests plus eight
+recovery groups, including the 18-case ordinary-v1/profile-v2 checkpoint matrix,
+busy locking, private-stage admission, exact ready bytes and malformed candidate
+types. Existing profile/session, 13 bundle groups and seven adapter tests pass.
+Reproduce sequentially with the documented Darwin host compiler wrapper:
+
+```sh
+sh tools/macos/build.sh HOST_CC='python3 build/tooling/darwin-host-cc.py -D_DARWIN_C_SOURCE -Wno-array-bounds' test-installed-root test-profile-desktop check-docs
+sh tools/macos/build.sh -j2 all
+OVMF_CODE=/opt/homebrew/share/qemu/edk2-x86_64-code.fd python3 tools/installation_recovery_smoke.py --ovmf-vars /opt/homebrew/share/qemu/edk2-i386-vars.fd
+```
+
+No power cut, arbitrary write/fsync failure, physical media or guest fault
+injection is qualified. PR322's managed writeback/retirement contract remains
+separate; this tool does not clear its failure latches or PR320's profile import
+markers. Torn metadata and unverified partial output stay untouched. External
+`fsck.exfat` was not run; no automatic repair or in-place upgrade is provided.
+
 ## PR321 integrated-main review and next checkpoint
 
 Final refresh: main advanced to `a8e1fca1` with merged guest profile PR320 during

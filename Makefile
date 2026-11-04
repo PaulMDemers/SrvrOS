@@ -4435,3 +4435,11 @@ test-e1000-init: build/tests/e1000-init-host$(HOST_EXE)
 build/tests/e1000-init-host$(HOST_EXE): tools/test_e1000_init.c kernel/src/drivers/e1000.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-salvage
+test-core: test-salvage
+test-salvage: build/tests/salvage-host$(HOST_EXE)
+	$<
+build/tests/salvage-host$(HOST_EXE): tools/test_salvage.c userspace/lib/src/salvage.c userspace/lib/include/srvros/salvage.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include $< -o $@
