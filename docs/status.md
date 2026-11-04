@@ -18,7 +18,7 @@ hardware qualification.
 | Installation | Export-publication recovery merged in [OS #364](https://github.com/PaulMDemers/SrvrOS/pull/364), `70c3ea0f`; bounded fresh-install restore and exact re-export verified. Owner is idle. See [installation](disk-installation.md). |
 | Desktop applications | Files and Find Contents work merged through UI #6, Apps #12 and [OS #368](https://github.com/PaulMDemers/SrvrOS/pull/368), `88a95f9a`; host, rendered and guest checks pass. Owner is idle. |
 | UI portability | macOS showcase and density milestones delivered; [documentation #371](https://github.com/PaulMDemers/SrvrOS/pull/371), `518175df`, closes the record. Text portability is research only; implementation is deferred. See [portability status](machines/apple-silicon-ui-host.md). |
-| Portable profiles | Creation, migration and session switching are delivered. Larger-document streaming in Apps #11 / OS #367 still requires its corrected changed-review fixture and full integrated guest proof. See [profiles](portable-profiles.md). |
+| Portable profiles | Creation, migration and session switching are delivered. Larger-document streaming in Apps #11 / OS #367 passed the corrected changed-review fixture and still requires its full integrated guest proof. See [profiles](portable-profiles.md). |
 | Filesystem tooling | Explicit partition-GUID selection in OS #366 awaits final current-main native tests and delivery. Original media remains preserved. |
 | Ports | xz and GNU diff are delivered. GNU Patch in Ports #12 / OS #370 passed six guest checks; the corrected miniport example still requires the final data-identity and ports guest checks. Grep and sha256sum are deferred. |
 | Runtime audit | The bounded historical audit checkpoint is merged in [OS #365](https://github.com/PaulMDemers/SrvrOS/pull/365), `db95fc9b`. It does not qualify the ongoing browser experiment. |
@@ -56,8 +56,8 @@ an enclosure designation or CPU family does not establish driver compatibility.
 
 ## Desktop and input
 
-The current desktop is `/fat/bin/deskd`, with twelve applications and a common
-widget library. It has global menus, a launcher, dock, clipboard, context menus,
+The current desktop is `/fat/bin/deskd`, with applications supplied by SrvrApps
+and the shared SrvrUI widget library. It has global menus, a launcher, dock, clipboard, context menus,
 notifications, screenshots, window movement/resizing, maximize and tiling.
 File/image/diagnostic workers keep blocking operations away from event handling.
 

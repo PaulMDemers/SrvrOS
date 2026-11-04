@@ -16,9 +16,10 @@ not part of this closeout.
 
 Current delivery gates:
 
-- Larger-document profiles: finish the corrected source-change fixture and
-  complete GUI, recovery, storage and bounded-memory verification before
-  Apps #11 and OS #367. The first full proof remains failed, not relabeled.
+- Larger-document profiles: the corrected changed-bundle review test passes,
+  including its exact rendered refusal and preserved bytes. Complete the full
+  integrated GUI, recovery, storage and bounded-memory proof before Apps #11
+  and OS #367. The first full proof remains failed, not relabeled.
 - GNU Patch: six guest checks pass (two Patch boots, two diff interoperability
   boots, Terminal and CLI). The shipped miniport caller is corrected; verify
   the final data refresh and ports guest, merge Ports #12 then OS #370, and stop
