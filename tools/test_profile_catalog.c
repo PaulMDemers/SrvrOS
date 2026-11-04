@@ -97,7 +97,9 @@ static cJSON *create_preview(const char *home) {
     char *env[]={NULL};pid_t pid;assert(!posix_spawn(&pid,program,&actions,NULL,args,env));
     assert(!posix_spawn_file_actions_destroy(&actions));assert(!close(fds[1]));
     char out[4097];size_t used=0;for(;;){char chunk[512];ssize_t n=read(fds[0],chunk,sizeof(chunk));
-        if(n<0&&errno==EINTR)continue;assert(n>=0);if(!n)break;
+        if(n<0&&errno==EINTR)continue;
+        assert(n>=0);
+        if(!n)break;
         assert(used+(size_t)n<=4096);memcpy(out+used,chunk,(size_t)n);used+=(size_t)n;}
     assert(!close(fds[0]));int status;assert(waitpid(pid,&status,0)==pid && WIFEXITED(status) && !WEXITSTATUS(status));
     out[used]=0;cJSON *json=cJSON_ParseWithLength(out,used+1);assert(json);return json;
