@@ -103,3 +103,103 @@ entered-user FPU image ownership and fault-free transactional copy. The owner
 explicitly requested these stay as design until that review finishes. The
 existing browser smoke still fails honestly at mandatory `SA_SIGINFO` registration;
 the internal helper slice does not change that result.
+
+## Next-slice source review packet (not approved or implemented)
+
+This replaces the earlier proposed `!scheduler_io_active()`-only admission rule.
+Source references below use the prerequisite tree `af470fff` plus the unwired
+helpers at `1d7c62b6`. Fresh main `b78e3ed5` has no kernel/shared/lib source diff
+from the main prerequisite `89c210db`; PR317's later driver work is separately
+owned and is not implicitly consumed.
+
+### Return routes and proposed transition
+
+| Route | Existing source behavior | Proposed delivery boundary |
+| --- | --- | --- |
+| Common user syscall | `idt.c:167–211` gates cancellation before dispatch, after dispatch and after unsafe-call handoff; its final user transition duplicates `isr_dispatch:315` | Preserve all checks/result writes/handoff; remove only the inner final user transition, then use the common outer boundary |
+| Common user timer/IRQ | `isr.S:157–213` saves the full ISR frame and enters FPU trap handling; `idt.c:240` dispatches IRQ; `irq.c:90–97` handles timer, sends EOI, then may schedule | Finish every callback/EOI and return from inner dispatch before testing admission; revalidate actual current scheduler state after any scheduling round trip |
+| Common CPL0 entry, including a nested timer | No user RSP/SS is guaranteed; FPU uses assembly-local trap storage | No delivery, user-state access or user transition |
+| Direct legacy IRQ1 | `isr.S:97–155` has CS at offset 128, no vector/error pair, and separate FPU enter/exit | No cast or delivery; retain pending until a common return |
+| Direct legacy IRQ0 | `isr.S:77–95` saves only RAX/RDX and bypasses common FPU handling | No delivery; this route is not a full context |
+| Initial entry and fork child resume | `usermode.S:4–94` calls user/FPU entry and constructs/restores an iret frame independently | Leave these entry transitions intact; defer delivery until a common return |
+| Successful exec or terminal exit | Does not return normally to the original common continuation | No use of a stale original frame; lifecycle invalidation remains a separate required implementation |
+| Fault containment or cancellation | Can terminate the thread/process instead of returning | Keep terminal priority; no callback after terminal cleanup |
+
+At entry to `isr_dispatch`, only for a real CPL3 frame, account kernel time and
+mark the current continuation `io_user_safe=false`. Marking only syscall entries
+is insufficient: timer returns can also resume user code while another I/O owner
+exists. At the fully unwound common outer boundary, explicitly exclude interrupts,
+then test scheduler admission before accessing process signal state. Call the
+bounded process operation only if admitted; otherwise retain pending state. End
+with exactly one `scheduler_user_enter()` before normal assembly FPU exit/iret.
+The existing temporary safe/unsafe pair around `scheduler_io_handoff()` remains;
+it grants a scheduling turn after syscall work has unwound, not a signal callback.
+
+The proposed narrowly named scheduler predicate must establish initialized CPU0
+scheduler state, no switching, valid current RUNNING slot with user context,
+`io_user_safe=false`, kernel accounting state, no global I/O owner/depth, and
+current CR3 equal to that slot's actual user address space. It must also identify
+the current scheduler lifetime and selected user-FPU pointer for comparison by
+the caller; it must not infer worker state from the process's initial FPU image.
+The callback cannot allocate, wait, schedule, acquire a service lock or change
+address space. This design intentionally defers under either local or foreign
+I/O ownership: `scheduler_io_wait()` admits its current owner and cannot prove
+zero depth. No predicate may silently release another owner's scope.
+
+`main.c:539` requests LAPIC vector 32, covered by the common stub table and
+`IRQ_VECTOR_BASE` dispatch. This establishes the source route, not guest progress:
+CPU-bound delivery through actual vector 32, deferral under I/O contention and
+continued timer progress still require matched-guest proof before admission.
+The old cancellation host fixture currently calls the inner wrapper directly
+and expects it to enter userspace. It must instead check a still-unsafe inner
+return and exercise the outer boundary, preserving pre/post-call/handoff kills,
+result value, one user accounting transition and no CPL0 callback. Scheduler
+fixtures must refuse each invalid slot/CR3/ownership/admission state.
+
+### Actual saved FPU ownership
+
+`fpu.c:166–182` saves the interrupted user image only on a real CPL3 entry when
+FPU is available, `user_state_loaded` is true and `current_user_state` exists.
+A later false `user_state_loaded` alone proves nothing: initialization, kernel
+state selection and `fpu_switch_kernel_state()` also produce it. The proposed
+accessor therefore needs an internal, stack-lived proof from that successful
+entered-user save, bound to the exact common frame, scheduler lifetime and saved
+user-FPU pointer. No user input can supply that proof. After a scheduler round
+trip, admission must revalidate the same continuation, owner and selected pointer;
+exec/exit or a changed image must invalidate it. Direct/initial/kernel entries
+cannot fabricate this proof. The precise representation is still for owner review.
+
+Snapshot/replace must refuse unavailable, uninitialized, stale, mismatched or
+already-loaded state without mutation, copy exactly 512 bytes with the no-SSE
+profile, and leave FS base and kernel FPU untouched. Restore replaces the saved
+current user image only after private top-record/lifetime validation; the existing
+`fpu_trap_exit()` performs FXRSTOR after C returns. Host rejection/copy tests and
+actual x87/MXCSR/XMM main/worker patterns across timer/syscall/nesting/scheduling
+are required; a compile-only check is insufficient.
+
+### Whole-frame preflight and publication
+
+Hold IRQ exclusion and scheduler admission over the complete nonzero, at most
+1 KiB frame transaction. Validate frame arithmetic, lower-half canonicality,
+red-zone/alignment, no overlap with active frames and the exact saved owner/frame.
+`vmm_entry_for_address()` currently checks PRESENT at every level and intersects
+USER/WRITABLE across all levels, including large-page leaves; use whole-range
+`vmm_user_range_mapped()` before the first store. A present resident writable
+mapping can be accepted; missing, nonwritable or future COW/demand-fault mappings
+must refuse before writing. This proof relies on CPU0 mapping exclusion and no
+mapping-mutating callbacks; owner review must confirm every accepted mapping is
+fault-free and stable over this exact boundary. Hardware memory faults are terminal.
+
+The generic page-at-a-time `copy_user_bytes()` explicitly permits a prefix and
+is not a publication primitive. Only after whole-range validation may a bounded
+scalar copy run without allocation, interrupt reenable or callbacks. Prepare the
+private record and all public bytes before consuming pending state or replacing
+the live return frame. Failed preparation leaves action/mask/pending/frame state
+unchanged. Validate the complete old-action output before registration changes.
+The existing walker does not propagate effective NX: executable handler/trampoline
+checks need an explicit reviewed all-level NX rule and actual execution-protection
+state, rather than treating readable memory as proof of executable admission.
+
+Action publication, nested temporary-mask waits, per-invocation restart sequence
+tracking and image/thread lifecycle remain enabling gates even after this narrow
+source review. No new syscall number or public flag is allocated by this packet.
