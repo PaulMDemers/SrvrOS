@@ -2909,8 +2909,8 @@ test-desktop: test-notices test-time-model
 
 DESKPROFILES_OBJ := $(patsubst %.c,build/%.c.o,$(wildcard userspace/apps/deskprofiles/*.c))
 $(DESKPROFILES_OBJ): USER_CFLAGS += -I $(DESK_WIDGETS_INCLUDE) -I ports/upstream/cjson
-$(USER_DESKPROFILES): $(ZIG) $(USER_CRT0_OBJ) $(DESKPROFILES_OBJ) $(DESK_WIDGETS_A) $(CJSON_OBJ) $(USER_LIB_OBJ) userspace/app.ld
-	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(DESKPROFILES_OBJ) $(DESK_WIDGETS_A) $(CJSON_OBJ) $(USER_LIB_OBJ) -o $@
+$(USER_DESKPROFILES): $(ZIG) $(USER_CRT0_OBJ) $(DESKPROFILES_OBJ) $(DESK_RUNTIME_A) $(DESK_WIDGETS_A) $(CJSON_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(DESKPROFILES_OBJ) $(DESK_RUNTIME_A) $(DESK_WIDGETS_A) $(CJSON_OBJ) $(USER_LIB_OBJ) -o $@
 -include $(DESKPROFILES_OBJ:.o=.d)
 
 DESKCLOCK_OBJ := build/userspace/apps/deskclock/deskclock.c.o
