@@ -355,7 +355,10 @@ reinitialization and broader network/input/display DMA lifetimes remain open.
 Focused storage, process-service/output and VirtIO PCI/block tests pass. AHCI
 and service fixtures pass ASan/UBSan and GCC14; a GCC fixture indentation warning
 was corrected before the final strict pass. Kernel build passes. Evidence is
-under `build/review/dma/`; guest results follow after the rebuilt-kernel checks.
+under `build/review/dma/`. Implementation `01071cfb` passes rebuilt-kernel
+Q35 sysabi and full threadstress with retained PR313 runtime files and disposable
+disks. These guests exercise normal DMA setup/exec paths; deterministic host
+fixtures supply allocation failures and modeled reset/quarantine boundaries.
 General kcalloc and poisoning behavior remain unchanged. Other caller-masked
 initialization sites still require individual publication/ownership review.
 

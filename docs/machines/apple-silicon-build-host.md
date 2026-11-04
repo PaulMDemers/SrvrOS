@@ -3163,3 +3163,8 @@ Continuing PR317 from `4107a6f8`: private exec image zeroing service turns and
 AHCI pre-publication DMA allocation rollback. No content/workspace/close edits;
 filesystem owner notified. Four AHCI OOM sites, init negative control, storage
 quarantine fixtures and host sanitizers/GCC cover the bounded changes.
+
+Implementation `01071cfb` passes the focused host suite, AHCI/service ASan/UBSan
+and strict GCC14, kernel build, Q35 sysabi and full threadstress. Retained PR313
+runtime files were used; all task guests stopped. Broader driver lifetime and
+physical reset/removal acceptance remain open.
