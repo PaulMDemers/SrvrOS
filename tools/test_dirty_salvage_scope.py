@@ -43,3 +43,36 @@ class FaultScopeTests(unittest.TestCase):
     def test_second_boot_refused(self):self.check('second')
 
 if __name__=='__main__':unittest.main()
+
+class DestinationScopeTests(unittest.TestCase):
+    def test_target_graph_and_refusals(self):
+        for kind in ('write','flush','calibrate','reopen','same-system','same-work','outside-target','outside-config','no-work-filter','no-target-filter','second-fault','ordinary','no-target','no-mode'):
+            with self.subTest(kind=kind),tempfile.TemporaryDirectory() as temp:
+                out=Path(temp)/'owned';out.mkdir()
+                system,work,target,cfg,workcfg,variables=[out/n for n in ('system','work','target','target.conf','work.conf','vars')]
+                for path in (system,work,target,cfg,workcfg,variables):path.write_bytes(b'fixture')
+                args=argparse.Namespace(ovmf_vars=str(variables),ovmf='firmware',qemu='never')
+                mode=kind if kind in ('flush','calibrate','reopen') else 'write'
+                number=2 if kind in ('reopen','second-fault') else 1
+                dirty=kind!='ordinary'
+                if kind in ('calibrate','reopen'):cfg=workcfg=None
+                if kind=='same-system':target=system
+                if kind=='same-work':target=work
+                if kind=='outside-target':target=out.parent/'external'
+                if kind=='outside-config':cfg=out.parent/'external.conf'
+                if kind=='no-work-filter':workcfg=None
+                if kind=='no-target-filter':cfg=None
+                if kind=='no-target':target=None
+                if kind=='no-mode':mode=None
+                valid=kind in ('write','flush','calibrate','reopen')
+                with patch.object(proof,'choose_port',return_value=34567),patch.object(proof.subprocess,'Popen',side_effect=NeverLaunch) as launch:
+                    with self.assertRaises(NeverLaunch if valid else RuntimeError):
+                        proof.boot(system,out,number,args,other_disk=work,dirty_salvage=dirty,work_fault_config=workcfg,target_disk=target,target_fault_config=cfg,destination_mode=mode)
+                    if valid:
+                        command=launch.call_args.args[0]
+                        drives=[command[i+1] for i,v in enumerate(command) if v=='-drive']
+                        filters=[d for d in drives if 'blkdebug:' in d]
+                        self.assertEqual(len(filters),2 if kind in ('write','flush') else 0)
+                        self.assertFalse(any(str(system) in d for d in filters))
+                        self.assertEqual(len(drives),5)
+                    else:launch.assert_not_called()

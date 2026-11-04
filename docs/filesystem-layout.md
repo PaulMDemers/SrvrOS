@@ -3,6 +3,26 @@
 Updated November 3, 2026. Global activation follows the explicit namespace proof
 in [PR308](https://github.com/PaulMDemers/SrvrOS/pull/308).
 
+## Installed-root destination-writeback qualification — in progress
+
+User authorized this bounded proof on main `10890eed`, with PR317 coordination
+and preservation of review VMs 61610, 6233 and 85869. Use the isolated filesystem
+checkout and sequential matched builds/harnesses. Scope: guest sysabi proof,
+fixture-owned third target, host calibration/fault rules and scope guards;
+no process/syscall/block/driver implementation changes planned. PR317's ongoing
+hardware-stop/provider audit remains independent.
+
+Review fault placement before runtime: a separate fresh calibration image records
+exclusive empty destination creation writes via QMP. Counted blkdebug write
+states admit that creation and the next dirty-marker write before failing a
+subsequent write, or arm a flush EIO after allocation begins. Require the actual
+CLI to report stage=flush, all 12,289 accepted bytes, retained uncertain artifact
+and unchanged source descriptor/offset/data; open refusal is not a pass. Then
+explicitly copy to healthy installed storage and verify after controlled restart,
+retaining global reboot refusal. Preserve failed target images without repair.
+Next checkpoint: local rule probe and scope guards, matched build, then separate
+write and flush guest cases and ordinary canonical-path regression.
+
 ## PR329 merge review and next bounded milestone
 
 User authorized review and merge if ready. Reviewed `05905122` against actual
