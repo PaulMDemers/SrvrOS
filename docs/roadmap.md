@@ -39,9 +39,11 @@ separate from target PTY evidence, not a claim that the upstream runner works
 in the guest. Two clean target CLI builds are byte-identical (ELF SHA-256
 `65b16e3ff879ca892f9d9cd45c8f22b8881cc22b31accdae7691f18f619a7f4c`);
 whole-image reproducibility is not claimed. Existing `tools/ports_smoke.py` passes, including guest fsck with zero leaks,
-FAT errors or filesystem errors. The bounded milestone is complete. Draft PRs are open: [SrvrPorts #8](https://github.com/PaulMDemers/SrvrPorts/pull/8)
+FAT errors or filesystem errors. The bounded milestone and current-main merge review are complete: [SrvrPorts #8](https://github.com/PaulMDemers/SrvrPorts/pull/8)
 and [SrvrOS #346](https://github.com/PaulMDemers/SrvrOS/pull/346). Merge dependency
-order is port first, OS second after review; neither is merged.
+order is port first, OS second. Current-main `83e5d1ad` requalification on clean
+commit `1fa90b8c` passes matched build, guest PTY/held-open pipe signal gates,
+actual graphical Terminal and ports/fsck regressions. PR state records delivery.
 Only concrete shared blockers are coordinated with integration.
 
 ## Installed-desktop migration — delivered November 3, 2026

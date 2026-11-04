@@ -3688,3 +3688,30 @@ preserved read-only. No production fix, physical trial or hosted Actions. PR317
 reports no conflict; all review guests stopped and VMs 61610/6233/85869 remain
 untouched. The [filesystem contract](../filesystem-layout.md) records the ready
 review and next proposed read-only uncertain-media inspection milestone.
+
+
+### less current-main merge review — November 3, 2026
+
+User authorized review and dependency-order merge of SrvrPorts #8 and SrvrOS
+#346. Current OS main `83e5d1ad` was merged in this separate checkout. Conflict
+resolution preserves main's deskprofiles staging and installation diagnostics
+alongside less staging and its probe build target. Independent port and resolved
+OS diff reviews found no blocker in the bounded profile. Hosted checks are not
+configured for these PRs; acceptance uses the recorded local checks.
+
+Clean committed source `1fa90b8c` passes the matched build and a new guest PTY
+probe at `build/review/less/20261103-234145-i5g8tfsn/receipt.json`, including
+repeated blocked-read Ctrl-C and exact restoration before held writer EOF.
+The rerun graphical walkthrough at `build/review/less-terminal/` passes; expert
+inspection confirms new report rows after resize and the restored usable shell.
+The original graphical evidence is preserved at `build/review/less-terminal-initial/`.
+Current build/review details are in `build/review/less-merge/`; the current runtime
+ELF hash matches the earlier accepted payload. The original two clean CLI ELF
+build proof and host-only upstream fixtures remain historical evidence for the
+unchanged port. Fresh ports regression passes, including guest fsck with
+`leaks=0 fat=0 errors=0`. Both PRs are accepted for the authorized port-first,
+OS-second merge; linked PR state records the delivery result.
+
+No shared libc/kernel change or concrete shared blocker was found. The integration
+checkout and review VM remain untouched. This record is documentation only;
+implementation acceptance remains tied to clean tested commit `1fa90b8c`.
