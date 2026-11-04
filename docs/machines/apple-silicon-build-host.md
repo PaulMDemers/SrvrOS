@@ -1,5 +1,31 @@
 # Apple Silicon macOS build host
 
+## Desktop profile chooser — proof complete
+
+User authorized the desktop chooser, installation-local remembered selection
+and recovery status with two disposable VM installations. Isolated checkout
+`SrvrOS-profiles`, branch `device/apple-silicon/profile-chooser`, consumes merged
+main `4f5edb0e`, Apps `3cf32af2`, UI `9eaaa74e` and Ports `5e994f53`. Own startup
+chooser/catalog, local choice persistence, shared read-only guest recovery
+preflight, host tests and the new proof harness. Existing import ownership,
+filesystem writeback/salvage policy, authentication and permission enforcement
+remain separate. Installation publication recovery PR325 is independently owned.
+
+Clean implementation `3f9c225a` passes the full matched build, focused host checks
+and 14 VM lifetimes covering independent remembered choices, guest migration,
+640 × 480 interaction, interrupted import recovery and blocked-state preservation.
+Prior unchanged code also passes the desktop host suite and ASan/UBSan. The
+legacy installed desktop and installation-profile regressions pass. Exact source,
+receipt, screenshots, limits and reproduction are in
+[portable profiles](../portable-profiles.md#desktop-chooser-milestone--complete-for-review).
+Evidence and matched artifacts are byte-verified outside build cleanup at
+`.local/profile-chooser-evidence/proof-3zcf8_ih/`; earlier failed proof attempts
+remain retained. Final acceptance changes only documentation/screenshots.
+
+All task VMs are stopped. Review VMs 61610, 6233 and 85869 remain running and
+untouched, with the primary checkout preserved. No physical media, reboot,
+Actions or merge requested. Delivery is a scoped draft PR for review.
+
 ## PR321 merge review
 
 Final candidate `d0910498` consumes newer main `a8e1fca1` and PR320's guest import

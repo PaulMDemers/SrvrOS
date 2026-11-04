@@ -669,12 +669,14 @@ existing review VMs and the primary checkout remain untouched. Hosted Actions
 remain disabled; the recorded local checks are the authorized merge gate.
 
 
-## Desktop chooser milestone — in progress
+## Desktop chooser milestone — complete for review
 
 Authorized target: desktop-start profile selection, installation-local remembered
 choice and recovery status, proved on two disposable VMs. Branch
 `device/apple-silicon/profile-chooser` starts from merged main `b9ac7435`
-(profile installation plans PR321). This topic owns catalog/selection persistence,
+(profile installation plans PR321), and integrates main `4f5edb0e` through PR323.
+The newer main changes add filesystem tests/documentation without changing the
+runtime policy consumed here. This topic owns catalog/selection persistence,
 startup chooser, read-only recovery validation, host tests and VM proof. It
 consumes the existing profile import and startup contracts. Authentication and
 permission enforcement remain separate.
@@ -705,3 +707,87 @@ build or VM harness runs at a time in this checkout. Completion requires rendere
 interaction, independent remembered choices/reboots, missing/invalid selection
 handling, ready/pending/blocked recovery status, preserved machine settings and
 reviewable changes with source-matched evidence.
+
+### Selection and recovery contract
+
+The catalog is installation-local under `/fat/home`. It considers completed
+profile markers and sibling import journals, including a journal whose HOME has
+not been created yet. Entries show their display name, local home and Ready,
+Recovery needed or Unavailable status. Invalid identities, missing bundles,
+ambiguous UUIDs/home casing, incomplete discovery and overflow refuse selection.
+The scan is bounded to 4,096 directory entries and 16 displayed profiles. Names
+follow the existing portable format's printable ASCII contract. Keyboard and
+pointer navigation work at 640 × 480 logical pixels and larger supported modes.
+
+`/fat/home/.desktop-profile` stores a versioned record of UUID, exact local HOME
+and CRC32. It is local convenience/integrity metadata, never authentication or
+permission authority. Opening revalidates the profile before writing an exclusive
+temporary file, syncing, checking the previous record, renaming and syncing the
+parent. A save error offers Continue anyway or Stay here. A late sync failure can
+leave the new record visible; the UI truthfully says persistence was not confirmed.
+An existing unknown temporary file is preserved for inspection. Explicit
+`--profile=HOME` overrides the remembered choice without changing it.
+
+Recovery is an explicit action using the existing guest CLI. Revalidation,
+recovery and selection writes run in a worker while the chooser keeps processing
+input and rendering. Returning to the console waits visibly for active work to
+finish; it never kills or abandons a mutating child. Recovery success rescans and
+requires a separate Open desktop action. Unreadable intent and ambiguous
+pre-marker scratch remain preserved for manual inspection under PR320's rules.
+No concurrent-writer or power-loss recovery guarantee is added. Profile metadata
+and local UID/GID bindings retain their existing semantics; authentication and
+permission enforcement remain separate work.
+
+### Acceptance and evidence
+
+Clean runtime source `3f9c225a504830580440488b41c267bdf9992d72` passes the matched
+full build, 16 guest CLI host groups and the production catalog's real-filesystem
+tests. Earlier unchanged provider/CLI code also passes ASan/UBSan, existing
+profile/session/preferences tests, the desktop host suite and seven real image
+adapter groups. Six installation-profile groups pass after preserving display
+names in offline provisioning.
+
+The fresh proof passes 14 VM lifetimes across two disposable installations and
+their fault/small-screen copies: guest export and migration, forced chooser,
+independent saved choices and reboot restoration, explicit override, missing,
+stale and corrupt selections, genuine 640 × 480 pointer/keyboard interaction,
+interrupted import recovery, and blocked-state console return. It verifies exact
+documents/binary bytes, all six portable preferences, installation-local bindings,
+unchanged machine settings/transport, matching installed binaries, protected
+GPT/boot regions, and clean guest/offline allocation checks. External
+`fsck.exfat` is not part of this proof.
+
+Blocked-state comparison checks all 397 namespace entries and 396 metadata rows:
+all payloads and ownership/mode/inode fields remain unchanged except four exact
+background `svscan: webd waiting dependency` log lines and their timestamps; six
+ordinary access times advance. Raw before/after snapshots and hashes are retained.
+This distinguishes normal filesystem observation from profile mutation without
+excluding profile, journal, choice or machine-settings bytes.
+
+[Portable proof manifest](assets/screenshots/profile-chooser-manifest.json),
+[small-screen chooser](assets/screenshots/profile-chooser-small.png),
+[recoverable import](assets/screenshots/profile-chooser-recovery.png), and
+[blocked import](assets/screenshots/profile-chooser-blocked.png) are committed for
+review. The images were visually inspected, including the complete recovery
+status label. Full evidence: `build/review/profile-chooser/proof-3zcf8_ih/`, receipt
+SHA256 `3fd65ce67376ab6a9e6ca9929d4abccb735f8820fd61b57b15761552873172bc`.
+Logs: `build/profile-chooser-build-final.log`, `build/profile-chooser-host-final.log`
+and `build/profile-chooser-vm-final.log`. Byte-verified full evidence and matched
+artifacts are also archived outside build cleanup at
+`.local/profile-chooser-evidence/proof-3zcf8_ih/`.
+
+The ordinary no-profile legacy installed-desktop regression also passes at
+`e32ee17e`, evidence `build/review/installed-disk/proof-v6yp3fyg/`. Subsequent
+runtime changes only widen chooser label rectangles. Earlier failed harness runs
+are retained with verified lossless image compression: they exposed an incorrect
+requested-versus-actual resolution assumption, stale serial matching, and an
+overbroad whole-partition equality assertion. The final proof uses actual
+framebuffer dimensions, ordered serial cursors and the strict comparison above.
+
+Reproduce with a matched `make all`, `make test-profile-chooser` and
+`python3 tools/profile_chooser_smoke.py --ovmf-vars PATH`; configure `OVMF_CODE`
+and QEMU for the host. On Apple Silicon use `tools/macos/build.sh` for the full
+build and the host compiler setup in the macOS development guide. Run one build
+or VM harness at a time. All task-owned VMs are stopped. Existing review VMs,
+the primary checkout and physical media remain untouched; Actions stay disabled.
+Delivery is a scoped draft PR, with merge left for the requested review step.
