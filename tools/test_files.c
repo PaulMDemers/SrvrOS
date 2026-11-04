@@ -133,14 +133,15 @@ static void transfer_tests(void) {
     }
     init();choose(12);unsigned before=started;activate(TOOL_COPY_TO);assert(!t.prompt_mode && started==before);
     choose(5);t.entries[t.table.body.selected].size=DESK_FILE_COPY_BYTES+1;activate(TOOL_MOVE_TO);assert(!t.prompt_mode && started==before);
-    for(int status=0;status<4;status++) {
+    for(int status=0;status<5;status++) {
         init();choose(5);activate(TOOL_COPY_TO);desk_text_buffer_set(&t.prompt.text,"/fat/dest",9);accept();
         if(status==0) finish_status(DESK_FILE_EXISTS);
         if(status==1) finish_status(DESK_FILE_CHANGED);
         if(status==2) finish_status(DESK_FILE_BUSY);
         if(status==3) finish_status(DESK_FILE_IO);
+        if(status==4) finish_status(DESK_FILE_INVALID);
         assert(!t.transfer_action && !t.transfer_folder[0] && !t.file_select_name[0]);
-        assert(strstr(t.status,status==0?"destination already contains":status==1?"changed":status==2?"open":"outcome is unknown"));
+        assert(strstr(t.status,status==0?"destination already contains":status==1?"changed":status==2?"open":status==3?"outcome is unknown":"transfer path is unavailable"));
         activate(TOOL_REFRESH);listing(0);assert(t.table_rows[t.table.body.selected].id==5 && !strstr(t.status,"File copied"));
     }
     init();choose(5);activate(TOOL_MOVE_TO);desk_text_buffer_set(&t.prompt.text,"/fat/dest",9);accept();

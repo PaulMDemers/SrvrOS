@@ -152,7 +152,7 @@ def main():
                 # Refusals leave the source selected; refresh and prompt again to prove it.
                 prompt('c');target('/fat/transfer-collision');qmp.key('ret');wait(b'file-result role=files op=7 status=2')
                 shortcut('ctrl-r');wait(b'file-result role=files op=3 status=0')
-                prompt('c');target('/fat/no-such-transfer-folder');qmp.key('ret');wait(b'file-result role=files op=7 status=1')
+                prompt('c');target('/fat/no-such-transfer-folder');qmp.key('ret');wait(b'file-result role=files op=7 status=5')
                 shortcut('ctrl-r');wait(b'file-result role=files op=3 status=0')
                 prompt('c');target('/fat/transfer-dest');prompt_button(1)
                 wait_all([b'file-result role=files op=7 status=0',b'files-location path=/fat/transfer-dest '],90);shot('copied-selected')
@@ -166,7 +166,7 @@ def main():
                 shortcut('alt-left');wait(b'files-location path=/fat/transfer-source ')
                 shortcut('ctrl-r');wait(b'file-result role=files op=3 status=0')
                 # Source still exists after copy and collision. Move it to a fresh folder.
-                text('payload');prompt('m');target('/fat/transfer-dest-moved');qmp.key('ret');wait(b'file-result role=files op=5 status=1')
+                text('payload');prompt('m');target('/fat/transfer-dest-moved');qmp.key('ret');wait(b'file-result role=files op=5 status=5')
                 # Return to destination and move the selected copy into the collision-free source
                 # after deleting neither file: use a second empty folder created by fixture.
                 shortcut('alt-right');wait(b'files-location path=/fat/transfer-dest ')
