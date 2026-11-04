@@ -3629,3 +3629,23 @@ ASan/UBSan profiles plus full target kernel/codegen pass. Source is being sent
 for independent review before matched regression guests. No production caller,
 signal/action/copy/public ABI or WTF change is included. The user target remains
 incomplete; large JSC resources/window are still pending.
+
+
+### PR334 signed thread-ID exhaustion correction
+
+The process owner assigned exclusive process_thread_create_impl ownership for a
+reproduced counter defect. Actual-source ordinary/private route negative controls
+at the previous process code both publish one active worker and return
+-9223372036854775808 when next_thread_id is INT64_MAX+1. Retained baseline source,
+fixture and logs are in `build/signal-context/thread-id-negative-control/` and
+`process-thread-ids-baseline-*.log`. The bounded correction validates the positive
+signed range2–INT64_MAX under saved IRQ exclusion before slot/TLS/allocation,
+permitsMAX once, retains exhaustion and returnsEAGAIN unchanged afterward.
+No image-reset, signal or unrelated admission change is included. Ordinary and
+private actual-source tests cover0/1/MAX/MAX+1/UINT64_MAX, successful real modeled
+TLS mapping/publication atMAX, subsequent exhaustion with a free slot, complete
+parent/allocation/publication preservation and both inherited IRQ states. Strict
+Rosetta and ASan/UBSan pass; existing service suite and target build are being
+checked before independent source/host review. No guest boundary-ID claim yet.
+Session scope163 is reserved by the separate runtime owner; PR334 allocates no
+signal syscall number and does not edit that owner's lifecycle hooks.

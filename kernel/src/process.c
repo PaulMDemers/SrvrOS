@@ -3416,6 +3416,12 @@ static int64_t process_thread_create_impl(uint64_t entry, uint64_t arg, uint64_t
     }
 
     uint64_t irq = process_irq_save();
+    /* Thread IDs are positive signed syscall results. Exhaustion is permanent
+     * for this image; never publish a worker whose ID looks like an error. */
+    if (process->next_thread_id < 2 || process->next_thread_id > (uint64_t)INT64_MAX) {
+        process_irq_restore(irq);
+        return SRV_ERR_AGAIN;
+    }
     struct process_user_thread *thread = NULL;
     for (uint64_t i = 0; i < PROCESS_MAX_USER_THREADS; i++) {
         if (!process->user_threads[i].used) {
@@ -3429,9 +3435,6 @@ static int64_t process_thread_create_impl(uint64_t entry, uint64_t arg, uint64_t
     }
 
     uint64_t tid = process->next_thread_id++;
-    if (process->next_thread_id < 2) {
-        process->next_thread_id = 2;
-    }
 
     /* Reserve before allocation can yield to a second creator. */
     *thread = (struct process_user_thread){ .used = true, .owner = process };

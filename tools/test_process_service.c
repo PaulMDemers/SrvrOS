@@ -538,4 +538,5 @@ int main(void) {
      * must not end an ownership scope it never acquired. */
     reset();available=false;observed=NULL;clear_process(p);assert(!depth && !ends && !yields && begins==1);
     free(p);puts("process-service: PASS private publication, batched mapping retirement, inherited gate, fallback and refusal ownership");
+    return 0;
 }

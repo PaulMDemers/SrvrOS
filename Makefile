@@ -4563,3 +4563,11 @@ build/tests/fpu-init-mask-host$(HOST_EXE): tools/test_fpu_init_mask.c kernel/src
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -mno-sse -mno-sse2 -mno-mmx -mno-80387 -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
 test-core: test-fpu-init-mask
+
+.PHONY: test-process-thread-ids
+test-process-thread-ids: build/tests/process-thread-ids-host$(HOST_EXE)
+	$<
+build/tests/process-thread-ids-host$(HOST_EXE): tools/test_process_thread_ids.c tools/test_process_service.c kernel/src/process.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include $< kernel/src/vfs_namespace.c -Wl,--gc-sections -o $@
+test-core: test-process-thread-ids
