@@ -6800,3 +6800,39 @@ inherit this release's physical acceptance. Next is resolving remaining fence
 coverage and swizzle/lifetime prerequisites through source audit and bounded
 read-only evidence. Prior RC6 timing failure and valid-zero package C3 remain
 unchanged; no graphics writer or ordinary adoption is enabled.
+
+### Fence/swizzle prerequisite audit in progress (2026-11-03)
+
+Consume main `5634cd9d` and its actual recursive pins; native acceptance stays
+with `baaa94b5` / `e98aed0c5f8d06cf`. PR301 at `5287fa13` remains open and owns
+Broadwell capture/scanout lifetime; this task does not modify its driver or gates.
+The bounded objective is to resolve Haswell fence-count/pitch and inherited
+swizzle interpretation from pinned primary sources and the accepted raw receipt,
+then specify the smallest justified next read-only experiment. Intended changes
+are this unit record, the Haswell audit guide and host-only arithmetic/fixtures.
+No register allowlist, power policy, ownership or capture limit is widened by
+this audit. A new native run requires separately justified controls and the full
+matched build/stage/VM/recovery sequence; no reboot is currently armed.
+
+### Fence/swizzle host audit complete (2026-11-03)
+
+The [prerequisite audit](../macbookair6-1-tiled-backing-audit.md#inherited-fenceswizzle-prerequisite-audit-2026-11-03)
+re-decodes the accepted native receipt. Full display field 14:13 is `00`;
+CPU/aperture and GT controls remain unobserved. Linux preserves inherited tiled
+swizzle policy from the display field, but this is not cross-path consistency
+or ownership proof. Exact `0a26` device-info tracing confirms Linux's Gen7
+32-fence model; the Intel 16-row discrepancy remains explicit and no upper-row
+allowlist is introduced. Native fence pitch agrees under both references, but
+its 16 MiB coverage is not proof of a 16 MiB allocated/live object.
+
+The GT control at `0x4030` requires render forcewake in the pinned Haswell access
+model and stays deferred. The smaller proposed experiment captures raw CPU
+`TILECTL=0x101000` twice, outside that forcewake table, retaining all current
+checks and limits. Its native two-PTE-page layout fits the existing ten-map
+ceiling; a three-page layout must refuse rather than relax the ceiling. Raw
+TILECTL interpretation remains separate from the generic PRM field and Linux's
+prefetch-bit label. No backing pixels, power controls or scanout ownership are
+added. Host tests exercise reserved display values, unchanged authority refusal,
+fence-count/extent ambiguity and next-capture map capacity. This audit does not
+prepare or arm another physical boot; implementing/validating that narrowly
+scoped readout remains the next step. Native RC6/package-C3 limitations persist.
