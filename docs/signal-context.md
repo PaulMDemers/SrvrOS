@@ -707,3 +707,56 @@ all paths/hashes as independent APFS copy-on-write snapshots; unrelated disks
 and VMs are untouched. Final guest qualification is with the owner. JSC's last
 required-success result remains status134 without42; proof and signals are the
 next required implementation, not an acceptance claim from these checks.
+
+
+## Entered-user FPU snapshot/consume at 2a3b1a89
+
+The owner independently accepted this bounded source/host/codegen candidate.
+Only common entry reserves592 bytes and mints a private64-byte owner witness
+after the actual user FXSAVE/kernel switch and before ordinary query effects.
+The entry query reports the selected kernel/user FPU, lifetime/image/root/FS/stack
+without requiring post-dispatch accounting; return validation retains its strict
+unsafe/kernel/no-I/O gates. Operations derive the witness address before following
+the association, re-resolve process/worker ownership, and perform active-root
+no-store preparation. Snapshot copies exactly512 bytes into a resident typed
+private kernel object after full live-frame/FPU-object alias checks. Consume is
+one-shot. Direct IRQ paths remain unchanged; exit clears matching association
+before restoring user hardware with no subsequent C calls.
+
+Read-only actual CR4.OSFXSR=1, OSXSAVE=0 and EFER.FFXSR=0 are required before
+minting and on operations. Denial grants no proof and leaves refused operations
+unchanged. No CPU policy is changed; unsupported inherited legacy FPU behavior
+is not repaired or accepted. The [review packet](fpu-user-trap-proof.md) specifies
+all bounds and trusted-caller residency/lifetime requirements. CPU0 IF0 same-
+continuation use does not provide an NMI/SMP observer contract.
+
+Strict Rosetta and ASan/UBSan real-FXSAVE host fixtures pass x87/MXCSR/XMM15,
+save-before-query with query SIMD clobber, nested/direct and short-CPL0 protected
+frames, A→B→A, owner/image/root mismatch, stale-pointer/canonical/alias refusals,
+consume/replay and independent entry/post-entry CPU-policy denial. Critical
+save/restore host functions exclude sanitizer prologues; operation validation
+is instrumented and guard pages remain. The actual pinned-Zig full kernel builds.
+Target disassembly verifies integer-only pre-save work, save before the only
+ordinary entry query, complete fields/state before association publication,
+zero common-exit calls and the unchanged direct IRQ macro. Owner independently
+reran four FPU/scheduler host profiles and verified all20 source/artifact hashes.
+Host/codegen receipt `build/signal-context/fpu-proof-host-codegen-receipt.json`,
+SHA256 `881a9b6d5940b48b9f0c02457d42a0aa8f6372c796cff4c16c5345fb55bd0794`.
+
+Matched guest passes main and worker nonempty x87, distinct control/MXCSR/all16
+XMM patterns, selected GPRs, FS/TLS and RSP preservation through an inline yield
+and busy-loop window with global timer/preemption progress. Counters do not
+attribute an exact interrupt to each asm interval. Same-guest QMP records CR4
+0x620 and EFER0xd00, satisfying the proof policy. Full unchanged threadstress,
+sysabi/fault reaping and OVMF throttled AHCI/USB typing/cancellation/copy/fsck/
+three-relaunch/timeout-quarantine fixtures pass. All17 original selected apps are
+byte-verified against retained artifacts; the kernel is fresh and two probe apps
+are supplemental. Combined receipt `build/signal-context/fpu-proof-vm-receipt.json`,
+SHA256 `202b4ee99bbbd1cd638df96143002f16608c2d1d931e608a3581a3f23da8c6f1`.
+All task guests stopped, protected review guests remain live, and original ISO/
+review outputs are restored. Final guest qualification is with the owner.
+
+No production snapshot/consume caller, saved-image replacement, transactional
+user-frame copy, signal ABI/delivery/return or WTF context adapter is provided by
+this candidate. Those remain required before a new minimal no-JIT JavaScript
+smoke can pass. The latest required-success JSC result remains134 without42.

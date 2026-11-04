@@ -3605,3 +3605,16 @@ register/TLS/preemption plus unchanged thread/sysabi/I/O guests are the next
 qualification. Source is not yet independently accepted. JSC's latest required
 smoke remains134 without42; delivery/return and WTF integration remain required.
 Large JSC allocation remains held for the installation owner's resource window.
+
+
+The entered-user proof at `2a3b1a89` now has independent owner source/host/codegen
+acceptance and matched main/worker all16-XMM/x87/MXCSR/GPR/FS/TLS/RSP preservation,
+full threadstress, sysabi and OVMF storage-contention regression passes.
+[Exact evidence and limits](../signal-context.md#entered-user-fpu-snapshotconsume-at-2a3b1a89)
+include host/codegen receipt `881a9b6d…0794` and combined VM receipt
+`202b4ee9…c6f1`. Task guests stopped; protected review VMs preserved. Final guest
+qualification is with the owner. No replacement, production consumer or signal
+ABI/delivery/return/WTF adapter exists yet. Last JSC smoke remains134 without42.
+Resource/window request for eventual8GiB JSC build is pending; no large build has
+started. Fetched main `f7ec75e7`; no process/scheduler/VMM/FPU overlap since the
+recorded integration base was found, and main was not merged.
