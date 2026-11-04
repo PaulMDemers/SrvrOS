@@ -69,10 +69,14 @@ branch and draft PR, with ABI/delivery review before implementation and retained
 process/VMM/teardown integration review. The isolated `SrvrOS-signal-context`
 checkout, branch `device/apple-silicon/browser-signal-context`, merges main
 `89c210db` with PR317 `c9f4f306` as `af470fff`. [Draft PR334](https://github.com/PaulMDemers/SrvrOS/pull/334)
-contains design commits `8c8dc952` and `76d70a49`, including independent review
+contains design commits `8c8dc952`, `76d70a49` and `d71c254c`, including independent review
 invariants and the JSC handshake failure rule. It contains no signal/runtime
 implementation yet. PR310 must consume the reviewed dependency; its code remains
-separate. The managed-worktree tool rejected the nested-repository workspace,
+separate. The remaining JavaScript gate is the agreed owner's ABI/delivery
+review followed by the shared primitive implementation and its host/VM tests;
+PR334 proposes a bounded first slice but enables no signal feature. The minimal
+JavaScript smoke remains failed and this startup milestone remains incomplete.
+The managed-worktree tool rejected the nested-repository workspace,
 so a separate local checkout was used without changing the integration checkout.
 Matched SDK/runtime/ICU rebuild now passes. All 17 combined runtime cases pass
 in `build/browser-runtime/guest-_liv6x0k/receipt.json`, including both new TLS/GOT
