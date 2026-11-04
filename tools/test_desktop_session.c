@@ -600,7 +600,7 @@ static void supervised_shutdown_policy(void) {
     global_menu_action(&s,GLOBAL_SWITCH_PROFILE);assert(s.exiting && s.end_action==DESKTOP_SESSION_SWITCH);
     waited_status=137;service(&s);assert(s.exiting && s.children[0]==42); /* no wait result yet */
     alive=0;service(&s);
-    assert(!s.exiting && !s.end_action && !s.children[0] && s.child_errors==1 && strstr(s.scene.notice,"app exited with an error"));
+    assert(!s.exiting && !s.end_action && !s.children[0] && s.child_errors==1 && strstr(s.scene.notice,"an app failed"));
     global_menu_action(&s,GLOBAL_SWITCH_PROFILE);assert(s.exiting); /* acknowledged prior failure is not sticky */
     s.children[0]=42;waited_status=0;service(&s);assert(s.exiting && !s.children[0]);
     s.exiting=0;s.children[0]=42;waited_status=17;service(&s);assert(!s.exiting && !s.children[0]);
