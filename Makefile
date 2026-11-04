@@ -4430,3 +4430,11 @@ test-profile-chooser: test-guest-profiles build/tests/profile-catalog-host$(HOST
 build/tests/profile-catalog-host$(HOST_EXE): tools/test_profile_catalog.c userspace/deskd/profile_catalog.c userspace/deskd/profile_catalog.h userspace/deskd/profile_startup.h userspace/lib/src/desk_preferences.c
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include tools/test_profile_catalog.c userspace/lib/src/desk_preferences.c -o $@
+
+.PHONY: test-salvage
+test-core: test-salvage
+test-salvage: build/tests/salvage-host$(HOST_EXE)
+	$<
+build/tests/salvage-host$(HOST_EXE): tools/test_salvage.c userspace/lib/src/salvage.c userspace/lib/include/srvros/salvage.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include $< -o $@

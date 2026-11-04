@@ -33,11 +33,11 @@ def main():
     files=['tools/test_exfat_import.c','kernel/src/fs/exfat.c','kernel/src/vfs.c','tools/test_exfat_import.py','kernel/src/block_claim.c','kernel/include/srvros/block.h','kernel/include/srvros/exfat.h']
     files+=['kernel/src/vfs_namespace.c','kernel/include/srvros/vfs_namespace.h','tools/test_vfs_namespace.inc']
     compiler=shlex.split(os.environ.get('CC','cc'))
-    command=compiler+['-DSRVROS_EXFAT_HOST_TEST','-std=c11','-O1','-g','-Wall','-Wextra','-Werror',
+    command=compiler+['-DSRVROS_EXFAT_HOST_TEST','-idirafter',str(ROOT/'userspace/lib/include'),'-std=c11','-O1','-g','-Wall','-Wextra','-Werror',
         '-ffunction-sections','-fdata-sections','-I',str(ROOT/'shared/include'),'-I',str(ROOT/'kernel/include'),
         str(ROOT/files[0]),str(ROOT/files[2]),str(ROOT/'kernel/src/vfs_namespace.c'),'-Wl,-dead_strip' if platform.system()=='Darwin' else '-Wl,--gc-sections','-o',str(exe)]
     if args.process or args.workspace_writeback or args.workspace_salvage:
-        files+=['tools/test_process_writeback.c','kernel/src/process.c','kernel/src/workspace.c','tools/test_workspace_writeback.inc','tools/test_workspace_salvage.inc','tools/test_process_salvage.inc']
+        files+=['tools/test_process_writeback.c','kernel/src/process.c','kernel/src/workspace.c','tools/test_workspace_writeback.inc','tools/test_workspace_salvage.inc','tools/test_process_salvage.inc','userspace/lib/src/salvage.c','userspace/lib/include/srvros/salvage.h']
         command[len(compiler):len(compiler)]=(['-arch','x86_64'] if platform.system()=='Darwin' else [])+['-DSRVROS_EXFAT_PROCESS_TEST','-I',str(args.limine_include.resolve()),str(ROOT/'tools/test_process_writeback.c')]
     if args.sanitize: command[len(compiler):len(compiler)]=['-fsanitize=address,undefined','-fno-sanitize-recover=all']
     subprocess.run(command,check=True,cwd=ROOT)
