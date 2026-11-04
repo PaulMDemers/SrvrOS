@@ -6,6 +6,36 @@ and [machine records](machines/README.md) separate implementation from physical
 acceptance. The [device parity ledger](device-parity.md) compares the Air with
 ongoing Pro work.
 
+## Desktop profile creation — in progress
+
+Target: create the first portable profile directly in the startup chooser or
+Profiles application, then select it after reboot and migrate it to another
+QEMU installation. The completed installed-desktop migration milestone below
+remains delivered.
+
+The profiles chat owns the creation UI, guest transaction and recovery proof;
+the installation chat reviews reuse of the existing installed-image migration
+contracts. The integration coordinator independently reviews source, rendered
+states and retained artifacts, then merges SrvrApps before SrvrOS when ready.
+Reuse UUID/binding, capacity, publication and recovery rules; preserve legacy
+sessions, existing homes and machine-local settings. Authentication and permission
+enforcement are separate milestones.
+
+Required acceptance: normal creation with a fresh UUID and default portable
+preferences; invalid/duplicate/capacity refusals without unintended mutation;
+interrupted creation and explicit recovery; remembered selection after reboot;
+selected document and full identity/preferences migration into a second
+installation with a distinct local binding. Verify both desktop entry points,
+keyboard/error states and the supported small-screen layout. Retain exact-source
+build/proof receipts and independent final filesystem readback.
+
+Current integration baseline is `83e5d1ad`. Work reuses the isolated
+`SrvrOS-migration-review` checkout on
+`device/apple-silicon/profile-create-review`; no overlapping builds or VM
+harnesses. Existing review VMs and migration evidence remain preserved. Next:
+review the proposed creation transaction and finite installed proof before
+implementation qualification. No creation acceptance is claimed yet.
+
 ## Installed-desktop migration — delivered November 3, 2026
 
 The coordinated QEMU milestone is complete. A used installed desktop can export

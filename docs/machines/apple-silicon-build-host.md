@@ -1,5 +1,17 @@
 # Apple Silicon macOS build host
 
+## Desktop profile creation — integration review in progress
+
+Coordinator reuses `SrvrOS-migration-review` on
+`device/apple-silicon/profile-create-review`, based on `83e5d1ad`. Own roadmap,
+independent creation/recovery/reboot/migration review and final merge; profiles
+owner implements guest/chooser/SrvrApps changes and retains the exact-source proof.
+Installation owner reviews the existing A/B installed-image integration contract.
+No parent runtime edits or VM launched. Preserve active review VMs, prior accepted
+migration evidence and other owners' work. Scope is QEMU desktop creation and
+migration, not physical media, authentication or permission enforcement. Actions
+remain disabled. Acceptance and next action are in the roadmap's creation target.
+
 ## Graphical profile transfer — qualified for review
 
 User authorized the Profiles app, reviewed export/import and disposable two-VM
