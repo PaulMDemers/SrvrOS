@@ -3,7 +3,7 @@
     "build/userspace/bc.elf": "d73a1833b7550a7d15c4a084ba4305cf2386a035be6fd3600d9048f699708895"
   },
   "build": {
-    "built_at": "2026-11-04T03:36:28.458536+00:00",
+    "built_at": "2026-11-04T03:39:19.466554+00:00",
     "hashes": {
       "build/initramfs.tar": "77bace8107f8c684b3f3442dfb2780c5920252e894fef59514bb848118afe07b",
       "build/kernel/srvros.elf": "dd8bc16783c75c5e393867e715464a49cc793a8def717caeea422a6a84c01367",
@@ -12,7 +12,7 @@
     "repositories": {
       ".": {
         "dirty": false,
-        "head": "c813f078b54c3f2ba82c1574f24a9512dde5fc61",
+        "head": "13a0ca82305eca964fddeba68a133283eaf8c410",
         "status": "",
         "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "untracked": {}
@@ -96,7 +96,7 @@
       }
     },
     "schema": 1,
-    "source": "c813f078b54c3f2ba82c1574f24a9512dde5fc61",
+    "source": "13a0ca82305eca964fddeba68a133283eaf8c410",
     "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "worktree_dirty": false
   },
@@ -104,22 +104,42 @@
     "build/userspace/sysabi.elf"
   ],
   "checks": {
-    "build/profile-transfer/build-integrated-bc-main.log": "c9099a78bb98def7a749ba2aca4c8e10648201fea82464a798e38d4cf5a10019",
-    "build/profile-transfer/host-integrated-bc-main.log": "6682b757e7bb6c79bb7599b7762dd116f3b97900f111207ca2293049d5239a1d"
+    "build/profile-transfer/build-integrated-installer-main.log": "7682dc046f518e0e57a3f7e858e9d69ef1761ffb4b0ce8cb060f01cd48259c38",
+    "build/profile-transfer/host-integrated-installer-main-corrected.log": "da4d333edd4d5dcccffb58ab790bdcfbf48ea51a541feb6eca7f82ce41d6f8b3"
   },
-  "checks_result": "Matched all build and profile chooser/catalog, profile desktop, desktop, fsync and documentation checks PASS",
+  "checks_result": "Matched all build and profile chooser/catalog, profile desktop, desktop, fsync, installed-root/export and documentation checks PASS; installation unittest discovery: 70 pass, 1 optional skip.",
+  "corrected_invocation": {
+    "corrected_log": "build/profile-transfer/host-integrated-installer-main-corrected.log",
+    "initial_log": "build/profile-transfer/host-integrated-installer-main.log",
+    "issue": "test-installation-export is not a Make target; corrected to test-installed-root, which includes the exporter suite."
+  },
+  "host_image_helper_comparison": {
+    "changed_functions": [
+      "main"
+    ],
+    "method": "All top-level function names and ASTs compared against f2360267; only main differs.",
+    "proof_consumed_functions_unchanged": true
+  },
   "independent_audit": {
     "path": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-migration-review/.local/migration-review/gui-audit.json",
     "sha256": "e839399dd8a669b45e04ab19efeba26a1256bedebe4d35f22aedffd8147fc6ac",
     "status": "PASS"
   },
-  "integrated_main": "7ef140ef3c6c7e8c88736cd4491064d11cad81e8",
+  "integrated_main": "a64661e91734a5b316a46762ffd5d2cf7cfb9379",
   "limits": [
     "Original 19-lifetime GUI proof remains attributed to f2360267; no new GUI VM run claimed on the integrated source.",
     "Authentication and permission enforcement remain separate.",
     "No physical media, real power-loss acceptance or external fsck.exfat qualification."
   ],
-  "matched_source": "c813f078b54c3f2ba82c1574f24a9512dde5fc61",
+  "matched_source": "13a0ca82305eca964fddeba68a133283eaf8c410",
+  "previous_integration": {
+    "checks": {
+      "build/profile-transfer/build-integrated-bc-main.log": "c9099a78bb98def7a749ba2aca4c8e10648201fea82464a798e38d4cf5a10019",
+      "build/profile-transfer/host-integrated-bc-main.log": "6682b757e7bb6c79bb7599b7762dd116f3b97900f111207ca2293049d5239a1d"
+    },
+    "integrated_main": "7ef140ef3c6c7e8c88736cd4491064d11cad81e8",
+    "matched_source": "c813f078b54c3f2ba82c1574f24a9512dde5fc61"
+  },
   "proof_backup": {
     "archive_sha256": "4d7a2cda45b1742b643e8ec3a66c3f71b632ef44fc441ed6862d334df6a5bd41",
     "manifest": ".local/profile-transfer/final-proof-yuylqeu1/manifest.json",
@@ -707,7 +727,7 @@
     }
   },
   "schema": "org.srvros.profile-transfer-integration.v1",
-  "source_scope": "Since proof, kernel/shared/desktop/profile/app/widget sources and proof tools are unchanged; userspace changes only add an independent sysabi salvage test.",
+  "source_scope": "Guest kernel/shared/desktop/profile/app/widget sources and profile proof scripts unchanged; userspace changes only add independent sysabi salvage diagnostics. The host installation_image.py CLI main dispatcher adds export-profile; all other top-level function ASTs, including prepare/apply/verification/publication, are identical to the GUI proof source.",
   "status": "PASS",
   "unchanged_payloads": 143
 }

@@ -15,11 +15,14 @@ byte-verified outside `build` in `.local/profile-transfer/final-proof-yuylqeu1/`
 The portable-profile guide and committed screenshot manifest record exact hashes,
 checks, preservation and qualification limits.
 
-Latest main `7ef140ef` is integrated after proof. Clean source `c813f078` passes
-a fresh matched build and focused checks. Of 144 payloads, 143 are identical;
+Latest main `a64661e9` is integrated after proof. Clean source `13a0ca82` passes
+a fresh matched build, focused checks and installed-root/export suite (70 pass,
+one optional skip). Of 144 payloads, 143 are identical;
 only sysabi diagnostics change and bc is added. Profile/GUI/proof-tool sources
 are unchanged. The committed integration receipt preserves both source
-attributions and all hashes. Apps PR6 precedes OS PR333.
+attributions and all hashes. Host image helper functions used by the proof are
+unchanged; only its CLI export dispatcher is added. Apps PR6 has merged first;
+OS PR333 is ready for the coordinator.
 The coordinator owns independent combined review and merging; hold these merges.
 The installation owner separately proves offline used-image export and fresh
 restoration. Preserve the primary checkout and review VMs 6233/61610/85869. No

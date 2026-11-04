@@ -1000,3 +1000,14 @@ The [integration receipt](assets/screenshots/profile-transfer-integration.json)
 records all payload hashes, current pins, checks and independent review evidence.
 The coordinator owns independent Apps-first/OS-second merging and the installation
 owner's subsequent combined installed-desktop proof.
+
+Main then advanced to `a64661e9` with the separately qualified host offline-export
+workflow. Clean source `13a0ca82` passes another matched build and focused
+profile/catalog/desktop/fsync checks, plus installed-root/export checks (70 tests
+pass; one optional exhaustive matrix skipped) and documentation checks. The same
+143 runtime payloads remain identical. The image helper only adds its CLI export
+dispatcher: all other top-level function ASTs, including the preparation and
+publication functions consumed by the GUI proof, are identical. The integration
+receipt records this final main, source, build, pins and corrected check invocation.
+Apps PR6 has merged first; the coordinator owns the final OS333 merge and combined
+installation proof.
