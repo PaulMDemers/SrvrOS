@@ -75,6 +75,11 @@ The source trigger order is pinned; the one-second observation bound is diagnost
 policy, not a Linux RF-lock criterion. Self-clear and final word restoration do
 not establish analog calibration or usable reception. The separate per-channel
 VCO after held band/synth/gain/BBP remains pending, as do security and IP.
+Pro11,2 v119 `ace4b3dcaa85e353`/`11689cfa` is installed after exact-image VM,
+sanitizer, full-prefix/parser and storage/recovery checks. Its physical result
+is pending collection; latest native acceptance remains v118. See the unit
+record for the separately unaccepted bc VM allocation anomaly; it does not
+substitute for or relax this capture's storage checks.
 
 ## 5GHz RF band-selection foundation
 

@@ -28,9 +28,12 @@ calibrated RX, populated discovery/reattach, authentication and IP remain pendin
 Prior v117 `2a03a519eac62cbf`/`1fe64aac`, session
 `session-00065f693a903b08-00`, remains accepted for its1501530-byte/11578-operation
 fresh-trim/held-channel contract. Its154-file capsule and separate notes are
-retained independently. No new boot is armed; next implement the separately
-audited common VCO lifetime after fresh trim/DAC proof, preserving the separate
-per-channel VCO/calibration ordering and cold-unplug requirement.
+retained independently. Next installed candidate is v119 `ace4b3dcaa85e353`,
+runtime `11689cfa`, main `7ef140ef`: one common VCO trigger with fresh trim44,
+six timed observations and independent trim restoration only after self-clear.
+Collect `build/bringup/wifi-vco5-native/return_collect.py` FIRST after return.
+It remains physically unaccepted. Separate held-channel VCO/calibration and
+cold-unplug requirements remain; ordinary startup does not enable this trial.
 
 Previous native v116 `466528fc7669566e`, runtime `c3088243`, main `1dad02c2`,
 passes the complete1063627-byte prefix in matching session
@@ -12141,3 +12144,35 @@ The updated image/build,213 staging groups and targeted native read/command/
 delay-owner refusal checks pass. xHCI/VCO ASan/UBSan and exact native compiler
 stack reports pass; disposable real2MiB exFAT/VFS write/read/unmount/remount/fsck
 also passes. These remain host checks; no new physical acceptance is claimed.
+
+### v119 installed; cold trial pending
+
+Runtime `11689cfa`/release `ace4b3dcaa85e353` passes exact staged save/readback/
+clean-unmount/automatic-reset and missing-workspace refusal VMs. Independent
+firmware packaging and the built kernel match the staged image. The complete
+1520120-byte synthetic parent/VCO trace passes11774 operations and five malformed
+whole-prefix refusals; this is synthetic, not native acceptance. Engine/native
+ASan/UBSan passes; exact native engine stack frame is1144bytes. Source/fixtures,
+frozen checker, payload, run record and recovery checks are sealed outside build
+in `wifi-vco5-native-11689cfa`. Before install, the accepted v118 large session
+was byte-compared, independently archived/verified and pruned from USB. The
+unreferenced v113 EFI copy was retired only after full equality with its sealed
+accepted backup. v114–v118 and e47d previous recovery remain installed; Ubuntu
+default is verified. Cold shutdown requires10seconds Wi-Fi unplug while off,
+same-port reconnection and power-on; retain workspace drive. Progress, save and
+Ubuntu return are automatic. Collect before any next candidate; no photos.
+
+Extra baseline CLI qualification is separate: SQLite and jq pass their VM
+workflows/persistence and strict filesystem checks on a disposable independent
+alias fixture. All369 source file names/bytes are verified;182 immutable aliases
+are copied before an initial clean fsck. Initial missing-probe/alias refusals
+remain preserved. The bc workflow/output/signal checks pass, but its second-boot
+offline allocation check finds one leaked cluster despite a clean guest check.
+The disk, receipts and traces survive in the12-file sealed
+`wifi-vco5-bc-allocation-failure-11689cfa` archive. A comparison requiring root
+unmount refuses because `/fat` is busy; it is not a passing retry. Cause remains
+unresolved, and bc is not accepted here. No native USB is involved in these VM
+failures. Filesystem, VFS, bootlog/workspace-log and AHCI code are byte-identical
+to accepted v118 source `4dd9cfd5`; native Wi-Fi capture does not run bc and keeps
+its own2MiB log, offline USB, full-prefix and recovery gates. Do not promote this
+isolated Wi-Fi trial into ordinary filesystem or CLI acceptance.
