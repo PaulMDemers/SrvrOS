@@ -1033,6 +1033,65 @@ main was merged. No process/VMM/filesystem/generic block edits overlap PR334 or
 managed late-flush work. Continuing the audit leaves generic class recovery,
 physical TT failure scheduling, multi-TT/USB3 and restart generations open.
 
+## Class-report recovery and restart refusal checkpoint
+
+Three confirmed HID defects are fixed. Mouse parsing used endpoint packet capacity
+instead of actual transferred bytes, so short absolute reports could manufacture
+coordinates from the zeroed DMA tail. Short keyboard reports skipped input release
+and retained held-key/repeat state. Relative mouse reports were deduplicated like
+absolute state, dropping repeated equal movement deltas.
+
+Transfer dispatch now checks the accepted class minimum (keyboard 8, relative 3,
+absolute 5). Incomplete successful transfers increment class errors, cancel only
+that device's input/repeat and absolute baseline, then rearm the healthy endpoint.
+Mouse parsing receives actual length. Relative deltas are delivered on every
+accepted report; absolute state retains deduplication. This changes no event ABI,
+endpoint recovery command, provider identity or DMA reclamation rule.
+
+Actual-driver host fixtures deliver every length below each minimum, require
+keyboard release and repeat cancellation, no fabricated mouse event, local pointer
+cancellation, a fresh poll, repeated relative movement and valid-report recovery.
+Published storage, registered network, ambiguous bulk and unsupported trackpad
+recovery must refuse without commands, allocation or state changes. Inspection of
+BOT/network/trackpad failure paths found no further confirmed restart defect in
+this bounded pass: ambiguous transport ownership stays quarantined, and normal
+ECM link changes do not reset/replay a failed endpoint.
+
+Restart fixtures preserve the whole controller model, DMA/free accounting,
+provider count, worker/probe flags and discovery/MMIO counters at failed handoff,
+partial initialization, outstanding worker retirement, each reclaim batch and
+completed reclamation. Public initialization remains one-attempt, and terminal
+private start/reset refuses. These tests qualify refusal and retained identity;
+new-generation controller/provider restart remains unimplemented.
+
+Evidence: `build/review/xhci-class-restart/`. Initial fixtures reproduce short-HID
+and relative-dedup failures. Three private negative controls remove keyboard
+cancellation, bypass mouse short-report cancellation or restore relative dedup;
+each fails its intended regression assertion.
+
+
+Final normal/Rosetta, strict GCC14 and ASan/UBSan xHCI fixtures pass, with related
+pointer/mouse ABI/VirtIO input, USB storage/block-retirement and network registry
+hosts; kernel compilation passes. Rebuilt-kernel Q35 nested/routed EP0 and input
+recovery, new input, child-first retirement and 27-frame reclaim pass. Separate
+storage+HID retirement/reclaim/replug, E1000 netabi and full threadstress guests
+pass. Guests use a private read-only source disk clone with recorded SHA256;
+retained runtime fixtures are not a complete current-userspace rebuild. Malformed
+HID reports are injected deterministically in the actual-driver host fixture,
+not by physical hardware or the QEMU device. Task guests stopped; review VMs
+61610/6233/85869 preserved. Documentation check: 894 local links, nine known
+missing nested-license targets; no new missing link. Main `5ed7f015` inspected at
+publication (new less integration; xHCI/fixture unchanged), not merged into the
+existing `1f177761` integration base. Evidence: `build/review/xhci-class-restart/`.
+
+Continued isolation review independently checked PR334's unwired kernel-mapping
+preparation helper at `439d274d`: source plus strict Rosetta and ASan/UBSan fixtures
+pass. Its active-root path is a byte-identical no-store check; inactive publication
+follows complete registry validation. This accepts no live lifecycle wiring or
+signal delivery. Foreground worker spawn was separately confirmed to retain the
+parent worker association while switching the process binding; PR334 owns its
+bounded refusal fix and guest reproduction. No process/VMM edits overlap PR317.
+
 ## Remaining work
 
 Other long IRQ-disabled operations, including initial/churning PMM scans, heap validation and poisoning,

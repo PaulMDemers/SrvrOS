@@ -490,18 +490,22 @@ void mouse_trackpad_get_settings(unsigned *speed,unsigned *options) { *speed=3;*
 uint64_t mouse_overflow_count(void) { return 0; }
 static unsigned injected, pointer_injected, pointer_canceled, net_wakeups,usb_mouse_cancels,last_usb_mouse;
 static uint8_t usb_mouse_buttons;
+static unsigned usb_mouse_events;static int32_t last_usb_dx,last_usb_dy;
+static void assert_restart_refused(bool terminal);
 void net_notify_rx(void) { net_wakeups++; }
 static struct trackpad_motion last_pointer;
 void mouse_inject_trackpad(int32_t x,int32_t y,uint8_t buttons) {
     pointer_injected++; last_pointer=(struct trackpad_motion){.dx=x,.dy=y,.buttons=buttons};
 }
 void mouse_cancel_trackpad(void) { pointer_canceled++;mouse_inject_trackpad(0,0,0); }
+static unsigned keyboard_release_reports;
 void keyboard_inject_hid_report(const uint8_t report[8], struct keyboard_hid_state *state) {
     (void)state; assert(report[2]==4 || report[2]==0); if(report[2]==4)injected++;
+    if(!memcmp(report,(uint8_t[8]){0},8))keyboard_release_reports++;
 }
 void mouse_inject_event(int32_t x,int32_t y,uint8_t buttons) { (void)x;(void)y;(void)buttons; }
 void mouse_inject_usb(unsigned source,int32_t x,int32_t y,uint8_t buttons) {
-    (void)x;(void)y;last_usb_mouse=source;usb_mouse_buttons=buttons;
+    usb_mouse_events++;last_usb_dx=x;last_usb_dy=y;last_usb_mouse=source;usb_mouse_buttons=buttons;
 }
 void mouse_cancel_usb(unsigned source) {last_usb_mouse=source;usb_mouse_buttons=0;usb_mouse_cancels++;}
 void mouse_inject_trackpad_tap(uint8_t button) { tap_injected++;last_tap=button;mouse_inject_trackpad(0,0,button);mouse_inject_trackpad(0,0,0); }
@@ -1398,7 +1402,7 @@ static void test_shared_tt_cleanup(void) {
 static void test_hid_cancellation(void) {
     struct xhci_device *d=control_fixture();static uint8_t report[8]={1,0,0};
     d->hid_mouse=true;d->interrupt_buffer=report;d->interrupt_max_packet=8;
-    handle_hid_mouse_report(d);assert(last_usb_mouse==0 && usb_mouse_buttons==1);
+    handle_hid_mouse_report(d,8);assert(last_usb_mouse==0 && usb_mouse_buttons==1);
     d->retiring=true;unsigned before=usb_mouse_cancels;
     assert(device_removed(d) && usb_mouse_cancels==before+1 && !usb_mouse_buttons && !d->hid_have_absolute);
     d=control_fixture();d->hid_mouse=true;d->interrupt_pending=true;d->interrupt_ready=true;
@@ -1407,6 +1411,74 @@ static void test_hid_cancellation(void) {
     before=usb_mouse_cancels;dispatch_transfer_event(&error);
     assert(usb_mouse_cancels==before+1 && d->interrupt_failed && !d->interrupt_ready);
     puts("xhci-hid-cancel: PASS per-record pointer source cancellation on removal and endpoint failure");
+}
+static struct xhci_device *hid_report_fixture(unsigned kind) {
+    struct xhci_device *d=control_fixture();void *ring=NULL,*buffer=NULL;
+    assert(alloc_frame_zero(&d->interrupt_ring_phys,&ring));d->interrupt_ring=ring;
+    assert(alloc_frame_zero(&d->interrupt_buffer_phys,&buffer));d->interrupt_buffer=buffer;
+    d->interrupt_dci=3;d->interrupt_max_packet=8;d->interrupt_ready=d->interrupt_cycle=true;
+    d->hid_keyboard=kind==0;d->hid_mouse=kind!=0;d->hid_absolute_pointer=kind==2;
+    submit_interrupt_poll(d);return d;
+}
+static void complete_hid_report(struct xhci_device *d,unsigned actual) {
+    struct xhci_trb event={.parameter_low=d->interrupt_trb,.parameter_high=d->interrupt_trb>>32,
+        .status=((actual<8?13u:1u)<<24)|(8-actual),.control=(32u<<10)|(1u<<24)|(3u<<16)};
+    dispatch_transfer_event(&event);
+}
+static void test_short_hid_recovery(void) {
+    for(unsigned kind=0;kind<3;kind++) {
+        unsigned minimum=kind==0?8:kind==1?3:5;
+        for(unsigned short_length=0;short_length<minimum;short_length++) {
+            struct xhci_device *d=hid_report_fixture(kind);uint8_t *report=d->interrupt_buffer;
+            report[0]=1;
+            if(kind==0)report[2]=4;
+            else if(kind==1) {report[1]=5;report[2]=2;}
+            else {report[2]=0x40;report[4]=0x60;}
+            complete_hid_report(d,minimum);
+            uint64_t accepted=kind?d->mouse_reports:d->hid_reports;
+            assert(accepted==1);
+            if(kind==1) {
+                unsigned events=usb_mouse_events;
+                report[0]=1;report[1]=5;report[2]=2;
+                complete_hid_report(d,minimum);
+                assert(d->mouse_reports==2 && usb_mouse_events==events+1 && last_usb_dx==5 && last_usb_dy==2);
+                accepted=2; /* Equal relative deltas describe additional motion. */
+            }
+            d->keyboard_state.repeat_usage=4;
+            unsigned events=usb_mouse_events,cancels=usb_mouse_cancels,releases=keyboard_release_reports;
+            uint64_t enqueue=d->interrupt_enqueue;
+            /* The fresh DMA buffer is zeroed; missing bytes must not become coordinates. */
+            report[0]=1;
+            complete_hid_report(d,short_length);
+            assert((kind?d->mouse_reports:d->hid_reports)==accepted && d->interrupt_errors==1);
+            assert(d->interrupt_ready && !d->interrupt_failed && d->interrupt_pending && d->interrupt_enqueue==enqueue+1);
+            if(kind)assert(usb_mouse_events==events && usb_mouse_cancels==cancels+1 && !d->hid_have_absolute);
+            else assert(!d->keyboard_state.repeat_usage && keyboard_release_reports==releases+1);
+            report[0]=1;
+            if(kind==0)report[2]=4;
+            else if(kind==1) {report[1]=7;report[2]=(uint8_t)-3;}
+            else {report[2]=0x70;report[4]=0x20;}
+            complete_hid_report(d,minimum);
+            assert((kind?d->mouse_reports:d->hid_reports)==accepted+1 && d->interrupt_pending);
+            if(kind==1)assert(last_usb_dx==7 && last_usb_dy==-3);
+            if(kind==2)assert(last_usb_dx==0 && last_usb_dy==0);
+        }
+    }
+    puts("xhci-hid-short: PASS keyboard/relative/absolute minima, no fabricated input, local cancel/rearm and valid-report recovery");
+}
+static void test_class_recovery_refusal(void) {
+    struct xhci_device *d=hid_report_fixture(1);d->interrupt_pending=false;
+    d->interrupt_failed=true;d->last_interrupt_completion=6;context_write32(d->output_context,3,0,2);
+    for(unsigned kind=0;kind<4;kind++) {
+        struct xhci_network network={.ready=true,.registered=true};
+        d->storage.block=kind==0?(struct block_device *)1:NULL;d->network=kind==1?&network:NULL;
+        d->bulk_failed=kind==2;
+        if(kind==3) {d->hid_mouse=false;d->trackpad.dci=3;d->trackpad.ready=false;d->trackpad.last_completion=6;}
+        static struct xhci_device saved;saved=*d;uint64_t allocated=pool_used;unsigned commands=recovery_commands;
+        assert(!xhci_recover_endpoint(1,3) && !memcmp(d,&saved,sizeof(saved)) &&
+            pool_used==allocated && recovery_commands==commands && !freed);
+    }
+    puts("xhci-class-policy: PASS published BOT/network/ambiguous bulk/trackpad refusal without mutation or allocation");
 }
 static void test_nested_tt(void) {
     for(unsigned size64=0;size64<2;size64++) {
@@ -1597,6 +1669,7 @@ static void test_backing_reclaim(void) {
     }
     uint64_t expected=pool_used;reclaim_check=true;xhci_poll_worker_started=true;
     assert(!xhci_reclaim() && !freed); /* Worker has not acknowledged retirement. */
+    assert_restart_refused(true);
     assert(xhci_io_service_ready(NULL) && retire_poll_worker());
     xhci.poll_users=1;assert(!xhci_reclaim() && !freed);xhci.poll_users=0;
     xhci.diagnostic_users=1;assert(!xhci_reclaim() && !freed);xhci.diagnostic_users=0;
@@ -1605,8 +1678,10 @@ static void test_backing_reclaim(void) {
     for(unsigned i=0;i<128 && !xhci.reclaimed;i++) {
         uint64_t before=freed;bool done=xhci_reclaim();
         assert(freed-before<=16 && done==xhci.reclaimed);
+        assert_restart_refused(true);
     }
     assert(xhci.reclaimed && freed==expected && xhci.reclaimed_frames==expected);
+    assert_restart_refused(true);
     assert(!d->input_context && !d->output_context && !d->descriptor_buffer && !d->ep0_ring);
     assert(!d->interrupt_buffer && !d->bulk_buffer && !d->trackpad.buffer && !network.ep[0].buffer);
     assert(!xhci.dcbaa && !xhci.event_ring && !xhci.command_ring && !xhci.erst);
@@ -1787,6 +1862,25 @@ static void test_control_failure(void) {
 static unsigned init_discoveries;
 uint64_t pci_device_count(void) { init_discoveries++;return 0; }
 const struct pci_device *pci_device_at(uint64_t i) { (void)i;return NULL; }
+static void assert_restart_refused(bool terminal) {
+    static struct xhci_state saved;saved=xhci;
+    unsigned discoveries=init_discoveries,writes=halt_writes;
+    uint64_t allocated=pool_used,released=freed,providers=network_count;
+    bool worker=xhci_poll_worker_started,probe=xhci_input_probe_active;
+    xhci_init();
+    if(terminal)assert(!start_controller() && !reset_controller());
+    assert(!memcmp(&saved,&xhci,sizeof(saved)) && discoveries==init_discoveries && halt_writes==writes &&
+        pool_used==allocated && freed==released && network_count==providers &&
+        xhci_poll_worker_started==worker && xhci_input_probe_active==probe);
+}
+static void test_failed_init_restart(void) {
+    reset_test();xhci.present=true;xhci.stage="firmware-handoff-failed";
+    assert_restart_refused(false);
+    xhci.controller_owned=true;xhci.stage="partial-runtime-allocation";
+    void *frame=NULL;assert(alloc_frame_zero(&xhci.command_ring_phys,&frame));xhci.command_ring=frame;
+    assert_restart_refused(false);
+    puts("xhci-restart: PASS failed handoff/partial allocation preserve one-attempt identity and backing");
+}
 static void test_repeated_init(void) {
     xhci_init();assert(init_discoveries==1);
     xhci.present=xhci.operational=true;xhci.command_ring_phys=0xa000;
@@ -1804,12 +1898,15 @@ static void test_repeated_init(void) {
 int main(int argc, char **argv) {
     assert(argc == 4);
     test_repeated_init();
+    test_failed_init_restart();
     test_terminal_stop();
     test_slot_retirement();
     test_hub_route_depth();
     test_nested_tt();
     test_shared_tt_cleanup();
     test_hid_cancellation();
+    test_short_hid_recovery();
+    test_class_recovery_refusal();
     test_interrupt_recovery();
     test_ep0_recovery();
     test_hub_changes();

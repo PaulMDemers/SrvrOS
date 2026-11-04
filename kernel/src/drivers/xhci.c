@@ -1890,13 +1890,13 @@ static unsigned mouse_source(const struct xhci_device *d) {
     if(address<base || address>=base+sizeof(xhci.devices) || (address-base)%sizeof(*d))return MOUSE_USB_SOURCES;
     return (address-base)/sizeof(*d);
 }
-static void handle_hid_mouse_report(struct xhci_device *device) {
+static void handle_hid_mouse_report(struct xhci_device *device,uint64_t length) {
     uint8_t *report = device->interrupt_buffer;
-    uint64_t length = device->interrupt_max_packet;
     if (length > 8) {
         length = 8;
     }
-    if (bytes_equal(report, device->previous_report, length)) {
+    /* Equal relative deltas are additional motion, not duplicate state. */
+    if (device->hid_absolute_pointer && bytes_equal(report, device->previous_report, length)) {
         return;
     }
 
@@ -2533,8 +2533,14 @@ static void dispatch_transfer_event(const struct xhci_trb *event) {
     device->last_interrupt_remaining = remaining;
     if ((completion == 1 || completion == 13) && remaining <= device->interrupt_max_packet) {
         device->interrupt_success++;
-        if (device->hid_keyboard && device->interrupt_max_packet - remaining >= 8) handle_hid_report(device);
-        else if (device->hid_mouse) handle_hid_mouse_report(device);
+        uint64_t actual=device->interrupt_max_packet-remaining;
+        unsigned minimum=device->hid_keyboard?8:device->hid_absolute_pointer?5:3;
+        if(actual<minimum) {
+            /* USB completed, but the class report is incomplete. Cancel held
+             * input, never parse the zero-filled tail, and keep healthy polling. */
+            device->interrupt_errors++;cancel_hid_input(device);
+        } else if(device->hid_keyboard)handle_hid_report(device);
+        else if(device->hid_mouse)handle_hid_mouse_report(device,actual);
         /* Keep the endpoint supplied even when disk I/O or another runnable
          * application delays the next worker turn. The report was consumed
          * above; only now may submission clear/reuse its DMA buffer. */

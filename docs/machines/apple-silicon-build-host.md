@@ -3538,3 +3538,33 @@ coverage; no physical/MTT/USB3/SMP acceptance. All task guests stopped, review V
 links, nine known nested-license errors. Main83e5d1ad inspected at publication
 (driver/mouse source baseline unchanged); main1f177761 remains unmerged base.
 Next: generic class recovery, physical TT scheduling and restart lifetimes.
+
+
+### Remaining class recovery and restart scope
+
+Continue PR317 from `ddfa4ddb`; actual main `83e5d1ad` and open scopes inspected.
+Audit BOT/network/trackpad quarantine versus allowed HID recovery and controller
+restart refusal across partial initialization/stop/reclaim. Fix confirmed short
+HID parsing (mouse uses packet capacity rather than actual bytes; keyboard short
+release leaves repeat state; repeated relative mouse deltas are discarded) with device-local cancellation and valid-report
+recovery. Planned sources: xHCI, host/VM regressions and docs; no filesystem,
+process/VMM, generic block or public ABI changes. Preserve review VMs. PR334 signal
+and read-only uncertain-media inspection remain separately owned.
+
+Final normal/Rosetta, strict GCC14 and ASan/UBSan xHCI fixtures pass, with related
+pointer/mouse ABI/VirtIO input, USB storage/block-retirement and network registry
+hosts; kernel compilation passes. Rebuilt-kernel Q35 nested/routed EP0 and input
+recovery, new input, child-first retirement and 27-frame reclaim pass. Separate
+storage+HID retirement/reclaim/replug, E1000 netabi and full threadstress guests
+pass. Guests use a private read-only source disk clone with recorded SHA256;
+retained runtime fixtures are not a complete current-userspace rebuild. Malformed
+HID reports are injected deterministically in the actual-driver host fixture,
+not by physical hardware or the QEMU device. Task guests stopped; review VMs
+61610/6233/85869 preserved. Documentation check: 894 local links, nine known
+missing nested-license targets; no new missing link. Main `5ed7f015` inspected at
+publication (new less integration; xHCI/fixture unchanged), not merged into the
+existing `1f177761` integration base. Evidence: `build/review/xhci-class-restart/`.
+
+Next: independently review the PR334 foreground-worker spawn fix, then continue
+process binding/teardown and driver lifetime coverage. Physical class recovery,
+new-generation restart, multi-TT/USB3 and SMP remain unqualified.

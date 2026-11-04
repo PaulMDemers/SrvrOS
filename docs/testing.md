@@ -1651,7 +1651,7 @@ and sysabi. Both DMA rings remain pinned until terminal halt/reference retiremen
 `xhciep0 <slot>` only recovers a previously acknowledged EP0 STALL, once; it
 refuses timed-out DMA and published storage. Routed recovery requires validated
 ancestry and, where applicable, the serialized single-TT cleanup described below.
-No bulk retry, device-side clear-halt, hotplug re-enumeration or controller restart
+No bulk retry, generic class recovery, hotplug re-enumeration or controller restart
 is implied. The harness owns/stops its guest and copies the disk; preserve review VMs.
 
 
@@ -1708,3 +1708,28 @@ without a click-producing release. XHCI tests require cancellation on removal,
 endpoint failure and explicit stop; source identities are static boot-lifetime
 software records. Generic storage/network restart and ambiguous write replay stay
 unavailable; terminal reference/hardware proofs still precede DMA release.
+
+
+### HID report recovery and restart refusal
+
+`test-xhci` delivers actual Transfer Events for every short length below the
+accepted boot-keyboard (8 bytes), relative-mouse (3) and absolute-pointer (5)
+minima. A successful USB transfer can still carry an incomplete class report:
+count it as a class error, cancel that device's held input/repeat and absolute
+baseline, then rearm the healthy endpoint. Parse mouse coordinates from actual
+transferred bytes, never endpoint capacity. A subsequent valid report resumes
+input; the first absolute report establishes a fresh baseline. Equal relative
+reports each deliver movement; only absolute state can be deduplicated.
+
+The fixture also requires published storage, registered network, ambiguous bulk
+and trackpad-only endpoint recovery to refuse without command submission,
+allocation or state mutation. Existing transport/retirement tests retain the
+no-replay, provider-reference and hardware-quiescence requirements. No automatic
+class restart or device re-enumeration is enabled.
+
+Repeated public initialization is checked at modeled failed firmware handoff,
+partial allocation, worker retirement, every bounded reclaim batch and completed
+reclamation. It must preserve controller/device metadata, allocations, provider
+identity and worker state without PCI rediscovery or MMIO writes. Terminal private
+start/reset helpers refuse too. These are one-attempt boot-lifetime guards, not
+support for a new controller generation or proof that hardware can restart.

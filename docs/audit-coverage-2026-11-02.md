@@ -225,3 +225,18 @@ bulk cancellation readiness/wake and USB mouse source/button cancellation defect
 are fixed. See the [kernel audit](audit-kernel-isolation-2026-11-03.md) and
 [testing guide](testing.md) for modeled HS-TT versus actual routed-FS guest coverage.
 Physical HS-TT/MTT, generic class recovery and restart generations remain open.
+
+
+### November 3: class-report recovery and restart refusal
+
+PR317 fixes short HID parsing/cancellation and dropped repeated relative movement.
+Actual-driver fixtures cover all short lengths, held-input cancellation, rearming
+and valid-report recovery. Class-policy tests keep published storage/network,
+ambiguous bulk and trackpad recovery closed; restart tests require initialization
+to preserve partial and reclaimed boot-lifetime identities without hardware work.
+See the [kernel audit](audit-kernel-isolation-2026-11-03.md) for evidence and limits.
+Normal/GCC14/sanitizer host checks and rebuilt-kernel nested recovery, storage
+retirement, netabi and full threadstress guests pass within the documented fixture
+limits. Physical class recovery, multi-TT/USB3, new-generation restart and SMP qualification
+remain open. Broader process-isolation review continues with the independently
+owned PR334 foreground-worker spawn defect; no whole-codebase completion claim.
