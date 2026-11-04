@@ -56,6 +56,32 @@ two-installation migration/recovery
 and actual import/export mapped-memory proof. This milestone remains incomplete;
 there is no new merge authorization.
 
+### Streaming runtime prerequisite — qualification held
+
+Before any streaming VM/build launch, actual kernel source review found ordinary
+read-open uses `vfs_read_all` and exFAT allocates the whole file; buffered writes
+have a 16 MiB cap. The actual process model reproduces 256 successful 64 KiB
+writes and `SRV_ERR_FBIG` on the next byte. Userspace chunking and its mapped
+high-water alone cannot establish bounded end-to-end I/O or export the promised
+19/64 MiB containers. No cap increase or native-append workaround is accepted.
+
+The frozen consumer/harness remains draft OS367/Apps11, source `20eca7d6` after
+current-main integration `a90bf57e`, Apps `7f2b5aae`, UI `b3fa806a`, Ports
+`fc51ddb4`. Combined native checks pass; no streaming VM acceptance exists.
+Runtime/filesystem owners are aligning a separate opt-in descriptor path with
+bounded range reads and append of new chunks into exclusively created output,
+existing storage admission/coherence/sticky-error semantics and focused fault
+proof. Shared core source remains unchanged until that contract aligns. The
+kernel payload-I/O allocation bound must be verified separately from guest
+mapped memory. Authentication and permissions remain separate.
+
+Evidence and design are in `.local/profile-stream/runtime-limit-write/` and
+`.local/profile-stream/runtime-io-design.md`; the previous source/build paths and
+protected review VMs remain intact. The next heavy slot is relinquished to the
+ports owner after installation's existing qualification finishes while this
+prerequisite is resolved. Continue source/reproduction work; do not call the
+native consumer results full migration acceptance.
+
 ## PR360 current-main merge review — ready
 
 User authorizes review and merge if ready, preserving uncertain media and review

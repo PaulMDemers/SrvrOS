@@ -2,10 +2,23 @@
 
 This is the in-progress implementation contract, not an acceptance claim.
 
+**Runtime prerequisite discovered before VM qualification:** the existing guest
+ordinary descriptor path snapshots complete files in the kernel and refuses
+writes above 16 MiB. A real `process.c` host reproduction reaches 16 MiB in
+64 KiB writes, then returns `SRV_ERR_FBIG` on the next byte. Legacy native append
+also reads and joins the complete file. The current profile consumer therefore
+cannot yet provide the promised large guest export or bounded end-to-end I/O.
+A separate opt-in bounded range-I/O path needs runtime/filesystem owner contract
+alignment and verification before this milestone can be qualified. Raising the
+ordinary cap or relying only on userspace high-water evidence is insufficient.
+Authentication and permission enforcement remain separate.
+
 User authorizes larger-document migration with bounded memory, v1 compatibility,
 two disposable-VM transfer/recovery proof. Authentication and permission
 enforcement remain separate. Base actual main5f670602, integrated main5f4f6fc6, in existing isolated
-SrvrOS-profile-326-review. No kernel/filesystem changes, no ordinary device trial.
+SrvrOS-profile-326-review. The initial no-kernel/filesystem-change assumption is superseded only by this
+concrete bounded-I/O prerequisite; no ordinary device trial or security-policy
+change is authorized by the profile format.
 
 Wire: 16 magic bytes `SRVROS-PROFILE2\n` (ASCII), uint32 little-endian manifest
 byte length, uint32 reserved zero; exactly that many UTF-8 JSON bytes, then opaque
