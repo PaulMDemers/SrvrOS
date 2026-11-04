@@ -3,6 +3,64 @@
 Updated November 3, 2026. Global activation follows the explicit namespace proof
 in [PR308](https://github.com/PaulMDemers/SrvrOS/pull/308).
 
+## PR345 merge review and current-main requalification
+
+User authorized review, current-main integration/requalification and merge if
+ready, preserving review VMs/uncertain media and coordinating PR317. Reviewed
+`3fe543b3` with no blocking finding. Integrated bc main `7ef140ef` as `3349d780`,
+preserving both host notices in the conflict and pinning Ports `78fb8184`.
+The bc-only three-boot proof passes. A guarded compatibility attempt stopped
+for shared disk headroom after 10 cases; it remains INCOMPLETE, not a pass.
+Two inactive failed fixtures and that interrupted run were losslessly archived
+with restored content/size/mode verification before releasing raw copies;
+receipts/logs retain restoration indexes. Accepted/active/uncertain media and
+review VM images were not removed.
+
+Then integrated main `60618a4c` (PR333 desktop/profile migration) as `22fd9e9a`,
+with Apps `b2220909` and a matched rebuild. Fresh `proof-dsbnzltn` passes all three
+late-flush EFI lifetimes; fresh canonical/CLI `proof-psz75jdj` passes all 11
+cases, preserving `/fat` and `/work`. Independently verified matched `bin/bc`
+ELF bytes inside the installed GPT. Main `d791b949` (PR343 opt-in Haswell capture)
+subsequently merges as `fb8549be`; ordinary kernel, initramfs and filesystem
+hashes remain exactly equal to the fresh proofs, so no additional VM run is
+claimed. The native probe is not enabled or physically accepted by this work.
+
+Fresh storage-lease/workspace/USB, fsync, namespace, usercopy, I/O, helper/CLI,
+41 scope scenarios and Haswell host checks pass in documented POSIX host mode.
+An earlier invocation incorrectly applied the inspection driver's Darwin feature
+macro to a fixture helper named revoke; its failed compile is retained, and the
+correct documented invocation passes. Documentation/whitespace checks pass.
+No production filesystem, process, syscall, block, driver or recovery-policy
+change was needed for the review.
+
+Independent checks verify changed dirty media containing full payload, four
+successful writes/one successful flush/one failed flush, no post-quarantine I/O,
+retained-reader data/offset, two busy refusals, failed retirement after final
+close and exact healthy-copy readback with the USB source entirely detached.
+Protected regions remain unchanged. Complete fresh managed/canonical evidence
+is APFS-cloned and SHA-256 checked (153 files) under
+`.local/filesystem-evidence/pr345-review/`. The original, bc-only and current
+uncertain whole disks remain full raw read-only images with matching hashes;
+the original `.local/filesystem-evidence/late-flush/proof-spfxutbi/` is untouched.
+All review guests stopped and review VMs 61610/6233/85869 remain running.
+
+PR317 owner reports no storage/BOT conflict through checkpoint `17f0348e`.
+Published storage, bulk failure and ambiguous timeout recovery remain explicit
+refusals; per-slot/EP0/HID/terminal work stays independent and unmerged. This
+proof does not invoke or accept those paths. Current-main late-flush salvage
+requalification is complete and ready for authorized merge.
+
+Next proposed bounded milestone: **read-only inspection of preserved uncertain
+workspace media**. Research reuse of the merged native read-only inspection/
+export bridge before adding an adapter. Report dirty/admission state, allocation
+inconsistencies and committed-file metadata for the preserved USB image, clearly
+separating committed source data from unacknowledged raw payload. Verify clean,
+late-failed and malformed/refusal cases with unchanged image hashes/read-only
+modes, no write callbacks, repair, writable admission or orphan-data export.
+Reuse existing artifacts to bound disk allocation; coordinate shared inspector
+edits with its owner and any lifetime questions with PR317. This is proposed
+work, not implementation begun by this merge review.
+
 ## Managed USB late-flush salvage — verified on recorded baseline
 
 User authorized this bounded proof on main `819956be`, with PR317 placement/
@@ -73,12 +131,10 @@ folders with `ARCHIVE.json` restoration instructions; archive/index are under
 and review VM images were not removed. Current uncertain media remain full raw,
 read-only images. The original compatibility verification then completed.
 
-Newer main `7ef140ef` (PR341 bc runtime packaging) was inspected but is not part
-of this recorded qualification. Merge review must consume/rebuild current main
-and replay affected runtime checks; do not relabel this evidence as acceptance of
-that new payload. This preserves the completed proof's exact source attribution
-without competing with another active acceptance's large fixture allocation.
-Delivery is a scoped draft PR, not an authorized merge. All task VMs stopped;
+The initial draft did not consume newer bc main `7ef140ef`; that source limit
+remains historical for `8321de3b`. The PR345 review above records the subsequent
+current-main integration and fresh runtime requalification. Do not relabel this
+original evidence as the later payload. Initial delivery was a scoped draft PR. All task VMs stopped;
 review VMs 61610, 6233 and 85869, primary checkout and physical media remain
 untouched. No hosted Actions or physical trial was run.
 
