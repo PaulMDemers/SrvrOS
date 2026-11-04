@@ -7102,3 +7102,100 @@ validation and a new recorded run; none is staged here. Raw inventory and
 verification have durable copies outside build; docs/diff checks pass. Current
 installed payload/recovery and reboot state remain unchanged, with no reboot
 armed. GT forcewake and real backing/publication/scanout lifetime remain open.
+
+
+### Firmware-only native capture implementation scope (2026-11-04)
+
+Base `5f670602`, read-only Ubuntu inventory complete and PR301 remains independent.
+Implement a separate opt-in AP diagnostic profile that copies the complete pinned
+Air6,1 DMAR and complete bounded current Limine catalog twice, with exact PCI
+identity, ACPI-table-RAM/translation checks, stable copies and bounded receipt retention.
+No VT-d/GT/GGTT MMIO, root-table walk, graphics bind, PTE publication or ownership
+assurance. Touch isolated firmware core/adapter/tests, main dispatch, staging,
+strict decoder/VM checks and exact Air6,1 docs. Ordinary startup stays unchanged.
+Validate host/refusal/codec/tail and matched builds/VMs, preserve recovery and USB
+integrity, save the exact run and prepare the authorized automated native test.
+No native acceptance is claimed before return/collection.
+
+
+### Firmware-only capture validated and prepared (2026-11-04)
+
+[PR362](https://github.com/PaulMDemers/SrvrOS/pull/362), tested capture source
+`f3cfcb90`, prepares exact release `2ee43cb527989448`. Final admission requires
+ACPI reclaimable/NVS table RAM; generic reserved/device ranges cannot supply
+bytes. Full unit-table SHA256 pin, identity, translations and complete two-copy
+catalog/table agreement are mandatory. No native VT-d/GT/GGTT register read,
+new mapping, firmware method, writer or assurance bit is added.
+
+Matched normal/AP/RAM/USB builds, core/desktop/widgets/profile chooser/host/docs
+checks pass across the broad invocation and affected reruns. The first invocation
+found three pre-existing GCC fixture warnings in preferences-finish, process
+service's longjmp selector and profile catalog. Separate test-only commits fix
+formatting/volatile semantics without warning suppression; all affected groups
+then pass. The71-case installation suite passes with its existing opt-in
+exhaustive matrix skipped; it was not repeated for those test-only changes.
+Only the new diagnostic's narrowed ACPI-RAM guard changes runtime code after
+the broad build; its matched rebuild, seven decoder/config/hash/retention tests
+and core/actual-adapter ASan/UBSan checks pass on the final source.
+
+The exact local pinned-table adapter produces a full128-entry synthetic catalog
+that independently decodes; every raw record survives the unchanged64KiB tail
+with32KiB postamble allowance (source bound16,514 bytes). Ordinary ELF lacks the
+capture symbols. All seven older AP/Haswell profiles pass again on the final
+candidate. Exact Q35 identity refusal saves/unmounts/returns; missing workspace
+returns without capture/save. No VM fixture accepts native firmware resources.
+
+The exact staged payload is independently backed up outside build. USB baseline
+596 files/1664 clusters, all prior hashes, clean fsck/allocation and headroom
+verify. At this documentation checkpoint the candidate is uninstalled/unarmed;
+local run records own subsequent installation, arming and collection. The next
+authorized step preserves recovery/accepted backups and runs the no-input
+firmware-only capture automatically. Native acceptance remains the earlier
+`86257762f155128f` observation until collection; no translation/ownership or
+RC6/package-C3 acceptance follows from preparing this trial.
+
+
+### Capture revalidation after current-main integration (2026-11-04)
+
+Before merge/install, fresh fetch found main `5f4f6fc6` with PR317 isolation,
+PMM/VMM, USB retirement and current Apps/UI pins. The prepared `f3cfcb90` /
+`2ee43cb527989448` candidate remains independently backed up, uninstalled and
+unarmed; it is superseded for this run. Integrate through merge `1de62896`,
+preserving both new firmware targets and upstream GPT-inspector targets in the
+Makefile EOF conflict. The host longjmp fixture correction remains intact.
+
+Rebuild and repeat full local checks, capture sanitizers/codec/tail and the
+sequential exact-stage/legacy VM matrix against the consumed integration.
+Firmware copying still requires ACPI reclaimable/NVS RAM and exact existing
+translations, consistent with new canonical-address VMM checks. No native
+acceptance transfers to PMM/USB/desktop changes merely through this merge.
+Local run state remains revalidating/unarmed until the replacement candidate
+passes every required check and fresh storage/recovery verification.
+
+
+### Integrated firmware-only trial ready for installation (2026-11-04)
+
+Current-main capture validation completes at `aec97036` after consuming PR317:
+all requested normal/AP/RAM/USB, core/desktop/widgets/profile/host/docs groups
+pass in one fresh invocation. The71 installation cases pass with the unchanged
+single opt-in exhaustive-matrix skip. Capture sanitizers, independent128-entry
+producer/decoder, complete raw-tail retention and all seven legacy plus both
+exact/missing-workspace VM cases pass against that integrated kernel.
+
+A subsequent main `a90bf57e` xz packaging merge is incorporated as `e53b7a63`.
+The only port delta is xz/README; kernel, capture and core userspace sources are
+unchanged. The rebuilt diagnostic ELF is byte-for-byte identical to the fully
+qualified `aec97036` kernel. Matched images, capture tests/sanitizers/retention
+and exact-image Q35 refusal/save/unmount plus missing-workspace return pass
+again. This retains relevant earlier results without repeating unchanged
+subsystem suites or transferring native acceptance to the new port.
+
+Final staged release is `6b7dbee3a9441281`, compiled source `e53b7a63`, from
+[PR362](https://github.com/PaulMDemers/SrvrOS/pull/362). Its exact payload and
+superseded uninstalled candidates are backed up outside build. The baseline
+remains596 USB files/1664 clusters with prior hashes/integrity/headroom verified.
+At this checkpoint it is uninstalled/unarmed; the authorized next step preserves
+console recovery and accepted backups, installs and automatically runs this
+no-input firmware-only capture. Local records own subsequent arm/collection
+state. No native translation, register-access permission, pin or ownership is
+granted by these tests; original RC6/package-C3 limitations remain unchanged.
