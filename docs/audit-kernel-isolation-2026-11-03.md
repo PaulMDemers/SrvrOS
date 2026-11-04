@@ -1573,6 +1573,34 @@ Expanded actual heap-pointer register preservation, DF and four-deep nesting,
 fresh normal/I/O regressions and final immutable closure remain pending. This
 checkpoint is neither final fused acceptance nor a garbage-collector/root proof.
 
+## November 4: expanded private and normal/I/O evidence review
+
+Verified the expanded private guest receipt SHA256
+`1b5388ca31a4baadd46dbb3decca40ed0c469478bbb224a265dce757b67420ee`
+and all 34 frozen inputs/logs at `.local/pr334-evidence/private-guest-2/`.
+Main and worker allocated-pointer R15 preservation, handler DF clearing/original
+DF restoration, four-level nesting with a deferred fifth pending delivery, and
+public-snapshot destruction pass. Main/nesting/maximum markers are present,
+status is zero and the task guest stopped. Full-mapping transaction evidence
+again records `[65536, 262144, 961 us, vector 32]` under the same stated timing
+limits. This proves pointer preservation, not sole-register rooting or collector
+survival, and admits no atomic suspend or restart semantics.
+
+Independently verified all 130 normal kernel/object hashes unchanged across the
+isolated private build and the fresh normal loaded-kernel receipt hashes.
+Normal main/worker FPU, full-thread and syscall-ABI checks pass. The OVMF storage
+harness passes three relaunches, throttled writes, USB typing, Ctrl-C, copy
+comparison, fsck and deliberate timeout/quarantine. The tail's single AHCI failure
+belongs to that injected quarantine; it is not hidden as clean writable behavior.
+The driver confirms original ISO/output restoration. Independent evidence:
+`build/review/pr334-signal-fused-expanded-review/`.
+
+Target stack-usage output records delivery 6,504 bytes, return 4,520 bytes,
+copy preparation 264 bytes and ownership resolution 152 bytes. These individual
+frames are not the cumulative path budget. Complete stack-chain audit and final
+source/host immutable closure remain pending before final private-slice acceptance;
+normal kernel delivery/public ABI/libc/WTF remain unwired.
+
 ## Remaining work
 
 Other long IRQ-disabled operations, including initial/churning PMM scans, heap validation and poisoning,
