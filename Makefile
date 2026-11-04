@@ -4460,14 +4460,14 @@ test-guest-profiles: build/tests/guest-profile-host$(HOST_EXE)
 	$(PYTHON) tools/test_guest_profile.py $< -v
 build/tests/guest-profile-host$(HOST_EXE): $(USER_PROFILE_C) userspace/profile/codec.h ports/upstream/cjson/cJSON.c ports/upstream/cjson/cJSON.h userspace/lib/include/srvros/profile_session.h userspace/lib/include/srvros/profile_paths.h
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=c11 -D_DARWIN_C_SOURCE -DSRVROS_PROFILE_HOST_TEST -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I ports/upstream/cjson $(USER_PROFILE_C) ports/upstream/cjson/cJSON.c -o $@
+	$(HOST_CC) -std=c11 -D_POSIX_C_SOURCE=200809L -D_DARWIN_C_SOURCE -DSRVROS_PROFILE_HOST_TEST -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I ports/upstream/cjson $(USER_PROFILE_C) ports/upstream/cjson/cJSON.c -o $@
 
 .PHONY: test-profile-chooser
 test-profile-chooser: test-guest-profiles build/tests/profile-catalog-host$(HOST_EXE)
 	build/tests/profile-catalog-host$(HOST_EXE) $(CURDIR)/build/tests/guest-profile-host$(HOST_EXE)
 build/tests/profile-catalog-host$(HOST_EXE): tools/test_profile_catalog.c userspace/deskd/profile_catalog.c userspace/deskd/profile_catalog.h userspace/deskd/profile_startup.h userspace/lib/src/desk_preferences.c
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include tools/test_profile_catalog.c userspace/lib/src/desk_preferences.c -o $@
+	$(HOST_CC) -std=c11 -D_POSIX_C_SOURCE=200809L -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include tools/test_profile_catalog.c userspace/lib/src/desk_preferences.c -o $@
 
 .PHONY: test-salvage
 test-core: test-salvage
