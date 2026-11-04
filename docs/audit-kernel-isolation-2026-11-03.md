@@ -1258,6 +1258,41 @@ integration/profiles review; no new kernel interface implementation is approved.
 It must preserve live-parent wait status, error attribution and legacy kernel
 lifetime diagnostics, with revocation plus true zero before profile replacement.
 
+## November 4: signed thread-ID qualification and session-scope review
+
+Qualified PR334 `783c4eb8` after independently reproducing the pre-fix defect on
+both ordinary and private routes: INT64_MIN returned while one active worker was
+published. The fixed IRQ-excluded range gate admits only IDs 2 through INT64_MAX
+before slot/TLS/allocation mutation, issues MAX once and leaves a nonwrapping
+exhausted state. Later creation returns AGAIN without publishing a worker.
+Actual-source boundary and existing service fixtures independently pass strict
+Rosetta/ASan+UBSan 4/4, including both inherited IRQ states and nested restoration.
+Independent logs: `build/review/pr334-thread-id-review/`.
+
+Verified normal-runtime receipt SHA256
+`966e54e35c01bc63422d5c54a60ce13510d83171aab5c1e14cc7795354d28df1`,
+14 combined/nested artifact references, main/worker register/TLS status zero,
+full threadstress and sysabi fault-reaping zero results. Boundary counter values
+are actual-source host tests, not seeded guest cases. The next owned frame-copy
+policy is accepted for an unwired helper/host-test slice only; test-kernel hook,
+whole publication/FPU commit and signal integration remain separate reviews.
+
+For the session-switch dependency, parent/profiles agreed a nongraphical
+supervisor outside one scoped GUI root, owner-bound noninherited handle, unchanged
+exec ABI, nonkilling revoke/reap and authoritative revoked+zero completion.
+SYS_SESSION_SCOPE 163 is reserved; PR334 reports no collision. Implementation is
+isolated in `SrvrOS-migration-review`; this audit owns independent review. Exact
+metadata-only exec/final-exit/release detach seams were also reviewed by PR334.
+Reconciliation must preserve its saved-IRQ clear/gen0/cleanup ordering.
+
+First draft review found an owner-death reservation leak, replacement of the
+ordinary kernel exec entry and insufficient reaping readiness checks; the owner
+has addressed these in the uncommitted draft and expanded tests. New reaping
+returns bounded progress, not a possibly negative signed PID. Actual owner-exit/
+exec hooks, converted/unpublished loading exclusion, syscall failure paths and
+matched runtime behavior remain under review; this is not interface acceptance
+or a session-switch completion claim. No silent kill/timeout success is allowed.
+
 ## Remaining work
 
 Other long IRQ-disabled operations, including initial/churning PMM scans, heap validation and poisoning,
