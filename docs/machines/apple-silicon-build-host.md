@@ -4711,3 +4711,17 @@ provenance, host/VM receipts and byte comparisons are recorded under
 Preview, widget, portable and sanitizer acceptance remains valid for identical
 runtime bytes. Shared checkout and review VM remain untouched; owned guests run
 sequentially and stop at test completion. No physical or power-loss acceptance.
+
+
+### November 4: PR317 final merge qualification passes
+
+Integrated main6ee13fb8 into clean candidate4fa518eb with current module pins and
+fresh ordinary kernel/userspace build. Focused strict/sanitizer/futex/current
+scope/preferences/picker tests pass; corrected exec-scope host allocation stubs
+preserve owner-detach checks. Five sequential Q35 guests pass session-scope/init/
+orphan retirement, nested/routed endpoint/input/terminal reclaim, storage+HID
+retirement/reclaim, full threadstress and E1000 netabi. All task guests stopped;
+review VMs6233/61610/85869 remain untouched. Payload and logs survive build cleanup
+at `.local/kernel-audit-evidence/pr317-merge/`. Earlier setup failures retained.
+No physical media/boot or PR334 public/JSC acceptance. User authorized PR317 merge;
+continuing audit starts from the merged baseline.

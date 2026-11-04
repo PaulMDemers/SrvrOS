@@ -2321,6 +2321,41 @@ final target caller/park assembly and actual collector/retired-thread evidence.
 No new payload run cleared. Exact source copies, hashes, independent parser and
 results: `build/review/pr334-jsc-companions-review/`.
 
+## November 4: final PR317 integration qualification
+
+User requested merge and continued audit. Candidate `4fa518eb` integrates main
+`6ee13fb8`, preserving session-scope v1 ownership, pending reservations, inherited
+membership and exit/exec detach hooks, plus current Apps/UI/Ports pins. Append
+conflicts retain both Makefile/journal sections and both process-service assertion
+sets. Main's exec-scope fixture needed kmalloc/scheduler_io_active stubs for the
+private image allocator; poisoned allocation now exercises real initialization.
+The original unresolved-symbol failure is retained.
+
+A clean full ordinary macOS build passes with freshly built kernel and userspace.
+Focused process/service/loader/lifetime/fault/dirty-writeback, PMM/VMM, xHCI,
+AHCI/E1000/VirtIO/provider/USB/input/display host checks pass. ASan/UBSan
+halt-on-error passes the affected process/allocator/xHCI/provider/scope tests
+(with unsupported macOS leak detection disabled); deterministic futex and current
+session/preferences/desktop chooser/file/tool-picker contracts pass. Initial
+missing dependency and incorrect test-alias setup failures remain in the logs.
+
+Fresh sequential Q35 guests pass session scope twice with live system init,
+held-orphan natural retirement/owner restart, lifetimetest, PTY and sysabi;
+nested/routed EP0 plus interrupt endpoint recovery/input, child-first disable
+and terminal reclamation; storage/HID removal and per-slot reclamation; full
+threadstress; and E1000 netabi. Every owned guest stopped. Original source image
+hashes match the clean build manifest after testing. Protected review VMs 6233,
+61610 and 85869 remain alive and untouched. Evidence/payload preserved under
+`.local/kernel-audit-evidence/pr317-merge/`, with review receipt also in
+`build/review/merge317/receipt.json`.
+
+Documentation checks 970 local links at the first integration checkpoint; only
+the known unavailable Node upstream license remains unresolved after initializing
+the other required dependencies. Physical HS-TT/MTT/USB3, SMP reclamation and
+new-generation reset/restart remain open. PR334 experimental public signals and
+JSC/GC probes retain their separate source/runtime qualification boundaries.
+This closes the PR317 merge qualification, not the entire codebase audit.
+
 ## Remaining work
 
 Other long IRQ-disabled operations, including initial/churning PMM scans, heap validation and poisoning,

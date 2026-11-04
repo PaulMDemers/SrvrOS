@@ -348,3 +348,11 @@ publication ordering and same-RIP optional construction. Independent fresh/nativ
 SDK comparison matches all67 allocated member sections/relocation identities;
 archive/DWARF differ. GC sole-root fixture remains unqualified pending final target
 assembly/collector evidence; JSC build and new payload guest remain open.
+
+
+PR317 merge qualification: clean full kernel/userspace at4fa518eb/main6ee13fb8,
+focused strict+ASan/UBSan and futex/current scope/picker tests pass. Fresh Q35
+session/orphan/init, nested+routed EP0/interrupt/input/retirement/reclaim,
+storage/HID removal/reclaim, full threadstress and E1000 netabi pass. Owned guests
+stopped/protected three untouched; payload/evidence preserved outside build.
+Whole-codebase, physical/SMP/new-generation restart and PR334/JSC remain open.
