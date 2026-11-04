@@ -2,15 +2,39 @@
 
 Updated: 2026-11-03. State: **active reference machine; partial device acceptance**.
 
-### Active scope: DMA admission diagnostics
+### DMA admission diagnostics ready; reboot unarmed
 
-Working from main `a64661e9`, merged as `fe078dba`, on the existing device
-branch. Bounded objective: identify the first failed native DMA guard and retain
-bounded firmware-map evidence without register access or expanded permissions.
-Touches Intel display adapter, DMA receipt decoder and their host tests; keeps
-PR317 allocator/VMM work and Air6,1 Haswell work independent. No new payload is
-installed or reboot armed. Next checkpoint is source-bound host/VM validation
-and a prepared diagnostic candidate; native DMA state remains unaccepted.
+Source `057b8d33` / release `c32abebf3401b572` is installed for the next
+no-input capture, from main `a64661e9` merged as `fe078dba`. The adapter reports
+the first failed prerequisite and up to four firmware-map overlaps plus two
+nearest neighbours. Unreached checks remain distinct from failed classification.
+The reserved-page requirement and register access permissions are unchanged.
+An ASan/UBSan comparison against the previous gate matches all50,000 generated
+catalogs (573 admitted /49,427 refused), with zero maps or MMIO.
+
+Full local host/core/profile/docs and matched normal/AP/native/synthetic builds,
+DMA sanitizers,227 hardware collector tests, exact-stage Q35 refusal with saved
+new diagnostics and automatic return, missing-workspace halt, VirtIO presentation
+and separate Haswell refusal/save/return pass. The default installation suite's
+one opt-in exhaustive I/O matrix is skipped; Actions remain disabled. Host tests
+cover malformed/conflicting/partial/missing/duplicate/truncated resource reports,
+actual adapter checks and historical receipt compatibility. No native result for
+the new diagnostics or DMA-state observation is claimed.
+
+Preparation verifies1,325 prior files /95 sessions, offline filesystem/allocation/
+writable/headroom, exact firmware/GPU identity and independent payloads. Ubuntu
+stays default, USB is unmounted and **no reboot is armed**. Current is c32,
+recovery9aa; refused5f6, accepted shadowd79 and known-goodc497 remain preserved.
+Older62ed EFI payload was archived and fully hash-verified against its durable
+copy before removing only the EFI copy for space. Run record:
+`build/air-dma-admission-native-20261103/`; validation:
+`build/air-dma-admission-20261103/`. Both are backed up outside build.
+
+Next: run this exact automatic capture and collect its matching session before
+any further installation. A guard refusal remains incomplete DMA observation,
+even when reports, clean unmount and automatic Ubuntu return succeed. No input
+is needed; saving/unmount failure still halts visibly. PR317 allocator/VMM work,
+Air6,1 Haswell work and Pro Wi-Fi work retain independent scope and evidence.
 
 ### Native DMA capture refused before MMIO; safe return verified
 

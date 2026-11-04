@@ -125,3 +125,15 @@ gates until the actual evidence and resource contract are reviewed. Prior-file
 preservation, offline integrity, independent recovery and consumed one-shot
 checks passed. No reboot is armed. The [unit record](machines/macbookair7-2.md)
 owns physical acceptance; no DMA authority or physical page flip is implied.
+
+## Diagnostic candidate
+
+Source `057b8d33`, release `c32abebf3401b572`, adds the paired admission/memory
+rows and is installed unarmed. Full local host/build/core/profile checks,
+sanitizers, strict collectors, exact Q35 refusal/save/return, missing-workspace
+halt, VirtIO and separate Haswell regression checks pass. A50,000-catalog
+sanitized comparison preserves the previous gate's exact decisions, with zero
+MMIO. Default host validation skips the explicitly opt-in exhaustive installation
+I/O matrix. The next native capture needs no input and automatically returns
+after saving/unmounting, including a handled refusal. Native diagnostics and
+DMA-state observation remain pending; no access gate was widened.
