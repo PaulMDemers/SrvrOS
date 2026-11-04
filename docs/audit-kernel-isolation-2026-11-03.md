@@ -2108,6 +2108,46 @@ the existing late-copy defect must not remain behind a guest-only correction.
 Concrete implementation/regressions and native qualification remain pending;
 PR317 does not duplicate the process source edits.
 
+## November 4: immutable integrated candidate and TTY byte bound
+
+Reviewed PR334 candidate `bb201307` (56 changed paths, pinned SrvrPorts `8d9b9b7`).
+Receipt SHA256 `fd8b912f02ebc2513d61df3ed08a1e4f41dabd2c11a87e3b407eb7ee586b4603`
+at `.local/pr334-build-volume/evidence/public-candidate-bb201307/receipt.json`
+and all 357 retained files verify. All 1,659 archived source files match the exact
+commit. Independently rebuilt 28 strict/ASan/UBSan host profiles from that separate
+archive: backend, process waits, keyboard commit, console, private delivery,
+raw defaults, public process, experimental public process, runtime, public libc,
+semaphore/sleep, eventfd, poll and epoll all pass. These are explicit host models,
+not native delivery or full backend qualification.
+
+Source review confirms the intended shared commit boundaries: keyboard/serial
+eligibility, consumption and byte commit share one IRQ scope; console checks
+identity at bootlog-record publication and finishes an accepted prefix outside
+long IRQ exclusion. Lock waits recheck identity, availability and cancellation at
+atomic enrollment; listener waits retain descriptor identity; status output is
+copied before child claim in ordinary raw/POSIX waits as well as the gateway.
+The experimental profile excludes VFS/PTY/network/record-lock/message backends;
+pipe reads use a separate rights-free branch and recheck that condition after
+wake and before consumption/publication. Normal dispatch/capabilities remain off.
+
+Found a new confirmed boundedness defect in tty_read_eligible: it validates the
+entire scalar buffer, or all complete iov spans, before every single-byte consume
+and atomic wait condition. Independent actual-helper instrumentation requests
+268,435,456 validation bytes for a one-byte scalar commit and refuses a valid
+current vector byte because an unrelated later 4,096-byte span is unmapped.
+Both strict and sanitizer profiles reproduce; the owned-kernel-sink control
+performs no user walk and passes. Counts measure requested validation work, not
+actual IRQ duration. The owner is preparing a current-byte-only address/length
+check and bounded iov scan, retaining initial syscall validation separately.
+
+The prepared diskless run at harness `2a72eb7f` has one TCG CPU, 1,536 MiB, no NIC,
+no data disk and headless output, but is superseded and will not run against this
+candidate. Updated source/objects/SDK/probe/ISO/config hashes must accompany the
+correction. The reported 22,575-byte transaction bound still has named scheduler
+and I/O cuts; complete blocking/common-gate callback qualification remains open.
+No VM or JSC pass/merge acceptance is inferred. Evidence:
+`build/review/pr334-public-candidate-review/`.
+
 ## Remaining work
 
 Other long IRQ-disabled operations, including initial/churning PMM scans, heap validation and poisoning,

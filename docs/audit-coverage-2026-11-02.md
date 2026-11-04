@@ -302,3 +302,11 @@ controls), and WAIT late-output failure after modeled child consumption (four
 negative cases; four controls). Actual source, modeled scheduler/mapping/reap,
 strict+sanitizer; no guest claim. Owner implementing checked fd/content commit and
 status-before-child-claim for normal raw/POSIX plus gateway paths.
+
+
+Integrated PR334 candidatebb201307:357 artifacts/1,659 source files verified;
+28 independent strict/sanitizer profiles pass. Reviewed consume/publication,
+lock/listener cancellation and child-status transaction sources. New actual TTY
+helper model confirms whole-buffer IRQ validation perbyte; current-byte correction
+pending. Diskless prepare superseded, no guest/JSC acceptance. Transaction-only
+stack22,575B excludes scheduler/I/O cuts; full blocking/common-gate proof open.
