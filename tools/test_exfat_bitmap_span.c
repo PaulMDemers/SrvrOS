@@ -8,7 +8,7 @@
 #define CLUSTER (128u*1024u)
 static unsigned char media[4*CLUSTER],before[sizeof(media)];
 static unsigned calls;static uint64_t last_offset,last_length;static bool fail;
-void *kmalloc(uint64_t n){return malloc(n);}
+void *kmalloc(size_t n){return malloc(n);}
 void kfree(void *p){free(p);}
 bool block_read(struct block_device *d,uint64_t off,void *p,uint64_t n){(void)d;assert(off+n<=sizeof(media));memcpy(p,media+off,n);return true;}
 bool block_write(struct block_device *d,uint64_t off,const void *p,uint64_t n){(void)d;assert(off+n<=sizeof(media));calls++;last_offset=off;last_length=n;memcpy(media+off,p,fail?(n+1)/2:n);return !fail;}
