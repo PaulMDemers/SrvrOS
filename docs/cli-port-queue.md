@@ -1,4 +1,4 @@
-# Automatic CLI port queue
+# CLI port queue and closeout
 
 Authorized November 4, 2026: implement bounded GNU diff in a separate checkout,
 then independently review, publish and merge each accepted port and its OS
@@ -11,8 +11,8 @@ reservation for the next milestone.
 | --- | --- | --- | --- |
 | 1 | GNU Diffutils 3.12 `diff` | Correct normal/quiet/unified comparison of two capped text files; long lines and 0/1/2 statuses; host patch validation and explicit local-patch subset. | Delivered and verified: ports PR11 `4da8a98b`, then OS PR369 `3fcf2630`; exact trees and reachable pin checked. |
 | 2 | GNU Patch 2.8.1 | Apply a bounded single-file unified patch to an explicit separate output; preserve source, reject ambiguous/unsafe paths and failed hunks; qualify the diff edge cases excluded by the compact local patch. | Active in isolated `SrvrOS-ports-patch`, reconciled with delivered diff/main `3fcf2630`; compatibility, matched build, two clean GNU rebuilds and selected native tests pass; first two-boot qualification stopped on an unexpected root artifact. No acceptance or merge. |
-| 3 | GNU Grep 3.12 | C-locale text search over bounded files/finite stdin; fixed strings and qualified BRE/ERE, useful match/count/quiet status contracts. No PCRE, recursion, color or Unicode claims. | Queued: authenticate/pin stable release and qualify regex/SDK/memory/cancellation gates. |
-| 4 | GNU Coreutils 9.12 `sha256sum` | File/stdin SHA-256 and a bounded explicit verification manifest; exact known vectors and failure statuses. No broader coreutils import or automatic filesystem traversal. | Queued: authenticate/pin stable release and bound manifest/path behavior. |
+| 3 | GNU Grep 3.12 | C-locale text search over bounded files/finite stdin; fixed strings and qualified BRE/ERE, useful match/count/quiet status contracts. No PCRE, recursion, color or Unicode claims. | Deferred by closeout instruction; authenticated source/research retained, no implementation started. |
+| 4 | GNU Coreutils 9.12 `sha256sum` | File/stdin SHA-256 and a bounded explicit verification manifest; exact known vectors and failure statuses. No broader coreutils import or automatic filesystem traversal. | Deferred by closeout instruction; authenticated source retained, no implementation started. |
 
 Each row gets a coherent port commit/PR before the dependent OS gitlink PR,
 independent source review, truthful host/guest evidence, required target/Terminal
@@ -21,9 +21,11 @@ with actual main before merge; verify merged tree equality and port-pin
 reachability. Native-host tests do not count as guest tests. Never merge a failed
 or unverified gate to maintain queue momentum.
 
-The user authorized automatic review/merge/proceed through these four rows. Stop
-when all four are delivered, or when an unresolved concrete blocker prevents
-safe progress. Do useful independent work while waiting on resource ownership;
+The original instruction authorized automatic review/merge/proceed through
+these four rows. The later November 4 closeout instruction, relayed by the
+integration chat, supersedes that continuation: finish and verify the current
+GNU Patch Ports12→OS370 delivery, update topic/unit documentation and status,
+then stop. Grep and sha256sum are deferred; do not start another port. Do useful independent work while waiting on resource ownership;
 never silently reduce an approved input/behavior boundary or add fake runtime
 capability stubs. A shared libc/kernel need requires a minimal reproducer and
 coordination before changing its contract.
@@ -65,8 +67,8 @@ its adapter/tests are prepared in the separate checkout. Configuration, recipe,
 link and clean rebuild gates pass. Full snapshot/output/memory/signal guest
 acceptance remains incomplete at the failed filesystem artifact check described
 below; do not merge unqualified source to maintain queue momentum. Grep/coreutils source signatures
-and digests are prepared and must be rechecked at entry. All four rows remain
-authorized; no new Proceed is required, but no later heavy slot is assumed.
+and digests are prepared and must be rechecked at entry. The later closeout instruction limits remaining delivery to Patch; later rows
+are deferred and have no heavy-slot reservation.
 
 GNU Patch initial window (completed and released): ≤30 minutes for SDK bootstrap, genuine cross-config
 and sequential port-local compile fixes at ≤2 jobs, then at most one 512 MiB
@@ -111,3 +113,12 @@ memory. No budget value or target acceptance is asserted before measurement.
 Cancellation checks must cover actual grep/kwset/DFA/regex compilation and
 matching/backreference loops, not only the caller around GNU execute. No Grep
 implementation, configure, compiler or guest run has started.
+
+Closeout checkpoint: [Ports12](https://github.com/PaulMDemers/SrvrPorts/pull/12)
+and [OS370](https://github.com/PaulMDemers/SrvrOS/pull/370) are drafts with truthful
+incomplete verification. Harness `1ec87276` validates the entire metadata
+sidecar stream, including field shape, ASCII canonical mount paths, uniqueness,
+uint64 bounds and final newline. A host-only check accepts the retained 605-row
+sidecar and rejects six malformed samples; it does not replace fresh guest
+qualification. Integration is reviewing the finite rerun request. No heavy
+launch is authorized until that handoff; no shared runtime blocker is known.

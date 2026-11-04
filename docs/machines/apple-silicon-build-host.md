@@ -5114,3 +5114,11 @@ The five later guests were not run. All owned jobs stopped and the resource
 window was released immediately; diagnosis is source-only until a concrete
 correction and fresh finite handoff. Integration checkout and review VMs remain
 untouched. No shared libc/kernel blocker has been established.
+
+The later user closeout instruction, relayed by integration, limits this work
+to finishing and verifying GNU Patch Ports12→OS370, updating documentation and
+status, then stopping. Grep/sha256sum are deferred; their source-only research
+creates no implementation or launch authorization. The metadata-sidecar harness
+correction at `1ec87276` validates complete records and passes host-only retained
+605-row and six malformed-input checks. Fresh guest qualification and remaining
+integration gates are still required before merge.
