@@ -63,6 +63,36 @@ checkout and review VMs 61610, 6233 and 85869 were preserved. This bounded comma
 and disposable EFI/GPT proof are complete; application recovery UI, physical
 media, automatic repair and guest dirty-writeback fault injection remain separate.
 
+### PR328 merge review and next bounded milestone
+
+User authorized review/merge if ready. Actual main remains `59928ec9`. Review of
+the eight-file diff confirms strict descriptor parsing, helper-only source access,
+exclusive destination and explicit status/error reporting. The parent/child proof
+checks descriptor usability and shared offset after success/refusal, rejects a
+nonseekable inherited pipe and verifies persisted bytes on reordered boot.
+Revalidated the archived 11-case receipt checksum, all recovery disk-hash pairs
+and independent offline image inspection. Only documentation changed after the
+qualified `da1e8d44` build. CLI/helper host tests, CLI sanitizer and six provenance
+tests pass again; matched build hashes equal the qualified images, whitespace
+and 888 local links pass. No submitted correction or unresolved thread was present.
+
+PR317's owner confirms its bounded command-ring/removal cohort has no filesystem,
+libc or userspace changes and identifies no overlap blocker. This coordination
+is not claimed as independent full-diff approval. Review VMs remain live and
+untouched. New review evidence is under `build/review/salvage-cli/review-*`.
+
+Next proposed filesystem milestone: **installed-root dirty-source command salvage
+proof**. Start by selecting a test-only fault mechanism that targets just the
+disposable `/work` backend. A parent must retain a reader across an actual failed
+writeback and invoke the command with that inherited descriptor; verify error
+propagation/failed-workspace state, parent ownership/offset, durable healthy-volume
+copy and reboot readback. Include a destination failure that reports no successful
+salvage while the parent reader stays usable. Reuse the existing host contract and
+installed-root harness. Coordinate any necessary driver/process test seam with
+PR317 before editing; keep normal driver behavior unchanged. No physical media,
+automatic repair, forced unmount or recovery UI is implied. This is a proposal,
+not work begun by this merge review.
+
 ## Userspace salvage helper — implemented and verified
 
 `srv_salvage_copy(source_fd, destination, result)` in `<srvros/salvage.h>` copies
