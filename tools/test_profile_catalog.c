@@ -1,3 +1,4 @@
+#define _POSIX_C_SOURCE 200809L
 /* Real host files + the real profile CLI preflight. Only the guest mount prefix
  * and statfs are adapted; catalog parsing, directory enumeration and writes run
  * unchanged. Run with the native guest-profile-host executable as argv[1]. */
