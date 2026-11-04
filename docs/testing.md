@@ -1520,3 +1520,12 @@ with the actual driver and does not accept native reset or hotplug behavior.
 quarantine and worker records. `test-display-present` verifies uncertain reset
 retains switched staging and its owner; `test-display-owner` remains a diagnostic
 predicate/reference model without hardware write authority.
+
+
+`test-xhci` also requires exact command completion pointers and unchanged slot
+output on failure. It covers nested refusal, two ring wraps/Link cycles, sticky
+timeout containment and late events followed by saturation refusal without ring
+mutation or frees. Storage late completion must retain quarantine and backing.
+The host-only command timeout override keeps failure tests bounded; production
+poll limits are unchanged. These are modeled MMIO/event tests, not physical
+removal or command-reset acceptance.

@@ -447,6 +447,42 @@ No guest HID input injection or physical teardown is claimed. The display
 retention fixture also passes ASan/UBSan. Evidence is under
 `build/review/usb-dma/`. No libc or filesystem policy changes.
 
+## Command-ring identity, saturation and removal checkpoint
+
+Continuation from `c7e03477` confirms a successful command completion for a
+*different* TRB was accepted as the current command. A timed-out command also
+left the producer available for reuse despite uncertain controller progress.
+Completions now require exact TRB identity; failed completions leave slot output
+untouched. Nested submission is refused, and an ambiguous timeout permanently
+blocks command submission for this boot while preserving backing. This is safe
+containment, not command abort/reset recovery. Reinitialization cannot clear it.
+
+The actual-source regression fails on the old successful-pointer mismatch. It
+also covers nested submission, a known error completion, two full command-ring
+wraps and Link cycle transitions, timeout, an exact late completion, and more
+than two rings of refused submissions without DMA mutation/free. The host timeout
+budget is reduced; the production budget is unchanged.
+
+Removal review follows storage and ECM transfer quarantine, pending-event
+identity and allocation ownership. A new storage test delivers an exact late
+completion after timeout: pending state retires, but failure remains sticky and
+backing cannot be reused or freed. An ECM removal regression also delivers exact late events for pending endpoints
+and requires sticky quarantine, unchanged ring producers and retained backing;
+existing disconnect/pending-RX retention and stale-event fixtures also pass. No additional removal defect was confirmed.
+The driver does not supply general slot teardown, hotplug/re-enumeration, command
+abort/reset or safe unpinning after removal; these remain explicit gaps. The
+single pending-command guard covers synchronous/nested callers, not a future
+SMP submission API.
+
+Normal/Rosetta, GCC14/Linux and ASan/UBSan xHCI suites pass, as do storage,
+display presentation and native-owner fixtures. The rebuilt kernel passes Q35
+sysabi with an emulated xHCI keyboard/tablet (seven matching commands, zero
+pointer mismatches, two configured devices) and full threadstress. Guests use
+retained PR313 runtime files and disposable disks; no complete userspace rebuild
+or physical-removal acceptance is implied. All task guests stopped; existing
+review VMs were preserved. Evidence: `build/review/command-ring/`. Documentation
+checking retains only the nine known missing nested-submodule license targets.
+
 ## Remaining work
 
 Other long IRQ-disabled operations, including initial/churning PMM scans, heap validation and poisoning,

@@ -126,3 +126,9 @@ The subsequent free-range/allocator pass fixes skipped virtual gaps and repeated
 PMM contiguous-run refusal scans, backed by independent oracles. The kernel
 follow-up records unchanged full heap validation cost and remaining initial-scan,
 cache-churn, poisoning and driver-lifetime work.
+
+
+PR317 command-ring continuation: exact TRB completion identity, nested refusal,
+wrap/cycle and timeout/late-event saturation regression coverage now accompany
+storage/ECM quarantine checks. Command abort/reset, physical USB removal and
+hotplug/re-enumeration remain unaccepted; see the kernel-isolation audit report.

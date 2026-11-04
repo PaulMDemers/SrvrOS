@@ -3237,3 +3237,19 @@ Implementation `68a74cdd` passes kernel build, sysabi/full threadstress and an
 additional xHCI+USB-keyboard+tablet guest with two configured devices and passing
 sysabi. No guest input injection or native teardown acceptance is claimed.
 Display staging retention passes ASan/UBSan. All task guests stopped.
+
+
+### Command-ring recovery, saturation and USB removal
+
+Continuing PR317 from `c7e03477`, isolated kernel checkout only. Exact command
+completion identity and sticky timeout containment prevent false success and
+uncertain ring reuse. Host regressions exercise nested submission, wrap cycles,
+known errors, timeout/late completion, saturation refusal and storage retention.
+No command abort/reset or general physical hot-removal acceptance is claimed.
+Filesystem owner notified; no libc/userspace/workspace policy changes.
+
+Normal, GCC14 and ASan/UBSan command/removal fixtures pass; kernel build, xHCI
+keyboard/tablet enumeration plus sysabi, and full threadstress pass with retained
+PR313 runtime files. Evidence: `build/review/command-ring/`. All task guests
+stopped, existing review VMs preserved. Nine known uninitialized-submodule
+license targets remain unavailable to the documentation checker.

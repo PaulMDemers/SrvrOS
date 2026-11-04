@@ -32,7 +32,9 @@
 #define XHCI_MAX_HUB_PORTS 15
 #define XHCI_MAX_PROTOCOLS 8
 #define XHCI_RESET_TIMEOUT 10000000ull
+#ifndef XHCI_COMMAND_TIMEOUT
 #define XHCI_COMMAND_TIMEOUT 10000000ull
+#endif
 #define XHCI_TRANSFER_TIMEOUT 20000000ull
 #define XHCI_INPUT_PROBE_TICKS_PER_SECOND 100ull
 #define XHCI_INPUT_PROBE_TSC_PER_SECOND 3000000000ull
@@ -347,6 +349,7 @@ struct xhci_state {
     bool event_cycle;
     struct xhci_erst_entry *erst;
     uint64_t erst_phys;
+    bool command_pending,command_failed;
     uint64_t command_events;
     uint64_t noop_completions;
     uint64_t enable_slot_completions;
@@ -1077,25 +1080,9 @@ static bool wait_command_completion(uint64_t command_phys, uint64_t expected_typ
         xhci.last_slot_id = slot_id;
         xhci.last_command_pointer = pointer;
         xhci.last_expected_command_pointer = command_phys;
-        if (pointer != command_phys) {
+        if(pointer!=command_phys) {
             xhci.command_pointer_mismatches++;
-            if (completion_code != 1) {
-                console_printf("xhci: command type=%u pointer mismatch ptr=%x expected=%x cc=%u slot=%u\n",
-                    expected_type,
-                    pointer,
-                    command_phys,
-                    completion_code,
-                    slot_id);
-                continue;
-            }
-            console_printf("xhci: command type=%u accepted pointer mismatch ptr=%x expected=%x slot=%u\n",
-                expected_type,
-                pointer,
-                command_phys,
-                slot_id);
-        }
-        if (slot_out != 0) {
-            *slot_out = slot_id;
+            continue; /* A different TRB cannot complete this command. */
         }
         if (completion_code != 1) {
             console_printf("xhci: command type=%u failed cc=%u slot=%u\n",
@@ -1104,9 +1091,13 @@ static bool wait_command_completion(uint64_t command_phys, uint64_t expected_typ
                 slot_id);
             return false;
         }
+        if (slot_out != 0) {
+            *slot_out = slot_id;
+        }
         return true;
     }
 
+    xhci.command_failed=true; /* Progress is ambiguous; never recycle its TRB. */
     console_printf("xhci: command type=%u timeout events=%u last_cc=%u last_ptr=%x expected=%x mismatches=%u\n",
         expected_type,
         xhci.command_events,
@@ -1118,11 +1109,10 @@ static bool wait_command_completion(uint64_t command_phys, uint64_t expected_typ
 }
 
 static bool submit_command_trb(const struct xhci_trb *source, uint64_t expected_type, uint64_t *slot_out) {
-    uint64_t index = xhci.command_enqueue;
-    if (index >= XHCI_TRB_COUNT - 1) {
-        index = 0;
-        xhci.command_enqueue = 0;
-    }
+    if(!source || !xhci.command_ring || xhci.command_pending || xhci.command_failed)return false;
+    uint64_t index=xhci.command_enqueue;
+    if(index>=XHCI_TRB_COUNT-1) {xhci.command_failed=true;return false;}
+    xhci.command_pending=true;
 
     uint64_t command_phys = xhci.command_ring_phys + index * sizeof(struct xhci_trb);
     struct xhci_trb trb = *source;
@@ -1136,7 +1126,9 @@ static bool submit_command_trb(const struct xhci_trb *source, uint64_t expected_
     }
 
     db_write32(0, 0);
-    return wait_command_completion(command_phys, expected_type, slot_out);
+    bool ok=wait_command_completion(command_phys, expected_type, slot_out);
+    if(!xhci.command_failed)xhci.command_pending=false;
+    return ok;
 }
 
 static bool submit_command(uint32_t type, uint32_t flags, uint64_t *slot_out) {

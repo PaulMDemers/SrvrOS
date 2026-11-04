@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#define XHCI_COMMAND_TIMEOUT 256ull
 #define SRVROS_XHCI_TEST_MMIO
 static uint32_t xhci_test_read32(uint64_t offset);
 static void xhci_test_write32(uint64_t offset, uint32_t value);
@@ -61,9 +62,14 @@ static uint32_t xhci_test_read32(uint64_t offset) {
     return *(uint32_t *)(registers + offset);
 }
 
+static bool command_nested;
 static struct xhci_device *mode_device;
 static unsigned mode_doorbells;
 static void xhci_test_write32(uint64_t offset, uint32_t value) {
+    if(command_nested && offset==xhci.db_base) {
+        command_nested=false;uint64_t index=xhci.command_enqueue;
+        assert(!submit_command(XHCI_TRB_TYPE_NOOP,0,NULL) && xhci.command_enqueue==index);
+    }
     if (mode_device && offset==xhci.db_base+4 && value==1) {
         if (!mode_doorbells) for (unsigned i=0;i<8;i++) mode_device->descriptor_buffer[i]=0x80+i;
         else {
@@ -484,6 +490,16 @@ static void test_storage(void) {
     assert(!strcmp(disk->bulk_reason,"deadline") && !disk->bulk_done && !disk->bulk_completion);
     assert(disk->bulk_length==512 && disk->bulk_elapsed_us>=2000000 && disk->bulk_spins>0);
     assert(!storage_bulk_transfer(disk,true,caller,512,&actual) && disk->bulk_ep[1].enqueue==1);
+    /* A late exact completion retires pending state, but cannot unquarantine
+     * storage or reclaim/reuse backing after an uncertain timeout/removal. */
+    uint64_t retained_frees=freed;
+    struct xhci_trb late_bulk={.parameter_low=0x9000,.status=1u<<24,
+        .control=(32u<<10)|(1u<<24)|(3u<<16)|1};
+    dispatch_transfer_event(&late_bulk);
+    assert(disk->bulk_done && !disk->bulk_pending && disk->bulk_failed);
+    assert(!storage_bulk_transfer(disk,true,caller,512,&actual));
+    assert(disk->bulk_ep[1].enqueue==1 && disk->bulk_buffer==bounce &&
+        disk->bulk_ep[1].ring==ring && freed==retained_frees);
     /* Fresh simulated controller: distinguish a received error event from a timeout. */
     disk->bulk_failed=disk->bulk_pending=false;disk->bulk_ep[1].enqueue=0;
     events[3]=(struct xhci_trb){.parameter_low=0x9000,.status=6u<<24,
@@ -976,6 +992,16 @@ static void test_network_transport(void) {
     n.failed=false;n.ready=true;
     *(uint32_t *)(registers+xhci.op_base+XHCI_OP_PORTS)=0;
     network_service(&d);assert(n.failed && n.errors==3 && !freed);
+    /* Device removal followed by exact late events cannot rearm endpoints,
+     * clear quarantine, or release the retained DMA allocations. */
+    struct xhci_network_endpoint retained[3];memcpy(retained,n.ep,sizeof(retained));
+    for(unsigned i=0;i<3;i++) if(retained[i].pending)
+        assert(network_event(&d,retained[i].hw.dci,retained[i].trb,1,0));
+    network_service(&d);
+    assert(n.failed && !n.ready && !freed && !network_send(&d,frame,64));
+    for(unsigned i=0;i<3;i++) assert(n.ep[i].buffer==retained[i].buffer &&
+        n.ep[i].hw.ring==retained[i].hw.ring && n.ep[i].hw.enqueue==retained[i].hw.enqueue);
+
     puts("xhci-network: PASS owned TX queue, ZLP framing, ring wrap, stale events, RX wakeup, residue errors, deadlines and disconnect quarantine");
 }
 
@@ -993,6 +1019,38 @@ static void test_device_inventory(void) {
     assert(!xhci_device_snapshot(4,&info) && !xhci_device_snapshot(UINT64_MAX,&info));
 }
 
+static void test_command_identity(void) {
+    reset_test();
+    static struct xhci_trb commands[XHCI_TRB_COUNT],events[XHCI_EVENT_TRB_COUNT];
+    memset(commands,0,sizeof(commands));memset(events,0,sizeof(events));
+    xhci.command_ring=commands;xhci.command_ring_phys=(uint64_t)commands;
+    xhci.event_ring=events;xhci.event_ring_phys=(uint64_t)events;
+    xhci.command_cycle=xhci.event_cycle=true;xhci.rt_base=0x2000;xhci.db_base=0x1000;
+    uint64_t pointer=(uint64_t)commands;
+    events[0]=(struct xhci_trb){.parameter_low=(uint32_t)(pointer+16),.parameter_high=(uint32_t)((pointer+16)>>32),.status=1u<<24,.control=1|(33u<<10)|(3u<<24)};
+    events[1]=(struct xhci_trb){.parameter_low=(uint32_t)pointer,.parameter_high=(uint32_t)(pointer>>32),.status=1u<<24,.control=1|(33u<<10)|(7u<<24)};
+    command_nested=true;
+    uint64_t slot=99;assert(submit_command(XHCI_TRB_TYPE_NOOP,0,&slot) && slot==7);
+    for(unsigned i=0;i<2*XHCI_TRB_COUNT;i++) {
+        uint64_t current=pointer+xhci.command_enqueue*sizeof(*commands);
+        events[xhci.event_dequeue]=(struct xhci_trb){.parameter_low=(uint32_t)current,
+            .parameter_high=(uint32_t)(current>>32),.status=(i==0?17u:1u)<<24,
+            .control=(xhci.event_cycle?1u:0u)|(33u<<10)|(7u<<24)};
+        slot=99;assert(submit_command(XHCI_TRB_TYPE_NOOP,0,&slot)==(i!=0));
+        assert(slot==(i?7u:99u) && !xhci.command_pending && !xhci.command_failed);
+    }
+    assert(((commands[XHCI_TRB_COUNT-1].control&1u)!=0)!=xhci.command_cycle);
+    memset(events,0,sizeof(events));xhci.event_dequeue=0;xhci.event_cycle=true;
+    uint64_t late=pointer+xhci.command_enqueue*sizeof(*commands);
+    slot=99;assert(!submit_command(XHCI_TRB_TYPE_NOOP,0,&slot) && slot==99);
+    uint64_t enqueue=xhci.command_enqueue;
+    static struct xhci_trb saved[XHCI_TRB_COUNT];memcpy(saved,commands,sizeof(saved));
+    /* A late success cannot authorize reuse after ambiguous progress. */
+    events[0]=(struct xhci_trb){.parameter_low=(uint32_t)late,.parameter_high=(uint32_t)(late>>32),.status=1u<<24,.control=1|(33u<<10)};
+    for(unsigned i=0;i<2*XHCI_TRB_COUNT;i++)assert(!submit_command(XHCI_TRB_TYPE_NOOP,0,&slot));
+    assert(xhci.command_enqueue==enqueue && !memcmp(saved,commands,sizeof(saved)) && !freed);
+    puts("xhci-command: PASS exact identity, timeout, late completion and saturation refusal");
+}
 static unsigned init_discoveries;
 uint64_t pci_device_count(void) { init_discoveries++;return 0; }
 const struct pci_device *pci_device_at(uint64_t i) { (void)i;return NULL; }
@@ -1013,6 +1071,7 @@ static void test_repeated_init(void) {
 int main(int argc, char **argv) {
     assert(argc == 4);
     test_repeated_init();
+    test_command_identity();
     test_ep0_packet();
     test_network_transport();
     test_device_inventory();
