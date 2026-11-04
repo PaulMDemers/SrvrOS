@@ -115,15 +115,15 @@ native result, captured elapsed microseconds, captured elapsed ticks and outcome
 cookie. The last four words are immutable for a completed native result. Masks are zero for ordinary operations. Pack rootkind in flags bits0..7,
 primary number8..23, primary selector24..31, last outcome number32..47, and LIVE,
 INTERRUPTED, LEGACY_MASKED, COMPLETED_NATIVE, FINALIZE_USED, MONO_VALID and TICKS_VALID
-in bits48..54; remaining bits zero. Identity is the selected state's
+in bits48..54. Bit55 is the internal IN_FLIGHT reservation; bits56..63 are zero. While IN_FLIGHT, the reserved cookie and exact raw operation are bound to that root before any backend effect. Only its matching completion or terminal retirement may end the reservation; no INFO delivery or user return is allowed in between. Identity is the selected state's
 existing24-byte identity, never a user argument. Add four96-byte tickets plus
-next-ticket/top-ticket16. Each active record gets wait association16 (64 total).
+next-ticket/top-ticket16. Wait tickets, I/O tickets, outcome cookies and local-guard cookies share that one monotonic positive namespace. Every allocation consumes it, including across kinds; exhaustion refuses before effects and never wraps. Permitted legacy fork copies the full counter, tickets and outcomes, after which parent and child advance independently. Each active record gets wait association16 (64 total).
 Budget from the qualified3056-byte selected state: +256 wait slots +208 request
 +16 request sequence +64 record associations +384 I/O slots +16 I/O counters +32 local guard
 =4032 bytes, leaving64 bytes for alignment/additional proven fields. The proposed
 request208 is identity24, sequence8, trap8, operation8, output address/size16,
 normalized wire128, request-kind8 and completion-flags8. This is a
-budget, not a compiled size assertion. No implementation may exceed4096 or hide
+budget now backed by C11/C++ target wire assertions and an exact4032-byte target state assertion in the staged foundation. It does not qualify active public dispatch or guest behavior. No implementation may exceed4096 or hide
 additional mutation outside the excluded state; revise/review if the real layout
 does not fit. Update actual offsets, stack/call-graph and copy-alias matrices.
 
@@ -198,7 +198,7 @@ No wrapper replays a positive result because a signal was observed afterward.
 
 CALL reserves an outcome cookie from the same nonreused I/O sequence only after
 admission/argument validation and before backend effects; exhaustion refuses
-before effects. Each actual backend return captures its signed result and elapsed
+before effects. Reservation binds the exact root, depth, cookie and raw operation. Ownership remains pinned across backend sleep and cancellation; matching completion is infallible after a successful backend effect, or the thread/image is terminally retired. A failed, stale or duplicate completion must never resume userspace with an IN_FLIGHT reservation, retry the backend or overwrite a captured result. Each actual backend return captures its signed result and elapsed
 wait snapshot before any INFO handler can execute, then publishes those words and
 the raw syscall number into that exact root. RESULT7 takes the ticket and returns
 64 bytes: size/version8, outcome_cookie8, syscall_number8, signed_result8,

@@ -1,14 +1,13 @@
 # Public signal/context v1: exact review packet
 
-Status: preparation only, no public implementation/admission approval. Target is
+Status: owner review cleared staged source implementation at37cd7382; public admission remains disabled pending exact layout, target and guest proof. Target is
 real SIGUSR1 context delivery, atomic nested waiting and a bounded WTF collector
 handshake, followed by the required no-JIT JavaScript smoke. The qualified
 [private transaction](signal-publication-transaction.md) remains the authority.
 
 ## Admission and allocation
 
-Propose syscalls164 CONTROL,165 RETURN,166 SUSPEND and167 SIGNAL_IO, subject to owner allocation
-check;163 stays session scope. Initial INFO supports SIGUSR1 and SA_SIGINFO,
+The shared owner reserved syscalls164 CONTROL,165 RETURN,166 SUSPEND and167 SIGNAL_IO;163 stays session scope. Initial INFO supports SIGUSR1 and SA_SIGINFO,
 optionally SA_RESETHAND. INFO|SA_RESTART returns ENOTSUP before any effects.
 Other unsupported flags/signals reject explicitly. Ordinary callers never have
 RESTART silently stripped. LEGACY RESTART remains supported through cooperative

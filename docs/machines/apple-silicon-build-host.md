@@ -3807,3 +3807,20 @@ preserving1,230 other tree entries and newer bc/jq/less work. SrvrPorts draft9
 owns that source integration. Imported port-manifest runtime claims are historical
 browser-checkout evidence; fresh matched SDK/ICU/JSC verification is pending.
 The [current browser checkpoint](../browser-port.md) records that distinction.
+
+
+PR334 public foundation follows owner-cleared staged source review at37cd7382.
+The owner reserved164 CONTROL,165 RETURN,166 SUSPEND and167 SIGNAL_IO; normal
+public dispatch remains disabled. Shared wire layouts preserve snapshot688 and
+add explicit info64/control96/I/O128; selected state is exactly4032 bytes with
+four waits, exact request identity/trap/sequence, logical I/O outcomes and local
+guard. Wait/I/O/guard/outcome IDs share one nonwrapping namespace. Bit55 marks
+an internal outcome reservation; no handler or user return is allowed before
+matching capture or terminal retirement. This is pure state, not backend proof.
+Strict and ASan/UBSan state matrices cover nested mask-override/late-completion
+waits, sticky I/O interruption, malformed associations, replay and exhaustion.
+The native ucontext adapter maps real GP/SP/IP/flags and embedded FX with a
+four-deep lock-free TLS marker. Unimplemented getcontext/swapcontext/makecontext
+honestly report ENOSYS without mutating outputs. Native host nesting/layout and
+pinned Zig object compilation pass; public kernel/libc/WTF wiring and fresh
+JavaScript exit0/output42 are still required.

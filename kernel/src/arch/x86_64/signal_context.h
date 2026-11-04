@@ -5,21 +5,10 @@
 #include <stddef.h>
 #include <stdint.h>
 #include "isr_frame.h"
+#include <srvros/signal_abi.h>
 
-#define SIGNAL_CONTEXT_VERSION 1u
-#define SIGNAL_CONTEXT_FPU_SIZE 512u
 #define SIGNAL_CONTEXT_MAX_DEPTH 4u
 #define SIGNAL_CONTEXT_MAX_FRAME 1024u
-
-/* Internal representation only; no user ABI is published by this module. */
-struct signal_context_snapshot {
-    uint32_t size, version;
-    uint64_t flags, token, interrupted_mask;
-    uint64_t r15, r14, r13, r12, r11, r10, r9, r8;
-    uint64_t rbp, rdi, rsi, rdx, rcx, rbx, rax;
-    uint64_t rip, rsp, rflags;
-    _Alignas(16) uint8_t fpu[SIGNAL_CONTEXT_FPU_SIZE];
-};
 
 struct signal_context_range { uint64_t start, end; }; /* [start, end) */
 struct signal_context_plan {
@@ -30,6 +19,7 @@ struct signal_context_record {
     struct isr_frame frame;
     _Alignas(16) uint8_t fpu[SIGNAL_CONTEXT_FPU_SIZE];
     uint64_t mask, image_generation, thread_generation, token, frame_identity;
+    uint64_t wait_ticket, wait_mode;
 };
 struct signal_context_stack {
     struct signal_context_record records[SIGNAL_CONTEXT_MAX_DEPTH];

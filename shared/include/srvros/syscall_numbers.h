@@ -167,6 +167,9 @@
 #define SYS_GFX_MODE_GET 160
 #define SYS_GFX_MODE_SET 161
 #define SYS_PIPE_MESSAGE 162
+/* Existing shared integration allocation; implementation is on main. */
+#define SYS_SESSION_SCOPE 163
+#include <srvros/signal_syscall_numbers.h>
 #define SRV_DIRECTORY_READ 0
 #define SRV_DIRECTORY_PATH 1
 #define SRV_DIRECTORY_CHDIR 2
