@@ -4,10 +4,10 @@
 
 User authorized a scoped PR with write/sync/link/unlink failure, reconciliation
 and refusal proof in isolated `SrvrOS-installation-io`, branch
-`device/apple-silicon/install-publication-io-qualification`, main `1f177761`.
+`device/apple-silicon/install-publication-io-qualification`, main `1a5a6dee`.
 Own host publication tool/fault fixtures and installation docs only. Latest
-integrated filesystem/profile contracts, open PR326 and merged PR327 are inspected;
-profile chooser and descriptor salvage are independent. Separate storage-guard
+integrated filesystem/profile contracts, including PR326's identity metadata and
+PR327/328 salvage boundaries, are inspected and consumed. Separate storage-guard
 work stays intact in the earlier checkout, with private build outputs here. Reconciliation
 must re-establish verified stage-file and namespace syncs after uncertain errors,
 including an already visible ready receipt. No guest or kernel policy changes.

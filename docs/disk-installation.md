@@ -4,7 +4,7 @@
 
 User authorized deterministic write/sync/link/unlink qualification and a scoped
 PR. Branch `device/apple-silicon/install-publication-io-qualification` uses the isolated
-installation clone and integrated main `1f177761` (PR325/327). Own the host publication
+installation clone and integrated main `1a5a6dee` (PR325/326/327/328). Own the host publication
 tool, fault fixture/tests and installation evidence. No kernel, filesystem,
 guest profile or application policy changes. Review VMs 61610, 6233 and 85869
 remain live and untouched; one build/harness at a time; no physical disk, reboot
@@ -12,12 +12,15 @@ or Actions. Status: implementation and qualification in progress.
 
 Current dependencies are PR325's journal/identity/locking, PR321's version-2
 plans, PR320's pending-import/unknown-state refusal and PR322/323's managed
-writeback/salvage limits. Open PR326 was inspected: it adds profile selection,
+writeback/salvage limits. PR326 adds profile selection,
 recovery status and offline display-name metadata, without changing the host
-publication contract. PR327's descriptor-preserving salvage helper was inspected
-and merged into main during this work; its caller-owned descriptor and explicit
+publication contract. Its offline `identity.json` addition is integrated before
+the accepted fault matrix and production-image proof. PR327's
+descriptor-preserving salvage helper was inspected and merged into main during
+this work; its caller-owned descriptor and explicit
 success/error boundaries neither grant host repair authority nor gate this work.
-The open profile chooser implementation is not imported into this scoped branch.
+PR328's additive installed-root salvage consumer and default-preserving harness
+arguments are also integrated. They do not overlap this host publication path.
 
 Separate storage-guard work appeared in the earlier installation checkout.
 Its edits remain intact there. This milestone moved only its own changes into
@@ -37,6 +40,12 @@ Cover ordinary-v1/profile-v2 plans and reconciliation itself, with explicit
 adapter limits, negative controls and raw evidence outside build cleanup.
 This is deterministic host error handling, not a power-cut/media-durability
 guarantee or automatic retry/repair.
+
+Metadata records are serialized canonically into one checked write; bootstrap
+and configuration byte counts are checked too. The bounded matrix samples the
+first write per path, with all top-level publisher writes covered and sparse
+image/provisioning-adapter sampling limits explicit. The separate production
+proof uses the actual single-write image builder and real profile driver.
 
 ## PR325 integrated-main review and next checkpoint
 
@@ -105,7 +114,7 @@ re-provision data, rebuild GPT or discard unknown state.
 | Prepared | Normal apply is available; no output has been verified |
 | Interrupted without a complete verification record | Preserve evidence and prepare a fresh target; reconciliation refuses |
 | Verified bytes, publication incomplete | Inspect identities/hashes, then explicitly reconcile publication |
-| Ready and unchanged | Inspection/idempotent reconciliation confirms the existing receipt |
+| Ready and unchanged | Inspection diagnoses matching visible bytes; explicit successful reconciliation re-establishes sync barriers before recovery completion |
 | Changed, torn, unknown or linked outside the stage | Preserve all bytes; refuse publication/reconciliation |
 
 Use one cooperative publisher at a time. Reconciliation must revalidate while
