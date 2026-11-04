@@ -1,86 +1,75 @@
 # Apple Silicon macOS build host
 
-## Larger-document portable migration — contract and source work
+## Larger-document migration — native and focused VM qualification
 
-User authorizes bounded-memory larger-document migration, preserving existing
-bundles and verifying transfer/recovery across two disposable VMs. Reuse isolated
-`SrvrOS-profile-326-review`, branch `device/apple-silicon/profile-stream`, actual
-main `5f670602`, subsequently integrated `5f4f6fc6` including delivered
-PR317 and folder-picker dependencies, then actual main `a90bf57e`
-with merged xz (Apps `7f2b5aae`, UI `b3fa806a`, Ports `fc51ddb4`). Prior session/creation/installation
-proofs, baselines, accepted backups and three original review VMs stay preserved.
+The current bounded target is larger-document portable migration, preserving v1
+and verifying transfer/recovery between two disposable installations. Draft
+[Apps11](https://github.com/PaulMDemers/SrvrApps/pull/11) precedes
+[OS367](https://github.com/PaulMDemers/SrvrOS/pull/367). The user has authorized
+finishing verification, merging the current non-browser work and updating its
+records; this is not permission to skip the remaining full proof or start a new
+account/authentication milestone.
 
-The [implementation contract](../portable-profile-streaming.md) adds framed v2 (bounded JSON manifest + sequential
-raw selected-document bytes), up to 16 MiB/file and 64 MiB aggregate, 64 files,
-64 KiB metadata and 64 KiB I/O buffer. Existing v1 bytes, caps, guest operations
-and creation stay compatible. Guest/Profiles use version dispatch and explicit
-review compatibility, reusing journal gates with streamed hash/readback and an
-owned partial-copy recovery checkpoint. A separate host streaming codec/fixture
-CLI supplies interoperability; native installer/offline export remain v1-only
-fail-closed and are owned by the installation chat's separate publication work.
-No kernel/filesystem implementation, account authentication or permission change.
+The [streaming contract](../portable-profile-streaming.md) defines v2 framing,
+16 MiB per document, 64 MiB combined, 64 selected files and 64 KiB payload I/O.
+Existing v1 bytes, caps, default CLI export and creation remain compatible.
+Profiles chooses the format automatically and displays the compatibility
+requirement before confirmation. Import reuses the existing journal, including
+recovery from a durable partial copy. Native installer/offline installation
+export remain v1-only in this milestone. Authentication and permission
+enforcement remain separate.
 
-Parent owns the wire/review contract, GUI/catalog integration, Makefile, docs and
-independent review; bounded workers own guest codec/transaction, host streaming
-codec/tests and VM proof tooling. Local discovery worker was attempted: Ollama
-11434 unavailable, so native fallbacks are used. Source/host work first; preserve
-browser's heavy build/VM window until resource coordination.
+A necessary opt-in runtime prerequisite is implemented and independently native
+qualified at `9f5816a5`. Ordinary buffered writes keep their 16 MiB cap; their
+read-open payload snapshots also remain unchanged. The new syscall168 uses
+process-owned opaque stream handles, bounded range reads and append-only new
+output, checked durability, namespace conflict guards and lifecycle cleanup.
+Native actual-source manager/syscall/process/backend tests and selected
+ASan/UBSan checks pass. The 67,174,424-byte backend round trip includes
+fragmented/unaligned I/O, low-space refusal and injected write/flush failures.
+At 64 KiB geometry, incremental tracked backend allocation is 208,896 bytes;
+metadata/cache allocations and guest mapped high-water are separate measures.
+The Linux exfatprogs hardening/append suites remain unrun on this host. External
+runtime-owner peer acceptance remains unverified; local independent review and
+native qualification do not imply that external signoff.
 
-Source implementation now includes guest and host v2 dispatch/streaming,
-existing-journal recovery, opt-in memory diagnostics, graphical auto-format
-selection and a compatibility note. Native actual-source GUI parser checks cover
-64 maximum-length paths and version/per-file/aggregate/reported-total limits.
-The host codec's initial eight groups include bidirectional native-guest
-interoperability, short I/O, fsync failure, and source replacement. Actual CLI
-catalog tests cover recoverable/blocked/restored/ready states at all seven v2
-checkpoints. Guest review corrections now retain source descriptors through final rehash,
-respect the 67-descriptor target limit, preserve partial-export interruption and
-exercise complete 64 MiB import/recovery/export with native owned peak <1 MiB.
-Independent latest native runs pass 25 legacy guest and 9 streaming guest groups;
-strict syntax, maximum desktop review packing and documentation checks pass.
-No VM acceptance is claimed.
+A real matched build passed in the isolated normal clone
+`/Volumes/SrvrOSProfileStream/SrvrOS`, backed by the owned 18 GiB APFS image under
+`/Volumes/miniTB/SrvrOS-profile-stream-20261104-145109`. Test-only followups through
+`0d8cdfad` preserve all kernel/shared/userspace/ports trees and three payload
+hashes. Pins are Apps `24bc4541`, UI `3a695ce5`, Ports `fc51ddb4`; the final full
+candidate will first incorporate the completed non-browser main baseline.
 
-A separately owned regular-file 18 GiB APFS image is being prepared under
-`/Volumes/miniTB/SrvrOS-profile-stream-20261104-145109`; original build/raw paths
-remain untouched. Managed-worktree creation rejected this chat's unmanaged nested
-source root, so the matched build will use a separate normal local clone in that
-new area with verified source/submodule pins. Browser's heavy slot was released;
-ports-xz subsequently released its bounded trial. The installation publication
-owner takes its matched build/two fresh-B qualification first, with a briefly
-lent unchanged-ELF browser diagnostic; wait for explicit handback before our
-heavy launch. The implementation is published in draft OS #367 and Apps #11; a separate
-clean external clone passes the combined native target. A docs-only followup
-explains compatibility, and the proof now opens migrated Text and the >1 MiB BMP
-in destination apps after remembered reboot. Next: source-matched build, then serial
-two-installation migration/recovery
-and actual import/export mapped-memory proof. This milestone remains incomplete;
-there is no new merge authorization.
+The first full proof, `build/review/profile-stream/proof-wf_5uifj`, stopped at
+its eighth guest because the changed-bundle fixture tried to open an existing
+19,137,265-byte bundle through the ordinary buffered-write wrapper. That wrapper
+checks the old file size before truncation and correctly refused. The failed
+receipt and raw images remain intact; later checkpoints and memory workloads
+were not run. The fixture now metadata-renames the reviewed v2 bundle, creates a
+valid v1 replacement at the original path and checks each guest command's exit.
 
-### Streaming runtime prerequisite — qualification held
+The focused corrected check passed in 140.94 seconds with one 1 GiB guest and
+sampled whole-owned-group peak RSS 1,223,376,896 bytes. The settled UI visibly
+reports `profile: bundle changed since review`. Independent readback confirms
+original v2 preservation, exact valid-v1 replacement, unchanged receiver
+namespace/file bytes except permitted atime and known service-log appends, and
+unchanged protected regions. All seven compressed evidence streams were
+independently restored and hashed. This is focused refusal qualification, not
+full migration or guest-memory acceptance. Its 25-file evidence packet is
+readback-verified outside the build tree at
+`/Volumes/miniTB/SrvrOS-profile-stream-20261104-145109/narrow-changed-review-0d8cdfad`.
+All owned jobs stopped and their process group is empty.
 
-Before any streaming VM/build launch, actual kernel source review found ordinary
-read-open uses `vfs_read_all` and exFAT allocates the whole file; buffered writes
-have a 16 MiB cap. The actual process model reproduces 256 successful 64 KiB
-writes and `SRV_ERR_FBIG` on the next byte. Userspace chunking and its mapped
-high-water alone cannot establish bounded end-to-end I/O or export the promised
-19/64 MiB containers. No cap increase or native-append workaround is accepted.
-
-The frozen consumer/harness remains draft OS367/Apps11, source `20eca7d6` after
-current-main integration `a90bf57e`, Apps `7f2b5aae`, UI `b3fa806a`, Ports
-`fc51ddb4`. Combined native checks pass; no streaming VM acceptance exists.
-Runtime/filesystem owners are aligning a separate opt-in descriptor path with
-bounded range reads and append of new chunks into exclusively created output,
-existing storage admission/coherence/sticky-error semantics and focused fault
-proof. Shared core source remains unchanged until that contract aligns. The
-kernel payload-I/O allocation bound must be verified separately from guest
-mapped memory. Authentication and permissions remain separate.
-
-Evidence and design are in `.local/profile-stream/runtime-limit-write/` and
-`.local/profile-stream/runtime-io-design.md`; the previous source/build paths and
-protected review VMs remain intact. The next heavy slot is relinquished to the
-ports owner after installation's existing qualification finishes while this
-prerequisite is resolved. Continue source/reproduction work; do not call the
-native consumer results full migration acceptance.
+The remaining gate is the source-matched integrated build, full 31-guest serial
+transfer/recovery proof, actual small/16 MiB/64 MiB guest mapped measurements,
+independent rendered/content/storage audit and durable final evidence backup.
+The reviewed supervisor includes build, hashing, VMs and archive audit in one
+watched process group. Run only after the fresh coordinated resource handoff;
+stop and retain evidence on the first failure, reserve breach or deadline.
+Original accepted static build and session-audit device/inode/time/hash records
+remain unchanged. The three historical review VM PIDs are now absent with no
+established cause; their original disk paths/evidence remain retained, and no
+restart is requested.
 
 ## PR360 current-main merge review — ready
 
