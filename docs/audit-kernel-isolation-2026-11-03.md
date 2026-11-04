@@ -2192,6 +2192,52 @@ precondition/receipt verification and native execution remain pending. Normal
 public dispatch stays disabled; no JSC, general networking, merge or whole-codebase
 acceptance is inferred. Evidence: `build/review/pr334-public-stack-review/`.
 
+## November 4: bounded native probe readiness
+
+Reviewed harness-only `1db6652c` and independently ran its parser controls. Before
+sending the payload it requires exactly one complete idle-network line and one
+worker-not-started line, rejects provider/static initialization, records boot
+serial/hash, and stops only its owned QEMU on refusal or completion. It runs the
+recorded reviewed argv rather than independently reconstructing another command.
+The IRQ supplement's route/registry/saved-IF conditions support this configuration's
+conditional retained-stack plus one maskable IRQ bound of 23,886 bytes. This does
+not qualify unrelated IRQs, NMI/MCE, terminal teardown or arbitrary devices.
+
+Cleared one disposable diskless native-context/nested-wait functional probe once
+fresh host/output/backing storage preflight passes and the new preparation matches
+reviewed build-six kernel `f5f12369`, probe `6983ee5b`, init `41ec31cf`, SDK archive
+`1f62b203` and header-tree `032e0618`, with the same single-CPU TCG/no-NIC/headless
+argv and quiet command line. The full hashes are retained in prepared evidence
+and review correspondence. A storage-reserve refusal stopped regeneration before
+any VM; the owner is preserving/moving only its own stopped generated artifacts.
+No runtime or JSC pass is claimed at this checkpoint. Run/raw-log collection and
+independent final binding remain next. Protected review VMs stay untouched.
+Evidence: `build/review/pr334-public-stack-review/harness-review.json`.
+
+## November 4: authorized session-switch interface reconciliation
+
+Following explicit user authorization, coordinated read-only design review with
+both integration and profiles owners. Inspected delivered source `7766ed5a`:
+version-one session_scope header/syscall 163, live-owner-plus-token authority,
+owner detach and counted retirement, retired orphan reap, outside desktop
+supervisor and portable-profile documentation/composite receipt. Both owners and
+the bounded source review agree: GUI close decisions, accepted worker jobs and
+preference persistence precede exact root exit 42 (switch) or 43 (console).
+Cancellation cannot reconstruct already closed/discarded apps. The supervisor
+then revokes without killing, drains/reaps actual retained scope members, requires
+revoked plus zero and successful RELEASE, and only then opens a fresh chooser.
+Timeout, uncertain status and unknown exits never certify retirement or save
+success. Token possession alone does not grant owner authority; membership is
+inherited while owner authority is not.
+
+No new contract conflict found in this bounded reconciliation. No implementation
+reopened, new portable-profile reference-count API, authentication or concurrent
+desktop acceptance inferred. The delivered composite records three historical
+QEMU lifetimes and retains the original environment-capture workflow FAIL plus
+a separate matching external env/pwd supplement PASS. This chat did not rerun
+those guests for this checkpoint. Source hashes and reviewed documents are in
+`build/review/session-switch-contract-review/`.
+
 ## Remaining work
 
 Other long IRQ-disabled operations, including initial/churning PMM scans, heap validation and poisoning,

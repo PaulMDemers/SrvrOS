@@ -318,3 +318,11 @@ negatives fail intended assertion. Retained-stack142-file analysis reproduced:
 CALL20303/completion22575B;199 unique linked bodies/22,551 instructions independently
 checked. IRQ extra1311B remains configuration/IF/net-idle conditional; pre-probe
 runtime gate and native execution pending, not global asynchronous-stack proof.
+
+
+Harness1db6652c parser/observed-net-idle gate reviewed; one bounded diskless native
+probe technically cleared after storage+exact runtime preparation checks. Conditional
+IRQ+retained stack23886B; no run/JSC/general-network acceptance yet. User-authorized
+session-switch design coordination reconciles integration/profiles and delivered
+7766ed5a ownership/retirement contract; no new conflict or implementation reopening.
+Historical three-VM composite and originalFAIL/supplementPASS remain distinguished.
