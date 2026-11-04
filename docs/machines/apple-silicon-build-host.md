@@ -1,5 +1,83 @@
 # Apple Silicon macOS build host
 
+## PR360 current-main merge review — ready
+
+User authorizes review and merge if ready, preserving uncertain media and review
+VMs and coordinating PR317. Reviewed `faf760d5` with no blocking finding and
+integrated actual main `5f670602` as `ce5dd654`. The main delta adds Haswell audit
+tooling/documentation; native block/claim/exFAT/VFS, inspector, wrapper and tests
+match the qualified source. Production/runtime code is unchanged by this PR.
+
+Verified the frozen 44-file archive and all 15 captured sources against the
+immutable commit. Independently reviewed PR317 receipt/log hashes confirm its
+27 strict and 27 ASan/UBSan synthetic groups and successful omitted-backup
+negative control. Its initial exFAT fixture run could not preserve mode/hardlink
+semantics; the APFS rerun passes. macOS LeakSanitizer is unsupported: its supported
+sanitizer pass uses `detect_leaks=0`, with no leak-sanitizer acceptance claimed.
+The independent reviewer did not reread uncertain media or operate review VMs.
+
+Fresh current-main 27 diagnostic/selection groups, storage lease/workspace/USB
+regressions and documentation/whitespace checks pass. Reinspection of all three
+uncertain images, fault backup and clean control matches the original full-image
+SHA-256 and device/inode/ownership/link-count/mode/size/mtime/ctime stamps, plus
+PR349 explicit-range and PR360 GPT metadata. Diagnostic writes/flushes remain
+zero, uncertain images stay `0444`, and control stays `0644`. Review VMs
+61610/6233/85869 stay running and untouched. No new OS/VM or live/physical-media
+acceptance is claimed for this host-only change. Review evidence survives in
+`.local/filesystem-evidence/pr360-review/` outside `build`.
+
+PR317 owner confirms no new contract/lifetime overlap at `649e34df`, keeping
+scope coordination distinct from its independent source review. Published
+storage failure remains sticky; GPT/marker observations grant no authentication,
+repair, replay, transport recovery, remount or writable-admission authority.
+512-byte sectors, conservative native attribute policy and exactly one Basic
+Data candidate remain explicit limits. Review is ready for authorized merge.
+
+The merge guard subsequently held delivery when main advanced. Integrated
+Files folder-picker main `bc3d4933` as `f4769af5`, synchronizing Apps `b2b93f65`
+and Widgets `b3fa806a` and preserving its host record. All qualified native/tool
+sources remain identical. Fresh 27-group checks and retained-media comparisons
+pass again; no new runtime/UI acceptance is claimed by this host-only review.
+
+Next proposed bounded milestone: **explicit partition-GUID selection for offline
+multi-volume workspace images**. Add a caller-supplied GUID option which requires
+one matching Basic Data partition in the already validated primary/backup map,
+then retains the existing workspace marker/metadata inspection. This addresses
+the current conservative refusal of all multiple-Basic-Data images. Preserve
+that automatic ambiguity refusal; never select a first/alternate partition on
+missing/wrong GUID, unsupported type, corrupt map or failed workspace inspection.
+Research reuse of native GUID/map handling first, coordinate with PR317, and
+verify wrong/missing/duplicate identities plus multi-volume fixtures and unchanged
+retained-image hashes/permissions. No writable admission, repair, replay or
+source/orphan export. This proposal is not implemented by PR360.
+
+
+## GPT-aware workspace diagnostics — host qualified
+
+User authorizes native GPT reuse review, offline read-only selection and
+corrupt/ambiguous-map qualification. Base `f4ea0ccb`, isolated filesystem checkout,
+branch `device/apple-silicon/filesystem-gpt-inspection`. Reuse `block_gpt_scan`
+in a separate host adapter; native primary validation remains unchanged. Add
+host-only backup agreement checks and conservative single Basic Data selection
+before the existing native workspace inspector. No production block/process/USB
+changes, writable admission, repair or replay. Coordinate with PR317; preserve
+review VMs 61610/6233/85869 and all uncertain media. Prove matching explicit-range
+reports, corrupt/ambiguous refusals and unchanged whole-image hashes/permissions.
+
+Implementation `c2daff82` reuses unchanged native primary parsing and adds only
+host backup agreement/selection. All five retained inputs match PR349 ranges,
+metadata, whole-file hashes and full identity/permission stamps. Uncertain inputs
+remain `0444` and dirty/four-leak; clean control remains `0644`. 27 selection/diagnostic
+groups, storage lease/workspace/USB regressions and halt-on-error ASan/UBSan pass.
+An omitted-backup-check negative control is detected. Logical sectors are 512;
+multiple Basic Data candidates are conservatively refused, and the native
+read-only-attribute refusal policy is retained. Explicit paired ranges stay
+compatible; mixed selector/explicit arguments refuse. No source/orphan export,
+sidecar replay or production runtime changes. Evidence is retained outside build
+at `.local/filesystem-evidence/gpt-workspace-inspection/`. Review VMs remain live
+and untouched; PR317 reports no overlap, with independent source review separate.
+No fresh OS/VM/physical-media acceptance is claimed for this host-only change.
+
 ## Session switching — delivered and verified November 4, 2026
 
 User authorized cooperative session ending, no-reboot profile switching,

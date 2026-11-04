@@ -2037,7 +2037,7 @@ test-storage: build/tests/block-host$(HOST_EXE) build/tests/ahci-host$(HOST_EXE)
 	build/tests/ahci-host$(HOST_EXE)
 
 .PHONY: test-workspace-inspection
-test-workspace-inspection: build/tests/installation-inspect-driver$(HOST_EXE)
+test-workspace-inspection: build/tests/installation-inspect-driver$(HOST_EXE) build/tests/workspace-gpt-driver$(HOST_EXE)
 	$(PYTHON) -m unittest discover -s tools -p test_workspace_inspection.py -v
 
 .PHONY: test-installed-root
@@ -4551,3 +4551,7 @@ build/userspace/test_less_probe.elf: tools/test_less_probe.c userspace/widgets/s
 	$(CC) $(USER_CFLAGS) -I userspace/widgets/include -c tools/test_less_probe.c -o build/userspace/less-probe/probe.o
 	$(CC) $(USER_CFLAGS) -I userspace/widgets/include -c userspace/widgets/src/terminal.c -o build/userspace/less-probe/model.o
 	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) build/userspace/less-probe/probe.o build/userspace/less-probe/model.o $(USER_LIB_OBJ) -o $@
+
+build/tests/workspace-gpt-driver$(HOST_EXE): tools/workspace_gpt_driver.c kernel/src/block.c kernel/src/block_claim.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
