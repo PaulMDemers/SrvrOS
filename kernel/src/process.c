@@ -320,6 +320,7 @@ void usermode_enter(uint64_t entry,
     uint64_t envp,
     uint64_t fs_base) __attribute__((noreturn));
 void usermode_resume(const struct isr_frame *frame,uint64_t fs_base) __attribute__((noreturn));
+static bool process_signal_mask_current_locked(uint64_t how, uint64_t set, uint64_t *oldset_out);
 uint64_t process_context_save(struct process_context *context) __attribute__((returns_twice));
 void process_context_restore(struct process_context *context, uint64_t value) __attribute__((noreturn));
 uint64_t gdt_default_kernel_stack_top(void);
@@ -2634,6 +2635,17 @@ int64_t process_exec_replace(const char *path,
         path,
         process->entry,
         process->stack_top);
+    /* Caught dispositions were reset for the committed image. Pending bits
+     * now subject to a default must be evaluated before its first instruction,
+     * even if no later mask syscall or signal arrives. Keep this decision and
+     * user entry indivisible; usermode_enter installs the user RFLAGS itself.
+     * An earlier fatal cause during image retirement retains priority. */
+    (void)process_irq_save();
+    if (!process->killed) {
+        (void)process_signal_mask_current_locked(SRV_SIGNAL_SETMASK,
+            process->main_signal_mask, NULL);
+    }
+    if (process->killed) process_exit(process_current_kill_status());
     usermode_enter(process->entry,
         process->stack_top,
         process->argc,

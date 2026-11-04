@@ -19,7 +19,7 @@ static struct fpu_state *bound_fpu;
 static unsigned binding_calls, admissions, allocated,freed,stack_frees,destroyed,elf_reads,elf_releases;
 static _Alignas(4096) unsigned char pages[1024][4096],kernel_stack[PROCESS_KERNEL_STACK_SIZE];
 static bool freed_page[1024];
-static bool exec_success,exec_cleared,exec_old_retired,exec_rebound;
+static bool exec_success,exec_cleared,exec_old_retired,exec_rebound,fatal_exit_visited,user_entry_visited,earlier_fatal_injected;
 static unsigned exec_fpu_resets,exec_cleanup_observations;
 static struct process *exec_parent;
 static void *kernel_association;
@@ -61,8 +61,26 @@ void scheduler_invalidate_current_user_trap(void) {
 }
 bool scheduler_wait(struct scheduler_wait_queue *q,scheduler_wait_condition_fn fn,void *p) {(void)q;(void)fn;(void)p;abort();}
 void scheduler_yield(void) {abort();}
-void scheduler_io_wait(void) {abort();}
-void scheduler_io_set_user_safe(bool safe) {(void)safe;abort();}
+void scheduler_io_wait(void) {
+    const char *mode=getenv("SRVROS_EXEC_PENDING_TEST");
+    assert(exec_success && mode && (!strcmp(mode,"fatal") || !strcmp(mode,"earlier")));
+    uint64_t usr1=1ull<<SRV_SIGNAL_USR1,usr2=1ull<<SRV_SIGNAL_USR2;
+    uint64_t ignored=(1ull<<SRV_SIGNAL_CHLD)|(1ull<<SRV_SIGNAL_WINCH);
+    uint64_t retained=(1ull<<SRV_SIGNAL_ALRM)|(1ull<<SRV_SIGNAL_HUP);
+    bool earlier=!strcmp(mode,"earlier");
+    assert(!(simulated_flags&(1ull<<9)) && current==exec_parent && exec_rebound &&
+        current->image_generation==42 && bound_cr3==3 && current->killed &&
+        current->kill_signal==(earlier?SRV_SIGNAL_TERM:SRV_SIGNAL_USR1) &&
+        process_current_kill_status()==(earlier?143u:138u));
+    assert(((current->main_pending_signals&usr1)!=0)==earlier && (current->pending_signals&usr1) &&
+        (current->pending_signals&usr2) &&
+        (((current->main_pending_signals&ignored)!=0)==earlier) &&
+        (((current->pending_signals&ignored)!=0)==earlier) &&
+        (current->main_pending_signals&retained)==retained &&
+        (current->pending_signals&retained)==retained && !user_entry_visited && earlier_fatal_injected==earlier);
+    fatal_exit_visited=true;simulated_flags|=1ull<<9;longjmp(exec_entry,1);
+}
+void scheduler_io_set_user_safe(bool safe) {assert(exec_success && !safe && !(simulated_flags&(1ull<<9)));}
 void scheduler_kill_user_threads(void *p,void *except) {(void)p;(void)except;abort();}
 void audio_process_cleanup(uint64_t pid) {(void)pid;abort();}
 void gui_process_cleanup(uint64_t pid) {(void)pid;abort();}
@@ -120,7 +138,14 @@ bool vmm_virt_to_phys_in_space(uint64_t space,uint64_t virt,uint64_t *physical) 
     return false;
 }
 bool vmm_unmap_page_in_space(uint64_t space,uint64_t virt,uint64_t *physical) { return vmm_virt_to_phys_in_space(space,virt,physical); }
-void console_printf(const char *s,...) { (void)s; }
+void console_printf(const char *s,...) {
+    const char *mode=getenv("SRVROS_EXEC_PENDING_TEST");
+    if(exec_success && mode && !strcmp(mode,"earlier") &&
+        !strcmp(s,"exec: entering pid=%u %s entry=%x stack=%x\n")) {
+        assert(current==exec_parent && exec_rebound && !current->killed);
+        current->killed=true;current->kill_signal=SRV_SIGNAL_TERM;earlier_fatal_injected=true;
+    }
+}
 void console_write(const char *s) { (void)s; }
 bool exfat_write_file_mode(const char *p,const uint8_t *d,uint64_t n,uint64_t m) { (void)p;(void)d;(void)n;(void)m;abort(); }
 bool exfat_write_file_retryable(const char *p,const uint8_t *d,uint64_t n,bool *r) { (void)p;(void)d;(void)n;(void)r;abort(); }
@@ -142,8 +167,26 @@ uint64_t process_context_save(struct process_context *context) { (void)context;a
 void usermode_enter(uint64_t a,uint64_t b,uint64_t c,uint64_t d,uint64_t e,uint64_t f) {
     assert(exec_success && exec_rebound && exec_old_retired && exec_fpu_resets==1);
     assert(current==exec_parent && current->image_generation==42 && !kernel_association);
+    assert(!(simulated_flags&(1ull<<9)));user_entry_visited=true;
+    if (getenv("SRVROS_EXEC_PENDING_TEST")) {
+        fprintf(stderr,"exec-pending negative control: reached user entry killed=%d signal=%llu local=%llx shared=%llx\n",
+            current->killed,(unsigned long long)current->kill_signal,
+            (unsigned long long)current->main_pending_signals,(unsigned long long)current->pending_signals);
+        const char *mode=getenv("SRVROS_EXEC_PENDING_TEST");
+        if (!strcmp(mode,"ignored")) {
+            uint64_t ignored=(1ull<<SRV_SIGNAL_CHLD)|(1ull<<SRV_SIGNAL_WINCH);
+            uint64_t retained=(1ull<<SRV_SIGNAL_ALRM)|(1ull<<SRV_SIGNAL_HUP);
+            assert(!current->killed && !(current->main_pending_signals&ignored) &&
+                !(current->pending_signals&ignored) &&
+                (current->main_pending_signals&retained)==retained &&
+                (current->pending_signals&retained)==retained &&
+                "default-ignored bits must clear; blocked and ignored dispositions stay pending");
+        } else {
+            assert(!"unblocked pending default signal must terminate before user entry");
+        }
+    }
     assert(a==current->entry && b==current->stack_top && c==current->argc && d==current->argv && e==current->envp && f==current->tls_thread_pointer);
-    longjmp(exec_entry,1);
+    simulated_flags|=1ull<<9;longjmp(exec_entry,1);
 }
 static uint8_t image[9000];
 static const struct vfs_node executable={.used=true,.type=VFS_NODE_FILE,.metadata={.mode=0755}};
@@ -222,6 +265,17 @@ int main(void) {
     parent->image_generation=41;memcpy(&parent_snapshot,parent,sizeof(*parent));
     parent->usr1_action=(struct signal_action_descriptor){.mode=SIGNAL_ACTION_INFO,.handler=0x500000,.trampoline=0x500100};
     parent->usr1_action_generation=9;parent->signal_catch_mask=1ull<<SRV_SIGNAL_USR1;
+    if (getenv("SRVROS_EXEC_PENDING_TEST")) {
+        uint64_t usr1=1ull<<SRV_SIGNAL_USR1,usr2=1ull<<SRV_SIGNAL_USR2;
+        uint64_t ignored=(1ull<<SRV_SIGNAL_CHLD)|(1ull<<SRV_SIGNAL_WINCH);
+        uint64_t blocked=1ull<<SRV_SIGNAL_ALRM,retained_ignore=1ull<<SRV_SIGNAL_HUP;
+        parent->signal_catch_mask|=usr2;
+        parent->signal_ignore_mask|=retained_ignore;
+        parent->main_signal_mask|=blocked;
+        bool fatal=strcmp(getenv("SRVROS_EXEC_PENDING_TEST"),"ignored")!=0;
+        parent->main_pending_signals=(fatal?usr1:0)|ignored|blocked|retained_ignore;
+        parent->pending_signals=(fatal?(usr1|usr2):0)|ignored|blocked|retained_ignore;
+    }
     memcpy(&parent_snapshot,parent,sizeof(*parent));
     result=process_exec_replace("/fat/bin/echo",1,(const char *const *)argv,0,NULL,1,500,-1,0,0,0);
     assert(result==SRV_ERR_BADF && next_image_generation==42 && image_prepare_calls==3);
@@ -271,11 +325,16 @@ int main(void) {
         (void)process_exec_replace("/fat/bin/echo",1,(const char *const *)argv,0,NULL,-1,-1,-1,0,0,0);
         assert(!"successful exec returned");
     }
+    if (getenv("SRVROS_EXEC_PENDING_TEST") && strcmp(getenv("SRVROS_EXEC_PENDING_TEST"),"ignored"))
+        assert(fatal_exit_visited && !user_entry_visited);
+    else assert(user_entry_visited && !fatal_exit_visited);
     assert(exec_cleared && exec_rebound && exec_cleanup_observations==2 && freed==1);
     assert(simulated_flags==(1ull<<9) && binding_calls==1 && next_image_generation==42);
     assert(parent->image_generation==42 && bound_cr3==3 && bound_fpu==&parent->fpu);
     assert(!parent->usr1_action.mode && !parent->usr1_action_generation && !process_signal_records_active(parent));
     exec_success=false;current=NULL;cleanup_process_address_space(parent);
+    parent->killed=false;parent->kill_signal=0;parent->main_pending_signals=0;parent->pending_signals=0;
+    parent->main_signal_mask=0;parent->signal_ignore_mask=0;
     assert(freed==allocated && !parent->image_generation && !parent->mapping_count);
 
     /* Main pthread_exit returns for atexit without retiring the shared image. */

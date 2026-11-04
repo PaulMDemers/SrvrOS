@@ -3741,3 +3741,19 @@ are12207/10991B vs128KiB, with actual function-body equivalence. Exact first and
 expanded guest source/raw evidence survives distclean in workspace .local.
 Public ABI/libc/atomic suspend and WTF integration remain incomplete; JSC still
 has no new required-success42. Next public flag subset/ABI design under review.
+
+PR334 exec follow-up reproduces retained pending defaults entering a new image:
+the old normal kernel reaches a forbidden sentinel (status90), and retains
+default-ignored CHLD/WINCH (status91). The corrected final exec boundary evaluates
+the committed dispositions/mask under IRQ exclusion through exit or user entry.
+Its normal-kernel guest exits138 before the fatal sentinel; the ignored case
+exits0 with CHLD/WINCH cleared and blocked USR2 retained. Both old/new guest runs
+also pass main/worker register preservation and stop cleanly. Eight strict and
+sanitized actual-source lifecycle profiles include failed-exec rollback and an
+earlier TERM retaining priority over lower pending defaults; target compile/link
+pass. Explicit native exec default/mask attributes remain unqualified. Frozen
+receipt `d6f39053008cdbd8183988a860946657fe448c868944ecda0a3e9f1feda67dc6`
+is retained outside distclean in the task-owned APFS build volume. Public signal
+implementation remains under owner design review: userspace counters cannot close
+the confirmed internal polling/retry gap, so kernel-bound logical I/O admission
+and atomic temporary-mask waiting must be reviewed before libc/WTF integration.
