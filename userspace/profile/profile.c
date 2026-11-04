@@ -12,6 +12,7 @@
 #include <sys/stat.h>
 #include <dirent.h>
 #include <srvros/profile_session.h>
+#include <srvros/profile_limits.h>
 #ifndef SRVROS_PROFILE_HOST_TEST
 #include <srvros/sys.h>
 #endif
@@ -140,8 +141,8 @@ static void run_transaction(struct transaction *t,int recovering){
     require(!unlink(pending),"cannot publish profile; run recover");flush_dir(t->home);flush_all();require(!unlink(t->journal),"profile published; run recover to reconcile journal");flush_dir(t->parent);flush_all();printf("profile: imported %s into %s\n",str(get(get(t->bundle.json,"profile"),"id")),t->home);
 }
 static void transaction_paths(struct transaction *t,const char *home){home_valid(home);strcpy(t->home,home);int n=snprintf(t->journal,sizeof(t->journal),"%s.profile-import.json",home);require(n>0&&n<160,"journal path too long");strcpy(t->parent,home);*strrchr(t->parent,'/')=0;}
-static void import_profile(const char *bundle_path,const char *home,const char *alias,const char *uid,const char *gid){
-    struct transaction t={0};transaction_paths(&t,home);char source[PATH_CAP];absolute_path(source,bundle_path);size_t n;unsigned char *bytes=read_file(source,MAX_BUNDLE,&n);t.bundle=validate(parse(bytes,n));t.binding=object();addstr(t.binding,"alias",alias);addnum(t.binding,"uid",binding_number(uid));addnum(t.binding,"gid",binding_number(gid));binding_valid(t.binding);
+static void import_profile(const char *bundle_path,const char *home,const char *alias,const char *uid,const char *gid,const char *expected){
+    struct transaction t={0};transaction_paths(&t,home);char source[PATH_CAP];absolute_path(source,bundle_path);size_t n;unsigned char *bytes=read_file(source,MAX_BUNDLE,&n);char source_hash[65];profile_sha256(bytes,n,source_hash);if(expected)require(!strcmp(source_hash,expected),"bundle changed since review");t.bundle=validate(parse(bytes,n));t.binding=object();addstr(t.binding,"alias",alias);addnum(t.binding,"uid",binding_number(uid));addnum(t.binding,"gid",binding_number(gid));binding_valid(t.binding);
     require(!exists(home)&&!exists(t.journal),"destination or pending journal exists; use recover");binding_collisions(home,str(get(get(t.bundle.json,"profile"),"id")),t.binding);
     cJSON *journal=object();addstr(journal,"format","srvros-profile-import-v1");addstr(journal,"home",home);addstr(journal,"profile_id",str(get(get(t.bundle.json,"profile"),"id")));addstr(journal,"bundle",source);char hash[65];profile_sha256(bytes,n,hash);addstr(journal,"sha256",hash);attach(journal,"binding",cJSON_Duplicate(t.binding,1));free(bytes);manifest(&t,journal);char *text=json_text(journal);require(strlen(text)<=4096,"journal too large");write_new(t.journal,text,strlen(text));flush_dir(t.parent);checkpoint("journal");run_transaction(&t,0);
 }
@@ -158,19 +159,59 @@ static void recover_profile(const char *home,int check_only){
     if(check_only){(void)transaction_ready(&t,1);return;}
     run_transaction(&t,1);
 }
-static void export_profile(int argc,char **argv){
-    const char *home=argv[2];home_valid(home);char path[PATH_CAP],id[37];path_join(path,home,PENDING);require(!exists(path),"profile import pending; run recover");marker_read(home,id);
+static char *export_bundle(const char *home,int count,char **paths){
+    home_valid(home);char path[PATH_CAP],id[37];path_join(path,home,PENDING);require(!exists(path),"profile import pending; run recover");marker_read(home,id);
     cJSON *who;path_join(path,home,"identity.json");if(exists(path)){who=read_json(path,4096);identity(who);require(!strcmp(str(get(who,"id")),id),"identity metadata does not match marker");}else{who=object();addstr(who,"id",id);addstr(who,"display_name","Portable profile");}
-    path_join(path,home,".config/srvros/portable.json");cJSON *prefs=read_json(path,4096);preferences(prefs);cJSON *j=object();addstr(j,"format",FORMAT);addnum(j,"schema_version",1);attach(j,"profile",who);attach(j,"preferences",prefs);cJSON *docs=cJSON_CreateArray();attach(j,"documents",docs);require(argc-4<=MAX_FILES,"too many documents");size_t total=0;
-    for(int i=4;i<argc;i++){document_path(argv[i]);for(int k=4;k<i;k++)collision(argv[k],argv[i]);path_join(path,home,argv[i]);size_t n;unsigned char *data=read_file(path,MAX_FILE,&n);total+=n;require(total<=8*MAX_FILE,"aggregate content exceeds limit");cJSON *d=object();addstr(d,"path",argv[i]);addnum(d,"size",(unsigned)n);char hash[65];profile_sha256(data,n,hash);addstr(d,"sha256",hash);char *b64=profile_base64_encode(data,n);require(b64!=NULL,"out of memory");addstr(d,"data_base64",b64);free(b64);free(data);require(cJSON_AddItemToArray(docs,d),"out of memory");}
-    char *text=json_text(j);size_t n=strlen(text);require(n<=MAX_BUNDLE,"encoded bundle exceeds limit");char output[PATH_CAP];absolute_path(output,argv[3]);write_new(output,text,n);char parent[PATH_CAP];strcpy(parent,output);*strrchr(parent,'/')=0;flush_dir(*parent?parent:"/");flush_all();printf("profile: exported %u documents from %s\n",(unsigned)(argc-4),id);
+    path_join(path,home,".config/srvros/portable.json");cJSON *prefs=read_json(path,4096);preferences(prefs);cJSON *j=object();addstr(j,"format",FORMAT);addnum(j,"schema_version",1);attach(j,"profile",who);attach(j,"preferences",prefs);cJSON *docs=cJSON_CreateArray();attach(j,"documents",docs);require(count<=MAX_FILES,"too many documents");size_t total=0;
+    for(int i=0;i<count;i++){document_path(paths[i]);for(int k=0;k<i;k++)collision(paths[k],paths[i]);path_join(path,home,paths[i]);size_t n;unsigned char *data=read_file(path,MAX_FILE,&n);total+=n;require(total<=8*MAX_FILE,"aggregate content exceeds limit");cJSON *d=object();addstr(d,"path",paths[i]);addnum(d,"size",(unsigned)n);char hash[65];profile_sha256(data,n,hash);addstr(d,"sha256",hash);char *b64=profile_base64_encode(data,n);require(b64!=NULL,"out of memory");addstr(d,"data_base64",b64);free(b64);free(data);require(cJSON_AddItemToArray(docs,d),"out of memory");}
+    char *text=json_text(j);require(strlen(text)<=MAX_BUNDLE,"encoded bundle exceeds limit");return text;
 }
+static void export_output(const char *output_path,const char *text,const char *expected){
+    size_t n=strlen(text);char hash[65];profile_sha256(text,n,hash);if(expected)require(!strcmp(hash,expected),"source changed since review");
+    char output[PATH_CAP];absolute_path(output,output_path);
+    const char *stop=getenv("SRVROS_PROFILE_STOP_AFTER");
+    if(stop&&!strcmp(stop,"export-partial")){write_new(output,text,n/2);char parent[PATH_CAP];strcpy(parent,output);*strrchr(parent,'/')=0;flush_dir(*parent?parent:"/");checkpoint("export-partial");}
+    write_new(output,text,n);char parent[PATH_CAP];strcpy(parent,output);*strrchr(parent,'/')=0;flush_dir(*parent?parent:"/");flush_all();
+}
+/* Scan every sibling's metadata without modifying ambiguous entries. IDs outside
+ * the bounded allocation window still participate in normal collision checks. */
+static int suffix_folded(const char *name,const char *suffix){size_t n=strlen(name),m=strlen(suffix);if(n<=m)return 0;name+=n-m;while(*suffix)if(lower_ascii(*name++)!=lower_ascii(*suffix++))return 0;return 1;}
+static void reserve_numbers(const char *home,unsigned *uid,unsigned *gid,unsigned requested_uid){
+    unsigned char *used_uid=allocate(65536),*used_gid=allocate(65536);memset(used_uid,0,65536);memset(used_gid,0,65536);char parent[PATH_CAP];strcpy(parent,home);*strrchr(parent,'/')=0;
+    DIR *dir=opendir(parent);require(dir!=NULL,"cannot inspect destination bindings");struct dirent *e;unsigned entries=0,candidates=0;char slots[SRV_PROFILE_CHOOSER_MAX][160];
+    while((e=read_entry(dir))){if(!strcmp(e->d_name,".")||!strcmp(e->d_name,".."))continue;require(++entries<=4096,"too many destination entries");char path[PATH_CAP],other[PATH_CAP];path_join(other,parent,e->d_name);struct stat st;require(!lstat(other,&st),"cannot inspect sibling");cJSON *binding=NULL,*holder=NULL;
+        /* Match chooser discovery, including blocked and case-conflicting journals. */
+        int journal=suffix_folded(e->d_name,".profile-import.json"),candidate=journal;char slot[160];require(strlen(e->d_name)<sizeof(slot),"entry exceeds profile path limits");strcpy(slot,e->d_name);if(journal)slot[strlen(slot)-strlen(".profile-import.json")]=0;
+        if(!journal&&(S_ISDIR(st.st_mode)||S_ISLNK(st.st_mode))){static const char *markers[]={"profile.id",".profile-import-pending","identity.json"};for(unsigned k=0;k<3;k++){path_join(path,other,markers[k]);struct stat marker;if(!lstat(path,&marker)||errno!=ENOENT){candidate=1;break;}}}
+        if(candidate){unsigned k;for(k=0;k<candidates;k++)if(!strcmp(slots[k],slot))break;if(k==candidates){require(candidates<SRV_PROFILE_CHOOSER_MAX-1,"profile chooser capacity reached");strcpy(slots[candidates++],slot);}}
+
+        if(S_ISDIR(st.st_mode)){path_join(path,other,"profile-local.json");if(exists(path)){holder=read_json(path,4096);binding=holder;binding_valid(binding);}}
+        else{size_t len=strlen(e->d_name);static const char suffix[]=".profile-import.json";if(len>sizeof(suffix)-1&&!strcmp(e->d_name+len-(sizeof(suffix)-1),suffix)){holder=read_json(other,4096);journal_fields(holder);binding=get(holder,"binding");}}
+        if(binding){unsigned u=number(get(binding,"uid"),2147483647),g=number(get(binding,"gid"),2147483647);if(u>=1000&&u<66536)used_uid[u-1000]=1;if(g>=1000&&g<66536)used_gid[g-1000]=1;require(!requested_uid||u!=requested_uid,"local UID already reserved");cJSON_Delete(holder);}
+    }require(!closedir(dir),"cannot close directory");unsigned u=0,g=0;while(u<65536&&used_uid[u])u++;while(g<65536&&used_gid[g])g++;require(u<65536&&g<65536,"no available local binding");*uid=u+1000;*gid=g+1000;free(used_uid);free(used_gid);
+}
+static void review_output(const char *operation,const char *hash,struct bundle *b,const char *home,cJSON *binding){
+    cJSON *out=object();addstr(out,"format","srvros-profile-review-v1");addstr(out,"operation",operation);addstr(out,"sha256",hash);attach(out,"profile",cJSON_Duplicate(get(b->json,"profile"),1));attach(out,"preferences",cJSON_Duplicate(get(b->json,"preferences"),1));addnum(out,"bytes",(unsigned)b->total);cJSON *docs=cJSON_CreateArray();attach(out,"documents",docs);
+    for(unsigned i=0;i<b->count;i++){cJSON *d=object();addstr(d,"path",b->paths[i]);addnum(d,"size",(unsigned)b->sizes[i]);require(cJSON_AddItemToArray(docs,d),"out of memory");}
+    if(home){cJSON *dest=object();addstr(dest,"home",home);addstr(dest,"alias",str(get(binding,"alias")));addnum(dest,"uid",number(get(binding,"uid"),2147483647));addnum(dest,"gid",number(get(binding,"gid"),2147483647));attach(out,"destination",dest);}puts(json_text(out));
+}
+static void preview_export(const char *home,int count,char **paths){char *text=export_bundle(home,count,paths);char hash[65];profile_sha256(text,strlen(text),hash);struct bundle b=validate(parse((unsigned char *)text,strlen(text)));review_output("export",hash,&b,NULL,NULL);}
+static void preview_import(const char *source,const char *home,const char *alias){
+    struct transaction t={0};transaction_paths(&t,home);char absolute[PATH_CAP];absolute_path(absolute,source);size_t n;unsigned char *bytes=read_file(absolute,MAX_BUNDLE,&n);char hash[65];profile_sha256(bytes,n,hash);t.bundle=validate(parse(bytes,n));free(bytes);require(!exists(home)&&!exists(t.journal),"destination or pending journal exists; use recover");
+    unsigned uid,gid;reserve_numbers(home,&uid,&gid,0);t.binding=object();addstr(t.binding,"alias",alias);addnum(t.binding,"uid",uid);addnum(t.binding,"gid",gid);binding_valid(t.binding);binding_collisions(home,str(get(get(t.bundle.json,"profile"),"id")),t.binding);manifest(&t,object());review_output("import",hash,&t.bundle,home,t.binding);
+}
+static void reviewed_import(const char *source,const char *home,const char *alias,const char *uid,const char *gid,const char *hash){unsigned u,g;home_valid(home);reserve_numbers(home,&u,&g,binding_number(uid));import_profile(source,home,alias,uid,gid,hash);}
+
 static void inspect_profile(const char *source){struct bundle b=validate(read_json(source,MAX_BUNDLE));cJSON *out=object();attach(out,"profile",cJSON_Duplicate(get(b.json,"profile"),1));attach(out,"preferences",cJSON_Duplicate(get(b.json,"preferences"),1));addnum(out,"bytes",(unsigned)b.total);cJSON *docs=cJSON_CreateArray();attach(out,"documents",docs);for(unsigned i=0;i<b.count;i++)require(cJSON_AddItemToArray(docs,cJSON_CreateString(b.paths[i])),"out of memory");addstr(out,"authentication","not provided; confirm bundle source before import");char *s=json_text(out);puts(s);}
 static void activate_profile(const char *home){home_valid(home);char path[PATH_CAP],id[37];path_join(path,home,PENDING);require(!exists(path),"profile import pending; run recover");marker_read(home,id);path_join(path,home,".config/srvros/portable.json");cJSON *prefs=read_json(path,4096);preferences(prefs);struct srv_profile_session session;struct srv_profile_environment env;require(srv_profile_session_init(&session,home,id)&&srv_profile_environment_init(&env,&session,"/fat/bin:/bin"),"invalid activation environment");char arg[128];int n=snprintf(arg,sizeof(arg),"--profile=%s",home);require(n>0&&(size_t)n<sizeof(arg),"activation argument too long");char *args[]={"/fat/bin/deskd",arg,"--apps-trace",NULL};execve(args[0],args,env.envp);fail("cannot execute deskd");}
 int main(int argc,char **argv){
-    if(argc>=4&&!strcmp(argv[1],"export"))export_profile(argc,argv);
+    if(argc>=4&&!strcmp(argv[1],"export")){char id[37];char *text=export_bundle(argv[2],argc-4,argv+4);marker_read(argv[2],id);export_output(argv[3],text,NULL);printf("profile: exported %u documents from %s\n",(unsigned)(argc-4),id);}
+    else if(argc>=3&&!strcmp(argv[1],"preview-export"))preview_export(argv[2],argc-3,argv+3);
+    else if(argc>=5&&!strcmp(argv[1],"export-reviewed")){export_output(argv[3],export_bundle(argv[2],argc-5,argv+5),argv[4]);puts("profile: exported");}
+    else if(argc==5&&!strcmp(argv[1],"preview-import"))preview_import(argv[2],argv[3],argv[4]);
+    else if(argc==8&&!strcmp(argv[1],"import-reviewed"))reviewed_import(argv[2],argv[3],argv[4],argv[5],argv[6],argv[7]);
     else if(argc==3&&!strcmp(argv[1],"inspect"))inspect_profile(argv[2]);
-    else if(argc==7&&!strcmp(argv[1],"import"))import_profile(argv[2],argv[3],argv[4],argv[5],argv[6]);
+    else if(argc==7&&!strcmp(argv[1],"import"))import_profile(argv[2],argv[3],argv[4],argv[5],argv[6],NULL);
     else if(argc==3&&!strcmp(argv[1],"recover"))recover_profile(argv[2],0);
     else if(argc==3&&!strcmp(argv[1],"check-recover"))recover_profile(argv[2],1);
     else if(argc==3&&!strcmp(argv[1],"activate"))activate_profile(argv[2]);

@@ -1,0 +1,260 @@
+{
+  "base": "7ef140ef3c6c7e8c88736cd4491064d11cad81e8",
+  "integrated_payload_review": {
+    "added_payloads": {
+      "bin-bc": "d3e218aeaf7aeae17b0ddafa597d42a4c2e3e0fe6fdd600f702f5ffbdd539157",
+      "bin/bc": "d3e218aeaf7aeae17b0ddafa597d42a4c2e3e0fe6fdd600f702f5ffbdd539157"
+    },
+    "build": {
+      "built_at": "2026-11-04T03:32:46.388474+00:00",
+      "hashes": {
+        "build/initramfs.tar": "db5a1e2fcd38463614576c1411404a0357059a0814eb0f2b30cd99615c5f2c7f",
+        "build/kernel/srvros.elf": "0d96451a850857b0b3ed19bdecd354a5f81363e4792e27b107c2fc1fe4f38f15",
+        "build/srvros.exfat": "dc11bf3d4347987d0d1adac6f157418a550822dbcf3912906f1556359be3ae1c"
+      },
+      "repositories": {
+        ".": {
+          "dirty": false,
+          "head": "87c5b786e03eff0fcc472f032b0d56075bd737f3",
+          "status": "",
+          "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "untracked": {}
+        },
+        "ports": {
+          "dirty": false,
+          "head": "78fb81846dd6bfe5c2e3523c10bf59ae0d9dc337",
+          "status": "",
+          "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "untracked": {}
+        },
+        "ports/upstream/awk": {
+          "dirty": false,
+          "head": "5739fd79bcfc75ba7526773d0cf634521f8aca3c",
+          "status": "",
+          "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "untracked": {}
+        },
+        "ports/upstream/cjson": {
+          "dirty": false,
+          "head": "c859b25da02955fef659d658b8f324b5cde87be3",
+          "status": "",
+          "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "untracked": {}
+        },
+        "ports/upstream/inih": {
+          "dirty": false,
+          "head": "26254ee9de7681f8825433415443e7116ff24b98",
+          "status": "",
+          "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "untracked": {}
+        },
+        "ports/upstream/libuv": {
+          "dirty": false,
+          "head": "1cfa32ff59c076ffb6ed735bbc8c18361558661f",
+          "status": "",
+          "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "untracked": {}
+        },
+        "ports/upstream/linenoise": {
+          "dirty": false,
+          "head": "dc83cc373ac2058030eb3cf5e404959a26fef112",
+          "status": "",
+          "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "untracked": {}
+        },
+        "ports/upstream/lua": {
+          "dirty": false,
+          "head": "6e22fedb74cf0c9b6656e9fce8b7331db847c605",
+          "status": "",
+          "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "untracked": {}
+        },
+        "ports/upstream/node": {
+          "dirty": false,
+          "head": "c7d10158bc31036de6783d66beaaaf551e3167aa",
+          "status": "",
+          "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "untracked": {}
+        },
+        "ports/upstream/zlib": {
+          "dirty": false,
+          "head": "da607da739fa6047df13e66a2af6b8bec7c2a498",
+          "status": "",
+          "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "untracked": {}
+        },
+        "userspace/apps": {
+          "dirty": false,
+          "head": "3cf32af2294eebe9d8b9aeb8bc1dcbe46feb2967",
+          "status": "",
+          "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "untracked": {}
+        },
+        "userspace/widgets": {
+          "dirty": false,
+          "head": "9eaaa74e1423c15c99f8ce388b08ed5e514de3d6",
+          "status": "",
+          "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "untracked": {}
+        }
+      },
+      "schema": 1,
+      "source": "87c5b786e03eff0fcc472f032b0d56075bd737f3",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "worktree_dirty": false
+    },
+    "changed_payloads": {
+      "bin-sysabi": {
+        "after": "e3953b36248f2a900eb744d3ec47b8e03508b5611c7b54e8ffdf3e47a2f032fe",
+        "before": "d86a1163f64df5c72640be69279790659338cf6fc5d0ba40fc29f9bd8c137c22"
+      },
+      "bin/sysabi": {
+        "after": "e3953b36248f2a900eb744d3ec47b8e03508b5611c7b54e8ffdf3e47a2f032fe",
+        "before": "d86a1163f64df5c72640be69279790659338cf6fc5d0ba40fc29f9bd8c137c22"
+      }
+    },
+    "current_base_admission": {
+      "allocation": {
+        "clusters": 15019,
+        "errors": 0,
+        "fat_bitmap_mismatches": 0,
+        "files": 369,
+        "leaked": 0
+      },
+      "clean_admission": true,
+      "flushes": 0,
+      "namespace_targets_valid": true,
+      "writes": 0
+    },
+    "current_filesystem_sha256": "dc11bf3d4347987d0d1adac6f157418a550822dbcf3912906f1556359be3ae1c",
+    "directory_count": 15,
+    "header_whitespace_only": {
+      "current_sha256": "cb2bfea79eecb9c110377f68b38901789679adaf804b9f5229bdfda6e108137d",
+      "native_binary_hashes_identical": true,
+      "old_sha256": "a44e542bb62d6ba5770ee8c84ee3f221ac67e6cc21523d6a9890e8175989ef1d",
+      "trailing_whitespace_only": true
+    },
+    "host_checks": "PASS: 70 passing installation tests and one optional skip, plus profile/guest checks",
+    "matched_build": "PASS",
+    "new_file_count": 369,
+    "no_new_VM_required": true,
+    "old_file_count": 367,
+    "ports": "78fb81846dd6bfe5c2e3523c10bf59ae0d9dc337",
+    "proof_source": "ca90437a9a1df7e51b68e3dc6480c54100e9e279",
+    "removed_payloads": [],
+    "review_base": "7ef140ef3c6c7e8c88736cd4491064d11cad81e8",
+    "review_build_source": "87c5b786e03eff0fcc472f032b0d56075bd737f3",
+    "scope": "BC addition plus previously reviewed sysabi test-only change; all runtime/kernel/profile/installer consumers of the source-attributed four-boot proof remain byte-identical.",
+    "status": "PASS",
+    "tool_sources_unchanged_except_header_EOF": true,
+    "unchanged_proof_artifacts": {
+      "bootx64": "333f7a69379b1f47e019be215885cdc078b9edd6e9255cbe2f706d6c5ec0ef06",
+      "deskd": "340269be9da49c449b2795747a0832a82cd582b383581b05d6252cb850b46c45",
+      "deskterm": "f798f8f56d096ef2b405594251113cc8010a8aebb0dacd56d82336ba1e9030f5",
+      "desktools": "b0415cd6b9c3fd1ea165d7c6307da321d9b768d7863b6951d5b337f3c9c19695",
+      "export_driver": "606d1227895511d00daea1f167b0d807b5ce0f22bb7ac1713f10b3b71611b939",
+      "fs_driver": "7cd305abbe9d38f45f317947b439583ad465eea449e6fd30214a8c20007812c8",
+      "init": "ac3107f6c9866bc9b11128f91424a1fc54ed9c130d30c3d1afd718927f9e35f9",
+      "inspect_driver": "74d6b2ea4a296787a2be44d0226de12d92df7236d16091c1577e2f2abadfd4e9",
+      "kernel": "0d96451a850857b0b3ed19bdecd354a5f81363e4792e27b107c2fc1fe4f38f15",
+      "profile_driver": "5a4165be97737b1862b41324d3cc7e6a4ee67b6deb7ca638e32a5b01bea50198"
+    }
+  },
+  "new_VM_launched": false,
+  "other_inactive_evidence_storage": {
+    "fsync": {
+      "historical_inodes_not_adoptable": true,
+      "manifest": ".local/installation-evidence/pr330-fsync-review/compressed-images.json",
+      "sha256": "8a0eba933078b1f45fa62ea7d4a51ae7db4caaec44fa43bd9f48f58f99ed7ab1",
+      "verified_compressed_files": 6
+    },
+    "inspection": {
+      "historical_inodes_not_adoptable": true,
+      "manifest": ".local/installation-evidence/used-proof-4k419y9m/compressed-images.json",
+      "sha256": "e65c6bab4c92e8d6a0ae2fb2f74c8318475dde8a86675e2750344fd3ccd0fcb6",
+      "verified_compressed_files": 5
+    }
+  },
+  "proof_source": "ca90437a9a1df7e51b68e3dc6480c54100e9e279",
+  "readiness": "Ready for authorized merge; final follow-up changes only review records and documentation.",
+  "review_findings": [],
+  "review_vms_alive": [
+    61610,
+    6233,
+    85869
+  ],
+  "reviewed_head_before_integration": "1a19e2c6db9892b9901b08b6b3c3517b83c9ca7c",
+  "status": "PASS",
+  "streamed_evidence": {
+    "boots": 4,
+    "compressed_images_verified": [
+      {
+        "path": ".local/installation-evidence/export-proof-r29pmoja/.profile-image-fixture/image.gz",
+        "sha256": "8b42b70999ff67acd5dbbe013425535178cca0d5d432fe9e3b3bc5e86ce1dbab",
+        "size": 134217728
+      },
+      {
+        "path": ".local/installation-evidence/export-proof-r29pmoja/inputs/base-a.exfat.gz",
+        "sha256": "621d03ce604c160619eec5c0ae6d4bc1f3f031ef970b970e8fee6b22bcc0390f",
+        "size": 134217728
+      },
+      {
+        "path": ".local/installation-evidence/export-proof-r29pmoja/inputs/base-b.exfat.gz",
+        "sha256": "5e0244912cbb00191227b70a5bebd3bb01b13713419477762d789d9b46ed1696",
+        "size": 134217728
+      },
+      {
+        "path": ".local/installation-evidence/export-proof-r29pmoja/stage-a/image.img.gz",
+        "sha256": "54446c68084d090bbda4c4c33bd188da7466ac0e52b2bb1e5b900fb74bada4da",
+        "size": 538968064
+      },
+      {
+        "path": ".local/installation-evidence/export-proof-r29pmoja/stage-a/profile.exfat.gz",
+        "sha256": "e77392d066dc279df6e67548c1c6587210fa267daafb79dbc53a86fc1cb16e97",
+        "size": 134217728
+      },
+      {
+        "path": ".local/installation-evidence/export-proof-r29pmoja/stage-b/image.img.gz",
+        "sha256": "e8a60007b7b12c115cf85a4e31ad148fbc9c0a5d7929f8616137116130516dc7",
+        "size": 538968064
+      },
+      {
+        "path": ".local/installation-evidence/export-proof-r29pmoja/stage-b/profile.exfat.gz",
+        "sha256": "f32baf07815ae5325f91267977d4ce92e048ab08ac068a4312f9958a9536d29c",
+        "size": 134217728
+      }
+    ],
+    "export_refusals": 16,
+    "export_successes": 2,
+    "proof_artifacts_verified": {
+      "bootx64": "333f7a69379b1f47e019be215885cdc078b9edd6e9255cbe2f706d6c5ec0ef06",
+      "deskd": "340269be9da49c449b2795747a0832a82cd582b383581b05d6252cb850b46c45",
+      "deskterm": "f798f8f56d096ef2b405594251113cc8010a8aebb0dacd56d82336ba1e9030f5",
+      "desktools": "b0415cd6b9c3fd1ea165d7c6307da321d9b768d7863b6951d5b337f3c9c19695",
+      "exfat": "e3a78991f81a10e1e624792c601e514161a452b1e48c1b19fc8ada2a6207a980",
+      "export_driver": "606d1227895511d00daea1f167b0d807b5ce0f22bb7ac1713f10b3b71611b939",
+      "fs_driver": "7cd305abbe9d38f45f317947b439583ad465eea449e6fd30214a8c20007812c8",
+      "init": "ac3107f6c9866bc9b11128f91424a1fc54ed9c130d30c3d1afd718927f9e35f9",
+      "inspect_driver": "74d6b2ea4a296787a2be44d0226de12d92df7236d16091c1577e2f2abadfd4e9",
+      "kernel": "0d96451a850857b0b3ed19bdecd354a5f81363e4792e27b107c2fc1fe4f38f15",
+      "profile_driver": "5a4165be97737b1862b41324d3cc7e6a4ee67b6deb7ca638e32a5b01bea50198"
+    },
+    "proof_source": "ca90437a9a1df7e51b68e3dc6480c54100e9e279",
+    "raw_receipt_sha256": "bab1b0651b8e7aa88386f8bad0fc3818e0e37c39216f0cfeb2b34383fcda9ab8",
+    "review_base": "7ef140ef3c6c7e8c88736cd4491064d11cad81e8",
+    "review_vms_alive": [
+      61610,
+      6233,
+      85869
+    ],
+    "review_worktree": "Host continuity note only; exporter/runtime source unchanged.",
+    "reviewed_source": "e5088ac210e6a6fbadf1db667a1e9e889e6b97ff",
+    "scope": "Streaming verification of immutable original proof; no decompressed image written or historical target adopted.",
+    "screenshots_verified": true,
+    "source_stage_output_snapshots_equal": true,
+    "status": "PASS",
+    "steps": 33,
+    "strict_publication_refusals": 10,
+    "used_inspections": 5
+  }
+}
