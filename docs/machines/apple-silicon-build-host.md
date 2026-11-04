@@ -1,5 +1,20 @@
 # Apple Silicon macOS build host
 
+## Host publication I/O-failure qualification — active scope
+
+User authorized a scoped PR with write/sync/link/unlink failure, reconciliation
+and refusal proof in isolated `SrvrOS-installation-io`, branch
+`device/apple-silicon/install-publication-io-failures`, main `1f177761`.
+Own host publication tool/fault fixtures and installation docs only. Latest
+integrated filesystem/profile contracts, open PR326 and merged PR327 are inspected;
+profile chooser and descriptor salvage are independent. Separate storage-guard
+work stays intact in the earlier checkout, with private build outputs here. Reconciliation
+must re-establish verified stage-file and namespace syncs after uncertain errors,
+including an already visible ready receipt. No guest or kernel policy changes.
+Preserve review VMs 61610, 6233 and 85869, primary checkout and accepted evidence.
+One build/harness at a time; no physical media, reboot or Actions. Acceptance
+and exact evidence will be recorded in `docs/disk-installation.md`.
+
 ## PR325 merge review
 
 User authorized review and merge if ready. Candidate `8b4619b6` integrates main

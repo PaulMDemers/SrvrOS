@@ -1,5 +1,43 @@
 # Disk installation and recovery
 
+## Host publication I/O failures — active milestone
+
+User authorized deterministic write/sync/link/unlink qualification and a scoped
+PR. Branch `device/apple-silicon/install-publication-io-failures` uses the isolated
+installation clone and integrated main `1f177761` (PR325/327). Own the host publication
+tool, fault fixture/tests and installation evidence. No kernel, filesystem,
+guest profile or application policy changes. Review VMs 61610, 6233 and 85869
+remain live and untouched; one build/harness at a time; no physical disk, reboot
+or Actions. Status: implementation and qualification in progress.
+
+Current dependencies are PR325's journal/identity/locking, PR321's version-2
+plans, PR320's pending-import/unknown-state refusal and PR322/323's managed
+writeback/salvage limits. Open PR326 was inspected: it adds profile selection,
+recovery status and offline display-name metadata, without changing the host
+publication contract. PR327's descriptor-preserving salvage helper was inspected
+and merged into main during this work; its caller-owned descriptor and explicit
+success/error boundaries neither grant host repair authority nor gate this work.
+The open profile chooser implementation is not imported into this scoped branch.
+
+Separate storage-guard work appeared in the earlier installation checkout.
+Its edits remain intact there. This milestone moved only its own changes into
+`SrvrOS-installation-io`, a separate clone with private submodules/build outputs;
+the app's managed-worktree tool could not select the nested source repository.
+Existing build seeds were cloned with copy-on-write, then rebuilt locally.
+
+Qualify real private-stage host I/O through deterministic adapters: errors
+before and after sync/link/unlink effects and partial metadata/image writes.
+The operation must not acknowledge success after an injected failure. Fresh
+read-only inspection must preserve the stage; explicit reconciliation must
+revalidate the complete existing record/candidate, re-establish file/directory
+sync barriers, and publish identical image bytes or refuse without mutation.
+Already visible ready bytes do not waive a failed durability barrier. Unknown
+and preexisting state, original sources and guest import markers stay preserved.
+Cover ordinary-v1/profile-v2 plans and reconciliation itself, with explicit
+adapter limits, negative controls and raw evidence outside build cleanup.
+This is deterministic host error handling, not a power-cut/media-durability
+guarantee or automatic retry/repair.
+
 ## PR325 integrated-main review and next checkpoint
 
 User authorized review and merge if ready. Candidate `8b4619b6` integrates main

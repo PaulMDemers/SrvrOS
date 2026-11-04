@@ -593,6 +593,24 @@ def reconcile(staging_dir, checkpoint=None):
         result = inspect(target)  # Verify every existing item before mutation.
         if not result['can_reconcile']:
             raise ValueError(result['reason'])
+        # An earlier fsync may have failed after complete bytes became visible.
+        # Hash equality alone cannot establish that those bytes or names reached
+        # the filesystem's durability boundary. Re-establish every stage-file
+        # barrier, including an already visible ready receipt, before success.
+        synced = set()
+        for path in sorted(target.iterdir()):
+            fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+            try:
+                info = os.fstat(fd)
+                if not stat.S_ISREG(info.st_mode):
+                    raise ValueError('nonregular verified stage entry')
+                identity = (info.st_dev, info.st_ino)
+                if identity not in synced:
+                    os.fsync(fd)
+                    synced.add(identity)
+            finally:
+                os.close(fd)
+        sync_dir(target)
         if result['state'] == 'ready':
             return result['ready']
         return publish(target, result['ready'], checkpoint)
