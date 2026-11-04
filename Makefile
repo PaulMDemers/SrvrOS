@@ -4517,3 +4517,10 @@ build/tests/installation-inspect-driver$(HOST_EXE): tools/installation_inspect_d
 build/tests/installation-export-driver$(HOST_EXE): tools/installation_export_driver.c tools/installation_readonly_host.h kernel/src/fs/exfat.c kernel/src/block_claim.c kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) -DSRVROS_EXFAT_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include tools/installation_export_driver.c kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c -Wl,--gc-sections -o $@
+
+# Diagnostic helper injected only into disposable less-test images.
+build/userspace/test_less_probe.elf: tools/test_less_probe.c userspace/widgets/src/terminal.c $(USER_CRT0_OBJ) $(USER_LIB_OBJ) $(ZIG) userspace/app.ld
+	mkdir -p build/userspace/less-probe
+	$(CC) $(USER_CFLAGS) -I userspace/widgets/include -c tools/test_less_probe.c -o build/userspace/less-probe/probe.o
+	$(CC) $(USER_CFLAGS) -I userspace/widgets/include -c userspace/widgets/src/terminal.c -o build/userspace/less-probe/model.o
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) build/userspace/less-probe/probe.o build/userspace/less-probe/model.o $(USER_LIB_OBJ) -o $@
