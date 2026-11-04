@@ -12285,3 +12285,29 @@ workspace connected. Guest progress, full save and Ubuntu return are automatic;
 no commands/photos. Collect first; missing/truncated/failed proofs are not passes.
 No receiver, network OUT or credentials are enabled. MCU high-band calibration,
 IBI9 semantics and separately tested5GHz receive/scan handling remain next.
+
+
+## 2026-11-04 v120 native selected-channel return and next receive scope
+
+Matching session `session-00065f6d30db0147-00` / release `019299c5a721fcda` /
+runtime `e2bf7e3b` passes all15618 operations and its1991045-byte complete prefix.
+The3844-operation selected-channel transaction includes77 child I/O and six
+exact waits; immediate b0 becomes30 by the first delayed observation. Trim44
+and held channel161/20MHz remain selected through the child; inverse original
+BBP/PA/A20/frequency/band/trim values independently pass. Offline USB fsck and
+allocation, all installed recovery bytes, Ubuntu default/unarmed state and
+automatic return pass. The215-file native capsule and independent acceptance
+notes survive outside build. No retry is needed for this bounded command/
+self-clear/restoration contract; RF lock, analog calibration and RX stay open.
+
+Fetched main `7766ed5a`: Files transfer, uncertain-media host inspection, profile
+creation/session switching and isolated Air6,1 Linux-model32 observation are
+new since the actual integrated `845f703c`. They are not yet incorporated or
+claimed in this physical acceptance. Remaining open PRs334/317/310/301 have
+separate signal/isolation/browser/Air scanout scopes; no MT76 overlap found.
+Next bounded shared change is a separate fixed161/20MHz passive beacon decoder
+with HT-primary validation, host fault/truncation tests and unchanged legacy
+1–11 behavior/ABI. It grants no hardware endpoint or radio authority. Continue
+source-audited channel MCU calibration and IBI9 saved-word admission separately;
+existing all-ones observations do not automatically admit new5GHz calibration.
+No new boot armed; cold-unplug shutdown authority persists. Credentials unused.

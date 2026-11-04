@@ -11,10 +11,11 @@ withdrawn before installation. New installation and runtime gates refuse that
 captured2.4GHz RF recipe. Historical rendering remains for offline regression.
 
 Native evidence accepts the bounded empty-cache desktop, trackpad, unplug
-retirement and automatic return. Latest v119 accepts11774 MAC-disabled command
-operations, including105 common VCO operations after the complete fresh-trim/DAC parent. One trigger self-clears
-at the first delayed observation; all six delayed reads and trim restoration
-pass. Earlier held-channel161/20MHz band/frequency/A20/PA/gain-adjusted BBP
+retirement and automatic return. Latest v120 accepts15618 MAC-disabled command
+operations, including77 selected-channel VCO operations within a3844-operation
+fresh-trim/channel161 transaction after the complete common VCO parent. Both
+triggers clear at the first delayed observation; all delayed reads and inverse
+register restoration pass. Earlier held-channel161/20MHz band/frequency/A20/PA/gain-adjusted BBP
 command/readback/restoration contracts remain source-bound evidence. RF lock,
 calibrated reception, populated discovery, live reattach/rescan, association/
 security and an active Wi-Fi IP provider remain pending. Ordinary
@@ -86,7 +87,7 @@ measurement. Held-channel VCO/calibration, receive and connectivity stay pending
 record for the separately unaccepted bc VM allocation anomaly; it does not
 substitute for or relax this capture's storage checks.
 
-## Held-channel VCO candidate (v120; physical acceptance pending)
+## Held-channel VCO (v120; bounded native acceptance)
 
 A separate fixed coordinator runs after complete common VCO/fresh-field proof.
 It reuses the unchanged legacy trim/channel engines and enters one guarded child
@@ -110,9 +111,13 @@ admits channels1–11/1,6,11; a separately tested5GHz decoder and endpoint lifec
 are required before channel161 receive testing. Credentials remain unused.
 Pro11,2 v120 `019299c5a721fcda`/`e2bf7e3b` is installed after exact-image VM,
 sanitizer, selected-bank fault, complete-prefix and storage/recovery checks.
-Physical acceptance remains pending collection; latest native is still v119.
-The synthetic15618-operation prefix is1991043bytes and fits the unchanged2MiB
-bound with106109bytes remaining. No calibrated receive or connectivity claim
+Matching native session `session-00065f6d30db0147-00` passes all15618 operations
+and its complete1991045-byte prefix. The77-operation child observes immediate
+b0 followed by six delayed30 reads while trim44/channel161 remain selected;
+all inverse originals pass. Offline storage, recovery and automatic Ubuntu
+return pass. The215-file sealed native capsule and separate acceptance notes
+survive outside build. The native prefix fits the unchanged2MiB bound with
+106107bytes remaining. No calibrated receive or connectivity claim
 follows from preparation or a self-cleared trigger.
 
 ## 5GHz RF band-selection foundation
