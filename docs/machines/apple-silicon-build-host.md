@@ -26,6 +26,80 @@ restoration. Preserve the primary checkout and review VMs 6233/61610/85869. No
 physical media/reboot or Actions; one build/harness at a time. Completed proof
 snapshots are losslessly compressed only after byte verification and last use,
 with a bounded archive budget and retained restore mapping.
+## PR342 integrated-main merge review — ready
+
+User authorizes review and merge if ready. Reuse isolated
+`SrvrOS-installation-io` and the export branch, initial head `1a19e2c6`;
+actual main `7ef140ef` (bc integration) is merged as `e5088ac2`, Ports
+`78fb8184`. Own review, affected verification and continuity only. Inspect
+current filesystem/profile contracts and retain the source-attributed export
+proof; unmerged desktop-transfer PR333 remains independently scoped. Preserve
+review VMs 61610/6233/85869, existing evidence and other checkouts. One build or
+harness here, no physical media/reboot/Actions. Start with bounded host checks
+and streamed retained evidence under shared disk pressure, then determine which
+runtime proof is affected before the authorized merge.
+
+No material finding or unresolved thread. Fresh combined checks pass (70 passing
+installation tests, one optional skip, 15 export and 19 inspection groups), plus
+profile/guest and documentation checks. Clean matched build `87c5b786` preserves
+all ten proof-consumed artifacts. Complete base payload comparison adds only bc
+aliases and the previously reviewed sysabi fixture differences; native read-only
+admission passes. Streamed seven compressed images, verified 16 screenshots/11
+artifacts and all 33 original proof steps. No changed runtime contract invalidates
+the source-attributed four-boot proof, so no new VM is needed. Review VMs stay
+live and untouched. Evidence survives at `.local/installation-evidence/pr342-review`.
+Inactive inspection/fsync images retain verified compressed bytes and historical
+inode mappings. Ready for authorized merge. Next proposal: export-publication
+inspection/reconciliation for retained complete output after interruption or
+uncertain sync; reuse current codec/source/fresh-install and host-publication
+contracts, with no dependency on unmerged desktop-transfer UI.
+
+## Offline selected-profile export — qualified
+
+User authorizes implementation, fresh-install restoration/refusal proof and a
+scoped PR. Reuse isolated `SrvrOS-installation-io`, branch
+`device/apple-silicon/installed-profile-export`, integrated main `a37eb7b2`.
+Own separate host export command, bounded inherited-read-only-fd document reader,
+focused tests, proof and installation docs. Reuse PR336 inspection, strict v1
+portable bundle rules, existing v2 fresh installation plans and integrated clean
+filesystem/profile contracts. No kernel, account, mount, recovery or profile-policy
+implementation; PR333 desktop transfer remains independent and PR338's managed
+salvage qualification changes no export policy. Export only explicit Documents
+files and portable identity/settings;
+exclude implicit local/machine/session state. Refuse uncertain source/output
+without replacement; preserve historical receipts. Acceptance is A edit/save/
+reboot, direct stopped-image export, fresh B with different disk/home/local
+bindings and reboot/readback, plus read-only/refusal snapshots and provenance.
+Preserve VMs 61610/6233/85869 and primary/other checkouts; one build/harness here,
+no physical media, host reboot, Actions or merge requested.
+
+Clean `ca90437a` consumes main `f0c88a6d`/PR337 and Ports `747cca28`.
+Matched build, 70 passing installation tests with one default skip (15 export,
+19 inspection groups), profile/guest checks and real boundary/fault tests pass.
+Four installed-only EFI lifetimes prove A saved/reopened data, two identical
+direct exports, fresh B with different disk/home/local binding and machine
+settings, then B reboot/readback. B preboot checks exclusions. Sixteen matched
+export refusals, five used inspections and ten strict publication refusals
+preserve source/stage/output bytes and historical receipts. All task VMs stopped;
+review VMs stay live. The 67-file raw proof and matched artifacts are byte-verified
+outside cleanup at `.local/installation-evidence/export-proof-r29pmoja`.
+Reopened B Text was visually checked. Original proof target paths/inodes remain
+recorded as history. Superseded IO images retain exact bytes in verified
+gzip archives with compression manifests; no earlier evidence was discarded.
+Status: proof complete, scoped draft publication; no merge requested.
+
+Final refresh consumes main `819956be`/PR338/339/340. Fresh host checks and matched
+build pass. All consumed artifact/tool/native-source hashes stay identical;
+complete base payload comparison changes only `sysabi` and its legacy alias.
+The new base passes native read-only admission with zero writes/flushes. The
+four-boot proof retains its clean `ca90437a` attribution, with refresh evidence
+recorded separately in the portable receipt and accepted archive.
+Post-publication headroom cleanup preserved seven inactive proof image pairs as
+verified gzip streams. Receipts/screenshots keep their paths, matched artifacts
+stay uncompressed, and the compression mapping records exact restoration hashes
+and historical-only inode identities. The EOF whitespace trim changes no native
+tokens. PR342 remains held for independent review; no new build/VM proof is
+started pending merged profile-transfer dependency identities.
 
 ## PR338 managed filesystem merge review
 
