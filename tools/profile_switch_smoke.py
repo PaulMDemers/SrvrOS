@@ -158,6 +158,27 @@ def save_text(vm, path, start):
     vm.key('ret'); observe(vm, rb'file-result role=text op=2 status=0', start)
 
 
+def app_failure_wave(vm, start):
+    # Deliberate failure injection through the ordinary shell, not a force-close
+    # fallback: an app crash during ending must keep the current profile active.
+    text_pid = observe(vm, rb'desktop-launch: app=2 pid=(\d+) ', start).group(1)
+    observe(vm, rb'deskd: commit pid=' + text_pid + rb' generation=\d+ size=', start)
+    t.text(vm, 'Synthetic crash-test draft')
+    terminal, term_pid, term_window, term_frame = launch(vm, 'Terminal', rb'deskterm: ready shell=\d+')
+    type_shell(vm, 'sleep 5; kill -9 ' + text_pid.decode())
+    ending = switch_request(vm)
+    observe(vm, rb'deskd: child-exit pid=' + text_pid + rb' status=137 ', ending, 60)
+    observe(vm, rb'session-ui: phase=canceled reason=app-exit pid=' + text_pid, ending)
+    vm.pending_canceled = ending
+    capture(vm, 'app-failure-keeps-session')
+    canceled_boundary(vm)
+    focus_window(vm, term_pid, term_window, term_frame, close_start=ending)
+    vm.key('esc')
+    type_shell(vm, 'exit')
+    observe(vm, rb'deskterm: shell exited status=0', terminal)
+    vm.key('ctrl-shift-w'); observe(vm, rb'deskterm: exited failure=0', terminal)
+
+
 def active_io_waves(vm):
     # Keep Terminal open as an explicit cancellation point after each owned
     # operation retires. This allows both races to run in the same A session.
@@ -261,7 +282,7 @@ def sketch_cancel(vm):
 
 
 def type_shell(vm, value):
-    keys = {' ': 'spc', '/': 'slash', '.': 'dot', '-': 'minus', '_': 'minus', '>': 'dot'}
+    keys = {' ': 'spc', '/': 'slash', '.': 'dot', '-': 'minus', '_': 'minus', '>': 'dot', ';': 'semicolon'}
     for ch in value:
         vm.qmp.key(keys.get(ch, ch.lower()), ch.isupper() or ch in '_>')
     vm.key('ret')
@@ -396,6 +417,7 @@ def main():
             token_a, pid_a = map(int, initial.groups())
             observe(vm, rb'deskd: profile id=' + ID_A.encode() + rb' home=' + re.escape(A.encode()), start)
             observe(vm, rb'deskd: commit', start)
+            app_failure_wave(vm, start)
             active_io_waves(vm)
             launch(vm, 'Text', rb'desktools: starting role=text')
             text_cancel_and_save(vm)
