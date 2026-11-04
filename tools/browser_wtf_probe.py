@@ -139,11 +139,11 @@ try:
     archives = [build/'lib/libWTF.a',build/'lib/libbmalloc.a',ROOT/'build/browser-icu/sysroot/lib/libicui18n.a',ROOT/'build/browser-icu/sysroot/lib/libicuuc.a',ROOT/'build/browser-icu/sysroot/lib/libicudata.a',ROOT/'build/browser-filesystem/libcxx-filesystem.a',ROOT/'build/browser-runtime/libcxx-threaded.a',ROOT/'build/browser-runtime/libcxxabi-rtti.a',ROOT/'build/sysroot/srvros/lib/libsrvros.a',ROOT/'build/browser-libm/libsrvros-jsc-math.a']
     zig=ROOT/'build/tooling/zig/zig'; crt=ROOT/'build/sysroot/srvros/lib/crt0.o'; linker=args.linker_script.resolve()
     relative(linker)
-    link=[str(zig),'c++','-target','x86_64-freestanding-none','-nostdlib','-static','-fuse-ld=lld','-Xlinker','-z','-Xlinker','max-page-size=0x1000','-Xlinker','--gc-sections','-Xlinker','-T','-Xlinker',str(linker),str(crt),str(obj),'-Wl,--start-group',*map(str,archives),'-Wl,--end-group','-o',str(elf)]
+    link=[str(zig),'c++','-target','x86_64-freestanding-none','-nostdlib','-static','-fuse-ld=lld','-Xlinker','-z','-Xlinker','max-page-size=0x1000','-Xlinker','--gc-sections','-Xlinker','-T','-Xlinker',str(linker),str(crt),str(obj),'-Wl,--start-group',*map(str,archives),'-Wl,--end-group','-Wl,-Map='+str(stem.with_suffix('.map')),'-o',str(elf)]
     invoke('compile',command,entry['directory'],120,result,stem.with_suffix('.compile.log'))
     invoke('link',link,entry['directory'],120,result,stem.with_suffix('.link.log'))
     result['elf'] = inspect_target_elf(elf)
-    paths=[Path(__file__),ROOT/'tools/browser_jsc_elf.py',jsc_path,FIXTURE,build/'CMakeCache.txt',build/'build.ninja',build/'cmakeconfig.h',zig,crt,linker,obj,elf,*archives]
+    paths=[Path(__file__),ROOT/'tools/browser_jsc_elf.py',jsc_path,FIXTURE,build/'CMakeCache.txt',build/'build.ninja',build/'cmakeconfig.h',zig,crt,linker,obj,elf,stem.with_suffix('.map'),*archives]
     if args.build_helper_snapshot: paths.append(args.build_helper_snapshot.resolve())
     paths += [ROOT/x['log'] for x in result['commands']]
     result['sha256']={relative(path):sha(path) for path in paths}
