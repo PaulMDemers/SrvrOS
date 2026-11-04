@@ -202,9 +202,9 @@ def main():
                 while baseline()!=before:
                     if time.monotonic()>deadline:raise RuntimeError('Process baseline not restored')
                     time.sleep(.5)
-                serial.sendall(b'sync\n');wait(b'srv> ')
+                serial.sendall(b'run /fat/bin/sync\n');wait(b'run: pid=');wait(b' exited status=0');wait(b'srv> ')
                 serial.sendall(b'fsck /fat\n');wait(b'errors=0 ok');wait(b'srv> ')
-                assert b'failure=1' not in output and b'exception:' not in output and b'deskd: FAIL' not in output
+                assert b'failure=1' not in output and b'exception:' not in output and b'deskd: FAIL' not in output and b'unknown command:' not in output
                 if args.refuse_dialogs: assert b'dialog admission refused parent=' in output
                 serial.close();qmp.stream.close();qmp.sock.close();qmp=None
             stop_process(process);process=None

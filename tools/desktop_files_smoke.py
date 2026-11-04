@@ -4,7 +4,6 @@ import os
 import argparse
 import re
 from pathlib import Path
-import shutil
 import socket
 import subprocess
 import tempfile
@@ -26,7 +25,12 @@ def main():
     port=choose_port(30001,38000)
     with tempfile.TemporaryDirectory(prefix="srvros-files-") as directory:
         tmp=Path(directory)
-        shutil.copyfile(root/"build/srvros.exfat",tmp/"disk.exfat")
+        from exfat_test_image import ExfatFixture
+        fixture=ExfatFixture((root/"build/srvros.exfat").read_bytes())
+        names={name.casefold() for name,_ in fixture.entries(fixture.chain(fixture.root))}
+        assert "collision target" not in names
+        fixture.add_directory_files("Collision target",{"kept.txt":b"Collision fixture remains intact.\n"})
+        (tmp/"disk.exfat").write_bytes(fixture.data)
         iso=build_iso(str(root),str(tmp),1280,800,os.environ.copy())
         command=["qemu-system-x86_64","-M","q35","-m","512M","-cdrom",str(iso),"-boot","d",
             "-drive",f"if=none,id=disk,file={tmp/'disk.exfat'},format=raw",
@@ -99,7 +103,7 @@ def main():
                 # Owned 560x280 dialog: Delete is centered at (585,388).
                 click(585,388)
                 wait_all([b"file-result role=files op=6 status=0",b"file-result role=files op=3 status=0",retired])
-                type_text("renamed-actions");shortcut("f2");modal_ready(b"files-prompt operation=5");type_text("home");qmp.key("ret")
+                type_text("renamed-actions");shortcut("f2");modal_ready(b"files-prompt operation=5");type_text("Collision target");qmp.key("ret")
                 wait_all([b"file-result role=files op=5 status=2",retired]);shot("collision-kept")
                 shortcut("ctrl-r");wait(b"file-result role=files op=3 status=0")
                 # A collision must not make the destination the selection on
@@ -107,7 +111,7 @@ def main():
                 shortcut("f2");modal_ready(b"files-prompt operation=5 name=renamed-actions.txt")
                 qmp.key("esc");wait(retired)
                 click(605,162);modal_ready(b"files-prompt operation=7 name=renamed-actions.txt")
-                type_text("home");qmp.key("ret")
+                type_text("Collision target");qmp.key("ret")
                 wait_all([b"file-result role=files op=7 status=2",retired])
                 shortcut("ctrl-r");wait(b"file-result role=files op=3 status=0")
                 shortcut("f2");modal_ready(b"files-prompt operation=5 name=renamed-actions.txt")
@@ -156,6 +160,7 @@ def main():
                 stop_process(process);(out/"serial.log").write_bytes(output)
         from exfat_test_image import ExfatFixture
         saved=ExfatFixture((tmp/"disk.exfat").read_bytes())
+        assert saved.read("Collision target/kept.txt")==b"Collision fixture remains intact.\n"
         for name in ("renamed-actions.txt","recovered-open.txt"):
             assert saved.read(name)==b"Files action sample.",name
     print(f"desktop-files: PASS Places, successful-only history, back/forward/branching, path normalization, refresh, sorted metadata, shared rename/duplicate prompts, verified copy, safe delete cancel/confirm, collision selection preservation, Open With cancel/routing/readback and empty-directory rename. Evidence: {out}")
