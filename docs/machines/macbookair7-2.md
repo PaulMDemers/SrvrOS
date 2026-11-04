@@ -2,6 +2,19 @@
 
 Updated: 2026-11-04. State: **active reference machine; partial device acceptance**.
 
+### Active scope: private publication and restore transaction
+
+Consumed main `7766ed5a` as `234f6039`, preserving Intel and all three Haswell
+capture variants and the current session/profile APIs. Bounded objective: model-
+validated private linear layout and GGTT publication/restore ordering tied to
+existing CPU0 address leases. Snapshot prior entries, pin before writes, require
+publication/invalidation/readback and retired readers, quarantine uncertainty.
+Touches new scanout publication core/tests and its documented adapter contract;
+no native GGTT importer/writer, plane controls or ordinary startup enablement.
+Native5346 is collected and backed up; no reboot armed. PR317 memory/driver
+retirement, Air6,1 fence/swizzle and Pro Wi-Fi keep their own scope. Next:
+source-bound host/sanitizer/VM validation before any hardware adapter proposal.
+
 ### Native read-only DMA-state observation accepted
 
 Source `d5ad0c54` / release `53460fd7c2c0f337` completed and returned
