@@ -1,5 +1,58 @@
 # Apple Silicon macOS build host
 
+## PR336 integrated-main merge review — ready
+
+User authorizes review and merge if ready. Reuse the isolated
+`SrvrOS-installation-io` checkout and existing inspection branch at `b3c6a694`;
+fetched main remains `62b0708e`. Own review/tests, proof-equivalence receipt and
+installation continuity documentation only. Inspect filesystem/profile contracts
+and pending PR333 without consuming unmerged changes. Preserve review VMs
+61610/6233/85869, primary checkout and prior evidence; one build/harness here,
+no physical media, host reboot or Actions.
+
+Review finds no material blocker or unresolved thread. Fresh installation checks
+pass (55 passing and one default skip, including 19 inspection groups), as do
+profile/guest and documentation checks. All accepted artifact/tool/native-source
+and build-output hashes match; the retained used stage matches its final proof
+snapshot. Two fresh read-only used inspections pass and strict publication
+inspection/reconciliation still refuse, preserving stage/source/receipt bytes.
+Unchanged main/runtime inputs preserve the source-attributed two-boot and refusal
+proof; no new VM is needed. Review receipt/logs/script survive at
+`.local/installation-evidence/pr336-review`. Ready for the authorized merge.
+Next proposal: read-only selected-profile export directly from a used image,
+using a bounded read-only document reader, strict portable bundle codec and
+fresh-install restoration proof. Dependencies and acceptance are in the
+installation guide; no dependency on unmerged desktop-transfer/salvage work.
+
+## Read-only used-installation inspection — qualified
+
+User authorized a scoped PR with used-image and refusal proof. Reuse isolated
+`SrvrOS-installation-io`, branch `device/apple-silicon/installed-state-inspection`,
+main `5634cd9d`. Inspect current filesystem/profile contracts; own the separate
+host inspector, inherited-read-only-fd native metadata reader, CLI/tests and proof.
+Original publication/reconciliation rules remain unchanged; receipts stay
+historical after guest use. No kernel/provisioning/profile-policy implementation.
+Validate boot/root identity, current allocation/admission and bounded profile
+metadata; refuse uncertain state without cleanup. Preserve review VMs
+61610/6233/85869 and primary checkout, one build/harness at a time, no physical
+media/reboot/Actions. Acceptance/evidence are recorded in the installation guide.
+
+Clean `ff974bdf` passes the matched build, 19 new inspection groups and combined
+installation/profile checks. The real two-boot proof records six successful
+pristine/used inspections, 23 mutation refusals plus a busy lock, four unchanged
+publication refusals and exact source/stage/receipt preservation. Guest profile
+identity/preferences/data/env/apps and protected regions pass; native writes and
+flushes stay zero. Reopened Text was visually checked. Raw proof and artifacts
+are byte-verified outside build cleanup at
+`.local/installation-evidence/used-proof-4k419y9m`. Review VMs remain live and
+untouched; task VMs stopped. Publish a scoped draft PR; no merge requested.
+Used v2 needs its retained profile snapshot, used v1 its exact old data source.
+On-disk consistency is not authentication, live health or physical durability.
+Final publication refresh integrates main `62b0708e`/PR335, an unrelated
+host-only Haswell audit. Fresh combined host and documentation checks pass;
+all proof tool/native-source and matched artifact hashes remain unchanged.
+The accepted VM evidence retains its original clean-source attribution.
+
 ## PR330 merge review
 
 Final refresh consumes main `10890eed`/PR329 as `740869f0`. Fresh file-fsync,
@@ -3285,3 +3338,71 @@ identities and limits are in `build/review/app-closure-recovery/receipt.json`.
 All task VMs are stopped. Shared checkout and review VM remain untouched. The
 bounded target is complete; integration of this evidence/tooling review is a
 separate delivery action.
+
+
+### jq isolated port — active November 3, 2026
+
+User authorized the bounded jq milestone on `ports/jq` in SrvrOS-ports-jq,
+based on `5634cd9d`. Owns port adapter/build configuration, image entries and
+disposable guest JSON report/CSV-to-SQLite checks. No integration checkout or
+review VM access. No kernel/libc changes planned; confirmed gaps are coordinated
+with integration. Implementation and scoped guest acceptance pass. The port builds static jq
+with upstream decNumber defaults and port-local entropy, dirname and UTC
+timezone-name adapters; no shared libc/kernel changes were needed. Oniguruma
+regex and optional configure-gated libm/date wrappers are outside this profile.
+The first run passed its 11 selected upstream cases but later aborted during
+the optional three-thread regression; that test-only feature gate is omitted
+for the single-thread CLI. Real pthread keys/once/atexit remain enabled. No
+multithreaded jq acceptance or allocator root cause is claimed.
+
+Two-boot JSON report/CSV-to-SQLite, exact Unicode/NUL and numeric literal output,
+exit statuses, invalid JSON/filter/files, unsupported regex, actual stdout error
+and recovery checks pass. The 11 unchanged upstream cases and remaining
+single-state internal tests complete. Guest fsck and offline allocation pass;
+independent fsck.exfat is unavailable. Two clean CLI builds match SHA256
+`286f8cbe0cd27f983881208981d5f29773197aa00641487d0f6087caf7ef1de8`.
+No whole-image reproducibility or physical-device acceptance is claimed.
+Evidence: `build/jq-smoke/20261103-214345-kx3nfg74/` and
+`build/review/jq/accepted.json`. Existing ports regression and documentation/whitespace checks pass.
+Status: implementation complete and ready for review; no merge authorized.
+
+
+### jq merge review — verified November 3, 2026
+
+User authorized reviewing SrvrPorts PR6, merging it before SrvrOS PR337, and
+verifying the combined build. Work uses only `SrvrOS-ports-jq`; integration
+checkout and attended review VMs remain untouched. Main `62b0708e` contributes
+read-only Haswell audit tooling/docs since the original `5634cd9d` jq baseline;
+it changes no jq runtime dependency. Port `22c2660` receives independent source
+review, archive identity checking, a clean matched candidate build, the two-boot
+jq/SQLite guest workflow, existing ports regression and the added audit tests.
+The single-thread/no-regex scope and untraced optional three-thread allocation
+failure remain explicit; no shared libc/kernel edits or physical acceptance.
+
+Clean candidate `e5db0a37` passes the full image/probe build, two-boot jq workflow,
+existing ports regression, seven Haswell audit tests and documentation checks.
+The original CLI hash remains identical. Independent archive verification covers
+all 312 tracked entries (311 regular files and one archive hard link). Fresh
+source provenance is clean, recorded in `build/review/jq-merge/tested-build.json`
+and `build/jq-smoke/20261103-215652-k40favot/receipt.json`. No concrete scoped
+review blocker remains. SrvrPorts PR6 merged first as `747cca28`; its merge tree
+is identical to reviewed `22c2660`. The OS now pins that merged revision.
+
+Final combined source `fcd79c0a` also preserves installed-state inspection
+PR336/main `a37eb7b2`. Its clean build produces byte-identical kernel, initramfs
+and disk artifacts to the freshly guest-tested candidate; 902 documentation
+links pass. This refresh changes no runtime dependency. SrvrOS PR337 records
+the authorized ports-first integration; final merge identities/build receipts
+are retained in `build/review/jq-merge/`. All test VMs stopped; the integration
+checkout and attended review VM remain untouched. No further work is required
+for this bounded jq milestone.
+
+### PR339 integration — active November 3, 2026
+
+User authorized integrating the bounded recovery audit/tooling PR339 in
+`SrvrOS-app-quality`, preserving the shared checkout and review VM. Current main
+`f0c88a6d` adds jq and installed-state inspection. Resolve only the appended
+host-journal conflict by retaining both records; preserve the new Ports pin.
+Verify Python/doc checks and a matched merged build, then exercise both changed
+harnesses with explicit evidence directories. Existing recovery assertions and
+the unresolved physical-device closure boundary remain unchanged.
