@@ -4424,3 +4424,14 @@ test-guest-profiles: build/tests/guest-profile-host$(HOST_EXE)
 build/tests/guest-profile-host$(HOST_EXE): $(USER_PROFILE_C) userspace/profile/codec.h ports/upstream/cjson/cJSON.c ports/upstream/cjson/cJSON.h userspace/lib/include/srvros/profile_session.h userspace/lib/include/srvros/profile_paths.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -D_DARWIN_C_SOURCE -DSRVROS_PROFILE_HOST_TEST -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I ports/upstream/cjson $(USER_PROFILE_C) ports/upstream/cjson/cJSON.c -o $@
+
+.PHONY: test-e1000-init
+test-core: test-e1000-init
+test-e1000-init: build/tests/e1000-init-host$(HOST_EXE)
+	$<
+	$< map
+	$< alloc
+	$< none
+build/tests/e1000-init-host$(HOST_EXE): tools/test_e1000_init.c kernel/src/drivers/e1000.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@

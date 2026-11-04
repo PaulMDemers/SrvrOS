@@ -3168,3 +3168,13 @@ Implementation `01071cfb` passes the focused host suite, AHCI/service ASan/UBSan
 and strict GCC14, kernel build, Q35 sysabi and full threadstress. Retained PR313
 runtime files were used; all task guests stopped. Broader driver lifetime and
 physical reset/removal acceptance remain open.
+
+
+### Network/input/display DMA and repeated initialization
+
+Continuing PR317 from `fe8e0b69`: E1000 repeated initialization reproduced live
+DMA/ring replacement without quiescence. A boot-attempt guard preserves the
+recorded success/failure and all existing backing. Four modeled init scenarios,
+RX/link and VirtIO net/input/GPU/transport quarantine suites pass; new init
+fixture also passes GCC14 and sanitizers. No libc/workspace policy changes;
+filesystem owner notified. Broader hardware reset/removal remains open.

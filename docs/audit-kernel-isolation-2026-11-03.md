@@ -362,6 +362,44 @@ fixtures supply allocation failures and modeled reset/quarantine boundaries.
 General kcalloc and poisoning behavior remain unchanged. Other caller-masked
 initialization sites still require individual publication/ownership review.
 
+## Network, input and display DMA checkpoint
+
+Continuation from `fe8e0b69` confirms unsafe repeated E1000 initialization.
+`e1000_init` allocated replacement rings, reset software indices and rewrote
+live DMA registers on another call, without a stop/reset proof. The actual-source
+regression first initializes the driver over modeled MMIO/DMA and records a live
+RX descriptor and nonzero ring indices; the old implementation fails the
+no-new-allocation/state assertion (`build/review/network-dma/before.log`).
+
+E1000 now records its boot initialization attempt and result. Repeated calls
+return that result without enumeration, allocation, PCI/MMIO writes, ring or
+provider changes. A failed or absent first attempt stays refused; recovery and
+hotplug require a separate quiescence protocol. No DMA pages are newly freed by
+this change. The guard uses the existing exclusive CPU0 boot-owner contract;
+it is not an SMP initialization primitive. A test-only MMIO address override
+allows the normal driver code to use a host register array.
+
+The new `test-e1000-init` core target checks success, missing device, MMIO failure
+and allocation failure in separate processes. It verifies complete MMIO/DMA
+snapshots, indices, PCI writes, enumeration, allocation and registration counts.
+Existing RX reentrant-poll and link tests pass. The new fixture passes strict
+GCC14 and Darwin/Rosetta ASan/UBSan.
+
+Sampled VirtIO network failure paths clear readiness before transport stop and
+retain buffers on failed reset. Input retirement cancels logical key/pointer
+state before stopping, retaining event DMA when stop fails. GPU presentation
+stop retains backing/queues after reset failure and blocks restart; proven reset
+precedes freeing backing. Existing real-source net/input/GPU/transport fixtures
+pass reset-failure, malformed completion, stop, restart, quarantine and callback
+slicing cases. These tests model PCI/MMIO/device responses; they do not establish
+physical-device or arbitrary hot-removal acceptance. No additional confirmed
+VirtIO defect was found in this bounded pass.
+
+Kernel compilation passes; updated-kernel guest results are recorded after
+execution under `build/review/network-dma/`. Existing review VMs and other
+checkouts remain untouched. Broader native E1000 admission, xHCI/USB, display
+hardware ownership, DMA concurrency and explicit recovery remain audit work.
+
 ## Remaining work
 
 Other long IRQ-disabled operations, including initial/churning PMM scans, heap validation and poisoning,

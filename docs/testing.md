@@ -1508,3 +1508,9 @@ keeps its existing timeout/pinned-backing cases. `test-process-service` checks
 private exec-image zeroing, owner retention, OOM and foreign-owner refusal.
 These tests preserve the distinction between unpublished allocation rollback
 and device-owned backing that requires proven quiescence before reuse.
+
+
+`make test-e1000-init` runs four separate boot-attempt scenarios (success, absent
+device, mapping failure and allocation failure). Repeated entry must preserve
+DMA data, software indices, MMIO/PCI and provider state. It uses modeled hardware
+with the actual driver and does not accept native reset or hotplug behavior.
