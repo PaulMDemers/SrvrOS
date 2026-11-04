@@ -12,6 +12,7 @@
 #include <sys/stat.h>
 #include <dirent.h>
 #include <srvros/profile_session.h>
+#include <srvros/profile_limits.h>
 #ifndef SRVROS_PROFILE_HOST_TEST
 #include <srvros/sys.h>
 #endif
@@ -174,10 +175,16 @@ static void export_output(const char *output_path,const char *text,const char *e
 }
 /* Scan every sibling's metadata without modifying ambiguous entries. IDs outside
  * the bounded allocation window still participate in normal collision checks. */
+static int suffix_folded(const char *name,const char *suffix){size_t n=strlen(name),m=strlen(suffix);if(n<=m)return 0;name+=n-m;while(*suffix)if(lower_ascii(*name++)!=lower_ascii(*suffix++))return 0;return 1;}
 static void reserve_numbers(const char *home,unsigned *uid,unsigned *gid,unsigned requested_uid){
     unsigned char *used_uid=allocate(65536),*used_gid=allocate(65536);memset(used_uid,0,65536);memset(used_gid,0,65536);char parent[PATH_CAP];strcpy(parent,home);*strrchr(parent,'/')=0;
-    DIR *dir=opendir(parent);require(dir!=NULL,"cannot inspect destination bindings");struct dirent *e;unsigned entries=0;
+    DIR *dir=opendir(parent);require(dir!=NULL,"cannot inspect destination bindings");struct dirent *e;unsigned entries=0,candidates=0;char slots[SRV_PROFILE_CHOOSER_MAX][160];
     while((e=read_entry(dir))){if(!strcmp(e->d_name,".")||!strcmp(e->d_name,".."))continue;require(++entries<=4096,"too many destination entries");char path[PATH_CAP],other[PATH_CAP];path_join(other,parent,e->d_name);struct stat st;require(!lstat(other,&st),"cannot inspect sibling");cJSON *binding=NULL,*holder=NULL;
+        /* Match chooser discovery, including blocked and case-conflicting journals. */
+        int journal=suffix_folded(e->d_name,".profile-import.json"),candidate=journal;char slot[160];require(strlen(e->d_name)<sizeof(slot),"entry exceeds profile path limits");strcpy(slot,e->d_name);if(journal)slot[strlen(slot)-strlen(".profile-import.json")]=0;
+        if(!journal&&(S_ISDIR(st.st_mode)||S_ISLNK(st.st_mode))){static const char *markers[]={"profile.id",".profile-import-pending","identity.json"};for(unsigned k=0;k<3;k++){path_join(path,other,markers[k]);struct stat marker;if(!lstat(path,&marker)||errno!=ENOENT){candidate=1;break;}}}
+        if(candidate){unsigned k;for(k=0;k<candidates;k++)if(!strcmp(slots[k],slot))break;if(k==candidates){require(candidates<SRV_PROFILE_CHOOSER_MAX-1,"profile chooser capacity reached");strcpy(slots[candidates++],slot);}}
+
         if(S_ISDIR(st.st_mode)){path_join(path,other,"profile-local.json");if(exists(path)){holder=read_json(path,4096);binding=holder;binding_valid(binding);}}
         else{size_t len=strlen(e->d_name);static const char suffix[]=".profile-import.json";if(len>sizeof(suffix)-1&&!strcmp(e->d_name+len-(sizeof(suffix)-1),suffix)){holder=read_json(other,4096);journal_fields(holder);binding=get(holder,"binding");}}
         if(binding){unsigned u=number(get(binding,"uid"),2147483647),g=number(get(binding,"gid"),2147483647);if(u>=1000&&u<66536)used_uid[u-1000]=1;if(g>=1000&&g<66536)used_gid[g-1000]=1;require(!requested_uid||u!=requested_uid,"local UID already reserved");cJSON_Delete(holder);}

@@ -160,6 +160,34 @@ class GuestProfile(unittest.TestCase):
                      binding['gid'], incoming['sha256'])
         self.verify(dest)
 
+    def test_review_import_chooser_capacity_and_pending_deduplication(self):
+        # Fourteen blocked candidates and one journal plus its home count as 15.
+        for i in range(14):
+            candidate = self.b / f'blocked{i:02d}'
+            candidate.mkdir()
+            (candidate / 'identity.json').write_text('malformed')
+        pending = self.b / 'pending'
+        self.run_cli('import', self.bundle, pending, 'pending', 1200, 1200,
+                     stop='directories', code=86)
+        other = copy.deepcopy(self.value)
+        other['profile']['id'] = str(uuid.uuid4())
+        self.save(other)
+        dest = self.b / 'bob'
+        before = self.snapshot(self.root)
+        review = json.loads(self.run_cli('preview-import', self.bundle, dest, 'bob').stdout)
+        self.assertEqual(self.snapshot(self.root), before)
+        # A new blocked candidate fills the catalog after review.
+        extra = self.b / 'extra'
+        extra.mkdir()
+        (extra / 'identity.json').write_text('malformed')
+        before = self.snapshot(self.root)
+        self.run_cli('preview-import', self.bundle, dest, 'bob', code=1)
+        self.assertEqual(self.snapshot(self.root), before)
+        binding = review['destination']
+        self.run_cli('import-reviewed', self.bundle, dest, 'bob', binding['uid'], binding['gid'],
+                     review['sha256'], code=1)
+        self.assertEqual(self.snapshot(self.root), before)
+
     def test_preview_import_rejects_excess_siblings_without_mutation(self):
         for i in range(4097):
             (self.b / f'entry{i:04d}').touch()

@@ -900,6 +900,12 @@ force, including shared GIDs; none of these values create an account or grant
 permission. Source changes, existing output, duplicate profiles and ambiguous
 metadata refuse with existing bytes preserved.
 
+Reviewed imports also reserve space in the shared 16-entry chooser limit before
+writing. Blocked profiles and pending journals count, and a journal plus its HOME
+counts once. Capacity is checked again at confirmation, so an intervening import
+cannot make the chooser unavailable. This affects the graphical reviewed route;
+the existing explicit CLI import contract is unchanged.
+
 CLI execution, output draining/reaping and picker initialization have explicit
 worker ownership outside the render loop. Close waits for active work. Failure
 views retain inputs and explain partial-export/new-filename handling or import
