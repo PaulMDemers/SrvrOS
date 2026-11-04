@@ -1165,6 +1165,28 @@ logical HHDM test view. Source/host acceptance does not qualify target integrati
 matched build/guest evidence and current docs remain pending with PR334's owner.
 FPU proof capture, user copy/assembly and signals remain separate review gates.
 
+## November 4: metadata matched-guest qualification
+
+Closed `fea6bbb1` metadata qualification after independently verifying PR334's
+`metadata-vm-receipt.json` SHA256
+`066b793adf7a62522b82498d691ab0a51632f945a8ef359e5632657bc82d0451`,
+20 combined and 13 nested source/kernel/ISO/stage hashes, plus matching logs and
+zero-returncode harness results. Worker binding/detached/TLS/XMM15/stack probe,
+full threadstress (fork/exec/main-exit/atexit/lifecycle) and sysabi fault reaping
+pass. Final OVMF AHCI/USB contention covers typing, cancellation, copy comparison,
+fsck, three relaunches and intentional timeout/quarantine. All task guests stopped;
+review VMs 61610/6233/85869 confirmed live.
+
+Two packaging attempts failed: a BIOS-only ISO could not boot OVMF, and a minimal
+initramfs omitted `/sh`. Their evidence is retained. The final passing run uses
+all 17 packed retained matched apps, checked byte-for-byte, and the same candidate
+kernel. These fixture results are not a complete userspace rebuild or physical/
+SMP acceptance. PR334 publishes current qualification docs at `7ae7bceb`.
+The next entered-user FPU proof/query proposal remains design-only and requires
+separate exact frame/lifetime/save/invalidation/failure review before implementation.
+No saved-proof minting, trap assembly, user copy, context replacement or signal
+admission follows from metadata qualification.
+
 ## Remaining work
 
 Other long IRQ-disabled operations, including initial/churning PMM scans, heap validation and poisoning,
