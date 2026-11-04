@@ -37,8 +37,10 @@ static void display_notify(struct session *s,unsigned result) {
         display_reply(s,i,session_client(s,i)->display_reply.type?session_client(s,i)->display_reply.serial:0,result);
 }
 static struct desk_rect display_fit(struct desk_rect r,int width,int height) {
-    if(r.w>width-16)r.w=width-16;if(r.h>height-132)r.h=height-132;
-    if(r.w>DESK_MAX_WIDTH+2)r.w=DESK_MAX_WIDTH+2;if(r.h>DESK_MAX_HEIGHT+45)r.h=DESK_MAX_HEIGHT+45;
+    if(r.w>width-16)r.w=width-16;
+    if(r.h>height-132)r.h=height-132;
+    if(r.w>DESK_MAX_WIDTH+2)r.w=DESK_MAX_WIDTH+2;
+    if(r.h>DESK_MAX_HEIGHT+45)r.h=DESK_MAX_HEIGHT+45;
     r.x=clamp(r.x,8,width-8-r.w);r.y=clamp(r.y,52,height-80-r.h);
     return r;
 }
@@ -118,7 +120,8 @@ static unsigned display_change(struct session *s,unsigned pw,unsigned ph,unsigne
         return DESK_DISPLAY_FAILED;
     }
     struct gfx_info actual={0};if(gfx_info(&actual) || actual.width!=pw || actual.height!=ph) {
-        if(!reuse)desk_pixels_free(next.pixels,width*scale,height*scale);d->fatal=1;return DESK_DISPLAY_FAILED;
+        if(!reuse)desk_pixels_free(next.pixels,width*scale,height*scale);
+        d->fatal=1;return DESK_DISPLAY_FAILED;
     }
     unsigned previous_scale=session_scale(s);int old_width=d->canvas->width,old_height=d->canvas->height;
     struct desk_canvas previous=*d->canvas;*d->canvas=next;*d->info=actual;s->scale=scale;
