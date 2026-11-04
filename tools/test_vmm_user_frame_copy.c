@@ -90,7 +90,7 @@ int main(void){
     destination_backing=guard+4096;assert(!mprotect(destination_backing,8192,PROT_READ|PROT_WRITE));
     uint8_t *stack=aligned_alloc(4096,USER_FRAME_STACK_FRAMES*PAGE_SIZE);assert(stack);real_stack=stack;memset(stack,0,USER_FRAME_STACK_FRAMES*PAGE_SIZE);
     uint8_t *fpu_pages=aligned_alloc(4096,3*PAGE_SIZE);assert(fpu_pages);memset(fpu_pages,0,3*PAGE_SIZE);
-    uint8_t *extra_pages=aligned_alloc(4096,6*PAGE_SIZE);assert(extra_pages);memset(extra_pages,0x73,6*PAGE_SIZE);
+    uint8_t *extra_pages=aligned_alloc(4096,24*PAGE_SIZE);assert(extra_pages);memset(extra_pages,0x73,24*PAGE_SIZE);
     uint64_t *root=new_table();kernel_cr3=0x1000;cr3=(uint64_t)(uintptr_t)root;
     address_space_records[0]=(struct address_space_record){.used=true,.root=cr3};
     struct user_frame_source *source=(void *)(stack+4096);
@@ -101,8 +101,8 @@ int main(void){
     for(unsigned i=1;i<=4;i++)map_leaf(root,stack_va+i*PAGE_SIZE,stack_phys+i*PAGE_SIZE,false);
     for(unsigned i=0;i<3;i++)map_leaf(root,user_frame_test_kernel_address(fpu_pages+i*PAGE_SIZE),(uint64_t)(uintptr_t)(fpu_pages+i*PAGE_SIZE),false);
     uint64_t extra_va=user_frame_test_kernel_address(extra_pages);
-    uint64_t *extra_leaf[6];
-    for(unsigned i=0;i<6;i++)extra_leaf[i]=map_leaf(root,extra_va+i*PAGE_SIZE,(uint64_t)(uintptr_t)(extra_pages+i*PAGE_SIZE),false);
+    uint64_t *extra_leaf[24];
+    for(unsigned i=0;i<24;i++)extra_leaf[i]=map_leaf(root,extra_va+i*PAGE_SIZE,(uint64_t)(uintptr_t)(extra_pages+i*PAGE_SIZE),false);
     uint64_t *d0=map_leaf(root,0x400000,(uint64_t)(uintptr_t)destination_backing,true);
     uint64_t *d1=map_leaf(root,0x401000,(uint64_t)(uintptr_t)(destination_backing+4096),true);
     struct user_frame_page pages[2]={{0x400000,(uint64_t)(uintptr_t)destination_backing,6},{0x401000,(uint64_t)(uintptr_t)(destination_backing+4096),6}};
@@ -112,7 +112,7 @@ int main(void){
     for(unsigned i=0;i<tables_before;i++)memcpy(table_snapshot[i],allocated_tables[i],4096);
     struct address_space_record registry_before=address_space_records[0];
     memset(destination_backing,0xa5,8192);uint8_t before[8192];memcpy(before,destination_backing,8192);
-    uint8_t extra_before[6*PAGE_SIZE];memcpy(extra_before,extra_pages,sizeof(extra_before));
+    uint8_t extra_before[24*PAGE_SIZE];memcpy(extra_before,extra_pages,sizeof(extra_before));
     struct user_frame_exclusion excluded[3]={{extra_va+PAGE_SIZE-16,96},
         {extra_va+3*PAGE_SIZE-8,16},{extra_va+5*PAGE_SIZE-16,3056}};
 #define EXCLUDING(list,count) vmm_copy_user_frame_excluding_current(cr3,0x400ff0,source,64,&owned,pages,2,frame,uf,kf,(list),(count))
@@ -139,6 +139,24 @@ int main(void){
     assert(!EXCLUDING(excluded,3));check_unchanged(before);*extra_leaf[5]=saved_extra;
     assert(!memcmp(extra_before,extra_pages,sizeof(extra_before)));
 #undef EXCLUDING
+    struct user_frame_exclusion extended[12];
+    for(unsigned i=0;i<12;i++)extended[i]=(struct user_frame_exclusion){extra_va+(2*i+1)*PAGE_SIZE-16,32};
+#define EXTENDED(list,count) vmm_copy_user_frame_extended_current(cr3,0x400ff0,source,64,&owned,pages,2,frame,uf,kf,(list),(count))
+    before_translation=translate_calls;
+    assert(!EXTENDED(extended,13) && translate_calls==before_translation);
+    uint64_t final_length=extended[11].length;extended[11].length=0;
+    assert(!EXTENDED(extended,12) && translate_calls==before_translation);
+    extended[11].length=final_length;check_unchanged(before);
+    assert(EXTENDED(extended,12));assert(!memcmp(destination_backing+0xff0,source->bytes,64));
+    memcpy(destination_backing,before,8192);
+    for(unsigned object=0;object<12;object++)for(unsigned span=0;span<2;span++)for(unsigned page=0;page<2;page++) {
+        unsigned leaf=object*2+span;uint64_t original_leaf=*extra_leaf[leaf];
+        *extra_leaf[leaf]=pages[page].physical_address|3;
+        assert(!EXTENDED(extended,12));check_unchanged(before);
+        assert(!memcmp(original_source,source->bytes,1024) && !memcmp(extra_before,extra_pages,sizeof(extra_before)));
+        *extra_leaf[leaf]=original_leaf;
+    }
+#undef EXTENDED
     assert(vmm_user_frame_copy_policy_current(cr3));
     assert(!vmm_user_frame_copy_policy_current(0));
     assert(!vmm_user_frame_copy_policy_current(kernel_cr3));

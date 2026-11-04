@@ -22,12 +22,15 @@ struct process_signal_private_info {
     uint64_t valid,target_tid,reserved[4];
 };
 enum process_signal_delivery_result {
-    PROCESS_SIGNAL_NONE,PROCESS_SIGNAL_DELIVERED,PROCESS_SIGNAL_DEFERRED,PROCESS_SIGNAL_FATAL
+    PROCESS_SIGNAL_NONE,PROCESS_SIGNAL_DELIVERED,PROCESS_SIGNAL_DEFERRED,PROCESS_SIGNAL_FATAL,
+    PROCESS_SIGNAL_DELIVERED_EXIT_USR1=138
 };
 /* Caller already owns common CPL3 final IF0 exclusion and cancellation priority.
  * These operations never enable IRQs or run termination. FATAL/false leaves
  * all signal/user/live state unchanged; caller takes terminal policy outside.
- * No normal kernel hook, syscall or userspace registration is connected. */
+ * DELIVERED_EXIT_USR1 commits delivery plus a process-wide default-fatal
+ * decision; caller must process_exit(138) immediately without any further
+ * query or user resume. No normal kernel hook or public ABI is connected. */
 enum process_signal_delivery_result process_signal_deliver_private(struct isr_frame *);
 /* 0: refusal, unchanged. 1: restored. 128+signal: restored with a prepared
  * default-fatal decision; caller must process_exit(result) before user resume.

@@ -53,6 +53,23 @@ bool vmm_copy_user_frame_excluding_current(uint64_t root,uint64_t dst,const stru
     copies++;if(!copy_ok)return false;
     memcpy(destination_bytes+(dst-0x1000),source->bytes,length);post_store=true;return true;
 }
+bool vmm_copy_user_frame_extended_current(uint64_t root,uint64_t dst,const struct user_frame_source *source,size_t length,
+    const struct user_frame_stack *stack,const struct user_frame_page pages[2],size_t count,const struct isr_frame *frame,
+    const struct fpu_state *user,const struct fpu_state *kernel,const struct user_frame_exclusion *ex,size_t n) {
+    assert(!post_store && root==0x2000 && frame && length==760 && dst>=0x1000 && dst+length<=0x3000);
+    assert(stack->frames==32 && user==observation.user_fpu && kernel==&kernel_fpu && count==2);
+    assert(pages[0].virtual_address==0x1000 && pages[1].virtual_address==0x2000);
+    struct process *p=observation.process;struct process_user_thread *worker=observation.user_thread;
+    assert(n==10 && ex[0].address==(uint64_t)(uintptr_t)(worker?&worker->signal_state:&p->main_signal_state));
+    assert(ex[0].length==sizeof(struct signal_thread_state));
+    assert(ex[1].address==(uint64_t)(uintptr_t)p && ex[1].length==offsetof(struct process,main_signal_state));
+    for(size_t i=0;i<8;i++) {
+        assert(ex[i+2].address==(uint64_t)(uintptr_t)&p->user_threads[i].signal_mask);
+        assert(ex[i+2].length==16);
+    }
+    copies++;if(!copy_ok)return false;
+    memcpy(destination_bytes+(dst-0x1000),source->bytes,length);post_store=true;return true;
+}
 static struct isr_frame make_frame(void) {
     return (struct isr_frame){.cs=0x23,.ss=0x1b,.rip=0x600000,.rsp=0x2300,.rflags=0x202,
         .rax=0x1234,.rdi=0x5678,.r15=0xdeadbeef};
@@ -71,17 +88,23 @@ static void init_case(struct process *p,bool worker) {
 }
 static void reject_delivery(struct process *p,struct isr_frame *frame,enum process_signal_delivery_result expected) {
     memcpy(&full_before,p,sizeof(*p));memcpy(bytes_before,destination_bytes,sizeof(bytes_before));
-    struct isr_frame old=*frame;struct fpu_user_trap_proof old_proof=mock_proof;bool old_consumed=consumed;unsigned old_commits=commits;
+    struct isr_frame old=*frame;struct fpu_user_trap_proof old_proof=mock_proof;
+    struct fpu_state old_user=*observation.user_fpu,old_kernel=kernel_fpu;
+    bool old_consumed=consumed;unsigned old_commits=commits;
     assert(process_signal_deliver_private(frame)==expected);
     assert(!memcmp(p,&full_before,sizeof(*p)) && !memcmp(frame,&old,sizeof(old)) &&
-        !memcmp(bytes_before,destination_bytes,sizeof(bytes_before)) && !memcmp(&old_proof,&mock_proof,sizeof(old_proof)) && consumed==old_consumed && commits==old_commits && !post_store);
+        !memcmp(bytes_before,destination_bytes,sizeof(bytes_before)) && !memcmp(&old_proof,&mock_proof,sizeof(old_proof)) &&
+        !memcmp(&old_user,observation.user_fpu,sizeof(old_user)) && !memcmp(&old_kernel,&kernel_fpu,sizeof(old_kernel)) && consumed==old_consumed && commits==old_commits && !post_store);
 }
 static void reject_return(struct process *p,struct isr_frame *frame,uint64_t token,uint64_t identity) {
     memcpy(&full_before,p,sizeof(*p));memcpy(bytes_before,destination_bytes,sizeof(bytes_before));
-    struct isr_frame old=*frame;struct fpu_user_trap_proof old_proof=mock_proof;bool old_consumed=consumed;unsigned old_commits=commits;
+    struct isr_frame old=*frame;struct fpu_user_trap_proof old_proof=mock_proof;
+    struct fpu_state old_user=*observation.user_fpu,old_kernel=kernel_fpu;
+    bool old_consumed=consumed;unsigned old_commits=commits;
     assert(!process_signal_return_private(frame,token,identity));
     assert(!memcmp(p,&full_before,sizeof(*p)) && !memcmp(frame,&old,sizeof(old)) &&
-        !memcmp(bytes_before,destination_bytes,sizeof(bytes_before)) && !memcmp(&old_proof,&mock_proof,sizeof(old_proof)) && consumed==old_consumed && commits==old_commits && !post_store);
+        !memcmp(bytes_before,destination_bytes,sizeof(bytes_before)) && !memcmp(&old_proof,&mock_proof,sizeof(old_proof)) &&
+        !memcmp(&old_user,observation.user_fpu,sizeof(old_user)) && !memcmp(&old_kernel,&kernel_fpu,sizeof(old_kernel)) && consumed==old_consumed && commits==old_commits && !post_store);
 }
 static void return_pending_cases(struct process *p,bool worker) {
     const uint64_t usr1=1ull<<SRV_SIGNAL_USR1,usr2=1ull<<SRV_SIGNAL_USR2;
@@ -116,6 +139,56 @@ static void return_pending_cases(struct process *p,bool worker) {
         if(scenario==4)assert(!p->killed && (*local&usr2) && (p->pending_signals&usr2));
     }
 }
+/* RESET stages the selected consumption and the handler's self-mask before
+ * finding a default-fatal peer. No handler may run after an exit result. */
+static void reset_peer_cases(struct process *p,bool worker) {
+    const uint64_t bit=1ull<<SRV_SIGNAL_USR1;
+    for(unsigned scenario=0;scenario<10;scenario++) {
+        init_case(p,worker);p->usr1_action.flags|=SIGNAL_ACTION_RESET;
+        struct isr_frame frame=make_frame(),initial=frame;
+        uint64_t *local=worker?&p->user_threads[0].pending_signals:&p->main_pending_signals;
+        uint64_t *mask=worker?&p->user_threads[0].signal_mask:&p->main_signal_mask;
+        struct process_user_thread *a=&p->user_threads[1],*b=&p->user_threads[2];
+        *a=(struct process_user_thread){.used=true,.active=true,.tid=7,.owner=p};
+        *b=(struct process_user_thread){.used=true,.active=true,.tid=3,.owner=p};
+        if(worker)p->main_signal_mask|=bit;
+        if(scenario==0) {a->pending_signals=bit;b->pending_signals=bit;p->pending_signals=bit;}
+        if(scenario==1) p->pending_signals=bit;
+        if(scenario==2) {a->pending_signals=bit;a->signal_mask=bit;p->pending_signals=bit;b->signal_mask=bit;}
+        if(scenario==3) {a->pending_signals=bit;a->active=false;b->pending_signals=bit;b->owner=&processes[1];}
+        if(scenario==4) {*local=0;p->pending_signals=bit;}
+        if(scenario==5) {a->pending_signals=bit;b->pending_signals=bit;b->signal_mask=bit;}
+        if(scenario==6) {a->pending_signals=bit;b->pending_signals=bit;if(!worker)p->main_pending_signals=bit;}
+        if(scenario==7) {p->pending_signals=bit;a->signal_mask=bit;b->signal_mask=bit;}
+        if(scenario==8 && worker) {p->main_signal_mask&=~bit;p->main_pending_signals=bit;a->pending_signals=bit;}
+        if(scenario==9) {*local=0;p->pending_signals=bit;a->pending_signals=bit;}
+        commit_prepare_ok=false;reject_delivery(p,&frame,PROCESS_SIGNAL_FATAL);commit_prepare_ok=true;
+        copy_ok=false;reject_delivery(p,&frame,PROCESS_SIGNAL_FATAL);copy_ok=true;
+        enum process_signal_delivery_result result=process_signal_deliver_private(&frame);
+        assert(consumed && post_store && p->usr1_action.mode==SIGNAL_ACTION_DEFAULT && p->usr1_action_generation==5);
+        assert((*mask&bit) && !(*local&bit));
+        if(scenario==0 || scenario==1 || scenario==5 || scenario==6 || (scenario==8 && worker) || scenario==9) {
+            assert(result==PROCESS_SIGNAL_DELIVERED_EXIT_USR1 && p->killed && p->kill_signal==SRV_SIGNAL_USR1);
+            if(scenario==0)assert(!(b->pending_signals&bit) && (a->pending_signals&bit) && (p->pending_signals&bit));
+            if(scenario==1)assert(!(p->pending_signals&bit));
+            if(scenario==5)assert(!(a->pending_signals&bit) && (b->pending_signals&bit));
+            if(scenario==6)assert(!(b->pending_signals&bit) && (a->pending_signals&bit));
+            if(scenario==8 && worker)assert(!(p->main_pending_signals&bit) && (a->pending_signals&bit));
+            if(scenario==9)assert(!(a->pending_signals&bit) && !(p->pending_signals&bit));
+        } else {
+            assert(result==PROCESS_SIGNAL_DELIVERED && !p->killed);
+            if(scenario==3)assert((a->pending_signals&bit) && (b->pending_signals&bit));
+            if(scenario==2 || scenario==7) {
+                assert(p->pending_signals&bit);
+                uint64_t address=frame.rsp;consumed=post_store=false;
+                assert(process_signal_return_private(&frame,1,address)==138 && p->killed);
+                assert(!memcmp(&frame,&initial,sizeof(frame)));
+            }
+        }
+    }
+    init_case(p,worker);p->usr1_action.flags|=SIGNAL_ACTION_RESET;p->killed=true;
+    struct isr_frame frame=make_frame();reject_delivery(p,&frame,PROCESS_SIGNAL_DEFERRED);
+}
 int main(void) {
     struct process *p=&processes[0];
     for(unsigned worker=0;worker<2;worker++) {
@@ -147,6 +220,7 @@ int main(void) {
         consumed=post_store=false;reject_return(p,&frame,1,address);
     }
     return_pending_cases(p,false);return_pending_cases(p,true);
+    reset_peer_cases(p,false);reset_peer_cases(p,true);
     init_case(p,true);struct isr_frame stale=make_frame();
     assert(process_signal_deliver_private(&stale)==PROCESS_SIGNAL_DELIVERED);consumed=post_store=false;
     consumed=true;reject_return(p,&stale,1,stale.rsp);consumed=false;

@@ -3782,3 +3782,20 @@ Frozen95-file receipt:
 Owner review separately reproduced an unwired private INFO|RESET peer-pending
 case that still strands a default after automatic reset. That case remains open;
 this raw configuration correction does not close it or enable public signals.
+
+
+The subsequent private RESET peer correction stages exact first-source
+consumption and the handler's prospective self-mask before choosing peer defaults.
+A separate internal12-object copier protects all ten affected metadata extents,
+while the original3-object limit remains. Private committed-exit138 goes directly
+to terminal cleanup before handler/user resume. Six old forbidden-handler90
+controls become138 without handler entry; two current-only duplicate controls
+retain one handler then private-return138. Main/worker register/FX/redzone,
+nesting+pending recovery and genuine65536 mappings still pass; the nonreset
+maximum-mapping sample is936us/vector32, not a RESET latency or hard IRQ bound. Forty reachable actual functions match
+inspection code/relocations; cumulative delivery/return bounds12351/10991 are
+within128KiB. Current normal raw-default/exec/TLS/thread/sysabi/FPU closure passes.
+The first normal harness run failed on a partial serial line; its strict-line
+rerun passes and both records remain. Frozen317-file receipt outside distclean:
+`fa60ae294d585e5c6ebab3ad2e58e71b468e7d37de939a074f0aab3c3e4aa258`.
+Public ABI/libc/WTF review and required no-JIT JavaScript0+42 remain incomplete.

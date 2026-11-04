@@ -519,6 +519,18 @@ struct process_signal_owner {
     struct signal_state_identity identity;
     uint64_t root;
 };
+struct signal_default_decision {
+    uint64_t *pending;
+    uint64_t bit,signal;
+};
+/* Optional prospective current-thread view; other live threads are unchanged. */
+struct signal_default_view {
+    struct process_user_thread *worker;
+    uint64_t mask,local_pending,shared_pending;
+};
+static struct signal_default_decision process_prepare_signal_default_view(
+    struct process *,uint64_t,const struct signal_default_view *);
+static void process_commit_signal_default(struct process *,struct signal_default_decision);
 static bool process_signal_current_owner(struct process_signal_owner *out) {
     struct scheduler_user_return_observation observed;
     struct process_user_binding binding;
@@ -637,6 +649,8 @@ _Static_assert(8+sizeof(struct signal_context_snapshot)+sizeof(struct process_si
 _Static_assert(sizeof(struct signal_thread_state)<=4096,"bounded complete private-state exclusion");
 _Static_assert(offsetof(struct process,usr1_action_generation)==offsetof(struct process,usr1_action)+sizeof(struct signal_action_descriptor),"descriptor generation adjacency");
 _Static_assert(offsetof(struct process,main_signal_state)-offsetof(struct process,signal_catch_mask)<=4096,"bounded action and main metadata exclusion");
+_Static_assert(offsetof(struct process,main_signal_state)<=4096,"complete process prefix exclusion");
+_Static_assert(PROCESS_MAX_USER_THREADS+2<=USER_FRAME_EXTENDED_EXCLUSION_MAX,"RESET complete metadata exclusions");
 _Static_assert(offsetof(struct process_user_thread,pending_signals)==offsetof(struct process_user_thread,signal_mask)+8,"worker pending-mask adjacency");
 
 /* First caller is an opt-in test kernel only. All objects below are private
@@ -665,6 +679,13 @@ enum process_signal_delivery_result process_signal_deliver_private(struct isr_fr
     if(reset && process->usr1_action_generation==UINT64_MAX) return PROCESS_SIGNAL_FATAL;
     uint64_t action_generation=process->usr1_action_generation+(reset?1:0);
     uint64_t handler_mask=(*mask|action.mask|bit)&~((1ull<<9)|(1ull<<19));
+    struct signal_default_decision default_decision={0};
+    if(reset) {
+        struct signal_default_view view={.worker=worker,.mask=handler_mask,
+            .local_pending=*local&~(selected==local?bit:0),
+            .shared_pending=process->pending_signals&~(selected==&process->pending_signals?bit:0)};
+        default_decision=process_prepare_signal_default_view(process,SRV_SIGNAL_USR1,&view);
+    }
     uint64_t token=next.stack.last_token+1;
     struct signal_context_plan public;
     if(!signal_context_plan_frame(&public,frame->rsp,PROCESS_SIGNAL_PRIVATE_FRAME_BYTES,
@@ -687,15 +708,27 @@ enum process_signal_delivery_result process_signal_deliver_private(struct isr_fr
     for(size_t i=0;i<sizeof(info);i++) wire.bytes[8+sizeof(snapshot)+i]=((const uint8_t *)&info)[i];
     struct fpu_user_trap_commit commit;
     if(!fpu_prepare_user_trap_commit(frame,NULL,&commit)) return PROCESS_SIGNAL_FATAL;
-    struct user_frame_exclusion excluded[USER_FRAME_EXCLUSION_MAX]={
-        {(uint64_t)owner.state,sizeof(*owner.state)},
-        {(uint64_t)&process->signal_catch_mask,offsetof(struct process,main_signal_state)-offsetof(struct process,signal_catch_mask)},
-        {worker?(uint64_t)&worker->signal_mask:0,worker?16:0}};
     struct process_frame_copy_plan copy;
-    if(!process_prepare_frame_copy(frame,&wire,public.entry_rsp,PROCESS_SIGNAL_PRIVATE_FRAME_BYTES,&copy) ||
-        !vmm_copy_user_frame_excluding_current(copy.root,public.entry_rsp,&wire,PROCESS_SIGNAL_PRIVATE_FRAME_BYTES,
-            &copy.stack,copy.pages,copy.page_count,frame,copy.user_fpu,copy.kernel_fpu,
-            excluded,worker?3:2)) return PROCESS_SIGNAL_FATAL;
+    if(!process_prepare_frame_copy(frame,&wire,public.entry_rsp,PROCESS_SIGNAL_PRIVATE_FRAME_BYTES,&copy))
+        return PROCESS_SIGNAL_FATAL;
+    if(reset) {
+        struct user_frame_exclusion excluded[PROCESS_MAX_USER_THREADS+2]={
+            {(uint64_t)owner.state,sizeof(*owner.state)},
+            {(uint64_t)process,offsetof(struct process,main_signal_state)}};
+        for(unsigned i=0;i<PROCESS_MAX_USER_THREADS;i++)
+            excluded[i+2]=(struct user_frame_exclusion){(uint64_t)&process->user_threads[i].signal_mask,16};
+        if(!vmm_copy_user_frame_extended_current(copy.root,public.entry_rsp,&wire,PROCESS_SIGNAL_PRIVATE_FRAME_BYTES,
+                &copy.stack,copy.pages,copy.page_count,frame,copy.user_fpu,copy.kernel_fpu,
+                excluded,PROCESS_MAX_USER_THREADS+2)) return PROCESS_SIGNAL_FATAL;
+    } else {
+        struct user_frame_exclusion excluded[USER_FRAME_EXCLUSION_MAX]={
+            {(uint64_t)owner.state,sizeof(*owner.state)},
+            {(uint64_t)&process->signal_catch_mask,offsetof(struct process,main_signal_state)-offsetof(struct process,signal_catch_mask)},
+            {worker?(uint64_t)&worker->signal_mask:0,worker?16:0}};
+        if(!vmm_copy_user_frame_excluding_current(copy.root,public.entry_rsp,&wire,PROCESS_SIGNAL_PRIVATE_FRAME_BYTES,
+                &copy.stack,copy.pages,copy.page_count,frame,copy.user_fpu,copy.kernel_fpu,
+                excluded,worker?3:2)) return PROCESS_SIGNAL_FATAL;
+    }
 
     /* Successful-copy suffix: only prepared resident stores and FPU commit.
      * Preserve a separately queued bit in the unchosen pending source. */
@@ -708,6 +741,7 @@ enum process_signal_delivery_result process_signal_deliver_private(struct isr_fr
         process->signal_catch_mask &= ~bit;
         process->signal_ignore_mask &= ~bit;
     }
+    process_commit_signal_default(process,default_decision);
     frame->rdi=SRV_SIGNAL_USR1;
     frame->rsi=public.snapshot+sizeof(snapshot);
     frame->rdx=public.snapshot;frame->rcx=action.handler;
@@ -715,7 +749,7 @@ enum process_signal_delivery_result process_signal_deliver_private(struct isr_fr
     frame->rip=action.trampoline;frame->rsp=public.entry_rsp;
     frame->cs=0x23;frame->ss=0x1b;frame->rflags=0x202;
     fpu_commit_user_trap_prepared(&commit);
-    return PROCESS_SIGNAL_DELIVERED;
+    return default_decision.pending?PROCESS_SIGNAL_DELIVERED_EXIT_USR1:PROCESS_SIGNAL_DELIVERED;
 }
 
 uint64_t process_signal_return_private(struct isr_frame *frame,uint64_t token,uint64_t frame_identity) {
@@ -3265,40 +3299,45 @@ bool process_signal_target(int64_t pid, uint64_t signal) {
     return matched;
 }
 
-struct signal_default_decision {
-    uint64_t *pending;
-    uint64_t bit,signal;
-};
 /* A disposition is process-wide, including peer-local pending queues. Choose
  * an eligible local bit before a shared duplicate, and the lowest public TID
  * among eligible local recipients. Caller holds CPU0 IRQ exclusion throughout
  * preparation and commit; no scheduler/pointer observation follows publication. */
-static struct signal_default_decision process_prepare_signal_default(
-    struct process *process,uint64_t signal) {
+static struct signal_default_decision process_prepare_signal_default_view(
+    struct process *process,uint64_t signal,const struct signal_default_view *view) {
     struct signal_default_decision decision={0};
     if(!process->allocated || !process->active || process->killed || process->exiting ||
        signal==SRV_SIGNAL_CHLD || signal==SRV_SIGNAL_WINCH) return decision;
     uint64_t bit=1ull<<signal,lowest=UINT64_MAX;
     bool shared_eligible=false;
-    if(!process->main_thread_exited && !(process->main_signal_mask&bit)) {
+    uint64_t main_mask=view && !view->worker?view->mask:process->main_signal_mask;
+    uint64_t main_pending=view && !view->worker?view->local_pending:process->main_pending_signals;
+    if(!process->main_thread_exited && !(main_mask&bit)) {
         shared_eligible=true;
-        if(process->main_pending_signals&bit) {
+        if(main_pending&bit) {
             decision.pending=&process->main_pending_signals;lowest=1;
         }
     }
     for(unsigned i=0;i<PROCESS_MAX_USER_THREADS;i++) {
         struct process_user_thread *thread=&process->user_threads[i];
+        uint64_t mask=view && view->worker==thread?view->mask:thread->signal_mask;
+        uint64_t pending=view && view->worker==thread?view->local_pending:thread->pending_signals;
         if(!thread->used || !thread->active || thread->owner!=process ||
-           thread->tid<2 || thread->tid>(uint64_t)INT64_MAX || (thread->signal_mask&bit)) continue;
+           thread->tid<2 || thread->tid>(uint64_t)INT64_MAX || (mask&bit)) continue;
         shared_eligible=true;
-        if((thread->pending_signals&bit) && thread->tid<lowest) {
+        if((pending&bit) && thread->tid<lowest) {
             decision.pending=&thread->pending_signals;lowest=thread->tid;
         }
     }
-    if(!decision.pending && shared_eligible && (process->pending_signals&bit))
+    uint64_t shared_pending=view?view->shared_pending:process->pending_signals;
+    if(!decision.pending && shared_eligible && (shared_pending&bit))
         decision.pending=&process->pending_signals;
     if(decision.pending) {decision.bit=bit;decision.signal=signal;}
     return decision;
+}
+static struct signal_default_decision process_prepare_signal_default(
+    struct process *process,uint64_t signal) {
+    return process_prepare_signal_default_view(process,signal,NULL);
 }
 static void process_commit_signal_default(struct process *process,
     struct signal_default_decision decision) {

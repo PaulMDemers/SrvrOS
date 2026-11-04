@@ -159,3 +159,49 @@ indirect call, recursion or dynamic frame appears in the audited paths. This
 bounds these maskable-IRQ-excluded transactions, not NMI/MCE or all kernel work. Static embedded state remains the
 previously qualified1764352-byte process-array increase including alignment.
 No production/public ABI, restart, atomic suspend or JSC acceptance is implied.
+
+
+## Automatic RESET with pending peers
+
+A later actual-source reproduction found an additional private RESET case:
+resetting the global INFO disposition to DEFAULT could strand an unblocked peer's
+already pending USR1. The earlier nonreset, register and nested-delivery evidence
+remains historical; it did not cover this peer-default transition.
+
+The correction prepares a prospective view before copying: remove exactly the
+first selected local/shared bit, apply self-blocking only to the current handler's
+next mask, then select an eligible pending default across other live threads.
+Local pending precedes shared, with main/lowest live owner-matching publicTID
+priority. Inactive/foreign-owner/masked peers do not qualify. A current-only
+duplicate remains pending while self-blocked and is evaluated on private return.
+
+RESET uses a separate internal copy entry with at most12 exclusions; the old
+three-object API still refuses count4. Its ten generated objects are the complete
+selected state, process prefix from0 through main_signal_state (including kill
+flags/cause), and all eight worker mask/pending extents, including inactive slots.
+All extents/translations/physical aliases validate before output. After copying,
+only prepared state/pending/mask/RESET/kill/frame stores and the typed FPU commit
+remain. Result138 means committed delivery plus fatal default; the opt-in caller
+directly exits before post-call diagnostics/accounting/user resume.
+
+Private operation4 combines test-only installation then delivery in one final
+IRQ-excluded continuation to pin the selected main/worker. Installation is a
+separate transaction, not covered by delivery refusal rollback. The diagnostic
+negative links the same new IDT/VMM/FPU/payload with the frozen2777 process object;
+it is not a clean2777 kernel. Six peer cases enter a forbidden handler on that
+negative, whereas all six corrected cases exit138 without entering it. Both
+current-only controls enter exactly one handler then private-return138 before
+continuation. Nonreset/full register/nesting/max65536 and FPU fixtures remain0. The936us
+maximum-mapping observation is nonreset, not a RESET latency bound.
+
+The strengthened40-function static call/control-flow audit compares actual bytes
+and normalized symbol/section/value/type/relocation/addend identity. It rejects
+unknown/indirect edges, recursion and dynamic frames and validates function-entry
+targets. Delivery/return cumulative bounds are12351/10991 bytes including983
+common bytes, against131072. Successful-copy suffixes call only scalar memcpy
+and prepared FPU commit. The scope excludes NMI/MCE and process-exit teardown.
+Normal raw-default, exec, GOT/TLS, threadstress, sysabi and FPU guests pass; a
+serial parser's partial-line failure is retained separately from the successful
+strict-line rerun. Frozen317-file receipt outside distclean:
+`fa60ae294d585e5c6ebab3ad2e58e71b468e7d37de939a074f0aab3c3e4aa258`.
+Public registration, atomic suspend, restart and JavaScript remain unqualified.

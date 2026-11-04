@@ -963,12 +963,12 @@ static bool user_frame_kernel_spans(uint64_t root,uint64_t start,uint64_t length
     return true;
 }
 
-bool vmm_copy_user_frame_excluding_current(uint64_t root,uint64_t destination,
+static bool user_frame_copy_exclusions(uint64_t root,uint64_t destination,
     const struct user_frame_source *source,size_t length,
     const struct user_frame_stack *stack,const struct user_frame_page pages[2],size_t page_count,
     const struct isr_frame *frame,const struct fpu_state *user_fpu,const struct fpu_state *kernel_fpu,
     const struct user_frame_exclusion *exclusions,size_t exclusion_count) {
-    if (exclusion_count>USER_FRAME_EXCLUSION_MAX || (exclusion_count && !exclusions)) return false;
+    if (exclusion_count>USER_FRAME_EXTENDED_EXCLUSION_MAX || (exclusion_count && !exclusions)) return false;
     for(size_t i=0;i<exclusion_count;i++)
         if(exclusions[i].length>PAGE_SIZE ||
            !user_frame_upper_extent(exclusions[i].address,exclusions[i].length)) return false;
@@ -999,8 +999,8 @@ bool vmm_copy_user_frame_excluding_current(uint64_t root,uint64_t destination,
     if (!user_frame_kernel_spans(root,src,USER_FRAME_COPY_LIMIT,&cpu,src_spans,&ns) ||
         !user_frame_kernel_spans(root,user_frame_kernel_address(user_fpu),sizeof(*user_fpu),&cpu,ufpu_spans,&nu) ||
         !user_frame_kernel_spans(root,user_frame_kernel_address(kernel_fpu),sizeof(*kernel_fpu),&cpu,kfpu_spans,&nk)) return false;
-    struct user_frame_span extra_spans[USER_FRAME_EXCLUSION_MAX][2];
-    unsigned extra_count[USER_FRAME_EXCLUSION_MAX];
+    struct user_frame_span extra_spans[USER_FRAME_EXTENDED_EXCLUSION_MAX][2];
+    unsigned extra_count[USER_FRAME_EXTENDED_EXCLUSION_MAX];
     for(size_t i=0;i<exclusion_count;i++)
         if(!user_frame_kernel_spans(root,exclusions[i].address,exclusions[i].length,&cpu,extra_spans[i],&extra_count[i])) return false;
     if (user_frame_overlap(src,USER_FRAME_COPY_LIMIT,user_frame_kernel_address(user_fpu),sizeof(*user_fpu)) ||
@@ -1041,6 +1041,25 @@ bool vmm_copy_user_frame_excluding_current(uint64_t root,uint64_t destination,
 #endif
     }
     return true;
+}
+
+bool vmm_copy_user_frame_excluding_current(uint64_t root,uint64_t destination,
+    const struct user_frame_source *source,size_t length,
+    const struct user_frame_stack *stack,const struct user_frame_page pages[2],size_t page_count,
+    const struct isr_frame *frame,const struct fpu_state *user_fpu,const struct fpu_state *kernel_fpu,
+    const struct user_frame_exclusion *exclusions,size_t exclusion_count) {
+    if (exclusion_count>USER_FRAME_EXCLUSION_MAX) return false;
+    return user_frame_copy_exclusions(root,destination,source,length,stack,pages,page_count,
+        frame,user_fpu,kernel_fpu,exclusions,exclusion_count);
+}
+
+bool vmm_copy_user_frame_extended_current(uint64_t root,uint64_t destination,
+    const struct user_frame_source *source,size_t length,
+    const struct user_frame_stack *stack,const struct user_frame_page pages[2],size_t page_count,
+    const struct isr_frame *frame,const struct fpu_state *user_fpu,const struct fpu_state *kernel_fpu,
+    const struct user_frame_exclusion *exclusions,size_t exclusion_count) {
+    return user_frame_copy_exclusions(root,destination,source,length,stack,pages,page_count,
+        frame,user_fpu,kernel_fpu,exclusions,exclusion_count);
 }
 
 bool vmm_copy_user_frame_current(uint64_t root,uint64_t destination,

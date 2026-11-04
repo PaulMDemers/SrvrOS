@@ -414,11 +414,13 @@ static uint64_t signal_private_mappings(void) {
 static void signal_private_common_return(struct isr_frame *frame,bool test) {
     if(process_should_exit_current()) process_exit(process_current_kill_status());
     uint64_t operation=test?frame->rdi:0;
-    if(test && operation==1) {
+    if(test && (operation==1 || operation==4)) {
         struct signal_action_descriptor action={.mode=SIGNAL_ACTION_INFO,
             .handler=frame->rsi,.trampoline=frame->rdx,.flags=frame->rcx,.mask=frame->r8};
         frame->rax=process_signal_action_exchange(&action,NULL,NULL)?0:(uint64_t)SRV_ERR_INVAL;
-        return;
+        /* Operation4 pins a RESET regression's selected current thread: no
+         * user/scheduler gap between installing and testing private delivery. */
+        if(operation==1 || frame->rax!=0) return;
     }
     if(test && operation==3) {
         if(frame->rsi!=1 || signal_private_mappings()!=65536 || !timer_reference_ready()) {
@@ -427,7 +429,7 @@ static void signal_private_common_return(struct isr_frame *frame,bool test) {
         /* Readiness check only: no queued request survives this trap/lifetime. */
         frame->rax=0;return;
     }
-    if(test && operation!=2) {frame->rax=(uint64_t)SRV_ERR_INVAL;return;}
+    if(test && operation!=2 && operation!=4) {frame->rax=(uint64_t)SRV_ERR_INVAL;return;}
     /* Read-only diagnostics gathered before the complete prepare/copy/commit. */
     uint64_t mappings=signal_private_mappings();
     uint64_t cr3,vector=frame->vector;
@@ -438,11 +440,14 @@ static void signal_private_common_return(struct isr_frame *frame,bool test) {
     uint64_t start=reference?timer_monotonic_us():0;
     uint64_t returned=PROCESS_SIGNAL_RETURN_REFUSED;
     enum process_signal_delivery_result result;
-    if(test) {
+    if(test && operation==2) {
         returned=process_signal_return_private(frame,frame->rsi,frame->rdx);
         if(returned>=PROCESS_SIGNAL_RETURN_EXIT_MIN) process_exit(returned);
         result=returned==PROCESS_SIGNAL_RETURN_RESTORED?PROCESS_SIGNAL_DELIVERED:PROCESS_SIGNAL_FATAL;
-    } else result=process_signal_deliver_private(frame);
+    } else {
+        result=process_signal_deliver_private(frame);
+        if(result==PROCESS_SIGNAL_DELIVERED_EXIT_USR1) process_exit((uint64_t)result);
+    }
     uint64_t elapsed=reference?timer_monotonic_us()-start:UINT64_MAX;
     if(result==PROCESS_SIGNAL_NONE || result==PROCESS_SIGNAL_DEFERRED) return;
     signal_private_probe.complete=0;signal_private_probe.sequence++;
