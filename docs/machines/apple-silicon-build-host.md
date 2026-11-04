@@ -3519,3 +3519,12 @@ kernel/initramfs/disk hashes. Source identities, pins, hashes, failures and fina
 results are in local `build/review/files-transfer/receipt.json`. All task VMs are
 stopped; shared checkout and review VM remain untouched. Implementation and
 acceptance are complete and ready for review; no main merge was performed.
+
+Final integration preflight finds main has advanced to `83e5d1ad` with profile
+transfer/installed-migration work. A read-only merge-tree check reports appended
+host-journal and Apps-gitlink conflicts (`b2220909` versus reviewed `c7b09b6`).
+The accepted branch remains based on `819956be`; those newer runtime changes were
+not included in this milestone's acceptance. UI4/Apps7/OS344 are reviewable, but
+OS integration requires reconciling the newer Apps/main tuple and verifying the
+combined result before merge. This is a delivery dependency, not another feature
+milestone. No shared checkout or review VM was accessed.
