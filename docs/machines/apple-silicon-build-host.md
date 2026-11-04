@@ -3220,3 +3220,20 @@ reported zero leaks/FAT/errors. The full host transcript is
 The final staged-port guest also passed after the shell changes, with a clean
 post-run filesystem check. Its transcript is
 `build/review/whole/ports-shell-final.log`.
+
+
+### SQLite merge review — November 3, 2026
+
+Candidate `d3b5c321` integrates main `89c210db`, including merged PR252, and
+pins SrvrPorts `525f422`. Review fixed a shell-helper rollback-journal collision;
+guards now protect journal names before creation, case variants, inode aliases
+and streams opened before the database. Independent source review and host VFS
+checks pass. Fresh two-boot CLI/guest VFS tests, exact rollback rows after rejected
+journal writes, guest fsck and offline allocation pass. Receipts are under
+`build/sqlite-cli-smoke/20261103-212748-7tm1f5tf/` and
+`build/review/sqlite-merge/`. A clean rebuild matches CLI ELF SHA256
+`1107f624eba0a878c4d4440d4ddae9c77af7785de42a0647eeb60999f74d8e51`.
+Independent fsck is unavailable. The original acceptance hash above remains
+historical; no power-loss, physical-device or full-image reproducibility claim
+is added. Integration checkout/review VM remain untouched. PR2 in SrvrPorts must
+merge before OS PR306; the user authorized both merges conditional on checks.
