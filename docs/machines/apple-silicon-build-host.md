@@ -26,6 +26,45 @@ All task VMs are stopped. Review VMs 61610, 6233 and 85869 remain running and
 untouched, with the primary checkout preserved. No physical media, reboot,
 Actions or merge requested. Delivery is a scoped draft PR for review.
 
+## PR325 merge review
+
+User authorized review and merge if ready. Candidate `8b4619b6` integrates main
+`4f5edb0e` and PR323's host-only salvage qualification. Independent review finds
+no blocker in the bounded recovery contract. Fresh 35 installation tests and
+profile/session/bundle/adapter checks pass. The accepted sequential full build
+and unchanged tools reproduce all original proof input hashes, preserving the
+nine-interruption/sixteen-refusal/two-restart/two-boot evidence without another
+VM. Review receipt/logs survive at `.local/installation-evidence/pr325-review`;
+see the installation guide for the portable receipt and equivalence details.
+Review PIDs 61610, 6233 and 85869 remain live and untouched; primary checkout
+preserved. Ready for authorized merge. Next proposal is bounded host publication
+I/O-failure qualification, retaining filesystem/profile refusal contracts.
+
+## Interrupted publication recovery — proof complete
+
+User authorized a scoped inspect/reconcile PR and interruption/refusal proof in
+`SrvrOS-installation`, branch `device/apple-silicon/install-publication-recovery`.
+Base main `0cba30a1` includes PR321 and the inspected test-only PR322 failure
+qualification. Profile guest PR320's pending-import/unknown-state rules remain
+separate. Own installation publication API/CLI/tests and a new proof; no guest,
+kernel, filesystem or profile policy edits. Reconcile only previously verified
+unbooted output; uncertain state is preserved. Process-restart boundaries are
+qualified, not power cuts or transport-failure repair.
+
+Preserve VMs 61610, 6233 and 85869 and accepted evidence. Run one build/harness
+at a time. No physical media, reboot or Actions. Current acceptance and exact
+evidence are recorded in `docs/disk-installation.md`.
+
+Clean `291f469e` passes the matched full build, eight recovery host groups plus
+existing installation/profile regressions, and nine actual apply-interruption
+boundaries. Three early states refuse untouched; six verified states reconcile
+without candidate-byte changes. Two reconciliation interruptions restart safely;
+16 corruption/refusal cases preserve state. A reconciled profile image passes
+edit/save and reboot/readback; subsequent guest writes cause reconciliation to
+refuse while retaining its ready receipt. Verified raw evidence and artifacts:
+`.local/installation-evidence/recovery-d86be75i`. Task VMs stopped; original
+review PIDs remain live. Delivery is a scoped draft PR; no merge requested.
+
 ## PR321 merge review
 
 Final candidate `d0910498` consumes newer main `a8e1fca1` and PR320's guest import
