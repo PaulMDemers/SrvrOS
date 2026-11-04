@@ -4462,3 +4462,8 @@ test-file-fsync: build/tests/file-fsync-host$(HOST_EXE)
 build/tests/file-fsync-host$(HOST_EXE): tools/test_syscall_fsync.c kernel/src/arch/x86_64/syscall.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-dirty-salvage-scope
+test-core: test-dirty-salvage-scope
+test-dirty-salvage-scope:
+	$(PYTHON) -m unittest discover -s tools -p test_dirty_salvage_scope.py -v
