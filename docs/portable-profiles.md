@@ -6,7 +6,12 @@ HOME/config/data/cache resolver. Host tooling, guest commands and desktop
 workflows share this contract. Login, cloud roaming and multi-user security
 isolation remain separate.
 
-Current milestone: ending a desktop session and switching profiles without
+Current work: larger-document migration with bounded streaming memory is
+implemented for draft review in [OS #367](https://github.com/PaulMDemers/SrvrOS/pull/367)
+and [Apps #11](https://github.com/PaulMDemers/SrvrApps/pull/11). Matched two-VM
+qualification is pending; see [the streaming contract](portable-profile-streaming.md).
+
+Ending a desktop session and switching profiles without
 reboot is delivered and independently verified in [Apps #9](https://github.com/PaulMDemers/SrvrApps/pull/9)
 (`c3ad11b1`) and [OS #355](https://github.com/PaulMDemers/SrvrOS/pull/355)
 (`82face72`), following merged
@@ -1245,3 +1250,54 @@ receipt and refuses changed payloads or incomplete graphical prerequisites.
 Accepted backups survive build cleanup; the composite review records their
 location and verified member count. This milestone adds no physical-media,
 arbitrary power-loss, authentication or permission-enforcement acceptance.
+
+
+## Larger-document migration — implementation pending VM qualification
+
+Profiles chooses a bundle format from the selected files. Selections within the
+existing v1 limits still produce v1 JSON, including when the suggested filename
+ends in `.srvrprofile`. Larger selections use v2: up to 16 MiB per file, 64 MiB
+combined, and 64 explicitly selected Documents files. The review names the
+compatibility requirement before confirmation. The extension never selects the
+format. Older readers can continue to receive a smaller v1 selection; they must
+refuse a v2 bundle rather than truncate or reinterpret it.
+
+V2 stores a bounded manifest followed by the exact document bytes. Hashing,
+copying and readback use a 64 KiB buffer, with no allocation proportional to the
+payload. The [wire and recovery contract](portable-profile-streaming.md) defines
+framing, validation, memory ceilings and qualification. The unchanged v1 path
+retains its original memory behavior and caps.
+
+The guest CLI adds automatic-format review and reviewed export:
+
+```text
+profile preview-export-auto HOME [Documents/FILE ...]
+profile export-auto-reviewed HOME OUTPUT SHA256 [Documents/FILE ...]
+```
+
+The existing `preview-export`, `export-reviewed` and `export` commands remain
+v1-only. Existing `inspect`, `preview-import`, `import-reviewed`, `import`,
+`check-recover` and `recover` accept both formats. Automatic-format review reports
+`bundle_version` as 1 or 2, alongside the existing review envelope. Confirmation
+revalidates the reviewed hash, source identity and selected bytes.
+
+Import reuses the existing journal and chooser recovery. A v2 journal binds the
+complete source bundle; recovery refuses a missing or changed source. An
+interrupted streamed document leaves only the journal-owned root scratch, which
+can be discarded and recopied after full validation. Existing final files must
+match exactly. An interrupted exclusive export can leave an incomplete bundle;
+preserve it and select a fresh filename for retry.
+
+The separate host fixture codec is `tools/profile_stream.py`. Its `inspect`,
+`import` and `export` commands support v2 and read v1 through unchanged helpers;
+`export --legacy` explicitly retains the old fixture exporter. Native installer
+and offline installation export stay v1-only in this milestone.
+
+Native checks exercise 64 MiB import, interrupted-copy recovery and reviewed
+export with tracked engine allocations below 1 MiB, plus the target's
+67-descriptor limit at 64 documents. The VM harness additionally requires actual
+large transfer, graphical recovery, exact-byte storage readback, compact-screen
+review and guest mapped-memory evidence before acceptance. Mapped high-water
+is separately labeled and is not an exact heap or kernel allocation measure.
+No VM acceptance is claimed by this implementation checkpoint. Authentication,
+credential handling and permission enforcement remain separate.
