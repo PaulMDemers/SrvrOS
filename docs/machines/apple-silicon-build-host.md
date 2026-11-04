@@ -7,8 +7,10 @@ reboot selection, migration to a second installation and merging after review.
 Coordinator owns independent review and Apps-first/OS-second merges. Reuse the
 isolated `SrvrOS-profile-326-review` checkout; OS branch
 `device/apple-silicon/profile-create`, actual main `83e5d1ad` (PR347 complete),
-Apps branch `app/profile-create` from merged main `2ebaca5e`. Its tree equals the
-previous reviewed `b2220909` pin; UI `9eaaa74e` and Ports `78fb8184` stay pinned.
+Apps branch `app/profile-create` starts from merged main `2ebaca5e` and now
+includes actual Apps main `2ddea66` (Files PR7). UI `586bd002` (PR4) is consumed
+explicitly before final qualification; Ports `78fb8184` remains pinned. The
+coordinator will relay the matching OS344 integration before the final VM run.
 
 Own guest creation CLI/tests, Profiles UI, embedded chooser creation, fixed-command
 workers and scoped build/diagnostic wiring, plus a new bounded disposable-VM proof.

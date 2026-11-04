@@ -2376,8 +2376,9 @@ $(DESKD_OBJ) $(DESKCLIENT_OBJ) $(DESK_WIDGETS_OBJ): USER_CFLAGS += -I $(DESK_WID
 $(DESK_WIDGETS_A): $(ZIG) $(DESK_WIDGETS_OBJ)
 	$(AR) rcs $@ $(DESK_WIDGETS_OBJ)
 -include $(DESK_WIDGETS_OBJ:.o=.d)
-$(USER_DESKD): $(ZIG) $(USER_CRT0_OBJ) $(DESKD_OBJ) $(DESK_WIDGETS_A) $(USER_LIB_OBJ) userspace/app.ld
-	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(DESKD_OBJ) $(DESK_WIDGETS_A) $(USER_LIB_OBJ) -o $@
+build/userspace/deskd/profile_chooser.c.o: USER_CFLAGS += -I ports/upstream/cjson
+$(USER_DESKD): $(ZIG) $(USER_CRT0_OBJ) $(DESKD_OBJ) $(DESK_WIDGETS_A) $(CJSON_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(DESKD_OBJ) $(DESK_WIDGETS_A) $(CJSON_OBJ) $(USER_LIB_OBJ) -o $@
 $(USER_DESKCLIENT): $(ZIG) $(USER_CRT0_OBJ) $(DESKCLIENT_OBJ) $(DESK_WIDGETS_A) $(USER_LIB_OBJ) userspace/app.ld
 	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(DESKCLIENT_OBJ) $(DESK_WIDGETS_A) $(USER_LIB_OBJ) -o $@
 -include $(DESKD_OBJ:.o=.d) $(DESKCLIENT_OBJ:.o=.d)
@@ -4466,9 +4467,9 @@ build/tests/hsw-backing-adapter$(HOST_EXE): tools/test_hsw_backing_adapter.c too
 .PHONY: test-profile-chooser
 test-profile-chooser: test-guest-profiles build/tests/profile-catalog-host$(HOST_EXE)
 	build/tests/profile-catalog-host$(HOST_EXE) $(CURDIR)/build/tests/guest-profile-host$(HOST_EXE)
-build/tests/profile-catalog-host$(HOST_EXE): tools/test_profile_catalog.c userspace/deskd/profile_catalog.c userspace/deskd/profile_catalog.h userspace/lib/include/srvros/profile_limits.h userspace/deskd/profile_startup.h userspace/lib/src/desk_preferences.c
+build/tests/profile-catalog-host$(HOST_EXE): tools/test_profile_catalog.c userspace/deskd/profile_catalog.c userspace/deskd/profile_catalog.h userspace/lib/include/srvros/profile_limits.h userspace/deskd/profile_startup.h userspace/lib/src/desk_preferences.c ports/upstream/cjson/cJSON.c ports/upstream/cjson/cJSON.h
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include tools/test_profile_catalog.c userspace/lib/src/desk_preferences.c -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I ports/upstream/cjson tools/test_profile_catalog.c userspace/lib/src/desk_preferences.c ports/upstream/cjson/cJSON.c -o $@
 
 .PHONY: test-salvage
 test-core: test-salvage
