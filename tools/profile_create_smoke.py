@@ -90,19 +90,26 @@ def chooser_start(vm, checkpoint=None):
     return start
 
 
-def chooser_create(vm, name, alias, checkpoint=None):
+def chooser_create(vm, name, alias, checkpoint=None, keyboard=False):
     start = chooser_start(vm, checkpoint)
     x, y, w, h = panel(vm)
     vm.click(x + 260, y + h - 33)
-    vm.click(x + 100, y + 117); t.text(vm, name)
-    vm.click(x + 100, y + 187); t.text(vm, alias)
-    vm.click(x + 80, y + h - 33)
+    if keyboard:
+        t.text(vm, 'wrong name'); vm.key('ctrl-a'); t.text(vm, name)
+        vm.key('tab'); t.text(vm, 'wrong_alias'); vm.key('ctrl-a'); t.text(vm, alias)
+        vm.screenshot('create-form-corrected')
+        vm.key('tab'); vm.key('ret')
+    else:
+        vm.click(x + 100, y + 117); t.text(vm, name)
+        vm.click(x + 100, y + 187); t.text(vm, alias)
+        vm.click(x + 80, y + h - 33)
     home = '/fat/home/' + alias
     c.observe(vm, rb'profile-chooser: create preview home=' + re.escape(home.encode()), start)
     c.observe(vm, rb'profile-chooser: create preview result=success', start)
     c.observe(vm, rb'profile-chooser: create worker retired operation=preview eof=1 reaped=1 status=0', start)
     vm.screenshot('create-review')
-    vm.click(x + 80, y + h - 33)
+    if keyboard: vm.key('ret')
+    else: vm.click(x + 80, y + h - 33)
     c.observe(vm, rb'profile-chooser: create start home=' + re.escape(home.encode()), start)
     if checkpoint:
         c.observe(vm, rb'profile-chooser: create result=failed home=' + re.escape(home.encode()) + rb' status=86', start, 120)
@@ -459,7 +466,7 @@ def main():
         if small_receipt['gpt']['disk_guid'] in guids or small_receipt['gpt']['disk_guid'] == cap_receipt['gpt']['disk_guid']:
             raise RuntimeError('small fixture GUID is not distinct')
         with c.VM(small, disks['transport'], out, 'small-create', args, 640, 480) as vm:
-            chooser_create(vm, 'Small profile', 'small_profile'); vm.finish()
+            chooser_create(vm, 'Small profile', 'small_profile', keyboard=True); vm.finish()
         if d.outside_data(small, *d.partitions(small)[1]) != small_receipt['protected_regions']:
             raise RuntimeError('small fixture protected bytes changed')
         fixture = t.check_allocation(small, out, 'small-final')
