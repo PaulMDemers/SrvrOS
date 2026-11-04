@@ -6,6 +6,46 @@ and [machine records](machines/README.md) separate implementation from physical
 acceptance. The [device parity ledger](device-parity.md) compares the Air with
 ongoing Pro work.
 
+## less Terminal report browsing — November 3, 2026
+
+Target: upstream less 710 static pager for plain ASCII text files and finite
+pipelines, backward/forward navigation, g/G/line movement, literal search and
+resize redraw. Work is isolated on `ports/less` from main `7ef140ef`; integration
+checkout/review VM remain untouched. Required gates: truthful vt100 capability
+adapter matching Terminal, returning signal callbacks with EINTR recovery,
+pipeline key input from the real terminal, repeated quit/interruption and
+termios/alternate-screen restoration, exact non-TTY output, selected upstream
+regressions, two clean CLI builds and existing ports checks. Compile secure,
+without regex; shell/editor/preprocessors/log writes/follow/job control and full
+Unicode-width correctness are outside initial acceptance.
+
+Implemented: the static pager, truthful local capability table, fd 2 keyboard
+validation and deferred signal processing in the generated port copy. No shared
+libc/kernel changes or concrete shared blockers were found. Guest PTY evidence
+`build/review/less/20261103-225541-00_67wtr` passes file/finite-pipe navigation,
+literal search, resize redraw, unknown TERM rejection, exact passthrough and two
+blocked-read interrupts with the pipe writer held open until successful quit
+and exact mode/screen restoration. The launcher inherits the PTY controlling
+terminal as the actual shell does. The initial direct pipe fixture did not;
+its failed signal receipt is retained and is not product acceptance.
+
+Actual graphical Terminal evidence `build/review/less-terminal` passes report
+browsing, pipeline keyboard input, resize redraw and shell continuation after
+quit/interruption. Expert visual inspection confirms additional report lines
+after resize and a restored usable shell; no user study is claimed. The two
+unchanged upstream `seq200.lt`/`wordwrap.lt` fixtures pass 106 steps with the
+native host LESSTEST runner in secure/no-regex mode. These are host regressions,
+separate from target PTY evidence, not a claim that the upstream runner works
+in the guest. Two clean target CLI builds are byte-identical (ELF SHA-256
+`65b16e3ff879ca892f9d9cd45c8f22b8881cc22b31accdae7691f18f619a7f4c`);
+whole-image reproducibility is not claimed. Existing `tools/ports_smoke.py` passes, including guest fsck with zero leaks,
+FAT errors or filesystem errors. The bounded milestone and current-main merge review are complete: [SrvrPorts #8](https://github.com/PaulMDemers/SrvrPorts/pull/8)
+and [SrvrOS #346](https://github.com/PaulMDemers/SrvrOS/pull/346). Merge dependency
+order is port first, OS second. Current-main `83e5d1ad` requalification on clean
+commit `1fa90b8c` passes matched build, guest PTY/held-open pipe signal gates,
+actual graphical Terminal and ports/fsck regressions. PR state records delivery.
+Only concrete shared blockers are coordinated with integration.
+
 ## Installed-desktop migration — delivered November 3, 2026
 
 The coordinated QEMU milestone is complete. A used installed desktop can export

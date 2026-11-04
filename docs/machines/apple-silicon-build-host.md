@@ -3615,6 +3615,65 @@ full asynchronous-signal or physical-device acceptance is added. Integration
 checkout and review VM remain untouched. The final merge receipts record the
 authorized dependency-order delivery; no additional feature work is needed.
 
+
+### less isolated milestone — verified November 3, 2026
+
+User authorized less 710 under `ports/less` in SrvrOS-ports-less, based on
+`7ef140ef`. Owns port adapters/build recipe, image entries and disposable actual
+Terminal/PTy qualification. Resolve capability, signal and pipeline-key gates
+before acceptance. No shared kernel/libc changes without concrete blocker
+coordination. Integration checkout and review VM remain untouched. Acceptance
+is complete for the bounded ASCII, secure/no-regex profile; no native boot or
+physical-device acceptance.
+
+Port commit `d760e54` on SrvrPorts `port/less` contains pristine upstream 710
+(official archive SHA-256 `d1008fb78dcae1323ddab664bcb352a61f022b1b131bd8018548e021d975ec7a`,
+137 files independently compared) and generated-copy-only adapters. OS branch
+`ports/less` stages `/fat/bin/less` and initramfs `/less`, with reproducible
+qualification helpers. No shared libc/kernel changes or concrete shared blockers
+were found, so no routine integration-chat message was sent.
+
+Accepted local evidence:
+
+- `build/review/less/20261103-225541-00_67wtr/receipt.json`: PASS real guest PTY
+  file/pipeline navigation, literal search, SIGWINCH repaint including newly
+  visible line 045, repeated blocked pipe Ctrl-C then quit before writer EOF,
+  exact termios/alternate-screen restoration, unknown TERM and non-TTY output.
+  A PTY-attached launcher establishes the controlling terminal before the pipe
+  child starts. The earlier direct child fixture did not and its failure is
+  preserved, not counted as acceptance.
+- `build/review/less-terminal/receipt.json`: PASS actual graphical Terminal
+  report/search/pipeline workflow, resize, quit and repeated interruption with
+  shell continuation. Expert screenshot review confirms the larger viewport
+  reveals lines 197/198 and the original shell is restored. Attempts 1–4 retain
+  automation failures (pointer targeting and unavailable fork-exec trace marker).
+  No user study or physical-hardware acceptance is claimed.
+- `build/review/less/build-verification.json`: two clean CLI ELF builds identical
+  at SHA-256 `65b16e3ff879ca892f9d9cd45c8f22b8881cc22b31accdae7691f18f619a7f4c`.
+  Runtime ELF SHA-256 is `a551955e0d62db669e4a082cf372d967a647fa39aa2ba0ab1b14701fc38d12ee`.
+  Whole-image reproducibility is outside this claim.
+- Native macOS secure/no-regex LESSTEST runner passes unchanged `seq200.lt`
+  (18 steps) and `wordwrap.lt` (88 steps). This is separate host evidence, not
+  guest upstream-runner acceptance; configure/build/run logs are under the same
+  review directory. Existing `tools/ports_smoke.py` also passes, including guest
+  fsck with `leaks=0 fat=0 errors=0`.
+
+These receipts describe the precommit working source and record its dirty
+status; final commits package that verified source and continuity documentation.
+All disposable less VMs are stopped. Integration checkout and review VM remain
+untouched. Outside scope: regex, shell/editor/preprocessor helpers, log writing,
+follow/job control and full Unicode-width correctness. Ready for separate draft
+port/OS PRs; no PR or merge was requested in this work block.
+
+
+less draft-PR delivery follow-up: opened [SrvrPorts #8](https://github.com/PaulMDemers/SrvrPorts/pull/8)
+and dependent [SrvrOS #346](https://github.com/PaulMDemers/SrvrOS/pull/346), both
+as drafts against main. Descriptions include the accepted verification, precommit
+receipt provenance, terminal/blocked-read signal limits and dependency order.
+This follow-up changes documentation only. Neither PR is merged. No concrete
+shared blocker appeared, so integration was not messaged; its checkout and the
+review VM remain untouched.
+
 ## PR345 current-main merge review
 
 User authorized integration/requalification/merge. bc main `7ef140ef`, profile
@@ -3629,3 +3688,30 @@ preserved read-only. No production fix, physical trial or hosted Actions. PR317
 reports no conflict; all review guests stopped and VMs 61610/6233/85869 remain
 untouched. The [filesystem contract](../filesystem-layout.md) records the ready
 review and next proposed read-only uncertain-media inspection milestone.
+
+
+### less current-main merge review — November 3, 2026
+
+User authorized review and dependency-order merge of SrvrPorts #8 and SrvrOS
+#346. Current OS main `83e5d1ad` was merged in this separate checkout. Conflict
+resolution preserves main's deskprofiles staging and installation diagnostics
+alongside less staging and its probe build target. Independent port and resolved
+OS diff reviews found no blocker in the bounded profile. Hosted checks are not
+configured for these PRs; acceptance uses the recorded local checks.
+
+Clean committed source `1fa90b8c` passes the matched build and a new guest PTY
+probe at `build/review/less/20261103-234145-i5g8tfsn/receipt.json`, including
+repeated blocked-read Ctrl-C and exact restoration before held writer EOF.
+The rerun graphical walkthrough at `build/review/less-terminal/` passes; expert
+inspection confirms new report rows after resize and the restored usable shell.
+The original graphical evidence is preserved at `build/review/less-terminal-initial/`.
+Current build/review details are in `build/review/less-merge/`; the current runtime
+ELF hash matches the earlier accepted payload. The original two clean CLI ELF
+build proof and host-only upstream fixtures remain historical evidence for the
+unchanged port. Fresh ports regression passes, including guest fsck with
+`leaks=0 fat=0 errors=0`. Both PRs are accepted for the authorized port-first,
+OS-second merge; linked PR state records the delivery result.
+
+No shared libc/kernel change or concrete shared blocker was found. The integration
+checkout and review VM remain untouched. This record is documentation only;
+implementation acceptance remains tied to clean tested commit `1fa90b8c`.
