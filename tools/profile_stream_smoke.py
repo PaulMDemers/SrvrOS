@@ -34,6 +34,8 @@ MAGIC = b'SRVROS-PROFILE2\n'
 CHUNK = 65536
 MAX_DOC = 16 * 1024 * 1024
 MAX_TOTAL = 64 * 1024 * 1024
+# Mirrors the SYS168 exFAT stream preflight's maximum sidecar serialization.
+BACKEND_METADATA_MAX = (8192 + 2048) * (1024 + 8 * 21 + 1) + 16
 MAPPED_PEAK_LIMIT = 32 * 1024 * 1024
 MAPPED_GROWTH_LIMIT = 4 * 1024 * 1024
 CHECKPOINTS = ('journal', 'directories', 'copy-partial', 'document', 'identity', 'commit-ready', 'published')
@@ -343,6 +345,23 @@ def free_bytes(fixture):
     offset = fixture.offset(bitmap)
     return sum(not (fixture.data[offset + i // 8] & (1 << (i % 8)))
                for i in range(fixture.count)) * fixture.cluster
+
+
+def require_stream_space(fixture, payload_sizes, label):
+    cluster = fixture.cluster
+    rounded = lambda n: ((n + cluster - 1) // cluster) * cluster
+    payload = sum(rounded(n) for n in payload_sizes)
+    backend = rounded(BACKEND_METADATA_MAX) + 9 * cluster
+    # Covers journal, identity, preferences, directories, scripts and their
+    # temporary metadata alongside the backend's own reservation.
+    overhead = 1024 * 1024 + 16 * cluster
+    required = payload + backend + overhead
+    available = free_bytes(fixture)
+    if available < required:
+        raise RuntimeError(f'{label} lacks conservative guest space: {available} < {required}')
+    return {'available_bytes': available, 'required_bytes': required,
+            'payload_bytes_rounded': payload, 'backend_reserve_bytes': backend,
+            'transaction_overhead_bytes': overhead, 'cluster_bytes': cluster}
 
 
 def run_guest(vm, line, *, timeout=300):
@@ -712,8 +731,8 @@ def main():
         memory_volume = out / 'memory-transport-source.exfat'
         memory_fixture = ExfatFixture((ROOT / 'build/srvros.exfat').resolve().read_bytes())
         memory_fixture.add_directory_files('stream-input', memory_scripts())
-        if free_bytes(memory_fixture) < MAX_TOTAL + 4 * 1024 * 1024:
-            raise RuntimeError('fresh memory transport lacks 64 MiB output reserve')
+        receipt['memory_space_gates'] = {'transport_source': require_stream_space(
+            memory_fixture, [MAX_TOTAL + CHUNK + 24], 'memory transport')}
         memory_volume.write_bytes(memory_fixture.data)
         memory_stage = out / 'target-memory-transport'
         installation_image.prepare(memory_stage, (ROOT / 'build/kernel/srvros.elf').resolve(),
@@ -721,10 +740,17 @@ def main():
             (ROOT / 'build/userspace/init.elf').resolve(), identity_bound=True)
         memory_ready = installation_image.apply(memory_stage)
         memory_transport = memory_stage / 'image.img'
+        receipt['memory_space_gates']['transport_installed'] = require_stream_space(
+            t.check_allocation(memory_transport, out, 'memory-transport-initial'),
+            [MAX_TOTAL + CHUNK + 24], 'installed memory transport')
         memory_transport_bounds = d.outside_data(memory_transport, *d.partitions(memory_transport)[1])
         known_guids = {v['gpt']['disk_guid'] for v in receipt['installations'].values()}
         if memory_ready['gpt']['disk_guid'] in known_guids: raise RuntimeError('memory transport GUID collision')
         memory_disk = out / 'probe-memory-a.img'; shutil.copyfile(disks['a'], memory_disk)
+        receipt['memory_space_gates']['source_copies'] = require_stream_space(
+            t.check_allocation(memory_disk, out, 'memory-a-initial'),
+            [MAX_DOC] * 3, 'memory source copies')
+        d.save_json(out / 'receipt.json', receipt)
         with c.VM(memory_disk, memory_transport, out, 'memory-a', args) as vm:
             for name in ('a.bin', 'b.bin', 'c.bin'):
                 run_guest(vm, '/fat/bin/cp ' + A + '/Documents/large.bin ' + A + '/Documents/' + name)
@@ -759,8 +785,10 @@ def main():
         memory_b_bounds = d.outside_data(memory_b, *d.partitions(memory_b)[1])
         if memory_b_ready['gpt']['disk_guid'] in known_guids | {memory_ready['gpt']['disk_guid']}:
             raise RuntimeError('memory receiver GUID collision')
-        if free_bytes(t.check_allocation(memory_b, out, 'memory-b-initial')) < MAX_TOTAL + 4 * 1024 * 1024:
-            raise RuntimeError('memory receiver lacks 64 MiB import reserve')
+        receipt['memory_space_gates']['receiver'] = require_stream_space(
+            t.check_allocation(memory_b, out, 'memory-b-initial'),
+            [MAX_DOC] * 4, 'memory receiver')
+        d.save_json(out / 'receipt.json', receipt)
         with c.VM(memory_b, memory_transport, out, 'memory-b', args) as vm:
             review = review_guest(vm, '/fat/bin/profile preview-import /work/m64 ' + B + ' local_b', 'import', MAX_TOTAL)
             if review['sha256'] != memory_digest or review['profile'] != bundle['profile']:
