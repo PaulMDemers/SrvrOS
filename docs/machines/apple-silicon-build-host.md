@@ -1,35 +1,29 @@
 # Apple Silicon macOS build host
 
-## Graphical profile transfer — implementation in progress
+## Graphical profile transfer — qualified for review
 
-User authorized desktop profile export/import with reviewed selections, progress
-and recovery, verified across two disposable installations. Reuse the clean
-`SrvrOS-profile-326-review` checkout on `device/apple-silicon/profile-transfer`,
-based on actual main `c90f3522`. Apps branch `app/profile-transfer` starts from
-`3cf32af2`; UI `9eaaa74e`, Ports `ca749517`. Separate proof-storage work remains
-in `SrvrOS-profiles`; do not modify or include it. Own the new Profiles app,
-fixed-command preview/confirmation adapters, desktop catalog/menu/build wiring,
-focused tests and a new migration proof. Consume existing import/chooser and
-filesystem contracts; authentication and permission enforcement stay separate.
+User authorized the Profiles app, reviewed export/import and disposable two-VM
+qualification; authentication and permission enforcement remain separate. Work
+uses `SrvrOS-profile-326-review`, branch `device/apple-silicon/profile-transfer`.
+Final GUI proof source `f2360267` includes main `7ed98371`, Apps `b2220909`, UI
+`9eaaa74e` and Ports `747cca28`. Receipt `proof-yuylqeu1/receipt.json` records
+PASS across all 19 VM lifetimes, including all five recovery checkpoints,
+interrupted export, full identity/six preferences/exact selected bytes, four
+exclusion fixtures, chooser/reboot/Text and real 640 × 480 scrolling review.
+Host and ASan/UBSan checks pass; full evidence, matched artifacts and sources are
+byte-verified outside `build` in `.local/profile-transfer/final-proof-yuylqeu1/`.
+The portable-profile guide and committed screenshot manifest record exact hashes,
+checks, preservation and qualification limits.
 
-Use existing file-picker/widgets, explicit document selection and a review step.
-Bind confirmation to the exact previewed content before mutation. Local binding
-numbers remain metadata, allocated by the destination rather than imported or
-shown as account/security controls. Imports appear in the next desktop chooser;
-current applications retain their session home. Worker/child ownership survives
-close until mutation finishes. Existing/partial export files and ambiguous import
-state are preserved. No new bundle validator or transaction engine.
+Latest main `7ef140ef` is integrated after proof; compare matched runtime hashes
+and record integration evidence before handoff. Apps PR6 precedes OS PR333.
+The coordinator owns independent combined review and merging; hold these merges.
+The installation owner separately proves offline used-image export and fresh
+restoration. Preserve the primary checkout and review VMs 6233/61610/85869. No
+physical media/reboot or Actions; one build/harness at a time. Completed proof
+snapshots are losslessly compressed only after byte verification and last use,
+with a bounded archive budget and retained restore mapping.
 
-Acceptance: full matched build, focused host/sanitizer tests, rendered keyboard
-and pointer interaction including 640 × 480, and graphical export → transport →
-import → chooser → reboot. Exercise invalid/duplicate/changed-preview input,
-interrupted export and import/recovery; verify exact documents/settings/identity,
-local bindings, independent remembered choice, unchanged machine settings,
-transport, installed binaries, allocation and protected regions. One build or VM
-harness at a time. Publish scoped Apps/OS draft PRs in dependency order; merge
-is not requested by this milestone. Primary checkout, review VMs and physical
-media remain untouched. Actions stay disabled. Next: integrate command/app
-workers, run focused checks, then the two-installation proof.
 ## PR338 managed filesystem merge review
 
 Review consumes main `a37eb7b2`, then `f0c88a6d` and `b78e3ed5`, preserving all

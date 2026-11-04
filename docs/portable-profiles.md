@@ -5,13 +5,13 @@ bundle, validated through two fresh installation fixtures, plus a shared bounded
 HOME/config/data/cache resolver. This is a host executable migration proof, not
 login, guest account switching, cloud roaming or multi-user security isolation.
 
-Current development target: graphical profile transfer, following merged PR326.
-The chooser milestone is complete. The new Profiles app will expose existing
-guest transfer commands through selected-file export, reviewed import and owned
-asynchronous jobs. Main `c90f3522`, Apps `3cf32af2`, UI `9eaaa74e` and Ports
-`ca749517` are the inspected baseline. Authentication and permission enforcement
-remain separate. Completion requires a matched build, focused host tests and a
-rendered two-installation transfer/recovery proof, then scoped draft PRs.
+Current milestone: graphical profile transfer is qualified for review after the
+merged chooser milestone. Profiles provides selected-file export, reviewed import,
+owned asynchronous work and recovery guidance. The final two-installation GUI
+proof passes all 19 VM lifetimes, including interruptions and 640 × 480 review.
+See the [graphical transfer evidence](#graphical-transfer-milestone--qualified-for-review)
+and dependent Apps/OS PRs below. Authentication and permission enforcement remain
+separate.
 
 | Transfer state | User decision | Result and correction |
 | --- | --- | --- |
@@ -870,7 +870,7 @@ the three existing review VMs and primary checkout remain untouched. Actions
 remain disabled. The final acceptance commit changes only documentation and the
 portable review receipt. Ready for the user's authorized merge of PR326.
 
-## Graphical transfer milestone — in progress
+## Graphical transfer milestone — qualified for review
 
 The desktop's SrvrOS menu and launcher open Profiles. Export explicitly adds
 individual Documents files and a new output filename; Import selects an existing
@@ -920,3 +920,67 @@ unmanaged GUI clients are still refused. `export-partial` leaves a flushed parti
 exclusive output; the five existing import checkpoints retain their previous
 meaning. These are controlled process-interruption diagnostics, not power-loss
 qualification. Authentication and permission enforcement remain separate.
+
+### Acceptance and evidence
+
+The graphical transfer milestone is qualified for review in
+[SrvrApps #6](https://github.com/PaulMDemers/SrvrApps/pull/6) and dependent
+[SrvrOS #333](https://github.com/PaulMDemers/SrvrOS/pull/333). Merge Apps first,
+then the OS application pin and wiring. The normal startup chooser consumes the
+imported profile without changing the running session's HOME.
+
+The final source-matched proof uses OS `f2360267` with integrated main
+`7ed98371`, Apps `b2220909`, UI `9eaaa74e` and Ports `747cca28`.
+`build/review/profile-transfer/proof-yuylqeu1/receipt.json` records **PASS**
+across 19 disposable QEMU VM lifetimes. It covers graphical selected-file export
+on A, guest-mounted transport, reviewed import on B, chooser selection, remembered
+reboot and opening the imported document in Text. Exact text/binary payloads,
+full profile UUID/display name and all six portable preferences match; destination
+local metadata differs while source metadata and machine settings remain intact.
+
+Four synthetic source fixtures prove that an unselected document, a credential
+fixture, application state and cache content stay on A and are absent from the
+export, B and every recovered checkpoint copy. Interrupted export retains its
+partial output; the same filename is refused unchanged and a new filename works.
+Invalid and duplicate imports preserve the compared namespace, contents and
+modification metadata; only allowed access-time advances and known append-only
+service-log lines are accepted. Each of the five interrupted import checkpoints
+reboots to Recover, becomes Ready and opens successfully. Installed application
+bytes, allocation accounting and all regions outside each writable data partition
+are checked. All owned QEMU processes stop and GUI workers are reaped with both
+output streams drained. The 640 × 480 EFI fixture verifies dimensions, pointer and
+keyboard interaction, scrolling review details and reachable confirmation controls.
+
+The [portable evidence manifest](assets/screenshots/profile-transfer-manifest.json)
+records source/build/tool hashes, exclusion results, comparisons, recovery records
+and screenshot hashes. Rendered evidence includes the
+[export review](assets/screenshots/profile-transfer-review.png),
+[small-screen scrolled review](assets/screenshots/profile-transfer-small.png),
+[import review](assets/screenshots/profile-transfer-import.png),
+[recovery chooser](assets/screenshots/profile-transfer-recovery.png),
+[imported document](assets/screenshots/profile-transfer-document.png) and
+[interrupted export](assets/screenshots/profile-transfer-interrupted.png).
+
+The matched build and focused profile/catalog/desktop/fsync checks pass. The
+21 guest CLI test groups and real-CLI production catalog checks also pass under
+ASan/UBSan. Installation checks report 30 passing tests with one optional
+exhaustive I/O matrix skipped. Existing changed-preview, metadata collision and
+16-entry chooser-capacity refusal cases pass. Logs are under
+`build/profile-transfer/`; the manifest lists the exact files.
+
+Completed allocation snapshots and fault-case disks are preserved as gzip files
+only after full decompression size/SHA256 verification and their last consumer.
+`archived-images.json` maps every original path to its archive, hashes and restore
+command. The harness preflight reserves four live disks, one compression
+transient, eight data volumes, a capped 1 GiB archive budget and a further 1 GiB
+reserve, without relying on sparse allocation or assumed compression ratios.
+Over-budget or readback failure retains the original. Full accepted evidence,
+matched build payloads and source snapshots are also preserved outside `build`
+under `.local/profile-transfer/final-proof-yuylqeu1/`.
+
+Reproduce with a matched `make all`, focused profile/desktop host checks and
+`python3 tools/profile_transfer_smoke.py --ovmf-vars PATH`, with `OVMF_CODE`
+pointing to the matching x86_64 UEFI firmware. Run one build/VM harness at a time.
+This is disposable-image and controlled process-interruption evidence; external
+`fsck.exfat`, physical media and real power loss remain unqualified.
+Authentication and permission enforcement remain separate.
