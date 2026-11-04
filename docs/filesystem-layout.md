@@ -3,25 +3,93 @@
 Updated November 3, 2026. Global activation follows the explicit namespace proof
 in [PR308](https://github.com/PaulMDemers/SrvrOS/pull/308).
 
-## Installed-root destination-writeback qualification — in progress
+## Installed-root destination-writeback qualification — verified
 
 User authorized this bounded proof on main `10890eed`, with PR317 coordination
-and preservation of review VMs 61610, 6233 and 85869. Use the isolated filesystem
-checkout and sequential matched builds/harnesses. Scope: guest sysabi proof,
-fixture-owned third target, host calibration/fault rules and scope guards;
-no process/syscall/block/driver implementation changes planned. PR317's ongoing
-hardware-stop/provider audit remains independent.
+and preservation of review VMs 61610, 6233 and 85869. The isolated filesystem
+checkout owns guest sysabi proof, a fixture-owned third target, host calibration/
+fault rules, scope guards and documentation. No process/syscall/block/driver
+implementation changes were needed. Manual GPT mounts remain separate from
+managed USB workspace retirement.
 
-Review fault placement before runtime: a separate fresh calibration image records
-exclusive empty destination creation writes via QMP. Counted blkdebug write
-states admit that creation and the next dirty-marker write before failing a
-subsequent write, or arm a flush EIO after allocation begins. Require the actual
-CLI to report stage=flush, all 12,289 accepted bytes, retained uncertain artifact
-and unchanged source descriptor/offset/data; open refusal is not a pass. Then
-explicitly copy to healthy installed storage and verify after controlled restart,
-retaining global reboot refusal. Preserve failed target images without repair.
-Next checkpoint: local rule probe and scope guards, matched build, then separate
-write and flush guest cases and ordinary canonical-path regression.
+### Reviewed fault placement
+
+A separate installed EFI calibration boot exclusively creates and closes the
+same empty target pathname with the CLI's flags/mode; QMP records 50 target
+writes. Each real case starts from fresh images. Counted blkdebug write states
+admit all creation writes and the fsync dirty-marker write. The write case fails
+the next allocation write (ATA 0x35). The flush case activates a flush-only EIO
+on that allocation write; ordinary writes continue, then the payload barrier
+fails (ATA 0xea). This avoids counting redundant flushes and rejects an open
+refusal as proof of writeback failure. The host probes require successful writes/
+flush before the boundary and the intended error afterward. qemu-io's flush
+reports failure through exit status without printing errno. Rules and events
+were reviewed against the [QEMU guide](https://www.qemu.org/docs/master/devel/testing/blkdebug.html)
+and [blkdebug implementation](https://github.com/qemu/qemu/blob/master/block/blkdebug.c).
+
+The healthy system disk is never filtered. Source and third target must be
+three distinct owned images; only first-boot fault cases accept the two owned
+configs. Calibration/reopen cannot carry faults. Eight unittest methods cover
+21 scope scenarios, including ordinary/later-boot, external/same-image and
+missing-filter refusals before launching QEMU; the positive graph checks unique
+boot priorities and the healthy disk's unfiltered path.
+
+### Guest outcome and restart
+
+Both cases use the actual `/bin/salvage` with the independently retained dirty
+source reader. After all 12,289 bytes are accepted, the CLI reports stage=flush,
+EIO, close EIO and restore-error=0, and explicitly retains an unacknowledged
+artifact. The parent verifies fd, offset 37 and every source byte, then explicitly
+copies to healthy `/home/.dirty-salvage-copy`. Source errors remain sticky until
+deliberate last-reader close after healthy acknowledgment. No automatic retry,
+repair or kernel fault hook is introduced.
+
+The failed target remains dirty with its committed empty directory entry.
+In the flush case the raw image also contains the full payload: visible bytes
+do not establish an acknowledged copy. Both uncertain target images are retained
+without repair or allocation-clean claims. Normal global reboot correctly refuses
+the failed disks; the harness QMP-stops only its disposable VM, then starts fresh
+EFI with reversed system/work order and no filters. The healthy copy reads back
+exactly and is cleaned up. Work is byte-identical throughout; the failed target
+is byte-identical across restart. Protected image regions and healthy allocation
+checks remain clean. This is controlled cold-restart persistence after healthy
+file fsync/close, not successful global flush or physical power-loss acceptance.
+
+### Integration and evidence
+
+Initial `bc5dde19` passes calibration plus both case pairs (five EFI lifetimes).
+Fresh ordinary installed-root canonical/CLI proof `proof-s4aavezy` passes all 11
+cases, including `/fat` and `/work`. Main `89c210db`, including PR330's host
+publication checks, then merged cleanly. Combined `4c368c23` preserves identical
+guest artifacts and passes a fresh five-boot proof `proof-etsium6m`, focused
+fsync/namespace/usercopy/I/O/helper/CLI/scope checks and documentation validation.
+Installation host discovery runs 31 tests with one opt-in exhaustive I/O matrix
+skipped (30 pass); it is not claimed as a fresh exhaustive PR330 rerun.
+
+Independent checks verify raw healthy bytes, isolated command graphs, target ATA
+error types and the flush case's unacknowledged payload. Evidence is in
+`build/review/destination-salvage/`; complete final proof images, receipts, rules,
+commands and serial logs are independently cloned and SHA-256 checked outside
+build at `.local/filesystem-evidence/destination-salvage-4c368c23/`. APFS clones
+are separate writable files, never hard links. Initial failed rule-probe
+expectations and `proof-wjm7h64c` (duplicate boot priority, rejected before guest
+boot) remain recorded; neither counts as a pass.
+
+PR317's owner reports independent terminal xHCI stop/drain and generic network
+callback retirement work, without process/syscall/block/installer overlap. Its
+hardware/provider audit stays separate and draft; scope feedback does not claim
+independent review of this proof. All task VMs stopped; review VMs 61610, 6233 and
+85869, primary checkout and physical media remain untouched. No hosted Actions,
+physical trial or merge was requested. The bounded qualification is complete;
+delivery is a scoped draft PR for independent review.
+
+Reproduce after the matched build:
+
+```sh
+make HOST_CC='python3 build/tooling/darwin-host-cc.py' test-file-fsync test-dirty-salvage-scope
+OVMF_CODE=/opt/homebrew/share/qemu/edk2-x86_64-code.fd \
+  python3 tools/destination_salvage_smoke.py --ovmf-vars /opt/homebrew/share/qemu/edk2-i386-vars.fd
+```
 
 ## PR329 merge review and next bounded milestone
 
