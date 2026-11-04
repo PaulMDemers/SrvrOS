@@ -1092,6 +1092,28 @@ signal delivery. Foreground worker spawn was separately confirmed to retain the
 parent worker association while switching the process binding; PR334 owns its
 bounded refusal fix and guest reproduction. No process/VMM edits overlap PR317.
 
+## November 4: coordinated worker-spawn review
+
+Independently reviewed PR334's `bfee424f` production change and `d3986f00`
+regressions. Synchronous worker spawn now refuses before allocation/actions/binding
+across all three implementations and their alias. Detached spawn remains admitted;
+its shared preparation-error cleanup no longer replaces the worker binding with
+the parent's main-thread FPU/stack selection. The matched guest source/artifact
+hashes and passing UART marker were verified. Actual-source foreground and real
+ELF-load/vector-rejection fixtures independently pass strict Rosetta and
+ASan/UBSan; the latter requires complete staged child cleanup and unchanged parent
+and modeled worker binding. Independent logs: `build/review/pr334-worker-review/`.
+PR334 retains production edits, full-thread evidence and its own documentation.
+
+The next checked-root design requires saved IRQ exclusion over registration,
+preflight and failure unregistration/success publication, with output zero until
+success and exact caller IRQ restoration. Allocation/zeroing precedes exclusion;
+failed roots unregister before free. Only this bounded creation slice proceeds
+with its owner. Generation/association and trusted setter wiring remain pending
+exact tuple/caller/error review. A bounded invariant diagnostic/halt is acceptable
+for an impossible trusted commit violation, not ordinary constructor refusal;
+no FPU proof minting or signal admission is approved.
+
 ## Remaining work
 
 Other long IRQ-disabled operations, including initial/churning PMM scans, heap validation and poisoning,
