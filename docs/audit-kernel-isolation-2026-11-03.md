@@ -2238,6 +2238,36 @@ a separate matching external env/pwd supplement PASS. This chat did not rerun
 those guests for this checkpoint. Source hashes and reviewed documents are in
 `build/review/session-switch-contract-review/`.
 
+## November 4: first matched experimental native probe passes
+
+Independently bound the collected run `signal-public-7215z728` to preparation
+SHA256 `1d5c393cf85e05664cc379ab55bcc5a23b27fb05843e10573f9a864630312cd9`.
+All 24 input hashes verify, with clean harness `1db6652c`, reviewed build-six
+kernel/SDK/probe/init, header tree, ISO/config/initramfs and exact single-CPU TCG,
+1,536 MiB, diskless/no-NIC argv. Storage preflight passed before launch.
+
+Raw boot log SHA256 `f85b14d20c5db2d07949da4e4a8e8992210062465ce34982064db8981066021b`
+contains exactly one full idle-network line and worker-not-started line, with no
+provider/static initialization. Raw serial SHA256
+`76fb617cdb89f685f56736ab70f96f0e5d45bd478850481956600e3f986d9e94`
+contains exactly one complete main/worker-context marker, one nested-suspend-
+resume marker, one newline-terminated exit status zero and following monitor
+prompt. These lines were independently parsed, not inferred from receipt status.
+Owned QEMU PID 31408 is absent after collection. Protected review QEMUs 6233,
+61610 and 85869 were independently observed still alive and were not operated.
+
+The actual public probe validates main and worker general-register/FPU snapshots,
+x87 tags/control and MXCSR, all XMM payloads, original R15 pointer, DF, red zone,
+RSP, FS/TLS and private restoration despite overwriting the public context. It
+also completes a real nested atomic suspend/resume handshake. The pointer case
+is not a sole-root conservative-GC proof; the nested case is not full depth-four
+native coverage. This qualifies only the bounded experimental ABI probe, not
+normal public admission, general networking, WTF/JSC, physical hardware or SMP.
+The minimal image intentionally packages init plus the probe rather than a full
+installed userspace. Fresh normal-capability-zero dependency guests are next;
+new public runtime/profile or WTF payload changes retain exact review boundaries.
+Evidence: `build/review/pr334-public-stack-review/native-run-review.json`.
+
 ## Remaining work
 
 Other long IRQ-disabled operations, including initial/churning PMM scans, heap validation and poisoning,

@@ -326,3 +326,10 @@ IRQ+retained stack23886B; no run/JSC/general-network acceptance yet. User-author
 session-switch design coordination reconciles integration/profiles and delivered
 7766ed5a ownership/retirement contract; no new conflict or implementation reopening.
 Historical three-VM composite and originalFAIL/supplementPASS remain distinguished.
+
+
+First matched experimental native probe passes: prepare1d5c393c/cleanharness1db6652c,
+24inputs+ISO/header/runtime hashes verified; full rawbootguard/context/nestedwait/
+exit0+prompt lines independently parsed, ownedQEMU31408 stopped and protectedthree
+stillalive. Main/worker GP/FX/DF/redzone/TLS and nested atomicwait accepted only in
+this bounded configuration; notsole-rootGC/full-depth4/WTF/JSC/generalpublicABI.

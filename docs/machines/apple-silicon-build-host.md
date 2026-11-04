@@ -3597,3 +3597,16 @@ Owner's corrected kernel build log is not a frozen matched ELF/guest acceptance;
 standalone adapter instrumentation and increased-state target stack/static cost
 need final integrated evidence. Next: guest-gated seam, backend ownership and
 WTF context retirement review. Evidence `build/review/pr334-public-foundation-review/`.
+
+
+### November 4: bounded public signal native probe
+
+One diskless single-CPU TCG/1536MiB/no-NIC guest passes on reviewed PR334 runtime
+5c4b6942 and harness1db6652c. Independently verified all24prepared inputs and ISO/
+header/runtime hashes, observed idle-network boot guard, complete main/worker
+context and nested-suspend markers, full exit0 line and following prompt. QEMU
+31408 stopped; review VMs6233/61610/85869 independently remain alive and untouched.
+No physical boot/install or normal public capability enabled. Bounded main/worker
+GP/FX/DF/redzone/TLS and nested wait only; general network, sole-root GC, WTF/JSC
+and complete ABI qualification remain open. Source and raw log hashes are in the
+kernel audit and `build/review/pr334-public-stack-review/native-run-review.json`.
