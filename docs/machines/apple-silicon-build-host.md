@@ -1,5 +1,64 @@
 # Apple Silicon macOS build host
 
+## PR366 offline GUID selector — closeout November 4, 2026
+
+Current bounded topic is complete through [PR366](https://github.com/PaulMDemers/SrvrOS/pull/366).
+Independent hosted source review at `7fac0705` finds no blocker. Integrated actual
+main `db95fc9b` as `44d3375a`; relevant implementation/parser sources match the
+original qualified `710f1b15`. Fresh 43 selector and 19 installation groups,
+storage lease/workspace/USB, documentation and whitespace checks pass. All 43
+selector groups pass ASan/UBSan (`halt_on_error=1`, `detect_leaks=0`).
+The first compile failure and corrected command are retained separately:
+Darwin declarations belong on the inspector builds, while the existing storage
+fixture uses its POSIX namespace. No source correction was needed.
+
+Native slot released after 133.28 seconds; owned group empty, peak RSS
+554,909,696 bytes and external backing 25,825,280 bytes, within its budgets/floors.
+Evidence is in `.local/filesystem-evidence/pr366-review/`, with private synthetic
+outputs on the external APFS review volume. Original media was not opened;
+all five recorded identity/permission/time stamps match. Previous original-image
+hashes remain historical rather than a fresh closeout content check.
+Review VM PIDs 61610/6233/85869 were absent before this work's native gate, cause
+unknown; no restart or VM operation was attempted. Preserve their disks and old
+receipts without claiming current running-state preservation. No OS build,
+new VM, physical-media, repair or writable admission; Actions remain disabled.
+
+The separate streaming backend contribution is complete at `9f5816a5`, including
+the read-only `dd2f45c2` test-only equivalence assessment. Its frozen report and
+qualification packet remain in `.local/filesystem-evidence/stream-implementation-review/`.
+This closeout does not reopen it or take ownership of Profiles' streaming work.
+No new filesystem backlog milestone is opened.
+
+## Explicit GPT workspace GUID selection — host qualified
+
+User authorizes offline partition-GUID selection, PR317 coordination and
+wrong-GUID/ambiguity qualification while preserving review VMs and uncertain
+media. Isolated filesystem checkout, base actual main `5f4f6fc6` (merged PR317),
+branch `device/apple-silicon/filesystem-guid-selection`. Reuse Python UUID
+`bytes_le` conversion already used by installation verification, and unchanged
+native map validation. Extend only host selector/wrapper/helper/tests: canonical
+nonzero GUID input, exactly one matching Basic Data partition after complete
+primary/backup checks, no fallback on mismatch or failed workspace inspection.
+Automatic ambiguity refusal and paired-offset compatibility remain. No production
+process/block/USB, writable capability/admission, repair/replay or content export.
+Verify synthetic multi-volume behavior and original whole-file hashes/full
+permission/identity stamps on retained inputs.
+
+Implementation `0a7901e5` passes 43 selection/diagnostic groups, 19 existing
+installation-inspection groups and storage regressions. Both valid workspaces in
+a disposable multi-volume image select correctly by GUID; default ambiguity,
+wrong/malformed/type/duplicate GUIDs, corrupt maps and failed selected workspaces
+refuse without fallback. Python independently checks the returned identity.
+ASan/UBSan with halt-on-error and macOS detect_leaks=0 passes all 43 and a preserved
+uncertain input. A forced first-partition native counterfactual is detected.
+All five retained inputs match recorded hashes/full identity/permission stamps,
+correct GUID and explicit/automatic metadata, and each refuses a valid wrong GUID.
+Uncertain modes remain `0444`; control remains `0644`. Evidence survives outside build
+at `.local/filesystem-evidence/guid-workspace-selection/`. PR317 reports no overlap;
+independent source review remains separate. Review VMs were running/untouched at
+that original qualification;
+no production source, new OS/VM or physical/live-media acceptance is claimed.
+
 ## PR364 integrated-main merge review — qualified November 4, 2026
 
 User authorizes review and merge if ready. Clean tested `bb43b8b2` incorporates
