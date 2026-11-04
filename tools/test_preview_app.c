@@ -26,8 +26,8 @@ int main(void) {
     assert(desk_listing_decode(app.entries,app.items,app.details,records,sizeof(records),3)==3);
     assert(app.entries[0].directory && !strcmp(app.entries[1].name,"a.txt") && !strcmp(app.details[2],"12 bytes"));
     struct desk_file_entry saved[3];memcpy(saved,app.entries,sizeof(saved));
-    records[0].inode=1;assert(desk_listing_decode(app.entries,app.items,app.details,records,sizeof(records),3)<0 && !memcmp(saved,app.entries,sizeof(saved)));
-    records[0].inode=2;strcpy(records[0].name,"bad/name");assert(desk_listing_decode(app.entries,app.items,app.details,records,sizeof(records),3)<0);
+    strcpy(records[0].name,"a.txt");assert(desk_listing_decode(app.entries,app.items,app.details,records,sizeof(records),3)<0 && !memcmp(saved,app.entries,sizeof(saved)));
+    strcpy(records[0].name,"bad/name");assert(desk_listing_decode(app.entries,app.items,app.details,records,sizeof(records),3)<0);
     strcpy(records[0].name,"bad\nname");assert(desk_listing_decode(app.entries,app.items,app.details,records,sizeof(records),3)<0);
     assert(desk_listing_decode(app.entries,app.items,app.details,NULL,0,0)==0);
     desk_ui_init(&app.ui);desk_image_init(&app.view);desk_picker_init(&app.picker);desk_image_job_init(&app.image_job);
