@@ -4,6 +4,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 import unittest
+from unittest.mock import patch
 import repair_exfat_bitmap as repair
 from exfat_test_image import ExfatFixture, check_clean_image
 
@@ -31,9 +32,22 @@ class BitmapTests(unittest.TestCase):
         self.assertIsNone(repair.plan(io.BytesIO(self.original),self.volume))
         with tempfile.TemporaryDirectory() as tmp:
             path=Path(tmp)/'bad.img';path.write_bytes(self.malformed())
+            # Check the directory entry independently of the repair planner.
+            # exfatprogs versions differ: some report this size error while
+            # other versions accept the oversized bitmap as clean.
+            malformed=path.read_bytes();fs=ExfatFixture(malformed)
+            expected=(fs.count+7)//8
+            self.assertEqual(self.length,expected)
+            self.assertEqual(struct.unpack_from('<Q',malformed,self.offset+24)[0],expected+1)
             check=subprocess.run(['/usr/sbin/fsck.exfat','-n',str(path)],capture_output=True,text=True)
-            self.assertIn('invalid bitmap size',check.stdout+check.stderr)
-            with self.assertRaises(RuntimeError): check_clean_image(path)
+            output=check.stdout+check.stderr
+            if 'invalid bitmap size' in output:
+                with self.assertRaises(RuntimeError): check_clean_image(path)
+            else:
+                self.assertEqual(check.returncode,0,output)
+                self.assertIn(': clean.',output)
+                self.assertNotIn('ERROR',output)
+                print('fsck.exfat does not detect the oversized bitmap; entry checked independently')
             with path.open('r+b') as f:
                 proposed=repair.plan(f,self.volume)
                 self.assertEqual(proposed['old_length'],self.length+1)
@@ -43,6 +57,14 @@ class BitmapTests(unittest.TestCase):
             self.assertEqual(check.returncode,0)
             self.assertNotIn('ERROR',check.stdout+check.stderr)
             check_clean_image(path)
+
+    def test_checker_rejects_diagnostics_even_with_success_status(self):
+        clean='fixture.img: clean. directories 1, files 0\n'
+        for output,code in ((clean+'ERROR: invalid bitmap size\n',0),
+                            (clean,1),('fixture.img: corrupted\n',0)):
+            with self.subTest(output=output,code=code), patch('exfat_test_image.subprocess.run') as run:
+                run.return_value=subprocess.CompletedProcess([],code,stdout=output,stderr='')
+                with self.assertRaises(RuntimeError): check_clean_image(Path('unused'))
 
     def test_refuse_unknown_geometry_and_identity(self):
         for data,volume in ((self.malformed(2),self.volume),(self.malformed(),'00000000')):

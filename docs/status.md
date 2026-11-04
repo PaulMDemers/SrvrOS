@@ -1,6 +1,6 @@
 # Current status
 
-Updated 2026-10-27. SrvrOS is an experimental x86_64 desktop OS with a shell and
+Updated 2026-11-03. SrvrOS is an experimental x86_64 desktop OS with a shell and
 server capabilities. This page describes the current source baseline.
 Check the source commit of an image before assuming it contains a change;
 there is no supported stable binary release yet.
@@ -68,9 +68,9 @@ identical-workload host benchmarks. See the [runtime validation guide](desktop-r
 for repeatable local gates and the separate automated/native acceptance limits.
 
 Remaining limits include software rendering, 1440×900 logical client surfaces,
-process/descriptor budgets and pixel-memory admission. Explicit 2× scaling passes
-VM checks at 2880×1800, but is pixel enlargement, not a high-density font renderer. Pro11,2 has
-its own scaled-display acceptance; VM results do not cover other Retina Macs. See the [desktop guide](native-desktop.md),
+process/descriptor budgets and pixel-memory admission. Native-density 2× fonts/widgets and confirmed scale/resolution settings now have
+QEMU coverage. Resolution switching is limited to the VirtIO presentation path.
+Pro11,2 retains its separately recorded scaled-display acceptance; VM results do not cover other Retina Macs. See the [desktop guide](native-desktop.md),
 [API evolution plan](desktop-api-evolution.md) and [device parity ledger](device-parity.md).
 Protocol v15 implements same-process parented dialogs, sequential cancellable
 Quit and existing-process Text/Preview document routing. Air7,2 release

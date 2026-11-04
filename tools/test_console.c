@@ -235,7 +235,26 @@ static void test_saved_record_interleaving(void) {
     assert(!memcmp(saved_log+LOG_RECORD_BATCH+12,stream+LOG_RECORD_BATCH,17));
     assert(serial_count==sizeof(stream)+12 && test_irqs);
 }
+static void test_graphics_framebuffer_routing(void) {
+    setup(false);
+    uint32_t alternate[120*90]={0};
+    struct limine_framebuffer target=frame;
+    target.address=alternate;target.width=120;target.height=90;target.pitch=120*4;
+    uint32_t old=storage[1];
+    console_set_graphics_framebuffer(&target);
+    struct console_display_info info; uint64_t w,h,p;
+    assert(console_display_info(&info) && info.width==120 && info.height==90);
+    assert(console_framebuffer_info(&w,&h,&p) && w==W && h==H && p==STRIDE*4);
+    assert(console_put_pixel(119,89,0x123456) && alternate[89*120+119]==0x123456);
+    assert(console_fill_rectangle(118,88,2,2,0xabcdef) && alternate[89*120+119]==0xabcdef);
+    uint32_t pixel=0x987654;
+    assert(console_blit_rgb_scaled(0,0,1,1,&pixel,1,2) && alternate[121]==pixel);
+    assert(storage[1]==old);
+    console_set_graphics_framebuffer(NULL);
+    assert(console_display_info(&info) && info.width==W && info.height==H);
+}
 int main(void) {
+    test_graphics_framebuffer_routing();
     test_saved_record_interleaving();
     test_graphics_damage();
     test_scaled_blit();

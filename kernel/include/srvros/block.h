@@ -76,6 +76,20 @@ bool block_enable_partition_writes(struct block_device *device);
 struct block_device *block_find(const char *name);
 uint64_t block_register_mbr_partitions(struct block_device *device);
 uint64_t block_register_gpt_partitions(struct block_device *device);
+/* GUIDs use the on-disk GPT byte order. Metadata remains valid in the caller's
+ * map; views live for the registry lifetime. Empty valid maps are supported. */
+#define BLOCK_GPT_MAX_PARTITIONS 32
+struct block_gpt_partition {
+    uint8_t type[16], guid[16];
+    uint16_t name[36];
+    struct block_device *view;
+};
+struct block_gpt_map {
+    uint8_t disk_guid[16];
+    uint32_t count;
+    struct block_gpt_partition partitions[BLOCK_GPT_MAX_PARTITIONS];
+};
+bool block_gpt_scan(struct block_device *device, struct block_gpt_map *map);
 bool block_read(struct block_device *device, uint64_t offset, void *buffer, uint64_t length);
 bool block_write(struct block_device *device, uint64_t offset, const void *buffer, uint64_t length);
 bool block_flush_all(void);

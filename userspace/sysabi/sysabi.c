@@ -3,9 +3,14 @@
 #include <srvros/gui.h>
 #include <srvros/audio.h>
 #include <srvros/sys.h>
+#include <pthread.h>
+#include <signal.h>
+#include <spawn.h>
+#include <sys/wait.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 #define SYSABI_CANARY 0x6b5a4938271605f4ull
 
@@ -54,6 +59,15 @@ static void prepare(uint64_t *abi_version, uint64_t *struct_size, uint64_t size)
 static int fail(const char *step) {
     printf("sysabi: fail %s\n", step);
     return 1;
+}
+
+static int check_user_address(void) {
+    uint8_t byte = 0;
+    void *alias = (void *)((uintptr_t)&byte | (UINT64_C(1) << 48));
+    if (srv_random(&byte, 1, 0) != 1 || srv_random(alias, 1, 0) >= 0)
+        return fail("noncanonical-buffer");
+    puts("sysabi: noncanonical buffer refused");
+    return 0;
 }
 
 static int check_stat(void) {
@@ -303,7 +317,68 @@ static int check_gui(void) {
     return 0;
 }
 
-int main(void) {
+extern char **environ;
+
+static void *invalid_instruction(void *unused) {
+    (void)unused;
+    __asm__ volatile ("ud2");
+    return NULL;
+}
+
+static void *delayed_invalid_instruction(void *unused) {
+    usleep(50000);
+    return invalid_instruction(unused);
+}
+
+static int check_fault_exit(const char *mode, int expected_signal) {
+    char *args[] = {"sysabi", (char *)mode, NULL};
+    pid_t child;
+    int status;
+    if (posix_spawn(&child, "/fat/bin/sysabi", NULL, NULL, args, environ) ||
+        waitpid(child, &status, 0) != child || !WIFSIGNALED(status) ||
+        WTERMSIG(status) != expected_signal) return fail(mode);
+    return 0;
+}
+
+int namespace_test(void);
+int salvage_consumer_test(int reopen);
+int dirty_salvage_test(int reopen);
+int namespace_workspace_hold(const char *mode);
+int namespace_workspace_launch(const char *mode);
+int namespace_workspace_verify(int system_only);
+int namespace_test_persistence(int verify);
+
+int main(int argc, char **argv) {
+    if(argc==2 && !strcmp(argv[1],"--dirty-salvage-save")) return dirty_salvage_test(0);
+    if(argc==2 && !strcmp(argv[1],"--dirty-salvage-reopen")) return dirty_salvage_test(1);
+    if(argc==2 && !strcmp(argv[1],"--salvage-cli-save")) return salvage_consumer_test(0);
+    if(argc==2 && !strcmp(argv[1],"--salvage-cli-reopen")) return salvage_consumer_test(1);
+    if (argc == 2 && !strncmp(argv[1], "--workspace-hold-",17)) return namespace_workspace_hold(argv[1]+17);
+    if (argc == 2 && !strncmp(argv[1], "--workspace-launch-",19)) return namespace_workspace_launch(argv[1]+19);
+    if (argc == 2 && !strcmp(argv[1], "--workspace-system")) return namespace_workspace_verify(1);
+    if (argc == 2 && !strcmp(argv[1], "--workspace-verify")) return namespace_workspace_verify(0);
+    if (argc == 2 && !strcmp(argv[1], "--namespace")) return namespace_test();
+    if (argc == 2 && !strcmp(argv[1], "--namespace-save")) return namespace_test_persistence(0);
+    if (argc == 2 && !strcmp(argv[1], "--namespace-reopen")) return namespace_test_persistence(1);
+    if (argc == 2 && !strcmp(argv[1], "--fault-retired-main")) {
+        pthread_t worker;
+        if (pthread_create(&worker, NULL, delayed_invalid_instruction, NULL)) return 1;
+        pthread_exit(NULL);
+    }
+    if (argc == 2 && !strcmp(argv[1], "--fault-worker")) {
+        pthread_t worker;
+        if (pthread_create(&worker, NULL, invalid_instruction, NULL)) return 1;
+        pthread_join(worker, NULL);
+        return fail("faulting worker returned");
+    }
+    if (argc == 2 && !strcmp(argv[1], "--fault-main")) {
+        __asm__ volatile ("movb $0, (%0)" : : "r" ((uintptr_t)1) : "memory");
+        return fail("unmapped user write returned");
+    }
+    if (check_user_address() || check_fault_exit("--fault-main", SIGSEGV) ||
+        check_fault_exit("--fault-worker", SIGILL) ||
+        check_fault_exit("--fault-retired-main", SIGILL)) return 1;
+    puts("sysabi: faulting process and worker reaped");
     if (check_stat() != 0 ||
         check_statfs() != 0 ||
         check_process() != 0 ||

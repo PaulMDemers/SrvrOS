@@ -1,5 +1,6 @@
 #include "preferences.h"
 #include <string.h>
+#include <srvros/profile_preferences.h>
 
 void desktop_preferences_init(struct desktop_preferences_store *s) {
     desktop_preferences_init_path(s,DESKTOP_PREFERENCES_PATH);
@@ -11,6 +12,89 @@ void desktop_preferences_init_path(struct desktop_preferences_store *s,const cha
     }
     s->initialized=1;
 }
+void desktop_preferences_init_profile(struct desktop_preferences_store *s,const char *machine_path,const char *portable_path) {
+    desktop_preferences_init_path(s,machine_path);
+    s->portable_path=portable_path;s->machine_value=desk_preferences_default();
+    if(s->initialized) s->profile_phase=1;
+}
+/* Determine differences by the existing merge semantics, including individual
+ * clock bits. This avoids losing edits made during an asynchronous write. */
+static unsigned profile_differences(const struct desk_preferences *a,const struct desk_preferences *b,unsigned mask) {
+    unsigned changed=0;
+    for(unsigned bit=1;bit<=DESK_PREF_DISPLAY_MODE;bit<<=1) if(mask&bit) {
+        struct desk_preferences t=*a;
+        if(!desk_preferences_merge(&t,b,bit) && memcmp(&t,a,sizeof(t))) changed|=bit;
+    }
+    return changed;
+}
+static int profile_fail(struct desktop_preferences_store *s,int conflict) {
+    s->loading=0;s->writable=0;s->status=conflict?DESK_PREF_CONFLICT:DESK_PREF_SESSION_ONLY;
+    return 1;
+}
+static int profile_poll(struct desktop_preferences_store *s,uint64_t now) {
+    int changed=0;
+    if(s->job.busy) {
+        int result=desk_file_job_poll(&s->job);
+        if(!result) return 0;
+        changed=1;
+        if(s->profile_phase==1) {
+            struct desk_preferences machine=desk_preferences_default();
+            if(result<0 || (s->job.response.status!=DESK_FILE_NOT_FOUND &&
+                (s->job.response.status!=DESK_FILE_OK || desk_preferences_decode(&machine,s->job.incoming,s->job.response.length))))
+                return profile_fail(s,0);
+            s->machine_value=machine;s->existing=s->job.response.status==DESK_FILE_OK;s->disk_crc=s->job.response.crc;
+            struct desk_preferences old=s->value;
+            unsigned mask=SRV_PROFILE_LOCAL_MASK & ~s->dirty_mask;
+            if(mask && desk_preferences_merge(&s->value,&machine,mask)) return profile_fail(s,0);
+            if(memcmp(&old,&s->value,sizeof(old))) s->revision++;
+            s->profile_phase=2;
+            if(desk_file_job_start(&s->job,DESK_FILE_READ,s->portable_path,NULL,0,0,0)) return profile_fail(s,0);
+            return 1;
+        }
+        if(s->profile_phase==2) {
+            struct desk_preferences portable;
+            if(result<0 || s->job.response.status!=DESK_FILE_OK ||
+                srv_profile_preferences_decode(&portable,s->job.incoming,s->job.response.length)) return profile_fail(s,0);
+            s->portable_existing=1;s->portable_crc=s->job.response.crc;
+            struct desk_preferences old=s->value;
+            unsigned mask=SRV_PROFILE_PREF_MASK & ~s->dirty_mask;
+            if(mask && desk_preferences_merge(&s->value,&portable,mask)) return profile_fail(s,0);
+            if(memcmp(&old,&s->value,sizeof(old))) s->revision++;
+            s->loading=0;s->writable=1;s->profile_phase=3;
+            s->status=s->dirty?DESK_PREF_SAVING:DESK_PREF_SAVED;
+        } else {
+            if(result<0 || s->job.response.status!=DESK_FILE_OK)
+                return profile_fail(s,result>0 && (s->job.response.status==DESK_FILE_EXISTS || s->job.response.status==DESK_FILE_CHANGED));
+            if(s->profile_phase==4) {
+                s->existing=1;s->disk_crc=desk_file_crc(s->job.outgoing,s->job.request.length);
+                desk_preferences_merge(&s->machine_value,&s->snapshot,SRV_PROFILE_LOCAL_MASK);
+            } else {
+                s->portable_existing=1;s->portable_crc=desk_file_crc(s->job.outgoing,s->job.request.length);
+            }
+            s->dirty_mask &= ~s->write_mask;
+            s->dirty_mask |= profile_differences(&s->snapshot,&s->value,s->write_mask);
+            s->dirty=s->dirty_mask!=0;s->profile_phase=3;
+            s->status=s->dirty?DESK_PREF_SAVING:DESK_PREF_SAVED;
+        }
+    }
+    if(!s->loading && s->writable && s->dirty && !s->job.busy && now-s->changed_at>=30) {
+        char data[512];int length;const char *path;int existing;uint32_t crc;
+        if(s->dirty_mask & SRV_PROFILE_LOCAL_MASK) {
+            struct desk_preferences machine=s->machine_value;
+            if(desk_preferences_merge(&machine,&s->value,SRV_PROFILE_LOCAL_MASK)) return profile_fail(s,0);
+            length=desk_preferences_encode(&machine,data,sizeof(data));path=s->path;existing=s->existing;crc=s->disk_crc;
+            s->write_mask=s->dirty_mask & SRV_PROFILE_LOCAL_MASK;s->profile_phase=4;
+        } else {
+            length=srv_profile_preferences_encode(&s->value,data,sizeof(data));path=s->portable_path;
+            existing=s->portable_existing;crc=s->portable_crc;
+            s->write_mask=s->dirty_mask & SRV_PROFILE_PREF_MASK;s->profile_phase=5;
+        }
+        if(length<0 || desk_file_job_start(&s->job,DESK_FILE_WRITE,path,data,(size_t)length,
+            existing?DESK_FILE_EXPECT_EXISTING:0,crc)) return profile_fail(s,0);
+        s->snapshot=s->value;s->status=DESK_PREF_SAVING;
+    }
+    return changed;
+}
 int desktop_preferences_set(struct desktop_preferences_store *s,const struct desk_preferences *p,unsigned mask,uint64_t now) {
     struct desk_preferences next=s->value;
     if(desk_preferences_merge(&next,p,mask)) return -1;
@@ -21,6 +105,7 @@ int desktop_preferences_set(struct desktop_preferences_store *s,const struct des
 }
 int desktop_preferences_poll(struct desktop_preferences_store *s,uint64_t now) {
     if(!s->initialized) return 0;
+    if(s->portable_path) return profile_poll(s,now);
     int changed=0;
     if(s->job.busy) {
         int result=desk_file_job_poll(&s->job);
@@ -52,7 +137,7 @@ int desktop_preferences_poll(struct desktop_preferences_store *s,uint64_t now) {
         }
     }
     if(!s->loading && s->writable && s->dirty && !s->job.busy && now-s->changed_at>=30) {
-        char data[256];int length=desk_preferences_encode(&s->value,data,sizeof(data));
+        char data[512];int length=desk_preferences_encode(&s->value,data,sizeof(data));
         if(length<0 || desk_file_job_start(&s->job,DESK_FILE_WRITE,s->path,data,(size_t)length,
             s->existing?DESK_FILE_EXPECT_EXISTING:0,s->disk_crc)) {
             s->status=DESK_PREF_SESSION_ONLY;s->writable=0;return 1;

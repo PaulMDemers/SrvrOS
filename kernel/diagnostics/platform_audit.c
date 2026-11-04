@@ -194,6 +194,7 @@ done:
 #include "platform_hda.inc"
 #include "platform_owner.inc"
 #include "platform_backing.inc"
+#include "haswell_backing_adapter.inc"
 void platform_audit_sample(uint64_t sample_us) {
     /* Caller is the existing IRQ-masked power checkpoint. Binding and teardown
      * run before/after capture, so no worker or owner is added here. */

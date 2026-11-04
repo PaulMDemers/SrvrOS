@@ -1,4 +1,8 @@
 """Retained worst launch/Close observations; absent stages are not zero cost."""
+
+if not __debug__:
+    raise RuntimeError('evidence validation requires Python assertions; disable optimization')
+
 import re
 FIELDS=('version','snapshot_us','kind','pid','cycle','begin_us','launch_begin_us','launch_end_us','ready_us','close_request_us','visual_us','exit_seen_us','reap_queued_us','reap_begin_us','reap_end_us','closed_us','final')
 def lifetime_worst_records(snapshots,ready_max,close_max):

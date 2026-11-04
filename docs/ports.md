@@ -35,9 +35,11 @@ cat /fat/home/report.txt
 
 The example assumes a header row and numeric third column. `-f program.awk`,
 stdin/pipelines, arrays, regexes, substitution and formatted output are supported
-by the selected port profile. Prefer `-f` for programs containing backslashes:
-the existing SrvrOS shell can consume backslashes inside quoted command tokens.
-This shell behavior is tracked separately; the port does not change it.
+by the selected port profile. Inline programs preserve backslashes inside single
+quotes, so `awk 'BEGIN {printf "hello\n"}'` passes the newline escape to awk.
+Double quotes preserve ordinary backslashes and allow shell variable expansion;
+use single quotes around awk source containing `$` fields. `-f program.awk`
+remains useful for longer programs.
 
 The initial contract uses C-locale ASCII case conversion, a deterministic local
 random sequence, and no floating-point signal handler. This is not full POSIX or

@@ -11,6 +11,9 @@ uint64_t timer_monotonic_us(void) { return 0; }
 #define HEAP 56u
 #define CLUSTERS (BYTES/SECTOR-HEAP)
 static uint8_t disk[BYTES];
+static struct block_device *system_backend;
+static uint8_t *system_bytes;
+static unsigned system_writes,system_flushes,fail_write_at,fail_system_write_at,fail_system_flush_at;
 static unsigned allocations,reads,writes,flushes,io_depth,fail_allocation,fail_write_skip,fail_flush_at;
 static uint64_t fail_write_offset=UINT64_MAX,fail_read_offset=UINT64_MAX;
 static bool fail_bitmap_read,fail_seen,foreign_io,boot_io,live_reference,admit_reference;
@@ -27,21 +30,33 @@ void kfree(void *p) { free(p); }
 bool scheduler_io_begin(void) { if(foreign_io || boot_io)return false;if(admit_reference){live_reference=true;admit_reference=false;}io_depth++;return true; }
 void scheduler_io_end(void) { assert(io_depth);io_depth--; }
 bool scheduler_io_active(void) { return foreign_io || io_depth!=0; }
-bool process_has_open_vfs_prefix(const char *p) { (void)p;return live_reference; }
+#ifdef SRVROS_EXFAT_PROCESS_TEST
+bool test_process_busy(const char *path);
+#endif
+bool process_has_open_vfs_prefix(const char *p) {
+#ifdef SRVROS_EXFAT_PROCESS_TEST
+    if(test_process_busy(p)) return true;
+#endif
+    (void)p;return live_reference;
+}
 void console_write(const char *s) { (void)s; }
 void console_printf(const char *s,...) { (void)s; }
 int64_t timer_realtime_us(void) { return 1792326896000000LL; }
 uint64_t block_device_size(const struct block_device *d) { return d?d->block_size*d->block_count:0; }
 struct block_device *block_parent(struct block_device *d) { return d; }
 bool block_read(struct block_device *d,uint64_t off,void *p,uint64_t n) {
-    (void)d;assert(off<=BYTES && n<=BYTES-off);reads++;probe_teardown(1);if(off==fail_read_offset) {fail_read_offset=UINT64_MAX;return false;}if(fail_bitmap_read && off==(HEAP+1)*SECTOR) {fail_bitmap_read=false;return false;}memcpy(p,disk+off,(size_t)n);
+    assert(off<=BYTES && n<=BYTES-off);
+    if(d==system_backend) {memcpy(p,system_bytes+off,(size_t)n);return true;}
+    reads++;probe_teardown(1);if(off==fail_read_offset) {fail_read_offset=UINT64_MAX;return false;}if(fail_bitmap_read && off==(HEAP+1)*SECTOR) {fail_bitmap_read=false;return false;}memcpy(p,disk+off,(size_t)n);
     if(stale_boot_header && off==0 && n==512 && stale_boot_reads++<2)write_u32((uint8_t *)p+96,8);
     return true;
 }
 bool block_write(struct block_device *d,uint64_t off,const void *p,uint64_t n) {
-    (void)d;assert(off<=BYTES && n<=BYTES-off);writes++;probe_teardown(2);if(off==fail_write_offset) {if(fail_write_skip)fail_write_skip--;else {fail_write_offset=UINT64_MAX;return false;}}memcpy(disk+off,p,(size_t)n);return true;
+    assert(off<=BYTES && n<=BYTES-off);
+    if(d==system_backend) {system_writes++;if(system_writes==fail_system_write_at)return false;memcpy(system_bytes+off,p,(size_t)n);return true;}
+    writes++;if(writes==fail_write_at)return false;probe_teardown(2);if(off==fail_write_offset) {if(fail_write_skip)fail_write_skip--;else {fail_write_offset=UINT64_MAX;return false;}}memcpy(disk+off,p,(size_t)n);return true;
 }
-static bool flush(struct block_device *d) { (void)d;flushes++;return flushes!=fail_flush_at; }
+static bool flush(struct block_device *d) { if(d==system_backend){system_flushes++;return system_flushes!=fail_system_flush_at;}flushes++;return flushes!=fail_flush_at; }
 static struct block_device device={.used=true,.name="import-test",.block_size=SECTOR,.block_count=BYTES/SECTOR,.read=block_read,.write=block_write,.flush=flush};
 static uint64_t offset(unsigned cluster) { return HEAP*SECTOR+(cluster-2)*SECTOR; }
 static void checksum(uint8_t *entry) {
@@ -577,9 +592,20 @@ static void growth_case(const char *mode) {
     } else assert(false);
     assert(exfat_unmount("/vol"));
 }
+#include "test_vfs_namespace.inc"
+
+#ifdef SRVROS_EXFAT_PROCESS_TEST
+#include "test_workspace_writeback.inc"
+#include "test_workspace_salvage.inc"
+#endif
 int main(int argc,char **argv) {
     assert(argc==2);const char *mode=argv[1];
-    if(!strncmp(mode,"writeback-",10)) {writeback_case(mode);
+#ifdef SRVROS_EXFAT_PROCESS_TEST
+    if(!strncmp(mode,"salvage-",8)) { workspace_salvage_case(mode);return 0; }
+    if(!strncmp(mode,"workspace-",10)) { workspace_failure_case(mode);return 0; }
+#endif
+    if(!strncmp(mode,"namespace-",10)) {namespace_case(mode);
+    } else if(!strncmp(mode,"writeback-",10)) {writeback_case(mode);
     } else if(!strncmp(mode,"retire-",7)) {retirement_case(mode);
     } else if(!strncmp(mode,"growth-",7)) {growth_case(mode);
     } else if(!strncmp(mode,"boot-",5) || !strncmp(mode,"system-",7)) {boot_system_case(mode);

@@ -2,11 +2,28 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#define SRVROS_SYSCALL_IO_HOST_TEST
 #include "../kernel/src/arch/x86_64/syscall.c"
+/* This fixture isolates publication/usercopy; real path translation is covered
+ * by test-vfs-namespace, test-process-output and sysabi --namespace. */
+int64_t process_resolve_storage_path(const char *path,char *out,uint64_t capacity) {
+    if(strlen(path)>=capacity) return SRV_ERR_NAMETOOLONG;
+    strcpy(out,path);return 0;
+}
+int64_t process_path_context(uint64_t operation,const char *path,char *out,uint64_t capacity) {
+    assert(operation==SRV_PATH_RESOLVE_DIRECTORY);
+    return process_resolve_storage_path(path,out,capacity);
+}
+int64_t vfs_namespace_system_path(const char *path,char *out,size_t capacity) {
+    return process_resolve_storage_path(path,out,capacity);
+}
+bool vfs_namespace_system_protects(const char *path) { (void)path;return false; }
+struct process_file *process_file_at(struct process *p,uint64_t fd) { (void)p;(void)fd;assert(0);return NULL; }
+uint64_t process_fd_generation(struct process *p,uint64_t fd) { (void)p;(void)fd;assert(0);return UINT64_MAX; }
 static struct vfs_node node={.used=true,.path="/fat/old",.type=VFS_NODE_FILE,.size=3,.metadata={.inode=71,.mtime=123}};
 static int exists,busy,fail,calls,operation,reads,releases,read_fail,read_mismatch;static const void *invalid;
 bool vmm_user_range_mapped(uint64_t address,uint64_t length,bool writable) { (void)length;(void)writable;return address && (const void *)address!=invalid; }
-void *kmalloc(uint64_t n) { return malloc(n); }
+void *kmalloc(size_t n) { return malloc(n); }
 void kfree(void *p) { free(p); }
 const struct vfs_node *vfs_lookup(const char *path) { if(!strcmp(path,"/fat/old")) return &node;if(!strcmp(path,"/fat/new") && exists) return &node;return NULL; }
 bool process_has_open_vfs_prefix(const char *path) { (void)path;return busy; }

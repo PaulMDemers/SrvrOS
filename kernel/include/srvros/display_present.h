@@ -5,6 +5,11 @@
 struct limine_framebuffer;
 bool display_present_prepare(struct limine_framebuffer *framebuffer);
 bool display_present_available(void);
+bool display_present_info_available(void);
+bool display_present_active(void);
+uint64_t display_mode_count(void);
+bool display_mode_get(uint64_t index, uint64_t *width, uint64_t *height);
+bool display_mode_set(uint64_t pid, uint64_t index);
 bool display_present_can_write(uint64_t pid);
 bool display_present_begin(uint64_t pid);
 bool display_present_frame(uint64_t pid);

@@ -43,6 +43,10 @@ struct vfs_node {
     vfs_release_data_fn release_data;
 };
 
+/* One consumer; invoked before any matching live node is retired. The callback
+ * must not mutate the VFS. A prefix event includes the named path and subtree. */
+typedef void (*vfs_retire_fn)(const char *path, bool prefix);
+void vfs_set_retire_callback(vfs_retire_fn callback);
 void vfs_init(void);
 bool vfs_register_file(const char *path, uint64_t size, const void *private_data, vfs_read_all_fn read_all);
 bool vfs_register_directory(const char *path);

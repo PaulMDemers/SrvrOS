@@ -2,6 +2,7 @@
 #include <fcntl.h>
 #include <inttypes.h>
 #include <locale.h>
+#include <limits.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,6 +15,18 @@
 static int fail(const char *step) {
     printf("libcprobe: fail %s errno=%d\n", step, errno);
     return 1;
+}
+
+static int check_alloc_overflow(void) {
+    volatile size_t huge = SIZE_MAX;
+    errno = 0;
+    void *p = malloc(huge);
+    if (p || errno != ENOMEM) { free(p); return fail("malloc-overflow"); }
+    void *sentinel = (void *)(uintptr_t)1;
+    if (posix_memalign(&sentinel, 16, huge) != ENOMEM ||
+        sentinel != (void *)(uintptr_t)1) return fail("memalign-overflow");
+    puts("libcprobe: allocation bounds ok");
+    return 0;
 }
 
 static int check_string_helpers(void) {
@@ -54,6 +67,15 @@ static int check_string_helpers(void) {
 
 static int check_number_bounds(void) {
     char *end;errno=0;
+    if (strtoll("0", &end, 0) != 0 || *end) return fail("integer-zero");
+    errno=0;
+    if (strtoull("18446744073709551615!", &end, 10) != ULLONG_MAX || *end != '!' || errno) return fail("integer-unsigned-max");
+    errno=0;
+    if (strtoll("9223372036854775808!", &end, 10) != LLONG_MAX || *end != '!' || errno != ERANGE) return fail("integer-overflow");
+    errno=0;
+    if (strtoll("-9223372036854775808", &end, 10) != LLONG_MIN || *end || errno) return fail("integer-min");
+    if (strtoull("-18446744073709551615", &end, 10) != 1 || *end) return fail("integer-unsigned-negative");
+    errno=0;
     double value=strtod("-1e214748364799999999999tail",&end);
     if(!isinf(value) || !signbit(value) || errno!=ERANGE || strcmp(end,"tail")) return fail("number-overflow");
     errno=0;value=strtod("1e-214748364899999999999tail",&end);
@@ -279,7 +301,7 @@ static int check_process_info(void) {
 int check_posix_readiness(void);
 int main(void) {
     puts("libcprobe: start");
-    if (check_string_helpers() != 0 ||
+    if (check_alloc_overflow() != 0 || check_string_helpers() != 0 ||
         check_number_bounds() != 0 || check_format_scan_convert() != 0 ||
         check_locale_helpers() != 0 ||
         check_stdio_lines() != 0 ||

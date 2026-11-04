@@ -2,7 +2,26 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#define SRVROS_SYSCALL_IO_HOST_TEST
 #include "../kernel/src/arch/x86_64/syscall.c"
+/* This fixture isolates publication/usercopy; real path translation is covered
+ * by test-vfs-namespace, test-process-output and sysabi --namespace. */
+int64_t process_resolve_storage_path(const char *path,char *out,uint64_t capacity) {
+    if(strlen(path)>=capacity) return SRV_ERR_NAMETOOLONG;
+    strcpy(out,path);return 0;
+}
+static unsigned resolution_failure;
+int64_t process_path_context(uint64_t operation,const char *path,char *out,uint64_t capacity) {
+    assert(operation==SRV_PATH_RESOLVE_DIRECTORY);
+    if(resolution_failure==1)return SRV_ERR_NOENT;
+    return process_resolve_storage_path(path,out,capacity);
+}
+int64_t vfs_namespace_system_path(const char *path,char *out,size_t capacity) {
+    if(resolution_failure==2)return SRV_ERR_AGAIN;
+    return process_resolve_storage_path(!strcmp(path,"/Home/test")?"/fat/test":path,out,capacity);
+}
+struct process_file *process_file_at(struct process *p,uint64_t fd) { (void)p;(void)fd;assert(0);return NULL; }
+uint64_t process_fd_generation(struct process *p,uint64_t fd) { (void)p;(void)fd;assert(0);return UINT64_MAX; }
 static int allocation_failure,write_failure,calls,allocations,frees;
 static const void *invalid;
 static bool open_path;
@@ -11,7 +30,7 @@ static unsigned char saved[32];static size_t saved_length;
 bool vmm_user_range_mapped(uint64_t address,uint64_t length,bool writable) {
     (void)length;(void)writable;return address && (const void *)address!=invalid;
 }
-void *kmalloc(uint64_t length) { if(allocation_failure) return NULL;allocations++;return malloc(length); }
+void *kmalloc(size_t length) { if(allocation_failure) return NULL;allocations++;return malloc(length); }
 void kfree(void *p) { if(p) frees++;free(p); }
 bool exfat_write_file(const char *path,const uint8_t *data,uint64_t length) {
     assert(!strcmp(path,"/fat/test") && length<=sizeof(saved));calls++;
@@ -39,6 +58,10 @@ int main(void) {
     vectors();
     const char *path="/fat/test";unsigned char content[]={1,2,3,4};
     assert(syscall_fs_write(path,content,4)==4 && calls==1 && saved_length==4 && !memcmp(saved,content,4));
+    char resolved[MAX_PATH_LENGTH];
+    resolution_failure=1;assert(copy_storage_path(path,resolved,sizeof(resolved),true)==SRV_ERR_NOENT);
+    resolution_failure=2;assert(copy_storage_path(path,resolved,sizeof(resolved),true)==SRV_ERR_AGAIN);resolution_failure=0;
+    assert(!copy_storage_path("/Home/test",resolved,sizeof(resolved),true) && !strcmp(resolved,"/fat/test"));
     open_path=true;assert(syscall_fs_write(path,content,4)==SRV_ERR_AGAIN && calls==1);open_path=false;
     allocation_failure=1;assert(syscall_fs_write(path,content,4)<0 && calls==1);allocation_failure=0;
     invalid=content;assert(syscall_fs_write(path,content,4)<0 && calls==1);invalid=NULL;

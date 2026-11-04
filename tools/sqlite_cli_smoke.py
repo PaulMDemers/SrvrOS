@@ -48,6 +48,9 @@ SELECT category, sum(amount) FROM sales GROUP BY category ORDER BY category;
     'sync.sql': b'.bail on\nPRAGMA synchronous=OFF;\n',
     'write-control.sql': b".bail on\nSELECT writefile('control.txt','hello');\n",
     'write-alias.sql': b".bail on\nSELECT writefile('./test.db','target',41471);\n",
+    'journal-write.sql': b".bail off\nBEGIN;\nUPDATE sales SET amount=99;\nSELECT writefile('./test.db-journal','damage',33188);\nROLLBACK;\nSELECT category,amount FROM sales ORDER BY category,amount;\n",
+    'journal-preopen.sql': b'.bail on\n.output test.db-journal\nBEGIN;\nUPDATE sales SET amount=99;\nCOMMIT;\n',
+    'rows.sql': b'SELECT category,amount FROM sales ORDER BY category,amount;\n',
     'workflow.sh': b'''#!/fat/bin/sh
 chmod 755 /fat/sqlite-test/sqlite-vfs-test
 /fat/sqlite-test/sqlite-vfs-test > /fat/sqlite-test/vfs.txt
@@ -73,6 +76,12 @@ sqlite3 test.db < write-control.sql > write-control.txt
 echo $? > write-control-status.txt
 sqlite3 test.db < write-alias.sql > write-alias.txt
 echo $? > write-alias-status.txt
+sqlite3 test.db < journal-write.sql > journal-write.txt 2> journal-write-error.txt
+echo $? > journal-write-status.txt
+sqlite3 test.db < journal-preopen.sql > journal-preopen.txt 2> journal-preopen-error.txt
+echo $? > journal-preopen-status.txt
+sqlite3 test.db < rows.sql > rows.txt
+echo $? > rows-status.txt
 sqlite3 test.db < integrity.sql > after-errors.txt
 echo $? > after-status.txt
 ''',
@@ -92,8 +101,10 @@ EXPECTED = {
     'readonly-read.txt': b'ok\n4\n',
     'write-control.txt': b'5\n',
     'control.txt': b'hello',
+    'journal-write.txt': b'blue|4\nblue|6\nred|3\nred|5\n',
+    'rows.txt': b'blue|4\nblue|6\nred|3\nred|5\n',
     'reboot.txt': b'ok\n4\n',
-    **{name + '-status.txt': b'0\n' for name in ('setup', 'integrity', 'after', 'reboot', 'readonly-read', 'write-control')},
+    **{name + '-status.txt': b'0\n' for name in ('setup', 'integrity', 'after', 'reboot', 'readonly-read', 'write-control', 'rows')},
 }
 
 
@@ -202,7 +213,7 @@ def main():
                     actual = actual_image.read('sqlite-test/' + name)
                     if actual != expected:
                         raise RuntimeError(f'{name}: expected {expected!r}, got {actual!r}')
-                for name in ('invalid', 'readonly', 'attach', 'journal', 'sync', 'write-alias'):
+                for name in ('invalid', 'readonly', 'attach', 'journal', 'sync', 'write-alias', 'journal-write', 'journal-preopen'):
                     status = actual_image.read('sqlite-test/' + name + '-status.txt').strip()
                     if not status.isdigit() or int(status) == 0:
                         raise RuntimeError(f'{name} unexpectedly succeeded: {status!r}')

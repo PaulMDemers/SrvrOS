@@ -310,10 +310,16 @@ static void draw_window(struct desk_canvas *c,const struct desktop_window *w,int
         struct desk_rect content={r.x+1,r.y+44,w->width,w->height};
         struct desk_rect visible=desk_intersect(c->clip,
             desk_intersect(content,(struct desk_rect){r.x+1,r.y+44,r.w-2,r.h-45}));
-        for (int y=visible.y;y<visible.y+visible.h;y++)
-            for (int x=visible.x;x<visible.x+visible.w;x++)
-                c->pixels[(size_t)y*c->stride+x]=w->pixels[(size_t)(y-content.y)*w->width+x-content.x];
-        c->pixel_writes+=(uint64_t)visible.w*visible.h;
+        unsigned density=desk_canvas_scale(c),source_density=w->scale?w->scale:1;
+        struct desk_rect physical=desk_canvas_physical_rect(c,visible);
+        for(int y=physical.y;y<physical.y+physical.h;y++) {
+            unsigned sy=(y-content.y*(int)density)*source_density/density;
+            for(int x=physical.x;x<physical.x+physical.w;x++) {
+                unsigned sx=(x-content.x*(int)density)*source_density/density;
+                c->pixels[(size_t)y*c->stride+x]=w->pixels[(size_t)sy*w->width*source_density+sx];
+            }
+        }
+        c->pixel_writes+=(uint64_t)physical.w*physical.h;
     }
 }
 struct desk_rect desktop_clock_rect(int width,const char *clock) {

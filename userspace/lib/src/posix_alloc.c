@@ -1,6 +1,8 @@
 #include <srvros/exec_limits.h>
 #include <errno.h>
 #include <inttypes.h>
+#include <limits.h>
+#include <ctype.h>
 #include <spawn.h>
 #include <signal.h>
 #include <stdio.h>
@@ -118,6 +120,12 @@ static struct block_header *extend_heap(size_t size) {
 
 void *malloc(size_t size) {
     if (size == 0) {
+        return 0;
+    }
+    /* Leave room for both alignment operations, the header and the extra
+     * alignment space passed to sbrk.  sbrk takes a signed increment. */
+    if (size > (size_t)INTPTR_MAX - sizeof(struct block_header) - 3 * ALIGNMENT) {
+        errno = ENOMEM;
         return 0;
     }
     size = align_size(size);
@@ -271,6 +279,10 @@ int posix_memalign(void **memptr, size_t alignment, size_t size) {
         errno = EINVAL;
         return EINVAL;
     }
+    if (alignment - 1 > SIZE_MAX - sizeof(void *) ||
+        size > SIZE_MAX - (alignment - 1) - sizeof(void *)) {
+        return ENOMEM;
+    }
     size_t total = size + alignment - 1 + sizeof(void *);
     void *raw = malloc(total);
     if (raw == 0) {
@@ -358,50 +370,63 @@ static int digit_value(int c) {
     return -1;
 }
 
-long long strtoll(const char *text, char **endptr, int base) {
+/* Parse magnitude without signed overflow, continuing after overflow so endptr
+ * still identifies the end of the entire digit sequence. */
+static unsigned long long parse_integer(const char *text, char **endptr, int base,
+                                        int signed_result, int *negative, int *overflowed) {
     const char *start = text;
-    long sign = 1;
-    long long value = 0;
-    int any = 0;
-    while (*text == ' ' || *text == '\t') {
-        text++;
+    unsigned long long value = 0;
+    int any = 0, overflow = 0;
+    *negative = 0;
+    *overflowed = 0;
+    if (base != 0 && (base < 2 || base > 36)) {
+        errno = EINVAL;
+        if (endptr) *endptr = (char *)start;
+        return 0;
     }
-    if (*text == '-') {
-        sign = -1;
-        text++;
-    } else if (*text == '+') {
-        text++;
-    }
-    if ((base == 0 || base == 16) && text[0] == '0' && (text[1] == 'x' || text[1] == 'X')) {
-        base = 16;
-        text += 2;
-    } else if (base == 0 && text[0] == '0') {
-        base = 8;
-        text++;
-    } else if (base == 0) {
-        base = 10;
-    }
-    while (digit_value(*text) >= 0 && digit_value(*text) < base) {
-        value = value * base + digit_value(*text);
-        text++;
+    while (isspace((unsigned char)*text)) text++;
+    if (*text == '-' || *text == '+') *negative = *text++ == '-';
+    if ((base == 0 || base == 16) && text[0] == '0' &&
+        (text[1] == 'x' || text[1] == 'X') &&
+        digit_value((unsigned char)text[2]) >= 0 && digit_value((unsigned char)text[2]) < 16) {
+        base = 16; text += 2;
+    } else if (base == 0) base = text[0] == '0' ? 8 : 10;
+    unsigned long long limit = signed_result ?
+        (unsigned long long)LLONG_MAX + (unsigned)*negative : ULLONG_MAX;
+    int digit;
+    while ((digit = digit_value((unsigned char)*text)) >= 0 && digit < base) {
         any = 1;
+        if (value > (limit - (unsigned)digit) / (unsigned)base) overflow = 1;
+        else if (!overflow) value = value * (unsigned)base + (unsigned)digit;
+        text++;
     }
-    if (endptr != 0) {
-        *endptr = (char *)(any ? text : start);
-    }
-    return value * sign;
+    if (endptr) *endptr = (char *)(any ? text : start);
+    if (overflow) { *overflowed = 1; errno = ERANGE; return limit; }
+    return value;
+}
+
+long long strtoll(const char *text, char **endptr, int base) {
+    int negative, overflow;
+    unsigned long long value = parse_integer(text, endptr, base, 1, &negative, &overflow);
+    if (!negative) return (long long)value;
+    if (value == (unsigned long long)LLONG_MAX + 1) return LLONG_MIN;
+    return -(long long)value;
 }
 
 long strtol(const char *text, char **endptr, int base) {
     return (long)strtoll(text, endptr, base);
 }
 
-unsigned long strtoul(const char *text, char **endptr, int base) {
-    return (unsigned long)strtoll(text, endptr, base);
+unsigned long long strtoull(const char *text, char **endptr, int base) {
+    int negative, overflow;
+    unsigned long long value = parse_integer(text, endptr, base, 0, &negative, &overflow);
+    /* Overflow saturates even for a negative input. */
+    if (negative && !overflow) return 0 - value;
+    return value;
 }
 
-unsigned long long strtoull(const char *text, char **endptr, int base) {
-    return (unsigned long long)strtoll(text, endptr, base);
+unsigned long strtoul(const char *text, char **endptr, int base) {
+    return (unsigned long)strtoull(text, endptr, base);
 }
 
 long __isoc23_strtol(const char *text, char **endptr, int base) {

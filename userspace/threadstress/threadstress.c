@@ -604,6 +604,8 @@ int posix_stdio_format_test(void);
 int posix_exec_vectors_test(void);
 int posix_pipe_atomic_test(void);
 int posix_vector_io_test(void);
+int posix_pipe_mapping_test(void);
+int posix_pty_mapping_test(void);
 int posix_file_errors_test(void);
 int posix_endpoint_flags_test(void);
 int posix_endpoint_flags_child(int argc,char **argv);
@@ -715,6 +717,8 @@ int main(int argc, char **argv) {
     RUN_TEST("exec-vectors", posix_exec_vectors_test);
     RUN_TEST("pipe-atomic", posix_pipe_atomic_test);
     RUN_TEST("vector-io", posix_vector_io_test);
+    RUN_TEST("pipe-mapping", posix_pipe_mapping_test);
+    RUN_TEST("pty-mapping", posix_pty_mapping_test);
     RUN_TEST("file-errors", posix_file_errors_test);
     RUN_TEST("endpoint-flags", posix_endpoint_flags_test);
     RUN_TEST("readiness", posix_readiness_wait_test);

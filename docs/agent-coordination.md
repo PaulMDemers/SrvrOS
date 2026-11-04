@@ -164,19 +164,28 @@ results before merging; do not re-enable or dispatch Actions. The workflow below
 remains a reference for local coverage if the repository setting stays disabled.
 
 
-The full build/VM baseline runs for pull requests targeting `main`, pushes to
-`main`, and manual dispatch. Ordinary device-branch pushes do not also run a
-second copy. Documentation-only diffs (`docs/**` and Markdown files) skip the
-full baseline; run `make check-docs` locally. Pull-request path filtering considers
-the full PR diff: a docs-only follow-up to an open code PR can still start a new
-baseline. Batch acceptance notes before validation, or publish them as a separate
-docs-only change after the validated code lands. A newer revision cancels obsolete
-runs for the same PR or branch. Keep a PR draft while its scope is being formed,
-but note that updating an open draft still triggers relevant PR validation.
+If Actions are enabled in future, the workflow is configured for pull requests
+targeting `main`, pushes to `main`, and manual dispatch. Ordinary device-branch
+pushes would not also run a second copy. Documentation-only diffs (`docs/**` and
+Markdown files) would skip the full baseline; run `make check-docs` locally.
+Pull-request path filtering considers the full PR diff: a docs-only follow-up
+to an open code PR could still start a new baseline. Batch acceptance notes
+before validation, or publish them as a separate docs-only change after the
+validated code lands. A newer revision would cancel obsolete runs for the same
+PR or branch. Keep a PR draft while its scope is being formed; with Actions
+enabled, updating an open draft can trigger relevant PR validation.
 Batch coherent changes rather than pushing every intermediate edit. CI evidence
 must name the tested code revision; a docs-only follow-up does not claim a new
 full CI run. If required status checks are added later, reconsider path filtering
 so a skipped workflow cannot leave a required check waiting indefinitely.
+
+The configured job has a 40-minute overall timeout. Its present expanded set of
+VM scenarios has not been verified on a hosted runner under that limit; job
+cancellation or an earlier failed step leaves later scenarios untested. The last
+hosted success was on October 20, 2026 at `a19ce5c5`, before the current isolated
+filesystem scenarios were added. The later non-cancelled run at `09207b0c` failed
+the battery USB progress proof, rather than timing out. Treat these as evidence for
+their revisions only; neither establishes a current CI pass or adequate timeout.
 
 ## Evidence and checkpoints
 

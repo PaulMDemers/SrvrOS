@@ -162,17 +162,61 @@ The overall platform trial remains failed on the unchanged RC6 timing predicate
 and durable evidence verification pass. No reboot is armed. PR288/278 apps,
 PR252 lifetimes and PR19 Wi-Fi remain separate.
 
-The first milestone-B readout is staged as release `9b485ca12b4c2482`, compiled
-from `728bcbeb` (PR302). It adds fixed primary-A geometry/surface/live-surface
-observations and bounded inherited framebuffer mapping/classification endpoints,
-without GGTT reads, new mappings, control writers or assurance bits. Complete
-resource/dependency records are losslessly packed to retain all proofs within
-the original 64 KiB tail. Matched build, focused/sanitizer/isolation/parser/tail
-checks and all twelve VM cases pass; see the validation journal below.
-Native comparison remains pending. This cannot complete backing-lifetime
-adoption or authorize a well/HDA transition. The next unattended capture retains
-30/30/30-second phases, 32 coordinated rounds, existing bounds and automatic
-Ubuntu return/collection. Local records own installation and ready/armed state.
+The first milestone-B readout is physically observed on source `728bcbeb`,
+release `9b485ca12b4c2482` (PR302). Both nine-read endpoints are identical, and
+all 1,056 inherited framebuffer pages translate contiguously at CPU aperture
+address `0xa0000000`, with matching geometry and firmware FRAMEBUFFER coverage.
+Primary-A control reports tiled mode, so the conservative linear-aperture
+predicate correctly remains unbound. GGTT/stolen backing, fence interpretation,
+real allocator pin/lifetime and firmware/domain ownership are still unknown.
+
+The version-9 packed resource/dependency fields, both new readouts and all
+original proofs survive directly in the matching 64 KiB final file. All 15
+power/idle/entry samples and 32 coordinated rounds pass their existing checks.
+The whole platform trial still fails the original RC6 predicate (about 0.1073%
+nominal excess); package C3 remains zero. USB integrity, recovery and durable
+hash verification pass; no reboot is armed. Next is a read-only tiled-aperture /
+GGTT backing audit, retaining every unknown assurance and original limit.
+
+### Active exact Haswell vector pilot (2026-11-03)
+
+Base `0cba30a1`, actual recursive pins consumed; installed native readout remains
+`728bcbeb` / `9b485ca12b4c2482`. PR301 remains open and now owns Broadwell
+scanout-lifetime work as well as its capture. This bounded Air6,1 pilot uses the
+same endpoint/map/read/unmap/clock contract inside the existing isolated Air6,1
+AP diagnostic, without modifying that driver's API, Broadwell gates or owner.
+It is a model-specific adapter, not a competing generic display backend; common
+factoring remains dependent on PR301's integrated contract.
+
+Scope: exact Haswell-only readout core/adapter, dedicated opt-in stage/decoder,
+positive/refusal/retention tests and automated capture. Capture the complete
+1536-entry-bounded DWORD GGTT extent twice, raw GGC/config/route/framebuffer,
+and documented FENCE0–15 pairs. Upper sixteen fences and unobserved swizzle
+controls stay unknown; no unique-fence, CPU-view equivalence, allocator pin or
+hardware authority is granted. Only the existing safe display-arbitration
+swizzle control is observed. Independent 100ms readout bounds do not replace
+20ms coordinated-C3 or any other original limit. No power/control/data writes,
+backing RAM mappings or sibling admission. No ordinary startup hook.
+
+PR252 is integrated in this baseline; PR301, PR313/314 filesystem/profile work
+and PR19 Wi-Fi retain their own scope. Next: actual C adapter fixtures and strict
+full-vector wire/retention checks, matched builds/exact-stage VM, local USB and
+recovery preflight, merge and an automated read-only one-shot under existing
+authorization. Native acceptance remains pending; no reboot is armed yet.
+
+### Active tiled-backing source audit (2026-11-03)
+
+Updated to actual main `8f47f196`, with matched pinned app/widget submodules.
+The installed/accepted readout remains source `728bcbeb` / release
+`9b485ca12b4c2482`; newer integration has no inherited native acceptance.
+Scope: Haswell-specific fence/GGTT/cache/swizzle audit and host-only executable
+fixtures, documentation and bounded capture contract. No kernel/MMIO/staging,
+policy, allocator or sibling-gate edits. PR301 already owns the shared backing
+capture and its Air7,2 adapter; record the Haswell dependency there through this
+reviewable unit/PR scope, without a competing driver or automatic cross-task
+message. PR252 lifetimes, PR313/314 namespaces/profiles and PR19 Wi-Fi stay separate.
+Next checkpoint: validated Haswell address/size/cache/fence fixtures and a
+read-only adapter contract against the actual PR301 interface. No boot is armed.
 
 ### Active read-only backing readout scope (2026-11-03)
 
@@ -6593,3 +6637,166 @@ Compatible aperture/geometry observations cannot turn those unknowns into grants
 Native comparison and the original RC6/package-C3 results must be collected
 separately before the next implementation; no broader desktop acceptance is
 inferred for this tree.
+
+
+### Native primary-A and inherited backing readout (2026-11-03)
+
+Source `728bcbeb`, release `9b485ca12b4c2482` (PR302), completed matching session
+`session-00065f667400f67f-00` and returned automatically to Ubuntu. The unchanged
+65,536-byte final exit file has SHA-256
+`791ef184dccd9e1a56251d6c14bb527d17f07832eea401f3f3b3e22e02056eb3`.
+Both new readouts, losslessly packed resource/dependency rows, HDA/dry-run
+records and every original CPU/AP/package proof parse from that file directly.
+No model, joined session or missing-field reconstruction supplies acceptance.
+
+Both backing endpoints have state 1, exactly nine reads and stable raw controls;
+PM brackets are 35/34 us. Primary-A control is `0x98004400` (tiled bit set),
+stride 5,632, legacy/Haswell offsets zero, programmed/live surface zero, and pipe
+size 1366×768. BAR2 is `0xa000000c`, high word zero, with stable PCI command 7.
+All well words and earlier display/HDA control observations remain stable.
+
+The single RGB32 inherited descriptor has pitch 5,632 and span 4,325,376 bytes.
+All 1,056 pages translate contiguously from CPU aperture address `0xa0000000`;
+the sole enclosing firmware entry is FRAMEBUFFER with that exact span, among
+44 entries. This accepts bounded readout and endpoint mapping continuity, not
+underlying GGTT/stolen RAM identity, fence interpretation or an actual pin.
+Tiled mode correctly produces `unbound-or-unsupported` rather than a false
+linear-backing grant. The software owner still refuses all seven unknowns
+(mask 127), retiring its empty software guard without hardware authority.
+
+All 15 retained power/idle/entry samples and ordered idle/load/recovery phases
+complete, averaging 4.007/5.173/4.013 W package power. All 32 coordinated core-C3
+rounds pass, maximum 9,984 us, with positive core residency, mandatory HLT
+fallback and terminal AP retirement. Package C3 remains valid zero. The whole
+platform trial remains failed: nominal RC6 is 90.147270400 s and exceeds its
+original snapshot-clock bound by 96.605120 ms after one tick (about 0.1073%).
+No power policy, ownership/integrity check, sample capacity or limit changed.
+
+All 586 prior files remain unchanged except expected workspace metadata; four
+new session logs yield 590 files / 1,655 allocated clusters. Read-only fsck and
+independent allocation checks pass with zero leaks, bitmap mismatches or errors.
+Installed/recovery payload hashes and durable evidence verify; Ubuntu remains
+default, the one-shot is consumed and the collector is disabled. No reboot is
+armed. The next scope is read-only tracing of the tiled aperture/GGTT backing;
+no HDA/well transition or real adoption is authorized by this result.
+
+
+### Tiled/GGTT source audit and shared-capture dependency (2026-11-03)
+
+Main is updated to `8f47f196` with its actual app/widget pins; the installed
+native readout remains `728bcbeb` / `9b485ca12b4c2482`. No newer tree inherits
+that acceptance. The [Haswell audit](../macbookair6-1-tiled-backing-audit.md)
+finds model-critical differences from PR301's Broadwell capture: +2 MiB GGTT
+alias in a 4 MiB BAR, 32-bit PTEs, different GGC size fields and cache bit 11
+rather than physical-address bit 39. Haswell swizzle also remains unobserved.
+
+The Intel register volume documents sixteen fences/ten pitch bits while Linux
+selects thirty-two Gen7 fences and a wider pitch. Both references are retained;
+no new native allowlist is inferred from a sibling. Partial coverage cannot
+prove uniqueness. Linux fence-debug metadata was unavailable, resolving nothing.
+
+The host-only executable contract reproduces the actual 1,056-entry / 4,224-byte
+GGTT extent and tile padding, and tests generation/cache/address/fence refusal
+cases. All eight test groups pass; no raw PTE/fence/GGC has been captured natively.
+PR301 owns shared capture; a separately exact Haswell adapter and versioned
+full-vector receipt remain next after integration or explicit shared-interface
+coordination. This audit does not introduce a competing driver, runtime gate,
+control writer or staged payload. No policy, limit or integrity check changes.
+Docs/host fixtures are validated independently; a new matched build, exact-stage
+VM, native preflight and complete collection are still required before another
+physical test. Existing RC6 failure/package-C3 zero and unknown ownership remain.
+No reboot is armed.
+
+
+### Exact Haswell vector pilot implemented (2026-11-03)
+
+Base `0cba30a1`, with actual recursive pins. PR301 remains open and independently
+owns the Broadwell capture/scanout lifetime. The first Haswell adapter is scoped
+to the existing Air6,1 isolated diagnostic, preserving its exact device gates and
+using the bounded read-only I/O contract without modifying the other driver.
+See the [pilot contract](../macbookair6-1-tiled-backing-audit.md#isolated-haswell-pilot-implementation).
+
+The dedicated profile skips the ordinary Intel stub, requires existing decode/D0,
+excludes RAM from the full 4 MiB MMIO range and uses a non-global RO/NX window.
+It retains complete DWORD GGTT vectors twice, raw config/route/framebuffer and
+FENCE0–15, with 1,536-entry and 100 ms readout bounds, full comparisons and verified
+window retirement. The documented lower range stays distinct from unobserved
+upper fences; only display-arbitration swizzle is read. No writer, allocator pin,
+full swizzle/uniqueness proof or hardware authority is added. Original RC6 failure,
+package-C3 zero and all existing limits remain separate and unchanged.
+
+Actual core/adapter fixtures, max-capacity/clock/map/retirement/change failures,
+source-independent producer decoding and maximum-tail coverage are required
+before installation. Matched build, full host suites, exact-stage identity
+refusal/persistence, missing-workspace halt and old-profile regressions remain
+pending. The current installed native image is still `9b485ca12b4c2482`; no new
+physical acceptance or reboot is claimed by implementation alone.
+
+### Haswell vector pilot validation and prepared native run (2026-11-03)
+
+[PR324](https://github.com/PaulMDemers/SrvrOS/pull/324) integrates actual main
+`59928ec9`; tested code is `baaa94b5`, with ports `ca749517` and the other
+recursive pins preserved. Recent mainline installation/salvage/profile changes
+are included. Strict GCC host compatibility fixes retain namespace/range checks,
+POSIX no-follow/exclusive/close-on-exec flags, flush and ownership behavior; no
+warning flag is disabled. The ports-only best-effort-result compatibility change
+is merged in [SrvrPorts PR5](https://github.com/PaulMDemers/SrvrPorts/pull/5).
+
+Matched normal/AP kernels, RAM/USB images, complete core/desktop/widget suites,
+profile-chooser regressions, host prerequisites and docs checks pass locally.
+Actual capture core/adapter tests and ASan/UBSan pass, including full-vector
+producer decoding, mapping/clock/change failures, retained uncertainty and normal
+kernel isolation. Source-matched maximum retention preserves all raw records
+with 128 KiB earlier chatter and 32 KiB subsequent allowance in the unchanged
+64 KiB exit tail; its source-derived checkpoint bound is 16,514 bytes. This is
+synthetic retention coverage, not physical acceptance. Sanitizer stdout/stderr
+are retained separately; the initial interleaved host transcript is kept, not
+repaired into evidence.
+
+Four legacy AP owner/C3/package/platform VM profiles pass. Exact staged release
+`e98aed0c5f8d06cf` safely refuses Q35 identity, saves its refusal, unmounts and
+resets. Missing workspace returns without starting the capture or falsely saving.
+Both are negative-path checks, not native readout acceptance. The exact staged
+payload is durably backed up; at this validation checkpoint it is uninstalled
+and unarmed. The approved next step is its automated native install/one-shot,
+requiring complete two-pass observations, unchanged endpoints, verified window
+retirement, preserved USB files and clean offline allocation. Runtime arming and
+collection state stay in the local run record. No human input is required.
+
+The previous native payload remains `9b485ca12b4c2482` until that installation.
+Its complete payload/evidence must verify before reclaiming only its EFI copy;
+console recovery and accepted fallbacks remain protected. GGTT observation does
+not grant real ownership/pinning, complete fence/swizzle knowledge, package C3 or
+RC6 timing acceptance. Those limitations and all existing limits remain unchanged.
+
+### Native Haswell full-vector observation accepted (2026-11-03)
+
+Release `e98aed0c5f8d06cf`, compiled source `baaa94b5` from merged PR324,
+automatically returned and collected session `session-00065f696b8bd4f1-00`.
+Both complete 1,056-entry DWORD vectors agree byte-for-byte, with stable config,
+framebuffer and documented lower-fence endpoints. The two readout brackets are
+371 and 368 us under the original 100 ms bounds. Each performs 1,152 window reads;
+eight temporary maps retire with no retained uncertainty or hardware authority.
+
+Every PTE is present. Address candidates are consecutive from `0x8da00000` through
+`0x8de1f000` (exclusive backing end `0x8de20000`), entirely inside the captured
+firmware-reserved stolen interval `0x8da00000..0x8fa00000`. Host/GPU GGC agree at
+`0x209`, giving a 2 MiB table candidate. FENCE0 is `0x00fff02b00000001` and is the
+sole candidate among the sixteen documented rows; the unobserved upper range
+still prevents a uniqueness grant. Display-arbitration swizzle bit 13 is clear;
+full swizzle/configuration and CPU-detiled equivalence remain unproven. No backing
+pixels were mapped or read, and no pin, ownership or power-control permission is
+accepted by this observation.
+
+All 590 prior files are preserved apart from expected workspace metadata. Two
+new logs yield 592 files / 1,658 allocated clusters. Read-only fsck and independent
+allocation checks pass with zero leaks, bitmap mismatches or errors. The exact
+24,705-byte exit receipt independently decodes again; 495 durable evidence files
+verify. Installed payload/recovery hashes verify, Ubuntu remains default, the
+one-shot is consumed and the collector is disabled. No reboot is armed.
+
+Closeout consumes main `3b3fb5b3` for documentation only; that newer tree does not
+inherit this release's physical acceptance. Next is resolving remaining fence
+coverage and swizzle/lifetime prerequisites through source audit and bounded
+read-only evidence. Prior RC6 timing failure and valid-zero package C3 remain
+unchanged; no graphics writer or ordinary adoption is enabled.

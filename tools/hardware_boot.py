@@ -24,7 +24,7 @@ CONFIG_VERSIONS = ("ram-usb-v2", "ram-usb-v3-inputdiag", CONFIG_VERSION, DIAGNOS
 RELEASE_RE = re.compile(r"[0-9a-f]{16}")
 AUTOTEST_RE = re.compile(r"ram-usb-v[5689]-autotest-([0-9a-f]{8})-([0-9a-f]{16})")
 WORKSPACE_RE = re.compile(r"ram-usb-v7-workspace-([0-9a-f]{8})")
-LAPTOP_PROBE_RE = re.compile(r"ram-usb-v(?:1-ap-owner|1-ap-c3|1-ap-package|1-ap-platform|1-posix|1-storage-wait|1-mwait|1-mwait-c3|19|23|24|25|26|27|28|31|32|33|34|35|36|38|40|41|42|43|44|45|46|47|48|49|51|52|60|61|62|63|64|65|66|67|68|69)-laptop-probe-([0-9a-f]{8})(-auto-return)?")
+LAPTOP_PROBE_RE = re.compile(r"ram-usb-v(?:1-hsw|1-ap-owner|1-ap-c3|1-ap-package|1-ap-platform|1-posix|1-storage-wait|1-mwait|1-mwait-c3|19|23|24|25|26|27|28|31|32|33|34|35|36|38|40|41|42|43|44|45|46|47|48|49|51|52|60|61|62|63|64|65|66|67|68|69)-laptop-probe-([0-9a-f]{8})(-auto-return)?")
 DESKTOP_RE = re.compile(r"ram-usb-v(?:17|18|20|21|22|29|30|31|36|37|53|54|55|56|57|58|59|70|71|72|73|74|75|76|77|78|79|80|81|82)-desktop-([0-9a-f]{8})")
 TRACKPAD_RE = re.compile(r"ram-usb-v(?:10|11|12|13|14|15|16|50)-trackpad-([0-9a-f]{8})-([0-9a-f]{16})")
 
@@ -89,6 +89,9 @@ def limine_config(release, version=CONFIG_VERSION):
         if version.startswith(("ram-usb-v1-ap-c3-","ram-usb-v1-ap-package-","ram-usb-v1-ap-platform-")): cmdline += " srvros.idle=mwait-c3-test srvros.ap=c3-test"
         if version.startswith(("ram-usb-v1-ap-package-","ram-usb-v1-ap-platform-")): cmdline += " srvros.ap-package=read-only"
         if version.startswith("ram-usb-v1-ap-platform-"): cmdline += " srvros.ap-platform=read-only"
+        if version.startswith("ram-usb-v1-hsw-"):
+            cmdline=(f"srvros.storage=ram srvros.workspace-volume={probe[1]} "
+                     f"srvros.desktop-release={release} srvros.capture=haswell-backing")
         if version.startswith("ram-usb-v1-ap-owner-"):
             cmdline=(f"srvros.storage=ram srvros.workspace-volume={probe[1]} "
                      f"srvros.desktop-release={release} srvros.capture=ap-ownership")
@@ -173,14 +176,29 @@ serial: yes
 """
 
 
-def verify(directory):
+def verify(directory, expected_release=None):
+    loader = directory / "loader"
+    if directory.is_symlink() or loader.is_symlink() or not loader.is_dir():
+        raise ValueError("Boot payload must have a real loader directory")
+    # The installer sizes and retires complete releases. An unlisted entry
+    # must never be copied to, or pruned from, the EFI partition.
+    expected = {*FILES, "loader", "manifest.json"}
+    entries = [*directory.iterdir(), *loader.iterdir()]
+    if {p.relative_to(directory).as_posix() for p in entries} != expected:
+        raise ValueError("Unexpected boot payload contents")
+    if any(p.is_symlink() or not p.is_file() for p in entries if p != loader):
+        raise ValueError("Boot artifacts must be regular files")
     manifest = json.loads((directory / "manifest.json").read_text())
+    if expected_release is None and RELEASE_RE.fullmatch(directory.name):
+        expected_release = directory.name
+    if expected_release is not None and manifest["release"] != expected_release:
+        raise ValueError("Boot manifest does not match selected release")
     hashes = manifest["sha256"]
     if set(hashes) != set(FILES):
         raise ValueError("Unexpected files in boot manifest")
     for name in FILES:
         path = directory / name
-        if path.is_symlink() or not path.is_file() or digest(path) != hashes[name]:
+        if digest(path) != hashes[name]:
             raise ValueError(f"Boot artifact failed verification: {path}")
     payload = {name: hashes[name] for name in FILES if not name.endswith("limine.conf")}
     # Older installs have no config_version field. Verify against their original
@@ -199,7 +217,11 @@ def verify(directory):
     return manifest
 
 
-def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=None, repeat=1, trackpad_run=None, pointer=False, gestures=False, desktop_io=False, desktop_volume=None, laptop_probe_volume=None, idle_capture=False, aml_capture=False, desktop_idle_capture=False, power_telemetry=False, battery_capture=False, battery_transitions=False, battery_service=False, hold_on_failure=False, battery_usb_read=False, battery_usb_write=False, battery_filesystem=False, keyboard_capture=False, cpu_load_capture=False, desktop_scale=1, desktop_brightness=False, desktop_audio=False, desktop_sensors=False, desktop_network=False, battery_desktop=False, battery_text=False, battery_load=False, battery_app_files=False, battery_controls=False, battery_query=False, battery_smbus=False, battery_smbus_files=False, battery_home=False, battery_home_session=False, battery_home_desktop=False, battery_home_transitions=False, battery_home_work=False, tap_typing=False, desktop_basic=False, desktop_battery=False, desktop_services=False, desktop_device_checks=False, battery_preflight=False, battery_air61=False, storage_wait_capture=False, desktop_reopen_test=False, posix_capture=False, desktop_capacity_test=False, desktop_lifecycle_trial=False, desktop_audio_io_test=False, desktop_audio_io_attended=False, desktop_navigation_trial=False, desktop_power_test=False, mwait_wakeup_test=False, mwait_deep_test=False, ap_ownership_test=False, ap_coordinated_c3=False, ap_package_audit=False, ap_platform_audit=False):
+def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=None, repeat=1, trackpad_run=None, pointer=False, gestures=False, desktop_io=False, desktop_volume=None, laptop_probe_volume=None, idle_capture=False, aml_capture=False, desktop_idle_capture=False, power_telemetry=False, battery_capture=False, battery_transitions=False, battery_service=False, hold_on_failure=False, battery_usb_read=False, battery_usb_write=False, battery_filesystem=False, keyboard_capture=False, cpu_load_capture=False, desktop_scale=1, desktop_brightness=False, desktop_audio=False, desktop_sensors=False, desktop_network=False, battery_desktop=False, battery_text=False, battery_load=False, battery_app_files=False, battery_controls=False, battery_query=False, battery_smbus=False, battery_smbus_files=False, battery_home=False, battery_home_session=False, battery_home_desktop=False, battery_home_transitions=False, battery_home_work=False, tap_typing=False, desktop_basic=False, desktop_battery=False, desktop_services=False, desktop_device_checks=False, battery_preflight=False, battery_air61=False, storage_wait_capture=False, desktop_reopen_test=False, posix_capture=False, desktop_capacity_test=False, desktop_lifecycle_trial=False, desktop_audio_io_test=False, desktop_audio_io_attended=False, desktop_navigation_trial=False, desktop_power_test=False, mwait_wakeup_test=False, mwait_deep_test=False, ap_ownership_test=False, ap_coordinated_c3=False, ap_package_audit=False, ap_platform_audit=False, haswell_backing_capture=False):
+    if haswell_backing_capture:
+        allowed={"haswell_backing_capture","laptop_probe_volume","hold_on_failure","repeat","desktop_scale"}
+        if not laptop_probe_volume or repeat!=1 or desktop_scale!=1 or any(v for k,v in locals().copy().items() if k not in allowed and k!="allowed"):
+            raise ValueError("Haswell backing capture requires its own explicit workspace profile")
     if ap_platform_audit and not ap_package_audit:
         raise ValueError("Platform audit requires explicit package audit")
     if ap_package_audit and not ap_coordinated_c3:
@@ -317,6 +339,7 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
         if ap_coordinated_c3: version=f"ram-usb-v1-ap-c3-laptop-probe-{laptop_probe_volume}"
         if ap_package_audit: version=f"ram-usb-v1-ap-package-laptop-probe-{laptop_probe_volume}"
         if ap_platform_audit: version=f"ram-usb-v1-ap-platform-laptop-probe-{laptop_probe_volume}"
+        if haswell_backing_capture: version=f"ram-usb-v1-hsw-laptop-probe-{laptop_probe_volume}"
         if ap_ownership_test: version=f"ram-usb-v1-ap-owner-laptop-probe-{laptop_probe_volume}"
         if posix_capture: version=f"ram-usb-v1-posix-laptop-probe-{laptop_probe_volume}"
         if storage_wait_capture: version=f"ram-usb-v1-storage-wait-laptop-probe-{laptop_probe_volume}"
@@ -327,7 +350,7 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
             raise ValueError("Invalid or conflicting automatic laptop probe profile")
     sources = {
         "loader/BOOTX64.EFI": ROOT / "build/limine-binary/BOOTX64.EFI",
-        "srvros.elf": ROOT / ("build/ap-probe/srvros.elf" if (ap_ownership_test or ap_coordinated_c3) else "build/acpi-air61-battery/srvros.elf" if battery_air61 else "build/acpi-battery/srvros.elf" if (desktop_battery or battery_capture or battery_transitions or battery_service or battery_usb_read or battery_usb_write or battery_filesystem or battery_desktop or battery_text or battery_load or battery_app_files or battery_controls or battery_query or battery_smbus or battery_smbus_files or battery_home or battery_home_session or battery_home_desktop or battery_home_transitions or battery_home_work) else "build/kernel/srvros.elf"),
+        "srvros.elf": ROOT / ("build/ap-probe/srvros.elf" if (haswell_backing_capture or ap_ownership_test or ap_coordinated_c3) else "build/acpi-air61-battery/srvros.elf" if battery_air61 else "build/acpi-battery/srvros.elf" if (desktop_battery or battery_capture or battery_transitions or battery_service or battery_usb_read or battery_usb_write or battery_filesystem or battery_desktop or battery_text or battery_load or battery_app_files or battery_controls or battery_query or battery_smbus or battery_smbus_files or battery_home or battery_home_session or battery_home_desktop or battery_home_transitions or battery_home_work) else "build/kernel/srvros.elf"),
         "initramfs.tar": ROOT / "build/initramfs.tar",
     }
     STAGE.mkdir(parents=True, exist_ok=True)
@@ -349,13 +372,13 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
                     "git_head": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip(),
                     "git_dirty": bool(subprocess.check_output(["git", "status", "--porcelain"], cwd=ROOT))}
         (target / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
-        verify(target)
+        verify(target, release)
         destination = STAGE / release
         if destination.exists():
             verify(destination)
         else:
-            shutil.copytree(target, destination)
-    (STAGE / "latest").write_text(release + "\n")
+            target.rename(destination)
+    atomic_write(STAGE / "latest", (release + "\n").encode(), 0o644)
     print(f"Staged {release}: {destination}")
     print("Install with: sudo python3 tools/hardware_boot.py install")
     return release
@@ -418,7 +441,7 @@ def install(release=None, keep_previous=False):
     if not RELEASE_RE.fullmatch(release):
         raise ValueError("Invalid staged release")
     source = STAGE / release
-    verify(source)
+    manifest = verify(source, release)
     uuid = host_uuid()
     for program in ("update-grub", "grub-script-check"):
         if shutil.which(program) is None:
@@ -443,7 +466,13 @@ def install(release=None, keep_previous=False):
         previous = old.get("previous")
         if not previous or previous == release:
             raise ValueError("No distinct previous release to preserve")
+    if previous:
         verify(BASE / previous)
+    # Refuse before any installation mutations if the recorded release that
+    # would be retired is no longer a verified payload. Recheck before deletion.
+    obsolete = old.get("previous")
+    if obsolete and obsolete not in (release, previous):
+        verify(BASE / obsolete)
     config = grub_config(uuid, release, previous)
     subprocess.run(["grub-script-check"], input=config, text=True, check=True)
     destination = BASE / release
@@ -459,8 +488,10 @@ def install(release=None, keep_previous=False):
     else:
         with tempfile.TemporaryDirectory(prefix="upload-", dir=BASE) as tmp:
             payload = Path(tmp) / "payload"
-            shutil.copytree(source, payload)
-            verify(payload)
+            (payload / "loader").mkdir(parents=True)
+            for name in (*FILES, "manifest.json"):
+                shutil.copyfile(source / name, payload / name)
+            verify(payload, release)
             os.sync()
             payload.rename(destination)
     # Keep Ubuntu's existing GRUB_DEFAULT and firmware boot order. Only add entries.
@@ -482,40 +513,39 @@ def install(release=None, keep_previous=False):
         raise
     os.sync()
     # Remove only the obsolete release previously recorded by this installer.
-    obsolete = old.get("previous")
     if obsolete and obsolete not in (release, previous):
         verify(BASE / obsolete)
         shutil.rmtree(BASE / obsolete)
     print(f"Installed {release}. Ubuntu's default and EFI boot order are unchanged.")
     print("Select SrvrOS in the five-second GRUB menu, or: sudo grub-reboot srvros-current")
     print("No reboot has been requested.")
-    if AUTOTEST_RE.fullmatch(verify(source).get("config_version", "")):
+    if AUTOTEST_RE.fullmatch(manifest.get("config_version", "")):
         print("Automated test profile: matching USB request enables log writes and guest reboot.")
-    elif TRACKPAD_RE.fullmatch(verify(source).get("config_version", "")):
+    elif TRACKPAD_RE.fullmatch(manifest.get("config_version", "")):
         print("Trackpad capture: interactive gestures/keyboard, UUID-selected workspace report, then halt.")
-    elif verify(source).get("config_version", "").startswith(("ram-usb-v27-","ram-usb-v28-")):
+    elif manifest.get("config_version", "").startswith(("ram-usb-v27-","ram-usb-v28-")):
         print("Guided keyboard test: on-screen prompts, up to 90 seconds per step, save result and return; halt if saving fails.")
-    elif LAPTOP_PROBE_RE.fullmatch(verify(source).get("config_version", "")):
+    elif LAPTOP_PROBE_RE.fullmatch(manifest.get("config_version", "")):
         print("Laptop diagnostics: new unattended stages return on handled failure; guided/held profiles retain the failure screen.")
-    elif verify(source).get("config_version", "").startswith(("ram-usb-v77-","ram-usb-v81-")):
+    elif manifest.get("config_version", "").startswith(("ram-usb-v77-","ram-usb-v81-")):
         print("Attended audio/USB load: Help checklist opens automatically; 30-minute load, then save and exit manually. No automatic reboot.")
-    elif verify(source).get("config_version", "").startswith("ram-usb-v76-"):
+    elif manifest.get("config_version", "").startswith("ram-usb-v76-"):
         print("Attended window/dock/navigation checklist opens automatically in Help; no timer. Save, Return to console, then reboot manually.")
-    elif verify(source).get("config_version", "").startswith("ram-usb-v75-"):
+    elif manifest.get("config_version", "").startswith("ram-usb-v75-"):
         print("Attended application lifecycle checklist opens automatically in Help; no timed exit. Save, Return to console, then reboot manually.")
-    elif verify(source).get("config_version", "").startswith(("ram-usb-v74-","ram-usb-v80-")):
+    elif manifest.get("config_version", "").startswith(("ram-usb-v74-","ram-usb-v80-")):
         print("Automatic audio/USB stress: 30 minutes of continuous playback and verified filesystem work; listen only, normal retirement/unmount and Ubuntu return.")
-    elif verify(source).get("config_version", "").startswith("ram-usb-v73-"):
+    elif manifest.get("config_version", "").startswith("ram-usb-v73-"):
         print("Automatic capacity test: two rounds of 24 mixed apps, screenshots and normal retirement; returns after save/unmount, no input required.")
-    elif verify(source).get("config_version", "").startswith(("ram-usb-v72-","ram-usb-v79-")):
+    elif manifest.get("config_version", "").startswith(("ram-usb-v72-","ram-usb-v79-")):
         print("Automated two-session startup diagnostic; normal return to Ubuntu, fatal mounted ownership halts for photograph/recovery.")
-    elif verify(source).get("config_version", "").startswith(("ram-usb-v54-","ram-usb-v55-","ram-usb-v70-","ram-usb-v71-")):
+    elif manifest.get("config_version", "").startswith(("ram-usb-v54-","ram-usb-v55-","ram-usb-v70-","ram-usb-v71-")):
         print("Ordinary Home with opt-in battery monitoring; no timed exit. Ctrl+Alt+Esc returns to monitor; reboot flushes/unmounts.")
-    elif verify(source).get("config_version", "").startswith(("ram-usb-v78-","ram-usb-v82-")):
+    elif manifest.get("config_version", "").startswith(("ram-usb-v78-","ram-usb-v82-")):
         print("Automatic desktop power test: idle/app/recovery phases, saved diagnostics and normal unmount/Ubuntu return; no input required.")
-    elif DESKTOP_RE.fullmatch(verify(source).get("config_version", "")):
+    elif DESKTOP_RE.fullmatch(manifest.get("config_version", "")):
         print("Native desktop trial: on-screen checklist, prepared USB workspace, no timed exit or automatic reboot.")
-    elif WORKSPACE_RE.fullmatch(verify(source).get("config_version", "")):
+    elif WORKSPACE_RE.fullmatch(manifest.get("config_version", "")):
         print("Workspace profile: prepared UUID-selected USB volume mounted at /work; boot filesystem stays in RAM.")
     else:
         print("Guest root filesystem/log changes are held in RAM.")
@@ -554,6 +584,7 @@ def main():
     parser.add_argument("--posix-capture",action="store_true",help="automatic bounded POSIX, TLS, SQLite and desktop regression; saves and returns")
     capture=parser.add_mutually_exclusive_group()
     parser.add_argument("--ap-coordinated-c3",action="store_true",help="explicit coordinated C3 diagnostic; requires --cpu-load-capture")
+    parser.add_argument("--haswell-backing-capture",action="store_true",help="Isolated exact Air6,1 read-only GGTT vector pilot")
     parser.add_argument("--ap-platform-audit",action="store_true",help="Read-only graphics and latency diagnostics; requires package audit")
     parser.add_argument("--ap-package-audit",action="store_true",help="Read-only package/PCI diagnostics during coordinated C3")
     parser.add_argument("--ap-ownership-test",action="store_true",help="separate MP diagnostic kernel with bounded secondary-CPU mailboxes")
@@ -645,7 +676,7 @@ def main():
         parser.error("--diagnostic applies only to stage")
     try:
         if args.action == "stage":
-            stage(args.diagnostic, desktop_volume=args.desktop_volume, laptop_probe_volume=args.laptop_probe_volume, idle_capture=args.idle_capture, aml_capture=args.aml_capture, desktop_idle_capture=args.desktop_idle_capture, power_telemetry=args.power_telemetry, battery_capture=args.battery_capture, battery_transitions=args.battery_transitions, battery_service=args.battery_service, hold_on_failure=args.hold_on_failure, battery_usb_read=args.battery_usb_read, battery_usb_write=args.battery_usb_write, battery_filesystem=args.battery_filesystem, battery_desktop=args.battery_desktop, battery_text=args.battery_text, battery_load=args.battery_load, battery_app_files=args.battery_app_files, battery_controls=args.battery_controls, battery_query=args.battery_query, battery_smbus=args.battery_smbus, battery_smbus_files=args.battery_smbus_files, battery_home=args.battery_home,battery_home_session=args.battery_home_session,battery_home_desktop=args.battery_home_desktop,battery_home_transitions=args.battery_home_transitions,battery_home_work=args.battery_home_work, keyboard_capture=args.keyboard_capture, cpu_load_capture=args.cpu_load_capture, desktop_scale=args.desktop_scale, desktop_brightness=args.desktop_brightness, desktop_audio=args.desktop_audio, desktop_sensors=args.desktop_sensors, desktop_network=args.desktop_network, desktop_basic=args.desktop_basic, desktop_battery=args.desktop_battery, desktop_services=args.desktop_services, desktop_device_checks=args.desktop_device_checks,battery_preflight=args.battery_preflight,battery_air61=args.battery_air61,storage_wait_capture=args.storage_wait_capture,desktop_reopen_test=args.desktop_reopen_test,posix_capture=args.posix_capture,desktop_capacity_test=args.desktop_capacity_test,desktop_lifecycle_trial=args.desktop_lifecycle_trial,desktop_audio_io_test=args.desktop_audio_io_test,desktop_audio_io_attended=args.desktop_audio_io_attended,desktop_navigation_trial=args.desktop_navigation_trial,desktop_power_test=args.desktop_power_test,mwait_wakeup_test=args.mwait_wakeup_test,mwait_deep_test=args.mwait_deep_test,ap_ownership_test=args.ap_ownership_test,ap_coordinated_c3=args.ap_coordinated_c3,ap_package_audit=args.ap_package_audit,ap_platform_audit=args.ap_platform_audit)
+            stage(args.diagnostic, desktop_volume=args.desktop_volume, laptop_probe_volume=args.laptop_probe_volume, idle_capture=args.idle_capture, aml_capture=args.aml_capture, desktop_idle_capture=args.desktop_idle_capture, power_telemetry=args.power_telemetry, battery_capture=args.battery_capture, battery_transitions=args.battery_transitions, battery_service=args.battery_service, hold_on_failure=args.hold_on_failure, battery_usb_read=args.battery_usb_read, battery_usb_write=args.battery_usb_write, battery_filesystem=args.battery_filesystem, battery_desktop=args.battery_desktop, battery_text=args.battery_text, battery_load=args.battery_load, battery_app_files=args.battery_app_files, battery_controls=args.battery_controls, battery_query=args.battery_query, battery_smbus=args.battery_smbus, battery_smbus_files=args.battery_smbus_files, battery_home=args.battery_home,battery_home_session=args.battery_home_session,battery_home_desktop=args.battery_home_desktop,battery_home_transitions=args.battery_home_transitions,battery_home_work=args.battery_home_work, keyboard_capture=args.keyboard_capture, cpu_load_capture=args.cpu_load_capture, desktop_scale=args.desktop_scale, desktop_brightness=args.desktop_brightness, desktop_audio=args.desktop_audio, desktop_sensors=args.desktop_sensors, desktop_network=args.desktop_network, desktop_basic=args.desktop_basic, desktop_battery=args.desktop_battery, desktop_services=args.desktop_services, desktop_device_checks=args.desktop_device_checks,battery_preflight=args.battery_preflight,battery_air61=args.battery_air61,storage_wait_capture=args.storage_wait_capture,desktop_reopen_test=args.desktop_reopen_test,posix_capture=args.posix_capture,desktop_capacity_test=args.desktop_capacity_test,desktop_lifecycle_trial=args.desktop_lifecycle_trial,desktop_audio_io_test=args.desktop_audio_io_test,desktop_audio_io_attended=args.desktop_audio_io_attended,desktop_navigation_trial=args.desktop_navigation_trial,desktop_power_test=args.desktop_power_test,mwait_wakeup_test=args.mwait_wakeup_test,mwait_deep_test=args.mwait_deep_test,ap_ownership_test=args.ap_ownership_test,ap_coordinated_c3=args.ap_coordinated_c3,ap_package_audit=args.ap_package_audit,ap_platform_audit=args.ap_platform_audit,haswell_backing_capture=args.haswell_backing_capture)
         else:
             install(args.release, keep_previous=args.keep_previous)
     except (OSError, ValueError, KeyError, RuntimeError, subprocess.CalledProcessError) as error:

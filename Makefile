@@ -1,7 +1,7 @@
 .SUFFIXES:
 
 # Avoid empty wildcard archives when first-party submodules are absent.
-ifneq ($(filter-out clean distclean check-host check-docs,$(or $(MAKECMDGOALS),all)),)
+ifneq ($(filter-out clean distclean check-host check-docs test-portable-profiles,$(or $(MAKECMDGOALS),all)),)
 MODULE_MARKERS := userspace/widgets/include/srvros/desk_widgets.h userspace/apps/desktools/main.c ports/README.md
 ifneq ($(words $(wildcard $(MODULE_MARKERS))),$(words $(MODULE_MARKERS)))
 $(error Missing SrvrOS modules; run git submodule update --init --recursive)
@@ -138,6 +138,7 @@ USER_EXECDEMO := build/userspace/execdemo.elf
 USER_FDPROBE := build/userspace/fdprobe.elf
 USER_LOCKPROBE := build/userspace/lockprobe.elf
 USER_TTYDEMO := build/userspace/ttydemo.elf
+USER_PROFILE := build/userspace/profile.elf
 USER_JSONDEMO := build/userspace/jsondemo.elf
 USER_INIDEMO := build/userspace/inidemo.elf
 USER_LINEDEMO := build/userspace/linedemo.elf
@@ -855,6 +856,9 @@ USER_TTYDEMO_S := $(shell find userspace/ttydemo -type f -name '*.S' 2>/dev/null
 USER_TTYDEMO_OBJ := $(USER_TTYDEMO_C:%.c=build/%.c.o) $(USER_TTYDEMO_S:%.S=build/%.S.o)
 USER_TTYDEMO_DEP := $(USER_TTYDEMO_C:%.c=build/%.c.d) $(USER_TTYDEMO_S:%.S=build/%.S.d)
 
+USER_PROFILE_C := $(wildcard userspace/profile/*.c)
+USER_PROFILE_OBJ := $(USER_PROFILE_C:%.c=build/%.c.o)
+USER_PROFILE_DEP := $(USER_PROFILE_C:%.c=build/%.c.d)
 USER_JSONDEMO_C := $(shell find userspace/jsondemo -type f -name '*.c' 2>/dev/null | LC_ALL=C sort)
 USER_JSONDEMO_S := $(shell find userspace/jsondemo -type f -name '*.S' 2>/dev/null | LC_ALL=C sort)
 USER_JSONDEMO_OBJ := $(USER_JSONDEMO_C:%.c=build/%.c.o) $(USER_JSONDEMO_S:%.S=build/%.S.o)
@@ -1518,6 +1522,13 @@ $(USER_TTYDEMO): $(ZIG) $(USER_CRT0_OBJ) $(USER_TTYDEMO_OBJ) $(USER_LIB_OBJ) use
 	mkdir -p $(dir $@)
 	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_TTYDEMO_OBJ) $(USER_LIB_OBJ) -o $@
 
+$(USER_PROFILE): $(ZIG) $(USER_CRT0_OBJ) $(USER_PROFILE_OBJ) $(CJSON_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+	mkdir -p $(dir $@)
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_PROFILE_OBJ) $(CJSON_OBJ) $(USER_LIB_OBJ) -o $@
+build/userspace/profile/%.c.o: userspace/profile/%.c $(ZIG)
+	mkdir -p $(dir $@)
+	$(CC) $(USER_CFLAGS) -I ports/upstream/cjson -c $< -o $@
+
 $(USER_JSONDEMO): $(ZIG) $(USER_CRT0_OBJ) $(USER_JSONDEMO_OBJ) $(CJSON_OBJ) $(USER_LIB_OBJ) userspace/app.ld
 	mkdir -p $(dir $@)
 	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_JSONDEMO_OBJ) $(CJSON_OBJ) $(USER_LIB_OBJ) -o $@
@@ -1695,9 +1706,9 @@ $(LUA_SRVROS_DIR)/%.c.o: $(LUA_SRVROS_DIR)/%.c $(ZIG) $(LUA_PREPARED) ports/srvr
 	mkdir -p $(dir $@)
 	$(CC) $(USER_CFLAGS) -I $(LUA_SRVROS_DIR) -include ports/srvros/lua_config.h -DNDEBUG -Dl_signalT=int -Wno-error -Wno-unused-parameter -Wno-unused-function -Wno-missing-braces -c $< -o $@
 
-$(EXFAT_IMAGE): $(USER_LIFETIMEPROBE) userspace/examples/tap-diagnostics.sh userspace/examples/tap-checks.sh userspace/examples/trackpad-checks.sh userspace/examples/device-checks.sh userspace/examples/network-trial.sh tools/audio_fixture.py $(USER_DESKFIND) $(USER_FINDFSWORKER) $(USER_DESKNET) $(USER_DESKSKETCH) $(USER_SHOTWORKER) $(USER_DESKCLOCK) $(USER_DESKHELP) $(USER_DESKVIEW) $(USER_IMAGEWORKER) tools/pack_runtime_elf.py $(USER_CLOCKPROBE) $(USER_DESKTERM) $(USER_PTYPROBE) $(USER_DESKTOOLS) $(USER_DESKFS) $(USER_DESKIO) $(USER_DESKD) $(USER_DESKCLIENT) $(USER_DESKSTUDY) tools/mk_exfat_image.py $(USER_HELLO) $(USER_CAT) $(USER_MORE) $(USER_SH) $(USER_LS) $(USER_ECHO) $(USER_WRITE) $(USER_WC) $(USER_CLEAR) $(USER_PS) $(USER_KILL) $(USER_WHICH) $(USER_ENV) $(USER_PWD) $(USER_TRUE) $(USER_FALSE) $(USER_SLEEP) $(USER_DATE) $(USER_TOUCH) $(USER_MKTEMP) $(USER_BASENAME) $(USER_DIRNAME) $(USER_GREP) $(USER_HEAD) $(USER_TAIL) $(USER_TEE) $(USER_UNAME) $(USER_HOSTNAME) $(USER_UPTIME) $(USER_FIND) $(USER_DU) $(USER_DF) $(USER_SORT) $(USER_UNIQ) $(USER_CUT) $(USER_XARGS) $(USER_SEQ) $(USER_REALPATH) $(USER_ID) $(USER_WHOAMI) $(USER_READLINK) $(USER_CMP) $(USER_YES) $(USER_INSTALL) $(USER_DIFF) $(USER_TAR) $(USER_GZIP) $(USER_MINIZIP) $(USER_MINIUNZ) $(USER_PATCH) $(USER_MAKE) $(USER_BYACC) $(USER_SED) $(USER_EXPR) $(USER_PRINTF) $(USER_TR) $(USER_DD) $(USER_ED) $(USER_POSIXUTILS) $(USER_STAT) $(USER_CHMOD) $(USER_CP) $(USER_RM) $(USER_MKDIR) $(USER_MV) $(USER_TAP) $(USER_SVSCAN) $(USER_WEBD) $(USER_HTTPGET) $(USER_UDPDNS) $(USER_UDPECHO) $(USER_NETSTAT) $(USER_IFCONFIG) $(USER_ROUTE) $(USER_ARP) $(USER_PING) $(USER_HOST) $(USER_NETCHECK) $(USER_NETABI) $(USER_TCPSTRESS) $(USER_TCPPROBE) $(USER_SYSABI) $(USER_SPIN) $(USER_FPDEMO) $(USER_UI) $(USER_DESKTOP) $(USER_DISPLAYD) $(USER_GUI) $(USER_SURFACEDEMO) $(USER_GUI2DEMO) $(USER_GUIFAIL) $(USER_CALC) $(USER_NOTES) $(USER_TEXTEDIT) $(USER_PAINT) $(USER_FILEMAN) $(USER_POSIXDEMO) $(USER_THREADSTRESS) $(USER_EXECDEMO) $(USER_FDPROBE) $(USER_LOCKPROBE) $(USER_TTYDEMO) $(USER_JSONDEMO) $(USER_INIDEMO) $(USER_LINEDEMO) $(USER_SQLITEDEMO) $(USER_SQLITE3) $(USER_ZLIBDEMO) $(USER_LUA) $(USER_AWK) $(USER_UVDEMO) $(USER_LIBUVDEMO) $(USER_NODEPROBE) $(USER_LIBCPROBE) $(USER_TLSPROBE) $(USER_CXXPROBE) $(USER_CXXSTLPROBE) $(USER_PLAYWAV)
+$(EXFAT_IMAGE): $(USER_PROFILE) $(USER_LIFETIMEPROBE) userspace/examples/tap-diagnostics.sh userspace/examples/tap-checks.sh userspace/examples/trackpad-checks.sh userspace/examples/device-checks.sh userspace/examples/network-trial.sh tools/audio_fixture.py $(USER_DESKFIND) $(USER_FINDFSWORKER) $(USER_DESKNET) $(USER_DESKSKETCH) $(USER_SHOTWORKER) $(USER_DESKCLOCK) $(USER_DESKHELP) $(USER_DESKVIEW) $(USER_IMAGEWORKER) tools/pack_runtime_elf.py $(USER_CLOCKPROBE) $(USER_DESKTERM) $(USER_PTYPROBE) $(USER_DESKTOOLS) $(USER_DESKFS) $(USER_DESKIO) $(USER_DESKD) $(USER_DESKCLIENT) $(USER_DESKSTUDY) tools/mk_exfat_image.py $(USER_HELLO) $(USER_CAT) $(USER_MORE) $(USER_SH) $(USER_LS) $(USER_ECHO) $(USER_WRITE) $(USER_WC) $(USER_CLEAR) $(USER_PS) $(USER_KILL) $(USER_WHICH) $(USER_ENV) $(USER_PWD) $(USER_TRUE) $(USER_FALSE) $(USER_SLEEP) $(USER_DATE) $(USER_TOUCH) $(USER_MKTEMP) $(USER_BASENAME) $(USER_DIRNAME) $(USER_GREP) $(USER_HEAD) $(USER_TAIL) $(USER_TEE) $(USER_UNAME) $(USER_HOSTNAME) $(USER_UPTIME) $(USER_FIND) $(USER_DU) $(USER_DF) $(USER_SORT) $(USER_UNIQ) $(USER_CUT) $(USER_XARGS) $(USER_SEQ) $(USER_REALPATH) $(USER_ID) $(USER_WHOAMI) $(USER_READLINK) $(USER_CMP) $(USER_YES) $(USER_INSTALL) $(USER_DIFF) $(USER_TAR) $(USER_GZIP) $(USER_MINIZIP) $(USER_MINIUNZ) $(USER_PATCH) $(USER_MAKE) $(USER_BYACC) $(USER_SED) $(USER_EXPR) $(USER_PRINTF) $(USER_TR) $(USER_DD) $(USER_ED) $(USER_POSIXUTILS) $(USER_STAT) $(USER_CHMOD) $(USER_CP) $(USER_RM) $(USER_MKDIR) $(USER_MV) $(USER_TAP) $(USER_SVSCAN) $(USER_WEBD) $(USER_HTTPGET) $(USER_UDPDNS) $(USER_UDPECHO) $(USER_NETSTAT) $(USER_IFCONFIG) $(USER_ROUTE) $(USER_ARP) $(USER_PING) $(USER_HOST) $(USER_NETCHECK) $(USER_NETABI) $(USER_TCPSTRESS) $(USER_TCPPROBE) $(USER_SYSABI) $(USER_SPIN) $(USER_FPDEMO) $(USER_UI) $(USER_DESKTOP) $(USER_DISPLAYD) $(USER_GUI) $(USER_SURFACEDEMO) $(USER_GUI2DEMO) $(USER_GUIFAIL) $(USER_CALC) $(USER_NOTES) $(USER_TEXTEDIT) $(USER_PAINT) $(USER_FILEMAN) $(USER_POSIXDEMO) $(USER_THREADSTRESS) $(USER_EXECDEMO) $(USER_FDPROBE) $(USER_LOCKPROBE) $(USER_TTYDEMO) $(USER_JSONDEMO) $(USER_INIDEMO) $(USER_LINEDEMO) $(USER_SQLITEDEMO) $(USER_SQLITE3) $(USER_ZLIBDEMO) $(USER_LUA) $(USER_AWK) $(USER_UVDEMO) $(USER_LIBUVDEMO) $(USER_NODEPROBE) $(USER_LIBCPROBE) $(USER_TLSPROBE) $(USER_CXXPROBE) $(USER_CXXSTLPROBE) $(USER_PLAYWAV)
 	mkdir -p $(dir $@)
-	$(PYTHON) tools/mk_exfat_image.py $@ hello=$(USER_HELLO) cat=$(USER_CAT) more=$(USER_MORE) sh=$(USER_SH) ls=$(USER_LS) echo=$(USER_ECHO) write=$(USER_WRITE) wc=$(USER_WC) clear=$(USER_CLEAR) ps=$(USER_PS) kill=$(USER_KILL) which=$(USER_WHICH) env=$(USER_ENV) pwd=$(USER_PWD) true=$(USER_TRUE) false=$(USER_FALSE) sleep=$(USER_SLEEP) date=$(USER_DATE) touch=$(USER_TOUCH) mktemp=$(USER_MKTEMP) basename=$(USER_BASENAME) dirname=$(USER_DIRNAME) grep=$(USER_GREP) head=$(USER_HEAD) tail=$(USER_TAIL) tee=$(USER_TEE) uname=$(USER_UNAME) hostname=$(USER_HOSTNAME) uptime=$(USER_UPTIME) find=$(USER_FIND) du=$(USER_DU) df=$(USER_DF) sort=$(USER_SORT) uniq=$(USER_UNIQ) cut=$(USER_CUT) xargs=$(USER_XARGS) seq=$(USER_SEQ) realpath=$(USER_REALPATH) id=$(USER_ID) whoami=$(USER_WHOAMI) readlink=$(USER_READLINK) cmp=$(USER_CMP) yes=$(USER_YES) install=$(USER_INSTALL) diff=$(USER_DIFF) tar=$(USER_TAR) gzip=$(USER_GZIP) gunzip=$(USER_GZIP) minizip=$(USER_MINIZIP) miniunz=$(USER_MINIUNZ) patch=$(USER_PATCH) make=$(USER_MAKE) byacc=$(USER_BYACC) sed=$(USER_SED) expr=$(USER_EXPR) printf=$(USER_PRINTF) tr=$(USER_TR) dd=$(USER_DD) ed=$(USER_ED) ln=$(USER_POSIXUTILS) sync=$(USER_POSIXUTILS) test=$(USER_POSIXUTILS) '[=$(USER_POSIXUTILS)' cksum=$(USER_POSIXUTILS) sum=$(USER_POSIXUTILS) comm=$(USER_POSIXUTILS) paste=$(USER_POSIXUTILS) join=$(USER_POSIXUTILS) split=$(USER_POSIXUTILS) od=$(USER_POSIXUTILS) hexdump=$(USER_POSIXUTILS) strings=$(USER_POSIXUTILS) file=$(USER_POSIXUTILS) tty=$(USER_POSIXUTILS) stty=$(USER_POSIXUTILS) time=$(USER_POSIXUTILS) timeout=$(USER_POSIXUTILS) nohup=$(USER_POSIXUTILS) nice=$(USER_POSIXUTILS) stat=$(USER_STAT) chmod=$(USER_CHMOD) cp=$(USER_CP) rm=$(USER_RM) mkdir=$(USER_MKDIR) mv=$(USER_MV) tap=$(USER_TAP) svscan=$(USER_SVSCAN) webd=$(USER_WEBD) httpget=$(USER_HTTPGET) udpdns=$(USER_UDPDNS) udpecho=$(USER_UDPECHO) netstat=$(USER_NETSTAT) ifconfig=$(USER_IFCONFIG) route=$(USER_ROUTE) arp=$(USER_ARP) ping=$(USER_PING) host=$(USER_HOST) netcheck=$(USER_NETCHECK) netabi=$(USER_NETABI) tcpstress=$(USER_TCPSTRESS) tcpprobe=$(USER_TCPPROBE) sysabi=$(USER_SYSABI) spin=$(USER_SPIN) fpdemo=$(USER_FPDEMO) ui=$(USER_UI) desktop=$(USER_DESKTOP) displayd=$(USER_DISPLAYD) deskstudy=$(USER_DESKSTUDY) deskd=$(USER_DESKD) deskclient=$(USER_DESKCLIENT) deskio=$(USER_DESKIO) desktools=$(USER_DESKTOOLS) deskfs=$(USER_DESKFS) shotworker=$(USER_SHOTWORKER) desksketch=$(USER_DESKSKETCH) imageworker=$(USER_IMAGEWORKER) deskview=$(USER_DESKVIEW) deskhelp=$(USER_DESKHELP) deskfind=$(USER_DESKFIND) deskfind-worker=$(USER_FINDFSWORKER) desknet=$(USER_DESKNET) deskclock=$(USER_DESKCLOCK) clockprobe=$(USER_CLOCKPROBE) lifetimeprobe=$(USER_LIFETIMEPROBE) ptyprobe=$(USER_PTYPROBE) deskterm=$(USER_DESKTERM) gui=$(USER_GUI) surfacedemo=$(USER_SURFACEDEMO) gui2demo=$(USER_GUI2DEMO) guifail=$(USER_GUIFAIL) calc=$(USER_CALC) notes=$(USER_NOTES) textedit=$(USER_TEXTEDIT) paint=$(USER_PAINT) fileman=$(USER_FILEMAN) posixdemo=$(USER_POSIXDEMO) threadstress=$(USER_THREADSTRESS) execdemo=$(USER_EXECDEMO) fdprobe=$(USER_FDPROBE) lockprobe=$(USER_LOCKPROBE) ttydemo=$(USER_TTYDEMO) jsondemo=$(USER_JSONDEMO) inidemo=$(USER_INIDEMO) linedemo=$(USER_LINEDEMO) sqlitedemo=$(USER_SQLITEDEMO) sqlite3=$(USER_SQLITE3) zlibdemo=$(USER_ZLIBDEMO) lua=$(USER_LUA) awk=$(USER_AWK) uvdemo=$(USER_UVDEMO) libuvdemo=$(USER_LIBUVDEMO) nodeprobe=$(USER_NODEPROBE) libcprobe=$(USER_LIBCPROBE) tlsprobe=$(USER_TLSPROBE) cxxprobe=$(USER_CXXPROBE) cxxstlprobe=$(USER_CXXSTLPROBE) playwav=$(USER_PLAYWAV)
+	$(PYTHON) tools/mk_exfat_image.py $@ salvage=$(USER_SALVAGE) profile=$(USER_PROFILE) hello=$(USER_HELLO) cat=$(USER_CAT) more=$(USER_MORE) sh=$(USER_SH) ls=$(USER_LS) echo=$(USER_ECHO) write=$(USER_WRITE) wc=$(USER_WC) clear=$(USER_CLEAR) ps=$(USER_PS) kill=$(USER_KILL) which=$(USER_WHICH) env=$(USER_ENV) pwd=$(USER_PWD) true=$(USER_TRUE) false=$(USER_FALSE) sleep=$(USER_SLEEP) date=$(USER_DATE) touch=$(USER_TOUCH) mktemp=$(USER_MKTEMP) basename=$(USER_BASENAME) dirname=$(USER_DIRNAME) grep=$(USER_GREP) head=$(USER_HEAD) tail=$(USER_TAIL) tee=$(USER_TEE) uname=$(USER_UNAME) hostname=$(USER_HOSTNAME) uptime=$(USER_UPTIME) find=$(USER_FIND) du=$(USER_DU) df=$(USER_DF) sort=$(USER_SORT) uniq=$(USER_UNIQ) cut=$(USER_CUT) xargs=$(USER_XARGS) seq=$(USER_SEQ) realpath=$(USER_REALPATH) id=$(USER_ID) whoami=$(USER_WHOAMI) readlink=$(USER_READLINK) cmp=$(USER_CMP) yes=$(USER_YES) install=$(USER_INSTALL) diff=$(USER_DIFF) tar=$(USER_TAR) gzip=$(USER_GZIP) gunzip=$(USER_GZIP) minizip=$(USER_MINIZIP) miniunz=$(USER_MINIUNZ) patch=$(USER_PATCH) make=$(USER_MAKE) byacc=$(USER_BYACC) sed=$(USER_SED) expr=$(USER_EXPR) printf=$(USER_PRINTF) tr=$(USER_TR) dd=$(USER_DD) ed=$(USER_ED) ln=$(USER_POSIXUTILS) sync=$(USER_POSIXUTILS) test=$(USER_POSIXUTILS) '[=$(USER_POSIXUTILS)' cksum=$(USER_POSIXUTILS) sum=$(USER_POSIXUTILS) comm=$(USER_POSIXUTILS) paste=$(USER_POSIXUTILS) join=$(USER_POSIXUTILS) split=$(USER_POSIXUTILS) od=$(USER_POSIXUTILS) hexdump=$(USER_POSIXUTILS) strings=$(USER_POSIXUTILS) file=$(USER_POSIXUTILS) tty=$(USER_POSIXUTILS) stty=$(USER_POSIXUTILS) time=$(USER_POSIXUTILS) timeout=$(USER_POSIXUTILS) nohup=$(USER_POSIXUTILS) nice=$(USER_POSIXUTILS) stat=$(USER_STAT) chmod=$(USER_CHMOD) cp=$(USER_CP) rm=$(USER_RM) mkdir=$(USER_MKDIR) mv=$(USER_MV) tap=$(USER_TAP) svscan=$(USER_SVSCAN) webd=$(USER_WEBD) httpget=$(USER_HTTPGET) udpdns=$(USER_UDPDNS) udpecho=$(USER_UDPECHO) netstat=$(USER_NETSTAT) ifconfig=$(USER_IFCONFIG) route=$(USER_ROUTE) arp=$(USER_ARP) ping=$(USER_PING) host=$(USER_HOST) netcheck=$(USER_NETCHECK) netabi=$(USER_NETABI) tcpstress=$(USER_TCPSTRESS) tcpprobe=$(USER_TCPPROBE) sysabi=$(USER_SYSABI) spin=$(USER_SPIN) fpdemo=$(USER_FPDEMO) ui=$(USER_UI) desktop=$(USER_DESKTOP) displayd=$(USER_DISPLAYD) deskstudy=$(USER_DESKSTUDY) deskd=$(USER_DESKD) deskclient=$(USER_DESKCLIENT) deskio=$(USER_DESKIO) desktools=$(USER_DESKTOOLS) deskfs=$(USER_DESKFS) shotworker=$(USER_SHOTWORKER) desksketch=$(USER_DESKSKETCH) imageworker=$(USER_IMAGEWORKER) deskview=$(USER_DESKVIEW) deskhelp=$(USER_DESKHELP) deskfind=$(USER_DESKFIND) deskfind-worker=$(USER_FINDFSWORKER) desknet=$(USER_DESKNET) deskclock=$(USER_DESKCLOCK) clockprobe=$(USER_CLOCKPROBE) lifetimeprobe=$(USER_LIFETIMEPROBE) ptyprobe=$(USER_PTYPROBE) deskterm=$(USER_DESKTERM) gui=$(USER_GUI) surfacedemo=$(USER_SURFACEDEMO) gui2demo=$(USER_GUI2DEMO) guifail=$(USER_GUIFAIL) calc=$(USER_CALC) notes=$(USER_NOTES) textedit=$(USER_TEXTEDIT) paint=$(USER_PAINT) fileman=$(USER_FILEMAN) posixdemo=$(USER_POSIXDEMO) threadstress=$(USER_THREADSTRESS) execdemo=$(USER_EXECDEMO) fdprobe=$(USER_FDPROBE) lockprobe=$(USER_LOCKPROBE) ttydemo=$(USER_TTYDEMO) jsondemo=$(USER_JSONDEMO) inidemo=$(USER_INIDEMO) linedemo=$(USER_LINEDEMO) sqlitedemo=$(USER_SQLITEDEMO) sqlite3=$(USER_SQLITE3) zlibdemo=$(USER_ZLIBDEMO) lua=$(USER_LUA) awk=$(USER_AWK) uvdemo=$(USER_UVDEMO) libuvdemo=$(USER_LIBUVDEMO) nodeprobe=$(USER_NODEPROBE) libcprobe=$(USER_LIBCPROBE) tlsprobe=$(USER_TLSPROBE) cxxprobe=$(USER_CXXPROBE) cxxstlprobe=$(USER_CXXSTLPROBE) playwav=$(USER_PLAYWAV)
 
 $(SECOND_EXFAT_IMAGE): $(EXFAT_IMAGE)
 	cp $(EXFAT_IMAGE) $(SECOND_EXFAT_IMAGE)
@@ -2016,6 +2027,13 @@ build/tests/clock-host$(HOST_EXE): tools/test_clock.c kernel/src/arch/x86_64/clo
 test-storage: build/tests/block-host$(HOST_EXE) build/tests/ahci-host$(HOST_EXE)
 	build/tests/block-host$(HOST_EXE)
 	build/tests/ahci-host$(HOST_EXE)
+
+.PHONY: test-installed-root
+test-installed-root: build/tests/exfat-driver$(HOST_EXE)
+	CC='$(HOST_CC)' $(PYTHON) tools/test_installed_root.py
+	$(PYTHON) -m unittest discover -s tools -p 'test_install*.py'
+	$(PYTHON) tools/test_installed_root_exfat.py --driver build/tests/exfat-driver$(HOST_EXE) --output build/review/installed-root-host
+test-core: test-installed-root
 build/tests/block-host$(HOST_EXE): tools/test_block.c kernel/src/block.c kernel/src/block_claim.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
@@ -2127,6 +2145,40 @@ build/tests/pmm-host$(HOST_EXE): tools/test_pmm.c kernel/src/memory/pmm.c $(KERN
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
 test-core: test-pmm
+
+.PHONY: test-initramfs test-vmm-user-range
+test-initramfs: build/tests/initramfs-host$(HOST_EXE)
+	$<
+build/tests/initramfs-host$(HOST_EXE): tools/test_initramfs.c kernel/src/initramfs.c $(KERNEL_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/initramfs.c -o $@
+test-vmm-user-range: build/tests/vmm-user-range-host$(HOST_EXE)
+	$<
+build/tests/vmm-user-range-host$(HOST_EXE): tools/test_vmm_user_range.c kernel/src/memory/vmm.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+test-core: test-initramfs test-vmm-user-range
+
+.PHONY: test-user-fault test-process-fault
+test-user-fault: build/tests/user-fault-host$(HOST_EXE)
+	$<
+build/tests/user-fault-host$(HOST_EXE): tools/test_user_fault.c kernel/src/arch/x86_64/idt.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+test-process-fault: build/tests/process-fault-host$(HOST_EXE)
+	$<
+build/tests/process-fault-host$(HOST_EXE): tools/test_process_fault.c kernel/src/process.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+test-core: test-user-fault test-process-fault
+
+.PHONY: test-syscall-user-copy
+test-syscall-user-copy: build/tests/syscall-user-copy-host$(HOST_EXE)
+	$<
+build/tests/syscall-user-copy-host$(HOST_EXE): tools/test_syscall_user_copy.c kernel/src/arch/x86_64/syscall.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+test-core: test-syscall-user-copy
 interrupt-smoke: $(IMAGE) $(EXFAT_IMAGE) test-core
 	$(PYTHON) tools/interrupt_smoke.py --qemu $(QEMU) --boot-wait $(SMOKE_BOOT_WAIT)
 
@@ -2159,6 +2211,13 @@ test-core: test-linux-inventory
 .PHONY: check-docs
 check-docs:
 	$(PYTHON) tools/check_docs.py
+
+.PHONY: test-portable-profiles
+test-portable-profiles:
+	@mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include tools/test_profile_paths.c -o build/tests/profile-paths-host$(HOST_EXE)
+	build/tests/profile-paths-host$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_profile_bundle.py -v
 
 .PHONY: test-exfat-entries
 test-exfat-entries: build/tests/exfat-entries-host$(HOST_EXE)
@@ -2242,9 +2301,9 @@ test-core: test-workspace-io
 .PHONY: test-process-output
 test-process-output: build/tests/process-output-host$(HOST_EXE)
 	$<
-build/tests/process-output-host$(HOST_EXE): tools/test_process_output.c kernel/src/process.c kernel/src/pty.c kernel/src/pty_model.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+build/tests/process-output-host$(HOST_EXE): tools/test_process_output.c kernel/src/process.c kernel/src/vfs_namespace.c kernel/src/pty.c kernel/src/pty_model.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	mkdir -p build/tests
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include -DSRVROS_PTY_HOST_TEST $< kernel/src/pty.c kernel/src/pty_model.c -Wl,--gc-sections -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include -DSRVROS_PTY_HOST_TEST $< kernel/src/vfs_namespace.c kernel/src/pty.c kernel/src/pty_model.c -Wl,--gc-sections -o $@
 test-core: test-process-output
 
 .PHONY: workspace-latency-smoke
@@ -2275,7 +2334,7 @@ test-desktop: build/tests/desktop-host$(HOST_EXE) build/tests/gui-host$(HOST_EXE
 	build/tests/file-pool-host$(HOST_EXE)
 	build/tests/clipboard-host$(HOST_EXE)
 	build/tests/tool-clipboard-host$(HOST_EXE)
-build/tests/desktop-host$(HOST_EXE): tools/test_desktop.c userspace/deskstudy/scene.c userspace/deskstudy/scene.h userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c userspace/widgets/include/srvros/desk_render.h
+build/tests/desktop-host$(HOST_EXE): tools/test_desktop.c userspace/deskstudy/scene.c userspace/deskstudy/scene.h userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c userspace/widgets/include/srvros/desk_render.h userspace/widgets/render/desk_font_2x.inc
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include tools/test_desktop.c userspace/deskstudy/scene.c userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c -o $@
 build/tests/gui-host$(HOST_EXE): tools/test_gui.c kernel/src/gui.c $(KERNEL_HEADERS)
@@ -2287,7 +2346,7 @@ build/tests/apple-trackpad-host$(HOST_EXE): tools/test_apple_trackpad.c kernel/s
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_apple_trackpad.c kernel/src/drivers/apple_trackpad.c -o $@
 
 DESKD_NOTICE_SRC := userspace/deskd/notifications.c userspace/deskd/notification_view.c
-DESKD_OBJ := build/userspace/deskd/notifications.c.o build/userspace/deskd/notification_view.c.o build/userspace/deskd/preferences.c.o build/userspace/deskd/menus.c.o build/userspace/deskd/clipboard.c.o build/userspace/deskd/deskd.c.o build/userspace/deskd/scene.c.o build/userspace/deskd/io_trial.c.o
+DESKD_OBJ := build/userspace/deskd/profile_catalog.c.o build/userspace/deskd/profile_chooser.c.o build/userspace/deskd/notifications.c.o build/userspace/deskd/notification_view.c.o build/userspace/deskd/preferences.c.o build/userspace/deskd/menus.c.o build/userspace/deskd/clipboard.c.o build/userspace/deskd/deskd.c.o build/userspace/deskd/scene.c.o build/userspace/deskd/io_trial.c.o
 DESKCLIENT_OBJ := build/userspace/deskclient/deskclient.c.o
 DESK_WIDGETS_INCLUDE := userspace/widgets/include
 DESK_WIDGETS_SRC := $(wildcard userspace/widgets/src/*.c)
@@ -2319,11 +2378,11 @@ $(USER_DESKCLIENT): $(ZIG) $(USER_CRT0_OBJ) $(DESKCLIENT_OBJ) $(DESK_WIDGETS_A) 
 -include $(DESKD_OBJ:.o=.d) $(DESKCLIENT_OBJ:.o=.d)
 
 test-desktop: build/tests/desktop-scene-host$(HOST_EXE) build/tests/desktop-overdraw-host$(HOST_EXE)
-build/tests/desktop-overdraw-host$(HOST_EXE): tools/test_desktop_overdraw.c shared/include/srvros/desktop_protocol.h userspace/deskd/scene.c $(DESKD_NOTICE_SRC) userspace/deskd/scene.h userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/deskd/menus.c
+build/tests/desktop-overdraw-host$(HOST_EXE): tools/test_desktop_overdraw.c shared/include/srvros/desktop_protocol.h userspace/deskd/scene.c $(DESKD_NOTICE_SRC) userspace/deskd/scene.h userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/deskd/menus.c userspace/widgets/render/desk_font_2x.inc
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I $(DESK_WIDGETS_INCLUDE) -idirafter userspace/lib/include tools/test_desktop_overdraw.c userspace/deskd/scene.c $(DESKD_NOTICE_SRC) userspace/deskd/menus.c $(HOST_DESK_WIDGETS_A) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c -o $@
 
-build/tests/desktop-scene-host$(HOST_EXE): tools/test_desktop_scene.c shared/include/srvros/desktop_protocol.h userspace/deskd/scene.c $(DESKD_NOTICE_SRC) userspace/deskd/scene.h userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/deskd/menus.c
+build/tests/desktop-scene-host$(HOST_EXE): tools/test_desktop_scene.c shared/include/srvros/desktop_protocol.h userspace/deskd/scene.c $(DESKD_NOTICE_SRC) userspace/deskd/scene.h userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/deskd/menus.c userspace/widgets/render/desk_font_2x.inc
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I $(DESK_WIDGETS_INCLUDE) -idirafter userspace/lib/include tools/test_desktop_scene.c userspace/deskd/scene.c $(DESKD_NOTICE_SRC) userspace/deskd/menus.c $(HOST_DESK_WIDGETS_A) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c -o $@
 
@@ -2372,7 +2431,7 @@ build/tests/syscall-mouse-host$(HOST_EXE): tools/test_syscall_mouse.c kernel/src
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
 
 test-desktop: build/tests/deskclient-host$(HOST_EXE)
-build/tests/deskclient-host$(HOST_EXE): tools/test_deskclient.c userspace/deskclient/deskclient.c userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c shared/include/srvros/desktop_protocol.h userspace/lib/include/srvros/desk_log.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS)
+build/tests/deskclient-host$(HOST_EXE): tools/test_deskclient.c userspace/deskclient/deskclient.c userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c shared/include/srvros/desktop_protocol.h userspace/lib/include/srvros/desk_log.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/widgets/render/desk_font_2x.inc
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include -I $(DESK_WIDGETS_INCLUDE) $< $(HOST_DESK_WIDGETS_A) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c -Wl,--gc-sections -o $@
 
@@ -2383,10 +2442,10 @@ test-widgets: build/tests/widgets-host$(HOST_EXE) build/tests/widget-text-host$(
 	build/tests/widget-text-host$(HOST_EXE)
 	build/tests/widget-edit-host$(HOST_EXE)
 	build/tests/widget-ui-host$(HOST_EXE)
-build/tests/widgets-host$(HOST_EXE): tools/test_widgets.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c userspace/widgets/include/srvros/desk_render.h
+build/tests/widgets-host$(HOST_EXE): tools/test_widgets.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c userspace/widgets/include/srvros/desk_render.h userspace/widgets/render/desk_font_2x.inc
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I $(DESK_WIDGETS_INCLUDE) tools/test_widgets.c $(HOST_DESK_WIDGETS_A) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c -o $@
-build/tests/widget-%-host$(HOST_EXE): tools/test_widget_%.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c userspace/widgets/include/srvros/desk_render.h
+build/tests/widget-%-host$(HOST_EXE): tools/test_widget_%.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c userspace/widgets/include/srvros/desk_render.h userspace/widgets/render/desk_font_2x.inc
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I $(DESK_WIDGETS_INCLUDE) $< $(HOST_DESK_WIDGETS_A) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c -o $@
 
@@ -2435,7 +2494,7 @@ $(USER_DESKFS): $(ZIG) $(USER_CRT0_OBJ) $(DESKFS_OBJ) $(USER_LIB_OBJ) userspace/
 -include $(DESKTOOLS_OBJ:.o=.d) $(DESKFS_OBJ:.o=.d)
 
 test-desktop: build/tests/desk-app-host$(HOST_EXE) build/tests/calculator-host$(HOST_EXE)
-build/tests/desk-app-host$(HOST_EXE): userspace/lib/include/srvros/desk_application.h userspace/lib/include/srvros/desk_connection.h userspace/lib/include/srvros/desk_app.h shared/include/srvros/desktop_protocol.h tools/test_desk_app.c userspace/lib/src/desk_app.c userspace/lib/src/desk_preferences.c userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c
+build/tests/desk-app-host$(HOST_EXE): userspace/lib/include/srvros/desk_application.h userspace/lib/include/srvros/desk_connection.h userspace/lib/include/srvros/desk_app.h shared/include/srvros/desktop_protocol.h tools/test_desk_app.c userspace/lib/src/desk_app.c userspace/lib/src/desk_preferences.c userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c userspace/widgets/render/desk_font_2x.inc
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include $(filter %.c,$^) -o $@
 build/tests/calculator-host$(HOST_EXE): tools/test_calculator.c userspace/apps/desktools/calculator.c userspace/lib/include/srvros/desk_theme_preferences.h
@@ -2522,7 +2581,7 @@ build/tests/terminal-host$(HOST_EXE): tools/test_terminal.c userspace/widgets/sr
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I userspace/widgets/include tools/test_terminal.c userspace/widgets/src/terminal.c -o $@
 
 test-terminal: build/tests/terminal-view-host$(HOST_EXE)
-build/tests/terminal-view-host$(HOST_EXE): tools/test_terminal_view.c userspace/widgets/src/terminal_view.c userspace/widgets/src/terminal.c userspace/widgets/src/widgets.c userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c $(DESK_WIDGETS_HEADERS)
+build/tests/terminal-view-host$(HOST_EXE): tools/test_terminal_view.c userspace/widgets/src/terminal_view.c userspace/widgets/src/terminal.c userspace/widgets/src/widgets.c userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c $(DESK_WIDGETS_HEADERS) userspace/widgets/render/desk_font_2x.inc
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I userspace/widgets/include -idirafter userspace/lib/include -I shared/include tools/test_terminal_view.c userspace/widgets/src/terminal_view.c userspace/widgets/src/terminal.c userspace/widgets/src/widgets.c userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c -o $@
 
@@ -2561,7 +2620,7 @@ test-widgets: test-menu
 test-menu: build/tests/menu-host$(HOST_EXE)
 	build/tests/menu-host$(HOST_EXE)
 	build/tests/menu-transport-host$(HOST_EXE)
-build/tests/menu-host$(HOST_EXE): tools/test_menu.c userspace/widgets/src/desk_menu.c userspace/widgets/src/widgets.c userspace/widgets/src/text.c userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c $(DESK_WIDGETS_HEADERS) shared/include/srvros/desktop_menu.h
+build/tests/menu-host$(HOST_EXE): tools/test_menu.c userspace/widgets/src/desk_menu.c userspace/widgets/src/widgets.c userspace/widgets/src/text.c userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c $(DESK_WIDGETS_HEADERS) shared/include/srvros/desktop_menu.h userspace/widgets/render/desk_font_2x.inc
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I userspace/widgets/include -idirafter userspace/lib/include -I shared/include tools/test_menu.c userspace/widgets/src/desk_menu.c userspace/widgets/src/widgets.c userspace/widgets/src/text.c userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c -o $@
 
@@ -2574,7 +2633,7 @@ build/tests/menu-transport-host$(HOST_EXE): tools/test_menu_transport.c userspac
 test-widgets: test-dialog
 test-dialog: build/tests/dialog-host$(HOST_EXE)
 	$<
-build/tests/dialog-host$(HOST_EXE): tools/test_dialog.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c
+build/tests/dialog-host$(HOST_EXE): tools/test_dialog.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c userspace/widgets/render/desk_font_2x.inc
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I userspace/widgets/include -idirafter userspace/lib/include -I shared/include tools/test_dialog.c $(HOST_DESK_WIDGETS_A) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c -o $@
 
@@ -2583,7 +2642,7 @@ test-widgets: test-file-picker
 test-file-picker: build/tests/file-picker-host$(HOST_EXE)
 	build/tests/file-picker-host$(HOST_EXE)
 	build/tests/tool-picker-host$(HOST_EXE)
-build/tests/file-picker-host$(HOST_EXE): tools/test_file_picker.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c
+build/tests/file-picker-host$(HOST_EXE): tools/test_file_picker.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c userspace/widgets/render/desk_font_2x.inc
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I userspace/widgets/include -idirafter userspace/lib/include -I shared/include tools/test_file_picker.c $(HOST_DESK_WIDGETS_A) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c -o $@
 
@@ -2608,7 +2667,7 @@ $(USER_CLOCKPROBE): $(ZIG) $(USER_CRT0_OBJ) $(CLOCKPROBE_OBJ) $(USER_LIB_OBJ) us
 .PHONY: test-check
 test-check: build/tests/check-host$(HOST_EXE)
 	$<
-build/tests/check-host$(HOST_EXE): tools/test_check.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c
+build/tests/check-host$(HOST_EXE): tools/test_check.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c userspace/widgets/render/desk_font_2x.inc
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I userspace/widgets/include tools/test_check.c $(HOST_DESK_WIDGETS_A) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c -o $@
 test-widgets: test-check
@@ -2616,7 +2675,7 @@ test-widgets: test-check
 .PHONY: test-preferences
 test-preferences: build/tests/preferences-host$(HOST_EXE)
 	$<
-build/tests/preferences-host$(HOST_EXE): tools/test_preferences.c userspace/deskd/preferences.c userspace/deskd/preferences.h userspace/lib/src/desk_preferences.c userspace/lib/include/srvros/desk_preferences.h shared/include/srvros/desktop_preferences.h
+build/tests/preferences-host$(HOST_EXE): userspace/lib/include/srvros/profile_preferences.h tools/test_preferences.c userspace/deskd/preferences.c userspace/deskd/preferences.h userspace/lib/src/desk_preferences.c userspace/lib/include/srvros/desk_preferences.h shared/include/srvros/desktop_preferences.h
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include tools/test_preferences.c userspace/deskd/preferences.c userspace/lib/src/desk_preferences.c -o $@
 test-desktop: test-preferences
@@ -2644,7 +2703,7 @@ test-core: test-vfs-time
 .PHONY: test-table
 test-table: build/tests/table-host$(HOST_EXE)
 	$<
-build/tests/table-host$(HOST_EXE): tools/test_table.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c
+build/tests/table-host$(HOST_EXE): tools/test_table.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c userspace/widgets/render/desk_font_2x.inc
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I userspace/widgets/include tools/test_table.c $(HOST_DESK_WIDGETS_A) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c -o $@
 test-widgets: test-table
@@ -2660,7 +2719,7 @@ test-desktop: test-system
 .PHONY: test-prompt
 test-prompt: build/tests/prompt-host$(HOST_EXE)
 	$<
-build/tests/prompt-host$(HOST_EXE): tools/test_prompt.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c
+build/tests/prompt-host$(HOST_EXE): tools/test_prompt.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c userspace/widgets/render/desk_font_2x.inc
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I userspace/widgets/include tools/test_prompt.c $(HOST_DESK_WIDGETS_A) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c -o $@
 test-widgets: test-prompt
@@ -2692,7 +2751,7 @@ test-core: test-strftime
 .PHONY: test-palette
 test-palette: build/tests/palette-host$(HOST_EXE)
 	$<
-build/tests/palette-host$(HOST_EXE): tools/test_palette.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c
+build/tests/palette-host$(HOST_EXE): tools/test_palette.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c userspace/widgets/render/desk_font_2x.inc
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I userspace/widgets/include tools/test_palette.c $(HOST_DESK_WIDGETS_A) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c -o $@
 test-widgets: test-palette
@@ -2737,7 +2796,7 @@ build/tests/text-history-host$(HOST_EXE): tools/test_text_history.c userspace/wi
 test-widgets: test-tabs
 test-tabs: build/tests/tabs-host$(HOST_EXE)
 	$<
-build/tests/tabs-host$(HOST_EXE): tools/test_tabs.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c
+build/tests/tabs-host$(HOST_EXE): tools/test_tabs.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c userspace/widgets/render/desk_font_2x.inc
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I $(DESK_WIDGETS_INCLUDE) tools/test_tabs.c $(HOST_DESK_WIDGETS_A) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c -o $@
 
@@ -2761,7 +2820,7 @@ build/tests/calculator-app-host$(HOST_EXE): tools/test_calculator_app.c userspac
 test-widgets: test-image-view
 test-image-view: build/tests/image-view-host$(HOST_EXE)
 	$<
-build/tests/image-view-host$(HOST_EXE): tools/test_image_view.c tools/image_view_reference.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c
+build/tests/image-view-host$(HOST_EXE): tools/test_image_view.c tools/image_view_reference.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c userspace/widgets/render/desk_font_2x.inc
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I $(DESK_WIDGETS_INCLUDE) tools/test_image_view.c $(HOST_DESK_WIDGETS_A) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c -o $@
 
@@ -3103,7 +3162,16 @@ build/tests/laptop-resources-host$(HOST_EXE): tools/test_laptop_resources.c kern
 .PHONY: test-desktop-host-tools
 test-core: test-desktop-host-tools
 test-desktop-host-tools:
+	$(PYTHON) tools/test_optimized_records.py
+	$(PYTHON) tools/test_libc_symbol_audit.py
+	$(PYTHON) tools/test_mk_usb_image.py
 	$(PYTHON) tools/test_desktop_wait_records.py
+	$(PYTHON) tools/test_app_timing.py
+	$(PYTHON) tools/test_desktop_combined_workload.py
+	$(PYTHON) tools/test_desktop_io_result.py
+	$(PYTHON) tools/test_desktop_session_workload.py
+	$(PYTHON) tools/test_hardware_cpu_load.py
+	CC="$(HOST_CC)" $(PYTHON) tools/test_cpu_load_capture.py
 	$(PYTHON) tools/test_hardware_boot.py
 	$(PYTHON) tools/test_device_checks.py
 	$(PYTHON) tools/test_hardware_desktop.py
@@ -3152,6 +3220,30 @@ build/tools/acpi-namespace$(HOST_EXE): tools/acpi_namespace_probe.c kernel/src/d
 test-acpi-namespace: acpi-namespace
 	$(PYTHON) tools/test_acpi_namespace.py
 
+.PHONY: test-uacpi-namespace-root
+test-core: test-uacpi-namespace-root
+test-uacpi-namespace-root: build/tests/uacpi-namespace-root-host$(HOST_EXE)
+	$<
+build/tests/uacpi-namespace-root-host$(HOST_EXE): tools/test_uacpi_namespace_root.c $(UACPI_SRC) $(UACPI_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I ports/upstream/uacpi/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-uacpi-table-install
+test-core: test-uacpi-table-install
+test-uacpi-table-install: build/tests/uacpi-table-install-host$(HOST_EXE)
+	$<
+build/tests/uacpi-table-install-host$(HOST_EXE): tools/test_uacpi_table_install.c $(UACPI_SRC) $(UACPI_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I ports/upstream/uacpi/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-uacpi-gas
+test-core: test-uacpi-gas
+test-uacpi-gas: build/tests/uacpi-gas-host$(HOST_EXE)
+	$<
+build/tests/uacpi-gas-host$(HOST_EXE): tools/test_uacpi_gas.c $(UACPI_SRC) $(UACPI_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -DUACPI_FORMATTED_LOGGING -I ports/upstream/uacpi/include $< ports/upstream/uacpi/source/stdlib.c -Wl,--gc-sections -o $@
+
 .PHONY: test-make-bootstrap
 test-make-bootstrap:
 	$(PYTHON) -m unittest discover -s tools -p test_make_bootstrap.py
@@ -3197,9 +3289,9 @@ build/tests/thermal-host$(HOST_EXE): tools/test_thermal.c kernel/src/drivers/the
 test-core: test-process-loader
 test-process-loader: build/tests/process-loader-host$(HOST_EXE)
 	$<
-build/tests/process-loader-host$(HOST_EXE): tools/test_process_loader.c kernel/src/process.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+build/tests/process-loader-host$(HOST_EXE): tools/test_process_loader.c kernel/src/process.c kernel/src/vfs_namespace.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/vfs_namespace.c -Wl,--gc-sections -o $@
 
 .PHONY: test-aml-boundary
 test-core: test-aml-boundary
@@ -3453,6 +3545,7 @@ build/tests/battery-cache$(HOST_EXE): tools/test_battery_cache.c kernel/src/driv
 
 .PHONY: test-exfat-scratch
 test-exfat-scratch: build/tests/exfat-driver$(HOST_EXE)
+	$(PYTHON) tools/test_exfat_bitmap.py
 	$(PYTHON) tools/test_exfat_allocation_check.py
 	$(PYTHON) tools/exfat_scratch_test.py
 test-core: test-exfat-scratch
@@ -3725,9 +3818,9 @@ build/tests/audio-io-receipt$(HOST_EXE): tools/test_audio_io_receipt.c userspace
 .PHONY: test-process-service
 test-process-service: build/tests/process-service-host$(HOST_EXE)
 	$<
-build/tests/process-service-host$(HOST_EXE): tools/test_process_service.c kernel/src/process.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+build/tests/process-service-host$(HOST_EXE): tools/test_process_service.c kernel/src/process.c kernel/src/vfs_namespace.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	mkdir -p build/tests
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include $< -Wl,--gc-sections -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include $< kernel/src/vfs_namespace.c -Wl,--gc-sections -o $@
 test-core: test-process-service
 
 .PHONY: test-graphics-service
@@ -3854,9 +3947,9 @@ build/tests/desktop-power$(HOST_EXE): tools/test_desktop_power.c userspace/deskd
 test-core: test-lifecycle-wait
 test-lifecycle-wait: build/tests/lifecycle-wait$(HOST_EXE)
 	$<
-build/tests/lifecycle-wait$(HOST_EXE): tools/test_lifecycle_wait.c userspace/deskd/lifecycle_worker.h
+build/tests/lifecycle-wait$(HOST_EXE): tools/test_lifecycle_wait.c userspace/deskd/lifecycle_worker.h userspace/lib/include/srvros/profile_session.h userspace/lib/include/srvros/profile_paths.h
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -pthread $< -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -pthread -idirafter userspace/lib/include -I shared/include $< -o $@
 
 .PHONY: test-process-event
 test-core: test-process-event
@@ -3869,7 +3962,7 @@ build/tests/process-event-host$(HOST_EXE): tools/test_process_event.c kernel/src
 
 # MP request exists only in this explicit diagnostic ELF. Ordinary objects and
 # boot requests are never overwritten. AP code has no C runtime dependencies.
-AP_PROBE_OBJ := build/ap-probe/power.o build/ap-probe/platform.o build/ap-probe/package.o build/ap-probe/scheduler.o build/ap-probe/main.o build/ap-probe/requests.o build/ap-probe/probe.o build/ap-probe/entry.o
+AP_PROBE_OBJ := build/ap-probe/haswell-backing.o build/ap-probe/power.o build/ap-probe/platform.o build/ap-probe/package.o build/ap-probe/scheduler.o build/ap-probe/main.o build/ap-probe/requests.o build/ap-probe/probe.o build/ap-probe/entry.o
 AP_PROBE_BASE := $(filter-out build/kernel/src/main.c.o build/kernel/src/limine_requests.c.o build/kernel/src/scheduler.c.o build/kernel/src/drivers/power.c.o,$(KERNEL_OBJ))
 .PHONY: ap-probe-kernel
 ap-probe-kernel: build/ap-probe/srvros.elf
@@ -3931,13 +4024,17 @@ build/tests/package-audit$(HOST_EXE): tools/test_package_audit.c kernel/diagnost
 	$(HOST_CC) -std=c11 -Wall -Wextra -Werror -I kernel/include tools/test_package_audit.c kernel/diagnostics/package_audit_core.c -o $@
 test-core: test-package-audit
 
-build/ap-probe/platform.o: kernel/diagnostics/platform_audit.c kernel/diagnostics/platform_backing.inc kernel/diagnostics/platform_owner.inc kernel/diagnostics/display_owner_core.c kernel/diagnostics/platform_hda.inc $(ZIG) $(KERNEL_HEADERS)
+build/ap-probe/haswell-backing.o: kernel/diagnostics/haswell_backing_core.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+build/ap-probe/platform.o: kernel/diagnostics/platform_audit.c kernel/diagnostics/haswell_backing_adapter.inc kernel/diagnostics/platform_backing.inc kernel/diagnostics/platform_owner.inc kernel/diagnostics/display_owner_core.c kernel/diagnostics/platform_hda.inc $(ZIG) $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 .PHONY: test-net-query test-posix-udp-owner
 test-net-query: build/tests/net-query-host$(HOST_EXE)
-	@for mode in arp-overlap arp-timeout arp-cache arp-exit arp-opcode dns-overlap dns-arp-overlap dns-completed-overlap dns-source dns-id dns-exit dns-failure-retry dns-timeout; do $< $$mode || exit $$?; done
+	@for mode in arp-overlap arp-timeout arp-cache arp-exit arp-opcode dns-overlap dns-arp-overlap dns-completed-overlap dns-source dns-id dns-exit dns-failure-retry dns-timeout dns-last-poll dns-deadline-wake; do $< $$mode || exit $$?; done
 build/tests/net-query-host$(HOST_EXE): tools/test_net_query.c kernel/src/net.c $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
@@ -3946,7 +4043,25 @@ test-posix-udp-owner: build/tests/posix-udp-owner-host$(HOST_EXE)
 build/tests/posix-udp-owner-host$(HOST_EXE): tools/test_posix_udp_owner.c userspace/lib/src/posix_socket.c userspace/lib/include/sys/socket.h shared/include/srvros/syscall_numbers.h shared/include/srvros/dns_wire.h userspace/lib/include/netdb.h tools/posix_socket_host_names.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include $< -Wl,--gc-sections -o $@
-test-core: test-net-query test-posix-udp-owner
+test-core: test-net-query test-posix-udp-owner test-socket-aliases
+
+.PHONY: test-socket-aliases
+test-socket-aliases: build/tests/socket-aliases-host$(HOST_EXE)
+	$<
+build/tests/socket-aliases-host$(HOST_EXE): tools/test_socket_aliases.c tools/test_posix_udp_owner.c tools/posix_socket_host_names.h userspace/lib/src/posix_socket.c $(USER_SYSROOT_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -idirafter userspace/lib/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-fd-io-restart
+test-core: test-fd-io-restart
+test-fd-io-restart: build/tests/fd-io-restart-host$(HOST_EXE)
+	$<
+build/tests/fd-io-restart-file.o: userspace/lib/src/posix_file.c tools/posix_file_host_names.h $(USER_SYSROOT_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffreestanding -ffunction-sections -fdata-sections -I shared/include -I userspace/lib/include -include tools/posix_file_host_names.h -c $< -o $@
+build/tests/fd-io-restart-host$(HOST_EXE): tools/test_fd_io_restart.c build/tests/fd-io-restart-file.o $(USER_SYSROOT_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -idirafter userspace/lib/include $< build/tests/fd-io-restart-file.o -Wl,--gc-sections -o $@
 
 .PHONY: test-dns-response test-socket-calls test-socket-try-io
 DNS_RESPONSE_MODES := valid case question qtype qclass qr opcode tc rcode self-pointer forward-pointer bad-pointer unrelated trailing-answer trailing-additional bounds cname interior-pointer header-pointer cname-cycle cname-length cname-conflict unrelated-first
@@ -3958,8 +4073,13 @@ build/tests/dns-kernel-host$(HOST_EXE): tools/test_dns_response.c kernel/src/net
 build/tests/dns-libc-host$(HOST_EXE): tools/test_dns_response.c userspace/lib/src/posix_socket.c shared/include/srvros/dns_wire.h shared/include/srvros/syscall_numbers.h userspace/lib/include/netdb.h tools/posix_socket_host_names.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -DTEST_DNS_LIBC -ffunction-sections -fdata-sections -I shared/include -idirafter userspace/lib/include $< -Wl,--gc-sections -o $@
+PIPE_MESSAGE_MODES := send-raw send-pseudo recv-raw recv-pseudo recv-discard recv-overlap \
+	send-interrupt send-interrupt-reuse recv-interrupt recv-interrupt-reuse \
+	send-large send-short send-error recv-error send-empty send-empty-discard \
+	recv-empty send-right-pseudo send-nosignal send-interrupt-right-reuse \
+	send-pseudo-interrupt-backing-reuse
 test-socket-calls: build/tests/socket-calls-host$(HOST_EXE)
-	@for mode in unix-copy rights-const connect-reuse connect-restart connect-control accept-reuse accept-restart accept-control flags-recv flags-send flags-peek flags-udp-recv flags-udp-send raw-retry raw-full dns-retry dns-truncate dns-source dns-busy; do $< $$mode || exit $$?; done
+	@for mode in unix-copy rights-const connect-reuse connect-restart connect-control accept-reuse accept-restart accept-control flags-recv flags-send flags-peek flags-udp-recv flags-udp-send raw-retry raw-full dns-retry dns-truncate dns-source dns-flood dns-source-flood dns-near-deadline dns-error dns-interrupt dns-recv-error dns-recv-intr dns-recv-again dns-readable-error dns-pollerr dns-busy stream-error-send stream-error-recv stream-error-send-callback stream-error-recv-callback $(addprefix pipe-message-,$(PIPE_MESSAGE_MODES)); do $< $$mode || exit $$?; done
 build/tests/socket-calls-host$(HOST_EXE): tools/test_socket_calls.c userspace/lib/src/posix_socket.c shared/include/srvros/dns_wire.h shared/include/srvros/syscall_numbers.h userspace/lib/include/netdb.h tools/posix_socket_host_names.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -idirafter userspace/lib/include $< -Wl,--gc-sections -o $@
@@ -3968,7 +4088,29 @@ test-socket-try-io: build/tests/socket-try-io-host$(HOST_EXE)
 build/tests/socket-try-io-host$(HOST_EXE): tools/test_socket_try_io.c kernel/src/arch/x86_64/syscall.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
-test-core: test-dns-response test-socket-calls test-socket-try-io
+test-net-transfer: build/tests/net-transfer-host$(HOST_EXE)
+	$<
+build/tests/net-transfer-host$(HOST_EXE): tools/test_net_transfer.c kernel/src/net.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+.PHONY: test-net-transfer
+test-core: test-dns-response test-socket-calls test-socket-try-io test-net-transfer
+
+.PHONY: test-pipe-message
+test-core: test-pipe-message
+test-pipe-message: build/tests/pipe-message-host$(HOST_EXE)
+	$<
+build/tests/pipe-message-host$(HOST_EXE): tools/test_pipe_message_syscall.c kernel/src/arch/x86_64/syscall.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-pipe-user-mapping
+test-core: test-pipe-user-mapping
+test-pipe-user-mapping: build/tests/pipe-user-mapping-host$(HOST_EXE)
+	$<
+build/tests/pipe-user-mapping-host$(HOST_EXE): tools/test_pipe_user_mapping.c kernel/src/arch/x86_64/syscall.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
 
 # Capture hook is absent from the ordinary power object and ordinary kernel.
 build/ap-probe/power.o: kernel/src/drivers/power.c $(ZIG) $(KERNEL_HEADERS)
@@ -3979,7 +4121,7 @@ build/tests/power-platform-host$(HOST_EXE): tools/test_power_service.c kernel/sr
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -DSRVROS_AP_PROBE -I kernel/include -I shared/include tools/test_power_service.c kernel/src/drivers/power_core.c -o $@
 
-build/tests/platform-sample$(HOST_EXE): tools/test_platform_sample.c kernel/diagnostics/platform_backing.inc kernel/diagnostics/platform_owner.inc kernel/diagnostics/display_owner_core.c kernel/diagnostics/platform_hda.inc kernel/diagnostics/platform_audit.c kernel/diagnostics/package_audit_core.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+build/tests/platform-sample$(HOST_EXE): tools/test_platform_sample.c kernel/diagnostics/haswell_backing_adapter.inc kernel/diagnostics/platform_backing.inc kernel/diagnostics/platform_owner.inc kernel/diagnostics/display_owner_core.c kernel/diagnostics/platform_hda.inc kernel/diagnostics/platform_audit.c kernel/diagnostics/package_audit_core.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
 
@@ -4112,13 +4254,13 @@ build/tests/app-registry-host$(HOST_EXE): tools/test_app_registry.c shared/inclu
 test-widgets: test-widget-theme
 test-widget-theme: build/tests/widget-theme-host$(HOST_EXE)
 	$<
-build/tests/widget-theme-host$(HOST_EXE): tools/test_widget_theme.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c
+build/tests/widget-theme-host$(HOST_EXE): tools/test_widget_theme.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c userspace/widgets/render/desk_font_2x.inc
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I $(DESK_WIDGETS_INCLUDE) -idirafter userspace/lib/include -I shared/include $< $(HOST_DESK_WIDGETS_A) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c -o $@
 widget-theme-preview: build/tests/render-widget-theme$(HOST_EXE)
 	@mkdir -p build/review/theme
 	$< build/review/theme/silver.ppm
-build/tests/render-widget-theme$(HOST_EXE): tools/render_widget_theme.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c
+build/tests/render-widget-theme$(HOST_EXE): tools/render_widget_theme.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c userspace/widgets/render/desk_font_2x.inc
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I $(DESK_WIDGETS_INCLUDE) -idirafter userspace/lib/include -I shared/include $< $(HOST_DESK_WIDGETS_A) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c -o $@
 
@@ -4167,6 +4309,14 @@ test-core: test-qmp-hid-input
 test-qmp-hid-input:
 	$(PYTHON) tools/test_qmp_hid_input.py
 
+.PHONY: test-shell-quoting
+test-core: test-shell-quoting
+test-shell-quoting: build/tests/shell-quoting-host$(HOST_EXE)
+	$<
+build/tests/shell-quoting-host$(HOST_EXE): tools/test_shell_quoting.c userspace/sh/sh.c $(USER_SYSROOT_HEADERS) ports/upstream/linenoise/linenoise.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include -I ports/upstream/linenoise $< -Wl,--gc-sections -o $@
+
 
 
 # Third-party source preparation and target compilation belong to SrvrPorts.
@@ -4175,7 +4325,7 @@ include ports/srvros/sqlite/build.mk
 # Compatibility forwarding sources include the canonical SrvrUI implementation.
 # Keep incremental OS builds sensitive to changes to the included files.
 build/userspace/lib/src/desk_render.c.o: userspace/widgets/render/desk_render.c userspace/widgets/include/srvros/desk_render.h
-build/userspace/lib/src/desk_font.c.o: userspace/widgets/render/desk_font.c userspace/widgets/include/srvros/desk_render.h
+build/userspace/lib/src/desk_font.c.o: userspace/widgets/render/desk_font.c userspace/widgets/include/srvros/desk_render.h userspace/widgets/render/desk_font_2x.inc
 
 .PHONY: test-display-owner
 test-core: test-display-owner
@@ -4184,3 +4334,157 @@ test-display-owner: build/tests/display-owner$(HOST_EXE)
 build/tests/display-owner$(HOST_EXE): tools/test_display_owner.c kernel/diagnostics/display_owner_core.c kernel/include/srvros/display_owner.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_display_owner.c kernel/diagnostics/display_owner_core.c -o $@
+
+# The session fixture includes display transaction implementation directly.
+build/tests/desktop-session-host$(HOST_EXE): userspace/deskd/display_settings.h
+
+.PHONY: test-vfs-namespace
+test-vfs-namespace:
+	CC="$(HOST_CC)" $(PYTHON) tools/test_exfat_import.py --namespace --output build/review/vfs-namespace
+.PHONY: test-expr-bounds
+test-core: test-expr-bounds
+test-expr-bounds: build/tests/expr-bounds-host$(HOST_EXE)
+	$<
+
+build/tests/expr-bounds-host$(HOST_EXE): tools/test_expr_bounds.c userspace/expr/expr.c userspace/lib/include/srvros/cli.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -idirafter userspace/lib/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-uv-bounds test-uv-lifetime
+test-core: test-uv-bounds test-uv-lifetime
+test-uv-bounds: build/tests/uv-bounds-host$(HOST_EXE)
+	$<
+test-uv-lifetime: build/tests/uv-lifetime-host$(HOST_EXE)
+	$<
+
+build/tests/uv-bounds-host$(HOST_EXE): tools/test_uv_bounds.c tools/uv_host_compat.h ports/srvros/uv.c ports/srvros/uv.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -D_GNU_SOURCE -std=gnu11 -O2 -Wall -Wextra -Werror -pthread -ffunction-sections -fdata-sections -I shared/include -idirafter userspace/lib/include -I ports/srvros -include tools/uv_host_compat.h tools/test_uv_bounds.c ports/srvros/uv.c -Wl,--gc-sections -o $@
+
+build/tests/uv-lifetime-host$(HOST_EXE): tools/test_uv_lifetime.c tools/uv_host_compat.h ports/srvros/uv.c ports/srvros/uv.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -D_GNU_SOURCE -std=gnu11 -O2 -Wall -Wextra -Werror -pthread -ffunction-sections -fdata-sections -I shared/include -idirafter userspace/lib/include -I ports/srvros -include tools/uv_host_compat.h tools/test_uv_lifetime.c -Wl,--gc-sections -o $@
+
+.PHONY: test-diff-errors test-patch-alloc test-tap-create
+test-core: test-diff-errors test-patch-alloc test-tap-create
+test-diff-errors: build/tests/diff-errors-host$(HOST_EXE)
+	$<
+test-patch-alloc: build/tests/patch-alloc-host$(HOST_EXE)
+	$<
+test-tap-create: build/tests/tap-create-host$(HOST_EXE)
+	$<
+
+build/tests/diff-errors-host$(HOST_EXE): tools/test_diff_errors.c userspace/diff/diff.c
+	@mkdir -p $(@D)
+	$(HOST_CC) -D_DEFAULT_SOURCE -std=gnu11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -idirafter userspace/lib/include $< -Wl,--gc-sections -o $@
+
+build/tests/patch-alloc-host$(HOST_EXE): tools/test_patch_alloc.c userspace/patch/patch.c
+	@mkdir -p $(@D)
+	$(HOST_CC) -D_DEFAULT_SOURCE -std=gnu11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -idirafter userspace/lib/include $< -Wl,--gc-sections -o $@
+
+build/tests/tap-create-host$(HOST_EXE): tools/test_tap_create.c userspace/tap/tap.c
+	@mkdir -p $(@D)
+	$(HOST_CC) -D_DEFAULT_SOURCE -std=gnu11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -idirafter userspace/lib/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-gui2-path-bounds
+test-core: test-gui2-path-bounds
+test-gui2-path-bounds: build/tests/gui2-path-bounds-host$(HOST_EXE)
+	$<
+
+build/tests/gui2-path-bounds-host$(HOST_EXE): tools/test_gui2_path_bounds.c userspace/lib/src/gui2.c
+	@mkdir -p $(@D)
+	$(HOST_CC) -D_DEFAULT_SOURCE -std=gnu11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -idirafter userspace/lib/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-sh-arithmetic
+test-core: test-sh-arithmetic
+test-sh-arithmetic: build/tests/sh-arithmetic-host$(HOST_EXE)
+	$<
+build/tests/sh-arithmetic-host$(HOST_EXE): tools/test_sh_arithmetic.c userspace/sh/sh.c userspace/lib/include/srvros/cli.h shared/include/srvros/syscall_numbers.h ports/upstream/linenoise/linenoise.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include -I ports/upstream/linenoise $< -Wl,--gc-sections -o $@
+
+.PHONY: test-syscall-namespace
+test-core: test-syscall-namespace
+test-syscall-namespace: build/tests/syscall-namespace-host$(HOST_EXE)
+	$<
+build/tests/syscall-namespace-host$(HOST_EXE): tools/test_syscall_namespace.c kernel/src/arch/x86_64/syscall.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+.PHONY: test-profile-desktop
+# Profile integration runs on the same matched host compiler as desktop tests.
+test-profile-desktop: test-portable-profiles test-preferences build/tests/profile-image-driver$(HOST_EXE)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include tools/test_profile_session.c -o build/tests/profile-session-host$(HOST_EXE)
+	build/tests/profile-session-host$(HOST_EXE)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include tools/test_profile_startup.c userspace/lib/src/desk_preferences.c -o build/tests/profile-startup-host$(HOST_EXE)
+	build/tests/profile-startup-host$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_profile_image.py -v
+build/tests/profile-image-driver$(HOST_EXE): tools/profile_image_driver.c tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
+	@mkdir -p build/tests
+	$(HOST_CC) -DSRVROS_EXFAT_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include tools/profile_image_driver.c kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c -Wl,--gc-sections -o $@
+
+-include $(USER_PROFILE_DEP)
+
+.PHONY: test-guest-profiles
+test-guest-profiles: build/tests/guest-profile-host$(HOST_EXE)
+	$(PYTHON) tools/test_guest_profile.py $< -v
+build/tests/guest-profile-host$(HOST_EXE): $(USER_PROFILE_C) userspace/profile/codec.h ports/upstream/cjson/cJSON.c ports/upstream/cjson/cJSON.h userspace/lib/include/srvros/profile_session.h userspace/lib/include/srvros/profile_paths.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -D_DARWIN_C_SOURCE -D_POSIX_C_SOURCE=200809L -DSRVROS_PROFILE_HOST_TEST -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I ports/upstream/cjson $(USER_PROFILE_C) ports/upstream/cjson/cJSON.c -o $@
+
+.PHONY: test-haswell-backing
+test-core: test-haswell-backing
+test-haswell-backing: build/tests/hsw-backing$(HOST_EXE) build/tests/hsw-backing-adapter$(HOST_EXE)
+	build/tests/hsw-backing$(HOST_EXE)
+	build/tests/hsw-backing-adapter$(HOST_EXE) > build/tests/hsw-backing-producer.log
+	$(PYTHON) -m unittest discover -s tools -p test_hardware_haswell_backing.py
+	$(PYTHON) -m unittest discover -s tools -p test_haswell_backing_audit.py
+	$(PYTHON) tools/check_hsw_capture_tail.py --log build/tests/hsw-backing-producer.log --output build/tests/hsw-backing-tail.json
+build/tests/hsw-backing$(HOST_EXE): tools/test_hsw_backing.c kernel/diagnostics/haswell_backing_core.c kernel/include/srvros/haswell_backing.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_hsw_backing.c kernel/diagnostics/haswell_backing_core.c -o $@
+build/tests/hsw-backing-adapter$(HOST_EXE): tools/test_hsw_backing_adapter.c tools/test_platform_sample.c kernel/diagnostics/haswell_backing_core.c kernel/diagnostics/haswell_backing_adapter.inc $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include tools/test_hsw_backing_adapter.c kernel/diagnostics/haswell_backing_core.c -Wl,--gc-sections -o $@
+.PHONY: test-profile-chooser
+test-profile-chooser: test-guest-profiles build/tests/profile-catalog-host$(HOST_EXE)
+	build/tests/profile-catalog-host$(HOST_EXE) $(CURDIR)/build/tests/guest-profile-host$(HOST_EXE)
+build/tests/profile-catalog-host$(HOST_EXE): tools/test_profile_catalog.c userspace/deskd/profile_catalog.c userspace/deskd/profile_catalog.h userspace/deskd/profile_startup.h userspace/lib/src/desk_preferences.c
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include tools/test_profile_catalog.c userspace/lib/src/desk_preferences.c -o $@
+
+.PHONY: test-salvage
+test-core: test-salvage
+test-salvage: build/tests/salvage-host$(HOST_EXE)
+	$<
+build/tests/salvage-host$(HOST_EXE): tools/test_salvage.c userspace/lib/src/salvage.c userspace/lib/include/srvros/salvage.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include $< -o $@
+
+USER_SALVAGE := build/userspace/salvage.elf
+USER_SALVAGE_OBJ := build/userspace/salvage/salvage.c.o
+$(USER_SALVAGE): $(ZIG) $(USER_CRT0_OBJ) $(USER_SALVAGE_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+	@mkdir -p $(@D)
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_SALVAGE_OBJ) $(USER_LIB_OBJ) -o $@
+$(EXFAT_IMAGE): $(USER_SALVAGE)
+-include build/userspace/salvage/salvage.c.d
+
+.PHONY: test-salvage-cli
+test-core: test-salvage-cli
+test-salvage-cli: build/tests/salvage-cli-host$(HOST_EXE)
+	$<
+build/tests/salvage-cli-host$(HOST_EXE): tools/test_salvage_cli.c userspace/salvage/salvage.c userspace/lib/include/srvros/salvage.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include $< -o $@
+
+.PHONY: test-file-fsync
+test-core: test-file-fsync
+test-file-fsync: build/tests/file-fsync-host$(HOST_EXE)
+	$<
+build/tests/file-fsync-host$(HOST_EXE): tools/test_syscall_fsync.c kernel/src/arch/x86_64/syscall.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-dirty-salvage-scope
+test-core: test-dirty-salvage-scope
+test-dirty-salvage-scope:
+	$(PYTHON) -m unittest discover -s tools -p test_dirty_salvage_scope.py -v
