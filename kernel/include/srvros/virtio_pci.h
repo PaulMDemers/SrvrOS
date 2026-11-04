@@ -83,8 +83,10 @@ bool virtio_pci_config_write8(struct virtio_pci_device *dev, uint32_t offset, ui
 
 /* Reset proof precedes freeing ALL transport DMA, including partially allocated
  * queues. False means caller DMA must be retained; quarantine is permanent on
- * failed reset. Command decode/bus mastering disabled on quarantine. MMIO mappings
- * remain reserved for the boot lifetime, including failed initialization.
+ * failed reset or unverified PCI disable. Disabling decode/bus mastering is
+ * attempted on quarantine; failed readback may leave them enabled, so backing
+ * remains pinned. MMIO mappings remain reserved for the boot lifetime,
+ * including failed initialization.
  * Successful stop is idempotent. Closed devices cannot restart. */
 bool virtio_pci_stop(struct virtio_pci_device *dev);
 bool virtio_pci_quarantined(const struct virtio_pci_device *dev);

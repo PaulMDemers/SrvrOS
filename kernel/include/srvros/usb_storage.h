@@ -29,7 +29,8 @@ struct usb_storage {
     /* Read-only controller diagnostics, called only when displaying a failure. */
     void (*diagnose)(void *);
     void (*transfer_timing)(void *, struct usb_bulk_timing *);
-    bool failed, busy, services;
+    bool failed, busy, services, retiring, retired, initializing;
+    unsigned diagnostic_users;
     char name[12];
     uint8_t data[USB_STORAGE_COMMAND_BYTES];
 };
@@ -49,6 +50,12 @@ struct usb_storage_timing {
 bool usb_storage_timing_enabled(void);
 bool usb_storage_timing_begin(void);
 void usb_storage_timing_end(struct usb_storage_timing *out);
+/* CPU0: permanently fail/invalidate first, then detach published transport and
+ * diagnostic callbacks only after initializer/request/diagnostic owners drain.
+ * Retry false.
+ * Geometry/name/claims remain as an offline tombstone. The storage record/name
+ * stays boot-lifetime; true permits transport DMA release, not record free. */
+bool usb_storage_retire(struct usb_storage *storage);
 bool usb_storage_is_device(struct block_device *device);
 void usb_storage_print_status(struct block_device *device);
 bool usb_storage_enable_volume_writes(struct block_device *device);

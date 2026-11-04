@@ -2,6 +2,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <setjmp.h>
+#include <stdint.h>
+static void teardown_writeback_check(void);
+static uint64_t process_test_irq_save(void);
+static void process_test_irq_restore(uint64_t flags);
+#define SRVROS_PROCESS_IRQ_HOST_TEST
 #define SRVROS_PROCESS_HOST_TEST
 #include "../kernel/src/process.c"
 
@@ -141,6 +147,7 @@ int64_t net_close(uint64_t handle) {
 void *kmalloc(size_t size) { return fail_alloc ? NULL : malloc(size); }
 void kfree(void *ptr) { free(ptr); }
 bool exfat_write_file(const char *path, const uint8_t *data, uint64_t size) {
+    teardown_writeback_check();
     assert(!strcmp(path,"/test/output")); saves++;
     if (legacy_retirement_watch) assert(!legacy_retirement_watch->rights[0].used);
     if (reentrant_close_fd >= 0) {
@@ -1584,7 +1591,10 @@ static bool cycle_regression(const char *name) {
     return matched;
 }
 
+#include "test_process_teardown.inc"
+
 int main(int argc, char **argv) {
+    if(argc==2 && !strcmp(argv[1],"teardown")) { teardown_regression();return 0; }
     pipe_mapping_commit_regression();
     if (argc > 1) {
         if (argc == 2 && cycle_regression(argv[1])) return 0;

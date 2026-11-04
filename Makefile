@@ -1927,7 +1927,7 @@ hardware-smoke: hardware-stage test-core
 test-xhci: build/tests/xhci-host$(HOST_EXE)
 	$< tools/fixtures/apple-05ac-0291-config.bin tools/fixtures/apple-05ac-0262-config.bin tools/fixtures/apple-05ac-0290-config.bin
 
-build/tests/xhci-host$(HOST_EXE): tools/test_xhci.c kernel/src/drivers/xhci.c kernel/src/drivers/xhci_network.inc kernel/src/drivers/usb_ecm.c kernel/src/drivers/trackpad_pointer.c kernel/src/drivers/apple_trackpad.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+build/tests/xhci-host$(HOST_EXE): tools/test_xhci.c kernel/src/block.c kernel/src/block_claim.c kernel/src/drivers/xhci.c kernel/src/drivers/xhci_network.inc kernel/src/drivers/usb_ecm.c kernel/src/drivers/trackpad_pointer.c kernel/src/drivers/apple_trackpad.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/apple_trackpad.c kernel/src/drivers/trackpad_pointer.c kernel/src/drivers/usb_ecm.c -Wl,--gc-sections -o $@
 
@@ -2313,9 +2313,10 @@ test-core: test-workspace-io
 .PHONY: test-process-output
 test-process-output: build/tests/process-output-host$(HOST_EXE)
 	$<
-build/tests/process-output-host$(HOST_EXE): tools/test_process_output.c kernel/src/process.c kernel/src/vfs_namespace.c kernel/src/pty.c kernel/src/pty_model.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	$< teardown
+build/tests/process-output-host$(HOST_EXE): tools/test_process_output.c tools/test_process_teardown.inc tools/test_process_teardown_fault.c kernel/src/arch/x86_64/idt.c kernel/src/process.c kernel/src/vfs_namespace.c kernel/src/pty.c kernel/src/pty_model.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	mkdir -p build/tests
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include -DSRVROS_PTY_HOST_TEST $< kernel/src/vfs_namespace.c kernel/src/pty.c kernel/src/pty_model.c -Wl,--gc-sections -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include -DSRVROS_PTY_HOST_TEST $< tools/test_process_teardown_fault.c kernel/src/vfs_namespace.c kernel/src/pty.c kernel/src/pty_model.c -Wl,--gc-sections -o $@
 test-core: test-process-output
 
 .PHONY: workspace-latency-smoke
@@ -4500,6 +4501,17 @@ build/tests/profile-catalog-host$(HOST_EXE): tools/test_profile_catalog.c usersp
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I ports/upstream/cjson tools/test_profile_catalog.c userspace/lib/src/desk_preferences.c ports/upstream/cjson/cJSON.c -o $@
 
+.PHONY: test-e1000-init
+test-core: test-e1000-init
+test-e1000-init: build/tests/e1000-init-host$(HOST_EXE)
+	$<
+	$< map
+	$< alloc
+	$< none
+build/tests/e1000-init-host$(HOST_EXE): tools/test_e1000_init.c kernel/src/drivers/e1000.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+
 .PHONY: test-salvage
 test-core: test-salvage
 test-salvage: build/tests/salvage-host$(HOST_EXE)
@@ -4508,6 +4520,13 @@ build/tests/salvage-host$(HOST_EXE): tools/test_salvage.c userspace/lib/src/salv
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include $< -o $@
 
+.PHONY: test-usb-retire-block
+test-core: test-usb-retire-block
+test-usb-retire-block: build/tests/usb-retire-block$(HOST_EXE)
+	$<
+build/tests/usb-retire-block$(HOST_EXE): tools/test_usb_retire_block.c kernel/src/block.c kernel/src/block_claim.c kernel/src/drivers/usb_storage.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
 USER_SALVAGE := build/userspace/salvage.elf
 USER_SALVAGE_OBJ := build/userspace/salvage/salvage.c.o
 $(USER_SALVAGE): $(ZIG) $(USER_CRT0_OBJ) $(USER_SALVAGE_OBJ) $(USER_LIB_OBJ) userspace/app.ld
