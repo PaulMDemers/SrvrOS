@@ -6800,3 +6800,16 @@ inherit this release's physical acceptance. Next is resolving remaining fence
 coverage and swizzle/lifetime prerequisites through source audit and bounded
 read-only evidence. Prior RC6 timing failure and valid-zero package C3 remain
 unchanged; no graphics writer or ordinary adoption is enabled.
+
+### Fence/swizzle prerequisite audit in progress (2026-11-03)
+
+Consume main `5634cd9d` and its actual recursive pins; native acceptance stays
+with `baaa94b5` / `e98aed0c5f8d06cf`. PR301 at `5287fa13` remains open and owns
+Broadwell capture/scanout lifetime; this task does not modify its driver or gates.
+The bounded objective is to resolve Haswell fence-count/pitch and inherited
+swizzle interpretation from pinned primary sources and the accepted raw receipt,
+then specify the smallest justified next read-only experiment. Intended changes
+are this unit record, the Haswell audit guide and host-only arithmetic/fixtures.
+No register allowlist, power policy, ownership or capture limit is widened by
+this audit. A new native run requires separately justified controls and the full
+matched build/stage/VM/recovery sequence; no reboot is currently armed.
