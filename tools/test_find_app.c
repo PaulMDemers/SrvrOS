@@ -51,6 +51,7 @@ int main(void) {
     for(unsigned size=0;size<4;size++) {
         app.window.width=sizes[size][0];app.window.height=sizes[size][1];layout();
         assert(app.table.body.focused);
+        assert(app.mode_tabs.frame.h>=desk_font_16.line_height+4);
         assert(app.open.frame.x+app.open.frame.w<=(int)app.window.width-12 && app.table.body.frame.h>=28);
         struct desk_canvas a,b;memset(full,0,sizeof(full));memset(tiled,0,sizeof(tiled));desk_canvas_init(&a,full,app.window.width,app.window.height,980);desk_canvas_init(&b,tiled,app.window.width,app.window.height,980);draw(&a);
         for(int y=0;y<(int)app.window.height;y+=53) for(int x=0;x<(int)app.window.width;x+=73) { desk_clip(&b,(struct desk_rect){x,y,73,53});draw(&b); }
