@@ -120,6 +120,7 @@ class VM:
 
     def screenshot(self, name):
         path = self.out / f'{name}-{self.label}.ppm'
+        time.sleep(1)
         self.qmp.call('screendump', {'filename': str(path)})
         with path.open('rb') as stream:
             header = stream.read(256)

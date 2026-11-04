@@ -228,16 +228,27 @@ def gui_transfer(vm, operation, *, checkpoint=None, filename='transfer.srvrprofi
     vm.screenshot(operation + '-review')
     t.click_client(vm, frame, 40, 80); vm.key('end'); vm.screenshot(operation + '-review-details')
     if change_file:
-        # Owned Terminal fixture changes one synthetic input after review.
-        shell = len(vm.output); vm.key('meta_l-spc'); t.text(vm, 'Terminal new app'); vm.key('ret')
-        c.observe(vm, rb'deskterm: ready shell=\d+', shell)
-        t.text(vm, '/fat/bin/write ' + change_file + ' changed-after-review'); vm.key('ret')
-        # cmp is an independent guest readback; its status is propagated to
-        # the shell's observable exit before the reviewed operation resumes.
-        t.text(vm, '/fat/bin/cmp -s ' + change_file + ' /work/stream-input/change-expected.txt'); vm.key('ret')
-        t.text(vm, 'exit '); vm.qmp.key('4', True); vm.qmp.key('slash', True); vm.key('ret')
-        c.observe(vm, rb'deskterm: shell exited status=0', shell)
-        vm.key('ctrl-shift-w'); c.observe(vm, rb'deskterm: exited failure=0', shell)
+        # Exit each shell with its external command's status before issuing
+        # the next command, so a later successful readback cannot hide failure.
+        if operation == 'import' and change_file == '/work/transfer.srvrprofile':
+            commands = ['/fat/bin/mv /work/transfer.srvrprofile /work/reviewed-original.srvrprofile',
+                        '/fat/bin/cp /work/legacy.json /work/transfer.srvrprofile',
+                        '/fat/bin/cmp -s /work/transfer.srvrprofile /work/legacy.json']
+        elif operation == 'export' and change_file == A + '/Documents/migration.txt':
+            commands = ['/fat/bin/write ' + change_file + ' changed-after-review',
+                        '/fat/bin/cmp -s ' + change_file + ' /work/stream-input/change-expected.txt']
+        else:
+            raise RuntimeError('unapproved changed-review fixture')
+        shell = len(vm.output)
+        for command in commands:
+            step = len(vm.output); vm.key('meta_l-spc'); t.text(vm, 'Terminal new app'); vm.key('ret')
+            c.observe(vm, rb'deskterm: ready shell=\d+', step)
+            t.text(vm, command); vm.key('ret')
+            t.text(vm, 'exit '); vm.qmp.key('4', True); vm.qmp.key('slash', True); vm.key('ret')
+            exited = c.observe(vm, rb'deskterm: shell exited status=(\d+)', step)
+            if int(exited.group(1)):
+                raise RuntimeError('changed-review fixture command failed: ' + command)
+            vm.key('ctrl-shift-w'); c.observe(vm, rb'deskterm: exited failure=0', step)
         vm.key('meta_l-spc'); t.text(vm, 'Profiles window'); vm.key('ret')
         c.observe(vm, rb'deskd: launcher window=' + profile_pid + rb' id=\d+', shell)
     mutation = len(vm.output); t.click_client(vm, frame, w - 60, h - 54)
@@ -605,6 +616,11 @@ def main():
             raise RuntimeError('changed-source probe protected bytes changed')
         t.check_allocation(changed_a, out, 'changed-source-final'); t.archive_completed(changed_a, out)
         changed_transport = out / 'transport-changed.img'; shutil.copyfile(disks['transport'], changed_transport)
+        changed_initial = t.check_allocation(changed_transport, out, 'changed-transport-initial')
+        c.absent(changed_initial, 'reviewed-original.srvrprofile')
+        if changed_initial.read('transfer.srvrprofile') != exported or changed_initial.read('legacy.json') != legacy:
+            raise RuntimeError('changed-bundle fixture inputs differ from guest exports')
+        del changed_initial
         with c.VM(disks['b'], changed_transport, out, 'b-changed-review', args) as vm:
             before = vm.quiesced_data_snapshot('changed-bundle-before')
             desktop(vm)
@@ -615,7 +631,12 @@ def main():
         t.archive_completed(before, out); t.archive_completed(after, out)
         if d.outside_data(changed_transport, *d.partitions(changed_transport)[1]) != receipt['installations']['transport']['protected_regions']:
             raise RuntimeError('changed transport protected bytes changed')
-        t.check_allocation(changed_transport, out, 'changed-transport-final'); t.archive_completed(changed_transport, out)
+        changed_final = t.check_allocation(changed_transport, out, 'changed-transport-final')
+        if (changed_final.read('reviewed-original.srvrprofile') != exported or
+            changed_final.read('transfer.srvrprofile') != legacy or changed_final.read('legacy.json') != legacy):
+            raise RuntimeError('changed-bundle fixture did not preserve original and replace with legacy export')
+        t.archive_completed(changed_transport, out)
+        del changed_final
         receipt['changed_review'] = {'source_revalidation_refused': True, 'bundle_revalidation_refused': True}
         # Each invalid container is synthetic and lives beside the raw input
         # fixtures; no host modification is made to the actual guest export.
