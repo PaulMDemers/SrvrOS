@@ -63,7 +63,7 @@ static int dirty_reader(int fd) {
     }
     return read(fd,bytes,1)==0 && lseek(fd,37,SEEK_SET)==37;
 }
-int dirty_salvage_test(int reopen) {
+static int dirty_salvage_impl(int reopen,int target_failure) {
     const char *destination="/home/.dirty-salvage-copy";
     for(unsigned i=0;i<sizeof(dirty_payload);i++)dirty_payload[i]=(unsigned char)(i*43+23);
     int writer=-1,reader=-1,ok=1;
@@ -89,6 +89,14 @@ int dirty_salvage_test(int reopen) {
         if(ok) {
             struct stat missing;ok=stat("/work/.dirty-salvage-denied",&missing)<0;
         }
+        if(ok && target_failure) {
+            puts("destination-salvage: target begin");
+            ok=run_consumer(reader,"/target/.dirty-salvage-attempt",1) &&
+                fcntl(reader,F_GETFD)>=0 && lseek(reader,0,SEEK_CUR)==37 && dirty_reader(reader);
+            struct stat artifact;
+            if(ok)ok=!stat("/target/.dirty-salvage-attempt",&artifact) && artifact.st_size==0;
+            if(ok) puts("destination-salvage: target failed; reader retained");
+        }
         if(ok)ok=run_consumer(reader,destination,0) && fcntl(reader,F_GETFD)>=0 &&
             lseek(reader,0,SEEK_CUR)==37 && dirty_reader(reader);
         if(ok)ok=run_consumer(reader,destination,1) && lseek(reader,0,SEEK_CUR)==37 && dirty_reader(reader);
@@ -100,6 +108,15 @@ int dirty_salvage_test(int reopen) {
         }
     }
     if(reader>=0)close(reader);
-    printf("dirty-salvage: %s %s\n",reopen?"reopen":"save",ok?"PASS":"FAIL");
+    printf("%s: %s %s\n",target_failure?"destination-salvage":"dirty-salvage",reopen?"reopen":"save",ok?"PASS":"FAIL");
+    return ok?0:1;
+}
+
+int dirty_salvage_test(int reopen) { return dirty_salvage_impl(reopen,0); }
+int destination_salvage_test(int reopen) { return dirty_salvage_impl(reopen,1); }
+int destination_open_test(void) {
+    int fd=open("/target/.dirty-salvage-attempt",O_WRONLY|O_CREAT|O_EXCL,0600);
+    int ok=fd>=0 && !close(fd);
+    printf("destination-open: %s\n",ok?"PASS":"FAIL");
     return ok?0:1;
 }
