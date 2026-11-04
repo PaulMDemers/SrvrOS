@@ -2,8 +2,9 @@
 
 Target: a versioned, machine-independent identity and selected-document/preference
 bundle, validated through two fresh installation fixtures, plus a shared bounded
-HOME/config/data/cache resolver. This is a host executable migration proof, not
-login, guest account switching, cloud roaming or multi-user security isolation.
+HOME/config/data/cache resolver. Host tooling, guest commands and desktop
+workflows share this contract. Login, cloud roaming and multi-user security
+isolation remain separate.
 
 Current milestone: graphical profile transfer is qualified for review after the
 merged chooser milestone. Profiles provides selected-file export, reviewed import,
@@ -984,3 +985,18 @@ pointing to the matching x86_64 UEFI firmware. Run one build/VM harness at a tim
 This is disposable-image and controlled process-interruption evidence; external
 `fsck.exfat`, physical media and real power loss remain unqualified.
 Authentication and permission enforcement remain separate.
+
+### Current-main integration
+
+After the accepted GUI proof, main `7ef140ef` added an independent bc command
+and sysabi salvage diagnostics. The combined clean source `c813f078` passes a
+fresh matched build and profile/catalog/desktop/fsync/documentation checks.
+Of 144 previously built payloads, 143 are byte-identical, including the kernel,
+bootstrap init, display server, desktop, Profiles, profile engine, Text, Terminal
+and picker workers. Only the separate sysabi diagnostic changes; bc is newly
+added. Profile/GUI source and proof tools are unchanged, so the 19-lifetime proof
+retains its exact original source attribution without repeating unaffected tests.
+The [integration receipt](assets/screenshots/profile-transfer-integration.json)
+records all payload hashes, current pins, checks and independent review evidence.
+The coordinator owns independent Apps-first/OS-second merging and the installation
+owner's subsequent combined installed-desktop proof.
