@@ -667,3 +667,41 @@ No unresolved finding remains within this documented recovery scope. The final
 acceptance-note commit changes documentation only. All task-owned VMs are stopped;
 existing review VMs and the primary checkout remain untouched. Hosted Actions
 remain disabled; the recorded local checks are the authorized merge gate.
+
+
+## Desktop chooser milestone — in progress
+
+Authorized target: desktop-start profile selection, installation-local remembered
+choice and recovery status, proved on two disposable VMs. Branch
+`device/apple-silicon/profile-chooser` starts from merged main `b9ac7435`
+(profile installation plans PR321). This topic owns catalog/selection persistence,
+startup chooser, read-only recovery validation, host tests and VM proof. It
+consumes the existing profile import and startup contracts. Authentication and
+permission enforcement remain separate.
+
+The startup journey preserves ordinary explicit `--profile=HOME` activation and
+diagnostic modes. A valid remembered selection opens directly; a missing or
+invalid remembered selection returns to the chooser with a reason. An explicit
+`--choose-profile` opens the chooser even when a remembered selection is valid.
+An ordinary legacy desktop with no profiles and no remembered choice retains its
+existing startup behavior. Selection applies only when starting a desktop;
+existing applications are not switched to another home during a session.
+
+| State | Available action | Completion or recovery |
+| --- | --- | --- |
+| Ready profile | Open desktop | Revalidate ID/home and remember the local choice |
+| Valid remembered choice | Ordinary desktop start | Open that profile without another prompt |
+| Stale/corrupt remembered choice | Choose another profile or return to console | No silent shared-home fallback |
+| Valid pending import | Recover | Existing guest command runs off the render loop; rescan afterward |
+| Blocked import | Inspect status and return to console | Preserve ambiguous data; reconnect original bundle or inspect malformed state |
+| Saving/recovering | Visible working state | Keep rendering/input responsive and show success or failure truthfully |
+
+Recovery status uses `profile check-recover HOME`, a read-only invocation of the
+same journal/bundle/tree preflight as actual recovery. Host tests verify that
+checks at all five durable interruption checkpoints leave the tree unchanged.
+The chooser does not introduce another import validator or guess ownership.
+No physical disks or existing review VMs are part of acceptance. One matched
+build or VM harness runs at a time in this checkout. Completion requires rendered
+interaction, independent remembered choices/reboots, missing/invalid selection
+handling, ready/pending/blocked recovery status, preserved machine settings and
+reviewable changes with source-matched evidence.
