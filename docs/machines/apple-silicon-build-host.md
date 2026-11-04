@@ -1,5 +1,20 @@
 # Apple Silicon macOS build host
 
+## Managed USB workspace filesystem proof
+
+Isolated `SrvrOS-filesystem`, branch
+`device/apple-silicon/filesystem-managed-salvage`, consumes main `5634cd9d` and
+subsequently `62b0708e`. PR317 lifetime review precedes the fixture-only BOT fault;
+no terminal stop/reclaim or production process/block/driver changes. Matched
+`3c480516` passes clean control, retained-reader salvage/failed retirement and
+restart readback through actual workspace commands; canonical compatibility
+passes all 11 cases. Combined `351eb986` produces identical tested payloads.
+The [filesystem contract](../filesystem-layout.md) records exact limits and
+154-file SHA-256-verified backups outside build cleanup. All task VMs stopped;
+review VMs 61610, 6233 and 85869 and primary checkout remain untouched. Delivery
+is a scoped draft PR; no physical trial, hosted Actions or merge requested.
+
+
 ## PR330 merge review
 
 Final refresh consumes main `10890eed`/PR329 as `740869f0`. Fresh file-fsync,

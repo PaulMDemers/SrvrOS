@@ -3,26 +3,111 @@
 Updated November 3, 2026. Global activation follows the explicit namespace proof
 in [PR308](https://github.com/PaulMDemers/SrvrOS/pull/308).
 
-## Installed-root managed USB salvage — in progress
+## Installed-root managed USB salvage — verified
 
 User authorized this bounded milestone on main `5634cd9d` (PR306 SQLite CLI),
-with PR317 fault/lifetime review first and review-VM preservation. Use prepared
-fixture-only USB media and actual workspace mount/sync/unmount, preserving the
-independent installed system volume. First source write faults after existing
-source writer/reader opens and RAM staging; mount/read/enable do not write.
-Current USB BOT SCSI failure quarantines/invalidate-publishes the stable block
-identity. Retained content reads process RAM; sticky flush errors do not retry
-transport. Workspace busy refusal precedes flush while a reader is held; failed
-sync remains latched after the reader closes.
+with PR317 fault/lifetime review first and review-VM preservation. The proof uses
+a prepared disposable GPT USB volume and actual `workspace mount/sync/unmount`
+alongside a separate installed AHCI root. Scope is sysabi handshake proof, host
+fixture/USB fault routing, guards and documentation. No production process,
+workspace, syscall, block or driver implementation changes were needed.
 
-PR317 owner confirms explicit terminal reclamation is separate from BOT errors;
-geometry/name/claim identities stay stable/offline and process-RAM readers are
-unchanged. Historical writable capability remains so global flush cannot hide
-uncertain media. Do not invoke xhcistop/xhcireclaim, unplug, reset or reclaim DMA.
-No production process/workspace/block/driver changes planned. Scope is sysabi
-handshake proof, host fixture/USB fault routing, guards and docs. Verify clean
-control, held-reader refusal, post-close failed retirement, explicit CLI salvage
-to healthy storage, compatibility and persistence after controlled restart.
+### Fault placement and lifetime review
+
+The source file and workspace marker are preseeded offline. Existing source
+writer and independent reader open without create/truncate; the writer stages
+12,289 binary bytes in shared process RAM. A host-only blkdebug one-shot EIO
+wraps only the disposable USB disk. QMP requires zero writes through workspace
+mount and source admission, then exactly one failed write with zero successful
+writes. The fault hits the first fsync dirty-marker write and leaves the entire
+USB image unchanged. The published USB SCSI failure quarantines the device and
+invalidates its block cache; source fsync and writer close return EIO.
+
+Reviewed the current BOT, retained-content and workspace code before runtime.
+PR317's owner confirmed that BOT errors do not invoke the proposed explicit
+terminal reclamation path: block geometry/name/claim identities remain stable
+and offline, and retained readers use process RAM. Historical write capability
+must remain visible so global flushing cannot hide uncertain writable media.
+The owner advised avoiding xhcistop/xhcireclaim, unplug/reset and DMA reclamation;
+none is invoked. This proof qualifies main's fault path, not PR317's unmerged
+hardware/provider reclamation work, and that scope feedback is not independent
+approval of every filesystem claim.
+
+### Managed refusal and salvage outcome
+
+A healthy control writes and flushes the source, invokes the actual salvage CLI,
+then successfully syncs/unmounts through the managed controller. Offline USB
+source bytes persist and allocation checks are clean. The fault case instead
+uses a background reader with release controls exclusively on healthy `/home`.
+The monitor observes two busy-unmount refusals: before salvage and after the
+healthy copy while the source reader is still held. Failed-work destination
+creation also refuses without consuming the caller's reader or offset.
+
+The actual `/bin/salvage` copies every retained byte to
+`/home/.managed-salvage-copy`; the parent verifies its fd, offset 37, every source
+byte and healthy `/home`/`/fat/home` aliases before deliberately closing the last
+source reader with EIO. After final close, workspace sync and clean retirement
+still refuse, status retains the same UUID/write-failed mount, remount stays busy
+and raw `unmount /work` cannot bypass managed policy. No work references are
+silently kept through a control file on the failed volume.
+
+Raw USB disk and partition names/geometry remain stable, their reads become
+unreadable and historical write=yes remains visible. All QMP USB operation
+counters are unchanged from quarantine through monitor checks, salvage and final
+close: there is no backend read/write/flush retry against the failed device.
+Only the one initial failed write is recorded. Both first-boot healthy allocation
+and protected GPT/ESP regions check clean; the source's on-disk original remains
+27 bytes while the healthy copy contains 12,289 retained bytes.
+
+Normal reboot correctly refuses with `workspace could not be unmounted`. The
+harness records that refusal, QMP-stops only its own disposable VM, then starts
+fresh EFI with no filter. Exact healthy bytes read back before cleanup; the USB
+source still has its original bytes and image hash. The new driver lifetime can
+cleanly mount/read/sync/unmount the unchanged original media and reboot normally.
+This does not repair or forcibly retire the old failed lifetime. It demonstrates
+controlled cold-restart persistence after healthy file fsync/close, not a
+successful failed-workspace/global flush or physical power-loss acceptance.
+
+### Integration, guards and evidence
+
+Source `3c480516` passes all three EFI lifetimes: clean control, fault/save and
+restart/readback. Fresh ordinary canonical/CLI proof `proof-h0xipwky` passes all
+11 cases, preserving `/fat` and `/work` compatibility. Main `62b0708e` (PR335's
+host-only Haswell audit) subsequently merged as `351eb986`; matched kernel,
+initramfs and filesystem hashes remain identical. Fresh combined storage-lease,
+workspace/USB-storage, fsync, namespace, usercopy, I/O, helper/CLI and scope tests
+pass, as do seven new-base Haswell audit tests and documentation checks. The
+unchanged runtime evidence is retained with its actual tested source.
+
+Nine scope-test methods cover 37 scenarios. Managed cases require distinct,
+regular, fixture-owned files (including hard-link alias refusal), explicit mode
+and prepared UUID. Fault configuration belongs only to the first save boot;
+clean control and reopen have no filters. Mixed raw/target modes, external paths,
+wrong UUID, reversed routing and later-boot faults refuse before QEMU. Command
+graph checks keep the system disk unfiltered and attach work only as USB storage.
+
+Evidence is `build/review/managed-salvage/proof-fse2oz1k/`, with raw images,
+commands, QMP counters, serial logs, rule, restart record and receipts. Independent
+checks verify raw healthy bytes, USB hash/geometry, operation counts and both
+refusal phases. Complete accepted managed and canonical proof images/logs are
+independently APFS-cloned and SHA-256 verified (154 files) outside build at
+`.local/filesystem-evidence/managed-salvage-3c480516/`. No hard links are used.
+Initial `proof-nfrng3he` used a legacy MBR USB fixture, correctly reached
+installed-root invalid-map recovery and timed out without starting apps; it
+remains retained. The retry uses a separately identified GPT fixture without
+weakening root admission. Failed-run logs are backed up beside acceptance data.
+
+All task VMs stopped; review VMs 61610, 6233 and 85869, primary checkout and
+physical media remain untouched. No hosted Actions, physical trial or merge was
+requested. The bounded proof is complete; delivery is a scoped draft PR.
+
+Reproduce after the matched build:
+
+```sh
+make HOST_CC='python3 build/tooling/darwin-host-cc.py' test-storage-leases test-file-fsync test-dirty-salvage-scope
+OVMF_CODE=/opt/homebrew/share/qemu/edk2-x86_64-code.fd \
+  python3 tools/managed_salvage_smoke.py --ovmf-vars /opt/homebrew/share/qemu/edk2-i386-vars.fd
+```
 
 ## PR332 merge review and next bounded milestone
 
