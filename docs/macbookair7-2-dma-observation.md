@@ -79,12 +79,24 @@ not native acceptance. The next writer still needs explicit DMA/GGTT/firmware/
 route/restore authority and correct padded scanout layout. The shadow allocation
 is1350 visible pages, not the inherited X-tiled1356-page storage extent.
 
-## Prepared candidate
+## Native trial result
 
 Source `c7c3548d`, release `5f6ec95399aa9dcd`, passes full local host/core/
 profile/build checks, pure-core ASan/UBSan, strict collectors and the exact-stage
 Q35 refusal/save/unmount/reset and missing-workspace halt checks. Separate
-Haswell refusal and ordinary VirtIO presentation regressions also pass. The
-candidate is installed with independent recovery and prior payloads preserved;
-no reboot is armed. Native DMA-state observation remains pending its matching
-session. The [unit record](machines/macbookair7-2.md) owns physical acceptance.
+Haswell refusal and ordinary VirtIO presentation regressions also pass.
+
+Native session `00065f6af281f582-00` saved both logs and returned automatically.
+Display/backing observations completed, but the DMA observer's initial guard
+refused with status2 (`DMA_ACCESS`), zero maps/reads/writes and no retained
+mapping. The raw DMAR identity matches; the aggregate receipt correctly says
+`completed=NO`. The resource row is zero, which does not distinguish an
+unreached check from missing/conflicting firmware classification. No translation
+state was sampled. Native DMA observation remains **unaccepted**.
+
+The next diagnostic must identify which guard failed and report relevant
+firmware memory-map classifications before any MMIO. Keep the existing admission
+gates until the actual evidence and resource contract are reviewed. Prior-file
+preservation, offline integrity, independent recovery and consumed one-shot
+checks passed. No reboot is armed. The [unit record](machines/macbookair7-2.md)
+owns physical acceptance; no DMA authority or physical page flip is implied.

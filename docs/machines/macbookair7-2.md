@@ -2,14 +2,21 @@
 
 Updated: 2026-11-03. State: **active reference machine; partial device acceptance**.
 
-### Read-only DMA-state capture ready; reboot unarmed
+### Native DMA capture refused before MMIO; safe return verified
 
-Source `c7c3548d` / release `5f6ec95399aa9dcd` is installed for the no-input
-Air7,2 DMA-remapping observation. It requires exact firmware/DMAR/backing
-identity and one unambiguous reserved register page, reads two bounded raw
-snapshots, retires each mapping and revalidates the entire inherited backing.
-There are no control writes, root-table walks, GPU mappings or authority grants.
-Native observation is **pending**; a stable TES bit will not prove DMA authority.
+Source `c7c3548d` / release `5f6ec95399aa9dcd` returned automatically as
+`session-00065f6af281f582-00`. The exact raw DMAR identity matched, but the
+first access guard refused (`DMA_ACCESS`, status2): zero mappings, register
+reads, retained mappings or writes. Display and the full1356-entry inherited
+backing observation completed; aggregate capture correctly reports
+`completed=NO`. **Native DMA-state observation is not accepted.**
+
+The resource receipt is all zero. Its current formatter cannot distinguish an
+unreached resource check from failed/missing/ambiguous firmware classification,
+so absence of a reserved entry is a hypothesis, not a proven cause. Next: make
+individual admission checks and relevant memory-map entries observable without
+MMIO or relaxing the reserved-page requirement. No private GPU mappings, control
+writes, root-table walk, DMA authority or physical tear-free output is accepted.
 See the [capture contract](../macbookair7-2-dma-observation.md).
 
 Consumed main `10890eed` at `06f1a23f`, preserving the independent Haswell
@@ -23,19 +30,18 @@ scopes/checksum/pin separation, both TES states, torn/changed reads, every read/
 map/guard/unmap failure, clock rollback/freeze, actual adapter resource/window
 identity and sticky mapping retirement. Actions remain disabled.
 
-Preparation verifies 1,323 prior files and 94 sessions, offline fsck/allocation/
-writable/headroom, firmware/GPU identity, Ubuntu default and independent
-recovery/known-good/preceding payloads. USB is unmounted. Superseded unbooted
-release41e was archived and fully hash-verified before removing only its EFI
-copy for space. Accepted d79, known-good c497 and recovery9aa remain intact.
-The new payload is installed but **no reboot is armed**. Handled refusal/failure
-returns automatically after successful save/unmount; persistence failure halts.
+Collection preserves the1,323 prior files except expected workspace metadata,
+with exactly two new session logs copied and hash-verified. Offline filesystem,
+allocation, writable and headroom checks and installed/recovery payload checks
+pass. Ubuntu remains default; the one-shot is consumed and no reboot is armed.
+Host volume was verified at1% before reboot; this capture enabled no guest audio.
+Current remains diagnostic5f6; accepted shadowd79, known-goodc497 and recovery9aa
+remain independently preserved.
 
-Run record: `build/air-dma-observe-native-20261103/run.json`; validation:
+Run record and return proof: `build/air-dma-observe-native-20261103/`; validation:
 `build/air-dma-observe-20261103/`. Both have independent evidence backups outside
-build. Next: run the prepared automatic trial, collect its matching native
-session and independently decode all display/backing/DMA receipts before any
-acceptance. No GUI/input/audible acceptance is claimed. PR317's allocator/VMM/
+build. Refusal evidence remains distinct from passing display/backing and return
+integrity. No GUI/input/audible acceptance is claimed. PR317's allocator/VMM/
 DMA audit remains separate; Air6,1/device gates are not widened.
 
 ### GPU address reservations implemented; host/VM validation complete
