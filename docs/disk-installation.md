@@ -73,9 +73,46 @@ The process-interruption diagnostic `export-profile --publication-dir NEW_DIR
 `reconcile-export --interrupt-after POINT` supports the five final boundaries.
 These are controlled host-process experiments, not power-cut simulation.
 
-Qualification is in progress in PR364. Focused tests cover all transitions,
-idempotence, independent source lifetime, actual syscall failures, ownership/
-corruption refusals and fresh-process CLI entry points. The bounded proof tool
+Clean source `1a62be92` integrates main `a90bf57e` and qualifies
+[PR364](https://github.com/PaulMDemers/SrvrOS/pull/364). The full host suite on `bc6c6dd4` passes 88 installation tests (one optional
+exhaustive skip), 27 workspace diagnostic groups, 25 profile CLI groups and
+storage/session/desktop/fsync/docs checks.
+Seventeen publication groups and 16 native export groups cover all transitions,
+idempotence, source-independent recovery, injected host I/O failures and preserved
+refusals. The final `1a62be92` host-only metadata follow-up passes all 17 publication
+groups and the native tracked-export integration again; its matched build keeps
+all three complete guest payloads byte-identical.
+
+The final `proof-mn6magg7` receipt records PASS for 109 fresh-process steps:
+eight publication interruption points, five interrupted reconciliation points,
+eight injected host write/short-write/file-sync/link/unlink/directory-sync/ack-write/close
+fault modes, ten corruption/ownership cases and two busy-lock refusals. Eighteen
+complete publications match the same canonical bytes. Four partial attempts and
+a torn acknowledgment remain preserved refusals. Inspection snapshots and
+repeated successful reconciliation preserve namespace/content/modification
+metadata; source A and its exact original baseline retain paths/device/inodes,
+times and full hashes throughout.
+
+Fresh B consumes the actual reconciled directory-sync-failure output. Two
+installed EFI boots verify the same UUID, all six defaults and exact text/binary
+bytes, with new GPT identities, `recovered_b`, UID/GID 3050/3051 and local clock/
+pointer settings. Initial cache/data directories are empty. Remembered selection,
+actual Terminal HOME/XDG/cwd (without duplicate variables), exclusion checks,
+clean allocation and protected regions pass. Used-B native inspection attempts
+zero writes/flushes, and B re-exports byte-identical portable data. An independent
+raw audit checks all three gzip streams, 166 installed base files, source/record/
+output ownership and actual restored bytes. The original prior A/B/transport and
+baselines remain unchanged; all owned QEMU stops and review VMs stay live.
+
+The [portable manifest](assets/screenshots/installation-export-recovery-manifest.json)
+records sources/pins/hashes and qualification limits. The
+[B reboot screenshot](assets/screenshots/installation-export-recovery-restored.png)
+was visually checked and is a pixel-preserving derivative of the retained PPM.
+Full raw evidence, matched artifacts, source tools and host/proof logs survive
+outside build at `.local/installation-evidence/guest-created-volume/export-publication/proof-mn6magg7/`.
+Later main `8c891b20` changes opt-in firmware diagnostics and host fixtures, with
+no installation/profile/native-export source change; this proof keeps its actual
+recorded source attribution. The bounded proof tool
 `tools/installation_export_recovery_smoke.py` consumes the existing synthetic A
 read-only, retains its original baseline and verifies a new B through two boots.
 It requires a clean matched build, the qualified selected text/binary fixture,

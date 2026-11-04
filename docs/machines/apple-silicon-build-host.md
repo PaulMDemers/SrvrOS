@@ -1,6 +1,6 @@
 # Apple Silicon macOS build host
 
-## Offline export-publication recovery — active
+## Offline export-publication recovery — qualified for review
 
 User authorizes scoped implementation, interruption/reconciliation/refusal and
 fresh-B restore/reboot proof, then PR publication. Reuse isolated
@@ -20,8 +20,22 @@ rereads or repairs the source. CLI state/error paths follow an expert UX walkthr
 no representative-user study is claimed. Preserve original A baseline/current
 image paths/device/inodes, final earlier images, review VMs 61610/6233/85869 and
 the mounted APFS evidence image on miniTB. One build/harness here, no physical
-media, host reboot, Actions or merge. Next: host contracts and fresh-process
-fault/refusal qualification before a matched fresh-B two-boot restoration.
+media, host reboot, Actions or merge. Clean matched proof source `1a62be92` passes 109 fresh-process
+interruption/I/O/reconciliation/refusal steps and both fresh-B restore/reboot
+lifetimes. Full host checks on `bc6c6dd4` pass 17 publication and 16 native
+export groups, 88 installation tests (one optional skip), 27 workspace groups
+and profile/session/desktop/storage/fsync/docs checks. Final `1a62be92` repeats
+17 publication groups/native integration and a matched build with all three
+complete guest payloads unchanged. I/O faults are Python boundary injection. Raw audit verifies 18 complete publications,
+three gzip streams, 166 installed base files and unchanged original A/B/transport
+plus baselines. B uses `recovered_b`, UID/GID 3050/3051 and its own machine state;
+used-B native inspection and byte-identical re-export pass. Original source
+paths/device/inodes/times/hashes stay intact. All owned compile/guests stopped;
+heavy slot returned through profiles coordinator. Full evidence survives in the
+mounted APFS image under `export-publication/proof-mn6magg7`; committed manifest
+and restored screenshot link from the installation guide. PR364 is scoped for
+review, no merge requested. Later main `8c891b20` leaves installation/profile/
+native-export sources unchanged; runtime proof attribution remains `1a62be92`.
 
 ## PR360 current-main merge review — ready
 
