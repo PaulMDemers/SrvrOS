@@ -1703,6 +1703,32 @@ The sticky profile and broad migration of all legacy actions are not approved as
 a substitute. Existing legacy-only behavior and private-slice acceptance remain
 unchanged; no public code is authorized by this design review.
 
+## November 4: successful exec pending/default defect
+
+Actual lifecycle reproduction confirms successful exec could reset caught
+USR1/USR2 to DEFAULT yet reach the new image un-killed with those unblocked bits
+pending. Caught CHLD/WINCH similarly became default ignored but remained pending.
+This is an existing production-path issue, independent of public INFO admission.
+Failed exec remains unchanged. The PR334 owner's separate bounded fix evaluates
+pending/default handling after the new binding and exec diagnostic, with explicit
+IRQ exclusion through the final decision and user entry. It skips evaluation if
+already killed, preserving an earlier fatal cause, and enters existing process
+exit with the selected status. `usermode_enter` builds user flags with IF set;
+there is no intervening service/enable after the final decision.
+
+Independent strict Rosetta and ASan/UBSan normal/fatal/ignored lifecycle runs pass
+6/6. Current/shared ignored defaults clear, blocked and ignored dispositions stay
+pending, and the lowest fatal bit consumes only its local-priority source. A
+negative control removes just final evaluation/kill while retaining exclusion:
+both fatal and ignored regressions fail their intended user-entry assertions.
+Evidence/source hashes: `build/review/pr334-exec-pending-review/`. The terminal
+host trap observes the actual process-exit gate under the new binding before
+privileged/full teardown; no complete guest termination proof is inferred.
+Earlier-fatal checkpoint, target codegen/build and finite raw-syscall guest
+qualification remain pending. Explicit native exec signal-default attributes
+retain their own contract/audit boundary; this does not infer every attribute
+path from ordinary exec tests. Public-v1 design remains preparation only.
+
 ## Remaining work
 
 Other long IRQ-disabled operations, including initial/churning PMM scans, heap validation and poisoning,
