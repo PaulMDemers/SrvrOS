@@ -329,6 +329,7 @@ struct process_user_binding {
     struct fpu_state *user_fpu;
     uint64_t fs_base;
     uint64_t kernel_stack_top;
+    uint64_t kernel_stack_base,kernel_stack_physical,kernel_stack_frames;
     bool new_worker_allowed;
 };
 /* CPU0, IRQs already excluded; output unchanged on refusal. Structural ownership

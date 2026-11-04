@@ -1,6 +1,8 @@
 #include <srvros/path_limits.h>
 #include <srvros/audio.h>
 #include "arch/x86_64/isr_frame.h"
+#include "arch/x86_64/user_frame_copy.h"
+#include "arch/x86_64/fpu_trap.h"
 #include <srvros/console.h>
 #include <srvros/exfat.h>
 #include <srvros/fpu.h>
@@ -464,7 +466,10 @@ bool process_resolve_user_binding(void *candidate, void *worker,
             (top & 15) || process->kernel_stack_top != top) return false;
     }
     *out=(struct process_user_binding){.user_fpu=fpu,.fs_base=fs,
-        .kernel_stack_top=top,.new_worker_allowed=!process->killed && !process->exiting};
+        .kernel_stack_top=top,.kernel_stack_base=thread?0:(uint64_t)process->kernel_stack,
+        .kernel_stack_physical=thread?0:process->kernel_stack_physical,
+        .kernel_stack_frames=thread?0:process->kernel_stack_frames,
+        .new_worker_allowed=!process->killed && !process->exiting};
     return true;
 }
 
@@ -478,6 +483,61 @@ bool process_admit_user_worker(void *candidate, void *worker, uint64_t generatio
     if (process->killed || process->exiting) return false;
     *out=binding;
     return true;
+}
+
+bool process_copy_user_frame_current(const struct isr_frame *frame,
+    const struct user_frame_source *source,uint64_t destination,size_t length) {
+    if (!frame || !source || !destination || !length || length>USER_FRAME_COPY_LIMIT ||
+        destination >= (1ull<<47) || length > (1ull<<47)-destination) return false;
+    struct scheduler_user_return_observation observed;
+    struct process_user_binding binding;
+    if (!scheduler_observe_user_return(&observed) || !observed.kernel_fpu ||
+        !process_resolve_user_binding(observed.process,observed.user_thread,
+            observed.image_generation,observed.address_space,&binding) ||
+        binding.user_fpu!=observed.user_fpu || binding.fs_base!=observed.user_fs_base ||
+        !vmm_user_frame_copy_policy_current(observed.address_space) ||
+        !fpu_validate_user_trap(frame)) return false;
+    /* Resolver established membership; its unwind allowance is intentionally
+     * narrower here: an exiting image cannot publish a future signal frame. */
+    struct process *process=observed.process;
+    if (!binding.new_worker_allowed || (!observed.user_thread && process->main_thread_exited) ||
+        process->mapping_count>PROCESS_MAX_MAPPINGS) return false;
+    struct user_frame_stack stack;
+    if (observed.user_thread) {
+        struct scheduler_user_worker_stack worker;
+        if (binding.kernel_stack_top || binding.kernel_stack_base || binding.kernel_stack_physical || binding.kernel_stack_frames ||
+            !scheduler_observe_user_worker_stack(&worker) || worker.thread_identity!=observed.thread_identity ||
+            worker.top!=observed.kernel_stack_top) return false;
+        stack=(struct user_frame_stack){worker.base,worker.physical,worker.frames};
+    } else {
+        if (binding.kernel_stack_top!=observed.kernel_stack_top) return false;
+        stack=(struct user_frame_stack){binding.kernel_stack_base,binding.kernel_stack_physical,binding.kernel_stack_frames};
+    }
+    uint64_t first=destination & ~(uint64_t)(PAGE_SIZE-1);
+    uint64_t last=(destination+length-1) & ~(uint64_t)(PAGE_SIZE-1);
+    size_t page_count=first==last?1:2;
+    struct user_frame_page pages[2]={{0}};
+    const uint64_t allowed=VMM_PAGE_PRESENT|VMM_PAGE_USER|VMM_PAGE_WRITABLE|VMM_PAGE_NO_EXECUTE;
+    for(size_t page=0;page<page_count;page++) {
+        uint64_t address=first+page*PAGE_SIZE;unsigned matches=0;
+        for(uint64_t i=0;i<process->mapping_count;i++) {
+            const struct process_mapping *mapping=&process->mappings[i];
+            if(mapping->virtual_address!=address) continue;
+            if(++matches!=1 || !mapping->physical_address || (mapping->physical_address & (PAGE_SIZE-1)) ||
+               (mapping->flags & ~allowed) ||
+               (mapping->flags & (VMM_PAGE_USER|VMM_PAGE_WRITABLE))!=(VMM_PAGE_USER|VMM_PAGE_WRITABLE)) return false;
+            pages[page]=(struct user_frame_page){address,mapping->physical_address,mapping->flags};
+        }
+        if(matches!=1) return false;
+    }
+    for(size_t page=0;page<page_count;page++) {
+        unsigned owners=0;
+        for(uint64_t i=0;i<process->mapping_count;i++)
+            if(process->mappings[i].physical_address==pages[page].physical_address && ++owners>1) return false;
+        if(owners!=1) return false;
+    }
+    return vmm_copy_user_frame_current(observed.address_space,destination,source,length,
+        &stack,pages,page_count,frame,observed.user_fpu,observed.kernel_fpu);
 }
 
 struct process_latency_span { uint64_t start;bool entry_masked; };

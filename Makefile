@@ -4571,3 +4571,16 @@ build/tests/process-thread-ids-host$(HOST_EXE): tools/test_process_thread_ids.c 
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include $< kernel/src/vfs_namespace.c -Wl,--gc-sections -o $@
 test-core: test-process-thread-ids
+
+.PHONY: test-vmm-user-frame-copy test-process-user-frame-copy
+test-vmm-user-frame-copy: build/tests/vmm-user-frame-copy-host$(HOST_EXE)
+	$<
+build/tests/vmm-user-frame-copy-host$(HOST_EXE): tools/test_vmm_user_frame_copy.c kernel/src/memory/vmm.c kernel/src/arch/x86_64/user_frame_copy.h kernel/src/arch/x86_64/fpu_trap.h kernel/src/arch/x86_64/isr_frame.h $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include $< -Wl,--gc-sections -o $@
+test-process-user-frame-copy: build/tests/process-user-frame-copy-host$(HOST_EXE)
+	$<
+build/tests/process-user-frame-copy-host$(HOST_EXE): tools/test_process_user_frame_copy.c kernel/src/process.c kernel/src/arch/x86_64/user_frame_copy.h kernel/src/arch/x86_64/fpu_trap.h $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include $< -Wl,--gc-sections -o $@
+test-core: test-vmm-user-frame-copy test-process-user-frame-copy

@@ -387,3 +387,8 @@ bool fpu_consume_user_trap(const struct isr_frame *frame) {
     proof->state=FPU_PROOF_CONSUMED;
     return true;
 }
+
+bool fpu_validate_user_trap(const struct isr_frame *frame) {
+    struct fpu_user_trap_proof *proof;
+    return proof_current(frame,&proof);
+}

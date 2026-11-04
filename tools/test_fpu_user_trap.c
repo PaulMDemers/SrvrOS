@@ -139,6 +139,12 @@ int main(void) {
     struct fpu_user_snapshot *out=(void *)(guard+page-512);
     setup();enter_user(&a);
     assert(proof_of(&a)->state==FPU_PROOF_VALID && ka.state.active_user_trap==proof_of(&a));
+    struct fpu_state before_validate_user=ua.state,before_validate_kernel=ka.state;
+    struct fpu_user_trap_proof before_validate_proof=*proof_of(&a);
+    assert(fpu_validate_user_trap(frame_of(&a)) && fpu_validate_user_trap(frame_of(&a)));
+    assert(!memcmp(&before_validate_user,&ua.state,sizeof(ua.state)) &&
+        !memcmp(&before_validate_kernel,&ka.state,sizeof(ka.state)) &&
+        !memcmp(&before_validate_proof,proof_of(&a),sizeof(before_validate_proof)));
     assert(!memcmp(ua.state.fxsave_area,expected.bytes,512));
     for(unsigned i=0;i<512;i++)assert(area_of(&a)[i]==0xa5);
     assert(fpu_snapshot_user_trap(frame_of(&a),out) && !memcmp(out->bytes,expected.bytes,512));
@@ -153,7 +159,7 @@ int main(void) {
     short_roundtrip(short_frame,(void *)(floor-FPU_COMMON_RESERVATION+FPU_COMMON_TRAP_AREA),
         (void *)(floor-64),&before,&after);
     assert(!memcmp(&before,&after,512) && ka.state.active_user_trap==proof_of(&a) && entry_calls==calls);
-    assert(!fpu_snapshot_user_trap(short_frame,out));assert(!munmap(short_map,(size_t)page*2));
+    assert(!fpu_snapshot_user_trap(short_frame,out) && !fpu_validate_user_trap(short_frame));assert(!munmap(short_map,(size_t)page*2));
     refused((void *)&ua.state);refused((void *)((uint8_t *)&ua.state+16));
     refused((void *)((uint8_t *)&ua.state+512));refused((void *)&ka.state);
     refused((void *)proof_of(&a));refused((void *)frame_of(&a));
@@ -171,7 +177,7 @@ int main(void) {
     assert(!fpu_snapshot_user_trap(frame_of(&a),(void *)((uintptr_t)out+1)));
     assert(!fpu_snapshot_user_trap(frame_of(&a),(void *)(UINTPTR_MAX&~(uintptr_t)15)) && !memcmp(out,&unchanged,512));
     assert(fpu_consume_user_trap(frame_of(&a)) && proof_of(&a)->state==FPU_PROOF_CONSUMED);
-    refused(out);assert(!fpu_consume_user_trap(frame_of(&a)));
+    refused(out);assert(!fpu_consume_user_trap(frame_of(&a)) && !fpu_validate_user_trap(frame_of(&a)));
     exit_user(&a);assert(!ka.state.active_user_trap && !memcmp(observed.bytes,expected.bytes,512));
 
     const uint64_t denied_cr4[]={0,(1ull<<9)|(1ull<<18),(1ull<<9)};

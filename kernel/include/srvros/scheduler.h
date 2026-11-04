@@ -93,6 +93,10 @@ struct scheduler_user_return_observation {
 };
 bool scheduler_observe_user_return(struct scheduler_user_return_observation *out);
 bool scheduler_observe_user_entry(struct scheduler_user_return_observation *out);
+struct scheduler_user_worker_stack {
+    uint64_t thread_identity,base,physical,frames,top;
+};
+bool scheduler_observe_user_worker_stack(struct scheduler_user_worker_stack *out);
 void scheduler_user_enter(void);
 void scheduler_account_kernel_enter(void);
 void scheduler_account_now(void);

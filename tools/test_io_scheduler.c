@@ -1081,6 +1081,47 @@ static void test_user_entry_observation(void)
     puts("scheduler-user-entry: PASS (borrowed pre-dispatch observation)");
 }
 
+static void worker_stack_refused(struct scheduler_user_worker_stack *out,
+                                 const struct scheduler_user_worker_stack *before)
+{
+    struct thread saved[SCHEDULER_INITIAL_THREADS];memcpy(saved,threads,sizeof(saved));
+    uint64_t current=current_thread,space=actual_space,depth=io_depth,owner=io_owner;
+    uint64_t irq=fixture_irq_flags,observed_flags=scheduler_test_rflags;
+    unsigned clock=clock_calls,changed=switches,free_count=frees;
+    assert(!scheduler_observe_user_worker_stack(out));
+    assert(!memcmp(out,before,sizeof(*out)) && !memcmp(saved,threads,sizeof(saved)));
+    assert(current_thread==current && actual_space==space && io_depth==depth && io_owner==owner);
+    assert(fixture_irq_flags==irq && scheduler_test_rflags==observed_flags);
+    assert(clock_calls==clock && switches==changed && frees==free_count);
+}
+
+static void test_worker_stack_observation(void)
+{
+    struct fpu_state fpu={0};struct scheduler_user_worker_stack out,before;
+    memset(threads,0,sizeof(threads));initialized=true;switching=false;current_thread=3;io_depth=0;
+    scheduler_test_rflags=0;actual_space=0x2000;growing_allocations=false;
+    threads[3]=(struct thread){.state=THREAD_RUNNING,.identity=7,.user_context=(void *)3,
+        .user_thread_context=(void *)4,.user_fpu=&fpu,.address_space=0x2000,.image_generation=77,
+        .stack=fake_stack,.stack_physical=4096};
+    assert(scheduler_observe_user_worker_stack(&out));
+    assert(out.thread_identity==7 && out.base==(uint64_t)fake_stack && out.physical==4096 &&
+           out.frames==SCHEDULER_STACK_SIZE/PMM_FRAME_SIZE && out.top==(uint64_t)fake_stack+SCHEDULER_STACK_SIZE);
+    memset(&out,0xa5,sizeof(out));memcpy(&before,&out,sizeof(out));
+    assert(!scheduler_observe_user_worker_stack(NULL));
+    threads[3].user_thread_context=NULL;worker_stack_refused(&out,&before);threads[3].user_thread_context=(void *)4;
+    threads[3].kernel_stack_top=16;worker_stack_refused(&out,&before);threads[3].kernel_stack_top=0;
+    invalid_stack_view=true;worker_stack_refused(&out,&before);invalid_stack_view=false;
+    threads[3].stack_physical=0;worker_stack_refused(&out,&before);
+    threads[3].stack_physical=4097;worker_stack_refused(&out,&before);
+    threads[3].stack_physical=0x10000000000000ull;worker_stack_refused(&out,&before);
+    threads[3].stack_physical=4096;threads[3].stack=fake_stack+16;
+    worker_stack_refused(&out,&before);threads[3].stack=fake_stack;
+    scheduler_test_rflags=0x200;worker_stack_refused(&out,&before);scheduler_test_rflags=0;
+    assert(!memcmp(&out,&before,sizeof(out)));
+    memset(threads,0,sizeof(threads));initialized=false;current_thread=0;actual_space=1;
+    puts("scheduler-worker-stack: PASS (unwired borrowed owned extent)");
+}
+
 static void expect_binding_refusal(uint64_t root,uint64_t stack,uint64_t generation)
 {
     static struct thread before;
@@ -1157,6 +1198,7 @@ static void test_binding_contract(void)
 int main(void) {
     test_binding_contract();
     test_user_entry_observation();
+    test_worker_stack_observation();
     test_user_return_observation();
     test_foreign_io_return();
     test_gate_retention();

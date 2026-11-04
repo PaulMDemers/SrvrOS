@@ -508,6 +508,8 @@ void scheduler_io_set_user_safe(bool safe) {
 /* Test fixture for read-only RFLAGS observation; irq_save/restore unchanged. */
 static uint64_t scheduler_test_rflags;
 #endif
+static bool valid_user_worker_stack_extent(uint64_t physical,uint64_t base);
+static uint64_t worker_stack_view(uint64_t physical,const void *backing);
 
 bool scheduler_observe_user_return(struct scheduler_user_return_observation *out) {
     uint64_t flags;
@@ -558,6 +560,19 @@ bool scheduler_observe_user_entry(struct scheduler_user_return_observation *out)
         .kernel_stack_top=thread->kernel_stack_top ? thread->kernel_stack_top :
             (thread->stack ? ((uint64_t)thread->stack+SCHEDULER_STACK_SIZE)&~0xfull : 0),
     };
+    return true;
+}
+
+bool scheduler_observe_user_worker_stack(struct scheduler_user_worker_stack *out) {
+    struct scheduler_user_return_observation observation;
+    if (!out || !scheduler_observe_user_return(&observation) || !observation.user_thread) return false;
+    const struct thread *thread=thread_at(current_thread);
+    if (thread->kernel_stack_top || !thread->stack ||
+        !valid_user_worker_stack_extent(thread->stack_physical,worker_stack_view(thread->stack_physical,thread->stack)) ||
+        thread->stack!=pmm_phys_to_virt(thread->stack_physical) ||
+        observation.kernel_stack_top!=(uint64_t)thread->stack+SCHEDULER_STACK_SIZE) return false;
+    *out=(struct scheduler_user_worker_stack){observation.thread_identity,(uint64_t)thread->stack,
+        thread->stack_physical,SCHEDULER_STACK_SIZE/PMM_FRAME_SIZE,observation.kernel_stack_top};
     return true;
 }
 

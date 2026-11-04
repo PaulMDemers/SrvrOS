@@ -3660,3 +3660,29 @@ host-tested only. Final thread-ID review/qualification is with the owner.
 The frame-copy policy is revised at `1b571126` with strict control/PTE/PAT/
 MAXPHYADDR policy, owned current32-frame kernel-stack source, producer/retirement
 and physical alias constraints; no copy implementation is authorized yet.
+
+
+### PR334 owned user-frame copy — internal implementation under review
+
+The owner qualified signed-ID candidate `783c4eb8` after independent4/4 host
+profiles, both baseline negative reproductions and normal FPU/main-worker,
+thread/sysabi guests (combined receipt `966e54e3…28df1`). Exact16 accepted source/
+artifact files are retained under `build/signal-context/accepted-thread-ids-host/`.
+The next owner-approved copy contract is limited to an internal unwired helper,
+strict CPU/paging policy and current owned32-frame stack source; no signal hook,
+ABI/action code or consume/publication transaction is authorized. Implementing
+private VMM preflight/scalar copy, main/worker stack ownership observations and
+process tracking uniqueness checks in this branch. A read-only current-proof
+validator avoids unnecessary FPU snapshot copying; policy is checked before that
+validator's existing kernel-mapping preparation. Duplicate virtual and physical
+ownership, including aliases from any other tracked VA, refuse before writes.
+
+Strict/sanitized new VMM, process, scheduler, FPU-validator and existing binding
+fixtures pass. VMM source/paging/physical aliases use explicit host logical maps;
+process fixture mocks final VMM copy/proof and does not claim integration. The
+first alias fixture used nonoverlapping physical byte extents; its failed log is
+retained, and the corrected overlapping-page case passes. Target build/codegen
+and independent review remain pending. The session team owns the current heavy
+build/VM window; only bounded source/host checks run here. Host free remains about
+3GiB, and the human8GiB/JSC resource question is pending. No new JavaScript smoke,
+public signal admission or guest copy-helper coverage is claimed.
