@@ -13,6 +13,7 @@
 #include <srvros/intel_display_capture.h>
 #include <srvros/intel_dma_observe.h>
 #include <srvros/x86_cache.h>
+#include <srvros/intel_ggtt_window.h>
 #include <srvros/intel_display_backing.h>
 #include <srvros/intel_scanout_trial.h>
 #include <srvros/audio.h>
@@ -805,6 +806,7 @@ void kmain(void) {
             bool backing_ok=intel_display_backing_probe_report();sampled=sampled && backing_ok;
             bool dma_ok=intel_dma_probe_report();sampled=sampled && dma_ok;
             bool cache_ok=intel_cache_probe_report();sampled=sampled && cache_ok;
+            if(cmdline_has_token(cmdline,"srvros.intel-window=read-only")){bool window_ok=intel_ggtt_window_probe_report();sampled=sampled && window_ok;}
             bool fixture=cmdline_has_token(cmdline,"srvros.intel-lifetime=fixture");
             if(fixture || cmdline_has_token(cmdline,"srvros.intel-lifetime=shadow")) {
                 struct limine_framebuffer_response *r=framebuffer_request.response;

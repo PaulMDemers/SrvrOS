@@ -48,6 +48,13 @@ int main(int argc,char **argv) {
         for(unsigned i=0;i<5;i++)if(!strcmp(argv[1],names[i]))scenario=i;
     }
     intel_cache_probe_boot();intel_cache_probe_boot();
+    assert(!intel_cache_probe_uc_page(0xc0811000));
     bool ok=intel_cache_probe_report();assert(ok==(scenario==0));
-    assert(reads==(scenario==2?0:20));return 0;
+    assert(reads==(scenario==2?0:20));
+    if(argc>1 && !strcmp(argv[1],"fresh-uc")) {
+        assert(!intel_cache_probe_uc_page(0xc0812000) && reads==20);
+        assert(intel_cache_probe_uc_page(0xc0811000) && reads==30);
+        scenario=3;assert(!intel_cache_probe_uc_page(0xc0811000) && reads==40);
+    }
+    return 0;
 }

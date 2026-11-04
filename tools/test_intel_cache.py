@@ -44,6 +44,8 @@ class CacheTests(unittest.TestCase):
             with self.subTest(old=old):
                 self.assertIn(old,self.text)
                 with self.assertRaises(ValueError):cache_result(self.text.replace(old,new,1))
+    def test_fresh_uc_recheck(self):
+        subprocess.check_call([str(self.producer),"fresh-uc"],stdout=subprocess.DEVNULL)
     def test_ordinary(self):self.assertIsNone(cache_result('ordinary desktop'))
     def test_schema(self):
         for extra in ('intel-cache-mystery: v=1','intel-cache-summary: v=2', 'intel-cache-summary: v=1 v=1'):

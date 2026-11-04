@@ -4386,9 +4386,9 @@ test-intel-display-capture: build/tests/intel-display-capture$(HOST_EXE) build/t
 build/tests/intel-display-capture$(HOST_EXE): tools/test_intel_display_capture.c kernel/src/drivers/intel_display_capture.c kernel/include/srvros/intel_display_capture.h
 	mkdir -p $(dir $@)
 	$(HOST_CC) -std=c11 -Wall -Wextra -Werror -I kernel/include tools/test_intel_display_capture.c kernel/src/drivers/intel_display_capture.c -o $@
-build/tests/intel-display-probe$(HOST_EXE): tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_display_capture.c kernel/src/drivers/intel_display_backing.c kernel/src/drivers/intel_dma_observe.c kernel/diagnostics/package_audit_core.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+build/tests/intel-display-probe$(HOST_EXE): tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_display_capture.c kernel/src/drivers/intel_display_backing.c kernel/src/drivers/intel_dma_observe.c kernel/src/drivers/intel_ggtt_window.c kernel/diagnostics/package_audit_core.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	mkdir -p $(dir $@)
-	$(HOST_CC) -std=c11 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include tools/test_intel_display_probe.c kernel/src/drivers/intel_display_capture.c kernel/src/drivers/intel_display_backing.c kernel/src/drivers/intel_dma_observe.c kernel/diagnostics/package_audit_core.c -o $@
+	$(HOST_CC) -std=c11 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include tools/test_intel_display_probe.c kernel/src/drivers/intel_display_capture.c kernel/src/drivers/intel_display_backing.c kernel/src/drivers/intel_dma_observe.c kernel/src/drivers/intel_ggtt_window.c kernel/diagnostics/package_audit_core.c -o $@
 
 .PHONY: test-intel-display-backing
 test-core: test-intel-display-backing
@@ -4692,3 +4692,12 @@ build/userspace/test_diff_probe.elf: tools/test_diff_probe.c $(USER_CRT0_OBJ) $(
 	mkdir -p build/userspace/diff-probe
 	$(CC) $(USER_CFLAGS) -c tools/test_diff_probe.c -o build/userspace/diff-probe/probe.o
 	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) build/userspace/diff-probe/probe.o $(USER_LIB_OBJ) -o $@
+
+.PHONY: test-intel-window
+test-core: test-intel-window
+test-intel-window: build/tests/intel-window$(HOST_EXE) build/tests/intel-display-probe$(HOST_EXE) build/tests/intel-cache-probe$(HOST_EXE)
+	build/tests/intel-window$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_ggtt_window.py
+build/tests/intel-window$(HOST_EXE): tools/test_intel_ggtt_window.c kernel/src/drivers/intel_ggtt_window.c kernel/include/srvros/intel_ggtt_window.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_intel_ggtt_window.c kernel/src/drivers/intel_ggtt_window.c -o $@

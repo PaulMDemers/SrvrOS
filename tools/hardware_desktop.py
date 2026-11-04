@@ -808,6 +808,13 @@ def collect(mount, volume, output):
                     attention.append('collection: Intel backing observation refused, failed or incomplete')
             except ValueError as error:
                 attention.append('collection: invalid Intel backing observation: '+str(error))
+        intel_window=None
+        if 'srvros.intel-window=read-only' in text:
+            try:
+                from intel_ggtt_window import native_window_result
+                intel_window=native_window_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+                if not intel_window or not intel_window['native_observation_complete']: attention.append("Intel GGTT window observation incomplete or refused")
+            except ValueError as error: attention.append("Invalid Intel GGTT window receipt: "+str(error))
         intel_cache=None
         if 'srvros.intel-cache=read-only' in text:
             try:
@@ -850,7 +857,7 @@ def collect(mount, volume, output):
             "intel_display_capture": intel_display,
             "intel_display_backing": intel_backing,
             "intel_scanout_lifetime": intel_lifetime,
-            "intel_dma_observe":intel_dma,"intel_cache":intel_cache,
+            "intel_dma_observe":intel_dma,"intel_cache":intel_cache,"intel_ggtt_window":intel_window,
             "posix_capture": posix_proof,
             "storage_wait": storage_wait,
             "battery_preflight": preflight,

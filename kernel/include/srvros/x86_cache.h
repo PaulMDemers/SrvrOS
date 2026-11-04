@@ -30,4 +30,6 @@ bool x86_cache_page(const struct x86_cache_snapshot *,uint64_t physical,unsigned
                     unsigned *mtrr_type,unsigned *pat_type,unsigned *effective_type);
 void intel_cache_probe_boot(void);
 bool intel_cache_probe_report(void);
+/* Fresh recheck against completed native observation; not mapping authority. */
+bool intel_cache_probe_uc_page(uint64_t physical);
 #endif

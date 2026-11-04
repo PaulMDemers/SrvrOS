@@ -3,7 +3,7 @@
 #include <srvros/timer.h>
 #include <srvros/console.h>
 static struct x86_cache_snapshot sample[2];
-static bool attempted;
+static bool attempted,report_ok;
 #ifdef SRVROS_CACHE_PROBE_HOST_TEST
 bool cache_test_cpu(void *,struct x86_cache_cpu *);
 bool cache_test_msr(void *,uint32_t,uint64_t *);
@@ -65,5 +65,13 @@ bool intel_cache_probe_report(void) {
     bool preserved=native && intel_scanout_trial_revalidate();
     console_printf("intel-cache-summary: v=1 cpu_complete=%u native_pages=%u preserved=%u equal=%u queries=%u writes=0 candidate_mappings=0 authority=none\n",
         (uint64_t)complete,(uint64_t)(native?3:0),(uint64_t)preserved,(uint64_t)equal,(uint64_t)(native && queries));
-    return complete && native && queries && preserved;
+    report_ok=complete && native && queries && preserved;
+    return report_ok;
+}
+
+bool intel_cache_probe_uc_page(uint64_t physical) {
+    struct x86_cache_snapshot current;unsigned m,p,e;uint64_t pages[3];
+    if(!report_ok || !intel_scanout_trial_cache_pages(pages) || physical!=pages[1] ||
+       !x86_cache_snapshot(&current,&io) || !x86_cache_equal(&sample[1],&current))return false;
+    return x86_cache_page(&current,physical,2,&m,&p,&e) && e==0;
 }

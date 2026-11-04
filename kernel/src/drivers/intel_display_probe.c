@@ -560,3 +560,77 @@ bool intel_dma_probe_report(void) {
     }
     return r->status==DMA_OBSERVED;
 }
+
+/* One explicit read-only candidate window. It does not import managed slots. */
+#include <srvros/intel_ggtt_window.h>
+#include <srvros/x86_cache.h>
+static struct intel_window_result window_result;
+static bool window_attempted;
+struct window_adapter {struct backing_adapter a;unsigned cache_rechecks;bool preserved,map_uncertain;};
+static bool window_guard(void *opaque) {
+    struct window_adapter *w=opaque;struct backing_adapter fresh;uint64_t physical,pages[3];
+    w->preserved=false;
+    if(w->a.mapped || !trial_adapter(&fresh) || fresh.common.gpu!=w->a.common.gpu || fresh.common.cr3!=w->a.common.cr3 ||
+       vmm_virt_to_phys_in_space(w->a.common.cr3,BACKING_VA,&physical) || !intel_scanout_trial_cache_pages(pages))return false;
+    w->cache_rechecks++;
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+    if(!intel_display_test_uc(pages[1]))return false;
+#else
+    if(!intel_cache_probe_uc_page(pages[1]))return false;
+#endif
+    w->preserved=intel_scanout_trial_revalidate();return w->preserved;
+}
+static bool window_endpoint(void *opaque,struct intel_window_endpoint *e) {
+    struct window_adapter *w=opaque;struct intel_backing_endpoint b;
+    if(w->a.mapped || !backing_endpoint(&w->a,&b) || !trial_endpoint_same(&b))return false;
+    *e=(struct intel_window_endpoint){.mmio=result.mmio_base,.gmadr=((uint64_t)b.identity.bar[3]<<32)|b.identity.bar[2],
+        .ggtt_bytes=backing.ggtt_bytes,.fence_begin=0,.fence_end=0x2200000,
+        .msac=pci_read_config8(w->a.common.gpu,0x62)};
+    return true;
+}
+static bool window_map(void *opaque,uint32_t page) {
+    struct window_adapter *w=opaque;
+    if(page!=INTEL_WINDOW_PAGE)return false;
+    bool ok=backing_map(&w->a,page);uint64_t physical;
+    if(!ok && vmm_virt_to_phys_in_space(w->a.common.cr3,BACKING_VA,&physical)) {
+        w->map_uncertain=true;trial_mapping_fault=true;
+    }
+    return ok;
+}
+static bool window_read(void *opaque,uint32_t off,uint32_t *v) {
+    struct window_adapter *w=opaque;uint64_t physical;
+    if(off<INTEL_WINDOW_PAGE || off>=INTEL_WINDOW_PAGE+INTEL_WINDOW_ENTRIES*8 ||
+       !vmm_virt_to_phys_in_space(w->a.common.cr3,BACKING_VA,&physical) || physical!=result.mmio_base+INTEL_WINDOW_PAGE)return false;
+    return backing_read(&w->a,off,v);
+}
+static bool window_unmap(void *opaque) {
+    struct window_adapter *w=opaque;
+    if(!backing_unmap(&w->a)){trial_mapping_fault=true;return false;}return true;
+}
+bool intel_ggtt_window_probe_report(void) {
+    if(window_attempted)return false;
+    window_attempted=true;struct window_adapter w={0};
+    console_write("intel-window: bounded aperture-size and candidate-entry observation; no writes or managed-range grant\n");
+    if(trial_adapter(&w.a))
+        (void)intel_ggtt_window(&window_result,&(struct intel_window_io){&w,window_guard,window_endpoint,window_map,window_read,window_unmap,now});
+    if(w.map_uncertain){window_result.retained=1;window_result.status=WINDOW_RETAINED;}
+    const struct intel_window_result *r=&window_result;const struct intel_window_endpoint *e=&r->endpoint;
+    console_printf("intel-window-summary: v=1 status=%u window_maps=%u retained=%u mmio=%x gmadr=%x msac=%u ggtt_bytes=%u aperture_base=%x aperture_bytes=%u fence_begin=%u fence_end=%u first=8704 count=16 cache_rechecks=%u backing_preserved=%u guard_retained=%u pte_writes=0 aperture_mappings=0 ownership=none\n",
+        (uint64_t)r->status,(uint64_t)r->maps,(uint64_t)r->retained,e->mmio,e->gmadr,(uint64_t)e->msac,e->ggtt_bytes,r->aperture_base,r->aperture_bytes,
+        e->fence_begin,e->fence_end,(uint64_t)w.cache_rechecks,(uint64_t)(w.preserved && r->status==WINDOW_OBSERVED),(uint64_t)(trial_mapping_fault && !r->retained));
+    const char abc[]="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    for(unsigned n=0;n<2;n++) {
+        const struct intel_window_sample *p=&r->sample[n];uint8_t bytes[128];char data[173];unsigned k=0;
+        for(unsigned i=0;i<16;i++)for(unsigned j=0;j<8;j++)bytes[i*8+j]=(uint8_t)(p->entry[i]>>(8*j));
+        for(unsigned i=0;i<128;i+=3) {
+            unsigned left=128-i;uint32_t v=(uint32_t)bytes[i]<<16;
+            if(left>1)v|=(uint32_t)bytes[i+1]<<8;
+            if(left>2)v|=bytes[i+2];
+            data[k++]=abc[v>>18];data[k++]=abc[(v>>12)&63];data[k++]=left>1?abc[(v>>6)&63]:'=';data[k++]=left>2?abc[v&63]:'=';
+        }
+        data[k]=0;
+        console_printf("intel-window-sample: v=1 sample=%u begin_us=%u end_us=%u reads=%u entries=%u hash=%x zero=%u bit0=%u data=%s\n",
+            (uint64_t)n,p->begin_us,p->end_us,(uint64_t)p->reads,(uint64_t)p->entries,p->hash,(uint64_t)p->zero,(uint64_t)p->bit0,data);
+    }
+    return r->status==WINDOW_OBSERVED && w.preserved;
+}
