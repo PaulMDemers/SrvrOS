@@ -192,7 +192,8 @@ static bool sectors(struct usb_storage *s, uint32_t lba, uint32_t count, bool wr
     return command(s,cdb,10,!write,s->data,count*s->sector_size)==0;
 }
 static bool transfer(struct block_device *d, uint64_t offset, void *buffer, uint64_t length, bool write) {
-    struct usb_storage *s=d->private_data;
+    struct usb_storage *s=d?d->private_data:NULL;
+    if(!s)return false;
     uint64_t size=s->sectors*s->sector_size, flags;
     if (!buffer || offset>size || length>size-offset || !begin(s,&flags)) return false;
     bool ok=true;
@@ -221,20 +222,47 @@ static bool write_blocks(struct block_device *d,uint64_t off,const void *buf,uin
     return transfer(d,off,(void *)buf,len,true);
 }
 static bool flush(struct block_device *d) {
-    struct usb_storage *s=d->private_data; uint64_t flags;
+    struct usb_storage *s=d?d->private_data:NULL; uint64_t flags;
+    if(!s)return false;
     if(!begin(s,&flags)) return false;
     uint8_t cdb[10]={0x35};
     bool ok=command(s,cdb,10,false,0,0)==0;
     end(s,flags); return ok;
 }
+/* Preserve failure/durability visibility without retaining a transport context. */
+static bool retired_read(struct block_device *d,uint64_t off,void *data,uint64_t len) {
+    (void)d;(void)off;(void)data;(void)len;return false;
+}
+static bool retired_write(struct block_device *d,uint64_t off,const void *data,uint64_t len) {
+    (void)d;(void)off;(void)data;(void)len;return false;
+}
+static bool retired_flush(struct block_device *d) { (void)d;return false; }
+bool usb_storage_retire(struct usb_storage *s) {
+    if(!s)return false;
+    uint64_t flags=save_irq();
+    if(s->block && s->block->private_data!=s && !(s->retired && !s->block->private_data)) {restore_irq(flags);return false;}
+    s->retiring=s->failed=true;if(s->block)block_invalidate(s->block);
+    if(s->initializing || s->busy || s->diagnostic_users) {restore_irq(flags);return false;}
+    if(s->block) {
+        s->block->read=retired_read;
+        if(s->block->write)s->block->write=retired_write;
+        if(s->block->flush)s->block->flush=retired_flush;
+        s->block->private_data=NULL;
+    }
+    s->bulk=NULL;s->context=NULL;s->diagnose=NULL;s->transfer_timing=NULL;s->retired=true;
+    restore_irq(flags);return true;
+}
 bool usb_storage_is_device(struct block_device *device) {
     struct block_device *parent = block_parent(device);
-    return parent && parent->read == read_blocks;
+    return parent && (parent->read==read_blocks || parent->read==retired_read);
 }
 
 void usb_storage_print_status(struct block_device *device) {
-    if (!usb_storage_is_device(device)) return;
-    struct usb_storage *s = block_parent(device)->private_data;
+    uint64_t flags=save_irq();
+    if(!usb_storage_is_device(device)) {restore_irq(flags);return;}
+    struct usb_storage *s=block_parent(device)->private_data;
+    if(!s || s->retiring || s->retired || s->diagnostic_users==~0u) {restore_irq(flags);return;}
+    s->diagnostic_users++;restore_irq(flags);
     static const char *phases[] = {"none", "cbw", "data", "csw", "length"};
     console_printf("usb-storage: commands=%u errors=%u quarantined=%u busy=%u\n",
         s->commands, s->errors, (uint64_t)s->failed, (uint64_t)s->busy);
@@ -246,24 +274,26 @@ void usb_storage_print_status(struct block_device *device) {
     console_printf("usb-storage: raw-csw signature=%x tag=%u residue=%u status=%u\n",
         (uint64_t)s->error_signature,(uint64_t)s->error_tag,(uint64_t)s->error_residue,(uint64_t)s->error_csw_status);
     if (s->diagnose) s->diagnose(s->context);
+    flags=save_irq();s->diagnostic_users--;restore_irq(flags);
 }
 
 bool usb_storage_enable_volume_writes(struct block_device *device) {
-    if (!usb_storage_is_device(device)) return false;
+    uint64_t flags=save_irq();
+    if(!usb_storage_is_device(device)) {restore_irq(flags);return false;}
     struct block_device *parent = block_parent(device);
     struct usb_storage *storage = parent->private_data;
-    if (storage->failed || storage->busy || !block_device_online(device) || !block_claim_available(parent,device)) return false;
+    if(!storage || storage->failed || storage->busy || !block_device_online(device) || !block_claim_available(parent,device)) {restore_irq(flags);return false;}
     parent->write = write_blocks;
     parent->flush = flush;
-    return block_enable_partition_writes(device);
+    bool ok=block_enable_partition_writes(device);restore_irq(flags);return ok;
 }
 
 bool usb_storage_disable_volume_writes(struct block_device *device) {
-    if (!usb_storage_is_device(device)) return false;
+    uint64_t flags=save_irq();
+    if(!usb_storage_is_device(device)) {restore_irq(flags);return false;}
     struct block_device *parent = block_parent(device);
     struct usb_storage *storage = parent->private_data;
-    uint64_t flags = save_irq();
-    if (storage->busy || !block_claim_available(parent,device)) { restore_irq(flags); return false; }
+    if (!storage || storage->busy || !block_claim_available(parent,device)) { restore_irq(flags); return false; }
     /* Revoke every alias, including the raw disk, before returning to the monitor. */
     for (uint64_t i = 0; i < BLOCK_MAX_DEVICES; i++) {
         struct block_device *alias = block_device_at(i);
@@ -275,7 +305,7 @@ bool usb_storage_disable_volume_writes(struct block_device *device) {
     return true;
 }
 
-bool usb_storage_attach(struct usb_storage *s,void *context,usb_bulk_fn bulk,bool writable) {
+static bool attach_storage(struct usb_storage *s,void *context,usb_bulk_fn bulk,bool writable) {
     /* Published callbacks, geometry and aliases belong to this boot lifetime. */
     if(!s || !bulk || s->block || s->failed || s->busy)return false;
     s->context=context; s->bulk=bulk;
@@ -313,4 +343,19 @@ bool usb_storage_attach(struct usb_storage *s,void *context,usb_bulk_fn bulk,boo
     console_printf("usb-storage: %s blocks=%u sector=%u mode=%s\n",s->name,s->sectors,(uint64_t)bytes,writable?"rw":"read-only");
     if (!block_register_gpt_partitions(s->block)) block_register_mbr_partitions(s->block);
     return true;
+}
+
+/* Startup may perform block callbacks while scanning partitions, so its owner
+ * is separate from the ordinary per-request busy gate. */
+bool usb_storage_attach(struct usb_storage *s,void *context,usb_bulk_fn bulk,bool writable) {
+    uint64_t flags=save_irq();
+    if(!s || !bulk || s->block || s->failed || s->busy || s->initializing || s->retiring) {
+        restore_irq(flags);return false;
+    }
+    s->initializing=true;restore_irq(flags);
+    bool ok=attach_storage(s,context,bulk,writable);
+    flags=save_irq();
+    if(s->retiring && s->block)block_invalidate(s->block);
+    s->initializing=false;ok=ok && !s->retiring;
+    restore_irq(flags);return ok;
 }

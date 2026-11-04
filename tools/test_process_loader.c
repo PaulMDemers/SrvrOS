@@ -20,6 +20,9 @@ static struct process first, second,clone;
 static struct process *current;
 static bool exec_commit_test;
 static jmp_buf exec_commit;
+/* Exec now allocates privately and performs its own batched initialization. */
+void *kmalloc(size_t size) {assert(size==sizeof(clone));memset(&clone,0xa5,sizeof(clone));return &clone;}
+bool scheduler_io_active(void) {return false;}
 void *kcalloc(size_t count,size_t size) {assert(count==1 && size==sizeof(clone));memset(&clone,0,sizeof(clone));return &clone;}
 void kfree(void *p) {assert(p==&clone);}
 void scheduler_clear_user_context(void) {assert(exec_commit_test && current && !current->owned_user_scope);longjmp(exec_commit,1);}

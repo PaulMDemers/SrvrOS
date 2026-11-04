@@ -9,7 +9,9 @@ struct virtio_pci_device { int unused; };
 static struct virtio_pci_device fake;
 static struct pci_device pci={.vendor_id=0x1af4,.device_id=0x1041};
 static bool offered=true, stop_ok=true, active=true, register_ok=true;
-static bool fail_poll, fail_alloc;
+static bool fail_poll, fail_alloc, fail_on_delivery, probe_callbacks, reset_proved, host_cleanup;
+static unsigned callback_probes;
+static void retained_callbacks(void);
 static unsigned allocs, frees, delivered;
 static struct virtio_pci_completion completions[2][64];
 static unsigned heads[2], tails[2], next_token[2];
@@ -33,7 +35,11 @@ uint64_t pmm_alloc_frame_tagged(enum pmm_frame_tag t) {
     (void)t; if(fail_alloc) return 0; void *p=calloc(1,4096); assert(p); allocs++; return (uint64_t)(uintptr_t)p;
 }
 void *pmm_phys_to_virt(uint64_t p) { return (void *)(uintptr_t)p; }
-void pmm_free_frame(uint64_t p) { free((void *)(uintptr_t)p); frees++; }
+void pmm_free_frame(uint64_t p) {
+    assert(reset_proved || host_cleanup);
+    free((void *)(uintptr_t)p); frees++;
+    if(probe_callbacks && !host_cleanup)retained_callbacks();
+}
 bool virtio_pci_open(const struct pci_device *p,uint16_t type,uint64_t allowed,uint64_t required,uint32_t len,struct virtio_pci_device **out) {
     assert(p==&pci && type==1 && allowed==(NET_F_MAC|NET_F_STATUS) && required==NET_F_MAC && len==6); *out=&fake; active=true; return true;
 }
@@ -48,18 +54,35 @@ bool virtio_pci_submit(struct virtio_pci_device *d,uint16_t q,const struct virti
 int virtio_pci_poll(struct virtio_pci_device *d,uint16_t q,struct virtio_pci_completion *c) {
     (void)d; check_access(); if(fail_poll) return -1; if(heads[q]==tails[q]) return 0; *c=completions[q][heads[q]++]; return 1;
 }
-bool virtio_pci_stop(struct virtio_pci_device *d) { (void)d; check_access(); active=false; return stop_ok; }
+bool virtio_pci_stop(struct virtio_pci_device *d) { (void)d; check_access(); active=false; reset_proved=stop_ok; return stop_ok; }
 bool virtio_pci_active(const struct virtio_pci_device *d) { (void)d; return active; }
 bool net_device_register(const struct net_device_ops *ops) { registered=*ops; return register_ok; }
 void net_handle_ethernet_frame(const uint8_t *p,uint16_t n) {
     assert(n==60 && p[0]==42 && space==2 && irq==0x200); delivered++;
     assert(virtio_net_poll(1,false)==0); /* nested poll cannot consume DMA */
-    assert(virtio_net_send_frame(p,n)); /* delivery permits nested TX */
+    if(fail_on_delivery) {
+        fail_poll=true;
+        assert(!virtio_net_send_frame(p,n)); /* Retire from inside delivery. */
+        assert(p[0]==42 && n==60); /* Delivery uses a private packet, not RX DMA. */
+    } else assert(virtio_net_send_frame(p,n)); /* delivery permits nested TX */
 }
 void console_printf(const char *fmt,...) { (void)fmt; }
 static void complete(unsigned q,uint16_t token,uint32_t len) { completions[q][tails[q]++]=(struct virtio_pci_completion){token,len}; }
+/* Provider registry callbacks outlive DMA. They must reject work both while
+ * retirement holds the lock and after it has released/freed the buffers. */
+static void retained_callbacks(void) {
+    uint8_t frame[60]={42};struct net_device_link link={0};
+    uint64_t saved_space=space,saved_irq=irq;
+    unsigned before=frees,packets=delivered;
+    assert(!registered.send(registered.context,frame,sizeof(frame)));
+    assert(!registered.poll(registered.context,1,false));
+    assert(!registered.link(registered.context,&link));
+    assert(!virtio_net_available() && !link.up && frees==before && delivered==packets);
+    assert(space==saved_space && irq==saved_irq);callback_probes++;
+}
 static void reset_fixture(void) {
     memset(rx,0,sizeof(rx)); memset(tx,0,sizeof(tx)); memset(heads,0,sizeof(heads)); memset(tails,0,sizeof(tails)); memset(next_token,0,sizeof(next_token));
+    fail_on_delivery=probe_callbacks=reset_proved=host_cleanup=false;callback_probes=0;
     device=NULL; ready=attempted=quarantined=lock=polling=has_status=false; space=1; irq=0x200; runtime=false; status_feature=true; link_status=1; allocs=frees=delivered=0; offered=stop_ok=active=register_ok=true; fail_poll=fail_alloc=false;
 }
 int main(void) {
@@ -92,6 +115,21 @@ int main(void) {
     reset_fixture(); assert(virtio_net_init()); space=2; irq=0; runtime=true; stop_ok=false; fail_poll=true;
     assert(virtio_net_poll(1,false)==0 && !virtio_net_available() && quarantined && frees==0 && space==2 && irq==0);
     /* Quarantined DMA is intentionally retained until reboot; free only test memory. */
-    stop_ok=true; free_buffers();
+    stop_ok=true; host_cleanup=true; free_buffers();
+    for(unsigned failed_reset=0;failed_reset<2;failed_reset++) {
+        reset_fixture();assert(virtio_net_init());
+        space=2;irq=0x200;runtime=true;probe_callbacks=true;fail_on_delivery=true;
+        stop_ok=!failed_reset;
+        memcpy(rx[0].data+12,frame,sizeof(frame));complete(RX_QUEUE,rx[0].token,72);
+        assert(virtio_net_poll(2,false)==1 && delivered==1 && !virtio_net_available());
+        assert(failed_reset?(!frees && quarantined):(frees==allocs && callback_probes==allocs));
+        for(unsigned masked=0;masked<2;masked++) {
+            irq=masked?0:0x200;
+            for(unsigned i=0;i<4;i++)retained_callbacks();
+        }
+        assert(!virtio_net_init() && allocs==2*SLOTS); /* No DMA/provider rebinding. */
+        if(failed_reset) { host_cleanup=true;free_buffers(); }
+    }
+    puts("virtio-net-retirement: PASS reset-before-free, retained callbacks during/after reclaim, nested delivery and quarantine");
     puts("virtio-net: PASS RX, TX, malformed, nested callbacks, fallback and reset quarantine");
 }

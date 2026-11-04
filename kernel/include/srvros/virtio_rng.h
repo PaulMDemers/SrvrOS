@@ -2,7 +2,7 @@
 #define SRVROS_VIRTIO_RNG_H
 #include <stdbool.h>
 #include <stdint.h>
-/* VM-gated initialization and bounded polling require kernel CR3, CPU0 IRQ
+/* VM-gated initialization, bounded polling and stop require kernel CR3, CPU0 IRQ
  * exclusion. Consumption only touches a private pool, and is safe from any CR3
  * with IRQs excluded. Exhaustion is nonblocking; callers retain their fallback. */
 bool virtio_rng_init(void);

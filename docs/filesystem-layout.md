@@ -3,6 +3,117 @@
 Updated November 4, 2026. Global activation follows the explicit namespace proof
 in [PR308](https://github.com/PaulMDemers/SrvrOS/pull/308).
 
+## PR360 current-main merge review — ready
+
+User authorizes review and merge if ready, preserving uncertain media and review
+VMs and coordinating PR317. Reviewed `faf760d5` with no blocking finding and
+integrated actual main `5f670602` as `ce5dd654`. The main delta adds Haswell audit
+tooling/documentation; native block/claim/exFAT/VFS, inspector, wrapper and tests
+match the qualified source. Production/runtime code is unchanged by this PR.
+
+Verified the frozen 44-file archive and all 15 captured sources against the
+immutable commit. Independently reviewed PR317 receipt/log hashes confirm its
+27 strict and 27 ASan/UBSan synthetic groups and successful omitted-backup
+negative control. Its initial exFAT fixture run could not preserve mode/hardlink
+semantics; the APFS rerun passes. macOS LeakSanitizer is unsupported: its supported
+sanitizer pass uses `detect_leaks=0`, with no leak-sanitizer acceptance claimed.
+The independent reviewer did not reread uncertain media or operate review VMs.
+
+Fresh current-main 27 diagnostic/selection groups, storage lease/workspace/USB
+regressions and documentation/whitespace checks pass. Reinspection of all three
+uncertain images, fault backup and clean control matches the original full-image
+SHA-256 and device/inode/ownership/link-count/mode/size/mtime/ctime stamps, plus
+PR349 explicit-range and PR360 GPT metadata. Diagnostic writes/flushes remain
+zero, uncertain images stay `0444`, and control stays `0644`. Review VMs
+61610/6233/85869 stay running and untouched. No new OS/VM or live/physical-media
+acceptance is claimed for this host-only change. Review evidence survives in
+`.local/filesystem-evidence/pr360-review/` outside `build`.
+
+PR317 owner confirms no new contract/lifetime overlap at `649e34df`, keeping
+scope coordination distinct from its independent source review. Published
+storage failure remains sticky; GPT/marker observations grant no authentication,
+repair, replay, transport recovery, remount or writable-admission authority.
+512-byte sectors, conservative native attribute policy and exactly one Basic
+Data candidate remain explicit limits. Review is ready for authorized merge.
+
+The merge guard subsequently held delivery when main advanced. Integrated
+Files folder-picker main `bc3d4933` as `f4769af5`, synchronizing Apps `b2b93f65`
+and Widgets `b3fa806a` and preserving its host record. All qualified native/tool
+sources remain identical. Fresh 27-group checks and retained-media comparisons
+pass again; no new runtime/UI acceptance is claimed by this host-only review.
+
+Next proposed bounded milestone: **explicit partition-GUID selection for offline
+multi-volume workspace images**. Add a caller-supplied GUID option which requires
+one matching Basic Data partition in the already validated primary/backup map,
+then retains the existing workspace marker/metadata inspection. This addresses
+the current conservative refusal of all multiple-Basic-Data images. Preserve
+that automatic ambiguity refusal; never select a first/alternate partition on
+missing/wrong GUID, unsupported type, corrupt map or failed workspace inspection.
+Research reuse of native GUID/map handling first, coordinate with PR317, and
+verify wrong/missing/duplicate identities plus multi-volume fixtures and unchanged
+retained-image hashes/permissions. No writable admission, repair, replay or
+source/orphan export. This proposal is not implemented by PR360.
+
+## GPT-aware read-only workspace selection — host qualified
+
+On main `f4ea0ccb`, extend the PR349 offline inspector with a separate native
+GPT adapter. `tools/workspace_gpt_driver.c` includes the existing `block.c` and
+`block_claim.c` in host-test mode. Native `block_gpt_scan` validates primary
+header/table CRC, identities, ranges and overlap before registering read-only
+views. A host-only supplement checks the backup-at-disk-end header CRC, swapped
+current/alternate LBAs, matching disk identity/usable range/entry geometry,
+bounded backup table and byte-identical entries plus CRC. No production parser,
+process, exFAT, USB/BOT, transport or admission-policy changes are introduced.
+
+Without offsets, the wrapper requires exactly one Microsoft Basic Data partition
+and then uses the existing native workspace diagnostic to validate marker syntax
+and report metadata. Multiple Basic Data partitions are refused even if only one
+would contain a workspace; zero candidates and parser/inspection failures are
+refused without fallback. GUIDs are structural observations, not authentication
+or permission to recover media. The existing native conservative GPT policy,
+including refusal of read-only partition attributes, remains in force.
+
+```sh
+sh tools/macos/build.sh HOST_CC='python3 build/tooling/darwin-host-cc.py -D_DARWIN_C_SOURCE' test-workspace-inspection
+python3 tools/workspace_inspection.py IMAGE --driver build/tests/installation-inspect-driver
+```
+
+The GPT driver defaults to `workspace-gpt-driver` beside the inspector; use
+`--gpt-driver PATH` for a separately located native build. This adapter supports
+512-byte logical sectors and offline regular whole-disk images up to 8 GiB,
+with selected volumes capped at 2 GiB. Native table/registry limits apply, and
+host metadata reads/calls are additionally capped at 4 MiB/8192. The prior paired
+`--offset`/`--length` interface remains available and explicitly reports
+`partition_table_validated: false`; it cannot be combined with `--gpt-driver`.
+Automatic output reports validated primary/backup agreement, observed GUID bytes
+in on-disk hex (`*_guid_le`), map count and selected range. It always retains
+`admission: not-authorized`, metadata-only output and skipped sidecars.
+
+All three preserved uncertain images, the accepted fault backup and clean
+control select the original 403,701,760-byte offset / 134,217,728-byte length.
+Their diagnostic output equals both explicit-range output and recorded PR349
+results. Whole-image hashes, device/inode, ownership, link count, mode, size,
+mtime and ctime match the original receipts before/after; reads may update atime.
+Uncertain images remain `0444`, dirty with four leaks and source entry size 28;
+control remains `0644`, clean with zero allocation errors and source size 12,289.
+No source/orphan content is exported and no write/flush capability is exposed.
+
+27 diagnostic/selection groups and storage lease/workspace/USB regressions pass.
+Corruption controls cover both header/table CRCs, valid-CRC divergent backups,
+current/alternate LBAs, backup bounds, usable/table overlap, oversized tables,
+LBA overflow, duplicate/zero GUIDs, hybrid MBR, overlapping ranges, ambiguous
+candidates, incomplete ranges, O_RDWR fds and no-fallback failures. ASan/UBSan
+with halt-on-error passes all groups and a preserved uncertain input. Omitting
+backup agreement makes the divergent-backup qualification fail as expected.
+Full source/driver/report/log hashes and unchanged-media receipts survive in
+`.local/filesystem-evidence/gpt-workspace-inspection/` outside `build`.
+
+PR317 confirms no scope/lifetime overlap and retains sticky published-storage
+failure. Its coordination is not independent source acceptance. Review VMs
+61610/6233/85869 remain running and untouched. This host-only milestone adds no
+runtime code; no new OS/VM or physical/live-media acceptance is claimed. There
+is no repair, replay, writable remount or writable admission.
+
 ## PR349 current-main merge review — ready
 
 User authorizes review and merge if ready, preserving uncertain media and review

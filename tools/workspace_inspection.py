@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read-only diagnosis of an explicit offline exFAT workspace range; no admission."""
+"""Read-only diagnosis of an offline exFAT workspace selected by GPT or explicit range; no admission."""
 import argparse
 import fcntl
 import hashlib
@@ -46,25 +46,51 @@ def validate(report):
         seen.add(path)
     return report
 
-def inspect_workspace(path,driver,offset,length):
+def selected_range(report,total):
+    keys={'version','kind','primary_validated','backup_agrees','writable_admission','disk_guid_le','partition_guid_le','partitions','candidates','offset_bytes','size_bytes'}
+    native.require(type(report) is dict and set(report)==keys and type(report['version']) is int and report['version']==1 and
+                   report['kind']=='workspace-gpt-selection' and report['primary_validated'] is True and
+                   report['backup_agrees'] is True and report['writable_admission'] is False,'invalid GPT selection')
+    for key in ('disk_guid_le','partition_guid_le'):
+        value=report[key]
+        native.require(type(value) is str and len(value)==32 and all(c in '0123456789abcdef' for c in value) and int(value,16)>0,'invalid GPT identity')
+    offset=report['offset_bytes'];length=report['size_bytes']
+    native.require(type(report['partitions']) is int and 1<=report['partitions']<=32 and
+                   type(report['candidates']) is int and report['candidates']==1 and
+                   type(offset) is int and type(length) is int and offset>=512 and offset%512==0 and
+                   length>0 and length%512==0 and length<=MAX_VOLUME and offset<=total and length<=total-offset,'invalid GPT range/count')
+    return offset,length
+
+def inspect_workspace(path,driver,offset=None,length=None,gpt_driver=None):
     fd=None;before=None;initial_hash=None;result=None
     try:
-        native.require(type(offset) is int and type(length) is int and offset>=0 and length>0 and
-                       offset%512==0 and length%512==0 and length<=MAX_VOLUME,'invalid explicit volume range')
+        automatic=offset is None and length is None
+        native.require(automatic or gpt_driver is None,'GPT driver cannot be combined with an explicit range')
+        native.require(automatic or (type(offset) is int and type(length) is int and offset>=0 and length>0 and
+                       offset%512==0 and length%512==0 and length<=MAX_VOLUME),'invalid explicit volume range')
         path=image.checked_path(path);driver=image.checked_path(driver)
         driver_record=image.source(driver)
+        gpt_record=None;selection=None
+        if automatic:
+            gpt_driver=image.checked_path(gpt_driver if gpt_driver is not None else driver.with_name('workspace-gpt-driver'+driver.suffix))
+            gpt_record=image.source(gpt_driver)
         fd=os.open(path,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK)
         before=os.fstat(fd)
         native.require(stat.S_ISREG(before.st_mode) and before.st_nlink==1 and 0<before.st_size<=MAX_IMAGE and
-                       offset<=before.st_size and length<=before.st_size-offset,'invalid offline regular image/range')
+                       (automatic or (offset<=before.st_size and length<=before.st_size-offset)),'invalid offline regular image/range')
         fcntl.flock(fd,fcntl.LOCK_SH|fcntl.LOCK_NB)
         initial_hash=digest(fd,before.st_size)
+        if automatic:
+            selection=native.driver_output(gpt_driver,fd,{'offset_bytes':0,'size_bytes':before.st_size})
+            offset,length=selected_range(selection,before.st_size)
         diagnostic=validate(native.driver_output(driver,fd,{'offset_bytes':offset,'size_bytes':length},'--workspace-fd'))
-        native.require(image.source(driver)==driver_record,'native driver changed')
+        native.require(image.source(driver)==driver_record and (not automatic or image.source(gpt_driver)==gpt_record),'native driver changed')
         result={'state':'inspected','read_only':True,'admission':'not-authorized',
                 'image_sha256':initial_hash,'image_size':before.st_size,'image_mode':stat.S_IMODE(before.st_mode),'image_mode_octal':f'{stat.S_IMODE(before.st_mode):04o}',
-                'range':{'offset':offset,'length':length,'partition_table_validated':False},
+                'range':{'offset':offset,'length':length,'partition_table_validated':automatic},
                 'driver_sha256':driver_record['sha256'],'diagnostic':diagnostic}
+        if automatic:
+            result['gpt_selection']=selection;result['gpt_driver_sha256']=gpt_record['sha256']
     except (OSError,ValueError,KeyError,TypeError,UnicodeError,RuntimeError,subprocess.SubprocessError) as error:
         result={'state':'refused','read_only':True,'admission':'not-authorized','reason':str(error)}
     finally:
@@ -82,8 +108,9 @@ def inspect_workspace(path,driver,offset,length):
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('image');parser.add_argument('--driver',required=True)
-    parser.add_argument('--offset',type=int,required=True);parser.add_argument('--length',type=int,required=True)
-    args=parser.parse_args();result=inspect_workspace(args.image,args.driver,args.offset,args.length)
+    parser.add_argument('--offset',type=int);parser.add_argument('--length',type=int)
+    parser.add_argument('--gpt-driver',help='native GPT adapter (default: beside --driver)')
+    args=parser.parse_args();result=inspect_workspace(args.image,args.driver,args.offset,args.length,args.gpt_driver)
     print(json.dumps(result,indent=2,sort_keys=True));return 0 if result['state']=='inspected' else 1
 
 if __name__=='__main__':raise SystemExit(main())

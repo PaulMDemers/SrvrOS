@@ -19,14 +19,16 @@ static uint64_t hhdm;
 
 #define PMM_DEFAULT_MIN_PHYSICAL 0x100000ull
 
-/* Cache the lowest possible free frame separately for each allocation floor
- * (kernel, page-table and user allocations have different minimum addresses).
- * Hints never skip a free hole; evicting one only loses the optimization. */
+/* Keep a shared lowest-free frontier plus size-specific earliest run bounds.
+ * Smaller holes remain available to other sizes. Allocation cannot create an
+ * earlier fit; free rewinds every affected hint to include bridging prefixes.
+ * Eviction only loses the optimization, never changes first-fit semantics. */
 #define PMM_SEARCH_HINTS 8
 static struct { uint64_t minimum, floor; bool valid; } search_hints[PMM_SEARCH_HINTS];
-static unsigned next_search_hint;
+static struct { uint64_t minimum, count, floor; bool valid; } run_hints[PMM_SEARCH_HINTS];
+static unsigned next_search_hint,next_run_hint;
 #ifdef SRVROS_PMM_HOST_TEST
-static uint64_t search_steps;
+static uint64_t search_steps,hint_steps;
 #endif
 
 static uint64_t irq_save(void) {
@@ -199,7 +201,8 @@ void pmm_init(struct limine_memmap_response *memmap, uint64_t hhdm_offset) {
     hhdm = hhdm_offset;
     ram_count = count_ram_frames(memmap);
     for (unsigned i = 0; i < PMM_SEARCH_HINTS; i++) search_hints[i].valid = false;
-    next_search_hint = 0;
+    next_search_hint = next_run_hint = 0;
+    for(unsigned i=0;i<PMM_SEARCH_HINTS;i++)run_hints[i].valid=false;
     frame_count = align_up(find_highest_managed_address(memmap), PMM_FRAME_SIZE) / PMM_FRAME_SIZE;
     bitmap_bytes = align_up(frame_count, 8) / 8;
 
@@ -296,13 +299,36 @@ uint64_t pmm_alloc_frames_above_tagged(uint64_t count,
         search_hints[hint].floor = minimum_frame;
         search_hints[hint].valid = true;
     }
-    minimum_frame = search_hints[hint].floor;
-    uint64_t first_free = frame_count;
+    unsigned run_hint=0;
+    while(run_hint<PMM_SEARCH_HINTS && (!run_hints[run_hint].valid ||
+          run_hints[run_hint].minimum!=minimum_frame || run_hints[run_hint].count!=count))run_hint++;
+    if(run_hint==PMM_SEARCH_HINTS) {
+        run_hint=next_run_hint++%PMM_SEARCH_HINTS;
+        run_hints[run_hint].minimum=minimum_frame;run_hints[run_hint].count=count;
+        run_hints[run_hint].floor=minimum_frame;run_hints[run_hint].valid=true;
+    }
+    minimum_frame=search_hints[hint].floor;
+    if(minimum_frame<run_hints[run_hint].floor)minimum_frame=run_hints[run_hint].floor;
+    /* A size-specific bound may skip smaller holes. Only a scan from the
+     * shared frontier can prove that frontier safe to advance. */
+    bool shared_scan=minimum_frame==search_hints[hint].floor;
+    uint64_t first_free=frame_count;
 
     for (uint64_t frame = minimum_frame; frame < frame_count; frame++) {
 #ifdef SRVROS_PMM_HOST_TEST
         search_steps++;
 #endif
+        /* A bounded byte-wise load avoids alignment and aliasing assumptions.
+         * Dense cold prefixes need one probe per 64 frames, not per byte. */
+        if(!(frame&63) && frame_count-frame>=64) {
+            uint64_t byte=frame/8;
+            if(bitmap[byte]==0xff && bitmap[byte+1]==0xff &&
+               bitmap[byte+2]==0xff && bitmap[byte+3]==0xff &&
+               bitmap[byte+4]==0xff && bitmap[byte+5]==0xff &&
+               bitmap[byte+6]==0xff && bitmap[byte+7]==0xff) {
+                run_length=0;frame+=63;continue;
+            }
+        }
         /* Skip occupied bitmap bytes without losing a free run at a boundary. */
         if ((frame & 7) == 0 && frame_count - frame >= 8 && bitmap[frame / 8] == 0xff) {
             run_length = 0;
@@ -310,7 +336,7 @@ uint64_t pmm_alloc_frames_above_tagged(uint64_t count,
             continue;
         }
         if (!bitmap_get(frame)) {
-            if (first_free == frame_count) first_free = frame;
+            if(first_free==frame_count)first_free=frame;
             if (run_length == 0) {
                 run_start = frame;
             }
@@ -321,7 +347,8 @@ uint64_t pmm_alloc_frames_above_tagged(uint64_t count,
                     bitmap_set(run_start + i, true);
                     set_frame_tag(run_start + i, tag);
                 }
-                search_hints[hint].floor = first_free == run_start ? run_start + count : first_free;
+                run_hints[run_hint].floor=run_start+count;
+                if(shared_scan)search_hints[hint].floor=first_free==run_start?run_start+count:first_free;
                 uint64_t physical = run_start * PMM_FRAME_SIZE;
                 irq_restore(flags);
                 return physical;
@@ -331,8 +358,10 @@ uint64_t pmm_alloc_frames_above_tagged(uint64_t count,
         }
     }
 
-    search_hints[hint].floor = first_free < search_hints[hint].minimum ?
-        search_hints[hint].minimum : first_free;
+    run_hints[run_hint].floor=frame_count>run_hints[run_hint].minimum?
+        frame_count:run_hints[run_hint].minimum;
+    if(shared_scan)search_hints[hint].floor=first_free>search_hints[hint].minimum?
+        first_free:search_hints[hint].minimum;
     irq_restore(flags);
     return 0;
 }
@@ -376,12 +405,26 @@ void pmm_free_frame_range(uint64_t physical_address, uint64_t count) {
         for (uint64_t j = 0; j < PMM_FRAME_SIZE; j++) {
             bytes[j] = PMM_POISON_FREE;
         }
-        for (unsigned hint = 0; hint < PMM_SEARCH_HINTS; hint++) {
-            if (search_hints[hint].valid && frame + i >= search_hints[hint].minimum &&
-                frame + i < search_hints[hint].floor) search_hints[hint].floor = frame + i;
-        }
         bitmap_set(frame + i, false);
         set_frame_tag(frame + i, PMM_FRAME_FREE);
+    }
+    /* No allocation can observe the range before IRQ restoration. Rewind
+     * hints once from the earliest eligible freed frame, including prefixes. */
+    for(unsigned hint=0;hint<PMM_SEARCH_HINTS;hint++) {
+#ifdef SRVROS_PMM_HOST_TEST
+        hint_steps++;
+#endif
+        if(search_hints[hint].valid && search_hints[hint].minimum<frame+count) {
+            uint64_t first=frame>search_hints[hint].minimum?frame:search_hints[hint].minimum;
+            if(first<search_hints[hint].floor)search_hints[hint].floor=first;
+        }
+        if(run_hints[hint].valid && run_hints[hint].minimum<frame+count) {
+            uint64_t first=frame>run_hints[hint].minimum?frame:run_hints[hint].minimum;
+            uint64_t prefix=run_hints[hint].count-1;
+            uint64_t possible=first>=prefix?first-prefix:0;
+            if(possible<run_hints[hint].minimum)possible=run_hints[hint].minimum;
+            if(possible<run_hints[hint].floor)run_hints[hint].floor=possible;
+        }
     }
     irq_restore(flags);
 }
