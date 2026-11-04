@@ -43,8 +43,8 @@ Two clean core/gnulib and diagnostic rebuilds match byte-for-byte against the
 same SDK objects. Native upstream scripts: three PASS and the upstream-declared
 `large-subopt` XFAIL. Guest upstream input fixtures are separately labeled.
 Actual Terminal/less/local-patch-subset/error/readback proof and expert screenshot
-inspection pass at `build/review/diff-terminal/proof-wvsivqnz`. CLI regression is
-running; ports regression remains next in the current five-boot slice.
+inspection pass at `build/review/diff-terminal/proof-wvsivqnz`. CLI regression passes all491 commands and clean fsck; ports regression passes
+with clean fsck. All five owned guests have stopped and the slice is released.
 
 One final memory-envelope fixture now reaches 256 KiB, 8192 lines and one 64 KiB
 line simultaneously, with a changed byte. Host data construction passes; target
@@ -57,10 +57,11 @@ all copied file hashes/link targets matched. Volume-root relocation manifests
 retain the originals' hashes; workspace paths remain symlinks. The APFS image is
 `/Volumes/miniTB/SrvrOS-CLI-queue-20261104.sparsebundle`. Build/cache/TMPDIR use
 this owned volume. Recheck internal, output/temp and backing reserves (≥2 GiB)
-before every heavy launch. The active ≤25-minute grant covers helper/manifest
-build plus at most five sequential 512 MiB guests; stop/release on first failure,
-completion or expiry. A queued supplementary request is not a launch grant, and
-no standing reservation applies to later queue entries.
+before every heavy launch. The prior ≤25-minute/five-boot slice is complete and explicitly released. The
+≤8-minute/two-boot combined-cap request is queued behind other ready owners and
+is not a launch grant. Source-only GNU patch preparation in a separate checkout
+may continue, but no next-port build or merge precedes diff acceptance. No
+standing reservation applies to later queue entries.
 
 
 Primary GNU release indexes were fetched directly during source preparation:
