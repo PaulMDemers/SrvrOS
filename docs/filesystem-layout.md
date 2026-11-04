@@ -3,13 +3,65 @@
 Updated November 3, 2026. Global activation follows the explicit namespace proof
 in [PR308](https://github.com/PaulMDemers/SrvrOS/pull/308).
 
-## Salvage command — active milestone
+## Salvage command — installed-root proof complete
 
-Authorized consumer on main `1f177761`: `salvage --fd NUMBER DESTINATION` borrows
-an inherited seekable descriptor, uses the helper, and reports success/failure
-without reopening the source pathname. Add installed-root parent/child proof of
-shared-offset preservation, exclusive refusal and persisted copy after reboot.
-Coordinate with PR317; no process/driver edit planned. Preserve review VMs.
+`salvage --fd NUMBER DESTINATION` is the first command-line consumer of
+`srv_salvage_copy`. It borrows an inherited seekable descriptor and exclusively
+creates the explicit destination. There is no source-path option: the launcher
+must arrange descriptor inheritance while retaining its own source reference.
+The command never reopens that pathname or overwrites an existing destination.
+Descriptor syntax is decimal 0 through INT_MAX. Exit status is 0 for acknowledged
+copy, 1 for helper failure and 2 for usage errors. Failures report primary stage,
+error, close/restore errors and byte count; uncertain destination artifacts remain.
+Process exit releases only the child's inherited reference; the caller owns its
+original descriptor. Callers must obey the helper's serialized-offset contract.
+
+The command is packaged at `/fat/bin/salvage`, exposed through `/bin` and
+`/usr/bin`. CLI host tests pass normally and under ASan/UBSan for syntax, bounds,
+helper arguments and success/failure statuses. Helper tests also pass. Its 49-case
+normal/sanitized dirty-data fault evidence remains applicable: every recorded
+helper/process/backend source hash is unchanged. The installed-root proof below
+covers clean inherited descriptors and is not a new guest fault-injection claim.
+
+Added optional `--salvage-consumer` to the installed-root harness, requiring
+`--canonical-paths` and retaining existing defaults. On a clean identity-selected
+GPT boot, sysabi holds an open `/work` source, spawns `/bin/salvage` with that fd,
+and verifies a 4,099-byte binary copy into `/home`. The parent's shared offset
+remains 37, `fcntl` confirms its fd still exists, and a following read returns the
+expected source byte. A second child refuses the existing destination with
+EEXIST while bytes and offset remain unchanged. A child with an inherited pipe
+refuses ESPIPE without creating a destination; parent pipe ownership is intact.
+The reversed-disk second boot independently reads both copies through canonical
+and `/fat` names, then performs checked cleanup.
+
+Initial source `27b49c9c` passes all 11 cases. Main then advanced to `59928ec9`
+(PR326 profile chooser); it merged cleanly and matched source `da1e8d44` passes
+all 11 again with the new desktop binaries. This includes full namespace and
+home/work persistence, Text/theme restoration and nine no-write recovery refusals.
+Four offline allocation checks are clean. Independent image inspection confirms
+exact binary destination/system and source/work placement after boot 1 and
+absence after boot 2 cleanup; every negative disk hash is unchanged.
+
+Evidence: `build/review/installed-canonical/proof-i1htf98c/` retains receipt,
+commands, disks, serial logs and allocation checks. The earlier passing run is
+`proof-ms2r7bd0`. `build/review/salvage-cli/` holds host/sanitizer/provenance logs,
+matched builds, `tested-build.json` and `independent-review.json`; a backup of
+receipts/logs/manifests is retained at
+`.local/filesystem-evidence/salvage-cli-da1e8d44/` outside build cleanup.
+Reproduce after `sh tools/macos/build.sh -j2 all`:
+
+```sh
+make HOST_CC='cc -arch x86_64' test-salvage-cli test-salvage
+OVMF_CODE=/opt/homebrew/share/qemu/edk2-x86_64-code.fd \
+  python3 tools/installed_root_smoke.py --canonical-paths --salvage-consumer \
+  --ovmf-vars /opt/homebrew/share/qemu/edk2-i386-vars.fd
+```
+
+Coordinated scope with PR317 and the installation owner. No kernel, process,
+driver or installer-policy edits were needed. All proof VMs stopped; primary
+checkout and review VMs 61610, 6233 and 85869 were preserved. This bounded command
+and disposable EFI/GPT proof are complete; application recovery UI, physical
+media, automatic repair and guest dirty-writeback fault injection remain separate.
 
 ## Userspace salvage helper — implemented and verified
 
