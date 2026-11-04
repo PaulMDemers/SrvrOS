@@ -22,6 +22,38 @@ is collected and backed up; no reboot armed. PR365 ongoing retirement and the
 other machine agents keep independent scope. Next is a source-matched automatic
 readout after host/VM validation, then native writer ownership/admission.
 
+### Candidate-window readout prepared; native acceptance pending
+
+Source `120acb9a` implements the explicit [read-only aperture/GGTT survey](../intel-ggtt-window.md),
+staged and installed as `0e1e37f7c62f68d9`. This reads raw MSAC and two16-entry
+vectors beyond the entire34MiB inherited fence, with five fresh CPU0 UC/cache
+and full inherited backing guards. Both temporary GGTT alias mappings must
+retire; mapping uncertainty stays latched until reset. There are zero GPU PTE
+writes, aperture-data mappings or managed-range grants. Empty/stable entries
+are not owned slots. Native GPU writes and physical tear-free flips remain
+unimplemented and unaccepted.
+
+The full local host/core/profile/docs suite and normal/AP/native/synthetic
+builds pass, including89 installer tests with one expected opt-in skip and245
+collector/staging tests. Core/native-adapter ASan/UBSan and fresh-cache tests
+pass; three compiled negative controls are detected. The exact-image Q35 run
+reads CPU cache state, refuses native GPU access, saves/unmounts and resets;
+missing-workspace visible halt, VirtIO compositor/supervisor recovery and older
+cache/DMA/lifetime/Haswell3/firmware-only profiles also pass. These are host/VM
+results, not acceptance of the new native observation.
+
+Preparation verifies1,331 prior USB files /98 sessions, exact local firmware,
+GPU/CPU and USB ancestry, offline fsck/allocation/writable/headroom, Ubuntu
+default and independent payload/recovery. Inactivec32 was fully archived and
+hash-verified before removing only its EFI copy for space. Recovery9aa,
+previous07df, preceding5346, shadowd79 and known-goodc497 remain verified.
+The run needs no input: saved/unmounted handled outcomes return automatically;
+persistence failure visibly halts. Keep volume1%; guest audio is disabled.
+Evidence and checkpoint: `build/air-map-prerequisites-20261104/` and
+`build/air-window-native-20261104/`, with verified backups outside build before
+arming. The run record controls actual reboot state. Collect its exact matching
+session before staging another run; native acceptance is pending.
+
 ### Native read-only cache observation accepted
 
 Release `07df02f62d1074ac`, source `e9391d64`, completes as
