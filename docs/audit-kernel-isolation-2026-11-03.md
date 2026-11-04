@@ -137,9 +137,63 @@ runtime retirement and no live scheduler reference. No additional defect was
 confirmed in those inspected paths. The test's scheduler/device callbacks remain
 modeled boundaries; real DMA and arbitrary scheduling interleavings are open.
 
+## Mapping and protection service checkpoint
+
+Two service gaps were confirmed in the continuation from `327cb50e`:
+
+1. `mprotect` and private `msync` ran their generic validation/mapping scans
+   without an owner scope or service checkpoints. For each page `mprotect`
+   searched the unsorted tracking array twice, producing quadratic work over
+   large mapped ranges. An actual-source 65-page regression aborts on the old
+   implementation because the PTE update has no service owner; the corrected
+   path permits service turns and retains inherited ownership.
+2. Failed generic `mmap` rolled back each allocated page with another tracking
+   search and no service checkpoint. A deterministic allocation refusal after
+   65 new pages confirms that the old path frees all of them without a turn.
+   The new regression requires at least two rollback checkpoints and verifies
+   that two earlier mappings survive. This is independent of the separately
+   bounded atomic startup-map path, which remains unchanged.
+
+`mprotect` and `msync` now use ordinary process service scopes, refusing an
+unavailable foreign owner. Protection visits tracking entries once and applies
+PTE/record changes atomically before each checkpoint. Missing-frame reservations
+are populated with page-table lookups rather than repeated tracking scans.
+Private `msync` counts unique tracked pages after validating registered-region
+coverage; it still performs no shared-file writeback. `munmap`, `mprotect` and
+`msync` validate coverage by advancing between region boundaries rather than
+searching the region table for every page. Sparse PROT_NONE protection and unmap
+therefore need not walk every unbacked virtual page.
+
+Generic mmap rollback now retires only the newly appended tracking suffix in
+reverse order. Every removal is published before a checkpoint; pre-existing
+mappings remain owned. Service checkpoints occur after each validated region
+and batches of 32 mapping/page visits or retirements. They retain the I/O owner,
+exclude sibling mutation and defer cancellation under the existing scheduler
+contract. No syscall-safe classification, ABI, mapping cap, or atomic startup
+path changes. Existing partial mprotect failure behavior remains supported.
+
+The expanded service fixture checks an unsorted 65-page mapping, coherent
+modeled PTE/tracking flags at every turn, no more than 32 protection writes
+between checkpoints, nested owner retention, foreign-owner refusal, PTE failure,
+coverage-gap refusal, allocation failure/retry from PROT_NONE, whole-window sparse
+reservations, and suffix rollback. Futex revocation tests use the updated private
+index-based protection helper and continue to exercise the verbatim body.
+
+Focused Darwin/Rosetta host tests and strict Linux GCC14 pass; the service
+fixture also passes ASan/UBSan. Both old-behavior failures are retained under
+`build/review/teardown/protection-before.log` and
+`build/review/protection/rollback-before.log`; passing evidence is under
+`build/review/protection/`. The freestanding kernel builds. Guest results follow
+once the rebuilt-kernel tests finish.
+
+These checks bound batch work and show service opportunities; they do not set a
+wall-clock IRQ-latency guarantee. PMM allocation, fixed-size table scans and
+service scheduling still contribute to elapsed time. Large clone/copy and free
+range search paths remain separate audit work.
+
 ## Remaining work
 
-Long IRQ-disabled operations, including generic mapping/protection scans,
+Other long IRQ-disabled operations, including clone/copy and free-range search,
 driver DMA/reset/removal ownership and broader manual isolation review remain
 open. Deterministic fault/dirty-writeback ordering now has the host coverage above;
 forcing it through actual VM context switches remains separate work. Future boot

@@ -1473,3 +1473,11 @@ clean/sticky failures, status and retirement ordering. Run the built
 The [kernel audit](audit-kernel-isolation-2026-11-03.md) records negative controls,
 sanitizers and guest evidence, and distinguishes modeled callbacks from real
 context switches and physical storage.
+
+
+`make test-process-service` also checks bulk protection and private-msync service
+windows, unsorted mapping records, coherent PTE/flags publication, sparse
+PROT_NONE reservations, inherited/foreign ownership, partial failure/retry and
+failed-mmap suffix rollback. The fixture checks operation counts and ownership,
+not a hardware IRQ-latency deadline. `make test-futex-contracts` retains the
+protection-revocation regression against the private index-based update helper.

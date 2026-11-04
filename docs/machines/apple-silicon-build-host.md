@@ -3000,3 +3000,17 @@ fail as intended. Focused host suites, kernel build, sysabi and full threadstres
 pass. No new production defect confirmed; the exit IRQ operations reuse existing
 primitives so the host can observe masking. Details and remaining work are in
 the [kernel audit](../audit-kernel-isolation-2026-11-03.md). Task guests stopped.
+
+
+### Mapping/protection service scope
+
+Continuing PR317 from `327cb50e`: investigate generic mmap/protection/validation
+loops under IRQ exclusion. Scope: process.c owner scopes, bounded checkpoints
+and repeated tracking scans, with actual-source service/futex regressions.
+Separate checkout; filesystem integration owner notified.
+
+Confirmed gaps: generic protection/validation lacked effective service turns,
+and failed mmap rollback repeatedly searched tracking without a checkpoint.
+The bounded owner/checkpoint and single-pass/suffix-retirement changes pass
+strict host and sanitizer fixtures; see the
+[kernel audit](../audit-kernel-isolation-2026-11-03.md) for exact scope and results.

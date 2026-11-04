@@ -6919,6 +6919,20 @@ static int64_t mmap_region_index_for_page(struct process *process, uint64_t page
     return -1;
 }
 
+/* Validate coverage by region boundaries rather than rescanning 512 regions
+ * for every page. Call only under the ordinary process service owner. */
+static bool mmap_range_registered(struct process *process,uint64_t base,uint64_t length) {
+    uint64_t end=base+length;
+    while(base<end) {
+        int64_t i=mmap_region_index_for_page(process,base);
+        if(i<0)return false;
+        uint64_t next=process->mmap_regions[i].base+process->mmap_regions[i].length;
+        base=next<end?next:end;
+        process_service_checkpoint();
+    }
+    return true;
+}
+
 static struct process_mmap_region *mmap_free_region_slot(struct process *process) {
     for (uint64_t i = 0; i < PROCESS_MAX_MMAP_REGIONS; i++) {
         if (!process->mmap_regions[i].used) {
@@ -7068,12 +7082,12 @@ static uint64_t mmap_page_flags_for_protection(uint64_t protection) {
 }
 
 static bool mmap_apply_protection(struct process *process,
-    uint64_t page,
+    uint64_t index,
     uint64_t page_flags) {
-    int64_t index = process_mapping_index(process, page);
-    if (index < 0) {
+    if (index >= process->mapping_count) {
         return false;
     }
+    uint64_t page=process->mappings[index].virtual_address;
     uint64_t irq = process_irq_save();
     if (!vmm_protect_page_in_space(process->address_space, page, page_flags)) {
         process_irq_restore(irq); return false;
@@ -7082,6 +7096,16 @@ static bool mmap_apply_protection(struct process *process,
     process->mappings[index].flags = page_flags;
     process_irq_restore(irq);
     return true;
+}
+
+/* Failed mmap allocations are an appended suffix while this owner excludes
+ * siblings. Publish each removal before permitting a service turn. */
+static void mmap_rollback_pages(struct process *process,uint64_t original_count) {
+    unsigned retired=0;
+    while(process->mapping_count>original_count) {
+        process_unmap_mapping_at(process,process->mapping_count-1);
+        if(!(++retired&31))process_service_checkpoint();
+    }
 }
 
 static int64_t process_mmap_impl(struct process *process,
@@ -7137,14 +7161,13 @@ static int64_t process_mmap_impl(struct process *process,
         base = (uint64_t)found;
     }
 
+    uint64_t original_count=process->mapping_count;
     uint64_t mapped = 0;
     uint64_t page_flags = mmap_page_flags_for_protection(protection);
     if (protection != SRV_PROT_NONE) {
         for (; mapped < mapped_length; mapped += PAGE_SIZE) {
             if (!map_process_page(process, base + mapped, page_flags)) {
-                for (uint64_t rollback = 0; rollback < mapped; rollback += PAGE_SIZE) {
-                    (void)process_unmap_tracked_page(process, base + rollback);
-                }
+                mmap_rollback_pages(process,original_count);
                 return -1;
             }
         }
@@ -7155,17 +7178,13 @@ static int64_t process_mmap_impl(struct process *process,
         uint64_t copy_length = length < available ? length : available;
         if (copy_length != 0 &&
             !user_space_write(process, base, file_data + (uint64_t)offset, copy_length)) {
-            for (uint64_t rollback = 0; rollback < mapped_length; rollback += PAGE_SIZE) {
-                (void)process_unmap_tracked_page(process, base + rollback);
-            }
+            mmap_rollback_pages(process,original_count);
             return -1;
         }
     }
 
     if (!mmap_record_region(process, base, mapped_length,anonymous)) {
-        for (uint64_t rollback = 0; rollback < mapped_length; rollback += PAGE_SIZE) {
-            (void)process_unmap_tracked_page(process, base + rollback);
-        }
+        mmap_rollback_pages(process,original_count);
         return -1;
     }
 
@@ -7266,11 +7285,7 @@ static int64_t process_munmap_impl(struct process *process, uint64_t address, ui
     if (!mmap_can_split_for_unmap(process, address, mapped_length)) {
         return -1;
     }
-    for (uint64_t page = address; page < address + mapped_length; page += PAGE_SIZE) {
-        if (mmap_region_index_for_page(process, page) < 0) {
-            return -1;
-        }
-    }
+    if(!mmap_range_registered(process,address,mapped_length))return -1;
     /* Visit each tracked mapping once. Searching the complete table twice
      * per page made large compositor-buffer teardown quadratic. Removal swaps
      * in the last entry, so examine that replacement before advancing. Pages
@@ -7292,7 +7307,7 @@ static int64_t process_munmap_impl(struct process *process, uint64_t address, ui
     return 0;
 }
 
-int64_t process_mprotect(struct process *process,
+static int64_t process_mprotect_impl(struct process *process,
     uint64_t address,
     uint64_t length,
     uint64_t protection) {
@@ -7305,31 +7320,30 @@ int64_t process_mprotect(struct process *process,
     if (mapped_length < length || !mmap_range_valid(address, mapped_length)) {
         return -1;
     }
-    for (uint64_t page = address; page < address + mapped_length; page += PAGE_SIZE) {
-        if (mmap_region_index_for_page(process, page) < 0) {
-            return -1;
-        }
+    if(!mmap_range_registered(process,address,mapped_length))return -1;
+    uint64_t page_flags=mmap_page_flags_for_protection(protection);
+    /* The tracking array is unsorted. Visit it once, publishing each PTE and
+     * matching flags before a service turn; siblings remain excluded. */
+    for(uint64_t i=0;i<process->mapping_count;i++) {
+        uint64_t page=process->mappings[i].virtual_address;
+        if(page>=address && page<address+mapped_length &&
+           !mmap_apply_protection(process,i,page_flags))return -1;
+        if(!((i+1)&31))process_service_checkpoint();
     }
-
-    uint64_t page_flags = mmap_page_flags_for_protection(protection);
-    for (uint64_t page = address; page < address + mapped_length; page += PAGE_SIZE) {
-        if (process_mapping_index(process, page) < 0) {
-            if (protection == SRV_PROT_NONE) {
-                continue;
-            }
-            if (!map_process_page(process, page, page_flags)) {
-                return -1;
-            }
-            continue;
-        }
-        if (!mmap_apply_protection(process, page, page_flags)) {
-            return -1;
+    if(protection!=SRV_PROT_NONE) {
+        for(uint64_t page=address;page<address+mapped_length;page+=PAGE_SIZE) {
+            uint64_t physical;
+            /* PROT_NONE reservations may have no frame yet. Existing PTEs
+             * were handled above; new mappings publish tracking atomically. */
+            if(!vmm_virt_to_phys_in_space(process->address_space,page,&physical) &&
+               !map_process_page(process,page,page_flags))return -1;
+            if(!(((page-address)/PAGE_SIZE+1)&31))process_service_checkpoint();
         }
     }
     return 0;
 }
 
-int64_t process_msync(struct process *process,
+static int64_t process_msync_impl(struct process *process,
     uint64_t address,
     uint64_t length,
     uint64_t flags) {
@@ -7343,12 +7357,16 @@ int64_t process_msync(struct process *process,
     if (mapped_length < length || !mmap_range_valid(address, mapped_length)) {
         return -1;
     }
-    for (uint64_t page = address; page < address + mapped_length; page += PAGE_SIZE) {
-        if (mmap_region_index_for_page(process, page) < 0 ||
-            process_mapping_index(process, page) < 0) {
-            return -1;
-        }
+    if(!mmap_range_registered(process,address,mapped_length))return -1;
+    uint64_t pages=0;
+    for(uint64_t i=0;i<process->mapping_count;i++) {
+        uint64_t page=process->mappings[i].virtual_address;
+        if(page>=address && page<address+mapped_length)pages++;
+        if(!((i+1)&31))process_service_checkpoint();
     }
+    /* Private mappings have no file writeback; retain the existing requirement
+     * that every requested page owns a tracked frame (including PROT_NONE). */
+    if(pages!=mapped_length/PAGE_SIZE)return -1;
     return 0;
 }
 
@@ -7468,4 +7486,18 @@ int64_t process_munmap(struct process *process,uint64_t address,uint64_t length)
     int64_t result=process_munmap_impl(process,address,length);
     process_service_end(scope);
     process_latency_end(LATENCY_PROCESS_MAPPING,span);return result;
+}
+
+int64_t process_mprotect(struct process *process,uint64_t address,uint64_t length,uint64_t protection) {
+    struct process_latency_span span=process_latency_begin();
+    struct process_service_scope scope=process_service_begin();
+    int64_t result=(!scope.held && scheduler_io_active())?-1:
+        process_mprotect_impl(process,address,length,protection);
+    process_service_end(scope);process_latency_end(LATENCY_PROCESS_MAPPING,span);return result;
+}
+int64_t process_msync(struct process *process,uint64_t address,uint64_t length,uint64_t flags) {
+    struct process_service_scope scope=process_service_begin();
+    int64_t result=(!scope.held && scheduler_io_active())?-1:
+        process_msync_impl(process,address,length,flags);
+    process_service_end(scope);return result;
 }
