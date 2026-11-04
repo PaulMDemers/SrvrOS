@@ -7102,3 +7102,17 @@ validation and a new recorded run; none is staged here. Raw inventory and
 verification have durable copies outside build; docs/diff checks pass. Current
 installed payload/recovery and reboot state remain unchanged, with no reboot
 armed. GT forcewake and real backing/publication/scanout lifetime remain open.
+
+
+### Firmware-only native capture implementation scope (2026-11-04)
+
+Base `5f670602`, read-only Ubuntu inventory complete and PR301 remains independent.
+Implement a separate opt-in AP diagnostic profile that copies the complete pinned
+Air6,1 DMAR and complete bounded current Limine catalog twice, with exact PCI
+identity, table-RAM/translation checks, stable copies and bounded receipt retention.
+No VT-d/GT/GGTT MMIO, root-table walk, graphics bind, PTE publication or ownership
+assurance. Touch isolated firmware core/adapter/tests, main dispatch, staging,
+strict decoder/VM checks and exact Air6,1 docs. Ordinary startup stays unchanged.
+Validate host/refusal/codec/tail and matched builds/VMs, preserve recovery and USB
+integrity, save the exact run and prepare the authorized automated native test.
+No native acceptance is claimed before return/collection.
