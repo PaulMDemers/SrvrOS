@@ -2,6 +2,20 @@
 
 Updated: 2026-11-04. State: **active reference machine; partial device acceptance**.
 
+### Active scope: native cache-policy prerequisite
+
+Consumed main `5f670602` (Air6,1 read-only DMA/resource inventory) on this device
+branch. Before native GGTT writes, add a bounded read-only CPU PAT/MTRR snapshot
+and conservative classification of the exact MMIO and aperture aliases/private
+RAM. Existing temporary mappings specify PCD without PWT; no code currently
+reads inherited PAT/MTRRs, so calling that a strong-UC write-ordering proof would
+be premature. Touches a new x86 cache audit core/boot adapter, explicit Intel
+capture recipe/receipts, tests and documentation. No cache-policy MSR writes,
+GGTT/PTE/control writes or ordinary startup enablement. Existing native5346 and
+recovery remain installed; no reboot armed. PR317 VMM/allocator changes and
+Air6,1 native hardware gates remain independent. Next: source-bound host/VM
+checks, then an automatic saved native cache readout if ready.
+
 ### Publication model validated; native mapping remains next
 
 Main `1fbec70d` is integrated as `b89e4e43`; exact code `4fb8fb33` passes the
