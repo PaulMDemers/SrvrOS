@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <errno.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -6,12 +7,16 @@
 
 static const char *marker="srvros-profile-v1\n12345678-1234-4234-8234-123456789abc\n";
 static const char *prefs="{\"text_size\":20}";
-static int missing_directory,bad_mount,missing_marker,missing_prefs;
+static int missing_directory,bad_mount,missing_marker,missing_prefs,pending_import,pending_error;
 static long mock_statfs(const char *path,struct srv_fsinfo *fs) {
     (void)path;strcpy(fs->filesystem,bad_mount?"other":"exfat");strcpy(fs->mountpoint,"/fat");return 0;
 }
 static int mock_stat(const char *path,struct stat *st) {
-    (void)path;if(missing_directory)return -1;memset(st,0,sizeof(*st));st->st_mode=S_IFDIR;return 0;
+    if(strstr(path,".profile-import-pending")) {
+        if(pending_import) { memset(st,0,sizeof(*st));return 0; }
+        errno=pending_error?EIO:ENOENT;return -1;
+    }
+    if(missing_directory)return -1;memset(st,0,sizeof(*st));st->st_mode=S_IFDIR;return 0;
 }
 static FILE *mock_fopen(const char *path,const char *mode) {
     const char *data;
@@ -22,9 +27,11 @@ static FILE *mock_fopen(const char *path,const char *mode) {
 }
 #define srv_statfs mock_statfs
 #define stat(path, st) mock_stat(path, st)
+#define lstat(path, st) mock_stat(path, st)
 #define fopen mock_fopen
 #include "../userspace/deskd/profile_startup.h"
 #undef fopen
+#undef lstat
 #undef stat
 #undef srv_statfs
 
@@ -37,6 +44,8 @@ int main(void) {
     assert(desktop_profile_load(&session,portable,sizeof(portable),"/other/home")<0);
     bad_mount=1;assert(desktop_profile_load(&session,portable,sizeof(portable),home)<0);bad_mount=0;
     missing_directory=1;assert(desktop_profile_load(&session,portable,sizeof(portable),home)<0);missing_directory=0;
+    pending_import=1;assert(desktop_profile_load(&session,portable,sizeof(portable),home)<0);pending_import=0;
+    pending_error=1;assert(desktop_profile_load(&session,portable,sizeof(portable),home)<0);pending_error=0;
     missing_marker=1;assert(desktop_profile_load(&session,portable,sizeof(portable),home)<0);missing_marker=0;
     marker="srvros-profile-v1\ninvalid\n";assert(desktop_profile_load(&session,portable,sizeof(portable),home)<0);
     marker="srvros-profile-v1\n12345678-1234-4234-8234-123456789abc\n";
