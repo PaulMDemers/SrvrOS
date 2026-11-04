@@ -1528,6 +1528,28 @@ sources/RESET, default ignored/caught dispositions and unchanged-state refusal.
 Target/post-copy code generation, nested/private guest execution and complete
 maximum-mapping exclusion timings remain separate pending evidence.
 
+## November 4: staged restored-mask correction
+
+The PR334 owner corrected the private return candidate before final qualification.
+It computes visible pending bits under the restored mask, stages default-ignore
+discard, and selects the lowest fatal default bit with local-source priority.
+All classification precedes FPU preparation; refusal leaves state unchanged.
+Commit applies only prepared pending/mask/private-frame/FPU stores and any fatal
+metadata. The internal result is explicit: zero refuses, one restores, and
+128+signal requires the outer test caller to enter process exit directly before
+user resume. It performs no post-commit admission query or further delivery with
+the consumed proof.
+
+Independent strict Rosetta and ASan/UBSan matrix profiles both pass main/worker
+USR2 default-fatal handling, RESET mixed-source USR1, default-ignored CHLD/WINCH
+discard, caught-signal retention and whole-state rollback on FPU preparation
+refusal. Unchosen duplicate pending sources are retained. Evidence/source hashes:
+`build/review/pr334-signal-fused-mask-fix-review/`. The earlier six prerequisite
+profiles also pass independently for VMM exclusions, actual-FX prepare/commit and
+the original copy wrapper; those do not qualify the complete fused operation.
+Target suffix, expanded owner regressions and private/normal guest qualification
+remain pending. No public delivery or ABI is admitted.
+
 ## Remaining work
 
 Other long IRQ-disabled operations, including initial/churning PMM scans, heap validation and poisoning,
