@@ -234,6 +234,8 @@ def main():
         raise RuntimeError('diagnostic comparison did not recover after allocation tests')
     receipt['allocation_failure_hit_indices']=hit_indices
     receipt['allocation_failure_families_observed']=sorted(hit_families)
+    receipt['gate_results']={'injected_allocation_failure_and_recovery':'PASS'}
+    (out/'receipt.json').write_text(json.dumps(receipt,indent=2,sort_keys=True)+'\n')
     for (name,mode),(status,expected) in refs.items():
         if get(f'{name}.{mode}.status')!=f'{status}\n'.encode():raise RuntimeError(f'{name}/{mode}: status differs')
         if get(f'{name}.{mode}.out')!=expected:raise RuntimeError(f'{name}/{mode}: output differs from GNU 3.12')
@@ -267,6 +269,8 @@ def main():
         receipt['unlabeled_guest_mtime_ns']=timestamps
     if get('patch.status')!=b'0\n' or get('local-target')!=files['middle.b']:raise RuntimeError('local patch subset failed')
     if get('reboot.status')!=b'1\n' or get('reboot.out')!=refs[('middle','unified')][1]:raise RuntimeError('reboot report mismatch')
+    receipt['gate_results'].update(comparison_reference='PASS', input_refusals='PASS', unlabeled_timestamp_reference='PASS', local_patch_subset='PASS', second_boot_report='PASS')
+    (out/'receipt.json').write_text(json.dumps(receipt,indent=2,sort_keys=True)+'\n')
     if get('probe.status')!=b'0\n' or b'diff-probe: PASS' not in get('probe.log'):raise RuntimeError('subprocess probe failed')
     with tempfile.TemporaryDirectory(prefix='diff-patch-reference-') as directory:
         root=Path(directory)
@@ -276,6 +280,7 @@ def main():
             result=subprocess.run([args.gnu_patch,'--batch','--silent','-o',str(dst),str(src)],
                                   input=get(name+'.unified.out'),capture_output=True,env=env)
             if result.returncode or dst.read_bytes()!=after:raise RuntimeError(f'GNU patch failed {name}: {result.stderr!r}')
+    receipt['gate_results'].update(subprocess_signals_and_output_errors='PASS',host_gnu_patch_roundtrips='PASS')
     receipt['status']='PASS';(out/'receipt.json').write_text(json.dumps(receipt,indent=2,sort_keys=True)+'\n')
     print('diff smoke: PASS guest/reference and host patch; GUI and upstream suite separate:',out,flush=True)
 

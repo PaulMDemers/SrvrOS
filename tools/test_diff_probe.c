@@ -38,23 +38,55 @@ static int write_errors(void) {
     printf("diff-probe: closed consumer wait=%ld status=%llu\n",done,(unsigned long long)status);
     CHECK(done==pid && status==2);return 0;
 }
+/* Capture the state before changing the pipe or killing a stuck child. */
+static void output_failure_diagnostics(long pid,int read_fd,int write_fd,long initial_flags) {
+    struct srv_pollfd p[2]={{.fd=read_fd,.events=SRV_POLLIN},{.fd=write_fd,.events=SRV_POLLOUT}};
+    long polled=srv_poll(p,2,0);struct srv_stat pipe_stat;long stat_result=srv_fstat(read_fd,&pipe_stat);
+    struct srv_process_info info;long listed=srv_proc_list(SRV_PROC_LIST_BY_PID|(uint64_t)pid,&info);
+    uint64_t status=~0ULL;long done=srv_wait((uint64_t)pid,&status,SRV_WAIT_NOHANG);
+    long read_flags=srv_fcntl(read_fd,SRV_F_GETFL,0),write_flags=srv_fcntl(write_fd,SRV_F_GETFL,0);
+    printf("diff-probe: output timeout pid=%ld list=%ld state=%s poll=%ld read-revents=%d write-revents=%d read-flags=%ld write-flags=%ld initial-write-flags=%ld fstat=%ld pipe-bytes=%llu wait=%ld status=%llu\n",
+        pid,listed,listed>0?info.state:"unavailable",polled,(int)p[0].revents,(int)p[1].revents,
+        read_flags,write_flags,initial_flags,stat_result,(unsigned long long)(stat_result==0?pipe_stat.size:0),done,(unsigned long long)status);
+    if(done==0) {
+        long killed=srv_kill_signal(pid,SRV_SIGNAL_KILL);
+        done=wait_bounded(pid,&status);
+        printf("diff-probe: cleanup kill=%ld wait=%ld status=%llu\n",killed,done,(unsigned long long)status);
+    }
+    if(read_flags>=0 && srv_fcntl(read_fd,SRV_F_SETFL,(uint64_t)read_flags|SRV_FD_NONBLOCK)>=0) {
+        char data[1024];size_t total=0;long n;
+        while((n=srv_read(read_fd,data,sizeof(data)))>0) total+=(size_t)n;
+        printf("diff-probe: output timeout buffered-bytes=%llu final-read=%ld\n",(unsigned long long)total,n);
+    } else puts("diff-probe: output timeout could not enable nonblocking read");
+}
 static int interrupt_output(uint64_t signal) {
     int pipe[2];CHECK(srv_pipe(pipe)==0);long flags=srv_fcntl(pipe[1],SRV_F_GETFL,0);
-    long pid=start(pipe[1]);CHECK(pid>0);
-    /* A nonempty, nonwritable pipe with its reader held open establishes that
-     * output made progress and the consumer cannot unblock it via EOF. */
-    int full=0;
+    long pid=start(pipe[1]);
+    if(pid<=0) {printf("diff-probe: output spawn failed=%ld\n",pid);srv_close(pipe[0]);srv_close(pipe[1]);return 1;}
+    /* fstat on a pipe reports current bytes. Since POLLOUT only means at
+     * least one free byte, use stable near-capacity occupancy with the reader
+     * held open; do not alter the child's shared write descriptor flags.
+     * 65536 is the current kernel pipe capacity, not a public ABI promise. */
+    int stalled=0;struct srv_stat prior,after;
     for(int i=0;i<1500;i++) {
-        if(ready(pipe[0],SRV_POLLIN) && !ready(pipe[1],SRV_POLLOUT) && alive(pid)) {full=1;break;}
+        if(srv_fstat(pipe[0],&prior)==0 && prior.size>=65536-SRV_PIPE_BUF && alive(pid)) {
+            srv_sleep_ticks(20);
+            if(srv_fstat(pipe[0],&after)==0 && after.size==prior.size && alive(pid)) {stalled=1;break;}
+        }
         srv_sleep_ticks(1);
     }
-    CHECK(full);srv_sleep_ticks(20);CHECK(alive(pid));
-    CHECK(srv_kill_signal(pid,signal)==0);
+    if(!stalled) {puts("diff-probe: near-full output did not remain stable");goto failed;}
+    printf("diff-probe: held output before=%llu after=%llu poll-in=%d poll-out=%d flags=%ld\n",
+        (unsigned long long)prior.size,(unsigned long long)after.size,ready(pipe[0],SRV_POLLIN),ready(pipe[1],SRV_POLLOUT),flags);
+    if(srv_kill_signal(pid,signal)!=0) {puts("diff-probe: output signal failed");goto failed;}
     uint64_t status=0;long done=wait_bounded(pid,&status);
     printf("diff-probe: blocked output signal=%llu wait=%ld status=%llu\n",(unsigned long long)signal,done,(unsigned long long)status);
-    CHECK(done==pid && status!=0 && status!=1);
-    CHECK(srv_fcntl(pipe[1],SRV_F_GETFL,0)==flags);
+    if(done!=pid || status==0 || status==1) {puts("diff-probe: output signal did not terminate with an error");goto failed;}
+    if(srv_fcntl(pipe[1],SRV_F_GETFL,0)!=flags) {puts("diff-probe: output flags changed");goto failed;}
     srv_close(pipe[0]);srv_close(pipe[1]);return 0;
+failed:
+    output_failure_diagnostics(pid,pipe[0],pipe[1],flags);
+    srv_close(pipe[0]);srv_close(pipe[1]);return 1;
 }
 /* Diagnostic fd 3 marks the second Myers iteration. It proves comparison
  * progress but not signal delivery inside a specific algorithm instruction. */

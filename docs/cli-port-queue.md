@@ -48,3 +48,16 @@ patch 2.8.1, grep 3.12 and coreutils 9.12 are the latest numbered tarball releas
 listed. Recheck these pins at entry rather than relying on search cache freshness.
 All four queue entries are authorized; pin verification is not another approval
 request. No queued source is accepted until its own gates pass.
+
+Current diff gate result: matched current-main build and two clean CLI/diagnostic
+rebuilds pass with identical ELF bytes. Selected native GNU tests: three PASS
+and the upstream-declared `large-subopt` XFAIL. Full guest run
+`build/review/diff/20261104-155542-8xs5kghh` failed the held-output probe after
+CPU-progress interruption, output failures, reference comparisons, allocation
+refusals/recovery, timestamp-matched unlabeled output and reboot checks passed.
+The failed receipt is retained. Source inspection found that atomic small writes
+can stall while POLLOUT still reports a few writable bytes. The corrected probe
+uses stable near-capacity pipe occupancy and has not yet been target-run. No
+production or shared ABI change is needed on present evidence. The window was
+released; a new ≤25-minute helper/manifest build and ≤five sequential 512 MiB
+qualification/Terminal/regression boots is queued, with no current launch grant.
