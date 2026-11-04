@@ -4892,3 +4892,27 @@ runtime. Review order is [SrvrUI #6](https://github.com/PaulMDemers/SrvrUI/pull/
 integration; merge is separate. No index, regex, coherent snapshot, native media,
 external fsck.exfat or real power-loss acceptance. All owned guests stopped;
 shared checkout and review VM are untouched. No further feature is required.
+
+### Find Contents dependency integration — November 4, 2026
+
+User authorizes UI6, Apps12, OS368 integration in that order and merged
+verification in isolated `SrvrOS-app-quality`. UI6 merged `3a695ce51e06af0a7ab9c21beedcb8dfe221be9c`;
+Apps12 merged `7d72518acd2b4e7c28e2aad4cfce4954261ee2f2`. Both merge trees match accepted UI `5cd6ddb0` and
+Apps `da891161` exactly. Preserve current OS main `8c891b20`, including dedicated
+Haswell firmware diagnostics, host tooling/tests and portability fixture fixes.
+Ordinary desktop capture gates remain unchanged without the explicit diagnostic
+token; no Find, session, filesystem or app worker runtime overlaps were found.
+
+The OS pins merged dependencies, runs focused Find/command-job and new firmware
+host checks and builds matched artifacts before OS368 merge. The actual merged
+source receives a matched build and fresh full Name/Contents VMs. Exact source,
+pins, artifact comparison and receipts are recorded in
+`build/review/find-contents-integration/`. Both prior full feature proofs remain
+historical evidence; fresh proofs qualify the merged kernel. All guests are
+owned/disposable and sequential. Shared checkout and review VM remain untouched.
+
+Seven superseded owned Find raw proof disks were removed only after checking
+size/SHA256 against the already round-trip-verified archive and rechecking the
+archive SHA256. Restore paths/hashes remain under
+`.local/app-proof/find-contents/archived-superseded-images.json`; current accepted
+raw disks remain. No evidence was discarded. No physical-media/power-loss claim.
