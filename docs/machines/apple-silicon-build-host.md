@@ -4099,3 +4099,77 @@ meet the profile suite's unmodified free-space preflight. Initial firmware and
 space preflight failures ran no profile guest and are not counted as acceptance.
 No physical-media, power-loss or external fsck.exfat acceptance is added. All
 owned guests stop at test completion; shared checkout and review VM are untouched.
+
+### Files destination-folder picker — verified November 4, 2026
+
+User authorizes a browsable destination-folder picker for Files Copy to and Move
+to, in isolated `SrvrOS-app-quality` only. Base OS `f4ea0ccb`, Apps `2a8bc2d9`,
+UI `586bd002`; preserve merged profile creation and cooperative session switching.
+Own allocation-free SrvrUI folder mode, existing asynchronous OS chooser filtering,
+SrvrApps Files/presenter wiring, focused checks and disposable-VM acceptance.
+Folders activate to browse; Choose folder accepts the currently displayed folder.
+Typed location remains available. Capture source identity before browsing; retain
+original basename, <=16MiB regular-file bound, guarded source metadata, collision
+refusal, same-volume Move and honest unknown-outcome recovery. No recursive
+transfer, overwrite, new filesystem mutation or session-policy implementation.
+
+Acceptance: keyboard/pointer nested and empty folder selection, parent/root alias
+navigation, canceled/failed/pending reads and reopen, unchanged source guard after
+browsing, owned-dialog and embedded fallback, sibling independence and accepted
+copy through Close; exact saved bytes, guest fsck/offline allocation, clean worker
+retirement, Open/Save regressions, clipped/narrow/theme rendering and matched
+source/build. Build/VM harnesses run sequentially. Shared checkout and review VM
+remain untouched. Draft/review delivery follows acceptance; merge is separate.
+
+Clean runtime/acceptance source `bac25c8d` pins UI `65ab080a` and Apps `6b2b00a3`.
+Full widget and desktop host suites, guarded file-change contracts, folder/picker/
+chooser checks and widget-theme preview pass. Portable CTest passes all 11 cases;
+ASan/UBSan CTest passes 10 (instrumented symbol-boundary test excluded,
+plain boundary passes separately). Focused folder-picker and chooser sanitizer
+checks pass. Independent source and evidence reviews find no blocker.
+
+Both normal and dialog-refusal Files transfer VMs pass nested/empty destinations,
+root alias browsing, keyboard and pointer cancel/accept, unavailable-folder
+recovery, exact copy/move bytes and collision preservation, destination selection,
+Back/Forward, sibling independence, accepted copy through Close, two document
+retirements, reaped worker pool and restored process baseline. Guest fsck and
+offline generator/allocation checks pass. Existing Files/Open With and actual
+Text/Preview pointer/lifecycle regressions pass, including failed-save/cancel
+retention, exact files and cleanup. Metadata snapshots are asserted by host and
+backend guard tests; guest proof establishes real resulting file bytes.
+
+Screenshots received expert inspection: path and primary action fit, folder-only
+empty state is accurate, and failed browse disables confirmation. No participant
+study or physical-device acceptance is claimed. Three harness-only failures
+(pointer trace removal, diagnostic spelling and diagnostic consumption) retain
+raw disks/logs/screenshots; none count as acceptance or required a runtime fix.
+Evidence/receipt: `build/review/files-folder-picker/`; a verified evidence and
+matched-artifact archive is retained under `.local/app-proof/files-folder-picker/`
+outside build cleanup. No external fsck.exfat or real power-loss acceptance.
+
+Review delivery: [SrvrUI #5](https://github.com/PaulMDemers/SrvrUI/pull/5),
+[SrvrApps #10](https://github.com/PaulMDemers/SrvrApps/pull/10), then
+[SrvrOS #359](https://github.com/PaulMDemers/SrvrOS/pull/359). The final journal
+commit receives a clean matched build and byte-identity comparison with accepted
+runtime; the receipt records exact revisions. Ready for dependency-order
+integration; merge is separate. All owned guests are stopped. Shared checkout
+and review VM remain untouched. No further feature is needed for this target.
+
+### Files folder-picker integration — November 4, 2026
+
+User authorizes UI5, Apps10, OS359 integration in dependency order and merged
+verification in isolated `SrvrOS-app-quality`. UI5 merged `b3fa806a61e2be362bdf9411468d2f44cdcb984b` first;
+Apps10 merged `b2b93f65dd0c4ae8d2bafdba465907b02c83ad29` second. Both merge trees exactly match the accepted
+UI `65ab080a` / Apps `6b2b00a3` candidates. Reconcile OS main `5f670602`, whose
+changes since the feature baseline are documentation and Haswell host tooling
+only; preserve those six files and the matched Ports pin. No app/session/kernel
+runtime overlap exists. Accepted feature evidence remains tied to `bac25c8d`.
+
+The merged dependencies receive focused host checks, a clean matched build and
+runtime artifact comparison before OS359 merge. Actual merged OS source receives
+a matched build and normal/refused-dialog Files transfer VMs; exact merge,
+provenance, host/VM receipts and byte comparisons are recorded under
+`build/review/files-folder-picker-integration/`. The full original Files/Text/
+Preview, widget, portable and sanitizer acceptance remains valid for identical
+runtime bytes. Shared checkout and review VM remain untouched; owned guests run
+sequentially and stop at test completion. No physical or power-loss acceptance.

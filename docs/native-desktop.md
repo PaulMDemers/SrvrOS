@@ -320,8 +320,13 @@ Files also supports File → New window / Ctrl-Shift-N in the same process, star
 at the current folder. Each window has independent navigation, history and
 selection. Ctrl-W closes that window; Ctrl-Q closes the Files application
 sequentially. Rename, Duplicate and Delete use owned dialogs, with embedded
-fallback if dialog admission is refused. Other Files windows remain usable. Copy to and Move to use an owned destination-
-folder prompt: enter an absolute folder path; the original file name is retained.
+fallback if dialog admission is refused. Other Files windows remain usable.
+Copy to and Move to open an owned destination-folder picker. Enter or double-click
+opens a subfolder; Up returns to its parent. Choose folder confirms the displayed
+folder, including one with no subfolders. Ctrl-L accepts an absolute folder path
+for direct navigation. The picker shows folders only and retains the original
+file name. Cancel remains available while a folder loads; an unavailable folder
+must be refreshed or replaced by a successful browse before confirmation.
 After verified completion, Files opens that folder and selects the transferred
 file. Back returns to the source folder. Copy keeps the original; Move uses a
 guarded rename within the same mounted volume. Existing destination names are

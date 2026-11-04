@@ -2661,9 +2661,9 @@ build/tests/file-picker-host$(HOST_EXE): tools/test_file_picker.c $(HOST_DESK_WI
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I userspace/widgets/include -idirafter userspace/lib/include -I shared/include tools/test_file_picker.c $(HOST_DESK_WIDGETS_A) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c -o $@
 
 test-file-picker: build/tests/tool-picker-host$(HOST_EXE)
-build/tests/tool-picker-host$(HOST_EXE): userspace/lib/include/srvros/desk_chooser.h tools/test_tool_picker.c userspace/desktop_runtime/chooser.c userspace/apps/desktools/picker.c userspace/apps/desktools/files_app.c userspace/apps/desktools/app.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/lib/include/srvros/desk_theme_preferences.h
+build/tests/tool-picker-host$(HOST_EXE): userspace/lib/include/srvros/desk_chooser.h tools/test_tool_picker.c userspace/desktop_runtime/chooser.c userspace/apps/desktools/picker.c userspace/apps/desktools/app.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/lib/include/srvros/desk_theme_preferences.h
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I userspace/widgets/include -idirafter userspace/lib/include -I shared/include tools/test_tool_picker.c userspace/desktop_runtime/chooser.c userspace/apps/desktools/picker.c userspace/apps/desktools/files_app.c $(HOST_DESK_WIDGETS_A) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c -Wl,--gc-sections -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I userspace/widgets/include -idirafter userspace/lib/include -I shared/include tools/test_tool_picker.c userspace/desktop_runtime/chooser.c userspace/apps/desktools/picker.c $(HOST_DESK_WIDGETS_A) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c -Wl,--gc-sections -o $@
 
 .PHONY: test-rtc
 test-rtc: build/tests/rtc-host$(HOST_EXE)
@@ -2759,9 +2759,9 @@ test-core: test-file-change
 .PHONY: test-files
 test-files: build/tests/files-host$(HOST_EXE)
 	$<
-build/tests/files-host$(HOST_EXE): tools/test_files.c userspace/apps/desktools/files_app.c userspace/apps/desktools/app.h shared/include/srvros/desktop_apps.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) shared/include/srvros/desktop_file.h userspace/lib/include/srvros/desk_theme_preferences.h
+build/tests/files-host$(HOST_EXE): tools/test_files.c userspace/apps/desktools/picker.c userspace/desktop_runtime/chooser.c userspace/apps/desktools/files_app.c userspace/apps/desktools/app.h shared/include/srvros/desktop_apps.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) shared/include/srvros/desktop_file.h userspace/lib/include/srvros/desk_theme_preferences.h
 	mkdir -p build/tests
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I userspace/widgets/include tools/test_files.c $(HOST_DESK_WIDGETS_A) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I userspace/widgets/include tools/test_files.c userspace/desktop_runtime/chooser.c $(HOST_DESK_WIDGETS_A) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c -o $@
 test-desktop: test-files
 
 .PHONY: test-strftime

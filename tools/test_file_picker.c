@@ -35,6 +35,58 @@ static void held_click_layout(void) {
     desk_picker_configure(&p,(struct desk_rect){0,0,W+32,H});
     assert(desk_picker_pointer(&p,e,60).operation==DESK_PICKER_NONE);
 }
+static struct desk_picker_result click_button(unsigned index,uint64_t time) {
+    struct desk_rect b=p.buttons[index].frame;
+    struct desk_widget_event e={.type=DESK_WIDGET_POINTER,.x=b.x+b.w/2,.y=b.y+b.h/2,.down=1,.pressed=1};
+    desk_picker_pointer(&p,e,time);e.down=e.pressed=0;
+    return desk_picker_pointer(&p,e,time+1);
+}
+static void folder_render(struct desk_rect bounds) {
+    for(unsigned i=0;i<sizeof(pixels)/sizeof(*pixels);i++) pixels[i]=tiles[i]=0xdeadbeef;
+    struct desk_canvas full,tile;assert(!desk_canvas_init(&full,pixels,W,H,S));assert(!desk_canvas_init(&tile,tiles,W,H,S));
+    desk_picker_configure(&p,bounds);desk_picker_draw(&full,&p,&desk_theme_quiet);
+    for(int y=0;y<H;y+=19) for(int x=0;x<W;x+=23) {
+        desk_clip(&tile,(struct desk_rect){x,y,23,19});struct desk_rect clip=tile.clip;
+        desk_picker_draw(&tile,&p,&desk_theme_quiet);assert(!memcmp(&clip,&tile.clip,sizeof(clip)));
+    }
+    assert(!memcmp(pixels,tiles,sizeof(pixels)));
+    for(int y=0;y<H;y++) for(int x=W;x<S;x++) assert(pixels[y*S+x]==0xdeadbeef);
+    for(unsigned i=S*H;i<sizeof(pixels)/sizeof(*pixels);i++) assert(pixels[i]==0xdeadbeef);
+}
+static void folder_mode(void) {
+    assert(DESK_PICKER_OPEN==1 && DESK_PICKER_SAVE==2 && DESK_PICKER_FOLDER==3);
+    struct desk_rect bounds={0,0,W,H};desk_picker_init(&p);desk_picker_configure(&p,bounds);
+    assert(desk_picker_open(&p,DESK_PICKER_FOLDER,"/fat","filename")<0);
+    assert(!desk_picker_open(&p,DESK_PICKER_FOLDER,"/fat/./",""));
+    assert(!p.name.enabled && !p.name_text.length && !p.buttons[2].enabled);
+    for(unsigned i=0;i<p.ui.count;i++) assert(p.ui.controls[i].id!=DESK_PICKER_FILENAME);
+    assert(click_button(2,1).operation==DESK_PICKER_NONE);
+    desk_picker_loading(&p);assert(!p.buttons[2].enabled && click_button(2,3).operation==DESK_PICKER_NONE);
+    assert(click_button(3,5).operation==DESK_PICKER_CANCEL);
+    assert(!desk_picker_listing(&p,"/fat/./",NULL,0));
+    assert(click_button(2,7).operation==DESK_PICKER_ACCEPT && !strcmp(p.target,"/fat"));
+    assert(!desk_picker_listing(&p,"/fat",listing,3));
+    key(SRV_KEY_HOME,0,0);struct desk_picker_result a=key(SRV_KEY_ENTER,0,0);
+    assert(a.operation==DESK_PICKER_BROWSE && !strcmp(p.target,"/fat/Folder"));
+    key(SRV_KEY_END,0,0);assert(key(SRV_KEY_ENTER,0,0).operation==DESK_PICKER_NONE);
+    assert(!p.name_text.length);
+    desk_ui_focus(&p.ui,DESK_PICKER_LOCATION);
+    desk_text_buffer_set(&p.location_text,"/missing",8);a=key(SRV_KEY_ENTER,0,0);
+    assert(a.operation==DESK_PICKER_BROWSE && !strcmp(p.target,"/missing"));
+    desk_picker_loading(&p);desk_picker_error(&p,"Unavailable");
+    assert(!strcmp(p.location_text.data,"/fat") && !p.buttons[2].enabled);
+    assert(click_button(2,9).operation==DESK_PICKER_NONE);
+    a=click_button(1,11);assert(a.operation==DESK_PICKER_BROWSE && !strcmp(p.target,"/fat"));
+    desk_picker_loading(&p);assert(!desk_picker_listing(&p,"/fat",NULL,0));
+    desk_ui_focus(&p.ui,DESK_PICKER_LIST);key(SRV_KEY_TAB,0,0);key(SRV_KEY_TAB,0,0);
+    assert(p.ui.focus>=0 && p.ui.controls[p.ui.focus].id==DESK_PICKER_OK);
+    assert(key(SRV_KEY_ENTER,0,0).operation==DESK_PICKER_ACCEPT && !strcmp(p.target,"/fat"));
+    struct desk_rect b=p.buttons[2].frame;
+    struct desk_widget_event e={.type=DESK_WIDGET_POINTER,.x=b.x+10,.y=b.y+10,.down=1,.pressed=1};
+    desk_picker_pointer(&p,e,20);for(unsigned i=0;i<8;i++) desk_picker_configure(&p,bounds);
+    e.down=e.pressed=0;assert(desk_picker_pointer(&p,e,30).operation==DESK_PICKER_ACCEPT);
+    folder_render(bounds);folder_render((struct desk_rect){10,10,240,200});
+}
 int main(void) {
     desk_picker_init(&p);desk_picker_configure(&p,(struct desk_rect){0,0,W,H});
     assert(!desk_picker_open(&p,DESK_PICKER_OPEN,"/fat/",""));assert(!strcmp(p.directory,"/fat"));
@@ -74,6 +126,6 @@ int main(void) {
     for(unsigned i=S*H;i<sizeof(pixels)/sizeof(*pixels);i++) assert(pixels[i]==0xdeadbeef);
     desk_picker_configure(&p,(struct desk_rect){0,0,1,1});desk_picker_draw(&full,&p,&desk_theme_quiet);
     assert(!p.name.enabled && !p.list.enabled && key(SRV_KEY_ESCAPE,0,0).operation==DESK_PICKER_CANCEL);
-    held_click_layout();
+    held_click_layout();folder_mode();
     puts("file-picker: PASS async browse/cancel, parent/location, open/save paths, UTF-8 names, lexical bounds, clipboard actions and clipped/tiled rendering");
 }
