@@ -3449,3 +3449,22 @@ Evidence and source identities are in local
 Shared checkout and review VM remain untouched. Integration is delivered and
 verified; historical physical-device closures remain unresolved as documented.
 No further work is required for this integration target.
+
+### Files cross-folder transfer — active November 3, 2026
+
+User authorized guarded-contract validation, Copy to / Move to implementation
+and acceptance in independent `SrvrOS-app-quality`, branch `app/files-transfer`,
+from main `819956be` with pinned Apps/UI/Ports. Own regular-file transfers up to
+16 MiB, captured source identity, destination selection, collision refusal,
+cancellation and accurate uncertain-outcome feedback. Reuse guarded copy/rename
+and shared owned dialog controls. No recursive folder transfer or overwrite.
+Guarded rename requires one mounted volume; failed sync/verification can follow
+an already completed mutation, so failures must not promise unchanged files.
+
+Validate exact/over-limit, stale identity, collision, busy source and cross-folder
+contracts; implement menus/context workflow, preserve navigation/selection on
+cancel/refusal, show verified destination on success, retain source on copy,
+and verify close/independent-window behavior. Run focused host, matched build,
+actual keyboard/pointer, exact persisted bytes and filesystem/allocation checks.
+Keep the shared checkout and review VM untouched; no native acceptance or main
+merge is implied. Next: focused contract checks and destination journey review.
