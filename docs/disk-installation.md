@@ -1,5 +1,175 @@
 # Disk installation and recovery
 
+## Recoverable offline export publication
+
+The opt-in host recovery flow records an admitted export before writing its
+portable payload. It can finish publication after process interruption or an
+uncertain write/sync/link/unlink/close result. The source remains an offline
+installation; returning to the console or switching profiles does not make a
+running guest image safe for host export. Ordinary `export-profile` without a
+publication directory retains its existing one-shot behavior.
+
+```sh
+python3 tools/installation_image.py export-profile STAGE /absolute/new-profile.json \
+  --publication-dir /absolute/new-export-attempt \
+  --profile-id 12345678-1234-4234-8234-123456789abc --home /fat/home/local-a \
+  --document Documents/migration.txt --document Documents/binary.dat \
+  --inspect-driver build/tests/installation-inspect-driver \
+  --export-driver build/tests/installation-export-driver
+python3 tools/installation_image.py inspect-export /absolute/new-export-attempt
+python3 tools/installation_image.py reconcile-export /absolute/new-export-attempt
+```
+
+Choose a new private record directory outside the installation stage, on the
+same host filesystem as the output. The host must support exclusive creation,
+hardlinks, advisory locks and checked file/directory sync. The mounted APFS
+evidence image is suitable; a bare ExFAT output filesystem lacks hardlinks.
+No existing output or record directory is replaced or retroactively adopted.
+
+| Observed state | Meaning | Next action |
+| --- | --- | --- |
+| `incomplete` | Durable intent exists, but the owned private bundle is partial | Preserve it; choose a new record/output for another export |
+| `prepared` | Complete canonical v1 bytes match the recorded private inode/hash | Explicit reconciliation can sync and exclusively publish them |
+| `visible-uncertain` | Exact owned output exists; synchronization/acknowledgment is unfinished | Inspect, then reconcile the recorded attempt |
+| `complete` | Output and completion record match | Reconciliation may be repeated to check all sync barriers without rewriting bytes |
+| `refused` | Torn, changed, foreign, busy or ambiguous state | Preserve every artifact and correct the identified condition; no repair is inferred |
+
+Inspection is read-only: it creates no files, attempts no flush and does not
+establish a new durability acknowledgment. Reconciliation performs checked sync
+operations and returns `complete` only after verification and successful close.
+A failed reconciliation can still have made progress; inspect the retained
+attempt before choosing the next action. A visible completion record is an
+observed integrity record, not proof against arbitrary power loss.
+
+The private `srvros-export-publication-v1` record is separate from the portable
+bundle format and from installation `publication.json`/`ready.json`. It binds the
+record directory, stable lock inode, original output parent, candidate inode,
+exact canonical v1 size/hash, selected profile/preferences/document metadata,
+and historical source stage/plan/image hashes/home. `intent.json` and its checksum
+are immutable. `bundle.partial` is the only recorded temporary payload name;
+`complete.json` is an exclusive final acknowledgment. Unknown entries refuse.
+
+Before retiring a temporary alias, the publisher/reconciler verifies that both
+known names refer to the recorded regular file with exactly the expected link
+count. Extra hardlinks, symlinks, replacement inodes, changed parents, wrong
+hashes, torn acknowledgment records and conflicting paths refuse unchanged.
+Partial data is never appended or reconstructed. Reconciliation does not reopen
+the source, re-export documents, repair media or overwrite a destination. Its
+success acknowledges the recorded exported snapshot, independently of whether
+the historical source is still available; it says nothing about current source
+health or authentication. Cooperative ownership and offline use remain required.
+
+Source admission, original v1 baseline identity (or retained v2 `profile.exfat`),
+pending creation/import refusal, v1 codec bounds and fresh-install destination
+binding rules remain unchanged. Recovery supports canonical portable v1 only;
+future streaming bundle versions require separate host/native qualification.
+Keep original source/baseline paths/device/inodes and the host evidence volume
+mounted through review. Restored copies are historical evidence, not adopted
+publication authority.
+
+The process-interruption diagnostic `export-profile --publication-dir NEW_DIR
+--interrupt-after POINT` exits 75 at `recorded`, `partial-write`, `written`,
+`file-synced`, `linked`, `unlinked`, `directory-synced` or `acknowledged`.
+`reconcile-export --interrupt-after POINT` supports the five final boundaries.
+These are controlled host-process experiments, not power-cut simulation.
+
+Clean source `1a62be92` integrates main `a90bf57e` and qualifies
+[PR364](https://github.com/PaulMDemers/SrvrOS/pull/364). The full host suite on `bc6c6dd4` passes 88 installation tests (one optional
+exhaustive skip), 27 workspace diagnostic groups, 25 profile CLI groups and
+storage/session/desktop/fsync/docs checks.
+Seventeen publication groups and 16 native export groups cover all transitions,
+idempotence, source-independent recovery, injected host I/O failures and preserved
+refusals. The final `1a62be92` host-only metadata follow-up passes all 17 publication
+groups and the native tracked-export integration again; its matched build keeps
+all three complete guest payloads byte-identical.
+
+The final `proof-mn6magg7` receipt records PASS for 109 fresh-process steps:
+eight publication interruption points, five interrupted reconciliation points,
+eight injected host write/short-write/file-sync/link/unlink/directory-sync/ack-write/close
+fault modes, ten corruption/ownership cases and two busy-lock refusals. Eighteen
+complete publications match the same canonical bytes. Four partial attempts and
+a torn acknowledgment remain preserved refusals. Inspection snapshots and
+repeated successful reconciliation preserve namespace/content/modification
+metadata; source A and its exact original baseline retain paths/device/inodes,
+times and full hashes throughout.
+
+Fresh B consumes the actual reconciled directory-sync-failure output. Two
+installed EFI boots verify the same UUID, all six defaults and exact text/binary
+bytes, with new GPT identities, `recovered_b`, UID/GID 3050/3051 and local clock/
+pointer settings. Initial cache/data directories are empty. Remembered selection,
+actual Terminal HOME/XDG/cwd (without duplicate variables), exclusion checks,
+clean allocation and protected regions pass. Used-B native inspection attempts
+zero writes/flushes, and B re-exports byte-identical portable data. An independent
+raw audit checks all three gzip streams, 166 installed base files, source/record/
+output ownership and actual restored bytes. The original prior A/B/transport and
+baselines remain unchanged; all owned QEMU stops and review VMs stay live.
+
+The [portable manifest](assets/screenshots/installation-export-recovery-manifest.json)
+records sources/pins/hashes and qualification limits. The
+[B reboot screenshot](assets/screenshots/installation-export-recovery-restored.png)
+was visually checked and is a pixel-preserving derivative of the retained PPM.
+Full raw evidence, matched artifacts, source tools and host/proof logs survive
+outside build at `.local/installation-evidence/guest-created-volume/export-publication/proof-mn6magg7/`.
+Later main `8c891b20` changes opt-in firmware diagnostics and host fixtures, with
+no installation/profile/native-export source change; this proof keeps its actual
+recorded source attribution. The bounded proof tool
+`tools/installation_export_recovery_smoke.py` consumes the existing synthetic A
+read-only, retains its original baseline and verifies a new B through two boots.
+It requires a clean matched build, the qualified selected text/binary fixture,
+8 GiB initial evidence headroom and a 4 GiB reserve. Existing review VMs and
+earlier primary images remain untouched.
+
+## PR364 integrated-main review and next bounded checkpoint
+
+Reviewed clean `bb43b8b2` against actual integrated main `88a95f9a`. V1
+filesystem/profile/native contracts remain unchanged; new Apps/Widgets pins
+require a fresh matched build and guest proof. No blocking finding or unresolved
+review thread remains. Local checks pass 88 installation tests and one optional
+exhaustive skip, 27 workspace groups, 25 profile CLI groups, bundle/image and
+storage/session/desktop/fsync/docs checks. The matched build and new full proof
+pass: 109 host steps, eight I/O fault modes, 22 refusal commands, 18 exact complete
+publications and two fresh-B boots. The independent raw audit verifies all
+166 installed base files, exact selected bytes/defaults/identity/local context,
+used-B read-only inspection, byte-identical re-export and protected regions.
+
+Original A/baseline remain at their recorded paths/device/inodes with unchanged
+metadata/hashes throughout; all prior source-proof raw A/B/transport and baselines
+retain their identities/hashes. Review VMs remain live and untouched. Both owned
+guests stop and the shared resource slice is released. Internal/temp, output,
+backing and external-cache reserves stay above the agreed floors. Only the
+previous completed recovery proof's inactive transport is now an exact verified
+gzip archive with historical inode retained in its manifest, never an adopted
+target. The [new review manifest](assets/screenshots/installation-export-recovery-review.json)
+and [B reboot screenshot](assets/screenshots/installation-export-recovery-review-restored.png)
+retain exact attribution; raw evidence survives at
+`.local/installation-evidence/guest-created-volume/export-publication-review/proof-apgpwd4j/`.
+Older proof receipts remain historical. No physical power-loss claim is added.
+
+Next proposed bounded installation milestone: **offline streaming-v2 bundle
+admission and fresh-install restoration/reboot**. Admit an explicitly selected
+larger-document bundle and restore it into a separately provisioned B with new
+local bindings. Keep existing v1 behavior, used-image admission and
+`srvros-export-publication-v1` unchanged. This does not add streaming export
+publication recovery or modify an existing installation.
+
+Dependencies are the profiles owner's frozen/qualified PR367 wire/manifest,
+per-document/full-container hash and v2 journal contracts; independent
+qualification of its opt-in bounded range-I/O prerequisite and matched guest
+runtime; and a new bounded host/native installation adapter with sufficient
+fresh-volume capacity. Ordinary FD limits must not be raised to substitute for
+bounded I/O. Reuse current clean GPT/namespace/allocation/original-baseline and
+pending-state refusal, stable UUID versus local HOME/alias/UID/GID binding,
+exclusive installation publication, and checked file/directory sync semantics.
+PR367 remains draft and unqualified at this review; native consumer passes alone
+do not satisfy its runtime dependency. V1 codec constants/helpers stay intact.
+
+Acceptance: selected larger documents within frozen bounds, exact metadata and
+bytes after two B boots, distinct local binding and machine settings, bounded
+payload transfer/hash memory, and unchanged source/baseline/protected regions.
+Refuse malformed/truncated/corrupt/changed-source, wrong identity, pending state,
+existing destinations and low space without publishing a usable installation.
+Keep dirty-media repair, in-place upgrades and authentication separate.
+
 ## PR342 integrated-main review and next bounded checkpoint
 
 User authorizes review and merge if ready. Reviewed `1a19e2c6` against actual
