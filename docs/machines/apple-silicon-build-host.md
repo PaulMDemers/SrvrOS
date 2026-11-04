@@ -3232,3 +3232,8 @@ regression now preserve those identities. xHCI host/sanitizer/GCC checks and
 display presentation/native-owner/VirtIO GPU fixtures pass. Native display
 ownership remains diagnostic; no physical reset/removal claim. Filesystem owner
 notified; no libc/content/workspace changes.
+
+Implementation `68a74cdd` passes kernel build, sysabi/full threadstress and an
+additional xHCI+USB-keyboard+tablet guest with two configured devices and passing
+sysabi. No guest input injection or native teardown acceptance is claimed.
+Display staging retention passes ASan/UBSan. All task guests stopped.

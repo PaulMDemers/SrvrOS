@@ -439,8 +439,13 @@ assertions. No additional display defect was confirmed. No native-device reset,
 physical removal or framebuffer ownership acceptance is inferred from these
 models.
 
-Kernel compilation passes. Evidence is under `build/review/usb-dma/`; guest
-results are recorded after execution. No libc or filesystem policy changes.
+Implementation `68a74cdd` compiles and passes rebuilt-kernel sysabi and full
+threadstress with retained PR313 runtime files. An additional Q35 guest includes
+an emulated xHCI controller, USB keyboard and tablet: it reports `op=yes`, two
+configured devices, one keyboard and one absolute pointer, then passes sysabi.
+No guest HID input injection or physical teardown is claimed. The display
+retention fixture also passes ASan/UBSan. Evidence is under
+`build/review/usb-dma/`. No libc or filesystem policy changes.
 
 ## Remaining work
 
