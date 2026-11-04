@@ -1,5 +1,44 @@
 # Apple Silicon macOS build host
 
+## End session and switch profile — contract review
+
+User authorizes ending sessions and switching without reboot, coordination,
+unsaved-work/clean-retirement/profile-isolation verification and merging after
+review. Coordinator owns independent review and merge ordering. Reuse isolated
+`SrvrOS-profile-326-review`, OS `device/apple-silicon/profile-switch` from actual
+main `f7ec75e7`; Apps `app/profile-switch` from actual merged `f4017137` (tree
+equal old `0bf8e137` pin), UI `586bd002`, Ports `d760e541`. Preserve previous
+raw images, original baselines, receipts and outside-build matched archives.
+Heavy build/VM hold remains until shared resource coordination.
+
+Proposed flow: Switch Profile requests cooperative root-window closure, reusing
+real Text/Sketch Save/Discard/Cancel, Terminal Close/Cancel and accepted I/O
+retirement. Cancel or known failed save keeps current profile; already-closed
+apps/documents stay closed. New launches pause while ending. After decisions,
+persistence and direct work finish, irrevocably close scope admission and wait
+for authoritative full retirement; then actual GUI process exit and a fresh
+chooser/session. No timeout, forced kill, ancestry snapshot or self-exec alone
+proves isolation. Reset environment/cwd and all GUI globals through fresh
+processes; chooser Back returns console after the old session has ended.
+
+A necessary runtime dependency is under PR317/334 owner review: main has internal
+immutable lifetime tracking, but no userspace authoritative member-zero query;
+existing kernel drain forces kill. Proposed thin external supervisor owns an
+opaque scope capability, scoped GUI child and all descendants/reservations,
+non-killing revoke/status/release. Cancellation precedes revoke; no un-revoke.
+Exact public interface and owner-exit semantics need runtime-owner agreement.
+No kernel implementation is owned by this checkout.
+
+Parent here owns deskd orchestration/menu/state/environment and private helper,
+host tests/Makefile/docs; app worker owns bounded Terminal retirement changes;
+VM worker owns a new switching proof. Existing Text/Sketch save flows remain.
+Acceptance is repeated A→B→A in one boot, actual Save/Discard/Cancel and failure,
+accepted I/O/owned descendant retirement, preference/HOME/XDG/cwd isolation,
+cleared clipboard/notifications, rendered keyboard/640 behavior and storage
+integrity. Authentication/concurrent sessions/physical testing remain outside
+scope. Next: runtime-interface review plus bounded app/host implementation,
+then matched verification when dependencies/resources are ready.
+
 ## Desktop profile creation — integration delivered November 4, 2026
 
 Coordinator used `SrvrOS-migration-review` on
