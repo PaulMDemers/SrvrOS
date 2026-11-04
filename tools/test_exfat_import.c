@@ -13,7 +13,7 @@ uint64_t timer_monotonic_us(void) { return 0; }
 static uint8_t disk[BYTES];
 static struct block_device *system_backend;
 static uint8_t *system_bytes;
-static unsigned system_writes,system_flushes,fail_write_at;
+static unsigned system_writes,system_flushes,fail_write_at,fail_system_write_at,fail_system_flush_at;
 static unsigned allocations,reads,writes,flushes,io_depth,fail_allocation,fail_write_skip,fail_flush_at;
 static uint64_t fail_write_offset=UINT64_MAX,fail_read_offset=UINT64_MAX;
 static bool fail_bitmap_read,fail_seen,foreign_io,boot_io,live_reference,admit_reference;
@@ -53,10 +53,10 @@ bool block_read(struct block_device *d,uint64_t off,void *p,uint64_t n) {
 }
 bool block_write(struct block_device *d,uint64_t off,const void *p,uint64_t n) {
     assert(off<=BYTES && n<=BYTES-off);
-    if(d==system_backend) {system_writes++;memcpy(system_bytes+off,p,(size_t)n);return true;}
+    if(d==system_backend) {system_writes++;if(system_writes==fail_system_write_at)return false;memcpy(system_bytes+off,p,(size_t)n);return true;}
     writes++;if(writes==fail_write_at)return false;probe_teardown(2);if(off==fail_write_offset) {if(fail_write_skip)fail_write_skip--;else {fail_write_offset=UINT64_MAX;return false;}}memcpy(disk+off,p,(size_t)n);return true;
 }
-static bool flush(struct block_device *d) { if(d==system_backend){system_flushes++;return true;}flushes++;return flushes!=fail_flush_at; }
+static bool flush(struct block_device *d) { if(d==system_backend){system_flushes++;return system_flushes!=fail_system_flush_at;}flushes++;return flushes!=fail_flush_at; }
 static struct block_device device={.used=true,.name="import-test",.block_size=SECTOR,.block_count=BYTES/SECTOR,.read=block_read,.write=block_write,.flush=flush};
 static uint64_t offset(unsigned cluster) { return HEAP*SECTOR+(cluster-2)*SECTOR; }
 static void checksum(uint8_t *entry) {
@@ -596,10 +596,12 @@ static void growth_case(const char *mode) {
 
 #ifdef SRVROS_EXFAT_PROCESS_TEST
 #include "test_workspace_writeback.inc"
+#include "test_workspace_salvage.inc"
 #endif
 int main(int argc,char **argv) {
     assert(argc==2);const char *mode=argv[1];
 #ifdef SRVROS_EXFAT_PROCESS_TEST
+    if(!strncmp(mode,"salvage-",8)) { workspace_salvage_case(mode);return 0; }
     if(!strncmp(mode,"workspace-",10)) { workspace_failure_case(mode);return 0; }
 #endif
     if(!strncmp(mode,"namespace-",10)) {namespace_case(mode);
