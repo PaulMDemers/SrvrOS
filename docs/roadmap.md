@@ -24,6 +24,18 @@ Unsupported or nonretiring work must prevent a successful switch and explain
 what the user can do. Reuse existing lifecycle/chooser contracts; coordinate any
 runtime dependency with the process-isolation and browser owners.
 
+Source review confirms Text and Sketch already support Save/Discard/Cancel.
+Cancellation keeps the current profile active; already-closed apps remain closed.
+A required runtime dependency is now established: main exposes no authoritative
+userspace descendant-drained query. Reuse its kernel-only immutable lifetime
+membership through a narrowly reviewed owner interface; separate graceful
+negotiation, irreversible admission revocation, nonkilling retirement progress
+and revoked-plus-zero completion. Existing lifetime drain actively kills and
+must not be used as an implicit close operation. Runtime owner reviews this
+boundary with the browser/process owner before implementation; snapshot ancestry
+and window disappearance cannot substitute for it. Data-save success remains
+separate from process retirement.
+
 The current working scope excludes concurrent logged-in desktops, authentication,
 permission enforcement and physical-media qualification. The profiles owner
 will specify the exact cancellation/commit boundary before implementation; user
