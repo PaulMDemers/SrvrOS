@@ -416,3 +416,53 @@ A GT forcewake owner, native DMA/resource binding and real scanout adoption
 remain separate work. No new reboot can resolve those software contracts merely
 by repeating stable snapshots. Power policy, existing limits and the unresolved
 RC6/package-C3 results remain unchanged.
+
+
+## Host-only exact layout and synthetic reservation proposal (2026-11-04)
+
+[haswell_layout_proposal.py](../tools/haswell_layout_proposal.py) consumes a
+strict, complete version3 raw receipt and admits only the captured1366×768,
+5632-byte pitch, zero-offset,1056-page shape with matching raw CPU/display
+controls. It requires a sole Linux-model fence0 candidate, firmware-reserved
+stolen candidates and consecutive, nonaliased physical pages. It preserves the
+input receipt hash; older/incomplete/overlapping or changed layouts refuse.
+This is a proposal, not native allocation or hardware admission.
+
+The report keeps separate intervals: surface GGTT `[0,4325376)`, full protected
+fence `[0,16777216)`, and the1056 observed physical pages. All extra fence space
+stays protected from simulated GGTT reuse without inventing physical pages or
+ownership for it. `native_managed_ranges` is empty and pin/ownership/hardware
+and physical-acceptance flags remain false.
+
+The separate `SyntheticReservations` host model exercises half-open GPU ranges
+and exact physical-page sets. Partial GPU overlaps and physical aliases refuse
+independently; adjacency is allowed. Local object tokens bind a finite catalog,
+slot and monotonically increasing generation. Reader tokens are nontransferable;
+close blocks new holds/work, drains existing work and retains the range until
+all readers release. Uncertain retirement permanently quarantines its ranges
+and readers in that catalog; there is no reset/reclaim method. Fresh catalogs
+cannot validate old tokens. Eight simulated claims/readers and1536 input pages
+bound host exercises only; no native capacity or policy is changed.
+
+PR301 at `a803af45` already has an independent `scanout_space` API: audited
+managed imports start unavailable, protected inherited fences override grants,
+and exposed leases require restoration/translation/reader proofs. This tool does
+not implement or replace that allocator, import its synthetic grants into native
+state, or translate a simulation result into its proof mask. Shared integration
+must wait for the actual merged API and an independently audited Haswell owner.
+
+Run the proposal against an already collected raw exit log:
+
+```sh
+python3 tools/haswell_layout_proposal.py --exit-log /absolute/path/exit.log \
+  --output /absolute/path/host-layout-proposal.json
+```
+
+`make test-haswell-backing` includes positive proposal replay plus partial
+collision, exact-physical alias, aliased-but-valid receipt, full-fence protection,
+foreign/forged/stale tokens, reader retention, slot reuse, capacity and quarantine
+regressions. A completed simulated lifetime says nothing about device readers.
+No MMIO, PTE publication, native reservation, firmware exclusion or hardware
+completion callback exists here. Before native adoption, the remaining work is
+exact-model DMA/resource inventory, exclusive allocation and firmware ownership,
+GT-access protocol, publication/invalidation and matched route/restore retirement.
