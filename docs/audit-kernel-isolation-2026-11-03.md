@@ -249,10 +249,15 @@ That intermediate regression was corrected before publishing this slice. The old
 fails the repeated-scan assertion (`pmm-before.log`).
 
 Focused host tests pass normally; PMM and the service fixture pass relevant
-ASan/UBSan and strict GCC14 runs. Kernel build passes. The updated kernel passes Q35 sysabi and full
-threadstress with retained PR313 runtime files and disposable disks. Production
-final implementation `513199d5` includes the shared-frontier correction.
-Main `a8e1fca1` was integrated at `16af9d76` without kernel/shared changes. Logs and oracle/negative-control evidence are retained under
+ASan/UBSan and strict GCC14 runs. Kernel build passes. The updated kernel passes
+Q35 sysabi and full threadstress with retained PR313 runtime files and disposable
+disks. Final implementation `513199d5` includes the shared-frontier correction.
+Main `a8e1fca1` was integrated at `16af9d76`; later main `0cba30a1` was integrated
+at `10cbd087`, both without kernel/shared changes. The latter's new actual-source
+workspace writeback matrix passes all 52 cases on this branch
+(`workspace-compat/result.json`).
+
+Logs and oracle/negative-control evidence are retained under
 `build/review/search/`. A compiled control that omits the freed-prefix rewind
 fails the first-fit oracle on the bridging allocation. This guards the cache
 optimization's correctness, separately from its reduced scan count.
