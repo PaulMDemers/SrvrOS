@@ -28,12 +28,19 @@ never silently reduce an approved input/behavior boundary or add fake runtime
 capability stubs. A shared libc/kernel need requires a minimal reproducer and
 coordination before changing its contract.
 
-Current resource checkpoint: the first build/guest window was released after a
-passing first guest. Integration relayed a fresh finite diff-only qualification
-window from profiles: native references at -j2, then sequential owned 512 MiB
-guests, stop on first failure and explicitly release. No standing reservation
-for later queue entries. Source-only independent review found no new blocker;
-compatibility/memory/cancellation/reproducibility/Terminal/regressions remain gates.
+Current checkpoint: source is reconciled with actual main `88a95f9a` and its
+merged Apps/UI pins in the isolated checkout. First guest passed; full harness
+stopped before QEMU on xorriso error 32 while internal storage was below reserve.
+Both prior heavy windows were explicitly released. Task-owned diff/xz build and
+evidence trees were relocated to `/Volumes/SrvrOSCLIQueue` after all file hashes
+and symlink targets matched; manifests are `diff-relocation.json` and
+`xz-relocation.json` at that volume root. Workspace paths remain usable through
+symlinks. New builds/cache/temp images use this dedicated APFS volume backed by
+`/Volumes/miniTB/SrvrOS-CLI-queue-20261104.sparsebundle`. Recheck internal, output,
+temp and backing free space (at least 2 GiB) before every heavy launch. Integration relayed a fresh explicit ≤40-minute diff-only window: one matched
+-j2 incremental build, two clean diff rebuilds/native selected tests and at most
+six sequential 512 MiB guests. Stop/release on first failure or expiry; no
+automatic extension or reservation for later queue entries.
 
 
 Primary GNU release indexes were fetched directly during source preparation:
