@@ -88,4 +88,105 @@ class WorkspaceInspectionTests(unittest.TestCase):
             r=inspect.inspect_workspace(self.image,DRIVER,0,len(self.fs.data))
         self.assertEqual(r['state'],'refused');self.assertFalse(r['image_unchanged'])
 
+
+# Small disposable whole-disk fixtures; production/retained media are never edited.
+import uuid
+import zlib
+GPT_DRIVER=ROOT/'build/tests/workspace-gpt-driver'
+BASIC=uuid.UUID('ebd0a0a2-b9e5-4433-87c0-68b6b72699c7').bytes_le
+
+def gpt_checksums(data):
+    total=len(data)//512
+    table=bytes(data[1024:1024+16384]);data[(total-33)*512:(total-1)*512]=table
+    for lba in (1,total-1):
+        at=lba*512;struct.pack_into('<I',data,at+88,zlib.crc32(table))
+        struct.pack_into('<I',data,at+16,0)
+        struct.pack_into('<I',data,at+16,zlib.crc32(data[at:at+92]))
+
+def whole_disk(volume):
+    data=bytearray(12*1024*1024);total=len(data)//512
+    data[510:512]=b'\x55\xaa';data[450]=0xee
+    struct.pack_into('<II',data,454,1,total-1)
+    disk=uuid.UUID('11111111-2222-3333-4444-555555555555').bytes_le
+    for lba,other,table in ((1,total-1,2),(total-1,1,total-33)):
+        at=lba*512;data[at:at+8]=b'EFI PART'
+        struct.pack_into('<IIIIQQQQ16sQIII',data,at+8,0x10000,92,0,0,lba,other,34,total-34,disk,table,128,128,0)
+    data[1024:1040]=BASIC;data[1040:1056]=uuid.UUID('66666666-7777-8888-9999-aaaaaaaaaaaa').bytes_le
+    struct.pack_into('<QQ',data,1056,2048,2048+len(volume)//512-1)
+    data[2048*512:2048*512+len(volume)]=volume;gpt_checksums(data);return data
+
+class GPTWorkspaceInspectionTests(unittest.TestCase):
+    def setUp(self):
+        WorkspaceInspectionTests.setUp(self)
+        self.disk=whole_disk(self.fs.data);self.image.write_bytes(self.disk)
+    def automatic(self,expected='inspected'):
+        before=snapshot(self.image)
+        r=inspect.inspect_workspace(self.image,DRIVER,gpt_driver=GPT_DRIVER)
+        self.assertEqual(r['state'],expected,r);self.assertEqual(snapshot(self.image),before)
+        self.assertTrue(r['image_unchanged']);self.assertEqual(r['admission'],'not-authorized');return r
+    def test_matches_explicit_range(self):
+        r=self.automatic();explicit=inspect.inspect_workspace(self.image,DRIVER,2048*512,len(self.fs.data))
+        self.assertEqual(r['diagnostic'],explicit['diagnostic']);self.assertTrue(r['range']['partition_table_validated'])
+        self.assertTrue(r['gpt_selection']['backup_agrees']);self.assertEqual(r['range']['offset'],2048*512)
+    def test_dirty_readonly_disk(self):
+        struct.pack_into('<H',self.disk,2048*512+106,2);self.image.write_bytes(self.disk);self.image.chmod(0o444)
+        r=self.automatic();self.assertEqual(r['image_mode_octal'],'0444');self.assertTrue(r['diagnostic']['filesystem']['dirty'])
+    def test_corrupt_maps_refused(self):
+        total=len(self.disk)//512
+        cases={'primary-header':512+16,'primary-table':1024+20,'backup-header':(total-1)*512+16,
+               'backup-table':(total-33)*512+20,'protective-mbr':510}
+        for name,at in cases.items():
+            with self.subTest(name=name):
+                bad=self.disk.copy();bad[at]^=1;self.image.write_bytes(bad);self.automatic('refused')
+    def test_structurally_invalid_maps_refused(self):
+        total=len(self.disk)//512
+        def duplicate(d):d[1152:1280]=d[1024:1152];struct.pack_into('<QQ',d,1184,20000,21023)
+        def overlap(d):duplicate(d);d[1168]^=1;struct.pack_into('<QQ',d,1184,2048,4095)
+        cases={'duplicate-guid':duplicate,'overlap':overlap,
+               'range':lambda d:struct.pack_into('<Q',d,1064,total),
+               'zero-disk-guid':lambda d:d.__setitem__(slice(568,584),bytes(16)),
+               'readonly-attribute':lambda d:struct.pack_into('<Q',d,1072,1<<60),
+               'oversized-table':lambda d:struct.pack_into('<I',d,592,2**30),
+               'hybrid-mbr':lambda d:d.__setitem__(466,7)}
+        for name,change in cases.items():
+            with self.subTest(name=name):
+                bad=self.disk.copy();change(bad);gpt_checksums(bad);self.image.write_bytes(bad);self.automatic('refused')
+    def test_ambiguous_candidates_refused(self):
+        bad=self.disk.copy();bad[1152:1280]=bad[1024:1152];bad[1168]^=1
+        struct.pack_into('<QQ',bad,1184,20000,21023);gpt_checksums(bad);self.image.write_bytes(bad)
+        r=self.automatic('refused');self.assertIn('workspace-candidate-count',r['reason'])
+    def test_no_basic_candidate_refused(self):
+        bad=self.disk.copy();bad[1024]^=1;gpt_checksums(bad);self.image.write_bytes(bad)
+        self.automatic('refused')
+    def test_divergent_valid_backup_refused(self):
+        bad=self.disk.copy();total=len(bad)//512;at=(total-33)*512;bad[at+16]^=1
+        h=(total-1)*512;struct.pack_into('<I',bad,h+88,zlib.crc32(bad[at:(total-1)*512]));struct.pack_into('<I',bad,h+16,0)
+        struct.pack_into('<I',bad,h+16,zlib.crc32(bad[h:h+92]));self.image.write_bytes(bad)
+        self.automatic('refused')
+    def test_valid_crc_backup_header_mismatch_refused(self):
+        for field in (32,40,56,80):
+            with self.subTest(field=field):
+                bad=self.disk.copy();at=len(bad)-512;bad[at+field]^=1
+                struct.pack_into('<I',bad,at+16,0);struct.pack_into('<I',bad,at+16,zlib.crc32(bad[at:at+92]))
+                self.image.write_bytes(bad);self.automatic('refused')
+    def test_backup_bounds_refused(self):
+        bad=self.disk.copy();at=len(bad)-512;struct.pack_into('<Q',bad,at+72,2048)
+        struct.pack_into('<I',bad,at+16,0);struct.pack_into('<I',bad,at+16,zlib.crc32(bad[at:at+92]));self.image.write_bytes(bad)
+        self.automatic('refused')
+    def test_no_fallback_when_selector_fails(self):
+        with mock.patch.object(inspect.native,'driver_output',side_effect=ValueError('selector refused')) as call:
+            self.automatic('refused');self.assertEqual(call.call_count,1)
+    def test_writable_native_fd_refused(self):
+        before=snapshot(self.image);fd=os.open(self.image,os.O_RDWR)
+        try:r=subprocess.run([str(GPT_DRIVER),'--fd',str(fd),'0',str(len(self.disk))],pass_fds=(fd,),capture_output=True)
+        finally:os.close(fd)
+        self.assertNotEqual(r.returncode,0);self.assertEqual(r.stdout,b'');self.assertEqual(snapshot(self.image),before)
+    def test_incomplete_explicit_range_refused(self):
+        for offset,length in ((0,None),(None,512),(2048*512,len(self.fs.data))):
+            r=inspect.inspect_workspace(self.image,DRIVER,offset,length,gpt_driver=GPT_DRIVER)
+            self.assertEqual(r['state'],'refused')
+    def test_invalid_selection_report_refused(self):
+        report=self.automatic()['gpt_selection'];report['offset_bytes']=len(self.disk)
+        with mock.patch.object(inspect.native,'driver_output',return_value=report):self.automatic('refused')
+
 if __name__=='__main__':unittest.main()

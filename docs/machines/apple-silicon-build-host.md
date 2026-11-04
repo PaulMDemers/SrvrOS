@@ -1,5 +1,17 @@
 # Apple Silicon macOS build host
 
+## GPT-aware workspace diagnostics — in progress
+
+User authorizes native GPT reuse review, offline read-only selection and
+corrupt/ambiguous-map qualification. Base `f4ea0ccb`, isolated filesystem checkout,
+branch `device/apple-silicon/filesystem-gpt-inspection`. Reuse `block_gpt_scan`
+in a separate host adapter; native primary validation remains unchanged. Add
+host-only backup agreement checks and conservative single Basic Data selection
+before the existing native workspace inspector. No production block/process/USB
+changes, writable admission, repair or replay. Coordinate with PR317; preserve
+review VMs 61610/6233/85869 and all uncertain media. Prove matching explicit-range
+reports, corrupt/ambiguous refusals and unchanged whole-image hashes/permissions.
+
 ## Session switching — delivered and verified November 4, 2026
 
 User authorized cooperative session ending, no-reboot profile switching,
