@@ -1601,6 +1601,30 @@ frames are not the cumulative path budget. Complete stack-chain audit and final
 source/host immutable closure remain pending before final private-slice acceptance;
 normal kernel delivery/public ABI/libc/WTF remain unwired.
 
+## November 4: cumulative private-transaction stack audit
+
+Independently parsed actual and stack-audit ELF sections: all 38 relevant function
+bodies and relocation targets/addends match. Reconstructed the 37-node direct-call
+graph, verified compiler static stack sizes, and recomputed every cumulative bound.
+Actual disassembly has no indirect calls/jumps or recursive path; dispatcher stack
+usage is 184 bytes. Adding a conservative eight bytes per call edge and the
+983-byte common interrupt/frame/alignment/dispatcher prefix gives 12,207 bytes for
+delivery and 10,991 bytes for return against the owned 131,072-byte stack. The
+entered-user FPU save returns before the dispatcher rather than nesting on that
+path. Evidence: `build/review/pr334-signal-fused-stack-review/receipt.json`.
+This covers the fixed synchronous CPU0 IF0 transaction, not NMI/MCE or the entire
+kernel's stack usage. Final source/host immutable closure still remains pending.
+
+The next public contract may be proposed with INFO/optional RESETHAND and explicit
+pre-effect rejection of INFO|RESTART, preserving legacy RESTART. This permits a
+design packet, not public implementation/admission. An explicit SrvrOS WTF adapter
+choice must audit nonrestart EINTR/partial-I/O/deadline effects; ordinary caller
+flags must not be silently stripped. Source review confirms the kernel poll
+pending branch currently returns zero and libc relies on cooperative dispatch to
+turn it into EINTR, which needs an explicit contract once INFO is consumed before
+libc resumes. Real machine contexts, ticketed nested atomic suspend and bounded
+stop/resume remain mandatory separate reviews.
+
 ## Remaining work
 
 Other long IRQ-disabled operations, including initial/churning PMM scans, heap validation and poisoning,
