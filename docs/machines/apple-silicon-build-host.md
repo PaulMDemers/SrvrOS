@@ -4872,6 +4872,36 @@ at `.local/kernel-audit-evidence/pr317-merge/`. Earlier setup failures retained.
 No physical media/boot or PR334 public/JSC acceptance. User authorized PR317 merge;
 continuing audit starts from the merged baseline.
 
+### November 4: PR334/WTF/JSC audit continuation
+
+PR317 merged as `5f4f6fc6`; its actual tree matches reviewed `d784705a`, with the
+recorded audit-document delta from tested `4fa518eb`. The frozen PR334 companion
+packet `ee207df0/e404d84` contains 568 files. Independent checks cover 1,661 and
+1,288 source blobs, 292 linked function bodies, 1,058 named relocation values and
+32 prepared suite inputs.
+
+Only the unchanged-input and storage preflight cleared for the bounded seven-case
+single-CPU, no-NIC experiment. Its actual `qvdnmbic` run reached one main-register /
+red-zone marker, then the first WTF case exited 134; the six remaining cases did
+not run. The raw boot, case and serial identities are recorded in the kernel audit
+ledger. At that observation, owned QEMU 11532 was stopped and protected review
+QEMUs 6233, 61610 and 85869 were alive and untouched. At later documentation
+closeout, those four PIDs are absent; available evidence does not establish when
+or why the protected QEMUs exited. The original 134 remains unattributed, and no
+WTF/JSC, sole-root GC, full ABI, SMP or public capability acceptance follows.
+
+The canonical WTF retirement correction in Ports `224ed6a`, staged by OS
+`7c59ab8e`, independently passes 35 strict and 35 ASan/UBSan actual-source cases,
+including four intended old-source failures. At this audit checkpoint, a fresh
+target build, linked-code review and guest qualification remained pending. This
+records the checkpoint only; it is not a renewed browser or JSC signoff. The
+separate QEMU 24675/LLDB diagnostic attempt timed out after 100 seconds without
+terminal capture or attribution. Earlier process snapshots reported no active VM; they do not negate
+the later confirmed attempt. Tool-reported errors during diagnostic setup and
+source-only resume were retained in the audit record; no alternate chat was used
+to route the debugger operation. The complete limits and evidence references are
+in [the kernel isolation audit](../audit-kernel-isolation-2026-11-03.md).
+
 ### xz current-main merge review — November 4, 2026
 
 User authorized readiness review and dependency-order merge of SrvrPorts #10

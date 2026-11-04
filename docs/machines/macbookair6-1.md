@@ -7199,3 +7199,40 @@ console recovery and accepted backups, installs and automatically runs this
 no-input firmware-only capture. Local records own subsequent arm/collection
 state. No native translation, register-access permission, pin or ownership is
 granted by these tests; original RC6/package-C3 limitations remain unchanged.
+
+
+### Native firmware/full-catalog observation accepted (2026-11-04)
+
+Release `6b7dbee3a9441281`, compiled source `e53b7a63` from merged
+[PR362](https://github.com/PaulMDemers/SrvrOS/pull/362), automatically returned
+and collected session `session-00065f79059839bf-00`. Independent re-decoding of
+the complete15,124-byte exit receipt matches the saved assessment. Both136-byte
+DMAR copies match the unit SHA256 pin and all42 current Limine entries agree.
+Copy brackets are21/16 us, separated by4 us, under unchanged100ms bounds.
+The table is at `0x8cd64000`, inside the ACPI-reclaimable entry
+`[0x8cd64000,0x8cd8f000)`, with exact existing translations verified before reads.
+
+Both declared DRHD pages (`0xfed90000` and `0xfed91000`) have zero catalog
+intersections. Their nearest reserved predecessor is
+`[0xfed1c000,0xfed20000)` and successor `[0xffe10000,0xffe40000)`. These native
+observations corroborate this unit's declarations/gap edges; no resource/MMIO
+admission or DMA translation state follows. No VT-d/GT/GGTT register, new mapping,
+root-table walk, firmware method, writer, pin or hardware ownership is accepted.
+The Intel16/Linux32 discrepancy and full-path swizzle/lifetime remain unresolved.
+
+All596 prior files retain their hashes apart from expected workspace metadata.
+Two new logs yield598 files/1667 allocated clusters; read-only fsck and independent
+allocation checks pass with zero leaks, bitmap mismatches or errors. The raw exit
+SHA256 is `9a21ea46259d9f158fe0025710b92efb4d01b398217c5f4aa95acfb5b3d045f2`.
+All623 automatically backed-up evidence files independently verify. Fresh
+installed/recovery payload checks, Ubuntu default and consumed one-shot pass;
+collector disabled, no reboot armed. Evidence remains durable outside build.
+
+Closeout consumes main `3fcf2630` and recursive pins for documentation only;
+later stream/port changes do not inherit acceptance from this tested release.
+Next is an exact-unit source audit of bounded read-only VT-d register/resource
+admission and retirement before implementing a separately opted-in test. The
+native gap is not a generic mapping permission or a copied Broadwell gate.
+Firmware exclusion, real allocation/GGTT ownership, GT wake ownership and matched
+scanout/restore retirement remain separate. Prior RC6 timing failure and zero
+package-C3 residency are unchanged.
