@@ -64,6 +64,10 @@ class ExportPublicationTests(unittest.TestCase):
             result = pub.inspect(attempt)
         self.assertEqual(snapshot(root), before)
         self.assertTrue(result['read_only'])
+        if result['state'] != 'refused':
+            self.assertEqual(result['size'], len(self.data))
+            self.assertEqual(result['selection']['profile'], self.value['profile'])
+            self.assertTrue(all(set(entry) == {'path', 'size', 'sha256'} for entry in result['selection']['documents']))
         return result
 
     def refused(self, root, attempt):

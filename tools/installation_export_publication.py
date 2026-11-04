@@ -217,6 +217,7 @@ def state(path, root, lock):
             result = {'state': 'complete' if complete else ('visible-uncertain' if public else 'prepared'),
                       'can_reconcile': True}
         result.update(publication_dir=str(path), output=str(output), bundle_sha256=record['sha256'],
+                      size=record['size'], selection=record['selection'], attempt=record['attempt'],
                       source_snapshot=record['source_snapshot'], source_snapshot_only=True,
                       visible=public is not None)
         yield result, record, intent_hash, parent, output, private, public
