@@ -155,6 +155,38 @@ def entries(image,directory):
     return {name for name,_ in image.entries(image.read(directory))}
 
 
+def validate_metadata(data):
+    """Validate every serialized exFAT metadata row, not just its magic.
+
+    Matches the record shape checked by profile_chooser_smoke.metadata_rows,
+    with the kernel's ASCII pathname and uint64 bounds applied as well.
+    """
+    if not data.startswith(b'SRVROSMETA1\n') or not data.endswith(b'\n'):
+        raise RuntimeError('invalid metadata sidecar header or final newline')
+    try:
+        lines=data.decode('ascii').split('\n')
+    except UnicodeDecodeError as exc:
+        raise RuntimeError('invalid metadata sidecar encoding') from exc
+    seen=set()
+    for line in lines[1:-1]:
+        columns=line.split('\t')
+        if len(columns)!=9:
+            raise RuntimeError('invalid metadata sidecar record')
+        path=columns[0]
+        if (len(path)>1023 or any(ord(c)<32 or ord(c)>126 for c in path) or
+            not (path=='/fat' or path.startswith('/fat/')) or
+            path=='/fat/.srvros' or path.startswith('/fat/.srvros/') or
+            (path!='/fat' and any(part in ('','.','..') for part in path[5:].split('/'))) or path in seen):
+            raise RuntimeError('invalid or duplicate metadata sidecar path')
+        seen.add(path)
+        for value in columns[1:]:
+            digits=value.lstrip('0')
+            if (not re.fullmatch(r'[0-9]+',value) or len(digits)>20 or
+                (digits and int(digits)>2**64-1)):
+                raise RuntimeError('invalid metadata sidecar uint64 field')
+    return len(seen)
+
+
 def directory_snapshot(image):
     root={name for name,_ in image.entries(image.chain(image.root))}
     sidecar={}
@@ -275,8 +307,9 @@ def main():
     for name,record in before_sidecar.items():
         if name!='meta' and after_sidecar.get(name)!=record:
             raise RuntimeError('pre-existing sidecar artifact changed: '+name)
-    if after_sidecar['meta']['attributes'] & 0x10 or not image.read('.srvros/meta').startswith(b'SRVROSMETA1\n'):
-        raise RuntimeError('invalid SrvrOS metadata sidecar')
+    if after_sidecar['meta']['attributes'] & 0x10:
+        raise RuntimeError('metadata sidecar is not a regular file')
+    receipt['metadata_sidecar_records']=validate_metadata(image.read('.srvros/meta'))
     receipt['directory_evidence_sha256']=sha((out/'directory-evidence.json').read_bytes())
     def get(name):
         data=image.read('patch-test/'+name);(out/name).write_bytes(data);return data
