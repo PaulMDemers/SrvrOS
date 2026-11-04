@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """Exercise native recursive file-name search, result actions and bounded snapshots in a disposable VM."""
 import os
+import argparse
+import json
+import hashlib
+import io
+import contextlib
 from pathlib import Path
 import shutil
 import socket
@@ -10,13 +15,25 @@ import time
 from displayd_frame_smoke import choose_port, connect_serial, stop_process
 from displayd_resolution_smoke import build_iso
 from desktop_foundation_smoke import QMP
+from test_exfat_generator import verify_image
+from serial_records import desktop_progress_end
 
 
 def main():
     root=Path(__file__).resolve().parents[1]
-    out=root/"build/review/desktop-find"
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--output",type=Path)
+    args=parser.parse_args()
+    out=(args.output or root/"build/review/desktop-find").resolve()
     out.mkdir(parents=True,exist_ok=True)
     output=b"";consumed=0
+    (out/'result.json').unlink(missing_ok=True)
+    source={'source':subprocess.check_output(['git','rev-parse','HEAD'],cwd=root,text=True).strip(),
+        'source_status':subprocess.check_output(['git','status','--porcelain'],cwd=root,text=True).splitlines(),
+        'submodules':subprocess.check_output(['git','submodule','status','--recursive'],cwd=root,text=True).splitlines(),
+        'payload_sha256':{str(p.relative_to(root)):hashlib.sha256(p.read_bytes()).hexdigest() for p in
+            (root/'build/kernel/srvros.elf',root/'build/initramfs.tar',root/'build/srvros.exfat')}}
+    (out/'source.json').write_text(json.dumps(source,indent=2)+'\n')
     port=choose_port(30001,38000)
     with tempfile.TemporaryDirectory(prefix="srvros-find-") as directory:
         tmp=Path(directory)
@@ -28,6 +45,14 @@ def main():
         fixture.add_directory_files("find-fixture",fixtures)
         fixture.add_directory_files("find-fixture-extra",{"Report-outside.txt":b"outside"})
         (tmp/"disk.exfat").write_bytes(fixture.data)
+        def check_image(label):
+            log=io.StringIO()
+            with contextlib.redirect_stdout(log): verify_image(tmp/'disk.exfat')
+            (out/(label+'-generator.txt')).write_text(log.getvalue())
+            check=subprocess.run([str(root/'build/tests/exfat-driver'),str(tmp/'disk.exfat'),'allocation-check'],capture_output=True,text=True)
+            (out/(label+'-allocation.txt')).write_text(check.stdout+check.stderr)
+            if check.returncode: raise RuntimeError('Allocation check failed: '+label)
+        check_image('before')
         iso=build_iso(str(root),str(tmp),1280,800,os.environ.copy())
         command=["qemu-system-x86_64","-M","q35","-m","512M","-cdrom",str(iso),"-boot","d",
             "-drive",f"if=none,id=disk,file={tmp/'disk.exfat'},format=raw",
@@ -42,7 +67,7 @@ def main():
                 def wait(marker,timeout=40):
                     nonlocal output,consumed
                     end=time.monotonic()+timeout
-                    while marker not in output[consumed:]:
+                    while desktop_progress_end(output,marker,consumed) is None:
                         if marker == b"srv> " and not consumed:
                             qmp.boot_if_menu_stalled(output, time.monotonic() - (end - timeout))
                         if time.monotonic()>end or process.poll() is not None:
@@ -53,7 +78,7 @@ def main():
                             if not chunk: raise RuntimeError("serial disconnected")
                             output+=chunk;(out/"serial.log").write_bytes(output)
                         except socket.timeout: pass
-                    consumed=output.index(marker,consumed)+len(marker)
+                    consumed=desktop_progress_end(output,marker,consumed)
                 def wait_all(markers, timeout=40):
                     nonlocal consumed
                     start=consumed;end=start
@@ -115,15 +140,20 @@ def main():
                 shortcut("f10");shortcut("end");shortcut("ret");wait(b"deskd: exited",60);wait(b"srv> ")
                 if b"failure=1" in output or b"deskd: FAIL" in output or b"exception:" in output:
                     raise RuntimeError("Guest failure; see serial.log")
+                serial.sendall(b"run /fat/bin/sync\n");wait(b"run: pid=");wait(b" exited status=0");wait(b"srv> ")
+                serial.sendall(b"fsck /fat\n");wait(b"errors=0 ok");wait(b"srv> ")
                 serial.close();qmp.stream.close();qmp.sock.close()
             finally:
                 stop_process(process);(out/"serial.log").write_bytes(output)
+                shutil.copyfile(tmp/'disk.exfat',out/'last-workspace.img')
             fixture=ExfatFixture((tmp/"disk.exfat").read_bytes())
             assert fixture.read("find-path.txt")==b"/fat/find-fixture/Report-one.txt"
             assert fixture.read("find-content.txt")==source
             assert fixture.read("find-last-path.txt")==b"/fat/find-fixture/bulk-255.txt"
             for name,data in fixtures.items(): assert fixture.read("find-fixture/"+name)==data
             assert fixture.read("find-fixture-extra/Report-outside.txt")==b"outside"
+            check_image('after')
+            (out/'result.json').write_text(json.dumps({'status':'PASS','source':source,'guest_fsck':'PASS','offline_allocation':'PASS','filename_search':'unchanged','open_reveal_copy_exact_bytes':'PASS'},indent=2)+'\n')
     print(f"desktop-find: PASS Files/global launch, case-insensitive literal names, root boundaries, result open/reveal/copy, 256 of 300 cap, kind filtering, errors/empty results, compact/context/Help and exact saved proofs. Evidence: {out}")
 
 

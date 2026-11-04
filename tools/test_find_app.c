@@ -2,18 +2,20 @@
 #include "../userspace/apps/deskfind/deskfind.c"
 #undef main
 #include <assert.h>
-static int started,poll_result,spawn_fail,launched;static unsigned launch_app;static char launch_path[160],child_root[160],child_query[96];
+static int started,poll_result,spawn_fail,launched,child_mode,close_calls,retire_polls;static unsigned launch_app;static char launch_path[160],child_root[160],child_query[96];
 static struct { struct desk_search_header header;struct desk_search_entry entries[3]; } payload;
 long srv_ticks(void) { return 42; }
+long srv_sleep_ticks(uint64_t ticks) { assert(ticks==1);return 0; }
 void srv_puts(const char *s) { (void)s; }
 int desk_app_launch(struct desk_app *window,unsigned application,const char *path) { assert(window==&app.window);launched++;launch_app=application;strcpy(launch_path,path);return 0; }
 int desk_command_job_init(struct desk_command_job *j,char *o,size_t n) { *j=(struct desk_command_job){.reader=-1,.output=o,.capacity=n};o[0]=0;return 0; }
 int desk_command_job_start(struct desk_command_job *j,const char *path,char *const argv[],uint64_t now,uint64_t timeout) {
-    assert(timeout==60000000 && !strcmp(path,"/fat/bin/deskfind-worker") && argv[3] && !argv[4]);if(spawn_fail) return -1;
+    assert(timeout==60000000 && !strcmp(path,"/fat/bin/deskfind-worker") && argv[3] && (!argv[4] || (!strcmp(argv[4],"1") && !argv[5])));child_mode=argv[4]!=NULL;if(spawn_fail) return -1;
     started++;strcpy(child_root,argv[1]);strcpy(child_query,argv[2]);j->busy=1;j->started_us=now;j->length=0;j->output[0]=0;return 0;
 }
 void desk_command_job_cancel(struct desk_command_job *j) { j->busy=0;j->retiring_pid=42;j->canceled=1; }
-int desk_command_job_poll(struct desk_command_job *j,uint64_t now) { (void)now;if(poll_result) { j->busy=0;j->length=sizeof(payload);memcpy(j->output,&payload,sizeof(payload)); }return poll_result; }
+void desk_command_job_close(struct desk_command_job *j) { close_calls++;desk_command_job_cancel(j); }
+int desk_command_job_poll(struct desk_command_job *j,uint64_t now) { (void)now;if(j->retiring_pid && retire_polls && !--retire_polls) j->retiring_pid=0;if(poll_result) { j->busy=0;j->length=sizeof(payload.header)+payload.header.count*sizeof(payload.entries[0]);memcpy(j->output,&payload,j->length); }return poll_result; }
 static void set(struct desk_text_buffer *t,const char *s) { assert(desk_text_buffer_set(t,s,strlen(s))>=0); }
 static void finish(void) {
     payload.header=(struct desk_search_header){DESK_SEARCH_MAGIC,DESK_SEARCH_VERSION,3,0,10,3,0};
@@ -23,7 +25,7 @@ static void finish(void) {
     poll_result=1;poll_job();poll_result=0;
 }
 int main(void) {
-    initialize(NULL);app.window.width=760;app.window.height=500;app.window.focused=1;app.window.server=42;layout();desk_ui_focus(&app.ui,FIND_QUERY);
+    initialize(NULL);app.window.width=760;app.window.height=500;app.window.focused=1;app.window.server=42;layout();assert(app.query.focused);desk_ui_focus(&app.ui,FIND_QUERY);
     assert(!strcmp(app.root_text.data,"/fat/home"));run();assert(!started && strstr(app.status,"Enter part"));
     set(&app.query_text,"report");set(&app.root_text,"relative");run();assert(!started && strstr(app.status,"absolute"));set(&app.root_text,"/fat/../fat//home/");
     spawn_fail=1;run();assert(!started && strstr(app.status,"could not start"));spawn_fail=0;run();assert(started==1 && app.job.busy && !app.search.enabled && app.stop.enabled);
@@ -55,5 +57,23 @@ int main(void) {
         assert(!memcmp(full,tiled,sizeof(full)));
         for(unsigned y=0;y<660;y++) for(unsigned x=0;x<980;x++) if(x>=app.window.width || y>=app.window.height) assert(!full[y*980+x]);
     }
+    action((struct desk_action){FIND_FILES,DESK_WIDGET_ACTIVATED});
+    action((struct desk_action){FIND_CONTENTS,DESK_WIDGET_ACTIVATED});
+    assert(desk_tabs_selected(&app.mode_tabs)==FIND_CONTENTS && desk_tabs_selected(&app.tabs)==FIND_FILES);
+    set(&app.query_text,"needle/inside");set(&app.root_text,"/fat/home");run();assert(child_mode && app.run_mode==DESK_SEARCH_CONTENTS && app.run_kind==1);
+    action((struct desk_action){FIND_NAME,DESK_WIDGET_ACTIVATED});assert(desk_tabs_selected(&app.mode_tabs)==FIND_CONTENTS);
+    set(&app.query_text,"edited");set(&app.root_text,"/elsewhere");
+    payload.header=(struct desk_search_header){DESK_SEARCH_MAGIC,DESK_SEARCH_CONTENT_VERSION,1,DESK_SEARCH_BYTE_LIMIT,10,1,3};
+    payload.entries[0]=(struct desk_search_entry){.path="/fat/home/unrelated.txt",.inode=10,.size=30};
+    poll_result=1;poll_job();poll_result=0;
+    assert(app.header.count==1 && !strcmp(selected()->path,"/fat/home/unrelated.txt") && strstr(app.status,"Partial") && strstr(app.status,"3 skipped"));
+    set(&app.query_text,"needle");set(&app.root_text,"/fat/home");run();
+    payload.header.flags=DESK_SEARCH_TRUNCATED|DESK_SEARCH_SCAN_LIMIT;payload.header.matched=257;payload.header.scanned=DESK_SEARCH_CONTENT_SCAN_LIMIT;
+    poll_result=1;poll_job();poll_result=0;assert(strstr(app.status,"First 256") && strstr(app.status,"item limit"));
+    run();payload.header.version=DESK_SEARCH_VERSION;poll_result=1;poll_job();poll_result=0;assert(strstr(app.status,"did not finish"));
+    action((struct desk_action){FIND_NAME,DESK_WIDGET_ACTIVATED});assert(desk_tabs_selected(&app.tabs)==FIND_FILES);
+    app.job.retiring_pid=42;layout();action((struct desk_action){FIND_CONTENTS,DESK_WIDGET_ACTIVATED});action((struct desk_action){FIND_ALL,DESK_WIDGET_ACTIVATED});
+    assert(desk_tabs_selected(&app.mode_tabs)==FIND_NAME && desk_tabs_selected(&app.tabs)==FIND_FILES && !app.mode_tabs.enabled && !app.tabs.enabled);
+    retire_polls=2;close_job();assert(close_calls==1 && !app.job.retiring_pid);
     puts("find-app: PASS search snapshots, validation/failure/cancel, stable sorting, open/reveal/copy, stale clipboard isolation, context and compact/tiled rendering");
 }
