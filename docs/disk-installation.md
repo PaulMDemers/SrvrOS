@@ -1,5 +1,52 @@
 # Disk installation and recovery
 
+## Interrupted installation publication — active milestone
+
+User authorized inspect/reconcile implementation, interruption/refusal proof and
+a scoped PR. Branch `device/apple-silicon/install-publication-recovery` uses the
+isolated installation clone, main `0cba30a1` after PR322 landed. Consume PR321's
+version-2 profile plans, PR320's pending-import/unknown-scratch preservation rules,
+and existing GPT/boot/hash validation. PR322 `312f4f15` was inspected before its
+merge: six host fixture/tool/docs files, no production change. It qualifies
+managed workspace failure retention, not host staging recovery or guest faults.
+
+Own installation publication API/CLI, focused tests, new process-interruption
+proof and this record. No kernel/filesystem/profile-policy implementation or
+guest import journal changes. Before publishing image aliases, persist an
+exclusive verified-publication record binding plan/source/target identity and
+the complete output. Inspection is read-only. Explicit reconciliation may link
+only that fully verified output and its canonical ready receipt; it must not
+re-provision data, rebuild GPT or discard unknown state.
+
+| Observed state | Operator action / completion |
+| --- | --- |
+| Prepared | Normal apply is available; no output has been verified |
+| Interrupted without a complete verification record | Preserve evidence and prepare a fresh target; reconciliation refuses |
+| Verified bytes, publication incomplete | Inspect identities/hashes, then explicitly reconcile publication |
+| Ready and unchanged | Inspection/idempotent reconciliation confirms the existing receipt |
+| Changed, torn, unknown or linked outside the stage | Preserve all bytes; refuse publication/reconciliation |
+
+Use one cooperative publisher at a time. Reconciliation must revalidate while
+holding admission before any mutation. Named interruption checkpoints cover
+successful host write/flush/link boundaries; this is process-restart proof,
+not media-error recovery, power-loss atomicity or PR322's managed-retirement
+contract. A guest-modified image is outside unbooted publication recovery and
+must not be relabeled as the original verified output.
+
+Acceptance: fresh CLI processes interrupted at provisioning, assembly and
+publication boundaries; early refusals preserve state, later verified stages
+reconcile, interrupted reconciliation can finish, and repeated reconciliation
+does not mutate a ready stage. Modified inputs/output, torn metadata, symlinks,
+outside hard links and unknown files refuse without cleanup. A reconciled
+profile image must boot, edit/save and reboot with exact profile persistence.
+Exact source, commands, hashes and evidence must survive build cleanup.
+
+Review VMs 61610, 6233 and 85869 remain live and untouched. One build/harness runs
+at a time here; no physical disks, host reboot, Actions or merge request. Status:
+implementation and proof in progress. The CLI journey uses the existing UX
+recovery guidance: diagnose uncertainty before an explicit corrective action;
+do not imply completion from a timeout or offer destructive retry.
+
 ## PR321 integrated-main review and next checkpoint
 
 Final refresh: main advanced to `a8e1fca1` with merged guest profile PR320 during

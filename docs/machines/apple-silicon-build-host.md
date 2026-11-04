@@ -1,5 +1,20 @@
 # Apple Silicon macOS build host
 
+## Interrupted publication recovery — active scope
+
+User authorized a scoped inspect/reconcile PR and interruption/refusal proof in
+`SrvrOS-installation`, branch `device/apple-silicon/install-publication-recovery`.
+Base main `0cba30a1` includes PR321 and the inspected test-only PR322 failure
+qualification. Profile guest PR320's pending-import/unknown-state rules remain
+separate. Own installation publication API/CLI/tests and a new proof; no guest,
+kernel, filesystem or profile policy edits. Reconcile only previously verified
+unbooted output; uncertain state is preserved. Process-restart boundaries are
+qualified, not power cuts or transport-failure repair.
+
+Preserve VMs 61610, 6233 and 85869 and accepted evidence. Run one build/harness
+at a time. No physical media, reboot or Actions. Current acceptance and exact
+evidence will be recorded in `docs/disk-installation.md`.
+
 ## PR321 merge review
 
 Final candidate `d0910498` consumes newer main `a8e1fca1` and PR320's guest import
