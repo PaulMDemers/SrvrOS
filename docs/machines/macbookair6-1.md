@@ -178,6 +178,32 @@ nominal excess); package C3 remains zero. USB integrity, recovery and durable
 hash verification pass; no reboot is armed. Next is a read-only tiled-aperture /
 GGTT backing audit, retaining every unknown assurance and original limit.
 
+### Active exact Haswell vector pilot (2026-11-03)
+
+Base `0cba30a1`, actual recursive pins consumed; installed native readout remains
+`728bcbeb` / `9b485ca12b4c2482`. PR301 remains open and now owns Broadwell
+scanout-lifetime work as well as its capture. This bounded Air6,1 pilot uses the
+same endpoint/map/read/unmap/clock contract inside the existing isolated Air6,1
+AP diagnostic, without modifying that driver's API, Broadwell gates or owner.
+It is a model-specific adapter, not a competing generic display backend; common
+factoring remains dependent on PR301's integrated contract.
+
+Scope: exact Haswell-only readout core/adapter, dedicated opt-in stage/decoder,
+positive/refusal/retention tests and automated capture. Capture the complete
+1536-entry-bounded DWORD GGTT extent twice, raw GGC/config/route/framebuffer,
+and documented FENCE0–15 pairs. Upper sixteen fences and unobserved swizzle
+controls stay unknown; no unique-fence, CPU-view equivalence, allocator pin or
+hardware authority is granted. Only the existing safe display-arbitration
+swizzle control is observed. Independent 100ms readout bounds do not replace
+20ms coordinated-C3 or any other original limit. No power/control/data writes,
+backing RAM mappings or sibling admission. No ordinary startup hook.
+
+PR252 is integrated in this baseline; PR301, PR313/314 filesystem/profile work
+and PR19 Wi-Fi retain their own scope. Next: actual C adapter fixtures and strict
+full-vector wire/retention checks, matched builds/exact-stage VM, local USB and
+recovery preflight, merge and an automated read-only one-shot under existing
+authorization. Native acceptance remains pending; no reboot is armed yet.
+
 ### Active tiled-backing source audit (2026-11-03)
 
 Updated to actual main `8f47f196`, with matched pinned app/widget submodules.
@@ -6680,3 +6706,65 @@ Docs/host fixtures are validated independently; a new matched build, exact-stage
 VM, native preflight and complete collection are still required before another
 physical test. Existing RC6 failure/package-C3 zero and unknown ownership remain.
 No reboot is armed.
+
+
+### Exact Haswell vector pilot implemented (2026-11-03)
+
+Base `0cba30a1`, with actual recursive pins. PR301 remains open and independently
+owns the Broadwell capture/scanout lifetime. The first Haswell adapter is scoped
+to the existing Air6,1 isolated diagnostic, preserving its exact device gates and
+using the bounded read-only I/O contract without modifying the other driver.
+See the [pilot contract](../macbookair6-1-tiled-backing-audit.md#isolated-haswell-pilot-implementation).
+
+The dedicated profile skips the ordinary Intel stub, requires existing decode/D0,
+excludes RAM from the full 4 MiB MMIO range and uses a non-global RO/NX window.
+It retains complete DWORD GGTT vectors twice, raw config/route/framebuffer and
+FENCE0–15, with 1,536-entry and 100 ms readout bounds, full comparisons and verified
+window retirement. The documented lower range stays distinct from unobserved
+upper fences; only display-arbitration swizzle is read. No writer, allocator pin,
+full swizzle/uniqueness proof or hardware authority is added. Original RC6 failure,
+package-C3 zero and all existing limits remain separate and unchanged.
+
+Actual core/adapter fixtures, max-capacity/clock/map/retirement/change failures,
+source-independent producer decoding and maximum-tail coverage are required
+before installation. Matched build, full host suites, exact-stage identity
+refusal/persistence, missing-workspace halt and old-profile regressions remain
+pending. The current installed native image is still `9b485ca12b4c2482`; no new
+physical acceptance or reboot is claimed by implementation alone.
+
+### Haswell vector pilot validation and prepared native run (2026-11-03)
+
+[PR324](https://github.com/PaulMDemers/SrvrOS/pull/324) integrates actual main
+`59928ec9`; tested code is `baaa94b5`, with ports `ca749517` and the other
+recursive pins preserved. Recent mainline installation/salvage/profile changes
+are included. Strict GCC host compatibility fixes retain namespace/range checks,
+POSIX no-follow/exclusive/close-on-exec flags, flush and ownership behavior; no
+warning flag is disabled. The ports-only best-effort-result compatibility change
+is merged in [SrvrPorts PR5](https://github.com/PaulMDemers/SrvrPorts/pull/5).
+
+Matched normal/AP kernels, RAM/USB images, complete core/desktop/widget suites,
+profile-chooser regressions, host prerequisites and docs checks pass locally.
+Actual capture core/adapter tests and ASan/UBSan pass, including full-vector
+producer decoding, mapping/clock/change failures, retained uncertainty and normal
+kernel isolation. Source-matched maximum retention preserves all raw records
+with 128 KiB earlier chatter and 32 KiB subsequent allowance in the unchanged
+64 KiB exit tail; its source-derived checkpoint bound is 16,514 bytes. This is
+synthetic retention coverage, not physical acceptance. Sanitizer stdout/stderr
+are retained separately; the initial interleaved host transcript is kept, not
+repaired into evidence.
+
+Four legacy AP owner/C3/package/platform VM profiles pass. Exact staged release
+`e98aed0c5f8d06cf` safely refuses Q35 identity, saves its refusal, unmounts and
+resets. Missing workspace returns without starting the capture or falsely saving.
+Both are negative-path checks, not native readout acceptance. The exact staged
+payload is durably backed up; at this validation checkpoint it is uninstalled
+and unarmed. The approved next step is its automated native install/one-shot,
+requiring complete two-pass observations, unchanged endpoints, verified window
+retirement, preserved USB files and clean offline allocation. Runtime arming and
+collection state stay in the local run record. No human input is required.
+
+The previous native payload remains `9b485ca12b4c2482` until that installation.
+Its complete payload/evidence must verify before reclaiming only its EFI copy;
+console recovery and accepted fallbacks remain protected. GGTT observation does
+not grant real ownership/pinning, complete fence/swizzle knowledge, package C3 or
+RC6 timing acceptance. Those limitations and all existing limits remain unchanged.
