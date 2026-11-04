@@ -6937,3 +6937,11 @@ main/staging/decoder, retention/tests and this audit guide. No GT/forcewake,
 backing-pixel mapping, power policy, pin or assurance-bit change. After full
 matched validation and local recovery/USB checks, prepare/run the authorized
 automated test. No new native acceptance is claimed in advance.
+
+Version3 is implemented as a required-modifier extension:32 rows on the same
+fence page, raw labels preserve the Linux-model assumption, and global uniqueness
+and every owner assurance stay false. Focused actual core/adapter and independent
+v1/v2/v3/max producers/decoders/tail tests pass, including changed/all-ones upper
+rows, candidate overlap and uncertain mapping retirement. Matched full suites,
+sanitisers and exact-stage negative/legacy VMs remain pending before installing
+or arming a native test. No source change is physically accepted yet.
