@@ -1,5 +1,225 @@
 # Disk installation and recovery
 
+## PR336 integrated-main review and next bounded checkpoint
+
+User authorized review and merge if ready. Reviewed `b3c6a694` against fetched
+main `62b0708e`; no material blocker or unresolved review thread. The separate
+inspector retains strict publication/reconciliation refusal after guest saves,
+uses only an inherited read-only image descriptor in the actual kernel exFAT
+reader, and checks historical protected bytes and current bounded profile
+metadata without repair or receipt replacement. Profile preference grammar,
+startup size limit, optional legacy identity, pending-import/scratch rules and
+remembered-choice CRC were checked against the integrated guest consumers.
+
+Fresh installation checks pass (55 passing, one optional long-matrix entry
+skipped), including all 19 inspection groups. Profile bundle/adapter, desktop
+preferences/startup/catalog/chooser and guest-profile checks pass. Documentation
+checks pass. All ten accepted artifacts, nine proof tools, five native source
+files and three matched build outputs have the accepted hashes. The retained
+used stage matches its final accepted snapshot and receipt. Two fresh CLI used
+inspections pass with zero native writes/flushes; strict publication inspection
+and reconciliation still refuse it. All four calls preserve the whole stage,
+original source inputs and historical receipt.
+
+Main and runtime inputs are unchanged, so no affected VM proof requires rerun.
+The original two-boot, six-positive, 23-mutation-plus-busy and four-strict-refusal
+proof remains attributed to `ff974bdf`. The
+[review receipt](assets/screenshots/installation-used-review.json) records the
+fresh checks and equivalence. Logs and verification script survive outside build
+cleanup at `.local/installation-evidence/pr336-review`; the original full proof
+and matched artifacts remain separately archived. Review VMs 61610/6233/85869
+remain running and untouched; no new VM, physical trial or Actions was needed.
+Ready for the authorized merge; follow-up commits contain only review evidence
+and continuity documentation.
+
+Next proposed bounded installation milestone: **read-only selected-profile
+export from a used installed image**. PR321's migration proof reads persisted
+bytes into a host fixture before exporting. Supply an actual offline export
+command that binds an admitted inspected image and explicit profile UUID/home,
+reads only individually selected `Documents/...` files and portable identity/
+preferences, and creates a new portable bundle. Preserve the used image and its
+historical receipts; restore through the existing fresh-install plan rather
+than changing the source installation. This is proposed work only.
+
+Dependencies and boundaries:
+
+- PR336's stage/target identity, protected-region proof, cooperative offline
+  locks and refusal rules. Revalidate the same image through document reads;
+  a stale prior inspection result is insufficient. Add a bounded `O_RDONLY`
+  selected-document reader: the current native bridge intentionally emits only
+  metadata and cannot export document contents.
+- Integrated PR309/314/321 profile bundle/provisioning contracts, PR320 import
+  boundaries and PR326 identity/local-choice semantics. Reuse the normative v1
+  codec/path rules and limits (64 explicitly selected files, 1 MiB each, 8 MiB
+  decoded aggregate, 12 MiB bundle); preserve portable UUID and validate any
+  legacy identity fallback explicitly. Local alias/UID/GID, machine settings,
+  caches, credentials and arbitrary application state are excluded.
+- Integrated PR312/313/318 clean root/namespace/allocation admission and PR329
+  file-fsync semantics; keep source inspection read-only and publish output
+  exclusively with checked file/directory sync. Dirty, pending, torn, ambiguous,
+  changed or unsupported source/output states refuse without replacement.
+- Use the existing matched-build/provenance and v2 fresh-install adapters for
+  restoration proof. No new kernel repair/salvage API is required. Open PR333
+  owns desktop reviewed transfer and depends on SrvrApps #6; a host offline CLI
+  need not wait for or duplicate that UI. Open PR338 qualifies managed workspace
+  salvage without production contract changes; it is not an export dependency.
+
+Acceptance: edit/save/reboot installation A, export the actual stopped image
+through the new reader without an intermediate host profile fixture, then
+provision and reboot fresh B with different disk/home/local bindings. Verify
+selected text/binary bytes, portable UUID and all six preferences; prove
+unselected files and local/machine state are excluded, source/receipt hashes
+unchanged, and changed/unsafe/oversized/pending/conflicting cases refuse without
+publishing success. No dirty-media salvage, in-place upgrade, authentication or
+physical-media claim belongs to this slice.
+
+## Read-only used-installation inspection — qualified
+
+User authorized implementation, used-image/refusal proof and a scoped PR.
+Branch `device/apple-silicon/installed-state-inspection` reuses isolated
+`SrvrOS-installation-io`, main `5634cd9d` (PR330, hardware-evidence-only
+PR331, additive filesystem proof PR332 and SQLite integration PR306). Current filesystem/profile contracts include PR312/313/318 root and
+allocation admission, PR320/321 import and binding, PR326 identity/selection,
+and PR329's file-scoped fsync versus global sync/reboot boundaries. Open PR317
+and browser/hardware work were inspected; no installation/profile overlap is
+consumed. Own a separate host inspector, bounded read-only native metadata
+reader, CLI/tests and proof. No kernel, provisioning or profile-policy edits.
+
+| Offline stage | Inspection action/result |
+| --- | --- |
+| Original sealed publication, current data unchanged | Validate immutable boot/root identity, current filesystem and profile; report consistency |
+| Same installed image after legitimate saves | Allow mutable data changes; report used state and current metadata while preserving the original receipt as history |
+| Wrong boot/GPT/root identity, allocation inconsistency or invalid profile | Refuse with bounded diagnostic and preserve all bytes |
+| Pending/torn import or unknown transaction/selection scratch | Report blocked/refused; never run recovery, remove markers or choose a profile |
+
+The new `inspect-installed` path is separate from strict publication `inspect`
+and `reconcile`; guest-modified output remains ineligible for publication recovery.
+It uses retained plan/journal/ready/bootstrap records. Used v2 images also need
+the unchanged retained `profile.exfat`; other original provisioning sources may
+be absent. Used legacy v1 images need the exact original exFAT source as their
+data baseline, otherwise inspection refuses with a baseline diagnostic. The
+current protected image bytes are combined with that verified original partition
+and checked against the original whole-image hash; all GPT/ESP/padding bytes
+remain bound while current user data may differ. The original private directory and candidate inode still
+bind the inspected target. A native reader receives only an inherited regular
+`O_RDONLY` image descriptor and a checked partition range, runs actual exFAT clean
+admission/allocation checks and returns bounded metadata with zero attempted
+writes/flushes. It checks the backing directories required by the existing
+namespace bindings. The existing `O_RDWR` provisioning adapter is not reused.
+Profile identity display records remain optional for older v2 installations,
+matching the guest fallback; present records must validate. Portable settings
+use the guest's 512-byte limit and remembered selections require its exact CRC.
+
+Acceptance includes a stopped used image after edit/save/reboot, exact identity
+and data readback, structural/profile refusals, busy/unsafe input refusal and
+whole-stage/source/receipt preservation. Matching on-disk structure is not a new
+publication acknowledgment, authentication, live health, repair or physical-media
+acceptance. Cooperative offline ownership is required. Preserve review VMs
+61610, 6233 and 85869, primary checkout and earlier evidence. One build/harness
+at a time; no physical disks, host reboot, Actions or merge requested. Status:
+implementation and proof complete; publish a scoped draft for review.
+
+### Inspection contract and accepted proof
+
+```sh
+python3 tools/installation_image.py inspect-installed .local/installation/profile-a --driver build/tests/installation-inspect-driver
+```
+
+Exit zero and `state=installed-consistent` mean the stated offline structural
+checks passed. Exit one emits a JSON refusal reason. The result reports whether
+the image differs from its original publication (`used`), current image hash,
+historical publication/data baseline, GPT identities, filesystem admission and
+allocation counts, namespace backing targets, profiles and remembered choice.
+It does not write a replacement receipt, choose a profile or certify live boot
+readiness. Keep the image offline; nonblocking plan/image/baseline locks serialize
+cooperating tools, not arbitrary writers. Copied/replaced stage/candidate inodes,
+partial aliases, unknown entries, unsafe links and incomplete records refuse.
+
+The original source files are not used as a release dependency for v2 inspection:
+retained records and the canonical bootstrap prove boot payloads, while the
+unchanged retained `profile.exfat` allows streaming recombination of current
+protected regions with original data. Pristine images can prove the original
+whole hash directly. Used v1 images instead require their exact original exFAT
+source inode/device/size/hash; unavailable baselines refuse without guessing.
+Existing publication `inspect` and `reconcile` retain their original stricter
+source/output checks and continue to refuse guest-used images.
+
+The native bridge accepts only an inherited `O_RDONLY`, single-link regular
+image descriptor and a checked aligned range. It uses the actual kernel clean
+exFAT mount/allocation checker, verifies `/fat/bin`, `/fat/var`, `/fat/home`
+backing directories (`/usr` maps to `/fat`), and fails if any write/flush is
+attempted. It does not reuse the provisioning driver. Limits are 2 GiB exFAT in
+the frontend; 128 MiB live native heap, 2 GiB aggregate reads, one million native
+read calls, 4096 emitted metadata entries, 159-byte paths and 1 MiB output.
+Large/unsupported inputs may be refused rather than partially inspected.
+
+Profile checks preserve current guest semantics: UUID and planned local binding,
+required directories, optional legacy identity display record, literal portable
+preference keys/canonical unsigned values within the guest's 512-byte startup
+limit, profile ambiguity and the remembered-choice CRC. Present malformed or
+mismatched identity records refuse. Any import journal, pending marker or unknown
+transaction/selection scratch blocks inspection; no recovery authority is inferred.
+Ordinary document/settings changes remain allowed.
+
+Clean candidate `ff974bdf` includes main `5634cd9d` and Ports `525f4229`.
+The matched full build and combined host checks pass: 55 passing tests and one
+long-matrix entry skipped by default, including 19 new inspection groups;
+profile/session/preferences/chooser/catalog and guest-profile checks also pass.
+New coverage includes API/CLI snapshot equality, v1/v2 historical baselines,
+missing original v2 inputs, older v2 identity fallback, exact 512/513-byte and
+guest JSON grammar boundaries, locks, read-only fd/range enforcement, structural,
+metadata and source-identity refusals. A stale-helper development run is retained
+as failed bring-up evidence and excluded from acceptance.
+
+The real installed-image proof passes two VM lifetimes (edit/save and fresh
+reboot/reopen). Root selection precedes namespace activation and explicit profile
+launch; text/binary documents, six portable settings, identity/local binding,
+machine settings, environment/cwd, installed apps and protected regions match.
+Six positive inspections include pristine, repeated post-boot used states and the
+restored final image. All show zero native write/flush attempts and preserve the
+whole stage and source hashes. Four old publication inspection/reconciliation
+calls refuse used output without changing its original receipt.
+
+Twenty-three in-place mutations plus a busy-image-lock case refuse with the
+expected diagnostic and identical before/after snapshots: kernel/config payload,
+ESP padding, GPT root/label, dirty/backup boot regions, allocation leak, marker/
+identity/local/preferences corruption, pending/journal/torn/scratch/selection
+state, torn receipt, unknown stage entry and missing/tampered historical baseline.
+The allocation-leak refusal occurs in clean admission, which runs the allocation
+check before the later explicit checker. Known fixture mutations are restored
+only by the proof harness after recording refusal; the inspector performs none.
+The final used image inspects successfully again.
+
+The [portable receipt](assets/screenshots/installation-used-manifest.json)
+contains source/build/reader hashes, baseline/protected-region results, expected
+refusal reasons, snapshot hashes and both boot readbacks. The
+[reopened document](assets/screenshots/installation-used-reopened.png) was visually
+inspected. Raw images, patch records, commands, logs and matched artifacts were
+byte-verified outside build cleanup at
+`.local/installation-evidence/used-proof-4k419y9m`; originals remain at their
+recorded paths/inodes. All task VMs stopped; review PIDs 61610/6233/85869 and the
+primary checkout remain untouched. Open reviewed-transfer PR333 was inspected:
+it reuses the existing import journal; this inspector never invokes its commands
+or takes import/recovery authority, and consumes no unmerged dependency.
+
+Final publication refresh integrates main `62b0708e` (PR335): its host-only
+Haswell path audit, test-target addition and hardware documentation change no
+installation, filesystem, profile or runtime source. Fresh combined host checks
+pass; all proof tool/native-source and matched artifact hashes remain identical.
+The accepted VM proof stays attributed to clean `ff974bdf`, with this unchanged
+runtime equivalence recorded separately rather than relabeling the evidence.
+
+```sh
+sh tools/macos/build.sh HOST_CC='python3 build/tooling/darwin-host-cc.py -D_DARWIN_C_SOURCE -Wno-array-bounds' test-installed-root test-profile-desktop test-profile-chooser test-guest-profiles
+sh tools/macos/build.sh -j2 all
+python3 tools/installation_inspection_smoke.py --ovmf /opt/homebrew/share/qemu/edk2-x86_64-code.fd --ovmf-vars /opt/homebrew/share/qemu/edk2-i386-vars.fd
+```
+
+No physical media, power loss, authentication, arbitrary writer isolation,
+automatic repair or lossless recovery is qualified. Inspection reports the
+supported on-disk structure, not current application authenticity or a successful
+global storage flush. Publication/recovery formats and policy remain unchanged.
+
 ## PR330 merge review and next bounded checkpoint
 
 Final refresh: main advanced to `10890eed` (PR329) during merge preparation.

@@ -1,0 +1,297 @@
+{
+  "accepted_proof": {
+    "boots": 2,
+    "busy_refusals": 1,
+    "mutation_refusals": 23,
+    "positive_inspections": 6,
+    "strict_publication_refusals": 4
+  },
+  "backup": ".local/installation-evidence/pr336-review",
+  "base": "62b0708ef3338578f7862a903fa3f1fe12d5f57e",
+  "documentation_check": "PASS",
+  "documentation_log_sha256": "87487fd040d163c0a14a7be182611f7795b81ca454e9b884dd9480c4b81f4ba0",
+  "host_log_sha256": "54d459dc415b9de35c2a6607fde30332d9f12606c48f802d4a0fabcbd1ff785d",
+  "new_vm_launched": false,
+  "original_proof_manifest_sha256": "be3221259233854ec7cda8d175796079e9a35432f0edb97e84850107c7884ddd",
+  "private_inputs_preserved": true,
+  "proof_source": {
+    ".": {
+      "dirty": false,
+      "head": "ff974bdfb382734690d8ddb72fb034ac84b46bcd",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports": {
+      "dirty": false,
+      "head": "525f4229329bd378b4ba670dd771cda5797da1de",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/awk": {
+      "dirty": false,
+      "head": "5739fd79bcfc75ba7526773d0cf634521f8aca3c",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/cjson": {
+      "dirty": false,
+      "head": "c859b25da02955fef659d658b8f324b5cde87be3",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/inih": {
+      "dirty": false,
+      "head": "26254ee9de7681f8825433415443e7116ff24b98",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/libuv": {
+      "dirty": false,
+      "head": "1cfa32ff59c076ffb6ed735bbc8c18361558661f",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/linenoise": {
+      "dirty": false,
+      "head": "dc83cc373ac2058030eb3cf5e404959a26fef112",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/lua": {
+      "dirty": false,
+      "head": "6e22fedb74cf0c9b6656e9fce8b7331db847c605",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/node": {
+      "dirty": false,
+      "head": "c7d10158bc31036de6783d66beaaaf551e3167aa",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/zlib": {
+      "dirty": false,
+      "head": "da607da739fa6047df13e66a2af6b8bec7c2a498",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "userspace/apps": {
+      "dirty": false,
+      "head": "3cf32af2294eebe9d8b9aeb8bc1dcbe46feb2967",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "userspace/widgets": {
+      "dirty": false,
+      "head": "9eaaa74e1423c15c99f8ce388b08ed5e514de3d6",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    }
+  },
+  "raw_receipt_sha256": "8cc36bf5ff42bb36b73fef075633c7c1a4590934fc5d175e1a5e0e088f1a6c74",
+  "ready_sha256": "99c14938672fef7ccbdf13def715fddbc18b7c840a895387eb981d1d1d3a4372",
+  "review_vms_alive": [
+    61610,
+    6233,
+    85869
+  ],
+  "review_working_changes": "Review ran at the recorded head with only the host continuity note modified; no runtime/tool source changes.",
+  "reviewed_head": "b3c6a6943af42e2d356aa8645e459e67984ea783",
+  "scope": "Unchanged integrated main/runtime inputs; accepted two-boot and mutation proof remains attributed to original clean source. Fresh read-only used-image and strict publication checks above.",
+  "stage_snapshot_sha256": "0c39283211d3885c231654c0db1a2bb605038c85139ac6504b5caff6debc34c8",
+  "status": "PASS",
+  "steps": [
+    {
+      "action": "inspect-installed",
+      "exit": 0,
+      "result": {
+        "consistent": true,
+        "current_image_sha256": "2c6d18f38d6f86690ec237970a69006be8668a6ee9ddf5dc9476a9c3c00c850b",
+        "filesystem": {
+          "allocation": {
+            "clusters": 14795,
+            "errors": 0,
+            "fat_bitmap_mismatches": 0,
+            "files": 378,
+            "leaked": 0
+          },
+          "clean_admission": true,
+          "flushes": 0,
+          "namespace_targets_valid": true,
+          "writes": 0
+        },
+        "gpt": {
+          "disk_guid": "b21bd651-c2e8-402e-805d-62906d531acc",
+          "esp_partition_guid": "ffc905dd-0c8a-4e61-8cec-442f10083ecf",
+          "exfat_partition_guid": "164117e3-4ff2-457e-ab75-3aa35f06cff0"
+        },
+        "planned_profile": {
+          "alias": "local_a",
+          "gid": 1001,
+          "home": "/fat/home/local-a",
+          "profile_id": "12345678-1234-4234-8234-123456789abc",
+          "uid": 1001
+        },
+        "profiles": [
+          {
+            "alias": "local_a",
+            "display_name": "Portable profile",
+            "gid": 1001,
+            "home": "/fat/home/local-a",
+            "identity_present": true,
+            "profile_id": "12345678-1234-4234-8234-123456789abc",
+            "uid": 1001
+          }
+        ],
+        "publication": {
+          "data_baseline": {
+            "kind": "retained-profile-exfat",
+            "sha256": "63fb93818273d6b5927c536f50b40ee93e9f15d14e5479e66ac18f26b784c411"
+          },
+          "historical": true,
+          "original_data_sha256": "63fb93818273d6b5927c536f50b40ee93e9f15d14e5479e66ac18f26b784c411",
+          "original_image_sha256": "c148b6033a569e26889463be7710885110401f35b2d52fa6183f1aad1dfbca0e",
+          "provisioning_sources_revalidated": false
+        },
+        "read_only": true,
+        "reason": "offline structural checks passed; publication is historical evidence, not authentication or live health",
+        "selection": null,
+        "state": "installed-consistent",
+        "used": true
+      },
+      "stage_preserved": true,
+      "stage_snapshot_sha256": "0c39283211d3885c231654c0db1a2bb605038c85139ac6504b5caff6debc34c8",
+      "stderr": ""
+    },
+    {
+      "action": "inspect-installed",
+      "exit": 0,
+      "result": {
+        "consistent": true,
+        "current_image_sha256": "2c6d18f38d6f86690ec237970a69006be8668a6ee9ddf5dc9476a9c3c00c850b",
+        "filesystem": {
+          "allocation": {
+            "clusters": 14795,
+            "errors": 0,
+            "fat_bitmap_mismatches": 0,
+            "files": 378,
+            "leaked": 0
+          },
+          "clean_admission": true,
+          "flushes": 0,
+          "namespace_targets_valid": true,
+          "writes": 0
+        },
+        "gpt": {
+          "disk_guid": "b21bd651-c2e8-402e-805d-62906d531acc",
+          "esp_partition_guid": "ffc905dd-0c8a-4e61-8cec-442f10083ecf",
+          "exfat_partition_guid": "164117e3-4ff2-457e-ab75-3aa35f06cff0"
+        },
+        "planned_profile": {
+          "alias": "local_a",
+          "gid": 1001,
+          "home": "/fat/home/local-a",
+          "profile_id": "12345678-1234-4234-8234-123456789abc",
+          "uid": 1001
+        },
+        "profiles": [
+          {
+            "alias": "local_a",
+            "display_name": "Portable profile",
+            "gid": 1001,
+            "home": "/fat/home/local-a",
+            "identity_present": true,
+            "profile_id": "12345678-1234-4234-8234-123456789abc",
+            "uid": 1001
+          }
+        ],
+        "publication": {
+          "data_baseline": {
+            "kind": "retained-profile-exfat",
+            "sha256": "63fb93818273d6b5927c536f50b40ee93e9f15d14e5479e66ac18f26b784c411"
+          },
+          "historical": true,
+          "original_data_sha256": "63fb93818273d6b5927c536f50b40ee93e9f15d14e5479e66ac18f26b784c411",
+          "original_image_sha256": "c148b6033a569e26889463be7710885110401f35b2d52fa6183f1aad1dfbca0e",
+          "provisioning_sources_revalidated": false
+        },
+        "read_only": true,
+        "reason": "offline structural checks passed; publication is historical evidence, not authentication or live health",
+        "selection": null,
+        "state": "installed-consistent",
+        "used": true
+      },
+      "stage_preserved": true,
+      "stage_snapshot_sha256": "0c39283211d3885c231654c0db1a2bb605038c85139ac6504b5caff6debc34c8",
+      "stderr": ""
+    },
+    {
+      "action": "inspect",
+      "exit": 0,
+      "result": {
+        "can_reconcile": false,
+        "reason": "verified image content changed",
+        "state": "refused"
+      },
+      "stage_preserved": true,
+      "stage_snapshot_sha256": "0c39283211d3885c231654c0db1a2bb605038c85139ac6504b5caff6debc34c8",
+      "stderr": ""
+    },
+    {
+      "action": "reconcile",
+      "exit": 1,
+      "result": null,
+      "stage_preserved": true,
+      "stage_snapshot_sha256": "0c39283211d3885c231654c0db1a2bb605038c85139ac6504b5caff6debc34c8",
+      "stderr": "error: verified image content changed\n"
+    }
+  ],
+  "unchanged_artifacts": {
+    "bootx64": "333f7a69379b1f47e019be215885cdc078b9edd6e9255cbe2f706d6c5ec0ef06",
+    "deskd": "340269be9da49c449b2795747a0832a82cd582b383581b05d6252cb850b46c45",
+    "deskterm": "f798f8f56d096ef2b405594251113cc8010a8aebb0dacd56d82336ba1e9030f5",
+    "desktools": "b0415cd6b9c3fd1ea165d7c6307da321d9b768d7863b6951d5b337f3c9c19695",
+    "exfat": "840f011ed777036cb1c243b8e7e0af3776e9788402b9e7fe604a944a0813a1df",
+    "fs_driver": "7cd305abbe9d38f45f317947b439583ad465eea449e6fd30214a8c20007812c8",
+    "init": "ac3107f6c9866bc9b11128f91424a1fc54ed9c130d30c3d1afd718927f9e35f9",
+    "inspect_driver": "1c26310ad66c43c60366ec929db3c6b948c72c36ab8c5bb4d2ffa4b99c27e554",
+    "kernel": "0d96451a850857b0b3ed19bdecd354a5f81363e4792e27b107c2fc1fe4f38f15",
+    "profile_driver": "5a4165be97737b1862b41324d3cc7e6a4ee67b6deb7ca638e32a5b01bea50198"
+  },
+  "unchanged_build_outputs": {
+    "build/initramfs.tar": "aa93e3c82ec6e994893dd84664df169789cfdf1e546fc043481e9d9cab92d1d0",
+    "build/kernel/srvros.elf": "0d96451a850857b0b3ed19bdecd354a5f81363e4792e27b107c2fc1fe4f38f15",
+    "build/srvros.exfat": "840f011ed777036cb1c243b8e7e0af3776e9788402b9e7fe604a944a0813a1df"
+  },
+  "unchanged_native_sources": {
+    "kernel/src/autotest_storage.c": "6c17e8ba7f262f8271fd446aeec520000487342cee338f4371792b6a573dea96",
+    "kernel/src/block_claim.c": "2d4198378c951cf05a9f4a7a1cbd0bce0ae14681c7d0142e47a0d7b4b13d181c",
+    "kernel/src/fs/exfat.c": "a2badfadb40b8f81cc803d363f0d6b60b06f345daf040a18ae9c1112287c44ee",
+    "kernel/src/vfs.c": "26f77035199d0f6890eef9c4059b6da172b3524d305c51876789b8927170eba5",
+    "tools/installation_inspect_driver.c": "6fe2ebd2f1db9c294d5c94c3ffa8dcff09e38c0ab509171158aafb130b0321cb"
+  },
+  "unchanged_tools": {
+    "exfat_test_image.py": "2e12fb7edb739d5bded479efafa0acff381ad6517fa8ede121351dd03754e30a",
+    "installation_image.py": "42ef9fb65ac3abbf0a000f0b0944b41da4dddcfa89779ba6a3826d6dfd3f4af7",
+    "installation_inspection.py": "dc54df9ec2a8f81452f41691aca0d0e071ac91cd8f8e30d554dbe33ee2911a53",
+    "installation_inspection_smoke.py": "74d0f632e12ecca7025411b2ec917db341a4c8fc19023417d54ff59fe57b5cb8",
+    "installation_io_smoke.py": "33eb35ffeae10e1834f977fd254ec04a34e2ed53cdf01e7a840b8e8d61aa030d",
+    "profile_bundle.py": "5c9747b2f83916a31400f3a1c7df642bb070e7e3c69b451a47ea9d35aaf468ee",
+    "profile_desktop_smoke.py": "862d4a86087edac7f5ad77cac73aec5a06129c03f77641ead0d11adda582fccf",
+    "profile_image.py": "66df9186653d061b339fcd4527ae0cc0374c23f27d4206e394c3c3a8bdaa3de8",
+    "profile_installation_smoke.py": "7697ea0e06eaacea8b58d61a0cb14b7d2c6c1663155de2de3d17cb5e41dd780a"
+  },
+  "used_image_sha256": "2c6d18f38d6f86690ec237970a69006be8668a6ee9ddf5dc9476a9c3c00c850b"
+}
