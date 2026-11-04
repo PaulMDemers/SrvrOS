@@ -70,13 +70,13 @@ int dirty_salvage_test(int reopen) {
     if(reopen) {
         reader=open(destination,O_RDONLY);ok=reader>=0 && dirty_reader(reader);
         if(reader>=0 && close(reader))ok=0;reader=-1;
-        struct stat st;ok=ok && !stat("/work/bin/true",&st) && st.st_size<sizeof(dirty_payload);
+        struct stat st;ok=ok && !stat("/work/bin/true",&st) && st.st_size>0 && (uint64_t)st.st_size<sizeof(dirty_payload);
         if(ok)ok=!unlink(destination);
     } else {
         struct stat st;
         writer=open("/work/bin/true",O_RDWR);
         reader=open("/work/bin/true",O_RDONLY);
-        ok=writer>=0 && reader>=0 && !fstat(writer,&st) && st.st_size<sizeof(dirty_payload);
+        ok=writer>=0 && reader>=0 && !fstat(writer,&st) && st.st_size>0 && (uint64_t)st.st_size<sizeof(dirty_payload);
         if(ok)ok=write(writer,dirty_payload,sizeof(dirty_payload))==sizeof(dirty_payload);
         if(ok) {
             errno=0;ok=fsync(writer)<0 && errno==EIO;
