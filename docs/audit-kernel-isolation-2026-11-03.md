@@ -1389,7 +1389,12 @@ source. The permission matrix admits each sole supervisor level and rejects an
 all-user path for 4 KiB/2 MiB/1 GiB stack translations and independent user/kernel
 FPU spans. The owner retains an old-gate negative control failing the new admitted
 fixture. Qualification is bound to source hashes in
-`build/review/pr334-frame-copy-effective-review/`, before the owner's final commit.
+`build/review/pr334-frame-copy-effective-review/` and final PR334 commit `6766c5ff`.
+The frozen receipt outside cleanable build output at
+`.local/pr334-evidence/6766c5ff/receipt.json` has SHA256
+`709da289646e8c82c4c41198d15c234c8da4f442f037d00dcfc343a4d9021857`;
+all 182 retained file hashes were independently verified. The owner also records
+normal main/worker FPU, full threadstress and sysabi passes at this closure.
 
 Verified the third isolated guest receipt's 19 artifact hashes and all 129 normal
 kernel/object hashes unchanged by the test build. Actual target disassembly shows
@@ -1406,6 +1411,27 @@ window. No numeric delivery budget was agreed. The required actual measurement
 is complete; a future production caller still needs an end-to-end exclusion budget
 and separately reviewed copy-to-infallible-state-commit transaction. No lookup
 redesign, signal delivery or physical/SMP acceptance is implied.
+
+## November 4: next internal action/state design boundary
+
+PR334 may implement an initially unwired SIGUSR1 action descriptor and four
+kernel-owned records per main/worker slot. This approves an implementation review,
+not a delivery mechanism or public ABI. Process/worker membership must precede
+access; image generation, nonreused public TID and observed scheduler ownership
+bind records. Bounded capacity/LIFO/nonreuse refusal and complete staged descriptor
+validation precede local nonfailing state commit. Existing legacy disposition
+mirrors, pending discard and cooperative INFO exclusion must remain coherent.
+
+Tests must cover whole-state rollback, reuse, worker/main retirement, ordinary
+fork inheritance with empty records, failed exec unchanged, successful exec reset,
+and active-record fork/exec refusal before side effects. Executable mapping checks
+are not a lease for future delivery. Static storage cost, CPU0 saved-IRQ exclusion
+and no asynchronous locks/allocations are explicit boundaries. No production
+copy-to-consume commit, sigreturn, SA_SIGINFO admission or syscall is approved.
+Session hooks in main `82face72` own separate fields: reconciliation must preserve
+exec detach within saved exclusion before clear/gen0/cleanup, final exit detach
+adjacent to trap invalidation, and release detach before backing retirement.
+Main pthread_exit retains its session owner/image while retiring its signal records.
 
 ## Remaining work
 
