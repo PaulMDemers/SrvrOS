@@ -2815,6 +2815,22 @@ edge-resize review VM and disk are preserved. Logs are in
 requested behavior and acceptance are complete; no further implementation
 is required. No native boot/install or hosted Actions change.
 
+### SQLite CLI port — active scope November 3, 2026
+
+Branch `ports/sqlite` starts at runtime `0fd0c5fc`. This isolated checkout owns
+the SQLite 3.53.1 CLI adapter, static build/image integration and bounded guest
+checks for single-connection exclusive-access SQL scripts and CSV import, query,
+export and reopen. It depends on the pinned SrvrPorts SQLite amalgamation; the
+existing `sqlitedemo` keeps its own engine configuration. WAL, process commands,
+loadable extensions and readline are excluded. Full build, host VFS tests, guest ownership/temp/error probe and two-boot CSV
+workflow pass. Two clean CLI builds match SHA256
+`a23d90c8e8b49f7e36ff996e8cf009eee5ab7537faea6edabbe7a34cfd873b2f`.
+Raw receipts are under `build/sqlite-cli-smoke/` and `build/review/sqlite/`;
+external fsck is unavailable, while guest fsck and offline allocation pass.
+No full-image reproducibility or power-loss durability claim is made;
+the integration checkout and existing review VMs are preserved. No physical
+boot or native acceptance is part of this scope.
+
 
 ### HiDPI and display settings — active scope November 3, 2026
 
@@ -3217,3 +3233,20 @@ reported zero leaks/FAT/errors. The full host transcript is
 The final staged-port guest also passed after the shell changes, with a clean
 post-run filesystem check. Its transcript is
 `build/review/whole/ports-shell-final.log`.
+
+
+### SQLite merge review — November 3, 2026
+
+Candidate `d3b5c321` integrates main `89c210db`, including merged PR252, and
+pins SrvrPorts `525f422`. Review fixed a shell-helper rollback-journal collision;
+guards now protect journal names before creation, case variants, inode aliases
+and streams opened before the database. Independent source review and host VFS
+checks pass. Fresh two-boot CLI/guest VFS tests, exact rollback rows after rejected
+journal writes, guest fsck and offline allocation pass. Receipts are under
+`build/sqlite-cli-smoke/20261103-212748-7tm1f5tf/` and
+`build/review/sqlite-merge/`. A clean rebuild matches CLI ELF SHA256
+`1107f624eba0a878c4d4440d4ddae9c77af7785de42a0647eeb60999f74d8e51`.
+Independent fsck is unavailable. The original acceptance hash above remains
+historical; no power-loss, physical-device or full-image reproducibility claim
+is added. Integration checkout/review VM remain untouched. PR2 in SrvrPorts must
+merge before OS PR306; the user authorized both merges conditional on checks.
