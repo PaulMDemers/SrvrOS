@@ -167,6 +167,10 @@ void idt_init(void) {
     idt_set_gate(8, irq0_legacy_stub, IDT_GATE_INTERRUPT);
     idt_set_gate(9, irq1_legacy_stub, IDT_GATE_INTERRUPT);
     idt_set_gate(0x80, isr128, IDT_GATE_USER_INTERRUPT);
+#ifdef SRVROS_USER_FRAME_COPY_GUEST_TEST
+    /* Disposable test kernel only: admit the private CPL3 INT3 probe. */
+    idt_set_gate(3, isr_stub_table[3], IDT_GATE_USER_INTERRUPT);
+#endif
 
     struct descriptor_pointer idtr = {
         .limit = sizeof(idt) - 1,

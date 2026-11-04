@@ -134,8 +134,10 @@ ordinary USER/WRITE/NX mapping with no unknown/cache/device flags.
 For current kernel-stack source translations, permit existing4KiB,2MiB and1GiB
 HHDM leaves with effective supervisor/RW permissions. Admit GLOBAL only on these
 source leaves; otherwise use the same understood bit set, with PS only on the
-appropriate PD/PDPT leaf and PAT/PWT/PCD still zero. Require all source-level
-USER bits clear. A1GiB leaf requires real CPUID Page1GB. Large-leaf address
+appropriate PD/PDPT leaf and PAT/PWT/PCD still zero. Require source mappings'
+effective USER permission clear: at least one controlling entry must have
+USER0. Upper USER1 entries are permitted when another controlling entry makes
+the complete mapping supervisor-only. A1GiB leaf requires real CPUID Page1GB. Large-leaf address
 alignment/reserved-low-bit rules must be checked separately from the PAT bit;
 never interpret PS/PAT as physical address bits. Match every translated source
 byte extent to `owned_physical_base + (address-owned_virtual_base)`. This strict
@@ -207,3 +209,33 @@ checks establish absence of software mutation in the model, not frozen hardware
 paging flags. The optional test-kernel hook is approved only with bounded serial
 failure output/stable scalar record, read-only helper timing and separate object/
 kernel receipts; it does not approve signal publication or a production caller.
+
+## November 4 effective-permission qualification
+
+The first private guest faulted before the helper: INT3 was not admitted from
+CPL3. The test-only build now gives IDT3 DPL3; the normal gate is unchanged.
+The next run reached the helper and refused its source mapping without writing:
+Limine supplied USER1 upper entries and a supervisor-only2MiB HHDM leaf. The
+owner approved checking effective supervisor permission instead of requiring
+USER0 at every level. No paging entries or CPU policy are changed. Tests cover
+each sole supervisor level and all-USER refusal for stack4K/2M/1G walks and
+independent user/kernel FPU paths. Restoring the old per-entry refusal fails the
+new admitted fixture as expected. Strict x86-64/Rosetta and ASan/UBSan pass.
+
+The corrected private1536MiB Q35/qemu64 single-CPU TCG guest passed main/worker
+copy and refusal cases, byte guards, FS/TLS/RSP/R12 preservation and genuine
+65536 tracked mappings. Its two-page1024-byte maximum-count helper sample was
+911us for the262144-visit upper bound. An earlier530-mapping sample took1664us;
+these quantized ACPI-PM samples are neither monotonic performance predictions
+nor a hard IRQ-off bound. Timing excludes source construction and diagnostics.
+The owner accepted the requested measurement, with no numeric production budget
+established. Future production delivery needs a reviewed complete IRQ-off budget
+and copy-to-infallible-publication transaction.
+
+All129 normal kernel/object hashes stayed unchanged across the separate test
+build. The rebuilt normal kernel passed main/worker FPU register preservation,
+full thread and syscall ABI guest regressions. Actual target disassembly retains
+a scalar store loop with no calls or failure branch after its first user store.
+Both failed admission runs and debugger evidence remain preserved. This qualifies
+the unwired helper and private fixture only; public signals and JSC still await
+the delivery, return, wait/restart and libc/WTF contracts.

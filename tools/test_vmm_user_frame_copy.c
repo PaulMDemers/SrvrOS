@@ -55,6 +55,33 @@ static uint64_t *map_leaf(uint64_t *root,uint64_t va,uint64_t physical,bool user
     uint64_t *entry=&table[(va>>12)&511];*entry=physical|3|(user?4:0);return entry;
 }
 static void check_unchanged(const uint8_t *before){assert(!memcmp(before,destination_backing,8192));}
+/* Test the effective permission rule independently for source-stack and FPU
+ * paths, including each possible sole supervisor level. Restore every entry. */
+static void check_supervisor_path(uint64_t *root,uint64_t va,
+    struct user_frame_source *source,const struct user_frame_stack *owned,
+    const struct user_frame_page pages[2],const struct isr_frame *frame,
+    const struct fpu_state *uf,const struct fpu_state *kf,const uint8_t before[8192]) {
+    uint64_t *entries[4],saved[4],*table=root;unsigned count=0;
+    for(int shift=39;shift>=12;shift-=9) {
+        uint64_t *entry=&table[(va>>shift)&511];
+        entries[count]=entry;saved[count++]=*entry;
+        if(shift==12 || ((shift==30 || shift==21) && (*entry&(1ull<<7)))) break;
+        table=(void *)(uintptr_t)(*entry&PAGE_MASK);
+    }
+    for(unsigned i=0;i<count;i++) *entries[i]=saved[i]|4;
+    assert(!vmm_copy_user_frame_current(cr3,0x400ff0,source,64,owned,pages,2,frame,uf,kf));
+    check_unchanged(before);
+    for(unsigned supervisor=0;supervisor<count;supervisor++) {
+        *entries[supervisor]&=~4ull;
+        assert(vmm_copy_user_frame_current(cr3,0x400ff0,source,64,owned,pages,2,frame,uf,kf));
+        assert(!memcmp(destination_backing+0xff0,source->bytes,64));
+        assert(!memcmp(destination_backing,before,0xff0));
+        assert(!memcmp(destination_backing+0x1030,before+0x1030,8192-0x1030));
+        memcpy(destination_backing,before,8192);
+        *entries[supervisor]|=4;
+    }
+    for(unsigned i=0;i<count;i++) *entries[i]=saved[i];
+}
 int main(void){
     long size=sysconf(_SC_PAGESIZE);assert(size==4096);
     uint8_t *guard=mmap(NULL,16384,PROT_NONE,MAP_PRIVATE|MAP_ANON,-1,0);assert(guard!=MAP_FAILED);
@@ -167,7 +194,7 @@ int main(void){
     table=root;
     for(int shift=39;shift>=12;shift-=9) {
         uint64_t *entry=&table[((stack_va+PAGE_SIZE)>>shift)&511],old=*entry;
-        unsigned forbidden[]={2,3,4,9,52,59};
+        unsigned forbidden[]={3,4,9,52,59};
         for(unsigned i=0;i<sizeof(forbidden)/sizeof(forbidden[0]);i++) {
             *entry=old|(1ull<<forbidden[i]);
             assert(!vmm_copy_user_frame_current(cr3,0x400ff0,source,64,&owned,pages,2,frame,uf,kf));check_unchanged(before);
@@ -178,14 +205,19 @@ int main(void){
     uint64_t *upper_pdpt=(void *)(uintptr_t)(root[(stack_va>>39)&511]&PAGE_MASK);
     uint64_t *upper_pd=(void *)(uintptr_t)(upper_pdpt[(stack_va>>30)&511]&PAGE_MASK);
     uint64_t *upper_entry=&upper_pd[(stack_va>>21)&511],old_upper=*upper_entry;
+    check_supervisor_path(root,stack_va+PAGE_SIZE,source,&owned,pages,frame,uf,kf,before);
+    check_supervisor_path(root,user_frame_test_kernel_address(uf),source,&owned,pages,frame,uf,kf,before);
+    check_supervisor_path(root,user_frame_test_kernel_address(kf),source,&owned,pages,frame,uf,kf,before);
     *upper_entry=stack_phys|3|(1ull<<7)|(1ull<<12);
     assert(!vmm_copy_user_frame_current(cr3,0x400ff0,source,64,&owned,pages,2,frame,uf,kf));check_unchanged(before);
     *upper_entry&=~(1ull<<12);
+    check_supervisor_path(root,stack_va+PAGE_SIZE,source,&owned,pages,frame,uf,kf,before);
     assert(vmm_copy_user_frame_current(cr3,0x400ff0,source,64,&owned,pages,2,frame,uf,kf));
     *upper_entry=old_upper;
     memset(destination_backing,0xa5,8192);
     uint64_t *pdpt_entry=&upper_pdpt[(stack_va>>30)&511],old_pdpt=*pdpt_entry;
     *pdpt_entry=stack_phys|3|(1ull<<7);
+    check_supervisor_path(root,stack_va+PAGE_SIZE,source,&owned,pages,frame,uf,kf,before);
     assert(vmm_copy_user_frame_current(cr3,0x400ff0,source,64,&owned,pages,2,frame,uf,kf));
     memset(destination_backing,0xa5,8192);
     features&=~(1u<<26);

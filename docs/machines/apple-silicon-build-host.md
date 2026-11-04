@@ -3698,3 +3698,16 @@ and read-only timing; normal kernel remains separate, no signal integration.
 The session team still owns the heavy build/VM window after merging scope163;
 its finite graphical proof is running externally. Future integration must retain
 qualified image/FPU invalidation and session-detach ordering.
+
+
+November4 PR334 copy prerequisite: the session owner released the heavy window.
+The isolated test-kernel build preserves all129 normal artifacts. Debugging the
+first admission proved INT3 #GP (test-only DPL3 gate corrected); the second
+refused inherited HHDM upper USER1/supervisor leaf. Owner-approved effective
+supervisor checking now passes strict Rosetta/ASan+UBSan permission matrices,
+old-gate negative control and real main/worker private copy guest at65536 tracked
+pages (911us helper-only max-count sample; earlier small-count1664us, no hard
+bound). Normal FPU/thread/sysabi guests pass. Public signal delivery/return and
+JSC smoke remain incomplete. The8GiB JSC disk question is still pending; only
+an inactive duplicate toolchain accidentally downloaded by a build prerequisite
+was reclaimed, preserving the pinned browser Zig toolchain and all other VMs.

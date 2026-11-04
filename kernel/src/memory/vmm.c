@@ -904,11 +904,10 @@ static bool user_frame_walk(uint64_t root,uint64_t va,const struct user_frame_co
         uint64_t allowed=(leaf ? address_mask : physical_bits)|p|rw|user|accessed|nx;
         if (leaf) allowed|=dirty|(destination ? 0 : global)|(large ? ps : 0);
         if (entry & ~allowed) return false;
-        if (!destination && (entry&user)) return false;
         effective_rw=effective_rw && (entry&rw);
         effective_user=effective_user && (entry&user);
         if (leaf) {
-            if (!effective_rw || (destination && !effective_user)) return false;
+            if (!effective_rw || (destination ? !effective_user : effective_user)) return false;
             uint64_t base=entry&address_mask, offset=va&((1ull<<leaf_shift)-1);
             if (base>=cpu->physical_limit || offset>=cpu->physical_limit-base) return false;
             *physical=base+offset;
