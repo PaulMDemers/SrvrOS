@@ -391,6 +391,107 @@
       "3985100c149eaa4ca8af93b40b29636f"
     ]
   },
+  "inactive_image_storage": {
+    "files": [
+      {
+        "adoptable_recovery_target": false,
+        "compressed": ".local/installation-evidence/export-proof-r29pmoja/.profile-image-fixture/image.gz",
+        "gzip_sha256": "69bdbbc94524b2fae646afc4cc373ef61501d456044eaa3cd5c8a3333ba6dbb1",
+        "historical_device": 16777233,
+        "historical_inode": 26651530,
+        "historical_permissions": 420,
+        "original": "build/review/installation-export/proof-r29pmoja/.profile-image-fixture/image",
+        "retained_original": ".local/installation-evidence/export-proof-r29pmoja/.profile-image-fixture/image",
+        "roundtrip_verified": true,
+        "sha256": "8b42b70999ff67acd5dbbe013425535178cca0d5d432fe9e3b3bc5e86ce1dbab",
+        "size": 134217728
+      },
+      {
+        "adoptable_recovery_target": false,
+        "compressed": ".local/installation-evidence/export-proof-r29pmoja/inputs/base-a.exfat.gz",
+        "gzip_sha256": "562af9e3df4f0b0c40e8350720e4a1c3b05c3ea37d592306c2a7c43de49d9fb4",
+        "historical_device": 16777233,
+        "historical_inode": 26598494,
+        "historical_permissions": 420,
+        "original": "build/review/installation-export/proof-r29pmoja/inputs/base-a.exfat",
+        "retained_original": ".local/installation-evidence/export-proof-r29pmoja/inputs/base-a.exfat",
+        "roundtrip_verified": true,
+        "sha256": "621d03ce604c160619eec5c0ae6d4bc1f3f031ef970b970e8fee6b22bcc0390f",
+        "size": 134217728
+      },
+      {
+        "adoptable_recovery_target": false,
+        "compressed": ".local/installation-evidence/export-proof-r29pmoja/inputs/base-b.exfat.gz",
+        "gzip_sha256": "8351730044f36334f0604d732d487df0be1c60e9da86a353f61d9a3f9fe2f1f7",
+        "historical_device": 16777233,
+        "historical_inode": 26598502,
+        "historical_permissions": 420,
+        "original": "build/review/installation-export/proof-r29pmoja/inputs/base-b.exfat",
+        "retained_original": ".local/installation-evidence/export-proof-r29pmoja/inputs/base-b.exfat",
+        "roundtrip_verified": true,
+        "sha256": "5e0244912cbb00191227b70a5bebd3bb01b13713419477762d789d9b46ed1696",
+        "size": 134217728
+      },
+      {
+        "adoptable_recovery_target": false,
+        "compressed": ".local/installation-evidence/export-proof-r29pmoja/stage-a/image.img.gz",
+        "gzip_sha256": "cc459c20fd21ce9212bd8da3142c64e77c58b4c15d486eaa362160dbcef9e289",
+        "historical_device": 16777233,
+        "historical_inode": 26598525,
+        "historical_permissions": 420,
+        "original": "build/review/installation-export/proof-r29pmoja/stage-a/image.img",
+        "retained_original": ".local/installation-evidence/export-proof-r29pmoja/stage-a/image.img",
+        "roundtrip_verified": true,
+        "sha256": "54446c68084d090bbda4c4c33bd188da7466ac0e52b2bb1e5b900fb74bada4da",
+        "size": 538968064
+      },
+      {
+        "adoptable_recovery_target": false,
+        "compressed": ".local/installation-evidence/export-proof-r29pmoja/stage-a/profile.exfat.gz",
+        "gzip_sha256": "95cdffed8058fd67112ddc23ea9a1785a5cf93409006e1feb12084cc4b72b585",
+        "historical_device": 16777233,
+        "historical_inode": 26598515,
+        "historical_permissions": 420,
+        "original": "build/review/installation-export/proof-r29pmoja/stage-a/profile.exfat",
+        "retained_original": ".local/installation-evidence/export-proof-r29pmoja/stage-a/profile.exfat",
+        "roundtrip_verified": true,
+        "sha256": "e77392d066dc279df6e67548c1c6587210fa267daafb79dbc53a86fc1cb16e97",
+        "size": 134217728
+      },
+      {
+        "adoptable_recovery_target": false,
+        "compressed": ".local/installation-evidence/export-proof-r29pmoja/stage-b/image.img.gz",
+        "gzip_sha256": "d676d1dcde055d4fcc874ca400f46c1fe30be4aa71922be1a2763da5c4f58eb1",
+        "historical_device": 16777233,
+        "historical_inode": 26652082,
+        "historical_permissions": 420,
+        "original": "build/review/installation-export/proof-r29pmoja/stage-b/image.img",
+        "retained_original": ".local/installation-evidence/export-proof-r29pmoja/stage-b/image.img",
+        "roundtrip_verified": true,
+        "sha256": "e8a60007b7b12c115cf85a4e31ad148fbc9c0a5d7929f8616137116130516dc7",
+        "size": 538968064
+      },
+      {
+        "adoptable_recovery_target": false,
+        "compressed": ".local/installation-evidence/export-proof-r29pmoja/stage-b/profile.exfat.gz",
+        "gzip_sha256": "7b420de27979245d8e2019f22cc63fb5b6cf867ee21a01ef177e909e2faf7e40",
+        "historical_device": 16777233,
+        "historical_inode": 26652078,
+        "historical_permissions": 420,
+        "original": "build/review/installation-export/proof-r29pmoja/stage-b/profile.exfat",
+        "retained_original": ".local/installation-evidence/export-proof-r29pmoja/stage-b/profile.exfat",
+        "roundtrip_verified": true,
+        "sha256": "f32baf07815ae5325f91267977d4ce92e048ab08ac068a4312f9958a9536d29c",
+        "size": 134217728
+      }
+    ],
+    "manifest": ".local/installation-evidence/export-proof-r29pmoja/compressed-images.json",
+    "manifest_sha256": "43a2b0d112bcaa254b2c30e13e30e57173a1b607a1e526b2985acbdffe8397d5",
+    "matched_artifacts_retained": true,
+    "receipt_and_screenshots_preserved": true,
+    "restored_inodes_are_historical_only": true,
+    "status": "verified-compressed"
+  },
   "inputs": {
     "bootx64": "333f7a69379b1f47e019be215885cdc078b9edd6e9255cbe2f706d6c5ec0ef06",
     "deskd": "340269be9da49c449b2795747a0832a82cd582b383581b05d6252cb850b46c45",
@@ -770,6 +871,10 @@
       "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "untracked": {}
     }
+  },
+  "source_followup": {
+    "proof_source_retained": "ca90437a9a1df7e51b68e3dc6480c54100e9e279",
+    "scope": "One extra blank line at EOF removed from installation_readonly_host.h; whitespace-only, preprocessed tokens unchanged. No new build or VM attribution."
   },
   "status": "PASS",
   "steps": [

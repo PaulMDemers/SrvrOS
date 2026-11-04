@@ -104,7 +104,14 @@ The [portable receipt](assets/screenshots/installation-export-manifest.json) and
 source/build/tool hashes and the visually checked B reboot. All 67 raw proof
 files, images, logs and matched artifacts were copied and SHA-256 verified at
 `.local/installation-evidence/export-proof-r29pmoja`, outside build cleanup;
-original target paths/inodes remain at `build/review/installation-export/proof-r29pmoja`.
+qualification used original target paths/inodes under `build/review/installation-export/proof-r29pmoja`.
+After publication, seven inactive image pairs were preserved in verified gzip
+form to release shared disk headroom. Receipts and screenshot paths stay in
+place; `compressed-images.json` in the proof directory points to the archive's
+full mapping, original SHA-256/size and gzip SHA-256. Every stream was decompressed
+and checked before both duplicate raw files were removed. Original inode values
+are now historical evidence; a decompressed file is not an adopted publication
+or recovery target. Matched build artifacts remain uncompressed in the archive.
 All task VMs stopped; review VMs 61610/6233/85869 remain running and untouched.
 To preserve reserve space, superseded IO proofs `oyq2ene6` and `j8xbfmgc` now keep
 their six large images in verified gzip form under their existing evidence
@@ -138,6 +145,10 @@ affected four-boot behavior requires rerun; evidence retains clean `ca90437a`
 attribution and records this refresh separately. Refreshed build metadata/logs
 and comparison survive beside the accepted raw proof. PR338 is consumed;
 desktop transfer PR333 stays separate.
+The later shared-header EOF trim removes only an extra blank line; it changes
+no preprocessed tokens and claims no new build or VM proof. Combined runtime
+verification remains separate from this held draft and awaits dependency merge
+identities; no new image set is allocated during that wait.
 
 ## PR336 integrated-main review and next bounded checkpoint
 

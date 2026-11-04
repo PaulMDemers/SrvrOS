@@ -29,8 +29,8 @@ export refusals, five used inspections and ten strict publication refusals
 preserve source/stage/output bytes and historical receipts. All task VMs stopped;
 review VMs stay live. The 67-file raw proof and matched artifacts are byte-verified
 outside cleanup at `.local/installation-evidence/export-proof-r29pmoja`.
-Reopened B Text was visually checked. Original current proof targets remain at
-their recorded paths/inodes. Superseded IO images retain exact bytes in verified
+Reopened B Text was visually checked. Original proof target paths/inodes remain
+recorded as history. Superseded IO images retain exact bytes in verified
 gzip archives with compression manifests; no earlier evidence was discarded.
 Status: proof complete, scoped draft publication; no merge requested.
 
@@ -40,6 +40,12 @@ complete base payload comparison changes only `sysabi` and its legacy alias.
 The new base passes native read-only admission with zero writes/flushes. The
 four-boot proof retains its clean `ca90437a` attribution, with refresh evidence
 recorded separately in the portable receipt and accepted archive.
+Post-publication headroom cleanup preserved seven inactive proof image pairs as
+verified gzip streams. Receipts/screenshots keep their paths, matched artifacts
+stay uncompressed, and the compression mapping records exact restoration hashes
+and historical-only inode identities. The EOF whitespace trim changes no native
+tokens. PR342 remains held for independent review; no new build/VM proof is
+started pending merged profile-transfer dependency identities.
 
 ## PR338 managed filesystem merge review
 

@@ -57,4 +57,3 @@ static bool refuse_flush(struct block_device *d) { (void)d;flushes++;return fals
 bool process_has_open_vfs_prefix(const char *p) { (void)p;return false; }
 #define SRVROS_BLOCK_CLAIM_HOST_TEST
 #include "../kernel/src/block_claim.c"
-
