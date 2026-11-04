@@ -9,7 +9,22 @@
 #define SRVROS_PROCESS_HOST_TEST
 #define SRVROS_PROCESS_SERVICE_HOST_TEST
 #include "../kernel/src/process.c"
+/* Exit tests stop at the scheduler-context query immediately after the hook. */
+void audio_process_cleanup(uint64_t p) {(void)p;assert(0);}
+void console_release_framebuffer_mute_owner(uint64_t p) {(void)p;assert(0);}
+bool exfat_write_file_retryable(const char *p,const uint8_t *d,uint64_t n,bool *r) {(void)p;(void)d;(void)n;(void)r;assert(0);return false;}
+void gui_process_cleanup(uint64_t p) {(void)p;assert(0);}
+void kfree(void *p) {free(p);}
+int64_t net_close(uint64_t p) {(void)p;assert(0);return -1;}
+void net_process_cleanup(struct process *p) {(void)p;assert(0);}
+void net_process_wake(struct process *p) {(void)p;assert(0);}
+void process_context_restore(struct process_context *p,uint64_t v) {(void)p;(void)v;abort();}
+void pty_close(uint64_t p,bool master) {(void)p;(void)master;assert(0);}
+void scheduler_clear_user_context(void) {assert(0);}
+void scheduler_exit_current(void) {abort();}
+void scheduler_kill_user_threads(void *p,void *e) {(void)p;(void)e;assert(0);}
 static unsigned depth,begins,ends,checkpoints,yields,freed,destroyed;
+static uint64_t checkpoint_scope;static bool saw_converted_checkpoint;
 static bool available=true,fail_unmap,independent,bad_translation;
 static unsigned unmap_calls,fail_at_unmap,alloc_calls,fail_alloc_at,map_calls,fail_map_at,spawn_calls,console_prints;
 static bool fail_spawn;
@@ -27,7 +42,15 @@ static struct process *observed;
 static struct process *current;
 void *scheduler_current_user_context(void) {return current;}
 static void *current_user_thread;
-void *scheduler_current_user_thread_context(void) {return current_user_thread;}
+static jmp_buf exit_hook;static bool check_exit_hook,check_thread_hook;
+void *scheduler_current_user_thread_context(void) {
+    if(check_exit_hook) {assert(current && !current->owned_user_scope);longjmp(exit_hook,1);}
+    return current_user_thread;
+}
+void scheduler_io_set_user_safe(bool safe) {(void)safe;}
+void scheduler_io_wait(void) {}
+void scheduler_yield(void) {assert(0);}
+bool scheduler_wait(struct scheduler_wait_queue *q,bool (*ready)(void *),void *arg) {(void)q;(void)ready;(void)arg;assert(0);return false;}
 uint64_t gdt_default_kernel_stack_top(void) {return 0x10000;}
 void fpu_init_state(struct fpu_state *state) {memset(state,0,sizeof(*state));}
 bool scheduler_io_process_retired(void *p) {assert(p==&processes[1]);return independent;}
@@ -38,6 +61,7 @@ static unsigned next_frame=1,wakes;
 static unsigned char backing[1024*4096];
 void console_printf(const char *format,...) {(void)format;console_prints++;}
 void scheduler_wake_all(struct scheduler_wait_queue *queue) {
+    if(check_thread_hook) {assert(current && queue==&current->thread_wait_queue && current->owned_user_scope);longjmp(exit_hook,1);}
     if(queue==&process_wait_queue){wakes++;return;}
     assert(queue==&futexes[0].wait_queue && futexes[0].invalidated && depth);
     int64_t i=process_mapping_index(observed,futexes[0].address);
@@ -49,6 +73,12 @@ bool scheduler_io_active(void) {return depth != 0;}
 void scheduler_io_end(void) {assert(depth);depth--;ends++;}
 void scheduler_io_checkpoint(void) {
     checkpoints++;if(!depth)return;yields++;
+    if(checkpoint_scope) {
+        struct process_lifetime *life=lifetime_find(checkpoint_scope);
+        assert(life && life->members==1 && !life->reservation && depth &&
+            process_slots_busy[1] && !processes[1].allocated);
+        saw_converted_checkpoint=true;checkpoint_scope=0;
+    }
     if(observed)for(uint64_t i=0;i<observed->mapping_count;i++) {
         unsigned frame=observed->mappings[i].physical_address/4096;
         assert(frame && frame<1024 && !released[frame]);
@@ -61,6 +91,7 @@ bool vmm_unmap_page_in_space(uint64_t space,uint64_t address,uint64_t *physical)
     }
     assert(0);return false;
 }
+void pmm_free_frame_range(uint64_t physical,uint64_t count) {(void)physical;(void)count;assert(0);}
 void pmm_free_frame(uint64_t physical) {
     unsigned frame=physical/4096;assert(frame && frame<1024 && !released[frame]);released[frame]=true;freed++;
 }
@@ -335,6 +366,96 @@ static void startup_thread_contract(void) {
     puts("startup-thread: PASS sole-main/entry/stack/TLS refusal, complete context publication, no service window, TLS/stack failure cleanup and retained failed-unmap ownership");
 }
 
+static void session_scope_contract(void) {
+    memset(processes,0,sizeof(processes));memset(process_lifetimes,0,sizeof(process_lifetimes));
+    memset(process_slots_busy,0,sizeof(process_slots_busy));next_lifetime=1;next_pid=100;
+    current=&processes[0];*current=(struct process){.allocated=true,.active=true,.pid=42};
+    uint64_t token=0,other=0;struct srv_scope_status st={0};
+    current->lifetime=77;assert(process_scope_create(&token)==SRV_ERR_NOTSUP);current->lifetime=0;
+    assert(!process_scope_create(&token) && token==1);
+    current->owned_user_scope=0; /* Reused slot cannot rely on stale owner pointer. */
+    assert(process_scope_control(SRV_SCOPE_STATUS,token,&st)==SRV_ERR_INVAL);
+    current->owned_user_scope=token;current->killed=true;
+    assert(process_scope_control(SRV_SCOPE_REVOKE,token,NULL)==SRV_ERR_INVAL);
+    current->killed=false;
+    assert(process_scope_create(&other)==SRV_ERR_BUSY);
+    assert(!process_scope_reserve(token));
+    assert(process_scope_reserve(token)==SRV_ERR_BUSY);
+    assert(!process_scope_control(SRV_SCOPE_REVOKE,token,NULL));
+    assert(!process_scope_control(SRV_SCOPE_REVOKE,token,NULL));
+    assert(process_scope_control(SRV_SCOPE_RELEASE,token,NULL)==SRV_ERR_BUSY);
+    assert(!process_scope_control(SRV_SCOPE_STATUS,token,&st) && st.revoked && st.members==1);
+    checkpoint_scope=token;saw_converted_checkpoint=false;
+    struct process *child=alloc_process_lifetime("root",true,token);
+    assert(saw_converted_checkpoint && child && child->lifetime==token && !child->owned_user_scope);
+    process_scope_cancel_reservation(token);
+    assert(!process_scope_control(SRV_SCOPE_STATUS,token,&st) && st.members==1);
+    child->active=false;child->reapable=true;child->exit_status=7;
+    memset(child->files,0,sizeof(child->files));
+    independent=true;uint64_t status=0;int64_t result=0;
+    assert(process_try_wait_retired(child->pid,&status,&result));
+    assert(!process_scope_control(SRV_SCOPE_STATUS,token,&st) && !st.members && st.nonzero_exits==1 && st.first_exit_status==7);
+    assert(!process_scope_control(SRV_SCOPE_RELEASE,token,NULL));
+    assert(process_scope_control(SRV_SCOPE_STATUS,token,&st)==SRV_ERR_INVAL);
+    assert(!process_scope_create(&token) && token==2);
+    assert(!process_scope_reserve(token));process_scope_cancel_reservation(token);
+    assert(process_scope_reserve(token)==SRV_ERR_BUSY); /* failed root burns the attempt */
+    assert(!process_scope_control(SRV_SCOPE_REVOKE,token,NULL));
+    assert(!process_scope_control(SRV_SCOPE_RELEASE,token,NULL));
+    assert(!process_scope_create(&token));assert(!process_scope_reserve(token));
+    child=alloc_process_lifetime("root",true,token);assert(child);
+    user_scope_detach(current);assert(!current->owned_user_scope);
+    assert(process_scope_create(&other)==SRV_ERR_BUSY);
+    child->active=false;child->reapable=true;child->exit_status=0;
+    memset(child->files,0,sizeof(child->files));
+    assert(process_try_wait_retired(child->pid,&status,&result));
+    assert(!lifetime_find(token));assert(!process_scope_create(&other) && other!=token);
+    user_scope_detach(current);
+    assert(!process_scope_create(&token));assert(!process_scope_reserve(token));
+    release_process(current);assert(!lifetime_find(token));
+    *current=(struct process){.allocated=true,.active=true,.pid=42};
+    process_scope_cancel_reservation(token);assert(!process_scope_create(&other));
+    assert(!process_scope_control(SRV_SCOPE_REVOKE,other,NULL));
+    assert(!process_scope_control(SRV_SCOPE_RELEASE,other,NULL));
+    assert(!process_scope_create(&token));assert(!process_scope_reserve(token));
+    child=alloc_process_lifetime("root",true,token);assert(child);
+    child->parent_pid=77;child->active=false;child->reapable=true;child->exit_status=9;
+    memset(child->files,0,sizeof(child->files));
+    processes[2]=(struct process){.allocated=true,.active=true,.pid=77};
+    assert(!process_scope_control(SRV_SCOPE_REVOKE,token,NULL));
+    assert(!process_scope_reap(token)); /* live parent retains wait right */
+    processes[2].active=false;
+    independent=false;assert(!process_scope_reap(token));independent=true;
+    child->mapping_count=1;assert(!process_scope_reap(token));child->mapping_count=0;
+    child->files[2].used=true;assert(!process_scope_reap(token));child->files[2].used=false;
+    child->user_threads[0].used=true;assert(!process_scope_reap(token));child->user_threads[0].used=false;
+    assert(process_scope_reap(token)==1);
+    assert(!process_scope_reap(token));
+    assert(!process_scope_control(SRV_SCOPE_STATUS,token,&st) && !st.members && st.nonzero_exits==1 && st.first_exit_status==9);
+    assert(!process_scope_control(SRV_SCOPE_RELEASE,token,NULL));
+    current->killed=true;assert(process_scope_create(&other)==SRV_ERR_INVAL);current->killed=false;
+    assert(!process_scope_create(&token));check_thread_hook=true;
+    if(!setjmp(exit_hook)) process_thread_exit(17);
+    check_thread_hook=false;assert(current->owned_user_scope==token && current->main_thread_exited);
+    user_scope_detach(current);current->main_thread_exited=false;
+    for(unsigned worker=0;worker<2;worker++) {
+        assert(!process_scope_create(&token));
+        assert(!process_scope_reserve(token));
+        struct process_lifetime *pending=lifetime_find(token);
+        assert(pending && pending->reservation && pending->members==1);
+        current_user_thread=worker?&current->user_threads[0]:NULL;
+        check_exit_hook=true;
+        if(!setjmp(exit_hook)) process_exit(0);
+        check_exit_hook=false;current_user_thread=NULL;
+        assert(!lifetime_find(token) && !current->owned_user_scope);
+    }
+    assert(!process_scope_create(&other)); /* No stranded ownerless reservation. */
+    user_scope_detach(current);
+    current=NULL;
+    memset(processes,0,sizeof(processes));memset(process_lifetimes,0,sizeof(process_lifetimes));
+    puts("session-scope: PASS reservation/revoke, single root, fast reap errors, stale capability and ownerless zero retirement");
+}
+
 int main(void) {
     /* Identity snapshots leave foreign serialization ownership and accounting
      * untouched, for both initial and worker contexts. */
@@ -375,6 +496,7 @@ int main(void) {
     assert(!replacement->signal_ignore_mask && !replacement->exit_status && !replacement->user_us && !replacement->lifetime);
     current=NULL;memset(processes,0,sizeof(processes));
     puts("retired-child: PASS empty reapable direct child only, single claim/accounting, unchanged foreign I/O owner");
+    session_scope_contract();
     private_scope_contract();
     foreign_loader_contract();
     private_unmap_contract();

@@ -1,6 +1,6 @@
 # Apple Silicon macOS build host
 
-## End session and switch profile — contract review
+## End session and switch profile — source integration in progress
 
 User authorizes ending sessions and switching without reboot, coordination,
 unsaved-work/clean-retirement/profile-isolation verification and merging after
@@ -29,7 +29,7 @@ Generic nonzero command exits are retained as diagnostics; they are not a save
 verdict. After GUI exit, verified console unmute provides waiting/error status.
 
 Runtime dependency is owned by the coordinator/runtime chats on
-`device/apple-silicon/session-scope`, candidate `cd93e1eb`: versioned
+`device/apple-silicon/session-scope`, candidate `6f272777` (production `cd93e1eb`): versioned
 SYS_SESSION_SCOPE 163 CREATE/EXEC/REVOKE/STATUS/REAP_RETIRED/RELEASE, unchanged
 exec request, one GUI root, incarnation-bound owner capability and owner-death
 retention. No kernel implementation is owned by this checkout. CREATE NOTSUP
@@ -42,9 +42,9 @@ header. Native actual-source supervisor tests pass for repeated switching,
 control statuses, scope/wait errors, delayed members and environment/argv reset.
 Preference tests pass for flush, concurrent writes, failure, pending retirement,
 cancellation/restart and helper restart failure. These are not guest acceptance.
-The new QEMU harness is under independent review; in-flight accepted Files and
-Profiles I/O coverage remains required, and the Profiles deferred-close contract
-is being corrected before matched verification.
+Profiles/Files deferred-close and failure handling are corrected with focused
+regressions passing. The new QEMU harness is under independent review; in-flight
+accepted Files and Profiles I/O coverage remains required before acceptance.
 
 Acceptance remains repeated A→B→A in one boot, actual Save/Discard/Cancel and
 failure, accepted I/O and owned descendant retirement, preference/HOME/XDG/cwd
@@ -52,8 +52,37 @@ isolation, cleared clipboard/notifications, keyboard/640 behavior and storage
 integrity. Authentication, permission enforcement, concurrent sessions and
 physical testing remain separate. Coordinator owns independent review and merge
 ordering: runtime dependency, Apps, then desktop integration. Next: finish source
-review, integrate the runtime candidate, publish draft heads, then matched build
-and disposable-VM proof when the resource window is released.
+review and publish draft heads, then the coordinator will use its separate
+external build volume for matched build and disposable-VM proof. The runtime
+candidate is integrated here; both unit records are retained.
+
+## Session switching — integration review in progress November 4, 2026
+
+User authorizes ending sessions and switching profiles without reboot, with
+unsaved-work handling, clean shutdown, settings isolation and merge when ready.
+Coordinator reuses `SrvrOS-migration-review`, initially based on actual main
+`f7ec75e7`. Required runtime dependency is on `device/apple-silicon/session-scope`
+(PR #354); profiles owner supplies OS/Apps/chooser changes in its isolated
+checkout. Runtime owner independently reviews process ownership and retirement.
+Browser owner released the heavy build/VM window; other evidence and review VMs
+remain preserved.
+
+Clean `cd93e1eb` passes the full matched macOS build. Strict host process/service,
+loader, lifetime, syscall validation and scheduler tests pass; relevant fixtures
+also pass ASan/UBSan. Follow-up `e3eeaf21` contains only comment/test closure.
+`build/review/session-scope/result.json` records two successful guest scope runs,
+live init PID 1 before/after, inherited lifetime, PTY and syscall ABI regressions.
+The probe proves held descendants prevent release and natural exit allows ordinary
+init reaping; it does not qualify operation without an init reaper. The first
+harness attempt used a shell command at the monitor and was corrected to execute
+`/fat/bin/sysabi`; its log is retained separately. No production failure occurred.
+
+Parent build uses a new 16 GiB regular-file APFS image on miniTB, mounted beneath
+`.local/session-switch-review/runtime-volume`; `build` links to that volume.
+Prior profile-creation and installation raw paths/inodes and evidence volumes are
+untouched. Host receipts and storage record are in `.local/session-switch-review`.
+No physical-media acceptance is claimed. Desktop integration and its full proof
+remain pending; Actions remain disabled.
 
 ## Desktop profile creation — integration delivered November 4, 2026
 
