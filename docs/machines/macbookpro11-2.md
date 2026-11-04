@@ -39,7 +39,10 @@ selected checkpoint is outer trim phase2/op21, channel phase3, band phase8,
 synth paused, A20/op504, PA/op294 and BBP/op441. Preserve legacy no-child plans,
 private fresh parent proof, bounded timing/observation and no force-clear/replay.
 Then audit MCU calibration and controlled reception before authentication/data.
-No new trial is armed. Cold adapter unplug remains required; ordinary startup
+Next installed candidate is v120 `019299c5a721fcda`, runtime `e2bf7e3b`, main
+`845f703c`. Its exact-image host/VM/storage/recovery checks pass; physical result
+is pending. Collect `build/bringup/wifi-channel-vco5-native/return_collect.py`
+FIRST after return. Cold adapter unplug remains required; ordinary startup
 does not enable this diagnostic. The separate bc VM allocation failure remains
 unaccepted and preserved; this native USB/storage result does not resolve it.
 
@@ -12256,3 +12259,29 @@ and5GHz receive-decoder admission remain unresolved prerequisites. The next
 cold trial is the selected-channel pulse/readback/inverse-original contract,
 without receiver, network OUT or credentials. It must pass exact-stage save/
 refusal, full-prefix capacity/parser, storage and recovery checks before install.
+
+### v120 installed; selected-channel cold trial pending
+
+Release `019299c5a721fcda`, runtime `e2bf7e3b`, passes the complete1991043-byte
+synthetic ledger/15618-operation proof and five malformed whole-prefix refusals,
+leaving106109bytes within the existing2MiB bound. This is synthetic, not native
+acceptance. Exact staged save/readback/unmount/reset and missing-workspace VMs
+pass; the matched desktop rendering/input/resize/relaunch VM also passes.
+Kernel bytes and independently firmware-packaged initramfs match the staged
+product. Real2MiB kernel exFAT/VFS write/read/remount/fsck passes. Extra composite
+ownership guards are tested with parent mutations before/during/after the child;
+normal fault/gain and final ASan/UBSan checks pass at the committed runtime.
+
+Before install, accepted v119 large logs were compared byte-for-byte with their
+208-file sealed native capsule, independently archived/verified and pruned from
+USB. Actual UUID/model/adapter descriptor, offline fsck/allocation, writable
+eligibility and headroom pass. The unreferenced v114 PA EFI copy was retired
+only after equality with its independently sealed accepted backup. v115–v119,
+e47d previous recovery and accepted backups remain. Source/payload/frozen proof,
+run record and checks are sealed outside build in
+`wifi-channel-vco5-native-e2bf7e3b`; Ubuntu remains default. Shutdown is required
+for10seconds Wi-Fi unplug while off, same-port reconnect and power-on. Leave
+workspace connected. Guest progress, full save and Ubuntu return are automatic;
+no commands/photos. Collect first; missing/truncated/failed proofs are not passes.
+No receiver, network OUT or credentials are enabled. MCU high-band calibration,
+IBI9 semantics and separately tested5GHz receive/scan handling remain next.

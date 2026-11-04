@@ -108,6 +108,12 @@ word restoration. All-ones IBI9 remains an unresolved calibration prerequisite;
 no old G-band admission is widened. The existing receive/scan decoder explicitly
 admits channels1–11/1,6,11; a separately tested5GHz decoder and endpoint lifecycle
 are required before channel161 receive testing. Credentials remain unused.
+Pro11,2 v120 `019299c5a721fcda`/`e2bf7e3b` is installed after exact-image VM,
+sanitizer, selected-bank fault, complete-prefix and storage/recovery checks.
+Physical acceptance remains pending collection; latest native is still v119.
+The synthetic15618-operation prefix is1991043bytes and fits the unchanged2MiB
+bound with106109bytes remaining. No calibrated receive or connectivity claim
+follows from preparation or a self-cleared trigger.
 
 ## 5GHz RF band-selection foundation
 

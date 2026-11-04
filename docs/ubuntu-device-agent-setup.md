@@ -843,6 +843,14 @@ Pro11,2 accepted release `ace4b3dcaa85e353`/`11689cfa`:11774 operations,
 independent restoration and storage/recovery/automatic-return checks. This does
 not accept a calibrated receiver or Wi-Fi connection.
 
+The opt-in v120 selected-channel VCO coordinator keeps the2MiB automatic capture
+bound. Require the complete v119 parent and3844 new I/O, with its77-operation
+child inserted before the first inverse BBP write, six exact wait receipts,
+monotonic trigger clear and all inverse originals. The prepared Pro11,2
+`019299c5a721fcda`/`e2bf7e3b` synthetic prefix is1991043bytes; this is capacity/
+parser evidence only. Physical acceptance requires the matching saved session,
+offline allocation/fsck and recovery checks before another stage.
+
 Collect and inspect the matching session before preparing another run:
 
 ```sh
