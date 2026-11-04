@@ -667,3 +667,187 @@ No unresolved finding remains within this documented recovery scope. The final
 acceptance-note commit changes documentation only. All task-owned VMs are stopped;
 existing review VMs and the primary checkout remain untouched. Hosted Actions
 remain disabled; the recorded local checks are the authorized merge gate.
+
+
+## Desktop chooser milestone — complete for review
+
+Authorized target: desktop-start profile selection, installation-local remembered
+choice and recovery status, proved on two disposable VMs. Branch
+`device/apple-silicon/profile-chooser` starts from merged main `b9ac7435`
+(profile installation plans PR321), and integrates main `4f5edb0e` through PR323.
+The newer main changes add filesystem tests/documentation without changing the
+runtime policy consumed here. This topic owns catalog/selection persistence,
+startup chooser, read-only recovery validation, host tests and VM proof. It
+consumes the existing profile import and startup contracts. Authentication and
+permission enforcement remain separate.
+
+The startup journey preserves ordinary explicit `--profile=HOME` activation and
+diagnostic modes. A valid remembered selection opens directly; a missing or
+invalid remembered selection returns to the chooser with a reason. An explicit
+`--choose-profile` opens the chooser even when a remembered selection is valid.
+An ordinary legacy desktop with no profiles and no remembered choice retains its
+existing startup behavior. Selection applies only when starting a desktop;
+existing applications are not switched to another home during a session.
+
+| State | Available action | Completion or recovery |
+| --- | --- | --- |
+| Ready profile | Open desktop | Revalidate ID/home and remember the local choice |
+| Valid remembered choice | Ordinary desktop start | Open that profile without another prompt |
+| Stale/corrupt remembered choice | Choose another profile or return to console | No silent shared-home fallback |
+| Valid pending import | Recover | Existing guest command runs off the render loop; rescan afterward |
+| Blocked import | Inspect status and return to console | Preserve ambiguous data; reconnect original bundle or inspect malformed state |
+| Saving/recovering | Visible working state | Keep rendering/input responsive and show success or failure truthfully |
+
+Recovery status uses `profile check-recover HOME`, a read-only invocation of the
+same journal/bundle/tree preflight as actual recovery. Host tests verify that
+checks at all five durable interruption checkpoints leave the tree unchanged.
+The chooser does not introduce another import validator or guess ownership.
+No physical disks or existing review VMs are part of acceptance. One matched
+build or VM harness runs at a time in this checkout. Completion requires rendered
+interaction, independent remembered choices/reboots, missing/invalid selection
+handling, ready/pending/blocked recovery status, preserved machine settings and
+reviewable changes with source-matched evidence.
+
+### Selection and recovery contract
+
+The catalog is installation-local under `/fat/home`. It considers completed
+profile markers and sibling import journals, including a journal whose HOME has
+not been created yet. Entries show their display name, local home and Ready,
+Recovery needed or Unavailable status. Invalid identities, missing bundles,
+ambiguous UUIDs/home casing, incomplete discovery and overflow refuse selection.
+The scan is bounded to 4,096 directory entries and 16 displayed profiles. Names
+follow the existing portable format's printable ASCII contract. Keyboard and
+pointer navigation work at 640 × 480 logical pixels and larger supported modes.
+
+`/fat/home/.desktop-profile` stores a versioned record of UUID, exact local HOME
+and CRC32. It is local convenience/integrity metadata, never authentication or
+permission authority. Opening revalidates the profile before writing an exclusive
+temporary file, syncing, checking the previous record, renaming and syncing the
+parent. A save error offers Continue anyway or Stay here. A late sync failure can
+leave the new record visible; the UI truthfully says persistence was not confirmed.
+An existing unknown temporary file is preserved for inspection. Explicit
+`--profile=HOME` overrides the remembered choice without changing it.
+
+Recovery is an explicit action using the existing guest CLI. Revalidation,
+recovery and selection writes run in a worker while the chooser keeps processing
+input and rendering. Returning to the console waits visibly for active work to
+finish; it never kills or abandons a mutating child. Recovery success rescans and
+requires a separate Open desktop action. Unreadable intent and ambiguous
+pre-marker scratch remain preserved for manual inspection under PR320's rules.
+No concurrent-writer or power-loss recovery guarantee is added. Profile metadata
+and local UID/GID bindings retain their existing semantics; authentication and
+permission enforcement remain separate work.
+
+### Acceptance and evidence
+
+Clean runtime source `3f9c225a504830580440488b41c267bdf9992d72` passes the matched
+full build, 16 guest CLI host groups and the production catalog's real-filesystem
+tests. Earlier unchanged provider/CLI code also passes ASan/UBSan, existing
+profile/session/preferences tests, the desktop host suite and seven real image
+adapter groups. Six installation-profile groups pass after preserving display
+names in offline provisioning.
+
+The fresh proof passes 14 VM lifetimes across two disposable installations and
+their fault/small-screen copies: guest export and migration, forced chooser,
+independent saved choices and reboot restoration, explicit override, missing,
+stale and corrupt selections, genuine 640 × 480 pointer/keyboard interaction,
+interrupted import recovery, and blocked-state console return. It verifies exact
+documents/binary bytes, all six portable preferences, installation-local bindings,
+unchanged machine settings/transport, matching installed binaries, protected
+GPT/boot regions, and clean guest/offline allocation checks. External
+`fsck.exfat` is not part of this proof.
+
+Blocked-state comparison checks all 397 namespace entries and 396 metadata rows:
+all payloads and ownership/mode/inode fields remain unchanged except four exact
+background `svscan: webd waiting dependency` log lines and their timestamps; six
+ordinary access times advance. Raw before/after snapshots and hashes are retained.
+This distinguishes normal filesystem observation from profile mutation without
+excluding profile, journal, choice or machine-settings bytes.
+
+[Portable proof manifest](assets/screenshots/profile-chooser-manifest.json),
+[small-screen chooser](assets/screenshots/profile-chooser-small.png),
+[recoverable import](assets/screenshots/profile-chooser-recovery.png), and
+[blocked import](assets/screenshots/profile-chooser-blocked.png) are committed for
+review. The images were visually inspected, including the complete recovery
+status label. Full evidence: `build/review/profile-chooser/proof-3zcf8_ih/`, receipt
+SHA256 `3fd65ce67376ab6a9e6ca9929d4abccb735f8820fd61b57b15761552873172bc`.
+Logs: `build/profile-chooser-build-final.log`, `build/profile-chooser-host-final.log`
+and `build/profile-chooser-vm-final.log`. Byte-verified full evidence and matched
+artifacts are also archived outside build cleanup at
+`.local/profile-chooser-evidence/proof-3zcf8_ih/`.
+
+The ordinary no-profile legacy installed-desktop regression also passes at
+`e32ee17e`, evidence `build/review/installed-disk/proof-v6yp3fyg/`. Subsequent
+runtime changes only widen chooser label rectangles. Earlier failed harness runs
+are retained with verified lossless image compression: they exposed an incorrect
+requested-versus-actual resolution assumption, stale serial matching, and an
+overbroad whole-partition equality assertion. The final proof uses actual
+framebuffer dimensions, ordered serial cursors and the strict comparison above.
+
+Reproduce with a matched `make all`, `make test-profile-chooser` and
+`python3 tools/profile_chooser_smoke.py --ovmf-vars PATH`; configure `OVMF_CODE`
+and QEMU for the host. On Apple Silicon use `tools/macos/build.sh` for the full
+build and the host compiler setup in the macOS development guide. Run one build
+or VM harness at a time. All task-owned VMs are stopped. Existing review VMs,
+the primary checkout and physical media remain untouched; Actions stay disabled.
+Delivery is a scoped draft PR, with merge left for the requested review step.
+
+### PR325 integration during publication
+
+Main advanced to `4b5ddb7c` while the chooser proof ran. Its merged PR325 adds
+host installation publication recovery and documentation, with no guest runtime
+change. Both unit-record sections are preserved when resolving their conflict.
+Integration `e8795d80` has identical top-level runtime Git objects and all three
+recorded build payload hashes compared with the accepted `3f9c225a` proof.
+The [integration receipt](assets/screenshots/profile-chooser-integration.json)
+records this comparison and the three changed host tools explicitly; it does not
+relabel the VM proof as a new source run. Fresh combined checks pass 29
+installation preparation/profile/recovery tests, the chooser/catalog/guest host
+checks and profile/session/preferences/bundle/image-adapter regressions. Logs
+are `build/profile-chooser-pr325-{host,installation,docs}.log`, also preserved
+outside build cleanup with the integration receipt. [PR326](https://github.com/PaulMDemers/SrvrOS/pull/326)
+is the scoped chooser draft for review.
+
+### PR326 merge review
+
+The user authorized review, fixes and merge after checks. Main `1f177761`
+(PR327's userspace salvage helper) is integrated; both independently appended
+Makefile test targets are preserved. Review covered discovery bounds and parsing,
+choice revalidation and save failures, worker/child ownership and console return,
+shared recovery preflight, startup compatibility, and the proof assertions.
+No unresolved blocker remains within the documented recovery scope. No guest
+runtime correction was required. Authentication and permission enforcement
+remain separate; selection metadata does not establish either boundary.
+
+Clean `115899c3832ad67d9cc41fdb52b7697cf03acc40` passes fresh chooser/catalog,
+guest CLI, profile/session/preferences, desktop and salvage host checks; 29
+installation preparation/profile/recovery tests; ASan/UBSan on all 16 guest CLI
+groups and the production catalog; and the complete matched build. The sanitizer
+build retains warnings for vendored cJSON's existing deprecated `sprintf` calls
+with a vendor-only warning exception; first-party warnings remain errors. The
+initial strict SDK-warning failure remains logged. No vendor code was changed.
+
+The rebuilt kernel/bootstrap hashes differ from the earlier proof, so review
+uses a fresh complete two-installation, 14-lifetime VM run rather than reusing
+that proof. Migration, independent choices and reboot restoration, explicit
+override, missing/stale/corrupt choices, real 640 × 480 interaction, interrupted
+import recovery and blocked-state preservation all pass. The same document,
+preference, local-binding, machine-setting, transport, binary, allocation and
+protected-region checks pass. Blocked comparison again covers 397 namespace
+entries/396 metadata rows, with six access-time advances and four exact service
+log lines as the only observation/background changes. Screenshots were inspected.
+
+[Review receipt](assets/screenshots/profile-chooser-review.json) records exact
+source/build hashes and limits. Full evidence:
+`build/review/profile-chooser/proof-yrfw5f6o/`, receipt SHA256
+`3e524cfd4604c49da75729d49f2aa126ec74609eb4e6560cd2c9b75c99e8c94c`.
+Logs: `build/profile-326-review-{host,installation,sanitized,build,vm,docs}.log`.
+Byte-verified full proof, logs and matched artifacts are retained outside build
+cleanup at `.local/profile-326-review/proof-yrfw5f6o/`; completed proof images may
+be losslessly compressed with original hashes/restoration paths recorded.
+
+Review ran in isolated `SrvrOS-profile-326-review`, preserving separate
+uncommitted proof-storage work in `SrvrOS-profiles`. All task VMs are stopped;
+the three existing review VMs and primary checkout remain untouched. Actions
+remain disabled. The final acceptance commit changes only documentation and the
+portable review receipt. Ready for the user's authorized merge of PR326.

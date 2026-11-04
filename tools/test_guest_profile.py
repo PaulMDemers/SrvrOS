@@ -129,6 +129,11 @@ class GuestProfile(unittest.TestCase):
                     self.run_cli('activate', home, code=1)
                     # Simulate an interrupted exclusive scratch content write.
                     (home / '.profile-copy-temp').write_bytes(b'partial write\x00')
+                before = self.snapshot(self.root)
+                result = self.run_cli('check-recover', home)
+                self.assertEqual(self.snapshot(self.root), before)
+                lines = result.stdout.decode().splitlines()
+                self.assertEqual(lines, ['srvros-profile-recovery-v1', self.value['profile']['id'], 'Guest Profile'])
                 self.run_cli('recover', home)
                 self.verify(home)
 
@@ -139,6 +144,8 @@ class GuestProfile(unittest.TestCase):
         scratch = home / '.profile-copy-temp'
         scratch.write_bytes(b'unknown existing data')
         before = self.snapshot(self.root)
+        self.run_cli('check-recover', home, code=1)
+        self.assertEqual(self.snapshot(self.root), before)
         self.run_cli('recover', home, code=1)
         self.assertEqual(self.snapshot(self.root), before)
         self.assertEqual(scratch.read_bytes(), b'unknown existing data')

@@ -19,7 +19,9 @@ static struct vfs_node projected_node={.path="/fat/bin/tool",.size=40,.used=true
 __attribute__((noinline)) bool vmm_user_range_mapped(uint64_t address,uint64_t length,bool writable) {
     uint64_t first=(uint64_t)(uintptr_t)user_path;
     uint64_t scalar=(uint64_t)(uintptr_t)&user_size;
-    if(!writable || length>UINT64_MAX-address) return false;
+    /* The whitelisted fixture arrays are readable and writable. */
+    (void)writable;
+    if(length>UINT64_MAX-address) return false;
     return (address>=first && address+length<=first+sizeof(user_path)) ||
         (address>=scalar && address+length<=scalar+sizeof(user_size));
 }

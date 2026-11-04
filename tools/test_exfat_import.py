@@ -25,6 +25,7 @@ def main():
     selection=parser.add_mutually_exclusive_group()
     selection.add_argument('--process',action='store_true',help='Link real process content writeback (x86_64 host/Rosetta on macOS)')
     selection.add_argument('--workspace-writeback',action='store_true',help='Real process/exFAT/VFS/workspace failure matrix')
+    selection.add_argument('--workspace-salvage',action='store_true',help='Copy retained failed-work data to a healthy volume')
     selection.add_argument('--namespace',action='store_true',help='Run only the explicit namespace view contracts')
     parser.add_argument('--sanitize', action='store_true', help='Enable address and undefined-behavior sanitizers')
     args=parser.parse_args();out=args.output.resolve();out.mkdir(parents=True,exist_ok=True)
@@ -32,11 +33,11 @@ def main():
     files=['tools/test_exfat_import.c','kernel/src/fs/exfat.c','kernel/src/vfs.c','tools/test_exfat_import.py','kernel/src/block_claim.c','kernel/include/srvros/block.h','kernel/include/srvros/exfat.h']
     files+=['kernel/src/vfs_namespace.c','kernel/include/srvros/vfs_namespace.h','tools/test_vfs_namespace.inc']
     compiler=shlex.split(os.environ.get('CC','cc'))
-    command=compiler+['-DSRVROS_EXFAT_HOST_TEST','-std=c11','-O1','-g','-Wall','-Wextra','-Werror',
+    command=compiler+['-DSRVROS_EXFAT_HOST_TEST','-idirafter',str(ROOT/'userspace/lib/include'),'-std=c11','-O1','-g','-Wall','-Wextra','-Werror',
         '-ffunction-sections','-fdata-sections','-I',str(ROOT/'shared/include'),'-I',str(ROOT/'kernel/include'),
         str(ROOT/files[0]),str(ROOT/files[2]),str(ROOT/'kernel/src/vfs_namespace.c'),'-Wl,-dead_strip' if platform.system()=='Darwin' else '-Wl,--gc-sections','-o',str(exe)]
-    if args.process or args.workspace_writeback:
-        files+=['tools/test_process_writeback.c','kernel/src/process.c','kernel/src/workspace.c','tools/test_workspace_writeback.inc']
+    if args.process or args.workspace_writeback or args.workspace_salvage:
+        files+=['tools/test_process_writeback.c','kernel/src/process.c','kernel/src/workspace.c','tools/test_workspace_writeback.inc','tools/test_workspace_salvage.inc','tools/test_process_salvage.inc','userspace/lib/src/salvage.c','userspace/lib/include/srvros/salvage.h']
         command[len(compiler):len(compiler)]=(['-arch','x86_64'] if platform.system()=='Darwin' else [])+['-DSRVROS_EXFAT_PROCESS_TEST','-I',str(args.limine_include.resolve()),str(ROOT/'tools/test_process_writeback.c')]
     if args.sanitize: command[len(compiler):len(compiler)]=['-fsanitize=address,undefined','-fno-sanitize-recover=all']
     subprocess.run(command,check=True,cwd=ROOT)
@@ -53,6 +54,17 @@ def main():
         for close in ('','close-'):
             for kind,total in zip(('write','flush'),map(int,counts.groups())):
                 modes += [f'workspace-{close}{kind}-{i}' for i in range(1,total+1)]
+    if args.workspace_salvage:
+        baseline=subprocess.run([str(exe),'salvage-control'],capture_output=True,text=True)
+        (out/'baseline.log').write_text(baseline.stdout+baseline.stderr)
+        baseline.check_returncode()
+        import re
+        counts=re.search(r'salvage-ops writes=(\d+) flushes=(\d+)',baseline.stdout)
+        if not counts or any(int(n)<=0 for n in counts.groups()):
+            raise RuntimeError('Missing actual salvage operation counts')
+        modes=['salvage-control','salvage-conflict','salvage-oom']
+        for kind,total in zip(('write','flush'),map(int,counts.groups())):
+            modes += [f'salvage-{kind}-{i}' for i in range(1,total+1)]
     results=[]
     for mode in modes:
         r=subprocess.run([str(exe),mode],capture_output=True,text=True,timeout=15)

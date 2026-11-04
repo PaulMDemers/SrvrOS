@@ -10,13 +10,12 @@ int64_t process_resolve_storage_path(const char *path,char *out,uint64_t capacit
     if(strlen(path)>=capacity) return SRV_ERR_NAMETOOLONG;
     strcpy(out,path);return 0;
 }
-/* GCC retains the directory arm of copy_storage_path in this isolated link.
- * File publication must not enter it; namespace behavior is tested separately. */
 int64_t process_path_context(uint64_t operation,const char *path,char *out,uint64_t capacity) {
-    (void)operation;(void)path;(void)out;(void)capacity;assert(0);return -1;
+    assert(operation==SRV_PATH_RESOLVE_DIRECTORY);
+    return process_resolve_storage_path(path,out,capacity);
 }
 int64_t vfs_namespace_system_path(const char *path,char *out,size_t capacity) {
-    (void)path;(void)out;(void)capacity;assert(0);return -1;
+    return process_resolve_storage_path(path,out,capacity);
 }
 bool vfs_namespace_system_protects(const char *path) { (void)path;return false; }
 struct process_file *process_file_at(struct process *p,uint64_t fd) { (void)p;(void)fd;assert(0);return NULL; }

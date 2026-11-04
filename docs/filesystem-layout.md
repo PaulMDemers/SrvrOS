@@ -3,6 +3,399 @@
 Updated November 3, 2026. Global activation follows the explicit namespace proof
 in [PR308](https://github.com/PaulMDemers/SrvrOS/pull/308).
 
+## PR329 merge review and next bounded milestone
+
+User authorized review and merge if ready. Reviewed `05905122` against actual
+main `c90f3522`; no blocking finding. Traced `process_file_flush` through retained
+content writeback and the exFAT mutation boundary: successful outer mutation
+flushes data/metadata, writes the clean marker and flushes that marker on the
+backing parent. Failed transactions cannot return success. Clean/unlinked
+content does not need an unrelated global device barrier. Global sync and reboot
+still retain their existing all-device behavior.
+
+Fresh exact-head review proof `build/review/dirty-salvage/proof-qhb4hf4j/` passes
+both installed EFI boots with the isolated work EIO, exact 12,289-byte healthy
+copy after controlled cold restart, unchanged work hash/protected regions and
+clean allocation checks. Independently checked raw bytes, command graphs and
+explicit global reboot refusal. Fresh ordinary installed-root canonical/CLI
+proof `build/review/installed-canonical/proof-0cqpa1bt/` passes all 11 cases,
+including `/fat` and `/work` compatibility. Focused fsync/namespace/usercopy/I/O,
+helper/CLI, seven scope guards and documentation checks pass. Revalidated the
+49 sanitized salvage cases and recorded source hashes; previous threadstress
+and sanitized syscall evidence remain applicable to unchanged code.
+
+PR317 at `e2457b1b` remains draft/unmerged. Its owner confirms no current overlap
+or new relevant concern; hardware stop/drain/provider retirement remains open
+there. That is scope feedback, not independent approval of this flush contract.
+Review VMs 61610, 6233 and 85869 stay running; all task VMs stop normally or through
+the documented owned-VM restart. Review receipts/logs are backed up outside build
+under `.local/filesystem-evidence/pr329-review/`. No hosted Actions or physical
+trial was run. The current dirty-source salvage milestone is complete.
+
+Next proposed bounded milestone: **installed-root salvage destination-writeback
+failure qualification**. Existing guest proof covers failed-source destinations
+and exclusive conflicts; destination write/flush failures currently have host
+coverage only. First review fault placement on a third disposable target image.
+Prove the real CLI reports failure without losing the caller's retained dirty
+reader or offset, then copies to a separate healthy volume and verifies exact
+bytes after controlled restart. Preserve uncertain artifacts and the global
+reboot guard; coordinate any process/driver changes with PR317. No automatic
+repair, retry or failed-volume retirement is included. This is proposed work,
+not begun by the merge review.
+
+## Installed-root dirty-source salvage — verified
+
+User authorized mechanism review and installed-root proof on main `1a5a6dee`,
+with explicit PR317 coordination and review-VM preservation. Reviewed a host-only
+QEMU `blkdebug` one-shot write EIO, attached solely to a distinct fixture-owned
+work image. The probe verifies reads succeed, first write fails without changing
+bytes, subsequent write succeeds and a separate healthy image remains writable.
+The rule uses write_aio/iotype=write/once=on per the
+[QEMU blkdebug guide](https://www.qemu.org/docs/master/devel/testing/blkdebug.html).
+Seven scope tests reject boot-disk, external-image/config, normal-mode and later
+boot attachment; the positive graph test allows exactly one filtered work drive.
+No kernel/process/driver fault hook is used.
+
+The guest opens preseeded `/work/bin/true` without create/truncate and holds an
+independent reader, stages 12,289 binary bytes in shared process RAM, then hits
+the first work write with explicit fsync. AHCI reports task-file EIO and retains
+its offline/pinned state. Source fsync/writer close error, global sync error,
+failed-work mutation refusal and readable retained data are required. The actual
+`/bin/salvage` command first refuses a destination on failed work, then copies
+through the inherited reader to `/home/.dirty-salvage-copy`; an exclusive conflict
+also fails. Parent offset 37 and all held bytes survive every child. Source errors
+stay sticky until deliberate final-reader close after acknowledged healthy copy.
+
+### Demonstrated fsync fix
+
+The first guest run correctly refused healthy-copy success: `syscall_fsync`
+flushed the requested content, then called `block_flush_all`, so the unrelated
+offline work disk vetoed healthy-file acknowledgment. The actual syscall host
+regression fails baseline and passes the fix. File fsync now returns its own
+content-writeback result: the current exFAT transaction already completes data,
+metadata and clean-marker barriers on its backing volume before success. Clean
+descriptions have no deferred writeback, and unlinked RAM content has no remaining
+disk file. No stale pathname/mount lookup or new process lifetime state is added.
+Global SYS_SYNC and the reboot guard retain their system-wide barrier behavior.
+Future asynchronous backends will require an explicit file-scoped durability
+contract. The host regression covers clean/read descriptions, content errors,
+invalid descriptors and unchanged global-sync failure, normally and under
+ASan/UBSan. Namespace/usercopy/I/O admission and helper/CLI tests pass.
+
+PR317's owner confirmed no active syscall/process/AHCI overlap and gave scope
+feedback without claiming full durability review. Only production change is the
+bounded syscall body/comment; no AHCI, block or process implementation change.
+The existing backend failure contract and actual guest readback support the
+synchronous durability boundary.
+
+### Restart and persistence evidence
+
+After successful salvage, normal guest reboot correctly reports storage flush
+failure because work remains offline. The proof records that refusal, stops only
+its own disposable VM through QMP, and starts a fresh EFI VM with reversed disk
+order and no filter. This is a controlled cold restart after healthy-file fsync/
+close acknowledgment, not a successful normal global flush or arbitrary physical
+power-loss qualification. The healthy copy reads back exactly and is cleaned up.
+Both boots preserve the entire work-image hash and protected system regions.
+Healthy allocation checks report zero leaks/FAT/bitmap errors. Manual GPT `/work`
+is not the managed USB controller; raw unmount after releasing references is
+fixture teardown, not repaired-work or managed clean-retirement success.
+
+Initial corrected proof `4bbbf2c7` passes. Main `c90f3522` (Haswell/host-compatibility
+PR324 and SrvrPorts `ca749517`) subsequently merged cleanly; matched `ee6316a2`
+passes the mechanism probe and both dirty-source boots again. Full threadstress,
+49 ASan/UBSan host salvage cases and focused syscall/helper/scope tests pass on
+that combined source. The default installed-root canonical/CLI proof also passes
+all 11 cases at `bb7c4e4a`, before the nonoverlapping main update.
+
+Failed bring-up runs remain in `build/review/dirty-salvage/`: signed-size compile
+failure and stale-build refusal; `proof-m08bcofe` exposes the global fsync defect;
+`proof-y_fld3g2` proves the fix but times out in an unrelated GUI save path that
+also requests global sync. The final dedicated proof deliberately does not count
+that GUI step as successful. Passing evidence is `proof-uy53gpes/`, with exact
+commands, serial logs, rule, images, receipt, restart record and offline checks;
+`independent-review.json`, `tested-build.json`, host/sanitizer/thread logs are in
+the parent directory. Backups survive build cleanup at
+`.local/filesystem-evidence/dirty-salvage-ee6316a2/`.
+
+Reproduce after the matched build:
+
+```sh
+make HOST_CC='python3 build/tooling/darwin-host-cc.py' test-file-fsync test-dirty-salvage-scope
+OVMF_CODE=/opt/homebrew/share/qemu/edk2-x86_64-code.fd \
+  python3 tools/dirty_salvage_smoke.py --ovmf-vars /opt/homebrew/share/qemu/edk2-i386-vars.fd
+```
+
+All task VMs stopped; review VMs 61610, 6233 and 85869 and primary checkout remain
+untouched. No automatic retry/repair, forced kernel unmount or production reboot
+bypass was introduced. The bounded dirty-source salvage target is complete.
+
+## Salvage command — installed-root proof complete
+
+`salvage --fd NUMBER DESTINATION` is the first command-line consumer of
+`srv_salvage_copy`. It borrows an inherited seekable descriptor and exclusively
+creates the explicit destination. There is no source-path option: the launcher
+must arrange descriptor inheritance while retaining its own source reference.
+The command never reopens that pathname or overwrites an existing destination.
+Descriptor syntax is decimal 0 through INT_MAX. Exit status is 0 for acknowledged
+copy, 1 for helper failure and 2 for usage errors. Failures report primary stage,
+error, close/restore errors and byte count; uncertain destination artifacts remain.
+Process exit releases only the child's inherited reference; the caller owns its
+original descriptor. Callers must obey the helper's serialized-offset contract.
+
+The command is packaged at `/fat/bin/salvage`, exposed through `/bin` and
+`/usr/bin`. CLI host tests pass normally and under ASan/UBSan for syntax, bounds,
+helper arguments and success/failure statuses. Helper tests also pass. Its 49-case
+normal/sanitized dirty-data fault evidence remains applicable: every recorded
+helper/process/backend source hash is unchanged. The installed-root proof below
+covers clean inherited descriptors and is not a new guest fault-injection claim.
+
+Added optional `--salvage-consumer` to the installed-root harness, requiring
+`--canonical-paths` and retaining existing defaults. On a clean identity-selected
+GPT boot, sysabi holds an open `/work` source, spawns `/bin/salvage` with that fd,
+and verifies a 4,099-byte binary copy into `/home`. The parent's shared offset
+remains 37, `fcntl` confirms its fd still exists, and a following read returns the
+expected source byte. A second child refuses the existing destination with
+EEXIST while bytes and offset remain unchanged. A child with an inherited pipe
+refuses ESPIPE without creating a destination; parent pipe ownership is intact.
+The reversed-disk second boot independently reads both copies through canonical
+and `/fat` names, then performs checked cleanup.
+
+Initial source `27b49c9c` passes all 11 cases. Main then advanced to `59928ec9`
+(PR326 profile chooser); it merged cleanly and matched source `da1e8d44` passes
+all 11 again with the new desktop binaries. This includes full namespace and
+home/work persistence, Text/theme restoration and nine no-write recovery refusals.
+Four offline allocation checks are clean. Independent image inspection confirms
+exact binary destination/system and source/work placement after boot 1 and
+absence after boot 2 cleanup; every negative disk hash is unchanged.
+
+Evidence: `build/review/installed-canonical/proof-i1htf98c/` retains receipt,
+commands, disks, serial logs and allocation checks. The earlier passing run is
+`proof-ms2r7bd0`. `build/review/salvage-cli/` holds host/sanitizer/provenance logs,
+matched builds, `tested-build.json` and `independent-review.json`; a backup of
+receipts/logs/manifests is retained at
+`.local/filesystem-evidence/salvage-cli-da1e8d44/` outside build cleanup.
+Reproduce after `sh tools/macos/build.sh -j2 all`:
+
+```sh
+make HOST_CC='cc -arch x86_64' test-salvage-cli test-salvage
+OVMF_CODE=/opt/homebrew/share/qemu/edk2-x86_64-code.fd \
+  python3 tools/installed_root_smoke.py --canonical-paths --salvage-consumer \
+  --ovmf-vars /opt/homebrew/share/qemu/edk2-i386-vars.fd
+```
+
+Coordinated scope with PR317 and the installation owner. No kernel, process,
+driver or installer-policy edits were needed. All proof VMs stopped; primary
+checkout and review VMs 61610, 6233 and 85869 were preserved. This bounded command
+and disposable EFI/GPT proof are complete; application recovery UI, physical
+media, automatic repair and guest dirty-writeback fault injection remain separate.
+
+### PR328 merge review and next bounded milestone
+
+User authorized review/merge if ready. Actual main remains `59928ec9`. Review of
+the eight-file diff confirms strict descriptor parsing, helper-only source access,
+exclusive destination and explicit status/error reporting. The parent/child proof
+checks descriptor usability and shared offset after success/refusal, rejects a
+nonseekable inherited pipe and verifies persisted bytes on reordered boot.
+Revalidated the archived 11-case receipt checksum, all recovery disk-hash pairs
+and independent offline image inspection. Only documentation changed after the
+qualified `da1e8d44` build. CLI/helper host tests, CLI sanitizer and six provenance
+tests pass again; matched build hashes equal the qualified images, whitespace
+and 888 local links pass. No submitted correction or unresolved thread was present.
+
+PR317's owner confirms its bounded command-ring/removal cohort has no filesystem,
+libc or userspace changes and identifies no overlap blocker. This coordination
+is not claimed as independent full-diff approval. Review VMs remain live and
+untouched. New review evidence is under `build/review/salvage-cli/review-*`.
+
+Next proposed filesystem milestone: **installed-root dirty-source command salvage
+proof**. Start by selecting a test-only fault mechanism that targets just the
+disposable `/work` backend. A parent must retain a reader across an actual failed
+writeback and invoke the command with that inherited descriptor; verify error
+propagation/failed-workspace state, parent ownership/offset, durable healthy-volume
+copy and reboot readback. Include a destination failure that reports no successful
+salvage while the parent reader stays usable. Reuse the existing host contract and
+installed-root harness. Coordinate any necessary driver/process test seam with
+PR317 before editing; keep normal driver behavior unchanged. No physical media,
+automatic repair, forced unmount or recovery UI is implied. This is a proposal,
+not work begun by this merge review.
+
+## Userspace salvage helper — implemented and verified
+
+`srv_salvage_copy(source_fd, destination, result)` in `<srvros/salvage.h>` copies
+the complete seekable source into a newly and exclusively created 0600 file.
+It never closes the source. The caller must serialize access to that descriptor
+and its shared-offset duplicates. The helper records the current offset, rewinds,
+copies with bounded stack storage, then attempts to restore the offset on every
+exit after capture. Success requires destination fsync, close and restoration.
+If restoration itself fails, the helper reports failure and `restore_error`;
+it cannot guarantee a restored offset in that exceptional case.
+
+Short reads/writes and EINTR from open/read/write/seek/fsync are handled.
+A zero-byte write is an I/O error. Destination close is attempted once, including
+when it returns EINTR, because repeating an ambiguous close can hit a reused fd.
+The optional result preserves the first error/stage, separate close/restore errors,
+acknowledged bytes written and whether a destination descriptor was acquired.
+The helper never removes uncertain artifacts, retries failed storage, repairs a
+volume or changes source ownership. Even a fully written file is not acknowledged
+as successful when cleanup or restoration fails. Callers retain the source until
+verified success or an explicit discard decision.
+
+The helper is compiled into the userspace library automatically. `make test-salvage`
+runs focused tests for short I/O, interruption at each retryable boundary, empty
+source, nonseekable/rewind/open/read/write/zero-write/flush/close/restore failures,
+source ownership/position and primary plus secondary errors. Normal and
+ASan/UBSan executions pass. Source restoration is checked from a nonzero offset.
+
+The actual-source salvage fixture now invokes this implementation through POSIX
+adapters to real process file operations. Clean source `2a5889b0` passes all 49
+salvage cases normally and under ASan/UBSan, preserving the dirty reader through
+healthy-volume flush/close/remount verification and restoring offset 37 on every
+storage result. All 52 writeback cases, 134 existing cases and both negative
+controls pass with the new integration. Adapters do not qualify full libc syscall
+or usercopy behavior; controlled short/EINTR/restore errors are covered by the
+focused helper test instead.
+
+Coordinated with PR317's owner; no production process/kernel/driver edits were
+needed. Consumed main `4b5ddb7c` (installation recovery PR325); every recorded
+fault-suite source hash still matches. Matched build passes. An ordinary Q35/
+VirtIO desktop reaches its first application frame in 4.31 seconds; running state
+and screenshot are retained. This smoke checks the linked build, not guest salvage
+fault injection. The task VM (29735) was stopped through its own QMP socket;
+review VMs 61610, 6233 and 85869 and primary checkout were preserved.
+
+Evidence: `build/review/salvage-helper/` contains focused host/sanitizer logs,
+`final-normal/`, `final-sanitize/`, `writeback/`, `legacy/`, `import/`, `negative/`,
+build logs and `tested-build.json`. Desktop evidence is under
+`.local/macos-vm/salvage-helper/session-20261104T005425.521885Z/`.
+Receipts/logs/build manifest are backed up outside build cleanup at
+`.local/filesystem-evidence/salvage-helper-2a5889b0/`. Reproduction:
+
+```sh
+make HOST_CC='cc -arch x86_64' test-salvage
+CC='cc -arch x86_64' python3 tools/test_exfat_import.py --workspace-salvage --sanitize --output build/review/salvage-helper/sanitize
+```
+
+The bounded helper target is complete. Application integration, recovery UI,
+physical power-loss and automated retry/repair remain separate work.
+
+### PR327 integration review
+
+User authorized review, integration and merge if ready. Actual main remains
+`4b5ddb7c`; no conflict or overlapping production process/driver change is present.
+Revalidated every fault-suite source hash and all 49 normal + 49 sanitized salvage
+results, 52 writeback cases and 134 existing cases. Focused helper normal and
+ASan/UBSan checks and both negative controls pass again. Matched build reproduces
+the qualified images; whitespace and all 880 local documentation links pass.
+No submitted review correction or unresolved thread was present.
+
+Review confirms exclusive creation, caller-owned source lifetime, serialized
+shared-offset precondition, first-error preservation, secondary cleanup errors,
+one-shot close and restoration failure reporting. The source is never closed,
+and success is withheld for any flush, close or restore failure. The API does not
+promise source offset recovery when seek itself fails or automatic removal of
+uncertain destination artifacts. Existing exact-source host and desktop evidence
+remains applicable; no new VM is needed for this documentation-only review update.
+
+PR317's active audit concerns driver DMA/reset/repeated initialization; no libc
+salvage, content, close or workspace policy changes were planned. Coordination is
+not represented as independent full-diff approval. The bounded helper is ready
+for integration; application recovery/UI adoption remains separate optional work.
+Review logs are retained under `build/review/salvage-helper/review-*`.
+
+## Retained dirty-data salvage — verified
+
+User authorized this explicit salvage-copy proof on main `0cba30a1`.
+Coordinated with the PR317 audit owner, who confirmed no overlapping content,
+close or workspace edits and reiterated the held-description lifetime requirement.
+No production `process.c` change, new salvage API or recovery policy was needed.
+
+The fixture stages a 2,049-byte binary pattern through real process file writes,
+then faults `/work` writeback, latches managed workspace failure, and closes the
+writer with its expected I/O error. An existing reader retains the dirty content.
+The copy reads only that held description through actual process read/seek calls,
+using 127-byte chunks; it never reopens the failed source pathname. Destination
+`/home/salvage` is explicitly opened through namespace resolution with exclusive
+create, written through actual process file writes, flushed and closed through
+the real description-close handler. Transport and unrelated PTY/scheduler wake
+branches are host adapters; no full syscall/usercopy or guest fault claim is made.
+
+On success, the source reader remains held through destination fsync/close,
+healthy-volume unmount/remount and exact byte readback. Retiring `/fat` invalidates
+its aliases as designed; explicit activation restores the view after remount.
+`/home/salvage` and `/fat/home/salvage` then name the verified file. Only after all
+these checks does the fixture release the source reader, expecting its sticky
+close error. The failed workspace remains failed and refuses managed retirement.
+
+The baseline copy has 29 destination writes and 17 flushes. Fault injection at
+every boundary must report copy failure. Destination conflict and allocation
+refusal also fail with zero destination writes/flushes and unchanged destination
+image. After every failed attempt, the original reader is still held, dirty and
+failed; seek/read verifies every source byte again. The failed workspace disk
+and its transport counters remain unchanged throughout the attempt. An unrelated
+system anchor file stays readable and unchanged, and aliases keep their backing
+identity. A transport failure may leave an incomplete or even fully published
+destination artifact; it never constitutes acknowledged salvage success.
+
+Cleanup on a failed test attempt explicitly closes the source only after proving
+it remains usable. That is fixture teardown, not a recommended automatic error
+path. The proof does not promise source survival after last close; callers must
+keep the source reader alive until a verified copy or an explicit discard choice.
+
+Clean source `e86776ec` passes **49/49** cases normally and with ASan/UBSan:
+one durable-copy control, 46 transport faults, destination conflict and allocation
+refusal. The 52-case writeback matrix, one existing process writeback case and
+133 exFAT/namespace cases also pass with the extended adapters. Both existing
+negative controls still reject lost failure-latch and swallowed close-error
+variants. The initial missing PTY adapter link failure is retained as bring-up
+evidence; PTY callbacks now trap if reached in this regular-file-only proof.
+
+Reproduce after host tool preparation:
+
+```sh
+CC='cc -arch x86_64' python3 tools/test_exfat_import.py --workspace-salvage --output build/review/workspace-salvage/normal
+CC='cc -arch x86_64' python3 tools/test_exfat_import.py --workspace-salvage --sanitize --output build/review/workspace-salvage/sanitize
+```
+
+Evidence is in `build/review/workspace-salvage/`: `final-normal/`,
+`final-sanitize/`, `writeback/`, `negative/`, `legacy-process/`, `import/` and their
+logs. Receipts retain exact source hashes and compiler commands. Backups outside
+build cleanup are in `.local/filesystem-evidence/workspace-salvage-e86776ec/`.
+All three review VMs (61610, 6233, 85869) and the primary checkout remain untouched;
+this proof starts no VM. Physical media, USB admission, power loss, automated
+retry/repair and product recovery UI remain outside this host qualification.
+No further production implementation is required for the authorized proof.
+
+### PR323 merge review and next bounded milestone
+
+User authorized review/merge if ready. Main remains `0cba30a1`. Revalidated
+all receipt source hashes and 49 normal + 49 sanitized salvage results, 52
+writeback cases and 134 existing cases. Both negative controls pass again;
+matched build reproduces the qualified production image hashes, whitespace
+checks and all 877 local documentation links pass. No submitted correction or
+unresolved review thread was present. Review confirms no source-path reopen,
+exclusive destination creation and source lifetime through destination verification;
+failure teardown remains explicit and is not a success acknowledgment.
+
+Coordinated with PR317's owner: its current work concerns PMM/allocator scans and
+poisoning, with no writeback/content/workspace policy changes planned. This is
+scope coordination, not independent full-diff approval. PR323 changes only seven
+fixture/tool/documentation files and introduces no production runtime change.
+Review VMs remain live and untouched. Review logs are retained under
+`build/review/workspace-salvage/review-*`.
+
+Next proposed filesystem milestone: **descriptor-preserving userspace salvage
+helper**. Turn the proven sequence into a reusable helper taking a caller-owned,
+seekable source descriptor and an explicit exclusive destination. Handle short
+reads/writes and interruptions; flush/close the destination before acknowledging
+success, preserve source ownership and restore its offset on every result.
+Return clear failure information without automatically deleting uncertain
+artifacts. Verify with the same healthy-volume and injected-failure fixtures,
+including destination conflict and source usability after failure. Reuse existing
+file operations; no kernel recovery API, forced unmount, automatic repair or
+application-wide recovery UI is implied. This is the next proposal, not work
+begun by the merge review.
+
 ## Workspace writeback failure — qualified
 
 User authorized deterministic writeback-failure qualification on main `805519b2`.

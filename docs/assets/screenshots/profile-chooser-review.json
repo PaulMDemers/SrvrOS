@@ -1,0 +1,102 @@
+{
+  "schema": "org.srvros.profile-chooser-review.v1",
+  "status": "PASS",
+  "runtime_source": "115899c3832ad67d9cc41fdb52b7697cf03acc40",
+  "integrated_main": "1f17776150228c73557c59e4cd0df51be7409558",
+  "proof": "proof-yrfw5f6o",
+  "receipt_sha256": "3e524cfd4604c49da75729d49f2aa126ec74609eb4e6560cd2c9b75c99e8c94c",
+  "build_hashes": {
+    "build/initramfs.tar": "63f3f20fa774e7928559552315e10a896ce72b0e31f2eab59381a4059895a0f4",
+    "build/kernel/srvros.elf": "2e5c04f47bbcc72c2223ac8b60bff7f15210431b54d6b94aea432b38c9cbf68e",
+    "build/srvros.exfat": "e41239daec0c2d6dde16d33cdb85a0c2d5b23dc2aaa45a4f06240f2b7ad0455a"
+  },
+  "repositories": {
+    ".": {
+      "head": "115899c3832ad67d9cc41fdb52b7697cf03acc40",
+      "dirty": false
+    },
+    "ports": {
+      "head": "5e994f53fd34b65227a992e2d01751ce80b08cb6",
+      "dirty": false
+    },
+    "ports/upstream/awk": {
+      "head": "5739fd79bcfc75ba7526773d0cf634521f8aca3c",
+      "dirty": false
+    },
+    "ports/upstream/cjson": {
+      "head": "c859b25da02955fef659d658b8f324b5cde87be3",
+      "dirty": false
+    },
+    "ports/upstream/inih": {
+      "head": "26254ee9de7681f8825433415443e7116ff24b98",
+      "dirty": false
+    },
+    "ports/upstream/libuv": {
+      "head": "1cfa32ff59c076ffb6ed735bbc8c18361558661f",
+      "dirty": false
+    },
+    "ports/upstream/linenoise": {
+      "head": "dc83cc373ac2058030eb3cf5e404959a26fef112",
+      "dirty": false
+    },
+    "ports/upstream/lua": {
+      "head": "6e22fedb74cf0c9b6656e9fce8b7331db847c605",
+      "dirty": false
+    },
+    "ports/upstream/node": {
+      "head": "c7d10158bc31036de6783d66beaaaf551e3167aa",
+      "dirty": false
+    },
+    "ports/upstream/zlib": {
+      "head": "da607da739fa6047df13e66a2af6b8bec7c2a498",
+      "dirty": false
+    },
+    "userspace/apps": {
+      "head": "3cf32af2294eebe9d8b9aeb8bc1dcbe46feb2967",
+      "dirty": false
+    },
+    "userspace/widgets": {
+      "head": "9eaaa74e1423c15c99f8ce388b08ed5e514de3d6",
+      "dirty": false
+    }
+  },
+  "vm_lifetimes": 14,
+  "serial_sha256": {
+    "serial-a-choose.log": "f7a256962fd43a7430c5ee27724233fd90def1d598e3bd5cd0a0caaae82f7de2",
+    "serial-a-corrupt-choice.log": "2ff811c588e1ef465d6e3cbdec76325246ed3de3bc79165f2f6c9bbb5dc8d899",
+    "serial-a-explicit.log": "3db579eee9624e8be31e96d90553e3fe566ac3161da5603eb292ac2d072af2f2",
+    "serial-a-export.log": "4ab2935e666f5d08356ba2e2fa1aaf889ce47a81f0f5ab76951300dfdd7786e3",
+    "serial-a-malformed-small.log": "ab8b1373a247029d5dc080e07461102ee34225a8c98971bc76c19f5a3f2143c8",
+    "serial-a-missing.log": "9d04efde4fc7f374cc5769d87df6f4b76bf89a70ae6beac12ff644f16ddfd69a",
+    "serial-a-reselect.log": "86e7e6230484b5662380b7589c59f03059a22ea6c6677ea470aa9b0eb360d20c",
+    "serial-a-restored.log": "c7bb12b20ced75b1e50cd7c7286a5983d767d2a3daf0e8fe1e07ff13d50158a5",
+    "serial-a-stale.log": "2959843c25914ea8e03b013e3d35e1f8b3689360a7153274d27f8bc4ed1b0f1c",
+    "serial-b-blocked.log": "0bd7ad61f4fa747e725f39157a4ae1d806f89bf23073df3a2d91d4b46ab9e47e",
+    "serial-b-corrupt.log": "63918799e35c6fb80c51e4b38bba64f80ae5be4d5d90709566ff5fefc96f533e",
+    "serial-b-interrupt.log": "9ba47125f615133c20b86888b81bc397ce0f4cac4a8b5fb9b1afd40358386736",
+    "serial-b-recover.log": "28886e5a3ecd9292c1eaa49ebd28a6e860ff69558044fb7480297a1af6154d32",
+    "serial-b-restored.log": "f6ed3531c808d848b5e6be54590b43c650c94770ea36713f95dcd65498db92e2"
+  },
+  "blocked_comparison": {
+    "after_sha256": "6167391019dfc58a460a0fcc02910a0f6255832b604b9f795ee227fba12cbc59",
+    "atime_advanced": 6,
+    "before_sha256": "5993043391901dbd923ac71c04632392d72842c738bf84b930876f2aa82965a9",
+    "metadata_rows": 396,
+    "namespace_entries": 397,
+    "service_log_lines_appended": 4
+  },
+  "checks": {
+    "host": "chooser, guest CLI, profile/session/preferences, desktop and salvage PASS",
+    "installation": "29 preparation/profile/recovery tests PASS",
+    "sanitizers": "16 guest CLI groups and production catalog PASS ASan/UBSan; vendored cJSON deprecation warnings remain visible, first-party warnings remain errors",
+    "build": "full matched build PASS",
+    "visual": "640x480 chooser and recovery screenshots inspected"
+  },
+  "findings": "No unresolved blocker within the documented profile/recovery scope. Main PR327 Makefile conflict preserves both test targets. No guest runtime fix was needed.",
+  "limits": [
+    "disposable QEMU images only",
+    "no authentication or access-control claim",
+    "no physical disk or power-loss acceptance",
+    "external fsck.exfat not run"
+  ]
+}

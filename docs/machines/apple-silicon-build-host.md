@@ -1,5 +1,99 @@
 # Apple Silicon macOS build host
 
+## PR326 merge review — complete
+
+User authorized review, fixes and merge after passing checks. Review the chooser,
+remembered selection and read-only recovery preflight, integrating main `1f177761`
+(PR327's salvage helper) after starting from `4b5ddb7c`,
+preserving guest import ownership, filesystem policy, authentication and
+permission enforcement as separate concerns. The branch is conflict-free and
+has no existing review findings. Review found no blocker within the documented
+transaction/selection scope; preserve both test targets in the Makefile merge
+conflict. Fresh host checks, 29 installation tests, ASan/UBSan CLI/catalog checks
+and the full matched build pass. Because the rebuilt kernel/bootstrap differ
+from the earlier proof, clean `115899c3` passes a fresh complete 14-lifetime VM
+proof, with small-screen and recovery screenshots inspected. Exact receipt and
+scope are in [portable profiles](../portable-profiles.md#pr326-merge-review).
+Evidence/artifacts are verified outside build cleanup at
+`.local/profile-326-review/proof-yrfw5f6o/`. Ready for authorized merge.
+A bounded additional Escape/Enter guest probe passed without
+starting a selection write or recovery. Only disposable copies were touched.
+Use isolated `SrvrOS-profile-326-review` because separate proof-storage work is
+active in `SrvrOS-profiles`; preserve its uncommitted files. Primary checkout and
+review VMs remain untouched, with no Actions or physical trial requested.
+
+## Desktop profile chooser — proof complete
+
+User authorized the desktop chooser, installation-local remembered selection
+and recovery status with two disposable VM installations. Isolated checkout
+`SrvrOS-profiles`, branch `device/apple-silicon/profile-chooser`, consumes merged
+main `4f5edb0e`, Apps `3cf32af2`, UI `9eaaa74e` and Ports `5e994f53`. Own startup
+chooser/catalog, local choice persistence, shared read-only guest recovery
+preflight, host tests and the new proof harness. Existing import ownership,
+filesystem writeback/salvage policy, authentication and permission enforcement
+remain separate. Installation publication recovery PR325 is independently owned.
+
+Clean implementation `3f9c225a` passes the full matched build, focused host checks
+and 14 VM lifetimes covering independent remembered choices, guest migration,
+640 × 480 interaction, interrupted import recovery and blocked-state preservation.
+Prior unchanged code also passes the desktop host suite and ASan/UBSan. The
+legacy installed desktop and installation-profile regressions pass. Exact source,
+receipt, screenshots, limits and reproduction are in
+[portable profiles](../portable-profiles.md#desktop-chooser-milestone--complete-for-review).
+Evidence and matched artifacts are byte-verified outside build cleanup at
+`.local/profile-chooser-evidence/proof-3zcf8_ih/`; earlier failed proof attempts
+remain retained. Final acceptance changes only documentation/screenshots.
+
+All task VMs are stopped. Review VMs 61610, 6233 and 85869 remain running and
+untouched, with the primary checkout preserved. No physical media, reboot,
+Actions or merge requested. Delivery is a scoped draft PR for review.
+
+Published as [PR326](https://github.com/PaulMDemers/SrvrOS/pull/326). Main
+`4b5ddb7c` (PR325) is now integrated, preserving both unit-record sections.
+Guest runtime trees and all recorded build payload hashes are identical to the
+accepted chooser proof; its source attribution stays unchanged. Fresh combined
+29 installation and chooser/profile host checks pass. The portable-profile
+integration receipt records exact source/hash equivalence and host-tool changes.
+
+## PR325 merge review
+
+User authorized review and merge if ready. Candidate `8b4619b6` integrates main
+`4f5edb0e` and PR323's host-only salvage qualification. Independent review finds
+no blocker in the bounded recovery contract. Fresh 35 installation tests and
+profile/session/bundle/adapter checks pass. The accepted sequential full build
+and unchanged tools reproduce all original proof input hashes, preserving the
+nine-interruption/sixteen-refusal/two-restart/two-boot evidence without another
+VM. Review receipt/logs survive at `.local/installation-evidence/pr325-review`;
+see the installation guide for the portable receipt and equivalence details.
+Review PIDs 61610, 6233 and 85869 remain live and untouched; primary checkout
+preserved. Ready for authorized merge. Next proposal is bounded host publication
+I/O-failure qualification, retaining filesystem/profile refusal contracts.
+
+## Interrupted publication recovery — proof complete
+
+User authorized a scoped inspect/reconcile PR and interruption/refusal proof in
+`SrvrOS-installation`, branch `device/apple-silicon/install-publication-recovery`.
+Base main `0cba30a1` includes PR321 and the inspected test-only PR322 failure
+qualification. Profile guest PR320's pending-import/unknown-state rules remain
+separate. Own installation publication API/CLI/tests and a new proof; no guest,
+kernel, filesystem or profile policy edits. Reconcile only previously verified
+unbooted output; uncertain state is preserved. Process-restart boundaries are
+qualified, not power cuts or transport-failure repair.
+
+Preserve VMs 61610, 6233 and 85869 and accepted evidence. Run one build/harness
+at a time. No physical media, reboot or Actions. Current acceptance and exact
+evidence are recorded in `docs/disk-installation.md`.
+
+Clean `291f469e` passes the matched full build, eight recovery host groups plus
+existing installation/profile regressions, and nine actual apply-interruption
+boundaries. Three early states refuse untouched; six verified states reconcile
+without candidate-byte changes. Two reconciliation interruptions restart safely;
+16 corruption/refusal cases preserve state. A reconciled profile image passes
+edit/save and reboot/readback; subsequent guest writes cause reconciliation to
+refuse while retaining its ready receipt. Verified raw evidence and artifacts:
+`.local/installation-evidence/recovery-d86be75i`. Task VMs stopped; original
+review PIDs remain live. Delivery is a scoped draft PR; no merge requested.
+
 ## PR321 merge review
 
 Final candidate `d0910498` consumes newer main `a8e1fca1` and PR320's guest import

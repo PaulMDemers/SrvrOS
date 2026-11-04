@@ -1933,7 +1933,13 @@ static int64_t syscall_fsync(uint64_t fd) {
     if(file->type!=PROCESS_FILE_VFS && file->type!=PROCESS_FILE_VFS_WRITE) return SRV_ERR_INVAL;
     int64_t result=process_file_flush(process_current(),fd);
     if(result<0) return result==-1?SRV_ERR_IO:result;
-    return block_flush_all()?0:SRV_ERR_IO;
+    /* File writeback is synchronous: exFAT success includes data, metadata and
+     * clean-marker barriers on its backing volume. Clean descriptions have no
+     * deferred writeback, and unlinked RAM contents have no remaining disk file.
+     * An unrelated offline disk must not veto this file's acknowledgment.
+     * Keep system-wide barriers in SYS_SYNC; any future deferred backend needs
+     * an explicit file-scoped durability contract here. */
+    return 0;
 }
 
 static int64_t syscall_console_info(struct syscall_console_info *info) {

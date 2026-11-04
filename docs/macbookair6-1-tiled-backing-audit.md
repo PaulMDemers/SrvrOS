@@ -125,3 +125,67 @@ all address/cache bits, Gen8-width refusal, partial/overlapping/ambiguous fences
 and unsupported layout. They neither implement the hardware adapter nor verify
 mapping ownership, new integration's native behavior, RC6 timing or package C3.
 No new physical run is prepared or armed by this source audit.
+
+## Isolated Haswell pilot implementation
+
+The first native adapter is now implemented in the existing Air6,1 isolated AP
+ELF, independently of PR301's still-open Broadwell driver/lifetime work. This
+uses the same bounded endpoint/map/unmap/read/clock contract, without changing
+that driver's gates or introducing a generic display backend. Future common
+factoring follows the integrated shared interface. No parent PR is silently
+merged or copied into this device branch.
+
+Stage `--haswell-backing-capture --laptop-probe-volume UUID` after a matched
+ordinary/AP build. This separate profile uses `srvros.capture=haswell-backing`,
+a RAM boot filesystem and the existing saved-result/clean-unmount/Ubuntu-return
+flow. The ordinary Intel stub is skipped for this explicit read-only profile;
+existing D0/decode is required. No AML, battery, audio, CPU-policy or desktop
+startup is enabled. The diagnostic ELF is required; an ordinary image refuses.
+
+The exact Haswell GPU/class-revision/subsystem, host/PCH, D0/command and captured
+4 MiB BAR shape are checked before dependent reads. The firmware profile and
+full MMIO-range exclusion must pass before binding existing read-only resource
+pages. One new kernel-space-only supervisor/RO/NX/cache-disabled window is
+excluded from the global mapping registry. Its address must be unoccupied;
+only documented lower-fence and derived GGTT pages are admitted. Every page
+switch retires the prior mapping, and final retirement verifies physical
+identity and absence. Any uncertain mapping/retirement poisons reuse until reset.
+Existing diagnostic resource pages remain retained until reset as before.
+
+Each of two finite passes preserves raw host/GPU GGC and data/table/top bounds,
+PCI identity/access, descriptor/pages/firmware coverage, the nine primary-A
+controls, four well words and display-arbitration swizzle control. All fields
+must match the endpoint recheck and the second pass. Only FENCE0–15 are admitted
+from the documented Haswell range, with high/low/high reads and a second full
+fence check after the PTE vector. The complete derived **DWORD** PTE vector is
+read and retained for both passes, with per-word comparison, present/stolen
+candidate counts and a recomputed little-endian FNV identity. PTE bit 11 stays
+cache control. A candidate stolen interval is not an allocator pin; missing
+firmware reservation remains explicit.
+
+A 1,536-entry cap and independent 100 ms pass/gap bounds apply to this new
+readout. Clock rollback/freeze, changed endpoints/PTEs, partial reads or failed
+retirement refuse. Finite iterations do not depend on a ticking clock to finish.
+The existing 20 ms C3-round bound, 32 attempts, fallback, sample capacities and
+all integrity checks remain unchanged. This separate test does not rerun or
+accept the original RC6/package-C3 trial.
+
+Records use a strict `hsw-backing: v=1` summary and two metadata/vector pairs.
+Metadata is a canonical base64 encoding of 568 little-endian bytes:
+`<50Q16Q3Q4I` (50 endpoint words in the header's field order, 16 raw fences,
+begin/end/hash, then window-read/count/present/stolen counters). Each vector
+contains exactly its reported count of little-endian 32-bit raw entries. The
+host requires complete vectors, byte-for-byte pass agreement, exact hashes and
+counts, endpoints, clock bounds, clean window retirement and completion. Missing,
+duplicate, truncated, noncanonical and false-authority records refuse.
+
+The 64 KiB tail is unchanged. The dedicated profile keeps CPU power disabled,
+so no unbounded worker activity report follows its receipt. Source-derived
+maximum I/O-owner/gate/cost/device/save reports are checked against a 32 KiB
+post-receipt allowance. A maximum-vector replay reserves that allowance plus
+128 KiB pre-final chatter and preserves every raw record. This model is
+synthetic; only the matching native saved file can accept the observation.
+
+Both the record and decoder preserve `upper=unknown`, `swizzle=partial` and
+`ownership=0`. No full fence uniqueness, complete CPU-view equivalence, firmware
+exclusion, GGTT allocation, scanout ownership or well/HDA transition is inferred.

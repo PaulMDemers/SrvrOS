@@ -89,7 +89,7 @@ def data_image(disk, offset, size):
 
 def boot(disk, out, number, args, negative=False, *, other_disk=None,
          reverse=False, expected_device='ahci0p2', require_identity=False,
-         recovery_reason=None, canonical_paths=False, workspace_lifecycle=False):
+         recovery_reason=None, canonical_paths=False, workspace_lifecycle=False, salvage_consumer=False, dirty_salvage=False, work_fault_config=None):
     output = bytearray()
     consumed = 0
     serial = qmp = None
@@ -99,9 +99,22 @@ def boot(disk, out, number, args, negative=False, *, other_disk=None,
         variables = out / f'firmware-vars-{number}.fd'
         shutil.copyfile(args.ovmf_vars, variables)
         storage = [disk] if other_disk is None else ([other_disk, disk] if reverse else [disk, other_disk])
+        if work_fault_config is not None:
+            work_fault_config=Path(work_fault_config).resolve()
+            if not dirty_salvage or number!=1 or other_disk is None or work_fault_config.parent!=out.resolve():
+                raise RuntimeError('Fault filter requires first dirty-salvage boot and owned config')
+            if Path(other_disk).resolve()==Path(disk).resolve() or not Path(disk).resolve().is_relative_to(out.resolve()):
+                raise RuntimeError('Fault target must be distinct from owned boot disk')
+            if Path(other_disk).resolve().is_relative_to(out.resolve()) is False:
+                raise RuntimeError('Fault target must be fixture-owned work image')
         drives = ['-device', 'ich9-ahci,id=ahci']
         for index, path in enumerate(storage):
-            drives += ['-drive', f'if=none,id=disk{index},format=raw,file={path}',
+            image = str(path)
+            policy=''
+            if work_fault_config is not None and path==other_disk:
+                image=f'blkdebug:{work_fault_config}:{path}'
+                policy=',werror=report,rerror=report'
+            drives += ['-drive', f'if=none,id=disk{index},format=raw,file={image}{policy}',
                        '-device', f'ide-hd,drive=disk{index},bus=ahci.{index},bootindex={1 if path == disk else 2}']
         command = [args.qemu, '-machine', 'q35,i8042=off', '-accel', 'tcg',
                    '-m', '1024M', '-smp', '1', '-nic', 'none',
@@ -201,7 +214,34 @@ def boot(disk, out, number, args, negative=False, *, other_disk=None,
                     raise RuntimeError('Installed GPT partition is not the sole /fat backing')
                 if require_identity and f'installed-root: selected device={expected_device} format=exfat-v1 role=system'.encode() not in output:
                     raise RuntimeError('Missing explicit installed-root selection proof')
-                home_path = '/home' if canonical_paths else '/fat/home'
+                home_path = '/home' if canonical_paths or dirty_salvage else '/fat/home'
+                if dirty_salvage:
+                    if other_disk is None or (number==1)!=(work_fault_config is not None):
+                        raise RuntimeError('Dirty proof requires isolated work filter only on first boot')
+                    if b'namespace: /bin /usr /var /home active' not in output:
+                        raise RuntimeError('Missing active namespace')
+                    work_device='ahci0p2' if reverse else 'ahci1p2'
+                    serial.sendall(f'mount {work_device} /work\n'.encode())
+                    wait(f'{work_device} on /work type=exfat'.encode());wait(b'srv> ')
+                    serial.sendall(f'run /bin/sysabi --dirty-salvage-{"save" if number==1 else "reopen"}\n'.encode())
+                    wait(f'dirty-salvage: {"save" if number==1 else "reopen"} PASS'.encode(),120);wait(b'srv> ')
+                    if number==1 and b'dirty-salvage: source fsync EIO' not in output:
+                        raise RuntimeError('Missing explicit source failure')
+                    serial.sendall(b'unmount /work\n');wait(b'exfat: unmounted /work');wait(b'srv> ')
+                    serial.sendall(b'fsck /fat\n');wait(b'exfat-check:');wait(b'srv> ')
+                    if not re.search(rb'exfat-check: mounts=1 files=\d+ clusters=\d+ leaks=0 fat=0 errors=0 ok',output):
+                        raise RuntimeError('Healthy filesystem check failed')
+                    serial.sendall(b'reboot\n')
+                    if number==1:
+                        # Do not weaken the global failed-device reboot guard.
+                        # Healthy-file durability was acknowledged independently;
+                        # stop this owned VM and verify in a fresh EFI process.
+                        wait(b'reboot: storage flush failed');wait(b'srv> ')
+                        save_json(out/'restart-1.json',{'guest_reboot':'refused-storage-flush','method':'owned VM cold restart after healthy file acknowledgment'})
+                        qmp.call('quit')
+                    vm.wait(timeout=30)
+                    if vm.returncode!=0: raise RuntimeError('Dirty proof VM failed to exit')
+                    return
                 if canonical_paths:
                     if other_disk is None or number not in (1, 2):
                         raise RuntimeError('Canonical proof requires two disks and two numbered boots')
@@ -245,6 +285,9 @@ def boot(disk, out, number, args, negative=False, *, other_disk=None,
                     phase = 'save' if number == 1 else 'reopen'
                     command(f'/usr/bin/sysabi --namespace-{phase}',
                             f'namespace-persistence: {phase} PASS'.encode(), prompt=b' $ ')
+                    if salvage_consumer:
+                        command(f'/bin/sysabi --salvage-cli-{phase}',
+                                f'salvage-consumer: {phase} PASS'.encode(), prompt=b' $ ')
                     command('sync && echo namespace-sync-ok', b'\r\nnamespace-sync-ok\r\n', prompt=b' $ ')
                     serial.sendall(b'exit\n'); wait(b'srv> ')
                 if number == 2:

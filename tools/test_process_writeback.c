@@ -1,3 +1,4 @@
+#define _POSIX_C_SOURCE 200809L
 /* Link real process content writeback to the import fixture's real exFAT/VFS.
  * The fixture owns teardown admission; this bridge exercises retained content. */
 #include <assert.h>
@@ -91,3 +92,5 @@ void test_workspace_exercise(struct block_device *device,bool close_first,bool f
         assert(read_file_close(1)==0 && workspace_unmount() && !active && test_disables==1);
     }
 }
+
+#include "test_process_salvage.inc"
