@@ -28,9 +28,9 @@ struct scanout_lifetime {
     uint32_t state,phase,front,copy,ready,target,released,fault;
 };
 bool scanout_open(struct scanout_lifetime *,struct scanout_pool *,const struct scanout_profile *,uint64_t owner,uint64_t now);
-bool scanout_copy_begin(struct scanout_lifetime *,uint64_t owner,struct scanout_token *);
+bool scanout_copy_begin(struct scanout_lifetime *,uint64_t owner,uint64_t epoch,struct scanout_token *);
 bool scanout_copy_end(struct scanout_lifetime *,const struct scanout_token *,bool success);
-bool scanout_request(struct scanout_lifetime *,uint64_t owner,uint64_t now,struct scanout_token *);
+bool scanout_request(struct scanout_lifetime *,uint64_t owner,uint64_t epoch,uint64_t now,struct scanout_token *);
 /* Call after publication: REJECTED is legal only with proof of zero writes.
  * Once a write may have occurred use UNCERTAIN, retaining every owned buffer. */
 bool scanout_issued(struct scanout_lifetime *,const struct scanout_token *,enum scanout_issue,uint64_t now);
@@ -38,9 +38,9 @@ bool scanout_issued(struct scanout_lifetime *,const struct scanout_token *,enum 
  * audited adapter may form a hardware completion after retirement is proven. */
 bool scanout_complete(struct scanout_lifetime *,const struct scanout_token *,uint32_t observed_target,uint32_t mode,uint64_t now);
 bool scanout_close(struct scanout_lifetime *,uint64_t owner,uint64_t epoch);
-bool scanout_tick(struct scanout_lifetime *,uint64_t now);
-bool scanout_poison(struct scanout_lifetime *,uint32_t reason);
+bool scanout_tick(struct scanout_lifetime *,uint64_t epoch,uint64_t now);
+bool scanout_poison(struct scanout_lifetime *,uint64_t epoch,uint32_t reason);
 /* Claims each RAM release exactly once. Never releases the borrowed target0. */
-bool scanout_take_release(struct scanout_lifetime *,unsigned target,uint64_t *physical);
+bool scanout_take_release(struct scanout_lifetime *,uint64_t epoch,unsigned target,uint64_t *physical);
 bool scanout_invariant(const struct scanout_lifetime *);
 #endif

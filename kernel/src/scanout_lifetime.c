@@ -41,22 +41,22 @@ bool scanout_open(struct scanout_lifetime *o,struct scanout_pool *pool,const str
         .front=0,.copy=SCANOUT_NONE,.ready=SCANOUT_NONE,.target=SCANOUT_NONE,.last_us=now};
     return true;
 }
-bool scanout_poison(struct scanout_lifetime *o,uint32_t reason) {
-    if(!scanout_invariant(o) || !reason || !live(o))return false;
+bool scanout_poison(struct scanout_lifetime *o,uint64_t epoch,uint32_t reason) {
+    if(!scanout_invariant(o) || !reason || epoch!=o->epoch || !live(o))return false;
     o->fault|=reason;o->state=SCANOUT_FAULT;return true;
 }
-bool scanout_tick(struct scanout_lifetime *o,uint64_t now) {
-    if(!scanout_invariant(o) || !live(o))return false;
-    if(now<o->last_us){(void)scanout_poison(o,SCANOUT_CLOCK);return false;}
+bool scanout_tick(struct scanout_lifetime *o,uint64_t epoch,uint64_t now) {
+    if(!scanout_invariant(o) || epoch!=o->epoch || !live(o))return false;
+    if(now<o->last_us){(void)scanout_poison(o,o->epoch,SCANOUT_CLOCK);return false;}
     o->last_us=now;
-    if(o->phase && now>=o->deadline_us){(void)scanout_poison(o,SCANOUT_TIMEOUT);return false;}
+    if(o->phase && now>=o->deadline_us){(void)scanout_poison(o,o->epoch,SCANOUT_TIMEOUT);return false;}
     return true;
 }
 static bool token(const struct scanout_lifetime *o,const struct scanout_token *t,uint64_t serial,unsigned target) {
     return t && t->object==o && t->epoch==o->epoch && t->serial && t->serial==serial && t->target==target && t->mode==o->profile.mode;
 }
-bool scanout_copy_begin(struct scanout_lifetime *o,uint64_t owner,struct scanout_token *t) {
-    if(!scanout_invariant(o) || o->state!=SCANOUT_ACTIVE || owner!=o->owner || !t || o->phase ||
+bool scanout_copy_begin(struct scanout_lifetime *o,uint64_t owner,uint64_t epoch,struct scanout_token *t) {
+    if(!scanout_invariant(o) || o->state!=SCANOUT_ACTIVE || owner!=o->owner || epoch!=o->epoch || !t || o->phase ||
        o->copy!=SCANOUT_NONE || o->ready!=SCANOUT_NONE || o->serial==UINT64_MAX)return false;
     o->copy=o->front==1?2:1;o->copy_serial=++o->serial;
     *t=(struct scanout_token){o,o->epoch,o->copy_serial,o->copy,o->profile.mode};return true;
@@ -67,8 +67,8 @@ bool scanout_copy_end(struct scanout_lifetime *o,const struct scanout_token *t,b
     if(success && o->state==SCANOUT_ACTIVE)o->ready=target;
     retire(o);return true;
 }
-bool scanout_request(struct scanout_lifetime *o,uint64_t owner,uint64_t now,struct scanout_token *t) {
-    if(!t || !scanout_invariant(o) || !live(o) || owner!=o->owner || !scanout_tick(o,now) || o->phase || o->copy!=SCANOUT_NONE || o->serial==UINT64_MAX ||
+bool scanout_request(struct scanout_lifetime *o,uint64_t owner,uint64_t epoch,uint64_t now,struct scanout_token *t) {
+    if(!t || !scanout_invariant(o) || !live(o) || owner!=o->owner || epoch!=o->epoch || !scanout_tick(o,o->epoch,now) || o->phase || o->copy!=SCANOUT_NONE || o->serial==UINT64_MAX ||
        now>UINT64_MAX-SCANOUT_DEADLINE_US)return false;
     unsigned target=o->state==SCANOUT_CLOSING?0:o->ready;
     if(target==SCANOUT_NONE || target==o->front)return false;
@@ -76,21 +76,21 @@ bool scanout_request(struct scanout_lifetime *o,uint64_t owner,uint64_t now,stru
     *t=(struct scanout_token){o,o->epoch,o->request_serial,target,o->profile.mode};return true;
 }
 bool scanout_issued(struct scanout_lifetime *o,const struct scanout_token *t,enum scanout_issue result,uint64_t now) {
-    if(!scanout_invariant(o) || !live(o) || o->phase!=SCANOUT_SUBMITTING || !token(o,t,o->request_serial,o->target) || !scanout_tick(o,now))return false;
-    if(result==SCANOUT_UNCERTAIN || (unsigned)result>SCANOUT_UNCERTAIN){(void)scanout_poison(o,SCANOUT_PUBLICATION);return false;}
+    if(!scanout_invariant(o) || !live(o) || o->phase!=SCANOUT_SUBMITTING || !token(o,t,o->request_serial,o->target) || !scanout_tick(o,o->epoch,now))return false;
+    if(result==SCANOUT_UNCERTAIN || (unsigned)result>SCANOUT_UNCERTAIN){(void)scanout_poison(o,o->epoch,SCANOUT_PUBLICATION);return false;}
     if(result==SCANOUT_REJECTED) {o->phase=SCANOUT_NO_REQUEST;o->target=SCANOUT_NONE;retire(o);return true;}
     o->phase=SCANOUT_PENDING;o->ready=SCANOUT_NONE;return true;
 }
 bool scanout_complete(struct scanout_lifetime *o,const struct scanout_token *t,uint32_t observed,uint32_t mode,uint64_t now) {
     if(!scanout_invariant(o) || !live(o) || o->phase!=SCANOUT_PENDING || !token(o,t,o->request_serial,o->target) ||
-       observed!=o->target || mode!=o->profile.mode || !scanout_tick(o,now))return false;
+       observed!=o->target || mode!=o->profile.mode || !scanout_tick(o,o->epoch,now))return false;
     o->front=o->target;o->phase=SCANOUT_NO_REQUEST;o->target=SCANOUT_NONE;retire(o);return true;
 }
 bool scanout_close(struct scanout_lifetime *o,uint64_t owner,uint64_t epoch) {
     if(!scanout_invariant(o) || !live(o) || owner!=o->owner || epoch!=o->epoch)return false;
     o->state=SCANOUT_CLOSING;retire(o);return true;
 }
-bool scanout_take_release(struct scanout_lifetime *o,unsigned target,uint64_t *physical) {
-    if(!physical || !scanout_invariant(o) || o->state!=SCANOUT_RETIRED || target<1 || target>2 || (o->released&(1u<<(target-1))))return false;
+bool scanout_take_release(struct scanout_lifetime *o,uint64_t epoch,unsigned target,uint64_t *physical) {
+    if(!physical || !scanout_invariant(o) || o->state!=SCANOUT_RETIRED || epoch!=o->epoch || target<1 || target>2 || (o->released&(1u<<(target-1))))return false;
     *physical=o->profile.physical[target];o->released|=1u<<(target-1);return true;
 }

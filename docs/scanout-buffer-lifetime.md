@@ -10,7 +10,10 @@ and [presentation contract](display-presentation.md) alongside this document.
 
 One lifetime borrows inherited target0 and owns two disjoint page-aligned RAM
 allocations, targets1/2. A non-reset boot pool assigns monotonically increasing
-epochs. Tokens bind object, epoch, operation serial, target and publication kind.
+epochs. Tokens bind object, epoch, operation serial, target and publication kind. Every
+mutable entry, including queued starts, clock/guard faults and RAM release,
+authenticates the caller's epoch before changing state. Reusing a PID cannot
+refresh a stale queued job's authority.
 A reopened object requires both previous releases and a newer epoch; stale,
 foreign and duplicate tokens cannot complete work or release RAM. Every public
 transition checks the state invariant. The caller serializes access; this is

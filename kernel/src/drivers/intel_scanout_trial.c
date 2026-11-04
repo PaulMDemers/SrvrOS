@@ -18,7 +18,7 @@ static bool observe(struct trial *t,struct intel_scanout_clock *c) {
     c->us=clock_us();c->frame=(uint32_t)(c->us/2000);c->line=0;return true;
 }
 static bool copy_frame(struct trial *t,struct scanout_lifetime *o,unsigned marker,bool cancel) {
-    struct scanout_token token;if(!scanout_copy_begin(o,o->owner,&token))return false;
+    struct scanout_token token;if(!scanout_copy_begin(o,o->owner,o->epoch,&token))return false;
     uint32_t *p=pmm_phys_to_virt(o->profile.physical[token.target]);
     uint64_t words=o->profile.bytes/4;
     for(uint64_t i=0;i<words;i++) {
@@ -31,17 +31,17 @@ static bool copy_frame(struct trial *t,struct scanout_lifetime *o,unsigned marke
     return scanout_copy_end(o,&token,true);
 }
 static bool submit(struct trial *t,struct scanout_lifetime *o,struct scanout_token *token) {
-    if(!scanout_request(o,o->owner,clock_us(),token))return false;
+    if(!scanout_request(o,o->owner,o->epoch,clock_us(),token))return false;
     t->stats.requests++;
     /* This adapter has no MMIO writer. These are logical publications only. */
     return scanout_issued(o,token,SCANOUT_ISSUED,clock_us());
 }
 static bool wait_shadow(struct trial *t,struct scanout_lifetime *o,const struct scanout_token *token) {
     struct intel_scanout_clock first,current;
-    if(!observe(t,&first)){(void)scanout_poison(o,SCANOUT_CHANGED);return false;}
+    if(!observe(t,&first)){(void)scanout_poison(o,token->epoch,SCANOUT_CHANGED);return false;}
     for(unsigned spin=0;spin<(t->fixture?100000u:2048u);spin++) {
-        if(!observe(t,&current)){(void)scanout_poison(o,SCANOUT_CHANGED);return false;}
-        if(!scanout_tick(o,current.us))return false;
+        if(!observe(t,&current)){(void)scanout_poison(o,token->epoch,SCANOUT_CHANGED);return false;}
+        if(!scanout_tick(o,token->epoch,current.us))return false;
         uint32_t delta=current.frame-first.frame;
         if(delta && delta<=8 && current.us>first.us) {
             uint64_t elapsed=current.us-first.us;if(elapsed>t->stats.max_wait_us)t->stats.max_wait_us=elapsed;
@@ -54,14 +54,14 @@ static bool wait_shadow(struct trial *t,struct scanout_lifetime *o,const struct 
         }
         service_window_checkpoint(&t->window);
     }
-    (void)scanout_poison(o,SCANOUT_TIMEOUT);return false;
+    (void)scanout_poison(o,token->epoch,SCANOUT_TIMEOUT);return false;
 }
 static bool release_ram(struct trial *t,struct scanout_lifetime *o,uint64_t frames) {
     for(unsigned target=1;target<3;target++) {
         uint64_t physical;
-        if(!scanout_take_release(o,target,&physical))return false;
+        if(!scanout_take_release(o,o->epoch,target,&physical))return false;
         pmm_free_frame_range(physical,frames);t->stats.released+=frames;
-        if(scanout_take_release(o,target,&physical))return false;
+        if(scanout_take_release(o,o->epoch,target,&physical))return false;
     }
     return true;
 }
@@ -99,19 +99,19 @@ static bool run_case(struct trial *t,unsigned n,const struct scanout_profile *ba
     else if(n==3 || n==4) {
         if(n==4 && !(copy_frame(t,o,0x11223344,false) && submit(t,o,&token) && wait_shadow(t,o,&token)))goto done;
         if(!copy_frame(t,o,0x55667788,false) || !submit(t,o,&token) || !scanout_close(o,o->owner,o->epoch))goto done;
-        uint64_t physical;if(scanout_take_release(o,token.target,&physical))goto done;
+        uint64_t physical;if(scanout_take_release(o,o->epoch,token.target,&physical))goto done;
         ok=wait_shadow(t,o,&token) && finish(t,o,frames);
     } else {
-        if(!copy_frame(t,o,0x66778899,false) || !scanout_request(o,o->owner,clock_us(),&token))goto done;
+        if(!copy_frame(t,o,0x66778899,false) || !scanout_request(o,o->owner,o->epoch,clock_us(),&token))goto done;
         t->stats.requests++;
         if(n==5)ok=!scanout_issued(o,&token,SCANOUT_UNCERTAIN,clock_us());
-        else if(n==6)ok=scanout_issued(o,&token,SCANOUT_ISSUED,clock_us()) && !scanout_tick(o,o->deadline_us);
-        else ok=scanout_poison(o,SCANOUT_CHANGED);
+        else if(n==6)ok=scanout_issued(o,&token,SCANOUT_ISSUED,clock_us()) && !scanout_tick(o,o->epoch,o->deadline_us);
+        else ok=scanout_poison(o,o->epoch,SCANOUT_CHANGED);
         uint64_t physical;
-        ok=ok && o->state==SCANOUT_FAULT && !scanout_take_release(o,1,&physical) && !scanout_take_release(o,2,&physical);
+        ok=ok && o->state==SCANOUT_FAULT && !scanout_take_release(o,o->epoch,1,&physical) && !scanout_take_release(o,o->epoch,2,&physical);
     }
 done:
-    if(!ok && o->state!=SCANOUT_FAULT && o->state!=SCANOUT_RETIRED)(void)scanout_poison(o,SCANOUT_CHANGED);
+    if(!ok && o->state!=SCANOUT_FAULT && o->state!=SCANOUT_RETIRED)(void)scanout_poison(o,o->epoch,SCANOUT_CHANGED);
     if(o->state==SCANOUT_FAULT)t->stats.retained+=2*frames;
     console_printf("intel-lifetime-case: v=1 case=%u ok=%u epoch=%u state=%u front=%u phase=%u released=%u fault=%u injected=%u\n",
         (uint64_t)n,(uint64_t)ok,o->epoch,(uint64_t)o->state,(uint64_t)o->front,(uint64_t)o->phase,(uint64_t)o->released,(uint64_t)o->fault,(uint64_t)(n>=5));
