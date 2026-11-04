@@ -12335,3 +12335,22 @@ Local `build/bringup/wifi-rx5-foundation` retains source pins/audit and tests;
 accepted notes outside build retain a sealed copy. Demers5 security/data remain
 later;Demers2.4 needs compatible hardware. Installed v120 stays collected/unarmed,
 Ubuntu default; no shutdown is required for this offline work.
+
+
+## 2026-11-04 active firmware calibration / controlled receive scope
+
+Fetched main `f4ea0ccb` (additional Air GT/scanout audit after7766ed5a); inspected
+open PR334/317/310/301, no MT76 overlap. The actual runtime baseline remains
+845f703c with322b218f's offline decoder. No newer native acceptance is inferred.
+Bounded implementation: a separately admitted channel161/20MHz inspection hook
+at the accepted selected-channel VCO checkpoint, retaining trim/band/synth/A20/
+PA/gain-adjusted BBP through exact MAC/RX startup, fresh IBI9 temporary-write
+proof, MCU R0/VCO161/FULL901/LC1/RXDCOC1, a bounded eight-page passive window,
+MAC drain/disable and exact endpoint cessation before inverse originals. New
+fixed5GHz entry points share mechanics while old1/6/11 native profiles stay
+unchanged. Stop/quarantine on uncertainty, retain all DMA, no replay/network OUT
+or credentials. Touch MT76 coordinator/calibration/window, new static xHCI owner,
+explicit recipe/main dispatch and independent host/source/log/VM tests. First
+hardware checkpoint must distinguish command/restoration/quiet receive from
+actual decoded frames; an empty window is not populated discovery acceptance.
+Ubuntu recovery and existing cold-unplug shutdown authorization persist.
