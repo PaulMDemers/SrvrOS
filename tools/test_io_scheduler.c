@@ -7,6 +7,7 @@
 #define SRVROS_MWAIT_HOST_TEST
 #include "../kernel/src/scheduler.c"
 static uint64_t actual_space=1,clock_us;
+static unsigned clock_calls;
 static bool peer_enabled,peer_prepare_fail,peer_finish_fail;
 static unsigned peer_prepares,peer_finishes;
 bool ap_c3_active(void) { return peer_enabled; }
@@ -38,7 +39,7 @@ void *pmm_phys_to_virt(uint64_t physical) { if(growing_allocations)return (void 
 void fpu_init_state(struct fpu_state *state) {(void)state;}
 static void empty_worker(void *arg) {(void)arg;}
 
-uint64_t timer_monotonic_us(void) { return clock_us; }
+uint64_t timer_monotonic_us(void) { clock_calls++; return clock_us; }
 uint64_t timer_ticks(void) { return clock_us/10000; }
 uint64_t vmm_current_address_space(void) { return actual_space; }
 uint64_t vmm_kernel_address_space(void) { return 1; }
@@ -833,7 +834,70 @@ static void test_gate_retention(void) {
     initialized=io_services_enabled=false;io_observed=(__typeof__(io_observed)){0};memset(threads,0,sizeof(threads));
     puts("io-gate: PASS disabled/short/backward refusal, bounded longest retention, caller/initial owner identity, reset and no owner mutation");
 }
+static void observe_check(bool expected, bool null_output, void *process, void *worker,
+                          struct fpu_state *fpu)
+{
+    struct thread saved_threads[SCHEDULER_INITIAL_THREADS];
+    memcpy(saved_threads,threads,sizeof(saved_threads));
+    uint64_t saved_current=current_thread, saved_capacity=thread_capacity;
+    uint64_t saved_depth=io_depth, saved_owner=io_owner, saved_space=actual_space;
+    uint64_t saved_pending=io_gate_pending, saved_cursor=io_gate_cursor, saved_clock=clock_us;
+    uint64_t saved_rflags=scheduler_test_rflags;
+    void *saved_image=io_private_image;
+    bool saved_initialized=initialized, saved_switching=switching, saved_services=io_services_enabled;
+    unsigned saved_switches=switches, saved_frees=frees, saved_clock_calls=clock_calls;
+    struct scheduler_user_return_observation out, before;
+    memset(&out,0xa5,sizeof(out)); memcpy(&before,&out,sizeof(out));
+    bool result=scheduler_observe_user_return(null_output ? NULL : &out);
+    assert(result==expected);
+    if (expected) {
+        assert(out.thread_identity==42 && out.process==process && out.user_thread==worker);
+        assert(out.address_space==0x2000 && out.user_fpu==fpu);
+    } else assert(!memcmp(&out,&before,sizeof(out)));
+    assert(!memcmp(saved_threads,threads,sizeof(saved_threads)));
+    assert(current_thread==saved_current && thread_capacity==saved_capacity && io_depth==saved_depth && io_owner==saved_owner);
+    assert(actual_space==saved_space && io_gate_pending==saved_pending && io_gate_cursor==saved_cursor && io_private_image==saved_image);
+    assert(initialized==saved_initialized && switching==saved_switching && io_services_enabled==saved_services);
+    assert(switches==saved_switches && frees==saved_frees && clock_us==saved_clock && clock_calls==saved_clock_calls);
+    assert(scheduler_test_rflags==saved_rflags);
+}
+
+static void test_user_return_observation(void)
+{
+    struct fpu_state main_fpu={0}, worker_fpu={0};
+    void *process=(void *)0x1234, *worker=(void *)0x5678;
+    memset(threads,0,sizeof(threads)); initialized=true; switching=false;
+    current_thread=3; io_depth=0; io_owner=0; io_private_image=NULL;
+    actual_space=0x2000; scheduler_test_rflags=0;
+    threads[3]=(struct thread){.state=THREAD_RUNNING,.identity=42,.user_context=process,
+        .address_space=0x2000,.user_fpu=&main_fpu};
+#define CHECK(expected) observe_check((expected),false,process,NULL,&main_fpu)
+    CHECK(true);
+    observe_check(false,true,process,NULL,&main_fpu);
+    scheduler_test_rflags=0x200; CHECK(false); scheduler_test_rflags=0;
+    initialized=false; CHECK(false); initialized=true;
+    switching=true; CHECK(false); switching=false;
+    current_thread=thread_capacity; CHECK(false); current_thread=3;
+    threads[3].state=THREAD_DEAD; CHECK(false);
+    threads[3].state=THREAD_READY; CHECK(false); threads[3].state=THREAD_RUNNING;
+    threads[3].user_context=NULL; CHECK(false); threads[3].user_context=process;
+    threads[3].address_space=0; CHECK(false); threads[3].address_space=0x2000;
+    threads[3].user_fpu=NULL; CHECK(false); threads[3].user_fpu=&main_fpu;
+    threads[3].identity=0; CHECK(false); threads[3].identity=42;
+    actual_space=1; CHECK(false); actual_space=0x3000; CHECK(false); actual_space=0x2000;
+    threads[3].account_user=true; CHECK(false); threads[3].account_user=false;
+    threads[3].io_user_safe=true; CHECK(false); threads[3].io_user_safe=false;
+    io_depth=1; io_owner=3; CHECK(false); io_owner=4; CHECK(false); io_depth=0; io_owner=0;
+    threads[3].user_thread_context=worker; threads[3].user_fpu=&worker_fpu;
+    observe_check(true,false,process,worker,&worker_fpu);
+#undef CHECK
+    memset(threads,0,sizeof(threads)); initialized=false; switching=false; current_thread=0;
+    io_depth=0; io_owner=0; io_private_image=NULL; actual_space=1; scheduler_test_rflags=0;
+    puts("scheduler-user-return: PASS (observation only)");
+}
+
 int main(void) {
+    test_user_return_observation();
     test_gate_retention();
     test_idle_audit();
     test_mwait();

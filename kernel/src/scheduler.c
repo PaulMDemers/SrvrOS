@@ -501,6 +501,35 @@ void scheduler_io_set_user_safe(bool safe) {
     irq_restore(flags);
 }
 
+#ifdef SRVROS_SCHEDULER_HOST_TEST
+/* Test fixture for read-only RFLAGS observation; irq_save/restore unchanged. */
+static uint64_t scheduler_test_rflags;
+#endif
+
+bool scheduler_observe_user_return(struct scheduler_user_return_observation *out) {
+    uint64_t flags;
+#ifdef SRVROS_SCHEDULER_HOST_TEST
+    flags=scheduler_test_rflags;
+#else
+    __asm__ volatile ("pushfq; popq %0" : "=r"(flags) : : "memory");
+#endif
+    /* The scheduler is CPU0-only. This is not an SMP synchronization proof. */
+    if (!out || (flags & (1ull << 9)) || !initialized || switching ||
+        current_thread >= thread_capacity || io_depth) return false;
+    const struct thread *thread=thread_at(current_thread);
+    if (thread->state != THREAD_RUNNING || !thread->identity || !thread->user_context ||
+        !thread->address_space || thread->address_space != vmm_current_address_space() ||
+        thread->io_user_safe || thread->account_user || !thread->user_fpu) return false;
+    *out=(struct scheduler_user_return_observation){
+        .thread_identity=thread->identity,
+        .process=thread->user_context,
+        .user_thread=thread->user_thread_context,
+        .address_space=thread->address_space,
+        .user_fpu=thread->user_fpu,
+    };
+    return true;
+}
+
 void scheduler_user_enter(void) { account_transition(true);scheduler_io_set_user_safe(true); }
 
 static bool io_available(void *arg) {

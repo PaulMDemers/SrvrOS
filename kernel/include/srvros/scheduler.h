@@ -76,6 +76,18 @@ void scheduler_io_request_turn(void);
  * turn before this caller can submit another operation. Never releases I/O. */
 void scheduler_io_handoff(void);
 void scheduler_io_set_user_safe(bool safe);
+/* Unwired CPU0 single-scheduler observation; caller must already have IRQs
+ * disabled. Pointers are opaque and valid only in the same uninterrupted,
+ * IRQ-excluded continuation. This does not prove image lifetime, pending
+ * signals, cancellation state, or that FPU registers have been saved. */
+struct scheduler_user_return_observation {
+    uint64_t thread_identity;
+    void *process;
+    void *user_thread;
+    uint64_t address_space;
+    struct fpu_state *user_fpu;
+};
+bool scheduler_observe_user_return(struct scheduler_user_return_observation *out);
 void scheduler_user_enter(void);
 void scheduler_account_kernel_enter(void);
 void scheduler_account_now(void);

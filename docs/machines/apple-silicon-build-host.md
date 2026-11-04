@@ -3496,3 +3496,15 @@ hook is enabled; the owner has not approved the next scheduler/FPU/copy slice.
 The inner syscall `scheduler_user_enter()` must be resolved before any outer
 return-hook admission claim. Continue source-level review and primitive tests,
 then matched kernel/SDK and JSC smoke. Existing review VMs remain untouched.
+
+
+The owner independently reran the first helper tests and approved a second
+internal unwired slice: `scheduler_observe_user_return()` reports only opaque
+current scheduler identities under already-excluded IRQs, matching actual user
+CR3, unsafe/kernel accounting state and no I/O owner. Actual-source scheduler
+fixtures pass strict x86-64/Rosetta and ASan/UBSan, preserving all existing suites;
+new tests cover every specified refusal, initial/worker positives and no output
+or scheduler/IRQ mutation. The freestanding scheduler object compiles with Zig
+0.15.2. No production caller or live transition/FPU/copy/API change is enabled.
+Send the concrete query/tests for review before wiring; saved-FPU proof and
+image-generation/action/restart/nested-wait/lifetime gates remain open.

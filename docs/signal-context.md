@@ -203,3 +203,41 @@ state, rather than treating readable memory as proof of executable admission.
 Action publication, nested temporary-mask waits, per-invocation restart sequence
 tracking and image/thread lifecycle remain enabling gates even after this narrow
 source review. No new syscall number or public flag is allocated by this packet.
+
+
+## Approved scheduler observation slice — November 3, 2026
+
+After independently rerunning the first slice's strict and sanitized host tests,
+the owner found no blocking helper defect and approved one next bounded slice:
+an internal, unwired, read-only scheduler user-return observation plus actual
+scheduler host-fixture coverage. The transition/FPU/VMM/process/syscall/libc
+changes above remain unapproved and unimplemented.
+
+`scheduler_observe_user_return()` now refuses unless IF is already clear,
+scheduling is initialized and not switching, the current slot is in bounds and
+RUNNING with a nonzero lifetime identity, user context, actual nonzero user CR3
+matching the running CR3 and selected user-FPU pointer, both accounting/user-safe
+flags are false, and global I/O depth is zero regardless of owner. This uses the
+existing CPU0-only scheduler assumption, not an SMP synchronization claim. An
+initial thread may have a NULL user-thread context. Outputs stay unchanged on
+refusal. Success returns opaque process/worker/FPU identities, actual CR3 and the
+immutable scheduler lifetime. The query neither dereferences process/FPU state
+nor establishes image generation, cancellation, pending-signal or saved-FPU proof.
+Its observation expires if the uninterrupted IRQ-excluded continuation ends.
+There is no production caller.
+
+The existing actual-source I/O-scheduler fixture passes strict x86-64 macOS/
+Rosetta compilation/execution and ASan/UBSan. Added cases independently refuse
+IF-set, absent initialization, switching, invalid/dead/ready/kernel slot, missing
+identity/CR3/FPU, wrong CR3 including a temporary kernel CR3, user accounting or
+user-safe admission, and both local and foreign I/O ownership. Initial/worker
+positive cases return distinct opaque selected FPU identities. Each call checks
+unchanged thread/scheduler/I/O/IRQ/clock/switch/free state and refusal output;
+all existing fairness, handoff, growth, accounting and teardown fixture cases
+continue to pass. The actual freestanding scheduler object compiles with Zig
+0.15.2 and isolated caches. Evidence: `build/signal-context/scheduler-{host,
+sanitizers,target}.log`. The host command uses `cc -arch x86_64` with strict
+warnings, section splitting, the shared/kernel/Limine includes and Darwin
+`-Wl,-dead_strip`; sanitized verification uses `-O1 -g
+-fsanitize=address,undefined -fno-omit-frame-pointer`. This does not change the
+Makefile's existing Linux host target or claim a matched guest result.
