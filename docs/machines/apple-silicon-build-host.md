@@ -4825,3 +4825,29 @@ stopped and the slot was explicitly released. No more compile/VM work is planned
 any new need must coordinate before launch. Integration checkout and protected
 review VMs remain untouched. Both PRs are accepted for the authorized port-first,
 OS-second merge; linked PR state records the delivery result.
+
+### Find Files bounded Contents search — active November 4, 2026
+
+User authorizes bounded content search alongside unchanged filename search in
+isolated `SrvrOS-app-quality`. Base OS `a90bf57e`; consume pinned recursive
+submodules, including recent kernel/USB retirement and xz integrations. Own
+Find app/readonly worker, mode-aware search validation/protocol, focused tests,
+disposable generated-disk VM acceptance and documentation. No shared checkout,
+review VM, native media, index/regex/snippets or kernel/filesystem service changes.
+
+Name remains the default and preserves v1 replies and existing kind filters.
+Contents uses literal UTF-8 matching, ASCII-only case folding and one result per
+regular text file. Bound files to 64KiB, aggregate reads to 16MiB and enumerated
+paths to 65,536, retaining the app's 60-second timeout and 256-result cap. Skip and
+report unreadable, non-text, oversized or observably changed files. v2 replies
+separate content results from name validation; preserve canonical path/root,
+metadata, duplicate, count and whole-snapshot validation. Stop/restart/close must
+retire the read-only worker and immutable run snapshots must resist input edits.
+
+Acceptance: unchanged names/kinds and Open/Reveal/copy-path, positive/negative
+literal matches including UTF-8 and chunk boundaries, binary/empty/oversize/read
+failure and stat races, exact budgets/caps, malformed/truncated/mismatched-mode
+responses, cancellation/restart/close, current-profile root, narrow rendering,
+source/pins/build provenance, guest fsck and offline allocation. One build/VM at
+a time. Implementation, independent review and checks precede review delivery;
+merging is a separate action.
