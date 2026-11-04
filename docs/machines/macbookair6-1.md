@@ -6917,3 +6917,23 @@ the Intel16/Linux32 fence discrepancy, full-path consistency and real allocation
 scanout lifetime remain open. Prior RC6 timing failure and package-C3 zero are
 unchanged. The next work is resolving those remaining prerequisites before any
 ownership or power-control change.
+
+### Exact-Haswell Linux-model fence coverage scope (2026-11-04)
+
+Base `845f703c`, native version-2 result collected before this work. PR301 remains
+an independent Broadwell scope; no shared driver or hardware gate is copied.
+Pinned Linux PCI IDs/device-info map actual `0a26` to Haswell ULT GT3/Gen7; its
+native-aperture fence initializer selects 32 and its Gen6+ register macro uses
+`0x100000+8*i`. The proposed remaining rows end at `0x1000ff`, in the already
+admitted fence page and outside its render-forcewake range. This independently
+justifies an explicit exact-model read experiment, not resolution of the Intel
+16-row documentation discrepancy or a hardware-uniqueness/ownership grant.
+
+Implement a separately opted-in version-3 32-fence receipt alongside full GGTT
+vectors and raw CPU TILECTL. Preserve versions 1/2 with sixteen rows, ten maps,
+100 ms pass/gap, 1,536 PTEs, 64 KiB tail, identity/D0/firmware/RAM gates and
+uncertain-retirement behavior. Touch only the isolated Haswell core/adapter,
+main/staging/decoder, retention/tests and this audit guide. No GT/forcewake,
+backing-pixel mapping, power policy, pin or assurance-bit change. After full
+matched validation and local recovery/USB checks, prepare/run the authorized
+automated test. No new native acceptance is claimed in advance.
