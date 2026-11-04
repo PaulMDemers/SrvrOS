@@ -11,33 +11,49 @@ equal old `0bf8e137` pin), UI `586bd002`, Ports `d760e541`. Preserve previous
 raw images, original baselines, receipts and outside-build matched archives.
 Heavy build/VM hold remains until shared resource coordination.
 
-Proposed flow: Switch Profile requests cooperative root-window closure, reusing
-real Text/Sketch Save/Discard/Cancel, Terminal Close/Cancel and accepted I/O
-retirement. Cancel or known failed save keeps current profile; already-closed
-apps/documents stay closed. New launches pause while ending. After decisions,
-persistence and direct work finish, irrevocably close scope admission and wait
-for authoritative full retirement; then actual GUI process exit and a fresh
-chooser/session. No timeout, forced kill, ancestry snapshot or self-exec alone
-proves isolation. Reset environment/cwd and all GUI globals through fresh
-processes; chooser Back returns console after the old session has ended.
+Implemented source flow: Switch Profile requests cooperative root-window closure,
+reusing real Text/Sketch Save/Discard/Cancel and Terminal Close/Cancel. Cancel or
+known failed save keeps the current profile; already-closed apps/documents stay
+closed. New launches pause while ending. Preferences use an explicit flush mode
+and retain helper ownership through retirement, including cancellation during
+retirement and later edits. Processes that joined cooperative close remain
+protected from automatic timeout termination after another app cancels.
 
-A necessary runtime dependency is under PR317/334 owner review: main has internal
-immutable lifetime tracking, but no userspace authoritative member-zero query;
-existing kernel drain forces kill. Proposed thin external supervisor owns an
-opaque scope capability, scoped GUI child and all descendants/reservations,
-non-killing revoke/status/release. Cancellation precedes revoke; no un-revoke.
-Exact public interface and owner-exit semantics need runtime-owner agreement.
-No kernel implementation is owned by this checkout.
+After app decisions, persistence and direct work finish, the GUI child commits
+and actually exits with SWITCH (42) or CONSOLE (43). Only then does the external
+nongraphical supervisor revoke admission without signals, reap retired orphans,
+wait for authoritative revoked + members == 0 and release the scope. A fresh
+chooser/session has a filtered environment, known cwd and fresh GUI state.
+Unknown exits, scope errors and unconfirmed retirement never launch a chooser.
+Generic nonzero command exits are retained as diagnostics; they are not a save
+verdict. After GUI exit, verified console unmute provides waiting/error status.
 
-Parent here owns deskd orchestration/menu/state/environment and private helper,
-host tests/Makefile/docs; app worker owns bounded Terminal retirement changes;
-VM worker owns a new switching proof. Existing Text/Sketch save flows remain.
-Acceptance is repeated A→B→A in one boot, actual Save/Discard/Cancel and failure,
-accepted I/O/owned descendant retirement, preference/HOME/XDG/cwd isolation,
-cleared clipboard/notifications, rendered keyboard/640 behavior and storage
-integrity. Authentication/concurrent sessions/physical testing remain outside
-scope. Next: runtime-interface review plus bounded app/host implementation,
-then matched verification when dependencies/resources are ready.
+Runtime dependency is owned by the coordinator/runtime chats on
+`device/apple-silicon/session-scope`, candidate `cd93e1eb`: versioned
+SYS_SESSION_SCOPE 163 CREATE/EXEC/REVOKE/STATUS/REAP_RETIRED/RELEASE, unchanged
+exec request, one GUI root, incarnation-bound owner capability and owner-death
+retention. No kernel implementation is owned by this checkout. CREATE NOTSUP
+inside existing kernel/battery lifetime preserves the legacy diagnostic path
+with Switch disabled. Heavy build/VM hold remains during runtime qualification.
+
+Source-only verification: strict freestanding Clang syntax checks pass for
+modified desktop/preferences/Terminal/probe and supervisor against the candidate
+header. Native actual-source supervisor tests pass for repeated switching,
+control statuses, scope/wait errors, delayed members and environment/argv reset.
+Preference tests pass for flush, concurrent writes, failure, pending retirement,
+cancellation/restart and helper restart failure. These are not guest acceptance.
+The new QEMU harness is under independent review; in-flight accepted Files and
+Profiles I/O coverage remains required, and the Profiles deferred-close contract
+is being corrected before matched verification.
+
+Acceptance remains repeated A→B→A in one boot, actual Save/Discard/Cancel and
+failure, accepted I/O and owned descendant retirement, preference/HOME/XDG/cwd
+isolation, cleared clipboard/notifications, keyboard/640 behavior and storage
+integrity. Authentication, permission enforcement, concurrent sessions and
+physical testing remain separate. Coordinator owns independent review and merge
+ordering: runtime dependency, Apps, then desktop integration. Next: finish source
+review, integrate the runtime candidate, publish draft heads, then matched build
+and disposable-VM proof when the resource window is released.
 
 ## Desktop profile creation — integration delivered November 4, 2026
 

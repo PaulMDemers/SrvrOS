@@ -14,6 +14,7 @@ int desk_file_job_start(struct desk_file_job *j,unsigned op,const char *path,con
 }
 int desk_file_job_poll(struct desk_file_job *j) { if(result) j->busy=0;int r=result;result=0;return r; }
 void desk_file_job_close(struct desk_file_job *j) { j->pid=0; }
+int desk_file_job_retire(struct desk_file_job *j) { assert(!j->busy);j->pid=0;return 1; }
 static void response(unsigned status,const char *data) {
     active->response=(struct desk_file_response){.status=status,.length=data?(unsigned)strlen(data):0};
     if(data) memcpy(active->incoming,data,strlen(data));
