@@ -349,6 +349,43 @@ static void startup_thread_contract(void) {
     puts("startup-thread: PASS sole-main/entry/stack/TLS refusal, complete context publication, no service window, TLS/stack failure cleanup and retained failed-unmap ownership");
 }
 
+static void free_range_contract(void) {
+    reset();struct process *p=calloc(1,sizeof(*p));assert(p);observed=p;p->address_space=0x1000;
+    const uint64_t base=USER_MMAP_BASE,page=4096;
+    struct process_service_scope outer=process_service_begin();
+    /* The only two-page fit is off the old length-sized search stride. */
+    assert(mmap_record_region(p,base,page,true));
+    assert(mmap_record_region(p,base+3*page,USER_MMAP_LIMIT-base-3*page,true));
+    assert(mmap_find_free_range(p,2*page,0)==(int64_t)(base+page));
+    assert(depth==1 && yields && checkpoints<=4);
+    assert(process_mmap(p,0,2*page,SRV_PROT_NONE,SRV_MAP_PRIVATE|SRV_MAP_ANONYMOUS,-1,0)==(int64_t)(base+page));
+    assert(!process_munmap(p,base+page,2*page) && depth==1 && !p->mapping_count);
+    /* Exhaustion must skip intervals rather than all virtual pages. */
+    p->mmap_regions[0].length=3*page;checkpoints=yields=0;
+    assert(mmap_find_free_range(p,page,0)==-1 && checkpoints<=4 && yields);
+    /* A hint beyond the only gap wraps back without losing it. */
+    p->mmap_regions[0].length=page;
+    assert(mmap_find_free_range(p,2*page,base+10*page)==(int64_t)(base+page));
+    /* Independent page-by-page oracle over every occupancy mask in 8 pages. */
+    for(unsigned mask=0;mask<256;mask++) {
+        memset(p->mmap_regions,0,sizeof(p->mmap_regions));
+        for(unsigned bit=0;bit<8;bit++)if(mask&(1u<<bit))
+            assert(mmap_record_region(p,base+bit*page,page,true));
+        assert(mmap_record_region(p,base+8*page,USER_MMAP_LIMIT-base-8*page,true));
+        for(unsigned count=1;count<=4;count++)for(unsigned hint_page=0;hint_page<=8;hint_page+=4) {
+            int64_t expected=-1;
+            for(unsigned pass=0;pass<2 && expected<0;pass++)
+                for(unsigned cursor=pass?0:hint_page;cursor<(pass?hint_page:8);cursor++) {
+                    if(cursor+count>8)continue;
+                    unsigned wanted=((1u<<count)-1)<<cursor;
+                    if(!(mask&wanted)){expected=(int64_t)(base+cursor*page);break;}
+                }
+            assert(mmap_find_free_range(p,count*page,base+hint_page*page)==expected);
+        }
+    }
+    process_service_end(outer);assert(!depth && begins==ends);free(p);observed=NULL;
+    puts("mapping-search: PASS off-stride gap, bounded exhaustion, retained owner and 3072 independent mask/length/hint cases");
+}
 static void protection_contract(void) {
     reset();struct process *p=calloc(1,sizeof(*p));assert(p);observed=p;
     p->address_space=0x1000;const uint64_t base=USER_MMAP_BASE;
@@ -415,6 +452,7 @@ static void protection_contract(void) {
 }
 
 int main(void) {
+    free_range_contract();
     protection_contract();
     /* Identity snapshots leave foreign serialization ownership and accounting
      * untouched, for both initial and worker contexts. */

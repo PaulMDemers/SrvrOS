@@ -1487,3 +1487,12 @@ checking that page-count checkpoints occur and bytes outside the destination
 remain untouched. Byte-modulo checkpoint accounting fails this case even when
 the copy succeeds. Atomic startup/TLS copies retain their explicit no-service
 contract.
+
+
+`test-process-service` compares free virtual-range selection with an independent
+page-by-page oracle (3,072 occupancy/length/hint cases) and checks the off-stride
+fit through public mmap. `test-pmm` checks size-specific exhaustion hints, freed
+bridging runs and exact first-fit addresses alongside its randomized oracle.
+`tools/bench_heap_startup.c` records the retained heap validation workload; its
+host replay timings are not an IRQ-latency deadline. See the
+[kernel audit](audit-kernel-isolation-2026-11-03.md) for counts and limitations.

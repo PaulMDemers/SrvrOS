@@ -208,9 +208,66 @@ checkpoint can precede a private child page copy while the child is not runnable
 The unaligned-copy gap above was confirmed in the shared copy helper. Free-range
 search and allocator scan costs remain separate audit work.
 
+## Free-range search and allocator scans
+
+The continuation from `8115e7e4` confirms two further issues:
+
+- Virtual free-range search advanced by the request length on conflict. With
+  one occupied page, a two-page gap, then occupied remainder, a two-page request
+  missed the only valid fit and reported failure. The old actual-source test
+  fails its result assertion (`build/review/search/range-before.log`). Search
+  now advances to the greatest end of an overlapping region and checkpoints
+  before continuing. All intervening starts overlap an already intersecting
+  interval, so this skips no valid fit. The hint-first then wrap order remains.
+  Search progress depends on the bounded region table rather than virtual-page
+  count; a fully occupied address window does not probe every requested-size
+  stride. Atomic startup mapping still uses its unchanged bounded helper.
+- PMM hints keyed only by minimum address retained the first small free hole
+  even for requests needing a larger contiguous run. Identical failures on
+  unchanged fragmentation rescanned the full eligible bitmap. Hints now key on
+  `(minimum frame, run length)`, retaining successful progress and exhaustion.
+  Allocation cannot create a new earlier run. Free rewinds each affected hint
+  to at least `freed frame - (run length - 1)`, clamped at its minimum, because
+  an eligible run may start before a newly freed bridge. Hint eviction loses
+  only the optimization. First-fit addresses, tags, poisoning and IRQ exclusion
+  remain unchanged; no service window is added inside the allocator.
+
+Regressions include the missed fit through both the helper and public mmap,
+full-window exhaustion, hint wrap, inherited ownership, and 3,072 comparisons
+against an independent page-by-page oracle across all 8-page occupancy masks,
+four request sizes and three hints. PMM retains its 12,000-operation randomized
+first-fit oracle and high-frame/tag/poison tests. The new fragmented case scans
+32,515 positions once; 64 further identical refusals inspect zero additional
+positions. Freeing a bridge must then return the earlier first-fit start, and a
+smaller request must still see its remaining small hole. The old implementation
+fails the repeated-scan assertion (`pmm-before.log`).
+
+Focused host tests pass normally; PMM and the service fixture pass relevant
+ASan/UBSan and strict GCC14 runs. Kernel build passes. Updated-kernel guest
+results are recorded after execution under `build/review/search/`.
+
+### Heap cost evidence
+
+The existing `tools/bench_heap_startup.c` replay was compiled natively for ARM64
+on this Mac with optimization and no sanitizers. Each epoch allocates 11,436
+objects, churns 7,411 allocations, then frees the live set. The two epochs record
+600,648,287 and 600,648,363 validation visits, with zero extra selection traversal
+visits. Setup/free host times are respectively 816/230 ms and 1,669/372 ms.
+These are one replay's host timings, not guest IRQ measurements or a native
+SrvrOS acceptance claim. The unchanged heap test passes 6,000 live allocations,
+fragmentation, distal corruption and invalid-free refusal, including exact
+entry/exit validation visit counts.
+
+No new heap correctness defect was confirmed. Full pre/post validation is an
+existing integrity contract; permitting scheduling while that chain is being
+validated or mutated would need a separate ownership design. It is retained.
+The first PMM search for a new key, cache eviction/free churn, large poisoning
+and full heap validation can still take substantial IRQ-masked work. This batch
+removes redundant search work; it establishes no wall-clock latency bound.
+
 ## Remaining work
 
-Other long IRQ-disabled operations, including free-range search and allocator scans,
+Other long IRQ-disabled operations, including initial/churning PMM scans, heap validation and poisoning,
 driver DMA/reset/removal ownership and broader manual isolation review remain
 open. Deterministic fault/dirty-writeback ordering now has the host coverage above;
 forcing it through actual VM context switches remains separate work. Future boot

@@ -3065,3 +3065,18 @@ Final implementation `4ce73e79` passes the focused host suite, strict Linux GCC1
 and Darwin/Rosetta sanitizer fixture, kernel build, Q35 sysabi and full
 threadstress. Main `805519b2` is integrated; newer main userspace was not staged
 in these retained-runtime kernel checks. Task guests stopped.
+
+
+### Free-range and allocator scan scope
+
+Continuing PR317 from `8115e7e4`: virtual free-range candidate search, PMM
+contiguous-run hints and heap validation scan costs. Preserve first-fit and
+poison/tag/IRQ contracts, avoid heap critical-section service windows, and use
+deterministic counters/oracles before optimizations. Filesystem owner notified.
+
+Confirmed missed virtual fits and repeated contiguous PMM refusal scans are fixed
+without changing first-fit, poisoning/tags or atomic startup eligibility. The
+independent range oracle covers 3,072 cases. PMM's repeated fragmentation case
+inspects no further bitmap positions after the first scan until free/eviction.
+Heap replay retains full validation, about 600.65 million visits per epoch; no
+new heap correctness defect or hardware IRQ-latency guarantee is claimed.

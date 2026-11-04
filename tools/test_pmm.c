@@ -85,6 +85,18 @@ int main(void) {
     release(258 * 4096, 1); assert(alloc(2, 0x100000));
     assert(alloc(1, 0x100000) == 258 * 4096);
     reset();
+    for(unsigned i=257;i<FRAMES;i+=2) {
+        bitmap_set(i,true);set_frame_tag(i,PMM_FRAME_GENERAL);reference[i]=1;
+    }
+    assert(!alloc(2,0x100000));uint64_t failed_scan=search_steps;
+    for(unsigned i=0;i<64;i++)assert(!alloc(2,0x100000));
+    assert(search_steps==failed_scan);
+    printf("pmm-host: fragmented refusal initial=%llu repeated=64 additional=0\n",
+        (unsigned long long)failed_scan);
+    /* Free a bridge: a new valid run can start before the freed frame. */
+    release(257*4096,1);assert(alloc(2,0x100000)==256*4096);
+    assert(alloc(1,0x100000)==258*4096);
+    reset();
     struct { uint64_t address; unsigned count; } slots[128] = {0};
     for (unsigned i = 0; i < 12000; i++) {
         unsigned slot = random32() % 128;

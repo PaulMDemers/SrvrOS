@@ -6958,20 +6958,25 @@ static bool mmap_record_region(struct process *process, uint64_t base, uint64_t 
 }
 
 static int64_t mmap_find_free_range(struct process *process, uint64_t length, uint64_t hint) {
-    uint64_t start = USER_MMAP_BASE;
-    if (hint >= USER_MMAP_BASE && hint < USER_MMAP_LIMIT) {
-        start = page_up(hint);
-    } else if (process->mmap_next >= USER_MMAP_BASE && process->mmap_next < USER_MMAP_LIMIT) {
-        start = page_up(process->mmap_next);
-    }
-
-    for (uint64_t pass = 0; pass < 2; pass++) {
-        uint64_t cursor = pass == 0 ? start : USER_MMAP_BASE;
-        while (cursor < USER_MMAP_LIMIT && length <= USER_MMAP_LIMIT - cursor) {
-            if (mmap_range_free(process, cursor, length)) {
-                return (int64_t)cursor;
+    if(!process || !length || length>USER_MMAP_LIMIT-USER_MMAP_BASE)return -1;
+    uint64_t start=USER_MMAP_BASE;
+    if(hint>=USER_MMAP_BASE && hint<USER_MMAP_LIMIT)start=page_up(hint);
+    else if(process->mmap_next>=USER_MMAP_BASE && process->mmap_next<USER_MMAP_LIMIT)
+        start=page_up(process->mmap_next);
+    for(unsigned pass=0;pass<2;pass++) {
+        uint64_t cursor=pass?USER_MMAP_BASE:start;
+        uint64_t stop=pass?start:USER_MMAP_LIMIT;
+        while(cursor<stop && length<=USER_MMAP_LIMIT-cursor) {
+            uint64_t next=cursor;
+            for(unsigned i=0;i<PROCESS_MAX_MMAP_REGIONS;i++) {
+                const struct process_mmap_region *r=&process->mmap_regions[i];
+                if(r->used && cursor<r->base+r->length && cursor+length>r->base &&
+                   next<r->base+r->length)next=r->base+r->length;
             }
-            cursor += length;
+            if(next==cursor)return (int64_t)cursor;
+            /* Every intervening start still overlaps at least one region.
+             * Skip to its end, not by the request size: that stride lost fits. */
+            cursor=next;process_service_checkpoint();
         }
     }
     return -1;
