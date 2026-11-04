@@ -149,6 +149,7 @@ USER_SQLITE3 := build/userspace/sqlite3.elf
 USER_JQ := build/userspace/jq.elf
 USER_BC := build/userspace/bc.elf
 USER_LESS := build/userspace/less.elf
+USER_XZ := build/userspace/xz.elf
 USER_ZLIBDEMO := build/userspace/zlibdemo.elf
 USER_LUA := build/userspace/lua.elf
 USER_AWK := build/userspace/awk.elf
@@ -1303,9 +1304,7 @@ $(USER_INSTALL): $(ZIG) $(USER_CRT0_OBJ) $(USER_INSTALL_OBJ) $(USER_LIB_OBJ) use
 	mkdir -p $(dir $@)
 	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_INSTALL_OBJ) $(USER_LIB_OBJ) -o $@
 
-$(USER_DIFF): $(ZIG) $(USER_CRT0_OBJ) $(USER_DIFF_OBJ) $(USER_LIB_OBJ) userspace/app.ld
-	mkdir -p $(dir $@)
-	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_DIFF_OBJ) $(USER_LIB_OBJ) -o $@
+# GNU diff recipe is supplied by ports/srvros/diffutils/build.mk.
 
 $(USER_TAR): $(ZIG) $(USER_CRT0_OBJ) $(USER_TAR_OBJ) $(USER_LIB_OBJ) userspace/app.ld
 	mkdir -p $(dir $@)
@@ -1711,9 +1710,9 @@ $(LUA_SRVROS_DIR)/%.c.o: $(LUA_SRVROS_DIR)/%.c $(ZIG) $(LUA_PREPARED) ports/srvr
 	mkdir -p $(dir $@)
 	$(CC) $(USER_CFLAGS) -I $(LUA_SRVROS_DIR) -include ports/srvros/lua_config.h -DNDEBUG -Dl_signalT=int -Wno-error -Wno-unused-parameter -Wno-unused-function -Wno-missing-braces -c $< -o $@
 
-$(EXFAT_IMAGE): $(USER_SCOPEPROBE) $(USER_DESKPROFILES) $(USER_PROFILE) $(USER_LIFETIMEPROBE) userspace/examples/tap-diagnostics.sh userspace/examples/tap-checks.sh userspace/examples/trackpad-checks.sh userspace/examples/device-checks.sh userspace/examples/network-trial.sh tools/audio_fixture.py $(USER_DESKFIND) $(USER_FINDFSWORKER) $(USER_DESKNET) $(USER_DESKSKETCH) $(USER_SHOTWORKER) $(USER_DESKCLOCK) $(USER_DESKHELP) $(USER_DESKVIEW) $(USER_IMAGEWORKER) tools/pack_runtime_elf.py $(USER_CLOCKPROBE) $(USER_DESKTERM) $(USER_PTYPROBE) $(USER_DESKTOOLS) $(USER_DESKFS) $(USER_DESKIO) $(USER_DESKD) $(USER_DESKCLIENT) $(USER_DESKSTUDY) tools/mk_exfat_image.py $(USER_HELLO) $(USER_CAT) $(USER_MORE) $(USER_SH) $(USER_LS) $(USER_ECHO) $(USER_WRITE) $(USER_WC) $(USER_CLEAR) $(USER_PS) $(USER_KILL) $(USER_WHICH) $(USER_ENV) $(USER_PWD) $(USER_TRUE) $(USER_FALSE) $(USER_SLEEP) $(USER_DATE) $(USER_TOUCH) $(USER_MKTEMP) $(USER_BASENAME) $(USER_DIRNAME) $(USER_GREP) $(USER_HEAD) $(USER_TAIL) $(USER_TEE) $(USER_UNAME) $(USER_HOSTNAME) $(USER_UPTIME) $(USER_FIND) $(USER_DU) $(USER_DF) $(USER_SORT) $(USER_UNIQ) $(USER_CUT) $(USER_XARGS) $(USER_SEQ) $(USER_REALPATH) $(USER_ID) $(USER_WHOAMI) $(USER_READLINK) $(USER_CMP) $(USER_YES) $(USER_INSTALL) $(USER_DIFF) $(USER_TAR) $(USER_GZIP) $(USER_MINIZIP) $(USER_MINIUNZ) $(USER_PATCH) $(USER_MAKE) $(USER_BYACC) $(USER_SED) $(USER_EXPR) $(USER_PRINTF) $(USER_TR) $(USER_DD) $(USER_ED) $(USER_POSIXUTILS) $(USER_STAT) $(USER_CHMOD) $(USER_CP) $(USER_RM) $(USER_MKDIR) $(USER_MV) $(USER_TAP) $(USER_SVSCAN) $(USER_WEBD) $(USER_HTTPGET) $(USER_UDPDNS) $(USER_UDPECHO) $(USER_NETSTAT) $(USER_IFCONFIG) $(USER_ROUTE) $(USER_ARP) $(USER_PING) $(USER_HOST) $(USER_NETCHECK) $(USER_NETABI) $(USER_TCPSTRESS) $(USER_TCPPROBE) $(USER_SYSABI) $(USER_SPIN) $(USER_FPDEMO) $(USER_UI) $(USER_DESKTOP) $(USER_DISPLAYD) $(USER_GUI) $(USER_SURFACEDEMO) $(USER_GUI2DEMO) $(USER_GUIFAIL) $(USER_CALC) $(USER_NOTES) $(USER_TEXTEDIT) $(USER_PAINT) $(USER_FILEMAN) $(USER_POSIXDEMO) $(USER_THREADSTRESS) $(USER_EXECDEMO) $(USER_FDPROBE) $(USER_LOCKPROBE) $(USER_TTYDEMO) $(USER_JSONDEMO) $(USER_INIDEMO) $(USER_LINEDEMO) $(USER_SQLITEDEMO) $(USER_SQLITE3) $(USER_JQ) $(USER_BC) $(USER_LESS) $(USER_ZLIBDEMO) $(USER_LUA) $(USER_AWK) $(USER_UVDEMO) $(USER_LIBUVDEMO) $(USER_NODEPROBE) $(USER_LIBCPROBE) $(USER_TLSPROBE) $(USER_CXXPROBE) $(USER_CXXSTLPROBE) $(USER_PLAYWAV)
+$(EXFAT_IMAGE): $(USER_SCOPEPROBE) $(USER_DESKPROFILES) $(USER_PROFILE) $(USER_LIFETIMEPROBE) userspace/examples/tap-diagnostics.sh userspace/examples/tap-checks.sh userspace/examples/trackpad-checks.sh userspace/examples/device-checks.sh userspace/examples/network-trial.sh tools/audio_fixture.py $(USER_DESKFIND) $(USER_FINDFSWORKER) $(USER_DESKNET) $(USER_DESKSKETCH) $(USER_SHOTWORKER) $(USER_DESKCLOCK) $(USER_DESKHELP) $(USER_DESKVIEW) $(USER_IMAGEWORKER) tools/pack_runtime_elf.py $(USER_CLOCKPROBE) $(USER_DESKTERM) $(USER_PTYPROBE) $(USER_DESKTOOLS) $(USER_DESKFS) $(USER_DESKIO) $(USER_DESKD) $(USER_DESKCLIENT) $(USER_DESKSTUDY) tools/mk_exfat_image.py $(USER_HELLO) $(USER_CAT) $(USER_MORE) $(USER_SH) $(USER_LS) $(USER_ECHO) $(USER_WRITE) $(USER_WC) $(USER_CLEAR) $(USER_PS) $(USER_KILL) $(USER_WHICH) $(USER_ENV) $(USER_PWD) $(USER_TRUE) $(USER_FALSE) $(USER_SLEEP) $(USER_DATE) $(USER_TOUCH) $(USER_MKTEMP) $(USER_BASENAME) $(USER_DIRNAME) $(USER_GREP) $(USER_HEAD) $(USER_TAIL) $(USER_TEE) $(USER_UNAME) $(USER_HOSTNAME) $(USER_UPTIME) $(USER_FIND) $(USER_DU) $(USER_DF) $(USER_SORT) $(USER_UNIQ) $(USER_CUT) $(USER_XARGS) $(USER_SEQ) $(USER_REALPATH) $(USER_ID) $(USER_WHOAMI) $(USER_READLINK) $(USER_CMP) $(USER_YES) $(USER_INSTALL) $(USER_DIFF) $(USER_TAR) $(USER_GZIP) $(USER_MINIZIP) $(USER_MINIUNZ) $(USER_PATCH) $(USER_MAKE) $(USER_BYACC) $(USER_SED) $(USER_EXPR) $(USER_PRINTF) $(USER_TR) $(USER_DD) $(USER_ED) $(USER_POSIXUTILS) $(USER_STAT) $(USER_CHMOD) $(USER_CP) $(USER_RM) $(USER_MKDIR) $(USER_MV) $(USER_TAP) $(USER_SVSCAN) $(USER_WEBD) $(USER_HTTPGET) $(USER_UDPDNS) $(USER_UDPECHO) $(USER_NETSTAT) $(USER_IFCONFIG) $(USER_ROUTE) $(USER_ARP) $(USER_PING) $(USER_HOST) $(USER_NETCHECK) $(USER_NETABI) $(USER_TCPSTRESS) $(USER_TCPPROBE) $(USER_SYSABI) $(USER_SPIN) $(USER_FPDEMO) $(USER_UI) $(USER_DESKTOP) $(USER_DISPLAYD) $(USER_GUI) $(USER_SURFACEDEMO) $(USER_GUI2DEMO) $(USER_GUIFAIL) $(USER_CALC) $(USER_NOTES) $(USER_TEXTEDIT) $(USER_PAINT) $(USER_FILEMAN) $(USER_POSIXDEMO) $(USER_THREADSTRESS) $(USER_EXECDEMO) $(USER_FDPROBE) $(USER_LOCKPROBE) $(USER_TTYDEMO) $(USER_JSONDEMO) $(USER_INIDEMO) $(USER_LINEDEMO) $(USER_SQLITEDEMO) $(USER_SQLITE3) $(USER_JQ) $(USER_BC) $(USER_LESS) $(USER_XZ) $(USER_ZLIBDEMO) $(USER_LUA) $(USER_AWK) $(USER_UVDEMO) $(USER_LIBUVDEMO) $(USER_NODEPROBE) $(USER_LIBCPROBE) $(USER_TLSPROBE) $(USER_CXXPROBE) $(USER_CXXSTLPROBE) $(USER_PLAYWAV)
 	mkdir -p $(dir $@)
-	$(PYTHON) tools/mk_exfat_image.py $@ deskprofiles=$(USER_DESKPROFILES) salvage=$(USER_SALVAGE) profile=$(USER_PROFILE) hello=$(USER_HELLO) cat=$(USER_CAT) more=$(USER_MORE) sh=$(USER_SH) ls=$(USER_LS) echo=$(USER_ECHO) write=$(USER_WRITE) wc=$(USER_WC) clear=$(USER_CLEAR) ps=$(USER_PS) kill=$(USER_KILL) which=$(USER_WHICH) env=$(USER_ENV) pwd=$(USER_PWD) true=$(USER_TRUE) false=$(USER_FALSE) sleep=$(USER_SLEEP) date=$(USER_DATE) touch=$(USER_TOUCH) mktemp=$(USER_MKTEMP) basename=$(USER_BASENAME) dirname=$(USER_DIRNAME) grep=$(USER_GREP) head=$(USER_HEAD) tail=$(USER_TAIL) tee=$(USER_TEE) uname=$(USER_UNAME) hostname=$(USER_HOSTNAME) uptime=$(USER_UPTIME) find=$(USER_FIND) du=$(USER_DU) df=$(USER_DF) sort=$(USER_SORT) uniq=$(USER_UNIQ) cut=$(USER_CUT) xargs=$(USER_XARGS) seq=$(USER_SEQ) realpath=$(USER_REALPATH) id=$(USER_ID) whoami=$(USER_WHOAMI) readlink=$(USER_READLINK) cmp=$(USER_CMP) yes=$(USER_YES) install=$(USER_INSTALL) diff=$(USER_DIFF) tar=$(USER_TAR) gzip=$(USER_GZIP) gunzip=$(USER_GZIP) minizip=$(USER_MINIZIP) miniunz=$(USER_MINIUNZ) patch=$(USER_PATCH) make=$(USER_MAKE) byacc=$(USER_BYACC) sed=$(USER_SED) expr=$(USER_EXPR) printf=$(USER_PRINTF) tr=$(USER_TR) dd=$(USER_DD) ed=$(USER_ED) ln=$(USER_POSIXUTILS) sync=$(USER_POSIXUTILS) test=$(USER_POSIXUTILS) '[=$(USER_POSIXUTILS)' cksum=$(USER_POSIXUTILS) sum=$(USER_POSIXUTILS) comm=$(USER_POSIXUTILS) paste=$(USER_POSIXUTILS) join=$(USER_POSIXUTILS) split=$(USER_POSIXUTILS) od=$(USER_POSIXUTILS) hexdump=$(USER_POSIXUTILS) strings=$(USER_POSIXUTILS) file=$(USER_POSIXUTILS) tty=$(USER_POSIXUTILS) stty=$(USER_POSIXUTILS) time=$(USER_POSIXUTILS) timeout=$(USER_POSIXUTILS) nohup=$(USER_POSIXUTILS) nice=$(USER_POSIXUTILS) stat=$(USER_STAT) chmod=$(USER_CHMOD) cp=$(USER_CP) rm=$(USER_RM) mkdir=$(USER_MKDIR) mv=$(USER_MV) tap=$(USER_TAP) svscan=$(USER_SVSCAN) webd=$(USER_WEBD) httpget=$(USER_HTTPGET) udpdns=$(USER_UDPDNS) udpecho=$(USER_UDPECHO) netstat=$(USER_NETSTAT) ifconfig=$(USER_IFCONFIG) route=$(USER_ROUTE) arp=$(USER_ARP) ping=$(USER_PING) host=$(USER_HOST) netcheck=$(USER_NETCHECK) netabi=$(USER_NETABI) tcpstress=$(USER_TCPSTRESS) tcpprobe=$(USER_TCPPROBE) sysabi=$(USER_SYSABI) spin=$(USER_SPIN) fpdemo=$(USER_FPDEMO) ui=$(USER_UI) desktop=$(USER_DESKTOP) displayd=$(USER_DISPLAYD) deskstudy=$(USER_DESKSTUDY) deskd=$(USER_DESKD) deskclient=$(USER_DESKCLIENT) deskio=$(USER_DESKIO) desktools=$(USER_DESKTOOLS) deskfs=$(USER_DESKFS) shotworker=$(USER_SHOTWORKER) desksketch=$(USER_DESKSKETCH) imageworker=$(USER_IMAGEWORKER) deskview=$(USER_DESKVIEW) deskhelp=$(USER_DESKHELP) deskfind=$(USER_DESKFIND) deskfind-worker=$(USER_FINDFSWORKER) desknet=$(USER_DESKNET) deskclock=$(USER_DESKCLOCK) clockprobe=$(USER_CLOCKPROBE) lifetimeprobe=$(USER_LIFETIMEPROBE) scopeprobe=$(USER_SCOPEPROBE) ptyprobe=$(USER_PTYPROBE) deskterm=$(USER_DESKTERM) gui=$(USER_GUI) surfacedemo=$(USER_SURFACEDEMO) gui2demo=$(USER_GUI2DEMO) guifail=$(USER_GUIFAIL) calc=$(USER_CALC) notes=$(USER_NOTES) textedit=$(USER_TEXTEDIT) paint=$(USER_PAINT) fileman=$(USER_FILEMAN) posixdemo=$(USER_POSIXDEMO) threadstress=$(USER_THREADSTRESS) execdemo=$(USER_EXECDEMO) fdprobe=$(USER_FDPROBE) lockprobe=$(USER_LOCKPROBE) ttydemo=$(USER_TTYDEMO) jsondemo=$(USER_JSONDEMO) inidemo=$(USER_INIDEMO) linedemo=$(USER_LINEDEMO) sqlitedemo=$(USER_SQLITEDEMO) sqlite3=$(USER_SQLITE3) jq=$(USER_JQ) bc=$(USER_BC) less=$(USER_LESS) zlibdemo=$(USER_ZLIBDEMO) lua=$(USER_LUA) awk=$(USER_AWK) uvdemo=$(USER_UVDEMO) libuvdemo=$(USER_LIBUVDEMO) nodeprobe=$(USER_NODEPROBE) libcprobe=$(USER_LIBCPROBE) tlsprobe=$(USER_TLSPROBE) cxxprobe=$(USER_CXXPROBE) cxxstlprobe=$(USER_CXXSTLPROBE) playwav=$(USER_PLAYWAV)
+	$(PYTHON) tools/mk_exfat_image.py $@ deskprofiles=$(USER_DESKPROFILES) salvage=$(USER_SALVAGE) profile=$(USER_PROFILE) hello=$(USER_HELLO) cat=$(USER_CAT) more=$(USER_MORE) sh=$(USER_SH) ls=$(USER_LS) echo=$(USER_ECHO) write=$(USER_WRITE) wc=$(USER_WC) clear=$(USER_CLEAR) ps=$(USER_PS) kill=$(USER_KILL) which=$(USER_WHICH) env=$(USER_ENV) pwd=$(USER_PWD) true=$(USER_TRUE) false=$(USER_FALSE) sleep=$(USER_SLEEP) date=$(USER_DATE) touch=$(USER_TOUCH) mktemp=$(USER_MKTEMP) basename=$(USER_BASENAME) dirname=$(USER_DIRNAME) grep=$(USER_GREP) head=$(USER_HEAD) tail=$(USER_TAIL) tee=$(USER_TEE) uname=$(USER_UNAME) hostname=$(USER_HOSTNAME) uptime=$(USER_UPTIME) find=$(USER_FIND) du=$(USER_DU) df=$(USER_DF) sort=$(USER_SORT) uniq=$(USER_UNIQ) cut=$(USER_CUT) xargs=$(USER_XARGS) seq=$(USER_SEQ) realpath=$(USER_REALPATH) id=$(USER_ID) whoami=$(USER_WHOAMI) readlink=$(USER_READLINK) cmp=$(USER_CMP) yes=$(USER_YES) install=$(USER_INSTALL) diff=$(USER_DIFF) tar=$(USER_TAR) gzip=$(USER_GZIP) gunzip=$(USER_GZIP) minizip=$(USER_MINIZIP) miniunz=$(USER_MINIUNZ) patch=$(USER_PATCH) make=$(USER_MAKE) byacc=$(USER_BYACC) sed=$(USER_SED) expr=$(USER_EXPR) printf=$(USER_PRINTF) tr=$(USER_TR) dd=$(USER_DD) ed=$(USER_ED) ln=$(USER_POSIXUTILS) sync=$(USER_POSIXUTILS) test=$(USER_POSIXUTILS) '[=$(USER_POSIXUTILS)' cksum=$(USER_POSIXUTILS) sum=$(USER_POSIXUTILS) comm=$(USER_POSIXUTILS) paste=$(USER_POSIXUTILS) join=$(USER_POSIXUTILS) split=$(USER_POSIXUTILS) od=$(USER_POSIXUTILS) hexdump=$(USER_POSIXUTILS) strings=$(USER_POSIXUTILS) file=$(USER_POSIXUTILS) tty=$(USER_POSIXUTILS) stty=$(USER_POSIXUTILS) time=$(USER_POSIXUTILS) timeout=$(USER_POSIXUTILS) nohup=$(USER_POSIXUTILS) nice=$(USER_POSIXUTILS) stat=$(USER_STAT) chmod=$(USER_CHMOD) cp=$(USER_CP) rm=$(USER_RM) mkdir=$(USER_MKDIR) mv=$(USER_MV) tap=$(USER_TAP) svscan=$(USER_SVSCAN) webd=$(USER_WEBD) httpget=$(USER_HTTPGET) udpdns=$(USER_UDPDNS) udpecho=$(USER_UDPECHO) netstat=$(USER_NETSTAT) ifconfig=$(USER_IFCONFIG) route=$(USER_ROUTE) arp=$(USER_ARP) ping=$(USER_PING) host=$(USER_HOST) netcheck=$(USER_NETCHECK) netabi=$(USER_NETABI) tcpstress=$(USER_TCPSTRESS) tcpprobe=$(USER_TCPPROBE) sysabi=$(USER_SYSABI) spin=$(USER_SPIN) fpdemo=$(USER_FPDEMO) ui=$(USER_UI) desktop=$(USER_DESKTOP) displayd=$(USER_DISPLAYD) deskstudy=$(USER_DESKSTUDY) deskd=$(USER_DESKD) deskclient=$(USER_DESKCLIENT) deskio=$(USER_DESKIO) desktools=$(USER_DESKTOOLS) deskfs=$(USER_DESKFS) shotworker=$(USER_SHOTWORKER) desksketch=$(USER_DESKSKETCH) imageworker=$(USER_IMAGEWORKER) deskview=$(USER_DESKVIEW) deskhelp=$(USER_DESKHELP) deskfind=$(USER_DESKFIND) deskfind-worker=$(USER_FINDFSWORKER) desknet=$(USER_DESKNET) deskclock=$(USER_DESKCLOCK) clockprobe=$(USER_CLOCKPROBE) lifetimeprobe=$(USER_LIFETIMEPROBE) scopeprobe=$(USER_SCOPEPROBE) ptyprobe=$(USER_PTYPROBE) deskterm=$(USER_DESKTERM) gui=$(USER_GUI) surfacedemo=$(USER_SURFACEDEMO) gui2demo=$(USER_GUI2DEMO) guifail=$(USER_GUIFAIL) calc=$(USER_CALC) notes=$(USER_NOTES) textedit=$(USER_TEXTEDIT) paint=$(USER_PAINT) fileman=$(USER_FILEMAN) posixdemo=$(USER_POSIXDEMO) threadstress=$(USER_THREADSTRESS) execdemo=$(USER_EXECDEMO) fdprobe=$(USER_FDPROBE) lockprobe=$(USER_LOCKPROBE) ttydemo=$(USER_TTYDEMO) jsondemo=$(USER_JSONDEMO) inidemo=$(USER_INIDEMO) linedemo=$(USER_LINEDEMO) sqlitedemo=$(USER_SQLITEDEMO) sqlite3=$(USER_SQLITE3) jq=$(USER_JQ) bc=$(USER_BC) less=$(USER_LESS) xz=$(USER_XZ) zlibdemo=$(USER_ZLIBDEMO) lua=$(USER_LUA) awk=$(USER_AWK) uvdemo=$(USER_UVDEMO) libuvdemo=$(USER_LIBUVDEMO) nodeprobe=$(USER_NODEPROBE) libcprobe=$(USER_LIBCPROBE) tlsprobe=$(USER_TLSPROBE) cxxprobe=$(USER_CXXPROBE) cxxstlprobe=$(USER_CXXSTLPROBE) playwav=$(USER_PLAYWAV)
 
 $(SECOND_EXFAT_IMAGE): $(EXFAT_IMAGE)
 	cp $(EXFAT_IMAGE) $(SECOND_EXFAT_IMAGE)
@@ -1732,7 +1731,7 @@ $(NODE_RUNTIME_EXFAT): tools/mk_exfat_image.py $(NODE_RUNTIME_STRIPPED)
 .PHONY: node-runtime-image
 node-runtime-image: $(NODE_RUNTIME_EXFAT)
 
-$(INITRAMFS): tools/pack_runtime_elf.py $(USER_INIT) $(USER_SH) $(USER_LS) $(USER_ECHO) $(USER_WRITE) $(USER_WC) $(USER_CLEAR) $(USER_PS) $(USER_KILL) $(USER_WHICH) $(USER_ENV) $(USER_PWD) $(USER_TRUE) $(USER_FALSE) $(USER_SLEEP) $(USER_DATE) $(USER_TOUCH) $(USER_MKTEMP) $(USER_BASENAME) $(USER_DIRNAME) $(USER_GREP) $(USER_HEAD) $(USER_TAIL) $(USER_TEE) $(USER_MORE) $(USER_UNAME) $(USER_HOSTNAME) $(USER_UPTIME) $(USER_FIND) $(USER_DU) $(USER_DF) $(USER_SORT) $(USER_UNIQ) $(USER_CUT) $(USER_XARGS) $(USER_SEQ) $(USER_REALPATH) $(USER_ID) $(USER_WHOAMI) $(USER_READLINK) $(USER_CMP) $(USER_YES) $(USER_INSTALL) $(USER_DIFF) $(USER_TAR) $(USER_GZIP) $(USER_MINIZIP) $(USER_MINIUNZ) $(USER_PATCH) $(USER_MAKE) $(USER_BYACC) $(USER_SED) $(USER_EXPR) $(USER_PRINTF) $(USER_TR) $(USER_DD) $(USER_ED) $(USER_POSIXUTILS) $(USER_STAT) $(USER_CHMOD) $(USER_CP) $(USER_RM) $(USER_MKDIR) $(USER_MV) $(USER_TAP) $(USER_SVSCAN) $(USER_WEBD) $(USER_HTTPGET) $(USER_UDPDNS) $(USER_UDPECHO) $(USER_NETSTAT) $(USER_IFCONFIG) $(USER_ROUTE) $(USER_ARP) $(USER_PING) $(USER_HOST) $(USER_NETCHECK) $(USER_NETABI) $(USER_TCPSTRESS) $(USER_TCPPROBE) $(USER_SYSABI) $(USER_SPIN) $(USER_FPDEMO) $(USER_UI) $(USER_DESKTOP) $(USER_DISPLAYD) $(USER_GUI) $(USER_SURFACEDEMO) $(USER_GUI2DEMO) $(USER_GUIFAIL) $(USER_CALC) $(USER_NOTES) $(USER_TEXTEDIT) $(USER_PAINT) $(USER_FILEMAN) $(USER_POSIXDEMO) $(USER_THREADSTRESS) $(USER_EXECDEMO) $(USER_FDPROBE) $(USER_LOCKPROBE) $(USER_TTYDEMO) $(USER_JSONDEMO) $(USER_INIDEMO) $(USER_LINEDEMO) $(USER_SQLITEDEMO) $(USER_SQLITE3) $(USER_JQ) $(USER_BC) $(USER_LESS) $(USER_ZLIBDEMO) $(USER_LUA) $(USER_AWK) $(USER_UVDEMO) $(USER_LIBUVDEMO) $(USER_NODEPROBE) $(USER_LIBCPROBE) $(USER_TLSPROBE) $(USER_CXXPROBE) $(USER_CXXSTLPROBE) $(EXFAT_IMAGE) $(shell find initramfs -type f 2>/dev/null | LC_ALL=C sort) $(USER_PLAYWAV)
+$(INITRAMFS): tools/pack_runtime_elf.py $(USER_INIT) $(USER_SH) $(USER_LS) $(USER_ECHO) $(USER_WRITE) $(USER_WC) $(USER_CLEAR) $(USER_PS) $(USER_KILL) $(USER_WHICH) $(USER_ENV) $(USER_PWD) $(USER_TRUE) $(USER_FALSE) $(USER_SLEEP) $(USER_DATE) $(USER_TOUCH) $(USER_MKTEMP) $(USER_BASENAME) $(USER_DIRNAME) $(USER_GREP) $(USER_HEAD) $(USER_TAIL) $(USER_TEE) $(USER_MORE) $(USER_UNAME) $(USER_HOSTNAME) $(USER_UPTIME) $(USER_FIND) $(USER_DU) $(USER_DF) $(USER_SORT) $(USER_UNIQ) $(USER_CUT) $(USER_XARGS) $(USER_SEQ) $(USER_REALPATH) $(USER_ID) $(USER_WHOAMI) $(USER_READLINK) $(USER_CMP) $(USER_YES) $(USER_INSTALL) $(USER_DIFF) $(USER_TAR) $(USER_GZIP) $(USER_MINIZIP) $(USER_MINIUNZ) $(USER_PATCH) $(USER_MAKE) $(USER_BYACC) $(USER_SED) $(USER_EXPR) $(USER_PRINTF) $(USER_TR) $(USER_DD) $(USER_ED) $(USER_POSIXUTILS) $(USER_STAT) $(USER_CHMOD) $(USER_CP) $(USER_RM) $(USER_MKDIR) $(USER_MV) $(USER_TAP) $(USER_SVSCAN) $(USER_WEBD) $(USER_HTTPGET) $(USER_UDPDNS) $(USER_UDPECHO) $(USER_NETSTAT) $(USER_IFCONFIG) $(USER_ROUTE) $(USER_ARP) $(USER_PING) $(USER_HOST) $(USER_NETCHECK) $(USER_NETABI) $(USER_TCPSTRESS) $(USER_TCPPROBE) $(USER_SYSABI) $(USER_SPIN) $(USER_FPDEMO) $(USER_UI) $(USER_DESKTOP) $(USER_DISPLAYD) $(USER_GUI) $(USER_SURFACEDEMO) $(USER_GUI2DEMO) $(USER_GUIFAIL) $(USER_CALC) $(USER_NOTES) $(USER_TEXTEDIT) $(USER_PAINT) $(USER_FILEMAN) $(USER_POSIXDEMO) $(USER_THREADSTRESS) $(USER_EXECDEMO) $(USER_FDPROBE) $(USER_LOCKPROBE) $(USER_TTYDEMO) $(USER_JSONDEMO) $(USER_INIDEMO) $(USER_LINEDEMO) $(USER_SQLITEDEMO) $(USER_SQLITE3) $(USER_JQ) $(USER_BC) $(USER_LESS) $(USER_XZ) $(USER_ZLIBDEMO) $(USER_LUA) $(USER_AWK) $(USER_UVDEMO) $(USER_LIBUVDEMO) $(USER_NODEPROBE) $(USER_LIBCPROBE) $(USER_TLSPROBE) $(USER_CXXPROBE) $(USER_CXXSTLPROBE) $(EXFAT_IMAGE) $(shell find initramfs -type f 2>/dev/null | LC_ALL=C sort) $(USER_PLAYWAV)
 	mkdir -p build
 	rm -rf $(INITRAMFS_ROOT)
 	mkdir -p $(INITRAMFS_ROOT)
@@ -1867,6 +1866,7 @@ $(INITRAMFS): tools/pack_runtime_elf.py $(USER_INIT) $(USER_SH) $(USER_LS) $(USE
 	cp $(USER_JQ) $(INITRAMFS_ROOT)/jq
 	cp $(USER_BC) $(INITRAMFS_ROOT)/bc
 	cp $(USER_LESS) $(INITRAMFS_ROOT)/less
+	cp $(USER_XZ) $(INITRAMFS_ROOT)/xz
 	cp $(USER_ZLIBDEMO) $(INITRAMFS_ROOT)/zlibdemo
 	cp $(USER_LUA) $(INITRAMFS_ROOT)/lua
 	cp $(USER_AWK) $(INITRAMFS_ROOT)/awk
@@ -3106,12 +3106,12 @@ $(USER_FINDFSWORKER): $(ZIG) $(USER_CRT0_OBJ) $(FINDFSWORKER_OBJ) $(DESK_WIDGETS
 .PHONY: test-file-search test-find-worker
 test-file-search: build/tests/file-search-host$(HOST_EXE)
 	$<
-build/tests/file-search-host$(HOST_EXE): tools/test_file_search.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS)
+build/tests/file-search-host$(HOST_EXE): tools/test_file_search.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) shared/include/srvros/desktop_search.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I $(DESK_WIDGETS_INCLUDE) $< $(HOST_DESK_WIDGETS_A) -o $@
 test-find-worker: build/tests/find-worker-host$(HOST_EXE)
 	$<
-build/tests/find-worker-host$(HOST_EXE): tools/test_find_worker.c userspace/apps/deskfind/worker.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/lib/include/srvros/desk_theme_preferences.h
+build/tests/find-worker-host$(HOST_EXE): tools/test_find_worker.c userspace/apps/deskfind/worker.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/lib/include/srvros/desk_theme_preferences.h shared/include/srvros/desktop_search.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I $(DESK_WIDGETS_INCLUDE) $< $(HOST_DESK_WIDGETS_A) -o $@
 test-desktop: test-file-search test-find-worker
@@ -3119,7 +3119,7 @@ test-desktop: test-file-search test-find-worker
 .PHONY: test-find-app
 test-find-app: build/tests/find-app-host$(HOST_EXE)
 	$<
-build/tests/find-app-host$(HOST_EXE): tools/test_find_app.c userspace/apps/deskfind/deskfind.c userspace/lib/src/desk_clipboard.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/lib/include/srvros/desk_theme_preferences.h
+build/tests/find-app-host$(HOST_EXE): tools/test_find_app.c userspace/apps/deskfind/deskfind.c userspace/lib/src/desk_clipboard.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/lib/include/srvros/desk_theme_preferences.h shared/include/srvros/desktop_search.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include -I $(DESK_WIDGETS_INCLUDE) tools/test_find_app.c userspace/lib/src/desk_clipboard.c $(HOST_DESK_WIDGETS_A) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c -Wl,--gc-sections -o $@
 test-desktop: test-find-app
@@ -3998,7 +3998,7 @@ build/tests/process-event-host$(HOST_EXE): tools/test_process_event.c kernel/src
 
 # MP request exists only in this explicit diagnostic ELF. Ordinary objects and
 # boot requests are never overwritten. AP code has no C runtime dependencies.
-AP_PROBE_OBJ := build/ap-probe/haswell-backing.o build/ap-probe/power.o build/ap-probe/platform.o build/ap-probe/package.o build/ap-probe/scheduler.o build/ap-probe/main.o build/ap-probe/requests.o build/ap-probe/probe.o build/ap-probe/entry.o
+AP_PROBE_OBJ := build/ap-probe/haswell-firmware-core.o build/ap-probe/haswell-firmware-adapter.o build/ap-probe/haswell-backing.o build/ap-probe/power.o build/ap-probe/platform.o build/ap-probe/package.o build/ap-probe/scheduler.o build/ap-probe/main.o build/ap-probe/requests.o build/ap-probe/probe.o build/ap-probe/entry.o
 AP_PROBE_BASE := $(filter-out build/kernel/src/main.c.o build/kernel/src/limine_requests.c.o build/kernel/src/scheduler.c.o build/kernel/src/drivers/power.c.o,$(KERNEL_OBJ))
 .PHONY: ap-probe-kernel
 ap-probe-kernel: build/ap-probe/srvros.elf
@@ -4361,6 +4361,8 @@ include ports/srvros/sqlite/build.mk
 include ports/srvros/jq/build.mk
 include ports/srvros/bc/build.mk
 include ports/srvros/less/build.mk
+include ports/srvros/xz/build.mk
+include ports/srvros/diffutils/build.mk
 # Compatibility forwarding sources include the canonical SrvrUI implementation.
 # Keep incremental OS builds sensitive to changes to the included files.
 build/userspace/lib/src/desk_render.c.o: userspace/widgets/render/desk_render.c userspace/widgets/include/srvros/desk_render.h
@@ -4571,6 +4573,45 @@ build/userspace/test_less_probe.elf: tools/test_less_probe.c userspace/widgets/s
 	$(CC) $(USER_CFLAGS) -I userspace/widgets/include -c userspace/widgets/src/terminal.c -o build/userspace/less-probe/model.o
 	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) build/userspace/less-probe/probe.o build/userspace/less-probe/model.o $(USER_LIB_OBJ) -o $@
 
+# Firmware-only capture lives only in the dedicated diagnostic ELF.
+build/ap-probe/haswell-firmware-core.o: kernel/diagnostics/haswell_firmware_core.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -c $< -o $@
+build/ap-probe/haswell-firmware-adapter.o: kernel/diagnostics/haswell_firmware_adapter.c $(ZIG) $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+.PHONY: test-haswell-firmware
+test-core: test-haswell-firmware
+test-haswell-firmware: build/tests/hsw-firmware-core$(HOST_EXE) build/tests/hsw-firmware-adapter$(HOST_EXE)
+	build/tests/hsw-firmware-core$(HOST_EXE) > build/tests/hsw-firmware-core.log
+	build/tests/hsw-firmware-adapter$(HOST_EXE) > build/tests/hsw-firmware-refusal.log
+	$(PYTHON) -m unittest discover -s tools -p test_hardware_haswell_firmware.py
+build/tests/hsw-firmware-core$(HOST_EXE): tools/test_haswell_firmware.c kernel/diagnostics/haswell_firmware_core.c kernel/include/srvros/haswell_firmware.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/diagnostics/haswell_firmware_core.c -o $@
+build/tests/hsw-firmware-adapter$(HOST_EXE): tools/test_haswell_firmware_adapter.c kernel/diagnostics/haswell_firmware_core.c kernel/diagnostics/haswell_firmware_adapter.c kernel/include/srvros/haswell_firmware.h $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/diagnostics/haswell_firmware_core.c kernel/diagnostics/haswell_firmware_adapter.c -o $@
+
+# xz diagnostic helper is injected only into disposable qualification images.
+build/userspace/test_xz_probe.elf: tools/test_xz_probe.c $(USER_CRT0_OBJ) $(USER_LIB_OBJ) $(ZIG) userspace/app.ld
+	mkdir -p build/userspace/xz-probe
+	$(CC) $(USER_CFLAGS) -c tools/test_xz_probe.c -o build/userspace/xz-probe/probe.o
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) build/userspace/xz-probe/probe.o $(USER_LIB_OBJ) -o $@
+
+build/userspace/test_xz_alloc_probe.elf: tools/test_xz_probe.c $(XZ_DIR)/allocator.o $(addprefix $(XZ_DIR)/,$(XZ_LZMA_SOURCES:.c=.o)) $(USER_CRT0_OBJ) $(USER_LIB_OBJ) $(ZIG) userspace/app.ld
+	mkdir -p build/userspace/xz-probe
+	$(CC) $(USER_CFLAGS) $(XZ_INCLUDES) $(XZ_DEFS) -DXZ_ALLOC_DIAGNOSTIC -c tools/test_xz_probe.c -o build/userspace/xz-probe/alloc-probe.o
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) build/userspace/xz-probe/alloc-probe.o $(XZ_DIR)/allocator.o $(addprefix $(XZ_DIR)/,$(XZ_LZMA_SOURCES:.c=.o)) $(USER_LIB_OBJ) -o $@
+
 build/tests/workspace-gpt-driver$(HOST_EXE): tools/workspace_gpt_driver.c kernel/src/block.c kernel/src/block_claim.c $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+
+
+# Injected only into disposable GNU diff qualification images.
+build/userspace/test_diff_probe.elf: tools/test_diff_probe.c $(USER_CRT0_OBJ) $(USER_LIB_OBJ) $(ZIG) userspace/app.ld
+	mkdir -p build/userspace/diff-probe
+	$(CC) $(USER_CFLAGS) -c tools/test_diff_probe.c -o build/userspace/diff-probe/probe.o
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) build/userspace/diff-probe/probe.o $(USER_LIB_OBJ) -o $@

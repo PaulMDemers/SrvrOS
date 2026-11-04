@@ -1,0 +1,166 @@
+{
+  "artifacts": {
+    "base": "bfb2e1b390b53ace66fb1d5d75240d95ad0b6d572e17be853f4a2f8616523a7d",
+    "boot": "333f7a69379b1f47e019be215885cdc078b9edd6e9255cbe2f706d6c5ec0ef06",
+    "export_driver": "970e17be9166be697ce8ac9d9c62d8bbb75b29f782e1d6eda8ff552eb2e7f23b",
+    "fs_driver": "a01fb58a854a20255806e64d638e14dbe75703214669872460ed7cc91510b5a1",
+    "init": "09a0f7749aacf0aa621eb242fea1b8d56030beceb676c4f6afdc576cd77ff3f8",
+    "inspect_driver": "61f9336c8347f825cf79ea815b943ef79714807160a9502d4869baec82c26aa7",
+    "kernel": "fa23ac994a90bebd9cd76baf89e281aee0a4579a47848a63e221bcd314045524",
+    "profile_driver": "b40880c0e5301810c0f593bdc3bd4bbdbc95a17196bd7a92def21b336654022d"
+  },
+  "checks": {
+    "bundle_groups": 13,
+    "final_focused_and_matched_source": "1a62be92fcff223550dde30d1b9224995d1e85b6",
+    "full_host_source": "bc6c6dd41f662c909850f9e22a2e271895f4c0ca",
+    "installation_tests": 88,
+    "metadata_followup": "17 publication groups and native integration pass; three complete guest build payloads identical after host-only metadata addition",
+    "native_export_groups": 16,
+    "optional_exhaustive_skips": 1,
+    "profile_cli_groups": 25,
+    "profile_image_groups": 7,
+    "publication_groups": 17,
+    "storage_session_desktop_fsync_docs": "PASS",
+    "workspace_groups": 27
+  },
+  "cli": [
+    "export-profile --publication-dir NEW_DIRECTORY",
+    "inspect-export DIRECTORY",
+    "reconcile-export DIRECTORY"
+  ],
+  "fresh_b": {
+    "alias": "recovered_b",
+    "boots": [
+      "b1",
+      "b2"
+    ],
+    "empty_cache_data_before_boot": true,
+    "environment_cwd_unique_variables": true,
+    "gid": 3051,
+    "gpt": {
+      "disk_guid": "8bdf46fe-11ec-4dd1-974c-6e40d836f622",
+      "esp_partition_guid": "de155b14-d220-4499-bc7e-78e3e2b6b174",
+      "exfat_partition_guid": "107078f0-c9f9-4876-a5c7-b78c6989c371"
+    },
+    "home": "/fat/home/recovered_b",
+    "identical_reexport": true,
+    "machine_pointer_speed": 2,
+    "machine_utc_offset_minutes": 60,
+    "native_used_inspection": true,
+    "restored_from": "io-directory-sync/output.json",
+    "uid": 3050
+  },
+  "guest_build_payloads": {
+    "build/initramfs.tar": "ad6b47fdc16e48495297b158bd2cf2cd4e8477ef514355af8f132ba3b560a70b",
+    "build/kernel/srvros.elf": "fa23ac994a90bebd9cd76baf89e281aee0a4579a47848a63e221bcd314045524",
+    "build/srvros.exfat": "bfb2e1b390b53ace66fb1d5d75240d95ad0b6d572e17be853f4a2f8616523a7d"
+  },
+  "integrated_main": "a90bf57e9c82751711154c4170bf5dec44328d74",
+  "latest_contract_check": {
+    "installation_profile_native_export_files_changed": false,
+    "main": "8c891b203d6ef9766b96c041821d4ae1624fa6d5",
+    "note": "Later opt-in firmware diagnostics and host-fixture portability changes are not relabeled as this runtime proof."
+  },
+  "limits": [
+    "No physical media or arbitrary power-loss acceptance",
+    "Integrity/ownership record for cooperative operators, not authentication",
+    "Portable-v2 streaming remains a separately qualified contract",
+    "CLI flow reviewed by expert walkthrough and real functional tests; no representative-user study"
+  ],
+  "pins": {
+    ".": "1a62be92fcff223550dde30d1b9224995d1e85b6",
+    "ports": "fc51ddb456bd359caee4b65e9a0e719496b6aaad",
+    "userspace/apps": "b2b93f65dd0c4ae8d2bafdba465907b02c83ad29",
+    "userspace/widgets": "b3fa806a61e2be362bdf9411468d2f44cdcb984b"
+  },
+  "pr": 364,
+  "preservation": {
+    "original_a_image_and_baseline_paths_device_inodes_times_hashes_unchanged": true,
+    "original_a_receipt_sha256": "ae4b59b04257b38c9509141e1eb5b57b84fb9dd31f7b73c701b1de1bc25664cf",
+    "previous_raw_a_b_transport_and_baselines_unchanged": true,
+    "retention": "Raw source/output images, attempts, records, matched build artifacts and logs survive build cleanup in the mounted APFS evidence image. Keep original A baseline and image at their original paths/inodes; no decompressed/relinked adoption.",
+    "review_vms_alive": [
+      61610,
+      6233,
+      85869
+    ]
+  },
+  "proof": {
+    "archive_streams": [
+      {
+        "path": "data-b-preboot.exfat.gz",
+        "sha256": "7e25431dfc998dae716c72ce231710bd134f4596a4e2909c9b1ece396476d7d9",
+        "size": 134217728
+      },
+      {
+        "path": "data-b1.exfat.gz",
+        "sha256": "71d8b37e0ea4f353ea29a18520ac92a61d60ed31440a30c12cf7197e11e869e0",
+        "size": 134217728
+      },
+      {
+        "path": "data-b2.exfat.gz",
+        "sha256": "dbfe70be3df587945f2016fb7e9488e9a7dc4cc858003acd143c0707d2e348c1",
+        "size": 134217728
+      }
+    ],
+    "audit_sha256": "f1b2f6478f33b85a355eb2dee37dcb930556288666f8e41fecdef62293cbeef5",
+    "busy_cases": 2,
+    "complete_publications": 18,
+    "corruption_ownership_cases": 10,
+    "injected_host_io_fault_modes": 8,
+    "installed_base_files_verified": 166,
+    "owned_guests": [
+      "b1",
+      "b2"
+    ],
+    "owned_qemu_remaining": 0,
+    "path": ".local/installation-evidence/guest-created-volume/export-publication/proof-mn6magg7",
+    "publication_interruptions": 8,
+    "receipt_sha256": "813acdf0278f64c3bce91483bbf7158f1564dd477737a1fb39726ce9e1d76f75",
+    "reconciliation_interruptions": 5,
+    "refusal_commands": 22,
+    "steps": 109
+  },
+  "proof_source": "1a62be92fcff223550dde30d1b9224995d1e85b6",
+  "scope": "Offline canonical portable-v1 export publication; controlled host process/syscall faults and synthetic installed QEMU images",
+  "screenshot": {
+    "caption": "Fresh B after reboot opens exact selected Text document at recovered_b; filesystem/serial checks establish identity, defaults, binary bytes and lifecycle completion.",
+    "dimensions": [
+      1280,
+      800
+    ],
+    "original_ppm_sha256": "95145bf2ba8bcfef391df2a071cda1b2b7abb22f2905cb669ca2f23233ed3535",
+    "path": "installation-export-recovery-restored.png",
+    "pixel_preserving_derivative": true,
+    "sha256": "c314a08b69c9c8d627928114aca7d9756c41746552b87c7da0776d6cb6d0f1d3"
+  },
+  "snapshot": {
+    "bundle_sha256": "699d2271b048b2177831367aeaec66bccfc649c2ccad54a3fea5b0a83c484841",
+    "documents": [
+      {
+        "path": "Documents/migration.txt",
+        "sha256": "0bb4ea865cafd90717ab7028e7f0ec711e0e270ba27557bb2a3ec9dbd5790e54",
+        "size": 24
+      },
+      {
+        "path": "Documents/binary.dat",
+        "sha256": "ed231d85a68b071fe94b60a4b2563217dd131410f8c91a828d31a649efd945d8",
+        "size": 20
+      }
+    ],
+    "encoded_bytes": 768,
+    "preferences": {
+      "clock_flags": 3,
+      "glass_level": 1,
+      "text_size": 16,
+      "theme_accent": 0,
+      "theme_style": 0,
+      "wallpaper": 0
+    },
+    "profile": {
+      "display_name": "Created profile",
+      "id": "856b5227-b22d-4dd3-a324-726506abf248"
+    }
+  },
+  "status": "qualified-for-review"
+}
