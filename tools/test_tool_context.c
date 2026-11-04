@@ -4,6 +4,10 @@
 void srv_puts(const char *text) { (void)text; }
 void tool_content_focus(struct tool *t,int active) { desk_ui_window_focus(&t->ui,active);if(t->search_open) desk_searchbar_focus(&t->search,active && t->search_focus); }
 static struct tool t;
+static unsigned popup_flags(unsigned id) {
+    for(unsigned i=0;i<t.context.count;i++) if(t.context.items[i].id==id) return t.context.items[i].flags;
+    assert(0);return 0;
+}
 int main(void) {
     t.role=DESK_APP_TEXT;t.window.width=720;t.window.height=480;t.window.focused=1;
     desk_ui_init(&t.ui);desk_popup_init(&t.context);desk_ui_window_focus(&t.ui,1);
@@ -29,8 +33,8 @@ int main(void) {
     assert(desk_list_index_at(&t.table.body,40,145)==0);
     struct desk_rect hit_row=desk_list_row_rect(&t.table.body,0);assert(desk_widget_contains(hit_row,40,145));
     assert(!desk_list_row_rect(&t.table.body,2).w && desk_list_index_at(&t.table.body,702,145)==-1);
-    tool_context_open(&t,40,145,0);assert(t.context.opened && t.table.body.selected==0 && (t.context.items[5].flags&DESK_MENU_DISABLED));
-    desk_popup_cancel(&t.context);tool_context_open(&t,40,175,0);assert(t.table.body.selected==1 && !t.context.items[5].flags);
+    tool_context_open(&t,40,145,0);assert(t.context.opened && t.table.body.selected==0 && (popup_flags(TOOL_DUPLICATE)&DESK_MENU_DISABLED) && (popup_flags(TOOL_COPY_TO)&DESK_MENU_DISABLED) && (popup_flags(TOOL_MOVE_TO)&DESK_MENU_DISABLED));
+    desk_popup_cancel(&t.context);tool_context_open(&t,40,175,0);assert(t.table.body.selected==1 && !popup_flags(TOOL_DUPLICATE) && !popup_flags(TOOL_COPY_TO) && !popup_flags(TOOL_MOVE_TO));
     desk_popup_cancel(&t.context);tool_context_open(&t,40,300,0);assert(t.table.body.selected==-1 && (t.context.items[0].flags&DESK_MENU_DISABLED));
     desk_popup_cancel(&t.context);t.job.busy=1;tool_context_open(&t,40,145,0);assert(!t.context.opened);t.job.busy=0;
     desk_ui_focus(&t.ui,TOOL_LIST);desk_list_select(&t.table.body,1);tool_context_open(&t,0,0,1);assert(t.context.opened && t.table.body.selected==1);
