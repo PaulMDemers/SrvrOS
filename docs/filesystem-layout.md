@@ -3,6 +3,155 @@
 Updated November 3, 2026. Global activation follows the explicit namespace proof
 in [PR308](https://github.com/PaulMDemers/SrvrOS/pull/308).
 
+## Workspace lifecycle — verified
+
+User authorized the installed-root workspace lifecycle proof on main `c7be6574`.
+Coordinated the additive harness mode with the installation owner and declared
+the process audit boundary. No kernel, syscall, process, installer policy or
+profile change was needed. This is a fixture/proof milestone: it adds sysabi
+holder/verification modes and optional `--workspace-lifecycle`, which requires
+`--canonical-paths`; existing installed-boot defaults remain unchanged.
+
+Clean matched source `9ba7e944` passes the build and all 11 installed-root cases.
+On each of the normal and reversed-disk boots, independent file, directory and
+cwd holders each cause `unmount /work` to report busy. The file is dirty while
+held; release performs fsync/close. Directory release closes its descriptor;
+cwd release changes to `/`. Control is an explicit `/home` marker, adding no
+extra `/work` reference. Each holder has a bounded 60-second timeout.
+
+After every release, sync and unmount succeed. System aliases are checked while
+`/work` is absent, then the correct other GPT partition remounts and the exact
+file bytes plus `/home`/`/usr`/`/fat` identities and workspace isolation are checked.
+All six independent refusal/release cycles and 12 absent/remounted checks pass.
+The fixture file is removed after verification. The existing full namespace,
+long-path, two-boot home/work marker persistence, canonical Text/theme restoration
+and nine no-write recovery cases pass. Four offline allocation checks report
+zero leaks, FAT/bitmap mismatches or errors; protected disk regions are unchanged.
+
+Reproduce after a matched build:
+
+```sh
+OVMF_CODE=/opt/homebrew/share/qemu/edk2-x86_64-code.fd \
+  python3 tools/installed_root_smoke.py --canonical-paths --workspace-lifecycle \
+  --ovmf-vars /opt/homebrew/share/qemu/edk2-i386-vars.fd
+```
+
+Six build-provenance host tests, whitespace and documentation checks pass.
+Evidence is in `build/review/installed-canonical/proof-q8wzmgqx/` and
+`build/review/workspace-lifecycle/`; receipt SHA256 is
+`4370536d27cd2a4cc72afe7b3bb48d320bd12f44d2524f55a38f0b324f78373e`.
+The independent review counts all expected READY/RELEASED/refusal/verification
+markers, rejects failure markers, compares every recovery disk hash and checks
+allocation results. Receipts, commands, logs, matched manifest and independent
+checks are also retained at
+`.local/filesystem-evidence/workspace-lifecycle-9ba7e944/` outside build cleanup.
+
+All proof VMs stopped; review VMs 61610, 6233 and 85869 and primary checkout were
+preserved. This covers disposable GPT/AHCI mounted-volume reference lifetime,
+not physical hot unplug, automatic USB workspace admission, failed-flush injection
+or power-loss qualification. No further implementation is required for this target.
+
+### PR319 merge review and next bounded milestone
+
+The user authorized review and merge if ready. Actual main remains `c7be6574`.
+The five-file diff changes only sysabi test modes, optional harness behavior and
+this document. Rechecked the archived receipt SHA256, exact source and all six
+READY/refusal/RELEASED cycles, 12 alias/persistence checks and nine complete disk
+hash comparisons. No review correction or unresolved thread was present.
+Six provenance tests, 871 local documentation links and whitespace checks pass.
+A clean build of the review head reproduces all three image hashes from tested
+`9ba7e944`; changes since that run are documentation only. The passing VM proof
+therefore remains applicable without another run. Existing review VMs remain live.
+
+Next proposed filesystem milestone: **failed-writeback workspace retirement
+contract and fault proof**. Use the actual process/exFAT/VFS path with a disposable
+`/work` backend and deterministic write/flush failures. Establish the expected
+sync/close error, retained or quarantined state and safe mount-retirement behavior;
+verify that failures cannot be reported as clean persistence and leave the
+selected system volume and `/home`/`/usr`/`/fat` aliases intact. Reuse existing
+fault adapters and coordinate process cleanup with its audit owner. Begin with
+an explicit failure-state contract and focused reproducer; change production
+code only for demonstrated gaps. No automatic repair/retry, physical media or
+new backend is implied. This is the next proposal, not work begun by this review.
+
+## Installed-root canonical paths — verified
+
+November 3, 2026: canonical paths work end to end on an identity-selected
+installed-root boot, preserving `/fat` and independent `/work`. Coordinated with
+the installation owner of [PR315](https://github.com/PaulMDemers/SrvrOS/pull/315):
+this proof reuses their published harness unchanged. No production filesystem
+fix or competing installer implementation was needed. PR315 landed as
+`500a0e37`; this is independent filesystem acceptance evidence.
+
+Clean tested source `a85cc716` combines main `56e1f950` (PR313/PR314 included)
+and published PR315. Six build-provenance host tests and a matched
+`sh tools/macos/build.sh -j2 all` pass. The command is:
+
+```sh
+OVMF_CODE=/opt/homebrew/share/qemu/edk2-x86_64-code.fd \
+  python3 tools/installed_root_smoke.py --canonical-paths \
+  --ovmf-vars /opt/homebrew/share/qemu/edk2-i386-vars.fd
+```
+
+All 11 VM cases pass. No ISO, host kernel or host initrd supplies the OS; GPT
+installation images provide loader, kernel, bootstrap and applications. The
+bootstrap contains only `/init`. Firmware templates are host supplied.
+
+| Installed-root acceptance | Result |
+| --- | --- |
+| Boot order and root identity | System selects `ahci0p2`, then `ahci1p2` after disk reversal; selection precedes aliases and init readiness |
+| Canonical namespace on both boots | Full `sysabi --namespace` passes: `/bin`/`/usr`/`/fat` inode identity, logical cwd/dirfd, raw listing, shared content, guards, rename/unlink, spawn, 1023-byte backing paths and expansion-overflow refusal |
+| Independent workspace | `/work` mounts the other GPT data partition (`ahci1p2`, then `ahci0p2`); guest isolation checks and clean unmount pass |
+| Persistence | Distinct `/home` and `/work` markers survive boot, reopen through global/legacy aliases, then checked cleanup; offline images confirm separate storage |
+| Desktop | `/bin/deskd` saves and reopens `/home/installed-proof.txt`; saved Text bytes and theme preference survive reordered boot; screenshot inspected |
+| Integrity | Four offline system/work allocation checks report zero leaks, FAT/bitmap mismatches and errors; protected regions outside both data partitions remain unchanged |
+| Recovery | Nine missing/duplicate/wrong-role/type/format/invalid-map/recovery/pending cases halt before namespace activation, with both disk hashes unchanged |
+
+Evidence: `build/review/installed-canonical/proof-zj4uzynn/receipt.json` has SHA256
+`7694ffd8a1ddd91729a25fdf6430dad852a66799de2795b22a043261088426cc`.
+Commands, full serial logs, disk images, allocation checks and screenshots remain
+in that directory. `build/review/filesystem-installed/` contains host/build logs,
+`tested-build.json`, `independent-review.json` and `reopened.png`. Receipt, logs,
+commands, matched manifest, independent checks and PNG are also retained under
+`.local/filesystem-evidence/installed-canonical-a85cc716/` to survive build cleanup.
+The independent checks verify ordering, markers, command boot inputs, both
+reordered mount devices, every recovery hash comparison and allocation results.
+
+The primary checkout and review VMs (61610, 6233, 85869) were preserved; every
+VM created by this proof was stopped. This accepts disposable QEMU EFI/GPT
+installation behavior. Physical media, power-loss qualification, authenticated
+identity, GPT repair and profile-session activation remain outside this proof.
+No further filesystem implementation is required for this target.
+
+### PR318 merge review and next bounded filesystem milestone
+
+The user authorized review and merge of PR318 after PR315 landed. Reviewed actual
+main `500a0e37` and the single-file PR318 diff. PR315's final harness removes the
+unreliable early Text startup-log wait and waits for window publication instead;
+Text save/reopen responses, clipboard length and exact disk readback remain
+required. Its clean reviewed source `57fcf482` passes all 11 cases. See the
+[final installation review](disk-installation.md) and
+[portable review receipt](assets/screenshots/installed-canonical-review-manifest.json).
+The earlier `a85cc716` receipt above remains its own passing historical run,
+not a claim to have tested the later harness revision.
+
+Archived receipt hashes and independent checks were revalidated for PR318.
+No unresolved review thread or requested correction was present. This PR changes
+only this acceptance document; it introduces no runtime or harness change.
+Documentation link validation and whitespace checks pass against merged PR315.
+No further VM run is needed for this documentation-only reconciliation.
+
+Next proposed filesystem milestone: **installed-root workspace unmount/remount
+lifetime proof**. On two disposable GPT disks, hold an open file, directory and
+cwd under `/work`, verify busy unmount refusal without data loss, then release
+the references, sync, unmount and remount. Check persisted bytes and confirm
+`/home`, `/usr` and `/fat` still refer to the selected system volume throughout.
+Reuse existing process/workspace ownership and the installed-boot harness;
+coordinate any needed process changes with its audit owner. This closes the
+guest lifecycle evidence gap beyond the current clean-unmount proof. It adds
+no automatic USB selection, profile policy or new filesystem backend. This is
+a proposal for the next milestone, not implementation begun by this review.
+
 ## Dependency integration — verified for merge
 
 The user authorized dependency review, integration and merge of
