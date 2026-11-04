@@ -1,5 +1,83 @@
 # Apple Silicon macOS build host
 
+## PR360 current-main merge review — ready
+
+User authorizes review and merge if ready, preserving uncertain media and review
+VMs and coordinating PR317. Reviewed `faf760d5` with no blocking finding and
+integrated actual main `5f670602` as `ce5dd654`. The main delta adds Haswell audit
+tooling/documentation; native block/claim/exFAT/VFS, inspector, wrapper and tests
+match the qualified source. Production/runtime code is unchanged by this PR.
+
+Verified the frozen 44-file archive and all 15 captured sources against the
+immutable commit. Independently reviewed PR317 receipt/log hashes confirm its
+27 strict and 27 ASan/UBSan synthetic groups and successful omitted-backup
+negative control. Its initial exFAT fixture run could not preserve mode/hardlink
+semantics; the APFS rerun passes. macOS LeakSanitizer is unsupported: its supported
+sanitizer pass uses `detect_leaks=0`, with no leak-sanitizer acceptance claimed.
+The independent reviewer did not reread uncertain media or operate review VMs.
+
+Fresh current-main 27 diagnostic/selection groups, storage lease/workspace/USB
+regressions and documentation/whitespace checks pass. Reinspection of all three
+uncertain images, fault backup and clean control matches the original full-image
+SHA-256 and device/inode/ownership/link-count/mode/size/mtime/ctime stamps, plus
+PR349 explicit-range and PR360 GPT metadata. Diagnostic writes/flushes remain
+zero, uncertain images stay `0444`, and control stays `0644`. Review VMs
+61610/6233/85869 stay running and untouched. No new OS/VM or live/physical-media
+acceptance is claimed for this host-only change. Review evidence survives in
+`.local/filesystem-evidence/pr360-review/` outside `build`.
+
+PR317 owner confirms no new contract/lifetime overlap at `649e34df`, keeping
+scope coordination distinct from its independent source review. Published
+storage failure remains sticky; GPT/marker observations grant no authentication,
+repair, replay, transport recovery, remount or writable-admission authority.
+512-byte sectors, conservative native attribute policy and exactly one Basic
+Data candidate remain explicit limits. Review is ready for authorized merge.
+
+The merge guard subsequently held delivery when main advanced. Integrated
+Files folder-picker main `bc3d4933` as `f4769af5`, synchronizing Apps `b2b93f65`
+and Widgets `b3fa806a` and preserving its host record. All qualified native/tool
+sources remain identical. Fresh 27-group checks and retained-media comparisons
+pass again; no new runtime/UI acceptance is claimed by this host-only review.
+
+Next proposed bounded milestone: **explicit partition-GUID selection for offline
+multi-volume workspace images**. Add a caller-supplied GUID option which requires
+one matching Basic Data partition in the already validated primary/backup map,
+then retains the existing workspace marker/metadata inspection. This addresses
+the current conservative refusal of all multiple-Basic-Data images. Preserve
+that automatic ambiguity refusal; never select a first/alternate partition on
+missing/wrong GUID, unsupported type, corrupt map or failed workspace inspection.
+Research reuse of native GUID/map handling first, coordinate with PR317, and
+verify wrong/missing/duplicate identities plus multi-volume fixtures and unchanged
+retained-image hashes/permissions. No writable admission, repair, replay or
+source/orphan export. This proposal is not implemented by PR360.
+
+
+## GPT-aware workspace diagnostics — host qualified
+
+User authorizes native GPT reuse review, offline read-only selection and
+corrupt/ambiguous-map qualification. Base `f4ea0ccb`, isolated filesystem checkout,
+branch `device/apple-silicon/filesystem-gpt-inspection`. Reuse `block_gpt_scan`
+in a separate host adapter; native primary validation remains unchanged. Add
+host-only backup agreement checks and conservative single Basic Data selection
+before the existing native workspace inspector. No production block/process/USB
+changes, writable admission, repair or replay. Coordinate with PR317; preserve
+review VMs 61610/6233/85869 and all uncertain media. Prove matching explicit-range
+reports, corrupt/ambiguous refusals and unchanged whole-image hashes/permissions.
+
+Implementation `c2daff82` reuses unchanged native primary parsing and adds only
+host backup agreement/selection. All five retained inputs match PR349 ranges,
+metadata, whole-file hashes and full identity/permission stamps. Uncertain inputs
+remain `0444` and dirty/four-leak; clean control remains `0644`. 27 selection/diagnostic
+groups, storage lease/workspace/USB regressions and halt-on-error ASan/UBSan pass.
+An omitted-backup-check negative control is detected. Logical sectors are 512;
+multiple Basic Data candidates are conservatively refused, and the native
+read-only-attribute refusal policy is retained. Explicit paired ranges stay
+compatible; mixed selector/explicit arguments refuse. No source/orphan export,
+sidecar replay or production runtime changes. Evidence is retained outside build
+at `.local/filesystem-evidence/gpt-workspace-inspection/`. Review VMs remain live
+and untouched; PR317 reports no overlap, with independent source review separate.
+No fresh OS/VM/physical-media acceptance is claimed for this host-only change.
+
 ## Session switching — delivered and verified November 4, 2026
 
 User authorized cooperative session ending, no-reboot profile switching,
@@ -4560,3 +4638,76 @@ are retained. No PR334 implementation imported. Next checkpoint is focused
 merged-source host tests, kernel build and disposable Q35 regression, followed
 by exact-head merge. Signal owner has released compiler/guest slots. No physical
 media or protected review VM operation. New JSC payload remains separately open.
+### Files destination-folder picker — verified November 4, 2026
+
+User authorizes a browsable destination-folder picker for Files Copy to and Move
+to, in isolated `SrvrOS-app-quality` only. Base OS `f4ea0ccb`, Apps `2a8bc2d9`,
+UI `586bd002`; preserve merged profile creation and cooperative session switching.
+Own allocation-free SrvrUI folder mode, existing asynchronous OS chooser filtering,
+SrvrApps Files/presenter wiring, focused checks and disposable-VM acceptance.
+Folders activate to browse; Choose folder accepts the currently displayed folder.
+Typed location remains available. Capture source identity before browsing; retain
+original basename, <=16MiB regular-file bound, guarded source metadata, collision
+refusal, same-volume Move and honest unknown-outcome recovery. No recursive
+transfer, overwrite, new filesystem mutation or session-policy implementation.
+
+Acceptance: keyboard/pointer nested and empty folder selection, parent/root alias
+navigation, canceled/failed/pending reads and reopen, unchanged source guard after
+browsing, owned-dialog and embedded fallback, sibling independence and accepted
+copy through Close; exact saved bytes, guest fsck/offline allocation, clean worker
+retirement, Open/Save regressions, clipped/narrow/theme rendering and matched
+source/build. Build/VM harnesses run sequentially. Shared checkout and review VM
+remain untouched. Draft/review delivery follows acceptance; merge is separate.
+
+Clean runtime/acceptance source `bac25c8d` pins UI `65ab080a` and Apps `6b2b00a3`.
+Full widget and desktop host suites, guarded file-change contracts, folder/picker/
+chooser checks and widget-theme preview pass. Portable CTest passes all 11 cases;
+ASan/UBSan CTest passes 10 (instrumented symbol-boundary test excluded,
+plain boundary passes separately). Focused folder-picker and chooser sanitizer
+checks pass. Independent source and evidence reviews find no blocker.
+
+Both normal and dialog-refusal Files transfer VMs pass nested/empty destinations,
+root alias browsing, keyboard and pointer cancel/accept, unavailable-folder
+recovery, exact copy/move bytes and collision preservation, destination selection,
+Back/Forward, sibling independence, accepted copy through Close, two document
+retirements, reaped worker pool and restored process baseline. Guest fsck and
+offline generator/allocation checks pass. Existing Files/Open With and actual
+Text/Preview pointer/lifecycle regressions pass, including failed-save/cancel
+retention, exact files and cleanup. Metadata snapshots are asserted by host and
+backend guard tests; guest proof establishes real resulting file bytes.
+
+Screenshots received expert inspection: path and primary action fit, folder-only
+empty state is accurate, and failed browse disables confirmation. No participant
+study or physical-device acceptance is claimed. Three harness-only failures
+(pointer trace removal, diagnostic spelling and diagnostic consumption) retain
+raw disks/logs/screenshots; none count as acceptance or required a runtime fix.
+Evidence/receipt: `build/review/files-folder-picker/`; a verified evidence and
+matched-artifact archive is retained under `.local/app-proof/files-folder-picker/`
+outside build cleanup. No external fsck.exfat or real power-loss acceptance.
+
+Review delivery: [SrvrUI #5](https://github.com/PaulMDemers/SrvrUI/pull/5),
+[SrvrApps #10](https://github.com/PaulMDemers/SrvrApps/pull/10), then
+[SrvrOS #359](https://github.com/PaulMDemers/SrvrOS/pull/359). The final journal
+commit receives a clean matched build and byte-identity comparison with accepted
+runtime; the receipt records exact revisions. Ready for dependency-order
+integration; merge is separate. All owned guests are stopped. Shared checkout
+and review VM remain untouched. No further feature is needed for this target.
+
+### Files folder-picker integration — November 4, 2026
+
+User authorizes UI5, Apps10, OS359 integration in dependency order and merged
+verification in isolated `SrvrOS-app-quality`. UI5 merged `b3fa806a61e2be362bdf9411468d2f44cdcb984b` first;
+Apps10 merged `b2b93f65dd0c4ae8d2bafdba465907b02c83ad29` second. Both merge trees exactly match the accepted
+UI `65ab080a` / Apps `6b2b00a3` candidates. Reconcile OS main `5f670602`, whose
+changes since the feature baseline are documentation and Haswell host tooling
+only; preserve those six files and the matched Ports pin. No app/session/kernel
+runtime overlap exists. Accepted feature evidence remains tied to `bac25c8d`.
+
+The merged dependencies receive focused host checks, a clean matched build and
+runtime artifact comparison before OS359 merge. Actual merged OS source receives
+a matched build and normal/refused-dialog Files transfer VMs; exact merge,
+provenance, host/VM receipts and byte comparisons are recorded under
+`build/review/files-folder-picker-integration/`. The full original Files/Text/
+Preview, widget, portable and sanitizer acceptance remains valid for identical
+runtime bytes. Shared checkout and review VM remain untouched; owned guests run
+sequentially and stop at test completion. No physical or power-loss acceptance.
