@@ -3450,7 +3450,7 @@ Shared checkout and review VM remain untouched. Integration is delivered and
 verified; historical physical-device closures remain unresolved as documented.
 No further work is required for this integration target.
 
-### Files cross-folder transfer — active November 3, 2026
+### Files cross-folder transfer — verified November 3, 2026
 
 User authorized guarded-contract validation, Copy to / Move to implementation
 and acceptance in independent `SrvrOS-app-quality`, branch `app/files-transfer`,
@@ -3468,3 +3468,54 @@ and verify close/independent-window behavior. Run focused host, matched build,
 actual keyboard/pointer, exact persisted bytes and filesystem/allocation checks.
 Keep the shared checkout and review VM untouched; no native acceptance or main
 merge is implied. Next: focused contract checks and destination journey review.
+
+Apps `c7b09b6` implements File/context Copy to and Move to with Ctrl-Shift-C/M,
+an owned absolute destination-folder prompt and retained original name. Capture
+source path/inode/size/date before prompting; refuse folders, >16 MiB, invalid or
+same-location paths. On verified completion open/select the destination; Back
+returns to the source. Known collision/path/stale/busy refusals keep the view;
+I/O or worker failures accurately report an unknown outcome. Preserve guarded
+metadata, close/drain ownership and independent Files windows.
+
+Acceptance exposed two real shared-model defects. Stable prompt reconfiguration
+canceled button capture on every tick; UI `e423f97` cancels only actual geometry/
+enabled changes or focus loss. Both the old VM pointer cancel and the added host
+press/configure/release test fail before the fix and pass afterwards. Root
+navigation also failed because `/usr` aliases `/fat` with the same real inode.
+The decoder now allows distinct names sharing an inode and derives collision-
+safe, sort-stable presentation keys for those rows. Real inode values remain
+unchanged for stat and guarded mutations. Alias selection survives refresh,
+sort and history; 256-row bounds/collision tests and OS sanitizer coverage pass.
+No kernel, filesystem metadata or guarded-operation wire ABI changed.
+
+Clean runtime `ba3f51f8` passes normal and refused-dialog transfer VMs, exact
+128 KiB+17-byte file readback, cancellation, collision/missing-parent refusal,
+destination selection, history recovery, two Files documents, accepted-copy
+completion before close retirement, sibling auto-focus, worker/process cleanup,
+explicit successful userspace sync, guest fsck and offline allocation checks.
+The full existing Files VM also passes Rename/Duplicate/Delete, Open With,
+root/Places/history/navigation and exact saved data. Full desktop/widget and I/O
+host suites pass. Guarded max-size/over-limit, stale/busy/collision cases pass
+with ASan/UBSan; real exFAT cross-directory rename/remount and allocation checks
+pass on a disposable generated image. Standalone core CTest passes 11 checks,
+with 10 sanitizer checks plus a separate plain archive-boundary check. The
+OS-only listing model is tested/sanitized through the matched OS fixtures.
+Widget-theme preview and successful copy/move desktop captures were inspected.
+
+Retain intermediate failures: expected prompt/alias negatives, corrected exact
+INVALID status for missing destination parents, protected `/fat/home` replaced
+by an explicit collision fixture, and one post-close launcher query containing
+an extra character. The final post-close check directly proves sibling focus
+and refresh; other launcher/typing checks remain. No input-layer fix is claimed.
+The explicit sync gate invokes `/fat/bin/sync` through the monitor's run command.
+Full exfatprogs hardening/independent fsck is unavailable (`mkfs.exfat` absent);
+generated-image and guest/allocation checks do not imply power-loss acceptance.
+
+[UI PR4](https://github.com/PaulMDemers/SrvrUI/pull/4),
+[Apps PR7](https://github.com/PaulMDemers/SrvrApps/pull/7) and
+[OS PR344](https://github.com/PaulMDemers/SrvrOS/pull/344) are the review chain,
+in that dependency order. Final documentation builds preserve the tested
+kernel/initramfs/disk hashes. Source identities, pins, hashes, failures and final
+results are in local `build/review/files-transfer/receipt.json`. All task VMs are
+stopped; shared checkout and review VM remain untouched. Implementation and
+acceptance are complete and ready for review; no main merge was performed.
