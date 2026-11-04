@@ -1141,6 +1141,30 @@ for violated trusted commit invariants; recoverable staging errors still return
 before publication. Its implementation remains subject to source/host/VM review.
 No FPU proof object, trap capture, assembly change or signal admission is approved.
 
+## November 4: image metadata source and host review
+
+PR334 candidate `fea6bbb1` implements nonreused committed image generations,
+process-owned membership/tuple resolution, staged preflight before publication or
+exec stdio replacement, and IRQ-excluded scheduler bind/clear validation. It
+invalidates opaque association metadata in stable scheduler kernel-FPU records
+before binding changes, kill and stack reuse; user-FPU records keep NULL. Failed
+staging preserves the caller's binding; exec invalidates/unbinds and retires the
+old generation before backing cleanup, then publishes the new image. Main
+pthread_exit retains the shared image for atexit, and worker clear precedes TLS
+free. Normal scheduler switching retains each slot's association. No proof is
+minted and no trap/assembly or signal-delivery path is enabled.
+
+Independent production-source review found no new blocking issue in this bounded
+candidate. All 20 strict Rosetta/ASan+UBSan host profiles independently pass,
+including actual process metadata/lifecycle, scheduler/FPU metadata and existing
+service/foreground/vector-failure/loader/lifetime/output/teardown fixtures.
+Verified the owner's metadata host receipt and all 32 recorded hashes. Independent
+commands/results/logs/source hashes: `build/review/pr334-metadata-review/`.
+Hardware and PMM hooks are explicit models; numeric worker stack checks use a
+logical HHDM test view. Source/host acceptance does not qualify target integration:
+matched build/guest evidence and current docs remain pending with PR334's owner.
+FPU proof capture, user copy/assembly and signals remain separate review gates.
+
 ## Remaining work
 
 Other long IRQ-disabled operations, including initial/churning PMM scans, heap validation and poisoning,
