@@ -310,3 +310,11 @@ lock/listener cancellation and child-status transaction sources. New actual TTY
 helper model confirms whole-buffer IRQ validation perbyte; current-byte correction
 pending. Diskless prepare superseded, no guest/JSC acceptance. Transaction-only
 stack22,575B excludes scheduler/I/O cuts; full blocking/common-gate proof open.
+
+
+Closed TTY byte5c4b6942:19 chained artifacts verify, independent strict/sanitizer
+one-byte/owned-sink instrumentation and committed regressions pass; old-source
+negatives fail intended assertion. Retained-stack142-file analysis reproduced:
+CALL20303/completion22575B;199 unique linked bodies/22,551 instructions independently
+checked. IRQ extra1311B remains configuration/IF/net-idle conditional; pre-probe
+runtime gate and native execution pending, not global asynchronous-stack proof.

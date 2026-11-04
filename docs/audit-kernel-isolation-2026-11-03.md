@@ -2148,6 +2148,50 @@ and I/O cuts; complete blocking/common-gate callback qualification remains open.
 No VM or JSC pass/merge acceptance is inferred. Evidence:
 `build/review/pr334-public-candidate-review/`.
 
+## November 4: TTY byte correction and retained-stack review
+
+Closed the bounded TTY correction at PR334 `5c4b6942`. Receipt SHA256
+`809227738ed85d458dbde978d9140bc5e831d435953fff27fccffcc6f33ea22b`
+and all 19 retained correction artifacts verify, chaining the already-verified
+357-file base. Source and committed test match the correction commit. Independent
+strict/sanitizer instrumentation now requests exactly one validation byte for
+scalar and current-iov output, and zero for an owned sink. The committed mapping,
+wrap/count/iov and byte-commit regression passes both profiles. The same regression
+against frozen `bb201307` aborts at the intended first one-byte assertion in both
+profiles. Ten results retained: `build/review/pr334-tty-byte-fix-review/`.
+
+Verified all 142 frozen retained-stack files and receipt SHA256
+`97d4ee1136d94ed73e082b9b77ce9573715235b003da540438a37910155a0365`.
+Re-executed the analyzer using a private mirror without modifying frozen evidence:
+CALL 20,303 bytes and completion 22,575, within the owned 131,072-byte stack.
+Independent ELF/decoder checking covers 199 distinct function bodies (200 identities
+include the bounded serial carriage-return model), 22,551 decoded instructions,
+742 entry-target control relocations and 760 function-reference relocations bound
+to the actual linked `f5f12369` experimental kernel. Instruction coverage spans
+each complete function. All indirect sites match the declared reviewed sites.
+Non-code data relocation values are masked in this separate verifier (969 fields),
+so it does not independently prove readonly-data layout. Exact finite wait
+contexts, callback producers and scheduler save-RSP/load-RSP boundary are recorded
+by the retained analysis; context switches use another stack rather than recurse.
+
+The separate IRQ supplement SHA256
+`e86992e35b1bf194dd26829d4c1ed3be0c176fc6442425b8d9bd482e5a98cb33`
+and its 24 referenced hashes verify. Its conditional extra 1,311 bytes yields
+23,886 with completion. Source inventory supports timer, PS/2 and serial routes;
+PIC/IOAPIC entries start masked, xHCI polls with interrupter IE clear, and reserved
+IRQ lines cannot acquire legitimate completion callbacks. Twenty reachable STI
+sites are documented as saved-IF restores. The net-timer no-frame branch requires
+no selected provider/worker; no-NIC plus absent virtio/ECM flags is a device-model
+inference, not a current boot result. Require the actual network-idle/worker-not-
+started boot messages before sending the probe command. NMI/MCE, unrelated IRQs,
+terminal teardown and separately scheduled worker stacks remain outside this bound.
+
+Prepared source `5c4b6942` has rebuilt normal/experimental kernels and a new
+matched diskless preparation; the earlier image remains superseded. Final harness
+precondition/receipt verification and native execution remain pending. Normal
+public dispatch stays disabled; no JSC, general networking, merge or whole-codebase
+acceptance is inferred. Evidence: `build/review/pr334-public-stack-review/`.
+
 ## Remaining work
 
 Other long IRQ-disabled operations, including initial/churning PMM scans, heap validation and poisoning,
