@@ -41,7 +41,13 @@ def tree_digest(source):
     return h.hexdigest()
 
 def relative(path):
-    return str(path.resolve().relative_to(ROOT))
+    # Keep the pinned toolchain's checkout-relative spelling when its files
+    # live in the shared Zig distribution. Their actual bytes are still hashed.
+    path = Path(path)
+    relative_path = (path if path.is_absolute() else ROOT/path).relative_to(ROOT)
+    if '..' in relative_path.parts:
+        raise ValueError('proof path escapes checkout: '+str(path))
+    return str(relative_path)
 
 def check_inputs(mapping):
     for name, value in mapping.items():
