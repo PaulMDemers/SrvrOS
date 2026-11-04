@@ -106,6 +106,7 @@ void fpu_init_state(struct fpu_state *state) {
     if (state == NULL) {
         return;
     }
+    state->active_user_trap = NULL;
     if (!available) {
         for (uint64_t i = 0; i < FPU_FXSAVE_AREA_SIZE; i++) {
             state->fxsave_area[i] = 0;
@@ -115,6 +116,10 @@ void fpu_init_state(struct fpu_state *state) {
     }
     copy_fx_area(state->fxsave_area, initial_fxsave_area);
     state->initialized = true;
+}
+
+void fpu_invalidate_user_trap(struct fpu_state *state) {
+    if (state) state->active_user_trap = NULL;
 }
 
 void fpu_save(struct fpu_state *state) {

@@ -325,6 +325,23 @@ int64_t process_usage(int64_t who,struct srv_usage *out);
 uint64_t process_thread_self(void);
 int64_t process_futex_wait(uint32_t *address, uint32_t expected, uint64_t timeout_ticks);
 int64_t process_futex_wake(uint32_t *address, uint64_t max_count);
+struct process_user_binding {
+    struct fpu_state *user_fpu;
+    uint64_t fs_base;
+    uint64_t kernel_stack_top;
+    bool new_worker_allowed;
+};
+/* CPU0, IRQs already excluded; output unchanged on refusal. Structural ownership
+ * only: callers must separately check root preparation before publication.
+ * The resolver permits intact killed/exiting bindings for ordinary unwind;
+ * worker admission refuses them. Neither operation establishes an FPU proof. */
+bool process_resolve_user_binding(void *process, void *user_thread,
+    uint64_t image_generation, uint64_t address_space,
+    struct process_user_binding *out);
+/* New worker READY admission; IRQs already excluded. */
+bool process_admit_user_worker(void *process, void *worker,
+    uint64_t image_generation, uint64_t address_space,
+    struct process_user_binding *out);
 struct fpu_state *process_fpu_state(void *process);
 uint64_t process_fs_base(void *process);
 void process_fpu_save(void *process);

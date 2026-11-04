@@ -3,7 +3,7 @@
 static bool teardown_running, teardown_irq=true, teardown_safe, teardown_foreign;
 static bool teardown_workers_killed;
 static unsigned teardown_expected_clears;
-static unsigned teardown_waits, teardown_clears, teardown_frames, teardown_spaces;
+static unsigned teardown_waits, teardown_clears, teardown_frames, teardown_spaces, teardown_invalidates;
 static struct process *teardown_target;
 static jmp_buf teardown_return;
 static void teardown_writeback_check(void) {
@@ -16,6 +16,12 @@ static uint64_t process_test_irq_save(void) {
     uint64_t flags=teardown_irq?1ull<<9:0;teardown_irq=false;return flags;
 }
 static void process_test_irq_restore(uint64_t flags) { if(flags&(1ull<<9))teardown_irq=true; }
+static uint64_t process_test_rflags(void) { return teardown_irq?1ull<<9:0; }
+void scheduler_invalidate_current_user_trap(void) {
+    assert(teardown_running && !teardown_irq && !teardown_foreign && !teardown_workers_killed);
+    assert(teardown_target->image_generation==19);
+    teardown_invalidates++;
+}
 void scheduler_io_set_user_safe(bool safe) {
     assert(teardown_running && !teardown_irq && !safe);teardown_safe=safe;
 }
@@ -36,7 +42,7 @@ void scheduler_io_wait(void) {
 }
 void scheduler_kill_user_threads(void *p,void *except) {
     assert(teardown_running && p==teardown_target && !except);
-    assert(!teardown_irq && !teardown_foreign && teardown_waits);
+    assert(!teardown_irq && !teardown_foreign && teardown_waits && teardown_invalidates);
     teardown_workers_killed=true;
 }
 void scheduler_clear_user_context(void) {
@@ -54,7 +60,7 @@ void console_release_framebuffer_mute_owner(uint64_t pid) { assert(pid==teardown
 void net_process_cleanup(struct process *p) { assert(p==teardown_target); }
 bool vmm_unmap_page_in_space(uint64_t root,uint64_t page,uint64_t *physical) {
     assert(root==0x1000 && page==0x5000 && teardown_workers_killed);
-    assert(!teardown_irq && !teardown_foreign && !teardown_target->active);
+    assert(!teardown_irq && !teardown_foreign && !teardown_target->active && !teardown_target->image_generation);
     assert(!teardown_target->files[1].used && teardown_clears==teardown_expected_clears);
     *physical=0x9000;return true;
 }
@@ -72,7 +78,7 @@ void test_process_teardown_fault(void);
 void halt_forever(void) { assert(0 && "unexpected kernel halt");abort(); }
 static void teardown_case(bool survivor,unsigned failure,bool fatal) {
     setup(1);subject.pid=77;subject.active=subject.allocated=true;
-    subject.address_space=0x1000;subject.mapping_count=1;
+    subject.address_space=0x1000;subject.mapping_count=1;subject.image_generation=19;
     subject.mappings[0]=(struct process_mapping){.virtual_address=0x5000,.physical_address=0x9000};
     subject.main_thread_exited=true;
     subject.user_threads[0]=(struct process_user_thread){.used=true,.active=true,.owner=&subject};
@@ -83,13 +89,14 @@ static void teardown_case(bool survivor,unsigned failure,bool fatal) {
     fail_save=failure!=0;clean_refusal=failure==1;
     teardown_running=true;teardown_target=&subject;
     teardown_irq=true;teardown_safe=true;teardown_foreign=true;
-    teardown_waits=teardown_clears=teardown_frames=teardown_spaces=0;teardown_workers_killed=false;
+    teardown_waits=teardown_clears=teardown_frames=teardown_spaces=teardown_invalidates=0;teardown_workers_killed=false;
     current_subject=&subject;current_worker=&subject.user_threads[0];
     teardown_expected_clears=fatal?2:1;
     if(fatal) {
         teardown_irq=false; /* Interrupt-gate entry, before C fault dispatch. */
         if(!setjmp(teardown_return))test_process_teardown_fault();
         assert(subject.exiting && subject.active && subject.mapping_count==1);
+        assert(subject.image_generation==19 && teardown_invalidates==1);
         assert(subject.user_threads[0].used && !subject.user_threads[0].active);
         assert(subject.files[1].used && !teardown_workers_killed && !teardown_frames);
     }
@@ -99,6 +106,7 @@ static void teardown_case(bool survivor,unsigned failure,bool fatal) {
     current_subject=&subject;current_worker=NULL;teardown_irq=true;
     if(!setjmp(teardown_return))process_exit(fatal?process_current_kill_status():0);
     assert(teardown_workers_killed && teardown_spaces==1 && !subject.user_threads[0].used);
+    assert(!subject.image_generation && teardown_invalidates==(fatal?2U:1U));
     assert(subject.exit_status==(fatal?128+SRV_SIGNAL_ILL:(failure?1:0)) && teardown_waits==(fatal?3U:1U));
     uint64_t status=0;assert(process_exit_status(subject.pid,&status) && status==subject.exit_status);
     teardown_running=false; /* Subsequent close belongs to the surviving parent. */

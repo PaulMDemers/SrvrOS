@@ -1,6 +1,8 @@
 #include <srvros/syscall_numbers.h>
 #include <srvros/ap_probe.h>
 #include <srvros/console.h>
+#include <srvros/serial.h>
+#include <srvros/halt.h>
 #include <srvros/latency.h>
 #include <srvros/fpu.h>
 #include <srvros/pmm.h>
@@ -55,6 +57,7 @@ struct thread {
     struct fpu_state *user_fpu;
     uint64_t user_fs_base;
     uint64_t address_space;
+    uint64_t image_generation;
     uint64_t resume_address_space;
     uint64_t kernel_stack_top;
     uint8_t *stack;
@@ -174,7 +177,7 @@ static uint64_t idle_thread=UINT64_MAX;
 
 static uint64_t irq_save(void) {
 #ifdef SRVROS_SCHEDULER_HOST_TEST
-    return 0;
+    return scheduler_test_irq_save();
 #else
     uint64_t flags;
     __asm__ volatile ("pushfq; popq %0; cli" : "=r"(flags) : : "memory");
@@ -184,7 +187,7 @@ static uint64_t irq_save(void) {
 
 static void irq_restore(uint64_t flags) {
 #ifdef SRVROS_SCHEDULER_HOST_TEST
-    (void)flags;
+    scheduler_test_irq_restore(flags);
 #else
     if ((flags & (1ull << 9)) != 0) {
         __asm__ volatile ("sti" : : : "memory");
@@ -352,7 +355,7 @@ static uint64_t thread_address_space(const struct thread *thread) {
 
 static uint64_t read_fs_base(void) {
 #ifdef SRVROS_SCHEDULER_HOST_TEST
-    return 0;
+    return scheduler_test_read_fs();
 #else
     uint32_t low;
     uint32_t high;
@@ -363,7 +366,7 @@ static uint64_t read_fs_base(void) {
 
 static void write_fs_base(uint64_t value) {
 #ifdef SRVROS_SCHEDULER_HOST_TEST
-    (void)value;
+    scheduler_test_write_fs(value);
 #else
     uint32_t low = (uint32_t)value;
     uint32_t high = (uint32_t)(value >> 32);
@@ -517,14 +520,14 @@ bool scheduler_observe_user_return(struct scheduler_user_return_observation *out
     if (!out || (flags & (1ull << 9)) || !initialized || switching ||
         current_thread >= thread_capacity || io_depth) return false;
     const struct thread *thread=thread_at(current_thread);
-    if (thread->state != THREAD_RUNNING || !thread->identity || !thread->user_context ||
+    if (thread->state != THREAD_RUNNING || !thread->identity || !thread->user_context || !thread->image_generation ||
         !thread->address_space || thread->address_space != vmm_current_address_space() ||
         thread->io_user_safe || thread->account_user || !thread->user_fpu) return false;
     *out=(struct scheduler_user_return_observation){
         .thread_identity=thread->identity,
         .process=thread->user_context,
         .user_thread=thread->user_thread_context,
-        .address_space=thread->address_space,
+        .address_space=thread->address_space,.image_generation=thread->image_generation,
         .user_fpu=thread->user_fpu,
     };
     return true;
@@ -679,16 +682,52 @@ static uint64_t initial_thread_stack(uint64_t top) {
     return rsp;
 }
 
+/* Validate the PMM-owned direct-map extent without rounding or repairing it. */
+static bool valid_user_worker_stack_extent(uint64_t physical,uint64_t base) {
+    const uint64_t physical_mask=0x000ffffffffff000ull;
+    if(!physical || (physical & ~physical_mask) ||
+       physical > physical_mask-(SCHEDULER_STACK_SIZE-PMM_FRAME_SIZE) ||
+       !base || (base & (PMM_FRAME_SIZE-1)) ||
+       base > UINT64_MAX-SCHEDULER_STACK_SIZE) return false;
+    uint64_t end=base+SCHEDULER_STACK_SIZE;
+    return (base >> 47)==0x1ffff && (end >> 47)==0x1ffff && !(end & 15);
+}
+
+static uint64_t worker_stack_view(uint64_t physical,const void *backing) {
+#ifdef SRVROS_SCHEDULER_HOST_TEST
+    return scheduler_test_stack_address(physical,backing);
+#else
+    (void)physical;return (uint64_t)backing;
+#endif
+}
+
 static bool spawn_thread(const char *name, scheduler_thread_fn entry, void *arg,
-    scheduler_wait_condition_fn io_eligible,bool user,struct fpu_state *user_fpu,uint64_t user_fs_base) {
+    scheduler_wait_condition_fn io_eligible,bool user,struct fpu_state *user_fpu,uint64_t user_fs_base,uint64_t generation) {
     if (!initialized || entry == NULL) {
         return false;
     }
 
     uint64_t flags=irq_save();
+    if(current_thread>=thread_capacity || switching) {irq_restore(flags);return false;}
     struct thread *parent=thread_at(current_thread);
-    if(user && (!arg || !user_fpu || !parent->user_context || !parent->address_space ||
-       vmm_current_address_space()!=parent->address_space)) {irq_restore(flags);return false;}
+    if(user) {
+        struct process_user_binding binding,parent_binding;
+        if(!arg || !user_fpu || !generation || parent->state!=THREAD_RUNNING || !parent->identity ||
+           !parent->user_context || generation!=parent->image_generation || !parent->address_space ||
+           vmm_current_address_space()!=parent->address_space ||
+           !process_resolve_user_binding(parent->user_context,parent->user_thread_context,generation,parent->address_space,&parent_binding) ||
+           parent_binding.user_fpu!=parent->user_fpu || parent_binding.fs_base!=parent->user_fs_base ||
+           (parent->user_thread_context ?
+             (parent_binding.kernel_stack_top || parent->kernel_stack_top || !parent->stack ||
+              !valid_user_worker_stack_extent(parent->stack_physical,worker_stack_view(parent->stack_physical,parent->stack)) ||
+              parent->stack!=pmm_phys_to_virt(parent->stack_physical)) :
+             (!parent_binding.kernel_stack_top || parent_binding.kernel_stack_top!=parent->kernel_stack_top)) ||
+           !process_admit_user_worker(parent->user_context,arg,generation,parent->address_space,&binding) ||
+           !binding.new_worker_allowed || binding.user_fpu!=user_fpu || binding.fs_base!=user_fs_base || binding.kernel_stack_top ||
+           !vmm_prepare_user_kernel_mappings(parent->address_space)) {
+            irq_restore(flags);return false;
+        }
+    }
     if(next_identity==UINT64_MAX) { irq_restore(flags);return false; }
     uint64_t i;
     for(i=1;i<thread_capacity;i++)
@@ -697,6 +736,7 @@ static bool spawn_thread(const char *name, scheduler_thread_fn entry, void *arg,
     if(grow && thread_capacity==SCHEDULER_MAX_THREADS) { irq_restore(flags);return false; }
     struct thread *slot=grow?NULL:thread_at(i);
     if(slot && slot->stack_physical) {
+        fpu_invalidate_user_trap(&slot->kernel_fpu);
         pmm_free_frame_range(slot->stack_physical,SCHEDULER_STACK_SIZE/PMM_FRAME_SIZE);
         thread_storage_bytes-=SCHEDULER_STACK_SIZE;
         slot->stack_physical=0;slot->stack=NULL;
@@ -709,6 +749,16 @@ static bool spawn_thread(const char *name, scheduler_thread_fn entry, void *arg,
     uint64_t physical=pmm_alloc_frames_above_tagged(SCHEDULER_STACK_SIZE/PMM_FRAME_SIZE,
         SCHEDULER_STACK_MIN_PHYSICAL,PMM_FRAME_KERNEL_STACK);
     if(!physical) { irq_restore(flags);return false; }
+    uint8_t *stack=pmm_phys_to_virt(physical);
+    /* Host fixtures retain a real writable buffer, but use a synthetic HHDM
+     * address solely to exercise the same production numeric validation. */
+    uint64_t stack_view=worker_stack_view(physical,stack);
+    if(!stack || (user && !valid_user_worker_stack_extent(physical,stack_view)) ||
+       (!user && ((physical & (PMM_FRAME_SIZE-1)) ||
+                   (uint64_t)stack > UINT64_MAX-SCHEDULER_STACK_SIZE))) {
+        pmm_free_frame_range(physical,SCHEDULER_STACK_SIZE/PMM_FRAME_SIZE);
+        irq_restore(flags);return false;
+    }
     struct thread *chunk=NULL;
     if(grow) {
         uint64_t record_physical=pmm_alloc_frames_above_tagged(SCHEDULER_CHUNK_FRAMES,
@@ -721,7 +771,6 @@ static bool spawn_thread(const char *name, scheduler_thread_fn entry, void *arg,
         for(unsigned n=0;n<SCHEDULER_INITIAL_THREADS;n++)chunk[n]=(struct thread){0};
         slot=&chunk[0];
     }
-    uint8_t *stack=pmm_phys_to_virt(physical);
     *slot=(struct thread){.state=THREAD_READY,.name=name,.identity=next_identity++,
         .entry=entry,.io_eligible=io_eligible,.arg=arg,.stack=stack,.stack_physical=physical,
         .context={.rsp=initial_thread_stack((uint64_t)stack+SCHEDULER_STACK_SIZE),
@@ -730,7 +779,7 @@ static bool spawn_thread(const char *name, scheduler_thread_fn entry, void *arg,
     if(user) {
         /* Publish complete immutable entry context before making this READY
          * slot observable. No uninitialized kernel continuation is admitted. */
-        slot->user_context=parent->user_context;slot->address_space=parent->address_space;
+        slot->user_context=parent->user_context;slot->address_space=parent->address_space;slot->image_generation=generation;
         slot->user_thread_context=arg;slot->user_fpu=user_fpu;
         slot->user_fs_base=user_fs_base;slot->io_user_safe=true;
     }
@@ -744,17 +793,17 @@ static bool spawn_thread(const char *name, scheduler_thread_fn entry, void *arg,
 }
 
 bool scheduler_spawn(const char *name, scheduler_thread_fn entry, void *arg) {
-    return spawn_thread(name, entry, arg, NULL,false,NULL,0);
+    return spawn_thread(name, entry, arg, NULL,false,NULL,0,0);
 }
 
-bool scheduler_spawn_user_thread(const char *name,scheduler_thread_fn entry,void *thread,struct fpu_state *fpu,uint64_t fs_base) {
-    return spawn_thread(name,entry,thread,NULL,true,fpu,fs_base);
+bool scheduler_spawn_user_thread(const char *name,scheduler_thread_fn entry,void *thread,struct fpu_state *fpu,uint64_t fs_base,uint64_t generation) {
+    return spawn_thread(name,entry,thread,NULL,true,fpu,fs_base,generation);
 }
 
 bool scheduler_spawn_io_service(const char *name, scheduler_thread_fn entry,
     void *arg, scheduler_wait_condition_fn eligible) {
     if (eligible == NULL) return false;
-    return spawn_thread(name, entry, arg, eligible,false,NULL,0);
+    return spawn_thread(name, entry, arg, eligible,false,NULL,0,0);
 }
 
 static uint64_t next_ready_thread(uint64_t old_index) {
@@ -921,6 +970,7 @@ void scheduler_kill_user_threads(void *process, void *except_user_thread_context
             thread->user_thread_context == except_user_thread_context) {
             continue;
         }
+        fpu_invalidate_user_trap(&thread->kernel_fpu);
         detach_wait(thread);io_gate_leave(thread);
         if(i==current_thread) account_current_at(timer_monotonic_us());
         thread->account_user=false;
@@ -929,6 +979,7 @@ void scheduler_kill_user_threads(void *process, void *except_user_thread_context
         thread->user_fpu = NULL;
         thread->user_fs_base = 0;
         thread->address_space = 0;
+        thread->image_generation = 0;
         thread->resume_address_space=0;
         thread->kernel_stack_top = 0;
         thread->state = THREAD_DEAD;
@@ -1045,36 +1096,47 @@ void scheduler_preempt_tick(void) {
     scheduler_yield();
 }
 
-void scheduler_set_user_context_fpu(void *process,
-    uint64_t address_space,
-    uint64_t kernel_stack_top,
-    struct fpu_state *user_fpu) {
-    if (!initialized) {
-        return;
-    }
+static __attribute__((noreturn)) void invalid_user_binding(void) {
+    serial_write("scheduler: invalid user binding\n");
+    halt_forever();
+}
 
-    struct thread *thread = thread_at(current_thread);
+static void bind_user_context(void *process,uint64_t address_space,uint64_t kernel_stack_top,
+    struct fpu_state *explicit_fpu,uint64_t generation,bool require_fpu) {
+    uint64_t flags=irq_save();
+    if(!initialized || current_thread>=thread_capacity || switching || (io_depth && io_owner!=current_thread)) invalid_user_binding();
+    struct thread *thread=thread_at(current_thread);
+    struct process_user_binding binding;
+    if(thread->state!=THREAD_RUNNING || !thread->identity || thread->user_thread_context || !process || !generation || !address_space ||
+       !process_resolve_user_binding(process,NULL,generation,address_space,&binding) ||
+       !binding.user_fpu || (require_fpu && (!explicit_fpu || explicit_fpu!=binding.user_fpu)) ||
+       !kernel_stack_top || binding.kernel_stack_top!=kernel_stack_top ||
+       !vmm_prepare_user_kernel_mappings(address_space)) invalid_user_binding();
+    fpu_invalidate_user_trap(&thread->kernel_fpu);
     account_current_at(timer_monotonic_us());
     thread->account_user=false;
     thread->user_context = process;
+    thread->user_thread_context = NULL;
     thread->io_user_safe = false;
     thread->address_space = address_space;
+    thread->image_generation = generation;
     thread->resume_address_space=address_space;
     thread->kernel_stack_top = kernel_stack_top;
-    thread->user_fpu = user_fpu;
-    thread->user_fs_base = process_fs_base(process);
-    fpu_set_current_user_state(user_fpu);
+    thread->user_fpu = binding.user_fpu;
+    thread->user_fs_base = binding.fs_base;
+    fpu_set_current_user_state(binding.user_fpu);
     write_fs_base(thread->user_fs_base);
 
-    if (address_space != 0) {
-        vmm_refresh_kernel_mappings(address_space);
-        vmm_switch_address_space(address_space);
-    }
+    vmm_switch_address_space(address_space);
     gdt_set_kernel_stack(thread_kernel_stack_top(thread));
+    irq_restore(flags);
 }
 
-void scheduler_set_user_context(void *process, uint64_t address_space, uint64_t kernel_stack_top) {
-    scheduler_set_user_context_fpu(process, address_space, kernel_stack_top, process_fpu_state(process));
+void scheduler_set_user_context_fpu(void *process,uint64_t address_space,uint64_t kernel_stack_top,struct fpu_state *fpu,uint64_t generation) {
+    bind_user_context(process,address_space,kernel_stack_top,fpu,generation,true);
+}
+void scheduler_set_user_context(void *process,uint64_t address_space,uint64_t kernel_stack_top,uint64_t generation) {
+    bind_user_context(process,address_space,kernel_stack_top,NULL,generation,false);
 }
 
 void scheduler_clear_user_context(void) {
@@ -1082,7 +1144,18 @@ void scheduler_clear_user_context(void) {
         return;
     }
 
+    uint64_t flags=irq_save();
+    if(current_thread>=thread_capacity || switching || (io_depth && io_owner!=current_thread)) invalid_user_binding();
     struct thread *thread = thread_at(current_thread);
+    uint64_t kernel_address_space=vmm_kernel_address_space(), default_stack=gdt_default_kernel_stack_top();
+    uint64_t default_view=default_stack;
+#ifdef SRVROS_SCHEDULER_HOST_TEST
+    default_view=scheduler_test_kernel_address(default_stack);
+#endif
+    if(thread->state!=THREAD_RUNNING || !thread->identity || !kernel_address_space ||
+       (kernel_address_space & ~0x000ffffffffff000ull) || !default_stack || (default_stack&15) ||
+       (default_view >> 47)!=0x1ffff || (default_view&15)) invalid_user_binding();
+    fpu_invalidate_user_trap(&thread->kernel_fpu);
     account_current_at(timer_monotonic_us());
     thread->account_user=false;
     thread->user_context = NULL;
@@ -1091,16 +1164,15 @@ void scheduler_clear_user_context(void) {
     thread->user_fpu = NULL;
     thread->user_fs_base = 0;
     thread->address_space = 0;
+    thread->image_generation = 0;
     thread->resume_address_space=0;
     thread->kernel_stack_top = 0;
     fpu_set_current_user_state(NULL);
     write_fs_base(0);
 
-    uint64_t kernel_address_space = vmm_kernel_address_space();
-    if (kernel_address_space != 0) {
-        vmm_switch_address_space(kernel_address_space);
-    }
-    gdt_set_kernel_stack(gdt_default_kernel_stack_top());
+    vmm_switch_address_space(kernel_address_space);
+    gdt_set_kernel_stack(default_stack);
+    irq_restore(flags);
 }
 
 void *scheduler_current_user_context(void) {
@@ -1110,11 +1182,11 @@ void *scheduler_current_user_context(void) {
     return thread_at(current_thread)->user_context;
 }
 
-void scheduler_set_user_thread_context(void *context) {
-    if (!initialized) {
-        return;
-    }
-    thread_at(current_thread)->user_thread_context = context;
+void scheduler_invalidate_current_user_trap(void) {
+    uint64_t flags=irq_save();
+    if(initialized && current_thread<thread_capacity)
+        fpu_invalidate_user_trap(&thread_at(current_thread)->kernel_fpu);
+    irq_restore(flags);
 }
 
 void *scheduler_current_user_thread_context(void) {

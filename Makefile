@@ -3855,6 +3855,24 @@ build/tests/process-spawn-failure-host$(HOST_EXE): tools/test_process_spawn_fail
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include $< kernel/src/vfs_namespace.c -Wl,--gc-sections -o $@
 test-core: test-process-spawn-failure
 
+.PHONY: test-process-image-metadata test-process-image-lifecycle test-fpu-metadata
+test-process-image-metadata: build/tests/process-image-metadata-host$(HOST_EXE)
+	$<
+build/tests/process-image-metadata-host$(HOST_EXE): tools/test_process_image_metadata.c kernel/src/process.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+test-process-image-lifecycle: build/tests/process-image-lifecycle-host$(HOST_EXE)
+	$<
+build/tests/process-image-lifecycle-host$(HOST_EXE): tools/test_process_image_lifecycle.c kernel/src/process.c kernel/src/vfs_namespace.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/vfs_namespace.c -Wl,--gc-sections -o $@
+test-fpu-metadata: build/tests/fpu-metadata-host$(HOST_EXE)
+	$<
+build/tests/fpu-metadata-host$(HOST_EXE): tools/test_fpu_metadata.c kernel/src/arch/x86_64/fpu.c $(KERNEL_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -mno-sse -mno-sse2 -mno-mmx -mno-80387 -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+test-core: test-process-image-metadata test-process-image-lifecycle test-fpu-metadata
+
 .PHONY: test-graphics-service
 test-graphics-service: build/tests/graphics-service-host$(HOST_EXE)
 	$<

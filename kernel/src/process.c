@@ -230,6 +230,7 @@ struct process {
     uint64_t argv;
     uint64_t envp;
     uint64_t address_space;
+    uint64_t image_generation;
     uint64_t heap_base;
     uint64_t program_break;
     uint64_t mapped_break;
@@ -338,6 +339,7 @@ struct process_lifetime {
 };
 static struct process_lifetime process_lifetimes[PROCESS_MAX_PROCESSES];
 static uint64_t next_lifetime = 1;
+static uint64_t next_image_generation;
 static uint64_t next_pid = 1;
 static uint64_t next_exit_record_sequence;
 static struct scheduler_wait_queue process_wait_queue;
@@ -388,6 +390,94 @@ static void process_irq_restore(uint64_t flags) {
         __asm__ volatile ("sti" : : : "memory");
     }
 #endif
+}
+
+/* IDs are never recycled, including after a failed staged image. */
+static int64_t process_prepare_image(struct process *image) {
+    uint64_t irq=process_irq_save();
+    if (!image || image->image_generation || !image->address_space ||
+        !vmm_prepare_user_kernel_mappings(image->address_space)) {
+        process_irq_restore(irq);return SRV_ERR_IO;
+    }
+    if (next_image_generation == UINT64_MAX) {
+        process_irq_restore(irq);return SRV_ERR_AGAIN;
+    }
+    image->image_generation=++next_image_generation;
+    process_irq_restore(irq);return 0;
+}
+
+bool process_resolve_user_binding(void *candidate, void *worker,
+    uint64_t generation, uint64_t root, struct process_user_binding *out) {
+    uint64_t flags=0;
+#ifndef SRVROS_PROCESS_HOST_TEST
+    __asm__ volatile ("pushfq; popq %0" : "=r"(flags) : : "memory");
+#elif defined(SRVROS_PROCESS_IRQ_HOST_TEST)
+    flags=process_test_rflags();
+#endif
+    if ((flags & (1ull << 9)) || !out || !candidate || !generation ||
+        generation > next_image_generation || !root ||
+        (root & ~0x000ffffffffff000ull) || root == vmm_kernel_address_space()) return false;
+    struct process *process=NULL;
+    unsigned slot=0;
+    for (unsigned i=0;i<PROCESS_MAX_PROCESSES;i++) {
+        if (candidate == &processes[i]) { process=&processes[i];slot=i;break; }
+    }
+    if (!process || process_slots_busy[slot] || !process->allocated || !process->active ||
+        process->reapable || process->image_generation != generation ||
+        process->address_space != root) return false;
+    struct process_user_thread *thread=NULL;
+    unsigned tls_slot=0;
+    if (worker) {
+        for (unsigned i=0;i<PROCESS_MAX_USER_THREADS;i++)
+            if (worker == &process->user_threads[i]) {thread=&process->user_threads[i];tls_slot=i+1;break;}
+        if (!thread || !thread->used || !thread->active || thread->owner != process || thread->tid < 2)
+            return false;
+    }
+    struct fpu_state *fpu=thread ? &thread->fpu : &process->fpu;
+    if (((uintptr_t)fpu & 15) || fpu->active_user_trap ||
+        (fpu_available() && !fpu->initialized)) return false;
+    uint64_t base=thread ? thread->tls_base : process->tls_base;
+    uint64_t fs=thread ? thread->tls_thread_pointer : process->tls_thread_pointer;
+    if (!process->tls_memsz) {
+        if (process->tls_filesz || base || fs) return false;
+    } else {
+        uint64_t align=process->tls_align;
+        if (process->tls_filesz > process->tls_memsz || process->tls_memsz > PROCESS_TLS_TEMPLATE_MAX ||
+            !align || align > PAGE_SIZE || (align & (align-1))) return false;
+        uint64_t block=(process->tls_memsz+align-1)&~(align-1);
+        uint64_t length=(block+USER_TLS_TCB_SIZE+PAGE_SIZE-1)&~(PAGE_SIZE-1);
+        if (!length || length > (USER_TLS_LIMIT-USER_TLS_BASE)/(PROCESS_MAX_USER_THREADS+1) ||
+            base != USER_TLS_BASE+tls_slot*length || fs != base+block ||
+            base+length > USER_TLS_LIMIT) return false;
+    }
+    uint64_t top=0;
+    if (!thread) {
+        uint64_t physical=process->kernel_stack_physical;
+        uint64_t stack=(uint64_t)process->kernel_stack;
+        if (!physical || (physical & ~0x000ffffffffff000ull) ||
+            physical > 0x0010000000000000ull-PROCESS_KERNEL_STACK_SIZE ||
+            process->kernel_stack_frames != PROCESS_KERNEL_STACK_SIZE/PAGE_SIZE ||
+            !stack || (stack & (PAGE_SIZE-1)) || process->kernel_stack != pmm_phys_to_virt(physical) ||
+            stack > UINT64_MAX-PROCESS_KERNEL_STACK_SIZE) return false;
+        top=stack+PROCESS_KERNEL_STACK_SIZE;
+        if ((stack >> 47) != 0x1ffff || (top >> 47) != 0x1ffff ||
+            (top & 15) || process->kernel_stack_top != top) return false;
+    }
+    *out=(struct process_user_binding){.user_fpu=fpu,.fs_base=fs,
+        .kernel_stack_top=top,.new_worker_allowed=!process->killed && !process->exiting};
+    return true;
+}
+
+bool process_admit_user_worker(void *candidate, void *worker, uint64_t generation,
+    uint64_t root, struct process_user_binding *out) {
+    struct process_user_binding binding;
+    if (!worker || !out || !process_resolve_user_binding(candidate,worker,generation,root,&binding))
+        return false;
+    /* The resolver established static-slot membership under the same exclusion. */
+    struct process *process=candidate;
+    if (process->killed || process->exiting) return false;
+    *out=binding;
+    return true;
 }
 
 struct process_latency_span { uint64_t start;bool entry_masked; };
@@ -894,6 +984,7 @@ static void release_process(struct process *process) {
     uint64_t token=process->lifetime;
     uint64_t slot=(uint64_t)(process-processes),flags=process_irq_save();
     process_slots_busy[slot]=true;
+    process->image_generation=0;
     process->allocated=false;
     process_irq_restore(flags);
 
@@ -919,6 +1010,9 @@ static void release_process_runtime(struct process *process) {
         return;
     }
 
+    uint64_t irq=process_irq_save();
+    process->image_generation=0;
+    process_irq_restore(irq);
     if (process->kernel_stack_physical != 0 && process->kernel_stack_frames != 0) {
         pmm_free_frame_range(process->kernel_stack_physical, process->kernel_stack_frames);
         process->kernel_stack_physical = 0;
@@ -1838,6 +1932,9 @@ static void cleanup_process_address_space(struct process *process) {
         return;
     }
 
+    uint64_t irq=process_irq_save();
+    process->image_generation=0;
+    process_irq_restore(irq);
     struct process_latency_span span=process_latency_begin();
     struct process_service_scope scope=process_service_begin();
     cleanup_process_mappings(process);
@@ -1852,7 +1949,7 @@ static void cleanup_process_address_space(struct process *process) {
 static bool enter_process(struct process *process, const char *label) {
     uint64_t restored = process_context_save(&process->context);
     if (restored == 0) {
-        scheduler_set_user_context(process, process->address_space, process->kernel_stack_top);
+        scheduler_set_user_context(process, process->address_space, process->kernel_stack_top, process->image_generation);
         if (!process->quiet) {
             console_printf("%s: entering pid=%u %s entry=%x stack=%x\n",
                 label,
@@ -1896,7 +1993,8 @@ bool process_run_elf_args(const char *path, const char *args) {
     }
 
     if (!load_elf_image(path, process, USER_STACK_TOP, &process->entry) ||
-        !setup_process_arguments(process, path, args != NULL ? args : "")) {
+        !setup_process_arguments(process, path, args != NULL ? args : "") ||
+        process_prepare_image(process) < 0) {
         cleanup_process_address_space(process);
         release_process(process);
         return false;
@@ -1932,16 +2030,15 @@ int64_t process_spawn_elf_args(const char *path, const char *args) {
     }
 
     if (!load_elf_image(path, child, USER_STACK_TOP, &child->entry) ||
-        !setup_process_arguments(child, path, args)) {
+        !setup_process_arguments(child, path, args) || process_prepare_image(child) < 0) {
         cleanup_process_address_space(child);
         release_process(child);
-        scheduler_set_user_context(parent, parent->address_space, parent->kernel_stack_top);
         return -1;
     }
 
     uint64_t restored = process_context_save(&child->context);
     if (restored == 0) {
-        scheduler_set_user_context(child, child->address_space, child->kernel_stack_top);
+        scheduler_set_user_context(child, child->address_space, child->kernel_stack_top, child->image_generation);
         console_printf("spawn: entering pid=%u %s entry=%x stack=%x\n",
             child->pid,
             path,
@@ -1957,7 +2054,7 @@ int64_t process_spawn_elf_args(const char *path, const char *args) {
 
     int64_t status = (int64_t)child->exit_status;
     process_account_child(parent,child);
-    scheduler_set_user_context(parent, parent->address_space, parent->kernel_stack_top);
+    scheduler_set_user_context(parent, parent->address_space, parent->kernel_stack_top, parent->image_generation);
     __asm__ volatile ("sti" : : : "memory");
     release_process(child);
     return status;
@@ -1987,17 +2084,16 @@ int64_t process_spawn_elf_args_redirect(const char *path,
     }
 
     if (!load_elf_image(path, child, USER_STACK_TOP, &child->entry) ||
-        !setup_process_arguments(child, path, args) ||
+        !setup_process_arguments(child, path, args) || process_prepare_image(child) < 0 ||
         !process_set_stdout_redirect(child, stdout_path, append)) {
         cleanup_process_address_space(child);
         release_process(child);
-        scheduler_set_user_context(parent, parent->address_space, parent->kernel_stack_top);
         return -1;
     }
 
     uint64_t restored = process_context_save(&child->context);
     if (restored == 0) {
-        scheduler_set_user_context(child, child->address_space, child->kernel_stack_top);
+        scheduler_set_user_context(child, child->address_space, child->kernel_stack_top, child->image_generation);
         console_printf("spawn: entering pid=%u %s entry=%x stack=%x\n",
             child->pid,
             path,
@@ -2013,7 +2109,7 @@ int64_t process_spawn_elf_args_redirect(const char *path,
 
     int64_t status = (int64_t)child->exit_status;
     process_account_child(parent,child);
-    scheduler_set_user_context(parent, parent->address_space, parent->kernel_stack_top);
+    scheduler_set_user_context(parent, parent->address_space, parent->kernel_stack_top, parent->image_generation);
     __asm__ volatile ("sti" : : : "memory");
     release_process(child);
     return status;
@@ -2056,6 +2152,7 @@ int64_t process_spawn_exec(const char *path,
 
     int64_t error=load_spawn_image_checked(parent,child,path);
     if(!error && !setup_process_vectors(child,argc,argv,envc,envp)) error=SRV_ERR_NOMEM;
+    if(!error) error=process_prepare_image(child);
     if(!error && (signal_flags&SRV_EXEC_INHERIT_FILES)) {
         error=process_inherit_files(child,parent);
         if(!error) error=process_posix_spawn_actions(child,file_actions,file_action_count);
@@ -2104,7 +2201,7 @@ int64_t process_spawn_exec(const char *path,
 
     uint64_t restored = process_context_save(&child->context);
     if (restored == 0) {
-        scheduler_set_user_context(child, child->address_space, child->kernel_stack_top);
+        scheduler_set_user_context(child, child->address_space, child->kernel_stack_top, child->image_generation);
         console_printf("spawn: entering pid=%u %s entry=%x stack=%x\n",
             child->pid,
             path,
@@ -2120,7 +2217,7 @@ int64_t process_spawn_exec(const char *path,
 
     int64_t status = (int64_t)child->exit_status;
     process_account_child(parent,child);
-    scheduler_set_user_context(parent, parent->address_space, parent->kernel_stack_top);
+    scheduler_set_user_context(parent, parent->address_space, parent->kernel_stack_top, parent->image_generation);
     __asm__ volatile ("sti" : : : "memory");
     release_process(child);
     return status;
@@ -2138,6 +2235,8 @@ static void move_process_image(struct process *destination, struct process *sour
     destination->argv = load_process_u64(&source->argv);
     destination->envp = load_process_u64(&source->envp);
     destination->address_space = load_process_u64(&source->address_space);
+    destination->image_generation = load_process_u64(&source->image_generation);
+    source->image_generation = 0;
     destination->heap_base = load_process_u64(&source->heap_base);
     destination->program_break = load_process_u64(&source->program_break);
     destination->mapped_break = load_process_u64(&source->mapped_break);
@@ -2205,6 +2304,7 @@ int64_t process_exec_replace(const char *path,
 
     int64_t error=load_elf_image_checked(path,image,USER_STACK_TOP,&image->entry);
     if (!error && !setup_process_vectors(image,argc,argv,envc,envp)) error=SRV_ERR_NOMEM;
+    if (!error) error=process_prepare_image(image);
     if (error) {
         cleanup_process_address_space(image);
         kfree(image);
@@ -2216,7 +2316,10 @@ int64_t process_exec_replace(const char *path,
         return SRV_ERR_BADF;
     }
 
+    uint64_t commit_irq=process_irq_save();
     scheduler_clear_user_context();
+    process->image_generation=0;
+    process_irq_restore(commit_irq);
     cleanup_process_address_space(process);
     move_process_image(process, image);
     set_process_name(process, path);
@@ -2239,7 +2342,7 @@ int64_t process_exec_replace(const char *path,
 
     close_cloexec_files(process);
 
-    scheduler_set_user_context(process, process->address_space, process->kernel_stack_top);
+    scheduler_set_user_context(process, process->address_space, process->kernel_stack_top, process->image_generation);
     console_printf("exec: entering pid=%u %s entry=%x stack=%x\n",
         process->pid,
         path,
@@ -2321,6 +2424,9 @@ int64_t process_fork(const struct isr_frame *frame) {
     /* alloc_process inherited the caller mask, resource limits and group/session;
      * pending signals, alarms, usage and other threads start empty. */
     child->fpu=parent->fpu;
+    fpu_invalidate_user_trap(&child->fpu);
+    result=process_prepare_image(child);
+    if (result<0) goto fail;
     (void)cleanup_process_files(child);
     for(unsigned i=0;i<PROCESS_MAX_OPEN_FILES;i++) if(parent->files[i].used) {
         uint64_t irq=process_irq_save();
@@ -2357,7 +2463,7 @@ bool process_start_background(const char *path) {
     }
 
     if (!load_elf_image(path, process, USER_STACK_TOP, &process->entry) ||
-        !setup_process_arguments(process, path, "")) {
+        !setup_process_arguments(process, path, "") || process_prepare_image(process) < 0) {
         cleanup_process_address_space(process);
         release_process(process);
         return false;
@@ -2539,7 +2645,8 @@ static int64_t process_spawn_background_elf_args_quiet_flag(const char *path, co
     }
 
     if (!load_elf_image(path, process, USER_STACK_TOP, &process->entry) ||
-        !setup_process_arguments(process, path, args != NULL ? args : "")) {
+        !setup_process_arguments(process, path, args != NULL ? args : "") ||
+        process_prepare_image(process) < 0) {
         cleanup_process_address_space(process);
         release_process(process);
         return -1;
@@ -2590,6 +2697,7 @@ int64_t process_spawn_background_elf_args_fds(const char *path,
 
     if (!load_elf_image(path, process, USER_STACK_TOP, &process->entry) ||
         !setup_process_arguments(process, path, args != NULL ? args : "") ||
+        process_prepare_image(process) < 0 ||
         !process_configure_stdio_fds(process, parent, stdin_fd, stdout_fd, -1)) {
         cleanup_process_address_space(process);
         cleanup_process_files(process);
@@ -2668,7 +2776,7 @@ bool process_try_wait_retired(uint64_t pid,uint64_t *status,int64_t *result) {
     /* Runtime cleanup and stack release precede reapable publication. Leave
      * the empty record intact: alloc_process_lifetime clears its reserved slot
      * at the ordinary gate before reuse. Nothing is freed or yielded here. */
-    child->reapable=false;child->allocated=false;
+    child->image_generation=0;child->reapable=false;child->allocated=false;
     if(life)life->members--;
     struct process_wait_request any={.owner=parent->pid};
     if(!find_reapable_process(&any))process_clear_current_signal(SRV_SIGNAL_CHLD);
@@ -3299,7 +3407,8 @@ static void process_user_thread_start(void *arg) {
 
 static int64_t process_thread_create_impl(uint64_t entry, uint64_t arg, uint64_t stack_top, uint64_t flags,bool service) {
     struct process *process = process_current();
-    if (process == NULL || !process->active || entry == 0 || stack_top < PAGE_SIZE) {
+    if (process == NULL || !process->active || process->killed || process->exiting ||
+        !process->image_generation || entry == 0 || stack_top < PAGE_SIZE) {
         return -1;
     }
     if ((flags & ~SRV_THREAD_DETACHED) != 0) {
@@ -3352,7 +3461,7 @@ static int64_t process_thread_create_impl(uint64_t entry, uint64_t arg, uint64_t
     };
     fpu_init_state(&thread->fpu);
 
-    if (!scheduler_spawn_user_thread("uthread", process_user_thread_start, thread,&thread->fpu,thread->tls_thread_pointer)) {
+    if (!scheduler_spawn_user_thread("uthread", process_user_thread_start, thread,&thread->fpu,thread->tls_thread_pointer,process->image_generation)) {
         if(service)process_release_thread_tls(thread);
         else if(thread->tls_base) {
             uint64_t size=page_up(align_up_u64(process->tls_memsz,process->tls_align)+USER_TLS_TCB_SIZE);
@@ -3411,12 +3520,13 @@ void process_thread_exit(uint64_t value) {
         /* Keep the launch/teardown continuation and shared image alive. Only
          * the user thread retires here; exited joinable slots do not keep the
          * process alive. The initial return value is not a process status. */
+        scheduler_invalidate_current_user_trap();
         process->main_thread_return_value = value;
         process->main_thread_exited = true;
         process->main_pending_signals = 0;
         process->main_signal_mask = UINT64_MAX;
         scheduler_wake_all(&process->thread_wait_queue);
-        __asm__ volatile ("sti" : : : "memory");
+        process_irq_restore(1ull << 9);
         while (!process_last_user_thread_done(process)) {
             if (!scheduler_wait(&process->thread_wait_queue,
                     process_last_user_thread_done, process)) scheduler_yield();
@@ -3427,7 +3537,7 @@ void process_thread_exit(uint64_t value) {
         return;
     }
 
-    __asm__ volatile ("cli" : : : "memory");
+    (void)process_irq_save();
     thread->return_value = value;
     thread->active = false;
     scheduler_wake_all(&thread->owner->thread_wait_queue);
@@ -3436,7 +3546,7 @@ void process_thread_exit(uint64_t value) {
     if (thread->detached) {
         thread->used = false;
     }
-    __asm__ volatile ("sti" : : : "memory");
+    process_irq_restore(1ull << 9);
     scheduler_exit_current();
 }
 
@@ -7419,6 +7529,7 @@ void process_exit(uint64_t status) {
         }
     }
 
+    scheduler_invalidate_current_user_trap();
     struct process_user_thread *thread = process_current_user_thread();
     if (thread != NULL) {
         (void)process_irq_save();
@@ -7454,6 +7565,7 @@ void process_exit(uint64_t status) {
     net_process_cleanup(process);
     process->active = false;
     scheduler_clear_user_context();
+    process->image_generation=0;
     cleanup_process_address_space(process);
 
     process_latency_end(LATENCY_PROCESS_EXIT,exit_span);

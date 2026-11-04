@@ -9,11 +9,15 @@
 struct fpu_state {
     uint8_t fxsave_area[FPU_FXSAVE_AREA_SIZE] __attribute__((aligned(16)));
     bool initialized;
+    /* Kernel-FPU contexts only; user-FPU records keep NULL. Opaque metadata,
+     * never dereferenced by invalidation. No trap proof is created here. */
+    void *active_user_trap;
 };
 
 bool fpu_init(void);
 bool fpu_available(void);
 void fpu_init_state(struct fpu_state *state);
+void fpu_invalidate_user_trap(struct fpu_state *state);
 void fpu_save(struct fpu_state *state);
 void fpu_restore(struct fpu_state *state);
 void fpu_set_current_kernel_state(struct fpu_state *state);

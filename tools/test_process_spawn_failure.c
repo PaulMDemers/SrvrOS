@@ -30,6 +30,7 @@ void *pmm_phys_to_virt(uint64_t p) {
 void pmm_free_frame(uint64_t p) { assert(p && p%4096==0 && p/4096<=allocated && !freed_page[p/4096]);freed_page[p/4096]=true;freed++; }
 void pmm_free_frame_range(uint64_t p,uint64_t n) { assert(p==0x1000000 && n==PROCESS_KERNEL_STACK_SIZE/4096);stack_frees++; }
 bool vmm_create_address_space(uint64_t *out) { *out=3;return true; }
+bool vmm_prepare_user_kernel_mappings(uint64_t root) { (void)root;assert(!"vector rejection must precede preparation");return false; }
 void vmm_destroy_address_space(uint64_t space) { assert(space==3);destroyed++; }
 bool vmm_map_page_in_space(uint64_t space,uint64_t virt,uint64_t physical,uint64_t flags) { assert(space==3 && virt && physical && (flags&VMM_PAGE_USER));return true; }
 bool vmm_virt_to_phys_in_space(uint64_t space,uint64_t virt,uint64_t *physical) {
@@ -61,7 +62,7 @@ void vfs_set_retire_callback(vfs_retire_fn callback) { (void)callback; }
 const struct vfs_node *vfs_lookup(const char *path) { return !strcmp(path,"/") || !strcmp(path,"/fat") || !strcmp(path,"/fat/bin") ? &directory : &executable; }
 bool vfs_read_all(const struct vfs_node *node,const uint8_t **data,uint64_t *size) { assert(node==&executable);elf_reads++;*data=image;*size=sizeof(image);return true; }
 void vfs_release_data(const struct vfs_node *node,const uint8_t *data) { assert(node==&executable && data==image);elf_releases++; }
-void scheduler_set_user_context(void *p,uint64_t cr3,uint64_t tss) { binding_calls++;current=p;bound_cr3=cr3;bound_tss=tss; }
+void scheduler_set_user_context(void *p,uint64_t cr3,uint64_t tss,uint64_t generation) { (void)generation;binding_calls++;current=p;bound_cr3=cr3;bound_tss=tss; }
 bool scheduler_spawn(const char *name,scheduler_thread_fn entry,void *p) { (void)name;(void)entry;(void)p;admissions++;return false; }
 int main(void) {
     struct elf64_header *h=(struct elf64_header *)image;

@@ -23,7 +23,7 @@ bool scheduler_spawn(const char *name, scheduler_thread_fn entry, void *arg);
 /* Prepared user-thread entry only: callback must use the initialized process,
  * thread/TLS/FPU context and enter userspace without allocation or cleanup.
  * Publishes that context atomically with READY, preserving normal syscall gates. */
-bool scheduler_spawn_user_thread(const char *name,scheduler_thread_fn entry,void *thread,struct fpu_state *fpu,uint64_t fs_base);
+bool scheduler_spawn_user_thread(const char *name,scheduler_thread_fn entry,void *thread,struct fpu_state *fpu,uint64_t fs_base,uint64_t image_generation);
 /* Service callbacks must not access storage, VFS or user mappings, or wait for
  * ordinary application threads. Eligibility is queried with IRQs masked. */
 bool scheduler_spawn_io_service(const char *name, scheduler_thread_fn entry,
@@ -85,6 +85,7 @@ struct scheduler_user_return_observation {
     void *process;
     void *user_thread;
     uint64_t address_space;
+    uint64_t image_generation;
     struct fpu_state *user_fpu;
 };
 bool scheduler_observe_user_return(struct scheduler_user_return_observation *out);
@@ -119,14 +120,14 @@ bool scheduler_wait_timeout(struct scheduler_wait_queue *queue,
     uint64_t deadline_ticks);
 void scheduler_wake_all(struct scheduler_wait_queue *queue);
 uint64_t scheduler_wake_count(struct scheduler_wait_queue *queue, uint64_t max_count);
-void scheduler_set_user_context(void *process, uint64_t address_space, uint64_t kernel_stack_top);
+void scheduler_set_user_context(void *process, uint64_t address_space, uint64_t kernel_stack_top,uint64_t image_generation);
 void scheduler_set_user_context_fpu(void *process,
     uint64_t address_space,
     uint64_t kernel_stack_top,
-    struct fpu_state *user_fpu);
+    struct fpu_state *user_fpu, uint64_t image_generation);
 void scheduler_clear_user_context(void);
 void *scheduler_current_user_context(void);
-void scheduler_set_user_thread_context(void *context);
+void scheduler_invalidate_current_user_trap(void);
 void *scheduler_current_user_thread_context(void);
 /* Nonzero boot-lifetime identity; zero before scheduler initialization. */
 uint64_t scheduler_current_thread_id(void);
