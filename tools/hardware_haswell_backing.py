@@ -2,7 +2,7 @@
 import base64
 import re
 import struct
-from haswell_backing_audit import plane_extent,ggc_fields,pte_fields,fence_fields
+from haswell_backing_audit import plane_extent,ggc_fields,pte_fields,fence_fields,fence_candidates
 
 FIELDS=('gpu rev sub mmio_lo mmio_hi ap_lo ap_hi cmd pm host ggc bdsm bgsm tolud gpu_ggc gpu_bdsm pch disparb '
         'control stride linoff surf offset source live control2 surf2 well0 well1 well2 well3 '
@@ -59,7 +59,7 @@ def _parse(text):
     if metas.keys()!={0,1} or vectors.keys()!={0,1}:return None
     complete=text.count('laptop-capture: completed=yes\n')==1 and 'laptop-capture: completed=NO' not in text
     if status!=1:
-        return dict(status='REFUSED' if status==2 else 'FAILED',source_status=status,source_completed=False,hardware_authority=False,ownership=False,maps=maps,retained=bool(retained),observed_count=count,scope='Incomplete/refused readout, not backing acceptance')
+        return dict(status='REFUSED' if status==2 else 'FAILED',source_status=status,source_completed=False,hardware_authority=False,ownership=False,maps=maps,retained=bool(retained),observed_count=count,raw_metadata=[metas[0],metas[1]],partial_ptes=[vectors[0],vectors[1]],scope='Incomplete/refused readout, not backing acceptance')
     if retained or not count or not complete:return None
     samples=[]
     for phase in (0,1):
@@ -78,4 +78,5 @@ def _parse(text):
         samples.append(dict(endpoint=e,raw_endpoint=v[:50],fences=fences,pm_us=[begin,finish],hash=digest,window_reads=reads,present=present,stolen_candidates=stolen,ptes=raw,address_candidates=pages))
     ptepages=((offset//4096*4&4095)+count*4+4095)//4096
     if maps!=2*(ptepages+2):return None
-    return dict(status='OBSERVED',source_status=1,source_completed=True,count=count,maps=maps,retained=False,offset=offset,bytes=size,table_bytes=table,stolen_bounds=[start,end],samples=samples,upper_fences='unknown',swizzle='partial',unique_fence_proven=False,hardware_authority=False,ownership=False,acceptance=False,scope='Exact Haswell full GGTT vectors and documented lower fences only; upper fences/full swizzle/firmware exclusion/pinning unknown; original RC6 acceptance separate')
+    candidates=fence_candidates(samples[0]['fences'],extent,e['pitch'])
+    return dict(all_present=all(s['present']==count for s in samples),all_stolen_candidates=all(s['stolen_candidates']==count for s in samples),stolen_range_reserved=bool(e['stolen_reserved']),lower_fence_candidates=candidates['matches'],display_swizzle_bit=bool(e['disparb']&(1<<13)),status='OBSERVED',source_status=1,source_completed=True,count=count,maps=maps,retained=False,offset=offset,bytes=size,table_bytes=table,stolen_bounds=[start,end],samples=samples,upper_fences='unknown',swizzle='partial',unique_fence_proven=False,hardware_authority=False,ownership=False,acceptance=False,scope='Exact Haswell full GGTT vectors and documented lower fences only; upper fences/full swizzle/firmware exclusion/pinning unknown; original RC6 acceptance separate')
