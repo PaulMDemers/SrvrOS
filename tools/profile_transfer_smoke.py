@@ -199,6 +199,8 @@ def transfer(vm, operation, checkpoint=None, filename='transfer.json', alias='lo
         return
     c.observe(vm, rb'profile-ui: state=reviewing operation=' + operation.encode() + rb' result=ready', preview)
     vm.screenshot(operation + '-review')
+    click_client(vm, frame, 40, 80); vm.key('end')
+    vm.screenshot(operation + '-review-details')
     mutation = len(vm.output)
     click_client(vm, frame, w - 60, h - 54)
     c.observe(vm, rb'profile-ui: state=transferring operation=' + operation.encode() + rb' result=started', mutation)
