@@ -6917,3 +6917,90 @@ the Intel16/Linux32 fence discrepancy, full-path consistency and real allocation
 scanout lifetime remain open. Prior RC6 timing failure and package-C3 zero are
 unchanged. The next work is resolving those remaining prerequisites before any
 ownership or power-control change.
+
+### Exact-Haswell Linux-model fence coverage scope (2026-11-04)
+
+Base `845f703c`, native version-2 result collected before this work. PR301 remains
+an independent Broadwell scope; no shared driver or hardware gate is copied.
+Pinned Linux PCI IDs/device-info map actual `0a26` to Haswell ULT GT3/Gen7; its
+native-aperture fence initializer selects 32 and its Gen6+ register macro uses
+`0x100000+8*i`. The proposed remaining rows end at `0x1000ff`, in the already
+admitted fence page and outside its render-forcewake range. This independently
+justifies an explicit exact-model read experiment, not resolution of the Intel
+16-row documentation discrepancy or a hardware-uniqueness/ownership grant.
+
+Implement a separately opted-in version-3 32-fence receipt alongside full GGTT
+vectors and raw CPU TILECTL. Preserve versions 1/2 with sixteen rows, ten maps,
+100 ms pass/gap, 1,536 PTEs, 64 KiB tail, identity/D0/firmware/RAM gates and
+uncertain-retirement behavior. Touch only the isolated Haswell core/adapter,
+main/staging/decoder, retention/tests and this audit guide. No GT/forcewake,
+backing-pixel mapping, power policy, pin or assurance-bit change. After full
+matched validation and local recovery/USB checks, prepare/run the authorized
+automated test. No new native acceptance is claimed in advance.
+
+Version3 is implemented as a required-modifier extension:32 rows on the same
+fence page, raw labels preserve the Linux-model assumption, and global uniqueness
+and every owner assurance stay false. Focused actual core/adapter and independent
+v1/v2/v3/max producers/decoders/tail tests pass, including changed/all-ones upper
+rows, candidate overlap and uncertain mapping retirement. Matched full suites,
+sanitisers and exact-stage negative/legacy VMs remain pending before installing
+or arming a native test. No source change is physically accepted yet.
+
+### Linux-model32 trial validated and prepared (2026-11-04)
+
+[PR351](https://github.com/PaulMDemers/SrvrOS/pull/351), code `169f3808`, passes
+matched normal/AP and RAM/USB builds, full core/desktop/widget/profile-chooser/
+host/docs checks, actual core/adapter ASan/UBSan and independent v1/v2/v3/max raw
+producer decoding. The default installation suite reports71 tests, with its
+existing opt-in exhaustive I/O matrix skipped. No warning or integrity check,
+map/read/time/data limit or power policy is relaxed.
+
+Source-matched maximum retention preserves the full version3 records in the
+unchanged64KiB tail. Exact-model source predicates and pinned reference hashes
+verify the0a26/Haswell/Gen7/native-aperture32-row and register-offset chain; its
+Intel16 discrepancy stays unresolved. All four older AP VM profiles and both
+older Haswell modes pass. Exact release `86257762f155128f` passes Q35 identity
+refusal/save/unmount/reset and missing-workspace no-start/no-save return. These
+negative-path checks do not accept native32-row values or table size.
+
+The exact payload is durably backed up. At this validation checkpoint it is
+uninstalled and unarmed. The authorized next step preserves console recovery and
+accepted fallback/evidence, installs this image, then runs/collects automatically.
+USB baseline594 files/1661 clusters, all hashes, fsck/allocation and headroom pass.
+No human input is required. Local run records own subsequent arming/collection.
+Native acceptance remains `1b0d37dd` / `8dc0947f9c7fbd56` until the new run; no GT,
+forcewake, global uniqueness, pin, lifetime, firmware-exclusion or ownership grant
+is inferred. RC6 timing and package-C3 limitations remain unchanged.
+
+
+### Native Linux-model32 fence observation accepted (2026-11-04)
+
+Release `86257762f155128f`, compiled source `169f3808` from merged
+[PR351](https://github.com/PaulMDemers/SrvrOS/pull/351), automatically returned
+and collected session `session-00065f6cbb8aa860-00`. Independent decoding of the
+complete version-3 raw receipt matches the saved assessment. Both 32-row fence
+observations agree: fence0 is `0x00fff02b00000001`, and rows1–31 are zero.
+Fence0 is the sole candidate **within the exact Haswell Linux model**. Upper-row
+zero observations do not prove register existence, absolute table size or resolve
+the Intel16/Linux32 reference discrepancy; global hardware uniqueness stays false.
+
+Both complete 1,056-entry GGTT vectors agree; all entries are present and point
+into firmware-reserved stolen RAM. CPU TILECTL is zero twice, with the sampled
+display swizzle field `00`. Each pass performs 1,249 window reads; brackets are
+396/391 us under unchanged 100 ms bounds. All ten temporary mappings retire,
+with no retained uncertainty, GT/forcewake access, backing-pixel mapping, policy
+write, pin or ownership assurance. Full-path swizzle and lifetime remain unknown.
+
+All 594 prior files retain their hashes apart from expected workspace metadata.
+Two new logs give 596 files / 1,664 allocated clusters. Read-only fsck and the
+independent allocation check pass with zero leaks, bitmap mismatches or errors.
+The 25,280-byte exit receipt and 496 durable evidence files independently verify.
+Installed/recovery payload hashes, Ubuntu default and consumed one-shot verify;
+collector disabled, no reboot armed. Evidence has a durable copy outside build.
+
+Closeout consumes integration `eab863ae` and recursive pins for documentation
+only. Newer Files/profile changes do not inherit native acceptance of this tested
+source. Remaining work is a source audit of GT access prerequisites and full-path
+swizzle, reference-count uncertainty and actual backing allocation/scanout lifetime
+before any ownership or power-control change. Prior RC6 timing failure and zero
+package-C3 residency remain unchanged. No further native test is armed here.

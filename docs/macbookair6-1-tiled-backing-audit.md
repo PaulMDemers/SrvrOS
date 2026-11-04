@@ -317,3 +317,58 @@ upper-fence coverage remains unresolved, and neither full-path consistency nor
 real ownership/pinning/lifetime is inferred. No policy or limit changed.
 See the [native unit closeout](machines/macbookair6-1.md#native-raw-cpu-tilectl-observation-accepted-2026-11-03)
 for exact session, storage integrity and recovery evidence. No new boot is armed.
+
+## Explicit Linux-model 32-fence observation (version 3, 2026-11-04)
+
+The exact `0a26` Linux PCI/device-info chain and pinned fence initializer above
+independently justify a separately opted-in read experiment over 32 rows. Its
+Gen6+ low/high register macros cover `0x100000..0x1000ff`; rows16–31 stay in the
+already admitted fence page, outside the pinned Haswell render-forcewake range.
+The Intel16/Linux32 reference discrepancy remains unresolved. This experiment
+observes values under Linux's exact-model assumption; reading zero upper rows
+cannot prove register existence, an absolute table size or hardware uniqueness.
+No Broadwell register/model gate is copied or widened.
+
+Stage with `--haswell-backing-capture --haswell-tilectl --haswell-linux-fences`
+and the local `--laptop-probe-volume UUID`. Both earlier flags are required. The
+new `ram-usb-v3-hsw` profile adds `srvros.hsw-fences=linux-model-32`; versions1/2
+remain sixteen-row profiles. The same single fence page and existing CPU/PTE
+windows are used. Exactly32 high/low/high fence pairs are retained and compared
+in each pass and rechecked after the full vector. GT `0x4030`, forcewake, extra
+page offsets, backing pixels, power policy and assurance bits remain excluded.
+The ten-map, 100ms pass/gap, 1536-PTE and 64KiB tail limits remain unchanged.
+
+Version3 summary explicitly says `fences=32 upper=linux-model-32`. Metadata is
+`<50Q32Q3Q5I`, 700 bytes; reads equal `PTE count+193`, with the same CPU/raw fields
+and mapping formula as version2. Changed/partial/unavailable upper rows, mixed
+versions/counts/coverage labels, malformed receipts or uncertain cleanup refuse.
+The decoder may report a single candidate **within the Linux model**, but always
+retains `unique_fence_proven=false`, unresolved reference count, no pin and no
+hardware authority. Overlapping valid rows remove even model-conditional
+uniqueness. Neither a matching snapshot nor a conditional candidate establishes
+allocation/scanout lifetime, firmware exclusion or full-path consistency.
+
+Actual adapter producers cover all three versions and maximum version3 vectors;
+independent decoding and maximum-tail retention apply to the full raw32-row
+records. Native acceptance requires a newly matched, staged/VM-tested image,
+local recovery/storage preflight and complete saved capture. The accepted
+version2 observations remain historical evidence, not advance acceptance of
+this new profile. GT and actual ownership/lifetime remain later prerequisites.
+
+
+## Native version-3 Linux-model32 result (2026-11-04)
+
+Release `86257762f155128f` / source `169f3808` records two matching complete
+32-row observations: fence0=`0x00fff02b00000001`, rows1–31 zero. Fence0 remains
+the only candidate within the pinned Linux model; zero upper values do not
+resolve the Intel16/Linux32 discrepancy or prove global hardware uniqueness.
+Two matching 1,056-entry GGTT vectors, raw CPU TILECTL zero twice, 1,249 reads
+per pass and ten verified retired mappings complete the read-only receipt.
+Pass brackets are396/391 us. No GT access, forcewake, policy or limits changed.
+
+The [unit closeout](machines/macbookair6-1.md#native-linux-model32-fence-observation-accepted-2026-11-04)
+records matching session, unchanged prior files, clean allocation and recovery.
+This accepts sampled observations only. GT/full-path swizzle, real backing
+allocation and scanout lifetime, firmware exclusion and ownership stay open;
+the original RC6 timing failure and package-C3 zero are unchanged. The next
+bounded step is auditing those remaining prerequisites before any control change.

@@ -1,0 +1,205 @@
+{
+  "schema": "org.srvros.desktop-session-switch-review.v1",
+  "status": "DELIVERED_AND_VERIFIED",
+  "date": "2026-11-04",
+  "runtime_source": "3658d8fd3a10378043ed1c6580b53158ce15619b",
+  "context_tool_source": "919524bdc37016eebea7c1d17951fa3519846ed0",
+  "apps_source": "2a8bc2d91863f35ff98894ea97aa8a74649a7b28",
+  "ui_source": "586bd002956a7418e619b62fcbd8180d285df452",
+  "ports_source": "d760e5413edc8badd5c87d9b02b6c815f7169721",
+  "prs": {
+    "runtime": 354,
+    "apps": 9,
+    "os": 355
+  },
+  "runtime_merge": "f58e072546fc5feffea3ded920c0336c77d615e8",
+  "composite_status": "PASS",
+  "accepted_vm_lifetimes": 3,
+  "workflow": {
+    "path": "build/review/profile-switch/proof-_b3okkzh/receipt.json",
+    "sha256": "77048b5d6b34eb7c859498be58d3bf67f175368300d264632cba5680bc4bd8dc",
+    "original_status_preserved": "FAIL",
+    "coverage": "Two VMs: graphical A-B-A and 640x480 keyboard Cancel/switch. All workflow and storage assertions completed before environment audit.",
+    "capture_failure": "Shell builtin env ignores redirection, leaving no environment files; receipt stays FAIL."
+  },
+  "context_supplement": {
+    "path": "build/review/profile-switch-context/proof-x_3cf1z2/receipt.json",
+    "sha256": "33edca2aa192305ede6b8c73c40708b38717038a592c628e19866f37704b9159",
+    "status": "PASS",
+    "coverage": "One VM on independent stopped-disk copies: A-B-A actual external env/pwd, six profile variables, cwd, no duplicate keys, exact lifecycle barriers."
+  },
+  "payloads_identical": {
+    "build/initramfs.tar": "117fcaa90e2a0d2094806c7ec7ba0f196b25169ed80d83599eac7c9216412760",
+    "build/kernel/srvros.elf": "cf28b53d1d21725a0e4a0d7f1fdf60e9a5d28e8bcdb8bd0adb159c1127e8c4d1",
+    "build/srvros.exfat": "b20e3756d286efebdab45ec00f72188c9878d4107d374d5d86a11ebab1a2c02a"
+  },
+  "independent_audit": {
+    "status": "PASS",
+    "original_workflow_receipt_status_preserved": "FAIL",
+    "original_workflow_receipt_sha256": "77048b5d6b34eb7c859498be58d3bf67f175368300d264632cba5680bc4bd8dc",
+    "context_supplement_receipt_sha256": "33edca2aa192305ede6b8c73c40708b38717038a592c628e19866f37704b9159",
+    "guest_payloads_identical": {
+      "build/initramfs.tar": "117fcaa90e2a0d2094806c7ec7ba0f196b25169ed80d83599eac7c9216412760",
+      "build/kernel/srvros.elf": "cf28b53d1d21725a0e4a0d7f1fdf60e9a5d28e8bcdb8bd0adb159c1127e8c4d1",
+      "build/srvros.exfat": "b20e3756d286efebdab45ec00f72188c9878d4107d374d5d86a11ebab1a2c02a"
+    },
+    "workflow_storage_audit": {
+      "status": "WORKFLOW_STORAGE_PASS_CONTEXT_PENDING",
+      "prior_receipt_sha256": "77048b5d6b34eb7c859498be58d3bf67f175368300d264632cba5680bc4bd8dc",
+      "images": {
+        "system": {
+          "path": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-migration-review/.local/session-switch-review/runtime-volume/build/review/profile-switch/proof-_b3okkzh/target-system/image.img",
+          "sha256": "50f9fe8c4bb6155dded69ccd49963c5ec640519d050c206ab4fac3a656b9fcc1",
+          "protected_regions": {
+            "after_data_sha256": "e8289832826eb6c73bc008409c6688377080dd78da77cee4ce168631076fbbfe",
+            "before_data_sha256": "9fb5aa0d1e41110de2266af6af70270fd03314f50ba8f2befc2b4f7976fcfeea"
+          }
+        },
+        "transport": {
+          "path": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-migration-review/.local/session-switch-review/runtime-volume/build/review/profile-switch/proof-_b3okkzh/target-transport/image.img",
+          "sha256": "caf7e4040f39cec14e00648710c7f5315e4cd2427e53ac05b5d6819d4cbe5598",
+          "protected_regions": {
+            "after_data_sha256": "94ba0e1afe6a7dbb836cd378a1e538848a6e43ddd9c5c2860f973efd2e2f5d3c",
+            "before_data_sha256": "2693722703fb6e56aa7c709121e25a6cc040e969b89d6f288563e33bcd107a2e"
+          }
+        }
+      },
+      "binaries": {
+        "deskd": "9869a54da6962e2315da9e5847f026b12d494fc542d4854def582a92cfd02208",
+        "desktools": "4bd8676dabbdd12d67f1679f4acc8e86820c80499bef9dfbd1ad79a9b8b33a2e",
+        "deskterm": "e130cdfed4075894492461fd6e9bf5564bdced752400438b5eb4113cea6f3579",
+        "desksketch": "b77337a9fa2b44866b9f3f337f084458fb17c23b96a48ea817483261f380d1c7",
+        "deskclock": "3f4fb368972dea08904a3ea8f862315435932e08242ad75b78e7d80800f07b5b",
+        "lifetimeprobe": "f76c8942dd7051b3bb31ed6214bc56d17a54387343cc90ba817c3036fffe9e91",
+        "profile": "69bb488b62ff04603d2033952df8e4004269b8bdab1797647958a5c27944fe6d",
+        "deskprofiles": "e50df008fbad43ff0f9dadf008b8ac285f73f6d94cff7c1c99c1e830446b1e29",
+        "env": "3626ce84cfe39267d04eefbadb05281fa82833c0b80070176acc8bf4c9324daf",
+        "pwd": "47cbf19f215089f6ab42e1fda4abdd89554812516901bdfafd48ead353ac97a3"
+      },
+      "limits": [
+        "original receipt remains FAIL for missing env captures; supplemental context audit required",
+        "no live disk access; old workflow VMs stopped by coordinator"
+      ],
+      "sketch_sha256": "ab62d5f2247bee4c24fae8394271f34bf86ced120d9816895689e17493e31194",
+      "export_sha256": "4a685b9de218e0e095cc6fb9bfd8cb0f64b7db4f3bb940a695731056d06e24d7"
+    },
+    "contexts": {
+      "a": {
+        "HOME": "/fat/home/switch_a",
+        "SRVROS_DESKTOP_HOME": "/fat/home/switch_a",
+        "SRVROS_PROFILE_ID": "12345678-1234-4234-8234-123456789abc",
+        "XDG_CONFIG_HOME": "/fat/home/switch_a/.config",
+        "XDG_DATA_HOME": "/fat/home/switch_a/.local/share",
+        "XDG_CACHE_HOME": "/fat/home/switch_a/.cache"
+      },
+      "b": {
+        "HOME": "/fat/home/switch_b",
+        "SRVROS_DESKTOP_HOME": "/fat/home/switch_b",
+        "SRVROS_PROFILE_ID": "87654321-4321-4321-8321-cba987654321",
+        "XDG_CONFIG_HOME": "/fat/home/switch_b/.config",
+        "XDG_DATA_HOME": "/fat/home/switch_b/.local/share",
+        "XDG_CACHE_HOME": "/fat/home/switch_b/.cache"
+      },
+      "a-return": {
+        "HOME": "/fat/home/switch_a",
+        "SRVROS_DESKTOP_HOME": "/fat/home/switch_a",
+        "SRVROS_PROFILE_ID": "12345678-1234-4234-8234-123456789abc",
+        "XDG_CONFIG_HOME": "/fat/home/switch_a/.config",
+        "XDG_DATA_HOME": "/fat/home/switch_a/.local/share",
+        "XDG_CACHE_HOME": "/fat/home/switch_a/.cache"
+      }
+    },
+    "same_boot_context_a_b_a": true,
+    "accepted_vm_lifetimes": 3,
+    "context_copy_sha256": {
+      "system": "a1fdfabb36c86591ba62ba62111ceff5cfd0449bed985680940232a3a48228fe",
+      "transport": "8bd0835510ed32e91295fc01e56d0f327ad66dd7d5627b38900c441f696e52b7"
+    },
+    "rendered_review": "normal and640 relevant states independently visually reviewed; no blocking finding",
+    "limits": [
+      "disposable QEMU only",
+      "two-VM graphical proof plus one complementary context VM",
+      "authentication/permission enforcement, physical media and power-loss qualification separate"
+    ]
+  },
+  "independent_audit_sha256": "3429c6920365d59882f0aba3a3d915c35456d8e750b4ed590d3d77d2dcc9f595",
+  "verification": {
+    "matched_build": "PASS",
+    "host": "Actual-source runtime, supervisor, desktop session, preferences finish, Files and picker checks pass. Relevant runtime, supervisor, preferences and actual desktop-session fixtures pass ASan/UBSan.",
+    "desktop_sanitizer": {
+      "source": "c55a26dab34a3e5dd6b2e66f153abbd8dc2ae2c3",
+      "result": "PASS",
+      "compiler": "clang -D_DARWIN_C_SOURCE -std=c11 -O1 -g -Wall -Wextra -Werror -Wno-array-bounds -fsanitize=address,undefined -ffunction-sections -fdata-sections; Darwin -dead_strip",
+      "stack_kib": 65520,
+      "log": "desktop-session-sanitized-expanded-stack.log",
+      "initial_host_limitation": "ASan enlarged existing main fixture frame exceeds default8176KiB stack; failed log retained",
+      "sources": {
+        "userspace/deskd/deskd.c": "44cffae56edab2af0d9bd1a456367878eccc4aa6a01215bf9fe49b07dffb479e",
+        "tools/test_desktop_session.c": "c29773cb629226c5d81b277b1407fd46a4ec72cfe20f8b1a6081bed8531f7db6"
+      }
+    },
+    "unsaved_work": "Text/Sketch Save/Discard/Cancel, canceled Save As and failed save; partial close followed by Terminal Cancel; successful saved-file readback.",
+    "accepted_io": "16 MiB Files copy and 1 MiB Profiles export finish and workers retire before commit; exact copied/exported bytes checked.",
+    "retirement": "Confirmed direct GUI failure cancels; explicit retry succeeds. Held orphan blocks release until natural exit, then revoked+zero, release, chooser. Return to console also verified.",
+    "isolation": "A-B-A six portable preferences; HOME/XDG/id/cwd; fresh clipboard and notifications; preserved machine settings, documents, identities/local bindings and allocation.",
+    "rendered_review": "Normal and 640x480 prompt/error/chooser/readback states independently inspected."
+  },
+  "screenshots": {
+    "profile-switch-unsaved.png": {
+      "sha256": "86f4578ca47b40f58ee27456c632797e5efded840b3a82de57bfd9855ffb38aa",
+      "source": "text-switch-prompt-single-boot.png",
+      "caption": "Text Save/Discard/Cancel during session ending; Cancel selected."
+    },
+    "profile-switch-save-error.png": {
+      "sha256": "6a4203c9b604c16d7a1c81f58a5e5b5a5adefc7cf89a96841f1fd791ad0d4c40",
+      "source": "text-failed-save-single-boot.png",
+      "caption": "Failed save keeps the dirty document and current profile."
+    },
+    "profile-switch-terminal.png": {
+      "sha256": "967463ce00964f272e503a690d1d41c369e7648a1c9e56fddbcbc15fb47a9906",
+      "source": "terminal-cancel-partial-single-boot.png",
+      "caption": "Terminal Close/Cancel explains process hangup; other apps may already have closed."
+    },
+    "profile-switch-chooser.png": {
+      "sha256": "9f8d7530aebe4f6e90784c98c82ce3e0145be1ff47b2ad6340b5d93c35a51b29",
+      "source": "small-chooser-small.png",
+      "caption": "640 x 480 chooser after authoritative previous-session retirement."
+    },
+    "profile-switch-return.png": {
+      "sha256": "2881577eb5c23f36fe6ab957bc2742f495e74e5798e6b9f4dad1b7fe7bf22e11",
+      "source": "a-return-document-single-boot.png",
+      "caption": "Returned A profile with its saved Text document reopened."
+    }
+  },
+  "limits": [
+    "disposable QEMU only",
+    "two-VM graphical proof plus one complementary context VM",
+    "authentication/permission enforcement, physical media and power-loss qualification separate",
+    "Cancellation preserves the current profile; already accepted close requests can finish and closed apps are not reconstructed.",
+    "No concurrent logged-in desktops; no timeout force-kill.",
+    "Expert rendered review and functional tests, not a representative-user study."
+  ],
+  "preservation": {
+    "status": "PASS",
+    "archive": "/Volumes/miniTB/SrvrOS-session-scope-20261104-tl774xx5/session-switch-accepted/accepted.tar.gz",
+    "archive_sha256": "f5bf4aa264b18f10ce1f54f7870c49c0e990c2dba463c56f04bf3eca997294f7",
+    "members_verified": 390,
+    "originals": "Original stopped proof disks and all prior installation/creation evidence remain unchanged; no cleanup or inode replacement."
+  },
+  "merges": {
+    "runtime": "f58e072546fc5feffea3ded920c0336c77d615e8",
+    "apps": "c3ad11b1ebda374c8a61e5424c991824fec1999a",
+    "os": "82face72a9c976a8d0cff2694d34f76c615faf29"
+  },
+  "reviewed_os_final_head": "c750e02daaab4959b18aefbe761f357d553c41e2",
+  "post_merge_verification": {
+    "status": "PASS",
+    "os_merge_tree_equals_reviewed_head": true,
+    "apps_merge_tree_equals_reviewed_pin": true,
+    "os_apps_pin": "2a8bc2d91863f35ff98894ea97aa8a74649a7b28",
+    "guest_source_unchanged_from": "3658d8fd3a10378043ed1c6580b53158ce15619b",
+    "later_delta": "proof tools and documentation only; no repeat guest run claimed",
+    "retained_build_payload_hashes_rechecked": 3,
+    "actual_source_host_receipt_hashes_rechecked": true
+  }
+}

@@ -48,7 +48,7 @@ static bool retire(struct window *w) {
  w->mapped=false;return true;
 }
 static bool word(struct window *w,struct hwb_sample *s,uint32_t off,uint32_t *out) {
- bool allowed=off>=0x100000 && off<0x100000+HWB_FENCES*8;
+ bool allowed=off>=0x100000 && off<0x100000+w->r->fences*8;
  allowed|=off>=0x200000+(w->r->offset/4096)*4 && off<0x200000+(w->r->offset/4096+w->r->count)*4;
  allowed|=w->io->cpu_control && off==0x101000;
  if((off&3) || !allowed)return false;
@@ -67,8 +67,8 @@ static bool pair(struct window *w,struct hwb_sample *s,unsigned i,uint64_t *v) {
 }
 bool hwb_capture(struct hwb_result *r,const struct hwb_io *io) {
  if(!r)return false;
- *r=(struct hwb_result){.status=2,.version=io && io->cpu_control?2:1};
- if(!io || !io->endpoint || !io->map || !io->unmap || !io->read || !io->now)return false;
+ *r=(struct hwb_result){.status=2,.version=io && io->linux_fences?3:io && io->cpu_control?2:1,.fences=io && io->linux_fences?32:HWB_FENCES};
+ if(!io || (io->linux_fences && !io->cpu_control) || !io->endpoint || !io->map || !io->unmap || !io->read || !io->now)return false;
  struct window w={.io=io,.r=r};
  for(unsigned n=0;n<2;n++) {
   struct hwb_sample *s=&r->sample[n];
@@ -82,7 +82,7 @@ bool hwb_capture(struct hwb_result *r,const struct hwb_io *io) {
   }
   else if(!same(&r->sample[0].endpoint,&s->endpoint)){r->status=3;goto done;}
   r->status=4;
-  for(unsigned i=0;i<HWB_FENCES;i++) {
+  for(unsigned i=0;i<r->fences;i++) {
    if(!pair(&w,s,i,&s->fence[i]))goto done;
    if(n && s->fence[i]!=r->sample[0].fence[i]){r->status=3;goto done;}
   }
@@ -97,7 +97,7 @@ bool hwb_capture(struct hwb_result *r,const struct hwb_io *io) {
    s->present+=!!(pte&1);s->stolen+=!!((pte&1) && pa>=r->stolen_base && pa<r->stolen_end);
    if(!(i&63)) {uint64_t now=io->now(io->ctx);if(now<s->begin || now-s->begin>HWB_LIMIT_US){r->status=5;goto done;}}
   }
-  for(unsigned i=0;i<HWB_FENCES;i++){uint64_t v;if(!pair(&w,s,i,&v))goto done;if(v!=s->fence[i]){r->status=3;goto done;}}
+  for(unsigned i=0;i<r->fences;i++){uint64_t v;if(!pair(&w,s,i,&v))goto done;if(v!=s->fence[i]){r->status=3;goto done;}}
   if(io->cpu_control) {
    if(!word(&w,s,0x101000,&s->tilectl))goto done;
    if(n && s->tilectl!=r->sample[0].tilectl){r->status=3;goto done;}

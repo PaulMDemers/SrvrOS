@@ -77,7 +77,8 @@ static int profile_poll(struct desktop_preferences_store *s,uint64_t now) {
             s->status=s->dirty?DESK_PREF_SAVING:DESK_PREF_SAVED;
         }
     }
-    if(!s->loading && s->writable && s->dirty && !s->job.busy && now-s->changed_at>=30) {
+    if(!s->loading && s->writable && s->dirty && !s->job.busy &&
+       (s->finish_requested || now-s->changed_at>=30)) {
         char data[512];int length;const char *path;int existing;uint32_t crc;
         if(s->dirty_mask & SRV_PROFILE_LOCAL_MASK) {
             struct desk_preferences machine=s->machine_value;
@@ -99,11 +100,32 @@ int desktop_preferences_set(struct desktop_preferences_store *s,const struct des
     struct desk_preferences next=s->value;
     if(desk_preferences_merge(&next,p,mask)) return -1;
     if(!memcmp(&next,&s->value,sizeof(next))) return 0;
+    if(s->finish_complete) {
+        if(desk_file_job_init(&s->job)) {
+            desk_file_job_close(&s->job);s->writable=0;s->status=DESK_PREF_SESSION_ONLY;
+            s->finish_complete=0;
+        } else { s->initialized=1;s->finish_complete=0; }
+    }
     s->value=next;s->revision++;s->dirty=1;s->dirty_mask|=mask;s->changed_at=now;
     if(!s->loading && s->writable) s->status=DESK_PREF_SAVING;
     return 1;
 }
 int desktop_preferences_poll(struct desktop_preferences_store *s,uint64_t now) {
+    if(s->finish_retiring) {
+        int retired=desk_file_job_retire(&s->job);
+        if(retired<0) {
+            s->finish_retiring=0;s->writable=0;s->status=DESK_PREF_SESSION_ONLY;return 1;
+        }
+        if(!retired)return 0;
+        s->initialized=0;s->finish_retiring=0;s->finish_complete=1;
+        if(s->dirty || !s->finish_requested) {
+            s->finish_complete=0;
+            if(desk_file_job_init(&s->job)) {
+                desk_file_job_close(&s->job);s->writable=0;s->status=DESK_PREF_SESSION_ONLY;return 1;
+            }
+            s->initialized=1;
+        } else return 1;
+    }
     if(!s->initialized) return 0;
     if(s->portable_path) return profile_poll(s,now);
     int changed=0;
@@ -136,7 +158,8 @@ int desktop_preferences_poll(struct desktop_preferences_store *s,uint64_t now) {
             s->status=s->dirty?DESK_PREF_SAVING:DESK_PREF_SAVED;
         }
     }
-    if(!s->loading && s->writable && s->dirty && !s->job.busy && now-s->changed_at>=30) {
+    if(!s->loading && s->writable && s->dirty && !s->job.busy &&
+       (s->finish_requested || now-s->changed_at>=30)) {
         char data[512];int length=desk_preferences_encode(&s->value,data,sizeof(data));
         if(length<0 || desk_file_job_start(&s->job,DESK_FILE_WRITE,s->path,data,(size_t)length,
             s->existing?DESK_FILE_EXPECT_EXISTING:0,s->disk_crc)) {
@@ -145,6 +168,31 @@ int desktop_preferences_poll(struct desktop_preferences_store *s,uint64_t now) {
         s->snapshot=s->value;s->status=DESK_PREF_SAVING;
     }
     return changed;
+}
+int desktop_preferences_finish(struct desktop_preferences_store *s,uint64_t now) {
+    if(!s)return -1;
+    if(s->finish_complete)
+        return !s->dirty && !s->job.busy && s->status==DESK_PREF_SAVED?1:-1;
+    s->finish_requested=1;
+    if(s->initialized) (void)desktop_preferences_poll(s,now);
+    if(s->finish_complete)
+        return !s->dirty && !s->job.busy && s->status==DESK_PREF_SAVED?1:-1;
+    /* A load error/session-only store cannot certify even an apparently clean
+     * value: the persisted baseline was never established. */
+    if(!s->initialized || s->loading || s->job.busy)return s->loading || s->job.busy?0:-1;
+    if(!s->writable || s->status==DESK_PREF_CONFLICT || s->status==DESK_PREF_SESSION_ONLY)
+        return -1;
+    if(s->dirty)return 0;
+    if(s->status!=DESK_PREF_SAVED)return -1;
+    int retired=desk_file_job_retire(&s->job);
+    if(retired<0)return -1;
+    if(!retired){s->finish_retiring=1;return 0;}
+    s->initialized=0;s->finish_complete=1;
+    return 1;
+}
+void desktop_preferences_finish_cancel(struct desktop_preferences_store *s) {
+    if(!s)return;
+    s->finish_requested=0;
 }
 void desktop_preferences_close(struct desktop_preferences_store *s) {
     if(s->initialized) desk_file_job_close(&s->job);

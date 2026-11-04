@@ -66,6 +66,22 @@ int64_t process_spawn_elf_args_redirect(const char *path,
     const char *args,
     const char *stdout_path,
     bool append);
+int64_t process_spawn_exec_scoped(uint64_t scope_token,const char *path,
+    uint64_t argc,
+    const char *const *argv,
+    uint64_t envc,
+    const char *const *envp,
+    bool detached,
+    int64_t stdin_fd,
+    int64_t stdout_fd,
+    int64_t stderr_fd,
+    uint64_t process_group,
+    bool foreground,
+    const struct process_spawn_file_action *file_actions,
+    uint64_t file_action_count,
+    uint64_t signal_flags,
+    uint64_t signal_mask,
+    uint64_t signal_default);
 int64_t process_spawn_exec(const char *path,
     uint64_t argc,
     const char *const *argv,
@@ -100,6 +116,17 @@ int64_t process_spawn_background_elf_args_fds(const char *path,
     const char *args,
     int64_t stdin_fd,
     int64_t stdout_fd);
+/* Backend for the userspace session-scope syscall. Authority belongs to the
+ * current unscoped owner and its exact token; reservations count as members.
+ * Revoke closes admission without signals. Reap claims at most one retired
+ * orphan; release requires revocation and zero members. */
+struct srv_scope_status;
+int64_t process_scope_create(uint64_t *out);
+int64_t process_scope_reserve(uint64_t token);
+void process_scope_cancel_reservation(uint64_t token);
+int64_t process_scope_control(unsigned op,uint64_t token,struct srv_scope_status *out);
+int64_t process_scope_reap(uint64_t token);
+
 /* Kernel-only owner capability; no userspace setter or syscall. One root per
  * token, inherited by all spawn paths; exec/job control do not change it.
  * CPU0 only, matching process management. Members include preparation/release.

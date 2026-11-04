@@ -22,10 +22,10 @@ def render(fmt,string_width=32):
 
 def postamble_bound():
     main=Path(SOURCES[0]).read_text();log=Path(SOURCES[1]).read_text();sched=Path(SOURCES[2]).read_text();fs=Path(SOURCES[3]).read_text()
-    for version in (1,2):
+    for version in (1,2,3):
         config=boot.limine_config('test',f'ram-usb-v{version}-hsw-laptop-probe-1234abcd-auto-return')
         assert 'srvros.power=' not in config
-        assert ('srvros.hsw-cpu-control=read-only' in config)==(version==2)
+        assert ('srvros.hsw-cpu-control=read-only' in config)==(version>=2)
     assert main.count('power_init();')==1 and 'if(cmdline_has_token(cmdline,"srvros.power=read-only")) power_init();' in main
     # Power stays disabled in this dedicated profile, so activity/worker rows
     # cannot be emitted by device_checkpoint. Other bounded reports stay intact.

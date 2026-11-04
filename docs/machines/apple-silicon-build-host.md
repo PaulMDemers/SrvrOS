@@ -1,5 +1,195 @@
 # Apple Silicon macOS build host
 
+## Session switching — delivered and verified November 4, 2026
+
+User authorized cooperative session ending, no-reboot profile switching,
+coordination, verification and merge. Coordinator used isolated
+`SrvrOS-migration-review`; Profiles owner supplied OS/Apps changes in
+`SrvrOS-profile-326-review`; runtime owner independently reviewed scope ownership.
+Runtime PR354 merged as `f58e0725`. Apps9 (`2a8bc2d9`) merged as `c3ad11b1`,
+then OS355 (`c750e02d`) as `82face72`. Both merge trees equal reviewed heads. UI pin
+`586bd002`, Ports `d760e541` and actual main `f58e0725` are preserved.
+
+Ordinary desktop source is `c55a26da`; `3658d8fd` changes only opt-in lifetimeprobe
+console logging and is the matched full graphical proof source. Later `919524bd`
+changes proof tools only, and all three build payload hashes are identical.
+Current source passes focused actual-source host checks, including supervisor,
+preferences flush/retirement, Files/picker and desktop app-failure/Alt-Tab cases.
+Runtime, supervisor, preferences and desktop-session ASan/UBSan checks pass.
+On Darwin the desktop fixture needs `_DARWIN_C_SOURCE`, `-dead_strip` and an
+expanded 65520 KiB stack for its ASan-instrumented large frame; the initial
+8176 KiB stack failure remains recorded. `test-profile-switch` covers supervisor
+and preferences; also run `test-desktop` for compositor regressions.
+
+The accepted composite contains three disposable QEMU lifetimes. Original
+`build/review/profile-switch/proof-_b3okkzh` completes graphical A→B→A plus
+640×480 keyboard Cancel/switch and all storage checks reached before env audit.
+Its receipt remains FAIL because the shell builtin env ignored redirection.
+`build/review/profile-switch-context/proof-x_3cf1z2` is a separate PASS: independent
+copies of the stopped original disks, exact same guest payloads, real external
+env/pwd captures, A→B→A and all six variables/cwd without duplicate keys. The
+owner independently audited originals, copies, ten installed binaries, protected
+regions, identities/preferences/bindings, 16 MiB copy, 1 MiB export, saved Text
+and Sketch, machine settings and both normal/640 rendered states. Original hashes
+remain unchanged; prior FAIL receipts are never rewritten. See the
+[composite receipt](../assets/screenshots/profile-switch-review.json).
+
+The actual journey verifies successful/canceled/failed save, partial close plus
+Cancel, accepted work finishing before commit, direct app error cancellation and
+explicit retry, and a held orphan blocking release until natural exit. The
+supervisor requires root exit, successful revoke, authoritative zero membership
+and release before the fresh chooser; unknown/error states never claim completion.
+New launches pause while ending, but Alt-Tab among existing windows remains
+available. Cancel retains the profile; queued app closes may finish.
+
+Parent build uses a task-owned 16 GiB regular-file APFS image on miniTB, mounted
+at `.local/session-switch-review/runtime-volume`; build is a symlink. Accepted
+payloads, source snapshots, receipts, raw images and rendered evidence are
+stream-verified outside build in the external task backup recorded by the
+composite receipt. Earlier creation/installation evidence paths/inodes and review
+VMs remain untouched. All task proof guests stopped; the heavy window is released
+to browser work. Actions remain disabled. No physical-media, power-loss,
+authentication, permission-enforcement or concurrent-session acceptance is added.
+Actual OS main pins reviewed Apps `2a8bc2d9`, whose tree equals merged Apps main.
+Final comparison confirms only proof tools/docs changed after guest source
+`3658d8fd`; retained three payload and relevant host source hashes still match.
+No new VM run is claimed for the docs-only delivery record. No further work is
+required for this target.
+
+## Desktop profile creation — integration delivered November 4, 2026
+
+Coordinator used `SrvrOS-migration-review` on
+`device/apple-silicon/profile-create-review` for independent source, rendered-state
+and retained-image review; no duplicate VM run or runtime edit. Apps #8 merged
+first as `f4017137`, then OS #348 as `0fb4ed6c`; both merge trees equal their
+reviewed heads (`0bf8e137` and `d63369d5`). Actual main is integrated locally,
+with both implementation and filesystem owner records preserved.
+
+The accepted `1ef0ccdd` proof passes all 20 VM lifetimes, five recovery boundaries,
+creation through both entry points, remembered reboot selection and migration to
+second installed B. Parent independently read initial/final A/B and every stopped
+and recovered profile, verified all 37 archive streams and all 380 backup members,
+and reviewed app/chooser/640 × 480/refusal/recovery/document screenshots.
+Matched build, 25 CLI groups and focused host/sanitizer checks pass as recorded
+by the implementation owner. Host-only main integration preserves the original
+runtime proof attribution; no new guest build/run is claimed.
+
+The [review receipt](../assets/screenshots/profile-create-review.json) records
+exact sources, merges, hashes and limits. Audit results remain outside build at
+`.local/profile-create-review/`; owner evidence remains at
+`SrvrOS-profile-326-review/.local/profile-create/proof-hhj_ogf8/`. Original raw
+A/B/transport/baselines and existing review VMs remain untouched. Creation task
+VMs stopped and resources handed back to the installation owner for its separately
+authorized fresh-v2-B proof. Actions remain disabled. This QEMU milestone is
+complete; physical-media, arbitrary power-loss and account-security acceptance
+remain separate.
+
+## Desktop profile creation — qualified for coordinated review
+
+User authorizes chooser/Profiles creation, recovery, remembered reboot and
+migration to a second installation. Coordinator owns independent review and
+Apps-first/OS-second merges. Isolated checkout `SrvrOS-profile-326-review`, OS
+`device/apple-silicon/profile-create`; accepted clean source `1ef0ccdd` includes
+actual main `6225e4d1`, Apps `0bf8e137` (Files `2ddea66`), UI `586bd002` and
+Ports `d760e541`. Apps8 precedes OS348. Final follow-up changes evidence/docs only.
+
+Matched build and profile/catalog/desktop/fsync/docs checks pass. All 25 CLI
+groups and real-CLI catalog recovery tests pass under ASan/UBSan. The final
+`build/review/profile-create/proof-hhj_ogf8/receipt.json` records PASS for all 20
+VM lifetimes: both entry points, empty/default state, dynamic distinct UUIDs,
+remembered A, selected Text/binary save and graphical migration to independently
+installed B, B selection/reboot/readback, all five interrupted creation/recovery
+boundaries including published-journal reconciliation, invalid/occupied/capacity
+refusals, and 640 × 480 Ctrl-A/Undo/Redo/Tab. Exact data/defaults/identity,
+local/machine/legacy/unselected state, binaries, allocation and protected regions
+pass. Parent independently verified all 37 archive streams and actual A/B plus
+all stopped/recovered images. Portable manifest/screenshots live in the profile
+guide; full evidence/matched artifacts/sources survive outside build cleanup at
+`.local/profile-create/proof-hhj_ogf8/`. Keep primary raw images and baselines for
+audit/follow-up. Sampled busy frames are not labeled as completion evidence.
+
+Creation uses a checked random UUID metadata identifier and self-contained
+create-v1 journal in the existing transaction engine; import-v1 is preserved.
+Random may use its existing PRNG fallback. Authentication/permission enforcement
+remain separate. Legacy startup/current app homes are unchanged; no forced
+onboarding or security/kernel/filesystem architecture changes. No physical,
+real power-loss or Actions qualification. Review VMs 6233/61610/85869 remain
+untouched. Implementation is complete; hand exact heads/evidence to coordinator
+for independent merge, then release resources for the installation owner's
+separately authorized fresh-v2-B four-boot proof.
+
+Actual main `ba35d16c` is subsequently merged (`dcf69557`) with both unit records
+preserved. Only host-test-guarded exFAT/inspector code, a host target and docs are
+added. Actual production preprocessing proves identical guest exFAT input; all
+148 retained build artifacts/metadata and proof tools remain byte-identical.
+The integration receipt preserves original proof attribution without a new
+build/VM claim. Final follow-up records integration evidence and docs only.
+
+## PR349 current-main merge review — ready
+
+User authorizes review and merge if ready, preserving uncertain media and review
+VMs and coordinating PR317. Reviewed `7b40686a` with no blocking finding. Merged
+actual main `6225e4d1` as `e853ef90`, preserving Files/profile and Air6,1 records;
+Apps `2ddea666`, Widgets `586bd002`, Ports `d760e541` are synchronized. Inspector,
+shim, Python contracts and native exFAT/VFS sources match the qualified head.
+Production-preprocessed exFAT tokens match current main exactly. No new runtime
+filesystem/process/transport or admission-policy change is introduced.
+
+Fresh 14 diagnostic groups, 19 strict-inspection regression groups, storage
+lease/workspace/USB regressions and matched OS build pass on the integrated
+source. The unchanged-source ASan/UBSan and omitted-blocking negative-control
+evidence is verified and retained. Before/after whole-file SHA-256 and full
+identity/ownership/mode stamps for all three uncertain images, accepted fault
+backup and clean control match their original qualification. All diagnostic
+write/flush counts remain zero; uncertain images remain mode `0444`. Review VMs
+61610/6233/85869 stay running and untouched. Complete review evidence survives
+outside build in `.local/filesystem-evidence/pr349-review/`.
+
+PR317 owner confirms no new overlap or lifetime constraint at current published
+head `ae3b39b9`; this is scope coordination, not an independent diff review.
+Published-storage failure stays sticky; diagnostics confer no replay, transport
+recovery, repair, remount or writable-admission authority. No live/physical media,
+new VM, reboot or hosted Actions. Current-main review is ready for authorized
+merge; explicit ranges and unauthenticated marker syntax remain documented limits.
+
+Next proposed bounded milestone: **GPT-aware read-only workspace selection**.
+Remove manual offset entry for preserved whole-disk images by researching reuse
+of the existing native GPT map and host validation before adding an adapter.
+Require valid bounded partition metadata and one unambiguous workspace candidate;
+refuse corrupt/overlapping/ambiguous maps. Compare reports against the existing
+explicit-range results on retained clean/uncertain images; verify unchanged
+whole-file hashes/permissions and malformed-map refusals on disposable fixtures.
+Preserve strict admission, metadata-only output, review VMs and uncertain media;
+coordinate any block/GPT boundary with PR317. No repair, writable admission or
+source/orphan export. This proposal is not implemented by PR349.
+
+
+## Uncertain workspace read-only inspection — host qualified
+
+User authorizes offline read-only inspection in `SrvrOS-filesystem`, branch
+`device/apple-silicon/filesystem-uncertain-inspection`, base `83e5d1ad`. Reuse
+the native installation inspector and inherited O_RDONLY regular-file shim;
+add only a host-test diagnostic entry in exfat.c, forcing write blocking before
+sidecar loading. No process.c, USB/BOT, live transport or production runtime
+change. PR317 owner through `04b82bdd` confirms no lifetime overlap; published-storage
+failure remains sticky and diagnostic output cannot authorize repair/remount.
+Preserve all uncertain images and review VMs 61610/6233/85869. Qualify bounded
+metadata-only output, explicit ranges, unchanged hashes/identity/permissions,
+default strict admission and malformed/refusal cases before draft delivery.
+
+Implementation `859342b2` integrates main `5ed7f015` as `787c8daa`;
+Ports is synchronized to `d760e541`. Matched OS build, 14 diagnostic and 19
+existing inspector groups, storage regressions and halt-on-error ASan/UBSan pass.
+Production-preprocessed exFAT tokens equal the baseline. Removing forced
+blocking makes the clean diagnostic qualification fail as expected. All three
+uncertain images and the accepted fault backup retain whole-image hashes,
+identity/ownership/mode `0444`; clean control remains `0644`. Dirty inputs report
+four leaked clusters and a 28-byte source entry; clean control has no allocation
+errors and source size 12,289. No source content or orphan export. Evidence is
+backed up under `.local/filesystem-evidence/workspace-inspection/`; see the
+filesystem guide for explicit-range, metadata and admission limits. No fresh VM
+is needed for a host-only path; existing review guests stay untouched.
+
 ## Graphical profile transfer — qualified for review
 
 User authorized the Profiles app, reviewed export/import and disposable two-VM
