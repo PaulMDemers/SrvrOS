@@ -498,3 +498,52 @@ includes all constructors, exec stdio preflight/rollback, foreground restoration
 noncurrent teardown and invalidation before kernel-stack reuse. Binding commit
 exclusion and the current void mapping-refresh preparation contract are explicit
 owner decisions. It introduces no binding epoch and remains design only.
+
+
+## Approved unwired kernel-mapping preparation
+
+The owner accepted query `6fb08496`, independently reran its strict/sanitized
+actual-source fixtures and verified the read-only CPU probe. They approved a
+separate internal preparation helper so later binding commits need not replay
+the allocating, failure-ignoring legacy refresh. No legacy caller or lifecycle
+change was approved by this slice.
+
+`vmm_prepare_user_kernel_mappings(target_root)` requires existing CPU0 IRQ
+exclusion, a presently registered aligned nonkernel user root (staged/inactive is
+allowed), initialized kernel-root bookkeeping and at most 128 registered kernel
+mappings. Before any target write it validates every registry entry against the
+kernel root: canonical upper/page-aligned virtual address, aligned physical page,
+supported supervisor flags, matching effective RW/NX, exact leaf PWT/PCD and
+physical address including large-leaf offsets. It refuses unsupported PAT while
+distinguishing 4 KiB bit7 from large-leaf bit12; hardware A/D is ignored. This is
+leaf PWT/PCD validation, not complete PAT/MTRR memory-type certification. Used NX
+requires actual CPUID NX and EFER.NXE; used 1 GiB leaves require Page1GB. Empty or
+no-NX preparation does not itself require NX support.
+
+After complete preflight, an inactive target receives exactly the kernel's 256
+upper PML4 entries. Lower 256 entries, registry and owned-table bookkeeping remain
+unchanged; detached target-owned upper tables stay tracked for eventual teardown.
+No map replay, allocation/free, service, IRQ/CR3 or permission-policy operation
+occurs. Unregistered upper entries are copied as kernel-owned entries, not
+individually certified by this validator.
+
+For an active target, the owner approved only a true no-op: after full registry
+preflight, all 256 upper entries must already match byte-for-byte; success returns
+without stores and any difference refuses unchanged. This avoids new stale
+translations without INVLPG/CR3 operations. It does not certify pre-existing TLB
+coherence, fix missing shootdowns, establish a durable lease, or authorize binding
+wiring. Future commit must revalidate atomically if kernel mappings can change
+after preparation and must have its own TLB/lifetime contract.
+
+`gmake test-vmm-prepare` and separate ASan/UBSan pass natively on ARM64 macOS.
+The actual-source fixture uses independent host-page-sized mappings, a read-only
+active target to trap even idempotent stores, and padding guards beyond each
+logical 4 KiB table. It covers effective permissions, independent cache flags,
+capabilities, all leaf sizes/offsets, PAT, active/inactive cases, late second-record
+failure, stale/colliding records, malformed root/count/IF and complete state
+preservation. Allocator/free/console callbacks abort if reached. Original VMM
+query/range/noncanonical/teardown regressions still pass; the actual freestanding
+VMM object compiles with pinned Zig0.15.2. Logs:
+`build/signal-context/vmm-prepare-{host,sanitizers,target}.log` and
+`vmm-range-after-prepare.log`. No live guest helper invocation or image-generation/
+FPU/delivery acceptance is claimed.

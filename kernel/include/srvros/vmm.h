@@ -28,6 +28,11 @@ void vmm_switch_address_space(uint64_t address_space);
 bool vmm_create_address_space(uint64_t *address_space_out);
 void vmm_destroy_address_space(uint64_t address_space);
 void vmm_refresh_kernel_mappings(uint64_t address_space);
+/* CPU0, IRQs already masked. Validate registry against the kernel root, then
+ * copy only its upper PML4 half to a registered nonkernel target. An active
+ * target is accepted only when already identical, without a store or TLB claim.
+ * Allocates nothing; provides no lifetime guarantee. The target may be staged. */
+bool vmm_prepare_user_kernel_mappings(uint64_t target_root);
 bool vmm_map_page_in_space(uint64_t address_space,
     uint64_t virtual_address,
     uint64_t physical_address,

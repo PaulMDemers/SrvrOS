@@ -567,6 +567,84 @@ static bool vmm_entry_for_address(uint64_t address_space, uint64_t virtual_addre
 }
 
 
+/* Caller owns CPU0 IRQ exclusion through validation and publication. */
+bool vmm_prepare_user_kernel_mappings(uint64_t target_root) {
+    uint64_t flags;
+#ifdef SRVROS_VMM_HOST_TEST
+    flags=vmm_test_rflags();
+#else
+    __asm__ volatile ("pushfq; popq %0" : "=r"(flags) : : "memory");
+#endif
+    if ((flags & (1ull << 9)) || !target_root || (target_root & ~PAGE_MASK) ||
+        !kernel_cr3 || (kernel_cr3 & ~PAGE_MASK) || target_root == kernel_cr3 ||
+        !kernel_pml4 || kernel_pml4 != pmm_phys_to_virt(kernel_cr3) ||
+        !is_canonical((uint64_t)kernel_pml4) ||
+        !find_address_space_record(target_root) || kernel_mapping_count > VMM_MAX_KERNEL_MAPPINGS)
+        return false;
+    uint64_t *target=pmm_phys_to_virt(target_root);
+    if (!target || !is_canonical((uint64_t)target) || target == kernel_pml4) return false;
+    const uint64_t supported=VMM_PAGE_PRESENT | VMM_PAGE_WRITABLE |
+        VMM_PAGE_WRITE_THROUGH | VMM_PAGE_CACHE_DISABLE | VMM_PAGE_NO_EXECUTE;
+    bool needs_nx=false, needs_1g=false;
+    for (uint64_t i=0; i<kernel_mapping_count; ++i) {
+        const struct kernel_mapping *mapping=&kernel_mappings[i];
+        uint64_t va=mapping->virtual_address, entry, leaf;
+        if (!is_canonical(va) || (va >> 47) != 0x1ffff || (va & (PAGE_SIZE-1)) ||
+            (mapping->physical_address & ~PAGE_MASK) || (mapping->flags & ~supported) ||
+            !vmm_entry_for_address(kernel_cr3,va,&entry,&leaf)) return false;
+        /* Bit 7 is 4K PAT but large-page PS; large-page PAT is bit 12. */
+        uint64_t pat=leaf == PAGE_SIZE ? (1ull << 7) : (1ull << 12);
+        if ((entry & pat) || (entry & VMM_PAGE_USER) ||
+            ((entry ^ mapping->flags) & (VMM_PAGE_WRITABLE | VMM_PAGE_NO_EXECUTE |
+                VMM_PAGE_WRITE_THROUGH | VMM_PAGE_CACHE_DISABLE))) return false;
+        if (entry & VMM_PAGE_NO_EXECUTE) needs_nx=true;
+        if (leaf == (1ull << 30)) needs_1g=true;
+        uint64_t physical=leaf == (1ull << 30) ? (entry & PAGE_1G_MASK) :
+            leaf == (1ull << 21) ? (entry & PAGE_2M_MASK) : (entry & PAGE_MASK);
+        physical += va & (leaf - 1);
+        if (physical != mapping->physical_address) return false;
+    }
+    if (needs_nx || needs_1g) {
+        uint32_t eax, ebx, ecx, edx;
+#ifdef SRVROS_VMM_HOST_TEST
+        vmm_test_cpuid(0x80000000u,&eax,&ebx,&ecx,&edx);
+#else
+        __asm__ volatile ("cpuid" : "=a"(eax), "=b"(ebx), "=c"(ecx), "=d"(edx)
+                          : "a"(0x80000000u), "c"(0));
+#endif
+        if (eax < 0x80000001u) return false;
+#ifdef SRVROS_VMM_HOST_TEST
+        vmm_test_cpuid(0x80000001u,&eax,&ebx,&ecx,&edx);
+#else
+        __asm__ volatile ("cpuid" : "=a"(eax), "=b"(ebx), "=c"(ecx), "=d"(edx)
+                          : "a"(0x80000001u), "c"(0));
+#endif
+        if ((needs_nx && !(edx & (1u << 20))) ||
+            (needs_1g && !(edx & (1u << 26)))) return false;
+        if (needs_nx) {
+            uint64_t efer;
+#ifdef SRVROS_VMM_HOST_TEST
+            efer=vmm_test_efer();
+#else
+            uint32_t lo, hi;
+            __asm__ volatile ("rdmsr" : "=a"(lo), "=d"(hi) : "c"(0xc0000080u));
+            efer=((uint64_t)hi << 32) | lo;
+#endif
+            if (!(efer & (1ull << 11))) return false;
+        }
+    }
+    /* An active root may retain cached translations. It is safe here only as
+     * an already-identical no-op; no TLB-coherence claim is made. */
+    if ((read_cr3() & PAGE_MASK) == target_root) {
+        for (uint64_t i=ENTRIES_PER_TABLE/2; i<ENTRIES_PER_TABLE; ++i)
+            if (target[i] != kernel_pml4[i]) return false;
+        return true;
+    }
+    for (uint64_t i=ENTRIES_PER_TABLE/2; i<ENTRIES_PER_TABLE; ++i)
+        target[i]=kernel_pml4[i];
+    return true;
+}
+
 /* Entry permission only. CPU0, IRQs already masked; no scheduler or image
  * lifetime guarantee. The registry proves a current user root, not identity. */
 bool vmm_user_exec_current(uint64_t address, uint64_t expected_cr3) {

@@ -2166,6 +2166,14 @@ build/tests/vmm-user-range-host$(HOST_EXE): tools/test_vmm_user_range.c kernel/s
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
 test-core: test-initramfs test-vmm-user-range
 
+.PHONY: test-vmm-prepare
+test-vmm-prepare: build/tests/vmm-prepare-host$(HOST_EXE)
+	$<
+build/tests/vmm-prepare-host$(HOST_EXE): tools/test_vmm_prepare.c kernel/src/memory/vmm.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -o $@
+test-core: test-vmm-prepare
+
 .PHONY: test-user-fault test-process-fault
 test-user-fault: build/tests/user-fault-host$(HOST_EXE)
 	$<
