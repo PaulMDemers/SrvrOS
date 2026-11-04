@@ -341,12 +341,15 @@ static int check_fault_exit(const char *mode, int expected_signal) {
 }
 
 int namespace_test(void);
+int salvage_consumer_test(int reopen);
 int namespace_workspace_hold(const char *mode);
 int namespace_workspace_launch(const char *mode);
 int namespace_workspace_verify(int system_only);
 int namespace_test_persistence(int verify);
 
 int main(int argc, char **argv) {
+    if(argc==2 && !strcmp(argv[1],"--salvage-cli-save")) return salvage_consumer_test(0);
+    if(argc==2 && !strcmp(argv[1],"--salvage-cli-reopen")) return salvage_consumer_test(1);
     if (argc == 2 && !strncmp(argv[1], "--workspace-hold-",17)) return namespace_workspace_hold(argv[1]+17);
     if (argc == 2 && !strncmp(argv[1], "--workspace-launch-",19)) return namespace_workspace_launch(argv[1]+19);
     if (argc == 2 && !strcmp(argv[1], "--workspace-system")) return namespace_workspace_verify(1);
