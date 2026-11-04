@@ -19,8 +19,8 @@ hardware qualification.
 | Desktop applications | Files and Find Contents work merged through UI #6, Apps #12 and [OS #368](https://github.com/PaulMDemers/SrvrOS/pull/368), `88a95f9a`; host, rendered and guest checks pass. Owner is idle. |
 | UI portability | macOS showcase and density milestones delivered; [documentation #371](https://github.com/PaulMDemers/SrvrOS/pull/371), `518175df`, closes the record. Text portability is research only; implementation is deferred. See [portability status](machines/apple-silicon-ui-host.md). |
 | Portable profiles | Creation, migration and session switching are delivered. Larger-document streaming in Apps #11 / OS #367 passed the corrected changed-review fixture and still requires its full integrated guest proof. See [profiles](portable-profiles.md). |
-| Filesystem tooling | Explicit partition-GUID selection in OS #366 awaits final current-main native tests and delivery. Original media remains preserved. |
-| Ports | xz and GNU diff are delivered. GNU Patch in Ports #12 / OS #370 passed six guest checks; the corrected miniport example still requires the final data-identity and ports guest checks. Grep and sha256sum are deferred. |
+| Filesystem tooling | Explicit partition-GUID selection merged in [OS #366](https://github.com/PaulMDemers/SrvrOS/pull/366), `7b1bfcb8`, after selector, installation, storage and sanitizer checks. Original media remains preserved. |
+| Ports | xz and GNU diff are delivered. GNU Patch in Ports #12 / OS #370 passed six earlier guest checks; the corrected miniport payload requires a fresh full suite because the old initramfs member comparison is unavailable. Grep and sha256sum are deferred. |
 | Runtime audit | The bounded historical audit checkpoint is merged in [OS #365](https://github.com/PaulMDemers/SrvrOS/pull/365), `db95fc9b`. It does not qualify the ongoing browser experiment. |
 | Browser | Exempt, ongoing. The browser owner has completed its prepared target review; the next bounded guest run is pending the shared resource handoff. No full WTF/JSC or browser acceptance is claimed. |
 
