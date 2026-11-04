@@ -3579,3 +3579,29 @@ proof, assembly frame change, public signal admission or JSC success yet. The
 installation proof owns the next large resource window; no large JSC allocation
 has started. Duplicate task disks preserve independent paths/bytes through APFS
 copy-on-write storage sharing; no unrelated artifact was reclaimed.
+
+
+### PR334 entered-user FPU proof — implementation under review
+
+Owner approved the bounded common-entry witness and typed snapshot/consume
+contract in [the review packet](../fpu-user-trap-proof.md), including actual
+read-only CR4.OSFXSR/OSXSAVE and EFER.FFXSR proof gates. Implementation changes
+only the common assembly reservation/wrappers, adds the excluded scheduler entry
+observation and extends its return observation with exact FPU/FS/stack selection.
+Direct IRQ entry remains unchanged. No replacement, signal hook or public ABI is
+provided. Denied CPU policy grants no proof; this does not repair legacy FPU
+behavior under unsupported inherited policy.
+
+Real-FXSAVE strict Rosetta and ASan/UBSan fixtures pass x87/MXCSR/XMM15,
+save-before-query, nesting/short CPL0 guard pages, A→B→A, identity/alias/canonical
+refusals, consumption/replay and independent unsupported CPU policy transitions.
+Critical save/restore functions omit sanitizer prologues; validated operations
+remain instrumented. Actual pinned-Zig full kernel builds, and target disassembly
+shows save-before-query, integer-only pre-save work, complete proof fields before
+publication, and no calls after final restore. Host scheduler fixtures pass.
+Evidence is in `build/signal-context/fpu-*-policy-*.log` and
+`fpu-policy-codegen.txt`; stable source/codegen receipt and matched main/worker
+register/TLS/preemption plus unchanged thread/sysabi/I/O guests are the next
+qualification. Source is not yet independently accepted. JSC's latest required
+smoke remains134 without42; delivery/return and WTF integration remain required.
+Large JSC allocation remains held for the installation owner's resource window.

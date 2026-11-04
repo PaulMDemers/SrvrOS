@@ -118,3 +118,25 @@ hardware's supported mask; reserved bits can fault. See the
 and [AMD system programming manual](https://www.amd.com/content/dam/amd/en/documents/processor-tech-docs/programmer-references/26569.pdf).
 No trial FXRSTOR is permitted while C runs. No replacement stub, signal hook,
 frame publication or public register-context ABI is approved by this packet.
+
+## Read-only CPU policy restriction
+
+Owner-approved proof authority requires actual CR4.OSFXSR=1, CR4.OSXSAVE=0
+and EFER.FFXSR=0 before minting and again on snapshot/consume under IF0.
+Integer-only inline privileged reads precede the actual save; no ordinary query
+may run before that save. Denial mints no proof, and snapshot/consume leave
+association, saved state and output unchanged. Exit still clears a matching
+association before restoration, with no policy/query call after it.
+This changes no CR4/EFER/XCR0 setting and does not repair or accept the legacy
+FPU path on unsupported inherited policy. Host policy is explicitly modeled;
+real host FXSAVE execution does not accept the host's OSXSAVE configuration.
+[AMD APM volume2](https://docs.amd.com/v/u/en-US/24593_3.44_APM_Vol2)
+describes FFXSR omitting XMM at CPL0; Intel SDM volume3A section2.5 describes
+OSFXSR controlling XMM/MXCSR preservation. This implementation supports the
+reviewed 512-byte x87/SSE state only.
+
+Proof publication and use belong to the same CPU0 IRQ-excluded continuation.
+No NMI/SMP observer is provided or authorized by these APIs. Target codegen
+must show all proof fields valid before association publication. The host
+fixture deliberately patterns XMM15, x87 state/control and MXCSR; it does not
+claim independently distinct patterns in all16 XMM registers.

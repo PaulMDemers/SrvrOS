@@ -2143,6 +2143,7 @@ build/tests/signal-context-host$(HOST_EXE): tools/test_signal_context.c kernel/s
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror tools/test_signal_context.c kernel/src/arch/x86_64/signal_context.c -o $@
 build/kernel/src/arch/x86_64/signal_context.c.o: kernel/src/arch/x86_64/signal_context.h kernel/src/arch/x86_64/isr_frame.h
+build/kernel/src/arch/x86_64/fpu.c.o build/kernel/src/arch/x86_64/isr.S.o: kernel/src/arch/x86_64/fpu_trap.h kernel/src/arch/x86_64/isr_frame.h
 test-core: test-signal-context
 
 .PHONY: test-pmm interrupt-smoke
@@ -3855,7 +3856,7 @@ build/tests/process-spawn-failure-host$(HOST_EXE): tools/test_process_spawn_fail
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include $< kernel/src/vfs_namespace.c -Wl,--gc-sections -o $@
 test-core: test-process-spawn-failure
 
-.PHONY: test-process-image-metadata test-process-image-lifecycle test-fpu-metadata
+.PHONY: test-process-image-metadata test-process-image-lifecycle test-fpu-metadata test-fpu-user-trap
 test-process-image-metadata: build/tests/process-image-metadata-host$(HOST_EXE)
 	$<
 build/tests/process-image-metadata-host$(HOST_EXE): tools/test_process_image_metadata.c kernel/src/process.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
@@ -3872,6 +3873,12 @@ build/tests/fpu-metadata-host$(HOST_EXE): tools/test_fpu_metadata.c kernel/src/a
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -mno-sse -mno-sse2 -mno-mmx -mno-80387 -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
 test-core: test-process-image-metadata test-process-image-lifecycle test-fpu-metadata
+test-fpu-user-trap: build/tests/fpu-user-trap-host$(HOST_EXE)
+	$<
+build/tests/fpu-user-trap-host$(HOST_EXE): tools/test_fpu_user_trap.c kernel/src/arch/x86_64/fpu.c kernel/src/arch/x86_64/fpu_trap.h kernel/src/arch/x86_64/isr_frame.h $(KERNEL_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -mno-sse -mno-sse2 -mno-mmx -mno-80387 -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+test-core: test-fpu-user-trap
 
 .PHONY: test-graphics-service
 test-graphics-service: build/tests/graphics-service-host$(HOST_EXE)

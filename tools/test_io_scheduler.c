@@ -991,6 +991,7 @@ static void observe_check(bool expected, bool null_output, void *process, void *
     if (expected) {
         assert(out.thread_identity==42 && out.process==process && out.user_thread==worker);
         assert(out.address_space==0x2000 && out.image_generation==77 && out.user_fpu==fpu);
+        assert(out.kernel_fpu==&threads[3].kernel_fpu && out.user_fs_base==0x4000 && out.kernel_stack_top==0x9000);
     } else assert(!memcmp(&out,&before,sizeof(out)));
     assert(!memcmp(saved_threads,threads,sizeof(saved_threads)));
     assert(current_thread==saved_current && thread_capacity==saved_capacity && io_depth==saved_depth && io_owner==saved_owner);
@@ -1008,7 +1009,7 @@ static void test_user_return_observation(void)
     current_thread=3; io_depth=0; io_owner=0; io_private_image=NULL;
     actual_space=0x2000; scheduler_test_rflags=0;
     threads[3]=(struct thread){.state=THREAD_RUNNING,.identity=42,.user_context=process,
-        .address_space=0x2000,.image_generation=77,.user_fpu=&main_fpu};
+        .address_space=0x2000,.image_generation=77,.user_fpu=&main_fpu,.user_fs_base=0x4000,.kernel_stack_top=0x9000};
 #define CHECK(expected) observe_check((expected),false,process,NULL,&main_fpu)
     CHECK(true);
     observe_check(false,true,process,NULL,&main_fpu);
@@ -1032,6 +1033,52 @@ static void test_user_return_observation(void)
     memset(threads,0,sizeof(threads)); initialized=false; switching=false; current_thread=0;
     io_depth=0; io_owner=0; io_private_image=NULL; actual_space=1; scheduler_test_rflags=0;
     puts("scheduler-user-return: PASS (observation only)");
+}
+
+static void entry_check(bool expected,bool null_output)
+{
+    struct thread saved[SCHEDULER_INITIAL_THREADS];memcpy(saved,threads,sizeof(saved));
+    uint64_t old_current=current_thread,old_space=actual_space,old_depth=io_depth,old_owner=io_owner;
+    uint64_t old_flags=scheduler_test_rflags,old_irq=fixture_irq_flags,old_fs=fixture_fs,old_tss=fixture_tss;
+    unsigned old_switches=switches,old_frees=frees,old_clock=clock_calls,old_fs_writes=fixture_fs_writes;
+    unsigned old_tss_calls=tss_set_calls,old_fpu=fpu_set_calls;
+    struct scheduler_user_return_observation out,before;memset(&out,0xa5,sizeof(out));memcpy(&before,&out,sizeof(out));
+    assert(scheduler_observe_user_entry(null_output?NULL:&out)==expected);
+    if(expected) {
+        assert(out.thread_identity==42 && out.process==(void *)0x1234 && out.user_thread==threads[3].user_thread_context);
+        assert(out.address_space==0x2000 && out.image_generation==77 && out.user_fpu==threads[3].user_fpu);
+        assert(out.kernel_fpu==&threads[3].kernel_fpu && out.user_fs_base==0x4000 && out.kernel_stack_top==0x9000);
+    } else assert(!memcmp(&out,&before,sizeof(out)));
+    assert(!memcmp(saved,threads,sizeof(saved)) && current_thread==old_current && actual_space==old_space);
+    assert(io_depth==old_depth && io_owner==old_owner && scheduler_test_rflags==old_flags && fixture_irq_flags==old_irq);
+    assert(fixture_fs==old_fs && fixture_tss==old_tss && fixture_fs_writes==old_fs_writes);
+    assert(switches==old_switches && frees==old_frees && clock_calls==old_clock && tss_set_calls==old_tss_calls && fpu_set_calls==old_fpu);
+}
+
+static void test_user_entry_observation(void)
+{
+    struct fpu_state selected={0};
+    memset(threads,0,sizeof(threads));initialized=true;switching=false;current_thread=3;
+    actual_space=0x2000;kernel_space=0x1000;scheduler_test_rflags=0;io_depth=0;
+    threads[3]=(struct thread){.state=THREAD_RUNNING,.identity=42,.user_context=(void *)0x1234,
+        .address_space=0x2000,.image_generation=77,.user_fpu=&selected,.user_fs_base=0x4000,.kernel_stack_top=0x9000};
+    entry_check(true,false);entry_check(false,true);
+    threads[3].account_user=true;threads[3].io_user_safe=true;io_depth=2;io_owner=4;
+    entry_check(true,false);threads[3].user_thread_context=(void *)0x5678;entry_check(true,false);
+    scheduler_test_rflags=0x200;entry_check(false,false);scheduler_test_rflags=0;
+    initialized=false;entry_check(false,false);initialized=true;
+    switching=true;entry_check(false,false);switching=false;
+    current_thread=thread_capacity;entry_check(false,false);current_thread=3;
+    threads[3].state=THREAD_READY;entry_check(false,false);threads[3].state=THREAD_RUNNING;
+    threads[3].identity=0;entry_check(false,false);threads[3].identity=42;
+    threads[3].user_context=NULL;entry_check(false,false);threads[3].user_context=(void *)0x1234;
+    threads[3].image_generation=0;entry_check(false,false);threads[3].image_generation=77;
+    threads[3].user_fpu=NULL;entry_check(false,false);threads[3].user_fpu=&selected;
+    threads[3].address_space=0;entry_check(false,false);threads[3].address_space=0x2001;entry_check(false,false);
+    threads[3].address_space=0x1000;entry_check(false,false);threads[3].address_space=0x3000;entry_check(false,false);
+    threads[3].address_space=0x2000;
+    memset(threads,0,sizeof(threads));initialized=false;current_thread=0;io_depth=io_owner=0;actual_space=kernel_space=1;
+    puts("scheduler-user-entry: PASS (borrowed pre-dispatch observation)");
 }
 
 static void expect_binding_refusal(uint64_t root,uint64_t stack,uint64_t generation)
@@ -1109,6 +1156,7 @@ static void test_binding_contract(void)
 
 int main(void) {
     test_binding_contract();
+    test_user_entry_observation();
     test_user_return_observation();
     test_foreign_io_return();
     test_gate_retention();

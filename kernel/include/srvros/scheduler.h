@@ -87,8 +87,12 @@ struct scheduler_user_return_observation {
     uint64_t address_space;
     uint64_t image_generation;
     struct fpu_state *user_fpu;
+    struct fpu_state *kernel_fpu;
+    uint64_t user_fs_base;
+    uint64_t kernel_stack_top;
 };
 bool scheduler_observe_user_return(struct scheduler_user_return_observation *out);
+bool scheduler_observe_user_entry(struct scheduler_user_return_observation *out);
 void scheduler_user_enter(void);
 void scheduler_account_kernel_enter(void);
 void scheduler_account_now(void);

@@ -212,3 +212,130 @@ void fpu_enter_user(void) {
     fpu_restore(current_user_state);
     user_state_loaded = true;
 }
+
+/* Private common-trap witnesses. This translation unit must be built without
+ * SIMD and without instrumentation that can run before the FXSAVE boundary. */
+#include "fpu_trap.h"
+#include <srvros/process.h>
+#include <srvros/scheduler.h>
+#include <srvros/vmm.h>
+
+#define FPU_PROOF_INVALID 0u
+#define FPU_PROOF_VALID 1u
+#define FPU_PROOF_CONSUMED 2u
+
+/* Authority restriction only: do not change inherited CPU policy. These
+ * integer-only reads must inline before the actual user FXSAVE boundary. */
+static inline __attribute__((always_inline)) bool proof_policy_complete(void) {
+#ifdef SRVROS_FPU_TRAP_HOST_TEST
+    uint64_t cr4=fpu_test_read_cr4();
+    uint64_t efer=fpu_test_read_efer();
+#else
+    uint64_t cr4;
+    uint32_t lo,hi;
+    __asm__ volatile ("mov %%cr4, %0" : "=r"(cr4));
+    __asm__ volatile ("rdmsr" : "=a"(lo), "=d"(hi) : "c"(0xc0000080u));
+    uint64_t efer=((uint64_t)hi<<32)|lo;
+#endif
+    return (cr4 & CR4_OSFXSR) && !(cr4 & (1ull<<18)) && !(efer & (1ull<<14));
+}
+
+void fpu_common_trap_enter(const struct isr_frame *frame, uint8_t *area,
+    struct fpu_user_trap_proof *proof) {
+    uintptr_t aligned=(uintptr_t)frame & ~(uintptr_t)15;
+    if (aligned < sizeof(*proof) || (uintptr_t)proof != aligned-sizeof(*proof)) {
+        fpu_trap_enter(frame->cs,area);
+        return;
+    }
+    proof->state=FPU_PROOF_INVALID;
+    uint64_t cs=frame->cs;
+    if ((cs & 3) != 3) {
+        fpu_trap_enter(cs,area);
+        return;
+    }
+    struct fpu_state *user=current_user_state, *kernel=current_kernel_state;
+    bool saved=available && user_state_loaded && user && kernel && proof_policy_complete() &&
+        user->initialized && kernel->initialized;
+    fpu_trap_enter(cs,area); /* Actual user save precedes ordinary C queries. */
+    if (!saved || user_state_loaded || current_user_state!=user || current_kernel_state!=kernel)
+        return;
+    struct scheduler_user_return_observation obs;
+    if (!scheduler_observe_user_entry(&obs) || obs.user_fpu!=user || obs.kernel_fpu!=kernel ||
+        current_user_state!=user || current_kernel_state!=kernel || user_state_loaded ||
+        kernel->active_user_trap) return;
+    proof->frame=frame;proof->thread_identity=obs.thread_identity;
+    proof->address_space=obs.address_space;proof->image_generation=obs.image_generation;
+    proof->user_fpu=user;proof->kernel_fpu=kernel;proof->process=obs.process;
+    proof->state=FPU_PROOF_VALID;
+    kernel->active_user_trap=proof;
+}
+
+void fpu_common_trap_exit(const struct isr_frame *frame, const uint8_t *area,
+    struct fpu_user_trap_proof *proof) {
+    uint64_t cs=frame->cs;
+    if ((cs & 3)==3 && current_kernel_state && current_kernel_state->active_user_trap==proof)
+        current_kernel_state->active_user_trap=NULL;
+    /* No ordinary C call may follow this restore. */
+    fpu_trap_exit(cs,area);
+}
+
+static bool proof_current(const struct isr_frame *frame, struct fpu_user_trap_proof **result) {
+    if (!frame || (frame->cs & 3)!=3 || !available || user_state_loaded ||
+        !current_kernel_state || !current_user_state || !proof_policy_complete()) return false;
+    struct scheduler_user_return_observation obs;
+    if (!scheduler_observe_user_return(&obs) || obs.kernel_fpu!=current_kernel_state ||
+        obs.user_fpu!=current_user_state) return false;
+    uintptr_t aligned=(uintptr_t)frame & ~(uintptr_t)15;
+    if (aligned < sizeof(struct fpu_user_trap_proof)) return false;
+    struct fpu_user_trap_proof *proof=(void *)(aligned-sizeof(*proof));
+    if (obs.kernel_fpu->active_user_trap != proof) return false;
+    if (proof->state!=FPU_PROOF_VALID || proof->frame!=frame ||
+        proof->kernel_fpu!=obs.kernel_fpu || proof->user_fpu!=obs.user_fpu ||
+        obs.thread_identity!=proof->thread_identity || obs.process!=proof->process ||
+        obs.address_space!=proof->address_space || obs.image_generation!=proof->image_generation) return false;
+    struct process_user_binding binding;
+    if (!process_resolve_user_binding(obs.process,obs.user_thread,obs.image_generation,
+            obs.address_space,&binding) || binding.user_fpu!=obs.user_fpu ||
+        binding.fs_base!=obs.user_fs_base ||
+        (obs.user_thread ? binding.kernel_stack_top!=0 : binding.kernel_stack_top!=obs.kernel_stack_top) ||
+        !obs.user_fpu->initialized || !obs.kernel_fpu->initialized ||
+        !vmm_prepare_user_kernel_mappings(obs.address_space)) return false;
+    *result=proof;
+    return true;
+}
+
+static bool kernel_extent(uintptr_t start, size_t length) {
+    if (!length || start > UINTPTR_MAX-(length-1)) return false;
+#ifdef SRVROS_FPU_TRAP_HOST_TEST
+    uintptr_t first=fpu_test_kernel_address(start);
+    uintptr_t last=fpu_test_kernel_address(start+length-1);
+    return (first >> 47)==0x1ffff && (last >> 47)==0x1ffff;
+#else
+    return (start >> 47)==0x1ffff && ((start+length-1) >> 47)==0x1ffff;
+#endif
+}
+static bool ranges_overlap(uintptr_t a, size_t alen, uintptr_t b, size_t blen) {
+    return a <= b ? b-a < alen : a-b < blen;
+}
+
+bool fpu_snapshot_user_trap(const struct isr_frame *frame, struct fpu_user_snapshot *out) {
+    struct fpu_user_trap_proof *proof;
+    if (!out || ((uintptr_t)out & 15) || !kernel_extent((uintptr_t)out,sizeof(*out)) ||
+        !proof_current(frame,&proof)) return false;
+    uintptr_t aligned=(uintptr_t)frame & ~(uintptr_t)15;
+    if (aligned < FPU_COMMON_RESERVATION || (uintptr_t)frame > UINTPTR_MAX-sizeof(*frame)) return false;
+    uintptr_t start=aligned-FPU_COMMON_RESERVATION;
+    size_t size=(uintptr_t)frame+sizeof(*frame)-start;
+    if (ranges_overlap((uintptr_t)out,sizeof(*out),start,size) ||
+        ranges_overlap((uintptr_t)out,sizeof(*out),(uintptr_t)proof->user_fpu,sizeof(*proof->user_fpu)) ||
+        ranges_overlap((uintptr_t)out,sizeof(*out),(uintptr_t)proof->kernel_fpu,sizeof(*proof->kernel_fpu))) return false;
+    copy_fx_area(out->bytes,proof->user_fpu->fxsave_area);
+    return true;
+}
+
+bool fpu_consume_user_trap(const struct isr_frame *frame) {
+    struct fpu_user_trap_proof *proof;
+    if (!proof_current(frame,&proof)) return false;
+    proof->state=FPU_PROOF_CONSUMED;
+    return true;
+}

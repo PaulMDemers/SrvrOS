@@ -529,6 +529,34 @@ bool scheduler_observe_user_return(struct scheduler_user_return_observation *out
         .user_thread=thread->user_thread_context,
         .address_space=thread->address_space,.image_generation=thread->image_generation,
         .user_fpu=thread->user_fpu,
+        .kernel_fpu=(struct fpu_state *)&thread->kernel_fpu,
+        .user_fs_base=thread->user_fs_base,
+        .kernel_stack_top=thread->kernel_stack_top ? thread->kernel_stack_top :
+            (thread->stack ? ((uint64_t)thread->stack+SCHEDULER_STACK_SIZE)&~0xfull : 0),
+    };
+    return true;
+}
+
+bool scheduler_observe_user_entry(struct scheduler_user_return_observation *out) {
+    uint64_t flags;
+#ifdef SRVROS_SCHEDULER_HOST_TEST
+    flags=scheduler_test_rflags;
+#else
+    __asm__ volatile ("pushfq; popq %0" : "=r"(flags) : : "memory");
+#endif
+    if (!out || (flags & (1ull<<9)) || !initialized || switching || current_thread>=thread_capacity)
+        return false;
+    const struct thread *thread=thread_at(current_thread);
+    uint64_t root=thread->address_space;
+    if (thread->state!=THREAD_RUNNING || !thread->identity || !thread->user_context || !thread->image_generation ||
+        !root || (root & ~0x000ffffffffff000ull) || root==vmm_kernel_address_space() ||
+        root!=vmm_current_address_space() || !thread->user_fpu) return false;
+    *out=(struct scheduler_user_return_observation){
+        .thread_identity=thread->identity,.process=thread->user_context,.user_thread=thread->user_thread_context,
+        .address_space=root,.image_generation=thread->image_generation,.user_fpu=thread->user_fpu,
+        .kernel_fpu=(struct fpu_state *)&thread->kernel_fpu,.user_fs_base=thread->user_fs_base,
+        .kernel_stack_top=thread->kernel_stack_top ? thread->kernel_stack_top :
+            (thread->stack ? ((uint64_t)thread->stack+SCHEDULER_STACK_SIZE)&~0xfull : 0),
     };
     return true;
 }
