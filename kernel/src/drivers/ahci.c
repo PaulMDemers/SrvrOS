@@ -203,16 +203,18 @@ static bool port_present(volatile struct hba_port *port) {
 }
 
 static bool allocate_port_memory(struct ahci_disk *disk) {
-    disk->command_list_phys = pmm_alloc_frame_tagged(PMM_FRAME_DMA);
-    disk->fis_phys = pmm_alloc_frame_tagged(PMM_FRAME_DMA);
-    disk->command_table_phys = pmm_alloc_frame_tagged(PMM_FRAME_DMA);
-    disk->io_buffer_phys = pmm_alloc_frame_tagged(PMM_FRAME_DMA);
-    if (disk->command_list_phys == 0 ||
-        disk->fis_phys == 0 ||
-        disk->command_table_phys == 0 ||
-        disk->io_buffer_phys == 0) {
-        return false;
+    /* These addresses have not been published to the controller. Roll back
+     * only this attempt; timeout-owned backing follows the pinned policy. */
+    uint64_t pages[4]={0};
+    for(unsigned i=0;i<4;i++) {
+        pages[i]=pmm_alloc_frame_tagged(PMM_FRAME_DMA);
+        if(!pages[i]) {
+            while(i)pmm_free_frame(pages[--i]);
+            return false;
+        }
     }
+    disk->command_list_phys=pages[0];disk->fis_phys=pages[1];
+    disk->command_table_phys=pages[2];disk->io_buffer_phys=pages[3];
 
     disk->command_list = pmm_phys_to_virt(disk->command_list_phys);
     disk->command_table = pmm_phys_to_virt(disk->command_table_phys);

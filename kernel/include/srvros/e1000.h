@@ -4,6 +4,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+/* Boot-owner initialization is attempted once; repeated calls return the
+ * recorded result without replacing DMA rings or retrying partial setup. */
 bool e1000_init(void);
 bool e1000_available(void);
 struct e1000_link_info { bool up,full_duplex;uint16_t speed_mbps; };

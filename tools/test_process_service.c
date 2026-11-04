@@ -15,6 +15,9 @@ static unsigned unmap_calls,fail_at_unmap,alloc_calls,fail_alloc_at,map_calls,fa
 static bool fail_spawn;
 static uint64_t active_space=0x1000;
 uint64_t vmm_current_address_space(void) { return active_space; }
+static unsigned protects,protect_fail_at,protected_at_checkpoint,rollback_checks;
+static bool protection_watch;
+static uint64_t leaf_flags[1024];
 static unsigned private_begins;
 static void *private_target;
 static bool checking_namespace, namespace_admitted;
@@ -48,7 +51,10 @@ bool scheduler_io_begin(void) {begins++;if(!available)return false;depth++;retur
 bool scheduler_io_active(void) {return depth != 0;}
 void scheduler_io_end(void) {assert(depth);depth--;ends++;}
 void scheduler_io_checkpoint(void) {
-    checkpoints++;if(!depth)return;yields++;
+    checkpoints++;if(!depth)return;yields++;if(freed)rollback_checks++;
+    if(protection_watch) { assert(protects-protected_at_checkpoint<=32);protected_at_checkpoint=protects; }
+    if(protection_watch)for(uint64_t i=0;i<observed->mapping_count;i++)
+        assert(observed->mappings[i].flags==leaf_flags[observed->mappings[i].physical_address/4096]);
     if(observed)for(uint64_t i=0;i<observed->mapping_count;i++) {
         unsigned frame=observed->mappings[i].physical_address/4096;
         assert(frame && frame<1024 && !released[frame]);
@@ -72,7 +78,9 @@ uint64_t pmm_alloc_frames_above_tagged(uint64_t n,uint64_t minimum,enum pmm_fram
 }
 void *pmm_phys_to_virt(uint64_t physical) {assert(physical<sizeof(backing));return backing+physical;}
 bool vmm_map_page_in_space(uint64_t space,uint64_t virt,uint64_t physical,uint64_t flags) {
-    assert(space==0x1000 && virt && physical && flags);return ++map_calls!=fail_map_at;
+    assert(space==0x1000 && virt && physical && flags);
+    if(++map_calls==fail_map_at)return false;
+    leaf_flags[physical/4096]=flags;return true;
 }
 void scheduler_set_user_thread_context(void *p) {(void)p;assert(0);}
 void scheduler_set_user_context_fpu(void *p,uint64_t as,uint64_t stack,struct fpu_state *fpu) {(void)p;(void)as;(void)stack;(void)fpu;assert(0);}
@@ -92,8 +100,14 @@ bool scheduler_spawn_user_thread(const char *name,scheduler_thread_fn entry,void
     assert(t->used && t->active && t->owner==observed && fpu==&t->fpu && fs==t->tls_thread_pointer);
     spawn_calls++;return !fail_spawn;
 }
+bool vmm_protect_page_in_space(uint64_t space,uint64_t page,uint64_t flags) {
+    assert(protection_watch && depth && space==observed->address_space);
+    int64_t i=process_mapping_index(observed,page);assert(i>=0);protects++;
+    if(protects==protect_fail_at)return false;
+    leaf_flags[observed->mappings[i].physical_address/4096]=flags;return true;
+}
 static void reset(void) {
-    assert(!depth);begins=ends=checkpoints=yields=freed=destroyed=0;next_frame=1;
+    assert(!depth);rollback_checks=0;protects=protect_fail_at=protected_at_checkpoint=0;protection_watch=false;begins=ends=checkpoints=yields=freed=destroyed=0;next_frame=1;
     memset(released,0,sizeof(released));memset(backing,0xcc,sizeof(backing));
     memset(futexes,0,sizeof(futexes));wakes=0;unmap_calls=fail_at_unmap=alloc_calls=fail_alloc_at=map_calls=fail_map_at=spawn_calls=console_prints=0;fail_spawn=false;independent=bad_translation=false;
 }
@@ -123,8 +137,8 @@ bool vfs_read_all(const struct vfs_node *node,const uint8_t **data,uint64_t *siz
 void vfs_release_data(const struct vfs_node *node,const uint8_t *data) {(void)node;(void)data;assert(0);}
 bool vmm_virt_to_phys_in_space(uint64_t space,uint64_t address,uint64_t *physical) {
     assert(observed && space==observed->address_space);
-    int64_t i=process_mapping_index(observed,address);if(i<0)return false;
-    *physical=observed->mappings[i].physical_address+(bad_translation?4096:0);return true;
+    int64_t i=process_mapping_index(observed,address&~4095ull);if(i<0)return false;
+    *physical=observed->mappings[i].physical_address+(address&4095)+(bad_translation?4096:0);return true;
 }
 static void private_scope_contract(void) {
     struct process *parent=calloc(1,sizeof(*parent)),*child=calloc(1,sizeof(*child));assert(parent && child);
@@ -335,7 +349,126 @@ static void startup_thread_contract(void) {
     puts("startup-thread: PASS sole-main/entry/stack/TLS refusal, complete context publication, no service window, TLS/stack failure cleanup and retained failed-unmap ownership");
 }
 
+static bool fail_image;
+void *kmalloc(size_t n) { if(fail_image)return NULL;void *p=malloc(n);assert(p);memset(p,0xa5,n);return p; }
+static void image_init_contract(void) {
+    reset();observed=NULL;unsigned before=checkpoints;
+    struct process *p=process_allocate_exec_image();assert(p && !depth && begins==ends);
+    assert(checkpoints-before>1);
+    for(size_t i=0;i<sizeof(*p);i++)assert(!((uint8_t *)p)[i]);
+    free(p);
+    struct process_service_scope outer=process_service_begin();
+    p=process_allocate_exec_image();assert(p && depth==1);free(p);
+    fail_image=true;assert(!process_allocate_exec_image() && depth==1);fail_image=false;
+    available=false;before=ends;assert(!process_allocate_exec_image() && depth==1 && ends==before);
+    available=true;process_service_end(outer);
+}
+static void free_range_contract(void) {
+    reset();struct process *p=calloc(1,sizeof(*p));assert(p);observed=p;p->address_space=0x1000;
+    const uint64_t base=USER_MMAP_BASE,page=4096;
+    struct process_service_scope outer=process_service_begin();
+    /* The only two-page fit is off the old length-sized search stride. */
+    assert(mmap_record_region(p,base,page,true));
+    assert(mmap_record_region(p,base+3*page,USER_MMAP_LIMIT-base-3*page,true));
+    assert(mmap_find_free_range(p,2*page,0)==(int64_t)(base+page));
+    assert(depth==1 && yields && checkpoints<=4);
+    assert(process_mmap(p,0,2*page,SRV_PROT_NONE,SRV_MAP_PRIVATE|SRV_MAP_ANONYMOUS,-1,0)==(int64_t)(base+page));
+    assert(!process_munmap(p,base+page,2*page) && depth==1 && !p->mapping_count);
+    /* Exhaustion must skip intervals rather than all virtual pages. */
+    p->mmap_regions[0].length=3*page;checkpoints=yields=0;
+    assert(mmap_find_free_range(p,page,0)==-1 && checkpoints<=4 && yields);
+    /* A hint beyond the only gap wraps back without losing it. */
+    p->mmap_regions[0].length=page;
+    assert(mmap_find_free_range(p,2*page,base+10*page)==(int64_t)(base+page));
+    /* Independent page-by-page oracle over every occupancy mask in 8 pages. */
+    for(unsigned mask=0;mask<256;mask++) {
+        memset(p->mmap_regions,0,sizeof(p->mmap_regions));
+        for(unsigned bit=0;bit<8;bit++)if(mask&(1u<<bit))
+            assert(mmap_record_region(p,base+bit*page,page,true));
+        assert(mmap_record_region(p,base+8*page,USER_MMAP_LIMIT-base-8*page,true));
+        for(unsigned count=1;count<=4;count++)for(unsigned hint_page=0;hint_page<=8;hint_page+=4) {
+            int64_t expected=-1;
+            for(unsigned pass=0;pass<2 && expected<0;pass++)
+                for(unsigned cursor=pass?0:hint_page;cursor<(pass?hint_page:8);cursor++) {
+                    if(cursor+count>8)continue;
+                    unsigned wanted=((1u<<count)-1)<<cursor;
+                    if(!(mask&wanted)){expected=(int64_t)(base+cursor*page);break;}
+                }
+            assert(mmap_find_free_range(p,count*page,base+hint_page*page)==expected);
+        }
+    }
+    process_service_end(outer);assert(!depth && begins==ends);free(p);observed=NULL;
+    puts("mapping-search: PASS off-stride gap, bounded exhaustion, retained owner and 3072 independent mask/length/hint cases");
+}
+static void protection_contract(void) {
+    reset();struct process *p=calloc(1,sizeof(*p));assert(p);observed=p;
+    p->address_space=0x1000;const uint64_t base=USER_MMAP_BASE;
+    struct process_service_scope outer=process_service_begin();
+    for(unsigned i=0;i<65;i++)assert(map_process_page(p,base+i*4096,VMM_PAGE_USER|VMM_PAGE_WRITABLE));
+    assert(mmap_record_region(p,base,65*4096,true));
+    unsigned copy_turns=yields;
+    uint8_t *copy=malloc(64*4096);assert(copy);memset(copy,0x5a,64*4096);
+    assert(user_space_write(p,base+17,copy,64*4096));
+    assert(yields>=copy_turns+2);
+    assert(backing[p->mappings[0].physical_address+16]==0 && backing[p->mappings[0].physical_address+17]==0x5a);
+    assert(backing[p->mappings[64].physical_address+16]==0x5a && backing[p->mappings[64].physical_address+17]==0);
+    free(copy);
+    /* Deliberately unsort the tracking array. */
+    struct process_mapping swap=p->mappings[0];p->mappings[0]=p->mappings[64];p->mappings[64]=swap;
+    for(unsigned i=0;i<65;i++)leaf_flags[p->mappings[i].physical_address/4096]=p->mappings[i].flags;
+    process_service_end(outer);checkpoints=yields=protects=0;protection_watch=true;
+    assert(!process_mprotect(p,base,65*4096,SRV_PROT_READ));
+    assert(protects==65 && yields>=2 && !depth && begins==ends);
+    outer=process_service_begin();unsigned before=yields;
+    assert(!process_mprotect(p,base,65*4096,SRV_PROT_NONE));
+    assert(depth==1 && yields>=before+2 && protects==130);
+    before=yields;assert(!process_msync(p,base,65*4096,SRV_MS_SYNC));
+    assert(depth==1 && yields>=before+2);
+    unsigned old_protects=protects;
+    assert(process_mprotect(p,base,66*4096,SRV_PROT_READ)==-1 && protects==old_protects);
+    protect_fail_at=protects+2;
+    assert(process_mprotect(p,base,65*4096,SRV_PROT_WRITE)==-1 && protects==protect_fail_at);
+    scheduler_io_checkpoint(); /* Failed PTE change never publishes new flags. */
+    protect_fail_at=0;
+    unsigned failed_protects=protects;
+    available=false;unsigned old_ends=ends;
+    assert(process_mprotect(p,base,65*4096,SRV_PROT_READ)==-1 && protects==failed_protects);
+    assert(process_msync(p,base,65*4096,SRV_MS_SYNC)==-1 && depth==1 && ends==old_ends);
+    available=true;
+    process_service_end(outer);protection_watch=false;
+    cleanup_process_address_space(p);assert(freed==65);free(p);observed=NULL;
+    reset();p=calloc(1,sizeof(*p));assert(p);observed=p;p->address_space=0x1000;
+    assert(mmap_record_region(p,base,65*4096,true));
+    assert(!process_mprotect(p,base,65*4096,SRV_PROT_NONE) && !p->mapping_count);
+    assert(process_msync(p,base,65*4096,SRV_MS_SYNC)==-1);
+    fail_alloc_at=4;assert(process_mprotect(p,base,65*4096,SRV_PROT_READ)==-1 && p->mapping_count==3);
+    fail_alloc_at=0;protection_watch=true;protected_at_checkpoint=protects;
+    for(uint64_t i=0;i<p->mapping_count;i++)leaf_flags[p->mappings[i].physical_address/4096]=p->mappings[i].flags;
+    assert(!process_mprotect(p,base,65*4096,SRV_PROT_READ) && p->mapping_count==65);
+    protection_watch=false;cleanup_process_address_space(p);assert(freed==65);free(p);observed=NULL;
+    reset();p=calloc(1,sizeof(*p));assert(p);observed=p;p->address_space=0x1000;
+    uint64_t length=USER_MMAP_LIMIT-base;
+    assert(mmap_record_region(p,base,length,true));
+    assert(!process_mprotect(p,base,length,SRV_PROT_NONE) && !p->mapping_count && yields);
+    assert(process_msync(p,base,length,SRV_MS_SYNC)==-1);
+    assert(!process_munmap(p,base,length) && !p->mmap_regions[0].used && !p->mapping_count);
+    assert(!depth && begins==ends);free(p);observed=NULL;
+    reset();p=calloc(1,sizeof(*p));assert(p);observed=p;p->address_space=0x1000;
+    outer=process_service_begin();
+    assert(map_process_page(p,0x400000,VMM_PAGE_USER));
+    assert(map_process_page(p,0x401000,VMM_PAGE_USER));
+    process_service_end(outer);fail_alloc_at=68;
+    assert(process_mmap(p,0,96*4096,SRV_PROT_READ|SRV_PROT_WRITE,SRV_MAP_PRIVATE|SRV_MAP_ANONYMOUS,-1,0)==-1);
+    assert(p->mapping_count==2 && freed==65 && rollback_checks>=2 && !depth);
+    assert(p->mappings[0].virtual_address==0x400000 && p->mappings[1].virtual_address==0x401000);
+    cleanup_process_address_space(p);assert(freed==67);free(p);observed=NULL;
+    puts("mapping-protection: PASS service windows, inherited owner and coherent PTE/tracking publication");
+}
+
 int main(void) {
+    image_init_contract();
+    free_range_contract();
+    protection_contract();
     /* Identity snapshots leave foreign serialization ownership and accounting
      * untouched, for both initial and worker contexts. */
     depth=1;unsigned self_begins=begins,self_ends=ends;

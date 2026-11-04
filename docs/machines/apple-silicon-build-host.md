@@ -3204,3 +3204,264 @@ reported zero leaks/FAT/errors. The full host transcript is
 The final staged-port guest also passed after the shell changes, with a clean
 post-run filesystem check. Its transcript is
 `build/review/whole/ports-shell-final.log`.
+
+
+## Kernel isolation follow-up — 2026-11-03
+
+Scope: independent VMM address-boundary and process teardown review after PR313,
+based on merged main `56e1f950`. Coordinated with the filesystem integration
+owner; separate checkout and disposable guest only. The confirmed low-level
+noncanonical-address alias defect, actual-source regressions, CR0.WP observation
+and remaining teardown coverage are recorded in the
+[kernel follow-up](../audit-kernel-isolation-2026-11-03.md).
+
+
+### Fault/writeback teardown scope
+
+Continuing PR317 from `b6a0feb8`: deterministic full `process_exit` coverage
+under foreign dirty-writeback admission, worker-fault/initial-thread continuation,
+retained descriptions and clean/sticky flush failures. Only this isolated audit
+checkout is used; no namespace/ABI integration edits or shared VM operations.
+
+Result: twelve deterministic full fault/exit schedules pass normally, under
+Darwin/Rosetta ASan/UBSan and Linux GCC14; both admission/mask negative controls
+fail as intended. Focused host suites, kernel build, sysabi and full threadstress
+pass. No new production defect confirmed; the exit IRQ operations reuse existing
+primitives so the host can observe masking. Details and remaining work are in
+the [kernel audit](../audit-kernel-isolation-2026-11-03.md). Task guests stopped.
+
+
+### Mapping/protection service scope
+
+Continuing PR317 from `327cb50e`: investigate generic mmap/protection/validation
+loops under IRQ exclusion. Scope: process.c owner scopes, bounded checkpoints
+and repeated tracking scans, with actual-source service/futex regressions.
+Separate checkout; filesystem integration owner notified.
+
+Confirmed gaps: generic protection/validation lacked effective service turns,
+and failed mmap rollback repeatedly searched tracking without a checkpoint.
+The bounded owner/checkpoint and single-pass/suffix-retirement changes pass
+strict host and sanitizer fixtures; see the
+[kernel audit](../audit-kernel-isolation-2026-11-03.md) for exact scope and results.
+
+The adjacent copy audit also confirmed that unaligned destination copies could
+miss byte-modulo checkpoints. Page-chunk counting fixes this, with an offset-17
+256 KiB regression and preserved untouched boundary bytes.
+
+Final implementation `4ce73e79` passes the focused host suite, strict Linux GCC14
+and Darwin/Rosetta sanitizer fixture, kernel build, Q35 sysabi and full
+threadstress. Main `805519b2` is integrated; newer main userspace was not staged
+in these retained-runtime kernel checks. Task guests stopped.
+
+
+### Free-range and allocator scan scope
+
+Continuing PR317 from `8115e7e4`: virtual free-range candidate search, PMM
+contiguous-run hints and heap validation scan costs. Preserve first-fit and
+poison/tag/IRQ contracts, avoid heap critical-section service windows, and use
+deterministic counters/oracles before optimizations. Filesystem owner notified.
+
+Confirmed missed virtual fits and repeated contiguous PMM refusal scans are fixed
+without changing first-fit, poisoning/tags or atomic startup eligibility. The
+independent range oracle covers 3,072 cases. PMM's repeated fragmentation case
+inspects no further bitmap positions after the first scan until free/eviction.
+Heap replay retains full validation, about 600.65 million visits per epoch; no
+new heap correctness defect or hardware IRQ-latency guarantee is claimed.
+
+Implementation `9a280d23` passes focused host tests, PMM/service sanitizer and
+strict GCC14 checks, kernel compilation, Q35 sysabi and full threadstress.
+Main `a8e1fca1` is integrated without kernel/shared changes. Guest runtime files
+remain the retained PR313 payload, not newly staged profile userspace. The
+freed-prefix negative control is rejected by the first-fit oracle. Guests stopped.
+
+Additional mixed-size validation caught cache churn in the initial size-only
+optimization before publication. Final `513199d5` retains a shared frontier plus
+size-specific bounds and passes 192 allocations across twelve sizes within the
+1,248-position budget, the full first-fit oracle, sanitizers, GCC14 and fresh
+sysabi/full-threadstress guest runs. The final freed-prefix negative control
+fails as intended; this result supersedes the initial cache implementation.
+
+Main `0cba30a1` is subsequently integrated with no kernel/shared delta. Its new
+52-case actual-source workspace writeback matrix passes on this audit branch,
+confirming fixture compatibility with the independent filesystem work. This is
+a compatibility run, not an independent approval of that PR's entire diff.
+
+
+### Initial allocator and poisoning scope
+
+Continuing PR317 from `89a088eb`: cold occupied-prefix scan groups and repeated
+free-range hint maintenance. The new tests reject old byte-only skip cost and
+per-frame hint updates; the fix retains exact first-fit, full poison/tag checks
+and IRQ exclusion. No workspace/content/close policy changes; filesystem owner
+notified. Large poison writes and caller-masked initialization remain open costs.
+
+Implementation `d9b69e36` passes host PMM/heap/service checks, PMM sanitizers and
+GCC14, kernel build, Q35 sysabi and full threadstress. Main `4f5edb0e` adds no
+kernel/shared changes. Retained PR313 runtime files were used; guests stopped.
+
+
+### Caller-masked initialization and storage DMA scope
+
+Continuing PR317 from `4107a6f8`: private exec image zeroing service turns and
+AHCI pre-publication DMA allocation rollback. No content/workspace/close edits;
+filesystem owner notified. Four AHCI OOM sites, init negative control, storage
+quarantine fixtures and host sanitizers/GCC cover the bounded changes.
+
+Implementation `01071cfb` passes the focused host suite, AHCI/service ASan/UBSan
+and strict GCC14, kernel build, Q35 sysabi and full threadstress. Retained PR313
+runtime files were used; all task guests stopped. Broader driver lifetime and
+physical reset/removal acceptance remain open.
+
+
+### Network/input/display DMA and repeated initialization
+
+Continuing PR317 from `fe8e0b69`: E1000 repeated initialization reproduced live
+DMA/ring replacement without quiescence. A boot-attempt guard preserves the
+recorded success/failure and all existing backing. Four modeled init scenarios,
+RX/link and VirtIO net/input/GPU/transport quarantine suites pass; new init
+fixture also passes GCC14 and sanitizers. No libc/workspace policy changes;
+filesystem owner notified. Broader hardware reset/removal remains open.
+
+Implementation `8db6e2df` passes kernel compilation, E1000 netabi and sysabi
+guests with retained PR313 runtime files. Main `1f177761` is integrated without
+kernel changes; both appended Makefile test groups were preserved and their
+combined init/salvage run passes. Task guests stopped.
+
+
+### USB/xHCI and native display teardown
+
+Continuing PR317 from `2e304da2`: repeated xHCI initialization wiped retained
+controller/device records. One boot-attempt guard and a seeded DMA/worker-state
+regression now preserve those identities. xHCI host/sanitizer/GCC checks and
+display presentation/native-owner/VirtIO GPU fixtures pass. Native display
+ownership remains diagnostic; no physical reset/removal claim. Filesystem owner
+notified; no libc/content/workspace changes.
+
+Implementation `68a74cdd` passes kernel build, sysabi/full threadstress and an
+additional xHCI+USB-keyboard+tablet guest with two configured devices and passing
+sysabi. No guest input injection or native teardown acceptance is claimed.
+Display staging retention passes ASan/UBSan. All task guests stopped.
+
+
+### Command-ring recovery, saturation and USB removal
+
+Continuing PR317 from `c7e03477`, isolated kernel checkout only. Exact command
+completion identity and sticky timeout containment prevent false success and
+uncertain ring reuse. Host regressions exercise nested submission, wrap cycles,
+known errors, timeout/late completion, saturation refusal and storage retention.
+No command abort/reset or general physical hot-removal acceptance is claimed.
+Filesystem owner notified; no libc/userspace/workspace policy changes.
+
+Normal, GCC14 and ASan/UBSan command/removal fixtures pass; kernel build, xHCI
+keyboard/tablet enumeration plus sysabi, and full threadstress pass with retained
+PR313 runtime files. Evidence: `build/review/command-ring/`. All task guests
+stopped, existing review VMs preserved. Nine known uninitialized-submodule
+license targets remain unavailable to the documentation checker.
+
+
+### Command reset and USB removal/re-enumeration audit scope
+
+Continue PR317 from `7240b5ce` in the isolated kernel checkout. Inspect command
+abort/reset preconditions, EP0 failure reuse, root-port removal/reconnection and
+late HID events. Planned shared files: xHCI driver/fixtures and audit/testing docs.
+Main `1a5a6dee` inspected (no driver overlap); branch integration base remains
+`1f177761`. Coordinate with filesystem fault-proof research; no process, libc or
+block-driver injection seam planned. Preserve review VMs and retained boot media.
+
+The bounded continuation also covers failed enumeration record allocation:
+address/configure failure must retain its slot/context identity before another
+root/hub device is admitted. No AHCI/block fault-injection seam edits; filesystem
+owner retains the independent dirty-source salvage proof investigation.
+
+Three independent baseline failures reproduce root-removal HID activity, failed
+EP0 producer reuse and failed-enumeration record overwrite. Normal/GCC14 and
+ASan/UBSan fixtures and kernel compilation pass. QMP keyboard/tablet removal and
+replacement on the same ports preserves unconfigured old slots without new
+commands; sysabi passes afterward. Runtime reset/successful re-enumeration stay
+unsupported pending endpoint/event and provider retirement. Evidence is in
+`build/review/usb-recovery/`; no physical acceptance is claimed.
+
+Final rebuilt-kernel QMP removal/replacement/sysabi and full threadstress pass
+with retained PR313 runtime files. All task guests stopped; review VMs preserved.
+Nine known nested-submodule license targets remain unavailable to link checking.
+No current-userspace rebuild, native reset or hotplug recovery acceptance.
+
+
+### Endpoint/event and provider retirement scope
+
+Continue PR317 from `cd6ec856`, isolated kernel checkout. Inspect xHCI terminal
+endpoint errors, event consumers and USB storage/network provider retirement.
+Planned source: xHCI driver/network include and actual-source host fixtures;
+use existing block invalidation contract without changing block/process/fsync
+policy. Main `c90f3522` inspected; integration base remains `1f177761`.
+Filesystem owner notified of potential USB cache invalidation fix; their syscall
+fsync work stays independent. Preserve review VMs and run disposable tests only.
+
+Three baseline failures confirm cached USB reads after removal, fatal interrupt
+rearm and network callback admission after root replacement. Existing block
+invalidation now retires the published storage identity/cache while keeping
+claims/DMA pinned; interrupt failure is sticky, and network callbacks observe
+root identity before admission. The actual-source xHCI fixture now includes
+block/cache/claim code and continuous stale-event drain coverage. Normal/GCC14,
+ASan/UBSan, storage/ECM/keyboard suites and kernel compilation pass.
+
+Rebuilt-kernel QMP keyboard/tablet removal/replacement plus sysabi and full
+threadstress pass with retained PR313 runtime files. No USB-storage VM removal,
+physical fault acceptance or complete userspace rebuild is claimed. All task
+guests stopped, existing review VMs preserved. Hardware stop/drain, provider
+unregister/reference retirement and reclamation remain open. Evidence:
+`build/review/usb-retirement/`. Nine known nested license links remain missing.
+
+
+### Hardware quiescence and retained provider references
+
+Continue PR317 from `e2457b1b` in the isolated kernel checkout. Review xHCI
+pre-publication frees and VirtIO reset/stop reclamation, including retained
+network callback references. Planned files are VirtIO host fixtures, lifecycle
+header comments and audit/testing docs; production fixes only for reproduced
+defects. Main `c90f3522` and PR329/330 scopes inspected. No process/syscall,
+filesystem, block contract or installer changes planned. Filesystem integration
+owner notified; preserve review VMs and use disposable guest disks.
+
+The bounded source/model review found no additional runtime premature-free or
+retained-provider callback defect. New VirtIO-net tests retain callbacks during
+DMA free and after nested receive-delivery retirement, with reset success/failure,
+foreign CR3 and both IRQ states. Shared PCI tests retain queues when reset succeeds
+but PCI disable readback fails. A free-before-stop negative control is rejected.
+Normal/GCC14 and ASan/UBSan net/PCI tests pass, as do existing VirtIO input/RNG/
+block/GPU and xHCI suites. Corrected header lifecycle overclaims only; runtime
+header tokens are unchanged, so no new kernel/VM qualification is claimed.
+Evidence: `build/review/dma-reclaim/`; nine known missing nested license links.
+No task guests started, existing review VMs untouched. xHCI hardware stop/drain,
+generic provider-reference release, reset/hotplug and physical acceptance remain
+open. PR329 integration remains separately owned and does not overlap this work.
+
+
+### Terminal xHCI stop/drain and network registry release
+
+Continue PR317 from `72c3af97`. Add a terminal, no-restart xHCI stop with
+synchronous-call admission/ownership, verified controller halt and bounded event
+drain; retain all DMA and block/diagnostic identities. Add generic network
+registry retirement that blocks new callbacks and reports when in-flight
+references have drained, preserving selected identity/metadata without failover.
+Planned source: xHCI/network registry, monitor diagnostic, headers, tests/docs.
+Main `10890eed` inspected; PR329 merged independently, PR330 installer work is
+separate. No process/syscall/block/installer changes. Preserve review VMs.
+
+Implemented terminal `xhci_stop`/`xhcistop`: ownership/CR3 checks, closed admission,
+synchronous caller references, USB network callback retirement, validated R/S/HCH
+halt and bounded event drain/retry. Confirmed old halt helper falsely accepted
+all-ones/stale acknowledgements; its regression fails before the fix. Generic
+network retirement detaches each registration's callable context after references
+drain, preserving owned metadata and tombstones. Multiple registrations sharing
+a context must all retire before owner free. All xHCI DMA/records remain pinned
+for block/worker/diagnostic references; no reset/restart/failover added.
+
+Normal/GCC14 and ASan/UBSan registry/xHCI fixtures, related VirtIO/block/USB hosts
+and kernel compilation pass. Q35 live keyboard/tablet terminal halt twice,
+post-halt QMP replug and sysabi pass; E1000 netabi and full threadstress also pass.
+Runtime files are retained PR313 artifacts, not a full userspace rebuild. All
+task guests stopped; review VMs preserved. Evidence: `build/review/xhci-stop/`.
+Nine known missing nested license targets remain. Per-slot teardown, block and
+worker reference release, physical acceptance and safe whole-xHCI reclamation
+remain open. No PR329/330/332 filesystem/installer implementation overlap.

@@ -111,3 +111,55 @@ guests were rerun after the vendor fixes. Documentation-only updates follow
 the implementation checkpoint. Source screening of every baseline path is
 complete; sampled review and these tests do not close the deeper manual,
 external-dependency and native-device gaps listed above.
+
+
+Subsequent review: the [2026-11-03 kernel isolation follow-up](audit-kernel-isolation-2026-11-03.md)
+records a low-level VMM canonical-address fix, active-root retirement regression
+and observed BIOS/QEMU CR0.WP state. It does not close the broader manual audit.
+
+The same follow-up subsequently confirms protection/validation service gaps,
+failed mmap rollback without turns, and unaligned process-copy checkpoint loss.
+It records fixed owner-retaining batches and their baseline/host/guest evidence;
+allocator and free-range search latency remain open.
+
+The subsequent free-range/allocator pass fixes skipped virtual gaps and repeated
+PMM contiguous-run refusal scans, backed by independent oracles. The kernel
+follow-up records unchanged full heap validation cost and remaining initial-scan,
+cache-churn, poisoning and driver-lifetime work.
+
+
+PR317 command-ring continuation: exact TRB completion identity, nested refusal,
+wrap/cycle and timeout/late-event saturation regression coverage now accompany
+storage/ECM quarantine checks. Command abort/reset, physical USB removal and
+hotplug/re-enumeration remain unaccepted; see the kernel-isolation audit report.
+
+
+PR317 reset/removal continuation covers root disconnect/CSC quarantine, late HID
+suppression, failed EP0 ring reuse, failed-enumeration record retention and a QMP
+unplug/replug containment guest. Runtime command reset, downstream hub change
+handling and successful re-enumeration/provider retirement remain open; the
+kernel-isolation report records the specification prerequisites and limits.
+
+
+PR317 endpoint/provider follow-up closes USB removal cache visibility, HID fatal
+completion rearm and network callback admission before root-change observation.
+Actual block/cache/claim code now participates in USB retirement tests. Bounded
+continuous stale-event drain is modeled across ring cycles. Hardware stop/drain,
+provider unregister/reference retirement, reset and re-enumeration remain open;
+software quarantine retains all backing rather than authorizing reclamation.
+
+
+PR317 quiescence/reference follow-up reviews existing reset-before-free and
+pre-publication-only cleanup, with new retained VirtIO-net callback/nested
+delivery and PCI-disable-failure regressions. No new runtime defect confirmed;
+lifecycle header overclaims corrected. Source/model evidence does not implement
+xHCI hardware stop/drain, generic provider reference release, hotplug or SMP
+reclamation. See the kernel-isolation report for exact scope and prerequisites.
+
+
+PR317 now adds verified terminal xHCI schedule halt/bounded event drain and
+network-registry callback reference release. Stop rejects false halt proofs and
+waits for software owners/provider callbacks. Context-release and terminal-stop
+host/VM fixtures accompany it. All xHCI backing stays pinned: block/worker/
+diagnostic reference release, per-slot teardown, restart and physical acceptance
+remain open. See the current kernel-isolation checkpoint for exact limits.

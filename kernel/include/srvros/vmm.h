@@ -12,6 +12,8 @@
 #define VMM_PAGE_NO_EXECUTE (1ull << 63)
 
 void vmm_init(void);
+/* Page operations require canonical virtual addresses; mapping/mutation also
+ * require page alignment. Invalid addresses are refused before table access. */
 bool vmm_map_page(uint64_t virtual_address, uint64_t physical_address, uint64_t flags);
 bool vmm_unmap_page(uint64_t virtual_address, uint64_t *physical_address);
 bool vmm_virt_to_phys(uint64_t virtual_address, uint64_t *physical_address);

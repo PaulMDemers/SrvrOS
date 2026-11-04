@@ -35,7 +35,13 @@ void xhci_set_storage_writable(bool writable);
 void xhci_set_trackpad_capture(bool enabled);
 void xhci_set_trackpad_pointer(bool enabled);
 void xhci_set_trackpad_gestures(bool enabled);
+/* Exclusive boot-owner entry: repeated calls preserve existing DMA records. */
 void xhci_init(void);
+/* Terminal CPU0/kernel-CR3 shutdown. Blocks admission immediately; retry false
+ * after synchronous callers/provider callbacks unwind or unproven hardware halt.
+ * True verifies R/S clear, halted controller and drained software event ring.
+ * No reset/restart or DMA/record free: block/worker/diagnostic references remain. */
+bool xhci_stop(void);
 bool xhci_is_present(void);
 uint64_t xhci_keyboard_count(void);
 uint64_t xhci_mouse_count(void);

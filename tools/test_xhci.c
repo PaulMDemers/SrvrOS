@@ -5,10 +5,20 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#define XHCI_COMMAND_TIMEOUT 256ull
+#define XHCI_HALT_TIMEOUT 256ull
 #define SRVROS_XHCI_TEST_MMIO
 static uint32_t xhci_test_read32(uint64_t offset);
 static void xhci_test_write32(uint64_t offset, uint32_t value);
 #include "../kernel/src/drivers/xhci.c"
+
+/* Exercise USB provider retirement through the real cache/alias registry. */
+static uint64_t block_test_irq_save(void) { return 0; }
+static void block_test_irq_restore(uint64_t flags) { (void)flags; }
+#define SRVROS_BLOCK_HOST_TEST
+#include "../kernel/src/block.c"
+#define SRVROS_BLOCK_CLAIM_HOST_TEST
+#include "../kernel/src/block_claim.c"
 
 static _Alignas(4096) uint8_t pool[5 * 1024 * 1024];
 static uint64_t pool_used;
@@ -46,7 +56,10 @@ static void model_update(void) {
     }
 }
 
+static bool reject_halt;static unsigned halt_reads,halt_after,halt_writes;
 static uint32_t xhci_test_read32(uint64_t offset) {
+    if(halt_after && offset==xhci.op_base+XHCI_OP_USBSTS && ++halt_reads>=halt_after)
+        *(uint32_t *)(registers+offset)=XHCI_USBSTS_HCH;
     if (port_model.active) {
         if (offset == xhci.rt_base) {
             if (!port_model.frozen) port_model.now++;
@@ -61,9 +74,29 @@ static uint32_t xhci_test_read32(uint64_t offset) {
     return *(uint32_t *)(registers + offset);
 }
 
+static bool command_nested,event_flood,stop_on_doorbell;
+static uint64_t test_space=1;
+static bool retire_ready=true;static unsigned retire_calls;
+static unsigned flood_dequeues;
 static struct xhci_device *mode_device;
 static unsigned mode_doorbells;
 static void xhci_test_write32(uint64_t offset, uint32_t value) {
+    if(stop_on_doorbell && offset>=xhci.db_base && offset<xhci.db_base+8) {
+        stop_on_doorbell=false;assert(xhci.sync_users==1 && !xhci_stop());
+    }
+    if(offset==xhci.op_base+XHCI_OP_USBCMD) {
+        halt_writes++;if(reject_halt)return;
+    }
+    if(event_flood && offset==xhci.rt_base+XHCI_INTR0+XHCI_INTR_ERDP) {
+        flood_dequeues++;
+        /* Model a controller immediately refilling every retired event. */
+        xhci.event_ring[xhci.event_dequeue]=(struct xhci_trb){.parameter_low=0xa000,
+            .status=1u<<24,.control=(xhci.event_cycle?1u:0u)|(32u<<10)|(1u<<24)|(3u<<16)};
+    }
+    if(command_nested && offset==xhci.db_base) {
+        command_nested=false;uint64_t index=xhci.command_enqueue;
+        assert(!submit_command(XHCI_TRB_TYPE_NOOP,0,NULL) && xhci.command_enqueue==index);
+    }
     if (mode_device && offset==xhci.db_base+4 && value==1) {
         if (!mode_doorbells) for (unsigned i=0;i<8;i++) mode_device->descriptor_buffer[i]=0x80+i;
         else {
@@ -88,6 +121,16 @@ static void xhci_test_write32(uint64_t offset, uint32_t value) {
     *(uint32_t *)(registers + offset) = value;
 }
 
+/* Removal admission must return before any provider registration/allocation. */
+void *kcalloc(size_t count,size_t size) { (void)count;(void)size;abort(); }
+bool net_device_register(const struct net_device_ops *ops) { (void)ops;abort(); }
+void net_handle_ethernet_frame(const uint8_t *frame,uint16_t length) { (void)frame;(void)length;abort(); }
+bool usb_storage_attach(struct usb_storage *s,void *context,usb_bulk_fn bulk,bool writable) {
+    (void)s;(void)context;(void)bulk;(void)writable;abort();
+}
+bool net_device_retire(const struct net_device_ops *ops) { assert(ops && ops->send && ops->context);retire_calls++;return retire_ready; }
+uint64_t vmm_current_address_space(void) { return test_space; }
+uint64_t vmm_kernel_address_space(void) { return 1; }
 void console_write(const char *s) { (void)s; }
 void console_printf(const char *fmt, ...) { (void)fmt; }
 uint64_t pmm_alloc_frames_tagged(uint64_t count, enum pmm_frame_tag tag) {
@@ -104,6 +147,7 @@ void pmm_free_frame(uint64_t address) { assert(address != 0); freed++; }
 void pmm_free_frame_range(uint64_t address, uint64_t count) { assert(address != 0); freed += count; }
 
 static void reset_test(void) {
+    reject_halt=false;halt_reads=halt_after=halt_writes=0;test_space=1;retire_ready=true;retire_calls=0;stop_on_doorbell=false;
     memset(&port_model, 0, sizeof(port_model));
     memset(&xhci, 0, sizeof(xhci));
     memset(registers, 0, sizeof(registers));
@@ -363,7 +407,7 @@ void mouse_inject_trackpad(int32_t x,int32_t y,uint8_t buttons) {
 }
 void mouse_cancel_trackpad(void) { pointer_canceled++;mouse_inject_trackpad(0,0,0); }
 void keyboard_inject_hid_report(const uint8_t report[8], struct keyboard_hid_state *state) {
-    (void)state; assert(report[2]==4); injected++;
+    (void)state; assert(report[2]==4 || report[2]==0); if(report[2]==4)injected++;
 }
 void mouse_inject_event(int32_t x,int32_t y,uint8_t buttons) { (void)x;(void)y;(void)buttons; }
 void mouse_inject_trackpad_tap(uint8_t button) { tap_injected++;last_tap=button;mouse_inject_trackpad(0,0,button);mouse_inject_trackpad(0,0,0); }
@@ -387,18 +431,22 @@ uint64_t timer_monotonic_us(void) {
     }
     return test_time;
 }
-static bool test_io_active,wait_refused,wait_keyboard,test_io_foreign;
+static bool test_io_active,wait_refused,wait_keyboard,test_io_foreign,stop_on_wait;
 static unsigned wait_calls,bulk_wakes;
 uint64_t timer_ticks(void) { return test_time/10000; }
 bool scheduler_io_busy(void) { return test_io_foreign; }
 bool scheduler_io_active(void) { return test_io_active; }
 bool scheduler_io_yield(void) { return false; }
+bool scheduler_io_begin(void) { return false; }
+void scheduler_io_end(void) { abort(); }
+bool timer_reference_ready(void) { return false; }
 void scheduler_wake_all(struct scheduler_wait_queue *q) { (void)q;bulk_wakes++; }
 bool scheduler_io_wait_timeout(struct scheduler_wait_queue *q,
     scheduler_wait_condition_fn ready,void *arg,uint64_t deadline) {
     struct xhci_device *d=arg;
     assert(q==&d->bulk_wait && test_io_active && deadline==timer_ticks()+1);
     wait_calls++;
+    if(stop_on_wait) {stop_on_wait=false;assert(xhci.sync_users==1 && !xhci_stop());return false;}
     if(wait_refused)return false;
     if(ready(arg))return true;
     if(wait_keyboard) {
@@ -484,6 +532,16 @@ static void test_storage(void) {
     assert(!strcmp(disk->bulk_reason,"deadline") && !disk->bulk_done && !disk->bulk_completion);
     assert(disk->bulk_length==512 && disk->bulk_elapsed_us>=2000000 && disk->bulk_spins>0);
     assert(!storage_bulk_transfer(disk,true,caller,512,&actual) && disk->bulk_ep[1].enqueue==1);
+    /* A late exact completion retires pending state, but cannot unquarantine
+     * storage or reclaim/reuse backing after an uncertain timeout/removal. */
+    uint64_t retained_frees=freed;
+    struct xhci_trb late_bulk={.parameter_low=0x9000,.status=1u<<24,
+        .control=(32u<<10)|(1u<<24)|(3u<<16)|1};
+    dispatch_transfer_event(&late_bulk);
+    assert(disk->bulk_done && !disk->bulk_pending && disk->bulk_failed);
+    assert(!storage_bulk_transfer(disk,true,caller,512,&actual));
+    assert(disk->bulk_ep[1].enqueue==1 && disk->bulk_buffer==bounce &&
+        disk->bulk_ep[1].ring==ring && freed==retained_frees);
     /* Fresh simulated controller: distinguish a received error event from a timeout. */
     disk->bulk_failed=disk->bulk_pending=false;disk->bulk_ep[1].enqueue=0;
     events[3]=(struct xhci_trb){.parameter_low=0x9000,.status=6u<<24,
@@ -632,6 +690,7 @@ static void test_pro_trackpad(const char *fixture) {
     }
     for(unsigned fail=0;fail<3;fail++) {
         struct xhci_trb ring[64]={0},events[64]={0};
+        d.control_failed=d.control_pending=false; /* Independent modeled device per failure case. */
         d.ep0_ring=ring;d.ep0_ring_phys=0x9000;d.ep0_enqueue=0;d.ep0_cycle=true;
         xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;xhci.event_dequeue=0;
         for(unsigned i=0;i<2;i++) events[i]=(struct xhci_trb){.parameter_low=0x9020+48*i,
@@ -976,6 +1035,16 @@ static void test_network_transport(void) {
     n.failed=false;n.ready=true;
     *(uint32_t *)(registers+xhci.op_base+XHCI_OP_PORTS)=0;
     network_service(&d);assert(n.failed && n.errors==3 && !freed);
+    /* Device removal followed by exact late events cannot rearm endpoints,
+     * clear quarantine, or release the retained DMA allocations. */
+    struct xhci_network_endpoint retained[3];memcpy(retained,n.ep,sizeof(retained));
+    for(unsigned i=0;i<3;i++) if(retained[i].pending)
+        assert(network_event(&d,retained[i].hw.dci,retained[i].trb,1,0));
+    network_service(&d);
+    assert(n.failed && !n.ready && !freed && !network_send(&d,frame,64));
+    for(unsigned i=0;i<3;i++) assert(n.ep[i].buffer==retained[i].buffer &&
+        n.ep[i].hw.ring==retained[i].hw.ring && n.ep[i].hw.enqueue==retained[i].hw.enqueue);
+
     puts("xhci-network: PASS owned TX queue, ZLP framing, ring wrap, stale events, RX wakeup, residue errors, deadlines and disconnect quarantine");
 }
 
@@ -993,8 +1062,294 @@ static void test_device_inventory(void) {
     assert(!xhci_device_snapshot(4,&info) && !xhci_device_snapshot(UINT64_MAX,&info));
 }
 
+static void test_command_identity(void) {
+    reset_test();
+    static struct xhci_trb commands[XHCI_TRB_COUNT],events[XHCI_EVENT_TRB_COUNT];
+    memset(commands,0,sizeof(commands));memset(events,0,sizeof(events));
+    xhci.command_ring=commands;xhci.command_ring_phys=(uint64_t)commands;
+    xhci.event_ring=events;xhci.event_ring_phys=(uint64_t)events;
+    xhci.command_cycle=xhci.event_cycle=true;xhci.rt_base=0x2000;xhci.db_base=0x1000;
+    uint64_t pointer=(uint64_t)commands;
+    events[0]=(struct xhci_trb){.parameter_low=(uint32_t)(pointer+16),.parameter_high=(uint32_t)((pointer+16)>>32),.status=1u<<24,.control=1|(33u<<10)|(3u<<24)};
+    events[1]=(struct xhci_trb){.parameter_low=(uint32_t)pointer,.parameter_high=(uint32_t)(pointer>>32),.status=1u<<24,.control=1|(33u<<10)|(7u<<24)};
+    command_nested=true;
+    uint64_t slot=99;assert(submit_command(XHCI_TRB_TYPE_NOOP,0,&slot) && slot==7);
+    for(unsigned i=0;i<2*XHCI_TRB_COUNT;i++) {
+        uint64_t current=pointer+xhci.command_enqueue*sizeof(*commands);
+        events[xhci.event_dequeue]=(struct xhci_trb){.parameter_low=(uint32_t)current,
+            .parameter_high=(uint32_t)(current>>32),.status=(i==0?17u:1u)<<24,
+            .control=(xhci.event_cycle?1u:0u)|(33u<<10)|(7u<<24)};
+        slot=99;assert(submit_command(XHCI_TRB_TYPE_NOOP,0,&slot)==(i!=0));
+        assert(slot==(i?7u:99u) && !xhci.command_pending && !xhci.command_failed);
+    }
+    assert(((commands[XHCI_TRB_COUNT-1].control&1u)!=0)!=xhci.command_cycle);
+    memset(events,0,sizeof(events));xhci.event_dequeue=0;xhci.event_cycle=true;
+    uint64_t late=pointer+xhci.command_enqueue*sizeof(*commands);
+    slot=99;assert(!submit_command(XHCI_TRB_TYPE_NOOP,0,&slot) && slot==99);
+    uint64_t enqueue=xhci.command_enqueue;
+    static struct xhci_trb saved[XHCI_TRB_COUNT];memcpy(saved,commands,sizeof(saved));
+    /* A late success cannot authorize reuse after ambiguous progress. */
+    events[0]=(struct xhci_trb){.parameter_low=(uint32_t)late,.parameter_high=(uint32_t)(late>>32),.status=1u<<24,.control=1|(33u<<10)};
+    for(unsigned i=0;i<2*XHCI_TRB_COUNT;i++)assert(!submit_command(XHCI_TRB_TYPE_NOOP,0,&slot));
+    assert(xhci.command_enqueue==enqueue && !memcmp(saved,commands,sizeof(saved)) && !freed);
+    puts("xhci-command: PASS exact identity, timeout, late completion and saturation refusal");
+}
+static void stop_fixture(void) {
+    reset_test();
+    static struct xhci_trb commands[XHCI_TRB_COUNT],events[XHCI_EVENT_TRB_COUNT];
+    memset(commands,0,sizeof(commands));memset(events,0,sizeof(events));
+    xhci.present=xhci.operational=xhci.controller_owned=true;xhci.op_base=0x100;xhci.rt_base=0x2000;xhci.db_base=0x1000;
+    xhci.command_ring=commands;xhci.command_ring_phys=(uint64_t)commands;xhci.command_cycle=true;
+    xhci.event_ring=events;xhci.event_cycle=true;
+    *(uint32_t *)(registers+xhci.op_base+XHCI_OP_USBCMD)=XHCI_USBCMD_RUN;
+    halt_after=4;
+}
+static void test_terminal_stop(void) {
+    stop_fixture();
+    *(uint32_t *)(registers+xhci.op_base+XHCI_OP_USBCMD)=UINT32_MAX;
+    *(uint32_t *)(registers+xhci.op_base+XHCI_OP_USBSTS)=UINT32_MAX;
+    assert(!halt_controller()); /* Inaccessible MMIO is not a halt acknowledgement. */
+    stop_fixture();reject_halt=true;
+    *(uint32_t *)(registers+xhci.op_base+XHCI_OP_USBSTS)=XHCI_USBSTS_HCH;
+    assert(!halt_controller()); /* Stale HCH cannot override rejected R/S write. */
+    stop_fixture();xhci.controller_owned=false;assert(!xhci_stop() && !halt_writes && xhci.operational);
+    stop_fixture();test_space=2;assert(!xhci_stop() && xhci.operational);test_space=1;
+    struct xhci_network network={.ready=true,.registered=true};
+    struct xhci_device *d=&xhci.devices[0];
+    *d=(struct xhci_device){.present=true,.slot_id=1,.network=&network,.bulk_buffer_phys=0x9000};
+    xhci.sync_users=1;retire_ready=false;
+    assert(!xhci_stop() && xhci.stopping && !xhci.operational && !halt_writes);
+    xhci.sync_users=0;assert(!xhci_stop() && !halt_writes);
+    retire_ready=true;
+    xhci.event_ring[0]=(struct xhci_trb){.control=1|(32u<<10)|(1u<<24)};
+    xhci.event_ring[1]=(struct xhci_trb){.control=1|(33u<<10)};
+    assert(xhci_stop() && xhci.stopped && xhci.stop_events==2 && !network.registered);
+    assert(d->bulk_buffer_phys==0x9000 && !freed && retire_calls==3);
+    unsigned writes=halt_writes;assert(xhci_stop() && halt_writes==writes);
+    uint64_t slot=99;assert(!submit_command(XHCI_TRB_TYPE_NOOP,0,&slot) && slot==99);
+    stop_fixture();stop_on_doorbell=true;slot=99;
+    assert(!submit_command(XHCI_TRB_TYPE_NOOP,0,&slot) && slot==99 && !xhci.sync_users);
+    assert(xhci_stop() && !freed);
+    stop_fixture();stop_on_doorbell=true;
+    struct xhci_device control={.slot_id=1,.ep0_ring=xhci.command_ring,
+        .ep0_ring_phys=xhci.command_ring_phys,.ep0_cycle=true};
+    struct usb_setup_packet setup={0};
+    assert(!control_transfer(&control,&setup,0,0,false) && !xhci.sync_users);
+    assert(xhci_stop());
+    stop_fixture();
+    static uint8_t bounce[4096],caller[64];
+    d=&xhci.devices[0];*d=(struct xhci_device){.present=true,.slot_id=1,.bulk_buffer=bounce,
+        .bulk_buffer_phys=(uint64_t)bounce};
+    d->bulk_ep[1]=(struct xhci_bulk_endpoint){.dci=3,.ring=xhci.command_ring,
+        .ring_phys=xhci.command_ring_phys,.cycle=true};
+    test_time=0;test_time_step=1000;test_io_active=true;stop_on_wait=true;uint32_t actual=99;
+    assert(!storage_bulk_transfer(d,true,caller,sizeof(caller),&actual));
+    assert(!stop_on_wait && !xhci.sync_users && actual==99 && !freed);
+    test_io_active=false;assert(xhci_stop());
+    stop_fixture();halt_after=0;assert(!xhci_stop() && !xhci.stopped && !freed);
+    halt_after=1;assert(xhci_stop()); /* Explicit retry after a late acknowledgement. */
+    stop_fixture();event_flood=true;xhci.event_ring[0]=(struct xhci_trb){.control=1|(32u<<10)};
+    assert(!xhci_stop() && !xhci.stopped && !freed);event_flood=false;
+    assert(xhci_stop() && !freed);
+    puts("xhci-stop: PASS verified halt, caller/provider drain, in-call cancellation, bounded events, retry and pinned backing");
+}
+static void test_retired_event_drain(void) {
+    reset_test();
+    static struct xhci_trb events[XHCI_EVENT_TRB_COUNT];memset(events,0,sizeof(events));
+    xhci.event_ring=events;xhci.event_cycle=true;xhci.rt_base=0x2000;
+    xhci.devices[0]=(struct xhci_device){.present=true,.slot_id=1,.hid_keyboard=true,
+        .interrupt_failed=true,.interrupt_trb=0xa000,.interrupt_dci=3};
+    events[0]=(struct xhci_trb){.parameter_low=0xa000,.status=1u<<24,
+        .control=1|(32u<<10)|(1u<<24)|(3u<<16)};
+    unsigned before=injected;
+    flood_dequeues=0;event_flood=true;
+    poll_hid_events_once();
+    assert(flood_dequeues==XHCI_EVENT_TRB_COUNT && !xhci.event_dequeue && !xhci.event_cycle);
+    poll_hid_events_once();event_flood=false;
+    assert(flood_dequeues==2*XHCI_EVENT_TRB_COUNT && xhci.event_cycle);
+    assert(xhci.transfer_events==2*XHCI_EVENT_TRB_COUNT && injected==before && !freed);
+    assert(!xhci.devices[0].interrupt_enqueue && !xhci.devices[0].interrupt_pending);
+    puts("xhci-event-retire: PASS bounded continuous stale-event drain across event-ring cycles");
+}
+static void test_interrupt_retirement(void) {
+    for(unsigned residue=0;residue<2;residue++) {
+        reset_test();
+        static struct xhci_trb ring[XHCI_TRB_COUNT],events[XHCI_EVENT_TRB_COUNT];
+        static uint8_t report[64];
+        memset(ring,0,sizeof(ring));memset(events,0,sizeof(events));
+        xhci.event_ring=events;xhci.event_cycle=true;xhci.db_base=0x1000;xhci.rt_base=0x2000;
+        struct xhci_device *d=&xhci.devices[0];
+        *d=(struct xhci_device){.present=true,.slot_id=1,.hid_keyboard=true,
+            .interrupt_ready=true,.interrupt_pending=true,.interrupt_dci=3,.interrupt_trb=0xa000,
+            .interrupt_max_packet=8,.interrupt_ring=ring,.interrupt_ring_phys=(uint64_t)ring,
+            .interrupt_buffer=report,.interrupt_cycle=true};
+        d->keyboard_state.repeat_usage=4;
+        struct xhci_trb error={.parameter_low=0xa000,.status=residue?((1u<<24)|9):(6u<<24),
+            .control=(32u<<10)|(1u<<24)|(3u<<16)};
+        dispatch_transfer_event(&error);
+        assert(!d->interrupt_ready && !d->keyboard_state.repeat_usage);
+        unsigned before=injected;
+        poll_hid_events_once();
+        error.status=1u<<24;report[2]=4;dispatch_transfer_event(&error);
+        assert(d->interrupt_errors==1 && !d->interrupt_enqueue && !d->interrupt_pending && injected==before && !freed);
+    }
+    puts("xhci-interrupt-retire: PASS fatal completion/residue do not rearm or deliver late reports");
+}
+static void test_network_retirement(void) {
+    for(unsigned callback=0;callback<3;callback++) {
+        reset_test();test_time=0;test_time_step=0;
+        static struct xhci_trb events[XHCI_EVENT_TRB_COUNT];memset(events,0,sizeof(events));
+        xhci.event_ring=events;xhci.event_cycle=true;xhci.db_base=0x1000;xhci.rt_base=0x2000;
+        xhci.port_count=1;xhci.op_base=0x100;
+        *(uint32_t *)(registers+xhci.op_base+XHCI_OP_PORTS)=XHCI_PORTSC_CCS|XHCI_PORTSC_CSC;
+        struct xhci_network n={.ready=true,.link={.known=true,.up=true}};
+        struct xhci_device d={.present=true,.slot_id=1,.port_id=1,.network=&n};
+        for(unsigned i=0;i<3;i++)n.ep[i].pending=true;
+        uint8_t frame[64]={0};
+        if(callback==0)assert(!network_send(&d,frame,sizeof(frame)));
+        else if(callback==1)network_service(&d);
+        else assert(!network_poll(&d,1,false));
+        assert(n.failed && !n.ready && !n.count && !freed);
+        for(unsigned i=0;i<3;i++)assert(n.ep[i].pending && !n.ep[i].hw.enqueue);
+    }
+    test_time_step=1000;
+    puts("xhci-network-retire: PASS provider callbacks observe replacement before admitting work");
+}
+static unsigned retirement_reads;
+static bool retirement_read(struct block_device *d,uint64_t offset,void *data,uint64_t length) {
+    (void)d;(void)offset;retirement_reads++;memset(data,0x5a,length);return true;
+}
+static void test_storage_retirement(void) {
+    reset_test();block_init();retirement_reads=0;
+    struct block_device *disk=block_register("usb-retirement",512,16,retirement_read,NULL,NULL);
+    assert(disk);
+    struct block_device alias={.used=true,.backing=disk,.block_size=512,.block_count=16,.read=retirement_read};
+    struct block_device *healthy=block_register("healthy",512,16,retirement_read,NULL,NULL);
+    assert(healthy);
+    uint64_t claim=block_claim_mount(disk);assert(claim);
+    uint8_t data[512];
+    assert(block_read(&alias,0,data,sizeof(data)) && retirement_reads==1);
+    assert(block_read(healthy,0,data,sizeof(data)) && retirement_reads==2);
+    assert(block_read(disk,0,data,sizeof(data)) && retirement_reads==3);
+    assert(block_read(disk,0,data,sizeof(data)) && retirement_reads==3); /* Cached. */
+    struct xhci_device *d=&xhci.devices[0];
+    *d=(struct xhci_device){.present=true,.slot_id=1,.port_id=1};
+    d->storage.block=disk;xhci.port_count=1;xhci.op_base=0x100;
+    assert(device_removed(d) && d->storage.failed);
+    memset(data,0xcc,sizeof(data));
+    assert(!block_read(disk,0,data,sizeof(data)) && !block_device_online(disk));
+    for(unsigned i=0;i<sizeof(data);i++)assert(data[i]==0xcc);
+    assert(!block_read(&alias,0,data,sizeof(data)) && !block_device_online(&alias));
+    assert(block_read(healthy,0,data,sizeof(data)) && retirement_reads==3);
+    assert(block_claim_release(claim) && !block_claim_release(claim));
+    assert(disk->used && d->storage.block==disk && !freed);
+    puts("xhci-storage-retire: PASS cached provider refuses reads after root removal, identity retained");
+}
+static void test_device_record_lifetime(void) {
+    reset_test();
+    for(unsigned i=0;i<XHCI_MAX_DEVICES;i++) {
+        struct xhci_device *d=allocate_device_record();
+        assert(d==&xhci.devices[i]);
+        /* A failed address/configure may still own this slot and DMA. */
+        *d=(struct xhci_device){.present=true,.slot_id=(uint8_t)(i+1),
+            .input_context_phys=0x10000+i*PMM_FRAME_SIZE};
+    }
+    assert(!xhci.addressed_devices && !allocate_device_record() && xhci.device_record_full==1);
+    for(unsigned i=0;i<XHCI_MAX_DEVICES;i++)assert(xhci.devices[i].slot_id==i+1 &&
+        xhci.devices[i].input_context_phys==0x10000+i*PMM_FRAME_SIZE);
+    puts("xhci-record: PASS failed enumeration retains identities through table exhaustion");
+}
+static void test_removal_lifetime(void) {
+    for(unsigned changed=0;changed<3;changed++) {
+        reset_test();
+        static struct xhci_trb ring[XHCI_TRB_COUNT],events[XHCI_EVENT_TRB_COUNT];
+        static uint8_t report[64];
+        memset(ring,0,sizeof(ring));memset(events,0,sizeof(events));
+        xhci.port_count=1;xhci.op_base=0x100;xhci.rt_base=0x2000;xhci.db_base=0x1000;
+        xhci.event_ring=events;xhci.event_cycle=true;
+        struct xhci_device *d=&xhci.devices[0];
+        *d=(struct xhci_device){.present=true,.configured=true,.slot_id=1,.port_id=1,
+            .hid_keyboard=true,.interrupt_ready=true,.interrupt_pending=true,
+            .interrupt_trb=0xa000,.interrupt_dci=3,.interrupt_max_packet=8,
+            .interrupt_ring=ring,.interrupt_ring_phys=(uint64_t)ring,.interrupt_cycle=true,
+            .interrupt_buffer=report};
+        if(changed==1) *(uint32_t *)(registers+xhci.op_base+XHCI_OP_PORTS)=XHCI_PORTSC_CCS|XHCI_PORTSC_CSC;
+        if(changed==2)d->parent_slot_id=2; /* Child behind a removed root hub. */
+        d->keyboard_state.repeat_usage=4;
+        d->trackpad.ready=d->trackpad.pending=true;
+        d->trackpad.pointer.buttons=1;trackpad_pointer_enabled=true;
+        unsigned canceled=pointer_canceled;
+        unsigned before=injected;
+        poll_hid_events_once(); /* Root CCS is clear: removal before any rearm. */
+        assert(!d->interrupt_ready && !d->keyboard_state.repeat_usage && !d->bulk_failed);
+        assert(!d->trackpad.ready && d->trackpad.pending && pointer_canceled==canceled+1);
+        assert(d->interrupt_pending && !d->interrupt_enqueue && !freed);
+        *(uint32_t *)(registers+xhci.op_base+XHCI_OP_PORTS)=XHCI_PORTSC_CCS|XHCI_PORTSC_PED;
+        report[2]=4;
+        struct xhci_trb late={.parameter_low=0xa000,.status=1u<<24,
+            .control=(32u<<10)|(1u<<24)|(3u<<16)};
+        dispatch_transfer_event(&late);poll_hid_events_once();
+        assert(!d->interrupt_ready && !d->interrupt_enqueue && injected==before && !freed);
+        /* Reconnection cannot allocate another slot or overwrite this identity. */
+        xhci.ports[0].portsc=XHCI_PORTSC_CCS|XHCI_PORTSC_PED;
+        uint64_t allocations=pool_used;
+        assert(!enumerate_port(0) && pool_used==allocations && d->slot_id==1);
+    }
+    trackpad_pointer_enabled=false;
+    puts("xhci-removal: PASS no rearm, late reports, missed disconnect/change, root-hub loss and reconnect refusal");
+}
+static void test_control_failure(void) {
+    reset_test();
+    static struct xhci_trb ring[XHCI_TRB_COUNT],events[XHCI_EVENT_TRB_COUNT],saved[XHCI_TRB_COUNT];
+    memset(ring,0,sizeof(ring));memset(events,0,sizeof(events));
+    xhci.event_ring=events;xhci.event_cycle=true;xhci.rt_base=0x2000;xhci.db_base=0x1000;
+    for(unsigned error=0;error<2;error++) {
+        memset(ring,0,sizeof(ring));memset(events,0,sizeof(events));
+        xhci.event_dequeue=0;xhci.event_cycle=true;
+        struct xhci_device d={.slot_id=1,.ep0_ring=ring,.ep0_ring_phys=(uint64_t)ring,.ep0_cycle=true};
+        uint64_t pointer=(uint64_t)ring+32;
+        if(error)events[0]=(struct xhci_trb){.parameter_low=(uint32_t)pointer,
+            .parameter_high=(uint32_t)(pointer>>32),.status=6u<<24,.control=1|(32u<<10)|(1u<<24)|(1u<<16)};
+        struct usb_setup_packet setup={.request=USB_REQ_GET_STATUS,.length=4};
+        assert(!control_transfer(&d,&setup,0x10000,4,true));
+        uint64_t enqueue=d.ep0_enqueue;memcpy(saved,ring,sizeof(saved));
+        for(unsigned i=0;i<XHCI_TRB_COUNT;i++) {
+            assert(!control_transfer(&d,&setup,0x10000,4,true));
+            assert(d.ep0_enqueue==enqueue && !memcmp(saved,ring,sizeof(saved)));
+        }
+        assert(d.ep0_enqueue==enqueue && !memcmp(saved,ring,sizeof(saved)) && !freed);
+    }
+    puts("xhci-control: PASS timeout and failed EP0 cannot reuse ring without endpoint recovery");
+}
+static unsigned init_discoveries;
+uint64_t pci_device_count(void) { init_discoveries++;return 0; }
+const struct pci_device *pci_device_at(uint64_t i) { (void)i;return NULL; }
+static void test_repeated_init(void) {
+    xhci_init();assert(init_discoveries==1);
+    xhci.present=xhci.operational=true;xhci.command_ring_phys=0xa000;
+    xhci.command_enqueue=7;xhci.event_dequeue=9;
+    xhci.devices[0].present=true;xhci.devices[0].bulk_failed=true;
+    xhci_poll_worker_started=true;
+    static struct xhci_state saved;saved=xhci;
+    uint64_t allocations=pool_used,releases=freed;
+    xhci_init();
+    assert(init_discoveries==1 && !memcmp(&saved,&xhci,sizeof(saved)));
+    assert(pool_used==allocations && freed==releases && xhci_poll_worker_started);
+    xhci_poll_worker_started=false; /* Restore only the host model. */
+    puts("xhci-init: PASS repeated entry preserves modeled controller/DMA/quarantine/worker state");
+}
 int main(int argc, char **argv) {
     assert(argc == 4);
+    test_repeated_init();
+    test_terminal_stop();
+    test_retired_event_drain();
+    test_network_retirement();
+    test_interrupt_retirement();
+    test_storage_retirement();
+    test_device_record_lifetime();
+    test_command_identity();
+    test_removal_lifetime();
+    test_control_failure();
     test_ep0_packet();
     test_network_transport();
     test_device_inventory();

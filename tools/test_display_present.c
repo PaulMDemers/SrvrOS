@@ -13,7 +13,7 @@ static uint64_t cr3 = 11;
 static bool active, available, begin_ok = true, frame_ok = true, end_ok = true;
 static bool alloc_fail;
 static struct limine_framebuffer *graphics;
-static unsigned begins, frames, ends, checkpoints, damages;
+static unsigned begins, frames, ends, checkpoints, damages,retired_ranges;
 static uint32_t damage_x,damage_y,damage_w,damage_h;
 static bool service_held;
 static void (*service_callback)(void *);
@@ -33,7 +33,7 @@ bool virtio_gpu_present_prepare(uint64_t physical, uint32_t w, uint32_t h) {
 bool virtio_gpu_present_available(void) { return available; }
 void console_set_graphics_framebuffer(struct limine_framebuffer *fb) { graphics=fb; }
 uint64_t pmm_alloc_frames_tagged(uint64_t n, enum pmm_frame_tag tag) { (void)tag; return alloc_fail ? 0 : (uint64_t)(uintptr_t)calloc(n,4096); }
-void pmm_free_frame_range(uint64_t physical, uint64_t n) { (void)n; free((void *)(uintptr_t)physical); }
+void pmm_free_frame_range(uint64_t physical, uint64_t n) { (void)n;retired_ranges++; free((void *)(uintptr_t)physical); }
 void *pmm_phys_to_virt(uint64_t physical) { return (void *)(uintptr_t)physical; }
 bool virtio_gpu_present_configure(uint32_t w,uint32_t h) { (void)w;(void)h;return true; }
 bool virtio_gpu_present_active(void) { return active; }
@@ -82,6 +82,15 @@ int main(void) {
     assert(display_present_begin(9));available=false;
     assert(!display_present_frame(9) && !display_present_can_write(9) && !display_present_can_write(0));
     assert(!display_present_end(9) && owner==9 && ends==2 && cr3==23 && interrupts);
+    /* An uncertain reset must retain switched staging and its owner. */
+    poisoned=false;owner=0;available=true;active=false;begin_ok=frame_ok=end_ok=true;
+    assert(display_present_begin(7) && display_mode_set(7,1));
+    uint64_t retained=switched_physical;unsigned old_frees=retired_ranges;
+    struct limine_framebuffer *old_staging=staging;
+    end_ok=false;assert(!display_present_end(7));
+    assert(poisoned && owner==7 && switched_physical==retained && staging==old_staging);
+    assert(retired_ranges==old_frees && !display_present_can_write(7));
+    free((void *)(uintptr_t)retained); /* Dispose only the private host arena. */
     puts("display-present: PASS lease isolation, format gate, CR3/IRQ restoration, failure and owner retirement");
 }
 

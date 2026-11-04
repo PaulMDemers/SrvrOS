@@ -15,7 +15,9 @@
 
 #define E1000_VENDOR_INTEL 0x8086
 #define E1000_DEVICE_82540EM 0x100e
+#ifndef E1000_MMIO_VIRTUAL
 #define E1000_MMIO_VIRTUAL 0xffffc001f1000000ull
+#endif
 #define E1000_MMIO_PAGES 32
 
 #define E1000_REG_CTRL 0x0000
@@ -106,6 +108,7 @@ static uint64_t rx_low_water_interrupts;
 static uint32_t last_interrupt_cause;
 static bool interrupts_enabled;
 static bool rings_ready;
+static bool init_attempted,init_succeeded;
 static bool rx_poll_active;
 
 static uint32_t reg_read(uint32_t offset) {
@@ -280,6 +283,10 @@ static bool device_link(void *context,struct net_device_link *out) {
     *out=(struct net_device_link){info.up,info.full_duplex,true,info.speed_mbps};return true;
 }
 bool e1000_init(void) {
+    /* Ring replacement needs a separate quiescence/reset protocol. A repeated
+     * boot entry must neither retry partial setup nor overwrite live DMA. */
+    if(init_attempted)return init_succeeded;
+    init_attempted=true;
     for (uint64_t i = 0; i < pci_device_count(); i++) {
         const struct pci_device *device = pci_device_at(i);
         if (device->vendor_id == E1000_VENDOR_INTEL &&
@@ -332,6 +339,7 @@ bool e1000_init(void) {
     console_printf("e1000: rx=%u tx=%u irq-ready\n",
         (uint64_t)E1000_RX_DESC_COUNT,
         (uint64_t)E1000_TX_DESC_COUNT);
+    init_succeeded=true;
     return true;
 }
 
