@@ -412,8 +412,8 @@ def review_guest(vm, line, operation, size):
     return review
 
 
-def fill_guest(vm, count):
-    command = 'run /fat/bin/dd if=/dev/zero of=/fat/home/space-fill.bin bs=65536 count=' + str(count)
+def fill_guest(vm, path, count):
+    command = 'run /fat/bin/dd if=/dev/zero of=/fat/' + path + ' bs=65536 count=' + str(count)
     if len(command) >= 128: raise RuntimeError('fill command exceeds monitor limit')
     start = len(vm.output); vm.serial.sendall((command + '\n').encode('ascii'))
     vm.wait(b' exited status=', 240); vm.wait(b'\nsrv> ', 240)
@@ -662,11 +662,21 @@ def main():
         # the first 16 MiB document. It is a disposable clone and may retain a
         # transaction-owned journal/scratch after refusal.
         low = out / 'probe-low-space.img'; shutil.copyfile(disks['b'], low)
-        available_guest = free_bytes(t.check_allocation(low, out, 'low-space-initial'))
+        low_initial = t.check_allocation(low, out, 'low-space-initial')
+        available_guest = free_bytes(low_initial)
         fill_blocks = (available_guest - 6 * 1024 * 1024) // CHUNK
         if fill_blocks <= 0: raise RuntimeError('cannot build controlled low-space fixture')
+        fillers = [('home/space-fill-%03d.bin' % i, min(128, fill_blocks - i * 128))
+                   for i in range((fill_blocks + 127) // 128)]
+        for path, _ in fillers: c.absent(low_initial, path)
+        receipt['low_space'] = {'initial_free_bytes': available_guest,
+                                'filler_bytes': fill_blocks * CHUNK,
+                                'fillers': [{'path': path, 'bytes': blocks * CHUNK}
+                                            for path, blocks in fillers],
+                                'failure_observed': False, 'recovered': False}
+        d.save_json(out / 'receipt.json', receipt)
         with c.VM(low, disks['transport'], out, 'low-space', args) as vm:
-            fill_guest(vm, fill_blocks)
+            for path, blocks in fillers: fill_guest(vm, path, blocks)
             before = vm.quiesced_data_snapshot('low-space-before')
             before_free = free_bytes(ExfatFixture(before.read_bytes()))
             if not 1024 * 1024 <= before_free < MAX_DOC:
@@ -674,8 +684,11 @@ def main():
             desktop(vm); gui_transfer(vm, 'import', outcome='space-error'); vm.close_desktop()
             after = vm.quiesced_data_snapshot('low-space-after'); vm.finish()
         low_fs = ExfatFixture(after.read_bytes())
-        if low_fs.read('home/desktop.conf') != mb or low_fs.read('home/space-fill.bin') != b'\0' * (fill_blocks * CHUNK):
+        if low_fs.read('home/desktop.conf') != mb:
             raise RuntimeError('low-space refusal changed existing data')
+        for path, blocks in fillers:
+            if low_fs.read(path) != b'\0' * (blocks * CHUNK):
+                raise RuntimeError('low-space refusal changed filler: ' + path)
         c.absent(low_fs, 'home/local_b/profile.id')
         try: journal = v1.decode_json(low_fs.read('home/local_b.profile-import.json'))
         except StopIteration: journal = None
@@ -685,18 +698,17 @@ def main():
         if d.outside_data(low, *d.partitions(low)[1]) != receipt['installations']['b']['protected_regions']:
             raise RuntimeError('low-space probe protected bytes changed')
         t.check_allocation(low, out, 'low-space-refused')
-        receipt['low_space'] = {'initial_free_bytes': available_guest, 'free_before_import': before_free,
-                                'filler_bytes': fill_blocks * CHUNK, 'journal_retained': journal is not None,
-                                'failure_observed': True, 'recovered': False}
+        receipt['low_space'].update(free_before_import=before_free, journal_retained=journal is not None,
+                                    failure_observed=True)
         d.save_json(out / 'receipt.json', receipt)
         # Preserve both refusal snapshots before releasing space. The only
         # operator cleanup is the synthetic filler created by this invocation.
         t.archive_completed(before, out); t.archive_completed(after, out)
         with c.VM(low, disks['transport'], out, 'low-space-recover', args) as vm:
-            run_guest(vm, '/fat/bin/rm /fat/home/space-fill.bin')
+            for path, _ in fillers: run_guest(vm, '/fat/bin/rm /fat/' + path)
             restored_snapshot = vm.quiesced_data_snapshot('low-space-restored')
             restored_fs = ExfatFixture(restored_snapshot.read_bytes())
-            c.absent(restored_fs, 'home/space-fill.bin')
+            for path, _ in fillers: c.absent(restored_fs, path)
             restored_free = free_bytes(restored_fs)
             if restored_free <= before_free or restored_free < MAX_DOC:
                 raise RuntimeError('removing the synthetic filler did not restore enough space')
@@ -710,7 +722,7 @@ def main():
         recovered = t.check_allocation(low, out, 'low-space-recovered')
         binding = check_profile(recovered, B, mb, bundle, expected, False)
         c.absent(recovered, 'home/local_b/.profile-copy-temp')
-        c.absent(recovered, 'home/space-fill.bin')
+        for path, _ in fillers: c.absent(recovered, path)
         if d.outside_data(low, *d.partitions(low)[1]) != receipt['installations']['b']['protected_regions']:
             raise RuntimeError('low-space recovery changed protected bytes')
         receipt['low_space'].update(space_restored=True, free_after_cleanup=restored_free,
