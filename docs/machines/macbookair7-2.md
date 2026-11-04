@@ -2,7 +2,39 @@
 
 Updated: 2026-11-04. State: **active reference machine; partial device acceptance**.
 
-### Exact declared-MMIO readout validated; automated trial prepared
+### Native read-only DMA-state observation accepted
+
+Source `d5ad0c54` / release `53460fd7c2c0f337` completed and returned
+automatically as `session-00065f6cb059ee67-00`. All four admission guards pass
+(checked/passed127), including source2 exact declared-MMIO gap admission. The
+two12-read samples take4us and5us, separated by20,100us; raw VER/CAP/ECAP/
+RTADDR/GSTS values agree. VER is0x10; RTADDR and GSTS are0. The translation-enable
+bit is clear in both samples. Two temporary read-only mappings retire with
+zero retained mappings or control writes. Final full1356-PTE/fence backing
+revalidation passes; aggregate `completed=yes` and collector attention is empty.
+
+This accepts the bounded native **read-only observation**, including this unit's
+exact gap admission. It does not grant DMA/GGTT mapping authority, exclusive
+firmware ownership or private-buffer addressability, and does not implement or
+accept physical tear-free page flips. An observed disabled translation bit is
+not an ownership or lifetime guarantee.
+
+All1,327 prior files are preserved except expected workspace metadata; two new
+logs copy/hash-verify. Offline fsck/allocation/writable/headroom, independent
+payload/recovery checks, Ubuntu default and consumed one-shot all pass. Volume
+was1%; no guest playback was enabled. No reboot is armed. Current remains5346,
+recovery9aa, with the preceding and accepted shadow/known-good payloads held.
+Run/return proof: `build/air-dma-resource-native-20261104/returned/`; independent
+evidence and payload copies survive build cleanup.
+
+Next: audit scanout-compatible private layout, boot-scoped GGTT range ownership,
+PTE/cache publication and invalidation, exact flip completion and inherited-route
+restoration. The existing CPU0 reservation/lifetime cores remain the groundwork;
+no native managed range or writer is enabled. Keep the firmware's complete34MiB
+fence reservation intact. A controlled flip implementation needs source-bound
+host/VM checks before another physical trial.
+
+### Declared-MMIO preparation checkpoint (before native acceptance)
 
 Source `d5ad0c54` / release `53460fd7c2c0f337` is installed, consuming main
 `6225e4d1` at `16a9fd3e` and its exact Apps/UI/Ports pins. The DMA observer now

@@ -191,3 +191,22 @@ read live registers. The opt-in exhaustive installation fault matrix is skipped
 by the default host run. The native automatic readout is prepared; its positive
 observation and source2 admission require the matching native receipt. No DMA
 mapping or physical tear-free presentation is accepted by host/VM evidence.
+
+## Native observation accepted (2026-11-04)
+
+Source `d5ad0c54`, release `53460fd7c2c0f337`, session
+`00065f6cb059ee67-00` completes source2 gap admission and both snapshots.
+All four guards pass. The12-read samples last4us and5us with a20,100us gap;
+VER is0x10, RTADDR/GSTS are0 and CAP/ECAP are stable. Translation-enable is clear
+in both brackets. Both temporary mappings retire, with zero retained mappings
+or control writes, and final full inherited PTE/fence backing is preserved.
+Raw DMAR and adjacent-region receipts independently decode and aggregate
+completed=yes. Logs save and the machine returns automatically. Prior files,
+offline filesystem/allocation/writable/headroom, recovery and one-shot cleanup
+verify. No reboot is armed.
+
+This accepts only the exact bounded read-only observation and its resource
+admission. It does not establish private RAM's GPU visibility, exclusive firmware
+ownership, an immutable translation policy or safe GGTT writes. Managed native
+ranges, layout/cache/publication, route/restore and physical reader retirement
+remain prerequisites for a separate opt-in flip backend.
