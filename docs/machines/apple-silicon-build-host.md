@@ -4916,3 +4916,33 @@ size/SHA256 against the already round-trip-verified archive and rechecking the
 archive SHA256. Restore paths/hashes remain under
 `.local/app-proof/find-contents/archived-superseded-images.json`; current accepted
 raw disks remain. No evidence was discarded. No physical-media/power-loss claim.
+
+### GNU Patch queue source preparation — November 4, 2026
+
+The authorized finite CLI queue permits source preparation while GNU diff waits
+for a separately coordinated combined-cap fixture. Separate `SrvrOS-ports-patch`,
+branch `ports/patch`, starts at actual main `88a95f9a`; integration/review checkouts
+remain untouched. Managed worktree creation rejected the nested source root, so
+the isolated worktree was created through Git from the owned diff clone. No
+compiler/configure/build/guest runs are authorized for this row before GNU diff
+delivery, current-main reconciliation and a fresh resource window.
+
+GNU Patch2.8.1 is pinned to archive SHA256
+`3240c7959c5347c8ed347e3c4201c0337bf4240d5cf09d68889e58eeaba30e17`;
+its direct signature was independently verified against primary fingerprint
+`259B3792B3D6D319212CC4DCD5BF9FEB0313653A`, with PGPy trust/revocation limits
+retained. All578 regular imported files match the authenticated archive.
+Adapt only a generated copy; preserve all licenses.
+
+Proposed useful profile: `patch -i PATCH -o NEW_OUTPUT SOURCE`, single unified
+file section, explicit existing regular source and exclusive distinct new output.
+Noninteractive forward-only/fuzz0, no in-place/backups/reject files, Git/rename or
+create/delete semantics. Preserve source and clean up owned output/temp on failure
+or cancellation; bound actual source/output to256KiB/8192lines/64KiB lines and
+patch to1MiB/32768records/128KiB lines, with declared hunk ranges checked before
+allocation. Qualify zero-count changes, removed dash-prefixed content, missing
+final newline, multi-hunk cases, failed/malformed inputs, caps, allocation/output
+errors, cancellation and two clean builds through genuine GNU parser/engine.
+Status contracts are GNU patch0success/1unapplied hunks/2trouble, independent of
+diff's equal/different contract. Source-only adapter/test helpers own disjoint
+files; no fake shared capability or next-port acceptance is claimed.
