@@ -1,5 +1,18 @@
 # Apple Silicon macOS build host
 
+## Session switching — integration review in progress November 4, 2026
+
+User authorizes ending sessions and switching profiles without reboot, with
+unsaved-work handling, clean shutdown, settings isolation and merge when ready.
+Coordinator reuses `SrvrOS-migration-review` on
+`device/apple-silicon/session-switch-review` from actual main `f7ec75e7`; owns
+roadmap, independent review and final integration. Profiles owner implements
+OS/Apps/chooser behavior in its existing isolated checkout. Application-quality,
+process-isolation, browser and installation chats receive bounded coordination.
+No parent runtime edits, build or VM. Preserve all earlier images, review VMs and
+outside-build backups. Required evidence and scope are in the roadmap; Actions
+remain disabled. Next: review lifecycle contracts and the unsaved-work flow.
+
 ## Desktop profile creation — integration delivered November 4, 2026
 
 Coordinator used `SrvrOS-migration-review` on

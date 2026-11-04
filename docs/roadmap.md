@@ -6,6 +6,33 @@ and [machine records](machines/README.md) separate implementation from physical
 acceptance. The [device parity ledger](device-parity.md) compares the Air with
 ongoing Pro work.
 
+## End session and switch profile — in progress November 4, 2026
+
+Target: explicitly end the current desktop session, resolve unsaved work, retire
+its applications and owned work, return to the chooser and open another profile
+without rebooting. Profiles owner implements the coordinated OS/Apps changes;
+integration coordinator owns this roadmap, independent review and ordered merges.
+Start from actual main `f7ec75e7`; preserve completed creation/migration evidence.
+
+Required acceptance: Save/Discard/Cancel using actual app workflows, failed-save
+and busy-work handling without implicit data loss, responsive shutdown with
+verified app/owned-child retirement, and repeated A → B → A in one boot. New
+sessions must receive their own HOME/XDG paths and portable preferences, with
+clipboard/notifications/window state cleared and machine settings preserved.
+No silent timeout force-kill or success claim based on window disappearance.
+Unsupported or nonretiring work must prevent a successful switch and explain
+what the user can do. Reuse existing lifecycle/chooser contracts; coordinate any
+runtime dependency with the process-isolation and browser owners.
+
+The current working scope excludes concurrent logged-in desktops, authentication,
+permission enforcement and physical-media qualification. The profiles owner
+will specify the exact cancellation/commit boundary before implementation; user
+control and truthful partial-shutdown feedback are required. Parent review uses
+`SrvrOS-migration-review`, branch `device/apple-silicon/session-switch-review`.
+No parent build/VM overlaps the implementation owner's checkout. Next: review the
+source-backed state flow and finite verification plan, implement, qualify and
+merge the matching Apps/OS revisions when ready.
+
 ## Desktop profile creation — delivered and verified November 4, 2026
 
 Users can create a portable profile from the startup chooser or Profiles app,
