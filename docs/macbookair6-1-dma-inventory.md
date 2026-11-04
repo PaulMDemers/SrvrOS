@@ -6,6 +6,10 @@ kernel catalogs only. No VT-d register, root/context table, `/dev/mem`, PCI writ
 firmware method or driver-control operation was used. No native SrvrOS DMA
 translation state, pin, private GPU mapping or hardware ownership is accepted.
 
+The [native firmware/catalog capture](#native-firmwarecatalog-observation-accepted-2026-11-04)
+has now completed. The Ubuntu inventory and initial proposal below remain as
+history; translation-state observation and native ownership remain open.
+
 ## Firmware declaration
 
 The exported DMAR is136 bytes, revision1, valid checksum, OEM `APPLE / HSW`.
@@ -55,9 +59,10 @@ contains no enclosing entry for either. Its nearest reserved edges are
 labels are not a native Limine map or a generic permission to map a gap.
 Neither these edges nor this unit's RMRR/flags may be replaced by sibling values.
 
-## Next bounded native prerequisite
+## Initial native capture prerequisite
 
-A future isolated **firmware-only** SrvrOS capture should retain the complete
+At the Ubuntu inventory checkpoint, the proposed isolated **firmware-only**
+SrvrOS capture was to retain the complete
 current DMAR and full current Limine catalog, exact GPU identity, hashes and
 resource intersections before considering VT-d reads. It should refuse changed,
 malformed, ambiguous or conflicting tables/resources, retain the inherited
