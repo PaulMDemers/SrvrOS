@@ -3331,3 +3331,33 @@ Evidence: `build/review/dma-reclaim/`; nine known missing nested license links.
 No task guests started, existing review VMs untouched. xHCI hardware stop/drain,
 generic provider-reference release, reset/hotplug and physical acceptance remain
 open. PR329 integration remains separately owned and does not overlap this work.
+
+
+### Terminal xHCI stop/drain and network registry release
+
+Continue PR317 from `72c3af97`. Add a terminal, no-restart xHCI stop with
+synchronous-call admission/ownership, verified controller halt and bounded event
+drain; retain all DMA and block/diagnostic identities. Add generic network
+registry retirement that blocks new callbacks and reports when in-flight
+references have drained, preserving selected identity/metadata without failover.
+Planned source: xHCI/network registry, monitor diagnostic, headers, tests/docs.
+Main `10890eed` inspected; PR329 merged independently, PR330 installer work is
+separate. No process/syscall/block/installer changes. Preserve review VMs.
+
+Implemented terminal `xhci_stop`/`xhcistop`: ownership/CR3 checks, closed admission,
+synchronous caller references, USB network callback retirement, validated R/S/HCH
+halt and bounded event drain/retry. Confirmed old halt helper falsely accepted
+all-ones/stale acknowledgements; its regression fails before the fix. Generic
+network retirement detaches each registration's callable context after references
+drain, preserving owned metadata and tombstones. Multiple registrations sharing
+a context must all retire before owner free. All xHCI DMA/records remain pinned
+for block/worker/diagnostic references; no reset/restart/failover added.
+
+Normal/GCC14 and ASan/UBSan registry/xHCI fixtures, related VirtIO/block/USB hosts
+and kernel compilation pass. Q35 live keyboard/tablet terminal halt twice,
+post-halt QMP replug and sysabi pass; E1000 netabi and full threadstress also pass.
+Runtime files are retained PR313 artifacts, not a full userspace rebuild. All
+task guests stopped; review VMs preserved. Evidence: `build/review/xhci-stop/`.
+Nine known missing nested license targets remain. Per-slot teardown, block and
+worker reference release, physical acceptance and safe whole-xHCI reclamation
+remain open. No PR329/330/332 filesystem/installer implementation overlap.

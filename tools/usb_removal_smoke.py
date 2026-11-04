@@ -21,6 +21,7 @@ def main():
     parser.add_argument("--iso", required=True)
     parser.add_argument("--disk", required=True)
     parser.add_argument("--qemu", default="qemu-system-x86_64")
+    parser.add_argument("--terminal-stop", action="store_true", help="verify terminal xHCI halt after replug")
     parser.add_argument("--output", default="build/review/usb-removal")
     args = parser.parse_args()
     out = Path(args.output).resolve()
@@ -65,6 +66,14 @@ def main():
                     return rings[1]
 
                 initial_commands = status(b"1")
+                if args.terminal_stop:
+                    for _ in range(2):
+                        serial.sendall(b"xhcistop\n")
+                        part = read_until(serial,b"srv> ",10)
+                        output.extend(part)
+                        assert b"xhci-stop: stopped-retained" in part, part
+                    assert status(b"0") == initial_commands
+                    assert b"lifecycle=stopped-retained owners=0" in output
                 qmp.call("device_del", {"id": "keyboard"})
                 qmp.call("device_del", {"id": "tablet"})
                 output.extend(read_for(serial, 1))
@@ -95,7 +104,7 @@ def main():
                     qmp.stream.close()
                     qmp.sock.close()
                 (out / "serial.log").write_bytes(output)
-    print("usb-removal: PASS two devices removed/replaced, retained slots quarantined, no new commands, sysabi")
+    print("usb-removal: PASS two devices removed/replaced, retained slots quarantined, no new commands, sysabi" + (", terminal halt" if args.terminal_stop else ""))
 
 
 if __name__ == "__main__":

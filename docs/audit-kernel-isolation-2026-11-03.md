@@ -645,6 +645,75 @@ remains historical evidence at its recorded source. Review VMs were untouched,
 and no task guest was started. Evidence: `build/review/dma-reclaim/`. Link checking
 still reports the same nine missing nested-submodule license targets.
 
+## Terminal xHCI halt/drain and network-reference release
+
+Continuation from `72c3af97` adds a terminal shutdown boundary rather than
+clearing the existing quarantine into reset/re-enumeration. `xhci_stop` requires
+CPU0/kernel CR3 and successful firmware ownership. It first blocks new work,
+marks existing devices unavailable, invalidates storage identities and retires
+registered USB network callbacks. Synchronous command/control/bulk calls hold
+explicit references through their return paths; an in-call stop is deferred until
+they unwind. Cancellation preserves failure outputs. The poll worker loses
+operational admission, while its records remain allocated.
+
+The halt helper had a confirmed false-proof defect: all-ones MMIO could satisfy
+HCHalted, as could a stale HCH bit after a rejected Run/Stop write. The previous
+helper fails the new assertion in `build/review/xhci-stop/before-halt.log`; no
+historical premature free is claimed, because the old path subsequently reset
+and retained published xHCI backing. Halt now rejects inaccessible registers and
+requires valid command readback with R/S, HCRST and interrupt enable clear, plus
+HCH set and CNR clear. [Intel xHCI 1.2b section 5.4.1.1](https://cdrdv2-public.intel.com/625472/625472_xHCI_Rev1_2b.pdf)
+defines completion of queued work before HCH acknowledgement. A full event ring
+can block progress, so shutdown discards at most one ring while waiting and at
+most one after halt, then requires an empty ring. Continuing production or an
+unproven halt returns false with admission closed and backing pinned; explicit
+retry can make progress. Poll budgets are finite, not calibrated IRQ deadlines.
+
+`net_device_retire` supplies generic **network** registry reference release. Its
+identity is the registered context/send pair. Retirement permanently blocks all
+new send/poll/link/wake/inventory callbacks, while counted existing callbacks may
+finish. False means unknown identity or outstanding references; retry after
+unwind. True means callable references from that registration have detached. Owners
+must retire every registration sharing a context before freeing it.
+Names/MAC metadata are registry-owned; selection and opaque identity tombstones
+remain stable, without failover, slot reuse or rebinding. Hardware ownership is
+an independent requirement: this API does not stop DMA or authorize freeing
+block, worker or diagnostic references. Existing providers can keep their prior
+boot-lifetime retention policy; xHCI uses retirement during terminal shutdown.
+
+Host cases cover nested retirement from every callback, two nested reference
+holders, metadata ownership, unknown identity, context/name free followed by
+repeated calls, and permanent tombstones. Actual xHCI helpers cover inaccessible
+MMIO, rejected R/S, delayed acknowledgement, missing ownership/foreign CR3,
+provider refusal, stop inside command/control and yielded bulk calls, failure
+outputs, continued event production, bounded retry, idempotence and no frees.
+Registry and hardware boundaries are tested separately; this does not qualify
+concurrent SMP teardown or physical-device reset.
+
+The monitor command `xhcistop` invokes the terminal boundary; `xhci` reports its
+lifecycle, outstanding owners and drained events. It stops USB input for this
+boot. `usb_removal_smoke.py --terminal-stop` exercises the command twice with
+live keyboard/tablet endpoints before QMP removal/replacement, then requires
+unchanged slot identities/command count and passing sysabi through serial.
+
+No xHCI DMA or device record is freed: block registry descriptors/claims, worker
+and diagnostic references still exist. Per-slot Stop Endpoint/Disable Slot,
+controller restart/reset recovery, block/worker reference release and successful
+hotplug remain open. A verified terminal schedule halt and released network
+callbacks are now implemented; they are not complete reclamation authority.
+
+The final implementation passes normal/Rosetta, GCC14/Linux and ASan/UBSan
+registry/xHCI tests, plus VirtIO net/PCI, block/AHCI and USB-storage host suites.
+Kernel compilation passes. A Q35 guest with live keyboard/tablet endpoints
+reports `stopped-retained` twice, `owners=0`, `op=no` and no pending software events;
+it then survives QMP removal/replacement and passes sysabi. E1000 netabi and full
+threadstress pass in separate disposable guests. These use the rebuilt kernel
+and retained PR313 runtime files, not a full current-userspace rebuild or native
+acceptance. All task guests stopped; review VMs remained untouched. Evidence:
+`build/review/xhci-stop/`. Documentation checking retains nine known missing
+nested-submodule license targets. Branch integration base remains `1f177761`;
+new main `10890eed` was inspected for scope, not merged into this candidate.
+
 ## Remaining work
 
 Other long IRQ-disabled operations, including initial/churning PMM scans, heap validation and poisoning,

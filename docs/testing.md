@@ -1568,3 +1568,20 @@ CR3 and both IRQ states. An injected free-before-stop control must fail.
 write does not take effect, retaining queue identities and sticky quarantine.
 These actual-source fixtures model the transport/PCI hardware and registration;
 they do not qualify physical reset or SMP reclamation.
+
+
+`test-net-device` covers irreversible `net_device_retire` admission, callbacks
+retiring themselves with outstanding/nested references, and context/name freeing
+only after a drained result. Subsequent send/poll/link/wake/inventory calls must
+avoid the freed context while retaining registry-owned metadata and selection.
+Unknown identities refuse retirement; tombstones cannot rebind or fail over.
+
+`test-xhci` covers terminal halt/drain, inaccessible/stale MMIO acknowledgements,
+firmware/CR3 refusal, explicit synchronous owners, provider reference refusal,
+in-call command/control/bulk cancellation, bounded continuous events, retries and
+idempotence without freeing backing. The prior halt helper fails the invalid-MMIO
+regression. `tools/usb_removal_smoke.py --terminal-stop --iso PATH --disk PATH`
+additionally runs `xhcistop` twice with live emulated input before QMP replug and
+sysabi; use its normal `--qemu`/`--output` options as needed. This is terminal
+shutdown; USB input cannot restart in that boot. It does not prove storage/worker
+reference release, physical reset or safe xHCI allocation reclamation.

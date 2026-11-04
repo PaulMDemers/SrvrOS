@@ -6,6 +6,7 @@
 #include <string.h>
 #include <stdint.h>
 #define XHCI_COMMAND_TIMEOUT 256ull
+#define XHCI_HALT_TIMEOUT 256ull
 #define SRVROS_XHCI_TEST_MMIO
 static uint32_t xhci_test_read32(uint64_t offset);
 static void xhci_test_write32(uint64_t offset, uint32_t value);
@@ -55,7 +56,10 @@ static void model_update(void) {
     }
 }
 
+static bool reject_halt;static unsigned halt_reads,halt_after,halt_writes;
 static uint32_t xhci_test_read32(uint64_t offset) {
+    if(halt_after && offset==xhci.op_base+XHCI_OP_USBSTS && ++halt_reads>=halt_after)
+        *(uint32_t *)(registers+offset)=XHCI_USBSTS_HCH;
     if (port_model.active) {
         if (offset == xhci.rt_base) {
             if (!port_model.frozen) port_model.now++;
@@ -70,11 +74,19 @@ static uint32_t xhci_test_read32(uint64_t offset) {
     return *(uint32_t *)(registers + offset);
 }
 
-static bool command_nested,event_flood;
+static bool command_nested,event_flood,stop_on_doorbell;
+static uint64_t test_space=1;
+static bool retire_ready=true;static unsigned retire_calls;
 static unsigned flood_dequeues;
 static struct xhci_device *mode_device;
 static unsigned mode_doorbells;
 static void xhci_test_write32(uint64_t offset, uint32_t value) {
+    if(stop_on_doorbell && offset>=xhci.db_base && offset<xhci.db_base+8) {
+        stop_on_doorbell=false;assert(xhci.sync_users==1 && !xhci_stop());
+    }
+    if(offset==xhci.op_base+XHCI_OP_USBCMD) {
+        halt_writes++;if(reject_halt)return;
+    }
     if(event_flood && offset==xhci.rt_base+XHCI_INTR0+XHCI_INTR_ERDP) {
         flood_dequeues++;
         /* Model a controller immediately refilling every retired event. */
@@ -116,6 +128,9 @@ void net_handle_ethernet_frame(const uint8_t *frame,uint16_t length) { (void)fra
 bool usb_storage_attach(struct usb_storage *s,void *context,usb_bulk_fn bulk,bool writable) {
     (void)s;(void)context;(void)bulk;(void)writable;abort();
 }
+bool net_device_retire(const struct net_device_ops *ops) { assert(ops && ops->send && ops->context);retire_calls++;return retire_ready; }
+uint64_t vmm_current_address_space(void) { return test_space; }
+uint64_t vmm_kernel_address_space(void) { return 1; }
 void console_write(const char *s) { (void)s; }
 void console_printf(const char *fmt, ...) { (void)fmt; }
 uint64_t pmm_alloc_frames_tagged(uint64_t count, enum pmm_frame_tag tag) {
@@ -132,6 +147,7 @@ void pmm_free_frame(uint64_t address) { assert(address != 0); freed++; }
 void pmm_free_frame_range(uint64_t address, uint64_t count) { assert(address != 0); freed += count; }
 
 static void reset_test(void) {
+    reject_halt=false;halt_reads=halt_after=halt_writes=0;test_space=1;retire_ready=true;retire_calls=0;stop_on_doorbell=false;
     memset(&port_model, 0, sizeof(port_model));
     memset(&xhci, 0, sizeof(xhci));
     memset(registers, 0, sizeof(registers));
@@ -415,7 +431,7 @@ uint64_t timer_monotonic_us(void) {
     }
     return test_time;
 }
-static bool test_io_active,wait_refused,wait_keyboard,test_io_foreign;
+static bool test_io_active,wait_refused,wait_keyboard,test_io_foreign,stop_on_wait;
 static unsigned wait_calls,bulk_wakes;
 uint64_t timer_ticks(void) { return test_time/10000; }
 bool scheduler_io_busy(void) { return test_io_foreign; }
@@ -430,6 +446,7 @@ bool scheduler_io_wait_timeout(struct scheduler_wait_queue *q,
     struct xhci_device *d=arg;
     assert(q==&d->bulk_wait && test_io_active && deadline==timer_ticks()+1);
     wait_calls++;
+    if(stop_on_wait) {stop_on_wait=false;assert(xhci.sync_users==1 && !xhci_stop());return false;}
     if(wait_refused)return false;
     if(ready(arg))return true;
     if(wait_keyboard) {
@@ -1077,6 +1094,65 @@ static void test_command_identity(void) {
     assert(xhci.command_enqueue==enqueue && !memcmp(saved,commands,sizeof(saved)) && !freed);
     puts("xhci-command: PASS exact identity, timeout, late completion and saturation refusal");
 }
+static void stop_fixture(void) {
+    reset_test();
+    static struct xhci_trb commands[XHCI_TRB_COUNT],events[XHCI_EVENT_TRB_COUNT];
+    memset(commands,0,sizeof(commands));memset(events,0,sizeof(events));
+    xhci.present=xhci.operational=xhci.controller_owned=true;xhci.op_base=0x100;xhci.rt_base=0x2000;xhci.db_base=0x1000;
+    xhci.command_ring=commands;xhci.command_ring_phys=(uint64_t)commands;xhci.command_cycle=true;
+    xhci.event_ring=events;xhci.event_cycle=true;
+    *(uint32_t *)(registers+xhci.op_base+XHCI_OP_USBCMD)=XHCI_USBCMD_RUN;
+    halt_after=4;
+}
+static void test_terminal_stop(void) {
+    stop_fixture();
+    *(uint32_t *)(registers+xhci.op_base+XHCI_OP_USBCMD)=UINT32_MAX;
+    *(uint32_t *)(registers+xhci.op_base+XHCI_OP_USBSTS)=UINT32_MAX;
+    assert(!halt_controller()); /* Inaccessible MMIO is not a halt acknowledgement. */
+    stop_fixture();reject_halt=true;
+    *(uint32_t *)(registers+xhci.op_base+XHCI_OP_USBSTS)=XHCI_USBSTS_HCH;
+    assert(!halt_controller()); /* Stale HCH cannot override rejected R/S write. */
+    stop_fixture();xhci.controller_owned=false;assert(!xhci_stop() && !halt_writes && xhci.operational);
+    stop_fixture();test_space=2;assert(!xhci_stop() && xhci.operational);test_space=1;
+    struct xhci_network network={.ready=true,.registered=true};
+    struct xhci_device *d=&xhci.devices[0];
+    *d=(struct xhci_device){.present=true,.slot_id=1,.network=&network,.bulk_buffer_phys=0x9000};
+    xhci.sync_users=1;retire_ready=false;
+    assert(!xhci_stop() && xhci.stopping && !xhci.operational && !halt_writes);
+    xhci.sync_users=0;assert(!xhci_stop() && !halt_writes);
+    retire_ready=true;
+    xhci.event_ring[0]=(struct xhci_trb){.control=1|(32u<<10)|(1u<<24)};
+    xhci.event_ring[1]=(struct xhci_trb){.control=1|(33u<<10)};
+    assert(xhci_stop() && xhci.stopped && xhci.stop_events==2 && !network.registered);
+    assert(d->bulk_buffer_phys==0x9000 && !freed && retire_calls==3);
+    unsigned writes=halt_writes;assert(xhci_stop() && halt_writes==writes);
+    uint64_t slot=99;assert(!submit_command(XHCI_TRB_TYPE_NOOP,0,&slot) && slot==99);
+    stop_fixture();stop_on_doorbell=true;slot=99;
+    assert(!submit_command(XHCI_TRB_TYPE_NOOP,0,&slot) && slot==99 && !xhci.sync_users);
+    assert(xhci_stop() && !freed);
+    stop_fixture();stop_on_doorbell=true;
+    struct xhci_device control={.slot_id=1,.ep0_ring=xhci.command_ring,
+        .ep0_ring_phys=xhci.command_ring_phys,.ep0_cycle=true};
+    struct usb_setup_packet setup={0};
+    assert(!control_transfer(&control,&setup,0,0,false) && !xhci.sync_users);
+    assert(xhci_stop());
+    stop_fixture();
+    static uint8_t bounce[4096],caller[64];
+    d=&xhci.devices[0];*d=(struct xhci_device){.present=true,.slot_id=1,.bulk_buffer=bounce,
+        .bulk_buffer_phys=(uint64_t)bounce};
+    d->bulk_ep[1]=(struct xhci_bulk_endpoint){.dci=3,.ring=xhci.command_ring,
+        .ring_phys=xhci.command_ring_phys,.cycle=true};
+    test_time=0;test_time_step=1000;test_io_active=true;stop_on_wait=true;uint32_t actual=99;
+    assert(!storage_bulk_transfer(d,true,caller,sizeof(caller),&actual));
+    assert(!stop_on_wait && !xhci.sync_users && actual==99 && !freed);
+    test_io_active=false;assert(xhci_stop());
+    stop_fixture();halt_after=0;assert(!xhci_stop() && !xhci.stopped && !freed);
+    halt_after=1;assert(xhci_stop()); /* Explicit retry after a late acknowledgement. */
+    stop_fixture();event_flood=true;xhci.event_ring[0]=(struct xhci_trb){.control=1|(32u<<10)};
+    assert(!xhci_stop() && !xhci.stopped && !freed);event_flood=false;
+    assert(xhci_stop() && !freed);
+    puts("xhci-stop: PASS verified halt, caller/provider drain, in-call cancellation, bounded events, retry and pinned backing");
+}
 static void test_retired_event_drain(void) {
     reset_test();
     static struct xhci_trb events[XHCI_EVENT_TRB_COUNT];memset(events,0,sizeof(events));
@@ -1265,6 +1341,7 @@ static void test_repeated_init(void) {
 int main(int argc, char **argv) {
     assert(argc == 4);
     test_repeated_init();
+    test_terminal_stop();
     test_retired_event_drain();
     test_network_retirement();
     test_interrupt_retirement();

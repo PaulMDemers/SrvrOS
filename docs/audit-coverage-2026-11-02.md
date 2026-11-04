@@ -155,3 +155,11 @@ delivery and PCI-disable-failure regressions. No new runtime defect confirmed;
 lifecycle header overclaims corrected. Source/model evidence does not implement
 xHCI hardware stop/drain, generic provider reference release, hotplug or SMP
 reclamation. See the kernel-isolation report for exact scope and prerequisites.
+
+
+PR317 now adds verified terminal xHCI schedule halt/bounded event drain and
+network-registry callback reference release. Stop rejects false halt proofs and
+waits for software owners/provider callbacks. Context-release and terminal-stop
+host/VM fixtures accompany it. All xHCI backing stays pinned: block/worker/
+diagnostic reference release, per-slot teardown, restart and physical acceptance
+remain open. See the current kernel-isolation checkpoint for exact limits.

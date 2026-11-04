@@ -160,6 +160,7 @@ static bool network_configure(struct xhci_device *d,const struct usb_ecm_config 
     if(!control_transfer(d,&filter,0,0,false)) return false;
     struct net_device_ops ops={.name="usb-ecm",.context=d,.priority=50,.send=network_send,.poll=network_poll,.link=network_link,.rx_wake_ready=network_rx_wake_ready};
     copy_bytes(ops.mac,n->mac,6);if(!net_device_register(&ops)) return false;
+    n->registered=true;
     d->configuration_value=config->configuration;d->interface_number=config->control_interface;d->configured=true;xhci.configured_devices++;
     n->ready=true;network_count++;d->stage="network-ready";
     network_post(d,1,4096);network_post(d,2,n->ep[2].hw.packet);
