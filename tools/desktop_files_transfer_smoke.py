@@ -107,7 +107,7 @@ def main():
                 def prompt_button(index):
                     # Use the compositor's actual framed window geometry. The
                     # picker client has a 1px border and a 44px title/menu band.
-                    trace=re.sub(COMPOSITOR_TRACE,b'',output)
+                    trace=output
                     geometries=re.findall(rb'deskd: geometry pid='+str(files_pid).encode()+rb' window=(\d+) frame=(\d+),(\d+),(\d+),(\d+)',trace)
                     if args.refuse_dialogs:
                         row=next(row for row in reversed(geometries) if int(row[0])==original)
