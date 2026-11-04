@@ -3137,3 +3137,8 @@ size-specific bounds and passes 192 allocations across twelve sizes within the
 1,248-position budget, the full first-fit oracle, sanitizers, GCC14 and fresh
 sysabi/full-threadstress guest runs. The final freed-prefix negative control
 fails as intended; this result supersedes the initial cache implementation.
+
+Main `0cba30a1` is subsequently integrated with no kernel/shared delta. Its new
+52-case actual-source workspace writeback matrix passes on this audit branch,
+confirming fixture compatibility with the independent filesystem work. This is
+a compatibility run, not an independent approval of that PR's entire diff.
