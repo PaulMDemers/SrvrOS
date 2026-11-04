@@ -7171,3 +7171,31 @@ translations, consistent with new canonical-address VMM checks. No native
 acceptance transfers to PMM/USB/desktop changes merely through this merge.
 Local run state remains revalidating/unarmed until the replacement candidate
 passes every required check and fresh storage/recovery verification.
+
+
+### Integrated firmware-only trial ready for installation (2026-11-04)
+
+Current-main capture validation completes at `aec97036` after consuming PR317:
+all requested normal/AP/RAM/USB, core/desktop/widgets/profile/host/docs groups
+pass in one fresh invocation. The71 installation cases pass with the unchanged
+single opt-in exhaustive-matrix skip. Capture sanitizers, independent128-entry
+producer/decoder, complete raw-tail retention and all seven legacy plus both
+exact/missing-workspace VM cases pass against that integrated kernel.
+
+A subsequent main `a90bf57e` xz packaging merge is incorporated as `e53b7a63`.
+The only port delta is xz/README; kernel, capture and core userspace sources are
+unchanged. The rebuilt diagnostic ELF is byte-for-byte identical to the fully
+qualified `aec97036` kernel. Matched images, capture tests/sanitizers/retention
+and exact-image Q35 refusal/save/unmount plus missing-workspace return pass
+again. This retains relevant earlier results without repeating unchanged
+subsystem suites or transferring native acceptance to the new port.
+
+Final staged release is `6b7dbee3a9441281`, compiled source `e53b7a63`, from
+[PR362](https://github.com/PaulMDemers/SrvrOS/pull/362). Its exact payload and
+superseded uninstalled candidates are backed up outside build. The baseline
+remains596 USB files/1664 clusters with prior hashes/integrity/headroom verified.
+At this checkpoint it is uninstalled/unarmed; the authorized next step preserves
+console recovery and accepted backups, installs and automatically runs this
+no-input firmware-only capture. Local records own subsequent arm/collection
+state. No native translation, register-access permission, pin or ownership is
+granted by these tests; original RC6/package-C3 limitations remain unchanged.
