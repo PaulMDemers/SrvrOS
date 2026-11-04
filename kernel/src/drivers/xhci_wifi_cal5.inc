@@ -34,6 +34,15 @@ static bool wifi_cal5_layout(void){
  if((deq&15)!=1 || ptr<p->ring || ptr>p->ring+16*wifi_cal5.posts || (wifi_cal5.stopped?state!=3:(state!=1 && state!=2 && state!=3)))return false;
  return true;
 }
+/* Same-lifetime5GHz fields, not the legacy G-band mcu.trim_fields object.
+ * Scalar validity alone does not admit I/O; full selected private parent and
+ * controller/endpoint ownership are still required by owned(). */
+static bool wifi_cal5_fields(struct xhci_device *d){
+ const struct mt76_trim_fields *f=&wifi_trim5.fields;const struct mt76_efuse_map_gate *g=&wifi_trim5.gate;
+ return d && d==wifi_trim5.d && mt76_ant_fields_valid(&d->firmware.mcu.ant_fields) && mt76_trim_fields_valid(f) &&
+ f->nic0==d->firmware.mcu.ant_fields.nic0 && f->nic1==d->firmware.mcu.ant_fields.nic1 &&
+ g->phase==15 && g->block==2 && !g->failed && !g->pending && g->polls==f->polls && g->submitted==f->reads+f->writes;
+}
 static bool wifi_cal5_owned(void *context,bool cleanup){
  struct xhci_device *d=wifi_cal5.d;
  if(context!=&wifi_cal5 || !wifi_cal5_requested || !wifi_cal5.active || !wifi_cal5.attempted || !d ||
@@ -47,7 +56,7 @@ static bool wifi_cal5_owned(void *context,bool cleanup){
  return !wifi_cal5.failed && wifi_channel_vco5_owned(&wifi_channel_vco5) &&
     mt76_channel_vco5_selected(&wifi_channel_vco5.state) && mt76_cvco5_valid(&wifi_channel_vco5.state.vco) &&
     wifi_channel_vco5.submitted==2636 && wifi_trim5.fields.trim==0x44 && wifi_bbp5.gain.lna==12 &&
-    mt76_ant_fields_valid(&d->firmware.mcu.ant_fields) && mt76_trim_fields_valid(&d->firmware.mcu.trim_fields);
+    wifi_cal5_fields(d);
 }
 static bool wifi_cal5_usb(bool cleanup,bool write,uint32_t a,uint32_t *v){
  if(!v || !wifi_cal5_owned(&wifi_cal5,cleanup))return false;
@@ -169,6 +178,7 @@ static bool wifi_cal5_inspect(void *context){
  struct xhci_device *d=wifi_channel_vco5.d;wifi_cal5.d=d;wifi_cal5.attempted=wifi_cal5.active=true;wifi_cal5.command_ring=xhci.command_ring_phys;wifi_cal5.output=d->output_context_phys;wifi_cal5.input=d->input_context_phys;wifi_cal5.ep0=d->ep0_ring_phys;wifi_cal5.descriptor=d->descriptor_buffer_phys;
  console_write("wifi-cal5-progress: hold selected161/trim44;configure retained RX;MAC start;fresh IBI probe;R0 VCO161 FULL901 LC1 RXDCOC1;controlled RX;drain disable stop;inverse originals\n");
  bool ok=wifi_cal5_configure();
+ console_printf("wifi-cal5-admission: configured=%u parent=%u selected=%u vco=%u fields=%u context=%u owner=%u\n",(uint64_t)ok,(uint64_t)wifi_channel_vco5_owned(&wifi_channel_vco5),(uint64_t)mt76_channel_vco5_selected(&wifi_channel_vco5.state),(uint64_t)mt76_cvco5_valid(&wifi_channel_vco5.state.vco),(uint64_t)wifi_cal5_fields(d),(uint64_t)(context_read32(d->output_context,9,0)&7),(uint64_t)wifi_cal5_owned(&wifi_cal5,false));
  if(ok){const struct mt76_mac_cycle_io io={&wifi_cal5,wifi_cal5_owned,wifi_cal5_read,wifi_cal5_write,wifi_cal5_delay,wifi_cal5_now,wifi_cal5_inspection};ok=mt76_mac_cycle_run(&wifi_cal5.mac,&io);}
  bool stopped=!wifi_cal5.configured || wifi_cal5_stop();
  if(wifi_cal5.window.attempted){const struct mt76_rx_window_io io={.context=&wifi_cal5,.owned=wifi_cal5_owned};const struct mt76_rx_window_stop stop={.dequeue=wifi_cal5.stop_dequeue,.slot=d->slot_id,.dci=9,.state=wifi_cal5.stop_state};bool finished=mt76_rx5_window_finish(&wifi_cal5.window,&io,stopped && wifi_cal5.mac.complete?&stop:NULL);ok=finished && ok;}

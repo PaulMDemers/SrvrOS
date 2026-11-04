@@ -43,6 +43,7 @@ def check(log):
    if not v&mask:return
    require(n*50<budget,'poll budget');delay(0,clean,50)
   require(False,'poll exhaustion')
+ require(take('wifi-cal5-admission')==dict(configured=1,parent=1,selected=1,vco=1,fields=1,context=1,owner=1),'missing/failed exact5GHz admission')
  guards(0,0,0);usb(0,0,0,0x1400,0x17f97);txop=usb(0,0,0,0x1340);require(txop!=0xffffffff,'unknown TXOP')
  put(0,0,0x1004,4);poll(0x208,10,200000,0);put(0,0,0x1400,0x17f97);put(0,0,0x1004,12);poll(0x208,10,50,0)
  usb(0,0,0,0x2000,0xf000f200);usb(0,0,0,0x13b0,0x2f2f1b1b);usb(0,0,0,0x2124,0xffffffff)

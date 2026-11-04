@@ -6,7 +6,7 @@ from wifi_trim5_log import plan as trim_plan
 from wifi_cal5_log import check,PROGRESS,RECEIVE,parent
 
 def ledger(quiet=False):
- rows=[PROGRESS];op=0
+ rows=[PROGRESS,'wifi-cal5-admission: configured=1 parent=1 selected=1 vco=1 fields=1 context=1 owner=1'];op=0
  def usb(part,clean,wr,a,v):
   nonlocal op
   rows.append(f'wifi-cal5-usb: op={op} part={part} cleanup={clean} write={wr} address=0x{a:016x} value=0x{v:016x} ok=1');op+=1

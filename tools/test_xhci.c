@@ -6725,6 +6725,34 @@ static void test_pa5_refusal(void){
     wifi_vco5_requested=true;assert(!xhci_wifi_capture_vco5());wifi_vco5_requested=false;
     wifi_dac5_requested=true;assert(!xhci_wifi_capture_vco5());wifi_dac5_requested=false;
     wifi_vco5.state.attempted=true;assert(!xhci_wifi_capture_vco5());wifi_vco5.state.attempted=false;
+    /* Exact5GHz fresh-field binding must not require the untouched legacy
+     * G-band object. This predicate alone still grants no native I/O. */
+    assert(!wifi_cal5_fields(NULL) && !wifi_cal5_fields(&d));
+    wifi_trim5.d=&d;
+    wifi_trim5.fields=(struct mt76_trim_fields){.attempted=true,.complete=true,.valid=true,.reads=24,.writes=2,.polls=2,.blocks=2,.nic0=0xfd11,.nic1=0x1004,.base=0x44,.trim=0x44};
+    wifi_trim5.gate=(struct mt76_efuse_map_gate){.phase=15,.block=2,.polls=2,.submitted=26};
+    d.firmware.mcu.ant_fields=(struct mt76_ant_fields){.attempted=true,.complete=true,.valid=true,.reads=24,.writes=2,.polls=2,.blocks=2,.antenna=0x17ff,.cfg1=0xffef,.nic0=0xfd11,.nic1=0x1004};
+    assert(!d.firmware.mcu.trim_fields.attempted && wifi_cal5_fields(&d));
+    for(unsigned n=0;n<7;n++){
+        if(n==0)wifi_trim5.fields.complete=false;
+        if(n==1)wifi_trim5.fields.nic0^=1;
+        if(n==2)wifi_trim5.gate.failed=true;
+        if(n==3)wifi_trim5.gate.pending=true;
+        if(n==4)wifi_trim5.gate.submitted++;
+        if(n==5)wifi_trim5.gate.polls++;
+        if(n==6)wifi_trim5.d=NULL;
+        assert(!wifi_cal5_fields(&d));
+        if(n==0)wifi_trim5.fields.complete=true;
+        if(n==1)wifi_trim5.fields.nic0^=1;
+        if(n==2)wifi_trim5.gate.failed=false;
+        if(n==3)wifi_trim5.gate.pending=false;
+        if(n==4)wifi_trim5.gate.submitted--;
+        if(n==5)wifi_trim5.gate.polls--;
+        wifi_trim5.d=&d;
+    }
+    assert(wifi_cal5_fields(&d) && !wifi_cal5_owned(&wifi_cal5,false));
+    memset(&wifi_trim5,0,sizeof wifi_trim5);memset(&d.firmware.mcu.ant_fields,0,sizeof d.firmware.mcu.ant_fields);
+    puts("xhci cal5: PASS fresh5GHz fields with empty legacy object;invalid board/gate/device refuse;scalar proof grants no I/O");
     assert(!wifi_cal5_owned(NULL,false) && !wifi_cal5_owned(&wifi_cal5,true));
     assert(!wifi_cal5_inspect(NULL) && !wifi_cal5_inspect(&wifi_channel_vco5));
     assert(!wifi_cal5_cal_read(&wifi_cal5,0x1004,&v));

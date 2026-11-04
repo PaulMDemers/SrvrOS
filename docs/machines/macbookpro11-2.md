@@ -12437,3 +12437,20 @@ current-field/empty-legacy and damaged-field regression plus explicit anonymous
 admission diagnostics. No register/model gate is widened. Requalify the exact
 retry image and preserve this failure before another cold trial. Main was
 fetched again; shared scope remains MT76 and the named calibration profile.
+
+
+### Fresh-field correction / retry qualification
+
+The corrected owner explicitly binds `wifi_trim5.fields` and its completed
+same-device EFUSE gate, matching both NIC fields to fresh antenna-board data.
+The complete selected private parent and controller/endpoint checks remain
+mandatory. A positive native host regression accepts fresh5GHz fields while the
+legacy object is empty; seven damaged field/gate/device variants refuse, and
+scalar validity still grants no I/O. New anonymous admission receipts expose
+configured/parent/selected/VCO/fields/context/owner results before the first MAC
+operation. The strict saved checker requires each successful admission bit.
+Native build/refusal and four full-ledger mutation groups pass; unchanged pure
+calibration/window/coordinator engines retain their exact prior source-bound
+fault/sanitizer evidence. Requalify current native sanitizer/frame and exact
+stage/save/refusal/desktop proofs before installation. Preserve failed3732593a
+and its raw session; no physical calibration or receive is accepted yet.
