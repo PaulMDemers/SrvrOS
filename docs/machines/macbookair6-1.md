@@ -6706,3 +6706,28 @@ Docs/host fixtures are validated independently; a new matched build, exact-stage
 VM, native preflight and complete collection are still required before another
 physical test. Existing RC6 failure/package-C3 zero and unknown ownership remain.
 No reboot is armed.
+
+
+### Exact Haswell vector pilot implemented (2026-11-03)
+
+Base `0cba30a1`, with actual recursive pins. PR301 remains open and independently
+owns the Broadwell capture/scanout lifetime. The first Haswell adapter is scoped
+to the existing Air6,1 isolated diagnostic, preserving its exact device gates and
+using the bounded read-only I/O contract without modifying the other driver.
+See the [pilot contract](../macbookair6-1-tiled-backing-audit.md#isolated-haswell-pilot-implementation).
+
+The dedicated profile skips the ordinary Intel stub, requires existing decode/D0,
+excludes RAM from the full 4 MiB MMIO range and uses a non-global RO/NX window.
+It retains complete DWORD GGTT vectors twice, raw config/route/framebuffer and
+FENCE0–15, with 1,536-entry and 100 ms readout bounds, full comparisons and verified
+window retirement. The documented lower range stays distinct from unobserved
+upper fences; only display-arbitration swizzle is read. No writer, allocator pin,
+full swizzle/uniqueness proof or hardware authority is added. Original RC6 failure,
+package-C3 zero and all existing limits remain separate and unchanged.
+
+Actual core/adapter fixtures, max-capacity/clock/map/retirement/change failures,
+source-independent producer decoding and maximum-tail coverage are required
+before installation. Matched build, full host suites, exact-stage identity
+refusal/persistence, missing-workspace halt and old-profile regressions remain
+pending. The current installed native image is still `9b485ca12b4c2482`; no new
+physical acceptance or reboot is claimed by implementation alone.
