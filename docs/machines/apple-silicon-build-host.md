@@ -2,16 +2,16 @@
 
 ## PR338 managed filesystem merge review
 
-Review integrates main `a37eb7b2` as `dcc089b0`, preserving both host notices.
-All 154 accepted evidence file hashes and failure/restart assertions revalidate;
-matched guest payloads are unchanged. Fresh focused host checks and 19 installed
-inspection tests pass using the documented Darwin feature macro. PR317 owner
-reports no current blocker; its terminal/reclamation audit remains separate.
-Review VMs 61610, 6233 and 85869 remain untouched; no new VM or physical trial
-was needed. See the [filesystem contract](../filesystem-layout.md) and
-`.local/filesystem-evidence/pr338-review/` for review and the next proposed
-late-flush qualification. User authorized merge if ready.
-
+Review consumes main `a37eb7b2`, then `f0c88a6d` and `b78e3ed5`, preserving all
+host notices. Revalidated all 154 original evidence hashes. After jq changed the
+runtime image, matched `1e83ee2c` passes fresh three-boot managed USB qualification
+and all 11 canonical/CLI cases. Complete fresh proof backups are independently
+cloned/hashed (154 files) at `.local/filesystem-evidence/pr338-review/`. Focused
+host checks and 19 installation-inspection tests pass using the documented Darwin
+feature macro. PR317 owner reports no current blocker; explicit slot/terminal
+work stays separate. Review VMs 61610, 6233 and 85869 remain untouched; all review
+guests stopped. See the [filesystem contract](../filesystem-layout.md) for limits
+and the next proposed late-flush proof. User authorized merge if ready.
 
 ## Managed USB workspace filesystem proof
 

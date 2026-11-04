@@ -5,33 +5,40 @@ in [PR308](https://github.com/PaulMDemers/SrvrOS/pull/308).
 
 ## PR338 merge review and next bounded milestone
 
-User authorized review and merge if ready, preserving review VMs and PR317
-coordination. Reviewed `f8f94e11`; integrated actual main `a37eb7b2` (PR336) as
-`dcc089b0`. The shared host-record conflict is resolved by preserving both
-filesystem and installation notices. New provisioning changes affect CLI dispatch
-only. Kernel, userspace, ports and proof routing remain byte-for-byte unchanged
-from runtime-tested `3c480516`, and the matched build retains identical guest
-payload hashes. No blocking review finding or production fix was needed.
+User authorized review/merge if ready, preserving review VMs and PR317
+coordination. Reviewed `f8f94e11` with no blocking finding. Integrated PR336's
+actual main `a37eb7b2` as `dcc089b0`; the shared host-record conflict preserves
+both filesystem and installation notices. Provisioning changes affect CLI
+dispatch only. All 154 original proof-file hashes and source-attributed refusal/
+restart evidence revalidate. Initial inspection-driver compilation omitted the
+documented Darwin feature macro; rebuilding with
+`HOST_CC='python3 build/tooling/darwin-host-cc.py -D_DARWIN_C_SOURCE'` passes the
+fresh focused checks and all 19 installation-inspection tests. Both attempts
+remain recorded; no production fix was needed.
 
-Independently revalidated all 154 preserved managed/canonical file hashes, raw
-healthy and source bytes, stable offline USB geometry/historical capability,
-exactly one failed write, unchanged post-quarantine operation counts, both busy
-refusals and post-close failed retirement/remount/reboot refusal. The clean
-control, three managed lifetimes and 11 canonical compatibility cases remain
-applicable with their original source attribution; no new VM run is claimed.
-Fresh storage-lease/workspace/USB, fsync, namespace, usercopy, I/O, helper/CLI,
-scope and docs checks pass. The initial dependency compile omitted the documented
-Darwin feature macro and failed on O_NOFOLLOW; rebuilding with
-`HOST_CC='python3 build/tooling/darwin-host-cc.py -D_DARWIN_C_SOURCE'` and rerunning
-all 19 installation-inspection tests pass. Both attempts remain recorded.
+Before merge, PR337 landed as main `f0c88a6d`, adding jq and advancing Ports to
+`747cca28`. Because runtime image hashes changed, integrate it as `1e83ee2c` and
+repeat the complete runtime qualification rather than relying on earlier payload
+equivalence. Fresh managed `proof-rbwbltjb` passes all three EFI lifetimes; fresh
+canonical/CLI `proof-zjxul7ag` passes all 11 cases. Fresh focused storage-lease,
+workspace/USB, fsync, namespace, usercopy, I/O, helper/CLI, 37 scope scenarios and
+documentation checks pass. Main `b78e3ed5` (PR339) then merges without conflict;
+its documentation/desktop-smoke changes do not affect runtime or proof inputs.
+Final matched payload hashes remain equal to the fresh `1e83ee2c` proofs.
 
-PR317 at `283c097a` stays draft. Its owner reports no blocker, stable permanent
-block tombstones/claims and unchanged ordinary BOT quarantine while continuing
-per-slot teardown/reset audit. This proof does not consume or accept unmerged
-terminal/reclamation behavior. Review VMs 61610, 6233 and 85869 remain running
-and untouched. Review records/logs survive at
-`.local/filesystem-evidence/pr338-review/`. The current managed first-write fault
-salvage and failed-retirement target is complete.
+Independent checks verify raw source/healthy bytes, stable offline geometry and
+historical write capability, exactly one failed write, no post-quarantine I/O,
+two busy refusals and post-close retirement/remount/reboot refusal. Complete fresh
+managed and canonical proof files are independently APFS-cloned and SHA-256
+checked (154 files) under `.local/filesystem-evidence/pr338-review/`, alongside
+review records/logs; original acceptance evidence remains intact.
+
+PR317 remains draft. Its owner's latest `1350a055` checkpoint reports no new
+blocker and no automatic BOT-failure retirement, with stable permanent block
+tombstones/claims and independent explicit per-slot/terminal work. This proof
+does not consume or accept unmerged terminal/reclamation behavior. Review VMs
+61610, 6233 and 85869 remain running and untouched; all new review guests stopped.
+The managed first-write fault salvage and failed-retirement target is complete.
 
 Next proposed bounded milestone: **managed USB late-flush failure salvage
 qualification**. The current first-write EIO leaves media unchanged. First review
