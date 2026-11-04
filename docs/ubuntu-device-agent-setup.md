@@ -864,6 +864,15 @@ Use the matching source-frozen full-prefix checker; no generic G-band recipe,
 network OUT or credentials. Cold shutdown/unplug remains required on this unit;
 automatic save/unmount/Ubuntu return and progress require no guest commands.
 
+Pro11,2 corrected v121 `285dad07e7a14417`/`128c25b0` now accepts session
+`session-00065f785b60016f-00`:15719 operations/2004737 complete bytes,all five
+firmware replies,eight retained receive transfers with seven decoded beacon/
+probe-response observations,terminal cleanup/inverse originals and storage/
+recovery/automatic return. The window is190863us;identifiers and distinct AP
+count are not recorded. Initial3732593a failed before MAC/calibration and remains
+preserved. This result accepts bounded command/restoration/management receive,
+not endurance,analog quality,authentication,network TX or IP data.
+
 Collect and inspect the matching session before preparing another run:
 
 ```sh

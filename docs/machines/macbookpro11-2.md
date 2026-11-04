@@ -12,21 +12,25 @@ The captured EW-7711MAC `7392:a711`/`0100` is **5GHz-only**; see the
 mistaken for assembled-model capability. Historical2.4GHz packet/USB traces do
 not establish2.4GHz RF support. Do not repeat the withdrawn v107 trial.
 
-Latest native v120 `019299c5a721fcda`, runtime `e2bf7e3b`, on main
-`845f703c`, accepts the complete1991045-byte prefix in session
-`session-00065f6d30db0147-00`:15618 operations, including the full v119 parent
-and3844 selected-channel operations with77 child I/O and six exact waits.
-Fresh trim44/channel161/20MHz remain selected while one RF0:4 trigger reads b0
-immediately and30 at all six delayed observations. Independent inverse originals
-pass. This observes clearing by the first requested10ms delay, not exact latency
-or RF lock. All MAC/CORE/DMA guards, source/release/session, offline USB fsck/
-allocation, installed recovery equality and automatic Ubuntu return pass.
-The215-file sealed native capsule and separate accepted notes survive outside
-build. Workspace unmounted, Ubuntu default, unarmed. This accepts bounded
-MAC-disabled selected-state/self-clear/register restoration only; channel MCU
-calibration, RX, populated discovery/reattach, authentication and IP stay pending.
-Prior v119 `ace4b3dcaa85e353`/`11689cfa` retains its1520120-byte/11774-operation
-common VCO acceptance and208-file capsule, independently preserved.
+Latest native v121 `285dad07e7a14417`, runtime `128c25b0`, on main
+`845f703c`, accepts matching session `session-00065f785b60016f-00`:15719
+operations and2004737 complete prefix bytes. The full v120 parent and101 new
+operations pass fresh5GHz admission/IBI9 effect/raw restoration, all five fixed
+R0/VCO161/FULL901/LC1/RXDCOC1 replies and timing, eight retained receive
+completions with seven decoded beacon/probe-response observations, MAC drain/
+disable/filter/TXOP restoration, exact endpoint cessation and inverse selected
+originals. One management observation is unsupported and is not counted as a
+beacon. The bounded window lasts190863us; it is not sustained receive/endurance.
+Observations can repeat APs; distinct AP count and Demers5 identity were not
+recorded. No analog-quality,authentication,network TX or IP acceptance follows.
+Offline USB fsck/allocation, installed recovery bytes and automatic Ubuntu
+return pass. The197-file sealed native capsule and separate accepted notes
+survive outside build. Workspace unmounted, Ubuntu default, unarmed.
+Prior v120 `019299c5a721fcda`/`e2bf7e3b` retains its1991045-byte/15618-operation
+selected-channel VCO/restoration acceptance and215-file capsule. Prior v119
+`ace4b3dcaa85e353`/`11689cfa` retains its1520120-byte/11774-operation common VCO
+acceptance and208-file capsule. The first v1213732593a failure remains failed
+and independently preserved; it does not inherit the corrected retry's result.
 
 Prior v118 `62e3a5325065719e`/`4dd9cfd5`, session
 `session-00065f6a45979c71-00`, remains accepted for its1510049-byte/11669-operation
@@ -35,19 +39,16 @@ separate accepted notes remain intact. Prior v117 `2a03a519eac62cbf`/`1fe64aac`,
 session `session-00065f693a903b08-00`, retains its1501530-byte/11578-operation
 fresh-trim/held-channel acceptance and154-file capsule.
 
-Installed v121 retry `285dad07e7a14417`, runtime `128c25b0`, is the separate
-selected161 firmware calibration/controlled receive candidate. Exact-image
-save/reset/refusal and desktop VMs, source-frozen full-prefix capacity/refusal,
-local fault/sanitizer/legacy regression, workspace and recovery checks pass.
-Physical acceptance is pending. After automatic Ubuntu return, collect
-`build/bringup/wifi-cal5-retry/return_collect.py` FIRST. Require the full parent,
-fresh IBI write/restoration proof, exact R0/VCO161/FULL901/LC1/RXDCOC1 replies,
-retained-window/drain/disable/stop and inverse originals. Quiet is not reception.
-Current runtime uses main845f703c; reviewed mainf4ea0ccb's newer desktop/session/
-Air changes are not integrated or native accepted here. Cold adapter unplug
-remains required; use shutdown under standing authority. Ordinary startup
-leaves radio diagnostics disabled. The separate bc VM allocation failure stays
-unaccepted and preserved. Credentials remain unused.
+Next: private5GHz discovery/cache and Demers5 identity selection using the
+verified selected-channel/calibration/receive contract, then live rescan/reattach,
+authentication/key lifecycle, network TX and DHCP/DNS/IP data with clean
+disconnect. Anonymous7-observation success is not a selectable network list or
+connection readiness. Actual runtime uses main845f703c; fetched5f670602's newer
+independent work is not integrated or native accepted here. Cold adapter unplug
+remains required for another physical trial; use shutdown under standing
+authority. Ordinary startup leaves radio diagnostics disabled. The separate bc
+VM allocation anomaly stays unaccepted. AP credentials remain unused;
+Demers2.4 requires compatible hardware. No new boot armed.
 
 Previous native v116 `466528fc7669566e`, runtime `c3088243`, main `1dad02c2`,
 passes the complete1063627-byte prefix in matching session
@@ -12475,3 +12476,27 @@ read-only inventory; runtime still uses845f703c. Shutdown for10seconds Wi-Fi
 unplug while off,reconnect same port,power on,workspace retained. Automatic
 progress/save/unmount/Ubuntu return;no commands/photos. Collect the matching
 retry first. Initialv121 remains failed;latest native acceptance is stillv120.
+
+
+## 2026-11-04 v121 native calibration and controlled5GHz receive accepted
+
+Corrected285dad07e7a14417/source128c25b0/session-00065f785b60016f-00 passes the
+source-frozen complete2004737-byte/15719-operation proof. All admission bits
+pass using fresh5GHz fields;the corrected binding does not depend on the legacy
+object. The delayed IBI9 raw
+saved wordffffffff changes toffffff7e and independently restores, as does
+TX_ALC0. Five exact16-byte firmware replies match R0,VCO161,FULL901,LC1,RXDCOC1;
+all required waits/guards pass. Eight distinct retained pages complete;seven
+beacon/probe-response observations decode, including empty-SSID advertisements;
+observations may repeat APs,
+and one unsupported management frame is excluded. No identifiers/payloads are
+logged and no distinct-AP or Demers5 identity claim follows. Window190863us;
+no sustained reception/analog-quality/performance acceptance. MAC drain/disable,
+filter/TXOP restoration, stopped-context/exact endpoint cessation, inverse
+selected originals and retained DMA pass. Full storage/recovery/automatic return
+pass. The197-file `wifi-cal5-retry-128c25b0` native capsule and independent
+`wifi-cal5-accepted-128c25b0` notes survive outside build. No repeat boot is needed
+for this bounded contract. Next is private5GHz discovery/cache/selection and
+then live ownership/reattach/authentication/key/TX/IP/data/disconnect. AP
+credentials remain unused;Demers2.4 needs compatible hardware. Initial3732593a
+and the separate bc anomaly remain failed/unaccepted. Ubuntu default;unarmed.

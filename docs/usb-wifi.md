@@ -10,17 +10,17 @@ observations, not accepted2.4GHz RF support. The pending v1072.4GHz diagnostic w
 withdrawn before installation. New installation and runtime gates refuse that
 captured2.4GHz RF recipe. Historical rendering remains for offline regression.
 
-Native evidence accepts the bounded empty-cache desktop, trackpad, unplug
-retirement and automatic return. Latest v120 accepts15618 MAC-disabled command
-operations, including77 selected-channel VCO operations within a3844-operation
-fresh-trim/channel161 transaction after the complete common VCO parent. Both
-triggers clear at the first delayed observation; all delayed reads and inverse
-register restoration pass. Earlier held-channel161/20MHz band/frequency/A20/PA/gain-adjusted BBP
-command/readback/restoration contracts remain source-bound evidence. RF lock,
-calibrated reception, populated discovery, live reattach/rescan, association/
-security and an active Wi-Fi IP provider remain pending. Ordinary
-startup leaves diagnostic radio operations disabled. Dated milestones below
-must not reinstate the withdrawn2.4GHz model assumption.
+Native evidence accepts the bounded empty-cache desktop,input,unplug retirement
+and automatic return. Latest v121 `285dad07e7a14417`/`128c25b0` accepts15719
+operations: full selected-channel parent plus101 fresh-field/IBI/calibration/
+MAC operations, five exact firmware replies and eight retained receive transfers
+with seven decoded beacon/probe-response observations on the fixed161/20MHz
+plan. Cleanup,endpoint cessation,inverse originals,storage/recovery and automatic
+return pass. Repeated observations are not distinct APs; identifiers were not
+recorded. This does not accept analog quality,endurance,populated discovery,
+live reattach,authentication/network TX or IP. Ordinary startup leaves diagnostic
+radio operations disabled. Dated milestones below must not reinstate withdrawn
+2.4GHz model assumptions or transfer acceptance between sources.
 
 ## Fresh trim lifetime (v117; bounded native acceptance)
 
@@ -120,7 +120,7 @@ survive outside build. The native prefix fits the unchanged2MiB bound with
 106107bytes remaining. No calibrated receive or connectivity claim
 follows from preparation or a self-cleared trigger.
 
-## Channel161 passive decoder foundation (host-tested only)
+## Channel161 passive decoder foundation
 
 `mt76_rx_beacon5` separately admits supplied channel161/20MHz. It shares the
 validated USB/RXWI/management framing with the legacy parser, copies output only
@@ -130,7 +130,8 @@ tuning. Missing HT uses the transport-supplied tuning. The shape follows Linux
 v7.0 [HT definitions](https://github.com/torvalds/linux/blob/v7.0/include/linux/ieee80211-ht.h).
 It infers no VHT width, calibrated RSSI, security acceptance or RF tuning from
 untrusted air bytes. The legacy1–11 function, output layout, diagnostics and
-native callers remain unchanged. There is no hardware caller for this new API.
+native callers remain unchanged. The separately qualified v121 window now uses
+this API under its own selected-channel/calibration ownership.
 
 `make test-mt76-rx5` checks every exact-frame truncation, unaligned buffers, all
 primary-channel values and unsupported supplied channel/width values, duplicate/
@@ -150,7 +151,7 @@ table. Native startup/drain/disable/endpoint ownership, fresh IBI9 write effect/
 restoration and controlled receive remain required. No new physical trial or
 credentials are armed by this offline foundation.
 
-## Selected-channel firmware calibration / receive candidate (v121)
+## Selected-channel firmware calibration / receive (v121; bounded native acceptance)
 
 The separate automatic `--wifi-cal5` profile requires the full v120 parent.
 One explicit inspection hook runs after the selected-channel VCO clears and
@@ -179,8 +180,22 @@ Every uncertainty retains DMA and reports failure. Independent saved-word/MAC
 cleanup remains attempted after forward loss, subject to live transport and
 nonquarantined EP0/command ownership. Failure forbids outer inverse replay;
 only fully quiesced success permits original band/trim restoration. No network
-frames, credentials, UI/provider startup or association are enabled. Current
-physical acceptance remains v120 until a matching v121 session is collected.
+frames, credentials, UI/provider startup or association are enabled. Pro11,2's corrected v121 `285dad07e7a14417`/`128c25b0` now passes matching
+session `session-00065f785b60016f-00`:15719 operations,2004737 complete prefix
+bytes,all five replies and fresh IBI effect/inverse restoration,eight receive
+completions and seven decoded beacon/probe-response observations. One unsupported
+management frame is excluded. The eight-page window completes in190863us; this
+is not sustained/endurance or calibrated-quality acceptance. Identifiers are
+not saved; repeated observations do not establish seven distinct APs or identify
+Demers5. Drain/disable/filter/TXOP restoration,exact stopped endpoint,inverse
+selected originals,storage/recovery and automatic Ubuntu return pass. The197-file
+sealed native capsule and separate notes survive outside build. The initial
+v1213732593a source12b47dbc failed before any MAC/calibration operation because
+it tested the legacy trim object;that failure remains preserved. Corrected
+same-device5GHz field/gate admission has positive empty-legacy and negative
+mutation regressions. Next: private5GHz discovery/cache,Demers5 selection,
+reattach/authentication/key/network TX/IP data and clean disconnect. AP
+credentials remain unused.
 
 ## 5GHz RF band-selection foundation
 
