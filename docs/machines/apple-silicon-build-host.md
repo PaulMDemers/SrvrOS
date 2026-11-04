@@ -3757,3 +3757,13 @@ is retained outside distclean in the task-owned APFS build volume. Public signal
 implementation remains under owner design review: userspace counters cannot close
 the confirmed internal polling/retry gap, so kernel-bound logical I/O admission
 and atomic temporary-mask waiting must be reviewed before libc/WTF integration.
+
+The separately reviewed GOT-before-TLS linker correction from browser26e9e78f
+is now qualified in this dependency checkout. Both legacy negative ELF layouts
+describe only8/16 TLS bytes and fail coverage; the corrected layouts cover the
+actual2148/2164-byte zero/initialized TLS and place the real8-byte GOT first.
+The normal exec-corrected guest passes both main/worker TLS/GOT variants and
+register preservation, then stops. Source, link inputs, ELF layouts and raw guest
+logs are frozen outside distclean; receipt
+`8ce57965d33a6c4ce81682793cda0ea1ed58becea5d250934ea2154f778dd7f4`.
+This is linker/fixture qualification, not a newly rebuilt SDK/ICU/JSC claim.
