@@ -1,5 +1,23 @@
 # Apple Silicon macOS build host
 
+## Offline selected-profile export — active
+
+User authorizes implementation, fresh-install restoration/refusal proof and a
+scoped PR. Reuse isolated `SrvrOS-installation-io`, branch
+`device/apple-silicon/installed-profile-export`, integrated main `a37eb7b2`.
+Own separate host export command, bounded inherited-read-only-fd document reader,
+focused tests, proof and installation docs. Reuse PR336 inspection, strict v1
+portable bundle rules, existing v2 fresh installation plans and integrated clean
+filesystem/profile contracts. No kernel, account, mount, recovery or profile-policy
+implementation; open PR333 desktop transfer and PR338 managed salvage remain
+independent. Export only explicit Documents files and portable identity/settings;
+exclude implicit local/machine/session state. Refuse uncertain source/output
+without replacement; preserve historical receipts. Acceptance is A edit/save/
+reboot, direct stopped-image export, fresh B with different disk/home/local
+bindings and reboot/readback, plus read-only/refusal snapshots and provenance.
+Preserve VMs 61610/6233/85869 and primary/other checkouts; one build/harness here,
+no physical media, host reboot, Actions or merge requested.
+
 ## PR336 integrated-main merge review — ready
 
 User authorizes review and merge if ready. Reuse the isolated

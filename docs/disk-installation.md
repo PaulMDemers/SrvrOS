@@ -1,5 +1,37 @@
 # Disk installation and recovery
 
+## Offline selected-profile export — active
+
+User authorized implementation, fresh-install restoration/refusal proof and a
+scoped PR, based on integrated main `a37eb7b2`. Own host export, a bounded native
+read-only document reader, focused tests and proof; preserve current publication,
+filesystem, profile-policy and recovery contracts. Existing review VMs and
+earlier evidence stay untouched. No physical media or in-place changes.
+
+The CLI journey was specified with optimize-ux using source inspection and an
+expert walkthrough; no representative-user study is claimed. The operator has
+an offline admitted used installation and explicitly chooses its UUID/home and
+individual document paths. Completion is a newly published v1 portable bundle,
+then exact restoration into a separately provisioned installation. Ordinary
+inspection remains metadata-only and publication receipts remain historical.
+
+| Step | Operator choice/action | Outcome or refusal |
+| --- | --- | --- |
+| Inspect source | Run `inspect-installed` on the offline stage | Current profile identity and structural result; pending/dirty/ambiguous state blocks |
+| Select export | Supply UUID/home, repeat `--document Documents/...`, choose a new output filename | Only explicit files and portable identity/preferences; no recursive/home sweep |
+| Validate/read | Export reruns admission and reads through the same locked image descriptor | Bounds, exact selection and source revalidation precede any publication |
+| Publish | New file, checked file/parent sync and exclusive link | JSON success includes hashes; existing output refuses; a visible uncertain output is retained with failure |
+| Restore | Use the exported bundle with fresh v2 prepare/apply and destination-local bindings | Source stays intact; verify saved content after fresh boot/reboot |
+
+Zero `--document` options deliberately exports identity/preferences only.
+Selected document contents remain opaque bytes and can contain private data;
+selection authorizes those bytes. The exclusion rules prevent implicit collection
+of local bindings, machine settings, caches, credentials or arbitrary application
+state; they do not redact a selected document. Export refuses uncertain state
+without invoking recovery or replacing output. A post-publication error means
+inspect the retained output/evidence before choosing a new name; no automatic
+retry, deletion or durability acknowledgment is inferred.
+
 ## PR336 integrated-main review and next bounded checkpoint
 
 User authorized review and merge if ready. Reviewed `b3c6a694` against fetched
