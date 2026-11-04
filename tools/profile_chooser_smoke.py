@@ -115,7 +115,13 @@ class VM:
             time.sleep(.2)
 
     def screenshot(self, name):
-        self.qmp.call('screendump', {'filename': str(self.out / f'{name}-{self.label}.ppm')})
+        path = self.out / f'{name}-{self.label}.ppm'
+        self.qmp.call('screendump', {'filename': str(path)})
+        with path.open('rb') as stream:
+            header = stream.read(256)
+        match = re.match(rb'P6\s+(\d+)\s+(\d+)\s+255\s', header)
+        if not match or tuple(map(int, match.groups())) != (self.width, self.height):
+            raise RuntimeError(f'{self.label}: screenshot dimensions differ from requested {self.width}x{self.height}')
 
     def quiesced_data_hash(self):
         # Flush guest writes before pausing all vCPUs. Never inspect the disk
@@ -355,10 +361,52 @@ def main():
             vm.run('/fat/bin/rm /fat/home/.desktop-profile')
             start, index = chooser(vm, ALT, flags='--apps-trace --scale=1')
             select(vm, index); opened(vm, ALT, start, ALT_ID); vm.close_desktop(); vm.finish()
-        with VM(disks['a'], disks['transport'], out, 'a-malformed', args, 640, 480) as vm:
-            vm.run('/fat/bin/write /fat/home/.desktop-profile malformed')
+        # Mutate A in the guest, then copy only its offline data partition into
+        # a newly prepared identity-bound installation with a 640x480 EFI mode.
+        with VM(disks['a'], disks['transport'], out, 'a-corrupt-choice', args) as vm:
+            vm.run('/fat/bin/write /fat/home/.desktop-profile malformed'); vm.finish()
+        _, (a_offset, a_size) = d.partitions(disks['a'])
+        small_volume = out / 'small-source.exfat'
+        small_volume.write_bytes(d.data_image(disks['a'], a_offset, a_size))
+        small_stage = out / 'target-small'
+        original_config = installation_image.CONFIG
+        small_config = original_config.replace(b'resolution: 1280x800', b'resolution: 640x480')
+        if small_config == original_config: raise RuntimeError('EFI resolution override failed')
+        try:
+            installation_image.CONFIG = small_config
+            small_plan = installation_image.prepare(small_stage, ROOT / 'build/kernel/srvros.elf',
+                ROOT / 'build/limine-binary/BOOTX64.EFI', small_volume,
+                ROOT / 'build/userspace/init.elf', identity_bound=True)
+            small_ready = installation_image.apply(small_stage)
+        finally:
+            installation_image.CONFIG = original_config
+        small = small_stage / 'image.img'
+        _, (small_offset, small_size) = d.partitions(small)
+        small_bounds = d.outside_data(small, small_offset, small_size)
+        if small_ready['gpt']['disk_guid'] in {v['gpt']['disk_guid'] for v in receipt['installations'].values()}:
+            raise RuntimeError('small fixture disk GUID is not distinct')
+        config = small_plan['config'].encode('ascii')
+        if b'resolution: 640x480' not in config or (small_stage / 'limine.conf').read_bytes() != config:
+            raise RuntimeError('small fixture EFI config mismatch')
+        receipt['small_fixture'] = {'disk': str(small), 'gpt': small_ready['gpt'],
+            'source_data_sha256': d.digest(small_volume.read_bytes()),
+            'config': config.decode('ascii'), 'config_sha256': d.digest(config),
+            'protected_regions': small_bounds, 'initial_disk_sha256': d.digest(small.read_bytes())}
+        d.save_json(out / 'receipt.json', receipt)
+        with VM(small, disks['transport'], out, 'a-malformed-small', args, 640, 480) as vm:
             start, _ = chooser(vm, A, flags='--apps-trace --scale=1')
-            vm.screenshot('chooser-small'); back(vm, start, button=True); vm.finish()
+            vm.screenshot('chooser-small'); back(vm, start, button=True)
+            # A selected session provides the deskd framebuffer trace in
+            # addition to QMP's independent screenshot-dimension check.
+            start, index = chooser(vm, A, flags='--apps-trace --scale=1')
+            select(vm, index); opened(vm, A, start)
+            observe(vm, rb'deskd: display physical=640x480 logical=640x480 scale=1', start)
+            vm.close_desktop(); vm.finish()
+        if d.outside_data(small, small_offset, small_size) != small_bounds:
+            raise RuntimeError('small fixture protected disk bytes changed')
+        guest.check_allocation(small, out, 'small-final')
+        receipt['small_fixture']['final_disk_sha256'] = d.digest(small.read_bytes())
+        d.save_json(out / 'receipt.json', receipt)
         with VM(disks['a'], disks['transport'], out, 'a-reselect', args) as vm:
             start, index = chooser(vm, A, flags='--apps-trace --scale=1')
             select(vm, index); opened(vm, A, start); vm.close_desktop(); vm.finish()

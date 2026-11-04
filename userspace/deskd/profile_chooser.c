@@ -193,7 +193,8 @@ static void draw(struct chooser *ui) {
         desk_label_ellipsis(c,(struct desk_rect){r.x+10,r.y+4,r.w-146,22},&desk_font_16,e->name,t->text);
         const char *state=e->state==PROFILE_READY?"Ready":e->state==PROFILE_RECOVERABLE?"Recovery needed":"Unavailable";
         desk_label_draw(c,(struct desk_rect){r.x+r.w-132,r.y+4,124,22},&desk_font_16,state,t->muted);
-        desk_label_ellipsis(c,(struct desk_rect){r.x+10,r.y+27,r.w-20,21},&desk_font_16,e->detail,t->muted);
+        desk_label_ellipsis(c,(struct desk_rect){r.x+10,r.y+27,r.w-20,21},&desk_font_16,
+            e->state==PROFILE_READY?e->home:e->detail,t->muted);
     }
     if(ui->catalog.count>ui->visible) {
         int track=ui->list.h-4,thumb=track*(int)ui->visible/(int)ui->catalog.count;
@@ -208,7 +209,7 @@ static void draw(struct chooser *ui) {
     if(ui->save_failed)desk_button_draw(c,&ui->stay,"Stay here",t);
     desk_button_draw(c,&ui->back,"Back to console",t);
     desk_label_ellipsis(c,(struct desk_rect){24,c->height-24,c->width-48,22},&desk_font_16,
-        "↑ ↓ Select   Tab Move focus   Enter Continue   Esc Console",0x354352);
+        "Up/Down Select   Tab Focus   Enter Continue   Esc Console",0x354352);
     for(int y=0;y<16;y++) {
         desk_fill(c,(struct desk_rect){ui->cursor_x,ui->cursor_y+y,1+y/2,1},0x252a30);
         if(y>1 && y<13)desk_fill(c,(struct desk_rect){ui->cursor_x+1,ui->cursor_y+y,y/2,1},0xf0f1f3);
