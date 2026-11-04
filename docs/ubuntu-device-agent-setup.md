@@ -838,6 +838,10 @@ Require the entire v118 parent,105 new I/O records and six exact delay receipts,
 monotonic self-clear, original RF word and inverse trim readbacks. Pending or
 reasserted triggers are failures; do not force-clear/replay or accept calibration
 from a cleared bit. Physical acceptance remains machine/source/release specific.
+Pro11,2 accepted release `ace4b3dcaa85e353`/`11689cfa`:11774 operations,
+1520120 complete bytes, immediate pending and all six delayed clear samples,
+independent restoration and storage/recovery/automatic-return checks. This does
+not accept a calibrated receiver or Wi-Fi connection.
 
 Collect and inspect the matching session before preparing another run:
 

@@ -11,12 +11,13 @@ withdrawn before installation. New installation and runtime gates refuse that
 captured2.4GHz RF recipe. Historical rendering remains for offline regression.
 
 Native evidence accepts the bounded empty-cache desktop, trackpad, unplug
-retirement and automatic return. Latest v118 accepts11669 MAC-disabled command
-operations, including91 common DAC operations,26 fresh trim-field operations and3767 operations holding
-trim44 around channel161/20MHz band/frequency/A20/PA/gain-adjusted BBP selection. Independent selected reads and
-inverse original reads pass. This is command/state/restoration evidence; VCO/RF
-lock, calibrated reception, populated discovery, live reattach/rescan,
-association/security and an active Wi-Fi IP provider remain pending. Ordinary
+retirement and automatic return. Latest v119 accepts11774 MAC-disabled command
+operations, including105 common VCO operations after the complete fresh-trim/DAC parent. One trigger self-clears
+at the first delayed observation; all six delayed reads and trim restoration
+pass. Earlier held-channel161/20MHz band/frequency/A20/PA/gain-adjusted BBP
+command/readback/restoration contracts remain source-bound evidence. RF lock,
+calibrated reception, populated discovery, live reattach/rescan, association/
+security and an active Wi-Fi IP provider remain pending. Ordinary
 startup leaves diagnostic radio operations disabled. Dated milestones below
 must not reinstate the withdrawn2.4GHz model assumption.
 
@@ -61,7 +62,7 @@ build. This does not accept VCO, RF lock, calibrated RX or connectivity; next is
 the separate common VCO lifetime with freshly selected trim, followed by the
 per-channel VCO/calibration/receiver contract.
 
-## Common VCO child candidate (v119; physical acceptance pending)
+## Common VCO child (v119; bounded native acceptance)
 
 The opt-in fixed child requires the complete same-boot v118 fresh-field/DAC
 proof, selects trim44 again, reads RF0:4 original30 and issues exactly one bit7
@@ -75,9 +76,13 @@ The source trigger order is pinned; the one-second observation bound is diagnost
 policy, not a Linux RF-lock criterion. Self-clear and final word restoration do
 not establish analog calibration or usable reception. The separate per-channel
 VCO after held band/synth/gain/BBP remains pending, as do security and IP.
-Pro11,2 v119 `ace4b3dcaa85e353`/`11689cfa` is installed after exact-image VM,
-sanitizer, full-prefix/parser and storage/recovery checks. Its physical result
-is pending collection; latest native acceptance remains v118. See the unit
+Pro11,2 v119 `ace4b3dcaa85e353`/`11689cfa`, matching session
+`session-00065f6c26a94612-00`, accepts11774 operations and a complete1520120-byte
+saved prefix. Immediate b0 and all six delayed30 observations, independent
+trim44/trim0 reads, storage/recovery checks and automatic Ubuntu return pass.
+The208-file sealed native capsule survives outside build. The first delayed
+sample follows a requested10ms wait; this is not a precise calibration latency
+measurement. Held-channel VCO/calibration, receive and connectivity stay pending. See the unit
 record for the separately unaccepted bc VM allocation anomaly; it does not
 substitute for or relax this capture's storage checks.
 

@@ -12,28 +12,36 @@ The captured EW-7711MAC `7392:a711`/`0100` is **5GHz-only**; see the
 mistaken for assembled-model capability. Historical2.4GHz packet/USB traces do
 not establish2.4GHz RF support. Do not repeat the withdrawn v107 trial.
 
-Latest native v118 `62e3a5325065719e`, runtime source `4dd9cfd5`, on main
-`10890eed`, accepts the complete1510049-byte prefix in session
-`session-00065f6a45979c71-00`:11669 operations, including the full v117 parent,
-26 fresh trim-field operations and91 common DAC operations. Fresh trim44 is
-selected around RF0:73 bit7 set/clear/set, independent DAC93/trim44 reads pass,
-and trim0 is independently restored. All MAC/CORE/DMA guards, source/release/
-session checks, saved automatic Ubuntu return, offline fsck/allocation and
-installed recovery bytes pass. The157-file sealed native capsule and separate
-accepted notes survive outside build. Workspace unmounted, Ubuntu default,
-unarmed. This accepts the MAC-disabled command/reset-word contract only;
-restoring register words does not undo internal DAC reset effects. VCO/RF lock,
-calibrated RX, populated discovery/reattach, authentication and IP remain pending.
+Latest native v119 `ace4b3dcaa85e353`, runtime source `11689cfa`, on main
+`7ef140ef`, accepts the complete1520120-byte prefix in session
+`session-00065f6c26a94612-00`:11774 operations, including the full v118 parent
+and105 common VCO operations. Fresh trim44 spans one RF0:4 b0 trigger,
+immediate b0 read and six delayed30 reads; the first clear is the first delayed
+sample, after a requested10ms wait. This does not measure the exact calibration
+latency or establish RF lock. Selected trim44 and inverse trim0 readbacks pass,
+as do every MAC/CORE/DMA guard, source/release/session proof, saved automatic
+Ubuntu return, offline USB fsck/allocation and all installed recovery bytes.
+The208-file sealed native capsule and separate accepted notes survive outside
+build. Workspace unmounted, Ubuntu default, unarmed. This accepts the bounded
+MAC-disabled common trigger/self-clear/trim-restoration contract only; calibrated
+RX, populated discovery/reattach, authentication and IP remain pending.
 
-Prior v117 `2a03a519eac62cbf`/`1fe64aac`, session
-`session-00065f693a903b08-00`, remains accepted for its1501530-byte/11578-operation
-fresh-trim/held-channel contract. Its154-file capsule and separate notes are
-retained independently. Next installed candidate is v119 `ace4b3dcaa85e353`,
-runtime `11689cfa`, main `7ef140ef`: one common VCO trigger with fresh trim44,
-six timed observations and independent trim restoration only after self-clear.
-Collect `build/bringup/wifi-vco5-native/return_collect.py` FIRST after return.
-It remains physically unaccepted. Separate held-channel VCO/calibration and
-cold-unplug requirements remain; ordinary startup does not enable this trial.
+Prior v118 `62e3a5325065719e`/`4dd9cfd5`, session
+`session-00065f6a45979c71-00`, remains accepted for its1510049-byte/11669-operation
+fresh-trim/common DAC command and reset-word contract; its157-file capsule and
+separate accepted notes remain intact. Prior v117 `2a03a519eac62cbf`/`1fe64aac`,
+session `session-00065f693a903b08-00`, retains its1501530-byte/11578-operation
+fresh-trim/held-channel acceptance and154-file capsule.
+
+Next: separately owned channel161 VCO while fresh trim44, band/synth/A20/PA and
+gain-adjusted BBP are still selected, before inverse restoration. The audited
+selected checkpoint is outer trim phase2/op21, channel phase3, band phase8,
+synth paused, A20/op504, PA/op294 and BBP/op441. Preserve legacy no-child plans,
+private fresh parent proof, bounded timing/observation and no force-clear/replay.
+Then audit MCU calibration and controlled reception before authentication/data.
+No new trial is armed. Cold adapter unplug remains required; ordinary startup
+does not enable this diagnostic. The separate bc VM allocation failure remains
+unaccepted and preserved; this native USB/storage result does not resolve it.
 
 Previous native v116 `466528fc7669566e`, runtime `c3088243`, main `1dad02c2`,
 passes the complete1063627-byte prefix in matching session
@@ -12176,3 +12184,18 @@ failures. Filesystem, VFS, bootlog/workspace-log and AHCI code are byte-identica
 to accepted v118 source `4dd9cfd5`; native Wi-Fi capture does not run bc and keeps
 its own2MiB log, offline USB, full-prefix and recovery gates. Do not promote this
 isolated Wi-Fi trial into ordinary filesystem or CLI acceptance.
+
+## 2026-11-03 v119 native common VCO return
+
+The matching automatically saved session `session-00065f6c26a94612-00` passes the
+frozen whole-parent/common VCO proof:11774 operations,1520120bytes, all105 new
+I/O, fifteen RF commands,90 guards and six exact delay receipts. The write
+acknowledges b0, the immediate read remains b0, and every delayed sample is30.
+Independent trim44 and inverse trim0 readbacks pass; no trigger clear write or
+replay occurs. MAC stays disabled and network OUT is zero. Offline USB fsck/
+allocation, all installed recovery bytes and Ubuntu default/unarmed state pass.
+No retry is required for this contract. The208-file `wifi-vco5-native-11689cfa`
+capsule and separate `wifi-vco5-accepted-11689cfa` notes survive outside build.
+The source-pinned follow-up audit identifies the still-selected held-channel
+checkpoint for a separate VCO child; it performs no new hardware I/O and accepts
+no calibrated receive, RF lock, security or IP behavior. Credentials unused.
