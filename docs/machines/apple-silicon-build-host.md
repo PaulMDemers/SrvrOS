@@ -4,7 +4,7 @@
 
 User authorized a scoped PR with write/sync/link/unlink failure, reconciliation
 and refusal proof in isolated `SrvrOS-installation-io`, branch
-`device/apple-silicon/install-publication-io-failures`, main `1f177761`.
+`device/apple-silicon/install-publication-io-qualification`, main `1f177761`.
 Own host publication tool/fault fixtures and installation docs only. Latest
 integrated filesystem/profile contracts, open PR326 and merged PR327 are inspected;
 profile chooser and descriptor salvage are independent. Separate storage-guard

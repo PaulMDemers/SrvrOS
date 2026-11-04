@@ -52,7 +52,19 @@ def snapshot(root):
 
 
 def source_snapshot(root):
-    return {p.name: digest(p) for p in root.iterdir() if p.is_file() and p.name != 'result.json'}
+    # All generated source inputs are root-level regular files. The stage and
+    # the optional result file are excluded; do not follow links.
+    result = {}
+    for p in sorted(root.iterdir()):
+        if p.name in ('stage', 'result.json'):
+            continue
+        info = p.lstat()
+        item = {'mode': stat.S_IFMT(info.st_mode), 'permissions': stat.S_IMODE(info.st_mode),
+                'inode': info.st_ino, 'device': info.st_dev, 'links': info.st_nlink, 'size': info.st_size}
+        if stat.S_ISREG(info.st_mode): item['sha256'] = digest(p)
+        if stat.S_ISLNK(info.st_mode): item['target'] = os.readlink(p)
+        result[p.name] = item
+    return result
 
 
 class Faults:
@@ -92,6 +104,9 @@ class Faults:
             return action()
         self.fired = True
         if self.mode == 'before': raise OSError('injected before ' + label)
+        if self.mode == 'short':
+            if prefix is None: raise ValueError('short mode requires a write')
+            return prefix()
         if self.mode == 'prefix':
             if prefix is not None: prefix()
             raise OSError('injected partial ' + label)
@@ -218,6 +233,7 @@ def worker(root, variant, operation, checkpoint, label, mode):
 def examine(root):
     root = root.resolve()
     stage = root / 'stage'
+    sources_before = source_snapshot(root)
     before = snapshot(stage)
     inspection = image.inspect(stage)
     after_inspect = snapshot(stage)
@@ -236,7 +252,10 @@ def examine(root):
         except (ValueError, OSError): pass
         else: raise AssertionError('unreconcilable stage accepted')
         assert snapshot(stage) == before, 'refusal mutated stage'
-    return {'inspection': inspection, 'before': before, 'after': snapshot(stage)}
+    sources_after = source_snapshot(root)
+    assert sources_before == sources_after, 'inspect or reconcile changed source'
+    return {'inspection': inspection, 'before': before, 'after': snapshot(stage),
+            'sources_before': sources_before, 'sources_after': sources_after}
 
 
 def assert_ready_barriers(stage, events):
@@ -334,7 +353,10 @@ def run_process(args):
 def experiment(output):
     receipt = {'status': 'INCOMPLETE', 'cases': [], 'baselines': [], 'controls': [], 'errors': [],
                'scope': 'host Python I/O; sparse GPT/FAT builder and deterministic profile driver stub',
-               'limits': 'No power-loss simulation or kernel/device fault injection; profile subprocess I/O is not intercepted.',
+               'limits': ['No power-loss simulation or kernel/device fault injection; profile subprocess I/O is not intercepted.',
+                          'Logical writes sample the first write per file; sparse image sample is the MBR write, and profile temporary payloads are sampled once.',
+                          'Short-return injection covers top-level publisher writes; raw short returns in profile adapter temporary files are not qualified.',
+                          'Production metadata uses one checked write; the separate production-image smoke samples its first image write.'],
                'code_sha256': {p.name: digest(p) for p in (HERE, Path(__file__).with_name('test_installation_io_failures.py'),
                    Path(image.__file__), Path(image.usb.__file__), Path(profiles.__file__), Path(profile_image.__file__),
                    Path(__file__).with_name('test_installation_image.py'), Path(__file__).with_name('test_installation_profile.py'),
@@ -370,6 +392,10 @@ def experiment(output):
                 shutil.rmtree(root)
                 for label in events:
                     modes = ('before', 'prefix') if label.startswith('write:') else ('before', 'after')
+                    if label.split(':')[0:2] in ([
+                            'write', 'in-progress.json'], ['write', 'bootstrap.tar'], ['write', 'limine.conf'],
+                            ['write', 'image.partial'], ['write', 'publication.json'], ['write', 'ready.partial']):
+                        modes += ('short',)
                     for mode in modes:
                         result = run_process(args + [label, mode])
                         case = {'variant': variant, 'operation': operation, 'checkpoint': checkpoint,
@@ -380,6 +406,7 @@ def experiment(output):
                         assert result['sources'] == result['sources_after'], 'source changed'
                         case['recovery'] = run_process(['examine', str(root)])
                         save()
+                        assert case['recovery']['sources_before'] == result['sources_after'], 'source changed between processes'
                         expected = ('publication.json' in result['after'] and
                                     not label.startswith(('write:publication.json:', 'write:ready.partial:')))
                         case['expected_reconcilable'] = expected

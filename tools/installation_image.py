@@ -100,9 +100,10 @@ def layout(exfat_size):
 
 
 def write_json(path, obj):
+    payload = json.dumps(obj, indent=2, sort_keys=True) + '\n'
     with open(path, 'x') as f:
-        json.dump(obj, f, indent=2, sort_keys=True)
-        f.write('\n')
+        if f.write(payload) != len(payload):
+            raise OSError('short metadata write')
         f.flush()
         os.fsync(f.fileno())
 
@@ -383,12 +384,16 @@ def _apply(target, checkpoint):
     sync_dir(target)
     # Private temporary files are retained on failure, preventing ambiguous reuse.
     init_data = Path(plan['sources']['init']['path']).read_bytes()
+    bootstrap = bootstrap_bytes(init_data)
     with open(target / 'bootstrap.tar', 'xb') as stream:
-        stream.write(bootstrap_bytes(init_data))
+        if stream.write(bootstrap) != len(bootstrap):
+            raise OSError('short bootstrap write')
         stream.flush()
         os.fsync(stream.fileno())
+    config = plan.get('config', CONFIG.decode('ascii')).encode('ascii')
     with open(target / 'limine.conf', 'xb') as stream:
-        stream.write(plan.get('config', CONFIG.decode('ascii')).encode('ascii'))
+        if stream.write(config) != len(config):
+            raise OSError('short configuration write')
         stream.flush()
         os.fsync(stream.fileno())
     sync_dir(target)

@@ -14,8 +14,8 @@ class InstallationIOFailureTests(unittest.TestCase):
             self.assertEqual(result['omitted_barrier_negative_control'], 'detected')
 
     @unittest.skipUnless(os.environ.get('SRVROS_EXHAUSTIVE_IO_TEST') == '1',
-                         'set SRVROS_EXHAUSTIVE_IO_TEST=1 for the full subprocess matrix')
-    def test_exhaustive_fault_matrix(self):
+                         'set SRVROS_EXHAUSTIVE_IO_TEST=1 for the bounded subprocess matrix')
+    def test_bounded_fault_matrix(self):
         with tempfile.TemporaryDirectory() as temp:
             receipt = faults.experiment(str(Path(temp) / 'receipt.json'))
             self.assertEqual(receipt['status'], 'COMPLETE')

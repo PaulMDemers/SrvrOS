@@ -3,7 +3,7 @@
 ## Host publication I/O failures — active milestone
 
 User authorized deterministic write/sync/link/unlink qualification and a scoped
-PR. Branch `device/apple-silicon/install-publication-io-failures` uses the isolated
+PR. Branch `device/apple-silicon/install-publication-io-qualification` uses the isolated
 installation clone and integrated main `1f177761` (PR325/327). Own the host publication
 tool, fault fixture/tests and installation evidence. No kernel, filesystem,
 guest profile or application policy changes. Review VMs 61610, 6233 and 85869
