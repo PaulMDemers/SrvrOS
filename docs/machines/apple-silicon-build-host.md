@@ -4082,3 +4082,22 @@ commit receives a clean matched build and byte-identity comparison with accepted
 runtime; the receipt records exact revisions. Ready for dependency-order
 integration; merge is separate. All owned guests are stopped. Shared checkout
 and review VM remain untouched. No further feature is needed for this target.
+
+### Files folder-picker integration — November 4, 2026
+
+User authorizes UI5, Apps10, OS359 integration in dependency order and merged
+verification in isolated `SrvrOS-app-quality`. UI5 merged `b3fa806a61e2be362bdf9411468d2f44cdcb984b` first;
+Apps10 merged `b2b93f65dd0c4ae8d2bafdba465907b02c83ad29` second. Both merge trees exactly match the accepted
+UI `65ab080a` / Apps `6b2b00a3` candidates. Reconcile OS main `5f670602`, whose
+changes since the feature baseline are documentation and Haswell host tooling
+only; preserve those six files and the matched Ports pin. No app/session/kernel
+runtime overlap exists. Accepted feature evidence remains tied to `bac25c8d`.
+
+The merged dependencies receive focused host checks, a clean matched build and
+runtime artifact comparison before OS359 merge. Actual merged OS source receives
+a matched build and normal/refused-dialog Files transfer VMs; exact merge,
+provenance, host/VM receipts and byte comparisons are recorded under
+`build/review/files-folder-picker-integration/`. The full original Files/Text/
+Preview, widget, portable and sanitizer acceptance remains valid for identical
+runtime bytes. Shared checkout and review VM remain untouched; owned guests run
+sequentially and stop at test completion. No physical or power-loss acceptance.
