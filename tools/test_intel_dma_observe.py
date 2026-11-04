@@ -53,6 +53,34 @@ class DmaTests(unittest.TestCase):
     def test_actual_adapter_refusal_formatter(self):
         p=pathlib.Path('build/tests/intel-display-probe');self.assertTrue(p.exists())
         r=dma.dma_result(subprocess.check_output([str(p),'--dma-refused'],text=True));self.assertFalse(r['observation_complete']);self.assertEqual(r['summary']['maps'],0);self.assertFalse(r['dma_authority'])
+    def test_resource_diagnostics_actual_formatter(self):
+        for mode in ('missing','conflict','partial','ambiguous','many','malformed'):
+            with self.subTest(mode=mode):
+                text=subprocess.check_output(['build/tests/intel-display-probe','--dma-resource-'+mode],text=True)
+                r=dma.dma_result(text);self.assertFalse(r['observation_complete']);self.assertEqual(r['summary']['maps'],0)
+                d=r['admission_diagnostic'];self.assertEqual(d['first_failed'],'firmware resource')
+                self.assertEqual(d['memory']['valid'],int(mode!='malformed'))
+                self.assertLessEqual(len(d['regions']),6);self.assertLess(len(text),4096)
+                backing=subprocess.check_output(['build/tests/intel-display-probe','--backing-report'],text=True)
+                self.assertLess(len(text)+len(backing)+16384,65536)
+                if mode=='many':self.assertEqual(d['memory']['omitted'],1)
+                if mode=='conflict':self.assertEqual(d['memory']['conflicts'],1)
+                if mode=='missing':self.assertEqual(r['rows']['resource'][0]['overlaps'],0)
+    def test_diagnostic_schema_refuses_damage(self):
+        text=subprocess.check_output(['build/tests/intel-display-probe','--dma-resource-conflict'],text=True)
+        for line in text.splitlines():
+            if line.startswith(('intel-dma-admission:','intel-dma-memory:','intel-dma-region:')):
+                with self.assertRaises(ValueError):dma.dma_result(text+line+'\n')
+        for old,new in [('checked=63','checked=127'),('passed=31','passed=63'),('failed=32','failed=16'),('shown=1','shown=9'),('conflicts=1','conflicts=2'),('index=0','index=1'),('relation=0','relation=2'),('length=4096','length=18446744073709551615')]:
+            with self.subTest(old=old):
+                with self.assertRaises(ValueError):dma.dma_result(text.replace(old,new))
+        # Historical receipts without the paired diagnostics still decode.
+        old='\n'.join(l for l in text.splitlines() if not l.startswith(('intel-dma-admission:','intel-dma-memory:','intel-dma-region:')))
+        self.assertFalse(dma.dma_result(old)['observation_complete'])
+    def test_success_requires_matching_diagnostic_admission(self):
+        diagnostics='intel-dma-admission: v=1 checked=127 passed=127 failed=0 guards=4\nintel-dma-memory: v=1 checked=1 valid=1 entries=1 conflicts=0 shown=1 omitted=0 before=0 after=0\nintel-dma-region: v=1 index=0 relation=0 base=0xfed90000 length=4096 type=1\n'
+        self.assertTrue(self.decode(self.text+diagnostics)['observation_complete'])
+        with self.assertRaises(ValueError):self.decode(self.text+diagnostics.replace('valid=1','valid=0'))
     def test_absent_and_bounded_report(self):
         self.assertIsNone(dma.dma_result('ordinary desktop'))
         self.assertLess(len(self.text),2048)

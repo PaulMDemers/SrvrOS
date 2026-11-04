@@ -2,6 +2,16 @@
 
 Updated: 2026-11-03. State: **active reference machine; partial device acceptance**.
 
+### Active scope: DMA admission diagnostics
+
+Working from main `a64661e9`, merged as `fe078dba`, on the existing device
+branch. Bounded objective: identify the first failed native DMA guard and retain
+bounded firmware-map evidence without register access or expanded permissions.
+Touches Intel display adapter, DMA receipt decoder and their host tests; keeps
+PR317 allocator/VMM work and Air6,1 Haswell work independent. No new payload is
+installed or reboot armed. Next checkpoint is source-bound host/VM validation
+and a prepared diagnostic candidate; native DMA state remains unaccepted.
+
 ### Native DMA capture refused before MMIO; safe return verified
 
 Source `c7c3548d` / release `5f6ec95399aa9dcd` returned automatically as

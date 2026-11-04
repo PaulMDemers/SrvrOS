@@ -57,7 +57,7 @@ every row/count/time/state and requires complete display/backing prerequisites.
 It always returns DMA authority, hardware ownership and physical tear-free as
 false. The observed TES bit is evidence about these two brackets only.
 
-The report is bounded below2KiB; the actual backing formatter plus this receipt
+The report, including admission diagnostics, is bounded below4KiB; the actual backing formatter plus this receipt
 and16KiB logging reserve fit the existing64KiB tail. The guest shows progress,
 saves reports and automatically returns after clean unmount on success or a
 handled refusal/failure. Failed saving/unmount still halts visibly. No human
@@ -78,6 +78,31 @@ offline integrity and recovery checks. Refusal, missing rows or a VM fixture is
 not native acceptance. The next writer still needs explicit DMA/GGTT/firmware/
 route/restore authority and correct padded scanout layout. The shadow allocation
 is1350 visible pages, not the inherited X-tiled1356-page storage extent.
+
+## Admission diagnostics
+
+Additional version1 `admission`, `memory` and up to six `region` rows preserve
+the same access gates. `checked` and `passed` are bit masks; `failed` names the
+first failed bit: profile1, exact DMAR2, unmapped window4, mapping retirement8,
+kernel CR3 16, firmware resource32, reference clock64. Preflight checks profile
+then table; each guard checks window, retirement, CR3, profile, table, resource,
+clock in that order. Unreached checks remain clear. `guards` counts invocations.
+
+A resource check validates at most4096 firmware entries and retains up to four
+intersections with `[0xfed90000,0xfed91000)` plus the nearest disjoint entry
+before and after it. Region relation0 is overlap,1 before,2 after. `shown` and
+`omitted` count stored/dropped intersections; `conflicts` counts non-reserved
+intersections. `valid` means the entire catalog passed structural validation,
+not that access was admitted. A checked valid catalog with zero intersections
+proves missing coverage; an unchecked catalog says nothing about classification.
+Malformed catalogs refuse and can contain only the validated prefix's evidence.
+No register read is needed to collect these rows.
+
+The decoder validates pairing, check order/masks, row bounds, region arithmetic
+and relationships. Historical version1 receipts without these paired diagnostics
+remain readable. Diagnostics never grant authority or make an incomplete
+observation complete. The new diagnostics require a fresh native trial; the
+older refused session cannot establish their result.
 
 ## Native trial result
 

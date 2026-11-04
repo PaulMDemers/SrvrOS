@@ -375,17 +375,48 @@ static uint8_t dma_table_bytes[INTEL_DMA_TABLE_BYTES];
 static bool dma_attempted,dma_table_valid,dma_preserved;
 static uint64_t dma_region_base,dma_region_length,dma_region_type;
 static unsigned dma_overlaps;
+/* Diagnostic bits preserve short-circuit admission order; no MMIO here. */
+enum { DMA_CHECK_PROFILE=1, DMA_CHECK_TABLE=2, DMA_CHECK_WINDOW=4,
+       DMA_CHECK_RETIREMENT=8, DMA_CHECK_CR3=16, DMA_CHECK_RESOURCE=32, DMA_CHECK_CLOCK=64 };
+static unsigned dma_checked,dma_passed,dma_failed,dma_guards;
+static bool dma_check(unsigned bit,bool ok) {
+    dma_checked|=bit;
+    if(ok)dma_passed|=bit;else if(!dma_failed)dma_failed=bit;
+    return ok;
+}
+/* At most four intersecting entries and two nearest disjoint neighbours.
+ * Diagnostics never turn missing/ambiguous classification into permission. */
+static struct dma_memory_snapshot {
+    bool checked,valid;
+    uint64_t entries;
+    unsigned conflicts,shown,omitted;
+    struct limine_memmap_entry overlap[4],before,after;
+    bool has_before,has_after;
+} dma_memory;
 static bool dma_resource(void) {
     const struct limine_memmap_response *m=memmap_request.response;
     dma_region_base=dma_region_length=dma_region_type=0;dma_overlaps=0;
-    if(!backing_range_reserved(0xfed90000,4096) || !m)return false;
+    dma_memory=(struct dma_memory_snapshot){.checked=true};
+    if(!m)return false;
+    dma_memory.entries=m->entry_count;
+    if(!m->entries || !m->entry_count || m->entry_count>4096)return false;
     for(uint64_t i=0;i<m->entry_count;i++) {
         const struct limine_memmap_entry *e=m->entries[i];
-        if(e->base<0xfed91000 && 0xfed90000<e->base+e->length) {
+        if(!e || !e->length || e->base>UINT64_MAX-e->length)return false;
+        uint64_t end=e->base+e->length;
+        if(e->base<0xfed91000 && 0xfed90000<end) {
             dma_overlaps++;dma_region_base=e->base;dma_region_length=e->length;dma_region_type=e->type;
+            if(e->type!=LIMINE_MEMMAP_RESERVED)dma_memory.conflicts++;
+            if(dma_memory.shown<4)dma_memory.overlap[dma_memory.shown++]=*e;
+            else dma_memory.omitted++;
+        } else if(end<=0xfed90000 && (!dma_memory.has_before || end>dma_memory.before.base+dma_memory.before.length)) {
+            dma_memory.before=*e;dma_memory.has_before=true;
+        } else if(e->base>=0xfed91000 && (!dma_memory.has_after || e->base<dma_memory.after.base)) {
+            dma_memory.after=*e;dma_memory.has_after=true;
         }
     }
-    return dma_overlaps==1 && dma_region_type==LIMINE_MEMMAP_RESERVED && dma_region_base<=0xfed90000 && dma_region_length>=0xfed91000-dma_region_base;
+    dma_memory.valid=true;
+    return dma_overlaps==1 && !dma_memory.conflicts && dma_region_type==LIMINE_MEMMAP_RESERVED && dma_region_base<=0xfed90000 && dma_region_length>=0xfed91000-dma_region_base;
 }
 static bool dma_table_current(void) {
     unsigned found=0;const uint8_t *bytes=NULL;
@@ -409,8 +440,13 @@ static bool dma_table_current(void) {
 }
 static bool dma_guard(void *opaque) {
     struct backing_adapter *a=opaque;struct intel_scanout_clock clock;struct scanout_profile profile;
-    return !a->mapped && !trial_mapping_fault && a->common.cr3==vmm_current_address_space() &&
-        intel_scanout_trial_profile(&profile) && dma_table_current() && dma_resource() && intel_scanout_trial_clock(&clock);
+    dma_guards++;dma_checked=dma_passed=dma_failed=0;
+    dma_memory=(struct dma_memory_snapshot){0};
+    dma_region_base=dma_region_length=dma_region_type=0;dma_overlaps=0;
+    return dma_check(DMA_CHECK_WINDOW,!a->mapped) && dma_check(DMA_CHECK_RETIREMENT,!trial_mapping_fault) &&
+        dma_check(DMA_CHECK_CR3,a->common.cr3==vmm_current_address_space()) &&
+        dma_check(DMA_CHECK_PROFILE,intel_scanout_trial_profile(&profile)) && dma_check(DMA_CHECK_TABLE,dma_table_current()) &&
+        dma_check(DMA_CHECK_RESOURCE,dma_resource()) && dma_check(DMA_CHECK_CLOCK,intel_scanout_trial_clock(&clock));
 }
 static bool dma_map(void *opaque,uint64_t physical) {
     struct backing_adapter *a=opaque;uint64_t old;
@@ -439,8 +475,8 @@ void intel_dma_probe_boot(void) {
     dma_attempted=true;
     console_write("intel-dma: exact Air7,2 read-only remapping observation; no control writes\n");
     struct scanout_profile profile;
-    if(!intel_scanout_trial_profile(&profile))return;
-    if(!dma_table_current()){dma_result.status=DMA_TABLE;return;}
+    if(!dma_check(DMA_CHECK_PROFILE,intel_scanout_trial_profile(&profile)))return;
+    if(!dma_check(DMA_CHECK_TABLE,dma_table_current())){dma_result.status=DMA_TABLE;return;}
     struct backing_adapter a={.common={.cr3=vmm_kernel_address_space()}};
     struct intel_dma_topology t=dma_result.topology;
     bool ok=intel_dma_observe(&dma_result,&t,&(struct intel_dma_io){&a,dma_guard,dma_map,dma_unmap,dma_read,now});
@@ -453,6 +489,19 @@ bool intel_dma_probe_report(void) {
         (uint64_t)r->status,(uint64_t)r->maps,(uint64_t)r->retained,r->topology.hash,r->topology.unit,r->topology.other_unit,r->topology.reserved_base,r->topology.reserved_end,
         r->status==DMA_OBSERVED?(uint64_t)(r->sample[1].after>>31):2ull,(uint64_t)dma_preserved,(uint64_t)trial_mapping_fault);
     console_printf("intel-dma-resource: v=1 base=%x length=%u type=%u overlaps=%u\n",dma_region_base,dma_region_length,dma_region_type,(uint64_t)dma_overlaps);
+    console_printf("intel-dma-admission: v=1 checked=%u passed=%u failed=%u guards=%u\n",
+        (uint64_t)dma_checked,(uint64_t)dma_passed,(uint64_t)dma_failed,(uint64_t)dma_guards);
+    console_printf("intel-dma-memory: v=1 checked=%u valid=%u entries=%u conflicts=%u shown=%u omitted=%u before=%u after=%u\n",
+        (uint64_t)dma_memory.checked,(uint64_t)dma_memory.valid,dma_memory.entries,(uint64_t)dma_memory.conflicts,
+        (uint64_t)dma_memory.shown,(uint64_t)dma_memory.omitted,(uint64_t)dma_memory.has_before,(uint64_t)dma_memory.has_after);
+    for(unsigned i=0;i<dma_memory.shown+dma_memory.has_before+dma_memory.has_after;i++) {
+        unsigned relation=0;const struct limine_memmap_entry *e;
+        if(i<dma_memory.shown)e=&dma_memory.overlap[i];
+        else if(dma_memory.has_before && i==dma_memory.shown){e=&dma_memory.before;relation=1;}
+        else {e=&dma_memory.after;relation=2;}
+        console_printf("intel-dma-region: v=1 index=%u relation=%u base=%x length=%u type=%u\n",
+            (uint64_t)i,(uint64_t)relation,e->base,e->length,e->type);
+    }
     if(dma_table_valid) {
         const char *alphabet="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";char out[185];unsigned k=0;
         for(unsigned i=0;i<136;i+=3) {

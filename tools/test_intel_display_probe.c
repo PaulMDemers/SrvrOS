@@ -85,6 +85,8 @@ static bool intel_display_test_read(uint32_t off,uint32_t *value) {
 }
 static void reset(void) {
     config_reads=mmio_reads=map_calls=unmap_calls=0;ticks=100000;current=0x1000;
+    dma_checked=dma_passed=dma_failed=dma_guards=0;dma_memory=(struct dma_memory_snapshot){0};
+    dma_region_base=dma_region_length=dma_region_type=0;dma_overlaps=0;dma_attempted=dma_table_valid=dma_preserved=false;dma_result=(struct intel_dma_result){0};
     dma_unmap_fail=false;firmware_ok=clock_ok=true;alias=malformed=reporting=backing_mode=translation_gap=false;backing_attempted=false;trial_mapping_fault=false;backing=(struct intel_backing_result){0};
     memset(pa,0,sizeof(pa));result=(struct intel_capture_result){0};attempted=false;
     devices[0]=(struct pci_device){.device=2,.class_code=3};devices[1]=(struct pci_device){.device=31,.class_code=6,.subclass=1};
@@ -98,6 +100,22 @@ static void reset(void) {
         .memory_model=LIMINE_FRAMEBUFFER_RGB,.red_mask_size=8,.red_mask_shift=16,.green_mask_size=8,.green_mask_shift=8,.blue_mask_size=8};
 }
 int main(int argc,char **argv) {
+    if(argc==2 && !strncmp(argv[1],"--dma-resource-",15)) {
+        reset();struct limine_memmap_entry units[5];
+        struct limine_memmap_entry *map[8]={&ram,&aperture,&stolen_region};
+        memory.entries=map;memory.entry_count=3;
+        const char *mode=argv[1]+15;
+        unsigned count=!strcmp(mode,"missing")?0:!strcmp(mode,"many")?5:!strcmp(mode,"ambiguous")?2:1;
+        for(unsigned i=0;i<count;i++) {
+            units[i]=(struct limine_memmap_entry){.base=0xfed90000,.length=4096,.type=LIMINE_MEMMAP_RESERVED};map[3+i]=&units[i];memory.entry_count++;
+        }
+        if(!strcmp(mode,"conflict"))units[0].type=LIMINE_MEMMAP_USABLE;
+        if(!strcmp(mode,"partial"))units[0].length=4095;
+        if(!strcmp(mode,"malformed")){units[0].base=UINT64_MAX;units[0].length=2;}
+        unsigned maps=map_calls,reads=mmio_reads;assert(!dma_resource());assert(map_calls==maps && mmio_reads==reads);
+        dma_checked=63;dma_passed=31;dma_failed=32;dma_guards=1;
+        dma_attempted=true;dma_result.status=DMA_ACCESS;reporting=true;assert(!intel_dma_probe_report());return 0;
+    }
     reset();backing_mode=argc==2 && !strcmp(argv[1],"--backing-report");reporting=argc==2 && (!strcmp(argv[1],"--report") || backing_mode);
     if(backing_mode)memory.entry_count=3;
     intel_display_probe_boot(&frame);
@@ -120,6 +138,11 @@ int main(int argc,char **argv) {
     struct limine_memmap_entry unit={.base=0xfed90000,.length=4096,.type=LIMINE_MEMMAP_RESERVED};
     struct limine_memmap_entry *dma_entries[]={&ram,&aperture,&stolen_region,&unit};memory.entries=dma_entries;memory.entry_count=4;
     struct backing_adapter a={.common={.cr3=0x1000}};uint32_t value;
+    a.mapped=true;assert(!dma_guard(&a) && dma_checked==4 && dma_failed==4);
+    a.mapped=false;trial_mapping_fault=true;assert(!dma_guard(&a) && dma_checked==12 && dma_failed==8);
+    trial_mapping_fault=false;current=0x2000;assert(!dma_guard(&a) && dma_checked==28 && dma_failed==16);
+    current=0x1000;assert(!dma_guard(&a) && dma_checked==29 && dma_failed==1);
+    assert(!map_calls && !mmio_reads && !dma_memory.checked);
     assert(dma_resource() && dma_map(&a,0xfed90000));
     assert(!dma_map(&a,0xfed90000) && !dma_read(&a,24,&value) && !dma_read(&a,52,&value));
     for(unsigned i=0;i<8;i++){uint32_t off=(uint32_t[]){0,8,12,16,20,28,32,36}[i];assert(dma_read(&a,off,&value) && value==0x1000000+off);}
