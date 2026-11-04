@@ -12,7 +12,19 @@ The captured EW-7711MAC `7392:a711`/`0100` is **5GHz-only**; see the
 mistaken for assembled-model capability. Historical2.4GHz packet/USB traces do
 not establish2.4GHz RF support. Do not repeat the withdrawn v107 trial.
 
-Latest native v116 `466528fc7669566e`, runtime `c3088243`, main `1dad02c2`,
+Latest native v117 `2a03a519eac62cbf`, source `1fe64aac`, accepts the complete
+1501530-byte prefix in session `session-00065f693a903b08-00`:11578 operations,
+including26 fresh logical30/d0 field operations and3767 trim/held-channel
+operations. Fresh effective trim44 stays selected through the full channel161
+band/frequency/A20/PA/gain-adjusted BBP transaction, then trim0 and all originals
+are independently restored. Fresh LNA12/AGC8=122c3cf2, all parent/common-init,
+source/release/session, payload/recovery bytes, offline fsck/allocation and saved
+automatic Ubuntu return pass. The154-file sealed native capsule and separate
+accepted notes survive outside build. Workspace unmounted, Ubuntu default,
+unarmed. This accepts MAC-disabled command/state/restoration only; DAC/VCO,
+calibrated RX, populated discovery/reattach, authentication and IP remain pending.
+
+Previous native v116 `466528fc7669566e`, runtime `c3088243`, main `1dad02c2`,
 passes the complete1063627-byte prefix in matching session
 `session-00065f6683c07ec1-00`:7785 operations, including3732 new operations
 with band/frequency/A20 held around PA and gain-adjusted BBP selection. Selected
@@ -165,6 +177,36 @@ are sealed outside build. Ubuntu remains default. The authorized next action is
 cold shutdown,10-second Wi-Fi unplug/reconnect to the same port, power on, and
 automatic save/return. Collect that exact run before staging another. No new
 trim, DAC/VCO/RX, connectivity or sibling-model acceptance is claimed here.
+
+### v117 native collection accepted
+
+The unchanged preboot frozen checker accepts the complete physical session
+`session-00065f693a903b08-00`, release `2a03a519eac62cbf`/source `1fe64aac`.
+All11578 operations pass, including26 same-boot fresh-field operations and3767
+trim/channel operations. The guard/phase/direction/request/reply/readback sequence
+matches exactly; effective trim44 holds through all selected channel state, then
+trim0 and the parent originals return. Both fresh field blocks, MAC/CORE/DMA
+proofs and full prior common chain pass. Network OUT remains0. Offline filesystem
+and allocation checks, retained payload equality, Ubuntu default and clean
+unarmed automatic return pass. The154-file native capsule is sealed separately
+from accepted notes; the candidate's synthetic proof remains labeled synthetic.
+
+Reviewed actual newer main `1a5a6dee` after collection: profile chooser and fd-based
+salvage changes, no MT76, main dispatch, boot recipe or syscall-number overlap.
+No gitlink changed relative to consumed `0cba30a1`; keep current published pins.
+PR324 Air6,1 GGTT, PR317 VMM, PR301 display and PR310/306 port work remain separate.
+Do not promote this native result to a newer unbooted integration.
+
+Next bounded scope is the fixed common DAC/VCO contract after fresh trim, then
+separate calibrated per-channel receive startup. Pinned Linux common init orders
+trim write/read before RF0:73 bit7 set/clear/set and RF0:4 bit7 trigger; channel
+setup has a distinct VCO trigger after band/synth/filter/gain/BBP. Native originals
+are RF0:73=93 and RF0:4=30. Require fresh private fields, disabled-MAC ownership,
+immutable packets, independent guards/readbacks, bounded waits and explicit
+failure retirement; a self-cleared trigger is not RF-lock or receive acceptance.
+The existing generic bootstrap is not permission to enable the withdrawn2.4GHz
+model recipe. Consume reviewed main with focused namespace/profile/salvage checks
+before freezing another native image. No new pulse or reboot is armed here.
 
 ## Active main integration and native trim scope
 

@@ -11,16 +11,16 @@ withdrawn before installation. New installation and runtime gates refuse that
 captured2.4GHz RF recipe. Historical rendering remains for offline regression.
 
 Native evidence accepts the bounded empty-cache desktop, trackpad, unplug
-retirement and automatic return. Latest v116 accepts7785 MAC-disabled command
-operations, including3732 operations with channel161/20MHz band/frequency/A20
-held around PA and gain-adjusted BBP selection. Independent selected reads and
+retirement and automatic return. Latest v117 accepts11578 MAC-disabled command
+operations, including26 fresh trim-field operations and3767 operations holding
+trim44 around channel161/20MHz band/frequency/A20/PA/gain-adjusted BBP selection. Independent selected reads and
 inverse original reads pass. This is command/state/restoration evidence; VCO/RF
 lock, calibrated reception, populated discovery, live reattach/rescan,
 association/security and an active Wi-Fi IP provider remain pending. Ordinary
 startup leaves diagnostic radio operations disabled. Dated milestones below
 must not reinstate the withdrawn2.4GHz model assumption.
 
-## Fresh trim lifetime candidate (v117; physical acceptance pending)
+## Fresh trim lifetime (v117; bounded native acceptance)
 
 After the complete restored v116 chain, the new private static owner reads fresh
 logical30/d0 factory fields through the bounded read-only EFUSE transaction.
@@ -33,7 +33,10 @@ saved checker requires the original parent and every new request/reply/direction
 phase/order/guard/restoration record. Existing radio captures keep their limits;
 this automatic child inherits v116's2MiB full-prefix save and automatic return.
 No DAC/VCO pulse, receiver, network frame or credential is enabled by this trial.
-A matching complete physical session is required before accepting it.
+MacBookPro11,2 session `session-00065f693a903b08-00` accepts this bounded
+contract with a complete1501530-byte prefix,11578 operations, independent
+restoration, offline storage checks and automatic Ubuntu return. It does not
+accept DAC/VCO calibration, reception or connectivity.
 
 ## 5GHz RF band-selection foundation
 
