@@ -24,6 +24,10 @@ are byte-verified outside build cleanup at
 untouched; task VMs stopped. Publish a scoped draft PR; no merge requested.
 Used v2 needs its retained profile snapshot, used v1 its exact old data source.
 On-disk consistency is not authentication, live health or physical durability.
+Final publication refresh integrates main `62b0708e`/PR335, an unrelated
+host-only Haswell audit. Fresh combined host and documentation checks pass;
+all proof tool/native-source and matched artifact hashes remain unchanged.
+The accepted VM evidence retains its original clean-source attribution.
 
 ## PR330 merge review
 

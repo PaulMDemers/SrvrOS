@@ -381,6 +381,20 @@
     "kernel/src/vfs.c": "26f77035199d0f6890eef9c4059b6da172b3524d305c51876789b8927170eba5",
     "tools/installation_inspect_driver.c": "6fe2ebd2f1db9c294d5c94c3ffa8dcff09e38c0ab509171158aafb130b0321cb"
   },
+  "publication_refresh": {
+    "base": "62b0708ef3338578f7862a903fa3f1fe12d5f57e",
+    "documentation_checks": "PASS",
+    "host_checks": "PASS: 55 passing tests, one default-skipped long-matrix entry, plus installed-root/profile/guest checks",
+    "integrated_source": "037a256cfe2068c0dcb6dbae53a5edb6570c98f2",
+    "log_sha256": {
+      "installed-inspection-docs.log": "7c510db20e6f5a718aff060489b3077a884d561aaa99c95d53c7e83817987d07",
+      "installed-inspection-refresh-host.log": "81a6ae05b578d4d6e2d2640108b3da7c5f0f9294456b8738d99e3ee6c17eaffd"
+    },
+    "scope": "PR335 host Haswell audit, documentation and test target only; no runtime/profile/filesystem/installation behavior changed; accepted VM proof remains attributed to original source.",
+    "unchanged_artifact_count": 10,
+    "unchanged_native_source_count": 5,
+    "unchanged_tool_count": 9
+  },
   "raw_receipt_sha256": "8cc36bf5ff42bb36b73fef075633c7c1a4590934fc5d175e1a5e0e088f1a6c74",
   "ready_sha256": "99c14938672fef7ccbdf13def715fddbc18b7c840a895387eb981d1d1d3a4372",
   "review_vms_alive": [
