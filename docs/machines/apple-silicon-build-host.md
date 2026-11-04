@@ -3264,3 +3264,16 @@ No whole-image reproducibility or physical-device acceptance is claimed.
 Evidence: `build/jq-smoke/20261103-214345-kx3nfg74/` and
 `build/review/jq/accepted.json`. Existing ports regression and documentation/whitespace checks pass.
 Status: implementation complete and ready for review; no merge authorized.
+
+
+### jq merge review — active November 3, 2026
+
+User authorized reviewing SrvrPorts PR6, merging it before SrvrOS PR337, and
+verifying the combined build. Work uses only `SrvrOS-ports-jq`; integration
+checkout and attended review VMs remain untouched. Main `62b0708e` contributes
+read-only Haswell audit tooling/docs since the original `5634cd9d` jq baseline;
+it changes no jq runtime dependency. Port `22c2660` receives independent source
+review, archive identity checking, a clean matched candidate build, the two-boot
+jq/SQLite guest workflow, existing ports regression and the added audit tests.
+The single-thread/no-regex scope and untraced optional three-thread allocation
+failure remain explicit; no shared libc/kernel edits or physical acceptance.
