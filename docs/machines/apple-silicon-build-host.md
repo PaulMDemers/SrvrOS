@@ -3768,7 +3768,7 @@ reports no conflict; all review guests stopped and VMs 61610/6233/85869 remain
 untouched. The [filesystem contract](../filesystem-layout.md) records the ready
 review and next proposed read-only uncertain-media inspection milestone.
 
-### Files transfer/profile integration — active November 3, 2026
+### Files transfer/profile integration — qualified November 4, 2026
 
 User authorized reconciling profile changes and integrating UI4, Apps7 and OS344
 in that dependency order, then verifying merged source in independent
@@ -3815,3 +3815,25 @@ implementation acceptance remains tied to clean tested commit `1fa90b8c`.
 Files integration also reconciles OS main `5ed7f015` (less), preserving its
 Ports pin `d760e541` and both appended journal entries. Requalification uses
 this combined source; no shared checkout or review VM is involved.
+
+Files/profile integration candidate `22492b40` is accepted on the merged UI/Apps
+pins and main's less/Ports integration. Fresh matched build, focused Files,
+chooser, guarded file-change, desktop/session and profile host suites pass.
+Current-pin refused-dialog Files transfer and existing Files/Open With regression
+pass. Full graphical profile transfer passes (`build/review/profile-transfer/
+proof-qadgc5mn/receipt.json`): exact export/readback, 640x480, invalid and duplicate
+refusal, five interrupted import/recovery checkpoints, remembered imported
+selection and restored document. All 24 offline allocation checks pass; 40
+completed-image archives have verified hashes and round-trip restoration records.
+Independent review confirms clean source/build/pins and bounded acceptance.
+
+Integration evidence is retained under `build/review/files-transfer-integration/`.
+Earlier normal/refused Files transfer and existing Files regression passed on
+`06539d27`; the final OS merge receives a matched build and fresh normal transfer
+check, with exact merge/hash/provenance in the local integration receipt. Six
+historical owned Files proof disks were losslessly compressed and round-trip
+verified (`build/review/files-transfer/integration-evidence-archives.json`) to
+meet the profile suite's unmodified free-space preflight. Initial firmware and
+space preflight failures ran no profile guest and are not counted as acceptance.
+No physical-media, power-loss or external fsck.exfat acceptance is added. All
+owned guests stop at test completion; shared checkout and review VM are untouched.
