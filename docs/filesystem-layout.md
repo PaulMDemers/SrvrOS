@@ -3,6 +3,17 @@
 Updated November 3, 2026. Global activation follows the explicit namespace proof
 in [PR308](https://github.com/PaulMDemers/SrvrOS/pull/308).
 
+## Managed USB late-flush salvage — in progress
+
+Authorized on main `819956be`, isolated filesystem checkout, with PR317 review
+before runtime. Admit dirty-marker write/flush, activate a flush-only blkdebug EIO
+on the allocation write, allow payload writes, then fail source flush. Require
+changed dirty media containing full payload, retained reader/offset/data and
+failed managed retirement. No production driver/process/workspace changes.
+Restart from healthy installed root with uncertain USB entirely detached; do not
+repair or writable-remount. Freeze/archive the uncertain image outside build
+before restart, preserve review VMs 61610/6233/85869 and run harnesses sequentially.
+
 ## PR338 merge review and next bounded milestone
 
 User authorized review/merge if ready, preserving review VMs and PR317
