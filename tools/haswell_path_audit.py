@@ -66,7 +66,7 @@ def audit(text):
                       addresses[i] == addresses[0] + 4096 * i for i in range(len(addresses)))
     return dict(status='HOST_AUDIT_ONLY', physical_acceptance=False,
                 source_readout_completed=True, count=observed['count'],
-                display=modes[0], cpu_aperture_swizzle='unobserved', gt_swizzle='unobserved',
+                display=modes[0], cpu_aperture_swizzle='raw-only; unresolved' if observed.get('source_version')==2 else 'unobserved', cpu_tilectl_raw=observed.get('tilectl_raw'), gt_swizzle='unobserved',
                 full_path_equivalence=False,
                 linux_inherited_tiled_policy=modes[0]['mode'] if modes[0]['valid'] else 'refuse-reserved',
                 policy_is_not_hardware_consistency_proof=True,

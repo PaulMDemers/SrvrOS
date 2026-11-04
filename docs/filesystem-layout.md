@@ -3,6 +3,148 @@
 Updated November 3, 2026. Global activation follows the explicit namespace proof
 in [PR308](https://github.com/PaulMDemers/SrvrOS/pull/308).
 
+## PR345 merge review and current-main requalification
+
+User authorized review, current-main integration/requalification and merge if
+ready, preserving review VMs/uncertain media and coordinating PR317. Reviewed
+`3fe543b3` with no blocking finding. Integrated bc main `7ef140ef` as `3349d780`,
+preserving both host notices in the conflict and pinning Ports `78fb8184`.
+The bc-only three-boot proof passes. A guarded compatibility attempt stopped
+for shared disk headroom after 10 cases; it remains INCOMPLETE, not a pass.
+Two inactive failed fixtures and that interrupted run were losslessly archived
+with restored content/size/mode verification before releasing raw copies;
+receipts/logs retain restoration indexes. Accepted/active/uncertain media and
+review VM images were not removed.
+
+Then integrated main `60618a4c` (PR333 desktop/profile migration) as `22fd9e9a`,
+with Apps `b2220909` and a matched rebuild. Fresh `proof-dsbnzltn` passes all three
+late-flush EFI lifetimes; fresh canonical/CLI `proof-psz75jdj` passes all 11
+cases, preserving `/fat` and `/work`. Independently verified matched `bin/bc`
+ELF bytes inside the installed GPT. Main `d791b949` (PR343 opt-in Haswell capture)
+subsequently merges as `fb8549be`; ordinary kernel, initramfs and filesystem
+hashes remain exactly equal to the fresh proofs, so no additional VM run is
+claimed. The native probe is not enabled or physically accepted by this work.
+
+Fresh storage-lease/workspace/USB, fsync, namespace, usercopy, I/O, helper/CLI,
+41 scope scenarios and Haswell host checks pass in documented POSIX host mode.
+An earlier invocation incorrectly applied the inspection driver's Darwin feature
+macro to a fixture helper named revoke; its failed compile is retained, and the
+correct documented invocation passes. Documentation/whitespace checks pass.
+No production filesystem, process, syscall, block, driver or recovery-policy
+change was needed for the review.
+
+Independent checks verify changed dirty media containing full payload, four
+successful writes/one successful flush/one failed flush, no post-quarantine I/O,
+retained-reader data/offset, two busy refusals, failed retirement after final
+close and exact healthy-copy readback with the USB source entirely detached.
+Protected regions remain unchanged. Complete fresh managed/canonical evidence
+is APFS-cloned and SHA-256 checked (153 files) under
+`.local/filesystem-evidence/pr345-review/`. The original, bc-only and current
+uncertain whole disks remain full raw read-only images with matching hashes;
+the original `.local/filesystem-evidence/late-flush/proof-spfxutbi/` is untouched.
+All review guests stopped and review VMs 61610/6233/85869 remain running.
+
+PR317 owner reports no storage/BOT conflict through checkpoint `17f0348e`.
+Published storage, bulk failure and ambiguous timeout recovery remain explicit
+refusals; per-slot/EP0/HID/terminal work stays independent and unmerged. This
+proof does not invoke or accept those paths. Current-main late-flush salvage
+requalification is complete and ready for authorized merge.
+
+Next proposed bounded milestone: **read-only inspection of preserved uncertain
+workspace media**. Research reuse of the merged native read-only inspection/
+export bridge before adding an adapter. Report dirty/admission state, allocation
+inconsistencies and committed-file metadata for the preserved USB image, clearly
+separating committed source data from unacknowledged raw payload. Verify clean,
+late-failed and malformed/refusal cases with unchanged image hashes/read-only
+modes, no write callbacks, repair, writable admission or orphan-data export.
+Reuse existing artifacts to bound disk allocation; coordinate shared inspector
+edits with its owner and any lifetime questions with PR317. This is proposed
+work, not implementation begun by this merge review.
+
+## Managed USB late-flush salvage — verified on recorded baseline
+
+User authorized this bounded proof on main `819956be`, with PR317 placement/
+lifetime review first, preserved uncertain media and review VMs. Matched source
+`8321de3b` passes clean managed control, late-flush failure/salvage and detached
+restart (three EFI lifetimes), plus all 11 ordinary canonical/CLI cases in
+`proof-cblo2yg3`. No kernel/process/workspace/syscall/block/driver implementation
+change or recovery-policy change was required.
+
+The existing source writer and independent reader open without creating or
+truncating the preseeded source. A counted host-only blkdebug rule admits the
+dirty-marker write and flush, activates a flush-only EIO on the next allocation
+write, admits payload writes, then fails the source flush. Local prefix controls
+prove the earlier flush succeeds and writes remain admitted after activation;
+legacy destination write/flush probes also pass after extending the helper to
+zero creation writes. The real USB flush issues SYNCHRONIZE CACHE. QMP records
+four successful writes, one successful flush, no failed write and one failed
+flush. The raw changed USB volume contains all 12,289 payload bytes and dirty
+flag 2, while its committed source entry still contains the original 28 bytes.
+Visible payload bytes do not constitute an acknowledged source writeback.
+
+PR317 owner confirmed that a failed SYNCHRONIZE CACHE must preserve sticky
+quarantine, with no replay, reset or provider revival. Current hub/EP0 recovery
+work does not revive published storage failures/bulk timeouts. This proof invokes
+no xhcistop/xhcireclaim, terminal/per-slot retirement, unplug, reset or DMA free;
+no unmerged PR317 implementation is consumed or accepted.
+
+Source fsync/writer close return EIO, while an independent reader retains every
+byte and offset 37. The real salvage CLI refuses a failed-work destination, then
+acknowledges the healthy `/home` copy; `/fat/home` reads identical bytes. Managed
+unmount refuses at both held-reader checkpoints. The reader is verified again
+after the second checkpoint, before deliberate final-close EIO. After final
+close, sync and clean retirement still refuse, the UUID stays write-failed,
+remount remains busy and raw unmount cannot bypass the controller. Every USB
+operation counter remains unchanged after quarantine through salvage and close.
+Normal reboot correctly refuses the failed managed workspace.
+
+Before restart, the changed USB image is independently cloned outside build,
+SHA-256 checked and made read-only, as is the task image. The harness stops only
+its owned VM and restarts from healthy installed root with **no USB source
+attached**. The guest verifies exact healthy-copy bytes through both aliases
+before cleanup; the uncertain source hash stays unchanged. There is no source
+repair, writable remount, fresh-driver admission or retry. This is controlled
+cold-restart persistence after healthy file fsync/close, not physical power-loss
+acceptance or a successful failed-source/global flush. No allocation-clean claim
+is made for the uncertain volume. Healthy allocation and protected GPT/ESP
+regions are clean; the clean USB control persists data and retires normally.
+
+Nine scope methods cover 41 scenarios, including late-save filter admission and
+complete source detachment on late restart. Fresh storage-lease/workspace/USB,
+fsync, namespace, usercopy, I/O, helper/CLI and docs checks pass. Independent
+checks verify raw original/payload bytes, dirty state, exact counters, two busy
+refusals, post-close refusal and detached restart command graph.
+
+Evidence is `build/review/late-flush/proof-spfxutbi/`. The uncertain whole disk was
+preserved before restart at
+`.local/filesystem-evidence/late-flush/proof-spfxutbi/uncertain-usb.img` (read-only).
+Complete managed and canonical proof files are independently APFS-cloned and
+SHA-256 verified (153 files) under that directory, with receipts, serial/QMP logs,
+rule, restart record, hashes and independent review. No hard links are used.
+
+Disk headroom limited further staging. The tangent workflow losslessly archived
+four raw files from two inactive failed dirty-salvage bring-up runs, verifying
+every archive member's restored content hash, size and mode before releasing the
+raw copies. This freed about 1.98 GiB. Logs/receipts remain in their original
+folders with `ARCHIVE.json` restoration instructions; archive/index are under
+`.local/filesystem-evidence/inactive-archives/`. Accepted evidence, active media
+and review VM images were not removed. Current uncertain media remain full raw,
+read-only images. The original compatibility verification then completed.
+
+The initial draft did not consume newer bc main `7ef140ef`; that source limit
+remains historical for `8321de3b`. The PR345 review above records the subsequent
+current-main integration and fresh runtime requalification. Do not relabel this
+original evidence as the later payload. Initial delivery was a scoped draft PR. All task VMs stopped;
+review VMs 61610, 6233 and 85869, primary checkout and physical media remain
+untouched. No hosted Actions or physical trial was run.
+
+Reproduce after a matched build:
+
+```sh
+OVMF_CODE=/opt/homebrew/share/qemu/edk2-x86_64-code.fd \
+  python3 tools/managed_salvage_smoke.py --late-flush --ovmf-vars /opt/homebrew/share/qemu/edk2-i386-vars.fd
+```
+
 ## PR338 merge review and next bounded milestone
 
 User authorized review/merge if ready, preserving review VMs and PR317

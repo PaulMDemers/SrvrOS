@@ -1,0 +1,805 @@
+{
+  "archive_manifest": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/archived-images.json",
+  "archive_manifest_sha256": "222abc43b04695d0a4c676755da6555463a99c67b6cfb8d772d732d6e11f6bd0",
+  "archives": [
+    {
+      "archive": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/data-a-initial.exfat.gz",
+      "archive_bytes": 6725303,
+      "archive_sha256": "bcff8c3303c53a55c514bf7990b42a1f513875b6d83533ea276067164a01e652",
+      "bytes": 134217728,
+      "path": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/data-a-initial.exfat",
+      "restore": "gzip -dc ARCHIVE > PATH",
+      "round_trip_verified": true,
+      "sha256": "2bcde9f076bbdd98183a4c537113bfc08ef4a314f7797a11a461231b961d6b1e"
+    },
+    {
+      "archive": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/data-b-initial.exfat.gz",
+      "archive_bytes": 6724493,
+      "archive_sha256": "bbeeec24baccfc501262870ba449235080ac1a8c5286663d0793a1a566ab7fc0",
+      "bytes": 134217728,
+      "path": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/data-b-initial.exfat",
+      "restore": "gzip -dc ARCHIVE > PATH",
+      "round_trip_verified": true,
+      "sha256": "459a196f39413fdae65107e829c8009163ce85275848c5c26cbb047d97ec783e"
+    },
+    {
+      "archive": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/data-transport-initial.exfat.gz",
+      "archive_bytes": 6721383,
+      "archive_sha256": "4073d4efa24c96816fdcef95b96423a49a8d600394699ff9f4cc9261633b2fe8",
+      "bytes": 134217728,
+      "path": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/data-transport-initial.exfat",
+      "restore": "gzip -dc ARCHIVE > PATH",
+      "round_trip_verified": true,
+      "sha256": "5e59466fa26e3e2a513e71f940c1a2bf78ac7aa7d7ac166371a469b4d499f05e"
+    },
+    {
+      "archive": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/source.exfat.gz",
+      "archive_bytes": 6725303,
+      "archive_sha256": "bcff8c3303c53a55c514bf7990b42a1f513875b6d83533ea276067164a01e652",
+      "bytes": 134217728,
+      "path": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/source.exfat",
+      "restore": "gzip -dc ARCHIVE > PATH",
+      "round_trip_verified": true,
+      "sha256": "2bcde9f076bbdd98183a4c537113bfc08ef4a314f7797a11a461231b961d6b1e"
+    },
+    {
+      "archive": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/destination.exfat.gz",
+      "archive_bytes": 6724493,
+      "archive_sha256": "bbeeec24baccfc501262870ba449235080ac1a8c5286663d0793a1a566ab7fc0",
+      "bytes": 134217728,
+      "path": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/destination.exfat",
+      "restore": "gzip -dc ARCHIVE > PATH",
+      "round_trip_verified": true,
+      "sha256": "459a196f39413fdae65107e829c8009163ce85275848c5c26cbb047d97ec783e"
+    },
+    {
+      "archive": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/data-b-empty.exfat.gz",
+      "archive_bytes": 6724493,
+      "archive_sha256": "bbeeec24baccfc501262870ba449235080ac1a8c5286663d0793a1a566ab7fc0",
+      "bytes": 134217728,
+      "path": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/data-b-empty.exfat",
+      "restore": "gzip -dc ARCHIVE > PATH",
+      "round_trip_verified": true,
+      "sha256": "459a196f39413fdae65107e829c8009163ce85275848c5c26cbb047d97ec783e"
+    },
+    {
+      "archive": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/data-transport-empty.exfat.gz",
+      "archive_bytes": 6721383,
+      "archive_sha256": "4073d4efa24c96816fdcef95b96423a49a8d600394699ff9f4cc9261633b2fe8",
+      "bytes": 134217728,
+      "path": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/data-transport-empty.exfat",
+      "restore": "gzip -dc ARCHIVE > PATH",
+      "round_trip_verified": true,
+      "sha256": "5e59466fa26e3e2a513e71f940c1a2bf78ac7aa7d7ac166371a469b4d499f05e"
+    },
+    {
+      "archive": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/data-transport-partial.exfat.gz",
+      "archive_bytes": 6724704,
+      "archive_sha256": "ed4e62083311575054b2adec4e903c80fee1288bea6d41953d9b1395d9d09bbc",
+      "bytes": 134217728,
+      "path": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/data-transport-partial.exfat",
+      "restore": "gzip -dc ARCHIVE > PATH",
+      "round_trip_verified": true,
+      "sha256": "f618a2badad528b589adbfc3d7d862d226c611bbbbc1ea782f323a395f2a0d62"
+    },
+    {
+      "archive": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/data-a-initial-choice.exfat.gz",
+      "archive_bytes": 6726729,
+      "archive_sha256": "505b3111776826e090519136956df3e0c85c50c7e8985877942d5d02a6240c29",
+      "bytes": 134217728,
+      "path": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/data-a-initial-choice.exfat",
+      "restore": "gzip -dc ARCHIVE > PATH",
+      "round_trip_verified": true,
+      "sha256": "6897e4e990599f03e5bc9881b0af0b26ae0cad67f710d7cd95a8f8b0ab1a2db7"
+    },
+    {
+      "archive": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/data-transport-partial-retry.exfat.gz",
+      "archive_bytes": 6724704,
+      "archive_sha256": "ed4e62083311575054b2adec4e903c80fee1288bea6d41953d9b1395d9d09bbc",
+      "bytes": 134217728,
+      "path": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/data-transport-partial-retry.exfat",
+      "restore": "gzip -dc ARCHIVE > PATH",
+      "round_trip_verified": true,
+      "sha256": "f618a2badad528b589adbfc3d7d862d226c611bbbbc1ea782f323a395f2a0d62"
+    },
+    {
+      "archive": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/data-transport-export.exfat.gz",
+      "archive_bytes": 6724935,
+      "archive_sha256": "759e16deca552edb8ea9f17bbace9f9d37788b7ad06ba474543a8d28046e5c66",
+      "bytes": 134217728,
+      "path": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/data-transport-export.exfat",
+      "restore": "gzip -dc ARCHIVE > PATH",
+      "round_trip_verified": true,
+      "sha256": "d8ab215691a9d3f4f26d5422d514708424ee68dc9c9ca7987062b8c7f26df0a9"
+    },
+    {
+      "archive": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/data-small-initial.exfat.gz",
+      "archive_bytes": 6726843,
+      "archive_sha256": "b58faae596eb0a2371d13bc3136774270d5f1e41f14d5f0585bd55e1c5709411",
+      "bytes": 134217728,
+      "path": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/data-small-initial.exfat",
+      "restore": "gzip -dc ARCHIVE > PATH",
+      "round_trip_verified": true,
+      "sha256": "d3251993b736465624d8a57fb2f30c5bff474e644cdba6d337a31087d00f77e5"
+    },
+    {
+      "archive": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/data-transport-small.exfat.gz",
+      "archive_bytes": 6724989,
+      "archive_sha256": "04087980b3a51d9824cea5b7cdab7ae6afacc86fdfbbace42e4e584f10ee5d43",
+      "bytes": 134217728,
+      "path": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/data-transport-small.exfat",
+      "restore": "gzip -dc ARCHIVE > PATH",
+      "round_trip_verified": true,
+      "sha256": "14df382c2d5d8928eece0db9ba0a5f2301b748e7fabcf7292ff2a137af02aacc"
+    },
+    {
+      "archive": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/data-small-final.exfat.gz",
+      "archive_bytes": 6726899,
+      "archive_sha256": "d59934868aadbd20cd6cfb54e3c0f523ecfbdcf615ca4fcae8f6d5446dac2845",
+      "bytes": 134217728,
+      "path": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/data-small-final.exfat",
+      "restore": "gzip -dc ARCHIVE > PATH",
+      "round_trip_verified": true,
+      "sha256": "789d39c8906b26bae0ba1f11b57de5023a86a28802bd88593adc91ecac99a202"
+    },
+    {
+      "archive": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/small-source.exfat.gz",
+      "archive_bytes": 6726843,
+      "archive_sha256": "b58faae596eb0a2371d13bc3136774270d5f1e41f14d5f0585bd55e1c5709411",
+      "bytes": 134217728,
+      "path": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/small-source.exfat",
+      "restore": "gzip -dc ARCHIVE > PATH",
+      "round_trip_verified": true,
+      "sha256": "d3251993b736465624d8a57fb2f30c5bff474e644cdba6d337a31087d00f77e5"
+    },
+    {
+      "archive": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/target-small/image.img.gz",
+      "archive_bytes": 9272618,
+      "archive_sha256": "29bfeae8d3ec5a2d350f30bc7cdafe90f1a1e1717a85ffa77e1a5b0a50b9189e",
+      "bytes": 538968064,
+      "path": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/target-small/image.img",
+      "restore": "gzip -dc ARCHIVE > PATH",
+      "round_trip_verified": true,
+      "sha256": "25015358bf1d2d8b3dc3ff73c182d71705f30f5b0b4ba3e444169322481de3f7"
+    },
+    {
+      "archive": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/invalid-before-b-invalid.exfat.gz",
+      "archive_bytes": 6725761,
+      "archive_sha256": "8305198dbd5b22ba45e00e35f3be51db8da402f6b5f90d7a274a72e594616022",
+      "bytes": 134217728,
+      "path": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/invalid-before-b-invalid.exfat",
+      "restore": "gzip -dc ARCHIVE > PATH",
+      "round_trip_verified": true,
+      "sha256": "ef17201e0f3e024381ffdcdc23fc9c3607b921ba786ade8d8ad1954a1321ad23"
+    },
+    {
+      "archive": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/invalid-after-b-invalid.exfat.gz",
+      "archive_bytes": 6725779,
+      "archive_sha256": "b6a69dcbb20d207b0d3ab6c20cbab983f42d37e0367482abdec054e7ea98e35f",
+      "bytes": 134217728,
+      "path": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/invalid-after-b-invalid.exfat",
+      "restore": "gzip -dc ARCHIVE > PATH",
+      "round_trip_verified": true,
+      "sha256": "de6ab142fe82fea0cec4e0bee9d55fc851520732b9f2efa52f1a50d063616e6e"
+    },
+    {
+      "archive": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/data-b-invalid.exfat.gz",
+      "archive_bytes": 6725796,
+      "archive_sha256": "2e70c8f43323f6d81e8083c061a388bae048e3efd93360692bedd676f2997d4a",
+      "bytes": 134217728,
+      "path": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/data-b-invalid.exfat",
+      "restore": "gzip -dc ARCHIVE > PATH",
+      "round_trip_verified": true,
+      "sha256": "35661be390a1266fb498733df6981b52583d27ce5d2aeb0d2fb7bb6830fa54ab"
+    },
+    {
+      "archive": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/data-recovered-journal.exfat.gz",
+      "archive_bytes": 6726562,
+      "archive_sha256": "cf71f5df551d78285b0cc9d99677305e397cbc2ee0f0e631f5b012d478f77f71",
+      "bytes": 134217728,
+      "path": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/data-recovered-journal.exfat",
+      "restore": "gzip -dc ARCHIVE > PATH",
+      "round_trip_verified": true,
+      "sha256": "22b32e2c83d5ba1f8b28e649a52e9cb54719a6980f49ce2a67ba28f71a5c7efb"
+    },
+    {
+      "archive": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/probe-journal.img.gz",
+      "archive_bytes": 9272240,
+      "archive_sha256": "e5c26b976f5f4174a2380186465b1db5ae3a9fdc7fa7bb2f5b52d462d4437a1d",
+      "bytes": 538968064,
+      "path": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/probe-journal.img",
+      "restore": "gzip -dc ARCHIVE > PATH",
+      "round_trip_verified": true,
+      "sha256": "281858d0adff23336dcf67c8c18f0e2ce3c72fff54082ae792c6ee6b143cc0cd"
+    },
+    {
+      "archive": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/data-recovered-directories.exfat.gz",
+      "archive_bytes": 6726550,
+      "archive_sha256": "2109790b3c4dd1eb029f6505e527018154e6fdbe26da09cbafceaa4529aaace1",
+      "bytes": 134217728,
+      "path": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/data-recovered-directories.exfat",
+      "restore": "gzip -dc ARCHIVE > PATH",
+      "round_trip_verified": true,
+      "sha256": "cd4252259878979bebd76438167fd8f5b353c351b56047ce758f4a88459f4971"
+    },
+    {
+      "archive": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/probe-directories.img.gz",
+      "archive_bytes": 9272215,
+      "archive_sha256": "530b537954ddb13568d982caaa10cb7c3dffab10a29b2f91bb0d1530c3d8eade",
+      "bytes": 538968064,
+      "path": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/probe-directories.img",
+      "restore": "gzip -dc ARCHIVE > PATH",
+      "round_trip_verified": true,
+      "sha256": "96dbc6298cee44aa58b29b781410e88eb02ffebcfd4d22d645290b09c0add9b7"
+    },
+    {
+      "archive": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/data-recovered-document.exfat.gz",
+      "archive_bytes": 6726699,
+      "archive_sha256": "dbd488229862b67bc824497f9dd70742f656154eab3733bbbb53591e66d0fd6d",
+      "bytes": 134217728,
+      "path": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/data-recovered-document.exfat",
+      "restore": "gzip -dc ARCHIVE > PATH",
+      "round_trip_verified": true,
+      "sha256": "7cca82565a0f2cb5b012d76e69d38a1037d3988a3663f5a96d71831ca8781e6c"
+    },
+    {
+      "archive": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/probe-document.img.gz",
+      "archive_bytes": 9272409,
+      "archive_sha256": "dc87cd14eb9ce84b9c95083c0526aea7f2df85f7e72e3c7d064a1da35504b847",
+      "bytes": 538968064,
+      "path": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/probe-document.img",
+      "restore": "gzip -dc ARCHIVE > PATH",
+      "round_trip_verified": true,
+      "sha256": "d4982e272defacca60e60eccbfdeb7e7e5c5bd62d5622601fdbc3cf8c8303124"
+    },
+    {
+      "archive": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/data-recovered-identity.exfat.gz",
+      "archive_bytes": 6726546,
+      "archive_sha256": "53ebd31fd2c5b8e2db5a2e340e02ea3472a44bb85972dca088bbe701415b2781",
+      "bytes": 134217728,
+      "path": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/data-recovered-identity.exfat",
+      "restore": "gzip -dc ARCHIVE > PATH",
+      "round_trip_verified": true,
+      "sha256": "388035666b95a615145ecb5d9e2d9919c6ce3448e5dee5470bb629c93baa8fa2"
+    },
+    {
+      "archive": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/probe-identity.img.gz",
+      "archive_bytes": 9272221,
+      "archive_sha256": "d27eaaa834b9c9171fe8f0f635275a7beab340c322e54c45aae368b937bd169f",
+      "bytes": 538968064,
+      "path": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/probe-identity.img",
+      "restore": "gzip -dc ARCHIVE > PATH",
+      "round_trip_verified": true,
+      "sha256": "d675c0aeefbeb09a270964e6c6446c9eaa35b9c58a94965d5f303a54fc2e9254"
+    },
+    {
+      "archive": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/data-recovered-commit-ready.exfat.gz",
+      "archive_bytes": 6726855,
+      "archive_sha256": "698af3aaf6d1ad9a6c80cb713e37e743a18b7be1549afe2610f8bd155fee1557",
+      "bytes": 134217728,
+      "path": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/data-recovered-commit-ready.exfat",
+      "restore": "gzip -dc ARCHIVE > PATH",
+      "round_trip_verified": true,
+      "sha256": "463d27b2442a35b83ae6d923ec014cc662a4a99923257151dc9d7eba20d5b455"
+    },
+    {
+      "archive": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/probe-commit-ready.img.gz",
+      "archive_bytes": 9272399,
+      "archive_sha256": "35a8945d8c15b4ee7bf5845e2e927f1dda7f9370d1b1a260926fa62885664f98",
+      "bytes": 538968064,
+      "path": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/probe-commit-ready.img",
+      "restore": "gzip -dc ARCHIVE > PATH",
+      "round_trip_verified": true,
+      "sha256": "ccbe6fcee42a7034f9b67b8ed31857f8cca8feade720ea10b95d43f51e0a0b34"
+    },
+    {
+      "archive": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/duplicate-before-b-duplicate.exfat.gz",
+      "archive_bytes": 6726565,
+      "archive_sha256": "b0ac07865ce1b62d1181ac5c247934bbec1bbb40e4994692473a12449c8102ca",
+      "bytes": 134217728,
+      "path": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/duplicate-before-b-duplicate.exfat",
+      "restore": "gzip -dc ARCHIVE > PATH",
+      "round_trip_verified": true,
+      "sha256": "a06466c0243274b601c8ce41153936e75873b6f712f37c34b659a6c1d6dc4d14"
+    },
+    {
+      "archive": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/duplicate-after-b-duplicate.exfat.gz",
+      "archive_bytes": 6726568,
+      "archive_sha256": "e4f6b61b54f170e2a75aa8662672f2313fee5c48536cb7e4456aa0f5908cdcba",
+      "bytes": 134217728,
+      "path": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/duplicate-after-b-duplicate.exfat",
+      "restore": "gzip -dc ARCHIVE > PATH",
+      "round_trip_verified": true,
+      "sha256": "8bade04e48f9a80151b773325f3caf358553a2ffe2533e6de5d1df111eda8183"
+    },
+    {
+      "archive": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/data-b-duplicate.exfat.gz",
+      "archive_bytes": 6726555,
+      "archive_sha256": "1a230a9ce279b9cc612dfeaff789355d0dc3bd0d4fdefa62378b1fdc7038dfa6",
+      "bytes": 134217728,
+      "path": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/data-b-duplicate.exfat",
+      "restore": "gzip -dc ARCHIVE > PATH",
+      "round_trip_verified": true,
+      "sha256": "817c9db072394a2bdf6c98fa7db42733030258956d3749ec263fffaf9115c9ca"
+    },
+    {
+      "archive": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/data-a-final.exfat.gz",
+      "archive_bytes": 6726843,
+      "archive_sha256": "b58faae596eb0a2371d13bc3136774270d5f1e41f14d5f0585bd55e1c5709411",
+      "bytes": 134217728,
+      "path": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/data-a-final.exfat",
+      "restore": "gzip -dc ARCHIVE > PATH",
+      "round_trip_verified": true,
+      "sha256": "d3251993b736465624d8a57fb2f30c5bff474e644cdba6d337a31087d00f77e5"
+    },
+    {
+      "archive": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/data-b-final.exfat.gz",
+      "archive_bytes": 6726555,
+      "archive_sha256": "1a230a9ce279b9cc612dfeaff789355d0dc3bd0d4fdefa62378b1fdc7038dfa6",
+      "bytes": 134217728,
+      "path": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/data-b-final.exfat",
+      "restore": "gzip -dc ARCHIVE > PATH",
+      "round_trip_verified": true,
+      "sha256": "817c9db072394a2bdf6c98fa7db42733030258956d3749ec263fffaf9115c9ca"
+    },
+    {
+      "archive": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/data-a-final-choice.exfat.gz",
+      "archive_bytes": 6726843,
+      "archive_sha256": "b58faae596eb0a2371d13bc3136774270d5f1e41f14d5f0585bd55e1c5709411",
+      "bytes": 134217728,
+      "path": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/data-a-final-choice.exfat",
+      "restore": "gzip -dc ARCHIVE > PATH",
+      "round_trip_verified": true,
+      "sha256": "d3251993b736465624d8a57fb2f30c5bff474e644cdba6d337a31087d00f77e5"
+    },
+    {
+      "archive": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/data-b-choice.exfat.gz",
+      "archive_bytes": 6726555,
+      "archive_sha256": "1a230a9ce279b9cc612dfeaff789355d0dc3bd0d4fdefa62378b1fdc7038dfa6",
+      "bytes": 134217728,
+      "path": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/data-b-choice.exfat",
+      "restore": "gzip -dc ARCHIVE > PATH",
+      "round_trip_verified": true,
+      "sha256": "817c9db072394a2bdf6c98fa7db42733030258956d3749ec263fffaf9115c9ca"
+    },
+    {
+      "archive": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/data-transport-final.exfat.gz",
+      "archive_bytes": 6726827,
+      "archive_sha256": "20e9b69c0ebd8c4442b8505fdca0c7c9d737f3908750fa8ed982dbdd6d6ba54b",
+      "bytes": 134217728,
+      "path": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/data-transport-final.exfat",
+      "restore": "gzip -dc ARCHIVE > PATH",
+      "round_trip_verified": true,
+      "sha256": "3ff909ac7239269bcd4e3340007680230387a2a3b164d8179b3588ace6427b6b"
+    },
+    {
+      "archive": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/target-a/image.img.gz",
+      "archive_bytes": 9272564,
+      "archive_sha256": "6d74714be31cdc0f530fd8c75c24966e4c6850afda5cf2c820ec19551185af82",
+      "bytes": 538968064,
+      "path": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/target-a/image.img",
+      "restore": "gzip -dc ARCHIVE > PATH",
+      "round_trip_verified": true,
+      "sha256": "c6cdfade42ed4eba34f8ec3ac6d7a07b76d8ae9e7e01630d52f177d2bd55d70c"
+    },
+    {
+      "archive": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/target-b/image.img.gz",
+      "archive_bytes": 9272239,
+      "archive_sha256": "03567ba1345b92035ea91970defecdbde7ae552ae2b4f65946a7ed7159ae5354",
+      "bytes": 538968064,
+      "path": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/target-b/image.img",
+      "restore": "gzip -dc ARCHIVE > PATH",
+      "round_trip_verified": true,
+      "sha256": "fac6f1069b27e7dff5a10ec00dd2a6e408e014b5f5a779392ab877dfd7c2c660"
+    },
+    {
+      "archive": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/target-transport/image.img.gz",
+      "archive_bytes": 9272593,
+      "archive_sha256": "8d7972fa32fc5d34a629d58f4cffe3f49d906d4faaec46eed8b6472308b9229e",
+      "bytes": 538968064,
+      "path": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/target-transport/image.img",
+      "restore": "gzip -dc ARCHIVE > PATH",
+      "round_trip_verified": true,
+      "sha256": "5b922eb3457fdd251b841cd9ac06d89863ec6ca578298f607d7e0aefecec2c8a"
+    }
+  ],
+  "build": {
+    "built_at": "2026-11-04T03:26:08.832631+00:00",
+    "hashes": {
+      "build/initramfs.tar": "6e2fdf21e748d0860d50faf5962c22e2b86c2ef10815d177473ec49a50c1f5d4",
+      "build/kernel/srvros.elf": "dd8bc16783c75c5e393867e715464a49cc793a8def717caeea422a6a84c01367",
+      "build/srvros.exfat": "5e59466fa26e3e2a513e71f940c1a2bf78ac7aa7d7ac166371a469b4d499f05e"
+    },
+    "repositories": {
+      ".": {
+        "dirty": false,
+        "head": "f2360267c65f88e544751b3b5a937f90353fbb88",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports": {
+        "dirty": false,
+        "head": "747cca28e8493beef351c1608f713f1e4b104235",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/awk": {
+        "dirty": false,
+        "head": "5739fd79bcfc75ba7526773d0cf634521f8aca3c",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/cjson": {
+        "dirty": false,
+        "head": "c859b25da02955fef659d658b8f324b5cde87be3",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/inih": {
+        "dirty": false,
+        "head": "26254ee9de7681f8825433415443e7116ff24b98",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/libuv": {
+        "dirty": false,
+        "head": "1cfa32ff59c076ffb6ed735bbc8c18361558661f",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/linenoise": {
+        "dirty": false,
+        "head": "dc83cc373ac2058030eb3cf5e404959a26fef112",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/lua": {
+        "dirty": false,
+        "head": "6e22fedb74cf0c9b6656e9fce8b7331db847c605",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/node": {
+        "dirty": false,
+        "head": "c7d10158bc31036de6783d66beaaaf551e3167aa",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/zlib": {
+        "dirty": false,
+        "head": "da607da739fa6047df13e66a2af6b8bec7c2a498",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "userspace/apps": {
+        "dirty": false,
+        "head": "b2220909aded4d3f7ac051f33cfd578226450165",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "userspace/widgets": {
+        "dirty": false,
+        "head": "9eaaa74e1423c15c99f8ce388b08ed5e514de3d6",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      }
+    },
+    "schema": 1,
+    "source": "f2360267c65f88e544751b3b5a937f90353fbb88",
+    "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "worktree_dirty": false
+  },
+  "checks": {
+    "catalog_asan_ubsan": "build/profile-transfer/catalog-sanitized-final.log",
+    "cli_asan_ubsan": "build/profile-transfer/cli-sanitized-final.log",
+    "current_main_build": "build/profile-transfer/build-current-main.log",
+    "current_main_host": "build/profile-transfer/current-main-host.log",
+    "installation": "build/profile-transfer/integrated-installation.log",
+    "vm": "build/profile-transfer/vm-current-main.log"
+  },
+  "duplicate_comparison": {
+    "after_path": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/duplicate-after-b-duplicate.exfat",
+    "after_sha256": "8bade04e48f9a80151b773325f3caf358553a2ffe2533e6de5d1df111eda8183",
+    "atime_advanced": 12,
+    "before_path": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/duplicate-before-b-duplicate.exfat",
+    "before_sha256": "a06466c0243274b601c8ce41153936e75873b6f712f37c34b659a6c1d6dc4d14",
+    "metadata_rows": 403,
+    "namespace_entries": 404,
+    "service_log_lines_appended": 16
+  },
+  "exclusions": [
+    {
+      "bundle_absent": true,
+      "class": "unselected_document",
+      "destination_absent": true,
+      "path": "Documents/unselected.txt",
+      "recovered_checkpoints_absent": [
+        "journal",
+        "directories",
+        "document",
+        "identity",
+        "commit-ready"
+      ],
+      "source_preserved": true,
+      "synthetic_sha256": "d71bd675b4dab1384d6629e5f56c661abcf0e19091d322a14abcf56c2df2251f"
+    },
+    {
+      "bundle_absent": true,
+      "class": "credential_fixture",
+      "destination_absent": true,
+      "path": ".config/credential-sentinel.fixture",
+      "recovered_checkpoints_absent": [
+        "journal",
+        "directories",
+        "document",
+        "identity",
+        "commit-ready"
+      ],
+      "source_preserved": true,
+      "synthetic_sha256": "274e41072d54f6cbd506863b7f1fbe5da38ae7d46a5938f7b840f1349f35a20a"
+    },
+    {
+      "bundle_absent": true,
+      "class": "application_state",
+      "destination_absent": true,
+      "path": ".local/share/app-state.fixture",
+      "recovered_checkpoints_absent": [
+        "journal",
+        "directories",
+        "document",
+        "identity",
+        "commit-ready"
+      ],
+      "source_preserved": true,
+      "synthetic_sha256": "d721155391ac1f181911676a9e7f70792e69f5be15798833ebb1679c5e397b84"
+    },
+    {
+      "bundle_absent": true,
+      "class": "cache",
+      "destination_absent": true,
+      "path": ".cache/runtime-cache.fixture",
+      "recovered_checkpoints_absent": [
+        "journal",
+        "directories",
+        "document",
+        "identity",
+        "commit-ready"
+      ],
+      "source_preserved": true,
+      "synthetic_sha256": "33eb240353da414e9a3c038f0d10acdaceeb93ac008753b30fae3511e9b6188a"
+    }
+  ],
+  "guest_export": {
+    "bytes": 594,
+    "path": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/guest-export.json",
+    "sha256": "541cb357c3b9e72bc1b85b36aea45facc50dd724e083300d71402b2aba7ed110"
+  },
+  "integrated_main": "7ed98371",
+  "interruptions": [
+    {
+      "binding": {
+        "alias": "local_b",
+        "gid": 1000,
+        "uid": 1000
+      },
+      "checkpoint": "journal",
+      "disk": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/probe-journal.img",
+      "final_disk_sha256": "281858d0adff23336dcf67c8c18f0e2ce3c72fff54082ae792c6ee6b143cc0cd"
+    },
+    {
+      "binding": {
+        "alias": "local_b",
+        "gid": 1000,
+        "uid": 1000
+      },
+      "checkpoint": "directories",
+      "disk": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/probe-directories.img",
+      "final_disk_sha256": "96dbc6298cee44aa58b29b781410e88eb02ffebcfd4d22d645290b09c0add9b7"
+    },
+    {
+      "binding": {
+        "alias": "local_b",
+        "gid": 1000,
+        "uid": 1000
+      },
+      "checkpoint": "document",
+      "disk": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/probe-document.img",
+      "final_disk_sha256": "d4982e272defacca60e60eccbfdeb7e7e5c5bd62d5622601fdbc3cf8c8303124"
+    },
+    {
+      "binding": {
+        "alias": "local_b",
+        "gid": 1000,
+        "uid": 1000
+      },
+      "checkpoint": "identity",
+      "disk": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/probe-identity.img",
+      "final_disk_sha256": "d675c0aeefbeb09a270964e6c6446c9eaa35b9c58a94965d5f303a54fc2e9254"
+    },
+    {
+      "binding": {
+        "alias": "local_b",
+        "gid": 1000,
+        "uid": 1000
+      },
+      "checkpoint": "commit-ready",
+      "disk": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/probe-commit-ready.img",
+      "final_disk_sha256": "ccbe6fcee42a7034f9b67b8ed31857f8cca8feade720ea10b95d43f51e0a0b34"
+    }
+  ],
+  "invalid_comparison": {
+    "after_path": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/invalid-after-b-invalid.exfat",
+    "after_sha256": "de6ab142fe82fea0cec4e0bee9d55fc851520732b9f2efa52f1a50d063616e6e",
+    "atime_advanced": 8,
+    "before_path": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/invalid-before-b-invalid.exfat",
+    "before_sha256": "ef17201e0f3e024381ffdcdc23fc9c3607b921ba786ade8d8ad1954a1321ad23",
+    "metadata_rows": 389,
+    "namespace_entries": 390,
+    "service_log_lines_appended": 14
+  },
+  "limits": [
+    "disposable QEMU images only",
+    "no authentication or access-control claim",
+    "no physical media or power-loss acceptance",
+    "external fsck.exfat not run"
+  ],
+  "receipt": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/receipt.json",
+  "receipt_sha256": "3f25ddb03c135e993746d12e44c0c637612f8add3ef4259e38ecb6c47f163926",
+  "repositories": {
+    ".": {
+      "dirty": false,
+      "head": "f2360267c65f88e544751b3b5a937f90353fbb88",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports": {
+      "dirty": false,
+      "head": "747cca28e8493beef351c1608f713f1e4b104235",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/awk": {
+      "dirty": false,
+      "head": "5739fd79bcfc75ba7526773d0cf634521f8aca3c",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/cjson": {
+      "dirty": false,
+      "head": "c859b25da02955fef659d658b8f324b5cde87be3",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/inih": {
+      "dirty": false,
+      "head": "26254ee9de7681f8825433415443e7116ff24b98",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/libuv": {
+      "dirty": false,
+      "head": "1cfa32ff59c076ffb6ed735bbc8c18361558661f",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/linenoise": {
+      "dirty": false,
+      "head": "dc83cc373ac2058030eb3cf5e404959a26fef112",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/lua": {
+      "dirty": false,
+      "head": "6e22fedb74cf0c9b6656e9fce8b7331db847c605",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/node": {
+      "dirty": false,
+      "head": "c7d10158bc31036de6783d66beaaaf551e3167aa",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/zlib": {
+      "dirty": false,
+      "head": "da607da739fa6047df13e66a2af6b8bec7c2a498",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "userspace/apps": {
+      "dirty": false,
+      "head": "b2220909aded4d3f7ac051f33cfd578226450165",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "userspace/widgets": {
+      "dirty": false,
+      "head": "9eaaa74e1423c15c99f8ce388b08ed5e514de3d6",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    }
+  },
+  "schema": "org.srvros.profile-transfer-proof.v1",
+  "screenshots": {
+    "profile-transfer-document.png": {
+      "sha256": "5706afccbf8482a3467a4886b3541e26ede98d192c17ffdc2dbf8619ac549aa8",
+      "source": "imported-document-b-restored.ppm"
+    },
+    "profile-transfer-import.png": {
+      "sha256": "e74584625163629d402bea7ef1c99460b11ef8ed62306b0c4fdf8010410f3a34",
+      "source": "import-review-b-import.ppm"
+    },
+    "profile-transfer-interrupted.png": {
+      "sha256": "4648aabe588318fbbc553bf2d97423f24e78c7d32ab9e2ad8a3f4ea81ee21a79",
+      "source": "export-interrupted-a-interrupted-export.ppm"
+    },
+    "profile-transfer-recovery.png": {
+      "sha256": "7065dc69b7bbcec7c7248e9efcf546bccc008fed62b8fa1f81e32119b24d1de0",
+      "source": "chooser-recoverable-recover-identity.ppm"
+    },
+    "profile-transfer-review.png": {
+      "sha256": "96b80123ae15728bfe8bd768c7f8c86b6d5e054aa7d17f5d9effcfa0d3102843",
+      "source": "export-review-a-export.ppm"
+    },
+    "profile-transfer-small.png": {
+      "sha256": "b2c3c8551733206edccad13f48059bdfe9608d29dcf3423de7e4d938ba508bcb",
+      "source": "export-review-details-small-export.ppm"
+    }
+  },
+  "small_fixture": {
+    "config": "timeout: 0\nserial: yes\n/srvros\n    protocol: limine\n    path: boot():/boot/srvros.elf\n    resolution: 640x480\n    cmdline: srvros.virtio=on srvros.root=02c912b2-0428-4ca3-80db-be16ec2dbe6a srvros.root-format=exfat-v1 srvros.root-role=system\n    module_path: boot():/boot/initramfs.tar\n    module_string: initramfs\n",
+    "config_sha256": "6ca0e0f0d375ee827372af7df59ba99f824cd94bc3d1199581febb73275a9568",
+    "disk": "/Users/pauldemers/Desktop/srvros_workspace/SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1/target-small/image.img",
+    "export_sha256": "541cb357c3b9e72bc1b85b36aea45facc50dd724e083300d71402b2aba7ed110",
+    "final_disk_sha256": "25015358bf1d2d8b3dc3ff73c182d71705f30f5b0b4ba3e444169322481de3f7",
+    "gpt": {
+      "disk_guid": "2cf605a3-95ec-468a-ab05-33c9547c4d10",
+      "esp_partition_guid": "e01b54d6-fb92-477b-8ae2-37167369e59f",
+      "exfat_partition_guid": "02c912b2-0428-4ca3-80db-be16ec2dbe6a"
+    },
+    "initial_disk_sha256": "e0236b3e1fcfa63c36b68b533fa280c18814d61e9a70a46ea41a2ba654c0fd30",
+    "protected_regions": {
+      "after_data_sha256": "e08053fbac37a3382698b232300ed0d1f57d25cf87e41f61b02ac0c3d7b55816",
+      "before_data_sha256": "38450cc3ab74bcfc16a282ff84d34d17901ee3f5f1cb6a24cf66ea4e003f288c"
+    },
+    "source_data_sha256": "d3251993b736465624d8a57fb2f30c5bff474e644cdba6d337a31087d00f77e5"
+  },
+  "source": "f2360267c65f88e544751b3b5a937f90353fbb88",
+  "space_preflight": {
+    "archive_budget_bytes": 1073741824,
+    "available_bytes": 6022340608,
+    "compression_transient_disks": 1,
+    "disk_bytes": 538968064,
+    "maximum_live_disks": 4,
+    "required_bytes": 5916065792,
+    "reserve_bytes": 1073741824,
+    "volume_allowance": 8,
+    "volume_bytes": 134217728
+  },
+  "status": "PASS",
+  "vm_lifetimes": 19
+}

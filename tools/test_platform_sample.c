@@ -68,6 +68,7 @@ bool vmm_virt_to_phys_in_space(uint64_t space,uint64_t va,uint64_t *pa) {
 }
 static uint32_t pci_config[64],pch_config[64],hda_config[64],hsw_host_config[64];
 static unsigned hsw_emit,hsw_vmm_maps,hsw_vmm_unmaps,hsw_vmm_map_fail,hsw_vmm_unmap_fail;
+static unsigned hsw_tile_reads,hsw_tile_change,hsw_tile_value;
 static bool hsw_vmm_live;static uint64_t hsw_vmm_pa,hsw_test_space=0x1000;
 static bool test_hsw_translate(uint64_t va,uint64_t *pa) {(void)va;if(hsw_vmm_live){*pa=hsw_vmm_pa;return true;}return false;}
 static void hda_after_read(void) {
@@ -110,6 +111,7 @@ bool vmm_unmap_page_in_space(uint64_t space,uint64_t va,uint64_t *pa) {
 }
 void platform_test_hsw_endpoint_start(void) {backing_reads=0;map_walks=0;}
 uint32_t platform_test_hsw_read(unsigned off) {
+    if(off==0x101000){hsw_tile_reads++;return hsw_tile_value^(hsw_tile_change && hsw_tile_reads==2?1u:0u);}
     if(off>=0x100000 && off<0x100080)return off>=0x100008?0:off&4?0x41f02b:1;
     assert(off>=0x200000 && off<0x201800 && !(off&3));
     return (0x8da00000+4096*((off-0x200000)/4))|0x805;

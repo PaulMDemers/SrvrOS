@@ -2,9 +2,10 @@
 
 Initial source-audit checkpoint: 2026-11-03, base `8f47f196`. The starting-point
 sections below preserve that earlier audit. The subsequent isolated pilot and
-native result are recorded later in this guide; current accepted readout is
-`e98aed0c5f8d06cf` / `baaa94b5`. The latest fence/swizzle prerequisite audit uses
-base `5634cd9d`, adds host-only interpretation and grants no ownership. Policy,
+native results are recorded later in this guide; current accepted version-2
+readout is `8dc0947f9c7fbd56` / `1b0d37dd`, following version 1 at
+`e98aed0c5f8d06cf` / `baaa94b5`. The prerequisite audit uses base `5634cd9d`
+and grants no ownership. Policy,
 limits, recovery and ordinary startup are unchanged.
 
 ## Captured starting point
@@ -272,3 +273,47 @@ source-matched maximum-tail proof. Then perform a matched build, exact-stage VM
 refusal/save and missing-workspace checks, local USB/recovery preflight and a
 new saved run record before any automated native boot. No such boot is staged,
 installed or armed by this audit; the accepted payload remains installed.
+
+## Opt-in raw CPU TILECTL capture (version 2)
+
+The isolated pilot now implements the smaller experiment with
+`--haswell-backing-capture --haswell-tilectl --laptop-probe-volume UUID`.
+The modifier requires the dedicated profile, selects `ram-usb-v2-hsw` and adds
+`srvros.hsw-cpu-control=read-only`. The original flag alone preserves version 1.
+Normal startup and other diagnostic profiles do not acquire this read permission.
+
+Version 2 admits exactly the aligned DWORD at BAR0+`0x101000` through the existing
+kernel-only RO/NX/non-global window. Neighbouring words, GT `0x4030`, extra fences
+and backing pixels stay outside the permission. Each pass reads this word after
+the final fence recheck, then rechecks the ordinary endpoint and verifies final
+window retirement. The two raw CPU words must agree and must not be all ones.
+This is a pair of observations, not a continuous swizzle or lifetime guarantee.
+No interpretation of TILECTL bit 1 or full-path equivalence is granted.
+
+The unchanged ten-map ceiling is explicit. Before any window mapping, version 2
+refuses a derived vector requiring more than two GGTT pages. Native and aligned
+maximum-capacity layouts need five page mappings per pass, ten total. The same
+1,536-PTE, 100 ms pass/gap and 64 KiB receipt bounds apply. Map/read/clock/change
+and poisoned-retirement failures retain their existing refusal behavior.
+
+All summary/metadata/vector lines carry the matching version. Version-2 metadata
+is `<50Q16Q3Q5I`, 572 bytes: the version-1 layout plus the raw TILECTL DWORD.
+Its window-read count is `PTE count + 97`, and its verified mapping count is
+`2*(PTE pages + 3)`. Version-1 records retain their original 568-byte layout and
+counts. Mixed versions, missing/changed/raw-all-ones CPU observations, truncated
+records and false mapping/read counts refuse. CPU words remain raw-only in the
+independent path audit. Actual adapter producers cover both versions and the
+1,536-entry maximum, with unchanged raw tail retention checked independently.
+
+
+## Native version-2 CPU control result (2026-11-03)
+
+Release `8dc0947f9c7fbd56` / source `1b0d37dd` retains two matching raw
+`TILECTL=0x00000000` observations alongside complete matching 1,056-entry vectors,
+1,153 reads per pass and verified retirement of all ten temporary mappings.
+Readout brackets are 383/376 us. The captured display swizzle field is also `00`.
+This accepts bounded CPU/display observations; GT `ARB_MODE` remains unread,
+upper-fence coverage remains unresolved, and neither full-path consistency nor
+real ownership/pinning/lifetime is inferred. No policy or limit changed.
+See the [native unit closeout](machines/macbookair6-1.md#native-raw-cpu-tilectl-observation-accepted-2026-11-03)
+for exact session, storage integrity and recovery evidence. No new boot is armed.

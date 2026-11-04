@@ -218,7 +218,7 @@ def inspect_installed(stage, driver):
         return {'state':'refused', 'consistent':False, 'read_only':True, 'reason':str(error)}
 
 
-def _inspect(target, driver):
+def _inspect(target, driver, reader=None):
     plan, plan_hash = record_plan(target)
     names = {'plan.json','plan.sha256','in-progress.json','bootstrap.tar','limine.conf','publication.json','image.img','ready.json'}
     actual_names = set(os.listdir(target))
@@ -279,6 +279,7 @@ def _inspect(target, driver):
             require(recombined.hexdigest() == candidate['sha256'], 'protected image bytes changed')
             baseline_info = {'kind':'retained-profile-exfat' if plan['version'] == 2 else 'original-exfat-source', 'sha256':journal['data_sha256']}
         fs, profiles, choice = catalog(driver_output(driver_record['path'], fd, plan['layout']['exfat']), plan.get('profile'))
+        reader_value = reader(fd, plan, profiles) if reader is not None else None
         require(image.digest(target/'image.img') == current, 'image changed during inspection')
         if baseline_fd is not None:
             require(file_stamp(os.fstat(baseline_fd)) == file_stamp(baseline_stat) and file_stamp(os.stat(baseline_path, follow_symlinks=False)) == file_stamp(baseline_stat), 'historical data baseline changed during inspection')
@@ -291,7 +292,8 @@ def _inspect(target, driver):
             s = image.regular(target/name); require((s.st_dev,s.st_ino,s.st_size,s.st_mtime_ns,s.st_ctime_ns) == snapshots[name], 'stage record changed: '+name)
         require(image.source(driver) == driver_record, 'inspection driver changed')
         require(record_plan(target)[1] == plan_hash and json_read(target/'publication.json') == journal and read(target/'ready.json',1024*1024) == (json.dumps(expected,indent=2,sort_keys=True)+'\n').encode(), 'records changed during inspection')
-        return {'state':'installed-consistent','consistent':True,'read_only':True,'used':current != candidate['sha256'],'current_image_sha256':current,'publication':{'historical':True,'original_image_sha256':candidate['sha256'],'original_data_sha256':journal['data_sha256'],'provisioning_sources_revalidated':False,'data_baseline':baseline_info},'driver':driver_record,'gpt':gpt,'filesystem':fs,'profiles':profiles,'planned_profile':plan.get('profile'),'selection':choice,'reason':'offline structural checks passed; publication is historical evidence, not authentication or live health'}
+        result = {'state':'installed-consistent','consistent':True,'read_only':True,'used':current != candidate['sha256'],'current_image_sha256':current,'publication':{'historical':True,'original_image_sha256':candidate['sha256'],'original_data_sha256':journal['data_sha256'],'provisioning_sources_revalidated':False,'data_baseline':baseline_info},'driver':driver_record,'gpt':gpt,'filesystem':fs,'profiles':profiles,'planned_profile':plan.get('profile'),'selection':choice,'reason':'offline structural checks passed; publication is historical evidence, not authentication or live health'}
+        return (result, reader_value) if reader is not None else result
     finally:
         if baseline_fd is not None:
             os.close(baseline_fd)

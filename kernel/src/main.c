@@ -958,7 +958,7 @@ void kmain(void) {
         }
         if(automatic_hsw && started && init_ready && timer_running) {
 #ifdef SRVROS_AP_PROBE
-            sampled=platform_haswell_backing_run();
+            sampled=platform_haswell_backing_run(cmdline_has_token(cmdline,"srvros.hsw-cpu-control=read-only"));
 #else
             console_write("hsw-backing: ordinary-kernel refused\n");sampled=false;
 #endif
