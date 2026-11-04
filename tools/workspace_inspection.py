@@ -7,6 +7,7 @@ import json
 import os
 import stat
 import subprocess
+import uuid
 import installation_image as image
 import installation_inspection as native
 
@@ -46,7 +47,13 @@ def validate(report):
         seen.add(path)
     return report
 
-def selected_range(report,total):
+def partition_identity(value):
+    native.require(type(value) is str,'invalid partition GUID')
+    parsed=uuid.UUID(value)
+    native.require(str(parsed)==value and parsed.int!=0,'partition GUID must be canonical lowercase and nonzero')
+    return parsed.bytes_le.hex()
+
+def selected_range(report,total,requested_guid_le=None):
     keys={'version','kind','primary_validated','backup_agrees','writable_admission','disk_guid_le','partition_guid_le','partitions','candidates','offset_bytes','size_bytes'}
     native.require(type(report) is dict and set(report)==keys and type(report['version']) is int and report['version']==1 and
                    report['kind']=='workspace-gpt-selection' and report['primary_validated'] is True and
@@ -54,6 +61,7 @@ def selected_range(report,total):
     for key in ('disk_guid_le','partition_guid_le'):
         value=report[key]
         native.require(type(value) is str and len(value)==32 and all(c in '0123456789abcdef' for c in value) and int(value,16)>0,'invalid GPT identity')
+    native.require(requested_guid_le is None or report['partition_guid_le']==requested_guid_le,'selected partition GUID differs from request')
     offset=report['offset_bytes'];length=report['size_bytes']
     native.require(type(report['partitions']) is int and 1<=report['partitions']<=32 and
                    type(report['candidates']) is int and report['candidates']==1 and
@@ -61,36 +69,42 @@ def selected_range(report,total):
                    length>0 and length%512==0 and length<=MAX_VOLUME and offset<=total and length<=total-offset,'invalid GPT range/count')
     return offset,length
 
-def inspect_workspace(path,driver,offset=None,length=None,gpt_driver=None):
+def inspect_workspace(path,driver,offset=None,length=None,gpt_driver=None,partition_guid=None):
     fd=None;before=None;initial_hash=None;result=None
     try:
-        automatic=offset is None and length is None
-        native.require(automatic or gpt_driver is None,'GPT driver cannot be combined with an explicit range')
-        native.require(automatic or (type(offset) is int and type(length) is int and offset>=0 and length>0 and
+        use_gpt=offset is None and length is None
+        native.require(use_gpt or (gpt_driver is None and partition_guid is None),'GPT selection cannot be combined with an explicit range')
+        requested_guid_le=partition_identity(partition_guid) if partition_guid is not None else None
+        native.require(use_gpt or (type(offset) is int and type(length) is int and offset>=0 and length>0 and
                        offset%512==0 and length%512==0 and length<=MAX_VOLUME),'invalid explicit volume range')
         path=image.checked_path(path);driver=image.checked_path(driver)
         driver_record=image.source(driver)
         gpt_record=None;selection=None
-        if automatic:
+        if use_gpt:
             gpt_driver=image.checked_path(gpt_driver if gpt_driver is not None else driver.with_name('workspace-gpt-driver'+driver.suffix))
             gpt_record=image.source(gpt_driver)
         fd=os.open(path,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK)
         before=os.fstat(fd)
         native.require(stat.S_ISREG(before.st_mode) and before.st_nlink==1 and 0<before.st_size<=MAX_IMAGE and
-                       (automatic or (offset<=before.st_size and length<=before.st_size-offset)),'invalid offline regular image/range')
+                       (use_gpt or (offset<=before.st_size and length<=before.st_size-offset)),'invalid offline regular image/range')
         fcntl.flock(fd,fcntl.LOCK_SH|fcntl.LOCK_NB)
         initial_hash=digest(fd,before.st_size)
-        if automatic:
-            selection=native.driver_output(gpt_driver,fd,{'offset_bytes':0,'size_bytes':before.st_size})
-            offset,length=selected_range(selection,before.st_size)
+        if use_gpt:
+            spec={'offset_bytes':0,'size_bytes':before.st_size}
+            if requested_guid_le is None:
+                selection=native.driver_output(gpt_driver,fd,spec)
+            else:
+                selection=native.driver_output(gpt_driver,fd,spec,extra_args=('--partition-guid-le',requested_guid_le))
+            offset,length=selected_range(selection,before.st_size,requested_guid_le)
         diagnostic=validate(native.driver_output(driver,fd,{'offset_bytes':offset,'size_bytes':length},'--workspace-fd'))
-        native.require(image.source(driver)==driver_record and (not automatic or image.source(gpt_driver)==gpt_record),'native driver changed')
+        native.require(image.source(driver)==driver_record and (not use_gpt or image.source(gpt_driver)==gpt_record),'native driver changed')
         result={'state':'inspected','read_only':True,'admission':'not-authorized',
                 'image_sha256':initial_hash,'image_size':before.st_size,'image_mode':stat.S_IMODE(before.st_mode),'image_mode_octal':f'{stat.S_IMODE(before.st_mode):04o}',
-                'range':{'offset':offset,'length':length,'partition_table_validated':automatic},
+                'range':{'offset':offset,'length':length,'partition_table_validated':use_gpt},
                 'driver_sha256':driver_record['sha256'],'diagnostic':diagnostic}
-        if automatic:
+        if use_gpt:
             result['gpt_selection']=selection;result['gpt_driver_sha256']=gpt_record['sha256']
+            if partition_guid is not None:result['requested_partition_guid']=partition_guid
     except (OSError,ValueError,KeyError,TypeError,UnicodeError,RuntimeError,subprocess.SubprocessError) as error:
         result={'state':'refused','read_only':True,'admission':'not-authorized','reason':str(error)}
     finally:
@@ -110,7 +124,8 @@ def main():
     parser.add_argument('image');parser.add_argument('--driver',required=True)
     parser.add_argument('--offset',type=int);parser.add_argument('--length',type=int)
     parser.add_argument('--gpt-driver',help='native GPT adapter (default: beside --driver)')
-    args=parser.parse_args();result=inspect_workspace(args.image,args.driver,args.offset,args.length,args.gpt_driver)
+    parser.add_argument('--partition-guid',help='canonical lowercase GPT partition GUID; requires validated matching Basic Data entry')
+    args=parser.parse_args();result=inspect_workspace(args.image,args.driver,args.offset,args.length,args.gpt_driver,args.partition_guid)
     print(json.dumps(result,indent=2,sort_keys=True));return 0 if result['state']=='inspected' else 1
 
 if __name__=='__main__':raise SystemExit(main())
