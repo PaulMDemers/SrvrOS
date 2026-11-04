@@ -37,6 +37,7 @@ def sha(data): return hashlib.sha256(data).hexdigest()
 
 def cases():
     long4=b'x'*4095+b'\n';long64=b'y'*65535+b'\n';capline=long64
+    envelope=long64+(b'x'*24+b'\n')*24+(b'x'*23+b'\n')*(8191-24)
     original=b''.join(f'line {i:02d}\n'.encode() for i in range(1,31))
     changed=original.replace(b'line 03\n',b'line 03 changed\n').replace(b'line 24\n',b'line 24 changed\n')
     return {
@@ -55,6 +56,7 @@ def cases():
         'linecap-noend':(b'y'*65536,b'y'*65536),
         'countcap':(b'x\n'*8192,b'x\n'*8191+b'z\n'),
         'bytecap':(capline*4,capline*3+capline[:-2]+b'z\n'),
+        'envelope':(envelope,envelope[:-2]+b'z\n'),
         'upstream-large-subopt':((ROOT/'ports/upstream/diffutils/tests/large-subopt.in1').read_bytes(),
                                   (ROOT/'ports/upstream/diffutils/tests/large-subopt.in2').read_bytes()),
         'upstream-bug-64316':(b'c\nd\ne\nf\ng\na\nh\ni\nj\nk\nl\n',
