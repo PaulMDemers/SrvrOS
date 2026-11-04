@@ -80,6 +80,27 @@ compatible hardware. Local credentials remain private and unused until the
 security stage. Do not report connection-ready until authentication, data
 exchange and clean disconnect actually pass.
 
+## Active common VCO scope
+
+Fetched main `7ef140ef` after accepted v118. New shared work adds installed-media
+inspection/publication/salvage qualification, SQLite/jq/bc and bounded Air6,1
+observations; no MT76 change. Open PR345 owns late-flush salvage,344 Files
+transfer,343 Air observation,342 profile export,333 profile transfer,334 signal
+context,317 isolation,310 browser and301 Air scanout. Preserve their scopes.
+Consume module pins before freezing a new physical image; v118 acceptance stays
+bound to `4dd9cfd5`/`10890eed`.
+
+Next bounded contract: fixed common RF0:4 bit7 trigger after completed fresh
+trim/common DAC proof, with newly selected trim44, exact30 before-read/b0 write
+acknowledgement, immediate and six delayed byte observations, and independent
+trim restoration only after exact original30 is independently observed. Never
+force-clear the trigger or replay a failed pulse. Observation-only completion
+must distinguish pending from self-cleared; neither means RF lock or calibrated
+RX. Preserve the separate later per-channel VCO after held band/synth/gain/BBP.
+Touch fixed MT76 engine/native owner, immutable opt-in automatic recipe and host/
+frozen-log tests. MAC stays disabled, no network OUT or credentials. Cold unplug
+and automatic save/Ubuntu return remain required for any physical candidate.
+
 ## Active common DAC scope and integration dependency
 
 Fetch checkpoint main `10890eed` (PR329), with root-profile/recovery changes and
