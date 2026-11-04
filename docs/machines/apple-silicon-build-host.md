@@ -3568,3 +3568,19 @@ existing `1f177761` integration base. Evidence: `build/review/xhci-class-restart
 Next: independently review the PR334 foreground-worker spawn fix, then continue
 process binding/teardown and driver lifetime coverage. Physical class recovery,
 new-generation restart, multi-TT/USB3 and SMP remain unqualified.
+
+
+### November 4: independent PR334 dependency review
+
+PR317 production remains the qualified class-recovery/restart-refusal candidate;
+subsequent checkpoints review separately owned PR334 process/signal dependencies.
+Private RESET closure `63984900` and its 317 retained files are independently
+qualified in the kernel audit. SDK source review verifies pushed SrvrPorts
+`f88f1bd0`, 55 exact overlay modes/blobs, preservation of 1,230 existing entries,
+and 27 exact root source files/modes after correction of two missing math fixtures.
+Historical browser runtime results are labeled as such. ARM strict, ARM sanitizer
+and x86 strict hyperbolic host checks pass; no fresh matched SDK/ICU/JSC acceptance.
+No VM, staging or shared build was run for this source-review checkpoint.
+Evidence: `build/review/pr334-sdk-carry-review/`; public logical-I/O local commit
+guard remains proposed. Next: review the revised protocol and fresh matched
+dependency results without duplicating PR334 implementation ownership.

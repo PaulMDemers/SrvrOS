@@ -1869,6 +1869,48 @@ pin `d760e541` diverges from browser `af466ba` (13 ahead, seven behind). Future
 file-scoped dependency carries must preserve current ports integrations rather
 than replacing the whole tree/pin. No matched SDK/ICU/JSC success is inferred.
 
+## November 4: SDK source carry and reproducibility review
+
+Reviewed PR334's dependency carry without modifying its checkout. SrvrPorts
+`f88f1bd0` is pushed and is based on the actual root integration pin `d760e541`.
+All 55 added overlay paths have the exact mode/type/blob of browser ports
+`af466ba6`; all 1,230 pre-existing entries except README remain unchanged. README
+adds five explanatory lines. The initial root manifest's 25 files match browser
+`185db570` byte for byte, including executable bits. Kernel/shared signal and
+existing salvage sources are untouched. This qualifies source reconciliation,
+not a rebuilt SDK, ICU, JavaScript engine or guest runtime.
+
+A bounded source-dependency scan found a confirmed incomplete carry:
+`browser_math_probe.py`, `browser_evidence.py` and the ICU recipe require
+`tools/test_math_hyperbolic.c` and `tools/mathprobe.c`, but both fixtures are
+absent from the prepared root checkout and manifest. The implementation owner
+added both exact browser fixtures; the expanded 27-file manifest and executable
+modes independently verify. This closes the source omission, not fresh runtime
+qualification.
+Twenty Python helpers/recipes parse; the two fixtures are the only missing
+literal source references found, which does not prove dynamic/generated paths.
+Copied port notes also cite historical browser guest receipts and a root
+`docs/browser-port.md` that is absent here. A new current
+`docs/browser-port.md` explicitly attributes those runs to browser `185db570`
+and keeps PR334 matched SDK/guest/JSC acceptance pending.
+
+Independent host checks compile the carried hyperbolic source against the
+browser fixture: ARM64 strict, ARM64 ASan/UBSan and x86_64 strict/Rosetta pass
+threshold/edge values plus 200,000 deterministic float bit patterns within three
+ULP. The fixture was read from the browser checkout; these are independent host
+checks, not evidence that the corrected carry builds. Results and source hashes
+are retained under `build/review/pr334-sdk-carry-review/`. Fresh matched C++ guard,
+TLS destructor, linkage, SDK and guest qualification remains with PR334's owner.
+
+The public logical-I/O packet remains preparation-only. The owner identified a
+remaining interval between sticky kernel admission and a synthetic userspace
+readiness/effect commit, and proposed a bounded mask guard around that local
+commit. Review requires explicit guard state and prior-mask ownership, no waiting
+user lock or callback inside the guard, and exact restoration before subsequent
+admission. No public implementation or successful WTF/JSC suspension is inferred.
+Documentation checking covers 895 local links with the same nine missing nested
+submodule license targets; no new missing local link.
+
 ## Remaining work
 
 Other long IRQ-disabled operations, including initial/churning PMM scans, heap validation and poisoning,

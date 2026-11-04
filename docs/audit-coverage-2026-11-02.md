@@ -252,3 +252,10 @@ paging state is modeled by those fixtures. The 65,536-mapping wrapper can visit
 helper latency remain pending before any production caller. The optional isolated
 guest test hook has source review only. See the [kernel audit](audit-kernel-isolation-2026-11-03.md)
 for exact source versions, evidence and remaining signal-delivery boundaries.
+
+
+SDK source carry f88f1bd0 preserves 1,230 existing port entries and adds 55 exact
+browser overlay modes/blobs; 27 root files/modes match browser185db570 after the owner corrected the confirmed
+missing math fixtures. Copied runtime claims now have explicit historical attribution. Independent hyperbolic host checks pass ARM strict,
+ARM sanitizer and x86 strict, not SDK/guest acceptance. Public synthetic local
+commit guard remains proposed. See the kernel checkpoint for precise scope.
