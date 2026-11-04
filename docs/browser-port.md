@@ -23,6 +23,26 @@ review VMs 61610/6233/85869 remain live. No physical boot/disk, Actions or merge
 
 ### Confirmed startup causes and shared-runtime handoff
 
+Fresh source build `build/browser-jsc/run-nxi_i90d` succeeds on clean source
+`26e9e78f`. Receipt `receipt-1793759255161348000.json`, SHA256
+`ab60967d353e2af5d7658fe69d21dcc99a7d0a48845e3d3cecbf7fe19d9924e7`,
+records static ELF SHA256
+`4b32bb9ce3c25b1b294714b5bd664fbf17555b6f87226d2e35742313b8c45d39`.
+PT_TLS now covers all 2,096 bytes, file size zero and alignment 16; dynamic/
+interpreter segments are absent. The 893/172/168 target archive members remain
+ELF64 x86_64. The source fingerprint remains `81d2a8dba49cd370432260d9e221dd9a430f6b9b53f8d7618093f94a870154db`;
+manifest identifier is `6f70d8b80a8434b7b2a1703d540af446f8068680389ecdcf964d937922f6a1b5`.
+Fresh patch replay `replay-1793759315358086000.json` matches exactly.
+
+The fresh Release utility is built by `tools/browser_wtf_probe.py`; its receipt
+is `wtfprobe-e_vdbqob.json` in that run. The actual required-success smoke is
+`build/browser-jsc/guest-5f8_ysyu/receipt.json`: the entire utility passes status
+zero, then JSC exits 134 without `42`. The harness correctly records **failed**
+and returns nonzero. The corrected TLS layout therefore fixes the utility fault
+but does not fix or hide the independently proven signal-handler startup abort.
+The VM stopped. All recorded build input/output hashes were independently checked.
+
+
 The utility fix is verified in `build/browser-jsc/guest-8diqa2_5/receipt.json`:
 status zero and every footprint, mapped-memory delta, UInt128 decimal and scalar
 Unicode marker passes. The ELF is separately linked with the corrected source
@@ -44,7 +64,16 @@ hash is required and all other inputs/artifacts still have to match.
 
 The user authorized a direct owner handoff to “Review SrvrOS repository context”;
 the confirmed abort backtrace and proposed context/suspension contract were sent.
-No shared signal/context ownership agreement or implementation is claimed yet.
+The audit owner agreed that this chat can own the dependency in a separate OS
+branch and draft PR, with ABI/delivery review before implementation and retained
+process/VMM/teardown integration review. The isolated `SrvrOS-signal-context`
+checkout, branch `device/apple-silicon/browser-signal-context`, merges main
+`89c210db` with PR317 `c9f4f306` as `af470fff`. [Draft PR334](https://github.com/PaulMDemers/SrvrOS/pull/334)
+contains design commits `8c8dc952` and `76d70a49`, including independent review
+invariants and the JSC handshake failure rule. It contains no signal/runtime
+implementation yet. PR310 must consume the reviewed dependency; its code remains
+separate. The managed-worktree tool rejected the nested-repository workspace,
+so a separate local checkout was used without changing the integration checkout.
 Matched SDK/runtime/ICU rebuild now passes. All 17 combined runtime cases pass
 in `build/browser-runtime/guest-_liv6x0k/receipt.json`, including both new TLS/GOT
 thread-isolation cases; both writable filesystem runs pass in
