@@ -1,5 +1,49 @@
 # Disk installation and recovery
 
+## PR321 integrated-main review and next checkpoint
+
+User authorized review and merge if ready. Merged current main `805519b2` into
+PR321 at `6de308a1`. No blocking implementation finding or unresolved review
+thread remains. Fresh 27 installation/provenance tests, 13 bundle groups, seven
+image-adapter tests, profile/session host checks, full build and documentation
+checks pass. Shared profile preflight, plan-version guards, source/driver
+revalidation and private publication preserve the accepted contracts.
+
+The [equivalence receipt](assets/screenshots/profile-install-review-equivalence.json)
+compares the fresh build with clean VM source `bf6efeb2`. Kernel, actual minimal
+bootstrap init, loader, drivers and every exercised profile/application file are
+byte-identical. Only unused `sysabi` lifecycle-test payloads changed: `bin/sysabi`
+and its `bin-sysabi` alias in exFAT, plus `sysabi` and the embedded exFAT in the
+ordinary full archive. The installer creates a minimal `/init` archive, so those
+test payloads are not a changed boot dependency. All other archive entries match.
+Thus no runtime behavior exercised by the accepted four-boot/12-refusal proof
+changed; the affected host checks were rerun and that VM evidence remains valid.
+Final image/refusal hashes were rechecked against the retained receipt.
+Review logs and equivalence evidence survive at
+`.local/installation-evidence/pr321-review`. Existing review VMs 61610, 6233 and
+85869 remain live and untouched; no new test VM was needed. PR321 records the
+final user-authorized merge state. Pending-publication statements below retain
+the original milestone history.
+
+Next bounded installation milestone: **interrupted image-publication recovery**.
+Today apply refuses reuse of an interrupted stage, and an interruption after
+image publication can leave a complete image without a ready receipt. Add
+explicit inspect/reconcile for this owned disposable staging area. Persist the
+verified output identity/hashes before publication; a fresh process may finalize
+ready state only when plan, sources, target identity and the complete output all
+still match. Otherwise preserve the stage and refuse; never resume arbitrary
+writes into an uncertain image.
+
+Prove process interruption at provisioning, GPT assembly, image publication and
+ready publication boundaries; successful reconciliation must boot and retain
+the planned profile, while changed/damaged inputs or output cannot become ready.
+Dependencies: version-2 plan/source binding from PR321, existing profile-image
+clean admission/private provisioning from PR314, stable GPT/boot verification
+and explicit host write/flush/directory-sync ordering. Agree any new persistence
+assumptions with the filesystem owner; process-restart proof is not guest
+power-loss atomicity. Guest profile import/export, physical disks, credentials
+and in-place upgrades remain separate. This is a proposed next slice only.
+
 ## Profile-aware installation plans — completed proof
 
 User authorized implementation, two-installation persistence/refusal proof and

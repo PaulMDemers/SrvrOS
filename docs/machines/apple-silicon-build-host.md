@@ -1,5 +1,17 @@
 # Apple Silicon macOS build host
 
+## PR321 merge review
+
+User authorized review/merge of profile plans. Candidate `6de308a1` integrates
+current main `805519b2`; focused installation/profile host checks and full build
+pass. Runtime equivalence preserves the four-boot/12-refusal acceptance from
+`bf6efeb2`: only unused sysabi fixture payloads changed, including their archive
+copies; kernel, minimal bootstrap, drivers and all exercised apps/data match.
+Evidence/logs are retained at `.local/installation-evidence/pr321-review`.
+No additional VM was required; review VMs 61610, 6233 and 85869 remain untouched.
+See PR321 for merge state and the installation document for the proposed bounded
+interrupted-publication inspection/recovery checkpoint.
+
 ## Profile-aware installation plans — proof complete
 
 User authorized a scoped PR and two-installation persistence/refusal proof in
