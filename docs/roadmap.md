@@ -36,14 +36,25 @@ boundary with the browser/process owner before implementation; snapshot ancestry
 and window disappearance cannot substitute for it. Data-save success remains
 separate from process retirement.
 
+The runtime dependency is qualified on clean source `cd93e1eb`: matched full
+macOS build, actual-source host tests (including ASan/UBSan), independent runtime
+review, and a disposable full-boot QEMU proof. Two scope-probe runs verify failed
+root cleanup, a held orphan blocking release, natural retirement, and ownerless
+scope cleanup by the live system init (PID 1). Inherited lifetime, PTY/job-control
+and syscall ABI guest regressions also pass. Follow-up `e3eeaf21` changes only a
+header comment and host test, adding actual main/worker exit coverage with a
+pending root reservation. Ownerless cleanup requires the ordinary live init
+reaper; absence of progress must remain a refusal, never a forced completion.
+See [runtime PR #354](https://github.com/PaulMDemers/SrvrOS/pull/354).
+
 The current working scope excludes concurrent logged-in desktops, authentication,
 permission enforcement and physical-media qualification. The profiles owner
-will specify the exact cancellation/commit boundary before implementation; user
-control and truthful partial-shutdown feedback are required. Parent review uses
-`SrvrOS-migration-review`, branch `device/apple-silicon/session-switch-review`.
-No parent build/VM overlaps the implementation owner's checkout. Next: review the
-source-backed state flow and finite verification plan, implement, qualify and
-merge the matching Apps/OS revisions when ready.
+implements the explicit cancellation/commit boundary and private supervisor;
+parent integration uses `SrvrOS-migration-review` and a dedicated external APFS
+build volume. Existing creation/installation evidence remains unchanged. Next:
+review and integrate the desktop/Apps candidate, qualify the complete A → B → A
+flow, and merge matching Apps/OS revisions when ready. Runtime qualification
+alone does not establish desktop-switch acceptance.
 
 ## Desktop profile creation — delivered and verified November 4, 2026
 
