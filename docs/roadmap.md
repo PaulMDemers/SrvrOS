@@ -39,6 +39,39 @@ Next: review exact final topic heads and evidence, merge Apps before its OS pin,
 verify the combined installed export/restore workflow, and merge the remaining
 installation/integration changes. No readiness claim until these gates pass.
 
+## bc exact decimal workflow — November 3, 2026
+
+Target: static bc 7.0.3 for scripts/files/stdin/pipelines, arbitrary-precision
+decimal calculations, scale/sqrt/bases and variables/functions/loops. Isolated
+`ports/bc` checkout begins at main `b78e3ed5`. First gate is safe signal recovery:
+handlers must return through the cooperative libc dispatcher before nonlocal
+recovery; compute-bound code needs bounded dispatch checkpoints. No blind
+SA_NODEFER or sigjmp stubs. Coordinate any shared-runtime need with integration.
+No dc, history/readline, NLS or extended-math acceptance initially. Required
+gates: selected upstream arithmetic cases, exact guest reports, repeated
+signal/error recovery, real stdout failures, clean CLI binary reproducibility
+and existing ports/docs checks. Implemented and verified: bc 7.0.3 static core arithmetic, scale/sqrt/bases,
+functions/loops and file/stdin/pipeline exact reports. The signal gate is
+resolved in the port's generated copy: callback records state and returns,
+libc restores dispatcher/mask state, and existing bc unwind paths run afterward.
+Bytecode loops poll via public sched_yield every 1024 instructions. A single
+long arithmetic instruction can delay signal delivery; interactive interrupt
+messages differ from upstream. No shared libc/kernel changes were needed.
+
+Guest probes pass same-process syntax/division-error recovery, repeated blocked
+input and busy-loop SIGINT with successful calculations afterward, busy-loop
+SIGTERM exit and actual stdout failure. Seven unchanged upstream arithmetic
+fixtures plus exact report save/reopen across two boots pass. Guest fsck and
+offline allocation pass; independent fsck.exfat is unavailable. Full build,
+existing ports regression and docs/whitespace checks pass. Two clean CLI builds
+match SHA256 `62c0737baafa6b569bd917303600e5aee341c5f09b24776fce49615e5fa6af61`.
+Receipts are under `build/bc-smoke/20261103-221517-z7lm_s73/` and
+`build/review/bc/accepted.json`. No full-suite, physical-device, full-image
+reproducibility or general asynchronous-signal acceptance is claimed.
+Status: bounded implementation complete and ready for review; no merge performed.
+
+Integration checkout/review VM remain untouched.
+
 ## jq CLI workflow — November 3, 2026
 
 Target: jq 1.8.2 for offline JSON files/stdin/pipelines, filtering/aggregation,
