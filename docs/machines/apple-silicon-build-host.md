@@ -8,7 +8,7 @@ bundles and verifying transfer/recovery across two disposable VMs. Reuse isolate
 main `5f670602`, with its pinned Apps/UI/Ports. Prior session/creation/installation
 proofs, baselines, accepted backups and three original review VMs stay preserved.
 
-The implementation contract adds framed v2 (bounded JSON manifest + sequential
+The [implementation contract](../portable-profile-streaming.md) adds framed v2 (bounded JSON manifest + sequential
 raw selected-document bytes), up to 16 MiB/file and 64 MiB aggregate, 64 files,
 64 KiB metadata and 64 KiB I/O buffer. Existing v1 bytes, caps, guest operations
 and creation stay compatible. Guest/Profiles use version dispatch and explicit
