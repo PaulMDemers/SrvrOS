@@ -18,7 +18,7 @@ static void test_wifi_scan(struct xhci_device *d){
         m->post_vco.words[2][2]=early?0x30:0xb0;
         assert(m->scan_mode && m->tune_mode && m->receive_mode && m->window_long_mode && m->discovery_mode && m->poweron_mode && !m->channel_mode && !m->passive_mode);
         m->tune=(struct xhci_wifi_tune){0};m->receive=(struct xhci_wifi_receive){0};m->scan=(struct xhci_wifi_scan){0};
-        memcpy(d->output_context,context,sizeof context);d->ep0_quarantined=d->firmware.failed=false;d->firmware.ep.packet=512;firmware_command_failed=false;
+        memcpy(d->output_context,context,sizeof context);d->ep0_quarantined=d->firmware.failed=false;d->firmware.ep.packet=512;firmware_command_failed=false;xhci.command_failed=xhci.command_pending=false;
         mac_model_mac=0;mac_model_filter=0x17f97;mac_model_txop=before.mac_cycle.txop;
         tune_model_init();tune_fault=tune_at=tune_delay_fault=0;
         receive_retry_fault=0;receive_last_trb=0;receive_layout_faulted=false;
@@ -72,7 +72,7 @@ static void test_wifi_scan(struct xhci_device *d){
     }
     fail_after=old_fail_after;receive_retry_fault=0;receive_last_trb=0;receive_layout_faulted=false;
     scan_test_fault_visit=scan_test_rf_visit=3;scan_test_fault_kind=scan_test_history=0;receive_fault=0;
-    *m=before;memcpy(d->output_context,context,sizeof context);d->ep0_quarantined=d->firmware.failed=false;d->firmware.ep.packet=512;firmware_command_failed=false;
+    *m=before;memcpy(d->output_context,context,sizeof context);d->ep0_quarantined=d->firmware.failed=false;d->firmware.ep.packet=512;firmware_command_failed=false;xhci.command_failed=xhci.command_pending=false;
     d->input_context=old_input;d->input_context_phys=old_input_phys;
     printf("wifi-scan-native: PASS %u three-visit US1/6/11,fresh retained rings/pages,per-visit command/receive/clock failures,stop before restoration,private dedup/conflicts,late-event refusal,no replay/no DMA free\n",scan_cases);
 }

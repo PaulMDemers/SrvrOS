@@ -58,7 +58,7 @@ static void test_wifi_tune(struct xhci_device *d) {
     unsigned normal=0;
     for(unsigned trial=0;trial<=normal;trial++) {
         *m=before;m->channel_mode=false;m->tune_mode=true;memcpy(d->output_context,context,sizeof context);
-        d->ep0_quarantined=d->firmware.failed=false;d->firmware.ep.packet=512;firmware_command_failed=false;
+        d->ep0_quarantined=d->firmware.failed=false;d->firmware.ep.packet=512;firmware_command_failed=false;xhci.command_failed=xhci.command_pending=false;
         tune_model_init();tune_fault=trial?1:0;tune_at=trial;tune_test_device=d;
         bool ok=wifi_tune_capture(d);tune_test_device=NULL;tune_cases++;
         if(!trial) {
@@ -73,7 +73,7 @@ static void test_wifi_tune(struct xhci_device *d) {
     }
     for(unsigned fault=2;fault<=10;fault++)for(unsigned sample=0;sample<3;sample++) {
         *m=before;m->channel_mode=false;m->tune_mode=true;memcpy(d->output_context,context,sizeof context);
-        d->ep0_quarantined=d->firmware.failed=false;d->firmware.ep.packet=512;firmware_command_failed=false;
+        d->ep0_quarantined=d->firmware.failed=false;d->firmware.ep.packet=512;firmware_command_failed=false;xhci.command_failed=xhci.command_pending=false;
         tune_model_init();tune_fault=fault;tune_at=(unsigned[]){1,30,normal-1}[sample];tune_test_device=d;
         bool ok=wifi_tune_capture(d);tune_test_device=NULL;tune_cases++;
         assert(!ok && m->tune.state.failed && !m->tune.state.complete && !freed);
@@ -82,7 +82,7 @@ static void test_wifi_tune(struct xhci_device *d) {
     }
     for(unsigned phase=0;phase<2;phase++)for(unsigned clear=0;clear<=7;clear++) {
         *m=before;m->channel_mode=false;m->tune_mode=true;memcpy(d->output_context,context,sizeof context);
-        d->ep0_quarantined=d->firmware.failed=false;d->firmware.ep.packet=512;firmware_command_failed=false;
+        d->ep0_quarantined=d->firmware.failed=false;d->firmware.ep.packet=512;firmware_command_failed=false;xhci.command_failed=xhci.command_pending=false;
         tune_model_init();tune_fault=0;tune_at=0;tune_clear[phase]=clear;tune_test_device=d;
         bool ok=wifi_tune_capture(d);tune_test_device=NULL;tune_cases++;
         assert(ok==(clear>=1 && clear<=6));
@@ -91,7 +91,7 @@ static void test_wifi_tune(struct xhci_device *d) {
     }
     for(unsigned fault=0;fault<21;fault++) {
         *m=before;m->channel_mode=false;m->tune_mode=true;memcpy(d->output_context,context,sizeof context);
-        d->ep0_quarantined=d->firmware.failed=false;d->firmware.ep.packet=512;firmware_command_failed=false;
+        d->ep0_quarantined=d->firmware.failed=false;d->firmware.ep.packet=512;firmware_command_failed=false;xhci.command_failed=xhci.command_pending=false;
         tune_model_init();tune_fault=0;tune_at=0;
         switch(fault) {
         case 0:d->vendor_id^=1;break;case 1:d->product_id^=1;break;case 2:d->device_bcd^=1;break;
@@ -110,7 +110,7 @@ static void test_wifi_tune(struct xhci_device *d) {
     }
     for(unsigned phase=0;phase<2;phase++)for(unsigned fault=1;fault<=5;fault++) {
         *m=before;m->channel_mode=false;m->tune_mode=true;memcpy(d->output_context,context,sizeof context);
-        d->ep0_quarantined=d->firmware.failed=false;d->firmware.ep.packet=512;firmware_command_failed=false;
+        d->ep0_quarantined=d->firmware.failed=false;d->firmware.ep.packet=512;firmware_command_failed=false;xhci.command_failed=xhci.command_pending=false;
         tune_model_init();tune_fault=0;tune_at=0;tune_delay_fault=fault;tune_delay_phase=phase;
         uint64_t step=test_time_step;if(fault==2)test_time_step=0;
         tune_test_device=d;assert(!wifi_tune_capture(d) && m->tune.state.failed && !freed);tune_test_device=NULL;
@@ -118,7 +118,7 @@ static void test_wifi_tune(struct xhci_device *d) {
         test_time_step=step;tune_delay_fault=0;tune_cases++;
     }
     *m=before;m->channel_mode=false;m->tune_mode=true;memcpy(d->output_context,context,sizeof context);
-    d->ep0_quarantined=d->firmware.failed=false;d->firmware.ep.packet=512;firmware_command_failed=false;
+    d->ep0_quarantined=d->firmware.failed=false;d->firmware.ep.packet=512;firmware_command_failed=false;xhci.command_failed=xhci.command_pending=false;
     struct xhci_wifi_tune *t=&m->tune;*t=(struct xhci_wifi_tune){.active=true,.pinned=true};
     t->state.attempted=true;t->state.channel=6;t->state.saved_mask=8191;t->state.touched_mask=1;
     for(unsigned i=0;i<13;i++)t->state.saved[i]=(uint8_t)mt76_channel_snapshot_initial(i);
@@ -133,6 +133,6 @@ static void test_wifi_tune(struct xhci_device *d) {
     unsigned calls=tune_bulk_calls;t->state.failed=true;
     assert(!wifi_tune_guard(d,0x1004,(uint32_t *)&tune_reply[0],false) && calls==tune_bulk_calls);
     tune_test_device=NULL;tune_cases+=8;
-    *m=before;memcpy(d->output_context,context,sizeof context);d->ep0_quarantined=d->firmware.failed=false;d->firmware.ep.packet=512;firmware_command_failed=false;
+    *m=before;memcpy(d->output_context,context,sizeof context);d->ep0_quarantined=d->firmware.failed=false;d->firmware.ep.packet=512;firmware_command_failed=false;xhci.command_failed=xhci.command_pending=false;
     printf("wifi-tune-native: PASS %u scenarios;all%u RF reply headers,wire/transport/live-stop/board/ownership gates,VCO waits/timeouts,independent cleanup,no DMA freed\n",tune_cases,normal);
 }

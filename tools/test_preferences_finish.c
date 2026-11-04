@@ -12,7 +12,8 @@ int desk_file_job_init(struct desk_file_job *j) { *j=(struct desk_file_job){.pid
 int desk_file_job_start(struct desk_file_job *j,unsigned op,const char *path,const void *data,size_t n,unsigned flags,uint32_t crc) {
     assert(!j->busy && !strcmp(path,expected_path));
     j->request=(struct desk_file_request){.operation=op,.length=n,.flags=flags,.expected_crc=crc};
-    if(n)memcpy(j->outgoing,data,n);j->busy=1;if(op==DESK_FILE_WRITE)writes++;return 0;
+    if(n)memcpy(j->outgoing,data,n);
+    j->busy=1;if(op==DESK_FILE_WRITE)writes++;return 0;
 }
 int desk_file_job_poll(struct desk_file_job *j) { int r=next_result;next_result=0;if(r)j->busy=0;return r; }
 void desk_file_job_close(struct desk_file_job *j) { (void)j; }

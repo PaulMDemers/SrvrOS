@@ -125,7 +125,7 @@ static void test_wifi_receive(struct xhci_device *d) {
     struct xhci_wifi_mcu *m=&d->firmware.mcu;struct xhci_wifi_mcu before=*m;uint8_t context[4096];memcpy(context,d->output_context,sizeof context);
     for(unsigned trial=0;trial<28;trial++) {
         *m=before;m->channel_mode=false;m->tune_mode=m->receive_mode=true;memcpy(d->output_context,context,sizeof context);
-        d->ep0_quarantined=d->firmware.failed=false;d->firmware.ep.packet=512;firmware_command_failed=false;
+        d->ep0_quarantined=d->firmware.failed=false;d->firmware.ep.packet=512;firmware_command_failed=false;xhci.command_failed=xhci.command_pending=false;
         mac_model_mac=0;mac_model_filter=0x17f97;mac_model_txop=before.mac_cycle.txop;
         tune_model_init();tune_fault=0;tune_at=0;tune_delay_fault=0;
         receive_fault=trial;receive_controls=receive_control_at=receive_control_fault=0;receive_ticks=receive_commands=receive_mac_at=0;uint64_t step=test_time_step;
@@ -157,7 +157,7 @@ static void test_wifi_receive(struct xhci_device *d) {
     }
     for(unsigned fault=1;fault<=3;fault++)for(unsigned boundary=1;boundary<=57;boundary++) {
         *m=before;m->channel_mode=false;m->tune_mode=m->receive_mode=true;memcpy(d->output_context,context,sizeof context);
-        d->ep0_quarantined=d->firmware.failed=false;d->firmware.ep.packet=512;firmware_command_failed=false;
+        d->ep0_quarantined=d->firmware.failed=false;d->firmware.ep.packet=512;firmware_command_failed=false;xhci.command_failed=xhci.command_pending=false;
         mac_model_mac=0;mac_model_filter=0x17f97;mac_model_txop=before.mac_cycle.txop;
         tune_model_init();tune_fault=0;tune_at=0;tune_delay_fault=0;receive_fault=0;receive_ticks=receive_commands=receive_mac_at=0;
         receive_controls=0;receive_control_at=boundary;receive_control_fault=fault;
@@ -171,7 +171,7 @@ static void test_wifi_receive(struct xhci_device *d) {
     receive_controls=receive_control_at=receive_control_fault=0;
     for(unsigned header=1;header<=152;header++) {
         *m=before;m->channel_mode=false;m->tune_mode=m->receive_mode=true;memcpy(d->output_context,context,sizeof context);
-        d->ep0_quarantined=d->firmware.failed=false;d->firmware.ep.packet=512;firmware_command_failed=false;
+        d->ep0_quarantined=d->firmware.failed=false;d->firmware.ep.packet=512;firmware_command_failed=false;xhci.command_failed=xhci.command_pending=false;
         mac_model_mac=0;mac_model_filter=0x17f97;mac_model_txop=before.mac_cycle.txop;
         tune_model_init();tune_fault=1;tune_at=header;receive_fault=0;receive_ticks=receive_commands=receive_mac_at=0;
         receive_controls=receive_control_at=receive_control_fault=0;
@@ -180,7 +180,7 @@ static void test_wifi_receive(struct xhci_device *d) {
     }
     for(unsigned admission=0;admission<3;admission++) {
         *m=before;m->channel_mode=false;m->tune_mode=m->receive_mode=true;memcpy(d->output_context,context,sizeof context);
-        d->ep0_quarantined=d->firmware.failed=false;d->firmware.ep.packet=512;firmware_command_failed=false;
+        d->ep0_quarantined=d->firmware.failed=false;d->firmware.ep.packet=512;firmware_command_failed=false;xhci.command_failed=xhci.command_pending=false;
         mac_model_mac=0;mac_model_filter=0x17f97;mac_model_txop=before.mac_cycle.txop;
         tune_model_init();tune_fault=0;tune_at=0;receive_fault=0;receive_ticks=receive_commands=receive_mac_at=0;
         receive_controls=receive_control_at=receive_control_fault=0;
@@ -194,13 +194,13 @@ static void test_wifi_receive(struct xhci_device *d) {
     }
     for(unsigned allocation=0;allocation<2;allocation++) {
         *m=before;m->channel_mode=false;m->tune_mode=m->receive_mode=true;memcpy(d->output_context,context,sizeof context);
-        d->ep0_quarantined=d->firmware.failed=false;d->firmware.ep.packet=512;firmware_command_failed=false;
+        d->ep0_quarantined=d->firmware.failed=false;d->firmware.ep.packet=512;firmware_command_failed=false;xhci.command_failed=xhci.command_pending=false;
         mac_model_mac=0;mac_model_filter=0x17f97;mac_model_txop=before.mac_cycle.txop;
         tune_model_init();tune_fault=0;tune_at=0;receive_fault=0;receive_ticks=receive_commands=receive_mac_at=0;fail_after=pool_used+allocation;
         receive_test_device=tune_test_device=d;assert(!wifi_tune_capture(d));receive_test_device=tune_test_device=NULL;fail_after=0;receive_cases++;
         assert(!m->receive.retarget_attempted && !m->receive.posted && !freed && m->tune.state.cleanup_complete);tune_model_restored();
     }
-    *m=before;memcpy(d->output_context,context,sizeof context);d->ep0_quarantined=d->firmware.failed=false;d->firmware.ep.packet=512;firmware_command_failed=false;
+    *m=before;memcpy(d->output_context,context,sizeof context);d->ep0_quarantined=d->firmware.failed=false;d->firmware.ep.packet=512;firmware_command_failed=false;xhci.command_failed=xhci.command_pending=false;
     d->input_context=old_input;d->input_context_phys=old_input_phys;fail_after=old_fail_after;
     printf("wifi-channel-receive-native: PASS %u fresh-ring/page,single-IN,channel6/beacon,quiet/mismatch/foreign/malformed,clock/command/stop/allocation/restore scenarios;no DMA freed\n",receive_cases);
 }

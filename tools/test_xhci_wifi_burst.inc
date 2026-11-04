@@ -156,7 +156,7 @@ static void test_wifi_burst(struct xhci_device *d){
     void *old_input=d->input_context;uint64_t old_phys=d->input_context_phys,limit=fail_after,step=test_time_step;
     for(unsigned n=group*6;n<(group+1)*6;n++)for(unsigned visit=0;visit<3;visit++){
         d->firmware.mcu=before;memcpy(d->output_context,context,sizeof context);d->input_context=old_input;d->input_context_phys=old_phys;
-        d->ep0_quarantined=d->firmware.failed=false;d->firmware.ep.packet=512;firmware_command_failed=false;
+        d->ep0_quarantined=d->firmware.failed=false;d->firmware.ep.packet=512;firmware_command_failed=false;xhci.command_failed=xhci.command_pending=false;
         fail_after=limit;test_time_step=step;batch_case=n;batch_fault_visit=visit;
         test_wifi_burst_case(d);
     }

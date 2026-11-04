@@ -12551,3 +12551,17 @@ passive observer;its production20000000-iteration cap is preserved explicitly.
 Focused passive/control/retirement/reclaim and fresh5GHz owner tests pass after
 preserved compile/link/model-timeout refusals. Full merged build/core and VM
 qualification are still required;no new native acceptance or boot armed.
+
+The merged full suite exposed an EP0 integration defect: the bounded private
+fresh-ring recovery left the new common pending/failed tombstones set,so its
+second exact TD could not submit. Release those flags only after the already
+required exact stopped snapshot,fresh ring/data,Set Dequeue readback and delay,
+with renewed live/removal/controller/pointer checks. Removed,retiring,stopping,
+failed-command and active-sync owners refuse recovery;old DMA stays retained.
+Generic EP0 recovery still cannot revive private quarantine. Independent old
+receive fixtures now reset the newly introduced controller failure flags when
+starting a new modeled controller;production failures remain sticky. The small
+upstream preferences-finish host fixture formatting defect is corrected without
+behavior changes.71 installed-root regressions pass(one expected skip);focused
+combined lifecycle/private recovery passes. Remaining core checks are rerunning
+with the successful installed-root prerequisite retained;no native result follows.

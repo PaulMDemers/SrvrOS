@@ -1739,7 +1739,7 @@ static void test_firmware_immediate_data(void) {
 }
 
 static void test_wifi_recovery(void) {
-    for(unsigned in=0;in<2;in++) for(unsigned fault=0;fault<12;fault++) {
+    for(unsigned in=0;in<2;in++) for(unsigned fault=0;fault<17;fault++) {
         reset_test();struct xhci_trb ring[64]={0},commands[64]={0},events[64]={0};
         uint8_t output[4096]={0},buffer[4096]={1};
         struct xhci_device *d=&xhci.devices[0];
@@ -1759,10 +1759,17 @@ static void test_wifi_recovery(void) {
         if(fault==8)d->wifi_identity.asic++;
         if(fault==9)fail_after=pool_used+1;
         if(fault==11)d->firmware.stop_event_pointer=0xdead;
+        if(fault==12)d->removed=true;
+        if(fault==13)d->retiring=true;
+        if(fault==14)xhci.stopping=true;
+        if(fault==15)xhci.command_failed=true;
+        if(fault==16)xhci.sync_users=1;
+        d->control_pending=d->control_failed=true;
         struct usb_setup_packet req={.request_type=in?0xc0:0x40,.request=in?7:6,.index=in?0x730:0x800,.length=4};
         uint64_t oldbuffer=d->descriptor_buffer_phys;
         assert(wifi_fw_recover(d,&req,oldbuffer,4,in)==!fault);
         assert(d->ep0_quarantined==!!fault && !freed);
+        assert(d->control_pending==!!fault && d->control_failed==!!fault);
         if(!fault) {
             assert(d->ep0_ring!=ring && d->descriptor_buffer!=buffer && d->ep0_cycle && !d->ep0_enqueue);
             assert(d->descriptor_buffer[0]==(in?0:1));
@@ -1785,6 +1792,7 @@ static void test_wifi_recovery(void) {
         assert((in?wifi_fw_read(d,0x730,&value):wifi_fw_write(d,0x800,1))==!fault);
         if(in && !fault)assert(value==1);
         assert(recovery_calls==2 && d->firmware.recovery_success==1 && d->firmware.control_count==2);
+        assert(!xhci.sync_users && d->control_failed==!!fault && d->control_pending==!!fault);
         assert(d->ep0_quarantined==!!fault && !freed);
         recovery_device=NULL;recovery_integrated=false;
     }
@@ -7690,7 +7698,7 @@ int main(int argc, char **argv) {
         test_short_hid_recovery();test_class_recovery_refusal();test_interrupt_recovery();test_ep0_recovery();
         test_hub_changes();test_start_reset_boundaries();test_backing_reclaim();test_retired_event_drain();
         test_network_retirement();test_interrupt_retirement();test_storage_retirement();test_device_record_lifetime();
-        test_command_identity();test_removal_lifetime();test_control_failure();test_strict_control();test_strict_no_data();test_pa5_refusal();return 0;
+        test_command_identity();test_removal_lifetime();test_control_failure();test_strict_control();test_strict_no_data();test_wifi_recovery();test_pa5_refusal();return 0;
     }
     if(argc==2 && !strcmp(argv[1],"--wifi-trim5-refusal")){test_pa5_refusal();return 0;}
     if(argc==3 && !strcmp(argv[1],"--wifi-scan-batch-group")){batch_test_enabled=batch_test_group=true;batch_case=(unsigned)strtoul(argv[2],0,10);assert(batch_case<6);receive_test_only=scan_test_only=true;test_wifi_window();return 0;}

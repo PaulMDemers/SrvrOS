@@ -48,7 +48,7 @@ static void test_wifi_channel(struct xhci_device *d) {
      * all guards, encoding, real dispatch, independent restore and ring wraps. */
     for(unsigned trial=0;trial<=732;trial++) {
         *m=before;memcpy(d->output_context,context,sizeof context);
-        d->ep0_quarantined=d->firmware.failed=false;d->firmware.ep.packet=512;firmware_command_failed=false;
+        d->ep0_quarantined=d->firmware.failed=false;d->firmware.ep.packet=512;firmware_command_failed=false;xhci.command_failed=xhci.command_pending=false;
         channel_fault=trial?1:0;channel_fault_at=trial;channel_model_init();channel_test_device=d;
         bool ok=wifi_channel_capture(d);channel_test_device=NULL;channel_native_cases++;
         assert(ok==!trial && !freed && !m->rx.pending && m->rx.stopped && !mac_model_mac);
@@ -64,7 +64,7 @@ static void test_wifi_channel(struct xhci_device *d) {
     }
     for(unsigned fault=2;fault<=10;fault++)for(unsigned n=0;n<3;n++) {
         *m=before;memcpy(d->output_context,context,sizeof context);
-        d->ep0_quarantined=d->firmware.failed=false;d->firmware.ep.packet=512;firmware_command_failed=false;
+        d->ep0_quarantined=d->firmware.failed=false;d->firmware.ep.packet=512;firmware_command_failed=false;xhci.command_failed=xhci.command_pending=false;
         channel_fault=fault;channel_fault_at=(unsigned[]){1,30,710}[n];channel_model_init();channel_test_device=d;
         bool ok=wifi_channel_capture(d);channel_test_device=NULL;channel_native_cases++;
         if(ok)fprintf(stderr,"unexpected channel preview pass fault=%u at=%u\n",fault,channel_fault_at);
@@ -74,7 +74,7 @@ static void test_wifi_channel(struct xhci_device *d) {
     }
     for(unsigned fault=0;fault<20;fault++) {
         *m=before;memcpy(d->output_context,context,sizeof context);
-        d->ep0_quarantined=d->firmware.failed=false;d->firmware.ep.packet=512;firmware_command_failed=false;
+        d->ep0_quarantined=d->firmware.failed=false;d->firmware.ep.packet=512;firmware_command_failed=false;xhci.command_failed=xhci.command_pending=false;
         channel_fault=0;channel_fault_at=0;channel_model_init();
         switch(fault) {
         case 0:d->vendor_id^=1;break;case 1:d->product_id^=1;break;case 2:d->device_bcd^=1;break;
@@ -95,7 +95,7 @@ static void test_wifi_channel(struct xhci_device *d) {
         d->vendor_id=0x7392;d->product_id=0xa711;d->device_bcd=0x100;
     }
     *m=before;memcpy(d->output_context,context,sizeof context);
-    d->ep0_quarantined=d->firmware.failed=false;d->firmware.ep.packet=512;firmware_command_failed=false;
+    d->ep0_quarantined=d->firmware.failed=false;d->firmware.ep.packet=512;firmware_command_failed=false;xhci.command_failed=xhci.command_pending=false;
     /* Exercise callback refusal directly: the engine's first forward write is
      * exactly bank0/R37=2, after its snapshot and leading four guards. */
     struct xhci_wifi_channel *c=&m->channel;
@@ -113,6 +113,6 @@ static void test_wifi_channel(struct xhci_device *d) {
     assert(!wifi_channel_read(d,37,&seen,false) && channel_bulk_calls==bulk);
     channel_test_device=NULL;channel_native_cases+=6;
     *m=before;memcpy(d->output_context,context,sizeof context);
-    d->ep0_quarantined=d->firmware.failed=false;d->firmware.ep.packet=512;firmware_command_failed=false;
+    d->ep0_quarantined=d->firmware.failed=false;d->firmware.ep.packet=512;firmware_command_failed=false;xhci.command_failed=xhci.command_pending=false;
     printf("wifi-channel-native: PASS %u scenarios;all732 RF reply mutations,transport/length/address/value/ownership/stop/board gates,independent cleanup,exact callbacks,no DMA freed\n",channel_native_cases);
 }

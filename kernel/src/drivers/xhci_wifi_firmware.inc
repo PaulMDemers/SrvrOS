@@ -98,7 +98,8 @@ static bool wifi_fw_recover(struct xhci_device *d, const struct usb_setup_packet
         !d->descriptor_buffer[2] && !d->descriptor_buffer[3])bit=1;
     if(in && setup->request_type==0xc0 && setup->request==7 && setup->index==0x730 &&
         f->preparation.prepared && f->upload.attempted && f->phase==4)bit=2;
-    if(!bit || (f->retry_mask&bit) || f->recovery_attempts>=2 || setup->value ||
+    if(xhci.stopping || d->removed || d->retiring || xhci.command_pending ||
+        xhci.command_failed || xhci.sync_users || !bit || (f->retry_mask&bit) || f->recovery_attempts>=2 || setup->value ||
         length!=4 || setup->length!=4 || buffer!=d->descriptor_buffer_phys ||
         !f->active || !f->configured || f->failed || !d->wifi_probe_ok ||
         d->wifi_identity.asic!=0x76100002 || d->wifi_identity.mac!=0x76502000 ||
@@ -132,8 +133,18 @@ static bool wifi_fw_recover(struct xhci_device *d, const struct usb_setup_packet
     d->descriptor_buffer=data;d->descriptor_buffer_phys=f->recovery_buffer;
     event_irq_restore(flags);
     if(!timer_delay_us(10000))return false;
-    d->ep0_quarantined=false;f->recovery_success++;
-    return true;
+    /* Only this exact stopped, replaced TD may release the common EP0
+     * tombstone. Generic recovery cannot revive the private diagnostic owner. */
+    flags=event_irq_save();
+    ok=!xhci.stopping && !d->removed && !d->retiring && !xhci.command_pending &&
+        !xhci.command_failed && !xhci.sync_users && !strict_control.device &&
+        d->ep0_ring==ring && d->descriptor_buffer==data &&
+        (context_read32(d->output_context,1,0)&7)==3 &&
+        (context_read32(d->output_context,1,2)|((uint64_t)context_read32(d->output_context,1,3)<<32))==target;
+    if(ok){d->control_pending=false;d->control_failed=false;
+        d->ep0_quarantined=false;f->recovery_success++;}
+    event_irq_restore(flags);
+    return ok;
 }
 
 /* Cache diagnostic metadata only; no extra transfer, retry or poll logging. */
