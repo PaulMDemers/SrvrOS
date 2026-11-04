@@ -2356,6 +2356,162 @@ new-generation reset/restart remain open. PR334 experimental public signals and
 JSC/GC probes retain their separate source/runtime qualification boundaries.
 This closes the PR317 merge qualification, not the entire codebase audit.
 
+## November 4: merged baseline and bounded WTF/JSC experiment review
+
+PR317 merged as `5f4f6fc6`; its tree matches reviewed head `d784705a` exactly.
+The latter differs from clean fully tested candidate `4fa518eb` only in three
+audit documents. Continued review uses a fresh branch from that actual merge.
+No PR334 implementation is imported into the merged kernel.
+
+Reviewed frozen experimental PR334 primary `ee207df0`/ports `e404d84`: all 568
+packet files verify against receipt SHA256
+`4e4f1dc1abf3c9bf16ad247bbca108457a8a2e1ac2ebd7a43370134be0cbff8d`.
+Primary/ports archives match 1,661/1,288 exact Git blobs and executable modes.
+Independent final ELF checks bind 292 retained strong/local function bodies to
+fixture/WTF/JSC/SDK objects and verify 1,058 named relocation values. Recognized
+GOT mov-to-LEA and TLSLD-to-local-exec FS0 transformations are checked explicitly;
+weak COMDAT selection and unnamed section/data relocations are outside that
+binding claim. The final symbol maps are not archive-member selection proofs.
+
+Actual target makeEncoded returns only a complemented pointer; its worker wrapper
+restores its frame and tail-jumps to the parked assembly. The parked window saves
+64 bytes of known caller/control state, clears the 128-byte red zone and non-root
+GP/FX/x87/MMX candidates, and decodes only into R12, XMM15.low64 or RSP-128. The
+collector copies the full 704-byte PlatformRegisters value and scans the original
+RSP-128 window. Reviewed real full-collection entry, JSLock VM-thread registration
+and Thread::didExit group removal before publishing exited state. Unprotect and
+weak-observation helpers join before later collection; no-root and post-retirement
+controls remain required runtime evidence. The linked WTF handler's final RUNNING
+stores precede errno restoration and sem_post; successful semaphore CAS is its
+last semaphore access, and successful handler return reaches only its epilogue.
+
+Prepared suite SHA256
+`e9c5112c75bc5f7c8263187642bd5682039ba2c4fa4419d8c281f347eaf5c770`
+independently verifies all 32 inputs, nested fixture/build/source/SDK receipts,
+headers, ISO/config/initramfs and parser controls. It retains the native-qualified
+kernel `f5f12369` and alloc-equivalent fresh SDK. Only the unchanged-input and
+storage preflight cleared for this single-CPU TCG, diskless, no-NIC, quiet,
+1,536 MiB seven-process experiment: WTF suspend, utility, GC control/GP/FX/red-zone
+and JSC print(42). The actual run failed in its first case with exit 134; the six
+remaining cases did not run. Observed network-idle/worker-off boot
+lines must precede payloads; require full LF markers, exit zero and later prompt,
+stop and preserve the first failure, and stop only the owned QEMU.
+
+No new payload guest result accepted at this checkpoint. Full public ABI,
+spurious/terminal uncertainty, SMP and normal public capability remain separate.
+Private review scripts/results: `build/review/pr334-jsc-companions-review/packet-ee207df0/`.
+PR317's accepted payload and actual merge receipt survive build cleanup in
+`.local/kernel-audit-evidence/pr317-merge/`.
+
+## November 4: first actual WTF suite run fails; later cases not run
+
+Independently reviewed the collected exact `signal-public-qvdnmbic` run, bound to
+prepare `e9c5112c` and frozen packet `4e4f1dc1`. Boot log SHA256
+`694b408d7ffb064814aa3df393bbd6b226d4704a9c9ba1f082101ba81f258041`
+has exactly one full idle-network and worker-not-started line with no provider.
+The first WTF case prints exactly one main-register/red-zone success line, then
+PID 3 exits status 134 with a full newline and later prompt. The two-target,
+startup/retirement and final markers are absent. Case SHA256
+`bd2ea763c73772332a1fbfa18789e3baf919ab0e3ca2290a440620dbb31cca62`;
+full serial SHA256
+`a5f676ff87cfa2653d204f63d53370a6716a9d2fc0c85a26928ba49006c31e46`.
+
+The harness correctly stops at that first failure after 5.695 seconds. Utility,
+all four GC modes and JavaScript print(42) did not run. Owned QEMU 11532 is absent;
+protected review QEMUs 6233/61610/85869 were alive and untouched at this observation.
+At later documentation closeout, those four PIDs are now absent; available evidence
+does not establish when or why the protected review QEMUs exited. No overall
+WTF/JSC or sole-root GC acceptance follows from the initial subphase marker.
+Raw logs and independent checks are retained in
+`build/review/pr334-jsc-companions-review/packet-ee207df0/first-run/`.
+
+Status 134 alone does not identify a defect: WTF fatal checks, fixture/assert
+abort and libc context/runtime terminal checks can share it. The PR334 owner
+owns bounded diagnosis and any implementation correction/regressions; this chat
+reviews independently without duplicate overlay edits. Next is terminal-site
+identification before attributing the failure or changing behavior. A diagnostic
+debugger replay can retain the exact payload; its timing is not qualification.
+The extra-signal fixture's finite yields do not acknowledge handler execution,
+so deterministic spurious-delivery coverage remains separate. Profiles now owns
+the heavy build/guest window; any repeat VM requires a coordinated resource
+handoff, not new human permission. No audit compiler or VM is currently running.
+
+## November 4: confirmed WTF retirement/acknowledgement race
+
+Independent actual-source scheduling reproducer confirms a distinct lifetime
+defect in the frozen `ee207df0` WTF overlay. The handler publishes srvRunning,
+posts its final semaphore acknowledgement and returns. Before the controller
+consumes that acknowledgement and publishes srvIdle, the resumed worker can
+finish its callback and reach the second Thread::destructTLS pass. The existing
+Idle-only check terminates this valid Running handoff. The main-thread fixture
+phase joins its controller, whereas the worker fixture immediately exits after
+resume; that difference is consistent with the observed failure boundary but
+does not yet attribute the native status 134.
+
+Compiled the verbatim frozen destructTLS body under strict and ASan/UBSan host
+profiles: both reject the valid Running+posted-ACK schedule (modeled sentinel
+42), while Idle retirement and active-Requested refusal controls pass. Source
+SHA256 `e925d20c6ab7d94f8a85c50a20c4b52ad8187191061a6c1ac2edd455362cbb73`;
+extracted body SHA256
+`b449aba83bf3d709105d000eb62d9bec9da2f906095560117ee4b4ea81b7730a`.
+The synthetic scheduling model is not a new native guest result. Evidence:
+`build/review/pr334-jsc-companions-review/packet-ee207df0/retirement-race/`.
+
+PR334 owner has the reproducer and owns the correction/regressions. Proposed
+contract keeps INFO blocked and boundedly drains only the exact Running-to-Idle
+controller handoff outside the handler before TLS/group/reference retirement.
+Pending INFO, foreign TLS, active requests, ticket changes and invalid/expired
+clock states remain terminal. Simply destroying storage with an outstanding
+controller acknowledgement is insufficient. Native pthread destructor callbacks
+run without the key lock; current WTF TLS remains installed until this retirement
+barrier, allowing a normal bounded service wait. Unchanged-payload debugger
+attribution and corrected target/guest validation remain pending.
+
+## November 4: canonical WTF retirement correction independently passes
+
+The PR334 owner published the correction in SrvrPorts `224ed6a`, staged by OS
+`7c59ab8e`. A separate companion patch preserves the previously qualified overlay
+and INFO handler. The controller now decrements its final suspend count before
+its release-store of Idle, then returns without another Thread-object access.
+TLS destruction blocks INFO, checks the live TLS/native-thread identity and
+matching ticket/acknowledgement, and retains its group/reference while the exact
+Running-to-Idle controller handoff completes. Retirement never consumes the
+controller's semaphore acknowledgement. It rechecks identity and pending INFO,
+rejects other phases or ticket changes, and uses a checked ten-second monotonic
+deadline plus 100,000 direct scheduler-yield attempts. It does not depend on the
+nanosleep-backed WTF Thread::yield for a stalled-clock fallback.
+
+Independently verified the eight-file review receipt and exact fuzz-zero patch
+application: patch SHA256
+`17d6dcc31f26ecb123582847427419298bdb11c1d3483721b77b3407aab37e51`,
+applied ThreadingPOSIX source SHA256
+`19aa0a7883955b97c7ae1e6805f3c8614d9c8eafda2b76a35356519ccae9a9cd`.
+All 35 actual-source cases pass independently in strict and ASan/UBSan builds
+(70 results), including posted/consumed ACK schedules, final resume publication,
+nested counts, untouched first destructor pass, identity/ticket/pending/phase
+refusals, invalid/backward/expired clocks and stopped-clock attempt exhaustion.
+Both valid handoff schedules fail against the old source in both profiles, at
+the intended retirement refusal. The INFO handler source remains byte-identical.
+Evidence: `build/review/pr334-jsc-companions-review/retirement-fix/canonical-review/`.
+
+Source correction and host regression coverage are accepted for a fresh target
+rebuild. New linked-code/prepare/guest evidence is still pending; no WTF suite,
+GC or JavaScript acceptance is implied. My separate noncanonical candidate was
+frozen and archived/stashed; the checkout's ports pin is restored to main. No
+experimental implementation is imported into PR365/main. PR334 retains canonical
+implementation ownership and the next exact target review.
+
+Diagnostic history correction: the owner later confirmed QEMU 24675 and LLDB
+had attempted the unchanged-payload diagnosis and stopped at a 100-second
+deadline, with no terminal capture or attribution. Earlier reports of no active
+VM were process snapshots, not proof that no attempt occurred. The source chat
+also encountered tool-reported system errors during diagnostic setup and a
+subsequent source-only resume: “This content was flagged for possible
+cybersecurity risk.” No blocked debugger operation was rerouted through another
+chat. The ordinary source correction proceeded with its own authorized scope
+and actual-source regression evidence. Original status 134 remains unattributed;
+the failed suite and unsuccessful diagnostic are preserved separately.
+
 ## Remaining work
 
 Other long IRQ-disabled operations, including initial/churning PMM scans, heap validation and poisoning,
