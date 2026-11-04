@@ -1,6 +1,6 @@
 # Apple Silicon macOS build host
 
-## GPT-aware workspace diagnostics — in progress
+## GPT-aware workspace diagnostics — host qualified
 
 User authorizes native GPT reuse review, offline read-only selection and
 corrupt/ambiguous-map qualification. Base `f4ea0ccb`, isolated filesystem checkout,
@@ -11,6 +11,20 @@ before the existing native workspace inspector. No production block/process/USB
 changes, writable admission, repair or replay. Coordinate with PR317; preserve
 review VMs 61610/6233/85869 and all uncertain media. Prove matching explicit-range
 reports, corrupt/ambiguous refusals and unchanged whole-image hashes/permissions.
+
+Implementation `c2daff82` reuses unchanged native primary parsing and adds only
+host backup agreement/selection. All five retained inputs match PR349 ranges,
+metadata, whole-file hashes and full identity/permission stamps. Uncertain inputs
+remain `0444` and dirty/four-leak; clean control remains `0644`. 27 selection/diagnostic
+groups, storage lease/workspace/USB regressions and halt-on-error ASan/UBSan pass.
+An omitted-backup-check negative control is detected. Logical sectors are 512;
+multiple Basic Data candidates are conservatively refused, and the native
+read-only-attribute refusal policy is retained. Explicit paired ranges stay
+compatible; mixed selector/explicit arguments refuse. No source/orphan export,
+sidecar replay or production runtime changes. Evidence is retained outside build
+at `.local/filesystem-evidence/gpt-workspace-inspection/`. Review VMs remain live
+and untouched; PR317 reports no overlap, with independent source review separate.
+No fresh OS/VM/physical-media acceptance is claimed for this host-only change.
 
 ## Session switching — delivered and verified November 4, 2026
 

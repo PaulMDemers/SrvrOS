@@ -147,6 +147,12 @@ class GPTWorkspaceInspectionTests(unittest.TestCase):
                'zero-disk-guid':lambda d:d.__setitem__(slice(568,584),bytes(16)),
                'readonly-attribute':lambda d:struct.pack_into('<Q',d,1072,1<<60),
                'oversized-table':lambda d:struct.pack_into('<I',d,592,2**30),
+               'primary-current-lba':lambda d:struct.pack_into('<Q',d,536,2),
+               'primary-alternate-lba':lambda d:struct.pack_into('<Q',d,544,total-2),
+               'usable-array-overlap':lambda d:struct.pack_into('<Q',d,552,2),
+               'backup-array-overlap':lambda d:struct.pack_into('<Q',d,560,total-2),
+               'table-lba-overflow':lambda d:struct.pack_into('<Q',d,584,2**64-1),
+               'partition-lba-overflow':lambda d:struct.pack_into('<Q',d,1056,2**64-1),
                'hybrid-mbr':lambda d:d.__setitem__(466,7)}
         for name,change in cases.items():
             with self.subTest(name=name):
@@ -164,7 +170,7 @@ class GPTWorkspaceInspectionTests(unittest.TestCase):
         struct.pack_into('<I',bad,h+16,zlib.crc32(bad[h:h+92]));self.image.write_bytes(bad)
         self.automatic('refused')
     def test_valid_crc_backup_header_mismatch_refused(self):
-        for field in (32,40,56,80):
+        for field in (24,32,40,56,80):
             with self.subTest(field=field):
                 bad=self.disk.copy();at=len(bad)-512;bad[at+field]^=1
                 struct.pack_into('<I',bad,at+16,0);struct.pack_into('<I',bad,at+16,zlib.crc32(bad[at:at+92]))

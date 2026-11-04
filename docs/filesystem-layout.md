@@ -3,6 +3,66 @@
 Updated November 4, 2026. Global activation follows the explicit namespace proof
 in [PR308](https://github.com/PaulMDemers/SrvrOS/pull/308).
 
+## GPT-aware read-only workspace selection — host qualified
+
+On main `f4ea0ccb`, extend the PR349 offline inspector with a separate native
+GPT adapter. `tools/workspace_gpt_driver.c` includes the existing `block.c` and
+`block_claim.c` in host-test mode. Native `block_gpt_scan` validates primary
+header/table CRC, identities, ranges and overlap before registering read-only
+views. A host-only supplement checks the backup-at-disk-end header CRC, swapped
+current/alternate LBAs, matching disk identity/usable range/entry geometry,
+bounded backup table and byte-identical entries plus CRC. No production parser,
+process, exFAT, USB/BOT, transport or admission-policy changes are introduced.
+
+Without offsets, the wrapper requires exactly one Microsoft Basic Data partition
+and then uses the existing native workspace diagnostic to validate marker syntax
+and report metadata. Multiple Basic Data partitions are refused even if only one
+would contain a workspace; zero candidates and parser/inspection failures are
+refused without fallback. GUIDs are structural observations, not authentication
+or permission to recover media. The existing native conservative GPT policy,
+including refusal of read-only partition attributes, remains in force.
+
+```sh
+sh tools/macos/build.sh HOST_CC='python3 build/tooling/darwin-host-cc.py -D_DARWIN_C_SOURCE' test-workspace-inspection
+python3 tools/workspace_inspection.py IMAGE --driver build/tests/installation-inspect-driver
+```
+
+The GPT driver defaults to `workspace-gpt-driver` beside the inspector; use
+`--gpt-driver PATH` for a separately located native build. This adapter supports
+512-byte logical sectors and offline regular whole-disk images up to 8 GiB,
+with selected volumes capped at 2 GiB. Native table/registry limits apply, and
+host metadata reads/calls are additionally capped at 4 MiB/8192. The prior paired
+`--offset`/`--length` interface remains available and explicitly reports
+`partition_table_validated: false`; it cannot be combined with `--gpt-driver`.
+Automatic output reports validated primary/backup agreement, observed GUID bytes
+in on-disk hex (`*_guid_le`), map count and selected range. It always retains
+`admission: not-authorized`, metadata-only output and skipped sidecars.
+
+All three preserved uncertain images, the accepted fault backup and clean
+control select the original 403,701,760-byte offset / 134,217,728-byte length.
+Their diagnostic output equals both explicit-range output and recorded PR349
+results. Whole-image hashes, device/inode, ownership, link count, mode, size,
+mtime and ctime match the original receipts before/after; reads may update atime.
+Uncertain images remain `0444`, dirty with four leaks and source entry size 28;
+control remains `0644`, clean with zero allocation errors and source size 12,289.
+No source/orphan content is exported and no write/flush capability is exposed.
+
+27 diagnostic/selection groups and storage lease/workspace/USB regressions pass.
+Corruption controls cover both header/table CRCs, valid-CRC divergent backups,
+current/alternate LBAs, backup bounds, usable/table overlap, oversized tables,
+LBA overflow, duplicate/zero GUIDs, hybrid MBR, overlapping ranges, ambiguous
+candidates, incomplete ranges, O_RDWR fds and no-fallback failures. ASan/UBSan
+with halt-on-error passes all groups and a preserved uncertain input. Omitting
+backup agreement makes the divergent-backup qualification fail as expected.
+Full source/driver/report/log hashes and unchanged-media receipts survive in
+`.local/filesystem-evidence/gpt-workspace-inspection/` outside `build`.
+
+PR317 confirms no scope/lifetime overlap and retains sticky published-storage
+failure. Its coordination is not independent source acceptance. Review VMs
+61610/6233/85869 remain running and untouched. This host-only milestone adds no
+runtime code; no new OS/VM or physical/live-media acceptance is claimed. There
+is no repair, replay, writable remount or writable admission.
+
 ## PR349 current-main merge review — ready
 
 User authorizes review and merge if ready, preserving uncertain media and review
