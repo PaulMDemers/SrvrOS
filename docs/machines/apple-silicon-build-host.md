@@ -3281,3 +3281,29 @@ Final rebuilt-kernel QMP removal/replacement/sysabi and full threadstress pass
 with retained PR313 runtime files. All task guests stopped; review VMs preserved.
 Nine known nested-submodule license targets remain unavailable to link checking.
 No current-userspace rebuild, native reset or hotplug recovery acceptance.
+
+
+### Endpoint/event and provider retirement scope
+
+Continue PR317 from `cd6ec856`, isolated kernel checkout. Inspect xHCI terminal
+endpoint errors, event consumers and USB storage/network provider retirement.
+Planned source: xHCI driver/network include and actual-source host fixtures;
+use existing block invalidation contract without changing block/process/fsync
+policy. Main `c90f3522` inspected; integration base remains `1f177761`.
+Filesystem owner notified of potential USB cache invalidation fix; their syscall
+fsync work stays independent. Preserve review VMs and run disposable tests only.
+
+Three baseline failures confirm cached USB reads after removal, fatal interrupt
+rearm and network callback admission after root replacement. Existing block
+invalidation now retires the published storage identity/cache while keeping
+claims/DMA pinned; interrupt failure is sticky, and network callbacks observe
+root identity before admission. The actual-source xHCI fixture now includes
+block/cache/claim code and continuous stale-event drain coverage. Normal/GCC14,
+ASan/UBSan, storage/ECM/keyboard suites and kernel compilation pass.
+
+Rebuilt-kernel QMP keyboard/tablet removal/replacement plus sysabi and full
+threadstress pass with retained PR313 runtime files. No USB-storage VM removal,
+physical fault acceptance or complete userspace rebuild is claimed. All task
+guests stopped, existing review VMs preserved. Hardware stop/drain, provider
+unregister/reference retirement and reclamation remain open. Evidence:
+`build/review/usb-retirement/`. Nine known nested license links remain missing.

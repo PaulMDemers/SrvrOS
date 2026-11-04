@@ -535,6 +535,59 @@ in uninitialized nested port submodules. Main `1a5a6dee` was inspected for share
 scope; this candidate retains integration base `1f177761` and does not incorporate
 the newer unrelated userspace work.
 
+## Endpoint/event draining and provider retirement checkpoint
+
+Continuation from `cd6ec856` confirms root removal marked USB storage failed
+without invalidating its published block identity. `block_read` could still
+return an already cached sector without calling the failed transport. Removal
+now calls the existing `block_invalidate` contract: the parent and aliases refuse
+I/O and their cached data is discarded, while descriptors, claims and DMA stay
+pinned. No block-layer, filesystem, process or fsync contract changes.
+
+The xHCI host fixture now includes the actual block/cache and claim sources.
+It primes parent/alias/independent-device caches, removes the USB root, requires
+parent and alias reads to fail without modifying the caller buffer or invoking
+the transport, and retains the independent healthy cache. The saved mount claim
+can still be released exactly once. The earlier source fails its cached-read
+assertion (`build/review/usb-retirement/before-storage.log`). This combines real
+cache/claim code with a modeled physical transport; it is not a VM storage
+hot-removal proof.
+
+Two further baseline failures cover endpoint/provider admission. A fatal HID
+completion or impossible residue cleared pending state but left polling enabled,
+allowing a new TD without endpoint recovery. The interrupt endpoint now has a
+sticky failure state, stops rearming and releases keyboard held/repeat state;
+late matching reports cannot revive it. Trackpad and other endpoints retain their
+independent ownership. Network send/poll/service callbacks now check root
+identity before accepting/processing work, rather than waiting for the periodic
+HID worker; a newly set CSC with CCS already high quarantines the old provider.
+Callbacks retain pending endpoint backing and refuse fresh work. Provider
+selection remains immutable for the boot; no unregister, failover or memory
+reclamation API is introduced. Existing read-only link/readiness snapshots do
+not perform hardware retirement.
+
+A continuously refilled stale-event fixture drains exactly one event ring per
+service turn over two cycle transitions, with no late input, rearm or frees.
+64-bit MMIO writes now use the existing two ordered 32-bit write primitives,
+allowing the host model to observe ERDP retirement as it observes doorbells.
+This preserves hardware write order. Bounded software event consumption is not
+a hardware stop/drain acknowledgement: endpoint Stop/Disable Slot ordering,
+command abort/reset and provider-reference retirement before freeing/reuse are
+still missing. Successful runtime re-enumeration and physical teardown remain
+unaccepted. No additional event-drain correctness defect was confirmed in this
+bounded pass.
+
+Normal/Rosetta, strict GCC14/Linux and ASan/UBSan xHCI fixtures pass, along with
+block/AHCI, USB storage/ECM and keyboard host suites. Kernel compilation, QMP
+keyboard/tablet removal/replacement followed by sysabi, and full threadstress
+pass. The VM evidence uses the rebuilt kernel with retained PR313 runtime files;
+it does not exercise USB-storage removal or fatal HID hardware completions, and
+is not a complete current-userspace build. All task guests stopped; existing
+review VMs were preserved. Evidence: `build/review/usb-retirement/`. Link checking
+retains only nine known missing nested-submodule license targets. New main
+`c90f3522` and PR329's independent syscall-only fix were inspected for scope;
+this branch retains integration base `1f177761` without that newer work.
+
 ## Remaining work
 
 Other long IRQ-disabled operations, including initial/churning PMM scans, heap validation and poisoning,

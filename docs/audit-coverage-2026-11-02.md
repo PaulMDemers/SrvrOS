@@ -139,3 +139,11 @@ suppression, failed EP0 ring reuse, failed-enumeration record retention and a QM
 unplug/replug containment guest. Runtime command reset, downstream hub change
 handling and successful re-enumeration/provider retirement remain open; the
 kernel-isolation report records the specification prerequisites and limits.
+
+
+PR317 endpoint/provider follow-up closes USB removal cache visibility, HID fatal
+completion rearm and network callback admission before root-change observation.
+Actual block/cache/claim code now participates in USB retirement tests. Bounded
+continuous stale-event drain is modeled across ring cycles. Hardware stop/drain,
+provider unregister/reference retirement, reset and re-enumeration remain open;
+software quarantine retains all backing rather than authorizing reclamation.

@@ -42,7 +42,7 @@ static bool network_complete(struct xhci_device *d,unsigned index) {
 }
 static void network_service(struct xhci_device *d) {
     struct xhci_network *n=d->network;if(!n||!n->ready) return;
-    if(!(op_read32(XHCI_OP_PORTS+(d->port_id-1)*16)&XHCI_PORTSC_CCS)) { network_fail(d,"disconnected");return; }
+    if(device_removed(d) || !(op_read32(XHCI_OP_PORTS+(d->port_id-1)*16)&XHCI_PORTSC_CCS)) { network_fail(d,"disconnected");return; }
     for(unsigned i=0;i<3;i++) if(n->ep[i].done && !network_complete(d,i)) return;
     struct xhci_network_endpoint *notify=&n->ep[2],*tx=&n->ep[0],*rx=&n->ep[1];
     if(notify->done) {
@@ -87,7 +87,7 @@ static void network_service(struct xhci_device *d) {
 static bool network_send(void *context,const uint8_t *frame,uint16_t length) {
     struct xhci_device *d=context;struct xhci_network *n=d->network;
     uint64_t flags=event_irq_save();
-    if(!n||!n->ready||!frame||length<14||length>NET_DEVICE_FRAME_MAX||n->count==XHCI_NET_QUEUE||(n->link.known&&!n->link.up)) { if(n) n->drops++;event_irq_restore(flags);return false; }
+    if(!n||!n->ready||device_removed(d)||!frame||length<14||length>NET_DEVICE_FRAME_MAX||n->count==XHCI_NET_QUEUE||(n->link.known&&!n->link.up)) { if(n) n->drops++;event_irq_restore(flags);return false; }
     unsigned tail=(n->head+n->count)%XHCI_NET_QUEUE;
     copy_bytes(n->queue[tail],frame,length);n->length[tail]=length;n->count++;
     event_irq_restore(flags);return true;
@@ -95,7 +95,7 @@ static bool network_send(void *context,const uint8_t *frame,uint16_t length) {
 static uint64_t network_poll(void *context,uint64_t budget,bool verbose) {
     (void)verbose;struct xhci_device *d=context;struct xhci_network *n=d->network;
     uint64_t flags=event_irq_save(),received=0;
-    if(!n||!n->ready||n->polling) { event_irq_restore(flags);return 0; }
+    if(!n||!n->ready||device_removed(d)||n->polling) { event_irq_restore(flags);return 0; }
     n->polling=true;
     struct xhci_trb event;
     for(unsigned i=0;i<XHCI_EVENT_TRB_COUNT && poll_event(&event);i++) dispatch_transfer_event(&event);

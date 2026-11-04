@@ -1545,3 +1545,15 @@ under `build/review/usb-removal` (override with `--output`) and stops its guest.
 This accepts containment on replug, not successful runtime re-enumeration. Use
 `--qemu` for the installed emulator path. No physical removal/reset acceptance is
 implied.
+
+
+`test-xhci` links the actual block/cache and claim sources into its host fixture.
+The USB provider-retirement case primes parent, alias and independent caches;
+root removal must refuse parent/alias reads without changing caller buffers,
+preserve the healthy cache and retain the claim until ordinary owner release.
+Fatal HID error/residue cases must stop polling/repeat and ignore late reports.
+Network send/poll/service entry tests must observe root replacement before new
+work, retaining pending DMA. A continuously refilled stale-event stream must
+consume at most 64 events per service turn across ring cycle changes. The MMIO
+model observes both halves of 64-bit writes. Software draining does not prove
+endpoint/controller quiescence or authorize freeing DMA/provider records.

@@ -11,6 +11,14 @@ static uint32_t xhci_test_read32(uint64_t offset);
 static void xhci_test_write32(uint64_t offset, uint32_t value);
 #include "../kernel/src/drivers/xhci.c"
 
+/* Exercise USB provider retirement through the real cache/alias registry. */
+static uint64_t block_test_irq_save(void) { return 0; }
+static void block_test_irq_restore(uint64_t flags) { (void)flags; }
+#define SRVROS_BLOCK_HOST_TEST
+#include "../kernel/src/block.c"
+#define SRVROS_BLOCK_CLAIM_HOST_TEST
+#include "../kernel/src/block_claim.c"
+
 static _Alignas(4096) uint8_t pool[5 * 1024 * 1024];
 static uint64_t pool_used;
 static uint64_t fail_after;
@@ -62,10 +70,17 @@ static uint32_t xhci_test_read32(uint64_t offset) {
     return *(uint32_t *)(registers + offset);
 }
 
-static bool command_nested;
+static bool command_nested,event_flood;
+static unsigned flood_dequeues;
 static struct xhci_device *mode_device;
 static unsigned mode_doorbells;
 static void xhci_test_write32(uint64_t offset, uint32_t value) {
+    if(event_flood && offset==xhci.rt_base+XHCI_INTR0+XHCI_INTR_ERDP) {
+        flood_dequeues++;
+        /* Model a controller immediately refilling every retired event. */
+        xhci.event_ring[xhci.event_dequeue]=(struct xhci_trb){.parameter_low=0xa000,
+            .status=1u<<24,.control=(xhci.event_cycle?1u:0u)|(32u<<10)|(1u<<24)|(3u<<16)};
+    }
     if(command_nested && offset==xhci.db_base) {
         command_nested=false;uint64_t index=xhci.command_enqueue;
         assert(!submit_command(XHCI_TRB_TYPE_NOOP,0,NULL) && xhci.command_enqueue==index);
@@ -406,6 +421,9 @@ uint64_t timer_ticks(void) { return test_time/10000; }
 bool scheduler_io_busy(void) { return test_io_foreign; }
 bool scheduler_io_active(void) { return test_io_active; }
 bool scheduler_io_yield(void) { return false; }
+bool scheduler_io_begin(void) { return false; }
+void scheduler_io_end(void) { abort(); }
+bool timer_reference_ready(void) { return false; }
 void scheduler_wake_all(struct scheduler_wait_queue *q) { (void)q;bulk_wakes++; }
 bool scheduler_io_wait_timeout(struct scheduler_wait_queue *q,
     scheduler_wait_condition_fn ready,void *arg,uint64_t deadline) {
@@ -1059,6 +1077,98 @@ static void test_command_identity(void) {
     assert(xhci.command_enqueue==enqueue && !memcmp(saved,commands,sizeof(saved)) && !freed);
     puts("xhci-command: PASS exact identity, timeout, late completion and saturation refusal");
 }
+static void test_retired_event_drain(void) {
+    reset_test();
+    static struct xhci_trb events[XHCI_EVENT_TRB_COUNT];memset(events,0,sizeof(events));
+    xhci.event_ring=events;xhci.event_cycle=true;xhci.rt_base=0x2000;
+    xhci.devices[0]=(struct xhci_device){.present=true,.slot_id=1,.hid_keyboard=true,
+        .interrupt_failed=true,.interrupt_trb=0xa000,.interrupt_dci=3};
+    events[0]=(struct xhci_trb){.parameter_low=0xa000,.status=1u<<24,
+        .control=1|(32u<<10)|(1u<<24)|(3u<<16)};
+    unsigned before=injected;
+    flood_dequeues=0;event_flood=true;
+    poll_hid_events_once();
+    assert(flood_dequeues==XHCI_EVENT_TRB_COUNT && !xhci.event_dequeue && !xhci.event_cycle);
+    poll_hid_events_once();event_flood=false;
+    assert(flood_dequeues==2*XHCI_EVENT_TRB_COUNT && xhci.event_cycle);
+    assert(xhci.transfer_events==2*XHCI_EVENT_TRB_COUNT && injected==before && !freed);
+    assert(!xhci.devices[0].interrupt_enqueue && !xhci.devices[0].interrupt_pending);
+    puts("xhci-event-retire: PASS bounded continuous stale-event drain across event-ring cycles");
+}
+static void test_interrupt_retirement(void) {
+    for(unsigned residue=0;residue<2;residue++) {
+        reset_test();
+        static struct xhci_trb ring[XHCI_TRB_COUNT],events[XHCI_EVENT_TRB_COUNT];
+        static uint8_t report[64];
+        memset(ring,0,sizeof(ring));memset(events,0,sizeof(events));
+        xhci.event_ring=events;xhci.event_cycle=true;xhci.db_base=0x1000;xhci.rt_base=0x2000;
+        struct xhci_device *d=&xhci.devices[0];
+        *d=(struct xhci_device){.present=true,.slot_id=1,.hid_keyboard=true,
+            .interrupt_ready=true,.interrupt_pending=true,.interrupt_dci=3,.interrupt_trb=0xa000,
+            .interrupt_max_packet=8,.interrupt_ring=ring,.interrupt_ring_phys=(uint64_t)ring,
+            .interrupt_buffer=report,.interrupt_cycle=true};
+        d->keyboard_state.repeat_usage=4;
+        struct xhci_trb error={.parameter_low=0xa000,.status=residue?((1u<<24)|9):(6u<<24),
+            .control=(32u<<10)|(1u<<24)|(3u<<16)};
+        dispatch_transfer_event(&error);
+        assert(!d->interrupt_ready && !d->keyboard_state.repeat_usage);
+        unsigned before=injected;
+        poll_hid_events_once();
+        error.status=1u<<24;report[2]=4;dispatch_transfer_event(&error);
+        assert(d->interrupt_errors==1 && !d->interrupt_enqueue && !d->interrupt_pending && injected==before && !freed);
+    }
+    puts("xhci-interrupt-retire: PASS fatal completion/residue do not rearm or deliver late reports");
+}
+static void test_network_retirement(void) {
+    for(unsigned callback=0;callback<3;callback++) {
+        reset_test();test_time=0;test_time_step=0;
+        static struct xhci_trb events[XHCI_EVENT_TRB_COUNT];memset(events,0,sizeof(events));
+        xhci.event_ring=events;xhci.event_cycle=true;xhci.db_base=0x1000;xhci.rt_base=0x2000;
+        xhci.port_count=1;xhci.op_base=0x100;
+        *(uint32_t *)(registers+xhci.op_base+XHCI_OP_PORTS)=XHCI_PORTSC_CCS|XHCI_PORTSC_CSC;
+        struct xhci_network n={.ready=true,.link={.known=true,.up=true}};
+        struct xhci_device d={.present=true,.slot_id=1,.port_id=1,.network=&n};
+        for(unsigned i=0;i<3;i++)n.ep[i].pending=true;
+        uint8_t frame[64]={0};
+        if(callback==0)assert(!network_send(&d,frame,sizeof(frame)));
+        else if(callback==1)network_service(&d);
+        else assert(!network_poll(&d,1,false));
+        assert(n.failed && !n.ready && !n.count && !freed);
+        for(unsigned i=0;i<3;i++)assert(n.ep[i].pending && !n.ep[i].hw.enqueue);
+    }
+    test_time_step=1000;
+    puts("xhci-network-retire: PASS provider callbacks observe replacement before admitting work");
+}
+static unsigned retirement_reads;
+static bool retirement_read(struct block_device *d,uint64_t offset,void *data,uint64_t length) {
+    (void)d;(void)offset;retirement_reads++;memset(data,0x5a,length);return true;
+}
+static void test_storage_retirement(void) {
+    reset_test();block_init();retirement_reads=0;
+    struct block_device *disk=block_register("usb-retirement",512,16,retirement_read,NULL,NULL);
+    assert(disk);
+    struct block_device alias={.used=true,.backing=disk,.block_size=512,.block_count=16,.read=retirement_read};
+    struct block_device *healthy=block_register("healthy",512,16,retirement_read,NULL,NULL);
+    assert(healthy);
+    uint64_t claim=block_claim_mount(disk);assert(claim);
+    uint8_t data[512];
+    assert(block_read(&alias,0,data,sizeof(data)) && retirement_reads==1);
+    assert(block_read(healthy,0,data,sizeof(data)) && retirement_reads==2);
+    assert(block_read(disk,0,data,sizeof(data)) && retirement_reads==3);
+    assert(block_read(disk,0,data,sizeof(data)) && retirement_reads==3); /* Cached. */
+    struct xhci_device *d=&xhci.devices[0];
+    *d=(struct xhci_device){.present=true,.slot_id=1,.port_id=1};
+    d->storage.block=disk;xhci.port_count=1;xhci.op_base=0x100;
+    assert(device_removed(d) && d->storage.failed);
+    memset(data,0xcc,sizeof(data));
+    assert(!block_read(disk,0,data,sizeof(data)) && !block_device_online(disk));
+    for(unsigned i=0;i<sizeof(data);i++)assert(data[i]==0xcc);
+    assert(!block_read(&alias,0,data,sizeof(data)) && !block_device_online(&alias));
+    assert(block_read(healthy,0,data,sizeof(data)) && retirement_reads==3);
+    assert(block_claim_release(claim) && !block_claim_release(claim));
+    assert(disk->used && d->storage.block==disk && !freed);
+    puts("xhci-storage-retire: PASS cached provider refuses reads after root removal, identity retained");
+}
 static void test_device_record_lifetime(void) {
     reset_test();
     for(unsigned i=0;i<XHCI_MAX_DEVICES;i++) {
@@ -1155,6 +1265,10 @@ static void test_repeated_init(void) {
 int main(int argc, char **argv) {
     assert(argc == 4);
     test_repeated_init();
+    test_retired_event_drain();
+    test_network_retirement();
+    test_interrupt_retirement();
+    test_storage_retirement();
     test_device_record_lifetime();
     test_command_identity();
     test_removal_lifetime();

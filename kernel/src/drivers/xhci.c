@@ -239,6 +239,7 @@ struct xhci_device {
     bool hid_have_absolute;
     bool interrupt_pending;
     bool interrupt_ready;
+    bool interrupt_failed;
     uint8_t slot_id;
     uint8_t port_id;
     uint8_t parent_slot_id;
@@ -484,8 +485,8 @@ static void mmio_write32(uint64_t offset, uint32_t value) {
 }
 
 static void mmio_write64(uint64_t offset, uint64_t value) {
-    *(volatile uint32_t *)(xhci.mmio_virt + offset) = (uint32_t)value;
-    *(volatile uint32_t *)(xhci.mmio_virt + offset + 4) = (uint32_t)(value >> 32);
+    mmio_write32(offset,(uint32_t)value);
+    mmio_write32(offset+4,(uint32_t)(value>>32));
 }
 
 static uint8_t mmio_read8(uint64_t offset) {
@@ -1857,7 +1858,7 @@ static void handle_hid_mouse_report(struct xhci_device *device) {
 }
 
 static void submit_interrupt_poll(struct xhci_device *device) {
-    if (device_removed(device) || !device->interrupt_ready || device->interrupt_pending || (!device->hid_keyboard && !device->hid_mouse)) {
+    if (device_removed(device) || device->interrupt_failed || !device->interrupt_ready || device->interrupt_pending || (!device->hid_keyboard && !device->hid_mouse)) {
         return;
     }
 
@@ -1890,6 +1891,15 @@ static void cancel_trackpad_pointer(struct xhci_trackpad_endpoint *t) {
 
 #include "xhci_network.inc"
 
+static void release_keyboard(struct xhci_device *d) {
+    if(d->hid_keyboard) {
+        const uint8_t released[8]={0};
+        keyboard_inject_hid_report(released,&d->keyboard_state);
+        d->keyboard_state.repeat_usage=0;
+        zero_bytes(d->previous_report,sizeof(d->previous_report));
+    }
+}
+
 /* A connection change invalidates the boot-enumerated slot even if CCS is
  * already set again. Keep every identity/allocation pinned: no slot teardown or
  * re-enumeration is safe until endpoint/provider references are retired. */
@@ -1900,18 +1910,13 @@ static bool device_removed(struct xhci_device *d) {
     if((state&XHCI_PORTSC_CCS) && !(state&XHCI_PORTSC_CSC))return false;
     d->removed=true;d->configured=false;d->interrupt_ready=false;
     d->stage="removed-quarantined";
-    if(d->hid_keyboard) {
-        const uint8_t released[8]={0};
-        keyboard_inject_hid_report(released,&d->keyboard_state);
-        d->keyboard_state.repeat_usage=0;
-        zero_bytes(d->previous_report,sizeof(d->previous_report));
-    }
+    release_keyboard(d);
     if(d->trackpad.ready) {
         d->trackpad.ready=false;d->trackpad.errors++;
         cancel_trackpad_pointer(&d->trackpad);
     }
     if(d->bulk_ep[0].dci || d->bulk_pending || d->storage.block)d->bulk_failed=true;
-    if(d->storage.block)d->storage.failed=true;
+    if(d->storage.block) { d->storage.failed=true;block_invalidate(d->storage.block); }
     if(d->network)network_fail(d,"removed");
     return true;
 }
@@ -2005,7 +2010,7 @@ static void dispatch_transfer_event(const struct xhci_trb *event) {
         scheduler_wake_all(&device->bulk_wait);
         return;
     }
-    if (!device->interrupt_pending || dci != device->interrupt_dci || pointer != device->interrupt_trb) return;
+    if (device->interrupt_failed || !device->interrupt_pending || dci != device->interrupt_dci || pointer != device->interrupt_trb) return;
     device->interrupt_pending = false;
     device->last_interrupt_completion = completion;
     device->last_interrupt_remaining = remaining;
@@ -2017,7 +2022,11 @@ static void dispatch_transfer_event(const struct xhci_trb *event) {
          * application delays the next worker turn. The report was consumed
          * above; only now may submission clear/reuse its DMA buffer. */
         submit_interrupt_poll(device);
-    } else device->interrupt_errors++;
+    } else {
+        /* A halted/error endpoint needs explicit recovery, not another TD. */
+        device->interrupt_errors++;device->interrupt_failed=true;device->interrupt_ready=false;
+        device->stage="interrupt-quarantined";release_keyboard(device);
+    }
 }
 
 static void poll_hid_events_once(void) {
@@ -2997,7 +3006,7 @@ int64_t xhci_device_snapshot(uint64_t index,struct srv_device_info *out) {
         if(d->storage.block) bound|=SRV_DEVICE_STORAGE;
         if(d->hub_ports) bound|=SRV_DEVICE_HUB;
         if(d->network && d->network->ready) bound|=SRV_DEVICE_NETWORK;
-        if(d->removed || d->control_failed || d->storage.failed || d->bulk_failed || (d->network && d->network->failed)) bound|=SRV_DEVICE_FAILED;
+        if(d->removed || d->control_failed || d->interrupt_failed || d->storage.failed || d->bulk_failed || (d->network && d->network->failed)) bound|=SRV_DEVICE_FAILED;
         *out=(struct srv_device_info){.version=SRV_DEVICE_VERSION,.size=sizeof(*out),.bus_kind=SRV_DEVICE_USB,
             .index=i,.vendor_id=d->vendor_id,.product_id=d->product_id,.revision=d->device_bcd,
             .class_code=d->device_class?d->device_class:d->first_interface_class,
