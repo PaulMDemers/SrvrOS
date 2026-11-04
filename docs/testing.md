@@ -1496,3 +1496,8 @@ bridging runs and exact first-fit addresses alongside its randomized oracle.
 `tools/bench_heap_startup.c` records the retained heap validation workload; its
 host replay timings are not an IRQ-latency deadline. See the
 [kernel audit](audit-kernel-isolation-2026-11-03.md) for counts and limitations.
+
+
+PMM cost regressions also check cold occupied-prefix probe counts, free runs
+crossing a 64-frame group, and one hint-maintenance pass per multi-frame free.
+These are work-count checks; poisoning remains complete and IRQ-excluded.

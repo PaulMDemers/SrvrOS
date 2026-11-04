@@ -3142,3 +3142,12 @@ Main `0cba30a1` is subsequently integrated with no kernel/shared delta. Its new
 52-case actual-source workspace writeback matrix passes on this audit branch,
 confirming fixture compatibility with the independent filesystem work. This is
 a compatibility run, not an independent approval of that PR's entire diff.
+
+
+### Initial allocator and poisoning scope
+
+Continuing PR317 from `89a088eb`: cold occupied-prefix scan groups and repeated
+free-range hint maintenance. The new tests reject old byte-only skip cost and
+per-frame hint updates; the fix retains exact first-fit, full poison/tag checks
+and IRQ exclusion. No workspace/content/close policy changes; filesystem owner
+notified. Large poison writes and caller-masked initialization remain open costs.

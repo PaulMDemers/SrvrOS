@@ -28,7 +28,7 @@ static struct { uint64_t minimum, floor; bool valid; } search_hints[PMM_SEARCH_H
 static struct { uint64_t minimum, count, floor; bool valid; } run_hints[PMM_SEARCH_HINTS];
 static unsigned next_search_hint,next_run_hint;
 #ifdef SRVROS_PMM_HOST_TEST
-static uint64_t search_steps;
+static uint64_t search_steps,hint_steps;
 #endif
 
 static uint64_t irq_save(void) {
@@ -318,6 +318,17 @@ uint64_t pmm_alloc_frames_above_tagged(uint64_t count,
 #ifdef SRVROS_PMM_HOST_TEST
         search_steps++;
 #endif
+        /* A bounded byte-wise load avoids alignment and aliasing assumptions.
+         * Dense cold prefixes need one probe per 64 frames, not per byte. */
+        if(!(frame&63) && frame_count-frame>=64) {
+            uint64_t byte=frame/8;
+            if(bitmap[byte]==0xff && bitmap[byte+1]==0xff &&
+               bitmap[byte+2]==0xff && bitmap[byte+3]==0xff &&
+               bitmap[byte+4]==0xff && bitmap[byte+5]==0xff &&
+               bitmap[byte+6]==0xff && bitmap[byte+7]==0xff) {
+                run_length=0;frame+=63;continue;
+            }
+        }
         /* Skip occupied bitmap bytes without losing a free run at a boundary. */
         if ((frame & 7) == 0 && frame_count - frame >= 8 && bitmap[frame / 8] == 0xff) {
             run_length = 0;
@@ -394,18 +405,26 @@ void pmm_free_frame_range(uint64_t physical_address, uint64_t count) {
         for (uint64_t j = 0; j < PMM_FRAME_SIZE; j++) {
             bytes[j] = PMM_POISON_FREE;
         }
-        for (unsigned hint = 0; hint < PMM_SEARCH_HINTS; hint++) {
-            if(search_hints[hint].valid && frame+i>=search_hints[hint].minimum &&
-               frame+i<search_hints[hint].floor)search_hints[hint].floor=frame+i;
-            if(run_hints[hint].valid && frame+i>=run_hints[hint].minimum) {
-                uint64_t prefix=run_hints[hint].count-1;
-                uint64_t possible=frame+i>=prefix?frame+i-prefix:0;
-                if(possible<run_hints[hint].minimum)possible=run_hints[hint].minimum;
-                if(possible<run_hints[hint].floor)run_hints[hint].floor=possible;
-            }
-        }
         bitmap_set(frame + i, false);
         set_frame_tag(frame + i, PMM_FRAME_FREE);
+    }
+    /* No allocation can observe the range before IRQ restoration. Rewind
+     * hints once from the earliest eligible freed frame, including prefixes. */
+    for(unsigned hint=0;hint<PMM_SEARCH_HINTS;hint++) {
+#ifdef SRVROS_PMM_HOST_TEST
+        hint_steps++;
+#endif
+        if(search_hints[hint].valid && search_hints[hint].minimum<frame+count) {
+            uint64_t first=frame>search_hints[hint].minimum?frame:search_hints[hint].minimum;
+            if(first<search_hints[hint].floor)search_hints[hint].floor=first;
+        }
+        if(run_hints[hint].valid && run_hints[hint].minimum<frame+count) {
+            uint64_t first=frame>run_hints[hint].minimum?frame:run_hints[hint].minimum;
+            uint64_t prefix=run_hints[hint].count-1;
+            uint64_t possible=first>=prefix?first-prefix:0;
+            if(possible<run_hints[hint].minimum)possible=run_hints[hint].minimum;
+            if(possible<run_hints[hint].floor)run_hints[hint].floor=possible;
+        }
     }
     irq_restore(flags);
 }

@@ -281,6 +281,43 @@ The first PMM search for a new key, cache eviction/free churn, large poisoning
 and full heap validation can still take substantial IRQ-masked work. This batch
 removes redundant search work; it establishes no wall-clock latency bound.
 
+## Initial PMM search and free-range poisoning costs
+
+Continuation from `89a088eb` confirms two redundant-work cases without changing
+allocator exclusion or poison policy. A cold occupied prefix was skipped only
+one bitmap byte (eight frames) per search iteration. The allocator now checks
+bounded groups of eight bytes and skips 64 fully occupied frames at once, with
+no alignment/aliasing assumption and no load beyond the final bitmap tail.
+Free bits still take the original per-frame path, so first-fit and runs crossing
+byte/group boundaries remain visible. A cold-prefix counter regression fails
+before the change and passes a bound of `FRAMES/64 + 16` afterward.
+
+Multi-frame free previously traversed both hint families for every poisoned
+frame. All of those updates happened inside the same IRQ-masked operation.
+It now rewinds hints once after the range is poisoned and marked free, before
+restoring IRQ state. Each hint uses the earliest freed frame eligible for its
+minimum, retaining the size-specific bridging-prefix rule. A 16-frame release
+regression reduces the hint-loop count from 128 to eight. Full poison bytes,
+tag accounting, invalid-free halts and IRQ-state preservation remain unchanged.
+No scheduling or reuse is admitted during poisoning. This does not add recovery
+from fatal invalid frees.
+
+Tests preserve the 12,000-operation first-fit oracle, mixed-size progress,
+exhaustion/bridging behavior and high physical-frame coverage. An explicit
+319/320-frame boundary run catches incorrectly skipping a group containing a
+free bit. Existing release checks inspect every poison byte. Normal host tests,
+PMM ASan/UBSan and GCC14 checks pass; kernel build passes. Baseline failures and
+passing evidence are under `build/review/poison/`. Final guest results are
+recorded after execution.
+
+The poison data writes still scale with the number of released bytes. Heap
+validation remains unchanged, and first scans still scale with physical-memory
+coverage. The changes reduce redundant bookkeeping and loop iterations; they do
+not establish a hardware IRQ-latency deadline. Adjacent review confirms kcalloc
+zeros its payload after the heap lock is released, but an already IRQ-masked
+caller retains that state; caller-specific large initialization work remains
+separate audit scope.
+
 ## Remaining work
 
 Other long IRQ-disabled operations, including initial/churning PMM scans, heap validation and poisoning,
