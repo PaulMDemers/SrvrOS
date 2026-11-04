@@ -10,7 +10,7 @@ static struct scanout_lifetime owners[CASES];
 static struct scanout_pool pool;
 static bool attempted;
 struct stats {uint64_t allocated,released,retained,copies,requests,completed,restores,polls,max_wait_us;};
-struct trial {bool fixture;struct service_window window;struct stats stats;};
+struct trial {unsigned case_id;bool fixture;struct service_window window;struct stats stats;};
 static uint64_t clock_us(void){return timer_monotonic_us();}
 static bool observe(struct trial *t,struct intel_scanout_clock *c) {
     t->stats.polls++;
@@ -45,7 +45,10 @@ static bool wait_shadow(struct trial *t,struct scanout_lifetime *o,const struct 
         uint32_t delta=current.frame-first.frame;
         if(delta && delta<=8 && current.us>first.us) {
             uint64_t elapsed=current.us-first.us;if(elapsed>t->stats.max_wait_us)t->stats.max_wait_us=elapsed;
+            unsigned previous=o->front;
             if(!scanout_complete(o,token,token->target,SCANOUT_SHADOW,current.us))return false;
+            console_printf("intel-lifetime-event: v=1 case=%u epoch=%u serial=%u previous=%u target=%u frame_before=%u frame_after=%u begin_us=%u end_us=%u mode=shadow\n",
+                (uint64_t)t->case_id,token->epoch,token->serial,(uint64_t)previous,(uint64_t)token->target,(uint64_t)first.frame,(uint64_t)current.frame,first.us,current.us);
             t->stats.completed++;if(!token->target)t->stats.restores++;
             return true;
         }
@@ -71,7 +74,7 @@ static bool finish(struct trial *t,struct scanout_lifetime *o,uint64_t frames) {
     return o->state==SCANOUT_RETIRED && release_ram(t,o,frames);
 }
 static bool run_case(struct trial *t,unsigned n,const struct scanout_profile *base,uint64_t frames) {
-    struct scanout_profile p=*base;
+    t->case_id=n;struct scanout_profile p=*base;
     for(unsigned i=1;i<3;i++) {
         p.physical[i]=pmm_alloc_frames_tagged(frames,PMM_FRAME_DMA);
         if(!p.physical[i] || p.physical[i]>0x100000000ull-frames*4096 || (!t->fixture && !intel_scanout_trial_ram(p.physical[i],frames))) {
