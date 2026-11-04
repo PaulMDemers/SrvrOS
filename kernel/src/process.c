@@ -996,6 +996,7 @@ static void copy_bytes(uint8_t *destination, const uint8_t *source, uint64_t len
 static bool user_space_write_mode(struct process *process, uint64_t virtual_address,
     const void *source, uint64_t length,bool service) {
     const uint8_t *bytes = source;
+    unsigned pages=0;
     for (uint64_t copied = 0; copied < length;) {
         uint64_t physical_address;
         if (!vmm_virt_to_phys_in_space(process->address_space,
@@ -1014,7 +1015,7 @@ static bool user_space_write_mode(struct process *process, uint64_t virtual_addr
             bytes + copied,
             chunk);
         copied += chunk;
-        if(service && !(copied&0x1ffff))process_service_checkpoint();
+        if(service && !(++pages&31))process_service_checkpoint();
     }
     return true;
 }

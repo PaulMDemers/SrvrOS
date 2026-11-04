@@ -139,7 +139,7 @@ modeled boundaries; real DMA and arbitrary scheduling interleavings are open.
 
 ## Mapping and protection service checkpoint
 
-Two service gaps were confirmed in the continuation from `327cb50e`:
+Three service gaps were confirmed in the continuation from `327cb50e`:
 
 1. `mprotect` and private `msync` ran their generic validation/mapping scans
    without an owner scope or service checkpoints. For each page `mprotect`
@@ -153,6 +153,16 @@ Two service gaps were confirmed in the continuation from `327cb50e`:
    The new regression requires at least two rollback checkpoints and verifies
    that two earlier mappings survive. This is independent of the separately
    bounded atomic startup-map path, which remains unchanged.
+
+3. `user_space_write_mode` checked copied byte counts modulo 128 KiB. For an
+   unaligned destination, page-end counts never reach those exact multiples,
+   so a long successful copy can miss every checkpoint. It now counts page
+   chunks instead. The 256 KiB copy regression starts at offset 17, requires
+   two service turns, and checks both untouched boundaries. The original byte
+   condition completes the copy but fails the turn-count assertion
+   (`copy-before-corrected.log`). The first test attempt exposed an inaccurate
+   host translation stub for unaligned addresses; correcting its page lookup
+   and byte offset produced this isolated baseline failure.
 
 `mprotect` and `msync` now use ordinary process service scopes, refusing an
 unavailable foreign owner. Protection visits tracking entries once and applies
@@ -183,17 +193,19 @@ Focused Darwin/Rosetta host tests and strict Linux GCC14 pass; the service
 fixture also passes ASan/UBSan. Both old-behavior failures are retained under
 `build/review/teardown/protection-before.log` and
 `build/review/protection/rollback-before.log`; passing evidence is under
-`build/review/protection/`. The freestanding kernel builds. Guest results follow
-once the rebuilt-kernel tests finish.
+`build/review/protection/`. The freestanding kernel builds. The protection/rollback kernel passes sysabi
+and full threadstress; the later unaligned-copy change receives its own reruns.
 
 These checks bound batch work and show service opportunities; they do not set a
 wall-clock IRQ-latency guarantee. PMM allocation, fixed-size table scans and
-service scheduling still contribute to elapsed time. Large clone/copy and free
-range search paths remain separate audit work.
+service scheduling still contribute to elapsed time. Clone copies already retain a service owner and map pages in batches; their
+checkpoint can precede a private child page copy while the child is not runnable.
+The unaligned-copy gap above was confirmed in the shared copy helper. Free-range
+search and allocator scan costs remain separate audit work.
 
 ## Remaining work
 
-Other long IRQ-disabled operations, including clone/copy and free-range search,
+Other long IRQ-disabled operations, including free-range search and allocator scans,
 driver DMA/reset/removal ownership and broader manual isolation review remain
 open. Deterministic fault/dirty-writeback ordering now has the host coverage above;
 forcing it through actual VM context switches remains separate work. Future boot

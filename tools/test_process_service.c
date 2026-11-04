@@ -137,8 +137,8 @@ bool vfs_read_all(const struct vfs_node *node,const uint8_t **data,uint64_t *siz
 void vfs_release_data(const struct vfs_node *node,const uint8_t *data) {(void)node;(void)data;assert(0);}
 bool vmm_virt_to_phys_in_space(uint64_t space,uint64_t address,uint64_t *physical) {
     assert(observed && space==observed->address_space);
-    int64_t i=process_mapping_index(observed,address);if(i<0)return false;
-    *physical=observed->mappings[i].physical_address+(bad_translation?4096:0);return true;
+    int64_t i=process_mapping_index(observed,address&~4095ull);if(i<0)return false;
+    *physical=observed->mappings[i].physical_address+(address&4095)+(bad_translation?4096:0);return true;
 }
 static void private_scope_contract(void) {
     struct process *parent=calloc(1,sizeof(*parent)),*child=calloc(1,sizeof(*child));assert(parent && child);
@@ -355,6 +355,13 @@ static void protection_contract(void) {
     struct process_service_scope outer=process_service_begin();
     for(unsigned i=0;i<65;i++)assert(map_process_page(p,base+i*4096,VMM_PAGE_USER|VMM_PAGE_WRITABLE));
     assert(mmap_record_region(p,base,65*4096,true));
+    unsigned copy_turns=yields;
+    uint8_t *copy=malloc(64*4096);assert(copy);memset(copy,0x5a,64*4096);
+    assert(user_space_write(p,base+17,copy,64*4096));
+    assert(yields>=copy_turns+2);
+    assert(backing[p->mappings[0].physical_address+16]==0 && backing[p->mappings[0].physical_address+17]==0x5a);
+    assert(backing[p->mappings[64].physical_address+16]==0x5a && backing[p->mappings[64].physical_address+17]==0);
+    free(copy);
     /* Deliberately unsort the tracking array. */
     struct process_mapping swap=p->mappings[0];p->mappings[0]=p->mappings[64];p->mappings[64]=swap;
     for(unsigned i=0;i<65;i++)leaf_flags[p->mappings[i].physical_address/4096]=p->mappings[i].flags;

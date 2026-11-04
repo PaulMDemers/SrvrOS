@@ -3056,3 +3056,7 @@ and failed mmap rollback repeatedly searched tracking without a checkpoint.
 The bounded owner/checkpoint and single-pass/suffix-retirement changes pass
 strict host and sanitizer fixtures; see the
 [kernel audit](../audit-kernel-isolation-2026-11-03.md) for exact scope and results.
+
+The adjacent copy audit also confirmed that unaligned destination copies could
+miss byte-modulo checkpoints. Page-chunk counting fixes this, with an offset-17
+256 KiB regression and preserved untouched boundary bytes.
