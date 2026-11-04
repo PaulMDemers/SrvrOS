@@ -1012,11 +1012,11 @@ static void global_menu_rebuild(struct session *s) {
 }
 static void session_end_cancel(struct session *s,const char *reason,uint64_t pid) {
     s->exiting=0;s->end_action=0;
-    /* Unsent requests can be withdrawn. Already delivered requests may have
-     * closed an app and cannot be rolled back by a different app's Cancel. */
+    /* Requests waiting for queue space can be withdrawn. Already queued or
+     * delivered closes may still finish and cannot be rolled back here. */
     for(int i=0;i<session_capacity(s);i++)session_client(s,i)->close_request_pending=0;
     desktop_preferences_finish_cancel(&s->preferences);
-    strcpy(s->scene.notice,"Session kept. Apps already closed stay closed.");
+    strcpy(s->scene.notice,"Session kept. Pending app closes may still finish; closed apps stay closed.");
     desk_log("session-ui: phase=canceled reason=%s pid=%llu status=%u\n",reason,(unsigned long long)pid,s->preferences.status);
     global_menu_rebuild(s);
     desk_damage_add(&s->damage,(struct desk_rect){0,0,s->damage.width,s->damage.height});
