@@ -16,6 +16,7 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <srvros/sys.h>
+#include "cJSON.h"
 static char fixture[128],program[1024];
 static int fail_sync,fail_rename,fail_enumeration;
 static unsigned reads;
@@ -84,6 +85,29 @@ static int cli(char *const args[],const char *checkpoint) {
     char stop[100];snprintf(stop,sizeof(stop),"SRVROS_PROFILE_STOP_AFTER=%s",checkpoint?checkpoint:"");
     char *env[]={stop,NULL};pid_t pid;assert(!posix_spawn(&pid,program,NULL,NULL,args,env));
     int status;assert(waitpid(pid,&status,0)==pid);assert(WIFEXITED(status));return WEXITSTATUS(status);
+}
+/* Drain the real CLI preview to EOF, retaining at most one bounded JSON frame. */
+static cJSON *create_preview(const char *home) {
+    int fds[2];assert(!pipe(fds));posix_spawn_file_actions_t actions;
+    assert(!posix_spawn_file_actions_init(&actions));
+    assert(!posix_spawn_file_actions_adddup2(&actions,fds[1],STDOUT_FILENO));
+    assert(!posix_spawn_file_actions_addclose(&actions,fds[0]));
+    assert(!posix_spawn_file_actions_addclose(&actions,fds[1]));
+    char *args[]={program,"preview-create",(char *)home,"created","Created Profile",NULL};
+    char *env[]={NULL};pid_t pid;assert(!posix_spawn(&pid,program,&actions,NULL,args,env));
+    assert(!posix_spawn_file_actions_destroy(&actions));assert(!close(fds[1]));
+    char out[4097];size_t used=0;for(;;){char chunk[512];ssize_t n=read(fds[0],chunk,sizeof(chunk));
+        if(n<0&&errno==EINTR)continue;assert(n>=0);if(!n)break;
+        assert(used+(size_t)n<=4096);memcpy(out+used,chunk,(size_t)n);used+=(size_t)n;}
+    assert(!close(fds[0]));int status;assert(waitpid(pid,&status,0)==pid && WIFEXITED(status) && !WEXITSTATUS(status));
+    out[used]=0;cJSON *json=cJSON_ParseWithLength(out,used+1);assert(json);return json;
+}
+static const char *review_string(cJSON *obj,const char *key) {
+    cJSON *v=cJSON_GetObjectItemCaseSensitive(obj,key);assert(cJSON_IsString(v)&&v->valuestring);return v->valuestring;
+}
+static unsigned json_uint(cJSON *obj,const char *key) {
+    cJSON *v=cJSON_GetObjectItemCaseSensitive(obj,key);assert(cJSON_IsNumber(v)&&v->valuedouble>0&&v->valuedouble<=2147483647);
+    unsigned n=(unsigned)v->valuedouble;assert(v->valuedouble==n);return n;
 }
 static void bundle(const char *path,unsigned number) {
     char text[700];snprintf(text,sizeof(text),"{\"format\":\"org.srvros.portable-profile\",\"schema_version\":1,\"profile\":{\"id\":\"12345678-1234-4234-8234-%012u\",\"display_name\":\"Profile %u\"},\"preferences\":{\"text_size\":20},\"documents\":[]}",number,number);put(path,text);
@@ -173,6 +197,33 @@ int main(int argc,char **argv) {
         put("/fat/home/pending.profile-import.json","{\"format\":");
         assert(!profile_catalog_scan(&c,"/fat/home") && c.count==1 && entry(&c,"pending")->state==PROFILE_BLOCKED);
         cleanup();
+    }
+    /* Creation recovery is self-contained: no external portable bundle exists. */
+    const char *create_stops[]={"journal","directories","identity","commit-ready","published"};
+    for(unsigned i=0;i<5;i++) {
+        new_fixture();char actual_home[1024];mapped("/fat/home/created",actual_home);
+        cJSON *review=create_preview(actual_home);
+        assert(!strcmp(review_string(review,"operation"),"create"));
+        cJSON *who=cJSON_GetObjectItemCaseSensitive(review,"profile");
+        cJSON *dest=cJSON_GetObjectItemCaseSensitive(review,"destination");assert(cJSON_IsObject(who)&&cJSON_IsObject(dest));
+        const char *id=review_string(who,"id"),*name=review_string(who,"display_name"),*hash=review_string(review,"sha256");
+        assert(!strcmp(name,"Created Profile")&&!strcmp(review_string(dest,"home"),actual_home));
+        char uid[20],gid[20];snprintf(uid,sizeof(uid),"%u",json_uint(dest,"uid"));snprintf(gid,sizeof(gid),"%u",json_uint(dest,"gid"));
+        char *create_args[]={program,"create-reviewed",actual_home,(char *)review_string(dest,"alias"),(char *)name,uid,gid,(char *)id,(char *)hash,NULL};
+        assert(cli(create_args,create_stops[i])==86);
+        char actual_journal[1024],actual_pending[1024];mapped("/fat/home/created.profile-import.json",actual_journal);mapped("/fat/home/created/.profile-import-pending",actual_pending);
+        struct stat st;assert(!lstat(actual_journal,&st));if(!strcmp(create_stops[i],"published"))assert(lstat(actual_pending,&st)<0&&errno==ENOENT);
+        assert(!profile_catalog_scan(&c,"/fat/home") && c.count==1);
+        struct profile_entry *candidate=entry(&c,"created");assert(candidate->state==PROFILE_RECOVERABLE && !strcmp(candidate->id,id) && !strcmp(candidate->name,name));
+        char *recover_args[]={program,"recover",actual_home,NULL};assert(cli(recover_args,NULL)==0);
+        assert(!profile_catalog_scan(&c,"/fat/home") && c.count==1);
+        candidate=entry(&c,"created");assert(candidate->state==PROFILE_READY && !strcmp(candidate->id,id) && !strcmp(candidate->name,name));
+        assert(!profile_choice_save("/fat/home/.desktop-profile",candidate));
+        assert(profile_choice_load("/fat/home/.desktop-profile",&c,&index,reason)==1 && !strcmp(c.entries[index].id,id));
+        /* The fixture root contains only the mount tree, no source bundle. */
+        DIR *root=opendir(fixture);assert(root);struct dirent *de;unsigned entries=0;
+        while((de=readdir(root)))if(strcmp(de->d_name,".")&&strcmp(de->d_name,"..")){assert(!strcmp(de->d_name,"fat"));entries++;}
+        assert(entries==1 && !closedir(root));cJSON_Delete(review);cleanup();
     }
     new_fixture();imported("ready",20,NULL);imported("interrupted",21,"journal");
     put("/fat/home/ready/profile.id","srvros-profile-v1\n12345678-1234-4234-8234-000000000021\n");

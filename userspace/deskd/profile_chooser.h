@@ -7,7 +7,7 @@ enum desktop_profile_choice {
     DESKTOP_PROFILE_SELECTED=1, DESKTOP_PROFILE_CONSOLE=2
 };
 struct desktop_profile_request {
-    const char *root, *remember_path;
+    const char *root, *remember_path, *create_stop;
     unsigned scale;
     int force;
 };

@@ -1,7 +1,102 @@
 # Filesystem layout and root contract
 
-Updated November 3, 2026. Global activation follows the explicit namespace proof
+Updated November 4, 2026. Global activation follows the explicit namespace proof
 in [PR308](https://github.com/PaulMDemers/SrvrOS/pull/308).
+
+## PR349 current-main merge review — ready
+
+User authorizes review and merge if ready, preserving uncertain media and review
+VMs and coordinating PR317. Reviewed `7b40686a` with no blocking finding. Merged
+actual main `6225e4d1` as `e853ef90`, preserving Files/profile and Air6,1 records;
+Apps `2ddea666`, Widgets `586bd002`, Ports `d760e541` are synchronized. Inspector,
+shim, Python contracts and native exFAT/VFS sources match the qualified head.
+Production-preprocessed exFAT tokens match current main exactly. No new runtime
+filesystem/process/transport or admission-policy change is introduced.
+
+Fresh 14 diagnostic groups, 19 strict-inspection regression groups, storage
+lease/workspace/USB regressions and matched OS build pass on the integrated
+source. The unchanged-source ASan/UBSan and omitted-blocking negative-control
+evidence is verified and retained. Before/after whole-file SHA-256 and full
+identity/ownership/mode stamps for all three uncertain images, accepted fault
+backup and clean control match their original qualification. All diagnostic
+write/flush counts remain zero; uncertain images remain mode `0444`. Review VMs
+61610/6233/85869 stay running and untouched. Complete review evidence survives
+outside build in `.local/filesystem-evidence/pr349-review/`.
+
+PR317 owner confirms no new overlap or lifetime constraint at current published
+head `ae3b39b9`; this is scope coordination, not an independent diff review.
+Published-storage failure stays sticky; diagnostics confer no replay, transport
+recovery, repair, remount or writable-admission authority. No live/physical media,
+new VM, reboot or hosted Actions. Current-main review is ready for authorized
+merge; explicit ranges and unauthenticated marker syntax remain documented limits.
+
+Next proposed bounded milestone: **GPT-aware read-only workspace selection**.
+Remove manual offset entry for preserved whole-disk images by researching reuse
+of the existing native GPT map and host validation before adding an adapter.
+Require valid bounded partition metadata and one unambiguous workspace candidate;
+refuse corrupt/overlapping/ambiguous maps. Compare reports against the existing
+explicit-range results on retained clean/uncertain images; verify unchanged
+whole-file hashes/permissions and malformed-map refusals on disposable fixtures.
+Preserve strict admission, metadata-only output, review VMs and uncertain media;
+coordinate any block/GPT boundary with PR317. No repair, writable admission or
+source/orphan export. This proposal is not implemented by PR349.
+
+## Read-only uncertain-workspace inspection — host qualified
+
+On base `83e5d1ad`, integrated with main `5ed7f015` (less), reuse the native
+installation inspector and bounded inherited-O_RDONLY regular-file shim. The
+explicit `--workspace-fd` diagnostic uses a private `SRVROS_EXFAT_HOST_TEST`
+entry which forces write blocking before sidecar loading and supplies no write
+or flush callbacks. Default `--fd` clean installed-image admission stays strict.
+Production exFAT preprocessing is unchanged; no process.c, USB/BOT, namespace,
+transport, repair or writable-admission contract changes.
+
+The offline wrapper requires an explicit, sector-aligned bounded range:
+
+```sh
+sh tools/macos/build.sh HOST_CC='python3 build/tooling/darwin-host-cc.py -D_DARWIN_C_SOURCE' test-workspace-inspection
+python3 tools/workspace_inspection.py IMAGE --driver build/tests/installation-inspect-driver --offset 403701760 --length 134217728
+```
+
+The example range belongs to the retained managed-workspace fixture, not arbitrary
+media. The wrapper does **not** validate the partition table or discover volumes.
+Inputs must be offline regular images; symlinks, hardlinks, writable inherited
+fds and malformed/range failures are refused. Shared locking is cooperative.
+It hashes the entire image before/after and verifies device/inode, link count,
+mode, ownership, size, mtime and ctime; reads may update atime. A detected change
+is reported as refusal, never repaired. The report is diagnostic evidence and
+always says `admission: not-authorized`.
+
+All three retained uncertain whole disks (`proof-spfxutbi`, `proof-5mp6sngi`,
+`proof-dsbnzltn`) and the accepted fault backup inspect successfully with identical
+SHA-256 hashes, identity and mode `0444`. Each reports dirty flags, four leaked
+clusters, zero FAT/bitmap mismatches and a 28-byte source directory entry. The
+retained clean control reports clean flags, zero allocation errors and a
+12,289-byte source entry; its mode `0644` is unchanged. Both modes supply zero
+write/flush capabilities and report zero attempted writes/flushes. The separate
+strict installed-image inspector refuses all uncertain images; the clean-flags
+control also remains refused by that stricter independent admission path.
+Clean flags alone do not grant installed-image admission.
+
+Output contains observed workspace directory names/types/sizes and bounded
+marker syntax only. The marker UUID is unauthenticated. Sidecars are neither
+parsed, replayed nor cleaned; output does not establish POSIX permissions,
+identity binding, durable content, recovered source bytes or orphan ownership.
+No source/orphan payload is exported. Directory-entry size on uncertain media
+must not be confused with the unacknowledged raw payload retained by PR345.
+
+Validation: 14 diagnostic groups, 19 existing installation-inspection groups,
+storage lease/workspace/USB regressions, matched OS build, documentation checks,
+and ASan/UBSan with halt-on-error pass. An omitted-force-blocking negative
+control fails the clean diagnostic test as expected. Pending `meta.tmp` is
+untouched and strict inspection refuses it. Native read/heap/call/output/time
+budgets are reused. Full reports, stamps, driver/source hashes and logs survive
+outside `build` in `.local/filesystem-evidence/workspace-inspection/`.
+
+PR317 owner through `04b82bdd` confirms no lifetime overlap; published-storage/BOT
+failure remains sticky and inspection cannot authorize repair/remount/recovery.
+Review VMs 61610/6233/85869 remain running and untouched. No live USB, physical
+media, writable remount, reboot, new VM, repair or hosted Actions was used.
 
 ## PR345 merge review and current-main requalification
 

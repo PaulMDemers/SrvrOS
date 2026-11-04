@@ -57,16 +57,61 @@ static bool number(const char *s,uint64_t *v) {
     for(;*s;s++) { if(*s<'0'||*s>'9'||x>(UINT64_MAX-(unsigned)(*s-'0'))/10)return false;x=x*10+(unsigned)(*s-'0'); }
     *v=x;return true;
 }
+/* Offline observation only: never clean/writable admission or sidecar replay. */
+extern bool exfat_host_inspect_readonly(const char *,struct block_device *,uint16_t *);
+static int workspace_report(struct block_device *d) {
+    uint16_t flags=0;
+    if(!exfat_host_inspect_readonly("/fat",d,&flags))return 1;
+    struct exfat_check_result check={0};bool consistent=exfat_check("/fat",&check);
+    const struct vfs_node *dir=vfs_lookup("/fat/srvros-work");
+    const struct vfs_node *marker=vfs_lookup("/fat/srvros-work/.workspace");
+    const uint8_t *bytes=NULL;uint64_t size=0;
+    const char *prefix="SRVROS-WORKSPACE-V1 ";size_t n=strlen(prefix);char uuid[9]={0};
+    bool ok=dir && dir->type==VFS_NODE_DIRECTORY && marker && marker->type==VFS_NODE_FILE && marker->size==n+9 &&
+        vfs_read_all(marker,&bytes,&size);
+    if(ok) {
+        ok=size==n+9 && !memcmp(bytes,prefix,n) && bytes[n+8]=='\n';
+        for(unsigned i=0;ok && i<8;i++) {
+            char ch=(char)bytes[n+i];ok=(ch>='0'&&ch<='9')||(ch>='a'&&ch<='f');uuid[i]=ch;
+        }
+    }
+    if(bytes)vfs_release_data(marker,bytes);
+    if(!ok || read_failed || writes || flushes || exfat_is_writable("/fat") || check.mounts_checked!=1 || vfs_count()>32768) {ok=false;goto done;}
+    ok=append("{\"version\":1,\"kind\":\"workspace-diagnostic\",\"writable_admission\":false,\"sidecar_loaded\":false,\"metadata_origin\":\"directory_entries_only\",\"marker_uuid\":\"%s\",\"marker_binding_authenticated\":false,\"filesystem\":{\"volume_flags\":%u,\"dirty\":%s,\"allocation_consistent\":%s,\"allocation\":{\"files\":%llu,\"clusters\":%llu,\"leaked\":%llu,\"fat_bitmap_mismatches\":%llu,\"errors\":%llu},\"writes\":0,\"flushes\":0},\"entries\":[",
+        uuid,(unsigned)flags,flags&2?"true":"false",consistent?"true":"false",
+        (unsigned long long)check.files_checked,(unsigned long long)check.clusters_checked,
+        (unsigned long long)check.leaked_clusters,(unsigned long long)check.fat_bitmap_mismatches,(unsigned long long)check.errors);
+    unsigned count=0;
+    for(uint64_t i=0;ok && i<vfs_count();i++) {
+        const struct vfs_node *node=vfs_node_at(i);
+        if(!node || (strcmp(node->path,"/fat/srvros-work") && strncmp(node->path,"/fat/srvros-work/",17)))continue;
+        if(++count>4096 || strlen(node->path)>=160 || (node->type!=VFS_NODE_FILE && node->type!=VFS_NODE_DIRECTORY)) {ok=false;break;}
+        ok=append("%s{\"path\":",count>1?",":"") && json_string(node->path) &&
+            append(",\"type\":\"%s\",\"size\":%llu}",node->type==VFS_NODE_DIRECTORY?"directory":"file",(unsigned long long)node->size);
+    }
+    if(ok)ok=append("]}\n");
+done:
+    if(!exfat_unmount("/fat") || read_failed || writes || flushes || vfs_count())ok=false;
+    if(!ok)return 1;
+    return fwrite(output,1,used,stdout)==used && !fflush(stdout) && !ferror(stdout)?0:1;
+}
+
 int main(int argc,char **argv) {
     uint64_t fdnum;struct stat st;
+    bool workspace=argc==5 && !strcmp(argv[1],"--workspace-fd");
     const char *reason="native-fd-range";
-    if(argc!=5 || strcmp(argv[1],"--fd") || !number(argv[2],&fdnum) || fdnum>INT_MAX ||
+    if(argc!=5 || (!workspace && strcmp(argv[1],"--fd")) || !number(argv[2],&fdnum) || fdnum>INT_MAX ||
        !number(argv[3],&base) || !number(argv[4],&length) || !length || (base%512) || (length%512))goto fail;
     source_fd=(int)fdnum;int flags=fcntl(source_fd,F_GETFL);
     if(flags<0 || (flags&O_ACCMODE)!=O_RDONLY || fstat(source_fd,&st) || !S_ISREG(st.st_mode) ||
        st.st_nlink!=1 || st.st_size<0 || base>(uint64_t)st.st_size || length>(uint64_t)st.st_size-base)goto fail;
     struct block_device d={.used=true,.name="inspection",.block_size=512,.block_count=length/512,
         .read=block_read,.write=block_write,.flush=refuse_flush};
+    if(workspace) {
+        d.write=NULL;d.flush=NULL;
+        if(!workspace_report(&d))return 0;
+        reason="workspace-diagnostic-refused";goto fail;
+    }
     reason="clean-admission";
     if(!exfat_mount_block_device_clean("/fat",&d))goto fail;
     struct exfat_check_result check={0};bool ok=exfat_check("/fat",&check);
