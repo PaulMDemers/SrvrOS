@@ -191,7 +191,9 @@ def main():
                 tail=re.sub(COMPOSITOR_TRACE,b'',output[start:])
                 assert tail.index(close)<tail.index(b'file-result role=files op=7 status=0')<tail.index(closed)
                 qmp.call('block_set_io_throttle',{'device':'disk','bps':0,'bps_rd':0,'bps_wr':0,'iops':0,'iops_rd':0,'iops_wr':0})
-                launch('transfer-collision window');shortcut('ctrl-r');wait(b'file-result role=files op=3 status=0')
+                # Closing the original focuses its surviving sibling. Verify
+                # that window directly, without reselecting it via launcher.
+                shortcut('ctrl-r');wait_all([b'file-result role=files op=3 status=0',b'files-location path=/fat/transfer-collision '])
                 shortcut('ctrl-q');wait(b'desktools: exited role=files failure=0')
                 application_trace=re.sub(COMPOSITOR_TRACE,b'',output)
                 assert b'files-runtime: documents admitted=2 retired=2 refused=0' in application_trace
