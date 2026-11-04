@@ -363,3 +363,10 @@ from tested4fa518eb). Continued PR334/WTF/JSC packetee207df0/e404d84:568 files,
 1661+1288 source blobs,292 linked function bodies/1058 named relocation values
 and32 prepared suite inputs independently verify. Bounded7-case single-CPU/noNIC
 experiment cleared; no new guest/sole-root GC/full ABI/SMP/capability acceptance.
+
+
+Exact WTF/JSC suiteqvdnmbic first case FAIL134 after main-register/red-zone marker.
+Raw boot/case/serial identities independently verify, exit134+prompt observed;
+owned11532 stopped/protected3alive. Later utility/GC/JSC cases NOTRUN. Silent
+terminal path attribution pending with PR334 owner; no overall runtime acceptance.
+Deterministic extra-handler acknowledgement remains uncovered by finite yields.

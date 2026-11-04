@@ -2402,6 +2402,37 @@ Private review scripts/results: `build/review/pr334-jsc-companions-review/packet
 PR317's accepted payload and actual merge receipt survive build cleanup in
 `.local/kernel-audit-evidence/pr317-merge/`.
 
+## November 4: first actual WTF suite run fails; later cases not run
+
+Independently reviewed the collected exact `signal-public-qvdnmbic` run, bound to
+prepare `e9c5112c` and frozen packet `4e4f1dc1`. Boot log SHA256
+`694b408d7ffb064814aa3df393bbd6b226d4704a9c9ba1f082101ba81f258041`
+has exactly one full idle-network and worker-not-started line with no provider.
+The first WTF case prints exactly one main-register/red-zone success line, then
+PID 3 exits status 134 with a full newline and later prompt. The two-target,
+startup/retirement and final markers are absent. Case SHA256
+`bd2ea763c73772332a1fbfa18789e3baf919ab0e3ca2290a440620dbb31cca62`;
+full serial SHA256
+`a5f676ff87cfa2653d204f63d53370a6716a9d2fc0c85a26928ba49006c31e46`.
+
+The harness correctly stops at that first failure after 5.695 seconds. Utility,
+all four GC modes and JavaScript print(42) did not run. Owned QEMU 11532 is absent;
+protected review QEMUs 6233/61610/85869 are still alive and untouched. No overall
+WTF/JSC or sole-root GC acceptance follows from the initial subphase marker.
+Raw logs and independent checks are retained in
+`build/review/pr334-jsc-companions-review/packet-ee207df0/first-run/`.
+
+Status 134 alone does not identify a defect: WTF fatal checks, fixture/assert
+abort and libc context/runtime terminal checks can share it. The PR334 owner
+owns bounded diagnosis and any implementation correction/regressions; this chat
+reviews independently without duplicate overlay edits. Next is terminal-site
+identification before attributing the failure or changing behavior. A diagnostic
+debugger replay can retain the exact payload; its timing is not qualification.
+The extra-signal fixture's finite yields do not acknowledge handler execution,
+so deterministic spurious-delivery coverage remains separate. Profiles now owns
+the heavy build/guest window; any repeat VM requires a coordinated resource
+handoff, not new human permission. No audit compiler or VM is currently running.
+
 ## Remaining work
 
 Other long IRQ-disabled operations, including initial/churning PMM scans, heap validation and poisoning,

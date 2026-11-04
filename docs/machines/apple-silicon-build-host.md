@@ -4738,3 +4738,13 @@ Cleared only the recorded seven fresh-process diskless/no-NIC/single-TCG/1536MiB
 WTF/utility/GC-control/GP/FX/red-zone/JSC experiment, with boot guards and first-
 failure preservation. No results accepted yet; no normal public capability, SMP
 or physical acceptance. Exact hashes/limits are in the kernel audit ledger.
+
+
+### November 4: first WTF/JSC suite preserves a failure
+
+Exact cleared qvdnmbic run reaches main-register/red-zone WTF marker, then exits
+134 in its first case; later six cases do not run. Independently bound raw boot,
+case and full serial hashes to preparee9c5112c; boot network guards pass. Owned
+QEMU11532 is stopped/protected3live. PR334 owner diagnoses silent terminal site
+before changing behavior; no WTF/JSC/GC acceptance. Profiles holds the heavy
+resource window, so follow-up diagnostics await handoff. No physical operations.
