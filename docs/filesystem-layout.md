@@ -3,6 +3,34 @@
 Updated November 4, 2026. Global activation follows the explicit namespace proof
 in [PR308](https://github.com/PaulMDemers/SrvrOS/pull/308).
 
+## PR366 closeout — November 4, 2026
+
+[PR366](https://github.com/PaulMDemers/SrvrOS/pull/366) completes explicit
+partition-GUID selection for offline multi-volume workspace images. Integrated
+actual main `db95fc9b` as `44d3375a`; independent source review at `7fac0705`
+found no blocker, and the intervening merge changes documentation only. Fresh
+qualification at `44d3375a` passes all 43 selector groups, 19 installation groups,
+storage lease/workspace/USB regressions, documentation and whitespace checks.
+All 43 selector groups also pass ASan/UBSan with halt-on-error and
+`detect_leaks=0`; no LeakSanitizer acceptance is claimed.
+
+The first closeout compile failed because the review command applied Darwin
+extension declarations to a POSIX-only storage fixture. Its receipt is preserved.
+Separating the established Darwin-enabled inspector-driver configuration from
+the POSIX storage configuration fixes the command without any source change.
+The corrected native gate took 133.28 seconds, and its owned process group is empty.
+Review evidence survives outside build at `.local/filesystem-evidence/pr366-review/`.
+
+Closeout did not open the five original media images. Their full identity,
+ownership, permission, size and modification/change-time stamps still match the
+original qualification; its recorded content hashes remain historical evidence.
+The three old review VM processes were already absent at closeout preflight,
+with cause unknown. They were not restarted or operated by this review; their
+historical live checks are not current liveness evidence. No new OS/VM,
+physical-media, writable-admission, repair or runtime acceptance is claimed.
+Actions remain disabled. This completes the bounded offline-selector topic;
+no further filesystem milestone is started by this closeout.
+
 ## Explicit partition-GUID workspace selection — host qualified
 
 On actual main `5f4f6fc6` (merged PR317), extend the offline selector with
@@ -63,7 +91,8 @@ Source/driver/report/log hashes and unchanged-media receipts survive outside
 build in `.local/filesystem-evidence/guid-workspace-selection/`.
 
 PR317 owner confirms no overlap; independent source review is separate from
-coordination. Review VMs 61610/6233/85869 remain running and untouched. This
+coordination. At the original `710f1b15` qualification, review VMs
+61610/6233/85869 remained running and untouched. This
 host-only milestone uses no new OS/VM boot or live/physical-media operation,
 and claims no new runtime or hardware acceptance.
 
