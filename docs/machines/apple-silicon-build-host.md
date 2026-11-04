@@ -5234,3 +5234,10 @@ inventory were not retained, so no member-equivalence acceptance is claimed.
 The failure is preserved and the slot released. Current payloads are frozen
 and readback-verified outside build cleanup. Fresh full guest qualification on
 the final payload is required; no ports guest or merge occurred in that slice.
+
+Fresh qualification candidate reconciles filesystem PR366 `7b1bfcb8` and
+actual main `72fde837` through `a7563231` without conflicts. Incoming changes
+are host inspection/test and documentation only; target runtime/ABI and port
+pins are unchanged. The new matched payload, archive members and disk manifest
+will be frozen outside build before seven fresh sequential guests. Browser
+owns the current resource turn; no new build/guest is launched until handoff.

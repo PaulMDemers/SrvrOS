@@ -153,3 +153,13 @@ payload copies are readback-verified outside build under the task's external
 on that frozen final payload after the browser owner's resource release. The
 earlier six guests retain their original source/data attribution. Native and
 two-clean-GNU rebuild results apply to the unchanged GNU runtime source.
+
+Fresh final-candidate preparation incorporates filesystem PR366 `7b1bfcb8`
+and actual main `72fde837` through merge `a7563231`. The reviewed incoming
+delta changes host offline inspection tools, host tests and docs; it does not
+change kernel/userspace runtime sources or port pins. There were no conflicts.
+A new matched incremental build/manifest is required, followed by freezing the
+actual tar/disk/kernel/executables and complete tar-member inventory outside
+build before all seven fresh guest checks. The browser currently owns the
+resource slot; queue acceptance is not a launch grant. Allow under 1 GiB of
+additional evidence/frozen copies while retaining all earlier failed proofs.
