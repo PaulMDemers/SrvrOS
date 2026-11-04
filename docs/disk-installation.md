@@ -1,6 +1,6 @@
 # Disk installation and recovery
 
-## Offline selected-profile export — active
+## Offline selected-profile export — qualified
 
 User authorized implementation, fresh-install restoration/refusal proof and a
 scoped PR, based on integrated main `a37eb7b2`. Own host export, a bounded native
@@ -31,6 +31,99 @@ state; they do not redact a selected document. Export refuses uncertain state
 without invoking recovery or replacing output. A post-publication error means
 inspect the retained output/evidence before choosing a new name; no automatic
 retry, deletion or durability acknowledgment is inferred.
+
+### Export command and accepted restoration proof
+
+```sh
+python3 tools/installation_image.py export-profile .local/installation/profile-a /absolute/new-profile.json \
+  --profile-id 12345678-1234-4234-8234-123456789abc --home /fat/home/local-a \
+  --document Documents/migration.txt --document Documents/binary.dat \
+  --inspect-driver build/tests/installation-inspect-driver \
+  --export-driver build/tests/installation-export-driver
+```
+
+Exit zero emits JSON `state=exported`, bundle/current-image/document hashes,
+source-used status and inspection counters. Exit one emits `state=refused` and
+a bounded reason. A post-link sync/cleanup/close error reports
+`visible_uncertain=true` with the retained output path and never reports success.
+An unpublished temporary cleanup failure identifies the residual artifact.
+Existing outputs are never replaced; do not infer that an uncertain visible
+output is absent or durably published. No publication recovery policy is changed.
+
+Export repeats admission, matches explicit UUID/home against the current catalog,
+reads through that same locked `O_RDONLY` descriptor and revalidates image,
+baseline, records and driver before output publication. The stable plan lock
+remains held through publication. Offline cooperative ownership is required;
+these checks do not isolate a hostile arbitrary writer. The separate native
+reader validates clean admission/allocation/namespace targets, bounds and regular
+file parents/types, retains selected content within its budget, and emits framed
+bytes only after successful unmount with no attempted writes/flushes. Inspection
+keeps its existing metadata-only protocol and output budget.
+
+The v1 codec remains normative: up to 64 explicit files, 1 MiB each, 8 MiB total
+decoded documents and 12 MiB encoded bundle; ASCII components, case and parent
+collisions, canonical hashes/base64 and typed portable settings all validate.
+The reader supports the codec's 160-byte relative document path and up to 256
+bytes after adding a 95-byte home. Fresh destination provisioning retains its
+existing stricter expanded-path/save-temporary headroom checks; export does not
+bypass destination admission or rename data. Older profiles without display
+identity use the validated home-leaf fallback; a fallback that fails portable
+identity rules refuses. Used v2 still requires retained `profile.exfat`; used v1
+requires its exact original data source. Dirty or pending sources are not salvaged.
+
+Clean `ca90437a` includes main `f0c88a6d`/PR337 and Ports `747cca28`.
+The matched full build and combined checks pass: 70 passing installation tests,
+one optional long-matrix entry skipped, including 15 export and 19 inspection
+groups. Profile bundle/adapter, preferences/startup/catalog/chooser and guest
+profile checks pass. Real 1 MiB selected-file and 8 MiB aggregate cases pass;
+9 MiB refuses natively before any stdout. Corrupt/oversized frames, source/driver
+change, fd/range/path boundaries and write/short-write/file-sync/link/unlink/
+directory-sync/close failures refuse. A bring-up fixture-prefix failure and an
+early firmware-path rejection are retained separately and excluded from acceptance.
+
+The accepted proof has four sole-installed-disk EFI lifetimes: A edit/save and
+reboot/reopen, then fresh B boot/reboot from the actual exported bundle. Both
+direct exports are byte-identical. Exact text/binary bytes, portable UUID and all
+six preferences match. B uses new GPT disk/partition IDs, home `local-b`, alias
+`local_b`, UID/GID 2050/2051 and its own machine preferences; A retains `local-a`,
+`local_a`, 1001/1001. B's preboot readback confirms only selected documents were
+imported, excluding A's generated environment/cwd documents. All boot readbacks
+check local bindings, machine settings, environment/cwd, application hashes,
+launch order, protected regions and clean allocation. Five used inspections and
+ten strict publication inspection/reconciliation refusals preserve old receipts.
+
+Sixteen export refusals match their intended reason and preserve whole-stage,
+source and output snapshots: wrong UUID/home, missing/directory/traversal/
+duplicate/case-colliding documents, existing/linked/in-stage output, busy image,
+protected boot padding, dirty exFAT, invalid portable settings, pending marker and
+torn sibling journal. The harness alone restores its deliberate mutations and
+verifies the original used-image hash. No inspector/exporter repair occurs.
+
+The [portable receipt](assets/screenshots/installation-export-manifest.json) and
+[restored document](assets/screenshots/installation-export-restored.png) record
+source/build/tool hashes and the visually checked B reboot. All 67 raw proof
+files, images, logs and matched artifacts were copied and SHA-256 verified at
+`.local/installation-evidence/export-proof-r29pmoja`, outside build cleanup;
+original target paths/inodes remain at `build/review/installation-export/proof-r29pmoja`.
+All task VMs stopped; review VMs 61610/6233/85869 remain running and untouched.
+To preserve reserve space, superseded IO proofs `oyq2ene6` and `j8xbfmgc` now keep
+their six large images in verified gzip form under their existing evidence
+archives, with `compressed-images.json` recording byte hashes, sizes, round-trip
+verification and historical inode identities. These are historical evidence,
+never adopted recovery targets; the later fsync, inspection and current export
+proof targets remain intact.
+
+```sh
+sh tools/macos/build.sh HOST_CC='python3 build/tooling/darwin-host-cc.py -D_DARWIN_C_SOURCE -Wno-array-bounds' test-installed-root test-profile-desktop test-profile-chooser test-guest-profiles
+sh tools/macos/build.sh -j2 all
+python3 tools/installation_export_smoke.py --ovmf /opt/homebrew/share/qemu/edk2-x86_64-code.fd --ovmf-vars /opt/homebrew/share/qemu/edk2-i386-vars.fd
+```
+
+The proof is bounded to generated clean offline images. It grants no dirty-media
+salvage, repair, in-place upgrade, authentication, live health, power-loss or
+physical-media qualification. Open desktop-transfer PR333 remains independently
+owned; no unmerged profile/UI behavior is consumed. Publish a scoped draft for
+independent review; merge remains separate.
 
 ## PR336 integrated-main review and next bounded checkpoint
 

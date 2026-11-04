@@ -1,6 +1,6 @@
 # Apple Silicon macOS build host
 
-## Offline selected-profile export — active
+## Offline selected-profile export — qualified
 
 User authorizes implementation, fresh-install restoration/refusal proof and a
 scoped PR. Reuse isolated `SrvrOS-installation-io`, branch
@@ -17,6 +17,21 @@ reboot, direct stopped-image export, fresh B with different disk/home/local
 bindings and reboot/readback, plus read-only/refusal snapshots and provenance.
 Preserve VMs 61610/6233/85869 and primary/other checkouts; one build/harness here,
 no physical media, host reboot, Actions or merge requested.
+
+Clean `ca90437a` consumes main `f0c88a6d`/PR337 and Ports `747cca28`.
+Matched build, 70 passing installation tests with one default skip (15 export,
+19 inspection groups), profile/guest checks and real boundary/fault tests pass.
+Four installed-only EFI lifetimes prove A saved/reopened data, two identical
+direct exports, fresh B with different disk/home/local binding and machine
+settings, then B reboot/readback. B preboot checks exclusions. Sixteen matched
+export refusals, five used inspections and ten strict publication refusals
+preserve source/stage/output bytes and historical receipts. All task VMs stopped;
+review VMs stay live. The 67-file raw proof and matched artifacts are byte-verified
+outside cleanup at `.local/installation-evidence/export-proof-r29pmoja`.
+Reopened B Text was visually checked. Original current proof targets remain at
+their recorded paths/inodes. Superseded IO images retain exact bytes in verified
+gzip archives with compression manifests; no earlier evidence was discarded.
+Status: proof complete, scoped draft publication; no merge requested.
 
 ## PR336 integrated-main merge review — ready
 

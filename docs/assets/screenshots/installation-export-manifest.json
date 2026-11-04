@@ -1,0 +1,1495 @@
+{
+  "base": "f0c88a6d4c52c7575ce2265cab668f32a5100b5e",
+  "boots": {
+    "a1": {
+      "applications": {
+        "deskd": "9ca3f84de636612c34afffcbc75b16b9e26722b6cecad4c5e5288af9444e5f49",
+        "deskterm": "ef8717b465cddf8586c8e559ed4f541f725179a7e1e34493557715f1272bbff7",
+        "desktools": "f266ff632e9ea31e76502941a8fdbb6f74959e161e9d8730768c6b3cb08e84b7"
+      },
+      "binary_sha256": "54615f979ce7cc7523885bae0456990cd1ae0d6e47ec7ddb51a279d57c2c6a45",
+      "binding": {
+        "alias": "local_a",
+        "gid": 1001,
+        "uid": 1001
+      },
+      "cwd": "/fat/home/local-a",
+      "data_sha256": "cd67a9c59460736e206007459fb837a83d9e63491680c0b3c4b155ac26dbe818",
+      "document_sha256": "72bbf76fbd41437c635decf661a2c123b2f945ac8463a9c230e14d563d41d71e",
+      "environment_sha256": "ec589f4a1c79e04e92d6a6d40abf71084825afcaaf7d60dbaafed3b4eb06b402",
+      "exit": 0,
+      "identity": {
+        "display_name": "Portable profile",
+        "id": "12345678-1234-4234-8234-123456789abc"
+      },
+      "machine_preferences_sha256": "fe0a4369803f1f9d413c78af0929ad8e4307d9550146ab183d186927bda27212",
+      "portable": {
+        "clock_flags": 3,
+        "glass_level": 1,
+        "text_size": 16,
+        "theme_accent": 0,
+        "theme_style": 1,
+        "wallpaper": 0
+      },
+      "screenshots": {
+        "desktop-a1.ppm": "0b7b91afc1ac74e6096b52fb3b67948a34115fe7bae5b7db60e6ffef20d894e9",
+        "files-a1.ppm": "963948e99e613561a460de5f4e305d9ff191ce6a64440a5ba643ece37404d229",
+        "terminal-a1.ppm": "e5b46884c1ac9f78dd1b00e87df0ad1c4e453f4f6a47119fb663d10300c03f24",
+        "text-a1.ppm": "2b9823a30b92d4b975d89d25baf7db2a7745f0ed5da2c04e173c0046ed416e1a"
+      },
+      "serial_order": [
+        4140,
+        4251,
+        22052
+      ]
+    },
+    "a2": {
+      "applications": {
+        "deskd": "9ca3f84de636612c34afffcbc75b16b9e26722b6cecad4c5e5288af9444e5f49",
+        "deskterm": "ef8717b465cddf8586c8e559ed4f541f725179a7e1e34493557715f1272bbff7",
+        "desktools": "f266ff632e9ea31e76502941a8fdbb6f74959e161e9d8730768c6b3cb08e84b7"
+      },
+      "binary_sha256": "54615f979ce7cc7523885bae0456990cd1ae0d6e47ec7ddb51a279d57c2c6a45",
+      "binding": {
+        "alias": "local_a",
+        "gid": 1001,
+        "uid": 1001
+      },
+      "cwd": "/fat/home/local-a",
+      "data_sha256": "896a02e1bd6308d97c79bea8731bf21da946c368525d0741f156904684d7c1c0",
+      "document_sha256": "72bbf76fbd41437c635decf661a2c123b2f945ac8463a9c230e14d563d41d71e",
+      "environment_sha256": "ec589f4a1c79e04e92d6a6d40abf71084825afcaaf7d60dbaafed3b4eb06b402",
+      "exit": 0,
+      "identity": {
+        "display_name": "Portable profile",
+        "id": "12345678-1234-4234-8234-123456789abc"
+      },
+      "machine_preferences_sha256": "fe0a4369803f1f9d413c78af0929ad8e4307d9550146ab183d186927bda27212",
+      "portable": {
+        "clock_flags": 3,
+        "glass_level": 1,
+        "text_size": 16,
+        "theme_accent": 0,
+        "theme_style": 1,
+        "wallpaper": 0
+      },
+      "screenshots": {
+        "desktop-a2.ppm": "709383246cb084b844ba16168604879969ee0cf52c4477859b4f1d8e7e714a2a",
+        "files-a2.ppm": "47821136da58a88396b366ad323bcc4e970d860d285ed851ca8fb882f9d51576",
+        "terminal-a2.ppm": "f7d81a4d1da3457094a86606021e4ce3d0a11dc5bc769a815149c304a0f7836e",
+        "text-a2.ppm": "0e912436cbd22b795cd86e0674fa118ef326b707fd47fa2fb7cc29b523f5725a"
+      },
+      "serial_order": [
+        4140,
+        4251,
+        22364
+      ]
+    },
+    "b1": {
+      "applications": {
+        "deskd": "9ca3f84de636612c34afffcbc75b16b9e26722b6cecad4c5e5288af9444e5f49",
+        "deskterm": "ef8717b465cddf8586c8e559ed4f541f725179a7e1e34493557715f1272bbff7",
+        "desktools": "f266ff632e9ea31e76502941a8fdbb6f74959e161e9d8730768c6b3cb08e84b7"
+      },
+      "binary_sha256": "54615f979ce7cc7523885bae0456990cd1ae0d6e47ec7ddb51a279d57c2c6a45",
+      "binding": {
+        "alias": "local_b",
+        "gid": 2051,
+        "uid": 2050
+      },
+      "cwd": "/fat/home/local-b",
+      "data_sha256": "4437b7b28fbfe6b12de68286dc48b05a907446acbe905d959317d087ad68df3d",
+      "document_sha256": "72bbf76fbd41437c635decf661a2c123b2f945ac8463a9c230e14d563d41d71e",
+      "environment_sha256": "8491e21f4c10efb96578f569bd2751c54f8bcdd32e6f4dbf76d19bec03dff375",
+      "exit": 0,
+      "identity": {
+        "display_name": "Portable profile",
+        "id": "12345678-1234-4234-8234-123456789abc"
+      },
+      "machine_preferences_sha256": "1eac45b0c4897dfeded2144174cde34298803e3fa583f4ff33b893025db93b71",
+      "portable": {
+        "clock_flags": 3,
+        "glass_level": 1,
+        "text_size": 16,
+        "theme_accent": 0,
+        "theme_style": 1,
+        "wallpaper": 0
+      },
+      "screenshots": {
+        "desktop-b1.ppm": "93e363a8f7166da06e6a6f21203010755de519463b2b4c57e67ffe2f1fe7b910",
+        "files-b1.ppm": "6d5ddecf58cfdebe54b04f639eef3a08a07a3700a838816bf43266068470916a",
+        "terminal-b1.ppm": "7800203e85fae6f3ec5a217fa53bd7f857bc8e56bed89653eb76aa864add81dd",
+        "text-b1.ppm": "96de14019ba434258b58a8fa4e678f0fa28bd81532e3940686c06633a960b6aa"
+      },
+      "serial_order": [
+        4140,
+        4251,
+        22052
+      ]
+    },
+    "b2": {
+      "applications": {
+        "deskd": "9ca3f84de636612c34afffcbc75b16b9e26722b6cecad4c5e5288af9444e5f49",
+        "deskterm": "ef8717b465cddf8586c8e559ed4f541f725179a7e1e34493557715f1272bbff7",
+        "desktools": "f266ff632e9ea31e76502941a8fdbb6f74959e161e9d8730768c6b3cb08e84b7"
+      },
+      "binary_sha256": "54615f979ce7cc7523885bae0456990cd1ae0d6e47ec7ddb51a279d57c2c6a45",
+      "binding": {
+        "alias": "local_b",
+        "gid": 2051,
+        "uid": 2050
+      },
+      "cwd": "/fat/home/local-b",
+      "data_sha256": "4c0051fa35c91c863dc0cf142727bb734ede054bab464c5d2fb016fcc39c14c7",
+      "document_sha256": "72bbf76fbd41437c635decf661a2c123b2f945ac8463a9c230e14d563d41d71e",
+      "environment_sha256": "8491e21f4c10efb96578f569bd2751c54f8bcdd32e6f4dbf76d19bec03dff375",
+      "exit": 0,
+      "identity": {
+        "display_name": "Portable profile",
+        "id": "12345678-1234-4234-8234-123456789abc"
+      },
+      "machine_preferences_sha256": "1eac45b0c4897dfeded2144174cde34298803e3fa583f4ff33b893025db93b71",
+      "portable": {
+        "clock_flags": 3,
+        "glass_level": 1,
+        "text_size": 16,
+        "theme_accent": 0,
+        "theme_style": 1,
+        "wallpaper": 0
+      },
+      "screenshots": {
+        "desktop-b2.ppm": "93e363a8f7166da06e6a6f21203010755de519463b2b4c57e67ffe2f1fe7b910",
+        "files-b2.ppm": "6d5ddecf58cfdebe54b04f639eef3a08a07a3700a838816bf43266068470916a",
+        "terminal-b2.ppm": "7800203e85fae6f3ec5a217fa53bd7f857bc8e56bed89653eb76aa864add81dd",
+        "text-b2.ppm": "2ddedc2246e14d357a47ec952c94baca058a73e8b3aeb9ef105c4034da61dfa7"
+      },
+      "serial_order": [
+        4140,
+        4251,
+        22364
+      ]
+    }
+  },
+  "build": {
+    "built_at": "2026-11-04T03:11:37.718837+00:00",
+    "hashes": {
+      "build/initramfs.tar": "9f6b39250a084c08a3a2cff77247ecdca84aa3ad25e51a89d1dd8bfbbd6c9774",
+      "build/kernel/srvros.elf": "0d96451a850857b0b3ed19bdecd354a5f81363e4792e27b107c2fc1fe4f38f15",
+      "build/srvros.exfat": "e3a78991f81a10e1e624792c601e514161a452b1e48c1b19fc8ada2a6207a980"
+    },
+    "repositories": {
+      ".": {
+        "dirty": false,
+        "head": "ca90437a9a1df7e51b68e3dc6480c54100e9e279",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports": {
+        "dirty": false,
+        "head": "747cca28e8493beef351c1608f713f1e4b104235",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/awk": {
+        "dirty": false,
+        "head": "5739fd79bcfc75ba7526773d0cf634521f8aca3c",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/cjson": {
+        "dirty": false,
+        "head": "c859b25da02955fef659d658b8f324b5cde87be3",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/inih": {
+        "dirty": false,
+        "head": "26254ee9de7681f8825433415443e7116ff24b98",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/libuv": {
+        "dirty": false,
+        "head": "1cfa32ff59c076ffb6ed735bbc8c18361558661f",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/linenoise": {
+        "dirty": false,
+        "head": "dc83cc373ac2058030eb3cf5e404959a26fef112",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/lua": {
+        "dirty": false,
+        "head": "6e22fedb74cf0c9b6656e9fce8b7331db847c605",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/node": {
+        "dirty": false,
+        "head": "c7d10158bc31036de6783d66beaaaf551e3167aa",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/zlib": {
+        "dirty": false,
+        "head": "da607da739fa6047df13e66a2af6b8bec7c2a498",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "userspace/apps": {
+        "dirty": false,
+        "head": "3cf32af2294eebe9d8b9aeb8bc1dcbe46feb2967",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "userspace/widgets": {
+        "dirty": false,
+        "head": "9eaaa74e1423c15c99f8ce388b08ed5e514de3d6",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      }
+    },
+    "schema": 1,
+    "source": "ca90437a9a1df7e51b68e3dc6480c54100e9e279",
+    "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "worktree_dirty": false
+  },
+  "counts": {
+    "export_refusal": 16,
+    "export_success": 2,
+    "strict_publication_refusal": 10,
+    "used_inspection": 5
+  },
+  "evidence": ".local/installation-evidence/export-proof-r29pmoja",
+  "export": {
+    "bundle": {
+      "documents": [
+        {
+          "data_base64": "cG9ydGFibGUgcHJvZmlsZSBlZGl0ZWQgZG9jdW1lbnQ=",
+          "path": "Documents/migration.txt",
+          "sha256": "72bbf76fbd41437c635decf661a2c123b2f945ac8463a9c230e14d563d41d71e",
+          "size": 32
+        },
+        {
+          "data_base64": "AP9wb3J0YWJsZYA=",
+          "path": "Documents/binary.dat",
+          "sha256": "54615f979ce7cc7523885bae0456990cd1ae0d6e47ec7ddb51a279d57c2c6a45",
+          "size": 11
+        }
+      ],
+      "format": "org.srvros.portable-profile",
+      "preferences": {
+        "clock_flags": 3,
+        "glass_level": 1,
+        "text_size": 16,
+        "theme_accent": 0,
+        "theme_style": 1,
+        "wallpaper": 0
+      },
+      "profile": {
+        "display_name": "Portable profile",
+        "id": "12345678-1234-4234-8234-123456789abc"
+      },
+      "schema_version": 1
+    },
+    "repeat_sha256": "bcabb0a35697c489421fe073b439d655cce6c28e99c0faff9d00719f13727b57",
+    "sha256": "bcabb0a35697c489421fe073b439d655cce6c28e99c0faff9d00719f13727b57"
+  },
+  "faults": {
+    "directory": {
+      "driver": [
+        "<proof>/inputs/profile_driver",
+        "<proof>/.profile-image-fixture/image",
+        "mkdir",
+        "/fat/home/local-a/Documents/empty"
+      ],
+      "exit": 0,
+      "mutant_sha256": "81c79364d257cf77adfef804f5120cb3062cb16ead539143715739f36daa037f",
+      "patch_file": "<proof>/directory-patch.json",
+      "patch_sha256": "4bea0138c54343e2d72ce23a801dbd7c31f6fd8c1562d8d753f2af753357fe2b",
+      "restored_sha256": "54446c68084d090bbda4c4c33bd188da7466ac0e52b2bb1e5b900fb74bada4da",
+      "stderr": "",
+      "stdout": ""
+    },
+    "dirty-boot": {
+      "after_hex": "02",
+      "before_hex": "00",
+      "mutant_sha256": "60f5d72be710223e89293f658b86ec2718aa876d38b0d13e34eac7f3092e4d55",
+      "offset": 403701866,
+      "restored_sha256": "54446c68084d090bbda4c4c33bd188da7466ac0e52b2bb1e5b900fb74bada4da"
+    },
+    "esp-padding": {
+      "after_hex": "01",
+      "before_hex": "00",
+      "mutant_sha256": "96cc9aaccda97e44ecfb194ba90f53d1d5e9cf779549342b8052cc004012d270",
+      "offset": 403701759,
+      "restored_sha256": "54446c68084d090bbda4c4c33bd188da7466ac0e52b2bb1e5b900fb74bada4da"
+    },
+    "invalid-prefs": {
+      "after_hex": "7a",
+      "before_hex": "7b",
+      "mutant_sha256": "1fe7a4f58429ebf8b1826091a7c613d14090d552e6c1fb5101abf5776e92beb9",
+      "offset": 445263872,
+      "restored_sha256": "54446c68084d090bbda4c4c33bd188da7466ac0e52b2bb1e5b900fb74bada4da"
+    },
+    "pending-marker": {
+      "driver": [
+        "<proof>/inputs/profile_driver",
+        "<proof>/.profile-image-fixture/image",
+        "write",
+        "/fat/home/local-a/.profile-import-pending",
+        "<proof>/.profile-image-fixture/payload"
+      ],
+      "exit": 0,
+      "mutant_sha256": "f4baf3e2ea0366a81a62a414b4050f55b1f1949ad18ac753cdd51dad34b09bff",
+      "patch_file": "<proof>/pending-marker-patch.json",
+      "patch_sha256": "25974e6f872e624d4b94c02c66462633f2e5eab37336b4568de407ebc44b6a30",
+      "restored_sha256": "54446c68084d090bbda4c4c33bd188da7466ac0e52b2bb1e5b900fb74bada4da",
+      "stderr": "",
+      "stdout": ""
+    },
+    "sibling-torn-journal": {
+      "driver": [
+        "<proof>/inputs/profile_driver",
+        "<proof>/.profile-image-fixture/image",
+        "write",
+        "/fat/home/local-b.profile-import.json",
+        "<proof>/.profile-image-fixture/payload"
+      ],
+      "exit": 0,
+      "mutant_sha256": "5527fe67201afa8d86a0b2b894c558d75fefeb03f7eb052c353b8825a5c559b1",
+      "patch_file": "<proof>/sibling-torn-journal-patch.json",
+      "patch_sha256": "ed1cff60ff3f15cb0c919118f4b2f5e05ae48f2fc5da447a2fab9c23c9565d31",
+      "restored_sha256": "54446c68084d090bbda4c4c33bd188da7466ac0e52b2bb1e5b900fb74bada4da",
+      "stderr": "",
+      "stdout": ""
+    }
+  },
+  "gpt_ids": {
+    "a": [
+      "5150855b491e6341a9f27aa1a8a9360b",
+      "c86752f761c554488f3290c4ab34fd5e",
+      "848522fc27f6244493bdc9dbc6d5d07f"
+    ],
+    "b": [
+      "27c60b6a15c9a74ba48a078dbd173116",
+      "979d4b8eb2622d4c9f19c31926448aa3",
+      "3985100c149eaa4ca8af93b40b29636f"
+    ]
+  },
+  "inputs": {
+    "bootx64": "333f7a69379b1f47e019be215885cdc078b9edd6e9255cbe2f706d6c5ec0ef06",
+    "deskd": "340269be9da49c449b2795747a0832a82cd582b383581b05d6252cb850b46c45",
+    "deskterm": "f798f8f56d096ef2b405594251113cc8010a8aebb0dacd56d82336ba1e9030f5",
+    "desktools": "b0415cd6b9c3fd1ea165d7c6307da321d9b768d7863b6951d5b337f3c9c19695",
+    "exfat": "e3a78991f81a10e1e624792c601e514161a452b1e48c1b19fc8ada2a6207a980",
+    "export_driver": "606d1227895511d00daea1f167b0d807b5ce0f22bb7ac1713f10b3b71611b939",
+    "fs_driver": "7cd305abbe9d38f45f317947b439583ad465eea449e6fd30214a8c20007812c8",
+    "init": "ac3107f6c9866bc9b11128f91424a1fc54ed9c130d30c3d1afd718927f9e35f9",
+    "inspect_driver": "74d6b2ea4a296787a2be44d0226de12d92df7236d16091c1577e2f2abadfd4e9",
+    "kernel": "0d96451a850857b0b3ed19bdecd354a5f81363e4792e27b107c2fc1fe4f38f15",
+    "profile_driver": "5a4165be97737b1862b41324d3cc7e6a4ee67b6deb7ca638e32a5b01bea50198"
+  },
+  "installations": {
+    "a": {
+      "plan": {
+        "config": "timeout: 0\nserial: yes\n/srvros\n    protocol: limine\n    path: boot():/boot/srvros.elf\n    resolution: 1280x800\n    cmdline: srvros.virtio=on srvros.root=fc228584-f627-4424-93bd-c9dbc6d5d07f srvros.root-format=exfat-v1 srvros.root-role=system\n    module_path: boot():/boot/initramfs.tar\n    module_string: initramfs\n",
+        "gpt": {
+          "disk_guid": "5b855051-1e49-4163-a9f2-7aa1a8a9360b",
+          "esp_partition_guid": "f75267c8-c561-4854-8f32-90c4ab34fd5e",
+          "exfat_partition_guid": "fc228584-f627-4424-93bd-c9dbc6d5d07f",
+          "exfat_partition_name": "srvros-system-v1"
+        },
+        "layout": {
+          "esp": {
+            "offset_bytes": 1048576,
+            "size_bytes": 402653184
+          },
+          "exfat": {
+            "offset_bytes": 403701760,
+            "size_bytes": 134217728
+          },
+          "size_bytes": 538968064
+        },
+        "profile": {
+          "alias": "local_a",
+          "gid": 1001,
+          "home": "/fat/home/local-a",
+          "profile_id": "12345678-1234-4234-8234-123456789abc",
+          "uid": 1001
+        },
+        "selection": {
+          "format": "exfat-v1",
+          "mode": "identity-bound",
+          "role": "system"
+        },
+        "sources": {
+          "bootx64": {
+            "device": 16777233,
+            "inode": 26598484,
+            "path": "<proof>/inputs/bootx64",
+            "sha256": "333f7a69379b1f47e019be215885cdc078b9edd6e9255cbe2f706d6c5ec0ef06",
+            "size": 319488
+          },
+          "exfat": {
+            "device": 16777233,
+            "inode": 26598494,
+            "path": "<proof>/inputs/base-a.exfat",
+            "sha256": "621d03ce604c160619eec5c0ae6d4bc1f3f031ef970b970e8fee6b22bcc0390f",
+            "size": 134217728
+          },
+          "init": {
+            "device": 16777233,
+            "inode": 26598485,
+            "path": "<proof>/inputs/init",
+            "sha256": "ac3107f6c9866bc9b11128f91424a1fc54ed9c130d30c3d1afd718927f9e35f9",
+            "size": 1286208
+          },
+          "kernel": {
+            "device": 16777233,
+            "inode": 26598483,
+            "path": "<proof>/inputs/kernel",
+            "sha256": "0d96451a850857b0b3ed19bdecd354a5f81363e4792e27b107c2fc1fe4f38f15",
+            "size": 4738176
+          },
+          "profile_bundle": {
+            "device": 16777233,
+            "inode": 26598490,
+            "path": "<proof>/inputs/bundle-a.json",
+            "sha256": "7af8e79dbceb015be9bb4a1f3ece9a81c14952c667bf95f35348b858fd5bfff6",
+            "size": 757
+          },
+          "profile_driver": {
+            "device": 16777233,
+            "inode": 26598487,
+            "path": "<proof>/inputs/profile_driver",
+            "sha256": "5a4165be97737b1862b41324d3cc7e6a4ee67b6deb7ca638e32a5b01bea50198",
+            "size": 89864
+          }
+        },
+        "target_device": 16777233,
+        "target_directory": "<proof>/stage-a",
+        "target_inode": 26598507,
+        "target_uuid": "403e07c4-29bb-4179-a86b-6bcc6dab753c",
+        "version": 2
+      },
+      "protected": {
+        "after_data_sha256": "5c3b0fc1296dbcd7e6935973334b18f44f93f89708a6f0629ea3ca545801cd49",
+        "before_data_sha256": "12776599ad6d4ae3aa8db072e64018f843edf7d67fb62a5f1b60bee67993214e"
+      },
+      "ready_sha256": "a286c225c21815d69604673ea6a2bc169a3339683a83ce9f97f281cfefc28ed4"
+    },
+    "b": {
+      "plan": {
+        "config": "timeout: 0\nserial: yes\n/srvros\n    protocol: limine\n    path: boot():/boot/srvros.elf\n    resolution: 1280x800\n    cmdline: srvros.virtio=on srvros.root=0c108539-9e14-4caa-a8af-93b40b29636f srvros.root-format=exfat-v1 srvros.root-role=system\n    module_path: boot():/boot/initramfs.tar\n    module_string: initramfs\n",
+        "gpt": {
+          "disk_guid": "6a0bc627-c915-4ba7-a48a-078dbd173116",
+          "esp_partition_guid": "8e4b9d97-62b2-4c2d-9f19-c31926448aa3",
+          "exfat_partition_guid": "0c108539-9e14-4caa-a8af-93b40b29636f",
+          "exfat_partition_name": "srvros-system-v1"
+        },
+        "layout": {
+          "esp": {
+            "offset_bytes": 1048576,
+            "size_bytes": 402653184
+          },
+          "exfat": {
+            "offset_bytes": 403701760,
+            "size_bytes": 134217728
+          },
+          "size_bytes": 538968064
+        },
+        "profile": {
+          "alias": "local_b",
+          "gid": 2051,
+          "home": "/fat/home/local-b",
+          "profile_id": "12345678-1234-4234-8234-123456789abc",
+          "uid": 2050
+        },
+        "selection": {
+          "format": "exfat-v1",
+          "mode": "identity-bound",
+          "role": "system"
+        },
+        "sources": {
+          "bootx64": {
+            "device": 16777233,
+            "inode": 26598484,
+            "path": "<proof>/inputs/bootx64",
+            "sha256": "333f7a69379b1f47e019be215885cdc078b9edd6e9255cbe2f706d6c5ec0ef06",
+            "size": 319488
+          },
+          "exfat": {
+            "device": 16777233,
+            "inode": 26598502,
+            "path": "<proof>/inputs/base-b.exfat",
+            "sha256": "5e0244912cbb00191227b70a5bebd3bb01b13713419477762d789d9b46ed1696",
+            "size": 134217728
+          },
+          "init": {
+            "device": 16777233,
+            "inode": 26598485,
+            "path": "<proof>/inputs/init",
+            "sha256": "ac3107f6c9866bc9b11128f91424a1fc54ed9c130d30c3d1afd718927f9e35f9",
+            "size": 1286208
+          },
+          "kernel": {
+            "device": 16777233,
+            "inode": 26598483,
+            "path": "<proof>/inputs/kernel",
+            "sha256": "0d96451a850857b0b3ed19bdecd354a5f81363e4792e27b107c2fc1fe4f38f15",
+            "size": 4738176
+          },
+          "profile_bundle": {
+            "device": 16777233,
+            "inode": 26649523,
+            "path": "<proof>/exports/a.json",
+            "sha256": "bcabb0a35697c489421fe073b439d655cce6c28e99c0faff9d00719f13727b57",
+            "size": 769
+          },
+          "profile_driver": {
+            "device": 16777233,
+            "inode": 26598487,
+            "path": "<proof>/inputs/profile_driver",
+            "sha256": "5a4165be97737b1862b41324d3cc7e6a4ee67b6deb7ca638e32a5b01bea50198",
+            "size": 89864
+          }
+        },
+        "target_device": 16777233,
+        "target_directory": "<proof>/stage-b",
+        "target_inode": 26652069,
+        "target_uuid": "a7863e0c-0c08-4d6e-b13b-da686bf4d1b5",
+        "version": 2
+      },
+      "preboot": {
+        "binding": {
+          "alias": "local_b",
+          "gid": 2051,
+          "uid": 2050
+        },
+        "data_sha256": "f32baf07815ae5325f91267977d4ce92e048ab08ac068a4312f9958a9536d29c",
+        "document_names": [
+          "binary.dat",
+          "migration.txt"
+        ],
+        "document_sha256": {
+          "Documents/binary.dat": "54615f979ce7cc7523885bae0456990cd1ae0d6e47ec7ddb51a279d57c2c6a45",
+          "Documents/migration.txt": "72bbf76fbd41437c635decf661a2c123b2f945ac8463a9c230e14d563d41d71e"
+        },
+        "machine_preferences_sha256": "1eac45b0c4897dfeded2144174cde34298803e3fa583f4ff33b893025db93b71",
+        "portable": {
+          "clock_flags": 3,
+          "glass_level": 1,
+          "text_size": 16,
+          "theme_accent": 0,
+          "theme_style": 1,
+          "wallpaper": 0
+        }
+      },
+      "protected": {
+        "after_data_sha256": "a1dc95b620fe8728bbe5de14a39e576b383047f4207ffdc45e6c86e8fc0d6811",
+        "before_data_sha256": "739c593ec0ea3731fb43752bbf127cfdde5f84d1d64265333a23ed33d330e662"
+      },
+      "ready_sha256": "c0cb23b6e77c6763607f2df2ba54d2477929e08a063f95cd024806fe8f7e0926"
+    }
+  },
+  "limits": [
+    "not physical-device acceptance",
+    "not power-loss simulation",
+    "offline cooperative ownership; no authentication or live-health claim",
+    "clean admitted sources only; no recovery or dirty-source salvage",
+    "64 explicit documents, 1 MiB each, 8 MiB decoded aggregate, 12 MiB bundle",
+    "zero documents exports portable identity/preferences only",
+    "a visible uncertain output is retained and never reported successful"
+  ],
+  "native_source_sha256": {
+    "kernel/src/autotest_storage.c": "6c17e8ba7f262f8271fd446aeec520000487342cee338f4371792b6a573dea96",
+    "kernel/src/block_claim.c": "2d4198378c951cf05a9f4a7a1cbd0bce0ae14681c7d0142e47a0d7b4b13d181c",
+    "kernel/src/fs/exfat.c": "a2badfadb40b8f81cc803d363f0d6b60b06f345daf040a18ae9c1112287c44ee",
+    "kernel/src/vfs.c": "26f77035199d0f6890eef9c4059b6da172b3524d305c51876789b8927170eba5",
+    "tools/installation_readonly_host.h": "a44e542bb62d6ba5770ee8c84ee3f221ac67e6cc21523d6a9890e8175989ef1d"
+  },
+  "raw_files_verified": 67,
+  "raw_receipt_sha256": "bab1b0651b8e7aa88386f8bad0fc3818e0e37c39216f0cfeb2b34383fcda9ab8",
+  "review_vms_alive": [
+    61610,
+    6233,
+    85869
+  ],
+  "scope": "disposable offline QEMU images only",
+  "screenshot_sha256": "5152406b5b49a0e30b9c7ca5e9df986eae8c928adf20bff4bf5fab8179b2cab4",
+  "source": {
+    ".": {
+      "dirty": false,
+      "head": "ca90437a9a1df7e51b68e3dc6480c54100e9e279",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports": {
+      "dirty": false,
+      "head": "747cca28e8493beef351c1608f713f1e4b104235",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/awk": {
+      "dirty": false,
+      "head": "5739fd79bcfc75ba7526773d0cf634521f8aca3c",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/cjson": {
+      "dirty": false,
+      "head": "c859b25da02955fef659d658b8f324b5cde87be3",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/inih": {
+      "dirty": false,
+      "head": "26254ee9de7681f8825433415443e7116ff24b98",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/libuv": {
+      "dirty": false,
+      "head": "1cfa32ff59c076ffb6ed735bbc8c18361558661f",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/linenoise": {
+      "dirty": false,
+      "head": "dc83cc373ac2058030eb3cf5e404959a26fef112",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/lua": {
+      "dirty": false,
+      "head": "6e22fedb74cf0c9b6656e9fce8b7331db847c605",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/node": {
+      "dirty": false,
+      "head": "c7d10158bc31036de6783d66beaaaf551e3167aa",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/zlib": {
+      "dirty": false,
+      "head": "da607da739fa6047df13e66a2af6b8bec7c2a498",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "userspace/apps": {
+      "dirty": false,
+      "head": "3cf32af2294eebe9d8b9aeb8bc1dcbe46feb2967",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "userspace/widgets": {
+      "dirty": false,
+      "head": "9eaaa74e1423c15c99f8ce388b08ed5e514de3d6",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    }
+  },
+  "status": "PASS",
+  "steps": [
+    {
+      "action": "inspect-installed",
+      "exit": 0,
+      "expected_reason": null,
+      "label": "a1-inspect-installed",
+      "result": {
+        "consistent": true,
+        "current_image_sha256": "a5b584e795d78bbb0fb4649a6b481edb230ef4b3a4b2935aa7262aeeaa470181",
+        "filesystem": {
+          "allocation": {
+            "clusters": 14964,
+            "errors": 0,
+            "fat_bitmap_mismatches": 0,
+            "files": 380,
+            "leaked": 0
+          },
+          "clean_admission": true,
+          "flushes": 0,
+          "namespace_targets_valid": true,
+          "writes": 0
+        },
+        "gpt": {
+          "disk_guid": "5b855051-1e49-4163-a9f2-7aa1a8a9360b",
+          "esp_partition_guid": "f75267c8-c561-4854-8f32-90c4ab34fd5e",
+          "exfat_partition_guid": "fc228584-f627-4424-93bd-c9dbc6d5d07f"
+        },
+        "planned_profile": {
+          "alias": "local_a",
+          "gid": 1001,
+          "home": "/fat/home/local-a",
+          "profile_id": "12345678-1234-4234-8234-123456789abc",
+          "uid": 1001
+        },
+        "profiles": [
+          {
+            "alias": "local_a",
+            "display_name": "Portable profile",
+            "gid": 1001,
+            "home": "/fat/home/local-a",
+            "identity_present": true,
+            "profile_id": "12345678-1234-4234-8234-123456789abc",
+            "uid": 1001
+          }
+        ],
+        "publication": {
+          "data_baseline": {
+            "kind": "retained-profile-exfat",
+            "sha256": "e77392d066dc279df6e67548c1c6587210fa267daafb79dbc53a86fc1cb16e97"
+          },
+          "historical": true,
+          "original_data_sha256": "e77392d066dc279df6e67548c1c6587210fa267daafb79dbc53a86fc1cb16e97",
+          "original_image_sha256": "c7376bdff2c7955e74efd1336c224622190ddd633e90871904eb931f4e9253f3",
+          "provisioning_sources_revalidated": false
+        },
+        "read_only": true,
+        "reason": "offline structural checks passed; publication is historical evidence, not authentication or live health",
+        "selection": null,
+        "state": "installed-consistent",
+        "used": true
+      },
+      "snapshot_sha256": "623761f219e960ec023ee1ef105ca439b218f8de6b833f430f017ef5f20a8186",
+      "sources_preserved": true,
+      "stage_preserved": true
+    },
+    {
+      "action": "inspect",
+      "exit": 0,
+      "expected_reason": null,
+      "label": "a1-inspect",
+      "result": null,
+      "snapshot_sha256": "623761f219e960ec023ee1ef105ca439b218f8de6b833f430f017ef5f20a8186",
+      "sources_preserved": true,
+      "stage_preserved": true
+    },
+    {
+      "action": "reconcile",
+      "exit": 1,
+      "expected_reason": null,
+      "label": "a1-reconcile",
+      "result": null,
+      "snapshot_sha256": "623761f219e960ec023ee1ef105ca439b218f8de6b833f430f017ef5f20a8186",
+      "sources_preserved": true,
+      "stage_preserved": true
+    },
+    {
+      "action": "inspect-installed",
+      "exit": 0,
+      "expected_reason": null,
+      "label": "a2-inspect-installed",
+      "result": {
+        "consistent": true,
+        "current_image_sha256": "54446c68084d090bbda4c4c33bd188da7466ac0e52b2bb1e5b900fb74bada4da",
+        "filesystem": {
+          "allocation": {
+            "clusters": 14964,
+            "errors": 0,
+            "fat_bitmap_mismatches": 0,
+            "files": 380,
+            "leaked": 0
+          },
+          "clean_admission": true,
+          "flushes": 0,
+          "namespace_targets_valid": true,
+          "writes": 0
+        },
+        "gpt": {
+          "disk_guid": "5b855051-1e49-4163-a9f2-7aa1a8a9360b",
+          "esp_partition_guid": "f75267c8-c561-4854-8f32-90c4ab34fd5e",
+          "exfat_partition_guid": "fc228584-f627-4424-93bd-c9dbc6d5d07f"
+        },
+        "planned_profile": {
+          "alias": "local_a",
+          "gid": 1001,
+          "home": "/fat/home/local-a",
+          "profile_id": "12345678-1234-4234-8234-123456789abc",
+          "uid": 1001
+        },
+        "profiles": [
+          {
+            "alias": "local_a",
+            "display_name": "Portable profile",
+            "gid": 1001,
+            "home": "/fat/home/local-a",
+            "identity_present": true,
+            "profile_id": "12345678-1234-4234-8234-123456789abc",
+            "uid": 1001
+          }
+        ],
+        "publication": {
+          "data_baseline": {
+            "kind": "retained-profile-exfat",
+            "sha256": "e77392d066dc279df6e67548c1c6587210fa267daafb79dbc53a86fc1cb16e97"
+          },
+          "historical": true,
+          "original_data_sha256": "e77392d066dc279df6e67548c1c6587210fa267daafb79dbc53a86fc1cb16e97",
+          "original_image_sha256": "c7376bdff2c7955e74efd1336c224622190ddd633e90871904eb931f4e9253f3",
+          "provisioning_sources_revalidated": false
+        },
+        "read_only": true,
+        "reason": "offline structural checks passed; publication is historical evidence, not authentication or live health",
+        "selection": null,
+        "state": "installed-consistent",
+        "used": true
+      },
+      "snapshot_sha256": "0a1b855d564c314c9a93096c906b64ea70503804937c7603734f45d2f63a2f7b",
+      "sources_preserved": true,
+      "stage_preserved": true
+    },
+    {
+      "action": "inspect",
+      "exit": 0,
+      "expected_reason": null,
+      "label": "a2-inspect",
+      "result": null,
+      "snapshot_sha256": "0a1b855d564c314c9a93096c906b64ea70503804937c7603734f45d2f63a2f7b",
+      "sources_preserved": true,
+      "stage_preserved": true
+    },
+    {
+      "action": "reconcile",
+      "exit": 1,
+      "expected_reason": null,
+      "label": "a2-reconcile",
+      "result": null,
+      "snapshot_sha256": "0a1b855d564c314c9a93096c906b64ea70503804937c7603734f45d2f63a2f7b",
+      "sources_preserved": true,
+      "stage_preserved": true
+    },
+    {
+      "action": "export-profile",
+      "exit": 0,
+      "expected_reason": null,
+      "label": "export-a",
+      "result": {
+        "bundle_sha256": "bcabb0a35697c489421fe073b439d655cce6c28e99c0faff9d00719f13727b57",
+        "current_image_sha256": "54446c68084d090bbda4c4c33bd188da7466ac0e52b2bb1e5b900fb74bada4da",
+        "documents": [
+          {
+            "path": "Documents/migration.txt",
+            "sha256": "72bbf76fbd41437c635decf661a2c123b2f945ac8463a9c230e14d563d41d71e",
+            "size": 32
+          },
+          {
+            "path": "Documents/binary.dat",
+            "sha256": "54615f979ce7cc7523885bae0456990cd1ae0d6e47ec7ddb51a279d57c2c6a45",
+            "size": 11
+          }
+        ],
+        "filesystem": {
+          "allocation": {
+            "clusters": 14964,
+            "errors": 0,
+            "fat_bitmap_mismatches": 0,
+            "files": 380,
+            "leaked": 0
+          },
+          "clean_admission": true,
+          "flushes": 0,
+          "namespace_targets_valid": true,
+          "writes": 0
+        },
+        "output": "<proof>/exports/a.json",
+        "profile": {
+          "display_name": "Portable profile",
+          "id": "12345678-1234-4234-8234-123456789abc"
+        },
+        "publication": {
+          "data_baseline": {
+            "kind": "retained-profile-exfat",
+            "sha256": "e77392d066dc279df6e67548c1c6587210fa267daafb79dbc53a86fc1cb16e97"
+          },
+          "historical": true,
+          "original_data_sha256": "e77392d066dc279df6e67548c1c6587210fa267daafb79dbc53a86fc1cb16e97",
+          "original_image_sha256": "c7376bdff2c7955e74efd1336c224622190ddd633e90871904eb931f4e9253f3",
+          "provisioning_sources_revalidated": false
+        },
+        "read_only_source": true,
+        "source_used": true,
+        "state": "exported"
+      },
+      "snapshot_sha256": "0a1b855d564c314c9a93096c906b64ea70503804937c7603734f45d2f63a2f7b",
+      "sources_preserved": true,
+      "stage_preserved": true
+    },
+    {
+      "action": "export-profile",
+      "exit": 0,
+      "expected_reason": null,
+      "label": "export-a-repeat",
+      "result": {
+        "bundle_sha256": "bcabb0a35697c489421fe073b439d655cce6c28e99c0faff9d00719f13727b57",
+        "current_image_sha256": "54446c68084d090bbda4c4c33bd188da7466ac0e52b2bb1e5b900fb74bada4da",
+        "documents": [
+          {
+            "path": "Documents/migration.txt",
+            "sha256": "72bbf76fbd41437c635decf661a2c123b2f945ac8463a9c230e14d563d41d71e",
+            "size": 32
+          },
+          {
+            "path": "Documents/binary.dat",
+            "sha256": "54615f979ce7cc7523885bae0456990cd1ae0d6e47ec7ddb51a279d57c2c6a45",
+            "size": 11
+          }
+        ],
+        "filesystem": {
+          "allocation": {
+            "clusters": 14964,
+            "errors": 0,
+            "fat_bitmap_mismatches": 0,
+            "files": 380,
+            "leaked": 0
+          },
+          "clean_admission": true,
+          "flushes": 0,
+          "namespace_targets_valid": true,
+          "writes": 0
+        },
+        "output": "<proof>/exports/a-repeat.json",
+        "profile": {
+          "display_name": "Portable profile",
+          "id": "12345678-1234-4234-8234-123456789abc"
+        },
+        "publication": {
+          "data_baseline": {
+            "kind": "retained-profile-exfat",
+            "sha256": "e77392d066dc279df6e67548c1c6587210fa267daafb79dbc53a86fc1cb16e97"
+          },
+          "historical": true,
+          "original_data_sha256": "e77392d066dc279df6e67548c1c6587210fa267daafb79dbc53a86fc1cb16e97",
+          "original_image_sha256": "c7376bdff2c7955e74efd1336c224622190ddd633e90871904eb931f4e9253f3",
+          "provisioning_sources_revalidated": false
+        },
+        "read_only_source": true,
+        "source_used": true,
+        "state": "exported"
+      },
+      "snapshot_sha256": "0a1b855d564c314c9a93096c906b64ea70503804937c7603734f45d2f63a2f7b",
+      "sources_preserved": true,
+      "stage_preserved": true
+    },
+    {
+      "action": "export-profile",
+      "exit": 1,
+      "expected_reason": "selected profile not admitted",
+      "label": "wrong-uuid",
+      "result": {
+        "read_only_source": true,
+        "reason": "selected profile not admitted",
+        "state": "refused"
+      },
+      "snapshot_sha256": "0a1b855d564c314c9a93096c906b64ea70503804937c7603734f45d2f63a2f7b",
+      "sources_preserved": true,
+      "stage_preserved": true
+    },
+    {
+      "action": "export-profile",
+      "exit": 1,
+      "expected_reason": "selected profile not admitted",
+      "label": "wrong-home",
+      "result": {
+        "read_only_source": true,
+        "reason": "selected profile not admitted",
+        "state": "refused"
+      },
+      "snapshot_sha256": "0a1b855d564c314c9a93096c906b64ea70503804937c7603734f45d2f63a2f7b",
+      "sources_preserved": true,
+      "stage_preserved": true
+    },
+    {
+      "action": "export-profile",
+      "exit": 1,
+      "expected_reason": "export-document",
+      "label": "missing-file",
+      "result": {
+        "read_only_source": true,
+        "reason": "export driver refused filesystem: installation export refused: export-document\n",
+        "state": "refused"
+      },
+      "snapshot_sha256": "0a1b855d564c314c9a93096c906b64ea70503804937c7603734f45d2f63a2f7b",
+      "sources_preserved": true,
+      "stage_preserved": true
+    },
+    {
+      "action": "export-profile",
+      "exit": 1,
+      "expected_reason": "nonportable document path",
+      "label": "traversal",
+      "result": {
+        "read_only_source": true,
+        "reason": "nonportable document path",
+        "state": "refused"
+      },
+      "snapshot_sha256": "0a1b855d564c314c9a93096c906b64ea70503804937c7603734f45d2f63a2f7b",
+      "sources_preserved": true,
+      "stage_preserved": true
+    },
+    {
+      "action": "export-profile",
+      "exit": 1,
+      "expected_reason": "duplicate document",
+      "label": "duplicate",
+      "result": {
+        "read_only_source": true,
+        "reason": "duplicate document",
+        "state": "refused"
+      },
+      "snapshot_sha256": "0a1b855d564c314c9a93096c906b64ea70503804937c7603734f45d2f63a2f7b",
+      "sources_preserved": true,
+      "stage_preserved": true
+    },
+    {
+      "action": "export-profile",
+      "exit": 1,
+      "expected_reason": "case collision",
+      "label": "case-collision",
+      "result": {
+        "read_only_source": true,
+        "reason": "case collision",
+        "state": "refused"
+      },
+      "snapshot_sha256": "0a1b855d564c314c9a93096c906b64ea70503804937c7603734f45d2f63a2f7b",
+      "sources_preserved": true,
+      "stage_preserved": true
+    },
+    {
+      "action": "export-profile",
+      "exit": 1,
+      "expected_reason": "output already exists or invalid",
+      "label": "existing-output",
+      "result": {
+        "read_only_source": true,
+        "reason": "output already exists or invalid",
+        "state": "refused"
+      },
+      "snapshot_sha256": "0a1b855d564c314c9a93096c906b64ea70503804937c7603734f45d2f63a2f7b",
+      "sources_preserved": true,
+      "stage_preserved": true
+    },
+    {
+      "action": "export-profile",
+      "exit": 1,
+      "expected_reason": "symlink path refused",
+      "label": "symlink-output",
+      "result": {
+        "read_only_source": true,
+        "reason": "symlink path refused: <proof>/exports/link.json",
+        "state": "refused"
+      },
+      "snapshot_sha256": "0a1b855d564c314c9a93096c906b64ea70503804937c7603734f45d2f63a2f7b",
+      "sources_preserved": true,
+      "stage_preserved": true
+    },
+    {
+      "action": "export-profile",
+      "exit": 1,
+      "expected_reason": "output inside stage",
+      "label": "inside-stage",
+      "result": {
+        "read_only_source": true,
+        "reason": "output inside stage",
+        "state": "refused"
+      },
+      "snapshot_sha256": "0a1b855d564c314c9a93096c906b64ea70503804937c7603734f45d2f63a2f7b",
+      "sources_preserved": true,
+      "stage_preserved": true
+    },
+    {
+      "action": "export-profile",
+      "exit": 1,
+      "expected_reason": "Resource temporarily unavailable",
+      "label": "busy-image-lock",
+      "result": {
+        "read_only_source": true,
+        "reason": "[Errno 35] Resource temporarily unavailable",
+        "state": "refused"
+      },
+      "snapshot_sha256": "0a1b855d564c314c9a93096c906b64ea70503804937c7603734f45d2f63a2f7b",
+      "sources_preserved": true,
+      "stage_preserved": true
+    },
+    {
+      "action": "export-profile",
+      "exit": 1,
+      "expected_reason": "protected image bytes changed",
+      "label": "esp-padding",
+      "result": {
+        "read_only_source": true,
+        "reason": "protected image bytes changed",
+        "state": "refused"
+      },
+      "snapshot_sha256": "8cf67e2d13238f274f69ed05e234f051012b90e46afd0f4ae3cd7a52545c1af1",
+      "sources_preserved": true,
+      "stage_preserved": true
+    },
+    {
+      "action": "export-profile",
+      "exit": 1,
+      "expected_reason": "clean-admission",
+      "label": "dirty-boot",
+      "result": {
+        "read_only_source": true,
+        "reason": "inspection driver refused filesystem: installation inspection refused: clean-admission\n",
+        "state": "refused"
+      },
+      "snapshot_sha256": "b81b459fab3cf9c3901fed802268b07dfedd4d3d4552498f9b1b30ba5294e5ab",
+      "sources_preserved": true,
+      "stage_preserved": true
+    },
+    {
+      "action": "export-profile",
+      "exit": 1,
+      "expected_reason": "invalid guest portable preferences syntax",
+      "label": "invalid-prefs",
+      "result": {
+        "read_only_source": true,
+        "reason": "invalid guest portable preferences syntax",
+        "state": "refused"
+      },
+      "snapshot_sha256": "923a692d6943c454c5cca6697a6f20c20d0ef59a9e3bd46d1b1739a63e9b9639",
+      "sources_preserved": true,
+      "stage_preserved": true
+    },
+    {
+      "action": "export-profile",
+      "exit": 1,
+      "expected_reason": "pending import or selection scratch",
+      "label": "pending-marker",
+      "result": {
+        "read_only_source": true,
+        "reason": "pending import or selection scratch: /fat/home/local-a/.profile-import-pending",
+        "state": "refused"
+      },
+      "snapshot_sha256": "70f1cd60ba123d622eb20a36007f04306998c9435c2df25ce3e2722ac45798f4",
+      "sources_preserved": true,
+      "stage_preserved": true
+    },
+    {
+      "action": "export-profile",
+      "exit": 1,
+      "expected_reason": "pending import or selection scratch",
+      "label": "sibling-torn-journal",
+      "result": {
+        "read_only_source": true,
+        "reason": "pending import or selection scratch: /fat/home/local-b.profile-import.json",
+        "state": "refused"
+      },
+      "snapshot_sha256": "07e2f91701f4358951cb42926cdf983515033a315598daab2803e4d15e3e5d00",
+      "sources_preserved": true,
+      "stage_preserved": true
+    },
+    {
+      "action": "export-profile",
+      "exit": 1,
+      "expected_reason": "export-document",
+      "label": "directory",
+      "result": {
+        "read_only_source": true,
+        "reason": "export driver refused filesystem: installation export refused: export-document\n",
+        "state": "refused"
+      },
+      "snapshot_sha256": "b947184b92e50b649a8582d10d87e116e56365dc940d26ceed986cfa146e4451",
+      "sources_preserved": true,
+      "stage_preserved": true
+    },
+    {
+      "action": "inspect-installed",
+      "exit": 0,
+      "expected_reason": null,
+      "label": "restored-inspect-installed",
+      "result": {
+        "consistent": true,
+        "current_image_sha256": "54446c68084d090bbda4c4c33bd188da7466ac0e52b2bb1e5b900fb74bada4da",
+        "filesystem": {
+          "allocation": {
+            "clusters": 14964,
+            "errors": 0,
+            "fat_bitmap_mismatches": 0,
+            "files": 380,
+            "leaked": 0
+          },
+          "clean_admission": true,
+          "flushes": 0,
+          "namespace_targets_valid": true,
+          "writes": 0
+        },
+        "gpt": {
+          "disk_guid": "5b855051-1e49-4163-a9f2-7aa1a8a9360b",
+          "esp_partition_guid": "f75267c8-c561-4854-8f32-90c4ab34fd5e",
+          "exfat_partition_guid": "fc228584-f627-4424-93bd-c9dbc6d5d07f"
+        },
+        "planned_profile": {
+          "alias": "local_a",
+          "gid": 1001,
+          "home": "/fat/home/local-a",
+          "profile_id": "12345678-1234-4234-8234-123456789abc",
+          "uid": 1001
+        },
+        "profiles": [
+          {
+            "alias": "local_a",
+            "display_name": "Portable profile",
+            "gid": 1001,
+            "home": "/fat/home/local-a",
+            "identity_present": true,
+            "profile_id": "12345678-1234-4234-8234-123456789abc",
+            "uid": 1001
+          }
+        ],
+        "publication": {
+          "data_baseline": {
+            "kind": "retained-profile-exfat",
+            "sha256": "e77392d066dc279df6e67548c1c6587210fa267daafb79dbc53a86fc1cb16e97"
+          },
+          "historical": true,
+          "original_data_sha256": "e77392d066dc279df6e67548c1c6587210fa267daafb79dbc53a86fc1cb16e97",
+          "original_image_sha256": "c7376bdff2c7955e74efd1336c224622190ddd633e90871904eb931f4e9253f3",
+          "provisioning_sources_revalidated": false
+        },
+        "read_only": true,
+        "reason": "offline structural checks passed; publication is historical evidence, not authentication or live health",
+        "selection": null,
+        "state": "installed-consistent",
+        "used": true
+      },
+      "snapshot_sha256": "0a1b855d564c314c9a93096c906b64ea70503804937c7603734f45d2f63a2f7b",
+      "sources_preserved": true,
+      "stage_preserved": true
+    },
+    {
+      "action": "inspect",
+      "exit": 0,
+      "expected_reason": null,
+      "label": "restored-inspect",
+      "result": null,
+      "snapshot_sha256": "0a1b855d564c314c9a93096c906b64ea70503804937c7603734f45d2f63a2f7b",
+      "sources_preserved": true,
+      "stage_preserved": true
+    },
+    {
+      "action": "reconcile",
+      "exit": 1,
+      "expected_reason": null,
+      "label": "restored-reconcile",
+      "result": null,
+      "snapshot_sha256": "0a1b855d564c314c9a93096c906b64ea70503804937c7603734f45d2f63a2f7b",
+      "sources_preserved": true,
+      "stage_preserved": true
+    },
+    {
+      "action": "inspect-installed",
+      "exit": 0,
+      "expected_reason": null,
+      "label": "b1-inspect-installed",
+      "result": {
+        "consistent": true,
+        "current_image_sha256": "57db811ad78245eb1ccb2d9fa15480d053de607d1cb9ba0d0cb4574683d594ed",
+        "filesystem": {
+          "allocation": {
+            "clusters": 14964,
+            "errors": 0,
+            "fat_bitmap_mismatches": 0,
+            "files": 380,
+            "leaked": 0
+          },
+          "clean_admission": true,
+          "flushes": 0,
+          "namespace_targets_valid": true,
+          "writes": 0
+        },
+        "gpt": {
+          "disk_guid": "6a0bc627-c915-4ba7-a48a-078dbd173116",
+          "esp_partition_guid": "8e4b9d97-62b2-4c2d-9f19-c31926448aa3",
+          "exfat_partition_guid": "0c108539-9e14-4caa-a8af-93b40b29636f"
+        },
+        "planned_profile": {
+          "alias": "local_b",
+          "gid": 2051,
+          "home": "/fat/home/local-b",
+          "profile_id": "12345678-1234-4234-8234-123456789abc",
+          "uid": 2050
+        },
+        "profiles": [
+          {
+            "alias": "local_b",
+            "display_name": "Portable profile",
+            "gid": 2051,
+            "home": "/fat/home/local-b",
+            "identity_present": true,
+            "profile_id": "12345678-1234-4234-8234-123456789abc",
+            "uid": 2050
+          }
+        ],
+        "publication": {
+          "data_baseline": {
+            "kind": "retained-profile-exfat",
+            "sha256": "f32baf07815ae5325f91267977d4ce92e048ab08ac068a4312f9958a9536d29c"
+          },
+          "historical": true,
+          "original_data_sha256": "f32baf07815ae5325f91267977d4ce92e048ab08ac068a4312f9958a9536d29c",
+          "original_image_sha256": "d1c3896c0057c0243a8f30f97d6152214534ed4dd660493eaa4d7722a01debfc",
+          "provisioning_sources_revalidated": false
+        },
+        "read_only": true,
+        "reason": "offline structural checks passed; publication is historical evidence, not authentication or live health",
+        "selection": null,
+        "state": "installed-consistent",
+        "used": true
+      },
+      "snapshot_sha256": "36bbb2504146e49986c0343f83d90d4e25e605bd4683dfbc6c681216013cdb9b",
+      "sources_preserved": true,
+      "stage_preserved": true
+    },
+    {
+      "action": "inspect",
+      "exit": 0,
+      "expected_reason": null,
+      "label": "b1-inspect",
+      "result": null,
+      "snapshot_sha256": "36bbb2504146e49986c0343f83d90d4e25e605bd4683dfbc6c681216013cdb9b",
+      "sources_preserved": true,
+      "stage_preserved": true
+    },
+    {
+      "action": "reconcile",
+      "exit": 1,
+      "expected_reason": null,
+      "label": "b1-reconcile",
+      "result": null,
+      "snapshot_sha256": "36bbb2504146e49986c0343f83d90d4e25e605bd4683dfbc6c681216013cdb9b",
+      "sources_preserved": true,
+      "stage_preserved": true
+    },
+    {
+      "action": "inspect-installed",
+      "exit": 0,
+      "expected_reason": null,
+      "label": "b2-inspect-installed",
+      "result": {
+        "consistent": true,
+        "current_image_sha256": "e8a60007b7b12c115cf85a4e31ad148fbc9c0a5d7929f8616137116130516dc7",
+        "filesystem": {
+          "allocation": {
+            "clusters": 14964,
+            "errors": 0,
+            "fat_bitmap_mismatches": 0,
+            "files": 380,
+            "leaked": 0
+          },
+          "clean_admission": true,
+          "flushes": 0,
+          "namespace_targets_valid": true,
+          "writes": 0
+        },
+        "gpt": {
+          "disk_guid": "6a0bc627-c915-4ba7-a48a-078dbd173116",
+          "esp_partition_guid": "8e4b9d97-62b2-4c2d-9f19-c31926448aa3",
+          "exfat_partition_guid": "0c108539-9e14-4caa-a8af-93b40b29636f"
+        },
+        "planned_profile": {
+          "alias": "local_b",
+          "gid": 2051,
+          "home": "/fat/home/local-b",
+          "profile_id": "12345678-1234-4234-8234-123456789abc",
+          "uid": 2050
+        },
+        "profiles": [
+          {
+            "alias": "local_b",
+            "display_name": "Portable profile",
+            "gid": 2051,
+            "home": "/fat/home/local-b",
+            "identity_present": true,
+            "profile_id": "12345678-1234-4234-8234-123456789abc",
+            "uid": 2050
+          }
+        ],
+        "publication": {
+          "data_baseline": {
+            "kind": "retained-profile-exfat",
+            "sha256": "f32baf07815ae5325f91267977d4ce92e048ab08ac068a4312f9958a9536d29c"
+          },
+          "historical": true,
+          "original_data_sha256": "f32baf07815ae5325f91267977d4ce92e048ab08ac068a4312f9958a9536d29c",
+          "original_image_sha256": "d1c3896c0057c0243a8f30f97d6152214534ed4dd660493eaa4d7722a01debfc",
+          "provisioning_sources_revalidated": false
+        },
+        "read_only": true,
+        "reason": "offline structural checks passed; publication is historical evidence, not authentication or live health",
+        "selection": null,
+        "state": "installed-consistent",
+        "used": true
+      },
+      "snapshot_sha256": "6d7997774db898971ecd28a6ccce59cc0675a72ae0ab46a6b56e90bf16f55041",
+      "sources_preserved": true,
+      "stage_preserved": true
+    },
+    {
+      "action": "inspect",
+      "exit": 0,
+      "expected_reason": null,
+      "label": "b2-inspect",
+      "result": null,
+      "snapshot_sha256": "6d7997774db898971ecd28a6ccce59cc0675a72ae0ab46a6b56e90bf16f55041",
+      "sources_preserved": true,
+      "stage_preserved": true
+    },
+    {
+      "action": "reconcile",
+      "exit": 1,
+      "expected_reason": null,
+      "label": "b2-reconcile",
+      "result": null,
+      "snapshot_sha256": "6d7997774db898971ecd28a6ccce59cc0675a72ae0ab46a6b56e90bf16f55041",
+      "sources_preserved": true,
+      "stage_preserved": true
+    }
+  ],
+  "tools": {
+    "exfat_test_image.py": "2e12fb7edb739d5bded479efafa0acff381ad6517fa8ede121351dd03754e30a",
+    "installation_export.py": "1c3e23afb161e17e55183eda5ae1476efb9e25ba6583360eba661a194558e47f",
+    "installation_export_driver.c": "1364dba73988834f0c3e3e969e36e2bfac3139c1b41a2abe825ef15184e008bf",
+    "installation_export_smoke.py": "d682a0d2263c95e64aedbafe868ff2d7f8b20c9738d160f2f30421a07616c644",
+    "installation_image.py": "d79d9a62599ba0f210b1c6d8e9757b3d90ae2d4d0b1f1ce54b574f095c219070",
+    "installation_inspect_driver.c": "80afa427a2e033fb64572747d50e21409091b96f84cd04d22b0d066084d2b1d2",
+    "installation_inspection.py": "1fa595e81469114b7ada99b3768b9d4219c1284baa2fd20dac1bd2a38f626204",
+    "installation_io_smoke.py": "33eb35ffeae10e1834f977fd254ec04a34e2ed53cdf01e7a840b8e8d61aa030d",
+    "installation_readonly_host.h": "a44e542bb62d6ba5770ee8c84ee3f221ac67e6cc21523d6a9890e8175989ef1d",
+    "profile_bundle.py": "5c9747b2f83916a31400f3a1c7df642bb070e7e3c69b451a47ea9d35aaf468ee",
+    "profile_desktop_smoke.py": "862d4a86087edac7f5ad77cac73aec5a06129c03f77641ead0d11adda582fccf",
+    "profile_image.py": "66df9186653d061b339fcd4527ae0cc0374c23f27d4206e394c3c3a8bdaa3de8",
+    "profile_installation_smoke.py": "7697ea0e06eaacea8b58d61a0cb14b7d2c6c1663155de2de3d17cb5e41dd780a"
+  }
+}
