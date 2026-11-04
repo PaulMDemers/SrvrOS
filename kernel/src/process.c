@@ -3,6 +3,7 @@
 #include "arch/x86_64/isr_frame.h"
 #include "arch/x86_64/user_frame_copy.h"
 #include "arch/x86_64/fpu_trap.h"
+#include "process_signal.h"
 #include <srvros/console.h>
 #include <srvros/exfat.h>
 #include <srvros/fpu.h>
@@ -119,6 +120,7 @@ struct process_user_thread {
     uint64_t return_value;
     uint64_t signal_mask;
     uint64_t pending_signals;
+    struct signal_thread_state signal_state;
     uint64_t user_us,system_us;
     struct process *owner;
     struct process_context context;
@@ -210,6 +212,9 @@ struct process {
     uint64_t pending_signals;
     uint64_t main_signal_mask;
     uint64_t main_pending_signals;
+    struct signal_action_descriptor usr1_action;
+    uint64_t usr1_action_generation;
+    struct signal_thread_state main_signal_state;
     bool main_thread_exited;
     bool main_thread_joined, main_thread_detached, main_thread_join_claimed;
     uint64_t main_thread_return_value;
@@ -394,6 +399,27 @@ static void process_irq_restore(uint64_t flags) {
 #endif
 }
 
+/* Fixed embedded private storage; retirement never follows user-backed links.
+ * Called before an image/stack/slot can become stale, with IRQs excluded. */
+static void process_signal_clear_records(struct process *process) {
+    process->main_signal_state=(struct signal_thread_state){0};
+    for(unsigned i=0;i<PROCESS_MAX_USER_THREADS;i++)
+        process->user_threads[i].signal_state=(struct signal_thread_state){0};
+}
+static bool process_signal_records_active(const struct process *process) {
+    if(process->main_signal_state.stack.depth) return true;
+    for(unsigned i=0;i<PROCESS_MAX_USER_THREADS;i++)
+        if(process->user_threads[i].signal_state.stack.depth) return true;
+    return false;
+}
+static void process_signal_retire_image(struct process *process) {
+    process_signal_clear_records(process);
+    process->signal_catch_mask &= ~(1ull<<SRV_SIGNAL_USR1);
+    process->usr1_action=(struct signal_action_descriptor){
+        .mode=(process->signal_ignore_mask&(1ull<<SRV_SIGNAL_USR1)) ? SIGNAL_ACTION_IGNORE : SIGNAL_ACTION_DEFAULT};
+    process->usr1_action_generation=0; /* New committed image has a different identity. */
+}
+
 /* IDs are never recycled, including after a failed staged image. */
 static int64_t process_prepare_image(struct process *image) {
     uint64_t irq=process_irq_save();
@@ -483,6 +509,53 @@ bool process_admit_user_worker(void *candidate, void *worker, uint64_t generatio
     if (process->killed || process->exiting) return false;
     *out=binding;
     return true;
+}
+
+struct process_signal_owner {
+    struct process *process;
+    struct signal_thread_state *state;
+    struct signal_state_identity identity;
+    uint64_t root;
+};
+static bool process_signal_current_owner(struct process_signal_owner *out) {
+    struct scheduler_user_return_observation observed;
+    struct process_user_binding binding;
+    if(!out || !scheduler_observe_user_return(&observed) ||
+        !process_resolve_user_binding(observed.process,observed.user_thread,
+            observed.image_generation,observed.address_space,&binding) ||
+        !binding.new_worker_allowed || binding.user_fpu!=observed.user_fpu ||
+        binding.fs_base!=observed.user_fs_base ||
+        (observed.user_thread ? binding.kernel_stack_top!=0 :
+            binding.kernel_stack_top!=observed.kernel_stack_top)) return false;
+    /* Resolver established process and worker membership before dereference. */
+    struct process *process=observed.process;
+    struct process_user_thread *worker=observed.user_thread;
+    if((!worker && process->main_thread_exited) ||
+        (worker && worker->tid>(uint64_t)INT64_MAX) || !observed.thread_identity) return false;
+    *out=(struct process_signal_owner){process,
+        worker?&worker->signal_state:&process->main_signal_state,
+        {observed.image_generation,worker?worker->tid:1,observed.thread_identity},observed.address_space};
+    return true;
+}
+
+bool process_signal_record_push(const struct signal_context_record *record,struct signal_context_range range) {
+    uint64_t irq=process_irq_save();struct process_signal_owner owner;
+    bool result=false;
+    if(process_signal_current_owner(&owner)) {
+        struct signal_thread_state next=*owner.state;
+        if(signal_thread_state_bind(&next,owner.identity) &&
+            signal_thread_state_push(&next,owner.identity,record,range)) {
+            *owner.state=next;result=true;
+        }
+    }
+    process_irq_restore(irq);return result;
+}
+bool process_signal_record_pop(uint64_t token,uint64_t frame_identity,
+    struct signal_context_record *record,struct signal_context_range *range) {
+    uint64_t irq=process_irq_save();struct process_signal_owner owner;
+    bool result=process_signal_current_owner(&owner) &&
+        signal_thread_state_pop(owner.state,owner.identity,token,frame_identity,record,range);
+    process_irq_restore(irq);return result;
 }
 
 bool process_copy_user_frame_current(const struct isr_frame *frame,
@@ -783,6 +856,10 @@ static void process_apply_signal_defaults(struct process *process, uint64_t sign
     uint64_t mask = signal_default & process_supported_signal_mask();
     process->signal_catch_mask &= ~mask;
     process->signal_ignore_mask &= ~mask;
+    if(mask&(1ull<<SRV_SIGNAL_USR1)) {
+        process->usr1_action=(struct signal_action_descriptor){0};
+        process->usr1_action_generation=0;
+    }
     process_discard_signals(process,mask);
 }
 
@@ -1014,6 +1091,8 @@ static struct process *alloc_process_lifetime(const char *path,bool detached,uin
     if(parent) { process->creation_mask=parent->creation_mask;process->fsize_limit=parent->fsize_limit;process->signal_ignore_mask=parent->signal_ignore_mask;
         copy_process_path(process->cwd,sizeof(process->cwd),parent->cwd);
         copy_process_path(process->cwd_storage,sizeof(process->cwd_storage),parent->cwd_storage); }
+    process->usr1_action.mode=(process->signal_ignore_mask&(1ull<<SRV_SIGNAL_USR1)) ?
+        SIGNAL_ACTION_IGNORE : SIGNAL_ACTION_DEFAULT;
     process->process_group=parent?parent->process_group:pid;
     process->session_id=parent?parent->session_id:pid;
     process->controlling_tty=parent?parent->controlling_tty:0;
@@ -1044,6 +1123,7 @@ static void release_process(struct process *process) {
     uint64_t token=process->lifetime;
     uint64_t slot=(uint64_t)(process-processes),flags=process_irq_save();
     process_slots_busy[slot]=true;
+    process_signal_retire_image(process);
     process->image_generation=0;
     process->allocated=false;
     process_irq_restore(flags);
@@ -1071,6 +1151,7 @@ static void release_process_runtime(struct process *process) {
     }
 
     uint64_t irq=process_irq_save();
+    process_signal_retire_image(process);
     process->image_generation=0;
     process_irq_restore(irq);
     if (process->kernel_stack_physical != 0 && process->kernel_stack_frames != 0) {
@@ -1993,6 +2074,7 @@ static void cleanup_process_address_space(struct process *process) {
     }
 
     uint64_t irq=process_irq_save();
+    process_signal_retire_image(process);
     process->image_generation=0;
     process_irq_restore(irq);
     struct process_latency_span span=process_latency_begin();
@@ -2354,7 +2436,7 @@ int64_t process_exec_replace(const char *path,
         return SRV_ERR_INVAL;
     }
 
-    if(process_current_user_thread()) return SRV_ERR_NOTSUP;
+    if(process_current_user_thread() || process_signal_records_active(process)) return SRV_ERR_NOTSUP;
     for(unsigned i=0;i<PROCESS_MAX_USER_THREADS;i++) if(process->user_threads[i].used) return SRV_ERR_NOTSUP;
     struct process *image = process_allocate_exec_image();
     if (image == NULL) {
@@ -2377,6 +2459,7 @@ int64_t process_exec_replace(const char *path,
     }
 
     uint64_t commit_irq=process_irq_save();
+    process_signal_retire_image(process);
     scheduler_clear_user_context();
     process->image_generation=0;
     process_irq_restore(commit_irq);
@@ -2457,7 +2540,7 @@ int64_t process_fork(const struct isr_frame *frame) {
     if(!parent || !frame || frame->cs!=0x23 || frame->ss!=0x1b) return SRV_ERR_INVAL;
     /* A stopped worker may own a userspace lock or in-flight runtime state.
      * General multithreaded fork needs explicit libc/descriptor preparation. */
-    if(process_current_user_thread()) return SRV_ERR_NOTSUP;
+    if(process_current_user_thread() || process_signal_records_active(parent)) return SRV_ERR_NOTSUP;
     for(unsigned i=0;i<PROCESS_MAX_USER_THREADS;i++) if(parent->user_threads[i].used) return SRV_ERR_NOTSUP;
     for(unsigned i=0;i<PROCESS_MAX_OPEN_FILES;i++) if(parent->files[i].used) {
         enum process_file_type type=parent->files[i].type;
@@ -2481,6 +2564,8 @@ int64_t process_fork(const struct isr_frame *frame) {
     child->mmap_next=parent->mmap_next;
     child->signal_catch_mask=parent->signal_catch_mask;
     child->signal_ignore_mask=parent->signal_ignore_mask;
+    child->usr1_action=parent->usr1_action;
+    child->usr1_action_generation=parent->usr1_action_generation;
     /* alloc_process inherited the caller mask, resource limits and group/session;
      * pending signals, alarms, usage and other threads start empty. */
     child->fpu=parent->fpu;
@@ -3025,6 +3110,52 @@ bool process_signal_target(int64_t pid, uint64_t signal) {
     return matched;
 }
 
+/* No fallible work follows descriptor/mirror publication. previous is a
+ * caller-owned kernel output, not a user copy or pointer into process state. */
+static bool process_usr1_commit_action(struct process *process,
+    const struct signal_action_descriptor *replacement,
+    struct signal_action_descriptor *previous,uint64_t *generation_out) {
+    if(process->usr1_action_generation==UINT64_MAX) return false;
+    struct signal_action_descriptor next=*replacement,old=process->usr1_action;
+    uint64_t bit=1ull<<SRV_SIGNAL_USR1;
+    process->usr1_action=next;
+    process->usr1_action_generation++;
+    process->signal_catch_mask &= ~bit;
+    process->signal_ignore_mask &= ~bit;
+    if(next.mode==SIGNAL_ACTION_LEGACY || next.mode==SIGNAL_ACTION_INFO)
+        process->signal_catch_mask |= bit;
+    else if(next.mode==SIGNAL_ACTION_IGNORE) {
+        process->signal_ignore_mask |= bit;
+        process_discard_signals(process,bit);
+    }
+    if(previous) *previous=old;
+    if(generation_out) *generation_out=process->usr1_action_generation;
+    return true;
+}
+
+bool process_signal_action_exchange(const struct signal_action_descriptor *replacement,
+    struct signal_action_descriptor *previous,uint64_t *generation_out) {
+    /* Permit the normal replacement/old-action alias without reading it again
+     * after commit. All other storage ownership is a private caller contract. */
+    struct signal_action_descriptor next;
+    if(replacement) next=*replacement;
+    if((!replacement && !previous && !generation_out) ||
+        (replacement && !signal_action_descriptor_valid(&next))) return false;
+    uint64_t irq=process_irq_save();struct process_signal_owner owner;
+    bool result=false;
+    if(!process_signal_current_owner(&owner)) goto done;
+    if(!replacement) {
+        if(previous) *previous=owner.process->usr1_action;
+        if(generation_out) *generation_out=owner.process->usr1_action_generation;
+        result=true;goto done;
+    }
+    if((next.handler && !vmm_user_exec_current(next.handler,owner.root)) ||
+        (next.trampoline && !vmm_user_exec_current(next.trampoline,owner.root))) goto done;
+    result=process_usr1_commit_action(owner.process,&next,previous,generation_out);
+done:
+    process_irq_restore(irq);return result;
+}
+
 static bool process_signal_config_current_locked(uint64_t signal, uint64_t action) {
     struct process *process = process_current();
     if (process == NULL || signal == 0 || signal >= 64 ||
@@ -3033,6 +3164,11 @@ static bool process_signal_config_current_locked(uint64_t signal, uint64_t actio
             action != SRV_SIGNAL_CATCH &&
             action != SRV_SIGNAL_IGNORE)) {
         return false;
+    }
+    if(signal==SRV_SIGNAL_USR1) {
+        struct signal_action_descriptor next={.mode=action==SRV_SIGNAL_CATCH ? SIGNAL_ACTION_LEGACY :
+            action==SRV_SIGNAL_IGNORE ? SIGNAL_ACTION_IGNORE : SIGNAL_ACTION_DEFAULT};
+        return process_usr1_commit_action(process,&next,NULL,NULL);
     }
     uint64_t mask = 1ull << signal;
     process->signal_catch_mask &= ~mask;
@@ -3079,6 +3215,7 @@ static uint64_t process_signal_poll_current_locked(void) {
         return 0;
     }
     uint64_t pending = process_visible_pending(process);
+    if(process->usr1_action.mode==SIGNAL_ACTION_INFO) pending &= ~(1ull<<SRV_SIGNAL_USR1);
     if (pending == 0) {
         return 0;
     }
@@ -3154,6 +3291,7 @@ static uint64_t process_signal_consume_current_locked(uint64_t mask) {
         return 0;
     }
     uint64_t pending = process_visible_pending(process) & mask;
+    if(process->usr1_action.mode==SIGNAL_ACTION_INFO) pending &= ~(1ull<<SRV_SIGNAL_USR1);
     for (uint64_t signal = 1; signal < 64; signal++) {
         uint64_t signal_mask = 1ull << signal;
         if ((pending & signal_mask) != 0) {
@@ -3583,7 +3721,9 @@ void process_thread_exit(uint64_t value) {
         /* Keep the launch/teardown continuation and shared image alive. Only
          * the user thread retires here; exited joinable slots do not keep the
          * process alive. The initial return value is not a process status. */
+        (void)process_irq_save();
         scheduler_invalidate_current_user_trap();
+        process->main_signal_state=(struct signal_thread_state){0};
         process->main_thread_return_value = value;
         process->main_thread_exited = true;
         process->main_pending_signals = 0;
@@ -3601,6 +3741,7 @@ void process_thread_exit(uint64_t value) {
     }
 
     (void)process_irq_save();
+    thread->signal_state=(struct signal_thread_state){0};
     thread->return_value = value;
     thread->active = false;
     scheduler_wake_all(&thread->owner->thread_wait_queue);
@@ -7593,6 +7734,7 @@ void process_exit(uint64_t status) {
     }
 
     scheduler_invalidate_current_user_trap();
+    process_signal_clear_records(process);
     struct process_user_thread *thread = process_current_user_thread();
     if (thread != NULL) {
         (void)process_irq_save();

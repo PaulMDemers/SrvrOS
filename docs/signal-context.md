@@ -1,6 +1,6 @@
 # Directed signal and interrupted-context runtime dependency
 
-Status: internal context/scheduler/VMM helpers, common-return correction and a worker-spawn binding correction are implemented; delivery remains a proposal. The shared-runtime branch owns this dependency; process, VMM and teardown integration require the audit owner's review before implementation. The first acceptance target is one CPU, one process, and a thread-directed asynchronous `SIGUSR1` for a running or safely blocked thread. This is a real signal contract, not a JSC-only callback. It does not promise SMP, synchronous fault recovery, alternate signal stacks, arbitrary context editing, or unrestricted POSIX signal conformance.
+Status: internal context/scheduler/VMM helpers, qualified owned-frame copy, internal action/private-record state, common-return correction and a worker-spawn binding correction are implemented; delivery remains a proposal. The shared-runtime branch owns this dependency; process, VMM and teardown integration require the audit owner's review before implementation. The first acceptance target is one CPU, one process, and a thread-directed asynchronous `SIGUSR1` for a running or safely blocked thread. This is a real signal contract, not a JSC-only callback. It does not promise SMP, synchronous fault recovery, alternate signal stacks, arbitrary context editing, or unrestricted POSIX signal conformance.
 
 ## Existing behavior and the gap
 
@@ -785,3 +785,8 @@ No signal syscall is allocated. The separate session owner reserves163, and
 future signal numbers must be agreed above that allocation. JSC still lacks real
 delivery/return and the WTF context adapter; last required-success smoke remains
 134 without42.
+
+
+The November4 [internal action/private-record lifecycle slice](signal-internal-state.md)
+extends the qualified copy prerequisite. It remains unwired; delivery and
+copy-to-infallible-publication are separate required reviews.

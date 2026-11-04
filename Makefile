@@ -1077,7 +1077,7 @@ $(KERNEL): $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_OBJ) kernel/linker.ld
 
 # Early-boot paths and trap-state helpers/diagnostics must not use compiler
 # SSE: it may run before CR4.OSFXSR or clobber registers before they are saved.
-build/kernel/src/arch/x86_64/fpu.c.o build/kernel/src/arch/x86_64/fpu_selftest.c.o build/kernel/src/arch/x86_64/signal_context.c.o build/kernel/src/console.c.o build/kernel/src/memory/mem.c.o build/kernel/src/latency.c.o: build/%.c.o: %.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+build/kernel/src/arch/x86_64/fpu.c.o build/kernel/src/arch/x86_64/fpu_selftest.c.o build/kernel/src/arch/x86_64/signal_context.c.o build/kernel/src/arch/x86_64/signal_state.c.o build/kernel/src/console.c.o build/kernel/src/memory/mem.c.o build/kernel/src/latency.c.o: build/%.c.o: %.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
 	mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -mno-sse -mno-sse2 -c $< -o $@
 
@@ -4584,3 +4584,16 @@ build/tests/process-user-frame-copy-host$(HOST_EXE): tools/test_process_user_fra
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include $< -Wl,--gc-sections -o $@
 test-core: test-vmm-user-frame-copy test-process-user-frame-copy
+
+.PHONY: test-signal-state test-process-signal-state
+test-signal-state: build/tests/signal-state-host$(HOST_EXE)
+	$<
+build/tests/signal-state-host$(HOST_EXE): tools/test_signal_state.c kernel/src/arch/x86_64/signal_state.c kernel/src/arch/x86_64/signal_state.h kernel/src/arch/x86_64/signal_context.c kernel/src/arch/x86_64/signal_context.h kernel/src/arch/x86_64/isr_frame.h
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $< kernel/src/arch/x86_64/signal_state.c kernel/src/arch/x86_64/signal_context.c -o $@
+test-process-signal-state: build/tests/process-signal-state-host$(HOST_EXE)
+	$<
+build/tests/process-signal-state-host$(HOST_EXE): tools/test_process_signal_state.c tools/test_process_user_frame_copy.c kernel/src/process.c kernel/src/process_signal.h kernel/src/arch/x86_64/signal_state.c kernel/src/arch/x86_64/signal_state.h kernel/src/arch/x86_64/signal_context.c kernel/src/arch/x86_64/signal_context.h $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include $< kernel/src/arch/x86_64/signal_state.c kernel/src/arch/x86_64/signal_context.c -Wl,--gc-sections -o $@
+test-core: test-signal-state test-process-signal-state

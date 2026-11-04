@@ -3711,3 +3711,16 @@ bound). Normal FPU/thread/sysabi guests pass. Public signal delivery/return and
 JSC smoke remain incomplete. The8GiB JSC disk question is still pending; only
 an inactive duplicate toolchain accidentally downloaded by a build prerequisite
 was reclaimed, preserving the pinned browser Zig toolchain and all other VMs.
+
+
+PR334 internal signal-state follow-up adds coherent SIGUSR1 descriptors, four
+private records per main/worker, strict image/TID/scheduler identity, rollback,
+INFO exclusion from cooperative consumption, active-record fork/exec refusal
+and retirement before reuse. Pure/process/lifecycle + existing regression
+fixtures pass26 strict/sanitized profiles; a target audit found main pthread_exit
+needed explicit IRQ save before invalidation/clear, now corrected with affected
+four profiles and fresh normal FPU/thread/sysabi guests passing. Target module
+has no SIMD/x87. Static process-array cost is1,764,352B including alignment.
+Owner review continues; no public signal ABI, async delivery, sigreturn or new
+JSC success. Next review must fuse all prevalidation before user copy with an
+infallible private/FPU/live-frame commit and complete private-storage aliases.

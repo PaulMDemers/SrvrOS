@@ -28,6 +28,8 @@ static bool main_exit_test,worker_exit_test;
 static struct process_user_thread *exiting_worker;
 static jmp_buf worker_exit_return;
 static unsigned thread_invalidations;
+static bool fork_publish_expected;
+static struct process *published_fork;
 static void observe_old_retirement(void) {
     assert(exec_success && exec_cleared && !current && !kernel_association);
     assert(!exec_parent->image_generation && bound_cr3==0x2000 && !bound_fs && !bound_fpu);
@@ -41,15 +43,18 @@ void scheduler_clear_user_context(void) {
     if(worker_exit_test) {
         assert(!(simulated_flags&(1ull<<9)) && current==exec_parent && worker==exiting_worker);
         assert(!worker->active && kernel_association && exec_parent->image_generation==77);
+        assert(!worker->signal_state.stack.depth && !worker->signal_state.stack.last_token);
         kernel_association=NULL;current=NULL;worker=NULL;
         bound_cr3=0x2000;bound_fs=0;bound_fpu=NULL;return;
     }
     assert(exec_success && !exec_cleared && !(simulated_flags&(1ull<<9)));
     assert(current==exec_parent && exec_parent->image_generation==41 && kernel_association);
+    assert(!process_signal_records_active(exec_parent) && exec_parent->usr1_action.mode==SIGNAL_ACTION_DEFAULT);
     exec_cleared=true;kernel_association=NULL;current=NULL;
     bound_cr3=0x2000;bound_fs=0;bound_fpu=NULL;bound_tss=0x456000;
 }
 void scheduler_invalidate_current_user_trap(void) {
+    assert(!(simulated_flags&(1ull<<9)));
     uint64_t flags=process_test_irq_save();
     assert(main_exit_test && current==exec_parent && exec_parent->image_generation==77 && kernel_association);
     kernel_association=NULL;thread_invalidations++;process_test_irq_restore(flags);
@@ -157,7 +162,20 @@ void scheduler_set_user_context(void *p,uint64_t cr3,uint64_t tss,uint64_t gener
     binding_calls++;current=p;bound_cr3=cr3;bound_tss=tss;
     bound_fs=exec_parent->tls_thread_pointer;bound_fpu=&exec_parent->fpu;exec_rebound=true;
 }
-bool scheduler_spawn(const char *name,scheduler_thread_fn entry,void *p) { (void)name;(void)entry;(void)p;admissions++;return false; }
+bool scheduler_spawn(const char *name,scheduler_thread_fn entry,void *p) {
+    (void)entry;admissions++;
+    if(fork_publish_expected) {
+        struct process *child=p;assert(!strcmp(name,"fork") && child!=current && child->allocated && child->active);
+        assert(!process_signal_records_active(child) && !child->main_signal_state.stack.last_token);
+        assert(!memcmp(&child->usr1_action,&current->usr1_action,sizeof(child->usr1_action)));
+        assert(child->usr1_action_generation==current->usr1_action_generation && child->main_signal_mask==current->main_signal_mask);
+        assert(child->signal_catch_mask==current->signal_catch_mask && child->signal_ignore_mask==current->signal_ignore_mask);
+        assert(!child->pending_signals && !child->main_pending_signals && child->image_generation!=current->image_generation);
+        for(unsigned i=0;i<PROCESS_MAX_USER_THREADS;i++) assert(!child->user_threads[i].used && !child->user_threads[i].signal_state.stack.last_token);
+        published_fork=child;return true;
+    }
+    return false;
+}
 int main(void) {
     struct elf64_header *h=(struct elf64_header *)image;
     h->ident[0]=ELFMAG0;h->ident[1]=ELFMAG1;h->ident[2]=ELFMAG2;h->ident[3]=ELFMAG3;
@@ -202,6 +220,9 @@ int main(void) {
     parent->files[0]=(struct process_file){.used=true,.type=PROCESS_FILE_STDIO,.handle=0};
     parent->files[1]=(struct process_file){.used=true,.type=PROCESS_FILE_STDIO,.handle=1};
     parent->image_generation=41;memcpy(&parent_snapshot,parent,sizeof(*parent));
+    parent->usr1_action=(struct signal_action_descriptor){.mode=SIGNAL_ACTION_INFO,.handler=0x500000,.trampoline=0x500100};
+    parent->usr1_action_generation=9;parent->signal_catch_mask=1ull<<SRV_SIGNAL_USR1;
+    memcpy(&parent_snapshot,parent,sizeof(*parent));
     result=process_exec_replace("/fat/bin/echo",1,(const char *const *)argv,0,NULL,1,500,-1,0,0,0);
     assert(result==SRV_ERR_BADF && next_image_generation==42 && image_prepare_calls==3);
     assert(!binding_calls && current==parent && !memcmp(parent,&parent_snapshot,sizeof(*parent)));
@@ -253,6 +274,7 @@ int main(void) {
     assert(exec_cleared && exec_rebound && exec_cleanup_observations==2 && freed==1);
     assert(simulated_flags==(1ull<<9) && binding_calls==1 && next_image_generation==42);
     assert(parent->image_generation==42 && bound_cr3==3 && bound_fpu==&parent->fpu);
+    assert(!parent->usr1_action.mode && !parent->usr1_action_generation && !process_signal_records_active(parent));
     exec_success=false;current=NULL;cleanup_process_address_space(parent);
     assert(freed==allocated && !parent->image_generation && !parent->mapping_count);
 
@@ -260,10 +282,13 @@ int main(void) {
     parent->image_generation=77;parent->address_space=3;next_image_generation=77;
     current=parent;worker=NULL;bound_cr3=3;bound_fs=parent->tls_thread_pointer;bound_fpu=&parent->fpu;
     kernel_association=(void *)0xcafe;main_exit_test=true;
+    parent->main_signal_state.stack.depth=1;parent->main_signal_state.stack.last_token=5;
+    parent->user_threads[0].signal_state.stack.depth=1;
     process_thread_exit(1234);
     assert(thread_invalidations==1 && !kernel_association && current==parent);
     assert(parent->main_thread_exited && parent->main_thread_return_value==1234 && parent->main_signal_mask==UINT64_MAX);
     assert(parent->image_generation==77 && parent->address_space==3 && bound_cr3==3 && bound_fpu==&parent->fpu);
+    assert(!parent->main_signal_state.stack.depth && !parent->main_signal_state.stack.last_token && parent->user_threads[0].signal_state.stack.depth==1);
     main_exit_test=false;
 
     /* A detached worker clears its binding before TLS backing and slot reuse. */
@@ -273,10 +298,39 @@ int main(void) {
     exiting_worker=&parent->user_threads[0];
     *exiting_worker=(struct process_user_thread){.used=true,.active=true,.detached=true,.owner=parent,.tid=2,.tls_base=USER_TLS_BASE+PAGE_SIZE,.tls_thread_pointer=USER_TLS_BASE+PAGE_SIZE+32};
     worker=exiting_worker;bound_fpu=&worker->fpu;kernel_association=(void *)0xcafe;worker_exit_test=true;
+    worker->signal_state.stack.depth=1;worker->signal_state.stack.last_token=7;
     if(!setjmp(worker_exit_return))process_thread_exit(55);
     assert(!current && !worker && freed==1 && !parent->mapping_count);
     assert(exiting_worker->return_value==55 && !exiting_worker->active && !exiting_worker->used);
     assert(parent->image_generation==77 && parent->address_space==3 && !kernel_association && bound_cr3==0x2000);
     worker_exit_test=false;cleanup_process_address_space(parent);
+
+    /* A record in any embedded slot rejects fork/exec before allocation,
+     * file mutation, image generation or scheduler publication. */
+    current=parent;worker=NULL;parent->main_thread_exited=false;parent->image_generation=77;next_image_generation=77;
+    for(unsigned i=0;i<=PROCESS_MAX_USER_THREADS;i++) {
+        struct signal_thread_state *s=i?&parent->user_threads[i-1].signal_state:&parent->main_signal_state;
+        s->stack.depth=1;memcpy(&parent_snapshot,parent,sizeof(*parent));
+        unsigned a=allocated,f=freed,e=elf_reads,b=binding_calls,ad=admissions,prep=image_prepare_calls;
+        struct isr_frame frame={.cs=0x23,.ss=0x1b};
+        assert(process_fork(&frame)==SRV_ERR_NOTSUP);
+        assert(process_exec_replace("/fat/bin/echo",1,(const char *const *)argv,0,NULL,-1,-1,-1,0,0,0)==SRV_ERR_NOTSUP);
+        assert(!memcmp(parent,&parent_snapshot,sizeof(*parent)) && next_image_generation==77);
+        assert(allocated==a && freed==f && elf_reads==e && binding_calls==b && admissions==ad && image_prepare_calls==prep);
+        *s=(struct signal_thread_state){0};
+    }
+    /* Ordinary fork inherits the descriptor and mask, with fresh private state.
+     * The scheduler mock checks the exact publication, without running a child. */
+    parent->usr1_action=(struct signal_action_descriptor){.mode=SIGNAL_ACTION_INFO,.handler=0x500000,.trampoline=0x500100,.mask=1ull<<12};
+    parent->usr1_action_generation=17;parent->signal_catch_mask=1ull<<10;parent->main_signal_mask=1ull<<12;
+    parent->pending_signals=parent->main_pending_signals=1ull<<10;
+    parent->tls_filesz=parent->tls_memsz=parent->tls_base=parent->tls_thread_pointer=0;
+    parent->address_space=3;parent->mapping_count=1;
+    allocated=1;freed=0;memset(freed_page,0,sizeof(freed_page));
+    parent->mappings[0]=(struct process_mapping){.virtual_address=0x500000,.physical_address=4096,.flags=VMM_PAGE_USER};
+    memcpy(&parent_snapshot,parent,sizeof(*parent));fork_publish_expected=true;
+    struct isr_frame frame={.cs=0x23,.ss=0x1b,.rip=0x500000,.rsp=0x900000,.rflags=0x202};
+    assert(process_fork(&frame)>0 && published_fork && !memcmp(parent,&parent_snapshot,sizeof(*parent)));
+    fork_publish_expected=false;cleanup_process_address_space(published_fork);release_process(published_fork);
     puts("process-image-lifecycle: constructor failure/exhaustion, exec rollback/commit, main atexit and worker TLS retirement PASS");
 }

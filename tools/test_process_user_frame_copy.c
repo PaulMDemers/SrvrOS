@@ -129,4 +129,5 @@ int main(void) {
     refused(p,&frame,&source);
     p->mappings[PROCESS_MAX_MAPPINGS-1]=last;
     puts("process-user-frame-copy: PASS (unwired preflight; VMM/proof mocked)");
+    return 0;
 }
