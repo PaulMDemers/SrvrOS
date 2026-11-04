@@ -3,6 +3,47 @@
 Updated November 3, 2026. Global activation follows the explicit namespace proof
 in [PR308](https://github.com/PaulMDemers/SrvrOS/pull/308).
 
+## PR338 merge review and next bounded milestone
+
+User authorized review and merge if ready, preserving review VMs and PR317
+coordination. Reviewed `f8f94e11`; integrated actual main `a37eb7b2` (PR336) as
+`dcc089b0`. The shared host-record conflict is resolved by preserving both
+filesystem and installation notices. New provisioning changes affect CLI dispatch
+only. Kernel, userspace, ports and proof routing remain byte-for-byte unchanged
+from runtime-tested `3c480516`, and the matched build retains identical guest
+payload hashes. No blocking review finding or production fix was needed.
+
+Independently revalidated all 154 preserved managed/canonical file hashes, raw
+healthy and source bytes, stable offline USB geometry/historical capability,
+exactly one failed write, unchanged post-quarantine operation counts, both busy
+refusals and post-close failed retirement/remount/reboot refusal. The clean
+control, three managed lifetimes and 11 canonical compatibility cases remain
+applicable with their original source attribution; no new VM run is claimed.
+Fresh storage-lease/workspace/USB, fsync, namespace, usercopy, I/O, helper/CLI,
+scope and docs checks pass. The initial dependency compile omitted the documented
+Darwin feature macro and failed on O_NOFOLLOW; rebuilding with
+`HOST_CC='python3 build/tooling/darwin-host-cc.py -D_DARWIN_C_SOURCE'` and rerunning
+all 19 installation-inspection tests pass. Both attempts remain recorded.
+
+PR317 at `283c097a` stays draft. Its owner reports no blocker, stable permanent
+block tombstones/claims and unchanged ordinary BOT quarantine while continuing
+per-slot teardown/reset audit. This proof does not consume or accept unmerged
+terminal/reclamation behavior. Review VMs 61610, 6233 and 85869 remain running
+and untouched. Review records/logs survive at
+`.local/filesystem-evidence/pr338-review/`. The current managed first-write fault
+salvage and failed-retirement target is complete.
+
+Next proposed bounded milestone: **managed USB late-flush failure salvage
+qualification**. The current first-write EIO leaves media unchanged. First review
+fault placement and current PR317 lifetime assumptions, then admit dirty marking
+and payload writes before failing a USB flush. Require retained-reader bytes/
+offset and sticky source errors, unchanged post-quarantine I/O, managed failed
+retirement after final close, and exact acknowledged healthy-copy readback after
+restart. Preserve the changed/dirty USB image as uncertain evidence without
+repair, forced retirement or writable remount; this does not include terminal
+stop/reclaim or physical unplug. This is proposed work, not implementation
+started by the review.
+
 ## Installed-root managed USB salvage — verified
 
 User authorized this bounded milestone on main `5634cd9d` (PR306 SQLite CLI),

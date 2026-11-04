@@ -1,5 +1,18 @@
 # Apple Silicon macOS build host
 
+## PR338 managed filesystem merge review
+
+Review integrates main `a37eb7b2` as `dcc089b0`, preserving both host notices.
+All 154 accepted evidence file hashes and failure/restart assertions revalidate;
+matched guest payloads are unchanged. Fresh focused host checks and 19 installed
+inspection tests pass using the documented Darwin feature macro. PR317 owner
+reports no current blocker; its terminal/reclamation audit remains separate.
+Review VMs 61610, 6233 and 85869 remain untouched; no new VM or physical trial
+was needed. See the [filesystem contract](../filesystem-layout.md) and
+`.local/filesystem-evidence/pr338-review/` for review and the next proposed
+late-flush qualification. User authorized merge if ready.
+
+
 ## Managed USB workspace filesystem proof
 
 Isolated `SrvrOS-filesystem`, branch
