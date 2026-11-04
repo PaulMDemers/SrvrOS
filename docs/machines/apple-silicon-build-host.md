@@ -3495,3 +3495,53 @@ restoration paths/hashes. No evidence was discarded. No libc/kernel changes,
 full asynchronous-signal or physical-device acceptance is added. Integration
 checkout and review VM remain untouched. The final merge receipts record the
 authorized dependency-order delivery; no additional feature work is needed.
+
+
+### less isolated milestone — verified November 3, 2026
+
+User authorized less 710 under `ports/less` in SrvrOS-ports-less, based on
+`7ef140ef`. Owns port adapters/build recipe, image entries and disposable actual
+Terminal/PTy qualification. Resolve capability, signal and pipeline-key gates
+before acceptance. No shared kernel/libc changes without concrete blocker
+coordination. Integration checkout and review VM remain untouched. Acceptance
+is complete for the bounded ASCII, secure/no-regex profile; no native boot or
+physical-device acceptance.
+
+Port commit `d760e54` on SrvrPorts `port/less` contains pristine upstream 710
+(official archive SHA-256 `d1008fb78dcae1323ddab664bcb352a61f022b1b131bd8018548e021d975ec7a`,
+137 files independently compared) and generated-copy-only adapters. OS branch
+`ports/less` stages `/fat/bin/less` and initramfs `/less`, with reproducible
+qualification helpers. No shared libc/kernel changes or concrete shared blockers
+were found, so no routine integration-chat message was sent.
+
+Accepted local evidence:
+
+- `build/review/less/20261103-225541-00_67wtr/receipt.json`: PASS real guest PTY
+  file/pipeline navigation, literal search, SIGWINCH repaint including newly
+  visible line 045, repeated blocked pipe Ctrl-C then quit before writer EOF,
+  exact termios/alternate-screen restoration, unknown TERM and non-TTY output.
+  A PTY-attached launcher establishes the controlling terminal before the pipe
+  child starts. The earlier direct child fixture did not and its failure is
+  preserved, not counted as acceptance.
+- `build/review/less-terminal/receipt.json`: PASS actual graphical Terminal
+  report/search/pipeline workflow, resize, quit and repeated interruption with
+  shell continuation. Expert screenshot review confirms the larger viewport
+  reveals lines 197/198 and the original shell is restored. Attempts 1–4 retain
+  automation failures (pointer targeting and unavailable fork-exec trace marker).
+  No user study or physical-hardware acceptance is claimed.
+- `build/review/less/build-verification.json`: two clean CLI ELF builds identical
+  at SHA-256 `65b16e3ff879ca892f9d9cd45c8f22b8881cc22b31accdae7691f18f619a7f4c`.
+  Runtime ELF SHA-256 is `a551955e0d62db669e4a082cf372d967a647fa39aa2ba0ab1b14701fc38d12ee`.
+  Whole-image reproducibility is outside this claim.
+- Native macOS secure/no-regex LESSTEST runner passes unchanged `seq200.lt`
+  (18 steps) and `wordwrap.lt` (88 steps). This is separate host evidence, not
+  guest upstream-runner acceptance; configure/build/run logs are under the same
+  review directory. Existing `tools/ports_smoke.py` also passes, including guest
+  fsck with `leaks=0 fat=0 errors=0`.
+
+These receipts describe the precommit working source and record its dirty
+status; final commits package that verified source and continuity documentation.
+All disposable less VMs are stopped. Integration checkout and review VM remain
+untouched. Outside scope: regex, shell/editor/preprocessor helpers, log writing,
+follow/job control and full Unicode-width correctness. Ready for separate draft
+port/OS PRs; no PR or merge was requested in this work block.

@@ -548,3 +548,21 @@ bc 7.0.3 is integrated for static exact-decimal file/stdin/pipeline calculations
 Its deferred signal-recovery gate passes the bounded guest probes; see the
 [port contract](../ports/srvros/bc/PORT.md) and roadmap for evidence and the
 cooperative interruption limit. dc/history/NLS/extra math remain outside this profile.
+
+
+## less bounded Terminal pager
+
+less 710 is staged as `/fat/bin/less` and `/less` in the initramfs. The bounded
+profile is plain ASCII files and finite pipelines, forward/back paging, line
+movement, `g`/`G`, literal `/` search with `n`/`N`, resize and quit in Terminal.
+The small termcap adapter describes actual Terminal operations and accepts
+interactive `TERM=vt100` only. Keyboard input uses a readable terminal on fd 2;
+non-terminal stdout remains byte-exact passthrough.
+
+The secure, no-regex build excludes shell/editor/preprocessor commands, log
+writing, follow mode, job control and full Unicode-width acceptance. Signal
+callbacks record pending flags and return through the libc dispatcher; less
+handles interruption afterward. No shared libc or kernel changes were needed.
+A held-open pipe probe verifies repeated blocked-read Ctrl-C recovery and quit
+before EOF, with exact termios and alternate-screen restoration. See the
+[roadmap](roadmap.md) and host record for verification evidence and limits.
