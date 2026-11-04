@@ -110,7 +110,11 @@ def main():
     parser.add_argument('--boot-wait', type=int, default=120)
     parser.add_argument('--canonical-paths', action='store_true',
                         help='exercise canonical paths and a second GPT /work volume')
+    parser.add_argument('--workspace-lifecycle', action='store_true',
+                        help='prove busy unmount and remount for file/directory/cwd holds')
     args = parser.parse_args()
+    if args.workspace_lifecycle and not args.canonical_paths:
+        parser.error('--workspace-lifecycle requires --canonical-paths')
     for filename in (args.ovmf, args.ovmf_vars):
         if not Path(filename).is_file() or ',' in filename:
             parser.error('firmware templates must be regular files with no comma in path')
@@ -129,6 +133,7 @@ def main():
                'firmware_sha256': sha(Path(args.ovmf)),
                'firmware_vars_template_sha256': sha(Path(args.ovmf_vars)),
                'qemu_version': subprocess.check_output([args.qemu, '--version'], text=True).splitlines()[0],
+               'workspace_lifecycle': args.workspace_lifecycle,
                'mode': 'canonical-paths' if args.canonical_paths else 'identity-only',
                'cases': [], 'scope': 'two disposable AHCI GPT disks; recovery halt, no physical installation'}
     receipt['auxiliary_sha256'] = {name: sha(ROOT / name) for name in
@@ -162,7 +167,8 @@ def main():
         old_prefs = None
         for number, reverse, selected in ((1, False, 'ahci0p2'), (2, True, 'ahci1p2')):
             proof.boot(target, out, number, args, other_disk=decoy, reverse=reverse,
-                       expected_device=selected, require_identity=True, canonical_paths=args.canonical_paths)
+                       expected_device=selected, require_identity=True, canonical_paths=args.canonical_paths,
+                       workspace_lifecycle=args.workspace_lifecycle)
             prefs = verify_saved(target, out, number)
             if old_prefs is not None and prefs != old_prefs:
                 raise RuntimeError('preference bytes changed on reordered reboot')
@@ -181,6 +187,8 @@ def main():
                 case.update(work_device='ahci0p2' if reverse else 'ahci1p2',
                             namespace_phase='save' if number == 1 else 'reopen',
                             namespace_result='PASS')
+                if args.workspace_lifecycle:
+                    case['workspace_lifecycle'] = ['file', 'directory', 'cwd']
             receipt['cases'].append(case)
             proof.save_json(out / 'receipt.json', receipt)
         guid = uuid.UUID(receipt['target']['gpt']['exfat_partition_guid']).bytes_le

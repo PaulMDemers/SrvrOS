@@ -240,3 +240,55 @@ int namespace_test_persistence(int verify) {
     else printf("namespace-persistence: %s PASS\n",verify?"reopen":"save");
     return failures?1:0;
 }
+
+/* Disposable installed-root fixture only. Control lives on the system volume,
+ * so waiting does not accidentally add another /work reference. */
+int namespace_workspace_hold(const char *mode) {
+    const char *file="/work/.namespace-lifecycle";
+    const char *release="/home/.namespace-lifecycle-release";
+    int fd=-1,ok=1;
+    struct stat st;
+    if(!stat(release,&st)) return 1;
+    if(!strcmp(mode,"file")) {
+        fd=open(file,O_CREAT|O_EXCL|O_RDWR,0600);
+        if(fd<0 || write(fd,"workspace-lifecycle-v1",sizeof("workspace-lifecycle-v1")-1)!=(ssize_t)(sizeof("workspace-lifecycle-v1")-1)) return 1;
+    } else if(!strcmp(mode,"directory")) {
+        fd=open("/work",O_RDONLY|O_DIRECTORY);
+        if(fd<0) return 1;
+    } else if(!strcmp(mode,"cwd")) {
+        if(chdir("/work")) return 1;
+    } else return 1;
+    printf("workspace-lifecycle: %s READY\n",mode);
+    unsigned i;
+    for(i=0;i<1200;i++) {
+        if(!stat(release,&st)) break;
+        usleep(50000);
+    }
+    if(i==1200) ok=0;
+    if(!same_inode("/bin/true","/fat/bin/true") ||
+       !same_inode("/home","/fat/home") || !same_inode("/usr/home","/home")) ok=0;
+    if(!strcmp(mode,"file") && fsync(fd)) ok=0;
+    if(fd>=0 && close(fd)) ok=0;
+    if(!strcmp(mode,"cwd") && chdir("/")) ok=0;
+    if(i<1200 && unlink(release)) ok=0;
+    printf("workspace-lifecycle: %s %s\n",mode,ok?"RELEASED":"FAIL");
+    return ok?0:1;
+}
+int namespace_workspace_launch(const char *mode) {
+    char option[80];
+    snprintf(option,sizeof(option),"--workspace-hold-%s",mode);
+    char *argv[]={"sysabi",option,NULL};
+    struct srv_exec_request request={.path="/bin/sysabi",.argv=argv,.envp=environ,
+        .flags=SRV_EXEC_BACKGROUND,.stdin_fd=-1,.stdout_fd=-1,.stderr_fd=-1};
+    return srv_exec(&request)>0?0:1;
+}
+int namespace_workspace_verify(int system_only) {
+    failures=0;
+    if(!system_only) CHECK(persistence_verify_one("/work/.namespace-lifecycle","workspace-lifecycle-v1"),"lifecycle-persist");
+    CHECK(same_inode("/home","/fat/home") && same_inode("/usr/home","/home") &&
+          same_inode("/bin/true","/fat/bin/true"),"lifecycle-system-aliases");
+    struct stat st;
+    CHECK(stat("/fat/.namespace-lifecycle",&st)<0 && errno==ENOENT,"lifecycle-work-isolation");
+    printf("workspace-lifecycle: verify %s\n",failures?"FAIL":"PASS");
+    return failures?1:0;
+}
