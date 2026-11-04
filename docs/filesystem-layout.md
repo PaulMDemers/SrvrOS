@@ -3,6 +3,70 @@
 Updated November 4, 2026. Global activation follows the explicit namespace proof
 in [PR308](https://github.com/PaulMDemers/SrvrOS/pull/308).
 
+## Explicit partition-GUID workspace selection — host qualified
+
+On actual main `5f4f6fc6` (merged PR317), extend the offline selector with
+`--partition-guid` for multi-volume images. Reuse Python's canonical UUID /
+`bytes_le` conversion already used by installation verification; the private
+native argument carries exactly 16 on-disk bytes as lowercase hex. No production
+GUID/parser/process/block/USB code is changed.
+
+```sh
+sh tools/macos/build.sh HOST_CC='python3 build/tooling/darwin-host-cc.py -D_DARWIN_C_SOURCE' test-workspace-inspection
+python3 tools/workspace_inspection.py IMAGE --driver build/tests/installation-inspect-driver --partition-guid 10203040-5060-7080-90a0-b0c0d0e0f001
+```
+
+The example GUID belongs to a synthetic fixture; supply the intended partition's
+identity from your reviewed image record. Input must be a nonzero canonical
+lowercase UUID with hyphens. An absent GUID, a GUID naming only the disk or an
+unsupported partition type, a prefix, uppercase, braced, zero or malformed value
+is refused. A GUID naming another eligible workspace selects that workspace; it
+cannot establish the caller's intended content. GUID identity is an observed
+lookup key, not authentication or admission authority.
+
+The native worker completes the existing primary/backup validation before
+matching the requested GUID to exactly one Basic Data partition. Full-map
+corruption, duplicate identities and overlaps remain refusals, including errors
+in unselected partitions. Wrong/missing GUIDs and unsupported partition types do
+not fall back to another partition. If the selected volume lacks a valid workspace
+marker/structure, inspection refuses without trying another workspace. Python
+independently checks the returned selected GUID before invoking the workspace
+inspector. Native descriptors retain O_RDONLY and null write/flush callbacks.
+
+Automatic selection still refuses multiple Basic Data candidates; paired explicit
+ranges remain compatible. A GUID cannot be combined with an explicit offset/range
+to bypass map validation. Guided output adds `requested_partition_guid` in standard
+UUID notation; existing GPT fields retain on-disk hex byte order, and `candidates`
+counts eligible matches for the requested selection. Automatic JSON remains
+unchanged. Native sector/table/attribute/size limits, skipped sidecars,
+metadata-only output and `admission: not-authorized` are retained.
+
+All three uncertain images, fault backup and clean control inspect with their
+recorded GUID and refuse a valid absent GUID. Correct-GUID, automatic and explicit
+range diagnostics match recorded PR360 results. Original whole-image SHA-256,
+device/inode, ownership, link count, mode, size, mtime and ctime are unchanged;
+reads may update atime. Uncertain images remain `0444`, dirty/four-leak with a
+28-byte source entry; clean control remains `0644`, clean with source size 12,289.
+No source/orphan data is exported and GUID selection grants no sidecar permission,
+repair, replay, transport recovery, writable remount or writable admission.
+
+43 diagnostic/selection groups pass, including a disposable two-workspace image
+with distinct content/marker identities and an asymmetric GUID byte-order case,
+real CLI success/refusals, automatic ambiguity, wrong/malformed/disk/type GUIDs,
+whole-map validation, no fallback and independent returned-identity enforcement.
+19 existing installation-inspection groups and storage lease/workspace/USB
+regressions pass. Address/undefined sanitizers with halt-on-error pass all 43
+and a retained uncertain input; macOS `detect_leaks=0` is explicit, with no
+LeakSanitizer claim. A native counterfactual that chooses the first partition
+instead of matching the requested GUID fails the direct wrong-GUID test as expected.
+Source/driver/report/log hashes and unchanged-media receipts survive outside
+build in `.local/filesystem-evidence/guid-workspace-selection/`.
+
+PR317 owner confirms no overlap; independent source review is separate from
+coordination. Review VMs 61610/6233/85869 remain running and untouched. This
+host-only milestone uses no new OS/VM boot or live/physical-media operation,
+and claims no new runtime or hardware acceptance.
+
 ## PR360 current-main merge review — ready
 
 User authorizes review and merge if ready, preserving uncertain media and review

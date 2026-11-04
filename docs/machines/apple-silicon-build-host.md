@@ -1,6 +1,6 @@
 # Apple Silicon macOS build host
 
-## Explicit GPT workspace GUID selection — in progress
+## Explicit GPT workspace GUID selection — host qualified
 
 User authorizes offline partition-GUID selection, PR317 coordination and
 wrong-GUID/ambiguity qualification while preserving review VMs and uncertain
@@ -14,6 +14,20 @@ Automatic ambiguity refusal and paired-offset compatibility remain. No productio
 process/block/USB, writable capability/admission, repair/replay or content export.
 Verify synthetic multi-volume behavior and original whole-file hashes/full
 permission/identity stamps on retained inputs.
+
+Implementation `0a7901e5` passes 43 selection/diagnostic groups, 19 existing
+installation-inspection groups and storage regressions. Both valid workspaces in
+a disposable multi-volume image select correctly by GUID; default ambiguity,
+wrong/malformed/type/duplicate GUIDs, corrupt maps and failed selected workspaces
+refuse without fallback. Python independently checks the returned identity.
+ASan/UBSan with halt-on-error and macOS detect_leaks=0 passes all 43 and a preserved
+uncertain input. A forced first-partition native counterfactual is detected.
+All five retained inputs match recorded hashes/full identity/permission stamps,
+correct GUID and explicit/automatic metadata, and each refuses a valid wrong GUID.
+Uncertain modes remain `0444`; control remains `0644`. Evidence survives outside build
+at `.local/filesystem-evidence/guid-workspace-selection/`. PR317 reports no overlap;
+independent source review remains separate. Review VMs stay running/untouched;
+no production source, new OS/VM or physical/live-media acceptance is claimed.
 
 ## PR360 current-main merge review — ready
 

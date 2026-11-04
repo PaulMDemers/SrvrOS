@@ -290,6 +290,12 @@ class GUIDWorkspaceInspectionTests(unittest.TestCase):
         try:r=subprocess.run([str(GPT_DRIVER),'--fd',str(fd),'0',str(len(self.disk)),'--partition-guid-le',uuid.UUID(SECOND_GUID).bytes_le.hex()],pass_fds=(fd,),capture_output=True)
         finally:os.close(fd)
         self.assertNotEqual(r.returncode,0);self.assertEqual(r.stdout,b'');self.assertEqual(snapshot(self.image),before)
+    def test_native_wrong_guid_refused_with_single_candidate(self):
+        self.image.write_bytes(whole_disk(self.fs.data));before=snapshot(self.image)
+        fd=os.open(self.image,os.O_RDONLY)
+        try:r=subprocess.run([str(GPT_DRIVER),'--fd',str(fd),'0',str(self.image.stat().st_size),'--partition-guid-le',uuid.UUID(ABSENT_GUID).bytes_le.hex()],pass_fds=(fd,),capture_output=True)
+        finally:os.close(fd)
+        self.assertNotEqual(r.returncode,0);self.assertEqual(r.stdout,b'');self.assertEqual(snapshot(self.image),before)
     def test_wrapper_rejects_wrong_selected_identity(self):
         report=self.guided(FIRST_GUID)['gpt_selection']
         with mock.patch.object(inspect.native,'driver_output',return_value=report) as call:
