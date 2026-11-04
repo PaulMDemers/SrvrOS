@@ -263,7 +263,7 @@ def boot(disk, out, number, args, negative=False, *, other_disk=None,
                     if b'namespace: /bin /usr /var /home active' not in output:
                         raise RuntimeError('Missing canonical namespace')
                     managed_command('block',b'block: cache entries=')
-                    if b'block: usb0p1 ' not in output or b'block: ahci0p2 ' not in output:
+                    if b'block: usb0p2 ' not in output or b'block: ahci0p2 ' not in output:
                         raise RuntimeError('Missing independent USB workspace/system identities')
                     managed_command(f'workspace mount {workspace_uuid}',b'workspace: ready at /work/srvros-work')
                     before=qmp.call('query-blockstats')
@@ -277,7 +277,7 @@ def boot(disk, out, number, args, negative=False, *, other_disk=None,
                         managed_command('workspace sync',b'workspace: sync failed')
                         managed_command('workspace unmount',b'workspace: busy; close files first');status()
                         failed=managed_command('block',b'block: cache entries=')
-                        if not re.search(rb'block: usb0p1 .*fs=unreadable write=yes',failed):
+                        if not re.search(rb'block: usb0p2 .*fs=unreadable write=yes',failed):
                             raise RuntimeError('Missing stable quarantined USB identity/capability')
                         serial.sendall(b'write /home/.managed-copy-go release\n')
                         wait(b'managed-salvage: copied; reader held PASS',120)

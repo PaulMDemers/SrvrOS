@@ -1,10 +1,7 @@
 #!/usr/bin/env python3
 """Installed-root salvage and failed retirement through the managed USB controller."""
 import argparse
-import hashlib
-import json
 from pathlib import Path
-import struct
 import subprocess
 import tempfile
 import dirty_salvage_smoke as dirty
@@ -16,19 +13,23 @@ from uefi_usb_smoke import default_ovmf_path
 
 ROOT=Path(__file__).resolve().parents[1]
 ORIGINAL=b'managed-workspace-source-v1\n'
-USB_OFFSET=2048*512
 
 def make_usb(path):
-    fixture=ExfatFixture((ROOT/'build/srvros.exfat').read_bytes())
+    # Installed-root admission requires valid GPTs on every attached disk.
+    # A separately provisioned identity prevents duplicate-root ambiguity.
+    stage=path.parent/'usb-stage'
+    provision.prepare(stage,ROOT/'build/kernel/srvros.elf',ROOT/'build/limine-binary/BOOTX64.EFI',ROOT/'build/srvros.exfat',ROOT/'build/userspace/init.elf',identity_bound=True)
+    provision.apply(stage);destination.copy_image(stage/'image.img',path)
+    _,(offset,size)=proof.partitions(path)
+    fixture=ExfatFixture(proof.data_image(path,offset,size))
     uuid=f'{fixture.u32(100):08x}'
     fixture.add_directory_files('srvros-work',{'.workspace':f'SRVROS-WORKSPACE-V1 {uuid}\n'.encode(),'source':ORIGINAL})
-    mbr=bytearray(512);mbr[450]=7;struct.pack_into('<II',mbr,454,2048,len(fixture.data)//512);mbr[510:]=b'\x55\xaa'
-    with path.open('xb') as stream:
-        stream.write(mbr);stream.seek(USB_OFFSET);stream.write(fixture.data)
+    with path.open('r+b') as stream:stream.seek(offset);stream.write(fixture.data)
     return uuid
 
 def work_data(path):
-    with path.open('rb') as stream:stream.seek(USB_OFFSET);return stream.read()
+    _,(offset,size)=proof.partitions(path)
+    return proof.data_image(path,offset,size)
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
