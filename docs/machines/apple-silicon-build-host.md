@@ -1,5 +1,32 @@
 # Apple Silicon macOS build host
 
+## Larger-document portable migration — contract and source work
+
+User authorizes bounded-memory larger-document migration, preserving existing
+bundles and verifying transfer/recovery across two disposable VMs. Reuse isolated
+`SrvrOS-profile-326-review`, branch `device/apple-silicon/profile-stream`, actual
+main `5f670602`, with its pinned Apps/UI/Ports. Prior session/creation/installation
+proofs, baselines, accepted backups and three original review VMs stay preserved.
+
+The implementation contract adds framed v2 (bounded JSON manifest + sequential
+raw selected-document bytes), up to 16 MiB/file and 64 MiB aggregate, 64 files,
+64 KiB metadata and 64 KiB I/O buffer. Existing v1 bytes, caps, guest operations
+and creation stay compatible. Guest/Profiles use version dispatch and explicit
+review compatibility, reusing journal gates with streamed hash/readback and an
+owned partial-copy recovery checkpoint. A separate host streaming codec/fixture
+CLI supplies interoperability; native installer/offline export remain v1-only
+fail-closed and are owned by the installation chat's separate publication work.
+No kernel/filesystem implementation, account authentication or permission change.
+
+Parent owns the wire/review contract, GUI/catalog integration, Makefile, docs and
+independent review; bounded workers own guest codec/transaction, host streaming
+codec/tests and VM proof tooling. Local discovery worker was attempted: Ollama
+11434 unavailable, so native fallbacks are used. Source/host work first; preserve
+browser's heavy build/VM window until resource coordination. Next: freeze the
+wire/CLI/recovery/memory contract, implement and cross-test v1/v2, then matched
+build and two-installation migration/recovery proof. This is implementation
+work in progress, with no new verification or delivery claim yet.
+
 ## Session switching — delivered and verified November 4, 2026
 
 User authorized cooperative session ending, no-reboot profile switching,
