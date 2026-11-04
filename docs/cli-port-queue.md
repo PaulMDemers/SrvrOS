@@ -10,7 +10,7 @@ reservation for the next milestone.
 | Order | Application | Bounded outcome | State |
 | --- | --- | --- | --- |
 | 1 | GNU Diffutils 3.12 `diff` | Correct normal/quiet/unified comparison of two capped text files; long lines and 0/1/2 statuses; host patch validation and explicit local-patch subset. | Delivered and verified: ports PR11 `4da8a98b`, then OS PR369 `3fcf2630`; exact trees and reachable pin checked. |
-| 2 | GNU Patch 2.8.1 | Apply a bounded single-file unified patch to an explicit separate output; preserve source, reject ambiguous/unsafe paths and failed hunks; qualify the diff edge cases excluded by the compact local patch. | Active in isolated `SrvrOS-ports-patch`, reconciled with delivered diff/main `3fcf2630`; compatibility, matched build, two clean GNU rebuilds and selected native tests pass; first two-boot qualification stopped on an unexpected root artifact. No acceptance or merge. |
+| 2 | GNU Patch 2.8.1 | Apply a bounded single-file unified patch to an explicit separate output; preserve source, reject ambiguous/unsafe paths and failed hunks; qualify the diff edge cases excluded by the compact local patch. | Active in isolated `SrvrOS-ports-patch`, reconciled with delivered diff/main `3fcf2630`; Corrected two-boot Patch, diff interoperability, Terminal expert walkthrough and 498-command CLI pass. Shipped miniport migration prepared; final ports regression remains unrun. No merge. |
 | 3 | GNU Grep 3.12 | C-locale text search over bounded files/finite stdin; fixed strings and qualified BRE/ERE, useful match/count/quiet status contracts. No PCRE, recursion, color or Unicode claims. | Deferred by closeout instruction; authenticated source/research retained, no implementation started. |
 | 4 | GNU Coreutils 9.12 `sha256sum` | File/stdin SHA-256 and a bounded explicit verification manifest; exact known vectors and failure statuses. No broader coreutils import or automatic filesystem traversal. | Deferred by closeout instruction; authenticated source retained, no implementation started. |
 
@@ -122,3 +122,18 @@ uint64 bounds and final newline. A host-only check accepts the retained 605-row
 sidecar and rejects six malformed samples; it does not replace fresh guest
 qualification. Integration is reviewing the finite rerun request. No heavy
 launch is authorized until that handoff; no shared runtime blocker is known.
+
+Fresh corrected evidence on clean `328c2a3a`: two-boot Patch
+`build/review/patch/20261104-180150-50p8cl2l` PASS, two-boot diff interoperability
+`build/review/diff/20261104-180309-0ngfiw3b` PASS, actual Terminal plus expert
+screenshots `build/review/diff-terminal/proof-g_r5b65a` PASS, and full 498-command
+CLI plus fsck PASS. Production/diagnostic bytes match the previous clean rebuilds.
+The six guests stopped and the window was released early; ports regression was
+not run after a remaining shipped miniport caller was found incompatible.
+`dea65ffc` migrates that example to safe labels and explicit separate output,
+builds the patched copy and checks original-source preservation. Its expected
+output is updated; no runtime ELF source changed. Current main `db95fc9b` is
+reconciled and adds documentation only relative to the prior base. A fresh
+finite data-refresh/one-ports-guest handoff is required after other owners'
+reserved turns. Compare the retained baseline logical-file manifest and all
+executables/kernel/initramfs before reusing earlier scoped evidence.

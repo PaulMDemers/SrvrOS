@@ -5152,3 +5152,17 @@ creates no implementation or launch authorization. The metadata-sidecar harness
 correction at `1ec87276` validates complete records and passes host-only retained
 605-row and six malformed-input checks. Fresh guest qualification and remaining
 integration gates are still required before merge.
+
+### GNU Patch corrected qualification and remaining miniport caller
+
+Clean `328c2a3a` passes the corrected two-boot Patch, two-boot diff interoperability,
+Terminal functional/expert and full 498-command CLI/fsck gates. Exact paths are
+in `docs/cli-port-queue.md`; production/diagnostic binaries match prior clean
+rebuilds. The original failed artifact receipt remains failed. Six owned guests
+stopped and the resource window was released early. Ports regression was not
+run because the shipped miniport example retained the old Patch syntax.
+`dea65ffc` corrects it to explicit separate output, safe labels, build from the
+patched copy and conditional original-source preservation. A fresh finite
+data-refresh/ports-guest handoff remains required, after filesystem/profiles
+turns. The actual `db95fc9b` main is reconciled; its changes here are docs only.
+No shared libc/kernel change, physical claim or next-port implementation.
