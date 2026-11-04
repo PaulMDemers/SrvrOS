@@ -66,6 +66,36 @@ this proof starts no VM. Physical media, USB admission, power loss, automated
 retry/repair and product recovery UI remain outside this host qualification.
 No further production implementation is required for the authorized proof.
 
+### PR323 merge review and next bounded milestone
+
+User authorized review/merge if ready. Main remains `0cba30a1`. Revalidated
+all receipt source hashes and 49 normal + 49 sanitized salvage results, 52
+writeback cases and 134 existing cases. Both negative controls pass again;
+matched build reproduces the qualified production image hashes, whitespace
+checks and all 877 local documentation links pass. No submitted correction or
+unresolved review thread was present. Review confirms no source-path reopen,
+exclusive destination creation and source lifetime through destination verification;
+failure teardown remains explicit and is not a success acknowledgment.
+
+Coordinated with PR317's owner: its current work concerns PMM/allocator scans and
+poisoning, with no writeback/content/workspace policy changes planned. This is
+scope coordination, not independent full-diff approval. PR323 changes only seven
+fixture/tool/documentation files and introduces no production runtime change.
+Review VMs remain live and untouched. Review logs are retained under
+`build/review/workspace-salvage/review-*`.
+
+Next proposed filesystem milestone: **descriptor-preserving userspace salvage
+helper**. Turn the proven sequence into a reusable helper taking a caller-owned,
+seekable source descriptor and an explicit exclusive destination. Handle short
+reads/writes and interruptions; flush/close the destination before acknowledging
+success, preserve source ownership and restore its offset on every result.
+Return clear failure information without automatically deleting uncertain
+artifacts. Verify with the same healthy-volume and injected-failure fixtures,
+including destination conflict and source usability after failure. Reuse existing
+file operations; no kernel recovery API, forced unmount, automatic repair or
+application-wide recovery UI is implied. This is the next proposal, not work
+begun by the merge review.
+
 ## Workspace writeback failure — qualified
 
 User authorized deterministic writeback-failure qualification on main `805519b2`.
