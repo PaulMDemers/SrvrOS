@@ -3308,3 +3308,61 @@ Independent fsck is unavailable. The original acceptance hash above remains
 historical; no power-loss, physical-device or full-image reproducibility claim
 is added. Integration checkout/review VM remain untouched. PR2 in SrvrPorts must
 merge before OS PR306; the user authorized both merges conditional on checks.
+
+
+### jq isolated port — active November 3, 2026
+
+User authorized the bounded jq milestone on `ports/jq` in SrvrOS-ports-jq,
+based on `5634cd9d`. Owns port adapter/build configuration, image entries and
+disposable guest JSON report/CSV-to-SQLite checks. No integration checkout or
+review VM access. No kernel/libc changes planned; confirmed gaps are coordinated
+with integration. Implementation and scoped guest acceptance pass. The port builds static jq
+with upstream decNumber defaults and port-local entropy, dirname and UTC
+timezone-name adapters; no shared libc/kernel changes were needed. Oniguruma
+regex and optional configure-gated libm/date wrappers are outside this profile.
+The first run passed its 11 selected upstream cases but later aborted during
+the optional three-thread regression; that test-only feature gate is omitted
+for the single-thread CLI. Real pthread keys/once/atexit remain enabled. No
+multithreaded jq acceptance or allocator root cause is claimed.
+
+Two-boot JSON report/CSV-to-SQLite, exact Unicode/NUL and numeric literal output,
+exit statuses, invalid JSON/filter/files, unsupported regex, actual stdout error
+and recovery checks pass. The 11 unchanged upstream cases and remaining
+single-state internal tests complete. Guest fsck and offline allocation pass;
+independent fsck.exfat is unavailable. Two clean CLI builds match SHA256
+`286f8cbe0cd27f983881208981d5f29773197aa00641487d0f6087caf7ef1de8`.
+No whole-image reproducibility or physical-device acceptance is claimed.
+Evidence: `build/jq-smoke/20261103-214345-kx3nfg74/` and
+`build/review/jq/accepted.json`. Existing ports regression and documentation/whitespace checks pass.
+Status: implementation complete and ready for review; no merge authorized.
+
+
+### jq merge review — verified November 3, 2026
+
+User authorized reviewing SrvrPorts PR6, merging it before SrvrOS PR337, and
+verifying the combined build. Work uses only `SrvrOS-ports-jq`; integration
+checkout and attended review VMs remain untouched. Main `62b0708e` contributes
+read-only Haswell audit tooling/docs since the original `5634cd9d` jq baseline;
+it changes no jq runtime dependency. Port `22c2660` receives independent source
+review, archive identity checking, a clean matched candidate build, the two-boot
+jq/SQLite guest workflow, existing ports regression and the added audit tests.
+The single-thread/no-regex scope and untraced optional three-thread allocation
+failure remain explicit; no shared libc/kernel edits or physical acceptance.
+
+Clean candidate `e5db0a37` passes the full image/probe build, two-boot jq workflow,
+existing ports regression, seven Haswell audit tests and documentation checks.
+The original CLI hash remains identical. Independent archive verification covers
+all 312 tracked entries (311 regular files and one archive hard link). Fresh
+source provenance is clean, recorded in `build/review/jq-merge/tested-build.json`
+and `build/jq-smoke/20261103-215652-k40favot/receipt.json`. No concrete scoped
+review blocker remains. SrvrPorts PR6 merged first as `747cca28`; its merge tree
+is identical to reviewed `22c2660`. The OS now pins that merged revision.
+
+Final combined source `fcd79c0a` also preserves installed-state inspection
+PR336/main `a37eb7b2`. Its clean build produces byte-identical kernel, initramfs
+and disk artifacts to the freshly guest-tested candidate; 902 documentation
+links pass. This refresh changes no runtime dependency. SrvrOS PR337 records
+the authorized ports-first integration; final merge identities/build receipts
+are retained in `build/review/jq-merge/`. All test VMs stopped; the integration
+checkout and attended review VM remain untouched. No further work is required
+for this bounded jq milestone.
