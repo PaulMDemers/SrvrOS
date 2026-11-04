@@ -1,6 +1,6 @@
-# Directed signal and interrupted-context design for review
+# Directed signal and interrupted-context runtime dependency
 
-Status: proposal only. The shared-runtime branch owns this dependency; process, VMM and teardown integration require the audit owner's review before implementation. The first acceptance target is one CPU, one process, and a thread-directed asynchronous `SIGUSR1` for a running or safely blocked thread. This is a real signal contract, not a JSC-only callback. It does not promise SMP, synchronous fault recovery, alternate signal stacks, arbitrary context editing, or unrestricted POSIX signal conformance.
+Status: internal helper slice implemented; delivery remains a proposal. The shared-runtime branch owns this dependency; process, VMM and teardown integration require the audit owner's review before implementation. The first acceptance target is one CPU, one process, and a thread-directed asynchronous `SIGUSR1` for a running or safely blocked thread. This is a real signal contract, not a JSC-only callback. It does not promise SMP, synchronous fault recovery, alternate signal stacks, arbitrary context editing, or unrestricted POSIX signal conformance.
 
 ## Existing behavior and the gap
 
@@ -63,3 +63,43 @@ For FPU state, the user trap's authoritative image is `fpu.c`'s per-thread `curr
 Keep the initial public frame at a statically bounded size of at most 1 KiB. With IRQs already excluded and no I/O owner, preflight every covered page for canonical user/write access and the whole frame's overflow, alignment, red-zone and active-frame overlap constraints, then perform the bounded copy without allocation, COW resolution, faulting work, interrupt reenable or scheduler callbacks. The current generic copy preserves an inherited masked state, but the all-pages preflight is additional and mandatory. This requires proof that the accepted mappings are resident and writable for the entire excluded transaction; otherwise reject or defer before committing pending/mask/frame state. Unexpected user mapping failure must terminate delivery safely rather than resume with a partially published handler.
 
 The exact action publication, restart notification and nested-wait mask protocols remain review gates for the later enabling slice. No change to legacy action admission, polling, syscall-safe classification or cancellation is authorized by this first slice. Fork/exec from a new-mode active handler will initially be refused rather than attempt to clone a live saved-return record. Normal thread/process exit still needs explicit record invalidation and waiter failure handling before enabling delivery. Tests must establish that late or stale state cannot attach to a reused slot/image.
+
+
+## Reviewed internal helper slice — November 3, 2026
+
+The process/VMM/teardown owner reviewed design `d71c254c` and explicitly approved
+only aligned internal layouts, individual ISR-field mapping, pure private-record
+validation helpers and host tests. Their required conditions are 16-byte alignment,
+CPL0 rejection before user-only field reads, unchanged state on validation failure,
+generation exhaustion and replay refusal. They did not approve delivery, syscall
+allocation, FPU/return-path changes, public `SA_SIGINFO` admission or capability
+publication. The proposed `!scheduler_io_active()` gate alone was rejected because
+the syscall wrapper already calls `scheduler_user_enter()` before the outer hook.
+
+`kernel/src/arch/x86_64/signal_context.{h,c}` now implements that approved slice.
+The 688-byte snapshot explicitly maps each of the 15 GPRs, RIP/RSP/RFLAGS and the
+supplied 512-byte FPU image. Pure address planning reserves the red zone, aligns
+entry/snapshot addresses and refuses arithmetic errors or overlapping active
+frames. Planning does not validate mappings or publish a frame. A four-record
+private LIFO checks image/thread identity, increasing one-shot tokens and exact
+frame identity. Pop clears the retired record and retains the issued-token high
+watermark. Generation allocation saturates rather than wrapping. No live process
+owns these records yet; no production call site invokes the helpers.
+
+`make test-signal-context` passes on the ARM64 macOS host with strict warnings.
+A separate AddressSanitizer/UndefinedBehaviorSanitizer build passes. Tests include
+distinct register/FPU patterns, exact offsets/alignment, invalid selectors and
+flags, rejected operations leaving outputs/state unchanged, red-zone/overlap
+planning, depth limits, wrong ownership/order/replay and generation exhaustion.
+A real protected page immediately after a CPL0 ISR prefix proves capture refuses
+before reading absent user RSP/SS fields. The actual Makefile x86-64 freestanding
+object target also compiles with pinned Zig 0.15.2, `-mno-sse -mno-sse2`, separate
+caches and at most two jobs. Evidence is retained under
+`build/signal-context/`; this is host/object evidence, not kernel/guest delivery
+acceptance. The helper target is included in `test-core`.
+
+Next: source-level review of the common-return scheduler transition, actual
+entered-user FPU image ownership and fault-free transactional copy. The owner
+explicitly requested these stay as design until that review finishes. The
+existing browser smoke still fails honestly at mandatory `SA_SIGINFO` registration;
+the internal helper slice does not change that result.

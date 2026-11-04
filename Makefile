@@ -1077,7 +1077,7 @@ $(KERNEL): $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_OBJ) kernel/linker.ld
 
 # Early-boot paths and trap-state helpers/diagnostics must not use compiler
 # SSE: it may run before CR4.OSFXSR or clobber registers before they are saved.
-build/kernel/src/arch/x86_64/fpu.c.o build/kernel/src/arch/x86_64/fpu_selftest.c.o build/kernel/src/console.c.o build/kernel/src/memory/mem.c.o build/kernel/src/latency.c.o: build/%.c.o: %.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+build/kernel/src/arch/x86_64/fpu.c.o build/kernel/src/arch/x86_64/fpu_selftest.c.o build/kernel/src/arch/x86_64/signal_context.c.o build/kernel/src/console.c.o build/kernel/src/memory/mem.c.o build/kernel/src/latency.c.o: build/%.c.o: %.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
 	mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -mno-sse -mno-sse2 -c $< -o $@
 
@@ -2135,6 +2135,15 @@ build/tests/fpu-host$(HOST_EXE): tools/test_fpu.c kernel/src/arch/x86_64/fpu.c k
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -mno-sse -mno-sse2 -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
 test-core: test-fpu
+
+.PHONY: test-signal-context
+test-signal-context: build/tests/signal-context-host$(HOST_EXE)
+	$<
+build/tests/signal-context-host$(HOST_EXE): tools/test_signal_context.c kernel/src/arch/x86_64/signal_context.c kernel/src/arch/x86_64/signal_context.h kernel/src/arch/x86_64/isr_frame.h
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror tools/test_signal_context.c kernel/src/arch/x86_64/signal_context.c -o $@
+build/kernel/src/arch/x86_64/signal_context.c.o: kernel/src/arch/x86_64/signal_context.h kernel/src/arch/x86_64/isr_frame.h
+test-core: test-signal-context
 
 .PHONY: test-pmm interrupt-smoke
 test-pmm: build/tests/pmm-host$(HOST_EXE)

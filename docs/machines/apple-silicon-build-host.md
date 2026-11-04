@@ -3480,3 +3480,19 @@ physical work, kernel/SDK build or VM run is claimed by this design checkpoint.
 The separate browser checkout owns the demonstrated app.ld TLS correction and
 its utility/runtime proofs. Preserve the existing review VMs and all other
 owners' device/runtime scopes.
+
+
+### PR334 approved helper slice
+
+The process/VMM/teardown owner approved only internal unwired context layouts,
+explicit ISR mapping, pure validation/record helpers and host tests at design
+`d71c254c`. Implemented private 688-byte aligned snapshots, checked red-zone/frame
+planning, four-deep owner-checked LIFO/replay refusal and saturating generation
+allocation. Strict native host and ASan/UBSan checks pass, including a protected
+page immediately after the CPL0 frame prefix. The actual no-SSE freestanding
+x86-64 Makefile object compiles with pinned Zig 0.15.2 and isolated caches.
+Evidence: `build/signal-context/`. No live process/SDK/API admission or delivery
+hook is enabled; the owner has not approved the next scheduler/FPU/copy slice.
+The inner syscall `scheduler_user_enter()` must be resolved before any outer
+return-hook admission claim. Continue source-level review and primitive tests,
+then matched kernel/SDK and JSC smoke. Existing review VMs remain untouched.
