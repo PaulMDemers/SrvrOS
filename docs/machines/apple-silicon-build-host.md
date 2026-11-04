@@ -2,7 +2,15 @@
 
 ## PR330 merge review
 
-User authorized review and merge if ready. Current main `c90f3522` is already
+Final refresh consumes main `10890eed`/PR329 as `740869f0`. Fresh file-fsync,
+installation/profile/chooser/guest checks and the matched build pass; the full
+seven-error/two-boot production proof was rerun because guest save uses the
+changed syscall. All matrix component hashes still match. Verified raw proof
+and artifacts survive at `.local/installation-evidence/pr330-fsync-review`.
+This supersedes the earlier unchanged-main runtime-equivalence assessment.
+Review VMs remain live and untouched; ready for authorized merge.
+
+Initial review, authorized to merge if ready: main `c90f3522` was already
 integrated in `5d0fa39e`; independent review finds no material blocker or unresolved
 thread. Fresh installation/profile/chooser/guest checks and the matched build
 pass. All matrix/smoke tool and artifact hashes, receipt hashes and the final raw

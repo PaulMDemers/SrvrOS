@@ -2,7 +2,23 @@
 
 ## PR330 merge review and next bounded checkpoint
 
-User authorized review and merge if ready. Latest main remains `c90f3522`;
+Final refresh: main advanced to `10890eed` (PR329) during merge preparation.
+Integrated it as clean candidate `740869f0`. Its file-fsync acknowledgment now
+uses description writeback, retaining the backing-volume transaction barriers;
+global sync/reboot barriers remain separate. Fresh file-fsync regression and
+installation/profile/chooser/guest checks pass, as does the matched full build.
+Because guest save persistence exercises the changed syscall, the complete real
+image seven-error/two-boot proof was rerun and passes at
+`build/review/installation-io/proof-par6_sd9`. All nine recorded host-matrix
+component hashes remain identical, preserving its 436-case acceptance without
+repeating unaffected cases. Both boots preserve identity metadata, exact saved
+data/settings and the historical receipt on used-image refusal. Raw proof and
+matched artifacts are byte-verified at
+`.local/installation-evidence/pr330-fsync-review`; the review receipt below
+records this final refresh. Review VMs remain live and untouched. This supersedes
+the earlier unchanged-main equivalence-only runtime assessment below.
+
+Initial review, authorized to merge if ready: main was `c90f3522`;
 candidate `5d0fa39e` already integrates it. Independent implementation review
 found no material blocker in the checked-write, reconciliation-barrier or
 bounded fault-proof behavior. No submitted correction or unresolved review
