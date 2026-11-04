@@ -28,7 +28,7 @@ def main():
     disk.write_bytes(fixture.data)
     receipt = {'status': 'INCOMPLETE', 'scope': 'actual Terminal functional/expert walkthrough; no user study',
                'source_commit': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
-               'lessons': 'Completion requires the expected status 0/1 and exact report/readback; status 2 is trouble; local patch only on this qualified subset'}
+               'lessons': 'Compare and read a report; patch to a new output; an existing output returns status 2; retry with a new name and preserve the source.'}
     output = bytearray()
     consumed = 0
     with tempfile.TemporaryDirectory(prefix='diff-ui-') as temp:
@@ -99,12 +99,18 @@ def main():
                 shot('01-unified-report')
                 type_text('q')
                 time.sleep(.6)
-                command('patch -i /fat/diff-ui/changes.diff /fat/diff-ui/target.txt', 'patch')
-                command('cmp /fat/diff-ui/target.txt /fat/diff-ui/after.txt', 'compare')
-                command('diff -q /fat/diff-ui/target.txt /fat/diff-ui/after.txt', 'same')
+                command('patch -i /fat/diff-ui/changes.diff -o /fat/diff-ui/restored.txt /fat/diff-ui/target.txt', 'patch')
+                command('cmp /fat/diff-ui/restored.txt /fat/diff-ui/after.txt', 'compare')
+                command('diff -q /fat/diff-ui/restored.txt /fat/diff-ui/after.txt', 'same')
+                command('patch -i /fat/diff-ui/changes.diff -o /fat/diff-ui/restored.txt /fat/diff-ui/target.txt', 'patch-existing')
+                shot('02-patch-existing-error')
+                command('cmp /fat/diff-ui/restored.txt /fat/diff-ui/after.txt', 'existing-unchanged')
+                command('patch -i /fat/diff-ui/changes.diff -o /fat/diff-ui/recovered.txt /fat/diff-ui/target.txt', 'patch-recovery')
+                command('cmp /fat/diff-ui/recovered.txt /fat/diff-ui/after.txt', 'recovery-compare')
+                shot('02-patch-recovery')
                 command('diff /fat/diff-ui/missing.txt /fat/diff-ui/after.txt', 'missing')
                 shot('02-error-feedback')
-                type_text('cat /fat/diff-ui/target.txt\n')
+                type_text('cat /fat/diff-ui/restored.txt\n')
                 time.sleep(.8)
                 type_text('echo DIFF-terminal-complete > /fat/diff-ui/complete.txt\n')
                 time.sleep(.5)
@@ -134,14 +140,17 @@ def main():
                 (out / 'serial.log').write_bytes(output)
                 (out / 'receipt.json').write_text(json.dumps(receipt, indent=2) + '\n')
     actual = ExfatFixture(disk.read_bytes())
-    for name in ('patch', 'compare', 'same'):
+    for name in ('patch', 'compare', 'same', 'existing-unchanged', 'patch-recovery', 'recovery-compare'):
         assert actual.read('diff-ui/' + name + '.status') == b'0\n', name
+    assert actual.read('diff-ui/patch-existing.status') == b'2\n'
     assert actual.read('diff-ui/changed.status') == b'1\n'
     assert actual.read('diff-ui/missing.status') == b'2\n'
     assert actual.read('diff-ui/complete.txt') == b'DIFF-terminal-complete\n'
     assert actual.read('diff-ui/before.txt') == BEFORE
     assert actual.read('diff-ui/after.txt') == AFTER
-    assert actual.read('diff-ui/target.txt') == AFTER
+    assert actual.read('diff-ui/target.txt') == BEFORE
+    assert actual.read('diff-ui/restored.txt') == AFTER
+    assert actual.read('diff-ui/recovered.txt') == AFTER
     assert actual.read('diff-ui/changes.diff') == EXPECTED
     assert b'exception:' not in output and b'deskd: FAIL' not in output
     receipt.update(status='PASS', screenshots='expert visual inspection required',

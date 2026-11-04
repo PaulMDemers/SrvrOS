@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Prototype two-boot bounded patch qualification on a disposable image.
+"""Two-boot bounded patch qualification on a disposable image.
 
 Host references must be GNU diff 3.12 and GNU patch 2.8.1. This harness is
-source-only preparation until the port, diagnostic hooks, and guest execution
-are qualified. It does not claim in-place or general GNU patch compatibility.
+The receipt reports only this harness; GUI, reproducible builds and upstream
+suites are separate gates. It does not claim general GNU patch compatibility.
 """
 import argparse
 import hashlib
@@ -38,9 +38,13 @@ def pairs():
     envelope=longline+(b'x'*24+b'\n')*24+(b'x'*23+b'\n')*(8191-24)
     return {
         'replace':(b'alpha\nbeta\ngamma\n',b'alpha\nnew\ngamma\n',False),
+        'empty-in':(b'',b'created content\n',False),
+        'empty-out':(b'removed content\n',b'',False),
+        'long64-noend':(b'U'*65536,b'U'*65535+b'V',False),
         'insert0':(b'alpha\nbeta\n',b'alpha\nnew\nbeta\n',True),
         'delete0':(b'alpha\nnew\nbeta\n',b'alpha\nbeta\n',True),
         'dash':(b'one\n--- removed\nthree\n',b'one\nreplacement\nthree\n',False),
+        'headerlike':(b'one\n-- removed\nthree\n',b'one\nreplacement\nthree\n',False),
         'multihunk':(text,text.replace(b'line-03\n',b'change-03\n').replace(b'line-24\n',b'change-24\n'),False),
         'nonewline':(b'one\ntwo',b'one\nthree',False),
         'long4':(b'x'*4095+b'\nold\n',b'x'*4095+b'\nnew\n',False),
@@ -73,12 +77,23 @@ def fixtures(host_diff,host_patch):
         files['overflow.patch']=b'--- before\n+++ after\n@@ -999999999999999999999999,1 +1,1 @@\n-old\n+new\n'
         files['multi.patch']=files['replace.patch']+files['replace.patch']
         files['unsafe.patch']=files['replace.patch'].replace(b'--- before\n',b'--- ../../escape\n',1)
+        files['--version']=files['replace.src']
         files['race-source.src']=files['replace.src'];files['race-source.patch']=files['replace.patch']
         files['race-patch.src']=files['replace.src'];files['race-patch.patch']=files['replace.patch']
+        files['race-grow.src']=files['replace.src'];files['race-grow.patch']=files['replace.patch']
         files['unmatched.src']=b'not alpha\nnot beta\nnot gamma\n'
         files['existing.out']=b'existing destination must survive\n'
         files['over-source']=b'x\n'*8193
+        files['over-source-bytes']=(b'x'*65535+b'\n')*4+b'x'
+        files['over-source-line']=b'x'*65536+b'\n'
+        files['nul-source']=b'alpha\x00beta\n'
+        files['nul-patch']=b'--- before\n+++ after\n@@ -1 +1 @@\n-a\x00b\n+c\n'
         files['over-patch']=b'X'*(1024*1024+1)
+        files['over-patch-lines']=b'--- before\n+++ after\n'+b' x\n'*32767
+        files['over-patch-line']=b'--- before\n+++ after\n@@ -1 +1 @@\n-'+b'x'*131072+b'\n'
+        files['output-lines.src']=b'x\n'*8192
+        files['over-output-lines.patch']=make_patch(host_diff,base,files['output-lines.src'],files['output-lines.src']+b'z\n')
+        files['over-output-line.patch']=make_patch(host_diff,base,files['long64.src'],b'L'*65536+b'\n')
         before=files['envelope.src'];after=before[:65536]+b'x'+before[65536:]
         files['over-output.patch']=make_patch(host_diff,base,before,after)
         # A valid hunk whose declared starting line is far from its actual
@@ -97,6 +112,11 @@ def workflow():
     for name in pairs():
         lines.append(f'patch -i {GUEST}{name}.patch -o {GUEST}{name}.out {GUEST}{name}.src > {GUEST}{name}.log 2> {GUEST}{name}.err')
         lines.append(f'echo $? > {GUEST}{name}.status')
+    # The source really is a relative option-looking name, not an absolute
+    # path with a harmless dash later in the string.
+    lines += [f'cd {GUEST}',
+              f'patch -i {GUEST}replace.patch -o {GUEST}dash-operand.out --version > {GUEST}dash-operand.log 2> {GUEST}dash-operand.err',
+              f'echo $? > {GUEST}dash-operand.status']
     failures=[('malformed','malformed.patch','replace.src','malformed.out'),
               ('truncated','truncated.patch','replace.src','truncated.out'),
               ('overflow','overflow.patch','replace.src','overflow.out'),
@@ -106,8 +126,18 @@ def workflow():
               ('existing','replace.patch','replace.src','existing.out'),
               ('alias','replace.patch','replace.src','./replace.src'),
               ('over-source','replace.patch','over-source','over-source.out'),
+              ('source-bytes','replace.patch','over-source-bytes','source-bytes.out'),
+              ('source-line','replace.patch','over-source-line','source-line.out'),
+              ('source-nul','replace.patch','nul-source','source-nul.out'),
+              ('patch-nul','nul-patch','replace.src','patch-nul.out'),
+              ('patch-records','over-patch-lines','replace.src','patch-records.out'),
+              ('patch-line','over-patch-line','replace.src','patch-line.out'),
+              ('missing-source','replace.patch','no-such-source','missing-source.out'),
+              ('missing-patch','no-such-patch','replace.src','missing-patch.out'),
               ('over-patch','over-patch','replace.src','over-patch.out'),
-              ('over-output','over-output.patch','envelope.src','over-output.out')]
+              ('over-output','over-output.patch','envelope.src','over-output.out'),
+              ('output-lines','over-output-lines.patch','output-lines.src','output-lines.out'),
+              ('output-line','over-output-line.patch','long64.src','output-line.out')]
     for name,patch,source,target in failures:
         lines.append(f'patch -i {GUEST}{patch} -o {GUEST}{target} {GUEST}{source} > {GUEST}fail-{name}.log 2> {GUEST}fail-{name}.err')
         lines.append(f'echo $? > {GUEST}fail-{name}.status')
@@ -150,13 +180,20 @@ def main():
     home_before=entries(image,'home');tmp_before=entries(image,'tmp')
     if 'patch-test' in root_before:raise RuntimeError('source image already contains patch-test')
     image.add_directory_files('patch-test',files);disk.write_bytes(image.data)
+    source_files=[p for p in sorted((ROOT/'ports/srvros/patch').rglob('*')) if p.is_file()]
     receipt={'status':'INCOMPLETE','source_disk_sha256':sha(args.disk.read_bytes()),'patch_sha256':sha(binary),
+             'kernel_sha256':sha((ROOT/'build/iso_root/boot/srvros.elf').read_bytes()),
+             'initramfs_sha256':sha((ROOT/'build/iso_root/boot/initramfs.tar').read_bytes()),
+             'port_source_sha256':{str(p.relative_to(ROOT)):sha(p.read_bytes()) for p in source_files},
+             'harness_source_sha256':{str(p.relative_to(ROOT)):sha(p.read_bytes()) for p in (ROOT/'tools/patch_smoke.py',ROOT/'tools/test_patch_probe.c')},
+             'host_reference_binary_sha256':{'diff':sha(Path(args.gnu_diff).read_bytes()),'patch':sha(Path(args.gnu_patch).read_bytes())},
              'runtime_patch_sha256':sha(staged),'probe_sha256':sha(files['patch-probe']),'diagnostic_sha256':sha(files['patch-diagnostic']),
              'fixtures_sha256':{k:sha(v) for k,v in files.items()},'expected_sha256':{k:sha(v) for k,v in expected.items()},
              'host_diff':dv,'host_patch':pv,'source_commit':subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(),
              'source_status':subprocess.check_output(['git','status','--porcelain'],cwd=ROOT,text=True),
              'source_diff_sha256':sha(subprocess.check_output(['git','diff','--binary','HEAD'],cwd=ROOT)),
-             'scope':'prototype; output fault, snapshot race, cancellation and allocation diagnostic checks not yet target-verified'}
+             'scope':'this two-boot guest harness only; diagnostic signals are after progress, not in-syscall; GUI, native upstream tests and reproducible builds separate',
+             'gate_results':{},'pending':['this guest harness','GUI Terminal','native upstream tests','two clean builds']}
     (out/'receipt.json').write_text(json.dumps(receipt,indent=2,sort_keys=True)+'\n')
     print('patch evidence:',out,flush=True)
     with tempfile.TemporaryDirectory(prefix='patch-vm-') as temp:
@@ -199,9 +236,18 @@ def main():
                     if qmp:qmp.stream.close();qmp.sock.close()
                     stop_process(vm);(out/f'serial-{boot}.log').write_bytes(output)
             image=ExfatFixture(disk.read_bytes())
+            # Retain guest files before checking preservation or later gates so
+            # failed comparisons leave directly reviewable evidence as well as
+            # the full disposable image.
+            captured=out/f'guest-boot-{boot}';captured.mkdir()
+            for name in entries(image,'patch-test'):
+                if name not in ('.','..'):
+                    (captured/name).write_bytes(image.read('patch-test/'+name))
             for name,data in files.items():
                 if name in ('race-source.src','race-patch.patch'):
                     if name in entries(image,'patch-test'):raise RuntimeError('race input was not removed: '+name)
+                elif name=='race-grow.src':
+                    if image.read('patch-test/'+name)!=b'G'*(256*1024+1):raise RuntimeError('race input growth differs')
                 elif image.read('patch-test/'+name)!=data:raise RuntimeError('fixture modified: '+name)
     image=ExfatFixture(disk.read_bytes())
     root_after={name for name,_ in image.entries(image.chain(image.root))}
@@ -209,10 +255,13 @@ def main():
         raise RuntimeError('unexpected artifact outside fixture directory')
     def get(name):
         data=image.read('patch-test/'+name);(out/name).write_bytes(data);return data
-    failures=('malformed','truncated','overflow','multi','unsafe','failed-hunk','existing','alias','over-source','over-patch','over-output')
+    failures=('malformed','truncated','overflow','multi','unsafe','failed-hunk','existing','alias',
+              'over-source','source-bytes','source-line','source-nul','patch-nul','patch-records','patch-line',
+              'missing-source','missing-patch','over-patch','over-output','output-lines','output-line')
     names=[f'{n}.{s}' for n in pairs() for s in ('out','log','err','status')]
     names += [f'fail-{n}.{s}' for n in failures for s in ('log','err','status')]
-    names += ['probe.log','probe.err','probe.status','reboot.status','race-source.out','race-patch.out']
+    names += ['probe.log','probe.err','probe.status','reboot.status','race-source.out','race-patch.out','race-grow.out',
+              'dash-operand.out','dash-operand.log','dash-operand.err','dash-operand.status']
     names += [f'alloc-{i}.{s}' for i in (0,1,2,4,8,16,32) for s in ('log','err','status')]
     names += [f'alloc-recovery.{s}' for s in ('out','log','err','status')]
     for name in names:
@@ -220,6 +269,8 @@ def main():
         except StopIteration:pass
     for name,data in expected.items():
         if get(name+'.status')!=b'0\n' or get(name+'.out')!=data:raise RuntimeError('positive fixture failed: '+name)
+    if get('dash-operand.status')!=b'0\n' or get('dash-operand.out')!=expected['replace']:
+        raise RuntimeError('relative --version source was not applied correctly')
     for name in failures:
         expected_status=b'1\n' if name=='failed-hunk' else b'2\n'
         if get('fail-'+name+'.status')!=expected_status:raise RuntimeError('bad status: '+name)
@@ -238,16 +289,31 @@ def main():
     if get('alloc-recovery.status')!=b'0\n' or get('alloc-recovery.out')!=expected['replace']:
         raise RuntimeError('patch failed to recover after allocation diagnostics')
     receipt['allocation_failure_hit_indices']=hits;receipt['allocation_failure_families_observed']=sorted(families)
-    if get('probe.status')!=b'0\n' or b'patch-probe: PASS' not in get('probe.log') or b'PATCH_OUTPUT_LIMIT_ARMED' not in get('probe.log'):raise RuntimeError('probe or output-limit marker failed')
-    for name in ('race-source.out','race-patch.out'):
+    probe_log=get('probe.log')
+    if get('probe.status')!=b'0\n' or b'patch-probe: PASS' not in probe_log or b'PATCH_OUTPUT_LIMIT_ARMED' not in probe_log or b'PATCH_OUTPUT_EFBIG' not in probe_log:
+        raise RuntimeError('probe or output-limit marker failed')
+    for source in (b'source',b'patch',b'grow'):
+        pattern=rb'snapshot race remove='+source+rb' ready=1 removed=1 released=1 wait=[0-9]+ status=0'
+        if len(re.findall(pattern,probe_log))!=1:raise RuntimeError('snapshot race evidence missing: '+source.decode())
+    for signal,status in ((2,130),(15,143)):
+        match=rb'match progress=1 signal='+str(signal).encode()+rb' wait=[0-9]+ status='+str(status).encode()+rb' output-present=0'
+        output=rb'output progress=1 bytes=[1-9][0-9]* signal='+str(signal).encode()+rb' wait=[0-9]+ status='+str(status).encode()+rb' output-present=0'
+        if len(re.findall(match,probe_log))!=2 or len(re.findall(output,probe_log))!=2:
+            raise RuntimeError(f'signal evidence incomplete for {signal}')
+    for name in ('race-source.out','race-patch.out','race-grow.out'):
         if get(name)!=expected['replace']:raise RuntimeError('snapshot race output mismatch: '+name)
     if get('reboot.status')!=b'0\n':raise RuntimeError('saved output differs after reboot')
     allowed=set(files)|set(names)|{f'alloc-{i}.out' for i in (0,1,2,4,8,16,32)}
     extras=entries(image,'patch-test')-allowed
     if extras:raise RuntimeError('unexpected output/temporary/reject artifacts: '+repr(sorted(extras)))
-    receipt['status']='PARTIAL';receipt['pending']=['signal and allocator diagnostic gates','verified GNU output-write failure','real guest acceptance']
+    receipt['status']='PASS'
+    receipt['gate_results']={'two_boot_source_and_output':'PASS','host_reference_fixtures':'PASS',
+        'profile_refusals_and_cleanup':'PASS','allocation_injection':'PASS',
+        'snapshot_races':'PASS','signals_after_match_and_output_progress':'PASS',
+        'post_admission_output_write_efbig':'PASS','guest_fsck_both_boots':'PASS'}
+    receipt['pending']=['GUI Terminal','native upstream tests','two clean builds']
     (out/'receipt.json').write_text(json.dumps(receipt,indent=2,sort_keys=True)+'\n')
-    print('patch prototype: PARTIAL; signal/allocator gates pending:',out,flush=True)
+    print('patch guest harness: PASS scoped checks; separate gates remain:',out,flush=True)
 
 
 if __name__=='__main__':

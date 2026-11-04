@@ -5090,3 +5090,12 @@ record delivery. All owned jobs stopped and each resource slice was released.
 GNU Patch source-only preparation is isolated; further builds require its own
 finite handoff after diff delivery. Review VMs and integration checkout remain
 untouched. No further diff feature is required for this target.
+
+GNU Patch compatibility work now consumes delivered diff: ports `4da8a98b`
+and OS `3fcf2630`, with exact merged trees and port pin verified. Its separate
+checkout reconciles both mains. The explicit ≤30-minute first window covers
+SDK bootstrap, genuine cross-config and port-local compile fixes at ≤2 jobs,
+then one 512 MiB initial guest only after both binaries link. Stop/release on
+shared blocker, first runtime failure, reserve breach, expiry or completion.
+Full qualification is separate. External build/cache/temp and checked reserves
+apply; no unrelated shell quoting or shared runtime change is authorized here.

@@ -618,9 +618,38 @@ configurable context, binary/ignore/regex/color/pager modes and other diffutils
 executables are outside this profile. These caps do not promise a strict RSS or
 interruption latency.
 
-GNU diff supports missing final newlines and zero-count unified hunks. The
-existing compact local `patch` has a narrower tested subset: do not assume it
-can apply every GNU report. Its zero-context insertion, removed `--- ` content,
-missing-final-newline and create/delete cases are not accepted. GNU patch is a
-separate later queue entry; host GNU patch roundtrips are a distinct diff gate.
-Qualification evidence and delivery order are in [the CLI queue](cli-port-queue.md).
+GNU diff supports missing final newlines and zero-count unified hunks. The GNU
+Patch milestone adds a bounded separate-output consumer for its labeled reports:
+
+```sh
+patch -i changes.diff -o restored.txt before.txt
+cmp restored.txt after.txt
+```
+
+The output path must not already exist. The source stays unchanged. Reports use
+safe leaf labels such as before/after or a/name,b/name; absolute/traversal/Git/
+rename/create-delete/multi-file metadata is refused. The previous compact
+command's in-place syntax is intentionally outside the new profile. Historical
+diff evidence used the compact command's narrower subset; GNU Patch acceptance
+is tracked separately in [the CLI queue](cli-port-queue.md).
+
+## GNU Patch single-file output workflow
+
+The GNU Patch 2.8.1 port is under qualification. Use exactly
+`patch -i PATCH -o NEW_OUTPUT SOURCE` on existing regular text input and one
+unified file section. The GNU parser/engine applies forward-only hunks with zero
+fuzz and no prompts, backups, reject files or in-place modification. Status 0 is
+applied, 1 means unapplied hunks, and 2 is trouble. On ordinary failure or caught
+cancellation, cleanup removes the run's own partial output; if ownership or
+cleanup cannot be verified after filesystem failure, the reported path may
+remain. Concurrent/adversarial replacement in the output namespace and power
+loss are outside this guarantee.
+
+Source and output caps are 256 KiB, 8192 physical lines and 64 KiB per line,
+including newline. Patch caps are 1 MiB, 32768 records and 128 KiB per record;
+declared hunk ranges are bounded before GNU allocates arrays. NUL and unsupported
+metadata/modes are refused. Input snapshots keep later GNU reads tied to the
+admitted data. The first target boot passes named hunk edge cases and basic
+source/cleanup/status checks, but full memory, signal, write-failure, snapshot
+race, two-boot, reproducibility and Terminal gates remain pending. This is not
+general GNU Patch or atomic filesystem acceptance.

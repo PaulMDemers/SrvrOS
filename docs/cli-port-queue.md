@@ -9,8 +9,8 @@ reservation for the next milestone.
 
 | Order | Application | Bounded outcome | State |
 | --- | --- | --- | --- |
-| 1 | GNU Diffutils 3.12 `diff` | Correct normal/quiet/unified comparison of two capped text files; long lines and 0/1/2 statuses; host patch validation and explicit local-patch subset. | Qualified: all bounded gates and independent review pass; port-first/OS-second delivery recorded in linked PRs. |
-| 2 | GNU Patch 2.8.1 | Apply a bounded single-file unified patch to an explicit separate output; preserve source, reject ambiguous/unsafe paths and failed hunks; qualify the diff edge cases excluded by the compact local patch. | Source-only preparation in isolated `SrvrOS-ports-patch` from `88a95f9a`; authenticated pristine 2.8.1 imported. No build/VM/PR/merge before diff delivery and a fresh slot. |
+| 1 | GNU Diffutils 3.12 `diff` | Correct normal/quiet/unified comparison of two capped text files; long lines and 0/1/2 statuses; host patch validation and explicit local-patch subset. | Delivered and verified: ports PR11 `4da8a98b`, then OS PR369 `3fcf2630`; exact trees and reachable pin checked. |
+| 2 | GNU Patch 2.8.1 | Apply a bounded single-file unified patch to an explicit separate output; preserve source, reject ambiguous/unsafe paths and failed hunks; qualify the diff edge cases excluded by the compact local patch. | Active in isolated `SrvrOS-ports-patch`, reconciled with delivered diff/main `3fcf2630`; genuine SDK cross-configuration/link compatibility gate underway. |
 | 3 | GNU Grep 3.12 | C-locale text search over bounded files/finite stdin; fixed strings and qualified BRE/ERE, useful match/count/quiet status contracts. No PCRE, recursion, color or Unicode claims. | Queued: authenticate/pin stable release and qualify regex/SDK/memory/cancellation gates. |
 | 4 | GNU Coreutils 9.12 `sha256sum` | File/stdin SHA-256 and a bounded explicit verification manifest; exact known vectors and failure statuses. No broader coreutils import or automatic filesystem traversal. | Queued: authenticate/pin stable release and bound manifest/path behavior. |
 
@@ -67,3 +67,20 @@ unverified. Reconcile with delivered diff/main before building; do not merge
 unqualified source to maintain queue momentum. Grep/coreutils source signatures
 and digests are prepared and must be rechecked at entry. All four rows remain
 authorized; no new Proceed is required, but no later heavy slot is assumed.
+
+GNU Patch current window: ≤30 minutes for SDK bootstrap, genuine cross-config
+and sequential port-local compile fixes at ≤2 jobs, then at most one 512 MiB
+initial guest after production/diagnostic link. Stop/release on a shared blocker,
+first runtime failure, reserve breach, expiry or completion. Full qualification,
+reproducibility, Terminal and regressions require later handoffs. Caller tests
+migrate in-place syntax to explicit new output while preserving source.
+
+GNU Patch initial compatibility outcome: genuine production/diagnostic and
+matched-image builds pass. Initial dirty-source proof
+`build/review/patch/first-mr6qicc4` passes named hunk edge cases, relative
+--version source, source preservation, exclusive-output/legacy refusals, failed
+hunk status 1 with output removed and fsck. No shared runtime change. The slice
+is explicitly released. Full ≤40-minute/two-clean-build/seven-512-MiB-guest
+qualification request is queued, not granted; no acceptance or merge yet.
+Pinned dependency and alternate-depth setup failures remain historical evidence;
+direct owned reference stores solved them without changing older checkouts.
