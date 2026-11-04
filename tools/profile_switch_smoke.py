@@ -163,6 +163,9 @@ def active_io_waves(vm):
     # operation retires. This allows both races to run in the same A session.
     terminal, term_pid, term_window, term_frame = launch(vm, 'Terminal', rb'deskterm: ready shell=\d+')
     files, file_pid, file_window, frame = launch(vm, 'Files', rb'desktools: starting role=files')
+    # The first frame precedes the asynchronous initial directory listing.
+    # Location controls remain busy until its authoritative completion.
+    observe(vm, rb'files-location path=' + re.escape(A.encode()) + rb' history=', files)
     vm.key('ctrl-l'); vm.key('ctrl-a'); t.text(vm, A + '/Documents'); vm.key('ret')
     observe(vm, rb'files-location path=' + re.escape((A + '/Documents').encode()), files)
     observe(vm, rb'file-result role=files op=3 status=0', files)
