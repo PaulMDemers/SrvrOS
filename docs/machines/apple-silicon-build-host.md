@@ -1,5 +1,33 @@
 # Apple Silicon macOS build host
 
+## Session switching — integration review in progress November 4, 2026
+
+User authorizes ending sessions and switching profiles without reboot, with
+unsaved-work handling, clean shutdown, settings isolation and merge when ready.
+Coordinator reuses `SrvrOS-migration-review`, initially based on actual main
+`f7ec75e7`. Required runtime dependency is on `device/apple-silicon/session-scope`
+(PR #354); profiles owner supplies OS/Apps/chooser changes in its isolated
+checkout. Runtime owner independently reviews process ownership and retirement.
+Browser owner released the heavy build/VM window; other evidence and review VMs
+remain preserved.
+
+Clean `cd93e1eb` passes the full matched macOS build. Strict host process/service,
+loader, lifetime, syscall validation and scheduler tests pass; relevant fixtures
+also pass ASan/UBSan. Follow-up `e3eeaf21` contains only comment/test closure.
+`build/review/session-scope/result.json` records two successful guest scope runs,
+live init PID 1 before/after, inherited lifetime, PTY and syscall ABI regressions.
+The probe proves held descendants prevent release and natural exit allows ordinary
+init reaping; it does not qualify operation without an init reaper. The first
+harness attempt used a shell command at the monitor and was corrected to execute
+`/fat/bin/sysabi`; its log is retained separately. No production failure occurred.
+
+Parent build uses a new 16 GiB regular-file APFS image on miniTB, mounted beneath
+`.local/session-switch-review/runtime-volume`; `build` links to that volume.
+Prior profile-creation and installation raw paths/inodes and evidence volumes are
+untouched. Host receipts and storage record are in `.local/session-switch-review`.
+No physical-media acceptance is claimed. Desktop integration and its full proof
+remain pending; Actions remain disabled.
+
 ## Desktop profile creation — integration delivered November 4, 2026
 
 Coordinator used `SrvrOS-migration-review` on

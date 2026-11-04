@@ -10,8 +10,8 @@ static unsigned gate_samples;
 void latency_gate(uint64_t at,uint64_t call) {assert(at==1 && (call==SYS_MMAP || call==SYS_THREAD_CREATE));gate_samples++;}
 static unsigned turn_requests;
 static bool retired;
-static bool wait_pointer_ok=true;static unsigned wait_attempts;
-bool vmm_user_range_mapped(uint64_t address,uint64_t length,bool write) {(void)address;(void)length;(void)write;return wait_pointer_ok;}
+static bool wait_pointer_ok=true,scope_write_ok=true;static unsigned wait_attempts;
+bool vmm_user_range_mapped(uint64_t address,uint64_t length,bool write) {(void)address;(void)length;return wait_pointer_ok && (!write || scope_write_ok);}
 bool process_try_wait_retired(uint64_t pid,uint64_t *status,int64_t *result) {assert(pid==42);wait_attempts++;if(!retired)return false;*status=9;*result=42;return true;}
 int64_t process_wait(uint64_t pid,uint64_t *status,bool nohang) {assert(pid==42 && !busy && !user_safe && nohang);*status=0;return 0;}
 int64_t process_wait_posix(int64_t pid,uint64_t *status,bool nohang) {(void)pid;(void)status;(void)nohang;assert(0);return -1;}
@@ -153,7 +153,55 @@ static void test_pipe_retry_admission(void) {
     busy=false;
     puts("pipe-retry-admission: PASS read/write/duplex/PTY, repeated requests, blocking/invalid/nonpipe exclusion and cleanup safety");
 }
+/* Exercise the real syscall validation/copy dispatch with a controlled process backend. */
+static bool scope_live,scope_revoked,scope_pending;
+static uint64_t scope_next=100;
+int64_t process_scope_create(uint64_t *out) {scope_live=true;scope_revoked=false;*out=scope_next++;return 0;}
+int64_t process_scope_reserve(uint64_t token) {if(!scope_live || token!=scope_next-1)return SRV_ERR_INVAL;scope_pending=true;return 0;}
+void process_scope_cancel_reservation(uint64_t token) {(void)token;scope_pending=false;}
+int64_t process_scope_control(unsigned op,uint64_t token,struct srv_scope_status *out) {
+    if(!scope_live || token!=scope_next-1)return SRV_ERR_INVAL;
+    if(op==SRV_SCOPE_REVOKE)scope_revoked=true;
+    else if(op==SRV_SCOPE_RELEASE) {if(!scope_revoked)return SRV_ERR_BUSY;scope_live=false;}
+    else if(op==SRV_SCOPE_STATUS && out) *out=(struct srv_scope_status){.version=SRV_SCOPE_VERSION,.size=sizeof(*out),.members=2};
+    else return SRV_ERR_INVAL;
+    return 0;
+}
+int64_t process_scope_reap(uint64_t token) {(void)token;return 0;}
+void process_refresh_mappings(struct process *p) {(void)p;}
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+int64_t process_exec_replace(const char *p,uint64_t a,const char *const *v,uint64_t e,const char *const *ev,int64_t in,int64_t out,int64_t err,uint64_t f,uint64_t m,uint64_t d) {return SRV_ERR_INVAL;}
+int64_t process_spawn_exec_scoped(uint64_t t,const char *p,uint64_t a,const char *const *v,uint64_t e,const char *const *ev,bool detached,int64_t in,int64_t out,int64_t err,uint64_t g,bool fg,const struct process_spawn_file_action *actions,uint64_t count,uint64_t f,uint64_t m,uint64_t d) {return SRV_ERR_INVAL;}
+#pragma GCC diagnostic pop
+static void scope_syscall_contract(void) {
+    uint64_t token=999;scope_write_ok=false;
+    assert(syscall_session_scope(SRV_SCOPE_CREATE,0,&token)==SRV_ERR_FAULT && token==999 && !scope_live);
+    scope_write_ok=true;assert(!syscall_session_scope(SRV_SCOPE_CREATE,0,&token));
+    struct srv_scope_status st={.version=SRV_SCOPE_VERSION,.size=sizeof(st),.members=99};
+    struct srv_scope_status before=st;scope_write_ok=false;
+    assert(syscall_session_scope(SRV_SCOPE_STATUS,token,&st)==SRV_ERR_FAULT && !__builtin_memcmp(&st,&before,sizeof(st)));
+    scope_write_ok=true;st.version=2;before=st;
+    assert(syscall_session_scope(SRV_SCOPE_STATUS,token,&st)==SRV_ERR_INVAL && !__builtin_memcmp(&st,&before,sizeof(st)));
+    st.version=SRV_SCOPE_VERSION;st.size--;before=st;
+    assert(syscall_session_scope(SRV_SCOPE_STATUS,token,&st)==SRV_ERR_INVAL && !__builtin_memcmp(&st,&before,sizeof(st)));
+    st.size=sizeof(st);st.reserved=1;before=st;
+    assert(syscall_session_scope(SRV_SCOPE_STATUS,token,&st)==SRV_ERR_INVAL && !__builtin_memcmp(&st,&before,sizeof(st)));
+    st.reserved=0;before=st;
+    assert(syscall_session_scope(SRV_SCOPE_STATUS,token+1,&st)==SRV_ERR_INVAL && !__builtin_memcmp(&st,&before,sizeof(st)));
+    struct syscall_exec_request exec={.flags=SRV_EXEC_BACKGROUND,.path=NULL};
+    struct srv_scope_exec req={.version=SRV_SCOPE_VERSION,.size=sizeof(req),.request=(const struct srv_exec_request *)&exec};
+    assert(syscall_session_scope(SRV_SCOPE_EXEC,token,&req)==SRV_ERR_FAULT && !scope_pending);
+    assert(!syscall_session_scope(SRV_SCOPE_REVOKE,token,NULL));
+    assert(!syscall_session_scope(SRV_SCOPE_RELEASE,token,NULL));
+    puts("session-scope-syscall: PASS output fault rollback, validation, stale handle and failed deep copy cleanup");
+}
+
 int main(void) {
+    scope_syscall_contract();
+    struct srv_scope_status source={.version=SRV_SCOPE_VERSION,.size=sizeof(source),.members=17}, destination={.members=99};
+    wait_pointer_ok=false;assert(!scope_publish(&destination,&source,sizeof(source)) && destination.members==99);
+    wait_pointer_ok=true;assert(scope_publish(&destination,&source,sizeof(source)) && destination.members==17);
     test_close_admission();
     test_unmap_admission();
     struct isr_frame frame={.rax=SYS_READ,.rdi=0};
@@ -170,7 +218,7 @@ int main(void) {
     frame.rax=SYS_SCHED_TRACE;assert(syscall_io_safe(&frame));
     frame.rax=SYS_GUI_SERVER_WAIT;assert(syscall_io_safe(&frame));
     const uint64_t blocked[]={SYS_SIGNAL_POLL,SYS_SIGNAL_CONSUME,SYS_OPEN,SYS_FS_WRITE,SYS_SYNC,SYS_EXIT,SYS_PREAD,SYS_PWRITE,SYS_VECTOR_IO,SYS_PIPE2,SYS_DUP3,SYS_PIPE_PAIR_FLAGS,SYS_THREAD_SIGNAL,
-        SYS_SOCKET_TRY_IO,SYS_PIPE_MESSAGE,SYS_KILL,SYS_SPAWN,SYS_FILE_CHANGE,UINT64_MAX};
+        SYS_SOCKET_TRY_IO,SYS_PIPE_MESSAGE,SYS_SESSION_SCOPE,SYS_KILL,SYS_SPAWN,SYS_FILE_CHANGE,UINT64_MAX};
     for(unsigned i=0;i<sizeof(blocked)/sizeof(*blocked);i++) {
         frame.rax=blocked[i];assert(!syscall_io_safe(&frame));
     }
