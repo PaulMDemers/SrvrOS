@@ -1,3 +1,4 @@
+#include <srvros/session_scope.h>
 #include <srvros/path_limits.h>
 #include <srvros/devices.h>
 #include <srvros/wifi_service.h>
@@ -1162,7 +1163,7 @@ static int64_t copy_user_string_vector(char *const *user_vector,
     return SRV_ERR_2BIG;
 }
 
-static int64_t syscall_exec(const struct syscall_exec_request *user_request) {
+static int64_t syscall_exec(const struct syscall_exec_request *user_request,uint64_t scope_token) {
     struct syscall_exec_request request;
     char path[MAX_PATH_LENGTH];
     char vector_storage[SRV_EXEC_BYTES_MAX];
@@ -1177,6 +1178,7 @@ static int64_t syscall_exec(const struct syscall_exec_request *user_request) {
     int64_t result;
 
     if(!copy_from_user(&request,user_request,sizeof(request))) return SRV_ERR_FAULT;
+    if(scope_token && (!(request.flags&SRV_EXEC_BACKGROUND) || (request.flags&SRV_EXEC_REPLACE))) return SRV_ERR_INVAL;
     if(request.flags&~(SRV_EXEC_BACKGROUND|SRV_EXEC_REPLACE|SRV_EXEC_SET_SIGNAL_DEFAULT|SRV_EXEC_SET_SIGNAL_MASK|SRV_EXEC_INHERIT_FILES)) return SRV_ERR_INVAL;
     if((request.flags&SRV_EXEC_REPLACE) && (request.file_action_count || (request.flags&SRV_EXEC_INHERIT_FILES))) return SRV_ERR_INVAL;
     if((request.flags&SRV_EXEC_INHERIT_FILES) && (request.stdin_fd!=-1 || request.stdout_fd!=-1 || request.stderr_fd!=-1)) return SRV_ERR_INVAL;
@@ -1212,7 +1214,7 @@ static int64_t syscall_exec(const struct syscall_exec_request *user_request) {
             request.signal_mask,
             request.signal_default);
     } else {
-        result = process_spawn_exec(path,
+        result = process_spawn_exec_scoped(scope_token,path,
             argc,
             argv,
             envc,
@@ -1232,6 +1234,44 @@ static int64_t syscall_exec(const struct syscall_exec_request *user_request) {
     irq_restore(flags);
     process_refresh_mappings(process_current());
     return result;
+}
+
+static bool scope_publish(void *destination,const void *source,uint64_t size) {
+    uint64_t flags=irq_save();
+    bool ok=user_buffer_ok(destination,size,true) && copy_to_user(destination,source,size);
+    irq_restore(flags);return ok;
+}
+
+static int64_t syscall_session_scope(uint64_t op,uint64_t token,void *payload) {
+    if(op==SRV_SCOPE_CREATE) {
+        uint64_t created=0;if(token || !payload) return SRV_ERR_INVAL;
+        int64_t result=process_scope_create(&created);if(result) return result;
+        if(!scope_publish(payload,&created,sizeof(created))) {
+            (void)process_scope_control(SRV_SCOPE_REVOKE,created,NULL);
+            (void)process_scope_control(SRV_SCOPE_RELEASE,created,NULL);
+            return SRV_ERR_FAULT;
+        }
+        return 0;
+    }
+    if(op==SRV_SCOPE_EXEC) {
+        struct srv_scope_exec request;
+        if(!payload || !copy_from_user(&request,payload,sizeof(request))) return SRV_ERR_FAULT;
+        if(request.version!=SRV_SCOPE_VERSION || request.size!=sizeof(request) || request.reserved) return SRV_ERR_INVAL;
+        int64_t result=process_scope_reserve(token);if(result) return result;
+        result=syscall_exec((const struct syscall_exec_request *)request.request,token);
+        process_scope_cancel_reservation(token);return result;
+    }
+    if(op==SRV_SCOPE_STATUS) {
+        struct srv_scope_status status;
+        if(!payload || !copy_from_user(&status,payload,sizeof(status))) return SRV_ERR_FAULT;
+        if(status.version!=SRV_SCOPE_VERSION || status.size!=sizeof(status) || status.reserved) return SRV_ERR_INVAL;
+        int64_t result=process_scope_control(op,token,&status);
+        if(result) return result;
+        return scope_publish(payload,&status,sizeof(status))?0:SRV_ERR_FAULT;
+    }
+    if(payload) return SRV_ERR_INVAL;
+    if(op==SRV_SCOPE_REAP_RETIRED) return process_scope_reap(token);
+    return process_scope_control(op,token,NULL);
 }
 
 static int64_t syscall_fs_write(const char *user_path, const uint8_t *buffer, uint64_t length) {
@@ -3720,8 +3760,11 @@ static void syscall_dispatch_impl(struct isr_frame *frame) {
     case SYS_FSYNC:
         frame->rax = (uint64_t)syscall_fsync(frame->rdi);
         return;
+    case SYS_SESSION_SCOPE:
+        frame->rax = (uint64_t)syscall_session_scope(frame->rdi,frame->rsi,(void *)frame->rdx);
+        return;
     case SYS_EXEC:
-        frame->rax = (uint64_t)syscall_exec((const struct syscall_exec_request *)frame->rdi);
+        frame->rax = (uint64_t)syscall_exec((const struct syscall_exec_request *)frame->rdi,0);
         return;
     case SYS_TTY_GETATTR:
         frame->rax = (uint64_t)syscall_tty_getattr(frame->rdi, (struct srv_termios *)frame->rsi);

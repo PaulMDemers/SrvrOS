@@ -14,7 +14,10 @@ static bool wifi_passive_inspect(void *context,uint32_t tx,uint32_t ibi) {
     if(!wifi_poweron_inspect(d,tx,ibi) || !wifi_passive_owned(d))return false;
     console_write("wifi-passive-progress: polling one retained main IN up to1000000us; decode only after MAC disable and exact stop\n");
     uint64_t start=timer_monotonic_us(),previous=start;unsigned stalled=0;s->waiting=true;
-    for(unsigned n=0;n<XHCI_TRANSFER_TIMEOUT;n++) {
+    /* Independent1s diagnostic cap;generic host transfer-timeout fixtures
+     * must not shorten the requested receive observation. Production bound
+     * remains the historical20000000 iterations plus clock/deadline checks. */
+    for(unsigned n=0;n<20000000u;n++) {
         uint64_t now=timer_monotonic_us();
         /* Do not repeat the whole ownership proof millions of times when the
          * clock is frozen. Normal captured clocks advance between checks. */

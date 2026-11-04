@@ -1,6 +1,6 @@
 /* Explicit firmware diagnostic only. No network provider or RF setup. */
 static bool wifi_firmware_owned(struct xhci_device *d) {
-    return d->firmware.active && d->firmware.configured && !d->firmware.failed &&
+    return !xhci.stopping && !d->removed && !d->retiring && d->firmware.active && d->firmware.configured && !d->firmware.failed &&
         !d->ep0_quarantined && d->wifi_probe_ok &&
         d->wifi_identity.asic==0x76100002 && d->wifi_identity.mac==0x76502000;
 }

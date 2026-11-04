@@ -47,7 +47,7 @@ static uint64_t read_cr3(void) {
 
 static void write_cr3(uint64_t value) {
 #ifdef SRVROS_VMM_HOST_TEST
-    (void)value;
+    vmm_test_write_cr3(value);
 #else
     __asm__ volatile ("mov %0, %%cr3" : : "r"(value) : "memory");
 #endif
@@ -242,7 +242,8 @@ static bool map_page_in_space(uint64_t address_space,
     uint64_t physical_address,
     uint64_t flags,
     bool allow_existing) {
-    if ((virtual_address % PAGE_SIZE) != 0 || (physical_address % PAGE_SIZE) != 0) {
+    if (!is_canonical(virtual_address) ||
+        (virtual_address % PAGE_SIZE) != 0 || (physical_address % PAGE_SIZE) != 0) {
         return false;
     }
     if (address_space == 0) {
@@ -323,7 +324,7 @@ bool vmm_unmap_page_in_space(uint64_t address_space,
     uint64_t *pt;
     uint64_t entry;
 
-    if ((virtual_address % PAGE_SIZE) != 0) {
+    if (!is_canonical(virtual_address) || (virtual_address % PAGE_SIZE) != 0) {
         return false;
     }
     if (address_space == 0) {
@@ -382,7 +383,7 @@ bool vmm_protect_page_in_space(uint64_t address_space,
     uint64_t *pt;
     uint64_t entry;
 
-    if ((virtual_address % PAGE_SIZE) != 0) {
+    if (!is_canonical(virtual_address) || (virtual_address % PAGE_SIZE) != 0) {
         return false;
     }
     if (address_space == 0) {
@@ -441,7 +442,7 @@ bool vmm_virt_to_phys_in_space(uint64_t address_space,
     uint64_t *pd;
     uint64_t *pt;
     uint64_t entry;
-    if (physical_address == NULL) {
+    if (physical_address == NULL || !is_canonical(virtual_address)) {
         return false;
     }
     if (address_space == 0) {

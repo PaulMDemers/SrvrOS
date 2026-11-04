@@ -222,7 +222,7 @@ Home is `/fat/home` normally and `/work/srvros-work` for the prepared USB laptop
 
 | Application | Current useful workflows |
 | --- | --- |
-| Files | Places and location browsing; Back/Forward; sortable details; create folders; open, rename, duplicate, inspect, or permanently delete selected items |
+| Files | Places and location browsing; Back/Forward; sortable details; create folders; open, rename, duplicate, copy or move files to another folder, inspect, or permanently delete selected items |
 | Text | Open/edit/save UTF-8 text; selection and clipboard; Find/Replace and Replace All; multi-step undo/redo; draggable horizontal and vertical scrollbars |
 | Terminal | A real PTY-backed shell; scrollback, selection/copy, foreground signals, resize, and independent sessions |
 | Preview | Open PNG/JPEG/BMP; fit, zoom and pan; open the image in Sketch |
@@ -237,7 +237,8 @@ Home is `/fat/home` normally and `/work/srvros-work` for the prepared USB laptop
 
 App menus display the relevant shortcuts. Text uses Ctrl-O/S/F/H for Open, Save,
 Find and Replace; Files uses Ctrl-L for location, Ctrl-F to search the current
-folder and Ctrl-I for item information. Terminal reserves Control keys for the
+folder and Ctrl-I for item information. Ctrl-Shift-C and Ctrl-Shift-M open
+Copy to and Move to for a selected file. Terminal reserves Control keys for the
 foreground program: Ctrl-C interrupts it, Ctrl-Shift-C/V copy/paste, and
 Shift-PageUp/PageDown scroll. A shell that exits leaves its terminal output
 visible until the window closes.
@@ -320,6 +321,18 @@ at the current folder. Each window has independent navigation, history and
 selection. Ctrl-W closes that window; Ctrl-Q closes the Files application
 sequentially. Rename, Duplicate and Delete use owned dialogs, with embedded
 fallback if dialog admission is refused. Other Files windows remain usable.
+Copy to and Move to open an owned destination-folder picker. Enter or double-click
+opens a subfolder; Up returns to its parent. Choose folder confirms the displayed
+folder, including one with no subfolders. Ctrl-L accepts an absolute folder path
+for direct navigation. The picker shows folders only and retains the original
+file name. Cancel remains available while a folder loads; an unavailable folder
+must be refreshed or replaced by a successful browse before confirmation.
+After verified completion, Files opens that folder and selects the transferred
+file. Back returns to the source folder. Copy keeps the original; Move uses a
+guarded rename within the same mounted volume. Existing destination names are
+refused. Cancellation and known refusals preserve the source view. If completion
+could not be verified, check both folders before retrying: an I/O error can occur
+after a change has already taken effect.
 
 Files and Text share the [window/model ownership layer](desktop-window-ownership.md)
 and each process uses a lazy file-worker pool with at most two transport
@@ -366,8 +379,9 @@ provide power-loss atomicity.
 - Text documents and clipboard payloads are bounded to 64 KiB. Text keeps at
   most 256 undo records within its history arena. Editing is Unicode-codepoint
   based; shaping, grapheme clusters, IME and complete keyboard layouts are open.
-- Files duplicates individual files up to 16 MiB. Directory deletion requires
-  an empty directory; there is no recursive copy, Trash or undo for file deletion.
+- Files Copy to, Move to and Duplicate support individual files up to 16 MiB.
+  Move to requires one mounted volume. Directory deletion requires an empty
+  directory; there is no recursive folder transfer, Trash or undo for deletion.
 - File lists and search results retain at most 256 entries and report limits.
   Actionable paths are at most 159 bytes. Find Files searches names, with ASCII
   case folding; it is not content indexing or a symlink-aware search service.

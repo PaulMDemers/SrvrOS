@@ -169,7 +169,7 @@ def main():
     wifi_firmware=wifi_firmware or wifi_ui_capture or wifi_5ghz_prereq
     wifi_calibration=bool(probe and "srvros.capture=wifi-calibration" in (source/"limine.conf").read_text())
     wifi_capture=wifi_firmware or wifi_calibration or bool(probe and manifest["config_version"].startswith("ram-usb-v39-"))
-    hsw_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v1-hsw-","ram-usb-v2-hsw-")))
+    hsw_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v1-hsw-","ram-usb-v2-hsw-","ram-usb-v3-hsw-")))
     ap_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v1-ap-owner-"))
     coord_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v1-ap-c3-","ram-usb-v1-ap-package-","ram-usb-v1-ap-platform-")))
     if args.ap_c3_sim and not coord_capture: parser.error("C3 simulation requires coordinated diagnostic stage")
@@ -454,6 +454,7 @@ def main():
                         result=backing_result(exit_log)
                         assert result and result['status']=='REFUSED' and result['source_status']==2
                         if manifest['config_version'].startswith('ram-usb-v2-hsw-'):assert result['source_version']==2
+                        if manifest['config_version'].startswith('ram-usb-v3-hsw-'):assert result['source_version']==3
                         assert 'hsw-backing-progress: exact Air6,1' in exit_log
                         assert 'laptop-capture: completed=NO' in exit_log
                     if ap_capture:

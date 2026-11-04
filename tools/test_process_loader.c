@@ -5,10 +5,27 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <setjmp.h>
 #define SRVROS_PROCESS_HOST_TEST
 #include "../kernel/src/process.c"
 void scheduler_wake_all(struct scheduler_wait_queue *queue) { (void)queue; }
+bool exfat_write_file_retryable(const char *p,const uint8_t *d,uint64_t n,bool *r) {(void)p;(void)d;(void)n;(void)r;assert(0);return false;}
+int64_t net_close(uint64_t h) {(void)h;assert(0);return -1;}
+int64_t net_hold(uint64_t h) {(void)h;assert(0);return -1;}
+void pty_close(uint64_t h,bool m) {(void)h;(void)m;assert(0);}
+bool pty_ref(uint64_t h,bool m) {(void)h;(void)m;assert(0);return false;}
 static struct process first, second,clone;
+static struct process *current;
+static bool exec_commit_test;
+static jmp_buf exec_commit;
+/* Exec now allocates privately and performs its own batched initialization. */
+void *kmalloc(size_t size) {assert(size==sizeof(clone));memset(&clone,0xa5,sizeof(clone));return &clone;}
+bool scheduler_io_active(void) {return false;}
+void *kcalloc(size_t count,size_t size) {assert(count==1 && size==sizeof(clone));memset(&clone,0,sizeof(clone));return &clone;}
+void kfree(void *p) {assert(p==&clone);}
+void scheduler_clear_user_context(void) {assert(exec_commit_test && current && !current->owned_user_scope);longjmp(exec_commit,1);}
+void scheduler_set_user_context(void *p,uint64_t as,uint64_t stack) {(void)p;(void)as;(void)stack;assert(0);}
+void usermode_enter(uint64_t a,uint64_t b,uint64_t c,uint64_t d,uint64_t e,uint64_t f) {(void)a;(void)b;(void)c;(void)d;(void)e;(void)f;abort();}
 static unsigned destroyed_spaces;
 bool vmm_create_address_space(uint64_t *out) { *out=3;return true; }
 void vmm_destroy_address_space(uint64_t space) { assert(space==3);destroyed_spaces++; }
@@ -17,7 +34,7 @@ static unsigned allocated, freed, fail_after;
 static bool freed_frames[4096];
 static bool interleave,allocating,releasing;
 static struct process *nested;
-void *scheduler_current_user_context(void) { return NULL; }
+void *scheduler_current_user_context(void) { return current; }
 void *scheduler_current_user_thread_context(void) { return NULL; }
 void fpu_init_state(struct fpu_state *state) { memset(state,0,sizeof(*state)); }
 uint64_t gdt_default_kernel_stack_top(void) {
@@ -173,6 +190,22 @@ static void test_elf_loading(void) {
     cleanup_process_address_space(&clone);
     memset(freed_frames,0,sizeof(freed_frames)); allocated=freed=0; destroyed_spaces=0;
 }
+static void test_scope_exec_hooks(void) {
+    current=&processes[0];clear_process(current);current->allocated=current->active=true;current->pid=44;
+    uint64_t token=0;assert(!process_scope_create(&token));
+    const char *args[]={"test"};
+    int64_t result=process_exec_replace("/fat/bin/test",1,args,0,NULL,123,-1,-1,0,0,0);
+    if(result!=SRV_ERR_BADF) fprintf(stderr,"exec result %lld\n",(long long)result);
+    assert(result==SRV_ERR_BADF);
+    assert(current->owned_user_scope==token && lifetime_find(token));
+    exec_commit_test=true;
+    if(!setjmp(exec_commit)) process_exec_replace("/fat/bin/test",1,args,0,NULL,-1,-1,-1,0,0,0);
+    exec_commit_test=false;assert(!current->owned_user_scope && !lifetime_find(token));
+    cleanup_process_address_space(&clone);current=NULL;clear_process(&processes[0]);
+    memset(freed_frames,0,sizeof(freed_frames));allocated=freed=destroyed_spaces=0;
+    puts("session-scope-exec: PASS failed stdio retains owner; successful commit detaches before old image retirement");
+}
+
 static void test_real_elf(const char *path) {
     FILE *f=fopen(path,"rb"); assert(f); assert(!fseek(f,0,SEEK_END));
     long n=ftell(f); assert(n>0 && !fseek(f,0,SEEK_SET));
@@ -186,6 +219,7 @@ static void test_real_elf(const char *path) {
 
 int main(int argc, char **argv) {
     test_elf_loading();
+    test_scope_exec_hooks();
     for(int i=1;i<argc;i++) test_real_elf(argv[i]);
     allocating=true;
     struct process *p=alloc_process("first",false);

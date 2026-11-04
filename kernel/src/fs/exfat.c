@@ -3963,6 +3963,11 @@ static bool mount_image_impl(const char *mountpoint, const uint8_t *image, uint6
     return true;
 }
 
+#ifdef SRVROS_EXFAT_HOST_TEST
+/* Private native-inspector mode. Never compiled into the OS. */
+static bool host_inspection_readonly;
+#endif
+
 static bool mount_block_device(const char *mountpoint, struct block_device *device, uint64_t claim, bool clean) {
     uint64_t size = block_device_size(device);
     if (!valid_mountpoint(mountpoint) || device == NULL || size < sizeof(struct exfat_boot_sector)) {
@@ -4008,6 +4013,11 @@ static bool mount_block_device(const char *mountpoint, struct block_device *devi
         struct exfat_check_result check = {0};
         if (!check_mount(mount, &check)) mount->volume.write_blocked = true;
     }
+#ifdef SRVROS_EXFAT_HOST_TEST
+    /* load_mount_metadata(false) must return before parsing/replaying sidecars.
+     * The diagnostic caller also supplies no write/flush capabilities. */
+    if (host_inspection_readonly) mount->volume.write_blocked = true;
+#endif
     if (mount->volume.write_blocked)
         console_printf("exfat: %s requires filesystem recovery or unsupported bitmap; writes disabled\n", mountpoint);
     struct block_device *parent = block_parent(device);
@@ -4046,6 +4056,22 @@ bool exfat_mount_block_device_clean(const char *mountpoint, struct block_device 
     if(claim && !ok)(void)block_claim_release(claim);
     fs_leave(&scope);return ok;
 }
+
+#ifdef SRVROS_EXFAT_HOST_TEST
+bool exfat_host_inspect_readonly(const char *path, struct block_device *device, uint16_t *flags) {
+    if (!device || device->write || device->flush || !flags || host_inspection_readonly) return false;
+    host_inspection_readonly = true;
+    bool ok = exfat_mount_block_device(path, device);
+    host_inspection_readonly = false;
+    struct exfat_mount *mount = ok ? find_mount_for_path(path) : NULL;
+    if (!mount || !mount->volume.write_blocked) {
+        if (mount) (void)exfat_unmount(path);
+        return false;
+    }
+    *flags = mount->volume.flags;
+    return true;
+}
+#endif
 
 /* The supported entry set must fit one cluster. Reject impossible requests
  * before dirty marking or scratch allocation, including an oversized payload. */

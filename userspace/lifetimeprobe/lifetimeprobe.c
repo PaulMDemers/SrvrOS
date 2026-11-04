@@ -3,6 +3,8 @@
 #include <string.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <signal.h>
+#include <srvros/desk_log.h>
 
 #define CHECK(x) do { if(!(x)) { printf("lifetimeprobe: FAIL line=%d\n",__LINE__);return 1; } } while(0)
 static long spawn(const char *mode,uint64_t group) {
@@ -19,6 +21,38 @@ static void *wait_child(void *arg) {
 }
 int main(int argc,char **argv) {
     CHECK(argc==2);
+    /* Finite, opt-in switching fixture. Unlike the lifetime drain fixture
+     * below, this descendant exits on its own; no signal completes the proof. */
+    if(!strcmp(argv[1],"--switch-orphan")) {
+        /* Native legacy spawn starts with console stdio while inheriting the
+         * scope. The Terminal entry retains PTY stdio; only this opt-in probe
+         * hop makes its serial evidence observable after the Terminal closes. */
+        CHECK(srv_spawn_bg_args("/fat/bin/lifetimeprobe","--switch-console")>0);
+        return 0;
+    }
+    if(!strcmp(argv[1],"--switch-console")) {
+        pid_t pid=fork();CHECK(pid>=0);
+        if(pid>0) {
+            desk_log("session-probe: phase=parent-exit child=%ld\n",(long)pid);return 0;
+        }
+        CHECK(setsid()>0);
+        char *args[]={"/fat/bin/lifetimeprobe","--switch-hold",NULL};
+        extern char **environ;
+        srv_execve(args[0],args,environ);CHECK(0);
+    }
+    if(!strcmp(argv[1],"--switch-hold")) {
+        struct sigaction ignore={.sa_handler=SIG_IGN};
+        CHECK(!sigemptyset(&ignore.sa_mask) && !sigaction(SIGHUP,&ignore,NULL));
+        long begin=srv_monotonic_us();CHECK(begin>=0);
+        desk_log("session-probe: phase=ready pid=%ld hold_us=60000000\n",(long)getpid());
+        for(;;) {
+            long now=srv_monotonic_us();CHECK(now>=begin);
+            if((uint64_t)(now-begin)>=60000000)break;
+            CHECK(srv_sleep_ticks(1)>=0);
+        }
+        desk_log("session-probe: phase=natural-release pid=%ld status=17\n",(long)getpid());
+        return 17;
+    }
     if(!strcmp(argv[1],"--status17"))return 17;
     if(!strcmp(argv[1],"--delayed17")) { srv_sleep_ticks(3);return 17; }
     if(!strcmp(argv[1],"--churn")) {

@@ -6466,7 +6466,10 @@ children remain excluded until a child-port observer exists. Root disconnect, la
 connection change, reset, missing controller/device or quarantine invalidates the
 cache; reconnect cannot resurrect the old owner or automatically rescan.
 
-`SYS_WIFI` uses a versioned fixed-size snapshot/selection ABI. The snapshot enumerates
+`SYS_WIFI` uses a versioned fixed-size snapshot/selection ABI. The current
+integrated tree uses call164 because main reserves163 for session scopes;
+older source-bound Wi-Fi payloads used163. Rebuild a matched kernel and all
+userspace callers;do not mix binaries across these revisions. The snapshot enumerates
 one adapter at a time with a next-owner link and bounded escaped display names,
 channel/advertisement flags and selected index. It exposes no BSSID, DMA pointer,
 raw IE or credential. Selection binds owner, generation and row index and only copies

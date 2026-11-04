@@ -112,6 +112,7 @@ USER_DESKTOOLS := build/userspace/desktools.elf
 USER_DESKTERM := build/userspace/deskterm.elf
 USER_CLOCKPROBE := build/userspace/clockprobe.elf
 USER_LIFETIMEPROBE := build/userspace/lifetimeprobe.elf
+USER_SCOPEPROBE := build/userspace/scopeprobe.elf
 USER_PTYPROBE := build/userspace/ptyprobe.elf
 USER_DESKSKETCH := build/userspace/desksketch.elf
 USER_SHOTWORKER := build/userspace/shotworker.elf
@@ -1710,9 +1711,9 @@ $(LUA_SRVROS_DIR)/%.c.o: $(LUA_SRVROS_DIR)/%.c $(ZIG) $(LUA_PREPARED) ports/srvr
 	mkdir -p $(dir $@)
 	$(CC) $(USER_CFLAGS) -I $(LUA_SRVROS_DIR) -include ports/srvros/lua_config.h -DNDEBUG -Dl_signalT=int -Wno-error -Wno-unused-parameter -Wno-unused-function -Wno-missing-braces -c $< -o $@
 
-$(EXFAT_IMAGE): $(USER_DESKPROFILES) $(USER_PROFILE) $(USER_LIFETIMEPROBE) userspace/examples/tap-diagnostics.sh userspace/examples/tap-checks.sh userspace/examples/trackpad-checks.sh userspace/examples/device-checks.sh userspace/examples/network-trial.sh tools/audio_fixture.py $(USER_DESKFIND) $(USER_FINDFSWORKER) $(USER_DESKNET) $(USER_DESKSKETCH) $(USER_SHOTWORKER) $(USER_DESKCLOCK) $(USER_DESKHELP) $(USER_DESKVIEW) $(USER_IMAGEWORKER) tools/pack_runtime_elf.py $(USER_CLOCKPROBE) $(USER_DESKTERM) $(USER_PTYPROBE) $(USER_DESKTOOLS) $(USER_DESKFS) $(USER_DESKIO) $(USER_DESKD) $(USER_DESKCLIENT) $(USER_DESKSTUDY) tools/mk_exfat_image.py $(USER_HELLO) $(USER_CAT) $(USER_MORE) $(USER_SH) $(USER_LS) $(USER_ECHO) $(USER_WRITE) $(USER_WC) $(USER_CLEAR) $(USER_PS) $(USER_KILL) $(USER_WHICH) $(USER_ENV) $(USER_PWD) $(USER_TRUE) $(USER_FALSE) $(USER_SLEEP) $(USER_DATE) $(USER_TOUCH) $(USER_MKTEMP) $(USER_BASENAME) $(USER_DIRNAME) $(USER_GREP) $(USER_HEAD) $(USER_TAIL) $(USER_TEE) $(USER_UNAME) $(USER_HOSTNAME) $(USER_UPTIME) $(USER_FIND) $(USER_DU) $(USER_DF) $(USER_SORT) $(USER_UNIQ) $(USER_CUT) $(USER_XARGS) $(USER_SEQ) $(USER_REALPATH) $(USER_ID) $(USER_WHOAMI) $(USER_READLINK) $(USER_CMP) $(USER_YES) $(USER_INSTALL) $(USER_DIFF) $(USER_TAR) $(USER_GZIP) $(USER_MINIZIP) $(USER_MINIUNZ) $(USER_PATCH) $(USER_MAKE) $(USER_BYACC) $(USER_SED) $(USER_EXPR) $(USER_PRINTF) $(USER_TR) $(USER_DD) $(USER_ED) $(USER_POSIXUTILS) $(USER_STAT) $(USER_CHMOD) $(USER_CP) $(USER_RM) $(USER_MKDIR) $(USER_MV) $(USER_TAP) $(USER_SVSCAN) $(USER_WEBD) $(USER_HTTPGET) $(USER_UDPDNS) $(USER_UDPECHO) $(USER_NETSTAT) $(USER_IFCONFIG) $(USER_ROUTE) $(USER_ARP) $(USER_PING) $(USER_HOST) $(USER_NETCHECK) $(USER_NETABI) $(USER_TCPSTRESS) $(USER_TCPPROBE) $(USER_SYSABI) $(USER_SPIN) $(USER_FPDEMO) $(USER_UI) $(USER_DESKTOP) $(USER_DISPLAYD) $(USER_GUI) $(USER_SURFACEDEMO) $(USER_GUI2DEMO) $(USER_GUIFAIL) $(USER_CALC) $(USER_NOTES) $(USER_TEXTEDIT) $(USER_PAINT) $(USER_FILEMAN) $(USER_POSIXDEMO) $(USER_THREADSTRESS) $(USER_EXECDEMO) $(USER_FDPROBE) $(USER_LOCKPROBE) $(USER_TTYDEMO) $(USER_JSONDEMO) $(USER_INIDEMO) $(USER_LINEDEMO) $(USER_SQLITEDEMO) $(USER_SQLITE3) $(USER_JQ) $(USER_BC) $(USER_LESS) $(USER_ZLIBDEMO) $(USER_LUA) $(USER_AWK) $(USER_UVDEMO) $(USER_LIBUVDEMO) $(USER_NODEPROBE) $(USER_LIBCPROBE) $(USER_TLSPROBE) $(USER_CXXPROBE) $(USER_CXXSTLPROBE) $(USER_PLAYWAV)
+$(EXFAT_IMAGE): $(USER_SCOPEPROBE) $(USER_DESKPROFILES) $(USER_PROFILE) $(USER_LIFETIMEPROBE) userspace/examples/tap-diagnostics.sh userspace/examples/tap-checks.sh userspace/examples/trackpad-checks.sh userspace/examples/device-checks.sh userspace/examples/network-trial.sh tools/audio_fixture.py $(USER_DESKFIND) $(USER_FINDFSWORKER) $(USER_DESKNET) $(USER_DESKSKETCH) $(USER_SHOTWORKER) $(USER_DESKCLOCK) $(USER_DESKHELP) $(USER_DESKVIEW) $(USER_IMAGEWORKER) tools/pack_runtime_elf.py $(USER_CLOCKPROBE) $(USER_DESKTERM) $(USER_PTYPROBE) $(USER_DESKTOOLS) $(USER_DESKFS) $(USER_DESKIO) $(USER_DESKD) $(USER_DESKCLIENT) $(USER_DESKSTUDY) tools/mk_exfat_image.py $(USER_HELLO) $(USER_CAT) $(USER_MORE) $(USER_SH) $(USER_LS) $(USER_ECHO) $(USER_WRITE) $(USER_WC) $(USER_CLEAR) $(USER_PS) $(USER_KILL) $(USER_WHICH) $(USER_ENV) $(USER_PWD) $(USER_TRUE) $(USER_FALSE) $(USER_SLEEP) $(USER_DATE) $(USER_TOUCH) $(USER_MKTEMP) $(USER_BASENAME) $(USER_DIRNAME) $(USER_GREP) $(USER_HEAD) $(USER_TAIL) $(USER_TEE) $(USER_UNAME) $(USER_HOSTNAME) $(USER_UPTIME) $(USER_FIND) $(USER_DU) $(USER_DF) $(USER_SORT) $(USER_UNIQ) $(USER_CUT) $(USER_XARGS) $(USER_SEQ) $(USER_REALPATH) $(USER_ID) $(USER_WHOAMI) $(USER_READLINK) $(USER_CMP) $(USER_YES) $(USER_INSTALL) $(USER_DIFF) $(USER_TAR) $(USER_GZIP) $(USER_MINIZIP) $(USER_MINIUNZ) $(USER_PATCH) $(USER_MAKE) $(USER_BYACC) $(USER_SED) $(USER_EXPR) $(USER_PRINTF) $(USER_TR) $(USER_DD) $(USER_ED) $(USER_POSIXUTILS) $(USER_STAT) $(USER_CHMOD) $(USER_CP) $(USER_RM) $(USER_MKDIR) $(USER_MV) $(USER_TAP) $(USER_SVSCAN) $(USER_WEBD) $(USER_HTTPGET) $(USER_UDPDNS) $(USER_UDPECHO) $(USER_NETSTAT) $(USER_IFCONFIG) $(USER_ROUTE) $(USER_ARP) $(USER_PING) $(USER_HOST) $(USER_NETCHECK) $(USER_NETABI) $(USER_TCPSTRESS) $(USER_TCPPROBE) $(USER_SYSABI) $(USER_SPIN) $(USER_FPDEMO) $(USER_UI) $(USER_DESKTOP) $(USER_DISPLAYD) $(USER_GUI) $(USER_SURFACEDEMO) $(USER_GUI2DEMO) $(USER_GUIFAIL) $(USER_CALC) $(USER_NOTES) $(USER_TEXTEDIT) $(USER_PAINT) $(USER_FILEMAN) $(USER_POSIXDEMO) $(USER_THREADSTRESS) $(USER_EXECDEMO) $(USER_FDPROBE) $(USER_LOCKPROBE) $(USER_TTYDEMO) $(USER_JSONDEMO) $(USER_INIDEMO) $(USER_LINEDEMO) $(USER_SQLITEDEMO) $(USER_SQLITE3) $(USER_JQ) $(USER_BC) $(USER_LESS) $(USER_ZLIBDEMO) $(USER_LUA) $(USER_AWK) $(USER_UVDEMO) $(USER_LIBUVDEMO) $(USER_NODEPROBE) $(USER_LIBCPROBE) $(USER_TLSPROBE) $(USER_CXXPROBE) $(USER_CXXSTLPROBE) $(USER_PLAYWAV)
 	mkdir -p $(dir $@)
-	$(PYTHON) tools/mk_exfat_image.py $@ deskprofiles=$(USER_DESKPROFILES) salvage=$(USER_SALVAGE) profile=$(USER_PROFILE) hello=$(USER_HELLO) cat=$(USER_CAT) more=$(USER_MORE) sh=$(USER_SH) ls=$(USER_LS) echo=$(USER_ECHO) write=$(USER_WRITE) wc=$(USER_WC) clear=$(USER_CLEAR) ps=$(USER_PS) kill=$(USER_KILL) which=$(USER_WHICH) env=$(USER_ENV) pwd=$(USER_PWD) true=$(USER_TRUE) false=$(USER_FALSE) sleep=$(USER_SLEEP) date=$(USER_DATE) touch=$(USER_TOUCH) mktemp=$(USER_MKTEMP) basename=$(USER_BASENAME) dirname=$(USER_DIRNAME) grep=$(USER_GREP) head=$(USER_HEAD) tail=$(USER_TAIL) tee=$(USER_TEE) uname=$(USER_UNAME) hostname=$(USER_HOSTNAME) uptime=$(USER_UPTIME) find=$(USER_FIND) du=$(USER_DU) df=$(USER_DF) sort=$(USER_SORT) uniq=$(USER_UNIQ) cut=$(USER_CUT) xargs=$(USER_XARGS) seq=$(USER_SEQ) realpath=$(USER_REALPATH) id=$(USER_ID) whoami=$(USER_WHOAMI) readlink=$(USER_READLINK) cmp=$(USER_CMP) yes=$(USER_YES) install=$(USER_INSTALL) diff=$(USER_DIFF) tar=$(USER_TAR) gzip=$(USER_GZIP) gunzip=$(USER_GZIP) minizip=$(USER_MINIZIP) miniunz=$(USER_MINIUNZ) patch=$(USER_PATCH) make=$(USER_MAKE) byacc=$(USER_BYACC) sed=$(USER_SED) expr=$(USER_EXPR) printf=$(USER_PRINTF) tr=$(USER_TR) dd=$(USER_DD) ed=$(USER_ED) ln=$(USER_POSIXUTILS) sync=$(USER_POSIXUTILS) test=$(USER_POSIXUTILS) '[=$(USER_POSIXUTILS)' cksum=$(USER_POSIXUTILS) sum=$(USER_POSIXUTILS) comm=$(USER_POSIXUTILS) paste=$(USER_POSIXUTILS) join=$(USER_POSIXUTILS) split=$(USER_POSIXUTILS) od=$(USER_POSIXUTILS) hexdump=$(USER_POSIXUTILS) strings=$(USER_POSIXUTILS) file=$(USER_POSIXUTILS) tty=$(USER_POSIXUTILS) stty=$(USER_POSIXUTILS) time=$(USER_POSIXUTILS) timeout=$(USER_POSIXUTILS) nohup=$(USER_POSIXUTILS) nice=$(USER_POSIXUTILS) stat=$(USER_STAT) chmod=$(USER_CHMOD) cp=$(USER_CP) rm=$(USER_RM) mkdir=$(USER_MKDIR) mv=$(USER_MV) tap=$(USER_TAP) svscan=$(USER_SVSCAN) webd=$(USER_WEBD) httpget=$(USER_HTTPGET) udpdns=$(USER_UDPDNS) udpecho=$(USER_UDPECHO) netstat=$(USER_NETSTAT) ifconfig=$(USER_IFCONFIG) route=$(USER_ROUTE) arp=$(USER_ARP) ping=$(USER_PING) host=$(USER_HOST) netcheck=$(USER_NETCHECK) netabi=$(USER_NETABI) tcpstress=$(USER_TCPSTRESS) tcpprobe=$(USER_TCPPROBE) sysabi=$(USER_SYSABI) spin=$(USER_SPIN) fpdemo=$(USER_FPDEMO) ui=$(USER_UI) desktop=$(USER_DESKTOP) displayd=$(USER_DISPLAYD) deskstudy=$(USER_DESKSTUDY) deskd=$(USER_DESKD) deskclient=$(USER_DESKCLIENT) deskio=$(USER_DESKIO) desktools=$(USER_DESKTOOLS) deskfs=$(USER_DESKFS) shotworker=$(USER_SHOTWORKER) desksketch=$(USER_DESKSKETCH) imageworker=$(USER_IMAGEWORKER) deskview=$(USER_DESKVIEW) deskhelp=$(USER_DESKHELP) deskfind=$(USER_DESKFIND) deskfind-worker=$(USER_FINDFSWORKER) desknet=$(USER_DESKNET) deskclock=$(USER_DESKCLOCK) clockprobe=$(USER_CLOCKPROBE) lifetimeprobe=$(USER_LIFETIMEPROBE) ptyprobe=$(USER_PTYPROBE) deskterm=$(USER_DESKTERM) gui=$(USER_GUI) surfacedemo=$(USER_SURFACEDEMO) gui2demo=$(USER_GUI2DEMO) guifail=$(USER_GUIFAIL) calc=$(USER_CALC) notes=$(USER_NOTES) textedit=$(USER_TEXTEDIT) paint=$(USER_PAINT) fileman=$(USER_FILEMAN) posixdemo=$(USER_POSIXDEMO) threadstress=$(USER_THREADSTRESS) execdemo=$(USER_EXECDEMO) fdprobe=$(USER_FDPROBE) lockprobe=$(USER_LOCKPROBE) ttydemo=$(USER_TTYDEMO) jsondemo=$(USER_JSONDEMO) inidemo=$(USER_INIDEMO) linedemo=$(USER_LINEDEMO) sqlitedemo=$(USER_SQLITEDEMO) sqlite3=$(USER_SQLITE3) jq=$(USER_JQ) bc=$(USER_BC) less=$(USER_LESS) zlibdemo=$(USER_ZLIBDEMO) lua=$(USER_LUA) awk=$(USER_AWK) uvdemo=$(USER_UVDEMO) libuvdemo=$(USER_LIBUVDEMO) nodeprobe=$(USER_NODEPROBE) libcprobe=$(USER_LIBCPROBE) tlsprobe=$(USER_TLSPROBE) cxxprobe=$(USER_CXXPROBE) cxxstlprobe=$(USER_CXXSTLPROBE) playwav=$(USER_PLAYWAV)
+	$(PYTHON) tools/mk_exfat_image.py $@ deskprofiles=$(USER_DESKPROFILES) salvage=$(USER_SALVAGE) profile=$(USER_PROFILE) hello=$(USER_HELLO) cat=$(USER_CAT) more=$(USER_MORE) sh=$(USER_SH) ls=$(USER_LS) echo=$(USER_ECHO) write=$(USER_WRITE) wc=$(USER_WC) clear=$(USER_CLEAR) ps=$(USER_PS) kill=$(USER_KILL) which=$(USER_WHICH) env=$(USER_ENV) pwd=$(USER_PWD) true=$(USER_TRUE) false=$(USER_FALSE) sleep=$(USER_SLEEP) date=$(USER_DATE) touch=$(USER_TOUCH) mktemp=$(USER_MKTEMP) basename=$(USER_BASENAME) dirname=$(USER_DIRNAME) grep=$(USER_GREP) head=$(USER_HEAD) tail=$(USER_TAIL) tee=$(USER_TEE) uname=$(USER_UNAME) hostname=$(USER_HOSTNAME) uptime=$(USER_UPTIME) find=$(USER_FIND) du=$(USER_DU) df=$(USER_DF) sort=$(USER_SORT) uniq=$(USER_UNIQ) cut=$(USER_CUT) xargs=$(USER_XARGS) seq=$(USER_SEQ) realpath=$(USER_REALPATH) id=$(USER_ID) whoami=$(USER_WHOAMI) readlink=$(USER_READLINK) cmp=$(USER_CMP) yes=$(USER_YES) install=$(USER_INSTALL) diff=$(USER_DIFF) tar=$(USER_TAR) gzip=$(USER_GZIP) gunzip=$(USER_GZIP) minizip=$(USER_MINIZIP) miniunz=$(USER_MINIUNZ) patch=$(USER_PATCH) make=$(USER_MAKE) byacc=$(USER_BYACC) sed=$(USER_SED) expr=$(USER_EXPR) printf=$(USER_PRINTF) tr=$(USER_TR) dd=$(USER_DD) ed=$(USER_ED) ln=$(USER_POSIXUTILS) sync=$(USER_POSIXUTILS) test=$(USER_POSIXUTILS) '[=$(USER_POSIXUTILS)' cksum=$(USER_POSIXUTILS) sum=$(USER_POSIXUTILS) comm=$(USER_POSIXUTILS) paste=$(USER_POSIXUTILS) join=$(USER_POSIXUTILS) split=$(USER_POSIXUTILS) od=$(USER_POSIXUTILS) hexdump=$(USER_POSIXUTILS) strings=$(USER_POSIXUTILS) file=$(USER_POSIXUTILS) tty=$(USER_POSIXUTILS) stty=$(USER_POSIXUTILS) time=$(USER_POSIXUTILS) timeout=$(USER_POSIXUTILS) nohup=$(USER_POSIXUTILS) nice=$(USER_POSIXUTILS) stat=$(USER_STAT) chmod=$(USER_CHMOD) cp=$(USER_CP) rm=$(USER_RM) mkdir=$(USER_MKDIR) mv=$(USER_MV) tap=$(USER_TAP) svscan=$(USER_SVSCAN) webd=$(USER_WEBD) httpget=$(USER_HTTPGET) udpdns=$(USER_UDPDNS) udpecho=$(USER_UDPECHO) netstat=$(USER_NETSTAT) ifconfig=$(USER_IFCONFIG) route=$(USER_ROUTE) arp=$(USER_ARP) ping=$(USER_PING) host=$(USER_HOST) netcheck=$(USER_NETCHECK) netabi=$(USER_NETABI) tcpstress=$(USER_TCPSTRESS) tcpprobe=$(USER_TCPPROBE) sysabi=$(USER_SYSABI) spin=$(USER_SPIN) fpdemo=$(USER_FPDEMO) ui=$(USER_UI) desktop=$(USER_DESKTOP) displayd=$(USER_DISPLAYD) deskstudy=$(USER_DESKSTUDY) deskd=$(USER_DESKD) deskclient=$(USER_DESKCLIENT) deskio=$(USER_DESKIO) desktools=$(USER_DESKTOOLS) deskfs=$(USER_DESKFS) shotworker=$(USER_SHOTWORKER) desksketch=$(USER_DESKSKETCH) imageworker=$(USER_IMAGEWORKER) deskview=$(USER_DESKVIEW) deskhelp=$(USER_DESKHELP) deskfind=$(USER_DESKFIND) deskfind-worker=$(USER_FINDFSWORKER) desknet=$(USER_DESKNET) deskclock=$(USER_DESKCLOCK) clockprobe=$(USER_CLOCKPROBE) lifetimeprobe=$(USER_LIFETIMEPROBE) scopeprobe=$(USER_SCOPEPROBE) ptyprobe=$(USER_PTYPROBE) deskterm=$(USER_DESKTERM) gui=$(USER_GUI) surfacedemo=$(USER_SURFACEDEMO) gui2demo=$(USER_GUI2DEMO) guifail=$(USER_GUIFAIL) calc=$(USER_CALC) notes=$(USER_NOTES) textedit=$(USER_TEXTEDIT) paint=$(USER_PAINT) fileman=$(USER_FILEMAN) posixdemo=$(USER_POSIXDEMO) threadstress=$(USER_THREADSTRESS) execdemo=$(USER_EXECDEMO) fdprobe=$(USER_FDPROBE) lockprobe=$(USER_LOCKPROBE) ttydemo=$(USER_TTYDEMO) jsondemo=$(USER_JSONDEMO) inidemo=$(USER_INIDEMO) linedemo=$(USER_LINEDEMO) sqlitedemo=$(USER_SQLITEDEMO) sqlite3=$(USER_SQLITE3) jq=$(USER_JQ) bc=$(USER_BC) less=$(USER_LESS) zlibdemo=$(USER_ZLIBDEMO) lua=$(USER_LUA) awk=$(USER_AWK) uvdemo=$(USER_UVDEMO) libuvdemo=$(USER_LIBUVDEMO) nodeprobe=$(USER_NODEPROBE) libcprobe=$(USER_LIBCPROBE) tlsprobe=$(USER_TLSPROBE) cxxprobe=$(USER_CXXPROBE) cxxstlprobe=$(USER_CXXSTLPROBE) playwav=$(USER_PLAYWAV)
 
 $(SECOND_EXFAT_IMAGE): $(EXFAT_IMAGE)
 	cp $(EXFAT_IMAGE) $(SECOND_EXFAT_IMAGE)
@@ -1926,7 +1927,7 @@ hardware-smoke: hardware-stage test-core
 test-xhci: build/tests/xhci-host$(HOST_EXE)
 	$< tools/fixtures/apple-05ac-0291-config.bin tools/fixtures/apple-05ac-0262-config.bin tools/fixtures/apple-05ac-0290-config.bin
 
-build/tests/xhci-host$(HOST_EXE): tools/test_xhci.c tools/test_xhci_wifi_rx.inc tools/test_xhci_wifi_mac_cycle.inc tools/test_xhci_wifi_cal_probe.inc tools/test_xhci_wifi_poweron.inc tools/test_xhci_wifi_passive.inc tools/test_xhci_wifi_window.inc tools/test_xhci_wifi_channel.inc kernel/src/drivers/xhci_wifi_channel.inc kernel/src/drivers/xhci_wifi_window.inc kernel/src/drivers/mt76_channel_plan.c kernel/src/drivers/mt76_scan.c kernel/src/drivers/mt76_discovery.c kernel/src/drivers/mt76_rx_window.c kernel/src/drivers/xhci_wifi_mac_cycle.inc kernel/src/drivers/xhci_wifi_cal_probe.inc kernel/src/drivers/xhci_wifi_poweron.inc kernel/src/drivers/xhci_wifi_passive.inc kernel/src/drivers/mt76_mac_cycle.c kernel/src/drivers/mt76_calibration.c kernel/src/drivers/mt76_poweron_calibration.c kernel/src/drivers/mt76_rx.c kernel/src/drivers/xhci.c kernel/src/drivers/xhci_network.inc kernel/src/drivers/xhci_wifi_firmware.inc kernel/src/drivers/xhci_wifi_mcu.inc kernel/src/drivers/xhci_wifi_cal5.inc kernel/src/drivers/xhci_wifi_channel_vco5.inc kernel/src/drivers/xhci_wifi_vco5.inc kernel/src/drivers/xhci_wifi_dac5.inc kernel/src/drivers/xhci_wifi_rx.inc kernel/src/drivers/mt76_mcu.c kernel/src/drivers/mt76_trim5.c kernel/src/drivers/mt76_cvco5.c kernel/src/drivers/mt76_channel_vco5.c kernel/src/drivers/mt76_vco5.c kernel/src/drivers/mt76_dac5.c kernel/src/drivers/mt76_radio.c kernel/src/drivers/usb_ecm.c kernel/src/drivers/mt76_probe.c kernel/src/drivers/mt76_bringup.c kernel/src/drivers/mt76_firmware.c kernel/src/sha256.c kernel/src/drivers/trackpad_pointer.c kernel/src/drivers/apple_trackpad.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready tools/test_xhci_wifi_tune.inc kernel/src/drivers/xhci_wifi_tune.inc kernel/src/drivers/mt76_channel_tune.c kernel/src/drivers/xhci_wifi_receive.inc tools/test_xhci_wifi_receive.inc kernel/src/drivers/xhci_wifi_scan.inc tools/test_xhci_wifi_scan.inc kernel/src/drivers/xhci_wifi_burst.inc tools/test_xhci_wifi_burst.inc kernel/src/drivers/mt76_scan_batch.c kernel/src/drivers/mt76_selection.c kernel/src/wifi_service.c
+build/tests/xhci-host$(HOST_EXE): tools/test_xhci.c tools/test_xhci_wifi_rx.inc tools/test_xhci_wifi_mac_cycle.inc tools/test_xhci_wifi_cal_probe.inc tools/test_xhci_wifi_poweron.inc tools/test_xhci_wifi_passive.inc tools/test_xhci_wifi_window.inc tools/test_xhci_wifi_channel.inc kernel/src/drivers/xhci_wifi_channel.inc kernel/src/drivers/xhci_wifi_window.inc kernel/src/drivers/mt76_channel_plan.c kernel/src/drivers/mt76_scan.c kernel/src/drivers/mt76_discovery.c kernel/src/drivers/mt76_rx_window.c kernel/src/drivers/xhci_wifi_mac_cycle.inc kernel/src/drivers/xhci_wifi_cal_probe.inc kernel/src/drivers/xhci_wifi_poweron.inc kernel/src/drivers/xhci_wifi_passive.inc kernel/src/drivers/mt76_mac_cycle.c kernel/src/drivers/mt76_calibration.c kernel/src/drivers/mt76_poweron_calibration.c kernel/src/drivers/mt76_rx.c kernel/src/drivers/xhci.c kernel/src/drivers/xhci_network.inc kernel/src/drivers/xhci_wifi_firmware.inc kernel/src/drivers/xhci_wifi_mcu.inc kernel/src/drivers/xhci_wifi_cal5.inc kernel/src/drivers/xhci_wifi_channel_vco5.inc kernel/src/drivers/xhci_wifi_vco5.inc kernel/src/drivers/xhci_wifi_dac5.inc kernel/src/drivers/xhci_wifi_rx.inc kernel/src/drivers/mt76_mcu.c kernel/src/drivers/mt76_trim5.c kernel/src/drivers/mt76_cvco5.c kernel/src/drivers/mt76_channel_vco5.c kernel/src/drivers/mt76_vco5.c kernel/src/drivers/mt76_dac5.c kernel/src/drivers/mt76_radio.c kernel/src/drivers/usb_ecm.c kernel/src/drivers/mt76_probe.c kernel/src/drivers/mt76_bringup.c kernel/src/drivers/mt76_firmware.c kernel/src/sha256.c kernel/src/drivers/trackpad_pointer.c kernel/src/drivers/apple_trackpad.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready tools/test_xhci_wifi_tune.inc kernel/src/drivers/xhci_wifi_tune.inc kernel/src/drivers/mt76_channel_tune.c kernel/src/drivers/xhci_wifi_receive.inc tools/test_xhci_wifi_receive.inc kernel/src/drivers/xhci_wifi_scan.inc tools/test_xhci_wifi_scan.inc kernel/src/drivers/xhci_wifi_burst.inc tools/test_xhci_wifi_burst.inc kernel/src/drivers/mt76_scan_batch.c kernel/src/drivers/mt76_selection.c kernel/src/wifi_service.c kernel/src/block.c kernel/src/block_claim.c
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/apple_trackpad.c kernel/src/drivers/trackpad_pointer.c kernel/src/drivers/usb_ecm.c kernel/src/drivers/mt76_probe.c kernel/src/drivers/mt76_bringup.c kernel/src/drivers/mt76_firmware.c kernel/src/sha256.c kernel/src/drivers/mt76_mcu.c kernel/src/drivers/mt76_trim5.c kernel/src/drivers/mt76_cvco5.c kernel/src/drivers/mt76_channel_vco5.c kernel/src/drivers/mt76_vco5.c kernel/src/drivers/mt76_dac5.c kernel/src/drivers/mt76_mac_cycle.c kernel/src/drivers/mt76_calibration.c kernel/src/drivers/mt76_poweron_calibration.c kernel/src/drivers/mt76_rx.c kernel/src/drivers/mt76_channel_plan.c kernel/src/drivers/mt76_channel_tune.c kernel/src/drivers/mt76_scan.c kernel/src/drivers/mt76_scan_batch.c kernel/src/drivers/mt76_selection.c kernel/src/wifi_service.c kernel/src/drivers/mt76_discovery.c kernel/src/drivers/mt76_rx_window.c kernel/src/drivers/mt76_radio.c -Wl,--gc-sections -o $@
 
@@ -2034,6 +2035,10 @@ build/tests/clock-host$(HOST_EXE): tools/test_clock.c kernel/src/arch/x86_64/clo
 test-storage: build/tests/block-host$(HOST_EXE) build/tests/ahci-host$(HOST_EXE)
 	build/tests/block-host$(HOST_EXE)
 	build/tests/ahci-host$(HOST_EXE)
+
+.PHONY: test-workspace-inspection
+test-workspace-inspection: build/tests/installation-inspect-driver$(HOST_EXE) build/tests/workspace-gpt-driver$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_workspace_inspection.py -v
 
 .PHONY: test-installed-root
 test-installed-root: build/tests/exfat-driver$(HOST_EXE) build/tests/installation-export-driver$(HOST_EXE) build/tests/installation-inspect-driver$(HOST_EXE) build/tests/profile-image-driver$(HOST_EXE)
@@ -2308,9 +2313,10 @@ test-core: test-workspace-io
 .PHONY: test-process-output
 test-process-output: build/tests/process-output-host$(HOST_EXE)
 	$<
-build/tests/process-output-host$(HOST_EXE): tools/test_process_output.c kernel/src/process.c kernel/src/vfs_namespace.c kernel/src/pty.c kernel/src/pty_model.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	$< teardown
+build/tests/process-output-host$(HOST_EXE): tools/test_process_output.c tools/test_process_teardown.inc tools/test_process_teardown_fault.c kernel/src/arch/x86_64/idt.c kernel/src/process.c kernel/src/vfs_namespace.c kernel/src/pty.c kernel/src/pty_model.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	mkdir -p build/tests
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include -DSRVROS_PTY_HOST_TEST $< kernel/src/vfs_namespace.c kernel/src/pty.c kernel/src/pty_model.c -Wl,--gc-sections -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include -DSRVROS_PTY_HOST_TEST $< tools/test_process_teardown_fault.c kernel/src/vfs_namespace.c kernel/src/pty.c kernel/src/pty_model.c -Wl,--gc-sections -o $@
 test-core: test-process-output
 
 .PHONY: workspace-latency-smoke
@@ -2354,6 +2360,7 @@ build/tests/apple-trackpad-host$(HOST_EXE): tools/test_apple_trackpad.c kernel/s
 
 DESKD_NOTICE_SRC := userspace/deskd/notifications.c userspace/deskd/notification_view.c
 DESKD_OBJ := build/userspace/deskd/profile_catalog.c.o build/userspace/deskd/profile_chooser.c.o build/userspace/deskd/notifications.c.o build/userspace/deskd/notification_view.c.o build/userspace/deskd/preferences.c.o build/userspace/deskd/menus.c.o build/userspace/deskd/clipboard.c.o build/userspace/deskd/deskd.c.o build/userspace/deskd/scene.c.o build/userspace/deskd/io_trial.c.o
+DESKD_OBJ += build/userspace/deskd/session_supervisor.c.o
 DESKCLIENT_OBJ := build/userspace/deskclient/deskclient.c.o
 DESK_WIDGETS_INCLUDE := userspace/widgets/include
 DESK_WIDGETS_SRC := $(wildcard userspace/widgets/src/*.c)
@@ -2378,8 +2385,9 @@ $(DESKD_OBJ) $(DESKCLIENT_OBJ) $(DESK_WIDGETS_OBJ): USER_CFLAGS += -I $(DESK_WID
 $(DESK_WIDGETS_A): $(ZIG) $(DESK_WIDGETS_OBJ)
 	$(AR) rcs $@ $(DESK_WIDGETS_OBJ)
 -include $(DESK_WIDGETS_OBJ:.o=.d)
-$(USER_DESKD): $(ZIG) $(USER_CRT0_OBJ) $(DESKD_OBJ) $(DESK_WIDGETS_A) $(USER_LIB_OBJ) userspace/app.ld
-	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(DESKD_OBJ) $(DESK_WIDGETS_A) $(USER_LIB_OBJ) -o $@
+build/userspace/deskd/profile_chooser.c.o: USER_CFLAGS += -I ports/upstream/cjson
+$(USER_DESKD): $(ZIG) $(USER_CRT0_OBJ) $(DESKD_OBJ) $(DESK_WIDGETS_A) $(CJSON_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(DESKD_OBJ) $(DESK_WIDGETS_A) $(CJSON_OBJ) $(USER_LIB_OBJ) -o $@
 $(USER_DESKCLIENT): $(ZIG) $(USER_CRT0_OBJ) $(DESKCLIENT_OBJ) $(DESK_WIDGETS_A) $(USER_LIB_OBJ) userspace/app.ld
 	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(DESKCLIENT_OBJ) $(DESK_WIDGETS_A) $(USER_LIB_OBJ) -o $@
 -include $(DESKD_OBJ:.o=.d) $(DESKCLIENT_OBJ:.o=.d)
@@ -2654,9 +2662,9 @@ build/tests/file-picker-host$(HOST_EXE): tools/test_file_picker.c $(HOST_DESK_WI
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I userspace/widgets/include -idirafter userspace/lib/include -I shared/include tools/test_file_picker.c $(HOST_DESK_WIDGETS_A) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c -o $@
 
 test-file-picker: build/tests/tool-picker-host$(HOST_EXE)
-build/tests/tool-picker-host$(HOST_EXE): userspace/lib/include/srvros/desk_chooser.h tools/test_tool_picker.c userspace/desktop_runtime/chooser.c userspace/apps/desktools/picker.c userspace/apps/desktools/files_app.c userspace/apps/desktools/app.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/lib/include/srvros/desk_theme_preferences.h
+build/tests/tool-picker-host$(HOST_EXE): userspace/lib/include/srvros/desk_chooser.h tools/test_tool_picker.c userspace/desktop_runtime/chooser.c userspace/apps/desktools/picker.c userspace/apps/desktools/app.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/lib/include/srvros/desk_theme_preferences.h
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I userspace/widgets/include -idirafter userspace/lib/include -I shared/include tools/test_tool_picker.c userspace/desktop_runtime/chooser.c userspace/apps/desktools/picker.c userspace/apps/desktools/files_app.c $(HOST_DESK_WIDGETS_A) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c -Wl,--gc-sections -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I userspace/widgets/include -idirafter userspace/lib/include -I shared/include tools/test_tool_picker.c userspace/desktop_runtime/chooser.c userspace/apps/desktools/picker.c $(HOST_DESK_WIDGETS_A) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c -Wl,--gc-sections -o $@
 
 .PHONY: test-rtc
 test-rtc: build/tests/rtc-host$(HOST_EXE)
@@ -2680,11 +2688,21 @@ build/tests/check-host$(HOST_EXE): tools/test_check.c $(HOST_DESK_WIDGETS_A) $(D
 test-widgets: test-check
 
 .PHONY: test-preferences
-test-preferences: build/tests/preferences-host$(HOST_EXE)
-	$<
+test-preferences: build/tests/preferences-host$(HOST_EXE) build/tests/preferences-finish-host$(HOST_EXE)
+	build/tests/preferences-host$(HOST_EXE)
+	build/tests/preferences-finish-host$(HOST_EXE)
 build/tests/preferences-host$(HOST_EXE): userspace/lib/include/srvros/profile_preferences.h tools/test_preferences.c userspace/deskd/preferences.c userspace/deskd/preferences.h userspace/lib/src/desk_preferences.c userspace/lib/include/srvros/desk_preferences.h shared/include/srvros/desktop_preferences.h
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include tools/test_preferences.c userspace/deskd/preferences.c userspace/lib/src/desk_preferences.c -o $@
+build/tests/preferences-finish-host$(HOST_EXE): tools/test_preferences_finish.c userspace/deskd/preferences.c userspace/deskd/preferences.h userspace/lib/src/desk_preferences.c userspace/lib/include/srvros/profile_preferences.h
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include tools/test_preferences_finish.c userspace/deskd/preferences.c userspace/lib/src/desk_preferences.c -o $@
+.PHONY: test-profile-switch
+test-profile-switch: test-preferences build/tests/session-supervisor-host$(HOST_EXE)
+	build/tests/session-supervisor-host$(HOST_EXE)
+build/tests/session-supervisor-host$(HOST_EXE): tools/test_session_supervisor.c userspace/deskd/session_supervisor.c userspace/deskd/session_supervisor.h userspace/lib/include/srvros/sys.h shared/include/srvros/session_scope.h
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -Dchdir=fake_chdir -idirafter userspace/lib/include -I shared/include tools/test_session_supervisor.c userspace/deskd/session_supervisor.c -o $@
 test-desktop: test-preferences
 
 .PHONY: test-settings
@@ -2742,9 +2760,9 @@ test-core: test-file-change
 .PHONY: test-files
 test-files: build/tests/files-host$(HOST_EXE)
 	$<
-build/tests/files-host$(HOST_EXE): tools/test_files.c userspace/apps/desktools/files_app.c userspace/apps/desktools/app.h shared/include/srvros/desktop_apps.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) shared/include/srvros/desktop_file.h userspace/lib/include/srvros/desk_theme_preferences.h
+build/tests/files-host$(HOST_EXE): tools/test_files.c userspace/apps/desktools/picker.c userspace/desktop_runtime/chooser.c userspace/apps/desktools/files_app.c userspace/apps/desktools/app.h shared/include/srvros/desktop_apps.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) shared/include/srvros/desktop_file.h userspace/lib/include/srvros/desk_theme_preferences.h
 	mkdir -p build/tests
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I userspace/widgets/include tools/test_files.c $(HOST_DESK_WIDGETS_A) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I userspace/widgets/include tools/test_files.c userspace/desktop_runtime/chooser.c $(HOST_DESK_WIDGETS_A) userspace/widgets/render/desk_render.c userspace/widgets/render/desk_font.c -o $@
 test-desktop: test-files
 
 .PHONY: test-strftime
@@ -3821,6 +3839,11 @@ LIFETIMEPROBE_OBJ := build/userspace/lifetimeprobe/lifetimeprobe.c.o
 $(USER_LIFETIMEPROBE): $(ZIG) $(USER_CRT0_OBJ) $(LIFETIMEPROBE_OBJ) $(USER_LIB_OBJ) userspace/app.ld
 	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(LIFETIMEPROBE_OBJ) $(USER_LIB_OBJ) -o $@
 -include $(LIFETIMEPROBE_OBJ:.o=.d)
+
+SCOPEPROBE_OBJ := build/userspace/scopeprobe/scopeprobe.c.o
+$(USER_SCOPEPROBE): $(ZIG) $(USER_CRT0_OBJ) $(SCOPEPROBE_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(SCOPEPROBE_OBJ) $(USER_LIB_OBJ) -o $@
+-include $(SCOPEPROBE_OBJ:.o=.d)
 
 .PHONY: test-desktop-battery-trial
 test-core: test-desktop-battery-trial
@@ -5135,12 +5158,17 @@ test-haswell-backing: build/tests/hsw-backing$(HOST_EXE) build/tests/hsw-backing
 	build/tests/hsw-backing-adapter$(HOST_EXE) > build/tests/hsw-backing-producer.log
 	build/tests/hsw-backing-adapter$(HOST_EXE) tilectl > build/tests/hsw-backing-producer-v2.log
 	build/tests/hsw-backing-adapter$(HOST_EXE) tilectl max > build/tests/hsw-backing-producer-v2-max.log
+	build/tests/hsw-backing-adapter$(HOST_EXE) fences32 > build/tests/hsw-backing-producer-v3.log
+	build/tests/hsw-backing-adapter$(HOST_EXE) fences32 max > build/tests/hsw-backing-producer-v3-max.log
 	$(PYTHON) -m unittest discover -s tools -p test_hardware_haswell_backing.py
 	$(PYTHON) -m unittest discover -s tools -p test_hardware_haswell_tilectl.py
+	$(PYTHON) -m unittest discover -s tools -p test_hardware_haswell_fences.py
 	$(PYTHON) -m unittest discover -s tools -p test_haswell_backing_audit.py
 	$(PYTHON) -m unittest discover -s tools -p test_haswell_path_audit.py
+	$(PYTHON) -m unittest discover -s tools -p test_haswell_layout_proposal.py
 	$(PYTHON) tools/check_hsw_capture_tail.py --log build/tests/hsw-backing-producer.log --output build/tests/hsw-backing-tail.json
 	$(PYTHON) tools/check_hsw_capture_tail.py --log build/tests/hsw-backing-producer-v2-max.log --output build/tests/hsw-backing-tail-v2.json
+	$(PYTHON) tools/check_hsw_capture_tail.py --log build/tests/hsw-backing-producer-v3-max.log --output build/tests/hsw-backing-tail-v3.json
 build/tests/hsw-backing$(HOST_EXE): tools/test_hsw_backing.c kernel/diagnostics/haswell_backing_core.c kernel/include/srvros/haswell_backing.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_hsw_backing.c kernel/diagnostics/haswell_backing_core.c -o $@
@@ -5150,9 +5178,20 @@ build/tests/hsw-backing-adapter$(HOST_EXE): tools/test_hsw_backing_adapter.c too
 .PHONY: test-profile-chooser
 test-profile-chooser: test-guest-profiles build/tests/profile-catalog-host$(HOST_EXE)
 	build/tests/profile-catalog-host$(HOST_EXE) $(CURDIR)/build/tests/guest-profile-host$(HOST_EXE)
-build/tests/profile-catalog-host$(HOST_EXE): tools/test_profile_catalog.c userspace/deskd/profile_catalog.c userspace/deskd/profile_catalog.h userspace/lib/include/srvros/profile_limits.h userspace/deskd/profile_startup.h userspace/lib/src/desk_preferences.c
+build/tests/profile-catalog-host$(HOST_EXE): tools/test_profile_catalog.c userspace/deskd/profile_catalog.c userspace/deskd/profile_catalog.h userspace/lib/include/srvros/profile_limits.h userspace/deskd/profile_startup.h userspace/lib/src/desk_preferences.c ports/upstream/cjson/cJSON.c ports/upstream/cjson/cJSON.h
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include tools/test_profile_catalog.c userspace/lib/src/desk_preferences.c -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I ports/upstream/cjson tools/test_profile_catalog.c userspace/lib/src/desk_preferences.c ports/upstream/cjson/cJSON.c -o $@
+
+.PHONY: test-e1000-init
+test-core: test-e1000-init
+test-e1000-init: build/tests/e1000-init-host$(HOST_EXE)
+	$<
+	$< map
+	$< alloc
+	$< none
+build/tests/e1000-init-host$(HOST_EXE): tools/test_e1000_init.c kernel/src/drivers/e1000.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
 
 .PHONY: test-salvage
 test-core: test-salvage
@@ -5162,6 +5201,13 @@ build/tests/salvage-host$(HOST_EXE): tools/test_salvage.c userspace/lib/src/salv
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include $< -o $@
 
+.PHONY: test-usb-retire-block
+test-core: test-usb-retire-block
+test-usb-retire-block: build/tests/usb-retire-block$(HOST_EXE)
+	$<
+build/tests/usb-retire-block$(HOST_EXE): tools/test_usb_retire_block.c kernel/src/block.c kernel/src/block_claim.c kernel/src/drivers/usb_storage.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
 USER_SALVAGE := build/userspace/salvage.elf
 USER_SALVAGE_OBJ := build/userspace/salvage/salvage.c.o
 $(USER_SALVAGE): $(ZIG) $(USER_CRT0_OBJ) $(USER_SALVAGE_OBJ) $(USER_LIB_OBJ) userspace/app.ld
@@ -5258,3 +5304,7 @@ test-wifi-channel-vco5-log:
 test-core: test-wifi-cal5-log
 test-wifi-cal5-log:
 	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p test_wifi_cal5_log.py
+
+build/tests/workspace-gpt-driver$(HOST_EXE): tools/workspace_gpt_driver.c kernel/src/block.c kernel/src/block_claim.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@

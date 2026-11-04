@@ -167,8 +167,10 @@
 #define SYS_GFX_MODE_GET 160
 #define SYS_GFX_MODE_SET 161
 #define SYS_PIPE_MESSAGE 162
-/* Unmerged Wi-Fi ABI moved from159; matched kernel/userspace required. */
-#define SYS_WIFI 163
+#define SYS_SESSION_SCOPE 163
+
+/* Device branch Wi-Fi call moved from163;matched image required. */
+#define SYS_WIFI 164
 #define SRV_DIRECTORY_READ 0
 #define SRV_DIRECTORY_PATH 1
 #define SRV_DIRECTORY_CHDIR 2

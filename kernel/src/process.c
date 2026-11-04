@@ -1,3 +1,4 @@
+#include <srvros/session_scope.h>
 #include <srvros/path_limits.h>
 #include <srvros/audio.h>
 #include "arch/x86_64/isr_frame.h"
@@ -219,6 +220,7 @@ struct process {
     char cwd_storage[PROCESS_PATH_MAX];
     uint64_t process_group;
     uint64_t lifetime; /* Immutable across exec, job control and orphaning. */
+    uint64_t owned_user_scope;
     uint64_t session_id;
     uint64_t controlling_tty;
     uint64_t pid;
@@ -334,7 +336,9 @@ static bool process_slots_busy[PROCESS_MAX_PROCESSES];
  * and destruction. Members include reservations and final resource release. */
 struct process_lifetime {
     uint64_t token, members, peak;
-    bool revoked, root_reserved;
+    bool revoked, root_reserved, user, reservation;
+    struct process *owner;
+    uint64_t nonzero_exits, first_exit_status;
 };
 static struct process_lifetime process_lifetimes[PROCESS_MAX_PROCESSES];
 static uint64_t next_lifetime = 1;
@@ -367,7 +371,9 @@ static bool process_apply_stdio_fds(struct process *process,
     int64_t stderr_fd);
 
 static uint64_t process_irq_save(void) {
-#ifdef SRVROS_PROCESS_HOST_TEST
+#ifdef SRVROS_PROCESS_IRQ_HOST_TEST
+    return process_test_irq_save();
+#elif defined(SRVROS_PROCESS_HOST_TEST)
     return 0;
 #else
     uint64_t flags;
@@ -377,7 +383,9 @@ static uint64_t process_irq_save(void) {
 }
 
 static void process_irq_restore(uint64_t flags) {
-#ifdef SRVROS_PROCESS_HOST_TEST
+#ifdef SRVROS_PROCESS_IRQ_HOST_TEST
+    process_test_irq_restore(flags);
+#elif defined(SRVROS_PROCESS_HOST_TEST)
     (void)flags;
 #else
     if ((flags & (1ull << 9)) != 0) {
@@ -786,6 +794,76 @@ static struct process_lifetime *lifetime_find(uint64_t token) {
     return NULL;
 }
 
+/* Owner authority requires both the live process association and token. */
+static struct process_lifetime *user_scope_owned(uint64_t token) {
+    struct process *owner=process_current();
+    struct process_lifetime *life=lifetime_find(token);
+    return owner && owner->allocated && owner->active && !owner->exiting && !owner->killed &&
+        owner->owned_user_scope==token && life && life->user && life->owner==owner ? life : NULL;
+}
+static void user_scope_detach(struct process *owner) {
+    uint64_t flags=process_irq_save();
+    struct process_lifetime *life=owner?lifetime_find(owner->owned_user_scope):NULL;
+    if(life && life->user && life->owner==owner) {
+        life->revoked=true;life->owner=NULL;
+        if(life->reservation) {life->reservation=false;life->members--;}
+        if(!life->members) *life=(struct process_lifetime){0};
+    }
+    if(owner) owner->owned_user_scope=0;
+    process_irq_restore(flags);
+}
+static void user_scope_member_done(struct process_lifetime *life,uint64_t status,bool retired) {
+    if(!life) return;
+    if(life->user && retired && status) {
+        if(!life->nonzero_exits) life->first_exit_status=status;
+        if(life->nonzero_exits!=UINT64_MAX) life->nonzero_exits++;
+    }
+    if(life->members) life->members--;
+    if(life->user && !life->owner && life->revoked && !life->members)
+        *life=(struct process_lifetime){0};
+}
+int64_t process_scope_create(uint64_t *out) {
+    uint64_t flags=process_irq_save();struct process *owner=process_current();
+    int64_t result=SRV_ERR_AGAIN;
+    if(!out || !owner || !owner->allocated || !owner->active || owner->exiting || owner->killed) result=SRV_ERR_INVAL;
+    else if(owner->lifetime) result=SRV_ERR_NOTSUP;
+    else if(owner->owned_user_scope) result=SRV_ERR_BUSY;
+    else {
+        for(unsigned i=0;i<PROCESS_MAX_PROCESSES;i++) {
+            struct process_lifetime *life=&process_lifetimes[i];
+            if(life->user && !life->owner && life->revoked && life->members) {result=SRV_ERR_BUSY;goto done;}
+        }
+        for(unsigned i=0;next_lifetime && i<PROCESS_MAX_PROCESSES;i++) if(!process_lifetimes[i].token) {
+            uint64_t token=next_lifetime++;
+            process_lifetimes[i]=(struct process_lifetime){.token=token,.user=true,.owner=owner};
+            owner->owned_user_scope=token;*out=token;result=0;break;
+        }
+    }
+done: process_irq_restore(flags);return result;
+}
+int64_t process_scope_reserve(uint64_t token) {
+    uint64_t flags=process_irq_save();struct process_lifetime *life=user_scope_owned(token);
+    int64_t result=!life?SRV_ERR_INVAL:(life->revoked || life->root_reserved?SRV_ERR_BUSY:0);
+    if(!result) {life->root_reserved=true;life->reservation=true;life->members++;life->peak=life->members;}
+    process_irq_restore(flags);return result;
+}
+void process_scope_cancel_reservation(uint64_t token) {
+    uint64_t flags=process_irq_save();struct process_lifetime *life=lifetime_find(token);
+    if(life && life->user && life->reservation) {life->reservation=false;user_scope_member_done(life,0,false);}
+    process_irq_restore(flags);
+}
+int64_t process_scope_control(unsigned op,uint64_t token,struct srv_scope_status *out) {
+    uint64_t flags=process_irq_save();struct process_lifetime *life=user_scope_owned(token);int64_t result=0;
+    if(!life) result=SRV_ERR_INVAL;
+    else if(op==SRV_SCOPE_REVOKE) life->revoked=true;
+    else if(op==SRV_SCOPE_STATUS && out) *out=(struct srv_scope_status){.version=SRV_SCOPE_VERSION,.size=sizeof(*out),.revoked=life->revoked,.members=life->members,.nonzero_exits=life->nonzero_exits,.first_exit_status=life->first_exit_status};
+    else if(op==SRV_SCOPE_RELEASE) {
+        if(!life->revoked || life->members) result=SRV_ERR_BUSY;
+        else {process_current()->owned_user_scope=0;*life=(struct process_lifetime){0};}
+    } else result=SRV_ERR_INVAL;
+    process_irq_restore(flags);return result;
+}
+
 uint64_t process_lifetime_create(void) {
     if (process_current()) return 0;
     uint64_t flags=process_irq_save(),token=0;
@@ -832,11 +910,11 @@ uint64_t process_lifetime_of(uint64_t pid) {
 
 static struct process *alloc_process_lifetime(const char *path,bool detached,uint64_t root_token) {
     struct process *parent=process_current();
-    if (root_token && parent) return NULL;
     uint64_t token=root_token?root_token:(parent?parent->lifetime:0);
     uint64_t flags=process_irq_save(),slot=PROCESS_MAX_PROCESSES,pid=0;
     struct process_lifetime *life=lifetime_find(token);
-    if (token && (!life || life->revoked || (root_token && life->root_reserved))) {
+    if (root_token && parent && !user_scope_owned(root_token)) {process_irq_restore(flags);return NULL;}
+    if (token && (!life || (life->revoked && !(root_token && life->reservation)) || (root_token && life->root_reserved && !life->reservation))) {
         process_irq_restore(flags);return NULL;
     }
     for(uint64_t i=0;i<PROCESS_MAX_PROCESSES;i++) {
@@ -844,7 +922,8 @@ static struct process *alloc_process_lifetime(const char *path,bool detached,uin
             slot=i;process_slots_busy[i]=true;pid=next_pid++;
             if(!next_pid) next_pid=1;
             if(life) {
-                life->members++;if(life->members>life->peak)life->peak=life->members;
+                if(root_token && life->reservation) life->reservation=false;
+                else {life->members++;if(life->members>life->peak)life->peak=life->members;}
                 if(root_token)life->root_reserved=true;
             }
             break;
@@ -887,7 +966,9 @@ static void release_process(struct process *process) {
         return;
     }
 
+    user_scope_detach(process);
     uint64_t token=process->lifetime;
+    bool retired=!process->active;uint64_t status=process->exit_status;
     uint64_t slot=(uint64_t)(process-processes),flags=process_irq_save();
     process_slots_busy[slot]=true;
     process->allocated=false;
@@ -903,7 +984,7 @@ static void release_process(struct process *process) {
     clear_process(process);
     flags=process_irq_save();
     struct process_lifetime *life=lifetime_find(token);
-    if(life) life->members--;
+    user_scope_member_done(life,status,retired);
     process_slots_busy[slot]=false;process_irq_restore(flags);
     /* A competing waiter may have slept after another reaper claimed the
      * zombie but before allocated was cleared. Publish target disappearance. */
@@ -911,6 +992,7 @@ static void release_process(struct process *process) {
 }
 
 static void release_process_runtime(struct process *process) {
+    user_scope_detach(process);
     if (process == NULL) {
         return;
     }
@@ -992,6 +1074,7 @@ static void copy_bytes(uint8_t *destination, const uint8_t *source, uint64_t len
 static bool user_space_write_mode(struct process *process, uint64_t virtual_address,
     const void *source, uint64_t length,bool service) {
     const uint8_t *bytes = source;
+    unsigned pages=0;
     for (uint64_t copied = 0; copied < length;) {
         uint64_t physical_address;
         if (!vmm_virt_to_phys_in_space(process->address_space,
@@ -1010,7 +1093,7 @@ static bool user_space_write_mode(struct process *process, uint64_t virtual_addr
             bytes + copied,
             chunk);
         copied += chunk;
-        if(service && !(copied&0x1ffff))process_service_checkpoint();
+        if(service && !(++pages&31))process_service_checkpoint();
     }
     return true;
 }
@@ -2006,7 +2089,7 @@ int64_t process_spawn_elf_args_redirect(const char *path,
     return status;
 }
 
-int64_t process_spawn_exec(const char *path,
+int64_t process_spawn_exec_scoped(uint64_t scope_token,const char *path,
     uint64_t argc,
     const char *const *argv,
     uint64_t envc,
@@ -2027,7 +2110,7 @@ int64_t process_spawn_exec(const char *path,
         return SRV_ERR_INVAL;
     }
 
-    struct process *child = alloc_process(path, detached);
+    struct process *child = alloc_process_lifetime(path, detached, scope_token);
     if (child == NULL) {
         console_write("exec: process table full\n");
         return SRV_ERR_AGAIN;
@@ -2111,6 +2194,16 @@ int64_t process_spawn_exec(const char *path,
     return status;
 }
 
+int64_t process_spawn_exec(const char *path,uint64_t argc,const char *const *argv,
+    uint64_t envc,const char *const *envp,bool detached,int64_t stdin_fd,
+    int64_t stdout_fd,int64_t stderr_fd,uint64_t process_group,bool foreground,
+    const struct process_spawn_file_action *file_actions,uint64_t file_action_count,
+    uint64_t signal_flags,uint64_t signal_mask,uint64_t signal_default) {
+    return process_spawn_exec_scoped(0,path,argc,argv,envc,envp,detached,stdin_fd,
+        stdout_fd,stderr_fd,process_group,foreground,file_actions,file_action_count,
+        signal_flags,signal_mask,signal_default);
+}
+
 static uint64_t load_process_u64(const uint64_t *value) {
     const volatile uint64_t *source = value;
     return *source;
@@ -2148,6 +2241,22 @@ static void move_process_image(struct process *destination, struct process *sour
     source->mapping_count = 0;
 }
 
+/* The exec image is private until fully loaded. Heap mutation stays atomic;
+ * initialization may service other processes only after kmalloc returns. */
+static struct process *process_allocate_exec_image(void) {
+    struct process_service_scope scope=process_service_begin();
+    struct process *image=NULL;
+    if(scope.held || !scheduler_io_active()) {
+        image=kmalloc(sizeof(*image));
+        if(image)for(uint64_t at=0;at<sizeof(*image);) {
+            uint64_t end=at+65536;if(end>sizeof(*image))end=sizeof(*image);
+            while(at<end)((uint8_t *)image)[at++]=0;
+            process_service_checkpoint();
+        }
+    }
+    process_service_end(scope);return image;
+}
+
 int64_t process_exec_replace(const char *path,
     uint64_t argc,
     const char *const *argv,
@@ -2166,7 +2275,7 @@ int64_t process_exec_replace(const char *path,
 
     if(process_current_user_thread()) return SRV_ERR_NOTSUP;
     for(unsigned i=0;i<PROCESS_MAX_USER_THREADS;i++) if(process->user_threads[i].used) return SRV_ERR_NOTSUP;
-    struct process *image = kcalloc(1, sizeof(*image));
+    struct process *image = process_allocate_exec_image();
     if (image == NULL) {
         return SRV_ERR_NOMEM;
     }
@@ -2185,6 +2294,7 @@ int64_t process_exec_replace(const char *path,
         return SRV_ERR_BADF;
     }
 
+    user_scope_detach(process);
     scheduler_clear_user_context();
     cleanup_process_address_space(process);
     move_process_image(process, image);
@@ -2600,6 +2710,35 @@ static bool process_wait_owned(const struct process *candidate,uint64_t owner) {
         processes[i].pid==candidate->parent_pid && processes[i].active) return false;
     return true;
 }
+int64_t process_scope_reap(uint64_t token) {
+    uint64_t flags=process_irq_save();struct process_lifetime *life=user_scope_owned(token);
+    struct process *child=NULL;
+    if(!life) {process_irq_restore(flags);return SRV_ERR_INVAL;}
+    if(!life->revoked) {process_irq_restore(flags);return SRV_ERR_BUSY;}
+    for(unsigned i=0;i<PROCESS_MAX_PROCESSES;i++) {
+        struct process *candidate=&processes[i];
+        if(!candidate->allocated || candidate->lifetime!=token || !candidate->detached ||
+           !candidate->reapable || candidate->active || !candidate->parent_pid ||
+           candidate->address_space || candidate->mapping_count || candidate->kernel_stack ||
+           candidate->kernel_stack_physical || candidate->kernel_stack_frames ||
+           process_slots_busy[i] || !scheduler_io_process_retired(candidate)) continue;
+        bool resources=false;
+        for(unsigned j=0;j<PROCESS_MAX_OPEN_FILES;j++) if(candidate->files[j].used) {resources=true;break;}
+        for(unsigned j=0;j<PROCESS_MAX_USER_THREADS;j++) if(candidate->user_threads[j].used) {resources=true;break;}
+        if(resources) continue;
+        bool live_parent=false;
+        for(unsigned j=0;j<PROCESS_MAX_PROCESSES;j++) if(processes[j].allocated &&
+            processes[j].active && processes[j].pid==candidate->parent_pid) {live_parent=true;break;}
+        if(!live_parent) {child=candidate;child->reapable=false;break;}
+    }
+    process_irq_restore(flags);
+    if(!child) return 0;
+    process_record_exit_status(child->pid,child->exit_status);
+    process_account_child(process_current(),child);
+    release_process(child);
+    return 1;
+}
+
 static struct process *find_reapable_process(const struct process_wait_request *request) {
     for (uint64_t i = 0; i < PROCESS_MAX_PROCESSES; i++) {
         struct process *process=&processes[i];
@@ -2638,7 +2777,7 @@ bool process_try_wait_retired(uint64_t pid,uint64_t *status,int64_t *result) {
      * the empty record intact: alloc_process_lifetime clears its reserved slot
      * at the ordinary gate before reuse. Nothing is freed or yielded here. */
     child->reapable=false;child->allocated=false;
-    if(life)life->members--;
+    user_scope_member_done(life,child->exit_status,true);
     struct process_wait_request any={.owner=parent->pid};
     if(!find_reapable_process(&any))process_clear_current_signal(SRV_SIGNAL_CHLD);
     scheduler_wake_all(&process_wait_queue);
@@ -6915,6 +7054,20 @@ static int64_t mmap_region_index_for_page(struct process *process, uint64_t page
     return -1;
 }
 
+/* Validate coverage by region boundaries rather than rescanning 512 regions
+ * for every page. Call only under the ordinary process service owner. */
+static bool mmap_range_registered(struct process *process,uint64_t base,uint64_t length) {
+    uint64_t end=base+length;
+    while(base<end) {
+        int64_t i=mmap_region_index_for_page(process,base);
+        if(i<0)return false;
+        uint64_t next=process->mmap_regions[i].base+process->mmap_regions[i].length;
+        base=next<end?next:end;
+        process_service_checkpoint();
+    }
+    return true;
+}
+
 static struct process_mmap_region *mmap_free_region_slot(struct process *process) {
     for (uint64_t i = 0; i < PROCESS_MAX_MMAP_REGIONS; i++) {
         if (!process->mmap_regions[i].used) {
@@ -6939,20 +7092,25 @@ static bool mmap_record_region(struct process *process, uint64_t base, uint64_t 
 }
 
 static int64_t mmap_find_free_range(struct process *process, uint64_t length, uint64_t hint) {
-    uint64_t start = USER_MMAP_BASE;
-    if (hint >= USER_MMAP_BASE && hint < USER_MMAP_LIMIT) {
-        start = page_up(hint);
-    } else if (process->mmap_next >= USER_MMAP_BASE && process->mmap_next < USER_MMAP_LIMIT) {
-        start = page_up(process->mmap_next);
-    }
-
-    for (uint64_t pass = 0; pass < 2; pass++) {
-        uint64_t cursor = pass == 0 ? start : USER_MMAP_BASE;
-        while (cursor < USER_MMAP_LIMIT && length <= USER_MMAP_LIMIT - cursor) {
-            if (mmap_range_free(process, cursor, length)) {
-                return (int64_t)cursor;
+    if(!process || !length || length>USER_MMAP_LIMIT-USER_MMAP_BASE)return -1;
+    uint64_t start=USER_MMAP_BASE;
+    if(hint>=USER_MMAP_BASE && hint<USER_MMAP_LIMIT)start=page_up(hint);
+    else if(process->mmap_next>=USER_MMAP_BASE && process->mmap_next<USER_MMAP_LIMIT)
+        start=page_up(process->mmap_next);
+    for(unsigned pass=0;pass<2;pass++) {
+        uint64_t cursor=pass?USER_MMAP_BASE:start;
+        uint64_t stop=pass?start:USER_MMAP_LIMIT;
+        while(cursor<stop && length<=USER_MMAP_LIMIT-cursor) {
+            uint64_t next=cursor;
+            for(unsigned i=0;i<PROCESS_MAX_MMAP_REGIONS;i++) {
+                const struct process_mmap_region *r=&process->mmap_regions[i];
+                if(r->used && cursor<r->base+r->length && cursor+length>r->base &&
+                   next<r->base+r->length)next=r->base+r->length;
             }
-            cursor += length;
+            if(next==cursor)return (int64_t)cursor;
+            /* Every intervening start still overlaps at least one region.
+             * Skip to its end, not by the request size: that stride lost fits. */
+            cursor=next;process_service_checkpoint();
         }
     }
     return -1;
@@ -7064,12 +7222,12 @@ static uint64_t mmap_page_flags_for_protection(uint64_t protection) {
 }
 
 static bool mmap_apply_protection(struct process *process,
-    uint64_t page,
+    uint64_t index,
     uint64_t page_flags) {
-    int64_t index = process_mapping_index(process, page);
-    if (index < 0) {
+    if (index >= process->mapping_count) {
         return false;
     }
+    uint64_t page=process->mappings[index].virtual_address;
     uint64_t irq = process_irq_save();
     if (!vmm_protect_page_in_space(process->address_space, page, page_flags)) {
         process_irq_restore(irq); return false;
@@ -7078,6 +7236,16 @@ static bool mmap_apply_protection(struct process *process,
     process->mappings[index].flags = page_flags;
     process_irq_restore(irq);
     return true;
+}
+
+/* Failed mmap allocations are an appended suffix while this owner excludes
+ * siblings. Publish each removal before permitting a service turn. */
+static void mmap_rollback_pages(struct process *process,uint64_t original_count) {
+    unsigned retired=0;
+    while(process->mapping_count>original_count) {
+        process_unmap_mapping_at(process,process->mapping_count-1);
+        if(!(++retired&31))process_service_checkpoint();
+    }
 }
 
 static int64_t process_mmap_impl(struct process *process,
@@ -7133,14 +7301,13 @@ static int64_t process_mmap_impl(struct process *process,
         base = (uint64_t)found;
     }
 
+    uint64_t original_count=process->mapping_count;
     uint64_t mapped = 0;
     uint64_t page_flags = mmap_page_flags_for_protection(protection);
     if (protection != SRV_PROT_NONE) {
         for (; mapped < mapped_length; mapped += PAGE_SIZE) {
             if (!map_process_page(process, base + mapped, page_flags)) {
-                for (uint64_t rollback = 0; rollback < mapped; rollback += PAGE_SIZE) {
-                    (void)process_unmap_tracked_page(process, base + rollback);
-                }
+                mmap_rollback_pages(process,original_count);
                 return -1;
             }
         }
@@ -7151,17 +7318,13 @@ static int64_t process_mmap_impl(struct process *process,
         uint64_t copy_length = length < available ? length : available;
         if (copy_length != 0 &&
             !user_space_write(process, base, file_data + (uint64_t)offset, copy_length)) {
-            for (uint64_t rollback = 0; rollback < mapped_length; rollback += PAGE_SIZE) {
-                (void)process_unmap_tracked_page(process, base + rollback);
-            }
+            mmap_rollback_pages(process,original_count);
             return -1;
         }
     }
 
     if (!mmap_record_region(process, base, mapped_length,anonymous)) {
-        for (uint64_t rollback = 0; rollback < mapped_length; rollback += PAGE_SIZE) {
-            (void)process_unmap_tracked_page(process, base + rollback);
-        }
+        mmap_rollback_pages(process,original_count);
         return -1;
     }
 
@@ -7262,11 +7425,7 @@ static int64_t process_munmap_impl(struct process *process, uint64_t address, ui
     if (!mmap_can_split_for_unmap(process, address, mapped_length)) {
         return -1;
     }
-    for (uint64_t page = address; page < address + mapped_length; page += PAGE_SIZE) {
-        if (mmap_region_index_for_page(process, page) < 0) {
-            return -1;
-        }
-    }
+    if(!mmap_range_registered(process,address,mapped_length))return -1;
     /* Visit each tracked mapping once. Searching the complete table twice
      * per page made large compositor-buffer teardown quadratic. Removal swaps
      * in the last entry, so examine that replacement before advancing. Pages
@@ -7288,7 +7447,7 @@ static int64_t process_munmap_impl(struct process *process, uint64_t address, ui
     return 0;
 }
 
-int64_t process_mprotect(struct process *process,
+static int64_t process_mprotect_impl(struct process *process,
     uint64_t address,
     uint64_t length,
     uint64_t protection) {
@@ -7301,31 +7460,30 @@ int64_t process_mprotect(struct process *process,
     if (mapped_length < length || !mmap_range_valid(address, mapped_length)) {
         return -1;
     }
-    for (uint64_t page = address; page < address + mapped_length; page += PAGE_SIZE) {
-        if (mmap_region_index_for_page(process, page) < 0) {
-            return -1;
-        }
+    if(!mmap_range_registered(process,address,mapped_length))return -1;
+    uint64_t page_flags=mmap_page_flags_for_protection(protection);
+    /* The tracking array is unsorted. Visit it once, publishing each PTE and
+     * matching flags before a service turn; siblings remain excluded. */
+    for(uint64_t i=0;i<process->mapping_count;i++) {
+        uint64_t page=process->mappings[i].virtual_address;
+        if(page>=address && page<address+mapped_length &&
+           !mmap_apply_protection(process,i,page_flags))return -1;
+        if(!((i+1)&31))process_service_checkpoint();
     }
-
-    uint64_t page_flags = mmap_page_flags_for_protection(protection);
-    for (uint64_t page = address; page < address + mapped_length; page += PAGE_SIZE) {
-        if (process_mapping_index(process, page) < 0) {
-            if (protection == SRV_PROT_NONE) {
-                continue;
-            }
-            if (!map_process_page(process, page, page_flags)) {
-                return -1;
-            }
-            continue;
-        }
-        if (!mmap_apply_protection(process, page, page_flags)) {
-            return -1;
+    if(protection!=SRV_PROT_NONE) {
+        for(uint64_t page=address;page<address+mapped_length;page+=PAGE_SIZE) {
+            uint64_t physical;
+            /* PROT_NONE reservations may have no frame yet. Existing PTEs
+             * were handled above; new mappings publish tracking atomically. */
+            if(!vmm_virt_to_phys_in_space(process->address_space,page,&physical) &&
+               !map_process_page(process,page,page_flags))return -1;
+            if(!(((page-address)/PAGE_SIZE+1)&31))process_service_checkpoint();
         }
     }
     return 0;
 }
 
-int64_t process_msync(struct process *process,
+static int64_t process_msync_impl(struct process *process,
     uint64_t address,
     uint64_t length,
     uint64_t flags) {
@@ -7339,12 +7497,16 @@ int64_t process_msync(struct process *process,
     if (mapped_length < length || !mmap_range_valid(address, mapped_length)) {
         return -1;
     }
-    for (uint64_t page = address; page < address + mapped_length; page += PAGE_SIZE) {
-        if (mmap_region_index_for_page(process, page) < 0 ||
-            process_mapping_index(process, page) < 0) {
-            return -1;
-        }
+    if(!mmap_range_registered(process,address,mapped_length))return -1;
+    uint64_t pages=0;
+    for(uint64_t i=0;i<process->mapping_count;i++) {
+        uint64_t page=process->mappings[i].virtual_address;
+        if(page>=address && page<address+mapped_length)pages++;
+        if(!((i+1)&31))process_service_checkpoint();
     }
+    /* Private mappings have no file writeback; retain the existing requirement
+     * that every requested page owns a tracked frame (including PROT_NONE). */
+    if(pages!=mapped_length/PAGE_SIZE)return -1;
     return 0;
 }
 
@@ -7365,9 +7527,10 @@ void process_exit(uint64_t status) {
         }
     }
 
+    user_scope_detach(process);
     struct process_user_thread *thread = process_current_user_thread();
     if (thread != NULL) {
-        __asm__ volatile ("cli" : : : "memory");
+        (void)process_irq_save();
         process->exit_status = status;
         process_record_exit_status(process->pid, status);
         process->exiting = true;
@@ -7380,11 +7543,11 @@ void process_exit(uint64_t status) {
          * Preserve their bindings; final teardown kills them before cleanup. */
         process_futex_wake_process(process);
         scheduler_clear_user_context();
-        __asm__ volatile ("sti" : : : "memory");
+        process_irq_restore(1ull << 9);
         scheduler_exit_current();
     }
 
-    __asm__ volatile ("cli" : : : "memory");
+    (void)process_irq_save();
     struct process_latency_span exit_span=process_latency_begin();
     scheduler_kill_user_threads(process, NULL);
     process_futex_cleanup_process(process);
@@ -7464,4 +7627,18 @@ int64_t process_munmap(struct process *process,uint64_t address,uint64_t length)
     int64_t result=process_munmap_impl(process,address,length);
     process_service_end(scope);
     process_latency_end(LATENCY_PROCESS_MAPPING,span);return result;
+}
+
+int64_t process_mprotect(struct process *process,uint64_t address,uint64_t length,uint64_t protection) {
+    struct process_latency_span span=process_latency_begin();
+    struct process_service_scope scope=process_service_begin();
+    int64_t result=(!scope.held && scheduler_io_active())?-1:
+        process_mprotect_impl(process,address,length,protection);
+    process_service_end(scope);process_latency_end(LATENCY_PROCESS_MAPPING,span);return result;
+}
+int64_t process_msync(struct process *process,uint64_t address,uint64_t length,uint64_t flags) {
+    struct process_service_scope scope=process_service_begin();
+    int64_t result=(!scope.held && scheduler_io_active())?-1:
+        process_msync_impl(process,address,length,flags);
+    process_service_end(scope);return result;
 }

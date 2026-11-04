@@ -165,16 +165,16 @@ static void inspect_entry(struct profile_entry *e) {
     }
     if(!lstat(path,&st)) {
         if(!S_ISREG(st.st_mode) || recovery_probe(e)) {
-            blocked(e,"Recovery blocked. Restore the original bundle; inspect the journal and profile with the profile command.");return;
+            blocked(e,"Recovery blocked. Inspect the profile journal; restore the original import bundle if needed.");return;
         }
         e->state=PROFILE_RECOVERABLE;
-        strcpy(e->detail,"Interrupted import verified. Recover to finish, then choose this profile.");return;
+        strcpy(e->detail,"Interrupted profile operation verified. Recover to finish, then choose this profile.");return;
     }
-    if(errno!=ENOENT) { blocked(e,"Cannot inspect import journal. Check the filesystem and refresh.");return; }
+    if(errno!=ENOENT) { blocked(e,"Cannot inspect profile journal. Check the filesystem and refresh.");return; }
     struct srv_profile_session session;char portable[160];
     if(marker_id(e->home,e->id) || desktop_profile_load(&session,portable,sizeof(portable),e->home) ||
        strcmp(e->id,session.id)) {
-        blocked(e,"Profile is incomplete or invalid. Inspect its marker, folders, settings and import journal.");return;
+        blocked(e,"Profile is incomplete or invalid. Inspect its marker, folders, settings and profile journal.");return;
     }
     if(identity_name(e->home,e->id,e->name)) {
         blocked(e,"Invalid or mismatched identity.json. Restore the matching profile identity.");return;
@@ -218,13 +218,13 @@ int profile_catalog_scan(struct profile_catalog *c,const char *root) {
         unsigned i;for(i=0;i<c->count;i++)if(!strcmp(c->entries[i].home,home))break;
         if(i<c->count) {
             if(journal && strcmp(d->d_name+n-jlen,JOURNAL_SUFFIX))
-                blocked(&c->entries[i],"Import journal filename has conflicting case. Inspect it manually.");
+                blocked(&c->entries[i],"Profile journal filename has conflicting case. Inspect it manually.");
             continue;
         }
         if(c->count==PROFILE_CATALOG_MAX){c->truncated=1;scan_error(c,"More than 16 profiles found. Narrow the location before selecting.");continue;}
         struct profile_entry *e=&c->entries[c->count++];strcpy(e->home,home);
         snprintf(e->name,sizeof(e->name),"%.64s",leaf);inspect_entry(e);
-        if(journal && strcmp(d->d_name+n-jlen,JOURNAL_SUFFIX))blocked(e,"Import journal filename has conflicting case. Inspect it manually.");
+        if(journal && strcmp(d->d_name+n-jlen,JOURNAL_SUFFIX))blocked(e,"Profile journal filename has conflicting case. Inspect it manually.");
     }
     if(closedir(dir))scan_error(c,"Could not finish profile discovery. Refresh before selecting.");
     for(unsigned i=0;i<c->count;i++)for(unsigned j=i+1;j<c->count;j++) {

@@ -2,8 +2,9 @@
 
 Initial source-audit checkpoint: 2026-11-03, base `8f47f196`. The starting-point
 sections below preserve that earlier audit. The subsequent isolated pilot and
-native results are recorded later in this guide; current accepted version-2
-readout is `8dc0947f9c7fbd56` / `1b0d37dd`, following version 1 at
+native results are recorded later in this guide; current accepted version-3
+readout is `86257762f155128f` / `169f3808`, following version 2 at
+`8dc0947f9c7fbd56` / `1b0d37dd` and version 1 at
 `e98aed0c5f8d06cf` / `baaa94b5`. The prerequisite audit uses base `5634cd9d`
 and grants no ownership. Policy,
 limits, recovery and ordinary startup are unchanged.
@@ -317,3 +318,158 @@ upper-fence coverage remains unresolved, and neither full-path consistency nor
 real ownership/pinning/lifetime is inferred. No policy or limit changed.
 See the [native unit closeout](machines/macbookair6-1.md#native-raw-cpu-tilectl-observation-accepted-2026-11-03)
 for exact session, storage integrity and recovery evidence. No new boot is armed.
+
+## Explicit Linux-model 32-fence observation (version 3, 2026-11-04)
+
+The exact `0a26` Linux PCI/device-info chain and pinned fence initializer above
+independently justify a separately opted-in read experiment over 32 rows. Its
+Gen6+ low/high register macros cover `0x100000..0x1000ff`; rows16–31 stay in the
+already admitted fence page, outside the pinned Haswell render-forcewake range.
+The Intel16/Linux32 reference discrepancy remains unresolved. This experiment
+observes values under Linux's exact-model assumption; reading zero upper rows
+cannot prove register existence, an absolute table size or hardware uniqueness.
+No Broadwell register/model gate is copied or widened.
+
+Stage with `--haswell-backing-capture --haswell-tilectl --haswell-linux-fences`
+and the local `--laptop-probe-volume UUID`. Both earlier flags are required. The
+new `ram-usb-v3-hsw` profile adds `srvros.hsw-fences=linux-model-32`; versions1/2
+remain sixteen-row profiles. The same single fence page and existing CPU/PTE
+windows are used. Exactly32 high/low/high fence pairs are retained and compared
+in each pass and rechecked after the full vector. GT `0x4030`, forcewake, extra
+page offsets, backing pixels, power policy and assurance bits remain excluded.
+The ten-map, 100ms pass/gap, 1536-PTE and 64KiB tail limits remain unchanged.
+
+Version3 summary explicitly says `fences=32 upper=linux-model-32`. Metadata is
+`<50Q32Q3Q5I`, 700 bytes; reads equal `PTE count+193`, with the same CPU/raw fields
+and mapping formula as version2. Changed/partial/unavailable upper rows, mixed
+versions/counts/coverage labels, malformed receipts or uncertain cleanup refuse.
+The decoder may report a single candidate **within the Linux model**, but always
+retains `unique_fence_proven=false`, unresolved reference count, no pin and no
+hardware authority. Overlapping valid rows remove even model-conditional
+uniqueness. Neither a matching snapshot nor a conditional candidate establishes
+allocation/scanout lifetime, firmware exclusion or full-path consistency.
+
+Actual adapter producers cover all three versions and maximum version3 vectors;
+independent decoding and maximum-tail retention apply to the full raw32-row
+records. Native acceptance requires a newly matched, staged/VM-tested image,
+local recovery/storage preflight and complete saved capture. The accepted
+version2 observations remain historical evidence, not advance acceptance of
+this new profile. GT and actual ownership/lifetime remain later prerequisites.
+
+
+## Native version-3 Linux-model32 result (2026-11-04)
+
+Release `86257762f155128f` / source `169f3808` records two matching complete
+32-row observations: fence0=`0x00fff02b00000001`, rows1–31 zero. Fence0 remains
+the only candidate within the pinned Linux model; zero upper values do not
+resolve the Intel16/Linux32 discrepancy or prove global hardware uniqueness.
+Two matching 1,056-entry GGTT vectors, raw CPU TILECTL zero twice, 1,249 reads
+per pass and ten verified retired mappings complete the read-only receipt.
+Pass brackets are396/391 us. No GT access, forcewake, policy or limits changed.
+
+The [unit closeout](machines/macbookair6-1.md#native-linux-model32-fence-observation-accepted-2026-11-04)
+records matching session, unchanged prior files, clean allocation and recovery.
+This accepts sampled observations only. GT/full-path swizzle, real backing
+allocation and scanout lifetime, firmware exclusion and ownership stay open;
+the original RC6 timing failure and package-C3 zero are unchanged. The next
+bounded step is auditing those remaining prerequisites before any control change.
+
+
+## Remaining access and lifetime contract (2026-11-04)
+
+The host path audit now consumes the receipt version: version1 still proposes
+raw CPU-control observation; version2 identifies the Linux-model32 readout;
+version3 stops proposing already completed captures. Its explicit prerequisite
+ledger always denies GT read/write admission and native ownership. This is an
+evidence report, not an executable hardware permission or new test recipe.
+
+The pinned [uncore implementation](https://github.com/torvalds/linux/blob/028ef9c96e96197026887c0f092424679298aae8/drivers/gpu/drm/i915/intel_uncore.c)
+selects the Gen6 render range for Haswell's Gen7 path, encompassing `0x4030`.
+Normal reads can acquire forcewake. Haswell's acquisition uses the MT request,
+HSW acknowledgement and a GT thread-status wait to avoid a spurious zero read;
+release clears the request. Therefore neither a raw zero nor Linux's logical
+read API is a no-write consistency proof. Any later acquisition needs its own
+exact-model request/ack/thread-status, concurrency, deadline and retirement
+contract. No such owner or extra MMIO allowlist is added here.
+
+Pinned [initial-plane adoption](https://github.com/torvalds/linux/blob/028ef9c96e96197026887c0f092424679298aae8/drivers/gpu/drm/i915/i915_initial_plane.c)
+creates a preallocated region object, reserves conflicting GGTT space when
+relocating, pins a VMA and conditionally pins a fence. Those allocator/lifetime
+actions are separate from observing PTEs. Copying this path would also introduce
+binding/publication behavior outside our read-only experiment.
+
+The native 16 MiB fence covers a 4,325,376-byte observed surface; the extra
+12,451,840 bytes are not a captured allocation. Our vector observes only the
+surface footprint. Reading the whole fence would require 4,096 PTEs, beyond
+the unchanged 1,536-PTE cap, and would still not establish ownership. Firmware
+reservation excludes ordinary RAM allocation, but is not firmware exclusion,
+a GGTT lease, a fence pin or proof of inactive DMA. Matching snapshots cannot
+replace cache/publication, matched scanout completion or a restore lifetime.
+
+The next bounded implementation should be a host-only inherited-layout and
+reservation **proposal** for the exact captured footprint, with collision,
+alias, partial-range, stale-generation and uncertain-retirement refusal tests.
+It must remain separate from native managed GGTT ranges and grant no assurance
+bits. Coordinate any shared reservation mechanism with the actual PR301 API
+before integration; its Broadwell DMA readout does not admit Air6,1 registers.
+A GT forcewake owner, native DMA/resource binding and real scanout adoption
+remain separate work. No new reboot can resolve those software contracts merely
+by repeating stable snapshots. Power policy, existing limits and the unresolved
+RC6/package-C3 results remain unchanged.
+
+
+## Host-only exact layout and synthetic reservation proposal (2026-11-04)
+
+[haswell_layout_proposal.py](../tools/haswell_layout_proposal.py) consumes a
+strict, complete version3 raw receipt and admits only the captured1366×768,
+5632-byte pitch, zero-offset,1056-page shape with matching raw CPU/display
+controls. It requires a sole Linux-model fence0 candidate, firmware-reserved
+stolen candidates and consecutive, nonaliased physical pages. It preserves the
+input receipt hash; older/incomplete/overlapping or changed layouts refuse.
+This is a proposal, not native allocation or hardware admission.
+
+The report keeps separate intervals: surface GGTT `[0,4325376)`, full protected
+fence `[0,16777216)`, and the1056 observed physical pages. All extra fence space
+stays protected from simulated GGTT reuse without inventing physical pages or
+ownership for it. `native_managed_ranges` is empty and pin/ownership/hardware
+and physical-acceptance flags remain false.
+
+The separate `SyntheticReservations` host model exercises half-open GPU ranges
+and exact physical-page sets. Partial GPU overlaps and physical aliases refuse
+independently; adjacency is allowed. Local object tokens bind a finite catalog,
+slot and monotonically increasing generation. Reader tokens are nontransferable;
+close blocks new holds/work, drains existing work and retains the range until
+all readers release. Uncertain retirement permanently quarantines its ranges
+and readers in that catalog; there is no reset/reclaim method. Fresh catalogs
+cannot validate old tokens. Eight simulated claims/readers and1536 input pages
+bound host exercises only; no native capacity or policy is changed.
+
+PR301 at `a803af45` already has an independent `scanout_space` API: audited
+managed imports start unavailable, protected inherited fences override grants,
+and exposed leases require restoration/translation/reader proofs. This tool does
+not implement or replace that allocator, import its synthetic grants into native
+state, or translate a simulation result into its proof mask. Shared integration
+must wait for the actual merged API and an independently audited Haswell owner.
+
+Run the proposal against an already collected raw exit log:
+
+```sh
+python3 tools/haswell_layout_proposal.py --exit-log /absolute/path/exit.log \
+  --output /absolute/path/host-layout-proposal.json
+```
+
+`make test-haswell-backing` includes positive proposal replay plus partial
+collision, exact-physical alias, aliased-but-valid receipt, full-fence protection,
+foreign/forged/stale tokens, reader retention, slot reuse, capacity and quarantine
+regressions. A completed simulated lifetime says nothing about device readers.
+No MMIO, PTE publication, native reservation, firmware exclusion or hardware
+completion callback exists here. Before native adoption, the remaining work is
+exact-model DMA/resource inventory, exclusive allocation and firmware ownership,
+GT-access protocol, publication/invalidation and matched route/restore retirement.
+
+
+The subsequent [Air6,1 DMA/resource inventory](macbookair6-1-dma-inventory.md)
+corroborates that the observed table/stolen/surface candidates lie within this
+unit's declared GPU RMRR. Ubuntu's active IOMMU state is not native boot state.
+The next proposed capture is firmware/catalog-only; no native VT-d register
+permission, owner assurance, writer or boot payload is added by that inventory.

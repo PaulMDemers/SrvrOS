@@ -238,18 +238,18 @@ def close_profiles(vm, start):
     c.observe(vm, rb'profile-ui: exited pid=\d+', start)
 
 
-def transfer(vm, operation, checkpoint=None, filename='transfer.json', alias='local_b', expect='success'):
+def transfer(vm, operation, checkpoint=None, filename='transfer.json', alias='local_b', expect='success', source_home=A):
     start = launch_profiles(vm, checkpoint)
     c.observe(vm, rb'profile-ui: state=editing', start)
     frame = geometry(vm, start)
     x, y, w, h = frame
     if operation == 'export':
-        click_client(vm, frame, 3 * w // 4, 25)
+        click_client(vm, frame, w // 2, 25)
         for name in ('migration.txt', 'binary.dat'):
-            select_file(vm, frame, (45, 105), A + '/Documents', name, 'open')
+            select_file(vm, frame, (45, 105), source_home + '/Documents', name, 'open')
         select_file(vm, frame, (60, 64), '/work', filename, 'save')
     else:
-        click_client(vm, frame, w // 4, 25)
+        click_client(vm, frame, w // 6, 25)
         select_file(vm, frame, (60, 64), '/work', filename, 'open')
         click_client(vm, frame, 180, 105); vm.key('ctrl-a'); text(vm, alias)
     preview = len(vm.output)

@@ -6917,3 +6917,188 @@ the Intel16/Linux32 fence discrepancy, full-path consistency and real allocation
 scanout lifetime remain open. Prior RC6 timing failure and package-C3 zero are
 unchanged. The next work is resolving those remaining prerequisites before any
 ownership or power-control change.
+
+### Exact-Haswell Linux-model fence coverage scope (2026-11-04)
+
+Base `845f703c`, native version-2 result collected before this work. PR301 remains
+an independent Broadwell scope; no shared driver or hardware gate is copied.
+Pinned Linux PCI IDs/device-info map actual `0a26` to Haswell ULT GT3/Gen7; its
+native-aperture fence initializer selects 32 and its Gen6+ register macro uses
+`0x100000+8*i`. The proposed remaining rows end at `0x1000ff`, in the already
+admitted fence page and outside its render-forcewake range. This independently
+justifies an explicit exact-model read experiment, not resolution of the Intel
+16-row documentation discrepancy or a hardware-uniqueness/ownership grant.
+
+Implement a separately opted-in version-3 32-fence receipt alongside full GGTT
+vectors and raw CPU TILECTL. Preserve versions 1/2 with sixteen rows, ten maps,
+100 ms pass/gap, 1,536 PTEs, 64 KiB tail, identity/D0/firmware/RAM gates and
+uncertain-retirement behavior. Touch only the isolated Haswell core/adapter,
+main/staging/decoder, retention/tests and this audit guide. No GT/forcewake,
+backing-pixel mapping, power policy, pin or assurance-bit change. After full
+matched validation and local recovery/USB checks, prepare/run the authorized
+automated test. No new native acceptance is claimed in advance.
+
+Version3 is implemented as a required-modifier extension:32 rows on the same
+fence page, raw labels preserve the Linux-model assumption, and global uniqueness
+and every owner assurance stay false. Focused actual core/adapter and independent
+v1/v2/v3/max producers/decoders/tail tests pass, including changed/all-ones upper
+rows, candidate overlap and uncertain mapping retirement. Matched full suites,
+sanitisers and exact-stage negative/legacy VMs remain pending before installing
+or arming a native test. No source change is physically accepted yet.
+
+### Linux-model32 trial validated and prepared (2026-11-04)
+
+[PR351](https://github.com/PaulMDemers/SrvrOS/pull/351), code `169f3808`, passes
+matched normal/AP and RAM/USB builds, full core/desktop/widget/profile-chooser/
+host/docs checks, actual core/adapter ASan/UBSan and independent v1/v2/v3/max raw
+producer decoding. The default installation suite reports71 tests, with its
+existing opt-in exhaustive I/O matrix skipped. No warning or integrity check,
+map/read/time/data limit or power policy is relaxed.
+
+Source-matched maximum retention preserves the full version3 records in the
+unchanged64KiB tail. Exact-model source predicates and pinned reference hashes
+verify the0a26/Haswell/Gen7/native-aperture32-row and register-offset chain; its
+Intel16 discrepancy stays unresolved. All four older AP VM profiles and both
+older Haswell modes pass. Exact release `86257762f155128f` passes Q35 identity
+refusal/save/unmount/reset and missing-workspace no-start/no-save return. These
+negative-path checks do not accept native32-row values or table size.
+
+The exact payload is durably backed up. At this validation checkpoint it is
+uninstalled and unarmed. The authorized next step preserves console recovery and
+accepted fallback/evidence, installs this image, then runs/collects automatically.
+USB baseline594 files/1661 clusters, all hashes, fsck/allocation and headroom pass.
+No human input is required. Local run records own subsequent arming/collection.
+Native acceptance remains `1b0d37dd` / `8dc0947f9c7fbd56` until the new run; no GT,
+forcewake, global uniqueness, pin, lifetime, firmware-exclusion or ownership grant
+is inferred. RC6 timing and package-C3 limitations remain unchanged.
+
+
+### Native Linux-model32 fence observation accepted (2026-11-04)
+
+Release `86257762f155128f`, compiled source `169f3808` from merged
+[PR351](https://github.com/PaulMDemers/SrvrOS/pull/351), automatically returned
+and collected session `session-00065f6cbb8aa860-00`. Independent decoding of the
+complete version-3 raw receipt matches the saved assessment. Both 32-row fence
+observations agree: fence0 is `0x00fff02b00000001`, and rows1–31 are zero.
+Fence0 is the sole candidate **within the exact Haswell Linux model**. Upper-row
+zero observations do not prove register existence, absolute table size or resolve
+the Intel16/Linux32 reference discrepancy; global hardware uniqueness stays false.
+
+Both complete 1,056-entry GGTT vectors agree; all entries are present and point
+into firmware-reserved stolen RAM. CPU TILECTL is zero twice, with the sampled
+display swizzle field `00`. Each pass performs 1,249 window reads; brackets are
+396/391 us under unchanged 100 ms bounds. All ten temporary mappings retire,
+with no retained uncertainty, GT/forcewake access, backing-pixel mapping, policy
+write, pin or ownership assurance. Full-path swizzle and lifetime remain unknown.
+
+All 594 prior files retain their hashes apart from expected workspace metadata.
+Two new logs give 596 files / 1,664 allocated clusters. Read-only fsck and the
+independent allocation check pass with zero leaks, bitmap mismatches or errors.
+The 25,280-byte exit receipt and 496 durable evidence files independently verify.
+Installed/recovery payload hashes, Ubuntu default and consumed one-shot verify;
+collector disabled, no reboot armed. Evidence has a durable copy outside build.
+
+Closeout consumes integration `eab863ae` and recursive pins for documentation
+only. Newer Files/profile changes do not inherit native acceptance of this tested
+source. Remaining work is a source audit of GT access prerequisites and full-path
+swizzle, reference-count uncertainty and actual backing allocation/scanout lifetime
+before any ownership or power-control change. Prior RC6 timing failure and zero
+package-C3 residency remain unchanged. No further native test is armed here.
+
+
+### Remaining GT/lifetime prerequisite audit scope (2026-11-04)
+
+Base `7766ed5a` with recursive integration pins; version3 native receipt collected
+before this block. PR301 at `d320c5d4` owns independent Broadwell DMA/scanout work;
+no driver, register gate or native acceptance is imported. Audit pinned Haswell
+forcewake and initial-plane allocation/pinning paths against the accepted raw
+receipt. Update only the host path-audit report, its regressions and Air6,1 docs
+to distinguish completed observations from missing authority/lifetime proofs.
+No new MMIO, firmware transaction, power writer, boot profile or limit change.
+Save source hashes and native host-audit output locally, validate host/docs tests,
+and integrate the bounded audit before proposing another native experiment.
+
+
+Audit complete: pinned primary uncore and initial-plane files were independently
+refetched/hash-matched. Haswell's GT read requires MT request/HSW acknowledgement
+and thread-status acquisition, so no raw GT read is admitted. The native16MiB
+fence exceeds the observed4,325,376-byte footprint by12,451,840 bytes; that excess
+is not an owned allocation. The host report now tracks version1/2/3 completion,
+explicitly refuses hardware/firmware exclusion and lifetime assurances, and no
+longer proposes repeating completed CPU capture. Regression coverage includes
+large/overlapping upper fences and unchanged no-authority results across versions.
+
+`make test-haswell-backing check-docs`, independent native version3 host re-audit
+and diff checks pass. Actual core/adapter producers and all three maximum-tail
+checks remain passing. No kernel/staging/policy/limit change or new physical
+acceptance; no payload installed or reboot armed. Next is a host-only exact-layout
+reservation proposal and collision/alias/stale/retirement tests, coordinated with
+PR301 before any shared allocator work. Native GT/DMA/scanout ownership remains
+separate and the RC6/package-C3 limitations persist. Durable audit evidence is
+saved outside build before closeout.
+
+
+### Host-only inherited layout proposal scope (2026-11-04)
+
+Base `f4ea0ccb`, recursive pins unchanged. PR301 inspected at `a803af45`; its
+scanout-space API stays independent and unmerged. Add a separate host-only
+exact-Air6,1 layout proposal derived from the strict version3 raw receipt and a
+finite simulated reservation/lifetime model. Cover GGTT/physical conflicts,
+partial overlaps, PTE aliases, foreign/stale tokens, retained references and
+uncertain retirement without importing native managed ranges or setting owner
+assurances. Touch only tools/tests, the Haswell test target and Air6,1 docs.
+No kernel/shared allocator changes, MMIO, boot stage, power policy or new limits.
+Validate actual receipt replay and host refusals, then merge and durably preserve
+the host evidence. This simulation cannot accept a native pin or allocation.
+
+
+Implemented the separate host proposal/model. Replay of the accepted version3
+receipt yields the exact4,325,376-byte/1056-page surface, physical candidates
+`[0x8da00000,0x8de20000)`, and full protected16MiB inherited fence. No native
+managed range, physical ownership, pin or assurance bit is created. Exact GGTT
+and physical collisions, aliases, stale/foreign tokens, retained/busy readers,
+slot/generation exhaustion and uncertain quarantine are covered by nine new
+regressions, including a valid matching aliased receipt that the proposal refuses.
+
+`make test-haswell-backing check-docs`, all actual core/adapter producers and
+three raw maximum-tail checks, independent native-receipt host replay and diff
+checks pass. The shared PR301 allocator remains untouched: software protection
+of a full inherited fence is not a managed native grant or DMA mapping. Durable
+host evidence is kept outside build. No new native acceptance, installation or
+reboot is armed. Next prerequisite is this unit's read-only DMA/resource inventory
+and an exact-model ownership/publication contract before any hardware writer;
+GT forcewake, firmware exclusion and actual scanout retirement remain unbound.
+
+
+### Read-only DMA/resource inventory scope (2026-11-04)
+
+Base `1fbec70d`, PR301 inspected at `b89e4e43`; native Broadwell DMA gates remain
+independent. Collect this actual MacBookAir6,1's exported DMAR bytes, Ubuntu GPU
+PCI/resource/IOMMU topology and kernel memory-resource catalog into ignored local
+evidence. Decode offline with installed ACPICA and verify checksum/length/scopes;
+compare only against the accepted Haswell footprint. No `/dev/mem`, PCI config
+writes, IOMMU controls, driver unbind, firmware method, root-table walk or reboot.
+Touch only Air6,1 documentation; no native parser/driver admission is added.
+Ubuntu driver state is inventory evidence, not SrvrOS translation acceptance.
+
+
+Inventory completed without MMIO/reboot: valid136-byte DMAR (39-bit host width,
+flags01) declares GPU-specific segment0 `00:02.0` DRHD at `0xfed90000`, a separate
+include-all unit at `0xfed91000`, and GPU RMRR `[0x8d800000,0x8fa00000)` covering
+both accepted table/stolen intervals and the observed surface. ACPICA decoding,
+independent byte/checksum/scope checks and native-footprint containment agree.
+See the [sanitized DMA inventory](../macbookair6-1-dma-inventory.md).
+
+Ubuntu has i915/active DMAR and a GPU-only IOMMU group; that initialized state is
+not native SrvrOS translation evidence. Its exported firmware catalog has no
+entry enclosing either DRHD page; `/proc/iomem` runtime labels do not substitute
+for native Limine admission. This unit's flags/RMRR and reserved gap edges differ
+from the Broadwell profile; no sibling gate is copied. No DMA/MMIO/ownership
+assurance or new physical runtime acceptance is granted.
+
+Next is an isolated firmware-only native capture of complete DMAR/current Limine
+catalog and exact identity before any VT-d read protocol. It requires matched
+validation and a new recorded run; none is staged here. Raw inventory and
+verification have durable copies outside build; docs/diff checks pass. Current
+installed payload/recovery and reboot state remain unchanged, with no reboot
+armed. GT forcewake and real backing/publication/scanout lifetime remain open.

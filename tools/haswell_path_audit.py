@@ -44,6 +44,37 @@ def next_readout(offset, count):
                 requires_new_adapter_codec_retention_and_VM_validation=True)
 
 
+def prerequisites(observed, candidates):
+    """Evidence ledger, not an admission API: sampled state cannot grant a pin."""
+    version = observed.get('source_version', 1)
+    cpu_observed = version >= 2
+    model32_observed = version == 3
+    # Only the captured surface vector is observed. A covering fence's larger
+    # extent is neither an allocation size nor permission to inspect more PTEs.
+    return dict(
+        cpu_control_observed=cpu_observed,
+        linux_model32_observed=model32_observed,
+        gt_access=dict(offset=0x4030, access=access_class(0x4030),
+                       read_authorized=False, forcewake_writes_authorized=False,
+                       requires='Exact Haswell wake request/ack/thread-status ownership and bounded retirement'),
+        lifetime=dict(
+            observed_surface_bytes=observed['bytes'],
+            candidate_fence_extents=[dict(index=c['index'], start=c['start'], end=c['end'])
+                                     for c in candidates],
+            fence_extent_is_allocation=False,
+            extra_fence_bytes_owned=False,
+            software_reservation_is_hardware_exclusion=False,
+            backing_allocation_owned=False, ggtt_range_owned=False,
+            fence_pinned=False, firmware_excluded=False,
+            dma_translation_bound=False, cache_publication_bound=False,
+            matched_scanout_completion=False, route_restore_bound=False),
+        next_step=('audit-gt-access-and-allocation-lifetime' if model32_observed else
+                   'validate-linux-model32-readout' if cpu_observed else
+                   'validate-raw-cpu-control-readout'),
+        new_native_test_authorized_by_report=False,
+        ownership=False, hardware_authority=False)
+
+
 def audit(text):
     observed = backing_result(text)
     if not observed or observed['status'] != 'OBSERVED':
@@ -60,24 +91,28 @@ def audit(text):
                        prm_pitch=rows[i]['prm_pitch'], linux_pitch=rows[i]['linux_pitch'],
                        pitch_models_agree=not rows[i]['pitch_discrepancy'],
                        bytes_outside_surface=rows[i]['end'] - rows[i]['start'] - observed['bytes'])
-                  for i in observed['lower_fence_candidates']]
+                  for i in observed.get('linux_model_fence_candidates',observed['lower_fence_candidates'])]
     addresses = samples[0]['address_candidates']
     consecutive = all(addresses[i] is not None and addresses[0] is not None and
                       addresses[i] == addresses[0] + 4096 * i for i in range(len(addresses)))
     return dict(status='HOST_AUDIT_ONLY', physical_acceptance=False,
                 source_readout_completed=True, count=observed['count'],
-                display=modes[0], cpu_aperture_swizzle='raw-only; unresolved' if observed.get('source_version')==2 else 'unobserved', cpu_tilectl_raw=observed.get('tilectl_raw'), gt_swizzle='unobserved',
+                display=modes[0], cpu_aperture_swizzle='raw-only; unresolved' if observed.get('source_version',1)>=2 else 'unobserved', cpu_tilectl_raw=observed.get('tilectl_raw'), gt_swizzle='unobserved',
                 full_path_equivalence=False,
                 linux_inherited_tiled_policy=modes[0]['mode'] if modes[0]['valid'] else 'refuse-reserved',
                 policy_is_not_hardware_consistency_proof=True,
-                fence=dict(observed=16, intel_documented=16, linux_exact_hsw_model=32,
-                           upper_unobserved=True, reference_count_discrepancy_resolved=False,
+                fence=dict(observed=len(rows), intel_documented=16, linux_exact_hsw_model=32,
+                           upper_unobserved=len(rows)==16, reference_count_discrepancy_resolved=False,
                            overlaps=overlaps, candidates=candidates, uniqueness_proven=False),
                 address_candidates_consecutive=consecutive,
                 all_present=observed['all_present'], all_stolen_candidates=observed['all_stolen_candidates'],
                 firmware_reserved=observed['stolen_range_reserved'],
                 backing_bytes_read=0, ownership=False, pin=False, hardware_authority=False,
-                next_readout=next_readout(observed['offset'], observed['count']))
+                prerequisites=prerequisites(observed, candidates),
+                # Retain the original proposal only for receipts that actually
+                # lack CPU control. Newer receipts must not request it again.
+                next_readout=(next_readout(observed['offset'], observed['count'])
+                              if observed.get('source_version', 1) == 1 else None))
 
 
 if __name__ == '__main__':

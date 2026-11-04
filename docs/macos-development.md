@@ -60,6 +60,11 @@ must be completed. With the default tablet, Cocoa releases the host cursor when
 it leaves the guest display and reconnects it on entry. QEMU's View menu shows
 the release shortcut for relative-mouse configurations.
 
+To switch portable profiles without rebooting, choose **SrvrOS → Switch Profile…**
+and resolve the apps’ Save/Discard/Cancel prompts. The chooser opens after the
+old session retires. Cancel keeps the profile active, but already accepted closes
+may still finish. See [session switching](portable-profiles.md#ending-sessions-and-switching-profiles).
+
 To finish, save work and choose **SrvrOS → Return to console** so app workers
 can drain, then close the QEMU window. Returning to the console does not stop
 the VM. The monitor has no `shutdown`, `quit` or `exit` command. Enter

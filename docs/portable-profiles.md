@@ -6,13 +6,14 @@ HOME/config/data/cache resolver. Host tooling, guest commands and desktop
 workflows share this contract. Login, cloud roaming and multi-user security
 isolation remain separate.
 
-Current milestone: graphical profile transfer is qualified for review after the
-merged chooser milestone. Profiles provides selected-file export, reviewed import,
-owned asynchronous work and recovery guidance. The final two-installation GUI
-proof passes all 19 VM lifetimes, including interruptions and 640 × 480 review.
-See the [graphical transfer evidence](#graphical-transfer-milestone--qualified-for-review)
-and dependent Apps/OS PRs below. Authentication and permission enforcement remain
-separate.
+Current milestone: ending a desktop session and switching profiles without
+reboot is delivered and independently verified in [Apps #9](https://github.com/PaulMDemers/SrvrApps/pull/9)
+(`c3ad11b1`) and [OS #355](https://github.com/PaulMDemers/SrvrOS/pull/355)
+(`82face72`), following merged
+[runtime #354](https://github.com/PaulMDemers/SrvrOS/pull/354). Profile creation,
+recovery and migration are already delivered in Apps8/OS348. Their earlier
+20-lifetime creation and 19-lifetime transfer proofs retain their recorded source
+attribution. Authentication and permission enforcement remain separate.
 
 | Transfer state | User decision | Result and correction |
 | --- | --- | --- |
@@ -1011,3 +1012,236 @@ publication functions consumed by the GUI proof, are identical. The integration
 receipt records this final main, source, build, pins and corrected check invocation.
 Apps PR6 has merged first; the coordinator owns the final OS333 merge and combined
 installation proof.
+
+## Desktop profile creation — qualified for review
+
+Profiles adds a Create tab with a display name and installation-local name.
+The startup chooser adds Create Profile, available through the existing explicit
+`deskd --choose-profile` route. Ordinary startup with no profiles still uses the
+legacy desktop; a remembered ready profile still restores directly. There is no
+forced onboarding or live switch of existing applications to another HOME.
+
+| State | Action and outcome |
+| --- | --- |
+| Enter name and local name | Shared text editors support correction; local name determines the new HOME |
+| Review | Read-only preview generates a UUIDv4 and shows destination, empty home and all six default portable settings |
+| Confirm | Recheck reviewed identity/settings and destination/collision/capacity rules before any journal write |
+| Create in chooser | Refresh to the new Ready entry; explicit Open desktop saves the selection |
+| Create in Profiles | Finish the current session, then choose the new profile at next desktop startup |
+| Refusal | Retain inputs and show the bounded actual reason; existing data is preserved |
+| Interruption | Existing chooser recovery validates the retained journal/tree before finishing publication |
+
+The fixed command contract is:
+
+```text
+profile preview-create HOME ALIAS DISPLAY_NAME
+profile create-reviewed HOME ALIAS DISPLAY_NAME UID GID UUID SHA256
+```
+
+Preview returns `srvros-profile-review-v1`, operation `create`, the generated
+profile UUID/display name, destination HOME/alias/UID/GID, zero document bytes,
+an empty document list, six explicit portable preferences and a SHA256 of the
+canonical identity-only v1 bundle. Confirmation reconstructs that same bundle
+with the reviewed UUID and rechecks its fingerprint. The UI snapshots all
+arguments and never invokes a shell. UUIDs and binding numbers are metadata;
+the existing random syscall may use its software fallback and provides no new
+cryptographic identity or authentication guarantee. Random errors or short
+16-byte reads refuse before filesystem writes.
+
+Creation v1 freezes the current six portable defaults: text size 16, clock flags
+3 (24-hour clock plus date), wallpaper 0, accent 0, glass 1 and style 0. HOME has
+empty Documents, config/data/cache folders and identity/local-binding metadata.
+Machine-specific preferences and legacy files are neither moved nor adopted.
+Destination bindings reuse the bounded allocator; blocked/pending entries count
+toward the shared 16-entry chooser capacity. Preview is not a reservation;
+confirmation checks again and refuses occupied or ambiguous state.
+
+Creation retains the existing sibling `HOME.profile-import.json` filename with
+format `srvros-profile-create-v1`. Its strict six-field record contains `home`,
+`profile_id`, `binding`, canonical `sha256` and an inline identity-only `bundle`,
+plus `format`. Unlike import-v1's source path, this bundle needs no external
+file. The normal strict bundle validator, expected-file manifest, exact-tree
+preflight and publication/reconciliation engine are reused. Existing import-v1
+journals keep their original source-bundle requirements. Unknown files, changed
+final content, malformed journals and ambiguous state remain preserved refusals.
+Offline installation inspection blocks the same pending filenames before reading
+profile documents, including a complete profile with an unreconciled journal.
+
+Five controlled creation interruption points are qualified by the new harness:
+`journal`, `directories`, `identity`, `commit-ready` and `published`. The last is
+after pending-marker removal and HOME flush, before sibling-journal removal;
+recovery must recognize a complete already-published profile and reconcile the
+journal without changing content. The existing diagnostic allowlist gains
+`published`; only an explicit ordinary `--apps-trace` test session forwards it
+through the owned worker path. Ordinary environment construction strips test
+faultpoints, and desktop child admission remains unchanged.
+
+The accepted proof is `tools/profile_create_smoke.py`: 20 serial disposable VM
+lifetimes covering both creation entry points, initial empty/default state,
+canonical/distinct dynamic UUIDs, remembered selection, guest-saved selected
+text/binary files, graphical export/import and reboot readback in an independent
+installation. All six defaults remain unchanged through migration. It also
+covers the five stop/recover pairs, invalid/occupied/capacity refusals, 640 × 480
+and preservation of legacy/machine/unselected data, bindings, allocation and
+protected regions. Final A/B/transport images and original baselines remain raw
+for independent audit; completed probes/snapshots use verified bounded gzip
+archives and restore manifests. Builds and VMs are serialized. The accepted run records PASS for all 20 lifetimes.
+
+### Creation acceptance and retained evidence
+
+Clean OS source `1ef0ccdd`, integrated with actual main `6225e4d1`, passes the
+matched build and focused profile/catalog/desktop/fsync checks. Pins are Apps
+`0bf8e137` (includes merged Files `2ddea66`), UI `586bd002` and Ports `d760e541`.
+All 25 guest CLI groups and production catalog integration also pass ASan/UBSan;
+current-main documentation checks pass. The catalog tests exercise real CLI
+creation/recovery at all five boundaries, with no external bundle, and verify
+Ready plus remembered selection after reconciliation. An initial Files assertion
+against the older OS tests is retained in `host-new-pins-r1.log`; integrating
+OS344's matching tests resolves it without changing creation behavior.
+
+The final proof is `build/review/profile-create/proof-hhj_ogf8/`, receipt SHA256
+`3ffbf4f27a92a0cba7bab7702e28e37bf489ba45b90741b696cd8b3290ffc086`.
+It uses dynamically captured guest UUIDs throughout. Both entry points produce
+canonical distinct UUIDv4 identities and empty Documents with all six defaults
+before editing. A reopens through its remembered choice, saves the selected
+text/binary data and exports through Profiles. B already has its own independently
+created profile, then graphically imports A's exact bundle into a different home
+with different local bindings; chooser selection, reboot restoration and Text
+readback pass. Defaults stay unchanged through migration. Legacy files, machine
+preferences, the unrelated profile and four synthetic exclusion fixtures are
+preserved. Exact selected bytes, UUID/display name, local metadata, installed
+binaries, allocation and protected regions are checked.
+
+All five interrupted creations recover through the existing chooser. The
+published case verifies marker removal while a valid self-contained journal
+remains, then reconciles without replacing profile content. Invalid/occupied
+names and a full 16-entry catalog refuse with compared data/namespace preserved;
+only the existing narrow access-time and append-only service-log differences
+are allowed. Every owned worker is reaped/drained and every owned QEMU stops.
+The 640 × 480 case exercises Ctrl-A replacement, Undo/Redo and the corrected Tab
+order in both fields, then reviews and commits those exact visible values.
+This catches stale storage-pointer reads after the shared text model swaps its
+active buffer. The final correction reads model data for validation, rendering
+and immutable worker snapshots.
+
+The [portable manifest](assets/screenshots/profile-create-manifest.json) records
+source/build/tool hashes, identities, defaults, interruptions, exclusions,
+comparisons, archive mappings and raw primary-image paths. Selected rendered
+states are [chooser review](assets/screenshots/profile-create-chooser.png),
+[app review](assets/screenshots/profile-create-app.png),
+[small-screen corrected form](assets/screenshots/profile-create-small-form.png),
+[small-screen review](assets/screenshots/profile-create-small-review.png),
+[published-journal recovery](assets/screenshots/profile-create-recovery.png),
+[capacity refusal](assets/screenshots/profile-create-capacity.png) and
+[B document readback](assets/screenshots/profile-create-document.png).
+These captions describe the sampled visible states; completion is established
+by child/status and filesystem checks.
+
+The independent coordinator verified all 37 archived streams against hashes and
+sizes, initial empty/default A, final A/B contents/bindings/choices/machine files,
+and all five stopped inline journals and recovered images. Audit results survive
+in `SrvrOS-migration-review/.local/profile-create-review/audit-result.json`.
+Full accepted evidence, matched build payloads and source snapshots are also
+stream-verified outside `build` under `.local/profile-create/proof-hhj_ogf8/`.
+Original final raw A/B/transport and baseline volumes remain available for audit
+and the separately authorized installation follow-up. No source inode is
+recreated or silently adopted as an installation recovery target.
+
+Reproduce with a clean source-matched `make all`, focused profile/catalog/desktop
+checks and `python3 tools/profile_create_smoke.py --ovmf-vars PATH`, setting
+`OVMF_CODE` to the paired x86_64 firmware. The harness reserves four live disks,
+one compression transient, eight volumes, a capped 1 GiB archive budget and a
+further 1 GiB reserve. Completed snapshots/probes are removed only after verified
+lossless compression and their last consumer; final primary images stay raw.
+No physical-media, real power-loss, external `fsck.exfat`, cryptographic identity,
+authentication or permission-enforcement acceptance is claimed.
+
+### Host-only current-main integration
+
+After the accepted proof, main `ba35d16c` adds the independent read-only workspace
+inspector. Its exFAT additions are all guarded by `SRVROS_EXFAT_HOST_TEST`; the
+actual guest compiler and production flags produce identical preprocessed exFAT
+text after removing blank lines/trailing whitespace. The normalized SHA256 is
+`42cb55645d245a9d884da51b8d793a793d9f5ccfd1305087a030ac78234335d4`.
+All other guest source/pins and all proof tools are unchanged, and all 148
+retained build artifacts/metadata checked against the accepted archive still
+match exactly. The helper's optional native inspection mode is not consumed by
+the creation proof. The [integration receipt](assets/screenshots/profile-create-integration.json)
+records the production command, hashes and merge source. No new build or VM run
+is claimed; the 20-lifetime proof retains its actual `1ef0ccdd` attribution.
+
+## Ending sessions and switching profiles
+
+Choose **SrvrOS → Switch Profile…** to end the current desktop and return to the
+profile chooser without rebooting. Choose **Return to console** to finish at the
+console instead. Resolve each app's existing close prompt: Text and Sketch offer
+Save/Discard/Cancel; Terminal explains that Close hangs up its processes. Failed
+saves remain visible and keep the document open. Alt-Tab still reaches existing
+windows while ending; new application launches pause.
+
+Cancel keeps the current profile active. Close requests already accepted or
+queued in another app may still finish; closed apps and discarded documents are
+not reconstructed. Review remaining work before trying again. A confirmed app
+failure during the active close wave cancels the transition and asks the user
+to review saved work. A later explicit retry is allowed. Historical errors and
+ordinary nonzero Terminal command statuses are not treated as a save verdict.
+
+Accepted Files changes and Profiles transfers finish, report failures and retire
+their workers. Preference persistence also finishes before the GUI root commits.
+The nongraphical supervisor waits for the root's actual exit, revokes further
+session admission without sending kill signals, and waits for authoritative
+zero membership before releasing the scope. A still-running descendant blocks
+the next desktop; a timeout is never interpreted as successful shutdown. After
+GUI exit, waiting/errors are shown on the console. Unknown root exits, scope
+errors or uncertain retirement do not open a new chooser. Ownerless revoked
+scopes need the normal live init reaper to make retirement progress.
+
+The next profile starts in a fresh process with its own HOME, profile ID,
+XDG config/data/cache paths and six portable preferences. Its clipboard,
+notifications and windows start fresh. Machine settings stay local. This is
+sequential profile selection, not authentication or simultaneous logged-in
+sessions. Diagnostic/battery lifetimes that cannot create an ordinary scope
+retain their existing path with Switch Profile disabled.
+
+### Session-switch acceptance
+
+The [composite review](assets/screenshots/profile-switch-review.json) records
+three accepted disposable installed-QEMU lifetimes and exact source/payload
+hashes. Matched builds and focused actual-source host tests pass; runtime,
+supervisor, preference finish and desktop-session fixtures also pass ASan/UBSan.
+The full graphical proof uses clean `3658d8fd` with Apps `2a8bc2d9`, UI `586bd002`
+and Ports `d760e541`. It covers A→B→A in one boot; Text/Sketch decisions and
+failed/canceled Save As; partial close with Terminal Cancel; a deliberate direct
+app error followed by explicit retry; accepted 16 MiB Files copy and 1 MiB
+Profiles export; naturally retiring orphan; preference/environment isolation;
+clipboard/notification reset; return to console; and 640×480 keyboard operation.
+
+The two-VM graphical receipt `proof-_b3okkzh` remains **FAIL** at its final
+environment capture audit: shell builtin env ignores redirection. Completed
+workflow assertions and retained disks were independently audited. A separate
+one-VM proof `proof-x_3cf1z2` runs real `/fat/bin/env` and `/fat/bin/pwd` on
+independent copies of those stopped disks and passes A→B→A environment/cwd checks.
+All three guest payload hashes are identical despite the later tool-only source
+`919524bd`. Original disk and receipt hashes are unchanged. Composite acceptance
+uses both records; it does not claim an uninterrupted full-harness PASS.
+
+Independent offline review verifies all six variables without duplicate keys,
+actual cwd, ten installed binaries, identities/local bindings, portable and
+machine preferences, saved Text/Sketch, exact copy/export bytes, allocation and
+protected regions. Normal and small-screen prompts/chooser/readback were
+visually inspected: [unsaved Text](assets/screenshots/profile-switch-unsaved.png),
+[failed save](assets/screenshots/profile-switch-save-error.png),
+[Terminal confirmation](assets/screenshots/profile-switch-terminal.png),
+[640×480 chooser](assets/screenshots/profile-switch-chooser.png), and
+[returned A document](assets/screenshots/profile-switch-return.png).
+Images describe visible states; lifecycle completion comes from process and
+storage evidence. Prior failed attempts remain retained, not relabeled.
+
+Reproduce with a clean matched build, `make test-profile-switch` and
+`make test-desktop`, then `python3 tools/profile_switch_smoke.py
+--ovmf /path/to/edk2-x86_64-code.fd --ovmf-vars /path/to/edk2-i386-vars.fd`.
+The bounded supplemental tool is specifically for the retained capture-gap
+receipt and refuses changed payloads or incomplete graphical prerequisites.
+Accepted backups survive build cleanup; the composite review records their
+location and verified member count. This milestone adds no physical-media,
+arbitrary power-loss, authentication or permission-enforcement acceptance.

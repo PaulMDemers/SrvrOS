@@ -6,14 +6,15 @@ static struct hwb_result result;
 static struct hwb_endpoint base;
 static unsigned maps,unmaps,reads,endpoint_calls,fail_map,fail_read,fail_unmap,change_at;
 static uint64_t ticks=1;static unsigned frozen,rollback,late,change_pte;
-static unsigned tile_reads,tile_change,tile_value;
+static unsigned tile_reads,tile_change,tile_value,upper_change,upper_ones;
 static bool live;static uint32_t page;
 static bool endpoint(void *ctx,struct hwb_endpoint *e) {(void)ctx;*e=base;endpoint_calls++;if(change_at==endpoint_calls)e->v[HW_DISPARB]^=1;return true;}
 static bool map(void *ctx,uint32_t off){(void)ctx;assert(!live);maps++;if(maps==fail_map)return false;live=true;page=off;return true;}
 static bool unmap(void *ctx){(void)ctx;assert(live);unmaps++;if(unmaps==fail_unmap)return false;live=false;return true;}
 static bool read_word(void *ctx,uint32_t off,uint32_t *out){
  (void)ctx;assert(live && (off&~4095u)==page);reads++;if(reads==fail_read)return false;
- if(off==0x101000){tile_reads++;*out=tile_value^(tile_change && tile_reads==2?1u:0u);}
+ if(off>=0x100080 && off<0x100100){*out=upper_ones?UINT32_MAX:upper_change && tile_reads?1:0;}
+ else if(off==0x101000){tile_reads++;*out=tile_value^(tile_change && tile_reads==2?1u:0u);}
  else if(off>=0x100000 && off<0x100080){unsigned index=(off-0x100000)/8;*out=index?0:off&4?0x41f02b:1;}
  else {assert(off>=0x200000 && off<0x201800 && !(off&3));unsigned i=(off-0x200000)/4;*out=(0x8da00000+4096*i)|0x805;if(change_pte && maps>4 && i==5)*out^=4096;}
  return true;
@@ -31,7 +32,7 @@ static void setup(void){
  v[HW_WIDTH]=1366;v[HW_HEIGHT]=768;v[HW_SPAN]=v[HW_MEM_LEN]=4325376;v[HW_MEM_TYPE]=7;
  v[HW_PAGES]=1056;v[HW_ENTRIES]=44;v[HW_BPP]=32;v[HW_COLOR]=HWB_COLOR;v[HW_CLASS]=1;
  v[HW_CONTIG]=v[HW_MMIO_SAFE]=v[HW_FIRMWARE]=v[HW_STOLEN_RESERVED]=1;
- io.cpu_control=false;tile_reads=tile_change=0;tile_value=8;
+ io.linux_fences=false;io.cpu_control=false;tile_reads=tile_change=upper_change=upper_ones=0;tile_value=8;
  maps=unmaps=reads=endpoint_calls=fail_map=fail_read=fail_unmap=change_at=frozen=rollback=late=change_pte=0;ticks=1;live=false;
 }
 int main(void){
@@ -72,5 +73,15 @@ int main(void){
  base.v[HW_SURF]=base.v[HW_SURF2]=base.v[HW_LIVE]=offset;base.v[HW_VA]+=offset;
  base.v[HW_PA]+=offset;base.v[HW_MEM_BASE]+=offset;
  assert(!hwb_capture(&result,&io) && result.status==2 && !maps && !tile_reads);
+ setup();io.cpu_control=io.linux_fences=true;assert(hwb_capture(&result,&io));
+ assert(result.version==3 && result.fences==32 && maps==10 && tile_reads==2);
+ for(unsigned i=0;i<2;i++)assert(result.sample[i].reads==1249 && result.sample[i].fence[31]==0);
+ setup();io.linux_fences=true;assert(!hwb_capture(&result,&io) && !maps);
+ setup();io.cpu_control=io.linux_fences=true;upper_change=1;assert(!hwb_capture(&result,&io) && result.status==3 && !live);
+ setup();io.cpu_control=io.linux_fences=true;upper_ones=1;assert(!hwb_capture(&result,&io) && result.status==4 && !live);
+ for(unsigned i=1;i<=10;i++){setup();io.cpu_control=io.linux_fences=true;fail_unmap=i;assert(!hwb_capture(&result,&io) && result.status==6 && result.retained);}
+ setup();io.cpu_control=io.linux_fences=true;base.v[HW_WIDTH]=384;base.v[HW_HEIGHT]=4096;base.v[HW_STRIDE]=base.v[HW_PITCH]=1536;
+ base.v[HW_SPAN]=base.v[HW_MEM_LEN]=1536*4096;base.v[HW_PAGES]=1536;base.v[HW_SOURCE]=(383u<<16)|4095;
+ assert(hwb_capture(&result,&io) && result.sample[1].reads==1729 && maps==10);
  puts("hsw-backing: PASS exact profile/cache bits/full vectors, map/read/retirement faults, endpoint/PTE changes and bounded clocks");
 }

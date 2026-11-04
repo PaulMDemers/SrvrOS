@@ -12527,3 +12527,27 @@ disconnect checks under the selected live owner. Credentials stay private and
 unused until security wiring. Touch MT76 discovery/selection/security,private
 xHCI diagnostic,explicit recipe and host/source/log/VM proofs. Cold-unplug
 shutdown and automatic save/Ubuntu return authority persist;no new boot armed.
+
+
+### Main5f4f integration boundary
+
+Published Apps merge1e28aa1a consumesb2b93f65;UI usesb3fa806a;Ports stays78bf21b8
+and already contains main'sd760e541 pin. Root conflict resolution retains both
+Wi-Fi recipes and independent Haswell Linux-model32 gates,session-child/Wi-Fi
+trace behavior and both actual xHCI test models. Main's SYS_SESSION_SCOPE163
+collides with unmerged SYS_WIFI163;Wi-Fi is now164 in the shared header,with
+matched kernel/userspace/Apps rebuild mandatory. Old accepted payloads remain
+unchanged and must not receive mixed binaries.
+
+Ordinary EP0 uses main's TD/removal/lease path;counted diagnostic EP0 retains
+its atomic Setup publication,exact short-length owner and quarantine,now also
+admitting through shared sync/removal/command ownership. Command serialization
+and main's lifecycle/recovery tests remain. Generic reclamation refuses while
+private Wi-Fi diagnostic DMA/reference ledgers remain;it must not free them by
+walking the ordinary-device list. Removed/retiring/stopping ownership closes the
+firmware path;quarantined Wi-Fi EP0 cannot be revived by generic recovery.
+Host-only256-iteration generic timeouts must not truncate the independent1s
+passive observer;its production20000000-iteration cap is preserved explicitly.
+Focused passive/control/retirement/reclaim and fresh5GHz owner tests pass after
+preserved compile/link/model-timeout refusals. Full merged build/core and VM
+qualification are still required;no new native acceptance or boot armed.
