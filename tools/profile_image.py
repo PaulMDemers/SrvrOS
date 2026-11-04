@@ -15,8 +15,7 @@ import tempfile
 import profile_bundle as p
 
 
-def provision(source_exfat, target_exfat, bundle, home, alias, uid, gid, driver,
-              machine_preferences=None):
+def validate_request(bundle, home, alias, uid, gid, machine_preferences=None):
     payloads = p.validate_bundle(bundle)
     local = p.binding(alias, uid, gid)
     p.require(type(home) is str and len(home) <= 95 and
@@ -44,6 +43,12 @@ def provision(source_exfat, target_exfat, bundle, home, alias, uid, gid, driver,
     for name in files:
         p.require(len(name.rsplit('/', 1)[0].encode('ascii')) + 40 <= 159,
                   'directory leaves no room for save temporary')
+    return {'profile_id': bundle['profile']['id'], 'home': home, **local}, files, directories
+
+
+def provision(source_exfat, target_exfat, bundle, home, alias, uid, gid, driver,
+              machine_preferences=None):
+    metadata, files, directories = validate_request(bundle, home, alias, uid, gid, machine_preferences)
     source = Path(os.path.abspath(source_exfat))
     target = Path(os.path.abspath(target_exfat))
     for parent in (source.parent, target.parent):
@@ -83,4 +88,4 @@ def provision(source_exfat, target_exfat, bundle, home, alias, uid, gid, driver,
             os.link(stage, target)  # Atomic, exclusive publication on the same filesystem.
     finally:
         os.close(source_fd)
-    return {'target': str(target), 'home': home, 'profile_id': bundle['profile']['id'], **local}
+    return {'target': str(target), **metadata}
