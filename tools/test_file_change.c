@@ -10,21 +10,28 @@ int64_t process_resolve_storage_path(const char *path,char *out,uint64_t capacit
     if(strlen(path)>=capacity) return SRV_ERR_NAMETOOLONG;
     strcpy(out,path);return 0;
 }
+int64_t process_path_context(uint64_t operation,const char *path,char *out,uint64_t capacity) {
+    assert(operation==SRV_PATH_RESOLVE_DIRECTORY);
+    return process_resolve_storage_path(path,out,capacity);
+}
+int64_t vfs_namespace_system_path(const char *path,char *out,size_t capacity) {
+    return process_resolve_storage_path(path,out,capacity);
+}
 bool vfs_namespace_system_protects(const char *path) { (void)path;return false; }
 struct process_file *process_file_at(struct process *p,uint64_t fd) { (void)p;(void)fd;assert(0);return NULL; }
 uint64_t process_fd_generation(struct process *p,uint64_t fd) { (void)p;(void)fd;assert(0);return UINT64_MAX; }
-static struct vfs_node node={.used=true,.path="/fat/old",.type=VFS_NODE_FILE,.size=3,.metadata={.inode=71,.mtime=123}};
+static struct vfs_node node={.used=true,.path="/fat/source/old",.type=VFS_NODE_FILE,.size=3,.metadata={.inode=71,.mtime=123}};
 static int exists,busy,fail,calls,operation,reads,releases,read_fail,read_mismatch;static const void *invalid;
 bool vmm_user_range_mapped(uint64_t address,uint64_t length,bool writable) { (void)length;(void)writable;return address && (const void *)address!=invalid; }
 void *kmalloc(size_t n) { return malloc(n); }
 void kfree(void *p) { free(p); }
-const struct vfs_node *vfs_lookup(const char *path) { if(!strcmp(path,"/fat/old")) return &node;if(!strcmp(path,"/fat/new") && exists) return &node;return NULL; }
+const struct vfs_node *vfs_lookup(const char *path) { if(!strcmp(path,"/fat/source/old")) return &node;if(!strcmp(path,"/fat/target/new") && exists) return &node;return NULL; }
 bool process_has_open_vfs_prefix(const char *path) { (void)path;return busy; }
-bool exfat_rename(const char *old,const char *next) { assert(!strcmp(old,"/fat/old") && !strcmp(next,"/fat/new"));calls++;operation=1;return !fail; }
-bool exfat_delete_file(const char *path) { assert(!strcmp(path,"/fat/old"));calls++;operation=2;return !fail; }
-bool exfat_delete_directory(const char *path) { assert(!strcmp(path,"/fat/old"));calls++;operation=4;return !fail; }
+bool exfat_rename(const char *old,const char *next) { assert(!strcmp(old,"/fat/source/old") && !strcmp(next,"/fat/target/new"));calls++;operation=1;return !fail; }
+bool exfat_delete_file(const char *path) { assert(!strcmp(path,"/fat/source/old"));calls++;operation=2;return !fail; }
+bool exfat_delete_directory(const char *path) { assert(!strcmp(path,"/fat/source/old"));calls++;operation=4;return !fail; }
 bool exfat_write_file(const char *path,const uint8_t *data,uint64_t length) {
-    assert(!strcmp(path,"/fat/new") && length==node.size);
+    assert(!strcmp(path,"/fat/target/new") && length==node.size);
     if(length==3) assert(!memcmp(data,"abc",3));else for(uint64_t i=0;i<length;i++) assert(data[i]==(uint8_t)(i*29));
     calls++;operation=3;return !fail;
 }
@@ -37,7 +44,7 @@ bool vfs_read_all(const struct vfs_node *n,const uint8_t **data,uint64_t *size) 
 void vfs_release_data(const struct vfs_node *n,const uint8_t *data) { assert(n==&node);if(data) { releases++;free((void *)data); } }
 
 int main(void) {
-    struct srv_file_change q={.abi_version=SRV_ABI_VERSION,.struct_size=sizeof(q),.operation=SRV_FILE_RENAME,.expected_inode=71,.expected_size=3,.expected_mtime=123,.path="/fat/old",.destination="/fat/new"};
+    struct srv_file_change q={.abi_version=SRV_ABI_VERSION,.struct_size=sizeof(q),.operation=SRV_FILE_RENAME,.expected_inode=71,.expected_size=3,.expected_mtime=123,.path="/fat/source/old",.destination="/fat/target/new"};
     assert(!syscall_file_change(&q) && calls==1 && operation==1);
     q.expected_inode++;assert(syscall_file_change(&q)==SRV_FILE_CHANGED && calls==1);q.expected_inode--;
     q.expected_size++;assert(syscall_file_change(&q)==SRV_FILE_CHANGED);q.expected_size--;
@@ -60,8 +67,9 @@ int main(void) {
     read_mismatch=1;assert(syscall_file_change(&q)<0 && calls==previous && releases==2);read_mismatch=0;
     fail=1;assert(syscall_file_change(&q)<0 && releases==3);fail=0;
     node.size=q.expected_size=2*1024*1024+17;assert(!syscall_file_change(&q) && releases==4);
+    node.size=q.expected_size=SRV_FILE_DUPLICATE_MAX;assert(!syscall_file_change(&q) && releases==5);
     q.expected_size=SRV_FILE_DUPLICATE_MAX+1;previous=reads;assert(syscall_file_change(&q)==SRV_FILE_LIMIT && reads==previous);
-    node.size=q.expected_size=0;assert(!syscall_file_change(&q) && releases==5);
+    node.size=q.expected_size=0;assert(!syscall_file_change(&q) && releases==6);
     q.expected_type=VFS_NODE_DIRECTORY;assert(syscall_file_change(&q)==SRV_FILE_LIMIT);
-    puts("file-change: PASS copied ABI, stale identity/size/date/type, destination collision, open-file gate, rename/delete/directory/copy, guarded large/empty snapshots, cleanup and bounds");
+    puts("file-change: PASS copied ABI, stale identity/size/date/type, destination collision, open-file gate, cross-folder rename/delete/directory/copy, guarded max-size/empty snapshots, cleanup and bounds");
 }

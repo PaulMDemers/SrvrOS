@@ -363,6 +363,10 @@ long srv_spawn_bg_args_fds(const char *path, const char *args, int stdin_fd, int
         stdout_fd);
 }
 
+long srv_session_scope(unsigned operation,uint64_t token,void *payload) {
+    return srv_syscall3(SYS_SESSION_SCOPE,operation,(long)token,(long)payload);
+}
+
 long srv_exec(const struct srv_exec_request *request) {
     if (request == 0 || request->path == 0) {
         return srv_syscall1(SYS_EXEC, (long)request);

@@ -1,3 +1,4 @@
+#define _POSIX_C_SOURCE 200809L
 /* Link real process content writeback to the import fixture's real exFAT/VFS.
  * The fixture owns teardown admission; this bridge exercises retained content. */
 #include <assert.h>

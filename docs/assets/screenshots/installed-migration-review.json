@@ -1,0 +1,82 @@
+{
+  "schema": "org.srvros.installed-desktop-migration-qualification.v1",
+  "status": "DELIVERED_AND_VERIFIED",
+  "date": "2026-11-03",
+  "runtime_source": "60618a4cd391c9fc56212ebd1e77347f17ac411f",
+  "merges": {
+    "schema": "org.srvros.installed-migration-merges.v1",
+    "apps": {
+      "pr": 6,
+      "reviewed_head": "b2220909aded4d3f7ac051f33cfd578226450165",
+      "merge": "2ebaca5e78360c9a88520a01c9a8a5cbb509d505",
+      "tree_matches_reviewed_head": true
+    },
+    "os_graphical_transfer": {
+      "pr": 333,
+      "reviewed_head": "20dc187afd64e31e9847744963a0663700bf9835",
+      "merge": "60618a4cd391c9fc56212ebd1e77347f17ac411f",
+      "tree_matches_reviewed_head": true
+    },
+    "os_exporter": {
+      "pr": 342,
+      "merge": "a64661e91734a5b316a46762ffd5d2cf7cfb9379",
+      "merged_by": "installation chat"
+    },
+    "combined_verification": "PASS"
+  },
+  "graphical": {
+    "source": "f2360267c65f88e544751b3b5a937f90353fbb88",
+    "proof": "SrvrOS-profile-326-review/build/review/profile-transfer/proof-yuylqeu1",
+    "receipt_sha256": "3f25ddb03c135e993746d12e44c0c637612f8add3ef4259e38ecb6c47f163926",
+    "vm_lifetimes": 19,
+    "recovery_checkpoints": 5,
+    "verified_archive_streams": 40,
+    "full_identity_six_preferences_selected_bytes": true,
+    "four_exclusion_classes_source_preserved_destination_absent": true,
+    "small_screen": "640x480",
+    "independent_raw_image_audit": "PASS"
+  },
+  "combined_installed": {
+    "source": "60618a4cd391c9fc56212ebd1e77347f17ac411f",
+    "proof": "SrvrOS-installation-io/build/review/installation-export/proof-3u06v0c7",
+    "receipt_sha256": "13c1bc486fd4aa599ff7d895032f7c961fc13b61aa166f5c3e8d5819ffbb5734",
+    "boots": [
+      "a1",
+      "a2",
+      "b1",
+      "b2"
+    ],
+    "steps": 33,
+    "reason_matched_export_refusals": 16,
+    "direct_A_B_filesystem_readback": true,
+    "source_whole_image_hash_preserved": true,
+    "profile_and_deskprofiles_binaries_match": true,
+    "distinct_disk_home_local_bindings_machine_preferences": true,
+    "independent_input_screenshot_hashes_checked": 27,
+    "build_manifest_sha256": "d1e2da5ff5450ebed8fb844bf440607e95f1fcd0c764037eeb720719e0e99bda"
+  },
+  "checks": {
+    "matched_build": "PASS",
+    "installation_tests_passed": 70,
+    "optional_installation_tests_skipped": 1,
+    "guest_profile_groups_passed": 21,
+    "profile_session_fsync": "PASS",
+    "source_review": "no remaining blocker",
+    "rendered_review": "no blocker in observed confirmation, failure and recovery states"
+  },
+  "preservation": {
+    "parent_evidence": "SrvrOS-migration-review/.local/migration-review",
+    "graphical_backup": "SrvrOS-profile-326-review/.local/profile-transfer/final-proof-yuylqeu1",
+    "original_review_vms": "preserved",
+    "initial_storage_refusal": "INCOMPLETE, zero boots, retained separately",
+    "combined_backup": "SrvrOS-installation-io/.local/installation-evidence/combined606-proof-3u06v0c7"
+  },
+  "limits": [
+    "disposable QEMU installations",
+    "no physical-media or arbitrary power-loss qualification",
+    "no authentication or permission-isolation claim",
+    "GUI source uses exact proof attribution; later main changes have separate qualification",
+    "no representative-user usability study",
+    "hosted Actions disabled"
+  ]
+}

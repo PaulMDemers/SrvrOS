@@ -43,6 +43,14 @@ int main(void) {
     tool_picker_open(&t,DESK_PICKER_OPEN);response();desk_list_select(&t.picker.list,1);
     tool_picker_result(&t,desk_picker_key(&t.picker,&enter));assert(opened==1 && !strcmp(destination,"/fat/notes.txt"));
     tool_picker_open(&t,DESK_PICKER_OPEN);tool_picker_cancel(&t);t.closing=1;response();assert(requested==TOOL_PENDING_CLOSE && !t.closing);
+    /* A programmatic Files close dismisses the picker without sending a
+     * cancel-close and waits for its already submitted browse to drain. */
+    t.role=DESK_APP_FILES;t.closing=0;requested=0;
+    tool_picker_open(&t,DESK_PICKER_OPEN);assert(t.chooser.pending && t.job.busy);
+    int prior_cancels=cancels;tool_picker_dismiss(&t);t.closing=1;
+    assert(!t.picker_mode && t.chooser.pending && cancels==prior_cancels);
+    response();assert(!t.chooser.pending && !t.job.busy && t.closing && !requested && cancels==prior_cancels);
+    t.closing=0;t.role=DESK_APP_TEXT;
     /* Invalid payload cannot replace existing borrowed listing entries. */
     struct desk_file_entry before=t.entries[0],bad={.name="../bad"};memcpy(t.job.incoming,&bad,sizeof(bad));
     t.job.response.count=1;t.job.response.length=sizeof(bad);assert(tool_listing_decode(&t)<0 && !memcmp(&before,&t.entries[0],sizeof(before)));

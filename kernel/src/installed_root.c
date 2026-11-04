@@ -51,11 +51,13 @@ static bool system_name(const uint16_t *name) {
     return true;
 }
 static enum installed_root_result fail(const char **reason, const char *s) {
-    if (reason) *reason=s; return INSTALLED_ROOT_INVALID;
+    if (reason) *reason=s;
+    return INSTALLED_ROOT_INVALID;
 }
 enum installed_root_result installed_root_select(const char *cmdline,
     struct block_device **out, const char **reason) {
-    if (out) *out=NULL; if (reason) *reason=NULL;
+    if (out) *out=NULL;
+    if (reason) *reason=NULL;
     if (!out) return fail(reason,"bad-options");
     uint8_t wanted[16]; unsigned fields=0;
     const char *p=cmdline ? cmdline : "";
@@ -87,12 +89,14 @@ enum installed_root_result installed_root_select(const char *cmdline,
         struct block_gpt_map map;
         if (!block_gpt_scan(d,&map)) return fail(reason,"invalid-map");
         for (unsigned j=0; j<nd; j++) if (eq(disks[j],map.disk_guid,16)) return fail(reason,"ambiguous");
-        for (unsigned k=0; k<16; k++) disks[nd][k]=map.disk_guid[k]; nd++;
+        for (unsigned k=0; k<16; k++) disks[nd][k]=map.disk_guid[k];
+        nd++;
         for (unsigned j=0; j<map.count; j++) {
             struct block_gpt_partition *part=&map.partitions[j];
             for (unsigned k=0; k<np; k++) if (eq(parts[k],part->guid,16)) return fail(reason,"ambiguous");
             if (np==BLOCK_MAX_DEVICES) return fail(reason,"invalid-map");
-            for (unsigned k=0; k<16; k++) parts[np][k]=part->guid[k]; np++;
+            for (unsigned k=0; k<16; k++) parts[np][k]=part->guid[k];
+            np++;
             if (eq(part->guid,wanted,16)) {
                 matches++; candidate=part->view;
                 badrole=!eq(part->type,basic,16) || !system_name(part->name);
