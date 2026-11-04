@@ -3,6 +3,15 @@
 Updated November 3, 2026. Global activation follows the explicit namespace proof
 in [PR308](https://github.com/PaulMDemers/SrvrOS/pull/308).
 
+## Workspace writeback failure — active qualification
+
+Authorized target: deterministic actual-source process/exFAT/VFS/workspace failure
+proof on main `805519b2`. Coordinate any demonstrated process fix with PR317;
+its owner confirms no overlapping content/close/writeback edits. Test clean
+pre-mutation refusal separately from uncertain write/flush failure, retained
+reader data and final close error, sticky workspace retirement refusal and system
+alias isolation. Reuse in-memory fault adapters; no physical or review VM targets.
+
 ## Workspace lifecycle — verified
 
 User authorized the installed-root workspace lifecycle proof on main `c7be6574`.
