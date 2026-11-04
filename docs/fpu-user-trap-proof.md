@@ -1,7 +1,8 @@
 # Entered-user FPU proof: next bounded review
 
-Design only, following metadata candidate `fea6bbb1`. This proposes a real
-common-entry save witness and internal capture/replace helpers, without signal
+The owner qualified metadata candidate `fea6bbb1` and approved this bounded
+common-entry witness and snapshot/consume slice with the corrections below.
+Replacement is not implemented or authorized by this slice. This adds no signal
 delivery, user copying, syscall allocation or public ABI changes. The existing
 kernel-FPU association is the owner; a user-FPU record never owns this pointer.
 
@@ -42,7 +43,9 @@ loaded user state and an initialized selected kernel state. Perform the existing
 actual `fpu_trap_enter` FXSAVE/kernel-FPU switch before calling any ordinary C
 query. Only after that save may an entry observation bind the record to the
 saved user and owning kernel records, exact frame/process/identity/root/image.
-Require no pre-existing active association before publishing a new valid record;
+Compare both pre-save user/kernel owner pointers and the successful loaded-state
+save against the query's exact owners before minting. Require no pre-existing
+active association before publishing a new valid record;
 otherwise refuse without dereferencing or overwriting the old pointer.
 
 Add an IRQ-excluded read-only entry query: initialized/not-switching scheduler,
@@ -55,7 +58,7 @@ waits, changes state and dereferences process data **zero times**. Extend the
 return observation with the same owned fields but retain its existing strict
 unsafe/kernel/no-I/O predicates.
 
-Capture/consume/replace require the derived current proof, valid state, genuine
+Snapshot/consume require the derived current proof, valid state, genuine
 CPL3 frame, current initialized selected FPU records, not-loaded user hardware,
 fresh return observation and exact agreement on all recorded identities. Then
 resolve process/worker ownership again through the accepted process resolver,
@@ -66,11 +69,18 @@ Process signal admission must later add cancellation/exiting/target checks.
 
 ## Internal operations and exit
 
-Provide fixed-size kernel-only operations: snapshot512 bytes without consumption;
-consume the witness after all delivery planning/preflight succeeds; and replace
-the selected saved image from a trusted private512-byte record while consuming
-the witness. Refusal leaves output, saved bytes and state unchanged. Replacement
-never FXRSTORs user bytes while C executes. No user pointer enters these APIs.
+Provide a private `struct fpu_user_snapshot` containing exactly512 bytes with
+16-byte alignment. Snapshot copies into a caller-owned resident typed kernel
+object without consumption; consume marks the witness after all planning and
+preflight succeeds. Numeric extent checks require alignment, no overflow and
+canonical upper addresses through the last byte. Refuse overlap with the entire
+live common reservation/frame and either selected user/kernel FPU object,
+including association metadata, before any output store. Residency and lifetime
+are explicit trusted caller preconditions: a numeric kernel address alone does
+not prove allocation. Production callers pass their own resident private object,
+never a wire/user pointer; all callers are audited. Host fixtures use real private
+backing with an explicit logical-address view for canonicality. Refusal leaves
+the entire output object, saved bytes and proof byte-identical.
 Consume must succeed before any future user-frame publication; its caller must
 not introduce a later recoverable failure or service window in that transaction.
 
@@ -79,7 +89,7 @@ kernel FXSAVE behavior; they cannot mint a witness. Ordinary scheduler A→B→A
 preserves each embedded association. Common CPL3 exit clears only its matching
 association before the existing user FPU restore, and makes no ordinary C call
 after restoring user hardware. Binding/exec/exit/reuse retain the reviewed
-invalidation ordering. Consumed witnesses refuse further capture/replace until
+invalidation ordering. Consumed witnesses refuse further snapshot/consume until
 a new real common entry; neither pointer equality nor not-loaded state suffices.
 
 ## Qualification and decisions
@@ -89,13 +99,22 @@ with x87 control/state, MXCSR and XMM patterns; ordinary entry-query code should
 deliberately clobber SIMD to prove the save preceded it. Cover nested CPL0/direct
 traps, guard-page short CPL0 frames, A→B→A, unavailable/uninitialized/loaded-state
 refusals, stale arbitrary association pointers, mismatched image/root/lifetime,
-consumption/replay and replacement preserving metadata. The current private
+consumption/replay, exact/partial alias refusals and output guards. The current private
 kernel trap area must never be mistaken for the user image. Add matched main/
 worker register/TLS/preemption guests, plus the already-qualified thread/sysabi/
 I/O regressions. Host hardware/address maps remain explicitly modeled where
 privileged instructions cannot execute.
 
-Owner decisions: accept this exact layout/entry query/derived-pointer rule,
-unchanged direct paths, and live common wrapper with internal helpers only;
-agree unexpected existing-association refusal without chasing it. No signal
-hook, frame publication or public register-context ABI is approved by this packet.
+The owner accepted the layout, entry query, derived-pointer rule, unchanged
+direct paths, common wrapper and unexpected-association refusal. Implementation
+is snapshot/consume only. Actual no-SSE target codegen and real-FXSAVE host
+evidence require review before acceptance; sanitizer/runtime prologues cannot
+stand in for the save-first instruction sequence.
+
+Replacement waits for a separate legal-image/provenance/alias policy and its
+malformed-image controls. Restored MXCSR values must respect the current
+hardware's supported mask; reserved bits can fault. See the
+[Intel instruction reference](https://cdrdv2-public.intel.com/812383/253666-sdm-vol-2a.pdf)
+and [AMD system programming manual](https://www.amd.com/content/dam/amd/en/documents/processor-tech-docs/programmer-references/26569.pdf).
+No trial FXRSTOR is permitted while C runs. No replacement stub, signal hook,
+frame publication or public register-context ABI is approved by this packet.
