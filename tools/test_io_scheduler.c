@@ -37,6 +37,9 @@ void pmm_free_frame_range(uint64_t physical,uint64_t count) { if(growing_allocat
     frees++; }
 void *pmm_phys_to_virt(uint64_t physical) { if(growing_allocations)return (void *)(uintptr_t)physical;assert(physical==4096);return fake_stack; }
 void fpu_init_state(struct fpu_state *state) {(void)state;}
+bool process_should_exit_current(void) { return false; }
+uint64_t process_current_kill_status(void) { assert(!"unexpected cancellation status"); abort(); }
+__attribute__((noreturn)) void process_exit(uint64_t status) { (void)status; assert(!"unexpected process exit"); abort(); }
 static void empty_worker(void *arg) {(void)arg;}
 
 uint64_t timer_monotonic_us(void) { clock_calls++; return clock_us; }
@@ -50,6 +53,8 @@ void fpu_switch_kernel_state(struct fpu_state *old,struct fpu_state *next,struct
     (void)old;(void)next;(void)user;
 }
 static unsigned switches;
+static bool foreign_timer_test;
+static unsigned foreign_timer_owner_turns, foreign_timer_service_turns;
 static bool address_space_test;
 static uint64_t expected_space,return_space;
 static bool completion_wait_test,completion_signal,completion_ready,reference=true;
@@ -67,6 +72,25 @@ static unsigned handoff_admissions;
 static struct scheduler_wait_queue high_wait;
 static bool completion_condition(void *arg) { assert(arg==&completion_ready);return completion_ready; }
 void scheduler_context_switch(struct scheduler_context *old,struct scheduler_context *next) {
+    if(foreign_timer_test) {
+        assert(threads[4].state==THREAD_READY && !threads[4].io_user_safe && !threads[4].account_user);
+        assert(io_depth==1 && io_owner==3 && !io_thread_allowed(4));
+        if(current_thread==5) {
+            assert(old==&threads[4].context && next==&threads[5].context);
+            assert(threads[5].io_user_safe && io_thread_allowed(5));
+            foreign_timer_service_turns++;
+            switching=false; /* Model execution after the service's switch returns. */
+            scheduler_yield(); /* Actual scheduler selects owner 3 while 4 is excluded. */
+            assert(current_thread==4 && !io_depth && !threads[4].io_user_safe);
+            return;
+        }
+        assert(old==&threads[5].context && next==&threads[3].context && current_thread==3);
+        foreign_timer_owner_turns++;
+        scheduler_io_end(); /* The selected owner completes its own I/O. */
+        assert(!io_depth && io_thread_allowed(4) && !threads[4].io_user_safe);
+        threads[3].state=THREAD_READY;threads[4].state=THREAD_RUNNING;current_thread=4;switches+=2;
+        return;
+    }
     if(ready_edge_test) {
         assert(old==&threads[3].context && next==&threads[6].context && current_thread==6 && !io_depth);
         assert(!threads[6].io_gate_waiting);ready_edge_turns++;
@@ -834,6 +858,32 @@ static void test_gate_retention(void) {
     initialized=io_services_enabled=false;io_observed=(__typeof__(io_observed)){0};memset(threads,0,sizeof(threads));
     puts("io-gate: PASS disabled/short/backward refusal, bounded longest retention, caller/initial owner identity, reset and no owner mutation");
 }
+static void test_foreign_io_return(void)
+{
+    memset(threads,0,sizeof(threads)); initialized=io_services_enabled=true; switching=false;
+    current_thread=3; idle_thread=1; io_depth=0; io_owner=0; io_gate_pending=0;
+    threads[3]=(struct thread){.state=THREAD_RUNNING,.user_context=(void *)0x100};
+    assert(scheduler_io_begin());
+    threads[3].state=THREAD_READY;
+    threads[4]=(struct thread){.state=THREAD_RUNNING,.user_context=(void *)0x200,.io_user_safe=false};
+    threads[5]=(struct thread){.state=THREAD_READY,.user_context=(void *)0x300,.io_user_safe=true};
+    current_thread=4;
+    assert(!io_thread_allowed(4) && io_thread_allowed(3) && io_thread_allowed(5));
+    /* Preempt a timer-entered, unsafe continuation; only the selected owner
+     * callback may end the active I/O service before that continuation runs. */
+    unsigned before=switches; foreign_timer_test=true;foreign_timer_owner_turns=foreign_timer_service_turns=0;
+    preempt_tick_accumulator=SCHEDULER_PREEMPT_QUANTUM_TICKS-1;
+    scheduler_preempt_tick();foreign_timer_test=false;
+    assert(foreign_timer_service_turns==1 && foreign_timer_owner_turns==1);
+    assert(switches==before+2 && !io_depth && current_thread==4 && !threads[4].io_user_safe);
+    scheduler_user_enter();
+    assert(threads[4].io_user_safe && threads[4].account_user);
+    switches=before;
+    memset(threads,0,sizeof(threads)); initialized=io_services_enabled=false;
+    current_thread=0; io_depth=io_owner=io_gate_pending=0; idle_thread=UINT64_MAX;
+    puts("scheduler-foreign-return: PASS (owner progress before user admission)");
+}
+
 static void observe_check(bool expected, bool null_output, void *process, void *worker,
                           struct fpu_state *fpu)
 {
@@ -898,6 +948,7 @@ static void test_user_return_observation(void)
 
 int main(void) {
     test_user_return_observation();
+    test_foreign_io_return();
     test_gate_retention();
     test_idle_audit();
     test_mwait();

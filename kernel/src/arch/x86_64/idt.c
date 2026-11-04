@@ -96,10 +96,17 @@ static uint64_t read_cr2(void) {
     return value;
 }
 
+#ifdef SRVROS_SYSCALL_CANCEL_HOST_TEST
+uint64_t syscall_cancel_test_read_cr3(void);
+#endif
 static uint64_t read_cr3(void) {
+#ifdef SRVROS_SYSCALL_CANCEL_HOST_TEST
+    return syscall_cancel_test_read_cr3();
+#else
     uint64_t value;
     __asm__ volatile ("mov %%cr3, %0" : "=r"(value));
     return value;
+#endif
 }
 
 static void print_mapping(const char *label, uint64_t address) {
@@ -207,7 +214,6 @@ static void dispatch_syscall_with_cancellation(struct isr_frame *frame) {
             scheduler_io_wait();
             process_exit(process_current_kill_status());
         }
-        scheduler_user_enter();
     }
 }
 
@@ -308,9 +314,23 @@ static void isr_dispatch_inner(struct isr_frame *frame) {
 
 /* Account privilege transitions independently of I/O admission: syscall-safe
  * is not a CPU mode, and blocked time belongs to no userspace process. */
+#ifdef SRVROS_SYSCALL_CANCEL_HOST_TEST
+void syscall_cancel_test_exclude_irqs(void);
+#endif
+
 void isr_dispatch(struct isr_frame *frame) {
     bool user=(frame->cs & 3)==3;
-    if(user) scheduler_account_kernel_enter();
+    if(user) {
+        scheduler_account_kernel_enter();
+        scheduler_io_set_user_safe(false);
+    }
     isr_dispatch_inner(frame);
-    if(user) scheduler_user_enter();
+    if(user) {
+#ifdef SRVROS_SYSCALL_CANCEL_HOST_TEST
+        syscall_cancel_test_exclude_irqs();
+#else
+        __asm__ volatile ("cli" : : : "memory");
+#endif
+        scheduler_user_enter();
+    }
 }

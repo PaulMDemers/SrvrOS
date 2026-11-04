@@ -251,12 +251,14 @@ new main/worker bindings carry the actual committed generation. This is a propos
 lifecycle/API change requiring process-owner review, not a field already provided
 by `scheduler_observe_user_return()`.
 
-Proposed representation: a fixed 64-byte aligned private proof on the *common*
-ISR's kernel stack, containing the exact ISR-frame pointer, scheduler lifetime,
+Proposed representation: a private proof of size 64 bytes and alignment 16 on the *common*
+ISR's kernel stack (`sizeof == 64`, `_Alignof == 16`), containing the exact ISR-frame pointer, scheduler lifetime,
 actual CR3, committed image generation, selected user-FPU pointer, owning kernel-
 FPU pointer and validity/consumption state. Reserve an additional 64 stack bytes
-beside the existing private 512-byte kernel-trap area; static assertions define
-assembly offsets. Add a kernel-only active-proof pointer associated with each
+beside the existing private 512-byte kernel-trap area: retain saved RSP at offset
+0, kernel-trap FXSAVE bytes at 16–527 and proof at 528–591, total reservation
+592 bytes after the existing 16-byte RSP alignment. Static assertions define
+these offsets; this proposes no 64-byte alignment guarantee. Add a kernel-only active-proof pointer associated with each
 thread's kernel-FPU state, rather than a single CPU-global proof. Stable scheduler
 records already retain each kernel-FPU state across growth and context switches.
 This pointer is internal bookkeeping, never user restore input.
@@ -302,3 +304,37 @@ unchanged. Host fixtures must interleave actual entered-user save, nested kernel
 direct traps, scheduler A→B→A selection, failure, image replacement and stale proof
 attempts; guest x87/MXCSR/XMM/FS tests remain mandatory. This representation is a
 review proposal; no FPU structure, assembly path or lifecycle hook implements it.
+
+
+## Approved standalone common-return transition slice
+
+The owner independently reran query `c03372ee` strict/sanitized scheduler tests
+and found no blocking query defect. They approved a standalone return-transition
+correction with regression coverage, preserving all other enabling gates. This
+candidate removes only the inner syscall wrapper's final user transition, marks
+real common CPL3 entry unsafe after kernel accounting, and explicitly excludes
+IRQs before the sole outer user transition after complete dispatch. CPL0 nesting,
+direct legacy IRQ and initial/resume entry paths retain their transitions. No
+signal callback or production admission-query caller is introduced.
+
+All cancellation checks, results and I/O waits remain. The owner explicitly
+confirmed the existing intentional admission during an audited safe syscall and
+the safe/handoff/unsafe window after an unsafe syscall must both remain; the
+correction does not widen safe classification. Tests retain prior kill/side-
+effect/handoff assertions and verify actual outer syscall/IRQ/spurious/breakpoint
+routes, nested CPL0 state, IF state/final exclusion, one accounting/user transition,
+terminal exits and result writeback. Actual scheduler preemption selects an
+eligible service and the foreign I/O owner while the interrupted continuation is
+unsafe/ineligible; only that owner ends its scope, then the continuation resumes
+unsafe before its final user transition. Strict x86-64/Rosetta and ASan/UBSan
+cancellation and full scheduler fixtures pass. Test-only IRQ/CR3 seams preserve
+production instructions. Logs: `build/signal-context/transition*.log`.
+
+A fresh full kernel and the selected thread/syscall/I/O test programs compile
+with GNU Make 4.4.1, pinned Zig 0.15.2, separate caches and at most two jobs.
+The failed initial old-Make build and missing-linenoise dependency attempt are
+retained; only their generated userspace objects were rebuilt. Matched disposable
+thread/syscall/accounting and I/O-contention guest verification is pending before
+acceptance. FPU/copy/image-generation/action/restart/nested-wait/lifecycle and
+public `SA_SIGINFO` support are still absent; no JSC success follows from this
+transition correction alone.
