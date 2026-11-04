@@ -342,8 +342,13 @@ def main():
     parser.add_argument('--run-budget-gib',type=float,default=8); parser.add_argument('--min-free-gib',type=float,default=4)
     args=parser.parse_args()
     if not 10<=args.boot_wait<=240 or not 0<args.run_budget_gib<=8 or args.min_free_gib<4: parser.error('invalid wait or storage limits')
-    for firmware in (args.ovmf,args.ovmf_vars):
-        if not firmware or ',' in firmware or not Path(firmware).is_file() or any(p.is_symlink() for p in (Path(firmware),*Path(firmware).parents)):
+    for name in ('ovmf','ovmf_vars'):
+        try:
+            firmware=Path(getattr(args,name)).resolve(strict=True)
+            if not firmware.is_file() or ',' in str(firmware) or len(os.fsencode(firmware)) >= 4096:
+                raise ValueError('invalid firmware path')
+            setattr(args,name,str(firmware))
+        except (OSError,ValueError,TypeError):
             parser.error('invalid firmware path')
     base=ROOT/'build/review/installation-export'
     if any(p.is_symlink() for p in (base,*base.parents)): raise RuntimeError('linked evidence directory')

@@ -5,7 +5,7 @@
 #define MAX_DOCS 64
 #define MAX_FILE (1024u * 1024u)
 #define MAX_TOTAL (8u * 1024u * 1024u)
-#define PATH_LIMIT 160
+#define PATH_LIMIT 257
 
 struct payload { uint8_t *data; uint64_t size; };
 static struct payload payloads[MAX_DOCS+1];

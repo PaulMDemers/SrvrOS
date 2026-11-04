@@ -356,6 +356,30 @@ class InstalledExportTests(unittest.TestCase):
         self.assertTrue(output.exists())
         self.assertEqual(snapshot(self.stage), before)
 
+    def test_native_long_document_path_reaches_lookup(self):
+        self.publish()
+        spec = json.loads((self.stage / 'plan.json').read_bytes())['layout']['exfat']
+        # The portable codec permits 160 bytes even when HOME makes the full
+        # guest path longer than the old 159-byte provisioner limit.
+        document = 'Documents/' + 'a' * 64 + '/' + 'b' * 64 + '/' + 'c' * 20
+        self.assertEqual(len(document), 160)
+        self.assertGreater(len(HOME + '/' + document), 159)
+        before = snapshot(self.stage)
+        fd = os.open(self.stage / 'image.img', os.O_RDONLY)
+        try:
+            for path, reason in ((document, b'export-document'),
+                                 (document + 'c', b'export-path')):
+                with self.subTest(length=len(path)):
+                    proc = subprocess.run([str(EXPORT_DRIVER), '--fd', str(fd),
+                        str(spec['offset_bytes']), str(spec['size_bytes']), HOME, path],
+                        pass_fds=(fd,), capture_output=True)
+                    self.assertNotEqual(proc.returncode, 0)
+                    self.assertEqual(proc.stdout, b'')
+                    self.assertIn(reason, proc.stderr)
+        finally:
+            os.close(fd)
+        self.assertEqual(snapshot(self.stage), before)
+
     def test_cli_export(self):
         self.publish()
         output = self.root / 'export.json'
