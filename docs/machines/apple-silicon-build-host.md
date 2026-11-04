@@ -1,5 +1,109 @@
 # Apple Silicon macOS build host
 
+## Graphical profile transfer — qualified for review
+
+User authorized the Profiles app, reviewed export/import and disposable two-VM
+qualification; authentication and permission enforcement remain separate. Work
+uses `SrvrOS-profile-326-review`, branch `device/apple-silicon/profile-transfer`.
+Final GUI proof source `f2360267` includes main `7ed98371`, Apps `b2220909`, UI
+`9eaaa74e` and Ports `747cca28`. Receipt `proof-yuylqeu1/receipt.json` records
+PASS across all 19 VM lifetimes, including all five recovery checkpoints,
+interrupted export, full identity/six preferences/exact selected bytes, four
+exclusion fixtures, chooser/reboot/Text and real 640 × 480 scrolling review.
+Host and ASan/UBSan checks pass; full evidence, matched artifacts and sources are
+byte-verified outside `build` in `.local/profile-transfer/final-proof-yuylqeu1/`.
+The portable-profile guide and committed screenshot manifest record exact hashes,
+checks, preservation and qualification limits.
+
+Latest main `a64661e9` is integrated after proof. Clean source `13a0ca82` passes
+a fresh matched build, focused checks and installed-root/export suite (70 pass,
+one optional skip). Of 144 payloads, 143 are identical;
+only sysabi diagnostics change and bc is added. Profile/GUI/proof-tool sources
+are unchanged. The committed integration receipt preserves both source
+attributions and all hashes. Host image helper functions used by the proof are
+unchanged; only its CLI export dispatcher is added. Apps PR6 has merged first;
+OS PR333 is ready for the coordinator.
+The coordinator owns independent combined review and merging; hold these merges.
+The installation owner separately proves offline used-image export and fresh
+restoration. Preserve the primary checkout and review VMs 6233/61610/85869. No
+physical media/reboot or Actions; one build/harness at a time. Completed proof
+snapshots are losslessly compressed only after byte verification and last use,
+with a bounded archive budget and retained restore mapping.
+## PR342 integrated-main merge review — ready
+
+User authorizes review and merge if ready. Reuse isolated
+`SrvrOS-installation-io` and the export branch, initial head `1a19e2c6`;
+actual main `7ef140ef` (bc integration) is merged as `e5088ac2`, Ports
+`78fb8184`. Own review, affected verification and continuity only. Inspect
+current filesystem/profile contracts and retain the source-attributed export
+proof; unmerged desktop-transfer PR333 remains independently scoped. Preserve
+review VMs 61610/6233/85869, existing evidence and other checkouts. One build or
+harness here, no physical media/reboot/Actions. Start with bounded host checks
+and streamed retained evidence under shared disk pressure, then determine which
+runtime proof is affected before the authorized merge.
+
+No material finding or unresolved thread. Fresh combined checks pass (70 passing
+installation tests, one optional skip, 15 export and 19 inspection groups), plus
+profile/guest and documentation checks. Clean matched build `87c5b786` preserves
+all ten proof-consumed artifacts. Complete base payload comparison adds only bc
+aliases and the previously reviewed sysabi fixture differences; native read-only
+admission passes. Streamed seven compressed images, verified 16 screenshots/11
+artifacts and all 33 original proof steps. No changed runtime contract invalidates
+the source-attributed four-boot proof, so no new VM is needed. Review VMs stay
+live and untouched. Evidence survives at `.local/installation-evidence/pr342-review`.
+Inactive inspection/fsync images retain verified compressed bytes and historical
+inode mappings. Ready for authorized merge. Next proposal: export-publication
+inspection/reconciliation for retained complete output after interruption or
+uncertain sync; reuse current codec/source/fresh-install and host-publication
+contracts, with no dependency on unmerged desktop-transfer UI.
+
+## Offline selected-profile export — qualified
+
+User authorizes implementation, fresh-install restoration/refusal proof and a
+scoped PR. Reuse isolated `SrvrOS-installation-io`, branch
+`device/apple-silicon/installed-profile-export`, integrated main `a37eb7b2`.
+Own separate host export command, bounded inherited-read-only-fd document reader,
+focused tests, proof and installation docs. Reuse PR336 inspection, strict v1
+portable bundle rules, existing v2 fresh installation plans and integrated clean
+filesystem/profile contracts. No kernel, account, mount, recovery or profile-policy
+implementation; PR333 desktop transfer remains independent and PR338's managed
+salvage qualification changes no export policy. Export only explicit Documents
+files and portable identity/settings;
+exclude implicit local/machine/session state. Refuse uncertain source/output
+without replacement; preserve historical receipts. Acceptance is A edit/save/
+reboot, direct stopped-image export, fresh B with different disk/home/local
+bindings and reboot/readback, plus read-only/refusal snapshots and provenance.
+Preserve VMs 61610/6233/85869 and primary/other checkouts; one build/harness here,
+no physical media, host reboot, Actions or merge requested.
+
+Clean `ca90437a` consumes main `f0c88a6d`/PR337 and Ports `747cca28`.
+Matched build, 70 passing installation tests with one default skip (15 export,
+19 inspection groups), profile/guest checks and real boundary/fault tests pass.
+Four installed-only EFI lifetimes prove A saved/reopened data, two identical
+direct exports, fresh B with different disk/home/local binding and machine
+settings, then B reboot/readback. B preboot checks exclusions. Sixteen matched
+export refusals, five used inspections and ten strict publication refusals
+preserve source/stage/output bytes and historical receipts. All task VMs stopped;
+review VMs stay live. The 67-file raw proof and matched artifacts are byte-verified
+outside cleanup at `.local/installation-evidence/export-proof-r29pmoja`.
+Reopened B Text was visually checked. Original proof target paths/inodes remain
+recorded as history. Superseded IO images retain exact bytes in verified
+gzip archives with compression manifests; no earlier evidence was discarded.
+Status: proof complete, scoped draft publication; no merge requested.
+
+Final refresh consumes main `819956be`/PR338/339/340. Fresh host checks and matched
+build pass. All consumed artifact/tool/native-source hashes stay identical;
+complete base payload comparison changes only `sysabi` and its legacy alias.
+The new base passes native read-only admission with zero writes/flushes. The
+four-boot proof retains its clean `ca90437a` attribution, with refresh evidence
+recorded separately in the portable receipt and accepted archive.
+Post-publication headroom cleanup preserved seven inactive proof image pairs as
+verified gzip streams. Receipts/screenshots keep their paths, matched artifacts
+stay uncompressed, and the compression mapping records exact restoration hashes
+and historical-only inode identities. The EOF whitespace trim changes no native
+tokens. PR342 remains held for independent review; no new build/VM proof is
+started pending merged profile-transfer dependency identities.
+
 ## PR338 managed filesystem merge review
 
 Review consumes main `a37eb7b2`, then `f0c88a6d` and `b78e3ed5`, preserving all
@@ -3450,6 +3554,21 @@ Shared checkout and review VM remain untouched. Integration is delivered and
 verified; historical physical-device closures remain unresolved as documented.
 No further work is required for this integration target.
 
+## Managed USB late-flush filesystem proof
+
+Isolated filesystem branch `device/apple-silicon/filesystem-late-flush`, main
+`819956be`, qualifies matched `8321de3b`: three managed EFI lifetimes plus 11
+canonical/CLI cases pass. PR317 reviewed placement and sticky quarantine first.
+Four writes/one flush precede the failed source flush; retained RAM data salvage
+to healthy storage survives restart with uncertain USB entirely detached. No
+repair, writable remount or production implementation changes. The uncertain
+whole disk is cloned/hash-checked/read-only outside build before restart; full
+proof/canonical backups (153 files) are also verified. The
+[filesystem contract](../filesystem-layout.md) records source attribution,
+resource recovery and exact limits. Newer bc main `7ef140ef` is not consumed;
+merge review must refresh/reverify it. All task VMs stopped and review VMs
+61610/6233/85869 remain untouched. Delivery is a scoped draft PR, no merge.
+
 ### bc isolated milestone — active November 3, 2026
 
 User authorized bc-only 7.0.3 on `ports/bc` from main `b78e3ed5`, with signal
@@ -3554,3 +3673,18 @@ receipt provenance, terminal/blocked-read signal limits and dependency order.
 This follow-up changes documentation only. Neither PR is merged. No concrete
 shared blocker appeared, so integration was not messaged; its checkout and the
 review VM remain untouched.
+
+## PR345 current-main merge review
+
+User authorized integration/requalification/merge. bc main `7ef140ef`, profile
+main `60618a4c` and diagnostic main `d791b949` are consumed. Matched `22fd9e9a`
+passes fresh three-boot late-flush proof and all 11 canonical/CLI cases; subsequent
+`fb8549be` ordinary payload hashes are identical. Matched bc ELF is present in
+the installed GPT. The interrupted 10-case headroom run is not counted as a pass;
+failed/interrupted raw fixtures are losslessly archived with restoration indexes.
+Fresh focused/Haswell host checks pass. Full evidence (153 files) and review are
+under `.local/filesystem-evidence/pr345-review/`; every uncertain whole disk is
+preserved read-only. No production fix, physical trial or hosted Actions. PR317
+reports no conflict; all review guests stopped and VMs 61610/6233/85869 remain
+untouched. The [filesystem contract](../filesystem-layout.md) records the ready
+review and next proposed read-only uncertain-media inspection milestone.

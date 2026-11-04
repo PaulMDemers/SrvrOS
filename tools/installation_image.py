@@ -642,6 +642,14 @@ def main():
     installed = sub.add_parser('inspect-installed')
     installed.add_argument('staging_dir')
     installed.add_argument('--driver', required=True)
+    export = sub.add_parser('export-profile')
+    export.add_argument('staging_dir')
+    export.add_argument('output')
+    export.add_argument('--profile-id', required=True)
+    export.add_argument('--home', required=True)
+    export.add_argument('--document', action='append', default=[])
+    export.add_argument('--inspect-driver', required=True)
+    export.add_argument('--export-driver', required=True)
     recovery = sub.add_parser('reconcile')
     recovery.add_argument('staging_dir')
     recovery.add_argument('--interrupt-after', choices=('image-linked', 'image-published', 'ready-written',
@@ -663,13 +671,17 @@ def main():
         elif args.action == 'inspect-installed':
             from installation_inspection import inspect_installed
             result = inspect_installed(args.staging_dir, args.driver)
+        elif args.action == 'export-profile':
+            from installation_export import export_installed
+            result = export_installed(args.staging_dir, args.output, args.profile_id, args.home,
+                                      args.document, args.inspect_driver, args.export_driver)
         else:
             def checkpoint(name):
                 if name == args.interrupt_after:
                     os._exit(75)
             result = reconcile(args.staging_dir, checkpoint=checkpoint)
         print(json.dumps(result, indent=2, sort_keys=True))
-        if args.action == 'inspect-installed' and not result['consistent']:
+        if (args.action == 'inspect-installed' and not result['consistent']) or (args.action == 'export-profile' and result['state'] != 'exported'):
             raise SystemExit(1)
     except (ValueError, OSError, KeyError, subprocess.CalledProcessError) as error:
         parser.exit(1, f'error: {error}\n')

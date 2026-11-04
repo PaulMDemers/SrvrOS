@@ -99,6 +99,128 @@ class GuestProfile(unittest.TestCase):
         self.run_cli('export', first, output, *self.data, code=1)
         self.assertEqual(json.loads(output.read_text()), self.value)
 
+    def test_reviewed_transfer_and_changed_sources(self):
+        home = self.import_home()
+        before = self.snapshot(self.root)
+        review = json.loads(self.run_cli('preview-export', home, *self.data).stdout)
+        self.assertEqual(self.snapshot(self.root), before)
+        self.assertEqual(review['format'], 'srvros-profile-review-v1')
+        self.assertEqual(review['documents'], [{'path': p, 'size': len(d)} for p, d in self.data.items()])
+        self.assertEqual(review['preferences'], self.value['preferences'])
+        output = self.root / 'reviewed.json'
+        note = home / 'Documents/note.txt'
+        note.write_bytes(b'changed')
+        self.run_cli('export-reviewed', home, output, review['sha256'], *self.data, code=1)
+        self.assertFalse(output.exists())
+        note.write_bytes(self.data['Documents/note.txt'])
+        self.run_cli('export-reviewed', home, output, review['sha256'], *self.data)
+        self.assertEqual(hashlib.sha256(output.read_bytes()).hexdigest(), review['sha256'])
+        destination = self.b / 'bob'
+        before = self.snapshot(self.root)
+        incoming = json.loads(self.run_cli('preview-import', output, destination, 'bob').stdout)
+        self.assertEqual(self.snapshot(self.root), before)
+        self.assertEqual(incoming['destination'], {'home': str(destination), 'alias': 'bob', 'uid': 1000, 'gid': 1000})
+        original = output.read_bytes()
+        output.write_bytes(original + b' ')
+        self.run_cli('import-reviewed', output, destination, 'bob', 1000, 1000, incoming['sha256'], code=1)
+        self.assertFalse(destination.exists())
+        self.assertFalse(Path(str(destination) + '.profile-import.json').exists())
+        output.write_bytes(original)
+        self.run_cli('import-reviewed', output, destination, 'bob', 1000, 1000, incoming['sha256'])
+        self.verify(destination)
+
+    def test_review_rejects_changed_preferences_identity_and_binding(self):
+        home = self.import_home()
+        review = json.loads(self.run_cli('preview-export', home, *self.data).stdout)
+        output = self.root / 'changed.json'
+        for relative, field, value in [('.config/srvros/portable.json', 'wallpaper', 1),
+                                       ('identity.json', 'display_name', 'Changed Name')]:
+            path = home / relative
+            original = path.read_bytes()
+            changed = json.loads(original)
+            changed[field] = value
+            path.write_text(json.dumps(changed))
+            self.run_cli('export-reviewed', home, output, review['sha256'], *self.data, code=1)
+            self.assertFalse(output.exists())
+            path.write_bytes(original)
+        self.run_cli('export-reviewed', home, output, review['sha256'], *self.data)
+        dest = self.b / 'bob'
+        incoming = json.loads(self.run_cli('preview-import', output, dest, 'bob').stdout)
+        binding = incoming['destination']
+        sibling = self.b / 'other'
+        sibling.mkdir()
+        (sibling / 'profile-local.json').write_text(json.dumps(
+            {'alias': 'other', 'uid': binding['uid'], 'gid': binding['gid']}))
+        before = self.snapshot(self.root)
+        self.run_cli('import-reviewed', output, dest, 'bob', binding['uid'], binding['gid'],
+                     incoming['sha256'], code=1)
+        self.assertEqual(self.snapshot(self.root), before)
+        # Existing policy permits shared GIDs when the UID is distinct.
+        self.run_cli('import-reviewed', output, dest, 'bob', binding['uid'] + 1,
+                     binding['gid'], incoming['sha256'])
+        self.verify(dest)
+
+    def test_review_import_chooser_capacity_and_pending_deduplication(self):
+        # Fourteen blocked candidates and one journal plus its home count as 15.
+        for i in range(14):
+            candidate = self.b / f'blocked{i:02d}'
+            candidate.mkdir()
+            (candidate / 'identity.json').write_text('malformed')
+        pending = self.b / 'pending'
+        self.run_cli('import', self.bundle, pending, 'pending', 1200, 1200,
+                     stop='directories', code=86)
+        other = copy.deepcopy(self.value)
+        other['profile']['id'] = str(uuid.uuid4())
+        self.save(other)
+        dest = self.b / 'bob'
+        before = self.snapshot(self.root)
+        review = json.loads(self.run_cli('preview-import', self.bundle, dest, 'bob').stdout)
+        self.assertEqual(self.snapshot(self.root), before)
+        # A new blocked candidate fills the catalog after review.
+        extra = self.b / 'extra'
+        extra.mkdir()
+        (extra / 'identity.json').write_text('malformed')
+        before = self.snapshot(self.root)
+        self.run_cli('preview-import', self.bundle, dest, 'bob', code=1)
+        self.assertEqual(self.snapshot(self.root), before)
+        binding = review['destination']
+        self.run_cli('import-reviewed', self.bundle, dest, 'bob', binding['uid'], binding['gid'],
+                     review['sha256'], code=1)
+        self.assertEqual(self.snapshot(self.root), before)
+
+    def test_preview_import_rejects_excess_siblings_without_mutation(self):
+        for i in range(4097):
+            (self.b / f'entry{i:04d}').touch()
+        before = self.snapshot(self.root)
+        self.run_cli('preview-import', self.bundle, self.b / 'bob', 'bob', code=1)
+        self.assertEqual(self.snapshot(self.root), before)
+
+    def test_review_allocation_and_export_partial(self):
+        home = self.import_home()
+        review = json.loads(self.run_cli('preview-export', home, *self.data).stdout)
+        partial = self.root / 'partial.json'
+        self.run_cli('export-reviewed', home, partial, review['sha256'], *self.data, stop='export-partial', code=86)
+        saved = partial.read_bytes()
+        self.assertTrue(saved)
+        self.run_cli('export-reviewed', home, partial, review['sha256'], *self.data, code=1)
+        self.assertEqual(partial.read_bytes(), saved)
+        output = self.root / 'fresh.json'
+        self.run_cli('export-reviewed', home, output, review['sha256'], *self.data)
+        # A pending transaction reserves both metadata numbers without creating a home.
+        pending_home = self.b / 'pending'
+        self.run_cli('import', output, pending_home, 'pending', 1000, 1000, stop='journal', code=86)
+        # Use a distinct UUID, so the pending profile does not block this review.
+        other = copy.deepcopy(self.value)
+        other['profile']['id'] = str(uuid.uuid4())
+        self.save(other)
+        dest = self.b / 'bob'
+        before = self.snapshot(self.root)
+        incoming = json.loads(self.run_cli('preview-import', self.bundle, dest, 'bob').stdout)
+        self.assertEqual(self.snapshot(self.root), before)
+        self.assertEqual((incoming['destination']['uid'], incoming['destination']['gid']), (1001, 1001))
+        self.run_cli('import-reviewed', self.bundle, dest, 'bob', 1000, 1001, incoming['sha256'], code=1)
+        self.assertFalse(dest.exists())
+
     def test_source_without_display_metadata(self):
         home = self.import_home()
         (home / 'identity.json').unlink()

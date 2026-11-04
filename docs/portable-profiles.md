@@ -2,8 +2,27 @@
 
 Target: a versioned, machine-independent identity and selected-document/preference
 bundle, validated through two fresh installation fixtures, plus a shared bounded
-HOME/config/data/cache resolver. This is a host executable migration proof, not
-login, guest account switching, cloud roaming or multi-user security isolation.
+HOME/config/data/cache resolver. Host tooling, guest commands and desktop
+workflows share this contract. Login, cloud roaming and multi-user security
+isolation remain separate.
+
+Current milestone: graphical profile transfer is qualified for review after the
+merged chooser milestone. Profiles provides selected-file export, reviewed import,
+owned asynchronous work and recovery guidance. The final two-installation GUI
+proof passes all 19 VM lifetimes, including interruptions and 640 × 480 review.
+See the [graphical transfer evidence](#graphical-transfer-milestone--qualified-for-review)
+and dependent Apps/OS PRs below. Authentication and permission enforcement remain
+separate.
+
+| Transfer state | User decision | Result and correction |
+| --- | --- | --- |
+| Export selection | Choose individual Documents files and a new bundle path | Keep selections editable; show source and destination |
+| Export review | Confirm identity, portable preferences, files/total size and selected-byte consequence | Bind confirmation to previewed bytes; changed input refuses before output creation |
+| Import selection | Choose a bundle and destination-local name | Validate the complete bundle and local collisions before review |
+| Import review | Confirm profile, files/preferences and local destination | Revalidate exact bytes and local binding before using existing transaction |
+| Working | Observe status or request close | Continue rendering and safely wait for owned child completion |
+| Completed import | Finish the current session and select the profile at next desktop start | Existing chooser supplies ready/recoverable/blocked status |
+| Failure or interruption | Correct inputs, choose a fresh export filename, or resume eligible import recovery | Preserve partial output, existing profiles and ambiguous state |
 
 Recovered baseline: `a936baeb4a20ff28304a13252bf20345dee13bf1` from actual
 `origin/main`, November 3, 2026. Independent ordinary clone `SrvrOS-profiles`,
@@ -851,3 +870,144 @@ uncommitted proof-storage work in `SrvrOS-profiles`. All task VMs are stopped;
 the three existing review VMs and primary checkout remain untouched. Actions
 remain disabled. The final acceptance commit changes only documentation and the
 portable review receipt. Ready for the user's authorized merge of PR326.
+
+## Graphical transfer milestone — qualified for review
+
+The desktop's SrvrOS menu and launcher open Profiles. Export explicitly adds
+individual Documents files and a new output filename; Import selects an existing
+bundle and a destination-local name. Review shows identity, actual portable
+preferences, file names/sizes and destination. The visible export confirmation
+also explains that selected bytes may contain sensitive content. A completed
+import appears in the existing chooser at the next desktop start; running
+applications retain their current home.
+
+The UI consumes four fixed guest command forms, sharing the existing strict
+codec/exporter/import transaction:
+
+```text
+profile preview-export HOME [Documents/FILE ...]
+profile export-reviewed HOME OUTPUT SHA256 [Documents/FILE ...]
+profile preview-import BUNDLE HOME ALIAS
+profile import-reviewed BUNDLE HOME ALIAS UID GID SHA256
+```
+
+Previews return versioned bounded review JSON without creating output, HOME or a
+journal. Export fingerprints the exact generated bundle; import fingerprints the
+raw bundle bytes. Confirmation reconstructs/rechecks before mutation. The local
+provisioner proposes available positive UID/GID metadata starting at 1000, with a
+bounded 65,536-value allocation window and 4,096 sibling scan limit. Existing
+homes and pending journals reserve values. Normal collision rules remain in
+force, including shared GIDs; none of these values create an account or grant
+permission. Source changes, existing output, duplicate profiles and ambiguous
+metadata refuse with existing bytes preserved.
+
+Reviewed imports also reserve space in the shared 16-entry chooser limit before
+writing. Blocked profiles and pending journals count, and a journal plus its HOME
+counts once. Capacity is checked again at confirmation, so an intervening import
+cannot make the chooser unavailable. This affects the graphical reviewed route;
+the existing explicit CLI import contract is unchanged.
+
+CLI execution, output draining/reaping and picker initialization have explicit
+worker ownership outside the render loop. Close waits for active work. Failure
+views retain inputs and explain partial-export/new-filename handling or import
+recovery with the original bundle. No recursive cleanup or overwrite is added.
+
+The VM harness uses explicit `deskd --profile-transfer-stop=CHECKPOINT` only in
+an ordinary `--apps-trace` session. It passes the strictly allowlisted checkpoint
+only to Profiles through the normal owned-child launch route. The app's matching
+`--stop-after=CHECKPOINT` forwards the existing CLI test environment value;
+ordinary launches do not inherit faultpoints. Desktop admission is unchanged:
+unmanaged GUI clients are still refused. `export-partial` leaves a flushed partial
+exclusive output; the five existing import checkpoints retain their previous
+meaning. These are controlled process-interruption diagnostics, not power-loss
+qualification. Authentication and permission enforcement remain separate.
+
+### Acceptance and evidence
+
+The graphical transfer milestone is qualified for review in
+[SrvrApps #6](https://github.com/PaulMDemers/SrvrApps/pull/6) and dependent
+[SrvrOS #333](https://github.com/PaulMDemers/SrvrOS/pull/333). Merge Apps first,
+then the OS application pin and wiring. The normal startup chooser consumes the
+imported profile without changing the running session's HOME.
+
+The final source-matched proof uses OS `f2360267` with integrated main
+`7ed98371`, Apps `b2220909`, UI `9eaaa74e` and Ports `747cca28`.
+`build/review/profile-transfer/proof-yuylqeu1/receipt.json` records **PASS**
+across 19 disposable QEMU VM lifetimes. It covers graphical selected-file export
+on A, guest-mounted transport, reviewed import on B, chooser selection, remembered
+reboot and opening the imported document in Text. Exact text/binary payloads,
+full profile UUID/display name and all six portable preferences match; destination
+local metadata differs while source metadata and machine settings remain intact.
+
+Four synthetic source fixtures prove that an unselected document, a credential
+fixture, application state and cache content stay on A and are absent from the
+export, B and every recovered checkpoint copy. Interrupted export retains its
+partial output; the same filename is refused unchanged and a new filename works.
+Invalid and duplicate imports preserve the compared namespace, contents and
+modification metadata; only allowed access-time advances and known append-only
+service-log lines are accepted. Each of the five interrupted import checkpoints
+reboots to Recover, becomes Ready and opens successfully. Installed application
+bytes, allocation accounting and all regions outside each writable data partition
+are checked. All owned QEMU processes stop and GUI workers are reaped with both
+output streams drained. The 640 × 480 EFI fixture verifies dimensions, pointer and
+keyboard interaction, scrolling review details and reachable confirmation controls.
+
+The [portable evidence manifest](assets/screenshots/profile-transfer-manifest.json)
+records source/build/tool hashes, exclusion results, comparisons, recovery records
+and screenshot hashes. Rendered evidence includes the
+[export review](assets/screenshots/profile-transfer-review.png),
+[small-screen scrolled review](assets/screenshots/profile-transfer-small.png),
+[import review](assets/screenshots/profile-transfer-import.png),
+[recovery chooser](assets/screenshots/profile-transfer-recovery.png),
+[imported document](assets/screenshots/profile-transfer-document.png) and
+[interrupted export](assets/screenshots/profile-transfer-interrupted.png).
+
+The matched build and focused profile/catalog/desktop/fsync checks pass. The
+21 guest CLI test groups and real-CLI production catalog checks also pass under
+ASan/UBSan. Installation checks report 30 passing tests with one optional
+exhaustive I/O matrix skipped. Existing changed-preview, metadata collision and
+16-entry chooser-capacity refusal cases pass. Logs are under
+`build/profile-transfer/`; the manifest lists the exact files.
+
+Completed allocation snapshots and fault-case disks are preserved as gzip files
+only after full decompression size/SHA256 verification and their last consumer.
+`archived-images.json` maps every original path to its archive, hashes and restore
+command. The harness preflight reserves four live disks, one compression
+transient, eight data volumes, a capped 1 GiB archive budget and a further 1 GiB
+reserve, without relying on sparse allocation or assumed compression ratios.
+Over-budget or readback failure retains the original. Full accepted evidence,
+matched build payloads and source snapshots are also preserved outside `build`
+under `.local/profile-transfer/final-proof-yuylqeu1/`.
+
+Reproduce with a matched `make all`, focused profile/desktop host checks and
+`python3 tools/profile_transfer_smoke.py --ovmf-vars PATH`, with `OVMF_CODE`
+pointing to the matching x86_64 UEFI firmware. Run one build/VM harness at a time.
+This is disposable-image and controlled process-interruption evidence; external
+`fsck.exfat`, physical media and real power loss remain unqualified.
+Authentication and permission enforcement remain separate.
+
+### Current-main integration
+
+After the accepted GUI proof, main `7ef140ef` added an independent bc command
+and sysabi salvage diagnostics. The combined clean source `c813f078` passes a
+fresh matched build and profile/catalog/desktop/fsync/documentation checks.
+Of 144 previously built payloads, 143 are byte-identical, including the kernel,
+bootstrap init, display server, desktop, Profiles, profile engine, Text, Terminal
+and picker workers. Only the separate sysabi diagnostic changes; bc is newly
+added. Profile/GUI source and proof tools are unchanged, so the 19-lifetime proof
+retains its exact original source attribution without repeating unaffected tests.
+The [integration receipt](assets/screenshots/profile-transfer-integration.json)
+records all payload hashes, current pins, checks and independent review evidence.
+The coordinator owns independent Apps-first/OS-second merging and the installation
+owner's subsequent combined installed-desktop proof.
+
+Main then advanced to `a64661e9` with the separately qualified host offline-export
+workflow. Clean source `13a0ca82` passes another matched build and focused
+profile/catalog/desktop/fsync checks, plus installed-root/export checks (70 tests
+pass; one optional exhaustive matrix skipped) and documentation checks. The same
+143 runtime payloads remain identical. The image helper only adds its CLI export
+dispatcher: all other top-level function ASTs, including the preparation and
+publication functions consumed by the GUI proof, are identical. The integration
+receipt records this final main, source, build, pins and corrected check invocation.
+Apps PR6 has merged first; the coordinator owns the final OS333 merge and combined
+installation proof.

@@ -99,19 +99,19 @@ def boot(disk, out, number, args, negative=False, *, other_disk=None,
         variables = out / f'firmware-vars-{number}.fd'
         shutil.copyfile(args.ovmf_vars, variables)
         if managed_workspace is not None or workspace_uuid is not None:
-            if managed_workspace not in ('control','save','reopen') or not isinstance(workspace_uuid,str) or not re.fullmatch('[0-9a-f]{8}',workspace_uuid):
+            if managed_workspace not in ('control','save','reopen','late-save','late-reopen') or not isinstance(workspace_uuid,str) or not re.fullmatch('[0-9a-f]{8}',workspace_uuid):
                 raise RuntimeError('Managed proof requires explicit mode and prepared UUID')
             if other_disk is None or dirty_salvage or target_disk is not None or destination_mode is not None or target_fault_config is not None or reverse:
                 raise RuntimeError('Managed USB proof cannot use raw-work/target modes')
             paths=[Path(p).resolve() for p in (disk,other_disk)]
             if len(set(paths))!=2 or not all(p.is_relative_to(out.resolve()) and p.is_file() for p in paths) or paths[0].samefile(paths[1]):
                 raise RuntimeError('Managed USB images must be distinct and fixture-owned')
-            if (managed_workspace=='save')!=(work_fault_config is not None) or number!=(2 if managed_workspace=='reopen' else 1):
+            if (managed_workspace in ('save','late-save'))!=(work_fault_config is not None) or number!=(2 if managed_workspace in ('reopen','late-reopen') else 1):
                 raise RuntimeError('Managed source filter belongs only to first save boot')
         storage = [disk] if other_disk is None or managed_workspace else ([other_disk, disk] if reverse else [disk, other_disk])
         if work_fault_config is not None:
             work_fault_config=Path(work_fault_config).resolve()
-            if (not dirty_salvage and managed_workspace!='save') or number!=1 or other_disk is None or work_fault_config.parent!=out.resolve():
+            if (not dirty_salvage and managed_workspace not in ('save','late-save')) or number!=1 or other_disk is None or work_fault_config.parent!=out.resolve():
                 raise RuntimeError('Fault filter requires first dirty-salvage boot and owned config')
             if Path(other_disk).resolve()==Path(disk).resolve() or not Path(disk).resolve().is_relative_to(out.resolve()):
                 raise RuntimeError('Fault target must be distinct from owned boot disk')
@@ -147,7 +147,7 @@ def boot(disk, out, number, args, negative=False, *, other_disk=None,
                 policy=',werror=report,rerror=report'
             drives += ['-drive', f'if=none,id=disk{index},format=raw,file={image}{policy}',
                        '-device', f'ide-hd,drive=disk{index},bus=ahci.{index},bootindex={1 if path == disk else 3 if path == target_disk else 2}']
-        if managed_workspace:
+        if managed_workspace and managed_workspace!='late-reopen':
             image=str(other_disk)
             if work_fault_config is not None:image=f'blkdebug:{work_fault_config}:{other_disk}'
             policy=',werror=report,rerror=report' if work_fault_config is not None else ''
@@ -168,7 +168,7 @@ def boot(disk, out, number, args, negative=False, *, other_disk=None,
         # Firmware is the only host-supplied boot component. The target disk must
         # supply the OS loader, kernel, bootstrap, apps and persisted state.
         assert not {'-cdrom', '-kernel', '-initrd', '-bios'} & set(command)
-        assert command.count('-drive') == 2 + len(storage) + bool(managed_workspace)  # firmware plus explicit disks
+        assert command.count('-drive') == 2 + len(storage) + bool(managed_workspace and managed_workspace!='late-reopen')  # firmware plus explicit disks
         save_json(out / f'command-{number}.json', command)
         with (out / f'qemu-{number}.log').open('wb') as log:
             vm = subprocess.Popen(command, stdout=log, stderr=log)
@@ -262,6 +262,14 @@ def boot(disk, out, number, args, negative=False, *, other_disk=None,
                         return managed_command('workspace status',f'workspace: UUID={workspace_uuid} path=/work/srvros-work state=write-failed'.encode())
                     if b'namespace: /bin /usr /var /home active' not in output:
                         raise RuntimeError('Missing canonical namespace')
+                    if managed_workspace=='late-reopen':
+                        managed_command('workspace status',b'workspace: not mounted')
+                        managed_command('run /bin/sysabi --managed-salvage-offline-reopen',b'managed-salvage: offline-reopen PASS')
+                        managed_command('fsck /fat',b'exfat-check:')
+                        if not re.search(rb'exfat-check: mounts=1 files=\d+ clusters=\d+ leaks=0 fat=0 errors=0 ok',output):raise RuntimeError('Healthy restart check failed')
+                        serial.sendall(b'reboot\n');vm.wait(timeout=30)
+                        if vm.returncode!=0:raise RuntimeError('Offline-source restart failed')
+                        return
                     managed_command('block',b'block: cache entries=')
                     if b'block: usb0p2 ' not in output or b'block: ahci0p2 ' not in output:
                         raise RuntimeError('Missing independent USB workspace/system identities')
@@ -270,7 +278,7 @@ def boot(disk, out, number, args, negative=False, *, other_disk=None,
                     stick=lambda rows: next(r['stats'] for r in rows if r.get('device')=='stick')
                     if stick(before)['wr_operations'] or stick(before).get('failed_wr_operations',0):raise RuntimeError('Workspace mutated before explicit source fsync')
                     save_json(out/f'usb-before-{number}.json',before)
-                    if managed_workspace=='save':
+                    if managed_workspace in ('save','late-save'):
                         serial.sendall(b'run /bin/sysabi --managed-salvage-save\n')
                         wait(b'managed-salvage: source fsync/close EIO; held PASS',120)
                         failed_io=qmp.call('query-blockstats');save_json(out/'usb-failed-1.json',failed_io)
@@ -293,7 +301,10 @@ def boot(disk, out, number, args, negative=False, *, other_disk=None,
                         after=qmp.call('query-blockstats');save_json(out/'usb-after-1.json',after)
                         # Failed operations are accounted separately by QEMU.
                         stats=stick(after)
-                        if stats['wr_operations'] or stats.get('failed_wr_operations')!=1:
+                        if managed_workspace=='late-save':
+                            if stats['wr_operations']<3 or stats.get('failed_wr_operations') or stats.get('failed_flush_operations')!=1 or stats['flush_operations']<1:
+                                raise RuntimeError('Expected successful source writes then one failed USB flush')
+                        elif stats['wr_operations'] or stats.get('failed_wr_operations')!=1:
                             raise RuntimeError('Expected exactly one failed USB source write')
                         for key in ('rd_operations','wr_operations','flush_operations','failed_rd_operations','failed_wr_operations','failed_flush_operations'):
                             if stick(failed_io).get(key,0)!=stats.get(key,0):raise RuntimeError('Retained salvage retried quarantined USB I/O')
