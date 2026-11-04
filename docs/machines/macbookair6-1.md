@@ -7116,3 +7116,40 @@ strict decoder/VM checks and exact Air6,1 docs. Ordinary startup stays unchanged
 Validate host/refusal/codec/tail and matched builds/VMs, preserve recovery and USB
 integrity, save the exact run and prepare the authorized automated native test.
 No native acceptance is claimed before return/collection.
+
+
+### Firmware-only capture validated and prepared (2026-11-04)
+
+[PR362](https://github.com/PaulMDemers/SrvrOS/pull/362), tested capture source
+`f3cfcb90`, prepares exact release `2ee43cb527989448`. Final admission requires
+ACPI reclaimable/NVS table RAM; generic reserved/device ranges cannot supply
+bytes. Full unit-table SHA256 pin, identity, translations and complete two-copy
+catalog/table agreement are mandatory. No native VT-d/GT/GGTT register read,
+new mapping, firmware method, writer or assurance bit is added.
+
+Matched normal/AP/RAM/USB builds, core/desktop/widgets/profile chooser/host/docs
+checks pass across the broad invocation and affected reruns. The first invocation
+found three pre-existing GCC fixture warnings in preferences-finish, process
+service's longjmp selector and profile catalog. Separate test-only commits fix
+formatting/volatile semantics without warning suppression; all affected groups
+then pass. The71-case installation suite passes with its existing opt-in
+exhaustive matrix skipped; it was not repeated for those test-only changes.
+Only the new diagnostic's narrowed ACPI-RAM guard changes runtime code after
+the broad build; its matched rebuild, seven decoder/config/hash/retention tests
+and core/actual-adapter ASan/UBSan checks pass on the final source.
+
+The exact local pinned-table adapter produces a full128-entry synthetic catalog
+that independently decodes; every raw record survives the unchanged64KiB tail
+with32KiB postamble allowance (source bound16,514 bytes). Ordinary ELF lacks the
+capture symbols. All seven older AP/Haswell profiles pass again on the final
+candidate. Exact Q35 identity refusal saves/unmounts/returns; missing workspace
+returns without capture/save. No VM fixture accepts native firmware resources.
+
+The exact staged payload is independently backed up outside build. USB baseline
+596 files/1664 clusters, all prior hashes, clean fsck/allocation and headroom
+verify. At this documentation checkpoint the candidate is uninstalled/unarmed;
+local run records own subsequent installation, arming and collection. The next
+authorized step preserves recovery/accepted backups and runs the no-input
+firmware-only capture automatically. Native acceptance remains the earlier
+`86257762f155128f` observation until collection; no translation/ownership or
+RC6/package-C3 acceptance follows from preparing this trial.
