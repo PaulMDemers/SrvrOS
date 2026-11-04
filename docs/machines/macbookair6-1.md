@@ -6836,3 +6836,17 @@ added. Host tests exercise reserved display values, unchanged authority refusal,
 fence-count/extent ambiguity and next-capture map capacity. This audit does not
 prepare or arm another physical boot; implementing/validating that narrowly
 scoped readout remains the next step. Native RC6/package-C3 limitations persist.
+
+### Bounded CPU TILECTL implementation scope (2026-11-03)
+
+Base `819956be` with actual recursive pins. Extend only the isolated exact-Air6,1
+pilot with an explicit TILECTL modifier and version-2 receipt. Touch the existing
+Haswell core/adapter/header, main dispatch, staging/VM decoder, retention proof
+and regressions. Preserve version 1 and all normal/other diagnostic profiles.
+One CPU/aperture word at `0x101000` per pass remains an observation, not a
+full-path consistency/ownership grant. Keep ten maps, 100 ms pass/gap, 1,536 PTEs
+and 64 KiB tail; three-PTE-page layouts must refuse the extension. No GT access,
+forcewake, extra fences, backing-pixel mappings or policy writes. PR301's
+Broadwell driver remains independent. After matched host/build/exact-stage VM
+checks, use local recovery/USB preflight and a saved run record for an authorized
+automated one-shot/collection. No new native acceptance is claimed beforehand.
