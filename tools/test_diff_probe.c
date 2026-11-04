@@ -80,8 +80,8 @@ static int interrupt_output(uint64_t signal) {
         (unsigned long long)prior.size,(unsigned long long)after.size,ready(pipe[0],SRV_POLLIN),ready(pipe[1],SRV_POLLOUT),flags);
     if(srv_kill_signal(pid,signal)!=0) {puts("diff-probe: output signal failed");goto failed;}
     uint64_t status=0;long done=wait_bounded(pid,&status);
-    printf("diff-probe: blocked output signal=%llu wait=%ld status=%llu\n",(unsigned long long)signal,done,(unsigned long long)status);
-    if(done!=pid || status==0 || status==1) {puts("diff-probe: output signal did not terminate with an error");goto failed;}
+    printf("diff-probe: held output stall signal=%llu wait=%ld status=%llu\n",(unsigned long long)signal,done,(unsigned long long)status);
+    if(done!=pid || status!=128+signal) {puts("diff-probe: output signal did not produce the expected signal status");goto failed;}
     if(srv_fcntl(pipe[1],SRV_F_GETFL,0)!=flags) {puts("diff-probe: output flags changed");goto failed;}
     srv_close(pipe[0]);srv_close(pipe[1]);return 0;
 failed:
@@ -113,7 +113,7 @@ static int interrupt_compare(uint64_t signal) {
     printf("diff-probe: comparison progress signal=%llu state=%s mapped=%llu\n",(unsigned long long)signal,info.state,(unsigned long long)info.user_mapped_bytes);
     CHECK(srv_kill_signal(pid,signal)==0);uint64_t status=0;long done=wait_bounded(pid,&status);
     printf("diff-probe: comparison signal wait=%ld status=%llu\n",done,(unsigned long long)status);
-    CHECK(done==pid && status!=0 && status!=1);srv_close(p[0]);return 0;
+    CHECK(done==pid && status==128+signal);srv_close(p[0]);return 0;
 }
 static int report_stat(void) {
     const char *paths[]={"/fat/diff-test/middle.a","/fat/diff-test/middle.b"};
@@ -130,6 +130,6 @@ int main(int argc,char **argv) {
     CHECK(!interrupt_compare(SRV_SIGNAL_TERM));CHECK(!interrupt_compare(SRV_SIGNAL_TERM));
     CHECK(!write_errors());
     for(int i=0;i<2;i++) {CHECK(!interrupt_output(SRV_SIGNAL_INT));CHECK(!interrupt_output(SRV_SIGNAL_TERM));}
-    puts("diff-probe: PASS output errors and repeated signals after comparison progress and blocked output");
+    puts("diff-probe: PASS output errors and repeated signals after comparison progress and held output stall");
     return 0;
 }
