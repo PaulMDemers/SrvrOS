@@ -4492,3 +4492,11 @@ test-salvage-cli: build/tests/salvage-cli-host$(HOST_EXE)
 build/tests/salvage-cli-host$(HOST_EXE): tools/test_salvage_cli.c userspace/salvage/salvage.c userspace/lib/include/srvros/salvage.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include $< -o $@
+
+.PHONY: test-scanout-space
+test-core: test-scanout-space
+test-scanout-space: build/tests/scanout-space$(HOST_EXE)
+	$<
+build/tests/scanout-space$(HOST_EXE): tools/test_scanout_space.c kernel/src/scanout_space.c kernel/include/srvros/scanout_space.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_scanout_space.c kernel/src/scanout_space.c -o $@

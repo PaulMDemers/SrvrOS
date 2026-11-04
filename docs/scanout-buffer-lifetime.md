@@ -119,3 +119,9 @@ integrity are verified. The [unit record](machines/macbookair7-2.md) owns this
 physical evidence. Private buffers were never mapped to the GPU. Actual GGTT
 reservation, DMA/firmware authority, native route/restore ownership and real
 flip completion remain prerequisites for a hardware writer and desktop backend.
+
+The subsequent [address reservation contract](native-scanout-reservations.md)
+adds software leases for explicitly owned GPU address intervals, protects the
+full inherited fence and requires independent translation/reader retirement
+after exposure. It has no native managed-range importer or GGTT writer; the
+accepted shadow trial remains unchanged.
