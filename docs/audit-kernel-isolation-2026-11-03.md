@@ -1652,6 +1652,37 @@ adapter and bounded ticket/lifetime protocol require separate review. The public
 nonrestart subset remains design preparation only, with unchanged legacy behavior
 and full action/mask/wait/return transaction requirements.
 
+## November 4: public-v1 proposal review, implementation withheld
+
+Reviewed the PR334 owner's public-v1 preparation packet. Proposed CONTROL/RETURN/
+SUSPEND numbers 164–166 are not reserved: live main's syscall header blob
+`ddb22cf84c92f7713ed1c159f284ebc021c51ca9` ends at session scope 163; allocation must
+be rechecked/coordinated at implementation. Native 24-byte direct old-action
+output, fixed versioned requests, honest opaque-CATCH query refusal, explicit
+unsupported masked ppoll/pselect and INFO-without-RESTART remain proposals with
+unchanged-output/pre-effect failure requirements. No public code is approved.
+
+The proposed userspace INFO notification counter has a blocking design race:
+legacy interruption permits retry, libc checks the counter, INFO runs after that
+decision but before the next syscall, and the retry can block with INFO already
+consumed. Neither a per-attempt resnapshot nor a call-wide baseline closes that
+admission gap. Preserving mixed legacy RESTART and INFO nonrestart requires an
+exact kernel-bound attempt/retry protocol or another proven atomic design before
+implementation. This is a proposal counterexample, not a shipped-code regression.
+
+Parked INFO-only waits also need exact action-change phases, wake and once-only
+original-mask restoration; already delivered/INFO_DONE ownership cannot be reset
+by a competing action update. Existing stable scheduler wake is a candidate
+nonfailing primitive, with membership/lifetime, IF0 and capacity-scan costs audited.
+All output/mask transitions must precompute default-pending/exit effects, as the
+private-return fix does. Successful exec pending/default handling needs its own
+actual-source reproduction. WTF's bounded ticket/phase protocol must prove the
+last context/request access before matching RUNNING acknowledgement; skipping a
+retired target remains unapproved without a mutator-deregistration proof. Real
+native context layout, GOT-before-TLS, wrapper interruption/partial-I/O/deadline
+semantics and atomic nested waits remain required. Private acceptance above is
+unchanged while this public packet is revised.
+
 ## Remaining work
 
 Other long IRQ-disabled operations, including initial/churning PMM scans, heap validation and poisoning,
