@@ -4597,3 +4597,11 @@ build/tests/process-signal-state-host$(HOST_EXE): tools/test_process_signal_stat
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include $< kernel/src/arch/x86_64/signal_state.c kernel/src/arch/x86_64/signal_context.c -Wl,--gc-sections -o $@
 test-core: test-signal-state test-process-signal-state
+
+.PHONY: test-process-signal-delivery
+test-process-signal-delivery: build/tests/process-signal-delivery-host$(HOST_EXE)
+	$<
+build/tests/process-signal-delivery-host$(HOST_EXE): tools/test_process_signal_delivery.c tools/test_process_user_frame_copy.c kernel/src/process.c kernel/src/process_signal.h kernel/src/arch/x86_64/signal_state.c kernel/src/arch/x86_64/signal_state.h kernel/src/arch/x86_64/signal_context.c kernel/src/arch/x86_64/signal_context.h kernel/src/arch/x86_64/fpu_trap.h kernel/src/arch/x86_64/user_frame_copy.h $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include $< kernel/src/arch/x86_64/signal_state.c kernel/src/arch/x86_64/signal_context.c -Wl,--gc-sections -o $@
+test-core: test-process-signal-delivery

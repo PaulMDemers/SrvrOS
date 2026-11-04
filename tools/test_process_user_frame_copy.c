@@ -18,17 +18,21 @@ static unsigned policies,proofs,copies,worker_queries;
 static unsigned char destination_bytes[8192];
 static struct process original;
 static struct fpu_state kernel_fpu;
+#ifndef SRVROS_PROCESS_COPY_CUSTOM_OBSERVERS
 bool scheduler_observe_user_return(struct scheduler_user_return_observation *out) {
     if(!observation_ok || (test_flags&0x200)) return false;*out=observation;return true;
 }
 bool scheduler_observe_user_worker_stack(struct scheduler_user_worker_stack *out) {
     worker_queries++;if(!worker_ok)return false;*out=worker_stack;return true;
 }
+#endif
 bool fpu_available(void) {return false;}
 uint64_t vmm_kernel_address_space(void) {return 0x1000;}
 void *pmm_phys_to_virt(uint64_t physical) {return (void *)(uintptr_t)(0xffff800000000000ull+physical);}
+#ifndef SRVROS_PROCESS_COPY_CUSTOM_OBSERVERS
 bool vmm_user_frame_copy_policy_current(uint64_t root) {assert(root==0x2000 && !(test_flags&0x200));policies++;policy_success_pending=policy_ok;return policy_ok;}
 bool fpu_validate_user_trap(const struct isr_frame *frame) {assert(frame && policy_success_pending);policy_success_pending=false;proofs++;return proof_ok;}
+#endif
 bool vmm_copy_user_frame_current(uint64_t root,uint64_t dst,const struct user_frame_source *source,size_t length,
     const struct user_frame_stack *stack,const struct user_frame_page pages[2],size_t count,
     const struct isr_frame *frame,const struct fpu_state *user,const struct fpu_state *kernel) {

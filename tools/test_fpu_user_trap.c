@@ -279,6 +279,43 @@ int main(void) {
         assert(fpu_restore_saved_user_trap(frame_of(&a),&invalid));exit_user(&a);
         assert(!memcmp(observed.bytes,invalid.bytes,512));
     }
+    /* Preparation is read-only until one explicit, same-continuation commit. */
+    setup();enter_user(&a);
+    struct fpu_user_trap_commit prepared_commit, untouched;
+    memset(&prepared_commit,0xa5,sizeof(prepared_commit));untouched=prepared_commit;
+    struct fpu_state before_user=ua.state,before_kernel=ka.state;
+    struct fpu_user_trap_proof before_proof=*proof_of(&a);
+    invalid=private_saved;invalid.bytes[27]=1;
+    assert(!fpu_prepare_user_trap_commit(frame_of(&a),&invalid,&prepared_commit));
+    assert(!memcmp(&prepared_commit,&untouched,sizeof(untouched)) &&
+        !memcmp(&before_user,&ua.state,sizeof(before_user)) && !memcmp(&before_kernel,&ka.state,sizeof(before_kernel)) &&
+        !memcmp(&before_proof,proof_of(&a),sizeof(before_proof)));
+    assert(!fpu_prepare_user_trap_commit(frame_of(&a),&private_saved,(void *)((uintptr_t)&prepared_commit+1)));
+    assert(!fpu_prepare_user_trap_commit(frame_of(&a),&private_saved,(void *)(UINTPTR_MAX&~(uintptr_t)15)));
+    assert(!fpu_prepare_user_trap_commit(frame_of(&a),&private_saved,(void *)&ua.state));
+    assert(!fpu_prepare_user_trap_commit(frame_of(&a),&private_saved,(void *)proof_of(&a)));
+    assert(!fpu_prepare_user_trap_commit(frame_of(&a),&private_saved,(void *)&private_saved));
+    assert(!fpu_prepare_user_trap_commit(frame_of(&a),(void *)&ka.state,&prepared_commit));
+    observation.image_generation++;assert(!fpu_prepare_user_trap_commit(frame_of(&a),NULL,&prepared_commit));observation.image_generation--;
+    ka.state.active_user_trap=(void *)1;assert(!fpu_prepare_user_trap_commit(frame_of(&a),NULL,&prepared_commit));ka.state.active_user_trap=proof_of(&a);
+    assert(fpu_prepare_user_trap_commit(frame_of(&a),NULL,&prepared_commit));
+    assert(prepared_commit.proof==proof_of(&a) && prepared_commit.user_fpu==&ua.state && !prepared_commit.restore);
+    assert(!memcmp(&before_user,&ua.state,sizeof(before_user)) && !memcmp(&before_kernel,&ka.state,sizeof(before_kernel)) &&
+        !memcmp(&before_proof,proof_of(&a),sizeof(before_proof)));
+    /* Abandon this preparation: it must leave the proof usable. */
+    assert(fpu_prepare_user_trap_commit(frame_of(&a),&private_saved,&prepared_commit));
+    assert(proof_of(&a)->state==FPU_PROOF_VALID);
+    fpu_commit_user_trap_prepared(&prepared_commit);
+    assert(proof_of(&a)->state==FPU_PROOF_CONSUMED && !memcmp(ua.state.fxsave_area,private_saved.bytes,512));
+    assert(ua.state.initialized==before_user.initialized && ua.state.active_user_trap==before_user.active_user_trap &&
+        !memcmp(&before_kernel,&ka.state,sizeof(before_kernel)));
+    assert(!fpu_prepare_user_trap_commit(frame_of(&a),NULL,&prepared_commit));
+    exit_user(&a);assert(!memcmp(observed.bytes,private_saved.bytes,512));
+    setup();enter_user(&a);
+    assert(fpu_prepare_user_trap_commit(frame_of(&a),NULL,&prepared_commit));
+    before_user=ua.state;fpu_commit_user_trap_prepared(&prepared_commit);
+    assert(proof_of(&a)->state==FPU_PROOF_CONSUMED && !memcmp(&before_user,&ua.state,sizeof(before_user)));
+    exit_user(&a);
     user_image=original_pattern;
     user_state_loaded=false;current_kernel_state=current_user_state=NULL;load_fx(&host_initial);
     assert(!munmap(guard,(size_t)page*2));

@@ -349,16 +349,25 @@ static bool ranges_overlap(uintptr_t a, size_t alen, uintptr_t b, size_t blen) {
 }
 
 /* Extent and numeric alias checks do not authenticate allocation/provenance. */
-static bool private_snapshot_range(const struct isr_frame *frame,
-    const struct fpu_user_trap_proof *proof, const struct fpu_user_snapshot *object) {
-    if (!object || ((uintptr_t)object & 15) || !kernel_extent((uintptr_t)object,sizeof(*object))) return false;
+static bool private_object_range(const struct isr_frame *frame,
+    const struct fpu_user_trap_proof *proof,const void *object,size_t length) {
+    if (!object || ((uintptr_t)object & 15) || !kernel_extent((uintptr_t)object,length)) return false;
     uintptr_t aligned=(uintptr_t)frame & ~(uintptr_t)15;
     if (aligned < FPU_COMMON_RESERVATION || (uintptr_t)frame > UINTPTR_MAX-sizeof(*frame)) return false;
     uintptr_t start=aligned-FPU_COMMON_RESERVATION;
     size_t size=(uintptr_t)frame+sizeof(*frame)-start;
-    return !ranges_overlap((uintptr_t)object,sizeof(*object),start,size) &&
-        !ranges_overlap((uintptr_t)object,sizeof(*object),(uintptr_t)proof->user_fpu,sizeof(*proof->user_fpu)) &&
-        !ranges_overlap((uintptr_t)object,sizeof(*object),(uintptr_t)proof->kernel_fpu,sizeof(*proof->kernel_fpu));
+    return !ranges_overlap((uintptr_t)object,length,start,size) &&
+        !ranges_overlap((uintptr_t)object,length,(uintptr_t)proof->user_fpu,sizeof(*proof->user_fpu)) &&
+        !ranges_overlap((uintptr_t)object,length,(uintptr_t)proof->kernel_fpu,sizeof(*proof->kernel_fpu));
+}
+static bool private_snapshot_range(const struct isr_frame *frame,
+    const struct fpu_user_trap_proof *proof,const struct fpu_user_snapshot *object) {
+    return private_object_range(frame,proof,object,sizeof(*object));
+}
+static bool saved_mxcsr_valid(const struct fpu_user_snapshot *saved) {
+    uint32_t mxcsr=(uint32_t)saved->bytes[24] | ((uint32_t)saved->bytes[25]<<8) |
+        ((uint32_t)saved->bytes[26]<<16) | ((uint32_t)saved->bytes[27]<<24);
+    return !(mxcsr & 0xffff0000u) && !(mxcsr & ~sampled_mxcsr_mask);
 }
 
 bool fpu_snapshot_user_trap(const struct isr_frame *frame, struct fpu_user_snapshot *out) {
@@ -373,9 +382,7 @@ bool fpu_restore_saved_user_trap(const struct isr_frame *frame, const struct fpu
     struct fpu_user_trap_proof *proof;
     if (!proof_current(frame,&proof) || !sampled_mxcsr_mask_valid ||
         !private_snapshot_range(frame,proof,saved)) return false;
-    uint32_t mxcsr=(uint32_t)saved->bytes[24] | ((uint32_t)saved->bytes[25]<<8) |
-        ((uint32_t)saved->bytes[26]<<16) | ((uint32_t)saved->bytes[27]<<24);
-    if ((mxcsr & 0xffff0000u) || (mxcsr & ~sampled_mxcsr_mask)) return false;
+    if (!saved_mxcsr_valid(saved)) return false;
     copy_fx_area(proof->user_fpu->fxsave_area,saved->bytes);
     proof->state=FPU_PROOF_CONSUMED;
     return true;
@@ -391,4 +398,23 @@ bool fpu_consume_user_trap(const struct isr_frame *frame) {
 bool fpu_validate_user_trap(const struct isr_frame *frame) {
     struct fpu_user_trap_proof *proof;
     return proof_current(frame,&proof);
+}
+
+/* Validation produces a borrowed, single-use private commit; it is not a
+ * capability and does not make mutable caller storage safe to retain. */
+bool fpu_prepare_user_trap_commit(const struct isr_frame *frame,
+    const struct fpu_user_snapshot *restore,struct fpu_user_trap_commit *out) {
+    struct fpu_user_trap_proof *proof;
+    if (!out || ((uintptr_t)out & 15) || !kernel_extent((uintptr_t)out,sizeof(*out)) ||
+        !proof_current(frame,&proof) || !private_object_range(frame,proof,out,sizeof(*out))) return false;
+    if (restore && (!sampled_mxcsr_mask_valid || !private_snapshot_range(frame,proof,restore) ||
+        ranges_overlap((uintptr_t)out,sizeof(*out),(uintptr_t)restore,sizeof(*restore)) ||
+        !saved_mxcsr_valid(restore))) return false;
+    *out=(struct fpu_user_trap_commit){.proof=proof,.user_fpu=proof->user_fpu,.restore=restore};
+    return true;
+}
+
+void fpu_commit_user_trap_prepared(const struct fpu_user_trap_commit *prepared) {
+    if (prepared->restore) copy_fx_area(prepared->user_fpu->fxsave_area,prepared->restore->bytes);
+    prepared->proof->state=FPU_PROOF_CONSUMED;
 }

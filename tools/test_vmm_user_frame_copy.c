@@ -10,6 +10,7 @@
 static uint64_t flags,cr0=(1ull<<0)|(1ull<<16)|(1ull<<31),cr4=1ull<<5,efer=(1ull<<10)|(1ull<<11),cr3,pat=6,stack_rsp;
 static uint32_t width=48,features=(1u<<20)|(1u<<26),maxext=0x80000008,has_pat=1;
 static uint8_t *destination_backing,*real_stack;
+static unsigned translate_calls;
 static const uint64_t stack_phys=0x40000000ull,stack_logical=0xffff900000000000ull;
 static uint64_t user_frame_test_rflags(void){return flags;}
 static uint64_t user_frame_test_cr0(void){return cr0;}
@@ -40,6 +41,7 @@ static uint64_t vmm_test_efer(void){return efer;}
 #define SRVROS_VMM_HOST_TEST
 #include "../kernel/src/memory/vmm.c"
 void *pmm_phys_to_virt(uint64_t physical){
+    translate_calls++;
     if(physical>=stack_phys && physical<stack_phys+32ull*4096) return real_stack+(physical-stack_phys);
     return (void *)(uintptr_t)physical;
 }
@@ -88,6 +90,7 @@ int main(void){
     destination_backing=guard+4096;assert(!mprotect(destination_backing,8192,PROT_READ|PROT_WRITE));
     uint8_t *stack=aligned_alloc(4096,USER_FRAME_STACK_FRAMES*PAGE_SIZE);assert(stack);real_stack=stack;memset(stack,0,USER_FRAME_STACK_FRAMES*PAGE_SIZE);
     uint8_t *fpu_pages=aligned_alloc(4096,3*PAGE_SIZE);assert(fpu_pages);memset(fpu_pages,0,3*PAGE_SIZE);
+    uint8_t *extra_pages=aligned_alloc(4096,6*PAGE_SIZE);assert(extra_pages);memset(extra_pages,0x73,6*PAGE_SIZE);
     uint64_t *root=new_table();kernel_cr3=0x1000;cr3=(uint64_t)(uintptr_t)root;
     address_space_records[0]=(struct address_space_record){.used=true,.root=cr3};
     struct user_frame_source *source=(void *)(stack+4096);
@@ -97,6 +100,9 @@ int main(void){
     struct user_frame_stack owned={stack_va,stack_phys,USER_FRAME_STACK_FRAMES};
     for(unsigned i=1;i<=4;i++)map_leaf(root,stack_va+i*PAGE_SIZE,stack_phys+i*PAGE_SIZE,false);
     for(unsigned i=0;i<3;i++)map_leaf(root,user_frame_test_kernel_address(fpu_pages+i*PAGE_SIZE),(uint64_t)(uintptr_t)(fpu_pages+i*PAGE_SIZE),false);
+    uint64_t extra_va=user_frame_test_kernel_address(extra_pages);
+    uint64_t *extra_leaf[6];
+    for(unsigned i=0;i<6;i++)extra_leaf[i]=map_leaf(root,extra_va+i*PAGE_SIZE,(uint64_t)(uintptr_t)(extra_pages+i*PAGE_SIZE),false);
     uint64_t *d0=map_leaf(root,0x400000,(uint64_t)(uintptr_t)destination_backing,true);
     uint64_t *d1=map_leaf(root,0x401000,(uint64_t)(uintptr_t)(destination_backing+4096),true);
     struct user_frame_page pages[2]={{0x400000,(uint64_t)(uintptr_t)destination_backing,6},{0x401000,(uint64_t)(uintptr_t)(destination_backing+4096),6}};
@@ -106,6 +112,33 @@ int main(void){
     for(unsigned i=0;i<tables_before;i++)memcpy(table_snapshot[i],allocated_tables[i],4096);
     struct address_space_record registry_before=address_space_records[0];
     memset(destination_backing,0xa5,8192);uint8_t before[8192];memcpy(before,destination_backing,8192);
+    uint8_t extra_before[6*PAGE_SIZE];memcpy(extra_before,extra_pages,sizeof(extra_before));
+    struct user_frame_exclusion excluded[3]={{extra_va+PAGE_SIZE-16,96},
+        {extra_va+3*PAGE_SIZE-8,16},{extra_va+5*PAGE_SIZE-16,3056}};
+#define EXCLUDING(list,count) vmm_copy_user_frame_excluding_current(cr3,0x400ff0,source,64,&owned,pages,2,frame,uf,kf,(list),(count))
+    assert(EXCLUDING(excluded,3));assert(!memcmp(destination_backing+0xff0,source->bytes,64));
+    assert(!memcmp(destination_backing,before,0xff0) && !memcmp(destination_backing+0x1030,before+0x1030,8192-0x1030));
+    memset(destination_backing,0xa5,8192);
+    for(unsigned object=0;object<3;object++)for(unsigned span=0;span<2;span++)for(unsigned page=0;page<2;page++) {
+        unsigned leaf=object*2+span;uint64_t saved_leaf=*extra_leaf[leaf];
+        *extra_leaf[leaf]=pages[page].physical_address|3;
+        assert(!EXCLUDING(excluded,3));check_unchanged(before);*extra_leaf[leaf]=saved_leaf;
+    }
+    unsigned before_translation=translate_calls;
+    assert(!EXCLUDING(NULL,1));assert(!EXCLUDING(excluded,4));check_unchanged(before);
+    uint64_t saved_address=excluded[2].address,saved_length=excluded[2].length;
+    excluded[2].length=0;assert(!EXCLUDING(excluded,3));
+    excluded[2].length=PAGE_SIZE+1;assert(!EXCLUDING(excluded,3));
+    excluded[2].length=64;excluded[2].address=UINT64_MAX-31;assert(!EXCLUDING(excluded,3));
+    excluded[2].address=0x800000000000ull;assert(!EXCLUDING(excluded,3));
+    excluded[2].address=saved_address;excluded[2].length=saved_length;check_unchanged(before);
+    assert(translate_calls==before_translation); /* All extents precede any walk. */
+    uint64_t saved_extra=*extra_leaf[5];*extra_leaf[5]&=~1ull;
+    assert(!EXCLUDING(excluded,3));check_unchanged(before);
+    *extra_leaf[5]=saved_extra|VMM_PAGE_CACHE_DISABLE;
+    assert(!EXCLUDING(excluded,3));check_unchanged(before);*extra_leaf[5]=saved_extra;
+    assert(!memcmp(extra_before,extra_pages,sizeof(extra_before)));
+#undef EXCLUDING
     assert(vmm_user_frame_copy_policy_current(cr3));
     assert(!vmm_user_frame_copy_policy_current(0));
     assert(!vmm_user_frame_copy_policy_current(kernel_cr3));
@@ -238,7 +271,7 @@ int main(void){
     for(unsigned i=0;i<tables_before;i++)assert(!memcmp(table_snapshot[i],allocated_tables[i],4096));
     assert(!memcmp(&registry_before,&address_space_records[0],sizeof(registry_before)));
     assert(!memcmp(original_source,source->bytes,1024));
-    assert(!munmap(guard,16384));free(fpu_pages);free(stack);
+    assert(!munmap(guard,16384));free(extra_pages);free(fpu_pages);free(stack);
     for(unsigned i=0;i<table_count;i++)free(allocated_tables[i]);
     puts("user-frame-copy: modeled policy/walk, guarded backing, atomic preflight and aliases");
 }

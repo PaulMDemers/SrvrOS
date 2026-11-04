@@ -1,6 +1,7 @@
 # Proposed private delivery/return transaction for owner review
 
-Status: proposed, not approved or implemented. This advances the qualified
+Status: owner-approved private implementation/test scope, implemented and under
+final evidence review. This advances the qualified
 [internal state](signal-internal-state.md) and [owned copy](signal-user-frame-copy.md)
 toward real interrupted-register delivery. First qualification uses an opt-in
 private test kernel; no public syscall or SA_SIGINFO capability is allocated.
@@ -82,6 +83,17 @@ return cannot change any state and is terminal for the active test handler.
 Successful return skips additional delivery at that same boundary: its proof
 is consumed, so another pending signal waits for the next eligible trap.
 
+Return also stages the existing generic mask-unblock decisions: discard newly
+unblocked default-ignored CHLD/WINCH bits from current local/shared queues;
+preserve caught bits; select the lowest default-fatal bit with local-source
+priority. Preparation refusal leaves everything unchanged. Private
+return reports0 for refusal,1 for restored, or128+signal for restored-and-exit.
+The test caller passes the prepared exit status directly to process_exit before
+user accounting/resume, without a post-commit admission query. An independent
+review reproduced the former raw-mask-store bug for USR2 and RESET/mixed-source
+USR1; main/worker strict and sanitizer regressions now cover the corrected
+fatal/ignored/caught decisions and rollback.
+
 ## Private qualification and later public wiring
 
 Use a separately built IDT object/kernel and test-only DPL3 INT3 gate. Recognized
@@ -107,3 +119,43 @@ Bind each request to its exact trap/image/thread, clear on cancellation/retireme
 and review old-action user copy before descriptor commit. Exact ABI allocation,
 restart epochs, nested atomic temporary-mask wait and libc transition remain
 separate design requirements before production wiring or JSC claims.
+
+## November 4 private qualification
+
+Strict/sanitized actual-source VMM, FPU and existing process-copy tests pass.
+The new process transaction fixture separately models scheduler/FPU/VMM inputs
+and guards actual query calls after user store through the complete commit.
+Every new excluded object crosses a distinct physical page pair; twelve alias
+controls independently cover both spans against both destination pages.
+
+The separate1536MiB Q35/qemu64 single-CPU TCG guest passes main/worker/repeated
+timer-only delivery, all15 GPRs, all16 XMMs, x87/control/MXCSR, FS/TLS/RSP and the
+original128-byte red zone. Its interrupted R15 points to a real allocated object;
+this verifies pointer capture, not sole-root or GC survival. Handler entry clears
+DF and private return restores original DF. Every public snapshot is destroyed
+by the handler before a clobbering trampoline requests private return.
+Main/worker nesting reaches four records; the fifth queued signal defers at
+full depth and is delivered after unwind. Tokens remain monotonic per lifetime.
+
+The probe uses mapped stack page+0x300 so its complete760-byte frame crosses two
+pages, including the genuine65536-mapping case. The complete prepare/copy/commit
+sample is961us, vector32. This is a quantized emulated-profile observation,
+excluding outer hook/diagnostics and not a hard or complete IRQ-off bound.
+All130 normal objects/kernel retain identical hashes across isolated test builds.
+Fresh normal FPU/thread/sysabi and OVMF storage contention pass, including the
+intentional timeout/quarantine injection. Original ISO/review outputs restore.
+Exact first and expanded guest inputs/raw logs are retained outside distclean in
+workspace `.local/pr334-evidence/private-guest-1` and `private-guest-2`.
+
+Target audit of the full successful suffix finds only bounded private copies,
+prepared scalar/mask/RESET/frame/default stores and the call-free FPU commit.
+No FXRSTOR executes while C continues. Compiler stack reports give delivery6504,
+return4520 and process-copy preparation264 bytes. A37-node direct-call audit
+adds8 bytes per call edge, including conservative tail-call overcount: roots are
+11224/10008 bytes. Adding983 bytes for the common ISR frame/reservation/alignment,
+private dispatcher and call addresses yields12207/10991 bytes against the owned
+128KiB stack. All38 relevant function bodies match actual object sections; no
+indirect call, recursion or dynamic frame appears in the audited paths. This
+bounds these maskable-IRQ-excluded transactions, not NMI/MCE or all kernel work. Static embedded state remains the
+previously qualified1764352-byte process-array increase including alignment.
+No production/public ABI, restart, atomic suspend or JSC acceptance is implied.

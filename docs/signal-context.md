@@ -790,3 +790,8 @@ delivery/return and the WTF context adapter; last required-success smoke remains
 The November4 [internal action/private-record lifecycle slice](signal-internal-state.md)
 extends the qualified copy prerequisite. It remains unwired; delivery and
 copy-to-infallible-publication are separate required reviews.
+
+
+The [fused private publication/return slice](signal-publication-transaction.md)
+has native main/worker/nesting/FX/DF/pointer qualification and normal regressions,
+with final source/evidence review pending. Public ABI and libc/WTF remain required.

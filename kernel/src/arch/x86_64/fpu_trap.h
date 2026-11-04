@@ -21,6 +21,13 @@ struct fpu_user_trap_proof {
     uint64_t state;
 } __attribute__((aligned(16)));
 struct fpu_user_snapshot { _Alignas(16) uint8_t bytes[FPU_FXSAVE_AREA_SIZE]; };
+/* Private borrowed commit: one same-continuation use only. No pointer here is
+ * authenticated against user input; caller owns all storage and provenance. */
+struct fpu_user_trap_commit {
+    struct fpu_user_trap_proof *proof;
+    struct fpu_state *user_fpu;
+    const struct fpu_user_snapshot *restore;
+} __attribute__((aligned(16)));
 _Static_assert(FPU_COMMON_SAVED_RSP==0 && FPU_COMMON_TRAP_AREA==16, "saved stack and trap offsets");
 _Static_assert(FPU_COMMON_TRAP_AREA+FPU_FXSAVE_AREA_SIZE==FPU_COMMON_PROOF, "trap/proof boundary");
 _Static_assert(FPU_COMMON_PROOF+64==FPU_COMMON_RESERVATION && FPU_COMMON_RESERVATION%16==0, "reservation layout");
@@ -47,5 +54,10 @@ bool fpu_validate_user_trap(const struct isr_frame *);
 /* saved must be a resident caller-owned, unmodified prior private capture;
  * numeric checks cannot authenticate provenance. No user or wire bytes. */
 bool fpu_restore_saved_user_trap(const struct isr_frame *,const struct fpu_user_snapshot *);
+/* Preparation never consumes. Caller keeps frame, prepared object and optional
+ * private captured source resident, unchanged and IF0 until exactly one commit;
+ * no scheduling, callbacks or intervening binding changes are permitted. */
+bool fpu_prepare_user_trap_commit(const struct isr_frame *,const struct fpu_user_snapshot *,struct fpu_user_trap_commit *);
+void fpu_commit_user_trap_prepared(const struct fpu_user_trap_commit *);
 #endif
 #endif

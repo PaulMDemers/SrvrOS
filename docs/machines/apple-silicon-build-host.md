@@ -3724,3 +3724,20 @@ has no SIMD/x87. Static process-array cost is1,764,352B including alignment.
 Owner review continues; no public signal ABI, async delivery, sigreturn or new
 JSC success. Next review must fuse all prevalidation before user copy with an
 infallible private/FPU/live-frame commit and complete private-storage aliases.
+
+
+PR334 fused private-operation follow-up passes host/source/target review and
+first/expanded private guests. Timer vector32 delivers to pure main/worker loops;
+all GPR/FX/red-zone/FS/TLS/RSP and allocated R15 pointer restore despite destroyed
+public snapshots, including DF clear/restore. Main/worker depth4 retains a fifth
+pending signal until unwind. Genuine65536 two-page760B prepare/copy/commit sample
+is961us (emulated PM interval, no hard/full IRQ-off bound). Independent review
+found raw return-mask restoration stranded unblocked defaults; staged generic
+default-fatal/ignored/caught handling and explicit prepared exit outcome now pass
+main/worker rollback tests. Normal FPU/thread/sysabi and OVMF storage contention
+pass; expected injected timeout/quarantine is retained, original ISO/review files
+restore. All130 normal artifacts remain isolated. Cumulative audited stack bounds
+are12207/10991B vs128KiB, with actual function-body equivalence. Exact first and
+expanded guest source/raw evidence survives distclean in workspace .local.
+Public ABI/libc/atomic suspend and WTF integration remain incomplete; JSC still
+has no new required-success42. Next public flag subset/ABI design under review.

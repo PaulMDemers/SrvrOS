@@ -963,10 +963,15 @@ static bool user_frame_kernel_spans(uint64_t root,uint64_t start,uint64_t length
     return true;
 }
 
-bool vmm_copy_user_frame_current(uint64_t root,uint64_t destination,
+bool vmm_copy_user_frame_excluding_current(uint64_t root,uint64_t destination,
     const struct user_frame_source *source,size_t length,
     const struct user_frame_stack *stack,const struct user_frame_page pages[2],size_t page_count,
-    const struct isr_frame *frame,const struct fpu_state *user_fpu,const struct fpu_state *kernel_fpu) {
+    const struct isr_frame *frame,const struct fpu_state *user_fpu,const struct fpu_state *kernel_fpu,
+    const struct user_frame_exclusion *exclusions,size_t exclusion_count) {
+    if (exclusion_count>USER_FRAME_EXCLUSION_MAX || (exclusion_count && !exclusions)) return false;
+    for(size_t i=0;i<exclusion_count;i++)
+        if(exclusions[i].length>PAGE_SIZE ||
+           !user_frame_upper_extent(exclusions[i].address,exclusions[i].length)) return false;
     struct user_frame_copy_cpu cpu;
     if (!user_frame_copy_cpu_policy(root,&cpu) || !source || !stack || !pages || !frame ||
         !user_fpu || !kernel_fpu || !length || length>USER_FRAME_COPY_LIMIT ||
@@ -994,6 +999,10 @@ bool vmm_copy_user_frame_current(uint64_t root,uint64_t destination,
     if (!user_frame_kernel_spans(root,src,USER_FRAME_COPY_LIMIT,&cpu,src_spans,&ns) ||
         !user_frame_kernel_spans(root,user_frame_kernel_address(user_fpu),sizeof(*user_fpu),&cpu,ufpu_spans,&nu) ||
         !user_frame_kernel_spans(root,user_frame_kernel_address(kernel_fpu),sizeof(*kernel_fpu),&cpu,kfpu_spans,&nk)) return false;
+    struct user_frame_span extra_spans[USER_FRAME_EXCLUSION_MAX][2];
+    unsigned extra_count[USER_FRAME_EXCLUSION_MAX];
+    for(size_t i=0;i<exclusion_count;i++)
+        if(!user_frame_kernel_spans(root,exclusions[i].address,exclusions[i].length,&cpu,extra_spans[i],&extra_count[i])) return false;
     if (user_frame_overlap(src,USER_FRAME_COPY_LIMIT,user_frame_kernel_address(user_fpu),sizeof(*user_fpu)) ||
         user_frame_overlap(src,USER_FRAME_COPY_LIMIT,user_frame_kernel_address(kernel_fpu),sizeof(*kernel_fpu))) return false;
     for (unsigned i=0;i<ns;i++) {
@@ -1019,6 +1028,9 @@ bool vmm_copy_user_frame_current(uint64_t root,uint64_t destination,
         if (user_frame_overlap(phys,PAGE_SIZE,stack->physical,USER_FRAME_STACK_FRAMES*PAGE_SIZE)) return false;
         for (unsigned j=0;j<nu;j++) if(user_frame_overlap(phys,PAGE_SIZE,ufpu_spans[j].base,ufpu_spans[j].length)) return false;
         for (unsigned j=0;j<nk;j++) if(user_frame_overlap(phys,PAGE_SIZE,kfpu_spans[j].base,kfpu_spans[j].length)) return false;
+        for (size_t j=0;j<exclusion_count;j++)
+            for (unsigned k=0;k<extra_count[j];k++)
+                if(user_frame_overlap(phys,PAGE_SIZE,extra_spans[j][k].base,extra_spans[j][k].length)) return false;
     }
     /* No failure, callback, service window or IRQ transition after this point. */
     for (size_t i=0;i<length;i++) {
@@ -1029,4 +1041,12 @@ bool vmm_copy_user_frame_current(uint64_t root,uint64_t destination,
 #endif
     }
     return true;
+}
+
+bool vmm_copy_user_frame_current(uint64_t root,uint64_t destination,
+    const struct user_frame_source *source,size_t length,
+    const struct user_frame_stack *stack,const struct user_frame_page pages[2],size_t page_count,
+    const struct isr_frame *frame,const struct fpu_state *user_fpu,const struct fpu_state *kernel_fpu) {
+    return vmm_copy_user_frame_excluding_current(root,destination,source,length,stack,pages,page_count,
+        frame,user_fpu,kernel_fpu,NULL,0);
 }

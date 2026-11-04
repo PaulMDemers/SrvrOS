@@ -513,6 +513,7 @@ bool process_admit_user_worker(void *candidate, void *worker, uint64_t generatio
 
 struct process_signal_owner {
     struct process *process;
+    struct process_user_thread *worker;
     struct signal_thread_state *state;
     struct signal_state_identity identity;
     uint64_t root;
@@ -532,9 +533,10 @@ static bool process_signal_current_owner(struct process_signal_owner *out) {
     struct process_user_thread *worker=observed.user_thread;
     if((!worker && process->main_thread_exited) ||
         (worker && worker->tid>(uint64_t)INT64_MAX) || !observed.thread_identity) return false;
-    *out=(struct process_signal_owner){process,
-        worker?&worker->signal_state:&process->main_signal_state,
-        {observed.image_generation,worker?worker->tid:1,observed.thread_identity},observed.address_space};
+    *out=(struct process_signal_owner){.process=process,.worker=worker,
+        .state=worker?&worker->signal_state:&process->main_signal_state,
+        .identity={observed.image_generation,worker?worker->tid:1,observed.thread_identity},
+        .root=observed.address_space};
     return true;
 }
 
@@ -558,9 +560,17 @@ bool process_signal_record_pop(uint64_t token,uint64_t frame_identity,
     process_irq_restore(irq);return result;
 }
 
-bool process_copy_user_frame_current(const struct isr_frame *frame,
-    const struct user_frame_source *source,uint64_t destination,size_t length) {
-    if (!frame || !source || !destination || !length || length>USER_FRAME_COPY_LIMIT ||
+struct process_frame_copy_plan {
+    uint64_t root;
+    struct user_frame_stack stack;
+    struct user_frame_page pages[2];
+    size_t page_count;
+    struct fpu_state *user_fpu,*kernel_fpu;
+};
+static bool process_prepare_frame_copy(const struct isr_frame *frame,
+    const struct user_frame_source *source,uint64_t destination,size_t length,
+    struct process_frame_copy_plan *out) {
+    if (!out || !frame || !source || !destination || !length || length>USER_FRAME_COPY_LIMIT ||
         destination >= (1ull<<47) || length > (1ull<<47)-destination) return false;
     struct scheduler_user_return_observation observed;
     struct process_user_binding binding;
@@ -609,8 +619,141 @@ bool process_copy_user_frame_current(const struct isr_frame *frame,
             if(process->mappings[i].physical_address==pages[page].physical_address && ++owners>1) return false;
         if(owners!=1) return false;
     }
-    return vmm_copy_user_frame_current(observed.address_space,destination,source,length,
-        &stack,pages,page_count,frame,observed.user_fpu,observed.kernel_fpu);
+    *out=(struct process_frame_copy_plan){.root=observed.address_space,.stack=stack,
+        .pages={pages[0],pages[1]},.page_count=page_count,.user_fpu=observed.user_fpu,.kernel_fpu=observed.kernel_fpu};
+    return true;
+}
+bool process_copy_user_frame_current(const struct isr_frame *frame,
+    const struct user_frame_source *source,uint64_t destination,size_t length) {
+    struct process_frame_copy_plan plan;
+    if(!process_prepare_frame_copy(frame,source,destination,length,&plan)) return false;
+    return vmm_copy_user_frame_current(plan.root,destination,source,length,
+        &plan.stack,plan.pages,plan.page_count,frame,plan.user_fpu,plan.kernel_fpu);
+}
+
+_Static_assert(sizeof(struct process_signal_private_info)==64,"private signal information layout");
+_Static_assert(8+sizeof(struct signal_context_snapshot)+sizeof(struct process_signal_private_info)==PROCESS_SIGNAL_PRIVATE_FRAME_BYTES,"complete private signal frame");
+_Static_assert(sizeof(struct signal_thread_state)<=4096,"bounded complete private-state exclusion");
+_Static_assert(offsetof(struct process,usr1_action_generation)==offsetof(struct process,usr1_action)+sizeof(struct signal_action_descriptor),"descriptor generation adjacency");
+_Static_assert(offsetof(struct process,main_signal_state)-offsetof(struct process,signal_catch_mask)<=4096,"bounded action and main metadata exclusion");
+_Static_assert(offsetof(struct process_user_thread,pending_signals)==offsetof(struct process_user_thread,signal_mask)+8,"worker pending-mask adjacency");
+
+/* First caller is an opt-in test kernel only. All objects below are private
+ * resident local/static storage in this single uninterrupted IF0 continuation.
+ * Final publication uses no fallible helper after the admitted user copy. */
+enum process_signal_delivery_result process_signal_deliver_private(struct isr_frame *frame) {
+    if(!frame || frame->cs!=0x23 || frame->ss!=0x1b) return PROCESS_SIGNAL_FATAL;
+    struct process_signal_owner owner;
+    if(!process_signal_current_owner(&owner)) return PROCESS_SIGNAL_DEFERRED;
+    struct process *process=owner.process;
+    struct process_user_thread *worker=owner.worker;
+    struct signal_action_descriptor action=process->usr1_action;
+    if(action.mode!=SIGNAL_ACTION_INFO) return PROCESS_SIGNAL_NONE;
+    uint64_t bit=1ull<<SRV_SIGNAL_USR1;
+    uint64_t *mask=worker?&worker->signal_mask:&process->main_signal_mask;
+    uint64_t *local=worker?&worker->pending_signals:&process->main_pending_signals;
+    if((*mask&bit) || !((*local|process->pending_signals)&bit)) return PROCESS_SIGNAL_NONE;
+    uint64_t *selected=(*local&bit)?local:&process->pending_signals;
+    struct signal_thread_state next=*owner.state;
+    if(!signal_thread_state_bind(&next,owner.identity)) return PROCESS_SIGNAL_FATAL;
+    if(next.stack.depth==SIGNAL_CONTEXT_MAX_DEPTH) return PROCESS_SIGNAL_DEFERRED;
+    if(next.stack.last_token==UINT64_MAX || !signal_action_descriptor_valid(&action) ||
+        !vmm_user_exec_current(action.handler,owner.root) ||
+        !vmm_user_exec_current(action.trampoline,owner.root)) return PROCESS_SIGNAL_FATAL;
+    bool reset=(action.flags&SIGNAL_ACTION_RESET)!=0;
+    if(reset && process->usr1_action_generation==UINT64_MAX) return PROCESS_SIGNAL_FATAL;
+    uint64_t action_generation=process->usr1_action_generation+(reset?1:0);
+    uint64_t handler_mask=(*mask|action.mask|bit)&~((1ull<<9)|(1ull<<19));
+    uint64_t token=next.stack.last_token+1;
+    struct signal_context_plan public;
+    if(!signal_context_plan_frame(&public,frame->rsp,PROCESS_SIGNAL_PRIVATE_FRAME_BYTES,
+            next.ranges,next.stack.depth)) return PROCESS_SIGNAL_FATAL;
+    struct fpu_user_snapshot saved;
+    struct signal_context_snapshot snapshot;
+    if(!fpu_snapshot_user_trap(frame,&saved) ||
+        !signal_context_capture(&snapshot,frame,saved.bytes,0,token,*mask)) return PROCESS_SIGNAL_FATAL;
+    struct signal_context_record record={.frame=*frame,.mask=*mask,
+        .image_generation=owner.identity.image_generation,.thread_generation=owner.identity.scheduler_identity,
+        .token=token,.frame_identity=public.entry_rsp};
+    for(size_t i=0;i<sizeof(record.fpu);i++) record.fpu[i]=saved.bytes[i];
+    if(!signal_thread_state_push(&next,owner.identity,&record,
+            (struct signal_context_range){public.entry_rsp,public.end})) return PROCESS_SIGNAL_FATAL;
+    struct process_signal_private_info info={.size=sizeof(info),.version=1,
+        .signo=SRV_SIGNAL_USR1,.valid=PROCESS_SIGNAL_INFO_SIGNO|PROCESS_SIGNAL_INFO_TARGET_TID,
+        .target_tid=owner.identity.public_tid};
+    struct user_frame_source wire={0};
+    for(size_t i=0;i<sizeof(snapshot);i++) wire.bytes[8+i]=((const uint8_t *)&snapshot)[i];
+    for(size_t i=0;i<sizeof(info);i++) wire.bytes[8+sizeof(snapshot)+i]=((const uint8_t *)&info)[i];
+    struct fpu_user_trap_commit commit;
+    if(!fpu_prepare_user_trap_commit(frame,NULL,&commit)) return PROCESS_SIGNAL_FATAL;
+    struct user_frame_exclusion excluded[USER_FRAME_EXCLUSION_MAX]={
+        {(uint64_t)owner.state,sizeof(*owner.state)},
+        {(uint64_t)&process->signal_catch_mask,offsetof(struct process,main_signal_state)-offsetof(struct process,signal_catch_mask)},
+        {worker?(uint64_t)&worker->signal_mask:0,worker?16:0}};
+    struct process_frame_copy_plan copy;
+    if(!process_prepare_frame_copy(frame,&wire,public.entry_rsp,PROCESS_SIGNAL_PRIVATE_FRAME_BYTES,&copy) ||
+        !vmm_copy_user_frame_excluding_current(copy.root,public.entry_rsp,&wire,PROCESS_SIGNAL_PRIVATE_FRAME_BYTES,
+            &copy.stack,copy.pages,copy.page_count,frame,copy.user_fpu,copy.kernel_fpu,
+            excluded,worker?3:2)) return PROCESS_SIGNAL_FATAL;
+
+    /* Successful-copy suffix: only prepared resident stores and FPU commit.
+     * Preserve a separately queued bit in the unchosen pending source. */
+    *owner.state=next;
+    *selected &= ~bit;
+    *mask=handler_mask;
+    if(reset) {
+        process->usr1_action=(struct signal_action_descriptor){0};
+        process->usr1_action_generation=action_generation;
+        process->signal_catch_mask &= ~bit;
+        process->signal_ignore_mask &= ~bit;
+    }
+    frame->rdi=SRV_SIGNAL_USR1;
+    frame->rsi=public.snapshot+sizeof(snapshot);
+    frame->rdx=public.snapshot;frame->rcx=action.handler;
+    frame->r8=token;frame->r9=public.entry_rsp;
+    frame->rip=action.trampoline;frame->rsp=public.entry_rsp;
+    frame->cs=0x23;frame->ss=0x1b;frame->rflags=0x202;
+    fpu_commit_user_trap_prepared(&commit);
+    return PROCESS_SIGNAL_DELIVERED;
+}
+
+uint64_t process_signal_return_private(struct isr_frame *frame,uint64_t token,uint64_t frame_identity) {
+    struct process_signal_owner owner;
+    if(!frame || frame->cs!=0x23 || frame->ss!=0x1b || !process_signal_current_owner(&owner)) return false;
+    struct signal_thread_state next=*owner.state;
+    struct signal_context_record record;
+    struct signal_context_range range;
+    if(!signal_thread_state_pop(&next,owner.identity,token,frame_identity,&record,&range) ||
+        range.start!=frame_identity || range.end-range.start!=PROCESS_SIGNAL_PRIVATE_FRAME_BYTES) return false;
+    uint64_t *local=owner.worker?&owner.worker->pending_signals:&owner.process->main_pending_signals;
+    uint64_t pending_local=*local,pending_shared=owner.process->pending_signals;
+    /* Match existing mask-unblock/default handling, staged before any commit.
+     * Local priority consumes only the selected copy of a fatal bit. */
+    uint64_t unblocked=(pending_local|pending_shared)&~record.mask&
+        ~(owner.process->signal_catch_mask|owner.process->signal_ignore_mask);
+    uint64_t ignored_defaults=unblocked&((1ull<<SRV_SIGNAL_CHLD)|(1ull<<SRV_SIGNAL_WINCH));
+    pending_local &= ~ignored_defaults;pending_shared &= ~ignored_defaults;
+    unblocked &= ~ignored_defaults;
+    uint64_t fatal_signal=0;
+    for(uint64_t signal=1;signal<64;signal++) if(unblocked&(1ull<<signal)) {
+        fatal_signal=signal;
+        if(pending_local&(1ull<<signal)) pending_local &= ~(1ull<<signal);
+        else pending_shared &= ~(1ull<<signal);
+        break;
+    }
+    struct fpu_user_snapshot saved;
+    for(size_t i=0;i<sizeof(saved.bytes);i++) saved.bytes[i]=record.fpu[i];
+    struct fpu_user_trap_commit commit;
+    if(!fpu_prepare_user_trap_commit(frame,&saved,&commit)) return false;
+    /* No user bytes or fallible operation participate in restoration. */
+    *owner.state=next;
+    *local=pending_local;owner.process->pending_signals=pending_shared;
+    if(owner.worker) owner.worker->signal_mask=record.mask;
+    else owner.process->main_signal_mask=record.mask;
+    *frame=record.frame;
+    if(fatal_signal) {owner.process->killed=true;owner.process->kill_signal=fatal_signal;}
+    fpu_commit_user_trap_prepared(&commit);
+    return fatal_signal?128+fatal_signal:PROCESS_SIGNAL_RETURN_RESTORED;
 }
 
 struct process_latency_span { uint64_t start;bool entry_masked; };
