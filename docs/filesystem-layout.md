@@ -3,14 +3,64 @@
 Updated November 3, 2026. Global activation follows the explicit namespace proof
 in [PR308](https://github.com/PaulMDemers/SrvrOS/pull/308).
 
-## Userspace salvage helper — active implementation
+## Userspace salvage helper — implemented and verified
 
-Authorized helper milestone on main `4f5edb0e`. Add a libc helper using existing
-POSIX operations and an explicit result, exclusive destination, source ownership
-and offset restoration. Test short/interrupted I/O, failure/cleanup ordering and
-connect the implementation to the retained-dirty-data actual-source matrix.
-No production process/driver edits planned; coordination sent to PR317's owner.
-Primary checkout and existing review VMs are not test targets.
+`srv_salvage_copy(source_fd, destination, result)` in `<srvros/salvage.h>` copies
+the complete seekable source into a newly and exclusively created 0600 file.
+It never closes the source. The caller must serialize access to that descriptor
+and its shared-offset duplicates. The helper records the current offset, rewinds,
+copies with bounded stack storage, then attempts to restore the offset on every
+exit after capture. Success requires destination fsync, close and restoration.
+If restoration itself fails, the helper reports failure and `restore_error`;
+it cannot guarantee a restored offset in that exceptional case.
+
+Short reads/writes and EINTR from open/read/write/seek/fsync are handled.
+A zero-byte write is an I/O error. Destination close is attempted once, including
+when it returns EINTR, because repeating an ambiguous close can hit a reused fd.
+The optional result preserves the first error/stage, separate close/restore errors,
+acknowledged bytes written and whether a destination descriptor was acquired.
+The helper never removes uncertain artifacts, retries failed storage, repairs a
+volume or changes source ownership. Even a fully written file is not acknowledged
+as successful when cleanup or restoration fails. Callers retain the source until
+verified success or an explicit discard decision.
+
+The helper is compiled into the userspace library automatically. `make test-salvage`
+runs focused tests for short I/O, interruption at each retryable boundary, empty
+source, nonseekable/rewind/open/read/write/zero-write/flush/close/restore failures,
+source ownership/position and primary plus secondary errors. Normal and
+ASan/UBSan executions pass. Source restoration is checked from a nonzero offset.
+
+The actual-source salvage fixture now invokes this implementation through POSIX
+adapters to real process file operations. Clean source `2a5889b0` passes all 49
+salvage cases normally and under ASan/UBSan, preserving the dirty reader through
+healthy-volume flush/close/remount verification and restoring offset 37 on every
+storage result. All 52 writeback cases, 134 existing cases and both negative
+controls pass with the new integration. Adapters do not qualify full libc syscall
+or usercopy behavior; controlled short/EINTR/restore errors are covered by the
+focused helper test instead.
+
+Coordinated with PR317's owner; no production process/kernel/driver edits were
+needed. Consumed main `4b5ddb7c` (installation recovery PR325); every recorded
+fault-suite source hash still matches. Matched build passes. An ordinary Q35/
+VirtIO desktop reaches its first application frame in 4.31 seconds; running state
+and screenshot are retained. This smoke checks the linked build, not guest salvage
+fault injection. The task VM (29735) was stopped through its own QMP socket;
+review VMs 61610, 6233 and 85869 and primary checkout were preserved.
+
+Evidence: `build/review/salvage-helper/` contains focused host/sanitizer logs,
+`final-normal/`, `final-sanitize/`, `writeback/`, `legacy/`, `import/`, `negative/`,
+build logs and `tested-build.json`. Desktop evidence is under
+`.local/macos-vm/salvage-helper/session-20261104T005425.521885Z/`.
+Receipts/logs/build manifest are backed up outside build cleanup at
+`.local/filesystem-evidence/salvage-helper-2a5889b0/`. Reproduction:
+
+```sh
+make HOST_CC='cc -arch x86_64' test-salvage
+CC='cc -arch x86_64' python3 tools/test_exfat_import.py --workspace-salvage --sanitize --output build/review/salvage-helper/sanitize
+```
+
+The bounded helper target is complete. Application integration, recovery UI,
+physical power-loss and automated retry/repair remain separate work.
 
 ## Retained dirty-data salvage — verified
 
