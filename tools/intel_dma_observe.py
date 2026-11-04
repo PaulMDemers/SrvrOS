@@ -13,13 +13,14 @@ SCHEMAS={
  'admission':'v checked passed failed guards',
  'memory':'v checked valid entries conflicts shown omitted before after',
  'region':'v index relation base length type',
+ 'policy':'v source declared base bytes',
 }
 HEX={'hash','unit','other','reserved_base','reserved_end','base','version','cap','ecap','root','before','after'}
 def dma_result(text):
     rows={k:[] for k in SCHEMAS}
     for line in text.splitlines():
         if not line.startswith('intel-dma-'):continue
-        m=re.fullmatch(r'intel-dma-(summary|resource|sample|table|admission|memory|region): (.+)',line)
+        m=re.fullmatch(r'intel-dma-(summary|resource|sample|table|admission|memory|region|policy): (.+)',line)
         if not m:raise ValueError('malformed DMA row')
         f={}
         for item in m[2].split():
@@ -40,6 +41,12 @@ def dma_result(text):
     if not 0<=s['status']<=8 or s['maps']>2 or s['retained']>1 or s['guard_retained']>1 or s['backing_preserved']>1 or s['translation']>2 or s['writes'] or s['dma_assured'] or s['ownership']!='none':raise ValueError('invalid DMA outcome/authority claim')
     if [r['sample'] for r in rows['sample']]!=[0,1]:raise ValueError('invalid DMA sample identities')
     out=dict(observation_complete=s['status']==8,dma_authority=False,hardware_ownership=False,physical_tearfree=False,summary=s,rows=rows)
+    if len(rows['policy'])>1:raise ValueError('duplicate DMA resource policy')
+    policy=rows['policy'][0] if rows['policy'] else None
+    if policy and (policy['source'] not in (0,1,2) or policy['declared']>1 or policy['base']!=0xfed90000 or policy['bytes']!=4096 or policy['declared']!=int(policy['source']==2)):
+        raise ValueError('invalid DMA resource policy')
+    if policy:out['resource_policy']=policy
+    if policy and (not rows['admission'] or not rows['memory']):raise ValueError('missing DMA policy diagnostics')
     # New diagnostics are paired and optional only for historical version1 logs.
     if rows['admission'] or rows['memory'] or rows['region']:
         if len(rows['admission'])!=1 or len(rows['memory'])!=1:raise ValueError('missing/duplicate DMA diagnostics')
@@ -67,7 +74,20 @@ def dma_result(text):
             base,length=region['base'],region['length'];end=base+length
             if region['index']!=i or region['relation']!=relation or not length or end>=(1<<64):raise ValueError('invalid DMA memory region')
             if (relation==0 and not (base<0xfed91000 and 0xfed90000<end)) or (relation==1 and end>0xfed90000) or (relation==2 and base<0xfed91000):raise ValueError('invalid DMA memory relation')
-        if s['status']==8 and (not memory['valid'] or memory['conflicts'] or memory['shown']!=1 or memory['omitted'] or regions[0]['type']!=1):raise ValueError('unclassified DMA observation')
+        if policy and policy['source']:
+            if not passed&32 or not memory['valid']:raise ValueError('unadmitted DMA resource policy')
+            if policy['source']==1:
+                resource=rows['resource'][0]
+                if memory['conflicts'] or memory['shown']!=1 or memory['omitted'] or resource['type']!=1 or resource['overlaps']!=1 or resource['base']>0xfed90000 or resource['length']>((1<<64)-1)-resource['base'] or resource['base']+resource['length']<0xfed91000:
+                    raise ValueError('unbound reserved DMA policy')
+        if policy and policy['source']==2:
+            expected=[(1,0xfed1c000,0x4000,1),(2,0xffd70000,0x30000,1)]
+            if not memory['checked'] or not memory['valid'] or memory['conflicts'] or memory['shown'] or memory['omitted'] or memory['before']!=1 or memory['after']!=1 or rows['resource'][0]['overlaps'] or any(rows['resource'][0][k] for k in ('base','length','type')) or [(r['relation'],r['base'],r['length'],r['type']) for r in regions]!=expected:
+                raise ValueError('unbound declared DMA gap')
+        if s['status']==8:
+            if policy and not policy['source']:raise ValueError('refused DMA resource policy')
+            if not policy or policy['source']==1:
+                if not memory['valid'] or memory['conflicts'] or memory['shown']!=1 or memory['omitted'] or regions[0]['type']!=1:raise ValueError('unclassified DMA observation')
         names={1:'profile',2:'DMAR table',4:'window mapped',8:'mapping retirement',16:'kernel CR3',32:'firmware resource',64:'reference clock'}
         out['admission_diagnostic']=dict(first_failed=names.get(failed),checked=checked,passed=passed,guards=admission['guards'],memory=memory,regions=regions)
     if not out['observation_complete']:return out
@@ -84,7 +104,8 @@ def dma_result(text):
     for x in b:h=((h^x)*1099511628211)&((1<<64)-1)
     if h!=DMAR_HASH or s['hash']!=h or (s['unit'],s['other'],s['reserved_base'],s['reserved_end'])!=(0xfed90000,0xfed91000,0x8b800000,0x90000000):raise ValueError('unbound DMAR identity')
     resource=rows['resource'][0]
-    if resource['type']!=1 or resource['overlaps']!=1 or resource['base']>0xfed90000 or resource['length']>((1<<64)-1)-resource['base'] or resource['base']+resource['length']<0xfed91000:raise ValueError('unreserved DMA register resource')
+    if not policy or policy['source']!=2:
+        if resource['type']!=1 or resource['overlaps']!=1 or resource['base']>0xfed90000 or resource['length']>((1<<64)-1)-resource['base'] or resource['base']+resource['length']<0xfed91000:raise ValueError('unreserved DMA register resource')
     first,last=rows['sample']
     for sample in (first,last):
         if sample['reads']!=12 or not 0<sample['end_us']-sample['begin_us']<=100000 or not sample['version'] or not sample['cap'] or not sample['ecap'] or sample['before']!=sample['after']:raise ValueError('invalid DMA snapshot')

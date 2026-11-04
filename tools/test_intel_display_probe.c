@@ -12,7 +12,9 @@ static unsigned config_reads,mmio_reads,map_calls,unmap_calls;
 static uint64_t ticks,current,pa[INTEL_CAPTURE_PAGES+1];
 static bool firmware_ok,clock_ok,alias,malformed,reporting,backing_mode,translation_gap,dma_unmap_fail;
 static struct pci_device devices[3];
-static struct acpi_table_info dsdt;
+static struct acpi_table_info dsdt,extra_dmar;
+static bool extra_table;
+static uint8_t extra_bytes[136];
 static struct limine_memmap_entry ram,aperture,stolen_region;
 static struct limine_memmap_entry *entries[]={&ram,&aperture,&stolen_region};
 static struct limine_memmap_response memory;
@@ -33,8 +35,8 @@ uint32_t pci_read_config32(const struct pci_device *d,uint8_t off) {
     default:return 0;
     }
 }
-uint64_t acpi_table_count(void){return 1;}
-const struct acpi_table_info *acpi_table_at(uint64_t i){return i?NULL:&dsdt;}
+uint64_t acpi_table_count(void){return extra_table?2:1;}
+const struct acpi_table_info *acpi_table_at(uint64_t i){return i==0?&dsdt:i==1 && extra_table?&extra_dmar:NULL;}
 void *pmm_phys_to_virt(uint64_t p){return (void *)(uintptr_t)p;}
 bool laptop_firmware_match(const uint8_t *p,size_t n){assert((uintptr_t)p==0x100000 && n==35034);return firmware_ok;}
 uint64_t vmm_kernel_address_space(void){return 0x1000;}
@@ -84,7 +86,9 @@ static bool intel_display_test_read(uint32_t off,uint32_t *value) {
     return true;
 }
 static void reset(void) {
+    extra_table=false;
     config_reads=mmio_reads=map_calls=unmap_calls=0;ticks=100000;current=0x1000;
+    dma_resource_source=0;dma_resource_declared=false;
     dma_checked=dma_passed=dma_failed=dma_guards=0;dma_memory=(struct dma_memory_snapshot){0};
     dma_region_base=dma_region_length=dma_region_type=0;dma_overlaps=0;dma_attempted=dma_table_valid=dma_preserved=false;dma_result=(struct intel_dma_result){0};
     dma_unmap_fail=false;firmware_ok=clock_ok=true;alias=malformed=reporting=backing_mode=translation_gap=false;backing_attempted=false;trial_mapping_fault=false;backing=(struct intel_backing_result){0};
@@ -100,6 +104,27 @@ static void reset(void) {
         .memory_model=LIMINE_FRAMEBUFFER_RGB,.red_mask_size=8,.red_mask_shift=16,.green_mask_size=8,.green_mask_shift=8,.blue_mask_size=8};
 }
 int main(int argc,char **argv) {
+    /* Optional local integration uses an on-disk firmware reference, never
+     * real MMIO. The production pin stays enabled; synthetic headers refuse. */
+    if(argc==3 && !strcmp(argv[1],"--dma-declared-table")) {
+        reset();FILE *f=fopen(argv[2],"rb");assert(f);
+        assert(fread(extra_bytes,1,sizeof(extra_bytes),f)==sizeof(extra_bytes) && fgetc(f)==EOF);assert(!fclose(f));
+        extra_dmar=(struct acpi_table_info){.physical_address=(uint64_t)(uintptr_t)extra_bytes,.length=136};memcpy(extra_dmar.signature,"DMAR",4);extra_table=true;
+        struct limine_memmap_entry lo={.base=0xfed1c000,.length=0x4000,.type=LIMINE_MEMMAP_RESERVED};
+        struct limine_memmap_entry hi={.base=0xffd70000,.length=0x30000,.type=LIMINE_MEMMAP_RESERVED};
+        struct limine_memmap_entry *map[]={&ram,&aperture,&stolen_region,&lo,&hi};memory.entries=map;memory.entry_count=5;
+        assert(dma_resource() && dma_resource_source==DMA_RESOURCE_DECLARED_GAP && dma_resource_declared);
+        struct backing_adapter a={.common={.cr3=0x1000}};uint32_t value;
+        assert(dma_map(&a,0xfed90000));
+        for(unsigned i=0;i<8;i++)assert(dma_read(&a,(uint32_t[]){0,8,12,16,20,28,32,36}[i],&value));
+        assert(dma_unmap(&a) && map_calls==1 && unmap_calls==1 && mmio_reads==8);
+        extra_bytes[9]^=1;assert(!dma_resource() && !dma_map(&a,0xfed90000) && map_calls==1 && mmio_reads==8);
+        extra_bytes[9]^=1;extra_bytes[10]^=1;
+        unsigned sum=0;for(unsigned i=0;i<sizeof(extra_bytes);i++)sum+=extra_bytes[i];extra_bytes[9]-=(uint8_t)sum;
+        struct intel_dma_topology changed;assert(intel_dma_table(extra_bytes,sizeof(extra_bytes),&changed) && changed.hash!=INTEL_DMA_DMAR_HASH);
+        assert(!dma_resource() && !dma_map(&a,0xfed90000) && map_calls==1 && mmio_reads==8);
+        puts("declared-MMIO adapter: pinned reference maps one MOCK read-only page, eight allowed reads, clean retirement; changed table refused");return 0;
+    }
     if(argc==2 && !strncmp(argv[1],"--dma-resource-",15)) {
         reset();struct limine_memmap_entry units[5];
         struct limine_memmap_entry *map[8]={&ram,&aperture,&stolen_region};
@@ -147,6 +172,25 @@ int main(int argc,char **argv) {
     assert(!dma_map(&a,0xfed90000) && !dma_read(&a,24,&value) && !dma_read(&a,52,&value));
     for(unsigned i=0;i<8;i++){uint32_t off=(uint32_t[]){0,8,12,16,20,28,32,36}[i];assert(dma_read(&a,off,&value) && value==0x1000000+off);}
     assert(dma_unmap(&a) && !a.mapped && !pa[INTEL_CAPTURE_PAGES]);
+    /* The exact captured gap needs a separately verified declaration. A host
+     * synthetic/absent table can select policy in isolation but cannot map it. */
+    struct limine_memmap_entry before_gap={.base=0xfed1c000,.length=0x4000,.type=LIMINE_MEMMAP_RESERVED};
+    struct limine_memmap_entry after_gap={.base=0xffd70000,.length=0x30000,.type=LIMINE_MEMMAP_RESERVED};
+    struct limine_memmap_entry *gap_entries[]={&ram,&aperture,&stolen_region,&before_gap,&after_gap};
+    memory.entries=gap_entries;memory.entry_count=5;unsigned old_maps=map_calls,old_mmio=mmio_reads;
+    assert(!dma_resource() && !dma_resource_select(false) && dma_resource_select(true)==DMA_RESOURCE_DECLARED_GAP);
+    assert(!dma_map(&a,0xfed90000) && map_calls==old_maps && mmio_reads==old_mmio && !dma_resource_declared);
+    before_gap.base+=4096;assert(!dma_resource() && !dma_resource_select(true));before_gap.base-=4096;
+    after_gap.length-=4096;assert(!dma_resource() && !dma_resource_select(true));after_gap.length+=4096;
+    before_gap.type=LIMINE_MEMMAP_USABLE;assert(!dma_resource() && !dma_resource_select(true));before_gap.type=LIMINE_MEMMAP_RESERVED;
+    gap_entries[2]=NULL;assert(!dma_resource() && !dma_resource_select(true));gap_entries[2]=&stolen_region;
+    gap_entries[2]=&unit;
+    for(uint64_t type=0;type<=8;type++) {
+        unit.type=type;unit.length=4095;
+        assert(!dma_resource() && !dma_resource_select(true));
+    }
+    unit.type=LIMINE_MEMMAP_RESERVED;unit.length=4096;
+    memory.entries=dma_entries;memory.entry_count=4;
     unit.type=LIMINE_MEMMAP_USABLE;assert(!dma_resource() && !dma_map(&a,0xfed90000));
     unit.type=LIMINE_MEMMAP_RESERVED;unit.length=4095;assert(!dma_resource());
     unit.length=4096;

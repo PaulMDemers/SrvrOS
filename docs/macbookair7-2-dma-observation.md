@@ -17,10 +17,25 @@ its DRHD is `0xfed90000`. The separate include-all unit `0xfed91000` is never
 mapped. The GPU RMRR `[0x8b800000,0x90000000)` remains reserved. Synthetic table
 fixtures have a different header/hash and cannot pass native admission.
 
-The register page requires exactly one enclosing firmware RESERVED entry with
-no overlapping RAM/framebuffer/other entry. Missing or ambiguous classification
-refuses before MMIO, even if Ubuntu's table lists the address. This is a new
-unit-specific gate, not an inference from another Mac's resources.
+The register page has two explicit read-only admission sources. Source1 retains
+one enclosing firmware RESERVED entry with no other intersection. Source2 uses
+the exact current DMAR declaration plus this unit's captured memory-map gap:
+no intersection of any type, a structurally valid complete catalog, nearest
+reserved predecessor `[0xfed1c000,0xfed20000)` and successor
+`[0xffd70000,0xffda0000)`. Changed edges, partial/duplicate coverage, any RAM/
+framebuffer/unknown intersection, missing or malformed tables/maps all refuse.
+The full pinned DMAR bytes are revalidated before each gap mapping. This is
+permission to read only the already allowlisted registers in one page, never a
+RAM allocation, DMA mapping, IOMMU bypass or GPU ownership grant. Source0 refuses.
+
+The [UEFI2.10A memory-type contract](https://uefi.org/specs/UEFI/2.10_A/07_Services_Boot_Services.html#efi-boot-services-getmemorymap)
+directs OS MMIO discovery to ACPI tables (table7.6). Intel's
+[VT-d4.1 specification](https://cdrdv2-public.intel.com/774206/vt-directed-io-spec%20.pdf)
+sections8.3 and11.1 define DRHD register location and size. The exact admitted
+DRHD has size0, declaring one4KiB page. Limine's memory map is used to reject
+aliases, not as the sole device-discovery authority. The PMM only frees named
+usable/reclaimable ranges; an omitted device page cannot become an allocation
+through this capture. No general undocumented-MMIO access API is introduced.
 
 Reuse the existing backing window only while retired. Map one supervisor,
 read-only, NX, uncached page directly in the kernel address space, outside the
@@ -80,6 +95,14 @@ route/restore authority and correct padded scanout layout. The shadow allocation
 is1350 visible pages, not the inherited X-tiled1356-page storage extent.
 
 ## Admission diagnostics
+
+New `intel-dma-policy` version1 receipts name `source` (0 refused,1 reserved,
+2 exact declared gap), `declared` (1 only for source2), `base` and `bytes`.
+The existing resource row stays literal: a gap has zero overlaps/base/length/
+type; it is never fabricated into a RESERVED entry. Positive gap decoding also
+requires the raw pinned DMAR table, complete backing, both samples, retirement
+and the exact captured adjacent regions. Historical receipts without a policy
+row continue to require the old enclosing RESERVED resource proof.
 
 Additional version1 `admission`, `memory` and up to six `region` rows preserve
 the same access gates. `checked` and `passed` are bit masks; `failed` names the

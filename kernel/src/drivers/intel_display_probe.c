@@ -393,10 +393,28 @@ static struct dma_memory_snapshot {
     struct limine_memmap_entry overlap[4],before,after;
     bool has_before,has_after;
 } dma_memory;
+enum { DMA_RESOURCE_REFUSED, DMA_RESOURCE_RESERVED, DMA_RESOURCE_DECLARED_GAP };
+static unsigned dma_resource_source;
+static bool dma_resource_declared;
+static bool dma_table_current(void);
+/* Admission of a single read-only register page, never RAM/DMA authority.
+ * The gap alternative is pinned to this unit's independently captured edges.
+ * Its caller must revalidate the full exact DRHD bytes before accepting it. */
+static unsigned dma_resource_select(bool declared) {
+    if(!dma_memory.valid || dma_memory.conflicts)return DMA_RESOURCE_REFUSED;
+    if(dma_overlaps==1 && dma_region_type==LIMINE_MEMMAP_RESERVED && dma_region_base<=0xfed90000 &&
+       dma_region_length>=0xfed91000-dma_region_base)return DMA_RESOURCE_RESERVED;
+    if(declared && !dma_overlaps && dma_memory.has_before && dma_memory.has_after &&
+       dma_memory.before.base==0xfed1c000 && dma_memory.before.length==0x4000 && dma_memory.before.type==LIMINE_MEMMAP_RESERVED &&
+       dma_memory.after.base==0xffd70000 && dma_memory.after.length==0x30000 && dma_memory.after.type==LIMINE_MEMMAP_RESERVED)
+        return DMA_RESOURCE_DECLARED_GAP;
+    return DMA_RESOURCE_REFUSED;
+}
 static bool dma_resource(void) {
     const struct limine_memmap_response *m=memmap_request.response;
     dma_region_base=dma_region_length=dma_region_type=0;dma_overlaps=0;
     dma_memory=(struct dma_memory_snapshot){.checked=true};
+    dma_resource_source=DMA_RESOURCE_REFUSED;dma_resource_declared=false;
     if(!m)return false;
     dma_memory.entries=m->entry_count;
     if(!m->entries || !m->entry_count || m->entry_count>4096)return false;
@@ -416,7 +434,12 @@ static bool dma_resource(void) {
         }
     }
     dma_memory.valid=true;
-    return dma_overlaps==1 && !dma_memory.conflicts && dma_region_type==LIMINE_MEMMAP_RESERVED && dma_region_base<=0xfed90000 && dma_region_length>=0xfed91000-dma_region_base;
+    dma_resource_source=dma_resource_select(false);
+    if(!dma_resource_source && dma_resource_select(true)==DMA_RESOURCE_DECLARED_GAP) {
+        dma_resource_declared=dma_table_current();
+        dma_resource_source=dma_resource_select(dma_resource_declared);
+    }
+    return dma_resource_source!=DMA_RESOURCE_REFUSED;
 }
 static bool dma_table_current(void) {
     unsigned found=0;const uint8_t *bytes=NULL;
@@ -441,6 +464,7 @@ static bool dma_table_current(void) {
 static bool dma_guard(void *opaque) {
     struct backing_adapter *a=opaque;struct intel_scanout_clock clock;struct scanout_profile profile;
     dma_guards++;dma_checked=dma_passed=dma_failed=0;
+    dma_resource_source=DMA_RESOURCE_REFUSED;dma_resource_declared=false;
     dma_memory=(struct dma_memory_snapshot){0};
     dma_region_base=dma_region_length=dma_region_type=0;dma_overlaps=0;
     return dma_check(DMA_CHECK_WINDOW,!a->mapped) && dma_check(DMA_CHECK_RETIREMENT,!trial_mapping_fault) &&
@@ -489,6 +513,8 @@ bool intel_dma_probe_report(void) {
         (uint64_t)r->status,(uint64_t)r->maps,(uint64_t)r->retained,r->topology.hash,r->topology.unit,r->topology.other_unit,r->topology.reserved_base,r->topology.reserved_end,
         r->status==DMA_OBSERVED?(uint64_t)(r->sample[1].after>>31):2ull,(uint64_t)dma_preserved,(uint64_t)trial_mapping_fault);
     console_printf("intel-dma-resource: v=1 base=%x length=%u type=%u overlaps=%u\n",dma_region_base,dma_region_length,dma_region_type,(uint64_t)dma_overlaps);
+    console_printf("intel-dma-policy: v=1 source=%u declared=%u base=%x bytes=4096\n",
+        (uint64_t)dma_resource_source,(uint64_t)dma_resource_declared,0xfed90000ull);
     console_printf("intel-dma-admission: v=1 checked=%u passed=%u failed=%u guards=%u\n",
         (uint64_t)dma_checked,(uint64_t)dma_passed,(uint64_t)dma_failed,(uint64_t)dma_guards);
     console_printf("intel-dma-memory: v=1 checked=%u valid=%u entries=%u conflicts=%u shown=%u omitted=%u before=%u after=%u\n",

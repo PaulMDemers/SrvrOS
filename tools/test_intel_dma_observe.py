@@ -75,12 +75,24 @@ class DmaTests(unittest.TestCase):
             with self.subTest(old=old):
                 with self.assertRaises(ValueError):dma.dma_result(text.replace(old,new))
         # Historical receipts without the paired diagnostics still decode.
-        old='\n'.join(l for l in text.splitlines() if not l.startswith(('intel-dma-admission:','intel-dma-memory:','intel-dma-region:')))
+        old='\n'.join(l for l in text.splitlines() if not l.startswith(('intel-dma-admission:','intel-dma-memory:','intel-dma-region:','intel-dma-policy:')))
         self.assertFalse(dma.dma_result(old)['observation_complete'])
     def test_success_requires_matching_diagnostic_admission(self):
         diagnostics='intel-dma-admission: v=1 checked=127 passed=127 failed=0 guards=4\nintel-dma-memory: v=1 checked=1 valid=1 entries=1 conflicts=0 shown=1 omitted=0 before=0 after=0\nintel-dma-region: v=1 index=0 relation=0 base=0xfed90000 length=4096 type=1\n'
         self.assertTrue(self.decode(self.text+diagnostics)['observation_complete'])
+        self.assertTrue(self.decode(self.text+diagnostics+'intel-dma-policy: v=1 source=1 declared=0 base=0xfed90000 bytes=4096\n')['observation_complete'])
         with self.assertRaises(ValueError):self.decode(self.text+diagnostics.replace('valid=1','valid=0'))
+    def gap_text(self):
+        diagnostics='intel-dma-policy: v=1 source=2 declared=1 base=0xfed90000 bytes=4096\nintel-dma-admission: v=1 checked=127 passed=127 failed=0 guards=4\nintel-dma-memory: v=1 checked=1 valid=1 entries=34 conflicts=0 shown=0 omitted=0 before=1 after=1\nintel-dma-region: v=1 index=0 relation=1 base=0xfed1c000 length=16384 type=1\nintel-dma-region: v=1 index=1 relation=2 base=0xffd70000 length=196608 type=1\n'
+        return self.text.replace('base=0xfed90000 length=4096 type=1 overlaps=1','base=0 length=0 type=0 overlaps=0')+diagnostics
+    def test_declared_gap_is_explicit_and_bound(self):
+        text=self.gap_text();self.assertTrue(self.decode(text)['observation_complete'])
+        for old,new in [('declared=1','declared=0'),('source=2','source=0'),('source=2','source=1'),('base=0xfed1c000','base=0xfed1b000'),('length=196608','length=196607'),('before=1 after=1','before=0 after=1'),('conflicts=0','conflicts=1'),('overlaps=0','overlaps=1'),('bytes=4096','bytes=8192'),('type=1','type=0')]:
+            with self.subTest(old=old):
+                with self.assertRaises(ValueError):self.decode(text.replace(old,new))
+        with self.assertRaises(ValueError):self.decode('\n'.join(l for l in text.splitlines() if not l.startswith('intel-dma-policy:')))
+        with self.assertRaisesRegex(ValueError,'DMAR identity'):dma.dma_result(text)
+        with self.assertRaises(ValueError):self.decode(text+next(l for l in text.splitlines() if l.startswith('intel-dma-policy:'))+'\n')
     def test_absent_and_bounded_report(self):
         self.assertIsNone(dma.dma_result('ordinary desktop'))
         self.assertLess(len(self.text),2048)
