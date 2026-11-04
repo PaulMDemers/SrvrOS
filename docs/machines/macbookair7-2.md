@@ -2,6 +2,23 @@
 
 Updated: 2026-11-03. State: **active reference machine; partial device acceptance**.
 
+### Active read-only DMA-state capture
+
+Consumed main `10890eed` at `06f1a23f`, preserving the independent Haswell
+capture, Intel capture/lifetime profiles and both Makefile test groups. Scope:
+exact Air7,2 DMAR identity and bounded GPU-remapping VER/CAP/ECAP/GSTS/RTADDR
+snapshots, through one temporary read-only/NX/uncached reserved page. No IOMMU
+controls, translation-table traversal, GPU mappings or authority grants. Native
+snapshot stability is evidence only, not permission to publish scanout buffers.
+
+Touch new pure DMA capture/header/decoder/tests, the existing exact Intel
+adapter, isolated boot/staging/collection and this unit's guides. Preserve the
+open PR317 allocator/VMM/DMA audit and Air6,1 ownership gates. Next: host parser,
+adapter and failure fixtures, matched builds and exact-stage Q35 refusal/save/
+return checks before preparing a native no-input trial. EFI current remains
+d79f/recovery9aa; no new reboot is armed. Evidence:
+`build/air-dma-observe-20261103/`.
+
 ### GPU address reservations implemented; host/VM validation complete
 
 Consumed integration main `1a5a6dee` at `9541ce4e`, retaining both appended
