@@ -596,3 +596,31 @@ tar command does not accept an archive on stdin.
 Engineering provenance, cooperative interruption limits and reproduction commands
 are recorded in [the port contract](../ports/srvros/xz/PORT.md). The isolated xz checkout passes the bounded qualification; see the roadmap for
 exact evidence and scope limits.
+
+## GNU diff text-file review
+
+The bounded GNU Diffutils 3.12 port is under qualification. It compares two
+regular text files in the C locale with normal, `-q`, or three-context-line `-u`
+output, optional `-L` labels and `--` before paths. Use labels to make saved
+reports independent of filesystem timestamps:
+
+```sh
+diff -u -L before -L after before.txt after.txt > changes.diff
+echo $?
+less changes.diff
+```
+
+Status 0 means equal, 1 means different (a successful comparison), and 2 means
+trouble. Inputs are preserved; stdout can contain a partial report on failure or
+cancellation. Each file is limited to 256 KiB, 8192 physical lines and 64 KiB per
+physical line including its newline. NUL, stdin, directories, recursion,
+configurable context, binary/ignore/regex/color/pager modes and other diffutils
+executables are outside this profile. These caps do not promise a strict RSS or
+interruption latency.
+
+GNU diff supports missing final newlines and zero-count unified hunks. The
+existing compact local `patch` has a narrower tested subset: do not assume it
+can apply every GNU report. Its zero-context insertion, removed `--- ` content,
+missing-final-newline and create/delete cases are not accepted. GNU patch is a
+separate later queue entry; host GNU patch roundtrips are a distinct diff gate.
+Current draft gates and delivery order are in [the CLI queue](cli-port-queue.md).

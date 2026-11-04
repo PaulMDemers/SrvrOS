@@ -61,3 +61,8 @@ uses stable near-capacity pipe occupancy and has not yet been target-run. No
 production or shared ABI change is needed on present evidence. The window was
 released; a new ≤25-minute helper/manifest build and ≤five sequential 512 MiB
 qualification/Terminal/regression boots is queued, with no current launch grant.
+
+Review delivery (draft, not accepted): [SrvrPorts #11](https://github.com/PaulMDemers/SrvrPorts/pull/11)
+and dependent [SrvrOS #369](https://github.com/PaulMDemers/SrvrOS/pull/369).
+Both explicitly retain the failed probe/remaining target, Terminal and
+regression gates. Merge order remains ports first, then OS, only after passing.
