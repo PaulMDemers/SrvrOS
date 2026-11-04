@@ -1,6 +1,6 @@
 # Disk installation and recovery
 
-## Interrupted installation publication — active milestone
+## Interrupted installation publication — completed proof
 
 User authorized inspect/reconcile implementation, interruption/refusal proof and
 a scoped PR. Branch `device/apple-silicon/install-publication-recovery` uses the
@@ -43,9 +43,79 @@ Exact source, commands, hashes and evidence must survive build cleanup.
 
 Review VMs 61610, 6233 and 85869 remain live and untouched. One build/harness runs
 at a time here; no physical disks, host reboot, Actions or merge request. Status:
-implementation and proof in progress. The CLI journey uses the existing UX
+implementation and proof complete; publish a scoped draft for review. The CLI journey uses the existing UX
 recovery guidance: diagnose uncertainty before an explicit corrective action;
 do not imply completion from a timeout or offer destructive retry.
+
+### Publication-recovery contract and evidence
+
+The new `publication.json` is created exclusively and flushed, including its
+directory entry, only after image/GPT/ESP/partition verification and final source
+checks. It binds the original plan hash, sources, target device/inode/UUID,
+candidate device/inode/size/hash, partition hash and exact expected ready record.
+It is an integrity record for an owned offline stage, not authentication.
+
+`inspect` emits JSON with `state`, `can_reconcile` and `reason`. Exit zero means
+diagnosis succeeded, not that an installation is ready. It never writes the
+stage. `reconcile` takes a nonblocking cooperative lock on the stable plan inode,
+rechecks everything, then may publish verified hard-link aliases and canonical
+ready bytes. It never rebuilds GPT or replays provisioning. A matching ready
+stage is idempotent. Unknown files, unsafe links, nonprivate ownership/mode,
+changed sources/output or malformed metadata are preserved and refused.
+Only known duplicate image/ready aliases of the same inode may be removed.
+
+```sh
+python3 tools/installation_image.py inspect .local/installation/profile-a
+# Only when diagnosis reports can_reconcile=true:
+python3 tools/installation_image.py reconcile .local/installation/profile-a
+```
+
+Keep the original stage and sources offline at their reviewed paths. Copying a
+stage changes its identity and is deliberately refused; evidence backups are
+audit copies, not adopted recovery targets. Legacy stages without this tool's
+complete publication record cannot be retroactively reconciled. Once a guest
+writes the image, its original ready receipt remains historical and recovery
+refuses to overwrite or relabel it.
+
+Clean source `291f469e` passes the full matched build and the real-process
+proof below. Every apply/reconcile interruption uses a separate CLI process and
+exit 75 after successful host I/O at a named boundary; no mocked kill is counted.
+
+| Boundary / scenario | Observed outcome |
+| --- | --- |
+| Provisioning-started, provisioned, assembled | Read-only inspection reports incomplete; reconciliation refuses with the complete stage unchanged |
+| Verified, image-linked, image-published, ready-written, ready-linked, ready-published | Reconciliation succeeds using identical candidate bytes; source inputs stay unchanged; repeated reconciliation is idempotent |
+| Reconciliation interrupted after image-linked and ready-linked | Fresh processes diagnose each state and finish publication; no data re-provisioning or image rewrite |
+| 16 altered-state cases | Plan plus checksum, target inode, bundle/driver/kernel/base, GPT/ESP/data, profile image, torn journal, unknown file, symlink, outside hard link and torn/wrong ready records all refuse without mutation |
+| Reconciled profile boots | Two VM lifetimes pass edit/save/reboot/reopen, UUID/local binding, text/binary documents, all six portable settings, machine settings, environment/cwd and app binary checks |
+| Guest-written image | Inspection/reconciliation refuse the changed image after both boots, preserving all bytes and the original ready receipt |
+
+The [portable receipt](assets/screenshots/installation-recovery-manifest.json)
+records boundary states/exit codes, whole-stage snapshot hashes, candidate hashes,
+refusal preservation, restart/idempotency results and both boot readbacks.
+The [reopened document](assets/screenshots/installation-recovery-reopened.png)
+was visually inspected with the existing profile journey. Raw images, source
+snapshots, commands/logs and matched artifacts are byte-verified outside build
+at `.local/installation-evidence/recovery-d86be75i`. All task VMs are stopped;
+original review VMs 61610, 6233 and 85869 remain live and untouched.
+
+Host coverage includes the existing 27 installation/provenance tests plus eight
+recovery groups, including the 18-case ordinary-v1/profile-v2 checkpoint matrix,
+busy locking, private-stage admission, exact ready bytes and malformed candidate
+types. Existing profile/session, 13 bundle groups and seven adapter tests pass.
+Reproduce sequentially with the documented Darwin host compiler wrapper:
+
+```sh
+sh tools/macos/build.sh HOST_CC='python3 build/tooling/darwin-host-cc.py -D_DARWIN_C_SOURCE -Wno-array-bounds' test-installed-root test-profile-desktop check-docs
+sh tools/macos/build.sh -j2 all
+OVMF_CODE=/opt/homebrew/share/qemu/edk2-x86_64-code.fd python3 tools/installation_recovery_smoke.py --ovmf-vars /opt/homebrew/share/qemu/edk2-i386-vars.fd
+```
+
+No power cut, arbitrary write/fsync failure, physical media or guest fault
+injection is qualified. PR322's managed writeback/retirement contract remains
+separate; this tool does not clear its failure latches or PR320's profile import
+markers. Torn metadata and unverified partial output stay untouched. External
+`fsck.exfat` was not run; no automatic repair or in-place upgrade is provided.
 
 ## PR321 integrated-main review and next checkpoint
 

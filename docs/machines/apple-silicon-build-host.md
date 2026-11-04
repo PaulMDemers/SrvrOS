@@ -1,6 +1,6 @@
 # Apple Silicon macOS build host
 
-## Interrupted publication recovery — active scope
+## Interrupted publication recovery — proof complete
 
 User authorized a scoped inspect/reconcile PR and interruption/refusal proof in
 `SrvrOS-installation`, branch `device/apple-silicon/install-publication-recovery`.
@@ -13,7 +13,17 @@ qualified, not power cuts or transport-failure repair.
 
 Preserve VMs 61610, 6233 and 85869 and accepted evidence. Run one build/harness
 at a time. No physical media, reboot or Actions. Current acceptance and exact
-evidence will be recorded in `docs/disk-installation.md`.
+evidence are recorded in `docs/disk-installation.md`.
+
+Clean `291f469e` passes the matched full build, eight recovery host groups plus
+existing installation/profile regressions, and nine actual apply-interruption
+boundaries. Three early states refuse untouched; six verified states reconcile
+without candidate-byte changes. Two reconciliation interruptions restart safely;
+16 corruption/refusal cases preserve state. A reconciled profile image passes
+edit/save and reboot/readback; subsequent guest writes cause reconciliation to
+refuse while retaining its ready receipt. Verified raw evidence and artifacts:
+`.local/installation-evidence/recovery-d86be75i`. Task VMs stopped; original
+review PIDs remain live. Delivery is a scoped draft PR; no merge requested.
 
 ## PR321 merge review
 
