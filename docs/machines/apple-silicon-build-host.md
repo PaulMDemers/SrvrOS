@@ -2,6 +2,13 @@
 
 ## PR321 merge review
 
+Final candidate `d0910498` consumes newer main `a8e1fca1` and PR320's guest import
+startup guard. Fresh full build, profile/installation/guest host checks and the
+complete four-boot/12-refusal proof pass. Verified evidence and matching artifacts
+survive at `.local/installation-evidence/pr321-current-tkf2agxs`. Task VMs stopped;
+review VMs 61610, 6233 and 85869 remain live and untouched. This refresh supersedes
+the initial equivalence-only readiness assessment below.
+
 User authorized review/merge of profile plans. Candidate `6de308a1` integrates
 current main `805519b2`; focused installation/profile host checks and full build
 pass. Runtime equivalence preserves the four-boot/12-refusal acceptance from

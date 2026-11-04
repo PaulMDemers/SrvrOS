@@ -2,7 +2,24 @@
 
 ## PR321 integrated-main review and next checkpoint
 
-User authorized review and merge if ready. Merged current main `805519b2` into
+Final refresh: main advanced to `a8e1fca1` with merged guest profile PR320 during
+merge preparation. Its pending-import startup check changes an exercised path,
+so it was merged into candidate `d0910498` and the full proof was rerun.
+All four VM boots, 12 installation refusals and 12 invalid session launches pass
+again. Fresh 27 installation/provenance tests, profile host checks, 13 bundle
+groups, seven image-adapter groups and 16 guest-profile groups pass, as do the
+matched build and documentation checks. No implementation fix was required.
+The [current review receipt](assets/screenshots/profile-install-current-review.json)
+and [reopened document](assets/screenshots/profile-install-current-reviewed.png)
+record this acceptance. Exact raw evidence/artifacts are byte-verified at
+`.local/installation-evidence/pr321-current-tkf2agxs`. All task VMs are stopped;
+the three original review VMs remain live and untouched.
+
+The initial review below applies to the earlier `805519b2` snapshot only.
+Historical accepted images were losslessly compressed with restoration paths
+and original hashes in their retained `compressed-images.json` files.
+
+User authorized review and merge if ready. Merged then-current main `805519b2` into
 PR321 at `6de308a1`. No blocking implementation finding or unresolved review
 thread remains. Fresh 27 installation/provenance tests, 13 bundle groups, seven
 image-adapter tests, profile/session host checks, full build and documentation
@@ -38,7 +55,9 @@ Prove process interruption at provisioning, GPT assembly, image publication and
 ready publication boundaries; successful reconciliation must boot and retain
 the planned profile, while changed/damaged inputs or output cannot become ready.
 Dependencies: version-2 plan/source binding from PR321, existing profile-image
-clean admission/private provisioning from PR314, stable GPT/boot verification
+clean admission/private provisioning from PR314, PR320's pending-import and
+journal ownership rules (host installation recovery must not clear guest profile
+markers), stable GPT/boot verification
 and explicit host write/flush/directory-sync ordering. Agree any new persistence
 assumptions with the filesystem owner; process-restart proof is not guest
 power-loss atomicity. Guest profile import/export, physical disks, credentials
