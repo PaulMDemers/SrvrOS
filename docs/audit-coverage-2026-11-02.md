@@ -280,3 +280,10 @@ Reserved164..167 SIGNAL_CONTROL/RETURN/SUSPEND/IO for PR334 against freshly fetc
 main7766ed5a/headerddb22cf8 (assigned through163). Integration owner notified;
 pure wire/state implementation may start with normal public dispatch disabled.
 This is coordination, not runtime acceptance; recheck at wiring/integration.
+
+
+PR334 foundation70ca1894:42 frozen files/16 source hashes verified; independent
+state/runtime/native strict+sanitizer6/6 profiles pass. Actual state4032B/layout
+assertions compile; source and trampoline object reviewed. No enabled public
+runtime/backend/fork/guest claim. Enlarged-state stack/static-memory and actual
+SDK codegen remain pending; standalone adapter object has UBSan dependencies.

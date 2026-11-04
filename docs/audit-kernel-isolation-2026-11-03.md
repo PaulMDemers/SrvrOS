@@ -1995,6 +1995,44 @@ dispatch or qualify runtime support. Recheck actual allocation at wiring and
 integration; retain the target/layout/host/native verification boundaries from
 proposal `37cd7382`. Evidence: `build/review/pr334-public-packet-review/allocation.json`.
 
+## November 4: public foundation source qualification
+
+Reviewed PR334 `70ca1894` with normal public dispatch still disabled. Receipt
+SHA256 `b9e63c28c718a90004af16971b44d327e8420937e979b97d406255ea48f40188`
+at `.local/pr334-build-volume/evidence/public-foundation-70ca1894/receipt.json`
+and all 42 retained files verify; all 16 frozen source files match the commit.
+Extracted an independent exact-commit snapshot including unchanged context
+implementation/header dependencies. State, logical-runtime and native-context
+fixtures pass six independently compiled x86_64 strict/ASan/UBSan profiles.
+
+Wire assertions cover sizes, field offsets and alignment. Actual selected state
+now compiles at 4,032 bytes, context records at 752, wait slots 64, I/O slots 96,
+request 208 and guard 32. Pure transitions cover identity/LIFO/refusal rollback,
+shared ticket exhaustion, reserved outcomes, exact guard cookies, active request
+matching, nested mask-override and late-completion wait associations. These
+helpers consume trusted kernel objects; they do not authenticate user pointers,
+select backends, modify live masks or provide a user-output transaction.
+
+The native adapter supplies all general registers and an embedded owned FPU
+snapshot, preserves unavailable facts as zero with validity fields, and maintains
+bounded nesting. Four-level host context/layout tests and unchanged-output
+ENOSYS checks pass. The retained trampoline object has a 24-byte aligned call
+frame, preserves incoming R8/R9 token/identity, issues syscall 165 and ends in UD2.
+This is source/object inspection, not real kernel-delivered native context.
+
+No new confirmed foundation defect found. Integration must compose ordinary
+record push plus marking all I/O tickets on the same prepared state before output
+publication; the ordinary push helper does not mark tickets by itself. The
+standalone Zig adapter object imports default-instrumentation UBSan helpers, so
+it cannot substitute for final SDK link/code-generation evidence. Previous
+private target stack/static-memory bounds predate the enlarged state/records and
+must be recomputed. The corrected normal kernel target has a passing build log;
+no frozen matched kernel ELF or guest acceptance is inferred from that log.
+Backend ownership through sleeps/cancellation, fork cloning, actual public seam,
+WTF context/reference retirement and matched SDK/VM qualification remain open.
+Evidence: `build/review/pr334-public-foundation-review/`. The owner continues
+separately with a guest-gated seam; no duplicate implementation was introduced.
+
 ## Remaining work
 
 Other long IRQ-disabled operations, including initial/churning PMM scans, heap validation and poisoning,

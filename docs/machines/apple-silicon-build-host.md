@@ -3584,3 +3584,16 @@ No VM, staging or shared build was run for this source-review checkpoint.
 Evidence: `build/review/pr334-sdk-carry-review/`; public logical-I/O local commit
 guard remains proposed. Next: review the revised protocol and fresh matched
 dependency results without duplicating PR334 implementation ownership.
+
+
+### November 4: immutable signal foundation review
+
+Independent PR334 source review at70ca1894 verifies42 frozen artifacts and16
+exact source files, then recompiles a separate commit snapshot for six passing
+state/runtime/native strict/sanitizer profiles. Actual state4032B layout assertions
+compile; trampoline token/identity saves and syscall165 inspected. No VM/staging
+or shared build run by this reviewer. Normal public dispatch remains disabled.
+Owner's corrected kernel build log is not a frozen matched ELF/guest acceptance;
+standalone adapter instrumentation and increased-state target stack/static cost
+need final integrated evidence. Next: guest-gated seam, backend ownership and
+WTF context retirement review. Evidence `build/review/pr334-public-foundation-review/`.
