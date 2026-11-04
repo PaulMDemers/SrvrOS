@@ -3,6 +3,24 @@
 Updated November 3, 2026. Global activation follows the explicit namespace proof
 in [PR308](https://github.com/PaulMDemers/SrvrOS/pull/308).
 
+## Installed-root dirty-source salvage — mechanism reviewed
+
+Authorized proof on main `1a5a6dee`. Selected host-only QEMU `blkdebug` one-shot
+write EIO, attached exclusively to the fixture-owned work disk. No kernel/driver
+or process fault seam is proposed. The qemu-io mechanism probe verifies successful
+reads, failed first write with unchanged bytes, successful subsequent write and
+an unaffected separate healthy image. QEMU documents the event, iotype and once
+options in its [blkdebug guide](https://www.qemu.org/docs/master/devel/testing/blkdebug.html).
+
+Before any work write, open existing `/work/bin/true` without create/truncate,
+retain a reader, stage a larger binary payload in process RAM, then fsync to hit
+the first filtered write. Require EIO/sticky failure and mutation refusal; copy
+from the held reader using the real command into healthy `/home`, then reboot
+and independently verify disk bytes. The work image must remain byte-identical.
+No normal namespace write suite runs before this fault. Manual GPT `/work` is
+not the managed USB workspace controller. Preserve review VMs and primary checkout.
+PR317 owner was informed of the selected mechanism before implementation.
+
 ## Salvage command — installed-root proof complete
 
 `salvage --fd NUMBER DESTINATION` is the first command-line consumer of
