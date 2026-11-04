@@ -3936,3 +3936,35 @@ receipt `evidence/retirement-canonical/review-receipt.json` SHA256
 Owner review, a separate resource handoff, target rebuild and a fresh bounded
 guest remain required. No JavaScript42, GC-only-root, normal capability flip,
 main merge, physical boot or hosted CI acceptance is claimed.
+
+### PR334 corrected WTF and footprint guest passes; GC control unresolved
+
+At unchanged source7c59ab8e/ports224ed6a, the user explicitly assigns this chat
+the remaining exact-binary/configuration signoff after the original owner chat
+becomes unavailable. Shared-source acceptance remains the owner's. Review passes
+509 frozen files/491 current identities,544 retained functions/1949 named
+relocation targets, exact two-object archive delta, and streamed ISO/packed-ELF
+identity. Signoff SHA256
+`55d9c999a5bf8865c96f5390aae5b12df5e04b1cbb7df95220540985168e07c8`.
+
+The coordinator's separate21-minute one1536MiB/1CPU/noNIC/diskless window runs
+prepared `signal-public-nif3a3cs` once. Fresh491-input preflight and both observed
+network boot guards pass. WTF suspend/register/extra-signal/startup-retirement
+checks pass all four full markers with exit0 in5.75s. Utility/memory footprint,
+int128 formatting and Unicode pass with exit0 in0.113s. GC control fails134 in
+0.904s after three page-quota messages (count/limit65536). Remaining GC modes
+and JavaScript are NOT RUN. Owned QEMU81020 stops, total window19.466s, and the
+resource slot is explicitly released. No rebuild or debugger operation ran.
+
+Frozen result: task APFS `evidence/retirement-suite-first-run-nif3a3cs/receipt.json`,
+SHA256 `9c4341ab17c9593dc891b4ebba62a4cc30d1c9ad735d44bf1ea4f9e318233628`;
+raw serial SHA256
+`ddc0752046d916cd01af807b2d3affb27d562938509f71e097d8a706ffce6345`.
+The original WTF134 and timed-out/unattributed diagnostic remain historical
+failures. The new GC abort is not attributed: pinned JSC shrinks failed aligned
+structure-heap reservations, so quota messages alone may be expected fallback.
+A source-level initialization/terminal-call-site diagnostic is prepared under
+ignored build output, awaiting separate finite build/guest windows. No shared
+allocator, kernel quota, mapping/I/O contract or GC-disable change is proposed.
+Only-root GC, JavaScript42, general ABI/SMP, main merge, physical boot and hosted
+CI acceptance remain unclaimed.

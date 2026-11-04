@@ -4,9 +4,9 @@ The current target is real threaded signal/register-context support followed by
 a minimal JavaScriptCore execution with exit0 and output42. That target is not
 complete. Public INFO registration, atomic temporary-mask waiting and libc adapters have
 a guest-gated source implementation under target/owner qualification. Normal
-public dispatch remains disabled. The bounded WTF handshake overlay compiles,
-but its first actual-WTF guest fails; conservative-root and JavaScript tests
-remain unrun.
+public dispatch remains disabled. The corrected WTF handshake and utility/
+memory-footprint guests pass. The first GC control exits134; its terminal cause
+remains unresolved, and the remaining GC modes and JavaScript test are unrun.
 The [public packet](signal-public-v1.md) and [logical I/O supplement](signal-logical-io-v1.md)
 record the reviewed contract and explicit experimental qualification boundary.
 
@@ -65,11 +65,10 @@ guest stops. This does not establish general public ABI, SMP or only-root GC
 acceptance. Fresh matched SDK, threaded libc++, RTTI, math, ICU, filesystem and
 runtime-extension builds and normal guest checks pass on the task APFS volume.
 The experimental-overlay no-JIT JSC and actual-WTF, utility and GC-root fixtures
-now compile and link. The owner reviewed the exact prepared seven-case payload
-and cleared its bounded guest experiment. Its first WTF case exits134 after only
-the main-register/red-zone marker; the remaining six cases are not run. An
-unchanged-ELF diagnostic reproduces134 without locating the abort. Original
-failure and diagnostic evidence are preserved, and both owned guests stopped.
+compile and link. The original seven-case experiment stopped at WTF134 after
+only the main-context marker. An unchanged-ELF diagnostic also reproduced134
+without locating the abort. Both failures and their stopped-guest evidence remain
+preserved.
 
 The owner independently reproduced a Running-to-Idle TLS-retirement race. The
 new `signal-retirement.patch` retains the worker's TLS/group reference until its
@@ -77,6 +76,16 @@ controller finishes the matching acknowledgement and publishes Idle. Resume
 updates its suspend count before that final publication. The actual destructor
 and resume method pass35 deterministic cases in strict and ASan/UBSan builds;
 the original source rejects both valid posted/consumed acknowledgement schedules.
-The INFO handler is unchanged. This source correction awaits owner review and
-matched target/guest verification; it does not identify the original abort or
-establish only-root GC survival or JavaScript output42.
+The INFO handler is unchanged. The owner independently accepted the source
+correction. The user transferred the remaining binary/configuration review to
+this chat after the owner's chat became unavailable. Exact input, archive-delta,
+544-function/1,949-relocation binding and packed-ISO checks pass.
+
+The corrected prepared suite then passes all four WTF markers with exit0 and the
+utility/memory-footprint case with exit0. GC control exits134 after three native
+page-quota messages at65,536 mappings. Those messages may be the structure-heap
+allocator's ordinary shrinking fallback and do not establish the final abort's
+cause. The suite stops there; GP/FX/red-zone GC modes and JavaScript are NOT RUN.
+The owned guest stops and its resource window is released. A bounded C-API
+initialization diagnostic is prepared for a separately coordinated build/review/
+guest window. No kernel quota, mapping contract, I/O gate or GC bypass was changed.
