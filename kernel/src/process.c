@@ -1918,6 +1918,10 @@ int64_t process_spawn_elf_args(const char *path, const char *args) {
         return -1;
     }
 
+    /* A foreground child rebinds the caller's scheduler context. Worker
+     * bindings cannot yet be restored safely after that synchronous switch. */
+    if (process_current_user_thread()) return SRV_ERR_NOTSUP;
+
     struct process *child = alloc_process(path, false);
     if (child == NULL) {
         return -1;
@@ -1967,6 +1971,10 @@ int64_t process_spawn_elf_args_redirect(const char *path,
     if (parent == NULL || path == NULL) {
         return -1;
     }
+
+    /* A foreground child rebinds the caller's scheduler context. Worker
+     * bindings cannot yet be restored safely after that synchronous switch. */
+    if (process_current_user_thread()) return SRV_ERR_NOTSUP;
 
     struct process *child = alloc_process(path, false);
     if (child == NULL) {
@@ -2032,6 +2040,9 @@ int64_t process_spawn_exec(const char *path,
         return SRV_ERR_INVAL;
     }
 
+    /* Detached children run on their own scheduler thread. */
+    if (!detached && process_current_user_thread()) return SRV_ERR_NOTSUP;
+
     struct process *child = alloc_process(path, detached);
     if (child == NULL) {
         console_write("exec: process table full\n");
@@ -2055,7 +2066,6 @@ int64_t process_spawn_exec(const char *path,
         cleanup_process_address_space(child);
         cleanup_process_files(child);
         release_process(child);
-        scheduler_set_user_context(parent, parent->address_space, parent->kernel_stack_top);
         return error;
     }
 
