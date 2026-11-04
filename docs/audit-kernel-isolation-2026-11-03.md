@@ -1360,9 +1360,16 @@ heavy-test window after its context VM passed; the PR334 owner has begun separat
 normal/test builds, with guest evidence still pending. Existing review VMs remain
 untouched.
 
-The previously qualified session runtime PR354 has since merged as `f58e0725`.
-Graphical profile-switch acceptance remains with its integration owner; this
-checkpoint does not extend the bounded runtime or PR334 integration claims above.
+The previously qualified session runtime PR354 merged as `f58e0725`; GitHub also
+confirms graphical integration PR355 merged as `82face72`. The integration owner
+reports Apps PR9 `c3ad11b1`, exact merged-tree/pin verification and three-VM
+composite acceptance: unsaved-work decisions, direct app-crash cancellation/retry,
+accepted I/O, natural orphan retirement, authoritative revoked-zero/release before
+chooser, A–B–A settings/environment/cwd isolation and 640-pixel keyboard handling.
+The original workflow failure is retained for a builtin-environment capture gap;
+a source-identical external-environment supplement passes. Those workflow results
+are owner-reported, not independently rerun by this audit. The separate PR334
+frame-copy target/latency and combined image-metadata boundaries remain unchanged.
 
 ## Remaining work
 
