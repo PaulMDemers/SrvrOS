@@ -1,6 +1,6 @@
 # Disk installation and recovery
 
-## Profile-aware installation plans — active milestone
+## Profile-aware installation plans — completed proof
 
 User authorized implementation, two-installation persistence/refusal proof and
 a scoped PR. Branch `device/apple-silicon/profile-install-plans` uses the existing
@@ -33,11 +33,94 @@ provision/reboot with the same UUID and different disk GUID/home/local bindings;
 exact documents, all six portable values, environment/cwd and independent machine
 settings; guest/offline allocation checks and protected regions; real refusal
 fixtures plus focused unit tests. Source/artifact provenance and all raw evidence
-must be retained outside build before delivery. Status: in progress.
+must be retained outside build before delivery. Status: implementation and proof
+complete; publish a scoped draft for review.
 
 Review VMs 61610, 6233 and 85869 remain live and untouched. One build/harness runs
 at a time here; no physical media, host reboot or Actions. No guest import UI,
 authentication or in-place update is included.
+
+### Profile-plan interface and acceptance
+
+`prepare` accepts the all-or-none options `--profile-bundle`, `--profile-home`,
+`--profile-alias`, `--profile-uid`, `--profile-gid`, `--profile-driver`, together
+with `--identity-bound`. The supported destination is `/fat/home/<name>` under
+the profile owner's existing length/path rules. All profile validation is shared
+with `profile_image.validate_request`; prepare does not invent another schema.
+The plan stores the profile UUID and local binding, plus immutable-source
+identities/hashes for the bundle, driver and base image. Apply revalidates them,
+provisions `profile.exfat` privately and verifies the installed partition against
+that exact provisioned output. `ready.profile` reports the explicit guest launch
+command; `ready.profile_exfat_sha256` records the provisioned content. No desktop
+session is selected automatically by boot.
+
+Example, using a validated bundle and the matched host provisioning driver:
+
+```sh
+python3 tools/installation_image.py prepare .local/installation/profile-a \
+  --kernel build/kernel/srvros.elf --bootx64 build/limine-binary/BOOTX64.EFI \
+  --exfat build/srvros.exfat --init build/userspace/init.elf --identity-bound \
+  --profile-bundle /absolute/path/profile.json --profile-home /fat/home/local-a \
+  --profile-alias local_a --profile-uid 1001 --profile-gid 1001 \
+  --profile-driver build/tests/profile-image-driver
+# Review plan.json, then apply that unchanged plan:
+python3 tools/installation_image.py apply .local/installation/profile-a
+```
+
+Clean tested source `bf6efeb2` passes the matched full build and four VM boots:
+A edit/save, A reboot/export of actual persisted content, B installation from
+that export, and B reboot. A uses `/fat/home/local-a`, local metadata 1001/1001;
+B uses `/fat/home/local-b`, 2050/2051. All GPT disk/partition IDs differ, while
+the portable UUID remains the same. Both installations use profile-aware
+version-2 prepare/apply, not a separately pre-provisioned profile image.
+
+| Check | Result |
+| --- | --- |
+| Documents and preferences | Edited text and binary document are exact on all four readbacks; all six portable values match |
+| Machine-local state | Each complete machine settings file remains equal to its own seed; local bindings differ as requested |
+| Active session | Files opens the selected home; Text/pickers reopen its document; Terminal environment and cwd match all HOME/XDG/profile values |
+| Boot and applications | Target-only EFI boot; identity selection precedes namespace activation and explicit profile launch; three installed app binaries match the build |
+| Filesystem integrity | Four guest and four offline allocation checks clean; protected regions and source images unchanged |
+| Prepare refusals | Malformed/truncated bundle, partial binding, invalid alias/UID, traversal home refuse before target creation |
+| Apply refusals | Changed bundle/plan/driver and rechecksummed version downgrade refuse with no image/ready publication |
+| Backend refusals | Existing profile home and failing executable driver reach actual provisioning refusal; no publication or source changes; interrupted stage cannot be resumed |
+| Session refusals | Three invalid profile selections per boot return to the monitor rather than selecting a shared home |
+
+All **12** installation-refusal cases preserve their base, bundle and driver
+inputs after the fixture's intentional tamper step. No refused case publishes
+`image.img` or `ready.json`. The [portable receipt](assets/screenshots/profile-install-manifest.json)
+records source/build/tool/firmware hashes, plans' binding metadata, four boot
+readbacks, refusal hashes, protected regions and evidence hashes. Raw evidence
+and exact artifacts are byte-verified outside build at
+`.local/installation-evidence/profile-plans-l1_8_9zl`. The earlier successful
+version-1 trial at `2a3c79f8` is retained as history with verified compressed
+images at `.local/installation-evidence/profile-plan-v1-1xe4uuvn`; final review
+introduced version 2 to make older installers refuse unsupported profile plans.
+
+[B's reopened Text document](assets/screenshots/profile-install-text-b2.png) and
+[its Terminal session](assets/screenshots/profile-install-terminal-b2.png) were
+visually inspected as an expert walkthrough. No user study is claimed. Shared
+desktop proof now waits for window publication instead of an early startup log;
+actual open/save/clipboard and disk-byte checks remain mandatory.
+
+Validation: 27 installation/provenance tests, 13 bundle test groups, seven image
+adapter tests and the existing profile/session/preferences host checks pass.
+Run `sh tools/macos/build.sh` with the documented Darwin host compiler wrapper
+for `test-installed-root test-profile-desktop check-docs`, then build `-j2 all`.
+Run the exact-source proof with:
+
+```sh
+OVMF_CODE=/opt/homebrew/share/qemu/edk2-x86_64-code.fd python3 tools/profile_installation_smoke.py --ovmf-vars /opt/homebrew/share/qemu/edk2-i386-vars.fd
+```
+
+Filesystem PR319 landed during validation at `805519b2`; its optional workspace
+lifecycle fixture changes neither profile provisioning nor these contracts.
+This proof uses the named `c7be6574` baseline. Kernel, credential, namespace and
+physical-disk policies are unchanged. UID/GID values are local metadata; bundle
+hashes provide integrity, not authentication. Host publication guarantees do not
+establish guest power-loss atomicity, arbitrary I/O-fault recovery or upgrade
+rollback. External `fsck.exfat` was not run. All task VMs are stopped, and the
+three original review VMs remain live and untouched.
 
 ## PR315 integrated-main review and next milestone
 

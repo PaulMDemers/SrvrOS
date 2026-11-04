@@ -1,6 +1,6 @@
 # Apple Silicon macOS build host
 
-## Profile-aware installation plans — active scope
+## Profile-aware installation plans — proof complete
 
 User authorized a scoped PR and two-installation persistence/refusal proof in
 `SrvrOS-installation`, branch `device/apple-silicon/profile-install-plans`, main
@@ -10,7 +10,20 @@ proof harness; shared profile preflight is extracted from the existing adapter.
 The existing installed/canonical harnesses and guest namespace files remain the
 filesystem owner's active scope. Preserve VMs 61610, 6233 and 85869; run one
 build/harness at a time. No physical media, reboot or Actions. Current acceptance
-and exact evidence will be recorded in `docs/disk-installation.md`.
+and exact evidence are recorded in `docs/disk-installation.md`.
+
+Clean `bf6efeb2` passes the matched build, four boots across two version-2 planned
+EFI installations, 12 installation refusals and 12 invalid session selections.
+Profile UUID/text/binary/preferences persist from A to B; disk GUID, home and
+local bindings differ; both machine settings remain exact. Allocation/protected
+region and source-preservation checks pass. Host checks include 27 installation
+tests, profile/session checks, 13 bundle groups and seven adapter tests. Retained
+evidence/artifacts are verified at
+`.local/installation-evidence/profile-plans-l1_8_9zl`. The earlier v1 trial is
+compressed and retained separately; v2 prevents older apply tools ignoring the
+profile. PR319's optional filesystem fixture landed independently during proof.
+Task VMs are stopped; the three original review VMs remain live. Delivery is a
+scoped draft PR; no merge is requested by this milestone.
 
 ## PR315 merge review
 
