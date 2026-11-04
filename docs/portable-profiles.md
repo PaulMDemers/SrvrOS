@@ -869,3 +869,48 @@ uncommitted proof-storage work in `SrvrOS-profiles`. All task VMs are stopped;
 the three existing review VMs and primary checkout remain untouched. Actions
 remain disabled. The final acceptance commit changes only documentation and the
 portable review receipt. Ready for the user's authorized merge of PR326.
+
+## Graphical transfer milestone — in progress
+
+The desktop's SrvrOS menu and launcher open Profiles. Export explicitly adds
+individual Documents files and a new output filename; Import selects an existing
+bundle and a destination-local name. Review shows identity, actual portable
+preferences, file names/sizes and destination. The visible export confirmation
+also explains that selected bytes may contain sensitive content. A completed
+import appears in the existing chooser at the next desktop start; running
+applications retain their current home.
+
+The UI consumes four fixed guest command forms, sharing the existing strict
+codec/exporter/import transaction:
+
+```text
+profile preview-export HOME [Documents/FILE ...]
+profile export-reviewed HOME OUTPUT SHA256 [Documents/FILE ...]
+profile preview-import BUNDLE HOME ALIAS
+profile import-reviewed BUNDLE HOME ALIAS UID GID SHA256
+```
+
+Previews return versioned bounded review JSON without creating output, HOME or a
+journal. Export fingerprints the exact generated bundle; import fingerprints the
+raw bundle bytes. Confirmation reconstructs/rechecks before mutation. The local
+provisioner proposes available positive UID/GID metadata starting at 1000, with a
+bounded 65,536-value allocation window and 4,096 sibling scan limit. Existing
+homes and pending journals reserve values. Normal collision rules remain in
+force, including shared GIDs; none of these values create an account or grant
+permission. Source changes, existing output, duplicate profiles and ambiguous
+metadata refuse with existing bytes preserved.
+
+CLI execution, output draining/reaping and picker initialization have explicit
+worker ownership outside the render loop. Close waits for active work. Failure
+views retain inputs and explain partial-export/new-filename handling or import
+recovery with the original bundle. No recursive cleanup or overwrite is added.
+
+The VM harness uses explicit `deskd --profile-transfer-stop=CHECKPOINT` only in
+an ordinary `--apps-trace` session. It passes the strictly allowlisted checkpoint
+only to Profiles through the normal owned-child launch route. The app's matching
+`--stop-after=CHECKPOINT` forwards the existing CLI test environment value;
+ordinary launches do not inherit faultpoints. Desktop admission is unchanged:
+unmanaged GUI clients are still refused. `export-partial` leaves a flushed partial
+exclusive output; the five existing import checkpoints retain their previous
+meaning. These are controlled process-interruption diagnostics, not power-loss
+qualification. Authentication and permission enforcement remain separate.

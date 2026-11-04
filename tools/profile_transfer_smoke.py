@@ -39,9 +39,18 @@ def wait_trace(vm, expression, start, timeout=120):
     return c.observe(vm, expression.encode(), start, timeout)
 
 
-def launch_desktop(vm, home=None):
+def checkpoint_flag(checkpoint):
+    if checkpoint not in CHECKPOINTS + ('export-partial',):
+        raise ValueError('invalid diagnostic checkpoint')
+    return '--profile-transfer-stop=' + checkpoint
+
+
+def launch_desktop(vm, home=None, checkpoint=None):
     start = len(vm.output)
-    vm.launch(('--profile=' + home + ' ' if home else '') + '--apps-trace --scale=1')
+    flags = ('--profile=' + home + ' ' if home else '') + '--apps-trace --scale=1'
+    if checkpoint:
+        flags += ' ' + checkpoint_flag(checkpoint)
+    vm.launch(flags)
     c.observe(vm, rb'deskd: commit', start)
     if home:
         c.observe(vm, rb'deskd: profile id=' + d.ID.encode() + rb' home=' + re.escape(home.encode()), start)
@@ -49,18 +58,10 @@ def launch_desktop(vm, home=None):
 
 def launch_profiles(vm, checkpoint=None):
     start = len(vm.output)
-    vm.key('meta_l-spc')
+    vm.key('meta_l-spc'); text(vm, 'Profiles new app'); vm.key('ret')
+    c.observe(vm, rb'launcher application=13', start)
     if checkpoint:
-        if checkpoint not in CHECKPOINTS + ('export-partial',):
-            raise ValueError('invalid diagnostic checkpoint')
-        text(vm, 'Terminal new app'); vm.key('ret')
-        c.observe(vm, rb'deskterm: ready shell=', start)
-        time.sleep(1)
-        start = len(vm.output)
-        text(vm, '/fat/bin/deskprofiles --stop-after=' + checkpoint); vm.key('ret')
-    else:
-        text(vm, 'Profiles new app'); vm.key('ret')
-        c.observe(vm, rb'launcher application=13', start)
+        c.observe(vm, rb'profile-ui: diagnostic checkpoint=' + re.escape(checkpoint.encode()), start)
     return start
 
 
@@ -138,7 +139,7 @@ def free_space_preflight(out):
     # creation copies. Do not count sparse allocation as a guarantee.
     volume_size = (ROOT / 'build/srvros.exfat').stat().st_size
     disk_size = installation_image.layout(volume_size)['size_bytes']
-    estimate = 12 * disk_size + 28 * volume_size + 1024**3
+    estimate = 14 * disk_size + 32 * volume_size + 1024**3
     available = shutil.disk_usage(out).free
     if available < estimate:
         raise RuntimeError(f'insufficient free space: need {estimate} bytes including 1 GiB reserve; have {available}')
@@ -169,14 +170,9 @@ def select_file(vm, frame, button, directory, name, mode):
     c.observe(vm, rb'profile-ui: state=picker operation=\w+ result=selected', start)
 
 
-def close_profiles(vm, start, diagnostic):
+def close_profiles(vm, start):
     vm.key('ctrl-w')
     c.observe(vm, rb'profile-ui: exited pid=\d+', start)
-    if diagnostic:
-        # The foreground diagnostic was launched from this shell. Let it reap
-        # the GUI process and leave the terminal before ending the desktop.
-        time.sleep(1); text(vm, 'exit'); vm.key('ret')
-        c.observe(vm, rb'deskterm: shell exited status=', start)
 
 
 def transfer(vm, operation, checkpoint=None, filename='transfer.json', alias='local_b', expect='success'):
@@ -199,7 +195,7 @@ def transfer(vm, operation, checkpoint=None, filename='transfer.json', alias='lo
     if expect == 'preview-error':
         c.observe(vm, rb'profile-ui: state=editing operation=' + operation.encode() + rb' result=error', preview)
         vm.screenshot(operation + '-refused')
-        close_profiles(vm, start, checkpoint is not None)
+        close_profiles(vm, start)
         return
     c.observe(vm, rb'profile-ui: state=reviewing operation=' + operation.encode() + rb' result=ready', preview)
     vm.screenshot(operation + '-review')
@@ -216,7 +212,7 @@ def transfer(vm, operation, checkpoint=None, filename='transfer.json', alias='lo
     else:
         c.observe(vm, rb'profile-ui: state=complete operation=' + operation.encode() + rb' result=success', mutation)
     vm.screenshot(operation + ('-interrupted' if checkpoint else '-refused' if expect == 'transfer-error' else '-complete'))
-    close_profiles(vm, start, checkpoint is not None)
+    close_profiles(vm, start)
 
 
 def close_session(vm):
@@ -290,7 +286,8 @@ def main():
         c.absent(guest.check_allocation(disks['transport'], out, 'transport-empty'), 'transfer.json')
         d.save_json(out / 'receipt.json', receipt)
         with c.VM(disks['a'], disks['transport'], out, 'a-interrupted-export', args) as vm:
-            start, index = c.chooser(vm, A)
+            start, index = c.chooser(vm, A, flags='--choose-profile --apps-trace --scale=1 ' +
+                                     checkpoint_flag('export-partial'))
             vm.screenshot('chooser-source')
             c.select(vm, index); c.opened(vm, A, start)
             transfer(vm, 'export', 'export-partial', 'partial.json'); close_session(vm)
@@ -315,6 +312,56 @@ def main():
             raise RuntimeError('GUI export differs from selected source documents or preferences')
         receipt['guest_export'] = {'sha256': d.digest(exported), 'bytes': len(exported),
                                    'path': str(out / 'guest-export.json')}
+        # Derive a separate identity-bound installation from A's offline data;
+        # apply the 640x480 EFI config to both planning and image creation.
+        _, (a_offset, a_size) = d.partitions(disks['a'])
+        small_volume = out / 'small-source.exfat'
+        small_volume.write_bytes(d.data_image(disks['a'], a_offset, a_size))
+        small_stage = out / 'target-small'
+        original_config = installation_image.CONFIG
+        small_config = original_config.replace(b'resolution: 1280x800', b'resolution: 640x480')
+        if small_config == original_config:
+            raise RuntimeError('small fixture EFI resolution override failed')
+        try:
+            installation_image.CONFIG = small_config
+            small_plan = installation_image.prepare(small_stage, ROOT / 'build/kernel/srvros.elf',
+                ROOT / 'build/limine-binary/BOOTX64.EFI', small_volume,
+                ROOT / 'build/userspace/init.elf', identity_bound=True)
+            small_ready = installation_image.apply(small_stage)
+        finally:
+            installation_image.CONFIG = original_config
+        small = small_stage / 'image.img'
+        config = small_plan['config'].encode('ascii')
+        if b'resolution: 640x480' not in config or (small_stage / 'limine.conf').read_bytes() != config:
+            raise RuntimeError('small fixture EFI config mismatch')
+        if small_ready['gpt']['disk_guid'] in {v['gpt']['disk_guid'] for v in receipt['installations'].values()}:
+            raise RuntimeError('small fixture GUID is not distinct')
+        _, (small_offset, small_size) = d.partitions(small)
+        small_bounds = d.outside_data(small, small_offset, small_size)
+        receipt['small_fixture'] = {'disk': str(small), 'gpt': small_ready['gpt'],
+            'source_data_sha256': d.digest(small_volume.read_bytes()), 'config': config.decode('ascii'),
+            'config_sha256': d.digest(config), 'protected_regions': small_bounds,
+            'initial_disk_sha256': d.digest(small.read_bytes())}
+        guest.check_allocation(small, out, 'small-initial')
+        d.save_json(out / 'receipt.json', receipt)
+        with c.VM(small, disks['transport'], out, 'small-export', args, 640, 480) as vm:
+            start = len(vm.output)
+            launch_desktop(vm, A)
+            c.observe(vm, rb'deskd: display physical=640x480 logical=640x480 scale=1', start)
+            transfer(vm, 'export', filename='small.json')
+            close_session(vm)
+        small_export = guest.check_allocation(disks['transport'], out, 'transport-small').read('small.json')
+        if small_export != exported:
+            raise RuntimeError('640x480 graphical export differs from source export')
+        if d.outside_data(small, small_offset, small_size) != small_bounds:
+            raise RuntimeError('small fixture protected bytes changed')
+        small_fixture = guest.check_allocation(small, out, 'small-final')
+        check_profile(small_fixture, A, machines['a'], bundle, source=True)
+        if small_fixture.read('home/.desktop-profile') != a_choice:
+            raise RuntimeError('small fixture source choice changed')
+        receipt['small_fixture'].update(final_disk_sha256=d.digest(small.read_bytes()),
+                                        export_sha256=d.digest(small_export))
+        d.save_json(out / 'receipt.json', receipt)
         # Invalid data is created in the guest solely as an invalid-input fixture.
         with c.VM(disks['b'], disks['transport'], out, 'b-invalid', args) as vm:
             vm.run('/fat/bin/write /work/invalid.json malformed')
@@ -331,7 +378,7 @@ def main():
         for checkpoint in CHECKPOINTS:
             probe = out / ('probe-' + checkpoint + '.img'); shutil.copyfile(disks['b'], probe)
             with c.VM(probe, disks['transport'], out, 'stop-' + checkpoint, args) as vm:
-                launch_desktop(vm); transfer(vm, 'import', checkpoint); close_session(vm)
+                launch_desktop(vm, checkpoint=checkpoint); transfer(vm, 'import', checkpoint); close_session(vm)
             with c.VM(probe, disks['transport'], out, 'recover-' + checkpoint, args) as vm:
                 recover(vm)
             if d.outside_data(probe, *d.partitions(probe)[1]) != bounds['b']:
@@ -373,7 +420,7 @@ def main():
         receipt['installations']['b']['profile']['choice_sha256'] = d.digest(b_fixture.read('home/.desktop-profile'))
         transport = guest.check_allocation(disks['transport'], out, 'transport-final')
         if (transport.read('transfer.json') != exported or transport.read('partial.json') != partial or
-                transport.read('invalid.json') != b'malformed\n'):
+                transport.read('invalid.json') != b'malformed\n' or transport.read('small.json') != small_export):
             raise RuntimeError('transport output changed after export')
         for name, disk in disks.items():
             if d.outside_data(disk, *d.partitions(disk)[1]) != bounds[name]:

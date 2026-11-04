@@ -132,7 +132,7 @@ struct display_runtime {
     int trial,startup,abort,changed,fatal,restore_done,explicit_scale;
 };
 struct session {
-    const char *home;
+    const char *home,*profile_transfer_stop;
     struct srv_profile_session profile;
     struct lifecycle_worker *worker;
     int startup_trace;
@@ -713,11 +713,23 @@ static void launch_failed(struct session *s,unsigned application,long error) {
         desktop_notice_view_arrived(&s->scene.notifications,id,us<0?0:(uint64_t)us);notifications_damage(s);
     }
 }
+static int profile_transfer_stop_valid(const char *value) {
+    static const char *stops[]={"journal","directories","document","identity","commit-ready","export-partial"};
+    if(!value)return 0;
+    for(unsigned i=0;i<sizeof(stops)/sizeof(*stops);i++)if(!strcmp(value,stops[i]))return 1;
+    return 0;
+}
 static void spawn_app(struct session *s,int application,const char *path) {
     s->launch_requests++;
     if(s->exiting){s->launch_refused++;return;}
     const struct desk_application_info *info=desk_application_info(application);
     if(!info) return;
+    /* Explicit test-only startup intent uses the ordinary owned-child route.
+     * It never changes admission, environment inheritance or other apps. */
+    char profile_test[64];
+    if(application==DESK_APP_PROFILES && profile_transfer_stop_valid(s->profile_transfer_stop) && (!path || !*path)) {
+        snprintf(profile_test,sizeof(profile_test),"--stop-after=%s",s->profile_transfer_stop);path=profile_test;
+    }
     s->last_launch_pid=0;
     int i=child_slot(s);if(i>=0) {
         if(s->worker) {
@@ -2049,6 +2061,15 @@ static void timing_print(const char *name,const struct perf_sample *p) {
 }
 int main(int argc,char **argv) {
     struct srv_profile_session selected_profile={0};char portable_path[160];const char *profile_home=NULL;
+    const char *profile_transfer_stop=NULL;
+    for(int i=1;i<argc;i++)if(!strncmp(argv[i],"--profile-transfer-stop=",24)) {
+        if(profile_transfer_stop || !profile_transfer_stop_valid(argv[i]+24)) {
+            ui_puts("deskd: invalid or duplicate profile-transfer test checkpoint\n");return 1;
+        }
+        profile_transfer_stop=argv[i]+24;
+        for(int j=i;j<argc;j++)argv[j]=argv[j+1];
+        argc--;i--;
+    }
     int choose_profile=0,profile_server_registered=0;
     for(int i=1;i<argc;i++)if(!strcmp(argv[i],"--choose-profile")) {
         choose_profile=1;
@@ -2090,6 +2111,9 @@ int main(int argc,char **argv) {
     for (int i=1;i<argc;i++) {
         if (!strcmp(argv[i],"--trace")) pointer_trace=1;
         if (!strcmp(argv[i],"--apps-trace")) apps_trace=1;
+    }
+    if(profile_transfer_stop && (!ordinary_desktop || !apps_trace)) {
+        ui_puts("deskd: profile-transfer test checkpoint requires an ordinary --apps-trace session\n");return 1;
     }
     if(ordinary_desktop && !profile_home) {
         struct desktop_profile_request request={.root="/fat/home",.remember_path="/fat/home/.desktop-profile",.scale=scale,.force=choose_profile};
@@ -2159,6 +2183,7 @@ int main(int argc,char **argv) {
         s.profile=selected_profile;s.home=s.profile.home;
         desk_log("deskd: profile id=%s home=%s credentials=unchanged\n",s.profile.id,s.home);
     } else if(!srv_profile_session_init(&s.profile,s.home,NULL))return 1;
+    s.profile_transfer_stop=profile_transfer_stop;
     s.scale=scale;s.display.canvas=&canvas;s.display.info=&info;s.display.explicit_scale=explicit_scale;
     if(s.registry_budget==1)ui_puts("deskd: diagnostic registry growth budget=1 byte\n");
     desk_capture_job_init(&s.capture);

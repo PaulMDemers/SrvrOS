@@ -170,6 +170,21 @@ int gui_surface_copy(uint64_t id,uint64_t x,uint64_t y,uint64_t w,uint64_t h,uin
     for (uint64_t i=w*h/2;i<w*h;i++) p[i]=0x123456;
     return 0;
 }
+static void profile_transfer_diagnostic_launch(void) {
+    struct session s={.home=DESK_RAM_HOME,.profile_transfer_stop="identity"};
+    assert(srv_profile_session_init(&s.profile,s.home,NULL));execute_result=42;
+    assert(profile_transfer_stop_valid("export-partial") && profile_transfer_stop_valid("commit-ready"));
+    assert(!profile_transfer_stop_valid(NULL) && !profile_transfer_stop_valid("") && !profile_transfer_stop_valid("anything"));
+    spawn_app(&s,DESK_APP_PROFILES,"");
+    assert(s.children[0]==42 && !strcmp(executed_role,"profiles") && !strcmp(executed_argument,"--stop-after=identity"));
+    s.children[0]=0;spawn_app(&s,DESK_APP_TEXT,"");assert(!executed_argument[0]);
+    s.children[0]=0;s.profile_transfer_stop=NULL;spawn_app(&s,DESK_APP_PROFILES,"");assert(!executed_argument[0]);
+    s.children[0]=0;s.profile_transfer_stop="invalid";spawn_app(&s,DESK_APP_PROFILES,"");assert(!executed_argument[0]);
+    s.children[0]=0;s.profile_transfer_stop="identity";spawn_app(&s,DESK_APP_PROFILES,"explicit-path");assert(!strcmp(executed_argument,"explicit-path"));
+    struct lifecycle_worker worker={0};s.children[0]=0;s.worker=&worker;
+    spawn_app(&s,DESK_APP_PROFILES,"");life_work(&worker);
+    assert(!strcmp(executed_argument,"--stop-after=identity"));
+}
 static void asynchronous_lifecycle(void) {
     static struct session s;
     static struct lifecycle_worker worker;
@@ -1388,6 +1403,7 @@ int main(void) {
     capture_cleanup_ownership();
     asynchronous_client_termination();
     asynchronous_child_reap();
+    profile_transfer_diagnostic_launch();
     asynchronous_lifecycle();
     retired_cache_reuse();
     clipboard_client_retirement();
