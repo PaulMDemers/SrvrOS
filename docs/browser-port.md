@@ -84,6 +84,16 @@ Strict x86-64/Rosetta, full fixture ASan/UBSan and the target scheduler object
 compile pass. It returns opaque identities only, with no process-image or saved-
 FPU proof. Design `2e297895` specifies a stack-lived actual-save proof, per-thread
 kernel-FPU association and invalidation across scheduling/exec/exit, pending review.
+The owner then approved standalone transition correction `fa69b4dc`: common
+CPL3 entry becomes unsafe, the fully unwound outer return enters user state once
+with IRQs excluded, and existing cancellation and safe-syscall/handoff windows
+remain intact. Strict and sanitized actual outer/cancellation/full scheduler
+fixtures pass. A fresh matched kernel and selected userspace pass full Q35
+thread/accounting, sysabi and OVMF throttled AHCI/USB cancellation/relaunch/timeout
+checks. Receipt `SrvrOS-signal-context/build/signal-context/vm-1793763902047506000/receipt.json`
+is documented in PR334 at `18709230`. No admission query caller, FPU proof or
+signal delivery hook is enabled. This result is with the owner for review before
+additional hooks; the executable-query and image-lifetime packets remain design.
 
 The owner identified that the inner syscall `scheduler_user_enter()` precedes
 the proposed outer hook, so `!scheduler_io_active()` alone cannot admit delivery.
