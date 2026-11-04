@@ -170,6 +170,21 @@ int gui_surface_copy(uint64_t id,uint64_t x,uint64_t y,uint64_t w,uint64_t h,uin
     for (uint64_t i=w*h/2;i<w*h;i++) p[i]=0x123456;
     return 0;
 }
+static void profile_transfer_diagnostic_launch(void) {
+    struct session s={.home=DESK_RAM_HOME,.profile_transfer_stop="identity"};
+    assert(srv_profile_session_init(&s.profile,s.home,NULL));execute_result=42;
+    assert(profile_transfer_stop_valid("export-partial") && profile_transfer_stop_valid("commit-ready"));
+    assert(!profile_transfer_stop_valid(NULL) && !profile_transfer_stop_valid("") && !profile_transfer_stop_valid("anything"));
+    spawn_app(&s,DESK_APP_PROFILES,"");
+    assert(s.children[0]==42 && !strcmp(executed_role,"profiles") && !strcmp(executed_argument,"--stop-after=identity"));
+    s.children[0]=0;spawn_app(&s,DESK_APP_TEXT,"");assert(!executed_argument[0]);
+    s.children[0]=0;s.profile_transfer_stop=NULL;spawn_app(&s,DESK_APP_PROFILES,"");assert(!executed_argument[0]);
+    s.children[0]=0;s.profile_transfer_stop="invalid";spawn_app(&s,DESK_APP_PROFILES,"");assert(!executed_argument[0]);
+    s.children[0]=0;s.profile_transfer_stop="identity";spawn_app(&s,DESK_APP_PROFILES,"explicit-path");assert(!strcmp(executed_argument,"explicit-path"));
+    struct lifecycle_worker worker={0};s.children[0]=0;s.worker=&worker;
+    spawn_app(&s,DESK_APP_PROFILES,"");life_work(&worker);
+    assert(!strcmp(executed_argument,"--stop-after=identity"));
+}
 static void asynchronous_lifecycle(void) {
     static struct session s;
     static struct lifecycle_worker worker;
@@ -1285,7 +1300,7 @@ int main(void) {
     memcpy(p.text,&menu[0],sizeof(menu[0]));incoming(&s,42,&p);assert(!s.clients[0].menus.revision);
     p.generation=1;p.value=1;memcpy(p.text,&menu[1],sizeof(menu[1]));incoming(&s,42,&p);
     assert(s.clients[0].menus.revision==19 && s.scene.menu.groups==4);
-    unsigned system_actions[]={GLOBAL_ABOUT,GLOBAL_SETTINGS,GLOBAL_LAUNCHER,GLOBAL_FIND,GLOBAL_CALENDAR,GLOBAL_TEXT,GLOBAL_TERMINAL,GLOBAL_HELP,GLOBAL_NOTIFICATIONS,GLOBAL_CAPTURE,GLOBAL_EXIT};
+    unsigned system_actions[]={GLOBAL_ABOUT,GLOBAL_SETTINGS,GLOBAL_PROFILES,GLOBAL_LAUNCHER,GLOBAL_FIND,GLOBAL_CALENDAR,GLOBAL_TEXT,GLOBAL_TERMINAL,GLOBAL_HELP,GLOBAL_NOTIFICATIONS,GLOBAL_CAPTURE,GLOBAL_EXIT};
     for(unsigned i=0;i<sizeof(system_actions)/sizeof(*system_actions);i++) {
         unsigned found=0;for(unsigned j=0;j<s.scene.menu.count;j++) found+=s.scene.menu.items[j].id==system_actions[i];assert(found==1);
     }
@@ -1298,10 +1313,11 @@ int main(void) {
         else { item->id=i;snprintf(item->label,sizeof(item->label),"Action %u",i); }
     }
     for(unsigned i=0;i<DESKD_WINDOWS;i++) { s.clients[i].pid=42+i;s.clients[i].identity=i+1;s.clients[i].parent_window=0;s.scene.windows[i].visible=1; }
-    global_menu_rebuild(&s);assert(s.scene.menu.count==57+DESKD_WINDOWS && s.scene.menu.groups==7 && desk_menu_valid(s.scene.menu.items,s.scene.menu.count));
+    global_menu_rebuild(&s);assert(s.scene.menu.count==58+DESKD_WINDOWS && s.scene.menu.groups==7 && desk_menu_valid(s.scene.menu.items,s.scene.menu.count));
     for(unsigned i=0;i<DESKD_WINDOWS;i++) { unsigned found=0;for(unsigned j=0;j<s.scene.menu.count;j++) found+=s.scene.menu.items[j].id==GLOBAL_WINDOW+s.clients[i].identity;assert(found==1); }
     s.clients[0].menus=saved_menus;for(unsigned i=1;i<DESKD_WINDOWS;i++) s.clients[i].pid=0;global_menu_rebuild(&s);
     global_menu_action(&s,GLOBAL_FIND);assert(!strcmp(executed_path,"/fat/bin/deskfind") && !strcmp(executed_role,"find"));
+    global_menu_action(&s,GLOBAL_PROFILES);assert(!strcmp(executed_path,"/fat/bin/deskprofiles") && !strcmp(executed_role,"profiles"));
     unsigned before_input=s.clients[0].input_count;global_menu_action(&s,7);
     assert(s.clients[0].input_count==before_input+1);
     struct desk_packet *command=&s.clients[0].input[(s.clients[0].input_head+before_input)%DESK_INPUT_QUEUE];
@@ -1387,6 +1403,7 @@ int main(void) {
     capture_cleanup_ownership();
     asynchronous_client_termination();
     asynchronous_child_reap();
+    profile_transfer_diagnostic_launch();
     asynchronous_lifecycle();
     retired_cache_reuse();
     clipboard_client_retirement();

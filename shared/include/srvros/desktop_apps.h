@@ -24,6 +24,7 @@ static inline const struct desk_application_info *desk_application_info(unsigned
         {"Sketch","sketch","/fat/bin/desksketch",0,"srvros.sketch","",0,0},
         {"Network Utility","network","/fat/bin/desknet",0,"srvros.network","",0,0},
         {"Find Files","find","/fat/bin/deskfind",0,"srvros.find","",0,0},
+        {"Profiles","profiles","/fat/bin/deskprofiles",0,"srvros.profiles","",0,0},
     };
     _Static_assert(sizeof(catalog)/sizeof(*catalog)==DESK_APP_COUNT,"application catalog coverage");
     return id>=1 && id<=DESK_APP_COUNT?&catalog[id-1]:0;

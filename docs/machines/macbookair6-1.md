@@ -6836,3 +6836,84 @@ added. Host tests exercise reserved display values, unchanged authority refusal,
 fence-count/extent ambiguity and next-capture map capacity. This audit does not
 prepare or arm another physical boot; implementing/validating that narrowly
 scoped readout remains the next step. Native RC6/package-C3 limitations persist.
+
+### Bounded CPU TILECTL implementation scope (2026-11-03)
+
+Base `819956be` with actual recursive pins. Extend only the isolated exact-Air6,1
+pilot with an explicit TILECTL modifier and version-2 receipt. Touch the existing
+Haswell core/adapter/header, main dispatch, staging/VM decoder, retention proof
+and regressions. Preserve version 1 and all normal/other diagnostic profiles.
+One CPU/aperture word at `0x101000` per pass remains an observation, not a
+full-path consistency/ownership grant. Keep ten maps, 100 ms pass/gap, 1,536 PTEs
+and 64 KiB tail; three-PTE-page layouts must refuse the extension. No GT access,
+forcewake, extra fences, backing-pixel mappings or policy writes. PR301's
+Broadwell driver remains independent. After matched host/build/exact-stage VM
+checks, use local recovery/USB preflight and a saved run record for an authorized
+automated one-shot/collection. No new native acceptance is claimed beforehand.
+
+The opt-in version-2 path is implemented: one exact CPU DWORD after each final
+fence check, matching observations, existing endpoint recheck/verified retirement,
+and early three-PTE-page refusal under the unchanged ten-map ceiling. Version 1
+remains available. Focused actual core/adapter/decoder and max-tail regressions
+pass, including changed/all-ones/read-failure CPU words and mapping retirement.
+Matched full build/suites, sanitizer and exact-stage VM/native checks remain
+pending; no physical acceptance or reboot is claimed by this implementation.
+
+### Raw CPU TILECTL trial validated and prepared (2026-11-03)
+
+[PR343](https://github.com/PaulMDemers/SrvrOS/pull/343), code `1b0d37dd`, passes
+matched ordinary/AP and RAM/USB builds, complete core/desktop/widget/profile
+chooser/host/docs checks, plus actual core/adapter ASan/UBSan for both versions
+and the maximum-capacity version-2 producer. The default installation suite
+passes 56 tests with its existing opt-in exhaustive I/O matrix skipped. No
+warning/check, read deadline, mapping or data capacity is relaxed.
+
+Actual version-2 producer receipts at 1,056 and 1,536 entries independently decode;
+source-matched maximum tail retention preserves all raw records under the
+unchanged allowance. Ordinary kernel isolation, changed/all-ones/missing CPU
+words, invalid offsets/CR3, three-PTE-page refusal and uncertain retirement are
+covered. Four old AP VM profiles and the original Haswell version-1 profile
+pass. Exact version-2 release `8dc0947f9c7fbd56` safely refuses Q35 identity,
+saves/unmounts/resets, and returns without starting/saving when workspace is
+missing. Negative-path VM success does not accept native CPU control readout.
+
+The exact payload is durably backed up. At this validation checkpoint the new
+release is uninstalled and unarmed; the next authorized step installs it with
+console recovery/accepted fallbacks preserved, then runs the automated capture
+and Ubuntu collection. USB baseline is 592 files / 1,658 clusters, all prior
+hashes preserved and offline integrity/headroom clean. Native source remains
+`baaa94b5` / `e98aed0c5f8d06cf` until installation. No input is required. The local
+run record owns subsequent arming/collection state. Raw CPU observations do not
+accept full swizzle consistency, upper fences, a pin or graphics ownership;
+original RC6/package-C3 limitations remain unchanged.
+
+### Native raw CPU TILECTL observation accepted (2026-11-03)
+
+Release `8dc0947f9c7fbd56`, compiled source `1b0d37dd` from merged PR343,
+automatically returned and collected session `session-00065f6b460f31de-00`.
+The complete version-2 receipt independently decodes again: both raw CPU/aperture
+TILECTL values are `0x00000000`; display control remains `0x16661056` with bits
+14:13=`00`. These are matching sampled observations, not a continuous guarantee
+or proof of the unobserved GT path.
+
+Both complete 1,056-entry GGTT vectors and endpoint/lower-fence observations
+agree. All entries are present and point into the firmware-reserved stolen
+interval. Each pass performs 1,153 window reads; ten temporary mappings retire
+with no retained uncertainty or hardware authority. Brackets are 383 and 376 us,
+under the unchanged 100 ms bounds. No GT/forcewake/upper-fence/backing-pixel access,
+policy write, pin or actual scanout ownership is accepted by this readout.
+
+All 592 prior files remain unchanged apart from expected workspace metadata.
+Two new logs yield 594 files / 1,661 allocated clusters; read-only fsck and
+independent allocation checks pass with zero leaks, bitmap mismatches or errors.
+The exact 24,816-byte exit receipt and 475 durable evidence files verify.
+Installed/recovery payload hashes, Ubuntu default and the consumed one-shot
+verify; collector disabled and no reboot armed.
+
+Closeout consumes main `5ed7f015` and its recursive pins for documentation only;
+newer desktop/port changes do not inherit this physical acceptance. CPU and
+display observations narrow the swizzle unknowns, while GT access prerequisites,
+the Intel16/Linux32 fence discrepancy, full-path consistency and real allocation/
+scanout lifetime remain open. Prior RC6 timing failure and package-C3 zero are
+unchanged. The next work is resolving those remaining prerequisites before any
+ownership or power-control change.

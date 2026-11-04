@@ -80,15 +80,17 @@ class DestinationScopeTests(unittest.TestCase):
 
 class ManagedScopeTests(unittest.TestCase):
     def test_managed_usb_graph_and_refusals(self):
-        for kind in ('save','control','reopen','same','hardlink','outside-work','outside-system','outside-config','later-fault','control-fault','missing-fault','uuid','no-mode','raw-mode','target','reverse'):
+        for kind in ('save','control','reopen','late-save','late-reopen','late-reopen-fault','late-save-missing','same','hardlink','outside-work','outside-system','outside-config','later-fault','control-fault','missing-fault','uuid','no-mode','raw-mode','target','reverse'):
             with self.subTest(kind=kind),tempfile.TemporaryDirectory() as temp:
                 out=Path(temp)/'owned';out.mkdir()
                 disk,work,cfg,variables=[out/n for n in ('system','usb','work.conf','vars')]
                 for path in (disk,work,cfg,variables):path.write_bytes(b'fixture')
                 args=argparse.Namespace(ovmf_vars=str(variables),ovmf='firmware',qemu='never')
-                mode=kind if kind in ('control','reopen') else 'save'
-                number=2 if kind in ('reopen','later-fault') else 1
-                uuid='1234abcd';fault=cfg if mode=='save' else None
+                mode=kind if kind in ('control','reopen','late-save','late-reopen') else 'save'
+                number=2 if kind in ('reopen','late-reopen','late-reopen-fault','later-fault') else 1
+                uuid='1234abcd';fault=cfg if mode in ('save','late-save') else None
+                if kind=='late-reopen-fault':mode='late-reopen';fault=cfg
+                if kind=='late-save-missing':mode='late-save';fault=None
                 if kind=='same':work=disk
                 if kind=='hardlink':work.unlink();work.hardlink_to(disk)
                 if kind=='outside-work':work=out.parent/'outside'
@@ -98,7 +100,7 @@ class ManagedScopeTests(unittest.TestCase):
                 if kind=='missing-fault':fault=None
                 if kind=='uuid':uuid='not-a-uuid'
                 if kind=='no-mode':mode=None
-                valid=kind in ('save','control','reopen')
+                valid=kind in ('save','control','reopen','late-save','late-reopen')
                 with patch.object(proof,'choose_port',return_value=34567),patch.object(proof.subprocess,'Popen',side_effect=NeverLaunch) as launch:
                     with self.assertRaises(NeverLaunch if valid else RuntimeError):
                         proof.boot(disk,out,number,args,other_disk=work,work_fault_config=fault,managed_workspace=mode,workspace_uuid=uuid,
@@ -107,10 +109,13 @@ class ManagedScopeTests(unittest.TestCase):
                         command=launch.call_args.args[0]
                         drives=[command[i+1] for i,v in enumerate(command) if v=='-drive']
                         filters=[d for d in drives if 'blkdebug:' in d]
-                        self.assertEqual(len(filters),1 if kind=='save' else 0)
+                        self.assertEqual(len(filters),1 if kind in ('save','late-save') else 0)
                         self.assertFalse(any(str(disk) in d for d in filters))
-                        self.assertEqual(len(drives),4)
-                        self.assertIn('usb-storage,drive=stick,bus=workxhci.0,bootindex=2',command)
+                        self.assertEqual(len(drives),3 if kind=='late-reopen' else 4)
+                        if kind=='late-reopen':
+                            self.assertNotIn('usb-storage,drive=stick,bus=workxhci.0,bootindex=2',command)
+                            self.assertFalse(any(str(work) in x for x in command))
+                        else:self.assertIn('usb-storage,drive=stick,bus=workxhci.0,bootindex=2',command)
                         self.assertEqual(sum(v.startswith('ide-hd,') for v in command),1)
                     else:launch.assert_not_called()
 

@@ -2,7 +2,30 @@
 #include <stdio.h>
 #include <string.h>
 #include <srvros/desk_prompt.h>
+static void configure_capture(void) {
+    struct desk_prompt p;desk_prompt_init(&p);
+    assert(!desk_prompt_open(&p,"Transfer","Choose a folder.","/fat","Copy"));
+    struct desk_rect bounds={0,0,720,480};desk_prompt_configure(&p,bounds);desk_prompt_focus(&p,1);
+    for(int i=0;i<2;i++) {
+        struct desk_rect r=p.dialog.buttons[i].frame;
+        struct desk_widget_event e={.type=DESK_WIDGET_POINTER,.x=r.x+r.w/2,.y=r.y+r.h/2,.down=1,.pressed=1};
+        desk_prompt_pointer(&p,e,0);assert(p.dialog.buttons[i].armed);
+        for(int n=0;n<3;n++) desk_prompt_configure(&p,bounds);
+        e.down=e.pressed=0;struct desk_action a=desk_prompt_pointer(&p,e,0);
+        assert(a.id==(i?DESK_PROMPT_ACCEPT:DESK_PROMPT_CANCEL) && (a.flags&DESK_WIDGET_ACTIVATED));
+    }
+    struct desk_rect r=p.dialog.buttons[1].frame;
+    struct desk_widget_event e={.type=DESK_WIDGET_POINTER,.x=r.x+r.w/2,.y=r.y+r.h/2,.down=1,.pressed=1};
+    desk_prompt_pointer(&p,e,0);assert(p.dialog.buttons[1].armed);
+    desk_prompt_configure(&p,(struct desk_rect){0,0,800,480});
+    e.down=e.pressed=0;struct desk_action a=desk_prompt_pointer(&p,e,0);assert(!(a.flags&DESK_WIDGET_ACTIVATED));
+    r=p.dialog.buttons[1].frame;e=(struct desk_widget_event){.type=DESK_WIDGET_POINTER,.x=r.x+r.w/2,.y=r.y+r.h/2,.down=1,.pressed=1};
+    desk_prompt_pointer(&p,e,0);assert(p.dialog.buttons[1].armed);
+    desk_prompt_focus(&p,0);desk_prompt_focus(&p,1);e.down=e.pressed=0;
+    a=desk_prompt_pointer(&p,e,0);assert(!(a.flags&DESK_WIDGET_ACTIVATED));
+}
 int main(void) {
+    configure_capture();
     struct desk_prompt p;desk_prompt_init(&p);
     assert(!desk_prompt_open(&p,"Rename","Enter a new name.","notes.txt","Rename"));
     desk_prompt_configure(&p,(struct desk_rect){0,0,720,480});

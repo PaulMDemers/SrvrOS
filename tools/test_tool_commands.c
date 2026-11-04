@@ -4,6 +4,11 @@
 #include <stdio.h>
 #include "../userspace/apps/desktools/runtime.h"
 static unsigned selected,canceled;
+int desk_app_menus(struct desk_app *a,const struct desk_menu_item *items,unsigned count) {
+    if(count>DESK_APP_MENU_ITEMS || (count && !items)) return -1;
+    if(count) memcpy(a->menus,items,count*sizeof(*items));
+    a->menu_count=count;a->menu_revision++;return 0;
+}
 void tool_files_action(struct tool *t,struct desk_action a) {(void)t;assert(a.flags&DESK_WIDGET_ACTIVATED);selected=a.id;}
 void tool_picker_cancel(struct tool *t) {t->picker_mode=0;canceled++;}
 void tool_text_dialog(struct tool *t,unsigned id) {assert(id==1003);t->modal=0;canceled++;}
@@ -14,6 +19,10 @@ void tool_text_action(struct tool *t,struct desk_action a) {(void)t;assert(a.fla
 void tool_runtime_cancel_modal(struct tool *t) {t->modal=t->prompt_mode=t->info_mode=0;canceled++;}
 void tool_runtime_close_request(struct tool *t) {t->closing=1;}
 static struct tool t;
+static unsigned menu_flags(unsigned id) {
+    for(unsigned i=0;i<t.window.menu_count;i++) if(t.window.menus[i].id==id) return t.window.menus[i].flags;
+    assert(0);return 0;
+}
 int main(void) {
     t.role=DESK_APP_FILES;assert(!tool_runtime_file_ready(&t));
     t.window.serial=t.window.pending=1;assert(!tool_runtime_file_ready(&t));
@@ -53,5 +62,16 @@ int main(void) {
     selected=0;assert(tool_command_key(&t,&key) && selected==TOOL_OPEN_WITH);
     t.entries[0].directory=1;selected=0;assert(!tool_command_key(&t,&key) && !selected);
     t.entries[0].directory=0;t.modal=4;assert(!tool_command_key(&t,&key) && !selected);
+    t.modal=0;
+    for(unsigned i=0;i<2;i++) {
+        unsigned action=i?TOOL_MOVE_TO:TOOL_COPY_TO;key.usage=i?0x10:0x06;
+        selected=0;assert(tool_command_key(&t,&key) && selected==action);
+        selected=0;assert(tool_command_action(&t,action) && selected==action);
+        tool_menu_refresh(&t);assert(t.window.menu_count==DESK_APP_MENU_ITEMS && !menu_flags(action));
+        t.entries[0].directory=1;selected=0;assert(!tool_command_key(&t,&key) && !selected);
+        tool_menu_refresh(&t);assert(menu_flags(action)&DESK_MENU_DISABLED);t.entries[0].directory=0;
+        t.job.busy=1;assert(!tool_command_key(&t,&key));tool_menu_refresh(&t);assert(menu_flags(action)&DESK_MENU_DISABLED);t.job.busy=0;
+        t.prompt_mode=1;assert(!tool_command_key(&t,&key));tool_menu_refresh(&t);assert(menu_flags(action)&DESK_MENU_DISABLED);t.prompt_mode=0;
+    }
     puts("tool-commands: PASS Text key/button/menu guard parity, busy save refusal, independent new window, modal close protection and common Quit cancellation");
 }

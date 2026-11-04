@@ -1,7 +1,8 @@
 #ifndef DESKD_PROFILE_CATALOG_H
 #define DESKD_PROFILE_CATALOG_H
 
-#define PROFILE_CATALOG_MAX 16
+#include <srvros/profile_limits.h>
+#define PROFILE_CATALOG_MAX SRV_PROFILE_CHOOSER_MAX
 enum profile_state { PROFILE_READY, PROFILE_RECOVERABLE, PROFILE_BLOCKED };
 struct profile_entry {
     char home[96], id[37], name[65], detail[160];
