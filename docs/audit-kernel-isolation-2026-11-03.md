@@ -1473,6 +1473,34 @@ alignment, versus 1,763,328 bytes of declared state payload. Per-slot target siz
 grows 27,568 bytes to 1,701,280 bytes. These target figures await independent frozen
 artifact verification and do not replace the earlier explicitly host-only result.
 
+## November 4: internal state final target/guest qualification
+
+Accepted bounded PR334 internal slice `729e4a84` after independently verifying
+all 197 frozen files under `.local/pr334-evidence/729e4a84/`; receipt SHA256
+`30cb85b3e55f4e5ef7fb8ae9e684fa5f6f76e3c84a7f31a1cb8a98d20f7b112f`.
+Retained process/module/lifecycle sources match that commit. Actual module
+object disassembly has no SIMD/x87 register use. Main exit orders CLI before trap
+invalidation and record memset, with the later parking enable retained. Independent
+ELF symbol comparison confirms 1,764,352 bytes of actual process-array growth
+including padding. Evidence: `build/review/pr334-signal-state-final-review/`.
+
+Matched retained corrected kernel digest to the normal guest's loaded-kernel
+receipt. Its `kernel_source` names the pre-commit base `6766c5ff`; final source
+hashes and loaded artifact identity bind the corrected candidate, rather than
+claiming a clean `729e4a84` build. Main/worker FPU preservation exits zero, nested
+full-thread and syscall-ABI harness results are zero, and owned guests stopped.
+All 17 selected packed apps match the frozen earlier verified payload; the actual
+payload-equivalence receipt SHA256 is
+`902f6824c721485781016f24a158de4060cdf66819e22cebf078c8848bb1f8cb`.
+This is retained-payload normal regression, not a full current-userspace rebuild.
+
+Six independent pre-exclusion-correction host profiles and two corrected lifecycle
+profiles plus the single-call-removal negative control retain their source
+boundaries. The owner records 26 broader pre-correction and four affected final
+host profiles. New internal operations are host-tested only; there is no private
+operation guest caller, public signal ABI or asynchronous delivery. The next fused
+copy-to-infallible-publication design remains a separate review.
+
 ## Remaining work
 
 Other long IRQ-disabled operations, including initial/churning PMM scans, heap validation and poisoning,
