@@ -38,19 +38,17 @@ include. It is failed compilation evidence, not an engine build pass.
 
 ### Concrete compiler and runtime dependencies
 
-Release compilation has passed the bmalloc header error and exposed additional
+Release compilation passed the bmalloc header error and exposed additional
 portable adaptations: avoid an unavailable context header while retaining
 `HAVE(MACHINE_CONTEXT)=false`, and select upstream's 512 MiB available-memory
 guess when `_SC_PHYS_PAGES` is unavailable. That value is a heuristic, not a
 system-RAM or per-process capacity measurement.
 
-The next actual compile failure is WTF FileSystem: header presence enables
-`HAVE_STD_FILESYSTEM` despite failed CMake link probes, while the configured
-libc++ excludes filesystem operations. Investigate pinned upstream filesystem
-support against existing SDK calls; do not turn off the feature and silently
-omit required WebKit operations. Consume merged namespace semantics rather than
-creating another filesystem policy or pretending unsupported calls succeed.
-The pinned filesystem archive now links and its private exFAT guest passes two
+WTF FileSystem then failed: header presence enabled `HAVE_STD_FILESYSTEM`
+despite failed CMake link probes, while the configured libc++ excluded filesystem
+operations. The port now uses pinned upstream filesystem support against the
+existing SDK calls and merged namespace semantics, plus actual feature detection.
+The pinned filesystem archive links and its initial private exFAT guest passed two
 consecutive create/write/read/copy/overwrite/error/rename/iteration/cleanup runs:
 `build/browser-filesystem/guest-178phxcj/receipt.json`. Copy uses real POSIX
 read/write without enabling localization. A minimal SDK `statvfs` declaration
@@ -70,6 +68,61 @@ other threads. The runtime owner must supply a supported suspension/root-capture
 contract (or an upstream configuration proven to require none) before accepting
 collector execution. No fabricated context layout, successful suspend stub or
 new competing pthread/signal implementation is permitted by this checkpoint.
+
+### Matched link dependencies and ownership
+
+The current candidate consumes main `56e1f950` and ports main `5e994f5`.
+A later inspection observes OS main `1a5a6dee` (installation, profiles and
+salvage tools) and ports main `ca74951` (libuv spawn result); these do not overlap
+the two SDK linkage headers or C++/math providers. They were inspected, not
+imported into this candidate or claimed as tested. PR317 at `7240b5ce` owns
+VMM/process/DMA hardening, rather than the signal-suspension implementation.
+Review continues through draft PR310 and SrvrPorts PR4; no competing kernel,
+pthread or signal mechanism was introduced.
+
+Real final-link failures required C linkage guards around existing declarations
+in `semaphore.h` and `regex.h`, upstream libc++ `algorithm.cpp` and `hash.cpp`,
+and 17 scalar math functions. The two headers retain identical target-C
+preprocessed declarations. Separate archive objects for `std::terminate` and
+the no-exceptions system-error fallback let the real filesystem `system_error`
+provider link without duplicate strong definitions. The shared compiler wrapper,
+base libc++ feature profile and thread ABI stay matched.
+
+The [math supplement](../ports/srvros/libm/PORT.md) builds the pinned Zig 0.15.2
+musl sources, with privately prefixed accurate dependencies. It does not replace
+the existing SDK public `exp`, `log` or `sqrt`. An observed large-negative
+`acosh` cancellation case requires a domain guard before the pinned algorithm;
+inputs below one use musl's real invalid-operation helper. Host edge/domain/
+threshold fixtures and 10,000 deterministic binary64 patterns pass the eight-ULP
+bound; target guest vectors pass. This is sampled numerical evidence under the
+tested environment, not full rounding-mode, errno or floating-point-exception
+conformance. The older public SDK math accuracy remains a separate JSC runtime
+correctness requirement.
+
+Published dependency sources are SrvrPorts `9451133`. The receipts below retain
+the actual dirty-source observations atop OS `16527164`; the later publication
+commits do not relabel these checks as clean-commit builds.
+
+Fresh matched evidence after both header changes:
+
+| Check | Retained evidence |
+| --- | --- |
+| Writable filesystem | `build/browser-filesystem/guest-xqe688nf/receipt.json`: both runs pass, private directory cleaned, VM stopped. SHA256 `d9c73b8998896f05c0c7c4c47ea08ab023da7f3328f66e5db9de5e3bcbb67375`. |
+| ICU refresh | `build/browser-icu/receipt.json`: successful rebuild, SHA256 `00bbaee3895d23190f29875c1326e7cbeae5a737857f981a45805da9256a5c39`. The explicit previous-install option preserved mtimes of 203 headers only after identical content and mode checks; no header contains `__TIMESTAMP__`. Libraries retain their fresh metadata. |
+| Combined runtime | `build/browser-runtime/guest-9cufz_rw/receipt.json`: all 15 cases pass, VM stopped. SHA256 `48452281071b9f03f3b2c50a666c6802f3445ae59676306420d885086a0e04d6`. Includes prior thread/TLS/exhaustion/RTTI/ICU/math checks, real C++ semaphore/regex calls, sort/rehash and the signal boundary. |
+| Supplemental math | `build/browser-libm/receipt.json`: SHA256 `3c642d8d6d3b003b0f79324271bd7ddbcedf734668558e42f86e1320c7d52d7c`. Archive SHA256 `47bd38bb6adcdf83d693a8ac5718034b877d591886a820c80f7394404fffcb9a`; private dependency closure has no unresolved references. |
+
+The signal-boundary case succeeds by reproducing the known limitation:
+`SA_SIGINFO | SA_RESTART` returns `EINVAL` and preserves the previously installed
+handler and caller output. Ordinary one-argument self-signalling still works.
+It does **not** accept async suspension or register capture. WTF's POSIX
+suspend/resume path requires per-thread asynchronous delivery with a valid
+interrupted register context, correct masks, an atomic handshake, signal-safe
+synchronization and exit/race handling. JSC's collector scans suspended mutator
+stacks and registers. That contract belongs to the shared signal/process runtime
+owner; an independently proven safe safepoint design is an alternative.
+`tools/test_browser_signal_contract.c` records the concrete source handoff.
+No successful suspend stub, fabricated context or uncaptured-root claim is used.
 
 ## ICU checkpoint — November 3, 2026
 

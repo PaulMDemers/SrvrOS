@@ -60,6 +60,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--elf', type=Path, default=ROOT / 'build/browser-runtime/cxxthreads.elf')
     parser.add_argument('--icu', action='store_true', help='also verify and exercise the pinned ICU guest twice')
+    parser.add_argument('--runtime-extensions', action='store_true', help='also exercise math, C++ linkage and algorithm providers')
+    parser.add_argument('--signal-contract', action='store_true', help='also check the existing signal boundary')
     args = parser.parse_args()
     artifacts = {
         'kernel': ROOT / 'build/kernel/srvros.elf',
@@ -75,6 +77,13 @@ def main():
         artifacts['icuprobe'] = ROOT / 'build/browser-icu/icuprobe.elf'
         artifacts['rttiprobe'] = ROOT / 'build/browser-runtime/rttiprobe.elf'
         artifacts['mathprobe'] = ROOT / 'build/browser-runtime/mathprobe.elf'
+    if args.runtime_extensions:
+        artifacts.update({'libmprobe': ROOT / 'build/browser-libm/libmprobe.elf',
+                          'cpp-linkage': ROOT / 'build/browser-runtime/cpp-linkage.elf',
+                          'algorithmprobe': ROOT / 'build/browser-runtime/algorithmprobe.elf'})
+    if args.signal_contract:
+        artifacts['signal-contract'] = ROOT / 'build/browser-runtime/signal-contract.elf'
+        artifacts['signal-source'] = ROOT / 'tools/test_browser_signal_contract.c'
     for path in artifacts.values():
         if not path.is_file():
             parser.error(f'missing {path}; build the matched kernel/init, Limine and runtime test first')
@@ -93,6 +102,37 @@ def main():
         receipt['runtime_provenance'] = verify_runtime()
         if args.icu:
             receipt['icu_provenance'] = verify_icu()
+        if args.runtime_extensions:
+            extension_receipt = ROOT / 'build/browser-runtime/extension-receipt.json'
+            data = json.loads(extension_receipt.read_text()); hashes = data['sha256']
+            if data.get('result') != 'success' or data.get('sdk_headers_sha256') != receipt['runtime_provenance']['sdk_headers_sha256']:
+                raise ValueError('extension receipt missing success or mismatched SDK')
+            required = ('tools/browser_extension_probe.py', 'tools/test_browser_cpp_linkage.cc',
+                        'ports/srvros/libcxx/algorithm_guest.cc', 'build/browser-libm/libmprobe.elf',
+                        'build/browser-runtime/cpp-linkage.elf', 'build/browser-runtime/algorithmprobe.elf',
+                        'build/browser-filesystem/receipt.json', 'build/browser-libm/receipt.json')
+            if not all(name in hashes for name in required): raise ValueError('extension receipt missing required input')
+            for name, expected in hashes.items():
+                path = Path(name)
+                if path.is_absolute() or '..' in path.parts or not (ROOT/path).is_file() or digest(ROOT/path) != expected:
+                    raise ValueError('extension receipt mismatch: ' + name)
+            receipt['extension_provenance'] = {'path': str(extension_receipt), 'sha256': digest(extension_receipt)}
+        if args.signal_contract:
+            signal_receipt = ROOT / 'build/browser-runtime/signal-receipt.json'
+            signal_data = json.loads(signal_receipt.read_text())
+            if signal_data.get('result') != 'success' or signal_data.get('sdk_headers_sha256') != receipt['runtime_provenance']['sdk_headers_sha256']:
+                raise ValueError('signal build receipt missing success or mismatched SDK')
+            required = ('tools/browser_signal_probe.py', 'tools/test_browser_signal_contract.c',
+                        'build/browser-runtime/signal-contract.elf', 'build/sysroot/srvros/lib/libsrvros.a',
+                        'ports/srvros/webkit/compiler.py', 'ports/srvros/webkit/cc')
+            hashes = signal_data['sha256']
+            if not all(name in hashes for name in required):
+                raise ValueError('signal build receipt missing required inputs')
+            for name, expected in hashes.items():
+                path = Path(name)
+                if path.is_absolute() or '..' in path.parts or not (ROOT / path).is_file() or digest(ROOT / path) != expected:
+                    raise ValueError('signal build receipt mismatch: ' + name)
+            receipt['signal_provenance'] = {'path': str(signal_receipt), 'sha256': digest(signal_receipt)}
         if digest(artifacts['test']) != digest(ROOT / 'build/browser-runtime/cxxthreads.elf'):
             raise ValueError('test ELF differs from verified runtime build')
         iso_root = run / 'iso-root'
@@ -107,6 +147,10 @@ def main():
             if args.icu:
                 programs.extend([('icuprobe', 'icuprobe'), ('rttiprobe', 'rttiprobe'),
                                  ('mathprobe', 'mathprobe')])
+            if args.runtime_extensions:
+                programs.extend((name, name) for name in ('libmprobe', 'cpp-linkage', 'algorithmprobe'))
+            if args.signal_contract:
+                programs.append(('signal-contract', 'signal-contract'))
             for name, key in programs:
                 data = runtime_elf(artifacts[key].read_bytes())
                 info = tarfile.TarInfo(name)
@@ -157,23 +201,31 @@ def main():
                         if args.icu:
                             tests = [('mathprobe', 0), ('rttiprobe', 0), ('badcast', 134), ('icuprobe', 0),
                                      *tests, ('icuprobe', 0)]
+                        if args.runtime_extensions:
+                            tests.extend((name, 0) for name in ('libmprobe', 'cpp-linkage', 'algorithmprobe'))
+                        if args.signal_contract:
+                            tests.append(('signal-contract', 0))
                         for mode, status in tests:
                             start = time.monotonic()
-                            command = (f'run /{mode}' if mode in ('tlsfirst', 'cxxprobe', 'cxxstlprobe', 'icuprobe', 'rttiprobe', 'mathprobe')
+                            command = (f'run /{mode}' if mode in ('tlsfirst', 'cxxprobe', 'cxxstlprobe', 'icuprobe', 'rttiprobe', 'mathprobe', 'signal-contract', 'libmprobe', 'cpp-linkage', 'algorithmprobe')
                                        else 'run /rttiprobe badcast' if mode == 'badcast'
                                        else f'run /cxxthreads {mode}')
                             sock.sendall((command + '\n').encode())
                             result = receive_run(sock, 90 if mode == 'icuprobe' else 45)
                             output.extend(result)
                             exits = re.findall(rb'run: pid=\d+ exited status=(\d+)', result)
-                            marker = (f'{mode}: ok'.encode() if mode in ('cxxprobe', 'cxxstlprobe', 'icuprobe', 'rttiprobe', 'mathprobe') else
+                            marker = (b'libmprobe: ok' if mode == 'libmprobe' else
+                                      b'browser-c-linkage: ok' if mode == 'cpp-linkage' else
+                                      b'browser-algorithm: ok' if mode == 'algorithmprobe' else
+                                      b'browser-signal-contract: siginfo rejected; handler preserved' if mode == 'signal-contract' else
+                                      f'{mode}: ok'.encode() if mode in ('cxxprobe', 'cxxstlprobe', 'icuprobe', 'rttiprobe', 'mathprobe') else
                                       b'rttiprobe: badcast must abort' if mode == 'badcast' else
                                       b'cxxthreads: ok' if mode == 'all' else
                                       b'cxxthreads: tls-first registered' if mode == 'tlsfirst' else
                                       b'cxxthreads: capacity=8; next construction must abort')
                             ok = (marker in result and exits == [str(status).encode()] and
                                   b'srv> ' in result and b'exception:' not in result)
-                            if mode in ('cxxprobe', 'cxxstlprobe', 'icuprobe', 'rttiprobe', 'mathprobe'):
+                            if mode in ('cxxprobe', 'cxxstlprobe', 'icuprobe', 'rttiprobe', 'mathprobe', 'signal-contract', 'libmprobe', 'cpp-linkage', 'algorithmprobe'):
                                 ok = ok and result.count(marker) == 1
                             elif mode == 'badcast':
                                 ok = (ok and result.count(marker) == 1 and b'rttiprobe: ok' not in result

@@ -9,6 +9,7 @@ submodule files.
 | Component | Location / notice | Role |
 | --- | --- | --- |
 | musl float math | [MIT and Sun notices, pinned-source adaptation](userspace/lib/src/posix_math_hyperbolic.c) | `tanhf` and `expm1f` SDK support for ICU; algorithms from Zig 0.15.2 musl |
+| musl JSC math supplement | [musl copyright](ports/srvros/libm/COPYRIGHT.musl), [Sun/Arm notice and port](ports/srvros/libm/PORT.md) | Experimental prefixed math closure using Zig 0.15.2 musl sources |
 | ICU4C | [pinned source/data and license contract](ports/srvros/icu/PORT.md) | Experimental static Unicode/i18n prerequisite; upstream Unicode license retained in the install |
 | LLVM libc++ / libc++abi | [port and license notes](ports/srvros/libcxx/PORT.md) | Pinned Zig 0.15.2 threading and RTTI subsets; Apache-2.0 with LLVM exception |
 | uACPI | [MIT notice](ports/upstream/uacpi/LICENSE), [port notes](ports/srvros/uacpi/PORT.md) | Restricted probe and separate VM runtime |
