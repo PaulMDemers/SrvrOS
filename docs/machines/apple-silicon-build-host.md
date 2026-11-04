@@ -3565,3 +3565,17 @@ full threadstress and sysabi/fault-reaping guests pass; task guests stopped.
 records the combined receipt and limits. Owner-approved next slice is metadata
 image-generation/association and atomic validated tuple wiring only, after root
 evidence publication; no FPU proof, assembly, signal API or JSC success yet.
+
+
+PR334 `fea6bbb1` implements reviewed image-generation and opaque kernel-FPU
+association metadata with atomic validated main/worker bindings. Owner source/
+host review accepted all20 independently rerun strict/sanitized profiles. Fresh
+kernel passes worker TLS/XMM/stack smoke, full threadstress including fork/exec/
+main atexit, sysabi reaping and OVMF AHCI/USB contention/relaunch/quarantine.
+[Exact scope and receipt](../signal-context.md#image-metadata-and-atomic-user-bindings-at-fea6bbb1)
+include retained packaging failures and host-model limitations. Task guests stopped;
+review VMs preserved. Final guest qualification is with the owner. No saved-FPU
+proof, assembly frame change, public signal admission or JSC success yet. The
+installation proof owns the next large resource window; no large JSC allocation
+has started. Duplicate task disks preserve independent paths/bytes through APFS
+copy-on-write storage sharing; no unrelated artifact was reclaimed.

@@ -244,12 +244,12 @@ Makefile's existing Linux host target or claim a matched guest result.
 
 ## Specific FPU proof representation for review only
 
-Proposed prerequisite: allocate a nonreused process-image generation when an image
-is committed; mirror that identity in its scheduler user binding alongside the
-selected user-FPU pointer. A failed exec leaves the current binding unchanged;
-new main/worker bindings carry the actual committed generation. This is a proposed
-lifecycle/API change requiring process-owner review, not a field already provided
-by `scheduler_observe_user_return()`.
+The image-generation and association prerequisite is implemented at `fea6bbb1`,
+with independent owner source/host acceptance and matched guest results below.
+Committed image IDs are nonreused and mirrored with the selected FPU in scheduler
+bindings/observations. Failed exec preserves the old binding; main/worker bindings
+carry their actual image generation. This metadata does not itself establish an
+entered-user FPU save or authorize proof minting.
 
 Proposed representation: a private proof of size 64 bytes and alignment 16 on the *common*
 ISR's kernel stack (`sizeof == 64`, `_Alignof == 16`), containing the exact ISR-frame pointer, scheduler lifetime,
@@ -303,7 +303,8 @@ then restores the trusted saved image. Refusal leaves outputs and saved images
 unchanged. Host fixtures must interleave actual entered-user save, nested kernel/
 direct traps, scheduler A→B→A selection, failure, image replacement and stale proof
 attempts; guest x87/MXCSR/XMM/FS tests remain mandatory. This representation is a
-review proposal; no FPU structure, assembly path or lifecycle hook implements it.
+review proposal; the association/invalidation metadata exists, but no proof
+object, common assembly wrapper or capture/replace consumer implements it.
 
 
 ## Approved standalone common-return transition slice
@@ -644,3 +645,61 @@ next implementation boundary, after this root qualification is published. That
 slice is limited to committed image-generation and opaque association metadata,
 atomic validated binding wiring and corresponding failure/lifetime tests. It
 must not add an FPU proof object, minting, assembly change or signal delivery.
+
+## Image metadata and atomic user bindings at fea6bbb1
+
+The owner approved the complete tuple/caller/fatal contract before code and
+independently accepted the source and all20 strict/sanitized host profiles.
+Process image IDs are issued monotonically under IRQ exclusion, never recycled,
+and retired before backing or slot reuse. All eight image loaders plus fork
+prepare/reserve before publication; failed exec preserves old identity/binding,
+including stdio failure after an earlier descriptor snapshot. Successful exec
+clears binding and old ID before cleanup, moves the staged image/ID while
+unbound, resets FPU and close-on-exec state, then validates and binds the complete
+new tuple. Legitimate killed-parent restoration and main atexit remain valid.
+
+Process-owned resolution checks static process/worker membership before
+dereference, issued image/root, exact FPU/TLS and owned main stack. Worker
+admission additionally refuses killed/exiting images, validates the current
+parent tuple and new worker's scheduler-owned stack, and publishes complete
+generation/context before READY. Existing foreign-I/O worker eligibility is
+preserved; main binding setters refuse foreign ownership. Setters and clear use
+one saved IRQ exclusion through validation and tuple/FPU/FS/CR3/TSS commit.
+Trusted invariant failure uses the audited fixed serial diagnostic and IF0 halt
+before accounting or tuple mutation. Recoverable admission failures return.
+
+Opaque associations belong only to stable scheduler **kernel-FPU** records.
+User-FPU metadata stays NULL. Clear, bind, kill and reuse invalidate that embedded
+record before mutation/free, never follow a possibly retired user-FPU pointer,
+and preserve associations across ordinary scheduler A→B→A switches. The unused
+partial worker setter is removed. FPU initialization clears metadata even when
+hardware is unavailable; fork clears copied metadata without changing copied
+register bytes. No proof object, mint, assembly/frame change or signal API is
+included.
+
+Actual-source strict Rosetta and ASan/UBSan checks pass for process ownership,
+constructor/exhaustion/rollback, successful exec ordering, direct main atexit and
+worker TLS retirement, complete scheduler, FPU metadata and existing process
+service/foreground/vector/loader/lifetime/output suites. The output suite also
+runs all12 teardown schedules. Terminal tests separate allowed diagnostics from
+forbidden accounting/FPU/FS/CR3/TSS changes. External PMM/hardware facilities are
+host models; synthetic HHDM views exercise the same numeric stack predicate.
+The owner independently reran all20 profiles and verified all32 recorded hashes
+in `metadata-host-receipt.json` (SHA256
+`e4b3d509ad5583642efafc60d9201fd6b4941c1d9fa43cd9bc68655ddafc319b`).
+
+A fresh full kernel passes matched worker TLS/XMM15/RSP/refusal/detached tests,
+full threadstress (including fork/exec and main-exit/atexit), sysabi fault reaping,
+and OVMF AHCI/USB contention with typing, cancellation, copy/fsck, three relaunches
+and deliberate timeout/quarantine. Combined receipt:
+`build/signal-context/metadata-vm-receipt.json`, SHA256
+`066b793adf7a62522b82498d691ab0a51632f945a8ef359e5632657bc82d0451`.
+All task guests stopped; protected review VMs remain live. Two packaging failures
+are retained: a BIOS-only ISO did not boot in OVMF, and a minimal initramfs lacked
+the fixture's `/sh`. Final I/O staging uses all17 original matched packed apps,
+each byte-verified against retained artifacts, with only the kernel replaced.
+Harness assertions are unchanged. Our duplicate stopped fixture disks retain
+all paths/hashes as independent APFS copy-on-write snapshots; unrelated disks
+and VMs are untouched. Final guest qualification is with the owner. JSC's last
+required-success result remains status134 without42; proof and signals are the
+next required implementation, not an acceptance claim from these checks.
