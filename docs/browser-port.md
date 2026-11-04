@@ -2,6 +2,64 @@
 
 ## Active compilation checkpoint — November 3, 2026
 
+The compile/link target is achieved: pinned WPE WebKit 2.54.2 produces a real
+static ELF64 x86_64 `jsc` with JIT, WebAssembly, remote inspection and sampling
+profiling disabled. The build uses the static LLInt assembly interpreter;
+`ENABLE_C_LOOP` remains off. This is compilation acceptance, with runtime/GC
+acceptance still subject to the shared suspension/root-capture contract below.
+
+The retained run is `build/browser-jsc/run-w8vtuwcr`. Its first successful
+receipt is `receipt-1793755801803185000.json`; it records actual compilation,
+target archive creation and executable linking, rather than configure alone.
+The exact executable is `cmake/bin/jsc`, 271,759,848 bytes including debug data,
+SHA256 `c2b8f14cb3a2001ef1dd87bc64604afa2075b2fc320c1c8f68c54f4b6f4d46d4`.
+Independent ELF inspection finds no interpreter or dynamic segment and no
+unresolved strong symbols. The only undefined weak symbol is the optional
+`__posix_pthread_create_trace`, whose SDK caller checks for null. Loadable
+segment memory totals 51,661,331 bytes and the TLS template is 40 bytes; these
+are artifact bounds, not peak working-set measurements.
+
+| Target archive | Validated ELF64 x86_64 members | SHA256 |
+| --- | ---: | --- |
+| `libJavaScriptCore.a` | 893 | `9dadb1d28312b5e5524b8b9e4e1169dc64cc7e67b95d94b11c9515ad4674369d` |
+| `libWTF.a` | 172 | `66578054b2d630c331a51953964ba68a6dc8b6e17c5a215d24c10cb046fbc52c` |
+| `libbmalloc.a` | 168 | `4b61ddf4f4fb57f8d95687cf536ce348d13d4119da6825ccceaa6a29925205cf` |
+
+The fresh source replay in `replay-1793755880352653000.json` extracts the pinned
+archive and reapplies the full ordered patch stack with zero fuzz. All retained
+and freshly replayed source paths, modes and contents match fingerprint
+`81d2a8dba49cd370432260d9e221dd9a430f6b9b53f8d7618093f94a870154db`.
+The bytecode-cache manifest identifier is
+`446d514d0b38fcba7c47042be4e228ec941427d5c938a5a2a38375b1bf7dc772`;
+it does not establish persistent cache compatibility. Compiler/link failures,
+disk-pressure pauses and controlled source/SDK transitions remain separate
+receipts. Global date/time warnings are preserved.
+The post-doc verification receipt `receipt-1793755971341283000.json`
+also checks remote inspection is off and hashes the final helper/port inputs;
+its SHA256 is `d6e16a02f56af39d78af62a1d3d07801cc1f864e737785e300a42007727fdee8`.
+
+The first private diskless guest observation is
+`build/browser-jsc/guest-p9yc2eek/receipt.json`. Both ELFs entered userspace:
+`jsc -e print(42)` exited 134 without printing `42`; the separate WTF fixture
+exited 139 without its success marker. Its serial contains no conclusive
+assertion/fault diagnosis. These failures do not establish which prerequisite
+was reached first, and cannot be attributed conclusively to the independently
+reproduced `SA_SIGINFO` limitation. No interpreter, garbage collector, Unicode
+utility or browser runtime pass is claimed from this run. The guest stopped.
+
+One separate raw-write diagnostic in `build/browser-jsc/guest-89v6l2z0/receipt.json`
+reaches `wtfprobe: entered` and exits 139 before `wtfprobe: footprint-before`.
+The interval contains the first `WTF::memoryFootprint()` call; its underlying
+cause remains unidentified. The later arithmetic/formatting/Unicode checks were
+not reached. The original fixture source and binary were reproduced exactly;
+the diagnostic uses separate saved source, binary and receipt. Both guests
+stopped. The final no-work compile verification is
+`receipt-1793756232569714000.json`, SHA256 `ededab3ba87003a15996839823df3c4a4e2d3d42247b6390230d2bfe06d82300`.
+All its recorded input/output hashes match the published source and retained
+artifacts. Raw guest harness sources are preserved with the diagnostic evidence;
+the published harness additionally derives its run directory from the selected
+receipt instead of a fixed local run name.
+
 User authorizes actual no-JIT JavaScriptCore compilation and resolving build
 blockers. Start at OS `4f84d500` and ports `e866ff5`; pinned WPE 2.54.2 and
 ICU 79.1 remain the inputs. Retain a source/build tree and actual compiler logs.
@@ -123,6 +181,44 @@ stacks and registers. That contract belongs to the shared signal/process runtime
 owner; an independently proven safe safepoint design is an alternative.
 `tools/test_browser_signal_contract.c` records the concrete source handoff.
 No successful suspend stub, fabricated context or uncaptured-root claim is used.
+
+### Reproduce the compilation checkpoint
+
+Published engine adaptations are SrvrPorts `af466ba`. Use the matching OS
+branch and ports gitlink, verified WPE 2.54.2 archive and
+ICU 79.1 archives described in the earlier checkpoint. Run one command at a time:
+
+```sh
+sh tools/macos/build.sh -j2 srvros-sysroot build/kernel/srvros.elf build/userspace/init.elf build/limine-binary/.ready build/userspace/cxxprobe.elf build/userspace/cxxstlprobe.elf
+python3 ports/srvros/libcxx/build.py
+python3 ports/srvros/libcxx/build_rtti.py
+python3 tools/browser_math_probe.py
+python3 ports/srvros/libcxx/build_filesystem.py
+python3 ports/srvros/libm/build.py
+python3 ports/srvros/icu/build.py
+python3 tools/browser_extension_probe.py
+python3 tools/browser_signal_probe.py
+python3 tools/browser_filesystem_smoke.py
+python3 tools/browser_runtime_smoke.py --icu --runtime-extensions --signal-contract
+```
+
+For an existing ICU install, move it aside first; optionally supply that directory
+via `--previous-install` to preserve only identical installed-header metadata.
+Use the new guest receipt paths printed by the two harnesses in:
+
+```sh
+python3 tools/browser_jsc_build.py \
+  --filesystem-guest-receipt build/browser-filesystem/guest-.../receipt.json \
+  --math-guest-receipt build/browser-runtime/guest-.../receipt.json
+python3 tools/browser_jsc_replay.py build/browser-jsc/run-...
+```
+
+The dots are placeholders for this run's output paths. Default resume rejects
+changed source, toolchain, cache or dependency proofs. The narrowly checked
+historical SDK/package transitions are documented in the WebKit port manifest;
+they are not permission to reuse arbitrary stale objects. Generated artifacts,
+logs and receipts remain local under ignored `build/`; committed recipes and
+published source revisions provide the portable handoff.
 
 ## ICU checkpoint — November 3, 2026
 
