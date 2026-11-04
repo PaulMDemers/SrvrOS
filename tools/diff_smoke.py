@@ -4,7 +4,8 @@
 Requires staged guest diff, test_diff_probe.elf, GNU diff 3.12 and GNU patch.
 Guest outputs are compared byte-for-byte to the host, and each changed unified
 report is applied by host GNU patch. The local patch check is a narrow subset.
-GUI, diagnostic allocator and upstream suites are separate gates.
+GUI and native upstream suites are separate gates; selected upstream input
+fixtures are exercised in the guest without claiming their scripts ran there.
 """
 import argparse
 import hashlib
@@ -54,6 +55,10 @@ def cases():
         'linecap-noend':(b'y'*65536,b'y'*65536),
         'countcap':(b'x\n'*8192,b'x\n'*8191+b'z\n'),
         'bytecap':(capline*4,capline*3+capline[:-2]+b'z\n'),
+        'upstream-large-subopt':((ROOT/'ports/upstream/diffutils/tests/large-subopt.in1').read_bytes(),
+                                  (ROOT/'ports/upstream/diffutils/tests/large-subopt.in2').read_bytes()),
+        'upstream-bug-64316':(b'c\nd\ne\nf\ng\na\nh\ni\nj\nk\nl\n',
+                              b'c\nd\ne\nf\ng\nb\nh\ni\nj\nk\nl\n'),
     }
 
 
@@ -147,7 +152,8 @@ def main():
              'port_source_sha256':{str(p.relative_to(ROOT)):sha(p.read_bytes()) for p in source_files},
              'kernel_sha256':sha((ROOT/'build/iso_root/boot/srvros.elf').read_bytes()),
              'initramfs_sha256':sha((ROOT/'build/iso_root/boot/initramfs.tar').read_bytes()),
-             'scope':'comparison, host patch and local patch subset, injected allocation failure, subprocess signals after algorithm progress; no in-call timing claim; GUI and upstream suite separate'}
+             'upstream_guest_fixtures':['large-subopt.in1/in2 unchanged','bug-64316 generated input pair'],
+             'scope':'comparison, host patch and local patch subset, injected allocation failure, subprocess signals after algorithm progress; selected upstream inputs in guest, not upstream test scripts; no in-call timing claim; GUI and native upstream suite separate'}
     (out/'receipt.json').write_text(json.dumps(receipt,indent=2,sort_keys=True)+'\n')
     print('diff evidence:',out,flush=True)
     with tempfile.TemporaryDirectory(prefix='diff-vm-') as temp:
