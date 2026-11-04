@@ -72,6 +72,30 @@ compatible hardware. Local credentials remain private and unused until the
 security stage. Do not report connection-ready until authentication, data
 exchange and clean disconnect actually pass.
 
+## Active common DAC scope and integration dependency
+
+Fetch checkpoint main `10890eed` (PR329), with root-profile/recovery changes and
+isolated Air6,1 Haswell diagnostics. Ports advances to `ca749517`; reconcile that
+pin with local checkpoint logging while retaining the upstream spawn result
+repair. No MT76 or private Wi-Fi ABI allocation changed. PR330 owns installation
+publication I/O qualification, PR317 VMM, PR301 display and PR310/306 ports;
+no overlapping Wi-Fi owner was found. Keep accepted v117/source `1fe64aac` and
+its154-file native capsule independent of any new source validation.
+
+Bounded next implementation: fixed common DAC RF0:73 bit7 set/clear/set while
+fresh trim44 is selected, with each read/modify/write and independent final word
+readback, then trim0 restoration. Exact fresh same-boot fields and completed
+v117 parent are required before native I/O. This first pulse trial omits VCO,
+receiver and credentials so failure attribution remains bounded. Touch only a
+fixed MT76 engine/native owner, immutable automatic recipe, host fault/proof
+suites and frozen saved-log checker. Require unknown/reentrant-owner refusal,
+exact requests, MAC/CORE/DMA guards, no replay/speculative cleanup, complete
+prefix save and automatic return. RF word restoration does not reverse internal
+DAC reset effects or accept calibration. VCO/calibrated reception and security/IP
+stay separate. Validate integrated build/profile/salvage/installer checks before
+freezing the next native image. Cold adapter unplug remains required; shutdown
+under existing user authorization only after the complete candidate is ready.
+
 ## Consumed renderer/apps/ports baseline checkpoint
 
 Consumed actual main `1dad02c2` in runtime merge `d9c28128`. Published module
