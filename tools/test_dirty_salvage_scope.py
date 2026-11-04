@@ -78,4 +78,40 @@ class DestinationScopeTests(unittest.TestCase):
                         self.assertEqual([d.rsplit('bootindex=',1)[1] for d in devices],['1','2','3'])
                     else:launch.assert_not_called()
 
+class ManagedScopeTests(unittest.TestCase):
+    def test_managed_usb_graph_and_refusals(self):
+        for kind in ('save','control','reopen','same','hardlink','outside-work','outside-system','outside-config','later-fault','control-fault','missing-fault','uuid','no-mode','raw-mode','target','reverse'):
+            with self.subTest(kind=kind),tempfile.TemporaryDirectory() as temp:
+                out=Path(temp)/'owned';out.mkdir()
+                disk,work,cfg,variables=[out/n for n in ('system','usb','work.conf','vars')]
+                for path in (disk,work,cfg,variables):path.write_bytes(b'fixture')
+                args=argparse.Namespace(ovmf_vars=str(variables),ovmf='firmware',qemu='never')
+                mode=kind if kind in ('control','reopen') else 'save'
+                number=2 if kind in ('reopen','later-fault') else 1
+                uuid='1234abcd';fault=cfg if mode=='save' else None
+                if kind=='same':work=disk
+                if kind=='hardlink':work.unlink();work.hardlink_to(disk)
+                if kind=='outside-work':work=out.parent/'outside'
+                if kind=='outside-system':disk=out.parent/'outside'
+                if kind=='outside-config':fault=out.parent/'outside.conf'
+                if kind=='control-fault':mode='control'
+                if kind=='missing-fault':fault=None
+                if kind=='uuid':uuid='not-a-uuid'
+                if kind=='no-mode':mode=None
+                valid=kind in ('save','control','reopen')
+                with patch.object(proof,'choose_port',return_value=34567),patch.object(proof.subprocess,'Popen',side_effect=NeverLaunch) as launch:
+                    with self.assertRaises(NeverLaunch if valid else RuntimeError):
+                        proof.boot(disk,out,number,args,other_disk=work,work_fault_config=fault,managed_workspace=mode,workspace_uuid=uuid,
+                            dirty_salvage=kind=='raw-mode',target_disk=out/'target' if kind=='target' else None,reverse=kind=='reverse')
+                    if valid:
+                        command=launch.call_args.args[0]
+                        drives=[command[i+1] for i,v in enumerate(command) if v=='-drive']
+                        filters=[d for d in drives if 'blkdebug:' in d]
+                        self.assertEqual(len(filters),1 if kind=='save' else 0)
+                        self.assertFalse(any(str(disk) in d for d in filters))
+                        self.assertEqual(len(drives),4)
+                        self.assertIn('usb-storage,drive=stick,bus=workxhci.0,bootindex=2',command)
+                        self.assertEqual(sum(v.startswith('ide-hd,') for v in command),1)
+                    else:launch.assert_not_called()
+
 if __name__=='__main__':unittest.main()

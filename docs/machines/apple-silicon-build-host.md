@@ -33,6 +33,33 @@ their recorded paths/inodes. Superseded IO images retain exact bytes in verified
 gzip archives with compression manifests; no earlier evidence was discarded.
 Status: proof complete, scoped draft publication; no merge requested.
 
+## PR338 managed filesystem merge review
+
+Review consumes main `a37eb7b2`, then `f0c88a6d` and `b78e3ed5`, preserving all
+host notices. Revalidated all 154 original evidence hashes. After jq changed the
+runtime image, matched `1e83ee2c` passes fresh three-boot managed USB qualification
+and all 11 canonical/CLI cases. Complete fresh proof backups are independently
+cloned/hashed (154 files) at `.local/filesystem-evidence/pr338-review/`. Focused
+host checks and 19 installation-inspection tests pass using the documented Darwin
+feature macro. PR317 owner reports no current blocker; explicit slot/terminal
+work stays separate. Review VMs 61610, 6233 and 85869 remain untouched; all review
+guests stopped. See the [filesystem contract](../filesystem-layout.md) for limits
+and the next proposed late-flush proof. User authorized merge if ready.
+
+## Managed USB workspace filesystem proof
+
+Isolated `SrvrOS-filesystem`, branch
+`device/apple-silicon/filesystem-managed-salvage`, consumes main `5634cd9d` and
+subsequently `62b0708e`. PR317 lifetime review precedes the fixture-only BOT fault;
+no terminal stop/reclaim or production process/block/driver changes. Matched
+`3c480516` passes clean control, retained-reader salvage/failed retirement and
+restart readback through actual workspace commands; canonical compatibility
+passes all 11 cases. Combined `351eb986` produces identical tested payloads.
+The [filesystem contract](../filesystem-layout.md) records exact limits and
+154-file SHA-256-verified backups outside build cleanup. All task VMs stopped;
+review VMs 61610, 6233 and 85869 and primary checkout remain untouched. Delivery
+is a scoped draft PR; no physical trial, hosted Actions or merge requested.
+
 ## PR336 integrated-main merge review — ready
 
 User authorizes review and merge if ready. Reuse the isolated
@@ -3324,6 +3351,54 @@ historical; no power-loss, physical-device or full-image reproducibility claim
 is added. Integration checkout/review VM remain untouched. PR2 in SrvrPorts must
 merge before OS PR306; the user authorized both merges conditional on checks.
 
+### Unexpected app closure investigation — bounded audit completed November 3, 2026
+
+User authorized a bounded app recovery investigation in the independent
+`SrvrOS-app-quality` checkout, branch `app/closure-recovery`, from main
+`62b0708e`. Earlier unexplained physical app closures remain historical evidence,
+not a reproduced VM defect. Own investigation of Text/Files/Preview/Sketch
+failed saves, canceled dialogs, closure during accepted file work and process
+retirement. Reuse existing lifecycle/Sketch fixtures and fix only reproduced
+in-scope defects. Keep native acceptance, PR252 kernel/I/O ownership, the shared
+checkout and review VM untouched. Build and disposable VM harnesses run sequentially.
+
+Acceptance: matched source/pins/build; bounded mixed-app lifetime workload;
+normal and refused-dialog save/cancel/quit paths; exact saved bytes and retained
+edits; Sketch revision isolation/failed replacement; no unintended app retirement,
+surviving workers or unbounded heap/frame growth. Report physical closure cause
+as unresolved unless evidence actually identifies it. The bounded audit is now
+complete; results follow.
+
+Clean source `4f01d9c1` (Apps `3cf32af2`, UI `9eaaa74e`, Ports `525f4229`)
+produces byte-identical kernel/initramfs/disk artifacts to baseline `6f277f51`.
+Three desktop sessions and 36 application lifetimes pass with no surviving GUI
+workers. Post-session heap remains 1,075,712 bytes and physical-frame use is
+identical across completed rounds. The directed normal/Open With, refused-dialog,
+shutdown-cancellation and deliberate Preview-termination fixtures all pass with
+retained edits, exact saved files and process-baseline restoration. Sketch passes
+exact pixels, editing during save, saved-revision isolation, failed replacement,
+close prompts and Preview import. A rendered failed-save capture confirms Text
+retains its unsaved document and displays an error. This is functional/expert
+inspection, not representative-user or physical-device evaluation.
+
+No unintended closure or runtime defect was reproduced; no application/kernel
+runtime change is justified. Source review likewise found no demonstrated normal
+close/worker-retirement fault. The historical physical-device closure cause
+remains unresolved. Reopening that investigation requires a new reproducer or
+an affected-device exit reason/trace; another unchanged VM pass is not evidence
+of a physical fix.
+
+The only implementation change adds optional `--output` to the lifecycle and
+Sketch harnesses. Defaults and assertions are preserved; each new run retains its
+own evidence. The first directed run failed on missing host Pillow before image
+inspection; its failure is retained, and reruns passed using local ignored
+`build/tooling/recovery-venv` with Pillow. Generated-image and offline allocation
+checks pass; independent exfatprogs fsck was not run. Evidence, hashes, source
+identities and limits are in `build/review/app-closure-recovery/receipt.json`.
+All task VMs are stopped. Shared checkout and review VM remain untouched. The
+bounded target is complete; integration of this evidence/tooling review is a
+separate delivery action.
+
 
 ### jq isolated port — active November 3, 2026
 
@@ -3381,3 +3456,29 @@ the authorized ports-first integration; final merge identities/build receipts
 are retained in `build/review/jq-merge/`. All test VMs stopped; the integration
 checkout and attended review VM remain untouched. No further work is required
 for this bounded jq milestone.
+
+### PR339 integration — verified November 3, 2026
+
+User authorized integrating the bounded recovery audit/tooling PR339 in
+`SrvrOS-app-quality`, preserving the shared checkout and review VM. Current main
+`f0c88a6d` adds jq and installed-state inspection. Resolve only the appended
+host-journal conflict by retaining both records; preserve the new Ports pin.
+Verify Python/doc checks and a matched merged build, then exercise both changed
+harnesses with explicit evidence directories. Existing recovery assertions and
+the unresolved physical-device closure boundary remain unchanged.
+
+PR339 merged as `b78e3ed5`. The exact clean merged source builds with Ports
+`747cca28`, Apps `3cf32af2` and UI `9eaaa74e`. Python compilation and documentation
+checks pass. Both changed harnesses pass with explicit independent evidence
+paths: lifecycle/Open With retains edits after failed saves/canceled quits,
+checks exact saved files and process-baseline restoration; Sketch verifies exact
+pixels, edits during saves, failed replacement, close prompts and Preview import.
+Existing audit acceptance remains valid; no assertions or app runtime changed.
+Independent review found no remaining conflict or behavioral regression.
+
+The documentation closeout preserves the tested kernel/initramfs/disk hashes.
+Evidence and source identities are in local
+`build/review/app-closure-integration/receipt.json`. All task VMs are stopped.
+Shared checkout and review VM remain untouched. Integration is delivered and
+verified; historical physical-device closures remain unresolved as documented.
+No further work is required for this integration target.

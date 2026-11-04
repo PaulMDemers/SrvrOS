@@ -30,12 +30,15 @@ def main():
     parser.add_argument('--refuse-dialogs',action='store_true',help='force modal admission refusal and validate embedded recovery')
     parser.add_argument('--open-with',action='store_true',help='Exercise Files owned application chooser, cancellation, explicit handler, routing and unsaved sibling preservation')
     parser.add_argument('--generated-fixture',action='store_true',help='use the matched generated disk with generator and allocation checks instead of exfatprogs')
+    parser.add_argument('--output',type=Path,help='write evidence to this directory')
     args=parser.parse_args()
     if sum((args.crash,args.refuse_dialogs,args.pointer,args.shutdown))>1:parser.error('choose one directed fixture')
     root=Path(__file__).resolve().parents[1]
     out=root/('build/review/desktop-lifecycle-shutdown' if args.shutdown else 'build/review/desktop-lifecycle-pointer' if args.pointer else 'build/review/desktop-lifecycle-crash' if args.crash else 'build/review/desktop-lifecycle-refusal' if args.refuse_dialogs else 'build/review/desktop-lifecycle')
-    if args.open_with:out=out.with_name(out.name+'-open-with')
-    if args.generated_fixture:out=out.with_name(out.name+'-generated')
+    if args.output is not None:out=args.output
+    else:
+        if args.open_with:out=out.with_name(out.name+'-open-with')
+        if args.generated_fixture:out=out.with_name(out.name+'-generated')
     out.mkdir(parents=True,exist_ok=True)
     (out/'result.json').unlink(missing_ok=True)
     shots=[];pointer_actions=[];shutdown_actions=[]
