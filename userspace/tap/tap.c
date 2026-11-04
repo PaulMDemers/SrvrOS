@@ -49,7 +49,7 @@ int main(int argc, char **argv) {
     }
 
     int flags = O_WRONLY | O_CREAT | (append ? O_APPEND : O_TRUNC);
-    int copy = open(argv[arg], flags);
+    int copy = open(argv[arg], flags, 0666);
     if (copy < 0) {
         const char *text = "tap: cannot open copy path\n";
         write(STDERR_FILENO, text, strlen(text));

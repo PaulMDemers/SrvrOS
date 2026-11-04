@@ -59,7 +59,7 @@ int desktop_window_drag(int width,int height,struct desk_rect original,
 int desktop_window_placement(int screen_width,int screen_height,struct desk_rect original,
     unsigned placement,struct desk_rect *result) {
     if(!result || screen_width<1 || screen_height<1 || screen_width>16384 || screen_height>16384 ||
-       placement<DESKTOP_TILE_LEFT || placement>DESKTOP_CENTER) return 0;
+       placement<DESKTOP_TILE_LEFT || placement>DESKTOP_MAXIMIZE_PLACEMENT) return 0;
     int available_w=screen_width-16,available_h=screen_height-132;
     if(available_w<282 || available_h<285) return 0;
     int width,height;
@@ -70,7 +70,7 @@ int desktop_window_placement(int screen_width,int screen_height,struct desk_rect
         if(width>available_w) width=available_w;
         if(height>available_h) height=available_h;
     } else {
-        width=(available_w-8)/2;height=available_h;
+        width=placement==DESKTOP_MAXIMIZE_PLACEMENT?available_w:(available_w-8)/2;height=available_h;
         if(width<282) return 0;
     }
     if(width>DESK_MAX_WIDTH+2) width=DESK_MAX_WIDTH+2;
@@ -78,6 +78,21 @@ int desktop_window_placement(int screen_width,int screen_height,struct desk_rect
     int x=placement==DESKTOP_TILE_LEFT?8:placement==DESKTOP_TILE_RIGHT?screen_width-width-8:(screen_width-width)/2;
     int y=52+(placement==DESKTOP_CENTER?(available_h-height)/2:0);
     *result=(struct desk_rect){x,y,width,height};return 1;
+}
+
+unsigned desktop_snap_trigger(int width,int height,int x,int y) {
+    if(width<1 || height<156 || x<0 || x>=width || y<0 || y>=height-80)return 0;
+    if(y<=52)return DESKTOP_MAXIMIZE_PLACEMENT;
+    if(x<8)return DESKTOP_TILE_LEFT;
+    if(x>=width-8)return DESKTOP_TILE_RIGHT;
+    return 0;
+}
+int desktop_drag_restore(int width,int height,struct desk_rect placed,struct desk_rect restore,int grabx,int graby,int x,int y,struct desk_rect *result) {
+    if(placed.w<=0 || restore.w<=0)return 0;
+    int64_t offset=(int64_t)grabx*restore.w/placed.w;
+    if(offset<0)offset=0;
+    if(offset>restore.w)offset=restore.w;
+    return desktop_window_drag(width,height,restore,(int64_t)x-offset,(int64_t)y-graby,result);
 }
 
 void desktop_stack(const struct desktop_scene *s,int *order) {
@@ -295,10 +310,16 @@ static void draw_window(struct desk_canvas *c,const struct desktop_window *w,int
         struct desk_rect content={r.x+1,r.y+44,w->width,w->height};
         struct desk_rect visible=desk_intersect(c->clip,
             desk_intersect(content,(struct desk_rect){r.x+1,r.y+44,r.w-2,r.h-45}));
-        for (int y=visible.y;y<visible.y+visible.h;y++)
-            for (int x=visible.x;x<visible.x+visible.w;x++)
-                c->pixels[(size_t)y*c->stride+x]=w->pixels[(size_t)(y-content.y)*w->width+x-content.x];
-        c->pixel_writes+=(uint64_t)visible.w*visible.h;
+        unsigned density=desk_canvas_scale(c),source_density=w->scale?w->scale:1;
+        struct desk_rect physical=desk_canvas_physical_rect(c,visible);
+        for(int y=physical.y;y<physical.y+physical.h;y++) {
+            unsigned sy=(y-content.y*(int)density)*source_density/density;
+            for(int x=physical.x;x<physical.x+physical.w;x++) {
+                unsigned sx=(x-content.x*(int)density)*source_density/density;
+                c->pixels[(size_t)y*c->stride+x]=w->pixels[(size_t)sy*w->width*source_density+sx];
+            }
+        }
+        c->pixel_writes+=(uint64_t)physical.w*physical.h;
     }
 }
 struct desk_rect desktop_clock_rect(int width,const char *clock) {
@@ -417,6 +438,14 @@ void desktop_draw_ordered(struct desk_canvas *c,const struct desktop_scene *s,
         int skip_body=occlusion && bounded && covered_by_body(s,order,n,(struct desk_rect){r.x+1,r.y+44,r.w-2,r.h-45},c->clip);
         int skip_content=occlusion && !skip_body && content_covered(s,order,n,c->clip);
         draw_window(c,w,order[n]==s->focus,s->apps,t,skip_body,skip_content);
+    }
+    if(s->snap_preview) {
+        struct desk_rect r=s->snap_frame;
+        desk_theme_glass(c,r,t->accent,t->accent,70,0);
+        desk_fill(c,(struct desk_rect){r.x,r.y,r.w,2},t->accent);
+        desk_fill(c,(struct desk_rect){r.x,r.y+r.h-2,r.w,2},t->accent);
+        desk_fill(c,(struct desk_rect){r.x,r.y,2,r.h},t->accent);
+        desk_fill(c,(struct desk_rect){r.x+r.w-2,r.y,2,r.h},t->accent);
     }
     if(s->apps) {
         dock(c,s);

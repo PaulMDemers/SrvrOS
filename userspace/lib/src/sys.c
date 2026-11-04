@@ -142,6 +142,16 @@ long srv_pipe_recv_rights(int fd, int *fds, size_t capacity, uint64_t *flags_out
     return srv_syscall4(SYS_PIPE_RECV_RIGHTS, fd, (long)fds, (long)capacity, (long)flags_out);
 }
 
+long srv_pipe_recvmsg_message(int fd, const struct srv_pipe_message_layout *layout,
+    struct srv_pipe_message *message) {
+    return srv_syscall4(SYS_PIPE_MESSAGE, fd, (long)layout, (long)message, SRV_PIPE_MESSAGE_RECV);
+}
+
+long srv_pipe_sendmsg_message(int fd, const struct srv_pipe_message_layout *layout,
+    const struct srv_pipe_message *message) {
+    return srv_syscall4(SYS_PIPE_MESSAGE, fd, (long)layout, (long)message, SRV_PIPE_MESSAGE_SEND);
+}
+
 long srv_unix_bind(const char *path) {
     return srv_syscall1(SYS_UNIX_BIND, (long)path);
 }

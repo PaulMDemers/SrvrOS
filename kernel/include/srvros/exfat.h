@@ -36,6 +36,9 @@ struct exfat_fsinfo {
 
 bool exfat_mount_image(const char *mountpoint, const uint8_t *image, uint64_t image_size);
 bool exfat_mount_block_device(const char *mountpoint, struct block_device *device);
+/* Installed-root admission: no writes or flushes during mount; reject media
+ * needing recovery, including any pending metadata temporary sidecar. */
+bool exfat_mount_block_device_clean(const char *mountpoint, struct block_device *device);
 /* Refuses active backend operations and linked process files/directories/cwds.
  * Mount lifecycle is serialized through the CPU0 storage owner. */
 bool exfat_unmount(const char *mountpoint);

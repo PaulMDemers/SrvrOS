@@ -53,7 +53,7 @@ These are distinct budgets, not interchangeable definitions of “windows.”
 | Dynamic GUI queues, 64 messages per queue | 2 MiB requested-byte budget includes prepared/retired records; process and window budgets remain independent |
 | Dynamic GUI surfaces | 256 KiB record budget plus 256 MiB pixel budget, including in-flight reservations and retirement; no fixed surface slot array |
 | 96 MiB compositor pixel cache | Demand-allocated front/spare images; resize reservations and reclaimable spare policy already exist |
-| 1440×900 logical client surface | Protocol/kernel bound; explicit 2× output is enlargement, not native-density text rendering |
+| 1440×900 logical client surface | Logical protocol bound; native 2× backing reaches 2880×1800 physical pixels and uses four times the pixel bytes |
 | Clipboard transfer state per admitted client (D0 merged) | No independent peer table; one global 64 KiB committed value and staged writer |
 | Menu/palette caller-owned storage | Inline defaults remain 96/32 and 64; compositor grows storage to enumerate all admitted windows; shared list geometry bound 4096 |
 | 32 application menu entries | Current action/menu protocol; separate from global window enumeration |

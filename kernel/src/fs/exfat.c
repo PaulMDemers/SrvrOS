@@ -1685,14 +1685,16 @@ static bool parse_metadata_file(struct exfat_mount *mount, const char *path, boo
     return ok;
 }
 
-static void load_mount_metadata(struct exfat_mount *mount) {
+static bool load_mount_metadata(struct exfat_mount *mount, bool clean) {
     char path[EXFAT_MAX_PATH];
     char temp_path[EXFAT_MAX_PATH];
     if (mount == NULL ||
         !metadata_file_path(mount, path, sizeof(path)) ||
         !metadata_temp_path(mount, temp_path, sizeof(temp_path))) {
-        return;
+        return false;
     }
+    /* Treat any case variant or node type as pending. Do not invoke replay. */
+    if (clean && name_conflicts(temp_path, NULL)) return false;
 
     metadata_syncing = true;
     /* Registration time is not a file modification date. Until native exFAT
@@ -1711,7 +1713,12 @@ static void load_mount_metadata(struct exfat_mount *mount) {
      * neither replay nor cleanup is an offline recovery protocol. */
     if (mount->volume.write_blocked) {
         metadata_syncing = false;
-        return;
+        return !clean;
+    }
+    if (clean) {
+        bool ok = !name_conflicts(path, NULL) || parse_metadata_file(mount, path, true);
+        metadata_syncing = false;
+        return ok;
     }
     if (parse_metadata_file(mount, temp_path, true)) {
         if (vfs_lookup(path) != NULL) {
@@ -1727,6 +1734,7 @@ static void load_mount_metadata(struct exfat_mount *mount) {
          * it after serializing the current namespace. */
     }
     metadata_syncing = false;
+    return true;
 }
 
 static uint16_t entry_set_checksum(const uint8_t *entries, uint64_t entry_count) {
@@ -3945,7 +3953,7 @@ static bool mount_image_impl(const char *mountpoint, const uint8_t *image, uint6
         clear_mount(mount);
         return false;
     }
-    load_mount_metadata(mount);
+    (void)load_mount_metadata(mount, false);
     vfs_set_metadata_changed_callback(exfat_metadata_changed);
 
     console_printf("exfat: mounted %s files=%u cluster=%u bytes\n",
@@ -3955,7 +3963,7 @@ static bool mount_image_impl(const char *mountpoint, const uint8_t *image, uint6
     return true;
 }
 
-static bool mount_block_device(const char *mountpoint, struct block_device *device, uint64_t claim) {
+static bool mount_block_device(const char *mountpoint, struct block_device *device, uint64_t claim, bool clean) {
     uint64_t size = block_device_size(device);
     if (!valid_mountpoint(mountpoint) || device == NULL || size < sizeof(struct exfat_boot_sector)) {
         return false;
@@ -4002,7 +4010,14 @@ static bool mount_block_device(const char *mountpoint, struct block_device *devi
     }
     if (mount->volume.write_blocked)
         console_printf("exfat: %s requires filesystem recovery or unsupported bitmap; writes disabled\n", mountpoint);
-    load_mount_metadata(mount);
+    struct block_device *parent = block_parent(device);
+    if (clean && (mount->volume.write_blocked || !block_device_online(device) ||
+        !device->write || !parent || !parent->flush || !load_mount_metadata(mount, true))) {
+        vfs_unregister_prefix(mountpoint);
+        clear_mount(mount);
+        return false;
+    }
+    if (!clean) (void)load_mount_metadata(mount, false);
     vfs_set_metadata_changed_callback(exfat_metadata_changed);
 
     console_printf("exfat: mounted %s from %s files=%u cluster=%u bytes\n",
@@ -4020,7 +4035,14 @@ bool exfat_mount_image(const char *mountpoint,const uint8_t *image,uint64_t size
 bool exfat_mount_block_device(const char *mountpoint, struct block_device *device) {
     struct fs_scope scope;if(!fs_enter(&scope))return false;
     uint64_t claim=block_claim_mount(device);
-    bool ok=claim && mount_block_device(mountpoint,device,claim);
+    bool ok=claim && mount_block_device(mountpoint,device,claim,false);
+    if(claim && !ok)(void)block_claim_release(claim);
+    fs_leave(&scope);return ok;
+}
+bool exfat_mount_block_device_clean(const char *mountpoint, struct block_device *device) {
+    struct fs_scope scope;if(!fs_enter(&scope))return false;
+    uint64_t claim=block_claim_mount(device);
+    bool ok=claim && mount_block_device(mountpoint,device,claim,true);
     if(claim && !ok)(void)block_claim_release(claim);
     fs_leave(&scope);return ok;
 }

@@ -14,6 +14,8 @@ void __desk_app_surface_trace(struct desk_app *app,const char *stage,int begin) 
 static uint64_t ticks=1,next_surface=10,source=42;
 static int liveness_checks,alive=1,queued,full,created,destroyed,blits,sends,waits,wait_result,pixel_failure,surface_failure;
 static unsigned pixel_allocs,pixel_frees;
+static uint64_t surface_w,surface_h,blit_w,blit_h;
+static uint32_t freed_w,freed_h;
 static int refuse_canvas=1;static void *taken_canvas;static size_t taken_bytes;
 static int take_canvas(void *context,void *address,size_t length) {
     assert(context==&taken_canvas && !taken_canvas);
@@ -31,7 +33,7 @@ static struct desk_packet incoming,last_sent;
 long srv_ticks(void) { return ticks; }
 int desk_process_alive(uint64_t pid) { assert(pid==42);liveness_checks++;return alive; }
 uint32_t *desk_pixels_alloc(uint32_t w,uint32_t h) { pixel_allocs++;return pixel_failure?NULL:calloc((size_t)w*h,4); }
-void desk_pixels_free(uint32_t *p,uint32_t w,uint32_t h) { (void)w;(void)h;if(p)pixel_frees++;free(p); }
+void desk_pixels_free(uint32_t *p,uint32_t w,uint32_t h) { if(p) { pixel_frees++;freed_w=w;freed_h=h; }free(p); }
 struct desk_packet desk_packet_new(uint32_t type) {
     return (struct desk_packet){.window=DESK_DEFAULT_WINDOW,.type=type,.version=DESK_PROTOCOL_VERSION,.size=sizeof(struct desk_packet)};
 }
@@ -43,11 +45,11 @@ int desk_receive(uint64_t *sender,struct desk_packet *p) {
     queued=0;*sender=source;*p=incoming;return 1;
 }
 int gui_surface_create(uint64_t w,uint64_t h,uint64_t flags,uint64_t *id) {
-    assert(w>=280 && h>=240 && flags==DESK_SURFACE_STREAM);if(surface_failure)return -1;*id=next_surface++;created++;return 0;
+    assert(w>=280 && h>=240 && flags==DESK_SURFACE_STREAM);surface_w=w;surface_h=h;if(surface_failure)return -1;*id=next_surface++;created++;return 0;
 }
 int gui_surface_destroy(uint64_t id) { assert(id>=10);destroyed++;return 0; }
 int gui_surface_blit(uint64_t id,uint64_t x,uint64_t y,uint64_t w,uint64_t h,const uint32_t *p,uint64_t stride) {
-    assert(id>=10 && x==0 && y==0 && w==stride && h>=240 && p);blits++;return 0;
+    assert(id>=10 && x==0 && y==0 && w==stride && h>=240 && p);blit_w=w;blit_h=h;blits++;return 0;
 }
 static void receive(unsigned type,uint64_t generation) {
     incoming=desk_packet_new(type);incoming.generation=generation;queued=1;
@@ -86,16 +88,44 @@ static void refused_resize(void) {
     assert(desk_app_poll(&a,&event)==2 && !a.pending && !a.dirty);
     desk_app_close(&a);
 }
+static void density_surfaces(void) {
+    struct desk_app a;struct desk_packet event;struct desk_canvas canvas;
+    assert(!desk_app_open(&a,"Density",400,300));
+    receive(DESK_CONFIGURE,1);incoming.width=400;incoming.height=300;incoming.value=3;
+    assert(desk_app_poll(&a,&event)==2 && !a.server && !a.configure.generation);
+    receive(DESK_CONFIGURE,1);incoming.width=400;incoming.height=300;incoming.value=1;
+    assert(desk_app_poll(&a,&event)==2 && desk_app_poll(&a,&event)==1);
+    assert(a.scale==1 && surface_w==400 && surface_h==300);
+    assert(desk_app_present(&a)==1 && last_sent.value==1);
+    uint64_t old=a.surface;uint32_t *pixels=a.pixels;
+    receive(DESK_CONFIGURE,2);incoming.width=400;incoming.height=300;incoming.value=2;
+    assert(desk_app_poll(&a,&event)==2 && !desk_app_poll(&a,&event));
+    assert(a.surface==old && a.pixels==pixels && a.pending);
+    receive(DESK_RELEASE,1);incoming.surface=old;incoming.serial=a.pending;
+    assert(desk_app_poll(&a,&event)==2 && desk_app_poll(&a,&event)==1);
+    assert(a.scale==2 && a.width==400 && a.height==300 && a.surface!=old);
+    assert(surface_w==800 && surface_h==600 && freed_w==400 && freed_h==300);
+    assert(desk_app_canvas(&a,&canvas)==1 && canvas.width==400 && canvas.height==300);
+    assert(desk_app_present(&a)==1 && last_sent.value==2 && last_sent.width==400 && last_sent.height==300);
+    assert(blit_w==800 && blit_h==600);
+    receive(DESK_RELEASE,2);incoming.surface=a.surface;incoming.serial=a.pending;assert(desk_app_poll(&a,&event)==2);
+    pixels=a.pixels;old=a.surface;
+    receive(DESK_CONFIGURE,3);incoming.width=400;incoming.height=300;incoming.value=1;
+    assert(desk_app_poll(&a,&event)==2);pixel_failure=1;
+    assert(desk_app_poll(&a,&event)==2 && a.pixels==pixels && a.surface==old && a.scale==2);
+    assert(desk_app_poll(&a,&event)==0 && last_sent.type==DESK_RESIZE_REFUSED && last_sent.value==2);
+    pixel_failure=0;desk_app_close(&a);assert(freed_w==800 && freed_h==600);
+}
 static int connection_receive(struct desk_connection *c,struct desk_app **target,struct desk_packet *event) {
     int r=0;for(int n=0;n<8 && queued;n++)r=desk_connection_poll(c,target,event);
     assert(!queued);return r;
 }
 static void connection_configure(struct desk_connection *c,struct desk_app *a) {
     struct desk_app *target;struct desk_packet event;
-    receive(DESK_CONFIGURE,1);incoming.window=a->window;incoming.width=400;incoming.height=300;
+    receive(DESK_CONFIGURE,1);incoming.window=a->window;incoming.width=400;incoming.height=300;incoming.value=a->window==2?2:1;
     assert(connection_receive(c,&target,&event)==2);
     for(int n=0;n<8 && !a->surface;n++)desk_connection_poll(c,&target,&event);
-    assert(a->surface && a->width==400 && a->height==300);
+    assert(a->surface && a->width==400 && a->height==300 && a->scale==(a->window==2?2u:1u));
 }
 static void connection_windows(void) {
     alive=1;full=0;source=42;queued=0;
@@ -115,7 +145,7 @@ static void connection_windows(void) {
     int sent_before=sends;b.menu_pending=1;desk_app_menu_tick(&b);
     assert(sends==sent_before && b.menu_pending && desk_app_title(&b,"Early")<0);b.menu_pending=0;
     receive(DESK_OPEN_REPLY,0);incoming.window=2;assert(connection_receive(&c,&target,&event)==1 && target==&b);
-    connection_configure(&c,&b);b.pixels[0]=0xabcdef;assert(desk_app_present(&b)==1);
+    connection_configure(&c,&b);b.pixels[0]=0xabcdef;assert(desk_app_present(&b)==1 && last_sent.value==2 && blit_w==800 && blit_h==600);
     receive(DESK_RELEASE,1);incoming.window=2;incoming.surface=a.surface;incoming.serial=a.pending;
     assert(connection_receive(&c,&target,&event)==2 && a.pending && b.pending);
     receive(DESK_RELEASE,1);incoming.window=2;incoming.surface=b.surface;incoming.serial=b.pending;
@@ -393,6 +423,7 @@ int main(void) {
     reserved_first_canvas();
     puts("first-canvas: PASS refused late allocation, adopted no-allocation configure, geometry fallback, duplicate/admission refusal, early close and surface-failure ownership");
     refused_resize();
+    density_surfaces();
     connection_windows();
     parent_dialogs();
     application_lifecycle();

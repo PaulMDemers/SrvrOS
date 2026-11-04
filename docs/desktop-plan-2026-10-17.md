@@ -45,7 +45,7 @@ It is a self-contained visual and interaction prototype, not native SrvrOS code.
 Its example files and status values are illustrative; Save retains text only in
 the preview's memory. Browser fonts are placeholders for the native text system.
 
-![Desktop study at the target panel size](design/desktop-study.png)
+![Desktop study at the target panel size](design/desktop-study.jpg)
 
 The direction uses warm paper surfaces, a muted sage desktop, dark readable text,
 and evergreen selection/action accents. A small launcher and dock expose Files,

@@ -125,6 +125,8 @@ long srv_pipe_pair_flags(int fds[2],uint64_t flags);
 long srv_pty_create(int fds[2]);
 long srv_pipe_send_rights(int fd, const int *fds, size_t count);
 long srv_pipe_recv_rights(int fd, int *fds, size_t capacity, uint64_t *flags_out);
+long srv_pipe_recvmsg_message(int fd, const struct srv_pipe_message_layout *layout, struct srv_pipe_message *message);
+long srv_pipe_sendmsg_message(int fd, const struct srv_pipe_message_layout *layout, const struct srv_pipe_message *message);
 long srv_unix_bind(const char *path);
 long srv_unix_listen(int fd, size_t backlog);
 long srv_unix_connect(const char *path);

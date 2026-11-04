@@ -55,6 +55,7 @@ def main():
                     'int __posix_signal_dispatch_pending_restartable(void);\n')
     extracted = out / 'adapter.c'
     extracted.write_text(f'#line 1 "{adapter}"\n' + prefix + '\n' + declarations +
+                         section('static int io_restart_after_signal(', '\nssize_t __posix_read_with_socket_error(') +
                          section('int close(int fd) {', '\nint fsync(') +
                          section('static int dup_locked(', '\nint pipe2(') +
                          section('static int fcntl_dupfd_locked(', '\nint fcntl64('))

@@ -614,6 +614,20 @@ refused:
     return false;
 }
 
+bool virtio_gpu_present_configure(uint32_t width, uint32_t height) {
+    if (!presentation_enter()) return false;
+    uint64_t bytes = (uint64_t)width * height * 4;
+    bool ok = kernel_context() && presentation.prepared && !presentation.blocked &&
+        !presentation.active && !presentation.owned && width && height &&
+        width <= VGPU_MAX_DIMENSION && height <= VGPU_MAX_DIMENSION && bytes <= VGPU_BACKING_LIMIT;
+    if (ok) {
+        presentation.width = width; presentation.height = height; presentation.bytes = bytes;
+        presentation.backing_frames = (bytes + 4095) / 4096;
+    }
+    presentation_leave();
+    return ok;
+}
+
 /* Called with the sole presentation owner. Reset tears down all host resources
  * before any backing or command memory is freed. On QEMU virtio-vga this also
  * returns scanout to the inherited VGA register configuration (never rewritten

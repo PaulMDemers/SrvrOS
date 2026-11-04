@@ -1,4 +1,8 @@
 """Match serial diagnostics only after their final line terminator arrives."""
+
+if not __debug__:
+    raise RuntimeError('evidence validation requires Python assertions; disable optimization')
+
 import re
 
 

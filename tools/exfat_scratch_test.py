@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 """Verify scratch extent admission and metadata isolation on disposable exFAT."""
+
+if not __debug__:
+    raise RuntimeError('evidence validation requires Python assertions; disable optimization')
+
 from pathlib import Path
 import re
 import struct

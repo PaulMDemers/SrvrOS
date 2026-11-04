@@ -436,10 +436,10 @@ python3 tools/presentation_screens.py --qemu /ucrt64/bin/qemu-system-x86_64
   `wait`, `jobs -l`, `%+` job references, foreground/background pipeline job
   control, `kill -0` probes, `%job` process-group kill, and Ctrl-C interruption
   of CPU-bound processes and pipelines with `status 130`.
-- `process_lifetime_smoke.py`: disposable Q35 boot, two runs of the kernel
-  `lifetimetest` command (256 sequential apps total), failed spawn, synchronous
+- `process_lifetime_smoke.py`: disposable Q35 boot, four runs of the kernel
+  `lifetimetest` command (512 sequential apps total), failed spawn, synchronous
   exec, orphaned descendants across `setsid`/exec/job groups, selected-lifetime
-  drain and unrelated-process survival, 32 competing waiter pairs with exactly
+  drain and unrelated-process survival, 64 competing waiter pairs with exactly
   one successful reap per child, followed by the existing PTY fixture.
   `make test-process-lifetime` covers preparation/release races and stale owner
   tokens against the real kernel allocation paths. This does not accept native
@@ -1329,3 +1329,134 @@ sanitizer architectures, exact VM evidence and bounded contracts are in the
 [DNS/socket audit](dns-socket-audit-2026-10-28.md). Evidence directory:
 `build/review/dns-socket/`. This adds syscall 155 and EAI_AGAIN; rebuild matched
 kernel/libc rather than copying a new socket client into an older image.
+
+
+The October 31 resolver follow-up expands `make test-net-query` to 15 modes.
+`dns-last-poll` and `dns-deadline-wake` inject a valid response into the
+production packet handler in the last poll and at the final wake respectively.
+Both require the captured answer from a single query and release of resolver
+ownership. The silent-server control checks exactly three full timeout intervals,
+unchanged output on failure, and a successful subsequent lookup.
+
+## Socket duplicates, DNS budgets and restarted I/O
+
+Run `make test-socket-calls test-socket-aliases test-fd-io-restart`. The
+socket-call fixture drives the production libc resolver with a fake monotonic
+clock and checks every poll timeout. It injects malformed, truncated and foreign
+datagrams, a readiness race, an answer with 3 ms remaining, a stream of rejected
+packets, and terminal errors. Stream I/O cases check which socket supplied the
+reported error when a callback changes the pending error.
+
+The alias fixture exercises UDP and stream connect through a duplicate,
+per-descriptor close-on-exec flags, failure rollback, shared options and slot
+reuse. The restart fixture compiles the guest file implementation with its own
+headers and checks scalar and vector I/O, partial progress and blocking locks.
+
+On a matched guest, `tools/netabi_smoke.py` requires delivery from the original
+UDP descriptor both before and after closing its connected duplicate.
+`tools/thread_smoke.py` requires the interrupted `readv` to leave a byte in a
+replacement pipe for the next reader. Both smoke harnesses check the new guest
+markers in the serial output.
+
+## Unix-stream rights and payload
+
+Run `make test-process-output test-pipe-message test-socket-calls test-syscall-io`.
+The process fixture exercises the real queue and descriptor table. It forces
+queue pressure, partial delivery, interrupted waits, descriptor replacement,
+truncation, peek, table exhaustion and copyout rollback. It also mixes legacy
+records at the same byte offset with a new receiver. The syscall fixture changes
+output mappings across a simulated wait and checks that failure precedes
+consumption. The libc cases exercise raw and pseudo endpoints, exported-FD
+reuse across a handler, signal flags and overlapping payload/header output.
+
+Build a matched image and run `python3 tools/netabi_smoke.py --boot-wait 60`.
+The guest fills a socketpair, refuses a rights-bearing send, closes the writer
+and sends an unrelated byte from its duplicate. It also checks a zero-byte
+receive, an ordinary prefix before a rights record, peek followed by discard,
+and inaccessible payload/control output followed by a successful retry.
+
+The full thread suite also exercises `dprintf` on a nonblocking pipe. Its
+setup and readback account for short transfers in chunks of at most `PIPE_BUF`,
+then check the formatted output byte by byte. The full-pipe `EAGAIN` and
+broken-peer `EPIPE` checks remain part of that test.
+
+## Queued descriptor cycles and pipe-slot reuse
+
+Run `make test-process-output`. The process fixture includes an exhaustive
+three-receiver queue graph, alias and inheritance controls, pending accepts,
+mixed legacy and atomic rights transfers, and reentrant writeback during queue
+retirement. It also forces a blocked reader or writer to resume after close,
+`dup2`, or reuse of both the descriptor number and pipe slot. The tests check
+the replacement pipe's contents and the byte count from a partial write.
+
+On the matched guest, `tools/netabi_smoke.py` requires two cycle probes. Each
+queues a pipe writer beside a socket descriptor and checks for EOF after the
+external sockets close. It repeats each topology 80 times against the 64-slot
+pipe pool. A live duplicate control retrieves the descriptors and transfers a
+byte. `tools/thread_smoke.py --test vector-io` includes a blocked `writev`
+whose descriptor is replaced after its first byte fills the original pipe.
+
+## Pipe buffers changed during a wait
+
+Run `make test-pipe-user-mapping test-process-output` and the matched
+`tools/thread_smoke.py --test pipe-mapping` guest. The syscall fixture injects
+a mapping change during scalar and vectored transfers. A separate process
+fixture transfers a real pipe writer alongside a message. After a failed
+ordinary read it retrieves the same message and writes through the received
+descriptor.
+
+In the guest, scheduler traces check that both readers blocked before a sibling
+unmapped the destination and supplied two bytes. The callers check `EFAULT`
+and read both bytes on retry. A third test frees one byte in a full pipe and
+starts a large scalar write. Once the pipe fills again, the sibling unmaps
+the source and drains space. The writer must report the one byte it published.
+
+
+## Repository-wide audit regressions
+
+The [November 2 coverage ledger](audit-coverage-2026-11-02.md) records the whole
+tracked-tree inventory and distinguishes source screening, sampled manual
+review and executable coverage. Its companion kernel, userland, tooling and
+integration reports retain the reproductions and remaining gaps.
+
+`test-core` includes the user-copy, VMM, initramfs, fault-exit, checked network
+transfer, UV ownership/bounds and utility error-path fixtures. Linux execution
+requires the documented host compiler and exfatprogs at `/usr/sbin/mkfs.exfat`
+and `/usr/sbin/fsck.exfat`. Run assertion-based Python fixtures without `-O`
+and C fixtures without `-DNDEBUG`. A clean external filesystem check alone
+does not prove the exact allocation-bitmap length on exfatprogs 1.2.9.
+
+For the current guest regressions, rebuild matched images and run the following
+sequentially in one checkout. The macOS wrapper is described in
+[macOS development](macos-development.md).
+
+```sh
+sh tools/macos/build.sh -j4 all
+python3 tools/sysabi_smoke.py --boot-wait 180 --command-wait 90
+python3 tools/netabi_smoke.py --boot-wait 180 --command-wait 120
+python3 tools/thread_smoke.py --boot-wait 180 --run-wait 300
+python3 tools/libc_smoke.py --boot-wait 180 --command-wait 120
+python3 tools/uv_smoke.py --boot-wait 180 --line-wait 30 --tcp-wait 60
+python3 tools/libuv_smoke.py --boot-wait 180 --line-wait 30
+python3 tools/process_lifetime_smoke.py
+python3 tools/cli_smoke.py --boot-wait 180
+python3 tools/ports_smoke.py --boot-wait 180
+```
+
+Sysabi checks refused noncanonical output and process-scoped user faults,
+including a fault after the initial thread retires. Netabi checks blocked UDP
+output invalidation, peer metadata and descriptor replacement while an alias
+remains live. Threadstress checks retained PTY records and partial writes after
+mapping changes, plus descriptor replacement on both PTY ends.
+
+The tracked uACPI patches are covered by `test-uacpi-namespace-root` and
+`test-uacpi-table-install`, plus `test-uacpi-gas` (all in `test-core`). `make test-acpi-namespace`
+additionally exercises the offline interpreter with 30 synthetic/private-data
+cases and requires iasl. The ordinary kernel links the isolated AML probe;
+`python3 tools/aml_probe_smoke.py --boot-wait 180` checks that probe in a disposable
+Q35 guest. These tests do not enable or validate native firmware ownership.
+
+`test-sh-arithmetic` compiles the actual shell parser and checks signed boundaries,
+variable conversion, minimum-value formatting and nested short-circuit parsing.
+The full CLI smoke checks these paths in the rebuilt guest, including error
+status 2 without terminating the shell. The host fixture is also in `test-core`.

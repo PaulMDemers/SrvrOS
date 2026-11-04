@@ -1,0 +1,228 @@
+{
+  "runtime_source": "8d9e47fc5750595f826aa7d33a511823072d797d",
+  "integration_source": "db713e6baa8251a2ec325c63c850d596404431a9",
+  "integration_base": "fa8e503f",
+  "integration_kernel_initramfs_disk_equal": true,
+  "snap_vm": {
+    "status": "PASS",
+    "metadata": {
+      "source_manifest_sha256": "df1e775a0f8e8b46907496ebb6e56c1e16a75478567d56db5bd5df93afd0e897",
+      "kernel_sha256": "0506d854b8520176c3e2d5dbcbaa66536c1ffbe5d3c026eb9a6c087e7a23cae0",
+      "base_disk_sha256": "18c3178d502063d83fc8abdd49f89246af0fe2d811152948fb96c5a94e4d7098",
+      "qemu_version": "QEMU emulator version 11.1.2"
+    },
+    "modes": [
+      {
+        "mode": "1280x800-scale1",
+        "logical": [
+          1280,
+          800
+        ],
+        "text_pid": 6,
+        "text_window": 1,
+        "identity": 1,
+        "original": [
+          32,
+          64,
+          722,
+          525
+        ],
+        "boot_iso_sha256": "9f1b535f778f556b6ebe3abc1e4d9268efdd6d5a897bbebc06e1e4e9cfceb4dd",
+        "active_pointer": {
+          "index": 2,
+          "name": "QEMU Virtio Tablet",
+          "current": true,
+          "absolute": true
+        }
+      },
+      {
+        "mode": "1920x1080-scale2",
+        "logical": [
+          960,
+          540
+        ],
+        "text_pid": 6,
+        "text_window": 1,
+        "identity": 1,
+        "original": [
+          32,
+          64,
+          722,
+          396
+        ],
+        "boot_iso_sha256": "1d2b17c1e3a964d791f84bd667a72619ec483774283e7d48579e415651917ce9",
+        "active_pointer": {
+          "index": 2,
+          "name": "QEMU Virtio Tablet",
+          "current": true,
+          "absolute": true
+        }
+      }
+    ],
+    "checks": [
+      "held preview and release placement for left, right and maximize",
+      "stationary placed click and drag restoration",
+      "preview leave and Escape cancellation",
+      "modal capture cancellation",
+      "selection and saved content",
+      "GPU presenter reset"
+    ],
+    "limitations": "Screenshots provide visual evidence; host pointer capture and smoothness are not tested."
+  },
+  "resize_vm": {
+    "status": "PASS",
+    "metadata": {
+      "source_manifest_sha256": "df1e775a0f8e8b46907496ebb6e56c1e16a75478567d56db5bd5df93afd0e897",
+      "kernel_sha256": "0506d854b8520176c3e2d5dbcbaa66536c1ffbe5d3c026eb9a6c087e7a23cae0",
+      "base_disk_sha256": "18c3178d502063d83fc8abdd49f89246af0fe2d811152948fb96c5a94e4d7098",
+      "qemu_version": "QEMU emulator version 11.1.2"
+    },
+    "modes": [
+      {
+        "mode": "1280x800-scale1",
+        "logical": [
+          1280,
+          800
+        ],
+        "text_pid": 6,
+        "text_window": 1,
+        "identity": 1,
+        "boot_iso_sha256": "372732ca35350020b0852aa003e1413f11223c8b23be245b501386b569451593",
+        "active_pointer": {
+          "index": 2,
+          "name": "QEMU Virtio Tablet",
+          "current": true,
+          "absolute": true
+        }
+      },
+      {
+        "mode": "1920x1080-scale2",
+        "logical": [
+          960,
+          540
+        ],
+        "text_pid": 6,
+        "text_window": 1,
+        "identity": 1,
+        "boot_iso_sha256": "12fc7258efd71a9a95f8c08e997426e0cec5d80a2d1b4ad16f384edd5e2d10ad",
+        "active_pointer": {
+          "index": 2,
+          "name": "QEMU Virtio Tablet",
+          "current": true,
+          "absolute": true
+        }
+      }
+    ],
+    "checks": [
+      "eight resize directions and anchored opposite edges",
+      "minimum frame bounds",
+      "directional cursor traces and arrow after leave",
+      "selection and saved content",
+      "stationary press and Escape cancellation",
+      "modal parent capture and capture cancellation",
+      "edge release and reentry",
+      "GPU presenter reset"
+    ],
+    "limitations": "Cursor screenshots provide visual evidence; host pointer capture and smoothness are not tested."
+  },
+  "theme_vm": {
+    "status": "PASS",
+    "metadata": {
+      "submodules": " 5e30ecd3f500f7ccbb4f4ce9a3354adddade735f ports (remotes/origin/port/awk)\n 5739fd79bcfc75ba7526773d0cf634521f8aca3c ports/upstream/awk (20260426)\n c859b25da02955fef659d658b8f324b5cde87be3 ports/upstream/cjson (v1.7.15-48-gc859b25)\n 26254ee9de7681f8825433415443e7116ff24b98 ports/upstream/inih (r62)\n 1cfa32ff59c076ffb6ed735bbc8c18361558661f ports/upstream/libuv (v1.52.1)\n dc83cc373ac2058030eb3cf5e404959a26fef112 ports/upstream/linenoise (1.0-47-gdc83cc3)\n 6e22fedb74cf0c9b6656e9fce8b7331db847c605 ports/upstream/lua (v5.4-beta-336-g6e22fedb)\n c7d10158bc31036de6783d66beaaaf551e3167aa ports/upstream/node (v24.16.0)\n da607da739fa6047df13e66a2af6b8bec7c2a498 ports/upstream/zlib (v1.3.2)\n ae56bf7175ed7df6ba6a8593aa86da95d93830be userspace/apps (remotes/origin/HEAD)\n 76deeb30c583a98cf47ffd9bdada34c15b37890c userspace/widgets (remotes/origin/HEAD)\n",
+      "source_manifest_sha256": "f4e63f3b40cb14d4d3766e7f98a34936bb8e4836373cf2645f89ec775eac19a2",
+      "kernel_sha256": "0506d854b8520176c3e2d5dbcbaa66536c1ffbe5d3c026eb9a6c087e7a23cae0",
+      "base_disk_sha256": "18c3178d502063d83fc8abdd49f89246af0fe2d811152948fb96c5a94e4d7098",
+      "qemu_version": "QEMU emulator version 11.1.2",
+      "boot_iso_sha256": "b38ab17b4f8a777ccc071a6d9021da42e98d48d41c052bac023668abc28351d5",
+      "final_disk_sha256": "b73da4b5f53790932c2fb7145d6af8200572a695f07330975e664b209b25d474"
+    },
+    "active_pointer": {
+      "index": 2,
+      "name": "QEMU Virtio Tablet",
+      "current": true,
+      "absolute": true
+    },
+    "checks": [
+      "live Aero and Aqua",
+      "existing and new Text selection",
+      "content and selection retained",
+      "Files selection across profiles and normal/compact resize",
+      "Files sibling history and close",
+      "popup and dialog captures",
+      "drag and Help wheel",
+      "saved Aqua and desktop restart"
+    ],
+    "limitations": "QMP guest evidence does not test host-window smoothness or cursor release."
+  },
+  "dock_vm": {
+    "status": "PASS",
+    "fixture": "generated",
+    "integrity_limits": "Generator verification and repository allocation checker are not an independent fsck.",
+    "qemu_exit": 0,
+    "physical_acceptance": false,
+    "source": "db713e6baa8251a2ec325c63c850d596404431a9",
+    "source_dirty": true,
+    "offscreen_left": [
+      -438,
+      160,
+      722,
+      525
+    ],
+    "offscreen_right_bottom": [
+      1120,
+      688,
+      722,
+      525
+    ],
+    "cycled_identities": [
+      1,
+      6,
+      4
+    ],
+    "documents": [
+      1,
+      4,
+      6
+    ],
+    "modal_safe_dock_chooser": true,
+    "keyboard_navigation": false,
+    "standard_close_commands": false,
+    "process_baseline_restored": true,
+    "sha256": {
+      "home/dock-one.txt": "6b9bd61d7b1b9e326bb617d8ef2c3fe99f4917368ae9bea0273146c213259d2c",
+      "home/dock-two.txt": "1eb32d1ee4458814f94f8b92d1bd3e06e16dca6fab43d53f700840321f27fdf4",
+      "home/dock-three.txt": "43c4d94ea2cd4fbece4f396e10852401108971f22e2f37707fbbb688ddc7fe3c"
+    }
+  },
+  "combined_review": {
+    "source": "db713e6baa8251a2ec325c63c850d596404431a9",
+    "worktree_dirty": false,
+    "first_app_frame_seconds": 4.37,
+    "pid": 6233,
+    "frame": [
+      8,
+      52,
+      708,
+      768
+    ],
+    "status": "PASS",
+    "state_file": ".local/macos-vm/window-snap-review/current.json",
+    "kernel_initramfs_disk_match_accepted": true
+  },
+  "screenshots_sha256": {
+    "window-snap-preview-1x.png": "8e195e90c96a37f2e39357051b973ec19d99c5626972d68fe8514bd988ba2051",
+    "window-snap-preview-2x.png": "f8e809cac9960c54a3a572de001301b8083fb3f771cba3c9d391ad1cf77b6517",
+    "window-snap-right-1x.png": "39bbc2d67343164316505d4b631cec81f6932d04d64733f5a824e94f79f3f569"
+  },
+  "host_checks": [
+    "full desktop and desktop I/O",
+    "placement geometry and drag restoration",
+    "preview partial/full redraw equality across three themes",
+    "allocation and configure refusal",
+    "capture lifetime/modal/focus invalidation",
+    "merged display owner, package/platform and receipt tests"
+  ],
+  "host_compiler": "Darwin x86_64 wrapper, _DARWIN_C_SOURCE, -Wno-array-bounds",
+  "dock_fixture_note": "Generated disk fixture used because exfatprogs is unavailable. The script was adapted locally; a subsequent fsck-only branch refinement does not change this host path. Generator and allocation checks passed; these are not independent fsck.",
+  "limits": "QMP guest evidence; no new native hardware, physical vblank, host cursor-release or smoothness acceptance."
+}

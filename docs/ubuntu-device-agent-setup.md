@@ -66,6 +66,7 @@ git submodule update --init --recursive
 tools/host-env.sh make check-host
 ```
 
+Bison generates the pinned awk parser during the normal image build.
 Zig 0.15.2 and pinned Limine artifacts are downloaded by Make. Use the recorded
 submodule revisions, not `git submodule update --remote`. The base image does not
 build the full Node runtime; see [development setup](development.md) for the
@@ -160,10 +161,10 @@ Record CPU, memory, GPU(s), screen, firmware revision, original/replaced storage
 USB input and audio identities in the machine record. On Pro11,3, preserve the
 firmware-selected graphics route; do not guess GMUX or discrete-GPU power writes.
 Desktop client surfaces remain bounded to 1440x900 logical pixels. An explicit
-`deskd --scale=2` path now passes 2880x1800 VM checks; ordinary staging remains
-1×. See [display scale](native-desktop.md#display-scale) for the launch and capture
-contract. This is integer pixel expansion, not native-density text or accepted
-Retina hardware support. Do not copy the Air's firmware hash, register offsets or codec quirks to
+`deskd --scale=2` path and confirmed Settings choices use native-density backing
+and built-in 2× font rasters; the default remains 1×. See [display scale](native-desktop.md#display-scale) for the launch and capture
+contract. QEMU switching and rendering checks do not accept native modesetting or extend
+Retina hardware acceptance. Do not copy the Air's firmware hash, register offsets or codec quirks to
 another model just to make a probe succeed.
 
 ## 4. Select the mounted exFAT flash drive

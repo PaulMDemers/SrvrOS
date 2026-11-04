@@ -163,7 +163,12 @@
 #define SYS_GFX_PRESENT_BEGIN 156
 #define SYS_GFX_PRESENT 157
 #define SYS_GFX_PRESENT_END 158
-#define SYS_WIFI 159
+#define SYS_GFX_MODE_COUNT 159
+#define SYS_GFX_MODE_GET 160
+#define SYS_GFX_MODE_SET 161
+#define SYS_PIPE_MESSAGE 162
+/* Unmerged Wi-Fi ABI moved from159; matched kernel/userspace required. */
+#define SYS_WIFI 163
 #define SRV_DIRECTORY_READ 0
 #define SRV_DIRECTORY_PATH 1
 #define SRV_DIRECTORY_CHDIR 2
@@ -354,6 +359,33 @@ struct srv_winsize {
 #define SRV_ERR_OVERFLOW -75
 
 #define SRV_RIGHTS_MAX 4
+#define SRV_PIPE_MESSAGE_SEND 0u
+#define SRV_PIPE_MESSAGE_RECV 1u
+#define SRV_PIPE_MESSAGE_MAX SRV_PIPE_BUF
+#define SRV_PIPE_MESSAGE_AUX_MAX 256
+#define SRV_PIPE_MSG_DONTWAIT 0x01u
+#define SRV_PIPE_MSG_CLOEXEC 0x02u
+#define SRV_PIPE_MSG_CTRUNC 0x04u
+#define SRV_PIPE_MSG_PEEK 0x08u
+#define SRV_PIPE_MSG_NOSIGNAL 0x10u
+
+struct srv_pipe_message {
+    int32_t fds[SRV_RIGHTS_MAX];
+    uint32_t count;
+    uint32_t flags;
+};
+
+struct srv_iovec;
+/* Vectored transfer layout, never retained in a pipe queue. Control and
+ * header ranges are validated on receive and ignored on send. */
+struct srv_pipe_message_layout {
+    const struct srv_iovec *iov;
+    uint64_t iov_count;
+    void *control;
+    uint64_t control_length;
+    void *header;
+    uint64_t header_length;
+};
 #define SRV_MSG_CTRUNC 0x08
 
 #define SRV_UNIX_PATH_MAX 108
@@ -498,6 +530,8 @@ struct srv_meminfo {
 #define SRV_SIGNAL_WINCH 28
 #define SRV_SIGNAL_INT 2
 #define SRV_SIGNAL_QUIT 3
+#define SRV_SIGNAL_ILL 4
+#define SRV_SIGNAL_FPE 8
 #define SRV_SIGNAL_ABRT 6
 #define SRV_SIGNAL_KILL 9
 #define SRV_SIGNAL_USR1 10

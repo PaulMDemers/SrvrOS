@@ -153,7 +153,7 @@ class PlatformTests(unittest.TestCase):
         self.assertIsNotNone(platform_result(s))
         bad=s.replace('rc6=100,1000','rc6=100,72000000')
         self.assertEqual(platform_dependencies_result(bad)['status'],'OBSERVED');self.assertIsNone(platform_result(bad))
-        self.assertIsNone(platform_resources_result(s.replace('ap-platform: v=6','ap-platform: v=8')))
+        self.assertIsNone(platform_resources_result(s.replace('ap-platform: v=6','ap-platform: v=10')))
     def test_dependency_refusal(self):
         s=self.dependency_fixture()
         for old,new in [('phase=1 state=1 pm_us=92000009','phase=0 state=1 pm_us=92000009'),('pm_us=9,10','pm_us=8,7'),('pm_us=9,10','pm_us=6,10'),('pm_us=9,10','pm_us=9,92000009'),('reads=8 count=8','reads=7 count=8'),('raw=341,0,0,0','raw=4294967295,0,0,0'),('raw=341,0,0,0','raw=341,0,0,0,0'),('raw=341,0,0,0','raw=341,0,0,4294967296'),('after=3221225472','after=1073741824'),('state=1 pm_us=9','state=3 pm_us=9'),('ap-platform: v=6','ap-platform: v=5'),(f'pch={0x9c438086},{0x9c438086}',f'pch={0x9c438086},0')]:
@@ -216,4 +216,40 @@ class PlatformTests(unittest.TestCase):
             v[0:3]=[4,4,0];v[18:26]=[4097,0,0,0,0,0,4097,0];v[26]=bytes(90)
         s=self.hda_change(self.hda_fixture(),reset);r=platform_hda_result(s)
         self.assertEqual(r['status'],'UNAVAILABLE');self.assertTrue(r['samples'][0]['decoded']['controller_reset']);self.assertIsNone(platform_result(s))
+    def dry_fixture(self):
+        import base64,struct
+        from hardware_platform import dry_profile_words,dry_profile_digest
+        s=self.hda_fixture().replace('ap-platform: v=7','ap-platform: v=8')
+        def quiet(v):
+            v[20:24]=[0,0,0,0];v[26]=bytes(90)
+        s=self.hda_change(s,quiet)
+        lines=s.splitlines()
+        for i,line in enumerate(lines):
+            if line.startswith('ap-platform-resource:'):
+                head,raw=line.split(' raw=');v=list(map(int,raw.split(',')));v[0:3]=[0,0,0];v[7]=0x82200000;lines[i]=head+' raw='+','.join(map(str,v))
+            if line.startswith('ap-platform-deps:'):
+                lines[i]=line.split(' raw=')[0]+' raw=0,0,0,0,4294967295,0,4294967295,0'
+        s='\n'.join(lines)+'\n'
+        digest=dry_profile_digest(dry_profile_words(s,0))
+        data=base64.b64encode(struct.pack('<QQH10B',1,digest,127,1,4,1,0,0,0,0,0,0,0)).decode()
+        return s+f'ap-platform-dry: v=1 data={data}\n'
+    def test_dry_result(self):
+        from hardware_platform import platform_dry_result
+        s=self.dry_fixture();r=platform_dry_result(s)
+        self.assertTrue(r['expected_refusal']);self.assertFalse(r['hardware_authority']);self.assertFalse(r['acceptance'])
+        self.assertIsNotNone(platform_result(s))
+        self.assertIsNone(platform_result(s.replace('rc6=100,1000','rc6=100,72000000')))
+        self.assertIsNotNone(platform_dry_result(s.replace('rc6=100,1000','rc6=100,72000000')))
+    def test_dry_refusals(self):
+        import base64,struct
+        from hardware_platform import platform_dry_result
+        s=self.dry_fixture();line=s.splitlines()[-1];values=list(struct.unpack('<QQH10B',base64.b64decode(line.split('data=')[1])))
+        for index,val,invalid in [(0,0,True),(1,1,True),(2,0,False),(2,32768,True),(2,256,True),(3,0,False),(4,1,False),(5,0,False),(6,1,False),(7,9,True),(9,1,True),(10,1,True),(11,8,True),(12,1,True)]:
+            v=values.copy();v[index]=val;data=base64.b64encode(struct.pack('<QQH10B',*v)).decode();bad=s.replace(line,'ap-platform-dry: v=1 data='+data)
+            with self.subTest(index=index,val=val):
+                r=platform_dry_result(bad)
+                if invalid:self.assertIsNone(r)
+                else:self.assertFalse(r['expected_refusal'])
+                self.assertIsNone(platform_result(bad))
+        for bad in [s+line+'\n',s.replace('ap-platform-dry: v=1','ap-platform-dry: v=2'),'\n'.join(s.splitlines()[:-1]),s.replace('v=8 fault','v=7 fault')]:self.assertIsNone(platform_dry_result(bad))
 if __name__=='__main__':unittest.main()

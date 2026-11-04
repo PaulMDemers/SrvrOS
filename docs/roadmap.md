@@ -1,10 +1,42 @@
 # Roadmap
 
-Updated October 27, 2026. The goal is a pleasant native desktop on the MacBook
+Updated November 3, 2026. The goal is a pleasant native desktop on the MacBook
 Air, with a solid shell and server foundation. The [current status](status.md)
 and [machine records](machines/README.md) separate implementation from physical
 acceptance. The [device parity ledger](device-parity.md) compares the Air with
 ongoing Pro work.
+
+## Current HiDPI and display settings — November 3, 2026
+
+Target: genuinely detailed 1×/2× text and widgets, authoritative Display settings,
+saved scale and QEMU VirtIO resolution switching with timed Keep/Revert recovery.
+User authorized implementation, renderer coordination, verification and merge.
+SrvrUI retains logical layout/input and adds physical-density backing; SrvrOS
+owns client surfaces, compositor, display transactions and persistence.
+Unsupported native/standard VGA backends expose current mode only. Required
+checks cover density/clipping, budgets, migration, runtime recovery, retained
+app state, persistence and presentation cost. The matched implementation passes
+these checks, including held-switcher rollback and native 2× snap/resize/theme
+regressions. SrvrUI PR3 and SrvrApps PR4 are merged; SrvrOS PR303 records delivery.
+See [the acceptance receipt](assets/screenshots/hidpi-display-manifest.json).
+This target is complete; fractional scale and native modesetting remain separate
+future work. Previous snapping/resize/theme milestones remain complete.
+
+## Current window snapping — November 3, 2026
+
+User authorized left/right titlebar snapping, top-edge maximize, themed placement
+previews and drag-to-restore, followed by verification and merge. Base `da0db066`
+includes all previously merged desktop, app, port and resizing milestones.
+Reuse the existing workarea, placement and resize transaction contracts; preserve
+keyboard arrangement, client content and theme updates. Required checks cover
+preview-only movement, exact release placement, cancellation/modal interruption,
+restore geometry, failure recovery and both output scales. All required host,
+1×/2× snapping and resize, live-theme and offscreen/dock regressions pass.
+The combined build with main `fa8e503f` has identical kernel/initramfs/disk
+hashes to the accepted runtime. [Evidence](assets/screenshots/window-snap-manifest.json)
+records sources, captures and limits; [PR297](https://github.com/PaulMDemers/SrvrOS/pull/297)
+records delivery. The updated review desktop is open with Text snapped left.
+No additional feature work is required for this milestone.
 
 ## Current resize interaction — November 3, 2026
 

@@ -87,9 +87,9 @@ static void dynamic_surfaces(void) {
     for(unsigned i=0;i<records;i++)assert(gui_surface_create(2,1,1,0)>0);
     unsigned calls=heap_calls;assert(gui_surface_create(2,1,1,0)==-1 && heap_calls==calls);
     gui_process_cleanup(2);assert(!surface_pixel_bytes && !surface_record_bytes && !heap_live);
-    uint64_t bytes=(uint64_t)DESK_MAX_WIDTH*DESK_MAX_HEIGHT*4;
-    for(unsigned i=0;i<DESK_GUI_PIXEL_BYTES/bytes;i++)assert(gui_surface_create(2,DESK_MAX_WIDTH,DESK_MAX_HEIGHT,0)>0);
-    calls=heap_calls;assert(gui_surface_create(2,DESK_MAX_WIDTH,DESK_MAX_HEIGHT,0)==-1 && heap_calls==calls);
+    uint64_t bytes=(uint64_t)DESK_MAX_WIDTH*2*DESK_MAX_HEIGHT*2*4;
+    for(unsigned i=0;i<DESK_GUI_PIXEL_BYTES/bytes;i++)assert(gui_surface_create(2,DESK_MAX_WIDTH*2,DESK_MAX_HEIGHT*2,0)>0);
+    calls=heap_calls;assert(gui_surface_create(2,DESK_MAX_WIDTH*2,DESK_MAX_HEIGHT*2,0)==-1 && heap_calls==calls);
     gui_process_cleanup(2);assert(!surface_pixel_bytes && !surface_record_bytes && !heap_live);
     uint64_t saved=next_surface_id;next_surface_id=INT64_MAX;
     assert(gui_surface_create(2,1,1,0)==INT64_MAX);
@@ -214,7 +214,7 @@ static void protocol_tests(void) {
     assert(gui_surface_create(2,2,2,1ull<<40)==-1);
     int64_t laptop=gui_surface_create(2,1422,723,DESK_SURFACE_STREAM);
     assert(laptop>0 && gui_surface_destroy(2,laptop)==0);
-    assert(gui_surface_create(2,DESK_MAX_WIDTH,DESK_MAX_HEIGHT+1,DESK_SURFACE_STREAM)==-1);
+    assert(gui_surface_create(2,DESK_MAX_WIDTH*2,DESK_MAX_HEIGHT*2+1,DESK_SURFACE_STREAM)==-1);
     uint32_t pixels[4]={11,22,33,44}, copy[4]={0};
     int64_t id=gui_surface_create(2,2,2,DESK_SURFACE_STREAM);
     assert(id>0 && gui_surface_blit(2,id,0,0,2,2,pixels,2)==0);
@@ -227,6 +227,9 @@ static void protocol_tests(void) {
     bad=commit; bad.text[0]=1; assert(gui_send(&bad)==-1); /* v1 has no text acknowledgement. */
     bad=packet_message(DESK_OPEN_REPLY,0,0,0);assert(gui_send(&bad)==-1);
     bad=packet_message(DESK_CLOSE_ACK,0,0,0);assert(gui_send(&bad)==-1);
+    bad=packet_message(DESK_DISPLAY_STATE,0,0,0);assert(gui_send(&bad)==-1);
+    bad=commit; ((struct desk_packet *)bad.text)->value=3;assert(gui_send(&bad)==-1);
+    bad=commit; ((struct desk_packet *)bad.text)->value=2;assert(gui_send(&bad)==-1);
     bad=packet_message(DESK_OPEN_DOCUMENT,0,0,0);assert(gui_send(&bad)==-1); /* Only the server delivers paths. */
     struct gui_message legacy={.type=1};
     for (unsigned i=0;i<GUI_QUEUE_DEPTH;i++) assert(gui_send(&legacy)==0);
@@ -241,6 +244,7 @@ static void protocol_tests(void) {
     struct gui_message release=packet_message(DESK_RELEASE,2,id,1);
     assert(gui_send(&release)==-1); /* A client cannot forge release. */
     current_pid=1;
+    bad=packet_message(DESK_DISPLAY,2,0,0);assert(gui_send(&bad)==-1);
     bad=packet_message(DESK_RELEASE,3,id,1); assert(gui_send(&bad)==-1);
     bad=packet_message(DESK_RELEASE,2,id,2); assert(gui_send(&bad)==-1);
     bad=release; packet_window(&bad,2);
@@ -265,6 +269,8 @@ static void protocol_tests(void) {
     current_pid=1; assert(gui_register_server()==0);
     current_pid=2; id=gui_surface_create(2,2,2,DESK_SURFACE_STREAM);
     commit=packet_message(DESK_COMMIT,0,id,1);packet_window(&commit,3);
+    ((struct desk_packet *)commit.text)->width=1;((struct desk_packet *)commit.text)->height=1;
+    ((struct desk_packet *)commit.text)->value=2;
     assert(gui_send(&commit)==0);
     current_pid=1;assert(gui_recv(&temp)==1);
     release=packet_message(DESK_RELEASE,2,id,1);packet_window(&release,3);

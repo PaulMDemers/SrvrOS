@@ -22,6 +22,7 @@ from displayd_resolution_smoke import build_iso
 from exfat_test_image import ExfatFixture
 from thread_smoke import has_fatal_exception
 from pack_runtime_elf import runtime_elf
+import shell_quoting_cases
 
 ROOT = Path(__file__).resolve().parents[1]
 REVISION = '5739fd79bcfc75ba7526773d0cf634521f8aca3c'
@@ -100,7 +101,7 @@ def main():
     EVIDENCE = out
     disk = out/'disk.exfat'
     shutil.copyfile(args.disk, disk)
-    files = {'workflow.sh':WORKFLOW.encode(), 'features.awk':FEATURES.encode(), 'process.awk':PROCESS.encode(),
+    files = {'workflow.sh':(WORKFLOW+shell_quoting_cases.WORKFLOW).encode(), 'features.awk':FEATURES.encode(), 'process.awk':PROCESS.encode(),
              'report.awk':REPORT.encode(), 'bad.awk':b'BEGIN { if (\n',
              'input.csv':b'name,description,amount\nA,"red, large",3\nB,"two\nlines",4\n',
              'pipe-input.txt':b'one two\nthree four\n'}
@@ -112,6 +113,8 @@ def main():
         expected[case+'.txt'] = (upstream/'bugs-fixed'/f'{case}.ok').read_bytes()
     for name in ('version','report','features','pipe','process','concat','decr','format','recovery'):
         expected[name+'-status.txt'] = b'0\n'
+    files.update(shell_quoting_cases.FILES)
+    expected.update(shell_quoting_cases.EXPECTED)
     fixture = ExfatFixture(disk.read_bytes())
     source_files = image_file_hashes(fixture)
     copied_aliases = fixture.copy_file_aliases()
@@ -167,8 +170,9 @@ def main():
                             except socket.timeout: pass
                         consumed=output.index(marker,consumed)+len(marker)
                     def keytext(s):
-                        mapping={' ': 'spc', '/':'slash', '.':'dot', '-':'minus', '\n':'ret'}
-                        for c in s: qmp.key(mapping.get(c,c))
+                        mapping={' ': 'spc', '/':'slash', '.':'dot', '-':'minus', '\n':'ret',
+                                 "'":'apostrophe', '\\':'backslash', '%':'5', '>':'dot'}
+                        for c in s: qmp.key(mapping.get(c,c), shift=c in '%>')
                     def shortcut(key):
                         qmp.call('human-monitor-command',{'command-line':'sendkey '+key});time.sleep(.3)
                     wait(b'srv> ',100)
@@ -180,6 +184,7 @@ def main():
                         serial.sendall(b'run /fat/bin/deskd --apps-trace\n');wait(b'desktools: starting role=text');wait(b'deskd: commit')
                         qmp.mouse(866,694);qmp.mouse(0,0,1);qmp.mouse(0,0,0);wait(b'deskterm: ready');time.sleep(1)
                         keytext('sh /fat/awk-test/workflow.sh\n');time.sleep(3)
+                        keytext(shell_quoting_cases.TYPED_COMMAND);time.sleep(1)
                         keytext('clear\ncat /fat/awk-test/report.txt\n');time.sleep(1)
                         qmp.call('screendump',{'filename':str(out/'terminal-workflow.ppm')})
                         keytext('exit\n')

@@ -42,6 +42,8 @@ const char *virtio_gpu_probe_status_name(enum virtio_gpu_probe_status status);
  * A failed frame retires automatically. Quarantine permanently refuses restart. */
 bool virtio_gpu_present_prepare(uint64_t framebuffer_physical, uint32_t width, uint32_t height);
 bool virtio_gpu_present_begin(void);
+/* Only while inactive after a confirmed reset; allocates nothing. */
+bool virtio_gpu_present_configure(uint32_t width, uint32_t height);
 bool virtio_gpu_present_frame(const void *inherited_framebuffer, uint64_t pitch);
 /* Report every successful staging write before frame(), in kernel CR3 with
  * external IRQ/owner exclusion. Writers are forbidden during a driver operation.

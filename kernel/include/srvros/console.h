@@ -39,6 +39,7 @@ bool console_set_serial_output(bool enabled);
 bool console_blit_rgb_scaled(uint64_t x, uint64_t y, uint64_t width, uint64_t height,
     const uint32_t *rgb_pixels, uint64_t stride, uint64_t scale);
 void console_init(struct limine_framebuffer *framebuffer);
+void console_set_graphics_framebuffer(struct limine_framebuffer *framebuffer);
 void console_clear(void);
 void console_set_framebuffer_muted(bool muted);
 void console_set_framebuffer_muted_owner(uint64_t owner_pid, bool muted);

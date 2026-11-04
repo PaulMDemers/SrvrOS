@@ -1,5 +1,126 @@
 # Apple Silicon macOS build host
 
+## PR321 merge review
+
+Final candidate `d0910498` consumes newer main `a8e1fca1` and PR320's guest import
+startup guard. Fresh full build, profile/installation/guest host checks and the
+complete four-boot/12-refusal proof pass. Verified evidence and matching artifacts
+survive at `.local/installation-evidence/pr321-current-tkf2agxs`. Task VMs stopped;
+review VMs 61610, 6233 and 85869 remain live and untouched. This refresh supersedes
+the initial equivalence-only readiness assessment below.
+
+User authorized review/merge of profile plans. Candidate `6de308a1` integrates
+current main `805519b2`; focused installation/profile host checks and full build
+pass. Runtime equivalence preserves the four-boot/12-refusal acceptance from
+`bf6efeb2`: only unused sysabi fixture payloads changed, including their archive
+copies; kernel, minimal bootstrap, drivers and all exercised apps/data match.
+Evidence/logs are retained at `.local/installation-evidence/pr321-review`.
+No additional VM was required; review VMs 61610, 6233 and 85869 remain untouched.
+See PR321 for merge state and the installation document for the proposed bounded
+interrupted-publication inspection/recovery checkpoint.
+
+## Profile-aware installation plans — proof complete
+
+User authorized a scoped PR and two-installation persistence/refusal proof in
+`SrvrOS-installation`, branch `device/apple-silicon/profile-install-plans`, main
+`c7be6574`. Consume merged profile PR309/314, namespace PR313 and acceptance PR318;
+Apps pin `3cf32af2`, Ports pin `5e994f53`. Own installation plans/tests and new
+proof harness; shared profile preflight is extracted from the existing adapter.
+The existing installed/canonical harnesses and guest namespace files remain the
+filesystem owner's active scope. Preserve VMs 61610, 6233 and 85869; run one
+build/harness at a time. No physical media, reboot or Actions. Current acceptance
+and exact evidence are recorded in `docs/disk-installation.md`.
+
+Clean `bf6efeb2` passes the matched build, four boots across two version-2 planned
+EFI installations, 12 installation refusals and 12 invalid session selections.
+Profile UUID/text/binary/preferences persist from A to B; disk GUID, home and
+local bindings differ; both machine settings remain exact. Allocation/protected
+region and source-preservation checks pass. Host checks include 27 installation
+tests, profile/session checks, 13 bundle groups and seven adapter tests. Retained
+evidence/artifacts are verified at
+`.local/installation-evidence/profile-plans-l1_8_9zl`. The earlier v1 trial is
+compressed and retained separately; v2 prevents older apply tools ignoring the
+profile. PR319's optional filesystem fixture landed independently during proof.
+Task VMs are stopped; the three original review VMs remain live. Delivery is a
+scoped draft PR; no merge is requested by this milestone.
+
+## PR315 merge review
+
+Current-main `56e1f950` includes filesystem PR313 and profile-desktop PR314.
+Clean reviewed candidate `57fcf482` rebuilt and passed all 11 canonical installed
+VM cases after replacing the early Text startup-log wait with window-publication
+readiness. Exact save/reopen and no-write recovery requirements remain enforced.
+Focused installation, namespace and profile host checks pass. Evidence/artifacts
+are verified outside build at `.local/installation-evidence/pr315-5wv8f9vm`.
+All task VMs are stopped; original review PIDs 61610, 6233 and 85869 are preserved.
+The user authorized merge if ready; see PR315 for the final state and the
+installation document for the next profile-aware installation-plan scope.
+
+## Canonical-path installation — proof complete
+
+User authorized a scoped installed-boot PR with reordered-disk persistence and
+recovery evidence. Integration branch `device/apple-silicon/installed-canonical-paths` in
+`SrvrOS-installation` combines merged main `8f47f196` with exact filesystem PR313
+`06d5a416` by local merge, retaining PR252 and SrvrPorts `0f51ba9`. The dependency
+PR remains separately under review. Installation owns the fixture/harness and
+`docs/disk-installation.md`; no competing namespace or profile implementation.
+Latest profile contracts: PR309 `fa9717ad`, desktop PR314 `814aee20`; preserve
+the existing home binding without activating that independent work.
+
+Preserve primary QEMU PIDs 61610, 6233 and 85869. Only disposable task VMs run
+here, one build/harness at a time; no physical media, reboot or Actions.
+
+Clean `3e479119` with filesystem dependency `06d5a416` and merged profile
+foundation main `9d642c75` passes the matched build and all 11 canonical installed
+VM cases. Target and independent `/work` swap AHCI positions; canonical/raw
+identity and persistence pass, Text reopens through `/home`, and nine recovery
+cases retain both disk hashes before any alias/init startup. Protected regions
+and both filesystems' allocation checks pass. Focused host/process checks and
+133 filesystem/namespace sanitizer cases pass. The earlier `b8da407c` run was
+superseded when dependency review fixes arrived, not accepted as final evidence.
+Retained exact artifacts and byte-verified evidence:
+`.local/installation-evidence/canonical-e5t4y5zz`. Task VMs are stopped; original
+review VMs remain live. Delivery is a scoped draft PR, with dependency integration
+and any later merge separate from this user's proof/publication request.
+The delivery branch `device/apple-silicon/canonical-install-proof` contains only
+the installation harness/evidence changes and remains dependent on open PR313;
+the exact combined source stays available on the published integration branch.
+
+## Installation identity milestone — November 3, 2026
+
+The isolated `SrvrOS-installation` clone, branch
+`device/apple-silicon/installed-root-identity`, builds on merged PR311
+`3db1a1d3`. Scope: opt-in GPT identity/format/role selection, halted no-write
+recovery, image manifests and a disposable two-disk proof. Shared block/exFAT
+admission changes require filesystem-owner review; PR308 `88ea5524` owns
+generic namespace attachment and PR309 `fa9717ad` owns portable profiles.
+Neither profile activation nor physical installation is included. Main's boot
+selection is independent of PR301's display hooks and PR252's lifetime work.
+
+Primary review QEMU PIDs 61610, 6233 and 85869 remain running and untouched.
+Only this clone's own short-lived test VMs may be stopped. One build/harness
+runs at a time here. Acceptance and exact evidence are recorded in
+[disk installation](../disk-installation.md); this is emulated x86_64 evidence,
+not native ARM64 or physical boot acceptance.
+
+Completed at clean source `9989878c`: matched full build, selector sanitizer,
+21 image/provenance tests, real clean-mount zero-write checks, storage and exFAT
+regressions, and all 11 two-disk VM cases. Same GUID selects `ahci0p2` then
+`ahci1p2`, with Text/preferences restored and the decoy unchanged. Nine halted
+recovery cases preserve both whole-disk hashes. Evidence and exact artifacts are
+byte-verified under `.local/installation-evidence/proof-p0_hk8ic`. OVMF can repair
+a bad primary GPT from a valid backup before kernel entry; the invalid-map case
+damages both copies, and the earlier repair observation is retained separately.
+All task-owned test VMs are stopped; the three original review VMs remain live.
+The initial scoped PR was draft pending review. User subsequently authorized
+review/merge of PR312: current PR308/PR313/PR309 contracts are compatible with the
+bounded selector; retained evidence hashes and fresh focused host checks pass.
+No implementation change or new VM run was needed. See the integration review
+and next canonical-path installed-boot checkpoint in the installation document;
+PR313's PR252/SrvrPorts dependencies remain separate integration work.
+
+## Earlier host-tool milestone
+
 Updated: 2026-10-25. This is a development host running an emulated x86_64
 guest, not a native SrvrOS hardware target. Observed host model: MacBookPro18,2.
 
@@ -2483,3 +2604,460 @@ disposable VM stopped. The shared checkout and attended review VM were untouched
 no hosted Actions or new native acceptance. Remaining changes in this closeout
 are documentation only. The requested integration is delivered and verified;
 no further implementation is required for this target.
+
+
+### Window snapping — active scope November 3, 2026
+
+User authorized Windows 7-style snapping, placement previews, verification and
+merge. Branch `device/apple-silicon/window-snap` starts at fetched main
+`da0db066`, retaining merged Files recovery/Open With, SrvrUI host extraction,
+awk and edge resizing. This scope owns compositor titlebar drag placement and
+preview rendering, transaction/capture tests and matched QEMU acceptance.
+PR296 retains Air6,1 adoption diagnostics, PR252 lifetime work, and PR19 Wi-Fi.
+No submodule, kernel, physical driver or hosted Actions change is planned.
+
+Interaction: drag a titlebar toward a side for half-workarea placement or toward
+the top for maximize; show the exact themed target before release. Move away or
+cancel to remove the preview. A small drag threshold on an already placed window
+restores its prior dimensions under the pointer, while a stationary click keeps
+it placed. Preserve original restore geometry across side changes and existing
+keyboard Arrange commands. Modal/focus/lifetime changes invalidate capture before
+queued input can move a blocked window. Failed placement retains usable content
+and geometry through the existing configure/refusal transaction.
+
+Acceptance: geometry and capture/failure host fixtures, exact preview partial/full
+redraw equality for all themes, complete desktop suites and matched build; actual
+Text/VirtIO tablet preview/snap/restore/cancel/modal/content checks at 1x and 2x,
+plus affected resize/theme regressions. The current review VM and persistent disk
+are preserved; automated test VMs remain disposable and sequential. QMP evidence
+is guest behavior, not new native or physical scanout acceptance.
+
+Implementation `8d9e47fc` passes the complete desktop/I/O host suites, matched
+build, snapping and resize VMs at 1280×800/1× and 1920×1080/2×. Preview-only
+movement, exact release placement, direct side changes, stationary clicks,
+drag restoration, Escape/modal cancellation, selection/save readback and GPU
+presenter reset pass. Accepted preview/placement captures and hashes are in
+[the evidence receipt](../assets/screenshots/window-snap-manifest.json).
+
+Combined source `db713e6b` consumes merged PR296/main `fa8e503f`. Its clean
+build produces byte-identical kernel, initramfs and disk artifacts to the
+accepted snap runtime; display-owner, package/platform and CPU receipt tests
+pass. Live theme/persistence and offscreen/dock recovery VMs also pass on this
+combined image. The old free-drag fixture now releases at x=12, outside the
+eight-pixel snap zone. Its macOS fallback uses a generated disposable image
+with generator/allocation checks; independent exfatprogs fsck is unavailable.
+The final fsck-only branch refinement does not change that exercised host path.
+
+A new attended review VM starts in 4.37 seconds and completes preview/release
+to frame 8,52,708,768 with a matching 706×723 Text client commit. It remains
+open under `.local/macos-vm/window-snap-review/current.json`; the previous
+edge-resize review VM and disk are preserved. Logs are in
+`build/review/window-snap/`, `desktop-snap/`, `desktop-resize/`,
+`desktop-theme-profiles/` and `desktop-window-dock/`.
+
+[PR297](https://github.com/PaulMDemers/SrvrOS/pull/297) records delivery. The
+requested behavior and acceptance are complete; no further implementation
+is required. No native boot/install or hosted Actions change.
+
+
+### HiDPI and display settings — active scope November 3, 2026
+
+User authorized native-density 1×/2× rendering, persisted display scale, resolution
+selection/switching in Settings, coordination with the UI portability chat,
+verification and merge. Branch `device/apple-silicon/hidpi-display` starts at
+main `d5822348`; PR297 snapping remains complete. PR301 owns read-only inherited
+Intel capture, PR299 Terminal quoting, PR252 process/I/O lifetime, PR19 Wi-Fi.
+
+SrvrUI's separate portability checkout owns renderer/font/widget density APIs.
+This integration owns logical-to-physical client surfaces, compositor copies,
+presentation, desktop protocol/preferences and Settings; a bounded VirtIO driver
+path adds real mode switching. Native and standard VGA remain inherited-mode
+only. Existing review VMs and disks are preserved. No native boot or hosted
+Actions is authorized by these QEMU changes.
+
+Journey: open Display settings, inspect actual resolution/scale and available
+backend presets, select a supported combination, Apply, then Keep or Revert.
+The compositor owns a 15-second rollback deadline and client-disconnect recovery.
+Only confirmed settings persist; saved-file status is distinct from active mode.
+Keep unsaved application state, logical input coordinates and anchored placement.
+Resource failure must preserve or explicitly report recovered actual geometry;
+uncertain GPU reset retains/quarantines potentially owned memory.
+
+Required evidence: native-density font/clip/damage tests, logical/physical
+surface bounds and cache accounting, preference migration, apply/revert/timeout/
+unsupported/failure host checks, full desktop suites and matched build, QEMU
+resolution/scale switching with retained Text content, restart persistence,
+resize/snap/theme regressions and measured memory/presentation cost. Coordinate
+published child revisions before OS pins. The implementation and required
+verification are now complete; delivery is recorded below.
+
+
+Implementation `e613f8f0` consumes merged SrvrUI PR3 (`9eaaa74e`) and SrvrApps
+PR4 (`edb51dc1`) on integration main `0fd0c5fc`. Its clean matched build and full
+desktop/I/O, console/presentation/VirtIO, package/platform and CPU receipt suites
+pass. QEMU applies and keeps 1920×1080 at 2×, trials 2560×1440, reverts on timeout
+with Alt-Tab held, explicit Revert and Settings close, preserves selected/saved
+Text bytes, and restores confirmed settings on a fresh desktop launch. Menus
+and clock layout update immediately; overlay closure restores input focus.
+
+Snapping and edge resizing pass at 1280×800/1× and 1920×1080/2×; live theme
+changes, persistence and restart pass. Those regressions used the preceding
+`b5eb540f` image; the final display-only fixes and integrated diagnostic changes
+received the complete host suite and extended display VM. All exact build,
+result and capture identities are in the
+[acceptance receipt](../assets/screenshots/hidpi-display-manifest.json). The UI
+portability chat owns the separately merged logical-canvas/physical-backing API
+and native font atlas. At fixed logical size, 2× uses four times the pixel bytes;
+the host full-scene sample measured 555/2231 µs at 1×/2×. This is drawing cost, not
+a vblank or native latency claim.
+
+The Settings form's control-capacity and trial-visibility defects found in live
+verification are fixed and covered by actual host pointer routing. Older review
+VMs/disks remain untouched. No physical boot/install, native modesetting or
+hosted Actions change. [PR303](https://github.com/PaulMDemers/SrvrOS/pull/303)
+records the requested integration; no further implementation is required for
+this target.
+
+
+Final combined runtime `6af9cfda` includes merged Terminal quoting PR299/main
+`bfdcab65`. Its 56 quoting host checks, clean matched build and the extended
+display VM pass again, including actual saved-document and preference readback
+through the updated shell. The renderer, driver and Settings implementation is
+unchanged from the preceding accepted run.
+
+A new attended Aero review VM (PID 61610, separate persistent disk under
+`.local/macos-vm/hidpi-display-review/`) reaches desktop in 4.38 seconds and
+keeps/saves 1920×1080 at 2× through Settings. The native-resolution
+[Aero capture](../assets/screenshots/hidpi-display-aero.png) was inspected.
+Prior resize/snap review PIDs 85869/6233 and their disks are preserved.
+
+
+### Terminal quoting recovery — completed November 3, 2026
+
+User authorized reproducing/fixing quoted backslash handling and acceptance in
+the independent `SrvrOS-app-quality` checkout, branch
+`device/apple-silicon/terminal-quoting`, from fetched main `585ad8e5`. The shared
+checkout and review VM remain untouched. Scope: `userspace/sh/sh.c` quote-aware
+scanning/argument decoding, focused host/guest fixtures and shell documentation.
+PR252 `badfeb37` changes arithmetic overflow and short-circuit evaluation in the
+same shell file; it does not alter quoted-backslash handling. Preserve that
+separate implementation and verify patch compatibility rather than merging its
+broader kernel/I/O work. No cross-task messaging or native acceptance is included.
+
+Acceptance: record failing exact-byte controls before edits; preserve single-
+quoted backslashes and double-quoted ordinary backslashes while respecting
+escaped quote/dollar/backslash behavior. Exercise inline awk/printf, empty and
+spaced arguments, pipelines, redirection and script-file compatibility; run
+focused host/sanitizer, matched build, CLI and Terminal/awk guest checks. Keep
+existing limits; no general shell-language redesign or main merge is implied.
+The original shell fails 27 of 40 focused checks; exact guest bytes confirm
+`'left\nright'` becomes `leftnright`. Quote-aware scanners and argument/path
+decoding now share one escape rule. Expansion values retain literal quote and
+backslash bytes through the later decoder; parameter defaults preserve quoted
+word boundaries and store raw assignment values. Expanded commands refuse
+capacity overflow instead of silently losing closing syntax. The CLI sed case
+now sends one backslash per backreference rather than compensating for the bug.
+
+The focused host suite passes 56 checks with ASan/UBSan. PR252's unchanged
+`badfeb37` shell/CLI patch applies cleanly to the corrected source in ignored
+fixture storage; 63 combined checks include its arithmetic limits, overflow and
+short-circuit behavior. This does not resolve or accept its wider kernel/I/O
+conflicts. The shell/CLI patches also apply cleanly in the reverse order.
+
+Clean runtime `d2fdc17d` passes all 482 CLI commands, the shell editing/history
+regression, and 35 exact-byte quoting/boundary cases in the actual Terminal.
+Keyboard-typed quoting, inline awk and existing program-file regressions,
+process retirement, guest fsck, offline allocation checks and second-boot
+persistence pass. Documentation links, Python compilation and three CLI-harness
+checks pass. Independent `fsck.exfat` is unavailable on this host and is explicitly
+skipped. Existing nested parameter/quote grammar limits remain; this milestone
+does not claim general POSIX shell conformance.
+
+[PR299](https://github.com/PaulMDemers/SrvrOS/pull/299) contains the reviewable
+change. The final documentation head builds identical kernel, initramfs and disk
+artifacts to the tested clean runtime. Source identities, recursive pins, hashes,
+negative controls and check results are in local
+`build/review/terminal-quoting/receipt.json`; Terminal evidence is in
+`build/review/awk/20261103-163846-r5l071hz/`. All task VMs are stopped. The shared
+checkout and review VM remain untouched; no main merge was performed.
+
+### Terminal quoting integration — completed November 3, 2026
+
+User authorized integrating PR299 and verifying merged main in the independent
+`SrvrOS-app-quality` checkout. Current main `0fd0c5fc` adds Air6,1 platform
+backing diagnostics and tooling; its Makefile additions combine cleanly with the
+quoting fixture. Merge main into the PR branch, preserve both test targets, then
+merge the reviewed PR and verify clean merged source with host checks, a matched
+build, Terminal persistence and the full CLI suite. Shared checkout and review VM
+remain untouched. Prior native-device and PR252 acceptance boundaries remain.
+
+PR299 merged as `bfdcab65716c846645ef80fb7a4c3620308f4e27`. The isolated
+checkout verified that exact clean source: 56 quoting host checks, package-audit
+and platform-sample C fixtures, 3 package/22 platform/7 backing Python checks,
+a matched build, all 35 Terminal quoting/boundary cases, keyboard input,
+second-boot persistence, process retirement, guest fsck and offline allocation
+checks. All 482 CLI commands and the editing/history regression pass. External
+`fsck.exfat` remains unavailable and is explicitly skipped. An independent
+read-only review confirmed both Makefile test groups and dependencies survived.
+
+Concurrent PR303 landed before the documentation closeout, producing combined
+main `3e9a045f` with Apps `edb51dc1` and UI `9eaaa74e`. After updating those pins
+in this isolated checkout, its clean matched build, host checks, 35 Terminal
+cases, persistence, all 482 CLI commands and editing/history regression passed
+again. The final documentation-only update preserves this combined runtime.
+Merged-runtime identities, hashes and results are retained in local
+`build/review/terminal-quoting/integration-receipt.json`; Terminal evidence is in
+`build/review/awk/20261103-170330-z6kf_bun/` for PR299 and
+`build/review/awk/20261103-171352-3ik016sz/` for combined main. All task VMs are stopped; the shared
+checkout and review VM remain untouched. Delivered and verified; no further work
+is required for this integration target.
+## Resolver and socket audit continuation, October 31
+
+PR182 merged into main at `198c6a1c`. Its integration head `d7b2290c`
+includes PR251 and retains both the network audit and platform diagnostic
+Makefile targets. Storage lease, workspace log, scheduler, power, package,
+query and socket host tests passed on the integrated tree. The matched x86_64
+guest build and network ABI smoke also passed.
+
+The Apple Silicon host continues on `device/apple-silicon/resolver-socket-audit`
+from that merge. First, use the deterministic kernel query fixture to check
+whether an answer accepted in the last poll survives the timeout decision.
+Check the number of outgoing queries, the answer value, and the ordinary silent
+timeout. The next boundaries are libc resolver retry deadlines, peer and option
+state across duplicated sockets, and native descriptor I/O resumed after reuse.
+PR19 tracks the Wi-Fi device work separately.
+
+The first PR252 checkpoint reproduced both boundary failures against merged
+main `198c6a1c`. A valid answer accepted during the last poll or final wait
+was discarded when the caller observed the deadline. Checking the published
+answer before starting another attempt fixes both schedules. All 15 query
+modes and 46 parser cases passed. The two boundary cases, silent timeout and
+exit also passed under native ARM64 ASan/UBSan. The matched guest built and
+passed the network ABI smoke in QEMU. Logs are in
+`build/review/resolver-deadline/`.
+
+## November 2 resolver and socket continuation
+
+PR252 resumes from `6f202ae5` with main through PR271 (`c9235491`).
+Scope covers libc resolver polling and retry deadlines, socket state shared by
+duplicate descriptors, and read/write continuations across signal dispatch and
+descriptor reuse. Directed host fixtures and a matched QEMU guest will exercise
+confirmed fixes. The desktop lifecycle and Wi-Fi branches retain their own work.
+
+Implementation and regressions are in `34cb8ca5`. Against main `c9235491`,
+six DNS injections failed their poll-budget or retry-count checks. The silent
+server control passed. After a UDP connect through a duplicate, the original
+descriptor reported `ENOTCONN`. A restarted read issued a second native read
+against the replacement descriptor and returned three bytes in the host model.
+
+The candidate passed all 33 socket-call modes, the alias and I/O restart
+fixtures, 15 native query modes, 46 DNS parser cases, 12 UDP ownership modes
+and 46 event-adapter cases. The new fixtures also passed native ARM64 ASan/UBSan.
+The socket-call, alias and restart fixtures cross-linked for x86_64 Linux;
+runtime host results came from macOS. Five disposable x86_64 QEMU guests
+passed in sequence: netabi, full threadstress, libuv, TCP readiness and TCP
+stress with 12 clients. The guest serial logs confirm both UDP deliveries
+across duplicate close and that the replacement pipe retained its original byte.
+Local logs and original-source probes are under `build/review/libc-socket-audit/`.
+
+The next audit will exercise `SCM_RIGHTS` with a failing first payload transfer
+and a surviving duplicate endpoint, including descriptor cleanup on receive
+failure. This queue comes from inspection of the separate rights and payload
+operations. It has no guest or fault-injection result yet.
+
+## Unix-stream ancillary transfer scope
+
+Starting from PR252 at `4353eee4` with main at `c9235491`, this pass covers
+the boundary between pipe payload and descriptor ownership in sendmsg/recvmsg,
+including failed writes, receive copyout, alias survival and control truncation.
+It touches the process pipe queue, syscall access validation and libc socket
+messages. The checkpoint is a matched x86_64 QEMU run with public API regressions.
+
+### Ancillary transfer result
+
+Before `1ff71432`, a guest probe linked to the `4353eee4` libc and run with
+its kernel reproduced three failures. A nonblocking send on a full socketpair
+left rights for a later write from a surviving duplicate. A zero-byte receive
+took the descriptor. Reading a plain prefix discarded the following rights.
+The same three public operations passed on the matched candidate. Two more
+guest probes passed for peek followed by discard and for invalid output followed
+by successful delivery of the original record.
+
+The host process, syscall and libc fixtures passed queue pressure, descriptor
+exhaustion, legacy send/receive, interrupted restart, alias replacement, and
+copyout rollback cases. Libc passed 54 socket-call modes under ARM64 ASan/UBSan.
+The process and syscall fixtures passed x86_64 ASan/UBSan under Rosetta. All
+three fixtures cross-linked for x86_64 Linux. Logs, sanitizer output and the
+pre-fix guest probe are in `build/review/ancillary/`.
+
+The first full candidate thread suite failed its `dprintf` pipe readback check.
+The original test passed both in isolation and on a full repeat. Its single
+64 KiB nonblocking read could legally return short or be deferred during storage
+I/O. The recorded assertion did not distinguish a read failure from a content
+mismatch. Commit `3cad4dc1` handles short transfers in bounded chunks and
+reports transfer and content failures separately. Ports, including posixdemo's
+socketpair and pathname Unix socket cases, libuv and TCP readiness also passed.
+
+After rebuilding with the test correction, the full thread suite, focused
+`dprintf` run and network ABI guest all passed. The next ownership probe is
+to close the last external descriptor while a receiving endpoint is held by
+its own queue, directly or through a second socketpair.
+
+## Queued socket reference cycles
+
+Starting at `f6d182e7` on PR252 with main at `c9235491`, this pass tests
+whether direct and indirect queued rights can exhaust pipe slots after external
+close, and whether live receivers can still redeem those rights. Scope covers
+process pipe ownership, legacy and atomic rights queues, and host and guest
+lifetime regressions. The matched QEMU guest is the integration checkpoint.
+
+While checking pipe-slot reuse, an isolated probe against `f6d182e7` found
+that a blocked ordinary read could consume a byte from a newly allocated pipe.
+This pass therefore also covers descriptor and slot identity across ordinary
+pipe waits, including partial writes. It uses the existing process pipe and
+threadstress fixtures alongside the rights-cycle checks.
+
+### Queue lifetime and blocked pipe I/O result
+
+Commit `1c07163e` covers both failures. On the previous guest image, closing
+the last external receiver left an unrelated queued pipe writer open in both
+the direct and two-queue cases. A duplicate kept the receiver redeemable as
+expected. The matched guest passed 80 iterations of each cycle and the
+duplicate-delivery check. A deterministic host probe also read byte `B` from
+a replacement pipe on the previous kernel. With the fix it returned `EBADF`
+and a fresh read got `B`. The public blocked `writev` probe failed against
+the old kernel and passed on the matched image, returning its original one
+byte of progress and leaving the replacement pipe empty.
+
+The process host fixture exercised all 4,096 directed graphs and external
+reader sets for three queues. Separate tests covered inherited descriptors,
+pending accepts, interleaved final-file writeback and close, and blocked pipe
+I/O across slot reuse. The complete fixture passed x86_64 ASan/UBSan under
+Rosetta and cross-linked for Linux x86_64. Process lifetime, syscall I/O,
+scheduler I/O, pipe message, socket call, restart, event-adapter, thread
+harness and POSIX poll host targets passed. The x86_64 QEMU network ABI,
+full threadstress, focused vector I/O, staged ports and libuv suites passed.
+Evidence is in `build/review/rights-cycles/`.
+
+The standalone process-lifetime guest failed its orphan-launcher exit check
+on both the previous and candidate images at 512 MiB. The candidate also
+failed at 1 GiB. Both images passed the preceding 128-child churn and 16
+competing-waiter checks. A diagnostic kernel passed the first orphan iteration
+and timed out in the second after ten seconds with both the launcher and its
+new child present. The cause of the scheduling delay remains open. The serial
+transcripts for these runs are also in `build/review/rights-cycles/`.
+
+## Orphan launcher progress and pipe buffer mappings
+
+Starting at `de44716f` on PR252, with main at `c9235491`, trace progress
+while the lifetime monitor waits for its orphan launcher. Test scalar and
+vectored pipe I/O across mapping changes during a wait. The checkpoints are
+the standalone lifetime guest, deterministic pipe tests and a matched QEMU
+threadstress run. PR272 also touches I/O admission for directory and PCM
+operations. Keep those paths with their existing owner.
+
+### Launcher and pipe mapping results
+
+The failing lifetime trace showed both the orphan launcher and its child ready
+while the monitor continued to poll. Commit `1a6b52f5` parks the monitor on
+the process exit event and between retirement checks. It keeps the original
+ten-second orphan deadline. Three fresh diagnostic boots completed all four
+iterations each. The matched production image also completed all four, with
+512 sequential child launches, 64 competing waiter pairs, unrelated-process
+survival and the PTY check. The trace establishes the missed progress during
+monitor polling. It does not identify a general scheduler fairness defect.
+
+Against the previous kernel, separate guest probes unmapped a blocked scalar
+reader's destination and a partially completed writer's source. Both panicked
+in kernel mode. The fault addresses resolve to the byte copy in
+`process_file_pipe_read_mode` and `process_file_pipe_write_mode`. A blocked
+`readv` with two one-byte destinations returned one byte when the second
+destination was unmapped, but consumed both pipe bytes.
+
+Commit `e1b8ae7a` checks the active mappings before committing a pipe
+transfer. In the new guest both reads returned `EFAULT` and recovered the
+two original bytes. The scalar writer returned its completed one-byte prefix.
+Focused and full threadstress and netabi passed. The process and syscall
+mapping fixtures passed x86_64 ASan/UBSan under Rosetta. The Linux x86_64
+host fixtures also passed. GCC 16 needed an exception for a pre-existing
+`maybe-uninitialized` warning in the process fixture. The Darwin Make targets
+passed with warnings treated as errors. The baseline ISO, serial logs and
+symbolized fault sites are under `build/review/pipe-mapping/`. The three
+diagnostic launcher boots are under `build/review/rights-cycles/diag-park-*`.
+
+## Repository-wide audit and PTY transfer lifetime
+
+Baseline `dc0a3fef` on PR252 includes main through `c9235491`. Inventory
+all tracked paths, including test and build tooling, ports, shared interfaces
+and documentation. Review source by subsystem and record verification depth
+and external dependencies. Start with PTY transfer mappings and descriptor
+reuse on both ends. This checkout owns the emulated guest and host checks.
+PR272 covers directory EOF and PCM admission and PR19 covers USB Wi-Fi.
+
+
+### Whole-tree audit integration result
+
+The combined candidate fixes the remaining reviewed syscall buffer races,
+including network receives and transmits, file/PCM access and console copies.
+Against the pre-change `dc0a3fef` kernel with the new netabi test disk, unmapping
+a blocked UDP destination faults in kernel `copy_bytes` at `net.c:282`.
+The rebuilt guest returns a fault and preserves the datagram. Invalid peer
+metadata leaves all output untouched, and replacing a descriptor while an alias
+remains live preserves both endpoints' queued data. PTY tests cover scalar and
+vectored mappings, partial writes and both ends of descriptor replacement.
+
+User faults now terminate the affected process. Sysabi checks an unmapped
+write, a worker invalid instruction and a delayed fault after the initial thread
+calls pthread_exit. Process teardown reacquires storage admission on every exit
+entry. Additional fixes cover PMM tags above 8 GiB, ELF and initramfs bounds,
+libc allocation/integer parsing, libuv completion/async ownership, utility error
+paths, boot payload verification and FAT image sizing.
+
+A full native ARM64 cross-build passed. Nine sequential disposable x86_64
+guests passed sysabi, netabi, full threadstress, libc, the local UV bridge,
+upstream libuv, process lifetime, CLI and staged ports. Lifetime completed four iterations with
+512 child launches and 64 competing waiter pairs. The final isolated Linux
+GCC 14 `test-core` run passed all 173 direct targets, including 385 reported
+Python unittest cases in 53 groups. The additional 30-case offline namespace
+suite also passed (415 cases across the combined run). The expanded user-copy
+fixture is included and also passed x86_64 Darwin ASan/UBSan under Rosetta. The
+network queue and UV bounds/lifetime fixtures passed native ARM64 ASan/UBSan.
+All six ASL fixtures compiled with iasl. Local documentation checks passed 765 inline links.
+
+The first Linux run exposed missing exfatprogs, test fixtures that needed their
+host IRQ shim after the copy changes, a missing fixture MAC, GNU feature-test
+declarations and a fixture indentation warning. These were corrected before
+the successful strict run. The bitmap fixture records that exfatprogs 1.2.9
+can report an oversized bitmap clean, and independently checks geometry and
+byte-for-byte repair. Current hosted Actions remain disabled. No physical
+hardware, recovery media or firmware settings were changed.
+
+Evidence is under `build/review/whole/` and
+`build/review/process-lifetime/`. The [coverage ledger](../audit-coverage-2026-11-02.md)
+accounts for every tracked baseline path and retains the distinction between
+screening, sampled manual review and runtime coverage. The full manual/native
+hardware and external-dependency review remains open.
+
+Continued review fixed tracked uACPI root-scope resolution, physical-table error
+propagation (distinguishing direct optional denial from required-child failure),
+GAS access encodings and map/unmap spans. The rebuilt ordinary AML resource
+fixture and full Q35 SCI/worker runtime suite passed, followed by sysabi and
+netabi reruns. The local iasl wrapper initially failed before guest launch
+because its container mount resolved the macOS `/var` alias inconsistently;
+correcting the wrapper path made the synthetic ASL compile. No host firmware
+was accessed.
+
+The final shell arithmetic fix covers checked boundaries and parsing of skipped
+logical branches. Native ARM64 and Linux sanitizer fixtures pass, and it is
+included in the final full host run. Final source code is `e8491549`; later
+documentation-only commits do not change these implementations.
+
+The final CLI rerun passed all 491 commands, including exact signed-boundary,
+short-circuit and overflow-status assertions. Its post-run filesystem check
+reported zero leaks/FAT/errors. The full host transcript is
+`build/review/whole/linux-core-173-final.log`; the CLI transcript is
+`build/review/whole/cli-shell-final.log`.
+
+The final staged-port guest also passed after the shell changes, with a clean
+post-run filesystem check. Its transcript is
+`build/review/whole/ports-shell-final.log`.

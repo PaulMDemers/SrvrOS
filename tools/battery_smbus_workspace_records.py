@@ -1,4 +1,8 @@
 """Strict receipts for disposable SMBus/Text/file coexistence, never native proof."""
+
+if not __debug__:
+    raise RuntimeError('evidence validation requires Python assertions; disable optimization')
+
 import re
 from serial_records import complete_lines
 

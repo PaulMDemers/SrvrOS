@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 """Exercise UTC and monotonic clocks through real syscalls in a disposable VM."""
+
+if not __debug__:
+    raise RuntimeError('evidence validation requires Python assertions; disable optimization')
+
 from pathlib import Path
 import shutil
 import re

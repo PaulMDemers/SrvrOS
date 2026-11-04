@@ -2,6 +2,40 @@
 
 Updated: 2026-11-03. State: **active reference machine; partial device acceptance**.
 
+### Merged baseline and next native display scope
+
+OS PR278 and Apps PR2 are merged; main `eaf11488` also includes renderer/host UI,
+edge resizing, awk and Files-recovery integration. The local checkout consumed
+its exact recursive submodule pins on `device/macbookair7-2/tearfree`. Current
+scope is the [native display presentation plan](../macbookair7-2-display-presentation.md):
+read-only Air7,2/Broadwell reference and inherited-state discovery, followed by
+explicit scanout ownership, inactive buffers, vblank flips and safe retirement.
+Shared kernel presentation dispatch, Intel GPU discovery and bounded diagnostics
+are the intended subsystems. Preserve VirtIO behavior and Air6,1's independent
+Haswell display/HDA ownership scope; PR19 Wi-Fi and PR252 audit remain separate.
+
+The outstanding 6ee native trial is collected as `session-00065f64c09a7e50-00`.
+All1313 prior files are preserved except expected filesystem metadata; four new
+logs are copied/hash-verified. Saved exit/lifetime retirement, consumed one-shot,
+Ubuntu default/recovery and offline fsck/allocation/writable/headroom pass. USB
+is remounted. No notes or new screenshots were saved; unreported chooser/input
+checks remain pending, not inferred from the clean exit or merge authorization.
+Evidence: `build/air-open-with-native-20261103/returned/`.
+
+Read-only Ubuntu reference identifies `8086:1626` rev09 / `106b:011b`, i915,
+eDP1440×900/60Hz, pipeA and primaryA/cursorA; Linux uses XR30/pitch6144. This does
+not establish the next SrvrOS boot's state or ownership. Native capture and all
+mutating scanout work remain future checkpoints. No new reboot is armed.
+Evidence: `build/air-tearfree-20261103/`.
+
+Merged-tree clean source `e52cfeaa` passes local host/core/docs/build, the actual
+Open With consumer regression and VirtIO presentation on QEMU10.2.1:16 drag,
+4 scroll and2 reacquisition frames, normal console recovery and abrupt owner
+termination. The initial build stopped on missing Bison for the newly merged
+awk port; installing it resolves the prerequisite and both Ubuntu setup guides
+now include it. Later edits are documentation only. This validates the combined
+software baseline; it supplies no native Intel scanout acceptance.
+
 ### Attended Open With hardware trial prepared
 
 The user authorized the next trial. Installed v75 `6ee815bb354a4100` / source

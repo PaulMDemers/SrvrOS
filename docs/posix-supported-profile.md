@@ -557,8 +557,8 @@ UDP binding is immutable after explicit or automatic bind; failed bind preserves
 the libc cached port. A send waiting for ARP revalidates its original endpoint
 before emitting a packet, refusing final-close/reuse while allowing a surviving
 native alias. Final close wakes blocked receivers; native held references retain
-queued data through creator cleanup. These checks do not extend pseudo-socket
-fork/dup support or qualify arbitrary SMP teardown. ICMP echo requests and replies require a valid checksum
+queued data through creator cleanup. Pseudo-socket duplication is described below.
+ICMP echo requests and replies require a valid checksum
 and code zero before responding or completing a pending ping. See the
 [datagram audit](datagram-audit-2026-10-28.md) for evidence and remaining scope.
 
@@ -586,6 +586,119 @@ UDP sends and pipe-backed socketpairs. New libc needs a matched rebuilt kernel.
 TCP connect/accept revalidate pseudo ownership after waits and restart handlers;
 raw accept pins its listener with a CLOEXEC duplicate and snapshots options. This
 needs one spare FD (EMFILE on exhaustion); closing the original raw FD does not
-cancel the retained accept. Native-FD operations behind libc, alias peer/options
-coherence and arbitrary SMP races remain outside this bounded result; see the
-[DNS/socket audit](dns-socket-audit-2026-10-28.md).
+cancel the retained accept. The [DNS/socket audit](dns-socket-audit-2026-10-28.md)
+records the original parser and per-call I/O evidence.
+
+Each libc IPv4 DNS query gets up to three UDP sends. After each send, libc
+gives replies two seconds on the monotonic clock. A malformed, truncated or
+foreign datagram and a readiness race returning `EAGAIN` use the remaining
+time in that attempt. A terminal poll or receive error ends the UDP stage.
+The native resolver fallback runs separately, so these receive budgets do
+not bound the total duration of `getaddrinfo()`.
+
+Duplicating a libc socket shares its peer, binding, connection state, shutdown
+state, status flags and socket options. Each pseudo descriptor keeps its own
+`FD_CLOEXEC` bit. Closing one alias leaves the backing descriptor available to
+surviving aliases. Raw stream descriptors duplicated through libc also share
+their cached socket options. The existing limits on pseudo-descriptor
+inheritance and explicit-target duplication still apply.
+
+When a native scalar or vector I/O operation or a blocking file lock is
+interrupted, libc checks descriptor identity across cooperative signal
+dispatch before restarting. If a handler replaces the descriptor with a
+different open file description, the restart fails with `EBADF`. Partial
+I/O still reports its completed count. Stream send and receive sample a
+native connection error before dispatch can replace its socket. These
+guarantees cover lifecycle changes made through libc during that callback.
+Direct native descriptor mutations and independent concurrent replacement
+remain outside this profile.
+
+### Unix-stream descriptor passing
+
+On a matched kernel and libc, `sendmsg` attaches up to four native descriptors
+to the first byte accepted on a local duplex stream. Socketpairs and connected
+pathname Unix sockets use this path. A failed send leaves no rights for another
+writer or surviving duplicate. A positive short send has already transferred
+the rights. Send the remaining payload without repeating the control message.
+The kernel accepts up to 4 KiB of payload per message call.
+
+A `recvmsg` can return a short prefix before the first rights-bearing byte.
+A positive receive starting at that byte delivers its rights with the data.
+A zero-capacity receive preserves both. `MSG_PEEK` leaves the queue in place
+and gives the caller its own descriptors to close. Short or absent control
+space sets `MSG_CTRUNC` when rights are discarded. `MSG_CMSG_CLOEXEC` sets
+the flag when installing the descriptors. `EMFILE` or a failed payload or
+control output check leaves the record available for another receive.
+
+Pseudo sockets can carry these messages as connected transports. Passing a
+libc pseudo socket or event adapter as a payload descriptor returns
+`EOPNOTSUPP`. Libc requires readable message, vector and input control metadata.
+Callers must keep output memory valid until the call returns. The kernel
+revalidates the receive destinations after any wait and before consuming the
+record. Independently changing mappings during libc's final header publication
+is outside this contract.
+
+The public calls use `SYS_PIPE_MESSAGE` (162). The older raw rights-only
+syscalls (98 and 99) remain available to existing binaries. An old sender that
+explicitly queues descriptors before writing payload still has two separate
+operations.
+
+### Lifetime of queued descriptors and blocked pipe I/O
+
+A rights record stays available while a process can reach its receiver. A
+duplicate or inherited read descriptor keeps it live, as does a reachable
+queued descriptor or a pending connection on a reachable Unix listener.
+A write-only descriptor cannot redeem queued rights. When the last path to
+a receiver disappears, the kernel releases its queued files even if the
+queue holds its own receiver or another socket leads back to it. Closing
+the final queued writer lets a separate reader observe EOF. The kernel
+removes records from the queue before releasing file references that might
+run writeback.
+
+Ordinary pipe reads and writes check the descriptor generation, endpoint
+role and pipe handle across waits. Retirement returns `EBADF` when no bytes
+have transferred. A writer that has already made progress returns that byte
+count. The same rule applies to `readv` and `writev` on pipes. The check covers
+both replacement of the descriptor and reuse of the kernel pipe slot.
+
+If a sibling unmaps a destination while a pipe read is blocked, the kernel
+checks the destinations for the bytes ready to return before copying or
+consuming them. An inaccessible destination returns `EFAULT` and leaves those
+bytes and attached rights queued. A failing `readv` also leaves earlier
+vectors untouched. The kernel snapshots the vector descriptors at entry.
+
+A scalar pipe write checks its source again before each transfer. If a range
+becomes inaccessible, the call returns the number of bytes already published,
+or `EFAULT` if it has published none. Pipe `writev` gathers the bounded input
+prefix before waiting. Access checks use the mapping present at the time of
+the copy, including a valid replacement mapped at the same address.
+
+
+## November 2 I/O and fault-boundary corrections
+
+On the current CPU0-owned execution model, kernel user copies validate and
+access each bounded chunk under the same IRQ exclusion. The checked pipe,
+PTY and network transfer paths revalidate payload/output mappings and descriptor
+identity after blocking, before consuming queued data. Refused reads retain
+queued data (and pipe rights); writes retain their established partial-progress
+semantics. Network sends use owned snapshots while waiting. Console input can
+be consumed before a failed final output copy. This does not promise arbitrary
+concurrent mutation of libc-owned objects or future SMP safety.
+
+Selected synchronous faults from ring 3 terminate the affected process through
+normal exit/retirement: invalid instructions report `SIGILL`, arithmetic faults
+`SIGFPE`, and ordinary protection/page faults `SIGSEGV`. A faulted worker also
+terminates the process when its initial thread has already called
+`pthread_exit`. These are fatal status reports, not synchronous signal-handler
+frames; adding `SIGILL`/`SIGFPE` constants does not add their cooperative libc
+handler support. Kernel-context faults and exceptional machine failures still
+halt. The ELF loader and user-range walker reject noncanonical ranges before
+entry or copying. See the [kernel audit](audit-kernel-2026-11-02.md) for the
+specific regressions and verification limits.
+
+The shell's signed 64-bit arithmetic expansion reports overflow as an expansion
+error (command status 2), including out-of-range numeric variables and division
+or remainder of the minimum value by minus one. Direct minimum-value literals
+and formatting work. Logical `&&`/`||` parse skipped branches without evaluating
+them, so skipped division errors do not fail; malformed syntax still does.
+The shell remains a bounded parser rather than a complete POSIX shell.

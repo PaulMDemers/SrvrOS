@@ -64,32 +64,79 @@ application refusal restores the last accepted geometry through the existing
 configure transaction.
 
 These compositor controls apply across all theme profiles and both integer
-display scales. Snapping and native-density typography remain separate features.
+display scales, including native-density typography at 2×.
 The directional cursor is software rendered, with old/new damage covered even
 when its shape changes without pointer movement.
 
+## Snapping and placement previews
+
+Drag a normal window by its titlebar toward the left or right screen edge for
+half-workarea placement, or toward the top for maximize. A translucent preview
+shows the exact destination; release applies it. The placement respects the menu
+bar, dock, existing client size limits and the same margins as keyboard Arrange.
+Top corners choose maximize. Windows too small to fit the minimum client size
+are not offered as targets.
+
+Move away from the edge to dismiss the preview and keep dragging. Escape stops
+at the current free position without applying a snap. Opening a modal dialog,
+switching focus or losing the window cancels its capture and preview. Dialogs
+keep ordinary titlebar movement but are not snapping targets. The preview does
+not allocate a client surface or resize the app until release.
+
+Dragging an already tiled or maximized titlebar restores its previous normal
+size under the pointer after a small movement threshold. Switching directly
+between snapped sides retains the original restore frame; releasing freely
+establishes a new normal position for the next drag. Existing keyboard Arrange
+and Restore commands continue to work. Allocation or client refusal follows the
+same rollback contract as manual resizing, retaining usable document content.
+
+The preview uses the active theme accent with a translucent fill and outline.
+Its old and new regions repaint on transitions; changing content behind it does
+not accumulate tint. The side gesture is informed by Microsoft's
+[description of Windows 7 Aero Snap](https://blogs.windows.com/windows-insider/2015/06/04/arrange-your-windows-in-a-snap/).
+
+[Snapping acceptance and captures](assets/screenshots/window-snap-manifest.json)
+cover both integer scales, cancellation and retained document content.
+
 ## Display scale
 
-The default remains 1× on every machine. An explicit integer scale can be selected
-when starting the desktop:
+Settings → Display selects 1× or 2× scale and, on QEMU's VirtIO GPU, a supported
+resolution. Apply starts a 15-second trial. Keep saves the choice; Revert, timeout,
+closing Settings or a failed client resize restores the previous display and
+window placement. Settings reports persistence separately, so a session-only
+change is not presented as saved. Confirmed preferences are restored on the next
+desktop launch after the asynchronous preference load completes.
+
+The default is 1× with the inherited boot resolution. An explicit startup override
+remains available:
 
 ```text
 run /fat/bin/deskd --scale=2
 ```
 
-At a 2880×1800 boot framebuffer this gives a 1440×900 logical desktop. Windows,
-controls, pointer movement, hit testing and damage use logical pixels; the final
-copy expands each pixel to a 2×2 block. Client surfaces and window-cache budgets use logical dimensions. This is integer enlargement of the existing
-raster toolkit, not new higher-resolution font rendering or GPU acceleration.
-The mode requires at least 640×480 logical pixels; other scales are rejected.
-`--scale=1` selects the existing behavior. It can accompany `--apps-trace` or a
-trial mode. There is no automatic DPI inference or persistent scale setting yet.
+At 2880×1800 this gives a 1440×900 logical desktop. Window geometry, controls,
+pointer input, clips and damage remain logical; canvases, client surfaces and
+compositor caches store native physical pixels. Built-in fonts use separately
+rasterized 2× atlases with unchanged logical metrics. Custom fonts without a
+higher-density raster use integer enlargement. Cache and surface quotas count
+physical bytes, so the same logical window consumes four times the pixel memory
+at 2×. Fenced VirtIO presentation remains active after a successful switch.
 
-Saved screenshots contain the logical canvas (1440×900 at the example mode),
-including its cursor. Expanding that BMP by 2× reproduces the displayed pixels.
-This keeps captures within Preview's current 8 MiB file limit. Serial diagnostics
-record physical dimensions, logical dimensions and scale. VM evidence does not
-accept the firmware-selected display or GPU on an additional physical Mac.
+A display requires at least 640×480 logical pixels, making 1280×960 the minimum
+physical size for 2×. Fractional scale and automatic DPI inference are not
+implemented. QEMU offers the inherited mode plus bounded presets through
+2880×1800; these are guest-supported modes, not an EDID monitor catalog. Other
+display drivers expose their current resolution and disable resolution changes.
+Scale can still change when the current framebuffer is large enough. See
+[display presentation](display-presentation.md) for the driver recovery contract.
+
+Saved screenshots retain logical dimensions, averaging native 2× pixels so the
+BMP remains within Preview's current 8 MiB file limit. QEMU screendumps preserve
+physical pixels for inspecting font detail. Serial diagnostics record physical
+and logical dimensions, scale and confirmed/restored changes. VM evidence does
+not accept modesetting or panel timing on a physical Mac.
+[Acceptance and native-resolution captures](assets/screenshots/hidpi-display-manifest.json)
+record the exact build, child revisions, recovery checks and measured drawing cost.
 
 The unattended `--idle-capture` mode is reserved for the v25/v26 hardware diagnostic
 profiles. It uses the prepared USB workspace, samples 60 seconds after startup,
@@ -160,8 +207,9 @@ injection/cache totals were not measured in that round.
 
 Tile left/right retain the original frame across side switches. Center returns
 to the original normal dimensions at the middle of the workspace. Restore size
-returns to the original position as well. Tiled windows must be restored or
-centered before free dragging/resizing. Narrow screens disable tiling when two
+returns to the original position as well. Dragging a tiled or maximized titlebar beyond a small movement threshold
+restores its normal dimensions under the pointer. A stationary click preserves
+placement. Restore or drag away before edge resizing. Narrow screens disable tiling when two
 minimum-size clients would not fit.
 
 The clock opens a month calendar with Today and keyboard navigation. Alerts
@@ -497,9 +545,11 @@ typing and moving the pointer, then confirm clean USB flush/unmount on exit.
 Maximize fills the usable 1440x900 laptop desktop, leaving the menu bar, dock and
 eight-pixel side margins visible. Clicking again restores the original window
 position and size. Preview's Fit/1:1 controls affect the image inside that window
-independently. Shared client surfaces are capped at 1440x900; the kernel pixel
-budget derives from the same constants. Larger screens still respect that cap.
-Compositor caches remain preallocated, so resizing adds no cache allocations.
+independently. Client geometry is capped at 1440×900 logical pixels, with surfaces up to
+2880×1800 physical pixels at 2×. The aggregate kernel surface budget remains
+256 MiB; larger screens still respect the per-client logical cap.
+Compositor caches grow on demand within their existing budget; allocation
+refusal preserves the last usable window.
 
 All standard desktop windows draw the same three outlined titlebar buttons:
 minimize, maximize/restore and close, from left to right. Their visibility depends

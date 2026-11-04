@@ -116,6 +116,15 @@ unknown large sessions remain refused rather than silently admitted.
 
 ## Active main integration and native trim scope
 
+Main now owns syscalls159–161 for display modes and162 for pipe messages. Move
+the private unmerged Wi-Fi snapshot/selection ABI to163; rebuild kernel and all
+userspace together. Preserve main's assignments and the self-contained accepted
+v116 payload/previous recovery. Existing frozen historical159 fixtures remain
+bound to their old images; they are not current ABI evidence. Native console
+bring-up does not use this syscall, but System/service/dispatch tests must cover
+the new assignment alongside display-mode/pipe regressions.
+
+
 Fetched actual main `0cba30a1` (PR322). Incoming pins are Apps `3cf32af2`,
 Ports `5e994f53`, UI `9eaaa74e`; current local Apps/Ports preserve Wi-Fi controls
 and checkpoint-only power logging. Merge those exact pins first and publish

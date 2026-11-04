@@ -16,7 +16,7 @@ from hardware_cpu_load import load_result
 from cpu_capture_format import SCHEMAS
 from hardware_ap_c3 import ap_c3_result
 from hardware_package import package_result
-from hardware_platform import platform_display_result, platform_series_result, platform_timing_result, platform_resources_result, platform_dependencies_result, platform_hda_result
+from hardware_platform import platform_display_result, platform_series_result, platform_timing_result, platform_resources_result, platform_dependencies_result, platform_hda_result, platform_dry_result, platform_backing_result
 
 
 def final_layout(text):
@@ -55,12 +55,16 @@ def covered(text):
                 and ap_c3_result(text) and package_result(text)
                 and display and not display['source_fault'] and display['source_completed']
                 and series and series['continuity_ok']
-                and (not re.search(r'^ap-platform: v=(?:5|6|7) ',text,re.M) or
+                and (not re.search(r'^ap-platform: v=(?:5|6|7|8|9) ',text,re.M) or
                      (platform_resources_result(text) and platform_resources_result(text)['status']=='OBSERVED'))
-                and (not re.search(r'^ap-platform: v=(?:6|7) ',text,re.M) or
+                and (not re.search(r'^ap-platform: v=(?:6|7|8|9) ',text,re.M) or
                      (platform_dependencies_result(text) and platform_dependencies_result(text)['status']=='OBSERVED'))
-                and ('ap-platform: v=7 ' not in text or
-                     (platform_hda_result(text) and platform_hda_result(text)['status']=='OBSERVED')))
+                and (not re.search(r'^ap-platform: v=(?:7|8|9) ',text,re.M) or
+                     (platform_hda_result(text) and platform_hda_result(text)['status']=='OBSERVED'))
+                and (not re.search(r'^ap-platform: v=(?:8|9) ',text,re.M) or
+                     (platform_dry_result(text) and platform_dry_result(text)['expected_refusal']))
+                and ('ap-platform: v=9 ' not in text or
+                     (platform_backing_result(text) and platform_backing_result(text)['status']=='OBSERVED')))
 
 
 def critical_records(text):
@@ -84,7 +88,7 @@ CAPS = {'cpu-load-power: power_state=': 24, 'cpu-load-idle:': 24,
         'cpu-idle-entry:': 24, 'ap-platform-point:': 12,
         'ap-c3-round:': 32, 'ap-package-round:': 32,
         'ap-package-pci:': 50, 'ap-platform-ltr:': 25,
-        'ap-platform-well:': 2, 'ap-platform-resources:': 2, 'ap-platform-resource:': 2, 'ap-platform-deps:': 2, 'ap-platform-hda:': 2,  'cpu-p2:': 24,
+        'ap-platform-well:': 2, 'ap-platform-resources:': 2, 'ap-platform-resource:': 2, 'ap-platform-deps:': 2, 'ap-platform-hda:': 2, 'ap-platform-dry:': 1, 'ap-platform-backing:': 2,  'cpu-p2:': 24,
         'cpu-i2:': 24, 'cpu-e2:': 24}
 WIDTHS = dict(version=1, v=1, phase=1, seq=2, us=5, id=10, seen=1,
               signature=6, ready_us=5, max_us=5, retire_us=5,
@@ -147,7 +151,7 @@ def assess(text, model=False):
 LOGGING_SOURCES = ('kernel/src/workspace_log.c', 'kernel/src/scheduler.c',
                    'kernel/src/fs/exfat.c', 'kernel/include/srvros/exfat.h',
                    'kernel/src/drivers/power.c', 'userspace/threadstress/load_capture.c',
-                   'kernel/diagnostics/ap_probe.c', 'kernel/diagnostics/platform_audit.c', 'kernel/diagnostics/platform_hda.inc',
+                   'kernel/diagnostics/ap_probe.c', 'kernel/diagnostics/platform_audit.c', 'kernel/diagnostics/platform_hda.inc', 'kernel/diagnostics/platform_owner.inc', 'kernel/diagnostics/platform_backing.inc', 'kernel/diagnostics/display_owner_core.c', 'kernel/include/srvros/display_owner.h',
                    'kernel/src/main.c')
 
 

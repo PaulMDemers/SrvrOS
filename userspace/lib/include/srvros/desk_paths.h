@@ -1,12 +1,17 @@
 #ifndef SRVROS_DESK_PATHS_H
 #define SRVROS_DESK_PATHS_H
-#include <stdlib.h>
-#include <string.h>
-/* Supplied by the desktop, not discovered with filesystem I/O in event loops. */
-#define DESK_WORKSPACE_HOME "/work/srvros-work"
-#define DESK_RAM_HOME "/fat/home"
+#include <srvros/profile_session.h>
+#define DESK_WORKSPACE_HOME SRV_PROFILE_LEGACY_WORK_HOME
+#define DESK_RAM_HOME SRV_PROFILE_LEGACY_RAM_HOME
+/* Invalid explicit profile context returns an empty path, never a fallback.
+ * Application startup must reject this context before accessing files. */
 static inline const char *desk_home(void) {
-    const char *home=getenv("SRVROS_DESKTOP_HOME");
-    return home && !strcmp(home,DESK_WORKSPACE_HOME)?DESK_WORKSPACE_HOME:DESK_RAM_HOME;
+    struct srv_profile_session session;
+    const char *desktop, *home;
+    if (!srv_profile_session_from_env(&session)) return "";
+    if (!session.id[0]) return !strcmp(session.home, DESK_WORKSPACE_HOME) ? DESK_WORKSPACE_HOME : DESK_RAM_HOME;
+    desktop = getenv("SRVROS_DESKTOP_HOME");
+    home = getenv("HOME");
+    return desktop ? desktop : home;
 }
 #endif

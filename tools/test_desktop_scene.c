@@ -36,6 +36,19 @@ static void dynamic_damage(void) {
         desk_damage_add(&damage,paint_bounds(s.windows[1].frame));
         draw_damage(&partial,&s,&damage);desktop_draw(&fresh,&s);
         assert(!memcmp(full,tiles,sizeof(full)));
+        /* Redraw an unchanged translucent preview over changing content, then
+         * switch and remove it. Each partial frame must equal a fresh frame. */
+        s.snap_preview=DESKTOP_TILE_LEFT;s.snap_frame=(struct desk_rect){8,52,300,348};
+        desk_damage_init(&damage,W,H);desk_damage_add(&damage,s.snap_frame);
+        draw_damage(&partial,&s,&damage);desktop_draw(&fresh,&s);assert(!memcmp(full,tiles,sizeof(full)));
+        for(unsigned i=0;i<310*260;i++)front[i]=(i*71u+33u)&0xffffff;
+        desk_damage_init(&damage,W,H);desk_damage_add(&damage,paint_bounds(s.windows[0].frame));
+        draw_damage(&partial,&s,&damage);desktop_draw(&fresh,&s);assert(!memcmp(full,tiles,sizeof(full)));
+        desk_damage_init(&damage,W,H);desk_damage_add(&damage,s.snap_frame);
+        s.snap_preview=DESKTOP_TILE_RIGHT;s.snap_frame=(struct desk_rect){332,52,300,348};desk_damage_add(&damage,s.snap_frame);
+        draw_damage(&partial,&s,&damage);desktop_draw(&fresh,&s);assert(!memcmp(full,tiles,sizeof(full)));
+        desk_damage_init(&damage,W,H);desk_damage_add(&damage,s.snap_frame);s.snap_preview=0;
+        draw_damage(&partial,&s,&damage);desktop_draw(&fresh,&s);assert(!memcmp(full,tiles,sizeof(full)));
         /* A stationary pointer changing shape must repaint both old and new pixels. */
         const int shapes[]={1,2,4,8,5,6,9,10,0};
         for(unsigned k=0;k<sizeof(shapes)/sizeof(shapes[0]);k++) {
@@ -51,6 +64,66 @@ static void dynamic_damage(void) {
         draw_damage(&partial,&s,&damage);desktop_draw(&fresh,&s);
         assert(!memcmp(full,tiles,sizeof(full)));
     }
+}
+/* Physical-stride scene composition must remain identical for clipped redraws
+ * while cached client frames independently transition between 1x and 2x. */
+static void native_density_scene(void) {
+    enum { PS=W*2+11, PH=H*2, GUARD=19, FW=320, FH=240 };
+    const size_t count=(size_t)PS*PH, source_count=(size_t)FW*FH*4;
+    uint32_t *a=malloc((count+2*GUARD)*sizeof(*a)),*b=malloc((count+2*GUARD)*sizeof(*b));
+    uint32_t *source_a=malloc((source_count+2*GUARD)*sizeof(*source_a));
+    uint32_t *source_b=malloc((source_count+2*GUARD)*sizeof(*source_b));
+    assert(a && b && source_a && source_b);
+    for(size_t i=0;i<source_count+2*GUARD;i++)source_a[i]=source_b[i]=0xdeadbeef;
+    for(size_t i=0;i<source_count;i++) {
+        source_a[GUARD+i]=(uint32_t)(0x100000u | ((i*37u)&0x0fffffu));
+        source_b[GUARD+i]=(uint32_t)(0x800000u | ((i*91u)&0x0fffffu));
+    }
+    for(unsigned style=0;style<3;style++)for(unsigned mixed=0;mixed<3;mixed++) {
+        unsigned lower_scale=mixed==1?1:2,upper_scale=mixed==2?1:2;
+        struct desktop_scene s={.focus=1,.cursor_x=600,.cursor_y=450,.cursor_shape=5,
+            .snap_preview=DESKTOP_TILE_RIGHT,.snap_frame={330,52,300,348}};
+        assert(!desk_theme_configure_style(&s.theme,style,1,2,16));
+        s.windows[0]=(struct desktop_window){.frame={20,60,322,285},.pixels=source_a+GUARD,
+            .width=FW,.height=FH,.scale=lower_scale,.visible=1,.title="Lower"};
+        s.windows[1]=(struct desktop_window){.frame={200,160,322,285},.pixels=source_b+GUARD,
+            .width=FW,.height=FH,.scale=upper_scale,.visible=1,.title="Upper"};
+        for(size_t i=0;i<count+2*GUARD;i++)a[i]=b[i]=0xdeadbeef;
+        struct desk_canvas full2,tiled2;
+        assert(!desk_canvas_init_scaled(&full2,a+GUARD,W,H,PS,2));
+        assert(!desk_canvas_init_scaled(&tiled2,b+GUARD,W,H,PS,2));
+        desk_clip(&full2,(struct desk_rect){0,0,W,H});desktop_draw(&full2,&s);
+        for(int y=0;y<H;y+=29)for(int x=0;x<W;x+=31) {
+            desk_clip(&tiled2,(struct desk_rect){x,y,31,29});desktop_draw(&tiled2,&s);
+        }
+        assert(!memcmp(a,b,(count+2*GUARD)*sizeof(*a)));
+        /* Two unoccluded samples verify native source pixels and nearest 1x
+         * expansion, rather than merely comparing two identical draw paths. */
+        for(unsigned dy=0;dy<2;dy++)for(unsigned dx=0;dx<2;dx++) {
+            unsigned lx=50,ly=120,ux=250,uy=220;
+            size_t li=((ly-104)*lower_scale+dy*lower_scale/2)*(FW*lower_scale)+(lx-21)*lower_scale+dx*lower_scale/2;
+            size_t ui=((uy-204)*upper_scale+dy*upper_scale/2)*(FW*upper_scale)+(ux-201)*upper_scale+dx*upper_scale/2;
+            assert(a[GUARD+(ly*2+dy)*PS+lx*2+dx]==source_a[GUARD+li]);
+            assert(a[GUARD+(uy*2+dy)*PS+ux*2+dx]==source_b[GUARD+ui]);
+        }
+        for(size_t i=0;i<GUARD;i++) {
+            assert(a[i]==0xdeadbeef && a[GUARD+count+i]==0xdeadbeef);
+            assert(source_a[i]==0xdeadbeef && source_a[GUARD+source_count+i]==0xdeadbeef);
+            assert(source_b[i]==0xdeadbeef && source_b[GUARD+source_count+i]==0xdeadbeef);
+        }
+        for(int y=0;y<PH;y++)for(int x=W*2;x<PS;x++)assert(a[GUARD+(size_t)y*PS+x]==0xdeadbeef);
+        assert(full2.pixel_writes && full2.pixel_writes<(uint64_t)W*H*4*100);
+        assert(tiled2.pixel_writes && tiled2.pixel_writes<(uint64_t)W*H*4*100);
+        struct desk_damage damage;desk_damage_init(&damage,W,H);
+        desk_damage_add(&damage,paint_bounds(s.windows[1].frame));
+        s.windows[1].frame.x-=43;s.windows[1].frame.y-=21;
+        desk_damage_add(&damage,paint_bounds(s.windows[1].frame));
+        draw_damage(&tiled2,&s,&damage);
+        desk_clip(&full2,(struct desk_rect){0,0,W,H});desktop_draw(&full2,&s);
+        assert(!memcmp(a,b,(count+2*GUARD)*sizeof(*a)));
+    }
+    free(source_b);free(source_a);free(b);free(a);
+    puts("desktop-scene-density: PASS 2x tiled and partial redraw, mixed fronts, physical stride guards");
 }
 int main(void) {
     for (unsigned i=0;i<310*260;i++) front[i]=i;
@@ -119,7 +192,16 @@ int main(void) {
     assert(!desktop_window_placement(20000,800,original,DESKTOP_CENTER,&center));
     assert(!desktop_window_placement(800,400,original,DESKTOP_TILE_LEFT,&center));
     assert(!desktop_window_placement(800,600,original,0,&center));
+    assert(desktop_snap_trigger(1280,800,0,52)==DESKTOP_MAXIMIZE_PLACEMENT);
+    assert(desktop_snap_trigger(1280,800,7,53)==DESKTOP_TILE_LEFT);
+    assert(desktop_snap_trigger(1280,800,1272,53)==DESKTOP_TILE_RIGHT);
+    assert(!desktop_snap_trigger(1280,800,8,53));
+    assert(!desktop_snap_trigger(1280,800,0,720));
+    assert(desktop_window_placement(1280,800,original,DESKTOP_MAXIMIZE_PLACEMENT,&center));
+    assert(center.x==8 && center.y==52 && center.w==1264 && center.h==668);
     struct desk_rect moved;
+    assert(desktop_drag_restore(1280,800,center,original,632,20,640,200,&moved));
+    assert(moved.x==279 && moved.y==180 && moved.w==722 && moved.h==525);
     assert(desktop_window_drag(1280,800,original,-400,700,&moved));
     assert(moved.x==-400 && moved.y==688 && moved.w==original.w && moved.h==original.h);
     for(int x=-4000;x<=4000;x+=137)for(int y=-4000;y<=4000;y+=271) {
@@ -177,6 +259,7 @@ int main(void) {
     assert(desktop_dock_entries(&dock_scene,640,480,entries)==DESK_APP_COUNT);
     assert(entries[0].frame.x>=8 && entries[DESK_APP_COUNT-1].frame.x+entries[DESK_APP_COUNT-1].frame.w<=632);
     dynamic_damage();
+    native_density_scene();
     puts("desktop-scene: PASS overlap, clipping, dynamic drag/scroll damage, stale-size cache, tiled/full equality, stride guards and bounded placement");
     return 0;
 }
