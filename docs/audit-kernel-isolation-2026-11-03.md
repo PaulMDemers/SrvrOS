@@ -307,8 +307,12 @@ exhaustion/bridging behavior and high physical-frame coverage. An explicit
 319/320-frame boundary run catches incorrectly skipping a group containing a
 free bit. Existing release checks inspect every poison byte. Normal host tests,
 PMM ASan/UBSan and GCC14 checks pass; kernel build passes. Baseline failures and
-passing evidence are under `build/review/poison/`. Final guest results are
-recorded after execution.
+passing evidence are under `build/review/poison/`. Implementation `d9b69e36`
+passes rebuilt-kernel Q35 sysabi and full threadstress against retained PR313
+runtime files on disposable disks. Main `4f5edb0e` is integrated with no
+kernel/shared delta. This is a kernel regression check, not a complete rebuild
+of newer userspace. The newly integrated actual-source salvage matrix also
+passes all 49 cases on this branch (`salvage-compat/result.json`).
 
 The poison data writes still scale with the number of released bytes. Heap
 validation remains unchanged, and first scans still scale with physical-memory

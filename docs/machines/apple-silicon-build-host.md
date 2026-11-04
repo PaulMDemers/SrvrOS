@@ -3151,3 +3151,7 @@ free-range hint maintenance. The new tests reject old byte-only skip cost and
 per-frame hint updates; the fix retains exact first-fit, full poison/tag checks
 and IRQ exclusion. No workspace/content/close policy changes; filesystem owner
 notified. Large poison writes and caller-masked initialization remain open costs.
+
+Implementation `d9b69e36` passes host PMM/heap/service checks, PMM sanitizers and
+GCC14, kernel build, Q35 sysabi and full threadstress. Main `4f5edb0e` adds no
+kernel/shared changes. Retained PR313 runtime files were used; guests stopped.
