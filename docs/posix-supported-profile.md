@@ -454,6 +454,13 @@ mutation, failed marker cleanup, unsupported requests and ownership/device
 admission failures retain the sticky error behavior. This is not a new errno ABI
 or an automatic retry loop, and it does not guarantee that a later attempt fits.
 
+File `fsync`/`fdatasync` acknowledges only its description's writeback. Current
+exFAT success already includes backing-volume data/metadata/clean-marker barriers;
+clean descriptions have no deferred writes. An unrelated offline disk therefore
+does not veto a healthy file. Global `sync` and normal reboot still require the
+system-wide flush and may fail while another disk remains offline. No automatic
+retry, repair or lossless final-close recovery is implied.
+
 Global sync visits each live content object once, including dirty content held
 only by readers after a failed writer close. Unlinked content needs no pathname
 writeback. Final close still retires the descriptor and reports a flush error;
