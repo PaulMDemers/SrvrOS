@@ -1,0 +1,194 @@
+{
+  "schema": "org.srvros.profile-chooser-proof.v1",
+  "status": "PASS",
+  "source": "3f9c225a504830580440488b41c267bdf9992d72",
+  "integrated_main": "4f5edb0e7ce5f3593e6a522fdf7af81f0ca79590",
+  "receipt_sha256": "3fd65ce67376ab6a9e6ca9929d4abccb735f8820fd61b57b15761552873172bc",
+  "repositories": {
+    ".": {
+      "head": "3f9c225a504830580440488b41c267bdf9992d72",
+      "dirty": false
+    },
+    "ports": {
+      "head": "5e994f53fd34b65227a992e2d01751ce80b08cb6",
+      "dirty": false
+    },
+    "ports/upstream/awk": {
+      "head": "5739fd79bcfc75ba7526773d0cf634521f8aca3c",
+      "dirty": false
+    },
+    "ports/upstream/cjson": {
+      "head": "c859b25da02955fef659d658b8f324b5cde87be3",
+      "dirty": false
+    },
+    "ports/upstream/inih": {
+      "head": "26254ee9de7681f8825433415443e7116ff24b98",
+      "dirty": false
+    },
+    "ports/upstream/libuv": {
+      "head": "1cfa32ff59c076ffb6ed735bbc8c18361558661f",
+      "dirty": false
+    },
+    "ports/upstream/linenoise": {
+      "head": "dc83cc373ac2058030eb3cf5e404959a26fef112",
+      "dirty": false
+    },
+    "ports/upstream/lua": {
+      "head": "6e22fedb74cf0c9b6656e9fce8b7331db847c605",
+      "dirty": false
+    },
+    "ports/upstream/node": {
+      "head": "c7d10158bc31036de6783d66beaaaf551e3167aa",
+      "dirty": false
+    },
+    "ports/upstream/zlib": {
+      "head": "da607da739fa6047df13e66a2af6b8bec7c2a498",
+      "dirty": false
+    },
+    "userspace/apps": {
+      "head": "3cf32af2294eebe9d8b9aeb8bc1dcbe46feb2967",
+      "dirty": false
+    },
+    "userspace/widgets": {
+      "head": "9eaaa74e1423c15c99f8ce388b08ed5e514de3d6",
+      "dirty": false
+    }
+  },
+  "build_hashes": {
+    "build/initramfs.tar": "b157e76b4c9b612cc882f4a8415c008b9a64c97210e48d33042e8612caebfbb0",
+    "build/kernel/srvros.elf": "de81939d2499fc1a8bd85862aaa6eee6a131999bf0815f257a0417f6aaa4a5ad",
+    "build/srvros.exfat": "e41239daec0c2d6dde16d33cdb85a0c2d5b23dc2aaa45a4f06240f2b7ad0455a"
+  },
+  "tool_sha256": {
+    "installation_image.py": "45c61e42fd6a77644149e31174e0dcbbff496a10c1cc8d59c1a65cd25707d307",
+    "profile_bundle.py": "5c9747b2f83916a31400f3a1c7df642bb070e7e3c69b451a47ea9d35aaf468ee",
+    "profile_chooser_smoke.py": "ac5f776ea41fafb0c6a192aea9c3018cf3b4e9dd237da9c23b192b8b94e13e38",
+    "profile_desktop_smoke.py": "862d4a86087edac7f5ad77cac73aec5a06129c03f77641ead0d11adda582fccf",
+    "profile_guest_smoke.py": "ee3ea72f5e64a57ae5ebd1b68354c36ef8e9359a9d7f1a18b48fc1410b661eb1",
+    "profile_image.py": "66df9186653d061b339fcd4527ae0cc0374c23f27d4206e394c3c3a8bdaa3de8"
+  },
+  "firmware_sha256": "33090cc07675baa5190d9f1e84bf5176b33bcbfa9bacac522961150cdb6dbb2a",
+  "firmware_vars_sha256": "5d2ac383371b408398accee7ec27c8c09ea5b74a0de0ceea6513388b15be5d1e",
+  "qemu_version": "QEMU emulator version 11.1.2",
+  "vm_lifetimes": 14,
+  "serial_sha256": {
+    "serial-a-choose.log": "a205196c3c37474e6019fe7ee080525e54ce87ed1858f5a653a811c8d3bf93b5",
+    "serial-a-corrupt-choice.log": "c8e07e86ff5f4fd31875e8401b68877a2905bc3ab82276349ecb42cdfb18c054",
+    "serial-a-explicit.log": "bb9ea26327d344c8c0021a858b628bb67b78736d8382f8d2c5ba8056d4a4e576",
+    "serial-a-export.log": "b7ac422c3dc99f11f625c184736e329ed852255f237b781c6835cbeffda79045",
+    "serial-a-malformed-small.log": "5cca7aa085d0ecf6aff26cecc842481f80c501b225ef60f20abdb248a7662274",
+    "serial-a-missing.log": "357456044d0bd4cd8e772e77b25d2a79294b6b9b1e6ebcbfbfb11b7c09f139c6",
+    "serial-a-reselect.log": "1e65bdaf35c1f24c85cc412203f0c9e39256a2d2e8ffb5336e453d2e3374397a",
+    "serial-a-restored.log": "495fe27ad6922a449be46dd7b009a8529598c27d53d5742f156fab9f2f9a6963",
+    "serial-a-stale.log": "cb6ced8d13cf1e5691d94aeb9e4815b1ec8d99045f7ea25c436c7138753c7a6e",
+    "serial-b-blocked.log": "95eff6b88a3a3ffdc4ea9dbdb04530c438aef8df89a9c2c34565c5da51e14bb1",
+    "serial-b-corrupt.log": "7388d3aece6c7351ebdffeb2bf0474ccf0c9b98b87f9a340a9fdc6c68818358a",
+    "serial-b-interrupt.log": "1ea20b8956766d0d081d31ec1393d01a8fd9f84313fcc1e6eeef5ca5249356bc",
+    "serial-b-recover.log": "b4ae198e54f2d91120174aab4033497e9a79b91a23fc82801c20a5e9786fec31",
+    "serial-b-restored.log": "c65928ccdc0b7afc2de5060f251da987f9ed6a4f5f0cf5882f4ae1a43ce6c2d0"
+  },
+  "screenshots_sha256": {
+    "profile-chooser-small.png": "101f225f7f886d9a0d94c90178a1ee16d8775dfd3fc1ce9aa0a7b89e7427b00a",
+    "profile-chooser-recovery.png": "7065dc69b7bbcec7c7248e9efcf546bccc008fed62b8fa1f81e32119b24d1de0",
+    "profile-chooser-blocked.png": "a4524e223cea7372e3a0f2cf0644f8742d6d2ce5449891675354e124ba24c710"
+  },
+  "installations": {
+    "a": {
+      "data_bytes": 134217728,
+      "data_offset": 403701760,
+      "final_disk_sha256": "24aa53e79f2c249399a5d047ae015fed23aa2ff4a3960a0868b12f80aa2ea70e",
+      "gpt": {
+        "disk_guid": "338bc86b-4a1c-4f66-9fc8-4bcd14ab06ed",
+        "esp_partition_guid": "2ad3b9a6-e0d3-428e-b1ce-a946de67fe40",
+        "exfat_partition_guid": "08d86f2b-1bc3-46fb-ab03-1ddb31964c6e"
+      },
+      "initial_disk_sha256": "51b661b14eb23b3d88e59b16a1286af4ca3d0465c0486d4e6d9da249b3475e82",
+      "profile": {
+        "binding": {
+          "alias": "local_a",
+          "gid": 1001,
+          "uid": 1001
+        },
+        "choice_sha256": "3061393f6b1198ff87a0b913133227039d636a5116123db42626c59fb018c3f7",
+        "home": "/fat/home/local-a",
+        "id": "12345678-1234-4234-8234-123456789abc",
+        "machine_sha256": "fe0a4369803f1f9d413c78af0929ad8e4307d9550146ab183d186927bda27212"
+      },
+      "protected_regions": {
+        "after_data_sha256": "d1ea43158faa32cf5ea233fad2f5a2c27dd9d7d8446b7cb1b0a2f20ee90469e4",
+        "before_data_sha256": "c80c61c46f76b825eacc5fe89e1f180790c203e675792eef94ca5456163159ec"
+      }
+    },
+    "b": {
+      "data_bytes": 134217728,
+      "data_offset": 403701760,
+      "final_disk_sha256": "f4fa81d6c9fe6e98c75da981f03fd41a6147878a124fa68c50c58ffd1fdce5b7",
+      "gpt": {
+        "disk_guid": "916e5ce4-2d1b-4ca5-b265-247dec7ac36e",
+        "esp_partition_guid": "35b190e9-ab2d-4079-a9fb-248f412e76c3",
+        "exfat_partition_guid": "ba9554d2-28e7-4f21-8dfd-e7030a2b5f39"
+      },
+      "initial_disk_sha256": "cc17ea5b7764f785facbe240eb939765453b42d442838bf2f0331c77f6a0b6c6",
+      "profile": {
+        "binding": {
+          "alias": "local_b",
+          "gid": 2051,
+          "uid": 2050
+        },
+        "choice_sha256": "3db7c9407e93e1b0bcbbd273f1b88606ca3e4854e3e1219a3576367dba50fb8d",
+        "home": "/fat/home/local-b",
+        "id": "12345678-1234-4234-8234-123456789abc",
+        "machine_sha256": "1eac45b0c4897dfeded2144174cde34298803e3fa583f4ff33b893025db93b71"
+      },
+      "protected_regions": {
+        "after_data_sha256": "ac5194adc3ae7677a38b4bb447292d2e4ed811c9cf250bbcd613660e4e2d84f8",
+        "before_data_sha256": "b9f259180351b09b6e050418578da0e696baa34bad03aa3cc7f402435a75fde3"
+      }
+    },
+    "transport": {
+      "data_bytes": 134217728,
+      "data_offset": 403701760,
+      "final_disk_sha256": "da15a362b8db545684089775ce163dd7cb90f717446034554e7f8f0f2d0d7ced",
+      "gpt": {
+        "disk_guid": "92f14351-70c3-495e-80d3-c4d705ddb1dc",
+        "esp_partition_guid": "c7a57922-18fb-42cb-bf7f-c70a42cad6fa",
+        "exfat_partition_guid": "9fc7b3f3-2eeb-4655-aac8-ae8692ca15c3"
+      },
+      "initial_disk_sha256": "0d9dfaab8eb9b31e407f7916acd08a6c768ae5b7898c929a267cc02308dbb643",
+      "protected_regions": {
+        "after_data_sha256": "674c02901d2e7d2bbf2f1c03ae68541a4c1633563e8ad15af19b7a15da8667af",
+        "before_data_sha256": "4a2a26e90d82c218f03d9c4fc9f5c9a8b1919f8edfe1517328f9d11967a11597"
+      }
+    }
+  },
+  "small_fixture": {
+    "config": "timeout: 0\nserial: yes\n/srvros\n    protocol: limine\n    path: boot():/boot/srvros.elf\n    resolution: 640x480\n    cmdline: srvros.virtio=on srvros.root=f2ac1ab0-f6be-4a8f-9434-34f9703d13d3 srvros.root-format=exfat-v1 srvros.root-role=system\n    module_path: boot():/boot/initramfs.tar\n    module_string: initramfs\n",
+    "config_sha256": "592ccd7590422831bb7c311e22b11c9ff34db598f96af6d4749bb8cebd0b5cd9",
+    "final_disk_sha256": "68818eded9d43064777af8677966a272024efd1cae31fd0c7e69f81efbfb5c6b",
+    "gpt": {
+      "disk_guid": "9a8914e0-df9d-43ba-b30c-11d5bb74f83e",
+      "esp_partition_guid": "08cf3738-f567-42f2-8aa1-cbce402d8d69",
+      "exfat_partition_guid": "f2ac1ab0-f6be-4a8f-9434-34f9703d13d3"
+    },
+    "initial_disk_sha256": "7458cae61fc6c32352b386d9b6d20b6eb23ca011fb71be66de0312671d1af091",
+    "protected_regions": {
+      "after_data_sha256": "dba83b26c3d60f71d64ccee9af0e2fbda2916782e81cc3d97bd5981df0a4c804",
+      "before_data_sha256": "4285d94a8960cd84a23879b489c7f99d861866c03776f3793fb3315db86fd50e"
+    },
+    "source_data_sha256": "74c289b144e6f94c9b87bf8588fab52bbbe89ca46b0a78587c337144a6cb33eb"
+  },
+  "blocked_comparison": {
+    "after_sha256": "6666303b9d5df5513de43a6bcd329c36f9be6d649af409944a4506a839f4ab9f",
+    "atime_advanced": 6,
+    "before_sha256": "e3d285ff2767138853c31b61d1d866352954494cf409068a9863b6d77444d03f",
+    "metadata_rows": 396,
+    "namespace_entries": 397,
+    "service_log_lines_appended": 4
+  },
+  "limits": [
+    "disposable QEMU images only",
+    "no authentication or access-control claim",
+    "no physical disk or power-loss acceptance",
+    "external fsck.exfat not run"
+  ]
+}
