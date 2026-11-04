@@ -40,32 +40,35 @@ def backing_result(text):
 def _parse(text):
     lines=[x for x in text.splitlines() if x.startswith('hsw-backing:')]
     if len(lines)!=1:return None
-    m=re.fullmatch(r'hsw-backing: v=1 status=([0-7]) count=(\d+) cap=1536 fences=16 upper=unknown swizzle=partial maps=(\d+) retained=([01]) offset=(\d+) bytes=(\d+) table=(\d+) stolen=(\d+),(\d+) limit_us=100000 writes=0 ownership=0',lines[0])
+    m=re.fullmatch(r'hsw-backing: v=([12]) status=([0-7]) count=(\d+) cap=1536 fences=16 upper=unknown swizzle=partial maps=(\d+) retained=([01]) offset=(\d+) bytes=(\d+) table=(\d+) stolen=(\d+),(\d+) limit_us=100000 writes=0 ownership=0',lines[0])
     if not m:return None
-    status,count,maps,retained,offset,size,table,start,end=map(int,m.groups())
+    version=int(m[1]);status,count,maps,retained,offset,size,table,start,end=map(int,m.groups()[1:])
     if count>1536 or maps>10 or any(x>=2**64 for x in (offset,size,table,start,end)):return None
     metas={};vectors={}
     for line in text.splitlines():
         if not line.startswith(('hsw-backing-meta:','hsw-backing-ptes:')):continue
-        m=re.fullmatch(r'hsw-backing-(meta|ptes): v=1 phase=([01]) data=([A-Za-z0-9+/]*={0,2})',line)
+        m=re.fullmatch(r'hsw-backing-(meta|ptes): v=([12]) phase=([01]) data=([A-Za-z0-9+/]*={0,2})',line)
         if not m:return None
-        kind,phase,data=m[1],int(m[2]),m[3];target=metas if kind=='meta' else vectors
+        kind,record_version,phase,data=m[1],int(m[2]),int(m[3]),m[4]
+        if record_version!=version:return None
+        target=metas if kind=='meta' else vectors
         if phase in target:return None
-        b=canonical(data,568 if kind=='meta' else None)
-        if kind=='meta':target[phase]=list(struct.unpack(META,b))
+        b=canonical(data,(572 if version==2 else 568) if kind=='meta' else None)
+        if kind=='meta':target[phase]=list(struct.unpack(META if version==1 else '<50Q16Q3Q5I',b))
         else:
             if len(b)%4 or len(b)>1536*4:return None
             target[phase]=list(struct.unpack('<'+'I'*(len(b)//4),b))
     if metas.keys()!={0,1} or vectors.keys()!={0,1}:return None
     complete=text.count('laptop-capture: completed=yes\n')==1 and 'laptop-capture: completed=NO' not in text
     if status!=1:
-        return dict(status='REFUSED' if status==2 else 'FAILED',source_status=status,source_completed=False,hardware_authority=False,ownership=False,maps=maps,retained=bool(retained),observed_count=count,raw_metadata=[metas[0],metas[1]],partial_ptes=[vectors[0],vectors[1]],scope='Incomplete/refused readout, not backing acceptance')
+        return dict(**({'source_version':2} if version==2 else {}),status='REFUSED' if status==2 else 'FAILED',source_status=status,source_completed=False,hardware_authority=False,ownership=False,maps=maps,retained=bool(retained),observed_count=count,raw_metadata=[metas[0],metas[1]],partial_ptes=[vectors[0],vectors[1]],scope='Incomplete/refused readout, not backing acceptance')
     if retained or not count or not complete:return None
     samples=[]
     for phase in (0,1):
         v=metas[phase];raw=vectors[phase];e,extent,tt,ss,se=endpoint(v[:50])
         fences=v[50:66];begin,finish,digest=v[66:69];reads,n,present,stolen=v[69:73]
-        if (extent['pages'],extent['offset'],extent['span'],tt,ss,se)!=(count,offset,size,table,start,end) or n!=count or len(raw)!=count or reads!=count+96:return None
+        if version==2 and (v[73]==0xffffffff or (phase and v[73]!=metas[0][73])):return None
+        if (extent['pages'],extent['offset'],extent['span'],tt,ss,se)!=(count,offset,size,table,start,end) or n!=count or len(raw)!=count or reads!=count+96+(version==2):return None
         if not 0<begin<finish<2**64 or finish-begin>100000:return None
         if any((f&0xffffffff)==0xffffffff or f>>32==0xffffffff for f in fences):return None
         for f in fences:fence_fields(f) # Raw field preservation, no unique/upper-fence assertion.
@@ -77,6 +80,6 @@ def _parse(text):
         if samples and (metas[0][:66]!=v[:66] or vectors[0]!=raw or begin<samples[0]['pm_us'][1] or begin-samples[0]['pm_us'][1]>100000):return None
         samples.append(dict(endpoint=e,raw_endpoint=v[:50],fences=fences,pm_us=[begin,finish],hash=digest,window_reads=reads,present=present,stolen_candidates=stolen,ptes=raw,address_candidates=pages))
     ptepages=((offset//4096*4&4095)+count*4+4095)//4096
-    if maps!=2*(ptepages+2):return None
+    if maps!=2*(ptepages+2+(version==2)) or (version==2 and ptepages>2):return None
     candidates=fence_candidates(samples[0]['fences'],extent,e['pitch'])
-    return dict(all_present=all(s['present']==count for s in samples),all_stolen_candidates=all(s['stolen_candidates']==count for s in samples),stolen_range_reserved=bool(e['stolen_reserved']),lower_fence_candidates=candidates['matches'],display_swizzle_bit=bool(e['disparb']&(1<<13)),status='OBSERVED',source_status=1,source_completed=True,count=count,maps=maps,retained=False,offset=offset,bytes=size,table_bytes=table,stolen_bounds=[start,end],samples=samples,upper_fences='unknown',swizzle='partial',unique_fence_proven=False,hardware_authority=False,ownership=False,acceptance=False,scope='Exact Haswell full GGTT vectors and documented lower fences only; upper fences/full swizzle/firmware exclusion/pinning unknown; original RC6 acceptance separate')
+    return dict(**({'source_version':2,'tilectl_raw':[metas[0][73],metas[1][73]],'tilectl_scope':'Raw CPU/aperture observations only; not full-path consistency'} if version==2 else {}),all_present=all(s['present']==count for s in samples),all_stolen_candidates=all(s['stolen_candidates']==count for s in samples),stolen_range_reserved=bool(e['stolen_reserved']),lower_fence_candidates=candidates['matches'],display_swizzle_bit=bool(e['disparb']&(1<<13)),status='OBSERVED',source_status=1,source_completed=True,count=count,maps=maps,retained=False,offset=offset,bytes=size,table_bytes=table,stolen_bounds=[start,end],samples=samples,upper_fences='unknown',swizzle='partial',unique_fence_proven=False,hardware_authority=False,ownership=False,acceptance=False,scope='Exact Haswell full GGTT vectors and documented lower fences only; upper fences/full swizzle/firmware exclusion/pinning unknown; original RC6 acceptance separate')
