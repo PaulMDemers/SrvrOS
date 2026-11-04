@@ -69,3 +69,25 @@ acceptance; the saved CPU-only receipt is checked separately. Missing workspace
 must halt visibly without reset. Native trials save/unmount and automatically
 return after a handled result; persistence failure visibly halts. Preserve Ubuntu
 recovery and the exact staged payload, as in the [Ubuntu guide](ubuntu-device-agent-setup.md).
+
+## Air7,2 native observation — 2026-11-04
+
+Source `e9391d64` / release `07df02f62d1074ac`, session
+`00065f78ce4bd46c-00`, completes both matching37-read snapshots in46us each,
+about11.58 seconds apart. Raw PAT is `0x0000010500070406`, MTRRCAP `0xd0a`,
+DEF_TYPE `0xc06`, physical width39. All18 classifications match independent
+decoding and exact native display/backing/address binding.
+
+| Proposed physical page | Purpose | Observed MTRR | Effective type at PAT indices0/2/3 |
+| --- | --- | --- | --- |
+| `0xc0101000` | Flush-register page | UC | UC / UC / UC |
+| `0xc0811000` | GGTT alias page beyond the full fence | UC | UC / UC / UC |
+| `0xb2200000` | Aperture page beyond the full fence | UC | UC / UC / UC |
+
+No proposed page was mapped or accessed through a new alias; no cache policy or
+GPU entry/control was written. Full inherited backing preservation, complete
+saved reports, prior-file preservation, offline integrity, recovery and Ubuntu
+return checks pass. This accepts the bounded observations only. Actual alias
+attributes, private RAM publication, exclusive device/range ownership, native
+translation completion and physical tear-free presentation remain separate.
+See the [machine record](machines/macbookair7-2.md) for acceptance and retention.

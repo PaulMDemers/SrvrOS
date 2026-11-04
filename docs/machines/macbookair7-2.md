@@ -2,11 +2,45 @@
 
 Updated: 2026-11-04. State: **active reference machine; partial device acceptance**.
 
-### Read-only cache audit installed; native observation pending
+### Native read-only cache observation accepted
+
+Release `07df02f62d1074ac`, source `e9391d64`, completes as
+`session-00065f78ce4bd46c-00`. The two CPU0 snapshots match across37 reads each:
+ten variable MTRR pairs,11 fixed registers and architectural control endpoints.
+Each takes46us; snapshots are separated by about11.58 seconds. Physical width
+is39 bits, raw PAT is `0x0000010500070406`, MTRRCAP is `0xd0a` and DEF_TYPE is
+`0xc06`. All18 proposed-leaf classifications independently validate, with exact
+CPU/display/backing/address binding and final full1356-PTE/fence preservation.
+
+All three queried pages—flush-register page `0xc0101000`, proposed GGTT alias
+page `0xc0811000`, and proposed aperture page `0xb2200000`—have MTRR typeUC.
+Tested PAT indices0/2/3 resolve to effectiveUC in both snapshots. This accepts
+these bounded cache observations, not a page-table walk, mapped private buffer,
+managed range, immutable cache policy or GPU ownership. There are zero cache-
+policy/control writes and zero mappings of proposed pages. The inherited
+backing guard still uses its existing retired read-only windows. See the
+[cache audit contract](../x86-cache-audit.md) for exact limits.
+
+Saved capture has `completed=yes` and no collector attention. All1,329 prior
+files are preserved except expected `.srvros/meta`; the two new logs copy and
+hash-verify. Offline fsck/allocation/writable/headroom, independent payloads/
+recovery, Ubuntu default and consumed one-shot checks pass. USB is left
+unmounted; no reboot is armed. Current native is07df, recovery9aa, preceding
+5346/shadowd79/known-goodc497 remain verified. Evidence and payloads are retained
+outside build cleanup.
+
+Next is boot-scoped sole ownership, a managed GGTT range, private RAM/alias cache
+publication and native write/invalidation/reader retirement, before a single-page
+aperture round-trip with exact restore. The earlier DMA observation belongs to
+a separate boot; revalidate writer-time conditions rather than combine old
+snapshots into a takeover grant. Actual private GPU mappings and tear-free flips
+remain unimplemented and unaccepted.
+
+### Cache readout preparation checkpoint (superseded above)
 
 Source `e9391d64`, consuming main `5f670602` through `8eac2536`, is staged and
 installed as `07df02f62d1074ac` for the [read-only CPU cache audit](../x86-cache-audit.md).
-No native cache result is accepted yet. This reads inherited PAT/MTRRs and
+At preparation, native cache acceptance was pending. This reads inherited PAT/MTRRs and
 classifies proposed4KiB leaf policies; it maps no proposed GPU pages and grants
 no GGTT range, DMA authority or physical tear-free acceptance. Final inherited
 backing verification still uses the existing temporary read-only windows.
