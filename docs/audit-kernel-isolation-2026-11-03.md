@@ -1455,6 +1455,24 @@ remain pending. Range checks establish shape/overlap only, not a user mapping
 lease or proof of a future serialized frame's complete extent. No production
 signal delivery, public ABI or fused state publication is accepted here.
 
+## November 4: main-thread record retirement exclusion correction
+
+Target review of the new PR334 internal state slice found that main
+`process_thread_exit` could enter with IRQs enabled; trap invalidation saves and
+restores that entry state, so the subsequent record clear lacked exclusion. The
+owner added explicit saved-IRQ exclusion immediately before invalidation/clear;
+the existing later enable for parking/atexit is retained. Both independently
+rerun strict Rosetta and ASan/UBSan lifecycle profiles pass at corrected source.
+Removing only that exclusion in a private negative control fails the new IF0-entry
+assertion at trap invalidation. Evidence and source hashes:
+`build/review/pr334-signal-state-irq-review/`. The earlier six profiles belong to
+the pre-correction source; fresh corrected target/normal-guest closure is pending.
+
+The owner reports target static-array growth of 1,764,352 bytes including
+alignment, versus 1,763,328 bytes of declared state payload. Per-slot target size
+grows 27,568 bytes to 1,701,280 bytes. These target figures await independent frozen
+artifact verification and do not replace the earlier explicitly host-only result.
+
 ## Remaining work
 
 Other long IRQ-disabled operations, including initial/churning PMM scans, heap validation and poisoning,
