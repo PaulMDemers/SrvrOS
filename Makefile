@@ -4438,6 +4438,7 @@ test-haswell-backing: build/tests/hsw-backing$(HOST_EXE) build/tests/hsw-backing
 	build/tests/hsw-backing-adapter$(HOST_EXE) > build/tests/hsw-backing-producer.log
 	$(PYTHON) -m unittest discover -s tools -p test_hardware_haswell_backing.py
 	$(PYTHON) -m unittest discover -s tools -p test_haswell_backing_audit.py
+	$(PYTHON) -m unittest discover -s tools -p test_haswell_path_audit.py
 	$(PYTHON) tools/check_hsw_capture_tail.py --log build/tests/hsw-backing-producer.log --output build/tests/hsw-backing-tail.json
 build/tests/hsw-backing$(HOST_EXE): tools/test_hsw_backing.c kernel/diagnostics/haswell_backing_core.c kernel/include/srvros/haswell_backing.h
 	@mkdir -p $(@D)
