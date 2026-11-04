@@ -76,24 +76,32 @@ static char lower_ascii(char c){return c>='A'&&c<='Z'?c+32:c;}
 static void document_path(const char *s){require(strlen(s)<=160&&!strncmp(s,"Documents/",10)&&s[10],"invalid Documents path");const char *p=s;for(;;){const char *end=strchr(p,'/');size_t n=end?(size_t)(end-p):strlen(p);require(n&&n<=64&&alnum_ascii(*p)&&p[n-1]!=' '&&p[n-1]!='.',"invalid document component");for(size_t i=0;i<n;i++)require(alnum_ascii(p[i])||strchr(" _-.",p[i]),"invalid document character");if(!end)break;p=end+1;}}
 static void collision(const char *a,const char *b){size_t i=0;while(a[i]&&b[i]&&lower_ascii(a[i])==lower_ascii(b[i]))i++;require(!((!a[i]&&(!b[i]||b[i]=='/'))||(!b[i]&&a[i]=='/')),"document file/directory or duplicate collision");/* Every shared folded directory prefix must preserve case. */
     for(size_t k=0;k<i;k++)if(a[k]=='/'||b[k]=='/')require(!memcmp(a,b,k),"document directory case collision");}
-struct bundle{cJSON *json;unsigned count;size_t total;const char *paths[MAX_FILES];unsigned char *data[MAX_FILES];size_t sizes[MAX_FILES];int version,fd;uint64_t offsets[MAX_FILES],source_size;char hashes[MAX_FILES][65],source_hash[65];struct stat source_stat;};
+struct bundle{cJSON *json;unsigned count;size_t total;const char *paths[MAX_FILES];unsigned char *data[MAX_FILES];size_t sizes[MAX_FILES];int version;profile_stream_handle fd;uint64_t offsets[MAX_FILES],source_size;char hashes[MAX_FILES][65],source_hash[65];struct profile_stream_info source_stat;};
 static struct bundle validate(cJSON *j){struct bundle b={0};b.json=j;const char *keys[]={"format","schema_version","profile","preferences","documents"};fields(j,keys,5);require(!strcmp(str(get(j,"format")),FORMAT)&&number(get(j,"schema_version"),1)==1,"unsupported bundle schema");identity(get(j,"profile"));preferences(get(j,"preferences"));cJSON *docs=get(j,"documents");require(cJSON_IsArray(docs)&&cJSON_GetArraySize(docs)<=MAX_FILES,"too many documents");for(cJSON *d=docs->child;d;d=d->next){const char *dk[]={"path","size","sha256","data_base64"};fields(d,dk,4);unsigned i=b.count++;b.paths[i]=str(get(d,"path"));document_path(b.paths[i]);for(unsigned k=0;k<i;k++)collision(b.paths[k],b.paths[i]);b.sizes[i]=number(get(d,"size"),MAX_FILE);b.total+=b.sizes[i];require(b.total<=8*MAX_FILE,"aggregate size exceeds limit");b.data[i]=profile_base64_decode(str(get(d,"data_base64")),b.sizes[i]);require(b.data[i]!=NULL,"noncanonical base64 or size mismatch");char hash[65];profile_sha256(b.data[i],b.sizes[i],hash);require(!strcmp(hash,str(get(d,"sha256"))),"document SHA256 mismatch");}return b;}
 static int stream_magic(const char *path){
-    parents(path);int fd=open(path,O_RDONLY|O_NOFOLLOW|O_NONBLOCK);require(fd>=0,"cannot open regular file");
-    char magic[16];size_t n=0;while(n<sizeof(magic)){ssize_t r=read(fd,magic+n,sizeof(magic)-n);if(r<0&&errno==EINTR)continue;require(r>=0,"cannot read bundle header");if(!r)break;n+=(size_t)r;}require(!close(fd),"read close failed");
-    return n==16&&!memcmp(magic,PROFILE_STREAM_MAGIC,16);
+    parents(path);profile_stream_handle h=profile_stream_open_read(path);char magic[16];size_t n=0;
+    if(h<0){
+        require(errno==EOPNOTSUPP,"cannot open bundle stream");struct stat st;
+        require(!lstat(path,&st)&&S_ISREG(st.st_mode)&&st.st_nlink==1&&st.st_size>=0&&(uint64_t)st.st_size<=MAX_BUNDLE,"unsupported bundle backend");
+        int fd=open(path,O_RDONLY|O_NOFOLLOW|O_NONBLOCK);require(fd>=0,"cannot open legacy bundle");
+        while(n<sizeof(magic)){ssize_t r=read(fd,magic+n,sizeof(magic)-n);if(r<0&&errno==EINTR)continue;require(r>=0,"cannot read bundle header");if(!r)break;n+=(size_t)r;}
+        require(!close(fd),"read close failed");require(n!=16||memcmp(magic,PROFILE_STREAM_MAGIC,16),"v2 bundle backend unsupported");return 0;
+    }
+    while(n<sizeof(magic)){int64_t r=profile_stream_pread(h,magic+n,sizeof(magic)-n,n);if(r<0&&errno==EINTR)continue;require(r>=0,"cannot read bundle header");if(!r)break;n+=(size_t)r;}
+    require(!profile_stream_close(h),"stream close failed");return n==16&&!memcmp(magic,PROFILE_STREAM_MAGIC,16);
 }
+static int stream_info_regular(const struct profile_stream_info *s){return S_ISREG(s->mode)&&s->nlink==1;}
 static void stream_stable(struct bundle *b){
-    struct stat st;require(!fstat(b->fd,&st)&&S_ISREG(st.st_mode)&&st.st_nlink==1&&st.st_size==b->source_stat.st_size&&st.st_ino==b->source_stat.st_ino&&st.st_dev==b->source_stat.st_dev&&st.st_mtime==b->source_stat.st_mtime,"bundle changed while reading");
+    struct profile_stream_info st;require(!profile_stream_stat(b->fd,&st)&&stream_info_regular(&st)&&st.size==b->source_stat.size&&st.inode==b->source_stat.inode&&st.dev==b->source_stat.dev&&st.mtime==b->source_stat.mtime&&st.ctime==b->source_stat.ctime,"bundle changed while reading");
 }
 static void stream_full_check(struct bundle *b){char hash[65];stream_stable(b);require(!profile_stream_hash(b->fd,0,b->source_size,hash)&&!strcmp(hash,b->source_hash),"bundle changed while reading");stream_stable(b);}
 static struct bundle stream_open(const char *path,const char *expected){
-    struct bundle b={0};unsigned char header[24];parents(path);b.fd=open(path,O_RDONLY|O_NOFOLLOW|O_NONBLOCK);require(b.fd>=0,"cannot open bundle");
-    require(!fstat(b.fd,&b.source_stat)&&S_ISREG(b.source_stat.st_mode)&&b.source_stat.st_nlink==1&&b.source_stat.st_size>=24&&(uint64_t)b.source_stat.st_size<=24u+PROFILE_STREAM_META+PROFILE_STREAM_TOTAL,"invalid bundle file");
-    b.source_size=(uint64_t)b.source_stat.st_size;char initial_hash[65];require(!profile_stream_hash(b.fd,0,b.source_size,initial_hash),"bundle read failed");size_t header_read=0;while(header_read<sizeof(header)){ssize_t r=pread(b.fd,header+header_read,sizeof(header)-header_read,(off_t)header_read);if(r<0&&errno==EINTR)continue;require(r>0,"truncated bundle header");header_read+=(size_t)r;}require(!memcmp(header,PROFILE_STREAM_MAGIC,16),"invalid bundle header");
+    struct bundle b={0};unsigned char header[24];parents(path);b.fd=profile_stream_open_read(path);require(b.fd>=0,"cannot open bundle stream");
+    require(!profile_stream_stat(b.fd,&b.source_stat)&&stream_info_regular(&b.source_stat)&&b.source_stat.size>=24&&b.source_stat.size<=24u+PROFILE_STREAM_META+PROFILE_STREAM_TOTAL,"invalid bundle file");
+    b.source_size=(uint64_t)b.source_stat.size;char initial_hash[65];require(!profile_stream_hash(b.fd,0,b.source_size,initial_hash),"bundle read failed");size_t header_read=0;while(header_read<sizeof(header)){int64_t r=profile_stream_pread(b.fd,header+header_read,sizeof(header)-header_read,header_read);if(r<0&&errno==EINTR)continue;require(r>0,"truncated bundle header");header_read+=(size_t)r;}require(!memcmp(header,PROFILE_STREAM_MAGIC,16),"invalid bundle header");
     uint32_t n=(uint32_t)header[16]|((uint32_t)header[17]<<8)|((uint32_t)header[18]<<16)|((uint32_t)header[19]<<24);
     require(n&&n<=PROFILE_STREAM_META&&!header[20]&&!header[21]&&!header[22]&&!header[23]&&(uint64_t)n+24<=b.source_size,"invalid bundle framing");
-    unsigned char *metadata=allocate((size_t)n+1);size_t got=0;while(got<n){ssize_t r=pread(b.fd,metadata+got,n-got,24+got);if(r<0&&errno==EINTR)continue;require(r>0,"truncated manifest");got+=(size_t)r;}metadata[n]=0;b.json=parse(metadata,n);free(metadata);
+    unsigned char *metadata=allocate((size_t)n+1);size_t got=0;while(got<n){int64_t r=profile_stream_pread(b.fd,metadata+got,n-got,24+got);if(r<0&&errno==EINTR)continue;require(r>0,"truncated manifest");got+=(size_t)r;}metadata[n]=0;b.json=parse(metadata,n);free(metadata);
     const char *keys[]={"format","schema_version","profile","preferences","documents"};fields(b.json,keys,5);require(!strcmp(str(get(b.json,"format")),FORMAT)&&number(get(b.json,"schema_version"),2)==2,"unsupported bundle schema");identity(get(b.json,"profile"));preferences(get(b.json,"preferences"));
     cJSON *docs=get(b.json,"documents");require(cJSON_IsArray(docs)&&cJSON_GetArraySize(docs)<=MAX_FILES,"too many documents");uint64_t offset=24u+n;
     for(cJSON *d=docs->child;d;d=d->next){const char *dk[]={"path","size","sha256"};fields(d,dk,3);unsigned i=b.count++;b.paths[i]=str(get(d,"path"));document_path(b.paths[i]);for(unsigned j=0;j<i;j++)collision(b.paths[j],b.paths[i]);
@@ -135,14 +143,39 @@ static void manifest(struct transaction *t,cJSON *journal){
 }
 static int expected_dir(struct transaction *t,const char *relative){static const char *dirs[]={"Documents",".config",".config/srvros",".local",".local/share",".cache"};for(unsigned i=0;i<6;i++)if(!strcmp(relative,dirs[i]))return 1;size_t n=strlen(relative);for(unsigned i=0;i<t->count;i++)if(!strncmp(t->files[i].path,relative,n)&&t->files[i].path[n]=='/')return 1;return 0;}
 static int expected_index(struct transaction *t,const char *relative){for(unsigned i=0;i<t->count;i++)if(!strcmp(t->files[i].path,relative))return(int)i;return -1;}
-static void verify_file(struct transaction *t,const char *path,const struct expected_file *f){if(f->stream_index>=0){parents(path);int fd=open(path,O_RDONLY|O_NOFOLLOW|O_NONBLOCK);struct stat st;char hash[65];require(fd>=0&&!fstat(fd,&st)&&S_ISREG(st.st_mode)&&st.st_nlink==1&&st.st_size>=0&&(uint64_t)st.st_size==f->length&&!profile_stream_hash(fd,0,f->length,hash)&&!strcmp(hash,t->bundle.hashes[f->stream_index])&&!close(fd),"existing file differs from journal; refusing recovery");return;}size_t n;unsigned char *p=read_file(path,f->length,&n);require(n==f->length&&!memcmp(p,f->data,n),"existing file differs from journal; refusing recovery");free(p);}
+static void verify_stream_file(const char *path,uint64_t size,const char *expected_hash,const struct profile_stream_info *created){
+    parents(path);profile_stream_handle fd=profile_stream_open_read(path);struct profile_stream_info st;char hash[65];
+    require(fd>=0&&!profile_stream_stat(fd,&st)&&stream_info_regular(&st)&&st.size==size&&
+        (!created||(st.dev==created->dev&&st.inode==created->inode))&&
+        !profile_stream_hash(fd,0,size,hash)&&!strcmp(hash,expected_hash)&&!profile_stream_close(fd),"file readback or identity verification failed");
+}
+static void verify_file(struct transaction *t,const char *path,const struct expected_file *f){if(f->stream_index>=0){verify_stream_file(path,f->length,t->bundle.hashes[f->stream_index],NULL);return;}size_t n;unsigned char *p=read_file(path,f->length,&n);require(n==f->length&&!memcmp(p,f->data,n),"existing file differs from journal; refusing recovery");free(p);}
 /* Read the entire existing tree before changing anything. Unknown files, links,
  * wrong-case paths and mismatched final files are never removed or overwritten. */
 static void verify_tree(struct transaction *t,const char *relative,unsigned depth,unsigned *entries){require(depth<=80,"unexpected directory depth");char base[PATH_CAP];if(*relative)path_join(base,t->home,relative);else strcpy(base,t->home);DIR *dir=opendir(base);require(dir!=NULL,"cannot inspect transaction home");struct dirent *e;while((e=read_entry(dir))){if(!strcmp(e->d_name,".")||!strcmp(e->d_name,".."))continue;require(++*entries<=5200,"too many transaction entries");char rel[PATH_CAP],full[PATH_CAP];if(*relative)path_join(rel,relative,e->d_name);else{require(strlen(e->d_name)<sizeof(rel),"entry name too long");strcpy(rel,e->d_name);}path_join(full,t->home,rel);struct stat st;require(!lstat(full,&st),"cannot inspect transaction entry");if(S_ISDIR(st.st_mode)){require(expected_dir(t,rel),"unowned directory in transaction home");verify_tree(t,rel,depth+1,entries);}else{require(S_ISREG(st.st_mode)&&st.st_nlink==1,"unowned linked or special transaction entry");if(!strcmp(rel,SCRATCH)){require(st.st_size>=0&&(uint64_t)st.st_size<=(t->bundle.version==2?PROFILE_STREAM_FILE:MAX_FILE),"invalid transaction scratch");continue;}int i=expected_index(t,rel);require(i>=0,"unowned file in transaction home");verify_file(t,full,&t->files[i]);}}require(!closedir(dir),"cannot close transaction directory");}
 static void ensure_dir(const char *path){struct stat st;if(!lstat(path,&st)){require(S_ISDIR(st.st_mode),"required directory is not directory");return;}require(errno==ENOENT&&!mkdir(path,0700),"cannot create directory");}
 static void directories(struct transaction *t){static const char *dirs[]={"Documents",".config",".config/srvros",".local",".local/share",".cache"};char path[PATH_CAP];for(unsigned i=0;i<6;i++){path_join(path,t->home,dirs[i]);ensure_dir(path);}for(unsigned i=0;i<t->bundle.count;i++){path_join(path,t->home,t->bundle.paths[i]);for(char *p=path+strlen(t->home)+1;*p;p++)if(*p=='/'){*p=0;ensure_dir(path);*p='/';}}}
-static void install_file(struct transaction *t,unsigned i){char final[PATH_CAP],scratch[PATH_CAP];path_join(final,t->home,t->files[i].path);if(exists(final)){verify_file(t,final,&t->files[i]);return;}path_join(scratch,t->home,SCRATCH);if(t->files[i].stream_index>=0){unsigned index=(unsigned)t->files[i].stream_index;parents(scratch);int fd=open(scratch,O_WRONLY|O_CREAT|O_EXCL|O_NOFOLLOW,0600);require(fd>=0,"cannot create scratch");flush_dir(t->home);char hash[65];require(!profile_stream_copy(t->bundle.fd,t->bundle.offsets[index],t->files[i].length,fd,hash,fd)&&!strcmp(hash,t->bundle.hashes[index]),"source changed or scratch write failed");require(!profile_stream_sync(fd)&&!close(fd),"scratch flush failed");verify_file(t,scratch,&t->files[i]);}else {write_new(scratch,t->files[i].data,t->files[i].length);}/* Offline exclusive journal owns this previously absent home. Final absence is
- * rechecked because guest rename replaces files; concurrent writers unsupported. */require(!exists(final),"destination appeared during import");require(!rename(scratch,final),"cannot publish transaction file");flush_dir(t->home);if(t->files[i].stream_index>=0){char parent[PATH_CAP];strcpy(parent,final);*strrchr(parent,'/')=0;flush_dir(parent);verify_file(t,final,&t->files[i]);}}
+static void install_file(struct transaction *t,unsigned i){
+    char final[PATH_CAP],scratch[PATH_CAP];path_join(final,t->home,t->files[i].path);
+    if(exists(final)){verify_file(t,final,&t->files[i]);return;}
+    path_join(scratch,t->home,SCRATCH);
+    if(t->files[i].stream_index>=0){
+        unsigned index=(unsigned)t->files[i].stream_index;parents(scratch);profile_stream_handle fd=profile_stream_open_new(scratch);
+        require(fd>=0,"cannot create scratch");flush_dir(t->home);char hash[65];struct profile_stream_info created;
+        require(!profile_stream_copy(t->bundle.fd,t->bundle.offsets[index],t->files[i].length,fd,hash,fd)&&!strcmp(hash,t->bundle.hashes[index]),"source changed or scratch write failed");
+        require(!profile_stream_sync(fd)&&!profile_stream_stat(fd,&created)&&stream_info_regular(&created)&&created.inode&&created.size==t->files[i].length&&!profile_stream_close(fd),"scratch flush or stat failed");
+        verify_stream_file(scratch,t->files[i].length,t->bundle.hashes[index],&created);
+#ifdef SRVROS_PROFILE_HOST_TEST
+        if(getenv("SRVROS_PROFILE_TEST_SCRATCH_PAUSE"))raise(SIGSTOP);
+#endif
+        require(!profile_stream_publish(scratch,final,&created),"cannot publish transaction file");
+        flush_dir(t->home);char parent[PATH_CAP];strcpy(parent,final);*strrchr(parent,'/')=0;flush_dir(parent);
+        verify_stream_file(final,t->files[i].length,t->bundle.hashes[index],&created);
+    }else {
+        write_new(scratch,t->files[i].data,t->files[i].length);
+        require(!exists(final),"destination appeared during import");require(!rename(scratch,final),"cannot publish transaction file");flush_dir(t->home);
+    }
+}
 /* Read-only preflight shared by recovery and the startup chooser. */
 static int transaction_ready(struct transaction *t,int recovering){
     char pending[PATH_CAP],idpath[PATH_CAP],scratch[PATH_CAP];path_join(pending,t->home,PENDING);path_join(idpath,t->home,"profile.id");path_join(scratch,t->home,SCRATCH);
@@ -235,25 +268,25 @@ static void review_output(const char *operation,const char *hash,struct bundle *
 }
 static int auto_needs_v2(const char *home,int count,char **paths){
     home_valid(home);require(count<=MAX_FILES,"too many documents");uint64_t total=0;int large=0;
-    for(int i=0;i<count;i++){document_path(paths[i]);for(int k=0;k<i;k++)collision(paths[k],paths[i]);char path[PATH_CAP];path_join(path,home,paths[i]);parents(path);int fd=open(path,O_RDONLY|O_NOFOLLOW|O_NONBLOCK);struct stat st;require(fd>=0&&!fstat(fd,&st)&&S_ISREG(st.st_mode)&&st.st_nlink==1&&st.st_size>=0&&(uint64_t)st.st_size<=PROFILE_STREAM_FILE,"invalid document");require(!close(fd),"document close failed");total+=(uint64_t)st.st_size;require(total<=PROFILE_STREAM_TOTAL,"aggregate size exceeds limit");if(st.st_size>MAX_FILE)large=1;}
+    for(int i=0;i<count;i++){document_path(paths[i]);for(int k=0;k<i;k++)collision(paths[k],paths[i]);char path[PATH_CAP];path_join(path,home,paths[i]);parents(path);struct stat st;require(!lstat(path,&st)&&S_ISREG(st.st_mode)&&st.st_nlink==1&&st.st_size>=0&&(uint64_t)st.st_size<=PROFILE_STREAM_FILE,"invalid document");total+=(uint64_t)st.st_size;require(total<=PROFILE_STREAM_TOTAL,"aggregate size exceeds limit");if(st.st_size>MAX_FILE)large=1;}
     return large||total>8u*MAX_FILE;
 }
-static int open_document(const char *home,const char *path,struct stat *st){char full[PATH_CAP];path_join(full,home,path);parents(full);int fd=open(full,O_RDONLY|O_NOFOLLOW|O_NONBLOCK);require(fd>=0&&!fstat(fd,st)&&S_ISREG(st->st_mode)&&st->st_nlink==1&&st->st_size>=0&&(uint64_t)st->st_size<=PROFILE_STREAM_FILE,"invalid document");return fd;}
-struct export_source {int fd;struct stat initial;};
+static profile_stream_handle open_document(const char *home,const char *path,struct profile_stream_info *st){char full[PATH_CAP];path_join(full,home,path);parents(full);profile_stream_handle fd=profile_stream_open_read(full);require(fd>=0&&!profile_stream_stat(fd,st)&&stream_info_regular(st)&&st->size<=PROFILE_STREAM_FILE,"invalid document stream");return fd;}
+struct export_source {profile_stream_handle fd;struct profile_stream_info initial;};
 static void stable_document(const char *home,const char *path,const struct export_source *source){
-    struct stat current,named;char full[PATH_CAP];path_join(full,home,path);
-    require(!fstat(source->fd,&current)&&!lstat(full,&named)&&S_ISREG(current.st_mode)&&current.st_nlink==1&&S_ISREG(named.st_mode)&&named.st_nlink==1&&
-        current.st_size==source->initial.st_size&&current.st_ino==source->initial.st_ino&&current.st_dev==source->initial.st_dev&&current.st_mtime==source->initial.st_mtime&&current.st_ctime==source->initial.st_ctime&&
-        named.st_dev==current.st_dev&&named.st_ino==current.st_ino&&named.st_size==current.st_size&&named.st_mtime==current.st_mtime&&named.st_ctime==current.st_ctime,"source changed during export");
+    struct profile_stream_info current;struct stat named;char full[PATH_CAP];path_join(full,home,path);
+    require(!profile_stream_stat(source->fd,&current)&&!lstat(full,&named)&&stream_info_regular(&current)&&S_ISREG(named.st_mode)&&named.st_nlink==1&&
+        current.size==source->initial.size&&current.inode==source->initial.inode&&current.dev==source->initial.dev&&current.mtime==source->initial.mtime&&current.ctime==source->initial.ctime&&
+        (uint64_t)named.st_ino==current.inode&&(uint64_t)named.st_dev==current.dev&&(uint64_t)named.st_size==current.size&&(uint64_t)named.st_mtime==current.mtime&&(uint64_t)named.st_ctime==current.ctime,"source changed during export");
 }
-static void close_sources(struct export_source *sources,unsigned count){for(unsigned i=0;i<count;i++)require(!close(sources[i].fd),"source close failed");}
-static void stream_output_bytes(int fd,const void *data,size_t size,struct profile_sha256_ctx *hash){
-    profile_sha256_update(hash,data,size);if(fd<0)return;size_t done=0;while(done<size){ssize_t n=write(fd,(const char *)data+done,size-done);if(n<0&&errno==EINTR)continue;require(n>0,"export write failed");done+=(size_t)n;}
+static void close_sources(struct export_source *sources,unsigned count){for(unsigned i=0;i<count;i++)require(!profile_stream_close(sources[i].fd),"source close failed");}
+static void stream_output_bytes(profile_stream_handle fd,const void *data,size_t size,struct profile_sha256_ctx *hash){
+    profile_sha256_update(hash,data,size);if(fd<0)return;size_t done=0;while(done<size){int64_t n=profile_stream_write(fd,(const char *)data+done,size-done);if(n<0&&errno==EINTR)continue;require(n>0,"export write failed");done+=(size_t)n;}
 }
 static void stream_export_header(const char *metadata,unsigned char header[24]){
     size_t n=strlen(metadata);require(n<=PROFILE_STREAM_META,"manifest too large");memset(header,0,24);memcpy(header,PROFILE_STREAM_MAGIC,16);for(unsigned i=0;i<4;i++)header[16+i]=(unsigned char)(n>>(8*i));
 }
-static void stream_export_pass(const char *home,struct bundle *b,struct export_source *sources,const char *metadata,int out,char result[65]){
+static void stream_export_pass(const char *home,struct bundle *b,struct export_source *sources,const char *metadata,profile_stream_handle out,char result[65]){
     unsigned char header[24];stream_export_header(metadata,header);
     struct profile_sha256_ctx whole;profile_sha256_init(&whole);stream_output_bytes(out,header,24,&whole);stream_output_bytes(out,metadata,strlen(metadata),&whole);
     for(unsigned i=0;i<b->count;i++){char hash[65];stable_document(home,b->paths[i],&sources[i]);require(!profile_stream_append(sources[i].fd,0,b->sizes[i],out,hash,&whole)&&!strcmp(hash,b->hashes[i]),"source changed since review");stable_document(home,b->paths[i],&sources[i]);}
@@ -267,17 +300,23 @@ static void stream_export(const char *home,const char *output,int count,char **p
     cJSON *who;path_join(path,home,"identity.json");if(exists(path)){who=read_json(path,4096);identity(who);require(!strcmp(str(get(who,"id")),id),"identity metadata does not match marker");}else{who=object();addstr(who,"id",id);addstr(who,"display_name","Portable profile");}
     path_join(path,home,".config/srvros/portable.json");cJSON *prefs=read_json(path,4096);preferences(prefs);cJSON *j=object();addstr(j,"format",FORMAT);addnum(j,"schema_version",2);attach(j,"profile",who);attach(j,"preferences",prefs);cJSON *docs=cJSON_CreateArray();attach(j,"documents",docs);struct bundle b={0};b.json=j;b.version=2;struct export_source sources[MAX_FILES];
     /* 64 sources plus stdout/stderr and the output fit SRV_OPEN_MAX=67. */
+#ifdef SRVROS_PROFILE_HOST_TEST
     if(count==MAX_FILES)require(!close(0),"cannot release unused input descriptor");
-    for(int i=0;i<count;i++){unsigned k=b.count++;sources[k].fd=open_document(home,paths[i],&sources[k].initial);b.paths[k]=paths[i];b.sizes[k]=(size_t)sources[k].initial.st_size;b.total+=b.sizes[k];require(b.total<=PROFILE_STREAM_TOTAL,"aggregate size exceeds limit");require(!profile_stream_hash(sources[k].fd,0,b.sizes[k],b.hashes[k]),"source read failed");stable_document(home,b.paths[k],&sources[k]);cJSON *d=object();addstr(d,"path",paths[i]);addnum(d,"size",(unsigned)b.sizes[k]);addstr(d,"sha256",b.hashes[k]);require(cJSON_AddItemToArray(docs,d),"out of memory");}
+#endif
+    for(int i=0;i<count;i++){unsigned k=b.count++;sources[k].fd=open_document(home,paths[i],&sources[k].initial);b.paths[k]=paths[i];b.sizes[k]=(size_t)sources[k].initial.size;b.total+=b.sizes[k];require(b.total<=PROFILE_STREAM_TOTAL,"aggregate size exceeds limit");require(!profile_stream_hash(sources[k].fd,0,b.sizes[k],b.hashes[k]),"source read failed");stable_document(home,b.paths[k],&sources[k]);cJSON *d=object();addstr(d,"path",paths[i]);addnum(d,"size",(unsigned)b.sizes[k]);addstr(d,"sha256",b.hashes[k]);require(cJSON_AddItemToArray(docs,d),"out of memory");}
     char *metadata=json_text(j),hash[65];stream_export_pass(home,&b,sources,metadata,-1,hash);stream_export_verify(home,&b,sources);
     if(!output){close_sources(sources,b.count);auto_review=1;review_output("export",hash,&b,NULL,NULL);return;}
-    require(expected&&!strcmp(hash,expected),"source changed since review");char absolute[PATH_CAP];absolute_path(absolute,output);parents(absolute);int fd=open(absolute,O_WRONLY|O_CREAT|O_EXCL|O_NOFOLLOW,0600);require(fd>=0,"destination exists or cannot create");
+    require(expected&&!strcmp(hash,expected),"source changed since review");char absolute[PATH_CAP];absolute_path(absolute,output);parents(absolute);profile_stream_handle fd=profile_stream_open_new(absolute);require(fd>=0,"destination exists or cannot create");
     const char *stop=getenv("SRVROS_PROFILE_STOP_AFTER");
-    if(stop&&!strcmp(stop,"export-partial")){unsigned char header[24];struct profile_sha256_ctx ignored;profile_sha256_init(&ignored);stream_export_header(metadata,header);stream_output_bytes(fd,header,24,&ignored);stream_output_bytes(fd,metadata,strlen(metadata),&ignored);require(!profile_stream_sync(fd)&&!close(fd),"export flush failed");close_sources(sources,b.count);char parent[PATH_CAP];strcpy(parent,absolute);*strrchr(parent,'/')=0;flush_dir(*parent?parent:"/");checkpoint("export-partial");}
+    if(stop&&!strcmp(stop,"export-partial")){unsigned char header[24];struct profile_sha256_ctx ignored;profile_sha256_init(&ignored);stream_export_header(metadata,header);stream_output_bytes(fd,header,24,&ignored);stream_output_bytes(fd,metadata,strlen(metadata),&ignored);require(!profile_stream_sync(fd)&&!profile_stream_close(fd),"export flush failed");close_sources(sources,b.count);char parent[PATH_CAP];strcpy(parent,absolute);*strrchr(parent,'/')=0;flush_dir(*parent?parent:"/");checkpoint("export-partial");}
 #ifdef SRVROS_PROFILE_HOST_TEST
     if(getenv("SRVROS_PROFILE_TEST_EXPORT_PAUSE"))raise(SIGSTOP);
 #endif
-    char written[65];stream_export_pass(home,&b,sources,metadata,fd,written);require(!strcmp(written,expected),"source changed during export");stream_export_verify(home,&b,sources);require(!profile_stream_sync(fd)&&!close(fd),"export flush failed");close_sources(sources,b.count);char parent[PATH_CAP];strcpy(parent,absolute);*strrchr(parent,'/')=0;flush_dir(*parent?parent:"/");flush_all();puts("profile: exported");
+    char written[65];stream_export_pass(home,&b,sources,metadata,fd,written);require(!strcmp(written,expected),"source changed during export");stream_export_verify(home,&b,sources);struct profile_stream_info created;uint64_t output_size=24u+strlen(metadata)+b.total;require(!profile_stream_sync(fd)&&!profile_stream_stat(fd,&created)&&stream_info_regular(&created)&&created.inode&&created.size==output_size&&!profile_stream_close(fd),"export flush or stat failed");
+#ifdef SRVROS_PROFILE_HOST_TEST
+    if(getenv("SRVROS_PROFILE_TEST_OUTPUT_PAUSE"))raise(SIGSTOP);
+#endif
+    verify_stream_file(absolute,output_size,expected,&created);close_sources(sources,b.count);char parent[PATH_CAP];strcpy(parent,absolute);*strrchr(parent,'/')=0;flush_dir(*parent?parent:"/");flush_all();puts("profile: exported");
 }
 static void preview_export_auto(const char *home,int count,char **paths){if(auto_needs_v2(home,count,paths))stream_export(home,NULL,count,paths,NULL);else{char *text=export_bundle(home,count,paths);char hash[65];profile_sha256(text,strlen(text),hash);struct bundle b=validate(parse((unsigned char *)text,strlen(text)));auto_review=1;review_output("export",hash,&b,NULL,NULL);}}
 static void export_auto_reviewed(const char *home,const char *output,const char *expected,int count,char **paths){if(auto_needs_v2(home,count,paths))stream_export(home,output,count,paths,expected);else{export_output(output,export_bundle(home,count,paths),expected);puts("profile: exported");}}

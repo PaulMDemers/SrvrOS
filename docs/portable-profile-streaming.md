@@ -6,17 +6,17 @@ This is the in-progress implementation contract, not an acceptance claim.
 ordinary descriptor path snapshots complete files in the kernel and refuses
 writes above 16 MiB. A real `process.c` host reproduction reaches 16 MiB in
 64 KiB writes, then returns `SRV_ERR_FBIG` on the next byte. Legacy native append
-also reads and joins the complete file. The current profile consumer therefore
-cannot yet provide the promised large guest export or bounded end-to-end I/O.
-A separate opt-in bounded range-I/O path needs runtime/filesystem owner contract
-alignment and verification before this milestone can be qualified. Raising the
+also reads and joins the complete file. The implementation now uses a separate
+opt-in bounded range-I/O path, described below. Native backend, manager, syscall
+and consumer checks pass; source-matched guest qualification remains pending.
+Independent runtime/filesystem qualification is separate. Raising the
 ordinary cap or relying only on userspace high-water evidence is insufficient.
 Authentication and permission enforcement remain separate.
 
 User authorizes larger-document migration with bounded memory, v1 compatibility,
 two disposable-VM transfer/recovery proof. Authentication and permission
-enforcement remain separate. Base actual main5f670602, integrated main5f4f6fc6, in existing isolated
-SrvrOS-profile-326-review. The initial no-kernel/filesystem-change assumption is superseded only by this
+enforcement remain separate. Work is isolated in SrvrOS-profile-326-review.
+The initial no-kernel/filesystem-change assumption is superseded only by this
 concrete bounded-I/O prerequisite; no ordinary device trial or security-policy
 change is authorized by the profile format.
 
@@ -72,7 +72,8 @@ no overwrite. No new export-publication reconciliation engine in this milestone.
 New tools/profile_stream.py host codec/fixture CLI supports stream v2 and reads
 v1 via unchanged profile_bundle helpers. No changes to profile_bundle.py v1
 constants/functions, installation_{export,image,inspection}, profile_image native
-driver or filesystem. Native installer/offline exporter remain v1-only failclosed;
+driver. The new runtime dependency changes filesystem implementation only for
+the opt-in I/O path and conflict guards described below. Native installer/offline exporter remain v1-only failclosed;
 installation owner's srvros-export-publication-v1 is PRIVATE metadata, unrelated
 to this portable schema. V2 host fixture import validates all input before new
 stage, streams only into its owned stage, no replacement, existing host recovery.
@@ -101,7 +102,7 @@ owned memory evidence and independent rendered/storage review. Preserve all old
 proofs, original baselines and reviewVMs; heavy build/VM only after resource window.
 
 
-## Bounded runtime I/O dependency: chosen interface, implementation pending
+## Bounded runtime I/O dependency
 
 This task owns the isolated prerequisite implementation and local independent
 review. Frozen offline GUID selection and v1 publication work remain separate.
@@ -176,6 +177,9 @@ the token; production syscall and process-cleanup callers hold that window
 before entry. There is no retry of an uncertain write. Opaque handles have no
 POSIX dup, fork, rights-passing or descriptor API participation. The ordinary
 file-size limit's short-write/signal behavior applies to append.
+The admitted byte count is computed before copying any user payload. Empty
+APPEND validates ownership, writer mode and sticky failure without media
+mutation or a flush; it is not a durability check.
 
 For newly created output, capture its inode and size before checked sync/close;
 readback uses a fresh bounded handle matching that identity and exact bytes.
@@ -184,3 +188,25 @@ only after readback closes, then verified at its final name. Source handles stay
 pinned through final rehash and publication. The post-close interval is not a
 concurrent-writer or atomic-publication guarantee. The original bundle and
 partial exclusive output remain intact on failure.
+
+### Native evidence and memory accounting
+
+The actual exFAT/VFS driver has passed a 67,174,424-byte container round trip,
+unaligned tails, fragmented chains, clean low-space refusal, and every observed
+append write/flush fault point. Uncertain failures retain owned partial media
+and quarantine the mount; they do not promise an intact old tail after a torn
+write or power cut. Manager/syscall/process fixtures cover quotas, stale and
+foreign tokens, recycled process slots, user-copy failures, resource-limit
+clamping, ordinary-open conflicts, and retirement cleanup.
+
+At 64 KiB clusters the instrumented backend measured 68,096 bytes baseline,
+276,992 bytes peak and 208,896 bytes incremental tracked allocation. Its largest
+single allocation was 69,632 bytes of file-slot metadata, separately from the
+at-most-65,536-byte payload transfers. At the disposable VM's 4 KiB geometry,
+incremental tracked allocation was 86,016 bytes and maximum block request was
+4,096 bytes. These are synthetic-media native measurements, not guest heap data.
+The syscall owns at most one 65,536-byte transient payload copy. Existing block
+batching is capped at 16,384 bytes; AHCI uses its fixed page-sized DMA buffers.
+Existing filesystem metadata and block/read caches are separate allocations.
+No constant-memory claim is made for the whole kernel. Actual guest mapped
+high-water measurements and complete transfers/recovery remain release gates.

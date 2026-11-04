@@ -37,6 +37,53 @@ class Stream(unittest.TestCase):
         def limit(): resource.setrlimit(resource.RLIMIT_NOFILE,(nofile,nofile))
         r=subprocess.run([BIN,*map(str,args)],env=env,capture_output=True,preexec_fn=limit if nofile else None)
         self.assertEqual(r.returncode,code,r.stderr.decode(errors='replace'));return r
+    def test_target_request_adapter(self):
+        root=Path(__file__).resolve().parents[1];src=self.root/'adapter.c';out=self.root/'adapter'
+        src.write_text(r'''#include <assert.h>
+#include <errno.h>
+#include <stdint.h>
+#include <string.h>
+#include <srvros/file_stream.h>
+#include <srvros/sys.h>
+#include "stream.h"
+static int operation,bad_stat;
+void profile_memory_report(const char *p){(void)p;}
+long srv_file_stream(const struct srv_file_stream_request *r){
+    assert(r->version==1 && r->size==80 && r->operation==(unsigned)operation);
+    assert(!r->flags && !r->reserved[0] && !r->reserved[1]);
+    if(operation==1 || operation==2){assert(r->path && !r->handle && !r->buffer && !r->length && !r->offset);assert(r->mode==(operation==2?0600u:0u));return 4294967297LL;}
+    assert(r->handle==4294967297ULL && !r->path && !r->mode);
+    if(operation==3){assert(r->buffer && r->length==5 && r->offset==17);return 5;}
+    if(operation==4){assert(r->buffer && r->length==5 && !r->offset);return 5;}
+    if(operation==5){assert(r->buffer && r->length==112 && !r->offset);struct srv_file_stream_stat *s=(void *)(uintptr_t)r->buffer;s->abi_version=bad_stat==1?99:1;s->struct_size=bad_stat==2?0:112;s->type=bad_stat==3?1:0;s->size=7;s->inode=9;s->mode=0100600;s->nlink=1;return 0;}
+    assert(!r->buffer && !r->length && !r->offset);return operation==7?-95:0;
+}
+long srv_file_change(const struct srv_file_change *r){assert(r->abi_version==1&&r->struct_size==sizeof(*r)&&r->operation==SRV_FILE_RENAME&&r->expected_inode==9&&r->expected_size==7&&r->expected_mtime==0&&r->expected_type==0&&!strcmp(r->path,"/fat/x")&&!strcmp(r->destination,"/fat/y"));return 0;}
+int main(void){char b[5];struct profile_stream_info i;profile_stream_handle h;
+    operation=1;h=profile_stream_open_read("/fat/x");assert(h==4294967297LL);
+    operation=2;assert(profile_stream_open_new("/fat/x")==h);
+    operation=3;assert(profile_stream_pread(h,b,5,17)==5);
+    operation=4;assert(profile_stream_write(h,b,5)==5);
+    operation=5;assert(!profile_stream_stat(h,&i)&&i.size==7&&i.inode==9&&i.nlink==1&&i.dev==1);
+    for(bad_stat=1;bad_stat<=3;bad_stat++)assert(profile_stream_stat(h,&i)==-1&&errno==EIO);
+    assert(!profile_stream_publish("/fat/x","/fat/y",&i));operation=6;assert(!profile_stream_sync(h));operation=7;assert(profile_stream_close(h)==-1&&errno==95);return 0;}
+''')
+        subprocess.run(['cc','-std=c11','-Wall','-Wextra','-Werror','-I',str(root/'shared/include'),
+            '-I',str(root/'userspace/profile'),'-idirafter',str(root/'userspace/lib/include'),str(src),
+            str(root/'userspace/profile/stream.c'),str(root/'userspace/profile/codec.c'),'-o',str(out)],check=True)
+        subprocess.run([str(out)],check=True)
+
+    def test_unsupported_backend_legacy_fallback(self):
+        import base64
+        payload=b'legacy'; legacy={'format':'org.srvros.portable-profile','schema_version':1,
+            'profile':self.manifest['profile'],'preferences':{},'documents':[{'path':'Documents/old.txt',
+            'size':len(payload),'sha256':hashlib.sha256(payload).hexdigest(),'data_base64':base64.b64encode(payload).decode()}]}
+        old=self.root/'legacy.bundle';old.write_text(json.dumps(legacy))
+        self.assertEqual(json.loads(self.run_cli('inspect',old,io='unsupported').stdout)['bytes'],len(payload))
+        self.run_cli('inspect',self.source,code=1,io='unsupported')
+        self.run_cli('preview-import',self.source,self.root/'a'/'bad','bad',code=1,io='unsupported')
+        self.assertFalse((self.root/'a'/'bad').exists())
+
     def test_import_recovery_export(self):
         home=self.root/'a'/'alice';review=json.loads(self.run_cli('preview-import',self.source,home,'alice').stdout)
         self.assertEqual(review['bundle_version'],2); self.assertEqual(review['sha256'],hashlib.sha256(self.source.read_bytes()).hexdigest())
@@ -125,6 +172,23 @@ class Stream(unittest.TestCase):
             os.kill(proc.pid,signal.SIGCONT);stdout,stderr=proc.communicate(timeout=60)
             self.assertNotEqual(proc.returncode,0,(stdout,stderr));self.assertTrue(output.exists())
             doc.write_bytes(self.data)
+
+    def test_created_scratch_and_export_identity_replacement(self):
+        home=self.root/'a'/'alice'
+        env=dict(os.environ,SRVROS_PROFILE_TEST_SCRATCH_PAUSE='1')
+        proc=subprocess.Popen([BIN,'import',str(self.source),str(home),'alice','1001','2001'],env=env,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+        pid,status=os.waitpid(proc.pid,os.WUNTRACED);self.assertEqual(pid,proc.pid);self.assertTrue(os.WIFSTOPPED(status))
+        scratch=home/'.profile-copy-temp';replacement=home/'replacement.tmp';replacement.write_bytes(scratch.read_bytes());os.replace(replacement,scratch)
+        os.kill(proc.pid,signal.SIGCONT);stdout,stderr=proc.communicate(timeout=60)
+        self.assertNotEqual(proc.returncode,0,(stdout,stderr));self.assertFalse((home/'Documents/data.bin').exists())
+        self.run_cli('recover',home)
+        review=json.loads(self.run_cli('preview-export-auto',home,'Documents/data.bin').stdout);output=self.root/'output.bundle'
+        env=dict(os.environ,SRVROS_PROFILE_TEST_OUTPUT_PAUSE='1')
+        proc=subprocess.Popen([BIN,'export-auto-reviewed',str(home),str(output),review['sha256'],'Documents/data.bin'],env=env,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+        pid,status=os.waitpid(proc.pid,os.WUNTRACED);self.assertEqual(pid,proc.pid);self.assertTrue(os.WIFSTOPPED(status))
+        replacement=self.root/'output-replacement';replacement.write_bytes(output.read_bytes());os.replace(replacement,output)
+        os.kill(proc.pid,signal.SIGCONT);stdout,stderr=proc.communicate(timeout=60)
+        self.assertNotEqual(proc.returncode,0,(stdout,stderr));self.assertTrue(output.exists())
 
     def test_64_source_descriptor_limit_and_export_partial(self):
         small=b'z';large=b'q'*(1024*1024+1)
