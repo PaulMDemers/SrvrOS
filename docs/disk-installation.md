@@ -119,6 +119,57 @@ It requires a clean matched build, the qualified selected text/binary fixture,
 8 GiB initial evidence headroom and a 4 GiB reserve. Existing review VMs and
 earlier primary images remain untouched.
 
+## PR364 integrated-main review and next bounded checkpoint
+
+Reviewed clean `bb43b8b2` against actual integrated main `88a95f9a`. V1
+filesystem/profile/native contracts remain unchanged; new Apps/Widgets pins
+require a fresh matched build and guest proof. No blocking finding or unresolved
+review thread remains. Local checks pass 88 installation tests and one optional
+exhaustive skip, 27 workspace groups, 25 profile CLI groups, bundle/image and
+storage/session/desktop/fsync/docs checks. The matched build and new full proof
+pass: 109 host steps, eight I/O fault modes, 22 refusal commands, 18 exact complete
+publications and two fresh-B boots. The independent raw audit verifies all
+166 installed base files, exact selected bytes/defaults/identity/local context,
+used-B read-only inspection, byte-identical re-export and protected regions.
+
+Original A/baseline remain at their recorded paths/device/inodes with unchanged
+metadata/hashes throughout; all prior source-proof raw A/B/transport and baselines
+retain their identities/hashes. Review VMs remain live and untouched. Both owned
+guests stop and the shared resource slice is released. Internal/temp, output,
+backing and external-cache reserves stay above the agreed floors. Only the
+previous completed recovery proof's inactive transport is now an exact verified
+gzip archive with historical inode retained in its manifest, never an adopted
+target. The [new review manifest](assets/screenshots/installation-export-recovery-review.json)
+and [B reboot screenshot](assets/screenshots/installation-export-recovery-review-restored.png)
+retain exact attribution; raw evidence survives at
+`.local/installation-evidence/guest-created-volume/export-publication-review/proof-apgpwd4j/`.
+Older proof receipts remain historical. No physical power-loss claim is added.
+
+Next proposed bounded installation milestone: **offline streaming-v2 bundle
+admission and fresh-install restoration/reboot**. Admit an explicitly selected
+larger-document bundle and restore it into a separately provisioned B with new
+local bindings. Keep existing v1 behavior, used-image admission and
+`srvros-export-publication-v1` unchanged. This does not add streaming export
+publication recovery or modify an existing installation.
+
+Dependencies are the profiles owner's frozen/qualified PR367 wire/manifest,
+per-document/full-container hash and v2 journal contracts; independent
+qualification of its opt-in bounded range-I/O prerequisite and matched guest
+runtime; and a new bounded host/native installation adapter with sufficient
+fresh-volume capacity. Ordinary FD limits must not be raised to substitute for
+bounded I/O. Reuse current clean GPT/namespace/allocation/original-baseline and
+pending-state refusal, stable UUID versus local HOME/alias/UID/GID binding,
+exclusive installation publication, and checked file/directory sync semantics.
+PR367 remains draft and unqualified at this review; native consumer passes alone
+do not satisfy its runtime dependency. V1 codec constants/helpers stay intact.
+
+Acceptance: selected larger documents within frozen bounds, exact metadata and
+bytes after two B boots, distinct local binding and machine settings, bounded
+payload transfer/hash memory, and unchanged source/baseline/protected regions.
+Refuse malformed/truncated/corrupt/changed-source, wrong identity, pending state,
+existing destinations and low space without publishing a usable installation.
+Keep dirty-media repair, in-place upgrades and authentication separate.
+
 ## PR342 integrated-main review and next bounded checkpoint
 
 User authorizes review and merge if ready. Reviewed `1a19e2c6` against actual

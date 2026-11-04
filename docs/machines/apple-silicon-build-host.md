@@ -1,20 +1,45 @@
 # Apple Silicon macOS build host
 
-## PR364 integrated-main merge review — in progress November 4, 2026
+## PR364 integrated-main merge review — qualified November 4, 2026
 
-User authorizes review and merge if ready. Installation checkout incorporates
-main `88a95f9a` at `8fc538f4`; existing v1 profile/filesystem/export contracts are
-unchanged. Apps and Widgets advanced, so acceptance requires focused host checks,
-a clean matched build and a new recovery/fresh-B two-boot proof. Original A and
-its baseline remain at their recorded paths/device/inodes; preserve all three
-review VMs. Reserve gates remain 8 GiB output at proof start, 4 GiB output/backing
-floor, 2 GiB internal/temp throughout the qualification. Only the completed
-recovery proof's inactive transport was losslessly archived after exact SHA/size
-round-trip verification, with historical inode and restoration instructions in
-its `review-transport-archive.json`. No source A, baseline or accepted raw B was
-archived. Current evidence remains mounted; no remount or identity adoption.
-Next checkpoint: current-main tests, matched runtime and fresh proof, then the
-authorized merge decision. No physical media or power-loss claim.
+User authorizes review and merge if ready. Clean tested `bb43b8b2` incorporates
+latest main `88a95f9a`, Apps `7d72518a`, Widgets `3a695ce5`, Ports `fc51ddb4`.
+Source review finds no blocker or unresolved review thread. V1
+filesystem/profile/native export contracts are unchanged; consumed Apps/Widgets
+advanced, so a new clean matched runtime and full proof were required.
+
+Fresh local checks pass 88 installation tests plus one optional exhaustive skip,
+27 workspace groups, 25 profile CLI groups, 13 bundle and seven image groups,
+17 publication and 16 native export groups, storage/session/desktop/fsync/docs.
+The matched `all` build passes. New `export-publication-review/proof-apgpwd4j`
+passes all 109 fresh-process steps, eight I/O modes, 22 refusal commands,
+18 complete publications and two actual fresh-B boots. Raw independent audit
+verifies 166 base files, exact text/binary/defaults/UUID/local binding and
+HOME/XDG/cwd, exclusions, clean allocation/protected regions, used-B inspection
+with zero writes/flushes and byte-identical B re-export. B2 rendered review
+confirms the exact selected document at the destination HOME. Sources, receipts,
+matched artifacts and scripts survive outside build in the mounted evidence
+volume; the older proof keeps its original source attribution.
+
+Original A, all prior source-proof raw A/B/transport and baselines retain their
+paths/device/inodes/full hashes; A/baseline metadata stays unchanged throughout.
+Review VM full commands 61610/6233/85869 match preflight. Both owned guests stop.
+The finite resource slice is explicitly released; no further build/VM is planned.
+Proof minimum reserves: internal/temp 5.87 GiB, output 6.89 GiB, backing 11.36 GiB,
+external private temp/cache 7.36 GiB, above the 2/4 GiB floors. Output starts at
+8.45 GiB. Original internal caches remain retained; working caches/temp use a
+private external APFS directory. Only the earlier completed recovery transport
+was losslessly archived after exact round-trip verification; its original inode
+is historical and is never adopted. Original A/source disks and raw B stay raw.
+
+The [review manifest](../assets/screenshots/installation-export-recovery-review.json)
+records exact sources, hashes, reserve minima and the new receipt/audit. Follow-up
+changes documentation/evidence only. Ready for authorized merge; no physical
+media, arbitrary power-loss or authentication acceptance is implied. Next
+bounded proposal: offline streaming-v2 admission and fresh-install restoration,
+after frozen/qualified profile-stream and bounded range-I/O contracts. It needs a
+new bounded installation adapter; existing v1 helpers and export recovery stay
+unchanged. See the installation guide for dependencies and acceptance.
 
 ## Offline export-publication recovery — qualified for review
 
