@@ -1314,9 +1314,7 @@ $(USER_GZIP): $(ZIG) $(USER_CRT0_OBJ) $(USER_GZIP_OBJ) $(ZLIB_OBJ) $(USER_LIB_OB
 	mkdir -p $(dir $@)
 	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_GZIP_OBJ) $(ZLIB_OBJ) $(USER_LIB_OBJ) -o $@
 
-$(USER_PATCH): $(ZIG) $(USER_CRT0_OBJ) $(USER_PATCH_OBJ) $(USER_LIB_OBJ) userspace/app.ld
-	mkdir -p $(dir $@)
-	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_PATCH_OBJ) $(USER_LIB_OBJ) -o $@
+# Genuine GNU Patch recipe is supplied by ports/srvros/patch/build.mk.
 
 $(USER_MAKE): $(ZIG) $(USER_CRT0_OBJ) $(USER_MAKE_OBJ) $(USER_LIB_OBJ) userspace/app.ld
 	mkdir -p $(dir $@)
@@ -4363,6 +4361,7 @@ include ports/srvros/bc/build.mk
 include ports/srvros/less/build.mk
 include ports/srvros/xz/build.mk
 include ports/srvros/diffutils/build.mk
+include ports/srvros/patch/build.mk
 # Compatibility forwarding sources include the canonical SrvrUI implementation.
 # Keep incremental OS builds sensitive to changes to the included files.
 build/userspace/lib/src/desk_render.c.o: userspace/widgets/render/desk_render.c userspace/widgets/include/srvros/desk_render.h
@@ -4616,3 +4615,9 @@ build/userspace/test_diff_probe.elf: tools/test_diff_probe.c $(USER_CRT0_OBJ) $(
 	mkdir -p build/userspace/diff-probe
 	$(CC) $(USER_CFLAGS) -c tools/test_diff_probe.c -o build/userspace/diff-probe/probe.o
 	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) build/userspace/diff-probe/probe.o $(USER_LIB_OBJ) -o $@
+
+# Injected only into disposable GNU Patch qualification images.
+build/userspace/test_patch_probe.elf: tools/test_patch_probe.c $(USER_CRT0_OBJ) $(USER_LIB_OBJ) $(ZIG) userspace/app.ld
+	mkdir -p build/userspace/patch-probe
+	$(CC) $(USER_CFLAGS) -c tools/test_patch_probe.c -o build/userspace/patch-probe/probe.o
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) build/userspace/patch-probe/probe.o $(USER_LIB_OBJ) -o $@

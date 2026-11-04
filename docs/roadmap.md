@@ -86,6 +86,26 @@ passing proofs. Integration checkout and review VMs remain untouched; no shared
 libc/kernel change. Source-only GNU patch preparation is isolated while delivery
 finishes; further builds require a fresh resource window.
 
+## GNU Patch separate-output port — active November 4, 2026
+
+Next authorized queue row consumes delivered diff (ports PR11, OS PR369) in
+separate `SrvrOS-ports-patch`, reconciled with main `3fcf2630`. Genuine GNU Patch
+2.8.1 source/signature is authenticated and SDK cross-configuration plus both
+static targets link, without a shared libc/kernel change. The first dirty-source
+disposable guest passes basic/zero-count/header-like deletion/no-final-newline/
+leading-dash source cases, explicit-output refusals, failed-hunk cleanup, input
+preservation and fsck. This is initial compatibility, not full acceptance.
+
+The bounded profile uses existing regular source, one safe single-file unified
+patch and exclusive distinct output, forward-only/fuzz0 with no interactive,
+backup/reject/in-place or metadata behavior. Source/output are capped at
+256 KiB/8192 lines/64 KiB lines; patch at 1 MiB/32768 records/128 KiB records.
+Actual reads/writes and numeric hunk declarations are bounded. Full reference,
+snapshot-race, memory, output, cooperative-signal, reboot, Terminal, clean-build
+and regression gates remain. Inherited caller tests migrate to explicit new
+output. All owned jobs stopped and the first slice was released; qualification
+waits for another finite handoff. Review VMs/integration checkout remain untouched.
+
 ## xz bounded stream interchange — November 4, 2026
 
 Authorized target: upstream XZ Utils 5.8.4 static single-threaded `xz`, preset-0
