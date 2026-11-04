@@ -1,5 +1,21 @@
 # Apple Silicon macOS build host
 
+## PR364 integrated-main merge review — in progress November 4, 2026
+
+User authorizes review and merge if ready. Installation checkout incorporates
+main `88a95f9a` at `8fc538f4`; existing v1 profile/filesystem/export contracts are
+unchanged. Apps and Widgets advanced, so acceptance requires focused host checks,
+a clean matched build and a new recovery/fresh-B two-boot proof. Original A and
+its baseline remain at their recorded paths/device/inodes; preserve all three
+review VMs. Reserve gates remain 8 GiB output at proof start, 4 GiB output/backing
+floor, 2 GiB internal at compile start and 1 GiB internal floor. Only the completed
+recovery proof's inactive transport was losslessly archived after exact SHA/size
+round-trip verification, with historical inode and restoration instructions in
+its `review-transport-archive.json`. No source A, baseline or accepted raw B was
+archived. Current evidence remains mounted; no remount or identity adoption.
+Next checkpoint: current-main tests, matched runtime and fresh proof, then the
+authorized merge decision. No physical media or power-loss claim.
+
 ## Offline export-publication recovery — qualified for review
 
 User authorizes scoped implementation, interruption/reconciliation/refusal and
