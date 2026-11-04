@@ -26,6 +26,16 @@ BROWSER = ROOT.parent / 'SrvrOS-browser'
 EXIT = re.compile(rb'(?m)^run: pid=(\d+) exited status=(\d+)\r?\n')
 MARKERS = (b'signal-public: native main and worker context ok',
            b'signal-public: nested suspend resume handshake ok')
+BOOT_NETWORK_LINES = (b'net: no supported network device, stack idle',
+                      b'net: worker not started')
+
+
+def boot_network_state(data):
+    counts = {line.decode():len(re.findall(rb'(?m)^'+re.escape(line)+rb'\r?\n',data))
+              for line in BOOT_NETWORK_LINES}
+    provider = bool(re.search(rb'(?m)^net: (?:provider=|static ipv4=)',data))
+    return {'required_line_counts':counts,'unexpected_provider':provider,
+            'allowed':all(count==1 for count in counts.values()) and not provider}
 
 
 def sha(path):
@@ -63,6 +73,12 @@ def parser_selftest():
     assert parsed(b'run: pid=4 exited status=0\n') is None
     assert parsed(b'srv> \nrun: pid=4 exited status=0\r\nsrv> ') == (4, 0)
     assert parsed(b'run: pid=4 exited status=0\nsrv> \nrun: pid=5 exited status=0\nsrv> ') is None
+    boot=b'\r\n'.join(BOOT_NETWORK_LINES)+b'\r\nsrv> '
+    assert boot_network_state(boot)['allowed']
+    assert not boot_network_state(BOOT_NETWORK_LINES[0]+b'\n')['allowed']
+    assert not boot_network_state(boot.replace(b'\r\n',b'',1))['allowed']
+    assert not boot_network_state(boot+b'net: provider=e1000\n')['allowed']
+    assert not boot_network_state(boot+BOOT_NETWORK_LINES[0]+b'\n')['allowed']
     print('signal-public-parser: ok')
 
 
@@ -139,6 +155,7 @@ def prepare(args):
             '-machine','q35','-accel','tcg,thread=single','-cpu','qemu64','-smp','1','-m','1536M',
             '-cdrom',str(iso),'-boot','d','-display','none','-nic','none',
             '-serial','unix:{private_uart},server=on,wait=off','-monitor','none','-no-reboot']
+        receipt['boot_network_requirements']=[line.decode() for line in BOOT_NETWORK_LINES]
         receipt['config_sha256']=sha(boot/'limine.conf')
         receipt['initramfs_sha256']=sha(iso_root/'boot/initramfs.tar')
         receipt['iso_sha256']=sha(iso)
@@ -157,7 +174,7 @@ def run_guest(args):
     run = Path(args.run).resolve()
     result_path=run/'run-result.json'
     with result_path.open('x') as f: json.dump({'result':'started'},f)
-    result={'result':'failed','guest_stopped':False}
+    result={'result':'failed','guest_stopped':False,'payload_send_attempted':False}
     serial=bytearray();proc=None
     try:
         receipt_file=run/'prepare-receipt.json'; raw=receipt_file.read_bytes()
@@ -165,6 +182,8 @@ def run_guest(args):
             raise ValueError('prepared receipt hash mismatch')
         receipt=json.loads(raw)
         if receipt.get('schema')!=1 or receipt.get('result')!='prepared': raise ValueError('not a prepared run')
+        if receipt.get('boot_network_requirements')!=[line.decode() for line in BOOT_NETWORK_LINES]:
+            raise ValueError('prepared boot requirements mismatch')
         result['prepare_sha256']=hashlib.sha256(raw).hexdigest()
         for name,item in receipt['inputs'].items():
             if sha(required_file(item['path']))!=item['sha256']: raise ValueError(f'changed input: {name}')
@@ -175,10 +194,7 @@ def run_guest(args):
         guard=StorageGuard(run.parent);guard.preflight()
         with tempfile.TemporaryDirectory(prefix='srv-public-',dir='/tmp') as temp:
             uart=str(Path(temp)/'uart')
-            cmd=[receipt['inputs']['qemu']['path'],'-name','SrvrOS experimental public signal',
-                 '-machine','q35','-accel','tcg,thread=single','-cpu','qemu64','-smp','1','-m','1536M',
-                 '-cdrom',str(iso),'-boot','d','-display','none','-nic','none',
-                 '-serial',f'unix:{uart},server=on,wait=off','-monitor','none','-no-reboot']
+            cmd=[arg.replace('{private_uart}',uart) for arg in receipt['qemu_argv_template']]
             result['argv']=cmd
             with (run/'qemu.log').open('xb') as log:
                 proc=subprocess.Popen(cmd,stdout=log,stderr=log)
@@ -202,7 +218,13 @@ def run_guest(args):
                                 if predicate(data): return bytes(data)
                             except socket.timeout: pass
                         raise TimeoutError('guest serial deadline expired')
-                    receive_until(lambda b:b'srv> ' in b,90)
+                    boot=receive_until(lambda b:b'srv> ' in b,90)
+                    (run/'boot-serial.log').write_bytes(boot)
+                    result['boot_serial_sha256']=sha(run/'boot-serial.log')
+                    result['boot_network_state']=boot_network_state(boot)
+                    if not result['boot_network_state']['allowed']:
+                        raise RuntimeError('boot network precondition refused; payload not sent')
+                    result['payload_send_attempted']=True
                     sock.sendall(b'run /signal-public\n')
                     data=receive_until(lambda b:parsed(b) is not None,150)
                     pid,status=parsed(data)
