@@ -1763,8 +1763,12 @@ without callbacks. Blocked/inactive/foreign-owner state and an existing fatal ca
 are preserved; existing IGNORE and CHLD/WINCH discard behavior is unchanged.
 Independent strict Rosetta/sanitizer matrix profiles pass. Normal-kernel guests
 reproduce four old sentinel-90 cases; fixed exits are 138/138/140/140 with no
-sentinels, plus normal main/worker FPU passes. Task guests stop. Final immutable
-raw-fix source closure is pending. Evidence: `build/review/pr334-action-default-review/`.
+sentinels, plus normal main/worker FPU passes. Task guests stop. Closed raw fix
+`2777eda7`: all 95 frozen files and five committed source hashes independently
+verify against receipt SHA256
+`47c5a5d9b4039c5d31bbfb444f9a5388c9f23178f4f422add0d8b0a47c96ee54`
+at `.local/pr334-build-volume/evidence/action-default/receipt.json`.
+Evidence: `build/review/pr334-action-default-review/`.
 
 A distinct unwired private RESET path still bypasses that explicit-action helper.
 Actual-source/model reproduction delivers main INFO|RESET with an unblocked peer's
@@ -1775,6 +1779,15 @@ evidence is unchanged. Evidence: `build/review/pr334-reset-peer-review/`.
 Correction must stage the first signal's exact consumption and prospective handler
 self-mask before deciding peer defaults, with a reviewed exit outcome and complete
 physical exclusions; the raw helper cannot simply be called after user stores.
+The owner may implement that bounded correction for review: remove exactly the
+first selected bit in a prospective view, apply current handler self-blocking,
+then stage eligible peer defaults. A separate internal maximum-12-object copy
+entry retains the existing private maximum-three API/refusal rules. RESET uses
+the whole current state, process prefix including killed/cause and all eight
+worker mask/pending extents. Committed-and-exit status 138 must reach existing
+process exit before handler/user resume; refusal leaves every state unchanged.
+Full object/span alias, prospective-mask/pending, target suffix/stack and private
+guest regressions are required. This is implementation scope, not acceptance.
 
 The public design is still prepare-only. Revised same-ticket FINISH rewait avoids
 spurious clear/rearm gaps; pthread synchronization stays signal-transparent, and
