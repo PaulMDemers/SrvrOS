@@ -6,11 +6,11 @@ User authorizes creation in the chooser and Profiles app, recovery, remembered
 reboot selection, migration to a second installation and merging after review.
 Coordinator owns independent review and Apps-first/OS-second merges. Reuse the
 isolated `SrvrOS-profile-326-review` checkout; OS branch
-`device/apple-silicon/profile-create`, actual main `83e5d1ad` (PR347 complete),
-Apps branch `app/profile-create` starts from merged main `2ebaca5e` and now
-includes actual Apps main `2ddea66` (Files PR7). UI `586bd002` (PR4) is consumed
-explicitly before final qualification; Ports `78fb8184` remains pinned. The
-coordinator will relay the matching OS344 integration before the final VM run.
+`device/apple-silicon/profile-create`, starting main `83e5d1ad` (PR347 complete)
+and now merged actual main `6225e4d1` (Files/less integration). Apps creation
+head `0bf8e137` includes actual Apps main `2ddea66` (Files PR7); UI `586bd002`
+(PR4) and Ports `d760e541` are explicit final-qualification pins. Source, host
+and runtime evidence must retain these actual revisions.
 
 Own guest creation CLI/tests, Profiles UI, embedded chooser creation, fixed-command
 workers and scoped build/diagnostic wiring, plus a new bounded disposable-VM proof.
@@ -33,8 +33,9 @@ process retirement. Retain bounded verified image archives, exact source evidenc
 and failed attempts outside destructive build cleanup. Publish scoped draft PRs;
 hold merges for the coordinator. Original review VMs and physical media remain
 untouched; Actions stay disabled. Authentication and permission enforcement stay
-separate. Next: implement the frozen creation contract, then focused checks and
-finite VM qualification.
+separate. Implementation, initial guest build, 25 CLI groups and real-catalog
+ASan/UBSan checks pass. Final current-main build/host checks and the 20-lifetime
+VM proof remain; shared resources are now released for that qualification.
 
 ## Graphical profile transfer — qualified for review
 
