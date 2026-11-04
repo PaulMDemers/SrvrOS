@@ -1683,6 +1683,26 @@ native context layout, GOT-before-TLS, wrapper interruption/partial-I/O/deadline
 semantics and atomic nested waits remain required. Private acceptance above is
 unchanged while this public packet is revised.
 
+## November 4: nonrestart attempt scope extends beyond legacy restart
+
+A proposed sticky image profile would permanently exclude INFO after any legacy
+RESTART registration and reject future RESTART after INFO enrollment. That would
+honestly remove mixed registration but does not solve the whole admission gap.
+Source inspection finds logical blocking operations that retry without RESTART:
+event reads use internal 10 ms raw poll slices, epoll rebuilds after spurious or
+retired snapshots, and synthetic poll repeatedly slices until its outer deadline.
+An INFO handler can finish after a userspace retry decision and before the next
+raw wait, leaving that logical operation blocked with its notification consumed.
+An internal slice timeout is not completion of the enclosing logical operation.
+
+The public packet therefore remains prepare-only pending a kernel-bound logical
+attempt/retry protocol with atomic interrupted/stale admission before sleeping,
+independent nested-handler ownership, lifecycle cleanup and explicit outer
+progress/EOF/deadline rules. A userspace counter is not authority for that check.
+The sticky profile and broad migration of all legacy actions are not approved as
+a substitute. Existing legacy-only behavior and private-slice acceptance remain
+unchanged; no public code is authorized by this design review.
+
 ## Remaining work
 
 Other long IRQ-disabled operations, including initial/churning PMM scans, heap validation and poisoning,
