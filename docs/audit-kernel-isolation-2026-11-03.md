@@ -1293,6 +1293,42 @@ exec hooks, converted/unpublished loading exclusion, syscall failure paths and
 matched runtime behavior remain under review; this is not interface acceptance
 or a session-switch completion claim. No silent kill/timeout success is allowed.
 
+## November 4: bounded session-scope runtime qualification
+
+Independently accepted PR354 head `6f272777` (production `cd93e1eb`, comment/test
+closure `e3eeaf21`) against `f7ec75e7`. Owner-bound noninherited full-width handles
+control one scoped GUI root and inherited descendants. Nonkilling revocation
+closes new reservations; admitted reservations remain counted through conversion,
+and owner detachment cancels an unconverted reservation atomically. Complete
+retirement and no live-parent wait right precede orphan reaping. Reaping reports
+bounded progress, preserves sticky exit errors and permits release only after
+revocation plus zero members. Owner exec/final-exit/release hooks preserve failed
+exec and main atexit ownership; legacy kernel/battery scope admission refuses.
+
+Initial six independent service/lifetime/syscall-validation profiles, four changed
+service/loader profiles and both final closure profiles pass strict Rosetta and
+ASan/UBSan within their recorded source versions. Actual exit/atexit/exec prefixes
+use host terminal traps before privileged instructions; syscall backend and
+hardware are explicit models. Source/IRQ/scheduler admission review and the
+converted-unpublished checkpoint cover loading exclusion. Independent evidence:
+`build/review/session-lifetime-{host,stable,final}-review/`.
+
+Verified original and closure source manifests and clean matched `cd93e1eb`
+kernel/initramfs hashes. Read the final harness and serial: twice scopeprobe
+holds a descendant after root/owner exit, refuses early release/new scope, then
+succeeds after natural retirement; init startup is complete and PID1 `/init`
+remains live before/after. Legacy lifetime, PTY and sysabi/fault-reaping checks
+pass. The first harness invoked sysabi at the monitor and failed; the corrected
+passing run explicitly runs `/fat/bin/sysabi`. This qualification requires the
+normal live init reaper and proves no new service or hidden kill. Task guest
+stopped, review VMs preserved. Integration owner retains merge responsibility.
+
+This is the bounded runtime dependency, not acceptance of graphical profile
+switching, unsaved-work decisions, settings isolation, physical/SMP behavior or
+combined PR334 image metadata. Reconciliation must retain PR334's saved-IRQ
+clear/gen0/cleanup ordering and separately reviewed signal boundaries. The
+profiles/integration owners continue the actual user workflow and matched proof.
+
 ## Remaining work
 
 Other long IRQ-disabled operations, including initial/churning PMM scans, heap validation and poisoning,
