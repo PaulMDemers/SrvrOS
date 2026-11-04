@@ -12,6 +12,11 @@
 #include "descriptor_tables.h"
 #include "irq.h"
 #include "isr_frame.h"
+#ifdef SRVROS_USER_FRAME_COPY_GUEST_TEST
+#include "user_frame_copy.h"
+#include <srvros/serial.h>
+#include <srvros/timer.h>
+#endif
 
 #include <stdint.h>
 
@@ -318,18 +323,80 @@ static void isr_dispatch_inner(struct isr_frame *frame) {
 void syscall_cancel_test_exclude_irqs(void);
 #endif
 
+#ifdef SRVROS_USER_FRAME_COPY_GUEST_TEST
+/* Disposable test-kernel diagnostics only; no syscall/normal-build capability. */
+#define USER_FRAME_COPY_TEST_MAGIC UINT64_C(0x534947434f505931)
+static volatile struct {
+    uint64_t complete,sequence,success,reference_ready,helper_us,mappings,record_visit_bound;
+    uint64_t cr0,cr3,cr4,efer,rsp,frame,source,destination,length,io_active;
+} user_frame_copy_probe;
+static void user_frame_copy_probe_hex(uint64_t value) {
+    static const char digits[]="0123456789abcdef";
+    for(unsigned i=0;i<16;i++) serial_putc(digits[(value>>(60-4*i))&15]);
+}
+static void user_frame_copy_guest_test(struct isr_frame *frame) {
+    struct user_frame_source source;
+    for(size_t i=0;i<sizeof(source.bytes);i++) source.bytes[i]=(uint8_t)(0x5au^(i*13u));
+    user_frame_copy_probe.complete=0;
+    user_frame_copy_probe.sequence++;
+    user_frame_copy_probe.reference_ready=timer_reference_ready();
+    user_frame_copy_probe.mappings=UINT64_MAX;
+    struct scheduler_user_return_observation obs;
+    struct process_user_binding binding;
+    /* Entry observation is diagnostic only; helper still uses strict return admission. */
+    if(scheduler_observe_user_entry(&obs) && process_resolve_user_binding(obs.process,obs.user_thread,
+        obs.image_generation,obs.address_space,&binding)) {
+        uint64_t bytes=0,pid=process_pid(obs.process);
+        if(process_list_details(SRV_PROC_LIST_BY_PID|pid,NULL,NULL,NULL,NULL,&bytes))
+            user_frame_copy_probe.mappings=bytes/PMM_FRAME_SIZE;
+    }
+    user_frame_copy_probe.record_visit_bound=user_frame_copy_probe.mappings<=65536 ?
+        4*user_frame_copy_probe.mappings : UINT64_MAX;
+    uint64_t start=user_frame_copy_probe.reference_ready?timer_monotonic_us():0;
+    bool copied=process_copy_user_frame_current(frame,&source,frame->rdi,(size_t)frame->rsi);
+    user_frame_copy_probe.helper_us=user_frame_copy_probe.reference_ready?timer_monotonic_us()-start:UINT64_MAX;
+    user_frame_copy_probe.success=copied;
+    uint64_t cr0,cr3,cr4,rsp;uint32_t lo,hi;
+    __asm__ volatile("mov %%cr0,%0; mov %%cr3,%1; mov %%cr4,%2; mov %%rsp,%3"
+        : "=r"(cr0),"=r"(cr3),"=r"(cr4),"=r"(rsp));
+    __asm__ volatile("rdmsr" : "=a"(lo),"=d"(hi) : "c"(0xc0000080u));
+    user_frame_copy_probe.cr0=cr0;user_frame_copy_probe.cr3=cr3;user_frame_copy_probe.cr4=cr4;
+    user_frame_copy_probe.efer=((uint64_t)hi<<32)|lo;user_frame_copy_probe.rsp=rsp;
+    user_frame_copy_probe.frame=(uint64_t)frame;user_frame_copy_probe.source=(uint64_t)&source;
+    user_frame_copy_probe.destination=frame->rdi;user_frame_copy_probe.length=frame->rsi;
+    user_frame_copy_probe.io_active=scheduler_io_active();
+    user_frame_copy_probe.complete=1;
+    if((!copied && frame->rdx) || (frame->rdx==2 && !user_frame_copy_probe.reference_ready)) {
+        serial_write("user-frame-copy-test: unexpected admission/timing failure; stable probe record; halted\n");
+        for(;;) __asm__ volatile("cli; hlt" : : : "memory");
+    }
+    serial_write("user-frame-copy-test: ok=");user_frame_copy_probe_hex(copied);
+    serial_write(" maps=");user_frame_copy_probe_hex(user_frame_copy_probe.mappings);
+    serial_write(" visit_bound=");user_frame_copy_probe_hex(user_frame_copy_probe.record_visit_bound);
+    serial_write(" helper_us=");user_frame_copy_probe_hex(user_frame_copy_probe.helper_us);serial_putc('\n');
+    frame->rax=copied?0:(uint64_t)SRV_ERR_FAULT;
+}
+#endif
+
 void isr_dispatch(struct isr_frame *frame) {
     bool user=(frame->cs & 3)==3;
     if(user) {
         scheduler_account_kernel_enter();
         scheduler_io_set_user_safe(false);
     }
-    isr_dispatch_inner(frame);
+#ifdef SRVROS_USER_FRAME_COPY_GUEST_TEST
+    bool copy_test=user && frame->vector==3 && frame->rax==USER_FRAME_COPY_TEST_MAGIC;
+    if(!copy_test)
+#endif
+        isr_dispatch_inner(frame);
     if(user) {
 #ifdef SRVROS_SYSCALL_CANCEL_HOST_TEST
         syscall_cancel_test_exclude_irqs();
 #else
         __asm__ volatile ("cli" : : : "memory");
+#endif
+#ifdef SRVROS_USER_FRAME_COPY_GUEST_TEST
+        if(copy_test) user_frame_copy_guest_test(frame);
 #endif
         scheduler_user_enter();
     }

@@ -3686,3 +3686,15 @@ and independent review remain pending. The session team owns the current heavy
 build/VM window; only bounded source/host checks run here. Host free remains about
 3GiB, and the human8GiB/JSC resource question is pending. No new JavaScript smoke,
 public signal admission or guest copy-helper coverage is claimed.
+
+
+Owner independently passed10/10 focused copy-source host profiles at `641e6694`
+and verified25 hashes. Maximum65536-record cases now pass strict/sanitized too:
+valid targets near the end and late duplicate VA/physical records. The current
+worst two-page scan is262144 record visits with IRQs excluded; latency is unmeasured
+and must be qualified before any production caller. The optional separate test
+kernel is approved only with fixed bounded serial failure output/scalar record
+and read-only timing; normal kernel remains separate, no signal integration.
+The session team still owns the heavy build/VM window after merging scope163;
+its finite graphical proof is running externally. Future integration must retain
+qualified image/FPU invalidation and session-detach ordering.

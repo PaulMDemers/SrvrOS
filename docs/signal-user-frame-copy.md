@@ -189,3 +189,21 @@ Paging encodings and access controls follow
 [Intel SDM volume3A sections4.5/4.6 and reserved-bit tables](https://cdrdv2-public.intel.com/819714/253668-sdm-vol-3a.pdf).
 The strict allowed-bit policy above intentionally refuses some architecturally
 ignored encodings. It does not label those encodings reserved on every CPU.
+
+
+## Mapping scan and timing qualification
+
+The current two-page process preflight performs at most four complete scans of
+PROCESS_MAX_MAPPINGS=65536, or262144 record visits under IF0, in addition to fixed
+identity/policy/page-walk work and at most1024 user-byte stores. The byte limit is
+not a total latency bound. Maximum-table host cases place valid targets near the
+end, then inject duplicate VA and physical ownership at the last record and
+require unchanged destination on refusal. Target measurement of worst admitted
+scan+copy latency on this emulated profile is required before a production caller.
+If too long, return for reviewed bounded lookup/preparation; do not add service
+windows to the atomic transaction or silently cap away large browser images.
+Actual guest accesses may update architectural A/D bits; host table-byte identity
+checks establish absence of software mutation in the model, not frozen hardware
+paging flags. The optional test-kernel hook is approved only with bounded serial
+failure output/stable scalar record, read-only helper timing and separate object/
+kernel receipts; it does not approve signal publication or a production caller.

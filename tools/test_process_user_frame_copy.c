@@ -104,5 +104,29 @@ int main(void) {
     for(unsigned i=4112;i<sizeof(destination_bytes);i++)assert(destination_bytes[i]==0xa5);
     for(unsigned i=0;i<32;i++)assert(source.bytes[i]==(uint8_t)(i+1));
     for(unsigned i=32;i<sizeof(source.bytes);i++)assert(!source.bytes[i]);
+    /* At most four complete mapping scans run with IRQs excluded for a
+     * two-page frame: 4 * PROCESS_MAX_MAPPINGS = 262144 record visits.
+     * This correctness test does not measure maximum guest latency. */
+    for(uint64_t i=0;i<PROCESS_MAX_MAPPINGS;i++)
+        p->mappings[i]=(struct process_mapping){0x10000000ull+i*4096,0x20000000ull+i*4096,
+            VMM_PAGE_USER|VMM_PAGE_WRITABLE|VMM_PAGE_NO_EXECUTE};
+    p->mapping_count=PROCESS_MAX_MAPPINGS;
+    p->mappings[PROCESS_MAX_MAPPINGS-3]=(struct process_mapping){0x1000,0x8000,
+        VMM_PAGE_USER|VMM_PAGE_WRITABLE|VMM_PAGE_NO_EXECUTE};
+    p->mappings[PROCESS_MAX_MAPPINGS-2]=(struct process_mapping){0x2000,0x9000,
+        VMM_PAGE_PRESENT|VMM_PAGE_USER|VMM_PAGE_WRITABLE};
+    memset(destination_bytes,0xa5,sizeof(destination_bytes));
+    assert(process_copy_user_frame_current(&frame,&source,0x1ff0,32));
+    assert(!memcmp(destination_bytes+4080,source.bytes,32));
+    for(unsigned i=0;i<4080;i++)assert(destination_bytes[i]==0xa5);
+    for(unsigned i=4112;i<sizeof(destination_bytes);i++)assert(destination_bytes[i]==0xa5);
+    struct process_mapping last=p->mappings[PROCESS_MAX_MAPPINGS-1];
+    p->mappings[PROCESS_MAX_MAPPINGS-1]=(struct process_mapping){0x1000,last.physical_address,
+        VMM_PAGE_USER|VMM_PAGE_WRITABLE};
+    refused(p,&frame,&source);
+    p->mappings[PROCESS_MAX_MAPPINGS-1]=last;
+    p->mappings[PROCESS_MAX_MAPPINGS-1].physical_address=0x8000;
+    refused(p,&frame,&source);
+    p->mappings[PROCESS_MAX_MAPPINGS-1]=last;
     puts("process-user-frame-copy: PASS (unwired preflight; VMM/proof mocked)");
 }
