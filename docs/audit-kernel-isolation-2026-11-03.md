@@ -1625,6 +1625,33 @@ turn it into EINTR, which needs an explicit contract once INFO is consumed befor
 libc resumes. Real machine contexts, ticketed nested atomic suspend and bounded
 stop/resume remain mandatory separate reviews.
 
+## November 4: bounded private-operation final acceptance
+
+Closed the private test-only slice at PR334 `3afa5ee6`. Final receipt SHA256
+`dea8c230b970db632109effa59f14fb2931133ae92e477cc697577e7f35afba8`
+at `.local/pr334-evidence/3afa5ee6/receipt.json` and all 227 retained files verify;
+18 retained source files match the final commit byte-for-byte. Both separately
+frozen private-guest receipt digests verify. Precommit base/dirty-candidate labels
+remain explicit; exact source/ELF hashes establish attribution rather than a
+retrospective clean-build claim.
+
+Independently refreshed final state/copy compatibility profiles pass 4/4 strict
+Rosetta and ASan/UBSan. The earlier corrected-mask matrix source/header/IDT hashes
+match final; prerequisite FPU/VMM hashes match final, with pre-mask-fix original
+copy profiles retaining their recorded source scope. Independent suffix, cumulative
+stack, expanded private guest and normal/I/O checks above carry forward through
+verified final artifacts. Evidence: `build/review/pr334-signal-fused-final-review/`.
+Documentation checking in the owner's checkout reports 917 local links with the
+same eight missing nested-vendor license paths, not a wholly passing docs check.
+
+This closes internal private delivery/return only. No normal kernel delivery hook,
+public signal ABI, libc INFO registration, atomic nested suspend, restart epoch,
+collector-root survival or JSC success is qualified. The pinned WTF code explicitly
+requests RESTART|INFO and uses global semaphore waits; a future SrvrOS-specific
+adapter and bounded ticket/lifetime protocol require separate review. The public
+nonrestart subset remains design preparation only, with unchanged legacy behavior
+and full action/mask/wait/return transaction requirements.
+
 ## Remaining work
 
 Other long IRQ-disabled operations, including initial/churning PMM scans, heap validation and poisoning,
