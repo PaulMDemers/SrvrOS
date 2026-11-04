@@ -157,3 +157,30 @@ coherence/namespace and user-copy gates, resource limits, low-space and injected
 I/O/flush failures. Measure kernel payload allocations separately from volume
 metadata/cache and from user allocations/mapped high-water. The existing profile
 native tests are consumer evidence, not a substitute for those backend checks.
+
+
+### Frozen request and result details
+
+The concrete [public header](../shared/include/srvros/file_stream.h) defines the
+80-byte request and 112-byte stat result. The request is input-only. OPEN_READ
+and CREATE_APPEND return a positive token in the syscall return register;
+PREAD/APPEND return a byte count; STAT/SYNC/CLOSE return zero. All failures return
+negative `SRV_ERR_*`. Regular-file stat type is zero, matching ordinary stat.
+Open uses only path (and creation mode for CREATE_APPEND); transfer uses handle,
+buffer and length (plus offset for PREAD); STAT requires an exact-size result;
+SYNC/CLOSE use only handle. Unknown or unused fields refuse before mutation.
+
+Close consumes its token after admission even when late flush or sticky I/O
+fails. Failure to obtain service admission has not executed CLOSE and retains
+the token; production syscall and process-cleanup callers hold that window
+before entry. There is no retry of an uncertain write. Opaque handles have no
+POSIX dup, fork, rights-passing or descriptor API participation. The ordinary
+file-size limit's short-write/signal behavior applies to append.
+
+For newly created output, capture its inode and size before checked sync/close;
+readback uses a fresh bounded handle matching that identity and exact bytes.
+Import scratch is renamed with the existing guarded inode/size/time operation
+only after readback closes, then verified at its final name. Source handles stay
+pinned through final rehash and publication. The post-close interval is not a
+concurrent-writer or atomic-publication guarantee. The original bundle and
+partial exclusive output remain intact on failure.
