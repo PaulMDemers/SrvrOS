@@ -4621,10 +4621,11 @@ build/tests/profile-ui-host$(HOST_EXE): tools/test_profile_ui.c userspace/apps/d
 	$(HOST_CC) -std=c11 -D_DARWIN_C_SOURCE -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -idirafter userspace/lib/include -I userspace/widgets/include -I ports/upstream/cjson tools/test_profile_ui.c ports/upstream/cjson/cJSON.c -Wl,--gc-sections -o $@
 
 .PHONY: test-file-stream test-exfat-stream
-test-file-stream: build/tests/file-stream-manager-host$(HOST_EXE) build/tests/file-stream-syscall-host$(HOST_EXE) build/tests/file-stream-process-host$(HOST_EXE)
+test-file-stream: build/tests/file-stream-manager-host$(HOST_EXE) build/tests/file-stream-syscall-host$(HOST_EXE) build/tests/file-stream-process-host$(HOST_EXE) build/tests/file-stream-cleanup-host$(HOST_EXE)
 	build/tests/file-stream-manager-host$(HOST_EXE)
 	build/tests/file-stream-syscall-host$(HOST_EXE)
 	build/tests/file-stream-process-host$(HOST_EXE)
+	build/tests/file-stream-cleanup-host$(HOST_EXE)
 
 build/tests/file-stream-manager-host$(HOST_EXE): tools/test_file_stream.c kernel/src/file_stream.c $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
@@ -4637,6 +4638,10 @@ build/tests/file-stream-syscall-host$(HOST_EXE): tools/test_file_stream_syscall.
 build/tests/file-stream-process-host$(HOST_EXE): tools/test_file_stream_process.c tools/test_process_output.c tools/test_process_teardown.inc tools/test_process_teardown_fault.c kernel/src/process.c kernel/src/vfs_namespace.c kernel/src/pty.c kernel/src/pty_model.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include -DSRVROS_PTY_HOST_TEST $< tools/test_process_teardown_fault.c kernel/src/vfs_namespace.c kernel/src/pty.c kernel/src/pty_model.c -Wl,--gc-sections -o $@
+
+build/tests/file-stream-cleanup-host$(HOST_EXE): tools/test_file_stream_cleanup.c kernel/src/process.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
 
 test-exfat-stream:
 	CC="$(HOST_CC)" $(PYTHON) tools/test_exfat_stream.py

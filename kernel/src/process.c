@@ -445,13 +445,14 @@ static void process_service_end(struct process_service_scope scope) {
 #endif
 }
 static bool process_stream_cleanup(uint64_t owner) {
+    if(!owner)return true;
 #if defined(SRVROS_PROCESS_HOST_TEST) && !defined(SRVROS_STREAM_PROCESS_HOST_TEST)
     (void)owner;return true;
 #elif defined(SRVROS_PROCESS_HOST_TEST) && !defined(SRVROS_PROCESS_SERVICE_HOST_TEST)
     return file_stream_cleanup(owner);
 #else
     struct process_service_scope scope=process_service_begin();
-    if(!scope.held)return false;
+    if(!scope.held) { process_service_end(scope);return false; }
     bool okay=file_stream_cleanup(owner);process_service_end(scope);return okay;
 #endif
 }
