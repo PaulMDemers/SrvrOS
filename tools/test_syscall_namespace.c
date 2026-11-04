@@ -14,7 +14,9 @@ static unsigned iterator_calls;
 static struct vfs_node raw_node={.path=long_path,.size=27,.used=true,.type=VFS_NODE_FILE};
 static struct vfs_node projected_node={.path="/fat/bin/tool",.size=40,.used=true,.type=VFS_NODE_FILE};
 
-bool vmm_user_range_mapped(uint64_t address,uint64_t length,bool writable) {
+/* Keep the fake mapping boundary opaque, as it is in the separately linked
+ * kernel. This fixture intentionally refuses every readable user range. */
+__attribute__((noinline)) bool vmm_user_range_mapped(uint64_t address,uint64_t length,bool writable) {
     uint64_t first=(uint64_t)(uintptr_t)user_path;
     uint64_t scalar=(uint64_t)(uintptr_t)&user_size;
     if(!writable || length>UINT64_MAX-address) return false;

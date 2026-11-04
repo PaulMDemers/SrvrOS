@@ -1,3 +1,4 @@
+#define _XOPEN_SOURCE 700
 #include <assert.h>
 #include <errno.h>
 #include <stdio.h>
@@ -16,7 +17,8 @@ static int mock_stat(const char *path,struct stat *st) {
         if(pending_import) { memset(st,0,sizeof(*st));return 0; }
         errno=pending_error?EIO:ENOENT;return -1;
     }
-    if(missing_directory)return -1;memset(st,0,sizeof(*st));st->st_mode=S_IFDIR;return 0;
+    if(missing_directory)return -1;
+    memset(st,0,sizeof(*st));st->st_mode=S_IFDIR;return 0;
 }
 static FILE *mock_fopen(const char *path,const char *mode) {
     const char *data;

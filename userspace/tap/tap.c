@@ -3,9 +3,11 @@
 #include <string.h>
 #include <unistd.h>
 
+static int write_all(int fd, const char *buffer, size_t length);
+
 static void usage(void) {
     const char *text = "usage: tap [-a] <copy-path> [input-path]\n";
-    write(STDERR_FILENO, text, strlen(text));
+    (void)write_all(STDERR_FILENO, text, strlen(text));
 }
 
 static int write_all(int fd, const char *buffer, size_t length) {
@@ -42,7 +44,7 @@ int main(int argc, char **argv) {
         input = open(argv[arg + 1], O_RDONLY);
         if (input < 0) {
             const char *text = "tap: cannot open input\n";
-            write(STDERR_FILENO, text, strlen(text));
+            (void)write_all(STDERR_FILENO, text, strlen(text));
             return 2;
         }
         should_close_input = 1;
@@ -52,7 +54,7 @@ int main(int argc, char **argv) {
     int copy = open(argv[arg], flags, 0666);
     if (copy < 0) {
         const char *text = "tap: cannot open copy path\n";
-        write(STDERR_FILENO, text, strlen(text));
+        (void)write_all(STDERR_FILENO, text, strlen(text));
         if (should_close_input) {
             close(input);
         }
@@ -64,7 +66,7 @@ int main(int argc, char **argv) {
         ssize_t n = read(input, buffer, sizeof(buffer));
         if (n < 0) {
             const char *text = "tap: read failed\n";
-            write(STDERR_FILENO, text, strlen(text));
+            (void)write_all(STDERR_FILENO, text, strlen(text));
             close(copy);
             if (should_close_input) {
                 close(input);
@@ -77,7 +79,7 @@ int main(int argc, char **argv) {
         if (write_all(STDOUT_FILENO, buffer, (size_t)n) < 0 ||
             write_all(copy, buffer, (size_t)n) < 0) {
             const char *text = "tap: write failed\n";
-            write(STDERR_FILENO, text, strlen(text));
+            (void)write_all(STDERR_FILENO, text, strlen(text));
             close(copy);
             if (should_close_input) {
                 close(input);
