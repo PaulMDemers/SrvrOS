@@ -20,13 +20,10 @@ Current delivery gates:
   including its exact rendered refusal and preserved bytes. Complete the full
   integrated GUI, recovery, storage and bounded-memory proof before Apps #11
   and OS #367. The first full proof remains failed, not relabeled.
-- GNU Patch: six guest checks pass (two Patch boots, two diff interoperability
-  boots, Terminal and CLI). The shipped miniport caller is corrected; verify
-  a fresh full seven-guest suite, merge Ports #12 then OS #370, and stop the
-  queue. The final archive-identity gate failed: the script propagates into
-  initramfs, but the old archive member inventory was not retained for exact
-  comparison. Prior results retain their actual source/payload attribution;
-  the new full proof replaces reliance on that missing comparison.
+- GNU Patch: delivered in Ports #12 (`72f3d6fa`) then OS #370 (`3e327513`).
+  All seven fresh guests pass on the retained final payload, including the
+  corrected miniport example; exact merge trees and reachable port pin are
+  verified. Earlier failed receipts remain preserved. The CLI queue stops here.
 - Filesystem GUID selection: OS #366 is merged as `7b1bfcb8`, with the exact
   reviewed tree; 43 selector, 19 installation, storage and 43 sanitized selector
   checks pass. Original media and completed streaming-review evidence remain
