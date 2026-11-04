@@ -665,10 +665,40 @@ def main():
             raise RuntimeError('low-space refusal retained unowned journal')
         if d.outside_data(low, *d.partitions(low)[1]) != receipt['installations']['b']['protected_regions']:
             raise RuntimeError('low-space probe protected bytes changed')
-        t.check_allocation(low, out, 'low-space-final')
+        t.check_allocation(low, out, 'low-space-refused')
         receipt['low_space'] = {'initial_free_bytes': available_guest, 'free_before_import': before_free,
-                                'filler_bytes': fill_blocks * CHUNK, 'journal_retained': journal is not None}
-        t.archive_completed(before, out); t.archive_completed(after, out); t.archive_completed(low, out)
+                                'filler_bytes': fill_blocks * CHUNK, 'journal_retained': journal is not None,
+                                'failure_observed': True, 'recovered': False}
+        d.save_json(out / 'receipt.json', receipt)
+        # Preserve both refusal snapshots before releasing space. The only
+        # operator cleanup is the synthetic filler created by this invocation.
+        t.archive_completed(before, out); t.archive_completed(after, out)
+        with c.VM(low, disks['transport'], out, 'low-space-recover', args) as vm:
+            run_guest(vm, '/fat/bin/rm /fat/home/space-fill.bin')
+            restored_snapshot = vm.quiesced_data_snapshot('low-space-restored')
+            restored_fs = ExfatFixture(restored_snapshot.read_bytes())
+            c.absent(restored_fs, 'home/space-fill.bin')
+            restored_free = free_bytes(restored_fs)
+            if restored_free <= before_free or restored_free < MAX_DOC:
+                raise RuntimeError('removing the synthetic filler did not restore enough space')
+            if journal is not None:
+                retained = v1.decode_json(restored_fs.read('home/local_b.profile-import.json'))
+                if retained != journal: raise RuntimeError('space restoration modified retained journal')
+                recover(vm)
+            else:
+                c.absent(restored_fs, 'home/local_b.profile-import.json')
+                desktop(vm); gui_transfer(vm, 'import'); t.close_session(vm)
+        recovered = t.check_allocation(low, out, 'low-space-recovered')
+        binding = check_profile(recovered, B, mb, bundle, expected, False)
+        c.absent(recovered, 'home/local_b/.profile-copy-temp')
+        c.absent(recovered, 'home/space-fill.bin')
+        if d.outside_data(low, *d.partitions(low)[1]) != receipt['installations']['b']['protected_regions']:
+            raise RuntimeError('low-space recovery changed protected bytes')
+        receipt['low_space'].update(space_restored=True, free_after_cleanup=restored_free,
+            recovery_path='chooser' if journal is not None else 'gui-import',
+            recovered=True, binding=binding, recovered_disk_sha256=d.digest(low.read_bytes()))
+        d.save_json(out / 'receipt.json', receipt)
+        t.archive_completed(restored_snapshot, out); t.archive_completed(low, out)
         with c.VM(disks['b'], disks['transport'], out, 'b-import', args) as vm:
             desktop(vm); gui_transfer(vm, 'import'); t.close_session(vm)
         with c.VM(disks['b'], disks['transport'], out, 'b-choose', args) as vm:
