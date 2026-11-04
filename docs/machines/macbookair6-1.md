@@ -7236,3 +7236,39 @@ native gap is not a generic mapping permission or a copied Broadwell gate.
 Firmware exclusion, real allocation/GGTT ownership, GT wake ownership and matched
 scanout/restore retirement remain separate. Prior RC6 timing failure and zero
 package-C3 residency are unchanged.
+
+
+### Exact-unit VT-d read/resource audit scope (2026-11-04)
+
+Base `db95fc9b`, native firmware/catalog run already collected and closed.
+PR301 at `69367853` remains independent Broadwell scanout/cache work. Audit
+primary VT-d register width/read semantics and UEFI resource discovery against
+this unit's pinned DMAR and complete native catalog. Add only a host-side
+candidate-contract audit/refusal tests and Air6,1 documentation. No native
+mapping/register/writer, shared DMA driver, boot profile, policy or limit change.
+Keep the GPU-specific page distinct from include-all/IRQ/HPET scope and preserve
+all prior ownership unknowns. Save primary-source hashes and actual-receipt
+host audit, validate locally and merge before proposing an implementation/test.
+
+
+Audit complete: primary VT-d4.1 sections8.3/11.1–11.4 permit the proposed aligned
+DWORD read set, distinguish TES status from programmed RTADDR and do not justify
+root traversal or writes. The host-only contract replays the accepted raw receipt
+and admits only a resource candidate for the explicit GPU page with this unit's
+exact native gap edges. Generic reserved coverage, partial/all-type overlap,
+missing/changed/sibling edges, malformed catalogs and forbidden offsets refuse.
+
+A separate prerequisite was identified: PCD alone is not effective strong-UC
+proof under inherited PAT/MTRR/CR0 state. Current VMM adopts inherited CR3 and
+its physical-translation query supplies no full leaf/cache/alias proof. The next
+bounded work is feature-gated read-only Air6,1 CPU cache/alias context without
+mapping VT-d, before any register-window implementation. PR301's architectural
+cache mechanism and Broadwell address gates remain independent; its accepted
+PAT values or classifier results do not transfer to this unit.
+
+`make test-haswell-firmware check-docs` passes, including eight new gap/offset/
+failed-receipt/foreign-cache regressions and actual core/adapter/hash checks.
+Actual native-receipt host replay passes the candidate audit with all cache,
+mapping/read permission, DMA-state and ownership fields false. Primary PDFs,
+source hashes and host output have a durable copy outside build. No kernel,
+policy, limit, installed payload or physical acceptance changes; no reboot armed.
