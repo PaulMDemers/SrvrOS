@@ -10,7 +10,7 @@ reservation for the next milestone.
 | Order | Application | Bounded outcome | State |
 | --- | --- | --- | --- |
 | 1 | GNU Diffutils 3.12 `diff` | Correct normal/quiet/unified comparison of two capped text files; long lines and 0/1/2 statuses; host patch validation and explicit local-patch subset. | Delivered and verified: ports PR11 `4da8a98b`, then OS PR369 `3fcf2630`; exact trees and reachable pin checked. |
-| 2 | GNU Patch 2.8.1 | Apply a bounded single-file unified patch to an explicit separate output; preserve source, reject ambiguous/unsafe paths and failed hunks; qualify the diff edge cases excluded by the compact local patch. | Active in isolated `SrvrOS-ports-patch`, reconciled with delivered diff/main `3fcf2630`; Corrected two-boot Patch, diff interoperability, Terminal expert walkthrough and 498-command CLI pass. Shipped miniport migration prepared; final ports regression remains unrun. No merge. |
+| 2 | GNU Patch 2.8.1 | Apply a bounded single-file unified patch to an explicit separate output; preserve source, reject ambiguous/unsafe paths and failed hunks; qualify the diff edge cases excluded by the compact local patch. | Active in isolated `SrvrOS-ports-patch`, reconciled with delivered diff/main `3fcf2630`; Six earlier guests pass; miniport correction is frozen. Final archive-identity gate failed before QEMU; fresh full guest qualification is required on the retained final payload. No merge. |
 | 3 | GNU Grep 3.12 | C-locale text search over bounded files/finite stdin; fixed strings and qualified BRE/ERE, useful match/count/quiet status contracts. No PCRE, recursion, color or Unicode claims. | Deferred by closeout instruction; authenticated source/research retained, no implementation started. |
 | 4 | GNU Coreutils 9.12 `sha256sum` | File/stdin SHA-256 and a bounded explicit verification manifest; exact known vectors and failure statuses. No broader coreutils import or automatic filesystem traversal. | Deferred by closeout instruction; authenticated source retained, no implementation started. |
 
@@ -137,3 +137,19 @@ reconciled and adds documentation only relative to the prior base. A fresh
 finite data-refresh/one-ports-guest handoff is required after other owners'
 reserved turns. Compare the retained baseline logical-file manifest and all
 executables/kernel/initramfs before reusing earlier scoped evidence.
+
+Final data-refresh checkpoint on clean `d32133b3`: the matched build passes,
+and kernel/production/diagnostic/probe ELF bytes are unchanged. The logical
+392-entry data image differs only at `share/examples/ports-smoke-miniport.sh`.
+However, the strict initramfs byte-identity gate fails before QEMU: the archive
+contains that changed data image and new packing metadata (Makefile copies
+`EXFAT_IMAGE` into `initramfs_root/srvros.exfat`). The failure is retained in
+`build/review/patch/final-identity-failure.json`; the slot was released, and no
+ports guest ran. The old initramfs has only a retained whole-file hash, with
+no old member inventory/bytes, so exact member equivalence cannot be asserted.
+Do not exempt this gap or reuse earlier archive acceptance. Current source/
+payload copies are readback-verified outside build under the task's external
+`patch/frozen-d32133b3/` directory. Request a fresh full seven-guest qualification
+on that frozen final payload after the browser owner's resource release. The
+earlier six guests retain their original source/data attribution. Native and
+two-clean-GNU rebuild results apply to the unchanged GNU runtime source.

@@ -5166,3 +5166,12 @@ patched copy and conditional original-source preservation. A fresh finite
 data-refresh/ports-guest handoff remains required, after filesystem/profiles
 turns. The actual `db95fc9b` main is reconciled; its changes here are docs only.
 No shared libc/kernel change, physical claim or next-port implementation.
+
+The final `d32133b3` data refresh passed its build, but failed the strict
+initramfs byte-identity predicate before QEMU. The archive embeds the changed
+data image; only the intended shipped script differs across 392 logical disk
+entries, and all named ELF payloads are unchanged. Old archive member bytes/
+inventory were not retained, so no member-equivalence acceptance is claimed.
+The failure is preserved and the slot released. Current payloads are frozen
+and readback-verified outside build cleanup. Fresh full guest qualification on
+the final payload is required; no ports guest or merge occurred in that slice.
