@@ -2,6 +2,18 @@
 
 Updated: 2026-11-04. State: **active reference machine; partial device acceptance**.
 
+### Active scope: exact declared-MMIO read-only admission
+
+Consumed main `6225e4d1` as `16a9fd3e`, retaining Intel profiles alongside both
+Haswell capture versions and exact Apps/UI/Ports pins. Objective: correct the
+reserved-entry-only DMA readout rule using the exact ACPI DRHD declaration and
+this unit's captured, non-RAM map gap. Touches Intel adapter/resource receipts,
+strict decoder and tests; no GPU writer, IOMMU command, private DMA grant or
+ordinary startup change. The explicit read-only capture remains isolated.
+PR317 allocator/VMM work, Air6,1 fence/TILECTL work and Pro Wi-Fi remain separate.
+Native c32 is collected; no reboot armed. Next: host/VM validation of the two
+explicit resource sources, then an exact-stage candidate for native readout.
+
 ### Native diagnostic identifies missing MMIO resource coverage
 
 Source `057b8d33` / release `c32abebf3401b572` returned automatically as
