@@ -24,6 +24,11 @@ accepted notes survive outside build. Workspace unmounted, Ubuntu default,
 unarmed. This accepts MAC-disabled command/state/restoration only; DAC/VCO,
 calibrated RX, populated discovery/reattach, authentication and IP remain pending.
 
+Next installed candidate is v118 `62e3a5325065719e`, source `4dd9cfd5`, on
+integrated main `10890eed`. It adds only the fixed common DAC reset/word-readback
+child after the complete v117 parent; no VCO/RX or credentials. The cold trial
+must be collected before new work, and remains physically unaccepted until then.
+
 Previous native v116 `466528fc7669566e`, runtime `c3088243`, main `1dad02c2`,
 passes the complete1063627-byte prefix in matching session
 `session-00065f6683c07ec1-00`:7785 operations, including3732 new operations
@@ -48,8 +53,8 @@ paths. The same native bytes then pass the unchanged preboot frozen radio
 checker. No kernel change or rerun was needed for collection recovery.
 
 Ubuntu default/EFI order and known-good previous `e47dca3a6b30c6c1` are unchanged.
-Only the unreferenced standalone v110 EFI copy was retired after full equality
-to its independent accepted backup; its evidence/backup survives, and v111–v115
+Unreferenced standalone v110–v112 EFI copies were retired only after full equality
+to independently sealed accepted backups; their evidence survives, and v113–v117
 remain installed/backed up. Full build/core/docs,207 staging groups,3732 transfer
 failures/3746 cancellation boundaries,256 gains and focused ASan/UBSan pass.
 Exact-stage save/readback/clean-unmount/automatic-reset and missing-workspace VMs,
@@ -124,6 +129,32 @@ independent C/saved-checker trace, four log-proof groups,212 staging/installer
 cases and full xHCI regression pass. Sanitizer/exact-stage/storage/equality checks
 and a source-bound run record are required before installation and cold trial;
 no new native acceptance is claimed by this implementation checkpoint.
+
+### v118 installed and ready for cold trial
+
+Release `62e3a5325065719e`, runtime source `4dd9cfd5`, passes normal exhaustive
+DAC engine/proof faults, all212 staging/installer cases, four log-proof groups,
+pinned-source/tamper audit, full xHCI regression and targeted xHCI/DAC ASan/UBSan.
+The exact native compiler reports1144bytes for the DAC engine frame; private
+native context is static. An independent C trace matches every91 new record.
+The1510049-byte synthetic full prefix passes11669 minimum-poll operations and
+five malformed whole-prefix refusals; it remains explicitly synthetic. Real
+kernel exFAT/VFS2MiB write/read/unmount/remount/fsck and both exact-stage
+save/readback/reset and missing-workspace refusal VMs pass. Kernel identity and
+independent firmware packaging match the committed source; no credentials.
+
+Before installation, the accepted v117 large USB session was compared with its
+154-file sealed native capsule, durably archived/verified elsewhere and then
+pruned from USB. Native accepted bytes and separate notes remain intact. Actual
+workspace extent/fsck, writable-admission and headroom checks pass. The
+unreferenced v112 EFI copy was removed only after equality with its sealed
+accepted backup; v113–v117 and the e47d previous recovery remain installed.
+Source/payload/frozen proof/run record and storage/recovery checks are sealed
+outside build. Ubuntu remains default. The authorized cold shutdown requires
+Wi-Fi unplug for10seconds while off, reconnect to the same port, power on,
+workspace retained; automatic progress/save/return, no commands/photos. Collect
+the matching session FIRST. Word restoration is not analog calibration or RX;
+VCO, security and IP remain pending, with no new physical acceptance yet.
 
 ## Consumed renderer/apps/ports baseline checkpoint
 
