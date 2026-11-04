@@ -466,3 +466,10 @@ No MMIO, PTE publication, native reservation, firmware exclusion or hardware
 completion callback exists here. Before native adoption, the remaining work is
 exact-model DMA/resource inventory, exclusive allocation and firmware ownership,
 GT-access protocol, publication/invalidation and matched route/restore retirement.
+
+
+The subsequent [Air6,1 DMA/resource inventory](macbookair6-1-dma-inventory.md)
+corroborates that the observed table/stolen/surface candidates lie within this
+unit's declared GPU RMRR. Ubuntu's active IOMMU state is not native boot state.
+The next proposed capture is firmware/catalog-only; no native VT-d register
+permission, owner assurance, writer or boot payload is added by that inventory.
