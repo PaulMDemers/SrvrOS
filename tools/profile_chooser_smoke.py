@@ -177,7 +177,9 @@ def observe(vm, pattern, start=0, timeout=60):
     regex = re.compile(pattern)
     while True:
         match = regex.search(vm.output, start)
-        if match: return match
+        if match:
+            vm.consumed = max(vm.consumed, match.end())
+            return match
         if time.monotonic() >= deadline or vm.vm.poll() is not None:
             raise RuntimeError(f'{vm.label}: missing trace {pattern!r}')
         try:
