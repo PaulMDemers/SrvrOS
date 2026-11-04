@@ -290,7 +290,8 @@ def type_shell(vm, value):
 
 def context_commands(vm, label):
     type_shell(vm, 'pwd > /work/' + label + '-pwd')
-    type_shell(vm, 'env > /work/' + label + '-env')
+    # The shell's env builtin does not apply redirection; use the executable.
+    type_shell(vm, '/fat/bin/env > /work/' + label + '-env')
 
 
 def clock_notice(vm):
