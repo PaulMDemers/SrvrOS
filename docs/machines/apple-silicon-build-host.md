@@ -3253,3 +3253,31 @@ keyboard/tablet enumeration plus sysabi, and full threadstress pass with retaine
 PR313 runtime files. Evidence: `build/review/command-ring/`. All task guests
 stopped, existing review VMs preserved. Nine known uninitialized-submodule
 license targets remain unavailable to the documentation checker.
+
+
+### Command reset and USB removal/re-enumeration audit scope
+
+Continue PR317 from `7240b5ce` in the isolated kernel checkout. Inspect command
+abort/reset preconditions, EP0 failure reuse, root-port removal/reconnection and
+late HID events. Planned shared files: xHCI driver/fixtures and audit/testing docs.
+Main `1a5a6dee` inspected (no driver overlap); branch integration base remains
+`1f177761`. Coordinate with filesystem fault-proof research; no process, libc or
+block-driver injection seam planned. Preserve review VMs and retained boot media.
+
+The bounded continuation also covers failed enumeration record allocation:
+address/configure failure must retain its slot/context identity before another
+root/hub device is admitted. No AHCI/block fault-injection seam edits; filesystem
+owner retains the independent dirty-source salvage proof investigation.
+
+Three independent baseline failures reproduce root-removal HID activity, failed
+EP0 producer reuse and failed-enumeration record overwrite. Normal/GCC14 and
+ASan/UBSan fixtures and kernel compilation pass. QMP keyboard/tablet removal and
+replacement on the same ports preserves unconfigured old slots without new
+commands; sysabi passes afterward. Runtime reset/successful re-enumeration stay
+unsupported pending endpoint/event and provider retirement. Evidence is in
+`build/review/usb-recovery/`; no physical acceptance is claimed.
+
+Final rebuilt-kernel QMP removal/replacement/sysabi and full threadstress pass
+with retained PR313 runtime files. All task guests stopped; review VMs preserved.
+Nine known nested-submodule license targets remain unavailable to link checking.
+No current-userspace rebuild, native reset or hotplug recovery acceptance.

@@ -132,3 +132,10 @@ PR317 command-ring continuation: exact TRB completion identity, nested refusal,
 wrap/cycle and timeout/late-event saturation regression coverage now accompany
 storage/ECM quarantine checks. Command abort/reset, physical USB removal and
 hotplug/re-enumeration remain unaccepted; see the kernel-isolation audit report.
+
+
+PR317 reset/removal continuation covers root disconnect/CSC quarantine, late HID
+suppression, failed EP0 ring reuse, failed-enumeration record retention and a QMP
+unplug/replug containment guest. Runtime command reset, downstream hub change
+handling and successful re-enumeration/provider retirement remain open; the
+kernel-isolation report records the specification prerequisites and limits.

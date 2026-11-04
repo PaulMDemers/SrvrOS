@@ -1529,3 +1529,19 @@ mutation or frees. Storage late completion must retain quarantine and backing.
 The host-only command timeout override keeps failure tests bounded; production
 poll limits are unchanged. These are modeled MMIO/event tests, not physical
 removal or command-reset acceptance.
+
+
+`test-xhci` now includes root unplug/reconnect and EP0 failure containment. It
+requires no late HID injection/rearm, cleared keyboard repeat, retained pending
+backing, refusal to enumerate an occupied root, and unchanged control rings on
+retry after timeout/error. Failed enumeration records must remain distinct even
+when no device has yet been successfully addressed.
+
+`python3 tools/usb_removal_smoke.py --iso PATH --disk PATH` boots an existing ISO
+with a disposable disk copy and an emulated USB keyboard/tablet. QMP removes and
+replaces both devices on the same ports; the old slots must remain unconfigured,
+without new command completions, and sysabi must pass afterward. It retains logs
+under `build/review/usb-removal` (override with `--output`) and stops its guest.
+This accepts containment on replug, not successful runtime re-enumeration. Use
+`--qemu` for the installed emulator path. No physical removal/reset acceptance is
+implied.

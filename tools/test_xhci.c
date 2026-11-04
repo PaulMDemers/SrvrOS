@@ -94,6 +94,13 @@ static void xhci_test_write32(uint64_t offset, uint32_t value) {
     *(uint32_t *)(registers + offset) = value;
 }
 
+/* Removal admission must return before any provider registration/allocation. */
+void *kcalloc(size_t count,size_t size) { (void)count;(void)size;abort(); }
+bool net_device_register(const struct net_device_ops *ops) { (void)ops;abort(); }
+void net_handle_ethernet_frame(const uint8_t *frame,uint16_t length) { (void)frame;(void)length;abort(); }
+bool usb_storage_attach(struct usb_storage *s,void *context,usb_bulk_fn bulk,bool writable) {
+    (void)s;(void)context;(void)bulk;(void)writable;abort();
+}
 void console_write(const char *s) { (void)s; }
 void console_printf(const char *fmt, ...) { (void)fmt; }
 uint64_t pmm_alloc_frames_tagged(uint64_t count, enum pmm_frame_tag tag) {
@@ -369,7 +376,7 @@ void mouse_inject_trackpad(int32_t x,int32_t y,uint8_t buttons) {
 }
 void mouse_cancel_trackpad(void) { pointer_canceled++;mouse_inject_trackpad(0,0,0); }
 void keyboard_inject_hid_report(const uint8_t report[8], struct keyboard_hid_state *state) {
-    (void)state; assert(report[2]==4); injected++;
+    (void)state; assert(report[2]==4 || report[2]==0); if(report[2]==4)injected++;
 }
 void mouse_inject_event(int32_t x,int32_t y,uint8_t buttons) { (void)x;(void)y;(void)buttons; }
 void mouse_inject_trackpad_tap(uint8_t button) { tap_injected++;last_tap=button;mouse_inject_trackpad(0,0,button);mouse_inject_trackpad(0,0,0); }
@@ -648,6 +655,7 @@ static void test_pro_trackpad(const char *fixture) {
     }
     for(unsigned fail=0;fail<3;fail++) {
         struct xhci_trb ring[64]={0},events[64]={0};
+        d.control_failed=d.control_pending=false; /* Independent modeled device per failure case. */
         d.ep0_ring=ring;d.ep0_ring_phys=0x9000;d.ep0_enqueue=0;d.ep0_cycle=true;
         xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;xhci.event_dequeue=0;
         for(unsigned i=0;i<2;i++) events[i]=(struct xhci_trb){.parameter_low=0x9020+48*i,
@@ -1051,6 +1059,82 @@ static void test_command_identity(void) {
     assert(xhci.command_enqueue==enqueue && !memcmp(saved,commands,sizeof(saved)) && !freed);
     puts("xhci-command: PASS exact identity, timeout, late completion and saturation refusal");
 }
+static void test_device_record_lifetime(void) {
+    reset_test();
+    for(unsigned i=0;i<XHCI_MAX_DEVICES;i++) {
+        struct xhci_device *d=allocate_device_record();
+        assert(d==&xhci.devices[i]);
+        /* A failed address/configure may still own this slot and DMA. */
+        *d=(struct xhci_device){.present=true,.slot_id=(uint8_t)(i+1),
+            .input_context_phys=0x10000+i*PMM_FRAME_SIZE};
+    }
+    assert(!xhci.addressed_devices && !allocate_device_record() && xhci.device_record_full==1);
+    for(unsigned i=0;i<XHCI_MAX_DEVICES;i++)assert(xhci.devices[i].slot_id==i+1 &&
+        xhci.devices[i].input_context_phys==0x10000+i*PMM_FRAME_SIZE);
+    puts("xhci-record: PASS failed enumeration retains identities through table exhaustion");
+}
+static void test_removal_lifetime(void) {
+    for(unsigned changed=0;changed<3;changed++) {
+        reset_test();
+        static struct xhci_trb ring[XHCI_TRB_COUNT],events[XHCI_EVENT_TRB_COUNT];
+        static uint8_t report[64];
+        memset(ring,0,sizeof(ring));memset(events,0,sizeof(events));
+        xhci.port_count=1;xhci.op_base=0x100;xhci.rt_base=0x2000;xhci.db_base=0x1000;
+        xhci.event_ring=events;xhci.event_cycle=true;
+        struct xhci_device *d=&xhci.devices[0];
+        *d=(struct xhci_device){.present=true,.configured=true,.slot_id=1,.port_id=1,
+            .hid_keyboard=true,.interrupt_ready=true,.interrupt_pending=true,
+            .interrupt_trb=0xa000,.interrupt_dci=3,.interrupt_max_packet=8,
+            .interrupt_ring=ring,.interrupt_ring_phys=(uint64_t)ring,.interrupt_cycle=true,
+            .interrupt_buffer=report};
+        if(changed==1) *(uint32_t *)(registers+xhci.op_base+XHCI_OP_PORTS)=XHCI_PORTSC_CCS|XHCI_PORTSC_CSC;
+        if(changed==2)d->parent_slot_id=2; /* Child behind a removed root hub. */
+        d->keyboard_state.repeat_usage=4;
+        d->trackpad.ready=d->trackpad.pending=true;
+        d->trackpad.pointer.buttons=1;trackpad_pointer_enabled=true;
+        unsigned canceled=pointer_canceled;
+        unsigned before=injected;
+        poll_hid_events_once(); /* Root CCS is clear: removal before any rearm. */
+        assert(!d->interrupt_ready && !d->keyboard_state.repeat_usage && !d->bulk_failed);
+        assert(!d->trackpad.ready && d->trackpad.pending && pointer_canceled==canceled+1);
+        assert(d->interrupt_pending && !d->interrupt_enqueue && !freed);
+        *(uint32_t *)(registers+xhci.op_base+XHCI_OP_PORTS)=XHCI_PORTSC_CCS|XHCI_PORTSC_PED;
+        report[2]=4;
+        struct xhci_trb late={.parameter_low=0xa000,.status=1u<<24,
+            .control=(32u<<10)|(1u<<24)|(3u<<16)};
+        dispatch_transfer_event(&late);poll_hid_events_once();
+        assert(!d->interrupt_ready && !d->interrupt_enqueue && injected==before && !freed);
+        /* Reconnection cannot allocate another slot or overwrite this identity. */
+        xhci.ports[0].portsc=XHCI_PORTSC_CCS|XHCI_PORTSC_PED;
+        uint64_t allocations=pool_used;
+        assert(!enumerate_port(0) && pool_used==allocations && d->slot_id==1);
+    }
+    trackpad_pointer_enabled=false;
+    puts("xhci-removal: PASS no rearm, late reports, missed disconnect/change, root-hub loss and reconnect refusal");
+}
+static void test_control_failure(void) {
+    reset_test();
+    static struct xhci_trb ring[XHCI_TRB_COUNT],events[XHCI_EVENT_TRB_COUNT],saved[XHCI_TRB_COUNT];
+    memset(ring,0,sizeof(ring));memset(events,0,sizeof(events));
+    xhci.event_ring=events;xhci.event_cycle=true;xhci.rt_base=0x2000;xhci.db_base=0x1000;
+    for(unsigned error=0;error<2;error++) {
+        memset(ring,0,sizeof(ring));memset(events,0,sizeof(events));
+        xhci.event_dequeue=0;xhci.event_cycle=true;
+        struct xhci_device d={.slot_id=1,.ep0_ring=ring,.ep0_ring_phys=(uint64_t)ring,.ep0_cycle=true};
+        uint64_t pointer=(uint64_t)ring+32;
+        if(error)events[0]=(struct xhci_trb){.parameter_low=(uint32_t)pointer,
+            .parameter_high=(uint32_t)(pointer>>32),.status=6u<<24,.control=1|(32u<<10)|(1u<<24)|(1u<<16)};
+        struct usb_setup_packet setup={.request=USB_REQ_GET_STATUS,.length=4};
+        assert(!control_transfer(&d,&setup,0x10000,4,true));
+        uint64_t enqueue=d.ep0_enqueue;memcpy(saved,ring,sizeof(saved));
+        for(unsigned i=0;i<XHCI_TRB_COUNT;i++) {
+            assert(!control_transfer(&d,&setup,0x10000,4,true));
+            assert(d.ep0_enqueue==enqueue && !memcmp(saved,ring,sizeof(saved)));
+        }
+        assert(d.ep0_enqueue==enqueue && !memcmp(saved,ring,sizeof(saved)) && !freed);
+    }
+    puts("xhci-control: PASS timeout and failed EP0 cannot reuse ring without endpoint recovery");
+}
 static unsigned init_discoveries;
 uint64_t pci_device_count(void) { init_discoveries++;return 0; }
 const struct pci_device *pci_device_at(uint64_t i) { (void)i;return NULL; }
@@ -1071,7 +1155,10 @@ static void test_repeated_init(void) {
 int main(int argc, char **argv) {
     assert(argc == 4);
     test_repeated_init();
+    test_device_record_lifetime();
     test_command_identity();
+    test_removal_lifetime();
+    test_control_failure();
     test_ep0_packet();
     test_network_transport();
     test_device_inventory();

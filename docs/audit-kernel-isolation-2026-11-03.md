@@ -483,6 +483,58 @@ or physical-removal acceptance is implied. All task guests stopped; existing
 review VMs were preserved. Evidence: `build/review/command-ring/`. Documentation
 checking retains only the nine known missing nested-submodule license targets.
 
+## Reset/re-enumeration prerequisites and removal follow-up
+
+Continuation from `7240b5ce` confirms two additional unsafe reuse paths. HID
+polling and successful late transfer events could keep an unplugged endpoint
+armed, and reconnecting the root port could resume the old boot identity. EP0
+control submission also remained available after a timeout or error without an
+endpoint recovery transition. A third defect appeared while tracing failed
+re-enumeration: record allocation indexed the successful-address count. An
+address failure after slot/context publication could therefore have its record
+overwritten by the next root or hub child while the controller still owned it.
+
+Root disconnection or a new root connection-change bit now permanently
+quarantines every affected record when observed by polling, transfer dispatch,
+control or storage submission. This also covers root-hub loss and a fast
+unplug/replug where CCS is already set again. Keyboard held-state/repeat is
+released, trackpad cancellation uses the existing source-specific path, and late
+reports cannot be injected or rearmed. Slot, ring, buffer and provider identities
+remain pinned. A second root enumeration refuses an existing record. Failed
+EP0 submission blocks later TDs; ambiguous pending state remains retained.
+Record admission scans unused records independently of successful address count,
+retaining failed attempts through bounded table exhaustion.
+
+Actual-source regressions fail against the previous source on removal and EP0
+ring mutation, and on failed-record reuse. Removal cases cover CCS loss, a sticky
+CSC after quick reconnect, a child behind a lost root hub, pending backing,
+late-report suppression, source-specific trackpad cancellation and
+repeat/enumeration refusal. EP0 tests cover both
+timeout and a received error; every refused retry must preserve the ring. These
+fixtures model MMIO and allocations, not physical USB acceptance.
+
+Runtime command abort/reset and successful hotplug re-enumeration remain absent.
+Review against [Intel xHCI revision 1.2b](https://cdrdv2-public.intel.com/625472/625472_xHCI_Rev1_2b.pdf),
+sections 4.6.1.1–4.6.1.2 and 4.6.4, establishes the needed boundary: ring restart
+requires stopped-state handling and event accounting; slot disable requires
+endpoint/command retirement. Neither successful abort nor a reconnected cable
+alone retires software provider references. The current failure latch cannot
+safely be cleared into recovery by calling boot initialization. No reset/hotplug
+API is added or accepted here. Downstream-hub-only changes, endpoint-stop/drain,
+provider retirement and native reset qualification remain separate work.
+
+The final candidate passes normal/Rosetta, strict GCC14/Linux and ASan/UBSan
+xHCI fixtures, kernel compilation, QMP removal/replacement plus sysabi, and full
+threadstress. Storage/display host fixtures also pass. The QMP check preserves
+two old slot identities as unconfigured with no additional command completions
+after replacing both devices. VM images use the rebuilt kernel and retained
+PR313 runtime files, not a complete current-userspace rebuild. All task guests
+stopped; review VMs remain untouched. Evidence: `build/review/usb-recovery/`.
+The documentation checker still reports only nine known missing license targets
+in uninitialized nested port submodules. Main `1a5a6dee` was inspected for shared
+scope; this candidate retains integration base `1f177761` and does not incorporate
+the newer unrelated userspace work.
+
 ## Remaining work
 
 Other long IRQ-disabled operations, including initial/churning PMM scans, heap validation and poisoning,
