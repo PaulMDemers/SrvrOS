@@ -1,5 +1,46 @@
 # Apple Silicon macOS build host
 
+## Desktop profile creation — qualified for coordinated review
+
+User authorizes chooser/Profiles creation, recovery, remembered reboot and
+migration to a second installation. Coordinator owns independent review and
+Apps-first/OS-second merges. Isolated checkout `SrvrOS-profile-326-review`, OS
+`device/apple-silicon/profile-create`; accepted clean source `1ef0ccdd` includes
+actual main `6225e4d1`, Apps `0bf8e137` (Files `2ddea66`), UI `586bd002` and
+Ports `d760e541`. Apps8 precedes OS348. Final follow-up changes evidence/docs only.
+
+Matched build and profile/catalog/desktop/fsync/docs checks pass. All 25 CLI
+groups and real-CLI catalog recovery tests pass under ASan/UBSan. The final
+`build/review/profile-create/proof-hhj_ogf8/receipt.json` records PASS for all 20
+VM lifetimes: both entry points, empty/default state, dynamic distinct UUIDs,
+remembered A, selected Text/binary save and graphical migration to independently
+installed B, B selection/reboot/readback, all five interrupted creation/recovery
+boundaries including published-journal reconciliation, invalid/occupied/capacity
+refusals, and 640 × 480 Ctrl-A/Undo/Redo/Tab. Exact data/defaults/identity,
+local/machine/legacy/unselected state, binaries, allocation and protected regions
+pass. Parent independently verified all 37 archive streams and actual A/B plus
+all stopped/recovered images. Portable manifest/screenshots live in the profile
+guide; full evidence/matched artifacts/sources survive outside build cleanup at
+`.local/profile-create/proof-hhj_ogf8/`. Keep primary raw images and baselines for
+audit/follow-up. Sampled busy frames are not labeled as completion evidence.
+
+Creation uses a checked random UUID metadata identifier and self-contained
+create-v1 journal in the existing transaction engine; import-v1 is preserved.
+Random may use its existing PRNG fallback. Authentication/permission enforcement
+remain separate. Legacy startup/current app homes are unchanged; no forced
+onboarding or security/kernel/filesystem architecture changes. No physical,
+real power-loss or Actions qualification. Review VMs 6233/61610/85869 remain
+untouched. Implementation is complete; hand exact heads/evidence to coordinator
+for independent merge, then release resources for the installation owner's
+separately authorized fresh-v2-B four-boot proof.
+
+Actual main `ba35d16c` is subsequently merged (`dcf69557`) with both unit records
+preserved. Only host-test-guarded exFAT/inspector code, a host target and docs are
+added. Actual production preprocessing proves identical guest exFAT input; all
+148 retained build artifacts/metadata and proof tools remain byte-identical.
+The integration receipt preserves original proof attribution without a new
+build/VM claim. Final follow-up records integration evidence and docs only.
+
 ## PR349 current-main merge review — ready
 
 User authorizes review and merge if ready, preserving uncertain media and review

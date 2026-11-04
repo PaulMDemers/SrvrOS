@@ -714,7 +714,7 @@ static void launch_failed(struct session *s,unsigned application,long error) {
     }
 }
 static int profile_transfer_stop_valid(const char *value) {
-    static const char *stops[]={"journal","directories","document","identity","commit-ready","export-partial"};
+    static const char *stops[]={"journal","directories","document","identity","commit-ready","export-partial","published"};
     if(!value)return 0;
     for(unsigned i=0;i<sizeof(stops)/sizeof(*stops);i++)if(!strcmp(value,stops[i]))return 1;
     return 0;
@@ -2116,7 +2116,7 @@ int main(int argc,char **argv) {
         ui_puts("deskd: profile-transfer test checkpoint requires an ordinary --apps-trace session\n");return 1;
     }
     if(ordinary_desktop && !profile_home) {
-        struct desktop_profile_request request={.root="/fat/home",.remember_path="/fat/home/.desktop-profile",.scale=scale,.force=choose_profile};
+        struct desktop_profile_request request={.root="/fat/home",.remember_path="/fat/home/.desktop-profile",.scale=scale,.force=choose_profile,.create_stop=profile_transfer_stop};
         struct desktop_profile_result choice;
         int result=desktop_profile_choose(&request,&choice);
         if(result==DESKTOP_PROFILE_ERROR) {desk_log("deskd: %s\n",choice.error);return 1;}

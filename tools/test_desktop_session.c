@@ -173,7 +173,7 @@ int gui_surface_copy(uint64_t id,uint64_t x,uint64_t y,uint64_t w,uint64_t h,uin
 static void profile_transfer_diagnostic_launch(void) {
     struct session s={.home=DESK_RAM_HOME,.profile_transfer_stop="identity"};
     assert(srv_profile_session_init(&s.profile,s.home,NULL));execute_result=42;
-    assert(profile_transfer_stop_valid("export-partial") && profile_transfer_stop_valid("commit-ready"));
+    assert(profile_transfer_stop_valid("export-partial") && profile_transfer_stop_valid("commit-ready") && profile_transfer_stop_valid("published"));
     assert(!profile_transfer_stop_valid(NULL) && !profile_transfer_stop_valid("") && !profile_transfer_stop_valid("anything"));
     spawn_app(&s,DESK_APP_PROFILES,"");
     assert(s.children[0]==42 && !strcmp(executed_role,"profiles") && !strcmp(executed_argument,"--stop-after=identity"));
