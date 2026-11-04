@@ -4725,3 +4725,16 @@ review VMs6233/61610/85869 remain untouched. Payload and logs survive build clea
 at `.local/kernel-audit-evidence/pr317-merge/`. Earlier setup failures retained.
 No physical media/boot or PR334 public/JSC acceptance. User authorized PR317 merge;
 continuing audit starts from the merged baseline.
+
+
+### November 4: PR317 merged; experimental JSC review continues
+
+PR317 merge5f4f6fc6 has the exact reviewed d784705a tree; clean full-build/guest
+candidate4fa518eb differs only by three audit docs. All owned guests stopped and
+resource window released. New audit branch starts at the merge. Independently
+verified PR334 frozen packetee207df0/e404d84 (568 files), exact source archives,
+292 retained linked functions/1058 named relocation checks and32 prepared inputs.
+Cleared only the recorded seven fresh-process diskless/no-NIC/single-TCG/1536MiB
+WTF/utility/GC-control/GP/FX/red-zone/JSC experiment, with boot guards and first-
+failure preservation. No results accepted yet; no normal public capability, SMP
+or physical acceptance. Exact hashes/limits are in the kernel audit ledger.

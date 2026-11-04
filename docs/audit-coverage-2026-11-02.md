@@ -356,3 +356,10 @@ session/orphan/init, nested+routed EP0/interrupt/input/retirement/reclaim,
 storage/HID removal/reclaim, full threadstress and E1000 netabi pass. Owned guests
 stopped/protected three untouched; payload/evidence preserved outside build.
 Whole-codebase, physical/SMP/new-generation restart and PR334/JSC remain open.
+
+
+PR317 merged5f4f6fc6; actual tree matches reviewedd784705a (audit-doc delta only
+from tested4fa518eb). Continued PR334/WTF/JSC packetee207df0/e404d84:568 files,
+1661+1288 source blobs,292 linked function bodies/1058 named relocation values
+and32 prepared suite inputs independently verify. Bounded7-case single-CPU/noNIC
+experiment cleared; no new guest/sole-root GC/full ABI/SMP/capability acceptance.

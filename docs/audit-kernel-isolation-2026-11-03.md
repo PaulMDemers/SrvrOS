@@ -2356,6 +2356,52 @@ new-generation reset/restart remain open. PR334 experimental public signals and
 JSC/GC probes retain their separate source/runtime qualification boundaries.
 This closes the PR317 merge qualification, not the entire codebase audit.
 
+## November 4: merged baseline and bounded WTF/JSC experiment review
+
+PR317 merged as `5f4f6fc6`; its tree matches reviewed head `d784705a` exactly.
+The latter differs from clean fully tested candidate `4fa518eb` only in three
+audit documents. Continued review uses a fresh branch from that actual merge.
+No PR334 implementation is imported into the merged kernel.
+
+Reviewed frozen experimental PR334 primary `ee207df0`/ports `e404d84`: all 568
+packet files verify against receipt SHA256
+`4e4f1dc1abf3c9bf16ad247bbca108457a8a2e1ac2ebd7a43370134be0cbff8d`.
+Primary/ports archives match 1,661/1,288 exact Git blobs and executable modes.
+Independent final ELF checks bind 292 retained strong/local function bodies to
+fixture/WTF/JSC/SDK objects and verify 1,058 named relocation values. Recognized
+GOT mov-to-LEA and TLSLD-to-local-exec FS0 transformations are checked explicitly;
+weak COMDAT selection and unnamed section/data relocations are outside that
+binding claim. The final symbol maps are not archive-member selection proofs.
+
+Actual target makeEncoded returns only a complemented pointer; its worker wrapper
+restores its frame and tail-jumps to the parked assembly. The parked window saves
+64 bytes of known caller/control state, clears the 128-byte red zone and non-root
+GP/FX/x87/MMX candidates, and decodes only into R12, XMM15.low64 or RSP-128. The
+collector copies the full 704-byte PlatformRegisters value and scans the original
+RSP-128 window. Reviewed real full-collection entry, JSLock VM-thread registration
+and Thread::didExit group removal before publishing exited state. Unprotect and
+weak-observation helpers join before later collection; no-root and post-retirement
+controls remain required runtime evidence. The linked WTF handler's final RUNNING
+stores precede errno restoration and sem_post; successful semaphore CAS is its
+last semaphore access, and successful handler return reaches only its epilogue.
+
+Prepared suite SHA256
+`e9c5112c75bc5f7c8263187642bd5682039ba2c4fa4419d8c281f347eaf5c770`
+independently verifies all 32 inputs, nested fixture/build/source/SDK receipts,
+headers, ISO/config/initramfs and parser controls. It retains the native-qualified
+kernel `f5f12369` and alloc-equivalent fresh SDK. Technically cleared only this
+single-CPU TCG, diskless, no-NIC, quiet, 1,536 MiB experiment after unchanged-input
+and storage preflight checks: seven fresh processes for WTF suspend, utility,
+GC control/GP/FX/red-zone and JSC print(42). Observed network-idle/worker-off boot
+lines must precede payloads; require full LF markers, exit zero and later prompt,
+stop and preserve the first failure, and stop only the owned QEMU.
+
+No new payload guest result accepted at this checkpoint. Full public ABI,
+spurious/terminal uncertainty, SMP and normal public capability remain separate.
+Private review scripts/results: `build/review/pr334-jsc-companions-review/packet-ee207df0/`.
+PR317's accepted payload and actual merge receipt survive build cleanup in
+`.local/kernel-audit-evidence/pr317-merge/`.
+
 ## Remaining work
 
 Other long IRQ-disabled operations, including initial/churning PMM scans, heap validation and poisoning,
