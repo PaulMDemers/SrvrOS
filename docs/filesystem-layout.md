@@ -57,7 +57,7 @@ counters are unchanged from quarantine through monitor checks, salvage and final
 close: there is no backend read/write/flush retry against the failed device.
 Only the one initial failed write is recorded. Both first-boot healthy allocation
 and protected GPT/ESP regions check clean; the source's on-disk original remains
-27 bytes while the healthy copy contains 12,289 retained bytes.
+28 bytes while the healthy copy contains 12,289 retained bytes.
 
 Normal reboot correctly refuses with `workspace could not be unmounted`. The
 harness records that refusal, QMP-stops only its own disposable VM, then starts
@@ -83,7 +83,7 @@ Nine scope-test methods cover 37 scenarios. Managed cases require distinct,
 regular, fixture-owned files (including hard-link alias refusal), explicit mode
 and prepared UUID. Fault configuration belongs only to the first save boot;
 clean control and reopen have no filters. Mixed raw/target modes, external paths,
-wrong UUID, reversed routing and later-boot faults refuse before QEMU. Command
+invalid UUID syntax, reversed routing and later-boot faults refuse before QEMU. Command
 graph checks keep the system disk unfiltered and attach work only as USB storage.
 
 Evidence is `build/review/managed-salvage/proof-fse2oz1k/`, with raw images,
