@@ -90,9 +90,9 @@ def boot(disk, transport, out, label, args, stage, checkpoint=None):
                         except socket.timeout:
                             pass
                     consumed = output.index(marker, consumed) + len(marker)
-                def command_run(line, success=True, stop_after=None):
+                def command_run(line, success=True, stop_after=None, program=None):
                     start = len(output)
-                    prefix = ('/fat/bin/env SRVROS_PROFILE_STOP_AFTER=' + stop_after + ' profile ') if stop_after else '/fat/bin/profile '
+                    prefix = (program + ' ') if program else (('/fat/bin/env SRVROS_PROFILE_STOP_AFTER=' + stop_after + ' profile ') if stop_after else '/fat/bin/profile ')
                     monitor_line = 'run ' + prefix + line
                     # The monitor reserves one byte of its 128-byte line buffer for NUL.
                     if len(monitor_line.encode('ascii')) >= 128:
@@ -158,6 +158,19 @@ def boot(disk, transport, out, label, args, stage, checkpoint=None):
                 elif stage == 'recover':
                     probe = B
                     command_run(f'activate {probe}', success=False)
+                    if checkpoint == 'journal':
+                        # The test operator creates ambiguous data after the
+                        # journal but before transaction ownership is established.
+                        command_run(probe, program='/fat/bin/mkdir')
+                        command_run(probe + '/.profile-copy-temp preserve-me', program='/fat/bin/write')
+                        command_run(f'recover {probe}', success=False)
+                        if b'scratch without pending marker' not in output:
+                            raise RuntimeError('ambiguous scratch was not refused')
+                        serial.sendall(('cat ' + probe + '/.profile-copy-temp\n').encode())
+                        wait(b'preserve-me'); wait(b'srv> ')
+                        # Explicit operator cleanup of this synthetic fixture;
+                        # recover itself must leave the unknown bytes untouched.
+                        command_run(probe + '/.profile-copy-temp', program='/fat/bin/rm')
                     command_run(f'recover {probe}')
                 elif stage == 'import':
                     command_run(f'inspect {TRANSPORT}')

@@ -117,6 +117,9 @@ static void install_file(struct transaction *t,unsigned i){char final[PATH_CAP],
 static void run_transaction(struct transaction *t,int recovering){
     char pending[PATH_CAP],idpath[PATH_CAP],scratch[PATH_CAP];path_join(pending,t->home,PENDING);path_join(idpath,t->home,"profile.id");path_join(scratch,t->home,SCRATCH);
     if(exists(t->home)){require(recovering,"destination home already exists");struct stat st;require(!lstat(t->home,&st)&&S_ISDIR(st.st_mode),"transaction home not directory");unsigned entries=0;verify_tree(t,"",0,&entries);
+        /* Before the pending marker exists, a scratch name cannot prove that
+         * this home was created by the transaction. Preserve ambiguous data. */
+        require(!exists(scratch)||exists(pending),"scratch without pending marker; inspect manually");
         if(exists(idpath)&&!exists(pending)){/* Already published; reconcile without rewriting any content. */require(!exists(scratch),"unexpected scratch in published profile");static const char *dirs[]={"Documents",".config/srvros",".local/share",".cache"};for(unsigned k=0;k<4;k++){char p[PATH_CAP];struct stat st;path_join(p,t->home,dirs[k]);require(!lstat(p,&st)&&S_ISDIR(st.st_mode),"incomplete published profile directories");}for(unsigned i=0;i+1<t->count;i++){char p[PATH_CAP];path_join(p,t->home,t->files[i].path);verify_file(p,&t->files[i]);}require(!unlink(t->journal),"cannot remove completed journal");flush_dir(t->parent);puts("profile: already committed; journal reconciled");return;}
     }else require(!mkdir(t->home,0700),"cannot create destination home");
     /* Only this reserved root scratch belongs to the transaction. It may contain

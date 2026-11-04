@@ -132,6 +132,17 @@ class GuestProfile(unittest.TestCase):
                 self.run_cli('recover', home)
                 self.verify(home)
 
+    def test_scratch_without_pending_preserved(self):
+        home = self.a / 'alice'
+        self.import_home(stop='journal', code=86)
+        home.mkdir()
+        scratch = home / '.profile-copy-temp'
+        scratch.write_bytes(b'unknown existing data')
+        before = self.snapshot(self.root)
+        self.run_cli('recover', home, code=1)
+        self.assertEqual(self.snapshot(self.root), before)
+        self.assertEqual(scratch.read_bytes(), b'unknown existing data')
+
     def test_after_publication_reconciliation(self):
         home = self.import_home(stop='commit-ready', code=86)
         (home / '.profile-import-pending').unlink()
