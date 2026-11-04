@@ -1,5 +1,53 @@
 # Disk installation and recovery
 
+## PR330 merge review and next bounded checkpoint
+
+User authorized review and merge if ready. Latest main remains `c90f3522`;
+candidate `5d0fa39e` already integrates it. Independent implementation review
+found no material blocker in the checked-write, reconciliation-barrier or
+bounded fault-proof behavior. No submitted correction or unresolved review
+thread was present. The CLI journey retains read-only diagnosis before explicit
+reconciliation and never treats matching visible bytes as a new sync acknowledgment.
+
+Fresh host checks pass: 36 installation tests plus the default-skipped long
+matrix entry, profile/session/preferences, chooser/catalog and guest-profile
+checks. The matched full build reproduces every recorded runtime artifact and
+all matrix/smoke tool hashes. Both raw receipt hashes match, and the current
+post-guest stage still matches its complete final snapshot. The 436-case matrix,
+seven refusal controls, two negative controls and current-main seven-error/
+two-boot proof remain applicable by exact equivalence; no affected proof was
+invalidated and no new VM was needed. The
+[review receipt](assets/screenshots/installation-io-review.json) records fresh
+checks and equivalence; logs/build metadata survive outside cleanup at
+`.local/installation-evidence/pr330-review`. Review VMs 61610, 6233 and 85869
+remain live and untouched. Ready for the authorized merge.
+
+Next proposed bounded installation milestone: **read-only post-boot installation
+inspection**. A legitimate save changes the image hash and correctly makes
+publication recovery refuse; operators still need to inspect that used image
+without relabeling it as the original unbooted candidate. Add a separate offline
+inspection path for disposable installed images, reporting stable disk/root and
+boot-payload identity, current filesystem admission/allocation state and planned
+profile metadata while allowing ordinary document/preferences changes. Keep
+the original ready receipt historical and `reconcile`'s used-image refusal intact.
+
+Dependencies: PR325/330 publication receipts and identity boundaries; the existing
+GPT/ESP/root-selection and namespace contracts from PR312/313 and PR318's
+filesystem acceptance/allocation checks; PR321's v2 profile binding; PR320's
+pending-import/unknown-scratch rules; and PR326's identity/local-choice metadata
+and recovery preflight. The existing allocation-check mode opens read-only;
+profile metadata needs a bounded read-only reader/adapter, because the provisioning
+adapter opens `O_RDWR` and must not be used for this inspection path. Reuse the
+current matched source/driver provenance checks. No unmerged salvage PR or new
+kernel repair API is required.
+
+Acceptance: edit/save/reboot, then inspect the stopped used image successfully
+without changing any bytes; distinguish boot/GPT/root/profile mismatch, invalid
+allocation state and pending/torn/unknown profile state with preserved refusal
+evidence. Report on-disk consistency, not authentication, live health, repair,
+power-cut durability or physical-media acceptance. This is a proposed next slice;
+implementation is not started by the merge review.
+
 ## Host publication I/O failures — qualified
 
 User authorized deterministic write/sync/link/unlink qualification and a scoped

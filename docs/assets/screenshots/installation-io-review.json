@@ -1,0 +1,42 @@
+{
+  "checks": {
+    "build/initramfs.tar": true,
+    "build/kernel/srvros.elf": true,
+    "build/limine-binary/BOOTX64.EFI": true,
+    "build/srvros.exfat": true,
+    "build/tests/exfat-driver": true,
+    "build/tests/profile-image-driver": true,
+    "build/userspace/init.elf": true,
+    "tools/installation_image.py": true,
+    "tools/installation_io_faults.py": true,
+    "tools/installation_io_smoke.py": true,
+    "tools/mk_usb_image.py": true,
+    "tools/profile_bundle.py": true,
+    "tools/profile_desktop_smoke.py": true,
+    "tools/profile_image.py": true,
+    "tools/profile_installation_smoke.py": true,
+    "tools/source_provenance.py": true,
+    "tools/test_installation_image.py": true,
+    "tools/test_installation_io_failures.py": true,
+    "tools/test_installation_profile.py": true
+  },
+  "evidence": ".local/installation-evidence/pr330-review",
+  "independent_review": "No material blockers within the documented scope",
+  "integrated_main": "c90f352218fab2348b300421ab68110dd80b7e7a",
+  "logs_sha256": {
+    "pr330-build-review.log": "6c9c190b997f40b49fc925d107731f7f2cda4bdd49ad8944ccf7291aac3ae307",
+    "pr330-host-review.log": "39d05a6428dd53f49596ed412e06af1347fa966789230a5521945a6470323421"
+  },
+  "matrix_cases": 436,
+  "matrix_receipt_sha256": "e2cd19e98447da8e4142090dde016476b9ca0ff1d49a243e7ca2af5068c00294",
+  "raw_final_stage_matches_receipt": true,
+  "review_vms_alive": [
+    61610,
+    6233,
+    85869
+  ],
+  "runtime_receipt_sha256": "81a991181a8c7a13bcce1c9894f7817c0af1526accff2ec39290f81e27e8f49f",
+  "source": "5d0fa39e7c7136775d6548ba0729e4fa4a5643cb",
+  "status": "PASS",
+  "unresolved_review_threads": 0
+}

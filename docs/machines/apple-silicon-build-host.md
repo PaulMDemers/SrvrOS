@@ -1,5 +1,19 @@
 # Apple Silicon macOS build host
 
+## PR330 merge review
+
+User authorized review and merge if ready. Current main `c90f3522` is already
+integrated in `5d0fa39e`; independent review finds no material blocker or unresolved
+thread. Fresh installation/profile/chooser/guest checks and the matched build
+pass. All matrix/smoke tool and artifact hashes, receipt hashes and the final raw
+stage snapshot match accepted evidence, preserving the 436-case/seven-refusal/
+two-negative-control/seven-production-error/two-boot proof without another VM.
+Review logs and build metadata survive at `.local/installation-evidence/pr330-review`.
+Original review VMs remain live and untouched; no physical work or Actions.
+Ready for authorized merge. Next proposal is read-only post-boot installed-state
+inspection with the existing filesystem/profile refusal boundaries and a bounded
+read-only metadata reader; see the installation guide for dependencies/acceptance.
+
 ## Host publication I/O-failure qualification — complete
 
 User authorized a scoped PR with write/sync/link/unlink failure, reconciliation
