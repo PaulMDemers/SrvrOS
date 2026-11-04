@@ -2,6 +2,24 @@
 
 Updated: 2026-11-03. State: **active reference machine; partial device acceptance**.
 
+### Active GPU address reservation work
+
+Consumed integration main `1a5a6dee` at `9541ce4e`; exact recursive submodule
+pins follow that merge. The appended Makefile conflict preserves both scanout
+and new profile/salvage test groups. Accepted native evidence remains bound to
+`ae598610`; no updated hardware payload is installed or armed.
+
+Bounded objective: a CPU0 software reservation mechanism for the observed
+256MiB aperture, with default-unavailable pages, explicit managed intervals,
+protected inherited/fence intervals, epoch/serial leases and quarantine after
+uncertain exposure. This is host-tested groundwork, not a GGTT allocator grant
+or hardware authority. No native caller may import free ranges from absent PTEs
+or stable observations. Touch new reservation header/core/tests, Makefile and
+this unit's display/lifetime contracts. Preserve PR317's allocator/VMM/DMA audit,
+PR324's independent Haswell capture and ordinary VirtIO behavior. Next: fault,
+reuse and allocation-oracle tests plus integrated local gates, then publish the
+remaining native takeover/DMA/restore prerequisites. No new reboot is planned.
+
 ### Native shadow scanout lifetime trial accepted
 
 Source `ae598610` / release `d79f3ca9a74fa201` returned automatically and is
