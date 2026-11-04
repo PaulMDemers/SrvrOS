@@ -287,3 +287,10 @@ state/runtime/native strict+sanitizer6/6 profiles pass. Actual state4032B/layout
 assertions compile; source and trampoline object reviewed. No enabled public
 runtime/backend/fork/guest claim. Enlarged-state stack/static-memory and actual
 SDK codegen remain pending; standalone adapter object has UBSan dependencies.
+
+
+Console backend audit: generation admission must coincide with keyboard/serial
+consume and bootlog-record publication. Independently confirmed existing empty
+keyboard pending-signal wait loop at70ca1894 in strict+sanitizer; exit and queued
+byte controls pass. Owner has ordinary-tty correction and consumed-byte retention
+requirements. Narrow primitives/integration/regressions pending; no guest claim.

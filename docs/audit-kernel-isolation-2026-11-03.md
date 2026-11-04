@@ -2033,6 +2033,42 @@ WTF context/reference retirement and matched SDK/VM qualification remain open.
 Evidence: `build/review/pr334-public-foundation-review/`. The owner continues
 separately with a guest-gated seam; no duplicate implementation was introduced.
 
+## November 4: console consumption and signal wakeup finding
+
+The PR334 backend audit identifies console descriptor lifetime gaps: tty reads
+can wait with IRQs enabled, then consume keyboard/serial input without rechecking
+the enrolled descriptor generation. A check after consumption cannot restore the
+input. Writes similarly need generation admission at actual publication, not
+before enabling interrupts and calling console output.
+
+Reviewed the proposed narrow fix with the owner. A checked keyboard primitive
+must validate bounded process/fd/generation eligibility under the same IF0 scope
+as queue or serial consumption, including VMIN-zero scans. Report real NUL as a
+successful byte and distinguish retirement, pending interruption and no data.
+For output, console_write_n already commits each bounded bootlog record under
+short IRQ exclusion, then renders/presents and writes UART with interrupts
+restored. Put generation admission at that record commit; finish an accepted
+record and return its prefix once. Do not extend IRQ exclusion across rendering
+or UART, or introduce a check-then-STI publication gap.
+
+Independently confirmed an adjacent existing defect at exact `70ca1894`:
+keyboard_has_char wakes for pending signals, but keyboard_read_char's empty
+loop only checks process exit. The actual keyboard source with a modeled
+scheduler reenters wait a second time after pending becomes true in both strict
+and ASan/UBSan profiles. An explicit second-wait sentinel exits 42; this is not
+a test timeout. Process-exit and queued-Q controls return after one wait in both
+profiles. Unlike the earlier future public sleep-remainder gap, this affects the
+existing ordinary console path. The implementation owner has the reproduction
+and must route ordinary tty reads through the corrected wait as well.
+
+Tty's post-consumption pending check can also discard an already-consumed normal
+byte. Require explicit keyboard/serial ordering regressions and committed-byte
+preservation rather than a retroactive zero-progress EINTR. Proposed primitives
+and gateway integration remain under owner implementation; no fix/guest pass is
+claimed yet. Evidence: `build/review/pr334-console-lifetime-review/`, with exact
+source/fixture hashes and six deterministic results. PR317 introduces no competing
+keyboard/console implementation.
+
 ## Remaining work
 
 Other long IRQ-disabled operations, including initial/churning PMM scans, heap validation and poisoning,
