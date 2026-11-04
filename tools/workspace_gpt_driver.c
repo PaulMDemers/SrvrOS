@@ -65,9 +65,28 @@ static void guid_hex(const uint8_t *g,char out[33]) {
     static const char hex[]="0123456789abcdef";
     for(unsigned i=0;i<16;i++){out[i*2]=hex[g[i]>>4];out[i*2+1]=hex[g[i]&15];}out[32]=0;
 }
+/* Private argv uses on-disk bytes; Python performs canonical UUID conversion. */
+static bool guid_parse_le(const char *s,uint8_t out[16]) {
+    if(strlen(s)!=32)return false;
+    for(unsigned i=0;i<16;i++) {
+        unsigned byte=0;
+        for(unsigned j=0;j<2;j++) {
+            unsigned char c=(unsigned char)s[i*2+j];unsigned digit;
+            if(c>='0'&&c<='9')digit=c-'0';
+            else if(c>='a'&&c<='f')digit=c-'a'+10;
+            else return false;
+            byte=byte*16+digit;
+        }
+        out[i]=(uint8_t)byte;
+    }
+    return !guid_is_zero(out);
+}
 int main(int argc,char **argv) {
-    uint64_t fdnum,base,length;struct stat st;const char *reason="native-fd-range";
-    if(argc!=5||strcmp(argv[1],"--fd")||!number(argv[2],&fdnum)||fdnum>INT_MAX||
+    uint64_t fdnum,base,length;struct stat st;const char *reason="partition-guid-syntax";
+    bool guided=argc==7;uint8_t requested[16];
+    if(guided && (strcmp(argv[5],"--partition-guid-le")||!guid_parse_le(argv[6],requested)))goto fail;
+    reason="native-fd-range";
+    if((argc!=5&&!guided)||strcmp(argv[1],"--fd")||!number(argv[2],&fdnum)||fdnum>INT_MAX||
        !number(argv[3],&base)||base||!number(argv[4],&length)||!length||length%512||length>8ULL*1024*1024*1024)goto fail;
     source_fd=(int)fdnum;int flags=fcntl(source_fd,F_GETFL);
     if(flags<0||(flags&O_ACCMODE)!=O_RDONLY||fstat(source_fd,&st)||!S_ISREG(st.st_mode)||st.st_nlink!=1||
@@ -84,9 +103,11 @@ int main(int argc,char **argv) {
     for(unsigned i=0;i<map.count;i++) {
         struct block_device *v=map.partitions[i].view;
         reason="writable-view";if(!v||v->write||v->flush||d->write||d->flush)goto fail;
-        if(!memcmp(map.partitions[i].type,basic,16)){selected=&map.partitions[i];candidates++;}
+        if(!memcmp(map.partitions[i].type,basic,16) && (!guided||!memcmp(map.partitions[i].guid,requested,16))) {
+            selected=&map.partitions[i];candidates++;
+        }
     }
-    reason="workspace-candidate-count";if(candidates!=1)goto fail;
+    reason=guided?"workspace-partition-guid":"workspace-candidate-count";if(candidates!=1)goto fail;
     struct block_device *v=selected->view;
     reason="workspace-range";if(!block_device_size(v)||block_device_size(v)>2ULL*1024*1024*1024)goto fail;
     char disk[33],part[33];guid_hex(map.disk_guid,disk);guid_hex(selected->guid,part);

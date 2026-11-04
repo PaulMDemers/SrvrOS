@@ -6,6 +6,7 @@ from pathlib import Path
 import stat
 import struct
 import subprocess
+import sys
 import tempfile
 import unittest
 from unittest import mock
@@ -103,8 +104,8 @@ def gpt_checksums(data):
         struct.pack_into('<I',data,at+16,0)
         struct.pack_into('<I',data,at+16,zlib.crc32(data[at:at+92]))
 
-def whole_disk(volume):
-    data=bytearray(12*1024*1024);total=len(data)//512
+def whole_disk(volume,size_bytes=12*1024*1024):
+    data=bytearray(size_bytes);total=len(data)//512
     data[510:512]=b'\x55\xaa';data[450]=0xee
     struct.pack_into('<II',data,454,1,total-1)
     disk=uuid.UUID('11111111-2222-3333-4444-555555555555').bytes_le
@@ -194,5 +195,113 @@ class GPTWorkspaceInspectionTests(unittest.TestCase):
     def test_invalid_selection_report_refused(self):
         report=self.automatic()['gpt_selection'];report['offset_bytes']=len(self.disk)
         with mock.patch.object(inspect.native,'driver_output',return_value=report):self.automatic('refused')
+
+
+
+
+FIRST_GUID='66666666-7777-8888-9999-aaaaaaaaaaaa'
+SECOND_GUID='10203040-5060-7080-90a0-b0c0d0e0f001'
+ABSENT_GUID='12345678-abcd-ef01-2345-6789abcdef01'
+
+class GUIDWorkspaceInspectionTests(unittest.TestCase):
+    def setUp(self):
+        WorkspaceInspectionTests.setUp(self)
+        other=empty_image(8*1024*1024,serial=0xfedcba98)
+        other.add_directory_files('srvros-work',{'.workspace':b'SRVROS-WORKSPACE-V1 fedcba98\n','source':b'second-committed-value'})
+        self.second=other.data
+        self.disk=whole_disk(self.fs.data,20*1024*1024)
+        self.disk[1152:1280]=self.disk[1024:1152]
+        self.disk[1168:1184]=uuid.UUID(SECOND_GUID).bytes_le
+        struct.pack_into('<QQ',self.disk,1184,20480,20480+len(self.second)//512-1)
+        self.disk[20480*512:20480*512+len(self.second)]=self.second
+        gpt_checksums(self.disk);self.image.write_bytes(self.disk)
+    def guided(self,guid=FIRST_GUID,expected='inspected'):
+        before=snapshot(self.image)
+        r=inspect.inspect_workspace(self.image,DRIVER,gpt_driver=GPT_DRIVER,partition_guid=guid)
+        self.assertEqual(r['state'],expected,r);self.assertEqual(snapshot(self.image),before)
+        self.assertEqual(r['admission'],'not-authorized')
+        if expected=='inspected':
+            self.assertTrue(r['image_unchanged']);self.assertEqual(r['requested_partition_guid'],guid)
+            self.assertEqual(r['gpt_selection']['partition_guid_le'],uuid.UUID(guid).bytes_le.hex())
+        else:self.assertNotIn('diagnostic',r)
+        return r
+    def test_explicitly_selects_each_workspace(self):
+        for guid,offset,marker in ((FIRST_GUID,2048*512,'1234abcd'),(SECOND_GUID,20480*512,'fedcba98')):
+            with self.subTest(guid=guid):
+                r=self.guided(guid);explicit=inspect.inspect_workspace(self.image,DRIVER,offset,len(self.fs.data))
+                self.assertEqual(r['diagnostic'],explicit['diagnostic']);self.assertEqual(r['diagnostic']['marker_uuid'],marker)
+                self.assertFalse(r['diagnostic']['marker_binding_authenticated'])
+    def test_command_line_guid_and_refusals(self):
+        before=snapshot(self.image)
+        command=[sys.executable,str(ROOT/'tools/workspace_inspection.py'),str(self.image),'--driver',str(DRIVER),'--gpt-driver',str(GPT_DRIVER)]
+        for extra,code in (([],1),(['--partition-guid',SECOND_GUID],0),(['--partition-guid',ABSENT_GUID],1)):
+            with self.subTest(extra=extra):
+                result=subprocess.run(command+extra,capture_output=True,text=True)
+                self.assertEqual(result.returncode,code,result.stderr)
+                report=json.loads(result.stdout);self.assertEqual(report['state'],'inspected' if code==0 else 'refused')
+                if code==0:self.assertEqual(report['requested_partition_guid'],SECOND_GUID)
+                self.assertEqual(snapshot(self.image),before)
+    def test_automatic_ambiguity_stays_refused(self):
+        for _ in range(2):
+            before=snapshot(self.image);r=inspect.inspect_workspace(self.image,DRIVER,gpt_driver=GPT_DRIVER)
+            self.assertEqual(r['state'],'refused');self.assertIn('workspace-candidate-count',r['reason'])
+            self.assertEqual(snapshot(self.image),before);self.guided(SECOND_GUID)
+    def test_wrong_guid_has_no_fallback(self):
+        for data in (self.disk,whole_disk(self.fs.data)):
+            self.image.write_bytes(data)
+            with mock.patch.object(inspect.native,'driver_output',wraps=inspect.native.driver_output) as call:
+                r=self.guided(ABSENT_GUID,'refused');self.assertEqual(call.call_count,1)
+                self.assertIn('workspace-partition-guid',r['reason']);self.assertTrue(r['image_unchanged'])
+    def test_disk_guid_is_not_a_partition_guid(self):
+        self.guided('11111111-2222-3333-4444-555555555555','refused')
+    def test_guid_for_non_basic_partition_refused(self):
+        bad=self.disk.copy();bad[1152:1168]=uuid.UUID('c12a7328-f81f-11d2-ba4b-00a0c93ec93b').bytes_le
+        gpt_checksums(bad);self.image.write_bytes(bad);self.guided(SECOND_GUID,'refused')
+    def test_selected_bad_workspace_does_not_fall_back(self):
+        bad=self.disk.copy();bad[20480*512:20480*512+len(self.second)]=bytes(len(self.second));self.image.write_bytes(bad)
+        self.guided(FIRST_GUID)
+        with mock.patch.object(inspect.native,'driver_output',wraps=inspect.native.driver_output) as call:
+            self.guided(SECOND_GUID,'refused');self.assertEqual(call.call_count,2)
+    def test_unselected_overlap_refuses_whole_map(self):
+        bad=self.disk.copy();struct.pack_into('<QQ',bad,1184,2048,4095);gpt_checksums(bad);self.image.write_bytes(bad)
+        r=self.guided(FIRST_GUID,'refused');self.assertIn('primary-gpt',r['reason'])
+    def test_duplicate_identity_refuses_whole_map(self):
+        bad=self.disk.copy();bad[1168:1184]=bad[1040:1056];gpt_checksums(bad);self.image.write_bytes(bad)
+        self.guided(FIRST_GUID,'refused')
+    def test_backup_validation_precedes_guid_lookup(self):
+        bad=self.disk.copy();bad[len(bad)-512+16]^=1;self.image.write_bytes(bad)
+        for guid in (FIRST_GUID,ABSENT_GUID):
+            r=self.guided(guid,'refused');self.assertIn('backup-gpt',r['reason'])
+    def test_malformed_guid_refused(self):
+        for guid in ('',FIRST_GUID.upper(),'00000000-0000-0000-0000-000000000000',FIRST_GUID.replace('-',''),'{'+FIRST_GUID+'}',FIRST_GUID+' ',42):
+            with self.subTest(guid=guid):self.guided(guid,'refused')
+    def test_guid_cannot_bypass_gpt_with_explicit_range(self):
+        before=snapshot(self.image)
+        r=inspect.inspect_workspace(self.image,DRIVER,2048*512,len(self.fs.data),partition_guid=FIRST_GUID)
+        self.assertEqual(r['state'],'refused');self.assertEqual(snapshot(self.image),before)
+    def test_native_guid_validation_and_readonly_fd(self):
+        before=snapshot(self.image);fd=os.open(self.image,os.O_RDONLY)
+        try:
+            for value in ('','0'*32,'G'*32,FIRST_GUID,uuid.UUID(SECOND_GUID).bytes_le.hex().upper()):
+                r=subprocess.run([str(GPT_DRIVER),'--fd',str(fd),'0',str(len(self.disk)),'--partition-guid-le',value],pass_fds=(fd,),capture_output=True)
+                self.assertNotEqual(r.returncode,0);self.assertEqual(r.stdout,b'')
+        finally:os.close(fd)
+        fd=os.open(self.image,os.O_RDWR)
+        try:r=subprocess.run([str(GPT_DRIVER),'--fd',str(fd),'0',str(len(self.disk)),'--partition-guid-le',uuid.UUID(SECOND_GUID).bytes_le.hex()],pass_fds=(fd,),capture_output=True)
+        finally:os.close(fd)
+        self.assertNotEqual(r.returncode,0);self.assertEqual(r.stdout,b'');self.assertEqual(snapshot(self.image),before)
+    def test_native_wrong_guid_refused_with_single_candidate(self):
+        self.image.write_bytes(whole_disk(self.fs.data));before=snapshot(self.image)
+        fd=os.open(self.image,os.O_RDONLY)
+        try:r=subprocess.run([str(GPT_DRIVER),'--fd',str(fd),'0',str(self.image.stat().st_size),'--partition-guid-le',uuid.UUID(ABSENT_GUID).bytes_le.hex()],pass_fds=(fd,),capture_output=True)
+        finally:os.close(fd)
+        self.assertNotEqual(r.returncode,0);self.assertEqual(r.stdout,b'');self.assertEqual(snapshot(self.image),before)
+    def test_wrapper_rejects_wrong_selected_identity(self):
+        report=self.guided(FIRST_GUID)['gpt_selection']
+        with mock.patch.object(inspect.native,'driver_output',return_value=report) as call:
+            self.guided(SECOND_GUID,'refused');self.assertEqual(call.call_count,1)
+    def test_dirty_selected_workspace_and_readonly_permissions(self):
+        struct.pack_into('<H',self.disk,20480*512+106,2);self.image.write_bytes(self.disk);self.image.chmod(0o444)
+        r=self.guided(SECOND_GUID);self.assertTrue(r['diagnostic']['filesystem']['dirty']);self.assertEqual(r['image_mode_octal'],'0444')
 
 if __name__=='__main__':unittest.main()
