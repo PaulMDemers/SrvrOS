@@ -1,0 +1,67 @@
+{
+  "schema": "org.srvros.desktop-profile-creation-review.v1",
+  "status": "DELIVERED_AND_VERIFIED",
+  "date": "2026-11-04",
+  "runtime_source": "1ef0ccdd1d93a177d3f0313b4d8f0a4f37ba29e9",
+  "apps_source": "0bf8e137fade43298d51ab59065e24e6b9e10397",
+  "ui_source": "586bd002956a7418e619b62fcbd8180d285df452",
+  "ports_source": "d760e5413edc8badd5c87d9b02b6c815f7169721",
+  "prs": {
+    "apps": 8,
+    "os": 348
+  },
+  "proof": "SrvrOS-profile-326-review/build/review/profile-create/proof-hhj_ogf8",
+  "receipt_sha256": "3ffbf4f27a92a0cba7bab7702e28e37bf489ba45b90741b696cd8b3290ffc086",
+  "verification": {
+    "vm_lifetimes": 20,
+    "creation_recovery_checkpoints": [
+      "journal",
+      "directories",
+      "identity",
+      "commit-ready",
+      "published"
+    ],
+    "host_cli_groups": 25,
+    "matched_build": "PASS",
+    "focused_catalog_desktop_fsync_docs": "PASS",
+    "cli_and_real_catalog_asan_ubsan": "PASS on equivalent creation engine",
+    "independent_archives_verified": 37,
+    "independent_initial_empty_and_final_A_B_readback": "PASS",
+    "independent_stopped_and_recovered_profile_readback": "PASS",
+    "build_hashes_verified": 3,
+    "proof_tool_hashes_verified": 8,
+    "same_identity_six_defaults_selected_text_binary": true,
+    "distinct_destination_home_alias_uid_gid_machine_settings": true,
+    "exclusions_and_legacy_data_preserved": true,
+    "small_screen": "640x480 keyboard correction, Ctrl-A, Undo/Redo, Tab order",
+    "rendered_review": "form/review, recovery availability, capacity refusal and reopened document inspected; no observed blocker"
+  },
+  "preservation": {
+    "parent_audit": "SrvrOS-migration-review/.local/profile-create-review",
+    "owner_backup": "SrvrOS-profile-326-review/.local/profile-create/proof-hhj_ogf8",
+    "raw_A_B_transport_and_original_baselines": "retained for independent installation follow-up",
+    "backup_members_independently_verified": 380,
+    "backup_archive_sha256": "7be35150b8a09b4137b15469098036942690782481898deae33af8b2234a74f8"
+  },
+  "limits": [
+    "disposable QEMU installations",
+    "no physical media or arbitrary power-loss acceptance",
+    "no authentication or permission enforcement",
+    "UUID entropy strength not asserted",
+    "expert visual review and functional tests, no representative-user study",
+    "success-trace screenshots that showed busy frames omitted from completion claims"
+  ],
+  "merges": {
+    "apps": "f401713703652925eb9102005680b6a757167038",
+    "os": "0fb4ed6cae71cb05e6a8152aa6f318d961006461"
+  },
+  "reviewed_os_final_head": "d63369d54b0c7850fcd2c673708319aaf753c515",
+  "post_merge_verification": "Both merge trees equal reviewed heads; OS Apps pin is an ancestor of merged Apps main.",
+  "host_only_main_integration": {
+    "main": "ba35d16cbd2269f7c11f3163bb8cbfd207450b37",
+    "receipt": "profile-create-integration.json",
+    "guest_preprocessing": "identical",
+    "retained_artifacts_and_metadata": 148,
+    "new_vm_run": false
+  }
+}

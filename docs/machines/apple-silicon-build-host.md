@@ -1,16 +1,32 @@
 # Apple Silicon macOS build host
 
-## Desktop profile creation — integration review in progress
+## Desktop profile creation — integration delivered November 4, 2026
 
-Coordinator reuses `SrvrOS-migration-review` on
-`device/apple-silicon/profile-create-review`, based on `83e5d1ad`. Own roadmap,
-independent creation/recovery/reboot/migration review and final merge; profiles
-owner implements guest/chooser/SrvrApps changes and retains the exact-source proof.
-Installation owner reviews the existing A/B installed-image integration contract.
-No parent runtime edits or VM launched. Preserve active review VMs, prior accepted
-migration evidence and other owners' work. Scope is QEMU desktop creation and
-migration, not physical media, authentication or permission enforcement. Actions
-remain disabled. Acceptance and next action are in the roadmap's creation target.
+Coordinator used `SrvrOS-migration-review` on
+`device/apple-silicon/profile-create-review` for independent source, rendered-state
+and retained-image review; no duplicate VM run or runtime edit. Apps #8 merged
+first as `f4017137`, then OS #348 as `0fb4ed6c`; both merge trees equal their
+reviewed heads (`0bf8e137` and `d63369d5`). Actual main is integrated locally,
+with both implementation and filesystem owner records preserved.
+
+The accepted `1ef0ccdd` proof passes all 20 VM lifetimes, five recovery boundaries,
+creation through both entry points, remembered reboot selection and migration to
+second installed B. Parent independently read initial/final A/B and every stopped
+and recovered profile, verified all 37 archive streams and all 380 backup members,
+and reviewed app/chooser/640 × 480/refusal/recovery/document screenshots.
+Matched build, 25 CLI groups and focused host/sanitizer checks pass as recorded
+by the implementation owner. Host-only main integration preserves the original
+runtime proof attribution; no new guest build/run is claimed.
+
+The [review receipt](../assets/screenshots/profile-create-review.json) records
+exact sources, merges, hashes and limits. Audit results remain outside build at
+`.local/profile-create-review/`; owner evidence remains at
+`SrvrOS-profile-326-review/.local/profile-create/proof-hhj_ogf8/`. Original raw
+A/B/transport/baselines and existing review VMs remain untouched. Creation task
+VMs stopped and resources handed back to the installation owner for its separately
+authorized fresh-v2-B proof. Actions remain disabled. This QEMU milestone is
+complete; physical-media, arbitrary power-loss and account-security acceptance
+remain separate.
 
 ## Desktop profile creation — qualified for coordinated review
 
