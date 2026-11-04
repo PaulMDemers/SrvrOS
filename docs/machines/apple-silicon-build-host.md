@@ -3319,7 +3319,7 @@ Evidence: `build/jq-smoke/20261103-214345-kx3nfg74/` and
 Status: implementation complete and ready for review; no merge authorized.
 
 
-### jq merge review — active November 3, 2026
+### jq merge review — verified November 3, 2026
 
 User authorized reviewing SrvrPorts PR6, merging it before SrvrOS PR337, and
 verifying the combined build. Work uses only `SrvrOS-ports-jq`; integration
@@ -3339,3 +3339,12 @@ source provenance is clean, recorded in `build/review/jq-merge/tested-build.json
 and `build/jq-smoke/20261103-215652-k40favot/receipt.json`. No concrete scoped
 review blocker remains. SrvrPorts PR6 merged first as `747cca28`; its merge tree
 is identical to reviewed `22c2660`. The OS now pins that merged revision.
+
+Final combined source `fcd79c0a` also preserves installed-state inspection
+PR336/main `a37eb7b2`. Its clean build produces byte-identical kernel, initramfs
+and disk artifacts to the freshly guest-tested candidate; 902 documentation
+links pass. This refresh changes no runtime dependency. SrvrOS PR337 records
+the authorized ports-first integration; final merge identities/build receipts
+are retained in `build/review/jq-merge/`. All test VMs stopped; the integration
+checkout and attended review VM remain untouched. No further work is required
+for this bounded jq milestone.
