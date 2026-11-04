@@ -420,6 +420,15 @@ field normalization/clamping and hashes all eight sources and five nested plan
 dependencies. The unit record owns host/fault/sanitizer/build evidence. The
 installed accepted v116 payload and frozen native capsule remain unchanged.
 
+## Current integration ABI
+
+The merge of main `0cba30a1` preserves its display-mode syscalls159–161 and pipe
+message syscall162. This unmerged Wi-Fi service moves from its historical159
+slot to163. Kernel and all userspace must be rebuilt together; the accepted
+v116 image and its old159 ABI remain self-contained recovery evidence. Mixing
+old Wi-Fi binaries with the new kernel is unsupported. This ABI reconciliation
+adds no radio acceptance or native trim caller by itself.
+
 ## Current merged development baseline
 
 Runtime `d9c28128` consumes main `1dad02c2`, Apps `1f5f894`, Ports `5aacedd`
