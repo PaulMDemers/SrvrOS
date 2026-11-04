@@ -1795,6 +1795,34 @@ poll invalid entries retain POLLNVAL. Exact legacy nonlocal-unwind ownership,
 scoped masked-poll compatibility, fork constructor binding and public output
 coverage remain reviewed contracts requiring implementation-specific evidence.
 
+## November 4: private RESET prospective correction source/host review
+
+The PR334 owner implemented the bounded RESET correction, still uncommitted and
+without public admission. Its prospective view removes only the chosen initial
+local/shared bit and applies only the current handler's self-blocking mask before
+selecting a default-fatal peer. Successful copy commits prepared exact pending/
+cause stores and returns explicit status 138; the opt-in caller enters process
+exit before clock/diagnostics, accounting or handler/user resume. Current-only
+duplicates remain pending under self-block and retain return-time default handling.
+
+A separate internal maximum-12 exclusion entry protects the complete selected
+state, process prefix including killed/cause, and all eight worker mask/pending
+extents. Existing maximum-three API/count-four refusal and all original hardware,
+root, stack, FPU and unique-user-page checks remain. Independent strict Rosetta
+and ASan/UBSan VMM/delivery/raw-default profiles pass 6/6, including all 48 extended
+object/span/destination-page alias refusals, prospective priority and complete
+FPU/private/user rollback. New delivery tests against preserved `2777eda7` source
+fail exactly at the required committed-exit assertion, independently confirming
+regression sensitivity. Evidence/source hashes:
+`build/review/pr334-reset-peer-fix-review/`.
+
+The separately compiled test-only operation four installs INFO then invokes
+existing delivery in the same final IF0 continuation, pinning the selected target
+without a scheduler/user gap. Operations one/two/three and normal IDT are unchanged.
+This fixture installation is separate from delivery's refusal transaction; it is
+not a public fused-install contract. Updated whole-suffix/stack, mixed diagnostic
+negative/current native guests and normal closure remain pending before acceptance.
+
 ## Remaining work
 
 Other long IRQ-disabled operations, including initial/churning PMM scans, heap validation and poisoning,
