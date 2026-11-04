@@ -7109,7 +7109,7 @@ armed. GT forcewake and real backing/publication/scanout lifetime remain open.
 Base `5f670602`, read-only Ubuntu inventory complete and PR301 remains independent.
 Implement a separate opt-in AP diagnostic profile that copies the complete pinned
 Air6,1 DMAR and complete bounded current Limine catalog twice, with exact PCI
-identity, table-RAM/translation checks, stable copies and bounded receipt retention.
+identity, ACPI-table-RAM/translation checks, stable copies and bounded receipt retention.
 No VT-d/GT/GGTT MMIO, root-table walk, graphics bind, PTE publication or ownership
 assurance. Touch isolated firmware core/adapter/tests, main dispatch, staging,
 strict decoder/VM checks and exact Air6,1 docs. Ordinary startup stays unchanged.

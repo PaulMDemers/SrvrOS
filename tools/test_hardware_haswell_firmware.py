@@ -73,6 +73,15 @@ class FirmwareTests(unittest.TestCase):
                 self.assertIsNone(firmware_result(change(text, 'map', 1, '<' + 'Q' * 384, index, value)))
             self.assertIsNone(firmware_result(change(text, 'dmar', 1, '<136B', 10, 1)))
 
+    def test_reserved_or_device_memory_cannot_supply_table_bytes(self):
+        text, pin = fixture()
+        with patch('hardware_haswell_firmware.PIN', pin):
+            for kind in (0, 1, 4, 5, 6, 7, 8):
+                changed = text
+                for phase in (0, 1):
+                    changed = change(changed, 'map', phase, '<' + 'Q' * 384, 2, kind)
+                self.assertIsNone(firmware_result(changed))
+
     def test_refusal_is_not_observation(self):
         text = 'hsw-firmware: v=1 status=2 count=0 cap=128 dmar_bytes=136 limit_us=100000 mmio=0 writes=0 ownership=0\nlaptop-capture: completed=NO\n'
         self.assertEqual(firmware_result(text)['status'], 'REFUSED')

@@ -71,7 +71,7 @@ def _parse(text):
         rows = list(struct.iter_unpack('<3Q', data))
         catalog_valid(rows)
         overlaps = [(b, n, t) for b, n, t in rows if b < pa + 136 and pa < b + n]
-        if len(overlaps) != 1 or not (overlaps[0][0] <= pa < pa + 136 <= sum(overlaps[0][:2]) and overlaps[0][2] in (1, 2, 3)):
+        if len(overlaps) != 1 or not (overlaps[0][0] <= pa < pa + 136 <= sum(overlaps[0][:2]) and overlaps[0][2] in (2, 3)):
             raise ValueError('table resource coverage')
         if phase and (rows != samples[0]['catalog'] or pa != samples[0]['table_pa'] or begin < samples[0]['pm_us'][1] or begin - samples[0]['pm_us'][1] > 100000):
             raise ValueError('changed catalog/table/clock')

@@ -87,8 +87,8 @@ then copies the complete current Limine catalog (1–128 entries) and136-byte DM
 twice through existing firmware RAM mappings. The whole table must match this
 unit's SHA256 pin; both catalogs, table addresses and raw bytes must agree.
 Unknown/overlapping/overflowing/partial catalogs and duplicate/malformed tables
-refuse. Table bytes require exactly one enclosing RESERVED/ACPI-reclaim/NVS
-entry and exact existing kernel translations before reads. No new mappings,
+refuse. Table bytes require exactly one enclosing ACPI-reclaim/NVS
+entry (generic reserved/device ranges refuse) and exact existing kernel translations before reads. No new mappings,
 VT-d/GT/GGTT access, firmware method or writer is provided by the capture.
 
 Each copy and inter-copy interval remains within100ms; the128-entry report bound

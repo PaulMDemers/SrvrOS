@@ -36,7 +36,7 @@ bool hfw_table_covered(const struct hfw_entry *e,unsigned n,uint64_t pa) {
  if(!pa || pa>UINT64_MAX-HFW_DMAR_BYTES || !hfw_catalog_valid(e,n))return false;
  unsigned overlaps=0;bool covered=false;
  for(unsigned i=0;i<n;i++)if(e[i].base<pa+HFW_DMAR_BYTES && pa<e[i].base+e[i].length) {
-  overlaps++;covered=e[i].base<=pa && pa+HFW_DMAR_BYTES<=e[i].base+e[i].length && (e[i].type==1 || e[i].type==2 || e[i].type==3);
+  overlaps++;covered=e[i].base<=pa && pa+HFW_DMAR_BYTES<=e[i].base+e[i].length && (e[i].type==2 || e[i].type==3);
  }
  return overlaps==1 && covered;
 }

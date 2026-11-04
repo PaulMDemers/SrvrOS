@@ -20,6 +20,8 @@ int main(void){
  entries[1].type=9;assert(!hfw_catalog_valid(entries,128));entries[1].type=2;
  entries[1].length=0;assert(!hfw_catalog_valid(entries,128));entries[1].length=4096;
  entries[1].base=UINT64_MAX-100;assert(!hfw_catalog_valid(entries,128));
+ for(unsigned kind=0;kind<=8;kind++){entries[0].type=kind;assert(hfw_table_covered(entries,1,0x100100)==(kind==2||kind==3));}
+ entries[0].type=2;
  assert(hfw_table_covered(entries,1,0x100100));assert(!hfw_table_covered(entries,1,0x100fff));
  /* Hash vectors independently checked by the Python host test. */
  for(unsigned i=0;i<136;i++)table[i]=(uint8_t)i;
