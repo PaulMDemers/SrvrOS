@@ -227,7 +227,7 @@ Home is `/fat/home` normally and `/work/srvros-work` for the prepared USB laptop
 | Terminal | A real PTY-backed shell; scrollback, selection/copy, foreground signals, resize, and independent sessions |
 | Preview | Open PNG/JPEG/BMP; fit, zoom and pan; open the image in Sketch |
 | Sketch | Pen, Line and Box tools; brush size and RGB color panel; undo/redo; import images and save verified BMP copies |
-| Find Files | Background name search under a folder; kind filters; sortable results; open, reveal in Files, and copy paths |
+| Find Files | Background Name or Contents search under a folder; kind filters for names; bounded text scanning; sortable results; open, reveal in Files, and copy paths |
 | Calculator | Expressions, parentheses, keypad, explicit errors, copied results and calculation history |
 | System | Live process and memory information; supported adapter inventory, active interface, address, link state, speed and duplex; open diagnostics |
 | Network Utility | Background Ping and DNS lookup; Stop; copied reports |
@@ -383,8 +383,15 @@ provide power-loss atomicity.
   Move to requires one mounted volume. Directory deletion requires an empty
   directory; there is no recursive folder transfer, Trash or undo for deletion.
 - File lists and search results retain at most 256 entries and report limits.
-  Actionable paths are at most 159 bytes. Find Files searches names, with ASCII
-  case folding; it is not content indexing or a symlink-aware search service.
+  Actionable paths are at most 159 bytes. Find Files defaults to Name search;
+  Contents searches regular UTF-8 text files up to 64 KiB with literal matching
+  and ASCII-only case folding. Ctrl-Shift-1/2 switches modes. A run reads at most
+  16 MiB and enumerates at most 65,536 VFS paths, with the existing 60-second
+  timeout and 256 displayed results. Reaching a work limit conservatively labels
+  results Partial, even at an exact
+  boundary, because the worker does not probe beyond its budget;
+  unreadable, non-text, oversized or observably changed files are skipped and
+  counted. It does not index content or provide an atomic filesystem snapshot.
 - Preview accepts files up to 8 MiB, dimensions up to 4096 and four million
   pixels. EXIF orientation, color management and animated images are not yet
   implemented. Sketch is a small bitmap editor with four undo steps, not a
