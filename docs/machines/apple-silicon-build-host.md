@@ -3580,6 +3580,85 @@ Shared checkout and review VM remain untouched. Integration is delivered and
 verified; historical physical-device closures remain unresolved as documented.
 No further work is required for this integration target.
 
+### Files cross-folder transfer — verified November 3, 2026
+
+User authorized guarded-contract validation, Copy to / Move to implementation
+and acceptance in independent `SrvrOS-app-quality`, branch `app/files-transfer`,
+from main `819956be` with pinned Apps/UI/Ports. Own regular-file transfers up to
+16 MiB, captured source identity, destination selection, collision refusal,
+cancellation and accurate uncertain-outcome feedback. Reuse guarded copy/rename
+and shared owned dialog controls. No recursive folder transfer or overwrite.
+Guarded rename requires one mounted volume; failed sync/verification can follow
+an already completed mutation, so failures must not promise unchanged files.
+
+Validate exact/over-limit, stale identity, collision, busy source and cross-folder
+contracts; implement menus/context workflow, preserve navigation/selection on
+cancel/refusal, show verified destination on success, retain source on copy,
+and verify close/independent-window behavior. Run focused host, matched build,
+actual keyboard/pointer, exact persisted bytes and filesystem/allocation checks.
+Keep the shared checkout and review VM untouched; no native acceptance or main
+merge is implied. Next: focused contract checks and destination journey review.
+
+Apps `c7b09b6` implements File/context Copy to and Move to with Ctrl-Shift-C/M,
+an owned absolute destination-folder prompt and retained original name. Capture
+source path/inode/size/date before prompting; refuse folders, >16 MiB, invalid or
+same-location paths. On verified completion open/select the destination; Back
+returns to the source. Known collision/path/stale/busy refusals keep the view;
+I/O or worker failures accurately report an unknown outcome. Preserve guarded
+metadata, close/drain ownership and independent Files windows.
+
+Acceptance exposed two real shared-model defects. Stable prompt reconfiguration
+canceled button capture on every tick; UI `e423f97` cancels only actual geometry/
+enabled changes or focus loss. Both the old VM pointer cancel and the added host
+press/configure/release test fail before the fix and pass afterwards. Root
+navigation also failed because `/usr` aliases `/fat` with the same real inode.
+The decoder now allows distinct names sharing an inode and derives collision-
+safe, sort-stable presentation keys for those rows. Real inode values remain
+unchanged for stat and guarded mutations. Alias selection survives refresh,
+sort and history; 256-row bounds/collision tests and OS sanitizer coverage pass.
+No kernel, filesystem metadata or guarded-operation wire ABI changed.
+
+Clean runtime `ba3f51f8` passes normal and refused-dialog transfer VMs, exact
+128 KiB+17-byte file readback, cancellation, collision/missing-parent refusal,
+destination selection, history recovery, two Files documents, accepted-copy
+completion before close retirement, sibling auto-focus, worker/process cleanup,
+explicit successful userspace sync, guest fsck and offline allocation checks.
+The full existing Files VM also passes Rename/Duplicate/Delete, Open With,
+root/Places/history/navigation and exact saved data. Full desktop/widget and I/O
+host suites pass. Guarded max-size/over-limit, stale/busy/collision cases pass
+with ASan/UBSan; real exFAT cross-directory rename/remount and allocation checks
+pass on a disposable generated image. Standalone core CTest passes 11 checks,
+with 10 sanitizer checks plus a separate plain archive-boundary check. The
+OS-only listing model is tested/sanitized through the matched OS fixtures.
+Widget-theme preview and successful copy/move desktop captures were inspected.
+
+Retain intermediate failures: expected prompt/alias negatives, corrected exact
+INVALID status for missing destination parents, protected `/fat/home` replaced
+by an explicit collision fixture, and one post-close launcher query containing
+an extra character. The final post-close check directly proves sibling focus
+and refresh; other launcher/typing checks remain. No input-layer fix is claimed.
+The explicit sync gate invokes `/fat/bin/sync` through the monitor's run command.
+Full exfatprogs hardening/independent fsck is unavailable (`mkfs.exfat` absent);
+generated-image and guest/allocation checks do not imply power-loss acceptance.
+
+[UI PR4](https://github.com/PaulMDemers/SrvrUI/pull/4),
+[Apps PR7](https://github.com/PaulMDemers/SrvrApps/pull/7) and
+[OS PR344](https://github.com/PaulMDemers/SrvrOS/pull/344) are the review chain,
+in that dependency order. Final documentation builds preserve the tested
+kernel/initramfs/disk hashes. Source identities, pins, hashes, failures and final
+results are in local `build/review/files-transfer/receipt.json`. All task VMs are
+stopped; shared checkout and review VM remain untouched. Implementation and
+acceptance are complete and ready for review; no main merge was performed.
+
+Final integration preflight finds main has advanced to `83e5d1ad` with profile
+transfer/installed-migration work. A read-only merge-tree check reports appended
+host-journal and Apps-gitlink conflicts (`b2220909` versus reviewed `c7b09b6`).
+The accepted branch remains based on `819956be`; those newer runtime changes were
+not included in this milestone's acceptance. UI4/Apps7/OS344 are reviewable, but
+OS integration requires reconciling the newer Apps/main tuple and verifying the
+combined result before merge. This is a delivery dependency, not another feature
+milestone. No shared checkout or review VM was accessed.
+
 ## Managed USB late-flush filesystem proof
 
 Isolated filesystem branch `device/apple-silicon/filesystem-late-flush`, main
@@ -3715,6 +3794,23 @@ reports no conflict; all review guests stopped and VMs 61610/6233/85869 remain
 untouched. The [filesystem contract](../filesystem-layout.md) records the ready
 review and next proposed read-only uncertain-media inspection milestone.
 
+### Files transfer/profile integration — qualified November 4, 2026
+
+User authorized reconciling profile changes and integrating UI4, Apps7 and OS344
+in that dependency order, then verifying merged source in independent
+`SrvrOS-app-quality`. Main `83e5d1ad` contributes profile transfer and installed
+migration; Apps main `2ebaca5` adds the Profiles app without touching desktools.
+Retain both appended journals and both app implementations, preserve main's
+Ports pin, and use the merged UI dependency. Validate Files guards/alias keys,
+profile/session contracts, matched build and actual Files/profile workflows.
+Shared checkout and review VM remain untouched; all test guests disposable and
+sequential. Historical physical-closure and filesystem acceptance limits remain.
+
+UI4 merged as `586bd002956a7418e619b62fcbd8180d285df452`; Apps7 merged as `2ddea666ee8da3479427e0152518ff0cf0dd33db`.
+Both merge trees match their reviewed candidates. Candidate host checks and
+matched build passed, including Files, chooser, guarded changes, desktop/session
+and profile image/catalog tests. The OS now pins these merged dependencies.
+Final Files and profile runtime qualification follows before OS344 merge.
 
 ### less current-main merge review — November 3, 2026
 
@@ -3741,3 +3837,29 @@ OS-second merge; linked PR state records the delivery result.
 No shared libc/kernel change or concrete shared blocker was found. The integration
 checkout and review VM remain untouched. This record is documentation only;
 implementation acceptance remains tied to clean tested commit `1fa90b8c`.
+
+Files integration also reconciles OS main `5ed7f015` (less), preserving its
+Ports pin `d760e541` and both appended journal entries. Requalification uses
+this combined source; no shared checkout or review VM is involved.
+
+Files/profile integration candidate `22492b40` is accepted on the merged UI/Apps
+pins and main's less/Ports integration. Fresh matched build, focused Files,
+chooser, guarded file-change, desktop/session and profile host suites pass.
+Current-pin refused-dialog Files transfer and existing Files/Open With regression
+pass. Full graphical profile transfer passes (`build/review/profile-transfer/
+proof-qadgc5mn/receipt.json`): exact export/readback, 640x480, invalid and duplicate
+refusal, five interrupted import/recovery checkpoints, remembered imported
+selection and restored document. All 24 offline allocation checks pass; 40
+completed-image archives have verified hashes and round-trip restoration records.
+Independent review confirms clean source/build/pins and bounded acceptance.
+
+Integration evidence is retained under `build/review/files-transfer-integration/`.
+Earlier normal/refused Files transfer and existing Files regression passed on
+`06539d27`; the final OS merge receives a matched build and fresh normal transfer
+check, with exact merge/hash/provenance in the local integration receipt. Six
+historical owned Files proof disks were losslessly compressed and round-trip
+verified (`build/review/files-transfer/integration-evidence-archives.json`) to
+meet the profile suite's unmodified free-space preflight. Initial firmware and
+space preflight failures ran no profile guest and are not counted as acceptance.
+No physical-media, power-loss or external fsck.exfat acceptance is added. All
+owned guests stop at test completion; shared checkout and review VM are untouched.
