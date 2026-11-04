@@ -97,6 +97,65 @@ static void recovery_worker(void) {
     t.job.busy=0;tool_files_finish(&t,-1);assert(strstr(t.status,"worker stopped"));
     activate(TOOL_REFRESH);listing(0);assert(t.table_rows[t.table.body.selected].id==5);
 }
+static void transfer_tests(void) {
+    struct desk_file_change change;
+    for(unsigned action=TOOL_COPY_TO;action<=TOOL_MOVE_TO;action++) {
+        init();choose(5);int selected=t.table.body.selected;unsigned before=started;
+        activate(action);assert(t.prompt_mode==(int)action && !strcmp(t.prompt.text.data,"/fat"));
+        tool_files_prompt(&t,(struct desk_action){DESK_PROMPT_CANCEL,DESK_WIDGET_ACTIVATED});
+        assert(!t.prompt_mode && started==before && t.table.body.selected==selected && t.location_count==1);
+        activate(action);accept();assert(started==before && strstr(t.status,"different"));
+        desk_text_buffer_set(&t.prompt.text,"relative",8);accept();assert(started==before && strstr(t.status,"absolute"));
+        desk_text_buffer_set(&t.prompt.text,"/fat/other/../dest",18);
+        t.entries[selected].inode=99;t.entries[selected].size=42;t.table.body.selected=0;accept();
+        assert(t.job.busy && t.job.request.operation==(action==TOOL_COPY_TO?DESK_FILE_COPY:DESK_FILE_RENAME));
+        memcpy(&change,t.job.outgoing,sizeof(change));
+        assert(!strcmp(t.job.request.path,"/fat/notes.txt") && !strcmp(change.destination,"/fat/dest/notes.txt"));
+        assert(change.inode==5 && change.size==7 && change.modified==1792326840);
+        t.table.body.selected=selected;t.entries[selected].inode=5;t.entries[selected].size=7;
+        finish_status(0);assert(t.job.busy && !strcmp(t.job.request.path,"/fat/dest"));listing(0);
+        assert(!strcmp(t.saved_path,"/fat/dest") && t.table_rows[t.table.body.selected].id==5);
+        assert(strstr(t.status,action==TOOL_COPY_TO?"File copied":"File moved"));
+        activate(TOOL_BACK);listing(0);assert(!strcmp(t.saved_path,"/fat"));
+    }
+    init();choose(5);activate(TOOL_COPY_TO);unsigned over_before=started;
+    char overlong[DESK_FILE_PATH];memset(overlong,'x',sizeof(overlong));overlong[0]='/';overlong[sizeof(overlong)-1]=0;
+    desk_text_buffer_set(&t.prompt.text,overlong,strlen(overlong));accept();
+    assert(started==over_before && t.prompt_mode==TOOL_COPY_TO && strstr(t.status,"absolute"));
+    desk_text_buffer_set(&t.prompt.text,"/fat/dest",9);refuse_start=1;accept();
+    assert(started==over_before && t.prompt_mode==TOOL_COPY_TO && !t.job.busy && !t.transfer_folder[0]);
+    tool_files_prompt(&t,(struct desk_action){DESK_PROMPT_CANCEL,DESK_WIDGET_ACTIVATED});
+    assert(!t.prompt_mode && !t.transfer_action && t.table_rows[t.table.body.selected].id==5);refuse_start=0;
+    for(unsigned action=TOOL_COPY_TO;action<=TOOL_MOVE_TO;action++) {
+        init();choose(5);t.entries[t.table.body.selected].size=DESK_FILE_COPY_BYTES;
+        activate(action);desk_text_buffer_set(&t.prompt.text,"/fat/dest",9);accept();
+        memcpy(&change,t.job.outgoing,sizeof(change));assert(t.job.busy && change.size==DESK_FILE_COPY_BYTES);
+    }
+    init();choose(12);unsigned before=started;activate(TOOL_COPY_TO);assert(!t.prompt_mode && started==before);
+    choose(5);t.entries[t.table.body.selected].size=DESK_FILE_COPY_BYTES+1;activate(TOOL_MOVE_TO);assert(!t.prompt_mode && started==before);
+    for(int status=0;status<4;status++) {
+        init();choose(5);activate(TOOL_COPY_TO);desk_text_buffer_set(&t.prompt.text,"/fat/dest",9);accept();
+        if(status==0) finish_status(DESK_FILE_EXISTS);
+        if(status==1) finish_status(DESK_FILE_CHANGED);
+        if(status==2) finish_status(DESK_FILE_BUSY);
+        if(status==3) finish_status(DESK_FILE_IO);
+        assert(!t.transfer_action && !t.transfer_folder[0] && !t.file_select_name[0]);
+        assert(strstr(t.status,status==0?"destination already contains":status==1?"changed":status==2?"open":"outcome is unknown"));
+        activate(TOOL_REFRESH);listing(0);assert(t.table_rows[t.table.body.selected].id==5 && !strstr(t.status,"File copied"));
+    }
+    init();choose(5);activate(TOOL_MOVE_TO);desk_text_buffer_set(&t.prompt.text,"/fat/dest",9);accept();
+    finish_status(0);finish_status(DESK_FILE_IO);assert(strstr(t.status,"File moved") && strstr(t.status,"refresh"));
+    assert(!t.transfer_folder[0] && !t.file_select_name[0]);activate(TOOL_HOME);listing(0);
+    assert(!strstr(t.status,"File moved") && strcmp(t.saved_path,"/fat/dest"));
+    for(int failure=0;failure<2;failure++) {
+        init();choose(5);activate(TOOL_COPY_TO);desk_text_buffer_set(&t.prompt.text,"/fat/dest",9);accept();
+        finish_status(0);
+        if(failure==0) {t.job.busy=0;tool_files_finish(&t,-1);}
+        else {t.job.busy=0;t.job.response=(struct desk_file_response){.count=1,.length=1};tool_files_finish(&t,1);}
+        assert(strstr(t.status,"File copied") && strstr(t.status,"refresh") && !t.transfer_folder[0] && !t.file_select_name[0]);
+        activate(TOOL_HOME);listing(0);assert(!strstr(t.status,"File copied") && strcmp(t.saved_path,"/fat/dest"));
+    }
+}
 int main(int argc,char **argv) {
     if(argc==2) {
         if(!strcmp(argv[1],"selection")) {
@@ -111,6 +170,7 @@ int main(int argc,char **argv) {
     recovery_selection(0,DESK_FILE_COPY);recovery_selection(1,DESK_FILE_COPY);
     for(int i=0;i<4;i++)recovery_notice(i);
     recovery_worker();
+    transfer_tests();
     init();
     assert(t.file_count==3 && t.entries[0].directory && !strcmp(t.entries[1].name,"Alpha"));
     assert(!strcmp(t.file_dates[2],"2026-10-18 12:34"));choose(5);activate(TOOL_OPEN);assert(launched==1);
