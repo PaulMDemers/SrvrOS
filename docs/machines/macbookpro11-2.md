@@ -12500,3 +12500,30 @@ for this bounded contract. Next is private5GHz discovery/cache/selection and
 then live ownership/reattach/authentication/key/TX/IP/data/disconnect. AP
 credentials remain unused;Demers2.4 needs compatible hardware. Initial3732593a
 and the separate bc anomaly remain failed/unaccepted. Ubuntu default;unarmed.
+
+
+## 2026-11-04 active Demers5 discovery / authentication / data scope
+
+User requests continuing through Demers5 discovery/selection,authenticated
+connection and data transfer. Latest native acceptance remains285dad07e7a14417/
+128c25b0;no outstanding run. Fetched main5f4f6fc6,including merged PR317 controller
+retirement/control ownership,reclaim and isolation fixes plus profile/Files/
+inspection changes. Consume actual module pins and preserve MT76 owner/DMA
+retention before the next matched candidate;do not inherit unrelated native
+acceptance. Open364 owns export-publication recovery,363 xz streams,362 Air
+read-only DMA inventory,334 signal/browser context,310 JSC and301 Air scanout.
+No other Wi-Fi owner found. Read current Air scope without changing its gates.
+
+Next bounded hardware checkpoint: a separate fixed161 discovery collector and
+private generation-bound explicit Demers5 selection after completed cal5 receive
+and exact terminal stop,with all retained inputs revalidated,unique BSSID
+aggregation,hidden/conflicting advertisements refused and no identifier dump.
+Keep legacy1/6/11 admission unchanged;add strict RSN cipher/AKM/PMF parsing and
+retain selected private evidence for later authentication. Security presence
+alone must never admit a join. Exact target selection is explicitly authorized
+by the user;no first/strongest/open-network fallback. Then bounded management TX,
+association,WPA2 key exchange/key lifecycle and authorized IP provider/data/
+disconnect checks under the selected live owner. Credentials stay private and
+unused until security wiring. Touch MT76 discovery/selection/security,private
+xHCI diagnostic,explicit recipe and host/source/log/VM proofs. Cold-unplug
+shutdown and automatic save/Ubuntu return authority persist;no new boot armed.
