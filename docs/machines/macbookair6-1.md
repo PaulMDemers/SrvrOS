@@ -178,6 +178,32 @@ nominal excess); package C3 remains zero. USB integrity, recovery and durable
 hash verification pass; no reboot is armed. Next is a read-only tiled-aperture /
 GGTT backing audit, retaining every unknown assurance and original limit.
 
+### Active exact Haswell vector pilot (2026-11-03)
+
+Base `0cba30a1`, actual recursive pins consumed; installed native readout remains
+`728bcbeb` / `9b485ca12b4c2482`. PR301 remains open and now owns Broadwell
+scanout-lifetime work as well as its capture. This bounded Air6,1 pilot uses the
+same endpoint/map/read/unmap/clock contract inside the existing isolated Air6,1
+AP diagnostic, without modifying that driver's API, Broadwell gates or owner.
+It is a model-specific adapter, not a competing generic display backend; common
+factoring remains dependent on PR301's integrated contract.
+
+Scope: exact Haswell-only readout core/adapter, dedicated opt-in stage/decoder,
+positive/refusal/retention tests and automated capture. Capture the complete
+1536-entry-bounded DWORD GGTT extent twice, raw GGC/config/route/framebuffer,
+and documented FENCE0–15 pairs. Upper sixteen fences and unobserved swizzle
+controls stay unknown; no unique-fence, CPU-view equivalence, allocator pin or
+hardware authority is granted. Only the existing safe display-arbitration
+swizzle control is observed. Independent 100ms readout bounds do not replace
+20ms coordinated-C3 or any other original limit. No power/control/data writes,
+backing RAM mappings or sibling admission. No ordinary startup hook.
+
+PR252 is integrated in this baseline; PR301, PR313/314 filesystem/profile work
+and PR19 Wi-Fi retain their own scope. Next: actual C adapter fixtures and strict
+full-vector wire/retention checks, matched builds/exact-stage VM, local USB and
+recovery preflight, merge and an automated read-only one-shot under existing
+authorization. Native acceptance remains pending; no reboot is armed yet.
+
 ### Active tiled-backing source audit (2026-11-03)
 
 Updated to actual main `8f47f196`, with matched pinned app/widget submodules.
