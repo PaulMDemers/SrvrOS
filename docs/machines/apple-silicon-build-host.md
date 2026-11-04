@@ -14,6 +14,58 @@ The [filesystem contract](../filesystem-layout.md) records exact limits and
 review VMs 61610, 6233 and 85869 and primary checkout remain untouched. Delivery
 is a scoped draft PR; no physical trial, hosted Actions or merge requested.
 
+## PR336 integrated-main merge review — ready
+
+User authorizes review and merge if ready. Reuse the isolated
+`SrvrOS-installation-io` checkout and existing inspection branch at `b3c6a694`;
+fetched main remains `62b0708e`. Own review/tests, proof-equivalence receipt and
+installation continuity documentation only. Inspect filesystem/profile contracts
+and pending PR333 without consuming unmerged changes. Preserve review VMs
+61610/6233/85869, primary checkout and prior evidence; one build/harness here,
+no physical media, host reboot or Actions.
+
+Review finds no material blocker or unresolved thread. Fresh installation checks
+pass (55 passing and one default skip, including 19 inspection groups), as do
+profile/guest and documentation checks. All accepted artifact/tool/native-source
+and build-output hashes match; the retained used stage matches its final proof
+snapshot. Two fresh read-only used inspections pass and strict publication
+inspection/reconciliation still refuse, preserving stage/source/receipt bytes.
+Unchanged main/runtime inputs preserve the source-attributed two-boot and refusal
+proof; no new VM is needed. Review receipt/logs/script survive at
+`.local/installation-evidence/pr336-review`. Ready for the authorized merge.
+Next proposal: read-only selected-profile export directly from a used image,
+using a bounded read-only document reader, strict portable bundle codec and
+fresh-install restoration proof. Dependencies and acceptance are in the
+installation guide; no dependency on unmerged desktop-transfer/salvage work.
+
+## Read-only used-installation inspection — qualified
+
+User authorized a scoped PR with used-image and refusal proof. Reuse isolated
+`SrvrOS-installation-io`, branch `device/apple-silicon/installed-state-inspection`,
+main `5634cd9d`. Inspect current filesystem/profile contracts; own the separate
+host inspector, inherited-read-only-fd native metadata reader, CLI/tests and proof.
+Original publication/reconciliation rules remain unchanged; receipts stay
+historical after guest use. No kernel/provisioning/profile-policy implementation.
+Validate boot/root identity, current allocation/admission and bounded profile
+metadata; refuse uncertain state without cleanup. Preserve review VMs
+61610/6233/85869 and primary checkout, one build/harness at a time, no physical
+media/reboot/Actions. Acceptance/evidence are recorded in the installation guide.
+
+Clean `ff974bdf` passes the matched build, 19 new inspection groups and combined
+installation/profile checks. The real two-boot proof records six successful
+pristine/used inspections, 23 mutation refusals plus a busy lock, four unchanged
+publication refusals and exact source/stage/receipt preservation. Guest profile
+identity/preferences/data/env/apps and protected regions pass; native writes and
+flushes stay zero. Reopened Text was visually checked. Raw proof and artifacts
+are byte-verified outside build cleanup at
+`.local/installation-evidence/used-proof-4k419y9m`. Review VMs remain live and
+untouched; task VMs stopped. Publish a scoped draft PR; no merge requested.
+Used v2 needs its retained profile snapshot, used v1 its exact old data source.
+On-disk consistency is not authentication, live health or physical durability.
+Final publication refresh integrates main `62b0708e`/PR335, an unrelated
+host-only Haswell audit. Fresh combined host and documentation checks pass;
+all proof tool/native-source and matched artifact hashes remain unchanged.
+The accepted VM evidence retains its original clean-source attribution.
 
 ## PR330 merge review
 
