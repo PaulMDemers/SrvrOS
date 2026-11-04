@@ -8,7 +8,7 @@ unchanged. Apps and Widgets advanced, so acceptance requires focused host checks
 a clean matched build and a new recovery/fresh-B two-boot proof. Original A and
 its baseline remain at their recorded paths/device/inodes; preserve all three
 review VMs. Reserve gates remain 8 GiB output at proof start, 4 GiB output/backing
-floor, 2 GiB internal at compile start and 1 GiB internal floor. Only the completed
+floor, 2 GiB internal/temp throughout the qualification. Only the completed
 recovery proof's inactive transport was losslessly archived after exact SHA/size
 round-trip verification, with historical inode and restoration instructions in
 its `review-transport-archive.json`. No source A, baseline or accepted raw B was
