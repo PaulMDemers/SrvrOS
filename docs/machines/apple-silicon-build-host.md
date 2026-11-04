@@ -4027,3 +4027,24 @@ meet the profile suite's unmodified free-space preflight. Initial firmware and
 space preflight failures ran no profile guest and are not counted as acceptance.
 No physical-media, power-loss or external fsck.exfat acceptance is added. All
 owned guests stop at test completion; shared checkout and review VM are untouched.
+
+### Files destination-folder picker — active November 4, 2026
+
+User authorizes a browsable destination-folder picker for Files Copy to and Move
+to, in isolated `SrvrOS-app-quality` only. Base OS `f4ea0ccb`, Apps `2a8bc2d9`,
+UI `586bd002`; preserve merged profile creation and cooperative session switching.
+Own allocation-free SrvrUI folder mode, existing asynchronous OS chooser filtering,
+SrvrApps Files/presenter wiring, focused checks and disposable-VM acceptance.
+Folders activate to browse; Choose folder accepts the currently displayed folder.
+Typed location remains available. Capture source identity before browsing; retain
+original basename, <=16MiB regular-file bound, guarded source metadata, collision
+refusal, same-volume Move and honest unknown-outcome recovery. No recursive
+transfer, overwrite, new filesystem mutation or session-policy implementation.
+
+Acceptance: keyboard/pointer nested and empty folder selection, parent/root alias
+navigation, canceled/failed/pending reads and reopen, unchanged source guard after
+browsing, owned-dialog and embedded fallback, sibling independence and accepted
+copy through Close; exact saved bytes, guest fsck/offline allocation, clean worker
+retirement, Open/Save regressions, clipped/narrow/theme rendering and matched
+source/build. Build/VM harnesses run sequentially. Shared checkout and review VM
+remain untouched. Draft/review delivery follows acceptance; merge is separate.
