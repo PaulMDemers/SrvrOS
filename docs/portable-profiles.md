@@ -791,3 +791,19 @@ build and the host compiler setup in the macOS development guide. Run one build
 or VM harness at a time. All task-owned VMs are stopped. Existing review VMs,
 the primary checkout and physical media remain untouched; Actions stay disabled.
 Delivery is a scoped draft PR, with merge left for the requested review step.
+
+### PR325 integration during publication
+
+Main advanced to `4b5ddb7c` while the chooser proof ran. Its merged PR325 adds
+host installation publication recovery and documentation, with no guest runtime
+change. Both unit-record sections are preserved when resolving their conflict.
+Integration `e8795d80` has identical top-level runtime Git objects and all three
+recorded build payload hashes compared with the accepted `3f9c225a` proof.
+The [integration receipt](assets/screenshots/profile-chooser-integration.json)
+records this comparison and the three changed host tools explicitly; it does not
+relabel the VM proof as a new source run. Fresh combined checks pass 29
+installation preparation/profile/recovery tests, the chooser/catalog/guest host
+checks and profile/session/preferences/bundle/image-adapter regressions. Logs
+are `build/profile-chooser-pr325-{host,installation,docs}.log`, also preserved
+outside build cleanup with the integration receipt. [PR326](https://github.com/PaulMDemers/SrvrOS/pull/326)
+is the scoped chooser draft for review.

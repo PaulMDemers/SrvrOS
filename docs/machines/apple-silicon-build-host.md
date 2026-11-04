@@ -26,6 +26,13 @@ All task VMs are stopped. Review VMs 61610, 6233 and 85869 remain running and
 untouched, with the primary checkout preserved. No physical media, reboot,
 Actions or merge requested. Delivery is a scoped draft PR for review.
 
+Published as [PR326](https://github.com/PaulMDemers/SrvrOS/pull/326). Main
+`4b5ddb7c` (PR325) is now integrated, preserving both unit-record sections.
+Guest runtime trees and all recorded build payload hashes are identical to the
+accepted chooser proof; its source attribution stays unchanged. Fresh combined
+29 installation and chooser/profile host checks pass. The portable-profile
+integration receipt records exact source/hash equivalence and host-tool changes.
+
 ## PR325 merge review
 
 User authorized review and merge if ready. Candidate `8b4619b6` integrates main
