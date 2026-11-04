@@ -18,6 +18,10 @@ bool vmm_map_page(uint64_t virtual_address, uint64_t physical_address, uint64_t 
 bool vmm_unmap_page(uint64_t virtual_address, uint64_t *physical_address);
 bool vmm_virt_to_phys(uint64_t virtual_address, uint64_t *physical_address);
 bool vmm_user_range_mapped(uint64_t virtual_address, uint64_t length, bool writable);
+/* CPU0, IRQs already masked: current registered user root and executable
+ * entry permission only, valid in this uninterrupted excluded continuation.
+ * Does not establish process/image identity or pin the mapping. */
+bool vmm_user_exec_current(uint64_t address, uint64_t expected_cr3);
 uint64_t vmm_kernel_address_space(void);
 uint64_t vmm_current_address_space(void);
 void vmm_switch_address_space(uint64_t address_space);

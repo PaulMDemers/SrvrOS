@@ -3520,3 +3520,13 @@ cancellation/relaunch/timeout guests. Receipt and exact scope are in
 Task guests stopped; review VMs preserved. The source/test result is with the
 owner for review; FPU/image/lifetime/VMM copy and public signal admission remain
 unimplemented. New lifetime/executable-query packets are design only.
+
+
+The owner accepted standalone transition evidence and approved an unwired VMM
+executable-entry query. Actual all-level permission/root/capability host fixtures,
+sanitizers and the freestanding VMM object pass; no production query caller or
+policy mutation exists. A separate matched guest actually executes CPUID (NX=1,
+Page1GB=0); same-guest QMP readback shows NXE/WP on and SMAP off. Exact receipt and
+scope are in the signal/context guide. Lifecycle uses mandatory association
+invalidation as the owner's design preference; no binding epoch or FPU/lifetime
+implementation is authorized yet. Task guests stopped; review VMs preserved.

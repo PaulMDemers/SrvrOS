@@ -494,12 +494,14 @@ bool vmm_virt_to_phys_in_space(uint64_t address_space,
     return true;
 }
 
-static bool vmm_entry_for_address(uint64_t address_space, uint64_t virtual_address, uint64_t *entry_out) {
+static bool vmm_entry_for_address(uint64_t address_space, uint64_t virtual_address, uint64_t *entry_out,
+    uint64_t *leaf_size_out) {
     uint64_t *pdpt;
     uint64_t *pd;
     uint64_t *pt;
     uint64_t entry;
     uint64_t effective = VMM_PAGE_USER | VMM_PAGE_WRITABLE;
+    uint64_t no_execute = 0;
 
     if (entry_out == NULL) {
         return false;
@@ -510,10 +512,11 @@ static bool vmm_entry_for_address(uint64_t address_space, uint64_t virtual_addre
 
     uint64_t *pml4 = pmm_phys_to_virt(address_space);
     entry = pml4[pml4_index(virtual_address)];
-    if ((entry & VMM_PAGE_PRESENT) == 0) {
+    if ((entry & VMM_PAGE_PRESENT) == 0 || (entry & PAGE_LARGE) != 0) {
         return false;
     }
     effective &= entry;
+    no_execute |= entry & VMM_PAGE_NO_EXECUTE;
     pdpt = entry_table(entry);
     if (!is_canonical((uint64_t)pdpt)) {
         return false;
@@ -524,8 +527,10 @@ static bool vmm_entry_for_address(uint64_t address_space, uint64_t virtual_addre
         return false;
     }
     effective &= entry;
+    no_execute |= entry & VMM_PAGE_NO_EXECUTE;
     if ((entry & PAGE_LARGE) != 0) {
-        *entry_out = (entry & ~(VMM_PAGE_USER | VMM_PAGE_WRITABLE)) | effective;
+        *entry_out = (entry & ~(VMM_PAGE_USER | VMM_PAGE_WRITABLE)) | effective | no_execute;
+        if (leaf_size_out) *leaf_size_out = 1ull << 30;
         return true;
     }
     pd = entry_table(entry);
@@ -538,8 +543,10 @@ static bool vmm_entry_for_address(uint64_t address_space, uint64_t virtual_addre
         return false;
     }
     effective &= entry;
+    no_execute |= entry & VMM_PAGE_NO_EXECUTE;
     if ((entry & PAGE_LARGE) != 0) {
-        *entry_out = (entry & ~(VMM_PAGE_USER | VMM_PAGE_WRITABLE)) | effective;
+        *entry_out = (entry & ~(VMM_PAGE_USER | VMM_PAGE_WRITABLE)) | effective | no_execute;
+        if (leaf_size_out) *leaf_size_out = 1ull << 21;
         return true;
     }
 
@@ -553,8 +560,56 @@ static bool vmm_entry_for_address(uint64_t address_space, uint64_t virtual_addre
     }
 
     effective &= entry;
-    *entry_out = (entry & ~(VMM_PAGE_USER | VMM_PAGE_WRITABLE)) | effective;
+    no_execute |= entry & VMM_PAGE_NO_EXECUTE;
+    *entry_out = (entry & ~(VMM_PAGE_USER | VMM_PAGE_WRITABLE)) | effective | no_execute;
+    if (leaf_size_out) *leaf_size_out = PAGE_SIZE;
     return true;
+}
+
+
+/* Entry permission only. CPU0, IRQs already masked; no scheduler or image
+ * lifetime guarantee. The registry proves a current user root, not identity. */
+bool vmm_user_exec_current(uint64_t address, uint64_t expected_cr3) {
+    uint64_t flags;
+#ifdef SRVROS_VMM_HOST_TEST
+    flags=vmm_test_rflags();
+#else
+    __asm__ volatile ("pushfq; popq %0" : "=r"(flags) : : "memory");
+#endif
+    if ((flags & (1ull << 9)) || !address || (address >> 47) ||
+        !expected_cr3 || (expected_cr3 & ~PAGE_MASK) || expected_cr3 == kernel_cr3)
+        return false;
+    uint64_t current=read_cr3() & PAGE_MASK;
+    if (!current || current != expected_cr3 || !find_address_space_record(current))
+        return false;
+    uint32_t eax, ebx, ecx, edx;
+#ifdef SRVROS_VMM_HOST_TEST
+    vmm_test_cpuid(0x80000000u,&eax,&ebx,&ecx,&edx);
+#else
+    __asm__ volatile ("cpuid" : "=a"(eax), "=b"(ebx), "=c"(ecx), "=d"(edx)
+                      : "a"(0x80000000u), "c"(0));
+#endif
+    if (eax < 0x80000001u) return false;
+#ifdef SRVROS_VMM_HOST_TEST
+    vmm_test_cpuid(0x80000001u,&eax,&ebx,&ecx,&edx);
+#else
+    __asm__ volatile ("cpuid" : "=a"(eax), "=b"(ebx), "=c"(ecx), "=d"(edx)
+                      : "a"(0x80000001u), "c"(0));
+#endif
+    if (!(edx & (1u << 20))) return false;
+    uint64_t efer;
+#ifdef SRVROS_VMM_HOST_TEST
+    efer=vmm_test_efer();
+#else
+    uint32_t lo, hi;
+    __asm__ volatile ("rdmsr" : "=a"(lo), "=d"(hi) : "c"(0xc0000080u));
+    efer=((uint64_t)hi << 32) | lo;
+#endif
+    if (!(efer & (1ull << 11))) return false;
+    uint64_t entry, leaf_size;
+    return vmm_entry_for_address(current,address,&entry,&leaf_size) &&
+        (leaf_size != (1ull << 30) || (edx & (1u << 26))) &&
+        (entry & VMM_PAGE_USER) && !(entry & VMM_PAGE_NO_EXECUTE);
 }
 
 bool vmm_user_range_mapped(uint64_t virtual_address, uint64_t length, bool writable) {
@@ -576,7 +631,7 @@ bool vmm_user_range_mapped(uint64_t virtual_address, uint64_t length, bool writa
 
     while (page <= end) {
         uint64_t entry = 0;
-        if (!vmm_entry_for_address(address_space, page, &entry) ||
+        if (!vmm_entry_for_address(address_space, page, &entry, NULL) ||
             (entry & VMM_PAGE_USER) == 0 ||
             (writable && (entry & VMM_PAGE_WRITABLE) == 0)) {
             return false;

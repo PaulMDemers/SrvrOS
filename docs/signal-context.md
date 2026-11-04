@@ -398,13 +398,13 @@ thread's own proof instead. Failed exec preserves its old binding/proof; a sette
 called on a separate failed-spawn restoration may conservatively invalidate it
 and defer signal work to a fresh common entry.
 
-One review choice remains explicit: a separate nonreused binding epoch can carry
-continuity through observations, but requires a fallible prepare/commit API and
-an exhaustion policy even for parent restoration (today's setter returns void).
-Alternatively, mandatory active-association invalidation on every setter/clear
-and a strict ban on retaining observations across any binding mutation can enforce
-the narrower proof lifetime. Neither alternative may substitute scheduler/job IDs
-for image generation. Agree the smallest sufficient contract before implementation.
+The owner prefers mandatory active-association invalidation on every setter/clear
+without introducing a fallible binding-epoch allocator. Preserve the existing
+void binding API's role: generation reservation belongs to staged image creation,
+not parent restoration. Pass or mirror the committed image ID explicitly, and
+invalidate observations across every binding setter even when process/CR3/FPU
+pointers are restored to their previous values. This preference does not approve
+lifecycle/FPU fields or hooks; the exact commit/rollback packet remains required.
 Also audit existing exec stdio failure atomicity rather than asserting it by
 declaration. Directed bare-TID wrapping remains a separate enabling gate.
 
@@ -442,3 +442,51 @@ scheduling/allocation. Define behavior for aliases, future COW/demand paging and
 actual CR0.WP/SMAP policy before claiming fault-free transactionality. Missing or
 nonwritable second pages must leave destination and pending/private/frame state
 unchanged. Existing per-page syscall copy remains insufficient and unchanged.
+
+
+## Approved unwired executable query
+
+The owner accepted the transition code/evidence and independently reran its
+strict/sanitized actual-source fixtures and verified the receipt's source and
+artifact/log hashes. They then approved an internal unwired executable-entry query,
+actual VMM host tests and target-object compilation. No copy/delivery or lifetime
+hook was authorized by that approval.
+
+`vmm_user_exec_current(address, expected_cr3)` requires IF already clear, a
+nonzero lower-half address, a nonzero aligned expected root without policy bits,
+a nonzero matching *raw* CR3 base, a nonkernel root and a used registered user-root
+record. Registry membership establishes allocation bookkeeping, not image
+identity. It refuses absent extended CPUID/NX before RDMSR or page-table reads,
+then requires actual EFER.NXE. It never enables a policy or mutates a mapping.
+The private walker now ORs NX over every used level while retaining USER/WRITE
+AND semantics, rejects the unsupported PML4 large-page shape and reports bounded
+private leaf size. The new query additionally requires CPUID Page1GB for a 1 GiB
+leaf; lack of that bit does not reject valid 4 KiB/2 MiB entries. Existing public
+range/map behavior is preserved, including readable NX pages. These checks follow
+[Intel SDM volume 3A, sections 4.1.4 and 4.6](https://cdrdv2-public.intel.com/819714/253668-sdm-vol-3a.pdf).
+This is entry-mapping permission observation within one excluded CPU0 continuation,
+not pinning, arbitrary instruction validation, image ownership or future callback
+safety. No production caller exists.
+
+Strict native ARM64 host and ASan/UBSan actual VMM fixtures pass all original
+noncanonical/range/teardown regressions plus independent PRESENT/USER/NX mutations
+at each level and all three leaf sizes, realistic IF-set/clear flags, mapped zero
+versus nonzero entry, the highest valid user byte, next-half refusal, root/registry/
+raw-CR3 failures and independent NX/Page1GB/NXE capability combinations. Missing
+capability never reads EFER/tables. Every call checks unchanged tables, registry,
+CR3/EFER/IRQ policy and allocation/free/switch state. The actual freestanding VMM
+object compiles with pinned Zig 0.15.2. Logs are
+`build/signal-context/vmm-executable-{host,sanitizers,target}.log`; no live-query
+guest invocation is claimed.
+
+A separate read-only CPUID program actually ran in the matched Q35/qemu64 guest
+and exited zero: NX is present and Page1GB is absent. QMP register readback in that
+same guest reports EFER.NXE=1, CR0.WP=1, CR4.SMAP=0; this is distinct from the
+previous QEMU model-property observation. Receipt:
+`build/signal-context/vm-1793763902047506000/cpu-probe-2/receipt.json`, SHA256
+`a586b0a4e926beb79b87f96bc801b0faee67ff9da9510903ed416b78ef500848`.
+The probe uses kernel code `fa69b4dc`, not a hooked query, and changes no CPU
+policy. Its first command reader stopped on an echoed prompt before execution;
+that failed attempt remains retained, and the successful reader requires the
+process exit receipt. Both guests stopped. This does not establish physical or
+other virtual CPU policy, executable-query runtime behavior, or signal support.
