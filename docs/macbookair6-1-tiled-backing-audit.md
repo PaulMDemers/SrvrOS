@@ -189,3 +189,17 @@ synthetic; only the matching native saved file can accept the observation.
 Both the record and decoder preserve `upper=unknown`, `swizzle=partial` and
 `ownership=0`. No full fence uniqueness, complete CPU-view equivalence, firmware
 exclusion, GGTT allocation, scanout ownership or well/HDA transition is inferred.
+
+## Native pilot result (2026-11-03)
+
+Release `e98aed0c5f8d06cf` / source `baaa94b5` retains two matching complete
+1,056-entry Haswell DWORD vectors, bracketed at 371/368 us. All PTEs are present
+and identify consecutive address candidates in firmware-reserved stolen RAM;
+eight temporary windows retire without uncertainty. FENCE0 is the only lower
+candidate, and the observed display-arbitration swizzle bit is clear. This accepts
+bounded read-only observations, not full fence uniqueness, complete swizzle,
+CPU-detiled equivalence, allocation lifetime, pinning or real hardware ownership.
+See the [unit record](machines/macbookair6-1.md#native-haswell-full-vector-observation-accepted-2026-11-03)
+for exact session and storage/recovery checks. The original RC6 timing failure
+and package-C3 result are unchanged. Remaining prerequisites require further
+source audit/read-only evidence before any writer or adoption can be considered.

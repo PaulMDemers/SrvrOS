@@ -6768,3 +6768,35 @@ Its complete payload/evidence must verify before reclaiming only its EFI copy;
 console recovery and accepted fallbacks remain protected. GGTT observation does
 not grant real ownership/pinning, complete fence/swizzle knowledge, package C3 or
 RC6 timing acceptance. Those limitations and all existing limits remain unchanged.
+
+### Native Haswell full-vector observation accepted (2026-11-03)
+
+Release `e98aed0c5f8d06cf`, compiled source `baaa94b5` from merged PR324,
+automatically returned and collected session `session-00065f696b8bd4f1-00`.
+Both complete 1,056-entry DWORD vectors agree byte-for-byte, with stable config,
+framebuffer and documented lower-fence endpoints. The two readout brackets are
+371 and 368 us under the original 100 ms bounds. Each performs 1,152 window reads;
+eight temporary maps retire with no retained uncertainty or hardware authority.
+
+Every PTE is present. Address candidates are consecutive from `0x8da00000` through
+`0x8de1f000` (exclusive backing end `0x8de20000`), entirely inside the captured
+firmware-reserved stolen interval `0x8da00000..0x8fa00000`. Host/GPU GGC agree at
+`0x209`, giving a 2 MiB table candidate. FENCE0 is `0x00fff02b00000001` and is the
+sole candidate among the sixteen documented rows; the unobserved upper range
+still prevents a uniqueness grant. Display-arbitration swizzle bit 13 is clear;
+full swizzle/configuration and CPU-detiled equivalence remain unproven. No backing
+pixels were mapped or read, and no pin, ownership or power-control permission is
+accepted by this observation.
+
+All 590 prior files are preserved apart from expected workspace metadata. Two
+new logs yield 592 files / 1,658 allocated clusters. Read-only fsck and independent
+allocation checks pass with zero leaks, bitmap mismatches or errors. The exact
+24,705-byte exit receipt independently decodes again; 495 durable evidence files
+verify. Installed payload/recovery hashes verify, Ubuntu remains default, the
+one-shot is consumed and the collector is disabled. No reboot is armed.
+
+Closeout consumes main `3b3fb5b3` for documentation only; that newer tree does not
+inherit this release's physical acceptance. Next is resolving remaining fence
+coverage and swizzle/lifetime prerequisites through source audit and bounded
+read-only evidence. Prior RC6 timing failure and valid-zero package C3 remain
+unchanged; no graphics writer or ordinary adoption is enabled.

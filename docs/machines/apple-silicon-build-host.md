@@ -31,6 +31,55 @@ is not requested by this milestone. Primary checkout, review VMs and physical
 media remain untouched. Actions stay disabled. Next: integrate command/app
 workers, run focused checks, then the two-installation proof.
 
+## PR330 merge review
+
+Final refresh consumes main `10890eed`/PR329 as `740869f0`. Fresh file-fsync,
+installation/profile/chooser/guest checks and the matched build pass; the full
+seven-error/two-boot production proof was rerun because guest save uses the
+changed syscall. All matrix component hashes still match. Verified raw proof
+and artifacts survive at `.local/installation-evidence/pr330-fsync-review`.
+This supersedes the earlier unchanged-main runtime-equivalence assessment.
+Review VMs remain live and untouched; ready for authorized merge.
+
+Initial review, authorized to merge if ready: main `c90f3522` was already
+integrated in `5d0fa39e`; independent review finds no material blocker or unresolved
+thread. Fresh installation/profile/chooser/guest checks and the matched build
+pass. All matrix/smoke tool and artifact hashes, receipt hashes and the final raw
+stage snapshot match accepted evidence, preserving the 436-case/seven-refusal/
+two-negative-control/seven-production-error/two-boot proof without another VM.
+Review logs and build metadata survive at `.local/installation-evidence/pr330-review`.
+Original review VMs remain live and untouched; no physical work or Actions.
+Ready for authorized merge. Next proposal is read-only post-boot installed-state
+inspection with the existing filesystem/profile refusal boundaries and a bounded
+read-only metadata reader; see the installation guide for dependencies/acceptance.
+
+## Host publication I/O-failure qualification — complete
+
+User authorized a scoped PR with write/sync/link/unlink failure, reconciliation
+and refusal proof in isolated `SrvrOS-installation-io`, branch
+`device/apple-silicon/install-publication-io-qualification`, main `c90f3522`.
+Own host publication tool/fault fixtures and installation docs only. Latest
+integrated filesystem/profile contracts, including PR326's identity metadata and
+PR327/328 salvage boundaries, are inspected and consumed. Separate storage-guard
+work stays intact in the earlier checkout, with private build outputs here. Reconciliation
+must re-establish verified stage-file and namespace syncs after uncertain errors,
+including an already visible ready receipt. No guest or kernel policy changes.
+Preserve review VMs 61610, 6233 and 85869, primary checkout and accepted evidence.
+One build/harness at a time; no physical media, reboot or Actions. Acceptance
+and exact evidence are recorded in `docs/disk-installation.md`.
+
+Clean `3eae3223` passes 436 bounded host fault cases, seven refusal controls and
+two source-mutant negative controls. Every recorded matrix component hash still
+matches after consuming `c90f3522`/Ports `ca749517`. Fresh host checks and the
+matched full build pass at `b6ffb556`; the production image/driver proof reports
+all seven selected errors, reconciles identical candidate bytes, and passes
+two edit/save/reboot/readback boots. Source/profile/machine/protected-region
+and allocation checks pass; guest-used images refuse recovery without mutation.
+Reopened Text was visually checked. Byte-verified raw evidence and artifacts:
+`.local/installation-evidence/io-proof-j8xbfmgc`. Original task VMs stopped;
+review VMs remain live and untouched. Publish a scoped draft; no merge requested.
+Power loss, media/device faults and automatic repair remain outside acceptance.
+
 ## PR326 merge review — complete
 
 User authorized review, fixes and merge after passing checks. Review the chooser,
@@ -2784,6 +2833,22 @@ edge-resize review VM and disk are preserved. Logs are in
 requested behavior and acceptance are complete; no further implementation
 is required. No native boot/install or hosted Actions change.
 
+### SQLite CLI port — active scope November 3, 2026
+
+Branch `ports/sqlite` starts at runtime `0fd0c5fc`. This isolated checkout owns
+the SQLite 3.53.1 CLI adapter, static build/image integration and bounded guest
+checks for single-connection exclusive-access SQL scripts and CSV import, query,
+export and reopen. It depends on the pinned SrvrPorts SQLite amalgamation; the
+existing `sqlitedemo` keeps its own engine configuration. WAL, process commands,
+loadable extensions and readline are excluded. Full build, host VFS tests, guest ownership/temp/error probe and two-boot CSV
+workflow pass. Two clean CLI builds match SHA256
+`a23d90c8e8b49f7e36ff996e8cf009eee5ab7537faea6edabbe7a34cfd873b2f`.
+Raw receipts are under `build/sqlite-cli-smoke/` and `build/review/sqlite/`;
+external fsck is unavailable, while guest fsck and offline allocation pass.
+No full-image reproducibility or power-loss durability claim is made;
+the integration checkout and existing review VMs are preserved. No physical
+boot or native acceptance is part of this scope.
+
 
 ### HiDPI and display settings — active scope November 3, 2026
 
@@ -3186,3 +3251,20 @@ reported zero leaks/FAT/errors. The full host transcript is
 The final staged-port guest also passed after the shell changes, with a clean
 post-run filesystem check. Its transcript is
 `build/review/whole/ports-shell-final.log`.
+
+
+### SQLite merge review — November 3, 2026
+
+Candidate `d3b5c321` integrates main `89c210db`, including merged PR252, and
+pins SrvrPorts `525f422`. Review fixed a shell-helper rollback-journal collision;
+guards now protect journal names before creation, case variants, inode aliases
+and streams opened before the database. Independent source review and host VFS
+checks pass. Fresh two-boot CLI/guest VFS tests, exact rollback rows after rejected
+journal writes, guest fsck and offline allocation pass. Receipts are under
+`build/sqlite-cli-smoke/20261103-212748-7tm1f5tf/` and
+`build/review/sqlite-merge/`. A clean rebuild matches CLI ELF SHA256
+`1107f624eba0a878c4d4440d4ddae9c77af7785de42a0647eeb60999f74d8e51`.
+Independent fsck is unavailable. The original acceptance hash above remains
+historical; no power-loss, physical-device or full-image reproducibility claim
+is added. Integration checkout/review VM remain untouched. PR2 in SrvrPorts must
+merge before OS PR306; the user authorized both merges conditional on checks.

@@ -3,6 +3,259 @@
 Updated November 3, 2026. Global activation follows the explicit namespace proof
 in [PR308](https://github.com/PaulMDemers/SrvrOS/pull/308).
 
+## PR332 merge review and next bounded milestone
+
+User authorized review and merge if ready. Reviewed `eba6b83b` against unchanged
+main `89c210db`; no blocking finding. The CLI must reach stage=flush with all
+12,289 accepted bytes and no offset-restore error; the host additionally checks
+ATA write/flush failure on the third target. Open refusal cannot pass. Scope
+validation confines both filters to distinct fixture images and leaves installed
+root unfiltered. Calibration and reopen carry no filters; default modes preserve
+their existing behavior. No kernel/process/block/driver implementation changes.
+
+Revalidated all 79 preserved final image/log hashes, raw healthy bytes, the
+flush case's unacknowledged payload, source/target hashes, failed-attempt output,
+explicit reboot refusal and both restart readbacks. The five-boot proof at
+`4c368c23` remains applicable: `eba6b83b` changes only documentation and builds
+identical guest payloads. The existing 11-case canonical/CLI proof also remains
+applicable. Fresh fsync/namespace/usercopy/I/O/helper/CLI/scope and documentation
+checks pass. Unchanged runtime evidence was inspected rather than relabeled as
+a new VM run. Review record and fresh host log are retained outside build at
+`.local/filesystem-evidence/pr332-review/`.
+
+PR317 at `c9f4f306` remains draft, with independent terminal xHCI stop/drain and
+network callback retirement. No overlap or dependency is established for this
+proof-only merge. Review VMs 61610, 6233 and 85869 remain running and untouched;
+no new VM, physical trial or hosted Actions run was needed for this review.
+The destination-writeback qualification target is complete.
+
+Next proposed bounded milestone: **installed-root managed USB workspace salvage
+and failed-retirement proof**. Current guest proofs use raw AHCI mounts; host
+coverage already exercises managed workspace refusal. Start by reviewing the
+prepared disposable USB source and write-fault placement, coordinating transport
+and lifetime assumptions with PR317. Boot from installed root, use the actual
+`workspace mount/sync/unmount` controller, retain dirty source data through CLI
+salvage to healthy `/home`, and verify failed sync/retirement both while the
+reader is held and after deliberate final close. Check healthy-copy bytes after
+controlled restart and preserve `/fat` and `/work` compatibility. No physical
+unplug/reset, forced retirement, automatic repair or backing reclamation is
+included. This is proposed work, not implementation started by the merge review.
+
+## Installed-root destination-writeback qualification — verified
+
+User authorized this bounded proof on main `10890eed`, with PR317 coordination
+and preservation of review VMs 61610, 6233 and 85869. The isolated filesystem
+checkout owns guest sysabi proof, a fixture-owned third target, host calibration/
+fault rules, scope guards and documentation. No process/syscall/block/driver
+implementation changes were needed. Manual GPT mounts remain separate from
+managed USB workspace retirement.
+
+### Reviewed fault placement
+
+A separate installed EFI calibration boot exclusively creates and closes the
+same empty target pathname with the CLI's flags/mode; QMP records 50 target
+writes. Each real case starts from fresh images. Counted blkdebug write states
+admit all creation writes and the fsync dirty-marker write. The write case fails
+the next allocation write (ATA 0x35). The flush case activates a flush-only EIO
+on that allocation write; ordinary writes continue, then the payload barrier
+fails (ATA 0xea). This avoids counting redundant flushes and rejects an open
+refusal as proof of writeback failure. The host probes require successful writes/
+flush before the boundary and the intended error afterward. qemu-io's flush
+reports failure through exit status without printing errno. Rules and events
+were reviewed against the [QEMU guide](https://www.qemu.org/docs/master/devel/testing/blkdebug.html)
+and [blkdebug implementation](https://github.com/qemu/qemu/blob/master/block/blkdebug.c).
+
+The healthy system disk is never filtered. Source and third target must be
+three distinct owned images; only first-boot fault cases accept the two owned
+configs. Calibration/reopen cannot carry faults. Eight unittest methods cover
+21 scope scenarios, including ordinary/later-boot, external/same-image and
+missing-filter refusals before launching QEMU; the positive graph checks unique
+boot priorities and the healthy disk's unfiltered path.
+
+### Guest outcome and restart
+
+Both cases use the actual `/bin/salvage` with the independently retained dirty
+source reader. After all 12,289 bytes are accepted, the CLI reports stage=flush,
+EIO, close EIO and restore-error=0, and explicitly retains an unacknowledged
+artifact. The parent verifies fd, offset 37 and every source byte, then explicitly
+copies to healthy `/home/.dirty-salvage-copy`. Source errors remain sticky until
+deliberate last-reader close after healthy acknowledgment. No automatic retry,
+repair or kernel fault hook is introduced.
+
+The failed target remains dirty with its committed empty directory entry.
+In the flush case the raw image also contains the full payload: visible bytes
+do not establish an acknowledged copy. Both uncertain target images are retained
+without repair or allocation-clean claims. Normal global reboot correctly refuses
+the failed disks; the harness QMP-stops only its disposable VM, then starts fresh
+EFI with reversed system/work order and no filters. The healthy copy reads back
+exactly and is cleaned up. Work is byte-identical throughout; the failed target
+is byte-identical across restart. Protected image regions and healthy allocation
+checks remain clean. This is controlled cold-restart persistence after healthy
+file fsync/close, not successful global flush or physical power-loss acceptance.
+
+### Integration and evidence
+
+Initial `bc5dde19` passes calibration plus both case pairs (five EFI lifetimes).
+Fresh ordinary installed-root canonical/CLI proof `proof-s4aavezy` passes all 11
+cases, including `/fat` and `/work`. Main `89c210db`, including PR330's host
+publication checks, then merged cleanly. Combined `4c368c23` preserves identical
+guest artifacts and passes a fresh five-boot proof `proof-etsium6m`, focused
+fsync/namespace/usercopy/I/O/helper/CLI/scope checks and documentation validation.
+Installation host discovery runs 31 tests with one opt-in exhaustive I/O matrix
+skipped (30 pass); it is not claimed as a fresh exhaustive PR330 rerun.
+
+Independent checks verify raw healthy bytes, isolated command graphs, target ATA
+error types and the flush case's unacknowledged payload. Evidence is in
+`build/review/destination-salvage/`; complete final proof images, receipts, rules,
+commands and serial logs are independently cloned and SHA-256 checked outside
+build at `.local/filesystem-evidence/destination-salvage-4c368c23/`. APFS clones
+are separate writable files, never hard links. Initial failed rule-probe
+expectations and `proof-wjm7h64c` (duplicate boot priority, rejected before guest
+boot) remain recorded; neither counts as a pass.
+
+PR317's owner reports independent terminal xHCI stop/drain and generic network
+callback retirement work, without process/syscall/block/installer overlap. Its
+hardware/provider audit stays separate and draft; scope feedback does not claim
+independent review of this proof. All task VMs stopped; review VMs 61610, 6233 and
+85869, primary checkout and physical media remain untouched. No hosted Actions,
+physical trial or merge was requested. The bounded qualification is complete;
+delivery is a scoped draft PR for independent review.
+
+Reproduce after the matched build:
+
+```sh
+make HOST_CC='python3 build/tooling/darwin-host-cc.py' test-file-fsync test-dirty-salvage-scope
+OVMF_CODE=/opt/homebrew/share/qemu/edk2-x86_64-code.fd \
+  python3 tools/destination_salvage_smoke.py --ovmf-vars /opt/homebrew/share/qemu/edk2-i386-vars.fd
+```
+
+## PR329 merge review and next bounded milestone
+
+User authorized review and merge if ready. Reviewed `05905122` against actual
+main `c90f3522`; no blocking finding. Traced `process_file_flush` through retained
+content writeback and the exFAT mutation boundary: successful outer mutation
+flushes data/metadata, writes the clean marker and flushes that marker on the
+backing parent. Failed transactions cannot return success. Clean/unlinked
+content does not need an unrelated global device barrier. Global sync and reboot
+still retain their existing all-device behavior.
+
+Fresh exact-head review proof `build/review/dirty-salvage/proof-qhb4hf4j/` passes
+both installed EFI boots with the isolated work EIO, exact 12,289-byte healthy
+copy after controlled cold restart, unchanged work hash/protected regions and
+clean allocation checks. Independently checked raw bytes, command graphs and
+explicit global reboot refusal. Fresh ordinary installed-root canonical/CLI
+proof `build/review/installed-canonical/proof-0cqpa1bt/` passes all 11 cases,
+including `/fat` and `/work` compatibility. Focused fsync/namespace/usercopy/I/O,
+helper/CLI, seven scope guards and documentation checks pass. Revalidated the
+49 sanitized salvage cases and recorded source hashes; previous threadstress
+and sanitized syscall evidence remain applicable to unchanged code.
+
+PR317 at `e2457b1b` remains draft/unmerged. Its owner confirms no current overlap
+or new relevant concern; hardware stop/drain/provider retirement remains open
+there. That is scope feedback, not independent approval of this flush contract.
+Review VMs 61610, 6233 and 85869 stay running; all task VMs stop normally or through
+the documented owned-VM restart. Review receipts/logs are backed up outside build
+under `.local/filesystem-evidence/pr329-review/`. No hosted Actions or physical
+trial was run. The current dirty-source salvage milestone is complete.
+
+Next proposed bounded milestone: **installed-root salvage destination-writeback
+failure qualification**. Existing guest proof covers failed-source destinations
+and exclusive conflicts; destination write/flush failures currently have host
+coverage only. First review fault placement on a third disposable target image.
+Prove the real CLI reports failure without losing the caller's retained dirty
+reader or offset, then copies to a separate healthy volume and verifies exact
+bytes after controlled restart. Preserve uncertain artifacts and the global
+reboot guard; coordinate any process/driver changes with PR317. No automatic
+repair, retry or failed-volume retirement is included. This is proposed work,
+not begun by the merge review.
+
+## Installed-root dirty-source salvage — verified
+
+User authorized mechanism review and installed-root proof on main `1a5a6dee`,
+with explicit PR317 coordination and review-VM preservation. Reviewed a host-only
+QEMU `blkdebug` one-shot write EIO, attached solely to a distinct fixture-owned
+work image. The probe verifies reads succeed, first write fails without changing
+bytes, subsequent write succeeds and a separate healthy image remains writable.
+The rule uses write_aio/iotype=write/once=on per the
+[QEMU blkdebug guide](https://www.qemu.org/docs/master/devel/testing/blkdebug.html).
+Seven scope tests reject boot-disk, external-image/config, normal-mode and later
+boot attachment; the positive graph test allows exactly one filtered work drive.
+No kernel/process/driver fault hook is used.
+
+The guest opens preseeded `/work/bin/true` without create/truncate and holds an
+independent reader, stages 12,289 binary bytes in shared process RAM, then hits
+the first work write with explicit fsync. AHCI reports task-file EIO and retains
+its offline/pinned state. Source fsync/writer close error, global sync error,
+failed-work mutation refusal and readable retained data are required. The actual
+`/bin/salvage` command first refuses a destination on failed work, then copies
+through the inherited reader to `/home/.dirty-salvage-copy`; an exclusive conflict
+also fails. Parent offset 37 and all held bytes survive every child. Source errors
+stay sticky until deliberate final-reader close after acknowledged healthy copy.
+
+### Demonstrated fsync fix
+
+The first guest run correctly refused healthy-copy success: `syscall_fsync`
+flushed the requested content, then called `block_flush_all`, so the unrelated
+offline work disk vetoed healthy-file acknowledgment. The actual syscall host
+regression fails baseline and passes the fix. File fsync now returns its own
+content-writeback result: the current exFAT transaction already completes data,
+metadata and clean-marker barriers on its backing volume before success. Clean
+descriptions have no deferred writeback, and unlinked RAM content has no remaining
+disk file. No stale pathname/mount lookup or new process lifetime state is added.
+Global SYS_SYNC and the reboot guard retain their system-wide barrier behavior.
+Future asynchronous backends will require an explicit file-scoped durability
+contract. The host regression covers clean/read descriptions, content errors,
+invalid descriptors and unchanged global-sync failure, normally and under
+ASan/UBSan. Namespace/usercopy/I/O admission and helper/CLI tests pass.
+
+PR317's owner confirmed no active syscall/process/AHCI overlap and gave scope
+feedback without claiming full durability review. Only production change is the
+bounded syscall body/comment; no AHCI, block or process implementation change.
+The existing backend failure contract and actual guest readback support the
+synchronous durability boundary.
+
+### Restart and persistence evidence
+
+After successful salvage, normal guest reboot correctly reports storage flush
+failure because work remains offline. The proof records that refusal, stops only
+its own disposable VM through QMP, and starts a fresh EFI VM with reversed disk
+order and no filter. This is a controlled cold restart after healthy-file fsync/
+close acknowledgment, not a successful normal global flush or arbitrary physical
+power-loss qualification. The healthy copy reads back exactly and is cleaned up.
+Both boots preserve the entire work-image hash and protected system regions.
+Healthy allocation checks report zero leaks/FAT/bitmap errors. Manual GPT `/work`
+is not the managed USB controller; raw unmount after releasing references is
+fixture teardown, not repaired-work or managed clean-retirement success.
+
+Initial corrected proof `4bbbf2c7` passes. Main `c90f3522` (Haswell/host-compatibility
+PR324 and SrvrPorts `ca749517`) subsequently merged cleanly; matched `ee6316a2`
+passes the mechanism probe and both dirty-source boots again. Full threadstress,
+49 ASan/UBSan host salvage cases and focused syscall/helper/scope tests pass on
+that combined source. The default installed-root canonical/CLI proof also passes
+all 11 cases at `bb7c4e4a`, before the nonoverlapping main update.
+
+Failed bring-up runs remain in `build/review/dirty-salvage/`: signed-size compile
+failure and stale-build refusal; `proof-m08bcofe` exposes the global fsync defect;
+`proof-y_fld3g2` proves the fix but times out in an unrelated GUI save path that
+also requests global sync. The final dedicated proof deliberately does not count
+that GUI step as successful. Passing evidence is `proof-uy53gpes/`, with exact
+commands, serial logs, rule, images, receipt, restart record and offline checks;
+`independent-review.json`, `tested-build.json`, host/sanitizer/thread logs are in
+the parent directory. Backups survive build cleanup at
+`.local/filesystem-evidence/dirty-salvage-ee6316a2/`.
+
+Reproduce after the matched build:
+
+```sh
+make HOST_CC='python3 build/tooling/darwin-host-cc.py' test-file-fsync test-dirty-salvage-scope
+OVMF_CODE=/opt/homebrew/share/qemu/edk2-x86_64-code.fd \
+  python3 tools/dirty_salvage_smoke.py --ovmf-vars /opt/homebrew/share/qemu/edk2-i386-vars.fd
+```
+
+All task VMs stopped; review VMs 61610, 6233 and 85869 and primary checkout remain
+untouched. No automatic retry/repair, forced kernel unmount or production reboot
+bypass was introduced. The bounded dirty-source salvage target is complete.
+
 ## Salvage command — installed-root proof complete
 
 `salvage --fd NUMBER DESTINATION` is the first command-line consumer of

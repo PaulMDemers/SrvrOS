@@ -1,0 +1,899 @@
+{
+  "base": "c90f352218fab2348b300421ab68110dd80b7e7a",
+  "boots": {
+    "a1": {
+      "allocation": "allocation-check: PASS files=376 clusters=14097 leaked=0 fat_bitmap_mismatches=0 errors=0",
+      "application_sha256": {
+        "deskd": "9ca3f84de636612c34afffcbc75b16b9e26722b6cecad4c5e5288af9444e5f49",
+        "deskterm": "ef8717b465cddf8586c8e559ed4f541f725179a7e1e34493557715f1272bbff7",
+        "desktools": "f266ff632e9ea31e76502941a8fdbb6f74959e161e9d8730768c6b3cb08e84b7"
+      },
+      "binary_sha256": "54615f979ce7cc7523885bae0456990cd1ae0d6e47ec7ddb51a279d57c2c6a45",
+      "cwd": "/fat/home/local-a",
+      "data_sha256": "30b3df3f4181e479b8c914a5594af48366e81bb6b7816da95ae48641ef130a2f",
+      "document_sha256": "72bbf76fbd41437c635decf661a2c123b2f945ac8463a9c230e14d563d41d71e",
+      "environment_sha256": "ec589f4a1c79e04e92d6a6d40abf71084825afcaaf7d60dbaafed3b4eb06b402",
+      "home": "/fat/home/local-a",
+      "identity_matches_bundle": true,
+      "identity_sha256": "ef3a90b17b0bd3e8ef561658641fc20f74c47ad4bf1de7f89d788c818c895c25",
+      "local": {
+        "alias": "local_a",
+        "gid": 1001,
+        "uid": 1001
+      },
+      "machine_preferences_sha256": "fe0a4369803f1f9d413c78af0929ad8e4307d9550146ab183d186927bda27212",
+      "portable_preferences_sha256": "5da283988149ec9bfd002c8aa7a944135765175f259ba448fbff72a756c1f9fc",
+      "post_guest_inspect": {
+        "can_reconcile": false,
+        "reason": "verified image content changed",
+        "state": "refused"
+      },
+      "profile_id": "12345678-1234-4234-8234-123456789abc",
+      "reconcile_refused": true,
+      "refusal_preserved_snapshot_sha256": "47f6f2159ebae5dfc9c65b98937000d194b00d2c810f597c16d2949662066e6a"
+    },
+    "a2": {
+      "allocation": "allocation-check: PASS files=376 clusters=14097 leaked=0 fat_bitmap_mismatches=0 errors=0",
+      "application_sha256": {
+        "deskd": "9ca3f84de636612c34afffcbc75b16b9e26722b6cecad4c5e5288af9444e5f49",
+        "deskterm": "ef8717b465cddf8586c8e559ed4f541f725179a7e1e34493557715f1272bbff7",
+        "desktools": "f266ff632e9ea31e76502941a8fdbb6f74959e161e9d8730768c6b3cb08e84b7"
+      },
+      "binary_sha256": "54615f979ce7cc7523885bae0456990cd1ae0d6e47ec7ddb51a279d57c2c6a45",
+      "cwd": "/fat/home/local-a",
+      "data_sha256": "53a9c9be4e63da4a2060605a8d608005c7e6171c5f00d87bcd61c04b3b74bc1f",
+      "document_sha256": "72bbf76fbd41437c635decf661a2c123b2f945ac8463a9c230e14d563d41d71e",
+      "environment_sha256": "ec589f4a1c79e04e92d6a6d40abf71084825afcaaf7d60dbaafed3b4eb06b402",
+      "home": "/fat/home/local-a",
+      "identity_matches_bundle": true,
+      "identity_sha256": "ef3a90b17b0bd3e8ef561658641fc20f74c47ad4bf1de7f89d788c818c895c25",
+      "local": {
+        "alias": "local_a",
+        "gid": 1001,
+        "uid": 1001
+      },
+      "machine_preferences_sha256": "fe0a4369803f1f9d413c78af0929ad8e4307d9550146ab183d186927bda27212",
+      "portable_preferences_sha256": "5da283988149ec9bfd002c8aa7a944135765175f259ba448fbff72a756c1f9fc",
+      "post_guest_inspect": {
+        "can_reconcile": false,
+        "reason": "verified image content changed",
+        "state": "refused"
+      },
+      "profile_id": "12345678-1234-4234-8234-123456789abc",
+      "reconcile_refused": true,
+      "refusal_preserved_snapshot_sha256": "c2ef72983b0729cbbc708052c7062dc2bd2de0f596e269a7cd871375a6f60878"
+    }
+  },
+  "candidate_before_guest_sha256": "8efee53e7e9e7aa62624dd8d8a8a8d33c5be0744e157e01d87e8307f4ae84eda",
+  "controls": [
+    {
+      "name": "barriers",
+      "omitted_barrier_negative_control": "detected",
+      "snapshot_after_sha256": "f2759196af7b5a7c038e1e490bfd102d25a7967cb80f5928e9340fc19b67a763",
+      "snapshot_before_sha256": "f2759196af7b5a7c038e1e490bfd102d25a7967cb80f5928e9340fc19b67a763",
+      "swallowed_fsync_negative_control": "detected"
+    },
+    {
+      "inspection": {
+        "can_reconcile": false,
+        "reason": "Expecting property name enclosed in double quotes: line 1 column 2 (char 1)",
+        "state": "refused"
+      },
+      "name": "torn-journal",
+      "snapshot_after_sha256": "649379eec84526dc2fc78f6965491de4af8007ceacb1cb64d68330fdba337864",
+      "snapshot_before_sha256": "649379eec84526dc2fc78f6965491de4af8007ceacb1cb64d68330fdba337864"
+    },
+    {
+      "inspection": {
+        "can_reconcile": false,
+        "reason": "ready marker mismatch",
+        "state": "refused"
+      },
+      "name": "torn-ready",
+      "snapshot_after_sha256": "f8e19fe21917d0ef79a6f1832ffc47a1a9c5f7255cf0fb739d6c210a8d13441c",
+      "snapshot_before_sha256": "f8e19fe21917d0ef79a6f1832ffc47a1a9c5f7255cf0fb739d6c210a8d13441c"
+    },
+    {
+      "inspection": {
+        "can_reconcile": false,
+        "reason": "unknown staging entries",
+        "state": "refused"
+      },
+      "name": "unknown",
+      "snapshot_after_sha256": "9fdfe84268169943f45fc82d55d222563049cbd3105c0120d1675680d309834f",
+      "snapshot_before_sha256": "9fdfe84268169943f45fc82d55d222563049cbd3105c0120d1675680d309834f"
+    },
+    {
+      "inspection": {
+        "can_reconcile": false,
+        "reason": "unknown staging entries",
+        "state": "refused"
+      },
+      "name": "symlink",
+      "snapshot_after_sha256": "bf512b4fb09529bbdf5ba93a25f92c83627b5ac6ce331eb498cc95d0cede9d3d",
+      "snapshot_before_sha256": "bf512b4fb09529bbdf5ba93a25f92c83627b5ac6ce331eb498cc95d0cede9d3d"
+    },
+    {
+      "inspection": {
+        "can_reconcile": false,
+        "reason": "invalid file or unexpected hard links: image.img",
+        "state": "refused"
+      },
+      "name": "outside-hardlink",
+      "snapshot_after_sha256": "50267ca4d7e36a91ca3a36bdb0dcb83c1f0d36ba60a8e294a0f00b57ebe1dc66",
+      "snapshot_before_sha256": "50267ca4d7e36a91ca3a36bdb0dcb83c1f0d36ba60a8e294a0f00b57ebe1dc66"
+    },
+    {
+      "inspection": {
+        "can_reconcile": false,
+        "reason": "source changed since prepare",
+        "state": "refused"
+      },
+      "name": "changed-source",
+      "snapshot_after_sha256": "8514e9dc08508d7dd80c5ecaf66a4d9a3e805c9afa39bad3b719078758423545",
+      "snapshot_before_sha256": "8514e9dc08508d7dd80c5ecaf66a4d9a3e805c9afa39bad3b719078758423545"
+    },
+    {
+      "inspection": {
+        "can_reconcile": false,
+        "reason": "verified image content changed",
+        "state": "refused"
+      },
+      "name": "changed-candidate",
+      "snapshot_after_sha256": "cd679c33b5b6ea30bf17212e66571ac8f39dad2905d421a7905e86e1bd014901",
+      "snapshot_before_sha256": "cd679c33b5b6ea30bf17212e66571ac8f39dad2905d421a7905e86e1bd014901"
+    }
+  ],
+  "evidence": ".local/installation-evidence/io-proof-j8xbfmgc",
+  "host_tools": {
+    "artifacts": {
+      "build/limine-binary/BOOTX64.EFI": "333f7a69379b1f47e019be215885cdc078b9edd6e9255cbe2f706d6c5ec0ef06",
+      "build/tests/exfat-driver": "7cd305abbe9d38f45f317947b439583ad465eea449e6fd30214a8c20007812c8",
+      "build/tests/profile-image-driver": "5a4165be97737b1862b41324d3cc7e6a4ee67b6deb7ca638e32a5b01bea50198"
+    },
+    "compiler_log_sha256": "42077eca7a55afb39030d5c02020ef8014415234cf712428249e51359c918fdf",
+    "efi_matches_tracked_blob": true,
+    "efi_prebuilt_commit": "5be26a73d7b7b4d4477d18be94e1d16e615adf56",
+    "source": "b6ffb55665af93d44d6135e0d6d3619d76f8ce1e"
+  },
+  "invariants": {
+    "eligible_stages_reconciled_without_candidate_changes": true,
+    "every_selected_fault_fired_and_failed": true,
+    "ineligible_stages_preserved_on_refusal": true,
+    "inspection_read_only": true,
+    "ready_reconciliation_idempotent_in_bytes_and_namespace": true,
+    "source_bytes_and_metadata_preserved_by_matrix_operations_and_recovery": true
+  },
+  "limits": [
+    "No power-loss simulation or kernel/device fault injection; profile subprocess I/O is not intercepted.",
+    "Logical writes sample the first write per file; sparse image sample is the MBR write, and profile temporary payloads are sampled once.",
+    "Short-return injection covers top-level publisher writes; raw short returns in profile adapter temporary files are not qualified.",
+    "Production metadata uses one checked write; the separate production-image smoke samples its first image write.",
+    "not power-loss or media-fault simulation",
+    "profile subprocess I/O is not intercepted",
+    "no physical disk acceptance",
+    "external fsck.exfat not run"
+  ],
+  "matched_build": {
+    "built_at": "2026-11-04T01:47:57.006242+00:00",
+    "hashes": {
+      "build/initramfs.tar": "d077127c6779fad2324c73850590e3eb8981057ffd30666e2cf57552824724da",
+      "build/kernel/srvros.elf": "ac43e6d38f9729412c1f7ac8d0550e2d2f40fa2717695a4f8b196fb114df3969",
+      "build/srvros.exfat": "2157eb5e5da51b074066ea90bfdafaece1e81ec855645a08371a44bd1b141cde"
+    },
+    "repositories": {
+      ".": {
+        "dirty": false,
+        "head": "b6ffb55665af93d44d6135e0d6d3619d76f8ce1e",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports": {
+        "dirty": false,
+        "head": "ca74951739b4f6a698550f40d00b1506d4849ecb",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/awk": {
+        "dirty": false,
+        "head": "5739fd79bcfc75ba7526773d0cf634521f8aca3c",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/cjson": {
+        "dirty": false,
+        "head": "c859b25da02955fef659d658b8f324b5cde87be3",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/inih": {
+        "dirty": false,
+        "head": "26254ee9de7681f8825433415443e7116ff24b98",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/libuv": {
+        "dirty": false,
+        "head": "1cfa32ff59c076ffb6ed735bbc8c18361558661f",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/linenoise": {
+        "dirty": false,
+        "head": "dc83cc373ac2058030eb3cf5e404959a26fef112",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/lua": {
+        "dirty": false,
+        "head": "6e22fedb74cf0c9b6656e9fce8b7331db847c605",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/node": {
+        "dirty": false,
+        "head": "c7d10158bc31036de6783d66beaaaf551e3167aa",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "ports/upstream/zlib": {
+        "dirty": false,
+        "head": "da607da739fa6047df13e66a2af6b8bec7c2a498",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "userspace/apps": {
+        "dirty": false,
+        "head": "3cf32af2294eebe9d8b9aeb8bc1dcbe46feb2967",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      },
+      "userspace/widgets": {
+        "dirty": false,
+        "head": "9eaaa74e1423c15c99f8ce388b08ed5e514de3d6",
+        "status": "",
+        "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "untracked": {}
+      }
+    },
+    "schema": 1,
+    "source": "b6ffb55665af93d44d6135e0d6d3619d76f8ce1e",
+    "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "worktree_dirty": false
+  },
+  "matrix_counts": {
+    "baseline_scenarios": 11,
+    "fault_cases": 436,
+    "negative_controls": 2,
+    "refusal_controls": 7
+  },
+  "matrix_coverage": {
+    "identity/apply/-": {
+      "baseline_events": [
+        "write:in-progress.json:1",
+        "flush:in-progress.json:1",
+        "fsync:in-progress.json:1",
+        "fsync:.:1",
+        "write:bootstrap.tar:1",
+        "flush:bootstrap.tar:1",
+        "fsync:bootstrap.tar:1",
+        "write:limine.conf:1",
+        "flush:limine.conf:1",
+        "fsync:limine.conf:1",
+        "fsync:.:2",
+        "write:image.partial:1",
+        "fsync:image.partial:1",
+        "fsync:.:3",
+        "write:publication.json:1",
+        "flush:publication.json:1",
+        "fsync:publication.json:1",
+        "fsync:.:4",
+        "link:image.img:1",
+        "fsync:.:5",
+        "unlink:image.partial:1",
+        "fsync:.:6",
+        "write:ready.partial:1",
+        "flush:ready.partial:1",
+        "fsync:ready.partial:1",
+        "fsync:.:7",
+        "link:ready.json:1",
+        "fsync:.:8",
+        "unlink:ready.partial:1",
+        "fsync:.:9"
+      ],
+      "cases": 66,
+      "modes": {
+        "after": 24,
+        "before": 30,
+        "prefix": 6,
+        "short": 6
+      },
+      "reconciled": 28,
+      "refused": 38,
+      "states": {
+        "image-linked": 4,
+        "image-published": 3,
+        "incomplete": 32,
+        "ready": 3,
+        "ready-linked": 4,
+        "ready-written": 7,
+        "refused": 6,
+        "verified": 7
+      }
+    },
+    "identity/reconcile/ready-linked": {
+      "baseline_events": [
+        "fsync:bootstrap.tar:1",
+        "fsync:image.img:1",
+        "fsync:in-progress.json:1",
+        "fsync:limine.conf:1",
+        "fsync:plan.json:1",
+        "fsync:plan.sha256:1",
+        "fsync:publication.json:1",
+        "fsync:ready.json:1",
+        "fsync:.:1",
+        "unlink:ready.partial:1",
+        "fsync:.:2"
+      ],
+      "cases": 22,
+      "modes": {
+        "after": 11,
+        "before": 11
+      },
+      "reconciled": 22,
+      "refused": 0,
+      "states": {
+        "ready": 3,
+        "ready-linked": 19
+      }
+    },
+    "identity/reconcile/ready-published": {
+      "baseline_events": [
+        "fsync:bootstrap.tar:1",
+        "fsync:image.img:1",
+        "fsync:in-progress.json:1",
+        "fsync:limine.conf:1",
+        "fsync:plan.json:1",
+        "fsync:plan.sha256:1",
+        "fsync:publication.json:1",
+        "fsync:ready.json:1",
+        "fsync:.:1"
+      ],
+      "cases": 18,
+      "modes": {
+        "after": 9,
+        "before": 9
+      },
+      "reconciled": 18,
+      "refused": 0,
+      "states": {
+        "ready": 18
+      }
+    },
+    "identity/reconcile/ready-written": {
+      "baseline_events": [
+        "fsync:bootstrap.tar:1",
+        "fsync:image.img:1",
+        "fsync:in-progress.json:1",
+        "fsync:limine.conf:1",
+        "fsync:plan.json:1",
+        "fsync:plan.sha256:1",
+        "fsync:publication.json:1",
+        "fsync:ready.partial:1",
+        "fsync:.:1",
+        "link:ready.json:1",
+        "fsync:.:2",
+        "unlink:ready.partial:1",
+        "fsync:.:3"
+      ],
+      "cases": 26,
+      "modes": {
+        "after": 13,
+        "before": 13
+      },
+      "reconciled": 26,
+      "refused": 0,
+      "states": {
+        "ready": 3,
+        "ready-linked": 4,
+        "ready-written": 19
+      }
+    },
+    "identity/reconcile/verified": {
+      "baseline_events": [
+        "fsync:bootstrap.tar:1",
+        "fsync:image.partial:1",
+        "fsync:in-progress.json:1",
+        "fsync:limine.conf:1",
+        "fsync:plan.json:1",
+        "fsync:plan.sha256:1",
+        "fsync:publication.json:1",
+        "fsync:.:1",
+        "link:image.img:1",
+        "fsync:.:2",
+        "unlink:image.partial:1",
+        "fsync:.:3",
+        "write:ready.partial:1",
+        "flush:ready.partial:1",
+        "fsync:ready.partial:1",
+        "fsync:.:4",
+        "link:ready.json:1",
+        "fsync:.:5",
+        "unlink:ready.partial:1",
+        "fsync:.:6"
+      ],
+      "cases": 41,
+      "modes": {
+        "after": 19,
+        "before": 20,
+        "prefix": 1,
+        "short": 1
+      },
+      "reconciled": 38,
+      "refused": 3,
+      "states": {
+        "image-linked": 4,
+        "image-published": 3,
+        "ready": 3,
+        "ready-linked": 4,
+        "ready-written": 7,
+        "refused": 3,
+        "verified": 17
+      }
+    },
+    "legacy/apply/-": {
+      "baseline_events": [
+        "write:in-progress.json:1",
+        "flush:in-progress.json:1",
+        "fsync:in-progress.json:1",
+        "fsync:.:1",
+        "write:bootstrap.tar:1",
+        "flush:bootstrap.tar:1",
+        "fsync:bootstrap.tar:1",
+        "write:limine.conf:1",
+        "flush:limine.conf:1",
+        "fsync:limine.conf:1",
+        "fsync:.:2",
+        "write:image.partial:1",
+        "fsync:image.partial:1",
+        "fsync:.:3",
+        "write:publication.json:1",
+        "flush:publication.json:1",
+        "fsync:publication.json:1",
+        "fsync:.:4",
+        "link:image.img:1",
+        "fsync:.:5",
+        "unlink:image.partial:1",
+        "fsync:.:6",
+        "write:ready.partial:1",
+        "flush:ready.partial:1",
+        "fsync:ready.partial:1",
+        "fsync:.:7",
+        "link:ready.json:1",
+        "fsync:.:8",
+        "unlink:ready.partial:1",
+        "fsync:.:9"
+      ],
+      "cases": 66,
+      "modes": {
+        "after": 24,
+        "before": 30,
+        "prefix": 6,
+        "short": 6
+      },
+      "reconciled": 28,
+      "refused": 38,
+      "states": {
+        "image-linked": 4,
+        "image-published": 3,
+        "incomplete": 32,
+        "ready": 3,
+        "ready-linked": 4,
+        "ready-written": 7,
+        "refused": 6,
+        "verified": 7
+      }
+    },
+    "profile/apply/-": {
+      "baseline_events": [
+        "write:in-progress.json:1",
+        "flush:in-progress.json:1",
+        "fsync:in-progress.json:1",
+        "fsync:.:1",
+        "write:bootstrap.tar:1",
+        "flush:bootstrap.tar:1",
+        "fsync:bootstrap.tar:1",
+        "write:limine.conf:1",
+        "flush:limine.conf:1",
+        "fsync:limine.conf:1",
+        "fsync:.:2",
+        "write:<profile-temp>/image:1",
+        "flush:<profile-temp>/image:1",
+        "fsync:<profile-temp>/image:1",
+        "write:<profile-temp>/payload:1",
+        "link:profile.exfat:1",
+        "unlink:<profile-temp>/payload:1",
+        "unlink:<profile-temp>/image:1",
+        "fsync:profile.exfat:1",
+        "write:image.partial:1",
+        "fsync:image.partial:1",
+        "fsync:.:3",
+        "write:publication.json:1",
+        "flush:publication.json:1",
+        "fsync:publication.json:1",
+        "fsync:.:4",
+        "link:image.img:1",
+        "fsync:.:5",
+        "unlink:image.partial:1",
+        "fsync:.:6",
+        "write:ready.partial:1",
+        "flush:ready.partial:1",
+        "fsync:ready.partial:1",
+        "fsync:.:7",
+        "link:ready.json:1",
+        "fsync:.:8",
+        "unlink:ready.partial:1",
+        "fsync:.:9"
+      ],
+      "cases": 82,
+      "modes": {
+        "after": 30,
+        "before": 38,
+        "prefix": 8,
+        "short": 6
+      },
+      "reconciled": 28,
+      "refused": 54,
+      "states": {
+        "image-linked": 4,
+        "image-published": 3,
+        "incomplete": 44,
+        "ready": 3,
+        "ready-linked": 4,
+        "ready-written": 7,
+        "refused": 10,
+        "verified": 7
+      }
+    },
+    "profile/reconcile/ready-linked": {
+      "baseline_events": [
+        "fsync:bootstrap.tar:1",
+        "fsync:image.img:1",
+        "fsync:in-progress.json:1",
+        "fsync:limine.conf:1",
+        "fsync:plan.json:1",
+        "fsync:plan.sha256:1",
+        "fsync:profile.exfat:1",
+        "fsync:publication.json:1",
+        "fsync:ready.json:1",
+        "fsync:.:1",
+        "unlink:ready.partial:1",
+        "fsync:.:2"
+      ],
+      "cases": 24,
+      "modes": {
+        "after": 12,
+        "before": 12
+      },
+      "reconciled": 24,
+      "refused": 0,
+      "states": {
+        "ready": 3,
+        "ready-linked": 21
+      }
+    },
+    "profile/reconcile/ready-published": {
+      "baseline_events": [
+        "fsync:bootstrap.tar:1",
+        "fsync:image.img:1",
+        "fsync:in-progress.json:1",
+        "fsync:limine.conf:1",
+        "fsync:plan.json:1",
+        "fsync:plan.sha256:1",
+        "fsync:profile.exfat:1",
+        "fsync:publication.json:1",
+        "fsync:ready.json:1",
+        "fsync:.:1"
+      ],
+      "cases": 20,
+      "modes": {
+        "after": 10,
+        "before": 10
+      },
+      "reconciled": 20,
+      "refused": 0,
+      "states": {
+        "ready": 20
+      }
+    },
+    "profile/reconcile/ready-written": {
+      "baseline_events": [
+        "fsync:bootstrap.tar:1",
+        "fsync:image.img:1",
+        "fsync:in-progress.json:1",
+        "fsync:limine.conf:1",
+        "fsync:plan.json:1",
+        "fsync:plan.sha256:1",
+        "fsync:profile.exfat:1",
+        "fsync:publication.json:1",
+        "fsync:ready.partial:1",
+        "fsync:.:1",
+        "link:ready.json:1",
+        "fsync:.:2",
+        "unlink:ready.partial:1",
+        "fsync:.:3"
+      ],
+      "cases": 28,
+      "modes": {
+        "after": 14,
+        "before": 14
+      },
+      "reconciled": 28,
+      "refused": 0,
+      "states": {
+        "ready": 3,
+        "ready-linked": 4,
+        "ready-written": 21
+      }
+    },
+    "profile/reconcile/verified": {
+      "baseline_events": [
+        "fsync:bootstrap.tar:1",
+        "fsync:image.partial:1",
+        "fsync:in-progress.json:1",
+        "fsync:limine.conf:1",
+        "fsync:plan.json:1",
+        "fsync:plan.sha256:1",
+        "fsync:profile.exfat:1",
+        "fsync:publication.json:1",
+        "fsync:.:1",
+        "link:image.img:1",
+        "fsync:.:2",
+        "unlink:image.partial:1",
+        "fsync:.:3",
+        "write:ready.partial:1",
+        "flush:ready.partial:1",
+        "fsync:ready.partial:1",
+        "fsync:.:4",
+        "link:ready.json:1",
+        "fsync:.:5",
+        "unlink:ready.partial:1",
+        "fsync:.:6"
+      ],
+      "cases": 43,
+      "modes": {
+        "after": 20,
+        "before": 21,
+        "prefix": 1,
+        "short": 1
+      },
+      "reconciled": 40,
+      "refused": 3,
+      "states": {
+        "image-linked": 4,
+        "image-published": 3,
+        "ready": 3,
+        "ready-linked": 4,
+        "ready-written": 7,
+        "refused": 3,
+        "verified": 19
+      }
+    }
+  },
+  "matrix_equivalence": {
+    "all_recorded_python_components_unchanged": {
+      "installation_image.py": true,
+      "installation_io_faults.py": true,
+      "mk_usb_image.py": true,
+      "profile_bundle.py": true,
+      "profile_image.py": true,
+      "source_provenance.py": true,
+      "test_installation_image.py": true,
+      "test_installation_io_failures.py": true,
+      "test_installation_profile.py": true
+    },
+    "matrix_source": "3eae32231c366eb115a5805f7783b9d46465b004",
+    "reason": "Main c90f3522 changes kernel/profile host builds and hardware diagnostics; no matrix Python component changed.",
+    "source": "b6ffb55665af93d44d6135e0d6d3619d76f8ce1e"
+  },
+  "matrix_receipt_sha256": "e2cd19e98447da8e4142090dde016476b9ca0ff1d49a243e7ca2af5068c00294",
+  "matrix_scope": "host Python I/O; sparse GPT/FAT builder and deterministic profile driver stub",
+  "matrix_source": "3eae32231c366eb115a5805f7783b9d46465b004",
+  "production_fault_chain": [
+    {
+      "after_sha256": "c49d0b94ac2927b99122c596a73a3410d5ad96fa7dc557fbdbee8cf27d3f0b8f",
+      "before_sha256": "4d627c556c0b530d993fae89eb254362148ed2c9249dd2480776e8f53794496b",
+      "error_propagated": true,
+      "exit": 1,
+      "fault_fired": true,
+      "label": "fsync:publication.json:1",
+      "mode": "before",
+      "operation": "apply"
+    },
+    {
+      "after_sha256": "885c5d57c0c689d77a4a26b3530befeb290656f625accdb9ed5c709005f9517d",
+      "before_sha256": "c49d0b94ac2927b99122c596a73a3410d5ad96fa7dc557fbdbee8cf27d3f0b8f",
+      "error_propagated": true,
+      "exit": 1,
+      "fault_fired": true,
+      "label": "link:image.img:1",
+      "mode": "after",
+      "operation": "reconcile"
+    },
+    {
+      "after_sha256": "ded5e917ecf0da4583703c86f7473ab24cf2fa2725c36396a5d8413c77f2e52c",
+      "before_sha256": "885c5d57c0c689d77a4a26b3530befeb290656f625accdb9ed5c709005f9517d",
+      "error_propagated": true,
+      "exit": 1,
+      "fault_fired": true,
+      "label": "unlink:image.partial:1",
+      "mode": "after",
+      "operation": "reconcile"
+    },
+    {
+      "after_sha256": "95a2180873cd7dcb5ebb54500e4d08c14530d106938c2f45d0325c5272c68981",
+      "before_sha256": "ded5e917ecf0da4583703c86f7473ab24cf2fa2725c36396a5d8413c77f2e52c",
+      "error_propagated": true,
+      "exit": 1,
+      "fault_fired": true,
+      "label": "fsync:ready.partial:1",
+      "mode": "before",
+      "operation": "reconcile"
+    },
+    {
+      "after_sha256": "ab9f1e2c2520f40a42ae53fe71545090e5e4b789060c2a26c059bee67467d8c5",
+      "before_sha256": "95a2180873cd7dcb5ebb54500e4d08c14530d106938c2f45d0325c5272c68981",
+      "error_propagated": true,
+      "exit": 1,
+      "fault_fired": true,
+      "label": "link:ready.json:1",
+      "mode": "after",
+      "operation": "reconcile"
+    },
+    {
+      "after_sha256": "37f4b08fd94f9baa11786bf08191bf07183c2f6b3156c38e3c43508c9955990d",
+      "before_sha256": "ab9f1e2c2520f40a42ae53fe71545090e5e4b789060c2a26c059bee67467d8c5",
+      "error_propagated": true,
+      "exit": 1,
+      "fault_fired": true,
+      "label": "unlink:ready.partial:1",
+      "mode": "after",
+      "operation": "reconcile"
+    },
+    {
+      "after_sha256": "55d45f4cd032a2c3fa18c4d591056e680b6a3813353448106a6d3d888992b686",
+      "before_sha256": "8e13d1060c1aa7f8a74477456b0debd926d9de1c101aa1e6862f7bb6c50088a5",
+      "error_propagated": true,
+      "exit": 1,
+      "fault_fired": true,
+      "label": "write:image.partial:1",
+      "mode": "prefix",
+      "operation": "apply"
+    }
+  ],
+  "review_vms_alive": [
+    61610,
+    6233,
+    85869
+  ],
+  "runtime_inputs": {
+    "bootx64": "333f7a69379b1f47e019be215885cdc078b9edd6e9255cbe2f706d6c5ec0ef06",
+    "driver": "5a4165be97737b1862b41324d3cc7e6a4ee67b6deb7ca638e32a5b01bea50198",
+    "exfat": "2157eb5e5da51b074066ea90bfdafaece1e81ec855645a08371a44bd1b141cde",
+    "fs_driver": "7cd305abbe9d38f45f317947b439583ad465eea449e6fd30214a8c20007812c8",
+    "init": "ac3107f6c9866bc9b11128f91424a1fc54ed9c130d30c3d1afd718927f9e35f9",
+    "kernel": "ac43e6d38f9729412c1f7ac8d0550e2d2f40fa2717695a4f8b196fb114df3969"
+  },
+  "runtime_receipt_sha256": "81a991181a8c7a13bcce1c9894f7817c0af1526accff2ec39290f81e27e8f49f",
+  "runtime_scope": "private generated QEMU images; deterministic host Python I/O injection",
+  "screenshot_sha256": "7532a57dd038267d66bbe46b0b85b9b35eac95dc1b1670581fb251ef6d988e9f",
+  "source": {
+    ".": {
+      "dirty": false,
+      "head": "b6ffb55665af93d44d6135e0d6d3619d76f8ce1e",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports": {
+      "dirty": false,
+      "head": "ca74951739b4f6a698550f40d00b1506d4849ecb",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/awk": {
+      "dirty": false,
+      "head": "5739fd79bcfc75ba7526773d0cf634521f8aca3c",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/cjson": {
+      "dirty": false,
+      "head": "c859b25da02955fef659d658b8f324b5cde87be3",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/inih": {
+      "dirty": false,
+      "head": "26254ee9de7681f8825433415443e7116ff24b98",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/libuv": {
+      "dirty": false,
+      "head": "1cfa32ff59c076ffb6ed735bbc8c18361558661f",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/linenoise": {
+      "dirty": false,
+      "head": "dc83cc373ac2058030eb3cf5e404959a26fef112",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/lua": {
+      "dirty": false,
+      "head": "6e22fedb74cf0c9b6656e9fce8b7331db847c605",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/node": {
+      "dirty": false,
+      "head": "c7d10158bc31036de6783d66beaaaf551e3167aa",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "ports/upstream/zlib": {
+      "dirty": false,
+      "head": "da607da739fa6047df13e66a2af6b8bec7c2a498",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "userspace/apps": {
+      "dirty": false,
+      "head": "3cf32af2294eebe9d8b9aeb8bc1dcbe46feb2967",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    },
+    "userspace/widgets": {
+      "dirty": false,
+      "head": "9eaaa74e1423c15c99f8ce388b08ed5e514de3d6",
+      "status": "",
+      "tracked_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked": {}
+    }
+  },
+  "status": "PASS",
+  "tools": {
+    "installation_image.py": "fa5f47ae6dfae4eaa325ffdeed4d947d5cd2886e61506d2d14c50392fc7112d4",
+    "installation_io_faults.py": "e94ab547d69f1888ecc3eba8de0a330e80bc52525cbc01da646a8146ad554f0f",
+    "installation_io_smoke.py": "33eb35ffeae10e1834f977fd254ec04a34e2ed53cdf01e7a840b8e8d61aa030d",
+    "mk_usb_image.py": "eda87759aef9c448ad6f48c6cc753e4770cd060d41e367bbebb2fa58588e3d07",
+    "profile_bundle.py": "5c9747b2f83916a31400f3a1c7df642bb070e7e3c69b451a47ea9d35aaf468ee",
+    "profile_desktop_smoke.py": "862d4a86087edac7f5ad77cac73aec5a06129c03f77641ead0d11adda582fccf",
+    "profile_image.py": "66df9186653d061b339fcd4527ae0cc0374c23f27d4206e394c3c3a8bdaa3de8",
+    "profile_installation_smoke.py": "7697ea0e06eaacea8b58d61a0cb14b7d2c6c1663155de2de3d17cb5e41dd780a",
+    "source_provenance.py": "39b7c86b54c25814171cef83981f9005b0605340c09604e2cdfb68fa0070395f"
+  }
+}
