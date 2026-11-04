@@ -24,6 +24,13 @@ int main(int argc,char **argv) {
     /* Finite, opt-in switching fixture. Unlike the lifetime drain fixture
      * below, this descendant exits on its own; no signal completes the proof. */
     if(!strcmp(argv[1],"--switch-orphan")) {
+        /* Native legacy spawn starts with console stdio while inheriting the
+         * scope. The Terminal entry retains PTY stdio; only this opt-in probe
+         * hop makes its serial evidence observable after the Terminal closes. */
+        CHECK(srv_spawn_bg_args("/fat/bin/lifetimeprobe","--switch-console")>0);
+        return 0;
+    }
+    if(!strcmp(argv[1],"--switch-console")) {
         pid_t pid=fork();CHECK(pid>=0);
         if(pid>0) {
             desk_log("session-probe: phase=parent-exit child=%ld\n",(long)pid);return 0;
