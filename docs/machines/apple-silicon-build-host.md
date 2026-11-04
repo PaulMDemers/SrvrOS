@@ -1,5 +1,34 @@
 # Apple Silicon macOS build host
 
+## Graphical profile transfer — qualified for review
+
+User authorized the Profiles app, reviewed export/import and disposable two-VM
+qualification; authentication and permission enforcement remain separate. Work
+uses `SrvrOS-profile-326-review`, branch `device/apple-silicon/profile-transfer`.
+Final GUI proof source `f2360267` includes main `7ed98371`, Apps `b2220909`, UI
+`9eaaa74e` and Ports `747cca28`. Receipt `proof-yuylqeu1/receipt.json` records
+PASS across all 19 VM lifetimes, including all five recovery checkpoints,
+interrupted export, full identity/six preferences/exact selected bytes, four
+exclusion fixtures, chooser/reboot/Text and real 640 × 480 scrolling review.
+Host and ASan/UBSan checks pass; full evidence, matched artifacts and sources are
+byte-verified outside `build` in `.local/profile-transfer/final-proof-yuylqeu1/`.
+The portable-profile guide and committed screenshot manifest record exact hashes,
+checks, preservation and qualification limits.
+
+Latest main `a64661e9` is integrated after proof. Clean source `13a0ca82` passes
+a fresh matched build, focused checks and installed-root/export suite (70 pass,
+one optional skip). Of 144 payloads, 143 are identical;
+only sysabi diagnostics change and bc is added. Profile/GUI/proof-tool sources
+are unchanged. The committed integration receipt preserves both source
+attributions and all hashes. Host image helper functions used by the proof are
+unchanged; only its CLI export dispatcher is added. Apps PR6 has merged first;
+OS PR333 is ready for the coordinator.
+The coordinator owns independent combined review and merging; hold these merges.
+The installation owner separately proves offline used-image export and fresh
+restoration. Preserve the primary checkout and review VMs 6233/61610/85869. No
+physical media/reboot or Actions; one build/harness at a time. Completed proof
+snapshots are losslessly compressed only after byte verification and last use,
+with a bounded archive budget and retained restore mapping.
 ## PR342 integrated-main merge review — ready
 
 User authorizes review and merge if ready. Reuse isolated
