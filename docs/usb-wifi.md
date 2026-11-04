@@ -150,6 +150,38 @@ table. Native startup/drain/disable/endpoint ownership, fresh IBI9 write effect/
 restoration and controlled receive remain required. No new physical trial or
 credentials are armed by this offline foundation.
 
+## Selected-channel firmware calibration / receive candidate (v121)
+
+The separate automatic `--wifi-cal5` profile requires the full v120 parent.
+One explicit inspection hook runs after the selected-channel VCO clears and
+before inverse BBP/PA/A20/band/trim writes. The fixed161/20MHz owner allocates
+and retains eight distinct receive pages and a separate ring, configures only
+the captured main RX endpoint, and binds every action to current controller,
+EP0/context, selected-bank, factory-field and firmware ownership. It starts the
+MAC using the existing guarded transition/drain mechanism. Fresh TX_ALC0 and
+post-suppression IBI9 observations must match; the temporary IBI9 write must
+independently change/match and both saved words must independently restore
+before calibration admission. No G-band native gate is widened.
+
+The separate fixed firmware plan sends R0,VCO161,FULL901,LC1,RXDCOC1 with exact
+sequence-matched16-byte replies,10us/500us/15ms minimum waits and independent
+inverse TX_ALC0/IBI9 restoration. Fresh board proof excludes TSSI. Successful
+acknowledgements establish command completion, not calibrated RF. A separate
+US161/20MHz receive-window entry shares bounded polling/cessation mechanics and
+uses `mt76_rx_beacon5`; legacy window profiles retain1/6/11 admission. New TDs
+are posted only after calibration, one per retained page, at most eight within
+10seconds. No buffer is reused, freed or inspected until MAC drain/disable,
+filter/TXOP restoration, exact Stop Endpoint command and stopped-context proof.
+Quiet completion is valid lifecycle evidence and never populated discovery or
+RF acceptance. Anonymous packet metadata contains no SSID/BSSID/payload bytes.
+
+Every uncertainty retains DMA and reports failure. Independent saved-word/MAC
+cleanup remains attempted after forward loss, subject to live transport and
+nonquarantined EP0/command ownership. Failure forbids outer inverse replay;
+only fully quiesced success permits original band/trim restoration. No network
+frames, credentials, UI/provider startup or association are enabled. Current
+physical acceptance remains v120 until a matching v121 session is collected.
+
 ## 5GHz RF band-selection foundation
 
 The fixed `mt76_rf_band5g_*` engine replays 38 bank6 settings, then selects

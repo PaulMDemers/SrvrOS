@@ -17,6 +17,14 @@ struct fixture {
     uint64_t clock;
 };
 static unsigned explicit_channel,explicit_first;
+static bool high;
+static bool run_window(struct mt76_rx_window *s,const struct mt76_rx_window_plan *p,const struct mt76_rx_window_io *io){
+ if(!high)return mt76_rx_window_run(s,p,io);
+ if(!s || s->attempted)return false;
+ (void)mt76_rx5_window_poll(s,p,io);struct mt76_rx_window_stop q={0};bool stopped=false;
+ if(s->attempts && io && io->stop)stopped=io->stop(io->context,&q);
+ return mt76_rx5_window_finish(s,io,stopped?&q:NULL);
+}
 static void put16(uint8_t *p,unsigned n) {p[0]=n;p[1]=n>>8;}
 static void put32(uint8_t *p,unsigned n) {put16(p,n);put16(p+2,n>>16);}
 static void packet(uint8_t *p,unsigned index) {
@@ -26,6 +34,7 @@ static void packet(uint8_t *p,unsigned index) {
     memset(p+40,255,6);p[46]=p[52]=2;p[51]=p[57]=(uint8_t)(index+1);
     put16(p+68,100);put16(p+70,0x11);
     const uint8_t ies[]={0,0,1,2,0x82,0x84,3,1,1};memcpy(p+72,ies,sizeof ies);if(explicit_channel)p[80]=(uint8_t)explicit_channel;
+    if(high){p[78]=99;p[81]=61;p[82]=22;p[83]=161;put16(p,104);put32(p+8,69u<<16);}
 }
 static bool owned(void *ctx,bool cleanup) {
     struct fixture *f=ctx;f->checks++;
@@ -51,7 +60,7 @@ static bool poll(void *ctx,struct mt76_rx_window_event *e,bool *present) {
     if(f->fault==POLL_FAIL && f->posts==f->fail_index+1)return false;
     *present=f->fault!=NO_EVENT && f->fault!=FROZEN && f->fault!=SHORT_DEADLINE;
     *e=(struct mt76_rx_window_event){.trb=f->p.ring+16*(f->p.first_index+f->posts-1),
-        .slot=f->p.slot,.dci=9,.completion=13,.remaining=4096-84};
+        .slot=f->p.slot,.dci=9,.completion=13,.remaining=4096-(high?108:84)};
     if(f->fault==FOREIGN && f->polls%2) {
         switch(f->polls%6){case 1:e->slot++;break;case 3:e->dci++;break;default:e->trb+=16;break;}
     }
@@ -109,7 +118,7 @@ static void init(struct fixture *f,enum fault fault,unsigned index) {
         .poll=poll,.stop=stop,.now=now};
     if(fault==MALFORMED)((uint8_t *)f->p.buffer[index])[0]=0;
     if(fault==UNSUPPORTED)put16((uint8_t *)f->p.buffer[index]+36,0x88);
-    if(fault==OFF_CHANNEL)((uint8_t *)f->p.buffer[index])[80]=2;
+    if(fault==OFF_CHANNEL)((uint8_t *)f->p.buffer[index])[high?83:80]=2;
 }
 static void destroy(struct fixture *f) {
     for(unsigned i=0;i<8;i++)free((void *)f->p.buffer[i]);
@@ -117,7 +126,7 @@ static void destroy(struct fixture *f) {
 static unsigned scenarios;
 static void run(enum fault fault,unsigned index,bool want) {
     struct fixture f;init(&f,fault,index);
-    assert(mt76_rx_window_run(&f.s,&f.p,&f.io)==want);
+    assert(run_window(&f.s,&f.p,&f.io)==want);
     assert(f.s.attempted && f.s.complete==want && f.s.failed==!want);
     assert(f.posts<=8 && f.stops==(f.posts?1u:0u));
     if(want) {
@@ -130,13 +139,13 @@ static void run(enum fault fault,unsigned index,bool want) {
         }
         if(fault==FOREIGN || fault==STALE)assert(f.s.ignored>0);
         if(fault==ZERO)assert(!f.s.item[index].inspected && f.s.item[index].view_status==255);
-        if(fault==FULL)assert(f.s.item[index].actual==4096 && f.s.item[index].consumed==84);
+        if(fault==FULL)assert(f.s.item[index].actual==4096 && f.s.item[index].consumed==(high?108u:84u));
         if(fault==MALFORMED)assert(f.s.item[index].view_status==MT76_RX_INVALID);
         if(fault==UNSUPPORTED)assert(f.s.item[index].view_status==MT76_RX_UNSUPPORTED);
         if(fault==OFF_CHANNEL)assert(f.s.item[index].beacon_status==MT76_RX_CHANNEL_MISMATCH);
     } else if(fault!=CLEANUP_LOST)for(unsigned i=0;i<8;i++)assert(!f.s.item[i].inspected);
     unsigned posts=f.posts,stops=f.stops,checks=f.checks;
-    assert(!mt76_rx_window_run(&f.s,&f.p,&f.io));
+    assert(!run_window(&f.s,&f.p,&f.io));
     assert(f.posts==posts && f.stops==stops && f.checks==checks);
     destroy(&f);scenarios++;
 }
@@ -255,5 +264,20 @@ int main(void) {
         assert(mt76_rx_window_run(&f.s,&f.p,&f.io)==(offset==1));destroy(&f);scenarios++;
     }
     assert(!mt76_rx_window_channel(NULL));
+    /* Separate fixed5GHz binding exercises the same fault model without
+     * changing any legacy channel admission or packet-decoder expectations. */
+    high=true;explicit_channel=161;explicit_first=0;
+    for(unsigned i=0;i<8;i++){
+        for(enum fault x=POST_FAIL;x<=CC_ERROR;x++)run(x,i,false);
+        for(enum fault x=ZERO;x<=OFF_CHANNEL;x++)run(x,i,true);
+    }
+    for(enum fault x=NONE;x<=STALE;x++)run(x,0,true);
+    run(STOP_CURRENT,0,true);run(ZERO_ALL,0,true);run(INITIAL_LOST,0,false);
+    for(unsigned ch=0;ch<=255;ch++){
+        struct fixture f;init(&f,NONE,0);f.p.channel=(uint8_t)ch;
+        assert(mt76_rx5_window_plan_valid(&f.p)==(ch==161));
+        assert(mt76_rx_window_plan_valid(&f.p)==(ch==1 || ch==6 || ch==11));destroy(&f);
+    }
+    high=false;
     printf("mt76-rx-window: PASS %u ownership/event/deadline/stop/parser scenarios; no native adapter\n",scenarios);
 }

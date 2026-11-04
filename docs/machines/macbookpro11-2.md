@@ -12354,3 +12354,29 @@ explicit recipe/main dispatch and independent host/source/log/VM tests. First
 hardware checkpoint must distinguish command/restoration/quiet receive from
 actual decoded frames; an empty window is not populated discovery acceptance.
 Ubuntu recovery and existing cold-unplug shutdown authorization persist.
+
+
+### Firmware calibration / controlled receive implementation
+
+Separate5GHz calibration entry uses fixed R0/VCO161/FULL901/LC1/RXDCOC1 wire
+requests and unchanged legacy channel1 entry. Shared mechanical helpers retain
+separate admission; no native G-band gate is widened. The optional one-shot
+coordinator hook runs only after selected-channel VCO clear and before inverse
+writes, revalidating selected state afterward. A new private native owner binds
+captured board/fresh fields, selected bank/trim, firmware/controller/context and
+pinned retained page/ring identities. MAC start, fresh IBI9 effect/restoration
+probe, exact calibration replies/temporary-word restoration and bounded passive
+window precede mandatory drain/disable/filter/TXOP restoration/endpoint stop.
+Only successful quiescence permits inverse band/trim writes. Failure retains
+DMA, stops the outer transaction and preserves incomplete evidence.
+
+Pure channel1/161 calibration tests cover every callback, cancellation/board
+loss, malformed packet/reply bits/lengths, fresh delayed IBI, write effect and
+inverse restoration.2927 old/new receive-window fault/deadline/stop/parser cases,
+selected-hook reentry/null/failure/mutation,215 staging groups and four complete
+saved-ledger mutation groups pass. Native ownership-refusal/build and targeted
+ASan/UBSan checks are separate from hardware acceptance. The planned unattended
+v121 cold trial saves results and returns automatically; an empty window will
+not accept reception or discovery. No credentials or network OUT. Complete
+source/VM/storage/recovery gates and a sealed run record are required before
+install/shutdown; accepted v120 and Ubuntu recovery remain independent.

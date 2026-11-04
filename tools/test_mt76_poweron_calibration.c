@@ -3,6 +3,19 @@
 #include <stdio.h>
 #include <string.h>
 
+#ifdef MT76_TEST_HIGH
+#define mt76_poweron_calibration_run mt76_poweron5_calibration_run
+#define mt76_poweron_packet mt76_poweron5_packet
+#define mt76_poweron_reply mt76_poweron5_reply
+#define TEST_CHANNEL 161
+#define TEST_FULL 0x901
+#define TEST_LC 1
+#else
+#define TEST_CHANNEL 1
+#define TEST_FULL 0x600
+#define TEST_LC 0
+#endif
+
 struct event {char kind;uint32_t address,value;};
 struct fixture {
     struct mt76_calibration state;
@@ -16,7 +29,7 @@ struct fixture {
 static struct mt76_poweron_io make_io(struct fixture *f);
 static enum mt76_calibration_status run(struct fixture *f) {
     struct mt76_poweron_io io=make_io(f);
-    return mt76_poweron_calibration_run(&f->state,&io,&f->identity,&f->board,1,20);
+    return mt76_poweron_calibration_run(&f->state,&io,&f->identity,&f->board,TEST_CHANNEL,20);
 }
 static bool auth(void *p) {
     struct fixture *f=p;f->auths++;
@@ -99,7 +112,7 @@ static void retired(struct fixture *f) {
     assert(f->calls==calls && f->auths==auths && !memcmp(&copy,&f->state,sizeof copy));
 }
 int main(void) {
-    static const uint32_t ids[5]={1,12,255,3,2},args[5]={0,1,0x600,0,1};
+    static const uint32_t ids[5]={1,12,255,3,2},args[5]={0,TEST_CHANNEL,TEST_FULL,TEST_LC,1};
     for(unsigned step=0;step<5;step++) {
         uint8_t packet[16],reply[16];
         assert(mt76_poweron_packet(step,packet,16)==16);
@@ -116,11 +129,11 @@ int main(void) {
 
     static const struct event expected[]={
         {'r',0x1004,0},{'r',0x2000,0},{'r',0x208,0},
-        {'c',MT76_POWERON_R,0},{'c',MT76_POWERON_VCO,1},{'d',0,10},
+        {'c',MT76_POWERON_R,0},{'c',MT76_POWERON_VCO,TEST_CHANNEL},{'d',0,10},
         {'r',0x1004,0},{'r',0x2000,0},{'r',0x208,0},{'r',0x13b0,0},
         {'w',0x13b0,0},{'r',0x13b0,0},{'d',0,500},{'r',0x2124,0},
         {'w',0x2124,0xffffff7e},{'r',0x2124,0},
-        {'c',MT76_POWERON_FULL,0x600},{'c',MT76_POWERON_LC,0},{'d',0,15000},
+        {'c',MT76_POWERON_FULL,TEST_FULL},{'c',MT76_POWERON_LC,TEST_LC},{'d',0,15000},
         {'s',0x2124,0xffffffff},{'s',0x13b0,0x2f2f1b1b},
         {'r',0x1004,0},{'r',0x2000,0},{'r',0x208,0},
         {'c',MT76_POWERON_RXDCOC,1},
@@ -165,15 +178,16 @@ int main(void) {
         case 11:f.board.complete=false;break;case 12:f.board.nic0^=1;break;
         case 13:f.board.polls=0;break;case 14:f.board.reads++;break;case 15:f.board.antenna^=1;break;
         }
-        assert(mt76_poweron_calibration_run(&f.state,&io,id,b,1,20)==MT76_CAL_REFUSED);
+        assert(mt76_poweron_calibration_run(&f.state,&io,id,b,TEST_CHANNEL,20)==MT76_CAL_REFUSED);
         assert(!f.state.attempted && !f.calls && !f.auths);
     }
     f=fresh();struct mt76_poweron_io io=make_io(&f);
-    assert(mt76_poweron_calibration_run(0,&io,&f.identity,&f.board,1,20)==MT76_CAL_REFUSED);
-    assert(mt76_poweron_calibration_run(&f.state,0,&f.identity,&f.board,1,20)==MT76_CAL_REFUSED);
-    for(unsigned c=0;c<256;c++)if(c!=1)
+    assert(mt76_poweron_calibration_run(0,&io,&f.identity,&f.board,TEST_CHANNEL,20)==MT76_CAL_REFUSED);
+    assert(mt76_poweron_calibration_run(&f.state,0,&f.identity,&f.board,TEST_CHANNEL,20)==MT76_CAL_REFUSED);
+    for(unsigned c=0;c<256;c++)if(c!=TEST_CHANNEL)
         assert(mt76_poweron_calibration_run(&f.state,&io,&f.identity,&f.board,c,20)==MT76_CAL_REFUSED);
-    assert(mt76_poweron_calibration_run(&f.state,&io,&f.identity,&f.board,1,40)==MT76_CAL_REFUSED);
+    assert(mt76_poweron_calibration_run(&f.state,&io,&f.identity,&f.board,TEST_CHANNEL,40)==MT76_CAL_REFUSED);
     assert(!f.calls && !f.auths && !f.state.attempted);
+    printf("channel=%u ",TEST_CHANNEL);
     puts("mt76-poweron-calibration: PASS exact R/VCO/FULL/LC/RXDCOC order, three waits, fresh IBI, write effects, reverse cleanup, every callback/auth/board loss, no replay; synthetic only");
 }

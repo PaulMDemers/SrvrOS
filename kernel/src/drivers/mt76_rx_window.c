@@ -6,8 +6,8 @@ unsigned mt76_rx_window_channel(const struct mt76_rx_window_plan *p) {
     if(p->country[0]!='U' || p->country[1]!='S')return 0;
     return p->channel==1 || p->channel==6 || p->channel==11?p->channel:0;
 }
-bool mt76_rx_window_plan_valid(const struct mt76_rx_window_plan *p) {
-    if (!mt76_rx_window_channel(p) || p->first_index>1 ||
+static bool plan_valid(const struct mt76_rx_window_plan *p,bool high) {
+    if (!(high?(p && p->country[0]=='U' && p->country[1]=='S' && p->channel==161):mt76_rx_window_channel(p)) || p->first_index>1 ||
         (p->first_index && (!p->channel || !p->country[0] || !p->country[1])) || (p->budget_us && p->budget_us!=MT76_RX_WINDOW_US &&
         p->budget_us!=MT76_RX_WINDOW_LONG_US) || !p->ring || (p->ring & 4095) || p->ring > UINT64_MAX-4095 ||
         !p->slot || p->slot > 255 || p->dci != 9) return false;
@@ -20,14 +20,17 @@ bool mt76_rx_window_plan_valid(const struct mt76_rx_window_plan *p) {
     }
     return true;
 }
-static void inspect(struct mt76_rx_window_item *s,const uint8_t *p,unsigned channel) {
+bool mt76_rx_window_plan_valid(const struct mt76_rx_window_plan *p){return plan_valid(p,false);}
+bool mt76_rx5_window_plan_valid(const struct mt76_rx_window_plan *p){return plan_valid(p,true);}
+static void inspect(struct mt76_rx_window_item *s,const uint8_t *p,unsigned channel,bool high) {
     if (!s->actual) return;
     struct mt76_rx_view v; struct mt76_rx_beacon b={0};
     s->inspected=true;s->view_status=mt76_rx_usb_view(p,s->actual,&v);
     if (s->view_status==MT76_RX_OK) {
         s->consumed=(unsigned)v.consumed;s->mpdu=(unsigned)v.mpdu_size;
         s->frame_control=v.frame_control;
-        s->beacon_status=mt76_rx_beacon(p,s->actual,channel,&b);
+        if(high){struct mt76_rx_beacon5 five={0};s->beacon_status=mt76_rx_beacon5(p,s->actual,channel,20,&five);b=five.beacon;for(unsigned i=0;i<sizeof five;i++)((volatile uint8_t *)&five)[i]=0;}
+        else s->beacon_status=mt76_rx_beacon(p,s->actual,channel,&b);
         if (s->beacon_status==MT76_RX_OK) {
             s->beacon=true;s->interval=b.interval;s->ssid_size=b.ssid_size;
             s->privacy=b.privacy;s->rsn=b.rsn_present;s->wpa=b.wpa_present;
@@ -36,14 +39,14 @@ static void inspect(struct mt76_rx_window_item *s,const uint8_t *p,unsigned chan
     }
     for (unsigned i=0;i<sizeof b;i++) ((volatile uint8_t *)&b)[i]=0;
 }
-bool mt76_rx_window_poll(struct mt76_rx_window *s,
+static bool poll_for(bool high,struct mt76_rx_window *s,
                         const struct mt76_rx_window_plan *plan,
                         const struct mt76_rx_window_io *io) {
     if (!s || s->attempted) return false;
     *s=(struct mt76_rx_window){.attempted=true};
     for (unsigned i=0;i<MT76_RX_WINDOW_SLOTS;i++)
         s->item[i].view_status=s->item[i].beacon_status=255;
-    if (!mt76_rx_window_plan_valid(plan) || !io || !io->owned || !io->post || !io->poll ||
+    if (!plan_valid(plan,high) || !io || !io->owned || !io->post || !io->poll ||
         !io->now) {s->failed=true;return false;}
     /* Copy callback/plan identities. The adapter must keep pointees and native
      * ring/endpoint ownership stable; owned() checks that before each action. */
@@ -94,12 +97,12 @@ bool mt76_rx_window_poll(struct mt76_rx_window *s,
     s->polled=true;s->poll_ok=ok;s->failed=!ok;
     return ok;
 }
-bool mt76_rx_window_finish(struct mt76_rx_window *s,
+static bool finish_for(bool high,struct mt76_rx_window *s,
                           const struct mt76_rx_window_io *io,
                           const struct mt76_rx_window_stop *stop) {
     if (!s || !s->attempted || s->finish_attempted) return false;
     s->finish_attempted=true;
-    bool ok=s->polled && s->poll_ok && !s->failed && mt76_rx_window_plan_valid(&s->plan) &&
+    bool ok=s->polled && s->poll_ok && !s->failed && plan_valid(&s->plan,high) &&
         io && io->owned && s->attempts && s->attempts<=MT76_RX_WINDOW_SLOTS;
     if (s->attempts && s->attempts<=MT76_RX_WINDOW_SLOTS) {
         s->stop_attempted=stop!=0;
@@ -115,11 +118,15 @@ bool mt76_rx_window_finish(struct mt76_rx_window *s,
         if (!io->owned(io->context,true)) {ok=false;break;}
         if (!s->item[i].completed) continue;
         __asm__ volatile("" ::: "memory");
-        inspect(&s->item[i],s->plan.buffer[i],mt76_rx_window_channel(&s->plan));
+        inspect(&s->item[i],s->plan.buffer[i],high?161:mt76_rx_window_channel(&s->plan),high);
         if (s->item[i].beacon) s->beacons++;
     }
     s->failed=!ok;s->complete=ok;return ok;
 }
+bool mt76_rx_window_poll(struct mt76_rx_window *s,const struct mt76_rx_window_plan *p,const struct mt76_rx_window_io *io){return poll_for(false,s,p,io);}
+bool mt76_rx_window_finish(struct mt76_rx_window *s,const struct mt76_rx_window_io *io,const struct mt76_rx_window_stop *q){return finish_for(false,s,io,q);}
+bool mt76_rx5_window_poll(struct mt76_rx_window *s,const struct mt76_rx_window_plan *p,const struct mt76_rx_window_io *io){return poll_for(true,s,p,io);}
+bool mt76_rx5_window_finish(struct mt76_rx_window *s,const struct mt76_rx_window_io *io,const struct mt76_rx_window_stop *q){return finish_for(true,s,io,q);}
 bool mt76_rx_window_run(struct mt76_rx_window *s,
                         const struct mt76_rx_window_plan *plan,
                         const struct mt76_rx_window_io *io) {

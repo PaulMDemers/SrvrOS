@@ -19,7 +19,9 @@ struct mt76_mac_cycle {
     uint32_t filter, txop, tx_alc, ibi9;
     uint64_t hold_us;
 };
-/* Captured MT7610 channel1 profile. RX transport ownership is supplied by the
+/* Captured MT7610 MAC transition mechanics; the legacy native caller remains
+ * channel1. Separate channel161 owner supplies its own selected RF/trim proof.
+ * RX transport ownership is supplied by the
  * caller and must survive every MAC transition and cleanup. No calibration,
  * power programming, transmission submission or packet inspection. IBI9 is a
  * raw observation only; all-ones there is not calibration admission. */

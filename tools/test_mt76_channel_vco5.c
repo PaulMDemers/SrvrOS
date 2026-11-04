@@ -187,7 +187,10 @@ static void combo_preflight(struct fake *f){
  bbp.transfer=NULL;REFUSE(0xfd11,0x1004,0x44,12,&rf,&mac,&pa,&bbp);
 #undef REFUSE
 }
-int main(int argc,char **argv){
+#ifndef MT76_CHANNEL_VCO_TEST_MAIN
+#define MT76_CHANNEL_VCO_TEST_MAIN main
+#endif
+int MT76_CHANNEL_VCO_TEST_MAIN(int argc,char **argv){
     bool quick=argc==2 && !strcmp(argv[1],"--quick"),show=argc==2 && !strcmp(argv[1],"--trace");assert(argc==1 || quick || show);
     struct fake f={0};combo_init(&f);combo_preflight(&f);trace=show;assert(combo_run(&f,0x44,12)==MT76_TIMING_OK && mt76_channel_vco5_valid(&combo));accepted_combo=combo;
     assert(f.calls==3844 && f.auth==3867 && waits==6 && vco_writes==1 && !f.rf[0][22] && f.rf[0][4]==0x30 && mt76_channel_vco5_operations(&combo)==3844);

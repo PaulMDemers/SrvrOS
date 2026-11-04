@@ -81,4 +81,10 @@ bool mt76_rx_window_finish(struct mt76_rx_window *,
 bool mt76_rx_window_run(struct mt76_rx_window *,
                         const struct mt76_rx_window_plan *,
                         const struct mt76_rx_window_io *);
+/* Separate US channel161/20MHz parser binding. Same bounded retained-page,
+ * split poll/cessation/inspection mechanics; no widening of old1/6/11 calls.
+ * Native caller supplies selected RF/calibration and exclusive endpoint proof. */
+bool mt76_rx5_window_plan_valid(const struct mt76_rx_window_plan *);
+bool mt76_rx5_window_poll(struct mt76_rx_window *,const struct mt76_rx_window_plan *,const struct mt76_rx_window_io *);
+bool mt76_rx5_window_finish(struct mt76_rx_window *,const struct mt76_rx_window_io *,const struct mt76_rx_window_stop *);
 #endif

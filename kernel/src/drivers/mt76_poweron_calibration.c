@@ -66,25 +66,25 @@ static bool restore(struct transaction *t) {
     t->s->cleanup_complete=t->s->restored_mask==t->s->modified_mask;
     return t->s->cleanup_complete;
 }
-enum mt76_calibration_status mt76_poweron_calibration_run(
+static enum mt76_calibration_status run_for(bool high,
     struct mt76_calibration *s,const struct mt76_poweron_io *io,
     const struct mt76_identity *id,const struct mt76_ant_fields *board,
     unsigned channel,unsigned bandwidth) {
     if(!s || s->attempted || !io || !io->authorize || !io->read || !io->write ||
-       !io->command || !io->delay || !io->restore || channel!=1 || bandwidth!=20 ||
+       !io->command || !io->delay || !io->restore || channel!=(high?161u:1u) || bandwidth!=20 ||
        !profile(id,board))return MT76_CAL_REFUSED;
     *s=(struct mt76_calibration){.attempted=true};
     struct transaction t={s,io,id,board};
     bool ok=guards(&t) && command(&t,MT76_POWERON_R,0) &&
-            command(&t,MT76_POWERON_VCO,1) && delay(&t,10) && guards(&t) &&
+            command(&t,MT76_POWERON_VCO,high?161:1) && delay(&t,10) && guards(&t) &&
             exact(&t,0x13b0,0x2f2f1b1b,&s->saved[0]);
     if(ok)s->saved_mask=1;
     ok=ok && temporary(&t,0,0) && delay(&t,500) &&
        exact(&t,0x2124,0xffffffff,&s->saved[1]);
     if(ok)s->saved_mask|=2;
     ok=ok && temporary(&t,1,0xffffff7e) &&
-       command(&t,MT76_POWERON_FULL,0x600) &&
-       command(&t,MT76_POWERON_LC,0) && delay(&t,15000);
+       command(&t,MT76_POWERON_FULL,high?0x901:0x600) &&
+       command(&t,MT76_POWERON_LC,high?1:0) && delay(&t,15000);
     if(!restore(&t))return MT76_CAL_RESTORE;
     if(!ok)return s->failure;
     ok=guards(&t) && command(&t,MT76_POWERON_RXDCOC,1) && guards(&t) && owned(&t);
@@ -92,18 +92,34 @@ enum mt76_calibration_status mt76_poweron_calibration_run(
     return ok?MT76_CAL_OK:s->failure;
 }
 
+enum mt76_calibration_status mt76_poweron_calibration_run(
+    struct mt76_calibration *s,const struct mt76_poweron_io *io,
+    const struct mt76_identity *id,const struct mt76_ant_fields *b,unsigned ch,unsigned bw) {
+    return run_for(false,s,io,id,b,ch,bw);
+}
+enum mt76_calibration_status mt76_poweron5_calibration_run(
+    struct mt76_calibration *s,const struct mt76_poweron_io *io,
+    const struct mt76_identity *id,const struct mt76_ant_fields *b,unsigned ch,unsigned bw) {
+    return run_for(true,s,io,id,b,ch,bw);
+}
+
 /* Linux v7.0 CMD_CALIBRATION_OP31, little-endian id/argument. */
 static const uint32_t poweron_ids[5]={1,12,255,3,2};
 static const uint32_t poweron_args[5]={0,1,0x600,0,1};
-size_t mt76_poweron_packet(unsigned step,uint8_t *out,size_t cap) {
+static size_t packet_for(bool high,unsigned step,uint8_t *out,size_t cap) {
     if(step>=5 || !out || cap<16)return 0;
-    uint32_t words[4]={0x51f00008u|((step+1)<<16),poweron_ids[step],poweron_args[step],0};
+    uint32_t words[4]={0x51f00008u|((step+1)<<16),poweron_ids[step],high?(step==1?161:step==2?0x901:step==3?1:poweron_args[step]):poweron_args[step],0};
     for(unsigned i=0;i<16;i++)out[i]=(uint8_t)(words[i/4]>>(8*(i%4)));
     return 16;
 }
-bool mt76_poweron_reply(unsigned step,const uint8_t *data,size_t size) {
+static bool reply_for(bool high,unsigned step,const uint8_t *data,size_t size) {
     if(step>=5 || !data || size!=16)return false;
-    uint32_t words[4]={0x4a000008u|((step+1)<<16),poweron_ids[step],poweron_args[step],0x4a000008u|((step+1)<<16)};
+    uint32_t words[4]={0x4a000008u|((step+1)<<16),poweron_ids[step],high?(step==1?161:step==2?0x901:step==3?1:poweron_args[step]):poweron_args[step],0x4a000008u|((step+1)<<16)};
     for(unsigned i=0;i<16;i++)if(data[i]!=(uint8_t)(words[i/4]>>(8*(i%4))))return false;
     return true;
 }
+
+size_t mt76_poweron_packet(unsigned n,uint8_t *p,size_t cap){return packet_for(false,n,p,cap);}
+bool mt76_poweron_reply(unsigned n,const uint8_t *p,size_t size){return reply_for(false,n,p,size);}
+size_t mt76_poweron5_packet(unsigned n,uint8_t *p,size_t cap){return packet_for(true,n,p,cap);}
+bool mt76_poweron5_reply(unsigned n,const uint8_t *p,size_t size){return reply_for(true,n,p,size);}

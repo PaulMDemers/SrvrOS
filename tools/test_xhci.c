@@ -6725,6 +6725,15 @@ static void test_pa5_refusal(void){
     wifi_vco5_requested=true;assert(!xhci_wifi_capture_vco5());wifi_vco5_requested=false;
     wifi_dac5_requested=true;assert(!xhci_wifi_capture_vco5());wifi_dac5_requested=false;
     wifi_vco5.state.attempted=true;assert(!xhci_wifi_capture_vco5());wifi_vco5.state.attempted=false;
+    assert(!wifi_cal5_owned(NULL,false) && !wifi_cal5_owned(&wifi_cal5,true));
+    assert(!wifi_cal5_inspect(NULL) && !wifi_cal5_inspect(&wifi_channel_vco5));
+    assert(!wifi_cal5_cal_read(&wifi_cal5,0x1004,&v));
+    assert(!wifi_cal5_cal_write(&wifi_cal5,0x2124,0xffffff7e));
+    assert(!wifi_cal5_command(&wifi_cal5,MT76_POWERON_R,0));
+    assert(!wifi_cal5_delay(&wifi_cal5,500,false));
+    assert(!wifi_cal5_stop() && !wifi_cal5.operations && !wifi_cal5.posts);
+    wifi_cal5_requested=true;assert(!xhci_wifi_capture_cal5());wifi_cal5_requested=false;
+    wifi_cal5.attempted=true;assert(!xhci_wifi_capture_cal5());wifi_cal5.attempted=false;
     assert(!wifi_channel_vco5_parent(NULL) && !wifi_channel_vco5_parent(&d));
     assert(!wifi_channel_vco5_owned(NULL) && !wifi_channel_vco5_owned(&wifi_channel_vco5));
     assert(!wifi_channel_vco5_read(&wifi_channel_vco5,0x1004,&v));

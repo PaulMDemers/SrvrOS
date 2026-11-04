@@ -36,4 +36,9 @@ unsigned mt76_channel_vco5_local(const struct mt76_channel_vco5 *);
 bool mt76_channel_vco5_transfer_valid(const struct mt76_channel_vco5 *,bool,uint32_t,uint32_t);
 size_t mt76_channel_vco5_packet(const struct mt76_channel_vco5 *,uint8_t *,size_t);
 enum mt76_mcu_timing_status mt76_channel_vco5_capture(struct mt76_channel_vco5 *,uint16_t,uint16_t,unsigned,unsigned,const struct mt76_rf_wait_io *,const struct mt76_band_mac_io *,const struct mt76_pa5_io *,const struct mt76_bbp5_io *);
+/* Separate one-shot inspection at selected checkpoint after VCO clear and
+ * before inverse writes. Callback must retain and restore selected state and
+ * prove MAC/RX cessation. Failure stops the outer transaction without replay.
+ * No authority is conveyed by this hook; old no-hook plans stay unchanged. */
+enum mt76_mcu_timing_status mt76_channel_vco5_inspect(struct mt76_channel_vco5 *,uint16_t,uint16_t,unsigned,unsigned,const struct mt76_rf_wait_io *,const struct mt76_band_mac_io *,const struct mt76_pa5_io *,const struct mt76_bbp5_io *,bool (*)(void *));
 #endif

@@ -42,4 +42,14 @@ enum mt76_calibration_status mt76_poweron_calibration_run(
  * A matching reply proves command completion only, never calibrated RF. */
 size_t mt76_poweron_packet(unsigned step,uint8_t *out,size_t capacity);
 bool mt76_poweron_reply(unsigned step,const uint8_t *data,size_t length);
+/* Separate fixed captured-board channel161/20MHz entry. Native caller must
+ * hold same-lifetime selected bank/trim/VCO proof, exclusive MAC/RX ownership,
+ * fresh IBI9 write-effect proof and terminal drain/stop. No native caller is
+ * authorized by these scalar arguments alone. R0,VCO161,FULL901,LC1,RXDCOC1;
+ * exact captured TX_ALC0/IBI9, timing and inverse restoration as above. */
+enum mt76_calibration_status mt76_poweron5_calibration_run(
+    struct mt76_calibration *,const struct mt76_poweron_io *,
+    const struct mt76_identity *,const struct mt76_ant_fields *,unsigned,unsigned);
+size_t mt76_poweron5_packet(unsigned,uint8_t *,size_t);
+bool mt76_poweron5_reply(unsigned,const uint8_t *,size_t);
 #endif

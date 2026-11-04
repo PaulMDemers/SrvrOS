@@ -1926,7 +1926,7 @@ hardware-smoke: hardware-stage test-core
 test-xhci: build/tests/xhci-host$(HOST_EXE)
 	$< tools/fixtures/apple-05ac-0291-config.bin tools/fixtures/apple-05ac-0262-config.bin tools/fixtures/apple-05ac-0290-config.bin
 
-build/tests/xhci-host$(HOST_EXE): tools/test_xhci.c tools/test_xhci_wifi_rx.inc tools/test_xhci_wifi_mac_cycle.inc tools/test_xhci_wifi_cal_probe.inc tools/test_xhci_wifi_poweron.inc tools/test_xhci_wifi_passive.inc tools/test_xhci_wifi_window.inc tools/test_xhci_wifi_channel.inc kernel/src/drivers/xhci_wifi_channel.inc kernel/src/drivers/xhci_wifi_window.inc kernel/src/drivers/mt76_channel_plan.c kernel/src/drivers/mt76_scan.c kernel/src/drivers/mt76_discovery.c kernel/src/drivers/mt76_rx_window.c kernel/src/drivers/xhci_wifi_mac_cycle.inc kernel/src/drivers/xhci_wifi_cal_probe.inc kernel/src/drivers/xhci_wifi_poweron.inc kernel/src/drivers/xhci_wifi_passive.inc kernel/src/drivers/mt76_mac_cycle.c kernel/src/drivers/mt76_calibration.c kernel/src/drivers/mt76_poweron_calibration.c kernel/src/drivers/mt76_rx.c kernel/src/drivers/xhci.c kernel/src/drivers/xhci_network.inc kernel/src/drivers/xhci_wifi_firmware.inc kernel/src/drivers/xhci_wifi_mcu.inc kernel/src/drivers/xhci_wifi_channel_vco5.inc kernel/src/drivers/xhci_wifi_vco5.inc kernel/src/drivers/xhci_wifi_dac5.inc kernel/src/drivers/xhci_wifi_rx.inc kernel/src/drivers/mt76_mcu.c kernel/src/drivers/mt76_trim5.c kernel/src/drivers/mt76_cvco5.c kernel/src/drivers/mt76_channel_vco5.c kernel/src/drivers/mt76_vco5.c kernel/src/drivers/mt76_dac5.c kernel/src/drivers/mt76_radio.c kernel/src/drivers/usb_ecm.c kernel/src/drivers/mt76_probe.c kernel/src/drivers/mt76_bringup.c kernel/src/drivers/mt76_firmware.c kernel/src/sha256.c kernel/src/drivers/trackpad_pointer.c kernel/src/drivers/apple_trackpad.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready tools/test_xhci_wifi_tune.inc kernel/src/drivers/xhci_wifi_tune.inc kernel/src/drivers/mt76_channel_tune.c kernel/src/drivers/xhci_wifi_receive.inc tools/test_xhci_wifi_receive.inc kernel/src/drivers/xhci_wifi_scan.inc tools/test_xhci_wifi_scan.inc kernel/src/drivers/xhci_wifi_burst.inc tools/test_xhci_wifi_burst.inc kernel/src/drivers/mt76_scan_batch.c kernel/src/drivers/mt76_selection.c kernel/src/wifi_service.c
+build/tests/xhci-host$(HOST_EXE): tools/test_xhci.c tools/test_xhci_wifi_rx.inc tools/test_xhci_wifi_mac_cycle.inc tools/test_xhci_wifi_cal_probe.inc tools/test_xhci_wifi_poweron.inc tools/test_xhci_wifi_passive.inc tools/test_xhci_wifi_window.inc tools/test_xhci_wifi_channel.inc kernel/src/drivers/xhci_wifi_channel.inc kernel/src/drivers/xhci_wifi_window.inc kernel/src/drivers/mt76_channel_plan.c kernel/src/drivers/mt76_scan.c kernel/src/drivers/mt76_discovery.c kernel/src/drivers/mt76_rx_window.c kernel/src/drivers/xhci_wifi_mac_cycle.inc kernel/src/drivers/xhci_wifi_cal_probe.inc kernel/src/drivers/xhci_wifi_poweron.inc kernel/src/drivers/xhci_wifi_passive.inc kernel/src/drivers/mt76_mac_cycle.c kernel/src/drivers/mt76_calibration.c kernel/src/drivers/mt76_poweron_calibration.c kernel/src/drivers/mt76_rx.c kernel/src/drivers/xhci.c kernel/src/drivers/xhci_network.inc kernel/src/drivers/xhci_wifi_firmware.inc kernel/src/drivers/xhci_wifi_mcu.inc kernel/src/drivers/xhci_wifi_cal5.inc kernel/src/drivers/xhci_wifi_channel_vco5.inc kernel/src/drivers/xhci_wifi_vco5.inc kernel/src/drivers/xhci_wifi_dac5.inc kernel/src/drivers/xhci_wifi_rx.inc kernel/src/drivers/mt76_mcu.c kernel/src/drivers/mt76_trim5.c kernel/src/drivers/mt76_cvco5.c kernel/src/drivers/mt76_channel_vco5.c kernel/src/drivers/mt76_vco5.c kernel/src/drivers/mt76_dac5.c kernel/src/drivers/mt76_radio.c kernel/src/drivers/usb_ecm.c kernel/src/drivers/mt76_probe.c kernel/src/drivers/mt76_bringup.c kernel/src/drivers/mt76_firmware.c kernel/src/sha256.c kernel/src/drivers/trackpad_pointer.c kernel/src/drivers/apple_trackpad.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready tools/test_xhci_wifi_tune.inc kernel/src/drivers/xhci_wifi_tune.inc kernel/src/drivers/mt76_channel_tune.c kernel/src/drivers/xhci_wifi_receive.inc tools/test_xhci_wifi_receive.inc kernel/src/drivers/xhci_wifi_scan.inc tools/test_xhci_wifi_scan.inc kernel/src/drivers/xhci_wifi_burst.inc tools/test_xhci_wifi_burst.inc kernel/src/drivers/mt76_scan_batch.c kernel/src/drivers/mt76_selection.c kernel/src/wifi_service.c
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/apple_trackpad.c kernel/src/drivers/trackpad_pointer.c kernel/src/drivers/usb_ecm.c kernel/src/drivers/mt76_probe.c kernel/src/drivers/mt76_bringup.c kernel/src/drivers/mt76_firmware.c kernel/src/sha256.c kernel/src/drivers/mt76_mcu.c kernel/src/drivers/mt76_trim5.c kernel/src/drivers/mt76_cvco5.c kernel/src/drivers/mt76_channel_vco5.c kernel/src/drivers/mt76_vco5.c kernel/src/drivers/mt76_dac5.c kernel/src/drivers/mt76_mac_cycle.c kernel/src/drivers/mt76_calibration.c kernel/src/drivers/mt76_poweron_calibration.c kernel/src/drivers/mt76_rx.c kernel/src/drivers/mt76_channel_plan.c kernel/src/drivers/mt76_channel_tune.c kernel/src/drivers/mt76_scan.c kernel/src/drivers/mt76_scan_batch.c kernel/src/drivers/mt76_selection.c kernel/src/wifi_service.c kernel/src/drivers/mt76_discovery.c kernel/src/drivers/mt76_rx_window.c kernel/src/drivers/mt76_radio.c -Wl,--gc-sections -o $@
 
@@ -4345,6 +4345,14 @@ build/tests/mt76-calibration-probe-host$(HOST_EXE): tools/test_mt76_calibration_
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_calibration.c -o $@
 
+.PHONY: test-mt76-poweron5-calibration
+test-core: test-mt76-poweron5-calibration
+test-mt76-poweron5-calibration: build/tests/mt76-poweron5-calibration-host$(HOST_EXE)
+	./build/tests/mt76-poweron5-calibration-host$(HOST_EXE)
+build/tests/mt76-poweron5-calibration-host$(HOST_EXE): tools/test_mt76_poweron_calibration.c kernel/src/drivers/mt76_poweron_calibration.c kernel/src/drivers/mt76_bringup.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -DMT76_TEST_HIGH -ffunction-sections -fdata-sections -I kernel/include $< kernel/src/drivers/mt76_poweron_calibration.c kernel/src/drivers/mt76_bringup.c -Wl,--gc-sections -o $@
+
 .PHONY: test-mt76-poweron-calibration
 test-core: test-mt76-poweron-calibration
 test-mt76-poweron-calibration: build/tests/mt76-poweron-calibration-host$(HOST_EXE)
@@ -5223,6 +5231,14 @@ build/userspace/test_less_probe.elf: tools/test_less_probe.c userspace/widgets/s
 	$(CC) $(USER_CFLAGS) -I userspace/widgets/include -c userspace/widgets/src/terminal.c -o build/userspace/less-probe/model.o
 	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) build/userspace/less-probe/probe.o build/userspace/less-probe/model.o $(USER_LIB_OBJ) -o $@
 
+.PHONY: test-mt76-cal5-hook
+test-core: test-mt76-cal5-hook
+test-mt76-cal5-hook: build/tests/mt76-cal5-hook-host$(HOST_EXE)
+	./build/tests/mt76-cal5-hook-host$(HOST_EXE)
+build/tests/mt76-cal5-hook-host$(HOST_EXE): tools/test_mt76_cal5_hook.c tools/test_mt76_channel_vco5.c tools/test_mt76_channel5.c kernel/src/drivers/mt76_channel_vco5.c kernel/src/drivers/mt76_cvco5.c kernel/src/drivers/mt76_trim5.c kernel/src/drivers/mt76_mcu.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -iquote tools $< kernel/src/drivers/mt76_channel_vco5.c kernel/src/drivers/mt76_cvco5.c kernel/src/drivers/mt76_trim5.c kernel/src/drivers/mt76_mcu.c -o $@
+
 .PHONY: test-mt76-channel-vco5 test-mt76-cvco5 test-wifi-channel-vco5-log
 test-core: test-mt76-channel-vco5 test-mt76-cvco5 test-wifi-channel-vco5-log
 test-mt76-channel-vco5: build/tests/mt76-channel-vco5-host$(HOST_EXE)
@@ -5237,3 +5253,8 @@ build/tests/mt76-cvco5-host$(HOST_EXE): tools/test_mt76_cvco5.c kernel/src/drive
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_mt76_cvco5.c kernel/src/drivers/mt76_cvco5.c kernel/src/drivers/mt76_mcu.c -o $@
 test-wifi-channel-vco5-log:
 	$(PYTHON) -m unittest discover -s tools -p test_wifi_channel_vco5_log.py
+
+.PHONY: test-wifi-cal5-log
+test-core: test-wifi-cal5-log
+test-wifi-cal5-log:
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m unittest discover -s tools -p test_wifi_cal5_log.py

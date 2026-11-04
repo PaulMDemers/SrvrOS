@@ -1,6 +1,7 @@
 /* Fixed selected-channel lifetime after the complete common VCO parent. */
 #include <srvros/mt76_channel_vco5.h>
 static struct {struct xhci_device *d;struct mt76_channel_vco5 state;unsigned submitted,delays;bool active;} wifi_channel_vco5;
+static bool wifi_cal5_inspect(void *);
 static bool wifi_channel_vco5_parent(struct xhci_device *d){
  return wifi_channel_vco5_requested && d && d==wifi_vco5.d && !wifi_vco5.active && wifi_vco5_parent(d) && mt76_vco5_valid(&wifi_vco5.state) && wifi_vco5.submitted==105 && wifi_vco5.delays==6;
 }
@@ -50,7 +51,7 @@ static bool wifi_mcu_channel_vco5(struct xhci_device *d){
     m->table_active=m->dcoc_active=m->skey_active=m->wcid_active=m->mac_tail_active=m->mac_fixed_active=m->efuse_map_active=m->mac_board_active=m->ant_snapshot_active=m->ant_init_active=m->rf_probe_active=m->rf_table_active=m->rf_bank5_active=m->rf_bank6_active=m->rf_vga_active=true;
     bool parent=wifi_channel_vco5_parent(d);enum mt76_mcu_timing_status status=MT76_TIMING_REFUSED;
     console_write("wifi-channel-vco5-progress: same-boot common VCO parent;hold fresh trim44 and channel161/20MHz bank;one channel trigger;six samples;inverse originals;no RX/network OUT\n");
-    if(parent){wifi_channel_vco5.d=d;wifi_channel_vco5.active=true;const struct mt76_rf_wait_io io={{&wifi_channel_vco5,wifi_channel_vco5_owned,wifi_channel_vco5_read,wifi_channel_vco5_exchange},wifi_channel_vco5_delay};const struct mt76_band_mac_io mac={&wifi_channel_vco5,wifi_channel_vco5_owned,wifi_channel_vco5_mac};const struct mt76_pa5_io pa={&wifi_channel_vco5,wifi_channel_vco5_owned,wifi_channel_vco5_transfer,wifi_channel_vco5_exchange};const struct mt76_bbp5_io bbp={&wifi_channel_vco5,wifi_channel_vco5_owned,wifi_channel_vco5_transfer};status=mt76_channel_vco5_capture(s,wifi_trim5.fields.nic0,wifi_trim5.fields.nic1,wifi_trim5.fields.trim,wifi_bbp5.gain.lna,&io,&mac,&pa,&bbp);}
+    if(parent){wifi_channel_vco5.d=d;wifi_channel_vco5.active=true;const struct mt76_rf_wait_io io={{&wifi_channel_vco5,wifi_channel_vco5_owned,wifi_channel_vco5_read,wifi_channel_vco5_exchange},wifi_channel_vco5_delay};const struct mt76_band_mac_io mac={&wifi_channel_vco5,wifi_channel_vco5_owned,wifi_channel_vco5_mac};const struct mt76_pa5_io pa={&wifi_channel_vco5,wifi_channel_vco5_owned,wifi_channel_vco5_transfer,wifi_channel_vco5_exchange};const struct mt76_bbp5_io bbp={&wifi_channel_vco5,wifi_channel_vco5_owned,wifi_channel_vco5_transfer};status=wifi_cal5_requested?mt76_channel_vco5_inspect(s,wifi_trim5.fields.nic0,wifi_trim5.fields.nic1,wifi_trim5.fields.trim,wifi_bbp5.gain.lna,&io,&mac,&pa,&bbp,wifi_cal5_inspect):mt76_channel_vco5_capture(s,wifi_trim5.fields.nic0,wifi_trim5.fields.nic1,wifi_trim5.fields.trim,wifi_bbp5.gain.lna,&io,&mac,&pa,&bbp);}
     wifi_channel_vco5.active=false;
     m->table_active=m->dcoc_active=m->skey_active=m->wcid_active=m->mac_tail_active=m->mac_fixed_active=m->efuse_map_active=m->mac_board_active=m->ant_snapshot_active=m->ant_init_active=m->rf_probe_active=m->rf_table_active=m->rf_bank5_active=m->rf_bank6_active=m->rf_vga_active=false;
     bool valid=status==MT76_TIMING_OK && mt76_channel_vco5_valid(s) && wifi_channel_vco5.submitted==3844 && wifi_channel_vco5.delays==6;
@@ -61,3 +62,5 @@ bool xhci_wifi_capture_channel_vco5(void){
     if(wifi_channel_vco5_requested || wifi_channel_vco5.active || wifi_channel_vco5.state.attempted || wifi_vco5_requested || wifi_dac5_requested || wifi_trim5_requested || wifi_held_requested || wifi_bbp5_requested || wifi_pa5_requested || wifi_frontend_requested || wifi_a20_cycle_requested || wifi_a20_inventory_requested || wifi_5ghz_channel_requested || wifi_5ghz_band_requested || wifi_5ghz_prereq_requested)return false;
     wifi_channel_vco5_requested=true;bool ok=xhci_wifi_capture_vco5();wifi_channel_vco5_requested=false;return ok;
 }
+
+#include "xhci_wifi_cal5.inc"
