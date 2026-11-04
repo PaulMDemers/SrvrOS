@@ -341,3 +341,10 @@ fails as intended. No new confirmed defect; host-only/no preserved-media reread,
 production change, VM acceptance or merge approval. ExFAT and unsupported macOS
 LeakSanitizer setup failures retained; APFS/address+undefined reruns pass.
 Native-public frozen32-file receipt also verifies; fresh dependency/JSC work open.
+
+
+JSC companion source21bca3c/roota39341ba reviewed for checked self-stack bounds,
+publication ordering and same-RIP optional construction. Independent fresh/native
+SDK comparison matches all67 allocated member sections/relocation identities;
+archive/DWARF differ. GC sole-root fixture remains unqualified pending final target
+assembly/collector evidence; JSC build and new payload guest remain open.

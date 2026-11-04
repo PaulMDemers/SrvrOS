@@ -2300,6 +2300,27 @@ Also verified all 32 files in the native-public `1db6652c` frozen receipt (SHA25
 This preserves the previously bounded signal-probe acceptance. Fresh normal guests,
 new SDK equivalence and the JSC stack-bounds companion patch remain separate reviews.
 
+## November 4: JSC companion source and fresh SDK equivalence
+
+Reviewed ports `21bca3c` companion patches with root helper `a39341ba`.
+The SrvrOS-only current-thread StackBounds branch checks pthread_getattr_np,
+getstack and destroy before returning bounds. The existing target-side
+initialization/publication wait remains selected; the unavailable early
+new-thread query is not restored. MachineContext now constructs the optional
+CodePtr in place from the same captured RIP, resolving the pinned-libc++
+conversion ambiguity. These are bounded source conclusions, not finished JSC
+build or guest acceptance.
+
+Independently parsed old native-qualified SDK archive `1f62b203` and fresh
+`c5b66743`: all 67 member sets match, with identical allocated-section bytes,
+section geometry and normalized relocation offsets/types/addends plus referenced
+symbol identities/values/sizes. Archive and DWARF/path bytes differ; no fresh
+runtime/guest qualification inferred. The new GC fixture has no-root, GP, FX,
+red-zone and post-retirement controls, but exclusive root placement still requires
+final target caller/park assembly and actual collector/retired-thread evidence.
+No new payload run cleared. Exact source copies, hashes, independent parser and
+results: `build/review/pr334-jsc-companions-review/`.
+
 ## Remaining work
 
 Other long IRQ-disabled operations, including initial/churning PMM scans, heap validation and poisoning,
