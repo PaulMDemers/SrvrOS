@@ -6,12 +6,14 @@ HOME/config/data/cache resolver. Host tooling, guest commands and desktop
 workflows share this contract. Login, cloud roaming and multi-user security
 isolation remain separate.
 
-Current milestone: graphical profile transfer is qualified for review after the
-merged chooser milestone. Profiles provides selected-file export, reviewed import,
-owned asynchronous work and recovery guidance. The final two-installation GUI
-proof passes all 19 VM lifetimes, including interruptions and 640 × 480 review.
-See the [graphical transfer evidence](#graphical-transfer-milestone--qualified-for-review)
-and dependent Apps/OS PRs below. Authentication and permission enforcement remain
+Current development target: create a portable profile directly in the startup
+chooser and Profiles app. Graphical transfer is merged and its accepted
+19-lifetime proof remains historical evidence for its recorded source. Creation
+reuses the same codec, binding/capacity rules and transaction engine with a
+self-contained creation journal. Implementation is in
+[SrvrApps #8](https://github.com/PaulMDemers/SrvrApps/pull/8) and dependent
+[SrvrOS #348](https://github.com/PaulMDemers/SrvrOS/pull/348); final creation VM
+qualification is pending. Authentication and permission enforcement remain
 separate.
 
 | Transfer state | User decision | Result and correction |
@@ -1011,3 +1013,78 @@ publication functions consumed by the GUI proof, are identical. The integration
 receipt records this final main, source, build, pins and corrected check invocation.
 Apps PR6 has merged first; the coordinator owns the final OS333 merge and combined
 installation proof.
+
+## Desktop profile creation — implementation and qualification in progress
+
+Profiles adds a Create tab with a display name and installation-local name.
+The startup chooser adds Create Profile, available through the existing explicit
+`deskd --choose-profile` route. Ordinary startup with no profiles still uses the
+legacy desktop; a remembered ready profile still restores directly. There is no
+forced onboarding or live switch of existing applications to another HOME.
+
+| State | Action and outcome |
+| --- | --- |
+| Enter name and local name | Shared text editors support correction; local name determines the new HOME |
+| Review | Read-only preview generates a UUIDv4 and shows destination, empty home and all six default portable settings |
+| Confirm | Recheck reviewed identity/settings and destination/collision/capacity rules before any journal write |
+| Create in chooser | Refresh to the new Ready entry; explicit Open desktop saves the selection |
+| Create in Profiles | Finish the current session, then choose the new profile at next desktop startup |
+| Refusal | Retain inputs and show the bounded actual reason; existing data is preserved |
+| Interruption | Existing chooser recovery validates the retained journal/tree before finishing publication |
+
+The fixed command contract is:
+
+```text
+profile preview-create HOME ALIAS DISPLAY_NAME
+profile create-reviewed HOME ALIAS DISPLAY_NAME UID GID UUID SHA256
+```
+
+Preview returns `srvros-profile-review-v1`, operation `create`, the generated
+profile UUID/display name, destination HOME/alias/UID/GID, zero document bytes,
+an empty document list, six explicit portable preferences and a SHA256 of the
+canonical identity-only v1 bundle. Confirmation reconstructs that same bundle
+with the reviewed UUID and rechecks its fingerprint. The UI snapshots all
+arguments and never invokes a shell. UUIDs and binding numbers are metadata;
+the existing random syscall may use its software fallback and provides no new
+cryptographic identity or authentication guarantee. Random errors or short
+16-byte reads refuse before filesystem writes.
+
+Creation v1 freezes the current six portable defaults: text size 16, clock flags
+3 (24-hour clock plus date), wallpaper 0, accent 0, glass 1 and style 0. HOME has
+empty Documents, config/data/cache folders and identity/local-binding metadata.
+Machine-specific preferences and legacy files are neither moved nor adopted.
+Destination bindings reuse the bounded allocator; blocked/pending entries count
+toward the shared 16-entry chooser capacity. Preview is not a reservation;
+confirmation checks again and refuses occupied or ambiguous state.
+
+Creation retains the existing sibling `HOME.profile-import.json` filename with
+format `srvros-profile-create-v1`. Its strict six-field record contains `home`,
+`profile_id`, `binding`, canonical `sha256` and an inline identity-only `bundle`,
+plus `format`. Unlike import-v1's source path, this bundle needs no external
+file. The normal strict bundle validator, expected-file manifest, exact-tree
+preflight and publication/reconciliation engine are reused. Existing import-v1
+journals keep their original source-bundle requirements. Unknown files, changed
+final content, malformed journals and ambiguous state remain preserved refusals.
+Offline installation inspection blocks the same pending filenames before reading
+profile documents, including a complete profile with an unreconciled journal.
+
+Five controlled creation interruption points are qualified by the new harness:
+`journal`, `directories`, `identity`, `commit-ready` and `published`. The last is
+after pending-marker removal and HOME flush, before sibling-journal removal;
+recovery must recognize a complete already-published profile and reconcile the
+journal without changing content. The existing diagnostic allowlist gains
+`published`; only an explicit ordinary `--apps-trace` test session forwards it
+through the owned worker path. Ordinary environment construction strips test
+faultpoints, and desktop child admission remains unchanged.
+
+The planned proof is `tools/profile_create_smoke.py`: 20 serial disposable VM
+lifetimes covering both creation entry points, initial empty/default state,
+canonical/distinct dynamic UUIDs, remembered selection, guest-saved selected
+text/binary files, graphical export/import and reboot readback in an independent
+installation. All six defaults remain unchanged through migration. It also
+covers the five stop/recover pairs, invalid/occupied/capacity refusals, 640 × 480
+and preservation of legacy/machine/unselected data, bindings, allocation and
+protected regions. Final A/B/transport images and original baselines remain raw
+for independent audit; completed probes/snapshots use verified bounded gzip
+archives and restore manifests. Builds and VMs are serialized. This section
+records implementation/acceptance scope, not a claim that the VM proof has run.
