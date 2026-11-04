@@ -105,25 +105,23 @@ def main():
                 def shot(name):
                     time.sleep(.3);qmp.call('screendump',{'filename':str(out/(name+'.ppm'))});shots.append(name+'.ppm')
                 def prompt_button(index):
-                    # Find the two 112x32 dialog buttons in either the owned or embedded prompt.
-                    from PIL import Image
-                    qmp.mouse(24-pointer[0],56-pointer[1]);pointer[:]=[24,56]
-                    end=time.monotonic()+8
-                    while time.monotonic()<end:
-                        p=out/'pointer-target.ppm';qmp.call('screendump',{'filename':str(p)})
-                        im=Image.open(p).convert('RGB');pixels=im.load();rows={};w=112;h=32
-                        for y in range(100,im.height-h):
-                            x=0
-                            while x<im.width-w:
-                                color=pixels[x+4,y];right=x+w-1;bottom=y+h-1
-                                if pixels[x+4,y-1]!=color and pixels[x+w//2,y+h//2]!=color and all(pixels[t,y]==color and pixels[t,bottom]==color for t in range(x+4,right-3)) and all(pixels[x,t]==color and pixels[right,t]==color for t in range(y+4,bottom-3)):
-                                    rows.setdefault(y,[]).append((x,y));x+=w
-                                else:x+=1
-                        candidates=[row for row in rows.values() if len(row)==2]
-                        if candidates:
-                            x,y=max(candidates,key=lambda row:row[0][1])[index];click(x+w//2,y+h//2);return
-                        time.sleep(.1)
-                    raise RuntimeError('Prompt button row not found')
+                    # Use the compositor's actual framed window geometry. The
+                    # picker client has a 1px border and a 44px title/menu band.
+                    trace=re.sub(COMPOSITOR_TRACE,b'',output)
+                    geometries=re.findall(rb'deskd: geometry pid='+str(files_pid).encode()+rb' window=(\d+) frame=(\d+),(\d+),(\d+),(\d+)',trace)
+                    if args.refuse_dialogs:
+                        row=next(row for row in reversed(geometries) if int(row[0])==original)
+                    else: row=geometries[-1]
+                    _,x,y,w,h=map(int,row);client_w=w-2;client_h=h-45
+                    # desk_widget_inset(bounds,8), then folder mode buttons.
+                    frame_w=client_w-16;frame_h=client_h-16
+                    bx=8+frame_w-(236 if index==0 else 144)+(42 if index==0 else 64)
+                    by=8+frame_h-36+14
+                    click(x+1+bx,y+44+by)
+                def choose_folder():
+                    # A completed listing focuses the folder list; Tab visits
+                    # Cancel and then Choose folder, even for an empty folder.
+                    qmp.key('tab');qmp.key('tab');qmp.key('ret')
                 def baseline():
                     serial.sendall(b'ps\n');wait(b'pid name status');wait(b'srv> ')
                     return set(re.findall(rb'^(\d+) (\S+) (background|exited|foreground)',output.split(b'pid name status')[-1].split(b'srv> ')[0],re.M))
@@ -133,17 +131,21 @@ def main():
                     shortcut('meta_l-spc');wait(b'launcher opened');text(query);qmp.key('ret');wait(b'launcher window=')
                 def prompt(action):
                     shortcut('ctrl-shift-'+action)
-                    marker=('files-transfer-prompt action='+('copy' if action=='c' else 'move')+' source=').encode()
-                    if args.refuse_dialogs: wait(marker)
-                    else: wait_all([marker,b'deskd: commit'])
-                def target(path):
-                    shortcut('ctrl-a');text(path)
+                    marker=('files-transfer-picker action='+('copy' if action=='c' else 'move')+' source=').encode()
+                    wait(marker);wait(b'picker ready mode=3 items=')
+                    if not args.refuse_dialogs: wait(b'deskd: commit')
+                def target(path,error=False):
+                    shortcut('ctrl-l');text(path);qmp.key('ret')
+                    wait((('picker error mode=3 path=' if error else 'picker ready mode=3 items=')).encode())
+                    wait(('path='+path).encode())
                 wait(b'srv> ',100);before=baseline();assert before
+                serial.sendall(b'run /fat/bin/mkdir /fat/transfer-dest/nested\n');wait(b'run: pid=');wait(b' exited status=0');wait(b'srv> ')
                 serial.sendall(b'run /fat/bin/deskd '+(b'--dialog-refusal-test' if args.refuse_dialogs else b'--apps-trace')+b'\n')
                 wait(b'stage=first-publish edge=event');wait(b'deskd: commit')
                 click(390,750);wait(b'desktools: starting role=files')
                 wait_all([b'file-result role=files op=3 status=0',b'files-runtime: admitted window='])
                 wait(b'\n')
+                files_pid=int(re.findall(rb'window-request role=files pid=(\d+)',re.sub(COMPOSITOR_TRACE,b'',output))[-1])
                 original=int(re.findall(rb'files-runtime: admitted window=(\d+)',re.sub(COMPOSITOR_TRACE,b'',output))[-1])
                 navigate('/fat/transfer-source');text('payload')
                 shortcut('ctrl-shift-n');wait(b'files-runtime: admitted window=');wait(b'\n')
@@ -153,12 +155,13 @@ def main():
                 prompt('c');shot('copy-prompt');qmp.key('esc')
                 prompt('m');shot('move-prompt');prompt_button(0)
                 # Refusals leave the source selected; refresh and prompt again to prove it.
-                prompt('c');target('/fat/transfer-collision');qmp.key('ret');wait(b'file-result role=files op=7 status=2')
+                prompt('c');target('/fat/transfer-collision');choose_folder();wait(b'file-result role=files op=7 status=2')
                 shortcut('ctrl-r');wait(b'file-result role=files op=3 status=0')
-                prompt('c');target('/fat/no-such-transfer-folder');qmp.key('ret');wait(b'file-result role=files op=7 status=5')
+                prompt('c');target('/fat/no-such-transfer-folder',error=True);shot('unavailable-folder');qmp.key('esc')
                 shortcut('ctrl-r');wait(b'file-result role=files op=3 status=0')
-                prompt('c');target('/fat/transfer-dest');prompt_button(1)
-                wait_all([b'file-result role=files op=7 status=0',b'files-location path=/fat/transfer-dest '],90);shot('copied-selected')
+                prompt('c');target('/');text('usr');qmp.key('ret');wait(b'picker ready mode=3 items=');wait(b'path=/usr');shot('root-alias')
+                target('/fat/transfer-dest');qmp.key('home');qmp.key('ret');wait(b'picker ready mode=3 items=');wait(b'path=/fat/transfer-dest/nested');shot('nested-folder');prompt_button(1)
+                wait_all([b'file-result role=files op=7 status=0',b'files-location path=/fat/transfer-dest/nested '],90);shot('copied-selected')
                 # The sibling retains its own folder and collision file while
                 # the original window navigates to the copy destination.
                 launch('transfer-collision window');shortcut('ctrl-r');wait(b'file-result role=files op=3 status=0')
@@ -166,25 +169,25 @@ def main():
                 if args.refuse_dialogs: wait(b'files-prompt operation=5 name=payload.bin')
                 else: wait_all([b'files-prompt operation=5 name=payload.bin',b'deskd: commit'])
                 qmp.key('esc')
-                launch('transfer-dest window')
+                launch('nested window')
                 # Selection after copy is proved by moving that very file without reselecting.
-                prompt('m');target('/fat/transfer-source');qmp.key('ret');wait(b'file-result role=files op=5 status=2')
+                prompt('m');target('/fat/transfer-source');choose_folder();wait(b'file-result role=files op=5 status=2')
                 shortcut('alt-left');wait(b'files-location path=/fat/transfer-source ')
                 shortcut('ctrl-r');wait(b'file-result role=files op=3 status=0')
                 # Source still exists after copy and collision. Move it to a fresh folder.
-                text('payload');prompt('m');target('/fat/transfer-dest-moved');qmp.key('ret');wait(b'file-result role=files op=5 status=5')
+                text('payload');prompt('m');target('/fat/transfer-dest-moved',error=True);qmp.key('esc')
                 # Return to destination and move the selected copy into the collision-free source
                 # after deleting neither file: use a second empty folder created by fixture.
-                shortcut('alt-right');wait(b'files-location path=/fat/transfer-dest ')
-                text('payload');prompt('m');target('/fat/transfer-empty');qmp.key('ret')
+                shortcut('alt-right');wait(b'files-location path=/fat/transfer-dest/nested ')
+                text('payload');prompt('m');target('/fat/transfer-empty');choose_folder()
                 wait_all([b'file-result role=files op=5 status=0',b'files-location path=/fat/transfer-empty '],90);shot('moved-selected')
-                shortcut('alt-left');wait(b'files-location path=/fat/transfer-dest ')
+                shortcut('alt-left');wait(b'files-location path=/fat/transfer-dest/nested ')
                 shortcut('ctrl-r');wait(b'file-result role=files op=3 status=0')
                 # Closing a window cannot abandon an accepted copy. Slow writes
                 # so the close request is observed while its worker is busy.
                 navigate('/fat/transfer-source');text('payload');prompt('c');target('/fat/transfer-close')
                 qmp.call('block_set_io_throttle',{'device':'disk','bps':0,'bps_rd':0,'bps_wr':65536,'iops':0,'iops_rd':0,'iops_wr':0})
-                start=len(output);qmp.key('ret');wait(b'file-submitted role=files op=7');shortcut('ctrl-w')
+                start=len(output);choose_folder();wait(b'file-submitted role=files op=7');shortcut('ctrl-w')
                 close=f'window-lifecycle: close-request role=1 window={original} busy=1 operation=7'.encode()
                 closed=f'files-runtime: closed window={original} '.encode()
                 wait_all([close,b'file-result role=files op=7 status=0',closed],90)
@@ -213,11 +216,11 @@ def main():
             saved=ExfatFixture(disk.read_bytes())
             expected={'transfer-source/payload.bin':payload,'transfer-empty/payload.bin':payload,'transfer-collision/payload.bin':collision,'transfer-close/payload.bin':payload}
             for path,value in expected.items(): assert saved.read(path)==value,path
-            assert 'payload.bin' not in {name for name,_ in saved.entries(saved.read('transfer-dest'))}
+            assert 'payload.bin' not in {name for name,_ in saved.entries(saved.read('transfer-dest/nested'))}
             generator('generator-check');allocation('allocation')
             receipt={'status':'PASS','refuse_dialogs':args.refuse_dialogs,'fixture':'matched-generated',
                 'guest_fsck':'PASS','offline_allocation':'PASS','process_baseline_restored':True,
-                'files_windows':2,'sibling_independent':True,'files_pool_retired':True,'accepted_copy_drained_on_close':True,
+                'files_windows':2,'sibling_independent':True,'files_pool_retired':True,'accepted_copy_drained_on_close':True,'folder_picker':True,'nested_folder':True,'root_alias_navigation':True,'unavailable_folder_recovered':True,
                 'source':pins,'screenshots':shots,'sha256':{k:hashlib.sha256(v).hexdigest() for k,v in expected.items()}}
             (out/'result.json').write_text(json.dumps(receipt,indent=2)+'\n')
         except Exception as exc:
