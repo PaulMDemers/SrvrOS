@@ -2153,6 +2153,22 @@ static void move_process_image(struct process *destination, struct process *sour
     source->mapping_count = 0;
 }
 
+/* The exec image is private until fully loaded. Heap mutation stays atomic;
+ * initialization may service other processes only after kmalloc returns. */
+static struct process *process_allocate_exec_image(void) {
+    struct process_service_scope scope=process_service_begin();
+    struct process *image=NULL;
+    if(scope.held || !scheduler_io_active()) {
+        image=kmalloc(sizeof(*image));
+        if(image)for(uint64_t at=0;at<sizeof(*image);) {
+            uint64_t end=at+65536;if(end>sizeof(*image))end=sizeof(*image);
+            while(at<end)((uint8_t *)image)[at++]=0;
+            process_service_checkpoint();
+        }
+    }
+    process_service_end(scope);return image;
+}
+
 int64_t process_exec_replace(const char *path,
     uint64_t argc,
     const char *const *argv,
@@ -2171,7 +2187,7 @@ int64_t process_exec_replace(const char *path,
 
     if(process_current_user_thread()) return SRV_ERR_NOTSUP;
     for(unsigned i=0;i<PROCESS_MAX_USER_THREADS;i++) if(process->user_threads[i].used) return SRV_ERR_NOTSUP;
-    struct process *image = kcalloc(1, sizeof(*image));
+    struct process *image = process_allocate_exec_image();
     if (image == NULL) {
         return SRV_ERR_NOMEM;
     }

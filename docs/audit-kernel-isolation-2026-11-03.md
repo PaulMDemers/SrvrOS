@@ -322,6 +322,43 @@ zeros its payload after the heap lock is released, but an already IRQ-masked
 caller retains that state; caller-specific large initialization work remains
 separate audit scope.
 
+## Caller-masked initialization and storage DMA lifetimes
+
+Continuation from `4107a6f8` traces caller-masked initialization and AHCI/VirtIO
+storage ownership. Two bounded issues are fixed:
+
+- Exec used kcalloc for its large temporary process image with the syscall's
+  IRQ mask inherited. The heap lock ends before zeroing, but there were no
+  effective service turns during initialization. A private image allocator now
+  holds the ordinary process owner, allocates without yielding inside heap
+  mutation, then zeroes in 64 KiB batches with checkpoints. No image reference
+  or PTE is published at those turns. Tests check complete zeroing, multiple
+  turns, nested owner retention, OOM and foreign-owner refusal. A compiled
+  negative control suppressing these turns fails the checkpoint assertion.
+- AHCI allocated four DMA pages before checking allocation success and retained
+  earlier allocations on OOM. The real-source baseline fails the release-count
+  assertion. Initialization now collects pages locally and releases only that
+  unpublished attempt on failure; disk fields are assigned after all four
+  succeed. Each of the four refusal positions is covered. The caller stops the
+  port before allocating and publishes CLB/FB only after success. No timeout or
+  uncertain active-DMA path is permitted to reclaim backing by this change.
+
+The reviewed AHCI command-failure path marks the disk offline and pins command,
+FIS and bounce pages. VirtIO block invalidates block identity and frees its DMA
+backing only after transport stop succeeds; failed reset retains quarantine.
+The transport verifies reset status and bus-master disable before queue backing
+release. Existing actual-source timeout, stuck CI, status/error, completion,
+reset-failure and quarantine fixtures pass. This is sampled source/protocol
+coverage, not physical-device or arbitrary hot-removal acceptance. Driver
+reinitialization and broader network/input/display DMA lifetimes remain open.
+
+Focused storage, process-service/output and VirtIO PCI/block tests pass. AHCI
+and service fixtures pass ASan/UBSan and GCC14; a GCC fixture indentation warning
+was corrected before the final strict pass. Kernel build passes. Evidence is
+under `build/review/dma/`; guest results follow after the rebuilt-kernel checks.
+General kcalloc and poisoning behavior remain unchanged. Other caller-masked
+initialization sites still require individual publication/ownership review.
+
 ## Remaining work
 
 Other long IRQ-disabled operations, including initial/churning PMM scans, heap validation and poisoning,

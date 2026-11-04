@@ -1501,3 +1501,10 @@ host replay timings are not an IRQ-latency deadline. See the
 PMM cost regressions also check cold occupied-prefix probe counts, free runs
 crossing a 64-frame group, and one hint-maintenance pass per multi-frame free.
 These are work-count checks; poisoning remains complete and IRQ-excluded.
+
+
+`test-storage` checks all four pre-publication AHCI DMA allocation failures and
+keeps its existing timeout/pinned-backing cases. `test-process-service` checks
+private exec-image zeroing, owner retention, OOM and foreign-owner refusal.
+These tests preserve the distinction between unpublished allocation rollback
+and device-owned backing that requires proven quiescence before reuse.

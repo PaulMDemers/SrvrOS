@@ -3155,3 +3155,11 @@ notified. Large poison writes and caller-masked initialization remain open costs
 Implementation `d9b69e36` passes host PMM/heap/service checks, PMM sanitizers and
 GCC14, kernel build, Q35 sysabi and full threadstress. Main `4f5edb0e` adds no
 kernel/shared changes. Retained PR313 runtime files were used; guests stopped.
+
+
+### Caller-masked initialization and storage DMA scope
+
+Continuing PR317 from `4107a6f8`: private exec image zeroing service turns and
+AHCI pre-publication DMA allocation rollback. No content/workspace/close edits;
+filesystem owner notified. Four AHCI OOM sites, init negative control, storage
+quarantine fixtures and host sanitizers/GCC cover the bounded changes.

@@ -349,6 +349,20 @@ static void startup_thread_contract(void) {
     puts("startup-thread: PASS sole-main/entry/stack/TLS refusal, complete context publication, no service window, TLS/stack failure cleanup and retained failed-unmap ownership");
 }
 
+static bool fail_image;
+void *kmalloc(size_t n) { if(fail_image)return NULL;void *p=malloc(n);assert(p);memset(p,0xa5,n);return p; }
+static void image_init_contract(void) {
+    reset();observed=NULL;unsigned before=checkpoints;
+    struct process *p=process_allocate_exec_image();assert(p && !depth && begins==ends);
+    assert(checkpoints-before>1);
+    for(size_t i=0;i<sizeof(*p);i++)assert(!((uint8_t *)p)[i]);
+    free(p);
+    struct process_service_scope outer=process_service_begin();
+    p=process_allocate_exec_image();assert(p && depth==1);free(p);
+    fail_image=true;assert(!process_allocate_exec_image() && depth==1);fail_image=false;
+    available=false;before=ends;assert(!process_allocate_exec_image() && depth==1 && ends==before);
+    available=true;process_service_end(outer);
+}
 static void free_range_contract(void) {
     reset();struct process *p=calloc(1,sizeof(*p));assert(p);observed=p;p->address_space=0x1000;
     const uint64_t base=USER_MMAP_BASE,page=4096;
@@ -452,6 +466,7 @@ static void protection_contract(void) {
 }
 
 int main(void) {
+    image_init_contract();
     free_range_contract();
     protection_contract();
     /* Identity snapshots leave foreign serialization ownership and accounting
