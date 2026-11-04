@@ -89,7 +89,7 @@ def data_image(disk, offset, size):
 
 def boot(disk, out, number, args, negative=False, *, other_disk=None,
          reverse=False, expected_device='ahci0p2', require_identity=False,
-         recovery_reason=None, canonical_paths=False, workspace_lifecycle=False):
+         recovery_reason=None, canonical_paths=False, workspace_lifecycle=False, salvage_consumer=False):
     output = bytearray()
     consumed = 0
     serial = qmp = None
@@ -245,6 +245,9 @@ def boot(disk, out, number, args, negative=False, *, other_disk=None,
                     phase = 'save' if number == 1 else 'reopen'
                     command(f'/usr/bin/sysabi --namespace-{phase}',
                             f'namespace-persistence: {phase} PASS'.encode(), prompt=b' $ ')
+                    if salvage_consumer:
+                        command(f'/bin/sysabi --salvage-cli-{phase}',
+                                f'salvage-consumer: {phase} PASS'.encode(), prompt=b' $ ')
                     command('sync && echo namespace-sync-ok', b'\r\nnamespace-sync-ok\r\n', prompt=b' $ ')
                     serial.sendall(b'exit\n'); wait(b'srv> ')
                 if number == 2:

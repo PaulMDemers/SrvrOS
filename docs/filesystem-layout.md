@@ -3,6 +3,14 @@
 Updated November 3, 2026. Global activation follows the explicit namespace proof
 in [PR308](https://github.com/PaulMDemers/SrvrOS/pull/308).
 
+## Salvage command — active milestone
+
+Authorized consumer on main `1f177761`: `salvage --fd NUMBER DESTINATION` borrows
+an inherited seekable descriptor, uses the helper, and reports success/failure
+without reopening the source pathname. Add installed-root parent/child proof of
+shared-offset preservation, exclusive refusal and persisted copy after reboot.
+Coordinate with PR317; no process/driver edit planned. Preserve review VMs.
+
 ## Userspace salvage helper — implemented and verified
 
 `srv_salvage_copy(source_fd, destination, result)` in `<srvros/salvage.h>` copies
