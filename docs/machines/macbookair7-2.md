@@ -2,6 +2,42 @@
 
 Updated: 2026-11-03. State: **active reference machine; partial device acceptance**.
 
+### Scanout lifetime hardware trial prepared; reboot unarmed
+
+Final compiled source `ae598610` / release `d79f3ca9a74fa201` is installed for
+the automated shadow-publication trial. It owns private PMM RAM, authenticates
+every mutating operation by epoch and refuses hardware-mode admission without
+the missing takeover assurances. No native plane/GGTT writer or desktop backend
+is enabled. Guest progress and saved per-completion token/frame-clock records
+cover eight cases; no tester input is required. Expected injected faults retain
+six buffers until reboot. See the [lifetime contract](../scanout-buffer-lifetime.md).
+
+Full host/core/profile/docs/build and ordinary VirtIO/Open With gates pass on
+`f714bbd9`, including actual VirtIO owner death and reacquisition. Final review
+found queued starts/guards/releases needed caller epochs as well as completion
+tokens. The bounded delta to `ae598610` repeats directed tests, ASan/UBSan,
+matched normal/AP/native/synthetic kernels, real guest PMM fixture, exact native
+Q35 refusal/save/unmount/reset and missing-volume halt. Stale work cannot affect
+a reopened same-PID lifetime or claim a new lifetime's release. The final VM
+fixture completes all eight cases,12 copies,13 requests,10 shadow completions
+and3 restores. Native timing and physical flips remain unaccepted.
+
+The initial installed f714 candidate `41e1d478feb52f3e` was superseded before
+any boot/arming; its records are preserved. Preparation verifies1321 prior USB
+files/93 sessions, unchanged host boot identity, offline fsck/allocation/writable/
+headroom, Ubuntu default and independent recovery9aa/accepted c497/prior41e.
+USB is unmounted. Obsolete c605 and3a3b EFI copies were archived/hash-verified
+before removing only those copies for space; independent payloads and accepted
+evidence remain. No new run is armed. Run record:
+`build/air-scanout-lifetime-native-20261103/run.json`; validation/checkpoint:
+`build/air-scanout-lifetime-20261103/`. Stop here until the next test instruction.
+
+Merged integration prerequisites needed three isolated GCC portability fixes:
+statement boundaries in installed-root selection and Display Settings, plus the
+profile-startup host fixture's glibc feature macro. Tests/assertions/warnings
+were retained; failed attempts and the complete error-collection pass are saved.
+Actions remain disabled. PR301 retains the complete scoped review and evidence.
+
 ### Active scanout lifetime milestone
 
 Integration base `4c4c37a5`, merged at `396cc9c7`, consumes HiDPI/profile/install
