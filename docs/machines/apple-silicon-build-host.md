@@ -1,5 +1,20 @@
 # Apple Silicon macOS build host
 
+## Explicit GPT workspace GUID selection — in progress
+
+User authorizes offline partition-GUID selection, PR317 coordination and
+wrong-GUID/ambiguity qualification while preserving review VMs and uncertain
+media. Isolated filesystem checkout, base actual main `5f4f6fc6` (merged PR317),
+branch `device/apple-silicon/filesystem-guid-selection`. Reuse Python UUID
+`bytes_le` conversion already used by installation verification, and unchanged
+native map validation. Extend only host selector/wrapper/helper/tests: canonical
+nonzero GUID input, exactly one matching Basic Data partition after complete
+primary/backup checks, no fallback on mismatch or failed workspace inspection.
+Automatic ambiguity refusal and paired-offset compatibility remain. No production
+process/block/USB, writable capability/admission, repair/replay or content export.
+Verify synthetic multi-volume behavior and original whole-file hashes/full
+permission/identity stamps on retained inputs.
+
 ## PR360 current-main merge review — ready
 
 User authorizes review and merge if ready, preserving uncertain media and review
