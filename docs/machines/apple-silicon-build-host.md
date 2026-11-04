@@ -1,5 +1,83 @@
 # Apple Silicon macOS build host
 
+## PR364 integrated-main merge review — qualified November 4, 2026
+
+User authorizes review and merge if ready. Clean tested `bb43b8b2` incorporates
+latest main `88a95f9a`, Apps `7d72518a`, Widgets `3a695ce5`, Ports `fc51ddb4`.
+Source review finds no blocker or unresolved review thread. V1
+filesystem/profile/native export contracts are unchanged; consumed Apps/Widgets
+advanced, so a new clean matched runtime and full proof were required.
+
+Fresh local checks pass 88 installation tests plus one optional exhaustive skip,
+27 workspace groups, 25 profile CLI groups, 13 bundle and seven image groups,
+17 publication and 16 native export groups, storage/session/desktop/fsync/docs.
+The matched `all` build passes. New `export-publication-review/proof-apgpwd4j`
+passes all 109 fresh-process steps, eight I/O modes, 22 refusal commands,
+18 complete publications and two actual fresh-B boots. Raw independent audit
+verifies 166 base files, exact text/binary/defaults/UUID/local binding and
+HOME/XDG/cwd, exclusions, clean allocation/protected regions, used-B inspection
+with zero writes/flushes and byte-identical B re-export. B2 rendered review
+confirms the exact selected document at the destination HOME. Sources, receipts,
+matched artifacts and scripts survive outside build in the mounted evidence
+volume; the older proof keeps its original source attribution.
+
+Original A, all prior source-proof raw A/B/transport and baselines retain their
+paths/device/inodes/full hashes; A/baseline metadata stays unchanged throughout.
+Review VM full commands 61610/6233/85869 match preflight. Both owned guests stop.
+The finite resource slice is explicitly released; no further build/VM is planned.
+Proof minimum reserves: internal/temp 5.87 GiB, output 6.89 GiB, backing 11.36 GiB,
+external private temp/cache 7.36 GiB, above the 2/4 GiB floors. Output starts at
+8.45 GiB. Original internal caches remain retained; working caches/temp use a
+private external APFS directory. Only the earlier completed recovery transport
+was losslessly archived after exact round-trip verification; its original inode
+is historical and is never adopted. Original A/source disks and raw B stay raw.
+
+The [review manifest](../assets/screenshots/installation-export-recovery-review.json)
+records exact sources, hashes, reserve minima and the new receipt/audit. Follow-up
+changes documentation/evidence only. Ready for authorized merge; no physical
+media, arbitrary power-loss or authentication acceptance is implied. Next
+bounded proposal: offline streaming-v2 admission and fresh-install restoration,
+after frozen/qualified profile-stream and bounded range-I/O contracts. It needs a
+new bounded installation adapter; existing v1 helpers and export recovery stay
+unchanged. See the installation guide for dependencies and acceptance.
+
+## Offline export-publication recovery — qualified for review
+
+User authorizes scoped implementation, interruption/reconciliation/refusal and
+fresh-B restore/reboot proof, then PR publication. Reuse isolated
+`SrvrOS-installation-io`, branch `device/apple-silicon/export-publication-recovery`,
+initial main `5f670602`, integrated main `a90bf57e` before qualification. Own
+new host export-publication module, optional
+`export-profile --publication-dir`, read-only `inspect-export`, explicit
+`reconcile-export`, focused tests/proof and installation docs. Keep the v1 codec,
+source admission and guest/filesystem/profile implementations unchanged.
+
+The export-specific immutable intent binds directory/file identity, exact bundle
+hash/size and historical source observation outside the installation stage.
+Reconcile only complete owned v1 bytes with the original destination identity;
+validate recorded transient aliases and refuse additional links, partial/torn or
+conflicting state. Inspection performs no writes/flushes; reconciliation never
+rereads or repairs the source. CLI state/error paths follow an expert UX walkthrough;
+no representative-user study is claimed. Preserve original A baseline/current
+image paths/device/inodes, final earlier images, review VMs 61610/6233/85869 and
+the mounted APFS evidence image on miniTB. One build/harness here, no physical
+media, host reboot, Actions or merge. Clean matched proof source `1a62be92` passes 109 fresh-process
+interruption/I/O/reconciliation/refusal steps and both fresh-B restore/reboot
+lifetimes. Full host checks on `bc6c6dd4` pass 17 publication and 16 native
+export groups, 88 installation tests (one optional skip), 27 workspace groups
+and profile/session/desktop/storage/fsync/docs checks. Final `1a62be92` repeats
+17 publication groups/native integration and a matched build with all three
+complete guest payloads unchanged. I/O faults are Python boundary injection. Raw audit verifies 18 complete publications,
+three gzip streams, 166 installed base files and unchanged original A/B/transport
+plus baselines. B uses `recovered_b`, UID/GID 3050/3051 and its own machine state;
+used-B native inspection and byte-identical re-export pass. Original source
+paths/device/inodes/times/hashes stay intact. All owned compile/guests stopped;
+heavy slot returned through profiles coordinator. Full evidence survives in the
+mounted APFS image under `export-publication/proof-mn6magg7`; committed manifest
+and restored screenshot link from the installation guide. PR364 is scoped for
+review, no merge requested. Later main `8c891b20` leaves installation/profile/
+native-export sources unchanged; runtime proof attribution remains `1a62be92`.
+
 ## PR360 current-main merge review — ready
 
 User authorizes review and merge if ready, preserving uncertain media and review
@@ -4826,6 +4904,23 @@ any new need must coordinate before launch. Integration checkout and protected
 review VMs remain untouched. Both PRs are accepted for the authorized port-first,
 OS-second merge; linked PR state records the delivery result.
 
+### GNU diff and automatic CLI queue — active November 4, 2026
+
+User authorized GNU diff 3.12 in separate `SrvrOS-ports-diff` from actual main
+`a90bf57e`, with automatic review/merge/proceed through the finite queue in
+[cli-port-queue.md](../cli-port-queue.md). Parent owns root build/staging/docs,
+independent verification and GitHub delivery; port/test helpers own disjoint
+files. The integration checkout and protected review VMs are excluded.
+
+Initial scope is the bounded comparison/review proposal. Source signature and
+pristine provenance must be verified; SDK/gnulib compatibility, input/allocation
+bounds and cancellation remain gates. No shared libc/kernel edit is planned.
+Installation stopped its owned work and explicitly released; profiles
+relinquished its next turn pending a kernel range-I/O prerequisite. Integration
+granted one bounded GNU diff compatibility/matched-build and 512 MiB guest window
+at 15:21 America/New_York (20:21 UTC). The port helper owns the single -j2 build
+token; parent launches no competing job. This window must be explicitly released,
+and later qualification/queue rows require a separate coordinated handoff.
 ### Find Files bounded Contents search — verified November 4, 2026
 
 User authorizes bounded content search alongside unchanged filename search in
@@ -4946,3 +5041,52 @@ errors, cancellation and two clean builds through genuine GNU parser/engine.
 Status contracts are GNU patch0success/1unapplied hunks/2trouble, independent of
 diff's equal/different contract. Source-only adapter/test helpers own disjoint
 files; no fake shared capability or next-port acceptance is claimed.
+GNU diff checkpoint: genuine core and gnulib link, and the first isolated guest
+passes exact labeled output, statuses, NUL refusal and fsck. Full harness stopped
+before QEMU at xorriso error 32 while internal storage was below reserve; the
+window was released. All files/links in task-owned diff/xz build/evidence trees
+were verified before relocation to dedicated external APFS `SrvrOSCLIQueue`,
+backed by `/Volumes/miniTB/SrvrOS-CLI-queue-20261104.sparsebundle`; old paths are
+symlinks, and volume-root manifests retain every SHA256/link. `TMPDIR` and build
+caches use the owned external volume. Require ≥2 GiB free on internal, output,
+temp and backing filesystems before each heavy launch. Current source is merged
+with actual main `88a95f9a` and exact merged Apps/UI pins; guest evidence on this
+source remains pending. Integration relayed a fresh explicit ≤40-minute window
+for a matched incremental -j2 build, two clean diff rebuilds/native tests and at
+most six sequential 512 MiB guests, stopping/releasing on failure or expiry. No
+standing reservation applies to later queue entries.
+
+### GNU diff bounded qualification — ready for dependency-order delivery
+
+All bounded gates pass on clean source `5796a9cd`, reconciled with main
+`70c3ea0f`. The full two-boot proof at
+`build/review/diff/20261104-164420-i8c5qkr8` includes a changed input simultaneously
+256 KiB, 8192 lines and a 64 KiB line, exact GNU references and host GNU Patch
+roundtrips, allocation refusal/recovery, source preservation, saved reboot bytes
+and clean guest fsck. Repeated signals after comparison progress and observed
+held-output stall return exactly 130/143 with unchanged flags. The stalled pipe
+contains 65534 bytes while POLLOUT remains true; the previous failed assertion
+and the earlier pre-QEMU ISO failure are retained as historical failures.
+
+Actual Terminal/less/error/readback and expert screenshot walkthrough pass on
+the same packed runtime `258775bcfa0102cd1ca1c666e6005fa63f155198eed634569c709ce9ee5811b6`.
+The full 491-line CLI and ports regressions each pass with clean fsck. Two clean
+GNU core/gnulib and diagnostic builds match against the same SDK objects, with
+production ELF `83a5f8a0c7e803cf0c5e716f1e202b4918561dfbc461ed3fa75de41499d7d714`.
+Native upstream scripts have three PASS and one expected large-subopt XFAIL;
+guest input fixtures are separately labeled. No full guest-suite, independent
+SDK/whole-image reproducibility, RSS/true peak, traced syscall wait, in-call
+latency, physical-device or representative-user claim. No shared libc/kernel
+change or unresolved bounded-profile blocker.
+
+Independent source/evidence review passes. [Portable evidence](../assets/screenshots/diff-manifest.json)
+and a readback-verified archive of all 4083 files/links plus source/payload copies
+survive outside build cleanup in ignored `.local/cli-port-evidence/diff/`
+(archive SHA256 `8dc2bf0a2e75b55ee355d404eb4a7785c68c28c09810fa531976bba14922c5ef`).
+Final documentation/gitlinks change no tested runtime source; exact-head/tree
+and port-pin checks guard [SrvrPorts #11](https://github.com/PaulMDemers/SrvrPorts/pull/11)
+then [SrvrOS #369](https://github.com/PaulMDemers/SrvrOS/pull/369). Linked PR states
+record delivery. All owned jobs stopped and each resource slice was released.
+GNU Patch source-only preparation is isolated; further builds require its own
+finite handoff after diff delivery. Review VMs and integration checkout remain
+untouched. No further diff feature is required for this target.

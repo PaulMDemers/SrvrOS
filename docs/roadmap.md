@@ -6,6 +6,37 @@ and [machine records](machines/README.md) separate implementation from physical
 acceptance. The [device parity ledger](device-parity.md) compares the Air with
 ongoing Pro work.
 
+## Automatic CLI queue — November 4, 2026
+
+User authorized the bounded GNU diff milestone, then automatic research,
+implementation, independent review and dependency-order merge through a finite
+queue: GNU diff, GNU patch, GNU grep and GNU sha256sum. Detailed profiles,
+verification and resource ownership are in [the queue](cli-port-queue.md).
+
+GNU diff 3.12 is implemented and qualified in the isolated checkout. The useful
+profile is two regular C-locale text files, normal/quiet/three-line unified
+reports, labels, long and unterminated lines, actual-read caps and 0/1/2 statuses.
+The changed simultaneous 256 KiB/8192-line/64 KiB-line fixture passes both boots.
+Exact native GNU references and patch roundtrips, allocation recovery, repeated
+SIGINT/SIGTERM after comparison progress and observed held-output stall, output
+errors, preserved inputs, reboot bytes and fsck pass on clean `5796a9cd`.
+
+Actual Terminal/less/error/readback expert walkthrough and full CLI/ports
+regressions pass against the same payload hashes. Two clean GNU core/gnulib and
+diagnostic builds match against the same SDK objects; native upstream scripts
+have three PASS and one expected XFAIL. No independent SDK/whole-image rebuild,
+full guest upstream suite, RSS/true peak, in-call interruption latency, physical
+or user-study claim. Local compact patch remains a narrower tested subset.
+
+Independent review finds no blocker within the bounded profile. Delivery is
+port first, then OS: [SrvrPorts #11](https://github.com/PaulMDemers/SrvrPorts/pull/11)
+and [SrvrOS #369](https://github.com/PaulMDemers/SrvrOS/pull/369); linked PR states
+record the merge outcome. [Portable evidence](assets/screenshots/diff-manifest.json)
+and a verified ignored archive outside build cleanup retain source, failed and
+passing proofs. Integration checkout and review VMs remain untouched; no shared
+libc/kernel change. Source-only GNU patch preparation is isolated while delivery
+finishes; further builds require a fresh resource window.
+
 ## xz bounded stream interchange — November 4, 2026
 
 Authorized target: upstream XZ Utils 5.8.4 static single-threaded `xz`, preset-0

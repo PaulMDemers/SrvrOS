@@ -87,6 +87,29 @@ class InstalledExportTests(unittest.TestCase):
         self.assertEqual(value['profile'], {'id': PROFILE_ID, 'display_name': 'alice'})
         self.assertEqual(value['documents'], [])
 
+    def test_tracked_publication_reconciles_without_changing_installation(self):
+        import installation_export_publication as publication
+        self.publish()
+        before = snapshot(self.stage)
+        attempt = self.root / 'attempt'
+        def interrupted(name):
+            if name == 'linked':
+                raise OSError('injected post-link interruption')
+        result = self.call(documents=['Documents/notes.txt'], publication_dir=attempt, checkpoint=interrupted)
+        self.assertEqual(result['state'], 'refused', result)
+        self.assertTrue(result['visible_uncertain'])
+        self.assertEqual(publication.inspect(attempt)['state'], 'visible-uncertain')
+        recovered = publication.reconcile(attempt)
+        self.assertEqual(recovered['state'], 'complete', recovered)
+        self.assertEqual(recovered['source_snapshot']['image_sha256'], export.image.digest(self.stage / 'image.img'))
+        self.assertEqual(profile_bundle.decode_json((self.root / 'export.json').read_bytes()), bundle())
+        self.assertEqual(snapshot(self.stage), before)
+        for path in (self.stage / 'publication', self.stage, self.root):
+            result = self.call(output=self.root / 'other.json', publication_dir=path)
+            self.assertEqual(result['state'], 'refused', result)
+            self.assertEqual(snapshot(self.stage), before)
+            self.assertFalse((self.root / 'other.json').exists())
+
     def test_invalid_selection_refused_without_stage_changes(self):
         self.publish()
         cases = [dict(profile_id='22345678-1234-4abc-8def-123456789abc'),

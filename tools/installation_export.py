@@ -121,7 +121,8 @@ def publish(path, bundle):
     return hashlib.sha256(data).hexdigest()
 
 
-def export_installed(stage, output, profile_id, home, documents, inspect_driver, export_driver):
+def export_installed(stage, output, profile_id, home, documents, inspect_driver, export_driver,
+                     publication_dir=None, checkpoint=None):
     try:
         target = image.checked_path(stage)
         path = output_path(output, target)
@@ -135,11 +136,19 @@ def export_installed(stage, output, profile_id, home, documents, inspect_driver,
                            'preferences': {}, 'documents': empty_entries})
         driver_record = image.source(export_driver)
         inspection.require(os.access(driver_record['path'], os.X_OK), 'export driver is not executable')
+        publication_path = image.checked_path(publication_dir) if publication_dir is not None else None
+        inspection.require(checkpoint is None or publication_path is not None, 'checkpoint requires publication directory')
+        if publication_path is not None:
+            inspection.require(publication_path != target and target not in publication_path.parents and
+                               not os.path.lexists(publication_path), 'publication directory exists or overlaps stage')
         with image.plan_lock(target):
             def read_selected(fd, plan, profiles):
                 for source in plan['sources'].values():
                     source_path = Path(source['path'])
                     inspection.require(path != source_path and path not in source_path.parents, 'output overlaps source path')
+                    if publication_path is not None:
+                        inspection.require(publication_path != source_path and publication_path not in source_path.parents,
+                                           'publication directory overlaps source path')
                 inspection.require(path != Path(driver_record['path']) and path != image.checked_path(inspect_driver), 'output overlaps driver')
                 matches = [x for x in profiles if x['profile_id'] == profile_id and x['home'] == home]
                 inspection.require(len(matches) == 1, 'selected profile not admitted')
@@ -155,13 +164,25 @@ def export_installed(stage, output, profile_id, home, documents, inspect_driver,
                 return bundle
             result, bundle = inspection._inspect(target, inspect_driver, read_selected)
             # Inspection has completed its final revalidation before publication.
-            digest = publish(path, bundle)
+            recovery = None
+            if publication_path is None:
+                digest = publish(path, bundle)
+            else:
+                import installation_export_publication as publication
+                recovery = publication.publish(publication_path, path, bundle,
+                    {'stage': str(target), 'plan_sha256': image.digest(target / 'plan.json'),
+                     'image_sha256': result['current_image_sha256'], 'home': home}, checkpoint)
+                if recovery['state'] != 'complete':
+                    return {'state': 'refused', 'read_only_source': True, 'output': str(path),
+                            'export_publication': recovery, 'reason': recovery.get('reason', 'publication incomplete'),
+                            'visible_uncertain': recovery.get('visible_uncertain', False)}
+                digest = recovery['bundle_sha256']
         return {'state': 'exported', 'read_only_source': True, 'output': str(path),
                 'bundle_sha256': digest, 'profile': bundle['profile'],
                 'documents': [{k: e[k] for k in ('path', 'size', 'sha256')} for e in bundle['documents']],
                 'current_image_sha256': result['current_image_sha256'], 'source_used': result['used'],
                 'filesystem': result['filesystem'], 'publication': result['publication'], 'inspect_driver': result['driver'],
-                'export_driver': driver_record}
+                'export_driver': driver_record, **({'export_publication': recovery} if recovery is not None else {})}
     except PublicationUncertain as error:
         return {'state': 'refused', 'read_only_source': True, 'visible_uncertain': True,
                 'output': str(path), 'reason': str(error)[:512]}
