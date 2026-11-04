@@ -30,6 +30,32 @@ harness at a time. Publish scoped Apps/OS draft PRs in dependency order; merge
 is not requested by this milestone. Primary checkout, review VMs and physical
 media remain untouched. Actions stay disabled. Next: integrate command/app
 workers, run focused checks, then the two-installation proof.
+## PR338 managed filesystem merge review
+
+Review consumes main `a37eb7b2`, then `f0c88a6d` and `b78e3ed5`, preserving all
+host notices. Revalidated all 154 original evidence hashes. After jq changed the
+runtime image, matched `1e83ee2c` passes fresh three-boot managed USB qualification
+and all 11 canonical/CLI cases. Complete fresh proof backups are independently
+cloned/hashed (154 files) at `.local/filesystem-evidence/pr338-review/`. Focused
+host checks and 19 installation-inspection tests pass using the documented Darwin
+feature macro. PR317 owner reports no current blocker; explicit slot/terminal
+work stays separate. Review VMs 61610, 6233 and 85869 remain untouched; all review
+guests stopped. See the [filesystem contract](../filesystem-layout.md) for limits
+and the next proposed late-flush proof. User authorized merge if ready.
+
+## Managed USB workspace filesystem proof
+
+Isolated `SrvrOS-filesystem`, branch
+`device/apple-silicon/filesystem-managed-salvage`, consumes main `5634cd9d` and
+subsequently `62b0708e`. PR317 lifetime review precedes the fixture-only BOT fault;
+no terminal stop/reclaim or production process/block/driver changes. Matched
+`3c480516` passes clean control, retained-reader salvage/failed retirement and
+restart readback through actual workspace commands; canonical compatibility
+passes all 11 cases. Combined `351eb986` produces identical tested payloads.
+The [filesystem contract](../filesystem-layout.md) records exact limits and
+154-file SHA-256-verified backups outside build cleanup. All task VMs stopped;
+review VMs 61610, 6233 and 85869 and primary checkout remain untouched. Delivery
+is a scoped draft PR; no physical trial, hosted Actions or merge requested.
 
 ## PR336 integrated-main merge review — ready
 
@@ -3453,3 +3479,49 @@ Evidence and source identities are in local
 Shared checkout and review VM remain untouched. Integration is delivered and
 verified; historical physical-device closures remain unresolved as documented.
 No further work is required for this integration target.
+
+### bc isolated milestone — active November 3, 2026
+
+User authorized bc-only 7.0.3 on `ports/bc` from main `b78e3ed5`, with signal
+recovery resolved before acceptance. Owns port adapter/configuration, image
+entries and disposable guest decimal/report/signal checks. Integration checkout
+and review VM remain untouched. No libc/kernel edits without concrete-gap
+coordination. Implemented and verified: bc 7.0.3 static core arithmetic, scale/sqrt/bases,
+functions/loops and file/stdin/pipeline exact reports. The signal gate is
+resolved in the port's generated copy: callback records state and returns,
+libc restores dispatcher/mask state, and existing bc unwind paths run afterward.
+Bytecode loops poll via public sched_yield every 1024 instructions. A single
+long arithmetic instruction can delay signal delivery; interactive interrupt
+messages differ from upstream. No shared libc/kernel changes were needed.
+
+Guest probes pass same-process syntax/division-error recovery, repeated blocked
+input and busy-loop SIGINT with successful calculations afterward, busy-loop
+SIGTERM exit and actual stdout failure. Seven unchanged upstream arithmetic
+fixtures plus exact report save/reopen across two boots pass. Guest fsck and
+offline allocation pass; independent fsck.exfat is unavailable. Full build,
+existing ports regression and docs/whitespace checks pass. Two clean CLI builds
+match SHA256 `62c0737baafa6b569bd917303600e5aee341c5f09b24776fce49615e5fa6af61`.
+Receipts are under `build/bc-smoke/20261103-221517-z7lm_s73/` and
+`build/review/bc/accepted.json`. No full-suite, physical-device, full-image
+reproducibility or general asynchronous-signal acceptance is claimed.
+Status: bounded implementation complete and ready for review; no merge performed.
+
+
+### bc merge review — November 3, 2026
+
+User authorized ports PR7 followed by OS PR341 if review passes. Clean candidate
+`8e59f9d9` integrates main `819956be` and pins port `78fb8184`. Source review
+found no signal implementation blocker within the cooperative scope, but
+tightened the TERM probe: unique pre-loop marker, live-child check before the
+signal, and expected normal exit zero. The fresh two-boot arithmetic/report,
+seven unchanged upstream fixtures, actual stdout failure and repeated
+blocked-input/busy-loop signal recovery checks pass. Guest fsck/offline
+allocation, existing ports regression, nine salvage-scope tests and docs pass.
+CLI SHA256 remains `62c0737baafa6b569bd917303600e5aee341c5f09b24776fce49615e5fa6af61`.
+Raw receipts: `build/bc-smoke/20261103-222330-wjogff8d/` and
+`build/review/bc-merge/`. Inactive owned proof disks were losslessly compressed
+and hash-verified to reduce host disk pressure; `proof-archives.json` records
+restoration paths/hashes. No evidence was discarded. No libc/kernel changes,
+full asynchronous-signal or physical-device acceptance is added. Integration
+checkout and review VM remain untouched. The final merge receipts record the
+authorized dependency-order delivery; no additional feature work is needed.

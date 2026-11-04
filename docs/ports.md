@@ -540,3 +540,11 @@ The active jq 1.8.2 port targets offline JSON files/stdin/pipelines and CSV
 reports, with static linking and upstream decimal-number defaults. Oniguruma
 regex functions are outside this first profile. See the [port contract](../ports/srvros/jq/PORT.md) and current roadmap
 for the accepted workflow and its optional threaded-test limitation.
+
+
+## bc exact decimal milestone
+
+bc 7.0.3 is integrated for static exact-decimal file/stdin/pipeline calculations.
+Its deferred signal-recovery gate passes the bounded guest probes; see the
+[port contract](../ports/srvros/bc/PORT.md) and roadmap for evidence and the
+cooperative interruption limit. dc/history/NLS/extra math remain outside this profile.
