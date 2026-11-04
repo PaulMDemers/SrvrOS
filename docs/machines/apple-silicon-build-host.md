@@ -1,5 +1,39 @@
 # Apple Silicon macOS build host
 
+## Desktop profile creation — implementation in progress
+
+User authorizes creation in the chooser and Profiles app, recovery, remembered
+reboot selection, migration to a second installation and merging after review.
+Coordinator owns independent review and Apps-first/OS-second merges. Reuse the
+isolated `SrvrOS-profile-326-review` checkout; OS branch
+`device/apple-silicon/profile-create`, actual main `83e5d1ad` (PR347 complete),
+Apps branch `app/profile-create` from merged main `2ebaca5e`. Its tree equals the
+previous reviewed `b2220909` pin; UI `9eaaa74e` and Ports `78fb8184` stay pinned.
+
+Own guest creation CLI/tests, Profiles UI, embedded chooser creation, fixed-command
+workers and scoped build/diagnostic wiring, plus a new bounded disposable-VM proof.
+Read-only preview generates one checked UUIDv4 and reviews name/local alias,
+empty home and six default portable preferences; confirmation rechecks before
+writing. The existing import engine gets a self-contained creation journal so
+recovery requires no disappearing temporary bundle. Old import journals, exact
+publication/reconciliation, binding/collision/capacity and legacy startup remain
+supported. Existing random may use its PRNG fallback; UUID is metadata, without
+an entropy/authentication claim. No kernel/filesystem/security architecture edits.
+
+CLI/App/chooser workers have separate files; parent reviews/integrates and alone
+runs builds or VMs. Acceptance: old/new host and sanitizer checks, matched build,
+actual chooser/app creation, initial emptiness/defaults, all five applicable
+interruption/recovery boundaries including published-journal reconciliation,
+invalid/duplicate/capacity refusal, keyboard/640 × 480, remembered reboot and
+actual GUI export/import/readback across two independently installed disks.
+Preserve legacy/machine/unselected data, allocation/protected regions and owned
+process retirement. Retain bounded verified image archives, exact source evidence
+and failed attempts outside destructive build cleanup. Publish scoped draft PRs;
+hold merges for the coordinator. Original review VMs and physical media remain
+untouched; Actions stay disabled. Authentication and permission enforcement stay
+separate. Next: implement the frozen creation contract, then focused checks and
+finite VM qualification.
+
 ## Graphical profile transfer — qualified for review
 
 User authorized the Profiles app, reviewed export/import and disposable two-VM
