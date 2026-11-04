@@ -114,14 +114,23 @@ static void ensure_dir(const char *path){struct stat st;if(!lstat(path,&st)){req
 static void directories(struct transaction *t){static const char *dirs[]={"Documents",".config",".config/srvros",".local",".local/share",".cache"};char path[PATH_CAP];for(unsigned i=0;i<6;i++){path_join(path,t->home,dirs[i]);ensure_dir(path);}for(unsigned i=0;i<t->bundle.count;i++){path_join(path,t->home,t->bundle.paths[i]);for(char *p=path+strlen(t->home)+1;*p;p++)if(*p=='/'){*p=0;ensure_dir(path);*p='/';}}}
 static void install_file(struct transaction *t,unsigned i){char final[PATH_CAP],scratch[PATH_CAP];path_join(final,t->home,t->files[i].path);if(exists(final)){verify_file(final,&t->files[i]);return;}path_join(scratch,t->home,SCRATCH);write_new(scratch,t->files[i].data,t->files[i].length);/* Offline exclusive journal owns this previously absent home. Final absence is
  * rechecked because guest rename replaces files; concurrent writers unsupported. */require(!exists(final),"destination appeared during import");require(!rename(scratch,final),"cannot publish transaction file");flush_dir(t->home);}
-static void run_transaction(struct transaction *t,int recovering){
+/* Read-only preflight shared by recovery and the startup chooser. */
+static int transaction_ready(struct transaction *t,int recovering){
     char pending[PATH_CAP],idpath[PATH_CAP],scratch[PATH_CAP];path_join(pending,t->home,PENDING);path_join(idpath,t->home,"profile.id");path_join(scratch,t->home,SCRATCH);
     if(exists(t->home)){require(recovering,"destination home already exists");struct stat st;require(!lstat(t->home,&st)&&S_ISDIR(st.st_mode),"transaction home not directory");unsigned entries=0;verify_tree(t,"",0,&entries);
         /* Before the pending marker exists, a scratch name cannot prove that
          * this home was created by the transaction. Preserve ambiguous data. */
         require(!exists(scratch)||exists(pending),"scratch without pending marker; inspect manually");
-        if(exists(idpath)&&!exists(pending)){/* Already published; reconcile without rewriting any content. */require(!exists(scratch),"unexpected scratch in published profile");static const char *dirs[]={"Documents",".config/srvros",".local/share",".cache"};for(unsigned k=0;k<4;k++){char p[PATH_CAP];struct stat st;path_join(p,t->home,dirs[k]);require(!lstat(p,&st)&&S_ISDIR(st.st_mode),"incomplete published profile directories");}for(unsigned i=0;i+1<t->count;i++){char p[PATH_CAP];path_join(p,t->home,t->files[i].path);verify_file(p,&t->files[i]);}require(!unlink(t->journal),"cannot remove completed journal");flush_dir(t->parent);puts("profile: already committed; journal reconciled");return;}
-    }else require(!mkdir(t->home,0700),"cannot create destination home");
+        if(exists(idpath)&&!exists(pending)){/* Already published; reconcile without rewriting any content. */require(!exists(scratch),"unexpected scratch in published profile");static const char *dirs[]={"Documents",".config/srvros",".local/share",".cache"};for(unsigned k=0;k<4;k++){char p[PATH_CAP];struct stat st;path_join(p,t->home,dirs[k]);require(!lstat(p,&st)&&S_ISDIR(st.st_mode),"incomplete published profile directories");}for(unsigned i=0;i+1<t->count;i++){char p[PATH_CAP];path_join(p,t->home,t->files[i].path);verify_file(p,&t->files[i]);}return 1;}
+    }
+    return 0;
+}
+static void run_transaction(struct transaction *t,int recovering){
+    char pending[PATH_CAP],idpath[PATH_CAP],scratch[PATH_CAP];path_join(pending,t->home,PENDING);path_join(idpath,t->home,"profile.id");path_join(scratch,t->home,SCRATCH);
+    if(transaction_ready(t,recovering)){
+        require(!unlink(t->journal),"cannot remove completed journal");flush_dir(t->parent);puts("profile: already committed; journal reconciled");return;
+    }
+    if(!exists(t->home))require(!mkdir(t->home,0700),"cannot create destination home");
     /* Only this reserved root scratch belongs to the transaction. It may contain
      * a partial interrupted write; final files must always match in full. */
     if(exists(scratch))require(!unlink(scratch),"cannot discard interrupted scratch");
@@ -136,8 +145,18 @@ static void import_profile(const char *bundle_path,const char *home,const char *
     require(!exists(home)&&!exists(t.journal),"destination or pending journal exists; use recover");binding_collisions(home,str(get(get(t.bundle.json,"profile"),"id")),t.binding);
     cJSON *journal=object();addstr(journal,"format","srvros-profile-import-v1");addstr(journal,"home",home);addstr(journal,"profile_id",str(get(get(t.bundle.json,"profile"),"id")));addstr(journal,"bundle",source);char hash[65];profile_sha256(bytes,n,hash);addstr(journal,"sha256",hash);attach(journal,"binding",cJSON_Duplicate(t.binding,1));free(bytes);manifest(&t,journal);char *text=json_text(journal);require(strlen(text)<=4096,"journal too large");write_new(t.journal,text,strlen(text));flush_dir(t.parent);checkpoint("journal");run_transaction(&t,0);
 }
-static void recover_profile(const char *home){
-    struct transaction t={0};transaction_paths(&t,home);require(exists(t.journal),"no pending journal; existing profile left unchanged");cJSON *j=read_json(t.journal,4096);journal_fields(j);require(!strcmp(str(get(j,"format")),"srvros-profile-import-v1")&&!strcmp(str(get(j,"home")),home),"invalid journal identity or destination");const char *source=str(get(j,"bundle"));require(source[0]=='/'&&srv_profile_home_valid(source)&&strlen(source)<160,"invalid journal bundle path");size_t n;unsigned char *bytes=read_file(source,MAX_BUNDLE,&n);char hash[65];profile_sha256(bytes,n,hash);require(!strcmp(hash,str(get(j,"sha256"))),"journal bundle changed; restore original bundle");t.bundle=validate(parse(bytes,n));free(bytes);require(!strcmp(str(get(j,"profile_id")),str(get(get(t.bundle.json,"profile"),"id"))),"journal profile ID mismatch");t.binding=get(j,"binding");binding_valid(t.binding);manifest(&t,j);binding_collisions(home,str(get(get(t.bundle.json,"profile"),"id")),t.binding);run_transaction(&t,1);
+static void recover_profile(const char *home,int check_only){
+    struct transaction t={0};transaction_paths(&t,home);require(exists(t.journal),"no pending journal; existing profile left unchanged");cJSON *j=read_json(t.journal,4096);journal_fields(j);require(!strcmp(str(get(j,"format")),"srvros-profile-import-v1")&&!strcmp(str(get(j,"home")),home),"invalid journal identity or destination");const char *source=str(get(j,"bundle"));require(source[0]=='/'&&srv_profile_home_valid(source)&&strlen(source)<160,"invalid journal bundle path");size_t n;unsigned char *bytes=read_file(source,MAX_BUNDLE,&n);char hash[65];profile_sha256(bytes,n,hash);require(!strcmp(hash,str(get(j,"sha256"))),"journal bundle changed; restore original bundle");t.bundle=validate(parse(bytes,n));free(bytes);require(!strcmp(str(get(j,"profile_id")),str(get(get(t.bundle.json,"profile"),"id"))),"journal profile ID mismatch");t.binding=get(j,"binding");binding_valid(t.binding);manifest(&t,j);
+    /* Even a blocked transaction can identify an ambiguous duplicate. The
+     * exit status, never this validated identity frame, establishes eligibility. */
+    if(check_only){
+        cJSON *who=get(t.bundle.json,"profile");
+        printf("srvros-profile-recovery-v1\n%s\n%s\n",str(get(who,"id")),str(get(who,"display_name")));
+        require(!fflush(stdout),"cannot report recovery identity");
+    }
+    binding_collisions(home,str(get(get(t.bundle.json,"profile"),"id")),t.binding);
+    if(check_only){(void)transaction_ready(&t,1);return;}
+    run_transaction(&t,1);
 }
 static void export_profile(int argc,char **argv){
     const char *home=argv[2];home_valid(home);char path[PATH_CAP],id[37];path_join(path,home,PENDING);require(!exists(path),"profile import pending; run recover");marker_read(home,id);
@@ -152,7 +171,8 @@ int main(int argc,char **argv){
     if(argc>=4&&!strcmp(argv[1],"export"))export_profile(argc,argv);
     else if(argc==3&&!strcmp(argv[1],"inspect"))inspect_profile(argv[2]);
     else if(argc==7&&!strcmp(argv[1],"import"))import_profile(argv[2],argv[3],argv[4],argv[5],argv[6]);
-    else if(argc==3&&!strcmp(argv[1],"recover"))recover_profile(argv[2]);
+    else if(argc==3&&!strcmp(argv[1],"recover"))recover_profile(argv[2],0);
+    else if(argc==3&&!strcmp(argv[1],"check-recover"))recover_profile(argv[2],1);
     else if(argc==3&&!strcmp(argv[1],"activate"))activate_profile(argv[2]);
     else fail("usage: profile export HOME OUTPUT [Documents/FILE ...] | inspect BUNDLE | import BUNDLE HOME ALIAS UID GID | recover HOME | activate HOME");
     return 0;

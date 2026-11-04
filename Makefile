@@ -2344,7 +2344,7 @@ build/tests/apple-trackpad-host$(HOST_EXE): tools/test_apple_trackpad.c kernel/s
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_apple_trackpad.c kernel/src/drivers/apple_trackpad.c -o $@
 
 DESKD_NOTICE_SRC := userspace/deskd/notifications.c userspace/deskd/notification_view.c
-DESKD_OBJ := build/userspace/deskd/notifications.c.o build/userspace/deskd/notification_view.c.o build/userspace/deskd/preferences.c.o build/userspace/deskd/menus.c.o build/userspace/deskd/clipboard.c.o build/userspace/deskd/deskd.c.o build/userspace/deskd/scene.c.o build/userspace/deskd/io_trial.c.o
+DESKD_OBJ := build/userspace/deskd/profile_catalog.c.o build/userspace/deskd/profile_chooser.c.o build/userspace/deskd/notifications.c.o build/userspace/deskd/notification_view.c.o build/userspace/deskd/preferences.c.o build/userspace/deskd/menus.c.o build/userspace/deskd/clipboard.c.o build/userspace/deskd/deskd.c.o build/userspace/deskd/scene.c.o build/userspace/deskd/io_trial.c.o
 DESKCLIENT_OBJ := build/userspace/deskclient/deskclient.c.o
 DESK_WIDGETS_INCLUDE := userspace/widgets/include
 DESK_WIDGETS_SRC := $(wildcard userspace/widgets/src/*.c)
@@ -4442,6 +4442,13 @@ build/tests/hsw-backing$(HOST_EXE): tools/test_hsw_backing.c kernel/diagnostics/
 build/tests/hsw-backing-adapter$(HOST_EXE): tools/test_hsw_backing_adapter.c tools/test_platform_sample.c kernel/diagnostics/haswell_backing_core.c kernel/diagnostics/haswell_backing_adapter.inc $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include tools/test_hsw_backing_adapter.c kernel/diagnostics/haswell_backing_core.c -Wl,--gc-sections -o $@
+.PHONY: test-profile-chooser
+test-profile-chooser: test-guest-profiles build/tests/profile-catalog-host$(HOST_EXE)
+	build/tests/profile-catalog-host$(HOST_EXE) $(CURDIR)/build/tests/guest-profile-host$(HOST_EXE)
+build/tests/profile-catalog-host$(HOST_EXE): tools/test_profile_catalog.c userspace/deskd/profile_catalog.c userspace/deskd/profile_catalog.h userspace/deskd/profile_startup.h userspace/lib/src/desk_preferences.c
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include tools/test_profile_catalog.c userspace/lib/src/desk_preferences.c -o $@
+
 .PHONY: test-salvage
 test-core: test-salvage
 test-salvage: build/tests/salvage-host$(HOST_EXE)
