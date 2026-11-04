@@ -136,7 +136,7 @@ def boot(disk, out, number, args, negative=False, *, other_disk=None,
                 image=f'blkdebug:{target_fault_config}:{path}'
                 policy=',werror=report,rerror=report'
             drives += ['-drive', f'if=none,id=disk{index},format=raw,file={image}{policy}',
-                       '-device', f'ide-hd,drive=disk{index},bus=ahci.{index},bootindex={1 if path == disk else 2}']
+                       '-device', f'ide-hd,drive=disk{index},bus=ahci.{index},bootindex={1 if path == disk else 3 if path == target_disk else 2}']
         command = [args.qemu, '-machine', 'q35,i8042=off', '-accel', 'tcg',
                    '-m', '1024M', '-smp', '1', '-nic', 'none',
                    '-drive', f'if=pflash,format=raw,readonly=on,file={args.ovmf}',
@@ -269,6 +269,9 @@ def boot(disk, out, number, args, negative=False, *, other_disk=None,
                         attempt=output.split(b'destination-salvage: target begin',1)[-1].split(b'destination-salvage: target failed; reader retained',1)
                         if len(attempt)!=2 or b'salvage: failed stage=flush error=5 close-error=5 restore-error=0 bytes=12289' not in attempt[0] or b'salvage: copied' in attempt[0] or b'destination artifact retained; copy is not acknowledged' not in attempt[0]:
                             raise RuntimeError('Target fault did not prove unacknowledged writeback failure')
+                        command='35' if destination_mode=='write' else '(?:ea|e7)'
+                        if not re.search(rb'ahci: port=2 command=0x0*'+command.encode()+rb' failed; disk offline',attempt[0]):
+                            raise RuntimeError('Missing target-specific ATA write/flush failure')
                         serial.sendall(b'unmount /target\n');wait(b'exfat: unmounted /target');wait(b'srv> ')
                     if number==1 and b'dirty-salvage: source fsync EIO' not in output:
                         raise RuntimeError('Missing explicit source failure')

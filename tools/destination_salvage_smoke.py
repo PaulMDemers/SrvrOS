@@ -14,7 +14,6 @@ from exfat_test_image import ExfatFixture
 from uefi_usb_smoke import default_ovmf_path
 
 ROOT=Path(__file__).resolve().parents[1]
-TARGET='target/.dirty-salvage-attempt'
 
 def target_rule(open_writes,mode):
     if open_writes<1 or mode not in ('write','flush'): raise ValueError('Invalid target calibration')

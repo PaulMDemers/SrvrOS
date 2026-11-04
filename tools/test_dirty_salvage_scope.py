@@ -42,7 +42,6 @@ class FaultScopeTests(unittest.TestCase):
     def test_normal_boot_refused(self):self.check('ordinary')
     def test_second_boot_refused(self):self.check('second')
 
-if __name__=='__main__':unittest.main()
 
 class DestinationScopeTests(unittest.TestCase):
     def test_target_graph_and_refusals(self):
@@ -75,4 +74,8 @@ class DestinationScopeTests(unittest.TestCase):
                         self.assertEqual(len(filters),2 if kind in ('write','flush') else 0)
                         self.assertFalse(any(str(system) in d for d in filters))
                         self.assertEqual(len(drives),5)
+                        devices=[command[i+1] for i,v in enumerate(command) if v=='-device' and command[i+1].startswith('ide-hd,')]
+                        self.assertEqual([d.rsplit('bootindex=',1)[1] for d in devices],['1','2','3'])
                     else:launch.assert_not_called()
+
+if __name__=='__main__':unittest.main()
