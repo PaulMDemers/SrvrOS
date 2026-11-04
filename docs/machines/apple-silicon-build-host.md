@@ -1,5 +1,18 @@
 # Apple Silicon macOS build host
 
+## PR342 integrated-main merge review — active
+
+User authorizes review and merge if ready. Reuse isolated
+`SrvrOS-installation-io` and the export branch, initial head `1a19e2c6`;
+actual main `7ef140ef` (bc integration) is merged as `e5088ac2`, Ports
+`78fb8184`. Own review, affected verification and continuity only. Inspect
+current filesystem/profile contracts and retain the source-attributed export
+proof; unmerged desktop-transfer PR333 remains independently scoped. Preserve
+review VMs 61610/6233/85869, existing evidence and other checkouts. One build or
+harness here, no physical media/reboot/Actions. Start with bounded host checks
+and streamed retained evidence under shared disk pressure, then determine which
+runtime proof is affected before the authorized merge.
+
 ## Offline selected-profile export — qualified
 
 User authorizes implementation, fresh-install restoration/refusal proof and a
