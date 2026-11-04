@@ -10,11 +10,18 @@ cannot close the gap. Sticky image profiles were considered and rejected.
 ## Authority and exact proposed storage
 
 Add syscall167 SIGNAL_IO, subject to allocation review alongside164..166. Its
-operations are BEGIN1, CALL2, END3 and UNWIND4. All operations require the current live
+operations are BEGIN1, CALL2, END3, UNWIND4, LOCAL_BEGIN5, LOCAL_END6 and RESULT7. All operations require the current live
 image/public TID/scheduler identity; tickets are private to that binding. A
 ticket exists before BEGIN can return through INFO delivery. INFO delivery marks
 **every live ticket** interrupted in its existing private commit before entering
 the handler. No counter or userspace retry decision can undo that bit.
+
+The normal register ABI is RDI request pointer, RSI128, RDX output pointer,
+RCX output bytes and R8/R9zero. BEGIN output is a separate descriptor-generation
+vector of count*16 bytes; zero count requires NULL/0. Other output-bearing forms
+use their exact documented size. Input/output exact alias is supported only after
+full input normalization; a fault refuses before ticket/mask/output publication.
+CALL/END/UNWIND/LOCAL_BEGIN have NULL/0 output. LOCAL_END uses the compact form below.
 
 The proposed128-byte request has these offsets, all fields fixed width:
 
@@ -27,7 +34,7 @@ The proposed128-byte request has these offsets, all fields fixed width:
 |32|uint64 arguments[6]|
 |80|uint64 native descriptor vector address|
 |88|uint64 descriptor count,0..64|
-|96|uint64 flags; BEGIN poll-list1, LEGACY_MASKED2, otherwise0|
+|96|uint64 flags; BEGIN poll-list1/LEGACY_MASKED2, LOCAL_BEGIN FINALIZE_NATIVE1, otherwise0|
 |104|uint64 outer absolute monotonic deadline in microseconds; UINT64_MAX infinite|
 |112|uint64 reserved[2], both zero|
 
@@ -45,7 +52,15 @@ BEGIN also returns its positive1..INT64_MAX ticket in RAX. Input is normalized
 before output, so exact input/output alias is supported. BEGIN args[0] is the
 logical root's stable user frame anchor (__builtin_frame_address(0)); it forces a
 real frame pointer in that owning libc function. BEGIN with LEGACY_MASKED also
-uses args[1] for the temporary mask; other unused args are zero. Neither anchor
+uses args[1] for the temporary mask. BEGIN args[2] fixes the root kind:
+RAW1, READ2, WRITE3, POLL4, EPOLL5, SEM_WAIT6, WAITPID7 or SLEEP8. Internal wrappers
+borrow that kind/ticket; they cannot relabel a poll slice as another outer call.
+BEGIN args[3] binds the primary raw syscall and args[4] its vector/socket
+operation selector (zero where absent). Kind/primary/selector are immutable and
+validated against the per-kind backend table; unsupported combinations refuse.
+POLL deadline0 means genuinely nonblocking, UINT64_MAX means infinite; other
+finite values are the original absolute outer deadline. Other unused args are
+zero. Neither anchor
 nor ticket grants cross-thread authority.
 The fixed request is staged by value; its descriptor-vector pointer is staged,
 not the1024-byte vector. At the common completion seam, after ordinary I/O
@@ -93,14 +108,19 @@ Four simultaneously live logical operations are proposed; full capacity returns
 EAGAIN before effects. Internal wrapper composition borrows one explicit ticket;
 it does not allocate a fresh ticket for each internal poll slice.
 
-Proposed private ticket64: ticket, parent ticket, originating INFO depth, flags
-(LIVE/INTERRUPTED/LEGACY_MASKED), outer deadline, owner frame anchor, previous mask,
-temporary mask. Masks are zero for ordinary operations. Identity is the selected state's
-existing24-byte identity, never a user argument. Add four64-byte tickets plus
+Proposed private ticket96: ticket, parent ticket, originating INFO depth, flags
+(LIVE/INTERRUPTED/LEGACY_MASKED plus fixed rootkind/outcome syscall/validity bits),
+outer deadline, owner frame anchor, previous mask, temporary mask, captured signed
+native result, captured elapsed microseconds, captured elapsed ticks and outcome
+cookie. The last four words are immutable for a completed native result. Masks are zero for ordinary operations. Pack rootkind in flags bits0..7,
+primary number8..23, primary selector24..31, last outcome number32..47, and LIVE,
+INTERRUPTED, LEGACY_MASKED, COMPLETED_NATIVE, FINALIZE_USED, MONO_VALID and TICKS_VALID
+in bits48..54; remaining bits zero. Identity is the selected state's
+existing24-byte identity, never a user argument. Add four96-byte tickets plus
 next-ticket/top-ticket16. Each active record gets wait association16 (64 total).
 Budget from the qualified3056-byte selected state: +256 wait slots +208 request
-+16 request sequence +64 record associations +256 I/O slots +16 I/O counters
-=3872 bytes, leaving224 bytes for alignment/additional proven fields. The proposed
++16 request sequence +64 record associations +384 I/O slots +16 I/O counters +32 local guard
+=4032 bytes, leaving64 bytes for alignment/additional proven fields. The proposed
 request208 is identity24, sequence8, trap8, operation8, output address/size16,
 normalized wire128, request-kind8 and completion-flags8. This is a
 budget, not a compiled size assertion. No implementation may exceed4096 or hide
@@ -176,6 +196,43 @@ outer operation whose absolute deadline actually expired may return its timeout
 result; an internal slice deadline cannot be substituted for that outer deadline.
 No wrapper replays a positive result because a signal was observed afterward.
 
+CALL reserves an outcome cookie from the same nonreused I/O sequence only after
+admission/argument validation and before backend effects; exhaustion refuses
+before effects. Each actual backend return captures its signed result and elapsed
+wait snapshot before any INFO handler can execute, then publishes those words and
+the raw syscall number into that exact root. RESULT7 takes the ticket and returns
+64 bytes: size/version8, outcome_cookie8, syscall_number8, signed_result8,
+elapsed_us8, elapsed_ticks8, validity8 and reserved0_8. Query does not overwrite
+or authorize a new attempt. A sticky admission refusal with no backend attempt
+leaves the previous snapshot unchanged; SLEEP has only one backend attempt and
+an outcome cookie0 means it never began sleeping.
+
+COMPLETED_NATIVE is kernel-derived from the BEGIN root kind and actual result:
+RAW admits only its single mapped backend and completes on nonnegative return;
+READ/WRITE complete only on their matching byte/vector/socket data backend's
+nonnegative return, including readEOF and zero-length completion; WAITPID completes
+on a nonnegative WAIT result (zero only for actual WNOHANG); SLEEP completes on
+native sleep0. POLL completes on native POLL positive readiness, or native0 only
+for its actual nonblocking/expired outer deadline. EPOLL's internal POLL never
+completes its outer operation; SEM_WAIT's internal YIELD never completes it.
+The exact raw-number/operation mapping is checked by the backend dispatch table,
+not a user-supplied completion flag. Once complete, its captured result/cookie is
+immutable, all further CALLs refuse and only RESULT, one matching pure finalization
+and END are permitted. A new actual data operation cannot be admitted as cleanup.
+
+For relative nanosleep, measure elapsed wait inside the sleep backend at its
+interrupt/completion decision under IRQ exclusion, before returning through INFO.
+Capture both monotonic-reference elapsed microseconds (valid only when available)
+and elapsed timer ticks. The wrapper copies request before any aliased rem write,
+then computes unslept duration from this snapshot and the original request; it
+never subtracts post-handler wall time. If no backend attempt occurred, the full
+request remains unslept. Tick fallback uses captured elapsed ticks at10ms each,
+not ticks read after the handler. Nested handlers/operations cannot overwrite the
+outer root's outcome. Test a1.000000123s request interrupted after250ms by a1.5s
+INFO handler: remainder stays0.750000123 in both reference/tick models, with
+aliased request/rem and separate nested roots. This is required future integration
+coverage, not a currently enabled native regression.
+
 ## Descriptor and libc ownership
 
 At a public libc operation's logical entry, acquire the existing event lifecycle
@@ -189,8 +246,10 @@ GenerationMAX is exhausted/unusable and is never treated as an ordinary identity
 Retain native generation expectations and synthetic identity in the operation's
 stack-local object, not mutable global last-operation state. Recheck synthetic
 identity under its lifecycle lock before each local attempt/readiness commit.
-A synthetic operation that actually consumes/publishes data may finish with that
-progress. If it is still would-block, pass the **same ticket** into its next wait.
+A synthetic consume/publish/readiness commit must use the LOCAL protocol below;
+an unmasked local retry cannot manufacture new progress after a delivered INFO.
+If the guarded attempt is still would-block, pass the **same ticket** into its
+next wait.
 Returning EAGAIN is final only for a genuinely nonblocking operation.
 
 Epoll retains its existing watch identity/revision/oneshot checks. A new snapshot
@@ -210,6 +269,66 @@ implementing its own userspace retry loop must opt into this protocol. An old
 libc image never acquires INFO delivery through its old cooperative registration.
 Do not claim new-libc logical retry guarantees for arbitrary hand-written raw
 assembly. Kernel public delivery/return integrity is independent of that policy.
+
+## Bounded local effects and restoration
+
+LOCAL_BEGIN5 uses args[0]=0 for an incomplete root, or its captured outcome cookie
+for FINALIZE_NATIVE; all other body/vector/output fields are zero. It runs after
+the lifecycle lock is acquired with INFO still allowed.
+It validates exact live/top/depth/root identity and sticky interruption, reserves
+a nonreused guard cookie and atomically blocks USR1 before returning that cookie.
+The per-thread32-byte guard stores owner_ticket, guard_cookie, previous_mask and
+flags ACTIVE/NO_MASK. There is at most one guard. LEGACY_MASKED already excludes
+INFO registration process-wide: its guard uses NO_MASK and leaves that root's
+previous/temp masks intact. It still owns a cookie and must close normally.
+
+Only bounded callback-free C counter/readiness/metadata effects follow. Release
+the already-held lifecycle lock before LOCAL_END; never acquire or wait for a
+user lock with the guard active. Refactor eventfd/poll/epoll to use locked helpers
+instead of re-locking public helpers. Hoist tracing/getenv/fprintf and kernel
+queries outside. Existing socket_poll_update's NET_ERROR query occurs before the
+guard with INFO allowed, and only its identity/generation-validated cached flag
+stores occur inside. A CAS loop is bounded to32 attempts; close the guard and
+yield outside it on contention. No cooperative signal dispatcher, allocator,
+callback, fault-resuming user handler or known longjmp can originate in the
+supported guarded region; prove that source closure and inspect target code.
+
+For an incomplete ticket, interruption before LOCAL_BEGIN causes EINTR before
+local effects. If INFO arrives after blocking, it stays pending until LOCAL_END;
+a successful consume/publish is already real progress when the handler runs.
+For pure finalization of a COMPLETED_NATIVE result, LOCAL_BEGIN FINALIZE_NATIVE
+also supplies its exact captured outcome cookie in args[0]. It permits one bounded
+format/cache commit for that result despite a later interruption, sets FINALIZE_USED
+before effects and never admits another data/wait call. RESULT and read-only
+native metadata queries may run before the guard with INFO enabled; they cannot
+replace the captured result or mutate/disarm an epoll watch. Internal epoll/native
+slice readiness is not a completed outer epoll result. Finalization retries,
+wrong cookies and a second finalization refuse unchanged.
+
+Compact LOCAL_END uses R9=1,RDI6,RSI root ticket,RDX guard cookie,RCX/R8zero.
+Classifier uses these immutable registers, never a mutable user request pointer.
+Before ordinary I/O admission, an ACTIVE guard filter permits only matching
+compact LOCAL_END, THREAD_SELF with zero unused registers, FUTEX_WAKE(address,1) with zero unused
+registers for releasing the held mutex,
+and terminal EXIT; all other operations, BEGIN/CALL/END/UNWIND/MASK/SUSPEND/fork/exec
+included, refuse before an unsafe wait or mutation. Wrong neighbor register
+shapes do not reach the restoration helper. The compact helper independently
+checks CPL3/IF0, scheduler_observe_user_entry, strict membership/root/TLS/image/TID/
+scheduler identity, top/depth, ACTIVE and both cookies. It stages generic mask/
+pending/default decisions, restores previous mask unless NO_MASK, and clears the
+guard with fixed metadata stores only: no I/O wait, FPU lease, usercopy, callback
+or allocation. It does not terminate; outer IDT cancellation may regain ordinary
+admission after restoration. Already-killed terminal exit may precede restoration
+only because it never resumes userspace. Stale/replayed close refuses unchanged.
+
+Test a held foreign storage owner: matching close must restore without waiting;
+wrong registers/cookies/identity/top/depth/ACTIVE must not mutate or enter the
+safe helper. Inject INFO before guard, after guard before local effect, after
+actual effect before close, and at restored-mask return. Test synthetic data,
+epoll oneshot/revisions, sem_wait0 success versus no progress and native positive
+result finalization separately. No unmasked check-then-local-effect shortcut is
+admitted. The4032-byte total budget includes the guard and four96-byte outcome
+slots; compiled size/offset and stack evidence must precede admission.
 
 ## Nested callbacks, cancellation, fork and exec
 

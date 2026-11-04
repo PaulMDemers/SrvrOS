@@ -256,7 +256,8 @@ A userspace notification counter is explicitly rejected as retry authority:
 INFO may run after the check and before another blocking syscall. Sticky image
 capability profiles do not close the synthetic I/O slicing gap either. The
 [logical I/O supplement](signal-logical-io-v1.md) proposes kernel-bound tickets
-and validation plus backend dispatch in one syscall entry. It preserves actual
+and validation plus backend dispatch in one syscall entry, guarded synthetic
+effects, bounded compact mask restoration and captured pre-handler sleep outcomes. It preserves actual
 progress/EOF/outer deadlines, spans internal polling slices, retains descriptor
 identity and defines legacy-only fork/exec behavior. Public implementation remains
 blocked on that protocol and this packet's wait/completion review.
@@ -286,6 +287,11 @@ Use atomic sem_post and a monotonic bounded sem_trywait/yield loop for coordinat
 acks; nested resume marks its distinct phase, outer handler completes atomic
 sigsuspend, clears context and posts RUNNING only after its last request access.
 No allocator, application/action lock or user-lock acquisition in the handler.
+The outer handler rechecks the request phase after every sigsuspend completion;
+a spurious/duplicate USR1 that did not request resume cannot release the saved
+context or post RUNNING. Rewait with the exact outer context retained. Save and
+restore errno in this WTF control handler around its mask/wait operations; the
+general libc adapter does not override a user handler's errno policy.
 No request-owned memory is freed while a handler can still reference it.
 
 Propose10-second monotonic suspend/resume deadlines. Any uncertain target exit,
