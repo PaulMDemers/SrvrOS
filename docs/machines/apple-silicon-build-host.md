@@ -1,5 +1,19 @@
 # Apple Silicon macOS build host
 
+## PR325 merge review
+
+User authorized review and merge if ready. Candidate `8b4619b6` integrates main
+`4f5edb0e` and PR323's host-only salvage qualification. Independent review finds
+no blocker in the bounded recovery contract. Fresh 35 installation tests and
+profile/session/bundle/adapter checks pass. The accepted sequential full build
+and unchanged tools reproduce all original proof input hashes, preserving the
+nine-interruption/sixteen-refusal/two-restart/two-boot evidence without another
+VM. Review receipt/logs survive at `.local/installation-evidence/pr325-review`;
+see the installation guide for the portable receipt and equivalence details.
+Review PIDs 61610, 6233 and 85869 remain live and untouched; primary checkout
+preserved. Ready for authorized merge. Next proposal is bounded host publication
+I/O-failure qualification, retaining filesystem/profile refusal contracts.
+
 ## Interrupted publication recovery — proof complete
 
 User authorized a scoped inspect/reconcile PR and interruption/refusal proof in

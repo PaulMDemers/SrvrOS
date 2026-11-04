@@ -1,5 +1,49 @@
 # Disk installation and recovery
 
+## PR325 integrated-main review and next checkpoint
+
+User authorized review and merge if ready. Candidate `8b4619b6` integrates main
+`4f5edb0e`, including PR323's retained-reader salvage qualification. Main added
+only host fixtures and documentation; no kernel, installed userspace, profile
+policy, installation tool or exercised VM harness changed from the accepted
+`291f469e` proof. Independent implementation review found no material blocker
+within the private, offline, cooperative-writer scope. No submitted correction
+or unresolved review thread was present.
+
+Fresh 35 installation/provenance tests, installed-root admission checks,
+profile/session/preferences checks, 13 bundle groups and seven adapter groups
+pass. A sequential matched full build reproduces every kernel, init, initramfs,
+exFAT, EFI and host-driver hash used by the original proof; its six recorded
+recovery/profile tool hashes also match. The nine CLI interruptions, sixteen
+refusals, two interrupted reconciliations and two persistence boots therefore
+remain valid by exact source/artifact equivalence; no new VM was needed.
+The [review receipt](assets/screenshots/installation-recovery-review.json)
+records the comparison and fresh check logs, preserved outside build cleanup at
+`.local/installation-evidence/pr325-review`. Review VMs 61610, 6233 and 85869
+remain live and untouched. The premature overlapping build invocation is retained
+as history; only the subsequent sequential build is accepted for this review.
+Status: ready for the authorized merge, with process-interruption limits intact.
+
+Next proposed bounded installation milestone: **host publication I/O-failure
+qualification**. Deterministically fail metadata/image writes, file and directory
+syncs, publication links and alias removal on disposable stages. Require a
+non-success result on each failure, exact preservation of source inputs and
+unknown/preexisting state, conservative read-only diagnosis after restart, and
+explicit reconciliation only when the existing verified record and candidate
+still satisfy the complete contract. Record uncertain artifacts without cleanup
+or automatic retry. Qualify both ordinary-v1 and profile-v2 plans, including a
+reconciled-image boot/persistence control if runtime output changes.
+
+Dependencies: PR325's verified journal/identity/locking rules and PR321's v2
+plans; the existing GPT/ESP/root-selection and filesystem allocation checks;
+PR320's pending-import and unknown-scratch refusal rules; and PR322/323's error
+and lifetime boundaries. Their managed dirty-data salvage is a separate path:
+publication must neither clear failure latches nor replay provisioning after an
+ambiguous error. The proposed userspace salvage helper is not a prerequisite.
+This next slice is deterministic host I/O-error qualification, not physical
+media, power-cut durability, authentication, in-place upgrade or automatic
+repair. It is a proposal, not implementation begun by this review.
+
 ## Interrupted installation publication — completed proof
 
 User authorized inspect/reconcile implementation, interruption/refusal proof and
