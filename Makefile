@@ -4439,10 +4439,14 @@ test-core: test-haswell-backing
 test-haswell-backing: build/tests/hsw-backing$(HOST_EXE) build/tests/hsw-backing-adapter$(HOST_EXE)
 	build/tests/hsw-backing$(HOST_EXE)
 	build/tests/hsw-backing-adapter$(HOST_EXE) > build/tests/hsw-backing-producer.log
+	build/tests/hsw-backing-adapter$(HOST_EXE) tilectl > build/tests/hsw-backing-producer-v2.log
+	build/tests/hsw-backing-adapter$(HOST_EXE) tilectl max > build/tests/hsw-backing-producer-v2-max.log
 	$(PYTHON) -m unittest discover -s tools -p test_hardware_haswell_backing.py
+	$(PYTHON) -m unittest discover -s tools -p test_hardware_haswell_tilectl.py
 	$(PYTHON) -m unittest discover -s tools -p test_haswell_backing_audit.py
 	$(PYTHON) -m unittest discover -s tools -p test_haswell_path_audit.py
 	$(PYTHON) tools/check_hsw_capture_tail.py --log build/tests/hsw-backing-producer.log --output build/tests/hsw-backing-tail.json
+	$(PYTHON) tools/check_hsw_capture_tail.py --log build/tests/hsw-backing-producer-v2-max.log --output build/tests/hsw-backing-tail-v2.json
 build/tests/hsw-backing$(HOST_EXE): tools/test_hsw_backing.c kernel/diagnostics/haswell_backing_core.c kernel/include/srvros/haswell_backing.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_hsw_backing.c kernel/diagnostics/haswell_backing_core.c -o $@

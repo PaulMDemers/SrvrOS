@@ -6850,3 +6850,11 @@ forcewake, extra fences, backing-pixel mappings or policy writes. PR301's
 Broadwell driver remains independent. After matched host/build/exact-stage VM
 checks, use local recovery/USB preflight and a saved run record for an authorized
 automated one-shot/collection. No new native acceptance is claimed beforehand.
+
+The opt-in version-2 path is implemented: one exact CPU DWORD after each final
+fence check, matching observations, existing endpoint recheck/verified retirement,
+and early three-PTE-page refusal under the unchanged ten-map ceiling. Version 1
+remains available. Focused actual core/adapter/decoder and max-tail regressions
+pass, including changed/all-ones/read-failure CPU words and mapping retirement.
+Matched full build/suites, sanitizer and exact-stage VM/native checks remain
+pending; no physical acceptance or reboot is claimed by this implementation.
