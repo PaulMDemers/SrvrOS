@@ -3545,3 +3545,12 @@ All disposable less VMs are stopped. Integration checkout and review VM remain
 untouched. Outside scope: regex, shell/editor/preprocessor helpers, log writing,
 follow/job control and full Unicode-width correctness. Ready for separate draft
 port/OS PRs; no PR or merge was requested in this work block.
+
+
+less draft-PR delivery follow-up: opened [SrvrPorts #8](https://github.com/PaulMDemers/SrvrPorts/pull/8)
+and dependent [SrvrOS #346](https://github.com/PaulMDemers/SrvrOS/pull/346), both
+as drafts against main. Descriptions include the accepted verification, precommit
+receipt provenance, terminal/blocked-read signal limits and dependency order.
+This follow-up changes documentation only. Neither PR is merged. No concrete
+shared blocker appeared, so integration was not messaged; its checkout and the
+review VM remain untouched.
