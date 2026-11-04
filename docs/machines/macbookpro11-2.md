@@ -12698,3 +12698,15 @@ no values logged;it is not SrvrOS native nonce or authenticated-link acceptance.
 The codec/nonce helpers still have no live hardware caller. TX-power fields,
 association state,WPA2 crypto/key/data provider and current-main integration
 remain to be implemented/qualified;v122 stays the latest physical acceptance.
+
+Transmit-power modelling is now host-tested for the captured TSSI-off board,
+fixedUS161/20MHz and a ceiling no higher than the local15dBm Linux reference.
+The logical512-byte parser copies only wanted fields;the nine-register plan
+preserves non-ALC bits and rejects invalid/unrepresentable signed6 adjustments
+rather than wrapping them upward. Golden words,95232 valid combinations plus
+unrepresentable/mode/field/truncation/alias refusals,fatal ASan/UBSan and native
+object compilation(maximum frame280bytes) pass. An independent Linux7.0
+source-selector/arithmetic audit agrees for the privately captured board data.
+No power register was programmed;fresh native mapped-read ownership and guarded
+apply/readback/restore are still required before management OUT. Latest native
+acceptance remainsv122;authentication/IP/data are not yet attempted.

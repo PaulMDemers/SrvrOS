@@ -6756,3 +6756,22 @@ source stays unavailable rather than switching to a weak fallback. Values are
 not logged. Host/fatal-sanitizer/native-object checks pass;the Linux CPU backend
 is exercised without exposing values. No SrvrOS native nonce/handshake/key
 acceptance or device/transmission authority follows from those checks.
+
+### Transmit-power model groundwork
+
+`mt76_power5` copies only wanted logical EEPROM power fields into private typed
+inputs and builds a nine-register masked plan for the captured7610/fd11/1004,
+TSSI-off,US161/20MHz profile. The source-modelled ceiling is at most15dBm;
+unsupported boards,regions,widths,invalid channel data and unrepresentable
+signed6 deltas refuse without a fallback or partial plan. The ALC mask retains
+unrelated saved bits;fixed rate-word layouts follow Linux7.0 MT76. Parsed scalar
+validity and a generation number do not prove fresh EFUSE or authorize I/O.
+
+Golden register vectors,95232 valid signed6/base/ceiling combinations and
+unrepresentable cases,unknown-field/mode refusals,logical-source truncations,
+aliases,fatal sanitizers and native object compilation pass. An independent
+source-selector/arithmetic audit matches all nine words for this adapter's
+private cached20MHz reference. No register was programmed by these tests,and
+modelled power is not an analog measurement or native transmit acceptance.
+The live owner still needs fresh mapped reads,exact same-device/channel proof,
+prewrite guards/readbacks,inverse restoration and terminal TX/RX retirement.

@@ -5339,3 +5339,11 @@ test-wpa2-nonce: build/tests/wpa2-nonce-host$(HOST_EXE)
 build/tests/wpa2-nonce-host$(HOST_EXE): tools/test_wpa2_nonce.c kernel/src/wpa2_nonce.c $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< -o $@
+
+.PHONY: test-mt76-power5
+test-core: test-mt76-power5
+test-mt76-power5: build/tests/mt76-power5-host$(HOST_EXE)
+	$<
+build/tests/mt76-power5-host$(HOST_EXE): tools/test_mt76_power5.c kernel/src/drivers/mt76_power5.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_power5.c -o $@
