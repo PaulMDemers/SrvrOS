@@ -104,8 +104,10 @@ def main():
                 wait(b"srv> ",100)
                 serial.sendall(b"run /fat/bin/deskd --apps-trace\n")
                 wait(b"desktools: starting role=text");wait(b"deskd: commit")
+                def focus_window(query):
+                    shortcut("meta_l-spc");wait(b"launcher opened");type_text(query);qmp.key("ret");wait(b"launcher window=")
                 def focus_find():
-                    shortcut("meta_l-spc");wait(b"launcher opened");type_text("Find Files");qmp.key("ret");wait(b"launcher window=")
+                    focus_window("Find Files window")
                 def save_text(name):
                     shortcut("ctrl-l");type_text("/fat/"+name);shortcut("ctrl-s");wait(b"picker ready mode=2");shortcut("ctrl-l");type_text("/fat/home/../");qmp.key("ret");wait(b"picker ready mode=2");qmp.key("ret");wait(b"file-result role=text op=2 status=0")
                 click(390,750);wait(b"desktools: starting role=files");wait(b"file-result role=files op=3 status=0")
@@ -114,15 +116,15 @@ def main():
                 shortcut("ctrl-l");type_text("/fat/find-fixture/../find-fixture//");shortcut("ctrl-f");type_text("REPORT");qmp.key("ret");wait(b"deskfind: started root=/fat/find-fixture query=REPORT kind=0");wait(b"count=2 matched=2 skipped=0");shot("find-results")
                 # Result selection has keyboard focus after completion.
                 shortcut("ctrl-c");wait(b"deskfind: copy path=/fat/find-fixture/Report-one.txt");time.sleep(.5)
-                click(490,750);shortcut("ctrl-v");wait(b"clipboard role=2 action=32");save_text("find-path.txt")
+                focus_window("Untitled window");shortcut("ctrl-v");wait(b"clipboard role=2 action=32");save_text("find-path.txt")
                 focus_find();shortcut("ret");wait(b"deskfind: open application=2 path=/fat/find-fixture/Report-one.txt");wait(b"file-result role=text op=1 status=0");shot("find-open-text")
-                shortcut("ctrl-a");shortcut("ctrl-c");wait(b"clipboard role=2 action=8");shortcut("ctrl-w");wait(b"desktools: exited role=text failure=0")
+                shortcut("ctrl-a");shortcut("ctrl-c");wait(b"clipboard role=2 action=8");shortcut("ctrl-w");wait(b"text-runtime: closed window=")
                 # Save the opened bytes through the original Text window.
-                click(490,750);shortcut("ctrl-n");shortcut("ctrl-v");wait(b"clipboard role=2 action=32");save_text("find-content.txt")
+                focus_window("find-path.txt window");shortcut("ctrl-n");shortcut("ctrl-v");wait(b"clipboard role=2 action=32");save_text("find-content.txt")
                 focus_find();shortcut("ctrl-r");wait(b"deskfind: open application=1 path=/fat/find-fixture");wait(b"files-location path=/fat/find-fixture");shot("find-reveal");shortcut("ctrl-w");wait(b"desktools: exited role=files failure=0")
                 focus_find();shortcut("ctrl-f");type_text("bulk-");shortcut("ctrl-2");shortcut("ctrl-ret");wait(b"query=bulk- kind=1");wait(b"count=256 matched=300 skipped=0");shot("find-limited")
                 shortcut("end");shortcut("ctrl-c");wait(b"deskfind: copy path=/fat/find-fixture/bulk-255.txt");time.sleep(.5)
-                click(490,750);shortcut("ctrl-n");shortcut("ctrl-v");wait(b"clipboard role=2 action=32");save_text("find-last-path.txt")
+                focus_window("find-content.txt window");shortcut("ctrl-n");shortcut("ctrl-v");wait(b"clipboard role=2 action=32");save_text("find-last-path.txt")
                 focus_find();shortcut("ctrl-l");type_text("/fat");shortcut("ctrl-f");type_text("find-fixture");shortcut("ctrl-3");shortcut("ctrl-ret");wait(b"query=find-fixture kind=2");wait(b"count=2 matched=2 skipped=0");shot("find-folders")
                 # A failed scan clears actionable results, but keeps editable fields.
                 shortcut("ctrl-l");type_text("/fat/absent-folder");shortcut("ctrl-ret");wait(b"deskfind: finished result=1 exit=1 count=-1");shot("find-error")

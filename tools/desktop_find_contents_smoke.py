@@ -114,8 +114,10 @@ def main():
                 def baseline():
                     serial.sendall(b'ps\n');wait(b'pid name status');wait(b'srv> ')
                     return set(re.findall(rb'^(\d+) (\S+) (background|exited|foreground)',output.split(b'pid name status')[-1].split(b'srv> ')[0],re.M))
+                def focus_window(query):
+                    shortcut('meta_l-spc');wait(b'launcher opened');text(query);qmp.key('ret');wait(b'launcher window=')
                 def focus_find():
-                    shortcut('meta_l-spc');wait(b'launcher opened');text('Find Files');qmp.key('ret');wait(b'launcher window=')
+                    focus_window('Find Files window')
                 def save_text(name):
                     shortcut('ctrl-l');text('/fat/'+name);shortcut('ctrl-s');wait(b'picker ready mode=2')
                     shortcut('ctrl-l');text('/fat/home/../');qmp.key('ret');wait(b'picker ready mode=2');qmp.key('ret');wait(b'file-result role=text op=2 status=0')
@@ -136,11 +138,11 @@ def main():
                 shortcut('ctrl-shift-2')
                 run('/fat/find-contents','needle/content',2,2,3,0);shot('contents-results')
                 shortcut('ctrl-c');wait(b'deskfind: copy path=/fat/find-contents/alpha.txt')
-                click(490,750);shortcut('ctrl-v');wait(b'clipboard role=2 action=32');save_text('find-contents-path.txt')
+                focus_window('Untitled window');shortcut('ctrl-v');wait(b'clipboard role=2 action=32');save_text('find-contents-path.txt')
                 focus_find();shortcut('ret');wait(b'deskfind: open application=2 path=/fat/find-contents/alpha.txt')
                 wait(b'file-result role=text op=1 status=0');shot('contents-open')
-                shortcut('ctrl-a');shortcut('ctrl-c');wait(b'clipboard role=2 action=8');shortcut('ctrl-w');wait(b'desktools: exited role=text failure=0')
-                click(490,750);shortcut('ctrl-n');shortcut('ctrl-v');wait(b'clipboard role=2 action=32');save_text('find-contents-open.txt')
+                shortcut('ctrl-a');shortcut('ctrl-c');wait(b'clipboard role=2 action=8');shortcut('ctrl-w');wait(b'text-runtime: closed window=')
+                focus_window('find-contents-path.txt window');shortcut('ctrl-n');shortcut('ctrl-v');wait(b'clipboard role=2 action=32');save_text('find-contents-open.txt')
                 focus_find();shortcut('ctrl-r');wait(b'deskfind: open application=1 path=/fat/find-contents');wait(b'files-location path=/fat/find-contents');shot('contents-reveal')
                 shortcut('ctrl-w');wait(b'desktools: exited role=files failure=0');focus_find()
                 run('/fat/find-contents','absent-phrase',0,0,3,0)
