@@ -99,3 +99,61 @@ survive different local bindings, chooser/remembered/reboot readback and640 flow
 Exact source/machine/local/excluded sentinels, binaries/GPT/protected/allocation,
 owned memory evidence and independent rendered/storage review. Preserve all old
 proofs, original baselines and reviewVMs; heavy build/VM only after resource window.
+
+
+## Bounded runtime I/O dependency: chosen interface, implementation pending
+
+This task owns the isolated prerequisite implementation and local independent
+review. Frozen offline GUID selection and v1 publication work remain separate.
+No active exFAT/VFS implementation overlap was found in the published PRs.
+Signal continuation owns syscall numbers 164–167; this dependency reserves
+**168, FILE_STREAM**. It remains excluded from `syscall_io_safe` and joins the
+existing namespace syscall service gate through the complete request, I/O and
+copyout. The existing scheduler excludes same-process siblings during that
+window; do not add a new mapping/preemption bypass.
+
+Use process-local opaque stream handles, not ordinary file descriptors. This
+avoids changing general fd read/write/pread/fstat/dup semantics or their 16 MiB
+buffer cap. A handle cannot be inherited by fork or passed to another process;
+successful exec and all process retirement paths close it, while failed exec
+retains it. Tokens never repeat during a boot; exhaustion refuses rather than
+wrapping. Reserve a free global slot and one of at most 65 process slots before
+exclusive output creation; at most 256 handles exist globally. Kernel resources
+are tied to a stable exFAT inode/mount/file slot and retain no payload snapshot.
+
+The version-1 fixed request is 80 bytes: uint32 version, size, operation, flags;
+uint64 handle, path pointer, buffer pointer, length, offset, mode, reserved[2].
+Flags and reserved fields are zero. Operations are OPEN_READ, CREATE_APPEND,
+PREAD, APPEND, STAT, SYNC and CLOSE. Open-read admits only regular, single-link
+exFAT data files, and create-append admits only an exclusively new regular file
+with the caller's existing creation mode/umask. Internal filesystem metadata
+paths are unsupported. Reads use an explicit offset; writes append only. Each
+transfer is at most 65536 bytes, including bounded kernel copy and backend data
+bounce buffers. STAT uses the existing fixed-width srv_stat shape without
+reading payload. Other unused request fields must be zero. Unknown operations,
+versions, sizes, flags and pointer/length combinations refuse before mutation.
+
+The manager and syscall bridge own process lifetime, token/quota validation,
+namespace/user copies and existing file-size resource-limit semantics. The
+exFAT backend owns bounded range reads, chunk-only append with unaligned tails,
+stable object identity, checked metadata/length publication, flush, low-space
+clean refusal, sticky uncertain failure and final close. Ordinary opens and
+file/ancestor rename, replacement, unlink and unmount must refuse conflicts in
+both directions while a stream is live. Generic descriptors and unrelated paths
+retain their existing behavior. No credential or permission-policy work is
+included.
+
+All large-capable profile paths must use the opaque abstraction: magic sniff,
+manifest/header reads, source metadata/stat, selected document reads, scratch
+creation/readback, export creation/write/sync/close and final rehash. Automatic
+format choice uses metadata inspection without opening a payload snapshot.
+Native host tests retain POSIX adapters; v1 operations keep their existing path
+after bounded format detection. Unsupported non-exFAT v1 sources retain their
+bounded legacy fallback; unsupported v2 backends refuse.
+
+Before qualification, real backend and syscall/manager tests must prove the
+whole 64 MiB container, unaligned/fragmented I/O, quotas/tokens/lifetimes,
+coherence/namespace and user-copy gates, resource limits, low-space and injected
+I/O/flush failures. Measure kernel payload allocations separately from volume
+metadata/cache and from user allocations/mapped high-water. The existing profile
+native tests are consumer evidence, not a substitute for those backend checks.
