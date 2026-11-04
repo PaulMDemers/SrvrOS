@@ -1,5 +1,27 @@
 # Apple Silicon macOS build host
 
+## Offline export-publication recovery — active
+
+User authorizes scoped implementation, interruption/reconciliation/refusal and
+fresh-B restore/reboot proof, then PR publication. Reuse isolated
+`SrvrOS-installation-io`, branch `device/apple-silicon/export-publication-recovery`,
+actual main `5f670602`. Own new host export-publication module, optional
+`export-profile --publication-dir`, read-only `inspect-export`, explicit
+`reconcile-export`, focused tests/proof and installation docs. Keep the v1 codec,
+source admission and guest/filesystem/profile implementations unchanged.
+
+The export-specific immutable intent binds directory/file identity, exact bundle
+hash/size and historical source observation outside the installation stage.
+Reconcile only complete owned v1 bytes with the original destination identity;
+validate recorded transient aliases and refuse additional links, partial/torn or
+conflicting state. Inspection performs no writes/flushes; reconciliation never
+rereads or repairs the source. CLI state/error paths follow an expert UX walkthrough;
+no representative-user study is claimed. Preserve original A baseline/current
+image paths/device/inodes, final earlier images, review VMs 61610/6233/85869 and
+the mounted APFS evidence image on miniTB. One build/harness here, no physical
+media, host reboot, Actions or merge. Next: host contracts and fresh-process
+fault/refusal qualification before a matched fresh-B two-boot restoration.
+
 ## Session switching — delivered and verified November 4, 2026
 
 User authorized cooperative session ending, no-reboot profile switching,
