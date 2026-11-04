@@ -199,3 +199,18 @@ See the [kernel audit](audit-kernel-isolation-2026-11-03.md) and
 Generic endpoint clear-halt/dequeue cancellation, USB3 hubs, native TT behavior,
 restart generations and physical/SMP validation remain open; no complete-codebase
 coverage claim.
+
+
+### November 3: nested translators and shared recovery checkpoint
+
+PR317 corrects TT owner/port selection across nested full-speed hubs, refuses
+malformed ancestry before hardware submission, and programs hub Configure Endpoint
+metadata with high-speed TT think time while retaining single-TT mode. Root EP0
+and HID recovery share fresh-ring reset/dequeue tracking; HID STALL additionally
+requires device clear-halt. An owned Stop proof uses a toggle-preserving dequeue
+rebase. Host fixtures cover HS boundaries and both context sizes; the extended
+Q35 fixture covers nested full-speed hubs and new input after stop/rebase. See
+the [kernel audit](audit-kernel-isolation-2026-11-03.md) for evidence and limits.
+TT buffer cleanup/shared translator recovery, bulk/network/isochronous cancellation,
+multi-TT selection, USB3 hubs, restart generations and physical/SMP qualification
+remain open; no entire-codebase coverage claim.

@@ -84,6 +84,7 @@ static unsigned control_model_cc=1,control_model_stage=2;
 static uint32_t hub_model_status=3;
 static bool recovery_auto,recovery_bad_dequeue,recovery_wrong_slot,control_fail_clear;
 static unsigned recovery_commands,recovery_fail_at,recovery_timeout_at;
+static unsigned recovery_trace[8],recovery_trace_count;
 static uint8_t disabled_order[32];static unsigned disabled_count;
 static uint64_t test_space=1;
 static bool retire_ready=true,storage_retire_ready=true,reject_bus_master;
@@ -97,6 +98,9 @@ static void xhci_test_write32(uint64_t offset, uint32_t value) {
         struct xhci_device *d=control_model;
         struct xhci_trb *setup=(struct xhci_trb *)(uintptr_t)d->control_td[0];
         unsigned cc=control_fail_clear && ((setup->parameter_low>>8)&255)==USB_REQ_CLEAR_FEATURE?6:control_model_cc;
+        if(recovery_auto && ((setup->parameter_low>>8)&255)==USB_REQ_CLEAR_FEATURE) {
+            assert(recovery_trace_count<8);recovery_trace[recovery_trace_count++]=1;
+        }
         uint64_t ptr=d->control_td[cc==1 || control_model_stage>=d->control_td_count?d->control_td_count-1u:control_model_stage];
         if(cc==6)context_write32(d->output_context,1,0,2);
         if(d->hub_ports)for(unsigned i=0;i<4;i++)d->descriptor_buffer[i]=hub_model_status>>(i*8);
@@ -108,14 +112,16 @@ static void xhci_test_write32(uint64_t offset, uint32_t value) {
     if(recovery_auto && offset==xhci.db_base) {
         unsigned index=(xhci.command_enqueue+XHCI_TRB_COUNT-2)%(XHCI_TRB_COUNT-1);
         struct xhci_trb *cmd=&xhci.command_ring[index];unsigned type=(cmd->control>>10)&63;
-        assert(type==14 || type==16);recovery_commands++;
+        assert(type==14 || type==15 || type==16);recovery_commands++;
+        assert(recovery_trace_count<8);recovery_trace[recovery_trace_count++]=type;
+        unsigned dci=(cmd->control>>16)&31;
         if(recovery_commands==recovery_timeout_at)return;
         unsigned cc=recovery_commands==recovery_fail_at?19:1;
         struct xhci_device *d=&xhci.devices[0];
-        if(cc==1 && type==14)context_write32(d->output_context,1,0,3);
+        if(cc==1 && (type==14 || type==15))context_write32(d->output_context,dci,0,3);
         if(cc==1 && type==16 && !recovery_bad_dequeue) {
-            context_write32(d->output_context,1,2,cmd->parameter_low);
-            context_write32(d->output_context,1,3,cmd->parameter_high);
+            context_write32(d->output_context,dci,2,cmd->parameter_low);
+            context_write32(d->output_context,dci,3,cmd->parameter_high);
         }
         uint64_t ptr=xhci.command_ring_phys+index*sizeof(*cmd);
         xhci.event_ring[xhci.event_dequeue]=(struct xhci_trb){.parameter_low=(uint32_t)ptr,
@@ -215,7 +221,7 @@ void pmm_free_frame_range(uint64_t address,uint64_t count) {for(uint64_t i=0;i<c
 static void reset_test(void) {
     control_model=NULL;control_model_cc=1;control_model_stage=2;hub_model_status=3;
     recovery_auto=recovery_bad_dequeue=recovery_wrong_slot=control_fail_clear=false;
-    recovery_commands=recovery_fail_at=recovery_timeout_at=0;
+    recovery_commands=recovery_fail_at=recovery_timeout_at=recovery_trace_count=0;
     disable_auto=disable_wrong_slot=start_status_model=false;disabled_count=0;
     reclaim_check=false;memset(released_pages,0,sizeof(released_pages));
     storage_retire_ready=true;reject_bus_master=false;pci_command=6;
@@ -1305,6 +1311,105 @@ static void test_hub_changes(void) {
     assert(!reset_hub_port(hub,1,&status) && hub->control_failed && hub->control_completion==6 && !xhci.hub_ports_reset);
     puts("xhci-hub-change: PASS asynchronous poll, missed disconnect, descendant/sibling isolation, short/timeout quarantine and stuck reset refusal");
 }
+static void test_nested_tt(void) {
+    for(unsigned size64=0;size64<2;size64++) {
+        stop_fixture();xhci.port_count=2;xhci.hcc_params1=size64?1u<<2:0;
+        static uint8_t input[4096],before[4096];
+        for(unsigned i=0;i<3;i++)xhci.devices[i]=(struct xhci_device){.present=true,.configured=true,
+            .slot_id=i+1,.port_id=1,.speed=i?1:3,.hub_ports=8,.parent_slot_id=i?i:0,.hub_port_id=i?i+3:0};
+        struct xhci_device leaf={.port_id=1,.speed=2,.parent_slot_id=3,.hub_port_id=7,.input_context=input};
+        uint32_t tt=99;assert(device_tt_context(&leaf,&tt) && tt==(1u|(4u<<8)));
+        assert(setup_address_input_context(&leaf) && context_read32(input,1,2)==tt);
+        xhci.devices[0].speed=1;assert(device_tt_context(&leaf,&tt) && tt==0);
+        xhci.devices[0].speed=3;xhci.devices[1].speed=3;
+        assert(device_tt_context(&leaf,&tt) && tt==(2u|(5u<<8)));
+        leaf.speed=3;leaf.parent_slot_id=1;assert(device_tt_context(&leaf,&tt) && !tt);
+        leaf.speed=2;leaf.parent_slot_id=3;
+        memset(input,0xa5,sizeof(input));memcpy(before,input,sizeof(input));
+#define BAD_TT(statement,restore) do {statement;tt=99;     assert(!device_tt_context(&leaf,&tt) && tt==99);assert(!setup_address_input_context(&leaf));     assert(!memcmp(input,before,sizeof(input)));restore;} while(0)
+        BAD_TT(leaf.parent_slot_id=31,leaf.parent_slot_id=3);
+        xhci.devices[1].speed=1; /* Exercise an otherwise-valid all-FS cycle. */
+        BAD_TT(xhci.devices[1].parent_slot_id=3,xhci.devices[1].parent_slot_id=1);
+        xhci.devices[1].speed=3;
+        BAD_TT(xhci.devices[2].removed=true,xhci.devices[2].removed=false);
+        BAD_TT(xhci.devices[2].slot_disabled=true,xhci.devices[2].slot_disabled=false);
+        BAD_TT(xhci.devices[2].configured=false,xhci.devices[2].configured=true);
+        BAD_TT(xhci.devices[2].port_id=2,xhci.devices[2].port_id=1);
+        BAD_TT(leaf.hub_port_id=0,leaf.hub_port_id=7);
+        BAD_TT(leaf.hub_port_id=9,leaf.hub_port_id=7);
+        BAD_TT(leaf.speed=4,leaf.speed=2);
+#undef BAD_TT
+        uint64_t enqueued=xhci.command_enqueue;
+        leaf.parent_slot_id=31;assert(!address_device(&leaf) && xhci.command_enqueue==enqueued && !freed);
+        /* Configure hub metadata with the correct command and its own think time. */
+        struct xhci_device *hub=&xhci.devices[0];static uint8_t output[4096];hub->input_context=input;hub->output_context=output;
+        for(unsigned think=0;think<4;think++) {
+            hub->hub_tt_think_time=think;memset(output,0,sizeof(output));
+            context_write32(output,0,0,(1u<<27)|(1u<<25));context_write32(output,0,2,0x510000);
+            uint64_t ptr=xhci.command_ring_phys+xhci.command_enqueue*sizeof(struct xhci_trb);
+            unsigned cmd=xhci.command_enqueue;
+            xhci.event_ring[xhci.event_dequeue]=(struct xhci_trb){.parameter_low=ptr,.parameter_high=ptr>>32,
+                .status=1u<<24,.control=(xhci.event_cycle?1u:0u)|(33u<<10)|(1u<<24)};
+            assert(configure_hub_context(hub));
+            assert(((xhci.command_ring[cmd].control>>10)&63)==12 &&
+                ((context_read32(input,1,2)>>16)&3)==think && !(context_read32(input,1,0)&(1u<<25)));
+        }
+    }
+    puts("xhci-tt: PASS HS boundary/port across FS hubs, no fictitious FS translator, full ancestry refusal and hub Configure/think time");
+}
+static void test_interrupt_recovery(void) {
+    for(unsigned failure=0;failure<5;failure++) {
+        struct xhci_device *d=control_fixture();
+        d->hid_keyboard=true;d->interrupt_dci=3;d->interrupt_max_packet=8;
+        void *ring=NULL,*buffer=NULL;
+        assert(alloc_frame_zero(&d->interrupt_ring_phys,&ring));d->interrupt_ring=ring;
+        assert(alloc_frame_zero(&d->interrupt_buffer_phys,&buffer));d->interrupt_buffer=buffer;
+        d->interrupt_failed=true;d->last_interrupt_completion=6;
+        context_write32(d->output_context,3,0,2);
+        uint64_t old=d->interrupt_ring_phys,allocated=pool_used;
+        d->last_interrupt_completion=0;assert(!xhci_recover_endpoint(1,3) && pool_used==allocated);d->last_interrupt_completion=6;
+        d->interrupt_pending=true;assert(!xhci_recover_endpoint(1,3));d->interrupt_pending=false;
+        d->parent_slot_id=2;assert(!xhci_recover_endpoint(1,3));d->parent_slot_id=0;
+        d->storage.block=(struct block_device *)1;assert(!xhci_recover_endpoint(1,3));d->storage.block=NULL;
+        assert(!xhci_recover_endpoint(1,4) && !xhci_recover_endpoint(1,0));
+        recovery_auto=true;control_model=d;
+        if(failure==1)control_fail_clear=true;
+        if(failure==2)recovery_fail_at=2;
+        if(failure==3)recovery_timeout_at=1;
+        if(failure==4)recovery_bad_dequeue=true;
+        assert(xhci_recover_endpoint(1,3)==(failure==0));
+        assert(d->interrupt_recovery_attempted && !freed && pool_used==allocated+1);
+        if(failure==1)assert(recovery_commands==1 && d->control_failed);
+        if(failure)assert(d->interrupt_failed && !d->interrupt_ready && d->interrupt_ring_phys==old && d->retired_interrupt_ring_phys);
+        else {
+            assert(d->interrupt_pending && d->interrupt_ring_phys!=old && d->retired_interrupt_ring_phys==old);
+            assert(recovery_trace_count==3 && recovery_trace[0]==14 && recovery_trace[1]==1 && recovery_trace[2]==16);
+            struct xhci_trb *setup=(struct xhci_trb *)(uintptr_t)d->control_td[0];
+            assert((setup->parameter_low&0xffffff)==0x000102 && (setup->parameter_high&0xffff)==0x81);
+            uint64_t enqueue=d->interrupt_enqueue;
+            struct xhci_trb late={.parameter_low=old,.parameter_high=old>>32,.status=1u<<24,
+                .control=(32u<<10)|(1u<<24)|(3u<<16)};
+            dispatch_transfer_event(&late);assert(d->interrupt_enqueue==enqueue);
+        }
+        assert(!xhci_recover_endpoint(1,3));
+    }
+    /* Stopped recovery must preserve USB/host toggles: no reset or clear-halt. */
+    for(unsigned failure=0;failure<3;failure++) {
+        struct xhci_device *d=control_fixture();void *ring=NULL,*buffer=NULL;
+        assert(alloc_frame_zero(&d->interrupt_ring_phys,&ring));d->interrupt_ring=ring;
+        assert(alloc_frame_zero(&d->interrupt_buffer_phys,&buffer));d->interrupt_buffer=buffer;
+        d->hid_keyboard=true;d->interrupt_dci=3;d->interrupt_max_packet=8;
+        d->interrupt_pending=d->interrupt_ready=true;d->interrupt_cycle=true;
+        context_write32(d->output_context,3,0,1);recovery_auto=true;
+        if(failure==1)recovery_timeout_at=1;
+        if(failure==2)recovery_bad_dequeue=true;
+        assert(xhci_test_endpoint_recovery(1)==(failure==0));
+        assert(recovery_trace[0]==15 && !d->control_td_count && !freed);
+        if(!failure)assert(recovery_trace_count==2 && recovery_trace[1]==16 && d->interrupt_ready && d->interrupt_pending);
+        else assert(d->interrupt_failed && !d->interrupt_ready);
+    }
+    puts("xhci-interrupt-recovery: PASS shared reset/clear-halt/dequeue order, fresh poll, owner/storage/TT/refusal and retained failures");
+}
 static void test_hub_route_depth(void) {
     uint32_t route=0;
     for(unsigned depth=0;depth<5;depth++) {
@@ -1347,7 +1452,8 @@ static void test_slot_retirement(void) {
     stop_fixture();xhci.devices[0]=(struct xhci_device){.present=true,.slot_id=1};
     assert(!xhci_retire_slot(1) && xhci.command_failed && !freed);
     disable_auto=true;assert(!xhci_retire_slot(1) && !disabled_count); /* Late completion cannot recover timeout. */
-    stop_fixture();xhci.max_slots=8;xhci.dcbaa=dcbaa;dcbaa[1]=0xabcdef;
+    stop_fixture();xhci.max_slots=8;xhci.port_count=1;xhci.dcbaa=dcbaa;dcbaa[1]=0xabcdef;
+    xhci.devices[1]=(struct xhci_device){.present=true,.port_id=1,.speed=1};
     xhci.devices[0]=(struct xhci_device){.present=true,.slot_id=1};
     xhci.event_ring[0]=(struct xhci_trb){.parameter_low=(uint32_t)xhci.command_ring_phys,
         .parameter_high=xhci.command_ring_phys>>32,.status=1u<<24,.control=1|(33u<<10)|(1u<<24)};
@@ -1380,6 +1486,7 @@ static void test_backing_reclaim(void) {
     struct xhci_device *d=&xhci.devices[0];
     *d=(struct xhci_device){.present=true,.slot_id=1};assert(allocate_device_runtime(d));
     d->retired_ep0_ring_phys=pmm_alloc_frame_tagged(PMM_FRAME_DMA);assert(d->retired_ep0_ring_phys);
+    d->retired_interrupt_ring_phys=pmm_alloc_frame_tagged(PMM_FRAME_DMA);assert(d->retired_interrupt_ring_phys);
     void *memory;assert(alloc_frame_zero(&d->interrupt_ring_phys,&memory));d->interrupt_ring=memory;
     assert(alloc_frame_zero(&d->interrupt_buffer_phys,&memory));d->interrupt_buffer=memory;
     assert(alloc_frame_zero(&d->bulk_buffer_phys,&memory));d->bulk_buffer=memory;
@@ -1603,6 +1710,8 @@ int main(int argc, char **argv) {
     test_terminal_stop();
     test_slot_retirement();
     test_hub_route_depth();
+    test_nested_tt();
+    test_interrupt_recovery();
     test_ep0_recovery();
     test_hub_changes();
     test_start_reset_boundaries();

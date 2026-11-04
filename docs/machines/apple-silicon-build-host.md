@@ -3461,3 +3461,39 @@ guests stopped; review VMs 61610, 6233 and 85869 preserved. Evidence:
 Next: nested USB2 translator ownership/port inheritance, device-side clear-halt/TT
 cleanup and generic endpoint dequeue/cancellation recovery. Signal PR334 and managed
 late-flush proof remain separately owned with no process/VMM/block/filesystem edits.
+
+
+### Nested translator ownership and endpoint recovery scope
+
+Continue PR317 from `35f9e510`; main `7ef140ef` and open PR scopes inspected.
+Validate complete USB2 parent ancestry and derive TT owner/port at the high-speed
+boundary, preserving single-TT policy and hub think time. Refactor verified fresh
+endpoint reset/dequeue into a shared primitive; add explicit acknowledged HID
+interrupt-STALL recovery with device-side clear-halt, retaining all old/staged DMA.
+Keep storage/BOT and uncertain timeout recovery closed; no process/VMM/filesystem
+or generic block edits, no automatic hotplug. PR334 signal and PR345 late-flush
+proof remain separately owned. Preserve review VMs and qualify disposable guests.
+
+Implemented complete USB2 ancestry validation and actual HS translator/port
+selection across intermediate FS hubs, with no fictitious TT on all-FS chains.
+Hub metadata now uses Configure Endpoint and its descriptor TT think time;
+alternate-zero single-TT mode stays selected. Shared fresh-ring recovery admits
+root EP0/HID STALL (non-control includes device clear-halt), or a command-owned
+Stopped HID poll with no toggle reset. Timeout/storage/network/TT/repeat recovery
+refuses; all old/staged rings remain tracked until terminal reclaim. Added
+`xhcireset` and explicit input stop/rebase diagnostic; extended nested-hub VM proof.
+
+Normal/Rosetta, GCC14, ASan/UBSan xHCI, related USB/block/registry hosts and kernel
+compilation pass. Four negative controls fail intended TT owner/hub command/think
+time/clear-halt assertions. Final Q35 two-FS-hub test passes real EP0 STALL recovery,
+interrupt Stop/fresh dequeue/new input, monitor refusal, child/sibling containment,
+retirement, 26-frame terminal reclaim and sysabi. Storage+HID retire/reclaim/replug,
+E1000 netabi and full threadstress pass separately. The failed initial QEMU
+SET_FEATURE interrupt-halt injector is retained as failed evidence: actual HID
+STALL clear-halt is modeled host coverage; no native/HS-TT/SMP qualification.
+Retained PR313 runtime files used; no complete current-userspace rebuild. All task
+guests stopped and review VMs 61610/6233/85869 preserved. Evidence:
+`build/review/xhci-tt/`. Docs: 891 local links, nine known nested-license errors.
+Next: shared TT buffer cleanup/error containment, class-specific cancellation,
+USB3/multi-TT and restart generations. PR334/345 remain separate with no shared
+process/VMM/filesystem/generic block implementation changes.

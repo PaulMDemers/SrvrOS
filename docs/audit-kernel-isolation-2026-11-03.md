@@ -903,6 +903,73 @@ Evidence: `build/review/xhci-hub/`. Main `819956be` inspected, not merged into t
 branch's existing `1f177761` integration base. PR334 signal and the filesystem
 late-flush proof remain separately owned; no process/VMM/filesystem/block edits.
 
+## Nested USB2 translator ownership and shared endpoint recovery
+
+Three confirmed context defects followed the hub audit. Low/full-speed descendants
+used the immediate parent's slot/port as translator, including entirely full-speed
+chains with no translator. High-speed hubs did not publish their descriptor's TT
+think time. Hub/port metadata was sent via Evaluate Context rather than Configure
+Endpoint. `device_tt_context` now validates the whole retained ancestry (live
+configured hubs, valid ports/speeds/root consistency and no cycles) and selects
+the first high-speed boundary plus its downstream port across intermediate
+full-speed hubs. No high-speed boundary means zero TT fields. Invalid topology
+refuses before Enable Slot or context mutation. High-speed functions also use zero
+TT fields. Hub metadata uses Configure Endpoint with descriptor think time only
+on high-speed hubs; default alternate-zero single-TT mode stays selected, MTT zero.
+No multi-TT interface or USB3 hub policy is enabled. These fields follow sections
+4.5.2 and 6.2.2 of the
+[controller specification](https://www.intel.com/content/dam/www/public/us/en/documents/technical-specifications/extensible-host-controler-interface-usb-xhci.pdf).
+
+EP0 and HID interrupt recovery now share one fresh-ring transaction. An acknowledged
+HID STALL must have the exact terminal event, no pending TD/owners and Halted
+context; Reset Endpoint must acknowledge Stopped, then EP0 sends device-side
+CLEAR_FEATURE(ENDPOINT_HALT), then Set TR Dequeue acknowledges the new pointer/cycle.
+Only then publish a fresh poll. A failed clear-halt cannot reach Set Dequeue.
+Old/staged rings stay tracked until terminal reclaim, one attempt per endpoint;
+wrong state/slot/dequeue, timeout, removed identity, published storage, network and
+hub-routed/TT recovery refuse. `xhcireset <slot> <dci>` admits only EP0 or this HID
+policy; generic bulk/network/isochronous recovery and CLEAR_TT_BUFFER remain closed.
+An explicit, command-acknowledged Stop Endpoint may instead prove a root HID poll
+Stopped. That path rebases to a fresh dequeue without reset or device clear-halt,
+preserving both data toggles. A bare Stopped event or software flag supplied by a
+caller does not authorize it; only the owned stop diagnostic records this proof.
+No application transfer is replayed and no failed storage identity is revived.
+
+`xhciintrcheck <slot>` explicitly stops a root HID input poll, verifies command/slot
+and Stopped context, then requeues through the shared fresh-dequeue path. The initial
+QEMU probe rejected SET_FEATURE(ENDPOINT_HALT) and stalled EP0 instead; its evidence
+is a failed probe, not successful HID-STALL coverage. Host tests cover the actual
+STALL/reset/device-clear/dequeue order and all stage failures. The Q35 test uses
+Stop Endpoint and requires new tablet input after recovery. Both proofs are needed
+and neither claims native HID/TT acceptance.
+
+Host fixtures cover 32/64-byte contexts, nested high-speed/full-speed boundaries,
+no fictitious full-speed translator, malformed/retired/cyclic parents, unchanged
+failed context output and no Enable Slot submission, hub command type and all four
+think times. Recovery fixtures cover STALL and owned Stop paths, toggle-preserving
+ordering, failed clear-halt/commands, unchanged old ring, late old completions,
+storage/TT refusal, and terminal poison-accounted reclaim of both old/staged rings.
+The VM harness adds `--nested --interrupt-recovery` for two full-speed hubs plus
+root tablet, EP0 recovery, explicit interrupt stop/rebase, new input, removal and
+child-first retirement/reclaim/sysabi. Evidence: `build/review/xhci-tt/`.
+Final normal/Rosetta, strict GCC14 and ASan/UBSan xHCI fixtures, related USB,
+combined USB/block and network-registry hosts, and kernel compilation pass.
+Controls restoring immediate-parent TT selection, wrong hub command, omitted
+think time or omitted device clear-halt fail their intended assertions. Final
+Q35 nested-hub/EP0/interrupt-stop/dequeue/new-input/removal proof passes, including
+healthy/repeated/invalid monitor refusal, child-first retirement, 26-frame terminal
+reclaim and sysabi. Separate storage+HID retire/reclaim/replug, E1000 netabi and
+full threadstress guests pass. Retained PR313 runtime files used; no complete
+current-userspace or native/physical/SMP/HS-TT qualification. All task guests
+stopped, review VMs 61610/6233/85869 preserved. Docs check: 891 local links, nine
+known missing nested-license targets. Next audit boundary is shared translator
+buffer cleanup/error containment and class-specific dequeue cancellation; root
+HID admission does not establish those contracts.
+
+Main `7ef140ef` inspected without merging into the branch's `1f177761` base; PR334
+signal and PR345 managed late-flush work remain separately owned, with no process,
+VMM, generic block or filesystem edits here.
+
 ## Remaining work
 
 Other long IRQ-disabled operations, including initial/churning PMM scans, heap validation and poisoning,

@@ -50,6 +50,10 @@ bool xhci_retire_slot(uint8_t slot);
 /* One explicit EP0 protocol-STALL recovery per slot: verified Halted -> Reset ->
  * Stopped -> fresh dequeue. Never revives published storage or timed-out DMA. */
 bool xhci_recover_control(uint8_t slot);
+/* Shared endpoint recovery entry; currently EP0 and root HID STALL only.
+ * Non-control recovery clears the device halt before fresh dequeue publication. */
+bool xhci_recover_endpoint(uint8_t slot,uint8_t dci);
+bool xhci_test_endpoint_recovery(uint8_t slot);
 /* Explicit diagnostic: induce protocol STALL on a HID slot and verify recovery. */
 bool xhci_test_control_recovery(uint8_t slot);
 /* Terminal DMA reclaim after stop, storage/worker/diagnostic reference drain

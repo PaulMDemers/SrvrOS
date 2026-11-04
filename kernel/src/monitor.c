@@ -521,7 +521,7 @@ static void render_stress(void) {
 }
 
 static void print_help(void) {
-    console_write("commands: help clear bootinfo hwdiag dmesg mem memstat ticks renderstat renderbench [serial] renderstress fpustress latency [reset|off] heap workers semaphoretest acpiworktest scitest [arm|status|stop] block mount unmount workspace fsck pci gpu spi spiregs acpiinput xhci xhciep0check <1..255> xhciep0 <1..255> xhcislot <1..255> xhcistop xhcireclaim audio [test|stop|speakers|headphones] thermal smc power net ps bg kill echo ls [dir] cat write elf run [args]\n");
+    console_write("commands: help clear bootinfo hwdiag dmesg mem memstat ticks renderstat renderbench [serial] renderstress fpustress latency [reset|off] heap workers semaphoretest acpiworktest scitest [arm|status|stop] block mount unmount workspace fsck pci gpu spi spiregs acpiinput xhci xhcireset <slot> <dci> xhciintrcheck <1..255> xhciep0check <1..255> xhciep0 <1..255> xhcislot <1..255> xhcistop xhcireclaim audio [test|stop|speakers|headphones] thermal smc power net ps bg kill echo ls [dir] cat write elf run [args]\n");
     console_write("workspace: status | mount <UUID> | shell | sync | unmount\n");
     console_write("desktop battery: ordinary Home session with opt-in battery monitoring; Ctrl+Alt+Esc exits\n");
     console_write("reboot: flush storage and return through the normal boot entry\n");
@@ -1169,11 +1169,21 @@ static void run_command(char *line) {
         render_stress();
     } else if (streq(command, "renderbench")) {
         render_benchmark(streq(args, "serial"));
-    } else if (streq(command, "xhcislot") || streq(command, "xhciep0") || streq(command,"xhciep0check")) {
+    } else if(streq(command,"xhcireset")) {
+        uint64_t slot=0,dci=0;const char *p=args;
+        while(*p>='0' && *p<='9' && slot<=255)slot=slot*10+(*p++-'0');
+        bool separated=*p==' ';while(*p==' ')p++;
+        while(*p>='0' && *p<='9' && dci<=31)dci=dci*10+(*p++-'0');
+        if(!separated || *p || !slot || slot>255 || !dci || dci>31)
+            console_write("usage: xhcireset <1..255> <1..31>\n");
+        else console_write(xhci_recover_endpoint((uint8_t)slot,(uint8_t)dci)?
+            "xhci-endpoint: recovered\n":"xhci-endpoint: refused\n");
+    } else if (streq(command, "xhcislot") || streq(command, "xhciep0") || streq(command,"xhciep0check") || streq(command,"xhciintrcheck")) {
         uint64_t slot=0;
         const char *p=args;
         while(*p>='0' && *p<='9' && slot<=255)slot=slot*10+(*p++-'0');
         if(*p || !slot || slot>255)console_write("usage: xhcislot <1..255>\n");
+        else if(streq(command,"xhciintrcheck"))console_write(xhci_test_endpoint_recovery((uint8_t)slot)?"xhci-intr-check: ok\n":"xhci-intr-check: failed\n");
         else if(streq(command,"xhciep0check"))console_write(xhci_test_control_recovery((uint8_t)slot)?"xhci-ep0-check: ok\n":"xhci-ep0-check: failed\n");
         else if(streq(command,"xhciep0"))console_write(xhci_recover_control((uint8_t)slot)?"xhci-ep0: recovered\n":"xhci-ep0: refused\n");
         else console_write(xhci_retire_slot((uint8_t)slot)?"xhci-slot: disabled-retained\n":"xhci-slot: pending-or-unproven\n");

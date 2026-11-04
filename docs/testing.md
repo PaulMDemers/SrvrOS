@@ -1652,3 +1652,29 @@ and sysabi. Both DMA rings remain pinned until terminal halt/reference retiremen
 once; it refuses timed-out DMA, published storage and TT/hub-routed recovery.
 No bulk retry, device-side clear-halt, hotplug re-enumeration or controller restart
 is implied. The harness owns/stops its guest and copies the disk; preserve review VMs.
+
+
+### Nested USB2 hubs and shared endpoint recovery
+
+```sh
+python3 tools/usb_hub_smoke.py --iso /absolute/candidate.iso \
+  --disk /absolute/source.exfat --nested --interrupt-recovery
+```
+
+Two full-speed hubs lead to the keyboard; a root tablet exercises real EP0 STALL
+recovery and command-acknowledged interrupt Stop Endpoint → fresh dequeue → new
+input. Downstream remove/replacement stays quarantined, siblings survive, and
+child-first retirement/terminal reclaim/sysabi follow. High-speed TT boundaries
+and think-time fields are covered by actual helper tests in both context sizes,
+not a physical high-speed hub claim. Normal startup selects single-TT alternate
+zero; it does not select a multi-TT interface.
+
+`xhcireset <slot> <dci>` explicitly recovers acknowledged root EP0/HID STALLs only.
+HID recovery requires Reset Endpoint → device clear-halt → fresh Set Dequeue;
+`test-xhci` checks that exact order and negative stages. The explicit
+`xhciintrcheck <slot>` diagnostic uses an owned Stop proof instead, preserving
+data toggles (no reset/clear-halt on an already-stopped healthy poll). QEMU rejected
+the attempted SET_FEATURE interrupt-halt injector, so actual HID STALL clear-halt
+is host-modeled coverage, not VM/native acceptance. Timeouts, published storage,
+network/bulk/isochronous endpoints, hub/TT recovery and repeated attempts refuse.
+Old/staged rings remain tracked until terminal controller reclaim.
