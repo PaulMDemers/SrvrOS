@@ -13,12 +13,15 @@ import mmap
 import os
 from pathlib import Path
 import stat
+import subprocess
 import struct
 import tarfile
 import uuid
 from types import SimpleNamespace
 
 import mk_usb_image as usb
+import profile_bundle as profiles
+import profile_image
 
 ESP_MIB = 384
 CONFIG = (b'timeout: 0\nserial: yes\n/srvros\n    protocol: limine\n'
@@ -114,10 +117,34 @@ def identity_config(partition_guid):
         f"    cmdline: srvros.virtio=on srvros.root={partition_guid} srvros.root-format=exfat-v1 srvros.root-role=system\n".encode("ascii"))
 
 
-def prepare(staging_dir, kernel, bootx64, exfat, init, *, identity_bound=False):
+def load_profile(path, home, alias, uid, gid):
+    bundle = profiles.decode_json(profiles.read_regular(path))
+    metadata, _, _ = profile_image.validate_request(bundle, home, alias, uid, gid)
+    return bundle, metadata
+
+
+def prepare(staging_dir, kernel, bootx64, exfat, init, *, identity_bound=False,
+            profile_bundle=None, profile_home=None, profile_alias=None, profile_uid=None,
+            profile_gid=None, profile_driver=None):
     target = checked_path(staging_dir)
+    options = (profile_bundle, profile_home, profile_alias, profile_uid, profile_gid, profile_driver)
+    if any(value is not None for value in options) and (not identity_bound or any(value is None for value in options)):
+        raise ValueError('profile requires identity-bound mode and all profile options')
+    profile = None
+    if profile_bundle is not None:
+        _, profile = load_profile(profile_bundle, profile_home, profile_alias, profile_uid, profile_gid)
+        if Path(checked_path(exfat)).stat().st_nlink != 1:
+            raise ValueError('profile source exFAT must have a single link')
     sources = {name: source(value) for name, value in
                [('kernel', kernel), ('bootx64', bootx64), ('exfat', exfat), ('init', init)]}
+    if profile is not None:
+        sources['profile_bundle'] = source(profile_bundle)
+        sources['profile_driver'] = source(profile_driver)
+        if not os.access(sources['profile_driver']['path'], os.X_OK):
+            raise ValueError('profile driver is not executable')
+        _, current = load_profile(sources['profile_bundle']['path'], profile_home, profile_alias, profile_uid, profile_gid)
+        if current != profile or source(sources['profile_bundle']['path']) != sources['profile_bundle']:
+            raise ValueError('profile bundle changed during preparation')
     validate_exfat(sources['exfat']['path'], sources['exfat']['size'])
     for name in ('kernel', 'init'):
         with open(sources[name]['path'], 'rb') as f:
@@ -129,9 +156,11 @@ def prepare(staging_dir, kernel, bootx64, exfat, init, *, identity_bound=False):
     spec = layout(sources['exfat']['size'])
     os.mkdir(target, 0o700)  # exclusive: existing files, directories and devices are refused
     st = target.stat()
-    plan = {'version': 1, 'target_uuid': str(uuid.uuid4()), 'target_directory': str(target),
+    plan = {'version': 2 if profile is not None else 1, 'target_uuid': str(uuid.uuid4()), 'target_directory': str(target),
             'target_device': st.st_dev, 'target_inode': st.st_ino,
             'sources': sources, 'layout': spec}
+    if profile is not None:
+        plan['profile'] = profile
     if identity_bound:
         gpt = {'disk_guid': str(uuid.uuid4()), 'esp_partition_guid': str(uuid.uuid4()),
                'exfat_partition_guid': str(uuid.uuid4()), 'exfat_partition_name': 'srvros-system-v1'}
@@ -247,7 +276,7 @@ def apply(staging_dir):
         raise ValueError('plan changed since prepare')
     with open(plan_path) as f:
         plan = json.load(f)
-    if (plan['version'] != 1 or plan['target_directory'] != str(target) or
+    if (type(plan['version']) is not int or plan['version'] not in (1, 2) or plan['target_directory'] != str(target) or
         (st.st_dev, st.st_ino) != (plan['target_device'], plan['target_inode']) or
         plan['layout'] != layout(plan['sources']['exfat']['size'])):
         raise ValueError('target or plan identity mismatch')
@@ -267,6 +296,19 @@ def apply(staging_dir):
     for item in plan['sources'].values():
         if source(item['path']) != item:
             raise ValueError('source changed since prepare')
+    profile = plan.get('profile')
+    if (plan['version'] == 2) != (profile is not None):
+        raise ValueError('profile plan requires version 2')
+    bundle = None
+    if profile is not None:
+        if not selection or set(profile) != {'profile_id', 'home', 'alias', 'uid', 'gid'}:
+            raise ValueError('invalid profile plan')
+        bundle, current = load_profile(plan['sources']['profile_bundle']['path'], profile['home'],
+                                       profile['alias'], profile['uid'], profile['gid'])
+        if current != profile or not os.access(plan['sources']['profile_driver']['path'], os.X_OK):
+            raise ValueError('profile plan or driver changed')
+    elif 'profile_bundle' in plan['sources'] or 'profile_driver' in plan['sources']:
+        raise ValueError('unexpected profile sources')
     validate_exfat(plan['sources']['exfat']['path'], plan['sources']['exfat']['size'])
     write_json(target / 'in-progress.json', {'target_uuid': plan['target_uuid']})
     sync_dir(target)
@@ -277,8 +319,23 @@ def apply(staging_dir):
         entry.mode, entry.size = 0o755, len(init_data)
         tar.addfile(entry, io.BytesIO(init_data))
     (target / 'limine.conf').write_bytes(plan.get('config', CONFIG.decode('ascii')).encode('ascii'))
+    exfat_path = plan['sources']['exfat']['path']
+    if profile is not None:
+        provisioned = target / 'profile.exfat'
+        result = profile_image.provision(exfat_path, provisioned, bundle, profile['home'],
+            profile['alias'], profile['uid'], profile['gid'], plan['sources']['profile_driver']['path'])
+        if (result['profile_id'] != profile['profile_id'] or result['home'] != profile['home'] or
+            any(result[key] != profile[key] for key in ('alias', 'uid', 'gid'))):
+            raise ValueError('profile provision result mismatch')
+        if provisioned.stat().st_size != plan['sources']['exfat']['size']:
+            raise ValueError('profile exFAT size changed')
+        validate_exfat(provisioned, plan['sources']['exfat']['size'])
+        with open(provisioned, 'rb') as stream:
+            os.fsync(stream.fileno())
+        exfat_path = str(provisioned)
+    exfat_hash = digest(exfat_path) if profile is not None else plan['sources']['exfat']['sha256']
     temp = target / 'image.partial'
-    usb.build_image(SimpleNamespace(esp_size_mib=ESP_MIB, exfat=plan['sources']['exfat']['path'],
+    usb.build_image(SimpleNamespace(esp_size_mib=ESP_MIB, exfat=exfat_path,
         bootx64=plan['sources']['bootx64']['path'], bootia32=None,
         kernel=plan['sources']['kernel']['path'], initramfs=str(target / 'bootstrap.tar'),
         config=str(target / 'limine.conf'), output=str(temp),
@@ -302,7 +359,7 @@ def apply(staging_dir):
                 raise ValueError('truncated image')
             h.update(chunk)
             remaining -= len(chunk)
-    if h.hexdigest() != plan['sources']['exfat']['sha256']:
+    if h.hexdigest() != exfat_hash or digest(exfat_path) != exfat_hash:
         raise ValueError('image exFAT verification failed')
     image_hash = digest(temp)
     os.link(temp, target / 'image.img')  # atomic no-overwrite publication
@@ -310,6 +367,9 @@ def apply(staging_dir):
     sync_dir(target)
     ready = {'version': 1, 'gpt': gpt, 'target_uuid': plan['target_uuid'], 'image': str(target / 'image.img'),
              'image_sha256': image_hash, 'layout': plan['layout'], 'sources': plan['sources']}
+    if profile is not None:
+        ready['profile'] = dict(profile, launch_command='run /fat/bin/deskd --profile=' + profile['home'])
+        ready['profile_exfat_sha256'] = exfat_hash
     if selection:
         ready['selection'] = dict(selection, partition_guid=plan['gpt']['exfat_partition_guid'],
                                   partition_name=plan['gpt']['exfat_partition_name'])
@@ -328,14 +388,21 @@ def main():
     for name in ('kernel', 'bootx64', 'exfat', 'init'):
         prep.add_argument('--' + name, required=True)
     prep.add_argument('--identity-bound', action='store_true')
+    for name in ('bundle', 'home', 'alias', 'driver'):
+        prep.add_argument('--profile-' + name)
+    for name in ('uid', 'gid'):
+        prep.add_argument('--profile-' + name, type=int)
     run = sub.add_parser('apply')
     run.add_argument('staging_dir')
     args = parser.parse_args()
     try:
-        result = (prepare(args.staging_dir, args.kernel, args.bootx64, args.exfat, args.init, identity_bound=args.identity_bound)
+        result = (prepare(args.staging_dir, args.kernel, args.bootx64, args.exfat, args.init, identity_bound=args.identity_bound,
+                            profile_bundle=args.profile_bundle, profile_home=args.profile_home,
+                            profile_alias=args.profile_alias, profile_uid=args.profile_uid,
+                            profile_gid=args.profile_gid, profile_driver=args.profile_driver)
                   if args.action == 'prepare' else apply(args.staging_dir))
         print(json.dumps(result, indent=2, sort_keys=True))
-    except (ValueError, OSError, KeyError) as error:
+    except (ValueError, OSError, KeyError, subprocess.CalledProcessError) as error:
         parser.exit(1, f'error: {error}\n')
 
 

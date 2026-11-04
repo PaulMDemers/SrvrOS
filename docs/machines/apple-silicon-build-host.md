@@ -1,5 +1,49 @@
 # Apple Silicon macOS build host
 
+## PR321 merge review
+
+Final candidate `d0910498` consumes newer main `a8e1fca1` and PR320's guest import
+startup guard. Fresh full build, profile/installation/guest host checks and the
+complete four-boot/12-refusal proof pass. Verified evidence and matching artifacts
+survive at `.local/installation-evidence/pr321-current-tkf2agxs`. Task VMs stopped;
+review VMs 61610, 6233 and 85869 remain live and untouched. This refresh supersedes
+the initial equivalence-only readiness assessment below.
+
+User authorized review/merge of profile plans. Candidate `6de308a1` integrates
+current main `805519b2`; focused installation/profile host checks and full build
+pass. Runtime equivalence preserves the four-boot/12-refusal acceptance from
+`bf6efeb2`: only unused sysabi fixture payloads changed, including their archive
+copies; kernel, minimal bootstrap, drivers and all exercised apps/data match.
+Evidence/logs are retained at `.local/installation-evidence/pr321-review`.
+No additional VM was required; review VMs 61610, 6233 and 85869 remain untouched.
+See PR321 for merge state and the installation document for the proposed bounded
+interrupted-publication inspection/recovery checkpoint.
+
+## Profile-aware installation plans — proof complete
+
+User authorized a scoped PR and two-installation persistence/refusal proof in
+`SrvrOS-installation`, branch `device/apple-silicon/profile-install-plans`, main
+`c7be6574`. Consume merged profile PR309/314, namespace PR313 and acceptance PR318;
+Apps pin `3cf32af2`, Ports pin `5e994f53`. Own installation plans/tests and new
+proof harness; shared profile preflight is extracted from the existing adapter.
+The existing installed/canonical harnesses and guest namespace files remain the
+filesystem owner's active scope. Preserve VMs 61610, 6233 and 85869; run one
+build/harness at a time. No physical media, reboot or Actions. Current acceptance
+and exact evidence are recorded in `docs/disk-installation.md`.
+
+Clean `bf6efeb2` passes the matched build, four boots across two version-2 planned
+EFI installations, 12 installation refusals and 12 invalid session selections.
+Profile UUID/text/binary/preferences persist from A to B; disk GUID, home and
+local bindings differ; both machine settings remain exact. Allocation/protected
+region and source-preservation checks pass. Host checks include 27 installation
+tests, profile/session checks, 13 bundle groups and seven adapter tests. Retained
+evidence/artifacts are verified at
+`.local/installation-evidence/profile-plans-l1_8_9zl`. The earlier v1 trial is
+compressed and retained separately; v2 prevents older apply tools ignoring the
+profile. PR319's optional filesystem fixture landed independently during proof.
+Task VMs are stopped; the three original review VMs remain live. Delivery is a
+scoped draft PR; no merge is requested by this milestone.
+
 ## PR315 merge review
 
 Current-main `56e1f950` includes filesystem PR313 and profile-desktop PR314.
