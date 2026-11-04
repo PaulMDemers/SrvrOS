@@ -2,6 +2,8 @@ import unittest
 
 from haswell_path_audit import access_class, audit, display_mode, next_readout
 from test_hardware_haswell_backing import change_meta, fixture
+from test_hardware_haswell_tilectl import fixture_v2
+from test_hardware_haswell_fences import change_v3, fixture_v3
 
 
 class HaswellPathAuditTests(unittest.TestCase):
@@ -68,6 +70,43 @@ class HaswellPathAuditTests(unittest.TestCase):
         self.assertIn('candidate-read-only', access_class(0x101000))
         self.assertEqual(access_class(0x101004), 'not-audited')
         self.assertEqual(access_class(0x100080), 'not-audited')
+
+    def test_completed_observations_do_not_request_repeat_or_grant_authority(self):
+        for version, text, step in (
+                (1, fixture(), 'validate-raw-cpu-control-readout'),
+                (2, fixture_v2(), 'validate-linux-model32-readout'),
+                (3, fixture_v3(), 'audit-gt-access-and-allocation-lifetime')):
+            report = audit(text)
+            p = report['prerequisites']
+            self.assertEqual(p['cpu_control_observed'], version >= 2)
+            self.assertEqual(p['linux_model32_observed'], version == 3)
+            self.assertEqual(p['next_step'], step)
+            self.assertEqual(report['next_readout'] is None, version >= 2)
+            self.assertFalse(p['gt_access']['read_authorized'])
+            self.assertFalse(p['gt_access']['forcewake_writes_authorized'])
+            self.assertFalse(p['new_native_test_authorized_by_report'])
+            self.assertFalse(p['ownership'])
+            self.assertFalse(p['hardware_authority'])
+            lifetime = p['lifetime']
+            self.assertEqual(lifetime['observed_surface_bytes'], 4325376)
+            for key, value in lifetime.items():
+                if isinstance(value, bool):
+                    self.assertFalse(value, key)
+
+    def test_large_fence_and_upper_overlap_do_not_become_allocation_proof(self):
+        text = fixture_v3()
+        for phase in (0, 1):
+            text = change_v3(text, 50, 0x00fff02b00000001, phase)
+        report = audit(text)
+        self.assertEqual(report['prerequisites']['lifetime']['candidate_fence_extents'],
+                         [dict(index=0, start=0, end=16 << 20)])
+        for phase in (0, 1):
+            text = change_v3(text, 81, 0x00fff02b00000001, phase)
+        report = audit(text)
+        self.assertEqual([c['index'] for c in report['fence']['candidates']], [0, 31])
+        self.assertFalse(report['fence']['uniqueness_proven'])
+        self.assertFalse(report['prerequisites']['lifetime']['backing_allocation_owned'])
+        self.assertFalse(report['prerequisites']['lifetime']['fence_pinned'])
 
     def test_incomplete_changed_and_authority_receipts_refuse(self):
         text = fixture()

@@ -7004,3 +7004,35 @@ source. Remaining work is a source audit of GT access prerequisites and full-pat
 swizzle, reference-count uncertainty and actual backing allocation/scanout lifetime
 before any ownership or power-control change. Prior RC6 timing failure and zero
 package-C3 residency remain unchanged. No further native test is armed here.
+
+
+### Remaining GT/lifetime prerequisite audit scope (2026-11-04)
+
+Base `7766ed5a` with recursive integration pins; version3 native receipt collected
+before this block. PR301 at `d320c5d4` owns independent Broadwell DMA/scanout work;
+no driver, register gate or native acceptance is imported. Audit pinned Haswell
+forcewake and initial-plane allocation/pinning paths against the accepted raw
+receipt. Update only the host path-audit report, its regressions and Air6,1 docs
+to distinguish completed observations from missing authority/lifetime proofs.
+No new MMIO, firmware transaction, power writer, boot profile or limit change.
+Save source hashes and native host-audit output locally, validate host/docs tests,
+and integrate the bounded audit before proposing another native experiment.
+
+
+Audit complete: pinned primary uncore and initial-plane files were independently
+refetched/hash-matched. Haswell's GT read requires MT request/HSW acknowledgement
+and thread-status acquisition, so no raw GT read is admitted. The native16MiB
+fence exceeds the observed4,325,376-byte footprint by12,451,840 bytes; that excess
+is not an owned allocation. The host report now tracks version1/2/3 completion,
+explicitly refuses hardware/firmware exclusion and lifetime assurances, and no
+longer proposes repeating completed CPU capture. Regression coverage includes
+large/overlapping upper fences and unchanged no-authority results across versions.
+
+`make test-haswell-backing check-docs`, independent native version3 host re-audit
+and diff checks pass. Actual core/adapter producers and all three maximum-tail
+checks remain passing. No kernel/staging/policy/limit change or new physical
+acceptance; no payload installed or reboot armed. Next is a host-only exact-layout
+reservation proposal and collision/alias/stale/retirement tests, coordinated with
+PR301 before any shared allocator work. Native GT/DMA/scanout ownership remains
+separate and the RC6/package-C3 limitations persist. Durable audit evidence is
+saved outside build before closeout.
