@@ -3,6 +3,27 @@
 Updated November 3, 2026. Global activation follows the explicit namespace proof
 in [PR308](https://github.com/PaulMDemers/SrvrOS/pull/308).
 
+## Installed-root managed USB salvage — in progress
+
+User authorized this bounded milestone on main `5634cd9d` (PR306 SQLite CLI),
+with PR317 fault/lifetime review first and review-VM preservation. Use prepared
+fixture-only USB media and actual workspace mount/sync/unmount, preserving the
+independent installed system volume. First source write faults after existing
+source writer/reader opens and RAM staging; mount/read/enable do not write.
+Current USB BOT SCSI failure quarantines/invalidate-publishes the stable block
+identity. Retained content reads process RAM; sticky flush errors do not retry
+transport. Workspace busy refusal precedes flush while a reader is held; failed
+sync remains latched after the reader closes.
+
+PR317 owner confirms explicit terminal reclamation is separate from BOT errors;
+geometry/name/claim identities stay stable/offline and process-RAM readers are
+unchanged. Historical writable capability remains so global flush cannot hide
+uncertain media. Do not invoke xhcistop/xhcireclaim, unplug, reset or reclaim DMA.
+No production process/workspace/block/driver changes planned. Scope is sysabi
+handshake proof, host fixture/USB fault routing, guards and docs. Verify clean
+control, held-reader refusal, post-close failed retirement, explicit CLI salvage
+to healthy storage, compatibility and persistence after controlled restart.
+
 ## PR332 merge review and next bounded milestone
 
 User authorized review and merge if ready. Reviewed `eba6b83b` against unchanged
