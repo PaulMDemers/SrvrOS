@@ -1,10 +1,47 @@
 # Roadmap
 
-Updated November 3, 2026. The goal is a pleasant native desktop on the MacBook
+Updated November 4, 2026. The goal is a pleasant native desktop on the MacBook
 Air, with a solid shell and server foundation. The [current status](status.md)
 and [machine records](machines/README.md) separate implementation from physical
 acceptance. The [device parity ledger](device-parity.md) compares the Air with
 ongoing Pro work.
+
+## Desktop profile creation — delivered and verified November 4, 2026
+
+Users can create a portable profile from the startup chooser or Profiles app,
+review its identity and six default preferences, recover an interrupted creation,
+select it after reboot and migrate it to another QEMU installation. Merged
+[SrvrApps #8](https://github.com/PaulMDemers/SrvrApps/pull/8) first (`f4017137`),
+then [SrvrOS #348](https://github.com/PaulMDemers/SrvrOS/pull/348) (`0fb4ed6c`).
+The OS pins reviewed Apps `0bf8e137`; the Apps merge has the same tree.
+
+Acceptance passed on clean runtime source `1ef0ccdd`: matched build, 25 CLI test
+groups, production catalog/desktop/fsync checks and CLI/catalog ASan/UBSan.
+Twenty disposable VM lifetimes verify both creation entry points, empty initial
+Documents, distinct UUIDs, invalid/occupied/capacity refusals, all five interrupted
+creation/recovery boundaries, remembered reboot selection, and graphical export
+and import into independently installed B with chooser/reboot/Text readback.
+Identity, all six preferences and selected text/binary bytes survive; destination
+HOME/alias/UID/GID differ while machine settings, unrelated profiles, exclusions
+and legacy files remain local. The 640 × 480 chooser proof includes Ctrl-A,
+Undo/Redo and Tab navigation. Rendered form/review/recovery/refusal/readback states
+were independently inspected.
+
+The coordinator independently verified 37 compressed image streams, initial and
+final A/B filesystem contents, stopped/recovered profiles, and all 380 members of
+the preserved evidence backup. See the [creation acceptance](portable-profiles.md#desktop-profile-creation--qualified-for-review),
+[screenshots and source manifest](assets/screenshots/profile-create-manifest.json),
+and [independent merge review](assets/screenshots/profile-create-review.json).
+Later main `ba35d16c` adds host-only inspection: guest exFAT preprocessing is
+identical, other guest inputs/proof tools are unchanged, and all 148 retained
+artifacts/metadata match. This preserves the original runtime proof attribution;
+no repeat VM run is claimed.
+
+No further work is required for this target. Original A/B/transport/baseline
+images and existing review VMs remain preserved. The installation chat's separately
+authorized fresh-v2-B four-boot proof resumes after this resource handoff; it is
+not an unfulfilled creation requirement. Physical-media and arbitrary power-loss
+acceptance, authentication and permission enforcement remain separate work.
 
 ## less Terminal report browsing — November 3, 2026
 
