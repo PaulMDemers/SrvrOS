@@ -10,6 +10,7 @@
 #include <srvros/desktop_session.h>
 #include <srvros/laptop_probe.h>
 #include <srvros/intel_display_capture.h>
+#include <srvros/intel_dma_observe.h>
 #include <srvros/intel_display_backing.h>
 #include <srvros/intel_scanout_trial.h>
 #include <srvros/audio.h>
@@ -560,6 +561,7 @@ void kmain(void) {
         if(cmdline_has_token(cmdline,"srvros.intel-backing=read-only"))
             intel_display_backing_probe_boot(r && r->framebuffer_count && r->framebuffers?r->framebuffers[0]:NULL);
     }
+    if(intel_display_capture_requested && cmdline_has_token(cmdline,"srvros.intel-dma=read-only")) intel_dma_probe_boot();
     bool virtio_baseline=cmdline_has_token(cmdline,"srvros.virtio=on");
     if(virtio_baseline) {
         bool input=virtio_input_init();
@@ -609,7 +611,7 @@ void kmain(void) {
         xhci_print_status();
     }
     if(!intel_display_capture_requested && !cmdline_has_token(cmdline,"srvros.capture=haswell-backing")) intel_gfx_init();
-    else console_write("intel-display-observe: ordinary Intel initializer skipped; no capture PCI writes\n");
+    else if(intel_display_capture_requested) console_write("intel-display-observe: ordinary Intel initializer skipped; no capture PCI writes\n");
     if(cmdline_has_token(cmdline,"srvros.sensors=cpu")) thermal_init();
     if(cmdline_has_token(cmdline,"srvros.power=read-only")) power_init();
     if (cmdline_has_token(cmdline, "srvros.storage=ram")) {
@@ -796,6 +798,7 @@ void kmain(void) {
         if(intel_display_capture_requested) {
             sampled=intel_display_probe_report();
             bool backing_ok=intel_display_backing_probe_report();sampled=sampled && backing_ok;
+            bool dma_ok=intel_dma_probe_report();sampled=sampled && dma_ok;
             bool fixture=cmdline_has_token(cmdline,"srvros.intel-lifetime=fixture");
             if(fixture || cmdline_has_token(cmdline,"srvros.intel-lifetime=shadow")) {
                 struct limine_framebuffer_response *r=framebuffer_request.response;

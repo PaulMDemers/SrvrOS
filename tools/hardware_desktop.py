@@ -808,6 +808,13 @@ def collect(mount, volume, output):
                     attention.append('collection: Intel backing observation refused, failed or incomplete')
             except ValueError as error:
                 attention.append('collection: invalid Intel backing observation: '+str(error))
+        intel_dma=None
+        if 'srvros.intel-dma=read-only' in text:
+            try:
+                from intel_dma_observe import dma_result
+                intel_dma=dma_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+                if not intel_dma or not intel_dma['observation_complete']: attention.append("Intel DMA observation incomplete or refused")
+            except ValueError as error: attention.append("Invalid Intel DMA receipt: "+str(error))
         intel_lifetime=None
         if 'srvros.intel-lifetime=' in text:
             from intel_scanout_lifetime import lifetime_result
@@ -836,6 +843,7 @@ def collect(mount, volume, output):
             "intel_display_capture": intel_display,
             "intel_display_backing": intel_backing,
             "intel_scanout_lifetime": intel_lifetime,
+            "intel_dma_observe":intel_dma,
             "posix_capture": posix_proof,
             "storage_wait": storage_wait,
             "battery_preflight": preflight,

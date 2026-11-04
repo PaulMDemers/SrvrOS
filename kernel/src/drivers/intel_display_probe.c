@@ -366,3 +366,107 @@ bool intel_scanout_trial_revalidate(void) {
     for(unsigned i=0;i<32;i++)if(trial_after.sample[1].fence[i]!=backing.sample[1].fence[i])return false;
     return true;
 }
+
+/* VT-d v4.1 sections11.4.1-5. No GCMD/FSTS reads or any write callback.
+ * Share the retired backing window; guards run only while it is unmapped. */
+#include <srvros/intel_dma_observe.h>
+static struct intel_dma_result dma_result;
+static uint8_t dma_table_bytes[INTEL_DMA_TABLE_BYTES];
+static bool dma_attempted,dma_table_valid,dma_preserved;
+static uint64_t dma_region_base,dma_region_length,dma_region_type;
+static unsigned dma_overlaps;
+static bool dma_resource(void) {
+    const struct limine_memmap_response *m=memmap_request.response;
+    dma_region_base=dma_region_length=dma_region_type=0;dma_overlaps=0;
+    if(!backing_range_reserved(0xfed90000,4096) || !m)return false;
+    for(uint64_t i=0;i<m->entry_count;i++) {
+        const struct limine_memmap_entry *e=m->entries[i];
+        if(e->base<0xfed91000 && 0xfed90000<e->base+e->length) {
+            dma_overlaps++;dma_region_base=e->base;dma_region_length=e->length;dma_region_type=e->type;
+        }
+    }
+    return dma_overlaps==1 && dma_region_type==LIMINE_MEMMAP_RESERVED && dma_region_base<=0xfed90000 && dma_region_length>=0xfed91000-dma_region_base;
+}
+static bool dma_table_current(void) {
+    unsigned found=0;const uint8_t *bytes=NULL;
+    uint64_t count=acpi_table_count();
+    if(count>128)return false;
+    for(uint64_t i=0;i<count;i++) {
+        const struct acpi_table_info *t=acpi_table_at(i);
+        if(t && t->signature[0]=='D' && t->signature[1]=='M' && t->signature[2]=='A' && t->signature[3]=='R') {
+            if(t->length!=INTEL_DMA_TABLE_BYTES || !t->physical_address || t->physical_address>UINT64_MAX-INTEL_DMA_TABLE_BYTES)return false;
+            found++;bytes=pmm_phys_to_virt(t->physical_address);
+        }
+    }
+    struct intel_dma_topology t;
+    if(found!=1 || !intel_dma_table(bytes,INTEL_DMA_TABLE_BYTES,&t) || t.hash!=INTEL_DMA_DMAR_HASH)return false;
+    if(dma_table_valid)for(unsigned i=0;i<INTEL_DMA_TABLE_BYTES;i++)if(bytes[i]!=dma_table_bytes[i])return false;
+    if(!dma_table_valid) {
+        for(unsigned i=0;i<INTEL_DMA_TABLE_BYTES;i++)dma_table_bytes[i]=bytes[i];
+        dma_result.topology=t;dma_table_valid=true;
+    }
+    return true;
+}
+static bool dma_guard(void *opaque) {
+    struct backing_adapter *a=opaque;struct intel_scanout_clock clock;struct scanout_profile profile;
+    return !a->mapped && !trial_mapping_fault && a->common.cr3==vmm_current_address_space() &&
+        intel_scanout_trial_profile(&profile) && dma_table_current() && dma_resource() && intel_scanout_trial_clock(&clock);
+}
+static bool dma_map(void *opaque,uint64_t physical) {
+    struct backing_adapter *a=opaque;uint64_t old;
+    if(physical!=0xfed90000 || a->mapped || trial_mapping_fault || !dma_resource() || a->common.cr3!=vmm_current_address_space() ||
+       vmm_virt_to_phys_in_space(a->common.cr3,BACKING_VA,&old) ||
+       !vmm_map_page_in_space(a->common.cr3,BACKING_VA,physical,VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE))return false;
+    a->physical=physical;a->mapped=true;return true;
+}
+static bool dma_unmap(void *opaque) {
+    if(backing_unmap(opaque))return true;
+    trial_mapping_fault=true;return false;
+}
+static bool dma_read(void *opaque,uint32_t off,uint32_t *v) {
+    struct backing_adapter *a=opaque;uint64_t actual;
+    if(!v || !a->mapped || a->physical!=0xfed90000 || vmm_current_address_space()!=a->common.cr3 ||
+       (off!=0 && off!=8 && off!=12 && off!=16 && off!=20 && off!=28 && off!=32 && off!=36) ||
+       !vmm_virt_to_phys_in_space(a->common.cr3,BACKING_VA,&actual) || actual!=a->physical)return false;
+#ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
+    return intel_display_test_read(0x1000000+off,v);
+#else
+    *v=*(volatile const uint32_t *)(BACKING_VA+off);return true;
+#endif
+}
+void intel_dma_probe_boot(void) {
+    if(dma_attempted)return;
+    dma_attempted=true;
+    console_write("intel-dma: exact Air7,2 read-only remapping observation; no control writes\n");
+    struct scanout_profile profile;
+    if(!intel_scanout_trial_profile(&profile))return;
+    if(!dma_table_current()){dma_result.status=DMA_TABLE;return;}
+    struct backing_adapter a={.common={.cr3=vmm_kernel_address_space()}};
+    struct intel_dma_topology t=dma_result.topology;
+    bool ok=intel_dma_observe(&dma_result,&t,&(struct intel_dma_io){&a,dma_guard,dma_map,dma_unmap,dma_read,now});
+    if(ok) {dma_preserved=intel_scanout_trial_revalidate();if(!dma_preserved)dma_result.status=DMA_CHANGED;}
+}
+bool intel_dma_probe_report(void) {
+    if(!dma_attempted)return true;
+    const struct intel_dma_result *r=&dma_result;
+    console_printf("intel-dma-summary: v=1 status=%u maps=%u retained=%u hash=%x unit=%x other=%x reserved_base=%x reserved_end=%x translation=%u backing_preserved=%u guard_retained=%u writes=0 dma_assured=0 ownership=none\n",
+        (uint64_t)r->status,(uint64_t)r->maps,(uint64_t)r->retained,r->topology.hash,r->topology.unit,r->topology.other_unit,r->topology.reserved_base,r->topology.reserved_end,
+        r->status==DMA_OBSERVED?(uint64_t)(r->sample[1].after>>31):2ull,(uint64_t)dma_preserved,(uint64_t)trial_mapping_fault);
+    console_printf("intel-dma-resource: v=1 base=%x length=%u type=%u overlaps=%u\n",dma_region_base,dma_region_length,dma_region_type,(uint64_t)dma_overlaps);
+    if(dma_table_valid) {
+        const char *alphabet="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";char out[185];unsigned k=0;
+        for(unsigned i=0;i<136;i+=3) {
+            uint32_t x=(uint32_t)dma_table_bytes[i]<<16;
+            if(i+1<136)x|=(uint32_t)dma_table_bytes[i+1]<<8;
+            if(i+2<136)x|=dma_table_bytes[i+2];
+            out[k++]=alphabet[x>>18];out[k++]=alphabet[(x>>12)&63];out[k++]=i+1<136?alphabet[(x>>6)&63]:'=';out[k++]=i+2<136?alphabet[x&63]:'=';
+        }
+        out[k]=0;console_printf("intel-dma-table: v=1 length=136 data=%s\n",out);
+    }
+    for(unsigned i=0;i<2;i++) {
+        const struct intel_dma_sample *s=&r->sample[i];
+        console_printf("intel-dma-sample: v=1 sample=%u begin_us=%u end_us=%u version=%x cap=%x ecap=%x root=%x before=%x after=%x reads=%u\n",
+            (uint64_t)i,s->begin_us,s->end_us,(uint64_t)s->version,s->cap,s->ecap,s->root,(uint64_t)s->before,(uint64_t)s->after,(uint64_t)s->reads);
+    }
+    return r->status==DMA_OBSERVED;
+}

@@ -4342,9 +4342,9 @@ test-intel-display-capture: build/tests/intel-display-capture$(HOST_EXE) build/t
 build/tests/intel-display-capture$(HOST_EXE): tools/test_intel_display_capture.c kernel/src/drivers/intel_display_capture.c kernel/include/srvros/intel_display_capture.h
 	mkdir -p $(dir $@)
 	$(HOST_CC) -std=c11 -Wall -Wextra -Werror -I kernel/include tools/test_intel_display_capture.c kernel/src/drivers/intel_display_capture.c -o $@
-build/tests/intel-display-probe$(HOST_EXE): tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_display_capture.c kernel/src/drivers/intel_display_backing.c kernel/diagnostics/package_audit_core.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+build/tests/intel-display-probe$(HOST_EXE): tools/test_intel_display_probe.c kernel/src/drivers/intel_display_probe.c kernel/src/drivers/intel_display_capture.c kernel/src/drivers/intel_display_backing.c kernel/src/drivers/intel_dma_observe.c kernel/diagnostics/package_audit_core.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	mkdir -p $(dir $@)
-	$(HOST_CC) -std=c11 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include tools/test_intel_display_probe.c kernel/src/drivers/intel_display_capture.c kernel/src/drivers/intel_display_backing.c kernel/diagnostics/package_audit_core.c -o $@
+	$(HOST_CC) -std=c11 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include tools/test_intel_display_probe.c kernel/src/drivers/intel_display_capture.c kernel/src/drivers/intel_display_backing.c kernel/src/drivers/intel_dma_observe.c kernel/diagnostics/package_audit_core.c -o $@
 
 .PHONY: test-intel-display-backing
 test-core: test-intel-display-backing
@@ -4531,3 +4531,12 @@ build/tests/file-fsync-host$(HOST_EXE): tools/test_syscall_fsync.c kernel/src/ar
 test-core: test-dirty-salvage-scope
 test-dirty-salvage-scope:
 	$(PYTHON) -m unittest discover -s tools -p test_dirty_salvage_scope.py -v
+
+.PHONY: test-intel-dma
+test-core: test-intel-dma
+test-intel-dma: build/tests/intel-dma$(HOST_EXE) build/tests/intel-display-probe$(HOST_EXE)
+	build/tests/intel-dma$(HOST_EXE)
+	$(PYTHON) -m unittest discover -s tools -p test_intel_dma_observe.py
+build/tests/intel-dma$(HOST_EXE): tools/test_intel_dma_observe.c kernel/src/drivers/intel_dma_observe.c kernel/include/srvros/intel_dma_observe.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_intel_dma_observe.c kernel/src/drivers/intel_dma_observe.c -o $@

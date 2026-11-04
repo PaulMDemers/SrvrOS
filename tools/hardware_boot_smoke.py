@@ -171,7 +171,7 @@ def main():
     if args.ap_inject and args.ap_inject.startswith("c3-") and not args.ap_c3_sim: parser.error("C3 injections require simulation")
     cpu_load_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v35-","ram-usb-v1-mwait-","ram-usb-v1-ap-c3-","ram-usb-v1-ap-package-","ram-usb-v1-ap-platform-")))
     idle_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v23-"))
-    intel_display_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v1-intel-display-","ram-usb-v1-intel-backing-","ram-usb-v1-intel-lifetime-")))
+    intel_display_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v1-intel-dma-","ram-usb-v1-intel-display-","ram-usb-v1-intel-backing-","ram-usb-v1-intel-lifetime-")))
     posix_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v1-posix-"))
     storage_wait_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v1-storage-wait-"))
     desktop_idle_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v25-","ram-usb-v26-")))
@@ -520,6 +520,12 @@ def main():
                             assert lifetime['complete']==fixture and lifetime['summary']['admitted']==int(fixture)
                             assert not lifetime['hardware_ownership'] and not lifetime['physical_tearfree']
                             (logs/'intel-lifetime-result.json').write_text(json.dumps(lifetime,indent=2)+"\n")
+                        if 'srvros.intel-dma=read-only' in text:
+                            from intel_dma_observe import dma_result
+                            dma=dma_result(stored.read(folder+"/exit.log").decode())
+                            assert dma and not dma['observation_complete'] and dma['summary']['status']==0 and dma['summary']['maps']==0
+                            assert not dma['dma_authority'] and not dma['hardware_ownership']
+                            (logs/'intel-dma-result.json').write_text(json.dumps(dma,indent=2)+"\n")
                         if 'srvros.intel-backing=read-only' in text:
                             from intel_display_backing import backing_result
                             backing=backing_result(stored.read(folder+"/exit.log").decode())

@@ -10,7 +10,7 @@ static bool intel_display_test_read(uint32_t,uint32_t *);
 
 static unsigned config_reads,mmio_reads,map_calls,unmap_calls;
 static uint64_t ticks,current,pa[INTEL_CAPTURE_PAGES+1];
-static bool firmware_ok,clock_ok,alias,malformed,reporting,backing_mode,translation_gap;
+static bool firmware_ok,clock_ok,alias,malformed,reporting,backing_mode,translation_gap,dma_unmap_fail;
 static struct pci_device devices[3];
 static struct acpi_table_info dsdt;
 static struct limine_memmap_entry ram,aperture,stolen_region;
@@ -44,9 +44,9 @@ static unsigned index_of(uint64_t v){if(v==BACKING_VA)return INTEL_CAPTURE_PAGES
 bool vmm_virt_to_phys_in_space(uint64_t space,uint64_t v,uint64_t *p){assert(space==0x1000);if(backing_mode && v>=fb_virtual && v<fb_virtual+6144*900){if(translation_gap && v==fb_virtual+4096)return false;*p=0xb0000000+v-fb_virtual;return true;}unsigned n=index_of(v);*p=pa[n];return pa[n]!=0;}
 bool vmm_map_page_in_space(uint64_t space,uint64_t v,uint64_t p,uint64_t flags) {
     assert(space==0x1000 && flags==(VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE));unsigned n=index_of(v);
-    assert(!pa[n]);if(n==INTEL_CAPTURE_PAGES)assert(p>=0xc0000000 && p<0xc1000000);else assert(p==0xc0000000ull+intel_capture_pages[n]);pa[n]=p;map_calls++;return true;
+    assert(!pa[n]);if(n==INTEL_CAPTURE_PAGES)assert((p>=0xc0000000 && p<0xc1000000) || p==0xfed90000);else assert(p==0xc0000000ull+intel_capture_pages[n]);pa[n]=p;map_calls++;return true;
 }
-bool vmm_unmap_page_in_space(uint64_t space,uint64_t v,uint64_t *p){assert(space==0x1000);unsigned n=index_of(v);assert(pa[n]);*p=pa[n];pa[n]=0;unmap_calls++;return true;}
+bool vmm_unmap_page_in_space(uint64_t space,uint64_t v,uint64_t *p){assert(space==0x1000);unsigned n=index_of(v);assert(pa[n]);if(dma_unmap_fail)return false;*p=pa[n];pa[n]=0;unmap_calls++;return true;}
 bool timer_reference_ready(void){return clock_ok;}
 uint64_t timer_monotonic_us(void){ticks+=100;return ticks;}
 void console_write(const char *s){if(reporting)fputs(s,stdout);}
@@ -66,6 +66,7 @@ void console_printf(const char *format,...) {
     translated[n]=0;va_list ap;va_start(ap,format);vprintf(translated,ap);va_end(ap);
 }
 static bool intel_display_test_read(uint32_t off,uint32_t *value) {
+    if(off>=0x1000000 && off<=0x1000024){mmio_reads++;*value=off;return true;}
     if(backing_mode && (off>=0x100000 || !intel_capture_offset_allowed(off))) {
         *value=0;
         if(off>=0x100000 && off<0x100100){unsigned i=(off-0x100000)/8;uint64_t f=i?0:((uint64_t)(5554176-4096+47)<<32)|1;*value=(uint32_t)(f>>((off&4)?32:0));}
@@ -84,7 +85,7 @@ static bool intel_display_test_read(uint32_t off,uint32_t *value) {
 }
 static void reset(void) {
     config_reads=mmio_reads=map_calls=unmap_calls=0;ticks=100000;current=0x1000;
-    firmware_ok=clock_ok=true;alias=malformed=reporting=backing_mode=translation_gap=false;backing_attempted=false;trial_mapping_fault=false;backing=(struct intel_backing_result){0};
+    dma_unmap_fail=false;firmware_ok=clock_ok=true;alias=malformed=reporting=backing_mode=translation_gap=false;backing_attempted=false;trial_mapping_fault=false;backing=(struct intel_backing_result){0};
     memset(pa,0,sizeof(pa));result=(struct intel_capture_result){0};attempted=false;
     devices[0]=(struct pci_device){.device=2,.class_code=3};devices[1]=(struct pci_device){.device=31,.class_code=6,.subclass=1};
     dsdt=(struct acpi_table_info){.physical_address=0x100000,.length=35034};memcpy(dsdt.signature,"DSDT",4);
@@ -112,5 +113,25 @@ int main(int argc,char **argv) {
     reset();pa[3]=0xc0062000;intel_display_probe_boot(&frame);assert(result.status==INTEL_CAPTURE_MAP && map_calls==3 && unmap_calls==3 && !mmio_reads && pa[3]==0xc0062000);
     reset();backing_mode=true;memory.entry_count=2;intel_display_probe_boot(&frame);translation_gap=true;intel_display_backing_probe_boot(&frame);assert(backing.status==2 && map_calls==9 && unmap_calls==9);
     reset();backing_mode=true;memory.entry_count=2;intel_display_probe_boot(&frame);pa[INTEL_CAPTURE_PAGES]=0xc0100000;intel_display_backing_probe_boot(&frame);assert(backing.status!=1 && map_calls==9 && pa[INTEL_CAPTURE_PAGES]);
+    reset();
+    unsigned before=map_calls;intel_dma_probe_boot();assert(dma_result.status==DMA_REFUSED && map_calls==before);
+    reporting=argc==2 && !strcmp(argv[1],"--dma-refused");
+    assert(!intel_dma_probe_report());if(reporting)return 0;
+    struct limine_memmap_entry unit={.base=0xfed90000,.length=4096,.type=LIMINE_MEMMAP_RESERVED};
+    struct limine_memmap_entry *dma_entries[]={&ram,&aperture,&stolen_region,&unit};memory.entries=dma_entries;memory.entry_count=4;
+    struct backing_adapter a={.common={.cr3=0x1000}};uint32_t value;
+    assert(dma_resource() && dma_map(&a,0xfed90000));
+    assert(!dma_map(&a,0xfed90000) && !dma_read(&a,24,&value) && !dma_read(&a,52,&value));
+    for(unsigned i=0;i<8;i++){uint32_t off=(uint32_t[]){0,8,12,16,20,28,32,36}[i];assert(dma_read(&a,off,&value) && value==0x1000000+off);}
+    assert(dma_unmap(&a) && !a.mapped && !pa[INTEL_CAPTURE_PAGES]);
+    unit.type=LIMINE_MEMMAP_USABLE;assert(!dma_resource() && !dma_map(&a,0xfed90000));
+    unit.type=LIMINE_MEMMAP_RESERVED;unit.length=4095;assert(!dma_resource());
+    unit.length=4096;
+    assert(dma_map(&a,0xfed90000));pa[INTEL_CAPTURE_PAGES]+=4096;
+    assert(!dma_read(&a,0,&value));pa[INTEL_CAPTURE_PAGES]=0xfed90000;
+    dma_unmap_fail=true;assert(!dma_unmap(&a) && trial_mapping_fault && a.mapped);
+    assert(!dma_map(&a,0xfed90000));dma_unmap_fail=false;
+    assert(backing_unmap(&a) && !dma_map(&a,0xfed90000)); /* Host cleanup cannot clear sticky fault. */
+    assert(!dma_table_current());
     puts("intel-display-probe: PASS actual adapter, read-only temporary mappings, existing-map/RAM alias refusal, firmware/PM/clock gates and single attempt");
 }

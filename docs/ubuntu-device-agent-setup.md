@@ -1163,3 +1163,13 @@ reboot; their exact accounting is required, not an unexpected failure to ignore.
 The separate `--intel-lifetime-fixture` stage is synthetic QEMU evidence and
 cannot replace a native trial. Neither profile enables physical flips. See the
 [scanout buffer contract](scanout-buffer-lifetime.md).
+
+### Air7,2 DMA-state observation
+
+The isolated [read-only DMA capture](macbookair7-2-dma-observation.md) uses
+`--intel-dma-capture` with this unit's workspace serial. It saves two bounded
+VT-d status snapshots and automatically returns after clean save/unmount, with
+no tester input. It does not enable mappings or DMA/scanout authority. Run its
+exact-stage Q35 refusal/save/return and missing-workspace checks before native
+installation; collect the matching release plus all display/backing/DMA receipts.
+Other Mac profiles are not admitted by this capture.
