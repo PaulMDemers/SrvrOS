@@ -4825,3 +4825,21 @@ stopped and the slot was explicitly released. No more compile/VM work is planned
 any new need must coordinate before launch. Integration checkout and protected
 review VMs remain untouched. Both PRs are accepted for the authorized port-first,
 OS-second merge; linked PR state records the delivery result.
+
+### GNU diff and automatic CLI queue — active November 4, 2026
+
+User authorized GNU diff 3.12 in separate `SrvrOS-ports-diff` from actual main
+`a90bf57e`, with automatic review/merge/proceed through the finite queue in
+[cli-port-queue.md](../cli-port-queue.md). Parent owns root build/staging/docs,
+independent verification and GitHub delivery; port/test helpers own disjoint
+files. The integration checkout and protected review VMs are excluded.
+
+Initial scope is the bounded comparison/review proposal. Source signature and
+pristine provenance must be verified; SDK/gnulib compatibility, input/allocation
+bounds and cancellation remain gates. No shared libc/kernel edit is planned.
+Installation stopped its owned work and explicitly released; profiles
+relinquished its next turn pending a kernel range-I/O prerequisite. Integration
+granted one bounded GNU diff compatibility/matched-build and 512 MiB guest window
+at 15:21 America/New_York (20:21 UTC). The port helper owns the single -j2 build
+token; parent launches no competing job. This window must be explicitly released,
+and later qualification/queue rows require a separate coordinated handoff.

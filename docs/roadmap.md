@@ -6,6 +6,28 @@ and [machine records](machines/README.md) separate implementation from physical
 acceptance. The [device parity ledger](device-parity.md) compares the Air with
 ongoing Pro work.
 
+## Automatic CLI queue — November 4, 2026
+
+User authorized the bounded GNU diff milestone, then automatic research,
+implementation, independent review and dependency-order merge through a finite
+queue: GNU diff, GNU patch, GNU grep and GNU sha256sum. Detailed profiles,
+verification and resource ownership are in [the queue](cli-port-queue.md).
+
+GNU diff 3.12 starts at `a90bf57e` in isolated `SrvrOS-ports-diff` on `ports/diff`.
+Target: two regular C-locale text files, correct normal/quiet/unified reports,
+labels and 0/1/2 statuses; proposed limits 256 KiB/file, 8192 lines/file and
+64 KiB/line. Resolve SDK/gnulib compatibility, actual-read memory bounds and
+cancellation before acceptance. No recursion, stdin, binary/color/pager modes or
+other diffutils executables. Local patch interoperability is a named tested
+subset; general patch correctness is the next independent queue entry.
+
+Integration checkout and review VMs remain untouched. Heavy work waits for an
+explicit resource handoff, and each later entry must coordinate its own window.
+Status: genuine GNU core and gnulib target build passes. First disposable guest
+passes exact unified output, 0/1/2 statuses, same-file NUL refusal, preserved
+inputs and fsck. Full compatibility, allocation/cancellation, reproducibility,
+Terminal and regression gates remain pending; no merge readiness is claimed.
+
 ## xz bounded stream interchange — November 4, 2026
 
 Authorized target: upstream XZ Utils 5.8.4 static single-threaded `xz`, preset-0

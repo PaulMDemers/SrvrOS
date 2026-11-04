@@ -1304,9 +1304,7 @@ $(USER_INSTALL): $(ZIG) $(USER_CRT0_OBJ) $(USER_INSTALL_OBJ) $(USER_LIB_OBJ) use
 	mkdir -p $(dir $@)
 	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_INSTALL_OBJ) $(USER_LIB_OBJ) -o $@
 
-$(USER_DIFF): $(ZIG) $(USER_CRT0_OBJ) $(USER_DIFF_OBJ) $(USER_LIB_OBJ) userspace/app.ld
-	mkdir -p $(dir $@)
-	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_DIFF_OBJ) $(USER_LIB_OBJ) -o $@
+# GNU diff recipe is supplied by ports/srvros/diffutils/build.mk.
 
 $(USER_TAR): $(ZIG) $(USER_CRT0_OBJ) $(USER_TAR_OBJ) $(USER_LIB_OBJ) userspace/app.ld
 	mkdir -p $(dir $@)
@@ -4364,6 +4362,7 @@ include ports/srvros/jq/build.mk
 include ports/srvros/bc/build.mk
 include ports/srvros/less/build.mk
 include ports/srvros/xz/build.mk
+include ports/srvros/diffutils/build.mk
 # Compatibility forwarding sources include the canonical SrvrUI implementation.
 # Keep incremental OS builds sensitive to changes to the included files.
 build/userspace/lib/src/desk_render.c.o: userspace/widgets/render/desk_render.c userspace/widgets/include/srvros/desk_render.h
@@ -4588,3 +4587,10 @@ build/userspace/test_xz_alloc_probe.elf: tools/test_xz_probe.c $(XZ_DIR)/allocat
 build/tests/workspace-gpt-driver$(HOST_EXE): tools/workspace_gpt_driver.c kernel/src/block.c kernel/src/block_claim.c $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+
+
+# Injected only into disposable GNU diff qualification images.
+build/userspace/test_diff_probe.elf: tools/test_diff_probe.c $(USER_CRT0_OBJ) $(USER_LIB_OBJ) $(ZIG) userspace/app.ld
+	mkdir -p build/userspace/diff-probe
+	$(CC) $(USER_CFLAGS) -c tools/test_diff_probe.c -o build/userspace/diff-probe/probe.o
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) build/userspace/diff-probe/probe.o $(USER_LIB_OBJ) -o $@
