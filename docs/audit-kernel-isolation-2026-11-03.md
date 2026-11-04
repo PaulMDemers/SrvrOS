@@ -2268,6 +2268,38 @@ installed userspace. Fresh normal-capability-zero dependency guests are next;
 new public runtime/profile or WTF payload changes retain exact review boundaries.
 Evidence: `build/review/pr334-public-stack-review/native-run-review.json`.
 
+## November 4: independent offline GPT adapter review
+
+Reviewed separately owned draft PR360 at `faf760d5`: six host-tool/build/documentation
+files, with no production kernel/shared changes. All 44 frozen artifacts hash-match;
+all 15 captured source files match the commit. The adapter reuses native GPT/claim
+validation, retains the validated primary header, requires matching CRC-checked
+backup headers and arrays, and exposes only read callbacks. A single Basic Data
+candidate is required; malformed or ambiguous maps have no fallback. The wrapper
+passes the same read-only descriptor to selection and workspace inspection, checks
+exact report schemas and verifies whole-image bytes/identity/permissions afterward.
+Selection grants no writable, repair, replay or authentication authority.
+
+Independently compiled exact source into private external artifacts: all 27 synthetic
+diagnostic groups pass strict x86_64 macOS and ASan/UBSan halt-on-error builds. A
+counterfactual omitting backup agreement fails the valid-CRC divergent-backup test
+as intended. Initial tests on the external exFAT volume lacked permission/hard-link
+semantics; retained failures are superseded by APFS-input passes. Explicit
+LeakSanitizer startup is unsupported on this macOS runtime; address/undefined
+sanitizers pass with leak detection disabled. No new confirmed issue found.
+
+Preserved-media report/manifest comparisons are frozen owner evidence only: this
+review did not reread those images, operate any VM or establish new guest/physical
+acceptance. Supported limits remain 512-byte sectors, offline regular whole images
+at most 8 GiB, selected volumes at most 2 GiB, and one Basic Data candidate. No merge
+approval inferred. Evidence: `build/review/pr360-gpt-review/review-result.json` and
+`manifest-review.json`; the private directory is backed by external storage.
+
+Also verified all 32 files in the native-public `1db6652c` frozen receipt (SHA256
+`9551e9c9a5e6322eda4ad3fdea0dd7cdf4bf05b234dd9c3fd810bff4f49be18e`).
+This preserves the previously bounded signal-probe acceptance. Fresh normal guests,
+new SDK equivalence and the JSC stack-bounds companion patch remain separate reviews.
+
 ## Remaining work
 
 Other long IRQ-disabled operations, including initial/churning PMM scans, heap validation and poisoning,

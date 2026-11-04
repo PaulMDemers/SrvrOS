@@ -333,3 +333,11 @@ First matched experimental native probe passes: prepare1d5c393c/cleanharness1db6
 exit0+prompt lines independently parsed, ownedQEMU31408 stopped and protectedthree
 stillalive. Main/worker GP/FX/DF/redzone/TLS and nested atomicwait accepted only in
 this bounded configuration; notsole-rootGC/full-depth4/WTF/JSC/generalpublicABI.
+
+
+Independent PR360/faf760d5 offline GPT review:44 artifacts and15 captured sources
+verify;27 strict plus27 ASan/UBSan synthetic groups pass, omitted-backup negative
+fails as intended. No new confirmed defect; host-only/no preserved-media reread,
+production change, VM acceptance or merge approval. ExFAT and unsupported macOS
+LeakSanitizer setup failures retained; APFS/address+undefined reruns pass.
+Native-public frozen32-file receipt also verifies; fresh dependency/JSC work open.

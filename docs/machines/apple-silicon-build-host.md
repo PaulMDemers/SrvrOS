@@ -3610,3 +3610,15 @@ No physical boot/install or normal public capability enabled. Bounded main/worke
 GP/FX/DF/redzone/TLS and nested wait only; general network, sole-root GC, WTF/JSC
 and complete ABI qualification remain open. Source and raw log hashes are in the
 kernel audit and `build/review/pr334-public-stack-review/native-run-review.json`.
+
+
+### November 4: isolated offline GPT review
+
+PR360/faf760d5 synthetic qualification uses private outputs on external miniTB,
+with a reviewer-owned 1GiB sparse APFS image for temporary inputs. The backing
+exFAT volume cannot supply tested permission/hard-link semantics; the initial
+failed run is retained. Exact-source strict x86_64 macOS and ASan/UBSan builds
+each pass27 groups on APFS; macOS LeakSanitizer is unsupported and disabled.
+The omitted-backup counterfactual fails its intended regression. No preserved
+image reread, VM operation or production change. Evidence is linked from
+`build/review/pr360-gpt-review/`; frozen manifests/source copies verified.
