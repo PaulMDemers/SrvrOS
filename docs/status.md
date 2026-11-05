@@ -24,6 +24,11 @@ hardware qualification.
 | Runtime audit | The bounded historical audit checkpoint is merged in [OS #365](https://github.com/PaulMDemers/SrvrOS/pull/365), `db95fc9b`. It does not qualify the ongoing browser experiment. |
 | Browser | Exempt, ongoing. The corrected WTF and utility guest cases passed; the first GC-control case exited 134 and later cases did not run. Page-quota messages were observed, but the final abort remains unattributed. Source-only investigation continues. No full WTF/JSC or browser acceptance is claimed. |
 
+Offline installation export and export-publication recovery remain canonical
+v1. The separate guest profile v2 streaming milestone does not add offline v2
+installation admission or export; that later work is deferred. See the
+[installation format boundary](disk-installation.md).
+
 The [roadmap](roadmap.md#current-work-closeout--november-4-2026) records the
 remaining merge gates. Physical-device PRs #301 and #19 retain separate owners and
 acceptance ledgers. They are not silently included in this closeout: #301 needs
