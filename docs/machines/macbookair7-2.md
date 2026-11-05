@@ -2,11 +2,42 @@
 
 Updated: 2026-11-05. State: **active reference machine; partial device acceptance**.
 
-### Active scope: handoff qualification and managed-range admission
+### Native CPU-client/range-refusal qualification accepted
+
+Release `8b9e57e43ae025d3`, source `7e33d1a5`, completes as
+`session-00065f8fd143d595-00`. The exact native receipt is selected1/acquired1/
+idle1/blocked127/snapshot1/preserved1/released1/complete1, with missing31,
+managed_pages0, pte_writes0, aperture_mappings0 and hardware_ownership0.
+Participating operations refuse under the CPU lease; queued text resumes after
+release, and the actual legacy initializer's refused attempt is captured.
+Unavailable native presenter/brightness providers retain host causal side-effect
+checks. This accepts the bounded CPU-client/fresh-preservation qualification,
+not general hardware reader exclusion or a transferred GPU interval.
+
+The native window/cache/display/backing prerequisites all complete. Both48-read
+vectors agree (5,698us /4,383us), all five fresh guards pass, both aliases retire,
+and the complete1356 inherited PTEs/fences remain preserved. The additional
+under-exclusion revalidation matches both original16-entry vectors and repeats
+all fresh guards/full backing comparisons. All16 entries remain populated;
+MSAC1/256MiB, GGTT8MiB and the full34MiB inherited fence remain bound. The native
+provider still supplies no firmware/GT/DMA/display/audio reader assurances, so
+missing31 is the expected admission refusal, not an ownership grant.
+
+The saved report has completed=yes and zero collector attention. All1,335 prior
+files are preserved except expected `.srvros/meta`; two new logs copy/hash-verify.
+There are now1,337 files and101 sessions. Offline fsck/allocation/writable/headroom,
+Ubuntu default, consumed one-shot and independent current/recovery/known-good/
+prior payloads plus archived shadow all verify. USB is left unmounted, no reboot
+is armed, and matching evidence/checkpoints are backed up outside build cleanup.
+The next work is an audited hardware handoff and concrete range transfer before
+private mapping/restore or native tear-free flips; this qualification sets none
+of those hardware assurance bits.
+
+### Completed scope: handoff qualification and managed-range admission
 
 Main `3f158022` (Air6,1 read-only admission audit) is integrated as `2886c122`.
 PR301 owns this Air's scanout work; Pro Wi-Fi PR19 and WebCore PR379 retain
-independent scope. Native d520 is collected; no reboot is armed.
+independent scope. Native8b9e is collected; no reboot is armed.
 
 Implement a boot-only CPU reader/writer exclusion lease across the console,
 presenter and backlight, with exact token/epoch release and retained uncertainty.
@@ -22,7 +53,7 @@ of this first hardware-test candidate. Touches handoff/range core, console/
 presenter/backlight admission hooks, an explicit native capture, decoder/tests
 and docs. Preserve independent Haswell gates and accepted recovery payloads.
 
-### Handoff implementation checkpoint (not physically accepted)
+### Handoff implementation checkpoint (now natively qualified)
 
 The candidate now has CPU-client exclusion entries on console text/bulk pixel
 paths, presenter startup/transactions and brightness provider operations.
@@ -39,7 +70,7 @@ human input, PTE writes, forcewake/engine control, writable aperture mapping or
 native flip is part of this qualification. Positive admission is synthetic host
 evidence only. See [the contract](../intel-handoff.md).
 
-### Ready: automated handoff qualification, native acceptance pending
+### Prepared candidate (now collected above)
 
 Release `8b9e57e43ae025d3`, source `7e33d1a5`, is installed with recovery
 `9aa8dbf6fbda8252`; Ubuntu remains default and no reboot is armed. The full
@@ -74,9 +105,9 @@ Local checkpoint/run/candidate, exact manifests, complete validation and
 readiness evidence live under `build/air-handoff-20261105`, copied and hash-verified
 outside build cleanup in the matching reviewed-evidence directory. The source
 for this payload remains `7e33d1a5`; later benchmark-link/documentation commits do
-not alter it. The next action is a guarded one-shot automated qualification
-boot, with requested volume1% (guest audio disabled), then matching collection
-and integrity checks. No human input is needed. Require native claim2/2,
+not alter it. The prepared action was a guarded one-shot automated qualification
+boot at requested volume1% (guest audio disabled); matching collection and
+integrity checks are now complete above. No human input is needed. Require native claim2/2,
 blocked127, full fresh preservation, missing31, released1 and complete1, plus
 completed=yes and clean unmount. Missing completion or retained uncertainty is
 incomplete/failure evidence. No native range grant or tear-free acceptance is

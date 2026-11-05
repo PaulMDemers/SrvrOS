@@ -94,8 +94,15 @@ Air7,2 candidate `8b9e57e43ae025d3` (`7e33d1a5`) passes the complete local
 host/core/profile/build/docs gate, sanitizers, compiled negative controls and
 exact-stage Q35 saved-refusal/missing-workspace paths. Existing VirtIO recovery,
 Intel window/DMA/lifetime and independent Haswell profiles pass. It is installed
-with recovery retained and no reboot armed. Native positive exclusion/preservation
-is pending; the last accepted native survey is stilld520. The
-[unit record](machines/macbookair7-2.md) identifies payloads, checkpoints and
-independent backups. This candidate's successful native outcome must still
-report hardware_ownership0 and managed_pages0.
+with recovery retained and no reboot armed. Its native session
+`00065f8fd143d595-00` now qualifies selected/acquired/idle/snapshot/preserved/
+released/complete1, blocked127 and missing31, with completed=yes and zero collector
+attention. Full inherited backing/fences and original16-entry values survive the
+under-exclusion fresh checks. Queued text resumes and the refused legacy initializer
+attempt is captured. This accepts bounded participating CPU-client/preservation
+behavior; unavailable native presenter/brightness providers retain host causal
+tests. Hardware ownership and managed pages remain0. Prior-file preservation,
+clean offline filesystem/allocation checks, recovery and return state verify.
+The [unit record](machines/macbookair7-2.md) identifies exact payloads, checkpoints
+and independent backups. Firmware/engine/DMA/display/audio handoff and actual
+range transfer remain pending before a native writer or tear-free flip.
