@@ -5987,3 +5987,8 @@ compiler argv, ISO symlink, missing Pillow) remain failed and separately saved.
 The successful host test uses disposable Python3.14.6/Pillow13.0.0. Portable
 results are in the integrated smoke bundle; final docs/pin changes retain the
 runtime attribution above. No physical or broader browser acceptance is added.
+
+Ports9 merged at `89f22a967415297cc6af9229c2bee950932b4aee`; its tree equals reviewed
+`eb8468df24044d63626a0c0f76b90f024dffc244`. The OS pin now names that actual
+merge commit. Relative to the qualified af1421b port implementation, only
+PORT.md documentation changed; this pin promotion adds no runtime code.
