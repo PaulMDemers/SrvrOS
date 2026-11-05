@@ -8,28 +8,36 @@ ongoing Pro work.
 
 ## Final integration and workspace reset — November 4, 2026
 
-The subsequent user request is to integrate the remaining local deliverables,
-update their records, then replace the workspace with one fresh checkout of
-merged main and its pinned submodules, without build artifacts or VM state.
-The completed experimental browser smoke now requires current-main integration;
-production capability enablement remains outside that scope. The previously unpublished proof-storage retention tool is now delivered in
-[PR375](https://github.com/PaulMDemers/SrvrOS/pull/375), `d10a4e10`, after 19
-host regressions and independent review. Browser integration and final workspace
-verification remain the local delivery gates; new features are not added to this reset.
+The local delivery gates are satisfied. The proof-storage helper is delivered in
+[OS #375](https://github.com/PaulMDemers/SrvrOS/pull/375), after 19 host regressions
+and independent review. The bounded no-JIT browser milestone is integrated through
+[Ports #9](https://github.com/PaulMDemers/SrvrPorts/pull/9), then
+[OS #334](https://github.com/PaulMDemers/SrvrOS/pull/334), superseding the older
+Ports #4 / OS #310 candidates. Current-main host/kernel checks, four paired browser
+guests, the full normal OS build, desktop unsaved shutdown and session cleanup
+pass at `a7f71411`; later publication and status edits change documentation only.
+Production signal capabilities and full-browser support remain outside this scope.
 
-Original checkouts and build inputs stay available until their code, integration
-checks and portable evidence are delivered. The reset removes local raw evidence
-inside the workspace by explicit user request. Historical local evidence paths
-will not be usable after reset; published manifests and separately retained
-external archives keep their stated attribution. Physical-device PRs #301/#19
-remain separate integration blockers, not automatically accepted by cleanup.
+The authorized reset replaces the local workspace with one fresh main checkout
+and 11 recursive pinned submodules, with no generated build or VM artifacts.
+Source/ref audits account for the old checkouts and their unique changes before
+removal. The coordinator verifies the final remote commit, clean source, pinned
+submodules and independent Git object stores, detaches workspace-internal image
+mounts, then removes only the inventoried workspace children. External backing
+images and accepted archives are preserved. Local paths in historical evidence
+entries intentionally cease to exist; published evidence retains exact attribution.
+
+No further local feature milestone is required for this closeout. Physical-device
+PRs #301/#19 remain separately owned unfinished integration/native work; cleanup
+does not merge or qualify them. Later filesystem, offline-v2, account, CLI and
+browser features remain backlog until explicitly resumed.
 
 ## Current work closeout — November 4, 2026
 
 The user requested finishing the current non-browser chat scopes, merging only
 verified changes in dependency order, then updating documentation and status.
-Browser work is explicitly exempt and remains ongoing. No deadline or reduced
-acceptance bar is implied. Later CLI queue rows and new feature milestones are
+Browser work was exempt at this earlier checkpoint; its later bounded delivery
+is recorded above. No deadline or reduced acceptance bar was implied. Later CLI queue rows and new feature milestones are
 not part of this closeout.
 
 Delivered current milestones:
@@ -73,8 +81,8 @@ managed mapping or page-flip authority; its separate integration gate remains.
 The current local non-browser scopes are delivered and verified. Their owners
 are stopped, and no further feature work is required for this closeout. Aggregate
 records are delivered through [OS #373](https://github.com/PaulMDemers/SrvrOS/pull/373).
-Browser work and the separately owned physical-device exceptions above remain
-open. Canonical offline installation export/recovery remains v1-only; offline
+The browser milestone was subsequently delivered as recorded above; the
+separately owned physical-device exceptions remain open. Canonical offline installation export/recovery remains v1-only; offline
 v2 admission/export is deferred despite guest profile v2 support.
 
 ## Automatic CLI queue — November 4, 2026

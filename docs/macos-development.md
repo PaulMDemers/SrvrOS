@@ -35,6 +35,19 @@ GCC is required. The wrapper keeps Zig caches under `build/tooling/`, disables
 macOS copy metadata in the archive environment and does not edit shell startup
 files. Run builds and VM harnesses sequentially in one checkout.
 
+Screenshot-reading UI smoke tests, including the desktop shutdown lifecycle
+check, use Pillow. Install it in a disposable repository-local environment and
+run those harnesses with that environment's Python:
+
+```sh
+python3 -m venv build/tooling/host-venv
+build/tooling/host-venv/bin/python -m pip install Pillow
+# Use build/tooling/host-venv/bin/python in place of python3 for those tests.
+```
+
+The final integration used Python 3.14.6 and Pillow 13.0.0. Keep the environment
+under `build/` so cleaning a checkout also removes these host test dependencies.
+
 ## Interactive VM and controls
 
 The launcher uses Q35, one emulated x86_64 CPU, 1 GiB RAM, a 1440×900 Cocoa window,
