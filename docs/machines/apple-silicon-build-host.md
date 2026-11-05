@@ -5953,3 +5953,23 @@ bytes remain intact. This is historical6b5ebaf7/d99565f acceptance, not a fresh
 main-integrated result. PR310/Ports4 are source predecessors carried by reviewed
 blob/recipe reconciliation rather than literal ancestry; their coverage must be
 checked before closing them as superseded by the merged replacements.
+
+
+### Late main browser reconciliation — November 4, 2026
+
+After fresh A–E verification at0a3f5981/af1421b, actual main advanced to
+f11ce344 through the Air6,1 read-only cache diagnostic. The coordinator released
+the checkout and serialized resource slot for a bounded reconciliation. The
+merge980590f7 is conflict-free. Incoming ordinary-kernel changes are the compiled
+cache-reader unit and exFAT conditional line layout; the new kmain diagnostic
+selection is AP-probe-only. Shared SDK, signal/process/scheduler and port source
+are unchanged. No physical-device acceptance is imported.
+
+The earlier normal-build attempts remain failed with no guest launched: the
+missing recursive modules, host-compiler argument split and an existing ISO
+symlink were setup failures. The exact pinned submodules are now initialized,
+the compiler wrapper uses one absolute executable token, and only the ISO
+symlink was retired while its external target stays intact. The prior kernels
+and original A–E evidence retain their attribution. New matched kernels, focused
+cache/admission/lifecycle checks, retained SDK/JSC input verification and fresh
+four-guest qualification are pending before the coordinator's normal-OS retry.

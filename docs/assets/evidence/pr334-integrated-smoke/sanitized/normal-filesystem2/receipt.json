@@ -1,0 +1,102 @@
+{
+  "result": "passed",
+  "scope": "private Q35/TCG exFAT filesystem probe; no physical acceptance",
+  "tests": [
+    {
+      "run": 1,
+      "status": "0",
+      "passed": true,
+      "seconds": 0.078
+    },
+    {
+      "run": 2,
+      "status": "0",
+      "passed": true,
+      "seconds": 0.062
+    }
+  ],
+  "source_observation_only": "0a3f5981cd23b8982c5a8656af55875b0aae4a40",
+  "dirty_observation_only": "",
+  "ports_head": "af1421b735b61cf47c4e6516730c30468020abc7",
+  "runtime_provenance": {
+    "path": "$WORKSPACE/SrvrOS-signal-context/build/browser-runtime/receipt.json",
+    "sha256": "e6b9c331bf36ca643de0241d482e3c69efed30a6711458a562d9936a1972fac9",
+    "sdk_headers_sha256": "06f99b932ca66b7a3401e850dd2616056968ebddbae32c23cab06fbd4080a232"
+  },
+  "filesystem_provenance": {
+    "path": "$WORKSPACE/SrvrOS-signal-context/build/browser-filesystem/receipt.json",
+    "sha256": "20223e5db355ce562f46c80f80298198023a2fad62b46f9b0b441992f4109d0b"
+  },
+  "artifacts": {
+    "kernel": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/build/kernel/srvros.elf",
+      "sha256": "71466b0c6f30ea3c333c3fc6bd8b0ef791f7cd4295d2b67a31402f47a9885c81"
+    },
+    "init": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/build/userspace/init.elf",
+      "sha256": "15d51cf99476c89596894d57f224a0e9eb7565f42b8b9779be66ad186e7c618b"
+    },
+    "fsprobe": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/build/browser-filesystem/fsprobe.elf",
+      "sha256": "a867ebc9f02f4c05b1a8cd89d365f9ba15880eba5aeee024a5a1e4541f57e381"
+    },
+    "limine_bios": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/build/limine-binary/limine-bios.sys",
+      "sha256": "13108feb6399758085ec09de073da5fc74d6b3b7d0df4034e307a28ec37b82a2"
+    },
+    "limine_cd": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/build/limine-binary/limine-bios-cd.bin",
+      "sha256": "18f7823c631e92797e00c320395ed4151e9dcd36ca4c69c51de8da6a473bb3b2"
+    },
+    "limine_tool": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/build/limine-binary/limine",
+      "sha256": "6089b4d00d548946a528cbad43de35ee209c9dad9250518e0a6bd642fd2b155e"
+    },
+    "harness": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/tools/browser_filesystem_smoke.py",
+      "sha256": "07a6764cf8c79d5e5014b9502e19371faf32e3707c4a6e00ccdcbaeadc3ff5a1"
+    }
+  },
+  "disk": {
+    "path": "$WORKSPACE/SrvrOS-signal-context/build/browser-filesystem/guest-wxgxomlw/private.exfat",
+    "sha256_before": "a2663e6ec2306cb2f920c1493cc4faa85dfa44c73027885cc5e6b5946bd8b3ca",
+    "size": 134217728,
+    "sha256_after": "7d5f544e73d956d14ab7e99ab4f19e20568f50e651c4e330cf71ae02cb21bc5e",
+    "probe_dir_empty_after": true
+  },
+  "iso_sha256": "aac3db6ed51171572088939ca66d5f448cbccfe2354e94135504efb027895efe",
+  "qemu_command": [
+    "qemu-system-x86_64",
+    "-machine",
+    "q35",
+    "-accel",
+    "tcg,thread=single",
+    "-cpu",
+    "qemu64",
+    "-smp",
+    "1",
+    "-m",
+    "768M",
+    "-cdrom",
+    "$WORKSPACE/SrvrOS-signal-context/build/browser-filesystem/guest-wxgxomlw/filesystem.iso",
+    "-boot",
+    "d",
+    "-device",
+    "ich9-ahci,id=ahci",
+    "-drive",
+    "if=none,id=disk0,file=$WORKSPACE/SrvrOS-signal-context/build/browser-filesystem/guest-wxgxomlw/private.exfat,format=raw",
+    "-device",
+    "ide-hd,drive=disk0,bus=ahci.0",
+    "-display",
+    "none",
+    "-nic",
+    "none",
+    "-serial",
+    "unix:/tmp/srv-fs-cgzxuoy4/serial,server=on,wait=off",
+    "-monitor",
+    "none",
+    "-no-reboot"
+  ],
+  "pid": 42454,
+  "guest_stopped": true
+}
