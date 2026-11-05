@@ -37,8 +37,50 @@ under exclusion, attempts participating forbidden operations, queues text and
 resumes safely. It saves and automatically returns on handled outcomes. No
 human input, PTE writes, forcewake/engine control, writable aperture mapping or
 native flip is part of this qualification. Positive admission is synthetic host
-evidence only. Full validation and exact-stage VM evidence are being prepared;
-no new payload is installed or reboot armed. See [the contract](../intel-handoff.md).
+evidence only. See [the contract](../intel-handoff.md).
+
+### Ready: automated handoff qualification, native acceptance pending
+
+Release `8b9e57e43ae025d3`, source `7e33d1a5`, is installed with recovery
+`9aa8dbf6fbda8252`; Ubuntu remains default and no reboot is armed. The full
+host/core/profile/docs and normal/AP/native/synthetic build gate passes,
+including89 installer tests with one expected opt-in skip. ASan/UBSan passes the
+range transaction, all six native-producer fixture outcomes, actual window
+adapter/fresh preservation, console, presenter and backlight tests. Three
+compiled controls detect missing assurances, omitted original-state validation
+and premature exclusion release. All252 collector/staging tests pass.
+
+The exact-stage Q35 round saves/unmounts/returns on its expected missing-Intel
+refusal, with selected0/acquired0/complete0 and no ownership or managed pages.
+Missing workspace halts safely. VirtIO presentation/drag/scroll, normal console
+restore, compositor/supervisor termination and reacquisition pass; live supervisor
+retirement is observed within9 guest ticks. Existing window, DMA, lifetime/
+publication and independent Haswell3/cache-context firmware profiles pass.
+Neither those fixtures nor the producer's synthetic complete1 result accepts
+native handoff. The standalone RAM console benchmark is repaired and runs;
+`7190e6a2` changes only its link command, leaving the tested payload unchanged.
+
+Native identity/firmware, USB ancestry/clean flags, prior collection, all-file
+preservation, fsck/allocation/writable/headroom and recovery verify. A fresh
+read-only mount hashes1,335 files and100 sessions, then retires with unchanged
+boot sectors. Currentd520 is retained alongside previous0e1, cache07df, DMA5346
+and known-goodc497. To fit the145MiB candidate with the installer's32MiB reserve,
+only the inactive/unreferenced shadowd79 EFI copy is retired after full SHA256
+verification against both its durable payload and a new independent archive:
+`/home/paul/.local/share/srvros/efi-archives/20261105-handoff/d79f3ca9a74fa201`.
+The shadow's accepted evidence and durable payload remain preserved.
+
+Local checkpoint/run/candidate, exact manifests, complete validation and
+readiness evidence live under `build/air-handoff-20261105`, copied and hash-verified
+outside build cleanup in the matching reviewed-evidence directory. The source
+for this payload remains `7e33d1a5`; later benchmark-link/documentation commits do
+not alter it. The next action is a guarded one-shot automated qualification
+boot, with requested volume1% (guest audio disabled), then matching collection
+and integrity checks. No human input is needed. Require native claim2/2,
+blocked127, full fresh preservation, missing31, released1 and complete1, plus
+completed=yes and clean unmount. Missing completion or retained uncertainty is
+incomplete/failure evidence. No native range grant or tear-free acceptance is
+claimed; firmware/GT/DMA/display/audio reader ownership remains unresolved.
 
 ### Native boot-client observation accepted
 

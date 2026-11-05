@@ -87,3 +87,15 @@ read-only preservation are prerequisites, not substitutes. Only then can the
 provider transfer a concrete interval and bind a real writer, exact PTE restore,
 translation invalidation and reader retirement to the existing publication core.
 The native tear-free desktop and flips remain pending.
+
+## Candidate qualification checkpoint
+
+Air7,2 candidate `8b9e57e43ae025d3` (`7e33d1a5`) passes the complete local
+host/core/profile/build/docs gate, sanitizers, compiled negative controls and
+exact-stage Q35 saved-refusal/missing-workspace paths. Existing VirtIO recovery,
+Intel window/DMA/lifetime and independent Haswell profiles pass. It is installed
+with recovery retained and no reboot armed. Native positive exclusion/preservation
+is pending; the last accepted native survey is stilld520. The
+[unit record](machines/macbookair7-2.md) identifies payloads, checkpoints and
+independent backups. This candidate's successful native outcome must still
+report hardware_ownership0 and managed_pages0.
