@@ -730,7 +730,7 @@ static void launch_failed(struct session *s,unsigned application,long error) {
     }
 }
 static int profile_transfer_stop_valid(const char *value) {
-    static const char *stops[]={"journal","directories","document","identity","commit-ready","export-partial","published"};
+    static const char *stops[]={"journal","directories","copy-partial","document","identity","commit-ready","export-partial","published"};
     if(!value)return 0;
     for(unsigned i=0;i<sizeof(stops)/sizeof(*stops);i++)if(!strcmp(value,stops[i]))return 1;
     return 0;

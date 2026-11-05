@@ -675,3 +675,7 @@ long srv_wifi_snapshot(uint64_t owner,struct srv_wifi_snapshot *info) {
 long srv_wifi_select(const struct srv_wifi_select *request) {
     return srv_syscall3(SYS_WIFI,SRV_WIFI_SELECT,0,(long)request);
 }
+
+long srv_file_stream(const struct srv_file_stream_request *request) {
+    return srv_syscall1(SYS_FILE_STREAM,(long)request);
+}

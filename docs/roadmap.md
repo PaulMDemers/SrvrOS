@@ -6,7 +6,79 @@ and [machine records](machines/README.md) separate implementation from physical
 acceptance. The [device parity ledger](device-parity.md) compares the Air with
 ongoing Pro work.
 
+## Final integration and workspace reset — November 4, 2026
+
+The subsequent user request is to integrate the remaining local deliverables,
+update their records, then replace the workspace with one fresh checkout of
+merged main and its pinned submodules, without build artifacts or VM state.
+The completed experimental browser smoke now requires current-main integration;
+production capability enablement remains outside that scope. The user also chose
+to finish and validate the previously unpublished proof-storage retention tool
+before cleanup. These are the remaining local delivery gates; new features are
+not added to this reset.
+
+Original checkouts and build inputs stay available until their code, integration
+checks and portable evidence are delivered. The reset removes local raw evidence
+inside the workspace by explicit user request. Historical local evidence paths
+will not be usable after reset; published manifests and separately retained
+external archives keep their stated attribution. Physical-device PRs #301/#19
+remain separate integration blockers, not automatically accepted by cleanup.
+
+## Current work closeout — November 4, 2026
+
+The user requested finishing the current non-browser chat scopes, merging only
+verified changes in dependency order, then updating documentation and status.
+Browser work is explicitly exempt and remains ongoing. No deadline or reduced
+acceptance bar is implied. Later CLI queue rows and new feature milestones are
+not part of this closeout.
+
+Delivered current milestones:
+
+- Larger-document profiles: Apps #11 (`161f3850`) and OS #367 (`3ab8a6f7`)
+  are merged with exact reviewed trees and the tested app pin reachable from
+  application main. The integrated 31-guest proof, seven recovery checkpoints,
+  actual 64 MiB transfer across four 16 MiB files, 640×480 workflow and independent
+  content/rendered/archive audits pass. Guest mapped-memory peak is 2,461,696
+  bytes, 65,536 bytes above the small workload; this is not kernel-memory or
+  exact-heap accounting. The durable 626-member backup is readback-verified.
+  Earlier failed evidence remains failed. See [profiles](portable-profiles.md).
+- GNU Patch: delivered in Ports #12 (`72f3d6fa`) then OS #370 (`3e327513`).
+  All seven fresh guests pass on the retained final payload, including the
+  corrected miniport example; exact merge trees and reachable port pin are
+  verified. Earlier failed receipts remain preserved. The CLI queue stops here.
+- Filesystem GUID selection: OS #366 is merged as `7b1bfcb8`, with the exact
+  reviewed tree; 43 selector, 19 installation, storage and 43 sanitized selector
+  checks pass. Original media and completed streaming-review evidence remain
+  preserved.
+- Runtime audit: documentation checkpoint OS #365 is merged as `db95fc9b`;
+  browser target review and runtime acceptance remain separately owned.
+- Installation OS #364 (`70c3ea0f`), application quality OS #368 (`88a95f9a`)
+  and UI portability closeout OS #371 (`518175df`) are merged and verified.
+  Their owners are idle; optional follow-on work is deferred.
+
+The integration coordinator owns aggregate status consistency. Topic owners
+retain their evidence and unit records. Heavy compiler/VM/local-model windows
+remain serialized with explicit handoffs and resource reserves. Actions remain
+disabled. Original installations, review-disk evidence and accepted backups are
+retained. The three historical review VM PIDs are now absent; no cause is
+established by this closeout, and no restart is requested. Physical-device PRs
+#301/#19 have separate current-main integration gates and their owners are not
+reachable through the available local chat tools; no new physical trial is authorized
+by this record. PR #19's proposed syscall 164 conflicts with browser's reserved
+164–167 and cannot merge unchanged; profile streaming reserves 168.
+
+The current local non-browser scopes are delivered and verified. Their owners
+are stopped, and no further feature work is required for this closeout. Aggregate
+records are delivered through [OS #373](https://github.com/PaulMDemers/SrvrOS/pull/373).
+Browser work and the separately owned physical-device exceptions above remain
+open. Canonical offline installation export/recovery remains v1-only; offline
+v2 admission/export is deferred despite guest profile v2 support.
+
 ## Automatic CLI queue — November 4, 2026
+
+The closeout instruction above supersedes automatic continuation. GNU Patch is
+delivered and the CLI queue is stopped. GNU grep and sha256sum remain deferred
+backlog entries.
 
 User authorized the bounded GNU diff milestone, then automatic research,
 implementation, independent review and dependency-order merge through a finite
@@ -34,8 +106,32 @@ and [SrvrOS #369](https://github.com/PaulMDemers/SrvrOS/pull/369); linked PR sta
 record the merge outcome. [Portable evidence](assets/screenshots/diff-manifest.json)
 and a verified ignored archive outside build cleanup retain source, failed and
 passing proofs. Integration checkout and review VMs remain untouched; no shared
-libc/kernel change. Source-only GNU patch preparation is isolated while delivery
-finishes; further builds require a fresh resource window.
+libc/kernel change. The following historical Patch preparation record predates
+the delivered result above; it does not reopen the stopped queue.
+
+## GNU Patch separate-output port — historical November 4 checkpoint
+
+This pre-delivery checkpoint is retained as history. The delivered seven-guest
+qualification and merge outcome in the closeout section above supersede its
+pending gates and resource requests.
+
+Next authorized queue row consumes delivered diff (ports PR11, OS PR369) in
+separate `SrvrOS-ports-patch`, reconciled with main `3fcf2630`. Genuine GNU Patch
+2.8.1 source/signature is authenticated and SDK cross-configuration plus both
+static targets link, without a shared libc/kernel change. The first dirty-source
+disposable guest passes basic/zero-count/header-like deletion/no-final-newline/
+leading-dash source cases, explicit-output refusals, failed-hunk cleanup, input
+preservation and fsck. This is initial compatibility, not full acceptance.
+
+The bounded profile uses existing regular source, one safe single-file unified
+patch and exclusive distinct output, forward-only/fuzz0 with no interactive,
+backup/reject/in-place or metadata behavior. Source/output are capped at
+256 KiB/8192 lines/64 KiB lines; patch at 1 MiB/32768 records/128 KiB records.
+Actual reads/writes and numeric hunk declarations are bounded. Full reference,
+snapshot-race, memory, output, cooperative-signal, reboot, Terminal, clean-build
+and regression gates remain. Inherited caller tests migrate to explicit new
+output. All owned jobs stopped and the first slice was released; qualification
+waits for another finite handoff. Review VMs/integration checkout remain untouched.
 
 ## xz bounded stream interchange — November 4, 2026
 

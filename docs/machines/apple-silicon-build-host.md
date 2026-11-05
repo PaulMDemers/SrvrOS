@@ -1,5 +1,133 @@
 # Apple Silicon macOS build host
 
+## Final workspace reset — November 4, 2026
+
+The user requested final integration of the current work, updated documentation,
+and removal of the local workspace's old checkouts and generated artifacts.
+The integration coordinator is auditing unpublished changes, remaining PRs and
+mounted build volumes before cleanup. Browser's completed experimental no-JIT
+milestone now joins this final integration; no production capability enablement
+or new browser feature is implied. Physical-device work retains its own runtime
+acceptance requirements. This checkpoint is in progress and does not claim that
+unmerged device work or local artifacts have already been removed.
+
+
+## Larger-document migration — qualified closeout November 4, 2026
+
+The bounded Apps11 → OS367 milestone passes its required native, matched-build,
+31-guest transfer/recovery, independent content/rendered and durable-backup gates.
+The [current profile guide](../portable-profiles.md) and
+[evidence manifest](../assets/screenshots/profile-stream-manifest.json) distinguish
+guest v2 streaming from canonical offline installation export/recovery v1.
+Offline v2 admission/export remains deferred. Authentication and permission
+enforcement remain separate; no follow-on account milestone is started.
+
+Production core is independently native-qualified at `9f5816a5`. Necessary
+syscall168 supplies process-owned opaque bounded stream handles without raising
+the ordinary 16 MiB buffered-write cap. Kernel/shared/userspace trees are exact
+matches at full qualified source `0e2bac73`, which incorporates actual main
+`3e327513` after Ports12/OS370 and PR366. Pins: Apps `24bc4541`, UI `3a695ce5`,
+Ports `6ff5edad`. The real matched build passes in 46.67 seconds; kernel and eight
+core/application ELF hashes match the previous qualified baseline. Only the
+expected merged-port/data changes affect initramfs/exFAT payloads.
+
+The normal clone `/Volumes/SrvrOSProfileStream/SrvrOS` uses the owned regular
+18 GiB APFS backing image under
+`/Volumes/miniTB/SrvrOS-profile-stream-20261104-145109`. Full proof
+`build/review/profile-stream/proof-ybopi3tu` passes 31 sequential 1 GiB, one-CPU,
+no-NIC guest lifetimes. Total watched gate: 2878.96 seconds; sampled whole-group
+peak RSS 3,558,211,584 bytes; owned process group empty at completion. This is
+host resource accounting, not guest profile-memory evidence. Actual guest mapped
+peak is 2,461,696 bytes, growth 65,536 bytes from the small workload, including
+64 MiB total export/import across four 16 MiB documents. Native engine allocation
+and backend metadata/payload accounting remain separately recorded.
+
+All seven interrupted-import checkpoints, low-space refusal/journal recovery,
+v1 compatibility, both host/guest interoperability directions, unchanged-input
+protections, remembered B startup, Text/Preview readback and 640×480 workflow pass.
+Independent content audit passes; 96 compressed image streams and 14 captured
+rendered views are verified. Root's independent nine-view review and both
+conversion receipts are retained with the accepted proof. Linux exfatprogs
+hardening/append suites are unrun on this macOS host; external runtime-owner peer
+acceptance remains unverified. Local independent native and real guest evidence
+are the recorded acceptance, with no physical-device or arbitrary power-cut claim.
+
+The first full run `proof-wf_5uifj` remains FAILED: its test mutation opened an
+existing 19 MB bundle through ordinary buffered writes, correctly refused at
+the existing cap before truncation. Corrected focused and full fixtures preserve
+the original by metadata rename, replace it with valid v1 and visibly receive
+`profile: bundle changed since review`. Original failed/raw images were never
+modified, deleted or repaired by closeout.
+
+The complete accepted and failed evidence survives build cleanup in
+`/Volumes/miniTB/SrvrOS-profile-stream-20261104-145109/final-evidence-9eif7dh7/`.
+Its 1,032,274,981-byte archive has 626 independently read-back member hashes and
+SHA256 `df99dcf8590d02147009570b4f25bf1750340a9b8de42abee4bba14f0d1be34a`.
+Closed content/backup guard receipts are separately copied and readback-verified
+beside it. All task-owned heavy jobs are stopped and the resource slot released.
+Original accepted static build/session audit records remain unchanged. The three
+historical review VM PIDs are absent with unknown cause; their original paths
+and evidence are retained and no restart is requested.
+
+## PR366 offline GUID selector — closeout November 4, 2026
+
+Current bounded topic is complete through [PR366](https://github.com/PaulMDemers/SrvrOS/pull/366).
+Independent hosted source review at `7fac0705` finds no blocker. Integrated actual
+main `db95fc9b` as `44d3375a`; relevant implementation/parser sources match the
+original qualified `710f1b15`. Fresh 43 selector and 19 installation groups,
+storage lease/workspace/USB, documentation and whitespace checks pass. All 43
+selector groups pass ASan/UBSan (`halt_on_error=1`, `detect_leaks=0`).
+The first compile failure and corrected command are retained separately:
+Darwin declarations belong on the inspector builds, while the existing storage
+fixture uses its POSIX namespace. No source correction was needed.
+
+Native slot released after 133.28 seconds; owned group empty, peak RSS
+554,909,696 bytes and external backing 25,825,280 bytes, within its budgets/floors.
+Evidence is in `.local/filesystem-evidence/pr366-review/`, with private synthetic
+outputs on the external APFS review volume. Original media was not opened;
+all five recorded identity/permission/time stamps match. Previous original-image
+hashes remain historical rather than a fresh closeout content check.
+Review VM PIDs 61610/6233/85869 were absent before this work's native gate, cause
+unknown; no restart or VM operation was attempted. Preserve their disks and old
+receipts without claiming current running-state preservation. No OS build,
+new VM, physical-media, repair or writable admission; Actions remain disabled.
+
+The separate streaming backend contribution is complete at `9f5816a5`, including
+the read-only `dd2f45c2` test-only equivalence assessment. Its frozen report and
+qualification packet remain in `.local/filesystem-evidence/stream-implementation-review/`.
+This closeout does not reopen it or take ownership of Profiles' streaming work.
+No new filesystem backlog milestone is opened.
+
+## Explicit GPT workspace GUID selection — host qualified
+
+User authorizes offline partition-GUID selection, PR317 coordination and
+wrong-GUID/ambiguity qualification while preserving review VMs and uncertain
+media. Isolated filesystem checkout, base actual main `5f4f6fc6` (merged PR317),
+branch `device/apple-silicon/filesystem-guid-selection`. Reuse Python UUID
+`bytes_le` conversion already used by installation verification, and unchanged
+native map validation. Extend only host selector/wrapper/helper/tests: canonical
+nonzero GUID input, exactly one matching Basic Data partition after complete
+primary/backup checks, no fallback on mismatch or failed workspace inspection.
+Automatic ambiguity refusal and paired-offset compatibility remain. No production
+process/block/USB, writable capability/admission, repair/replay or content export.
+Verify synthetic multi-volume behavior and original whole-file hashes/full
+permission/identity stamps on retained inputs.
+
+Implementation `0a7901e5` passes 43 selection/diagnostic groups, 19 existing
+installation-inspection groups and storage regressions. Both valid workspaces in
+a disposable multi-volume image select correctly by GUID; default ambiguity,
+wrong/malformed/type/duplicate GUIDs, corrupt maps and failed selected workspaces
+refuse without fallback. Python independently checks the returned identity.
+ASan/UBSan with halt-on-error and macOS detect_leaks=0 passes all 43 and a preserved
+uncertain input. A forced first-partition native counterfactual is detected.
+All five retained inputs match recorded hashes/full identity/permission stamps,
+correct GUID and explicit/automatic metadata, and each refuses a valid wrong GUID.
+Uncertain modes remain `0444`; control remains `0644`. Evidence survives outside build
+at `.local/filesystem-evidence/guid-workspace-selection/`. PR317 reports no overlap;
+independent source review remains separate. Review VMs were running/untouched at
+that original qualification;
+no production source, new OS/VM or physical/live-media acceptance is claimed.
+
 ## PR364 integrated-main merge review — qualified November 4, 2026
 
 User authorizes review and merge if ready. Clean tested `bb43b8b2` incorporates
@@ -4872,6 +5000,36 @@ at `.local/kernel-audit-evidence/pr317-merge/`. Earlier setup failures retained.
 No physical media/boot or PR334 public/JSC acceptance. User authorized PR317 merge;
 continuing audit starts from the merged baseline.
 
+### November 4: PR334/WTF/JSC audit continuation
+
+PR317 merged as `5f4f6fc6`; its actual tree matches reviewed `d784705a`, with the
+recorded audit-document delta from tested `4fa518eb`. The frozen PR334 companion
+packet `ee207df0/e404d84` contains 568 files. Independent checks cover 1,661 and
+1,288 source blobs, 292 linked function bodies, 1,058 named relocation values and
+32 prepared suite inputs.
+
+Only the unchanged-input and storage preflight cleared for the bounded seven-case
+single-CPU, no-NIC experiment. Its actual `qvdnmbic` run reached one main-register /
+red-zone marker, then the first WTF case exited 134; the six remaining cases did
+not run. The raw boot, case and serial identities are recorded in the kernel audit
+ledger. At that observation, owned QEMU 11532 was stopped and protected review
+QEMUs 6233, 61610 and 85869 were alive and untouched. At later documentation
+closeout, those four PIDs are absent; available evidence does not establish when
+or why the protected QEMUs exited. The original 134 remains unattributed, and no
+WTF/JSC, sole-root GC, full ABI, SMP or public capability acceptance follows.
+
+The canonical WTF retirement correction in Ports `224ed6a`, staged by OS
+`7c59ab8e`, independently passes 35 strict and 35 ASan/UBSan actual-source cases,
+including four intended old-source failures. At this audit checkpoint, a fresh
+target build, linked-code review and guest qualification remained pending. This
+records the checkpoint only; it is not a renewed browser or JSC signoff. The
+separate QEMU 24675/LLDB diagnostic attempt timed out after 100 seconds without
+terminal capture or attribution. Earlier process snapshots reported no active VM; they do not negate
+the later confirmed attempt. Tool-reported errors during diagnostic setup and
+source-only resume were retained in the audit record; no alternate chat was used
+to route the debugger operation. The complete limits and evidence references are
+in [the kernel isolation audit](../audit-kernel-isolation-2026-11-03.md).
+
 ### xz current-main merge review — November 4, 2026
 
 User authorized readiness review and dependency-order merge of SrvrPorts #10
@@ -5012,6 +5170,35 @@ archive SHA256. Restore paths/hashes remain under
 `.local/app-proof/find-contents/archived-superseded-images.json`; current accepted
 raw disks remain. No evidence was discarded. No physical-media/power-loss claim.
 
+### GNU Patch queue source preparation — November 4, 2026
+
+The authorized finite CLI queue permits source preparation while GNU diff waits
+for a separately coordinated combined-cap fixture. Separate `SrvrOS-ports-patch`,
+branch `ports/patch`, starts at actual main `88a95f9a`; integration/review checkouts
+remain untouched. Managed worktree creation rejected the nested source root, so
+the isolated worktree was created through Git from the owned diff clone. No
+compiler/configure/build/guest runs are authorized for this row before GNU diff
+delivery, current-main reconciliation and a fresh resource window.
+
+GNU Patch2.8.1 is pinned to archive SHA256
+`3240c7959c5347c8ed347e3c4201c0337bf4240d5cf09d68889e58eeaba30e17`;
+its direct signature was independently verified against primary fingerprint
+`259B3792B3D6D319212CC4DCD5BF9FEB0313653A`, with PGPy trust/revocation limits
+retained. All578 regular imported files match the authenticated archive.
+Adapt only a generated copy; preserve all licenses.
+
+Proposed useful profile: `patch -i PATCH -o NEW_OUTPUT SOURCE`, single unified
+file section, explicit existing regular source and exclusive distinct new output.
+Noninteractive forward-only/fuzz0, no in-place/backups/reject files, Git/rename or
+create/delete semantics. Preserve source and clean up owned output/temp on failure
+or cancellation; bound actual source/output to256KiB/8192lines/64KiB lines and
+patch to1MiB/32768records/128KiB lines, with declared hunk ranges checked before
+allocation. Qualify zero-count changes, removed dash-prefixed content, missing
+final newline, multi-hunk cases, failed/malformed inputs, caps, allocation/output
+errors, cancellation and two clean builds through genuine GNU parser/engine.
+Status contracts are GNU patch0success/1unapplied hunks/2trouble, independent of
+diff's equal/different contract. Source-only adapter/test helpers own disjoint
+files; no fake shared capability or next-port acceptance is claimed.
 GNU diff checkpoint: genuine core and gnulib link, and the first isolated guest
 passes exact labeled output, statuses, NUL refusal and fsck. Full harness stopped
 before QEMU at xorriso error 32 while internal storage was below reserve; the
@@ -5061,3 +5248,110 @@ record delivery. All owned jobs stopped and each resource slice was released.
 GNU Patch source-only preparation is isolated; further builds require its own
 finite handoff after diff delivery. Review VMs and integration checkout remain
 untouched. No further diff feature is required for this target.
+
+GNU Patch compatibility work now consumes delivered diff: ports `4da8a98b`
+and OS `3fcf2630`, with exact merged trees and port pin verified. Its separate
+checkout reconciles both mains. The explicit ≤30-minute first window covers
+SDK bootstrap, genuine cross-config and port-local compile fixes at ≤2 jobs,
+then one 512 MiB initial guest only after both binaries link. Stop/release on
+shared blocker, first runtime failure, reserve breach, expiry or completion.
+Full qualification is separate. External build/cache/temp and checked reserves
+apply; no unrelated shell quoting or shared runtime change is authorized here.
+
+### GNU Patch first full qualification — incomplete
+
+Clean `37139e18` with published ports `de7adcea` passes the matched build,
+two clean GNU core/gnulib/diagnostic rebuilds against the same SDK objects,
+and selected native tests (two PASS, one expected `dash-o-append` XFAIL).
+The two-boot harness at `build/review/patch/20261104-174642-s7p0g0jh`
+stopped at its outside-fixture artifact comparison: root gained `.srvros/meta`
+and the intended `patch-test`, while Home/tmp entries are unchanged. Both
+guest fsck checks completed. Probe observations are retained, but the overall
+receipt remains FAIL and no acceptance is inferred from assertions not reached.
+The five later guests were not run. All owned jobs stopped and the resource
+window was released immediately; diagnosis is source-only until a concrete
+correction and fresh finite handoff. Integration checkout and review VMs remain
+untouched. No shared libc/kernel blocker has been established.
+
+The later user closeout instruction, relayed by integration, limits this work
+to finishing and verifying GNU Patch Ports12→OS370, updating documentation and
+status, then stopping. Grep/sha256sum are deferred; their source-only research
+creates no implementation or launch authorization. The metadata-sidecar harness
+correction at `1ec87276` validates complete records and passes host-only retained
+605-row and six malformed-input checks. Fresh guest qualification and remaining
+integration gates are still required before merge.
+
+### GNU Patch corrected qualification and remaining miniport caller
+
+Clean `328c2a3a` passes the corrected two-boot Patch, two-boot diff interoperability,
+Terminal functional/expert and full 498-command CLI/fsck gates. Exact paths are
+in `docs/cli-port-queue.md`; production/diagnostic binaries match prior clean
+rebuilds. The original failed artifact receipt remains failed. Six owned guests
+stopped and the resource window was released early. Ports regression was not
+run because the shipped miniport example retained the old Patch syntax.
+`dea65ffc` corrects it to explicit separate output, safe labels, build from the
+patched copy and conditional original-source preservation. A fresh finite
+data-refresh/ports-guest handoff remains required, after filesystem/profiles
+turns. The actual `db95fc9b` main is reconciled; its changes here are docs only.
+No shared libc/kernel change, physical claim or next-port implementation.
+
+The final `d32133b3` data refresh passed its build, but failed the strict
+initramfs byte-identity predicate before QEMU. The archive embeds the changed
+data image; only the intended shipped script differs across 392 logical disk
+entries, and all named ELF payloads are unchanged. Old archive member bytes/
+inventory were not retained, so no member-equivalence acceptance is claimed.
+The failure is preserved and the slot released. Current payloads are frozen
+and readback-verified outside build cleanup. Fresh full guest qualification on
+the final payload is required; no ports guest or merge occurred in that slice.
+
+Fresh qualification candidate reconciles filesystem PR366 `7b1bfcb8` and
+actual main `72fde837` through `a7563231` without conflicts. Incoming changes
+are host inspection/test and documentation only; target runtime/ABI and port
+pins are unchanged. The new matched payload, archive members and disk manifest
+will be frozen outside build before seven fresh sequential guests. Browser
+owns the current resource turn; no new build/guest is launched until handoff.
+
+### GNU Patch final bounded qualification — complete
+
+Clean `60baca64` with runtime ports `de7adcea` reconciles actual main `72fde837`,
+including filesystem PR366. Before guests, ten actual payload files, 146 tar
+members and 392 logical disk entries were frozen/readback-verified outside build.
+Seven fresh sequential 512 MiB guests pass: Patch and diff interchange two boots
+each, actual Terminal functional/expert, full 498-command CLI and full ports.
+The shipped miniport uses separate output, installs the patched program and
+confirms its original source remains unchanged. Fsck is clean. The final receipt
+is `build/review/patch/final-qualification-receipt.json`; public screenshots and
+scope are in `docs/assets/screenshots/patch-manifest.json`. All frozen payload
+and earlier SDK-object hashes remain identical after the runs.
+
+Two clean GNU core/gnulib/diagnostic rebuilds use the same SDK objects; native
+selected tests have two PASS and one expected XFAIL. No full guest upstream
+suite, whole SDK/image reproducibility, RAM/RSS peak, traced in-call cancellation
+bound, user-study or physical acceptance claim. Historical failures remain failed.
+The missing old-container member proof was resolved through fresh qualification
+on the retained final payload. No shared runtime or shell-quoting change.
+Independent review finds no bounded-profile blocker. All jobs stopped and the
+resource window was released early. Ports12→OS370 ordered delivery and exact
+head/tree/pin checks follow; linked PR states record delivery. Then stop: Grep
+and sha256sum are deferred under the later closeout instruction. Integration
+checkout and review VMs remain untouched.
+
+### GNU Patch delivered and verified — closeout stopped
+
+Ports12 merged `72f3d6fad7423aa06ce4fd4f4ab611b4a4930ac3`, then OS370 merged
+`3e3275139d7bac169c2b06816cbca3d3f2623708`. Both merge trees equal their exact
+reviewed heads (`6ff5eda`, `0ba39ba3` respectively), and OS pin `6ff5eda` is
+reachable from merged port main. Actual remote heads/PR states were verified.
+The final documentation/pin changes do not change the qualified runtime.
+
+All seven fresh guests, same-SDK clean GNU rebuilds, selected native tests and
+independent source/evidence review retain their bounded claims above. The
+outside-build archive verifies 2,199 entries, SHA256
+`3a33ed5bd9138781e3e630ec3830c2eba210cac083f2279b51b0744815f3f64e`; source,
+frozen payload/inventories, accepted/failed proofs and restore records survive
+build cleanup. Final delivery/review receipts are under ignored
+`.local/cli-port-evidence/patch/`. Integration received exact merges, trees, pin
+and receipt locations for aggregate PR373. All owned jobs stopped and resource
+windows released; protected integration checkout/review VMs remain untouched.
+No further bounded Patch feature is required. Stop under the later closeout
+instruction: Grep and sha256sum are deferred, with no new heavy reservation.

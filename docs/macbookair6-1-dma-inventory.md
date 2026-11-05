@@ -6,6 +6,12 @@ kernel catalogs only. No VT-d register, root/context table, `/dev/mem`, PCI writ
 firmware method or driver-control operation was used. No native SrvrOS DMA
 translation state, pin, private GPU mapping or hardware ownership is accepted.
 
+The [native firmware/catalog capture](#native-firmwarecatalog-observation-accepted-2026-11-04)
+has now completed. The Ubuntu inventory and initial proposal below remain as
+history; translation-state observation and native ownership remain open.
+The read/resource audit below is complete; its cache/alias prerequisite is the
+next read-only experiment before any VT-d register mapping.
+
 ## Firmware declaration
 
 The exported DMAR is136 bytes, revision1, valid checksum, OEM `APPLE / HSW`.
@@ -55,9 +61,10 @@ contains no enclosing entry for either. Its nearest reserved edges are
 labels are not a native Limine map or a generic permission to map a gap.
 Neither these edges nor this unit's RMRR/flags may be replaced by sibling values.
 
-## Next bounded native prerequisite
+## Initial native capture prerequisite
 
-A future isolated **firmware-only** SrvrOS capture should retain the complete
+At the Ubuntu inventory checkpoint, the proposed isolated **firmware-only**
+SrvrOS capture was to retain the complete
 current DMAR and full current Limine catalog, exact GPU identity, hashes and
 resource intersections before considering VT-d reads. It should refuse changed,
 malformed, ambiguous or conflicting tables/resources, retain the inherited
@@ -106,3 +113,113 @@ core/actual-adapter tests, independent hash/receipt/max-tail checks, matched
 builds/VMs and local recovery/storage preflight are required before installation.
 Implementation is not native acceptance; the local run record owns install/arm
 state and collection. Prior inherited backing evidence remains unchanged.
+
+
+## Native firmware/catalog observation accepted (2026-11-04)
+
+The firmware-only capture is now physically observed on release
+`6b7dbee3a9441281` / source `e53b7a63`. Both complete136-byte DMAR copies match
+the unit SHA256 pin and all42 native Limine entries agree. Table address
+`0x8cd64000` is inside the ACPI-reclaimable interval
+`[0x8cd64000,0x8cd8f000)`. Copy brackets21/16 us and the4us inter-copy interval
+satisfy the unchanged bounds. See the [unit closeout](machines/macbookair6-1.md#native-firmwarefull-catalog-observation-accepted-2026-11-04)
+for exact session, storage-integrity and recovery evidence.
+
+Both declared DRHD pages have no intersection with the complete native catalog.
+Nearest reserved edges are `[0xfed1c000,0xfed20000)` and
+`[0xffe10000,0xffe40000)`, matching this unit's earlier Ubuntu catalog observation.
+These are observed resource prerequisites, not an enclosing memory-map grant,
+a DMA-state readout or proof of exclusive firmware/device ownership. The gap
+must not be treated as allocatable RAM or an arbitrary MMIO allowlist.
+
+The next bounded step is a source audit of exact-Haswell VT-d read semantics,
+unit-specific resource admission, finite sampling and mapping retirement before
+any native register test. Keep this unit's complete DMAR pin, explicit GPU scope
+and gap edges independent of PR301's Broadwell profile. No VT-d command/fault
+acknowledgement write, root-table traversal, forcewake, private mapping or owner
+assurance is granted here. No new test is staged or reboot armed by closeout.
+
+## VT-d read/resource contract audit (2026-11-04)
+
+Base `db95fc9b`; native input remains source `e53b7a63` / release
+`6b7dbee3a9441281`. The [host contract audit](../tools/haswell_vtd_read_audit.py)
+strictly re-decodes that receipt and produces a proposal with every native
+read/map/ownership flag false. It performs no I/O or native admission.
+
+### Primary register reference
+
+Intel [VT-d4.1](https://cdrdv2-public.intel.com/774206/vt-directed-io-spec%20.pdf)
+sections8.3,11.1–11.2 and11.4.1–11.4.5 identify the DRHD location/size and allow
+aligned DWORD accesses to the selected registers, including halves of64-bit
+registers. The candidate offsets are VER0, CAP8/12, ECAP16/20, GSTS28 and
+RTADDR32/36 (decimal bytes). GSTS.TES reports enable status. RTADDR is a programmed
+address/mode; a read alone does not establish hardware's loaded root table.
+No lock-prefixed access or command/fault acknowledgement operation is proposed.
+This reference does not imply Haswell supports every4.1 capability: retain raw
+VER/CAP/ECAP/root words and interpret only version-supported fields.
+
+### Exact resource candidate
+
+Only the pinned DMAR's explicit segment0 GPU endpoint at `0xfed90000` is in
+scope, for one4KiB page. The include-all/IOAPIC/HPET unit at `0xfed91000` stays
+excluded. Validate the complete current catalog, rejecting unknown types,
+overflow, malformed/duplicate/overlapping entries and every target intersection,
+including an enclosing generic reserved entry. Require the exact nearest
+reserved edges `[0xfed1c000,0xfed20000)` and `[0xffe10000,0xffe40000)`.
+Missing/changed or sibling gap edges refuse. Relevant resource invariants are
+exact; unrelated ELF/RAM placement may change only within a fully valid catalog.
+This is a proposed unit-specific declaration-plus-gap rule, not a generic gap
+mapping API or an already granted resource permission.
+
+### Cache/alias prerequisite is still missing
+
+The [Intel SDM3A](https://cdrdv2-public.intel.com/812386/253668-sdm-vol-3a.pdf),
+sections12.5.2.2/table12-7 and12.12.3/table12-11, combines inherited PAT/MTRR and
+page-leaf attributes to determine effective memory type. PCD alone selects a
+PAT entry; it does not prove strongly uncacheable access. UC-minus can produce
+write-combining behavior with an MTRR. No PAT reset value or Ubuntu cache state
+may be assumed for SrvrOS.
+
+Current VMM initialization adopts the inherited CR3. Its public translation
+query returns physical addresses, not effective cache types or complete leaf
+attribute evidence. Before a new VT-d alias, require this Air6,1's feature-gated,
+read-only current CPU0 PAT/MTRR/CR0 context and a bounded audit of relevant
+existing aliases plus the proposed/actual leaf. Undefined overlaps, unsupported
+state, incompatible aliases or inability to establish effective strong UC must
+refuse. No MSR, cache-policy or alias mutation is authorized by this audit.
+PR301 at `69367853` has an independent architectural cache mechanism with exact
+Broadwell address gates; coordinate against its eventual shared interface rather
+than copying that unit's PAT values, classifier acceptance or native gates.
+The immediate next test should capture cache/alias context without mapping the
+VT-d page. The firmware receipt cannot satisfy that missing prerequisite.
+
+### Future sampling and retirement contract
+
+After those prerequisites are established, the proposed finite read sequence is
+GSTS, VER, CAP high/low/high, ECAP high/low/high, RTADDR high/low/high, GSTS:
+12 DWORD reads per sample, twice. Preserve every raw word; all-ones/unavailable,
+torn, changed or inconsistent guards refuse. Matching brackets are observations,
+not atomic whole-register or full-interval stability. Never dereference RTADDR.
+
+Keep100ms per-pass and maximum-gap bounds, a20ms minimum gap and one-million
+iteration stop for a frozen clock. At most two temporary mappings, one per pass.
+Require a previously unmapped private kernel window, current kernel root,
+supervisor RO/NX/non-global attributes with proven effective UC, exact page/leaf
+checks before reads and fresh full pinned-firmware/catalog/PCI guards each pass.
+Verify unmap before reuse. Uncertain retirement quarantines the window until
+reboot; no borrowed memory or device-owned storage may be freed to hide failure.
+No GT forcewake, translation enable/disable, invalidation or acknowledgement write.
+
+A separately opted-in adapter still needs actual-adapter guard/retirement fault
+tests, independent strict raw receipts, maximum retention with the unchanged64KiB
+tail, matched builds and exact-stage refusal/save/unmount/return plus missing
+workspace rehearsals. Preserve every raw firmware/catalog prerequisite; no
+sparse or hash-only substitution. Host proposals and VM fixtures do not accept
+native DMA state, firmware exclusion, a pin or scanout/restore ownership.
+
+Eight host regressions cover exact/changed/sibling gap edges, every catalog
+intersection type, partial coverage, malformed/duplicate/overflowing catalogs,
+forbidden offsets, failed firmware input and nonpromotion of foreign cache
+claims. Actual native-receipt replay passes the resource-candidate audit while
+all cache, mapping and ownership proofs remain false. No test is staged or
+reboot armed by this audit.

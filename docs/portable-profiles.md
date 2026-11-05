@@ -1,19 +1,48 @@
 # Portable profiles: migration and desktop integration
 
-Target: a versioned, machine-independent identity and selected-document/preference
-bundle, validated through two fresh installation fixtures, plus a shared bounded
-HOME/config/data/cache resolver. Host tooling, guest commands and desktop
-workflows share this contract. Login, cloud roaming and multi-user security
-isolation remain separate.
+Larger-document migration is implemented and qualified in
+[Apps #11](https://github.com/PaulMDemers/SrvrApps/pull/11) and
+[OS #367](https://github.com/PaulMDemers/SrvrOS/pull/367). Profiles automatically
+keeps v1 for selections within its existing limits and uses streaming v2 for
+larger selections: **16 MiB per document, 64 MiB combined, and 64 selected files**.
+The filename extension does not choose the format. Review identifies the
+streaming-reader requirement before confirmation. Default legacy CLI export,
+v1 bundle bytes/caps, creation, chooser and session-switching behavior remain
+compatible.
 
-Current milestone: ending a desktop session and switching profiles without
-reboot is delivered and independently verified in [Apps #9](https://github.com/PaulMDemers/SrvrApps/pull/9)
-(`c3ad11b1`) and [OS #355](https://github.com/PaulMDemers/SrvrOS/pull/355)
-(`82face72`), following merged
-[runtime #354](https://github.com/PaulMDemers/SrvrOS/pull/354). Profile creation,
-recovery and migration are already delivered in Apps8/OS348. Their earlier
-20-lifetime creation and 19-lifetime transfer proofs retain their recorded source
-attribution. Authentication and permission enforcement remain separate.
+The source-matched proof at `0e2bac73` passes **31 serial disposable guest
+lifetimes** across independent A/B installations and owned probes. It covers
+bidirectional guest/host interoperability, actual v1 import/export, 13 malformed
+input refusals, changed-input and existing-output refusal, partial-export
+preservation, all seven interrupted-import recovery checkpoints, low-space
+recovery, remembered B restart, Text/Preview readback and a 640×480 graphical
+workflow. Actual boundary transfer uses **four 16 MiB documents**, not one
+64 MiB document. Independent content, rendered and archive reviews pass.
+The [evidence manifest](assets/screenshots/profile-stream-manifest.json) and
+[independent review](assets/screenshots/profile-stream-review.json) retain exact
+source, pins, hashes, limits and backup attribution.
+
+V2 payload I/O uses 64 KiB buffers through the opt-in bounded runtime path.
+Native engine allocation remains below 1 MiB. Guest `srv_usage(SELF)` mapped
+high-water is 2,396,160 bytes for the small/16 MiB/64 MiB previews and actual
+64 MiB export, and 2,461,696 bytes for actual import: 65,536 bytes growth from the
+small workload. Mapped high-water is not an exact heap or kernel-memory measure;
+[the streaming contract](portable-profile-streaming.md) records native backend
+allocation and separate preregistered ceilings.
+
+Guest commands, Profiles import/export/recovery and the host portable-fixture
+codec support both formats. **Canonical offline installation profile
+export/recovery remains v1-only; offline v2 admission/export is deferred.** The
+host v2 fixture codec does not extend the installation tools. Authentication,
+credential handling, permission enforcement, login, cloud roaming and multi-user
+security isolation remain separate.
+
+Earlier session ending and profile switching without reboot were delivered in
+[Apps #9](https://github.com/PaulMDemers/SrvrApps/pull/9) (`c3ad11b1`) and
+[OS #355](https://github.com/PaulMDemers/SrvrOS/pull/355) (`82face72`), following
+[runtime #354](https://github.com/PaulMDemers/SrvrOS/pull/354). Creation and earlier
+migration/recovery were delivered in Apps8/OS348. Their original creation,
+transfer and session proofs below retain their historical source attribution.
 
 | Transfer state | User decision | Result and correction |
 | --- | --- | --- |
@@ -25,10 +54,17 @@ attribution. Authentication and permission enforcement remain separate.
 | Completed import | Finish the current session and select the profile at next desktop start | Existing chooser supplies ready/recoverable/blocked status |
 | Failure or interruption | Correct inputs, choose a fresh export filename, or resume eligible import recovery | Preserve partial output, existing profiles and ambiguous state |
 
+## Initial host fixture milestone — historical record
+
+The following scope and checkpoint describe the initial host-only milestone,
+not the current guest streaming acceptance above.
+
 Recovered baseline: `a936baeb4a20ff28304a13252bf20345dee13bf1` from actual
 `origin/main`, November 3, 2026. Independent ordinary clone `SrvrOS-profiles`,
 branch `device/apple-silicon/portable-profiles`. The integration checkout and
-review VMs (6233, 61610, 85869) are preserved. No VM or physical trial is needed
+review VMs (6233, 61610, 85869) were preserved at that checkpoint. Their PIDs
+are now absent with no established cause; original disk paths and evidence remain
+retained. No VM or physical trial was needed
 for this fixture milestone. Hosted Actions remain disabled.
 
 Scope: new profile tooling/tests and shared path provider; this topic document.
@@ -1245,3 +1281,108 @@ receipt and refuses changed payloads or incomplete graphical prerequisites.
 Accepted backups survive build cleanup; the composite review records their
 location and verified member count. This milestone adds no physical-media,
 arbitrary power-loss, authentication or permission-enforcement acceptance.
+
+
+## Larger-document migration — verified workflow
+
+Profiles chooses a bundle format from the selected files. Selections within the
+existing v1 limits still produce v1 JSON, including when the suggested filename
+ends in `.srvrprofile`. Larger selections use v2: up to 16 MiB per file, 64 MiB
+combined, and 64 explicitly selected Documents files. The review names the
+compatibility requirement before confirmation. The extension never selects the
+format. Older readers can continue to receive a smaller v1 selection; they must
+refuse a v2 bundle rather than truncate or reinterpret it.
+
+V2 stores a bounded manifest followed by the exact document bytes. Hashing,
+copying and readback use a 64 KiB buffer, with no allocation proportional to the
+payload. The [wire and recovery contract](portable-profile-streaming.md) defines
+framing, validation, memory ceilings and qualification. The unchanged v1 path
+retains its original memory behavior and caps.
+
+The guest CLI adds automatic-format review and reviewed export:
+
+```text
+profile preview-export-auto HOME [Documents/FILE ...]
+profile export-auto-reviewed HOME OUTPUT SHA256 [Documents/FILE ...]
+```
+
+The existing `preview-export`, `export-reviewed` and `export` commands remain
+v1-only. Existing `inspect`, `preview-import`, `import-reviewed`, `import`,
+`check-recover` and `recover` accept both formats. Automatic-format review reports
+`bundle_version` as 1 or 2, alongside the existing review envelope. Confirmation
+revalidates the reviewed hash, source identity and selected bytes.
+
+Import reuses the existing journal and chooser recovery. A v2 journal binds the
+complete source bundle; recovery refuses a missing or changed source. An
+interrupted streamed document leaves only the journal-owned root scratch, which
+can be discarded and recopied after full validation. Existing final files must
+match exactly. An interrupted exclusive export can leave an incomplete bundle;
+preserve it and select a fresh filename for retry.
+
+The separate host fixture codec is `tools/profile_stream.py`. Its `inspect`,
+`import` and `export` commands support v2 and read v1 through unchanged helpers;
+`export --legacy` explicitly retains the old fixture exporter. Native installer
+and offline installation export stay v1-only in this milestone.
+
+Native checks exercise 64 MiB import, interrupted-copy recovery and reviewed
+export with tracked engine allocations below 1 MiB, including 64-document export
+under the native 67-descriptor fixture limit. The guest uses separate opaque
+stream handles; ordinary descriptor buffering and its 16 MiB cap stay unchanged.
+
+The accepted full proof is `build/review/profile-stream/proof-ybopi3tu/` at exact
+source `0e2bac73`, with independently qualified core trees from `9f5816a5` and
+Apps `24bc4541`, UI `3a695ce5`, Ports `6ff5edad`. A creates the 16 MiB binary and
+2,359,350-byte BMP from synthetic raw inputs and edits the 36-byte text in Text.
+Its actual graphical export is 19,137,265 bytes; host wire and codec readback
+agree on SHA256
+`b953187cdb4eaf585859a0121a60b7439acab5d92c288e128224f4365d565b8b`.
+B receives exact selected bytes/preferences/identity with its own HOME/alias/UID/GID;
+machine settings, unselected/synthetic credential/app/cache sentinels, installed
+binaries and protected disk regions retain their required values. The chooser
+remembers B across reboot; Text opens the migrated text and Preview renders the
+1024×768 BMP. See [review](assets/screenshots/profile-stream-review.png),
+[import](assets/screenshots/profile-stream-import.png),
+[Text](assets/screenshots/profile-stream-document.png) and
+[Preview](assets/screenshots/profile-stream-image.png).
+
+Journal, directories, copy-partial, document, identity, commit-ready and published
+interruptions all recover on fresh disposable boots. Copy-partial preserves
+exactly one durable 65,536-byte owned scratch chunk before recovery. The
+[published-journal view](assets/screenshots/profile-stream-published.png) remains
+recoverable until reconciliation; it does not prematurely open the profile.
+With only 6,299,648 bytes free, import refuses and retains its matched journal.
+After removing only the test's known filler files, chooser recovery succeeds.
+For a real space failure, preserve the original bundle and journal, make room on
+the receiver, then use the chooser's recovery action. Never delete ambiguous
+profile state to force a retry.
+
+The actual 64 MiB export/import uses four 16 MiB documents. All five guest mapped
+measurements pass the frozen 32 MiB absolute and 4 MiB growth ceilings; the
+observed maximum is 2,461,696 bytes with 65,536 bytes growth. This measurement is
+not exact heap or kernel memory. The 640×480 review remains scrollable with
+reachable Back/Export controls, followed by successful confirmation; its entire
+report is read across scroll positions, not displayed in one viewport. See the
+[compact review](assets/screenshots/profile-stream-small.png).
+
+Independent readback verifies all 96 compressed image streams, final A/B/transport
+contents, seven recovered images and the 64 MiB receiver. Fourteen captured
+rendered views pass separate review with exact RGB-preserving conversions.
+The durable backup is outside `build` at
+`/Volumes/miniTB/SrvrOS-profile-stream-20261104-145109/final-evidence-9eif7dh7/`:
+626 member hashes independently read back, archive 1,032,274,981 bytes, SHA256
+`df99dcf8590d02147009570b4f25bf1750340a9b8de42abee4bba14f0d1be34a`.
+The first failed full run is preserved as a failure in a separate archive label;
+its changed-bundle fixture hit the unchanged ordinary-write cap before truncation.
+The corrected fixture preserves the original by rename and installs a valid v1
+replacement, then checks [the exact stale-review refusal](assets/screenshots/profile-stream-changed.png).
+No original or failed raw media was deleted or repaired.
+
+Reproduce with a clean matched `sh tools/macos/build.sh -j2 all`, focused
+`test-profile-stream` checks, then `python3 tools/profile_stream_smoke.py
+--ovmf-vars PATH` in a serialized disposable-VM resource window. Use the
+[evidence manifest](assets/screenshots/profile-stream-manifest.json) for exact
+firmware, payload and source attribution. Linux exfatprogs suites were unavailable
+on the macOS host; external runtime-owner peer acceptance remains unverified.
+Local independent native and actual guest qualification are recorded separately.
+No physical-media, arbitrary power-cut, authentication or permission-enforcement
+acceptance is added. Offline installation v2 remains deferred.

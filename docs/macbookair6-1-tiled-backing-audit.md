@@ -471,5 +471,13 @@ GT-access protocol, publication/invalidation and matched route/restore retiremen
 The subsequent [Air6,1 DMA/resource inventory](macbookair6-1-dma-inventory.md)
 corroborates that the observed table/stolen/surface candidates lie within this
 unit's declared GPU RMRR. Ubuntu's active IOMMU state is not native boot state.
-The next proposed capture is firmware/catalog-only; no native VT-d register
+At that inventory checkpoint, the proposed next capture was firmware/catalog-only; no native VT-d register
 permission, owner assurance, writer or boot payload is added by that inventory.
+
+
+The [native firmware/catalog closeout](macbookair6-1-dma-inventory.md#native-firmwarecatalog-observation-accepted-2026-11-04)
+now observes two matching pinned DMAR copies and all42 native catalog entries.
+The two declared DRHD pages lie in a catalog gap with exact unit-specific edges.
+This closes the firmware-only capture prerequisite; a bounded read-only VT-d
+resource/register protocol still needs source audit before implementation.
+Translation state, MMIO admission and actual graphics ownership remain unproven.
