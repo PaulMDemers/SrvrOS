@@ -1,4 +1,5 @@
 #include <srvros/intel_display_capture.h>
+#include <srvros/intel_boot_claim.h>
 #include <srvros/acpi.h>
 #include <srvros/laptop_probe.h>
 #include <srvros/package_audit.h>
@@ -43,7 +44,7 @@ static uint32_t config_read(void *p,unsigned off) {return pci_read_config32(p,(u
 static bool identity(void *opaque,struct intel_capture_identity *id) {
     struct adapter *a=opaque;
     *id=(struct intel_capture_identity){0};
-    if(!a->gpu || !a->pch) return false;
+    if(!a->gpu || !a->pch || !intel_boot_check(INTEL_BOOT_OBSERVER,a->gpu)) return false;
     struct package_pci_snapshot s;package_pci_read(&s,config_read,(void *)a->gpu);
     id->id=s.id;id->class_rev=pci_read_config32(a->gpu,8);
     id->subsystem=pci_read_config32(a->gpu,0x2c);
@@ -58,7 +59,7 @@ static bool identity(void *opaque,struct intel_capture_identity *id) {
 }
 static bool map_page(void *opaque,unsigned i,uint64_t physical) {
     struct adapter *a=opaque;uint64_t old;
-    if(i>=INTEL_CAPTURE_PAGES || a->owned[i] || vmm_current_address_space()!=a->cr3 ||
+    if(!intel_boot_check(INTEL_BOOT_OBSERVER,a->gpu) || i>=INTEL_CAPTURE_PAGES || a->owned[i] || vmm_current_address_space()!=a->cr3 ||
        vmm_virt_to_phys_in_space(a->cr3,CAPTURE_VA+4096*i,&old)) return false;
     if(!vmm_map_page_in_space(a->cr3,CAPTURE_VA+4096*i,physical,
                              VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE)) return false;
@@ -73,7 +74,7 @@ static bool unmap_page(void *opaque,unsigned i) {
 }
 static bool read_word(void *opaque,uint32_t off,uint32_t *value) {
     struct adapter *a=opaque;
-    if(!value || !intel_capture_offset_allowed(off) || vmm_current_address_space()!=a->cr3) return false;
+    if(!intel_boot_check(INTEL_BOOT_OBSERVER,a->gpu) || !value || !intel_capture_offset_allowed(off) || vmm_current_address_space()!=a->cr3) return false;
     for(unsigned i=0;i<INTEL_CAPTURE_PAGES;i++)
         if((off&~4095u)==intel_capture_pages[i] && a->owned[i]) {
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
@@ -99,6 +100,8 @@ void intel_display_probe_boot(struct limine_framebuffer *fb) {
     }
     if(!a.cr3 || a.cr3!=vmm_current_address_space() || !timer_reference_ready()) {
         result.status=INTEL_CAPTURE_CLOCK;
+    } else if(!intel_boot_claim(INTEL_BOOT_OBSERVER,a.gpu)) {
+        result.status=INTEL_CAPTURE_IDENTITY;
     } else {
         struct intel_capture_fb f={0};
         if(fb) {
@@ -218,7 +221,7 @@ static bool backing_endpoint(void *opaque,struct intel_backing_endpoint *e) {
 static bool backing_map(void *opaque,uint32_t page) {
     struct backing_adapter *a=opaque;uint64_t old;
     bool allowed=page==0x45000 || page==0x60000 || page==0x70000 || page==0x100000 || (page>=0x800000 && page<0x1000000);
-    if(!allowed || (page&4095) || a->mapped || vmm_current_address_space()!=a->common.cr3 ||
+    if(!intel_boot_check(INTEL_BOOT_OBSERVER,a->common.gpu) || !allowed || (page&4095) || a->mapped || vmm_current_address_space()!=a->common.cr3 ||
        vmm_virt_to_phys_in_space(a->common.cr3,BACKING_VA,&old))return false;
     uint64_t physical=result.mmio_base+page;
     if(!backing_range_reserved(physical,4096) || !vmm_map_page_in_space(a->common.cr3,BACKING_VA,physical,VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE))return false;
@@ -232,7 +235,7 @@ static bool backing_unmap(void *opaque) {
 }
 static bool backing_read(void *opaque,uint32_t off,uint32_t *value) {
     struct backing_adapter *a=opaque;
-    if(!value || !a->mapped || (off&~4095u)!=a->page || (off&3) || vmm_current_address_space()!=a->common.cr3)return false;
+    if(!intel_boot_check(INTEL_BOOT_OBSERVER,a->common.gpu) || !value || !a->mapped || (off&~4095u)!=a->page || (off&3) || vmm_current_address_space()!=a->common.cr3)return false;
 #ifdef SRVROS_INTEL_DISPLAY_HOST_TEST
     return intel_display_test_read(off,value);
 #else
@@ -307,7 +310,7 @@ static bool trial_adapter(struct backing_adapter *a) {
         if(p->device==2)a->common.gpu=p;
         if(p->device==31 && p->class_code==6 && p->subclass==1)a->common.pch=p;
     }
-    return a->common.gpu && a->common.pch;
+    return a->common.gpu && a->common.pch && intel_boot_check(INTEL_BOOT_OBSERVER,a->common.gpu);
 }
 bool intel_scanout_trial_profile(struct scanout_profile *p) {
     if(!p || backing.status!=1 || backing.retained || backing.count!=1356 || !backing.tiled || backing.fence_matches!=1 ||

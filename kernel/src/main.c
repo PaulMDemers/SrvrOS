@@ -1,4 +1,5 @@
 #include <srvros/ap_probe.h>
+#include <srvros/intel_boot_claim.h>
 #include <srvros/haswell_backing.h>
 #include <srvros/haswell_firmware.h>
 #include <srvros/haswell_cache_context.h>
@@ -560,6 +561,10 @@ void kmain(void) {
     }
     pci_init();
     bool intel_display_capture_requested=cmdline_has_token(cmdline,"srvros.capture=intel-display");
+    unsigned intel_client=intel_display_capture_requested?INTEL_BOOT_OBSERVER:
+        (cmdline_has_token(cmdline,"srvros.capture=haswell-backing") ||
+         cmdline_has_token(cmdline,"srvros.capture=haswell-firmware"))?INTEL_BOOT_BLOCKED:INTEL_BOOT_LEGACY;
+    if(!intel_boot_select(intel_client))console_write("intel-boot-claim: policy selection refused\n");
     if(intel_display_capture_requested) {
         struct limine_framebuffer_response *r=framebuffer_request.response;
         intel_display_probe_boot(r && r->framebuffer_count && r->framebuffers?r->framebuffers[0]:NULL);
@@ -618,6 +623,8 @@ void kmain(void) {
     }
     if(!intel_display_capture_requested && !cmdline_has_token(cmdline,"srvros.capture=haswell-backing") && !cmdline_has_token(cmdline,"srvros.capture=haswell-firmware")) intel_gfx_init();
     else if(intel_display_capture_requested) console_write("intel-display-observe: ordinary Intel initializer skipped; no capture PCI writes\n");
+    console_printf("intel-boot-claim: v=1 policy=%u client=%u immutable=1 hardware_ownership=0 managed_pages=0\n",
+        (uint64_t)intel_boot_policy(),(uint64_t)intel_boot_claimed_client());
     if(cmdline_has_token(cmdline,"srvros.sensors=cpu")) thermal_init();
     if(cmdline_has_token(cmdline,"srvros.power=read-only")) power_init();
     if (cmdline_has_token(cmdline, "srvros.storage=ram")) {

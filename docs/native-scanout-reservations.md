@@ -62,6 +62,15 @@ released. Quarantine latches arena Fault and blocks new admission/reopen/close;
 unexposed or independently retired *other* leases can still release safely.
 There is no hardware reset, timer or recovery callback inside this pure core.
 
+## Boot-client exclusion and populated entries
+
+The [boot-client claim](intel-boot-client.md) prevents competing participating
+Intel initialization. It grants no native interval or hardware ownership. The
+[Air7,2 window result](intel-ggtt-window.md#reference-native-result) observes
+all16 sampled entries immediately beyond the full34MiB fence already populated.
+Do not import index8704 as free space or use a software claim as the missing
+firmware/engine/reader handoff. There is still no native managed range.
+
 ## Native authority still required
 
 | Requirement | Current evidence and next proof |

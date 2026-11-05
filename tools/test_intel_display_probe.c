@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <srvros/intel_display_capture.h>
+/* Each host case models a fresh boot; production supplies no reset entry. */
+#include "../kernel/src/intel_boot_claim.c"
 static bool cache_mode,window_mode,window_map_fail,window_retire_fail,window_cache_fail;
 static bool intel_display_test_uc(uint64_t);
 static bool intel_display_test_read(uint32_t,uint32_t *);
@@ -94,6 +96,8 @@ static bool intel_display_test_read(uint32_t off,uint32_t *value) {
     return true;
 }
 static void reset(void) {
+    memset(&intel_boot_state,0,sizeof(intel_boot_state));
+    assert(intel_boot_select(INTEL_BOOT_OBSERVER));
     extra_table=false;
     config_reads=mmio_reads=map_calls=unmap_calls=0;ticks=100000;current=0x1000;
     dma_resource_source=0;dma_resource_declared=false;
@@ -101,7 +105,7 @@ static void reset(void) {
     dma_region_base=dma_region_length=dma_region_type=0;dma_overlaps=0;dma_attempted=dma_table_valid=dma_preserved=false;dma_result=(struct intel_dma_result){0};
     dma_unmap_fail=false;firmware_ok=clock_ok=true;alias=malformed=reporting=backing_mode=translation_gap=false;backing_attempted=false;trial_mapping_fault=false;backing=(struct intel_backing_result){0};
     memset(pa,0,sizeof(pa));result=(struct intel_capture_result){0};attempted=false;
-    devices[0]=(struct pci_device){.device=2,.class_code=3};devices[1]=(struct pci_device){.device=31,.class_code=6,.subclass=1};
+    devices[0]=(struct pci_device){.device=2,.vendor_id=0x8086,.device_id=0x1626,.class_code=3};devices[1]=(struct pci_device){.device=31,.class_code=6,.subclass=1};
     dsdt=(struct acpi_table_info){.physical_address=0x100000,.length=35034};memcpy(dsdt.signature,"DSDT",4);
     ram=(struct limine_memmap_entry){.base=0x100000,.length=0x70000000,.type=LIMINE_MEMMAP_USABLE};
     devices[2]=(struct pci_device){.device=0,.class_code=6};
@@ -208,5 +212,20 @@ int main(int argc,char **argv) {
     assert(!dma_map(&a,0xfed90000));dma_unmap_fail=false;
     assert(backing_unmap(&a) && !dma_map(&a,0xfed90000)); /* Host cleanup cannot clear sticky fault. */
     assert(!dma_table_current());
-    puts("intel-display-probe: PASS actual adapter, read-only temporary mappings, existing-map/RAM alias refusal, firmware/PM/clock gates and single attempt");
+    for(unsigned policy=0;policy<=3;policy++)if(policy!=INTEL_BOOT_OBSERVER) {
+        reset();memset(&intel_boot_state,0,sizeof(intel_boot_state));
+        if(policy)assert(intel_boot_select(policy));
+        if(policy==INTEL_BOOT_LEGACY)assert(intel_boot_claim(policy,&devices[0]));
+        intel_display_probe_boot(&frame);
+        assert(result.status==INTEL_CAPTURE_IDENTITY && !config_reads && !map_calls && !mmio_reads);
+    }
+    reset();assert(intel_boot_claim(INTEL_BOOT_OBSERVER,&devices[0]));
+    struct adapter lost={.gpu=&devices[0],.pch=&devices[1],.cr3=0x1000};
+    assert(map_page(&lost,0,0xc0000000ull+intel_capture_pages[0]));
+    devices[0].bar[0]^=4096;
+    struct intel_capture_identity denied;
+    assert(!identity(&lost,&denied) && !read_word(&lost,intel_capture_pages[0],&value));
+    assert(!map_page(&lost,1,0xc0000000ull+intel_capture_pages[1]));
+    assert(unmap_page(&lost,0) && !pa[0] && map_calls==1 && unmap_calls==1 && !mmio_reads);
+    puts("intel-display-probe: PASS actual adapter, read-only temporary mappings, existing-map/RAM alias refusal, firmware/PM/clock gates, boot-client refusal and cleanup after lost resource identity");
 }

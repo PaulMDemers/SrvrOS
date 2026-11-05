@@ -1,5 +1,6 @@
 #include <srvros/console.h>
 #include <srvros/intel_gfx.h>
+#include <srvros/intel_boot_claim.h>
 #include <srvros/pci.h>
 #include <srvros/vmm.h>
 
@@ -25,6 +26,7 @@ struct intel_gfx_device {
 };
 
 static struct intel_gfx_device gpu;
+static bool init_attempted,init_ready;
 
 static bool is_broadwell_device(uint16_t device_id) {
     switch (device_id) {
@@ -62,6 +64,7 @@ static const char *generation_name(void) {
 }
 
 static bool map_mmio(uint32_t bar0) {
+    if(!intel_boot_check(INTEL_BOOT_LEGACY,gpu.pci))return false;
     if ((bar0 & 0x1) != 0) {
         console_write("intel-gfx: bar0 is io-space, expected mmio\n");
         return false;
@@ -101,8 +104,15 @@ static const struct pci_device *find_intel_display(void) {
 }
 
 bool intel_gfx_init(void) {
+    if(init_attempted)return init_ready && gpu.pci && intel_boot_check(INTEL_BOOT_LEGACY,gpu.pci);
+    init_attempted=true;
+    const struct pci_device *candidate=find_intel_display();
+    if(candidate && !intel_boot_claim(INTEL_BOOT_LEGACY,candidate)) {
+        console_write("intel-gfx: boot client claim refused; no PCI writes or MMIO maps\n");
+        return false;
+    }
     gpu = (struct intel_gfx_device) { 0 };
-    gpu.pci = find_intel_display();
+    gpu.pci = candidate;
     if (gpu.pci == 0) {
         console_write("intel-gfx: no Intel display controller\n");
         return false;
@@ -116,6 +126,7 @@ bool intel_gfx_init(void) {
         SRV_GFX_ACCEL_NONE;
 
     uint16_t command = pci_read_config16(gpu.pci, PCI_COMMAND);
+    if(!intel_boot_check(INTEL_BOOT_LEGACY,gpu.pci))return false;
     command |= PCI_COMMAND_MEMORY_SPACE | PCI_COMMAND_BUS_MASTER;
     pci_write_config16(gpu.pci, PCI_COMMAND, command);
 
@@ -132,11 +143,12 @@ bool intel_gfx_init(void) {
         (uint64_t)gpu.revision,
         (uint64_t)gpu.pci->bar[0],
         gpu.mmio_virtual);
+    init_ready=true;
     return true;
 }
 
 bool intel_gfx_available(void) {
-    return gpu.pci != 0;
+    return init_ready && gpu.pci && intel_boot_check(INTEL_BOOT_LEGACY,gpu.pci);
 }
 
 uint64_t intel_gfx_flags(void) {
