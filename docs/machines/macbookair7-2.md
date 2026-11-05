@@ -1,22 +1,29 @@
 # MacBookAir7,2 / A1466
 
-Updated: 2026-11-04. State: **active reference machine; partial device acceptance**.
+Updated: 2026-11-05. State: **active reference machine; partial device acceptance**.
 
-### Active scope: collected window observation; ownership admission next
+### Active scope: boot-client exclusion before native ownership admission
 
-Main `3fcf2630` is integrated as `efd398e2`, including merged PR317 retirement,
-Files/toolkit and portable-tool updates. Preserve Air7,2 capture recipes, the
-Haswell firmware-only diagnostic and scope-owner cancellation. The exact source
-and bounded native acceptance are recorded below; neither the merge nor an
-observation grants native GPU write authority.
+Main `88bdc382` is integrated as `28b17462`, retaining the Intel capture paths,
+Air6,1 cache-context diagnostic, scope-owner cancellation and current signal/
+streaming/browser changes. Open PR301 owns this Air's scanout foundation; PR19
+owns Pro Wi-Fi. Native acceptance remains attached to the receipts below.
 
-The read-only16-entry/MSAC objective is complete at `120acb9a`. Every sampled
-entry beyond the full34MiB inherited fence is already populated. Do not turn
-this survey into a free-slot allocator or enable the proposed writer at index8704.
-Next is planning exclusive boot-scoped GPU ownership and an explicit managed
-GGTT handoff, private RAM/cache publication and native invalidation/reader
-retirement before any private mapping/restore. No GPU writer or next reboot is
-armed. Other machine agents retain independent scope and hardware acceptance.
+Bounded next implementation: select a single immutable Intel boot-client policy
+before initialization, then bind its sole claim to the discovered PCI identity
+and resources. The legacy initializer must refuse before PCI writes or writable
+MMIO maps when the observer policy is selected; repeated initialization must
+not reset or duplicate its resources. Every Air observer access rechecks its
+claim, while cleanup remains possible after a refusal. Haswell captures block
+the legacy initializer without claiming Air7,2 ownership. Touches a new boot-
+claim mechanism, main policy selection, Intel legacy/observer adapters, tests
+and documentation. No HDA/firmware exclusion, native managed GGTT interval,
+PTE writer, hardware takeover or page-flip authority is inferred from this
+software claim. All16 observed entries remain protected as populated state.
+
+Host side-effect/fault coverage and source-matched VM checks precede any future
+physical trial. Installed native remains collected0e1 with recovery9aa; no
+reboot is armed. Accepted evidence/payloads remain outside build cleanup.
 
 ### Native aperture and candidate-entry observation accepted
 
