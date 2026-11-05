@@ -76,3 +76,33 @@ policy, the prior RC6 timing failure and package-C3 zero remain unchanged.
 Raw firmware, Ubuntu catalogs and local verification scripts are stored in
 ignored evidence with a hash-verified durable copy outside build. Only this
 sanitized inventory is committed.
+
+
+## Opt-in firmware-only native capture candidate
+
+`--haswell-firmware-capture --laptop-probe-volume UUID` selects the separate
+`ram-usb-v1-hfw` diagnostic ELF/profile. It omits the ordinary Intel graphics
+stub and optional AML/battery/power services. The capture reads PCI identity,
+then copies the complete current Limine catalog (1–128 entries) and136-byte DMAR
+twice through existing firmware RAM mappings. The whole table must match this
+unit's SHA256 pin; both catalogs, table addresses and raw bytes must agree.
+Unknown/overlapping/overflowing/partial catalogs and duplicate/malformed tables
+refuse. Table bytes require exactly one enclosing ACPI-reclaim/NVS
+entry (generic reserved/device ranges refuse) and exact existing kernel translations before reads. No new mappings,
+VT-d/GT/GGTT access, firmware method or writer is provided by the capture.
+
+Each copy and inter-copy interval remains within100ms; the128-entry report bound
+is specific to this new profile. Other profiles' limits stay unchanged. Two full
+raw catalogs and DMAR records plus PCI/address/timing metadata are retained in
+the unchanged64KiB tail. Independent decoding recomputes checksum/SHA256,
+identity/catalog/timing/coverage and all matching endpoints. It reports resource
+intersections, always denying DMA state, mapping permission and ownership.
+A refusal is saved as failure/incomplete, never disabled-translation evidence.
+
+The guest shows progress without input and uses ordinary log save, clean USB
+unmount and Ubuntu return. Missing workspace returns without capture/save;
+exact Q35 rehearsals must refuse identity before firmware copying. Dedicated
+core/actual-adapter tests, independent hash/receipt/max-tail checks, matched
+builds/VMs and local recovery/storage preflight are required before installation.
+Implementation is not native acceptance; the local run record owns install/arm
+state and collection. Prior inherited backing evidence remains unchanged.

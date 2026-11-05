@@ -568,6 +568,7 @@ static void session_scope_contract(void) {
     if(!setjmp(exit_hook)) process_thread_exit(17);
     check_thread_hook=false;assert(current->owned_user_scope==token && current->main_thread_exited);
     user_scope_detach(current);current->main_thread_exited=false;
+    /* Preserve the loop selector across the simulated process-exit longjmp. */
     for(volatile unsigned worker=0;worker<2;worker++) {
         assert(!process_scope_create(&token));
         assert(!process_scope_reserve(token));

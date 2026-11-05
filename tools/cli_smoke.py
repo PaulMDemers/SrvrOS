@@ -675,7 +675,7 @@ def main():
         "usage: cmp [-s] file1 file2",
         "usage: yes [string ...]",
         "usage: install [-d] [-D] [-m mode] source dest | install -d dir [...]",
-        "usage: diff [-q|-u] file1 file2",
+        "Usage: diff [-q|-u] [-L LABEL] [-L LABEL] FILE1 FILE2",
         "usage: tar -cf archive file... | tar -tf archive | tar -xf archive [-C dir]",
         "usage: gzip [-cdk] [file ...]",
         "usage: gunzip [-ck] [file ...]",

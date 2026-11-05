@@ -566,3 +566,61 @@ handles interruption afterward. No shared libc or kernel changes were needed.
 A held-open pipe probe verifies repeated blocked-read Ctrl-C recovery and quit
 before EOF, with exact termios and alternate-screen restoration. See the
 [roadmap](roadmap.md) and host record for verification evidence and limits.
+
+## xz stream interchange
+
+The bounded XZ Utils 5.8.4 profile compresses reports and restores `.xz` files
+through standard output. Use separate output paths and check command status:
+
+```sh
+xz -0 -c report.txt > report.txt.xz
+xz -t report.txt.xz
+xz -dc report.txt.xz > report-restored.txt
+cmp report.txt report-restored.txt
+```
+
+Compression defaults to preset `-0`. Codec allocation budgets are 8 MiB for
+compression and 32 MiB for decompression; they are not total process-memory
+limits. Explicit memory options can lower these ceilings. Oversized inputs fail
+instead of silently raising the budget or changing the compression preset.
+Failed redirection can leave partial output; only accept output after a successful
+exit and integrity/readback checks. The CLI does not replace or delete inputs.
+
+Regular files and finite stdin/stdout pipelines are included. Threaded coding,
+other compression presets, legacy/raw formats, custom filter CLI, automatic file
+replacement, metadata/sparse output, progress UI, job control and helper scripts
+are excluded. Unsupported options and nonempty `XZ_DEFAULTS`/`XZ_OPT` are rejected.
+For tar interchange, decompress to an intermediate `.tar` file first; the local
+tar command does not accept an archive on stdin.
+
+Engineering provenance, cooperative interruption limits and reproduction commands
+are recorded in [the port contract](../ports/srvros/xz/PORT.md). The isolated xz checkout passes the bounded qualification; see the roadmap for
+exact evidence and scope limits.
+
+## GNU diff text-file review
+
+The qualified bounded GNU Diffutils 3.12 port compares two
+regular text files in the C locale with normal, `-q`, or three-context-line `-u`
+output, optional `-L` labels and `--` before paths. Use labels to make saved
+reports independent of filesystem timestamps:
+
+```sh
+diff -u -L before -L after before.txt after.txt > changes.diff
+echo $?
+less changes.diff
+```
+
+Status 0 means equal, 1 means different (a successful comparison), and 2 means
+trouble. Inputs are preserved; stdout can contain a partial report on failure or
+cancellation. Each file is limited to 256 KiB, 8192 physical lines and 64 KiB per
+physical line including its newline. NUL, stdin, directories, recursion,
+configurable context, binary/ignore/regex/color/pager modes and other diffutils
+executables are outside this profile. These caps do not promise a strict RSS or
+interruption latency.
+
+GNU diff supports missing final newlines and zero-count unified hunks. The
+existing compact local `patch` has a narrower tested subset: do not assume it
+can apply every GNU report. Its zero-context insertion, removed `--- ` content,
+missing-final-newline and create/delete cases are not accepted. GNU patch is a
+separate later queue entry; host GNU patch roundtrips are a distinct diff gate.
+Qualification evidence and delivery order are in [the CLI queue](cli-port-queue.md).
