@@ -1,16 +1,71 @@
 # Apple Silicon macOS build host
 
-## Final workspace reset — November 4, 2026
+## Final integration and source-only workspace reset — November 4, 2026
 
-The user requested final integration of the current work, updated documentation,
-and removal of the local workspace's old checkouts and generated artifacts.
-The integration coordinator is auditing unpublished changes, remaining PRs and
-mounted build volumes before cleanup. Browser's completed experimental no-JIT
-milestone now joins this final integration; no production capability enablement
-or new browser feature is implied. Physical-device work retains its own runtime
-acceptance requirements. This checkpoint is in progress and does not claim that
-unmerged device work or local artifacts have already been removed.
+The local closeout includes the experimental no-JIT milestone through Ports #9
+and OS #334, plus the proof-storage helper in OS #375. Final tested source
+`a7f71411` incorporates actual main `f11ce344`; Ports is `af1421b`, Apps
+`24bc4541`, UI `3a695ce5`. Later evidence, dependency-pin and status commits add
+publication records without changing the tested runtime sources. The
+[browser record](../browser-port.md) links the source-attributed portable evidence.
 
+After the late-main cache diagnostics arrived, focused cache/admission/lifecycle
+checks and both kernels were rebuilt. All 715 retained SDK/dependency/JSC input
+and output bytes match the prior fresh build. Four new paired browser guests
+pass in 28.022 seconds on normal kernel `da470d92` and experimental kernel
+`796fe409`, including JavaScript output 42 and GC root checks. Page-quota fallback
+diagnostics remain; production capabilities remain disabled. This accepts no
+full browser, native signal ABI, SMP or physical hardware.
+
+Root's final normal build and two integration guests pass in 104.210 seconds:
+full build 4.93, desktop shutdown 81.72 and session scope 13.43. The generated
+fixture verifies cancel-exit, cancel-save-picker, save-and-exit and discard of an
+existing prompt; five saved files, pre/post image structure, offline allocation
+and restoration of the process baseline all pass. An independent filesystem
+checker was not run for this generated fixture. The live-init session check runs
+scopeprobe twice, lifetime, PTY and syscall probes; all pass. Root inspected the
+raw completion markers and the rendered unsaved-work prompt. Every owned process
+group retired. These are disposable QEMU checks, not installed-disk migration or
+new physical acceptance. The published [normal supervisor receipt](../assets/evidence/pr334-integrated-smoke/sanitized/normal-os/supervisor.json)
+and [evidence manifest](../assets/evidence/pr334-integrated-smoke/manifest.json)
+retain the exact results and original/published hashes after workspace cleanup.
+
+Earlier final-normal attempts stopped at an uninitialized-submodule preflight,
+a split host-compiler argument, an old ISO-output symlink and a missing Pillow
+import. They remain failed in the evidence history. Exact pinned modules, an
+absolute executable compiler wrapper, removal of only the ISO symlink, and a
+disposable Python 3.14.6 / Pillow 13.0.0 environment resolve those host setup
+issues. No OS runtime change was needed. The [macOS guide](../macos-development.md)
+now records the screenshot-test dependency.
+
+The user selected one fresh `SrvrOS` main checkout and its 11 recursive pinned
+submodules, with no build artifacts. The reset removes the 20 old checkouts,
+workspace `.local`, generated VM/build state, compatibility wrappers and stale
+root notes after source/ref, merge and documentation verification. Workspace
+image mounts are detached before deleting their mountpoint directories; backing
+images and accepted archives under external volumes remain outside the deletion
+scope. Dated local evidence paths below are historical and are not retained by
+this reset. Physical PRs #301/#19 remain remote unfinished work with their own
+acceptance gates. Hosted Actions remain disabled.
+
+## Proof-storage retention — delivered November 4, 2026
+
+The user chose to finish the previously unpublished automatic proof cleanup
+prototype before the workspace reset. [PR375](https://github.com/PaulMDemers/SrvrOS/pull/375)
+merged as `d10a4e10`; its tree matches reviewed source `2a25a49c`.
+The chooser and installation-recovery harnesses now enforce cooperative storage
+budgets and retain at least two managed successful runs. Only inventoried,
+unchanged disposable images from older successes qualify for pruning; failed,
+incomplete, legacy, pinned, modified, linked and open proof data stays protected.
+See the [policy and usage](../macos-development.md).
+
+All 19 host-only temporary-fixture regressions, Python compilation, whitespace
+checks and 1,030 local documentation links pass. Independent implementation and
+integration review passed after correcting the nested-mount documentation.
+Imported chooser VM consumers remain compatible without storage arguments. This
+is host tooling acceptance; no VM or installed-media rerun is claimed. The older
+uncommitted prototype and its 16-test note are superseded by this reviewed
+replacement, rather than additional work to preserve in the reset workspace.
 
 ## Larger-document migration — qualified closeout November 4, 2026
 
