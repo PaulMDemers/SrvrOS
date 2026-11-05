@@ -4867,13 +4867,8 @@ build/userspace/test_patch_probe.elf: tools/test_patch_probe.c $(USER_CRT0_OBJ) 
 build/ap-probe/haswell-cache-walk.o: kernel/diagnostics/haswell_cache_walk.c $(ZIG) $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -c $< -o $@
-.PHONY: test-x86-cache test-haswell-cache-context
-test-core: test-x86-cache test-haswell-cache-context
-test-x86-cache: build/tests/x86-cache$(HOST_EXE)
-	$<
-build/tests/x86-cache$(HOST_EXE): tools/test_x86_cache.c kernel/src/x86_cache.c kernel/include/srvros/x86_cache.h
-	@mkdir -p $(@D)
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/x86_cache.c -o $@
+.PHONY: test-haswell-cache-context
+test-core: test-haswell-cache-context
 test-haswell-cache-context: build/tests/hsw-cache-walk$(HOST_EXE) build/tests/hsw-cache-adapter$(HOST_EXE)
 	build/tests/hsw-cache-walk$(HOST_EXE)
 	build/tests/hsw-cache-adapter$(HOST_EXE) > build/tests/hsw-cache-refusal.log
