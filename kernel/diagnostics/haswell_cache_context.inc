@@ -36,9 +36,20 @@ static bool hcc_read_msr(void *ctx,uint32_t n,uint64_t *v) {
 static uint64_t hcc_root(void){uint64_t v;__asm__ volatile("mov %%cr3,%0":"=r"(v));return v;}
 static uint64_t hcc_control(void){uint64_t v;__asm__ volatile("mov %%cr4,%0":"=r"(v));return v;}
 #endif
+static bool hcc_resource_catalog(void) {
+ const struct hfw_sample *s=&hcc_fw[0].sample[0];
+ const struct hfw_entry *lo=NULL,*hi=NULL;
+ for(unsigned i=0;i<s->count;i++) {
+  const struct hfw_entry *e=s->entries+i;uint64_t end=e->base+e->length;
+  if(e->base<HCC_UNIT+8192 && HCC_UNIT<end)return false;
+  if(end<=HCC_UNIT && (!lo || end>lo->base+lo->length))lo=e;
+  if(e->base>=HCC_UNIT+4096 && (!hi || e->base<hi->base))hi=e;
+ }
+ return lo && hi && lo->base==0xfed1c000 && lo->length==0x4000 && lo->type==1 && hi->base==0xffe10000 && hi->length==0x30000 && hi->type==1;
+}
 static bool hcc_ram_page(uint64_t pa) {
  const struct hfw_sample *s=&hcc_fw[0].sample[0];
- if((pa&4095) || !pa || pa>UINT64_MAX-4096)return false;
+ if((pa&4095) || !pa || pa==HCC_UNIT || pa==HCC_UNIT+4096 || pa>UINT64_MAX-4096)return false;
  unsigned overlap=0;bool covered=false;
  for(unsigned i=0;i<s->count;i++){const struct hfw_entry *e=s->entries+i;
   if(e->base<pa+4096 && pa<e->base+e->length){overlap++;covered=e->base<=pa && pa+4096<=e->base+e->length && (e->type==0 || e->type==2 || e->type==3 || e->type==5 || e->type==6);}}
@@ -91,6 +102,7 @@ bool haswell_cache_context_run(void) {
  console_write("hsw-cache-progress: read-only Air6,1 CPU/cache and page-table RAM; VT-d target never dereferenced\n");
  if(!hfw_capture(&hcc_fw[0],&fw_io,pin))goto done;
  hfw_report(&hcc_fw[0]);status=3;
+ if(!hcc_resource_catalog())goto done;
  for(unsigned phase=0;phase<2;phase++) {
   console_printf("hsw-cache-progress: context=%u/2 no mappings or policy writes\n",(uint64_t)phase+1);
   hcc_bounds[phase][0]=timer_monotonic_us();

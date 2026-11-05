@@ -54,12 +54,16 @@ bool hcc_test_entry(uint64_t pa,unsigned index,uint64_t *v){
 int main(int argc,char **argv){
  if(argc>1){FILE *f=fopen(argv[1],"rb");assert(f);assert(fread(bytes,1,136,f)==136 && fgetc(f)==EOF);fclose(f);}
  for(unsigned i=0;i<128;i++){entry[i]=(struct limine_memmap_entry){.base=0x100000+4096*i,.length=4096,.type=2};entries[i]=entry+i;}
+ entry[126]=(struct limine_memmap_entry){.base=0xfed1c000,.length=0x4000,.type=1};
+ entry[127]=(struct limine_memmap_entry){.base=0xffe10000,.length=0x30000,.type=1};
  response=(struct limine_memmap_response){.entry_count=128,.entries=entries};memmap_request.response=&response;
  if(argc>2)mode=(unsigned)atoi(argv[2]);
  if(argc==1)mode=1;
+ if(mode==14)entry[120]=(struct limine_memmap_entry){.base=0xfed90000,.length=4096,.type=0};
+ if(mode==15)entry[127].base=0xffd70000;
  bool ok=haswell_cache_context_run();
  if(argc==2 || mode==13){assert(ok);puts("laptop-capture: completed=yes");}
  else {assert(!ok);puts("laptop-capture: completed=NO");}
- if(mode==1 || mode==9 || mode==10)assert(!msrs && !ptes);
+ if(mode==1 || mode==9 || mode==10 || mode==14 || mode==15)assert(!msrs && !ptes);
  return 0;
 }

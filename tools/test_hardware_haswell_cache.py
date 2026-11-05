@@ -11,6 +11,12 @@ from test_hardware_haswell_firmware import fixture as fw_fixture
 def fixture():
     pre,pin=fw_fixture()
     pre=pre.replace('laptop-capture: completed=yes\n','')
+    for line in pre.splitlines():
+        if not line.startswith('hsw-firmware-map:'):continue
+        raw=bytearray(base64.b64decode(line.split('data=')[1]))
+        raw[-48:]=struct.pack('<6Q',0xfed1c000,0x4000,1,0xffe10000,0x30000,1)
+        pre=pre.replace(line,line.split('data=')[0]+'data='+base64.b64encode(raw).decode())
+
     post=pre.replace('hsw-firmware','hcache-firmware-post')
     for line in post.splitlines():
         if not line.startswith('hcache-firmware-post-meta:'):continue

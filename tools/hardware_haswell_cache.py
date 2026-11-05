@@ -4,6 +4,7 @@ import re
 import struct
 
 from hardware_haswell_firmware import firmware_result
+from haswell_vtd_read_audit import candidate_resource
 
 UNIT = 0xfed90000
 WINDOW = 0xffffc001f3250000
@@ -114,6 +115,8 @@ def _parse(text):
     post_text='\n'.join(x.replace('hcache-firmware-post','hsw-firmware') for x in text.splitlines() if x.startswith(('hcache-firmware-post','laptop-capture: completed=')))+'\n'
     post=firmware_result(post_text)
     if not fw or not post or fw['status']!='OBSERVED' or post['status']!='OBSERVED':return None
+    candidate_resource(fw['samples'][0]['catalog'])
+    if any(b<UNIT+8192 and UNIT<b+n for b,n,_ in fw['samples'][0]['catalog']):raise ValueError('declared unit overlaps catalog')
     for key in ('identity','table_pa','dmar_base64','catalog'):
         if fw['samples'][0][key]!=post['samples'][0][key]:raise ValueError('changed firmware endpoint')
     cpus={};walks={}
@@ -145,4 +148,4 @@ def _parse(text):
     return dict(status='OBSERVED_CONTEXT',source_completed=True,cpu_samples=[a,b],walks=[dict(phase=p,edge=e,alias=k,**v) for (p,e,k),v in sorted(parsed.items())],
                 firmware_sha256=fw['dmar_sha256'],hypothetical_types={str(i):effective(a,i) for i in (0,2,3)},
                 hhdm_alias_state='present' if index is not None else 'absent',hhdm_effective=effective(a,index) if index is not None else None,
-                proposed_window_absent=True,all_aliases_proven=False,native_mapping_authorized=False,mappings=0,msr_writes=0,hardware_authority=False,ownership=False)
+                proposed_window_absent=True,all_aliases_proven=False,native_translation_observed=False,vt_d_reads=0,native_mapping_authorized=False,mappings=0,msr_writes=0,hardware_authority=False,ownership=False)
