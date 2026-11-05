@@ -7314,3 +7314,34 @@ Require both raw CPU/cache contexts and eight matching CPU-page-table RAM paths,
 bracketing pinned firmware/catalogs, completion and offline integrity before
 acceptance. Physical result remains pending; no VT-d target read, new mapping,
 write, policy change, exhaustive alias proof or ownership follows from this trial.
+
+### Native cache-context closeout (2026-11-05)
+
+PR376 merged as `f11ce344`; release `058606de6d8652b2`, compiled source
+`57c6b416` and harness `a03790ba` completed unattended session
+`session-00065f7f1ab4e407-00`. Independent replay matches the automatic assessment.
+Two complete raw CPU/cache contexts agree: PAT=`0x0000010500070406`,
+MTRRCAP=`0xd0a`, DEF_TYPE=`0xc06`, CR0=`0x80010033`, CR3=`0x8cf06000`,
+CR4=`0x620`, HHDM=`0xffff800000000000`. Each uses37 MSR reads/eight PTE loads;
+whole contexts are63/58us with a7us gap, within unchanged49/16/100ms bounds.
+All eight raw walks agree; both the candidate HHDM address and private window
+are absent at level2. The covering variable MTRR is UC, and hypothetical PAT
+indices0/2/3 classify UC. No actual device leaf, all-alias proof, mapping grant
+or VT-d translation state is observed. No VT-d data read or policy/control write.
+
+Bracketing pinned firmware/catalog observations agree across all42 rows; the
+complete21,839-byte exit log survives with SHA256
+`5be895e235db6e0f929e381b23fd6306c7bbf71489e81ebd2841bde0727bffaf`.
+All598 prior files retain hashes apart from expected workspace metadata; two
+new logs yield600 files/1670 clusters. Automatic and fresh offline checks pass
+with zero leaks, bitmap mismatches or errors and sufficient headroom. All511
+automatically archived evidence files and installed/recovery payload hashes
+verify independently. Ubuntu default and consumed one-shot verify; collector
+disabled and no reboot armed. Payload/evidence backups remain outside build.
+
+Closeout consumes main `88bdc382` and its recursive pins for documentation only;
+new runtime/browser changes do not inherit this older payload's native acceptance.
+Next is a bounded source audit of resource reservation and CPU alias/leaf admission
+before implementing any separately opted-in VT-d read window. Actual ownership,
+reference-count discrepancy, GT/full-path swizzle and scanout/restore retirement
+remain separate. RC6 timing failure and zero package-C3 residency are unchanged.

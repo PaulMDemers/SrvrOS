@@ -262,4 +262,36 @@ for wrong roots/CPU/mode, non-RAM next tables, occupied windows, MSR failures an
 changed raw paths. Host fixtures are synthetic and raw native firmware remains
 local. Matched builds, sanitizer/max-tail proofs, exact-stage identity-refusal
 and missing-workspace VM rehearsals, recovery/USB checks and a saved run record
-are required before installation. Native cache/context acceptance remains pending.
+are required before installation.
+
+### Native cache/context observation (2026-11-05 closeout)
+
+PR376 release `058606de6d8652b2`, compiled source `57c6b416`, completed session
+`session-00065f7f1ab4e407-00` and returned automatically. Both complete raw CPU
+contexts agree: PAT=`0x0000010500070406`, MTRRCAP=`0xd0a`, DEF_TYPE=`0xc06`,
+CR0=`0x80010033`, CR3=`0x8cf06000`, CR4=`0x620`, HHDM=`0xffff800000000000`.
+There are10 variable pairs and11 fixed registers,37 MSR reads per snapshot and
+eight PTE reads per context. Whole contexts take63/58us, including54/53us MSR
+brackets; their gap is7us. All remain within the original caps.
+
+All eight raw before/after walks agree. Both the candidate HHDM address for
+`0xfed90000` and private `0xffffc001f3250000` are absent at the second level.
+The observed enabled variable MTRR covering the target is UC; hypothetical PAT
+indices0/2/3 classify as effective UC under this captured context. This is not
+an observed mapped leaf, an exhaustive alias census or permission to create one.
+Both bracketing firmware captures retain matching pinned136-byte DMAR copies,
+42 complete catalog rows and the same native resource gap. The complete21,839-byte
+exit receipt survives directly; no native VT-d data load, mapping or write occurred.
+
+All598 prior USB files are preserved except expected metadata replacement; two
+new logs yield600 files/1670 allocated clusters. Offline fsck, allocation and
+headroom checks pass with zero leaks/mismatches/errors. Independent payload and
+511 automatically archived evidence files verify; Ubuntu default, consumed
+one-shot and retained console recovery verify. Raw evidence remains local and
+durable outside build. This accepts only the bounded read-only context capture.
+
+Before any VT-d window, close the resource-reservation and relevant CPU-alias/
+leaf-admission proof against these exact observations and current VMM behavior.
+Then require the separate bounded read/retirement contract above; no hardware
+ownership, native DMA translation state or full-path swizzle follows from this
+capture. Earlier RC6 timing failure and zero package-C3 residency remain open.
