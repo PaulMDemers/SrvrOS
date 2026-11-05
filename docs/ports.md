@@ -671,6 +671,8 @@ No shared libc/kernel or unrelated shell-quoting change is included.
 [Portable evidence](assets/screenshots/patch-manifest.json) and the port manifest
 record scope and provenance. Raw proof, frozen payloads and source snapshots are
 retained outside build cleanup. Independent review finds no bounded-profile
-blocker; [port PR12](https://github.com/PaulMDemers/SrvrPorts/pull/12) then
-[OS PR370](https://github.com/PaulMDemers/SrvrOS/pull/370) record ordered delivery.
+blocker. [Port PR12](https://github.com/PaulMDemers/SrvrPorts/pull/12) merged
+`72f3d6fa`, then [OS PR370](https://github.com/PaulMDemers/SrvrOS/pull/370) merged
+`3e327513`. Both trees match the reviewed heads; OS pin `6ff5eda` is reachable
+from port main. Delivery is verified.
 No further feature is required; later ports are deferred under the closeout.

@@ -1,5 +1,9 @@
 # CLI port queue and closeout
 
+Current closeout: GNU diff and GNU Patch are delivered and verified. Grep and
+sha256sum are deferred by the later closeout instruction. All owned jobs stopped;
+no further port or heavy reservation is active.
+
 Authorized November 4, 2026: implement bounded GNU diff in a separate checkout,
 then independently review, publish and merge each accepted port and its OS
 integration before proceeding through this finite list. Keep integration's
@@ -10,7 +14,7 @@ reservation for the next milestone.
 | Order | Application | Bounded outcome | State |
 | --- | --- | --- | --- |
 | 1 | GNU Diffutils 3.12 `diff` | Correct normal/quiet/unified comparison of two capped text files; long lines and 0/1/2 statuses; host patch validation and explicit local-patch subset. | Delivered and verified: ports PR11 `4da8a98b`, then OS PR369 `3fcf2630`; exact trees and reachable pin checked. |
-| 2 | GNU Patch 2.8.1 | Apply a bounded single-file unified patch to an explicit separate output; preserve source, reject ambiguous/unsafe paths and failed hunks; qualify the diff edge cases excluded by the compact local patch. | Active in isolated `SrvrOS-ports-patch`, reconciled with delivered diff/main `3fcf2630`; Qualified on clean60baca64 with all seven fresh guests PASS; delivery order [Ports12](https://github.com/PaulMDemers/SrvrPorts/pull/12) then [OS370](https://github.com/PaulMDemers/SrvrOS/pull/370). Linked PR state records delivery. No further feature required. |
+| 2 | GNU Patch 2.8.1 | Apply a bounded single-file unified patch to an explicit separate output; preserve source, reject ambiguous/unsafe paths and failed hunks; qualify the diff edge cases excluded by the compact local patch. | Delivered and verified: [Ports12](https://github.com/PaulMDemers/SrvrPorts/pull/12) `72f3d6fa`, then [OS370](https://github.com/PaulMDemers/SrvrOS/pull/370) `3e327513`; exact reviewed trees and reachable `6ff5eda` pin verified. No further feature required. |
 | 3 | GNU Grep 3.12 | C-locale text search over bounded files/finite stdin; fixed strings and qualified BRE/ERE, useful match/count/quiet status contracts. No PCRE, recursion, color or Unicode claims. | Deferred by closeout instruction; authenticated source/research retained, no implementation started. |
 | 4 | GNU Coreutils 9.12 `sha256sum` | File/stdin SHA-256 and a bounded explicit verification manifest; exact known vectors and failure statuses. No broader coreutils import or automatic filesystem traversal. | Deferred by closeout instruction; authenticated source retained, no implementation started. |
 
@@ -61,6 +65,12 @@ without target runtime changes. The tested port tree and later delivery head
 differ only in PORT.md. Final exact-head/tree/pin verification belongs to the
 authorized port-first, OS-second delivery. [SrvrPorts #11](https://github.com/PaulMDemers/SrvrPorts/pull/11)
 and [SrvrOS #369](https://github.com/PaulMDemers/SrvrOS/pull/369) record its outcome.
+
+### Historical GNU Patch preparation and qualification checkpoints
+
+The following checkpoints preserve the initial failures and intermediate work.
+Their pending gates and handoff requests are superseded by the final qualification
+and delivered-and-stopped records below; they are not current launch instructions.
 
 GNU Patch 2.8.1 source is authenticated (578 regular files match the archive) and
 its adapter/tests are prepared in the separate checkout. Configuration, recipe,
@@ -180,3 +190,24 @@ host/same-SDK limits. Earlier failed/partial runs are preserved without promotio
 Independent source/evidence review finds no bounded-profile blocker. Deliver
 Ports12 before OS370 with exact-head/tree/pin checks, then update final status
 and stop. Grep and sha256sum remain deferred; no new heavy reservation exists.
+
+### Delivered and stopped
+
+Ports12 merged `72f3d6fad7423aa06ce4fd4f4ab611b4a4930ac3` with tree
+`8bd17ef9efe9f1a679620639044edb52e9038911`, exactly the reviewed port head
+`6ff5edade20620dbaeeed367c4616e34a1c9194a`. OS370 then merged
+`3e3275139d7bac169c2b06816cbca3d3f2623708` with tree
+`f8deea8297e82c548e7d0c646482d4d6bd71c038`, exactly reviewed OS `0ba39ba3`.
+The OS pin is `6ff5eda`, verified reachable from merged port main. Actual remote
+heads and merged PR states were checked. Final changes above tested `60baca64`
+are documentation/assets and a port pin whose only delta is PORT.md.
+
+The immutable outside-build archive contains 2,199 readback-verified entries;
+SHA256 `3a33ed5bd9138781e3e630ec3830c2eba210cac083f2279b51b0744815f3f64e`.
+Ignored `.local/cli-port-evidence/patch/` links its restore, review and delivery
+receipts. Raw failures remain failures, accepted payload/source snapshots survive
+build cleanup, and integration received the exact delivery receipt. All jobs and
+reservations are stopped/released. Keep the integration checkout/review VMs
+untouched. No further work is required for the bounded Patch target; later
+ports remain deferred. Final aggregate docs/status consistency belongs to the
+integration closeout PR373.
