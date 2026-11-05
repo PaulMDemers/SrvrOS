@@ -29,7 +29,8 @@ bool fpu_validate_user_trap(const struct isr_frame *f) {
 bool vmm_user_exec_current(uint64_t address,uint64_t root) {assert(!post_store && root==0x2000);return exec_ok && (address==0x400000 || address==0x500000 || address==0x600000);}
 bool fpu_snapshot_user_trap(const struct isr_frame *f,struct fpu_user_snapshot *out) {
     assert(!post_store && f);if(!snapshot_ok || consumed)return false;
-    for(unsigned i=0;i<512;i++)out->bytes[i]=(uint8_t)(i^0x5a);return true;
+    for(unsigned i=0;i<512;i++)out->bytes[i]=(uint8_t)(i^0x5a);
+    return true;
 }
 bool fpu_prepare_user_trap_commit(const struct isr_frame *f,const struct fpu_user_snapshot *restore,struct fpu_user_trap_commit *out) {
     assert(!post_store && f);if(!commit_prepare_ok || consumed)return false;
