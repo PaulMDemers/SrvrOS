@@ -3968,3 +3968,32 @@ ignored build output, awaiting separate finite build/guest windows. No shared
 allocator, kernel quota, mapping/I/O contract or GC-disable change is proposed.
 Only-root GC, JavaScript42, general ABI/SMP, main merge, physical boot and hosted
 CI acceptance remain unclaimed.
+
+### PR334 initialization diagnosis and strict entropy prerequisite
+
+The bounded initialization diagnostic confirms the terminal GC-control abort at
+WTF `crashUnableToOpenURandom`, reached from `JSContextGroupCreate` through VM
+construction. The 128 MiB structure-heap fallback succeeds before that abort;
+the preceding quota refusals are not its cause. The one-case guest exits134 and
+stops. Frozen diagnostic receipt SHA256
+`5a7900dfe9ccb726afee5478f7ff4a5a9a99533cc7603959e06091f32329aff3`.
+The prior WTF and utility passes remain valid; GC controls and JavaScript42
+remain incomplete.
+
+The shared integration coordinator designates PR334 as the canonical branch for
+the bounded strict-entropy prerequisite, with the WTF adapter in Ports9. Existing
+SYS_RANDOM92 flags0 can use clock/PID mixing and is unsuitable for WTF crypto.
+The next change adds a named opt-in provider-only flag and unavailable result,
+preserves flags0 and POSIX `getrandom` behavior, and uses existing virtio-RNG or
+successful bounded RDRAND only. No new syscall, worker, device, IRQ, quota or VFS
+authority is proposed. WTF will use the existing native forwarder, handle short
+reads, and fail closed on unavailable/old-kernel refusal or nonprogress.
+
+Before a new guest: review the source contract and actual-source negative/partial
+provider tests, preserve exact SDK/header provenance, rebuild matched artifacts,
+review the changed CPU configuration, and obtain a separate finite resource
+window. The proposed positive emulated profile is `qemu64,+rdrand`; plain qemu64
+is the absent-provider control. Neither is physical entropy acceptance. Current
+main d930ed3c has byte-identical entropy bodies to this qualified base; final
+delivery still requires main reconciliation preserving streaming syscall168.
+All earlier compiler/guest resource windows have been released.
