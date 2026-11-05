@@ -1,0 +1,418 @@
+{
+  "result": "passed",
+  "stages": [
+    {
+      "name": "normal-absent",
+      "prepared": "$WORKSPACE/.local/pr334-build-volume/signal-public-7pc3lrr3",
+      "result": "passed",
+      "work_budget_seconds": 90,
+      "argv": [
+        "python3",
+        "tools/signal_public_guest.py",
+        "--run",
+        "$WORKSPACE/.local/pr334-build-volume/signal-public-7pc3lrr3"
+      ],
+      "owned_harness_pid": 4529,
+      "before_cleanup": {},
+      "status_before_cleanup": 0,
+      "status": 0,
+      "remaining": {},
+      "seconds": 2.3232781660044566,
+      "actual": {
+        "result": "passed",
+        "guest_stopped": true,
+        "payload_send_attempted": true,
+        "prepare_sha256": "96e7fd1a8f9d11399a85636e6fcb66b4e68e8374b88fb6b40dccfd9fcd27dcc7",
+        "argv": [
+          "/opt/homebrew/Cellar/qemu/11.1.2/bin/qemu-system-x86_64",
+          "-name",
+          "SrvrOS experimental public signal",
+          "-machine",
+          "q35",
+          "-accel",
+          "tcg,thread=single",
+          "-cpu",
+          "qemu64",
+          "-smp",
+          "1",
+          "-m",
+          "1536M",
+          "-cdrom",
+          "$WORKSPACE/.local/pr334-build-volume/signal-public-7pc3lrr3/guest.iso",
+          "-boot",
+          "d",
+          "-display",
+          "none",
+          "-nic",
+          "none",
+          "-serial",
+          "unix:/tmp/srv-public-7y0lvobf/uart,server=on,wait=off",
+          "-monitor",
+          "none",
+          "-no-reboot"
+        ],
+        "owned_qemu_pid": 4532,
+        "boot_serial_sha256": "4341748ddcb89c5ed0d1b60e0e1d1aef4b0120bc73b5e3b560bc8e36efbf66aa",
+        "boot_network_state": {
+          "required_line_counts": {
+            "net: no supported network device, stack idle": 1,
+            "net: worker not started": 1
+          },
+          "unexpected_provider": false,
+          "allowed": true
+        },
+        "cases": [
+          {
+            "name": "entropy-absent",
+            "payload": "entropy",
+            "result": "passed",
+            "command": "run /entropy \"absent\"",
+            "pid": 3,
+            "exit_status": 0,
+            "markers": {
+              "random-entropy: absent provider closed": 1
+            },
+            "seconds": 0.014,
+            "serial_sha256": "e96a6a6cea36d74465a544a85d500a29669e250a7ed63120964c4fcc43ccf5d4"
+          }
+        ],
+        "serial_sha256": "8d325b8d5745c8017b8248333e5f93033b77392eb822d96340d3cce65dc80d63"
+      }
+    },
+    {
+      "name": "normal-rdrand",
+      "prepared": "$WORKSPACE/.local/pr334-build-volume/signal-public-fux9oq69",
+      "result": "passed",
+      "work_budget_seconds": 90,
+      "argv": [
+        "python3",
+        "tools/signal_public_guest.py",
+        "--run",
+        "$WORKSPACE/.local/pr334-build-volume/signal-public-fux9oq69"
+      ],
+      "owned_harness_pid": 4536,
+      "before_cleanup": {},
+      "status_before_cleanup": 0,
+      "status": 0,
+      "remaining": {},
+      "seconds": 1.8610197500092909,
+      "actual": {
+        "result": "passed",
+        "guest_stopped": true,
+        "payload_send_attempted": true,
+        "prepare_sha256": "1365933d187974c2839ed5d678288493c7469bb44aeb7b870b4cbe15171fb8f9",
+        "argv": [
+          "/opt/homebrew/Cellar/qemu/11.1.2/bin/qemu-system-x86_64",
+          "-name",
+          "SrvrOS experimental public signal",
+          "-machine",
+          "q35",
+          "-accel",
+          "tcg,thread=single",
+          "-cpu",
+          "qemu64,+rdrand",
+          "-smp",
+          "1",
+          "-m",
+          "1536M",
+          "-cdrom",
+          "$WORKSPACE/.local/pr334-build-volume/signal-public-fux9oq69/guest.iso",
+          "-boot",
+          "d",
+          "-display",
+          "none",
+          "-nic",
+          "none",
+          "-serial",
+          "unix:/tmp/srv-public-jlfe2gzm/uart,server=on,wait=off",
+          "-monitor",
+          "none",
+          "-no-reboot"
+        ],
+        "owned_qemu_pid": 4537,
+        "boot_serial_sha256": "f4dda7602f681ec27a910490b6036e3bea9801df33c2b703effc5bb1e566620e",
+        "boot_network_state": {
+          "required_line_counts": {
+            "net: no supported network device, stack idle": 1,
+            "net: worker not started": 1
+          },
+          "unexpected_provider": false,
+          "allowed": true
+        },
+        "cases": [
+          {
+            "name": "entropy-rdrand",
+            "payload": "entropy",
+            "result": "passed",
+            "command": "run /entropy \"rdrand\"",
+            "pid": 3,
+            "exit_status": 0,
+            "markers": {
+              "random-entropy: rdrand contract ok": 1
+            },
+            "seconds": 0.012,
+            "serial_sha256": "80141e4e45d708899c2b0a30e651563d23809c4eab9d6f63692dc53cad7773e7"
+          }
+        ],
+        "serial_sha256": "38ebaea1cc34697c0e14391dcbe6d181aaee0d4cb40735f97d477a47724ba91b"
+      }
+    },
+    {
+      "name": "native-context",
+      "prepared": "$WORKSPACE/.local/pr334-build-volume/signal-public-q1mfaj2m",
+      "result": "passed",
+      "work_budget_seconds": 180,
+      "argv": [
+        "python3",
+        "tools/signal_public_guest.py",
+        "--run",
+        "$WORKSPACE/.local/pr334-build-volume/signal-public-q1mfaj2m"
+      ],
+      "owned_harness_pid": 4541,
+      "before_cleanup": {},
+      "status_before_cleanup": 0,
+      "status": 0,
+      "remaining": {},
+      "seconds": 1.2144404170103371,
+      "actual": {
+        "result": "passed",
+        "guest_stopped": true,
+        "payload_send_attempted": true,
+        "prepare_sha256": "1d3bb933e903bfd03ba65b950fe08cb7b21a803e49c1f56c18a77b9c635ac3f3",
+        "argv": [
+          "/opt/homebrew/Cellar/qemu/11.1.2/bin/qemu-system-x86_64",
+          "-name",
+          "SrvrOS experimental public signal",
+          "-machine",
+          "q35",
+          "-accel",
+          "tcg,thread=single",
+          "-cpu",
+          "qemu64,+rdrand",
+          "-smp",
+          "1",
+          "-m",
+          "1536M",
+          "-cdrom",
+          "$WORKSPACE/.local/pr334-build-volume/signal-public-q1mfaj2m/guest.iso",
+          "-boot",
+          "d",
+          "-display",
+          "none",
+          "-nic",
+          "none",
+          "-serial",
+          "unix:/tmp/srv-public-4h1rbjpm/uart,server=on,wait=off",
+          "-monitor",
+          "none",
+          "-no-reboot"
+        ],
+        "owned_qemu_pid": 4542,
+        "boot_serial_sha256": "7149018c29b8f390467bb2e1ad2bf89cfde15ec0a06513cad71624f18c553c7e",
+        "boot_network_state": {
+          "required_line_counts": {
+            "net: no supported network device, stack idle": 1,
+            "net: worker not started": 1
+          },
+          "unexpected_provider": false,
+          "allowed": true
+        },
+        "pid": 3,
+        "exit_status": 0,
+        "markers": {
+          "signal-public: native main and worker context ok": 1,
+          "signal-public: nested suspend resume handshake ok": 1
+        },
+        "serial_sha256": "63b026a4c6d1a0e9a8c6cb8011f5d60ec08771210852460442354ea28fa93715"
+      }
+    },
+    {
+      "name": "jsc-entropy",
+      "prepared": "$WORKSPACE/.local/pr334-build-volume/signal-public-vq_nmcy_",
+      "result": "passed",
+      "work_budget_seconds": 840,
+      "argv": [
+        "python3",
+        "tools/signal_public_guest.py",
+        "--run",
+        "$WORKSPACE/.local/pr334-build-volume/signal-public-vq_nmcy_"
+      ],
+      "owned_harness_pid": 4546,
+      "before_cleanup": {},
+      "status_before_cleanup": 0,
+      "status": 0,
+      "remaining": {},
+      "seconds": 20.787917000008747,
+      "actual": {
+        "result": "passed",
+        "guest_stopped": true,
+        "payload_send_attempted": true,
+        "prepare_sha256": "e3cab56747e3da4a32cced9eee6ff1317e89962ba395f6b4909f4923f336dfc1",
+        "argv": [
+          "/opt/homebrew/Cellar/qemu/11.1.2/bin/qemu-system-x86_64",
+          "-name",
+          "SrvrOS experimental public signal",
+          "-machine",
+          "q35",
+          "-accel",
+          "tcg,thread=single",
+          "-cpu",
+          "qemu64,+rdrand",
+          "-smp",
+          "1",
+          "-m",
+          "1536M",
+          "-cdrom",
+          "$WORKSPACE/.local/pr334-build-volume/signal-public-vq_nmcy_/guest.iso",
+          "-boot",
+          "d",
+          "-display",
+          "none",
+          "-nic",
+          "none",
+          "-serial",
+          "unix:/tmp/srv-public-g0zt50zh/uart,server=on,wait=off",
+          "-monitor",
+          "none",
+          "-no-reboot"
+        ],
+        "owned_qemu_pid": 4547,
+        "boot_serial_sha256": "6afc4ec6fa0b47bc6a492a1ee414efafe218ff76e98a41f0210096c2f337f66e",
+        "boot_network_state": {
+          "required_line_counts": {
+            "net: no supported network device, stack idle": 1,
+            "net: worker not started": 1
+          },
+          "unexpected_provider": false,
+          "allowed": true
+        },
+        "cases": [
+          {
+            "name": "entropy-rdrand",
+            "payload": "entropy",
+            "result": "passed",
+            "command": "run /entropy \"rdrand\"",
+            "pid": 3,
+            "exit_status": 0,
+            "markers": {
+              "random-entropy: rdrand contract ok": 1
+            },
+            "seconds": 0.021,
+            "serial_sha256": "80141e4e45d708899c2b0a30e651563d23809c4eab9d6f63692dc53cad7773e7"
+          },
+          {
+            "name": "wtf-suspend",
+            "payload": "wtf-signal",
+            "result": "passed",
+            "command": "run /wtf-signal",
+            "pid": 4,
+            "exit_status": 0,
+            "markers": {
+              "wtf-signal: main registers and red zone ok": 1,
+              "wtf-signal: two suspended targets and extra signal ok": 1,
+              "wtf-signal: startup and retirement cycles ok": 1,
+              "wtf-signal: ok": 1
+            },
+            "seconds": 5.888,
+            "serial_sha256": "188c914ec40724ec7001272f634392252f43d7d901044edc838121f14a7252d9"
+          },
+          {
+            "name": "wtf-utility",
+            "payload": "wtfprobe",
+            "result": "passed",
+            "command": "run /wtfprobe",
+            "pid": 5,
+            "exit_status": 0,
+            "markers": {
+              "wtfprobe: ok": 1
+            },
+            "seconds": 0.112,
+            "serial_sha256": "51f07c5221928227ae9e6035e7cb97cbd02cb02c03439d8e6098a349ef10d85a"
+          },
+          {
+            "name": "gc-control",
+            "payload": "gc-roots",
+            "result": "passed",
+            "command": "run /gc-roots \"control\"",
+            "pid": 6,
+            "exit_status": 0,
+            "markers": {
+              "jsc-gc-root: ok": 1
+            },
+            "seconds": 1.811,
+            "serial_sha256": "bce6e271c074af5495e7347d9b72f7e8a3c74a6c91d7c2dfe3b9ed46d5b25566"
+          },
+          {
+            "name": "gc-gp",
+            "payload": "gc-roots",
+            "result": "passed",
+            "command": "run /gc-roots \"gp\"",
+            "pid": 7,
+            "exit_status": 0,
+            "markers": {
+              "jsc-gc-root: ok": 1
+            },
+            "seconds": 1.81,
+            "serial_sha256": "85007e146e206b791e7a92b2a12106b6be3a339c4a3ba6c76fceaf82bb7e87df"
+          },
+          {
+            "name": "gc-fx",
+            "payload": "gc-roots",
+            "result": "passed",
+            "command": "run /gc-roots \"fx\"",
+            "pid": 8,
+            "exit_status": 0,
+            "markers": {
+              "jsc-gc-root: ok": 1
+            },
+            "seconds": 1.777,
+            "serial_sha256": "8a29a6bb170546d2700c6a7dab539e4f4e5dbfd4f8edfb99a5417425d55afc2b"
+          },
+          {
+            "name": "gc-redzone",
+            "payload": "gc-roots",
+            "result": "passed",
+            "command": "run /gc-roots \"redzone\"",
+            "pid": 9,
+            "exit_status": 0,
+            "markers": {
+              "jsc-gc-root: ok": 1
+            },
+            "seconds": 1.778,
+            "serial_sha256": "96a291f33b370a1291a0a15a8932be4c92f93f4e52206fa0c831fc036af68b2e"
+          },
+          {
+            "name": "javascript",
+            "payload": "jsc",
+            "result": "passed",
+            "command": "run /jsc \"-e\" \"print(42)\"",
+            "pid": 10,
+            "exit_status": 0,
+            "markers": {
+              "42": 1
+            },
+            "seconds": 1.148,
+            "serial_sha256": "2f83888797f8fe36d382d30119ba1fab3894448fc69e954f445bc7d23d61956c"
+          }
+        ],
+        "serial_sha256": "4621863edd41ddacf7d5833d8d73ff7fd8ca93e75398648c7ecb0c4645898b37"
+      }
+    }
+  ],
+  "fresh_live_identities": 757,
+  "seconds": 27.864208500017412,
+  "storage_minimum": {
+    "host": {
+      "path": "$HOST_HOME",
+      "free_bytes": 12485890048
+    },
+    "output": {
+      "path": "$WORKSPACE/.local/pr334-build-volume/evidence/entropy-guest-run",
+      "free_bytes": 4117651456
+    },
+    "backing": {
+      "path": "$BACKING_VOLUME",
+      "free_bytes": 8010989568
+    }
+  }
+}

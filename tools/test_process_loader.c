@@ -26,10 +26,11 @@ bool scheduler_io_active(void) {return false;}
 void *kcalloc(size_t count,size_t size) {assert(count==1 && size==sizeof(clone));memset(&clone,0,sizeof(clone));return &clone;}
 void kfree(void *p) {assert(p==&clone);}
 void scheduler_clear_user_context(void) {assert(exec_commit_test && current && !current->owned_user_scope);longjmp(exec_commit,1);}
-void scheduler_set_user_context(void *p,uint64_t as,uint64_t stack) {(void)p;(void)as;(void)stack;assert(0);}
+void scheduler_set_user_context(void *p,uint64_t as,uint64_t stack,uint64_t generation) {(void)p;(void)as;(void)stack;(void)generation;assert(0);}
 void usermode_enter(uint64_t a,uint64_t b,uint64_t c,uint64_t d,uint64_t e,uint64_t f) {(void)a;(void)b;(void)c;(void)d;(void)e;(void)f;abort();}
 static unsigned destroyed_spaces;
 bool vmm_create_address_space(uint64_t *out) { *out=3;return true; }
+bool vmm_prepare_user_kernel_mappings(uint64_t space) {assert(space==3 && clone.address_space==space && !clone.image_generation);return true;}
 void vmm_destroy_address_space(uint64_t space) { assert(space==3);destroyed_spaces++; }
 static uint8_t frames[4096][4096];
 static unsigned allocated, freed, fail_after;

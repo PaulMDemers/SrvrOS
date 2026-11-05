@@ -1,0 +1,26 @@
+{
+  "result": "PASS; original SDK/dependency/JSC/fixture input and output bytes unchanged",
+  "jsc_receipt": "$WORKSPACE/SrvrOS-signal-context/build/browser-jsc/run-wku7pizp/receipt-1793850612509848000.json",
+  "jsc_receipt_sha256": "58c7fb49238f0b0be59faf4568e6610f9ef7a0dbb01a924ae4b9a563273e3fc3",
+  "source_sha256": "35085fbc78b8cb816d59fc666a25edcd84d5349c8f259d761842a1b52ac051f4",
+  "configuration": {
+    "ICU_INCLUDE_DIR": "$WORKSPACE/SrvrOS-signal-context/build/browser-icu/sysroot/include",
+    "ICU_DATA_LIBRARY_RELEASE": "$WORKSPACE/SrvrOS-signal-context/build/browser-icu/sysroot/lib/libicudata.a",
+    "ICU_I18N_LIBRARY_RELEASE": "$WORKSPACE/SrvrOS-signal-context/build/browser-icu/sysroot/lib/libicui18n.a",
+    "ICU_UC_LIBRARY_RELEASE": "$WORKSPACE/SrvrOS-signal-context/build/browser-icu/sysroot/lib/libicuuc.a",
+    "ENABLE_STATIC_JSC": "ON",
+    "ENABLE_JIT": "OFF",
+    "ENABLE_WEBASSEMBLY": "OFF",
+    "ENABLE_REMOTE_INSPECTOR": "OFF",
+    "USE_SYSTEM_MALLOC": "ON",
+    "USE_HEADER_MAPS": "OFF",
+    "ENABLE_UNIFIED_BUILDS": "OFF",
+    "ENABLE_SAMPLING_PROFILER": "OFF",
+    "CMAKE_BUILD_TYPE": "Release",
+    "SRVROS_JSC_FILESYSTEM": "ON",
+    "STD_FILESYSTEM_IS_AVAILABLE": "1",
+    "SRVROS_JSC_BUILD_IDENTIFIER": "0ef592a3666ef64ae857d4508ed4943d624a5090f0ccdfe706d8e5ec4e186ecd"
+  },
+  "seconds": 7.432257249951363,
+  "matched_identity_count": 715
+}

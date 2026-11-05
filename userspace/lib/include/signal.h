@@ -2,6 +2,7 @@
 #define SRVROS_POSIX_SIGNAL_H
 
 #include <sys/types.h>
+#include <stdint.h>
 
 typedef int sig_atomic_t;
 typedef unsigned long sigset_t;
@@ -21,6 +22,8 @@ typedef struct {
     uid_t si_uid;
     void *si_addr;
     int si_status;
+    uint64_t __srvros_valid;
+    uint64_t __srvros_target_tid;
 } siginfo_t;
 
 #define SIGINT 2

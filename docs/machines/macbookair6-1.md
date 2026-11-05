@@ -7199,3 +7199,118 @@ console recovery and accepted backups, installs and automatically runs this
 no-input firmware-only capture. Local records own subsequent arm/collection
 state. No native translation, register-access permission, pin or ownership is
 granted by these tests; original RC6/package-C3 limitations remain unchanged.
+
+
+### Native firmware/full-catalog observation accepted (2026-11-04)
+
+Release `6b7dbee3a9441281`, compiled source `e53b7a63` from merged
+[PR362](https://github.com/PaulMDemers/SrvrOS/pull/362), automatically returned
+and collected session `session-00065f79059839bf-00`. Independent re-decoding of
+the complete15,124-byte exit receipt matches the saved assessment. Both136-byte
+DMAR copies match the unit SHA256 pin and all42 current Limine entries agree.
+Copy brackets are21/16 us, separated by4 us, under unchanged100ms bounds.
+The table is at `0x8cd64000`, inside the ACPI-reclaimable entry
+`[0x8cd64000,0x8cd8f000)`, with exact existing translations verified before reads.
+
+Both declared DRHD pages (`0xfed90000` and `0xfed91000`) have zero catalog
+intersections. Their nearest reserved predecessor is
+`[0xfed1c000,0xfed20000)` and successor `[0xffe10000,0xffe40000)`. These native
+observations corroborate this unit's declarations/gap edges; no resource/MMIO
+admission or DMA translation state follows. No VT-d/GT/GGTT register, new mapping,
+root-table walk, firmware method, writer, pin or hardware ownership is accepted.
+The Intel16/Linux32 discrepancy and full-path swizzle/lifetime remain unresolved.
+
+All596 prior files retain their hashes apart from expected workspace metadata.
+Two new logs yield598 files/1667 allocated clusters; read-only fsck and independent
+allocation checks pass with zero leaks, bitmap mismatches or errors. The raw exit
+SHA256 is `9a21ea46259d9f158fe0025710b92efb4d01b398217c5f4aa95acfb5b3d045f2`.
+All623 automatically backed-up evidence files independently verify. Fresh
+installed/recovery payload checks, Ubuntu default and consumed one-shot pass;
+collector disabled, no reboot armed. Evidence remains durable outside build.
+
+Closeout consumes main `3fcf2630` and recursive pins for documentation only;
+later stream/port changes do not inherit acceptance from this tested release.
+Next is an exact-unit source audit of bounded read-only VT-d register/resource
+admission and retirement before implementing a separately opted-in test. The
+native gap is not a generic mapping permission or a copied Broadwell gate.
+Firmware exclusion, real allocation/GGTT ownership, GT wake ownership and matched
+scanout/restore retirement remain separate. Prior RC6 timing failure and zero
+package-C3 residency are unchanged.
+
+
+### Exact-unit VT-d read/resource audit scope (2026-11-04)
+
+Base `db95fc9b`, native firmware/catalog run already collected and closed.
+PR301 at `69367853` remains independent Broadwell scanout/cache work. Audit
+primary VT-d register width/read semantics and UEFI resource discovery against
+this unit's pinned DMAR and complete native catalog. Add only a host-side
+candidate-contract audit/refusal tests and Air6,1 documentation. No native
+mapping/register/writer, shared DMA driver, boot profile, policy or limit change.
+Keep the GPU-specific page distinct from include-all/IRQ/HPET scope and preserve
+all prior ownership unknowns. Save primary-source hashes and actual-receipt
+host audit, validate locally and merge before proposing an implementation/test.
+
+
+Audit complete: primary VT-d4.1 sections8.3/11.1–11.4 permit the proposed aligned
+DWORD read set, distinguish TES status from programmed RTADDR and do not justify
+root traversal or writes. The host-only contract replays the accepted raw receipt
+and admits only a resource candidate for the explicit GPU page with this unit's
+exact native gap edges. Generic reserved coverage, partial/all-type overlap,
+missing/changed/sibling edges, malformed catalogs and forbidden offsets refuse.
+
+A separate prerequisite was identified: PCD alone is not effective strong-UC
+proof under inherited PAT/MTRR/CR0 state. Current VMM adopts inherited CR3 and
+its physical-translation query supplies no full leaf/cache/alias proof. The next
+bounded work is feature-gated read-only Air6,1 CPU cache/alias context without
+mapping VT-d, before any register-window implementation. PR301's architectural
+cache mechanism and Broadwell address gates remain independent; its accepted
+PAT values or classifier results do not transfer to this unit.
+
+`make test-haswell-firmware check-docs` passes, including eight new gap/offset/
+failed-receipt/foreign-cache regressions and actual core/adapter/hash checks.
+Actual native-receipt host replay passes the candidate audit with all cache,
+mapping/read permission, DMA-state and ownership fields false. Primary PDFs,
+source hashes and host output have a durable copy outside build. No kernel,
+policy, limit, installed payload or physical acceptance changes; no reboot armed.
+
+
+### Air6,1 read-only cache/alias context scope (2026-11-04)
+
+Base `d10a4e10`, prior firmware run collected/closed. PR301 common architectural
+cache core/header/tests are inspected at `e48abf79` and reused unchanged at the
+same paths to avoid a competing fork; its Broadwell adapter/gates/addresses and
+acceptance are not imported. Add an exact Air6,1 opt-in firmware/cache-context
+profile: bounded CPU0 PAT/MTRR/CR0 snapshots plus RAM-only x86 page-table walks
+of the known HHDM candidate alias and an unused proposed private window. Never
+dereference the VT-d virtual/physical target, map it or change cache policy.
+Require fresh pinned firmware/catalog/PCI guards, raw preservation, finite bounds,
+refusal tests and matched host/VM checks before preparing the automated trial.
+No native ownership, mapping grant or full-alias proof is claimed in advance.
+
+PR376 candidate validation: compiled source `57c6b416`, exact release
+`058606de6d8652b2`; harness-only follow-up `a03790ba` corrects the new profile's
+progress assertion while requiring its independently decoded strict refusal.
+Full matched normal/AP/image builds, core/desktop/widgets/profile/host/docs
+checks pass, including89 installation tests with one existing opt-in skip.
+Three baseline GCC misleading-indentation diagnostics were fixed by whitespace
+only; no warning or integrity check was disabled. Shared architectural cache
+core/header/tests remain byte-identical to PR301 `e48abf79` (also unchanged in
+its subsequently fetched `535e8435`).
+
+ASan/UBSan common core, CPU RAM walker and production adapter maximum/nine
+failure cases pass. Independently decoded49-MSR/16-PTE/128-catalog-row raw output
+survives the unchanged64KiB tail with32KiB postamble allowance. Ordinary kernel
+excludes the diagnostic. Sequential exact-stage Q35 checks pass legacy firmware,
+legacy32-fence capture, new cache/firmware refusal/save/unmount/return and missing
+workspace. The initial new-profile VM attempt failed its legacy-progress harness
+assertion after correct guest refusal; that failure is preserved locally.
+
+Native cache-context capture is prepared for an unattended one-shot with visible
+progress and automatic save/unmount/Ubuntu return. Fresh local checks verify AC,
+USB identity, all598 prior file hashes,1667 allocated clusters, zero leaks/errors
+and file/directory headroom. Independent payload/evidence copies survive build
+cleanup; Ubuntu remains recovery/default and the known-good console is retained.
+Require both raw CPU/cache contexts and eight matching CPU-page-table RAM paths,
+bracketing pinned firmware/catalogs, completion and offline integrity before
+acceptance. Physical result remains pending; no VT-d target read, new mapping,
+write, policy change, exhaustive alias proof or ownership follows from this trial.

@@ -1,0 +1,122 @@
+{
+  "source": "0a3f5981cd23b8982c5a8656af55875b0aae4a40",
+  "ports": "af1421b735b61cf47c4e6516730c30468020abc7",
+  "jsc_receipt": "$WORKSPACE/SrvrOS-signal-context/build/browser-jsc/run-wku7pizp/receipt-1793850612509848000.json",
+  "fixtures": {
+    "entropy-fixture": {
+      "receipt": "$WORKSPACE/SrvrOS-signal-context/build/browser-jsc/run-wku7pizp/random-entropy-b8s0jkn6.json",
+      "elf": "$WORKSPACE/SrvrOS-signal-context/build/browser-jsc/run-wku7pizp/random-entropy-b8s0jkn6.elf",
+      "sha256": "a2eab9f8e9012cd48080f017724348cdebf6d4dc5532ddb09c13a3ea49bd4c01"
+    },
+    "wtf-signal": {
+      "receipt": "$WORKSPACE/SrvrOS-signal-context/build/browser-jsc/run-wku7pizp/wtf-signal-uu2ls6b3.json",
+      "elf": "$WORKSPACE/SrvrOS-signal-context/build/browser-jsc/run-wku7pizp/wtf-signal-uu2ls6b3.elf",
+      "sha256": "16ca50ef44876a07e3db903b250bdf2d35b372b5d0e0ead52cbaa695e80be626"
+    },
+    "utility": {
+      "receipt": "$WORKSPACE/SrvrOS-signal-context/build/browser-jsc/run-wku7pizp/wtfprobe-rhixnerk.json",
+      "elf": "$WORKSPACE/SrvrOS-signal-context/build/browser-jsc/run-wku7pizp/wtfprobe-rhixnerk.elf",
+      "sha256": "c4767765ba1d27f31f3ef98b469533a7d20108a9db879d82adbd55a8f3b80234"
+    },
+    "gc-root": {
+      "receipt": "$WORKSPACE/SrvrOS-signal-context/build/browser-jsc/run-wku7pizp/jsc-gc-roots-anumnw17.json",
+      "elf": "$WORKSPACE/SrvrOS-signal-context/build/browser-jsc/run-wku7pizp/jsc-gc-roots-anumnw17.elf",
+      "sha256": "6d1e27843ae1e70e3f2edd035a972f870a98932a236ef0de35d7dc9fcdad1983"
+    }
+  },
+  "prepared": [
+    {
+      "name": "normal-absent",
+      "prepared": "$WORKSPACE/SrvrOS-signal-context/build/final-browser-integration/stage-e/signal-public-kyrks6fs",
+      "prepare_receipt_sha256": "d2881aa8671d94de510cf26a6243fe0344fb616801fe2e2a1bcf05bab16b7e4b",
+      "seconds": 1.093727791972924,
+      "argv": [
+        "python3",
+        "tools/signal_public_guest.py",
+        "--prepare",
+        "--output-parent",
+        "$WORKSPACE/SrvrOS-signal-context/build/final-browser-integration/stage-e",
+        "--kernel",
+        "$WORKSPACE/SrvrOS-signal-context/build/kernel/srvros.elf",
+        "--probe",
+        "$WORKSPACE/SrvrOS-signal-context/build/signal-context/integration-experimental/probe.elf",
+        "--init",
+        "$WORKSPACE/SrvrOS-signal-context/build/userspace/init.elf",
+        "--sdk",
+        "$WORKSPACE/SrvrOS-signal-context/build/sysroot/srvros",
+        "--suite-manifest",
+        "$WORKSPACE/SrvrOS-signal-context/build/final-browser-integration/stage-e/entropy-absent-suite.json"
+      ]
+    },
+    {
+      "name": "normal-rdrand",
+      "prepared": "$WORKSPACE/SrvrOS-signal-context/build/final-browser-integration/stage-e/signal-public-swsgvzb3",
+      "prepare_receipt_sha256": "5c1c6d7b5d4dc7b79dba15e11fa912e9b4fd2e1cbffd07b08ddd61d65efa72bb",
+      "seconds": 1.0543520410428755,
+      "argv": [
+        "python3",
+        "tools/signal_public_guest.py",
+        "--prepare",
+        "--output-parent",
+        "$WORKSPACE/SrvrOS-signal-context/build/final-browser-integration/stage-e",
+        "--kernel",
+        "$WORKSPACE/SrvrOS-signal-context/build/kernel/srvros.elf",
+        "--probe",
+        "$WORKSPACE/SrvrOS-signal-context/build/signal-context/integration-experimental/probe.elf",
+        "--init",
+        "$WORKSPACE/SrvrOS-signal-context/build/userspace/init.elf",
+        "--sdk",
+        "$WORKSPACE/SrvrOS-signal-context/build/sysroot/srvros",
+        "--suite-manifest",
+        "$WORKSPACE/SrvrOS-signal-context/build/final-browser-integration/stage-e/entropy-rdrand-suite.json",
+        "--rdrand"
+      ]
+    },
+    {
+      "name": "native-context",
+      "prepared": "$WORKSPACE/SrvrOS-signal-context/build/final-browser-integration/stage-e/signal-public-1_svpvbm",
+      "prepare_receipt_sha256": "b8c44c8c4a87f9e6261393aac1ed5959c3cdb033d663d0e1ffbf946295daa1d1",
+      "seconds": 0.3481831250246614,
+      "argv": [
+        "python3",
+        "tools/signal_public_guest.py",
+        "--prepare",
+        "--output-parent",
+        "$WORKSPACE/SrvrOS-signal-context/build/final-browser-integration/stage-e",
+        "--kernel",
+        "$WORKSPACE/SrvrOS-signal-context/build/signal-context/integration-experimental/kernel.elf",
+        "--probe",
+        "$WORKSPACE/SrvrOS-signal-context/build/signal-context/integration-experimental/probe.elf",
+        "--init",
+        "$WORKSPACE/SrvrOS-signal-context/build/userspace/init.elf",
+        "--sdk",
+        "$WORKSPACE/SrvrOS-signal-context/build/sysroot/srvros",
+        "--rdrand"
+      ]
+    },
+    {
+      "name": "jsc-entropy",
+      "prepared": "$WORKSPACE/SrvrOS-signal-context/build/final-browser-integration/stage-e/signal-public-moey7r7v",
+      "prepare_receipt_sha256": "0c413fefc05a081881956cb0e8f55c73908e5672622fae4defe543d22ae3c2e5",
+      "seconds": 3.1438618330284953,
+      "argv": [
+        "python3",
+        "tools/signal_public_guest.py",
+        "--prepare",
+        "--output-parent",
+        "$WORKSPACE/SrvrOS-signal-context/build/final-browser-integration/stage-e",
+        "--kernel",
+        "$WORKSPACE/SrvrOS-signal-context/build/signal-context/integration-experimental/kernel.elf",
+        "--probe",
+        "$WORKSPACE/SrvrOS-signal-context/build/signal-context/integration-experimental/probe.elf",
+        "--init",
+        "$WORKSPACE/SrvrOS-signal-context/build/userspace/init.elf",
+        "--sdk",
+        "$WORKSPACE/SrvrOS-signal-context/build/sysroot/srvros",
+        "--suite-manifest",
+        "$WORKSPACE/SrvrOS-signal-context/build/final-browser-integration/stage-e/public-suite-entropy.json",
+        "--rdrand"
+      ]
+    }
+  ]
+}

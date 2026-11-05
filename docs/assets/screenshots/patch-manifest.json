@@ -1,0 +1,82 @@
+{
+  "caps": {
+    "patch_bytes": 1048576,
+    "patch_record_bytes": 131072,
+    "patch_records": 32768,
+    "source_output_bytes": 262144,
+    "source_output_line_bytes": 65536,
+    "source_output_lines": 8192
+  },
+  "command": "patch -i PATCH -o NEW_OUTPUT SOURCE",
+  "delivery": {
+    "archive_entries_verified": 2199,
+    "archive_sha256": "3a33ed5bd9138781e3e630ec3830c2eba210cac083f2279b51b0744815f3f64e",
+    "os_merge": "3e3275139d7bac169c2b06816cbca3d3f2623708",
+    "os_tree": "f8deea8297e82c548e7d0c646482d4d6bd71c038",
+    "pin": "6ff5edade20620dbaeeed367c4616e34a1c9194a",
+    "pin_reachable": true,
+    "port_merge": "72f3d6fad7423aa06ce4fd4f4ab611b4a4930ac3",
+    "port_tree": "8bd17ef9efe9f1a679620639044edb52e9038911",
+    "reviewed_heads": {
+      "os": "0ba39ba31b7f1e7a13510f0f6ef185d2b49eaaee",
+      "ports": "6ff5edade20620dbaeeed367c4616e34a1c9194a"
+    },
+    "trees_equal_reviewed": true
+  },
+  "delivery_order": [
+    "https://github.com/PaulMDemers/SrvrPorts/pull/12",
+    "https://github.com/PaulMDemers/SrvrOS/pull/370"
+  ],
+  "diagnostic_elf_sha256": "bfe188bafaf2805f4c6551421e0260fc9831c60853a452bcb5bcb18230add4ca",
+  "disk_sha256": "471b3b245a4168457ef587d45adf3d81f68ca4e94baf5cdf7f93d8e7c3fbf78d",
+  "frozen_before_guests": {
+    "logical_disk_entries": 392,
+    "payload_files": 10,
+    "tar_members": 146
+  },
+  "gates": {
+    "actual_terminal_functional_and_expert": "PASS",
+    "fresh_two_boot_diff_interoperability": "PASS",
+    "fresh_two_boot_patch": "PASS",
+    "full_cli_498_commands": "PASS",
+    "guest_fsck": "PASS",
+    "independent_source_evidence_review": "PASS",
+    "native_selected": {
+      "PASS": 2,
+      "expected_XFAIL": 1
+    },
+    "ports_and_shipped_miniport_source_preservation": "PASS",
+    "two_clean_gnu_rebuilds_same_sdk_objects": "PASS"
+  },
+  "historical_failures": "Retained original artifact and archive-identity failures; missing old-container comparison resolved by fresh full suite on retained final payload.",
+  "images_sha256": {
+    "patch-output-recovery.png": "867342ca92ff5cecee6c38c099d709bf1f52730a74eca4b09d631b5724563bc6",
+    "patch-restored-target.png": "ec7cbaca378c381f302e562287067393a47dd25965a1ce2715d2edfbe2fd59a3",
+    "patch-unified-report.png": "cac21bff405dc644cbd2051a90e32ad2269aae2589de00369043e505edd15c48"
+  },
+  "initramfs_sha256": "44650b9b8f78f68ee31d47497e48f589d084a78bde17819c11316cfe1c684a36",
+  "integrated_main": "72fde837",
+  "kernel_sha256": "5c45060489ec8055b3c6a359ceaf3cc23847ad6e8be9df83cb073aa368495b98",
+  "limits": [
+    "single-file bounded profile",
+    "no full upstream guest suite",
+    "no RSS/truepeak or traced in-call cancellation bound",
+    "no atomic adversarial namespace/powerloss or physicaldevice acceptance",
+    "expert walkthrough not userstudy",
+    "signals after actual matching/positive output progress, not traced in-syscall interruption",
+    "single expert walkthrough1280x800",
+    "no whole SDK/image reproducibility claim"
+  ],
+  "next_ports": "Grep and sha256sum deferred by later closeout instruction; stop after Patch delivery.",
+  "production_elf_sha256": "d6da63efcdcb4dbc24663123f7fc48d9acb4fc5bc502b3abf1b06301ce3c0651",
+  "production_runtime_sha256": "8359e2a7d74d6592f254b810685c5ebb106a629dbcd7cb1965f9b37ec003aa43",
+  "status": "DELIVERED AND VERIFIED",
+  "statuses": {
+    "0": "applied",
+    "1": "unapplied hunks",
+    "2": "trouble"
+  },
+  "tested_os_commit": "60baca6491bf588c3f06eebf55cc94bb65466c78",
+  "tested_runtime_port_commit": "de7adcea91d2efdcb5ed24500de9bc0d1d6446ab",
+  "version": "GNU Patch2.8.1"
+}

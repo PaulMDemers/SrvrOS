@@ -9,6 +9,7 @@
 #include <string.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include "signal_runtime.h"
 
 #define POSIX_PATH_MAX SRV_PATH_MAX
 #define SPAWN_ACTION_DUP2 0
@@ -430,7 +431,7 @@ int posix_spawnattr_setsigmask(posix_spawnattr_t *attr, const sigset_t *sigmask)
     return 0;
 }
 
-pid_t waitpid(pid_t pid, int *status, int options) {
+__attribute__((noinline)) pid_t waitpid(pid_t pid, int *status, int options) {
     uint64_t raw_status = 0;
     uint64_t flags = SRV_WAIT_POSIX;
     if ((options & ~WNOHANG) != 0) {
@@ -439,6 +440,33 @@ pid_t waitpid(pid_t pid, int *status, int options) {
     }
     if ((options & WNOHANG) != 0) {
         flags |= SRV_WAIT_NOHANG;
+    }
+    if(__posix_signal_info_depth()){errno=ENOTSUP;return -1;}
+    if(__posix_signal_public_available()) {
+        struct posix_signal_io root;
+        int error=__posix_signal_io_begin(&root,SRV_SIGNAL_ROOT_WAITPID,SYS_WAIT,0,
+            (uint64_t)(uintptr_t)__builtin_frame_address(0),0,NULL,0,0,0);
+        if(error<0){errno=-error;return -1;}
+        const uint64_t args[6]={(uint64_t)pid,(uint64_t)(uintptr_t)&raw_status,flags,0,0,0};
+        long result;
+        for(;;) {
+            (void)__posix_signal_dispatch_pending();
+            result=__posix_signal_io_call(&root,SYS_WAIT,args,NULL,0);
+            if(result!=SRV_ERR_INTR || !__posix_signal_dispatch_pending_restartable())break;
+        }
+        if(result>0 && status) {
+            struct srv_signal_io_result_v1 outcome={0};
+            if(__posix_signal_io_result(&root,&outcome)<0 || outcome.size!=64 || outcome.version!=1 ||
+                !outcome.cookie || outcome.syscall_number!=SYS_WAIT || outcome.result!=result ||
+                !(outcome.validity&SRV_SIGNAL_IO_RESULT_COMPLETED_NATIVE))__posix_signal_runtime_failure();
+            long guard=__posix_signal_io_local_begin(&root,outcome.cookie,1);
+            if(guard<0)__posix_signal_runtime_failure();
+            *status=(int)raw_status;
+            __posix_signal_io_local_end(&root,(uint64_t)guard);
+        }
+        __posix_signal_io_end(&root);
+        if(result<0){errno=result < -1?(int)-result:ECHILD;return -1;}
+        return (pid_t)result;
     }
     long result;
     for (;;) {

@@ -1,0 +1,242 @@
+{
+  "scope": "diskless Q35/TCG guest; no browser or hardware acceptance",
+  "source_observation_only": "0a3f5981cd23b8982c5a8656af55875b0aae4a40",
+  "dirty": "",
+  "artifacts": {
+    "kernel": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/build/kernel/srvros.elf",
+      "sha256": "71466b0c6f30ea3c333c3fc6bd8b0ef791f7cd4295d2b67a31402f47a9885c81"
+    },
+    "init": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/build/userspace/init.elf",
+      "sha256": "15d51cf99476c89596894d57f224a0e9eb7565f42b8b9779be66ad186e7c618b"
+    },
+    "test": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/build/browser-runtime/cxxthreads.elf",
+      "sha256": "f13a66fecd59e5da8ff98edc66bbb44e8dfc4660ec26f5d8921b8045081d94a4"
+    },
+    "tlsfirst": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/build/browser-runtime/cxxthreads-tlsfirst.elf",
+      "sha256": "b5e21d60fbbfbfb7a07010ac1d06cea9fb6ded1ebd7e7c184a628c342996f821"
+    },
+    "cxxprobe": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/build/userspace/cxxprobe.elf",
+      "sha256": "0bf3ca9df0426dcfd2dad97175d86056f4b87d2568b7d4eb543bc78e0816904f"
+    },
+    "cxxstlprobe": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/build/userspace/cxxstlprobe.elf",
+      "sha256": "fe13b297f9527dfb75caf1ab9619fa21dc31ffbd0c3930f30dcef1353a482a61"
+    },
+    "limine_bios": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/build/limine-binary/limine-bios.sys",
+      "sha256": "13108feb6399758085ec09de073da5fc74d6b3b7d0df4034e307a28ec37b82a2"
+    },
+    "limine_cd": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/build/limine-binary/limine-bios-cd.bin",
+      "sha256": "18f7823c631e92797e00c320395ed4151e9dcd36ca4c69c51de8da6a473bb3b2"
+    },
+    "icuprobe": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/build/browser-icu/icuprobe.elf",
+      "sha256": "1c7ffaabbd9c46a83a29f8265cc8ff6a4a7e748dc83772074cefee45e15bfc6a"
+    },
+    "rttiprobe": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/build/browser-runtime/rttiprobe.elf",
+      "sha256": "e1da0df53ba3452d9c01224b9523264dd9a6dbbee7429af8eda389abab19a76b"
+    },
+    "mathprobe": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/build/browser-runtime/mathprobe.elf",
+      "sha256": "aff3bfd38330caa45e992c15cbd7b22de87d20a5f261734a3921f02e776a35f1"
+    },
+    "libmprobe": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/build/browser-libm/libmprobe.elf",
+      "sha256": "5ca2b4beaa0249e4349e4d6ae79f423dfa347204caad25badcfe6423b8af3ba8"
+    },
+    "cpp-linkage": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/build/browser-runtime/cpp-linkage.elf",
+      "sha256": "5a04ac9600750ff604b7fdbbf6447f1ba7695d30ebf402138b6f64ba6fb02759"
+    },
+    "algorithmprobe": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/build/browser-runtime/algorithmprobe.elf",
+      "sha256": "7c2079405b53e25d93842a85c102f1d71d4c5977c2f5cbedad678232da592fe2"
+    },
+    "signal-contract": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/build/browser-runtime/signal-contract.elf",
+      "sha256": "2732630249ba5038493198e355376353148e938fa99dfb20959eb1eded9a2d27"
+    },
+    "signal-source": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/tools/test_browser_signal_contract.c",
+      "sha256": "9d7a14c2131b81eecf2a3980b90263dbd183798819a3285ef4b31286c493e400"
+    },
+    "tls-got-zero": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/build/browser-tls-got/proof-e3e28mfb/zero-fixed.elf",
+      "sha256": "004f9bcc4d72f6caebc2ed2b911769e14272dfb459bff90f0a9d67bb875add51"
+    },
+    "tls-got-initialized": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/build/browser-tls-got/proof-e3e28mfb/initialized-fixed.elf",
+      "sha256": "508db87cba69ff361f59721c31d8c64c26414bf4e25bf64a897c595a58c73d66"
+    }
+  },
+  "harness_sha256": {
+    "browser_runtime_smoke.py": "3a005b3530d116c315cd0b60f46fa972d8d77bf81f0aced0de3e7635d24c65c1",
+    "browser_evidence.py": "17694360b098d027b13b9e14c434bdb7202f555ce95b38de9f2821e493a66f8c",
+    "pack_runtime_elf.py": "35c40ea75e36767e89d662487127260c25046d60322a4b0e5ae2064e4a5a8248",
+    "browser_jsc_elf.py": "f9d3ab2e32a63f0583fca77ea24d22ea29c792e4c0d3d85b8cf350b95053b8e7"
+  },
+  "tests": [
+    {
+      "mode": "mathprobe",
+      "expected_status": 0,
+      "seconds": 0.014,
+      "passed": true
+    },
+    {
+      "mode": "rttiprobe",
+      "expected_status": 0,
+      "seconds": 0.005,
+      "passed": true
+    },
+    {
+      "mode": "badcast",
+      "expected_status": 134,
+      "seconds": 0.009,
+      "passed": true
+    },
+    {
+      "mode": "icuprobe",
+      "expected_status": 0,
+      "seconds": 0.12,
+      "passed": true
+    },
+    {
+      "mode": "cxxprobe",
+      "expected_status": 0,
+      "seconds": 0.007,
+      "passed": true
+    },
+    {
+      "mode": "cxxstlprobe",
+      "expected_status": 0,
+      "seconds": 0.009,
+      "passed": true
+    },
+    {
+      "mode": "tlsfirst",
+      "expected_status": 0,
+      "seconds": 0.006,
+      "passed": true
+    },
+    {
+      "mode": "all",
+      "expected_status": 0,
+      "seconds": 0.108,
+      "passed": true
+    },
+    {
+      "mode": "exhaust",
+      "expected_status": 134,
+      "seconds": 0.029,
+      "passed": true
+    },
+    {
+      "mode": "all",
+      "expected_status": 0,
+      "seconds": 0.108,
+      "passed": true
+    },
+    {
+      "mode": "icuprobe",
+      "expected_status": 0,
+      "seconds": 0.136,
+      "passed": true
+    },
+    {
+      "mode": "tls-got-zero",
+      "expected_status": 0,
+      "seconds": 0.013,
+      "passed": true
+    },
+    {
+      "mode": "tls-got-initialized",
+      "expected_status": 0,
+      "seconds": 0.018,
+      "passed": true
+    },
+    {
+      "mode": "libmprobe",
+      "expected_status": 0,
+      "seconds": 0.012,
+      "passed": true
+    },
+    {
+      "mode": "cpp-linkage",
+      "expected_status": 0,
+      "seconds": 0.007,
+      "passed": true
+    },
+    {
+      "mode": "algorithmprobe",
+      "expected_status": 0,
+      "seconds": 0.021,
+      "passed": true
+    },
+    {
+      "mode": "signal-contract",
+      "expected_status": 0,
+      "seconds": 0.017,
+      "passed": true
+    }
+  ],
+  "runtime_provenance": {
+    "path": "$WORKSPACE/SrvrOS-signal-context/build/browser-runtime/receipt.json",
+    "sha256": "e6b9c331bf36ca643de0241d482e3c69efed30a6711458a562d9936a1972fac9",
+    "sdk_headers_sha256": "06f99b932ca66b7a3401e850dd2616056968ebddbae32c23cab06fbd4080a232"
+  },
+  "icu_provenance": {
+    "path": "$WORKSPACE/SrvrOS-signal-context/build/browser-icu/receipt.json",
+    "sha256": "1d14604eb60d1943655343266a86793b2027808bbdfd12c08cf9312babd3b5b2"
+  },
+  "tls_got_provenance": {
+    "path": "$WORKSPACE/SrvrOS-signal-context/build/browser-tls-got/proof-e3e28mfb/receipt.json",
+    "sha256": "86b759fa56d7c517c38288a0b68ae0d424708f61ea4f4806407d3a13267b06b7"
+  },
+  "extension_provenance": {
+    "path": "$WORKSPACE/SrvrOS-signal-context/build/browser-runtime/extension-receipt.json",
+    "sha256": "f334b2def2b0e3f7c40ecdcf08eb765426bc111dc003625d90ae467c523d1bac"
+  },
+  "signal_provenance": {
+    "path": "$WORKSPACE/SrvrOS-signal-context/build/browser-runtime/signal-receipt.json",
+    "sha256": "90201fbf5dfc94c643aec4e1892c6c566123085870b3fb17912c062bc926366e"
+  },
+  "iso_sha256": "bc4b27e59cc9f2c726700a59c12f30430b82f53897379bc887a5739516b5fdaf",
+  "qemu_command": [
+    "qemu-system-x86_64",
+    "-name",
+    "SrvrOS C++ runtime probe",
+    "-machine",
+    "q35",
+    "-accel",
+    "tcg,thread=single",
+    "-cpu",
+    "qemu64",
+    "-smp",
+    "1",
+    "-m",
+    "512M",
+    "-cdrom",
+    "$WORKSPACE/SrvrOS-signal-context/build/browser-runtime/guest-11spy7gz/runtime.iso",
+    "-boot",
+    "d",
+    "-display",
+    "none",
+    "-nic",
+    "none",
+    "-serial",
+    "unix:/tmp/srv-cxx-0h7s_s0i/serial,server=on,wait=off",
+    "-monitor",
+    "none",
+    "-no-reboot"
+  ],
+  "pid": 42420,
+  "guest_stopped": true,
+  "result": "passed"
+}

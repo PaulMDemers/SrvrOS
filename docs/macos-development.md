@@ -35,6 +35,19 @@ GCC is required. The wrapper keeps Zig caches under `build/tooling/`, disables
 macOS copy metadata in the archive environment and does not edit shell startup
 files. Run builds and VM harnesses sequentially in one checkout.
 
+Screenshot-reading UI smoke tests, including the desktop shutdown lifecycle
+check, use Pillow. Install it in a disposable repository-local environment and
+run those harnesses with that environment's Python:
+
+```sh
+python3 -m venv build/tooling/host-venv
+build/tooling/host-venv/bin/python -m pip install Pillow
+# Use build/tooling/host-venv/bin/python in place of python3 for those tests.
+```
+
+The final integration used Python 3.14.6 and Pillow 13.0.0. Keep the environment
+under `build/` so cleaning a checkout also removes these host test dependencies.
+
 ## Interactive VM and controls
 
 The launcher uses Q35, one emulated x86_64 CPU, 1 GiB RAM, a 1440×900 Cocoa window,
@@ -373,3 +386,52 @@ For pipe mapping and launcher regressions, build a matched image with
 and `python3 tools/thread_smoke.py --test pipe-mapping --boot-wait 60`
 sequentially. Use the Darwin host compiler wrapper above with
 `test-pipe-user-mapping test-process-output` for the corresponding host tests.
+
+
+## Disposable profile and recovery proof storage
+
+`tools/profile_chooser_smoke.py` (on branches containing the chooser) and
+`tools/installation_recovery_smoke.py` use `tools/proof_storage.py` to bound
+new disposable fixtures. Defaults are a **4 GiB free-space reserve**, an
+**8 GiB per-run logical-size budget**, a **24 GiB per-harness proof-directory
+budget**, and **two intact successful runs**. Startup requires the full run
+budget plus the reserve (12 GiB by default). Checks before large allocations
+and between phases reserve the remaining budget; a refusal preserves current
+state and exits unsuccessfully. Chooser wait loops also check every five seconds.
+These are cooperative phase checks, not filesystem quotas or a reservation
+against unrelated writers. Existing running Python processes keep their loaded
+code; the policy applies on the next invocation.
+
+Overrides: `--min-free-gib`, `--run-budget-gib`, `--proof-budget-gib`, and
+`--keep-successful-runs` (minimum two). All GiB limits must be finite and positive.
+Logical sizes count sparse/clone files conservatively and deduplicate hard links;
+reported sizes are not a claim about uniquely reclaimable APFS blocks.
+
+Retention runs at startup and successful completion. It only unlinks inventoried,
+unchanged `.img`, `.exfat` and `image.partial` files from older successful proofs
+created under this policy, keeping receipts, journals, logs and screenshots plus
+an audit of removed paths in `proof-storage.json`. Legacy runs without this
+marker, failed/incomplete runs, symlinks, hard-linked or modified images and open
+runs stay intact. A per-harness lock refuses concurrent managed invocations;
+per-run locks and `lsof` protect active/reviewed proofs. Missing or inconclusive
+`lsof` disables removal. Legacy/protected files still count toward the directory
+budget: if they prevent admission, the harness refuses instead of deleting them.
+
+Before promoting or reopening a proof for recovery/review, create `.keep` in its
+`proof-*` directory. Keep that marker for as long as the proof is required, and
+retain accepted recovery copies outside `build`, as usual. Neither `.local`
+recovery evidence nor persistent VM storage is a retention target. Do not run
+manual cleanup or open an unpinned proof concurrently with a harness. The locks
+and open-file scan are cooperative: they cannot prevent a process from opening or
+replacing a file after the scan. Manage these directories only in a trusted
+workspace and pin proofs before opening them. Symlinked proof paths and mount
+crossings between the workspace root and proof directory are refused. Nested
+mounts inside proof runs are skipped, protected from pruning, and excluded from
+size accounting. Pinning may cause future runs to refuse until reviewed disposable
+output is archived or space is freed.
+
+Run the host-only safety regressions without generating VM images:
+
+```sh
+python3 tools/test_proof_storage.py -v
+```

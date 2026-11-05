@@ -1,0 +1,60 @@
+{
+  "result": "passed",
+  "guest_stopped": true,
+  "payload_send_attempted": true,
+  "prepare_sha256": "d4c1b1a0d0bf144b6aa80f660c2f35ef4f9a4b5bd474deefebccad718d63f185",
+  "argv": [
+    "/opt/homebrew/Cellar/qemu/11.1.2/bin/qemu-system-x86_64",
+    "-name",
+    "SrvrOS experimental public signal",
+    "-machine",
+    "q35",
+    "-accel",
+    "tcg,thread=single",
+    "-cpu",
+    "qemu64,+rdrand",
+    "-smp",
+    "1",
+    "-m",
+    "1536M",
+    "-cdrom",
+    "$WORKSPACE/SrvrOS-signal-context/build/final-browser-integration/late-main-guests/signal-public-eakz4ff9/guest.iso",
+    "-boot",
+    "d",
+    "-display",
+    "none",
+    "-nic",
+    "none",
+    "-serial",
+    "unix:/tmp/srv-public-0b3gduy8/uart,server=on,wait=off",
+    "-monitor",
+    "none",
+    "-no-reboot"
+  ],
+  "owned_qemu_pid": 64428,
+  "boot_serial_sha256": "0876b415f27bd38357dc5ab1658ef83d5de0e8080416431f37c1cf63b0c7a28d",
+  "boot_network_state": {
+    "required_line_counts": {
+      "net: no supported network device, stack idle": 1,
+      "net: worker not started": 1
+    },
+    "unexpected_provider": false,
+    "allowed": true
+  },
+  "cases": [
+    {
+      "name": "entropy-rdrand",
+      "payload": "entropy",
+      "result": "passed",
+      "command": "run /entropy \"rdrand\"",
+      "pid": 3,
+      "exit_status": 0,
+      "markers": {
+        "random-entropy: rdrand contract ok": 1
+      },
+      "seconds": 0.015,
+      "serial_sha256": "80141e4e45d708899c2b0a30e651563d23809c4eab9d6f63692dc53cad7773e7"
+    }
+  ],
+  "serial_sha256": "063631637019da3ee000eb6d2539dcf7a51a36db1df207714d8228b3b0380aa5"
+}

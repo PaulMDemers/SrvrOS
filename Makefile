@@ -1085,7 +1085,7 @@ $(KERNEL): $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_OBJ) kernel/linker.ld
 
 # Early-boot paths and trap-state helpers/diagnostics must not use compiler
 # SSE: it may run before CR4.OSFXSR or clobber registers before they are saved.
-build/kernel/src/arch/x86_64/fpu.c.o build/kernel/src/arch/x86_64/fpu_selftest.c.o build/kernel/src/console.c.o build/kernel/src/memory/mem.c.o build/kernel/src/latency.c.o: build/%.c.o: %.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+build/kernel/src/arch/x86_64/fpu.c.o build/kernel/src/arch/x86_64/fpu_selftest.c.o build/kernel/src/arch/x86_64/signal_context.c.o build/kernel/src/arch/x86_64/signal_state.c.o build/kernel/src/console.c.o build/kernel/src/memory/mem.c.o build/kernel/src/latency.c.o: build/%.c.o: %.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
 	mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -mno-sse -mno-sse2 -c $< -o $@
 
@@ -1315,9 +1315,7 @@ $(USER_GZIP): $(ZIG) $(USER_CRT0_OBJ) $(USER_GZIP_OBJ) $(ZLIB_OBJ) $(USER_LIB_OB
 	mkdir -p $(dir $@)
 	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_GZIP_OBJ) $(ZLIB_OBJ) $(USER_LIB_OBJ) -o $@
 
-$(USER_PATCH): $(ZIG) $(USER_CRT0_OBJ) $(USER_PATCH_OBJ) $(USER_LIB_OBJ) userspace/app.ld
-	mkdir -p $(dir $@)
-	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_PATCH_OBJ) $(USER_LIB_OBJ) -o $@
+# Genuine GNU Patch recipe is supplied by ports/srvros/patch/build.mk.
 
 $(USER_MAKE): $(ZIG) $(USER_CRT0_OBJ) $(USER_MAKE_OBJ) $(USER_LIB_OBJ) userspace/app.ld
 	mkdir -p $(dir $@)
@@ -2151,6 +2149,16 @@ build/tests/fpu-host$(HOST_EXE): tools/test_fpu.c kernel/src/arch/x86_64/fpu.c k
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -mno-sse -mno-sse2 -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
 test-core: test-fpu
 
+.PHONY: test-signal-context
+test-signal-context: build/tests/signal-context-host$(HOST_EXE)
+	$<
+build/tests/signal-context-host$(HOST_EXE): tools/test_signal_context.c kernel/src/arch/x86_64/signal_context.c kernel/src/arch/x86_64/signal_context.h kernel/src/arch/x86_64/isr_frame.h
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror tools/test_signal_context.c kernel/src/arch/x86_64/signal_context.c -o $@
+build/kernel/src/arch/x86_64/signal_context.c.o: kernel/src/arch/x86_64/signal_context.h kernel/src/arch/x86_64/isr_frame.h
+build/kernel/src/arch/x86_64/fpu.c.o build/kernel/src/arch/x86_64/isr.S.o: kernel/src/arch/x86_64/fpu_trap.h kernel/src/arch/x86_64/isr_frame.h
+test-core: test-signal-context
+
 .PHONY: test-pmm interrupt-smoke
 test-pmm: build/tests/pmm-host$(HOST_EXE)
 	$<
@@ -2171,6 +2179,14 @@ build/tests/vmm-user-range-host$(HOST_EXE): tools/test_vmm_user_range.c kernel/s
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
 test-core: test-initramfs test-vmm-user-range
+
+.PHONY: test-vmm-prepare
+test-vmm-prepare: build/tests/vmm-prepare-host$(HOST_EXE)
+	$<
+build/tests/vmm-prepare-host$(HOST_EXE): tools/test_vmm_prepare.c kernel/src/memory/vmm.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -o $@
+test-core: test-vmm-prepare
 
 .PHONY: test-user-fault test-process-fault
 test-user-fault: build/tests/user-fault-host$(HOST_EXE)
@@ -2235,20 +2251,20 @@ test-portable-profiles:
 .PHONY: test-exfat-entries
 test-exfat-entries: build/tests/exfat-entries-host$(HOST_EXE)
 	$<
-build/tests/exfat-entries-host$(HOST_EXE): tools/test_exfat_entries.c kernel/src/fs/exfat.c $(KERNEL_HEADERS)
+build/tests/exfat-entries-host$(HOST_EXE): tools/test_exfat_entries.c kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
 test-core: test-exfat-entries
 
 .PHONY: test-exfat-hardening
 .PHONY: test-workspace-image
-build/tests/workspace-image-host$(HOST_EXE): tools/workspace_image_host.c kernel/src/workspace_image.c kernel/src/block_claim.c kernel/src/fs/exfat.c kernel/src/vfs.c $(KERNEL_HEADERS)
+build/tests/workspace-image-host$(HOST_EXE): tools/workspace_image_host.c kernel/src/workspace_image.c kernel/src/block_claim.c kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc kernel/src/vfs.c $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) -DSRVROS_EXFAT_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include tools/workspace_image_host.c kernel/src/fs/exfat.c kernel/src/vfs.c -Wl,--gc-sections -o $@
 test-workspace-image: build/tests/workspace-image-host$(HOST_EXE) build/tests/exfat-driver$(HOST_EXE)
 	$(PYTHON) tools/test_workspace_image.py
 
-build/tests/exfat-driver$(HOST_EXE): tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/block_claim.c kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
+build/tests/exfat-driver$(HOST_EXE): tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc kernel/src/block_claim.c kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) -DSRVROS_EXFAT_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c -Wl,--gc-sections -o $@
 test-exfat-hardening: build/tests/exfat-driver$(HOST_EXE)
@@ -3860,6 +3876,46 @@ build/tests/process-service-host$(HOST_EXE): tools/test_process_service.c kernel
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include $< kernel/src/vfs_namespace.c -Wl,--gc-sections -o $@
 test-core: test-process-service
 
+.PHONY: test-process-foreground
+test-process-foreground: build/tests/process-foreground-host$(HOST_EXE)
+	$<
+build/tests/process-foreground-host$(HOST_EXE): tools/test_process_foreground.c tools/test_process_service.c kernel/src/process.c kernel/src/vfs_namespace.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include $< kernel/src/vfs_namespace.c -Wl,--gc-sections -o $@
+test-core: test-process-foreground
+
+.PHONY: test-process-spawn-failure
+test-process-spawn-failure: build/tests/process-spawn-failure-host$(HOST_EXE)
+	$<
+build/tests/process-spawn-failure-host$(HOST_EXE): tools/test_process_spawn_failure.c kernel/src/process.c kernel/src/vfs_namespace.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include $< kernel/src/vfs_namespace.c -Wl,--gc-sections -o $@
+test-core: test-process-spawn-failure
+
+.PHONY: test-process-image-metadata test-process-image-lifecycle test-fpu-metadata test-fpu-user-trap
+test-process-image-metadata: build/tests/process-image-metadata-host$(HOST_EXE)
+	$<
+build/tests/process-image-metadata-host$(HOST_EXE): tools/test_process_image_metadata.c kernel/src/process.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+test-process-image-lifecycle: build/tests/process-image-lifecycle-host$(HOST_EXE)
+	$<
+build/tests/process-image-lifecycle-host$(HOST_EXE): tools/test_process_image_lifecycle.c kernel/src/process.c kernel/src/vfs_namespace.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/vfs_namespace.c -Wl,--gc-sections -o $@
+test-fpu-metadata: build/tests/fpu-metadata-host$(HOST_EXE)
+	$<
+build/tests/fpu-metadata-host$(HOST_EXE): tools/test_fpu_metadata.c kernel/src/arch/x86_64/fpu.c $(KERNEL_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -mno-sse -mno-sse2 -mno-mmx -mno-80387 -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+test-core: test-process-image-metadata test-process-image-lifecycle test-fpu-metadata
+test-fpu-user-trap: build/tests/fpu-user-trap-host$(HOST_EXE)
+	$<
+build/tests/fpu-user-trap-host$(HOST_EXE): tools/test_fpu_user_trap.c kernel/src/arch/x86_64/fpu.c kernel/src/arch/x86_64/fpu_trap.h kernel/src/arch/x86_64/isr_frame.h $(KERNEL_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -mno-sse -mno-sse2 -mno-mmx -mno-80387 -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+test-core: test-fpu-user-trap
+
 .PHONY: test-graphics-service
 test-graphics-service: build/tests/graphics-service-host$(HOST_EXE)
 	$<
@@ -3999,7 +4055,7 @@ build/tests/process-event-host$(HOST_EXE): tools/test_process_event.c kernel/src
 
 # MP request exists only in this explicit diagnostic ELF. Ordinary objects and
 # boot requests are never overwritten. AP code has no C runtime dependencies.
-AP_PROBE_OBJ := build/ap-probe/haswell-firmware-core.o build/ap-probe/haswell-firmware-adapter.o build/ap-probe/haswell-backing.o build/ap-probe/power.o build/ap-probe/platform.o build/ap-probe/package.o build/ap-probe/scheduler.o build/ap-probe/main.o build/ap-probe/requests.o build/ap-probe/probe.o build/ap-probe/entry.o
+AP_PROBE_OBJ := build/ap-probe/haswell-cache-walk.o build/ap-probe/haswell-firmware-core.o build/ap-probe/haswell-firmware-adapter.o build/ap-probe/haswell-backing.o build/ap-probe/power.o build/ap-probe/platform.o build/ap-probe/package.o build/ap-probe/scheduler.o build/ap-probe/main.o build/ap-probe/requests.o build/ap-probe/probe.o build/ap-probe/entry.o
 AP_PROBE_BASE := $(filter-out build/kernel/src/main.c.o build/kernel/src/limine_requests.c.o build/kernel/src/scheduler.c.o build/kernel/src/drivers/power.c.o build/kernel/diagnostics/package_audit_core.c.o,$(KERNEL_OBJ))
 .PHONY: ap-probe-kernel
 ap-probe-kernel: build/ap-probe/srvros.elf
@@ -4196,14 +4252,14 @@ build/tests/lifetime-trace-host$(HOST_EXE): tools/test_lifetime_trace.c userspac
 test-core: test-exfat-read-cache
 test-exfat-read-cache: build/tests/exfat-read-cache$(HOST_EXE)
 	$<
-build/tests/exfat-read-cache$(HOST_EXE): tools/test_exfat_read_cache.c kernel/src/fs/exfat.c $(KERNEL_HEADERS)
+build/tests/exfat-read-cache$(HOST_EXE): tools/test_exfat_read_cache.c kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
 
 .PHONY: test-exfat-read-reuse
 test-exfat-read-reuse: build/tests/exfat-driver$(HOST_EXE) build/tests/exfat-uncached-driver$(HOST_EXE)
 	$(PYTHON) tools/test_exfat_read_reuse.py --driver build/tests/exfat-driver$(HOST_EXE) --baseline build/tests/exfat-uncached-driver$(HOST_EXE)
-build/tests/exfat-uncached-driver$(HOST_EXE): tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
+build/tests/exfat-uncached-driver$(HOST_EXE): tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) -DSRVROS_EXFAT_HOST_TEST -DSRVROS_EXFAT_READ_CACHE_OFF -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c -Wl,--gc-sections -o $@
 
@@ -4216,19 +4272,19 @@ build/tests/desktop-probe$(HOST_EXE): tools/test_desktop_probe.c userspace/lib/s
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -idirafter userspace/lib/include $< -Wl,--gc-sections -o $@
 
 .PHONY: test-exfat-bitmap-span test-exfat-bitmap-io
-build/tests/exfat-bitmap-span-host$(HOST_EXE): tools/test_exfat_bitmap_span.c kernel/src/fs/exfat.c $(KERNEL_HEADERS)
+build/tests/exfat-bitmap-span-host$(HOST_EXE): tools/test_exfat_bitmap_span.c kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
 test-exfat-bitmap-span: build/tests/exfat-bitmap-span-host$(HOST_EXE)
 	$<
-build/tests/exfat-bitmap-full-driver$(HOST_EXE): tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
+build/tests/exfat-bitmap-full-driver$(HOST_EXE): tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) -DSRVROS_EXFAT_HOST_TEST -DSRVROS_EXFAT_BITMAP_SPAN_OFF -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c -Wl,--gc-sections -o $@
 test-exfat-bitmap-io: build/tests/exfat-driver$(HOST_EXE) build/tests/exfat-bitmap-full-driver$(HOST_EXE)
 	$(PYTHON) tools/test_exfat_bitmap_io.py --driver build/tests/exfat-driver$(HOST_EXE) --baseline build/tests/exfat-bitmap-full-driver$(HOST_EXE)
 test-core: test-exfat-bitmap-span
 
-build/tests/exfat-cost-host$(HOST_EXE): tools/test_exfat_cost.c kernel/src/fs/exfat.c $(KERNEL_HEADERS)
+build/tests/exfat-cost-host$(HOST_EXE): tools/test_exfat_cost.c kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
 .PHONY: test-exfat-cost
@@ -4237,7 +4293,7 @@ test-exfat-cost: build/tests/exfat-cost-host$(HOST_EXE)
 test-core: test-exfat-cost
 
 .PHONY: test-exfat-append
-build/tests/exfat-noappend-driver$(HOST_EXE): tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
+build/tests/exfat-noappend-driver$(HOST_EXE): tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) -DSRVROS_EXFAT_HOST_TEST -DSRVROS_EXFAT_APPEND_OFF -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c -Wl,--gc-sections -o $@
 test-exfat-append: build/tests/exfat-driver$(HOST_EXE) build/tests/exfat-noappend-driver$(HOST_EXE)
@@ -4364,6 +4420,7 @@ include ports/srvros/bc/build.mk
 include ports/srvros/less/build.mk
 include ports/srvros/xz/build.mk
 include ports/srvros/diffutils/build.mk
+include ports/srvros/patch/build.mk
 # Compatibility forwarding sources include the canonical SrvrUI implementation.
 # Keep incremental OS builds sensitive to changes to the included files.
 build/userspace/lib/src/desk_render.c.o: userspace/widgets/render/desk_render.c userspace/widgets/include/srvros/desk_render.h
@@ -4481,7 +4538,7 @@ test-profile-desktop: test-portable-profiles test-preferences build/tests/profil
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include tools/test_profile_startup.c userspace/lib/src/desk_preferences.c -o build/tests/profile-startup-host$(HOST_EXE)
 	build/tests/profile-startup-host$(HOST_EXE)
 	$(PYTHON) -m unittest discover -s tools -p test_profile_image.py -v
-build/tests/profile-image-driver$(HOST_EXE): tools/profile_image_driver.c tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
+build/tests/profile-image-driver$(HOST_EXE): tools/profile_image_driver.c tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
 	@mkdir -p build/tests
 	$(HOST_CC) -DSRVROS_EXFAT_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include tools/profile_image_driver.c kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c -Wl,--gc-sections -o $@
 
@@ -4507,7 +4564,7 @@ build/tests/intel-scanout-trial$(HOST_EXE): tools/test_intel_scanout_trial.c ker
 .PHONY: test-guest-profiles
 test-guest-profiles: build/tests/guest-profile-host$(HOST_EXE)
 	$(PYTHON) tools/test_guest_profile.py $< -v
-build/tests/guest-profile-host$(HOST_EXE): $(USER_PROFILE_C) userspace/lib/include/srvros/profile_limits.h userspace/profile/codec.h ports/upstream/cjson/cJSON.c ports/upstream/cjson/cJSON.h userspace/lib/include/srvros/profile_session.h userspace/lib/include/srvros/profile_paths.h
+build/tests/guest-profile-host$(HOST_EXE): $(USER_PROFILE_C) userspace/lib/include/srvros/profile_limits.h userspace/profile/codec.h userspace/profile/stream.h userspace/profile/memory.h ports/upstream/cjson/cJSON.c ports/upstream/cjson/cJSON.h userspace/lib/include/srvros/profile_session.h userspace/lib/include/srvros/profile_paths.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -D_POSIX_C_SOURCE=200809L -D_DARWIN_C_SOURCE -DSRVROS_PROFILE_HOST_TEST -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I ports/upstream/cjson $(USER_PROFILE_C) ports/upstream/cjson/cJSON.c -o $@
 
@@ -4614,11 +4671,74 @@ build/tests/intel-dma$(HOST_EXE): tools/test_intel_dma_observe.c kernel/src/driv
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_intel_dma_observe.c kernel/src/drivers/intel_dma_observe.c -o $@
 
-build/tests/installation-inspect-driver$(HOST_EXE): tools/installation_inspect_driver.c tools/installation_readonly_host.h kernel/src/fs/exfat.c kernel/src/block_claim.c kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
+.PHONY: test-fpu-init-mask
+test-fpu-init-mask: build/tests/fpu-init-mask-host$(HOST_EXE)
+	$<
+build/tests/fpu-init-mask-host$(HOST_EXE): tools/test_fpu_init_mask.c kernel/src/arch/x86_64/fpu.c kernel/src/arch/x86_64/fpu_trap.h $(KERNEL_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -mno-sse -mno-sse2 -mno-mmx -mno-80387 -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+test-core: test-fpu-init-mask
+
+.PHONY: test-process-thread-ids
+test-process-thread-ids: build/tests/process-thread-ids-host$(HOST_EXE)
+	$<
+build/tests/process-thread-ids-host$(HOST_EXE): tools/test_process_thread_ids.c tools/test_process_service.c kernel/src/process.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include $< kernel/src/vfs_namespace.c -Wl,--gc-sections -o $@
+test-core: test-process-thread-ids
+
+.PHONY: test-vmm-user-frame-copy test-process-user-frame-copy
+test-vmm-user-frame-copy: build/tests/vmm-user-frame-copy-host$(HOST_EXE)
+	$<
+build/tests/vmm-user-frame-copy-host$(HOST_EXE): tools/test_vmm_user_frame_copy.c kernel/src/memory/vmm.c kernel/src/arch/x86_64/user_frame_copy.h kernel/src/arch/x86_64/fpu_trap.h kernel/src/arch/x86_64/isr_frame.h $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include $< -Wl,--gc-sections -o $@
+test-process-user-frame-copy: build/tests/process-user-frame-copy-host$(HOST_EXE)
+	$<
+build/tests/process-user-frame-copy-host$(HOST_EXE): tools/test_process_user_frame_copy.c kernel/src/process.c kernel/src/arch/x86_64/user_frame_copy.h kernel/src/arch/x86_64/fpu_trap.h $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include $< -Wl,--gc-sections -o $@
+test-core: test-vmm-user-frame-copy test-process-user-frame-copy
+
+.PHONY: test-signal-state test-process-signal-state
+test-signal-state: build/tests/signal-state-host$(HOST_EXE)
+	$<
+build/tests/signal-state-host$(HOST_EXE): tools/test_signal_state.c kernel/src/arch/x86_64/signal_state.c kernel/src/arch/x86_64/signal_state.h kernel/src/arch/x86_64/signal_context.c kernel/src/arch/x86_64/signal_context.h kernel/src/arch/x86_64/isr_frame.h
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $< kernel/src/arch/x86_64/signal_state.c kernel/src/arch/x86_64/signal_context.c -o $@
+test-process-signal-state: build/tests/process-signal-state-host$(HOST_EXE)
+	$<
+build/tests/process-signal-state-host$(HOST_EXE): tools/test_process_signal_state.c tools/test_process_user_frame_copy.c kernel/src/process.c kernel/src/process_signal.h kernel/src/arch/x86_64/signal_state.c kernel/src/arch/x86_64/signal_state.h kernel/src/arch/x86_64/signal_context.c kernel/src/arch/x86_64/signal_context.h $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include $< kernel/src/arch/x86_64/signal_state.c kernel/src/arch/x86_64/signal_context.c -Wl,--gc-sections -o $@
+test-core: test-signal-state test-process-signal-state
+
+.PHONY: test-process-signal-delivery
+test-process-signal-delivery: build/tests/process-signal-delivery-host$(HOST_EXE)
+	$<
+build/tests/process-signal-delivery-host$(HOST_EXE): tools/test_process_signal_delivery.c tools/test_process_user_frame_copy.c kernel/src/process.c kernel/src/process_signal.h kernel/src/arch/x86_64/signal_state.c kernel/src/arch/x86_64/signal_state.h kernel/src/arch/x86_64/signal_context.c kernel/src/arch/x86_64/signal_context.h kernel/src/arch/x86_64/fpu_trap.h kernel/src/arch/x86_64/user_frame_copy.h $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include $< kernel/src/arch/x86_64/signal_state.c kernel/src/arch/x86_64/signal_context.c -Wl,--gc-sections -o $@
+test-core: test-process-signal-delivery
+
+.PHONY: test-process-signal-action-defaults
+test-process-signal-action-defaults: build/tests/process-signal-action-defaults-host$(HOST_EXE)
+	$<
+build/tests/process-signal-action-defaults-host$(HOST_EXE): tools/test_process_signal_action_defaults.c tools/test_process_user_frame_copy.c kernel/src/process.c kernel/src/process_signal.h kernel/src/arch/x86_64/signal_state.c kernel/src/arch/x86_64/signal_context.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I build/limine-protocol/include $< kernel/src/arch/x86_64/signal_state.c kernel/src/arch/x86_64/signal_context.c -Wl,--gc-sections -o $@
+test-core: test-process-signal-action-defaults
+
+.PHONY: test-signal-experimental-admission
+test-core: test-signal-experimental-admission
+test-signal-experimental-admission:
+	$(PYTHON) tools/test_signal_experimental_admission.py --output build/tests/signal-experimental-admission
+
+build/tests/installation-inspect-driver$(HOST_EXE): tools/installation_inspect_driver.c tools/installation_readonly_host.h kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc kernel/src/block_claim.c kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) -DSRVROS_EXFAT_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include tools/installation_inspect_driver.c kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c -Wl,--gc-sections -o $@
 
-build/tests/installation-export-driver$(HOST_EXE): tools/installation_export_driver.c tools/installation_readonly_host.h kernel/src/fs/exfat.c kernel/src/block_claim.c kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
+build/tests/installation-export-driver$(HOST_EXE): tools/installation_export_driver.c tools/installation_readonly_host.h kernel/src/fs/exfat.c kernel/src/fs/exfat_stream.inc kernel/src/block_claim.c kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) -DSRVROS_EXFAT_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include tools/installation_export_driver.c kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c -Wl,--gc-sections -o $@
 
@@ -4654,7 +4774,7 @@ build/tests/intel-cache-probe$(HOST_EXE): tools/test_intel_cache_probe.c kernel/
 build/ap-probe/haswell-firmware-core.o: kernel/diagnostics/haswell_firmware_core.c $(ZIG) $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -c $< -o $@
-build/ap-probe/haswell-firmware-adapter.o: kernel/diagnostics/haswell_firmware_adapter.c $(ZIG) $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+build/ap-probe/haswell-firmware-adapter.o: kernel/diagnostics/haswell_firmware_adapter.c kernel/diagnostics/haswell_cache_context.inc $(ZIG) $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -c $< -o $@
 
@@ -4664,12 +4784,13 @@ test-haswell-firmware: build/tests/hsw-firmware-core$(HOST_EXE) build/tests/hsw-
 	build/tests/hsw-firmware-core$(HOST_EXE) > build/tests/hsw-firmware-core.log
 	build/tests/hsw-firmware-adapter$(HOST_EXE) > build/tests/hsw-firmware-refusal.log
 	$(PYTHON) -m unittest discover -s tools -p test_hardware_haswell_firmware.py
+	$(PYTHON) -m unittest discover -s tools -p test_haswell_vtd_read_audit.py
 build/tests/hsw-firmware-core$(HOST_EXE): tools/test_haswell_firmware.c kernel/diagnostics/haswell_firmware_core.c kernel/include/srvros/haswell_firmware.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/diagnostics/haswell_firmware_core.c -o $@
-build/tests/hsw-firmware-adapter$(HOST_EXE): tools/test_haswell_firmware_adapter.c kernel/diagnostics/haswell_firmware_core.c kernel/diagnostics/haswell_firmware_adapter.c kernel/include/srvros/haswell_firmware.h $(LIMINE_PROTOCOL_DIR)/.ready
+build/tests/hsw-firmware-adapter$(HOST_EXE): tools/test_haswell_firmware_adapter.c kernel/diagnostics/haswell_cache_context.inc kernel/diagnostics/haswell_cache_walk.c kernel/src/x86_cache.c kernel/diagnostics/haswell_firmware_core.c kernel/diagnostics/haswell_firmware_adapter.c kernel/include/srvros/haswell_firmware.h $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/diagnostics/haswell_firmware_core.c kernel/diagnostics/haswell_firmware_adapter.c -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/diagnostics/haswell_firmware_core.c kernel/diagnostics/haswell_firmware_adapter.c kernel/diagnostics/haswell_cache_walk.c kernel/src/x86_cache.c -o $@
 
 # xz diagnostic helper is injected only into disposable qualification images.
 build/userspace/test_xz_probe.elf: tools/test_xz_probe.c $(USER_CRT0_OBJ) $(USER_LIB_OBJ) $(ZIG) userspace/app.ld
@@ -4686,6 +4807,42 @@ build/tests/workspace-gpt-driver$(HOST_EXE): tools/workspace_gpt_driver.c kernel
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
 
+.PHONY: test-profile-stream
+test-profile-stream: test-portable-profiles test-profile-chooser test-file-stream build/tests/profile-ui-host$(HOST_EXE)
+	$(PYTHON) tools/test_guest_profile_stream.py build/tests/guest-profile-host$(HOST_EXE) -v
+	SRVROS_PROFILE_GUEST_TEST_BINARY=$(CURDIR)/build/tests/guest-profile-host$(HOST_EXE) $(PYTHON) tools/test_profile_stream.py -v
+	build/tests/profile-ui-host$(HOST_EXE)
+
+build/tests/profile-ui-host$(HOST_EXE): tools/test_profile_ui.c userspace/apps/deskprofiles/deskprofiles.c userspace/lib/include/srvros/profile_session.h $(wildcard userspace/widgets/include/srvros/*.h) ports/upstream/cjson/cJSON.c ports/upstream/cjson/cJSON.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -D_DARWIN_C_SOURCE -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -idirafter userspace/lib/include -I userspace/widgets/include -I ports/upstream/cjson tools/test_profile_ui.c ports/upstream/cjson/cJSON.c -Wl,--gc-sections -o $@
+
+.PHONY: test-file-stream test-exfat-stream
+test-file-stream: build/tests/file-stream-manager-host$(HOST_EXE) build/tests/file-stream-syscall-host$(HOST_EXE) build/tests/file-stream-process-host$(HOST_EXE) build/tests/file-stream-cleanup-host$(HOST_EXE)
+	build/tests/file-stream-manager-host$(HOST_EXE)
+	build/tests/file-stream-syscall-host$(HOST_EXE)
+	build/tests/file-stream-process-host$(HOST_EXE)
+	build/tests/file-stream-cleanup-host$(HOST_EXE)
+
+build/tests/file-stream-manager-host$(HOST_EXE): tools/test_file_stream.c kernel/src/file_stream.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+
+build/tests/file-stream-syscall-host$(HOST_EXE): tools/test_file_stream_syscall.c kernel/src/arch/x86_64/syscall.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+
+build/tests/file-stream-process-host$(HOST_EXE): tools/test_file_stream_process.c tools/test_process_output.c tools/test_process_teardown.inc tools/test_process_teardown_fault.c kernel/src/process.c kernel/src/vfs_namespace.c kernel/src/pty.c kernel/src/pty_model.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include -DSRVROS_PTY_HOST_TEST $< tools/test_process_teardown_fault.c kernel/src/vfs_namespace.c kernel/src/pty.c kernel/src/pty_model.c -Wl,--gc-sections -o $@
+
+build/tests/file-stream-cleanup-host$(HOST_EXE): tools/test_file_stream_cleanup.c kernel/src/process.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+
+test-exfat-stream:
+	CC="$(HOST_CC)" $(PYTHON) tools/test_exfat_stream.py
+
 
 # Injected only into disposable GNU diff qualification images.
 build/userspace/test_diff_probe.elf: tools/test_diff_probe.c $(USER_CRT0_OBJ) $(USER_LIB_OBJ) $(ZIG) userspace/app.ld
@@ -4701,3 +4858,29 @@ test-intel-window: build/tests/intel-window$(HOST_EXE) build/tests/intel-display
 build/tests/intel-window$(HOST_EXE): tools/test_intel_ggtt_window.c kernel/src/drivers/intel_ggtt_window.c kernel/include/srvros/intel_ggtt_window.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_intel_ggtt_window.c kernel/src/drivers/intel_ggtt_window.c -o $@
+# Injected only into disposable GNU Patch qualification images.
+build/userspace/test_patch_probe.elf: tools/test_patch_probe.c $(USER_CRT0_OBJ) $(USER_LIB_OBJ) $(ZIG) userspace/app.ld
+	mkdir -p build/userspace/patch-probe
+	$(CC) $(USER_CFLAGS) -c tools/test_patch_probe.c -o build/userspace/patch-probe/probe.o
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) build/userspace/patch-probe/probe.o $(USER_LIB_OBJ) -o $@
+
+build/ap-probe/haswell-cache-walk.o: kernel/diagnostics/haswell_cache_walk.c $(ZIG) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -c $< -o $@
+.PHONY: test-x86-cache test-haswell-cache-context
+test-core: test-x86-cache test-haswell-cache-context
+test-x86-cache: build/tests/x86-cache$(HOST_EXE)
+	$<
+build/tests/x86-cache$(HOST_EXE): tools/test_x86_cache.c kernel/src/x86_cache.c kernel/include/srvros/x86_cache.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/x86_cache.c -o $@
+test-haswell-cache-context: build/tests/hsw-cache-walk$(HOST_EXE) build/tests/hsw-cache-adapter$(HOST_EXE)
+	build/tests/hsw-cache-walk$(HOST_EXE)
+	build/tests/hsw-cache-adapter$(HOST_EXE) > build/tests/hsw-cache-refusal.log
+	$(PYTHON) -m unittest discover -s tools -p test_hardware_haswell_cache.py
+build/tests/hsw-cache-walk$(HOST_EXE): tools/test_haswell_cache_walk.c kernel/diagnostics/haswell_cache_walk.c kernel/include/srvros/haswell_cache_context.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/diagnostics/haswell_cache_walk.c -o $@
+build/tests/hsw-cache-adapter$(HOST_EXE): tools/test_haswell_cache_adapter.c kernel/diagnostics/haswell_firmware_adapter.c kernel/diagnostics/haswell_cache_context.inc kernel/diagnostics/haswell_cache_walk.c kernel/diagnostics/haswell_firmware_core.c kernel/src/x86_cache.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -DSRVROS_HCC_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/diagnostics/haswell_firmware_adapter.c kernel/diagnostics/haswell_cache_walk.c kernel/diagnostics/haswell_firmware_core.c kernel/src/x86_cache.c -o $@

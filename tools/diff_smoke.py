@@ -116,7 +116,7 @@ def workflow(pairs):
         lines.append(f'echo $? > {GUEST}alloc-{index}.status')
     lines.append(f'{GUEST}diff-diagnostic -u -L before -L after -- {GUEST}multihunk.a {GUEST}multihunk.b > {GUEST}alloc-recovery.out 2> {GUEST}alloc-recovery.err')
     lines.append(f'echo $? > {GUEST}alloc-recovery.status')
-    lines += [f'patch -i {GUEST}middle.unified.out {GUEST}local-target > {GUEST}patch.log 2> {GUEST}patch.err',
+    lines += [f'patch -i {GUEST}middle.unified.out -o {GUEST}local-restored {GUEST}local-target > {GUEST}patch.log 2> {GUEST}patch.err',
               f'echo $? > {GUEST}patch.status',
               f'{GUEST}diff-probe > {GUEST}probe.log 2> {GUEST}probe.err',
               f'echo $? > {GUEST}probe.status','echo DIFF_WORKFLOW_DONE']
@@ -201,12 +201,12 @@ def main():
                     stop_process(vm);(out/f'serial-{boot}.log').write_bytes(output)
             img=ExfatFixture(disk.read_bytes())
             for name,data in files.items():
-                if name!='local-target' and img.read('diff-test/'+name)!=data:raise RuntimeError('fixture modified: '+name)
+                if img.read('diff-test/'+name)!=data:raise RuntimeError('fixture modified: '+name)
     img=ExfatFixture(disk.read_bytes())
     def get(name):
         data=img.read('diff-test/'+name);(out/name).write_bytes(data);return data
     # Retain all available diagnostics before checking any status.
-    for name in [f'{n}.{m}.{suffix}' for n in cases() for m in ('normal','quiet','unified') for suffix in ('out','err','status')]+[f'fail-{n}.{suffix}' for n in ('nul','line','count','bytes','missing','directory','stdin','unsupported','nul-same','nul-quiet','line-quiet','count-quiet','bytes-quiet') for suffix in ('out','err','status')]+['probe.log','probe.err','probe.status','patch.log','patch.err','patch.status','reboot.out','reboot.status','local-target','cpu-partial.out',
+    for name in [f'{n}.{m}.{suffix}' for n in cases() for m in ('normal','quiet','unified') for suffix in ('out','err','status')]+[f'fail-{n}.{suffix}' for n in ('nul','line','count','bytes','missing','directory','stdin','unsupported','nul-same','nul-quiet','line-quiet','count-quiet','bytes-quiet') for suffix in ('out','err','status')]+['probe.log','probe.err','probe.status','patch.log','patch.err','patch.status','reboot.out','reboot.status','local-target','local-restored','cpu-partial.out',
       'unlabeled.stat','unlabeled-stat.err','unlabeled-stat.status','unlabeled.out','unlabeled.err','unlabeled.status']:
         try:get(name)
         except StopIteration:pass
@@ -269,7 +269,8 @@ def main():
         if get('unlabeled.out')!=expected:raise RuntimeError('unlabeled unified report differs from timestamp-matched host reference')
         receipt['unlabeled_reference_sha256']=sha(expected)
         receipt['unlabeled_guest_mtime_ns']=timestamps
-    if get('patch.status')!=b'0\n' or get('local-target')!=files['middle.b']:raise RuntimeError('local patch subset failed')
+    if (get('patch.status')!=b'0\n' or get('local-target')!=files['middle.a'] or
+        get('local-restored')!=files['middle.b']):raise RuntimeError('local patch subset failed')
     if get('reboot.status')!=b'1\n' or get('reboot.out')!=refs[('middle','unified')][1]:raise RuntimeError('reboot report mismatch')
     receipt['gate_results'].update(comparison_reference='PASS', input_refusals='PASS', unlabeled_timestamp_reference='PASS', local_patch_subset='PASS', second_boot_report='PASS')
     (out/'receipt.json').write_text(json.dumps(receipt,indent=2,sort_keys=True)+'\n')

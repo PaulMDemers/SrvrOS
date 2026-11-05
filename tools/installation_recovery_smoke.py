@@ -25,6 +25,7 @@ from uefi_usb_smoke import default_ovmf_path
 import installation_image
 import profile_bundle
 import source_provenance
+from proof_storage import ProofStorage, add_arguments, MIB, tree_bytes
 
 
 POINTS = ('provisioning-started', 'provisioned', 'assembled', 'verified',
@@ -61,15 +62,20 @@ def main():
     parser.add_argument('--ovmf', default=default_ovmf_path())
     parser.add_argument('--ovmf-vars', required=True)
     parser.add_argument('--boot-wait', type=int, default=120)
+    add_arguments(parser)
     args = parser.parse_args()
     if not 10 <= args.boot_wait <= 240:
         parser.error('invalid boot wait')
     for firmware in (args.ovmf, args.ovmf_vars):
         if not Path(firmware).is_file() or ',' in firmware:
             parser.error('invalid firmware path')
-    base = ROOT / 'build/review/installation-recovery'
-    base.mkdir(parents=True, exist_ok=True)
-    out = Path(tempfile.mkdtemp(prefix='proof-', dir=base)).resolve()
+    with ProofStorage(ROOT, 'installation-recovery', args) as storage:
+        run(args, storage)
+
+
+def run(args, storage):
+    args.storage = storage
+    out = storage.out
     receipt_path = out / 'receipt.json'
     receipt = {'status': 'INCOMPLETE', 'scope': 'disposable QEMU prototype only',
                'boundaries': {}, 'negative_cases': {}, 'boots': {}}
@@ -95,17 +101,18 @@ def main():
         receipt['tools'] = {name: installation_image.digest(ROOT / 'tools' / name) for name in
                             ('installation_recovery_smoke.py', 'installation_image.py',
                              'profile_installation_smoke.py', 'profile_desktop_smoke.py',
-                             'profile_image.py', 'profile_bundle.py')}
+                             'profile_image.py', 'profile_bundle.py', 'proof_storage.py')}
         save_json(receipt_path, receipt)
         private = out / 'inputs'; private.mkdir()
         paths = {}
         for name in ('kernel', 'bootx64', 'init', 'driver'):
             paths[name] = private / name
-            clone(originals[name], paths[name])
+            storage.call(originals[name].stat().st_size, clone, originals[name], paths[name])
         paths['driver'].chmod(0o700)
         paths['exfat'] = private / 'base.exfat'
         prefs = machine_preferences(4, -300)
-        seed_volume(originals['exfat'], paths['exfat'], prefs, paths['driver'], out)
+        storage.call(2 * originals['exfat'].stat().st_size, seed_volume,
+                     originals['exfat'], paths['exfat'], prefs, paths['driver'], out)
         paths['bundle'] = private / 'bundle.json'
         profile_bundle.publish_bundle(paths['bundle'], make_bundle())
         private_hashes = {name: installation_image.digest(path) for name, path in paths.items()}
@@ -119,8 +126,14 @@ def main():
             if plan['version'] != 2:
                 raise RuntimeError('profile plan is not version 2')
         def command(name, stage, *extra):
+            # Include provisioner's temporary volume, full disk and bootstrap.
+            plan = json.loads((stage / 'plan.json').read_text()) if name == 'apply' else None
+            allowance = (plan['layout']['size_bytes'] + 2 * paths['exfat'].stat().st_size + 64 * MIB
+                         if plan else 16 * MIB)
+            storage.check(allowance)
             cmd = [sys.executable, str(ROOT / 'tools/installation_image.py'), name, str(stage), *extra]
             result = subprocess.run(cmd, capture_output=True, text=True)
+            storage.check()
             return {'argv': cmd, 'exit': result.returncode, 'stdout': result.stdout, 'stderr': result.stderr}
         def inspect(stage):
             before = snapshot(stage)
@@ -208,7 +221,8 @@ def main():
                 def wrong_target_inode():
                     replacement = out / 'wrong-target-copy'
                     saved = out / 'wrong-target-original'
-                    shutil.copytree(stage, replacement, copy_function=lambda src, dst: clone(Path(src), Path(dst)))
+                    storage.call(tree_bytes(stage), shutil.copytree, stage, replacement,
+                                 copy_function=lambda src, dst: clone(Path(src), Path(dst)))
                     stage.rename(saved)
                     replacement.rename(stage)
                     def restore():
@@ -320,7 +334,7 @@ def main():
         _, (offset, size) = partitions(disk)
         protected = outside_data(disk, offset, size)
         for number in ('a1', 'a2'):
-            boot(disk, out, number, args, home, 4, -300, edit=(number == 'a1'))
+            storage.call(64 * MIB, boot, disk, out, number, args, home, 4, -300, edit=(number == 'a1'))
             serial = (out / f'serial-{number}.log').read_bytes()
             identity = b'installed-root: selected device=ahci0p2 format=exfat-v1 role=system'
             namespace = b'namespace: /bin /usr /var /home active'
@@ -330,7 +344,8 @@ def main():
             if outside_data(disk, offset, size) != protected:
                 raise RuntimeError('protected disk regions changed')
             payload = data_image(disk, offset, size)
-            extracted = out / f'data-{number}.exfat'; extracted.write_bytes(payload)
+            extracted = out / f'data-{number}.exfat'
+            storage.call(len(payload), extracted.write_bytes, payload)
             check = subprocess.run([str(originals['fs_driver']), str(extracted), 'allocation-check'],
                                    capture_output=True, text=True)
             (out / f'allocation-{number}.log').write_text(check.stdout + check.stderr)

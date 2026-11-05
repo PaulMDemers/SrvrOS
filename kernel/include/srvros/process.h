@@ -330,6 +330,11 @@ bool process_try_munmap_private(struct process *process, uint64_t address, uint6
 /* Exact direct child only; consume fully cleaned reapable metadata atomically.
  * False leaves ownership/status unchanged and requires ordinary wait admission. */
 bool process_try_wait_retired(uint64_t pid, uint64_t *status, int64_t *result);
+/* Copy/status callback runs under IF0 before child claim/accounting. It must
+ * validate the complete output before writing and cannot yield or allocate. */
+typedef bool (*process_wait_copy_fn)(void *,uint64_t);
+bool process_try_wait_retired_checked(uint64_t pid,process_wait_copy_fn,void *,int64_t *result);
+int64_t process_wait_checked(int64_t selector,uint64_t flags,process_wait_copy_fn,void *);
 int64_t process_mprotect(struct process *process,
     uint64_t address,
     uint64_t length,
@@ -348,10 +353,31 @@ int64_t process_thread_signal(uint64_t tid,uint64_t signal);
 /* CPU0 scheduler-owned accounting, while IRQs are masked. */
 void process_account_cpu(void *process,void *thread,bool user,uint64_t elapsed_us);
 int64_t process_rlimit(uint64_t resource,const struct srv_rlimit *set,struct srv_rlimit *out);
+/* Existing file-size limit and signal semantics for explicit bounded streams. */
+uint64_t process_stream_identity(struct process *process);
+int64_t process_stream_write_allowed(uint64_t position,uint64_t length);
 int64_t process_usage(int64_t who,struct srv_usage *out);
 uint64_t process_thread_self(void);
 int64_t process_futex_wait(uint32_t *address, uint32_t expected, uint64_t timeout_ticks);
 int64_t process_futex_wake(uint32_t *address, uint64_t max_count);
+struct process_user_binding {
+    struct fpu_state *user_fpu;
+    uint64_t fs_base;
+    uint64_t kernel_stack_top;
+    uint64_t kernel_stack_base,kernel_stack_physical,kernel_stack_frames;
+    bool new_worker_allowed;
+};
+/* CPU0, IRQs already excluded; output unchanged on refusal. Structural ownership
+ * only: callers must separately check root preparation before publication.
+ * The resolver permits intact killed/exiting bindings for ordinary unwind;
+ * worker admission refuses them. Neither operation establishes an FPU proof. */
+bool process_resolve_user_binding(void *process, void *user_thread,
+    uint64_t image_generation, uint64_t address_space,
+    struct process_user_binding *out);
+/* New worker READY admission; IRQs already excluded. */
+bool process_admit_user_worker(void *process, void *worker,
+    uint64_t image_generation, uint64_t address_space,
+    struct process_user_binding *out);
 struct fpu_state *process_fpu_state(void *process);
 uint64_t process_fs_base(void *process);
 void process_fpu_save(void *process);

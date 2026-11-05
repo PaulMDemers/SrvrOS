@@ -606,7 +606,7 @@ long srv_thread_join(uint64_t tid, uint64_t *value_out) {
 }
 
 long srv_thread_self(void) {
-    return srv_syscall0(SYS_THREAD_SELF);
+    return srv_syscall6(SYS_THREAD_SELF,0,0,0,0,0,0);
 }
 
 long srv_thread_detach(uint64_t tid) {
@@ -632,7 +632,7 @@ long srv_futex_wait(uint32_t *address, uint32_t expected, uint64_t timeout_ticks
 }
 
 long srv_futex_wake(uint32_t *address, uint64_t max_count) {
-    return srv_syscall2(SYS_FUTEX_WAKE, (long)address, (long)max_count);
+    return srv_syscall6(SYS_FUTEX_WAKE,(long)address,(long)max_count,0,0,0,0);
 }
 
 void srv_puts(const char *text) {
@@ -666,4 +666,8 @@ long srv_path_context(uint64_t operation,const char *path,char *out,size_t capac
 
 long srv_directory(uint64_t operation,int fd,void *out,size_t capacity) {
     return srv_syscall4(SYS_DIRECTORY,(long)operation,fd,(long)out,(long)capacity);
+}
+
+long srv_file_stream(const struct srv_file_stream_request *request) {
+    return srv_syscall1(SYS_FILE_STREAM,(long)request);
 }

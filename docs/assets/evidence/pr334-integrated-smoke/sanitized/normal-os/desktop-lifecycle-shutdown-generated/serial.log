@@ -1,0 +1,924 @@
+[2J[H
+[2;27H[36mLimine 11.4.1 (x86-64, BIOS)[0m
+
+
+
+[13;1H                                   [7m srvros [27m
+[4;1H    [32mARROWS[0m Select    [32mENTER[0m Boot    [32mE[0m Edit[4;64H[32mB[0m Blank Entry[14;1H
+
+[24;1H[2K[32mBooting automatically in [92m1[32m, press any key to stop the countdown...[0m[2J[Hlimine: Loading executable `boot():/boot/srvros.elf`...
+limine: Loading module `boot():/boot/initramfs.tar`...
+
+
+srvros: entering kernel
+srvros: booting (quiet mode)
+bootloader: Limine 11.4.1
+hhdm offset: 0xffff800000000000
+block: registry ready slots=32 cache_entries=32
+gdt: loaded
+fpu: fxsave/sse/sse2 enabled
+idt: loaded
+irq: pic masked
+idt: testing breakpoint exception
+pmm: frames total=1037288 free=63907 used=973381 bitmap=0x0000000000100000 bytes=129661
+acpi: mcfg allocations=1
+acpi: ioapic id=0 addr=0x00000000fec00000 gsi_base=0
+initramfs: files=144 size=145868800 bytes
+pmm: test alloc phys=0x000000000021d000 virt=0xffff80000021d000 free_before=63907 free_after=63906
+pmm: test free complete free=63907
+heap: initialized total=16384 free=16336 used=0
+heap: test alloc a=0xffff80000021d030 b=0xffff80000021d0a0 first=0x0000000000001000 last=0x0000000000001007 free_before=16336 free_after=16144
+heap: test free complete free=16336 used=0
+vfs: mounted initramfs nodes=146 skipped=0
+scheduler: timer-preemptive kernel threads ready
+workqueue: ready slots=16
+vmm: active pml4 phys=0x000000001ff73000 virt=0xffff80001ff73000
+clock: reference=acpi-pm port=0x0000000000000608
+clock: UTC=rtc epoch=1793852139 century=50
+lapic: mapped phys=0x00000000fee00000 virt=0xffffc000fee00000
+lapic: timer vector=32 initial_count=624812 calibrated=yes target=100Hz
+keyboard: ps/2 controller drained, irq enabled, scanning enabled
+mouse: ps/2 auxiliary device enabled
+ioapic: id=0 max_redir=23 phys=0x00000000fec00000 gsi_base=0
+ioapic: irq=1 gsi=1 vector=33 flags=0x0000000000000000
+ioapic: irq=4 gsi=4 vector=36 flags=0x0000000000000000
+serial: com1 rx irq enabled
+ioapic: irq=12 gsi=12 vector=44 flags=0x0000000000000000
+pci: devices=8 config=ecam
+pci: network bus=0 dev=2 fn=0 vendor=0x0000000000008086 device=0x00000000000010d3 type=ethernet irq=11 bar0=0x00000000feb80000
+lpss-spi: disabled (experimental transport)
+xhci: protocol USB  rev=0x0000000000000200 ports=5-8 slot_type=0
+xhci: protocol USB  rev=0x0000000000000300 ports=1-4 slot_type=0
+xhci: firmware handoff=no-legacy-cap
+xhci: hid keyboard slot=1 port=5 parent=0 hub_port=0 route=0x0000000000000000 dci=3 packet=8 interval=7
+xhci: bus=0 dev=4 fn=0 vendor=0x0000000000001b36 device=0x000000000000000d mmio=0x00000000febd4000 version=0x0000000000000100 ports=8 slots=64 op=yes
+input: ps2_keyboard=yes ps2_mouse=yes usb_keyboards=1 usb_mice=0 usb_devices=1 usb_hubs=0
+input-ps2: enabled=1 irq=0 scancodes=0 last=0x0000000000000000 keybuf=0 pushed=0 dropped=0
+intel-gfx: no Intel display controller
+ahci: abar=0x00000000febd9000 pi=0x000000000000003f cap=0x00000000c0141f05
+ahci: registered ahci0 port=0 sectors=262144
+exfat: mounted /fat from ahci0 files=379 cluster=4096 bytes
+bootlog: persisted /fat/var/log/boot.log
+namespace: /bin /usr /var /home active; /fat /work retained
+e1000: no supported device
+net: no supported network device, stack idle
+net: worker not started
+vmm: test map virt=0xffffc00290000000 phys=0x000000000039d000 value=0x737276726f73564d
+irq: enabling interrupts
+timer: observed ticks=6
+input-ps2: enabled=1 irq=0 scancodes=0 last=0x0000000000000000 keybuf=0 pushed=0 dropped=0
+input-timing: queue-oldest count=0 mean_us=0 max_us=0
+input-timing: queue-latest count=0 mean_us=0 max_us=0
+input-usb: op=yes devices=1 keyboards=1 mice=0 hubs=0 transfers=6 last_cc=1 keybuf=0 pushed=0 dropped=0
+input-usb: dev slot=1 keyboard=1 mouse=0 iface=0 dci=3 pkt=8 pending=1 ok=0 err=0 last_cc=0 rem=0 reports=0 prev=0x0000000000000000 0x0000000000000000 0x0000000000000000 0x0000000000000000 0x0000000000000000 0x0000000000000000 0x0000000000000000 0x0000000000000000
+input-ps2: enabled=1 irq=0 scancodes=0 last=0x0000000000000000 keybuf=0 pushed=0 dropped=0
+input-timing: queue-oldest count=0 mean_us=0 max_us=0
+input-timing: queue-latest count=0 mean_us=0 max_us=0
+input-usb: op=yes devices=1 keyboards=1 mice=0 hubs=0 transfers=6 last_cc=1 keybuf=0 pushed=0 dropped=0
+input-usb: dev slot=1 keyboard=1 mouse=0 iface=0 dci=3 pkt=8 pending=1 ok=0 err=0 last_cc=0 rem=0 reports=0 prev=0x0000000000000000 0x0000000000000000 0x0000000000000000 0x0000000000000000 0x0000000000000000 0x0000000000000000 0x0000000000000000 0x0000000000000000
+framebuffer: 1280x800 pitch=5120 bpp=32
+srvros: kernel bootstrap complete
+init: started pid=1
+
+init: startup complete
+init: readiness=ready elapsed_us=90327
+input-ps2: enabled=1 irq=0 scancodes=0 last=0x0000000000000000 keybuf=0 pushed=0 dropped=0
+input-timing: queue-oldest count=0 mean_us=0 max_us=0
+input-timing: queue-latest count=0 mean_us=0 max_us=0
+input-usb: op=yes devices=1 keyboards=1 mice=0 hubs=0 transfers=6 last_cc=1 keybuf=0 pushed=0 dropped=0
+input-usb: dev slot=1 keyboard=1 mouse=0 iface=0 dci=3 pkt=8 pending=1 ok=0 err=0 last_cc=0 rem=0 reports=0 prev=0x0000000000000000 0x0000000000000000 0x0000000000000000 0x0000000000000000 0x0000000000000000 0x0000000000000000 0x0000000000000000 0x0000000000000000
+srvros: boot complete
+diagnostics: use dmesg, bootinfo, or reboot with srvros.log=debug
+
+
+srvros monitor ready. Type 'help'.
+srv> srv> p[Ksrv> psrv> ps[Ksrv> ps
+pid name status
+1 /init background
+3 /fat/bin/svscan background
+srv> srv> r[Ksrv> rsrv> ru[Ksrv> rusrv> run[Ksrv> runsrv> run [Ksrv> run srv> run /[Ksrv> run /srv> run /f[Ksrv> run /fsrv> run /fa[Ksrv> run /fasrv> run /fat[Ksrv> run /fatsrv> run /fat/[Ksrv> run /fat/srv> run /fat/b[Ksrv> run /fat/bsrv> run /fat/bi[Ksrv> run /fat/bisrv> run /fat/bin[Ksrv> run /fat/binsrv> run /fat/bin/[Ksrv> run /fat/bin/srv> run /fat/bin/d[Ksrv> run /fat/bin/dsrv> run /fat/bin/de[Ksrv> run /fat/bin/desrv> run /fat/bin/des[Ksrv> run /fat/bin/dessrv> run /fat/bin/desk[Ksrv> run /fat/bin/desksrv> run /fat/bin/deskd[Ksrv> run /fat/bin/deskdsrv> run /fat/bin/deskd [Ksrv> run /fat/bin/deskd srv> run /fat/bin/deskd -[Ksrv> run /fat/bin/deskd -srv> run /fat/bin/deskd --[Ksrv> run /fat/bin/deskd --srv> run /fat/bin/deskd --a[Ksrv> run /fat/bin/deskd --asrv> run /fat/bin/deskd --ap[Ksrv> run /fat/bin/deskd --apsrv> run /fat/bin/deskd --app[Ksrv> run /fat/bin/deskd --appsrv> run /fat/bin/deskd --apps[Ksrv> run /fat/bin/deskd --appssrv> run /fat/bin/deskd --apps-[Ksrv> run /fat/bin/deskd --apps-srv> run /fat/bin/deskd --apps-t[Ksrv> run /fat/bin/deskd --apps-tsrv> run /fat/bin/deskd --apps-tr[Ksrv> run /fat/bin/deskd --apps-trsrv> run /fat/bin/deskd --apps-tra[Ksrv> run /fat/bin/deskd --apps-trasrv> run /fat/bin/deskd --apps-trac[Ksrv> run /fat/bin/deskd --apps-tracsrv> run /fat/bin/deskd --apps-trace[Ksrv> run /fat/bin/deskd --apps-trace
+run: entering pid=4 /fat/bin/deskd entry=0x0000000000500000 stack=0x0000000000ffffc0
+deskd: display physical=1280x800 logical=1280x800 scale=1 screenshots=logical
+session: phase=started token=1 pid=5
+deskd: preferences revision=1 status=0 text=16 offset=0 flags=3 wallpaper=0 pointer_speed=3 acceleration=1 disable_while_typing=0 tap_to_click=1 two_finger_tap=1 theme_accent=0 glass_level=1 theme_style=0
+deskd: ready; independent clients, sealed surfaces
+app-timing: pid=7 role=2 window=0 stage=main-entry edge=event at_us=1743804 elapsed_us=0 lane=0
+app-timing: pid=7 role=2 window=0 stage=pool-init edge=begin at_us=1745094 elapsed_us=0 lane=0
+app-timing: pid=7 role=2 window=0 stage=pool-init edge=end at_us=1745360 elapsed_us=266 lane=0
+app-timing: pid=7 role=2 window=0 stage=document-map edge=begin at_us=1745537 elapsed_us=0 lane=0
+app-phase-sched: pid=7 role=2 window=0 stage=document-map start_us=1745827 end_us=1746615 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=7 role=2 window=0 stage=document-map edge=end at_us=1747331 elapsed_us=1794 lane=0
+app-timing: pid=7 role=2 window=0 stage=canvas-reserve edge=begin at_us=1747521 elapsed_us=0 lane=0
+app-phase-sched: pid=7 role=2 window=0 stage=canvas-reserve start_us=1747703 end_us=1748332 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=7 role=2 window=0 stage=canvas-reserve edge=end at_us=1748601 elapsed_us=1080 lane=0
+app-timing: pid=7 role=2 window=0 stage=file-service-init edge=begin at_us=1748775 elapsed_us=0 lane=0
+app-timing: pid=7 role=2 window=0 stage=service-attributes edge=begin at_us=1748992 elapsed_us=0 lane=0
+app-timing: pid=7 role=2 window=0 stage=service-attributes edge=end at_us=1749212 elapsed_us=220 lane=0
+app-timing: pid=7 role=2 window=0 stage=pthread-reap-self edge=begin at_us=1749444 elapsed_us=0 lane=0
+app-phase-sched: pid=7 role=2 window=0 stage=pthread-reap-self start_us=1749655 end_us=1749699 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=7 role=2 window=0 stage=pthread-reap-self edge=end at_us=1750026 elapsed_us=582 lane=0
+app-timing: pid=7 role=2 window=0 stage=pthread-reap-records edge=begin at_us=1750203 elapsed_us=0 lane=0
+app-phase-sched: pid=7 role=2 window=0 stage=pthread-reap-records start_us=1750347 end_us=1750401 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=7 role=2 window=0 stage=pthread-reap-records edge=end at_us=1750660 elapsed_us=457 lane=0
+app-timing: pid=7 role=2 window=0 stage=pthread-record-claim edge=begin at_us=1750851 elapsed_us=0 lane=0
+app-phase-sched: pid=7 role=2 window=0 stage=pthread-record-claim start_us=1751025 end_us=1751070 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=7 role=2 window=0 stage=pthread-record-claim edge=end at_us=1751350 elapsed_us=499 lane=0
+app-timing: pid=7 role=2 window=0 stage=pthread-kernel-create edge=begin at_us=1751523 elapsed_us=0 lane=0
+app-phase-sched: pid=7 role=2 window=0 stage=pthread-kernel-create start_us=1751671 end_us=1751820 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=7 role=2 window=0 stage=pthread-kernel-create edge=end at_us=1752107 elapsed_us=584 lane=0
+app-timing: pid=7 role=2 window=0 stage=pthread-publish edge=begin at_us=1752266 elapsed_us=0 lane=0
+app-phase-sched: pid=7 role=2 window=0 stage=pthread-publish start_us=1752402 end_us=1752427 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=7 role=2 window=0 stage=pthread-publish edge=end at_us=1752693 elapsed_us=427 lane=0
+app-timing: pid=7 role=2 window=0 stage=file-service-init edge=end at_us=1752934 elapsed_us=4159 lane=0
+desktools: starting role=text
+app-timing: pid=7 role=2 window=0 stage=runtime-init edge=begin at_us=1753245 elapsed_us=0 lane=0
+app-timing: pid=7 role=2 window=0 stage=runtime-init edge=end at_us=1753806 elapsed_us=561 lane=0
+app-timing: pid=7 role=2 window=0 stage=text-history-reserve edge=begin at_us=1754011 elapsed_us=0 lane=0
+app-phase-sched: pid=7 role=2 window=0 stage=text-history-reserve start_us=1754212 end_us=1754372 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=7 role=2 window=0 stage=text-history-reserve edge=end at_us=1754678 elapsed_us=667 lane=0
+app-timing: pid=7 role=2 window=0 stage=window-open edge=begin at_us=1754910 elapsed_us=0 lane=0
+app-timing: pid=7 role=2 window=0 stage=window-open edge=end at_us=1755771 elapsed_us=861 lane=0
+app-timing: pid=7 role=2 window=1 stage=canvas-adopt edge=begin at_us=1755971 elapsed_us=0 lane=0
+app-timing: pid=7 role=2 window=1 stage=canvas-adopt edge=end at_us=1756231 elapsed_us=260 lane=0
+desktop-launch: app=2 pid=7 exec_us=178439 async=yes
+deskd: focused pid=7 window=1 identity=1
+deskd: opened pid=7 window=0 id=1 parent=0
+deskd: geometry pid=7 window=1 frame=32,64,722,525
+deskd: resources reason=opened clients=1 children=1 clipboard_peers=1 window_capacity=16 cache_bytes=2764800 cache_budget=100663296 gui_queue_budget=2097152 gui_queue_depth=64 gui_surface_record_budget=262144 gui_surface_pixel_budget=268435456
+deskd: preferences revision=1 status=1 text=16 offset=0 flags=3 wallpaper=0 pointer_speed=3 acceleration=1 disable_while_typing=0 tap_to_click=1 two_finger_tap=1 theme_accent=0 glass_level=1 theme_style=0
+app-timing: pid=7 role=2 window=1 stage=role-init edge=begin at_us=1836776 elapsed_us=0 lane=0
+app-timing: pid=7 role=2 window=1 stage=text-history-init edge=begin at_us=1837480 elapsed_us=0 lane=0
+app-phase-sched: pid=7 role=2 window=1 stage=text-history-init start_us=1837698 end_us=1837721 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=7 role=2 window=1 stage=text-history-init edge=end at_us=1838047 elapsed_us=567 lane=0
+desktools: text history=multi-step
+app-timing: pid=7 role=2 window=1 stage=role-init edge=end at_us=1838684 elapsed_us=1908 lane=0
+text-runtime: admitted window=1 worker=0
+app-timing: pid=7 role=2 window=1 stage=canvas-pixels edge=begin at_us=1839194 elapsed_us=0 lane=0
+app-phase-sched: pid=7 role=2 window=1 stage=canvas-pixels start_us=1839373 end_us=1839429 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=7 role=2 window=1 stage=canvas-pixels edge=end at_us=1839684 elapsed_us=490 lane=0
+app-timing: pid=7 role=2 window=1 stage=canvas-surface edge=begin at_us=1839867 elapsed_us=0 lane=0
+app-phase-sched: pid=7 role=2 window=1 stage=canvas-surface start_us=1840010 end_us=1840823 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=7 role=2 window=1 stage=canvas-surface edge=end at_us=1841046 elapsed_us=1179 lane=0
+app-timing: pid=7 role=2 window=1 stage=first-service edge=begin at_us=1842444 elapsed_us=0 lane=0
+app-phase-sched: pid=7 role=2 window=1 stage=first-service start_us=1842632 end_us=1842721 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=7 role=2 window=1 stage=first-service edge=end at_us=1842977 elapsed_us=533 lane=0
+app-timing: pid=7 role=2 window=1 stage=first-controls edge=begin at_us=1843227 elapsed_us=0 lane=0
+app-phase-sched: pid=7 role=2 window=1 stage=first-controls start_us=1843403 end_us=1844540 blocked_us=0 ready_us=72 blocks=0 dispatches=1 exclusions=0 invalid=0 max_ready_us=72 reason=0
+app-timing: pid=7 role=2 window=1 stage=first-controls edge=end at_us=1844847 elapsed_us=1620 lane=0
+app-timing: pid=7 role=2 window=1 stage=first-draw edge=begin at_us=1845127 elapsed_us=0 lane=0
+app-phase-sched: pid=7 role=2 window=1 stage=first-draw start_us=1845294 end_us=1847726 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=7 role=2 window=1 stage=first-draw edge=end at_us=1848009 elapsed_us=2882 lane=0
+app-timing: pid=7 role=2 window=1 stage=first-present edge=begin at_us=1848177 elapsed_us=0 lane=0
+app-phase-sched: pid=7 role=2 window=1 stage=first-present start_us=1848352 end_us=1850064 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=7 role=2 window=1 stage=first-present edge=end at_us=1850335 elapsed_us=2158 lane=0
+app-timing: pid=7 role=2 window=1 stage=first-publish edge=event at_us=1850525 elapsed_us=0 lane=0
+deskd: commit pid=7 generation=1 size=720x480
+app-timing: pid=7 role=2 window=0 stage=document-map edge=begin at_us=2371262 elapsed_us=0 lane=0
+app-phase-sched: pid=7 role=2 window=0 stage=document-map start_us=2371518 end_us=2372073 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=7 role=2 window=0 stage=document-map edge=end at_us=2372337 elapsed_us=1075 lane=0
+app-timing: pid=7 role=2 window=0 stage=runtime-init edge=begin at_us=2372492 elapsed_us=0 lane=0
+app-timing: pid=7 role=2 window=0 stage=runtime-init edge=end at_us=2372652 elapsed_us=160 lane=0
+app-timing: pid=7 role=2 window=0 stage=text-history-reserve edge=begin at_us=2372796 elapsed_us=0 lane=0
+app-phase-sched: pid=7 role=2 window=0 stage=text-history-reserve start_us=2372949 end_us=2372960 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=7 role=2 window=0 stage=text-history-reserve edge=end at_us=2373215 elapsed_us=419 lane=0
+app-timing: pid=7 role=2 window=0 stage=window-open edge=begin at_us=2373365 elapsed_us=0 lane=0
+app-timing: pid=7 role=2 window=0 stage=window-open edge=end at_us=2373541 elapsed_us=176 lane=0
+deskd: focused pid=7 window=2 identity=2
+deskd: opened pid=7 window=1 id=2 parent=0
+deskd: geometry pid=7 window=2 frame=56,88,722,525
+deskd: resources reason=opened clients=2 children=1 clipboard_peers=2 window_capacity=16 cache_bytes=4147200 cache_budget=100663296 gui_queue_budget=2097152 gui_queue_depth=64 gui_surface_record_budget=262144 gui_surface_pixel_budget=268435456
+app-timing: pid=7 role=2 window=2 stage=role-init edge=begin at_us=2404826 elapsed_us=0 lane=0
+app-timing: pid=7 role=2 window=2 stage=text-history-init edge=begin at_us=2404988 elapsed_us=0 lane=0
+app-phase-sched: pid=7 role=2 window=2 stage=text-history-init start_us=2405127 end_us=2405136 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=7 role=2 window=2 stage=text-history-init edge=end at_us=2405363 elapsed_us=375 lane=0
+desktools: text history=multi-step
+app-timing: pid=7 role=2 window=2 stage=role-init edge=end at_us=2405564 elapsed_us=738 lane=0
+text-runtime: admitted window=2 worker=0
+app-timing: pid=7 role=2 window=2 stage=canvas-pixels edge=begin at_us=2444366 elapsed_us=0 lane=0
+app-phase-sched: pid=7 role=2 window=2 stage=canvas-pixels start_us=2444541 end_us=2465472 blocked_us=0 ready_us=20263 blocks=0 dispatches=1 exclusions=0 invalid=0 max_ready_us=20263 reason=0
+app-timing: pid=7 role=2 window=2 stage=canvas-pixels edge=end at_us=2465703 elapsed_us=21337 lane=0
+app-timing: pid=7 role=2 window=2 stage=canvas-surface edge=begin at_us=2465826 elapsed_us=0 lane=0
+app-phase-sched: pid=7 role=2 window=2 stage=canvas-surface start_us=2465945 end_us=2466243 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=7 role=2 window=2 stage=canvas-surface edge=end at_us=2466453 elapsed_us=627 lane=0
+app-timing: pid=7 role=2 window=2 stage=first-controls edge=begin at_us=2466718 elapsed_us=0 lane=0
+app-phase-sched: pid=7 role=2 window=2 stage=first-controls start_us=2466840 end_us=2466895 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=7 role=2 window=2 stage=first-controls edge=end at_us=2467108 elapsed_us=390 lane=0
+app-timing: pid=7 role=2 window=2 stage=first-draw edge=begin at_us=2467230 elapsed_us=0 lane=0
+app-phase-sched: pid=7 role=2 window=2 stage=first-draw start_us=2467345 end_us=2467935 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=7 role=2 window=2 stage=first-draw edge=end at_us=2468141 elapsed_us=911 lane=0
+app-timing: pid=7 role=2 window=2 stage=first-present edge=begin at_us=2468255 elapsed_us=0 lane=0
+app-phase-sched: pid=7 role=2 window=2 stage=first-present start_us=2468373 end_us=2469240 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=7 role=2 window=2 stage=first-present edge=end at_us=2469450 elapsed_us=1195 lane=0
+app-timing: pid=7 role=2 window=2 stage=first-publish edge=event at_us=2469571 elapsed_us=0 lane=0
+deskd: commit pid=7 generation=1 size=720x480
+deskd: focused pid=7 window=3 identity=3
+deskd: opened pid=7 window=2 id=3 parent=2
+deskd: geometry pid=7 window=3 frame=136,132,562,325
+deskd: resources reason=opened clients=3 children=1 clipboard_peers=3 window_capacity=16 cache_bytes=6156800 cache_budget=100663296 gui_queue_budget=2097152 gui_queue_depth=64 gui_surface_record_budget=262144 gui_surface_pixel_budget=268435456
+app-timing: pid=7 role=2 window=3 stage=canvas-pixels edge=begin at_us=3396169 elapsed_us=0 lane=0
+app-phase-sched: pid=7 role=2 window=3 stage=canvas-pixels start_us=3396349 end_us=3396686 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=7 role=2 window=3 stage=canvas-pixels edge=end at_us=3396907 elapsed_us=738 lane=0
+app-timing: pid=7 role=2 window=3 stage=canvas-surface edge=begin at_us=3397029 elapsed_us=0 lane=0
+app-phase-sched: pid=7 role=2 window=3 stage=canvas-surface start_us=3397149 end_us=3397250 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=7 role=2 window=3 stage=canvas-surface edge=end at_us=3397459 elapsed_us=430 lane=0
+deskd: commit pid=7 generation=1 size=560x280
+deskd: launcher opened items=15
+deskd: switcher selected=14 count=2
+deskd: focused pid=7 window=3 identity=3
+deskd: launcher closed
+deskd: focused pid=7 window=1 identity=1
+deskd: switcher activated identity=1 pid=7 window=1
+deskd: launcher opened items=15
+deskd: switcher selected=15 count=2
+deskd: focused pid=7 window=1 identity=1
+deskd: launcher closed
+deskd: focused pid=7 window=3 identity=3
+deskd: switcher activated identity=2 pid=7 window=2
+deskd: retired pid=7
+deskd: resources reason=retired clients=2 children=1 clipboard_peers=2 window_capacity=16 cache_bytes=6784000 cache_budget=100663296 gui_queue_budget=2097152 gui_queue_depth=64 gui_surface_record_budget=262144 gui_surface_pixel_budget=268435456
+deskd: focused pid=7 window=2 identity=2
+desktop-reap: elapsed_us=64630
+desktools: picker mode=2 opened
+deskd: focused pid=7 window=4 identity=4
+deskd: opened pid=7 window=2 id=4 parent=2
+deskd: geometry pid=7 window=4 frame=56,132,722,525
+deskd: resources reason=opened clients=3 children=1 clipboard_peers=3 window_capacity=16 cache_bytes=8166400 cache_budget=100663296 gui_queue_budget=2097152 gui_queue_depth=64 gui_surface_record_budget=262144 gui_surface_pixel_budget=268435456
+desktools: file-submitted role=text op=3 id=1 worker=8
+app-timing: pid=7 role=2 window=4 stage=canvas-pixels edge=begin at_us=8499915 elapsed_us=0 lane=0
+app-phase-sched: pid=7 role=2 window=4 stage=canvas-pixels start_us=8500086 end_us=8501219 blocked_us=349 ready_us=34 blocks=1 dispatches=1 exclusions=0 invalid=0 max_ready_us=34 reason=1
+app-timing: pid=7 role=2 window=4 stage=canvas-pixels edge=end at_us=8501446 elapsed_us=1531 lane=0
+app-timing: pid=7 role=2 window=4 stage=canvas-surface edge=begin at_us=8501567 elapsed_us=0 lane=0
+app-phase-sched: pid=7 role=2 window=4 stage=canvas-surface start_us=8501687 end_us=8501975 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=7 role=2 window=4 stage=canvas-surface edge=end at_us=8502186 elapsed_us=619 lane=0
+desktools: file-result role=text op=3 status=0 bytes=23296
+desktools: picker ready mode=2 items=182 path=/fat
+deskd: commit pid=7 generation=1 size=720x480
+desktop-reap: elapsed_us=60756
+desktools: file-submitted role=text op=2 id=2 worker=8
+deskd: retired pid=7
+deskd: resources reason=retired clients=2 children=1 clipboard_peers=2 window_capacity=16 cache_bytes=9548800 cache_budget=100663296 gui_queue_budget=2097152 gui_queue_depth=64 gui_surface_record_budget=262144 gui_surface_pixel_budget=268435456
+deskd: focused pid=7 window=2 identity=2
+desktools: file-result role=text op=2 status=0 bytes=0
+window-lifecycle: close-request role=2 window=2 busy=0 operation=0
+deskd: retired pid=7
+deskd: resources reason=retired clients=1 children=1 clipboard_peers=1 window_capacity=16 cache_bytes=6784000 cache_budget=100663296 gui_queue_budget=2097152 gui_queue_depth=64 gui_surface_record_budget=262144 gui_surface_pixel_budget=268435456
+deskd: focused pid=7 window=1 identity=1
+app-timing: pid=7 role=2 window=2 stage=close-ack edge=event at_us=8876560 elapsed_us=0 lane=0
+text-runtime: closed window=2 bytes=12
+app-timing: pid=7 role=2 window=2 stage=window-dispose edge=begin at_us=8876900 elapsed_us=0 lane=0
+app-timing: pid=7 role=2 window=2 stage=window-dispose edge=end at_us=8877233 elapsed_us=333 lane=0
+text-runtime: job-detached window=2
+app-timing: pid=7 role=2 window=2 stage=history-free edge=begin at_us=8877531 elapsed_us=0 lane=0
+app-timing: pid=7 role=2 window=2 stage=history-free edge=end at_us=8877705 elapsed_us=174 lane=0
+window-lifecycle: close-request role=2 window=1 busy=0 operation=0
+app-timing: pid=7 role=2 window=2 stage=canvas-unmap edge=begin at_us=8878166 elapsed_us=0 lane=1
+app-phase-sched: pid=7 role=2 window=2 stage=canvas-unmap start_us=8878336 end_us=8879342 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=7 role=2 window=2 stage=canvas-unmap edge=end at_us=8879583 elapsed_us=1417 lane=1
+app-timing: pid=7 role=2 window=2 stage=document-unmap edge=begin at_us=8879751 elapsed_us=0 lane=1
+app-phase-sched: pid=7 role=2 window=2 stage=document-unmap start_us=8879886 end_us=8880415 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=7 role=2 window=2 stage=document-unmap edge=end at_us=8880643 elapsed_us=892 lane=1
+deskd: focused pid=7 window=5 identity=5
+deskd: opened pid=7 window=1 id=5 parent=1
+deskd: geometry pid=7 window=5 frame=112,108,562,325
+deskd: resources reason=opened clients=2 children=1 clipboard_peers=2 window_capacity=16 cache_bytes=4019200 cache_budget=100663296 gui_queue_budget=2097152 gui_queue_depth=64 gui_surface_record_budget=262144 gui_surface_pixel_budget=268435456
+app-timing: pid=7 role=2 window=5 stage=canvas-pixels edge=begin at_us=8904314 elapsed_us=0 lane=0
+app-phase-sched: pid=7 role=2 window=5 stage=canvas-pixels start_us=8904453 end_us=8904710 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=7 role=2 window=5 stage=canvas-pixels edge=end at_us=8904926 elapsed_us=612 lane=0
+app-timing: pid=7 role=2 window=5 stage=canvas-surface edge=begin at_us=8905045 elapsed_us=0 lane=0
+app-phase-sched: pid=7 role=2 window=5 stage=canvas-surface start_us=8905164 end_us=8905258 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=7 role=2 window=5 stage=canvas-surface edge=end at_us=8905467 elapsed_us=422 lane=0
+deskd: commit pid=7 generation=1 size=560x280
+deskd: retired pid=7
+deskd: resources reason=retired clients=1 children=1 clipboard_peers=1 window_capacity=16 cache_bytes=4019200 cache_budget=100663296 gui_queue_budget=2097152 gui_queue_depth=64 gui_surface_record_budget=262144 gui_surface_pixel_budget=268435456
+deskd: focused pid=7 window=1 identity=1
+desktools: picker mode=2 opened
+desktools: file-submitted role=text op=3 id=3 worker=8
+deskd: focused pid=7 window=6 identity=6
+deskd: opened pid=7 window=1 id=6 parent=1
+deskd: geometry pid=7 window=6 frame=32,108,722,525
+deskd: resources reason=opened clients=2 children=1 clipboard_peers=2 window_capacity=16 cache_bytes=5401600 cache_budget=100663296 gui_queue_budget=2097152 gui_queue_depth=64 gui_surface_record_budget=262144 gui_surface_pixel_budget=268435456
+desktools: file-result role=text op=3 status=0 bytes=23424
+desktools: picker ready mode=2 items=183 path=/fat
+app-timing: pid=7 role=2 window=6 stage=canvas-pixels edge=begin at_us=13222747 elapsed_us=0 lane=0
+app-phase-sched: pid=7 role=2 window=6 stage=canvas-pixels start_us=13222973 end_us=13223509 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=7 role=2 window=6 stage=canvas-pixels edge=end at_us=13223737 elapsed_us=990 lane=0
+app-timing: pid=7 role=2 window=6 stage=canvas-surface edge=begin at_us=13223863 elapsed_us=0 lane=0
+app-phase-sched: pid=7 role=2 window=6 stage=canvas-surface start_us=13223987 end_us=13224171 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=7 role=2 window=6 stage=canvas-surface edge=end at_us=13224391 elapsed_us=528 lane=0
+deskd: commit pid=7 generation=1 size=720x480
+desktools: file-submitted role=text op=2 id=4 worker=8
+deskd: retired pid=7
+deskd: resources reason=retired clients=1 children=1 clipboard_peers=1 window_capacity=16 cache_bytes=5401600 cache_budget=100663296 gui_queue_budget=2097152 gui_queue_depth=64 gui_surface_record_budget=262144 gui_surface_pixel_budget=268435456
+deskd: focused pid=7 window=1 identity=1
+desktools: file-result role=text op=2 status=0 bytes=0
+deskd: launcher opened items=14
+deskd: focused pid=7 window=1 identity=1
+deskd: launcher closed
+deskd: launcher application=1
+app-timing: pid=9 role=1 window=0 stage=main-entry edge=event at_us=15239050 elapsed_us=0 lane=0
+app-timing: pid=9 role=1 window=0 stage=pool-init edge=begin at_us=15240247 elapsed_us=0 lane=0
+app-timing: pid=9 role=1 window=0 stage=pool-init edge=end at_us=15240521 elapsed_us=274 lane=0
+app-timing: pid=9 role=1 window=0 stage=document-map edge=begin at_us=15240708 elapsed_us=0 lane=0
+app-phase-sched: pid=9 role=1 window=0 stage=document-map start_us=15240897 end_us=15241341 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=9 role=1 window=0 stage=document-map edge=end at_us=15241693 elapsed_us=985 lane=0
+app-timing: pid=9 role=1 window=0 stage=canvas-reserve edge=begin at_us=15241870 elapsed_us=0 lane=0
+app-phase-sched: pid=9 role=1 window=0 stage=canvas-reserve start_us=15242051 end_us=15242679 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=9 role=1 window=0 stage=canvas-reserve edge=end at_us=15242945 elapsed_us=1075 lane=0
+app-timing: pid=9 role=1 window=0 stage=file-service-init edge=begin at_us=15243113 elapsed_us=0 lane=0
+app-timing: pid=9 role=1 window=0 stage=service-attributes edge=begin at_us=15243324 elapsed_us=0 lane=0
+app-timing: pid=9 role=1 window=0 stage=service-attributes edge=end at_us=15243541 elapsed_us=217 lane=0
+app-timing: pid=9 role=1 window=0 stage=pthread-reap-self edge=begin at_us=15243769 elapsed_us=0 lane=0
+app-phase-sched: pid=9 role=1 window=0 stage=pthread-reap-self start_us=15243952 end_us=15243997 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=9 role=1 window=0 stage=pthread-reap-self edge=end at_us=15244257 elapsed_us=488 lane=0
+app-timing: pid=9 role=1 window=0 stage=pthread-reap-records edge=begin at_us=15244432 elapsed_us=0 lane=0
+app-phase-sched: pid=9 role=1 window=0 stage=pthread-reap-records start_us=15244627 end_us=15244682 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=9 role=1 window=0 stage=pthread-reap-records edge=end at_us=15244964 elapsed_us=532 lane=0
+app-timing: pid=9 role=1 window=0 stage=pthread-record-claim edge=begin at_us=15245173 elapsed_us=0 lane=0
+app-phase-sched: pid=9 role=1 window=0 stage=pthread-record-claim start_us=15245337 end_us=15245385 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=9 role=1 window=0 stage=pthread-record-claim edge=end at_us=15245662 elapsed_us=489 lane=0
+app-timing: pid=9 role=1 window=0 stage=pthread-kernel-create edge=begin at_us=15245827 elapsed_us=0 lane=0
+app-phase-sched: pid=9 role=1 window=0 stage=pthread-kernel-create start_us=15245997 end_us=15246129 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=9 role=1 window=0 stage=pthread-kernel-create edge=end at_us=15246407 elapsed_us=580 lane=0
+app-timing: pid=9 role=1 window=0 stage=pthread-publish edge=begin at_us=15246577 elapsed_us=0 lane=0
+app-phase-sched: pid=9 role=1 window=0 stage=pthread-publish start_us=15246738 end_us=15246765 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=9 role=1 window=0 stage=pthread-publish edge=end at_us=15247034 elapsed_us=457 lane=0
+app-timing: pid=9 role=1 window=0 stage=file-service-init edge=end at_us=15247261 elapsed_us=4148 lane=0
+desktools: starting role=files
+app-timing: pid=9 desktop-launch: app=1 pid=9 exec_us=126957 async=yes
+role=1 window=0 stage=runtime-init edge=begin at_us=15247539 elapsed_us=0 lane=0
+app-timing: pid=9 role=1 window=0 stage=runtime-init edge=end at_us=15250876 elapsed_us=3337 lane=0
+app-timing: pid=9 role=1 window=0 stage=window-open edge=begin at_us=15251096 elapsed_us=0 lane=0
+app-timing: pid=9 role=1 window=0 stage=window-open edge=end at_us=15251862 elapsed_us=766 lane=0
+app-timing: pid=9 role=1 window=1 stage=canvas-adopt edge=begin at_us=15252037 elapsed_us=0 lane=0
+app-timing: pid=9 role=1 window=1 stage=canvas-adopt edge=end at_us=15252277 elapsed_us=240 lane=0
+desktools: window-request role=files pid=9 at_us=15252453
+deskd: focused pid=9 window=1 identity=7
+deskd: opened pid=9 window=1 id=1 parent=0
+deskd: geometry pid=9 window=1 frame=56,88,722,525
+deskd: resources reason=opened clients=2 children=2 clipboard_peers=2 window_capacity=16 cache_bytes=5401600 cache_budget=100663296 gui_queue_budget=2097152 gui_queue_depth=64 gui_surface_record_budget=262144 gui_surface_pixel_budget=268435456
+app-timing: pid=9 role=1 window=1 stage=role-init edge=begin at_us=15266986 elapsed_us=0 lane=0
+app-timing: pid=9 role=1 window=1 stage=role-init edge=end at_us=15278167 elapsed_us=11181 lane=0
+files-runtime: admitted window=1 worker=0
+app-timing: pid=9 role=1 window=1 stage=canvas-pixels edge=begin at_us=15289645 elapsed_us=0 lane=0
+app-phase-sched: pid=9 role=1 window=1 stage=canvas-pixels start_us=15289898 end_us=15289951 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=9 role=1 window=1 stage=canvas-pixels edge=end at_us=15290208 elapsed_us=563 lane=0
+app-timing: pid=9 role=1 window=1 stage=canvas-surface edge=begin at_us=15290401 elapsed_us=0 lane=0
+app-phase-sched: pid=9 role=1 window=1 stage=canvas-surface start_us=15290544 end_us=15290768 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=9 role=1 window=1 stage=canvas-surface edge=end at_us=15291026 elapsed_us=625 lane=0
+app-timing: pid=9 role=1 window=1 stage=first-controls edge=begin at_us=15291665 elapsed_us=0 lane=0
+app-phase-sched: pid=9 role=1 window=1 stage=first-controls start_us=15291848 end_us=15291949 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=9 role=1 window=1 stage=first-controls edge=end at_us=15292273 elapsed_us=608 lane=0
+app-timing: pid=9 role=1 window=1 stage=first-draw edge=begin at_us=15292545 elapsed_us=0 lane=0
+app-phase-sched: pid=9 role=1 window=1 stage=first-draw start_us=15292728 end_us=15296514 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=9 role=1 window=1 stage=first-draw edge=end at_us=15296796 elapsed_us=4251 lane=0
+app-timing: pid=9 role=1 window=1 stage=first-present edge=begin at_us=15296961 elapsed_us=0 lane=0
+app-phase-sched: pid=9 role=1 window=1 stage=first-present start_us=15297135 end_us=15298128 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=9 role=1 window=1 stage=first-present edge=end at_us=15298388 elapsed_us=1427 lane=0
+app-timing: pid=9 role=1 window=1 stage=first-publish edge=event at_us=15298572 elapsed_us=0 lane=0
+deskd: commit pid=9 generation=1 size=720x480
+desktools: file-submitted role=files op=3 id=1 worker=10
+desktools: file-result role=files op=3 status=0 bytes=0
+desktools: files-location path=/fat/home history=1/1
+desktools: file-submitted role=files op=3 id=2 worker=10
+desktools: file-result role=files op=3 status=0 bytes=128
+desktools: files-location path=/fat/route-text history=2/2
+deskd: focused pid=7 window=1 identity=1
+deskd: document-route request=1 pid=7 application=2
+app-timing: pid=7 role=2 window=0 stage=document-map edge=begin at_us=18126353 elapsed_us=0 lane=0
+app-phase-sched: pid=7 role=2 window=0 stage=document-map start_us=18126522 end_us=18127037 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=7 role=2 window=0 stage=document-map edge=end at_us=18127279 elapsed_us=926 lane=0
+app-timing: pid=7 role=2 window=0 stage=runtime-init edge=begin at_us=18127415 elapsed_us=0 lane=0
+app-timing: pid=7 role=2 window=0 stage=runtime-init edge=end at_us=18127565 elapsed_us=150 lane=0
+app-timing: pid=7 role=2 window=0 stage=text-history-reserve edge=begin at_us=18127701 elapsed_us=0 lane=0
+app-phase-sched: pid=7 role=2 window=0 stage=text-history-reserve start_us=18127843 end_us=18127854 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=7 role=2 window=0 stage=text-history-reserve edge=end at_us=18128093 elapsed_us=392 lane=0
+app-timing: pid=7 role=2 window=0 stage=window-open edge=begin at_us=18128233 elapsed_us=0 lane=0
+app-timing: pid=7 role=2 window=0 stage=window-open edge=end at_us=18128385 elapsed_us=152 lane=0
+text-runtime: open-document accepted=1
+deskd: focused pid=7 window=7 identity=8
+deskd: opened pid=7 window=2 id=7 parent=0
+deskd: geometry pid=7 window=7 frame=80,112,722,525
+deskd: resources reason=opened clients=3 children=2 clipboard_peers=3 window_capacity=16 cache_bytes=8166400 cache_budget=100663296 gui_queue_budget=2097152 gui_queue_depth=64 gui_surface_record_budget=262144 gui_surface_pixel_budget=268435456
+deskd: document-route reply pid=7 accepted=1
+app-timing: pid=7 role=2 window=7 stage=role-init edge=begin at_us=18166711 elapsed_us=0 lane=0
+app-timing: pid=7 role=2 window=7 stage=text-history-init edge=begin at_us=18166875 elapsed_us=0 lane=0
+app-phase-sched: pid=7 role=2 window=7 stage=text-history-init start_us=18167005 end_us=18167015 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=7 role=2 window=7 stage=text-history-init edge=end at_us=18167231 elapsed_us=356 lane=0
+desktools: text history=multi-step
+app-timing: pid=7 role=2 window=7 stage=role-init edge=end at_us=18167503 elapsed_us=792 lane=0
+text-runtime: admitted window=7 worker=0
+desktools: file-submitted role=text op=1 id=5 worker=8
+app-timing: pid=7 role=2 window=7 stage=canvas-pixels edge=begin at_us=18184490 elapsed_us=0 lane=0
+app-phase-sched: pid=7 role=2 window=7 stage=canvas-pixels start_us=18184726 end_us=18185575 blocked_us=211 ready_us=8 blocks=1 dispatches=1 exclusions=0 invalid=0 max_ready_us=8 reason=1
+app-timing: pid=7 role=2 window=7 stage=canvas-pixels edge=end at_us=18185864 elapsed_us=1374 lane=0
+app-timing: pid=7 role=2 window=7 stage=canvas-surface edge=begin at_us=18186017 elapsed_us=0 lane=0
+app-phase-sched: pid=7 role=2 window=7 stage=canvas-surface start_us=18186159 end_us=18186433 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=7 role=2 window=7 stage=canvas-surface edge=end at_us=18186683 elapsed_us=666 lane=0
+app-timing: pid=7 role=2 window=7 stage=first-controls edge=begin at_us=18186995 elapsed_us=0 lane=0
+app-phase-sched: pid=7 role=2 window=7 stage=first-controls start_us=18187141 end_us=18187212 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=7 role=2 window=7 stage=first-controls edge=end at_us=18187471 elapsed_us=476 lane=0
+app-timing: pid=7 role=2 window=7 stage=first-draw edge=begin at_us=18187607 elapsed_us=0 lane=0
+app-phase-sched: pid=7 role=2 window=7 stage=first-draw start_us=18187735 end_us=18188266 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=7 role=2 window=7 stage=first-draw edge=end at_us=18188530 elapsed_us=923 lane=0
+app-timing: pid=7 role=2 window=7 stage=first-present edge=begin at_us=18188675 elapsed_us=0 lane=0
+app-phase-sched: pid=7 role=2 window=7 stage=first-present start_us=18188815 end_us=18189976 blocked_us=0 ready_us=260 blocks=0 dispatches=1 exclusions=0 invalid=0 max_ready_us=260 reason=0
+app-timing: pid=7 role=2 window=7 stage=first-present edge=end at_us=18190240 elapsed_us=1565 lane=0
+app-timing: pid=7 role=2 window=7 stage=first-publish edge=event at_us=18190395 elapsed_us=0 lane=0
+deskd: commit pid=7 generation=1 size=720x480
+desktools: file-result role=text op=1 status=0 bytes=12
+window-lifecycle: close-request role=2 window=7 busy=0 operation=0
+deskd: focused pid=7 window=8 identity=9
+deskd: opened pid=7 window=3 id=8 parent=7
+deskd: geometry pid=7 window=8 frame=160,156,562,325
+deskd: resources reason=opened clients=4 children=2 clipboard_peers=4 window_capacity=16 cache_bytes=9548800 cache_budget=100663296 gui_queue_budget=2097152 gui_queue_depth=64 gui_surface_record_budget=262144 gui_surface_pixel_budget=268435456
+app-timing: pid=7 role=2 window=8 stage=canvas-pixels edge=begin at_us=20687591 elapsed_us=0 lane=0
+app-phase-sched: pid=7 role=2 window=8 stage=canvas-pixels start_us=20687764 end_us=20701108 blocked_us=0 ready_us=12950 blocks=0 dispatches=1 exclusions=0 invalid=0 max_ready_us=12950 reason=0
+app-timing: pid=7 role=2 window=8 stage=canvas-pixels edge=end at_us=20701420 elapsed_us=13829 lane=0
+app-timing: pid=7 role=2 window=8 stage=canvas-surface edge=begin at_us=20701562 elapsed_us=0 lane=0
+app-phase-sched: pid=7 role=2 window=8 stage=canvas-surface start_us=20701693 end_us=20701800 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=7 role=2 window=8 stage=canvas-surface edge=end at_us=20702027 elapsed_us=465 lane=0
+deskd: commit pid=7 generation=1 size=560x280
+desktools: picker mode=2 opened
+desktools: file-submitted role=text op=3 id=6 worker=8
+desktools: file-result role=text op=3 status=0 bytes=23552
+desktools: picker ready mode=2 items=184 path=/fat
+desktools: file-submitted role=text op=2 id=7 worker=8
+desktools: file-result role=text op=2 status=4 bytes=0
+deskd: retired pid=7
+deskd: resources reason=retired clients=3 children=2 clipboard_peers=3 window_capacity=16 cache_bytes=9548800 cache_budget=100663296 gui_queue_budget=2097152 gui_queue_depth=64 gui_surface_record_budget=262144 gui_surface_pixel_budget=268435456
+deskd: focused pid=7 window=7 identity=8
+desktools: picker mode=2 opened
+desktools: file-submitted role=text op=3 id=8 worker=8
+deskd: focused pid=7 window=9 identity=10
+deskd: opened pid=7 window=3 id=9 parent=7
+deskd: geometry pid=7 window=9 frame=80,156,722,525
+deskd: resources reason=opened clients=4 children=2 clipboard_peers=4 window_capacity=16 cache_bytes=10931200 cache_budget=100663296 gui_queue_budget=2097152 gui_queue_depth=64 gui_surface_record_budget=262144 gui_surface_pixel_budget=268435456
+desktools: file-result role=text op=3 status=0 bytes=23552
+desktools: picker ready mode=2 items=184 path=/fat
+app-timing: pid=7 role=2 window=9 stage=canvas-pixels edge=begin at_us=24687544 elapsed_us=0 lane=0
+app-phase-sched: pid=7 role=2 window=9 stage=canvas-pixels start_us=24687734 end_us=24696066 blocked_us=0 ready_us=7664 blocks=0 dispatches=1 exclusions=0 invalid=0 max_ready_us=7664 reason=0
+app-timing: pid=7 role=2 window=9 stage=canvas-pixels edge=end at_us=24696343 elapsed_us=8799 lane=0
+app-timing: pid=7 role=2 window=9 stage=canvas-surface edge=begin at_us=24696473 elapsed_us=0 lane=0
+app-phase-sched: pid=7 role=2 window=9 stage=canvas-surface start_us=24696599 end_us=24696910 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=7 role=2 window=9 stage=canvas-surface edge=end at_us=24697131 elapsed_us=658 lane=0
+deskd: commit pid=7 generation=1 size=720x480
+desktools: file-submitted role=text op=2 id=9 worker=8
+deskd: retired pid=7
+deskd: resources reason=retired clients=3 children=2 clipboard_peers=3 window_capacity=16 cache_bytes=10931200 cache_budget=100663296 gui_queue_budget=2097152 gui_queue_depth=64 gui_surface_record_budget=262144 gui_surface_pixel_budget=268435456
+deskd: focused pid=7 window=7 identity=8
+desktools: file-result role=text op=2 status=0 bytes=0
+window-lifecycle: close-request role=2 window=7 busy=0 operation=0
+deskd: retired pid=7
+deskd: resources reason=retired clients=2 children=2 clipboard_peers=2 window_capacity=16 cache_bytes=9548800 cache_budget=100663296 gui_queue_budget=2097152 gui_queue_depth=64 gui_surface_record_budget=262144 gui_surface_pixel_budget=268435456
+deskd: focused pid=7 window=1 identity=1
+app-timing: pid=7 role=2 window=7 stage=close-ack edge=event at_us=25134575 elapsed_us=0 lane=0
+text-runtime: closed window=7 bytes=19
+app-timing: pid=7 role=2 window=7 stage=window-dispose edge=begin at_us=25135130 elapsed_us=0 lane=0
+app-timing: pid=7 role=2 window=7 stage=window-dispose edge=end at_us=25135294 elapsed_us=164 lane=0
+text-runtime: job-detached window=7
+app-timing: pid=7 role=2 window=7 stage=history-free edge=begin at_us=25135471 elapsed_us=0 lane=0
+app-timing: pid=7 role=2 window=7 stage=history-free edge=end at_us=25135595 elapsed_us=124 lane=0
+window-lifecycle: close-request role=2 window=1 busy=0 operation=0
+app-timing: pid=7 role=2 window=7 stage=canvas-unmap edge=begin at_us=25135879 elapsed_us=0 lane=1
+app-phase-sched: pid=7 role=2 window=7 stage=canvas-unmap start_us=25136006 end_us=25136628 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=7 role=2 window=7 stage=canvas-unmap edge=end at_us=25136857 elapsed_us=978 lane=1
+app-timing: pid=7 role=2 window=7 stage=document-unmap edge=begin at_us=25136983 elapsed_us=0 lane=1
+app-phase-sched: pid=7 role=2 window=7 stage=document-unmap start_us=25137107 end_us=25137541 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=7 role=2 window=7 stage=document-unmap edge=end at_us=25137762 elapsed_us=779 lane=1
+deskd: retired papp-timing: pid=7 role=2 window=1 stage=close-ack edge=event at_us=25169055 elapsed_us=0 lane=0
+text-runtime: closed window=1 bytes=20
+app-timing: pid=7 role=2 window=1 stage=window-dispose edge=begin at_us=25169360 elapsed_us=0 lane=0
+app-timing: pid=7 role=2 window=1 stage=window-dispose edge=end at_us=25169558 elapsed_us=198 lane=0
+text-runtime: job-detached window=1
+app-timing: pid=7 role=2 window=1 stage=history-free edge=begin at_us=25169735 elapsed_us=0 lane=0
+app-timing: pid=7 role=2 window=1 stage=history-free edge=end at_us=25169857 elapsed_us=122 lane=0
+id=7
+deskd: resources reason=retired clients=1 children=2 clipboard_peers=1 window_capacity=16 cache_bytes=6784000 cache_budget=100663296 gui_queue_budget=2097152 gui_queue_depth=64 gui_surface_record_budget=262144 gui_surface_pixel_budget=268435456
+deskd: focused pid=9 window=1 identity=7
+app-timing: pid=7 role=2 window=1 stage=canvas-unmap edge=begin at_us=25170673 elapsed_us=0 lane=1
+app-phase-sched: pid=7 role=2 window=1 stage=canvas-unmap start_us=25170807 end_us=25171372 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=7 role=2 window=1 stage=canvas-unmap edge=end at_us=25171594 elapsed_us=921 lane=1
+app-timing: pid=7 role=2 window=1 stage=document-unmap edge=begin at_us=25171723 elapsed_us=0 lane=1
+app-phase-sched: pid=7 role=2 window=1 stage=document-unmap start_us=25171846 end_us=25172351 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=7 role=2 window=1 stage=document-unmap edge=end at_us=25172567 elapsed_us=844 lane=1
+app-timing: pid=7 role=2 window=0 stage=file-service-stop edge=begin at_us=25179211 elapsed_us=0 lane=0
+file-service: stopped version=3 pid=7 role=2 requested=1 opened=1 failures=0 cancelled=0 abandoned=0 jobs_cancelled=0 retired=6 retire_failed=0 pending=0 join_error=0 max_start_us=17638 max_retire_us=1575 async=yes quiesced=yes process_owned=yes joined=no
+app-timing: pid=7 role=2 window=0 stage=file-service-stop edge=end at_us=25179867 elapsed_us=656 lane=0
+text-runtime: documents admitted=3 retired=3 refused=0
+app-timing: pid=7 role=2 window=0 stage=pool-retire edge=begin at_us=25180110 elapsed_us=0 lane=0
+app-phase-sched: pid=7 role=2 window=0 stage=pool-retire start_us=25180261 end_us=25180844 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+file-pool: retired role=text spawned=1 reaped=1 peak=1 live=0 bound=0
+app-timing: pid=7 role=2 window=0 stage=pool-retire edge=end at_us=25181157 elapsed_us=1047 lane=0
+desktools: exited role=text failure=0
+app-timing: pid=7 role=2 window=0 stage=main-return edge=event at_us=25181388 elapsed_us=0 lane=0
+deskd: child-exit pid=7 status=0 tick=2401
+deskd: launcher opened items=14
+deskd: focused pid=9 window=1 identity=7
+deskd: launcher closed
+deskd: launcher application=7
+deskview: starting
+desktop-launch: app=7 pid=11 exec_us=97351 async=yes
+deskd: focused pid=11 window=1 identity=11
+deskd: opened pid=11 window=0 id=1 parent=0
+deskd: geometry pid=11 window=1 frame=32,64,762,565
+deskd: resources reason=opened clients=2 children=2 clipboard_peers=2 window_capacity=16 cache_bytes=5600000 cache_budget=100663296 gui_queue_budget=2097152 gui_queue_depth=64 gui_surface_record_budget=262144 gui_surface_pixel_budget=268435456
+deskd: commit pid=11 generation=1 size=760x520
+deskd: launcher opened items=15
+deskd: focused pid=11 window=1 identity=11
+deskd: launcher closed
+deskd: focused pid=9 window=1 identity=7
+deskd: launcher window=9 id=1
+desktop-reap: elapsed_us=59946
+desktools: file-submitted role=files op=3 id=3 worker=10
+desktools: file-result role=files op=3 status=0 bytes=128
+desktools: files-location path=/fat/route-image history=3/3
+deskd: focused pid=11 window=1 identity=11
+deskd: document-route request=2 pid=11 application=7
+deskview: loading path=/fat/route-image/Routed.bmp
+deskview: open-document accepted=1
+deskd: document-route reply pid=11 accepted=1
+deskview: image-result transport=1 status=0 retained=0 received=1020 expected=988 elapsed_ticks=6
+deskview: loaded path=/fat/route-image/Routed.bmp width=19 height=13 bytes=988
+deskview: picker opened
+deskview: picker ready items=1
+deskd: focused pid=11 window=2 identity=12
+deskd: opened pid=11 window=2 id=2 parent=1
+deskd: geometry pid=11 window=2 frame=52,108,722,525
+deskd: resources reason=opened clients=3 children=2 clipboard_peers=3 window_capacity=16 cache_bytes=8563200 cache_budget=100663296 gui_queue_budget=2097152 gui_queue_depth=64 gui_surface_record_budget=262144 gui_surface_pixel_budget=268435456
+deskd: commit pid=11 generation=1 size=720x480
+deskview: picker canceled pending=0 retained=1
+deskd: retired pid=11
+deskd: resources reason=retired clients=2 children=2 clipboard_peers=2 window_capacity=16 cache_bytes=8563200 cache_budget=100663296 gui_queue_budget=2097152 gui_queue_depth=64 gui_surface_record_budget=262144 gui_surface_pixel_budget=268435456
+deskd: focused pid=11 window=1 identity=11
+deskview: workers retired=1
+deskd: retired pid=11
+deskd: resources reason=retired clients=1 children=2 clipboard_peers=1 window_capacity=16 cache_bytes=7180800 cache_budget=100663296 gui_queue_budget=2097152 gui_queue_depth=64 gui_surface_record_budget=262144 gui_surface_pixel_budget=268435456
+deskd: focused pid=9 window=1 identity=7
+deskview: exited failure=0
+deskd: child-exit pid=11 status=0 tick=3192
+deskd: launcher opened items=14
+deskd: focused pid=9 window=1 identity=7
+deskd: launcher closed
+deskd: launcher application=2
+app-timing: pid=14 role=2 window=0 stage=main-entry edge=event at_us=34909674 elapsed_us=0 lane=0
+app-timing: pid=14 role=2 window=0 stage=pool-init edge=begin at_us=34911145 elapsed_us=0 lane=0
+app-timing: pid=14 role=2 window=0 stage=pool-init edge=end at_us=34911433 elapsed_us=288 lane=0
+app-timing: pid=14 role=2 window=0 stage=document-map edge=begin at_us=34911623 elapsed_us=0 lane=0
+app-phase-sched: pid=14 role=2 window=0 stage=document-map start_us=34911824 end_us=34912360 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=14 role=2 window=0 stage=document-map edge=end at_us=34912735 elapsed_us=1112 lane=0
+app-timing: pid=14 role=2 window=0 stage=canvas-reserve edge=begin at_us=34912925 elapsed_us=0 lane=0
+app-phase-sched: pid=14 role=2 window=0 stage=canvas-reserve start_us=34913201 end_us=34913748 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=14 role=2 window=0 stage=canvas-reserve edge=end at_us=34914032 elapsed_us=1107 lane=0
+app-timing: pid=14 role=2 window=0 stage=file-service-init edge=begin at_us=34914219 elapsed_us=0 lane=0
+app-timing: pid=14 role=2 window=0 stage=service-attributes edge=begin at_us=34914455 elapsed_us=0 lane=0
+app-timing: pid=14 role=2 window=0 stage=service-attributes edge=end at_us=34914692 elapsed_us=237 lane=0
+app-timing: pid=14 role=2 window=0 stage=pthread-reap-self edge=begin at_us=34914943 elapsed_us=0 lane=0
+app-phase-sched: pid=14 role=2 window=0 stage=pthread-reap-self start_us=34915151 end_us=34915203 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=14 role=2 window=0 stage=pthread-reap-self edge=end at_us=34915510 elapsed_us=567 lane=0
+app-timing: pid=14 role=2 window=0 stage=pthread-reap-records edge=begin at_us=34915699 elapsed_us=0 lane=0
+app-phase-sched: pid=14 role=2 window=0 stage=pthread-reap-records start_us=34915877 end_us=34915947 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=14 role=2 window=0 stage=pthread-reap-records edge=end at_us=34916250 elapsed_us=551 lane=0
+app-timing: pid=14 role=2 window=0 stage=pthread-record-claim edge=begin at_us=34916451 elapsed_us=0 lane=0
+app-phase-sched: pid=14 role=2 window=0 stage=pthread-record-claim start_us=34916632 end_us=34916684 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=14 role=2 window=0 stage=pthread-record-claim edge=end at_us=34916964 elapsed_us=513 lane=0
+app-timing: pid=14 role=2 window=0 stage=pthread-kernel-create edge=begin at_us=34917156 elapsed_us=0 lane=0
+app-phase-sched: pid=14 role=2 window=0 stage=pthread-kernel-create start_us=34917305 end_us=34917486 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=14 role=2 window=0 stage=pthread-kernel-create edge=end at_us=34917771 elapsed_us=615 lane=0
+app-timing: pid=14 role=2 window=0 stage=pthread-publish edge=begin at_us=34917944 elapsed_us=0 lane=0
+app-phase-sched: pid=14 role=2 window=0 stage=pthread-publish start_us=34918106 end_us=34918138 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=14 role=2 window=0 stage=pthread-publish edge=end at_us=34918411 elapsed_us=467 lane=0
+app-timing: pid=14 role=2 window=0 stage=file-service-init edge=end at_us=34918631 elapsed_us=4412 lane=0
+desktools: starting role=text
+app-timing: pid=14 role=2 window=0 stage=runtime-init edge=begin at_us=34918916 elapsed_us=0 lane=0
+app-timing: pid=14 role=2 window=0 stage=runtime-init edge=end at_us=34919514 elapsed_us=598 lane=0
+app-timing: pid=14 role=2 window=0 stage=text-history-reserve edge=begin at_us=34919732 elapsed_us=0 lane=0
+app-phase-sched: pid=14 role=2 window=0 stage=text-history-reserve start_us=34919938 end_us=34920113 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=14 role=2 window=0 stage=text-history-reserve edge=end at_us=34920406 elapsed_us=674 lane=0
+app-timing: pid=14 role=2 window=0 stage=window-open edge=begin at_us=34920633 elapsed_us=0 lane=0
+app-timing: pid=14 role=2 window=0 stage=window-open edge=end at_us=34921489 elapsed_us=856 lane=0
+app-timing: pid=14 role=2 window=1 stage=canvas-adopt edge=begin at_us=34921710 elapsed_us=0 lane=0
+app-timing: pid=14 role=2 window=1 stage=canvas-adopt edge=end at_us=34921985 elapsed_us=275 lane=0
+desktop-launch: app=2 pid=14 exec_us=139137 async=yes
+deskd: focused pid=14 window=1 identity=13
+deskd: opened pid=14 window=0 id=1 parent=0
+deskd: geometry pid=14 window=1 frame=32,64,722,525
+deskd: resources reason=opened clients=2 children=2 clipboard_peers=2 window_capacity=16 cache_bytes=5401600 cache_budget=100663296 gui_queue_budget=2097152 gui_queue_depth=64 gui_surface_record_budget=262144 gui_surface_pixel_budget=268435456
+app-timing: pid=14 role=2 window=1 stage=role-init edge=begin at_us=35028741 elapsed_us=0 lane=0
+app-timing: pid=14 role=2 window=1 stage=text-history-init edge=begin at_us=35029600 elapsed_us=0 lane=0
+app-phase-sched: pid=14 role=2 window=1 stage=text-history-init start_us=35029844 end_us=35029869 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=14 role=2 window=1 stage=text-history-init edge=end at_us=35030225 elapsed_us=625 lane=0
+desktools: text history=multi-step
+app-timing: pid=14 role=2 window=1 stage=role-init edge=end at_us=35030948 elapsed_us=2207 lane=0
+text-runtime: admitted window=1 worker=0
+app-timing: pid=14 role=2 window=1 stage=first-service edge=begin at_us=35031470 elapsed_us=0 lane=0
+app-phase-sched: pid=14 role=2 window=1 stage=first-service start_us=35031663 end_us=35031765 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=14 role=2 window=1 stage=first-service edge=end at_us=35032049 elapsed_us=579 lane=0
+app-timing: pid=14 role=2 window=1 stage=canvas-pixels edge=begin at_us=35043038 elapsed_us=0 lane=0
+app-phase-sched: pid=14 role=2 window=1 stage=canvas-pixels start_us=35043347 end_us=35043416 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=14 role=2 window=1 stage=canvas-pixels edge=end at_us=35043696 elapsed_us=658 lane=0
+app-timing: pid=14 role=2 window=1 stage=canvas-surface edge=begin at_us=35043961 elapsed_us=0 lane=0
+app-phase-sched: pid=14 role=2 window=1 stage=canvas-surface start_us=35044117 end_us=35044361 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=14 role=2 window=1 stage=canvas-surface edge=end at_us=35044655 elapsed_us=694 lane=0
+app-timing: pid=14 role=2 window=1 stage=first-controls edge=begin at_us=35046244 elapsed_us=0 lane=0
+app-phase-sched: pid=14 role=2 window=1 stage=first-controls start_us=35046466 end_us=35046683 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=14 role=2 window=1 stage=first-controls edge=end at_us=35047011 elapsed_us=767 lane=0
+app-timing: pid=14 role=2 window=1 stage=first-draw edge=begin at_us=35047295 elapsed_us=0 lane=0
+app-phase-sched: pid=14 role=2 window=1 stage=first-draw start_us=35047480 end_us=35049998 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=14 role=2 window=1 stage=first-draw edge=end at_us=35050351 elapsed_us=3056 lane=0
+app-timing: pid=14 role=2 window=1 stage=first-present edge=begin at_us=35050561 elapsed_us=0 lane=0
+app-phase-sched: pid=14 role=2 window=1 stage=first-present start_us=35050759 end_us=35051905 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=14 role=2 window=1 stage=first-present edge=end at_us=35052218 elapsed_us=1657 lane=0
+app-timing: pid=14 role=2 window=1 stage=first-publish edge=event at_us=35052411 elapsed_us=0 lane=0
+deskd: commit pid=14 generation=1 size=720x480
+session-ui: phase=closing action=console
+deskd: close-request pid=14 tick=3548
+deskd: close-request pid=9 tick=3548
+app-timing: pid=14 role=2 window=1 stage=close-received edge=event at_us=36714240 elapsed_us=0 lane=0
+window-lifecycle: close-request role=2 window=1 busy=0 operation=0
+app-timing: pid=9 role=1 window=1 stage=close-received edge=event at_us=36717706 elapsed_us=0 lane=0
+window-lifecycle: close-request role=1 window=1 busy=0 operation=0
+deskd: retired pid=9
+deskd: resources reason=retired clients=1 children=2 clipboard_peers=1 window_capacity=16 cache_bytes=6784000 cache_budget=100663296 gui_queue_budget=2097152 gui_queue_depth=64 gui_surface_record_budget=262144 gui_surface_pixel_budget=268435456
+app-timing: pid=9 role=1 window=1 stage=close-ack edge=event at_us=36734491 elapsed_us=0 lane=0
+files-runtime: closed window=1 bytes=0
+app-timing: pid=9 role=1 window=1 stage=window-dispose edge=begin at_us=36734812 elapsed_us=0 lane=0
+app-timing: pid=9 role=1 window=1 stage=window-dispose edge=end at_us=36735220 elapsed_us=408 lane=0
+files-runtime: job-detached window=1
+app-timing: pid=9 role=1 window=1 stage=history-free edge=begin at_us=36735496 elapsed_us=0 lane=0
+app-timing: pid=9 role=1 window=1 stage=history-free edge=end at_us=36735679 elapsed_us=183 lane=0
+app-timing: pid=9 role=1 window=1 stage=canvas-unmap edge=begin at_us=36736140 elapsed_us=0 lane=1
+app-phase-sched: pid=9 role=1 window=1 stage=canvas-unmap start_us=36736306 end_us=36736966 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=9 role=1 window=1 stage=canvas-unmap edge=end at_us=36737196 elapsed_us=1056 lane=1
+app-timing: pid=9 role=1 window=1 stage=document-unmap edge=begin at_us=36737349 elapsed_us=0 lane=1
+app-phase-sched: pid=9 role=1 window=1 stage=document-unmap start_us=36737473 end_us=36737780 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=9 role=1 window=1 stage=document-unmap edge=end at_us=36737995 elapsed_us=646 lane=1
+deskd: focused pid=14 window=2 identity=14
+deskd: opened pid=14 window=1 id=2 parent=1
+deskd: geometry pid=14 window=2 frame=112,108,562,325
+deskd: resources reason=opened clients=2 children=2 clipboard_peers=2 window_capacity=16 cache_bytes=6784000 cache_budget=100663296 gui_queue_budget=2097152 gui_queue_depth=64 gui_surface_record_budget=262144 gui_surface_pixel_budget=268435456
+app-timing: pid=14 role=2 window=2 stage=canvas-pixels edge=begin at_us=36742677 elapsed_us=0 lane=0
+app-timing: pid=9 role=1 window=0 stage=file-service-stop edge=begin at_us=36742950 elapsed_us=0 lane=0
+file-service: stopped version=3 pid=9 role=1 requested=1 opened=1 failures=0 cancelled=0 abandoned=0 jobs_cancelled=0 retired=2 retire_failed=0 pending=0 join_error=0 max_start_us=88081 max_retire_us=1200 async=yes quiesced=yes process_owned=yes joined=no
+app-timing: pid=9 role=1 window=0 stage=file-service-stop edge=end at_us=36743585 elapsed_us=635 lane=0
+files-runtime: documents admitted=1 retired=1 refused=0
+app-timing: pid=9 role=1 window=0 stage=pool-retire edge=begin at_us=36743827 elapsed_us=0 lane=0
+app-phase-sched: pid=14 role=2 window=2 stage=canvas-pixels start_us=36742824 end_us=36783435 blocked_us=7418 ready_us=32878 blocks=1 dispatches=2 exclusions=0 invalid=0 max_ready_us=25470 reason=0
+app-timing: pid=14 role=2 window=2 stage=canvas-pixels edge=end at_us=36783714 elapsed_us=41037 lane=0
+app-timing: pid=14 role=2 window=2 stage=canvas-surface edge=begin at_us=36783840 elapsed_us=0 lane=0
+app-phase-sched: pid=14 role=2 window=2 stage=canvas-surface start_us=36783962 end_us=36784063 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=14 role=2 window=2 stage=canvas-surface edge=end at_us=36784275 elapsed_us=435 lane=0
+app-phase-sched: pid=9 role=1 window=0 stage=pool-retire start_us=36743976 end_us=36804686 blocked_us=38455 ready_us=21746 blocks=2 dispatches=3 exclusions=0 invalid=0 max_ready_us=14018 reason=0
+file-pool: retired role=files spawned=1 reaped=1 peak=1 live=0 bound=0
+app-timing: pid=9 role=1 window=0 stage=pool-retire edge=end at_us=36805218 elapsed_us=61391 lane=0
+desktools: exited role=files failure=0
+app-timing: pid=9 role=1 window=0 stage=main-return edge=event at_us=36805457 elapsed_us=0 lane=0
+deskd: commit pid=14 generation=1 size=560x280
+deskd: child-exit pid=9 status=0 tick=3567
+session-ui: phase=canceled reason=app pid=14 status=1
+deskd: retired pid=14
+deskd: resources reason=retired clients=1 children=1 clipboard_peers=1 window_capacity=16 cache_bytes=4019200 cache_budget=100663296 gui_queue_budget=2097152 gui_queue_depth=64 gui_surface_record_budget=262144 gui_surface_pixel_budget=268435456
+deskd: focused pid=14 window=1 identity=13
+session-ui: phase=closing action=console
+deskd: close-request pid=14 tick=4408
+app-timing: pid=14 role=2 window=1 stage=close-received edge=event at_us=45303880 elapsed_us=0 lane=0
+window-lifecycle: close-request role=2 window=1 busy=0 operation=0
+deskd: focused pid=14 window=3 identity=15
+deskd: opened pid=14 window=1 id=3 parent=1
+deskd: geometry pid=14 window=3 frame=112,108,562,325
+deskd: resources reason=opened clients=2 children=1 clipboard_peers=2 window_capacity=16 cache_bytes=4019200 cache_budget=100663296 gui_queue_budget=2097152 gui_queue_depth=64 gui_surface_record_budget=262144 gui_surface_pixel_budget=268435456
+app-timing: pid=14 role=2 window=3 stage=canvas-pixels edge=begin at_us=45330572 elapsed_us=0 lane=0
+app-phase-sched: pid=14 role=2 window=3 stage=canvas-pixels start_us=45330736 end_us=45336257 blocked_us=5140 ready_us=75 blocks=1 dispatches=1 exclusions=0 invalid=0 max_ready_us=75 reason=1
+app-timing: pid=14 role=2 window=3 stage=canvas-pixels edge=end at_us=45336520 elapsed_us=5948 lane=0
+app-timing: pid=14 role=2 window=3 stage=canvas-surface edge=begin at_us=45336651 elapsed_us=0 lane=0
+app-phase-sched: pid=14 role=2 window=3 stage=canvas-surface start_us=45336812 end_us=45336916 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=14 role=2 window=3 stage=canvas-surface edge=end at_us=45337136 elapsed_us=485 lane=0
+deskd: commit pid=14 generation=1 size=560x280
+desktools: picker mode=2 opened
+desktools: file-submitted role=text op=3 id=1 worker=15
+desktools: file-result role=text op=3 status=0 bytes=0
+desktools: picker ready mode=2 items=0 path=/fat/home
+desktop-reap: elapsed_us=54392
+session-ui: phase=canceled reason=app pid=14 status=1
+deskd: retired pid=14
+deskd: resources reason=retired clients=1 children=1 clipboard_peers=1 window_capacity=16 cache_bytes=4019200 cache_budget=100663296 gui_queue_budget=2097152 gui_queue_depth=64 gui_surface_record_budget=262144 gui_surface_pixel_budget=268435456
+deskd: focused pid=14 window=1 identity=13
+desktop-reap: elapsed_us=52503
+desktools: picker mode=2 opened
+desktools: file-submitted role=text op=3 id=2 worker=15
+deskd: focused pid=14 window=4 identity=16
+deskd: opened pid=14 window=1 id=4 parent=1
+deskd: geometry pid=14 window=4 frame=32,108,722,525
+deskd: resources reason=opened clients=2 children=1 clipboard_peers=2 window_capacity=16 cache_bytes=5401600 cache_budget=100663296 gui_queue_budget=2097152 gui_queue_depth=64 gui_surface_record_budget=262144 gui_surface_pixel_budget=268435456
+desktools: file-result role=text op=3 status=0 bytes=23680
+desktools: picker ready mode=2 items=185 path=/fat
+app-timing: pid=14 role=2 window=4 stage=canvas-pixels edge=begin at_us=58776894 elapsed_us=0 lane=0
+app-phase-sched: pid=14 role=2 window=4 stage=canvas-pixels start_us=58777040 end_us=58784596 blocked_us=0 ready_us=7039 blocks=0 dispatches=1 exclusions=0 invalid=0 max_ready_us=7039 reason=0
+app-timing: pid=14 role=2 window=4 stage=canvas-pixels edge=end at_us=58784847 elapsed_us=7953 lane=0
+app-timing: pid=14 role=2 window=4 stage=canvas-surface edge=begin at_us=58784979 elapsed_us=0 lane=0
+app-phase-sched: pid=14 role=2 window=4 stage=canvas-surface start_us=58785102 end_us=58785291 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=14 role=2 window=4 stage=canvas-surface edge=end at_us=58785509 elapsed_us=530 lane=0
+deskd: commit pid=14 generation=1 size=720x480
+desktools: file-submitted role=text op=2 id=3 worker=15
+deskd: retired pid=14
+deskd: resources reason=retired clients=1 children=1 clipboard_peers=1 window_capacity=16 cache_bytes=5401600 cache_budget=100663296 gui_queue_budget=2097152 gui_queue_depth=64 gui_surface_record_budget=262144 gui_surface_pixel_budget=268435456
+deskd: focused pid=14 window=1 identity=13
+desktools: file-result role=text op=2 status=0 bytes=0
+session-ui: phase=closing action=console
+deskd: close-request pid=14 tick=6024
+app-timing: pid=14 role=2 window=1 stage=close-received edge=event at_us=61455263 elapsed_us=0 lane=0
+window-lifecycle: close-request role=2 window=1 busy=0 operation=0
+deskd: focused pid=14 window=5 identity=17
+deskd: opened pid=14 window=1 id=5 parent=1
+deskd: geometry pid=14 window=5 frame=112,108,562,325
+deskd: resources reason=opened clients=2 children=1 clipboard_peers=2 window_capacity=16 cache_bytes=4019200 cache_budget=100663296 gui_queue_budget=2097152 gui_queue_depth=64 gui_surface_record_budget=262144 gui_surface_pixel_budget=268435456
+app-timing: pid=14 role=2 window=5 stage=canvas-pixels edge=begin at_us=61495506 elapsed_us=0 lane=0
+app-phase-sched: pid=14 role=2 window=5 stage=canvas-pixels start_us=61495659 end_us=61496051 blocked_us=0 ready_us=41 blocks=0 dispatches=1 exclusions=0 invalid=0 max_ready_us=41 reason=0
+app-timing: pid=14 role=2 window=5 stage=canvas-pixels edge=end at_us=61496289 elapsed_us=783 lane=0
+app-timing: pid=14 role=2 window=5 stage=canvas-surface edge=begin at_us=61496419 elapsed_us=0 lane=0
+app-phase-sched: pid=14 role=2 window=5 stage=canvas-surface start_us=61496547 end_us=61496650 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=14 role=2 window=5 stage=canvas-surface edge=end at_us=61496873 elapsed_us=454 lane=0
+deskd: commit pid=14 generation=1 size=560x280
+desktools: file-submitted role=text op=2 id=4 worker=15
+deskd: retired pid=14
+deskd: resources reason=retired clients=1 children=1 clipboard_peers=1 window_capacity=16 cache_bytes=4019200 cache_budget=100663296 gui_queue_budget=2097152 gui_queue_depth=64 gui_surface_record_budget=262144 gui_surface_pixel_budget=268435456
+deskd: focused pid=14 window=1 identity=13
+desktools: file-result role=text op=2 status=0 bytes=0
+deskd: retired pid=14
+deskd: resources reason=retired clients=0 children=1 clipboard_peers=0 window_capacity=16 cache_bytes=2764800 cache_budget=100663296 gui_queue_budget=2097152 gui_queue_depth=64 gui_surface_record_budget=262144 gui_surface_pixel_budget=268435456
+app-timing: pid=14 role=2 window=1 stage=close-ack edge=event at_us=67072664 elapsed_us=0 lane=0
+text-runtime: closed window=1 bytes=44
+app-timing: pid=14 role=2 window=1 stage=window-dispose edge=begin at_us=67073055 elapsed_us=0 lane=0
+app-timing: pid=14 role=2 window=1 stage=window-dispose edge=end at_us=67073436 elapsed_us=381 lane=0
+text-runtime: job-detached window=1
+app-timing: pid=14 role=2 window=1 stage=history-free edge=begin at_us=67073745 elapsed_us=0 lane=0
+app-timing: pid=14 role=2 window=1 stage=history-free edge=end at_us=67073926 elapsed_us=181 lane=0
+app-timing: pid=14 role=2 window=1 stage=canvas-unmap edge=begin at_us=67074428 elapsed_us=0 lane=1
+app-phase-sched: pid=14 role=2 window=1 stage=canvas-unmap start_us=67074599 end_us=67075215 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=14 role=2 window=1 stage=canvas-unmap edge=end at_us=67075454 elapsed_us=1026 lane=1
+app-timing: pid=14 role=2 window=1 stage=document-unmap edge=begin at_us=67075624 elapsed_us=0 lane=1
+app-phase-sched: pid=14 role=2 window=1 stage=document-unmap start_us=67075753 end_us=67076183 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=14 role=2 window=1 stage=document-unmap edge=end at_us=67079835 elapsed_us=4211 lane=1
+app-timing: pid=14 role=2 window=0 stage=file-service-stop edge=begin at_us=67082943 elapsed_us=0 lane=0
+file-service: stopped version=3 pid=14 role=2 requested=1 opened=1 failures=0 cancelled=0 abandoned=0 jobs_cancelled=0 retired=2 retire_failed=0 pending=0 join_error=0 max_start_us=18072 max_retire_us=4346 async=yes quiesced=yes process_owned=yes joined=no
+app-timing: pid=14 role=2 window=0 stage=file-service-stop edge=end at_us=67083621 elapsed_us=678 lane=0
+text-runtime: documents admitted=1 retired=1 refused=0
+app-timing: pid=14 role=2 window=0 stage=pool-retire edge=begin at_us=67083877 elapsed_us=0 lane=0
+app-phase-sched: pid=14 role=2 window=0 stage=pool-retire start_us=67084038 end_us=67084240 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+file-pool: retired role=text spawned=1 reaped=1 peak=1 live=0 bound=0
+app-timing: pid=14 role=2 window=0 stage=pool-retire edge=end at_us=67084565 elapsed_us=688 lane=0
+desktools: exited role=text failure=0
+app-timing: pid=14 role=2 window=0 stage=main-return edge=event at_us=67084801 elapsed_us=0 lane=0
+deskd: preferences revision=1 status=1 text=16 offset=0 flags=3 wallpaper=0 pointer_speed=3 acceleration=1 disable_while_typing=0 tap_to_click=1 two_finger_tap=1 theme_accent=0 glass_level=1 theme_style=0
+deskd: child-exit pid=14 status=0 tick=6591
+session-ui: phase=committed action=console
+desktop-ui-log: version=1 dropped=0 pending=0
+deskd: cache peak_bytes=10931200 retired_bytes=0 budget_bytes=100663296 windows=16
+deskd: registry peak_bytes=0 retired_bytes=0 budget_bytes=8388608
+deskd: exited frames=602 fb_bytes=770286044
+session: phase=retired token=1 pid=5 status=43 console_mute=0 unmute=0
+session: phase=revoked token=1 pid=5
+session: phase=empty token=1 pid=5 members=0 nonzero_exits=2 first_status=143
+session: phase=released token=1 pid=5
+
+process: exited status=0
+run: pid=4 exited status=0
+srv> srv> r[Ksrv> rsrv> ru[Ksrv> rusrv> run[Ksrv> runsrv> run [Ksrv> run srv> run /[Ksrv> run /srv> run /f[Ksrv> run /fsrv> run /fa[Ksrv> run /fasrv> run /fat[Ksrv> run /fatsrv> run /fat/[Ksrv> run /fat/srv> run /fat/b[Ksrv> run /fat/bsrv> run /fat/bi[Ksrv> run /fat/bisrv> run /fat/bin[Ksrv> run /fat/binsrv> run /fat/bin/[Ksrv> run /fat/bin/srv> run /fat/bin/d[Ksrv> run /fat/bin/dsrv> run /fat/bin/de[Ksrv> run /fat/bin/desrv> run /fat/bin/des[Ksrv> run /fat/bin/dessrv> run /fat/bin/desk[Ksrv> run /fat/bin/desksrv> run /fat/bin/deskd[Ksrv> run /fat/bin/deskdsrv> run /fat/bin/deskd [Ksrv> run /fat/bin/deskd srv> run /fat/bin/deskd -[Ksrv> run /fat/bin/deskd -srv> run /fat/bin/deskd --[Ksrv> run /fat/bin/deskd --srv> run /fat/bin/deskd --a[Ksrv> run /fat/bin/deskd --asrv> run /fat/bin/deskd --ap[Ksrv> run /fat/bin/deskd --apsrv> run /fat/bin/deskd --app[Ksrv> run /fat/bin/deskd --appsrv> run /fat/bin/deskd --apps[Ksrv> run /fat/bin/deskd --appssrv> run /fat/bin/deskd --apps-[Ksrv> run /fat/bin/deskd --apps-srv> run /fat/bin/deskd --apps-t[Ksrv> run /fat/bin/deskd --apps-tsrv> run /fat/bin/deskd --apps-tr[Ksrv> run /fat/bin/deskd --apps-trsrv> run /fat/bin/deskd --apps-tra[Ksrv> run /fat/bin/deskd --apps-trasrv> run /fat/bin/deskd --apps-trac[Ksrv> run /fat/bin/deskd --apps-tracsrv> run /fat/bin/deskd --apps-trace[Ksrv> run /fat/bin/deskd --apps-trace
+run: entering pid=16 /fat/bin/deskd entry=0x0000000000500000 stack=0x0000000000ffffc0
+session: phase=started token=2 pid=17
+deskd: display physical=1280x800 logical=1280x800 scale=1 screenshots=logical
+deskd: preferences revision=1 status=0 text=16 offset=0 flags=3 wallpaper=0 pointer_speed=3 acceleration=1 disable_while_typing=0 tap_to_click=1 two_finger_tap=1 theme_accent=0 glass_level=1 theme_style=0
+deskd: ready; independent clients, sealed surfaces
+app-timing: pid=19 role=2 window=0 stage=main-entry edge=event at_us=68078517 elapsed_us=0 lane=0
+app-timing: pid=19 role=2 window=0 stage=pool-init edge=begin at_us=68079808 elapsed_us=0 lane=0
+app-timing: pid=19 role=2 window=0 stage=pool-init edge=end at_us=68080082 elapsed_us=274 lane=0
+app-timing: pid=19 role=2 window=0 stage=document-map edge=begin at_us=68080274 elapsed_us=0 lane=0
+app-phase-sched: pid=19 role=2 window=0 stage=document-map start_us=68080466 end_us=68080956 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=19 role=2 window=0 stage=document-map edge=end at_us=68081333 elapsed_us=1059 lane=0
+app-timing: pid=19 role=2 window=0 stage=canvas-reserve edge=begin at_us=68081515 elapsed_us=0 lane=0
+app-phase-sched: pid=19 role=2 window=0 stage=canvas-reserve start_us=68081716 end_us=68082228 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=19 role=2 window=0 stage=canvas-reserve edge=end at_us=68082502 elapsed_us=987 lane=0
+app-timing: pid=19 role=2 window=0 stage=file-service-init edge=begin at_us=68082690 elapsed_us=0 lane=0
+app-timing: pid=19 role=2 window=0 stage=service-attributes edge=begin at_us=68082912 elapsed_us=0 lane=0
+app-timing: pid=19 role=2 window=0 stage=service-attributes edge=end at_us=68083150 elapsed_us=238 lane=0
+app-timing: pid=19 role=2 window=0 stage=pthread-reap-self edge=begin at_us=68083395 elapsed_us=0 lane=0
+app-phase-sched: pid=19 role=2 window=0 stage=pthread-reap-self start_us=68083588 end_us=68083635 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=19 role=2 window=0 stage=pthread-reap-self edge=end at_us=68083932 elapsed_us=537 lane=0
+app-timing: pid=19 role=2 window=0 stage=pthread-reap-records edge=begin at_us=68084154 elapsed_us=0 lane=0
+app-phase-sched: pid=19 role=2 window=0 stage=pthread-reap-records start_us=68084315 end_us=68084378 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=19 role=2 window=0 stage=pthread-reap-records edge=end at_us=68084670 elapsed_us=516 lane=0
+app-timing: pid=19 role=2 window=0 stage=pthread-record-claim edge=begin at_us=68084883 elapsed_us=0 lane=0
+app-phase-sched: pid=19 role=2 window=0 stage=pthread-record-claim start_us=68085033 end_us=68085085 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=19 role=2 window=0 stage=pthread-record-claim edge=end at_us=68085378 elapsed_us=495 lane=0
+app-timing: pid=19 role=2 window=0 stage=pthread-kernel-create edge=begin at_us=68085553 elapsed_us=0 lane=0
+app-phase-sched: pid=19 role=2 window=0 stage=pthread-kernel-create start_us=68085717 end_us=68085864 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=19 role=2 window=0 stage=pthread-kernel-create edge=end at_us=68086137 elapsed_us=584 lane=0
+app-timing: pid=19 role=2 window=0 stage=pthread-publish edge=begin at_us=68086315 elapsed_us=0 lane=0
+app-phase-sched: pid=19 role=2 window=0 stage=pthread-publish start_us=68086479 end_us=68086507 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=19 role=2 window=0 stage=pthread-publish edge=end at_us=68086782 elapsed_us=467 lane=0
+app-timing: pid=19 role=2 window=0 stage=file-service-init edge=end at_us=68087021 elapsed_us=4331 lane=0
+desktools: starting role=text
+app-timing: pid=19 role=2 window=0 stage=runtime-init edge=begin at_us=68087297 elapsed_us=0 lane=0
+app-timing: pid=19 role=2 window=0 stage=runtime-init edge=end at_us=68087823 elapsed_us=526 lane=0
+app-timing: pid=19 role=2 window=0 stage=text-history-reserve edge=begin at_us=68088010 elapsed_us=0 lane=0
+app-phase-sched: pid=19 role=2 window=0 stage=text-history-reserve start_us=68088208 end_us=68088359 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=19 role=2 window=0 stage=text-history-reserve edge=end at_us=68088650 elapsed_us=640 lane=0
+app-timing: pid=19 role=2 window=0 stage=window-open edge=begin at_us=68088866 elapsed_us=0 lane=0
+app-timing: pid=19 role=2 window=0 stage=window-open edge=end at_us=68089630 elapsed_us=764 lane=0
+app-timing: pid=19 role=2 window=1 stage=canvas-adopt edge=begin at_us=68089814 elapsed_us=0 lane=0
+app-timing: pid=19 role=2 window=1 stage=canvas-adopt edge=end at_us=68090064 elapsed_us=250 lane=0
+desktop-launch: app=2 pid=19 exec_us=127811 async=yes
+deskd: focused pid=19 window=1 identity=1
+deskd: opened pid=19 window=0 id=1 parent=0
+deskd: geometry pid=19 window=1 frame=32,64,722,525
+deskd: resources reason=opened clients=1 children=1 clipboard_peers=1 window_capacity=16 cache_bytes=2764800 cache_budget=100663296 gui_queue_budget=2097152 gui_queue_depth=64 gui_surface_record_budget=262144 gui_surface_pixel_budget=268435456
+deskd: preferences revision=1 status=1 text=16 offset=0 flags=3 wallpaper=0 pointer_speed=3 acceleration=1 disable_while_typing=0 tap_to_click=1 two_finger_tap=1 theme_accent=0 glass_level=1 theme_style=0
+app-timing: pid=19 role=2 window=1 stage=role-init edge=begin at_us=68104059 elapsed_us=0 lane=0
+app-timing: pid=19 role=2 window=1 stage=text-history-init edge=begin at_us=68104770 elapsed_us=0 lane=0
+app-phase-sched: pid=19 role=2 window=1 stage=text-history-init start_us=68105026 end_us=68105047 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=19 role=2 window=1 stage=text-history-init edge=end at_us=68105374 elapsed_us=604 lane=0
+desktools: text history=multi-step
+app-timing: pid=19 role=2 window=1 stage=role-init edge=end at_us=68106003 elapsed_us=1944 lane=0
+text-runtime: admitted window=1 worker=0
+app-timing: pid=19 role=2 window=1 stage=canvas-pixels edge=begin at_us=68106508 elapsed_us=0 lane=0
+app-phase-sched: pid=19 role=2 window=1 stage=canvas-pixels start_us=68106678 end_us=68106730 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=19 role=2 window=1 stage=canvas-pixels edge=end at_us=68107006 elapsed_us=498 lane=0
+app-timing: pid=19 role=2 window=1 stage=canvas-surface edge=begin at_us=68107190 elapsed_us=0 lane=0
+app-phase-sched: pid=19 role=2 window=1 stage=canvas-surface start_us=68107333 end_us=68107550 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=19 role=2 window=1 stage=canvas-surface edge=end at_us=68107808 elapsed_us=618 lane=0
+app-timing: pid=19 role=2 window=1 stage=first-service edge=begin at_us=68109224 elapsed_us=0 lane=0
+app-phase-sched: pid=19 role=2 window=1 stage=first-service start_us=68109401 end_us=68109477 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=19 role=2 window=1 stage=first-service edge=end at_us=68109728 elapsed_us=504 lane=0
+app-timing: pid=19 role=2 window=1 stage=first-controls edge=begin at_us=68109981 elapsed_us=0 lane=0
+app-phase-sched: pid=19 role=2 window=1 stage=first-controls start_us=68110155 end_us=68111161 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=19 role=2 window=1 stage=first-controls edge=end at_us=68111453 elapsed_us=1472 lane=0
+app-timing: pid=19 role=2 window=1 stage=first-draw edge=begin at_us=68111733 elapsed_us=0 lane=0
+app-phase-sched: pid=19 role=2 window=1 stage=first-draw start_us=68111906 end_us=68114516 blocked_us=0 ready_us=63 blocks=0 dispatches=1 exclusions=0 invalid=0 max_ready_us=63 reason=0
+app-timing: pid=19 role=2 window=1 stage=first-draw edge=end at_us=68114836 elapsed_us=3103 lane=0
+app-timing: pid=19 role=2 window=1 stage=first-present edge=begin at_us=68115004 elapsed_us=0 lane=0
+app-phase-sched: pid=19 role=2 window=1 stage=first-present start_us=68115175 end_us=68116201 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=19 role=2 window=1 stage=first-present edge=end at_us=68116461 elapsed_us=1457 lane=0
+app-timing: pid=19 role=2 window=1 stage=first-publish edge=event at_us=68116638 elapsed_us=0 lane=0
+deskd: commit pid=19 generation=1 size=720x480
+desktop-reap: elapsed_us=61261
+deskd: focused pid=19 window=2 identity=2
+deskd: opened pid=19 window=1 id=2 parent=1
+deskd: geometry pid=19 window=2 frame=112,108,562,325
+deskd: resources reason=opened clients=2 children=1 clipboard_peers=2 window_capacity=16 cache_bytes=3392000 cache_budget=100663296 gui_queue_budget=2097152 gui_queue_depth=64 gui_surface_record_budget=262144 gui_surface_pixel_budget=268435456
+app-timing: pid=19 role=2 window=2 stage=canvas-pixels edge=begin at_us=70154670 elapsed_us=0 lane=0
+app-phase-sched: pid=19 role=2 window=2 stage=canvas-pixels start_us=70154847 end_us=70155158 blocked_us=0 ready_us=31 blocks=0 dispatches=1 exclusions=0 invalid=0 max_ready_us=31 reason=0
+app-timing: pid=19 role=2 window=2 stage=canvas-pixels edge=end at_us=70155383 elapsed_us=713 lane=0
+app-timing: pid=19 role=2 window=2 stage=canvas-surface edge=begin at_us=70155505 elapsed_us=0 lane=0
+app-phase-sched: pid=19 role=2 window=2 stage=canvas-surface start_us=70155626 end_us=70155722 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=19 role=2 window=2 stage=canvas-surface edge=end at_us=70155934 elapsed_us=429 lane=0
+deskd: commit pid=19 generation=1 size=560x280
+session-ui: phase=closing action=console
+deskd: close-request pid=19 tick=6982
+app-timing: pid=19 role=2 window=1 stage=close-received edge=event at_us=71031512 elapsed_us=0 lane=0
+window-lifecycle: close-request role=2 window=1 busy=0 operation=0
+deskd: retired pid=19
+deskd: resources reason=retired clients=1 children=1 clipboard_peers=1 window_capacity=16 cache_bytes=4019200 cache_budget=100663296 gui_queue_budget=2097152 gui_queue_depth=64 gui_surface_record_budget=262144 gui_surface_pixel_budget=268435456
+deskd: focused pid=19 window=1 identity=1
+deskd: retired pid=19
+deskd: resources reason=retired clients=0 children=1 clipboard_peers=0 window_capacity=16 cache_bytes=2764800 cache_budget=100663296 gui_queue_budget=2097152 gui_queue_depth=64 gui_surface_record_budget=262144 gui_surface_pixel_budget=268435456
+app-timing: pid=19 role=2 window=1 stage=close-ack edge=event at_us=75958813 elapsed_us=0 lane=0
+text-runtime: closed window=1 bytes=20
+app-timing: pid=19 role=2 window=1 stage=window-dispose edge=begin at_us=75959173 elapsed_us=0 lane=0
+app-timing: pid=19 role=2 window=1 stage=window-dispose edge=end at_us=75959560 elapsed_us=387 lane=0
+text-runtime: job-detached window=1
+app-timing: pid=19 role=2 window=1 stage=history-free edge=begin at_us=75959889 elapsed_us=0 lane=0
+app-timing: pid=19 role=2 window=1 stage=history-free edge=end at_us=75960079 elapsed_us=190 lane=0
+app-timing: pid=19 role=2 window=1 stage=canvas-unmap edge=begin at_us=75960578 elapsed_us=0 lane=1
+app-phase-sched: pid=19 role=2 window=1 stage=canvas-unmap start_us=75960777 end_us=75961469 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=19 role=2 window=1 stage=canvas-unmap edge=end at_us=75961739 elapsed_us=1161 lane=1
+app-timing: pid=19 role=2 window=1 stage=document-unmap edge=begin at_us=75961926 elapsed_us=0 lane=1
+app-phase-sched: pid=19 role=2 window=1 stage=document-unmap start_us=75962116 end_us=75962589 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+app-timing: pid=19 role=2 window=1 stage=document-unmap edge=end at_us=75962851 elapsed_us=925 lane=1
+app-timing: pid=19 role=2 window=0 stage=file-service-stop edge=begin at_us=75969333 elapsed_us=0 lane=0
+file-service: stopped version=3 pid=19 role=2 requested=0 opened=0 failures=0 cancelled=0 abandoned=0 jobs_cancelled=0 retired=2 retire_failed=0 pending=0 join_error=0 max_start_us=0 max_retire_us=1336 async=yes quiesced=yes process_owned=yes joined=no
+app-timing: pid=19 role=2 window=0 stage=file-service-stop edge=end at_us=75970035 elapsed_us=702 lane=0
+text-runtime: documents admitted=1 retired=1 refused=0
+app-timing: pid=19 role=2 window=0 stage=pool-retire edge=begin at_us=75970300 elapsed_us=0 lane=0
+app-phase-sched: pid=19 role=2 window=0 stage=pool-retire start_us=75970475 end_us=75970585 blocked_us=0 ready_us=0 blocks=0 dispatches=0 exclusions=0 invalid=0 max_ready_us=0 reason=0
+file-pool: retired role=text spawned=0 reaped=0 peak=0 live=0 bound=0
+app-timing: pid=19 role=2 window=0 stage=pool-retire edge=end at_us=75970932 elapsed_us=632 lane=0
+desktools: exited role=text failure=0
+app-timing: pid=19 role=2 window=0 stage=main-return edge=event at_us=75971186 elapsed_us=0 lane=0
+deskd: preferences revision=1 status=1 text=16 offset=0 flags=3 wallpaper=0 pointer_speed=3 acceleration=1 disable_while_typing=0 tap_to_click=1 two_finger_tap=1 theme_accent=0 glass_level=1 theme_style=0
+deskd: child-exit pid=19 status=0 tick=7480
+session-ui: phase=committed action=console
+desktop-ui-log: version=1 dropped=0 pending=0
+deskd: cache peak_bytes=4019200 retired_bytes=0 budget_bytes=100663296 windows=16
+deskd: registry peak_bytes=0 retired_bytes=0 budget_bytes=8388608
+deskd: exited frames=59 fb_bytes=77897340
+session: phase=retired token=2 pid=17 status=43 console_mute=0 unmute=0
+session: phase=revoked token=2 pid=17
+session: phase=empty token=2 pid=17 members=0 nonzero_exits=1 first_status=43
+session: phase=released token=2 pid=17
+
+process: exited status=0
+run: pid=16 exited status=0
+srv> srv> p[Ksrv> psrv> ps[Ksrv> ps
+pid name status
+1 /init background
+3 /fat/bin/svscan background
+srv> srv> s[Ksrv> s

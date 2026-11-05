@@ -1,0 +1,10 @@
+srv> r[Ksrv> rsrv> ru[Ksrv> rusrv> run[Ksrv> runsrv> run [Ksrv> run srv> run /[Ksrv> run /srv> run /j[Ksrv> run /jsrv> run /js[Ksrv> run /jssrv> run /jsc[Ksrv> run /jscsrv> run /jsc [Ksrv> run /jsc srv> run /jsc "[Ksrv> run /jsc "srv> run /jsc "-[Ksrv> run /jsc "-srv> run /jsc "-e[Ksrv> run /jsc "-esrv> run /jsc "-e"[Ksrv> run /jsc "-e"srv> run /jsc "-e" [Ksrv> run /jsc "-e" srv> run /jsc "-e" "[Ksrv> run /jsc "-e" "srv> run /jsc "-e" "p[Ksrv> run /jsc "-e" "psrv> run /jsc "-e" "pr[Ksrv> run /jsc "-e" "prsrv> run /jsc "-e" "pri[Ksrv> run /jsc "-e" "prisrv> run /jsc "-e" "prin[Ksrv> run /jsc "-e" "prinsrv> run /jsc "-e" "print[Ksrv> run /jsc "-e" "printsrv> run /jsc "-e" "print([Ksrv> run /jsc "-e" "print(srv> run /jsc "-e" "print(4[Ksrv> run /jsc "-e" "print(4srv> run /jsc "-e" "print(42[Ksrv> run /jsc "-e" "print(42srv> run /jsc "-e" "print(42)[Ksrv> run /jsc "-e" "print(42)srv> run /jsc "-e" "print(42)"[Ksrv> run /jsc "-e" "print(42)"
+run: entering pid=10 /jsc entry=0x0000000000500000 stack=0x000000000fffefc0
+run: map page rejected process=0xffffffff805b3460 count=65536 limit=65536 virt=0x000000001cca4000
+run: map page rejected process=0xffffffff805b3460 count=65536 limit=65536 virt=0x000000001cca4000
+run: map page rejected process=0xffffffff805b3460 count=65536 limit=65536 virt=0x000000001cca4000
+42
+
+process: exited status=0
+run: pid=10 exited status=0
+srv> 

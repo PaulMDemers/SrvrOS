@@ -1,0 +1,73 @@
+{
+  "result": "failed",
+  "commands": [
+    {
+      "name": "outer-admission",
+      "argv": [
+        "python3",
+        "tools/test_signal_experimental_admission.py",
+        "--output",
+        "$WORKSPACE/SrvrOS-signal-context/build/final-browser-integration/stage-a/admission",
+        "--sanitizers"
+      ],
+      "cwd": "$WORKSPACE/SrvrOS-signal-context",
+      "owned_pid": 23530,
+      "peak_rss_bytes": 63406080,
+      "before_cleanup": {},
+      "status_before_cleanup": 0,
+      "status": 0,
+      "owned_pgids": [
+        23530
+      ],
+      "remaining": {},
+      "seconds": 2.1632778749917634
+    },
+    {
+      "name": "normal-lifecycle-stream",
+      "argv": [
+        "/opt/homebrew/bin/gmake",
+        "-j2",
+        "-o",
+        "$WORKSPACE/SrvrOS-signal-context/build/tooling/zig/zig",
+        "ZIG=$WORKSPACE/SrvrOS-signal-context/build/tooling/zig/zig",
+        "HOST_CC=python3 build/tooling/darwin-host-cc.py",
+        "test-process-thread-ids",
+        "test-process-user-frame-copy",
+        "test-process-signal-state",
+        "test-process-signal-delivery",
+        "test-process-signal-action-defaults",
+        "test-process-output",
+        "test-process-lifetime",
+        "test-file-stream"
+      ],
+      "cwd": "$WORKSPACE/SrvrOS-signal-context",
+      "owned_pid": 23569,
+      "peak_rss_bytes": 251789312,
+      "before_cleanup": {},
+      "status_before_cleanup": 2,
+      "status": 2,
+      "owned_pgids": [
+        23569
+      ],
+      "remaining": {},
+      "seconds": 9.952977958018892
+    }
+  ],
+  "plan_sha256": "6385cde4b4f753b75d31d9485587568a376c5ae6236195f4cdac83fa3f4e5e66",
+  "error": "RuntimeError('failed normal-lifecycle-stream')",
+  "seconds": 12.572625917033292,
+  "storage_minimum": {
+    "host": {
+      "path": "$HOST_HOME",
+      "free_bytes": 36125687808
+    },
+    "output": {
+      "path": "$WORKSPACE/SrvrOS-signal-context/build/final-browser-integration/stage-a",
+      "free_bytes": 36125687808
+    },
+    "backing": {
+      "path": "$BACKING_VOLUME",
+      "free_bytes": 8010465280
+    }
+  }
+}

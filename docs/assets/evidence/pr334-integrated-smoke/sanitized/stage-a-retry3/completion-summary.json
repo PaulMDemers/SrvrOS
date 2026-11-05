@@ -1,0 +1,42 @@
+{
+  "source": "0a3f5981",
+  "ports": "af1421b",
+  "result": "StageA pass; no guest run",
+  "seconds": 39.55082579201553,
+  "commands": [
+    {
+      "name": "outer-admission",
+      "status": 0,
+      "seconds": 1.7961127500166185,
+      "peak_rss_bytes": 43286528
+    },
+    {
+      "name": "normal-lifecycle-stream",
+      "status": 0,
+      "seconds": 13.500645500025712,
+      "peak_rss_bytes": 292749312
+    },
+    {
+      "name": "kernels-sdk-init-native",
+      "status": 0,
+      "seconds": 20.31389674998354,
+      "peak_rss_bytes": 229195776
+    },
+    {
+      "name": "entropy-actual-fresh-sdk",
+      "status": 0,
+      "seconds": 3.600028833025135,
+      "peak_rss_bytes": 135659520
+    }
+  ],
+  "artifacts": {
+    "build/kernel/srvros.elf": "71466b0c6f30ea3c333c3fc6bd8b0ef791f7cd4295d2b67a31402f47a9885c81",
+    "build/signal-context/integration-experimental/kernel.elf": "7503975865184a64953900bc8d37940516a851bdf83c7d7e29a1539d060e8e9e",
+    "build/signal-context/integration-experimental/probe.elf": "b546607c89f87533933f3709fede1d048d813678a16d0a84ffb7189322e46fe1",
+    "build/userspace/init.elf": "15d51cf99476c89596894d57f224a0e9eb7565f42b8b9779be66ad186e7c618b",
+    "build/sysroot/srvros/lib/libsrvros.a": "e7622f29497ee4de291910ace88cf90e7111a1a09029e1d0e6eb3e18c9853ea5",
+    "build/sysroot/srvros/lib/crt0.o": "96502b809c4f7a004fdc4a3a68824830f512efd787f890e2def33f30ebfe7669",
+    "build/sysroot/srvros/lib/app.ld": "a8c188bcebc5cfb28edcc81613a8ec25d0ae3d9ed58881080a4e6805b2cd8912"
+  },
+  "exported_native_header_sha256": "a36436954383c1b3e91b12b38ff230fe40a8ca7f1f875fed2a923e61599d1999"
+}

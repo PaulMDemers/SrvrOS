@@ -1,0 +1,189 @@
+{
+  "repo": "SrvrOS",
+  "pr": 310,
+  "predecessor": "185db570",
+  "replacement": "0a3f5981cd23b8982c5a8656af55875b0aae4a40",
+  "method": "All predecessor changed paths reconciled by blob/recipe content; no literal-ancestry claim",
+  "rows": [
+    {
+      "path": "THIRD_PARTY.md",
+      "predecessor_blob": "b89c300d06ace7fcebfa0b4cfbe54c8bd038cb1e",
+      "replacement_blob": "b89c300d06ace7fcebfa0b4cfbe54c8bd038cb1e",
+      "status": "exact"
+    },
+    {
+      "path": "docs/browser-port.md",
+      "predecessor_blob": "f854a512225823b72e33786338b43bf181d07d8c",
+      "replacement_blob": "d835ea04c8e100bd3bbb41191c9293a7dc134f10",
+      "status": "revised"
+    },
+    {
+      "path": "ports",
+      "predecessor_blob": "af466ba6888ad29904d1586bf574702ef53b9bed",
+      "replacement_blob": "af1421b735b61cf47c4e6516730c30468020abc7",
+      "status": "revised"
+    },
+    {
+      "path": "tools/browser_evidence.py",
+      "predecessor_blob": "6cfc1b806c17d39f8e7fbc999bee24494250f802",
+      "replacement_blob": "6cfc1b806c17d39f8e7fbc999bee24494250f802",
+      "status": "exact"
+    },
+    {
+      "path": "tools/browser_extension_probe.py",
+      "predecessor_blob": "4e7f7c2002b5968383fbd9c57cbc95ef02e94be6",
+      "replacement_blob": "4e7f7c2002b5968383fbd9c57cbc95ef02e94be6",
+      "status": "exact"
+    },
+    {
+      "path": "tools/browser_filesystem_smoke.py",
+      "predecessor_blob": "2d25cab0e454962f27c57c6d73ff08554c1cde8e",
+      "replacement_blob": "2d25cab0e454962f27c57c6d73ff08554c1cde8e",
+      "status": "exact"
+    },
+    {
+      "path": "tools/browser_jsc_build.py",
+      "predecessor_blob": "45fd5b8fa8c8714af4d24d6469741f1a522212dc",
+      "replacement_blob": "9a5ce8b48f6fd5f93547bdfdcbac32d49ff4e692",
+      "status": "revised"
+    },
+    {
+      "path": "tools/browser_jsc_elf.py",
+      "predecessor_blob": "6e6f4dbec9c5125ddac6a958309ebbe1dbc74b02",
+      "replacement_blob": "6e6f4dbec9c5125ddac6a958309ebbe1dbc74b02",
+      "status": "exact"
+    },
+    {
+      "path": "tools/browser_jsc_replay.py",
+      "predecessor_blob": "c8062361afc48cd9481e206e776b5fb79121d7e9",
+      "replacement_blob": "c8062361afc48cd9481e206e776b5fb79121d7e9",
+      "status": "exact"
+    },
+    {
+      "path": "tools/browser_jsc_smoke.py",
+      "predecessor_blob": "f4ae75ca352cba15201e80a71166f81f0ab45d27",
+      "replacement_blob": "f4ae75ca352cba15201e80a71166f81f0ab45d27",
+      "status": "exact"
+    },
+    {
+      "path": "tools/browser_math_probe.py",
+      "predecessor_blob": "8814e3620cd9cddf5f5dce15e2748e09cd3b9e0d",
+      "replacement_blob": "8814e3620cd9cddf5f5dce15e2748e09cd3b9e0d",
+      "status": "exact"
+    },
+    {
+      "path": "tools/browser_platform_probe.py",
+      "predecessor_blob": "933e07c601aee52d41b0821687293c97416a4b3f",
+      "replacement_blob": "933e07c601aee52d41b0821687293c97416a4b3f",
+      "status": "exact"
+    },
+    {
+      "path": "tools/browser_probe.py",
+      "predecessor_blob": "58bf2d4f137e6fdf151a651c834997957af9a485",
+      "replacement_blob": "58bf2d4f137e6fdf151a651c834997957af9a485",
+      "status": "exact"
+    },
+    {
+      "path": "tools/browser_runtime_smoke.py",
+      "predecessor_blob": "c5122c733c5a1ec11800a824308eec535f433776",
+      "replacement_blob": "c5122c733c5a1ec11800a824308eec535f433776",
+      "status": "exact"
+    },
+    {
+      "path": "tools/browser_signal_probe.py",
+      "predecessor_blob": "b76874fa7bee133a6a2526f090b008c2e46cef69",
+      "replacement_blob": "b76874fa7bee133a6a2526f090b008c2e46cef69",
+      "status": "exact"
+    },
+    {
+      "path": "tools/browser_tls_link_probe.py",
+      "predecessor_blob": "e4d136cc45d8a4a7e2c507de7c6d74591df432fb",
+      "replacement_blob": "e4d136cc45d8a4a7e2c507de7c6d74591df432fb",
+      "status": "exact"
+    },
+    {
+      "path": "tools/browser_wtf_probe.py",
+      "predecessor_blob": "aaf33df84b8c361c9882eff8ee03fc21b64b78e3",
+      "replacement_blob": "112e48d57fb5b58f86a10a5945f4192fc1ee8113",
+      "status": "revised"
+    },
+    {
+      "path": "tools/mathprobe.c",
+      "predecessor_blob": "82c5c6b0aecd92f4f7746eac89f59712b284588b",
+      "replacement_blob": "82c5c6b0aecd92f4f7746eac89f59712b284588b",
+      "status": "exact"
+    },
+    {
+      "path": "tools/test_browser_cpp_linkage.cc",
+      "predecessor_blob": "3adf1d28b4cca22b343ca2367b5567bab047103c",
+      "replacement_blob": "3adf1d28b4cca22b343ca2367b5567bab047103c",
+      "status": "exact"
+    },
+    {
+      "path": "tools/test_browser_memory_contract.c",
+      "predecessor_blob": "480231eba2c78285b8839d4a89fc852bf80ab6b1",
+      "replacement_blob": "480231eba2c78285b8839d4a89fc852bf80ab6b1",
+      "status": "exact"
+    },
+    {
+      "path": "tools/test_browser_signal_contract.c",
+      "predecessor_blob": "e03581b220ee640e9d64cd17bce04f13d373d918",
+      "replacement_blob": "e03581b220ee640e9d64cd17bce04f13d373d918",
+      "status": "exact"
+    },
+    {
+      "path": "tools/test_browser_tls_got.c",
+      "predecessor_blob": "9973ca98a056556145a0f6d00eef6b60d7068604",
+      "replacement_blob": "9973ca98a056556145a0f6d00eef6b60d7068604",
+      "status": "exact"
+    },
+    {
+      "path": "tools/test_math_hyperbolic.c",
+      "predecessor_blob": "9d82c62039521ddd6f4de2931342dd0e7d55b6ad",
+      "replacement_blob": "9d82c62039521ddd6f4de2931342dd0e7d55b6ad",
+      "status": "exact"
+    },
+    {
+      "path": "userspace/app.ld",
+      "predecessor_blob": "bcc63cc86f217b58748009deb700ef9ef3c864dc",
+      "replacement_blob": "bcc63cc86f217b58748009deb700ef9ef3c864dc",
+      "status": "exact"
+    },
+    {
+      "path": "userspace/lib/include/math.h",
+      "predecessor_blob": "b56cf410b7bb8fe38eec60337d7b63bd2bb334bb",
+      "replacement_blob": "b56cf410b7bb8fe38eec60337d7b63bd2bb334bb",
+      "status": "exact"
+    },
+    {
+      "path": "userspace/lib/include/regex.h",
+      "predecessor_blob": "aa11b79ac72350d3ba84c06c1004e36d1247651c",
+      "replacement_blob": "aa11b79ac72350d3ba84c06c1004e36d1247651c",
+      "status": "exact"
+    },
+    {
+      "path": "userspace/lib/include/semaphore.h",
+      "predecessor_blob": "2222d3cc28886e8b824900526493107601ae0f63",
+      "replacement_blob": "2222d3cc28886e8b824900526493107601ae0f63",
+      "status": "exact"
+    },
+    {
+      "path": "userspace/lib/include/sys/statvfs.h",
+      "predecessor_blob": "c709506bd04ca0f6d935ac884489e100896ae624",
+      "replacement_blob": "c709506bd04ca0f6d935ac884489e100896ae624",
+      "status": "exact"
+    },
+    {
+      "path": "userspace/lib/src/cxx_runtime.cc",
+      "predecessor_blob": "b6a2158de1efc2d0806deca344ef4c01a4555e87",
+      "replacement_blob": "b6a2158de1efc2d0806deca344ef4c01a4555e87",
+      "status": "exact"
+    },
+    {
+      "path": "userspace/lib/src/posix_math_hyperbolic.c",
+      "predecessor_blob": "71d974907f96494872e900eef1c1bb9a665acb0d",
+      "replacement_blob": "71d974907f96494872e900eef1c1bb9a665acb0d",
+      "status": "exact"
+    }
+  ]
+}

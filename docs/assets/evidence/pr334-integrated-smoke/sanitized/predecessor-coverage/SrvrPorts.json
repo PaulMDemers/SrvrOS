@@ -1,0 +1,351 @@
+{
+  "repo": "SrvrPorts",
+  "pr": 4,
+  "predecessor": "af466ba",
+  "replacement": "af1421b735b61cf47c4e6516730c30468020abc7",
+  "method": "All predecessor changed paths reconciled by blob/recipe content; no literal-ancestry claim",
+  "rows": [
+    {
+      "path": ".gitattributes",
+      "predecessor_blob": "f616080bc8f3018c685d6f38460ffc575d9bfb2f",
+      "replacement_blob": "f616080bc8f3018c685d6f38460ffc575d9bfb2f",
+      "status": "exact"
+    },
+    {
+      "path": "README.md",
+      "predecessor_blob": "611fb4fb6a7aecd4c2b703e3a5b5869512dedf62",
+      "replacement_blob": "34508cc07ac0a083de171d5367b8d5ae83143436",
+      "status": "revised"
+    },
+    {
+      "path": "srvros/icu/PORT.md",
+      "predecessor_blob": "8db2e622d4bb22b07e1d614228fe99ea678de760",
+      "replacement_blob": "8db2e622d4bb22b07e1d614228fe99ea678de760",
+      "status": "exact"
+    },
+    {
+      "path": "srvros/icu/build.py",
+      "predecessor_blob": "bcd4b5b0fe3dab7c4238377d34184f32041dd701",
+      "replacement_blob": "0ca2074d831b8eb265cb479ab2425a3933ed384b",
+      "status": "revised"
+    },
+    {
+      "path": "srvros/icu/guest.cc",
+      "predecessor_blob": "0fb051a90a40da766ace580d122c65c9f33af539",
+      "replacement_blob": "0fb051a90a40da766ace580d122c65c9f33af539",
+      "status": "exact"
+    },
+    {
+      "path": "srvros/icu/mh-srvros",
+      "predecessor_blob": "6a9a68a9c89910f8a2c52926e9406b5a8dd5308b",
+      "replacement_blob": "6a9a68a9c89910f8a2c52926e9406b5a8dd5308b",
+      "status": "exact"
+    },
+    {
+      "path": "srvros/icu/srvros-wchar.patch",
+      "predecessor_blob": "6f3b1efed80ae88b01297bb4a1f8d0eb9043a940",
+      "replacement_blob": "6f3b1efed80ae88b01297bb4a1f8d0eb9043a940",
+      "status": "exact"
+    },
+    {
+      "path": "srvros/libcxx/PORT.md",
+      "predecessor_blob": "d063a4f809a463b5223d2da084177ee53cf4dd92",
+      "replacement_blob": "d063a4f809a463b5223d2da084177ee53cf4dd92",
+      "status": "exact"
+    },
+    {
+      "path": "srvros/libcxx/algorithm_guest.cc",
+      "predecessor_blob": "2d40e4a20b89f0c80f4043cbe98bf8c86ea76554",
+      "replacement_blob": "2d40e4a20b89f0c80f4043cbe98bf8c86ea76554",
+      "status": "exact"
+    },
+    {
+      "path": "srvros/libcxx/build.py",
+      "predecessor_blob": "883f374a7b1fa25cff3f69f9549e5e2b420de02b",
+      "replacement_blob": "883f374a7b1fa25cff3f69f9549e5e2b420de02b",
+      "status": "exact"
+    },
+    {
+      "path": "srvros/libcxx/build_filesystem.py",
+      "predecessor_blob": "39580f95ecf909d59abed61f90075adafe465633",
+      "replacement_blob": "39580f95ecf909d59abed61f90075adafe465633",
+      "status": "exact"
+    },
+    {
+      "path": "srvros/libcxx/build_rtti.py",
+      "predecessor_blob": "8c6e0398a4b6b39142431050da9fde20b7108106",
+      "replacement_blob": "8c6e0398a4b6b39142431050da9fde20b7108106",
+      "status": "exact"
+    },
+    {
+      "path": "srvros/libcxx/config.h",
+      "predecessor_blob": "fa35de09a6bfd0711b50f77535f09de61692493e",
+      "replacement_blob": "fa35de09a6bfd0711b50f77535f09de61692493e",
+      "status": "exact"
+    },
+    {
+      "path": "srvros/libcxx/fail_fast.cc",
+      "predecessor_blob": "1130caea039d0d3e7b70d72e1de0770abefec240",
+      "replacement_blob": "1130caea039d0d3e7b70d72e1de0770abefec240",
+      "status": "exact"
+    },
+    {
+      "path": "srvros/libcxx/filesystem_guest.cc",
+      "predecessor_blob": "94298cb6af02c641337a1e12bfb909a59054202b",
+      "replacement_blob": "94298cb6af02c641337a1e12bfb909a59054202b",
+      "status": "exact"
+    },
+    {
+      "path": "srvros/libcxx/guest.cc",
+      "predecessor_blob": "864052b5d9883d4fda938492a87645bec614bea0",
+      "replacement_blob": "864052b5d9883d4fda938492a87645bec614bea0",
+      "status": "exact"
+    },
+    {
+      "path": "srvros/libcxx/main_tls.cc",
+      "predecessor_blob": "577dd6ac43e9847416996b08a0b005586802f6d6",
+      "replacement_blob": "577dd6ac43e9847416996b08a0b005586802f6d6",
+      "status": "exact"
+    },
+    {
+      "path": "srvros/libcxx/patches/filesystem-copy.patch",
+      "predecessor_blob": "f9cc837336deefce0ea7c440bb604e40e9d2d77a",
+      "replacement_blob": "f9cc837336deefce0ea7c440bb604e40e9d2d77a",
+      "status": "exact"
+    },
+    {
+      "path": "srvros/libcxx/rtti_guest.cc",
+      "predecessor_blob": "f98956b3f9cec5c79cec8bf75da6fb4262ef9c71",
+      "replacement_blob": "f98956b3f9cec5c79cec8bf75da6fb4262ef9c71",
+      "status": "exact"
+    },
+    {
+      "path": "srvros/libcxx/terminate.cc",
+      "predecessor_blob": "15c9fb6c20f398f3e9cc9994180b8f89227cc31b",
+      "replacement_blob": "15c9fb6c20f398f3e9cc9994180b8f89227cc31b",
+      "status": "exact"
+    },
+    {
+      "path": "srvros/libcxx/tlsfirst.cc",
+      "predecessor_blob": "b55c8a7e22d4fd6a56d7f1bf13b8f68136da15e1",
+      "replacement_blob": "b55c8a7e22d4fd6a56d7f1bf13b8f68136da15e1",
+      "status": "exact"
+    },
+    {
+      "path": "srvros/libm/COPYRIGHT.musl",
+      "predecessor_blob": "c1628e9ac84f927fe791124ec172fb61c760bb9b",
+      "replacement_blob": "c1628e9ac84f927fe791124ec172fb61c760bb9b",
+      "status": "exact"
+    },
+    {
+      "path": "srvros/libm/NOTICE",
+      "predecessor_blob": "18f2fdf20bd1b40a818dfbfae13342e166cf932d",
+      "replacement_blob": "18f2fdf20bd1b40a818dfbfae13342e166cf932d",
+      "status": "exact"
+    },
+    {
+      "path": "srvros/libm/PORT.md",
+      "predecessor_blob": "98fc5084fd52520816ea6147d77b5e0c01e05129",
+      "replacement_blob": "98fc5084fd52520816ea6147d77b5e0c01e05129",
+      "status": "exact"
+    },
+    {
+      "path": "srvros/libm/build.py",
+      "predecessor_blob": "84d51d227be9ac9dbc1176bbf4e7f15440d6007f",
+      "replacement_blob": "84d51d227be9ac9dbc1176bbf4e7f15440d6007f",
+      "status": "exact"
+    },
+    {
+      "path": "srvros/libm/compat.h",
+      "predecessor_blob": "d930bec5c88ec513e3a9af53fdcc2f0a0d7747a9",
+      "replacement_blob": "d930bec5c88ec513e3a9af53fdcc2f0a0d7747a9",
+      "status": "exact"
+    },
+    {
+      "path": "srvros/libm/domain.c",
+      "predecessor_blob": "eebe1b5e7e98c972dc7cffbcce5db0a1f2e0a1f9",
+      "replacement_blob": "eebe1b5e7e98c972dc7cffbcce5db0a1f2e0a1f9",
+      "status": "exact"
+    },
+    {
+      "path": "srvros/libm/endian.h",
+      "predecessor_blob": "55854b314183e499e7932f68a9f06645946861e8",
+      "replacement_blob": "55854b314183e499e7932f68a9f06645946861e8",
+      "status": "exact"
+    },
+    {
+      "path": "srvros/libm/host_test.py",
+      "predecessor_blob": "124494f8528287163c732e4ed0e23a00657210c7",
+      "replacement_blob": "124494f8528287163c732e4ed0e23a00657210c7",
+      "status": "exact"
+    },
+    {
+      "path": "srvros/libm/probe.c",
+      "predecessor_blob": "49fb18dae5bc4c4bb57608adbebf0775536d3f77",
+      "replacement_blob": "49fb18dae5bc4c4bb57608adbebf0775536d3f77",
+      "status": "exact"
+    },
+    {
+      "path": "srvros/webkit/PORT.md",
+      "predecessor_blob": "f24469368c248c7295985c70a25f87a8c83ce7b8",
+      "replacement_blob": "7cc029af9eead5c08bf667aa2438625a605ccea7",
+      "status": "revised"
+    },
+    {
+      "path": "srvros/webkit/available-memory.patch",
+      "predecessor_blob": "eab7cfde3a57783d14d5ce19a7d3c4e0d6310960",
+      "replacement_blob": "eab7cfde3a57783d14d5ce19a7d3c4e0d6310960",
+      "status": "exact"
+    },
+    {
+      "path": "srvros/webkit/bmalloc-stdlib.patch",
+      "predecessor_blob": "ff17cf1a61fffa80b4a215b02df21330d53829e7",
+      "replacement_blob": "ff17cf1a61fffa80b4a215b02df21330d53829e7",
+      "status": "exact"
+    },
+    {
+      "path": "srvros/webkit/cache-build-id.patch",
+      "predecessor_blob": "ad84fd8ea6e4ff2411889a507bdb6936ca26c193",
+      "replacement_blob": "ad84fd8ea6e4ff2411889a507bdb6936ca26c193",
+      "status": "exact"
+    },
+    {
+      "path": "srvros/webkit/cache-version.patch",
+      "predecessor_blob": "31f1f451949ee43a34da0bbd585988daab141daa",
+      "replacement_blob": "31f1f451949ee43a34da0bbd585988daab141daa",
+      "status": "exact"
+    },
+    {
+      "path": "srvros/webkit/cc",
+      "predecessor_blob": "70fe42d90d54129b6657f4edc62d0afaac2c4953",
+      "replacement_blob": "70fe42d90d54129b6657f4edc62d0afaac2c4953",
+      "status": "exact"
+    },
+    {
+      "path": "srvros/webkit/compiler.py",
+      "predecessor_blob": "b05ac346c3ebc663a2fd8c8ed4f0a4c36422b275",
+      "replacement_blob": "b05ac346c3ebc663a2fd8c8ed4f0a4c36422b275",
+      "status": "exact"
+    },
+    {
+      "path": "srvros/webkit/cxx",
+      "predecessor_blob": "5b81bdc8b1a149675eda54a45967a003d676bda3",
+      "replacement_blob": "5b81bdc8b1a149675eda54a45967a003d676bda3",
+      "status": "exact"
+    },
+    {
+      "path": "srvros/webkit/elf-local-labels.patch",
+      "predecessor_blob": "6d4aef089a2328cc187699863a3b831385d9ad7c",
+      "replacement_blob": "6d4aef089a2328cc187699863a3b831385d9ad7c",
+      "status": "exact"
+    },
+    {
+      "path": "srvros/webkit/file-map-flags.patch",
+      "predecessor_blob": "04acae980dccc15ba8f905ad0d995ffada02b3b7",
+      "replacement_blob": "04acae980dccc15ba8f905ad0d995ffada02b3b7",
+      "status": "exact"
+    },
+    {
+      "path": "srvros/webkit/filelock-include.patch",
+      "predecessor_blob": "ca0827774055ca47cb64ae1963841565359171b0",
+      "replacement_blob": "ca0827774055ca47cb64ae1963841565359171b0",
+      "status": "exact"
+    },
+    {
+      "path": "srvros/webkit/filesystem-detection.patch",
+      "predecessor_blob": "2cee40242c6151298e39f7f54470af3a2eebc1cd",
+      "replacement_blob": "2cee40242c6151298e39f7f54470af3a2eebc1cd",
+      "status": "exact"
+    },
+    {
+      "path": "srvros/webkit/filesystem-utf8.patch",
+      "predecessor_blob": "adbaa287d03a7baeb35312a17980afe6f4d47289",
+      "replacement_blob": "adbaa287d03a7baeb35312a17980afe6f4d47289",
+      "status": "exact"
+    },
+    {
+      "path": "srvros/webkit/int128-streams.patch",
+      "predecessor_blob": "fb9f298b3399752dde803ed642011b8cebf99c86",
+      "replacement_blob": "fb9f298b3399752dde803ed642011b8cebf99c86",
+      "status": "exact"
+    },
+    {
+      "path": "srvros/webkit/jsc-math-provider.patch",
+      "predecessor_blob": "daaca3bf83c56af9d5b13c870f2e752ca3860bc9",
+      "replacement_blob": "daaca3bf83c56af9d5b13c870f2e752ca3860bc9",
+      "status": "exact"
+    },
+    {
+      "path": "srvros/webkit/memory-footprint.patch",
+      "predecessor_blob": "a098a8995921faa40d3b02dea1d74b662d5f41a0",
+      "replacement_blob": "a098a8995921faa40d3b02dea1d74b662d5f41a0",
+      "status": "exact"
+    },
+    {
+      "path": "srvros/webkit/mincore-unavailable.patch",
+      "predecessor_blob": "017870f6f9558775b363a87e565f86592d96e8ab",
+      "replacement_blob": "017870f6f9558775b363a87e565f86592d96e8ab",
+      "status": "exact"
+    },
+    {
+      "path": "srvros/webkit/optional-signals.patch",
+      "predecessor_blob": "6e79084b69b178bb5c11c60efcdcd5d17be7c465",
+      "replacement_blob": "6e79084b69b178bb5c11c60efcdcd5d17be7c465",
+      "status": "exact"
+    },
+    {
+      "path": "srvros/webkit/platform-registers.patch",
+      "predecessor_blob": "213c17e41ce1fa96562d21f663da454a6bbd1be9",
+      "replacement_blob": "213c17e41ce1fa96562d21f663da454a6bbd1be9",
+      "status": "exact"
+    },
+    {
+      "path": "srvros/webkit/repatch-llint-includes.patch",
+      "predecessor_blob": "bc6c7189c5a69a966ca1b8e2addb48bdf7f4138c",
+      "replacement_blob": "bc6c7189c5a69a966ca1b8e2addb48bdf7f4138c",
+      "status": "exact"
+    },
+    {
+      "path": "srvros/webkit/repatch-nojit.patch",
+      "predecessor_blob": "e590563962b314ae43032699d6fa4a66d598638e",
+      "replacement_blob": "e590563962b314ae43032699d6fa4a66d598638e",
+      "status": "exact"
+    },
+    {
+      "path": "srvros/webkit/simdutf-icelake.patch",
+      "predecessor_blob": "03881b1ac3c14d920048cfd3a542f83c9cd9e9a0",
+      "replacement_blob": "03881b1ac3c14d920048cfd3a542f83c9cd9e9a0",
+      "status": "exact"
+    },
+    {
+      "path": "srvros/webkit/simdutf-scalar.patch",
+      "predecessor_blob": "cfc147657caa86cf56e0837121d5becb826e8a35",
+      "replacement_blob": "cfc147657caa86cf56e0837121d5becb826e8a35",
+      "status": "exact"
+    },
+    {
+      "path": "srvros/webkit/srvros-platform.patch",
+      "predecessor_blob": "4a08caef556359d45fc09306f65a9d3768d91ccb",
+      "replacement_blob": "4a08caef556359d45fc09306f65a9d3768d91ccb",
+      "status": "exact"
+    },
+    {
+      "path": "srvros/webkit/target-archive-tools.patch",
+      "predecessor_blob": "f680ed1bc64d1793e96ce217b1dcedf1a7f1c087",
+      "replacement_blob": "f680ed1bc64d1793e96ce217b1dcedf1a7f1c087",
+      "status": "exact"
+    },
+    {
+      "path": "srvros/webkit/toolchain.cmake",
+      "predecessor_blob": "2e521a3f0b77c4d47db9e1e4ab1a9180231de681",
+      "replacement_blob": "2e521a3f0b77c4d47db9e1e4ab1a9180231de681",
+      "status": "exact"
+    },
+    {
+      "path": "srvros/webkit/wtf_guest.cpp",
+      "predecessor_blob": "bc172aa73ea3398335866309ac4a1e33ae6ce662",
+      "replacement_blob": "bc172aa73ea3398335866309ac4a1e33ae6ce662",
+      "status": "exact"
+    }
+  ]
+}

@@ -2,6 +2,8 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <pthread.h>
+#include <stdlib.h>
 
 extern "C" {
 void abort(void) __attribute__((noreturn));
@@ -220,43 +222,107 @@ void __cxa_deleted_virtual(void) {
     abort();
 }
 
+struct cxa_record { void (*destructor)(void *); void *arg; void *dso; };
+static cxa_record cxa_records[128];
+static size_t cxa_record_count;
+static pthread_mutex_t cxa_lock = {};
+static pthread_once_t cxa_once = PTHREAD_ONCE_INIT;
+static int cxa_ready;
+static void cxa_check(int result) { if (result) abort(); }
+void __cxa_finalize(void *dso_handle);
+static void cxx_tls_drain(void *);
+static int cxx_tls_ready;
+static void cxa_exit(void) { if (cxx_tls_ready) cxx_tls_drain(nullptr); __cxa_finalize(nullptr); }
+static void cxa_init(void) { cxa_ready = (atexit(cxa_exit) == 0); }
 int __cxa_atexit(void (*destructor)(void *), void *arg, void *dso_handle) {
-    (void)dso_handle;
-    struct cxa_record {
-        void (*destructor)(void *);
-        void *arg;
-    };
-    static cxa_record records[128];
-    static size_t record_count;
-    if (destructor == nullptr || record_count >= sizeof(records) / sizeof(records[0])) {
-        return -1;
+    if (!destructor || pthread_once(&cxa_once, cxa_init) || !cxa_ready) return -1;
+    cxa_check(pthread_mutex_lock(&cxa_lock));
+    if (cxa_record_count == sizeof(cxa_records) / sizeof(cxa_records[0])) {
+        cxa_check(pthread_mutex_unlock(&cxa_lock)); return -1;
     }
-    records[record_count].destructor = destructor;
-    records[record_count].arg = arg;
-    record_count++;
+    cxa_records[cxa_record_count++] = {destructor, arg, dso_handle};
+    cxa_check(pthread_mutex_unlock(&cxa_lock));
+    return 0;
+}
+void __cxa_finalize(void *dso_handle) {
+    for (;;) {
+        cxa_check(pthread_mutex_lock(&cxa_lock));
+        size_t i = cxa_record_count;
+        while (i && dso_handle && cxa_records[i-1].dso != dso_handle) --i;
+        if (!i) { cxa_check(pthread_mutex_unlock(&cxa_lock)); return; }
+        --i;
+        cxa_record record = cxa_records[i];
+        for (size_t j=i+1; j<cxa_record_count; ++j) cxa_records[j-1]=cxa_records[j];
+        --cxa_record_count;
+        cxa_check(pthread_mutex_unlock(&cxa_lock));
+        record.destructor(record.arg);
+    }
+}
+
+struct cxx_tls_record {
+    void (*destructor)(void *);
+    void *arg;
+    cxx_tls_record *next;
+};
+static _Thread_local cxx_tls_record *cxx_tls_head;
+static pthread_key_t cxx_tls_key;
+static pthread_once_t cxx_tls_once = PTHREAD_ONCE_INIT;
+static void cxx_tls_drain(void *) {
+    // pthread clears a key before invoking its destructor. Registrations made
+    // by destructors prepend to this same thread's list and are drained too.
+    while (cxx_tls_head != nullptr) {
+        cxx_tls_record *record = cxx_tls_head;
+        cxx_tls_head = record->next;
+        void (*destructor)(void *) = record->destructor;
+        void *arg = record->arg;
+        free(record);
+        destructor(arg);
+    }
+    (void)pthread_setspecific(cxx_tls_key, nullptr);
+}
+static void cxx_tls_init(void) {
+    if (pthread_key_create(&cxx_tls_key, cxx_tls_drain) != 0) return;
+    cxx_tls_ready = 1;
+}
+int __cxa_thread_atexit(void (*destructor)(void *), void *arg, void *dso_handle) {
+    (void)dso_handle;
+    if (!destructor || pthread_once(&cxa_once, cxa_init) || !cxa_ready ||
+        pthread_once(&cxx_tls_once, cxx_tls_init) || !cxx_tls_ready) return -1;
+    cxx_tls_record *record = (cxx_tls_record *)malloc(sizeof(*record));
+    if (!record) return -1;
+    record->destructor = destructor; record->arg = arg; record->next = cxx_tls_head;
+    if (pthread_setspecific(cxx_tls_key, record) != 0) { free(record); return -1; }
+    cxx_tls_head = record;
     return 0;
 }
 
-int __cxa_thread_atexit(void (*destructor)(void *), void *arg, void *dso_handle) {
-    return __cxa_atexit(destructor, arg, dso_handle);
-}
-
-void __cxa_finalize(void *dso_handle) {
-    (void)dso_handle;
-}
-
+static pthread_mutex_t cxx_guard_mutex = {};
+static pthread_cond_t cxx_guard_cond = PTHREAD_COND_INITIALIZER;
 int __cxa_guard_acquire(uint64_t *guard) {
-    unsigned char *byte = (unsigned char *)guard;
-    return __atomic_load_n(byte, __ATOMIC_ACQUIRE) == 0;
+    unsigned char *bytes = (unsigned char *)guard;
+    if (__atomic_load_n(bytes, __ATOMIC_ACQUIRE)) return 0;
+    cxa_check(pthread_mutex_lock(&cxx_guard_mutex));
+    while (bytes[1] && !__atomic_load_n(bytes, __ATOMIC_ACQUIRE))
+        cxa_check(pthread_cond_wait(&cxx_guard_cond, &cxx_guard_mutex));
+    int acquire = !__atomic_load_n(bytes, __ATOMIC_ACQUIRE);
+    if (acquire) bytes[1] = 1;
+    cxa_check(pthread_mutex_unlock(&cxx_guard_mutex));
+    return acquire;
 }
-
 void __cxa_guard_release(uint64_t *guard) {
-    unsigned char *byte = (unsigned char *)guard;
-    __atomic_store_n(byte, 1, __ATOMIC_RELEASE);
+    unsigned char *bytes = (unsigned char *)guard;
+    cxa_check(pthread_mutex_lock(&cxx_guard_mutex));
+    __atomic_store_n(bytes, 1, __ATOMIC_RELEASE);
+    bytes[1] = 0;
+    cxa_check(pthread_cond_broadcast(&cxx_guard_cond));
+    cxa_check(pthread_mutex_unlock(&cxx_guard_mutex));
 }
-
 void __cxa_guard_abort(uint64_t *guard) {
-    (void)guard;
+    unsigned char *bytes = (unsigned char *)guard;
+    cxa_check(pthread_mutex_lock(&cxx_guard_mutex));
+    bytes[1] = 0;
+    cxa_check(pthread_cond_broadcast(&cxx_guard_cond));
+    cxa_check(pthread_mutex_unlock(&cxx_guard_mutex));
 }
 
 void *__cxa_demangle(const char *mangled_name, char *output_buffer, size_t *length, int *status) {

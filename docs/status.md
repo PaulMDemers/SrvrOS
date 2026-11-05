@@ -1,9 +1,80 @@
 # Current status
 
-Updated 2026-11-03. SrvrOS is an experimental x86_64 desktop OS with a shell and
+Updated 2026-11-04. SrvrOS is an experimental x86_64 desktop OS with a shell and
 server capabilities. This page describes the current source baseline.
 Check the source commit of an image before assuming it contains a change;
 there is no supported stable binary release yet.
+
+## Final local integration and workspace reset
+
+The local closeout deliverables are integrated, including the bounded browser
+experiment in [Ports #9](https://github.com/PaulMDemers/SrvrPorts/pull/9) and
+[OS #334](https://github.com/PaulMDemers/SrvrOS/pull/334). Fresh qualification at
+`a7f71411` incorporates main `f11ce344`: focused host checks, rebuilt normal and
+experimental kernels, four browser guests, a normal full build, desktop unsaved
+shutdown and session cleanup all pass. The 715 retained SDK/dependency/JSC inputs
+and outputs match their earlier fresh-build proof. Production signal capabilities
+remain disabled; this is a no-JIT JavaScript milestone, not a full browser or
+physical-device qualification. See the [browser record](browser-port.md).
+
+The completed proof-storage helper is merged in
+[OS #375](https://github.com/PaulMDemers/SrvrOS/pull/375), `d10a4e10`, after
+19 host regressions, independent review and documentation checks. Its cooperative
+limits and evidence-protection rules are in the [macOS guide](macos-development.md).
+The unpublished older prototypes are superseded by this reviewed implementation.
+
+The authorized workspace reset retains only one fresh `SrvrOS` main checkout
+with all 11 recursive pinned submodules. Old checkouts, generated files, VM state,
+local raw proof and compatibility wrappers inside the workspace are removed.
+Published evidence remains in Git; backing images and accepted archives outside
+the workspace are preserved. Historical local paths and retention statements
+below describe earlier checkpoints and do not promise post-reset availability.
+Hosted Actions remain disabled; verification uses the recorded local checks.
+
+Physical-device PRs #301 and #19 remain separate unfinished work with remote
+source preserved. #301 has a bounded native read-only GGTT survey, with no managed
+mapping or page-flip authority. #19 now places Wi-Fi at syscall 169, preserving
+signals 164–167 and profile streaming 168; corrected physical power and combined
+integration qualification remain pending. Neither PR is silently accepted or
+merged by this workspace cleanup.
+
+## November 4 integration closeout
+
+The current local non-browser chat milestones are delivered, verified and
+recorded below. Their owners have stopped; new backlog milestones are deferred.
+Browser work was exempt at this earlier checkpoint; its later bounded delivery
+is recorded above. Exact acceptance remains tied to
+the source and payload in each linked record; this is not a new combined physical
+hardware qualification.
+
+| Workstream | Delivered baseline or remaining gate |
+| --- | --- |
+| Installation | Export-publication recovery merged in [OS #364](https://github.com/PaulMDemers/SrvrOS/pull/364), `70c3ea0f`; bounded fresh-install restore and exact re-export verified. Owner is idle. See [installation](disk-installation.md). |
+| Desktop applications | Files and Find Contents work merged through UI #6, Apps #12 and [OS #368](https://github.com/PaulMDemers/SrvrOS/pull/368), `88a95f9a`; host, rendered and guest checks pass. Owner is idle. |
+| UI portability | macOS showcase and density milestones delivered; [documentation #371](https://github.com/PaulMDemers/SrvrOS/pull/371), `518175df`, closes the record. Text portability is research only; implementation is deferred. See [portability status](machines/apple-silicon-ui-host.md). |
+| Portable profiles | Larger-document streaming merged through [Apps #11](https://github.com/PaulMDemers/SrvrApps/pull/11), `161f3850`, and [OS #367](https://github.com/PaulMDemers/SrvrOS/pull/367), `3ab8a6f7`. The integrated 31-guest proof, seven recovery checkpoints, actual 64 MiB transfer across four 16 MiB documents, content/rendered audits and durable backup pass. Creation and session switching remain delivered. See [profiles](portable-profiles.md). |
+| Filesystem tooling | Explicit partition-GUID selection merged in [OS #366](https://github.com/PaulMDemers/SrvrOS/pull/366), `7b1bfcb8`, after selector, installation, storage and sanitizer checks. Original media remains preserved. |
+| Ports | xz, GNU diff and GNU Patch are delivered. [Ports #12](https://github.com/PaulMDemers/SrvrPorts/pull/12) (`72f3d6fa`) and [OS #370](https://github.com/PaulMDemers/SrvrOS/pull/370) (`3e327513`) pass the final seven-guest Patch suite, including the corrected miniport example. Grep and sha256sum are deferred. |
+| Runtime audit | The bounded historical audit checkpoint is merged in [OS #365](https://github.com/PaulMDemers/SrvrOS/pull/365), `db95fc9b`. It does not qualify the ongoing browser experiment. |
+| Browser | The initial GC abort was attributed to unavailable entropy. Provider-only entropy and bounded no-JIT JavaScript/GC checks now pass on the reconciled current-main kernels; Ports #9 and OS #334 deliver the milestone. See [browser work](browser-port.md). No full browser or production capability acceptance is claimed. |
+
+Offline installation export and export-publication recovery remain canonical
+v1. The separate guest profile v2 streaming milestone does not add offline v2
+installation admission or export; that later work is deferred. See the
+[installation format boundary](disk-installation.md).
+
+The [roadmap](roadmap.md#current-work-closeout--november-4-2026) records the
+completed delivery and explicit exceptions. Physical-device PRs #301 and #19 retain separate owners and
+acceptance ledgers. They are not silently included in this closeout. #301 retains its current-main
+integration gate. #19 has moved its former syscall 164 proposal to 169, but
+remains draft with unfinished integration and native qualification. Profile
+streaming uses 168 and signals reserve 164–167. Local chat tools
+cannot reach those physical-device owners; no new device trial is scheduled here.
+
+Original installations and accepted evidence archives are retained. Historical
+review-VM PIDs 6233, 61610 and 85869 are now absent; available evidence does not
+establish when or why they exited. Disk preservation is separate from process
+liveness. Hosted Actions remain disabled.
 
 ## Hardware
 
@@ -25,8 +96,8 @@ an enclosure designation or CPU family does not establish driver compatibility.
 
 ## Desktop and input
 
-The current desktop is `/fat/bin/deskd`, with twelve applications and a common
-widget library. It has global menus, a launcher, dock, clipboard, context menus,
+The current desktop is `/fat/bin/deskd`, with applications supplied by SrvrApps
+and the shared SrvrUI widget library. It has global menus, a launcher, dock, clipboard, context menus,
 notifications, screenshots, window movement/resizing, maximize and tiling.
 File/image/diagnostic workers keep blocking operations away from event handling.
 

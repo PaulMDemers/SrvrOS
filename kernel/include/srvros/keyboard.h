@@ -34,6 +34,15 @@ void keyboard_release_usage(struct keyboard_usage_state *state);
 bool keyboard_try_read_char(char *out);
 bool keyboard_scan_char(char *out);
 char keyboard_read_char(void);
+/* Bounded eligibility callback runs under saved IRQ exclusion immediately at
+ * keyboard/serial consumption and in the atomic wait condition. It returns0
+ * to admit or a negative status to refuse. Result1 includes a real NUL byte;
+ * result0 is a nonblocking empty scan; negative result consumed nothing. */
+int keyboard_read_char_checked(char *out,bool wait,int (*eligible)(void *),void *context);
+/* eligible prepares all destinations before consuming. commit is infallible,
+ * bounded and runs with the same IRQ exclusion after the byte is consumed;
+ * it must use only the mappings/objects prepared by eligible. */
+int keyboard_read_char_commit(char *out,bool wait,int (*eligible)(void *),void (*commit)(void *,char),void *context);
 uint64_t keyboard_buffered_count(void);
 uint64_t keyboard_pushed_count(void);
 uint64_t keyboard_dropped_count(void);

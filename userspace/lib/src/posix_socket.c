@@ -16,6 +16,7 @@
 #include <unistd.h>
 
 #include <srvros/sys.h>
+#include "socket_signal.h"
 
 #define POSIX_SOCKET_MAX 8
 #define POSIX_SOCKET_BASE 1000
@@ -488,6 +489,33 @@ int __posix_socket_real_fd(int fd) {
     return __posix_socket_poll_fd(fd);
 }
 
+void __posix_socket_poll_prepare(int fd,struct posix_socket_poll_snapshot *out) {
+    *out=(struct posix_socket_poll_snapshot){.fd=fd,.native_fd=-1};
+    struct posix_socket *socket=socket_at(fd);
+    if(!socket)return;
+    out->object=socket;out->native_fd=socket->listener_fd;
+    out->descriptor_generation=socket_generations[fd-POSIX_SOCKET_BASE];
+    out->object_generation=socket_object_generations[socket-sockets];
+    out->connecting=socket->type==SOCK_STREAM && socket->connecting && socket->listener_fd>=0;
+    if(out->connecting)out->error=socket_error_for_fd(socket->listener_fd);
+}
+short __posix_socket_poll_commit(int fd,short requested,short revents,const struct posix_socket_poll_snapshot *saved) {
+    if(!saved || saved->fd!=fd)return POLLNVAL;
+    struct posix_socket *socket=socket_at(fd);
+    if(!saved->object)return socket?POLLNVAL:revents;
+    if(socket!=saved->object || !socket ||
+        socket_generations[fd-POSIX_SOCKET_BASE]!=saved->descriptor_generation ||
+        socket_object_generations[socket-sockets]!=saved->object_generation || socket->listener_fd!=saved->native_fd)return POLLNVAL;
+    if(saved->connecting && socket->connecting) {
+        if(!saved->error) {
+            socket->connecting=0;socket->connected=1;
+            if(requested&POLLOUT)revents|=POLLOUT;
+        } else if(saved->error!=EINPROGRESS) {
+            socket->connecting=0;socket->connected=0;revents|=POLLERR;
+        }
+    }
+    return revents;
+}
 short __posix_socket_poll_update(int fd, short requested, short current_revents) {
     struct posix_socket *socket = socket_at(fd);
     if (socket == 0 || socket->listener_fd < 0) {

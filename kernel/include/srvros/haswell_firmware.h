@@ -24,4 +24,5 @@ bool hfw_catalog_valid(const struct hfw_entry *,unsigned);
 bool hfw_table_covered(const struct hfw_entry *,unsigned,uint64_t);
 bool hfw_capture(struct hfw_result *,const struct hfw_io *,const uint8_t [32]);
 void hfw_report(const struct hfw_result *);
+void hfw_report_named(const struct hfw_result *,const char *);
 bool haswell_firmware_run(void);

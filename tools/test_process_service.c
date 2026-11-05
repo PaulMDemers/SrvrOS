@@ -50,6 +50,11 @@ static struct process *current;
 void *scheduler_current_user_context(void) {return current;}
 static void *current_user_thread;
 static jmp_buf exit_hook;static bool check_exit_hook,check_thread_hook;
+static unsigned trap_invalidations;
+void scheduler_invalidate_current_user_trap(void) {
+    assert(current && current->owned_user_scope && (check_exit_hook || check_thread_hook));
+    trap_invalidations++;
+}
 void *scheduler_current_user_thread_context(void) {
     if(check_exit_hook) {assert(current && !current->owned_user_scope);longjmp(exit_hook,1);}
     return current_user_thread;
@@ -119,8 +124,7 @@ bool vmm_map_page_in_space(uint64_t space,uint64_t virt,uint64_t physical,uint64
     if(++map_calls==fail_map_at)return false;
     leaf_flags[physical/4096]=flags;return true;
 }
-void scheduler_set_user_thread_context(void *p) {(void)p;assert(0);}
-void scheduler_set_user_context_fpu(void *p,uint64_t as,uint64_t stack,struct fpu_state *fpu) {(void)p;(void)as;(void)stack;(void)fpu;assert(0);}
+void scheduler_set_user_context_fpu(void *p,uint64_t as,uint64_t stack,struct fpu_state *fpu,uint64_t generation) {(void)p;(void)as;(void)stack;(void)fpu;(void)generation;assert(0);}
 static jmp_buf prepared_entry;static bool entering_prepared;
 void usermode_enter(uint64_t e,uint64_t stack,uint64_t a,uint64_t v,uint64_t env,uint64_t fs) {
     assert(entering_prepared && current==observed && current_user_thread==&observed->user_threads[0]);
@@ -132,9 +136,10 @@ static void enter_prepared_thread(void *thread) {
     if(!setjmp(prepared_entry))process_user_thread_start(current_user_thread);
     entering_prepared=false;current_user_thread=NULL;
 }
-bool scheduler_spawn_user_thread(const char *name,scheduler_thread_fn entry,void *raw,struct fpu_state *fpu,uint64_t fs) {
+bool scheduler_spawn_user_thread(const char *name,scheduler_thread_fn entry,void *raw,struct fpu_state *fpu,uint64_t fs,uint64_t generation) {
     struct process_user_thread *t=raw;assert(!strcmp(name,"uthread") && entry==process_user_thread_start);
     assert(t->used && t->active && t->owner==observed && fpu==&t->fpu && fs==t->tls_thread_pointer);
+    assert(generation==observed->image_generation && generation);
     spawn_calls++;return !fail_spawn;
 }
 bool vmm_protect_page_in_space(uint64_t space,uint64_t page,uint64_t flags) {
@@ -150,6 +155,7 @@ static void reset(void) {
 }
 void console_write(const char *text) {(void)text;}
 bool vmm_create_address_space(uint64_t *space) {*space=0x1000;return true;}
+bool vmm_prepare_user_kernel_mappings(uint64_t space) {(void)space;assert(!"unexpected image publication");return false;}
 static unsigned namespace_reads;
 static const struct vfs_node fixture_dirs[]={
     {.used=true,.path="/",.type=VFS_NODE_DIRECTORY},
@@ -296,7 +302,7 @@ static void private_unmap_contract(void) {
 }
 static struct process *startup_process(void) {
     reset();struct process *p=calloc(1,sizeof(*p));assert(p);current=observed=p;
-    p->allocated=p->active=true;p->address_space=0x1000;p->mmap_next=USER_MMAP_BASE;
+    p->allocated=p->active=true;p->address_space=0x1000;p->image_generation=1;p->mmap_next=USER_MMAP_BASE;
     p->tls_align=16;p->tls_memsz=4096;p->tls_filesz=4;p->next_thread_id=2;
     memcpy(p->tls_template,"TLS!",4);independent=true;return p;
 }
@@ -572,9 +578,11 @@ static void session_scope_contract(void) {
     assert(!process_scope_control(SRV_SCOPE_STATUS,token,&st) && !st.members && st.nonzero_exits==1 && st.first_exit_status==9);
     assert(!process_scope_control(SRV_SCOPE_RELEASE,token,NULL));
     current->killed=true;assert(process_scope_create(&other)==SRV_ERR_INVAL);current->killed=false;
-    assert(!process_scope_create(&token));check_thread_hook=true;
+    assert(!process_scope_create(&token));check_thread_hook=true;trap_invalidations=0;
+    current->main_signal_state.stack.depth=1;
     if(!setjmp(exit_hook)) process_thread_exit(17);
     check_thread_hook=false;assert(current->owned_user_scope==token && current->main_thread_exited);
+    assert(trap_invalidations==1 && !current->main_signal_state.stack.depth);
     user_scope_detach(current);current->main_thread_exited=false;
     /* This loop resumes through longjmp; retain its counter explicitly. */
     for(volatile unsigned worker=0;worker<2;worker++) {
@@ -583,10 +591,14 @@ static void session_scope_contract(void) {
         struct process_lifetime *pending=lifetime_find(token);
         assert(pending && pending->reservation && pending->members==1);
         current_user_thread=worker?&current->user_threads[0]:NULL;
-        check_exit_hook=true;
+        check_exit_hook=true;trap_invalidations=0;
+        current->main_signal_state.stack.depth=1;
+        current->user_threads[0].signal_state.stack.depth=1;
         if(!setjmp(exit_hook)) process_exit(0);
         check_exit_hook=false;current_user_thread=NULL;
         assert(!lifetime_find(token) && !current->owned_user_scope);
+        assert(trap_invalidations==1 && !current->main_signal_state.stack.depth
+            && !current->user_threads[0].signal_state.stack.depth);
     }
     assert(!process_scope_create(&other)); /* No stranded ownerless reservation. */
     user_scope_detach(current);
@@ -702,4 +714,5 @@ int main(void) {
      * must not end an ownership scope it never acquired. */
     reset();available=false;observed=NULL;clear_process(p);assert(!depth && !ends && !yields && begins==1);
     free(p);puts("process-service: PASS private publication, batched mapping retirement, inherited gate, fallback and refusal ownership");
+    return 0;
 }
