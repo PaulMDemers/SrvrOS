@@ -12710,3 +12710,27 @@ source-selector/arithmetic audit agrees for the privately captured board data.
 No power register was programmed;fresh native mapped-read ownership and guarded
 apply/readback/restore are still required before management OUT. Latest native
 acceptance remainsv122;authentication/IP/data are not yet attempted.
+
+Current integration now consumes actual main518175df through merge51097c2e.
+Exact module merges preserve local Wi-Fi System and checkpoint logging:
+Appsace23eb5,Ports6a6b36d2 and Widgets3a695ce5;module commits were published
+before root pins. Conflicts preserve both complete Wi-Fi recipes and the new
+isolated Air firmware-only profile,including its exclusive staging guard.
+Focused nonce/management/power/process/firmware/docs and the complete merged
+core suite pass (including89 installation tests with one expected skip). v122 remains the latest native acceptance and the
+installed payload/recovery pair is unchanged. Accepted native213-file,notes58-
+file and host-foundation71-file archive seals were independently rechecked.
+
+Fresh power groundwork now includes a separate five-block mapped reader and a
+nine-word snapshot/apply/readback/inspection/reverse-restore engine. The reader
+keeps only wanted words,discards factory-address bytes and scrubs scratch.
+The transaction marks uncertain writes before submission and requires disabled
+MAC/core/DMA plus cleanup ownership before restoring originals. Host,fatal ASan/UBSan and native-object qualification pass:70 capture operation
+faults/142 authorization cancellations and132 power operations with both
+write-uncertainty outcomes/266 ownership cancellations,plus guards/readbacks,
+commands,timeout,unsafe cleanup,reentry and aliases. The matched full image/USB image build and docs checks also pass;there is no
+native caller or armed trial. Next bind an independent
+mapped/read-write gate to the still-selected161 calibration owner and qualify
+a grouped hardware power checkpoint before management OUT. Association,WPA2,
+key/PN/replay lifecycle,authenticated provider/data and disconnect remain open;
+credentials are still unread/unpackaged. No source-only helper accepts hardware.

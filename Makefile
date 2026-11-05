@@ -5388,3 +5388,19 @@ build/userspace/test_diff_probe.elf: tools/test_diff_probe.c $(USER_CRT0_OBJ) $(
 	mkdir -p build/userspace/diff-probe
 	$(CC) $(USER_CFLAGS) -c tools/test_diff_probe.c -o build/userspace/diff-probe/probe.o
 	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) build/userspace/diff-probe/probe.o $(USER_LIB_OBJ) -o $@
+
+.PHONY: test-mt76-power5-capture
+test-core: test-mt76-power5-capture
+test-mt76-power5-capture: build/tests/mt76-power5-capture-host$(HOST_EXE)
+	$<
+build/tests/mt76-power5-capture-host$(HOST_EXE): tools/test_mt76_power5_capture.c kernel/src/drivers/mt76_power5_capture.c kernel/src/drivers/mt76_power5.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_power5_capture.c kernel/src/drivers/mt76_power5.c -o $@
+
+.PHONY: test-mt76-power5-cycle
+test-core: test-mt76-power5-cycle
+test-mt76-power5-cycle: build/tests/mt76-power5-cycle-host$(HOST_EXE)
+	$<
+build/tests/mt76-power5-cycle-host$(HOST_EXE): tools/test_mt76_power5_cycle.c kernel/src/drivers/mt76_power5_cycle.c kernel/src/drivers/mt76_power5_capture.c kernel/src/drivers/mt76_power5.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/drivers/mt76_power5_cycle.c kernel/src/drivers/mt76_power5_capture.c kernel/src/drivers/mt76_power5.c -o $@

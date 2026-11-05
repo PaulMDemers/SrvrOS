@@ -6775,3 +6775,22 @@ private cached20MHz reference. No register was programmed by these tests,and
 modelled power is not an analog measurement or native transmit acceptance.
 The live owner still needs fresh mapped reads,exact same-device/channel proof,
 prewrite guards/readbacks,inverse restoration and terminal TX/RX retirement.
+
+The separate `mt76_power5_capture` reader now defines a five-block mapped-read
+profile (00/30/90/d0/120),with MAC/core/DMA guards,mode0 read commands,a global
+1024-poll bound and terminal per-transfer admission. Only the ten requested
+words enter its sparse parser buffer;factory-address bytes are discarded and
+scratch is scrubbed. A copied valid receipt still requires an independently
+held native mapped gate and the same calibrated device/channel lifetime.
+
+`mt76_power5_cycle` implements the fixed nine-word transaction around a caller
+inspection:full snapshot before any write,masked selection/readbacks,marking
+potential modification before submission,and reverse original restoration with
+independent readback after uncertain writes. Disabled MAC/core/DMA guards and
+cleanup ownership must hold before restoration. A failed transport,unsafe
+cleanup,partial restoration or forward cancellation cannot become success.
+Both helpers currently have no live native caller. Host/fatal ASan+UBSan/native object checks pass:70 read-transaction operation
+faults and142 ownership cancellations,132 power-transaction operations with
+before/after-write uncertainty and266 ownership cancellations,plus command,
+guard,readback,timeout,reentry,alias and unsafe-cleanup refusals. No hardware
+power,association or WPA2/IP acceptance follows from this implementation.
