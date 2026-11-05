@@ -12778,3 +12778,35 @@ The user authorizes automatic shutdown when ready;Wi-Fi still needs ten seconds
 unplugged while off,same-port reconnect and power-on,with workspace left attached.
 Collect the matching saved session before any next run. Management association,
 WPA2/key/replay,authenticated bidirectional data and disconnect remain open.
+
+### v123 native failure and bounded correction scope (November 4)
+
+Collected released105a5d22539cf69/source13c08048 session00065f7e79f7528c-00.
+The1868538-byte saved exit log and complete failure collection are sealed in
+521 files outside build at `wifi-power5-native-13c08048`. Offline fsck/allocation,
+installed payload/recovery equality and automatic Ubuntu return pass. The native
+trial is failed,not accepted:calibration/stopped RX and unique Demers5 selection
+completed,five fresh mapped power blocks completed,and six selected power words
+read back exactly. Op70 read TX_PWR_CFG7 at13d4 as003e0000 after writing3c3e3c00.
+The native gate quarantined on that semantic mismatch,so original-power/RF
+restoration was not accepted. MAC remained disabled;no network frames/keys/IP
+were submitted. The previous v122 acceptance remains historical and unchanged.
+
+Next bounded work corrects the captured MT7610-specific power packing rather
+than weakening readback masks,and separates completed-value failure from
+uncertain USB DMA so exact guarded original restoration can run after a semantic
+readback mismatch. Uncertain transfers/removal/guard failures still quarantine.
+Touch power model/cycle native gate,tests and strict log proof;then stage a cold
+retry only after local,sanitizer,exact VM and storage/recovery qualification.
+Vendor MT76x0 source4f1f50e3 documents VHT8/9 in CFG8,not the extra CFG7/CFG9
+bytes supplied by the shared Linux writer. Pin and audit that primary source
+against the captured failure;do not broaden hardware/profile or register masks.
+
+Fetched actual maind10a4e10 after collection:profile streaming/cleanup/kernel
+file-stream lifetime and offline export additions,plus delivered Patch/ports.
+No competing Wi-Fi work in current PRs;334 owns signal continuation,310 browser,
+301 Air scanout. Consume exact module pins and reconcile the syscall namespace
+before the next candidate:main reserves164..167 for signals and uses168 for file
+streaming;private Wi-Fi must move from164 to169 with matched callers/tests.
+Do not message another chat or transfer its acceptance. Association/security/data
+and explicit RX-context handoff remain open;Wi-Fi credentials are still unread.
