@@ -59,7 +59,7 @@ def _parse(text):
     if step != 6 or not cache or cache['status'] != 'OBSERVED_CONTEXT' or not 1 <= count <= 64 or r0 != r1 or r0 != 512*count or not 1 <= b0 <= 4096 or b0 != b1:
         return None
     a, b = cache['cpu_samples']
-    if root != a['root'] or nx0 != nx1 or not nx0 & (1 << 20) or max0 != max1 or max0 < 0x80000001 or ef0 != ef1 or ef0 & 0xd00 != 0xd00 or ef0 & ~0xd01 or (irq0 ^ irq1) & 512 or not irq0 & 2 or not irq1 & 2:
+    if root != a['root'] or nx0 > 0xffffffff or max0 > 0xffffffff or nx0 != nx1 or not nx0 & (1 << 20) or max0 != max1 or max0 < 0x80000001 or ef0 != ef1 or ef0 & 0xd00 != 0xd00 or ef0 & ~0xd01 or (irq0 ^ irq1) & 512 or not irq0 & 2 or not irq1 & 2:
         raise ValueError('control/exclusion state')
     if not a['context_us'][1] <= begin < end <= b['context_us'][0] or end-begin >= 100000:
         raise ValueError('census clock/order')

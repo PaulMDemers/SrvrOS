@@ -46,7 +46,7 @@ class AliasTests(unittest.TestCase):
     def test_control_clock_count_and_every_chunk(self):
         text,pin=fixture_alias()
         with patch('hardware_haswell_firmware.PIN',pin):
-            for old,new in (('root=0x0000000000100000','root=100000'),('root=0x0000000000100000','root=0x100000'),('pages=4','pages=65'),('reads=2048,2048','reads=2049,2048'),('root=0x0000000000100000','root=0x0000000000101000'),('nx=0x0000000004100000,0x0000000004100000','nx=0x0000000004100000,0x0000000000000000'),('efer=0x0000000000000d00,0x0000000000000d00','efer=0x0000000000000d00,0x0000000000000500'),('irq=0x0000000000000202,0x0000000000000202','irq=0x0000000000000202,0x0000000000000002'),('begin=5100','begin=4999'),('target_leaves=1','target_leaves=0'),('completed=yes','completed=NO')):
+            for old,new in (('root=0x0000000000100000','root=100000'),('root=0x0000000000100000','root=0x100000'),('nx=0x0000000004100000,0x0000000004100000','nx=0x1000000004100000,0x1000000004100000'),('max=0x0000000080000008,0x0000000080000008','max=0x1000000080000008,0x1000000080000008'),('pages=4','pages=65'),('reads=2048,2048','reads=2049,2048'),('root=0x0000000000100000','root=0x0000000000101000'),('nx=0x0000000004100000,0x0000000004100000','nx=0x0000000004100000,0x0000000000000000'),('efer=0x0000000000000d00,0x0000000000000d00','efer=0x0000000000000d00,0x0000000000000500'),('irq=0x0000000000000202,0x0000000000000202','irq=0x0000000000000202,0x0000000000000002'),('begin=5100','begin=4999'),('target_leaves=1','target_leaves=0'),('completed=yes','completed=NO')):
                 self.assertIsNone(alias_result(text.replace(old,new)),(old,new))
             for line in text.splitlines():
                 if line.startswith('hsw-alias'):
