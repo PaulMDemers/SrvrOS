@@ -30,9 +30,14 @@ build parity check are documented in [the port record](../ports/srvros/webkit/PO
 The retained qualified SDK remains unchanged; new SDK exports include the native
 header. This does not change any structure or syscall signature.
 
-The proposed emulated positive profile adds only RDRAND to `qemu64`; the absent
+The qualified emulated positive profile adds only RDRAND to `qemu64`; the absent
 provider control retains plain `qemu64`, with no virtio-RNG device. QEMU11.1.2
 [emulates RDRAND](https://github.com/qemu/qemu/blob/v11.1.2/target/i386/tcg/int_helper.c)
 using its [guest random source](https://github.com/qemu/qemu/blob/v11.1.2/util/guest-random.c).
 Qualifying configurations must exclude deterministic `-seed` and replay modes.
 This is bounded emulator provenance, not physical hardware entropy acceptance.
+
+Four reviewed guests at source6b5ebaf7/Ports d99565f pass absent/positive native
+contracts, the native context regression, and the eight-case experimental WTF/GC/
+JavaScript smoke. See [the checkpoint](browser-port.md). Quota fallback messages
+remain; no resource limit was changed. These are emulator/contract observations.

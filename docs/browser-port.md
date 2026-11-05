@@ -1,21 +1,21 @@
 # SrvrOS no-JIT JavaScriptCore checkpoint
 
-The current target is real threaded signal/register-context support followed by
-a minimal JavaScriptCore execution with exit0 and output42. That target is not
-complete. Public INFO registration, atomic temporary-mask waiting and libc adapters have
-a guest-gated source implementation under target/owner qualification. Normal
-public dispatch remains disabled. The corrected WTF handshake and utility/
-memory-footprint guests pass. The first GC control exits134; its terminal cause
-remains unresolved, and the remaining GC modes and JavaScript test are unrun.
+The bounded experimental target is complete: real threaded signal/register
+contexts, WTF suspension/retirement and memory-footprint checks, all four GC-root
+modes, and actual `jsc -e 'print(42)'` pass with exit0. The initialization abort
+was WTF opening unavailable `/dev/urandom`; a strict native entropy adapter fixes
+it. Normal public signal dispatch remains disabled. These results apply to the
+reviewed diskless single-CPU Q35 guests, with RDRAND exposed for JSC, and do not
+establish general public ABI, SMP, physical hardware or browser acceptance.
 The [public packet](signal-public-v1.md) and [logical I/O supplement](signal-logical-io-v1.md)
 record the reviewed contract and explicit experimental qualification boundary.
 
 The private signal path has owner-reviewed source, host and native guest evidence,
 including the [RESET peer correction](signal-publication-transaction.md).
 Separate normal-kernel fixes cover pending defaults across exec, process-wide
-action changes and GOT-before-TLS layout. These results do not establish a new
-SDK/ICU/JSC build or JavaScript execution. The retained browser-checkout JSC smoke
-still exits134 without42 because INFO/context support is unavailable.
+action changes and GOT-before-TLS layout. Those historical results did not establish a new SDK/ICU/JSC build or JavaScript
+execution. The older browser-checkout smoke's134 remains preserved; the fresh
+matched experimental qualification below now passes.
 
 ## Imported dependency source
 
@@ -89,3 +89,51 @@ cause. The suite stops there; GP/FX/red-zone GC modes and JavaScript are NOT RUN
 The owned guest stops and its resource window is released. A bounded C-API
 initialization diagnostic is prepared for a separately coordinated build/review/
 guest window. No kernel quota, mapping contract, I/O gate or GC bypass was changed.
+
+## Strict entropy and successful no-JIT smoke — November 4, 2026
+
+The initialization diagnostic identifies `crashUnableToOpenURandom` during
+`JSContextGroupCreate`. The 128 MiB structure-heap fallback succeeds first; quota
+messages alone were not the abort. Shared review assigns the bounded entropy
+prerequisite to PR334. Existing SYS_RANDOM92 gains the named provider-only mode
+in [the native contract](random-entropy.md); flags0 and POSIX behavior remain
+unchanged. WTF fails closed on refusal/nonprogress and accepts positive short
+reads. No VFS, quota, mapping, worker or device gate is widened.
+
+The generated WTF ABI copy is byte-identical to the authoritative native header;
+the builder checks parity before/after each build and binds the retained SDK's
+transitive syscall header. The retained SDK/libc++/ICU artifacts stay unchanged.
+A C-linkage companion fixes the observed mangled-native-symbol link failure;
+actual SDK native headers now replace the host test's synthetic declaration.
+Actual native/WTF strict and ASan/UBSan tests pass, target constants compile, both
+kernels and no-JIT JSC/four fixtures build and link. Earlier failures stay frozen.
+
+Exact review passes757 frozen/current identities,839 retained function bindings,
+3,460 named relocation targets, the expected RandomDevice/cache-ID archive delta,
+all four ISO/CPU configurations and packed ELFs. The coordinator independently
+accepts source/configuration scope; this chat performs the human-transferred
+binary signoff. Four separately indexed guests pass in27.864s total:
+
+- Normal kernel/plain qemu64: unavailable provider returns-11 without mutation;
+  legacy flags0 still succeeds.
+- Normal kernel/qemu64,+rdrand: CPUID,257 provider bytes and bounds checks pass.
+- Experimental kernel/+rdrand: native GP/FX/x87/XMM/DF/TLS/SP/red-zone restoration,
+  public-context destruction and nested temporary-mask wait regressions pass.
+- Experimental kernel/+rdrand: entropy, actual WTF, utility/memory footprint,
+  GC control/GP/FX/red-zone and `jsc -e 'print(42)'` all exit0. GC control collects;
+  each selected root retains the object until its target retires, then collects.
+  JavaScript prints42 followed by exit0 and a new shell prompt.
+
+All guests prove no network device/worker, stop, and leave empty owned process
+groups. The resource reservation is released. Page-quota fallback diagnostics
+remain observed during passing GC/JavaScript runs; quota behavior is unchanged.
+
+Tested source6b5ebaf7/Ports d99565f; JSC SHA256
+`d7caf7ddc2d144c8ed71618fde76fee73d0b4cff5eb92034c85a5b5de63b25a2`.
+Durable local result receipt `.local/pr334-entropy-guest-results/receipt.json`
+SHA256 `ce0ce2147666002e4deacb1b13b9a5e6a0f8183da54f13a2107b528ebe8aa6be`;
+exact input packet74470aae and signoff6acb68dc are retained outside build output.
+PR334/Ports9 remain drafts. Current-main reconciliation preserving streaming168
+and the owners' runtime changes is required before integration delivery. This
+checkpoint makes no production signal-capability, main-merge, physical-machine,
+full-browser or physical entropy-quality claim.

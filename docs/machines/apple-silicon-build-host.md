@@ -4008,3 +4008,31 @@ Unavailable uses existing SRV_ERR_AGAIN(-11). The coordinator accepts a generate
 exact ABI-header copy in the WTF patch; mandatory parity/hash checks preserve the
 retained SDK's attribution. Target constants, real providers, GC and JavaScript
 are still pending; no compiler or VM window remains reserved.
+
+### PR334 GC control and JavaScript smoke accepted in the bounded VM profile
+
+At implementation6b5ebaf7/Ports d99565f the `/dev/urandom` initialization abort is
+fixed by strict SYS_RANDOM92 provider-only mode plus a fail-closed WTF adapter.
+The SDK native header's missing C++ guards caused a retained final-link failure;
+a companion C-linkage include fixes both callers without changing the qualified
+SDK. Host tests now use actual SDK native declarations and pass strict/ASanUBSan.
+Target constants, normal/experimental kernels, JSC and four fixtures build/link.
+
+Source review passes. Exact signoff covers757 frozen/live identities,839 retained
+functions/3460 named relocation targets, exact two-object archive delta and all
+four prepared CPU/ISO configurations. Signoff6acb68dc uses the human's explicit
+review-authority transfer. All four guests pass in27.864s, boot network guards
+pass4/4, every owned process group is empty, and the resource window is released.
+Normal absent/positive entropy contracts and experimental native context/nested
+wait pass. The full eight-case experimental/+rdrand suite passes entropy, WTF,
+utility/footprint, GC control/GP/FX/red-zone and actual JavaScript42 with exit0.
+GC control collects; positive roots retain until retirement and then collect.
+Quota fallback messages remain visible and did not prevent these bounded passes.
+
+Durable result `.local/pr334-entropy-guest-results/receipt.json` SHA256
+`ce0ce2147666002e4deacb1b13b9a5e6a0f8183da54f13a2107b528ebe8aa6be`;
+exact packet74470aae/signoff6acb68dc and prior failed/partial runs remain retained.
+JSC SHA256 `d7caf7ddc2d144c8ed71618fde76fee73d0b4cff5eb92034c85a5b5de63b25a2`.
+Current-main reconciliation and integration review remain before delivery of the
+draft PRs. Normal public signal capabilities stay disabled; no main merge,
+physical boot, full browser, SMP/general ABI or physical entropy acceptance.
