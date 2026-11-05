@@ -81,7 +81,8 @@ static bool stream_cluster(struct stream_lease *h,uint64_t index,uint32_t *out) 
     if(index>=f->allocated_clusters || f->first_cluster<2)return false;
     uint32_t c=f->first_cluster;uint64_t n=0;
     if(f->no_fat_chain) {
-        if(index>UINT32_MAX-c)return false;c+=(uint32_t)index;
+        if(index>UINT32_MAX-c)return false;
+        c+=(uint32_t)index;
     } else {
         if(h->cursor_valid && h->cursor_index<=index) { n=h->cursor_index;c=h->cursor_cluster; }
         while(n<index) { if(!next_cluster(v,c,&c) || c>=EXFAT_FAT_CHAIN_END)return false;n++; }
@@ -107,7 +108,8 @@ static int stream_preflight(struct exfat_mount *m,const char *path,uint64_t payl
     return free<need ? STREAM_NOSPC : 0;
 }
 int64_t exfat_stream_open_read(const char *path) {
-    if(!path)return SRV_ERR_INVAL;struct fs_scope scope;if(!fs_enter(&scope))return SRV_ERR_BUSY;
+    if(!path)return SRV_ERR_INVAL;
+    struct fs_scope scope;if(!fs_enter(&scope))return SRV_ERR_BUSY;
     int64_t result=SRV_ERR_NOENT;uint64_t i;struct exfat_mount *m=find_mount_and_index_for_file(path,&i);
     if(!m){if(vfs_lookup(path))result=SRV_ERR_NOTSUP;goto out;}
     if(stream_internal(m,path) || m->volume.cluster_size>SRV_FILE_STREAM_CHUNK) {result=SRV_ERR_NOTSUP;goto out;}
@@ -139,7 +141,8 @@ int64_t exfat_stream_pread(uint64_t token,void *buffer,uint64_t length,uint64_t 
 out: fs_leave(&scope);return result;
 }
 int64_t exfat_stream_stat(uint64_t token,struct srv_file_stream_stat *info) {
-    if(!info)return SRV_ERR_INVAL;struct fs_scope scope;if(!fs_enter(&scope))return SRV_ERR_BUSY;
+    if(!info)return SRV_ERR_INVAL;
+    struct fs_scope scope;if(!fs_enter(&scope))return SRV_ERR_BUSY;
     struct stream_lease *h=stream_get(token);int64_t result=SRV_ERR_BADF;
     if(h) { const struct vfs_node *n=vfs_lookup(path_slot(h->mount,h->slot));
         *info=(struct srv_file_stream_stat){.abi_version=SRV_ABI_VERSION,.struct_size=sizeof(*info),
