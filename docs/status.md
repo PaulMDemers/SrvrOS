@@ -21,8 +21,12 @@ local checkouts, generated files, VM state and local raw proof artifacts.
 Published summaries and manifests remain in Git; archives already stored outside
 the workspace remain outside this cleanup. The historical retention statements
 below describe their earlier checkpoints, not the post-reset workspace.
-Physical-device PRs #301 and #19 remain separate blocked work with remote source
-preserved; no physical acceptance is inferred from this local cleanup.
+Physical-device PRs #301 and #19 remain separate unfinished work with remote
+source preserved; no physical acceptance is inferred from this local cleanup.
+The latest #301 record accepts a bounded native read-only GGTT survey, with
+no managed mapping or page-flip authority. #19 now places Wi-Fi at syscall 169,
+preserving signals 164–167 and profile streaming 168; its corrected physical
+power trial and combined integration qualification remain pending.
 
 ## November 4 integration closeout
 
@@ -51,9 +55,10 @@ installation admission or export; that later work is deferred. See the
 
 The [roadmap](roadmap.md#current-work-closeout--november-4-2026) records the
 completed delivery and explicit exceptions. Physical-device PRs #301 and #19 retain separate owners and
-acceptance ledgers. They are not silently included in this closeout: #301 needs
-current-main lifetime integration review, and #19's syscall 164 conflicts with
-the browser reservation of 164–167. Profile streaming uses 168. Local chat tools
+acceptance ledgers. They are not silently included in this closeout. #301 retains its current-main
+integration gate. #19 has moved its former syscall 164 proposal to 169, but
+remains draft with unfinished integration and native qualification. Profile
+streaming uses 168 and signals reserve 164–167. Local chat tools
 cannot reach those physical-device owners; no new device trial is scheduled here.
 
 Original installations and accepted evidence archives are retained. Historical

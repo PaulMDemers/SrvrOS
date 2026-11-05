@@ -64,8 +64,11 @@ retained. The three historical review VM PIDs are now absent; no cause is
 established by this closeout, and no restart is requested. Physical-device PRs
 #301/#19 have separate current-main integration gates and their owners are not
 reachable through the available local chat tools; no new physical trial is authorized
-by this record. PR #19's proposed syscall 164 conflicts with browser's reserved
-164–167 and cannot merge unchanged; profile streaming reserves 168.
+by this record. PR #19's earlier syscall 164 conflict was subsequently addressed by moving
+Wi-Fi to 169, preserving signal 164–167 and profile streaming 168. Its combined
+integration qualification and corrected native power trial are still pending.
+PR #301 now records a completed bounded native read-only GGTT survey, without
+managed mapping or page-flip authority; its separate integration gate remains.
 
 The current local non-browser scopes are delivered and verified. Their owners
 are stopped, and no further feature work is required for this closeout. Aggregate
