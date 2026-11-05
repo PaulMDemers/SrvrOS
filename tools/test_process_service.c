@@ -46,6 +46,11 @@ static struct process *current;
 void *scheduler_current_user_context(void) {return current;}
 static void *current_user_thread;
 static jmp_buf exit_hook;static bool check_exit_hook,check_thread_hook;
+static unsigned trap_invalidations;
+void scheduler_invalidate_current_user_trap(void) {
+    assert(current && current->owned_user_scope && (check_exit_hook || check_thread_hook));
+    trap_invalidations++;
+}
 void *scheduler_current_user_thread_context(void) {
     if(check_exit_hook) {assert(current && !current->owned_user_scope);longjmp(exit_hook,1);}
     return current_user_thread;
@@ -565,9 +570,11 @@ static void session_scope_contract(void) {
     assert(!process_scope_control(SRV_SCOPE_STATUS,token,&st) && !st.members && st.nonzero_exits==1 && st.first_exit_status==9);
     assert(!process_scope_control(SRV_SCOPE_RELEASE,token,NULL));
     current->killed=true;assert(process_scope_create(&other)==SRV_ERR_INVAL);current->killed=false;
-    assert(!process_scope_create(&token));check_thread_hook=true;
+    assert(!process_scope_create(&token));check_thread_hook=true;trap_invalidations=0;
+    current->main_signal_state.stack.depth=1;
     if(!setjmp(exit_hook)) process_thread_exit(17);
     check_thread_hook=false;assert(current->owned_user_scope==token && current->main_thread_exited);
+    assert(trap_invalidations==1 && !current->main_signal_state.stack.depth);
     user_scope_detach(current);current->main_thread_exited=false;
     /* Preserve the loop selector across the simulated process-exit longjmp. */
     for(volatile unsigned worker=0;worker<2;worker++) {
@@ -576,10 +583,14 @@ static void session_scope_contract(void) {
         struct process_lifetime *pending=lifetime_find(token);
         assert(pending && pending->reservation && pending->members==1);
         current_user_thread=worker?&current->user_threads[0]:NULL;
-        check_exit_hook=true;
+        check_exit_hook=true;trap_invalidations=0;
+        current->main_signal_state.stack.depth=1;
+        current->user_threads[0].signal_state.stack.depth=1;
         if(!setjmp(exit_hook)) process_exit(0);
         check_exit_hook=false;current_user_thread=NULL;
         assert(!lifetime_find(token) && !current->owned_user_scope);
+        assert(trap_invalidations==1 && !current->main_signal_state.stack.depth
+            && !current->user_threads[0].signal_state.stack.depth);
     }
     assert(!process_scope_create(&other)); /* No stranded ownerless reservation. */
     user_scope_detach(current);
