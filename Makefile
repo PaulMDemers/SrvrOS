@@ -2152,9 +2152,9 @@ test-core: test-fpu
 .PHONY: test-signal-context
 test-signal-context: build/tests/signal-context-host$(HOST_EXE)
 	$<
-build/tests/signal-context-host$(HOST_EXE): tools/test_signal_context.c kernel/src/arch/x86_64/signal_context.c kernel/src/arch/x86_64/signal_context.h kernel/src/arch/x86_64/isr_frame.h
+build/tests/signal-context-host$(HOST_EXE): tools/test_signal_context.c kernel/src/arch/x86_64/signal_context.c kernel/src/arch/x86_64/signal_context.h kernel/src/arch/x86_64/isr_frame.h shared/include/srvros/signal_abi.h
 	mkdir -p build/tests
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror tools/test_signal_context.c kernel/src/arch/x86_64/signal_context.c -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include tools/test_signal_context.c kernel/src/arch/x86_64/signal_context.c -o $@
 build/kernel/src/arch/x86_64/signal_context.c.o: kernel/src/arch/x86_64/signal_context.h kernel/src/arch/x86_64/isr_frame.h
 build/kernel/src/arch/x86_64/fpu.c.o build/kernel/src/arch/x86_64/isr.S.o: kernel/src/arch/x86_64/fpu_trap.h kernel/src/arch/x86_64/isr_frame.h
 test-core: test-signal-context
@@ -2570,9 +2570,9 @@ build/tests/tool-clipboard-host$(HOST_EXE): tools/test_tool_clipboard.c userspac
 test-core: test-posix-poll
 test-posix-poll: build/tests/posix-poll-host$(HOST_EXE)
 	$<
-build/tests/posix-poll-host$(HOST_EXE): tools/test_posix_poll.c userspace/lib/src/posix_poll.c userspace/lib/include/srvros/sys.h shared/include/srvros/syscall_numbers.h
+build/tests/posix-poll-host$(HOST_EXE): tools/test_posix_poll.c tools/legacy_signal_fixture.h userspace/lib/src/posix_poll.c userspace/lib/include/srvros/sys.h shared/include/srvros/syscall_numbers.h userspace/lib/src/signal_runtime.h userspace/lib/src/socket_signal.h shared/include/srvros/signal_abi.h userspace/lib/include/signal.h userspace/lib/include/sys/select.h
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include $< -o $@
+	$(HOST_CC) -std=c11 -ffreestanding -O2 -Wall -Wextra -Werror -I userspace/lib/include -I shared/include $< -o $@
 
 .PHONY: test-posix-dir
 test-core: test-posix-dir
@@ -4703,9 +4703,9 @@ test-core: test-vmm-user-frame-copy test-process-user-frame-copy
 .PHONY: test-signal-state test-process-signal-state
 test-signal-state: build/tests/signal-state-host$(HOST_EXE)
 	$<
-build/tests/signal-state-host$(HOST_EXE): tools/test_signal_state.c kernel/src/arch/x86_64/signal_state.c kernel/src/arch/x86_64/signal_state.h kernel/src/arch/x86_64/signal_context.c kernel/src/arch/x86_64/signal_context.h kernel/src/arch/x86_64/isr_frame.h
+build/tests/signal-state-host$(HOST_EXE): tools/test_signal_state.c kernel/src/arch/x86_64/signal_state.c kernel/src/arch/x86_64/signal_state.h kernel/src/arch/x86_64/signal_context.c kernel/src/arch/x86_64/signal_context.h kernel/src/arch/x86_64/isr_frame.h shared/include/srvros/signal_abi.h
 	mkdir -p build/tests
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $< kernel/src/arch/x86_64/signal_state.c kernel/src/arch/x86_64/signal_context.c -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include $< kernel/src/arch/x86_64/signal_state.c kernel/src/arch/x86_64/signal_context.c -o $@
 test-process-signal-state: build/tests/process-signal-state-host$(HOST_EXE)
 	$<
 build/tests/process-signal-state-host$(HOST_EXE): tools/test_process_signal_state.c tools/test_process_user_frame_copy.c kernel/src/process.c kernel/src/process_signal.h kernel/src/arch/x86_64/signal_state.c kernel/src/arch/x86_64/signal_state.h kernel/src/arch/x86_64/signal_context.c kernel/src/arch/x86_64/signal_context.h $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready

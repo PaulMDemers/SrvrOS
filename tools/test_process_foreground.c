@@ -1,9 +1,6 @@
 /* Exercise real worker foreground guards using the process service fixture. */
 #define main process_service_unused_main
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wreturn-type"
 #include "test_process_service.c"
-#pragma clang diagnostic pop
 #undef main
 
 static struct process snapshot;
