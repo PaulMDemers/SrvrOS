@@ -2,6 +2,26 @@
 
 Updated: 2026-11-05. State: **active reference machine; partial device acceptance**.
 
+### Active scope: Broadwell GT access and firmware/requester preflight
+
+Baseline main remains `3f158022`; native8b9e is collected and backed up.
+PR301 owns this slice. PR381 owns Air6,1 managed-root/NX census, PR19 Pro
+Wi-Fi and PR379 WebCore audit; no edits to those owners' VMM/firmware gates.
+
+Audit Broadwell's actual forcewake/GT-access obligations, implement a bounded
+first-driver wake protocol with explicit requester-retirement/CPU-lease gates,
+and add a separate read-only native request/acknowledgement plus ASLS/SWSCI
+preflight. The PRM requires initial all-request clearing; an unknown requester
+cannot be treated as retired merely because a sampled bit is zero. No native
+forcewake/engine/PTE writer is admitted by this step. Positive wake/control
+transactions use audited synthetic host callbacks; native preflight has no
+writer callback or OpRegion-pointer traversal. Preserve full inherited backing,
+exact originals and current/recovery payloads. Touch new GT core/preflight,
+strict two-page RO/UC observation hooks, staging/decoder/collector/tests and docs.
+GT engine reads require a separately owned acknowledged wake and C0 proof;
+firmware/engine/DMA/display/audio ownership and range grants remain unaccepted.
+Prepare matched host/VM evidence before another physical round. No reboot armed.
+
 ### Native CPU-client/range-refusal qualification accepted
 
 Release `8b9e57e43ae025d3`, source `7e33d1a5`, completes as
