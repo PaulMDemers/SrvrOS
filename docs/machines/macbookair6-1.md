@@ -7272,3 +7272,45 @@ Actual native-receipt host replay passes the candidate audit with all cache,
 mapping/read permission, DMA-state and ownership fields false. Primary PDFs,
 source hashes and host output have a durable copy outside build. No kernel,
 policy, limit, installed payload or physical acceptance changes; no reboot armed.
+
+
+### Air6,1 read-only cache/alias context scope (2026-11-04)
+
+Base `d10a4e10`, prior firmware run collected/closed. PR301 common architectural
+cache core/header/tests are inspected at `e48abf79` and reused unchanged at the
+same paths to avoid a competing fork; its Broadwell adapter/gates/addresses and
+acceptance are not imported. Add an exact Air6,1 opt-in firmware/cache-context
+profile: bounded CPU0 PAT/MTRR/CR0 snapshots plus RAM-only x86 page-table walks
+of the known HHDM candidate alias and an unused proposed private window. Never
+dereference the VT-d virtual/physical target, map it or change cache policy.
+Require fresh pinned firmware/catalog/PCI guards, raw preservation, finite bounds,
+refusal tests and matched host/VM checks before preparing the automated trial.
+No native ownership, mapping grant or full-alias proof is claimed in advance.
+
+PR376 candidate validation: compiled source `57c6b416`, exact release
+`058606de6d8652b2`; harness-only follow-up `a03790ba` corrects the new profile's
+progress assertion while requiring its independently decoded strict refusal.
+Full matched normal/AP/image builds, core/desktop/widgets/profile/host/docs
+checks pass, including89 installation tests with one existing opt-in skip.
+Three baseline GCC misleading-indentation diagnostics were fixed by whitespace
+only; no warning or integrity check was disabled. Shared architectural cache
+core/header/tests remain byte-identical to PR301 `e48abf79` (also unchanged in
+its subsequently fetched `535e8435`).
+
+ASan/UBSan common core, CPU RAM walker and production adapter maximum/nine
+failure cases pass. Independently decoded49-MSR/16-PTE/128-catalog-row raw output
+survives the unchanged64KiB tail with32KiB postamble allowance. Ordinary kernel
+excludes the diagnostic. Sequential exact-stage Q35 checks pass legacy firmware,
+legacy32-fence capture, new cache/firmware refusal/save/unmount/return and missing
+workspace. The initial new-profile VM attempt failed its legacy-progress harness
+assertion after correct guest refusal; that failure is preserved locally.
+
+Native cache-context capture is prepared for an unattended one-shot with visible
+progress and automatic save/unmount/Ubuntu return. Fresh local checks verify AC,
+USB identity, all598 prior file hashes,1667 allocated clusters, zero leaks/errors
+and file/directory headroom. Independent payload/evidence copies survive build
+cleanup; Ubuntu remains recovery/default and the known-good console is retained.
+Require both raw CPU/cache contexts and eight matching CPU-page-table RAM paths,
+bracketing pinned firmware/catalogs, completion and offline integrity before
+acceptance. Physical result remains pending; no VT-d target read, new mapping,
+write, policy change, exhaustive alias proof or ownership follows from this trial.

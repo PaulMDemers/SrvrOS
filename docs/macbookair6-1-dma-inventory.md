@@ -223,3 +223,43 @@ forbidden offsets, failed firmware input and nonpromotion of foreign cache
 claims. Actual native-receipt replay passes the resource-candidate audit while
 all cache, mapping and ownership proofs remain false. No test is staged or
 reboot armed by this audit.
+
+
+## Read-only Air6,1 cache/CPU-page-table context candidate
+
+`--haswell-firmware-capture --haswell-cache-context --laptop-probe-volume UUID`
+selects a separate `ram-usb-v2-hfw` profile. Version1 firmware-only behavior and
+wire format remain intact. The exact Haswell gate adds GenuineIntel signature
+`0x40651`,39-bit physical width, PAT/MTRR/MSR feature checks and normal CR0 caching.
+The common architectural core/header/tests are reused byte-identically from
+PR301 `e48abf79`; its Broadwell adapter and address/acceptance gates are excluded.
+
+Two bounded CPU0 snapshots retain PAT, MTRRCAP, DEF_TYPE, all supported variable
+pairs (at most16),11 fixed registers when supported, and raw CPU/control fields.
+The common core caps each snapshot at49 MSR reads/100ms, rechecks endpoints and
+refuses changed/unsupported/invalid state. There are no MSR/cache-policy writes.
+
+CPU page-table walks inspect the known HHDM candidate for physical `0xfed90000`
+and proposed private VA `0xffffc001f3250000`. Only CPU page-table RAM is read;
+no target/alias data is dereferenced and no VT-d root table is traversed. Four
+levels, at most16 PTE reads per context, complete raw before/after paths and
+100ms whole-context bounds are explicit. Existing root/CR4/HHDM state must remain
+exact; LA57, unknown table RAM, invalid physical bits, occupied private window,
+wrong HHDM translation or any raw path change refuse.4KiB/2MiB/1GiB leaves are
+preserved and independently decoded without treating a large leaf's PAT bit
+as a physical-address bit. No PTE, control or mapping is written.
+
+Fresh complete pinned firmware/catalog/PCI snapshots bracket the two contexts.
+Every raw firmware, CPU and walk record must survive the unchanged64KiB tail.
+The host decoder independently checks shapes, bounds, identities, masks, raw
+agreement, ordering and RAM-only walk sources, and reports hypothetical cache
+types plus any observed HHDM leaf type. An undefined MTRR overlap remains
+unresolved. These observations are not an exhaustive alias census, a reservation,
+a VT-d mapping permission or hardware ownership. All such grants stay false.
+
+Actual adapter fixtures include a49-MSR/16-PTE/128-catalog-row maximum and refusal
+for wrong roots/CPU/mode, non-RAM next tables, occupied windows, MSR failures and
+changed raw paths. Host fixtures are synthetic and raw native firmware remains
+local. Matched builds, sanitizer/max-tail proofs, exact-stage identity-refusal
+and missing-workspace VM rehearsals, recovery/USB checks and a saved run record
+are required before installation. Native cache/context acceptance remains pending.
