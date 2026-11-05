@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--upstream', type=Path, required=True, help='pinned unmodified RandomDevice.cpp')
 parser.add_argument('--output', type=Path, required=True)
+parser.add_argument('--sdk', type=Path, default=ROOT / 'build/sysroot/srvros', help='actual retained SDK native headers')
 parser.add_argument('--sanitizers', action='store_true')
 args = parser.parse_args()
 args.output.mkdir(parents=True, exist_ok=True)
@@ -138,13 +139,16 @@ stage = args.output / 'applied'
 source = stage / 'Source/WTF/wtf'
 source.mkdir(parents=True, exist_ok=True)
 shutil.copyfile(args.upstream, source / 'RandomDevice.cpp')
-patch = ROOT / 'ports/srvros/webkit/random-entropy.patch'
-subprocess.run(['patch', '--batch', '--fuzz=0', '-p1', '-d', str(stage.resolve()), '-i', str(patch)], check=True)
+patches = [ROOT / 'ports/srvros/webkit' / name for name in ('random-entropy.patch', 'random-native-linkage.patch')]
+for patch in patches:
+    subprocess.run(['patch', '--batch', '--fuzz=0', '-p1', '-d', str(stage.resolve()), '-i', str(patch)], check=True)
 from browser_random_contract import verify_random_contract
 contract = verify_random_contract(ROOT, stage)
 stub = args.output / 'stubs'
 (stub / 'wtf').mkdir(parents=True, exist_ok=True)
-(stub / 'srvros').mkdir(exist_ok=True)
+sdk_headers = args.sdk / 'include/srvros'
+shutil.copytree(sdk_headers, stub / 'srvros')
+native_headers = {str(p.relative_to(args.sdk)): digest(p) for p in sdk_headers.rglob('*') if p.is_file()}
 (stub / 'config.h').write_text('''#pragma once
 #define OS_SRVROS 1
 #define OS_UNIX 1
@@ -161,11 +165,6 @@ shutil.copyfile(upstream_header, source / 'RandomDevice.h')
     Type(const Type&) = delete; Type& operator=(const Type&) = delete
 ''')
 (stub / 'wtf/StdLibExtras.h').write_text('#include <span>\n#include <cstdint>\n')
-(stub / 'srvros/sys.h').write_text('''#pragma once
-#include <cstddef>
-#include <cstdint>
-extern "C" long srv_random(void *, size_t, uint64_t);
-''')
 wtf = args.output / 'wtf.cpp'
 wtf.write_text(r'''
 #include "config.h"
@@ -220,7 +219,8 @@ for profile, flags in profiles:
         result = subprocess.run([str(binary.resolve())], check=True, text=True, capture_output=True, timeout=10)
         print(result.stdout.strip())
         commands.append({'argv': argv, 'status': result.returncode, 'stdout': result.stdout, 'binary_sha256': digest(binary)})
-receipt = {'result': 'passed', 'kernel_sha256': digest(kernel), 'patch_sha256': digest(patch),
+receipt = {'result': 'passed', 'kernel_sha256': digest(kernel),
+           'patch_sha256': {p.name: digest(p) for p in patches}, 'actual_sdk_native_headers': native_headers,
            'upstream_sha256': upstream_hash, 'upstream_class_header_sha256': digest(upstream_header),
            'header_contract': contract, 'commands': commands,
            'scope': 'actual kernel bodies, mocked providers and instruction; actual patched WTF with native stub'}
