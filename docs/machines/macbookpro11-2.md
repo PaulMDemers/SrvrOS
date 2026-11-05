@@ -12894,3 +12894,49 @@ recording and read-only Air6,1 cache-context observation. It does not change MT7
 or accept Pro hardware. Reconcile published Ports and retain local logging and
 Wi-Fi UI Apps pins. Rebuild/test the matched syscall/FPU/stream context before
 new native association work. The existing accepted payload remains installed.
+
+### Integrated signal baseline and empty RX handoff candidate (November 5)
+
+Reviewed main379d6f8d is integrated with published Ports94758e7f,retaining local
+checkpoint logging,Apps f90cb7e6 Wi-Fi/UI and GCC formatting fixes,and unchanged
+Widgets3a695ce5. The merge preserves both complete Wi-Fi recipes and the separate
+v2 Haswell cache-context profile. Signals164–167,file-stream168 and Wi-Fi169
+remain distinct. Matched build/USB image and targeted signal/FPU/user-frame/
+process/syscall/stream/cache-context checks pass at be121dd0. Missing shared
+signal include paths and GCC ambiguous-statement failures were fixed in small
+commits;failed attempts remain local evidence. This does not transfer native
+source25bf acceptance to the merged image.
+
+The next opt-in v124 `--wifi-handoff5` child requires the complete automatic
+power parent. It freezes the selected power/calibration objects,old ring and
+all eight retained pages,allocates one distinct empty ring,and binds every
+protected page plus new physical/virtual identity. Two exact Set TR Dequeue
+commands must retarget the stopped DCI9 endpoint then restore the original
+saved dequeue and all eight context words. Between them,15 read-only controls
+prove disabled MAC/core/DMA and all nine held selected power values. No TD is
+posted,no MAC is started,and no network OUT is sent. Old stopped-ring parent
+predicates remain unchanged. Any uncertain command or lost frozen ownership
+quarantines and retains both rings;completed selected-power mismatches can
+restore the old context but remain failed. Nothing is recycled or replayed.
+
+The pure handoff model passes all seven callback failures before/after uncertain
+writes,16 ownership losses,every context-bit mutation,65 bounded fresh dequeue
+positions,plan/alias/reentry/running-state refusals and ASan/UBSan. Actual native-
+child modeled tests pass all17 transport fault positions,nine semantic selected
+power mismatches with exact context restoration,six guard failures,17 frozen
+parent/page/identity/plan changes,slot/context corruption and admission/allocation/
+replay refusals. Four strict saved-ledger groups and221 full staging groups pass.
+Broader build/controller/exact-stage/storage/recovery qualification and native
+handoff acceptance are pending. The source25bf197-file native power capsule and
+32-file acceptance notes remain sealed independently;the prior failed v123
+521-file capsule remains failed. Current accepted payload stays installed and
+no new boot is armed while this candidate is qualified.
+
+A pinned primary Linux7.0 source/descriptor audit binds data AC_BE to captured
+OUT04/DCI8,distinct from MCU OUT08;WLAN0/EDCA2/WIV framing and manual sequence
+with NSEQ clear agree with the existing pure codec. This is source evidence,
+not a live TX grant. Next association still needs private current station MAC
+and consistent target basic-rate binding,a fresh running receive owner,dedicated
+data OUT ownership,matched AUTH/ASSOC replies and explicit leave/retirement,
+then strict WPA2/MIC/replay/key/PN and authenticated bidirectional IP/data.
+Credentials remain unread/unpackaged;Demers2.4 requires different hardware.

@@ -2,6 +2,8 @@
 /* Explicit one-shot power-only child. No MAC enable,endpoint creation or OUT
  * network frame. The selected RF/calibration parent remains held throughout. */
 static bool wifi_power5_requested;
+static bool wifi_handoff5_requested;
+static bool wifi_handoff5_inspect(void);
 static struct {
  struct xhci_device *d;
  struct mt76_power5_capture fields;
@@ -123,7 +125,8 @@ static bool wifi_power5_selected(void *c){
  if(!wifi_power5_owned(c,false) || wifi_power5.step!=84 || wifi_power5.cleanup_started || wifi_power5.snapshot_mask!=511 || wifi_power5.modified_mask!=511 || wifi_power5.inspected || !s->selected || !s->snapshot_complete ||
     s->saved_mask!=511 || s->modified_mask!=511 || s->verified_mask!=511 || s->generation!=wifi_power5.plan.generation)return wifi_power5_fail();
  for(unsigned i=0;i<9;i++)if(s->saved[i]!=wifi_power5.original[i] || s->chosen[i]!=((wifi_power5.original[i]&~wifi_power5.plan.write[i].mask)|wifi_power5.plan.write[i].value))return wifi_power5_fail();
- wifi_power5.inspected=true;console_write("wifi-power5-selected: words=9 readbacks=9 mac_disabled=1 retained=1 network_out=0\n");return true;
+ wifi_power5.inspected=true;console_write("wifi-power5-selected: words=9 readbacks=9 mac_disabled=1 retained=1 network_out=0\n");
+ return !wifi_handoff5_requested || wifi_handoff5_inspect();
 }
 static bool wifi_power5_inspect(void){
  if(!wifi_power5_requested || wifi_power5.attempted)return false;

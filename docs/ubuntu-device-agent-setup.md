@@ -1229,3 +1229,15 @@ with the strict full-parent power checker before accepting hardware. Host tests
 are not native acceptance. Progress and results are automatic;the captured
 adapter still requires the local cold-unplug/shutdown sequence. See the unit
 record and [USB Wi-Fi](usb-wifi.md) for current scope and limitations.
+
+### Pro11,2 empty stopped RX context handoff (v124 candidate)
+
+`--wifi-handoff5` requires the complete automatic `--wifi-power5` chain. It keeps
+MAC disabled and posts no TD while proving fresh empty-ring ownership,selected
+power readbacks and exact old stopped-context restoration. Follow matched build,
+exact GPT/missing-workspace VM,recovery/run-record/USB eligibility and one-shot
+collection rules before any native trial. The captured adapter still needs the
+standing cold-unplug shutdown procedure. Guest progress and results are saved;
+no commands/photos/attended UI checklist are needed. Require the full-parent
+handoff checker;host fixtures or a restored context after handled failure are
+not physical success. No live association/key/IP/data authority follows.

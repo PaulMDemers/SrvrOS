@@ -6850,3 +6850,25 @@ No network OUT,authentication,keys,IP or data ran. Next requires explicit fresh
 receive-context ownership handoff and source-audited management association;
 retain the old stopped-ring gates and all DMA on uncertainty. Credentials remain
 unread. This acceptance belongs only to the captured model/unit and source.
+
+### Empty stopped RX handoff candidate (v124)
+
+`--wifi-handoff5` requires the full automatic `--wifi-power5` parent. Its separate
+native owner freezes the old calibration/power objects and retained ring/pages,
+retargets stopped DCI9 to a distinct empty ring,reads all selected power words
+under disabled MAC/core/DMA guards,and restores the exact original dequeue and
+all context words. It posts no TD,starts no MAC and transmits no network frame.
+The old stopped-RX parent gates are unchanged. Uncertain command/ownership loss
+quarantines with all DMA retained;handled semantic failure may restore but never
+passes. Host/fault/sanitizer/parser/staging tests do not accept physical handoff.
+Use exact-stage/recovery/storage qualification and the local cold-unplug shutdown
+procedure before the automatic saved trial. Association and authenticated data
+remain separate pending work.
+
+The next TX owner must bind the captured data endpoint separately from the MCU
+command endpoint and preserve explicit sequence handling;the primary
+[Linux transport endpoint mapping](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/mediatek/mt76/usb.c),
+[MT76 framing](https://github.com/torvalds/linux/blob/v7.0/drivers/net/wireless/mediatek/mt76/mt76x02_usb_core.c)
+and [mac80211 sequence contract](https://github.com/torvalds/linux/blob/v7.0/include/net/mac80211.h)
+were pinned and checked against this descriptor. Pure packet formatting grants
+no endpoint,radio,association or controlled-port authority.

@@ -40,6 +40,7 @@ static void console_write(const char *s){(void)s;}
 static bool wifi_mac_private_usb(struct xhci_device *,bool,uint32_t,uint32_t *);
 bool xhci_wifi_capture_discovery5(void);
 #include "../kernel/src/drivers/xhci_wifi_power5.inc"
+static bool wifi_handoff5_inspect(void){assert(!wifi_handoff5_requested);return false;}
 static bool wifi_mac_private_usb(struct xhci_device *d,bool write,uint32_t a,uint32_t *v){
  assert(d==wifi_cal5.d && !d->quarantined && !fake.lost && !xhci.sync_users);
  bool fail=++fake.calls==fake.fail;
