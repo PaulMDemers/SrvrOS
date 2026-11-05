@@ -12,8 +12,8 @@ static unsigned turn_requests;
 static bool retired;
 static bool wait_pointer_ok=true,scope_write_ok=true;static unsigned wait_attempts;
 bool vmm_user_range_mapped(uint64_t address,uint64_t length,bool write) {(void)address;(void)length;return wait_pointer_ok && (!write || scope_write_ok);}
-bool process_try_wait_retired(uint64_t pid,uint64_t *status,int64_t *result) {assert(pid==42);wait_attempts++;if(!retired)return false;*status=9;*result=42;return true;}
-int64_t process_wait(uint64_t pid,uint64_t *status,bool nohang) {assert(pid==42 && !busy && !user_safe && nohang);*status=0;return 0;}
+bool process_try_wait_retired_checked(uint64_t pid,process_wait_copy_fn copy,void *context,int64_t *result) {assert(pid==42);wait_attempts++;if(!retired)return false;*result=copy(context,9)?42:SRV_ERR_FAULT;return true;}
+int64_t process_wait_checked(int64_t pid,uint64_t flags,process_wait_copy_fn copy,void *context) {assert(pid==42 && !busy && !user_safe && (flags&SRV_WAIT_NOHANG));return copy(context,0)?0:SRV_ERR_FAULT;}
 int64_t process_wait_posix(int64_t pid,uint64_t *status,bool nohang) {(void)pid;(void)status;(void)nohang;assert(0);return -1;}
 static bool byte_safe;
 bool process_file_pipe_io_safe(struct process *p,uint64_t fd,uint64_t length,bool writing) {

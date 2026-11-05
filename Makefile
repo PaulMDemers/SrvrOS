@@ -2151,9 +2151,9 @@ test-core: test-fpu
 .PHONY: test-signal-context
 test-signal-context: build/tests/signal-context-host$(HOST_EXE)
 	$<
-build/tests/signal-context-host$(HOST_EXE): tools/test_signal_context.c kernel/src/arch/x86_64/signal_context.c kernel/src/arch/x86_64/signal_context.h kernel/src/arch/x86_64/isr_frame.h
+build/tests/signal-context-host$(HOST_EXE): tools/test_signal_context.c kernel/src/arch/x86_64/signal_context.c kernel/src/arch/x86_64/signal_context.h kernel/src/arch/x86_64/isr_frame.h shared/include/srvros/signal_abi.h
 	mkdir -p build/tests
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror tools/test_signal_context.c kernel/src/arch/x86_64/signal_context.c -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include tools/test_signal_context.c kernel/src/arch/x86_64/signal_context.c -o $@
 build/kernel/src/arch/x86_64/signal_context.c.o: kernel/src/arch/x86_64/signal_context.h kernel/src/arch/x86_64/isr_frame.h
 build/kernel/src/arch/x86_64/fpu.c.o build/kernel/src/arch/x86_64/isr.S.o: kernel/src/arch/x86_64/fpu_trap.h kernel/src/arch/x86_64/isr_frame.h
 test-core: test-signal-context
