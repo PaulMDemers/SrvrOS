@@ -83,4 +83,20 @@ execution. It measures4 ticks /3 polls and passes all five presenter acquisition
 The actual producer's host tests include delayed/boundary recovery, timeout,
 negative state queries and frozen/backward clocks. An error is never printed as
 console-muted=0. These results accept the diagnostic and VM lifecycle checks,
-not native GPU ownership. Native boot-client observation remains pending.
+not native GPU ownership. The bounded native observation is recorded below.
+
+## Native observation
+
+Air7,2 release `d520f364934fb08d` (`c0e03eb9`) completes as session
+`00065f8e82862ce5-00`. Its receipt is policy2/client2/immutable1, with
+hardware_ownership0/managed_pages0. The same boot completes the native cache,
+backing and GGTT survey: five fresh guards, both aliases retired, matching48-read
+vectors and full inherited backing preservation. The16 entries remain populated;
+no range is granted and no GPU PTE or aperture-data mapping is written.
+
+This accepts observed native software-client selection and read-only coexistence.
+Negative initializer side effects remain host-tested; firmware, engine, HDA and
+reader exclusion remain separate unaccepted requirements. The matching report,
+prior-file preservation, clean offline filesystem/allocation checks, consumed
+one-shot, Ubuntu default and independent recovery all verify. No reboot is armed.
+See the [unit record](machines/macbookair7-2.md) for scope and retained evidence.

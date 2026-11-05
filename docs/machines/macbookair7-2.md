@@ -2,7 +2,41 @@
 
 Updated: 2026-11-05. State: **active reference machine; partial device acceptance**.
 
-### Active scope: boot-client exclusion implemented; native readout prepared
+### Active scope: boot-client observation collected; native handoff next
+
+The bounded software-client step is complete. Native `d520f364934fb08d`
+(`c0e03eb9`) is collected, verified and backed up; no reboot is armed. Next is
+an explicit firmware/engine/reader handoff and a managed GGTT range before any
+private mapping/restore. The populated inherited entries remain protected; the
+software claim grants no hardware authority or native write capability.
+
+### Native boot-client observation accepted
+
+Release `d520f364934fb08d`, source `c0e03eb9`, completes as
+`session-00065f8e82862ce5-00`. Exactly one native receipt reports policy2/client2,
+immutable1, hardware_ownership0 and managed_pages0. The exact Air observer claim
+coexists with the complete native cache/display/backing/GGTT readout. Native
+acceptance covers that selection/claim and read-only coexistence; negative
+initializer side-effect tests retain their host provenance.
+
+Both48-read vectors agree; their phases take4,386us and4,379us. MSAC1 /256MiB,
+the8MiB GGTT and full34MiB fence remain bound. All16 sampled entries are still
+populated (`0x8e201001` through `0x8e210001`, raw bit0 set). Both temporary
+aliases retire, all five fresh cache/backing guards pass and the complete1356
+inherited PTEs/fences are preserved. GPU PTE writes, aperture-data mappings and
+retained uncertainty are zero. No managed range, private GPU mapping, firmware/
+HDA/engine exclusion or physical tear-free flip is accepted.
+
+The saved report has completed=yes and zero collector attention. All1,333 prior
+USB files are unchanged except expected `.srvros/meta`; the two new logs copy
+and hash-verify. Offline fsck/allocation/writable/headroom, independent current/
+recovery payloads, Ubuntu default and consumed one-shot pass. USB is left
+unmounted. Currentd520, recovery9aa, previous0e1, earlier07df/5346, shadowd79 and
+known-goodc497 remain verified. Evidence and payloads are retained outside
+build cleanup. Native GUI/input or another machine's acceptance is not broadened
+by this read-only trial.
+
+### Boot-client implementation and preparation (superseded above)
 
 Main `88bdc382` is integrated through `28b17462`, retaining Air7,2 capture and
 scope-owner cancellation, Air6,1 cache-context diagnostics and current signal/
@@ -48,7 +82,8 @@ return to Ubuntu; persistence failure visibly halts. Volume1%, guest audio off.
 Evidence/checkpoints: `build/air-boot-claim-20261105/` and
 `build/air-claim-native-20261105/`, independently backed up before arming. The
 run record controls actual reboot state; collect its matching session first.
-Native boot-client acceptance is pending. Next is an explicit hardware/reader
+At preparation native boot-client acceptance was pending; its collected receipt
+is above. Next is an explicit hardware/reader
 handoff and managed range, not treating a software claim as native authority.
 
 ### Native aperture and candidate-entry observation accepted
