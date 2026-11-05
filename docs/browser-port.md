@@ -130,6 +130,8 @@ remain observed during passing GC/JavaScript runs; quota behavior is unchanged.
 
 Tested source6b5ebaf7/Ports d99565f; JSC SHA256
 `d7caf7ddc2d144c8ed71618fde76fee73d0b4cff5eb92034c85a5b5de63b25a2`.
+The [portable initial smoke bundle](assets/evidence/pr334-initial-smoke/README.md)
+preserves the reviewed synthetic logs and original/published hashes.
 Durable local result receipt `.local/pr334-entropy-guest-results/receipt.json`
 SHA256 `ce0ce2147666002e4deacb1b13b9a5e6a0f8183da54f13a2107b528ebe8aa6be`;
 exact input packet74470aae and signoff6acb68dc are retained outside build output.
