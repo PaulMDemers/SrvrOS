@@ -1,5 +1,6 @@
 /* Actual-source staged spawn image preflight and cleanup. */
 #include <assert.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
