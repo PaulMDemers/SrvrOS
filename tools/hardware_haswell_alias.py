@@ -6,8 +6,8 @@ from hardware_haswell_cache import cache_result, effective, UNIT
 from hardware_haswell_firmware import firmware_result
 
 SUMMARY = (r'hsw-alias: v=1 status=([1-5]) step=([0-6]) pages=(\d+) reads=(\d+),(\d+) bytes=(\d+),(\d+) '
-           r'target_leaves=(\d+) root=([0-9a-f]+) nx=([0-9a-f]+),([0-9a-f]+) max=([0-9a-f]+),([0-9a-f]+) '
-           r'efer=([0-9a-f]+),([0-9a-f]+) irq=([0-9a-f]+),([0-9a-f]+) begin=(\d+) end=(\d+) '
+           r'target_leaves=(\d+) root=0x([0-9a-f]{16}) nx=0x([0-9a-f]{16}),0x([0-9a-f]{16}) max=0x([0-9a-f]{16}),0x([0-9a-f]{16}) '
+           r'efer=0x([0-9a-f]{16}),0x([0-9a-f]{16}) irq=0x([0-9a-f]{16}),0x([0-9a-f]{16}) begin=(\d+) end=(\d+) '
            r'table_cap=64 entry_cap=32768 data_cap=4096 limit_us=100000 scope=sole-managed-root writes=0 maps=0 ownership=0')
 
 

@@ -37,7 +37,7 @@ uint64_t timer_monotonic_us(void){return ticks+=
 bool timer_reference_ready(void){return true;}
 void console_write(const char *s){fputs(s,stdout);}
 /* Kernel formatter consumes uint64 for every numeric argument. */
-void console_printf(const char *fmt,...){va_list ap;va_start(ap,fmt);for(const char *p=fmt;*p;p++){if(*p!='%'){putchar(*p);continue;}p++;if(*p=='u')printf("%llu",(unsigned long long)va_arg(ap,uint64_t));else if(*p=='x')printf("%llx",(unsigned long long)va_arg(ap,uint64_t));else if(*p=='s')fputs(va_arg(ap,const char *),stdout);else assert(0);}va_end(ap);}
+void console_printf(const char *fmt,...){va_list ap;va_start(ap,fmt);for(const char *p=fmt;*p;p++){if(*p!='%'){putchar(*p);continue;}p++;if(*p=='u')printf("%llu",(unsigned long long)va_arg(ap,uint64_t));else if(*p=='x')printf("0x%016llx",(unsigned long long)va_arg(ap,uint64_t));else if(*p=='s')fputs(va_arg(ap,const char *),stdout);else assert(0);}va_end(ap);}
 
 static unsigned msrs,ptes;
 static uint64_t alias_flags=0x202;

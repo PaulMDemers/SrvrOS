@@ -26,7 +26,7 @@ def fixture_alias():
                 step = (words[i+1]-words[i]) & ((1<<64)-1);n = 2
                 while i+n < 512 and words[i+n] == (words[i]+step*n) & ((1<<64)-1):n += 1
             data += struct.pack('<HQQ', n, words[i], step);i += n
-    meta = f'hsw-alias: v=1 status=1 step=6 pages=4 reads=2048,2048 bytes={len(data)},{len(data)} target_leaves=1 root=100000 nx=4100000,4100000 max=80000008,80000008 efer=d00,d00 irq=202,202 begin=5100 end=5900 table_cap=64 entry_cap=32768 data_cap=4096 limit_us=100000 scope=sole-managed-root writes=0 maps=0 ownership=0\n'
+    meta = f'hsw-alias: v=1 status=1 step=6 pages=4 reads=2048,2048 bytes={len(data)},{len(data)} target_leaves=1 root=0x0000000000100000 nx=0x0000000004100000,0x0000000004100000 max=0x0000000080000008,0x0000000080000008 efer=0x0000000000000d00,0x0000000000000d00 irq=0x0000000000000202,0x0000000000000202 begin=5100 end=5900 table_cap=64 entry_cap=32768 data_cap=4096 limit_us=100000 scope=sole-managed-root writes=0 maps=0 ownership=0\n'
     for phase in (0,1):
         for index, at in enumerate(range(0,len(data),512)):
             meta += f'hsw-alias-data: v=1 phase={phase} chunk={index} data='+base64.b64encode(data[at:at+512]).decode()+'\n'
@@ -46,7 +46,7 @@ class AliasTests(unittest.TestCase):
     def test_control_clock_count_and_every_chunk(self):
         text,pin=fixture_alias()
         with patch('hardware_haswell_firmware.PIN',pin):
-            for old,new in (('pages=4','pages=65'),('reads=2048,2048','reads=2049,2048'),('root=100000','root=101000'),('nx=4100000,4100000','nx=4100000,0'),('efer=d00,d00','efer=d00,500'),('irq=202,202','irq=202,2'),('begin=5100','begin=4999'),('target_leaves=1','target_leaves=0'),('completed=yes','completed=NO')):
+            for old,new in (('root=0x0000000000100000','root=100000'),('root=0x0000000000100000','root=0x100000'),('pages=4','pages=65'),('reads=2048,2048','reads=2049,2048'),('root=0x0000000000100000','root=0x0000000000101000'),('nx=0x0000000004100000,0x0000000004100000','nx=0x0000000004100000,0x0000000000000000'),('efer=0x0000000000000d00,0x0000000000000d00','efer=0x0000000000000d00,0x0000000000000500'),('irq=0x0000000000000202,0x0000000000000202','irq=0x0000000000000202,0x0000000000000002'),('begin=5100','begin=4999'),('target_leaves=1','target_leaves=0'),('completed=yes','completed=NO')):
                 self.assertIsNone(alias_result(text.replace(old,new)),(old,new))
             for line in text.splitlines():
                 if line.startswith('hsw-alias'):
