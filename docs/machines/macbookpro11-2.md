@@ -12810,3 +12810,23 @@ before the next candidate:main reserves164..167 for signals and uses168 for file
 streaming;private Wi-Fi must move from164 to169 with matched callers/tests.
 Do not message another chat or transfer its acceptance. Association/security/data
 and explicit RX-context handoff remain open;Wi-Fi credentials are still unread.
+
+
+Integrated reviewed maind10a4e10 with exact upstream pins,then restored published
+local module merges:Portscecd59c5 and Apps643da993 (Widgets3a695ce5 unchanged).
+The root merge used explicit final upstream pins after Git's history lookup
+requested an unavailable intermediate port object;local module branches and
+all logging/Wi-Fi changes were retained. Wi-Fi call169 now leaves the reserved
+signal164..167 range and file-stream168 intact;the matched service ABI fixture
+asserts the namespace. Rebuild all callers before a physical trial.
+
+The profile correction now zeros reserved CFG7/CFG9 VHT write positions,with
+full-word equality unchanged. The pinned MT76x0-specific implementation and
+private cached fields independently reproduce the captured003e0000 response;
+CFG8 remains the sole VHT8/9 word. Model,golden/95232-combination,log and service
+checks pass. The native gate retains a separate dirty mask and reverse cleanup
+phase after a completed semantic mismatch,while all forward grants stop.
+Actual-child modeled tests pass every selected-word mismatch with exact prefix
+restoration,uncertain cleanup I/O,202 normal I/O failure positions,614 ownership
+boundaries,busy/timeout and malformed cleanup-state refusals. Broader merged
+qualification and a new cold retry remain pending;no new power acceptance.

@@ -1,6 +1,8 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
+#include <srvros/syscall_numbers.h>
+_Static_assert(SYS_WIFI==169 && SYS_FILE_STREAM==168 && SYS_SESSION_SCOPE==163,"Wi-Fi respects stream and reserved signal ABI");
 #include "../kernel/src/wifi_service.c"
 static bool live[5]={true,true,true,true,true};
 static unsigned owned_calls,deny,cases;

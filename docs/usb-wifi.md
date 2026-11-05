@@ -6467,8 +6467,9 @@ connection change, reset, missing controller/device or quarantine invalidates th
 cache; reconnect cannot resurrect the old owner or automatically rescan.
 
 `SYS_WIFI` uses a versioned fixed-size snapshot/selection ABI. The current
-integrated tree uses call164 because main reserves163 for session scopes;
-older source-bound Wi-Fi payloads used163. Rebuild a matched kernel and all
+integrated tree uses call169:main reserves164..167 for signals and uses168 for
+file streaming,with163 retained for session scopes. Older source-bound Wi-Fi
+payloads used163 and164. Rebuild a matched kernel and all
 userspace callers;do not mix binaries across these revisions. The snapshot enumerates
 one adapter at a time with a next-owner link and bounded escaped display names,
 channel/advertisement flags and selected index. It exposes no BSSID, DMA pointer,
@@ -6816,3 +6817,20 @@ and eight whole-prefix refusals. These are host proofs;native power,analog
 quality,association,WPA2 and IP/data remain unaccepted. The unattended native
 trial shows progress,saves results and returns automatically;the adapter still
 needs a cold unplug while this laptop is shut down.
+
+
+The first v123 native trial exposed a full-word verification assumption:the
+shared Linux writer duplicates VHT offsets into CFG7/CFG9 positions that the
+captured MT7610 returns as zero. The failed write/readback is preserved;it is
+not power acceptance. The corrected profile programs those reserved positions
+as zero and keeps full32-bit equality. The MT76x0-specific
+[per-rate implementation](https://github.com/xtknight/mt7610u-linksys-ae6000-wifi-fixes/blob/4f1f50e3b5e5230f36a13f33112873765389dab3/chips/mt76x0.c)
+places VHT8/9 only in CFG8. Linux arithmetic and the conservative ceiling remain
+unchanged;other profiles are not widened.
+
+A completed selected-word mismatch now stops all forward operations but retains
+an independently counted,guarded cleanup-only path for exact private originals.
+A changed guard,invalid request,ownership loss,uncertain USB transfer or failed
+restoration still refuses/quarantines. This does not free DMA or grant a network
+provider. A successful retry must still prove all nine words and inverse RF
+cleanup;the prior failed session cannot be reclassified by the new parser.
