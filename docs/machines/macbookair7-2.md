@@ -2,13 +2,25 @@
 
 Updated: 2026-11-05. State: **active reference machine; partial device acceptance**.
 
-### Active scope: boot-client observation collected; native handoff next
+### Active scope: handoff qualification and managed-range admission
 
-The bounded software-client step is complete. Native `d520f364934fb08d`
-(`c0e03eb9`) is collected, verified and backed up; no reboot is armed. Next is
-an explicit firmware/engine/reader handoff and a managed GGTT range before any
-private mapping/restore. The populated inherited entries remain protected; the
-software claim grants no hardware authority or native write capability.
+Main `3f158022` (Air6,1 read-only admission audit) is integrated as `2886c122`.
+PR301 owns this Air's scanout work; Pro Wi-Fi PR19 and WebCore PR379 retain
+independent scope. Native d520 is collected; no reboot is armed.
+
+Implement a boot-only CPU reader/writer exclusion lease across the console,
+presenter and backlight, with exact token/epoch release and retained uncertainty.
+Bind a range-admission transaction to that lease, complete inherited backing,
+original candidate PTE values and explicit hardware-handoff assurances. Unknown
+firmware/engine/reader ownership must refuse native grants; populated entries
+are never inferred free. Native qualification will pause/resume participating
+clients, exercise their real refusal paths and revalidate the read-only snapshot.
+A positive host provider can test transferred-range reservation/retirement;
+the native provider must report unresolved assurances rather than manufacture
+an ownership grant. No PTE writer or forcewake/engine-control writes are part
+of this first hardware-test candidate. Touches handoff/range core, console/
+presenter/backlight admission hooks, an explicit native capture, decoder/tests
+and docs. Preserve independent Haswell gates and accepted recovery payloads.
 
 ### Native boot-client observation accepted
 
