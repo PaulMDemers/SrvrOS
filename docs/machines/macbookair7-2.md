@@ -2,27 +2,49 @@
 
 Updated: 2026-11-04. State: **active reference machine; partial device acceptance**.
 
-### Active scope: exact aperture and candidate-entry prerequisites
+### Active scope: collected window observation; ownership admission next
 
 Main `3fcf2630` is integrated as `efd398e2`, including merged PR317 retirement,
 Files/toolkit and portable-tool updates. Preserve Air7,2 capture recipes, the
-Haswell firmware-only diagnostic and scope-owner cancellation; directed process,
-cache and publication checks pass after conflict resolution. No new physical
-acceptance follows from this integration.
+Haswell firmware-only diagnostic and scope-owner cancellation. The exact source
+and bounded native acceptance are recorded below; neither the merge nor an
+observation grants native GPU write authority.
 
-Before a private-page writer can restore exactly, capture the live Broadwell
-MSAC aperture-size control and the original GGTT entries immediately beyond the
-entire34MiB inherited fence. Bounded next objective: a read-only16-entry window,
-two complete raw vectors, fresh CPU0 UC classification, exact profile/config
-and full backing/fence guards, strict no-write/map-retirement receipts and
-source-bound tests. An empty/stable entry is never a managed-range grant. Touches
-a new GGTT-window core/adapter, explicit capture recipe/collector, tests and docs;
-no PTE, aperture-data, engine, power-policy or cache-policy writes. Current07df
-is collected and backed up; no reboot armed. PR365 ongoing retirement and the
-other machine agents keep independent scope. Next is a source-matched automatic
-readout after host/VM validation, then native writer ownership/admission.
+The read-only16-entry/MSAC objective is complete at `120acb9a`. Every sampled
+entry beyond the full34MiB inherited fence is already populated. Do not turn
+this survey into a free-slot allocator or enable the proposed writer at index8704.
+Next is planning exclusive boot-scoped GPU ownership and an explicit managed
+GGTT handoff, private RAM/cache publication and native invalidation/reader
+retirement before any private mapping/restore. No GPU writer or next reboot is
+armed. Other machine agents retain independent scope and hardware acceptance.
 
-### Candidate-window readout prepared; native acceptance pending
+### Native aperture and candidate-entry observation accepted
+
+Release `0e1e37f7c62f68d9`, source `120acb9a`, completes as
+`session-00065f7bf1c51b3b-00`. Raw MSAC is1: the observed aperture is256MiB
+at `0xb0000000`, with an8MiB GGTT. Both16-entry vectors at index8704 agree;
+each takes48 reads /4,228us. All16 values are nonzero with raw bit0 set:
+`0x8e201001` through `0x8e210001`, in4KiB steps. These are inherited populated
+entries, not available managed slots. No physical target was dereferenced.
+
+Both read-only candidate-window mappings retire; five fresh UC/cache and full
+inherited1356-PTE/fence guards pass, with final backing preservation and zero
+retained uncertainty. The same capture independently validates its native CPU
+cache/display/backing prerequisites. There are zero GPU PTE writes, aperture-
+data mappings or ownership grants. This accepts a bounded readout, not a native
+GPU writer, private buffer, managed GGTT range or physical tear-free flip.
+
+The saved capture reports completed=yes with zero collector attention. All1,331
+prior USB files remain intact except expected `.srvros/meta`; both new logs copy
+and hash-verify. Offline fsck/allocation/writable/headroom, independent current/
+recovery payloads, Ubuntu default and consumed one-shot checks pass. USB is left
+unmounted; no reboot is armed. Current native is0e1, recovery9aa, previous07df,
+preceding5346, shadowd79 and known-goodc497 remain verified. Evidence/payloads
+are retained outside build cleanup. Next admission must respect the populated
+entries; being beyond the visible backing or full inherited fence is not proof
+of an unused GPU address range.
+
+### Window readout preparation and validation (superseded above)
 
 Source `120acb9a` implements the explicit [read-only aperture/GGTT survey](../intel-ggtt-window.md),
 staged and installed as `0e1e37f7c62f68d9`. This reads raw MSAC and two16-entry
@@ -39,20 +61,21 @@ collector/staging tests. Core/native-adapter ASan/UBSan and fresh-cache tests
 pass; three compiled negative controls are detected. The exact-image Q35 run
 reads CPU cache state, refuses native GPU access, saves/unmounts and resets;
 missing-workspace visible halt, VirtIO compositor/supervisor recovery and older
-cache/DMA/lifetime/Haswell3/firmware-only profiles also pass. These are host/VM
-results, not acceptance of the new native observation.
+cache/DMA/lifetime/Haswell3/firmware-only profiles also pass. Those host/VM
+results did not accept the native observation; its later receipt is above.
 
 Preparation verifies1,331 prior USB files /98 sessions, exact local firmware,
 GPU/CPU and USB ancestry, offline fsck/allocation/writable/headroom, Ubuntu
 default and independent payload/recovery. Inactivec32 was fully archived and
 hash-verified before removing only its EFI copy for space. Recovery9aa,
 previous07df, preceding5346, shadowd79 and known-goodc497 remain verified.
-The run needs no input: saved/unmounted handled outcomes return automatically;
+The prepared run needed no input: saved/unmounted handled outcomes return automatically;
 persistence failure visibly halts. Keep volume1%; guest audio is disabled.
 Evidence and checkpoint: `build/air-map-prerequisites-20261104/` and
 `build/air-window-native-20261104/`, with verified backups outside build before
 arming. The run record controls actual reboot state. Collect its exact matching
-session before staging another run; native acceptance is pending.
+session before staging another run. The later collected result supersedes the
+preparation state; the run record now reports returned/collected and unarmed.
 
 ### Native read-only cache observation accepted
 
@@ -77,7 +100,8 @@ Saved capture has `completed=yes` and no collector attention. All1,329 prior
 files are preserved except expected `.srvros/meta`; the two new logs copy and
 hash-verify. Offline fsck/allocation/writable/headroom, independent payloads/
 recovery, Ubuntu default and consumed one-shot checks pass. USB is left
-unmounted; no reboot is armed. Current native is07df, recovery9aa, preceding
+unmounted; no reboot was armed at that cache closeout. Its current was07df,
+recovery9aa, preceding
 5346/shadowd79/known-goodc497 remain verified. Evidence and payloads are retained
 outside build cleanup.
 

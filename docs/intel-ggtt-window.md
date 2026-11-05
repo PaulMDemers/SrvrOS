@@ -74,3 +74,15 @@ The no-input diagnostic saves/unmounts and returns automatically after handled
 outcomes; persistence failure visibly halts. Retain independent recovery and
 collect the exact matching session before another run. Native acceptance stays
 in the [machine record](machines/macbookair7-2.md).
+
+## Reference native result
+
+Air7,2 release `0e1e37f7c62f68d9` (`120acb9a`) observes MSAC1 /256MiB and two
+matching16-entry vectors, with both alias mappings retired and all five fresh
+cache/backing guards passing. **All16 sampled entries are already populated**:
+raw values `0x8e201001` through `0x8e210001` in4KiB steps, each with bit0 set.
+A writer must not infer availability from this index being beyond the inherited
+framebuffer fence. Exact restore alone would not authorize temporarily replacing
+someone else's live translation. A future native mapping requires an explicit
+ownership/range handoff and reader/engine exclusion before any write. This
+observation does not extend to unsampled entries or another machine/boot.
