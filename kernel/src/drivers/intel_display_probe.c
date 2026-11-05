@@ -637,3 +637,32 @@ bool intel_ggtt_window_probe_report(void) {
     }
     return r->status==WINDOW_OBSERVED && w.preserved;
 }
+
+/* Immutable observations remain observations. These helpers supply no hardware
+ * assurances and cannot themselves grant the candidate interval. */
+#include <srvros/intel_handoff.h>
+bool intel_window_handoff_snapshot(struct scanout_handoff_snapshot *out) {
+    if(!out || !window_attempted || window_result.status!=WINDOW_OBSERVED || trial_mapping_fault)return false;
+    const struct intel_window_result *r=&window_result;
+    *out=(struct scanout_handoff_snapshot){.mmio=r->endpoint.mmio,.aperture=r->aperture_base,
+        .aperture_bytes=r->aperture_bytes,.fence_begin=r->endpoint.fence_begin,.fence_end=r->endpoint.fence_end,
+        .first=INTEL_WINDOW_FIRST,.pages=INTEL_WINDOW_ENTRIES};
+    for(unsigned i=0;i<INTEL_WINDOW_ENTRIES;i++)out->original[i]=r->sample[1].entry[i];
+    return true;
+}
+bool intel_window_handoff_revalidate(const struct scanout_handoff_snapshot *s) {
+    struct scanout_handoff_snapshot saved;struct window_adapter w={0};struct intel_window_result fresh={0};
+    if(!s || !intel_window_handoff_snapshot(&saved) || s->mmio!=saved.mmio || s->aperture!=saved.aperture ||
+       s->aperture_bytes!=saved.aperture_bytes || s->fence_begin!=saved.fence_begin || s->fence_end!=saved.fence_end ||
+       s->first!=saved.first || s->pages!=saved.pages || !trial_adapter(&w.a))return false;
+    for(unsigned i=0;i<INTEL_WINDOW_ENTRIES;i++)if(s->original[i]!=saved.original[i])return false;
+    if(!intel_ggtt_window(&fresh,&(struct intel_window_io){&w,window_guard,window_endpoint,window_map,window_read,window_unmap,now}) ||
+       w.map_uncertain || trial_mapping_fault || !w.preserved || w.cache_rechecks!=5 ||
+       fresh.endpoint.mmio!=window_result.endpoint.mmio || fresh.endpoint.gmadr!=window_result.endpoint.gmadr ||
+       fresh.endpoint.msac!=window_result.endpoint.msac || fresh.endpoint.ggtt_bytes!=window_result.endpoint.ggtt_bytes ||
+       fresh.endpoint.fence_begin!=saved.fence_begin || fresh.endpoint.fence_end!=saved.fence_end ||
+       fresh.aperture_base!=saved.aperture || fresh.aperture_bytes!=saved.aperture_bytes)return false;
+    for(unsigned n=0;n<2;n++)for(unsigned i=0;i<INTEL_WINDOW_ENTRIES;i++)if(fresh.sample[n].entry[i]!=s->original[i])return false;
+    return true;
+}
+bool intel_window_handoff_clean(void) {return !trial_mapping_fault;}

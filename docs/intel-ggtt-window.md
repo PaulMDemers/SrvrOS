@@ -86,3 +86,7 @@ framebuffer fence. Exact restore alone would not authorize temporarily replacing
 someone else's live translation. A future native mapping requires an explicit
 ownership/range handoff and reader/engine exclusion before any write. This
 observation does not extend to unsampled entries or another machine/boot.
+
+The [boot reader/range qualification](intel-handoff.md) adds participating CPU
+exclusion and a pinned admission transaction. Native grants remain refused;
+no hardware handoff or managed interval is inferred from these observations.

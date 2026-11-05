@@ -1085,7 +1085,7 @@ $(KERNEL): $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_OBJ) kernel/linker.ld
 
 # Early-boot paths and trap-state helpers/diagnostics must not use compiler
 # SSE: it may run before CR4.OSFXSR or clobber registers before they are saved.
-build/kernel/src/arch/x86_64/fpu.c.o build/kernel/src/arch/x86_64/fpu_selftest.c.o build/kernel/src/arch/x86_64/signal_context.c.o build/kernel/src/arch/x86_64/signal_state.c.o build/kernel/src/console.c.o build/kernel/src/memory/mem.c.o build/kernel/src/latency.c.o: build/%.c.o: %.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+build/kernel/src/arch/x86_64/fpu.c.o build/kernel/src/arch/x86_64/fpu_selftest.c.o build/kernel/src/arch/x86_64/signal_context.c.o build/kernel/src/arch/x86_64/signal_state.c.o build/kernel/src/console.c.o build/kernel/src/display_access.c.o build/kernel/src/memory/mem.c.o build/kernel/src/latency.c.o: build/%.c.o: %.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
 	mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -mno-sse -mno-sse2 -c $< -o $@
 
@@ -2014,9 +2014,9 @@ distclean:
 test-console: build/tests/console-host$(HOST_EXE)
 	$<
 
-build/tests/console-host$(HOST_EXE): tools/test_console.c kernel/src/console.c shared/include/srvros/font5x7.h $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+build/tests/console-host$(HOST_EXE): tools/test_console.c kernel/src/console.c shared/include/srvros/font5x7.h $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready kernel/src/display_access.c
 	mkdir -p build/tests
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections kernel/src/display_access.c -o $@
 
 .PHONY: test-keyboard test-clock
 test-keyboard: build/tests/keyboard-host$(HOST_EXE)
@@ -3228,9 +3228,9 @@ test-desktop-host-tools:
 test-core: test-backlight
 test-backlight: build/tests/backlight-host$(HOST_EXE)
 	$<
-build/tests/backlight-host$(HOST_EXE): tools/test_backlight.c kernel/src/drivers/backlight.c kernel/include/srvros/backlight.h
+build/tests/backlight-host$(HOST_EXE): tools/test_backlight.c kernel/src/drivers/backlight.c kernel/include/srvros/backlight.h kernel/src/display_access.c
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_backlight.c kernel/src/drivers/backlight.c -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_backlight.c kernel/src/drivers/backlight.c kernel/src/display_access.c -o $@
 
 .PHONY: test-hda
 test-core: test-hda
@@ -4377,9 +4377,9 @@ build/tests/virtio-gpu-probe-host$(HOST_EXE): tools/test_virtio_gpu_probe.c kern
 test-core: test-display-present
 test-display-present: build/tests/display-present-host$(HOST_EXE)
 	$<
-build/tests/display-present-host$(HOST_EXE): tools/test_display_present.c kernel/src/display_present.c kernel/include/srvros/display_present.h kernel/include/srvros/virtio_gpu_probe.h $(LIMINE_PROTOCOL_DIR)/.ready
+build/tests/display-present-host$(HOST_EXE): tools/test_display_present.c kernel/src/display_present.c kernel/include/srvros/display_present.h kernel/include/srvros/virtio_gpu_probe.h $(LIMINE_PROTOCOL_DIR)/.ready kernel/src/display_access.c
 	@mkdir -p build/tests
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/display_access.c -o $@
 
 .PHONY: test-virtio-pci test-virtio-rng test-virtio-net test-virtio-input test-virtio-block
 test-core: test-virtio-pci test-virtio-rng test-virtio-net test-virtio-input test-virtio-block
@@ -4896,3 +4896,25 @@ test-console-recovery: build/tests/console-recovery$(HOST_EXE)
 build/tests/console-recovery$(HOST_EXE): tools/test_console_recovery.c userspace/guifail/guifail.c $(USER_SYSROOT_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -ffreestanding -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I userspace/lib/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-scanout-handoff
+test-core: test-scanout-handoff
+test-scanout-handoff: build/tests/scanout-handoff$(HOST_EXE)
+	$<
+build/tests/scanout-handoff$(HOST_EXE): tools/test_scanout_handoff.c kernel/src/scanout_handoff.c kernel/src/scanout_space.c kernel/src/display_access.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_scanout_handoff.c kernel/src/scanout_handoff.c kernel/src/scanout_space.c kernel/src/display_access.c -o $@
+
+.PHONY: test-intel-handoff
+test-core: test-intel-handoff
+test-intel-handoff: build/tests/intel-handoff-probe$(HOST_EXE) test-scanout-handoff
+	$(PYTHON) -m unittest discover -s tools -p test_intel_handoff.py
+	$< 0
+	$< 1
+	$< 2
+	$< 3
+	$< 4
+	$< 5
+build/tests/intel-handoff-probe$(HOST_EXE): tools/test_intel_handoff_probe.c kernel/src/drivers/intel_handoff_probe.c kernel/src/display_access.c kernel/src/scanout_handoff.c kernel/src/scanout_space.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_intel_handoff_probe.c kernel/src/drivers/intel_handoff_probe.c kernel/src/display_access.c kernel/src/scanout_handoff.c kernel/src/scanout_space.c -o $@

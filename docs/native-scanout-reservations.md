@@ -128,3 +128,7 @@ presentation ownership/reacquisition and desktop/Open With regression. The
 allocation oracle includes10,803 successful allocations,10,792 releases and
 17,564 refusals at193 distinct starts. These are host/VM results; they grant
 no managed native interval and do not accept real hardware mapping retirement.
+
+The [boot reader/range qualification](intel-handoff.md) adds participating CPU
+exclusion and a pinned admission transaction. Native grants remain refused;
+no hardware handoff or managed interval is inferred from these observations.

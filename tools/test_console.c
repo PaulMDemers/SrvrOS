@@ -13,6 +13,7 @@ static void test_irq_restore(uint64_t f) { if (f & 512) test_irqs=true; }
 #define SRVROS_CONSOLE_HOST_TEST
 #include "../kernel/src/console.c"
 
+void scheduler_yield(void) { assert(!"unexpected yield in console fixture"); }
 static unsigned damage_calls;
 static uint64_t damage_x,damage_y,damage_w,damage_h;
 void display_present_damage(uint64_t x,uint64_t y,uint64_t w,uint64_t h) {
@@ -268,7 +269,25 @@ static void test_checked_publication(void) {
     assert(saved_count==LOG_RECORD_BATCH && serial_count==LOG_RECORD_BATCH && test_irqs);
     for(size_t i=0;i<saved_count;i++)assert(saved_log[i]=='x' && serial_log[i]=='x');
 }
+static void test_handoff_pause(void) {
+    setup(false);
+    uint32_t before[STRIDE*H+2];memcpy(before,storage,sizeof(before));
+    struct display_access_token t;
+    assert(display_access_acquire(123,&t));
+    assert(!console_put_pixel(0,0,0xffffff));
+    assert(!console_fill_rectangle(0,0,1,1,0xffffff));
+    uint32_t pixel=0xffffff;
+    assert(!console_blit_rgb(0,0,1,1,&pixel,1));
+    assert(!console_blit_rgb_scaled(0,0,1,1,&pixel,1,2));
+    console_write("queued while paused");console_clear();console_write("resume");console_emergency();console_flush();
+    assert(!memcmp(before,storage,sizeof(before)) && console_damage_pending());
+    assert(serial_count && saved_count && !console_sync());
+    assert(display_access_release(&t,true));console_flush();
+    assert(!console_damage_pending() && !margins_dirty && memcmp(before,storage,sizeof(before)));
+    check_guards();
+}
 int main(void) {
+    test_handoff_pause();
     test_checked_publication();
     test_graphics_framebuffer_routing();
     test_saved_record_interleaving();

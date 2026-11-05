@@ -4,6 +4,8 @@
 #include <stdint.h>
 struct limine_framebuffer;
 bool display_present_prepare(struct limine_framebuffer *framebuffer);
+/* Check after acquiring the boot exclusion lease; never cancel an owner. */
+bool display_present_handoff_idle(void);
 bool display_present_available(void);
 bool display_present_info_available(void);
 bool display_present_active(void);

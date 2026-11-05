@@ -6,6 +6,7 @@
 #include <srvros/intel_display_capture.h>
 /* Each host case models a fresh boot; production supplies no reset entry. */
 #include "../kernel/src/intel_boot_claim.c"
+static bool handoff_drift;
 static bool cache_mode,window_mode,window_map_fail,window_retire_fail,window_cache_fail;
 static bool intel_display_test_uc(uint64_t);
 static bool intel_display_test_read(uint32_t,uint32_t *);
@@ -77,6 +78,7 @@ static bool intel_display_test_read(uint32_t off,uint32_t *value) {
     if(off>=0x1000000 && off<=0x1000024){mmio_reads++;*value=off;return true;}
     if(window_mode && off>=INTEL_WINDOW_PAGE && off<INTEL_WINDOW_PAGE+128) {
         unsigned i=(off-INTEL_WINDOW_PAGE)/8;uint64_t entry=i?0x180000000ull+i*4096+1:0;
+        if(handoff_drift && i==15)entry^=4096;
         *value=(uint32_t)(entry>>((off&4)?32:0));mmio_reads++;return true;
     }
     if(backing_mode && (off>=0x100000 || !intel_capture_offset_allowed(off))) {
@@ -158,7 +160,7 @@ int main(int argc,char **argv) {
     intel_display_probe_boot(&frame);
     assert(result.status==INTEL_CAPTURE_OBSERVED && map_calls==9 && unmap_calls==9 && mmio_reads==116);
     assert(intel_display_probe_report());unsigned old_reads=mmio_reads;intel_display_probe_boot(&frame);assert(mmio_reads==old_reads);
-    if(backing_mode){intel_display_backing_probe_boot(&frame);assert(backing.status==1 && backing.count==1356 && backing.sample[0].present==1356 && backing.fence_matches==1 && !backing.retained && map_calls==unmap_calls);struct scanout_profile profile;struct intel_scanout_clock clock;assert(intel_scanout_trial_profile(&profile) && !profile.assured && !profile.physical[1]);assert(intel_scanout_trial_ram(0x1000000,1350));assert(!intel_scanout_trial_ram(0x8c000000,1350));assert(!intel_scanout_trial_ram(0xb0000000,1350));assert(intel_scanout_trial_clock(&clock));assert(intel_scanout_trial_revalidate());uint64_t pages[3]={0};assert(intel_scanout_trial_cache_pages(pages)==cache_mode);if(cache_mode)assert(pages[0]==0xc0101000 && pages[1]==0xc0811000 && pages[2]==0xb2200000);assert(intel_display_backing_probe_report());if(window_mode){assert(intel_ggtt_window_probe_report()==!(window_map_fail || window_retire_fail || window_cache_fail));assert((pa[INTEL_CAPTURE_PAGES]!=0)==(window_map_fail || window_retire_fail));}unsigned calls=mmio_reads;intel_display_backing_probe_boot(&frame);assert(calls==mmio_reads);return 0;}
+    if(backing_mode){intel_display_backing_probe_boot(&frame);assert(backing.status==1 && backing.count==1356 && backing.sample[0].present==1356 && backing.fence_matches==1 && !backing.retained && map_calls==unmap_calls);struct scanout_profile profile;struct intel_scanout_clock clock;assert(intel_scanout_trial_profile(&profile) && !profile.assured && !profile.physical[1]);assert(intel_scanout_trial_ram(0x1000000,1350));assert(!intel_scanout_trial_ram(0x8c000000,1350));assert(!intel_scanout_trial_ram(0xb0000000,1350));assert(intel_scanout_trial_clock(&clock));assert(intel_scanout_trial_revalidate());uint64_t pages[3]={0};assert(intel_scanout_trial_cache_pages(pages)==cache_mode);if(cache_mode)assert(pages[0]==0xc0101000 && pages[1]==0xc0811000 && pages[2]==0xb2200000);assert(intel_display_backing_probe_report());if(window_mode){assert(intel_ggtt_window_probe_report()==!(window_map_fail || window_retire_fail || window_cache_fail));assert((pa[INTEL_CAPTURE_PAGES]!=0)==(window_map_fail || window_retire_fail));if(!window_map_fail && !window_retire_fail && !window_cache_fail){struct scanout_handoff_snapshot s;assert(intel_window_handoff_snapshot(&s) && !s.assurances);config_reads=0;assert(intel_window_handoff_revalidate(&s) && intel_window_handoff_clean());unsigned old=config_reads;s.original[15]^=1;assert(!intel_window_handoff_revalidate(&s) && config_reads==old);s.original[15]^=1;config_reads=0;handoff_drift=true;assert(!intel_window_handoff_revalidate(&s) && intel_window_handoff_clean() && !pa[INTEL_CAPTURE_PAGES]);handoff_drift=false;config_reads=0;window_cache_fail=true;assert(!intel_window_handoff_revalidate(&s) && intel_window_handoff_clean() && !pa[INTEL_CAPTURE_PAGES]);window_cache_fail=false;}}unsigned calls=mmio_reads;intel_display_backing_probe_boot(&frame);assert(calls==mmio_reads);return 0;}
     if(reporting)return 0;
     reset();firmware_ok=false;intel_display_probe_boot(&frame);assert(result.status==INTEL_CAPTURE_IDENTITY && !map_calls && !mmio_reads);
     reset();ram.base=0xc0000000;intel_display_probe_boot(&frame);assert(result.status==INTEL_CAPTURE_ACCESS && !map_calls && !mmio_reads);

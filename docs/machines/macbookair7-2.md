@@ -22,6 +22,24 @@ of this first hardware-test candidate. Touches handoff/range core, console/
 presenter/backlight admission hooks, an explicit native capture, decoder/tests
 and docs. Preserve independent Haswell gates and accepted recovery payloads.
 
+### Handoff implementation checkpoint (not physically accepted)
+
+The candidate now has CPU-client exclusion entries on console text/bulk pixel
+paths, presenter startup/transactions and brightness provider operations.
+Outstanding operations prevent acquisition; epoch tokens prevent stale release.
+`scanout_handoff` binds a range to that exclusion, exact original candidate PTEs,
+full inherited fence and an audited provider's hardware assurances. Active or
+uncertain ranges pin exclusion through retirement. Native hardware assurances
+remain absent, so managed-range admission refuses with mask31 and grants0 pages.
+
+The distinct `--intel-handoff-capture` profile repeats the native read-only window
+under exclusion, attempts participating forbidden operations, queues text and
+resumes safely. It saves and automatically returns on handled outcomes. No
+human input, PTE writes, forcewake/engine control, writable aperture mapping or
+native flip is part of this qualification. Positive admission is synthetic host
+evidence only. Full validation and exact-stage VM evidence are being prepared;
+no new payload is installed or reboot armed. See [the contract](../intel-handoff.md).
+
 ### Native boot-client observation accepted
 
 Release `d520f364934fb08d`, source `c0e03eb9`, completes as

@@ -1,5 +1,6 @@
 #include <srvros/ap_probe.h>
 #include <srvros/intel_boot_claim.h>
+#include <srvros/intel_handoff.h>
 #include <srvros/haswell_backing.h>
 #include <srvros/haswell_firmware.h>
 #include <srvros/haswell_cache_context.h>
@@ -815,6 +816,7 @@ void kmain(void) {
             bool dma_ok=intel_dma_probe_report();sampled=sampled && dma_ok;
             bool cache_ok=intel_cache_probe_report();sampled=sampled && cache_ok;
             if(cmdline_has_token(cmdline,"srvros.intel-window=read-only")){bool window_ok=intel_ggtt_window_probe_report();sampled=sampled && window_ok;}
+            if(cmdline_has_token(cmdline,"srvros.intel-handoff=qualify")){bool handoff_ok=started && intel_handoff_probe_report();sampled=sampled && handoff_ok;}
             bool fixture=cmdline_has_token(cmdline,"srvros.intel-lifetime=fixture");
             if(fixture || cmdline_has_token(cmdline,"srvros.intel-lifetime=shadow")) {
                 struct limine_framebuffer_response *r=framebuffer_request.response;

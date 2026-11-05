@@ -808,6 +808,13 @@ def collect(mount, volume, output):
                     attention.append('collection: Intel backing observation refused, failed or incomplete')
             except ValueError as error:
                 attention.append('collection: invalid Intel backing observation: '+str(error))
+        intel_handoff=None
+        if 'srvros.intel-handoff=qualify' in text:
+            try:
+                from intel_handoff import native_handoff_result
+                intel_handoff=native_handoff_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+                if not intel_handoff or not intel_handoff['native_qualification_complete']:attention.append("Intel handoff qualification incomplete or refused")
+            except ValueError as error:attention.append("Invalid Intel handoff receipt: "+str(error))
         intel_window=None
         if 'srvros.intel-window=read-only' in text:
             try:
@@ -857,7 +864,7 @@ def collect(mount, volume, output):
             "intel_display_capture": intel_display,
             "intel_display_backing": intel_backing,
             "intel_scanout_lifetime": intel_lifetime,
-            "intel_dma_observe":intel_dma,"intel_cache":intel_cache,"intel_ggtt_window":intel_window,
+            "intel_dma_observe":intel_dma,"intel_cache":intel_cache,"intel_ggtt_window":intel_window,"intel_handoff":intel_handoff,
             "posix_capture": posix_proof,
             "storage_wait": storage_wait,
             "battery_preflight": preflight,

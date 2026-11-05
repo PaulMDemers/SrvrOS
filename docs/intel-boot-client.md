@@ -100,3 +100,7 @@ reader exclusion remain separate unaccepted requirements. The matching report,
 prior-file preservation, clean offline filesystem/allocation checks, consumed
 one-shot, Ubuntu default and independent recovery all verify. No reboot is armed.
 See the [unit record](machines/macbookair7-2.md) for scope and retained evidence.
+
+The [boot reader/range qualification](intel-handoff.md) adds participating CPU
+exclusion and a pinned admission transaction. Native grants remain refused;
+no hardware handoff or managed interval is inferred from these observations.

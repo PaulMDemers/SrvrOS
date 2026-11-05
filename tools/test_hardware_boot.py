@@ -72,6 +72,20 @@ class InstallTests(unittest.TestCase):
             release=boot.stage(intel_window_capture=True,laptop_probe_volume='37d8c5d0')
         self.assertEqual(boot.verify(self.stage/release)['config_version'],version)
 
+    def test_intel_handoff_profile(self):
+        version='ram-usb-v1-intel-handoff-laptop-probe-37d8c5d0-auto-return'
+        config=boot.limine_config('0123456789abcdef',version)
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        for token in ('srvros.capture=intel-display','srvros.intel-backing=read-only','srvros.intel-cache=read-only','srvros.intel-window=read-only','srvros.intel-handoff=qualify','srvros.capture-failure=reboot'):
+            self.assertIn(token,config)
+        for options in ({},dict(laptop_probe_volume='37d8c5d0',intel_cache_capture=True),dict(laptop_probe_volume='37d8c5d0',hold_on_failure=True),dict(laptop_probe_volume='37d8c5d0',haswell_firmware_capture=True)):
+            with self.assertRaises(ValueError):boot.stage(intel_handoff_capture=True,**options)
+        for name in ('limine-binary/BOOTX64.EFI','kernel/srvros.elf','initramfs.tar'):
+            path=self.root/'build'/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text(name)
+        with patch.object(boot,'ROOT',self.root),patch.object(boot.subprocess,'check_output',side_effect=['tested-source','']):
+            release=boot.stage(intel_handoff_capture=True,laptop_probe_volume='37d8c5d0')
+        self.assertEqual(boot.verify(self.stage/release)['config_version'],version)
+
     def test_intel_cache_observation_profile(self):
         version='ram-usb-v1-intel-cache-laptop-probe-37d8c5d0-auto-return'
         config=boot.limine_config('0123456789abcdef',version)
