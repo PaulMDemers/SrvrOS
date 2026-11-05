@@ -140,18 +140,33 @@ def main():
                         raise AssertionError("distinct scoped compositor PID missing")
                     pid=root[2] if victim=="compositor" else supervisor
                     time.sleep(1)
+                    probe_start=len(output)
+                    if victim=="supervisor":
+                        # Establish a real muted observation before revoking
+                        # its owner, so this also exercises the waiting path.
+                        serial.sendall(b"bg /fat/bin/guifail --console-unmuted-wait\n")
+                        wait_since(b"guifail: console-recovery waiting",probe_start)
                     serial.sendall(b"kill "+pid+b"\n");wait(b"kill: requested process stop")
                     wait_since(b"bg: pid="+supervisor+b" exited status=", crash_start)
                     # A dead supervisor revokes its tree asynchronously. Its
                     # reap receipt is not the compositor's retirement receipt.
                     # Query the real mute state without forcing restoration.
-                    serial.sendall(b"run /fat/bin/guifail --console-unmuted-wait\n")
-                    wait(b"guifail: console-muted=0");wait(b"guifail: console-recovery ticks=");wait(b"srv> ")
+                    if victim=="compositor":
+                        probe_start=len(output)
+                        serial.sendall(b"run /fat/bin/guifail --console-unmuted-wait\n")
+                    wait_since(b"guifail: console-muted=0",probe_start)
+                    wait_since(b"guifail: console-recovery ticks=",probe_start)
                     serial.sendall(b"echo virtio-present-console-ok\n")
                     wait(b"\nvirtio-present-console-ok\r\n");wait(b"srv> ")
+                    recovery=re.search(rb"guifail: console-recovery ticks=(\d+) polls=(\d+)",bytes(output[probe_start:]))
+                    if not recovery or int(recovery[1])>200 or not 1<=int(recovery[2])<=201:
+                        raise AssertionError("missing bounded console recovery measurement")
+                    if victim=="supervisor" and int(recovery[2])<2:
+                        raise AssertionError("supervisor recovery did not exercise a live wait")
                     shot("console-after-kill-"+victim, min_colors=2)
                     killed_sessions.append({"victim":victim,"supervisor":int(supervisor),
-                                            "compositor":int(root[2]),"console_muted":False,"recovery_limit_ticks":200})
+                                            "compositor":int(root[2]),"console_muted":False,"recovery_limit_ticks":200,
+                                            "recovery_ticks":int(recovery[1]),"recovery_polls":int(recovery[2])})
                 restart_start=len(output)
                 serial.sendall(b"run /fat/bin/deskd --smoke\n")
                 wait(b"deskd: ready;");wait_since(b"deskd: gfx-present begin", restart_start)

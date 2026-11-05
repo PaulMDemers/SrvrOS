@@ -70,6 +70,7 @@ static int console_recovery_probe(int wait) {
             if(wait){srv_puts("guifail: console-recovery ticks=");print_u64(elapsed);srv_puts(" polls=");print_u64(poll+1);srv_puts("\n");}
             return muted?1:0;
         }
+        if(!poll)srv_puts("guifail: console-recovery waiting\n");
         if(elapsed==200){srv_puts("guifail: console-recovery-timeout\n");return 1;}
         if(poll==200){srv_puts("guifail: console-query-error stalled-clock\n");return 2;}
         if(srv_sleep_ticks(1)<0){srv_puts("guifail: console-query-error sleep\n");return 2;}
